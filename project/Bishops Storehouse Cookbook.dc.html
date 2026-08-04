@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0}
+body{background:oklch(0.962 0.016 85);color:oklch(0.26 0.02 60);font-family:'Work Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:oklch(0.46 0.09 145)}
+a:hover{color:oklch(0.38 0.09 145)}
+input,select,button,textarea{font-family:inherit}
+@page{size:5.5in 8.5in;margin:0.5in 0.52in 0.5in}
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff!important}
+  .printwrap{display:block!important;padding:0!important;gap:0!important;background:#fff!important}
+  .pg{box-shadow:none!important;margin:0!important;width:auto!important;min-height:0!important;height:auto!important;padding:0!important;border:none!important;page-break-after:always;break-after:page;overflow:visible!important}
+  .pg:last-child{page-break-after:auto;break-after:auto}
+}
+</style>
+<script src="./recipes.js"></script>
+</helmet>
+
+<div style="min-height:100vh">
+
+<div class="no-print" style="position:sticky;top:0;z-index:40;background:oklch(0.26 0.02 60);color:oklch(0.95 0.012 85);border-bottom:3px solid oklch(0.62 0.10 55)">
+  <div style="max-width:1240px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
+    <div style="display:flex;align-items:baseline;gap:14px">
+      <div style="font-family:'Source Serif 4',Georgia,serif;font-size:21px;font-weight:700;letter-spacing:-0.01em">Bishops&rsquo; Storehouse Recipe Books</div>
+      <div style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.75 0.05 85)">225 recipes &middot; two volumes</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onClick="{{ goBrowse }}" style="{{ tabBrowse }}">Browse</button>
+      <button onClick="{{ goPlan }}" style="{{ tabPlan }}">Meal Plan</button>
+      <button onClick="{{ goList }}" style="{{ tabList }}">Shopping List</button>
+      <button onClick="{{ goBook }}" style="{{ tabBook }}">Print Book</button>
+    </div>
+  </div>
+</div>
+
+<sc-if value="{{ isBrowse }}" hint-placeholder-val="{{ true }}">
+<div>
+  <div class="no-print" style="background:oklch(0.988 0.008 85);border-bottom:1px solid oklch(0.87 0.02 75)">
+    <div style="max-width:1240px;margin:0 auto;padding:14px 22px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <div style="display:flex;border:1px solid oklch(0.80 0.03 75);border-radius:3px;overflow:hidden">
+        <button onClick="{{ bookAll }}" style="{{ bAll }}">Both books</button>
+        <button onClick="{{ book1 }}" style="{{ b1 }}">I &middot; Fitness Cut</button>
+        <button onClick="{{ book2 }}" style="{{ b2 }}">II &middot; Family Table</button>
+      </div>
+      <select onChange="{{ onSec }}" style="padding:8px 10px;font-size:13px;border:1px solid oklch(0.80 0.03 75);border-radius:3px;background:#fff;color:oklch(0.26 0.02 60);max-width:280px">
+        <option value="all">All sections</option>
+        <sc-for list="{{ sectionOpts }}" as="s" hint-placeholder-count="4"><option value="{{ s.v }}">{{ s.label }}</option></sc-for>
+      </select>
+      <select onChange="{{ onDiff }}" style="padding:8px 10px;font-size:13px;border:1px solid oklch(0.80 0.03 75);border-radius:3px;background:#fff;color:oklch(0.26 0.02 60)">
+        <option value="all">Any effort</option>
+        <option value="Easy">Easy</option>
+        <option value="Medium">Medium</option>
+        <option value="In-Depth">In-depth</option>
+      </select>
+      <select onChange="{{ onPantry }}" style="padding:8px 10px;font-size:13px;border:1px solid oklch(0.80 0.03 75);border-radius:3px;background:#fff;color:oklch(0.26 0.02 60)">
+        <option value="all">Storehouse &amp; extras</option>
+        <option value="base">Storehouse items only</option>
+        <option value="extras">Needs pantry extras</option>
+      </select>
+      <button onClick="{{ toggleFav }}" style="{{ favBtn }}">&#9733; Favorites <span>{{ favCount }}</span></button>
+      <input type="text" onInput="{{ onSearch }}" placeholder="Search a dish or ingredient&hellip;" style="flex:1;min-width:200px;padding:8px 11px;font-size:13px;border:1px solid oklch(0.80 0.03 75);border-radius:3px;background:#fff;color:oklch(0.26 0.02 60)" />
+    </div>
+  </div>
+
+  <div style="max-width:1240px;margin:0 auto;padding:26px 22px 70px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid oklch(0.85 0.02 75);padding-bottom:9px;margin-bottom:22px">
+      <div style="font-family:'Source Serif 4',Georgia,serif;font-size:19px;font-weight:600">{{ headline }}</div>
+      <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:oklch(0.52 0.03 65)">{{ countLabel }}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px">
+      <sc-for list="{{ filtered }}" as="r" hint-placeholder-count="9">
+        <div onClick="{{ r.open }}" style="background:oklch(0.995 0.006 85);border:1px solid oklch(0.87 0.02 75);border-radius:3px;padding:16px 17px 14px;cursor:pointer;display:flex;flex-direction:column;gap:9px" style-hover="border-color:oklch(0.62 0.10 55);box-shadow:0 3px 14px oklch(0.62 0.10 55 / 0.14)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+            <div style="font-size:11px;letter-spacing:0.12em;color:oklch(0.62 0.10 55);font-weight:600">{{ r.numLabel }}</div>
+            <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:oklch(0.58 0.03 65)">{{ r.favMark }}</div>
+          </div>
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17.5px;line-height:1.24;font-weight:600;text-wrap:pretty">{{ r.name }}</div>
+          <div style="font-size:12.5px;color:oklch(0.50 0.03 65);line-height:1.5">{{ r.sub }}</div>
+          <div style="margin-top:auto;padding-top:9px;border-top:1px solid oklch(0.91 0.015 78);display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <div style="font-size:12px;color:oklch(0.45 0.03 65)">{{ r.metaLine }}</div>
+            <div style="{{ r.chipStyle }}">{{ r.chip }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:60px 20px;text-align:center;color:oklch(0.52 0.03 65);font-size:14px">Nothing matches those filters.</div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPlan }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1240px;margin:0 auto;padding:28px 22px 70px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid oklch(0.85 0.02 75);padding-bottom:9px;margin-bottom:8px">
+    <div style="font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600">The Week</div>
+    <button onClick="{{ clearPlan }}" class="no-print" style="background:none;border:1px solid oklch(0.82 0.03 75);border-radius:3px;padding:6px 12px;font-size:12px;color:oklch(0.45 0.03 65);cursor:pointer">Clear week</button>
+  </div>
+  <div style="font-size:13px;color:oklch(0.52 0.03 65);margin-bottom:22px">Open any recipe in Browse and assign it to a day. The shopping list builds itself from whatever lands here.</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px">
+    <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+      <div style="background:oklch(0.995 0.006 85);border:1px solid oklch(0.87 0.02 75);border-radius:3px;min-height:170px;display:flex;flex-direction:column">
+        <div style="padding:9px 12px;border-bottom:1px solid oklch(0.90 0.015 78);font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:oklch(0.40 0.03 65)">{{ d.label }}</div>
+        <div style="padding:9px;display:flex;flex-direction:column;gap:7px">
+          <sc-for list="{{ d.items }}" as="it" hint-placeholder-count="2">
+            <div style="border-left:2px solid oklch(0.62 0.10 55);padding:2px 0 2px 9px;display:flex;justify-content:space-between;gap:7px;align-items:flex-start">
+              <div style="font-family:'Source Serif 4',Georgia,serif;font-size:14px;line-height:1.28;text-wrap:pretty">{{ it.name }}</div>
+              <button onClick="{{ it.remove }}" class="no-print" style="background:none;border:none;color:oklch(0.60 0.03 65);cursor:pointer;font-size:15px;line-height:1;padding:0">&times;</button>
+            </div>
+          </sc-for>
+          <sc-if value="{{ d.empty }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px;color:oklch(0.68 0.02 70);font-style:italic;padding:4px 0 0 2px">&mdash;</div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:760px;margin:0 auto;padding:28px 22px 70px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid oklch(0.85 0.02 75);padding-bottom:9px;margin-bottom:18px">
+    <div style="font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600">Shopping List</div>
+    <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:oklch(0.52 0.03 65)">{{ listCountLabel }}</div>
+  </div>
+  <sc-for list="{{ listGroups }}" as="g" hint-placeholder-count="2">
+    <div style="margin-bottom:26px">
+      <div style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:oklch(0.62 0.10 55);margin-bottom:9px">{{ g.title }}</div>
+      <div style="display:flex;flex-direction:column;border-top:1px solid oklch(0.89 0.015 78)">
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+          <label style="display:flex;gap:11px;align-items:baseline;padding:9px 2px;border-bottom:1px solid oklch(0.91 0.015 78);cursor:pointer;font-size:14px">
+            <input type="checkbox" checked="{{ it.checked }}" onChange="{{ it.toggle }}" style="accent-color:oklch(0.46 0.09 145);width:15px;height:15px" />
+            <span style="{{ it.textStyle }}">{{ it.label }}</span>
+            <span style="margin-left:auto;font-size:12px;color:oklch(0.58 0.03 65);text-align:right">{{ it.qty }}</span>
+          </label>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+  <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:50px 0;text-align:center;color:oklch(0.55 0.03 65);font-size:14px">Add recipes to the week and their ingredients appear here.</div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBook }}" hint-placeholder-val="{{ false }}">
+<div>
+  <div class="no-print" style="background:oklch(0.988 0.008 85);border-bottom:1px solid oklch(0.87 0.02 75)">
+    <div style="max-width:1240px;margin:0 auto;padding:14px 22px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.52 0.03 65)">Include</span>
+        <select onChange="{{ onPrintSet }}" style="padding:8px 10px;font-size:13px;border:1px solid oklch(0.80 0.03 75);border-radius:3px;background:#fff;color:oklch(0.26 0.02 60)">
+          <option value="all">Both books &mdash; all 225</option>
+          <option value="1">Book I &mdash; Fitness Cut</option>
+          <option value="2">Book II &mdash; Family Table</option>
+          <option value="fav">Favorites only</option>
+          <option value="plan">This week&rsquo;s plan</option>
+        </select>
+        <span style="font-size:12.5px;color:oklch(0.50 0.03 65)">{{ printNote }}</span>
+      </div>
+      <button onClick="{{ doPrint }}" style="background:oklch(0.46 0.09 145);color:oklch(0.98 0.01 145);border:none;border-radius:3px;padding:9px 18px;font-size:13px;font-weight:600;letter-spacing:0.02em;cursor:pointer">Print / Save PDF</button>
+    </div>
+  </div>
+  <div class="printwrap" style="max-width:1240px;margin:0 auto;padding:28px 22px 70px;display:flex;flex-direction:column;align-items:center;gap:22px">
+    <sc-for list="{{ pages }}" as="p" hint-placeholder-count="3">
+      <div class="pg" style="width:5.5in;min-height:8.5in;background:#fff;padding:0.5in 0.52in;box-shadow:0 2px 18px oklch(0.26 0.02 60 / 0.13);box-sizing:border-box;display:flex;flex-direction:column">
+        <sc-if value="{{ p.isCover }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;border:2px solid oklch(0.62 0.10 55);padding:34px 22px">
+            <div style="font-size:10.5px;letter-spacing:0.3em;text-transform:uppercase;color:oklch(0.55 0.03 65)">{{ p.eyebrow }}</div>
+            <div style="width:38px;height:1px;background:oklch(0.62 0.10 55);margin:20px 0"></div>
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:34px;line-height:1.12;font-weight:700;text-wrap:balance">{{ p.title }}</div>
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:15px;font-style:italic;color:oklch(0.45 0.03 65);margin-top:16px;line-height:1.5;text-wrap:pretty">{{ p.sub }}</div>
+            <div style="margin-top:auto;padding-top:34px;font-size:10.5px;letter-spacing:0.22em;text-transform:uppercase;color:oklch(0.58 0.03 65)">{{ p.foot }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ p.isDivider }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+            <div style="font-size:10.5px;letter-spacing:0.28em;text-transform:uppercase;color:oklch(0.62 0.10 55);font-weight:600">{{ p.eyebrow }}</div>
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:30px;line-height:1.15;font-weight:700;margin-top:14px;text-wrap:balance">{{ p.title }}</div>
+            <div style="height:2px;background:oklch(0.26 0.02 60);margin:20px 0 14px;width:70px"></div>
+            <div style="font-size:13px;color:oklch(0.45 0.03 65);line-height:1.6">{{ p.sub }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ p.isRecipe }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;height:100%">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:9.5px;letter-spacing:0.17em;text-transform:uppercase;color:oklch(0.60 0.03 65)">
+              <span>{{ p.eyebrow }}</span><span style="color:oklch(0.62 0.10 55);font-weight:600">{{ p.num }}</span>
+            </div>
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:22px;line-height:1.18;font-weight:700;margin:11px 0 0;text-wrap:pretty">{{ p.name }}</div>
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-style:italic;font-size:13px;color:oklch(0.45 0.03 65);margin-top:7px;line-height:1.45">{{ p.tagline }}</div>
+            <div style="display:flex;gap:18px;flex-wrap:wrap;margin:14px 0 0;padding:9px 0;border-top:1.5px solid oklch(0.26 0.02 60);border-bottom:1px solid oklch(0.84 0.02 75);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:oklch(0.40 0.03 65)">
+              <span>{{ p.servings }}</span><span>{{ p.time }}</span><span>{{ p.diff }}</span><span style="color:oklch(0.46 0.09 145);font-weight:600">{{ p.scoreLine }}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px">
+              <div>
+                <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;color:oklch(0.62 0.10 55);margin-bottom:7px">Ingredients</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 18px">
+                  <sc-for list="{{ p.ing }}" as="i" hint-placeholder-count="5">
+                    <div style="font-size:11.5px;line-height:1.5;padding:1.5px 0;border-bottom:1px dotted oklch(0.86 0.02 75)">{{ i }}</div>
+                  </sc-for>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;color:oklch(0.62 0.10 55);margin-bottom:8px">Method</div>
+                <div style="display:flex;flex-direction:column;gap:9px">
+                  <sc-for list="{{ p.steps }}" as="s" hint-placeholder-count="3">
+                    <div style="display:flex;gap:10px;align-items:baseline">
+                      <div style="font-family:'Source Serif 4',Georgia,serif;font-size:14px;font-weight:700;color:oklch(0.62 0.10 55);min-width:15px">{{ s.n }}</div>
+                      <div style="font-size:12.5px;line-height:1.52;text-wrap:pretty">{{ s.t }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:auto;padding-top:14px">
+              <div style="border-top:1px solid oklch(0.84 0.02 75);padding-top:8px;display:flex;justify-content:space-between;gap:14px;font-size:10.5px;color:oklch(0.45 0.03 65);line-height:1.5">
+                <span>{{ p.macroLine }}</span><span style="text-align:right">{{ p.extrasLine }}</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasOpen }}" hint-placeholder-val="{{ false }}">
+<div class="no-print" onClick="{{ closeDetail }}" style="position:fixed;inset:0;background:oklch(0.26 0.02 60 / 0.55);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:36px 20px;overflow:auto">
+  <div onClick="{{ stop }}" style="background:oklch(0.995 0.006 85);border-radius:4px;max-width:660px;width:100%;padding:30px 34px 34px;box-shadow:0 20px 60px oklch(0.26 0.02 60 / 0.35)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+      <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:oklch(0.62 0.10 55);font-weight:600">{{ d.eyebrow }}</div>
+      <button onClick="{{ closeDetail }}" style="background:none;border:none;font-size:22px;line-height:1;color:oklch(0.55 0.03 65);cursor:pointer;padding:0">&times;</button>
+    </div>
+    <div style="font-family:'Source Serif 4',Georgia,serif;font-size:27px;line-height:1.15;font-weight:700;margin-top:10px;text-wrap:pretty">{{ d.name }}</div>
+    <div style="font-family:'Source Serif 4',Georgia,serif;font-style:italic;font-size:14px;color:oklch(0.45 0.03 65);margin-top:8px">{{ d.tagline }}</div>
+
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin:16px 0 0;padding:10px 0;border-top:1.5px solid oklch(0.26 0.02 60);border-bottom:1px solid oklch(0.86 0.02 75);font-size:11.5px;letter-spacing:0.05em;text-transform:uppercase;color:oklch(0.40 0.03 65)">
+      <span>{{ d.time }}</span><span>{{ d.diff }}</span><span>{{ d.macroLine }}</span>
+    </div>
+
+    <sc-if value="{{ d.hasScore }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:16px;background:oklch(0.96 0.02 145);border:1px solid oklch(0.85 0.04 145);border-radius:3px;padding:13px 15px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;font-weight:600;color:oklch(0.40 0.08 145)">Nutrition score</div>
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:700;color:oklch(0.40 0.08 145)">{{ d.score }}</div>
+        </div>
+        <div style="font-size:11.5px;color:oklch(0.42 0.04 145);line-height:1.6;margin-top:7px">{{ d.scoreWhy }}</div>
+      </div>
+    </sc-if>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:22px;flex-wrap:wrap">
+      <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;font-weight:600;color:oklch(0.62 0.10 55)">Ingredients</div>
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="font-size:12px;color:oklch(0.50 0.03 65)">{{ d.servingLabel }}</span>
+        <div style="display:flex;border:1px solid oklch(0.82 0.03 75);border-radius:3px;overflow:hidden">
+          <button onClick="{{ scaleDown }}" style="background:#fff;border:none;padding:4px 11px;font-size:15px;cursor:pointer;color:oklch(0.35 0.03 65)">&minus;</button>
+          <div style="padding:4px 10px;font-size:12.5px;font-weight:600;border-left:1px solid oklch(0.88 0.02 75);border-right:1px solid oklch(0.88 0.02 75);display:flex;align-items:center">{{ d.scaleLabel }}</div>
+          <button onClick="{{ scaleUp }}" style="background:#fff;border:none;padding:4px 11px;font-size:15px;cursor:pointer;color:oklch(0.35 0.03 65)">+</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 20px;margin-top:9px">
+      <sc-for list="{{ d.ing }}" as="i" hint-placeholder-count="5">
+        <div style="font-size:13px;line-height:1.55;padding:4px 0;border-bottom:1px dotted oklch(0.86 0.02 75)">{{ i }}</div>
+      </sc-for>
+    </div>
+
+    <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;font-weight:600;color:oklch(0.62 0.10 55);margin-top:24px;margin-bottom:10px">Method</div>
+    <div style="display:flex;flex-direction:column;gap:11px">
+      <sc-for list="{{ d.steps }}" as="s" hint-placeholder-count="3">
+        <div style="display:flex;gap:12px;align-items:baseline">
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:16px;font-weight:700;color:oklch(0.62 0.10 55);min-width:17px">{{ s.n }}</div>
+          <div style="font-size:13.5px;line-height:1.58;text-wrap:pretty">{{ s.t }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ d.hasExtras }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:20px;font-size:12px;color:oklch(0.45 0.03 65);border-left:2px solid oklch(0.62 0.10 55);padding-left:11px;line-height:1.5">{{ d.extrasLine }}</div>
+    </sc-if>
+
+    <div style="margin-top:26px;padding-top:18px;border-top:1px solid oklch(0.87 0.02 75)">
+      <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+        <button onClick="{{ d.toggleFav }}" style="{{ d.favStyle }}">{{ d.favLabel }}</button>
+        <span style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.55 0.03 65);margin-left:6px">Add to</span>
+        <sc-for list="{{ d.dayBtns }}" as="b" hint-placeholder-count="7">
+          <button onClick="{{ b.add }}" style="{{ b.style }}">{{ b.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:860}}">
+const DAYS = [["mon","Monday","Mon"],["tue","Tuesday","Tue"],["wed","Wednesday","Wed"],["thu","Thursday","Thu"],["fri","Friday","Fri"],["sat","Saturday","Sat"],["sun","Sunday","Sun"]];
+const FRAC = { "\u00bd":.5, "\u00bc":.25, "\u00be":.75, "\u2153":1/3, "\u2154":2/3, "\u215b":.125, "\u215c":.375, "\u215d":.625, "\u215e":.875 };
+const BOOKS = {
+  1: { name: "Book I \u00b7 The Fitness Cut", roman: "Book One",
+       blurb: "One hundred high\u2011protein recipes built on standard storehouse items. Every recipe carries real macros and a computed nutrition score." },
+  2: { name: "Book II \u00b7 The Family Table", roman: "Book Two",
+       blurb: "One hundred twenty\u2011five family recipes, from three\u2011minute breakfasts to Sunday roasts. Portions are written for a household, not a plate." }
+};
+const SEC_NOTE = {
+  "1-1":"Nothing to cook. Open, assemble, eat.",
+  "1-2":"Breakfasts that hold you until noon.",
+  "1-3":"Cook once on Sunday, eat all week.",
+  "1-4":"Late evening, low calorie, still satisfying.",
+  "2-1":"Weekday mornings, on the clock.",
+  "2-2":"Lunches, wraps, and the after\u2011school hour.",
+  "2-3":"Weeknight dinners the children will actually finish.",
+  "2-4":"Sunday, when there is time to do it properly.",
+  "2-5":"Sweets, made from what is on the shelf."
+};
+
+function q(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function w(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+function fmtNum(n) {
+  if (!isFinite(n)) return "";
+  const whole = Math.floor(n + 1e-9);
+  const rem = n - whole;
+  const eighths = Math.round(rem * 8);
+  if (eighths === 0) return String(whole || 0);
+  if (eighths === 8) return String(whole + 1);
+  const map = { 1:"\u215b", 2:"\u00bc", 3:"\u215c", 4:"\u00bd", 5:"\u215d", 6:"\u00be", 7:"\u215e" };
+  return (whole ? whole + " " : "") + map[eighths];
+}
+
+function scaleIng(str, f) {
+  if (f === 1) return str;
+  const m = str.match(/^(\d+(?:\.\d+)?)\s*([\u00bd\u00bc\u00be\u2153\u2154\u215b\u215c\u215d\u215e])?\s+/) ||
+            str.match(/^([\u00bd\u00bc\u00be\u2153\u2154\u215b\u215c\u215d\u215e])\s+/);
+  if (!m) return str;
+  let base;
+  if (FRAC[m[1]] !== undefined) base = FRAC[m[1]];
+  else base = parseFloat(m[1]) + (m[2] ? FRAC[m[2]] : 0);
+  if (!base) return str;
+  return fmtNum(base * f) + " " + str.slice(m[0].length);
+}
+
+function ingKey(s) {
+  return s.replace(/^[\d.\u00bd\u00bc\u00be\u2153\u2154\u215b\u215c\u215d\u215e\s]*/, "")
+          .replace(/^\(?[^)]*\)\s*/, "")
+          .replace(/^(cups?|cup|tbsp|tsp|oz|lbs?|cans?|can|packages?|slices?|cloves?|quarts?|pints?|sticks?|heads?|bunch(es)?|large|small|medium)\s+/i, "")
+          .trim().toLowerCase();
+}
+function ingQty(s) {
+  const m = s.match(/^([\d.\u00bd\u00bc\u00be\u2153\u2154\u215b\u215c\u215d\u215e\s]*(?:cups?|tbsp|tsp|oz|lbs?|cans?|packages?|slices?|cloves?|quarts?|pints?|sticks?)?)/i);
+  return m ? m[1].trim() : "";
+}
+
+const TAB_ON = "background:oklch(0.62 0.10 55);color:oklch(0.20 0.02 60);border:none;border-radius:3px;padding:7px 14px;font-size:12.5px;font-weight:600;letter-spacing:0.02em;cursor:pointer";
+const TAB_OFF = "background:transparent;color:oklch(0.80 0.03 80);border:none;border-radius:3px;padding:7px 14px;font-size:12.5px;font-weight:500;letter-spacing:0.02em;cursor:pointer";
+const SEG_ON = "background:oklch(0.26 0.02 60);color:oklch(0.95 0.012 85);border:none;padding:8px 15px;font-size:12.5px;font-weight:600;cursor:pointer";
+const SEG_OFF = "background:#fff;color:oklch(0.42 0.03 65);border:none;padding:8px 15px;font-size:12.5px;font-weight:500;cursor:pointer";
+
+class Component extends DCLogic {
+  state = {
+    data: (typeof window !== "undefined" && window.RECIPES) || null,
+    view: "browse", bookF: "all", secF: "all", diffF: "all", pantryF: "all", favOnly: false, qy: "",
+    openId: null, scale: 1,
+    favs: q("bsc.favs", []), plan: q("bsc.plan", {}), checked: q("bsc.checked", {}),
+    printSet: "all", allPages: false
+  };
+
+  componentDidMount() {
+    if (!this.state.data) {
+      this._t = setInterval(() => {
+        if (window.RECIPES) { clearInterval(this._t); this.setState({ data: window.RECIPES }); }
+      }, 60);
+    }
+  }
+  componentWillUnmount() { if (this._t) clearInterval(this._t); }
+
+  set(p) { this.setState(p); }
+  persist(p) { this.setState(p); if (p.favs) w("bsc.favs", p.favs); if (p.plan) w("bsc.plan", p.plan); if (p.checked) w("bsc.checked", p.checked); }
+
+  toggleFav(id) {
+    const f = this.state.favs.includes(id) ? this.state.favs.filter(x => x !== id) : this.state.favs.concat(id);
+    this.persist({ favs: f });
+  }
+  addToDay(id, day) {
+    const plan = Object.assign({}, this.state.plan);
+    const list = (plan[day] || []).slice();
+    if (!list.includes(id)) list.push(id);
+    plan[day] = list;
+    this.persist({ plan: plan });
+  }
+  removeFromDay(id, day) {
+    const plan = Object.assign({}, this.state.plan);
+    plan[day] = (plan[day] || []).filter(x => x !== id);
+    this.persist({ plan: plan });
+  }
+
+  planIds() {
+    const out = [];
+    DAYS.forEach(d => (this.state.plan[d[0]] || []).forEach(id => { if (out.indexOf(id) < 0) out.push(id); }));
+    return out;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const all = s.data || [];
+    const byId = {};
+    all.forEach(r => { byId[r.id] = r; });
+
+    const v = {
+      isBrowse: s.view === "browse", isPlan: s.view === "plan", isList: s.view === "list", isBook: s.view === "book",
+      goBrowse: () => this.set({ view: "browse" }), goPlan: () => this.set({ view: "plan" }),
+      goList: () => this.set({ view: "list" }), goBook: () => this.set({ view: "book" }),
+      tabBrowse: s.view === "browse" ? TAB_ON : TAB_OFF, tabPlan: s.view === "plan" ? TAB_ON : TAB_OFF,
+      tabList: s.view === "list" ? TAB_ON : TAB_OFF, tabBook: s.view === "book" ? TAB_ON : TAB_OFF,
+      bookAll: () => this.set({ bookF: "all", secF: "all" }), book1: () => this.set({ bookF: 1, secF: "all" }), book2: () => this.set({ bookF: 2, secF: "all" }),
+      bAll: s.bookF === "all" ? SEG_ON : SEG_OFF, b1: s.bookF === 1 ? SEG_ON : SEG_OFF, b2: s.bookF === 2 ? SEG_ON : SEG_OFF,
+      onSec: e => this.set({ secF: e.target.value }), onDiff: e => this.set({ diffF: e.target.value }),
+      onPantry: e => this.set({ pantryF: e.target.value }), onSearch: e => this.set({ qy: e.target.value }),
+      toggleFav: () => this.set({ favOnly: !s.favOnly }),
+      favBtn: (s.favOnly ? "background:oklch(0.62 0.10 55);color:oklch(0.20 0.02 60);border:1px solid oklch(0.62 0.10 55);" : "background:#fff;color:oklch(0.42 0.03 65);border:1px solid oklch(0.80 0.03 75);") + "border-radius:3px;padding:8px 13px;font-size:12.5px;font-weight:500;cursor:pointer",
+      favCount: s.favs.length ? "(" + s.favs.length + ")" : "",
+      onPrintSet: e => this.set({ printSet: e.target.value }),
+      doPrint: () => {
+        this.setState({ allPages: true });
+        setTimeout(() => { window.print(); setTimeout(() => this.setState({ allPages: false }), 400); }, 900);
+      },
+      stop: e => e.stopPropagation(),
+      closeDetail: () => this.set({ openId: null }),
+      scaleUp: () => this.set({ scale: Math.min(8, s.scale * 2) }),
+      scaleDown: () => this.set({ scale: Math.max(0.25, s.scale / 2) }),
+      clearPlan: () => this.persist({ plan: {} })
+    };
+
+    const secs = [];
+    all.forEach(r => {
+      const key = r.book + "-" + r.secNum;
+      if (!secs.some(x => x.v === key)) secs.push({ v: key, book: r.book, secNum: r.secNum, name: r.secName, label: (r.book === 1 ? "I \u00b7 " : "II \u00b7 ") + r.secName });
+    });
+    v.sectionOpts = secs.filter(x => s.bookF === "all" || x.book === s.bookF);
+
+    const qs = s.qy.trim().toLowerCase();
+    let filtered = all.filter(r => {
+      if (s.bookF !== "all" && r.book !== s.bookF) return false;
+      if (s.secF !== "all" && (r.book + "-" + r.secNum) !== s.secF) return false;
+      if (s.diffF !== "all" && r.diff !== s.diffF) return false;
+      if (s.pantryF === "base" && r.extras) return false;
+      if (s.pantryF === "extras" && !r.extras) return false;
+      if (s.favOnly && s.favs.indexOf(r.id) < 0) return false;
+      if (qs && (r.name + " " + r.ing.join(" ") + " " + r.secName).toLowerCase().indexOf(qs) < 0) return false;
+      return true;
+    });
+
+    v.filtered = filtered.map(r => ({
+      name: r.name,
+      numLabel: (r.book === 1 ? "I" : "II") + " \u00b7 " + String(r.id).padStart(3, "0"),
+      favMark: s.favs.indexOf(r.id) >= 0 ? "\u2605 Saved" : "",
+      sub: r.tagline || (r.macro ? r.macro.kcal + " kcal \u00b7 " + r.macro.p + "g protein \u00b7 " + r.macro.c + "g carbs \u00b7 " + r.macro.f + "g fat" : ""),
+      metaLine: r.time + " \u00b7 " + r.servings.split(" (")[0],
+      chip: r.score !== null ? String(r.score) : r.diff,
+      chipStyle: r.score !== null
+        ? "background:oklch(0.94 0.03 145);color:oklch(0.38 0.08 145);border:1px solid oklch(0.86 0.04 145);border-radius:2px;padding:2px 8px;font-size:11.5px;font-weight:600;letter-spacing:0.04em"
+        : "background:oklch(0.95 0.02 85);color:oklch(0.45 0.04 65);border:1px solid oklch(0.88 0.02 78);border-radius:2px;padding:2px 8px;font-size:11.5px;font-weight:500;letter-spacing:0.04em",
+      open: () => this.set({ openId: r.id, scale: 1 })
+    }));
+    v.isEmpty = filtered.length === 0;
+    v.countLabel = filtered.length + (filtered.length === 1 ? " recipe" : " recipes");
+    v.headline = s.bookF === 1 ? BOOKS[1].name : s.bookF === 2 ? BOOKS[2].name : "The whole collection";
+
+    v.days = DAYS.map(d => {
+      const ids = s.plan[d[0]] || [];
+      return {
+        label: d[1], empty: ids.length === 0,
+        items: ids.filter(id => byId[id]).map(id => ({ name: byId[id].name, remove: () => this.removeFromDay(id, d[0]) }))
+      };
+    });
+
+    const planIds = this.planIds();
+    const bucket = {};
+    planIds.forEach(id => {
+      const r = byId[id]; if (!r) return;
+      const extras = (r.extras || "").toLowerCase();
+      r.ing.forEach(line => {
+        const k = ingKey(line); if (!k) return;
+        const isExtra = extras && extras.split(/,\s*/).some(x => x && k.indexOf(x.trim()) >= 0);
+        const g = isExtra ? "extra" : "base";
+        const id2 = g + "|" + k;
+        if (!bucket[id2]) bucket[id2] = { key: id2, group: g, label: k.charAt(0).toUpperCase() + k.slice(1), qtys: [] };
+        const qt = ingQty(line); if (qt) bucket[id2].qtys.push(qt);
+      });
+    });
+    const mk = (title, g) => {
+      const items = Object.values(bucket).filter(b => b.group === g).sort((a, b) => a.label.localeCompare(b.label));
+      return { title: title, items: items.map(b => ({
+        label: b.label, qty: b.qtys.join(" + "),
+        checked: !!s.checked[b.key],
+        textStyle: s.checked[b.key] ? "text-decoration:line-through;color:oklch(0.68 0.02 70)" : "color:oklch(0.26 0.02 60)",
+        toggle: () => { const c = Object.assign({}, s.checked); c[b.key] = !c[b.key]; this.persist({ checked: c }); }
+      })) };
+    };
+    const g1 = mk("From the storehouse", "base");
+    const g2 = mk("Pantry extras to pick up", "extra");
+    v.listGroups = [g1, g2].filter(g => g.items.length);
+    v.listEmpty = v.listGroups.length === 0;
+    const tot = g1.items.length + g2.items.length;
+    v.listCountLabel = tot ? tot + " items \u00b7 " + planIds.length + " recipes" : "";
+
+    let printPool = all;
+    if (s.printSet === "1") printPool = all.filter(r => r.book === 1);
+    else if (s.printSet === "2") printPool = all.filter(r => r.book === 2);
+    else if (s.printSet === "fav") printPool = all.filter(r => s.favs.indexOf(r.id) >= 0);
+    else if (s.printSet === "plan") printPool = planIds.map(id => byId[id]).filter(Boolean);
+    v.printNote = printPool.length + " recipes \u00b7 " + (printPool.length + (s.printSet === "fav" || s.printSet === "plan" ? 1 : 1 + new Set(printPool.map(r => r.book + "-" + r.secNum)).size)) + " pages at 5.5\u2033 \u00d7 8.5\u2033";
+
+    const pages = [];
+    const titleFor = { all: "Bishops\u2019 Storehouse Recipe Books", "1": BOOKS[1].name, "2": BOOKS[2].name, fav: "Favorites", plan: "This Week" };
+    pages.push({
+      isCover: true, isDivider: false, isRecipe: false,
+      eyebrow: "Recipes from the storehouse",
+      title: titleFor[s.printSet] || "Recipe Book",
+      sub: s.printSet === "all" ? "Two volumes \u2014 the fitness cut and the family table \u2014 written from what is actually on the shelf."
+        : s.printSet === "fav" ? "The ones worth keeping." : s.printSet === "plan" ? "The week\u2019s cooking, in order." : BOOKS[s.printSet] ? BOOKS[s.printSet].blurb : "",
+      foot: printPool.length + " recipes",
+      ing: [], steps: []
+    });
+    const grouped = s.printSet === "fav" || s.printSet === "plan";
+    let lastSec = null;
+    printPool.forEach(r => {
+      const key = r.book + "-" + r.secNum;
+      if (!grouped && key !== lastSec) {
+        lastSec = key;
+        pages.push({
+          isCover: false, isDivider: true, isRecipe: false,
+          eyebrow: BOOKS[r.book].roman + " \u00b7 Section " + r.secNum,
+          title: r.secName,
+          sub: (SEC_NOTE[key] || "") + " \u2014 " + printPool.filter(x => x.book === r.book && x.secNum === r.secNum).length + " recipes.",
+          ing: [], steps: []
+        });
+      }
+      pages.push({
+        isCover: false, isDivider: false, isRecipe: true,
+        eyebrow: BOOKS[r.book].roman + " \u00b7 " + r.secName,
+        num: "No. " + String(r.id).padStart(3, "0"),
+        name: r.name,
+        tagline: r.tagline || "",
+        servings: r.servings,
+        time: r.time,
+        diff: r.diff === "In-Depth" ? "In-depth" : r.diff,
+        scoreLine: r.score !== null ? "Score " + r.score : "",
+        ing: r.ing,
+        steps: r.steps.map((t, i) => ({ n: i + 1, t: t })),
+        macroLine: r.macro ? r.macro.kcal + " kcal \u00b7 " + r.macro.p + "g protein \u00b7 " + r.macro.c + "g carbs \u00b7 " + r.macro.f + "g fat" : "",
+        extrasLine: r.extras ? "Not on the standard list: " + r.extras : "All standard storehouse items"
+      });
+    });
+    v.pages = s.allPages || pages.length <= 10 ? pages : pages.slice(0, 8);
+    if (!s.allPages && pages.length > 10) v.printNote += " \u00b7 previewing first 8";
+
+    const o = s.openId ? byId[s.openId] : null;
+    v.hasOpen = !!o;
+    if (o) {
+      const f = s.scale;
+      v.d = {
+        eyebrow: BOOKS[o.book].roman + " \u00b7 " + o.secName + " \u00b7 No. " + String(o.id).padStart(3, "0"),
+        name: o.name,
+        tagline: o.tagline || "",
+        time: o.time,
+        diff: o.diff === "In-Depth" ? "In-depth" : o.diff,
+        macroLine: o.macro ? o.macro.kcal + " kcal \u00b7 " + o.macro.p + "g protein" : "No nutrition data",
+        hasScore: o.score !== null,
+        score: o.score,
+        scoreWhy: o.sc ? o.sc.pPct + "% of calories from protein (" + o.sc.p + "/55) \u00b7 " + o.macro.kcal + " kcal per serving (" + o.sc.k + "/20) \u00b7 " + o.sc.fPct + "% from fat (" + o.sc.f + "/15) \u00b7 storehouse\u2011only bonus (" + o.sc.x + "/10)" : "",
+        servingLabel: o.servings,
+        scaleLabel: f === 1 ? "1\u00d7" : f < 1 ? fmtNum(f) + "\u00d7" : f + "\u00d7",
+        ing: o.ing.map(i => scaleIng(i, f)),
+        steps: o.steps.map((t, i) => ({ n: i + 1, t: t })),
+        hasExtras: !!o.extras,
+        extrasLine: o.extras ? "Needs items not on the standard storehouse list: " + o.extras + "." : "",
+        favLabel: s.favs.indexOf(o.id) >= 0 ? "\u2605 Saved" : "\u2606 Save",
+        favStyle: (s.favs.indexOf(o.id) >= 0 ? "background:oklch(0.62 0.10 55);color:oklch(0.20 0.02 60);border:1px solid oklch(0.62 0.10 55);" : "background:#fff;color:oklch(0.42 0.03 65);border:1px solid oklch(0.80 0.03 75);") + "border-radius:3px;padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer",
+        toggleFav: () => this.toggleFav(o.id),
+        dayBtns: DAYS.map(d => ({
+          label: d[2],
+          add: () => this.addToDay(o.id, d[0]),
+          style: ((s.plan[d[0]] || []).indexOf(o.id) >= 0
+            ? "background:oklch(0.46 0.09 145);color:oklch(0.97 0.01 145);border:1px solid oklch(0.46 0.09 145);"
+            : "background:#fff;color:oklch(0.45 0.03 65);border:1px solid oklch(0.83 0.03 75);") + "border-radius:3px;padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer"
+        }))
+      };
+    } else {
+      v.d = { ing: [], steps: [], dayBtns: [] };
+    }
+
+    return v;
+  }
+}
+</script>
+</body>
+</html>
