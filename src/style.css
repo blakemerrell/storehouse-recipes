@@ -246,50 +246,82 @@ select { max-width: 280px; }
 }
 .pg-div-rule { height: 2px; background: var(--ink); margin: 20px 0 14px; width: 70px; }
 .pg-div-sub { font-size: 13px; color: var(--muted-2); line-height: 1.6; }
-/* flex:1, not height:100% — a percentage height has nothing to resolve against
-   inside a flex column, which leaves the footer stranded mid-page */
-.pg-rec { display: flex; flex-direction: column; flex: 1; }
-.pg-rec-top {
+/* ---- a page of recipes ------------------------------------------------
+   Recipes are measured and packed, so a page holds as many as genuinely fit.
+   The running head and folio sit outside the flow and stay put. */
+.pg-run {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: oklch(0.58 0.03 65); padding-bottom: 6px;
+  border-bottom: 1px solid oklch(0.86 0.02 75); margin-bottom: 15px;
+}
+.pg-run-sec { color: var(--ochre); font-weight: 600; text-align: right; }
+.pg-flow { flex: 1; display: flex; flex-direction: column; }
+.pg-fol {
+  margin-top: auto; padding-top: 12px; text-align: center;
+  font-size: 9px; letter-spacing: 0.2em; color: oklch(0.62 0.03 65);
+}
+
+/* section opener, inline rather than burning a whole page on it */
+.sec-band {
+  border-top: 2px solid var(--ink); border-bottom: 1px solid oklch(0.86 0.02 75);
+  padding: 8px 0 9px; margin-bottom: 16px;
+}
+.sec-band-n {
+  font-size: 8.5px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ochre); font-weight: 600;
+}
+.sec-band-t {
+  font-family: var(--serif); font-size: 16px; font-weight: 700; line-height: 1.2; margin-top: 4px;
+}
+.sec-band-s {
+  font-family: var(--serif); font-style: italic; font-size: 10.5px;
+  color: var(--muted-2); margin-top: 3px; line-height: 1.4;
+}
+
+/* ---- one recipe ------------------------------------------------------- */
+.rp + .rp {
+  border-top: 1px solid oklch(0.88 0.02 75); margin-top: 15px; padding-top: 15px;
+}
+.rp-top {
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
-  font-size: 9.5px; letter-spacing: 0.17em; text-transform: uppercase; color: oklch(0.60 0.03 65);
+  font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase;
+  color: oklch(0.52 0.03 65);
 }
-.pg-rec-num { color: var(--ochre); font-weight: 600; }
-.pg-rec-name {
-  font-family: var(--serif); font-size: 22px; line-height: 1.18; font-weight: 700;
-  margin: 11px 0 0; text-wrap: pretty;
+.rp-num { color: var(--ochre); font-weight: 600; letter-spacing: 0.16em; }
+.rp-top .score { color: var(--green); font-weight: 600; }
+.rp-name {
+  font-family: var(--serif); font-size: 16.5px; line-height: 1.2; font-weight: 700;
+  margin-top: 5px; text-wrap: pretty;
 }
-.pg-rec-tag {
-  font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--muted-2);
-  margin-top: 7px; line-height: 1.45;
+.rp-tag {
+  font-family: var(--serif); font-style: italic; font-size: 11px;
+  color: var(--muted-2); margin-top: 2px; line-height: 1.35;
 }
-.pg-rec-meta {
-  display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0 0; padding: 9px 0;
-  border-top: 1.5px solid var(--ink); border-bottom: 1px solid oklch(0.84 0.02 75);
-  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: oklch(0.40 0.03 65);
+/* ingredients beside the method, so a recipe is as tall as its taller half */
+.rp-cols {
+  display: grid; grid-template-columns: 0.78fr 1fr; gap: 0 17px; margin-top: 9px;
 }
-.pg-rec-meta .score { color: var(--green); font-weight: 600; }
-.pg-body { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
-.pg-h {
-  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600;
-  color: var(--ochre); margin-bottom: 7px;
+.rp-h {
+  font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600;
+  color: var(--ochre); margin-bottom: 5px;
 }
-.pg-ing { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; }
-.pg-ing div {
-  font-size: 11.5px; line-height: 1.5; padding: 1.5px 0;
-  border-bottom: 1px dotted oklch(0.86 0.02 75);
+.rp-ing div {
+  font-size: 11.5px; line-height: 1.4; padding: 1.5px 0;
+  border-bottom: 1px dotted oklch(0.87 0.02 75);
 }
-.pg-steps { display: flex; flex-direction: column; gap: 9px; }
-.pg-step { display: flex; gap: 10px; align-items: baseline; }
-.pg-step-n {
-  font-family: var(--serif); font-size: 14px; font-weight: 700; color: var(--ochre); min-width: 15px;
+.rp-steps { display: flex; flex-direction: column; gap: 5px; }
+.rp-step { display: flex; gap: 7px; align-items: baseline; }
+.rp-step-n {
+  font-family: var(--serif); font-size: 11.5px; font-weight: 700;
+  color: var(--ochre); min-width: 10px;
 }
-.pg-step-t { font-size: 12.5px; line-height: 1.52; text-wrap: pretty; }
-.pg-rec-foot { margin-top: auto; padding-top: 14px; }
-.pg-rec-foot-in {
-  border-top: 1px solid oklch(0.84 0.02 75); padding-top: 8px;
-  display: flex; justify-content: space-between; gap: 14px;
-  font-size: 10.5px; color: var(--muted-2); line-height: 1.5;
+.rp-step-t { font-size: 11.5px; line-height: 1.42; text-wrap: pretty; }
+.rp-foot {
+  margin-top: 8px; display: flex; justify-content: space-between; gap: 12px;
+  font-size: 9.5px; color: oklch(0.52 0.03 65); line-height: 1.4;
 }
+.rp-foot span:last-child { text-align: right; }
 
 /* ------------------------------------------------------------- detail */
 .scrim {

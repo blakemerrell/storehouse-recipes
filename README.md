@@ -24,9 +24,16 @@ scale the ingredients from ¼× to 8× (fractions come out as fractions, not dec
 **Shopping List** — builds itself from the week, deduplicated, split into what comes
 from the storehouse and what you need to buy. Check-offs stick.
 
-**Print Book** — half-letter (5.5 × 8.5 in), one recipe per page, with a cover and a
-divider page for each section. Print all 225, one volume, just your favorites, or
-just this week. Every recipe has been checked to fit its page without spilling.
+**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Book I is 36
+pages, Book II is 55. Each opens on its own cover and is numbered from page one.
+
+Recipes are measured in the browser and packed two or three to a page, so a page
+holds as many as genuinely fit rather than a fixed number. A recipe is never split
+across a page, a section heading never sits alone at the foot of one, and leftover
+room is shared out between the recipes rather than left in a heap at the bottom.
+Every page has been checked to make sure nothing spills.
+
+You can also print just one volume, just your favorites, or just this week.
 
 ## Sharing between the two of you
 

@@ -115,7 +115,7 @@
   // ------------------------------------------------------------------ state
   var S = {
     view: 'browse', bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
-    favOnly: false, qy: '', openId: null, scale: 1, printSet: 'all', allPages: false,
+    favOnly: false, qy: '', openId: null, scale: 1, printSet: 'all',
     syncOpen: false, pendingCode: '', joinDraft: ''
   };
 
@@ -272,101 +272,232 @@
     return RECIPES;
   }
 
-  function buildPages() {
-    var pool = printPool();
-    var grouped = S.printSet === 'fav' || S.printSet === 'plan';
-    var titleFor = {
-      all: 'Bishops’ Storehouse Recipe Books', '1': BOOKS[1].name, '2': BOOKS[2].name,
-      fav: 'Favorites', plan: 'This Week'
-    };
-    var pages = [{
-      kind: 'cover',
-      eyebrow: 'Recipes from the storehouse',
-      title: titleFor[S.printSet] || 'Recipe Book',
-      sub: S.printSet === 'all'
-        ? 'Two volumes — the fitness cut and the family table — written from what is actually on the shelf.'
-        : S.printSet === 'fav' ? 'The ones worth keeping.'
-          : S.printSet === 'plan' ? 'The week’s cooking, in order.'
-            : BOOKS[S.printSet] ? BOOKS[S.printSet].blurb : '',
-      foot: pool.length + (pool.length === 1 ? ' recipe' : ' recipes')
-    }];
-
-    var lastSec = null;
-    pool.forEach(function (r) {
-      var key = r.book + '-' + r.secNum;
-      if (!grouped && key !== lastSec) {
-        lastSec = key;
-        var n = pool.filter(function (x) { return x.book === r.book && x.secNum === r.secNum; }).length;
-        pages.push({
-          kind: 'divider',
-          eyebrow: BOOKS[r.book].roman + ' · Section ' + r.secNum,
-          title: r.secName,
-          sub: (SEC_NOTE[key] || '') + ' — ' + n + (n === 1 ? ' recipe.' : ' recipes.')
-        });
-      }
-      pages.push({ kind: 'recipe', r: r });
-    });
-    return pages;
-  }
-
-  function pageHTML(p) {
-    if (p.kind === 'cover') {
-      return '<div class="pg"><div class="pg-cover">' +
-        '<div class="pg-eyebrow">' + esc(p.eyebrow) + '</div>' +
-        '<div class="pg-rule"></div>' +
-        '<div class="pg-title">' + esc(p.title) + '</div>' +
-        '<div class="pg-sub">' + esc(p.sub) + '</div>' +
-        '<div class="pg-foot">' + esc(p.foot) + '</div>' +
-      '</div></div>';
-    }
-    if (p.kind === 'divider') {
-      return '<div class="pg"><div class="pg-div">' +
-        '<div class="pg-div-eyebrow">' + esc(p.eyebrow) + '</div>' +
-        '<div class="pg-div-title">' + esc(p.title) + '</div>' +
-        '<div class="pg-div-rule"></div>' +
-        '<div class="pg-div-sub">' + esc(p.sub) + '</div>' +
-      '</div></div>';
-    }
-    var r = p.r;
-    return '<div class="pg"><div class="pg-rec">' +
-      '<div class="pg-rec-top"><span>' + esc(BOOKS[r.book].roman + ' · ' + r.secName) + '</span>' +
-        '<span class="pg-rec-num">No. ' + String(r.id).padStart(3, '0') + '</span></div>' +
-      '<div class="pg-rec-name">' + esc(r.name) + '</div>' +
-      (r.tagline ? '<div class="pg-rec-tag">' + esc(r.tagline) + '</div>' : '') +
-      '<div class="pg-rec-meta"><span>' + esc(r.servings) + '</span><span>' + esc(r.time) + '</span>' +
-        '<span>' + esc(diffLabel(r.diff)) + '</span>' +
-        (r.score !== null ? '<span class="score">Score ' + r.score + (r.est ? ' (est.)' : '') + '</span>' : '') +
-      '</div>' +
-      '<div class="pg-body">' +
-        '<div><div class="pg-h">Ingredients</div><div class="pg-ing">' +
-          r.ing.map(function (i) { return '<div>' + esc(i) + '</div>'; }).join('') +
-        '</div></div>' +
-        '<div><div class="pg-h">Method</div><div class="pg-steps">' +
-          r.steps.map(function (t, i) {
-            return '<div class="pg-step"><div class="pg-step-n">' + (i + 1) + '</div>' +
-              '<div class="pg-step-t">' + esc(t) + '</div></div>';
-          }).join('') +
-        '</div></div>' +
-      '</div>' +
-      '<div class="pg-rec-foot"><div class="pg-rec-foot-in">' +
-        '<span>' + esc((r.est && r.macro ? 'Est. ' : '') + macroLine(r)) + '</span>' +
-        '<span style="text-align:right">' + esc(r.extras ? 'Not on the standard list: ' + r.extras : 'All standard storehouse items') + '</span>' +
-      '</div></div>' +
+  // ---- the pieces a page is built from -----------------------------------
+  function coverHTML(title, sub, foot) {
+    return '<div class="pg"><div class="pg-cover">' +
+      '<div class="pg-eyebrow">Recipes from the storehouse</div>' +
+      '<div class="pg-rule"></div>' +
+      '<div class="pg-title">' + esc(title) + '</div>' +
+      '<div class="pg-sub">' + esc(sub) + '</div>' +
+      '<div class="pg-foot">' + esc(foot) + '</div>' +
     '</div></div>';
   }
 
-  function renderBook() {
-    var pages = buildPages();
-    var show = (S.allPages || pages.length <= 10) ? pages : pages.slice(0, 8);
+  function bandHTML(r, count) {
+    return '<div class="sec-band">' +
+      '<div class="sec-band-n">Section ' + r.secNum + '</div>' +
+      '<div class="sec-band-t">' + esc(r.secName) + '</div>' +
+      '<div class="sec-band-s">' + esc(SEC_NOTE[r.book + '-' + r.secNum] || '') +
+        ' · ' + count + (count === 1 ? ' recipe' : ' recipes') + '</div>' +
+    '</div>';
+  }
+
+  function recipeHTML(r) {
+    return '<div class="rp">' +
+      '<div class="rp-top">' +
+        '<span class="rp-num">No. ' + String(r.id).padStart(3, '0') + '</span>' +
+        '<span>' + esc(r.servings.split(' (')[0] + ' · ' + r.time + ' · ' + diffLabel(r.diff)) +
+          (r.score !== null ? ' · <span class="score">Score ' + r.score + (r.est ? ' est.' : '') + '</span>' : '') +
+        '</span>' +
+      '</div>' +
+      '<div class="rp-name">' + esc(r.name) + '</div>' +
+      (r.tagline ? '<div class="rp-tag">' + esc(r.tagline) + '</div>' : '') +
+      '<div class="rp-cols">' +
+        '<div><div class="rp-h">Ingredients</div><div class="rp-ing">' +
+          r.ing.map(function (i) { return '<div>' + esc(i) + '</div>'; }).join('') +
+        '</div></div>' +
+        '<div><div class="rp-h">Method</div><div class="rp-steps">' +
+          r.steps.map(function (t, i) {
+            return '<div class="rp-step"><div class="rp-step-n">' + (i + 1) + '</div>' +
+              '<div class="rp-step-t">' + esc(t) + '</div></div>';
+          }).join('') +
+        '</div></div>' +
+      '</div>' +
+      '<div class="rp-foot">' +
+        '<span>' + esc((r.est && r.macro ? 'Est. ' : '') + macroLine(r)) + '</span>' +
+        '<span>' + esc(r.extras ? 'Also needs: ' + r.extras : 'All storehouse items') + '</span>' +
+      '</div>' +
+    '</div>';
+  }
+
+  /* ---- measuring -------------------------------------------------------
+     How tall a recipe ends up is a question only the browser can answer —
+     it depends on the fonts that actually loaded and where the text wraps.
+     So render the blocks offscreen at the exact printed width, read their
+     heights, and pack from real numbers rather than guesses. */
+  var MEASURE = null;
+  function measurer() {
+    if (!MEASURE) {
+      MEASURE = document.createElement('div');
+      // "pg" so it inherits the exact printed width and padding; "no-print"
+      // so this scratch element can never turn into a blank sheet of paper
+      MEASURE.className = 'pg no-print';
+      MEASURE.setAttribute('aria-hidden', 'true');
+      MEASURE.style.cssText = 'position:absolute;left:-10000px;top:0;visibility:hidden;' +
+        'min-height:0;height:auto;box-shadow:none;pointer-events:none';
+      document.body.appendChild(MEASURE);
+    }
+    return MEASURE;
+  }
+
+  function measure(items) {
+    var m = measurer();
+    // each block gets its own wrapper so the ".rp + .rp" separator never
+    // applies here — separators are added by the packer instead
+    m.innerHTML = '<div class="pg-run"><span>A</span><span class="pg-run-sec">B</span></div>' +
+      '<div class="pg-flow">' + items.map(function (it) {
+        return '<div>' + it.html + '</div>';
+      }).join('') + '</div>' +
+      '<div class="pg-fol">1</div>';
+
+    var flow = m.querySelector('.pg-flow');
+    for (var i = 0; i < items.length; i++) {
+      items[i].h = flow.children[i].getBoundingClientRect().height;
+    }
+
+    var runEl = m.querySelector('.pg-run');
+    var folEl = m.querySelector('.pg-fol');
+    var chrome = runEl.getBoundingClientRect().height +
+      parseFloat(getComputedStyle(runEl).marginBottom) +
+      folEl.getBoundingClientRect().height +
+      parseFloat(getComputedStyle(folEl).paddingTop);
+
+    // read the recipe separator off the stylesheet rather than hardcoding it
+    m.innerHTML = '<div class="pg-flow">' + recipeHTML(RECIPES[0]) + recipeHTML(RECIPES[0]) + '</div>';
+    var two = m.querySelector('.pg-flow').children;
+    // margin is kept apart from padding+border: only the margin can be widened
+    // later to even out a page, the rest is fixed by the rule itself
+    var sepMargin = parseFloat(getComputedStyle(two[1]).marginTop);
+    var sep = two[1].getBoundingClientRect().height - two[0].getBoundingClientRect().height + sepMargin;
+
+    // and the section band's bottom margin
+    m.innerHTML = '<div class="pg-flow">' + bandHTML(RECIPES[0], 1) + '</div>';
+    var bandGap = parseFloat(getComputedStyle(m.querySelector('.sec-band')).marginBottom);
+
+    m.innerHTML = '';
+    return { chrome: chrome, sep: sep, sepMargin: sepMargin, bandGap: bandGap };
+  }
+
+  /* Fill each page with as many recipes as genuinely fit. A recipe is never
+     split across a page, and a section heading never sits alone at the foot
+     of one. */
+  function pack(items, avail, m) {
+    var pages = [], cur = [], h = 0;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      var isBand = it.type === 'band';
+      // a recipe following another recipe carries the separator rule
+      var lead = (!isBand && cur.length && cur[cur.length - 1].type === 'recipe') ? m.sep : 0;
+      var need = it.h + lead + (isBand ? m.bandGap : 0);
+      // keep a heading with at least the first recipe under it
+      if (isBand && items[i + 1]) need += items[i + 1].h;
+
+      if (cur.length && h + need > avail) { pages.push(cur); cur = []; h = 0; lead = 0; need = it.h + (isBand ? m.bandGap : 0); }
+      cur.push(it);
+      h += it.h + lead + (isBand ? m.bandGap : 0);
+    }
+    if (cur.length) pages.push(cur);
+    return pages;
+  }
+
+  function buildBook() {
     var pool = printPool();
-    var note = pool.length + (pool.length === 1 ? ' recipe · ' : ' recipes · ') +
-      pages.length + ' pages at 5.5″ × 8.5″';
-    if (show.length < pages.length) note += ' · previewing first ' + show.length;
-    $('printNote').textContent = note;
-    $('pages').innerHTML = show.map(function (p) {
-      return '<div class="pgslot">' + pageHTML(p) + '</div>';
+    if (!pool.length) return [];
+    var grouped = S.printSet === 'fav' || S.printSet === 'plan';
+
+    // "Both books" really means two books — each volume opens on its own
+    // cover and is numbered from page one.
+    var volumes;
+    if (grouped || S.printSet === '1' || S.printSet === '2') {
+      volumes = [{ book: S.printSet === '2' ? 2 : 1, list: pool, grouped: grouped }];
+    } else {
+      volumes = [1, 2].map(function (b) {
+        return { book: b, list: pool.filter(function (r) { return r.book === b; }), grouped: false };
+      }).filter(function (v) { return v.list.length; });
+    }
+
+    var out = [];
+    volumes.forEach(function (vol) {
+      var items = [];
+      var lastSec = null;
+      vol.list.forEach(function (r) {
+        var key = r.book + '-' + r.secNum;
+        if (!vol.grouped && key !== lastSec) {
+          lastSec = key;
+          var n = vol.list.filter(function (x) { return x.book === r.book && x.secNum === r.secNum; }).length;
+          items.push({ type: 'band', html: bandHTML(r, n), r: r });
+        }
+        items.push({ type: 'recipe', html: recipeHTML(r), r: r });
+      });
+
+      var m = measure(items);
+      // a couple of pixels of slack absorbs any rounding between screen and print
+      var avail = 7.5 * 96 - m.chrome - 4;
+      var packed = pack(items, avail, m);
+
+      var title = vol.grouped
+        ? (S.printSet === 'fav' ? 'Favorites' : 'This Week')
+        : BOOKS[vol.book].name;
+      var sub = vol.grouped
+        ? (S.printSet === 'fav' ? 'The ones worth keeping.' : 'The week’s cooking, in order.')
+        : BOOKS[vol.book].blurb;
+      out.push({ kind: 'cover', html: coverHTML(title, sub, vol.list.length + ' recipes') });
+
+      packed.forEach(function (pageItems, idx) {
+        var first = pageItems.filter(function (x) { return x.r; })[0];
+        var sec = first ? first.r.secName : '';
+
+        /* Share whatever room is left over between the recipes instead of
+           leaving it all in a heap at the foot of the page. Capped, because a
+           page holding two recipes has room to spare and pushing them apart
+           by all of it would look worse than the gap it fixes. */
+        var used = 0, gaps = 0;
+        pageItems.forEach(function (x, i) {
+          used += x.h;
+          if (x.type === 'band') used += m.bandGap;
+          else if (i && pageItems[i - 1].type === 'recipe') { used += m.sep; gaps++; }
+        });
+        var extra = gaps ? Math.max(0, Math.min(28, (avail - used) / gaps)) : 0;
+
+        var body = pageItems.map(function (x, i) {
+          if (extra && x.type === 'recipe' && i && pageItems[i - 1].type === 'recipe') {
+            return x.html.replace('<div class="rp">',
+              '<div class="rp" style="margin-top:' + (m.sepMargin + extra).toFixed(1) + 'px">');
+          }
+          return x.html;
+        }).join('');
+
+        out.push({
+          kind: 'page',
+          html: '<div class="pg">' +
+            '<div class="pg-run"><span>' + esc(vol.grouped ? title : BOOKS[vol.book].roman) + '</span>' +
+              '<span class="pg-run-sec">' + esc(sec) + '</span></div>' +
+            '<div class="pg-flow">' + body + '</div>' +
+            '<div class="pg-fol">' + (idx + 1) + '</div>' +
+          '</div>'
+        });
+      });
+    });
+    return out;
+  }
+
+  function renderBook() {
+    var t0 = performance.now();
+    var pages = buildBook();
+    var pool = printPool();
+    var perPage = pages.filter(function (p) { return p.kind === 'page'; }).length;
+    $('printNote').textContent = pool.length
+      ? pool.length + (pool.length === 1 ? ' recipe · ' : ' recipes · ') +
+        pages.length + ' pages at 5.5″ × 8.5″ · ' +
+        (perPage ? (pool.length / perPage).toFixed(1) + ' recipes a page' : '')
+      : 'Nothing to print yet.';
+    $('pages').innerHTML = pages.map(function (p) {
+      return '<div class="pgslot">' + p.html + '</div>';
     }).join('');
     fitPages();
+    if (window.console && performance.now() - t0 > 1200) {
+      console.log('book render took ' + Math.round(performance.now() - t0) + 'ms');
+    }
   }
 
   /* A 5.5in page is wider than a phone. Scale it down to fit rather than
@@ -378,10 +509,7 @@
     document.documentElement.style.setProperty('--pgscale', String(scale));
   }
 
-  function expandAndPrint() {
-    if (!S.allPages) { S.allPages = true; renderBook(); }
-    window.print();
-  }
+  function expandAndPrint() { window.print(); }
 
   // --------------------------------------------------------------- detail
   function scoreWhy(r) {
@@ -563,7 +691,6 @@
     document.querySelectorAll('.tab').forEach(function (b) {
       b.addEventListener('click', function () {
         S.view = b.dataset.view;
-        if (S.view !== 'book') S.allPages = false;
         renderView();
       });
     });
@@ -620,15 +747,10 @@
 
     $('printSet').addEventListener('change', function () {
       S.printSet = this.value;
-      S.allPages = false;
       renderBook();
     });
     $('doPrint').addEventListener('click', expandAndPrint);
 
-    // Ctrl/Cmd-P from anywhere in the book view should print the whole thing
-    window.addEventListener('beforeprint', function () {
-      if (S.view === 'book' && !S.allPages) { S.allPages = true; renderBook(); }
-    });
     window.addEventListener('resize', fitPages);
 
     $('syncBtn').addEventListener('click', function () {
