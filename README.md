@@ -1,25 +1,91 @@
-# CODING AGENTS: READ THIS FIRST
+# Bishops' Storehouse Recipe Books
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+225 recipes from the storehouse, in two volumes — browse them, plan a week, let the
+shopping list build itself, and print the whole thing as a real half-letter book.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+Built from the Claude Design prototype in `design/`.
 
-## What you should do — IMPORTANT
+## Opening it
 
-**Read the chat transcripts first.** There are 1 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+Double-click `index.html`. That is the whole thing — no install, no build step, no
+server. It works with no internet connection once the page has loaded.
 
-**Read `project/Bishops Storehouse Cookbook.dc.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+To put it on your phones, see **Putting it online** below.
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+## What is in it
 
-## About the design files
+**Browse** — all 225 recipes, filtered by book, section, effort, whether they need
+anything beyond standard storehouse items, or your favorites. Search covers dish
+names, ingredients and section names. Tap a card for the full recipe, where you can
+scale the ingredients from ¼× to 8× (fractions come out as fractions, not decimals).
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+**Meal Plan** — assign recipes to days of the week from any recipe's panel.
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+**Shopping List** — builds itself from the week, deduplicated, split into what comes
+from the storehouse and what you need to buy. Check-offs stick.
 
-## Bundle contents
+**Print Book** — half-letter (5.5 × 8.5 in), one recipe per page, with a cover and a
+divider page for each section. Print all 225, one volume, just your favorites, or
+just this week. Every recipe has been checked to fit its page without spilling.
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `Bishops Storehouse Recipes` project files (HTML prototypes, assets, components)
+## Sharing between the two of you
+
+Out of the box, favorites, the week's plan and the shopping list save in whatever
+browser you are using. Your phone and your wife's phone each keep their own.
+
+To share one plan between both of you, follow **[SETUP.md](SETUP.md)** — it takes about
+five minutes, costs nothing, and afterwards you both open the same link, type the same
+household code once, and you are looking at the same list. Tick milk off in the store
+and it greys out on her phone a second later.
+
+The app still works normally if you never do this, and it keeps working with no signal
+either way.
+
+## Putting it online
+
+The app is plain static files, so GitHub Pages hosts it for free:
+
+1. Push this repository to GitHub.
+2. **Settings → Pages → Source: Deploy from a branch**, branch `main`, folder `/ (root)`.
+3. Wait a minute. Your link is `https://<your-username>.github.io/<repo-name>/`.
+
+Open that on both phones and use *Add to Home Screen* — it then behaves like an app.
+
+## About the nutrition numbers
+
+Book I's 100 recipes came with real macros. Book II's 125 came with **none** — the
+original had taglines where the nutrition data should be, so the scores shown on those
+recipes in the very first version were invented.
+
+This version computes macros for all of Book II from the ingredient lists and marks
+every one of them as an estimate: the score chip is drawn with a dashed border, the
+panel says *estimated*, and the printed page says *(est.)*. Book I's authored numbers
+are never labelled that way, so you can always tell which is which.
+
+**[AUDIT.md](AUDIT.md)** shows the work: the scoring formula recovered from the original
+data, the verification that it reproduces all 100 Book I scores exactly, where Book I's
+own macros disagree with its ingredient lists, and every assumption behind the Book II
+estimates. Worth reading once before this goes to print.
+
+## Layout
+
+```
+index.html            the app
+src/style.css         all the styling
+src/app.js            browse, plan, list, print
+src/sync.js           saving, and sharing between devices
+src/config.js         the only file you edit for sharing (see SETUP.md)
+data/recipes.js       generated — all 225 recipes with macros and scores
+tools/food-db.js      nutrition reference table used for the estimates
+tools/build-data.js   regenerates data/recipes.js and AUDIT.md
+design/               the original Claude Design prototype and chat transcript
+AUDIT.md              generated — the nutrition audit
+```
+
+Changing a nutrition figure means editing `tools/food-db.js` and running:
+
+```sh
+node tools/build-data.js
+```
+
+Recipe text itself lives in `design/project/recipes.js`, which the build reads.
