@@ -10,10 +10,10 @@
  * ------------------------------------------------------------------------- */
 
 window.FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyApxpcitqo7qHLVDRS4UX5Xa4XNUKa0Qh0",
+  authDomain: "storehouse-recipe-book.firebaseapp.com",
+  projectId: "storehouse-recipe-book",
+  storageBucket: "storehouse-recipe-book.firebasestorage.app",
+  messagingSenderId: "1048714331242",
+  appId: "1:1048714331242:web:83f2d3988c9e24017b3613"
 };
