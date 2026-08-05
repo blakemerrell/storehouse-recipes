@@ -24,8 +24,8 @@ scale the ingredients from ¼× to 8× (fractions come out as fractions, not dec
 **Shopping List** — builds itself from the week, deduplicated, split into what comes
 from the storehouse and what you need to buy. Check-offs stick.
 
-**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Book I is 36
-pages, Book II is 55. Each opens on its own cover and is numbered from page one.
+**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 36
+pages, Around the Table is 55. Each opens on its own cover and is numbered from page one.
 
 Recipes are measured in the browser and packed two or three to a page, so a page
 holds as many as genuinely fit rather than a fixed number. A recipe is never split
@@ -60,18 +60,18 @@ Open that on both phones and use *Add to Home Screen* — it then behaves like a
 
 ## About the nutrition numbers
 
-Book I's 100 recipes came with real macros. Book II's 125 came with **none** — the
+Strong & Simple's 100 recipes came with real macros. Around the Table's 125 came with **none** — the
 original had taglines where the nutrition data should be, so the scores shown on those
 recipes in the very first version were invented.
 
-This version computes macros for all of Book II from the ingredient lists and marks
+This version computes macros for all of Around the Table from the ingredient lists and marks
 every one of them as an estimate: the score chip is drawn with a dashed border, the
-panel says *estimated*, and the printed page says *(est.)*. Book I's authored numbers
+panel says *estimated*, and the printed page says *(est.)*. Strong & Simple's authored numbers
 are never labelled that way, so you can always tell which is which.
 
 **[AUDIT.md](AUDIT.md)** shows the work: the scoring formula recovered from the original
-data, the verification that it reproduces all 100 Book I scores exactly, where Book I's
-own macros disagree with its ingredient lists, and every assumption behind the Book II
+data, the verification that it reproduces all 100 Strong & Simple scores exactly, where Strong & Simple's
+own macros disagree with its ingredient lists, and every assumption behind the Around the Table
 estimates. Worth reading once before this goes to print.
 
 ## Layout

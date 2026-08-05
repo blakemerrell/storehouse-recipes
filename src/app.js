@@ -17,11 +17,11 @@
 
   var BOOKS = {
     1: {
-      name: 'Book I · The Fitness Cut', roman: 'Book One',
+      name: 'Strong & Simple', short: 'STRONG',
       blurb: 'One hundred high‑protein recipes built on standard storehouse items. Every recipe carries real macros and a computed nutrition score.'
     },
     2: {
-      name: 'Book II · The Family Table', roman: 'Book Two',
+      name: 'Around the Table', short: 'TABLE',
       blurb: 'One hundred twenty‑five family recipes, from three‑minute breakfasts to Sunday roasts. Portions are written for a household, not a plate.'
     }
   };
@@ -142,7 +142,7 @@
       if (seen[key]) return;
       seen[key] = 1;
       if (S.bookF !== 'all' && r.book !== S.bookF) return;
-      opts.push('<option value="' + key + '">' + (r.book === 1 ? 'I · ' : 'II · ') + esc(r.secName) + '</option>');
+      opts.push('<option value="' + key + '">' + esc(BOOKS[r.book].name + ' · ' + r.secName) + '</option>');
     });
     sel.innerHTML = opts.join('');
     sel.value = S.secF;
@@ -164,7 +164,7 @@
         r.est ? ' title="Nutrition score from estimated macros"' : ' title="Nutrition score"';
       return '<button class="card" data-open="' + r.id + '">' +
         '<span class="card-top">' +
-          '<span class="card-num">' + (r.book === 1 ? 'I' : 'II') + ' · ' + String(r.id).padStart(3, '0') + '</span>' +
+          '<span class="card-num">' + BOOKS[r.book].short + ' · ' + String(r.id).padStart(3, '0') + '</span>' +
           '<span class="card-fav">' + (fav ? '★ Saved' : '') + '</span>' +
         '</span>' +
         '<span class="card-name">' + esc(r.name) + '</span>' +
@@ -275,10 +275,12 @@
   // ---- the pieces a page is built from -----------------------------------
   function coverHTML(title, sub, foot) {
     return '<div class="pg"><div class="pg-cover">' +
-      '<div class="pg-eyebrow">Recipes from the storehouse</div>' +
-      '<div class="pg-rule"></div>' +
-      '<div class="pg-title">' + esc(title) + '</div>' +
-      '<div class="pg-sub">' + esc(sub) + '</div>' +
+      '<div class="pg-cover-mid">' +
+        '<div class="pg-eyebrow">Recipes from the storehouse</div>' +
+        '<div class="pg-rule"></div>' +
+        '<div class="pg-title">' + esc(title) + '</div>' +
+        '<div class="pg-sub">' + esc(sub) + '</div>' +
+      '</div>' +
       '<div class="pg-foot">' + esc(foot) + '</div>' +
     '</div></div>';
   }
@@ -470,7 +472,7 @@
         out.push({
           kind: 'page',
           html: '<div class="pg">' +
-            '<div class="pg-run"><span>' + esc(vol.grouped ? title : BOOKS[vol.book].roman) + '</span>' +
+            '<div class="pg-run"><span>' + esc(vol.grouped ? title : BOOKS[vol.book].name) + '</span>' +
               '<span class="pg-run-sec">' + esc(sec) + '</span></div>' +
             '<div class="pg-flow">' + body + '</div>' +
             '<div class="pg-fol">' + (idx + 1) + '</div>' +
@@ -548,7 +550,7 @@
     root.innerHTML = '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(r.name) + '">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">' + esc(BOOKS[r.book].roman + ' · ' + r.secName + ' · No. ' + String(r.id).padStart(3, '0')) + '</div>' +
+          '<div class="sheet-eyebrow">' + esc(BOOKS[r.book].name + ' · ' + r.secName + ' · No. ' + String(r.id).padStart(3, '0')) + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="sheet-name">' + esc(r.name) + '</div>' +
@@ -563,7 +565,7 @@
               '<div class="scorebox-n">' + r.score + '</div>' +
             '</div>' +
             '<div class="scorebox-why">' + esc(scoreWhy(r)) + '</div>' +
-            (r.est ? '<div class="scorebox-why"><em>Book II shipped without nutrition figures. These macros are worked out from the ingredient list, so treat them as a good guess rather than a measurement.</em></div>' : '') +
+            (r.est ? '<div class="scorebox-why"><em>Around the Table shipped without nutrition figures. These macros are worked out from the ingredient list, so treat them as a good guess rather than a measurement.</em></div>' : '') +
           '</div>' : '') +
         '<div class="sheet-h-row">' +
           '<div class="sheet-h">Ingredients</div>' +
