@@ -558,3 +558,39 @@ select { max-width: 280px; }
 .toc-pg {
   flex: none; font-variant-numeric: tabular-nums; color: var(--muted-2); font-weight: 600;
 }
+
+/* ---------------------------------------------------------- front matter */
+.fm-title {
+  font-family: var(--serif); font-size: 21px; font-weight: 700; line-height: 1.15;
+  margin-bottom: 3px;
+}
+.fm-lede {
+  font-family: var(--serif); font-style: italic; font-size: 12px;
+  color: var(--muted-2); line-height: 1.45; margin-bottom: 14px;
+}
+.fm-sub {
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-weight: 600; color: var(--ochre); margin: 14px 0 5px;
+}
+.fm-block:first-child .fm-sub:first-child { margin-top: 0; }
+.fm-p { font-size: 11px; line-height: 1.55; margin-bottom: 6px; text-wrap: pretty; }
+.fm-table { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; margin: 4px 0 8px; }
+.fm-table > div {
+  font-size: 11px; line-height: 1.45; padding: 2.5px 0;
+  border-bottom: 1px dotted oklch(0.87 0.02 75);
+}
+.fm-table > div:nth-child(odd) { font-weight: 600; white-space: nowrap; }
+.fm-key { font-variant-numeric: tabular-nums; }
+.fm-cols { columns: 2; column-gap: 20px; }
+.fm-cols div {
+  font-size: 10px; line-height: 1.45; break-inside: avoid;
+  padding: 1px 0;
+}
+.fm-cat {
+  font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-weight: 600; color: var(--ochre); margin-top: 7px; break-after: avoid;
+}
+.fm-warn {
+  border-left: 2px solid var(--ochre); padding: 2px 0 2px 10px;
+  font-size: 11px; line-height: 1.5; margin: 8px 0;
+}

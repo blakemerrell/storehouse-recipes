@@ -391,7 +391,7 @@
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
       var isBand = it.type === 'band';
-      var isHead = isBand || it.type === 'tochead';
+      var isHead = isBand || it.type === 'tochead' || it.type === 'fmhead';
       // a recipe following another recipe carries the separator rule
       var lead = (!isHead && cur.length && cur[cur.length - 1].type === 'recipe') ? m.sep : 0;
       var need = it.h + lead + (isBand ? m.bandGap : 0);
@@ -404,6 +404,115 @@
     }
     if (cur.length) pages.push(cur);
     return pages;
+  }
+
+
+  /* ---- front matter ----------------------------------------------------
+     Reference pages that belong in a book people cook from: how to read a
+     recipe, the temperatures that matter, weights and swaps, and what the
+     storehouse actually carries. Built as blocks and packed like everything
+     else, so a page can never overflow. */
+  var STOREHOUSE = [
+    ['Canned meats', 'Fully cooked beef · Beef stew · Chili · Pork and beans · Tuna · Chicken breast pieces'],
+    ['Canned soups', 'Chicken rotini · Cream of chicken · Cream of mushroom · Tomato'],
+    ['Canned fruit', 'Applesauce · Peaches · Pears'],
+    ['Canned veg', 'Corn · Green beans · Diced tomatoes · Tomato sauce · Spaghetti sauce'],
+    ['Beans, rice, potatoes', 'Black beans · Pinto beans · Great Northern beans · Dry pinto beans · Refried beans · Instant potatoes · Rice'],
+    ['Meat', 'Beef franks · Ground beef · Pork sausage · Stewing beef · Beef roast · Chicken breasts · Sliced ham · Pork roast'],
+    ['Dairy and eggs', 'Butter · Cheddar · Cottage cheese · Eggs · 2% milk · Sour cream · Vanilla yogurt'],
+    ['Fresh', 'Apples · Bananas · Grapes · Oranges · Cucumbers · Lettuce · Bell peppers · Broccoli · Carrots · Onions · Potatoes · Tomatoes'],
+    ['Flour and pasta', 'White flour · Pancake and waffle mix · Macaroni · Ribbon pasta · Spaghetti · Mac and cheese'],
+    ['Cereal', 'Rolled oats · Honey nut o’s · Raisin bran'],
+    ['Baking', 'Baking powder · Baking soda · Yeast · Evaporated milk · Raisins · Vegetable oil'],
+    ['Sugars', 'Brown · Granulated · Powdered'],
+    ['Seasonings', 'Cinnamon · Black pepper · Salt · Vanilla'],
+    ['Condiments', 'Ketchup · Mustard · Mayo · Ranch · Salsa · BBQ-free honey · Jams · Peanut butter · Syrup · Black olives'],
+    ['Drinks and desserts', 'Non-fat dry milk · Hot cocoa · Gelatin · Puddings · Cake mixes'],
+    ['Bread', 'White · Whole wheat · Hamburger buns · Hot dog buns · Tortillas'],
+  ];
+
+  function frontMatterItems(vol) {
+    var b = [];
+    var block = function (html) { b.push({ type: 'fmblock', html: '<div class="fm-block">' + html + '</div>' }); };
+    var head = function (html) { b.push({ type: 'fmhead', html: '<div class="fm-block">' + html + '</div>' }); };
+
+    head('<div class="fm-title">How to read a recipe</div>' +
+      '<div class="fm-lede">Everything here is built from what the storehouse actually carries.</div>');
+    block('<div class="fm-sub">The number</div>' +
+      '<div class="fm-p">Every recipe has one, running from 001 straight through both volumes. ' +
+      'The contents at the front of each book lists them in order with its page.</div>');
+
+    block('<div class="fm-sub">Effort</div>' +
+      '<div class="fm-table">' +
+      '<div>Easy</div><div>No real cooking, or one pan and a few minutes.</div>' +
+      '<div>Medium</div><div>A hot stove and some timing, but nothing that can go badly wrong.</div>' +
+      '<div>In-depth</div><div>An afternoon, or a long slow oven, or a technique worth learning.</div>' +
+      '</div>');
+
+    block('<div class="fm-sub">The line under the title</div>' +
+      '<div class="fm-p">Servings, time, effort, and a nutrition score out of 100. The score is worked ' +
+      'out from four things: how much of the energy comes from protein (55 points), how many calories ' +
+      'a serving carries (20), how much of the energy comes from fat (15), and whether the recipe needs ' +
+      'anything beyond the standard storehouse order (10).</div>' +
+      '<div class="fm-p">That last ten points is about shopping, not nutrition. A recipe can lose them ' +
+      'and still be the better dinner.</div>');
+
+    block('<div class="fm-sub">Also needs</div>' +
+      '<div class="fm-p">The line at the foot of each recipe. Either it says everything is on the standard ' +
+      'list, or it names exactly what is not, so you know before you start rather than halfway through.</div>' +
+      '<div class="fm-sub">Servings</div>' +
+      '<div class="fm-p">Written for a household. Halving or doubling most of these is safe; baking is the ' +
+      'exception, where the ratios are doing real work.</div>');
+
+    head('<div class="fm-title">Temperatures and doneness</div>' +
+      '<div class="fm-lede">Colour is not a reliable guide. A thermometer in the thickest part is.</div>');
+    block('<div class="fm-table">' +
+      '<div class="fm-key">165°F</div><div>Chicken and turkey, every cut, and anything reheated</div>' +
+      '<div class="fm-key">160°F</div><div>Ground beef and ground pork; egg dishes and casseroles</div>' +
+      '<div class="fm-key">145°F</div><div>Whole cuts of beef and pork, then rested three minutes</div>' +
+      '<div class="fm-key">40–140°F</div><div>The range food should not sit in. Two hours out is the limit.</div>' +
+      '</div>');
+
+    block('<div class="fm-warn">Chicken is the one to be careful with. A crisp crust, clear juices or a ' +
+      'long time in the oven are not proof it is done — thick breasts under a sauce take far longer than ' +
+      'they look. Where a recipe cooks chicken, it says what to check for.</div>' +
+      '<div class="fm-sub">Ovens lie</div>' +
+      '<div class="fm-p">Most run hot or cold by a good margin. Check five minutes before the stated time ' +
+      'the first time you make something, and write the real time in the margin.</div>');
+
+    head('<div class="fm-title">Weights and swaps</div>' +
+      '<div class="fm-lede">One cup, level, unpacked unless it says otherwise.</div>');
+    block('<div class="fm-table">' +
+      '<div class="fm-key">125 g</div><div>Flour, one cup</div>' +
+      '<div class="fm-key">200 g</div><div>Granulated sugar, one cup</div>' +
+      '<div class="fm-key">220 g</div><div>Brown sugar, one cup, packed</div>' +
+      '<div class="fm-key">120 g</div><div>Powdered sugar, one cup</div>' +
+      '<div class="fm-key">227 g</div><div>Butter, one cup — two sticks</div>' +
+      '<div class="fm-key">80 g</div><div>Rolled oats, one cup</div>' +
+      '<div class="fm-key">244 g</div><div>Milk or water, one cup</div>' +
+      '<div class="fm-key">7 g</div><div>Yeast, one packet — 2¼ teaspoons</div>' +
+      '</div>');
+
+    block('<div class="fm-sub">When you are missing something</div>' +
+      '<div class="fm-table">' +
+      '<div>Buttermilk</div><div>A cup of milk with a spoonful of vinegar or lemon juice, left ten minutes</div>' +
+      '<div>Self-raising flour</div><div>A cup of flour with 1½ teaspoons baking powder and a pinch of salt</div>' +
+      '<div>One egg</div><div>In a bake, three tablespoons of applesauce — not in a custard, where the egg is the point</div>' +
+      '<div>Cake flour</div><div>A cup of flour with two tablespoons taken out and two of cornstarch put back</div>' +
+      '<div>Sour cream</div><div>Plain yogurt, in most things that are not baked</div>' +
+      '</div>');
+
+    head('<div class="fm-title">What the storehouse carries</div>' +
+      '<div class="fm-lede">The standard order. Anything a recipe needs beyond this is named at its foot.</div>');
+    // in chunks, so the list can flow across a page break instead of being one
+    // indivisible slab that leaves the page before it two-thirds empty
+    for (var i = 0; i < STOREHOUSE.length; i += 3) {
+      block('<div class="fm-cols">' + STOREHOUSE.slice(i, i + 3).map(function (row) {
+        return '<div class="fm-cat">' + esc(row[0]) + '</div><div>' + esc(row[1]) + '</div>';
+      }).join('') + '</div>');
+    }
+
+    return b;
   }
 
   /* ---- contents --------------------------------------------------------
@@ -495,6 +604,20 @@
         ? (S.printSet === 'fav' ? 'The ones worth keeping.' : 'The week’s cooking, in order.')
         : BOOKS[vol.book].blurb;
       out.push({ kind: 'cover', html: coverHTML(title, sub, vol.list.length + ' recipes') });
+
+      if (!vol.grouped) {
+        var fm = frontMatterItems(vol);
+        measure(fm);
+        pack(fm, avail, m).forEach(function (col) {
+          out.push({ kind: 'front', html: '<div class="pg">' +
+            '<div class="pg-run"><span>' + esc(BOOKS[vol.book].name) + '</span>' +
+              '<span class="pg-run-sec">Before you start</span></div>' +
+            '<div class="toc-cols"><div class="toc-col">' +
+              col.map(function (x) { return x.html; }).join('') +
+            '</div></div>' +
+          '</div>' });
+        });
+      }
 
       // worth a contents page once a volume is long enough to need flipping
       if (vol.list.length >= 12) {

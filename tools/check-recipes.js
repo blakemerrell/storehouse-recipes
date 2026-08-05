@@ -145,8 +145,10 @@ RECIPES.forEach((r) => {
   }
 
   // ---- oven temperatures ----------------------------------------------
-  const temps = [...text.matchAll(/(\d{3})\s*°?\s*f/gi)]
-    .filter((m) => !/reads|internal|inside|inserted|thermometer/i.test(text.slice(Math.max(0, m.index - 40), m.index + 20)))
+  // Only count a figure as an oven or oil setting when something actually sets
+  // it there. A doneness reading ("165°F on a thermometer") is not an oven temp,
+  // and testing for that negatively kept letting cases through.
+  const temps = [...text.matchAll(/(?:oven to|bake at|bake it at|roast at|fry at|heat the oil to|preheat to|at)\s*(\d{3})\s*°?\s*f/gi)]
     .map((m) => +m[1]);
   temps.forEach((tp) => {
     if (tp < 200 || tp > 500) flag(r, 'FAIL', `oven temperature out of range: ${tp}°F`);

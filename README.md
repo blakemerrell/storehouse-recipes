@@ -24,10 +24,11 @@ scale the ingredients from ¼× to 8× (fractions come out as fractions, not dec
 **Shopping List** — builds itself from the week, deduplicated, split into what comes
 from the storehouse and what you need to buy. Check-offs stick.
 
-**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 39
-pages, Around the Table is 95. Each opens on its own cover, has its own contents, and is
-numbered from page one. Cover and contents carry no folio, so adding recipes never
-shifts the numbering.
+**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 44
+pages, Around the Table is 99. Each volume opens with a cover, four pages of front matter
+(how to read a recipe, temperatures and doneness, weights and swaps, what the storehouse
+carries) and its own contents, then is numbered from page one. Front matter carries no
+folio, so adding recipes never shifts the numbering.
 
 Recipes are measured in the browser and packed two or three to a page, so a page
 holds as many as genuinely fit rather than a fixed number. A recipe is never split
@@ -99,6 +100,7 @@ data/recipes.js       generated — all 257 recipes with macros and scores
 tools/added-recipes.js the 32 written for this edition (last three sections)
 tools/food-db.js      nutrition reference table used for the estimates
 tools/parse-lib.js    turns an ingredient line into a food and a weight
+tools/recipe-fixes.js corrections applied to the original text at build time
 tools/build-data.js   regenerates data/recipes.js and AUDIT.md
 tools/check-recipes.js checks recipes against standard kitchen ratios
 design/               the original Claude Design prototype and chat transcript

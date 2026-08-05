@@ -28,7 +28,21 @@ require(path.join(ROOT, 'design', 'project', 'recipes.js'));
 // the twelve in "Worth the Afternoon" were written for this edition, not
 // carried over from the original books — see tools/added-recipes.js
 const ADDED = require('./added-recipes.js');
-const SRC = global.window.RECIPES.concat(ADDED);
+const FIXES = require('./recipe-fixes.js');
+
+// apply the corrections to the original text without editing the source export
+const ORIGINAL = global.window.RECIPES.map((r) => Object.assign({}, r, { steps: r.steps.slice() }));
+const byId = {};
+ORIGINAL.forEach((r) => { byId[r.id] = r; });
+let applied = 0;
+FIXES.forEach((f) => {
+  const r = byId[f.id];
+  if (!r || !r.steps[f.step]) throw new Error('recipe fix does not apply: ' + f.id + ' step ' + f.step);
+  r.steps[f.step] = r.steps[f.step].replace(/\s*$/, '') + ' ' + f.add;
+  applied++;
+});
+
+const SRC = ORIGINAL.concat(ADDED);
 
 // ---------------------------------------------------------------------------
 // Scoring — reverse-engineered from the design's own numbers and verified to
@@ -278,6 +292,7 @@ These contribute nothing to their recipe's totals, so those recipes read low.
 fs.writeFileSync(path.join(ROOT, 'AUDIT.md'), md);
 
 console.log('wrote data/recipes.js  (' + out.length + ' recipes)');
+console.log('recipe corrections applied:', applied);
 console.log('score mismatches:', scoreMismatch.length);
 console.log('unmatched ingredient names:', allUnmatched.size);
 if (allUnmatched.size) console.log([...allUnmatched.keys()].slice(0, 40).join(' | '));
