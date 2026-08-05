@@ -22,7 +22,7 @@
     },
     2: {
       name: 'Around the Table', short: 'TABLE',
-      blurb: 'One hundred thirty‑seven family recipes, from three‑minute breakfasts to Sunday roasts, ending with a dozen that ask for a whole afternoon. Portions are written for a household, not a plate.'
+      blurb: 'One hundred fifty‑seven family recipes, from three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.'
     }
   };
 
@@ -36,7 +36,9 @@
     '2-3': 'Weeknight dinners the children will actually finish.',
     '2-4': 'Sunday, when there is time to do it properly.',
     '2-5': 'Sweets, made from what is on the shelf.',
-    '2-6': 'Nothing quick here. Bread that rises, gravy that thickens, custard that sets.'
+    '2-6': 'Nothing quick here. Bread that rises, gravy that thickens, custard that sets.',
+    '2-7': 'The restaurant version, worked out at home.',
+    '2-8': 'For when only chocolate will do.'
   };
 
   var FRAC = {

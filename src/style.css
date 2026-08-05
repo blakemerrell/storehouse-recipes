@@ -294,7 +294,7 @@ select { max-width: 280px; }
   font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase;
   color: oklch(0.52 0.03 65);
 }
-.rp-num { color: var(--ochre); font-weight: 600; letter-spacing: 0.16em; }
+.rp-num { color: var(--ochre); font-weight: 600; letter-spacing: 0.16em; white-space: nowrap; flex: none; }
 .rp-top .score { color: var(--green); font-weight: 600; }
 .rp-name {
   font-family: var(--serif); font-size: 16.5px; line-height: 1.2; font-weight: 700;

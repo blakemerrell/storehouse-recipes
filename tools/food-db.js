@@ -141,6 +141,9 @@ const FOODS = {
   cocoa_mix:       { kcal: 400, p: 6,    c: 78,   f: 8,    g: { pkg: 28, each: 28 } },
   baking_powder:   { kcal: 53,  p: 0,    c: 28,   f: 0,    g: { tsp: 4.6, tbsp: 13.8 } },
   baking_soda:     { kcal: 0,   p: 0,    c: 0,    f: 0,    g: { tsp: 4.6, tbsp: 13.8 } },
+  cornstarch:      { kcal: 381, p: 0.3,  c: 91,   f: 0.1,  g: { cup: 128, tbsp: 8, tsp: 2.7 } },
+  cola:            { kcal: 39,  p: 0,    c: 10.6, f: 0,    g: { cup: 240, oz: 29.6, can: 355 } },
+  salsa_verde:     { kcal: 36,  p: 1.1,  c: 6.5,  f: 0.9,  g: { cup: 260, tbsp: 16, jar: 453 } },
   yeast:           { kcal: 325, p: 40,   c: 41,   f: 7.6,  g: { pkg: 7, each: 7, tsp: 3, tbsp: 9 }, note: 'active dry yeast, 1 packet = 7 g' },
 
   // ---- Supplements & drinks ----------------------------------------------
@@ -262,6 +265,10 @@ const ALIASES = {
   'strawberry gelatin': 'gelatin_flavored', 'gelatin': 'gelatin_plain',
   'hot cocoa mix': 'cocoa_mix', 'packets hot cocoa mix': 'cocoa_mix',
   'baking powder': 'baking_powder', 'baking soda': 'baking_soda',
+  'cornstarch': 'cornstarch', 'corn starch': 'cornstarch',
+  'cola': 'cola', 'root beer': 'cola', 'dr pepper': 'cola',
+  'salsa verde': 'salsa_verde', 'green salsa': 'salsa_verde', 'tomatillo salsa': 'salsa_verde',
+  'buttermilk': 'milk',
   'yeast': 'yeast', 'active dry yeast': 'yeast', 'packet yeast': 'yeast',
 
   // supplements & drinks
@@ -275,6 +282,11 @@ const ALIASES = {
   'paprika': 'free', 'cumin': 'free', 'garlic powder': 'free', 'chili spices': 'free',
   'vanilla': 'free', 'vanilla extract': 'free', 'sweetener': 'free', 'stevia': 'free',
   'lime juice': 'free', 'creatine': 'free',
+  'lime': 'free', 'limes': 'free', 'cilantro': 'free', 'pickle juice': 'free',
+  'chili powder': 'free', 'onion powder': 'free', 'dried oregano': 'free',
+  'dried thyme': 'free', 'dried basil': 'free', 'ground ginger': 'free',
+  'mustard powder': 'free', 'celery salt': 'free', 'white pepper': 'free',
+  'ground cumin': 'free', 'oregano': 'free', 'thyme': 'free',
   'lollipop sticks': 'free', 'wooden sticks': 'free',
   'cinnamon': 'cinnamon',
 };

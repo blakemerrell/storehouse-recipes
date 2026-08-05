@@ -1,6 +1,6 @@
 # Bishops' Storehouse Recipe Books
 
-237 recipes from the storehouse, in two volumes — browse them, plan a week, let the
+257 recipes from the storehouse, in two volumes — browse them, plan a week, let the
 shopping list build itself, and print the whole thing as a real half-letter book.
 
 Built from the Claude Design prototype in `design/`.
@@ -14,7 +14,7 @@ To put it on your phones, see **Putting it online** below.
 
 ## What is in it
 
-**Browse** — all 237 recipes, filtered by book, section, effort, whether they need
+**Browse** — all 257 recipes, filtered by book, section, effort, whether they need
 anything beyond standard storehouse items, or your favorites. Search covers dish
 names, ingredients and section names. Tap a card for the full recipe, where you can
 scale the ingredients from ¼× to 8× (fractions come out as fractions, not decimals).
@@ -25,7 +25,7 @@ scale the ingredients from ¼× to 8× (fractions come out as fractions, not dec
 from the storehouse and what you need to buy. Check-offs stick.
 
 **Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 39
-pages, Around the Table is 72. Each opens on its own cover, has its own contents, and is
+pages, Around the Table is 95. Each opens on its own cover, has its own contents, and is
 numbered from page one. Cover and contents carry no folio, so adding recipes never
 shifts the numbering.
 
@@ -37,10 +37,16 @@ Every page has been checked to make sure nothing spills.
 
 You can also print just one volume, just your favorites, or just this week.
 
-**Worth the Afternoon** is the last section of Around the Table — twelve recipes written
-for this edition rather than carried over. The original 225 had nothing that asked you to
-actually cook: no recipe had more than four steps, none used yeast, none kneaded, braised,
-tempered an egg or thickened a sauce. These do. Eleven of the twelve are storehouse-only.
+The last three sections of Around the Table were written for this edition rather than
+carried over, 32 recipes in all:
+
+- **Worth the Afternoon** — bread, braises and custards. The original 225 had nothing that
+  asked you to actually cook: no recipe had more than four steps, none used yeast, none
+  kneaded, braised, tempered an egg or thickened a sauce. These do.
+- **The Copycat Shelf** — the restaurant versions, worked out from storehouse staples.
+- **For the Love of Chocolate** — the original books had 25 "chocolate" recipes and almost
+  all were protein shakes or cake-mix shortcuts. There was not one cookie in the whole
+  collection, and chocolate chips appeared in a single recipe.
 
 ## Sharing between the two of you
 
@@ -89,8 +95,8 @@ src/style.css         all the styling
 src/app.js            browse, plan, list, print
 src/sync.js           saving, and sharing between devices
 src/config.js         the only file you edit for sharing (see SETUP.md)
-data/recipes.js       generated — all 237 recipes with macros and scores
-tools/added-recipes.js the twelve written for this edition (Worth the Afternoon)
+data/recipes.js       generated — all 257 recipes with macros and scores
+tools/added-recipes.js the 32 written for this edition (last three sections)
 tools/food-db.js      nutrition reference table used for the estimates
 tools/build-data.js   regenerates data/recipes.js and AUDIT.md
 design/               the original Claude Design prototype and chat transcript

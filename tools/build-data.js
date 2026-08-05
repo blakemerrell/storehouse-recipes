@@ -190,6 +190,10 @@ function parseLine(raw) {
     grams = qty * per * sizeMult;
   }
 
+  // Oil for deep frying is mostly left in the pan. Counting all of it makes a
+  // fried dish read like a stick of butter; food takes up roughly an eighth.
+  if (key === 'oil' && /for frying|to fry|for the pan/i.test(raw)) grams *= 0.12;
+
   return { key, grams };
 }
 
@@ -383,16 +387,23 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-${ADDED.length} recipes in **${ADDED[0].secName}** were written for this edition rather than
-carried over from the original books. The data made the gap plain: across the
-original 225, no recipe has more than four steps, none uses yeast, and none
-kneads, braises, tempers an egg or thickens a sauce. "In-Depth" nearly always
-meant "leave it in the slow cooker" rather than "this needs attention".
+${ADDED.length} recipes across ${[...new Set(ADDED.map((r) => r.secName))].length} sections were written for this edition rather than carried
+over from the original books:
 
-Every ingredient in them was checked against the storehouse order list.
-${ADDED.filter((r) => !r.extras).length} of the ${ADDED.length} are storehouse-only. The exception needs cocoa powder,
-which is flagged as a pantry extra — the storehouse carries hot cocoa mix, which
-is a different product and would not work in its place.
+${[...new Set(ADDED.map((r) => r.secName))].map((n) => `- **${n}** — ${ADDED.filter((r) => r.secName === n).length} recipes`).join('\n')}
+
+The data made the gaps plain. Across the original 225, no recipe has more than
+four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens
+a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There was
+no cookie of any kind in the collection, chocolate chips appeared in exactly one
+recipe, and there were no restaurant copies at all.
+
+Every ingredient was checked against the storehouse order list. ${ADDED.filter((r) => !r.extras).length} of the ${ADDED.length}
+need nothing beyond it; the rest are honest about their pantry extras, which cost
+them the storehouse bonus and so score lower.
+
+Oil listed "for frying" is counted at 12% absorption rather than in full. Counting
+a whole pan of frying oil as eaten made fried chicken read at 1,849 kcal a serving.
 
 Their macros are estimates on the same footing as the rest of the volume, and the
 app labels them as such. They have not been kitchen-tested.

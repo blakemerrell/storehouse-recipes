@@ -93,8 +93,8 @@ Around the Table shipped with **no nutrition data**: all 125 recipes carried a t
 the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
-- Recipes given macros: 137 of 137
-- Score range: 22–95 (median 47)
+- Recipes given macros: 157 of 157
+- Score range: 16–95 (median 45)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
 shows "Estimated from ingredients" next to its macros and its score. Strong & Simple's
@@ -118,16 +118,25 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-12 recipes in **Worth the Afternoon** were written for this edition rather than
-carried over from the original books. The data made the gap plain: across the
-original 225, no recipe has more than four steps, none uses yeast, and none
-kneads, braises, tempers an egg or thickens a sauce. "In-Depth" nearly always
-meant "leave it in the slow cooker" rather than "this needs attention".
+32 recipes across 3 sections were written for this edition rather than carried
+over from the original books:
 
-Every ingredient in them was checked against the storehouse order list.
-11 of the 12 are storehouse-only. The exception needs cocoa powder,
-which is flagged as a pantry extra — the storehouse carries hot cocoa mix, which
-is a different product and would not work in its place.
+- **Worth the Afternoon** — 12 recipes
+- **The Copycat Shelf** — 10 recipes
+- **For the Love of Chocolate** — 10 recipes
+
+The data made the gaps plain. Across the original 225, no recipe has more than
+four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens
+a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There was
+no cookie of any kind in the collection, chocolate chips appeared in exactly one
+recipe, and there were no restaurant copies at all.
+
+Every ingredient was checked against the storehouse order list. 13 of the 32
+need nothing beyond it; the rest are honest about their pantry extras, which cost
+them the storehouse bonus and so score lower.
+
+Oil listed "for frying" is counted at 12% absorption rather than in full. Counting
+a whole pan of frying oil as eaten made fried chicken read at 1,849 kcal a serving.
 
 Their macros are estimates on the same footing as the rest of the volume, and the
 app labels them as such. They have not been kitchen-tested.
