@@ -66,7 +66,13 @@ without looking sparse. Three sections — the long-recipe ones — open with a 
 because a 71-point heading and a 639-point recipe will not share a 666-point page and
 a heading alone at the top of a blank one looks like a mistake.
 
-Every page is checked by `tests/print.test.js`: nothing spills, nothing is stranded.
+Two of the 257 recipes are taller on their own than a page's text area, and there is
+nowhere to move them to. Those two pages are set about three percent smaller so that
+they fit, rather than having the bottom of the page quietly cut off — which is what a
+printed page, being a fixed 7.5 inches with the overflow hidden, does otherwise.
+
+Every page is checked by `tests/print.test.js`: nothing spills, nothing is stranded, and
+nothing runs past the bottom of the paper.
 
 You can also print just one volume, just your favorites, or just this week.
 

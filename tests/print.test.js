@@ -43,6 +43,33 @@ module.exports = {
     t.ok('both volumes render as 142 pages of paper', b.pages === 142, b.pages + ' pages');
     t.ok('and the bar says the same number', b.note.indexOf(b.pages + ' pages') >= 0, b.note);
     t.ok('nothing spills off a page', b.spills.length === 0, b.spills.slice(0, 4).join(' | '));
+
+    /* The one that matters most, and the one that was missing. A printed page is
+       a fixed 7.5 inches with overflow hidden, so anything past that is not a
+       visible spill — it is silently gone. On screen the page is min-height and
+       just grows, which is why it never showed. Measure against the paper. */
+    const paper = await p.evaluate(() => {
+      const bad = [];
+      document.querySelectorAll('.pg:not(.no-print)').forEach((pg, i) => {
+        const cut = pg.getBoundingClientRect().top +
+          parseFloat(getComputedStyle(pg).paddingTop) + 7.5 * 96;
+        let low = 0, who = '';
+        pg.querySelectorAll('.pg-flow *, .pg-fol').forEach((el) => {
+          if (el.children.length) return;
+          const bt = el.getBoundingClientRect().bottom;
+          if (bt > low) { low = bt; who = el.textContent.trim().slice(0, 30); }
+        });
+        if (low > cut + 0.5) bad.push({ page: i + 1, over: Math.round(low - cut), who });
+      });
+      return bad;
+    });
+    t.ok('and nothing runs past the bottom of the paper, where it would be cut off',
+      paper.length === 0, JSON.stringify(paper.slice(0, 5)));
+
+    const squeezed = await p.evaluate(() =>
+      [...document.querySelectorAll('.pg-flow')].filter((f) => f.style.zoom).length);
+    t.ok('the few recipes too tall for a page are set smaller to fit, not clipped',
+      squeezed <= 4, squeezed + ' pages set smaller');
     t.ok('no section heading is stranded on a page it does not fill', b.orphanBand === 0, b.orphanBand);
 
     const openers = await p.evaluate(() => [...document.querySelectorAll('.sec-open')].map((o) => {

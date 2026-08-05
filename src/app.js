@@ -848,6 +848,55 @@
     return out;
   }
 
+  /* The last word on whether a page fits.
+   *
+   * The packer works from measured heights and is right about them, but it can
+   * be handed something it cannot solve: two of the 257 recipes are taller on
+   * their own than a page's text area. There is nowhere to move them to, so the
+   * packer put them on a page and the printed page — which is a fixed 7.5in with
+   * overflow hidden — quietly ate the difference. What went was the page number,
+   * and the bottom margin with it. On screen it never showed, because a screen
+   * page is min-height and simply grows.
+   *
+   * So: after the pages are in the document, measure each one against the paper
+   * and set the overrun ones very slightly smaller until they fit. Two or three
+   * percent, on two pages in a hundred and forty-two. Re-measured each time
+   * rather than calculated, because shrinking type re-wraps it and the height
+   * does not fall in proportion.
+   */
+  function fitToPaper() {
+    var PAPER = 7.5 * 96;
+    var squeezed = [];
+    Array.prototype.forEach.call($('pages').querySelectorAll('.pg'), function (pg, i) {
+      var flow = pg.querySelector('.pg-flow');
+      var fol = pg.querySelector('.pg-fol');
+      if (!flow) return;
+      var z = 1;
+      for (var tries = 0; tries < 5; tries++) {
+        /* Measure the gap rather than adding up the parts: getBoundingClientRect
+           leaves margins out, and the running head's 15px bottom margin is
+           exactly the sort of thing that makes a page overflow by a hair. */
+        var pgTop = pg.getBoundingClientRect().top + parseFloat(getComputedStyle(pg).paddingTop);
+        // the folio's own box already includes its padding; do not count it twice
+        var room = (pgTop + PAPER) - flow.getBoundingClientRect().top -
+          (fol ? fol.getBoundingClientRect().height : 0);
+        /* The rendered box, not scrollHeight: scrollHeight is in the element's
+           own coordinates and does not shrink when zoom does, so each pass
+           thought nothing had happened and shrank it again. */
+        var h = flow.getBoundingClientRect().height;
+        if (h <= room) break;
+        z = Math.max(0.85, z * ((room / h) - 0.004));
+        flow.style.zoom = z;
+      }
+      if (z !== 1) squeezed.push({ page: i + 1, zoom: Math.round(z * 1000) / 1000 });
+    });
+    if (squeezed.length && window.console) {
+      console.log('set slightly smaller to fit the page: ' +
+        squeezed.map(function (s) { return 'p' + s.page + ' at ' + s.zoom; }).join(', '));
+    }
+    return squeezed;
+  }
+
   function renderBook() {
     var t0 = performance.now();
     var pages = buildBook();
@@ -861,6 +910,7 @@
     $('pages').innerHTML = pages.map(function (p) {
       return '<div class="pgslot">' + p.html + '</div>';
     }).join('');
+    fitToPaper();
     fitPages();
     if (window.console && performance.now() - t0 > 1200) {
       console.log('book render took ' + Math.round(performance.now() - t0) + 'ms');
