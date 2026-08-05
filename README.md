@@ -24,10 +24,18 @@ scale the ingredients from ¼× to 8× (fractions come out as fractions, not dec
 dates: Monday is a slot, not a date, and whatever is in it stays until you take it out or
 press *Clear week*. Nothing resets on its own.
 
-**Shopping List** — builds itself from the week, deduplicated, split into what comes
-from the storehouse and what you need to buy. Check-offs stick for as long as the item is
-on the list; take the recipe out of the week and its tick is forgotten, so an item never
-comes back to a later list already ticked.
+Keep as many weeks as you like — *+ Week* starts an empty one, *+ Copy* takes the plan
+you are looking at into a new one, and the strip along the top switches between them
+with the number of recipes in each. Rename them for what they are (*Fast week*,
+*Thanksgiving*, *The one she likes*) and rotate through them instead of building a
+week from nothing every Sunday. Each week carries its own shopping list, and switching
+week moves both phones together, so you are never shopping off different lists.
+
+**Shopping List** — builds itself from the week showing, deduplicated, split into what
+comes from the storehouse and what you need to buy. Check-offs stick for as long as the
+item is on the list; take the recipe out of the week and its tick is forgotten, so an
+item never comes back to a later list already ticked. Ticks belong to their own week,
+so shopping for one does not tick things off in another.
 
 **Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 44
 pages, Around the Table is 99. Each volume opens with a cover, four pages of front matter
@@ -56,7 +64,7 @@ carried over, 32 recipes in all:
 
 ## Sharing between the two of you
 
-Out of the box, favorites, the week's plan and the shopping list save in whatever
+Out of the box, favorites, the weeks and their shopping lists save in whatever
 browser you are using. Your phone and your wife's phone each keep their own.
 
 To share one plan between both of you, follow **[SETUP.md](SETUP.md)** — it takes about

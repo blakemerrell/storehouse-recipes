@@ -87,8 +87,8 @@ Save the file. If the app is online, push the change so both phones get it.
 3. On the other phone, open the same link, tap the badge, type that same code into
    *Or type a code you already have*, and tap **Join**.
 
-That is it. Favorites, the week's plan and the shopping-list check-offs are now the
-same on both.
+That is it. Favorites, every week you have planned, which one is showing, and the
+shopping-list check-offs are now the same on both.
 
 Whatever was already saved on the first phone seeds the shared record, so you do not
 lose a week you had already planned. The second phone adopts the shared version.

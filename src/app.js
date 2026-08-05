@@ -208,7 +208,41 @@
     return out;
   }
 
+  /* The strip of weeks above the grid. Everything to do with which week is
+     showing lives here; the grid below never knows there is more than one. */
+  function renderWeeks() {
+    var weeks = window.Store.weeks();
+    var active = window.Store.activeWeek();
+
+    $('weekTitle').textContent = active.name;
+    $('weekBar').innerHTML = weeks.map(function (w) {
+      var n = planCount(w.id);
+      return '<button class="wk" data-week="' + esc(w.id) + '" aria-pressed="' + w.active + '">' +
+        esc(w.name) + '<span class="wk-n">' + (n || '&mdash;') + '</span></button>';
+    }).join('') +
+      '<button class="wk wk-add" data-neww="new" title="Start an empty week">+ Week</button>' +
+      '<button class="wk wk-add" data-neww="copy" title="Copy the week showing into a new one">+ Copy</button>';
+
+    // there is nothing to delete down to — one week always stays
+    $('deleteWeek').classList.toggle('hide', weeks.length < 2);
+
+    var opt = $('printSet').querySelector('option[value="plan"]');
+    if (opt) opt.textContent = active.name + ' — ' + planIds().length +
+      (planIds().length === 1 ? ' recipe' : ' recipes');
+  }
+
+  function planCount(id) {
+    var st = window.Store.state;
+    var plan = id === st.active ? st.plan : ((st.weeks[id] || {}).plan || {});
+    var seen = [];
+    DAYS.forEach(function (d) {
+      (plan[d[0]] || []).forEach(function (r) { if (seen.indexOf(r) < 0) seen.push(r); });
+    });
+    return seen.length;
+  }
+
   function renderPlan() {
+    renderWeeks();
     $('planGrid').innerHTML = DAYS.map(function (d) {
       var ids = (window.Store.state.plan[d[0]] || []).filter(function (id) { return BY_ID[id]; });
       var items = ids.map(function (id) {
@@ -266,6 +300,8 @@
     var built = buildList();
 
     var total = built.groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    // which week this list came out of — there can be several
+    $('listWeek').textContent = window.Store.activeWeek().name;
     $('listCount').textContent = total
       ? total + ' items · ' + built.recipeCount + (built.recipeCount === 1 ? ' recipe' : ' recipes')
       : '';
@@ -815,14 +851,14 @@
 
     var body;
     if (!configured) {
-      body = '<p class="sync-p">Right now your favorites, the week&rsquo;s plan and the shopping list save ' +
+      body = '<p class="sync-p">Right now your favorites, your weeks and their shopping lists save ' +
         'on <strong>this device only</strong>. Nothing is shared, and nothing leaves the browser.</p>' +
         '<p class="sync-p">To share one plan between the two of you, follow <strong>SETUP.md</strong> in ' +
         'the project: create a free Firebase project, paste six values into <code>src/config.js</code>, ' +
         'and this panel will let you make a household code.</p>';
     } else if (!house) {
-      body = '<p class="sync-p">Enter the same household code on both phones and you share one meal plan, ' +
-        'one list of favorites, and one shopping list. Tick something off in the store and it greys out ' +
+      body = '<p class="sync-p">Enter the same household code on both phones and you share the same weeks, ' +
+        'the same favorites, and the same shopping list. Tick something off in the store and it greys out ' +
         'on the other phone.</p>' +
         '<div class="sync-code" id="newCode">' + esc(S.pendingCode) + '</div>' +
         '<div class="sync-row">' +
@@ -893,6 +929,7 @@
     if (window.Store.pruneChecked(live)) return;   // the store will call back
 
     $('favCount').textContent = window.Store.state.favs.length ? '(' + window.Store.state.favs.length + ')' : '';
+    renderWeeks();          // the week strip and the print menu, whichever tab is up
     renderSyncBadge();
     renderView();
     renderModal();
@@ -947,8 +984,31 @@
       window.Store.removeFromDay(Number(b.dataset.drop), b.dataset.day);
     });
 
+    $('weekBar').addEventListener('click', function (e) {
+      var w = e.target.closest('[data-week]');
+      if (w) { window.Store.setWeek(w.dataset.week); return; }
+      var n = e.target.closest('[data-neww]');
+      if (!n) return;
+      var copy = n.dataset.neww === 'copy';
+      var name = copy
+        ? window.Store.activeWeek().name + ' again'
+        : 'Week ' + (window.Store.weeks().length + 1);
+      window.Store.addWeek(name, copy);
+    });
+
+    $('renameWeek').addEventListener('click', function () {
+      var now = window.Store.activeWeek().name;
+      var name = prompt('Call this week what?', now);
+      if (name !== null && name.trim() && name.trim() !== now) window.Store.renameWeek(name);
+    });
+
+    $('deleteWeek').addEventListener('click', function () {
+      if (!confirm('Delete “' + window.Store.activeWeek().name + '” and its shopping list?')) return;
+      window.Store.deleteWeek();
+    });
+
     $('clearPlan').addEventListener('click', function () {
-      if (planIds().length && !confirm('Clear every recipe from the week?')) return;
+      if (planIds().length && !confirm('Clear every recipe from this week?')) return;
       window.Store.clearPlan();
     });
 
