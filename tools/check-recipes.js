@@ -71,7 +71,8 @@ function totals(r) {
     if (k === 'egg') t.eggs += g.grams / 50;
     if (k === 'yeast') t.yeast += g.grams;
   });
-  // salt is a "free" food with no weight, so read it off the text
+  // read salt off the text: the parser's default for an unquantified line is a
+  // pinch, which is right for seasoning and wrong for a dough ratio
   t.salt = tspOf(r, 'salt') * 6;   // 1 tsp table salt ≈ 6 g
   t.flourCups = t.flour / 125;
   return t;

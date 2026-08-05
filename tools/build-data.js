@@ -16,7 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { FOODS } = require('./food-db.js');
+const { FOODS, SPICE_NAMES } = require('./food-db.js');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -78,17 +78,35 @@ function scoreOriginal(macro, extras) {
   };
 }
 
+/*
+ * This edition's score. Five things, out of 100.
+ *
+ * The first three are the original book's, rescaled. The last two are new, and
+ * are the reason this was worth redoing: the old score awarded nothing for
+ * fiber and counted salt as free, in a collection built on canned chicken,
+ * canned soup and boxed mixes. A can of tuna with mayonnaise scored 98 while a
+ * pot of beans and vegetables scored in the sixties. Sodium and fiber are
+ * estimated from the ingredients for every recipe in both volumes, including
+ * the ones whose calories and protein were authored.
+ */
 function scoreFrom(macro) {
   const pPct = (macro.p * 4) / macro.kcal * 100;
   const fPct = (macro.f * 9) / macro.kcal * 100;
-  const p = Math.min(60, (pPct / 45) * 60);          // protein share, full at 45% of calories
-  const k = Math.max(0, Math.min(25, 25 - Math.max(0, macro.kcal - 300) / 16)); // calorie load
-  const f = Math.max(0, Math.min(15, (15 * (45 - fPct)) / 35));                  // fat share
+  const na = macro.na || 0;
+  const fib = macro.fib || 0;
+  const clamp = (x, hi) => Math.max(0, Math.min(hi, x));
+
+  const p = clamp((pPct / 45) * 30, 30);              // protein share of energy
+  const k = clamp(20 - Math.max(0, macro.kcal - 300) / 25, 20);  // calorie load
+  const f = clamp((10 * (45 - fPct)) / 35, 10);       // fat share of energy
+  const s = clamp(25 * (1200 - na) / 900, 25);        // sodium: full to 300 mg, nothing by 1200
+  const b = clamp(15 * (fib / 7), 15);                // fiber: full marks at 7 g
+
   return {
-    score: Math.round(p + k + f),
+    score: Math.round(p + k + f + s + b),
     sc: {
-      p: Math.round(p), k: Math.round(k), f: Math.round(f),
-      pPct: Math.round(pPct), fPct: Math.round(fPct),
+      p: Math.round(p), k: Math.round(k), f: Math.round(f), s: Math.round(s), b: Math.round(b),
+      pPct: Math.round(pPct), fPct: Math.round(fPct), na: Math.round(na), fib: Math.round(fib * 10) / 10,
     },
   };
 }
@@ -99,11 +117,21 @@ function scoreFrom(macro) {
 const { parseLine } = require('./parse-lib.js');
 
 
+/* Which ingredient lines need something the standard storehouse order does not
+   carry. The recipe states them as a list of names; match them back to the
+   lines so the shopping list can put them under their own heading. */
+function extraLines(recipe) {
+  const names = (recipe.extras || '').toLowerCase().split(/,\s*/).map((x) => x.trim()).filter(Boolean);
+  return recipe.ing.map((line) => names.some((n) => line.toLowerCase().indexOf(n) >= 0));
+}
+
 function macrosFor(recipe) {
-  let kcal = 0, p = 0, c = 0, f = 0;
+  let kcal = 0, p = 0, c = 0, f = 0, na = 0, fib = 0;
   const unmatched = [];
   const assumed = [];
-  recipe.ing.forEach((line) => {
+  const items = [];
+  const isExtra = extraLines(recipe);
+  recipe.ing.forEach((line, i) => {
     const r = parseLine(line);
     if (!r) return;
     if (r.unmatched) { unmatched.push(r.unmatched); return; }
@@ -111,11 +139,20 @@ function macrosFor(recipe) {
     const food = FOODS[r.key];
     const k = r.grams / 100;
     kcal += food.kcal * k; p += food.p * k; c += food.c * k; f += food.f * k;
+    na += (food.na || 0) * k; fib += (food.fib || 0) * k;
+    // what the shopping list needs: what it is, how much, and where to buy it
+    const it = { k: r.key, g: Math.round(r.grams * 10) / 10, u: r.unit || '' };
+    if (food.split) it.a = SPICE_NAMES[r.alias] || r.alias;
+    if (isExtra[i]) it.x = 1;
+    items.push(it);
   });
   const n = recipe.servN && recipe.servN > 0 ? recipe.servN : 1;
   return {
-    perServing: { kcal: Math.round(kcal / n), p: Math.round(p / n), c: Math.round(c / n), f: Math.round(f / n) },
-    unmatched, assumed,
+    perServing: {
+      kcal: Math.round(kcal / n), p: Math.round(p / n), c: Math.round(c / n), f: Math.round(f / n),
+      na: Math.round(na / n), fib: Math.round((fib / n) * 10) / 10,
+    },
+    items, unmatched, assumed,
   };
 }
 
@@ -130,6 +167,7 @@ const out = SRC.map((r) => {
   est.unmatched.forEach((u) => allUnmatched.set(u, (allUnmatched.get(u) || 0) + 1));
 
   const rec = Object.assign({}, r);
+  rec.ingp = est.items;
 
   if (r.book === 1) {
     // verify the design's own scoring
@@ -138,7 +176,12 @@ const out = SRC.map((r) => {
       scoreMismatch.push({ id: r.id, stated: { score: r.score, sc: r.sc }, recomputed: chk });
     }
     rec.est = false;
-    const ns = scoreFrom(r.macro);
+    /* Calories, protein, carbohydrate and fat are as authored. Sodium and fiber
+       were never in the book, so they come from the ingredients here — which
+       makes the sodium and fiber halves of every score an estimate, in both
+       volumes. The app says so. */
+    rec.macro = Object.assign({}, r.macro, { na: est.perServing.na, fib: est.perServing.fib });
+    const ns = scoreFrom(rec.macro);
     rec.score = ns.score;
     rec.sc = ns.sc;
     rec.estMacro = est.perServing;
@@ -167,13 +210,61 @@ const out = SRC.map((r) => {
 // ---------------------------------------------------------------------------
 // Emit data file
 // ---------------------------------------------------------------------------
+/*
+ * The shopping list works in grams, because that is the only way three recipes
+ * calling for a cup, a cup and two tablespoons can add up to anything. To write
+ * the total back out it needs a unit per food, and rather than pick one by hand
+ * for a hundred and sixteen foods, take whichever unit the recipes themselves
+ * reach for most often: cups of cottage cheese, cans of tuna, pounds of beef.
+ */
+const unitTally = {};
+out.forEach((r) => (r.ingp || []).forEach((it) => {
+  if (!it.u) return;
+  unitTally[it.k] = unitTally[it.k] || {};
+  unitTally[it.k][it.u] = (unitTally[it.k][it.u] || 0) + 1;
+}));
+
+const FIXED = { g: 1, oz: 28.35, lb: 453.6 };
+const LADDER = ['cup', 'tbsp', 'tsp'];
+const round2 = (n) => Math.round(n * 100) / 100;
+const shop = {};
+Object.keys(FOODS).forEach((key) => {
+  const food = FOODS[key];
+  const tally = unitTally[key] || {};
+  const unit = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0] || 'each';
+  const per = FIXED[unit] !== undefined ? FIXED[unit] : food.g[unit];
+  const e = { l: food.label || (key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')) };
+
+  /* Seasonings get a name and no number. "Salt — 2 tsp" and "Pickle juice —
+     50 tsp" are not things anyone writes on a shopping list; you either have
+     salt or you do not. Everything with calories in it gets counted. */
+  if (per && food.kcal > 0) {
+    e.u = unit;
+    e.p = round2(per);
+    // spoons pile up: sixteen tablespoons of ranch dressing is one cup of it
+    if (LADDER.indexOf(unit) > 0) {
+      e.d = LADDER.filter((u) => food.g[u]).map((u) => [u, round2(food.g[u])]);
+    }
+  }
+  if (food.split) e.s = 1;
+  shop[key] = e;
+});
+
 const header = `/* Generated by tools/build-data.js — do not edit by hand.
- * Strong & Simple macros are as authored in the original book.
- * Around the Table macros are estimated from the ingredient lists (est: true); see AUDIT.md.
+ * Strong & Simple calories, protein, carbohydrate and fat are as authored in the
+ * original book. Sodium and fiber are estimated from the ingredient lists for
+ * every recipe in both volumes, and all of Around the Table's macros are (est: true).
+ * See AUDIT.md.
+ *
+ * ingp is the parsed ingredient list the shopping list adds up:
+ *   k food key   g grams   u the unit the line was written in
+ *   a the seasoning's own name, where several share one food key
+ *   x needs something the standard storehouse order does not carry
  */
 `;
 fs.writeFileSync(path.join(ROOT, 'data', 'recipes.js'),
-  header + 'window.RECIPES = ' + JSON.stringify(out) + ';\n');
+  header + 'window.RECIPES = ' + JSON.stringify(out) + ';\n'
+  + 'window.SHOP = ' + JSON.stringify(shop) + ';\n');
 
 // ---------------------------------------------------------------------------
 // Audit report
@@ -191,6 +282,16 @@ const batchLooking = b1.filter((x) => {
   const farFromServing = x.est.kcal > 0 && x.stated.kcal / x.est.kcal >= 1.7;
   return nearTotal && farFromServing;
 }).sort((a, b) => a.id - b.id);
+
+const allScores = out.map((r) => r.score).filter((s) => s !== null).sort((a, b) => a - b);
+const srcById = {};
+SRC.forEach((r) => { srcById[r.id] = r; });
+const movers = out.filter((r) => r.book === 1)
+  .map((r) => ({
+    id: r.id, name: r.name, was: srcById[r.id].score, now: r.score,
+    na: r.macro.na, fib: r.macro.fib, d: Math.abs(srcById[r.id].score - r.score),
+  }))
+  .sort((a, b) => b.d - a.d).slice(0, 10);
 
 const b2 = out.filter((r) => r.book === 2);
 const b2scores = b2.map((r) => r.score).filter((s) => s !== null).sort((a, b) => a - b);
@@ -221,27 +322,61 @@ Mismatches found: ${scoreMismatch.length}. That is the evidence the formula abov
 
 ### What this edition uses
 
+Two changes, both because the original score was measuring the wrong things.
+
 The storehouse bonus is gone. Ten points in a hundred were awarded for shopping
 convenience, which says nothing about whether a recipe is good for you — identical
 brownies scored ten apart depending on where the cocoa came from. Whether a recipe
 needs anything beyond the standard order is still on every recipe, on the line at
 its foot.
 
-The remaining three are rescaled to a round 100, protein still dominant, and the
-calorie curve unchanged — full marks to 300 kcal a serving, nothing left by 700:
+**Sodium and fiber are in.** The original score had neither, in a collection built
+on canned chicken, canned soup, deli ham and boxed mixes — and it treated salt as
+a free ingredient worth nothing at all. The result was that a can of tuna with
+mayonnaise scored 98 and a pot of beans and vegetables scored in the sixties. Any
+sort by "healthiest" ran backwards.
 
 | Component | Max | Rule |
 |---|---|---|
-| Protein share | 60 | \`min(60, protein% of calories ÷ 45 × 60)\` |
-| Calorie load | 25 | \`25 − (kcal − 300) ÷ 16\`, clamped to 0–25 |
-| Fat share | 15 | \`15 × (45 − fat% of calories) ÷ 35\`, clamped to 0–15 |
+| Protein share | 30 | \`min(30, protein% of calories ÷ 45 × 30)\` |
+| Calorie load | 20 | \`20 − (kcal − 300) ÷ 25\`, clamped to 0–20 — full marks to 300 kcal |
+| Fat share | 10 | \`10 × (45 − fat% of calories) ÷ 35\`, clamped to 0–10 |
+| Sodium | 25 | \`25 × (1200 − mg) ÷ 900\`, clamped to 0–25 — full marks to 300 mg, nothing by 1,200 |
+| Fiber | 15 | \`15 × g ÷ 7\`, clamped to 0–15 — full marks at 7 g |
 
-**Printed scores therefore differ from the original book's, by design.** Score is the
-rounded sum of the unrounded parts, which is why 57 + 25 + 15 can print as 97.
+**Printed scores therefore differ from the original book's, substantially and by
+design.** Score is the rounded sum of the unrounded parts, which is why the pieces
+do not always visibly add up.
+
+Sodium and fiber are estimated from the ingredient lists for **every** recipe in
+both volumes, including the hundred whose calories and protein were authored — the
+book never carried either figure. So half the weight of every score rests on the
+food table, and the app says so on each recipe.
 
 Every Strong & Simple macro set is also internally consistent under Atwater factors
 (4 kcal/g protein and carbohydrate, 9 kcal/g fat) — no stated calorie count is
 more than 12% away from the sum of its own macros.
+
+### What that did to the numbers
+
+Score range across all ${allScores.length} scored recipes: **${allScores[0]}–${allScores[allScores.length - 1]}**, median **${allScores[Math.floor(allScores.length / 2)]}**.
+Under the old formula almost everything clustered in the eighties and nineties,
+which is another way of saying it was not discriminating.
+
+The Strong & Simple recipes that fell furthest from their authored score:
+
+| # | Recipe | Was | Now | Sodium | Fiber |
+|---|---|---|---|---|---|
+${movers.filter((x) => x.now < x.was).slice(0, 8).map((x) => `| ${x.id} | ${x.name} | ${x.was} | ${x.now} | ${x.na} mg | ${x.fib} g |`).join('\n')}
+
+Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
+
+| # | Recipe | Was | Now | Sodium | Fiber |
+|---|---|---|---|---|---|
+${movers.filter((x) => x.now > x.was).slice(0, 6).map((x) => `| ${x.id} | ${x.name} | ${x.was} | ${x.now} | ${x.na} mg | ${x.fib} g |`).join('\n')}
+
+Fruit and oats, which the old score had nothing good to say about because it only
+ever asked how much protein was in them.
 
 ## 2. Strong & Simple — stated macros vs. ingredients
 

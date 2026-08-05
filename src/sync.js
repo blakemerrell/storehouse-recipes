@@ -182,6 +182,17 @@ window.Store = (function () {
     }
   }
 
+  /* Store a day back. Anything cooked at its own serving count goes in as a
+     plain id, so a week only carries the {i, x} form where it means something. */
+  function writeDay(day, entries) {
+    var list = entries.map(function (e) { return e.x === 1 ? e.id : { i: e.id, x: e.x }; });
+    push(function () {
+      var u = {}; u[wpath('plan.' + day)] = list; return doc.update(u);
+    }, function () {
+      editActive(function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
+    });
+  }
+
   // a shallow copy of the active week, safe to mutate and assign back
   function editActive(fn) {
     var weeks = Object.assign({}, state.weeks);
@@ -286,24 +297,28 @@ window.Store = (function () {
       });
     },
 
-    addToDay: function (id, day) {
-      var list = (state.plan[day] || []).slice();
-      if (list.indexOf(id) >= 0) return;
-      list.push(id);
-      push(function () {
-        var u = {}; u[wpath('plan.' + day)] = list; return doc.update(u);
-      }, function () {
-        editActive(function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
-      });
+    /* A day holds recipe ids. One cooked at anything other than its own serving
+       count is stored as {i, x} instead, so a plain id still means "as written"
+       and a week saved by an older version still reads. */
+    day: function (day) {
+      return (state.plan[day] || []).map(function (e) {
+        return typeof e === 'object' && e ? { id: e.i, x: e.x || 1 } : { id: e, x: 1 };
+      }).filter(function (e) { return typeof e.id === 'number'; });
+    },
+
+    scaleOf: function (id, day) {
+      var hit = this.day(day).filter(function (e) { return e.id === id; })[0];
+      return hit ? hit.x : 1;
+    },
+
+    addToDay: function (id, day, x) {
+      var list = this.day(day).filter(function (e) { return e.id !== id; });
+      list.push({ id: id, x: x || 1 });
+      writeDay(day, list);
     },
 
     removeFromDay: function (id, day) {
-      var list = (state.plan[day] || []).filter(function (x) { return x !== id; });
-      push(function () {
-        var u = {}; u[wpath('plan.' + day)] = list; return doc.update(u);
-      }, function () {
-        editActive(function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
-      });
+      writeDay(day, this.day(day).filter(function (e) { return e.id !== id; }));
     },
 
     clearPlan: function () {

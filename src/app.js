@@ -6,6 +6,7 @@
   'use strict';
 
   var RECIPES = window.RECIPES || [];
+  var SHOP = window.SHOP || {};       // food key -> shopping-list name and unit
   var BY_ID = {};
   RECIPES.forEach(function (r) { BY_ID[r.id] = r; });
 
@@ -97,15 +98,27 @@
     return fmtNum(scaled) + ' ' + fixUnit(str.slice(m[0].length), scaled);
   }
 
-  function ingKey(s) {
-    return s.replace(/^[\d.½¼¾⅓⅔⅛⅜⅝⅞\s]*/, '')
-      .replace(/^\(?[^)]*\)\s*/, '')
-      .replace(/^(cups?|cup|tbsp|tsp|oz|lbs?|cans?|can|packages?|slices?|cloves?|quarts?|pints?|sticks?|heads?|bunch(es)?|large|small|medium)\s+/i, '')
-      .trim().toLowerCase();
-  }
-  function ingQty(s) {
-    var m = s.match(/^([\d.½¼¾⅓⅔⅛⅜⅝⅞\s]*(?:cups?|tbsp|tsp|oz|lbs?|cans?|packages?|slices?|cloves?|quarts?|pints?|sticks?)?)/i);
-    return m ? m[1].trim() : '';
+  /* Units the shopping list writes out. Anything countable is rounded up and
+     shown as a bare number — you cannot buy four fifths of a tin. */
+  var UNIT_WORD = { each: '', cup: 'cup', tbsp: 'tbsp', tsp: 'tsp', lb: 'lb', oz: 'oz', g: 'g',
+    can: 'can', pkg: 'pkg', box: 'box', jar: 'jar', scoop: 'scoop' };
+  var WHOLE = { each: 1, can: 1, pkg: 1, box: 1, jar: 1 };
+
+  function shopQty(grams, unit, per, ladder) {
+    if (!unit || !per) return '';
+    // move up the ladder once there is enough of it: 16 tbsp is a cup
+    if (ladder) {
+      for (var i = 0; i < ladder.length; i++) {
+        if (grams / ladder[i][1] >= 0.95) { unit = ladder[i][0]; per = ladder[i][1]; break; }
+      }
+    }
+    var n = grams / per;
+    if (WHOLE[unit]) n = Math.max(1, Math.ceil(n - 0.15));
+    else if (n < 0.06) return '';                     // a trace of something
+    var num = fmtNum(n);
+    var word = UNIT_WORD[unit];
+    if (!word) return num;
+    return num + ' ' + fixUnit(word, n);
   }
 
   function macroLine(r) {
@@ -198,14 +211,22 @@
   }
 
   // ---------------------------------------------------------------- planning
-  function planIds() {
-    var out = [];
+  /* Everything in the week, once each. The same recipe on two days at different
+     sizes is one shopping trip for the sum of the two. */
+  function planEntries() {
+    var out = [], at = {};
     DAYS.forEach(function (d) {
-      (window.Store.state.plan[d[0]] || []).forEach(function (id) {
-        if (out.indexOf(id) < 0) out.push(id);
+      window.Store.day(d[0]).forEach(function (e) {
+        if (!BY_ID[e.id]) return;
+        if (at[e.id] === undefined) { at[e.id] = out.length; out.push({ r: BY_ID[e.id], x: e.x }); }
+        else out[at[e.id]].x += e.x;
       });
     });
     return out;
+  }
+
+  function planIds() {
+    return planEntries().map(function (e) { return e.r.id; });
   }
 
   /* The strip of weeks above the grid. Everything to do with which week is
@@ -236,63 +257,76 @@
     var plan = id === st.active ? st.plan : ((st.weeks[id] || {}).plan || {});
     var seen = [];
     DAYS.forEach(function (d) {
-      (plan[d[0]] || []).forEach(function (r) { if (seen.indexOf(r) < 0) seen.push(r); });
+      (plan[d[0]] || []).forEach(function (e) {
+        var rid = e && typeof e === 'object' ? e.i : e;
+        if (seen.indexOf(rid) < 0) seen.push(rid);
+      });
     });
     return seen.length;
   }
 
+  // taps cycle through these, so a Sunday roast for twice the family is two taps
+  var SCALES = [1, 2, 3, 4, 0.5];
+
   function renderPlan() {
     renderWeeks();
     $('planGrid').innerHTML = DAYS.map(function (d) {
-      var ids = (window.Store.state.plan[d[0]] || []).filter(function (id) { return BY_ID[id]; });
-      var items = ids.map(function (id) {
+      var list = window.Store.day(d[0]).filter(function (e) { return BY_ID[e.id]; });
+      var items = list.map(function (e) {
+        var r = BY_ID[e.id];
         return '<div class="day-item">' +
-          '<span class="day-item-name">' + esc(BY_ID[id].name) + '</span>' +
-          '<button class="day-x no-print" data-drop="' + id + '" data-day="' + d[0] + '" ' +
-            'aria-label="Remove ' + esc(BY_ID[id].name) + '">&times;</button>' +
+          '<span class="day-item-name">' + esc(r.name) + '</span>' +
+          '<button class="day-x no-print" data-drop="' + e.id + '" data-day="' + d[0] + '" ' +
+            'aria-label="Remove ' + esc(r.name) + '">&times;</button>' +
+          '<button class="day-x2 no-print" data-mult="' + e.id + '" data-day="' + d[0] + '" ' +
+            'title="How many times the recipe — the shopping list follows">' +
+            '&times;' + fmtNum(e.x) + '</button>' +
         '</div>';
       }).join('');
       return '<div class="day">' +
         '<div class="day-name">' + d[1] + '</div>' +
         '<div class="day-body">' + items +
-          (ids.length ? '' : '<div class="day-empty">&mdash;</div>') +
+          (list.length ? '' : '<div class="day-empty">&mdash;</div>') +
         '</div></div>';
     }).join('');
   }
 
   // ----------------------------------------------------------- shopping list
+  /* The list works in grams and converts back at the end. It is the only way
+     "1 cup", "1 cup" and "2 tbsp" of the same thing can come to 2¼ cups, and it
+     is what lets one line cover a diced apple and a sliced one. Which food a
+     line is, and how much of it, were worked out at build time — see
+     tools/build-data.js — so the browser only has to add up. */
   function buildList() {
-    var ids = planIds();
+    var entries = planEntries();
     var bucket = {};
-    ids.forEach(function (id) {
-      var r = BY_ID[id];
-      if (!r) return;
-      var extras = (r.extras || '').toLowerCase();
-      r.ing.forEach(function (line) {
-        var k = ingKey(line);
-        if (!k) return;
-        var isExtra = extras && extras.split(/,\s*/).some(function (x) {
-          return x && k.indexOf(x.trim()) >= 0;
-        });
-        var group = isExtra ? 'extra' : 'base';
-        var key = group + '|' + k;
+    entries.forEach(function (e) {
+      (e.r.ingp || []).forEach(function (it) {
+        var s = SHOP[it.k];
+        if (!s || it.k === 'water') return;
+        // seasonings share one food key, so they go by their own name instead
+        var key = (it.x ? 'extra' : 'base') + '|' + (s.s ? it.a : it.k);
         if (!bucket[key]) {
-          bucket[key] = { key: key, group: group, label: k.charAt(0).toUpperCase() + k.slice(1), qtys: [] };
+          bucket[key] = {
+            key: key, group: it.x ? 'extra' : 'base', g: 0,
+            unit: s.u, per: s.p, lad: s.d,
+            label: s.s ? it.a.charAt(0).toUpperCase() + it.a.slice(1) : s.l
+          };
         }
-        var q = ingQty(line);
-        if (q) bucket[key].qtys.push(q);
+        bucket[key].g += it.g * e.x;
       });
     });
     var group = function (title, g) {
       var items = Object.keys(bucket).map(function (k) { return bucket[k]; })
         .filter(function (b) { return b.group === g; })
         .sort(function (a, b) { return a.label.localeCompare(b.label); });
+      items.forEach(function (b) { b.qty = shopQty(b.g, b.unit, b.per, b.lad); });
       return { title: title, items: items };
     };
     return {
       groups: [group('From the storehouse', 'base'), group('Pantry extras to pick up', 'extra')]
         .filter(function (g) { return g.items.length; }),
-      recipeCount: ids.length
+      recipeCount: entries.length
     };
   }
 
@@ -314,7 +348,7 @@
           return '<label class="list-row' + (on ? ' done' : '') + '">' +
             '<input type="checkbox" data-check="' + esc(it.key) + '"' + (on ? ' checked' : '') + '>' +
             '<span>' + esc(it.label) + '</span>' +
-            '<span class="qty">' + esc(it.qtys.join(' + ')) + '</span>' +
+            '<span class="qty">' + esc(it.qty) + '</span>' +
           '</label>';
         }).join('') + '</div></div>';
     }).join('');
@@ -504,10 +538,13 @@
       '</div>');
 
     block('<div class="fm-sub">The line under the title</div>' +
-      '<div class="fm-p">Servings, time, effort, and a nutrition score out of 100. Three things make it ' +
-      'up: how much of the energy comes from protein (60 points, full marks at 45%), how many calories a ' +
-      'serving carries (25, full marks up to 300), and how much of the energy comes from fat (15, full ' +
-      'marks at or below a tenth).</div>' +
+      '<div class="fm-p">Servings, time, effort, and a nutrition score out of 100. Five things make it up: ' +
+      'how much of the energy comes from protein (30 points, full marks at 45%), how many calories a ' +
+      'serving carries (20, full marks up to 300), how much of the energy comes from fat (10, full marks ' +
+      'at or below a tenth), how much sodium a serving carries (25, full marks to 300 mg and nothing left ' +
+      'by 1,200), and how much fiber (15, full marks at 7 g).</div>' +
+      '<div class="fm-p">Sodium and fiber are worked out from the ingredients rather than measured, in ' +
+      'both volumes. Canned goods carry the salt; that is most of what the sodium figure is telling you.</div>' +
       '<div class="fm-p">It measures one thing only. A high score does not mean a dish is good, and a low ' +
       'one does not mean it is bad — a plate of fudge scores badly and is still fudge. Whether a recipe ' +
       'needs anything beyond the standard order is a separate question, answered on the line at its foot.</div>');
@@ -753,9 +790,11 @@
   // --------------------------------------------------------------- detail
   function scoreWhy(r) {
     if (!r.sc) return '';
-    return r.sc.pPct + '% of calories from protein (' + r.sc.p + '/60) · ' +
-      r.macro.kcal + ' kcal per serving (' + r.sc.k + '/25) · ' +
-      r.sc.fPct + '% from fat (' + r.sc.f + '/15)';
+    return r.sc.pPct + '% of calories from protein (' + r.sc.p + '/30) · ' +
+      r.macro.kcal + ' kcal per serving (' + r.sc.k + '/20) · ' +
+      r.sc.fPct + '% from fat (' + r.sc.f + '/10) · ' +
+      r.sc.na + ' mg sodium (' + r.sc.s + '/25) · ' +
+      r.sc.fib + ' g fiber (' + r.sc.b + '/15)';
   }
 
   function renderModal() {
@@ -828,9 +867,10 @@
             (fav ? '★ Saved' : '☆ Save') + '</button>' +
           '<span class="addto">Add to</span>' +
           DAYS.map(function (d) {
-            var on = (window.Store.state.plan[d[0]] || []).indexOf(r.id) >= 0;
+            var on = window.Store.day(d[0]).some(function (e) { return e.id === r.id; });
             return '<button class="daybtn" data-add="' + r.id + '" data-day="' + d[0] + '" aria-pressed="' + on + '">' + d[2] + '</button>';
           }).join('') +
+          (f !== 1 ? '<span class="addto addto-x">at &times;' + fmtNum(f) + '</span>' : '') +
         '</div></div>' +
       '</div></div>';
 
@@ -980,8 +1020,12 @@
 
     $('planGrid').addEventListener('click', function (e) {
       var b = e.target.closest('[data-drop]');
-      if (!b) return;
-      window.Store.removeFromDay(Number(b.dataset.drop), b.dataset.day);
+      if (b) { window.Store.removeFromDay(Number(b.dataset.drop), b.dataset.day); return; }
+      var m = e.target.closest('[data-mult]');
+      if (!m) return;
+      var id = Number(m.dataset.mult), day = m.dataset.day;
+      var at = SCALES.indexOf(window.Store.scaleOf(id, day));
+      window.Store.addToDay(id, day, SCALES[(at + 1) % SCALES.length]);
     });
 
     $('weekBar').addEventListener('click', function (e) {
@@ -1047,8 +1091,9 @@
       var add = e.target.closest('[data-add]');
       if (add) {
         var id = Number(add.dataset.add), day = add.dataset.day;
-        if ((window.Store.state.plan[day] || []).indexOf(id) >= 0) window.Store.removeFromDay(id, day);
-        else window.Store.addToDay(id, day);
+        // whatever size you are looking at is the size that goes into the week
+        if (window.Store.day(day).some(function (x) { return x.id === id; })) window.Store.removeFromDay(id, day);
+        else window.Store.addToDay(id, day, S.scale);
         return;
       }
 

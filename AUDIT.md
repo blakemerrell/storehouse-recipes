@@ -24,27 +24,69 @@ Mismatches found: 0. That is the evidence the formula above is the real one.
 
 ### What this edition uses
 
+Two changes, both because the original score was measuring the wrong things.
+
 The storehouse bonus is gone. Ten points in a hundred were awarded for shopping
 convenience, which says nothing about whether a recipe is good for you — identical
 brownies scored ten apart depending on where the cocoa came from. Whether a recipe
 needs anything beyond the standard order is still on every recipe, on the line at
 its foot.
 
-The remaining three are rescaled to a round 100, protein still dominant, and the
-calorie curve unchanged — full marks to 300 kcal a serving, nothing left by 700:
+**Sodium and fiber are in.** The original score had neither, in a collection built
+on canned chicken, canned soup, deli ham and boxed mixes — and it treated salt as
+a free ingredient worth nothing at all. The result was that a can of tuna with
+mayonnaise scored 98 and a pot of beans and vegetables scored in the sixties. Any
+sort by "healthiest" ran backwards.
 
 | Component | Max | Rule |
 |---|---|---|
-| Protein share | 60 | `min(60, protein% of calories ÷ 45 × 60)` |
-| Calorie load | 25 | `25 − (kcal − 300) ÷ 16`, clamped to 0–25 |
-| Fat share | 15 | `15 × (45 − fat% of calories) ÷ 35`, clamped to 0–15 |
+| Protein share | 30 | `min(30, protein% of calories ÷ 45 × 30)` |
+| Calorie load | 20 | `20 − (kcal − 300) ÷ 25`, clamped to 0–20 — full marks to 300 kcal |
+| Fat share | 10 | `10 × (45 − fat% of calories) ÷ 35`, clamped to 0–10 |
+| Sodium | 25 | `25 × (1200 − mg) ÷ 900`, clamped to 0–25 — full marks to 300 mg, nothing by 1,200 |
+| Fiber | 15 | `15 × g ÷ 7`, clamped to 0–15 — full marks at 7 g |
 
-**Printed scores therefore differ from the original book's, by design.** Score is the
-rounded sum of the unrounded parts, which is why 57 + 25 + 15 can print as 97.
+**Printed scores therefore differ from the original book's, substantially and by
+design.** Score is the rounded sum of the unrounded parts, which is why the pieces
+do not always visibly add up.
+
+Sodium and fiber are estimated from the ingredient lists for **every** recipe in
+both volumes, including the hundred whose calories and protein were authored — the
+book never carried either figure. So half the weight of every score rests on the
+food table, and the app says so on each recipe.
 
 Every Strong & Simple macro set is also internally consistent under Atwater factors
 (4 kcal/g protein and carbohydrate, 9 kcal/g fat) — no stated calorie count is
 more than 12% away from the sum of its own macros.
+
+### What that did to the numbers
+
+Score range across all 257 scored recipes: **15–96**, median **60**.
+Under the old formula almost everything clustered in the eighties and nineties,
+which is another way of saying it was not discriminating.
+
+The Strong & Simple recipes that fell furthest from their authored score:
+
+| # | Recipe | Was | Now | Sodium | Fiber |
+|---|---|---|---|---|---|
+| 5 | Smoked Ham & Mustard Pickle Roll-Ups | 90 | 56 | 1532 mg | 1.2 g |
+| 9 | Roast Beef Lettuce Roll-Ups | 89 | 56 | 1215 mg | 1.7 g |
+| 13 | Cheddar & Sliced Ham Protein Stack | 81 | 49 | 1374 mg | 0.5 g |
+| 3 | Quick Canned Chicken & Salsa Bowl | 99 | 72 | 1203 mg | 6.1 g |
+| 21 | Creamy Chicken & Celery Salad | 81 | 54 | 1380 mg | 0 g |
+| 36 | Ham, Egg & Cheese Scramble Bowl | 72 | 46 | 1079 mg | 0 g |
+| 50 | Scrambled Eggs & Cottage Cheese Power Bowl | 77 | 52 | 1041 mg | 1 g |
+| 53 | Slow-Cooker Shredded Salsa Chicken Bowls | 96 | 71 | 1185 mg | 6.3 g |
+
+Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
+
+| # | Recipe | Was | Now | Sodium | Fiber |
+|---|---|---|---|---|---|
+| 80 | Microwave Apple Cinnamon Crisp | 43 | 71 | 2 mg | 5.6 g |
+| 83 | Frozen Banana & Cocoa Whip | 46 | 72 | 16 mg | 4.9 g |
+
+Fruit and oats, which the old score had nothing good to say about because it only
+ever asked how much protein was in them.
 
 ## 2. Strong & Simple — stated macros vs. ingredients
 
@@ -113,7 +155,7 @@ the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
 - Recipes given macros: 157 of 157
-- Score range: 16–95 (median 42)
+- Score range: 15–86 (median 52)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
 shows "Estimated from ingredients" next to its macros and its score. Strong & Simple's

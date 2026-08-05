@@ -46,15 +46,23 @@ const VAGUE = { dash: 0.02, pinch: 0.02, splash: 2, handful: 0.5 };
 
 const ALIAS_KEYS = Object.keys(ALIASES).sort((a, b) => b.length - a.length);
 
-function lookupFood(name) {
+/* Returns the food key, and the alias that matched. The alias matters for the
+   zero-calorie seasonings, which all share one food key and so have to be told
+   apart on the shopping list by the words the recipe used. */
+function lookupAlias(name) {
   const n = name.trim();
-  if (ALIASES[n]) return ALIASES[n];
+  if (ALIASES[n]) return { key: ALIASES[n], alias: n };
   for (const k of ALIAS_KEYS) {
     // whole-word containment so "ham" does not match "graham"
     const re = new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z])');
-    if (re.test(n)) return ALIASES[k];
+    if (re.test(n)) return { key: ALIASES[k], alias: k };
   }
   return null;
+}
+
+function lookupFood(name) {
+  const hit = lookupAlias(name);
+  return hit ? hit.key : null;
 }
 
 /**
@@ -111,23 +119,26 @@ function parseLine(raw) {
   const foodName = s.replace(/\s+/g, ' ').trim();
   if (!foodName) return null;
 
-  const key = lookupFood(foodName);
-  if (!key) return { unmatched: foodName, raw };
+  const hit = lookupAlias(foodName);
+  if (!hit) return { unmatched: foodName, raw };
+  const key = hit.key;
   const food = FOODS[key];
 
   // ---- work out grams --------------------------------------------------
   let grams;
+  let used = null;               // the unit this line was actually counted in
   if (vagueUnit) {
     const v = VAGUE[vagueUnit];
     grams = vagueUnit === 'splash' ? v * (food.g.tbsp || 15)
       : vagueUnit === 'handful' ? v * (food.g.cup || 100)
         : v * (food.g.tsp || 2);
   } else if (explicit && (unit === 'can' || unit === 'pkg' || unit === 'box' || unit === 'jar')) {
+    used = unit;
     const per = explicit.u === 'oz' ? 28.35 : explicit.u === 'lb' ? 453.6 : 1;
     grams = (qty === null ? 1 : qty) * explicit.n * per * (DRAIN[key] || 1);
   } else {
     if (qty === null) {
-      if (!food.def) return { key, grams: 0, assumed: 'treated as a garnish' };
+      if (!food.def) return { key, grams: 0, alias: hit.alias, unit: null, assumed: 'treated as a garnish' };
       qty = food.def.qty;
       unit = food.def.unit;
     }
@@ -143,13 +154,14 @@ function parseLine(raw) {
       if (per === undefined) return { unmatched: foodName + ' [unit ' + unit + ']', raw };
     }
     grams = qty * per * sizeMult;
+    used = unit;
   }
 
   // Oil for deep frying is mostly left in the pan. Counting all of it makes a
   // fried dish read like a stick of butter; food takes up roughly an eighth.
   if (key === 'oil' && /for frying|to fry|for the pan/i.test(raw)) grams *= 0.12;
 
-  return { key, grams };
+  return { key, grams, alias: hit.alias, unit: used };
 }
 
 /** Convenience wrapper: returns { key, grams } or null if unreadable. */
