@@ -235,6 +235,84 @@ select { max-width: 280px; }
 .ghost:hover { border-color: var(--ochre); color: var(--ink); }
 
 
+
+/* ---------------------------------------------------------- the nutrition panel */
+/* A score is a sum, and a sum hides which of its five parts it came from. These
+   are the parts, each with what it measured and a bar you can read without
+   doing the division. Each bar takes its colour from its own share, so the
+   component dragging a score down is the one that looks different. */
+/* Half the width it used to take. Each part is one line — name, figure, bar,
+   points — rather than a line with a bar slung underneath it, which is what was
+   spending the space. */
+.nut {
+  margin-top: 18px; border: 1px solid oklch(0.86 0.04 148); border-radius: 4px;
+  background: oklch(0.975 0.014 148); overflow: hidden;
+  max-width: 340px;
+}
+.nut-ok  { border-color: oklch(0.87 0.03 240); background: oklch(0.976 0.011 240); }
+.nut-low { border-color: oklch(0.88 0.008 70); background: oklch(0.972 0.004 70); }
+
+.nut-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 13px 10px; border-bottom: 1px solid oklch(0.88 0.03 148);
+}
+.nut-ok .nut-head  { border-bottom-color: oklch(0.89 0.025 240); }
+.nut-low .nut-head { border-bottom-color: oklch(0.90 0.006 70); }
+.nut-title {
+  font-size: 10.5px; letter-spacing: 0.15em; text-transform: uppercase; font-weight: 600;
+  color: oklch(0.36 0.08 148);
+}
+.nut-ok .nut-title  { color: oklch(0.38 0.07 240); }
+.nut-low .nut-title { color: oklch(0.34 0.01 70); }
+.nut-sub { font-size: 10.5px; color: var(--muted); margin-top: 4px; max-width: 20ch; line-height: 1.4; }
+
+.nut-rows { padding: 9px 13px 10px; }
+.nut-row {
+  display: grid; grid-template-columns: 54px 46px 1fr 42px;
+  align-items: center; gap: 7px; padding: 3.5px 0;
+}
+.nut-k {
+  font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; font-size: 9px;
+  color: var(--muted-2);
+}
+.nut-v {
+  color: var(--ink); font-size: 11px; text-align: right;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.nut-p {
+  font-family: var(--serif); font-weight: 700; font-size: 12px; text-align: right;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.nut-max { font-weight: 400; font-size: 9.5px; color: var(--muted); }
+
+.nut-bar {
+  height: 5px; border-radius: 3px; overflow: hidden; min-width: 34px;
+  background: oklch(0.91 0.008 70);
+}
+.nut-bar i { display: block; height: 100%; border-radius: 3px; }
+/* the row's own band, kept apart from the panel's so a green panel can hold a
+   grey row — which is the whole point of showing the parts */
+.nr-good .nut-bar i { background: oklch(0.60 0.12 148); }
+.nr-good .nut-p     { color: oklch(0.40 0.10 148); }
+.nr-ok   .nut-bar i { background: oklch(0.62 0.10 240); }
+.nr-ok   .nut-p     { color: oklch(0.44 0.09 240); }
+.nr-low  .nut-bar i { background: oklch(0.56 0.02 70); }
+.nr-low  .nut-p     { color: oklch(0.36 0.01 70); }
+
+.nut-foot {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 3px;
+  padding: 8px 12px 9px; border-top: 1px solid var(--line-soft);
+  background: oklch(1 0 0 / 0.5);
+  font-size: 9.5px; color: var(--muted-2); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.nut-foot span { white-space: nowrap; }
+.nut-foot i { font-style: normal; color: oklch(0.78 0.02 70); }
+
+@media (max-width: 400px) {
+  .nut { max-width: none; }
+}
+
 /* ------------------------------------------------------------- the score */
 /* A number in a leaf. Three bands, coloured so the collection can be read at
    a glance rather than compared digit by digit: green is worth eating often,
@@ -613,13 +691,6 @@ select { max-width: 280px; }
   border-top: 1.5px solid var(--ink); border-bottom: 1px solid oklch(0.86 0.02 75);
   font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; color: oklch(0.40 0.03 65);
 }
-.scorebox {
-  margin-top: 16px; background: oklch(0.96 0.02 145); border: 1px solid oklch(0.85 0.04 145);
-  border-radius: 3px; padding: 13px 15px;
-}
-/* the panel takes the leaf's colour, so the whole block agrees with itself */
-.scorebox-ok  { background: oklch(0.965 0.016 240); border-color: oklch(0.86 0.035 240); }
-.scorebox-ok .scorebox-label, .scorebox-ok .scorebox-why { color: oklch(0.40 0.07 240); }
 .scorebox-low { background: oklch(0.965 0.004 70); border-color: oklch(0.87 0.01 70); }
 .scorebox-low .scorebox-label, .scorebox-low .scorebox-why { color: oklch(0.38 0.01 70); }
 .scorebox-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }

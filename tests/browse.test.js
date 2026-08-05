@@ -88,10 +88,32 @@ module.exports = {
       (bands.low || []).every((n) => n < 45),
       JSON.stringify(Object.keys(bands).map((k) => k + ':' + bands[k].length)));
 
-    t.ok('the score panel names all five parts',
-      /protein/.test(panel) && /sodium/.test(panel) && /fiber/.test(panel) &&
-      /kcal per serving/.test(panel) && /from fat/.test(panel),
-      panel.slice(0, 160));
+    const parts = await p.evaluate(() =>
+      [...document.querySelectorAll('.nut-row')].map((r) => ({
+        k: r.querySelector('.nut-k').textContent,
+        v: r.querySelector('.nut-v').textContent,
+        w: r.querySelector('.nut-bar i').style.width,
+        p: r.querySelector('.nut-p').textContent,
+      })));
+    t.ok('the panel breaks the score into its five parts',
+      parts.map((x) => x.k).join(',') === 'Protein,Calories,Fat,Sodium,Fiber',
+      JSON.stringify(parts.map((x) => x.k)));
+    t.ok('each with a figure, a bar drawn to its share, and its points',
+      parts.length === 5 && parts.every((x) => x.v && /%$/.test(x.w) && /^\d+\/\d+$/.test(x.p)),
+      JSON.stringify(parts));
+    const foot = await p.evaluate(() => {
+      const f = document.querySelector('.nut-foot');
+      return { text: f.textContent.replace(/\s+/g, ' ').trim(), fits: f.scrollWidth <= f.clientWidth + 1 };
+    });
+    t.ok('the macro line holds one row without wrapping',
+      foot.fits && /kcal/.test(foot.text) && /g P/.test(foot.text) && /mg S/.test(foot.text) &&
+      /g Fib/.test(foot.text), foot.text);
+
+    t.ok('and the bars agree with the points',
+      parts.every((x) => {
+        const [got, max] = x.p.split('/').map(Number);
+        return Math.abs(parseFloat(x.w) - (got / max) * 100) < 1.5;
+      }), JSON.stringify(parts));
 
     await p.context().close();
   },

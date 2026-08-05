@@ -1079,13 +1079,57 @@
   }
 
   // --------------------------------------------------------------- detail
-  function scoreWhy(r) {
-    if (!r.sc) return '';
-    return r.sc.pPct + '% of calories from protein (' + r.sc.p + '/30) · ' +
-      r.macro.kcal + ' kcal per serving (' + r.sc.k + '/20) · ' +
-      r.sc.fPct + '% from fat (' + r.sc.f + '/10) · ' +
-      r.sc.na + ' mg sodium (' + r.sc.s + '/25) · ' +
-      r.sc.fib + ' g fiber (' + r.sc.b + '/15)';
+  /* The nutrition panel.
+   *
+   * The score is a sum of five things, and a sum tells you nothing about which
+   * of the five it came from — a 60 that is short on sodium and a 60 that is
+   * short on protein are different dinners. So show the parts: what each one
+   * measured, how much of it the recipe earned, and a bar you can read without
+   * doing the division. The bar takes its colour from its own share, so the
+   * component that is dragging the score down is the one that looks different.
+   */
+  function scoreParts(r) {
+    return [
+      { k: 'Protein', v: r.sc.pPct + '%', p: r.sc.p, max: 30, t: r.sc.pPct + '% of the calories come from protein' },
+      { k: 'Calories', v: r.macro.kcal, p: r.sc.k, max: 20, t: r.macro.kcal + ' kcal a serving' },
+      { k: 'Fat', v: r.sc.fPct + '%', p: r.sc.f, max: 10, t: r.sc.fPct + '% of the calories come from fat' },
+      { k: 'Sodium', v: r.sc.na + ' mg', p: r.sc.s, max: 25, t: r.sc.na + ' mg of sodium a serving' },
+      { k: 'Fiber', v: r.sc.fib + ' g', p: r.sc.b, max: 15, t: r.sc.fib + ' g of fiber a serving' }
+    ];
+  }
+
+  function nutritionHTML(r) {
+    if (r.score === null || !r.sc) return '';
+    var rows = scoreParts(r).map(function (c) {
+      var share = c.max ? c.p / c.max : 0;
+      var band = share >= 0.8 ? 'good' : share >= 0.45 ? 'ok' : 'low';
+      return '<div class="nut-row nr-' + band + '" title="' + esc(c.t) + '">' +
+        '<span class="nut-k">' + esc(c.k) + '</span>' +
+        '<span class="nut-v">' + esc(c.v) + '</span>' +
+        '<span class="nut-bar"><i style="width:' + (share * 100).toFixed(1) + '%"></i></span>' +
+        '<span class="nut-p">' + c.p + '<span class="nut-max">/' + c.max + '</span></span>' +
+      '</div>';
+    }).join('');
+
+    var m = r.macro;
+    return '<div class="nut nut-' + scoreBand(r.score) + '">' +
+      '<div class="nut-head">' +
+        '<div>' +
+          '<div class="nut-title">Nutrition score</div>' +
+          '<div class="nut-sub">% is share of calories</div>' +
+        '</div>' +
+        leaf(r.score, 'leaf-big') +
+      '</div>' +
+      '<div class="nut-rows">' + rows + '</div>' +
+      /* The whole macro set on one line, so it cannot wrap and push the panel
+         taller: kcal, then protein, carbohydrate, fat, sodium, fiber. The words
+         are on the row above and in the title, so the letters are enough. */
+      '<div class="nut-foot" title="' + esc(m.kcal + ' kcal, ' + m.p + 'g protein, ' +
+        m.c + 'g carbohydrate, ' + m.f + 'g fat, ' + m.na + ' mg sodium, ' + m.fib + 'g fiber') + '">' +
+        [m.kcal + ' kcal', m.p + 'g P', m.c + 'g C', m.f + 'g F', m.na + 'mg S', m.fib + 'g Fib']
+          .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('<i>·</i>') +
+      '</div>' +
+    '</div>';
   }
 
   function renderModal() {
@@ -1140,14 +1184,7 @@
         '<div class="sheet-meta"><span>' + esc(r.time) + '</span><span>' + esc(diffLabel(r.diff)) + '</span>' +
           '<span>' + esc(r.macro ? r.macro.kcal + ' kcal · ' + r.macro.p + 'g protein' : 'No nutrition data') + '</span>' +
         '</div>' +
-        (r.score !== null ?
-          '<div class="scorebox scorebox-' + scoreBand(r.score) + '">' +
-            '<div class="scorebox-top">' +
-              '<div class="scorebox-label">Nutrition score</div>' +
-              '<div class="scorebox-n">' + leaf(r.score, 'leaf-big') + '</div>' +
-            '</div>' +
-            '<div class="scorebox-why">' + esc(scoreWhy(r)) + '</div>' +
-          '</div>' : '') +
+        nutritionHTML(r) +
         '<div class="sheet-h-row">' +
           '<div class="sheet-h">Ingredients</div>' +
           '<div class="scaler">' +

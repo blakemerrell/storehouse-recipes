@@ -180,6 +180,12 @@ glance rather than compared digit by digit:
 The median across the 257 is 60, so the bands divide the collection rather than
 flattering it.
 
+Open a recipe and the panel breaks the score into the five parts it came from, each with
+what it measured, a bar drawn to its share, and its points — because a sum hides which of
+its parts it came from, and a 60 that is short on sodium is a different dinner from a 60
+that is short on protein. Each bar takes its colour from its own share, so the component
+dragging a score down is the one that looks different.
+
 ### The score
 
 Out of 100, from five things:
