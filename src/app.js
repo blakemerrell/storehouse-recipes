@@ -264,6 +264,7 @@
 
   function renderList() {
     var built = buildList();
+
     var total = built.groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('listCount').textContent = total
       ? total + ' items · ' + built.recipeCount + (built.recipeCount === 1 ? ' recipe' : ' recipes')
@@ -881,6 +882,16 @@
   }
 
   function renderAll() {
+    /* Forget ticks for anything no longer on the list. This has to happen on
+       every change, not just while the list is on screen — a recipe is usually
+       dropped from the Meal Plan tab, and by the time you look at the list the
+       tick would already have been reapplied to a fresh copy of the item. */
+    var live = [];
+    buildList().groups.forEach(function (g) {
+      g.items.forEach(function (it) { live.push(it.key); });
+    });
+    if (window.Store.pruneChecked(live)) return;   // the store will call back
+
     $('favCount').textContent = window.Store.state.favs.length ? '(' + window.Store.state.favs.length + ')' : '';
     renderSyncBadge();
     renderView();

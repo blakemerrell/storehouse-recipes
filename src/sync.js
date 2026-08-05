@@ -164,8 +164,31 @@ window.Store = (function () {
     },
 
     clearPlan: function () {
-      push(function () { return doc.set({ plan: {} }, { merge: true }); },
-        function () { state.plan = {}; });
+      // the shopping list goes with the week — leaving the check-offs behind
+      // meant next week's list arrived with things already ticked off
+      push(function () { return doc.set({ plan: {}, checked: {} }, { merge: true }); },
+        function () { state.plan = {}; state.checked = {}; });
+    },
+
+    /* Forget check-offs for anything no longer on the list. Ticks are keyed by
+       ingredient, so without this, buying milk one week left milk ticked the
+       next time a recipe called for it — and an unticked box is the only thing
+       telling you it still needs buying. */
+    pruneChecked: function (liveKeys) {
+      var live = {};
+      liveKeys.forEach(function (k) { live[encodeKey(k)] = true; });
+      var stale = Object.keys(state.checked).filter(function (k) { return !live[k]; });
+      if (!stale.length) return false;
+      push(function () {
+        var u = {};
+        stale.forEach(function (k) { u['checked.' + k] = FV.delete(); });
+        return doc.update(u);
+      }, function () {
+        var c = Object.assign({}, state.checked);
+        stale.forEach(function (k) { delete c[k]; });
+        state.checked = c;
+      });
+      return true;
     },
 
     isChecked: function (key) { return !!state.checked[encodeKey(key)]; },

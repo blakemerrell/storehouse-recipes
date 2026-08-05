@@ -20,10 +20,14 @@ healthiest first, most protein or quickest. Search covers dish names, ingredient
 and section names. Tap a card for the full recipe, where you can
 scale the ingredients from ¼× to 8× (fractions come out as fractions, not decimals).
 
-**Meal Plan** — assign recipes to days of the week from any recipe's panel.
+**Meal Plan** — assign recipes to days of the week from any recipe's panel. There are no
+dates: Monday is a slot, not a date, and whatever is in it stays until you take it out or
+press *Clear week*. Nothing resets on its own.
 
 **Shopping List** — builds itself from the week, deduplicated, split into what comes
-from the storehouse and what you need to buy. Check-offs stick.
+from the storehouse and what you need to buy. Check-offs stick for as long as the item is
+on the list; take the recipe out of the week and its tick is forgotten, so an item never
+comes back to a later list already ticked.
 
 **Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 44
 pages, Around the Table is 99. Each volume opens with a cover, four pages of front matter
