@@ -524,3 +524,37 @@ select { max-width: 280px; }
     overflow: hidden !important; break-inside: avoid;
   }
 }
+
+/* ------------------------------------------------------------- contents */
+/* one column, not two: at half this width most recipe names truncate, and a
+   contents you cannot read is not worth the pages it saves */
+.toc-cols {
+  flex: 1; display: grid; grid-template-columns: 1fr;
+  gap: 0; align-content: start;
+}
+/* grid items default to min-width:auto, so a long recipe name would push the
+   column past its track and off the page instead of ellipsising */
+.toc-col { display: flex; flex-direction: column; min-width: 0; }
+.toc-head {
+  font-family: var(--serif); font-size: 13px; font-weight: 700;
+  color: var(--ochre); margin: 9px 0 4px; line-height: 1.2; text-wrap: pretty;
+}
+.toc-col > .toc-head:first-child { margin-top: 0; }
+.toc-row {
+  display: flex; align-items: baseline; gap: 7px;
+  font-size: 11px; line-height: 1.34; padding: 0.5px 0;
+}
+.toc-no {
+  color: oklch(0.66 0.03 65); font-variant-numeric: tabular-nums;
+  font-size: 9px; letter-spacing: 0.04em; flex: none;
+}
+.toc-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto;
+}
+.toc-dots {
+  flex: 1 1 auto; min-width: 6px; align-self: center; height: 1px;
+  border-bottom: 1px dotted oklch(0.80 0.02 75);
+}
+.toc-pg {
+  flex: none; font-variant-numeric: tabular-nums; color: var(--muted-2); font-weight: 600;
+}

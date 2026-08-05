@@ -24,8 +24,10 @@ scale the ingredients from ¼× to 8× (fractions come out as fractions, not dec
 **Shopping List** — builds itself from the week, deduplicated, split into what comes
 from the storehouse and what you need to buy. Check-offs stick.
 
-**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 36
-pages, Around the Table is 55. Each opens on its own cover and is numbered from page one.
+**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 39
+pages, Around the Table is 59. Each opens on its own cover, has its own contents, and is
+numbered from page one. Cover and contents carry no folio, so adding recipes never
+shifts the numbering.
 
 Recipes are measured in the browser and packed two or three to a page, so a page
 holds as many as genuinely fit rather than a fixed number. A recipe is never split

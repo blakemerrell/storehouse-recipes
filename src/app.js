@@ -388,11 +388,12 @@
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
       var isBand = it.type === 'band';
+      var isHead = isBand || it.type === 'tochead';
       // a recipe following another recipe carries the separator rule
-      var lead = (!isBand && cur.length && cur[cur.length - 1].type === 'recipe') ? m.sep : 0;
+      var lead = (!isHead && cur.length && cur[cur.length - 1].type === 'recipe') ? m.sep : 0;
       var need = it.h + lead + (isBand ? m.bandGap : 0);
-      // keep a heading with at least the first recipe under it
-      if (isBand && items[i + 1]) need += items[i + 1].h;
+      // keep a heading with at least the first entry under it
+      if (isHead && items[i + 1]) need += items[i + 1].h;
 
       if (cur.length && h + need > avail) { pages.push(cur); cur = []; h = 0; lead = 0; need = it.h + (isBand ? m.bandGap : 0); }
       cur.push(it);
@@ -400,6 +401,52 @@
     }
     if (cur.length) pages.push(cur);
     return pages;
+  }
+
+  /* ---- contents --------------------------------------------------------
+     Built after the recipe pages are packed, so every page number is already
+     known. Contents pages carry no folio of their own — like the cover — which
+     is what keeps the numbering from shifting as the list grows. */
+  function tocHeadHTML(name) {
+    return '<div class="toc-head">' + esc(name) + '</div>';
+  }
+  function tocRowHTML(r, page) {
+    return '<div class="toc-row">' +
+      '<span class="toc-no">' + String(r.id).padStart(3, '0') + '</span>' +
+      '<span class="toc-name">' + esc(r.name) + '</span>' +
+      '<span class="toc-dots"></span>' +
+      '<span class="toc-pg">' + page + '</span>' +
+    '</div>';
+  }
+
+  function buildContents(packed, vol, m, avail) {
+    // which page each recipe landed on
+    var pageOf = {};
+    packed.forEach(function (pageItems, idx) {
+      pageItems.forEach(function (x) { if (x.type === 'recipe') pageOf[x.r.id] = idx + 1; });
+    });
+
+    var items = [], lastSec = null;
+    vol.list.forEach(function (r) {
+      var key = r.book + '-' + r.secNum;
+      if (!vol.grouped && key !== lastSec) {
+        lastSec = key;
+        items.push({ type: 'tochead', html: tocHeadHTML(r.secName) });
+      }
+      items.push({ type: 'tocrow', html: tocRowHTML(r, pageOf[r.id]) });
+    });
+    if (!items.length) return [];
+
+    measure(items);
+    return pack(items, avail, m).map(function (col) {
+      return '<div class="pg">' +
+        '<div class="pg-run"><span>' + esc(vol.grouped ? vol.title : BOOKS[vol.book].name) + '</span>' +
+          '<span class="pg-run-sec">Contents</span></div>' +
+        '<div class="toc-cols"><div class="toc-col">' +
+          col.map(function (x) { return x.html; }).join('') +
+        '</div></div>' +
+      '</div>';
+    });
   }
 
   function buildBook() {
@@ -440,10 +487,18 @@
       var title = vol.grouped
         ? (S.printSet === 'fav' ? 'Favorites' : 'This Week')
         : BOOKS[vol.book].name;
+      vol.title = title;
       var sub = vol.grouped
         ? (S.printSet === 'fav' ? 'The ones worth keeping.' : 'The week’s cooking, in order.')
         : BOOKS[vol.book].blurb;
       out.push({ kind: 'cover', html: coverHTML(title, sub, vol.list.length + ' recipes') });
+
+      // worth a contents page once a volume is long enough to need flipping
+      if (vol.list.length >= 12) {
+        buildContents(packed, vol, m, avail).forEach(function (html) {
+          out.push({ kind: 'contents', html: html });
+        });
+      }
 
       packed.forEach(function (pageItems, idx) {
         var first = pageItems.filter(function (x) { return x.r; })[0];
