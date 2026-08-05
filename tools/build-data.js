@@ -45,20 +45,49 @@ FIXES.forEach((f) => {
 const SRC = ORIGINAL.concat(ADDED);
 
 // ---------------------------------------------------------------------------
-// Scoring — reverse-engineered from the design's own numbers and verified to
-// reproduce all 100 Strong & Simple scores exactly.
+// Scoring
+//
+// The original book's formula, reverse-engineered from its own numbers, was
+// protein 55 / calories 20 / fat 15 / storehouse-only 10. It is kept here only
+// to prove the recovery was right — it still reproduces all 100 authored
+// scores exactly.
+//
+// This edition scores nutrition alone. The storehouse-only bonus was ten points
+// of a hundred awarded for shopping convenience, which has nothing to do with
+// whether a recipe is good for you: identical brownies scored ten apart on
+// where the cocoa came from. Whether a recipe needs anything beyond the standard
+// order is still on every recipe, on the line at its foot, where it belongs.
+//
+// The remaining three are rescaled to a round 100, keeping protein dominant as
+// the original intended. The calorie curve is unchanged: full marks to 300 kcal
+// a serving, nothing left by 700.
 // ---------------------------------------------------------------------------
-function scoreFrom(macro, extras) {
+function scoreOriginal(macro, extras) {
   const pPct = (macro.p * 4) / macro.kcal * 100;
   const fPct = (macro.f * 9) / macro.kcal * 100;
-  const p = Math.min(55, (pPct / 45) * 55);          // protein share, capped at 45% of calories
-  const k = Math.max(0, Math.min(20, 20 - Math.max(0, macro.kcal - 300) / 20)); // calorie load
-  const f = Math.max(0, Math.min(15, (15 * (45 - fPct)) / 35));                  // fat share
-  const x = extras ? 0 : 10;                          // storehouse-only bonus
+  const p = Math.min(55, (pPct / 45) * 55);
+  const k = Math.max(0, Math.min(20, 20 - Math.max(0, macro.kcal - 300) / 20));
+  const f = Math.max(0, Math.min(15, (15 * (45 - fPct)) / 35));
+  const x = extras ? 0 : 10;
   return {
     score: Math.round(p + k + f + x),
     sc: {
       p: Math.round(p), k: Math.round(k), f: Math.round(f), x,
+      pPct: Math.round(pPct), fPct: Math.round(fPct),
+    },
+  };
+}
+
+function scoreFrom(macro) {
+  const pPct = (macro.p * 4) / macro.kcal * 100;
+  const fPct = (macro.f * 9) / macro.kcal * 100;
+  const p = Math.min(60, (pPct / 45) * 60);          // protein share, full at 45% of calories
+  const k = Math.max(0, Math.min(25, 25 - Math.max(0, macro.kcal - 300) / 16)); // calorie load
+  const f = Math.max(0, Math.min(15, (15 * (45 - fPct)) / 35));                  // fat share
+  return {
+    score: Math.round(p + k + f),
+    sc: {
+      p: Math.round(p), k: Math.round(k), f: Math.round(f),
       pPct: Math.round(pPct), fPct: Math.round(fPct),
     },
   };
@@ -104,11 +133,14 @@ const out = SRC.map((r) => {
 
   if (r.book === 1) {
     // verify the design's own scoring
-    const chk = scoreFrom(r.macro, r.extras);
+    const chk = scoreOriginal(r.macro, r.extras);
     if (chk.score !== r.score || JSON.stringify(chk.sc) !== JSON.stringify(r.sc)) {
       scoreMismatch.push({ id: r.id, stated: { score: r.score, sc: r.sc }, recomputed: chk });
     }
     rec.est = false;
+    const ns = scoreFrom(r.macro);
+    rec.score = ns.score;
+    rec.sc = ns.sc;
     rec.estMacro = est.perServing;
     const d = est.perServing.kcal - r.macro.kcal;
     const servN = r.servN && r.servN > 0 ? r.servN : 1;
@@ -122,7 +154,7 @@ const out = SRC.map((r) => {
     // Around the Table shipped with no macros at all
     const macro = est.perServing;
     const safe = macro.kcal > 0 ? macro : { kcal: 1, p: 0, c: 0, f: 0 };
-    const s = scoreFrom(safe, r.extras);
+    const s = scoreFrom(safe);
     rec.macro = macro;
     rec.est = true;
     rec.score = macro.kcal > 0 ? s.score : null;
@@ -172,6 +204,8 @@ The two volumes: **Strong & Simple** (100 recipes, macros as authored) and
 
 ## 1. The scoring formula
 
+### What the original book used
+
 The design export carried a per-recipe score and a breakdown (\`sc\`) but no formula.
 Recovering it from the data gives:
 
@@ -182,11 +216,28 @@ Recovering it from the data gives:
 | Fat share | 15 | \`15 × (45 − fat% of calories) ÷ 35\`, clamped to 0–15 — full marks at or below 10% |
 | Storehouse bonus | 10 | 10 if the recipe needs nothing outside the standard storehouse list, else 0 |
 
-Score is the rounded sum of the unrounded parts, which is why a recipe showing
-53 + 20 + 15 + 10 can print as 97 rather than 98.
+**Verification: all 100 authored scores and all 600 breakdown figures reproduce exactly.**
+Mismatches found: ${scoreMismatch.length}. That is the evidence the formula above is the real one.
 
-**Verification: all 100 Strong & Simple scores and all 600 breakdown figures reproduce exactly.**
-Mismatches found: ${scoreMismatch.length}.
+### What this edition uses
+
+The storehouse bonus is gone. Ten points in a hundred were awarded for shopping
+convenience, which says nothing about whether a recipe is good for you — identical
+brownies scored ten apart depending on where the cocoa came from. Whether a recipe
+needs anything beyond the standard order is still on every recipe, on the line at
+its foot.
+
+The remaining three are rescaled to a round 100, protein still dominant, and the
+calorie curve unchanged — full marks to 300 kcal a serving, nothing left by 700:
+
+| Component | Max | Rule |
+|---|---|---|
+| Protein share | 60 | \`min(60, protein% of calories ÷ 45 × 60)\` |
+| Calorie load | 25 | \`25 − (kcal − 300) ÷ 16\`, clamped to 0–25 |
+| Fat share | 15 | \`15 × (45 − fat% of calories) ÷ 35\`, clamped to 0–15 |
+
+**Printed scores therefore differ from the original book's, by design.** Score is the
+rounded sum of the unrounded parts, which is why 57 + 25 + 15 can print as 97.
 
 Every Strong & Simple macro set is also internally consistent under Atwater factors
 (4 kcal/g protein and carbohydrate, 9 kcal/g fat) — no stated calorie count is

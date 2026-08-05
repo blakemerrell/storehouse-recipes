@@ -83,9 +83,22 @@ every one of them as an estimate: the score chip is drawn with a dashed border, 
 panel says *estimated*, and the printed page says *(est.)*. Strong & Simple's authored numbers
 are never labelled that way, so you can always tell which is which.
 
-**[AUDIT.md](AUDIT.md)** shows the work: the scoring formula recovered from the original
-data, the verification that it reproduces all 100 Strong & Simple scores exactly, where Strong & Simple's
-own macros disagree with its ingredient lists, and every assumption behind the Around the Table
+### The score
+
+Out of 100, from three things only: how much of the energy comes from protein (60
+points), how many calories a serving carries (25), and how much of the energy comes
+from fat (15).
+
+The original book had a fourth component — ten points for needing nothing beyond the
+standard storehouse order. That is shopping convenience, not nutrition; identical
+brownies scored ten apart depending on where the cocoa came from. It has been taken
+out, and the three that remain rescaled to a round 100, so **printed scores differ
+from the original book's by design**. Whether a recipe needs anything extra is still
+on every recipe, on the line at its foot.
+
+**[AUDIT.md](AUDIT.md)** shows the work: both formulas, the verification that the
+recovered original reproduces all 100 authored scores exactly, where Strong & Simple's
+own macros disagree with its ingredient lists, and every assumption behind the
 estimates. Worth reading once before this goes to print.
 
 ## Layout

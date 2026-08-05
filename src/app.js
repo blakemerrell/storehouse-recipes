@@ -450,12 +450,13 @@
       '</div>');
 
     block('<div class="fm-sub">The line under the title</div>' +
-      '<div class="fm-p">Servings, time, effort, and a nutrition score out of 100. The score is worked ' +
-      'out from four things: how much of the energy comes from protein (55 points), how many calories ' +
-      'a serving carries (20), how much of the energy comes from fat (15), and whether the recipe needs ' +
-      'anything beyond the standard storehouse order (10).</div>' +
-      '<div class="fm-p">That last ten points is about shopping, not nutrition. A recipe can lose them ' +
-      'and still be the better dinner.</div>');
+      '<div class="fm-p">Servings, time, effort, and a nutrition score out of 100. Three things make it ' +
+      'up: how much of the energy comes from protein (60 points, full marks at 45%), how many calories a ' +
+      'serving carries (25, full marks up to 300), and how much of the energy comes from fat (15, full ' +
+      'marks at or below a tenth).</div>' +
+      '<div class="fm-p">It measures one thing only. A high score does not mean a dish is good, and a low ' +
+      'one does not mean it is bad — a plate of fudge scores badly and is still fudge. Whether a recipe ' +
+      'needs anything beyond the standard order is a separate question, answered on the line at its foot.</div>');
 
     block('<div class="fm-sub">Also needs</div>' +
       '<div class="fm-p">The line at the foot of each recipe. Either it says everything is on the standard ' +
@@ -697,9 +698,9 @@
   // --------------------------------------------------------------- detail
   function scoreWhy(r) {
     if (!r.sc) return '';
-    return r.sc.pPct + '% of calories from protein (' + r.sc.p + '/55) · ' +
-      r.macro.kcal + ' kcal per serving (' + r.sc.k + '/20) · ' +
-      r.sc.fPct + '% from fat (' + r.sc.f + '/15) · storehouse‑only bonus (' + r.sc.x + '/10)';
+    return r.sc.pPct + '% of calories from protein (' + r.sc.p + '/60) · ' +
+      r.macro.kcal + ' kcal per serving (' + r.sc.k + '/25) · ' +
+      r.sc.fPct + '% from fat (' + r.sc.f + '/15)';
   }
 
   function renderModal() {

@@ -7,6 +7,8 @@ The two volumes: **Strong & Simple** (100 recipes, macros as authored) and
 
 ## 1. The scoring formula
 
+### What the original book used
+
 The design export carried a per-recipe score and a breakdown (`sc`) but no formula.
 Recovering it from the data gives:
 
@@ -17,11 +19,28 @@ Recovering it from the data gives:
 | Fat share | 15 | `15 × (45 − fat% of calories) ÷ 35`, clamped to 0–15 — full marks at or below 10% |
 | Storehouse bonus | 10 | 10 if the recipe needs nothing outside the standard storehouse list, else 0 |
 
-Score is the rounded sum of the unrounded parts, which is why a recipe showing
-53 + 20 + 15 + 10 can print as 97 rather than 98.
+**Verification: all 100 authored scores and all 600 breakdown figures reproduce exactly.**
+Mismatches found: 0. That is the evidence the formula above is the real one.
 
-**Verification: all 100 Strong & Simple scores and all 600 breakdown figures reproduce exactly.**
-Mismatches found: 0.
+### What this edition uses
+
+The storehouse bonus is gone. Ten points in a hundred were awarded for shopping
+convenience, which says nothing about whether a recipe is good for you — identical
+brownies scored ten apart depending on where the cocoa came from. Whether a recipe
+needs anything beyond the standard order is still on every recipe, on the line at
+its foot.
+
+The remaining three are rescaled to a round 100, protein still dominant, and the
+calorie curve unchanged — full marks to 300 kcal a serving, nothing left by 700:
+
+| Component | Max | Rule |
+|---|---|---|
+| Protein share | 60 | `min(60, protein% of calories ÷ 45 × 60)` |
+| Calorie load | 25 | `25 − (kcal − 300) ÷ 16`, clamped to 0–25 |
+| Fat share | 15 | `15 × (45 − fat% of calories) ÷ 35`, clamped to 0–15 |
+
+**Printed scores therefore differ from the original book's, by design.** Score is the
+rounded sum of the unrounded parts, which is why 57 + 25 + 15 can print as 97.
 
 Every Strong & Simple macro set is also internally consistent under Atwater factors
 (4 kcal/g protein and carbohydrate, 9 kcal/g fat) — no stated calorie count is
@@ -94,7 +113,7 @@ the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
 - Recipes given macros: 157 of 157
-- Score range: 16–95 (median 45)
+- Score range: 16–95 (median 42)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
 shows "Estimated from ingredients" next to its macros and its score. Strong & Simple's
