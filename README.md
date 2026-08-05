@@ -70,6 +70,17 @@ Every page is checked by `tests/print.test.js`: nothing spills, nothing is stran
 
 You can also print just one volume, just your favorites, or just this week.
 
+To get the PDFs without a printer dialog:
+
+```sh
+node tools/print-books.js          # both volumes, and each on its own
+node tools/print-books.js 1        # just Strong & Simple
+```
+
+They land in `print/`, half-letter and ready for a print shop. **Reprint after any
+change to a recipe or to the food table** — the score on every printed page comes from
+`data/recipes.js`, so a PDF made before a rebuild is out of date.
+
 The last three sections of Around the Table were written for this edition rather than
 carried over, 32 recipes in all:
 
@@ -170,6 +181,7 @@ tools/parse-lib.js    turns an ingredient line into a food and a weight
 tools/recipe-fixes.js corrections applied to the original text at build time
 tools/score-lib.js    the score, and what an ingredient list is worth
 tools/build-data.js   regenerates data/recipes.js, data/nutrition.js and AUDIT.md
+tools/print-books.js  renders the volumes to PDF in print/
 tools/check-recipes.js checks recipes against standard kitchen ratios
 sw.js                 service worker — makes it open with no signal
 manifest.webmanifest  makes Add to Home Screen a real install

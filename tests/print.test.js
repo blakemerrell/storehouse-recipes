@@ -12,7 +12,10 @@ module.exports = {
     await p.waitForTimeout(4000);
 
     const b = await p.evaluate(() => {
-      const pgs = [...document.querySelectorAll('.pg')];
+      /* .no-print is the offscreen scratch element the packer measures in — it
+         is a .pg so that it inherits the exact printed width, and counting it
+         would put every page total one too high. */
+      const pgs = [...document.querySelectorAll('.pg:not(.no-print)')];
       const spills = [];
       const vols = {};
       let orphanBand = 0;
@@ -37,7 +40,8 @@ module.exports = {
       };
     });
 
-    t.ok('both volumes render', b.pages > 120 && b.pages < 200, b.pages + ' pages');
+    t.ok('both volumes render as 142 pages of paper', b.pages === 142, b.pages + ' pages');
+    t.ok('and the bar says the same number', b.note.indexOf(b.pages + ' pages') >= 0, b.note);
     t.ok('nothing spills off a page', b.spills.length === 0, b.spills.slice(0, 4).join(' | '));
     t.ok('no section heading is stranded on a page it does not fill', b.orphanBand === 0, b.orphanBand);
 
@@ -74,7 +78,7 @@ module.exports = {
     await p.selectOption('#printSet', 'fav');
     await p.waitForTimeout(1200);
     t.ok('favorites print on their own',
-      (await p.evaluate(() => document.querySelectorAll('.pg').length)) >= 2);
+      (await p.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) >= 2);
 
     await p.evaluate(() => { window.Store.addToDay(12, 'mon'); });
     await p.selectOption('#printSet', 'plan');

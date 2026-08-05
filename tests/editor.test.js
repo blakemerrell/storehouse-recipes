@@ -113,7 +113,7 @@ module.exports = {
     await p.selectOption('#printSet', '3');
     await p.waitForTimeout(1500);
     const own = await p.evaluate(() => ({
-      pages: document.querySelectorAll('.pg').length,
+      pages: document.querySelectorAll('.pg:not(.no-print)').length,
       cover: (document.querySelector('.pg-title') || {}).textContent,
       hasIt: /Grandma/.test(document.getElementById('pages').textContent),
     }));

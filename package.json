@@ -7,7 +7,8 @@
     "build": "node tools/build-data.js",
     "check": "node tools/check-recipes.js --all",
     "test": "node tests/run.js",
-    "test:sync": "node tests/run.js sync"
+    "test:sync": "node tests/run.js sync",
+    "print": "node tools/print-books.js"
   },
   "devDependencies": {
     "playwright": "^1.47.0"
