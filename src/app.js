@@ -5,10 +5,32 @@
 (function () {
   'use strict';
 
-  var RECIPES = window.RECIPES || [];
+  var BASE = window.RECIPES || [];    // the 257 in the two printed books
   var SHOP = window.SHOP || {};       // food key -> shopping-list name and unit
+  var RECIPES = BASE;                 // those, with your changes, plus your own
   var BY_ID = {};
-  RECIPES.forEach(function (r) { BY_ID[r.id] = r; });
+
+  /* The printed recipes are read-only; a change to one is stored beside it and
+     laid over the top here, so the book's own version is never lost and can be
+     put back by deleting the change. Recipes written here follow after. */
+  function rebuild() {
+    var st = window.Store.state;
+    var edits = st.edits || {}, mine = st.mine || {};
+    RECIPES = BASE.map(function (r) {
+      return edits[r.id] ? Object.assign({}, r, edits[r.id], { id: r.id, edited: true }) : r;
+    });
+    Object.keys(mine).map(function (k) { return mine[k]; })
+      .sort(function (a, b) {
+        return String(a.secName).localeCompare(String(b.secName)) || String(a.id).localeCompare(String(b.id));
+      })
+      .forEach(function (r) { RECIPES.push(r); });
+    BY_ID = {};
+    var n = 0;
+    RECIPES.forEach(function (r) {
+      if (r.book === 3) r.no = ++n;
+      BY_ID[r.id] = r;
+    });
+  }
 
   var DAYS = [
     ['mon', 'Monday', 'Mon'], ['tue', 'Tuesday', 'Tue'], ['wed', 'Wednesday', 'Wed'],
@@ -24,6 +46,10 @@
     2: {
       name: 'Around the Table', short: 'TABLE',
       blurb: 'One hundred fifty‑seven family recipes, from three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.'
+    },
+    3: {
+      name: 'Ours', short: 'OURS',
+      blurb: 'The ones we worked out ourselves, or were given, or changed until they were right. This volume grows; the other two do not.'
     }
   };
 
@@ -54,6 +80,14 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function $(id) { return document.getElementById(id); }
+
+  /* A printed recipe's id is its number in the book. One you wrote is a string.
+     Both arrive from the DOM as text, so put each back the way it started. */
+  function idOf(v) { return /^\d+$/.test(v) ? Number(v) : v; }
+
+  /* What to print on the recipe. The book's own number for the printed ones;
+     for yours, where it falls in your volume. */
+  function no(r) { return String(r.no || r.id).padStart(3, '0'); }
 
   function fmtNum(n) {
     if (!isFinite(n)) return '';
@@ -155,7 +189,7 @@
     var qs = S.qy.trim().toLowerCase();
     return RECIPES.filter(function (r) {
       if (S.bookF !== 'all' && r.book !== S.bookF) return false;
-      if (S.secF !== 'all' && (r.book + '-' + r.secNum) !== S.secF) return false;
+      if (S.secF !== 'all' && (r.book + '-' + r.secNum + '-' + r.secName) !== S.secF) return false;
       if (S.diffF !== 'all' && r.diff !== S.diffF) return false;
       if (S.pantryF === 'base' && r.extras) return false;
       if (S.pantryF === 'extras' && !r.extras) return false;
@@ -165,25 +199,37 @@
     }).sort(SORTS[S.sort] || undefined);
   }
 
+  function ours() {
+    return RECIPES.filter(function (r) { return r.book === 3; });
+  }
+
   function renderSections() {
     var sel = $('secSel');
     var seen = {}, opts = ['<option value="all">All sections</option>'];
     RECIPES.forEach(function (r) {
-      var key = r.book + '-' + r.secNum;
+      var key = r.book + '-' + r.secNum + '-' + r.secName;
       if (seen[key]) return;
       seen[key] = 1;
       if (S.bookF !== 'all' && r.book !== S.bookF) return;
-      opts.push('<option value="' + key + '">' + esc(BOOKS[r.book].name + ' · ' + r.secName) + '</option>');
+      opts.push('<option value="' + esc(key) + '">' + esc(BOOKS[r.book].name + ' · ' + r.secName) + '</option>');
     });
     sel.innerHTML = opts.join('');
     sel.value = S.secF;
     if (sel.value !== S.secF) { S.secF = 'all'; sel.value = 'all'; }
+
+    // the third volume only exists once there is something in it
+    var n = ours().length;
+    $('bookOurs').classList.toggle('hide', !n);
+    $('printOurs').classList.toggle('hide', !n);
+    $('printOurs').textContent = 'Ours — ' + n + (n === 1 ? ' recipe' : ' recipes');
+    if (!n && S.bookF === 3) { S.bookF = 'all'; }
+    document.querySelector('.brand-sub').textContent =
+      RECIPES.length + ' recipes · ' + (n ? 'three volumes' : 'two volumes');
   }
 
   function renderBrowse() {
     var list = filtered();
-    $('browseTitle').textContent = S.bookF === 1 ? BOOKS[1].name
-      : S.bookF === 2 ? BOOKS[2].name : 'The whole collection';
+    $('browseTitle').textContent = BOOKS[S.bookF] ? BOOKS[S.bookF].name : 'The whole collection';
     var order = { healthy: ' · healthiest first', protein: ' · most protein first', quick: ' · quickest first' };
     $('browseCount').textContent = list.length + (list.length === 1 ? ' recipe' : ' recipes') +
       (order[S.sort] || '');
@@ -197,7 +243,7 @@
         r.est ? ' title="Nutrition score from estimated macros"' : ' title="Nutrition score"';
       return '<button class="card" data-open="' + r.id + '">' +
         '<span class="card-top">' +
-          '<span class="card-num">' + BOOKS[r.book].short + ' · ' + String(r.id).padStart(3, '0') + '</span>' +
+          '<span class="card-num">' + BOOKS[r.book].short + ' · ' + no(r) + '</span>' +
           '<span class="card-fav">' + (fav ? '★ Saved' : '') + '</span>' +
         '</span>' +
         '<span class="card-name">' + esc(r.name) + '</span>' +
@@ -356,8 +402,10 @@
 
   // ------------------------------------------------------------- print book
   function printPool() {
-    if (S.printSet === '1') return RECIPES.filter(function (r) { return r.book === 1; });
-    if (S.printSet === '2') return RECIPES.filter(function (r) { return r.book === 2; });
+    if (/^[123]$/.test(S.printSet)) {
+      var b = Number(S.printSet);
+      return RECIPES.filter(function (r) { return r.book === b; });
+    }
     if (S.printSet === 'fav') return RECIPES.filter(function (r) { return window.Store.isFav(r.id); });
     if (S.printSet === 'plan') return planIds().map(function (id) { return BY_ID[id]; }).filter(Boolean);
     return RECIPES;
@@ -388,7 +436,7 @@
   function recipeHTML(r) {
     return '<div class="rp">' +
       '<div class="rp-top">' +
-        '<span class="rp-num">No. ' + String(r.id).padStart(3, '0') + '</span>' +
+        '<span class="rp-num">No. ' + no(r) + '</span>' +
         '<span>' + esc(r.servings.split(' (')[0] + ' · ' + r.time + ' · ' + diffLabel(r.diff)) +
           (r.score !== null ? ' · <span class="score">Score ' + r.score + (r.est ? ' est.' : '') + '</span>' : '') +
         '</span>' +
@@ -524,6 +572,20 @@
     var block = function (html) { b.push({ type: 'fmblock', html: '<div class="fm-block">' + html + '</div>' }); };
     var head = function (html) { b.push({ type: 'fmhead', html: '<div class="fm-block">' + html + '</div>' }); };
 
+    /* Ours needs none of it. Four pages explaining a book you wrote yourself
+       would be four pages telling you what you already know. */
+    if (vol.book === 3) {
+      head('<div class="fm-title">Ours</div>' +
+        '<div class="fm-lede">Written at this table rather than carried over.</div>');
+      block('<div class="fm-p">These follow the same shape as the two printed volumes — a number, a ' +
+        'serving count, a time, an effort and a score out of 100 — but the words are ours. Calories, ' +
+        'sodium and fiber are worked out from the ingredients using the same table the other two ' +
+        'volumes use, so a score here means what a score there means.</div>');
+      block('<div class="fm-p">Nothing in here has been proofread by anyone but us, and that is rather ' +
+        'the point.</div>');
+      return b;
+    }
+
     head('<div class="fm-title">How to read a recipe</div>' +
       '<div class="fm-lede">Everything here is built from what the storehouse actually carries.</div>');
     block('<div class="fm-sub">The number</div>' +
@@ -617,7 +679,7 @@
   }
   function tocRowHTML(r, page) {
     return '<div class="toc-row">' +
-      '<span class="toc-no">' + String(r.id).padStart(3, '0') + '</span>' +
+      '<span class="toc-no">' + no(r) + '</span>' +
       '<span class="toc-name">' + esc(r.name) + '</span>' +
       '<span class="toc-dots"></span>' +
       '<span class="toc-pg">' + page + '</span>' +
@@ -662,10 +724,10 @@
     // "Both books" really means two books — each volume opens on its own
     // cover and is numbered from page one.
     var volumes;
-    if (grouped || S.printSet === '1' || S.printSet === '2') {
-      volumes = [{ book: S.printSet === '2' ? 2 : 1, list: pool, grouped: grouped }];
+    if (grouped || /^[123]$/.test(S.printSet)) {
+      volumes = [{ book: grouped ? 1 : Number(S.printSet), list: pool, grouped: grouped }];
     } else {
-      volumes = [1, 2].map(function (b) {
+      volumes = [1, 2, 3].map(function (b) {
         return { book: b, list: pool.filter(function (r) { return r.book === b; }), grouped: false };
       }).filter(function (v) { return v.list.length; });
     }
@@ -696,7 +758,8 @@
       var sub = vol.grouped
         ? (S.printSet === 'fav' ? 'The ones worth keeping.' : 'The week’s cooking, in order.')
         : BOOKS[vol.book].blurb;
-      out.push({ kind: 'cover', html: coverHTML(title, sub, vol.list.length + ' recipes') });
+      out.push({ kind: 'cover', html: coverHTML(title, sub,
+        vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes')) });
 
       if (!vol.grouped) {
         var fm = frontMatterItems(vol);
@@ -807,6 +870,19 @@
     var draft = root.querySelector('#joinCode');
     if (draft) S.joinDraft = draft.value;
 
+    /* Re-rendering the editor would throw away half-typed text, so it is drawn
+       once when it opens and left alone; the only thing that redraws is the
+       nutrition preview under the ingredients. */
+    if (S.editId) {
+      if (!prev || !prev.querySelector('.ed-sheet')) {
+        root.innerHTML = editorHTML();
+        document.body.style.overflow = 'hidden';
+        var nm = root.querySelector('#edName');
+        if (nm) nm.focus();
+      }
+      return;
+    }
+
     if (S.syncOpen) {
       root.innerHTML = syncHTML();
       document.body.style.overflow = 'hidden';
@@ -826,7 +902,9 @@
     root.innerHTML = '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(r.name) + '">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">' + esc(BOOKS[r.book].name + ' · ' + r.secName + ' · No. ' + String(r.id).padStart(3, '0')) + '</div>' +
+          '<div class="sheet-eyebrow">' + esc([BOOKS[r.book].name, r.secName]
+            .filter(function (x, i, a) { return i === 0 || x !== a[0]; })
+            .concat('No. ' + no(r)).join(' · ')) + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="sheet-name">' + esc(r.name) + '</div>' +
@@ -865,6 +943,7 @@
         '<div class="sheet-actions"><div class="sheet-actions-in">' +
           '<button class="savebtn" data-fav="' + r.id + '" aria-pressed="' + fav + '">' +
             (fav ? '★ Saved' : '☆ Save') + '</button>' +
+          '<button class="savebtn" data-edit="' + r.id + '">✎ Edit</button>' +
           '<span class="addto">Add to</span>' +
           DAYS.map(function (d) {
             var on = window.Store.day(d[0]).some(function (e) { return e.id === r.id; });
@@ -875,6 +954,206 @@
       '</div></div>';
 
     if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+  }
+
+  // ------------------------------------------------------------ the editor
+  /* A recipe you write is measured exactly as the printed ones were: its
+     ingredient lines go through the same parser and the same food table, and
+     the score comes out of the same five-part formula. That is what
+     data/nutrition.js is — see tools/build-data.js. If the parser cannot place
+     an ingredient the panel says which, because a recipe half-priced is worse
+     than one not priced at all if you do not know it happened. */
+  function measured(form) {
+    var N = window.Nutrition;
+    var ing = lines(form.ing), steps = lines(form.steps);
+    var servN = parseFloat(form.servings) || 1;
+    var est = N ? N.nutritionFor(ing, servN, form.extras, N.parseLine, N.FOODS, N.SPICE_NAMES)
+      : { perServing: { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0 }, items: [], unmatched: [] };
+
+    var macro = est.perServing;
+    var typed = form.kcal !== '' && !isNaN(parseFloat(form.kcal));
+    if (typed) {
+      macro = {
+        kcal: num(form.kcal), p: num(form.p), c: num(form.c), f: num(form.f),
+        na: macro.na, fib: macro.fib   // sodium and fiber still come from the ingredients
+      };
+    }
+    var s = macro.kcal > 0 && N ? N.scoreFrom(macro) : null;
+
+    return {
+      id: form.id,
+      book: form.book, secNum: form.secNum,
+      secName: form.secName || 'Ours',
+      name: form.name || 'Untitled',
+      servings: form.servings || '1 Serving', servN: servN,
+      ing: ing, steps: steps, ingp: est.items,
+      macro: macro, tagline: null,
+      score: s ? s.score : null, sc: s ? s.sc : null,
+      diff: form.diff || 'Easy', time: form.time || '',
+      extras: form.extras || null,
+      est: !typed, own: form.own || undefined,
+      unpriced: est.unmatched.length ? est.unmatched : undefined
+    };
+  }
+
+  function lines(s) {
+    return String(s || '').split('\n').map(function (x) { return x.trim(); })
+      .filter(function (x) { return x.length; });
+  }
+  function num(v) { var n = parseFloat(v); return isFinite(n) ? Math.round(n) : 0; }
+
+  function editorForm() {
+    // whatever is on screen right now, so the preview can follow the typing
+    var g = function (id) { var e = $(id); return e ? e.value : ''; };
+    var base = S.editBase || {};
+    return {
+      id: base.id, book: base.book, secNum: base.secNum, own: base.own,
+      name: g('edName'), secName: g('edSection'), servings: g('edServings'),
+      time: g('edTime'), diff: g('edDiff'), ing: g('edIng'), steps: g('edSteps'),
+      extras: g('edExtras'), kcal: g('edKcal'), p: g('edP'), c: g('edC'), f: g('edF')
+    };
+  }
+
+  function editorHTML() {
+    var b = S.editBase;
+    var own = !!b.own;
+    var preview = S.editPreview;
+    var scoreBit = preview && preview.score !== null
+      ? '<div class="ed-score"><strong>' + preview.score + '</strong> out of 100 · ' +
+        preview.macro.kcal + ' kcal · ' + preview.macro.p + 'g protein · ' +
+        preview.macro.na + ' mg sodium · ' + preview.macro.fib + 'g fiber' +
+        '<div class="ed-hint">Worked out from the ingredients, the same way the printed ones were.</div>' +
+        (preview.unpriced
+          ? '<div class="ed-warn">Not counted, because the food table has no entry: ' +
+            esc(preview.unpriced.join(', ')) + '. Everything else is in.</div>' : '') +
+        '</div>'
+      : '<div class="ed-score ed-score-none">Add ingredients and the calories, sodium, fiber and ' +
+        'score work themselves out.</div>';
+
+    var row = function (label, id, val, ph, cls) {
+      return '<label class="ed-f' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span>' +
+        '<input class="txt" id="' + id + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '"></label>';
+    };
+
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet ed-sheet" role="dialog" aria-modal="true" aria-label="Recipe">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">' + (own ? (b.isNew ? 'A new recipe' : 'Yours') :
+            BOOKS[b.book].name + ' &middot; changing a printed recipe') + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+
+        row('Name', 'edName', b.name, 'Grandma’s rolls') +
+        (own ? row('Section', 'edSection', b.secName, 'Ours') : '') +
+        '<div class="ed-row">' +
+          row('Servings', 'edServings', b.servings, '4 Servings') +
+          row('Time', 'edTime', b.time, '35 mins') +
+          '<label class="ed-f"><span>Effort</span><select class="txt" id="edDiff">' +
+            ['Easy', 'Medium', 'In-Depth'].map(function (d) {
+              return '<option value="' + d + '"' + (b.diff === d ? ' selected' : '') + '>' + diffLabel(d) + '</option>';
+            }).join('') +
+          '</select></label>' +
+        '</div>' +
+
+        '<label class="ed-f"><span>Ingredients &mdash; one a line</span>' +
+          '<textarea class="txt ed-ta" id="edIng" rows="7" placeholder="2 cups flour&#10;1 tsp salt&#10;1 packet yeast">' +
+          esc((b.ing || []).join('\n')) + '</textarea></label>' +
+
+        scoreBit +
+
+        '<label class="ed-f"><span>Method &mdash; one step a line</span>' +
+          '<textarea class="txt ed-ta" id="edSteps" rows="7" placeholder="Warm the milk to blood heat.&#10;Stir in the yeast and leave ten minutes.">' +
+          esc((b.steps || []).join('\n')) + '</textarea></label>' +
+
+        row('Needs beyond the storehouse', 'edExtras', b.extras, 'Nothing, or: Buttermilk, Nutmeg') +
+
+        '<details class="ed-more"' + (S.editMacros ? ' open' : '') + '><summary>Set the calories yourself</summary>' +
+          '<div class="ed-hint">Only if you have real numbers. Leave these empty and they come from the ' +
+          'ingredients. Sodium and fiber always do.</div>' +
+          '<div class="ed-row ed-row4">' +
+            row('kcal', 'edKcal', b.typedMacro ? b.macro.kcal : '', '') +
+            row('Protein g', 'edP', b.typedMacro ? b.macro.p : '', '') +
+            row('Carbs g', 'edC', b.typedMacro ? b.macro.c : '', '') +
+            row('Fat g', 'edF', b.typedMacro ? b.macro.f : '', '') +
+          '</div>' +
+        '</details>' +
+
+        '<div class="ed-actions">' +
+          '<button class="btn-primary" data-ed="save">Save</button>' +
+          '<button class="ghost" data-ed="cancel">Cancel</button>' +
+          (own && !b.isNew ? '<button class="ghost ed-del" data-ed="delete">Delete this recipe</button>' : '') +
+          (!own && b.edited ? '<button class="ghost ed-del" data-ed="revert">Put the book’s version back</button>' : '') +
+        '</div>' +
+      '</div></div>';
+  }
+
+  function editorAction(what) {
+    if (what === 'cancel') { S.editId = null; S.editBase = null; renderModal(); return; }
+
+    if (what === 'delete' || what === 'revert') {
+      var msg = what === 'delete'
+        ? 'Delete “' + (S.editBase.name || 'this recipe') + '”? It goes from both phones.'
+        : 'Undo your changes and put the printed version back?';
+      if (!confirm(msg)) return;
+      window.Store.deleteRecipe(S.editBase.id);
+      S.editId = null; S.editBase = null;
+      renderModal();
+      return;
+    }
+
+    var rec = measured(editorForm());
+    if (!rec.name || rec.name === 'Untitled') { alert('Give it a name first.'); return; }
+    if (!rec.ing.length) { alert('A recipe needs at least one ingredient.'); return; }
+    window.Store.saveRecipe(rec);
+    S.editId = null; S.editBase = null;
+    S.openId = rec.id;          // straight into the recipe you just wrote
+    S.scale = 1;
+    renderAll();
+  }
+
+  /* Only the preview under the ingredients redraws while you type, so nothing
+     you have typed anywhere else can be lost to a re-render. */
+  function refreshPreview() {
+    var box = document.querySelector('.ed-score');
+    if (!box) return;
+    S.editPreview = measured(editorForm());
+    var p = S.editPreview;
+    if (p.score === null) {
+      box.className = 'ed-score ed-score-none';
+      box.innerHTML = 'Add ingredients and the calories, sodium, fiber and score work themselves out.';
+      return;
+    }
+    box.className = 'ed-score';
+    box.innerHTML = '<strong>' + p.score + '</strong> out of 100 · ' +
+      p.macro.kcal + ' kcal · ' + p.macro.p + 'g protein · ' +
+      p.macro.na + ' mg sodium · ' + p.macro.fib + 'g fiber' +
+      '<div class="ed-hint">Worked out from the ingredients, the same way the printed ones were.</div>' +
+      (p.unpriced ? '<div class="ed-warn">Not counted, because the food table has no entry: ' +
+        esc(p.unpriced.join(', ')) + '. Everything else is in.</div>' : '');
+  }
+
+  function openEditor(id) {
+    var b;
+    if (id === 'new') {
+      b = {
+        id: window.Store.newRecipeId(), own: true, isNew: true, book: 3, secNum: 1,
+        secName: 'Ours', name: '', servings: '4 Servings', time: '', diff: 'Easy',
+        ing: [], steps: [], extras: '', macro: {}
+      };
+    } else {
+      var r = BY_ID[id];
+      if (!r) return;
+      b = Object.assign({}, r, { own: typeof r.id === 'string', typedMacro: !r.est });
+    }
+    S.editBase = b;
+    S.editMacros = !!b.typedMacro;
+    S.editPreview = b.ing && b.ing.length ? measured(Object.assign({}, b, {
+      ing: b.ing.join('\n'), steps: (b.steps || []).join('\n'),
+      kcal: b.typedMacro ? b.macro.kcal : '', p: '', c: '', f: ''
+    })) : null;
+    S.openId = null;
+    S.editId = id;
+    renderModal();
   }
 
   // ----------------------------------------------------------------- sync UI
@@ -958,6 +1237,8 @@
   }
 
   function renderAll() {
+    rebuild();                    // your changes and your own recipes, folded in
+    renderSections();             // which can add a section, or a whole volume
     /* Forget ticks for anything no longer on the list. This has to happen on
        every change, not just while the list is on screen — a recipe is usually
        dropped from the Meal Plan tab, and by the time you look at the list the
@@ -1011,7 +1292,7 @@
     $('grid').addEventListener('click', function (e) {
       var c = e.target.closest('[data-open]');
       if (!c) return;
-      S.openId = Number(c.dataset.open);
+      S.openId = idOf(c.dataset.open);
       S.scale = 1;
       renderModal();
       var x = document.querySelector('.sheet-x');
@@ -1020,10 +1301,10 @@
 
     $('planGrid').addEventListener('click', function (e) {
       var b = e.target.closest('[data-drop]');
-      if (b) { window.Store.removeFromDay(Number(b.dataset.drop), b.dataset.day); return; }
+      if (b) { window.Store.removeFromDay(idOf(b.dataset.drop), b.dataset.day); return; }
       var m = e.target.closest('[data-mult]');
       if (!m) return;
-      var id = Number(m.dataset.mult), day = m.dataset.day;
+      var id = idOf(m.dataset.mult), day = m.dataset.day;
       var at = SCALES.indexOf(window.Store.scaleOf(id, day));
       window.Store.addToDay(id, day, SCALES[(at + 1) % SCALES.length]);
     });
@@ -1085,12 +1366,18 @@
       // the backdrop itself, or the × — anything inside the sheet falls through
       if (e.target.classList.contains('scrim') || e.target.closest('.sheet-x')) { close(); return; }
 
+      var ed = e.target.closest('[data-edit]');
+      if (ed) { openEditor(idOf(ed.dataset.edit)); return; }
+
+      var act = e.target.closest('[data-ed]');
+      if (act) { editorAction(act.dataset.ed); return; }
+
       var fav = e.target.closest('[data-fav]');
-      if (fav) { window.Store.toggleFav(Number(fav.dataset.fav)); return; }
+      if (fav) { window.Store.toggleFav(idOf(fav.dataset.fav)); return; }
 
       var add = e.target.closest('[data-add]');
       if (add) {
-        var id = Number(add.dataset.add), day = add.dataset.day;
+        var id = idOf(add.dataset.add), day = add.dataset.day;
         // whatever size you are looking at is the size that goes into the week
         if (window.Store.day(day).some(function (x) { return x.id === id; })) window.Store.removeFromDay(id, day);
         else window.Store.addToDay(id, day, S.scale);
@@ -1118,7 +1405,16 @@
       }
     });
 
+    // the nutrition preview follows the ingredients as they are typed
+    $('modalRoot').addEventListener('input', function (e) {
+      if (S.editId && (e.target.id === 'edIng' || e.target.id === 'edServings' ||
+        e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
+    });
+
+    $('newRecipe').addEventListener('click', function () { openEditor('new'); });
+
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
       if (e.key === 'Escape' && (S.openId || S.syncOpen)) close();
     });
   }

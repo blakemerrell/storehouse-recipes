@@ -228,6 +228,43 @@ select { max-width: 280px; }
 .list-row .qty { margin-left: auto; font-size: 12px; color: oklch(0.58 0.03 65); text-align: right; }
 .list-row.done span:not(.qty) { text-decoration: line-through; color: oklch(0.68 0.02 70); }
 
+/* --------------------------------------------------------- the editor */
+.ed-sheet { max-width: 640px; }
+.ed-f { display: block; margin-bottom: 13px; }
+.ed-f > span {
+  display: block; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 5px;
+}
+.ed-f .txt { width: 100%; }
+.ed-ta {
+  font-family: var(--sans); font-size: 14px; line-height: 1.55; resize: vertical;
+  min-height: 96px;
+}
+.ed-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.ed-row > .ed-f { flex: 1 1 130px; min-width: 0; }
+.ed-row4 > .ed-f { flex: 1 1 70px; }
+.ed-score {
+  background: oklch(0.95 0.03 145); border: 1px solid oklch(0.86 0.04 145);
+  border-radius: 3px; padding: 11px 13px; margin: 0 0 15px;
+  font-size: 13px; color: oklch(0.34 0.06 145);
+}
+.ed-score strong { font-family: var(--serif); font-size: 19px; font-weight: 700; }
+.ed-score-none {
+  background: var(--paper-soft); border-color: var(--line); color: var(--muted);
+  font-style: italic;
+}
+.ed-hint { font-size: 12px; color: var(--muted); margin-top: 5px; font-style: normal; }
+.ed-warn { font-size: 12px; color: oklch(0.48 0.11 45); margin-top: 6px; }
+.ed-more { margin: 4px 0 18px; }
+.ed-more summary { font-size: 12.5px; color: var(--muted-2); cursor: pointer; padding: 4px 0; }
+.ed-more summary:hover { color: var(--ink); }
+.ed-actions {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  border-top: 1px solid var(--line); padding-top: 16px;
+}
+.ed-del { margin-left: auto; color: oklch(0.52 0.12 30); }
+.ed-del:hover { border-color: oklch(0.62 0.14 30); color: oklch(0.44 0.15 30); }
+
 /* ------------------------------------------------------------ print book */
 .book-bar { background: var(--paper-soft); border-bottom: 1px solid var(--line); }
 .book-bar-in {

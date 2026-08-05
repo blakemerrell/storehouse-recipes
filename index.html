@@ -38,6 +38,7 @@
         <button data-book="all" aria-pressed="true">Both books</button>
         <button data-book="1" aria-pressed="false">Strong &amp; Simple</button>
         <button data-book="2" aria-pressed="false">Around the Table</button>
+        <button data-book="3" id="bookOurs" class="hide" aria-pressed="false">Ours</button>
       </div>
       <select id="secSel" aria-label="Section"><option value="all">All sections</option></select>
       <select id="diffSel" aria-label="Effort">
@@ -58,6 +59,7 @@
         <option value="quick">Quickest first</option>
       </select>
       <button class="favbtn" id="favBtn" aria-pressed="false">&#9733; Favorites <span id="favCount"></span></button>
+      <button class="favbtn" id="newRecipe" title="Write a recipe of your own">&#9998; Write a recipe</button>
       <input type="search" class="txt" id="search" placeholder="Search a dish or ingredient&hellip;" aria-label="Search">
     </div>
   </div>
@@ -113,6 +115,7 @@
           <option value="all">Both books &mdash; all 257</option>
           <option value="1">Strong &amp; Simple &mdash; 100 recipes</option>
           <option value="2">Around the Table &mdash; 157 recipes</option>
+          <option value="3" id="printOurs" class="hide">Ours</option>
           <option value="fav">Favorites only</option>
           <option value="plan">This week&rsquo;s plan</option>
         </select>
@@ -127,6 +130,7 @@
 <div id="modalRoot"></div>
 
 <script src="data/recipes.js"></script>
+<script src="data/nutrition.js"></script>
 <script src="src/config.js"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
 <script src="src/sync.js?v=2"></script>

@@ -24,6 +24,7 @@ window.Store = (function () {
   var SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   var LS = {
     favs: 'bsc.favs', weeks: 'bsc.weeks', active: 'bsc.active', house: 'bsc.house',
+    mine: 'bsc.mine', edits: 'bsc.edits',
     plan: 'bsc.plan', checked: 'bsc.checked'   // the single week this replaced
   };
 
@@ -32,7 +33,10 @@ window.Store = (function () {
      rather than two copies of the same week. */
   var FIRST = 'w1';
 
-  var state = { favs: [], weeks: {}, active: '', plan: {}, checked: {} };
+  /* mine  recipes written here, keyed by their own id
+     edits  changes to a printed recipe, keyed by its number — kept apart from
+            the recipe so the original is never lost and can always be restored */
+  var state = { favs: [], weeks: {}, active: '', plan: {}, checked: {}, mine: {}, edits: {} };
   var status = 'local';       // local | connecting | synced | offline | error
   var statusNote = '';
   var house = '';
@@ -48,6 +52,7 @@ window.Store = (function () {
   }
   function saveLocal() {
     write(LS.favs, state.favs); write(LS.weeks, state.weeks); write(LS.active, state.active);
+    write(LS.mine, state.mine); write(LS.edits, state.edits);
   }
   function emit() { listeners.forEach(function (f) { f(state, status, statusNote, house); }); }
   function setStatus(s, note) { status = s; statusNote = note || ''; emit(); }
@@ -104,6 +109,8 @@ window.Store = (function () {
     }
     state.weeks = weeks;
     state.active = d.active && weeks[d.active] ? d.active : ids()[0];
+    state.mine = obj(d.mine);
+    state.edits = obj(d.edits);
     derive();
     return made;
   }
@@ -146,7 +153,12 @@ window.Store = (function () {
       doc = db.collection('households').doc(house);
       return doc.get().then(function (snap) {
         // first device into a new household seeds it with whatever is already here
-        if (!snap.exists) return doc.set({ favs: state.favs, weeks: state.weeks, active: state.active });
+        if (!snap.exists) {
+          return doc.set({
+            favs: state.favs, weeks: state.weeks, active: state.active,
+            mine: state.mine, edits: state.edits
+          });
+        }
       });
     }).then(function () {
       if (unsub) unsub();
@@ -217,6 +229,8 @@ window.Store = (function () {
       adopt({
         weeks: read(LS.weeks, null),
         active: read(LS.active, ''),
+        mine: read(LS.mine, {}),
+        edits: read(LS.edits, {}),
         plan: read(LS.plan, {}),        // whatever the one-week version left behind
         checked: read(LS.checked, {})
       });
@@ -303,7 +317,7 @@ window.Store = (function () {
     day: function (day) {
       return (state.plan[day] || []).map(function (e) {
         return typeof e === 'object' && e ? { id: e.i, x: e.x || 1 } : { id: e, x: 1 };
-      }).filter(function (e) { return typeof e.id === 'number'; });
+      }).filter(function (e) { return e.id !== undefined && e.id !== null && e.id !== ''; });
     },
 
     scaleOf: function (id, day) {
@@ -365,6 +379,41 @@ window.Store = (function () {
           w.checked = Object.assign({}, w.checked);
           if (on) w.checked[k] = true; else delete w.checked[k];
         });
+      });
+    },
+
+    // ------------------------------------------------- recipes of your own
+    /* Written here rather than printed. Ids are strings so they can never
+       collide with the numbered ones, and so a glance at an id tells you
+       which kind you are holding. */
+    newRecipeId: function () {
+      return 'u' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+    },
+
+    saveRecipe: function (rec) {
+      var id = rec.id;
+      var own = typeof id === 'string';
+      var field = (own ? 'mine.' : 'edits.') + id;
+      push(function () {
+        var u = {}; u[field] = rec; return doc.update(u);
+      }, function () {
+        var m = Object.assign({}, own ? state.mine : state.edits);
+        m[id] = rec;
+        if (own) state.mine = m; else state.edits = m;
+      });
+    },
+
+    /* Deletes one of yours. On a printed recipe it drops the changes instead,
+       which puts the book's own version back. */
+    deleteRecipe: function (id) {
+      var own = typeof id === 'string';
+      var field = (own ? 'mine.' : 'edits.') + id;
+      push(function () {
+        var u = {}; u[field] = FV.delete(); return doc.update(u);
+      }, function () {
+        var m = Object.assign({}, own ? state.mine : state.edits);
+        delete m[id];
+        if (own) state.mine = m; else state.edits = m;
       });
     },
 
