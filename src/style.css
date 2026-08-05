@@ -581,14 +581,13 @@ select { max-width: 280px; }
 }
 .fm-table > div:nth-child(odd) { font-weight: 600; white-space: nowrap; }
 .fm-key { font-variant-numeric: tabular-nums; }
-.fm-cols { columns: 2; column-gap: 20px; }
-.fm-cols div {
-  font-size: 10px; line-height: 1.45; break-inside: avoid;
-  padding: 1px 0;
-}
-.fm-cat {
-  font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase;
-  font-weight: 600; color: var(--ochre); margin-top: 7px; break-after: avoid;
+/* a fixed label column, so the list can be split across pages and every piece
+   still lines up with the others */
+.fm-pantry { grid-template-columns: 132px 1fr; gap: 0 12px; }
+.fm-pantry > div { font-size: 10.5px; line-height: 1.4; padding: 3px 0; }
+.fm-pantry > div:nth-child(odd) {
+  color: var(--ochre); font-size: 9px; letter-spacing: 0.08em;
+  text-transform: uppercase; padding-top: 4.5px; white-space: normal;
 }
 .fm-warn {
   border-left: 2px solid var(--ochre); padding: 2px 0 2px 10px;

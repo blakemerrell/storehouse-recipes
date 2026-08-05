@@ -118,11 +118,26 @@
   // ------------------------------------------------------------------ state
   var S = {
     view: 'browse', bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
-    favOnly: false, qy: '', openId: null, scale: 1, printSet: 'all',
+    favOnly: false, qy: '', sort: 'book', openId: null, scale: 1, printSet: 'all',
     syncOpen: false, pendingCode: '', joinDraft: ''
   };
 
   // ------------------------------------------------------------------ browse
+  /** "1 hr 20 mins" -> 80. Used for sorting by how long something takes. */
+  function timeMins(r) {
+    var h = r.time.match(/(\d+(?:\.\d+)?)\s*hr/i);
+    var m = r.time.match(/(\d+)\s*min/i);
+    return (h ? parseFloat(h[1]) * 60 : 0) + (m ? parseInt(m[1], 10) : 0);
+  }
+
+  var SORTS = {
+    book: null,
+    /* a missing score sorts last rather than to the top */
+    healthy: function (a, b) { return (b.score === null ? -1 : b.score) - (a.score === null ? -1 : a.score); },
+    protein: function (a, b) { return ((b.macro && b.macro.p) || 0) - ((a.macro && a.macro.p) || 0); },
+    quick: function (a, b) { return timeMins(a) - timeMins(b); }
+  };
+
   function filtered() {
     var qs = S.qy.trim().toLowerCase();
     return RECIPES.filter(function (r) {
@@ -134,7 +149,7 @@
       if (S.favOnly && !window.Store.isFav(r.id)) return false;
       if (qs && (r.name + ' ' + r.ing.join(' ') + ' ' + r.secName).toLowerCase().indexOf(qs) < 0) return false;
       return true;
-    });
+    }).sort(SORTS[S.sort] || undefined);
   }
 
   function renderSections() {
@@ -156,7 +171,9 @@
     var list = filtered();
     $('browseTitle').textContent = S.bookF === 1 ? BOOKS[1].name
       : S.bookF === 2 ? BOOKS[2].name : 'The whole collection';
-    $('browseCount').textContent = list.length + (list.length === 1 ? ' recipe' : ' recipes');
+    var order = { healthy: ' · healthiest first', protein: ' · most protein first', quick: ' · quickest first' };
+    $('browseCount').textContent = list.length + (list.length === 1 ? ' recipe' : ' recipes') +
+      (order[S.sort] || '');
     $('browseEmpty').classList.toggle('hide', list.length !== 0);
 
     $('grid').innerHTML = list.map(function (r) {
@@ -426,7 +443,7 @@
     ['Baking', 'Baking powder · Baking soda · Yeast · Evaporated milk · Raisins · Vegetable oil'],
     ['Sugars', 'Brown · Granulated · Powdered'],
     ['Seasonings', 'Cinnamon · Black pepper · Salt · Vanilla'],
-    ['Condiments', 'Ketchup · Mustard · Mayo · Ranch · Salsa · BBQ-free honey · Jams · Peanut butter · Syrup · Black olives'],
+    ['Condiments', 'Ketchup · Mustard · Mayo · Ranch · Salsa · Honey · Jams · Peanut butter · Syrup · Black olives'],
     ['Drinks and desserts', 'Non-fat dry milk · Hot cocoa · Gelatin · Puddings · Cake mixes'],
     ['Bread', 'White · Whole wheat · Hamburger buns · Hot dog buns · Tortillas'],
   ];
@@ -505,11 +522,12 @@
 
     head('<div class="fm-title">What the storehouse carries</div>' +
       '<div class="fm-lede">The standard order. Anything a recipe needs beyond this is named at its foot.</div>');
-    // in chunks, so the list can flow across a page break instead of being one
-    // indivisible slab that leaves the page before it two-thirds empty
-    for (var i = 0; i < STOREHOUSE.length; i += 3) {
-      block('<div class="fm-cols">' + STOREHOUSE.slice(i, i + 3).map(function (row) {
-        return '<div class="fm-cat">' + esc(row[0]) + '</div><div>' + esc(row[1]) + '</div>';
+    // Chunked so it can flow across a page, but the label column is a fixed
+    // width in CSS, so every chunk lines up with every other one. Left to size
+    // itself, each piece picked its own width and the list looked scattered.
+    for (var i = 0; i < STOREHOUSE.length; i += 6) {
+      block('<div class="fm-table fm-pantry">' + STOREHOUSE.slice(i, i + 6).map(function (row) {
+        return '<div>' + esc(row[0]) + '</div><div>' + esc(row[1]) + '</div>';
       }).join('') + '</div>');
     }
 
@@ -894,6 +912,7 @@
     $('diffSel').addEventListener('change', function () { S.diffF = this.value; renderBrowse(); });
     $('pantrySel').addEventListener('change', function () { S.pantryF = this.value; renderBrowse(); });
     $('search').addEventListener('input', function () { S.qy = this.value; renderBrowse(); });
+    $('sortSel').addEventListener('change', function () { S.sort = this.value; renderBrowse(); });
 
     $('favBtn').addEventListener('click', function () {
       S.favOnly = !S.favOnly;

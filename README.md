@@ -15,8 +15,9 @@ To put it on your phones, see **Putting it online** below.
 ## What is in it
 
 **Browse** — all 257 recipes, filtered by book, section, effort, whether they need
-anything beyond standard storehouse items, or your favorites. Search covers dish
-names, ingredients and section names. Tap a card for the full recipe, where you can
+anything beyond standard storehouse items, or your favorites, and ordered by book,
+healthiest first, most protein or quickest. Search covers dish names, ingredients
+and section names. Tap a card for the full recipe, where you can
 scale the ingredients from ¼× to 8× (fractions come out as fractions, not decimals).
 
 **Meal Plan** — assign recipes to days of the week from any recipe's panel.
