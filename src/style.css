@@ -321,45 +321,47 @@ select { max-width: 280px; }
    in the panel. */
 .leaf {
   position: relative; display: inline-block; flex: none; vertical-align: middle;
-  width: 34px; height: 32px;
+  width: 29px; height: 35px;
 }
-/* a few degrees off upright, so it reads as a leaf and not as an eye */
-.leaf svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-8deg); }
-.leaf-body { stroke-width: 2; }
-.leaf-rib { fill: none; stroke-width: 1.6; stroke-linecap: round; opacity: 0.45; }
+/* a few degrees off upright, so it sits like a leaf rather than a specimen */
+.leaf svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-7deg); }
+.leaf-body { stroke-width: 2; stroke-linejoin: round; }
+.leaf-stem { fill: none; stroke-width: 2; stroke-linecap: round; }
+/* the number sits at the blade's widest point, which is below the middle */
 .leaf-n {
-  position: absolute; left: 50%; top: 53%; transform: translate(-50%, -50%);
+  position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);
   font-family: var(--sans); font-weight: 600;
-  font-size: 12px; letter-spacing: 0; line-height: 1;
+  font-size: 11.5px; letter-spacing: 0; line-height: 1;
 }
 .leaf-sr {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip-path: inset(50%); white-space: nowrap;
 }
 
-.leaf-good .leaf-body { fill: oklch(0.93 0.05 148); stroke: oklch(0.55 0.11 148); }
-.leaf-good .leaf-rib  { stroke: oklch(0.55 0.11 148); }
-.leaf-good .leaf-n    { color: oklch(0.36 0.09 148); }
+.leaf-good .leaf-body { fill: oklch(0.93 0.05 148); stroke: oklch(0.52 0.12 148); }
+.leaf-good .leaf-stem { stroke: oklch(0.52 0.12 148); }
+.leaf-good .leaf-n    { color: oklch(0.34 0.10 148); }
 
-.leaf-ok .leaf-body   { fill: oklch(0.94 0.035 240); stroke: oklch(0.56 0.09 240); }
-.leaf-ok .leaf-rib    { stroke: oklch(0.56 0.09 240); }
-.leaf-ok .leaf-n      { color: oklch(0.40 0.08 240); }
+.leaf-ok .leaf-body   { fill: oklch(0.94 0.035 240); stroke: oklch(0.54 0.10 240); }
+.leaf-ok .leaf-stem   { stroke: oklch(0.54 0.10 240); }
+.leaf-ok .leaf-n      { color: oklch(0.38 0.09 240); }
 
-.leaf-low .leaf-body  { fill: oklch(0.93 0.006 70); stroke: oklch(0.45 0.012 70); }
-.leaf-low .leaf-rib   { stroke: oklch(0.45 0.012 70); }
+.leaf-low .leaf-body  { fill: oklch(0.93 0.006 70); stroke: oklch(0.44 0.012 70); }
+.leaf-low .leaf-stem  { stroke: oklch(0.44 0.012 70); }
 .leaf-low .leaf-n     { color: oklch(0.30 0.01 70); }
 
 /* on the page, where it has to sit on a 9.5px line of small caps */
 .leaf-print {
-  position: absolute; right: 0; top: -3px; width: 28px; height: 26px; margin: 0;
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 25px; height: 30px; margin: 0;
 }
-.leaf-print .leaf-n { font-size: 10px; }
+.leaf-print .leaf-n { font-size: 9.5px; }
 .leaf-print .leaf-body { stroke-width: 2.4; }
 .leaf-print .leaf-rib { stroke-width: 2; }
 
 /* in the recipe panel, where it is the thing you look at */
-.leaf-big { width: 62px; height: 58px; }
-.leaf-big .leaf-n { font-family: var(--serif); font-size: 22px; font-weight: 700; }
+.leaf-big { width: 52px; height: 63px; }
+.leaf-big .leaf-n { font-family: var(--serif); font-size: 21px; font-weight: 700; }
 
 /* ------------------------------------------------------- shopping list */
 .list-view { max-width: 760px; margin: 0 auto; padding: 28px 22px 70px; }
@@ -614,15 +616,19 @@ select { max-width: 280px; }
 .rp + .rp {
   border-top: 1px solid oklch(0.88 0.02 75); margin-top: 15px; padding-top: 15px;
 }
-/* The leaf hangs off the top corner rather than sitting in the line. Set inline
-   it added thirteen points to every recipe's header and eight pages to the pair
-   of books, for a mark that is read at a glance and does not need a line of its
-   own. */
-.rp { position: relative; }
+/* The leaf hangs beside the header line rather than sitting in it: set inline it
+   added thirteen points to every recipe's header and eight pages to the pair of
+   books, for a mark that is read at a glance.
+   It is anchored to that line and not to the recipe box. Anchored to the box it
+   landed a fixed distance below the separator rule — which meant it sat level
+   with the meta line on the first recipe of a page and rode up onto the rule on
+   every recipe after it. Every leaf in the book now centres on its own header
+   line, so they all fall in the same place. */
 .rp-top {
+  position: relative;
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
   font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase;
-  color: oklch(0.52 0.03 65); padding-right: 32px;
+  color: oklch(0.52 0.03 65); padding-right: 34px;
 }
 .rp-num { color: var(--ochre); font-weight: 600; letter-spacing: 0.16em; white-space: nowrap; flex: none; }
 .rp-meta { display: inline-flex; align-items: center; gap: 0; white-space: nowrap; }

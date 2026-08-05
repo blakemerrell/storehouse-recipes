@@ -86,6 +86,49 @@ module.exports = {
     t.ok('the sections that need a title page get a real one',
       openers.length > 0 && openers.every((o) => o.size >= 24 && o.centred),
       JSON.stringify(openers));
+    /* The leaf used to be anchored to the recipe's box, so it landed level with
+       the meta line on the first recipe of a page and rode up onto the
+       separator rule on every one after it. Measure all of them. */
+    const leaves = await p.evaluate(() => {
+      const off = [], right = [];
+      document.querySelectorAll('.rp').forEach((rp) => {
+        const l = rp.querySelector('.leaf-print');
+        const row = rp.querySelector('.rp-top');
+        if (!l || !row) return;
+        const a = l.getBoundingClientRect(), r = row.getBoundingClientRect();
+        off.push(Math.round(((a.top + a.bottom) / 2 - (r.top + r.bottom) / 2) * 10) / 10);
+        right.push(Math.round((rp.getBoundingClientRect().right - a.right) * 10) / 10);
+      });
+      return { n: off.length, off: [...new Set(off)], right: [...new Set(right)] };
+    });
+    t.ok('every leaf in the book sits in exactly the same place',
+      leaves.n > 200 && leaves.off.length === 1 && Math.abs(leaves.off[0]) < 1 &&
+      leaves.right.length === 1,
+      leaves.n + ' leaves, vertical offsets ' + JSON.stringify(leaves.off) +
+      ', right margins ' + JSON.stringify(leaves.right));
+
+    /* Centred on an 11px line, a 30px leaf overhangs its row by about 9px. On
+       the first recipe of a page that overhang reaches up towards the running
+       head; on every other one it reaches towards the separator rule. Neither
+       may actually be touched. */
+    const clear = await p.evaluate(() => {
+      const bad = [];
+      document.querySelectorAll('.pg:not(.no-print)').forEach((pg, i) => {
+        const run = pg.querySelector('.pg-run');
+        pg.querySelectorAll('.rp').forEach((rp) => {
+          const l = rp.querySelector('.leaf-print');
+          if (!l) return;
+          const a = l.getBoundingClientRect();
+          if (run && a.top < run.getBoundingClientRect().bottom) bad.push(i + ' touches the running head');
+          if (parseFloat(getComputedStyle(rp).borderTopWidth) > 0 &&
+            a.top < rp.getBoundingClientRect().top + 1) bad.push(i + ' rides the rule');
+        });
+      });
+      return bad;
+    });
+    t.ok('and never touches the rule above it or the running head',
+      clear.length === 0, clear.slice(0, 4).join(' | '));
+
     t.ok('each volume opens on its own cover', b.covers === 2, b.covers);
     t.ok('and closes on its own back cover',
       (await p.evaluate(() => document.querySelectorAll('.pg-back').length)) === 2);

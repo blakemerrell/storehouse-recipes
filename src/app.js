@@ -103,9 +103,12 @@
     if (n === null || n === undefined) return '';
     return '<span class="leaf leaf-' + scoreBand(n) + (cls ? ' ' + cls : '') + '" ' +
       'title="Nutrition score ' + n + ' out of 100">' +
-      '<svg viewBox="0 0 46 44" aria-hidden="true" focusable="false">' +
-        '<path class="leaf-body" d="M23 2C5 9 3 27 23 42 43 27 41 9 23 2Z"/>' +
-        '<path class="leaf-rib" d="M23 8V36"/>' +
+      /* A blade with shoulders, a pointed tip and a stem that kicks left at the
+         base — the shape a leaf actually is, rather than the pointed oval that
+         reads as an eye. No midrib: it ran straight through the number. */
+      '<svg viewBox="0 0 44 54" aria-hidden="true" focusable="false">' +
+        '<path class="leaf-body" d="M22 2C17 9 5 16 5 26c0 9 7 15 17 18 10-3 17-9 17-18 0-10-12-17-17-24Z"/>' +
+        '<path class="leaf-stem" d="M22 44c0 4-1 6-3.5 7.5"/>' +
       '</svg>' +
       '<span class="leaf-n">' + n + '</span>' +
       '<span class="leaf-sr">out of 100</span>' +
