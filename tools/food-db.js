@@ -12,13 +12,17 @@
  * build-data.js for how unquantified lines are handled.
  *
  * Meat weights are raw, because that is how the recipes state them.
+ *
+ * Container sizes follow the storehouse's own order list rather than the
+ * supermarket sizes they resemble: peaches and pears come in 29 oz tins, diced
+ * tomatoes in 28 oz, canned chicken only in 12.5 oz, tuna only in 5 oz.
  */
 
 const FOODS = {
   // ---- Dairy & eggs -------------------------------------------------------
   milk:            { kcal: 50,  p: 3.3,  c: 4.8,  f: 2.0,  g: { cup: 244, tbsp: 15, tsp: 5 }, note: '2% milk' },
   dry_milk:        { kcal: 358, p: 36,   c: 52,   f: 0.8,  g: { cup: 68, tbsp: 4.3 }, note: 'non-fat dry milk powder' },
-  evaporated_milk: { kcal: 134, p: 6.8,  c: 10,   f: 7.6,  g: { cup: 252, can: 340 } },
+  evaporated_milk: { kcal: 134, p: 6.8,  c: 10,   f: 7.6,  g: { cup: 252, can: 354 }, note: '12 fl oz' },
   cottage_cheese:  { kcal: 84,  p: 11,   c: 4.3,  f: 2.3,  g: { cup: 226, tbsp: 14 }, note: '2% cottage cheese' },
   cheddar:         { kcal: 403, p: 23,   c: 3.1,  f: 33,   g: { cup: 113, tbsp: 7, oz: 28.35, each: 28 }, def: { qty: 0.5, unit: 'cup' }, note: 'shredded; "cheddar slice" = 28 g' },
   cream_cheese:    { kcal: 350, p: 6,    c: 5.5,  f: 34,   g: { cup: 232, tbsp: 14.5 } },
@@ -31,7 +35,7 @@ const FOODS = {
 
   // ---- Meat & fish --------------------------------------------------------
   chicken_breast:  { kcal: 120, p: 22.5, c: 0,    f: 2.6,  g: { lb: 453.6, oz: 28.35, cup: 140, each: 174 }, note: 'raw boneless skinless breast' },
-  chicken_canned:  { kcal: 130, p: 23,   c: 0,    f: 3.5,  g: { can: 120, oz: 28.35, cup: 140 }, note: 'canned chicken; plain "1 can" = 5 oz can drained, since the books write "(12.5 oz)" when they mean the large can' },
+  chicken_canned:  { kcal: 130, p: 23,   c: 0,    f: 3.5,  g: { can: 285, oz: 28.35, cup: 140 }, note: 'the storehouse stocks one size, 12.5 oz, about 285 g drained' },
   ground_beef:     { kcal: 250, p: 17.2, c: 0,    f: 20,   g: { lb: 453.6, oz: 28.35, cup: 225 }, note: 'raw 85/15' },
   beef_roast:      { kcal: 250, p: 17.5, c: 0,    f: 19.5, g: { lb: 453.6, oz: 28.35, cup: 225 }, note: 'raw chuck roast' },
   stewing_beef:    { kcal: 210, p: 19,   c: 0,    f: 14.5, g: { lb: 453.6, oz: 28.35, cup: 225 } },
@@ -76,12 +80,12 @@ const FOODS = {
   // ---- Vegetables ---------------------------------------------------------
   carrot:          { kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2,  g: { lb: 453.6, cup: 128, can: 250, each: 61 } },
   green_beans:     { kcal: 20,  p: 1.2,  c: 4.1,  f: 0.1,  g: { can: 240, cup: 125 }, def: { qty: 1, unit: 'can' }, note: 'canned, drained' },
-  corn:            { kcal: 81,  p: 2.6,  c: 19,   f: 1,    g: { can: 240, cup: 165 }, note: 'canned, drained' },
+  corn:            { kcal: 81,  p: 2.6,  c: 19,   f: 1,    g: { can: 265, cup: 165 }, note: '14.4 oz tin, drained' },
   broccoli:        { kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4,  g: { lb: 453.6, cup: 91 }, def: { qty: 1, unit: 'lb' } },
   lettuce:         { kcal: 15,  p: 1.4,  c: 2.9,  f: 0.2,  g: { cup: 47, each: 600, oz: 28.35 }, def: { qty: 2, unit: 'cup' }, note: '1 head = 600 g' },
   onion:           { kcal: 40,  p: 1.1,  c: 9.3,  f: 0.1,  g: { cup: 160, each: 110 }, def: { qty: 0.5, unit: 'each' } },
   tomato:          { kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2,  g: { cup: 180, each: 123 }, def: { qty: 1, unit: 'each' }, note: '1 large = 182 g, handled by the parser' },
-  tomato_canned:   { kcal: 32,  p: 1.5,  c: 7,    f: 0.2,  g: { can: 411, cup: 240 }, note: 'canned diced tomatoes' },
+  tomato_canned:   { kcal: 32,  p: 1.5,  c: 7,    f: 0.2,  g: { can: 794, cup: 240 }, note: 'diced tomatoes, 28 oz tin' },
   bell_pepper:     { kcal: 26,  p: 1,    c: 6,    f: 0.3,  g: { lb: 453.6, cup: 149, each: 119 }, def: { qty: 1, unit: 'each' } },
   cucumber:        { kcal: 15,  p: 0.65, c: 3.6,  f: 0.1,  g: { cup: 133, each: 300 }, def: { qty: 0.5, unit: 'each' } },
   garlic:          { kcal: 149, p: 6.4,  c: 33,   f: 0.5,  g: { each: 3, tsp: 2.8, tbsp: 8.4 }, def: { qty: 1, unit: 'each' } },
@@ -91,20 +95,20 @@ const FOODS = {
   banana:          { kcal: 89,  p: 1.1,  c: 22.8, f: 0.3,  g: { cup: 150, each: 118 } },
   orange:          { kcal: 47,  p: 0.9,  c: 11.8, f: 0.1,  g: { cup: 165, each: 140 } },
   grapes:          { kcal: 69,  p: 0.7,  c: 18,   f: 0.2,  g: { cup: 151, each: 5 } },
-  peaches_canned:  { kcal: 54,  p: 0.6,  c: 14,   f: 0.1,  g: { can: 425, cup: 244 }, note: 'canned in juice; plain "1 can" = 15 oz' },
-  pears_canned:    { kcal: 60,  p: 0.4,  c: 15.6, f: 0.1,  g: { can: 425, cup: 244 } },
-  applesauce:      { kcal: 68,  p: 0.2,  c: 17.5, f: 0.2,  g: { jar: 680, cup: 244, can: 680 } },
+  peaches_canned:  { kcal: 54,  p: 0.6,  c: 14,   f: 0.1,  g: { can: 500, cup: 244 }, note: 'storehouse tin is 29 oz, about 500 g drained' },
+  pears_canned:    { kcal: 60,  p: 0.4,  c: 15.6, f: 0.1,  g: { can: 500, cup: 244 }, note: '29 oz tin' },
+  applesauce:      { kcal: 68,  p: 0.2,  c: 17.5, f: 0.2,  g: { jar: 751, cup: 244, can: 751 }, note: '26.5 oz' },
   raisins:         { kcal: 299, p: 3.1,  c: 79,   f: 0.5,  g: { cup: 145, tbsp: 9 } },
   fruit_generic:   { kcal: 60,  p: 0.7,  c: 15,   f: 0.2,  g: { cup: 150, each: 140 }, def: { qty: 1, unit: 'cup' }, note: 'unspecified fresh/frozen fruit' },
 
   // ---- Sauces, condiments, sweeteners -------------------------------------
-  salsa:           { kcal: 29,  p: 1.5,  c: 6,    f: 0.2,  g: { cup: 260, tbsp: 16, jar: 453 }, def: { qty: 0.25, unit: 'cup' } },
-  tomato_sauce:    { kcal: 24,  p: 1.2,  c: 5.3,  f: 0.2,  g: { can: 425, cup: 245 } },
-  spaghetti_sauce: { kcal: 60,  p: 1.6,  c: 9.6,  f: 1.8,  g: { jar: 680, can: 680, cup: 245 } },
-  tomato_soup:     { kcal: 70,  p: 1.6,  c: 14,   f: 1.2,  g: { can: 298, cup: 245 }, note: 'condensed' },
+  salsa:           { kcal: 29,  p: 1.5,  c: 6,    f: 0.2,  g: { cup: 260, tbsp: 16, jar: 751 }, def: { qty: 0.25, unit: 'cup' }, note: '26.5 oz jar' },
+  tomato_sauce:    { kcal: 24,  p: 1.2,  c: 5.3,  f: 0.2,  g: { can: 408, cup: 245 }, note: '14.4 oz' },
+  spaghetti_sauce: { kcal: 60,  p: 1.6,  c: 9.6,  f: 1.8,  g: { jar: 785, can: 785, cup: 245 }, note: '27.7 oz' },
+  tomato_soup:     { kcal: 70,  p: 1.6,  c: 14,   f: 1.2,  g: { can: 408, cup: 245 }, note: '14.4 oz tin' },
   cream_soup_chx:  { kcal: 90,  p: 2.4,  c: 7.5,  f: 5.6,  g: { can: 298, cup: 245 }, note: 'condensed cream of chicken' },
   cream_soup_mush: { kcal: 82,  p: 1.6,  c: 6.5,  f: 5.3,  g: { can: 298, cup: 245 }, note: 'condensed cream of mushroom' },
-  soup_rts:        { kcal: 45,  p: 2.5,  c: 6,    f: 1.2,  g: { can: 540, cup: 245 }, note: 'ready-to-serve chicken rotini soup' },
+  soup_rts:        { kcal: 45,  p: 2.5,  c: 6,    f: 1.2,  g: { can: 408, cup: 245 }, note: 'chicken rotini soup, 14.4 oz tin' },
   ketchup:         { kcal: 101, p: 1.0,  c: 25,   f: 0.1,  g: { cup: 240, tbsp: 17 }, def: { qty: 1, unit: 'tbsp' } },
   mustard:         { kcal: 66,  p: 3.7,  c: 5.8,  f: 3.3,  g: { cup: 249, tbsp: 15 }, def: { qty: 1, unit: 'tbsp' } },
   mayo:            { kcal: 680, p: 1,    c: 0.6,  f: 75,   g: { cup: 220, tbsp: 14 }, def: { qty: 1, unit: 'tbsp' } },
@@ -136,6 +140,8 @@ const FOODS = {
   gelatin_plain:   { kcal: 335, p: 85,   c: 0,    f: 0,    g: { pkg: 7, each: 7 }, note: 'unflavored gelatin packet' },
   cocoa_mix:       { kcal: 400, p: 6,    c: 78,   f: 8,    g: { pkg: 28, each: 28 } },
   baking_powder:   { kcal: 53,  p: 0,    c: 28,   f: 0,    g: { tsp: 4.6, tbsp: 13.8 } },
+  baking_soda:     { kcal: 0,   p: 0,    c: 0,    f: 0,    g: { tsp: 4.6, tbsp: 13.8 } },
+  yeast:           { kcal: 325, p: 40,   c: 41,   f: 7.6,  g: { pkg: 7, each: 7, tsp: 3, tbsp: 9 }, note: 'active dry yeast, 1 packet = 7 g' },
 
   // ---- Supplements & drinks ----------------------------------------------
   whey:            { kcal: 400, p: 80,   c: 8,    f: 5,    g: { each: 32, scoop: 32, cup: 120, tbsp: 8 }, note: '1 scoop = 32 g' },
@@ -255,7 +261,8 @@ const ALIASES = {
   'vanilla pudding': 'pudding_made', 'chocolate pudding': 'pudding_made',
   'strawberry gelatin': 'gelatin_flavored', 'gelatin': 'gelatin_plain',
   'hot cocoa mix': 'cocoa_mix', 'packets hot cocoa mix': 'cocoa_mix',
-  'baking powder': 'baking_powder',
+  'baking powder': 'baking_powder', 'baking soda': 'baking_soda',
+  'yeast': 'yeast', 'active dry yeast': 'yeast', 'packet yeast': 'yeast',
 
   // supplements & drinks
   'whey': 'whey', 'chocolate whey': 'whey', 'vanilla whey': 'whey', 'whey protein': 'whey',

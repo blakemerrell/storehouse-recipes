@@ -25,7 +25,10 @@ const ROOT = path.join(__dirname, '..');
 // ---------------------------------------------------------------------------
 global.window = {};
 require(path.join(ROOT, 'design', 'project', 'recipes.js'));
-const SRC = global.window.RECIPES;
+// the twelve in "Worth the Afternoon" were written for this edition, not
+// carried over from the original books — see tools/added-recipes.js
+const ADDED = require('./added-recipes.js');
+const SRC = global.window.RECIPES.concat(ADDED);
 
 // ---------------------------------------------------------------------------
 // Scoring — reverse-engineered from the design's own numbers and verified to
@@ -377,6 +380,22 @@ numbers are never labelled that way, so the two are never confused.
   at a modest default recorded in \`tools/food-db.js\` — one tablespoon of butter,
   half a cup of cheese, a quarter cup of salsa. Seasonings, water and non-food
   items such as lollipop sticks count as zero.
+
+### Newly written recipes
+
+${ADDED.length} recipes in **${ADDED[0].secName}** were written for this edition rather than
+carried over from the original books. The data made the gap plain: across the
+original 225, no recipe has more than four steps, none uses yeast, and none
+kneads, braises, tempers an egg or thickens a sauce. "In-Depth" nearly always
+meant "leave it in the slow cooker" rather than "this needs attention".
+
+Every ingredient in them was checked against the storehouse order list.
+${ADDED.filter((r) => !r.extras).length} of the ${ADDED.length} are storehouse-only. The exception needs cocoa powder,
+which is flagged as a pantry extra — the storehouse carries hot cocoa mix, which
+is a different product and would not work in its place.
+
+Their macros are estimates on the same footing as the rest of the volume, and the
+app labels them as such. They have not been kitchen-tested.
 
 ${allUnmatched.size ? `### Ingredients the parser could not price
 

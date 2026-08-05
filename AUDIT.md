@@ -34,13 +34,14 @@ its ingredient list is a check on them, not a replacement.
 
 - Recipes checked: 100
 - Median disagreement on calories: **15%**
-- Within 20% of stated: **62 of 100**
-- Off by 30% or more: **22**
+- Within 20% of stated: **61 of 100**
+- Off by 30% or more: **23**
 
 The outliers, worth a look before this goes to print:
 
 | # | Recipe | Stated kcal | Estimated kcal | Diff |
 |---|---|---|---|---|
+| 21 | Creamy Chicken & Celery Salad | 200 | 440 | +120% |
 | 67 | Beef & Green Bean Rice Stir-Fry | 410 | 704 | +72% |
 | 86 | Salted Chocolate Cottage Cheese Dip | 120 | 202 | +68% |
 | 3 | Quick Canned Chicken & Salsa Bowl | 310 | 516 | +66% |
@@ -92,8 +93,8 @@ Around the Table shipped with **no nutrition data**: all 125 recipes carried a t
 the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
-- Recipes given macros: 125 of 125
-- Score range: 22–95 (median 48)
+- Recipes given macros: 137 of 137
+- Score range: 22–95 (median 47)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
 shows "Estimated from ingredients" next to its macros and its score. Strong & Simple's
@@ -114,6 +115,22 @@ numbers are never labelled that way, so the two are never confused.
   at a modest default recorded in `tools/food-db.js` — one tablespoon of butter,
   half a cup of cheese, a quarter cup of salsa. Seasonings, water and non-food
   items such as lollipop sticks count as zero.
+
+### Newly written recipes
+
+12 recipes in **Worth the Afternoon** were written for this edition rather than
+carried over from the original books. The data made the gap plain: across the
+original 225, no recipe has more than four steps, none uses yeast, and none
+kneads, braises, tempers an egg or thickens a sauce. "In-Depth" nearly always
+meant "leave it in the slow cooker" rather than "this needs attention".
+
+Every ingredient in them was checked against the storehouse order list.
+11 of the 12 are storehouse-only. The exception needs cocoa powder,
+which is flagged as a pantry extra — the storehouse carries hot cocoa mix, which
+is a different product and would not work in its place.
+
+Their macros are estimates on the same footing as the rest of the volume, and the
+app labels them as such. They have not been kitchen-tested.
 
 ### Coverage
 
