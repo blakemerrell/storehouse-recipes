@@ -25,7 +25,7 @@ module.exports = [
     id: 226, book: 2, secNum: 6, secName: SECTION,
     name: 'Everyday White Bread',
     servings: '2 Loaves (24 Slices)', servN: 24,
-    ing: ['5 cups white flour', '2 cups warm water', '1 packet yeast', '2 tbsp sugar',
+    ing: ['5 cups white flour', '1.75 cups warm water', '1 packet yeast', '2 tbsp sugar',
       '3 tbsp non-fat dry milk', '2 tsp salt', '3 tbsp melted butter'],
     steps: [
       'Stir the yeast and sugar into the warm water — warm as a bath, not hot, or it will kill the yeast. Leave it 10 minutes until it foams. If nothing happens, the yeast is dead and it is worth starting again.',
@@ -129,7 +129,7 @@ module.exports = [
     steps: [
       'Rub the cold butter into the flour and salt, leaving some pieces the size of peas — those are what make the crust flaky.',
       'Sprinkle over the cold water and gather into a dough without kneading. Wrap and rest it in the fridge 30 minutes.',
-      'Simmer the chicken in salted water 15 minutes, then lift out and cut into pieces. Keep a cup of the cooking liquid.',
+      'Simmer the chicken in salted water about 15 minutes, until it is no longer pink in the middle, then lift out and cut into pieces. Keep a cup of the cooking liquid.',
       'Cook the diced onion and carrot in a little butter 8 minutes until soft.',
       'Stir in the flour and cook 1 minute, then add the milk slowly, stirring, and the reserved cup of chicken liquid.',
       'Simmer until it thickens enough to hold its shape on a spoon. Season well.',
@@ -182,14 +182,14 @@ module.exports = [
     id: 234, book: 2, secNum: 6, secName: SECTION,
     name: 'Slow Rice Pudding with Raisins',
     servings: '6 Servings', servN: 6,
-    ing: ['1 cup rice', '4 cups milk', '⅓ cup sugar', '½ cup raisins', '1 egg',
+    ing: ['1 cup rice', '4 cups milk', '⅓ cup sugar', '½ cup raisins', '2 eggs',
       '1 tsp vanilla', '1 tsp cinnamon', 'salt'],
     steps: [
       'Simmer the rice in 2 cups of water with a pinch of salt until the water is gone, about 15 minutes.',
       'Add the milk and sugar and bring it back to the barest simmer.',
       'Cook uncovered 35 to 40 minutes, stirring often and scraping the bottom. This is the whole recipe — stirring is what makes it creamy, and leaving it will catch and scorch.',
       'Stir in the raisins for the last 10 minutes so they plump without dissolving.',
-      'Beat the egg in a small bowl. Add a ladle of the hot pudding to it slowly, whisking, to warm it through.',
+      'Beat the eggs in a small bowl. Add a ladle of the hot pudding to them slowly, whisking, to warm them through.',
       'Take the pan off the heat and stir the egg mixture back in. Off the heat, or it will scramble.',
       'Stir in the vanilla and cinnamon.',
       'Let it stand 10 minutes to thicken. Good warm, better cold the next day.',
@@ -330,7 +330,7 @@ module.exports = [
     id: 242, book: 2, secNum: 7, secName: COPYCAT,
     name: 'Steakhouse Rolls with Cinnamon Honey Butter',
     servings: '18 Rolls', servN: 18,
-    ing: ['4.5 cups white flour', '1.5 cups warm milk', '1 packet yeast', '⅓ cup sugar',
+    ing: ['4.5 cups white flour', '1.25 cups warm milk', '1 packet yeast', '⅓ cup sugar',
       '1 egg', '¼ cup butter', '2 tsp salt', '½ cup butter', '¼ cup honey',
       '¼ cup powdered sugar', '1 tsp cinnamon'],
     steps: [

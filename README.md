@@ -98,7 +98,9 @@ src/config.js         the only file you edit for sharing (see SETUP.md)
 data/recipes.js       generated — all 257 recipes with macros and scores
 tools/added-recipes.js the 32 written for this edition (last three sections)
 tools/food-db.js      nutrition reference table used for the estimates
+tools/parse-lib.js    turns an ingredient line into a food and a weight
 tools/build-data.js   regenerates data/recipes.js and AUDIT.md
+tools/check-recipes.js checks recipes against standard kitchen ratios
 design/               the original Claude Design prototype and chat transcript
 AUDIT.md              generated — the nutrition audit
 ```
@@ -107,6 +109,16 @@ Changing a nutrition figure means editing `tools/food-db.js` and running:
 
 ```sh
 node tools/build-data.js
+```
+
+To check recipes against standard kitchen ratios — hydration and salt in yeasted
+dough, leavening per cup of flour, baking soda with nothing acidic to react
+against, eggs per cup of dairy in a custard, oven temperatures, doneness cues on
+chicken:
+
+```sh
+node tools/check-recipes.js        # the ones written for this edition
+node tools/check-recipes.js --all  # every recipe in both books
 ```
 
 Recipe text itself lives in `design/project/recipes.js`, which the build reads.

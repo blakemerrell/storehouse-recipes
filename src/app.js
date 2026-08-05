@@ -623,7 +623,6 @@
               '<div class="scorebox-n">' + r.score + '</div>' +
             '</div>' +
             '<div class="scorebox-why">' + esc(scoreWhy(r)) + '</div>' +
-            (r.est ? '<div class="scorebox-why"><em>Around the Table shipped without nutrition figures. These macros are worked out from the ingredient list, so treat them as a good guess rather than a measurement.</em></div>' : '') +
           '</div>' : '') +
         '<div class="sheet-h-row">' +
           '<div class="sheet-h">Ingredients</div>' +
