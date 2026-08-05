@@ -18,6 +18,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+const { impose } = require('./booklet.js');
+
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'print');
 
@@ -92,8 +94,22 @@ function playwright() {
     await page.pdf({ path: file, width: '5.5in', height: '8.5in', printBackground: true, preferCSSPageSize: true });
     await page.emulateMedia({ media: 'screen' });
 
-    console.log(BOOKS[key].padEnd(24), String(last).padStart(3), 'pages  ',
-      Math.round(fs.statSync(file).size / 1024) + ' KB');
+    console.log(BOOKS[key].padEnd(26), String(last).padStart(3), 'pages  ',
+      String(Math.round(fs.statSync(file).size / 1024)).padStart(4) + ' KB');
+
+    /* The same book again, imposed on letter sheets. Not for the combined
+       edition: 142 pages is 36 folded sheets, which is not a booklet, it is a
+       phone book. */
+    if (key !== 'all') {
+      const bk = file.replace(/\.pdf$/, '-booklet.pdf');
+      try {
+        const r = await impose(file, bk);
+        console.log(path.basename(bk).padEnd(26), String(r.sheets).padStart(3),
+          'sheets ', String(Math.round(fs.statSync(bk).size / 1024)).padStart(4) + ' KB');
+      } catch (e) {
+        console.log('  could not impose ' + path.basename(file) + ': ' + e.message);
+      }
+    }
   }
 
   await browser.close();

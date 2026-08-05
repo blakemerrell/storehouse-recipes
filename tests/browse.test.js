@@ -37,7 +37,7 @@ module.exports = {
     await p.selectOption('#sortSel', 'healthy');
     await p.waitForTimeout(200);
     const scores = await p.evaluate(() =>
-      [...document.querySelectorAll('.chip')].slice(0, 12).map((e) => parseInt(e.textContent, 10)));
+      [...document.querySelectorAll('.leaf-n')].slice(0, 12).map((e) => parseInt(e.textContent, 10)));
     t.ok('healthiest first really is descending',
       scores.every((s, i) => i === 0 || scores[i - 1] >= s), scores.join(','));
 
@@ -71,12 +71,27 @@ module.exports = {
     t.ok('doubling changes the ingredients', before !== after);
     t.ok('and reads as fractions, not decimals', !/\d\.\d/.test(after), after.slice(0, 80));
 
-    const why = await p.textContent('.score-why, .sheet-score, .sc-why').catch(() => '');
     const panel = await p.textContent('.sheet');
+    const bands = await p.evaluate(() => {
+      const seen = {};
+      document.querySelectorAll('.leaf').forEach((l) => {
+        const n = parseInt(l.querySelector('.leaf-n').textContent, 10);
+        const b = l.className.match(/leaf-(good|ok|low)/)[1];
+        seen[b] = seen[b] || [];
+        if (seen[b].length < 40) seen[b].push(n);
+      });
+      return seen;
+    });
+    t.ok('every score sits in a leaf, banded by what it says',
+      (bands.good || []).every((n) => n >= 70) &&
+      (bands.ok || []).every((n) => n >= 45 && n < 70) &&
+      (bands.low || []).every((n) => n < 45),
+      JSON.stringify(Object.keys(bands).map((k) => k + ':' + bands[k].length)));
+
     t.ok('the score panel names all five parts',
       /protein/.test(panel) && /sodium/.test(panel) && /fiber/.test(panel) &&
       /kcal per serving/.test(panel) && /from fat/.test(panel),
-      (why || panel).slice(0, 160));
+      panel.slice(0, 160));
 
     await p.context().close();
   },

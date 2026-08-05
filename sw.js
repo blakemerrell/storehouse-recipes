@@ -69,6 +69,11 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   if (url.origin !== self.location.origin) return;   // Firestore and the SDK
 
+  /* The rendered books are five megabytes and are wanted once, at a desk, on
+     the way to a print shop. Keeping them on a phone for a shopping trip would
+     be the wrong five megabytes. */
+  if (url.pathname.indexOf('/print/') >= 0) return;
+
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req)

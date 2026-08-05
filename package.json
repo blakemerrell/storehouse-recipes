@@ -11,6 +11,7 @@
     "print": "node tools/print-books.js"
   },
   "devDependencies": {
+    "pdf-lib": "^1.17.1",
     "playwright": "^1.47.0"
   }
 }

@@ -76,16 +76,42 @@ nothing runs past the bottom of the paper.
 
 You can also print just one volume, just your favorites, or just this week.
 
-To get the PDFs without a printer dialog:
+Each volume opens on a cover and a title page and closes on a back cover that lists its
+sections, and each is padded with blanks to a whole number of folded sheets — 48 pages
+for Strong & Simple, 100 for Around the Table.
+
+**In the app, use Download PDF.** The finished books are rendered ahead of time and ship
+with the app, so a printable file at exactly 5.5 × 8.5 in is one click, with no print
+dialog to argue with about paper size, margins, headers or scaling. *Booklet PDF* beside
+it is the same book imposed for folding. The *Print…* button is still there for the
+selections that cannot be made ahead of time — your favorites, this week, and your own
+recipes.
+
+To regenerate them after changing a recipe or the food table:
 
 ```sh
-node tools/print-books.js          # both volumes, and each on its own
+npm run print                      # both volumes, and each on its own
 node tools/print-books.js 1        # just Strong & Simple
 ```
 
-They land in `print/`, half-letter and ready for a print shop. **Reprint after any
-change to a recipe or to the food table** — the score on every printed page comes from
-`data/recipes.js`, so a PDF made before a rebuild is out of date.
+That writes two files per volume into `print/`, which **are committed** — the app links
+to them. `tests/pdfs.test.js` fails if they fall behind the recipes, so a stale book
+cannot quietly reach a printer:
+
+- **`Strong-and-Simple.pdf`** — reading order, half-letter. This is the one to give a
+  print shop; they impose it themselves.
+- **`Strong-and-Simple-booklet.pdf`** — the same book imposed two-up on letter paper,
+  landscape, in saddle-stitch order. Print it **double-sided, flipping on the short
+  edge**, fold the stack in half and staple the spine. The fold on a landscape sheet
+  runs down the middle, so a short-edge flip is the one that puts page 2 behind page 1
+  rather than upside down under it.
+
+Strong & Simple is 12 sheets, which staples comfortably. Around the Table is 25, which is
+thick for a saddle stitch — worth asking a print shop for perfect binding or a coil
+instead.
+
+The service worker deliberately does not keep them on your phone: five megabytes of PDF
+is the wrong five megabytes to carry into a shop.
 
 The last three sections of Around the Table were written for this edition rather than
 carried over, 32 recipes in all:
@@ -131,10 +157,28 @@ Strong & Simple's 100 recipes came with real macros. Around the Table's original
 with **none** — the source had taglines where the nutrition data should be, so the scores
 shown on those recipes in the very first version were invented.
 
-This version computes macros for all of Around the Table from the ingredient lists and marks
-every one of them as an estimate: the score chip is drawn with a dashed border, the
-panel says *estimated*, and the printed page says *(est.)*. Strong & Simple's authored numbers
-are never labelled that way, so you can always tell which is which.
+This version computes macros for all of Around the Table from the ingredient lists, and
+computes sodium and fiber from the ingredient lists for every recipe in both volumes,
+because the book never carried either figure.
+
+Recipes no longer carry an *est.* mark. Almost every number in the collection is worked
+out rather than measured, so marking most of them and not the rest told you less than it
+looked like it did; the title page and the *How to read a recipe* page say plainly where
+the numbers come from, once, for the whole book. `AUDIT.md` has the detail.
+
+### The leaf
+
+The score sits in a leaf, coloured in three bands so a shelf of recipes can be read at a
+glance rather than compared digit by digit:
+
+| | | |
+|---|---|---|
+| **Green** | 70 and up | worth eating often |
+| **Blue** | 45 to 69 | worth eating |
+| **Grey** | under 45 | worth knowing about |
+
+The median across the 257 is 60, so the bands divide the collection rather than
+flattering it.
 
 ### The score
 
@@ -188,11 +232,13 @@ tools/recipe-fixes.js corrections applied to the original text at build time
 tools/score-lib.js    the score, and what an ingredient list is worth
 tools/build-data.js   regenerates data/recipes.js, data/nutrition.js and AUDIT.md
 tools/print-books.js  renders the volumes to PDF in print/
+tools/booklet.js      imposes a book onto folded letter sheets
 tools/check-recipes.js checks recipes against standard kitchen ratios
 sw.js                 service worker — makes it open with no signal
 manifest.webmanifest  makes Add to Home Screen a real install
 fonts/ icons/         the two typefaces and the app icon
 tests/                the test suite; node tests/run.js
+print/                the finished books, committed so the app can hand them over
 design/               the original Claude Design prototype and chat transcript
 AUDIT.md              generated — the nutrition audit
 ```

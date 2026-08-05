@@ -62,7 +62,7 @@ module.exports = {
     await p2.click('.tab[data-view="book"]');
     await p2.waitForTimeout(3500);
     t.ok('and the whole book still prints',
-      (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 142);
+      (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 148);
 
     // the manifest is what makes it installable rather than a bookmark
     const mf = await p.evaluate(() => fetch('manifest.webmanifest').then((r) => r.json()).catch(() => null));

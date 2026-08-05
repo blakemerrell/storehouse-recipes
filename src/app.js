@@ -89,6 +89,29 @@
      for yours, where it falls in your volume. */
   function no(r) { return String(r.no || r.id).padStart(3, '0'); }
 
+  /* The score, in a leaf.
+   *
+   * Three bands, because a number on its own is a number and a colour is a
+   * glance: green worth eating often, blue worth eating, dark grey worth
+   * knowing about. The thresholds sit either side of the median, which is 60
+   * across the 257, so the bands divide the collection rather than flattering
+   * it. Drawn rather than set in a font so it prints as a shape at any size.
+   */
+  function scoreBand(n) { return n >= 70 ? 'good' : n >= 45 ? 'ok' : 'low'; }
+
+  function leaf(n, cls) {
+    if (n === null || n === undefined) return '';
+    return '<span class="leaf leaf-' + scoreBand(n) + (cls ? ' ' + cls : '') + '" ' +
+      'title="Nutrition score ' + n + ' out of 100">' +
+      '<svg viewBox="0 0 46 44" aria-hidden="true" focusable="false">' +
+        '<path class="leaf-body" d="M23 2C5 9 3 27 23 42 43 27 41 9 23 2Z"/>' +
+        '<path class="leaf-rib" d="M23 8V36"/>' +
+      '</svg>' +
+      '<span class="leaf-n">' + n + '</span>' +
+      '<span class="leaf-sr">out of 100</span>' +
+    '</span>';
+  }
+
   function fmtNum(n) {
     if (!isFinite(n)) return '';
     var whole = Math.floor(n + 1e-9);
@@ -241,10 +264,9 @@
 
     $('grid').innerHTML = list.map(function (r) {
       var fav = window.Store.isFav(r.id);
-      var chipCls = 'chip' + (r.score === null ? ' plain' : r.est ? ' est' : '');
-      var chipText = r.score === null ? diffLabel(r.diff) : r.score;
-      var chipTitle = r.score === null ? '' :
-        r.est ? ' title="Nutrition score from estimated macros"' : ' title="Nutrition score"';
+      var chip = r.score === null
+        ? '<span class="chip plain">' + esc(diffLabel(r.diff)) + '</span>'
+        : leaf(r.score);
       return '<button class="card" data-open="' + r.id + '">' +
         '<span class="card-top">' +
           '<span class="card-num">' + BOOKS[r.book].short + ' · ' + no(r) + '</span>' +
@@ -254,7 +276,7 @@
         '<span class="card-sub">' + esc(r.tagline || macroLine(r)) + '</span>' +
         '<span class="card-foot">' +
           '<span class="card-meta">' + esc(r.time + ' · ' + r.servings.split(' (')[0]) + '</span>' +
-          '<span class="' + chipCls + '"' + chipTitle + '>' + esc(chipText) + '</span>' +
+          chip +
         '</span>' +
       '</button>';
     }).join('');
@@ -424,17 +446,99 @@
   }
 
   // ---- the pieces a page is built from -----------------------------------
-  function coverHTML(title, sub, foot) {
+  var YEAR = '2026';
+  var ORDINAL = { 1: 'One', 2: 'Two', 3: 'Three' };
+
+  function volumeLine(vol) {
+    if (vol.grouped || !ORDINAL[vol.book]) return '';
+    var of = ours().length ? 'Three' : 'Two';
+    return 'Volume ' + ORDINAL[vol.book] + ' of ' + of;
+  }
+
+  function coverHTML(vol, title, sub, foot) {
+    var vl = volumeLine(vol);
     return '<div class="pg"><div class="pg-cover">' +
+      '<div class="pg-cover-top">' +
+        '<div class="pg-eyebrow">Bishops&rsquo; Storehouse</div>' +
+        '<div class="pg-eyebrow">Recipe Books</div>' +
+      '</div>' +
       '<div class="pg-cover-mid">' +
-        '<div class="pg-eyebrow">Recipes from the storehouse</div>' +
         '<div class="pg-rule"></div>' +
         '<div class="pg-title">' + esc(title) + '</div>' +
         '<div class="pg-sub">' + esc(sub) + '</div>' +
+        '<div class="pg-rule"></div>' +
+        (vl ? '<div class="pg-vol">' + esc(vl) + '</div>' : '') +
       '</div>' +
-      '<div class="pg-foot">' + esc(foot) + '</div>' +
+      '<div class="pg-foot">' + esc(foot) + (vl ? ' &middot; ' + YEAR : '') + '</div>' +
     '</div></div>';
   }
+
+  /* The right-hand page behind the cover. A cover is a thing you look at; this
+     is the page that says what the book is, and carries the small print. */
+  function titlePageHTML(vol, title, sub) {
+    var vl = volumeLine(vol);
+    return '<div class="pg"><div class="pg-title-page">' +
+      '<div class="tp-top">' +
+        '<div class="pg-eyebrow">Bishops&rsquo; Storehouse Recipe Books</div>' +
+        '<div class="tp-name">' + esc(title) + '</div>' +
+        '<div class="tp-sub">' + esc(sub) + '</div>' +
+        (vl ? '<div class="tp-vol">' + esc(vl) + '</div>' : '') +
+      '</div>' +
+      '<div class="tp-foot">' +
+        '<p>Every recipe here is built on what the Bishops&rsquo; Storehouse order list ' +
+        'actually carries. Where one needs something beyond it, the line at the foot of ' +
+        'the recipe says so.</p>' +
+        '<p>Calories, protein, carbohydrate and fat are as recorded for Strong &amp; Simple ' +
+        'and worked out from the ingredients everywhere else. Sodium and fiber are worked ' +
+        'out from the ingredients throughout. How the score is arrived at is on the next ' +
+        'page but one.</p>' +
+        '<p class="tp-colophon">Set in Source Serif 4 and Work Sans &middot; ' + YEAR + '</p>' +
+      '</div>' +
+    '</div></div>';
+  }
+
+  /* The back cover: what is in this volume, at a glance, so the book can be
+     picked off a shelf and put back without opening it. */
+  function backCoverHTML(vol, title) {
+    var secs = [];
+    vol.list.forEach(function (r) {
+      var last = secs[secs.length - 1];
+      if (last && last.name === r.secName) last.n++;
+      else secs.push({ num: r.secNum, name: r.secName, n: 1 });
+    });
+    var vl = volumeLine(vol);
+    var other = vol.book === 1 ? BOOKS[2].name : BOOKS[1].name;
+
+    return '<div class="pg"><div class="pg-back">' +
+      '<div class="bc-top">' +
+        '<div class="pg-eyebrow">Bishops&rsquo; Storehouse Recipe Books</div>' +
+        '<div class="bc-name">' + esc(title) + '</div>' +
+      '</div>' +
+      '<div class="bc-list">' +
+        secs.map(function (s) {
+          return '<div class="bc-row"><span class="bc-no">' + s.num + '</span>' +
+            '<span class="bc-sec">' + esc(s.name) + '</span>' +
+            '<span class="bc-n">' + s.n + '</span></div>';
+        }).join('') +
+      '</div>' +
+      '<div class="bc-note">' +
+        '<p>Every recipe in both volumes was checked against the storehouse order list, ' +
+        'and against the ratios a kitchen runs on &mdash; the water in a dough, the ' +
+        'leavening in a cup of flour, the eggs in a custard, a doneness cue on every ' +
+        'piece of chicken.</p>' +
+        '<p>The number beside each one is its nutrition score out of a hundred: protein, ' +
+        'calories, fat, sodium and fiber. It measures that and nothing else.</p>' +
+      '</div>' +
+      '<div class="bc-foot">' +
+        (vol.grouped ? '' : '<p>The companion volume is <strong>' + esc(other) + '</strong>.</p>') +
+        '<p>' + vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes') +
+          (vl ? ' &middot; ' + esc(vl) : '') + ' &middot; ' + YEAR + '</p>' +
+      '</div>' +
+    '</div></div>';
+  }
+
+  // a page with nothing on it, so the sheet count comes out right for folding
+  function blankHTML() { return '<div class="pg"></div>'; }
 
   function bandHTML(r, count) {
     return '<div class="sec-band">' +
@@ -449,8 +553,9 @@
     return '<div class="rp">' +
       '<div class="rp-top">' +
         '<span class="rp-num">No. ' + no(r) + '</span>' +
-        '<span>' + esc(r.servings.split(' (')[0] + ' · ' + r.time + ' · ' + diffLabel(r.diff)) +
-          (r.score !== null ? ' · <span class="score">Score ' + r.score + (r.est ? ' est.' : '') + '</span>' : '') +
+        '<span class="rp-meta">' +
+          esc(r.servings.split(' (')[0] + ' · ' + r.time + ' · ' + diffLabel(r.diff)) +
+          leaf(r.score, 'leaf-print') +
         '</span>' +
       '</div>' +
       '<div class="rp-name">' + esc(r.name) + '</div>' +
@@ -467,7 +572,7 @@
         '</div></div>' +
       '</div>' +
       '<div class="rp-foot">' +
-        '<span>' + esc((r.est && r.macro ? 'Est. ' : '') + macroLine(r)) + '</span>' +
+        '<span>' + esc(macroLine(r)) + '</span>' +
         '<span>' + esc(r.extras ? 'Also needs: ' + r.extras : 'All storehouse items') + '</span>' +
       '</div>' +
     '</div>';
@@ -770,8 +875,10 @@
       var sub = vol.grouped
         ? (S.printSet === 'fav' ? 'The ones worth keeping.' : 'The week’s cooking, in order.')
         : BOOKS[vol.book].blurb;
-      out.push({ kind: 'cover', html: coverHTML(title, sub,
+      var volStart = out.length;
+      out.push({ kind: 'cover', html: coverHTML(vol, title, sub,
         vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes')) });
+      out.push({ kind: 'title', html: titlePageHTML(vol, title, sub) });
 
       if (!vol.grouped) {
         var fm = frontMatterItems(vol);
@@ -844,6 +951,17 @@
           '</div>'
         });
       });
+
+      /* A folded booklet is made of sheets, and a sheet is four pages. Pad with
+         blanks so the last one comes out whole — otherwise the printer either
+         adds the blanks itself, wherever it likes, or refuses the file. The
+         back cover goes last, so the padding sits in front of it, which is
+         where a blank page in a book belongs. */
+      var sofar = out.length - volStart + 1;              // + the back cover
+      for (var pad = (4 - (sofar % 4)) % 4; pad > 0; pad--) {
+        out.push({ kind: 'blank', html: blankHTML() });
+      }
+      out.push({ kind: 'back', html: backCoverHTML(vol, title) });
     });
     return out;
   }
@@ -868,8 +986,9 @@
     var PAPER = 7.5 * 96;
     var squeezed = [];
     Array.prototype.forEach.call($('pages').querySelectorAll('.pg'), function (pg, i) {
-      var flow = pg.querySelector('.pg-flow');
-      var fol = pg.querySelector('.pg-fol');
+      /* Whatever this page's content lives in — a run of recipes, a cover, a
+         title page, a back cover. Any of them can be handed more than fits. */
+      var flow = pg.querySelector('.pg-flow, .pg-back, .pg-title-page, .pg-cover');
       if (!flow) return;
       var z = 1;
       for (var tries = 0; tries < 5; tries++) {
@@ -878,8 +997,13 @@
            exactly the sort of thing that makes a page overflow by a hair. */
         var pgTop = pg.getBoundingClientRect().top + parseFloat(getComputedStyle(pg).paddingTop);
         // the folio's own box already includes its padding; do not count it twice
-        var room = (pgTop + PAPER) - flow.getBoundingClientRect().top -
-          (fol ? fol.getBoundingClientRect().height : 0);
+        // anything below the content, such as the folio, is not room
+        var below = 0, seen = false;
+        Array.prototype.forEach.call(pg.children, function (c) {
+          if (c === flow || c.contains(flow)) { seen = true; return; }
+          if (seen) below += c.getBoundingClientRect().height;
+        });
+        var room = (pgTop + PAPER) - flow.getBoundingClientRect().top - below;
         /* The rendered box, not scrollHeight: scrollHeight is in the element's
            own coordinates and does not shrink when zoom does, so each pass
            thought nothing had happened and shrank it again. */
@@ -902,6 +1026,7 @@
     var pages = buildBook();
     var pool = printPool();
     var perPage = pages.filter(function (p) { return p.kind === 'page'; }).length;
+    renderDownloads();
     $('printNote').textContent = pool.length
       ? pool.length + (pool.length === 1 ? ' recipe · ' : ' recipes · ') +
         pages.length + ' pages at 5.5″ × 8.5″ · ' +
@@ -927,6 +1052,31 @@
   }
 
   function expandAndPrint() { window.print(); }
+
+  /* The books are rendered to PDF ahead of time by tools/print-books.js and
+     shipped with the app, so getting a printable file is a download rather than
+     an argument with the print dialog about paper size, margins, headers and
+     scaling. The dialog is still there for the selections that cannot be made
+     ahead of time — your favorites, this week, and recipes of your own. */
+  var READY_MADE = {
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 148 },
+    1: { file: 'Strong-and-Simple.pdf', label: 'Strong & Simple', pages: 48, booklet: true },
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 100, booklet: true }
+  };
+
+  function renderDownloads() {
+    var r = READY_MADE[S.printSet];
+    var dl = $('dlBook'), bk = $('dlBooklet');
+    dl.classList.toggle('hide', !r);
+    bk.classList.toggle('hide', !(r && r.booklet));
+    if (!r) return;
+    dl.href = 'print/' + r.file;
+    dl.textContent = 'Download PDF · ' + r.pages + ' pages';
+    if (r.booklet) {
+      bk.href = 'print/' + r.file.replace(/\.pdf$/, '-booklet.pdf');
+      bk.textContent = 'Booklet PDF · ' + (r.pages / 4) + ' sheets';
+    }
+  }
 
   // --------------------------------------------------------------- detail
   function scoreWhy(r) {
@@ -988,13 +1138,13 @@
         '<div class="sheet-name">' + esc(r.name) + '</div>' +
         (r.tagline ? '<div class="sheet-tag">' + esc(r.tagline) + '</div>' : '') +
         '<div class="sheet-meta"><span>' + esc(r.time) + '</span><span>' + esc(diffLabel(r.diff)) + '</span>' +
-          '<span>' + esc(r.macro ? (r.est ? 'Est. ' : '') + r.macro.kcal + ' kcal · ' + r.macro.p + 'g protein' : 'No nutrition data') + '</span>' +
+          '<span>' + esc(r.macro ? r.macro.kcal + ' kcal · ' + r.macro.p + 'g protein' : 'No nutrition data') + '</span>' +
         '</div>' +
         (r.score !== null ?
-          '<div class="scorebox' + (r.est ? ' est' : '') + '">' +
+          '<div class="scorebox scorebox-' + scoreBand(r.score) + '">' +
             '<div class="scorebox-top">' +
-              '<div class="scorebox-label">Nutrition score' + (r.est ? ' · estimated' : '') + '</div>' +
-              '<div class="scorebox-n">' + r.score + '</div>' +
+              '<div class="scorebox-label">Nutrition score</div>' +
+              '<div class="scorebox-n">' + leaf(r.score, 'leaf-big') + '</div>' +
             '</div>' +
             '<div class="scorebox-why">' + esc(scoreWhy(r)) + '</div>' +
           '</div>' : '') +

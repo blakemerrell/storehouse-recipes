@@ -127,7 +127,11 @@
         </select>
         <span class="book-note" id="printNote"></span>
       </div>
-      <button class="btn-primary" id="doPrint">Print / Save PDF</button>
+      <div class="book-actions">
+        <a class="btn-primary hide" id="dlBook" download>Download PDF</a>
+        <a class="ghost hide" id="dlBooklet" download title="Two pages to a sheet, in folding order">Booklet PDF</a>
+        <button class="ghost" id="doPrint">Print&hellip;</button>
+      </div>
     </div>
   </div>
   <div class="printwrap" id="pages"></div>

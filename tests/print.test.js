@@ -40,7 +40,7 @@ module.exports = {
       };
     });
 
-    t.ok('both volumes render as 142 pages of paper', b.pages === 142, b.pages + ' pages');
+    t.ok('both volumes render as 148 pages of paper', b.pages === 148, b.pages + ' pages');
     t.ok('and the bar says the same number', b.note.indexOf(b.pages + ' pages') >= 0, b.note);
     t.ok('nothing spills off a page', b.spills.length === 0, b.spills.slice(0, 4).join(' | '));
 
@@ -87,6 +87,25 @@ module.exports = {
       openers.length > 0 && openers.every((o) => o.size >= 24 && o.centred),
       JSON.stringify(openers));
     t.ok('each volume opens on its own cover', b.covers === 2, b.covers);
+    t.ok('and closes on its own back cover',
+      (await p.evaluate(() => document.querySelectorAll('.pg-back').length)) === 2);
+    t.ok('with a title page behind the cover',
+      (await p.evaluate(() => document.querySelectorAll('.pg-title-page').length)) === 2);
+
+    /* A folded booklet is made of sheets of four pages. A volume that is not a
+       multiple of four cannot be imposed, and tools/booklet.js refuses it. */
+    const perVolume = await p.evaluate(() => {
+      const out = [];
+      let n = 0;
+      document.querySelectorAll('.pg:not(.no-print)').forEach((pg) => {
+        if (pg.querySelector('.pg-cover') && n) { out.push(n); n = 0; }
+        n++;
+      });
+      out.push(n);
+      return out;
+    });
+    t.ok('each volume is a whole number of folded sheets',
+      perVolume.every((n) => n % 4 === 0), perVolume.join(' + '));
     t.ok('and is numbered from page one',
       Object.keys(b.vols).filter((k) => k !== 'cover').length === 2, JSON.stringify(b.vols));
     t.ok('the bar says what it is about to print', /pages at 5\.5″ × 8\.5″/.test(b.note), b.note);
