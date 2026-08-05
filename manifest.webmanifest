@@ -1,0 +1,16 @@
+{
+  "name": "Bishops' Storehouse Recipe Books",
+  "short_name": "Storehouse",
+  "description": "Browse the recipes, plan a week, and let the shopping list build itself.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#efe9dd",
+  "theme_color": "#3b3630",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

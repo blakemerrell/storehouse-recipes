@@ -1,0 +1,15 @@
+{
+  "name": "storehouse-recipes",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Bishops' Storehouse Recipe Books — browse, plan a week, shop, and print the books.",
+  "scripts": {
+    "build": "node tools/build-data.js",
+    "check": "node tools/check-recipes.js --all",
+    "test": "node tests/run.js",
+    "test:sync": "node tests/run.js sync"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
+}

@@ -140,10 +140,14 @@
 
   function shopQty(grams, unit, per, ladder) {
     if (!unit || !per) return '';
-    // move up the ladder once there is enough of it: 16 tbsp is a cup
+    /* Spoons stop being a useful way to say it somewhere around eight of them:
+       "8 tbsp ranch dressing" is half a cup, and "16 tbsp" is a cup. Six stays
+       six, because a quarter of a cup is not clearer than four tablespoons. */
     if (ladder) {
-      for (var i = 0; i < ladder.length; i++) {
-        if (grams / ladder[i][1] >= 0.95) { unit = ladder[i][0]; per = ladder[i][1]; break; }
+      for (var i = ladder.length - 1; i >= 0; i--) {
+        if (ladder[i][0] !== unit) continue;
+        while (i > 0 && grams / per >= 8) { i--; unit = ladder[i][0]; per = ladder[i][1]; }
+        break;
       }
     }
     var n = grams / per;
@@ -351,26 +355,34 @@
         var s = SHOP[it.k];
         if (!s || it.k === 'water') return;
         // seasonings share one food key, so they go by their own name instead
-        var key = (it.x ? 'extra' : 'base') + '|' + (s.s ? it.a : it.k);
+        var key = s.s ? it.a : it.k;
         if (!bucket[key]) {
           bucket[key] = {
-            key: key, group: it.x ? 'extra' : 'base', g: 0,
+            key: key, extra: true, g: 0,
             unit: s.u, per: s.p, lad: s.d,
             label: s.s ? it.a.charAt(0).toUpperCase() + it.a.slice(1) : s.l
           };
         }
+        /* One line per thing, under one heading. A recipe that counts chocolate
+           chips as a pantry extra and one that does not used to put them on the
+           list twice; a thing is either on the standard order or it is not, and
+           if any recipe gets it from the storehouse, that is where it lives. */
+        if (!it.x) bucket[key].extra = false;
         bucket[key].g += it.g * e.x;
       });
     });
-    var group = function (title, g) {
+    var group = function (title, wantExtra) {
       var items = Object.keys(bucket).map(function (k) { return bucket[k]; })
-        .filter(function (b) { return b.group === g; })
+        .filter(function (b) { return b.extra === wantExtra; })
         .sort(function (a, b) { return a.label.localeCompare(b.label); });
-      items.forEach(function (b) { b.qty = shopQty(b.g, b.unit, b.per, b.lad); });
+      items.forEach(function (b) {
+        b.qty = shopQty(b.g, b.unit, b.per, b.lad);
+        b.key = (b.extra ? 'extra|' : 'base|') + b.key;
+      });
       return { title: title, items: items };
     };
     return {
-      groups: [group('From the storehouse', 'base'), group('Pantry extras to pick up', 'extra')]
+      groups: [group('From the storehouse', false), group('Pantry extras to pick up', true)]
         .filter(function (g) { return g.items.length; }),
       recipeCount: entries.length
     };
@@ -786,6 +798,22 @@
         var first = pageItems.filter(function (x) { return x.r; })[0];
         var sec = first ? first.r.secName : '';
 
+        /* A section whose first recipe fills most of a page on its own leaves
+           the heading with nowhere to go: 71 points of heading and a 639-point
+           recipe will not share 666 points of page, and no amount of packing
+           changes that. Rather than strand a small heading at the top of an
+           otherwise blank page, give the section a title page and let it look
+           like it was meant. Three sections need one, all of them long-recipe
+           ones. */
+        if (pageItems.length === 1 && pageItems[0].type === 'band') {
+          out.push({
+            kind: 'page',
+            html: '<div class="pg"><div class="pg-flow sec-open">' + pageItems[0].html + '</div>' +
+              '<div class="pg-fol">' + (idx + 1) + '</div></div>'
+          });
+          return;
+        }
+
         /* Share whatever room is left over between the recipes instead of
            leaving it all in a heap at the foot of the page. Capped, because a
            page holding two recipes has room to spare and pushing them apart
@@ -956,6 +984,52 @@
     if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
   }
 
+  // ------------------------------------------------------------- asking
+  /* The browser's own prompt() and confirm() work, but on a phone they arrive
+     looking like a warning from the browser rather than a question from the
+     app, and they cannot be styled or read out sensibly. These are the same
+     three questions in the app's own voice. They sit above everything else,
+     including the editor, so "delete this recipe?" can be asked while it is
+     open. */
+  var D = null;
+
+  function ask(opts, done) {
+    D = { title: opts.title, body: opts.body || '', value: opts.value,
+      ok: opts.ok || 'OK', danger: !!opts.danger, done: done };
+    renderDialog();
+  }
+
+  function closeDialog(answer) {
+    var d = D;
+    D = null;
+    renderDialog();
+    if (d && d.done) d.done(answer);
+  }
+
+  function renderDialog() {
+    var root = $('dialogRoot');
+    if (!D) { root.innerHTML = ''; return; }
+    root.innerHTML = '<div class="scrim dlg-scrim no-print" data-dlg="cancel">' +
+      '<div class="dlg" role="dialog" aria-modal="true" aria-label="' + esc(D.title) + '">' +
+        '<div class="dlg-t">' + esc(D.title) + '</div>' +
+        (D.body ? '<div class="dlg-b">' + esc(D.body) + '</div>' : '') +
+        (D.value !== undefined
+          ? '<input class="txt" id="dlgInput" value="' + esc(D.value) + '">' : '') +
+        '<div class="dlg-a">' +
+          '<button class="btn-primary' + (D.danger ? ' danger' : '') + '" data-dlg="ok">' + esc(D.ok) + '</button>' +
+          '<button class="ghost" data-dlg="cancel">Cancel</button>' +
+        '</div>' +
+      '</div></div>';
+    var i = $('dlgInput');
+    if (i) { i.focus(); i.select(); }
+    else root.querySelector('[data-dlg="ok"]').focus();
+  }
+
+  function dialogAnswer() {
+    var i = $('dlgInput');
+    return i ? i.value : true;
+  }
+
   // ------------------------------------------------------------ the editor
   /* A recipe you write is measured exactly as the printed ones were: its
      ingredient lines go through the same parser and the same food table, and
@@ -980,7 +1054,11 @@
     }
     var s = macro.kcal > 0 && N ? N.scoreFrom(macro) : null;
 
-    return {
+    /* No undefined anywhere in here. Firestore refuses a write that carries one
+       and takes the whole update down with it, while localStorage quietly drops
+       it — so a recipe that saved perfectly well on one device would fail to
+       reach the other, and only the sync test would ever have found out. */
+    var rec = {
       id: form.id,
       book: form.book, secNum: form.secNum,
       secName: form.secName || 'Ours',
@@ -991,9 +1069,10 @@
       score: s ? s.score : null, sc: s ? s.sc : null,
       diff: form.diff || 'Easy', time: form.time || '',
       extras: form.extras || null,
-      est: !typed, own: form.own || undefined,
-      unpriced: est.unmatched.length ? est.unmatched : undefined
+      est: !typed, own: !!form.own
     };
+    if (est.unmatched.length) rec.unpriced = est.unmatched;
+    return rec;
   }
 
   function lines(s) {
@@ -1091,19 +1170,26 @@
     if (what === 'cancel') { S.editId = null; S.editBase = null; renderModal(); return; }
 
     if (what === 'delete' || what === 'revert') {
-      var msg = what === 'delete'
-        ? 'Delete “' + (S.editBase.name || 'this recipe') + '”? It goes from both phones.'
-        : 'Undo your changes and put the printed version back?';
-      if (!confirm(msg)) return;
-      window.Store.deleteRecipe(S.editBase.id);
-      S.editId = null; S.editBase = null;
-      renderModal();
+      var id = S.editBase.id;
+      ask(what === 'delete'
+        ? { title: 'Delete “' + (S.editBase.name || 'this recipe') + '”?',
+            body: 'It goes from both phones, and from any week it is in.',
+            ok: 'Delete it', danger: true }
+        : { title: 'Put the printed version back?',
+            body: 'Your changes are dropped. The recipe returns to what the book says.',
+            ok: 'Undo my changes', danger: true },
+        function (yes) {
+          if (!yes) return;
+          window.Store.deleteRecipe(id);
+          S.editId = null; S.editBase = null;
+          renderModal();
+        });
       return;
     }
 
     var rec = measured(editorForm());
-    if (!rec.name || rec.name === 'Untitled') { alert('Give it a name first.'); return; }
-    if (!rec.ing.length) { alert('A recipe needs at least one ingredient.'); return; }
+    if (!rec.name || rec.name === 'Untitled') { ask({ title: 'Give it a name first.' }); return; }
+    if (!rec.ing.length) { ask({ title: 'A recipe needs at least one ingredient.' }); return; }
     window.Store.saveRecipe(rec);
     S.editId = null; S.editBase = null;
     S.openId = rec.id;          // straight into the recipe you just wrote
@@ -1144,6 +1230,7 @@
       var r = BY_ID[id];
       if (!r) return;
       b = Object.assign({}, r, { own: typeof r.id === 'string', typedMacro: !r.est });
+      b.book = r.book; b.secNum = r.secNum;
     }
     S.editBase = b;
     S.editMacros = !!b.typedMacro;
@@ -1323,18 +1410,36 @@
 
     $('renameWeek').addEventListener('click', function () {
       var now = window.Store.activeWeek().name;
-      var name = prompt('Call this week what?', now);
-      if (name !== null && name.trim() && name.trim() !== now) window.Store.renameWeek(name);
+      ask({ title: 'Call this week what?', value: now, ok: 'Rename' }, function (name) {
+        if (name && name.trim() && name.trim() !== now) window.Store.renameWeek(name);
+      });
     });
 
     $('deleteWeek').addEventListener('click', function () {
-      if (!confirm('Delete “' + window.Store.activeWeek().name + '” and its shopping list?')) return;
-      window.Store.deleteWeek();
+      ask({
+        title: 'Delete “' + window.Store.activeWeek().name + '”?',
+        body: 'The week and its shopping list go, on both phones. The recipes themselves are untouched.',
+        ok: 'Delete the week', danger: true
+      }, function (yes) { if (yes) window.Store.deleteWeek(); });
     });
 
     $('clearPlan').addEventListener('click', function () {
-      if (planIds().length && !confirm('Clear every recipe from this week?')) return;
-      window.Store.clearPlan();
+      if (!planIds().length) { window.Store.clearPlan(); return; }
+      ask({
+        title: 'Clear every recipe from this week?',
+        body: 'The shopping list starts over with it.',
+        ok: 'Clear the week', danger: true
+      }, function (yes) { if (yes) window.Store.clearPlan(); });
+    });
+
+    $('dialogRoot').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-dlg]');
+      if (!b || (b.dataset.dlg === 'cancel' && b !== e.target && !e.target.closest('button'))) return;
+      closeDialog(b.dataset.dlg === 'ok' ? dialogAnswer() : null);
+    });
+
+    $('dialogRoot').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && e.target.id === 'dlgInput') { e.preventDefault(); closeDialog(dialogAnswer()); }
     });
 
     $('listBody').addEventListener('change', function (e) {
@@ -1414,6 +1519,7 @@
     $('newRecipe').addEventListener('click', function () { openEditor('new'); });
 
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
       if (e.key === 'Escape' && (S.openId || S.syncOpen)) close();
     });
