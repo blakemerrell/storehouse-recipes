@@ -1093,11 +1093,11 @@
    */
   function scoreParts(r) {
     return [
-      { k: 'Protein', v: r.sc.pPct + '%', p: r.sc.p, max: 30, t: r.sc.pPct + '% of the calories come from protein' },
-      { k: 'Calories', v: r.macro.kcal, p: r.sc.k, max: 20, t: r.macro.kcal + ' kcal a serving' },
-      { k: 'Fat', v: r.sc.fPct + '%', p: r.sc.f, max: 10, t: r.sc.fPct + '% of the calories come from fat' },
-      { k: 'Sodium', v: r.sc.na + ' mg', p: r.sc.s, max: 25, t: r.sc.na + ' mg of sodium a serving' },
-      { k: 'Fiber', v: r.sc.fib + ' g', p: r.sc.b, max: 15, t: r.sc.fib + ' g of fiber a serving' }
+      { k: 'Protein', ab: 'Prot', v: r.sc.pPct + '%', p: r.sc.p, max: 30, t: r.sc.pPct + '% of the calories come from protein' },
+      { k: 'Calories', ab: 'Cal', v: r.macro.kcal, p: r.sc.k, max: 20, t: r.macro.kcal + ' kcal a serving' },
+      { k: 'Fat', ab: 'Fat', v: r.sc.fPct + '%', p: r.sc.f, max: 10, t: r.sc.fPct + '% of the calories come from fat' },
+      { k: 'Sodium', ab: 'Sod', v: r.sc.na + ' mg', p: r.sc.s, max: 25, t: r.sc.na + ' mg of sodium a serving' },
+      { k: 'Fiber', ab: 'Fib', v: r.sc.fib + ' g', p: r.sc.b, max: 15, t: r.sc.fib + ' g of fiber a serving' }
     ];
   }
 
@@ -1109,35 +1109,54 @@
        Each slot fills by what the recipe earned, so the ink across the whole
        bar IS the score out of a hundred and the empty stretches say where the
        missing points went. Five labelled rows said the same thing and took ten
-       times the room — on a two-step recipe the panel outgrew the recipe. */
+       times the room — on a two-step recipe the panel outgrew the recipe.
+
+       The points sit inside their own slot rather than on a line beneath it,
+       which buys back a whole row. That only works if a number stays legible
+       wherever the fill happens to end, so the fill is a tint and the number is
+       the same dark ink over both: a knocked-out white digit reads at 27 out of
+       30 and disappears at 5 out of 20, which is the case worth reading. */
     var parts = scoreParts(r);
     var bandOf = function (c) {
       var share = c.max ? c.p / c.max : 0;
       return share >= 0.8 ? 'good' : share >= 0.45 ? 'ok' : 'low';
     };
 
+    var tip = function (c) {
+      return esc(c.t) + ' \u2014 ' + c.p + ' of ' + c.max + ' points';
+    };
+
     var track = parts.map(function (c) {
-      return '<span class="nut-slot" style="flex:' + c.max + '" title="' + esc(c.t) +
-        ' \u2014 ' + c.p + ' of ' + c.max + ' points">' +
+      return '<span class="nut-slot ns-' + bandOf(c) + '" style="flex:' + c.max +
+        '" title="' + tip(c) + '">' +
         '<i class="nb-' + bandOf(c) + '" style="width:' +
-        ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i></span>';
+        ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i>' +
+        '<em>' + c.p + '</em></span>';
     }).join('');
 
+    /* One word per slot, on the same weights, so a label sits under the thing it
+       names rather than in a sentence that has to be read left to right. */
     var key = parts.map(function (c) {
-      return '<span class="nk nk-' + bandOf(c) + '" title="' + esc(c.t) + '">' +
-        '<b>' + c.p + '</b><u>/' + c.max + '</u> ' + esc(c.k.toLowerCase()) + '</span>';
-    }).join('<i>&middot;</i>');
+      return '<span class="nk" style="flex:' + c.max + '" title="' + tip(c) + '">' +
+        esc(c.ab) + '</span>';
+    }).join('');
 
     var m = r.macro;
-    return '<div class="nut nut-' + scoreBand(r.score) + '">' +
+    return '<div class="nut nut-' + scoreBand(r.score) + '" title="Nutrition score ' +
+      r.score + ' out of 100">' +
       leaf(r.score, 'leaf-big') +
       '<div class="nut-body">' +
-        '<div class="nut-title">Nutrition score</div>' +
         '<div class="nut-track">' + track + '</div>' +
         '<div class="nut-key">' + key + '</div>' +
+        /* Whole grams. These are estimates off a food table, so 28.5g of protein
+           claims a precision that is not there — and the half gram was the
+           difference between one line and two on a phone. Fiber keeps its
+           decimal below a gram, where rounding would print 0.2g as none. */
         '<div class="nut-foot" title="' + esc(m.kcal + ' kcal, ' + m.p + 'g protein, ' +
           m.c + 'g carbohydrate, ' + m.f + 'g fat, ' + m.na + ' mg sodium, ' + m.fib + 'g fiber') + '">' +
-          [m.kcal + ' kcal', m.p + 'g P', m.c + 'g C', m.f + 'g F', m.na + 'mg S', m.fib + 'g Fib']
+          [m.kcal + ' kcal', Math.round(m.p) + 'g P', Math.round(m.c) + 'g C',
+            Math.round(m.f) + 'g F', m.na + 'mg S',
+            (m.fib < 1 ? m.fib : Math.round(m.fib)) + 'g Fib']
             .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('<i>&middot;</i>') +
         '</div>' +
       '</div>' +

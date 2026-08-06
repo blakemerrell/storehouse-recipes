@@ -21,15 +21,15 @@
 
 /* Bump this when the shell changes. The old cache is deleted on activate, which
    is what gets a phone that is holding a previous build onto the current one. */
-var CACHE = 'storehouse-v4';
+var CACHE = 'storehouse-v5';
 
 var SHELL = [
   './',
   './index.html',
-  './src/style.css?v=6',
+  './src/style.css?v=7',
   './src/config.js',
-  './src/sync.js?v=6',
-  './src/app.js?v=6',
+  './src/sync.js?v=7',
+  './src/app.js?v=7',
   './data/recipes.js',
   './data/nutrition.js',
   './fonts/source-serif-4-latin-wght-normal.woff2',

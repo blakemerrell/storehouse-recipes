@@ -96,14 +96,25 @@ module.exports = {
         weight: Number(getComputedStyle(s).flexGrow),
         fill: parseFloat(s.querySelector('i').style.width),
         band: s.querySelector('i').className,
+        points: Number(s.querySelector('em').textContent),
+        /* the digits have to sit inside their own slot, not spill out of it */
+        fits: s.querySelector('em').getBoundingClientRect().width
+          <= s.getBoundingClientRect().width - 1,
       }));
-      const keys = [...document.querySelectorAll('.nk')].map((k) => k.textContent.trim());
+      const keys = [...document.querySelectorAll('.nk')].map((k) => ({
+        text: k.textContent.trim(),
+        weight: Number(getComputedStyle(k).flexGrow),
+        clipped: k.scrollWidth > k.clientWidth + 1,
+      }));
       const foot = document.querySelector('.nut-foot');
       const panel = document.querySelector('.nut');
       return {
         slots, keys,
         score: Number(document.querySelector('.leaf-n').textContent),
-        footFits: foot.scrollWidth <= foot.clientWidth + 1,
+        /* scrollWidth is no use here: a wrapped flex row still fits its box.
+           Count the distinct tops instead. */
+        footRows: new Set([...foot.children].map((c) =>
+          Math.round(c.getBoundingClientRect().top))).size,
         height: Math.round(panel.getBoundingClientRect().height),
       };
     });
@@ -116,21 +127,65 @@ module.exports = {
     t.ok('and the ink across it comes to the score',
       Math.abs(inked - nut.score) < 1.5, Math.round(inked) + ' vs ' + nut.score);
 
-    t.ok('each part is named with its points beside the bar',
-      nut.keys.length === 5 && /protein$/.test(nut.keys[0]) && /fiber$/.test(nut.keys[4]),
-      JSON.stringify(nut.keys));
+    t.ok('the points are set inside the slot they belong to',
+      nut.slots.length === 5 &&
+      Math.abs(nut.slots.reduce((n, s) => n + s.points, 0) - nut.score) < 1.5 &&
+      nut.slots.every((s) => s.fits),
+      JSON.stringify(nut.slots.map((s) => s.points + (s.fits ? '' : ' OVERFLOWS'))));
+
+    t.ok('and each slot is named underneath it, on the same weights',
+      nut.keys.map((k) => k.weight).join() === '30,20,10,25,15' &&
+      nut.keys.map((k) => k.text).join() === 'Prot,Cal,Fat,Sod,Fib' &&
+      nut.keys.every((k) => !k.clipped),
+      JSON.stringify(nut.keys.map((k) => k.text + (k.clipped ? ' CLIPPED' : ''))));
 
     t.ok('a slot short of its points is coloured differently from a full one',
       new Set(nut.slots.map((s) => s.band)).size > 1,
       nut.slots.map((s) => s.band).join(' '));
 
-    t.ok('the macro line holds one row without wrapping', nut.footFits);
+    t.ok('the macro line holds one row without wrapping',
+      nut.footRows === 1, nut.footRows + ' rows');
 
     /* The complaint that produced this shape: on a two-step recipe the panel
        was taller than the recipe. It has to stay small. */
     t.ok('and the whole panel stays out of the recipe\u2019s way',
-      nut.height < 150, nut.height + 'px tall');
+      nut.height < 100, nut.height + 'px tall');
 
     await p.context().close();
+
+    /* A desk is the easy case. The panel is read on a phone, where the macro
+       line has 242px next to the leaf \u2014 so check the widest of all 257 there,
+       not just whichever recipe happens to be first. */
+    const phone = await t.fresh({ viewport: { width: 376, height: 860 } });
+    await phone.click('#grid .card:nth-child(1)');
+    await phone.waitForTimeout(200);
+    const wide = await phone.evaluate(() => {
+      const foot = document.querySelector('.nut-foot');
+      const rows = () => new Set([...foot.children]
+        .map((c) => Math.round(c.getBoundingClientRect().top))).size;
+      const bad = [];
+      window.RECIPES.forEach((r) => {
+        if (r.score === null || !r.macro) return;
+        const m = r.macro;
+        foot.innerHTML = [m.kcal + ' kcal', Math.round(m.p) + 'g P', Math.round(m.c) + 'g C',
+          Math.round(m.f) + 'g F', m.na + 'mg S', (m.fib < 1 ? m.fib : Math.round(m.fib)) + 'g Fib']
+          .map((x) => '<span>' + x + '</span>').join('<i>&middot;</i>');
+        if (rows() > 1) bad.push(r.name);
+      });
+      return bad;
+    });
+    t.ok('on a phone it holds one row for every recipe in the collection',
+      wide.length === 0, wide.length + ' wrap, e.g. ' + wide.slice(0, 3).join('; '));
+
+    const small = await phone.evaluate(() => ({
+      height: Math.round(document.querySelector('.nut').getBoundingClientRect().height),
+      slotsFit: [...document.querySelectorAll('.nut-slot')].every((s) =>
+        s.querySelector('em').getBoundingClientRect().width <= s.getBoundingClientRect().width - 1),
+      labelsFit: [...document.querySelectorAll('.nk')].every((k) => k.scrollWidth <= k.clientWidth + 1),
+    }));
+    t.ok('and the numbers and labels still fit their slots at that width',
+      small.slotsFit && small.labelsFit && small.height < 100, JSON.stringify(small));
+
+    await phone.context().close();
   },
 };

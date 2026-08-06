@@ -253,38 +253,43 @@ select { max-width: 280px; }
 .nut-low { border-color: oklch(0.88 0.008 70); background: oklch(0.972 0.004 70); }
 .nut-body { flex: 1; min-width: 0; }
 
-.nut-title {
-  font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600;
-  color: oklch(0.40 0.07 148); margin-bottom: 7px;
-}
-.nut-ok .nut-title  { color: oklch(0.42 0.06 240); }
-.nut-low .nut-title { color: oklch(0.38 0.01 70); }
-
-.nut-track { display: flex; gap: 2px; height: 11px; }
+/* The points ride inside their own slot. A fill dark enough to knock the digit
+   out in white would only carry it while the slot is nearly full — at 5 out of
+   20 the number falls on the empty stretch and goes. So the fill is a tint and
+   the number keeps one dark ink over both, which holds at every fill. */
+.nut-track { display: flex; gap: 2px; height: 20px; }
 .nut-slot {
-  background: oklch(0.90 0.008 70); border-radius: 2px; overflow: hidden; min-width: 0;
+  position: relative; display: flex; align-items: center; justify-content: center;
+  background: oklch(0.945 0.004 70); border-radius: 2px; overflow: hidden; min-width: 0;
 }
-.nut-slot i { display: block; height: 100%; border-radius: 2px; }
-.nb-good { background: oklch(0.58 0.13 148); }
-.nb-ok   { background: oklch(0.60 0.11 240); }
-.nb-low  { background: oklch(0.54 0.02 70); }
-
-.nut-key {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 5px;
-  margin-top: 8px; font-size: 10.5px; color: var(--muted-2);
+.nut-slot i { position: absolute; left: 0; top: 0; height: 100%; border-radius: 2px; }
+.nut-slot em {
+  position: relative; font-style: normal;
+  font-family: var(--serif); font-size: 10.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: oklch(0.40 0.03 70);
 }
-.nut-key i { font-style: normal; color: oklch(0.80 0.02 70); }
-.nk { white-space: nowrap; }
-.nk b { font-family: var(--serif); font-size: 12px; font-weight: 700; }
-.nk u { text-decoration: none; opacity: 0.5; font-size: 9.5px; }
-.nk-good b { color: oklch(0.38 0.10 148); }
-.nk-ok   b { color: oklch(0.40 0.09 240); }
-.nk-low  b { color: oklch(0.34 0.01 70); }
+.nb-good { background: oklch(0.83 0.095 148); }
+.nb-ok   { background: oklch(0.85 0.075 240); }
+.nb-low  { background: oklch(0.83 0.012 70); }
+.ns-good em { color: oklch(0.36 0.10 148); }
+.ns-ok   em { color: oklch(0.37 0.09 240); }
+.ns-low  em { color: oklch(0.34 0.01 70); }
 
+/* One word per slot, on the same weights, so each label lands under its own bar. */
+.nut-key { display: flex; gap: 2px; margin-top: 5px; }
+.nk {
+  min-width: 0; overflow: hidden; text-align: center; white-space: nowrap;
+  font-size: 8px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Six figures beside a 52px leaf leaves 242px on a phone, and at 9.5px they
+   wanted 250. Nine holds all 257 recipes on one line from 360px up; narrower
+   than that it wraps into the leaf's spare height and costs nothing. */
 .nut-foot {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 5px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 4px;
   margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line-soft);
-  font-size: 9.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+  font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums;
 }
 .nut-foot i { font-style: normal; color: oklch(0.82 0.02 70); }
 .nut-foot span { white-space: nowrap; }

@@ -187,6 +187,12 @@ across the whole bar *is* the score out of a hundred, and the empty stretches sa
 the missing points went. A sum hides that: a 60 short on sodium is a different dinner
 from a 60 short on protein.
 
+The points are set inside their own slot, with the part named underneath it, so the
+whole breakdown is two short lines rather than five rows — on a two-step recipe the
+panel used to be taller than the recipe. The fill is a tint rather than a solid so the
+number stays legible wherever it ends: knocked out in white it would read at 27 out of
+30 and disappear at 5 out of 20, which is the one worth reading.
+
 ### The score
 
 Out of 100, from five things:
