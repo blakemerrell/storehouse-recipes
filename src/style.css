@@ -253,43 +253,52 @@ select { max-width: 280px; }
 .nut-low { border-color: oklch(0.88 0.008 70); background: oklch(0.972 0.004 70); }
 .nut-body { flex: 1; min-width: 0; }
 
-/* The points ride inside their own slot. A fill dark enough to knock the digit
-   out in white would only carry it while the slot is nearly full — at 5 out of
-   20 the number falls on the empty stretch and goes. So the fill is a tint and
-   the number keeps one dark ink over both, which holds at every fill. */
-.nut-track { display: flex; gap: 2px; height: 20px; }
-.nut-slot {
-  position: relative; display: flex; align-items: center; justify-content: center;
-  background: oklch(0.945 0.004 70); border-radius: 2px; overflow: hidden; min-width: 0;
-}
-.nut-slot i { position: absolute; left: 0; top: 0; height: 100%; border-radius: 2px; }
-.nut-slot em {
-  position: relative; font-style: normal;
-  font-family: var(--serif); font-size: 10.5px; font-weight: 700;
-  font-variant-numeric: tabular-nums; color: oklch(0.40 0.03 70);
-}
-.nb-good { background: oklch(0.83 0.095 148); }
-.nb-ok   { background: oklch(0.85 0.075 240); }
-.nb-low  { background: oklch(0.83 0.012 70); }
-.ns-good em { color: oklch(0.36 0.10 148); }
-.ns-ok   em { color: oklch(0.37 0.09 240); }
-.ns-low  em { color: oklch(0.34 0.01 70); }
+/* Five short bars stacked beside the leaf, one per part of the score. A row's
+   track is as long as the points that part is worth, and fills by what the
+   recipe earned, so the ink down the stack comes to the score and the ragged
+   right edge shows which parts carry the weight.
 
-/* One word per slot, on the same weights, so each label lands under its own bar. */
-.nut-key { display: flex; gap: 2px; margin-top: 5px; }
-.nk {
-  min-width: 0; overflow: hidden; text-align: center; white-space: nowrap;
-  font-size: 8px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
-  color: var(--muted);
+   Two caps do the real work. The stack ends where the leaf ends, so the panel
+   can never again be taller than the recipe it belongs to; and the bars stop at
+   210px, or on a wide screen they run the width of the sheet and stop reading
+   as a chart at all. */
+.nut-rows { display: grid; gap: 0; }
+.nrow {
+  display: grid; grid-template-columns: 11px minmax(0, 210px) 15px;
+  align-items: center; gap: 5px; height: 10px;
 }
+.nltr { font: 700 8.5px/1 var(--serif); text-align: center; }
+.nmark { width: 11px; height: 11px; display: block; }
+.nmark svg {
+  width: 100%; height: 100%; display: block;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.nmark svg .fl { fill: currentColor; stroke: none; }
+.ntrack {
+  display: block; height: 5px; border-radius: 1.5px; overflow: hidden;
+  background: oklch(0.945 0.004 70);
+}
+.ntrack i { display: block; height: 100%; border-radius: 1.5px; }
+.nnum {
+  font: 700 8.5px/1 var(--serif); text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.nr-good { color: oklch(0.42 0.10 148); }
+.nr-ok   { color: oklch(0.43 0.09 240); }
+.nr-low  { color: oklch(0.45 0.01 70); }
+.nf-good { background: oklch(0.62 0.13 148); }
+.nf-ok   { background: oklch(0.64 0.11 240); }
+.nf-low  { background: oklch(0.62 0.015 70); }
 
-/* Six figures beside a 52px leaf leaves 242px on a phone, and at 9.5px they
-   wanted 250. Nine holds all 257 recipes on one line from 360px up; narrower
-   than that it wraps into the leaf's spare height and costs nothing. */
+/* Tucked under the bars and inside the leaf's height, so the panel as a whole
+   comes to what the leaf comes to. Nine pixels held every one of the 257 on one
+   line from 360px up; eight and a half leaves room for the stack above it. */
 .nut-foot {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 4px;
-  margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line-soft);
-  font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums;
+  margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line-soft);
+  font-size: 8.5px; line-height: 1.35; color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 .nut-foot i { font-style: normal; color: oklch(0.82 0.02 70); }
 .nut-foot span { white-space: nowrap; }

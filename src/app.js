@@ -1111,44 +1111,56 @@
     ];
   }
 
+  /* Each part gets a mark rather than a word: P, C and F for protein, calories
+     and fat, a shaker for sodium and an ear of wheat for fiber. Letters run out
+     — F is already fat, and S could be sodium, salt or sugar — and at ten pixels
+     a drawing has to be a silhouette, so the shaker is a cap and a body and the
+     wheat is a stalk with three pairs of strokes. Anything finer turns to mud. */
+  var MARKS = {
+    Sodium: '<svg viewBox="0 0 12 12" aria-hidden="true">' +
+      '<path class="fl" d="M4.4 1.4a1.6 1.6 0 0 1 3.2 0v1.9H4.4V1.4Z"/>' +
+      '<path class="fl" d="M4 4.3h4l.7 6.4H3.3L4 4.3Z"/></svg>',
+    Fiber: '<svg viewBox="0 0 12 12" aria-hidden="true">' +
+      '<path d="M6 11V4.4"/>' +
+      '<path d="M6 4.6 3.9 2.6M6 4.6l2.1-2M6 7 3.9 5M6 7l2.1-2M6 9.4 3.9 7.4M6 9.4l2.1-2"/></svg>'
+  };
+
   function nutritionHTML(r) {
     if (r.score === null || !r.sc) return '';
 
-    /* One bar, five slots, each as wide as the points that part is worth: 30
-       for protein, 20 for calories, 10 for fat, 25 for sodium, 15 for fiber.
-       Each slot fills by what the recipe earned, so the ink across the whole
-       bar IS the score out of a hundred and the empty stretches say where the
-       missing points went. Five labelled rows said the same thing and took ten
-       times the room — on a two-step recipe the panel outgrew the recipe.
+    /* Five short bars stacked beside the leaf, one per part of the score. Each
+       row's track is as long as the points that part is worth — 30 for protein
+       down to 10 for fat — and fills by what the recipe earned, so the ink down
+       the whole stack is the score out of a hundred and the ragged right edge
+       says which parts carry the most weight.
 
-       The points sit inside their own slot rather than on a line beneath it,
-       which buys back a whole row. That only works if a number stays legible
-       wherever the fill happens to end, so the fill is a tint and the number is
-       the same dark ink over both: a knocked-out white digit reads at 27 out of
-       30 and disappears at 5 out of 20, which is the case worth reading. */
+       The stack is capped at the leaf's own height. That is the whole point of
+       this shape: on a two-step recipe the panel used to be taller than the
+       recipe, and a block that ends where the leaf ends can never do that
+       again. It is capped in width too, or on a desktop the bars stretch the
+       width of the sheet and stop being a chart. */
     var parts = scoreParts(r);
     var bandOf = function (c) {
       var share = c.max ? c.p / c.max : 0;
       return share >= 0.8 ? 'good' : share >= 0.45 ? 'ok' : 'low';
     };
 
-    var tip = function (c) {
-      return esc(c.t) + ' \u2014 ' + c.p + ' of ' + c.max + ' points';
-    };
-
-    var track = parts.map(function (c) {
-      return '<span class="nut-slot ns-' + bandOf(c) + '" style="flex:' + c.max +
-        '" title="' + tip(c) + '">' +
-        '<i class="nb-' + bandOf(c) + '" style="width:' +
-        ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i>' +
-        '<em>' + c.p + '</em></span>';
-    }).join('');
-
-    /* One word per slot, on the same weights, so a label sits under the thing it
-       names rather than in a sentence that has to be read left to right. */
-    var key = parts.map(function (c) {
-      return '<span class="nk" style="flex:' + c.max + '" title="' + tip(c) + '">' +
-        esc(c.ab) + '</span>';
+    var rows = parts.map(function (c) {
+      var b = bandOf(c);
+      var mark = MARKS[c.k]
+        ? '<i class="nmark">' + MARKS[c.k] + '</i>'
+        : '<i class="nltr">' + esc(c.k.charAt(0)) + '</i>';
+      return '<span class="nrow nr-' + b + '" title="' + esc(c.t) + ' \u2014 ' +
+        c.p + ' of ' + c.max + ' points">' +
+        mark +
+        '<span class="nbar">' +
+          '<span class="ntrack" style="width:' + (c.max / 30 * 100).toFixed(1) + '%">' +
+            '<i class="nf-' + b + '" style="width:' +
+            ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i>' +
+          '</span>' +
+        '</span>' +
+        '<span class="nnum">' + c.p + '</span>' +
+      '</span>';
     }).join('');
 
     var m = r.macro;
@@ -1156,8 +1168,7 @@
       r.score + ' out of 100">' +
       leaf(r.score, 'leaf-big') +
       '<div class="nut-body">' +
-        '<div class="nut-track">' + track + '</div>' +
-        '<div class="nut-key">' + key + '</div>' +
+        '<div class="nut-rows">' + rows + '</div>' +
         /* Whole grams. These are estimates off a food table, so 28.5g of protein
            claims a precision that is not there — and the half gram was the
            difference between one line and two on a phone. Fiber keeps its
