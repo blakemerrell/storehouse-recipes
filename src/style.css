@@ -241,13 +241,13 @@ select { max-width: 280px; }
    are the parts, each with what it measured and a bar you can read without
    doing the division. Each bar takes its colour from its own share, so the
    component dragging a score down is the one that looks different. */
-/* Half the width it used to take. Each part is one line — name, figure, bar,
-   points — rather than a line with a bar slung underneath it, which is what was
-   spending the space. */
+/* Each part is one line — name, figure, bar, points — rather than a line with a
+   bar slung underneath it, which is what used to spend the space. That halved
+   the height. The panel itself spans the sheet like everything else on it; a
+   capped one left a bordered card stranded in the middle of a wide screen. */
 .nut {
   margin-top: 18px; border: 1px solid oklch(0.86 0.04 148); border-radius: 4px;
   background: oklch(0.975 0.014 148); overflow: hidden;
-  max-width: 340px;
 }
 .nut-ok  { border-color: oklch(0.87 0.03 240); background: oklch(0.976 0.011 240); }
 .nut-low { border-color: oklch(0.88 0.008 70); background: oklch(0.972 0.004 70); }
@@ -268,8 +268,8 @@ select { max-width: 280px; }
 
 .nut-rows { padding: 9px 13px 10px; }
 .nut-row {
-  display: grid; grid-template-columns: 54px 46px 1fr 42px;
-  align-items: center; gap: 7px; padding: 3.5px 0;
+  display: grid; grid-template-columns: minmax(56px, auto) minmax(48px, auto) 1fr auto;
+  align-items: center; gap: 10px; padding: 4px 0;
 }
 .nut-k {
   font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; font-size: 9px;
@@ -310,7 +310,7 @@ select { max-width: 280px; }
 .nut-foot i { font-style: normal; color: oklch(0.78 0.02 70); }
 
 @media (max-width: 400px) {
-  .nut { max-width: none; }
+  .nut-row { grid-template-columns: minmax(50px, auto) minmax(44px, auto) 1fr auto; gap: 7px; }
 }
 
 /* ------------------------------------------------------------- the score */
