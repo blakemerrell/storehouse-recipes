@@ -249,27 +249,19 @@ select { max-width: 280px; }
   border: 1px solid oklch(0.86 0.04 148); border-radius: 4px;
   background: oklch(0.975 0.014 148);
 }
+/* Shut, the body is a couple of lines and the leaf sits beside it, centred.
+   Open, the breakdown is four hundred pixels tall and a centred leaf floats in
+   the middle of it looking lost, so it goes to the top with the heading. */
+.nut-open { align-items: flex-start; }
 .nut-ok  { border-color: oklch(0.87 0.03 240); background: oklch(0.976 0.011 240); }
 .nut-low { border-color: oklch(0.88 0.008 70); background: oklch(0.972 0.004 70); }
 .nut-body { flex: 1; min-width: 0; }
 
-/* One bar across the full width, five slots, each as wide as the points that
-   part is worth: 30 protein, 20 calories, 10 fat, 25 sodium, 15 fiber. Each
-   fills by what the recipe earned, so the ink across the whole bar IS the
-   score out of a hundred and the empty stretches say where the points went. */
-.nut-head { display: flex; align-items: center; gap: 9px; }
-.nut-track { flex: 1; min-width: 0; display: flex; gap: 2px; height: 10px; }
-.nut-slot {
-  background: oklch(0.945 0.004 70); border-radius: 2px; overflow: hidden; min-width: 0;
-}
-.nut-slot i { display: block; height: 100%; border-radius: 2px; }
-.nb-good { background: oklch(0.58 0.13 148); }
-.nb-ok   { background: oklch(0.60 0.11 240); }
-.nb-low  { background: oklch(0.56 0.02 70); }
+/* Shut, this panel is a score and a line of figures — no chart. A bar you have
+   to decode is not a summary, and every version that tried to be both ended up
+   taller than the recipe it belonged to.
 
-/* The leaf is the control: it is what you are looking at when you wonder why,
-   so it is what answers. No box around it — the hover and the pointer say it
-   is pressable without turning the score into a button-shaped thing. */
+   The reasoning lives behind the leaf, where it can afford to be legible. */
 .nut-leaf {
   background: none; border: 0; padding: 0; flex: none; line-height: 0;
   border-radius: 4px; transition: transform 0.12s;
@@ -277,29 +269,61 @@ select { max-width: 280px; }
 .nut-leaf:hover { transform: scale(1.04); }
 .nut-leaf:active { transform: scale(0.98); }
 
-/* Named parts, shown only when asked. The leaf is 63px and the body under it
-   is nearer 40, so this unfolds into room the panel already occupies: opening
-   the breakdown does not move the height at all. */
-.nut-why {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 5px;
-  margin-top: 6px; font-size: 10px; color: var(--muted-2);
-}
-.nut-why i { font-style: normal; color: oklch(0.80 0.02 70); }
-.nk { white-space: nowrap; }
-.nk b { font-family: var(--serif); font-size: 11.5px; font-weight: 700; }
-.nk u { text-decoration: none; opacity: 0.5; font-size: 9px; }
-.nk-good b { color: oklch(0.38 0.10 148); }
-.nk-ok   b { color: oklch(0.40 0.09 240); }
-.nk-low  b { color: oklch(0.34 0.01 70); }
-
-/* The same toggle in words, beside the bar. A leaf gives no sign it can be
-   pressed, and a control nobody finds is a control nobody has. */
 .nut-ask {
-  flex: none; background: none; border: 0; padding: 0;
-  font-family: var(--sans); font-size: 9.5px; color: var(--ochre);
-  text-decoration: underline; text-underline-offset: 2px; white-space: nowrap;
+  display: block; margin-top: 7px;
+  background: none; border: 0; padding: 0;
+  font-family: var(--sans); font-size: 10.5px; color: var(--ochre);
+  text-decoration: underline; text-underline-offset: 2px;
 }
 .nut-ask:hover { color: oklch(0.50 0.11 55); }
+
+/* One part per row: what the recipe did, how far that got it, and a bar to read
+   it by. Every track is the same length and fills by the share of that part's
+   points earned, so the five can be compared straight down the column — tracks
+   scaled to the weights left fat, at ten points, too short to read. What each
+   is worth is in the number instead. */
+.nut-why { margin-bottom: 11px; }
+.why-head {
+  font-family: var(--serif); font-size: 12.5px; font-weight: 700;
+  padding-bottom: 7px; margin-bottom: 3px; border-bottom: 1px solid var(--line-soft);
+}
+.why-part { margin-top: 8px; }
+.why-top { display: flex; align-items: baseline; gap: 8px; }
+.why-top b {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--muted-2); flex: none;
+}
+.why-fact {
+  flex: 1; min-width: 0; font-size: 10.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.why-pts {
+  flex: none; font-family: var(--serif); font-size: 12.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.why-pts u { text-decoration: none; opacity: 0.45; font-size: 10px; }
+.wp-good { color: oklch(0.38 0.10 148); }
+.wp-ok   { color: oklch(0.40 0.09 240); }
+.wp-low  { color: oklch(0.34 0.01 70); }
+.why-bar {
+  height: 6px; margin-top: 4px; border-radius: 2px; overflow: hidden;
+  background: oklch(0.93 0.006 70);
+}
+.why-bar i { display: block; height: 100%; border-radius: 2px; }
+.nb-good { background: oklch(0.58 0.13 148); }
+.nb-ok   { background: oklch(0.60 0.11 240); }
+.nb-low  { background: oklch(0.56 0.02 70); }
+.why-note {
+  margin-top: 11px; font-size: 10px; line-height: 1.6; color: var(--muted);
+}
+
+/* On a phone the fact and the part name cannot share a line without one of them
+   being cut. The name is the shorter thing to lose — the fact is the reason. */
+@media (max-width: 620px) {
+  .why-top { flex-wrap: wrap; gap: 2px 8px; }
+  .why-fact { flex: 1 0 100%; order: 3; white-space: normal; }
+  .why-top b { flex: 1; }
+}
 
 /* Nine pixels held every one of the 257 on one line from 360px up. Eight and a
    half leaves room for the breakdown to open above it without the panel
@@ -310,6 +334,8 @@ select { max-width: 280px; }
   font-size: 8.5px; line-height: 1.35; color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* Shut, there is nothing above the figures for a rule to separate them from. */
+.nut-body > .nut-foot:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .nut-foot i { font-style: normal; color: oklch(0.82 0.02 70); }
 .nut-foot span { white-space: nowrap; }
 
@@ -747,11 +773,31 @@ select { max-width: 280px; }
 }
 .sheet-actions { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
 .sheet-actions-in { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+/* The week gets its own line and seven equal columns, so it never breaks into
+   two groups of days whose membership depends on how wide the phone is. */
+.daybar {
+  flex: 1 1 260px; min-width: 0;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+}
 .savebtn {
   background: #fff; color: oklch(0.42 0.03 65); border: 1px solid var(--line-firm);
   border-radius: 3px; padding: 7px 14px; font-size: 12.5px; font-weight: 600;
 }
 .savebtn[aria-pressed="true"] {
+  background: var(--ochre); color: oklch(0.20 0.02 60); border-color: var(--ochre);
+}
+/* Square, so the two of them together take less room than the word "Save" did.
+   What they mean is in the title and the aria-label; what they cost is the two
+   day buttons that used to be pushed onto a second line on a phone. */
+.iconbtn {
+  flex: none; width: 34px; height: 34px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; color: oklch(0.42 0.03 65);
+  border: 1px solid var(--line-firm); border-radius: 3px;
+  font-size: 15px; line-height: 1;
+}
+.iconbtn:hover { border-color: var(--ochre); color: var(--ochre); }
+.iconbtn[aria-pressed="true"] {
   background: var(--ochre); color: oklch(0.20 0.02 60); border-color: var(--ochre);
 }
 .addto {
@@ -760,7 +806,8 @@ select { max-width: 280px; }
 }
 .daybtn {
   background: #fff; color: var(--muted-2); border: 1px solid oklch(0.83 0.03 75);
-  border-radius: 3px; padding: 6px 10px; font-size: 12px; font-weight: 500;
+  border-radius: 3px; padding: 7px 4px; font-size: 12px; font-weight: 500;
+  min-width: 0; overflow: hidden;
 }
 .daybtn[aria-pressed="true"] {
   background: var(--green); color: oklch(0.97 0.01 145); border-color: var(--green);

@@ -1114,38 +1114,43 @@
   function nutritionHTML(r) {
     if (r.score === null || !r.sc) return '';
 
-    /* What this panel is for is the score. Everything else is the reason for
-       the score, and a reason is only wanted when the number surprises you —
-       so the leaf opens it and it stays shut the rest of the time.
+    /* Shut, this is a score and a line of figures. No chart: a bar you have to
+       decode is not a summary, and every version that tried to be both ended up
+       taller than the recipe it belonged to.
 
-       Shut, it is one bar: five slots across the full width, each as wide as
-       the points that part is worth — 30 for protein down to 10 for fat — and
-       filled by what the recipe earned. The ink across it IS the score out of
-       a hundred, and the gaps say where the missing points went.
-
-       Open, it names them. That line costs nothing: the leaf is 63px and the
-       body is under 40, so the breakdown unfolds into space the panel is
-       already paying for and the height does not move. */
+       The reasoning lives behind the leaf, where it can afford to be legible —
+       one part per row, what the recipe actually did, how far that got it, and
+       a bar you can read across at a glance. Nobody is charged for it until
+       they ask, and the leaf is what they will press when they wonder. */
     var parts = scoreParts(r);
     var bandOf = function (c) {
       var share = c.max ? c.p / c.max : 0;
       return share >= 0.8 ? 'good' : share >= 0.45 ? 'ok' : 'low';
     };
-    var tip = function (c) {
-      return esc(c.t) + ' \u2014 ' + c.p + ' of ' + c.max + ' points';
-    };
 
-    var track = parts.map(function (c) {
-      return '<span class="nut-slot" style="flex:' + c.max + '" title="' + tip(c) + '">' +
-        '<i class="nb-' + bandOf(c) + '" style="width:' +
-        ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i></span>';
-    }).join('');
-
+    /* Each track is the same length and fills by the share of that part's
+       points the recipe earned, so five rows can be compared straight down the
+       column. What each part is worth is in the number beside it — tracks
+       scaled to the weights made fat, at ten points, too short to read. */
     var why = S.why
-      ? '<div class="nut-why">' + parts.map(function (c) {
-          return '<span class="nk nk-' + bandOf(c) + '" title="' + tip(c) + '">' +
-            '<b>' + c.p + '</b><u>/' + c.max + '</u> ' + esc(c.k.toLowerCase()) + '</span>';
-        }).join('<i>&middot;</i>') + '</div>'
+      ? '<div class="nut-why">' +
+          '<div class="why-head">Why ' + r.score + ' out of 100</div>' +
+          parts.map(function (c) {
+            var b = bandOf(c);
+            return '<div class="why-part">' +
+              '<div class="why-top">' +
+                '<b>' + esc(c.k) + '</b>' +
+                '<span class="why-fact">' + esc(c.t) + '</span>' +
+                '<span class="why-pts wp-' + b + '">' + c.p + '<u>/' + c.max + '</u></span>' +
+              '</div>' +
+              '<div class="why-bar"><i class="nb-' + b + '" style="width:' +
+                ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i></div>' +
+            '</div>';
+          }).join('') +
+          '<div class="why-note">Protein and fiber earn points. Calories, fat and ' +
+            'sodium spend them. Every figure is an estimate from a food table, ' +
+            'not a label.</div>' +
+        '</div>'
       : '';
 
     var m = r.macro;
@@ -1157,15 +1162,6 @@
         leaf(r.score, 'leaf-big') +
       '</button>' +
       '<div class="nut-body">' +
-        /* The toggle rides on the bar's own line. On the end of the macro line
-           it was the straw that wrapped it to two rows on a phone; here it
-           costs nothing, because the bar row has the height already. */
-        '<div class="nut-head">' +
-          '<div class="nut-track">' + track + '</div>' +
-          '<button class="nut-ask" data-why aria-expanded="' + (S.why ? 'true' : 'false') + '">' +
-            (S.why ? 'hide' : 'why?') +
-          '</button>' +
-        '</div>' +
         why +
         /* Whole grams. These are estimates off a food table, so 28.5g of protein
            claims a precision that is not there — and the half gram was the
@@ -1178,6 +1174,12 @@
             (m.fib < 1 ? m.fib : Math.round(m.fib)) + 'g Fib']
             .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('<i>&middot;</i>') +
         '</div>' +
+        /* A leaf gives no sign it can be pressed, and a control nobody finds is
+           a control nobody has. Shut, there is room to spare under the leaf, so
+           saying it in words costs nothing. */
+        '<button class="nut-ask" data-why aria-expanded="' + (S.why ? 'true' : 'false') + '">' +
+          (S.why ? 'Hide the breakdown' : 'Why this score?') +
+        '</button>' +
       '</div>' +
     '</div>';
   }
@@ -1256,14 +1258,26 @@
         }).join('') + '</div>' +
         (r.extras ? '<div class="sheet-extras">Needs items not on the standard storehouse list: ' + esc(r.extras) + '.</div>' : '') +
         '<div class="sheet-actions"><div class="sheet-actions-in">' +
-          '<button class="savebtn" data-fav="' + r.id + '" aria-pressed="' + fav + '">' +
-            (fav ? '★ Saved' : '☆ Save') + '</button>' +
-          '<button class="savebtn" data-edit="' + r.id + '">✎ Edit</button>' +
+          /* Icons, not words. "Save" and "Edit" spelled out took enough of the
+             row that the seven days wrapped onto a second line on a phone, and
+             the days are the thing this row is for. */
+          '<button class="iconbtn" data-fav="' + r.id + '" aria-pressed="' + fav + '" ' +
+            'title="' + (fav ? 'Saved to favorites' : 'Save to favorites') + '" ' +
+            'aria-label="' + (fav ? 'Saved to favorites' : 'Save to favorites') + '">' +
+            (fav ? '★' : '☆') + '</button>' +
+          '<button class="iconbtn" data-edit="' + r.id + '" title="Edit this recipe" ' +
+            'aria-label="Edit this recipe">✎</button>' +
           '<span class="addto">Add to</span>' +
-          DAYS.map(function (d) {
-            var on = window.Store.day(d[0]).some(function (e) { return e.id === r.id; });
-            return '<button class="daybtn" data-add="' + r.id + '" data-day="' + d[0] + '" aria-pressed="' + on + '">' + d[2] + '</button>';
-          }).join('') +
+          /* Seven equal columns rather than seven things that wrap. A week that
+             breaks across two lines reads as two groups of days, and which days
+             land together depends on the width of the phone. */
+          '<div class="daybar">' +
+            DAYS.map(function (d) {
+              var on = window.Store.day(d[0]).some(function (e) { return e.id === r.id; });
+              return '<button class="daybtn" data-add="' + r.id + '" data-day="' + d[0] +
+                '" aria-pressed="' + on + '">' + d[2] + '</button>';
+            }).join('') +
+          '</div>' +
           (f !== 1 ? '<span class="addto addto-x">at &times;' + fmtNum(f) + '</span>' : '') +
         '</div></div>' +
       '</div></div>';
