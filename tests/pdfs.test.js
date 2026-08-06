@@ -36,7 +36,7 @@ module.exports = {
       return last;
     };
 
-    for (const [set, file] of [['1', 'Strong-and-Simple.pdf'], ['2', 'Around-the-Table.pdf'], ['all', 'Both-Books.pdf']]) {
+    for (const [set, file] of [['1', 'Run-and-Not-Be-Weary.pdf'], ['2', 'Around-the-Table.pdf'], ['all', 'Both-Books.pdf']]) {
       const full = path.join(DIR, file);
       if (!fs.existsSync(full)) { t.ok(file + ' is shipped', false, 'missing — run npm run print'); continue; }
 
@@ -61,7 +61,7 @@ module.exports = {
     }
 
     // the booklets: letter landscape, a quarter as many sides as the book has pages
-    for (const [book, bk] of [['Strong-and-Simple.pdf', 'Strong-and-Simple-booklet.pdf'],
+    for (const [book, bk] of [['Run-and-Not-Be-Weary.pdf', 'Run-and-Not-Be-Weary-booklet.pdf'],
       ['Around-the-Table.pdf', 'Around-the-Table-booklet.pdf']]) {
       const a = path.join(DIR, book), b = path.join(DIR, bk);
       if (!fs.existsSync(b)) { t.ok(bk + ' is shipped', false, 'missing'); continue; }

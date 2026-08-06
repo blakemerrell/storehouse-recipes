@@ -50,8 +50,11 @@
 
   var BOOKS = {
     1: {
-      name: 'Strong & Simple', short: 'STRONG',
-      blurb: 'One hundred high‑protein recipes built on standard storehouse items. Every recipe carries real macros and a computed nutrition score.'
+      /* Doctrine and Covenants 89:20 — the Word of Wisdom's own promise, and the
+         only name on the shelf where the title and the food make the same claim.
+         What protein and fiber buy you is the afternoon. */
+      name: 'Run and Not Be Weary', short: 'RUN',
+      blurb: 'One hundred recipes built on protein, fiber and staying full, from what the storehouse actually carries. Every one carries real macros and a computed nutrition score.'
     },
     2: {
       name: 'Around the Table', short: 'TABLE',
@@ -501,7 +504,7 @@
         '<p>Every recipe here is built on what the Bishops&rsquo; Storehouse order list ' +
         'actually carries. Where one needs something beyond it, the line at the foot of ' +
         'the recipe says so.</p>' +
-        '<p>Calories, protein, carbohydrate and fat are as recorded for Strong &amp; Simple ' +
+        '<p>Calories, protein, carbohydrate and fat are as recorded for Run and Not Be Weary ' +
         'and worked out from the ingredients everywhere else. Sodium and fiber are worked ' +
         'out from the ingredients throughout. How the score is arrived at is on the next ' +
         'page but one.</p>' +
@@ -1073,7 +1076,7 @@
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
     all: { file: 'Both-Books.pdf', label: 'Both books', pages: 148 },
-    1: { file: 'Strong-and-Simple.pdf', label: 'Strong & Simple', pages: 48, booklet: true },
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 48, booklet: true },
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 100, booklet: true }
   };
 

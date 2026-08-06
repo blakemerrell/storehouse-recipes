@@ -2,7 +2,7 @@
  * Renders the books to PDF, the same way the Print button does.
  *
  *     node tools/print-books.js            both volumes, and each on its own
- *     node tools/print-books.js 1          just Strong & Simple
+ *     node tools/print-books.js 1          just Run and Not Be Weary
  *     node tools/print-books.js 3          just Ours (needs recipes of your own,
  *                                          which live on your phone, not here)
  *
@@ -30,7 +30,7 @@ const TYPES = {
 };
 
 const BOOKS = {
-  1: 'Strong-and-Simple.pdf',
+  1: 'Run-and-Not-Be-Weary.pdf',
   2: 'Around-the-Table.pdf',
   3: 'Ours.pdf',
   all: 'Both-Books.pdf',

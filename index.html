@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=11">
+<link rel="stylesheet" href="src/style.css?v=12">
 </head>
 <body>
 
@@ -42,7 +42,7 @@
     <div class="filters-in">
       <div class="seg" id="bookSeg">
         <button data-book="all" aria-pressed="true">Both books</button>
-        <button data-book="1" aria-pressed="false">Strong &amp; Simple</button>
+        <button data-book="1" aria-pressed="false">Run and Not Be Weary</button>
         <button data-book="2" aria-pressed="false">Around the Table</button>
         <button data-book="3" id="bookOurs" class="hide" aria-pressed="false">Ours</button>
       </div>
@@ -119,7 +119,7 @@
         <span class="view-count">Include</span>
         <select id="printSet" aria-label="What to print">
           <option value="all">Both books &mdash; all 257</option>
-          <option value="1">Strong &amp; Simple &mdash; 100 recipes</option>
+          <option value="1">Run and Not Be Weary &mdash; 100 recipes</option>
           <option value="2">Around the Table &mdash; 157 recipes</option>
           <option value="3" id="printOurs" class="hide">Ours</option>
           <option value="fav">Favorites only</option>
@@ -144,8 +144,8 @@
 <script src="data/nutrition.js"></script>
 <script src="src/config.js"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=11"></script>
-<script src="src/app.js?v=11"></script>
+<script src="src/sync.js?v=12"></script>
+<script src="src/app.js?v=12"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

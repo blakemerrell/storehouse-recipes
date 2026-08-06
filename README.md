@@ -51,7 +51,7 @@ the item is on the list; take the recipe out of the week and its tick is forgott
 an item never comes back to a later list already ticked. Ticks belong to their own
 week, so shopping for one does not tick things off in another.
 
-**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Strong & Simple is 44
+**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 44
 pages, Around the Table is 98, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
 (how to read a recipe, temperatures and doneness, weights and swaps, what the storehouse
 carries) and its own contents, then is numbered from page one. Front matter carries no
@@ -78,7 +78,7 @@ You can also print just one volume, just your favorites, or just this week.
 
 Each volume opens on a cover and a title page and closes on a back cover that lists its
 sections, and each is padded with blanks to a whole number of folded sheets — 48 pages
-for Strong & Simple, 100 for Around the Table.
+for Run and Not Be Weary, 100 for Around the Table.
 
 **In the app, use Download PDF.** The finished books are rendered ahead of time and ship
 with the app, so a printable file at exactly 5.5 × 8.5 in is one click, with no print
@@ -91,22 +91,22 @@ To regenerate them after changing a recipe or the food table:
 
 ```sh
 npm run print                      # both volumes, and each on its own
-node tools/print-books.js 1        # just Strong & Simple
+node tools/print-books.js 1        # just Run and Not Be Weary
 ```
 
 That writes two files per volume into `print/`, which **are committed** — the app links
 to them. `tests/pdfs.test.js` fails if they fall behind the recipes, so a stale book
 cannot quietly reach a printer:
 
-- **`Strong-and-Simple.pdf`** — reading order, half-letter. This is the one to give a
+- **`Run-and-Not-Be-Weary.pdf`** — reading order, half-letter. This is the one to give a
   print shop; they impose it themselves.
-- **`Strong-and-Simple-booklet.pdf`** — the same book imposed two-up on letter paper,
+- **`Run-and-Not-Be-Weary-booklet.pdf`** — the same book imposed two-up on letter paper,
   landscape, in saddle-stitch order. Print it **double-sided, flipping on the short
   edge**, fold the stack in half and staple the spine. The fold on a landscape sheet
   runs down the middle, so a short-edge flip is the one that puts page 2 behind page 1
   rather than upside down under it.
 
-Strong & Simple is 12 sheets, which staples comfortably. Around the Table is 25, which is
+Run and Not Be Weary is 12 sheets, which staples comfortably. Around the Table is 25, which is
 thick for a saddle stitch — worth asking a print shop for perfect binding or a coil
 instead.
 
@@ -153,7 +153,7 @@ from any other host — the fonts are in this repository, not Google's.
 
 ## About the nutrition numbers
 
-Strong & Simple's 100 recipes came with real macros. Around the Table's original 125 came
+Run and Not Be Weary's 100 recipes came with real macros. Around the Table's original 125 came
 with **none** — the source had taglines where the nutrition data should be, so the scores
 shown on those recipes in the very first version were invented.
 
@@ -224,7 +224,7 @@ carried either figure. So half the weight of every score rests on the food table
 `tools/food-db.js`, and the app says so on each recipe.
 
 **[AUDIT.md](AUDIT.md)** shows the work: both formulas, the verification that the
-recovered original reproduces all 100 authored scores exactly, where Strong & Simple's
+recovered original reproduces all 100 authored scores exactly, where Run and Not Be Weary's
 own macros disagree with its ingredient lists, and every assumption behind the
 estimates. Worth reading once before this goes to print.
 
