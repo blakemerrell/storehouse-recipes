@@ -206,7 +206,7 @@
   var S = {
     view: 'browse', bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
     favOnly: false, qy: '', sort: 'book', openId: null, scale: 1, printSet: 'all',
-    syncOpen: false, pendingCode: '', joinDraft: ''
+    syncOpen: false, pendingCode: '', joinDraft: '', why: false
   };
 
   // ------------------------------------------------------------------ browse
@@ -1111,64 +1111,62 @@
     ];
   }
 
-  /* Each part gets a mark rather than a word: P, C and F for protein, calories
-     and fat, a shaker for sodium and an ear of wheat for fiber. Letters run out
-     — F is already fat, and S could be sodium, salt or sugar — and at ten pixels
-     a drawing has to be a silhouette, so the shaker is a cap and a body and the
-     wheat is a stalk with three pairs of strokes. Anything finer turns to mud. */
-  var MARKS = {
-    Sodium: '<svg viewBox="0 0 12 12" aria-hidden="true">' +
-      '<path class="fl" d="M4.4 1.4a1.6 1.6 0 0 1 3.2 0v1.9H4.4V1.4Z"/>' +
-      '<path class="fl" d="M4 4.3h4l.7 6.4H3.3L4 4.3Z"/></svg>',
-    Fiber: '<svg viewBox="0 0 12 12" aria-hidden="true">' +
-      '<path d="M6 11V4.4"/>' +
-      '<path d="M6 4.6 3.9 2.6M6 4.6l2.1-2M6 7 3.9 5M6 7l2.1-2M6 9.4 3.9 7.4M6 9.4l2.1-2"/></svg>'
-  };
-
   function nutritionHTML(r) {
     if (r.score === null || !r.sc) return '';
 
-    /* Five short bars stacked beside the leaf, one per part of the score. Each
-       row's track is as long as the points that part is worth — 30 for protein
-       down to 10 for fat — and fills by what the recipe earned, so the ink down
-       the whole stack is the score out of a hundred and the ragged right edge
-       says which parts carry the most weight.
+    /* What this panel is for is the score. Everything else is the reason for
+       the score, and a reason is only wanted when the number surprises you —
+       so the leaf opens it and it stays shut the rest of the time.
 
-       The stack is capped at the leaf's own height. That is the whole point of
-       this shape: on a two-step recipe the panel used to be taller than the
-       recipe, and a block that ends where the leaf ends can never do that
-       again. It is capped in width too, or on a desktop the bars stretch the
-       width of the sheet and stop being a chart. */
+       Shut, it is one bar: five slots across the full width, each as wide as
+       the points that part is worth — 30 for protein down to 10 for fat — and
+       filled by what the recipe earned. The ink across it IS the score out of
+       a hundred, and the gaps say where the missing points went.
+
+       Open, it names them. That line costs nothing: the leaf is 63px and the
+       body is under 40, so the breakdown unfolds into space the panel is
+       already paying for and the height does not move. */
     var parts = scoreParts(r);
     var bandOf = function (c) {
       var share = c.max ? c.p / c.max : 0;
       return share >= 0.8 ? 'good' : share >= 0.45 ? 'ok' : 'low';
     };
+    var tip = function (c) {
+      return esc(c.t) + ' \u2014 ' + c.p + ' of ' + c.max + ' points';
+    };
 
-    var rows = parts.map(function (c) {
-      var b = bandOf(c);
-      var mark = MARKS[c.k]
-        ? '<i class="nmark">' + MARKS[c.k] + '</i>'
-        : '<i class="nltr">' + esc(c.k.charAt(0)) + '</i>';
-      return '<span class="nrow nr-' + b + '" title="' + esc(c.t) + ' \u2014 ' +
-        c.p + ' of ' + c.max + ' points">' +
-        mark +
-        '<span class="nbar">' +
-          '<span class="ntrack" style="width:' + (c.max / 30 * 100).toFixed(1) + '%">' +
-            '<i class="nf-' + b + '" style="width:' +
-            ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i>' +
-          '</span>' +
-        '</span>' +
-        '<span class="nnum">' + c.p + '</span>' +
-      '</span>';
+    var track = parts.map(function (c) {
+      return '<span class="nut-slot" style="flex:' + c.max + '" title="' + tip(c) + '">' +
+        '<i class="nb-' + bandOf(c) + '" style="width:' +
+        ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i></span>';
     }).join('');
 
+    var why = S.why
+      ? '<div class="nut-why">' + parts.map(function (c) {
+          return '<span class="nk nk-' + bandOf(c) + '" title="' + tip(c) + '">' +
+            '<b>' + c.p + '</b><u>/' + c.max + '</u> ' + esc(c.k.toLowerCase()) + '</span>';
+        }).join('<i>&middot;</i>') + '</div>'
+      : '';
+
     var m = r.macro;
-    return '<div class="nut nut-' + scoreBand(r.score) + '" title="Nutrition score ' +
-      r.score + ' out of 100">' +
-      leaf(r.score, 'leaf-big') +
+    return '<div class="nut nut-' + scoreBand(r.score) + (S.why ? ' nut-open' : '') + '">' +
+      /* The leaf is the control. It is the thing you are already looking at
+         when you wonder why, so it is the thing that answers. */
+      '<button class="nut-leaf" data-why aria-expanded="' + (S.why ? 'true' : 'false') +
+        '" title="' + (S.why ? 'Hide the breakdown' : 'Why this score?') + '">' +
+        leaf(r.score, 'leaf-big') +
+      '</button>' +
       '<div class="nut-body">' +
-        '<div class="nut-rows">' + rows + '</div>' +
+        /* The toggle rides on the bar's own line. On the end of the macro line
+           it was the straw that wrapped it to two rows on a phone; here it
+           costs nothing, because the bar row has the height already. */
+        '<div class="nut-head">' +
+          '<div class="nut-track">' + track + '</div>' +
+          '<button class="nut-ask" data-why aria-expanded="' + (S.why ? 'true' : 'false') + '">' +
+            (S.why ? 'hide' : 'why?') +
+          '</button>' +
+        '</div>' +
+        why +
         /* Whole grams. These are estimates off a food table, so 28.5g of protein
            claims a precision that is not there — and the half gram was the
            difference between one line and two on a phone. Fiber keeps its
@@ -1671,6 +1669,7 @@
       if (!c) return;
       S.openId = idOf(c.dataset.open);
       S.scale = 1;
+      S.why = false;
       renderModal();
       var x = document.querySelector('.sheet-x');
       if (x) x.focus();
@@ -1778,6 +1777,9 @@
         else window.Store.addToDay(id, day, S.scale);
         return;
       }
+
+      var w = e.target.closest('[data-why]');
+      if (w) { S.why = !S.why; renderModal(); return; }
 
       var sc = e.target.closest('[data-scale]');
       if (sc) {

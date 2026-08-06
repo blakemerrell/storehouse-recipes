@@ -88,67 +88,94 @@ module.exports = {
       (bands.low || []).every((n) => n < 45),
       JSON.stringify(Object.keys(bands).map((k) => k + ':' + bands[k].length)));
 
-    /* The score is a sum of five weighted parts, and the stack is drawn that
-       way: one row per part, its track as long as the points that part is
-       worth, filled by what the recipe earned. So the ink down the stack has
-       to come to the score. */
+    /* The score is a sum of five weighted parts, and the bar is drawn that way:
+       one slot per part, as wide as the points it is worth, filled by what the
+       recipe earned. So the ink across the bar has to come to the score. */
     const nut = await p.evaluate(() => {
-      const rows = [...document.querySelectorAll('.nrow')].map((r) => ({
-        track: parseFloat(r.querySelector('.ntrack').style.width),
-        fill: parseFloat(r.querySelector('.ntrack i').style.width),
-        points: Number(r.querySelector('.nnum').textContent),
-        band: r.className.match(/nr-(good|ok|low)/)[1],
-        mark: r.querySelector('.nmark') ? 'drawn' : r.querySelector('.nltr').textContent,
-      }));
       const foot = document.querySelector('.nut-foot');
-      const panel = document.querySelector('.nut');
       return {
-        rows,
+        slots: [...document.querySelectorAll('.nut-slot')].map((s) => ({
+          weight: Number(getComputedStyle(s).flexGrow),
+          fill: parseFloat(s.querySelector('i').style.width),
+          band: s.querySelector('i').className,
+        })),
+        named: document.querySelectorAll('.nk').length,
         score: Number(document.querySelector('.leaf-n').textContent),
         /* scrollWidth is no use here: a wrapped flex row still fits its box.
            Count the distinct tops instead. */
         footRows: new Set([...foot.children].map((c) =>
           Math.round(c.getBoundingClientRect().top))).size,
-        height: Math.round(panel.getBoundingClientRect().height),
-        /* the stack is capped at the leaf, which is the whole point of it */
-        stack: Math.round(document.querySelector('.nut-rows').getBoundingClientRect().height),
-        leaf: Math.round(document.querySelector('.leaf-big').getBoundingClientRect().height),
+        height: Math.round(document.querySelector('.nut').getBoundingClientRect().height),
+        ask: document.querySelector('.nut-ask').textContent.trim(),
       };
     });
 
-    t.ok('one row per part, each track as long as the points it is worth',
-      nut.rows.map((r) => Math.round(r.track)).join() === '100,67,33,83,50',
-      JSON.stringify(nut.rows.map((r) => r.track)));
+    t.ok('the bar has a slot per part, weighted by what each is worth',
+      nut.slots.map((s) => s.weight).join() === '30,20,10,25,15',
+      JSON.stringify(nut.slots.map((s) => s.weight)));
 
-    const inked = nut.rows.reduce((n, r) => n + 30 * (r.track / 100) * (r.fill / 100), 0);
-    t.ok('and the ink down the stack comes to the score',
+    const inked = nut.slots.reduce((n, s) => n + s.weight * s.fill / 100, 0);
+    t.ok('and the ink across it comes to the score',
       Math.abs(inked - nut.score) < 1.5, Math.round(inked) + ' vs ' + nut.score);
 
-    t.ok('with the points beside each bar, adding up to the same',
-      nut.rows.length === 5 &&
-      Math.abs(nut.rows.reduce((n, r) => n + r.points, 0) - nut.score) < 1.5,
-      JSON.stringify(nut.rows.map((r) => r.points)));
+    t.ok('a slot short of its points is coloured differently from a full one',
+      new Set(nut.slots.map((s) => s.band)).size > 1,
+      nut.slots.map((s) => s.band).join(' '));
 
-    /* Letters run out — F is already fat, and S could be sodium, salt or sugar
-       — so the last two are drawn instead. */
-    t.ok('marked P, C, F and then a shaker and an ear of wheat',
-      nut.rows.map((r) => r.mark).join() === 'P,C,F,drawn,drawn',
-      JSON.stringify(nut.rows.map((r) => r.mark)));
-
-    t.ok('a bar short of its points is coloured differently from a full one',
-      new Set(nut.rows.map((r) => r.band)).size > 1,
-      nut.rows.map((r) => r.band).join(' '));
+    /* A panel is opened to read a recipe, not to audit it. Shut, it says the
+       score and nothing else. */
+    t.ok('the breakdown is out of the way until it is asked for',
+      nut.named === 0 && nut.ask === 'why?', nut.named + ' parts named, button says ' + nut.ask);
 
     t.ok('the macro line holds one row without wrapping',
       nut.footRows === 1, nut.footRows + ' rows');
 
     /* The complaint that produced this shape: on a two-step recipe the panel
-       was taller than the recipe. The stack ends where the leaf ends. */
-    t.ok('the stack of bars stays inside the leaf\u2019s own height',
-      nut.stack <= nut.leaf, nut.stack + 'px of bars, ' + nut.leaf + 'px of leaf');
-
+       was taller than the recipe. */
     t.ok('and the whole panel stays out of the recipe\u2019s way',
       nut.height < 100, nut.height + 'px tall');
+
+    // pressing the leaf is what answers, which is the whole idea
+    await p.click('.nut-leaf');
+    await p.waitForTimeout(200);
+    const open = await p.evaluate(() => {
+      const foot = document.querySelector('.nut-foot');
+      return {
+        parts: [...document.querySelectorAll('.nk')].map((k) => k.textContent.trim()),
+        height: Math.round(document.querySelector('.nut').getBoundingClientRect().height),
+        footRows: new Set([...foot.children].map((c) =>
+          Math.round(c.getBoundingClientRect().top))).size,
+        ask: document.querySelector('.nut-ask').textContent.trim(),
+        expanded: document.querySelector('.nut-leaf').getAttribute('aria-expanded'),
+      };
+    });
+
+    t.ok('pressing the leaf names every part, in words and out of what',
+      open.parts.length === 5 &&
+      /^\d+\/30 protein$/.test(open.parts[0]) && /^\d+\/15 fiber$/.test(open.parts[4]),
+      JSON.stringify(open.parts));
+
+    t.ok('and says so to a screen reader as well',
+      open.expanded === 'true' && open.ask === 'hide', open.expanded + ' / ' + open.ask);
+
+    /* The leaf is 63px and the body under it is nearer 40, so the breakdown
+       unfolds into room the panel is already paying for. */
+    t.ok('opening it does not push the panel out',
+      open.height < 100 && open.footRows === 1,
+      open.height + 'px tall, ' + open.footRows + ' macro rows');
+
+    await p.click('.nut-ask');
+    await p.waitForTimeout(200);
+    t.ok('and it shuts again',
+      (await p.evaluate(() => document.querySelectorAll('.nk').length)) === 0);
+
+    // a different recipe starts shut, rather than inheriting the last one
+    await p.click('.sheet-x');
+    await p.waitForTimeout(150);
+    await p.click('#grid .card:nth-child(3)');
+    await p.waitForTimeout(250);
+    t.ok('every recipe opens on the score, not the audit',
+      (await p.evaluate(() => document.querySelectorAll('.nk').length)) === 0);
 
     await p.context().close();
 
@@ -176,16 +203,20 @@ module.exports = {
     t.ok('on a phone it holds one row for every recipe in the collection',
       wide.length === 0, wide.length + ' wrap, e.g. ' + wide.slice(0, 3).join('; '));
 
-    const small = await phone.evaluate(() => ({
+    const small = await phone.evaluate(() => {
+      document.querySelector('.nut-leaf').click();
+      return null;
+    });
+    await phone.waitForTimeout(200);
+    const openPhone = await phone.evaluate(() => ({
       height: Math.round(document.querySelector('.nut').getBoundingClientRect().height),
-      stack: Math.round(document.querySelector('.nut-rows').getBoundingClientRect().height),
-      leaf: Math.round(document.querySelector('.leaf-big').getBoundingClientRect().height),
-      barsFit: [...document.querySelectorAll('.nrow')].every((r) =>
-        r.scrollWidth <= r.clientWidth + 1),
+      parts: document.querySelectorAll('.nk').length,
+      footRows: new Set([...document.querySelector('.nut-foot').children]
+        .map((c) => Math.round(c.getBoundingClientRect().top))).size,
     }));
-    t.ok('and on a phone it still fits, bars and all',
-      small.barsFit && small.stack <= small.leaf && small.height < 100,
-      JSON.stringify(small));
+    t.ok('and on a phone the breakdown opens without spilling either',
+      openPhone.parts === 5 && openPhone.height < 100 && openPhone.footRows === 1,
+      JSON.stringify(openPhone));
 
     await phone.context().close();
   },
