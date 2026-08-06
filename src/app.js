@@ -1103,34 +1103,43 @@
 
   function nutritionHTML(r) {
     if (r.score === null || !r.sc) return '';
-    var rows = scoreParts(r).map(function (c) {
+
+    /* One bar, five slots, each as wide as the points that part is worth: 30
+       for protein, 20 for calories, 10 for fat, 25 for sodium, 15 for fiber.
+       Each slot fills by what the recipe earned, so the ink across the whole
+       bar IS the score out of a hundred and the empty stretches say where the
+       missing points went. Five labelled rows said the same thing and took ten
+       times the room — on a two-step recipe the panel outgrew the recipe. */
+    var parts = scoreParts(r);
+    var bandOf = function (c) {
       var share = c.max ? c.p / c.max : 0;
-      var band = share >= 0.8 ? 'good' : share >= 0.45 ? 'ok' : 'low';
-      return '<div class="nut-row nr-' + band + '" title="' + esc(c.t) + '">' +
-        '<span class="nut-k">' + esc(c.k) + '</span>' +
-        '<span class="nut-v">' + esc(c.v) + '</span>' +
-        '<span class="nut-bar"><i style="width:' + (share * 100).toFixed(1) + '%"></i></span>' +
-        '<span class="nut-p">' + c.p + '<span class="nut-max">/' + c.max + '</span></span>' +
-      '</div>';
+      return share >= 0.8 ? 'good' : share >= 0.45 ? 'ok' : 'low';
+    };
+
+    var track = parts.map(function (c) {
+      return '<span class="nut-slot" style="flex:' + c.max + '" title="' + esc(c.t) +
+        ' \u2014 ' + c.p + ' of ' + c.max + ' points">' +
+        '<i class="nb-' + bandOf(c) + '" style="width:' +
+        ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i></span>';
     }).join('');
+
+    var key = parts.map(function (c) {
+      return '<span class="nk nk-' + bandOf(c) + '" title="' + esc(c.t) + '">' +
+        '<b>' + c.p + '</b><u>/' + c.max + '</u> ' + esc(c.k.toLowerCase()) + '</span>';
+    }).join('<i>&middot;</i>');
 
     var m = r.macro;
     return '<div class="nut nut-' + scoreBand(r.score) + '">' +
-      '<div class="nut-head">' +
-        '<div>' +
-          '<div class="nut-title">Nutrition score</div>' +
-          '<div class="nut-sub">% is share of calories</div>' +
+      leaf(r.score, 'leaf-big') +
+      '<div class="nut-body">' +
+        '<div class="nut-title">Nutrition score</div>' +
+        '<div class="nut-track">' + track + '</div>' +
+        '<div class="nut-key">' + key + '</div>' +
+        '<div class="nut-foot" title="' + esc(m.kcal + ' kcal, ' + m.p + 'g protein, ' +
+          m.c + 'g carbohydrate, ' + m.f + 'g fat, ' + m.na + ' mg sodium, ' + m.fib + 'g fiber') + '">' +
+          [m.kcal + ' kcal', m.p + 'g P', m.c + 'g C', m.f + 'g F', m.na + 'mg S', m.fib + 'g Fib']
+            .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('<i>&middot;</i>') +
         '</div>' +
-        leaf(r.score, 'leaf-big') +
-      '</div>' +
-      '<div class="nut-rows">' + rows + '</div>' +
-      /* The whole macro set on one line, so it cannot wrap and push the panel
-         taller: kcal, then protein, carbohydrate, fat, sodium, fiber. The words
-         are on the row above and in the title, so the letters are enough. */
-      '<div class="nut-foot" title="' + esc(m.kcal + ' kcal, ' + m.p + 'g protein, ' +
-        m.c + 'g carbohydrate, ' + m.f + 'g fat, ' + m.na + ' mg sodium, ' + m.fib + 'g fiber') + '">' +
-        [m.kcal + ' kcal', m.p + 'g P', m.c + 'g C', m.f + 'g F', m.na + 'mg S', m.fib + 'g Fib']
-          .map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('<i>·</i>') +
       '</div>' +
     '</div>';
   }

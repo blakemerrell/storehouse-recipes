@@ -88,32 +88,48 @@ module.exports = {
       (bands.low || []).every((n) => n < 45),
       JSON.stringify(Object.keys(bands).map((k) => k + ':' + bands[k].length)));
 
-    const parts = await p.evaluate(() =>
-      [...document.querySelectorAll('.nut-row')].map((r) => ({
-        k: r.querySelector('.nut-k').textContent,
-        v: r.querySelector('.nut-v').textContent,
-        w: r.querySelector('.nut-bar i').style.width,
-        p: r.querySelector('.nut-p').textContent,
-      })));
-    t.ok('the panel breaks the score into its five parts',
-      parts.map((x) => x.k).join(',') === 'Protein,Calories,Fat,Sodium,Fiber',
-      JSON.stringify(parts.map((x) => x.k)));
-    t.ok('each with a figure, a bar drawn to its share, and its points',
-      parts.length === 5 && parts.every((x) => x.v && /%$/.test(x.w) && /^\d+\/\d+$/.test(x.p)),
-      JSON.stringify(parts));
-    const foot = await p.evaluate(() => {
-      const f = document.querySelector('.nut-foot');
-      return { text: f.textContent.replace(/\s+/g, ' ').trim(), fits: f.scrollWidth <= f.clientWidth + 1 };
+    /* The score is a sum of five weighted parts, and the bar is drawn that way:
+       one slot per part, as wide as the points it is worth, filled by what the
+       recipe earned. So the ink across the bar has to come to the score. */
+    const nut = await p.evaluate(() => {
+      const slots = [...document.querySelectorAll('.nut-slot')].map((s) => ({
+        weight: Number(getComputedStyle(s).flexGrow),
+        fill: parseFloat(s.querySelector('i').style.width),
+        band: s.querySelector('i').className,
+      }));
+      const keys = [...document.querySelectorAll('.nk')].map((k) => k.textContent.trim());
+      const foot = document.querySelector('.nut-foot');
+      const panel = document.querySelector('.nut');
+      return {
+        slots, keys,
+        score: Number(document.querySelector('.leaf-n').textContent),
+        footFits: foot.scrollWidth <= foot.clientWidth + 1,
+        height: Math.round(panel.getBoundingClientRect().height),
+      };
     });
-    t.ok('the macro line holds one row without wrapping',
-      foot.fits && /kcal/.test(foot.text) && /g P/.test(foot.text) && /mg S/.test(foot.text) &&
-      /g Fib/.test(foot.text), foot.text);
 
-    t.ok('and the bars agree with the points',
-      parts.every((x) => {
-        const [got, max] = x.p.split('/').map(Number);
-        return Math.abs(parseFloat(x.w) - (got / max) * 100) < 1.5;
-      }), JSON.stringify(parts));
+    t.ok('the bar has a slot per part, weighted by what each is worth',
+      nut.slots.map((s) => s.weight).join() === '30,20,10,25,15',
+      JSON.stringify(nut.slots.map((s) => s.weight)));
+
+    const inked = nut.slots.reduce((n, s) => n + s.weight * s.fill / 100, 0);
+    t.ok('and the ink across it comes to the score',
+      Math.abs(inked - nut.score) < 1.5, Math.round(inked) + ' vs ' + nut.score);
+
+    t.ok('each part is named with its points beside the bar',
+      nut.keys.length === 5 && /protein$/.test(nut.keys[0]) && /fiber$/.test(nut.keys[4]),
+      JSON.stringify(nut.keys));
+
+    t.ok('a slot short of its points is coloured differently from a full one',
+      new Set(nut.slots.map((s) => s.band)).size > 1,
+      nut.slots.map((s) => s.band).join(' '));
+
+    t.ok('the macro line holds one row without wrapping', nut.footFits);
+
+    /* The complaint that produced this shape: on a two-step recipe the panel
+       was taller than the recipe. It has to stay small. */
+    t.ok('and the whole panel stays out of the recipe\u2019s way',
+      nut.height < 150, nut.height + 'px tall');
 
     await p.context().close();
   },

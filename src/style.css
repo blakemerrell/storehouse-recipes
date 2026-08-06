@@ -237,81 +237,57 @@ select { max-width: 280px; }
 
 
 /* ---------------------------------------------------------- the nutrition panel */
-/* A score is a sum, and a sum hides which of its five parts it came from. These
-   are the parts, each with what it measured and a bar you can read without
-   doing the division. Each bar takes its colour from its own share, so the
-   component dragging a score down is the one that looks different. */
-/* Each part is one line — name, figure, bar, points — rather than a line with a
-   bar slung underneath it, which is what used to spend the space. That halved
-   the height. The panel itself spans the sheet like everything else on it; a
-   capped one left a bordered card stranded in the middle of a wide screen. */
+/* The score is a sum of five weighted parts, so the bar is drawn that way: five
+   slots as wide as the points each part is worth, each filled by what the
+   recipe earned. The ink across the whole bar is the score out of a hundred,
+   and the gaps say where the missing points went. Five labelled rows with their
+   own bars said the same thing and took ten times the room — on a two-step
+   recipe the panel was taller than the recipe. */
 .nut {
-  margin-top: 18px; border: 1px solid oklch(0.86 0.04 148); border-radius: 4px;
-  background: oklch(0.975 0.014 148); overflow: hidden;
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 16px; padding: 12px 15px;
+  border: 1px solid oklch(0.86 0.04 148); border-radius: 4px;
+  background: oklch(0.975 0.014 148);
 }
 .nut-ok  { border-color: oklch(0.87 0.03 240); background: oklch(0.976 0.011 240); }
 .nut-low { border-color: oklch(0.88 0.008 70); background: oklch(0.972 0.004 70); }
+.nut-body { flex: 1; min-width: 0; }
 
-.nut-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 11px 13px 10px; border-bottom: 1px solid oklch(0.88 0.03 148);
-}
-.nut-ok .nut-head  { border-bottom-color: oklch(0.89 0.025 240); }
-.nut-low .nut-head { border-bottom-color: oklch(0.90 0.006 70); }
 .nut-title {
-  font-size: 10.5px; letter-spacing: 0.15em; text-transform: uppercase; font-weight: 600;
-  color: oklch(0.36 0.08 148);
+  font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600;
+  color: oklch(0.40 0.07 148); margin-bottom: 7px;
 }
-.nut-ok .nut-title  { color: oklch(0.38 0.07 240); }
-.nut-low .nut-title { color: oklch(0.34 0.01 70); }
-.nut-sub { font-size: 10.5px; color: var(--muted); margin-top: 4px; max-width: 20ch; line-height: 1.4; }
+.nut-ok .nut-title  { color: oklch(0.42 0.06 240); }
+.nut-low .nut-title { color: oklch(0.38 0.01 70); }
 
-.nut-rows { padding: 9px 13px 10px; }
-.nut-row {
-  display: grid; grid-template-columns: minmax(56px, auto) minmax(48px, auto) 1fr auto;
-  align-items: center; gap: 10px; padding: 4px 0;
+.nut-track { display: flex; gap: 2px; height: 11px; }
+.nut-slot {
+  background: oklch(0.90 0.008 70); border-radius: 2px; overflow: hidden; min-width: 0;
 }
-.nut-k {
-  font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; font-size: 9px;
-  color: var(--muted-2);
-}
-.nut-v {
-  color: var(--ink); font-size: 11px; text-align: right;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.nut-p {
-  font-family: var(--serif); font-weight: 700; font-size: 12px; text-align: right;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.nut-max { font-weight: 400; font-size: 9.5px; color: var(--muted); }
+.nut-slot i { display: block; height: 100%; border-radius: 2px; }
+.nb-good { background: oklch(0.58 0.13 148); }
+.nb-ok   { background: oklch(0.60 0.11 240); }
+.nb-low  { background: oklch(0.54 0.02 70); }
 
-.nut-bar {
-  height: 5px; border-radius: 3px; overflow: hidden; min-width: 34px;
-  background: oklch(0.91 0.008 70);
+.nut-key {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 5px;
+  margin-top: 8px; font-size: 10.5px; color: var(--muted-2);
 }
-.nut-bar i { display: block; height: 100%; border-radius: 3px; }
-/* the row's own band, kept apart from the panel's so a green panel can hold a
-   grey row — which is the whole point of showing the parts */
-.nr-good .nut-bar i { background: oklch(0.60 0.12 148); }
-.nr-good .nut-p     { color: oklch(0.40 0.10 148); }
-.nr-ok   .nut-bar i { background: oklch(0.62 0.10 240); }
-.nr-ok   .nut-p     { color: oklch(0.44 0.09 240); }
-.nr-low  .nut-bar i { background: oklch(0.56 0.02 70); }
-.nr-low  .nut-p     { color: oklch(0.36 0.01 70); }
+.nut-key i { font-style: normal; color: oklch(0.80 0.02 70); }
+.nk { white-space: nowrap; }
+.nk b { font-family: var(--serif); font-size: 12px; font-weight: 700; }
+.nk u { text-decoration: none; opacity: 0.5; font-size: 9.5px; }
+.nk-good b { color: oklch(0.38 0.10 148); }
+.nk-ok   b { color: oklch(0.40 0.09 240); }
+.nk-low  b { color: oklch(0.34 0.01 70); }
 
 .nut-foot {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 3px;
-  padding: 8px 12px 9px; border-top: 1px solid var(--line-soft);
-  background: oklch(1 0 0 / 0.5);
-  font-size: 9.5px; color: var(--muted-2); white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 5px;
+  margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line-soft);
+  font-size: 9.5px; color: var(--muted); font-variant-numeric: tabular-nums;
 }
+.nut-foot i { font-style: normal; color: oklch(0.82 0.02 70); }
 .nut-foot span { white-space: nowrap; }
-.nut-foot i { font-style: normal; color: oklch(0.78 0.02 70); }
-
-@media (max-width: 400px) {
-  .nut-row { grid-template-columns: minmax(50px, auto) minmax(44px, auto) 1fr auto; gap: 7px; }
-}
 
 /* ------------------------------------------------------------- the score */
 /* A number in a leaf. Three bands, coloured so the collection can be read at
