@@ -21,15 +21,15 @@
 
 /* Bump this when the shell changes. The old cache is deleted on activate, which
    is what gets a phone that is holding a previous build onto the current one. */
-var CACHE = 'storehouse-v5';
+var CACHE = 'storehouse-v6';
 
 var SHELL = [
   './',
   './index.html',
-  './src/style.css?v=7',
+  './src/style.css?v=8',
   './src/config.js',
-  './src/sync.js?v=7',
-  './src/app.js?v=7',
+  './src/sync.js?v=8',
+  './src/app.js?v=8',
   './data/recipes.js',
   './data/nutrition.js',
   './fonts/source-serif-4-latin-wght-normal.woff2',
@@ -77,8 +77,15 @@ self.addEventListener('fetch', function (e) {
   if (url.pathname.indexOf('/print/') >= 0) return;
 
   if (req.mode === 'navigate') {
+    /* 'no-cache' revalidates with the server instead of trusting the browser's
+       own HTTP cache. GitHub Pages serves index.html with max-age=600, so
+       without this a deployment could not land for ten minutes: the fetch below
+       would be answered out of the HTTP cache with the previous index.html,
+       still pointing at the previous ?v= of the scripts, and the app would go
+       on looking unchanged for no reason anyone could see. The server answers
+       304 when nothing moved, so this costs a round trip, not a download. */
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then(function (res) {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copy); });

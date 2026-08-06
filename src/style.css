@@ -762,6 +762,8 @@ select { max-width: 280px; }
   font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--muted); margin-top: 18px; display: flex; align-items: center; gap: 8px;
 }
+/* Pushed to the far end: it answers a question you only ask occasionally. */
+.sync-build { margin-left: auto; opacity: 0.7; font-variant-numeric: tabular-nums; }
 .sync-warn {
   margin-top: 16px; font-size: 12.5px; line-height: 1.6; color: var(--muted-2);
   border-left: 2px solid var(--ochre); padding-left: 11px;

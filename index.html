@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=7">
+<link rel="stylesheet" href="src/style.css?v=8">
 </head>
 <body>
 
@@ -144,14 +144,32 @@
 <script src="data/nutrition.js"></script>
 <script src="src/config.js"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=7"></script>
-<script src="src/app.js?v=7"></script>
+<script src="src/sync.js?v=8"></script>
+<script src="src/app.js?v=8"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
-   when the page is opened straight off the disk. */
+   when the page is opened straight off the disk.
+
+   updateViaCache:'none' stops the browser serving sw.js itself out of its HTTP
+   cache, which is the thing that pins a phone to an old build: the worker never
+   changes, so it never activates, so the new cache is never built.
+
+   And when a new worker does take over, reload once. Without that, a deployment
+   is only visible on the *second* open — you look, see the old app, and have no
+   reason to look again. hadWorker keeps the first install quiet, where there is
+   nothing to update to. */
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  var hadWorker = !!navigator.serviceWorker.controller;
+  var reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!hadWorker || reloading) return;
+    reloading = true;
+    location.reload();
+  });
   addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(function (reg) { reg.update(); })
+      .catch(function () {});
   });
 }
 </script>

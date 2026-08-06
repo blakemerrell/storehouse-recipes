@@ -5,6 +5,16 @@
 (function () {
   'use strict';
 
+  /* Which build this is, read off the ?v= that index.html loads this file with,
+     so it can never drift from the truth by being forgotten. Shown in the
+     Sharing sheet: when a change is pushed and a phone still looks the same,
+     that number answers whether the phone has it yet or the deploy is late. */
+  var BUILD = (function () {
+    var s = document.querySelector('script[src*="app.js"]');
+    var m = s && /[?&]v=([\w.-]+)/.exec(s.getAttribute('src') || '');
+    return m ? m[1] : 'dev';
+  })();
+
   var BASE = window.RECIPES || [];    // the 257 in the two printed books
   var SHOP = window.SHOP || {};       // food key -> shopping-list name and unit
   var RECIPES = BASE;                 // those, with your changes, plus your own
@@ -1563,7 +1573,8 @@
         '</div>' +
         '<div class="sheet-name">The two of you, one list</div>' +
         body +
-        '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) + '</div>' +
+        '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
+          '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
       '</div></div>';
   }
 

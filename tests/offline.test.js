@@ -64,6 +64,25 @@ module.exports = {
     t.ok('and the whole book still prints',
       (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 148);
 
+    /* A phone that looks unchanged after a deploy is the hardest thing here to
+       tell apart from a deploy that has not landed. The Sharing sheet carries
+       the build, read off the ?v= index.html actually loaded — so it cannot say
+       one thing while the phone is running another. Checked offline, where the
+       page came out of the cache, which is exactly when the question is asked. */
+    await p.click('#syncBtn');
+    await p.waitForTimeout(300);
+    const stamped = await p.evaluate(() => {
+      const el = document.querySelector('.sync-build');
+      const src = document.querySelector('script[src*="app.js"]').getAttribute('src');
+      return { shown: el && el.textContent.trim(), src };
+    });
+    t.ok('the sheet names the build it is actually running',
+      /^Build \d+$/.test(stamped.shown || '') &&
+      stamped.src.indexOf('v=' + stamped.shown.split(' ')[1]) > 0,
+      JSON.stringify(stamped));
+    await p.click('.sheet-x');
+    await p.waitForTimeout(200);
+
     // the manifest is what makes it installable rather than a bookmark
     const mf = await p.evaluate(() => fetch('manifest.webmanifest').then((r) => r.json()).catch(() => null));
     t.ok('the manifest is served and complete',
