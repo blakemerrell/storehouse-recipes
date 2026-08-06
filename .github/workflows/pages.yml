@@ -15,14 +15,29 @@ permissions:
   pages: write
   id-token: write
 
-# Let a running deploy finish rather than cancelling it half-published.
+# The newest push wins. This used to say cancel-in-progress: false, on the
+# reasoning that a running deploy should finish rather than be cut off
+# half-published — which sounds careful and was wrong. Deployments to an
+# environment are serialized, so one run that hangs does not merely finish
+# late: every later run queues behind it and waits. That is exactly what
+# happened — a deploy timed out holding the lock, and the two pushes after it
+# sat in Waiting indefinitely while the site stayed on the old build with no
+# error anywhere the app could show.
+#
+# There is nothing to protect here anyway. The site is static files; a
+# superseded deploy has no half-written state to leave behind, and the run
+# that cancels it is publishing the newer commit regardless.
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # A deploy of a few megabytes of static files takes about a minute. Ten is
+    # already generous, and the point is that a hang fails and releases the
+    # environment instead of sitting on it.
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -39,3 +54,5 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 300000       # 5 minutes, in ms — the default is 10
