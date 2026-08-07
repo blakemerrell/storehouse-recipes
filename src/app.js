@@ -565,6 +565,35 @@
     '</div>';
   }
 
+  /* Sections find their art by slugifying their own name, so the tie between
+     a picture and a section is the section's name rather than a list kept in
+     step by hand. Rename a section and its picture follows, or stops being
+     found — which is the honest outcome, and visible immediately. */
+  function slug(s) {
+    return s.toLowerCase().replace(/&/g, 'and')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+  function secArt(r) {
+    return (window.SECTION_ART || {})[slug(r.secName)] || null;
+  }
+
+  /* A section that has a picture opens on a page of its own: the illustration,
+     then the same heading the inline band carries, so the two read as the same
+     furniture at two sizes. No folio, like the front matter — a page that is
+     not part of the numbered run should not claim a number. */
+  function openerHTML(r, count, art) {
+    return '<div class="pg"><div class="pg-open">' +
+      '<div class="pg-open-art"><img src="' + esc(art) + '" alt=""></div>' +
+      '<div class="pg-open-txt">' +
+        '<div class="sec-band-n">Section ' + r.secNum + '</div>' +
+        '<div class="pg-open-t">' + esc(r.secName) + '</div>' +
+        '<div class="pg-rule"></div>' +
+        '<div class="pg-open-s">' + esc(SEC_NOTE[r.book + '-' + r.secNum] || '') + '</div>' +
+        '<div class="pg-open-n">' + count + (count === 1 ? ' recipe' : ' recipes') + '</div>' +
+      '</div>' +
+    '</div></div>';
+  }
+
   function recipeHTML(r) {
     return '<div class="rp">' +
       '<div class="rp-top">' +
@@ -820,10 +849,14 @@
   }
 
   function buildContents(packed, vol, m, avail) {
-    // which page each recipe landed on
-    var pageOf = {};
-    packed.forEach(function (pageItems, idx) {
-      pageItems.forEach(function (x) { if (x.type === 'recipe') pageOf[x.r.id] = idx + 1; });
+    /* Which page each recipe landed on. Counted the same way the folio is —
+       skipping openers — or the contents would point a page or eight past
+       where the recipe actually is. */
+    var pageOf = {}, folio = 0;
+    packed.forEach(function (pageItems) {
+      if (pageItems.opener) return;
+      folio++;
+      pageItems.forEach(function (x) { if (x.type === 'recipe') pageOf[x.r.id] = folio; });
     });
 
     var items = [], lastSec = null;
@@ -867,22 +900,59 @@
 
     var out = [];
     volumes.forEach(function (vol) {
+      /* Runs, not one flat list. A section with a picture opens on its own
+         page, and everything after it therefore starts on a fresh page too —
+         so its recipes are packed on their own rather than continuing from
+         the tail of the previous section. Sections without a picture keep the
+         inline band and flow on as before, which is what keeps a volume with
+         no art rendering exactly as it did.
+
+         The cost is real and worth naming: a section boundary that used to be
+         a rule mid-page is now a page break, so the tail of the last page of
+         every section is given up. That is the price of an opener, and it is
+         paid in paper. */
       var items = [];
+      var runs = [{ opener: null, items: [] }];
       var lastSec = null;
       vol.list.forEach(function (r) {
         var key = r.book + '-' + r.secNum;
         if (!vol.grouped && key !== lastSec) {
           lastSec = key;
           var n = vol.list.filter(function (x) { return x.book === r.book && x.secNum === r.secNum; }).length;
-          items.push({ type: 'band', html: bandHTML(r, n), r: r });
+          var art = secArt(r);
+          if (art) {
+            runs.push({ opener: openerHTML(r, n, art), items: [] });
+          } else {
+            var band = { type: 'band', html: bandHTML(r, n), r: r };
+            runs[runs.length - 1].items.push(band);
+            items.push(band);
+          }
         }
-        items.push({ type: 'recipe', html: recipeHTML(r), r: r });
+        var rec = { type: 'recipe', html: recipeHTML(r), r: r };
+        runs[runs.length - 1].items.push(rec);
+        items.push(rec);
       });
+      runs = runs.filter(function (run) { return run.opener || run.items.length; });
 
       var m = measure(items);
       // a couple of pixels of slack absorbs any rounding between screen and print
       var avail = 7.5 * 96 - m.chrome - 4;
-      var packed = pack(items, avail, m);
+
+      /* An opener page joins the packed run as an empty page carrying its HTML
+         on the side. Empty so that everything walking these pages to find
+         where a recipe landed — the contents, in particular — steps over it
+         without needing to know it exists; present so that it still takes up
+         a leaf and the folio after it counts correctly. It prints no number
+         itself, the way a section opening does in any book. */
+      var packed = [];
+      runs.forEach(function (run) {
+        if (run.opener) {
+          var page = [];
+          page.opener = run.opener;
+          packed.push(page);
+        }
+        pack(run.items, avail, m).forEach(function (p) { packed.push(p); });
+      });
 
       var title = vol.grouped
         ? (S.printSet === 'fav' ? 'Favorites' : 'This Week')
@@ -917,7 +987,16 @@
         });
       }
 
-      packed.forEach(function (pageItems, idx) {
+      /* Openers sit outside the numbering, the way the front matter does. They
+         are real leaves and a reader turns past them, but they neither carry a
+         number nor advance one — otherwise a volume whose first section has a
+         picture would open on an unnumbered leaf and its first printed folio
+         would be 2, leaving a book with no page one in it. */
+      var folio = 0;
+      packed.forEach(function (pageItems) {
+        if (pageItems.opener) { out.push({ kind: 'open', html: pageItems.opener }); return; }
+        var idx = folio++;
+
         var first = pageItems.filter(function (x) { return x.r; })[0];
         var sec = first ? first.r.secName : '';
 

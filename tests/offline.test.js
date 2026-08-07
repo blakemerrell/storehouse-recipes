@@ -62,7 +62,7 @@ module.exports = {
     await p2.click('.tab[data-view="book"]');
     await p2.waitForTimeout(3500);
     t.ok('and the whole book still prints',
-      (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 148);
+      (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 156);
 
     /* A phone that looks unchanged after a deploy is the hardest thing here to
        tell apart from a deploy that has not landed. The Sharing sheet carries

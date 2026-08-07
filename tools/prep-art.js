@@ -89,7 +89,7 @@ function inkByRow(data, w, h) {
    Every source carries a decorative rule a few pixels in from the edge. It is
    a different frame from anything else in the book, and around a heading it
    reads as a sticker. Inset past it before trimming. */
-function inset(w, h) { return Math.round(Math.min(w, h) * 0.035); }
+function inset(w, h) { return Math.round(Math.min(w, h) * 0.075); }
 
 async function prepare(file) {
   var src = path.join(SRC, file);
@@ -158,6 +158,24 @@ async function main() {
     console.log(r.name.padEnd(38), ('band ' + r.band).padEnd(12), r.size.padEnd(11), r.kb + ' KB');
   });
   console.log('\n' + rows.length + ' images, ' + total + ' KB total');
+
+  /* A manifest keyed by the section's slug, so the book finds its art by
+     slugifying the section name rather than by a list someone has to keep in
+     step. Drop a file in art/src named for a section, run this, and that
+     section has a page — no code changes, which is the point.
+
+     Spares are named --alt and stay out: they are the duplicate of a section
+     that already has its picture. */
+  var manifest = {};
+  rows.map(function (r) { return r.name.replace(/\.png$/, ''); })
+      .filter(function (s) { return !/--alt$/.test(s); })
+      .sort()
+      .forEach(function (s) { manifest[s] = 'art/' + s + '.png'; });
+
+  fs.writeFileSync(path.join(__dirname, '..', 'data', 'art.js'),
+    '/* Written by tools/prep-art.js — do not edit by hand. */\n' +
+    'window.SECTION_ART = ' + JSON.stringify(manifest, null, 2) + ';\n');
+  console.log(Object.keys(manifest).length + ' in data/art.js');
 
   /* The crop is the one thing worth looking at with eyes rather than trusting
      — a seam found two lines too high loses the top of the picture and the

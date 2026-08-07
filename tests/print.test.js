@@ -40,7 +40,7 @@ module.exports = {
       };
     });
 
-    t.ok('both volumes render as 148 pages of paper', b.pages === 148, b.pages + ' pages');
+    t.ok('both volumes render as 156 pages of paper', b.pages === 156, b.pages + ' pages');
     t.ok('and the bar says the same number', b.note.indexOf(b.pages + ' pages') >= 0, b.note);
     t.ok('nothing spills off a page', b.spills.length === 0, b.spills.slice(0, 4).join(' | '));
 
@@ -72,20 +72,40 @@ module.exports = {
       squeezed <= 4, squeezed + ' pages set smaller');
     t.ok('no section heading is stranded on a page it does not fill', b.orphanBand === 0, b.orphanBand);
 
-    const openers = await p.evaluate(() => [...document.querySelectorAll('.sec-open')].map((o) => {
-      const t = o.querySelector('.sec-band-t');
+    /* Every section with a picture opens on one of these. naturalWidth is the
+       assertion that matters: a wrong path still lays out at the right size
+       and leaves a page-shaped hole where the engraving should be, which no
+       measurement of the box would catch. */
+    const openers = await p.evaluate(() => [...document.querySelectorAll('.pg-open')].map((o) => {
+      const t = o.querySelector('.pg-open-t');
+      const img = o.querySelector('img');
       const pg = o.closest('.pg').getBoundingClientRect();
       const r = t.getBoundingClientRect();
       return {
         name: t.textContent,
         size: Math.round(parseFloat(getComputedStyle(t).fontSize)),
-        // roughly centred rather than stuck at the top
-        centred: Math.abs((r.top + r.bottom) / 2 - (pg.top + pg.bottom) / 2) < 60,
+        loaded: img.naturalWidth > 0,
+        /* The composition is what sits centred, not the title — the picture is
+           above and the type below, so the heading is meant to ride low. Take
+           the whole block, from the top of the engraving to the foot of the
+           recipe count, and check that it is the thing balanced on the page. */
+        centred: (() => {
+          const a = img.getBoundingClientRect();
+          const n = o.querySelector('.pg-open-n').getBoundingClientRect();
+          return Math.abs((a.top + n.bottom) / 2 - (pg.top + pg.bottom) / 2) < 40;
+        })(),
+        folio: !!o.closest('.pg').querySelector('.pg-fol'),
       };
     }));
-    t.ok('the sections that need a title page get a real one',
-      openers.length > 0 && openers.every((o) => o.size >= 24 && o.centred),
-      JSON.stringify(openers));
+    t.ok('every illustrated section opens on a page of its own',
+      openers.length === 8 && openers.every((o) => o.size >= 24 && o.centred),
+      JSON.stringify(openers.filter((o) => o.size < 24 || !o.centred)) + ' of ' + openers.length);
+    t.ok('and its engraving actually loaded, rather than leaving a hole',
+      openers.length === 8 && openers.every((o) => o.loaded),
+      openers.filter((o) => !o.loaded).map((o) => o.name).join(', '));
+    t.ok('and carries no page number, the way the front matter does not',
+      openers.every((o) => !o.folio),
+      openers.filter((o) => o.folio).map((o) => o.name).join(', '));
     /* The leaf used to be anchored to the recipe's box, so it landed level with
        the meta line on the first recipe of a page and rode up onto the
        separator rule on every one after it. Measure all of them. */

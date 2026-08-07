@@ -972,3 +972,43 @@ select { max-width: 280px; }
   border-left: 2px solid var(--ochre); padding: 2px 0 2px 10px;
   font-size: 11px; line-height: 1.5; margin: 8px 0;
 }
+
+/* ---- a section opening on its own page --------------------------------
+   The picture takes the upper two-thirds and the heading sits under it, which
+   is the traditional arrangement and also the practical one: the engravings
+   are wider than they are tall, and a caption below a picture needs no rule to
+   be read as belonging to it.
+
+   min-height:0 on the art lets it be the thing that gives when a long section
+   name wraps to three lines, rather than the type being pushed off the page. */
+.pg-open {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; gap: 26px;
+}
+.pg-open-art {
+  min-height: 0; flex: 0 1 auto; display: flex; align-items: center; justify-content: center;
+  width: 100%;
+}
+.pg-open-art img {
+  max-width: 100%; max-height: 4.4in; object-fit: contain;
+  /* the engravings carry their own near-white ground; a hairline keeps that
+     from bleeding into the page and leaving the picture floating */
+  border: 0.5px solid oklch(0.88 0.02 75);
+}
+.pg-open-txt { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; }
+.pg-open-t {
+  font-family: var(--serif); font-size: 27px; font-weight: 700;
+  line-height: 1.14; margin-top: 7px; max-width: 4in;
+  /* balance keeps a long name from breaking inside a hyphenated word: without
+     it "After-School" splits across lines and reads as a typesetting fault */
+  text-wrap: balance;
+}
+.pg-open .pg-rule { margin: 15px 0 13px; }
+.pg-open-s {
+  font-family: var(--serif); font-style: italic; font-size: 12.5px;
+  color: var(--muted-2); line-height: 1.5; max-width: 3.5in;
+}
+.pg-open-n {
+  font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: oklch(0.55 0.03 65); margin-top: 14px;
+}
