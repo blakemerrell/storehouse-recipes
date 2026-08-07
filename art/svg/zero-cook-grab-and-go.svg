@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 180" role="img" aria-label="A packed jar, a bowl of cottage cheese with apple, and a whole apple beside a spoon">
+<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+
+  <!-- counter edge -->
+  <path d="M8 158 H472" stroke-width="2.2"/>
+
+  <!-- lidded jar, left -->
+  <path d="M56 152 V80 q0-6 6-6 h56 q6 0 6 6 v72" stroke-width="2.2"/>
+  <path d="M50 152 q46 8 92 0" stroke-width="2.2"/>
+  <path d="M52 74 h84 v-10 h-84 z" stroke-width="2.2"/>
+  <path d="M60 64 v-6 h68 v6" stroke-width="1.3"/>
+  <g stroke-width="0.7" opacity=".5">
+    <path d="M58 68 v4M66 68 v4M74 68 v4M82 68 v4M90 68 v4M98 68 v4M106 68 v4M114 68 v4M122 68 v4M130 68 v4"/>
+  </g>
+  <!-- layers inside -->
+  <path d="M58 104 q34 8 66 0" stroke-width="1.3"/>
+  <path d="M58 124 q34 8 66 0" stroke-width="1.3"/>
+  <g stroke-width="0.7" opacity=".55">
+    <circle cx="72" cy="94" r="2.4"/><circle cx="90" cy="90" r="2"/><circle cx="108" cy="95" r="2.4"/>
+    <circle cx="80" cy="114" r="2.2"/><circle cx="102" cy="115" r="2.2"/>
+    <path d="M66 136 q12-6 22 0M96 138 q12-6 22 0M74 146 q14-5 28 0"/>
+  </g>
+
+  <!-- bowl, centre -->
+  <path d="M182 116 q52 10 104 0 -6 38-52 38 t-52-38" stroke-width="2.2"/>
+  <path d="M182 116 q52-12 104 0" stroke-width="1.3"/>
+  <path d="M198 156 q36 6 72 0" stroke-width="1.3" opacity=".6"/>
+  <!-- apple pieces heaped in the bowl -->
+  <g stroke-width="1.3">
+    <path d="M204 112 q8-10 18-2 8-8 16 2"/>
+    <path d="M232 108 q9-11 19-2 8-8 15 3"/>
+    <path d="M216 102 q8-9 17-1"/>
+  </g>
+  <g stroke-width="0.7" opacity=".5">
+    <path d="M196 128 q10 5 20 2M236 132 q12 5 24 1M212 140 q14 5 28 1"/>
+  </g>
+  <!-- rim band -->
+  <g stroke-width="0.7" opacity=".55">
+    <path d="M192 122 v5M204 124 v5M216 125 v5M228 126 v5M240 126 v5M252 125 v5M264 124 v5M276 122 v5"/>
+  </g>
+
+  <!-- whole apple, right -->
+  <path d="M340 108 q-16 0-16 22 0 26 20 26 6 0 10-3 4 3 10 3 20 0 20-26 0-22-16-22 -7 0-14 5 -7-5-14-5" stroke-width="2.2"/>
+  <path d="M354 106 v-12" stroke-width="1.6"/>
+  <path d="M354 98 q14-10 22-4 -4 10-16 10" stroke-width="1.3"/>
+  <g stroke-width="0.7" opacity=".45">
+    <path d="M332 122 q-2 16 6 26M342 116 q-4 18 2 30M368 118 q4 16-2 28M376 124 q2 14-4 22"/>
+  </g>
+
+  <!-- spoon -->
+  <ellipse cx="424" cy="130" rx="11" ry="15" stroke-width="1.6" transform="rotate(22 424 130)"/>
+  <path d="M432 143 q10 8 16 12" stroke-width="2.2"/>
+  <path d="M419 124 q4-6 10-2" stroke-width="0.7" opacity=".6"/>
+
+</g>
+</svg>
