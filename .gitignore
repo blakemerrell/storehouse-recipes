@@ -3,3 +3,4 @@ node_modules/
 # is one click at the right size, rather than a negotiation with the print
 # dialog. Run `npm run print` after changing a recipe or the food table, and
 # tests/print.test.js will tell you if you forgot.
+art/contact-sheet.png
