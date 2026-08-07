@@ -48,6 +48,19 @@ jobs:
         with:
           enablement: true
 
+      # Publish the app, not the workshop. `path: .` uploads the whole
+      # repository, which was a fair trade at fifteen megabytes and stopped
+      # being one the moment the section art arrived: art/src holds the
+      # full-size originals and their spare generations, forty-five megabytes
+      # that no browser ever asks for, because what the book loads is the
+      # prepared art in art/ at a fifth of a megabyte each.
+      #
+      # Sixty megabytes has to be tarred, uploaded and unpacked inside a ten
+      # minute timeout, and a deploy that overruns it does not just fail — it
+      # holds the environment and every later push waits behind it, which is
+      # the exact failure this file already carries a note about.
+      - name: Leave the sources behind
+        run: rm -rf art/src design tests tools .github
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
