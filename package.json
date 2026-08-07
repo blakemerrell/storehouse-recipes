@@ -8,7 +8,8 @@
     "check": "node tools/check-recipes.js --all",
     "test": "node tests/run.js",
     "test:sync": "node tests/run.js sync",
-    "print": "node tools/print-books.js"
+    "print": "node tools/print-books.js",
+    "art": "node tools/prep-art.js"
   },
   "devDependencies": {
     "pdf-lib": "^1.17.1",
