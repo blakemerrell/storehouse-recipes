@@ -49,24 +49,27 @@ var INK = 0x2b, PAPER = 0xfa;
    fraction would cut a descender off one image and leave a stripe of band on
    another, so find the seam instead.
 
-   Below the title text and above the illustration there is a horizontal run of
-   nearly empty rows. That gap is the widest stretch of blank in the upper half
-   of the picture — the illustration itself is dense crosshatching and never
-   goes quiet for long. Take the deepest such run and cut at its foot. */
+   The signal that works is not the widest gap — the sources are printed on a
+   speckled paper texture, so no row is ever truly blank and a run-length test
+   finds nothing. What separates band from illustration is that the band is
+   mostly empty with a few bands of text across it, while engraved hatching is
+   dense on every single row once it starts. So the last nearly-empty row in
+   the upper half is the seam: below it the picture begins and never lets up.
+
+   Measured across the ten sources this reads 22% for a one-line title and
+   around 30% for two, which is the band doing what it should. */
 function findSeam(rows, h) {
-  var quiet = rows.map(function (ink) { return ink < 0.02; });
-  var best = { at: 0, len: 0 }, run = 0;
+  var last = 0;
 
   /* Start below the decorative border, stop at halfway: past that we would be
      looking at whitespace inside the illustration. */
-  for (var y = Math.round(h * 0.04); y < Math.round(h * 0.5); y++) {
-    run = quiet[y] ? run + 1 : 0;
-    if (run > best.len) best = { at: y, len: run };
+  for (var y = Math.round(h * 0.08); y < Math.round(h * 0.5); y++) {
+    if (rows[y] < 0.06) last = y;
   }
 
-  /* No seam found means no band — an image that was generated clean. Use it
-     whole rather than guessing a crop into the picture. */
-  return best.len >= Math.round(h * 0.015) ? best.at + 1 : 0;
+  /* No quiet row at all means no band — an image generated clean. Use it whole
+     rather than guessing a crop into the picture. */
+  return last ? last + 1 : 0;
 }
 
 /* Ink per row, as a fraction of the row's width. Cheap, and all the seam
