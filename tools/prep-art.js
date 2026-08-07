@@ -164,8 +164,12 @@ async function main() {
      step. Drop a file in art/src named for a section, run this, and that
      section has a page — no code changes, which is the point.
 
-     Spares are named --alt and stay out: they are the duplicate of a section
-     that already has its picture. */
+     Spares live in art/src/alt and are never read at all — readdirSync only
+     returns the directory entry, which the extension filter drops. They are
+     duplicate generations of sections that already have a picture, kept
+     because "the other one was better" is a judgement worth being able to
+     revisit, and because deleting them reclaims nothing: they are already in
+     the history. */
   var manifest = {};
   rows.map(function (r) { return r.name.replace(/\.png$/, ''); })
       .filter(function (s) { return !/--alt$/.test(s); })

@@ -4,6 +4,11 @@ Source images go in `art/src/`, one per section, named for the section. They
 are the originals as generated — full size, with the title band still on them.
 Nothing here is used by the app directly.
 
+`art/src/alt/` holds spare generations of sections that already have a picture.
+Nothing reads that folder — the tool lists `art/src` and the extension filter
+drops the directory entry. They are kept because which of two near-identical
+engravings is better is a judgement worth being able to revisit.
+
 `node tools/prep-art.js` reads `art/src/` and writes prepared images beside it
 in `art/`: title band cropped off, frame removed, grayscale, toned to the
 book's own ink and page colour, and no larger than half-letter at 300dpi needs.
