@@ -40,7 +40,7 @@ module.exports = {
       };
     });
 
-    t.ok('both volumes render as 156 pages of paper', b.pages === 156, b.pages + ' pages');
+    t.ok('both volumes render as 152 pages of paper', b.pages === 152, b.pages + ' pages');
     t.ok('and the bar says the same number', b.note.indexOf(b.pages + ' pages') >= 0, b.note);
     t.ok('nothing spills off a page', b.spills.length === 0, b.spills.slice(0, 4).join(' | '));
 

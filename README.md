@@ -52,7 +52,7 @@ an item never comes back to a later list already ticked. Ticks belong to their o
 week, so shopping for one does not tick things off in another.
 
 **Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 44
-pages, Around the Table is 105, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
+pages, Around the Table is 101, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
 (how to read a recipe, temperatures and doneness, weights and swaps, what the storehouse
 carries) and its own contents, then is numbered from page one. Front matter carries no
 folio, so adding recipes never shifts the numbering.
@@ -86,7 +86,7 @@ You can also print just one volume, just your favorites, or just this week.
 
 Each volume opens on a cover and a title page and closes on a back cover that lists its
 sections, and each is padded with blanks to a whole number of folded sheets — 48 pages
-for Run and Not Be Weary, 108 for Around the Table.
+for Run and Not Be Weary, 104 for Around the Table.
 
 **In the app, use Download PDF.** The finished books are rendered ahead of time and ship
 with the app, so a printable file at exactly 5.5 × 8.5 in is one click, with no print
@@ -114,7 +114,7 @@ cannot quietly reach a printer:
   runs down the middle, so a short-edge flip is the one that puts page 2 behind page 1
   rather than upside down under it.
 
-Run and Not Be Weary is 12 sheets, which staples comfortably. Around the Table is 27, which is
+Run and Not Be Weary is 12 sheets, which staples comfortably. Around the Table is 26, which is
 thick for a saddle stitch — worth asking a print shop for perfect binding or a coil
 instead.
 

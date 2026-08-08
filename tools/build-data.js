@@ -44,6 +44,8 @@ FIXES.forEach((f) => {
 });
 
 const SRC = ORIGINAL.concat(ADDED);
+// which recipes were written for this edition rather than carried over
+const ADDED_IDS = new Set(ADDED.map((r) => r.id));
 
 // ---------------------------------------------------------------------------
 // Scoring
@@ -102,6 +104,21 @@ const out = SRC.map((r) => {
 
   const rec = Object.assign({}, r);
   rec.ingp = est.items;
+
+  /* The carried-over recipes came with a tagline sitting in the field the
+     nutrition data should have been in, and it shows: of the 125, a hundred
+     and one repeat a word already in the title and the rest are adjectives.
+     "Cheesy & Savory Skillet" under Crispy Hash Brown & Ham Egg Skillet.
+     "Warm Melty Toast" under PB&J Breakfast Toast Toppers. "Cozy Warm Oats"
+     under Warm Cinnamon Rolled Oats. They tell a cook nothing the title, the
+     time, the effort and the ingredients have not already said, and they cost
+     a line on every recipe in a book that is paid for by the sheet.
+
+     The 32 written for this edition keep theirs, because those say something:
+     "Boil One Minute, Exactly", "A Minute Too Long and It Is Just Cake",
+     "No Skin, No Soggy Bottom". Those are what to aim for, which is the one
+     thing a printed recipe cannot show you. */
+  if (!ADDED_IDS.has(r.id)) rec.tagline = null;
 
   if (r.book === 1) {
     // verify the design's own scoring

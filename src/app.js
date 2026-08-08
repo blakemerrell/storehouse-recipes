@@ -1251,9 +1251,9 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 156 },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 152 },
     1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 48, booklet: true },
-    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 108, booklet: true }
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 104, booklet: true }
   };
 
   function renderDownloads() {
