@@ -42,11 +42,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /households/{code} {
-      allow read, write: if request.auth != null;
+      allow get, create, update: if request.auth != null;
+      allow list, delete: if false;
     }
   }
 }
 ```
+
+The split matters. `read` is two permissions wearing one name — `get`, which
+fetches the one household whose code you typed, and `list`, which queries the
+collection and hands back all of them. The app never lists: it asks for exactly
+one document by its code and nothing else. Granting `list` therefore buys you
+nothing and costs you the whole premise, because a household code stops being a
+secret worth keeping the moment someone can ask for every code there is. And
+anyone can ask — the app signs visitors in anonymously by design, so
+`request.auth != null` is true for every person who opens the page.
+
+`delete` is off for the same reason it is never used: nothing in the app removes
+a household, so nothing should be allowed to.
 
 3. **Publish**.
 
