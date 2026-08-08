@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
- * Bishops' Storehouse Recipe Books
+ * Hive & Hearth Recipes
  * Browse, plan a week, build a shopping list, print the book.
  * ------------------------------------------------------------------------- */
 (function () {
@@ -14,6 +14,14 @@
     var m = s && /[?&]v=([\w.-]+)/.exec(s.getAttribute('src') || '');
     return m ? m[1] : 'dev';
   })();
+
+  /* What the collection is called, in one place. It appears on both covers,
+     both title pages, both back covers, the browser tab and the home screen,
+     and it has already been renamed once — a volume in this repository went
+     from Strong & Simple to Run and Not Be Weary and the change had to be
+     chased through nine files. Not twice. */
+  var APP_NAME = 'Hive & Hearth';
+  var APP_LINE = 'Recipes';           // the second line on a cover
 
   var BASE = window.RECIPES || [];    // the 257 in the two printed books
   var SHOP = window.SHOP || {};       // food key -> shopping-list name and unit
@@ -64,6 +72,19 @@
       name: 'Ours', short: 'OURS',
       blurb: 'The ones we worked out ourselves, or were given, or changed until they were right. This volume grows; the other two do not.'
     }
+  };
+
+  /* What the section picker calls each section. The full names are written
+     for a printed contents page, where "Low-Calorie Cut Snacks & Late-Night
+     Treats" has a line to itself and room to spare. In a native picker on a
+     phone they wrap to two lines each and twelve of them becomes a wall you
+     have to read rather than scan. These are for the picker alone — the book,
+     the headings and the section pages all keep the full name. */
+  var SEC_SHORT = {
+    '1-1': 'Zero-Cook', '1-2': 'Morning Brews', '1-3': 'Batch Preps', '1-4': 'Cut Snacks',
+    '2-1': 'Weekday Breakfasts', '2-2': 'Lunches & Wraps', '2-3': 'Weeknight Dinners',
+    '2-4': 'Sunday Feasts', '2-5': 'Treats & Desserts', '2-6': 'Worth the Afternoon',
+    '2-7': 'The Copycat Shelf', '2-8': 'Chocolate'
   };
 
   var SEC_NOTE = {
@@ -321,7 +342,8 @@
         opts.push('<optgroup label="' + esc(BOOKS[r.book].name) + '">');
         lastBook = r.book;
       }
-      opts.push('<option value="' + esc(key) + '">' + esc(r.secName) + '</option>');
+      opts.push('<option value="' + esc(key) + '">' +
+        esc(SEC_SHORT[r.book + '-' + r.secNum] || r.secName) + '</option>');
     });
     if (lastBook !== null) opts.push('</optgroup>');
     sel.innerHTML = opts.join('');
@@ -550,8 +572,8 @@
     var vl = volumeLine(vol);
     return '<div class="pg"><div class="pg-cover">' +
       '<div class="pg-cover-top">' +
-        '<div class="pg-eyebrow">Bishops&rsquo; Storehouse</div>' +
-        '<div class="pg-eyebrow">Recipe Books</div>' +
+        '<div class="pg-eyebrow">' + esc(APP_NAME) + '</div>' +
+        '<div class="pg-eyebrow">' + esc(APP_LINE) + '</div>' +
       '</div>' +
       '<div class="pg-cover-mid">' +
         '<div class="pg-rule"></div>' +
@@ -570,7 +592,7 @@
     var vl = volumeLine(vol);
     return '<div class="pg"><div class="pg-title-page">' +
       '<div class="tp-top">' +
-        '<div class="pg-eyebrow">Bishops&rsquo; Storehouse Recipe Books</div>' +
+        '<div class="pg-eyebrow">' + esc(APP_NAME + ' ' + APP_LINE) + '</div>' +
         '<div class="tp-name">' + esc(title) + '</div>' +
         '<div class="tp-sub">' + esc(sub) + '</div>' +
         (vl ? '<div class="tp-vol">' + esc(vl) + '</div>' : '') +
@@ -602,7 +624,7 @@
 
     return '<div class="pg"><div class="pg-back">' +
       '<div class="bc-top">' +
-        '<div class="pg-eyebrow">Bishops&rsquo; Storehouse Recipe Books</div>' +
+        '<div class="pg-eyebrow">' + esc(APP_NAME + ' ' + APP_LINE) + '</div>' +
         '<div class="bc-name">' + esc(title) + '</div>' +
       '</div>' +
       '<div class="bc-list">' +

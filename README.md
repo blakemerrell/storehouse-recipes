@@ -1,4 +1,4 @@
-# Bishops' Storehouse Recipe Books
+# Hive & Hearth Recipes
 
 257 recipes from the storehouse, in two volumes, plus a third that starts empty and
 fills with your own — browse them, plan a week, let the shopping list build itself,

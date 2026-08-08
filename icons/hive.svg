@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="A straw beehive">
+  <!-- The app's own paper, so the icon is the same object as the page. -->
+  <rect width="512" height="512" fill="#f5efe3"/>
+
+  <!-- A maskable icon may be cropped to a circle of 80% of the canvas, so
+       nothing that matters goes outside a 368px circle about the centre. The
+       skep is 300 across and 210 tall, sat on that centre.
+
+       Wider than it is tall, which is the whole difference between a skep and
+       a bell — the first attempt was 232 tall on a 260 base and read as a
+       lighthouse. -->
+  <g fill="none" stroke="#3b3630" stroke-width="17" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- the silhouette: a dome that meets its base almost vertically -->
+    <path d="M136 366c0-152 34-206 120-206s120 54 120 206"/>
+
+    <!-- Three courses, not four, and none of them low. Four crowded the
+         lowest band into the base board and the two together swallowed the
+         entrance, which at 32px turned the whole foot of the hive into one
+         thick smudge. Three bands and a clear skirt reads as a skep and
+         leaves the entrance somewhere to be. -->
+    <path d="M192 186q64-26 128 0"/>
+    <path d="M164 236q92-32 184 0"/>
+    <path d="M148 288q108-32 216 0"/>
+
+    <!-- the board it stands on, wider than the hive so it reads as ground -->
+    <path d="M104 366h304"/>
+
+    <!-- the entrance: the only solid mark on the icon, and the thing that
+         stops a striped dome from being just a striped dome -->
+    <path d="M230 366v-22q0-26 26-26t26 26v22z" fill="#3b3630" stroke-width="13"/>
+  </g>
+</svg>

@@ -28,6 +28,18 @@ module.exports = {
       [...document.querySelectorAll('#secSel option')].filter((o) => /Run and Not|Around the Table/.test(o.textContent)).length);
     t.ok('and no option repeats the volume name inside itself', repeats === 0, repeats + ' do');
 
+    /* A native picker on a phone wraps a long option onto a second line, and
+       twelve two-line options is a wall rather than a list. The full names run
+       to 43 characters — they are written for a printed contents page — so the
+       picker uses short ones. 22 is about what fits on one line at 390px. */
+    const longest = await p.evaluate(() => {
+      const o = [...document.querySelectorAll('#secSel option')]
+        .map((x) => x.textContent).sort((a, b) => b.length - a.length);
+      return { text: o[0], len: o[0].length };
+    });
+    t.ok('and every one fits on a single line on a phone',
+      longest.len <= 22, longest.len + ' chars: ' + longest.text);
+
     /* ---- ranking -------------------------------------------------------- */
     await p.fill('#search', 'breakfast');
     await p.waitForTimeout(400);
