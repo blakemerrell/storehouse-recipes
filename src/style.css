@@ -865,6 +865,15 @@ select { max-width: 280px; }
   .sheet-ing { grid-template-columns: 1fr; }
   .list-row { padding: 12px 2px; }
   .list-row input { width: 18px; height: 18px; }
+  /* Five tabs will not sit across a phone, and wrapping put "Browse" half off
+     the left edge. Scroll them instead, with the row bled to the screen edges
+     so a cut-off tab reads as more-to-the-side rather than as broken. */
+  .tabs {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; margin: 0 -22px; padding: 0 22px; gap: 4px;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs .tab, .tabs .synbtn { flex: 0 0 auto; }
   .book-bar-in { padding: 12px 16px; }
   .book-bar-in select { flex: 1 1 100%; max-width: none; }
   .printwrap { padding: 20px 8px 60px; }
@@ -875,6 +884,23 @@ select { max-width: 280px; }
     height: calc(8.5in * var(--pgscale, 1));
     overflow: hidden;
   }
+}
+
+/* ---- the preview, as a stack of numbered sheets ------------------------
+   The book scrolls under a sticky header that takes a fifth of a phone screen,
+   so the top of each page slides out of sight exactly as you reach it. Without
+   a number on the paper there is no way to tell a page break from a page that
+   has been cut off, which is what it looks like. The label says which sheet
+   this is and how many there are, so the run can be seen to be whole.
+
+   scroll-margin-top keeps a page scrolled to from landing under that header. */
+.pgslot-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  scroll-margin-top: 180px;
+}
+.pglabel {
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
 }
 
 /* --------------------------------------------------------------- print */
@@ -888,11 +914,18 @@ select { max-width: 280px; }
   }
   /* The break belongs on the slot, not the page: each .pg is an only child, so
      a .pg:last-child rule would match every one of them and break nothing. */
+  /* The break belongs to the wrapper now that the slot has one. A .pgslot is
+     an only child of its wrapper, so :last-child on the slot would match every
+     slot in the book and break after none of them — the same trap this file
+     already fell into once with .pg. */
   .pgslot {
     height: auto !important; width: auto !important; overflow: visible !important;
+  }
+  .pgslot-wrap {
+    display: block !important; gap: 0 !important; scroll-margin-top: 0 !important;
     page-break-after: always; break-after: page;
   }
-  .pgslot:last-child { page-break-after: auto; break-after: auto; }
+  .pgslot-wrap:last-child { page-break-after: auto; break-after: auto; }
   /* The @page box already supplies the margins, so the page fills it exactly:
      8.5in less the 0.5in top and bottom margin. A fixed height is what lets the
      macro line sit on the bottom rule of every printed page. */
@@ -1038,3 +1071,32 @@ select { max-width: 280px; }
 .unitseg button[aria-pressed="true"] {
   background: var(--ochre); color: #fff;
 }
+
+/* ---- the pantry -------------------------------------------------------
+   Laid out as the storehouse order sheet is, so someone holding that sheet can
+   read down it and find the same things in the same order. */
+.shelf { margin-bottom: 26px; }
+.shelf-h {
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ochre); font-weight: 600;
+  padding-bottom: 7px; border-bottom: 1px solid var(--line); margin-bottom: 4px;
+}
+.pitem {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 2px; border-bottom: 1px solid var(--line-soft);
+  cursor: pointer; font-size: 15.5px;
+}
+.pitem input { width: 19px; height: 19px; accent-color: var(--green); flex: 0 0 auto; }
+.pitem-l { flex: 1 1 auto; }
+/* Ticked off is still on the list — you have to be able to find a thing to put
+   it back — so it goes quiet rather than disappearing. */
+.pitem.off .pitem-l { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.pitem-tag {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px;
+}
+.pitem-x {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 20px; line-height: 1; padding: 0 6px;
+}
+.pitem-x:hover { color: var(--ochre); }

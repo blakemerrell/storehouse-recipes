@@ -91,8 +91,12 @@ module.exports = {
     await p.waitForTimeout(250);
     const groups = await p.evaluate(() =>
       [...document.querySelectorAll('.list-group-title')].map((e) => e.textContent));
+    /* The second heading is no longer "pantry extras" — what you must go out
+       for is now decided by the pantry rather than by the storehouse order, so
+       it is just what you must pick up. */
     t.ok('what you have and what you must buy are separate lists',
-      groups.length === 2 && /storehouse/i.test(groups[0]) && /extras/i.test(groups[1]), groups.join(' | '));
+      groups.length === 2 && /storehouse|your shelf/i.test(groups[0]) && /pick up/i.test(groups[1]),
+      groups.join(' | '));
 
     await p.context().close();
   },

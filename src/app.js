@@ -303,8 +303,8 @@
       if (S.bookF !== 'all' && r.book !== S.bookF) return false;
       if (S.secF !== 'all' && (r.book + '-' + r.secNum + '-' + r.secName) !== S.secF) return false;
       if (S.diffF !== 'all' && r.diff !== S.diffF) return false;
-      if (S.pantryF === 'base' && r.extras) return false;
-      if (S.pantryF === 'extras' && !r.extras) return false;
+      if (S.pantryF === 'base' && missingFor(r).length) return false;
+      if (S.pantryF === 'extras' && !missingFor(r).length) return false;
       if (S.favOnly && !window.Store.isFav(r.id)) return false;
       if (qs && !matchRank(r, qs)) return false;
       return true;
@@ -498,11 +498,12 @@
             label: s.s ? it.a.charAt(0).toUpperCase() + it.a.slice(1) : s.l
           };
         }
-        /* One line per thing, under one heading. A recipe that counts chocolate
-           chips as a pantry extra and one that does not used to put them on the
-           list twice; a thing is either on the standard order or it is not, and
-           if any recipe gets it from the storehouse, that is where it lives. */
-        if (!it.x) bucket[key].extra = false;
+        /* One line per thing, and the pantry decides which heading it falls
+           under. This used to be decided per-recipe, so a recipe that called
+           chocolate chips an extra and one that did not put them on the list
+           twice. Asking the shelf instead makes that impossible rather than
+           merely corrected. */
+        bucket[key].extra = !inPantry(it.k);
         bucket[key].g += it.g * e.x;
       });
     });
@@ -517,7 +518,8 @@
       return { title: title, items: items };
     };
     return {
-      groups: [group('From the storehouse', false), group('Pantry extras to pick up', true)]
+      groups: [group(window.Store.pantryChanged() ? 'Already on your shelf' : 'From the storehouse', false),
+               group('To pick up', true)]
         .filter(function (g) { return g.items.length; }),
       recipeCount: entries.length
     };
@@ -691,6 +693,40 @@
     '</div></div>';
   }
 
+  /* ---- what this household would have to go out for -----------------------
+     Every ingredient carries x:1 when the storehouse did not stock it, and
+     that answer is baked into the books. It is a fact about a shop, though,
+     and the useful question in a kitchen is whether you have the thing in. So
+     the flag becomes a default and the pantry answers over the top of it: keep
+     the storehouse list untouched and nothing changes, tick things off it and
+     the recipes follow you.
+
+     free is a line with no weight, water is not shopping, and neither belongs
+     on a list of what to buy. */
+  function inPantry(key) {
+    var d = (window.PANTRY || {})[key];
+    /* A key the pantry has never heard of defaults to kept, not to missing.
+       Seasonings all share the "free" food key and go by their own name, so
+       they are not in the pantry at all — defaulting those to missing put salt
+       and vanilla on the shopping list under "to pick up", which is both wrong
+       and exactly what the old flag never did. */
+    return window.Store.pantryHas(key, d ? d.s : true);
+  }
+
+  function missingFor(r) {
+    var out = [], seen = {};
+    (r.ingp || []).forEach(function (it) {
+      if (it.k === 'free' || it.k === 'water' || inPantry(it.k)) return;
+      var d = (window.PANTRY || {})[it.k];
+      var label = d ? d.l : (it.a || String(it.k).replace(/_/g, ' '));
+      if (!seen[label]) { seen[label] = 1; out.push(label); }
+    });
+    return out;
+  }
+
+  // "storehouse" is only the right word while the shelf is still the storehouse's
+  function shelfName() { return window.Store.pantryChanged() ? 'your pantry' : 'the storehouse'; }
+
   function recipeHTML(r) {
     return '<div class="rp">' +
       '<div class="rp-top">' +
@@ -715,7 +751,14 @@
       '</div>' +
       '<div class="rp-foot">' +
         '<span>' + esc(macroLine(r)) + '</span>' +
-        '<span>' + esc(r.extras ? 'Also needs: ' + r.extras : 'All storehouse items') + '</span>' +
+        /* Recomputed against the pantry rather than read off r.extras, so a
+           recipe that was entirely storehouse says so only while that is still
+           true — and starts naming what to buy the moment it is not. */
+        '<span>' + esc((function () {
+          var m = missingFor(r);
+          return m.length ? 'Also needs: ' + m.join(', ')
+            : (window.Store.pantryChanged() ? 'All on your shelf' : 'All storehouse items');
+        })()) + '</span>' +
       '</div>' +
     '</div>';
   }
@@ -1224,8 +1267,21 @@
         pages.length + ' pages at 5.5″ × 8.5″ · ' +
         (perPage ? (pool.length / perPage).toFixed(1) + ' recipes a page' : '')
       : 'Nothing to print yet.';
-    $('pages').innerHTML = pages.map(function (p) {
-      return '<div class="pgslot">' + p.html + '</div>';
+    /* Each sheet is labelled on screen with where it falls in the run. The
+       preview scrolls under a sticky header that is a fifth of a phone screen
+       tall, so the top of every page slides out of sight as you reach it, and
+       a book with no visible page numbers gives a reader no way to tell a page
+       break from something that has been cut off. Saying "Sheet 7 of 104"
+       above the paper answers that without changing the paper.
+
+       .no-print, because it is scaffolding around the book and not part of
+       it. */
+    var total = pages.length;
+    $('pages').innerHTML = pages.map(function (p, i) {
+      return '<div class="pgslot-wrap">' +
+        '<div class="pglabel no-print">Sheet ' + (i + 1) + ' of ' + total + '</div>' +
+        '<div class="pgslot">' + p.html + '</div>' +
+      '</div>';
     }).join('');
     fitToPaper();
     fitPages();
@@ -1447,7 +1503,17 @@
           return '<div class="sheet-step"><div class="sheet-step-n">' + (i + 1) + '</div>' +
             '<div class="sheet-step-t">' + esc(t) + '</div></div>';
         }).join('') + '</div>' +
-        (r.extras ? '<div class="sheet-extras">Needs items not on the standard storehouse list: ' + esc(r.extras) + '.</div>' : '') +
+        /* The line that answers "do I have to go out for anything?", asked of
+           the pantry rather than of the storehouse order the book was written
+           against. This is the whole point of the pantry being editable: stop
+           keeping salsa verde and every recipe using it starts saying so. */
+        (function () {
+          var m = missingFor(r);
+          if (!m.length) return '';
+          return '<div class="sheet-extras">' +
+            (window.Store.pantryChanged() ? 'Not on your shelf: ' : 'Needs items not on the standard storehouse list: ') +
+            esc(m.join(', ')) + '.</div>';
+        })() +
         '<div class="sheet-actions"><div class="sheet-actions-in">' +
           /* Icons, not words. "Save" and "Edit" spelled out took enough of the
              row that the seven days wrapped onto a second line on a phone, and
@@ -1802,9 +1868,54 @@
           : st === 'error' ? 'Sync issue' : 'Local';
   }
 
+  // ----------------------------------------------------------------- pantry
+  /* The shelf, laid out the way the storehouse order sheet is, so someone
+     holding that sheet can read down it. Foods the books use come from
+     data/recipes.js; anything added here joins them under a shelf of its own,
+     because a household's own staples are not on anybody's order list. */
+  function pantryShelves() {
+    var P = window.PANTRY || {}, own = window.Store.pantryOwn(), by = {}, order = [];
+    function put(key, item, mine) {
+      var c = item.c || 'Yours';
+      if (!by[c]) { by[c] = []; order.push(c); }
+      by[c].push({ k: key, l: item.l, c: c, mine: mine, on: inPantry(key), std: !!item.s });
+    }
+    Object.keys(P).forEach(function (k) { put(k, P[k], false); });
+    Object.keys(own).forEach(function (k) { put(k, own[k], true); });
+    order.forEach(function (c) { by[c].sort(function (a, b) { return a.l.localeCompare(b.l); }); });
+    return order.map(function (c) { return { name: c, items: by[c] }; });
+  }
+
+  function renderPantry() {
+    var shelves = pantryShelves();
+    var all = shelves.reduce(function (n, sh) { return n + sh.items.length; }, 0);
+    var kept = shelves.reduce(function (n, sh) {
+      return n + sh.items.filter(function (i) { return i.on; }).length;
+    }, 0);
+
+    $('pantryNote').textContent = kept + ' of ' + all + ' kept' +
+      (window.Store.pantryChanged() ? ' · changed from the storehouse list' : ' · the standard storehouse order');
+    $('pantryReset').classList.toggle('hide', !window.Store.pantryChanged());
+
+    $('pantryBody').innerHTML = shelves.map(function (sh) {
+      return '<div class="shelf">' +
+        '<div class="shelf-h">' + esc(sh.name) + '</div>' +
+        sh.items.map(function (i) {
+          return '<label class="pitem' + (i.on ? '' : ' off') + '">' +
+            '<input type="checkbox" data-pantry="' + esc(i.k) + '"' + (i.on ? ' checked' : '') + '>' +
+            '<span class="pitem-l">' + esc(i.l) + '</span>' +
+            (i.mine
+              ? '<button class="pitem-x" data-pdrop="' + esc(i.k) + '" title="Remove">&times;</button>'
+              : (i.std ? '' : '<span class="pitem-tag">not on the order</span>')) +
+          '</label>';
+        }).join('') +
+      '</div>';
+    }).join('');
+  }
+
   // ------------------------------------------------------------------ views
   function renderView() {
-    ['browse', 'plan', 'list', 'book'].forEach(function (v) {
+    ['browse', 'plan', 'list', 'pantry', 'book'].forEach(function (v) {
       $('view-' + v).classList.toggle('hide', S.view !== v);
     });
     document.querySelectorAll('.tab').forEach(function (b) {
@@ -1813,6 +1924,7 @@
     if (S.view === 'browse') renderBrowse();
     if (S.view === 'plan') renderPlan();
     if (S.view === 'list') renderList();
+    if (S.view === 'pantry') renderPantry();
     if (S.view === 'book') renderBook();
   }
 
@@ -1860,6 +1972,31 @@
     $('secSel').addEventListener('change', function () { S.secF = this.value; renderBrowse(); });
     $('diffSel').addEventListener('change', function () { S.diffF = this.value; renderBrowse(); });
     $('pantrySel').addEventListener('change', function () { S.pantryF = this.value; renderBrowse(); });
+    /* On the list rather than on the modal, which is where these first went —
+       the modal's handler only ever sees clicks inside an open recipe. */
+    $('pantryBody').addEventListener('click', function (e) {
+      var pd = e.target.closest('[data-pdrop]');
+      if (pd) { e.preventDefault(); window.Store.removePantryItem(pd.dataset.pdrop); renderPantry(); return; }
+    });
+    $('pantryBody').addEventListener('change', function (e) {
+      var pt = e.target.closest('[data-pantry]');
+      if (pt) { window.Store.setPantry(pt.dataset.pantry, pt.checked); renderPantry(); }
+    });
+
+    $('pantryAdd').addEventListener('click', function () {
+      ask({ title: 'What do you keep?', body: 'It joins the pantry under Yours, and any recipe that calls for it stops asking you to buy it.', value: '', ok: 'Add' },
+        function (v) {
+          if (v && v.trim()) { window.Store.addPantryItem(v.trim(), 'Yours'); renderPantry(); }
+        });
+    });
+    $('pantryReset').addEventListener('click', function () {
+      ask({ title: 'Back to the storehouse list?',
+        body: 'Everything you ticked off comes back. Items you added yourself stay.',
+        ok: 'Reset', danger: true }, function (ok) {
+          if (ok !== null && ok !== undefined) { window.Store.resetPantry(); renderPantry(); }
+        });
+    });
+
     $('search').addEventListener('input', function () { S.qy = this.value; renderBrowse(); });
     $('sortSel').addEventListener('change', function () { S.sort = this.value; renderBrowse(); });
 

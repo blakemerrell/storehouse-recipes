@@ -36,7 +36,13 @@ window.Store = (function () {
   /* mine  recipes written here, keyed by their own id
      edits  changes to a printed recipe, keyed by its number — kept apart from
             the recipe so the original is never lost and can always be restored */
-  var state = { favs: [], weeks: {}, active: '', plan: {}, checked: {}, mine: {}, edits: {} };
+  var state = { favs: [], weeks: {}, active: '', plan: {}, checked: {}, mine: {}, edits: {},
+    /* The shelf. `pantry` holds only the answers that differ from the book's
+       — key -> 1 kept, 0 not — so a household that changes nothing carries
+       nothing, and a food added to the storehouse list later is picked up
+       rather than frozen at whatever it was the day someone first looked.
+       `pantryNew` is what they keep that the books never mention. */
+    pantry: {}, pantryNew: {} };
   var status = 'local';       // local | connecting | synced | offline | error
   var statusNote = '';
   var house = '';
@@ -53,6 +59,7 @@ window.Store = (function () {
   function saveLocal() {
     write(LS.favs, state.favs); write(LS.weeks, state.weeks); write(LS.active, state.active);
     write(LS.mine, state.mine); write(LS.edits, state.edits);
+    write(LS.pantry, state.pantry); write(LS.pantryNew, state.pantryNew);
   }
   function emit() { listeners.forEach(function (f) { f(state, status, statusNote, house); }); }
   function setStatus(s, note) { status = s; statusNote = note || ''; emit(); }
@@ -226,6 +233,8 @@ window.Store = (function () {
     init: function (onChange) {
       listeners.push(onChange);
       state.favs = read(LS.favs, []);
+      state.pantry = read(LS.pantry, {});
+      state.pantryNew = read(LS.pantryNew, {});
       adopt({
         weeks: read(LS.weeks, null),
         active: read(LS.active, ''),
@@ -386,6 +395,74 @@ window.Store = (function () {
     /* Written here rather than printed. Ids are strings so they can never
        collide with the numbered ones, and so a glance at an id tells you
        which kind you are holding. */
+    /* ------------------------------------------------------------ the shelf
+       What this household actually keeps. The books were written against the
+       storehouse order, and every recipe records whether the storehouse
+       carried each ingredient — but that is a fact about a shop, not about a
+       kitchen. Once someone stops ordering from it, the useful question is
+       whether *they* have the thing in, which is the same question a recipe
+       has always been answering with "Also needs".
+
+       Overrides only. A food nobody has touched follows the book, so a change
+       to the storehouse list still arrives instead of being pinned to whatever
+       it was the day someone first opened this tab. */
+    pantryHas: function (key, dflt) {
+      var o = state.pantry[key];
+      if (o === 1 || o === 0) return o === 1;
+      if (state.pantryNew[key]) return true;
+      return !!dflt;
+    },
+
+    setPantry: function (key, on) {
+      push(function () {
+        var u = {}; u['pantry.' + encodeKey(key)] = on ? 1 : 0; return doc.update(u);
+      }, function () {
+        state.pantry = Object.assign({}, state.pantry); state.pantry[key] = on ? 1 : 0;
+      });
+    },
+
+    /* Back to the book: clear the overrides rather than write today's answer
+       into all 114 of them. */
+    resetPantry: function () {
+      push(function () { return doc.set({ pantry: {} }, { merge: true }); },
+        function () { state.pantry = {}; });
+    },
+
+    addPantryItem: function (label, cat) {
+      var key = 'own_' + encodeKey(String(label).toLowerCase());
+      var item = { l: String(label).trim(), c: cat || 'Yours' };
+      push(function () {
+        var u = {}; u['pantryNew.' + key] = item; return doc.update(u);
+      }, function () {
+        state.pantryNew = Object.assign({}, state.pantryNew); state.pantryNew[key] = item;
+      });
+      return key;
+    },
+
+    renamePantryItem: function (key, label) {
+      if (!state.pantryNew[key]) return;
+      var item = Object.assign({}, state.pantryNew[key], { l: String(label).trim() });
+      push(function () {
+        var u = {}; u['pantryNew.' + key] = item; return doc.update(u);
+      }, function () {
+        state.pantryNew = Object.assign({}, state.pantryNew); state.pantryNew[key] = item;
+      });
+    },
+
+    removePantryItem: function (key) {
+      if (!state.pantryNew[key]) return;
+      push(function () {
+        var u = {}; u['pantryNew.' + key] = FV.delete(); return doc.update(u);
+      }, function () {
+        state.pantryNew = Object.assign({}, state.pantryNew); delete state.pantryNew[key];
+      });
+    },
+
+    pantryOwn: function () { return state.pantryNew; },
+    pantryChanged: function () {
+      return Object.keys(state.pantry).length + Object.keys(state.pantryNew).length;
+    },
+
     newRecipeId: function () {
       return 'u' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
     },
