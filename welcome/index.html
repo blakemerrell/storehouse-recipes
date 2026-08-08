@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#3b3630">
+<title>Bishops’ Storehouse Recipe Books</title>
+<meta name="description" content="257 recipes built on what the storehouse actually carries. Browse them, plan a week, let the shopping list build itself, and print the lot as a real half-letter book. Works with no signal.">
+
+<meta property="og:title" content="Bishops’ Storehouse Recipe Books">
+<meta property="og:description" content="257 recipes, two printed volumes, and a shopping list that builds itself. Free, no account, works with no signal.">
+<meta property="og:type" content="website">
+
+<link rel="icon" href="../icons/icon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+
+<style>
+/* The typefaces live in this repository — nothing is fetched from any other
+   host, here or in the app. */
+@font-face {
+  font-family: 'Source Serif 4'; font-style: normal; font-weight: 200 900;
+  font-display: swap; src: url('../fonts/source-serif-4-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Source Serif 4'; font-style: italic; font-weight: 200 900;
+  font-display: swap; src: url('../fonts/source-serif-4-latin-wght-italic.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Work Sans'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('../fonts/work-sans-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+/* The book's own palette, so the page and the thing it is advertising are
+   plainly the same object. */
+:root {
+  --ink:       oklch(0.26 0.02 60);
+  --paper:     oklch(0.962 0.016 85);
+  --card:      oklch(0.995 0.006 85);
+  --line:      oklch(0.87 0.02 75);
+  --line-firm: oklch(0.80 0.03 75);
+  --ochre:     oklch(0.62 0.10 55);
+  --green:     oklch(0.46 0.09 145);
+  --muted:     oklch(0.52 0.03 65);
+  --muted-2:   oklch(0.45 0.03 65);
+  --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --sans: 'Work Sans', system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--sans); font-size: 17px; line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+.narrow { max-width: 700px; }
+
+/* ---- hero ------------------------------------------------------------- */
+.hero { padding: 76px 0 12px; text-align: center; }
+.eyebrow {
+  font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--ochre); font-weight: 600;
+}
+.hero h1 {
+  font-family: var(--serif); font-weight: 700; font-size: clamp(38px, 7vw, 68px);
+  line-height: 1.05; margin: 18px 0 0; text-wrap: balance;
+}
+.hero .lede {
+  font-family: var(--serif); font-size: clamp(18px, 2.4vw, 22px); line-height: 1.55;
+  color: var(--muted-2); max-width: 30em; margin: 20px auto 0; text-wrap: pretty;
+}
+.rule { width: 44px; height: 1px; background: var(--ochre); margin: 30px auto; }
+
+.cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+.btn {
+  display: inline-block; padding: 13px 26px; border-radius: 2px; text-decoration: none;
+  font-size: 15px; font-weight: 600; letter-spacing: 0.01em; border: 1.5px solid var(--ink);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn-solid { background: var(--ink); color: var(--paper); }
+.btn-ghost { background: transparent; color: var(--ink); }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px oklch(0.26 0.02 60 / 0.16); }
+.cta-note { font-size: 13.5px; color: var(--muted); margin-top: 16px; }
+
+/* ---- the engravings --------------------------------------------------- */
+/* Eight of them, and they are the best thing here, so they get the width.
+   overflow-x on the strip rather than the body: a wide row must scroll inside
+   itself or it drags the whole page sideways on a phone. */
+.strip { margin: 54px 0 0; overflow-x: auto; padding-bottom: 10px; }
+.strip-in { display: flex; gap: 16px; padding: 0 24px; min-width: min-content; }
+.plate { flex: 0 0 auto; width: 258px; }
+/* The engravings run from 1.21 to 1.42 wide, so a row of them at natural
+   height is a row of different heights with the captions stepping up and down.
+   4/3 sits in the middle of that range: every plate crops a little, none
+   crops much, and the row reads as a row. */
+.plate img {
+  border: 1px solid var(--line); background: #fff;
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+}
+.plate figcaption {
+  font-family: var(--serif); font-size: 13px; color: var(--muted-2);
+  margin-top: 9px; font-style: italic; text-align: center;
+}
+
+/* ---- sections --------------------------------------------------------- */
+section { padding: 68px 0; }
+.band { background: var(--card); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+h2 {
+  font-family: var(--serif); font-size: clamp(26px, 3.6vw, 36px); font-weight: 700;
+  line-height: 1.15; margin: 0 0 14px; text-wrap: balance;
+}
+h2 + .sub {
+  font-family: var(--serif); font-style: italic; color: var(--muted-2);
+  font-size: 17px; margin: 0 0 34px;
+}
+/* 340 rather than 258, which lands four features as a square of two rather
+   than a row of three with the fourth stranded underneath. */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 34px 44px; }
+.feat h3 {
+  font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0 0 7px;
+}
+.feat p { margin: 0; color: var(--muted-2); font-size: 15.5px; line-height: 1.6; }
+.feat .n {
+  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--ochre); font-weight: 600; display: block; margin-bottom: 9px;
+}
+
+/* ---- the code --------------------------------------------------------- */
+.code-demo {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  flex-wrap: wrap; margin: 32px 0 8px;
+}
+.phone {
+  border: 1.5px solid var(--line-firm); border-radius: 14px; padding: 18px 20px;
+  background: #fff; min-width: 190px; text-align: center;
+}
+.phone .who { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.phone .badge {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 10px;
+  font-size: 13px; font-weight: 600; color: var(--green);
+}
+.phone .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+.codeword {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px;
+  letter-spacing: 0.04em; background: var(--paper); border: 1px solid var(--line);
+  padding: 9px 14px; border-radius: 3px; white-space: nowrap;
+}
+.link-arrow { color: var(--ochre); font-size: 22px; }
+
+/* ---- book covers ------------------------------------------------------ */
+.books { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 26px; margin-top: 30px; }
+.book {
+  border: 1px solid var(--line); background: #fff; padding: 26px 22px; text-align: center;
+}
+.book .vol { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); }
+.book h3 { font-family: var(--serif); font-size: 22px; font-weight: 700; margin: 10px 0 8px; text-wrap: balance; }
+.book .meta { font-size: 13.5px; color: var(--muted-2); }
+.book .dl { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; align-items: center; }
+.book .dl a { font-size: 14px; font-weight: 600; color: var(--ochre); text-decoration: none; }
+.book .dl a:hover { text-decoration: underline; }
+
+/* ---- steps ------------------------------------------------------------ */
+ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 26px 0 0; }
+ol.steps li {
+  counter-increment: s; position: relative; padding-left: 46px; margin-bottom: 20px;
+  color: var(--muted-2); font-size: 15.5px;
+}
+ol.steps li::before {
+  content: counter(s); position: absolute; left: 0; top: -1px;
+  width: 29px; height: 29px; border: 1.5px solid var(--ochre); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: var(--ochre); font-family: var(--sans);
+}
+ol.steps li strong { color: var(--ink); font-weight: 600; }
+
+footer {
+  border-top: 1px solid var(--line); padding: 40px 0 56px; text-align: center;
+  font-size: 14px; color: var(--muted);
+}
+footer a { color: var(--ochre); text-decoration: none; font-weight: 600; }
+footer a:hover { text-decoration: underline; }
+.colophon { font-family: var(--serif); font-style: italic; margin-top: 12px; font-size: 13.5px; }
+
+@media (max-width: 560px) {
+  .hero { padding-top: 52px; }
+  section { padding: 50px 0; }
+  .plate { width: 216px; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Bishops’ Storehouse</div>
+    <h1>Recipe Books</h1>
+    <p class="lede">
+      257 recipes built on what the storehouse actually carries. Browse them, plan a
+      week, and let the shopping list build itself — then print the lot as a real
+      half-letter book.
+    </p>
+    <div class="cta">
+      <a class="btn btn-solid" href="../">Open the app</a>
+      <a class="btn btn-ghost" href="../print/Around-the-Table.pdf">Download a book</a>
+    </div>
+    <p class="cta-note">Free. No account, no sign-up, no app to install. Works with no signal.</p>
+  </div>
+</header>
+
+<div class="strip">
+  <div class="strip-in">
+    <figure class="plate"><img src="../art/speedy-weekday-breakfasts-and-morning-treats.png" alt="Engraving of pancakes, breakfast wraps and coffee on a morning table"><figcaption>Speedy Weekday Breakfasts</figcaption></figure>
+    <figure class="plate"><img src="../art/easy-lunches-wraps-and-after-school-favorites.png" alt="Engraving of a grilled cheese sandwich, soup and milk on a kitchen counter"><figcaption>Easy Lunches &amp; After-School</figcaption></figure>
+    <figure class="plate"><img src="../art/kid-approved-weeknight-comfort-dinners.png" alt="Engraving of a skillet bake with green beans"><figcaption>Kid-Approved Weeknight Dinners</figcaption></figure>
+    <figure class="plate"><img src="../art/elaborate-sunday-feasts-and-roasts.png" alt="Engraving of a carved roast on a platter with gravy"><figcaption>Elaborate Sunday Feasts</figcaption></figure>
+    <figure class="plate"><img src="../art/simple-family-treats-and-desserts.png" alt="Engraving of a layer cake, cobbler and moulded gelatin on a sideboard"><figcaption>Simple Family Treats</figcaption></figure>
+    <figure class="plate"><img src="../art/worth-the-afternoon.png" alt="Engraving of a braided loaf and a cut loaf cooling on a rack"><figcaption>Worth the Afternoon</figcaption></figure>
+    <figure class="plate"><img src="../art/the-copycat-shelf.png" alt="Engraving of fried chicken, beans and biscuits in a diner booth"><figcaption>The Copycat Shelf</figcaption></figure>
+    <figure class="plate"><img src="../art/for-the-love-of-chocolate.png" alt="Engraving of a frosted chocolate layer cake with cookies"><figcaption>For the Love of Chocolate</figcaption></figure>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>What it does</h2>
+    <p class="sub">Four things, and it tries to do them properly rather than do twelve badly.</p>
+    <div class="grid">
+      <div class="feat">
+        <span class="n">Browse</span>
+        <h3>257 recipes, sorted how you think</h3>
+        <p>Filter by book, section, effort, or whether a recipe needs anything beyond
+        standard storehouse items. Order by healthiest, most protein, or quickest.
+        Every recipe scales from ¼× to 8×, and fractions come out as fractions.</p>
+      </div>
+      <div class="feat">
+        <span class="n">Plan</span>
+        <h3>A week that stays where you put it</h3>
+        <p>There are no dates — Monday is a slot, not a date, and nothing resets on
+        its own. Keep as many weeks as you like, name them for what they are, and
+        rotate through them instead of starting from nothing every Sunday.</p>
+      </div>
+      <div class="feat">
+        <span class="n">Shop</span>
+        <h3>A list that adds up for you</h3>
+        <p>A diced apple and a sliced apple are apples. Three recipes wanting a cup, a
+        cup and two tablespoons of cottage cheese ask for 2⅛ cups — not three separate
+        lines. Seasonings get a name and no number, because nobody shops for two
+        teaspoons of salt.</p>
+      </div>
+      <div class="feat">
+        <span class="n">Print</span>
+        <h3>An actual book, not a printout</h3>
+        <p>Half-letter, properly typeset, with front matter and its own contents. Pages
+        are measured in the browser and packed to fit, so a recipe is never split
+        across a page and a heading never sits alone at the foot of one.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap narrow">
+    <h2>One code, two phones</h2>
+    <p class="sub">The part everyone likes best.</p>
+    <p style="color:var(--muted-2);font-size:16px;margin:0">
+      Out of the box, everything saves in the browser you opened it in — your phone
+      and your spouse’s each keep their own. Tap the badge, take the code it offers,
+      and type that same code on the other phone. That is the whole of it.
+    </p>
+
+    <div class="code-demo">
+      <div class="phone">
+        <div class="who">Your phone</div>
+        <div class="badge"><span class="dot"></span> Synced</div>
+      </div>
+      <div>
+        <div class="codeword">KETTLE-4827-ORCHARD</div>
+        <div style="text-align:center" class="link-arrow">⇄</div>
+      </div>
+      <div class="phone">
+        <div class="who">Their phone</div>
+        <div class="badge"><span class="dot"></span> Synced</div>
+      </div>
+    </div>
+
+    <p style="color:var(--muted-2);font-size:15.5px">
+      Favorites, every week you have planned, which one is showing, and the
+      shopping-list check-offs are now the same on both. Both editing at once is fine —
+      adding a recipe to Tuesday touches only Tuesday, and ticking off milk touches
+      only milk. Changes made offline queue up and go out when you reconnect.
+    </p>
+    <p style="color:var(--muted);font-size:14px;font-style:italic;font-family:var(--serif)">
+      The code is the key — there is no password, so keep it between the two of you.
+      What is in there is a grocery list: no names, no addresses, nothing to pay with.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>The two printed volumes</h2>
+    <p class="sub">Rendered ahead of time, so a printable file is one click and no print dialog to argue with.</p>
+    <div class="books">
+      <div class="book">
+        <div class="vol">Volume One</div>
+        <h3>Run and Not Be Weary</h3>
+        <div class="meta">100 recipes · 48 pages · 12 sheets<br>Protein, fiber, and staying full</div>
+        <div class="dl">
+          <a href="../print/Run-and-Not-Be-Weary.pdf">Download PDF</a>
+          <a href="../print/Run-and-Not-Be-Weary-booklet.pdf">Booklet, for folding</a>
+        </div>
+      </div>
+      <div class="book">
+        <div class="vol">Volume Two</div>
+        <h3>Around the Table</h3>
+        <div class="meta">157 recipes · 108 pages · 27 sheets<br>Eight illustrated sections</div>
+        <div class="dl">
+          <a href="../print/Around-the-Table.pdf">Download PDF</a>
+          <a href="../print/Around-the-Table-booklet.pdf">Booklet, for folding</a>
+        </div>
+      </div>
+      <div class="book">
+        <div class="vol">Volume Three</div>
+        <h3>Ours</h3>
+        <div class="meta">Starts empty and fills with your own.<br>Write a recipe and it joins the rest</div>
+        <div class="dl">
+          <a href="../">Open the app</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap narrow">
+    <h2>Put it on your phone</h2>
+    <p class="sub">There is no app store involved. It installs from the page itself.</p>
+    <ol class="steps">
+      <li>Open the app in <strong>Safari</strong> on iPhone, or <strong>Chrome</strong> on Android.</li>
+      <li>Tap <strong>Share → Add to Home Screen</strong> on iPhone, or <strong>⋮ → Install app</strong> on Android.</li>
+      <li>That is it. It gets an icon and opens without browser chrome, and the recipes,
+      the styling and both typefaces are kept on the phone — so it opens in a storehouse
+      basement with no signal rather than showing a browser error.</li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a href="../">Open the app</a> &nbsp;·&nbsp;
+    <a href="https://github.com/blakemerrell/storehouse-recipes">Source on GitHub</a> &nbsp;·&nbsp;
+    <a href="https://github.com/blakemerrell/storehouse-recipes/blob/main/SETUP.md">Set up sharing</a>
+    <div class="colophon">
+      Free and open source. Set in Source Serif 4 and Work Sans.<br>
+      Nothing is fetched from any other host — the typefaces are in the repository, not Google’s.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

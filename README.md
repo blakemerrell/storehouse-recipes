@@ -153,6 +153,21 @@ The app is plain static files, so GitHub Pages hosts it for free:
 2. **Settings → Pages → Source: Deploy from a branch**, branch `main`, folder `/ (root)`.
 3. Wait a minute. Your link is `https://<your-username>.github.io/<repo-name>/`.
 
+> **Pick one source and stick to it.** There is also a workflow in
+> `.github/workflows/pages.yml` that publishes through Actions, and the two are
+> mutually exclusive — Pages is either served from the branch or built by
+> Actions, never both. If the Source above says *Deploy from a branch*, the
+> workflow cannot deploy and will fail on every push; if it says *GitHub
+> Actions*, the workflow is what publishes and the branch setting is ignored.
+> A site that stops updating after a push, with no error anywhere the app can
+> show, is usually this. There is no build step here, so the branch setting is
+> the simpler of the two and the workflow can be deleted outright.
+
+There is a landing page at `/welcome/` — what the app is, what it does, the two
+books, and how to install it — for sharing with someone who has not seen it
+before. The app itself stays at the root so that installed shortcuts and
+bookmarks keep working.
+
 Open that on both phones and use *Add to Home Screen*. It really does behave like an
 app: there is a manifest and an icon, and a service worker keeps the page, the styling,
 the recipes and the two typefaces on the phone, so tapping the icon in a storehouse
