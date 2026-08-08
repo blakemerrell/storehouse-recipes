@@ -171,6 +171,31 @@
     return fmtNum(scaled) + ' ' + fixUnit(str.slice(m[0].length), scaled);
   }
 
+  /* The same line by weight. Every recipe already carries a gram figure per
+     ingredient — it is what the scores and the shopping list are computed from
+     — so this is showing work that was always there rather than new arithmetic.
+     ingp runs parallel to ing across all 257 recipes; the tests hold that.
+
+     What gets stripped is the written amount and, where the ingredient is
+     measured by volume, the unit word and any parenthetical sizing after it:
+     "1 can (5 oz) tuna" is 121 g of tuna and the tin is no longer the point.
+     Countables keep their trailing note, because "119 g bell pepper (halved)"
+     still wants halving. The eighty-six lines with no weight — a dash of
+     vanilla, salt, pepper — are left exactly as written, since rendering them
+     as 0 g would be worse than saying nothing. */
+  function gramIng(str, it, f) {
+    if (!it || !it.g) return str;
+    var m = str.match(/^(\d+(?:\.\d+)?)\s*([½¼¾⅓⅔⅛⅜⅝⅞])?\s+/) ||
+      str.match(/^([½¼¾⅓⅔⅛⅜⅝⅞])\s+/);
+    var rest = m ? str.slice(m[0].length) : str;
+    if (it.u && it.u !== 'each') {
+      rest = rest.replace(new RegExp('^' + it.u + 's?\\b\\s*(\\([^)]*\\))?\\s*', 'i'), '');
+    }
+    var g = it.g * f;
+    // a tenth of a gram of cinnamon is spurious precision; ten grams of flour is not
+    return (g >= 10 ? Math.round(g) : Math.round(g * 10) / 10) + ' g ' + rest;
+  }
+
   /* Units the shopping list writes out. Anything countable is rounded up and
      shown as a bare number — you cannot buy four fifths of a tin. */
   var UNIT_WORD = { each: '', cup: 'cup', tbsp: 'tbsp', tsp: 'tsp', lb: 'lb', oz: 'oz', g: 'g',
@@ -209,6 +234,13 @@
   var S = {
     view: 'browse', bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
     favOnly: false, qy: '', sort: 'book', openId: null, scale: 1, printSet: 'all',
+    /* Cups or grams. Persisted on the device rather than shared, because it is
+       a preference about reading, not about the plan — one of you can cook by
+       weight while the other cooks by cup without either overruling the other. */
+    units: (function () {
+      try { return localStorage.getItem('sh.units') === 'grams' ? 'grams' : 'cups'; }
+      catch (e) { return 'cups'; }
+    })(),
     syncOpen: false, pendingCode: '', joinDraft: '', why: false
   };
 
@@ -228,6 +260,22 @@
     quick: function (a, b) { return timeMins(a) - timeMins(b); }
   };
 
+  /* Why a recipe matched, which is not the same question as whether it did.
+     3 its name, 2 an ingredient, 1 only its section, 0 not at all.
+
+     Searching "breakfast" used to return fifty recipes of which seven were
+     named for one — the other forty-three came along because their section is
+     called Morning Brews & High-Protein Breakfasts, and arrived interleaved
+     with the ones actually wanted. Section is still worth matching, because
+     "chocolate" ought to find the chocolate section, but it is the weakest
+     reason to appear and belongs at the bottom rather than in the middle. */
+  function matchRank(r, qs) {
+    if (r.name.toLowerCase().indexOf(qs) >= 0) return 3;
+    if (r.ing.join(' ').toLowerCase().indexOf(qs) >= 0) return 2;
+    if (r.secName.toLowerCase().indexOf(qs) >= 0) return 1;
+    return 0;
+  }
+
   function filtered() {
     var qs = S.qy.trim().toLowerCase();
     return RECIPES.filter(function (r) {
@@ -237,9 +285,18 @@
       if (S.pantryF === 'base' && r.extras) return false;
       if (S.pantryF === 'extras' && !r.extras) return false;
       if (S.favOnly && !window.Store.isFav(r.id)) return false;
-      if (qs && (r.name + ' ' + r.ing.join(' ') + ' ' + r.secName).toLowerCase().indexOf(qs) < 0) return false;
+      if (qs && !matchRank(r, qs)) return false;
       return true;
-    }).sort(SORTS[S.sort] || undefined);
+    }).sort(function (a, b) {
+      /* While searching, how well a recipe matches outranks book order — but
+         not a sort the reader chose on purpose. Asking for "most protein" and
+         getting relevance instead would be the app overruling them. */
+      if (qs) {
+        var d = matchRank(b, qs) - matchRank(a, qs);
+        if (d) return d;
+      }
+      return SORTS[S.sort] ? SORTS[S.sort](a, b) : 0;
+    });
   }
 
   function ours() {
@@ -247,15 +304,26 @@
   }
 
   function renderSections() {
+    /* Grouped by volume rather than prefixed with it. Every option used to
+       begin "Run and Not Be Weary · " or "Around the Table · ", which on a
+       phone is twenty characters of the same words twelve times over, pushing
+       the part you are actually reading past the edge of the picker. An
+       optgroup says it once and iOS and Android both render it as a heading. */
     var sel = $('secSel');
-    var seen = {}, opts = ['<option value="all">All sections</option>'];
+    var seen = {}, opts = ['<option value="all">All sections</option>'], lastBook = null;
     RECIPES.forEach(function (r) {
       var key = r.book + '-' + r.secNum + '-' + r.secName;
       if (seen[key]) return;
       seen[key] = 1;
       if (S.bookF !== 'all' && r.book !== S.bookF) return;
-      opts.push('<option value="' + esc(key) + '">' + esc(BOOKS[r.book].name + ' · ' + r.secName) + '</option>');
+      if (r.book !== lastBook) {
+        if (lastBook !== null) opts.push('</optgroup>');
+        opts.push('<optgroup label="' + esc(BOOKS[r.book].name) + '">');
+        lastBook = r.book;
+      }
+      opts.push('<option value="' + esc(key) + '">' + esc(r.secName) + '</option>');
     });
+    if (lastBook !== null) opts.push('</optgroup>');
     sel.innerHTML = opts.join('');
     sel.value = S.secF;
     if (sel.value !== S.secF) { S.secF = 'all'; sel.value = 'all'; }
@@ -274,8 +342,15 @@
     var list = filtered();
     $('browseTitle').textContent = BOOKS[S.bookF] ? BOOKS[S.bookF].name : 'The whole collection';
     var order = { healthy: ' · healthiest first', protein: ' · most protein first', quick: ' · quickest first' };
+    var qs = S.qy.trim().toLowerCase();
+    /* Say how many are here on their own merits and how many arrived because
+       their section is named for the search. Without it, "breakfast" returning
+       fifty recipes reads as fifty breakfasts, and the reader scrolls looking
+       for the mistake. */
+    var loose = qs ? list.filter(function (r) { return matchRank(r, qs) === 1; }).length : 0;
     $('browseCount').textContent = list.length + (list.length === 1 ? ' recipe' : ' recipes') +
-      (order[S.sort] || '');
+      (loose ? ' · ' + (list.length - loose) + ' matching, ' + loose + ' more from sections named for it'
+             : (order[S.sort] || ''));
     $('browseEmpty').classList.toggle('hide', list.length !== 0);
 
     $('grid').innerHTML = list.map(function (r) {
@@ -1320,7 +1395,10 @@
         '</div>' +
         nutritionHTML(r) +
         '<div class="sheet-h-row">' +
-          '<div class="sheet-h">Ingredients</div>' +
+          '<div class="sheet-h">Ingredients' +
+            '<button class="unitbtn" data-units="1" aria-pressed="' + (S.units === 'grams') + '">' +
+              (S.units === 'grams' ? 'grams' : 'cups') + '</button>' +
+          '</div>' +
           '<div class="scaler">' +
             '<span class="sheet-serv">' + esc(r.servings) + '</span>' +
             '<div class="scaler-box">' +
@@ -1330,8 +1408,10 @@
             '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="sheet-ing">' + r.ing.map(function (i) {
-          return '<div>' + esc(scaleIng(i, f)) + '</div>';
+        '<div class="sheet-ing">' + r.ing.map(function (i, ix) {
+          return '<div>' + esc(S.units === 'grams'
+            ? gramIng(i, (r.ingp || [])[ix], f)
+            : scaleIng(i, f)) + '</div>';
         }).join('') + '</div>' +
         '<div class="sheet-h" style="margin-top:24px;margin-bottom:10px">Method</div>' +
         '<div class="sheet-steps">' + r.steps.map(function (t, i) {
@@ -1880,6 +1960,14 @@
       var sc = e.target.closest('[data-scale]');
       if (sc) {
         S.scale = sc.dataset.scale === 'up' ? Math.min(8, S.scale * 2) : Math.max(0.25, S.scale / 2);
+        renderModal();
+        return;
+      }
+
+      var un = e.target.closest('[data-units]');
+      if (un) {
+        S.units = S.units === 'grams' ? 'cups' : 'grams';
+        try { localStorage.setItem('sh.units', S.units); } catch (err) { /* private mode */ }
         renderModal();
         return;
       }
