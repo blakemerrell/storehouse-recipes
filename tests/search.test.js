@@ -64,9 +64,25 @@ module.exports = {
     /* ---- cups and grams ------------------------------------------------- */
     await p.click('.card');
     await p.waitForTimeout(350);
+
+    /* It has to look like a choice. Showing only the unit in force made it a
+       label — nothing said another state existed, so it went unpressed. Both
+       halves present, exactly one pressed, and a target a thumb can hit. */
+    const seg = await p.evaluate(() => {
+      const b = [...document.querySelectorAll('.unitseg button')];
+      return {
+        labels: b.map((x) => x.textContent.trim()),
+        pressed: b.filter((x) => x.getAttribute('aria-pressed') === 'true').length,
+        minH: Math.min(...b.map((x) => x.getBoundingClientRect().height)),
+      };
+    });
+    t.ok('both units are on show, so it reads as a choice',
+      seg.labels.join('/') === 'cups/grams' && seg.pressed === 1, JSON.stringify(seg));
+    t.ok('and each half is big enough to press', seg.minH >= 24, seg.minH + 'px');
+
     const cups = await p.$$eval('.sheet-ing div', (n) => n.map((x) => x.textContent));
 
-    await p.click('.unitbtn');
+    await p.click('[data-units="grams"]');
     await p.waitForTimeout(350);
     const grams = await p.$$eval('.sheet-ing div', (n) => n.map((x) => x.textContent));
 

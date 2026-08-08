@@ -1016,14 +1016,25 @@ select { max-width: 280px; }
 /* ---- cups or grams ----------------------------------------------------
    Sits in the Ingredients heading rather than beside the scaler, because it
    changes how the list reads and the scaler changes how much of it there is —
-   two different questions, and putting them in one control invites the reader
-   to think the units are a step on the same dial. */
-.unitbtn {
-  margin-left: 10px; padding: 2px 9px; border-radius: 999px;
-  border: 1px solid var(--line-firm); background: transparent;
-  font-family: var(--sans); font-size: 10.5px; font-weight: 600;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
-  cursor: pointer; vertical-align: 2px;
+   two different questions, and one control for both invites the reader to
+   think units are a step on the same dial.
+
+   Both halves are always visible. Showing only the current unit made it a
+   label: there was nothing to say another state existed, so nobody pressed it. */
+.unitseg {
+  display: inline-flex; margin-left: 10px; vertical-align: 1px;
+  border: 1px solid var(--line-firm); border-radius: 999px; overflow: hidden;
 }
-.unitbtn:hover { border-color: var(--ochre); color: var(--ochre); }
-.unitbtn[aria-pressed="true"] { border-color: var(--ochre); color: var(--ochre); background: oklch(0.62 0.10 55 / 0.08); }
+.unitseg button {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 3px 10px; font-family: var(--sans); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  /* the tap target is the row height, not the ink — a 19px pill is fine to
+     look at and mean on a thumb */
+  min-height: 26px;
+}
+.unitseg button + button { border-left: 1px solid var(--line-firm); }
+.unitseg button:hover { color: var(--ochre); }
+.unitseg button[aria-pressed="true"] {
+  background: var(--ochre); color: #fff;
+}

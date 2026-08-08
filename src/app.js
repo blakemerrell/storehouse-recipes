@@ -1395,9 +1395,16 @@
         '</div>' +
         nutritionHTML(r) +
         '<div class="sheet-h-row">' +
+          /* Both options shown, not just the current one. A single pill reading
+             "cups" is indistinguishable from a label — nothing about it says
+             there is another state to get to, so it reads as a caption on the
+             ingredients rather than a control over them. Showing the pair makes
+             the choice visible before it is made. */
           '<div class="sheet-h">Ingredients' +
-            '<button class="unitbtn" data-units="1" aria-pressed="' + (S.units === 'grams') + '">' +
-              (S.units === 'grams' ? 'grams' : 'cups') + '</button>' +
+            '<span class="unitseg" role="group" aria-label="Show ingredients in">' +
+              '<button data-units="cups" aria-pressed="' + (S.units === 'cups') + '">cups</button>' +
+              '<button data-units="grams" aria-pressed="' + (S.units === 'grams') + '">grams</button>' +
+            '</span>' +
           '</div>' +
           '<div class="scaler">' +
             '<span class="sheet-serv">' + esc(r.servings) + '</span>' +
@@ -1966,7 +1973,9 @@
 
       var un = e.target.closest('[data-units]');
       if (un) {
-        S.units = S.units === 'grams' ? 'cups' : 'grams';
+        // pressing the one already chosen is a no-op, not a flip back
+        if (un.dataset.units === S.units) return;
+        S.units = un.dataset.units;
         try { localStorage.setItem('sh.units', S.units); } catch (err) { /* private mode */ }
         renderModal();
         return;
