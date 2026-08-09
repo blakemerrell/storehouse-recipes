@@ -1888,29 +1888,54 @@
 
   function renderPantry() {
     var shelves = pantryShelves();
-    var all = shelves.reduce(function (n, sh) { return n + sh.items.length; }, 0);
-    var kept = shelves.reduce(function (n, sh) {
-      return n + sh.items.filter(function (i) { return i.on; }).length;
-    }, 0);
+    var kept = [], gone = [];
+    shelves.forEach(function (sh) {
+      var on = sh.items.filter(function (i) { return i.on; });
+      if (on.length) kept.push({ name: sh.name, items: on });
+      sh.items.filter(function (i) { return !i.on; }).forEach(function (i) { gone.push(i); });
+    });
+    gone.sort(function (a, b) { return a.l.localeCompare(b.l); });
 
-    $('pantryNote').textContent = kept + ' of ' + all + ' kept' +
+    var n = kept.reduce(function (t, sh) { return t + sh.items.length; }, 0);
+    $('pantryNote').textContent = n + (n === 1 ? ' item' : ' items') +
       (window.Store.pantryChanged() ? ' · changed from the storehouse list' : ' · the standard storehouse order');
     $('pantryReset').classList.toggle('hide', !window.Store.pantryChanged());
 
-    $('pantryBody').innerHTML = shelves.map(function (sh) {
+    /* A list of what you keep, not a checklist of what to fetch. Boxes said
+       "tick these as you go", which is the shopping list's job and not this
+       one's — here a thing is either on your shelf or it is not, and the way
+       to say it is not is to take it off. */
+    var html = kept.map(function (sh) {
       return '<div class="shelf">' +
         '<div class="shelf-h">' + esc(sh.name) + '</div>' +
         sh.items.map(function (i) {
-          return '<label class="pitem' + (i.on ? '' : ' off') + '">' +
-            '<input type="checkbox" data-pantry="' + esc(i.k) + '"' + (i.on ? ' checked' : '') + '>' +
+          return '<div class="pitem">' +
             '<span class="pitem-l">' + esc(i.l) + '</span>' +
-            (i.mine
-              ? '<button class="pitem-x" data-pdrop="' + esc(i.k) + '" title="Remove">&times;</button>'
-              : (i.std ? '' : '<span class="pitem-tag">not on the order</span>')) +
-          '</label>';
+            (i.std === false && !i.mine ? '<span class="pitem-tag">not on the order</span>' : '') +
+            '<button class="pitem-x" data-poff="' + esc(i.k) + '" ' +
+              'aria-label="Take ' + esc(i.l) + ' off the list">&times;</button>' +
+          '</div>';
         }).join('') +
       '</div>';
     }).join('');
+
+    /* Taken off rather than deleted. You have to be able to find a thing to put
+       it back, and the storehouse list is the thing most people will be editing
+       down from — losing an item permanently on one tap would be the wrong
+       shape of mistake to make easy. */
+    if (gone.length) {
+      html += '<div class="shelf shelf-gone">' +
+        '<div class="shelf-h">Not kept &middot; ' + gone.length + '</div>' +
+        gone.map(function (i) {
+          return '<div class="pitem off">' +
+            '<span class="pitem-l">' + esc(i.l) + '</span>' +
+            '<button class="pitem-x back" data-pon="' + esc(i.k) + '" ' +
+              'aria-label="Put ' + esc(i.l) + ' back">+</button>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }
+    $('pantryBody').innerHTML = html;
   }
 
   // ------------------------------------------------------------------ views
@@ -1975,12 +2000,17 @@
     /* On the list rather than on the modal, which is where these first went —
        the modal's handler only ever sees clicks inside an open recipe. */
     $('pantryBody').addEventListener('click', function (e) {
-      var pd = e.target.closest('[data-pdrop]');
-      if (pd) { e.preventDefault(); window.Store.removePantryItem(pd.dataset.pdrop); renderPantry(); return; }
-    });
-    $('pantryBody').addEventListener('change', function (e) {
-      var pt = e.target.closest('[data-pantry]');
-      if (pt) { window.Store.setPantry(pt.dataset.pantry, pt.checked); renderPantry(); }
+      var off = e.target.closest('[data-poff]');
+      if (off) {
+        var k = off.dataset.poff;
+        /* Something you added yourself has nowhere to fall back to — the books
+           have never heard of it — so taking it off removes it outright. */
+        if (window.Store.pantryOwn()[k]) window.Store.removePantryItem(k);
+        else window.Store.setPantry(k, false);
+        renderPantry(); return;
+      }
+      var on = e.target.closest('[data-pon]');
+      if (on) { window.Store.setPantry(on.dataset.pon, true); renderPantry(); }
     });
 
     $('pantryAdd').addEventListener('click', function () {

@@ -26,16 +26,18 @@ module.exports = {
     await p.waitForTimeout(400);
 
     const shape = await p.evaluate(() => ({
-      shelves: document.querySelectorAll('.shelf').length,
-      items: document.querySelectorAll('.pitem').length,
-      kept: document.querySelectorAll('.pitem input:checked').length,
+      shelves: document.querySelectorAll('.shelf:not(.shelf-gone)').length,
+      kept: document.querySelectorAll('.shelf:not(.shelf-gone) .pitem').length,
+      gone: document.querySelectorAll('.shelf-gone .pitem').length,
+      boxes: document.querySelectorAll('#pantryBody input[type=checkbox]').length,
     }));
     t.ok('it opens on the storehouse order, every shelf of it',
-      shape.shelves === 16 && shape.items === 114, JSON.stringify(shape));
-    /* The nine the storehouse never carried start ticked off, because that is
-       what the books already say about them. */
-    t.ok('with the nine it never carried already ticked off',
-      shape.kept === 105, shape.kept + ' kept');
+      shape.shelves === 16 && shape.kept === 105, JSON.stringify(shape));
+    /* The nine the storehouse never carried are not on the shelf, so they sit
+       under what is not kept rather than in the list proper. */
+    t.ok('with the nine it never carried listed as not kept', shape.gone === 9, JSON.stringify(shape));
+    // it is a list of what you keep, not a checklist of what to fetch
+    t.ok('and it is a list rather than a checklist', shape.boxes === 0, shape.boxes + ' checkboxes');
 
     // a recipe whose ingredients are all on the standard order
     const dish = await p.evaluate(() => {
@@ -57,9 +59,9 @@ module.exports = {
 
     // stop keeping one of its ingredients
     await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(300);
-    await p.click('[data-pantry="cottage_cheese"]'); await p.waitForTimeout(400);
+    await p.click('[data-poff="cottage_cheese"]'); await p.waitForTimeout(400);
 
-    t.ok('ticking something off is counted', /104 of 114/.test(await p.textContent('#pantryNote')),
+    t.ok('taking something off is counted', /104 items/.test(await p.textContent('#pantryNote')),
       await p.textContent('#pantryNote'));
 
     /* The point of the whole feature: the recipe changes its mind. */
@@ -95,10 +97,10 @@ module.exports = {
     await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(400);
     const own = await p.evaluate(() => {
       const h = [...document.querySelectorAll('.shelf-h')].map((e) => e.textContent);
-      return { last: h[h.length - 1], note: document.getElementById('pantryNote').textContent };
+      return { last: h.filter((x) => !/Not kept/.test(x)).pop(), note: document.getElementById('pantryNote').textContent };
     });
     t.ok('what you add yourself gets a shelf and survives a reload',
-      own.last === 'Yours' && /115/.test(own.note), JSON.stringify(own));
+      own.last === 'Yours' && /106 items/.test(own.note), JSON.stringify(own));
 
     // and back to the book
     await p.evaluate(() => window.Store.resetPantry());
