@@ -40,7 +40,7 @@ module.exports = {
       };
     });
 
-    t.ok('both volumes render as 152 pages of paper', b.pages === 152, b.pages + ' pages');
+    t.ok('both volumes render as 156 pages of paper', b.pages === 156, b.pages + ' pages');
 
     /* And the same number the second time. The packer measures in an offscreen
        .pg, which on a phone inherited the preview's transform: scale — and
@@ -122,10 +122,10 @@ module.exports = {
       };
     }));
     t.ok('every illustrated section opens on a page of its own',
-      openers.length === 8 && openers.every((o) => o.size >= 24 && o.centred),
+      openers.length === 12 && openers.every((o) => o.size >= 24 && o.centred),
       JSON.stringify(openers.filter((o) => o.size < 24 || !o.centred)) + ' of ' + openers.length);
     t.ok('and its engraving actually loaded, rather than leaving a hole',
-      openers.length === 8 && openers.every((o) => o.loaded),
+      openers.length === 12 && openers.every((o) => o.loaded),
       openers.filter((o) => !o.loaded).map((o) => o.name).join(', '));
     t.ok('and carries no page number, the way the front matter does not',
       openers.every((o) => !o.folio),

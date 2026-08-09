@@ -51,7 +51,7 @@ the item is on the list; take the recipe out of the week and its tick is forgott
 an item never comes back to a later list already ticked. Ticks belong to their own
 week, so shopping for one does not tick things off in another.
 
-**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 44
+**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 49
 pages, Around the Table is 101, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
 (how to read a recipe, temperatures and doneness, weights and swaps, what the storehouse
 carries) and its own contents, then is numbered from page one. Front matter carries no
@@ -63,7 +63,7 @@ numbering the way the front matter does — a reader turns past them, but they
 neither carry a folio nor advance one, so the contents still points where it says.
 A section finds its picture by slugifying its own name, so putting a file in
 `art/src` named for a section and running `npm run art` is the whole of adding
-one. *Run and Not Be Weary* has no art yet and so has no opening pages.
+one. Both volumes are illustrated: twelve sections, twelve engravings.
 
 Recipes are measured in the browser and packed two or three to a page, so a page
 holds as many as genuinely fit rather than a fixed number. A recipe is never split
@@ -85,7 +85,7 @@ nothing runs past the bottom of the paper.
 You can also print just one volume, just your favorites, or just this week.
 
 Each volume opens on a cover and a title page and closes on a back cover that lists its
-sections, and each is padded with blanks to a whole number of folded sheets — 48 pages
+sections, and each is padded with blanks to a whole number of folded sheets — 52 pages
 for Run and Not Be Weary, 104 for Around the Table.
 
 **In the app, use Download PDF.** The finished books are rendered ahead of time and ship
@@ -114,7 +114,7 @@ cannot quietly reach a printer:
   runs down the middle, so a short-edge flip is the one that puts page 2 behind page 1
   rather than upside down under it.
 
-Run and Not Be Weary is 12 sheets, which staples comfortably. Around the Table is 26, which is
+Run and Not Be Weary is 13 sheets, which staples comfortably. Around the Table is 26, which is
 thick for a saddle stitch — worth asking a print shop for perfect binding or a coil
 instead.
 

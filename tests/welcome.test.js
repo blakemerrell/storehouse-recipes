@@ -36,10 +36,10 @@ module.exports = {
       [...document.images].filter((i) => !i.naturalWidth).map((i) => new URL(i.src).pathname));
     t.ok('every engraving on it actually loads', broken.length === 0, broken.join(' '));
 
-    /* Eight sections have art, so eight plates. A number that drifts means the
+    /* Twelve sections have art, so twelve plates. A number that drifts means the
        page and the book have stopped agreeing about how many there are. */
     const plates = await p.evaluate(() => document.querySelectorAll('.plate img').length);
-    t.ok('one plate per illustrated section', plates === 8, plates + ' plates');
+    t.ok('one plate per illustrated section', plates === 12, plates + ' plates');
 
     /* The art the page shows should be the art the book prepared, not a
        leftover file that happens to still be sitting in the folder. */
@@ -70,7 +70,7 @@ module.exports = {
        into a print shop. Those came from the render and go stale silently. */
     const quoted = await p.evaluate(() => document.body.textContent.replace(/\s+/g, ' '));
     t.ok('the page counts it advertises match the books',
-      /104 pages · 26 sheets/.test(quoted) && /48 pages · 12 sheets/.test(quoted),
+      /104 pages · 26 sheets/.test(quoted) && /52 pages · 13 sheets/.test(quoted),
       (quoted.match(/\d+ pages · \d+ sheets/g) || []).join(' | '));
 
     // a phone must not have to scroll sideways to read it

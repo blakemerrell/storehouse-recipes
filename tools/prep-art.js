@@ -29,6 +29,12 @@ var path = require('path');
 var sharp = require('sharp');
 
 var SRC = path.join(__dirname, '..', 'art', 'src');
+/* Sources that carry a title band live in their own folder rather than being
+   detected. Three attempts at telling one kind from the other by measurement
+   all failed on real images: a night scene with a dark window looks exactly
+   like a band of black lettering, and a pale sky looks exactly like the blank
+   gap under one. The folder says which is which and cannot be wrong. */
+var BANDED = path.join(SRC, 'banded');
 var OUT = path.join(__dirname, '..', 'art');
 
 /* A section heading is 3.4in of column at most, and the art sits above it at
@@ -91,13 +97,14 @@ function inkByRow(data, w, h) {
    reads as a sticker. Inset past it before trimming. */
 function inset(w, h) { return Math.round(Math.min(w, h) * 0.075); }
 
-async function prepare(file) {
-  var src = path.join(SRC, file);
+async function prepare(job) {
+  var file = job.file;
+  var src = path.join(job.dir, file);
   var gray = sharp(src).grayscale();
   var meta = await gray.metadata();
 
   var raw = await gray.raw().toBuffer();
-  var seam = findSeam(inkByRow(raw, meta.width, meta.height), meta.height);
+  var seam = job.band ? findSeam(inkByRow(raw, meta.width, meta.height), meta.height) : 0;
   var pad = inset(meta.width, meta.height);
 
   var top = Math.max(seam, pad);
@@ -146,7 +153,13 @@ async function main() {
     console.error('No art/src — put the source images there first.');
     process.exit(1);
   }
-  var files = fs.readdirSync(SRC).filter(function (f) { return /\.(png|jpe?g|webp)$/i.test(f); });
+  function list(dir) {
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).filter(function (f) { return /\.(png|jpe?g|webp)$/i.test(f); });
+  }
+  var clean = list(SRC).map(function (f) { return { dir: SRC, file: f, band: false }; });
+  var banded = list(BANDED).map(function (f) { return { dir: BANDED, file: f, band: true }; });
+  var files = clean.concat(banded);
   if (!files.length) { console.error('art/src is empty.'); process.exit(1); }
 
   var rows = [];

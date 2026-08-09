@@ -685,7 +685,12 @@
       '<div class="pg-open-art"><img src="' + esc(art) + '" alt=""></div>' +
       '<div class="pg-open-txt">' +
         '<div class="sec-band-n">Section ' + r.secNum + '</div>' +
-        '<div class="pg-open-t">' + esc(r.secName) + '</div>' +
+        /* A word joiner after each hyphen, so a compound never splits at its
+           own hyphen: balance was setting "Zero-Cook & Grab- / and-Go Fuel",
+           which reads as a hyphenation fault rather than a line break. With
+           the joiner the only legal breaks are the spaces, and balance picks
+           the best of those. */
+        '<div class="pg-open-t">' + esc(r.secName).replace(/-/g, '-\u2060') + '</div>' +
         '<div class="pg-rule"></div>' +
         '<div class="pg-open-s">' + esc(SEC_NOTE[r.book + '-' + r.secNum] || '') + '</div>' +
         '<div class="pg-open-n">' + count + (count === 1 ? ' recipe' : ' recipes') + '</div>' +
@@ -1322,8 +1327,8 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 152 },
-    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 48, booklet: true },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 156 },
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 52, booklet: true },
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 104, booklet: true }
   };
 
