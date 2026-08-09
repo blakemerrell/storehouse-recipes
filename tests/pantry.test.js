@@ -68,6 +68,22 @@ module.exports = {
     t.ok('and the recipe now says what you would have to go out for',
       /Not on your shelf: Cottage cheese/.test(await foot()), await foot());
 
+    /* And the ingredient itself is tinted, not just named at the foot — that is
+       the difference between reading the list and reading a footnote. */
+    const tinted = async () => {
+      await p.click('.tab[data-view="browse"]'); await p.waitForTimeout(300);
+      await p.click('.card'); await p.waitForTimeout(300);
+      const rows = await p.evaluate(() => [...document.querySelectorAll('.sheet-ing div')]
+        .map((d) => ({ t: d.textContent.trim(), buy: d.classList.contains('ing-buy') })));
+      await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+      return rows;
+    };
+    const rows = await tinted();
+    t.ok('the ingredient line itself is marked, not only the foot',
+      rows.some((r) => r.buy && /cottage cheese/i.test(r.t)), JSON.stringify(rows));
+    t.ok('and only that one — what you keep stays plain',
+      rows.filter((r) => r.buy).length === 1, JSON.stringify(rows.filter((r) => r.buy)));
+
     // and so does the shopping list
     await p.evaluate(() => window.Store.addToDay(1, 'mon'));
     await p.click('.tab[data-view="list"]'); await p.waitForTimeout(600);

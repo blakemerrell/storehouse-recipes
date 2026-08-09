@@ -1115,3 +1115,15 @@ select { max-width: 280px; }
 .shelf-gone { margin-top: 34px; }
 .shelf-gone .shelf-h { color: var(--muted); }
 .pitem.off .pitem-l { color: var(--muted); }
+
+/* ---- an ingredient you would have to go out for ------------------------
+   Set in the accent the book already uses for its numbers and section
+   headings, so it is picked out where you read the list rather than only
+   named in the line at the foot of the recipe.
+
+   Deliberately only a tint, not a weight or a rule. There can be four of
+   these in a five-line list, and anything louder would make the exceptions
+   look like the subject. Colour is not the only cue either — the foot of
+   every recipe still spells the same items out in words, so a photocopied
+   page loses nothing. */
+.ing-buy { color: var(--ochre); }

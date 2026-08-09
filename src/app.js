@@ -724,6 +724,13 @@
     return out;
   }
 
+  /* Whether a written ingredient line is something you would have to go out
+     for. ingp runs parallel to ing, so line i asks about food i. */
+  function lineNeedsBuying(r, ix) {
+    var it = (r.ingp || [])[ix];
+    return !!it && it.k !== 'free' && it.k !== 'water' && !inPantry(it.k);
+  }
+
   // "storehouse" is only the right word while the shelf is still the storehouse's
   function shelfName() { return window.Store.pantryChanged() ? 'your pantry' : 'the storehouse'; }
 
@@ -740,7 +747,15 @@
       (r.tagline ? '<div class="rp-tag">' + esc(r.tagline) + '</div>' : '') +
       '<div class="rp-cols">' +
         '<div><div class="rp-h">Ingredients</div><div class="rp-ing">' +
-          r.ing.map(function (i) { return '<div>' + esc(i) + '</div>'; }).join('') +
+          /* Anything not on the shelf is set in the accent the book already
+             uses for its numbers and headings, so it is picked out in the list
+             itself rather than only named in the line at the foot. Colour is
+             not carrying this on its own — the foot still spells the same
+             items out in words — so a black-and-white print loses nothing. */
+          r.ing.map(function (i, ix) {
+            return '<div' + (lineNeedsBuying(r, ix) ? ' class="ing-buy"' : '') + '>' +
+              esc(i) + '</div>';
+          }).join('') +
         '</div></div>' +
         '<div><div class="rp-h">Method</div><div class="rp-steps">' +
           r.steps.map(function (t, i) {
@@ -1494,9 +1509,10 @@
           '</div>' +
         '</div>' +
         '<div class="sheet-ing">' + r.ing.map(function (i, ix) {
-          return '<div>' + esc(S.units === 'grams'
-            ? gramIng(i, (r.ingp || [])[ix], f)
-            : scaleIng(i, f)) + '</div>';
+          return '<div' + (lineNeedsBuying(r, ix) ? ' class="ing-buy"' : '') + '>' +
+            esc(S.units === 'grams'
+              ? gramIng(i, (r.ingp || [])[ix], f)
+              : scaleIng(i, f)) + '</div>';
         }).join('') + '</div>' +
         '<div class="sheet-h" style="margin-top:24px;margin-bottom:10px">Method</div>' +
         '<div class="sheet-steps">' + r.steps.map(function (t, i) {
