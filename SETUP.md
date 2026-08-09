@@ -61,7 +61,13 @@ anyone can ask — the app signs visitors in anonymously by design, so
 `delete` is off for the same reason it is never used: nothing in the app removes
 a household, so nothing should be allowed to.
 
-3. **Publish**.
+3. **Publish**. Typing them is not enough — an unpublished rule is not in force.
+
+> The same rules are kept in `firestore.rules` in this repository, so what is
+> supposed to be live is reviewable rather than only remembered. If you would
+> rather not use the console: `firebase login` once, then
+> `firebase deploy --only firestore:rules` from the project folder does the
+> same thing.
 
 This says: only a signed-in app can touch the household records, and nothing else in
 the database is reachable at all.

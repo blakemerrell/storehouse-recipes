@@ -1,0 +1,33 @@
+rules_version = '2';
+
+/*
+ * Who may touch a household record.
+ *
+ * The app signs every visitor in anonymously and on purpose — that is how two
+ * phones share a plan without either of you making an account. So
+ * `request.auth != null` is true for every person who opens the page, and is
+ * not a gate on its own. The household code is the secret.
+ *
+ * Which is why `read` is wrong here. It is two permissions sharing one name:
+ *
+ *   get   fetch the one household whose code you typed. The app does this,
+ *         and does nothing else — src/sync.js asks for a single document by
+ *         its code and never queries the collection.
+ *   list  hand back every household there is. Nothing in the app has ever
+ *         wanted this, and granting it gives away the whole premise: a code
+ *         stops being a secret the moment the codes can be enumerated.
+ *
+ * Verified against the live project on 2026-08-09 while `read` was still in
+ * force: an anonymous sign-in followed by a list returned real documents.
+ *
+ * delete is off for the same reason it is never used. Nothing in the app
+ * removes a household, so nothing should be able to.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /households/{code} {
+      allow get, create, update: if request.auth != null;
+      allow list, delete: if false;
+    }
+  }
+}
