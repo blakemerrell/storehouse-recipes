@@ -41,6 +41,30 @@ module.exports = {
     });
 
     t.ok('both volumes render as 152 pages of paper', b.pages === 152, b.pages + ' pages');
+
+    /* And the same number the second time. The packer measures in an offscreen
+       .pg, which on a phone inherited the preview's transform: scale — and
+       getBoundingClientRect reports the transformed box, so every recipe
+       measured a third shorter than it is and the page took far too many. The
+       first render escaped it because --pgscale is set afterwards, so this only
+       ever appeared on a re-render: leaving the tab and coming back turned 152
+       sheets into 112, with the overflow cut off by the slot. Re-render at a
+       phone width and count again. */
+    const again = await p.evaluate(async () => {
+      document.documentElement.style.setProperty('--pgscale', '0.678');
+      window.dispatchEvent(new Event('resize'));
+      return null;
+    });
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.click('.tab[data-view="browse"]'); await p.waitForTimeout(400);
+    await p.click('.tab[data-view="book"]'); await p.waitForTimeout(4500);
+    const repacked = await p.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length);
+    t.ok('and the same number when the book is rendered a second time on a phone',
+      repacked === b.pages, repacked + ' vs ' + b.pages + ' first time');
+    await p.setViewportSize({ width: 1100, height: 900 });
+    await p.waitForTimeout(400);
+    await p.click('.tab[data-view="browse"]'); await p.waitForTimeout(300);
+    await p.click('.tab[data-view="book"]'); await p.waitForTimeout(4500);
     t.ok('and the bar says the same number', b.note.indexOf(b.pages + ' pages') >= 0, b.note);
     t.ok('nothing spills off a page', b.spills.length === 0, b.spills.slice(0, 4).join(' | '));
 

@@ -879,6 +879,14 @@ select { max-width: 280px; }
   .printwrap { padding: 20px 8px 60px; }
   /* the slot takes the scaled size so the page cannot push the document sideways */
   .pg { transform: scale(var(--pgscale, 1)); transform-origin: top left; }
+  /* Not the one the packer measures in. It is a .pg so that it inherits the
+     printed width and padding, which means it inherited this scale too — and
+     getBoundingClientRect reports the transformed box, so every recipe measured
+     a third shorter than it is. The first render was right only because
+     --pgscale is set after it; every render after packed to a phantom budget
+     and cut the overflow off with the slot's overflow:hidden. 152 sheets became
+     112 by leaving the tab and coming back. */
+  .pg.no-print { transform: none; }
   .pgslot {
     width: calc(5.5in * var(--pgscale, 1));
     height: calc(8.5in * var(--pgscale, 1));
