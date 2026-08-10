@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=24">
+<link rel="stylesheet" href="src/style.css?v=25">
 </head>
 <body>
 
@@ -125,7 +125,7 @@
         <button class="ghost hide" id="pantryReset">Back to the storehouse</button>
       </div>
     </div>
-    <div class="plan-note">What you keep in. Every recipe asks this list what you would have to go out for, so the line at the foot of a recipe and the shopping list both follow it. Out of the box it is the standard storehouse order &mdash; take things off as you stop keeping them, or add what you keep that the books never mention. Anything you take off drops to the foot of the list, so you can put it back.</div>
+    <div class="plan-note pantry-lede">What you keep in. Every recipe asks this list what you would have to go out for, so the line at the foot of a recipe and the shopping list both follow it. Out of the box it is the standard storehouse order &mdash; take things off as you stop keeping them, or add what you keep that the books never mention. Anything you take off drops to the foot of the list, so you can put it back.</div>
     <div id="pantryBody"></div>
   </div>
 </section>
@@ -164,8 +164,8 @@
 <script src="data/art.js"></script>
 <script src="src/config.js"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=24"></script>
-<script src="src/app.js?v=24"></script>
+<script src="src/sync.js?v=25"></script>
+<script src="src/app.js?v=25"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

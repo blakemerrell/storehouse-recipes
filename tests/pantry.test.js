@@ -116,7 +116,8 @@ module.exports = {
     await p.reload(); await p.waitForTimeout(700);
     await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(400);
     const own = await p.evaluate(() => {
-      const h = [...document.querySelectorAll('.shelf-h')].map((e) => e.textContent);
+      // the head is a name and a count; the name is the first span
+      const h = [...document.querySelectorAll('.shelf-h span:first-child')].map((e) => e.textContent);
       return { last: h.filter((x) => !/Not kept/.test(x)).pop(), note: document.getElementById('pantryNote').textContent };
     });
     t.ok('what you add yourself gets a shelf and survives a reload',
@@ -130,6 +131,59 @@ module.exports = {
     t.ok('but keeps what you added yourself',
       await p.evaluate(() => !!window.Store.pantryOwn().own_olive_oil));
 
+    /* ---- the shape of it on a screen with room -------------------------
+       A hundred things in one column is half a minute of scrolling to answer
+       "do I keep cornmeal", and the order sheet it copies is not one column
+       either. These assert the two halves of the fix: that the space is used,
+       and that using it did not chop a shelf in half down the middle. */
+    await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(300);
+    const tall = await p.evaluate(() => document.getElementById('pantryBody').scrollHeight);
+    await p.setViewportSize({ width: 1600, height: 1000 });
+    await p.waitForTimeout(400);
+    const wide = await p.evaluate(() => {
+      const body = document.getElementById('pantryBody');
+      /* A shelf split across a column boundary has its rows at two different
+         x positions. One position per shelf means break-inside held. */
+      const split = [...document.querySelectorAll('.shelf:not(.shelf-gone)')].filter((sh) => {
+        const xs = new Set([...sh.querySelectorAll('.pitem')]
+          .map((i) => Math.round(i.getBoundingClientRect().left)));
+        return xs.size > 1;
+      }).length;
+      return {
+        height: body.scrollHeight,
+        columns: new Set([...document.querySelectorAll('.shelf:not(.shelf-gone)')]
+          .map((s) => Math.round(s.getBoundingClientRect().left))).size,
+        split,
+        // what is not kept is not a shelf of the storehouse, so it spans them
+        goneSpans: Math.round(document.querySelector('.shelf-gone').getBoundingClientRect().width) >=
+          Math.round(body.getBoundingClientRect().width) - 2,
+      };
+    });
+    t.ok('with room, the shelves run in columns rather than one long list',
+      wide.columns >= 4, wide.columns + ' columns');
+    t.ok('and no shelf is broken across two of them', wide.split === 0, wide.split + ' split');
+    t.ok('which turns a page you scroll into one you look at',
+      wide.height < tall / 2.5, wide.height + 'px wide vs ' + tall + 'px narrow');
+    t.ok('what is not kept spans the columns rather than joining them', wide.goneSpans);
+
     await ctx.close();
+
+    /* The row is 24px of target under a mouse, and revealed by hovering it.
+       Neither of those exists on a phone, so both are given back — but the rule
+       is about the pointer rather than the width, and a narrow desktop window
+       is still a mouse. Which means proving it needs a context that actually
+       reports touch, not just a small one. */
+    const touch = await t.browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const tp = await touch.newPage();
+    await tp.goto(t.base + 'index.html');
+    await tp.waitForTimeout(700);
+    await tp.click('.tab[data-view="pantry"]'); await tp.waitForTimeout(400);
+    const thumb = await tp.evaluate(() => {
+      const x = document.querySelector('.pitem-x');
+      return { h: x.getBoundingClientRect().height, seen: getComputedStyle(x).opacity };
+    });
+    t.ok('and on a phone the control is thumb-sized and needs no hovering',
+      thumb.h >= 34 && thumb.seen === '1', JSON.stringify(thumb));
+    await touch.close();
   },
 };

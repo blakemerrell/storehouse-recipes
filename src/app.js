@@ -1942,9 +1942,12 @@
        "tick these as you go", which is the shopping list's job and not this
        one's — here a thing is either on your shelf or it is not, and the way
        to say it is not is to take it off. */
+    /* The count on each shelf head. In one column it would be clutter; in six
+       it is how you find the shelf you want without reading it. */
     var html = kept.map(function (sh) {
       return '<div class="shelf">' +
-        '<div class="shelf-h">' + esc(sh.name) + '</div>' +
+        '<div class="shelf-h"><span>' + esc(sh.name) + '</span>' +
+          '<span class="shelf-n">' + sh.items.length + '</span></div>' +
         sh.items.map(function (i) {
           return '<div class="pitem">' +
             '<span class="pitem-l">' + esc(i.l) + '</span>' +
@@ -1962,7 +1965,7 @@
        shape of mistake to make easy. */
     if (gone.length) {
       html += '<div class="shelf shelf-gone">' +
-        '<div class="shelf-h">Not kept &middot; ' + gone.length + '</div>' +
+        '<div class="shelf-h"><span>Not kept &middot; ' + gone.length + '</span></div>' +
         gone.map(function (i) {
           return '<div class="pitem off">' +
             '<span class="pitem-l">' + esc(i.l) + '</span>' +

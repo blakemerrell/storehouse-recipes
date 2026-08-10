@@ -1089,37 +1089,70 @@ select { max-width: 280px; }
    A list of what you keep, laid out as the storehouse order sheet is so that
    someone holding that sheet can read down it. Not a checklist: boxes read as
    "tick these as you fetch them", which is the shopping list's job. Here a
-   thing is on your shelf or it is not, and the edit is taking it off. */
-.shelf { margin-bottom: 26px; }
+   thing is on your shelf or it is not, and the edit is taking it off.
+
+   Sixteen shelves of a hundred things, in one column, is a page you scroll for
+   half a minute to answer "do I keep cornmeal". The order sheet it is copying
+   is not one column either — it is a sheet, read at a glance. So: newspaper
+   columns, as many as the window will take, with a shelf never split across
+   two of them. On a phone the same rule yields one column and nothing changes. */
+.pantry-lede { max-width: 62ch; }
+#pantryBody { columns: 15.5rem; column-gap: 40px; }
+.shelf { break-inside: avoid; margin: 0 0 24px; }
 .shelf-h {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
   color: var(--ochre); font-weight: 600;
   padding-bottom: 7px; border-bottom: 1px solid var(--line); margin-bottom: 2px;
 }
+.shelf-n { letter-spacing: 0.08em; color: var(--muted); font-weight: 400; }
 .pitem {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 2px; border-bottom: 1px solid var(--line-soft);
-  font-size: 15.5px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 2px; border-bottom: 1px solid var(--line-soft);
+  font-size: 14.5px; line-height: 1.35;
 }
 .pitem-l { flex: 1 1 auto; }
 .pitem-tag {
-  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px;
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
+  color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 6px;
 }
-/* The control is quiet until wanted but never smaller than a thumb: 15px of
-   ink in a 34px target, because the row is on a phone. */
+/* Quiet until wanted, but never absent: a hundred rows whose only affordance
+   appears on hover is a hundred rows that look like they cannot be edited. So
+   it is faint at rest and solid under the cursor. A mouse can hit 24px; a thumb
+   is given the 34px back below, where the columns have collapsed to one. */
 .pitem-x {
   border: 0; background: transparent; color: var(--line-firm); cursor: pointer;
-  font-size: 19px; line-height: 1; width: 34px; height: 34px; flex: 0 0 auto;
-  border-radius: 50%;
+  font-size: 17px; line-height: 1; width: 24px; height: 24px; flex: 0 0 auto;
+  border-radius: 50%; opacity: 0.5; transition: opacity 0.12s;
 }
+.pitem:hover .pitem-x, .pitem-x:focus-visible { opacity: 1; }
 .pitem-x:hover { color: var(--ochre); background: oklch(0.62 0.10 55 / 0.10); }
 .pitem-x.back { font-size: 17px; }
+@media (pointer: coarse) {
+  /* no hover to reveal with, and a target you can actually hit */
+  .pitem { padding: 8px 2px; font-size: 15.5px; }
+  .pitem-x { opacity: 1; width: 34px; height: 34px; font-size: 19px; }
+}
 
-/* Taken off, not deleted — you have to be able to find a thing to put it back. */
-.shelf-gone { margin-top: 34px; }
-.shelf-gone .shelf-h { color: var(--muted); }
-.pitem.off .pitem-l { color: var(--muted); }
+/* Taken off, not deleted — you have to be able to find a thing to put it back.
+   It spans the columns rather than flowing into one, because it is not a shelf
+   of the storehouse and reading it as though it were another one is the whole
+   mistake. Chips rather than rows: this list is scanned for a name, not read
+   down, and fourteen full-width rows would out-shout the hundred above them. */
+.shelf-gone {
+  column-span: all; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 12px 0 0; padding-top: 22px; border-top: 1px solid var(--line);
+}
+.shelf-gone .shelf-h {
+  flex: 0 0 100%; color: var(--muted); border: 0; padding: 0; margin: 0 0 2px;
+  justify-content: flex-start;
+}
+.pitem.off {
+  padding: 3px 3px 3px 12px; gap: 2px; border: 1px solid var(--line);
+  border-radius: 999px; background: var(--card);
+}
+.pitem.off .pitem-l { color: var(--muted); flex: 0 0 auto; }
+.pitem.off .pitem-x { opacity: 1; color: var(--muted); }
 
 /* ---- an ingredient you would have to go out for ------------------------
    Set in the accent the book already uses for its numbers and section
