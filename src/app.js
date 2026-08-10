@@ -62,11 +62,19 @@
          only name on the shelf where the title and the food make the same claim.
          What protein and fiber buy you is the afternoon. */
       name: 'Run and Not Be Weary', short: 'RUN',
-      blurb: 'One hundred recipes built on protein, fiber and staying full, from what the storehouse actually carries. Every one carries real macros and a computed nutrition score.'
+      blurb: 'One hundred recipes built on protein, fiber and staying full, from what the storehouse actually carries. Every one carries real macros and a computed nutrition score.',
+      epigraph: {
+        t: ['And shall run and not be weary,', 'and shall walk and not faint.'],
+        r: 'Doctrine and Covenants 89:20',
+      },
     },
     2: {
       name: 'Around the Table', short: 'TABLE',
-      blurb: 'One hundred fifty‑seven family recipes, from three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.'
+      blurb: 'One hundred fifty‑seven family recipes, from three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.',
+      epigraph: {
+        t: ['And did eat their meat with gladness', 'and singleness of heart.'],
+        r: 'Acts 2:46',
+      },
     },
     3: {
       name: 'Ours', short: 'OURS',
@@ -589,8 +597,21 @@
   }
 
   /* The right-hand page behind the cover. A cover is a thing you look at; this
-     is the page that says what the book is, and carries the small print. */
-  function titlePageHTML(vol, title, sub) {
+     is the page that says what the book is.
+
+     The foot of it used to carry three paragraphs of small print: where the
+     ingredients come from, where the macros come from, and what the thing was
+     typeset in. All of it was already said properly two pages later, in How to
+     read this book, and saying it twice made the second telling sound like an
+     apology for the first. One sentence was worse than redundant — it explained
+     that the macros were "as recorded for Run and Not Be Weary and worked out
+     from the ingredients everywhere else", which is a sentence written from
+     outside both volumes and read from inside one of them, where "everywhere
+     else" points at nothing you are holding.
+
+     So: the verse the volume is named for, and nothing else. It is the one
+     thing on the page that could not be moved somewhere more useful. */
+  function titlePageHTML(vol, title, sub, epi) {
     var vl = volumeLine(vol);
     return '<div class="pg"><div class="pg-title-page">' +
       '<div class="tp-top">' +
@@ -599,16 +620,10 @@
         '<div class="tp-sub">' + esc(sub) + '</div>' +
         (vl ? '<div class="tp-vol">' + esc(vl) + '</div>' : '') +
       '</div>' +
-      '<div class="tp-foot">' +
-        '<p>Every recipe here is built on what the Bishops&rsquo; Storehouse order list ' +
-        'actually carries. Where one needs something beyond it, the line at the foot of ' +
-        'the recipe says so.</p>' +
-        '<p>Calories, protein, carbohydrate and fat are as recorded for Run and Not Be Weary ' +
-        'and worked out from the ingredients everywhere else. Sodium and fiber are worked ' +
-        'out from the ingredients throughout. How the score is arrived at is on the next ' +
-        'page but one.</p>' +
-        '<p class="tp-colophon">Set in Source Serif 4 and Work Sans &middot; ' + YEAR + '</p>' +
-      '</div>' +
+      (epi ? '<div class="tp-epi">' +
+        '<div class="tp-epi-t">' + epi.t.map(esc).join('<br>') + '</div>' +
+        '<div class="tp-epi-r">' + esc(epi.r) + '</div>' +
+      '</div>' : '') +
     '</div></div>';
   }
 
@@ -1124,7 +1139,8 @@
       var volStart = out.length;
       out.push({ kind: 'cover', html: coverHTML(vol, title, sub,
         vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes')) });
-      out.push({ kind: 'title', html: titlePageHTML(vol, title, sub) });
+      out.push({ kind: 'title', html: titlePageHTML(vol, title, sub,
+        vol.grouped ? null : BOOKS[vol.book].epigraph) });
 
       if (!vol.grouped) {
         var fm = frontMatterItems(vol);
