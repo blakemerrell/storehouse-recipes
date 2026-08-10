@@ -663,14 +663,14 @@
             '<span class="bc-n">' + s.n + '</span></div>';
         }).join('') +
       '</div>' +
-      '<div class="bc-note">' +
-        '<p>Every recipe in both volumes was checked against the storehouse order list, ' +
-        'and against the ratios a kitchen runs on &mdash; the water in a dough, the ' +
-        'leavening in a cup of flour, the eggs in a custard, a doneness cue on every ' +
-        'piece of chicken.</p>' +
-        '<p>The number beside each one is its nutrition score out of a hundred: protein, ' +
-        'calories, fat, sodium and fiber. It measures that and nothing else.</p>' +
-      '</div>' +
+      /* No note here. Two paragraphs used to sit between the contents and the
+         foot: one asserting that every recipe had been checked against the
+         order list and against the ratios a kitchen runs on, and one explaining
+         the score. The second is said properly in How to read a recipe, four
+         pages in. The first is the sound of somebody describing their own work
+         — a back cover is for telling a person what is inside, and "we were
+         careful" is not a thing inside. The contents list already answers the
+         question the back of a book is picked up to answer. */
       '<div class="bc-foot">' +
         (vol.grouped ? '' : '<p>The companion volume is <strong>' + esc(other) + '</strong>.</p>') +
         '<p>' + vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes') +

@@ -555,7 +555,11 @@ select { max-width: 280px; }
   font-family: var(--serif); font-size: 22px; font-weight: 700; margin-top: 12px;
   padding-bottom: 16px; border-bottom: 1px solid var(--ochre); text-wrap: balance;
 }
-.bc-list { margin-top: 20px; }
+/* Centred between the title and the imprint. Pinned to the top it left the
+   whole lower half empty, which reads as a paragraph that fell out rather than
+   as room — and Run and Not Be Weary has four sections, so that was most of
+   the cover. Two auto margins share the slack instead. */
+.bc-list { margin: auto 0; padding-top: 20px; }
 .bc-row {
   display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: baseline;
   padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 11px;
@@ -563,13 +567,9 @@ select { max-width: 280px; }
 .bc-no { color: var(--ochre); font-weight: 600; font-size: 9.5px; }
 .bc-sec { font-family: var(--serif); font-size: 12.5px; line-height: 1.25; text-wrap: pretty; }
 .bc-n { color: var(--muted); font-size: 10px; }
-.bc-note {
-  margin: auto 0; padding: 18px 4px; font-size: 10.5px; line-height: 1.7;
-  color: var(--muted-2); text-wrap: pretty;
-}
-.bc-note p { margin: 0 0 10px; }
 .bc-foot {
-  padding-top: 16px; text-align: center; border-top: 1px solid var(--line-soft);
+  padding-top: 16px; text-align: center;
+  border-top: 1px solid var(--line-soft);
   font-size: 10px; color: var(--muted-2); line-height: 1.6;
 }
 .bc-foot p { margin: 0 0 6px; }
