@@ -8,11 +8,28 @@ module.exports = {
     const n = await p.evaluate(() => document.querySelectorAll('.card').length);
     t.ok('all 257 recipes are on the page', n === 257, n);
 
+    /* The head says what you are looking at. The volume blurbs were written for
+       the printed covers and used only there, so for a long while the app named
+       the two books and never said what either one was — you had to pick one to
+       find out whether it was the one you wanted. */
+    const blurb = () => p.textContent('#browseBlurb');
+    t.ok('the collection says what the two volumes are',
+      /Run and Not Be Weary/.test(await blurb()) && /Around the Table/.test(await blurb()),
+      await blurb());
+
     // filters
     await p.click('[data-book="1"]');
     await p.waitForTimeout(150);
     t.ok('one volume at a time',
       (await p.evaluate(() => document.querySelectorAll('.card').length)) === 100);
+    t.ok('and picking one says what that one is',
+      /protein, fiber/.test(await blurb()), await blurb());
+
+    /* Once you have typed a dish name the heading is no longer about a book,
+       and a paragraph about the volumes sits between you and the answer. */
+    await p.fill('#search', 'chicken'); await p.waitForTimeout(400);
+    t.ok('but a search puts the line away', (await blurb()) === '', await blurb());
+    await p.fill('#search', ''); await p.waitForTimeout(400);
 
     await p.click('[data-book="all"]');
     await p.selectOption('#diffSel', 'In-Depth');

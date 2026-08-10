@@ -82,6 +82,14 @@
     }
   };
 
+  /* And the same courtesy for the view that is not a book. Someone opening the
+     app for the first time lands here, and until this line existed the whole
+     answer to "what are the two volumes" was the words "two volumes" in the
+     bar at the top. */
+  var COLLECTION_BLURB = 'Two volumes. Run and Not Be Weary is a hundred recipes built on protein and ' +
+    'fiber; Around the Table is a hundred and fifty-seven family recipes, from three-minute breakfasts ' +
+    'to Sunday roasts.';
+
   /* What the section picker calls each section. The full names are written
      for a printed contents page, where "Low-Calorie Cut Snacks & Late-Night
      Treats" has a line to itself and room to spare. In a native picker on a
@@ -373,6 +381,10 @@
     $('browseTitle').textContent = BOOKS[S.bookF] ? BOOKS[S.bookF].name : 'The whole collection';
     var order = { healthy: ' · healthiest first', protein: ' · most protein first', quick: ' · quickest first' };
     var qs = S.qy.trim().toLowerCase();
+    /* Not while searching. Once you have typed "chicken" the heading is no
+       longer about a book and the line under it is in the way of the answer. */
+    $('browseBlurb').textContent = qs ? ''
+      : (BOOKS[S.bookF] ? BOOKS[S.bookF].blurb : COLLECTION_BLURB);
     /* Say how many are here on their own merits and how many arrived because
        their section is named for the search. Without it, "breakfast" returning
        fifty recipes reads as fifty breakfasts, and the reader scrolls looking

@@ -125,6 +125,17 @@ select { max-width: 280px; }
   border-bottom: 1px solid oklch(0.85 0.02 75); padding-bottom: 9px; margin-bottom: 22px;
 }
 .view-title { font-family: var(--serif); font-size: 19px; font-weight: 600; }
+/* A head that carries a line about what you are looking at. The blurbs were
+   written for the covers of the two books and used only there, so the app
+   named the volumes and never said what they were — you learned there were
+   two and had to pick one to find out which you wanted. */
+.view-head-tall { display: block; }
+.view-head-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.view-blurb {
+  font-family: var(--serif); font-style: italic; font-size: 14.5px; line-height: 1.55;
+  color: var(--muted-2); max-width: 60ch; margin-top: 7px; text-wrap: pretty;
+}
+.view-blurb:empty { display: none; }
 .view-count {
   font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
   white-space: nowrap;
