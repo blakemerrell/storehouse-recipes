@@ -62,7 +62,7 @@
          only name on the shelf where the title and the food make the same claim.
          What protein and fiber buy you is the afternoon. */
       name: 'Run and Not Be Weary', short: 'RUN',
-      blurb: 'One hundred recipes built on protein, fiber and staying full, from what the storehouse actually carries. Every one carries real macros and a computed nutrition score.',
+      blurb: 'One hundred recipes built on protein, fiber and staying full, with primary ingredients from the Bishops’\u00a0Storehouse. Every one carries real macros and a computed nutrition score.',
       epigraph: {
         t: ['And shall run and not be weary,', 'and shall walk and not faint.'],
         r: 'Doctrine and Covenants 89:20',
@@ -70,7 +70,7 @@
     },
     2: {
       name: 'Around the Table', short: 'TABLE',
-      blurb: 'One hundred fifty‑seven family recipes, from three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.',
+      blurb: 'One hundred fifty‑seven family recipes with primary ingredients from the Bishops’\u00a0Storehouse: three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.',
       epigraph: {
         t: ['And did eat their meat with gladness', 'and singleness of heart.'],
         r: 'Acts 2:46',
@@ -86,9 +86,9 @@
      app for the first time lands here, and until this line existed the whole
      answer to "what are the two volumes" was the words "two volumes" in the
      bar at the top. */
-  var COLLECTION_BLURB = 'Two volumes. Run and Not Be Weary is a hundred recipes built on protein and ' +
-    'fiber; Around the Table is a hundred and fifty-seven family recipes, from three-minute breakfasts ' +
-    'to Sunday roasts.';
+  var COLLECTION_BLURB = 'Two volumes, with primary ingredients from the Bishops’\u00a0Storehouse. Run and ' +
+    'Not Be Weary is a hundred recipes built on protein and fiber; Around the Table is a hundred and ' +
+    'fifty-seven family recipes, from three-minute breakfasts to Sunday roasts.';
 
   /* What the section picker calls each section. The full names are written
      for a printed contents page, where "Low-Calorie Cut Snacks & Late-Night
@@ -934,7 +934,16 @@
     }
 
     head('<div class="fm-title">How to read a recipe</div>' +
-      '<div class="fm-lede">Everything here is built from what the storehouse actually carries.</div>');
+      /* Named in full here and on the two covers, and nowhere else. It is the
+         ordinary courtesy of a first mention: forty-odd later ones say "the
+         storehouse" and read fine, because by then you have been told which.
+
+         "Everything here is built from what the storehouse actually carries"
+         is what this said, and it was not true — thirty-eight of Volume One's
+         hundred recipes need something the storehouse does not stock, which is
+         why every recipe carries a line at its foot saying so. "Actually" was
+         arguing with somebody, too. Nobody had said otherwise. */
+      '<div class="fm-lede">Primary ingredients come from the Bishops’&nbsp;Storehouse order.</div>');
     block('<div class="fm-sub">The number</div>' +
       '<div class="fm-p">Every recipe has one, running from 001 straight through both volumes. ' +
       'The contents at the front of each book lists them in order with its page.</div>');
