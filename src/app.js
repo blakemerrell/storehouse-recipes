@@ -927,11 +927,9 @@
       head('<div class="fm-title">Ours</div>' +
         '<div class="fm-lede">Written at this table rather than carried over.</div>');
       block('<div class="fm-p">These follow the same shape as the two printed volumes — a number, a ' +
-        'serving count, a time, an effort and a score out of 100 — but the words are ours. Calories, ' +
-        'sodium and fiber are worked out from the ingredients using the same table the other two ' +
-        'volumes use, so a score here means what a score there means.</div>');
-      block('<div class="fm-p">Nothing in here has been proofread by anyone but us, and that is rather ' +
-        'the point.</div>');
+        'serving count, a time, an effort and a score out of 100. Calories, sodium and fiber are worked ' +
+        'out from the ingredients using the same table, so a score here means what a score there ' +
+        'means.</div>');
       return b;
     }
 
@@ -1308,12 +1306,13 @@
     var t0 = performance.now();
     var pages = buildBook();
     var pool = printPool();
-    var perPage = pages.filter(function (p) { return p.kind === 'page'; }).length;
     renderDownloads();
+    /* How many recipes, and how much paper. It used to also report the average
+       recipes a page, which is a number that came out of the packer rather than
+       a number anyone standing at a printer needs. */
     $('printNote').textContent = pool.length
       ? pool.length + (pool.length === 1 ? ' recipe · ' : ' recipes · ') +
-        pages.length + ' pages at 5.5″ × 8.5″ · ' +
-        (perPage ? (pool.length / perPage).toFixed(1) + ' recipes a page' : '')
+        pages.length + ' pages at 5.5″ × 8.5″'
       : 'Nothing to print yet.';
     /* Each sheet is labelled on screen with where it falls in the run. The
        preview scrolls under a sticky header that is a fifth of a phone screen

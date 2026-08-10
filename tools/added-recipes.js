@@ -269,7 +269,7 @@ module.exports = [
       'Cook another hour on low, uncovered for the last 20 minutes so the sauce tightens and clings.',
       'Taste for salt. Serve in tortillas, over rice, or in a bowl with beans and lettuce.',
     ],
-    macro: null, tagline: 'The One Everyone Asks For', score: null, sc: null,
+    macro: null, tagline: 'Browned Hard, Then Braised Sweet', score: null, sc: null,
     diff: 'In-Depth', time: '7 hrs 30 mins', extras: 'Cola, Chili Powder, Cumin',
   },
   {
@@ -396,7 +396,7 @@ module.exports = [
       'Bake at 350°F for 50 minutes, until it is bubbling at the edges and the top is deeply browned.',
       'Rest 10 minutes before serving so it holds together on the spoon.',
     ],
-    macro: null, tagline: 'The Casserole People Ask About', score: null, sc: null,
+    macro: null, tagline: 'Squeezed Dry So It Crisps', score: null, sc: null,
     diff: 'Medium', time: '1 hr 15 mins', extras: null,
   },
   {
