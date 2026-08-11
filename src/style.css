@@ -508,7 +508,7 @@ select { max-width: 280px; }
 .pg-cover-top { display: flex; flex-direction: column; gap: 5px; padding-top: 10px; }
 .pg-vol {
   font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase;
-  color: oklch(0.55 0.03 65); margin-top: 2px;
+  color: oklch(0.55 0.03 65); margin-top: 22px;
 }
 
 /* ---- the title page, behind the cover ---- */
@@ -577,6 +577,21 @@ select { max-width: 280px; }
   font-size: 10.5px; letter-spacing: 0.3em; text-transform: uppercase; color: oklch(0.55 0.03 65);
 }
 .pg-rule { width: 38px; height: 1px; background: var(--ochre); margin: 20px 0; }
+
+/* ---- the cover's formal furniture ----
+   A French rule: a heavy line with a hairline under it. Full measure, so it
+   brackets the title rather than decorating it — a short centred rule reads as
+   a divider between two things, and there is only one thing here. */
+.frule { display: block; width: 100%; margin: 15px 0; }
+.frule i { display: block; background: var(--ochre); }
+.frule i:first-child { height: 2px; }
+.frule i:last-child { height: 0.5px; margin-top: 2.5px; opacity: 0.75; }
+
+/* The skep. Stroked rather than filled so it sits at the weight of the rules
+   around it; a solid mark at this size would outweigh the title. */
+.skep { display: block; margin: 0 auto 26px; fill: none; stroke: var(--ochre); }
+.skep path { stroke-width: 19; stroke-linecap: round; stroke-linejoin: round; }
+.skep .skep-door { fill: var(--ochre); stroke-width: 14; }
 .pg-title {
   font-family: var(--serif); font-size: 34px; line-height: 1.12; font-weight: 700; text-wrap: balance;
 }

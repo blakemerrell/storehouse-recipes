@@ -583,13 +583,46 @@
 
   // ---- the pieces a page is built from -----------------------------------
   var YEAR = '2026';
-  var ORDINAL = { 1: 'One', 2: 'Two', 3: 'Three' };
+  /* The cover's own year. Roman on a cover and plain everywhere else: the back
+     cover and the running furniture are read, and MMXXVI is a thing you look at
+     rather than a thing you read. Written out rather than converted, because
+     one line a year beats a function nobody will remember exists. */
+  var ROMAN_YEAR = 'MMXXVI';
+  /* Roman on the cover and the title page, which is what a formal title page
+     does with a volume number. Only three of them will ever exist, so a
+     numeral-to-roman function would be three lines of arithmetic guarding a
+     lookup of three entries. */
+  var ORDINAL = { 1: 'I', 2: 'II', 3: 'III' };
 
   function volumeLine(vol) {
     if (vol.grouped || !ORDINAL[vol.book]) return '';
-    var of = ours().length ? 'Three' : 'Two';
+    var of = ours().length ? 'III' : 'II';
     return 'Volume ' + ORDINAL[vol.book] + ' of ' + of;
   }
+
+  /* The skep, drawn once here rather than fetched. icons/hive.svg is the same
+     drawing, but it is an icon: it carries the app's paper as a background rect
+     and is sized for a 32px tab. This is the printer's version of it — no
+     ground, stroked in the book's own accent, and it must not depend on a file
+     load, because a cover with a hole in it is worse than a cover with no mark
+     at all. The viewBox is cropped to the drawing so the mark can be sized by
+     its own height rather than by the padding around it. */
+  function skepHTML(px) {
+    return '<svg class="skep" width="' + Math.round(px * 332 / 240) + '" height="' + px +
+      '" viewBox="90 140 332 240" aria-hidden="true">' +
+      '<path d="M136 366c0-152 34-206 120-206s120 54 120 206"/>' +
+      '<path d="M192 186q64-26 128 0"/>' +
+      '<path d="M164 236q92-32 184 0"/>' +
+      '<path d="M148 288q108-32 216 0"/>' +
+      '<path d="M104 366h304"/>' +
+      '<path class="skep-door" d="M230 366v-22q0-26 26-26t26 26v22z"/>' +
+    '</svg>';
+  }
+
+  /* A French rule — a heavy line with a hairline beneath it. It is the oldest
+     formal device in typesetting and it is doing the work a second typeface
+     would otherwise have to do. */
+  function fruleHTML() { return '<span class="frule"><i></i><i></i></span>'; }
 
   function coverHTML(vol, title, sub, foot) {
     var vl = volumeLine(vol);
@@ -599,13 +632,14 @@
         '<div class="pg-eyebrow">' + esc(APP_LINE) + '</div>' +
       '</div>' +
       '<div class="pg-cover-mid">' +
-        '<div class="pg-rule"></div>' +
+        skepHTML(52) +
+        fruleHTML() +
         '<div class="pg-title">' + esc(title) + '</div>' +
+        fruleHTML() +
         '<div class="pg-sub">' + esc(sub) + '</div>' +
-        '<div class="pg-rule"></div>' +
         (vl ? '<div class="pg-vol">' + esc(vl) + '</div>' : '') +
       '</div>' +
-      '<div class="pg-foot">' + esc(foot) + (vl ? ' &middot; ' + YEAR : '') + '</div>' +
+      '<div class="pg-foot">' + esc(foot) + (vl ? ' &middot; ' + ROMAN_YEAR : '') + '</div>' +
     '</div></div>';
   }
 
