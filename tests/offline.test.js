@@ -31,6 +31,39 @@ module.exports = {
       return (await c.keys()).map((r) => new URL(r.url).pathname);
     });
     t.ok('the whole shell is cached', cached.length >= 12, cached.length + ' entries');
+
+    /* Every file the page pulls in must carry a version, and the worker must
+       ask for the same one. Both halves matter, and neither was true.
+
+       data/recipes.js had no ?v= at all. Its URL therefore never changed, and
+       GitHub Pages serves it with max-age=600 — so a new worker installing a
+       new cache could fetch it through the browser's HTTP cache, get the copy
+       from before the deploy, and then serve that copy cache-first for the
+       life of the cache. Add six recipes, push, refresh: 263 in the header and
+       257 on the page. The versioned files were never exposed to it, because
+       ?v=30 is a URL the HTTP cache has never seen.
+
+       Compared with the query attached, because the old check compared
+       pathnames — which is precisely the part of a URL that was fine. */
+    const versioning = await p.evaluate(async () => {
+      const own = (u) => new URL(u, location.href).origin === location.origin;
+      const assets = [
+        ...[...document.querySelectorAll('script[src]')].map((e) => e.src),
+        ...[...document.querySelectorAll('link[rel=stylesheet]')].map((e) => e.href),
+      ].filter(own).map((u) => new URL(u).pathname + new URL(u).search);
+
+      const sw = await fetch('sw.js').then((r) => r.text());
+      const shell = [...sw.matchAll(/'\.(\/[^']+)'/g)].map((m) => m[1]);
+
+      return {
+        unversioned: assets.filter((a) => !/\?v=\d+/.test(a)),
+        missing: assets.filter((a) => !shell.includes(a)),
+      };
+    });
+    t.ok('every script and stylesheet the page loads carries a version',
+      versioning.unversioned.length === 0, versioning.unversioned.join(' '));
+    t.ok('and the worker caches that exact version, query and all',
+      versioning.missing.length === 0, versioning.missing.join(' '));
     t.ok('recipes, nutrition and typefaces included',
       cached.some((u) => /recipes\.js/.test(u)) &&
       cached.some((u) => /nutrition\.js/.test(u)) &&

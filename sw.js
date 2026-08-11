@@ -27,12 +27,12 @@ var SHELL = [
   './',
   './index.html',
   './src/style.css?v=30',
-  './src/config.js',
+  './src/config.js?v=30',
   './src/sync.js?v=30',
   './src/app.js?v=30',
-  './data/recipes.js',
-  './data/nutrition.js',
-  './data/art.js',
+  './data/recipes.js?v=30',
+  './data/nutrition.js?v=30',
+  './data/art.js?v=30',
   './art/easy-lunches-wraps-and-after-school-favorites.png',
   './art/elaborate-sunday-feasts-and-roasts.png',
   './art/for-the-love-of-chocolate.png',
@@ -56,8 +56,21 @@ self.addEventListener('install', function (e) {
     caches.open(CACHE)
       // one missing file must not take the whole install down with it
       .then(function (c) {
+        /* 'reload' for the same reason the navigate handler uses 'no-cache':
+           GitHub Pages serves these with max-age=600, and cache.add() goes
+           through the browser's own HTTP cache. So a new service worker could
+           seed its brand-new cache with files up to ten minutes old, and then
+           serve them cache-first for as long as that cache lived. The
+           versioned URLs were never at risk — ?v=30 is a URL the HTTP cache
+           has never seen — but data/recipes.js carried no version, so the one
+           file that changes every time recipes are added was the one file that
+           could arrive stale and stay that way. Both halves are fixed: the
+           data files are versioned now, and the shell no longer trusts the
+           HTTP cache to tell it what is current. */
         return Promise.all(SHELL.map(function (u) {
-          return c.add(u).catch(function () {});
+          return fetch(u, { cache: 'reload' })
+            .then(function (res) { return res && res.ok ? c.put(u, res) : null; })
+            .catch(function () {});
         }));
       })
       .then(function () { return self.skipWaiting(); })
