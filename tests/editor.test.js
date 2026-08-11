@@ -58,7 +58,7 @@ module.exports = {
     t.ok('the volume appears once it has a recipe',
       !(await p.evaluate(() => document.getElementById('bookOurs').classList.contains('hide'))));
     t.ok('and the header counts it',
-      (await p.textContent('.brand-sub')) === '258 recipes · three volumes',
+      (await p.textContent('.brand-sub')) === '264 recipes · three volumes',
       await p.textContent('.brand-sub'));
 
     // it is a recipe like any other

@@ -14,11 +14,38 @@
  *
  * Macros are estimated from the ingredients like the rest of Around the Table,
  * and are labelled as estimates in the app.
+ *
+ * ---------------------------------------------------------------------------
+ * Section 9, "Warm Drinks", was added later and for a different reason.
+ *
+ * Every high-protein drink in Run and Not Be Weary runs on whey, Crio Bru or
+ * both, and the storehouse stocks neither. Once the pantry data was corrected
+ * to say so, the only storehouse-pure hot drink left in either volume was Hot
+ * Cocoa & Marshmallow Cups, which carries four grams of protein and scores 62.
+ * That is a hole where a person is most likely to want one filled: the drink
+ * you make at nine at night.
+ *
+ * All six run on non-fat dry milk, which is on the order list, is 36% protein
+ * by weight, and has been used for its protein in bread and porridge for a
+ * hundred years. Stirred into milk or hot water it takes a mug of cocoa from
+ * four grams of protein to seventeen.
+ *
+ * They score 71 to 80, and they cannot do better. Whey is 80% protein with
+ * almost no carbohydrate; dry milk is 36% protein and 52% carbohydrate, which
+ * caps a storehouse-only drink at about 40% of its energy from protein. High
+ * seventies is the ceiling of the ingredients, not a shortfall in the recipes.
+ *
+ * They are here at the end of Around the Table rather than beside the drinks
+ * they replace in Run and Not Be Weary because a recipe's printed number is its
+ * id, and favourites and meal plans are keyed by id and synced between two
+ * phones. Inserting six recipes into Volume One would renumber everything after
+ * them and silently repoint somebody's saved favourites at other recipes.
  */
 
 const SECTION = 'Worth the Afternoon';
 const COPYCAT = 'The Copycat Shelf';
 const CHOC = 'For the Love of Chocolate';
+const DRINKS = 'Warm Drinks';
 
 module.exports = [
   {
@@ -625,5 +652,95 @@ module.exports = [
     ],
     macro: null, tagline: 'Chewy, Not Cakey', score: null, sc: null,
     diff: 'Medium', time: '50 mins', extras: 'Chocolate Chips',
+  },
+  {
+    id: 258, book: 2, secNum: 9, secName: DRINKS,
+    name: 'Vanilla & Cinnamon Steamer',
+    servings: '1 Mug', servN: 1,
+    ing: ['⅔ cup non-fat dry milk', '1.5 cups hot water', '1 tsp vanilla', '1 tsp cinnamon',
+      '1 tsp honey'],
+    steps: [
+      'Put the dry milk and cinnamon in a mug and add about two tablespoons of cold water. Stir to a smooth paste. This is the whole trick — dry milk tipped straight into hot water seizes into lumps that never come out.',
+      'Heat the rest of the water until it steams. Do not boil it; boiled milk skins and tastes scorched.',
+      'Pour the hot water in slowly, stirring as you go.',
+      'Stir in the vanilla and honey and drink it hot.',
+    ],
+    macro: null, tagline: 'Paste First, Then the Hot Water', score: null, sc: null,
+    diff: 'Easy', time: '4 mins', extras: null,
+  },
+  {
+    id: 259, book: 2, secNum: 9, secName: DRINKS,
+    name: 'Fortified Hot Cocoa',
+    servings: '1 Mug', servN: 1,
+    ing: ['⅔ cup non-fat dry milk', '½ packet hot cocoa mix', '1.5 cups hot water',
+      '1 tsp cinnamon'],
+    steps: [
+      'Stir the dry milk, half the cocoa packet and the cinnamon together in a mug while they are still dry, so the cinnamon has something to cling to.',
+      'Add two tablespoons of cold water and work it to a smooth paste with the back of a spoon.',
+      'Pour in the hot water a little at a time, stirring, until it is thin enough to drink.',
+      'Taste before adding the rest of the packet. Half is usually enough — the dry milk is already sweet, and the second half costs more sugar than it adds flavour.',
+    ],
+    macro: null, tagline: 'Half the Packet, Four Times the Protein', score: null, sc: null,
+    diff: 'Easy', time: '4 mins', extras: null,
+  },
+  {
+    id: 260, book: 2, secNum: 9, secName: DRINKS,
+    name: 'Iced Vanilla & Cinnamon Milk',
+    servings: '1 Tall Glass', servN: 1,
+    ing: ['½ cup non-fat dry milk', '½ cup 2% milk', '1 cup cold water', '1 tsp vanilla',
+      '½ tsp cinnamon', 'ice'],
+    steps: [
+      'Whisk the dry milk and cinnamon into the ½ cup of cold milk until there is not a lump left. Cold takes longer than hot — keep going.',
+      'Stir in the water and the vanilla.',
+      'Leave it in the fridge 20 minutes if you can. It thickens slightly and the cinnamon stops sitting on top.',
+      'Pour over ice.',
+    ],
+    macro: null, tagline: 'Better After Twenty Minutes Cold', score: null, sc: null,
+    diff: 'Easy', time: '5 mins', extras: null,
+  },
+  {
+    id: 261, book: 2, secNum: 9, secName: DRINKS,
+    name: 'Morning Oat Steamer',
+    servings: '1 Large Mug', servN: 1,
+    ing: ['½ cup non-fat dry milk', '¼ cup oat flour', '½ cup 2% milk', '1 cup hot water',
+      '1 tsp cinnamon', '1 tsp honey'],
+    steps: [
+      'Whisk the oat flour, dry milk and cinnamon into the cold milk until smooth.',
+      'Pour it into a small pan and bring it up slowly, stirring the whole time. It will thicken as the oat flour cooks — about three minutes.',
+      'Thin it with the hot water until it pours rather than mounds. How much you need depends on how fine your oat flour is.',
+      'Stir in the honey off the heat. It is breakfast rather than a drink; a spoon is not cheating.',
+    ],
+    macro: null, tagline: 'Thickens as It Goes', score: null, sc: null,
+    diff: 'Easy', time: '8 mins', extras: null,
+  },
+  {
+    id: 262, book: 2, secNum: 9, secName: DRINKS,
+    name: 'Salted Brown Sugar Steamer',
+    servings: '1 Mug', servN: 1,
+    ing: ['½ cup non-fat dry milk', '½ cup 2% milk', '1 cup hot water', '2 tsp brown sugar',
+      '1 tsp vanilla', '½ tsp cinnamon', 'pinch salt'],
+    steps: [
+      'Melt the brown sugar with a splash of the milk in a small pan over low heat, and let it bubble for a minute until it smells like caramel rather than like sugar.',
+      'Whisk in the rest of the cold milk, the dry milk, the cinnamon and the salt, off the heat, until smooth.',
+      'Add the hot water and bring it back to steaming, stirring. Do not let it boil.',
+      'Stir in the vanilla last. Heat drives it off, so anything added earlier is wasted.',
+    ],
+    macro: null, tagline: 'Let the Sugar Catch First', score: null, sc: null,
+    diff: 'Easy', time: '7 mins', extras: null,
+  },
+  {
+    id: 263, book: 2, secNum: 9, secName: DRINKS,
+    name: 'Peanut Butter Cocoa',
+    servings: '1 Mug', servN: 1,
+    ing: ['½ cup non-fat dry milk', '½ packet hot cocoa mix', '2 tsp peanut butter',
+      '1.5 cups hot water', '½ tsp cinnamon'],
+    steps: [
+      'Put the peanut butter in the mug on its own and stir in two tablespoons of the hot water until it loosens into a sauce. Add it to everything else at once and it stays a lump on the bottom.',
+      'Stir in the dry milk, the cocoa and the cinnamon.',
+      'Add the rest of the hot water slowly, stirring, until it is smooth.',
+      'It separates as it stands. Stir it again halfway down the mug.',
+    ],
+    macro: null, tagline: 'Loosen the Peanut Butter First', score: null, sc: null,
+    diff: 'Easy', time: '4 mins', extras: null,
   },
 ];

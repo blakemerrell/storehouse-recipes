@@ -70,7 +70,7 @@ module.exports = {
        into a print shop. Those came from the render and go stale silently. */
     const quoted = await p.evaluate(() => document.body.textContent.replace(/\s+/g, ' '));
     t.ok('the page counts it advertises match the books',
-      /104 pages · 26 sheets/.test(quoted) && /52 pages · 13 sheets/.test(quoted),
+      /108 pages · 27 sheets/.test(quoted) && /52 pages · 13 sheets/.test(quoted),
       (quoted.match(/\d+ pages · \d+ sheets/g) || []).join(' | '));
 
     // a phone must not have to scroll sideways to read it

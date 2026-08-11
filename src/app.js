@@ -23,7 +23,7 @@
   var APP_NAME = 'Hive & Hearth';
   var APP_LINE = 'Recipes';           // the second line on a cover
 
-  var BASE = window.RECIPES || [];    // the 257 in the two printed books
+  var BASE = window.RECIPES || [];    // the 263 in the two printed books
   var SHOP = window.SHOP || {};       // food key -> shopping-list name and unit
   var RECIPES = BASE;                 // those, with your changes, plus your own
   var BY_ID = {};
@@ -70,7 +70,7 @@
     },
     2: {
       name: 'Around the Table', short: 'TABLE',
-      blurb: 'One hundred fifty‑seven family recipes with primary ingredients from the Bishops’\u00a0Storehouse: three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.',
+      blurb: 'One hundred sixty‑three family recipes with primary ingredients from the Bishops’\u00a0Storehouse: three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.',
       epigraph: {
         t: ['And did eat their meat with gladness', 'and singleness of heart.'],
         r: 'Acts 2:46',
@@ -88,7 +88,7 @@
      bar at the top. */
   var COLLECTION_BLURB = 'Two volumes, with primary ingredients from the Bishops’\u00a0Storehouse. Run and ' +
     'Not Be Weary is a hundred recipes built on protein and fiber; Around the Table is a hundred and ' +
-    'fifty-seven family recipes, from three-minute breakfasts to Sunday roasts.';
+    'sixty-three family recipes, from three-minute breakfasts to Sunday roasts.';
 
   /* What the section picker calls each section. The full names are written
      for a printed contents page, where "Low-Calorie Cut Snacks & Late-Night
@@ -100,7 +100,7 @@
     '1-1': 'Zero-Cook', '1-2': 'Morning Brews', '1-3': 'Batch Preps', '1-4': 'Cut Snacks',
     '2-1': 'Weekday Breakfasts', '2-2': 'Lunches & Wraps', '2-3': 'Weeknight Dinners',
     '2-4': 'Sunday Feasts', '2-5': 'Treats & Desserts', '2-6': 'Worth the Afternoon',
-    '2-7': 'The Copycat Shelf', '2-8': 'Chocolate'
+    '2-7': 'The Copycat Shelf', '2-8': 'Chocolate', '2-9': 'Warm Drinks'
   };
 
   var SEC_NOTE = {
@@ -115,7 +115,8 @@
     '2-5': 'Sweets, made from what is on the shelf.',
     '2-6': 'Nothing quick here. Bread that rises, gravy that thickens, custard that sets.',
     '2-7': 'The restaurant version, worked out at home.',
-    '2-8': 'For when only chocolate will do.'
+    '2-8': 'For when only chocolate will do.',
+    '2-9': 'A mug of something warm, with the protein of a small meal.'
   };
 
   var FRAC = {
@@ -144,7 +145,7 @@
    * Three bands, because a number on its own is a number and a colour is a
    * glance: green worth eating often, blue worth eating, dark grey worth
    * knowing about. The thresholds sit either side of the median, which is 60
-   * across the 257, so the bands divide the collection rather than flattering
+   * across the 263, so the bands divide the collection rather than flattering
    * it. Drawn rather than set in a font so it prints as a shape at any size.
    */
   function scoreBand(n) { return n >= 70 ? 'good' : n >= 45 ? 'ok' : 'low'; }
@@ -211,7 +212,7 @@
   /* The same line by weight. Every recipe already carries a gram figure per
      ingredient — it is what the scores and the shopping list are computed from
      — so this is showing work that was always there rather than new arithmetic.
-     ingp runs parallel to ing across all 257 recipes; the tests hold that.
+     ingp runs parallel to ing across all 263 recipes; the tests hold that.
 
      What gets stripped is the written amount and, where the ingredient is
      measured by volume, the unit word and any parenthetical sizing after it:
@@ -1259,7 +1260,7 @@
   /* The last word on whether a page fits.
    *
    * The packer works from measured heights and is right about them, but it can
-   * be handed something it cannot solve: two of the 257 recipes are taller on
+   * be handed something it cannot solve: two of the 263 recipes are taller on
    * their own than a page's text area. There is nowhere to move them to, so the
    * packer put them on a page and the printed page — which is a fixed 7.5in with
    * overflow hidden — quietly ate the difference. What went was the page number,
@@ -1363,9 +1364,9 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 156 },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 160 },
     1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 52, booklet: true },
-    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 104, booklet: true }
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 108, booklet: true }
   };
 
   function renderDownloads() {

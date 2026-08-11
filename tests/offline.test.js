@@ -49,7 +49,7 @@ module.exports = {
       font: document.fonts.check('700 20px "Source Serif 4"'),
       planned: window.Store.day('wed').length,
     }));
-    t.ok('it opens with no network at all', alive.cards === 257, alive.cards);
+    t.ok('it opens with no network at all', alive.cards === 263, alive.cards);
     t.ok('in its own typeface rather than a fallback', alive.font);
     t.ok('and the week is where you left it', alive.planned === 1);
 
@@ -58,11 +58,11 @@ module.exports = {
     await p2.goto(t.base + 'index.html');
     await p2.waitForTimeout(1200);
     t.ok('a fresh tab opens offline too',
-      (await p2.evaluate(() => document.querySelectorAll('.card').length)) === 257);
+      (await p2.evaluate(() => document.querySelectorAll('.card').length)) === 263);
     await p2.click('.tab[data-view="book"]');
     await p2.waitForTimeout(3500);
     t.ok('and the whole book still prints',
-      (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 156);
+      (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 160);
 
     /* A phone that looks unchanged after a deploy is the hardest thing here to
        tell apart from a deploy that has not landed. The Sharing sheet carries

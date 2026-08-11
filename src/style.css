@@ -336,7 +336,7 @@ select { max-width: 280px; }
   .why-top b { flex: 1; }
 }
 
-/* Nine pixels held every one of the 257 on one line from 360px up. Eight and a
+/* Nine pixels held every one of the 263 on one line from 360px up. Eight and a
    half leaves room for the breakdown to open above it without the panel
    growing. */
 .nut-foot {
