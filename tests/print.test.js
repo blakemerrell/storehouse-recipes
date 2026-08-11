@@ -173,6 +173,31 @@ module.exports = {
     t.ok('and never touches the rule above it or the running head',
       clear.length === 0, clear.slice(0, 4).join(' | '));
 
+    /* The code on the back cover, read the way a phone reads it rather than
+       compared against the string that made it. Re-encoding the URL and
+       checking it matches would only prove the encoder is deterministic; it
+       would pass just as happily if CSS had squashed the symbol, dropped its
+       quiet zone, or scaled it to something no camera can resolve. Those are
+       the failures that actually happen, and they are only visible in pixels.
+
+       An unreadable QR in a printed book is the worst kind of broken: it looks
+       finished, and the only person who finds out is the one holding it. */
+    const shot = await p.locator('.pg-back .bc-qr-img').first().screenshot();
+    const sharp = require('sharp');
+    const jsQR = require('jsqr');
+    const { data, info } = await sharp(shot).ensureAlpha().raw()
+      .toBuffer({ resolveWithObject: true });
+    const decoded = jsQR(new Uint8ClampedArray(data), info.width, info.height);
+    t.ok('the code on the back cover actually scans',
+      !!decoded && /^https:\/\/\S+$/.test(decoded.data),
+      decoded ? decoded.data : 'no symbol found in ' + info.width + '×' + info.height);
+    t.ok('and points where the app is published',
+      !!decoded && decoded.data === (await p.evaluate(() => window.APP_QR_URL)),
+      decoded ? decoded.data : '—');
+    t.ok('both back covers carry one',
+      (await p.locator('.pg-back .bc-qr-img').count()) === 2,
+      await p.locator('.pg-back .bc-qr-img').count());
+
     t.ok('each volume opens on its own cover', b.covers === 2, b.covers);
     t.ok('and closes on its own back cover',
       (await p.evaluate(() => document.querySelectorAll('.pg-back').length)) === 2);

@@ -12,8 +12,10 @@
     "art": "node tools/prep-art.js"
   },
   "devDependencies": {
+    "jsqr": "^1.4.0",
     "pdf-lib": "^1.17.1",
     "playwright": "^1.56.1",
+    "qrcode-generator": "^1.4.4",
     "sharp": "^0.35.3"
   }
 }

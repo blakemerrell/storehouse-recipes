@@ -567,6 +567,22 @@ select { max-width: 280px; }
 .bc-no { color: var(--ochre); font-weight: 600; font-size: 9.5px; }
 .bc-sec { font-family: var(--serif); font-size: 12.5px; line-height: 1.25; text-wrap: pretty; }
 .bc-n { color: var(--muted); font-size: 10px; }
+/* The code, and the sentence that stops it being mute. margin-top: auto pushes
+   it down against the imprint, so the contents keep the middle of the cover
+   and the machine part sits at the foot where a barcode would. */
+.bc-qr { margin: auto 0 18px; text-align: center; }
+.bc-qr-img { width: 1.15in; height: 1.15in; margin: 0 auto; }
+.bc-qr-img svg { width: 100%; height: 100%; display: block; }
+.bc-qr-line {
+  font-family: var(--serif); font-style: italic; font-size: 11.5px;
+  color: var(--muted-2); line-height: 1.5; margin: 11px auto 0; max-width: 3in;
+  text-wrap: pretty;
+}
+.bc-qr-cap {
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: oklch(0.60 0.03 65); margin-top: 7px;
+}
+
 .bc-foot {
   padding-top: 16px; text-align: center;
   border-top: 1px solid var(--line-soft);

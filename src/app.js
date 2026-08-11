@@ -624,6 +624,23 @@
      would otherwise have to do. */
   function fruleHTML() { return '<span class="frule"><i></i><i></i></span>'; }
 
+  /* The code on the back cover. Built by tools/build-qr.js and inlined here, so
+     it needs no network at the moment of rendering — the same rule the fonts
+     and the engravings follow, and for the same reason: nothing in a printed
+     page may depend on somebody else's uptime.
+
+     Absent rather than empty if data/qr.js has not been built. A back cover
+     with a hole and a caption pointing at it is worse than one without. */
+  function qrHTML() {
+    if (!window.APP_QR) return '';
+    return '<div class="bc-qr">' +
+      '<div class="bc-qr-img">' + window.APP_QR + '</div>' +
+      '<div class="bc-qr-line">Every recipe here, on your phone &mdash; with a shopping ' +
+        'list that builds itself.</div>' +
+      '<div class="bc-qr-cap">Scan to open</div>' +
+    '</div>';
+  }
+
   function coverHTML(vol, title, sub, foot) {
     var vl = volumeLine(vol);
     return '<div class="pg"><div class="pg-cover">' +
@@ -698,14 +715,23 @@
             '<span class="bc-n">' + s.n + '</span></div>';
         }).join('') +
       '</div>' +
-      /* No note here. Two paragraphs used to sit between the contents and the
-         foot: one asserting that every recipe had been checked against the
-         order list and against the ratios a kitchen runs on, and one explaining
-         the score. The second is said properly in How to read a recipe, four
-         pages in. The first is the sound of somebody describing their own work
-         — a back cover is for telling a person what is inside, and "we were
-         careful" is not a thing inside. The contents list already answers the
-         question the back of a book is picked up to answer. */
+      /* Two paragraphs used to sit between the contents and the foot: one
+         asserting that every recipe had been checked against the order list and
+         against the ratios a kitchen runs on, and one explaining the score. The
+         second is said properly in How to read a recipe, four pages in. The
+         first is the sound of somebody describing their own work — a back cover
+         tells a person what is inside, and "we were careful" is not a thing
+         inside.
+
+         What is there instead is the code, which is the same job done honestly:
+         it does not describe the book, it hands you the rest of it. The line
+         under it is not decoration — a bare QR tells you to scan and not why,
+         and nobody scans a code to find out what it was for.
+
+         It goes here rather than on the title page because a title page is
+         ceremonial and this is a machine part. That page carries the verse and
+         nothing else on purpose. */
+      qrHTML() +
       '<div class="bc-foot">' +
         (vol.grouped ? '' : '<p>The companion volume is <strong>' + esc(other) + '</strong>.</p>') +
         '<p>' + vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes') +
