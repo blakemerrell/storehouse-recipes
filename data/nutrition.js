@@ -481,9 +481,26 @@ function parseLine(raw) {
     else if (unit === 'oz') per = 28.35;
     else if (unit === 'lb') per = 453.6;
     else per = food.g[unit];
+    /* A spoon the table does not list is derived from the one it does: three
+       teaspoons to a tablespoon, sixteen tablespoons to a cup. Honey is the
+       one that showed this up — its table has cup and tbsp and no tsp, and
+       "1 tsp honey" fell through to the blind substitute below, which offered
+       `cup` first. A teaspoon of honey was being counted as a cup of it: 7 g
+       read as 339 g, and a mug of warm milk came out at twelve hundred
+       calories with nothing printed to say so.
+
+       So the volume units convert, and `cup` is no longer a thing any unit may
+       silently become. What is left in the blind list is containers, which is
+       the case it was written for — "1 can" of something the table sizes by
+       the each. Nothing in the book took this path either way. */
     if (per === undefined) {
-      // fall back through sensible substitutes
-      per = food.g.each || food.g.cup || food.g.can || food.g.pkg || food.g.box || food.g.jar;
+      const cup = food.g.cup, tbsp = food.g.tbsp, tsp = food.g.tsp;
+      if (unit === 'tsp') per = tbsp !== undefined ? tbsp / 3 : cup !== undefined ? cup / 48 : undefined;
+      else if (unit === 'tbsp') per = cup !== undefined ? cup / 16 : tsp !== undefined ? tsp * 3 : undefined;
+      else if (unit === 'cup') per = tbsp !== undefined ? tbsp * 16 : tsp !== undefined ? tsp * 48 : undefined;
+    }
+    if (per === undefined) {
+      per = food.g.each || food.g.can || food.g.pkg || food.g.box || food.g.jar;
       if (per === undefined) return { unmatched: foodName + ' [unit ' + unit + ']', raw };
     }
     grams = qty * per * sizeMult;
