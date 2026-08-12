@@ -21,7 +21,7 @@
 
 /* Bump this when the shell changes. The old cache is deleted on activate, which
    is what gets a phone that is holding a previous build onto the current one. */
-var CACHE = 'storehouse-v37';
+var CACHE = 'storehouse-v38';
 
 var SHELL = [
   './',
@@ -98,6 +98,19 @@ self.addEventListener('fetch', function (e) {
      the way to a print shop. Keeping them on a phone for a shopping trip would
      be the wrong five megabytes. */
   if (url.pathname.indexOf('/print/') >= 0) return;
+
+  /* And the landing page, for a subtler reason. Its markup is network-first
+     like any navigation, so the words on it are never stale — but the eight
+     demo frames beside them are ordinary sub-resources, which the handler below
+     serves cache-first and only refreshes for next time. Their filenames do not
+     change when they are rebuilt, so a phone that had seen the page once would
+     go on showing frames from the previous build while the text around them was
+     current: exactly the failure data/recipes.js had, one directory over.
+
+     Versioning eight filenames would fix it, and so does this, which also costs
+     nothing anyone wants. Nobody opens a landing page with no signal — it is
+     the page you send to somebody who has not got the app yet. */
+  if (url.pathname.indexOf('/welcome/') >= 0) return;
 
   if (req.mode === 'navigate') {
     /* 'no-cache' revalidates with the server instead of trusting the browser's
