@@ -79,6 +79,9 @@ function serve() {
   }
   fs.mkdirSync(OUT, { recursive: true });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'demo-'));
+  global.window = {};
+  require(path.join(ROOT, 'data', 'recipes.js'));
+  const RECIPE_COUNT = global.window.RECIPES.length;
 
   // ---- the book ---------------------------------------------------------
   for (const p of PAGES) {
@@ -132,9 +135,21 @@ function serve() {
       .webp({ quality: 82 }).toFile(path.join(OUT, s.name + '.webp'));
   }
 
+  /* A stamp, because these frames rot silently and expensively. They are
+     photographs of a build; the build moves; the page goes on showing a cover
+     that advertises a recipe count from two commits ago, and nothing about the
+     page looks wrong. It is the same failure mode the rendered PDFs have, and
+     it gets the same treatment: record what was photographed, and let
+     tests/welcome.test.js fail when the app has moved on without them. */
+  fs.writeFileSync(path.join(OUT, 'stamp.json'), JSON.stringify({
+    recipes: RECIPE_COUNT,
+    pdf: require('crypto').createHash('sha1').update(fs.readFileSync(PDF)).digest('hex').slice(0, 12),
+  }, null, 2) + '\n');
+
   fs.rmSync(tmp, { recursive: true, force: true });
-  const total = fs.readdirSync(OUT).reduce((n, f) => n + fs.statSync(path.join(OUT, f)).size, 0);
-  console.log('wrote ' + fs.readdirSync(OUT).length + ' frames to welcome/demo  (' +
-    Math.round(total / 1024) + ' KB total)');
+  const frames = fs.readdirSync(OUT).filter((f) => f.endsWith('.webp'));
+  const total = frames.reduce((n, f) => n + fs.statSync(path.join(OUT, f)).size, 0);
+  console.log('wrote ' + frames.length + ' frames to welcome/demo  (' +
+    Math.round(total / 1024) + ' KB total, ' + RECIPE_COUNT + ' recipes)');
   console.log(PAGES.concat(SCREENS).map((x) => '  ' + x.name).join('\n'));
 })();

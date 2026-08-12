@@ -55,6 +55,26 @@ module.exports = {
     t.ok('and every one of them loaded', demo.broken.length === 0, demo.broken.join(' '));
     t.ok('with one description per stack rather than eight', demo.described === 2, demo.described);
 
+    /* The frames are photographs of a build, and a photograph does not complain
+       when the thing it photographed moves on. The cover in the first frame
+       carries the recipe count; the page went out advertising 263 of them after
+       three were added, and nothing about it looked wrong. tools/build-demo.js
+       stamps what it photographed, and this is where that stamp is checked. */
+    const fs = require('fs'), path = require('path'), crypto = require('crypto');
+    const root = path.join(__dirname, '..');
+    const stamp = JSON.parse(fs.readFileSync(path.join(root, 'welcome', 'demo', 'stamp.json'), 'utf8'));
+    global.window = {};
+    delete require.cache[require.resolve(path.join(root, 'data', 'recipes.js'))];
+    require(path.join(root, 'data', 'recipes.js'));
+    const count = global.window.RECIPES.length;
+    const pdfHash = crypto.createHash('sha1')
+      .update(fs.readFileSync(path.join(root, 'print', 'Hive-and-Hearth-Recipes.pdf')))
+      .digest('hex').slice(0, 12);
+    t.ok('the demo frames were taken of the current build',
+      stamp.recipes === count && stamp.pdf === pdfHash,
+      stamp.recipes + ' recipes / ' + stamp.pdf + ' vs ' + count + ' / ' + pdfHash +
+      ' — run node tools/build-demo.js');
+
     /* Every way in. Somebody who reads to the end and wants to pay should not
        have to scroll back up to find out how. */
     const ways = await p.evaluate(() => {
@@ -95,10 +115,10 @@ module.exports = {
           links: root ? [...document.querySelectorAll(linkSel)].map((a) => a.getAttribute('href')) : [] };
       };
       return {
-        /* The paying links only. The ghost button beside "Give what you
-           like" says "Just open the app" and is rightly a relative link, so
-           scooping up every anchor in the section fails a block that is fine. */
-        give: block('.give', 'a.give-card, .give ~ .cta a.btn-solid'),
+        /* The paying links only, by class. The section also carries a
+           relative link to the app, and scooping up every anchor in it would
+           fail a block that is perfectly fine. */
+        give: block('.give', 'a.give-card, a.give-btn'),
         /* .post-order, not .post — the same card style is reused for the
            free one-book download, whose href is a local PDF and rightly is
            not a payment URL. Only the one that takes money is guarded. */

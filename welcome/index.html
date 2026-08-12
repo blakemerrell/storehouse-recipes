@@ -112,14 +112,36 @@ a { color: inherit; }
   box-shadow: 0 14px 30px oklch(0.26 0.02 60 / 0.18);
 }
 /* The bezel is the whole reason to draw a phone at all: without it the
-   screenshot reads as a narrow web page rather than as something in a hand. */
+   screenshot reads as a narrow web page rather than as something in a hand.
+   It used to be near-black, which put a dark band above and below a picture of
+   an app that is otherwise all paper — the one thing on this page that looked
+   like a hole. Three changes: the body is bone rather than ink, so it belongs
+   to the same palette as everything else; it carries an earpiece and a home
+   bar, so the space it does take is plainly a phone and not a margin; and the
+   screen is sized by its four insets instead of by width:100%, which was
+   pinning the image to the top-left and spilling it out past the rounded
+   corners at the bottom. */
 .demo-phone {
-  width: clamp(109px, 19.5vw, 229px); aspect-ratio: 390 / 844;
-  background: var(--ink); border-radius: clamp(9px, 1.6vw, 20px);
-  padding: clamp(4px, 0.7vw, 8px);
-  box-shadow: 0 14px 30px oklch(0.26 0.02 60 / 0.22);
+  --bz:  clamp(4px, 0.68vw, 8px);
+  --bzt: clamp(7px, 1.2vw, 14px);
+  --bzb: clamp(10px, 1.7vw, 20px);
+  width: clamp(112px, 19.2vw, 226px); aspect-ratio: 226 / 488;
+  background: linear-gradient(158deg, oklch(0.94 0.010 82), oklch(0.86 0.016 78));
+  border: 1px solid var(--line-firm);
+  border-radius: clamp(10px, 1.8vw, 22px);
+  padding: var(--bzt) var(--bz) var(--bzb);
+  box-shadow: 0 14px 30px oklch(0.26 0.02 60 / 0.20), inset 0 1px 0 #fff;
 }
-.demo-phone img { inset: clamp(4px, 0.7vw, 8px); border-radius: clamp(5px, 1vw, 13px); }
+.demo-phone img {
+  inset: var(--bzt) var(--bz) var(--bzb); width: auto; height: auto;
+  border-radius: clamp(3px, 0.7vw, 7px);
+}
+.demo-phone::before, .demo-phone::after {
+  content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+  height: 3px; border-radius: 99px; background: var(--line-firm);
+}
+.demo-phone::before { top: calc(var(--bzt) / 2 - 1.5px); width: 22%; }
+.demo-phone::after  { bottom: calc(var(--bzb) / 2 - 1.5px); width: 30%; }
 
 /* Four frames on a seventeen-second loop: two seconds to cross over, a little
    over two to read. The phone runs half a beat behind the book so the pair
@@ -185,10 +207,21 @@ h2 + .sub {
   color: var(--ochre); font-weight: 600; display: block; margin-bottom: 9px;
 }
 
-/* ---- the code --------------------------------------------------------- */
+/* ---- the code ----------------------------------------------------------
+   This was two cards and a code sitting between them, which described the
+   feature without showing it. The thing worth showing is that it *happens*:
+   the second phone says Local until the code reaches it and then it says
+   Synced. So the block runs the story on a nine-second loop — the badge is
+   tapped, a spark crosses, the far phone changes state, it holds long enough
+   to read, and it resets.
+
+   All of it is CSS on one shared duration, which is the only reason four
+   independent animations stay in step. Anyone who has asked their system not
+   to animate things gets the end of the story instead of the middle: both
+   phones synced, no spark. */
 .code-demo {
   display: flex; align-items: center; justify-content: center; gap: 18px;
-  flex-wrap: wrap; margin: 32px 0 8px;
+  flex-wrap: wrap; margin: 32px 0 0;
 }
 .phone {
   border: 1.5px solid var(--line-firm); border-radius: 14px; padding: 18px 20px;
@@ -200,12 +233,67 @@ h2 + .sub {
   font-size: 13px; font-weight: 600; color: var(--green);
 }
 .phone .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+/* Both states occupy the same cell, so the card does not resize when the word
+   under it changes from five letters to six. */
+.badge-swap { display: inline-grid; margin-top: 10px; }
+.badge-swap > span {
+  grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 7px;
+  justify-self: center; font-size: 13px; font-weight: 600;
+}
+.b-off { color: var(--muted); animation: swapoff var(--beat) infinite; }
+.b-on  { color: var(--green); animation: swapon  var(--beat) infinite; }
+.b-off .dot { background: var(--muted); }
+
+.link { position: relative; flex: 0 1 150px; min-width: 96px; height: 26px; }
+.link::before {
+  content: ''; position: absolute; top: 50%; left: 0; right: 8px; height: 1px;
+  background: var(--line-firm);
+}
+.link::after {
+  content: ''; position: absolute; top: 50%; right: 1px; width: 6px; height: 6px;
+  margin-top: -3.5px; transform: rotate(45deg);
+  border-top: 1.5px solid var(--line-firm); border-right: 1.5px solid var(--line-firm);
+}
+.spark {
+  position: absolute; top: 50%; left: 0; width: 9px; height: 9px; margin-top: -4.5px;
+  border-radius: 50%; background: var(--ochre); opacity: 0;
+  box-shadow: 0 0 0 4px oklch(0.62 0.10 55 / 0.16);
+  animation: travel var(--beat) infinite;
+}
+
 .codeword {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px;
   letter-spacing: 0.04em; background: var(--paper); border: 1px solid var(--line);
   padding: 9px 14px; border-radius: 3px; white-space: nowrap;
+  transition: border-color .3s ease;
 }
-.link-arrow { color: var(--ochre); font-size: 22px; }
+.code-cap {
+  text-align: center; margin: 16px 0 4px; font-size: 13px; color: var(--muted);
+}
+.code-cap .codeword { display: inline-block; animation: lit var(--beat) infinite; }
+
+.code-demo, .code-cap { --beat: 9s; }
+/* The spark leaves as the code lights up and lands a beat before the far badge
+   turns over, which is the order it happens in on a real pair of phones. */
+@keyframes travel {
+  0%,  8%  { left: 0;             opacity: 0; transform: scale(0.3) }
+  14%      { left: 0;             opacity: 1; transform: scale(1) }
+  40%      { left: calc(100% - 9px); opacity: 1; transform: scale(1) }
+  47%, 100%{ left: calc(100% - 9px); opacity: 0; transform: scale(0.3) }
+}
+@keyframes swapoff { 0%, 42% { opacity: 1 } 48%, 92% { opacity: 0 } 98%, 100% { opacity: 1 } }
+@keyframes swapon  { 0%, 42% { opacity: 0 } 48%, 92% { opacity: 1 } 98%, 100% { opacity: 0 } }
+@keyframes lit {
+  0%, 6%   { border-color: var(--line) }
+  12%, 44% { border-color: var(--ochre) }
+  56%, 100%{ border-color: var(--line) }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spark { display: none }
+  .b-off, .b-on, .code-cap .codeword { animation: none }
+  .b-off { opacity: 0 }
+  .b-on  { opacity: 1 }
+}
 
 /* ---- have them posted to you ------------------------------------------
    Sits under the free downloads, never above them. The PDFs are the offer;
@@ -390,13 +478,18 @@ footer a:hover { text-decoration: underline; }
     <p><strong>Then share a code.</strong> Everything saves on the phone you&rsquo;re using. Tap
     the badge, take the code it gives you, and type it on the other phone. That&rsquo;s it.</p>
 
-    <div class="code-demo">
+    <div class="code-demo" role="img"
+         aria-label="Your phone is synced. The code travels to their phone, and it changes from Local to Synced.">
       <div class="phone"><div class="who">Your phone</div>
         <div class="badge"><span class="dot"></span>Synced</div></div>
-      <div class="codeword">KETTLE-4827-ORCHARD</div>
+      <div class="link"><span class="spark"></span></div>
       <div class="phone"><div class="who">Their phone</div>
-        <div class="badge"><span class="dot"></span>Synced</div></div>
+        <div class="badge-swap">
+          <span class="b-off"><span class="dot"></span>Local</span>
+          <span class="b-on"><span class="dot"></span>Synced</span>
+        </div></div>
     </div>
+    <p class="code-cap"><span class="codeword">KETTLE-4827-ORCHARD</span></p>
 
     <p>Now your favorites, your weeks and your ticked-off groceries are the same on both
     phones. You can both edit at once. If one of you is offline it catches up when you&rsquo;re
@@ -467,14 +560,26 @@ footer a:hover { text-decoration: underline; }
     <div class="quote">&ldquo;I give not because I have not, but if I had I would give.&rdquo;</div>
     <div class="quote-src">King Benjamin &middot; Mosiah 4:24</div>
 
-    <p>I built this because my family needed it. We&rsquo;re using the bishops&rsquo; storehouse
-    right now, and I wanted a way to eat well from what it carries. It works for us. It costs
-    you nothing: the app is free, the books are free, and the code is open source.</p>
+    <p>We&rsquo;re using the bishops&rsquo; storehouse right now. That&rsquo;s not a comfortable
+    sentence to put on a public page, but it&rsquo;s the whole reason this exists. The order
+    sheet is a fixed list, and eating well off a fixed list takes more planning than most
+    weeks have room for.</p>
 
-    <p>I&rsquo;m also looking for ways to bring some money in, honestly. If this saved you time or
-    money and you&rsquo;re able to, anything you send goes straight to my family. But three verses
-    on from the one above: <em>&ldquo;it is not requisite that a man should run faster than he
-    has strength.&rdquo;</em> Please don&rsquo;t give out of your own need.</p>
+    <p>So I built it for us: recipes that lean on what&rsquo;s actually on that sheet, a week you
+    plan once, and a shopping list that only asks you to buy the things the storehouse
+    doesn&rsquo;t carry. My wife and I run it off one shared list across two phones. It worked
+    well enough that I typeset the whole collection, had it printed and bound at a copy shop,
+    and put it here.</p>
+
+    <p>It costs you nothing, and it isn&rsquo;t going to. The app is free, both books are free,
+    the source is public. That&rsquo;s not a strategy &mdash; it was built by somebody who
+    couldn&rsquo;t have paid for it either, and I&rsquo;d rather you had it than paid for it.</p>
+
+    <p>I&rsquo;m also trying to bring some money in, and I&rsquo;d rather say so plainly than
+    dress it up. If this saved you an afternoon or a trip and you&rsquo;re able to, anything you
+    send goes straight to my family and I&rsquo;m grateful for it. But three verses on from the
+    one above: <em>&ldquo;it is not requisite that a man should run faster than he has
+    strength.&rdquo;</em> Please don&rsquo;t give out of your own need. Take the book.</p>
 
     <div class="give">
       <div class="give-card free">
@@ -495,10 +600,18 @@ footer a:hover { text-decoration: underline; }
       </a>
     </div>
 
+    <!-- The two amounts again, as buttons. The cards above are links and behave
+         like links, but they read as a price list, and a price list is a thing
+         you look at rather than a thing you press. These are the same two
+         suggestions with a verb on them. -->
     <div class="cta" style="justify-content:flex-start">
-      <a class="btn btn-solid" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give what you like</a>
-      <a class="btn btn-ghost" href="../">Just open the app</a>
+      <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $8</a>
+      <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $40</a>
+      <a class="btn btn-solid give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give what you like</a>
     </div>
+    <p class="cta-note" style="text-align:left">All three open the same page, where you type the
+    amount &mdash; so the two above are suggestions, not tiers. Or
+    <a href="../" style="color:var(--ochre);font-weight:600">just open the app</a>.</p>
   </div>
 </section>
 
