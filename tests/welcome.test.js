@@ -71,15 +71,23 @@ module.exports = {
        present and unwired. A dead link anywhere on this page is a nuisance; a
        dead link on the one button that costs somebody money is the kind of
        thing you only find out about from the person who tried. */
-    const give = await p.evaluate(() => ({
-      present: !!document.querySelector('.give'),
-      links: [...document.querySelectorAll('a.give-card, .give-foot ~ .cta a, .give a')]
-        .map((a) => a.getAttribute('href')),
-    }));
+    const money = await p.evaluate(() => {
+      const block = (sel, linkSel) => {
+        const root = document.querySelector(sel);
+        return { present: !!root,
+          links: root ? [...document.querySelectorAll(linkSel)].map((a) => a.getAttribute('href')) : [] };
+      };
+      return {
+        give: block('.give', 'a.give-card, .give-foot ~ .cta a'),
+        post: block('.post', '.post a[href]'),
+      };
+    });
+    const wired = (b) => !b.present ||
+      (b.links.length > 0 && b.links.every((h) => /^https?:\/\//.test(h) && !/_LINK_HERE/.test(h)));
     t.ok('the donate block is either off or actually wired up',
-      !give.present || (give.links.length > 0 &&
-        give.links.every((h) => /^https?:\/\//.test(h) && !/GIVE_LINK_HERE/.test(h))),
-      give.present ? give.links.join(' ') : 'off');
+      wired(money.give), money.give.present ? money.give.links.join(' ') : 'off');
+    t.ok('and so is the one that posts you a printed set',
+      wired(money.post), money.post.present ? money.post.links.join(' ') : 'off');
 
     /* The page quotes page and sheet counts at people deciding whether to walk
        into a print shop. Those came from the render and go stale silently. */

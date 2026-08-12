@@ -151,6 +151,21 @@ h2 + .sub {
 }
 .link-arrow { color: var(--ochre); font-size: 22px; }
 
+/* ---- have them posted to you ------------------------------------------
+   Sits under the free downloads, never above them. The PDFs are the offer;
+   this is a convenience for people who would rather not stand at a copy shop,
+   and it must not read as the paid tier of a thing that is free. */
+.post {
+  display: flex; gap: 22px; align-items: center; flex-wrap: wrap;
+  border: 1px solid var(--line); background: #fff; padding: 22px 24px; margin-top: 26px;
+}
+.post-body { flex: 1 1 320px; }
+.post-h { font-family: var(--serif); font-size: 19px; font-weight: 700; }
+.post-p { font-size: 14.5px; color: var(--muted-2); line-height: 1.6; margin: 7px 0 0; text-wrap: pretty; }
+.post-buy { flex: 0 0 auto; text-align: center; }
+.post-amt { font-family: var(--serif); font-size: 30px; font-weight: 700; line-height: 1; }
+.post-amt-sub { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ochre); font-weight: 600; margin-top: 6px; }
+
 /* ---- pay what it is worth ---------------------------------------------
    Last section before the footer, deliberately. Asking before the page has
    shown what it is asking for is the wrong order, and a page that opens with a
@@ -367,6 +382,33 @@ footer a:hover { text-decoration: underline; }
         </div>
       </div>
     </div>
+
+    <!-- =================================================================
+         PRINTED SET  —  OFF UNTIL THERE IS SOMEWHERE TO BUY
+
+         Replace BUY_LINK_HERE with the Stripe link, then delete this line
+         and the closing marker. Same rule as the donate block: it does not
+         go live pointing at nothing.
+         ============================================================== -->
+    <!-- CUT FROM HERE
+    <div class="post">
+      <div class="post-body">
+        <div class="post-h">Or have the pair posted to you</div>
+        <p class="post-p">Both volumes, printed and folded here and sent by mail in the
+        United States. The files above stay free and always will &mdash; this is for anyone
+        who would rather not spend an afternoon arguing with a copy shop. The price covers
+        the printing and the postage and a little for the folding.</p>
+      </div>
+      <div class="post-buy">
+        <div class="post-amt">$45</div>
+        <div class="post-amt-sub">Both volumes, posted</div>
+        <div class="cta" style="margin-top:14px">
+          <a class="btn btn-solid" href="BUY_LINK_HERE">Order the set</a>
+        </div>
+      </div>
+    </div>
+    END OF CUT -->
+
   </div>
 </section>
 
