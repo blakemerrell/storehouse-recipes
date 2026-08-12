@@ -449,23 +449,18 @@ footer a:hover { text-decoration: underline; }
 </section>
 
 <!-- =====================================================================
-     PAY WHAT IT IS WORTH  —  OFF UNTIL THERE IS SOMEWHERE TO PAY
+     PAY WHAT IT IS WORTH
 
-     TO TURN IT ON, TWO STEPS:
-       1. Replace all four GIVE_LINK_HERE below with your payment page.
-       2. Delete this line and the closing marker at the end of the block.
-
-     It ships commented out rather than pointing somewhere hopeful, because a
-     donate button that 404s is the one broken link on a site that costs real
-     money and real credibility. tests/welcome.test.js will not let it go live
-     with the placeholder still in it.
+     One Stripe link behind all four buttons, of the "customers choose what to
+     pay" kind, so every card lands on its suggested amount and nobody who wants
+     to give something else hits a wall. tests/welcome.test.js will not let this
+     block go live with a placeholder still in it.
 
      Deliberately a plain link and not an embedded widget: every other thing on
      this site is served from this repository, and a page whose own footer says
      "nothing is fetched from any other host" cannot then load a payment script
      from one. A link fetches nothing until it is clicked.
 ================================================================== -->
-<!-- CUT FROM HERE
 <section>
   <div class="wrap narrow">
     <h2>Pay what it is worth to you</h2>
@@ -493,13 +488,13 @@ footer a:hover { text-decoration: underline; }
         <div class="give-note">This is what it is for. If money is tight, it is tight &mdash;
         I know exactly what that is like, and I would rather you had the book.</div>
       </div>
-      <a class="give-card" href="GIVE_LINK_HERE">
+      <a class="give-card" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">
         <div class="give-amt">$8</div>
         <div class="give-what">A printed volume</div>
         <div class="give-note">About what one of the two books costs to print and bind at a
         copy shop.</div>
       </a>
-      <a class="give-card" href="GIVE_LINK_HERE">
+      <a class="give-card" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">
         <div class="give-amt">$40</div>
         <div class="give-what">A week of the extras</div>
         <div class="give-note">Roughly a week of the things the storehouse does not carry &mdash;
@@ -513,13 +508,12 @@ footer a:hover { text-decoration: underline; }
     Please do not give out of your own need.</p>
 
     <div class="cta" style="justify-content:flex-start">
-      <a class="btn btn-solid" href="GIVE_LINK_HERE">Give what you like</a>
+      <a class="btn btn-solid" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give what you like</a>
       <a class="btn btn-ghost" href="../">Just open the app</a>
     </div>
   </div>
 </section>
 
-END OF CUT -->
 
 <footer>
   <div class="wrap">
