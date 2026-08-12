@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=36">
+<link rel="stylesheet" href="src/style.css?v=37">
 </head>
 <body>
 
@@ -170,6 +170,13 @@
         <a class="btn-primary hide" id="dlBook" download>Download PDF</a>
         <a class="ghost hide" id="dlBooklet" download title="Two pages to a sheet, in folding order">Booklet PDF</a>
         <button class="ghost" id="doPrint">Print&hellip;</button>
+        <!-- The one place in the app worth asking from. Somebody reading a
+             156-page preview and working out what a copy shop would charge is
+             the only person here who has already decided they want it on
+             paper. Shown by the app for the whole-book sets only; a print of
+             this week's plan is not something anyone posts you. -->
+        <a class="ghost hide" id="orderBook" target="_blank" rel="noopener"
+           href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Or have it printed &amp; posted &middot; $50</a>
       </div>
     </div>
   </div>
@@ -179,14 +186,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=36"></script>
-<script src="data/nutrition.js?v=36"></script>
-<script src="data/art.js?v=36"></script>
-<script src="data/qr.js?v=36"></script>
-<script src="src/config.js?v=36"></script>
+<script src="data/recipes.js?v=37"></script>
+<script src="data/nutrition.js?v=37"></script>
+<script src="data/art.js?v=37"></script>
+<script src="data/qr.js?v=37"></script>
+<script src="src/config.js?v=37"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=36"></script>
-<script src="src/app.js?v=36"></script>
+<script src="src/sync.js?v=37"></script>
+<script src="src/app.js?v=37"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

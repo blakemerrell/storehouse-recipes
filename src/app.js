@@ -1531,6 +1531,11 @@
   function renderDownloads() {
     var r = READY_MADE[S.printSet];
     var dl = $('dlBook'), bk = $('dlBooklet');
+    /* Only where it makes sense to offer. Somebody printing Favorites or this
+       week's plan is printing four pages for the fridge, and being asked fifty
+       dollars for a bound book at that moment reads as not paying attention. */
+    $('orderBook').classList.toggle('hide',
+      S.printSet !== 'one' && S.printSet !== 'all' && S.printSet !== '1' && S.printSet !== '2');
     dl.classList.toggle('hide', !r);
     bk.classList.toggle('hide', !(r && r.booklet));
     if (!r) return;

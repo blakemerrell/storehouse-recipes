@@ -36,21 +36,38 @@ module.exports = {
       [...document.images].filter((i) => !i.naturalWidth).map((i) => new URL(i.src).pathname));
     t.ok('every engraving on it actually loads', broken.length === 0, broken.join(' '));
 
-    /* Twelve sections have art, so twelve plates. A number that drifts means the
-       page and the book have stopped agreeing about how many there are. */
-    const plates = await p.evaluate(() => document.querySelectorAll('.plate img').length);
-    t.ok('one plate per illustrated section', plates === 12, plates + ' plates');
+    /* Four frames of the book and four of the app, cross-fading. Both stacks
+       are real renders — pages out of the PDF and the app driven at phone size
+       — so what is asserted is that all eight are there and none of them is a
+       hole. A missing frame in a stack of four that fades is close to invisible
+       to the eye: it just looks like a longer pause. */
+    const demo = await p.evaluate(() => ({
+      book: document.querySelectorAll('.demo-book img').length,
+      app: document.querySelectorAll('.demo-phone img').length,
+      broken: [...document.querySelectorAll('.demo img')]
+        .filter((i) => !i.naturalWidth).map((i) => new URL(i.src).pathname),
+      /* One description per stack. Eight would make a screen reader read out
+         four pictures of the same book. */
+      described: [...document.querySelectorAll('.demo img')].filter((i) => i.alt).length,
+    }));
+    t.ok('the demo shows four frames of the book and four of the app',
+      demo.book === 4 && demo.app === 4, JSON.stringify(demo));
+    t.ok('and every one of them loaded', demo.broken.length === 0, demo.broken.join(' '));
+    t.ok('with one description per stack rather than eight', demo.described === 2, demo.described);
 
-    /* The art the page shows should be the art the book prepared, not a
-       leftover file that happens to still be sitting in the folder. */
-    const mismatched = await p.evaluate(async () => {
-      const manifest = await fetch('../data/art.js').then((r) => r.text());
-      const known = [...manifest.matchAll(/"(art\/[^"]+\.png)"/g)].map((m) => m[1]);
-      return [...document.querySelectorAll('.plate img')]
-        .map((i) => decodeURIComponent(new URL(i.src).pathname.replace(/^.*\/(art\/)/, '$1')))
-        .filter((src) => !known.includes(src));
+    /* Every way in. Somebody who reads to the end and wants to pay should not
+       have to scroll back up to find out how. */
+    const ways = await p.evaluate(() => {
+      const pay = [...document.querySelectorAll('a[href*="buy.stripe.com"]')];
+      const near = (sel) => pay.some((a) => a.closest(sel));
+      return {
+        total: pay.length,
+        hero: near('.hero'), demo: !!document.querySelector('.demo-cap a[href*="stripe"]'),
+        footer: near('footer'),
+      };
     });
-    t.ok('and is the same art the book uses', mismatched.length === 0, mismatched.join(' '));
+    t.ok('there is a way to pay in the hero, by the demo and in the footer',
+      ways.hero && ways.demo && ways.footer, JSON.stringify(ways));
 
     /* Every link on the page, checked rather than assumed — the PDFs in
        particular are named after a volume that was renamed once already. */

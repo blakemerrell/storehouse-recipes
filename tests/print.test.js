@@ -278,6 +278,19 @@ module.exports = {
     await p.selectOption('#printSet', 'all');
     await p.waitForTimeout(4500);
 
+    /* The one ask inside the app, and the one place it belongs: somebody
+       reading a 156-page preview and working out what a copy shop charges has
+       already decided they want it on paper. It must not follow them into a
+       print of this week's plan, which is four pages for a fridge door. */
+    const ask = async () => p.evaluate(() =>
+      !document.getElementById('orderBook').classList.contains('hide'));
+    t.ok('the printed-copy offer is there when you are looking at a whole book', await ask());
+    await p.selectOption('#printSet', 'fav'); await p.waitForTimeout(1200);
+    t.ok('and gone when you are printing four pages for the fridge', !(await ask()));
+    await p.selectOption('#printSet', '1'); await p.waitForTimeout(3000);
+    t.ok('and back for a single volume', await ask());
+    await p.selectOption('#printSet', 'all'); await p.waitForTimeout(4500);
+
     // the other things you can print
     await p.evaluate(() => { window.Store.toggleFav(3); window.Store.toggleFav(9); });
     await p.selectOption('#printSet', 'fav');
