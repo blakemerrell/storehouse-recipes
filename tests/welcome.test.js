@@ -179,6 +179,22 @@ module.exports = {
       (b.links.length > 0 && b.links.every((h) => /^https?:\/\//.test(h) && !/_LINK_HERE/.test(h)));
     t.ok('the donate block is either off or actually wired up',
       wired(money.give), money.give.present ? money.give.links.join(' ') : 'off');
+
+    /* Every suggested amount is its own Stripe link, because the amount is
+       baked into the link and not passed in the URL. So a button can say $8
+       and open a box pre-filled with $40, which is what it did — all three
+       pointed at the same link for a fortnight — and nothing about the page
+       looks wrong when it happens. Two buttons naming two different amounts
+       must not share an href. */
+    const amounts = await p.evaluate(() =>
+      [...document.querySelectorAll('a.give-btn')]
+        .map((a) => ({ amt: (a.textContent.match(/\$\d+/) || [null])[0], href: a.getAttribute('href') }))
+        .filter((x) => x.amt));
+    const clash = amounts.filter((x, i) =>
+      amounts.some((y, j) => j !== i && y.amt !== x.amt && y.href === x.href));
+    t.ok('each suggested amount has its own payment link',
+      amounts.length > 0 && clash.length === 0,
+      amounts.map((x) => x.amt + ' → ' + String(x.href).split('/').pop()).join(', '));
     t.ok('and so is the one that posts you a printed set',
       wired(money.post), money.post.present ? money.post.links.join(' ') : 'off');
 
