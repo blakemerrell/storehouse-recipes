@@ -179,6 +179,40 @@ module.exports = {
     const over = await p.evaluate(() =>
       document.documentElement.scrollWidth - document.documentElement.clientWidth);
     t.ok('and nothing runs off the side of a phone', over <= 0, over + 'px');
+
+    /* Every tab reachable without knowing to swipe. Five tabs and the sync
+       button shared one row, which put 230px of it off the right-hand edge at
+       390px: "Pantry" cut to "Pant", "Print Book" not on screen at all, and no
+       scrollbar or fade to say there was more. Two of the five were, in
+       practice, undiscoverable.
+
+       Asserted by geometry rather than by overflow, because the fix is not
+       "it scrolls" — it is that nothing needs to. */
+    const tabs = await p.evaluate(() => {
+      const t = document.querySelector('.tabs');
+      const box = t.getBoundingClientRect();
+      return {
+        labels: [...t.querySelectorAll('.tab')].map((b) => b.innerText.trim()),
+        offscreen: [...t.querySelectorAll('.tab')]
+          .filter((b) => b.getBoundingClientRect().right > box.right + 1)
+          .map((b) => b.innerText.trim()),
+        // and the sync button is no longer competing with them for the row
+        syncAbove: document.querySelector('.synbtn').getBoundingClientRect().top < box.top,
+      };
+    });
+    t.ok('every tab is on the screen without scrolling for it',
+      tabs.offscreen.length === 0, 'off the edge: ' + tabs.offscreen.join(', '));
+    t.ok('under a short name each, on a phone',
+      tabs.labels.join('|') === 'Browse|Plan|List|Pantry|Book', tabs.labels.join(' '));
+    t.ok('with the sync button up on the brand line, out of their way', tabs.syncAbove);
+
+    // and the long names come back where there is room for them
+    await p.setViewportSize({ width: 1280, height: 900 });
+    await p.waitForTimeout(400);
+    const wide = await p.evaluate(() =>
+      [...document.querySelectorAll('.tab')].map((b) => b.innerText.trim()));
+    t.ok('and the full names return on a wider screen',
+      wide.join('|') === 'Browse|Meal Plan|Shopping List|Pantry|Print Book', wide.join(' '));
     await p.context().close();
   },
 };

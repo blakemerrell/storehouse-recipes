@@ -43,6 +43,23 @@ module.exports = {
     t.ok('effort filters to what it says', hard);
     await p.selectOption('#diffSel', 'all');
 
+    /* The three words on this filter follow your pantry, the way the line at
+       the foot of every recipe already does. Before, they described the
+       storehouse whatever you did — and "Needs pantry extras" meant the exact
+       opposite of the Pantry tab one tab away. */
+    const filterWords = () => p.evaluate(() =>
+      [...document.querySelectorAll('#pantrySel option')].map((o) => o.textContent));
+    t.ok('the storehouse filter talks about the storehouse until you change it',
+      (await filterWords()).join('|') === 'Everything|Storehouse items only|Needs something bought elsewhere',
+      (await filterWords()).join(' | '));
+    await p.evaluate(() => window.Store.setPantry('cottage_cheese', false));
+    await p.waitForTimeout(400);
+    t.ok('and about your shelf once you have one',
+      (await filterWords()).join('|') === "Everything|Only what's on my shelf|Needs a shop",
+      (await filterWords()).join(' | '));
+    await p.evaluate(() => window.Store.resetPantry());
+    await p.waitForTimeout(400);
+
     await p.selectOption('#pantrySel', 'base');
     await p.waitForTimeout(150);
     const onlyBase = await p.evaluate(() =>

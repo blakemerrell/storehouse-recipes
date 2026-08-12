@@ -72,7 +72,13 @@ button { cursor: pointer; }
   font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
   color: oklch(0.75 0.05 85);
 }
-.tabs { display: flex; gap: 6px; align-items: center; }
+/* Order rather than markup order, because the two arrangements differ. On a
+   wide screen the brand sits left and the tabs and the sync button ride
+   together on the right, which is how it has always looked. On a phone the
+   sync button stays up with the brand and the tabs take the whole row below —
+   the button was the reason two of the five tabs were off the side. */
+.tabs { display: flex; gap: 6px; align-items: center; order: 2; margin-left: auto; }
+.t-short { display: none; }
 .tab {
   background: transparent; color: oklch(0.80 0.03 80); border: none; border-radius: 3px;
   padding: 7px 14px; font-size: 12.5px; font-weight: 500; letter-spacing: 0.02em;
@@ -82,6 +88,7 @@ button { cursor: pointer; }
   background: var(--ochre); color: oklch(0.20 0.02 60); font-weight: 600;
 }
 .synbtn {
+  order: 3;
   background: transparent; color: oklch(0.80 0.03 80);
   border: 1px solid oklch(0.42 0.03 60); border-radius: 3px;
   padding: 6px 11px; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase;
@@ -199,7 +206,11 @@ select { max-width: 280px; }
 }
 .wk[aria-pressed="true"] .wk-n { color: oklch(0.78 0.03 70); }
 .wk-add { font-family: var(--sans); font-size: 12px; letter-spacing: 0.04em; border-style: dashed; }
-.plan-note { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+/* Capped. On a wide screen this ran the full 1196px of the view — about 180
+   characters a line, which is roughly three times what an eye tracks back
+   from without losing its place. The pantry's lede was given a width of its
+   own when the columns went in; this is the same fix for every one of them. */
+.plan-note { font-size: 13px; color: var(--muted); margin-bottom: 22px; max-width: 74ch; }
 /* Seven named days want seven columns. auto-fit gave six and left Sunday on a
    row of its own, which reads as a mistake even though it is not. */
 .plan-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
@@ -887,11 +898,6 @@ select { max-width: 280px; }
   .topbar-in { padding: 11px 16px; gap: 12px; }
   .brand-name { font-size: 18px; }
   .brand-sub { display: none; }
-  .tabs {
-    order: 3; width: 100%; overflow-x: auto; padding-bottom: 2px;
-    scrollbar-width: none;
-  }
-  .tabs::-webkit-scrollbar { display: none; }
   .filters-in { padding: 12px 16px; gap: 8px; }
   /* a select is as wide as its widest option unless min-width lets it shrink,
      and the section names are long enough to push the page sideways without it */
@@ -912,15 +918,37 @@ select { max-width: 280px; }
   .sheet-ing { grid-template-columns: 1fr; }
   .list-row { padding: 12px 2px; }
   .list-row input { width: 18px; height: 18px; }
-  /* Five tabs will not sit across a phone, and wrapping put "Browse" half off
-     the left edge. Scroll them instead, with the row bled to the screen edges
-     so a cut-off tab reads as more-to-the-side rather than as broken. */
+  /* Five tabs across a phone, all five of them visible.
+     They used to scroll, with 230px of the row off the right-hand edge at
+     390px wide — "Pantry" cut to "Pant" and "Print Book" not there at all, and
+     no scrollbar or fade to say there was more. Two of five tabs were, in
+     practice, undiscoverable.
+
+     Three things bought that 230px back. The sync button left the row (order:
+     2 puts it on the brand line above). The three long labels drop to their
+     short forms. And the padding tightens. Measured: 0px of overflow at 390,
+     3px at 360, 43px at 320 — so the scroll stays as a fallback for the very
+     narrowest phones, and it now has a fade at the edge to admit it. */
   .tabs {
-    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; margin: 0 -22px; padding: 0 22px; gap: 4px;
+    order: 3; width: 100%; flex-wrap: nowrap;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; margin: 0 -16px; padding: 0 16px; gap: 3px;
   }
   .tabs::-webkit-scrollbar { display: none; }
-  .tabs .tab, .tabs .synbtn { flex: 0 0 auto; }
+  .tabs .tab { flex: 0 0 auto; padding: 7px 10px; }
+  /* Only where it still scrolls. A fade pinned to the right edge of the bar
+     says "there is more this way" — the thing the old row never did. It sits
+     on the header rather than inside the scroller so it does not scroll away,
+     and it is transparent to the finger. */
+  .topbar-in { position: relative; }
+  .tabs-fade {
+    position: absolute; right: 0; bottom: 11px; width: 26px; height: 32px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, var(--ink) 78%);
+  }
+  .synbtn { order: 2; }
+  .t-long { display: none; }
+  .t-short { display: inline; }
   .book-bar-in { padding: 12px 16px; }
   .book-bar-in select { flex: 1 1 100%; max-width: none; }
   .printwrap { padding: 20px 8px 60px; }

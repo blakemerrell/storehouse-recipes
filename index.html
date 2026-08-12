@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=32">
+<link rel="stylesheet" href="src/style.css?v=33">
 </head>
 <body>
 
@@ -24,16 +24,29 @@
       <div class="brand-name">Hive &amp; Hearth</div>
       <div class="brand-sub">263 recipes &middot; two volumes</div>
     </div>
+    <!-- The sync button is a sibling of the tabs rather than one of them. On a
+         phone it stays up on the brand row and the five tabs get the whole
+         second row to themselves; with it in here, two of the five were off the
+         side of the screen with nothing to say so. CSS order keeps the desktop
+         arrangement exactly as it was. -->
+    <button class="synbtn" id="syncBtn" title="Sharing between devices">
+      <span class="dot" id="syncDot"></span><span id="syncLabel">Local</span>
+    </button>
+    <!-- Two labels each, and the media query picks one. A tab called "Shopping
+         List" on a 390px screen is a tab you cannot see; "List" beside a basket
+         of other short words is unambiguous, and the long form is right where
+         there is room for it. -->
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" data-view="browse" aria-selected="true">Browse</button>
-      <button class="tab" role="tab" data-view="plan" aria-selected="false">Meal Plan</button>
-      <button class="tab" role="tab" data-view="list" aria-selected="false">Shopping List</button>
+      <button class="tab" role="tab" data-view="plan" aria-selected="false"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
+      <button class="tab" role="tab" data-view="list" aria-selected="false"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
       <button class="tab" role="tab" data-view="pantry" aria-selected="false">Pantry</button>
-      <button class="tab" role="tab" data-view="book" aria-selected="false">Print Book</button>
-      <button class="synbtn" id="syncBtn" title="Sharing between devices">
-        <span class="dot" id="syncDot"></span><span id="syncLabel">Local</span>
-      </button>
+      <button class="tab" role="tab" data-view="book" aria-selected="false"><span class="t-long">Print Book</span><span class="t-short">Book</span></button>
     </div>
+    <!-- Shown only when the row genuinely overflows; see syncTabsFade(). A fade
+         over the last tab when there is nothing past it is a worse lie than no
+         fade at all. -->
+    <div class="tabs-fade hide" id="tabsFade" aria-hidden="true"></div>
   </div>
 </header>
 
@@ -54,10 +67,13 @@
         <option value="Medium">Medium</option>
         <option value="In-Depth">In-depth</option>
       </select>
+      <!-- These three are rewritten by renderPantryFilterLabels() the moment
+           you edit your pantry, so they describe your shelf rather than the
+           storehouse. What is here is the untouched wording. -->
       <select id="pantrySel" aria-label="Storehouse items">
-        <option value="all">Storehouse &amp; extras</option>
+        <option value="all">Everything</option>
         <option value="base">Storehouse items only</option>
-        <option value="extras">Needs pantry extras</option>
+        <option value="extras">Needs something bought elsewhere</option>
       </select>
       <select id="sortSel" aria-label="Order">
         <option value="book">Book order</option>
@@ -162,14 +178,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=32"></script>
-<script src="data/nutrition.js?v=32"></script>
-<script src="data/art.js?v=32"></script>
-<script src="data/qr.js?v=32"></script>
-<script src="src/config.js?v=32"></script>
+<script src="data/recipes.js?v=33"></script>
+<script src="data/nutrition.js?v=33"></script>
+<script src="data/art.js?v=33"></script>
+<script src="data/qr.js?v=33"></script>
+<script src="src/config.js?v=33"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=32"></script>
-<script src="src/app.js?v=32"></script>
+<script src="src/sync.js?v=33"></script>
+<script src="src/app.js?v=33"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

@@ -341,6 +341,31 @@
     return RECIPES.filter(function (r) { return r.book === 3; });
   }
 
+  /* The three words on the storehouse filter, which had been wrong twice over.
+     "Needs pantry extras" arrived before the Pantry tab did, and once that tab
+     existed the same word meant two opposite things one tab apart: the tab is
+     what you keep, the filter meant what you do not. And the labels described
+     the storehouse when the pantry had become the thing actually answering —
+     take Crio Bru off your shelf and this filter changes behaviour while its
+     wording does not.
+
+     So it follows the pantry, exactly as the line at the foot of every recipe
+     already does through shelfName(). Untouched, it talks about the storehouse,
+     because that is true out of the box. Edit your pantry and it talks about
+     your shelf, because that is true from then on. */
+  function renderPantryFilterLabels() {
+    var mine = window.Store.pantryChanged();
+    var sel = $('pantrySel');
+    var words = mine
+      ? ['Everything', "Only what's on my shelf", 'Needs a shop']
+      : ['Everything', 'Storehouse items only', 'Needs something bought elsewhere'];
+    ['all', 'base', 'extras'].forEach(function (v, i) {
+      var o = sel.querySelector('option[value="' + v + '"]');
+      if (o) o.textContent = words[i];
+    });
+    sel.setAttribute('aria-label', mine ? 'What you keep' : 'Storehouse items');
+  }
+
   function renderSections() {
     /* Grouped by volume rather than prefixed with it. Every option used to
        begin "Run and Not Be Weary · " or "Around the Table · ", which on a
@@ -2074,9 +2099,21 @@
     if (S.view === 'book') renderBook();
   }
 
+  /* The five tabs fit a 390px phone now, so the fade would be a lie there. It
+     appears only where the row is actually wider than its box — the narrowest
+     phones — and only until you have scrolled to the end of it. */
+  function syncTabsFade() {
+    var tabs = document.querySelector('.tabs');
+    var fade = $('tabsFade');
+    if (!tabs || !fade) return;
+    var over = tabs.scrollWidth - tabs.clientWidth;
+    fade.classList.toggle('hide', over <= 1 || tabs.scrollLeft >= over - 1);
+  }
+
   function renderAll() {
     rebuild();                    // your changes and your own recipes, folded in
     renderSections();             // which can add a section, or a whole volume
+    renderPantryFilterLabels();   // which follow your shelf once you have one
     /* Forget ticks for anything no longer on the list. This has to happen on
        every change, not just while the list is on screen — a recipe is usually
        dropped from the Meal Plan tab, and by the time you look at the list the
@@ -2237,6 +2274,9 @@
     $('doPrint').addEventListener('click', expandAndPrint);
 
     window.addEventListener('resize', fitPages);
+    window.addEventListener('resize', syncTabsFade);
+    document.querySelector('.tabs').addEventListener('scroll', syncTabsFade, { passive: true });
+    syncTabsFade();
 
     $('syncBtn').addEventListener('click', function () {
       S.syncOpen = true;
