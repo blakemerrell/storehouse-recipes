@@ -14,9 +14,33 @@
 <link rel="icon" href="../icons/icon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="../icons/icon-180.png">
 
+<!-- ---------------------------------------------------------------------
+     This page is a port of a Claude Design prototype, and the two things it
+     changed are worth naming, because the old page was not wrong so much as
+     wide.
+
+     One column at 720px instead of two at 1080. Everything on the old page
+     was arranged as a grid because there was room for a grid; a landing page
+     read once, mostly on a phone, does not want a reader choosing which of
+     two columns to start. Five feature cards became three numbered lines.
+
+     And the app is shown working rather than described. The prototype drew
+     two phone screens — a recipe and a week — where the old page had a
+     paragraph about sharing a code. Drawn screens are the one thing here
+     that can quietly stop being true, so the words on them are the words of
+     recipes 001 and 002, and tests/welcome.test.js reads them out of
+     data/recipes.js and fails when they drift.
+
+     Three things came back that the prototype had dropped, all for the same
+     reason — somebody acts on them: the caution that the imposed PDFs are
+     out of page order and must not go to a copy shop for spiral binding, the
+     page counts, and the long version of why any of this is being asked for.
+     ------------------------------------------------------------------ -->
 <style>
 /* The typefaces live in this repository — nothing is fetched from any other
-   host, here or in the app. */
+   host, here or in the app. The prototype pulled Source Serif and Work Sans
+   off fonts.googleapis.com, which the footer's own promise forbids and
+   tests/welcome.test.js enforces. */
 @font-face {
   font-family: 'Source Serif 4'; font-style: normal; font-weight: 200 900;
   font-display: swap; src: url('../fonts/source-serif-4-latin-wght-normal.woff2') format('woff2-variations');
@@ -30,111 +54,110 @@
   font-display: swap; src: url('../fonts/work-sans-latin-wght-normal.woff2') format('woff2-variations');
 }
 
-/* The book's own palette, so the page and the thing it is advertising are
-   plainly the same object. */
 :root {
-  --ink:       oklch(0.26 0.02 60);
-  --paper:     oklch(0.962 0.016 85);
-  --card:      oklch(0.995 0.006 85);
-  --line:      oklch(0.87 0.02 75);
-  --line-firm: oklch(0.80 0.03 75);
-  --ochre:     oklch(0.62 0.10 55);
-  --green:     oklch(0.46 0.09 145);
-  --muted:     oklch(0.52 0.03 65);
-  --muted-2:   oklch(0.45 0.03 65);
+  --ink:       #3b3630;
+  --paper:     #f7f2e6;
+  --line:      #e8dcc0;
+  --line-firm: #c9bda0;
+  --ochre:     #8a6a3a;
+  --gold:      #c9a227;
+  --muted:     #8f8574;
+  --muted-2:   #5a5148;
+  --on-dark:   #cfc6b4;
   --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --sans: 'Work Sans', system-ui, -apple-system, sans-serif;
 }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
+html, body { margin: 0; padding: 0; }
 body {
-  margin: 0; background: var(--paper); color: var(--ink);
-  font-family: var(--sans); font-size: 17px; line-height: 1.62;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--sans); font-size: 16px; line-height: 1.62;
   -webkit-font-smoothing: antialiased;
 }
 img { max-width: 100%; display: block; }
 a { color: inherit; }
 
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-.narrow { max-width: 700px; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 0 22px 70px; }
 
 /* ---- hero ------------------------------------------------------------- */
-.hero { padding: 76px 0 12px; text-align: center; }
+.hero { padding: 54px 0 8px; text-align: center; }
 .eyebrow {
-  font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase;
+  font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--ochre); font-weight: 600;
 }
 .hero h1 {
-  font-family: var(--serif); font-weight: 700; font-size: clamp(38px, 7vw, 68px);
-  line-height: 1.05; margin: 18px 0 0; text-wrap: balance;
+  font-family: var(--serif); font-weight: 700; font-size: clamp(38px, 9vw, 52px);
+  line-height: 1.05; margin: 14px 0 0;
 }
 .hero .lede {
-  font-family: var(--serif); font-size: clamp(18px, 2.4vw, 22px); line-height: 1.55;
-  color: var(--muted-2); max-width: 30em; margin: 20px auto 0; text-wrap: pretty;
+  font-size: 16px; line-height: 1.6; color: var(--muted-2);
+  max-width: 520px; margin: 20px auto 0; text-wrap: pretty;
 }
-.rule { width: 44px; height: 1px; background: var(--ochre); margin: 30px auto; }
 
-.cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+.cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
 .btn {
-  display: inline-block; padding: 13px 26px; border-radius: 2px; text-decoration: none;
-  font-size: 15px; font-weight: 600; letter-spacing: 0.01em; border: 1.5px solid var(--ink);
+  display: inline-block; padding: 11px 20px; border-radius: 3px; text-decoration: none;
+  font-size: 14px; font-weight: 600; border: 1px solid transparent;
   transition: transform .12s ease, box-shadow .12s ease;
 }
 .btn-solid { background: var(--ink); color: var(--paper); }
-.btn-ghost { background: transparent; color: var(--ink); }
-.btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px oklch(0.26 0.02 60 / 0.16); }
-.cta-note { font-size: 13.5px; color: var(--muted); margin-top: 16px; }
+.btn-ghost { background: none; color: var(--ink); border-color: var(--line-firm); }
+.btn-gold  { background: var(--gold); color: var(--ink); }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(59, 54, 48, 0.16); }
+.cta-note { font-size: 12.5px; color: var(--muted); margin-top: 16px; }
 
-/* ---- the demo ----------------------------------------------------------
-   A strip of twelve engravings used to sit here. They were the best thing on
-   the page and they are still in it — one of the book frames below is a
-   section opener, so the art appears where it belongs rather than in a gallery
-   of its own, and the page shows the thing instead of a sample of its
-   decoration.
+/* ---- the collage -------------------------------------------------------
+   Two pages of the book beside the app on a phone. Every frame is a real
+   render — the book cells are pages lifted out of print/Hive-and-Hearth-
+   Recipes.pdf, the phone is the app driven at 390×844 and photographed —
+   and tools/build-demo.js remakes all eight from the current build, so none
+   of them can drift into being a picture of something that no longer
+   exists. welcome/demo/stamp.json records which build they came from.
 
-   Both stacks are real: the book frames are pages out of the rendered PDF, the
-   app frames are the app driven at phone size. tools/build-demo.js remakes
-   them from the current build, so neither can drift into being a picture of
-   something that no longer exists. */
-.demo {
-  display: flex; gap: clamp(18px, 4vw, 48px); justify-content: center;
-  align-items: center; margin: 44px 0 0;
+   The prototype set the phone shot `object-fit:contain` on a #3b3630 panel,
+   which letterboxes a picture of an app in black on a page that is
+   otherwise entirely paper. The phone here has a bone body with an earpiece
+   and a home bar instead, and the screen is filled rather than fitted. */
+/* Three frames on one row, sized by a shared height and their own aspect
+   ratios rather than by columns. The prototype stacked the two book pages in
+   a half-width column beside the phone, which is a thousand pixels tall
+   before anything else is on the page: two portrait pages one above the
+   other is twice the height of a portrait page. Side by side they read as an
+   opening instead, and the band comes in around 370. */
+.showcase {
+  display: flex; gap: 10px; justify-content: center; margin-top: 38px;
+  /* Three frames of known aspect side by side are 1.76 times as wide as they
+     are tall, plus the two gaps. Sizing by viewport height alone let the row
+     grow past the 22px gutter on a phone, so the width the row will actually
+     have is what caps it: (100vw − 44 padding − 20 gap) / 1.76. */
+  height: clamp(150px, calc((100vw - 64px) / 1.76), 368px);
 }
-.demo-frame { position: relative; flex: 0 0 auto; }
+.showcase > * { height: 100%; width: auto; }
+.demo-frame { position: relative; }
 .demo-frame img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  opacity: 0; animation: demofade 17s infinite;
+  opacity: 0;
 }
 .demo-book {
-  width: clamp(150px, 27vw, 316px); aspect-ratio: 5.5 / 8.5;
-  background: #fff; border: 1px solid var(--line);
-  box-shadow: 0 14px 30px oklch(0.26 0.02 60 / 0.18);
+  aspect-ratio: 5.5 / 8.5;
+  background: #fff; border: 1px solid var(--line); border-radius: 2px;
+  box-shadow: 0 8px 20px rgba(59, 54, 48, 0.10);
 }
-/* The bezel is the whole reason to draw a phone at all: without it the
-   screenshot reads as a narrow web page rather than as something in a hand.
-   It used to be near-black, which put a dark band above and below a picture of
-   an app that is otherwise all paper — the one thing on this page that looked
-   like a hole. Three changes: the body is bone rather than ink, so it belongs
-   to the same palette as everything else; it carries an earpiece and a home
-   bar, so the space it does take is plainly a phone and not a margin; and the
-   screen is sized by its four insets instead of by width:100%, which was
-   pinning the image to the top-left and spilling it out past the rounded
-   corners at the bottom. */
+.demo-book img { animation: fade2 17s infinite; }
+
 .demo-phone {
-  --bz:  clamp(4px, 0.68vw, 8px);
-  --bzt: clamp(7px, 1.2vw, 14px);
-  --bzb: clamp(10px, 1.7vw, 20px);
-  width: clamp(112px, 19.2vw, 226px); aspect-ratio: 226 / 488;
-  background: linear-gradient(158deg, oklch(0.94 0.010 82), oklch(0.86 0.016 78));
-  border: 1px solid var(--line-firm);
-  border-radius: clamp(10px, 1.8vw, 22px);
+  --bz: 7px; --bzt: 13px; --bzb: 18px;
+  aspect-ratio: 226 / 488;
+  background: linear-gradient(158deg, #f2ecdd, #ddd3bd);
+  border: 1px solid var(--line-firm); border-radius: 20px;
   padding: var(--bzt) var(--bz) var(--bzb);
-  box-shadow: 0 14px 30px oklch(0.26 0.02 60 / 0.20), inset 0 1px 0 #fff;
+  box-shadow: 0 10px 26px rgba(59, 54, 48, 0.18), inset 0 1px 0 #fff;
 }
 .demo-phone img {
   inset: var(--bzt) var(--bz) var(--bzb); width: auto; height: auto;
-  border-radius: clamp(3px, 0.7vw, 7px);
+  border-radius: 6px; animation: fade4 17s infinite;
 }
 .demo-phone::before, .demo-phone::after {
   content: ''; position: absolute; left: 50%; transform: translateX(-50%);
@@ -143,433 +166,413 @@ a { color: inherit; }
 .demo-phone::before { top: calc(var(--bzt) / 2 - 1.5px); width: 22%; }
 .demo-phone::after  { bottom: calc(var(--bzb) / 2 - 1.5px); width: 30%; }
 
-/* Four frames on a seventeen-second loop: two seconds to cross over, a little
-   over two to read. The phone runs half a beat behind the book so the pair
-   never changes at once, which is the difference between a page that breathes
-   and a page that blinks. */
-@keyframes demofade {
-  0%   { opacity: 0 }
-  3%   { opacity: 1 }
-  23%  { opacity: 1 }
-  26%  { opacity: 0 }
-  100% { opacity: 0 }
-}
-.demo-frame img:nth-child(1) { animation-delay: -0.5s }
-.demo-frame img:nth-child(2) { animation-delay: 4.25s }
-.demo-frame img:nth-child(3) { animation-delay: 8.5s }
-.demo-frame img:nth-child(4) { animation-delay: 12.75s }
-/* Negative on the first, so the phone has something on it the moment the page
-   loads. A positive delay leaves an element at its 0% state until its turn
-   comes round — which for four frames offset by half a beat meant two seconds
-   of a black rectangle before anything appeared. Minus 2.125s starts that
-   frame already part-way through, and the rest follow it. */
+/* Four frames of the app on one loop, two of the book on another twice as
+   slow, and the two book cells half a turn apart — so at most one of the
+   three changes at a time, which is the difference between a page that
+   breathes and a page that blinks. Negative delays on the frames that must
+   be up at load: a positive delay leaves an element at its 0% state until
+   its turn comes round, which is an empty rectangle nobody waits out. */
+@keyframes fade4 { 0% { opacity: 0 } 3% { opacity: 1 } 23% { opacity: 1 } 26% { opacity: 0 } 100% { opacity: 0 } }
+@keyframes fade2 { 0% { opacity: 0 } 4% { opacity: 1 } 48% { opacity: 1 } 52% { opacity: 0 } 100% { opacity: 0 } }
+.sh-a img:nth-child(1) { animation-delay: -0.5s }
+.sh-a img:nth-child(2) { animation-delay: 8s }
+.sh-b img:nth-child(1) { animation-delay: -4.75s }
+.sh-b img:nth-child(2) { animation-delay: 3.75s }
 .demo-phone img:nth-child(1) { animation-delay: -2.125s }
 .demo-phone img:nth-child(2) { animation-delay: 2.125s }
 .demo-phone img:nth-child(3) { animation-delay: 6.375s }
 .demo-phone img:nth-child(4) { animation-delay: 10.625s }
 
-/* Somebody who has asked their system not to animate things has asked for a
-   reason. They get the first frame of each, which is a cover and a grid of
-   recipes — the two pictures that would have been chosen anyway. */
-@media (prefers-reduced-motion: reduce) {
-  .demo-frame img { animation: none }
-  .demo-frame img:nth-child(1) { opacity: 1 }
-}
-
-.demo-cap {
-  text-align: center; font-size: 13.5px; color: var(--muted); margin-top: 20px;
-}
+.demo-cap { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
 .demo-cap a { color: var(--ochre); font-weight: 600; }
 
-/* ---- sections --------------------------------------------------------- */
-/* 44, not 68. Six sections at 68 top and bottom is 816px of nothing, which on
-   a phone is a whole screen of scrolling past air. Enough to separate them,
-   not so much that the page reads as slow. */
-section { padding: 44px 0; }
-.band { background: var(--card); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-h2 {
-  font-family: var(--serif); font-size: clamp(26px, 3.6vw, 36px); font-weight: 700;
-  line-height: 1.15; margin: 0 0 14px; text-wrap: balance;
+/* ---- what it does ------------------------------------------------------
+   Three numbered lines, not five cards. The five were true and one of them
+   was always the one nobody read. */
+.sec { margin-top: 64px; }
+.sec-lab {
+  font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--ochre); font-weight: 600; text-align: center;
 }
-h2 + .sub {
-  font-family: var(--serif); font-style: italic; color: var(--muted-2);
-  font-size: 17px; margin: 0 0 34px;
-}
-/* 340 rather than 258, which lands four features as a square of two rather
-   than a row of three with the fourth stranded underneath. */
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 34px 44px; }
-.feat h3 {
-  font-family: var(--serif); font-size: 20px; font-weight: 700; margin: 0 0 7px;
-}
-.feat p { margin: 0; color: var(--muted-2); font-size: 15.5px; line-height: 1.6; }
-.feat .n {
-  font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
-  color: var(--ochre); font-weight: 600; display: block; margin-bottom: 9px;
-}
+.nums { display: flex; flex-direction: column; gap: 22px; margin-top: 22px; }
+.num { display: flex; gap: 16px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 18px; }
+.num-n { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--gold); min-width: 26px; }
+.num h3 { font-family: var(--serif); font-size: 18px; font-weight: 600; margin: 0; }
+.num p { font-size: 13.5px; color: var(--muted-2); line-height: 1.6; margin: 5px 0 0; text-wrap: pretty; }
 
-/* ---- the code ----------------------------------------------------------
-   This was two cards and a code sitting between them, which described the
-   feature without showing it. The thing worth showing is that it *happens*:
-   the second phone says Local until the code reaches it and then it says
-   Synced. So the block runs the story on a nine-second loop — the badge is
-   tapped, a spark crosses, the far phone changes state, it holds long enough
-   to read, and it resets.
+/* ---- the dark panel ----------------------------------------------------
+   The one place on the page that is ink rather than paper, and it earns it:
+   two phones on a dark ground read as two phones, and the section is about
+   the app being on them.
 
-   All of it is CSS on one shared duration, which is the only reason four
-   independent animations stay in step. Anyone who has asked their system not
-   to animate things gets the end of the story instead of the middle: both
-   phones synced, no spark. */
-.code-demo {
-  display: flex; align-items: center; justify-content: center; gap: 18px;
-  flex-wrap: wrap; margin: 32px 0 0;
+   The screens are hand-set HTML rather than screenshots, because a
+   screenshot of two phones side by side would be a screenshot of a page
+   that does not exist. What is on them is real — recipe 001, its macros and
+   its ingredients, and the first two days of a week — and a test reads
+   those out of data/recipes.js so they cannot go quietly out of date. */
+.dark {
+  margin-top: 58px; background: var(--ink); color: var(--paper);
+  border-radius: 4px; padding: 30px 28px 18px;
 }
-.phone {
-  border: 1.5px solid var(--line-firm); border-radius: 14px; padding: 18px 20px;
-  background: #fff; min-width: 190px; text-align: center;
+.dark h2 { font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 0; }
+.dark p { font-size: 13.5px; line-height: 1.7; color: var(--on-dark); margin: 10px 0 0; max-width: 480px; }
+.dark-note { text-align: center; font-size: 11px; color: var(--muted); padding: 16px 0 4px; }
+
+.devices { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
+.dev {
+  --bz: 6px; --bzt: 11px; --bzb: 15px;
+  position: relative; flex: 0 0 auto;
+  width: clamp(170px, 29vw, 204px); aspect-ratio: 226 / 488;
+  background: linear-gradient(158deg, #f2ecdd, #ddd3bd);
+  border-radius: 18px; padding: var(--bzt) var(--bz) var(--bzb);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
 }
-.phone .who { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-.phone .badge {
-  display: inline-flex; align-items: center; gap: 7px; margin-top: 10px;
-  font-size: 13px; font-weight: 600; color: var(--green);
+.dev::before, .dev::after {
+  content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+  height: 3px; border-radius: 99px; background: var(--line-firm);
 }
-.phone .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
-/* Both states occupy the same cell, so the card does not resize when the word
+.dev::before { top: calc(var(--bzt) / 2 - 1.5px); width: 22%; }
+.dev::after  { bottom: calc(var(--bzb) / 2 - 1.5px); width: 30%; }
+.dev-screen {
+  height: 100%; background: var(--paper); border-radius: 6px; overflow: hidden;
+  display: flex; flex-direction: column; padding: 13px 14px 12px; color: var(--ink);
+}
+.mk-top { display: flex; justify-content: space-between; align-items: baseline; }
+.mk-no { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ochre); font-weight: 600; }
+.mk-t  { font-size: 9px; color: var(--muted); }
+.mk-h  { font-family: var(--serif); font-size: 17px; font-weight: 700; line-height: 1.2; margin-top: 8px; }
+.mk-macros {
+  display: flex; gap: 10px; margin: 11px 0; padding: 7px 0;
+  border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--line);
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-2);
+}
+.mk-lab { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ochre); font-weight: 600; }
+.mk-ing { font-size: 11px; line-height: 1.85; margin: 4px 0 10px; }
+.mk-steps {
+  list-style: none; counter-reset: mk; padding: 0; margin: 4px 0 0; flex: 1;
+  font-size: 10px; line-height: 1.45; color: var(--muted-2);
+}
+.mk-steps li { counter-increment: mk; padding-left: 13px; position: relative; margin-bottom: 5px; }
+.mk-steps li::before {
+  content: counter(mk); position: absolute; left: 0; top: 0;
+  color: var(--ochre); font-weight: 700; font-size: 9px;
+}
+.mk-save { background: var(--ink); color: var(--paper); border-radius: 5px; padding: 9px; text-align: center; font-size: 11px; font-weight: 600; }
+
+.mk-top2 { display: flex; justify-content: space-between; align-items: center; }
+.mk-h2 { font-family: var(--serif); font-size: 16px; font-weight: 700; }
+.mk-day {
+  font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted-2);
+  font-weight: 600; border-bottom: 1px solid var(--line); padding-bottom: 5px; margin: 14px 0 7px;
+}
+.mk-meal { border-left: 3px solid var(--gold); padding-left: 9px; font-family: var(--serif); font-size: 13px; line-height: 1.3; }
+.mk-foot { margin-top: auto; font-size: 9.5px; color: var(--muted); text-align: center; }
+
+/* Both states in one grid cell, so the card does not resize when the word
    under it changes from five letters to six. */
-.badge-swap { display: inline-grid; margin-top: 10px; }
+.badge-swap { display: inline-grid; }
 .badge-swap > span {
-  grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 7px;
-  justify-self: center; font-size: 13px; font-weight: 600;
+  grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 5px;
+  justify-self: end; font-size: 10px; font-weight: 600; white-space: nowrap;
 }
+.badge-swap i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .b-off { color: var(--muted); animation: swapoff var(--beat) infinite; }
-.b-on  { color: var(--green); animation: swapon  var(--beat) infinite; }
-.b-off .dot { background: var(--muted); }
+.b-on  { color: var(--ochre); animation: swapon var(--beat) infinite; }
 
-.link { position: relative; flex: 0 1 150px; min-width: 96px; height: 26px; }
-.link::before {
-  content: ''; position: absolute; top: 50%; left: 0; right: 8px; height: 1px;
-  background: var(--line-firm);
-}
-.link::after {
-  content: ''; position: absolute; top: 50%; right: 1px; width: 6px; height: 6px;
-  margin-top: -3.5px; transform: rotate(45deg);
-  border-top: 1.5px solid var(--line-firm); border-right: 1.5px solid var(--line-firm);
+/* The prototype drew a static arrow between the phones. What the paragraph
+   above it describes is a thing that happens, so it happens: the code
+   lights, a spark crosses, the far phone turns over from Local to Synced,
+   it holds long enough to read, it resets. One shared --beat is the only
+   reason three independent animations stay in step. */
+.link { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.link-lab { font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.link-wire { position: relative; width: 84px; height: 12px; }
+.link-wire::before { content: ''; position: absolute; top: 50%; left: 0; right: 7px; height: 1px; background: var(--muted-2); }
+.link-wire::after {
+  content: ''; position: absolute; top: 50%; right: 1px; width: 5px; height: 5px;
+  margin-top: -3px; transform: rotate(45deg);
+  border-top: 1.5px solid var(--muted-2); border-right: 1.5px solid var(--muted-2);
 }
 .spark {
-  position: absolute; top: 50%; left: 0; width: 9px; height: 9px; margin-top: -4.5px;
-  border-radius: 50%; background: var(--ochre); opacity: 0;
-  box-shadow: 0 0 0 4px oklch(0.62 0.10 55 / 0.16);
+  position: absolute; top: 50%; left: 0; width: 8px; height: 8px; margin-top: -4px;
+  border-radius: 50%; background: var(--gold); opacity: 0;
+  box-shadow: 0 0 0 4px rgba(201, 162, 39, 0.18);
   animation: travel var(--beat) infinite;
 }
-
 .codeword {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px;
-  letter-spacing: 0.04em; background: var(--paper); border: 1px solid var(--line);
-  padding: 9px 14px; border-radius: 3px; white-space: nowrap;
-  transition: border-color .3s ease;
+  border: 1px solid var(--muted-2); border-radius: 2px; padding: 5px 10px;
+  font-family: var(--serif); font-size: 11px; letter-spacing: 0.02em;
+  color: var(--paper); white-space: nowrap; animation: lit var(--beat) infinite;
 }
-.code-cap {
-  text-align: center; margin: 16px 0 4px; font-size: 13px; color: var(--muted);
-}
-.code-cap .codeword { display: inline-block; animation: lit var(--beat) infinite; }
-
-.code-demo, .code-cap { --beat: 9s; }
-/* The spark leaves as the code lights up and lands a beat before the far badge
-   turns over, which is the order it happens in on a real pair of phones. */
+.devices { --beat: 9s; }
 @keyframes travel {
-  0%,  8%  { left: 0;             opacity: 0; transform: scale(0.3) }
-  14%      { left: 0;             opacity: 1; transform: scale(1) }
-  40%      { left: calc(100% - 9px); opacity: 1; transform: scale(1) }
-  47%, 100%{ left: calc(100% - 9px); opacity: 0; transform: scale(0.3) }
+  0%,  8%   { left: 0;                opacity: 0; transform: scale(0.3) }
+  14%       { left: 0;                opacity: 1; transform: scale(1) }
+  40%       { left: calc(100% - 8px); opacity: 1; transform: scale(1) }
+  47%, 100% { left: calc(100% - 8px); opacity: 0; transform: scale(0.3) }
 }
 @keyframes swapoff { 0%, 42% { opacity: 1 } 48%, 92% { opacity: 0 } 98%, 100% { opacity: 1 } }
 @keyframes swapon  { 0%, 42% { opacity: 0 } 48%, 92% { opacity: 1 } 98%, 100% { opacity: 0 } }
 @keyframes lit {
-  0%, 6%   { border-color: var(--line) }
-  12%, 44% { border-color: var(--ochre) }
-  56%, 100%{ border-color: var(--line) }
+  0%, 6%    { border-color: var(--muted-2) }
+  12%, 44%  { border-color: var(--gold) }
+  56%, 100% { border-color: var(--muted-2) }
 }
+
+/* Somebody who has asked their system not to animate things has asked for a
+   reason. They get the first frame of each stack, and the end of the sync
+   story rather than the middle. */
 @media (prefers-reduced-motion: reduce) {
+  .demo-frame img { animation: none }
+  .demo-frame img:nth-child(1) { opacity: 1 }
   .spark { display: none }
-  .b-off, .b-on, .code-cap .codeword { animation: none }
+  .b-off, .b-on, .codeword { animation: none }
   .b-off { opacity: 0 }
   .b-on  { opacity: 1 }
 }
 
-/* ---- have them posted to you ------------------------------------------
-   Sits under the free downloads, never above them. The PDFs are the offer;
-   this is a convenience for people who would rather not stand at a copy shop,
-   and it must not read as the paid tier of a thing that is free. */
-.post {
-  display: flex; gap: 22px; align-items: center; flex-wrap: wrap;
-  border: 1px solid var(--line); background: #fff; padding: 22px 24px; margin-top: 26px;
+/* ---- prefer paper ------------------------------------------------------ */
+.paper-row {
+  margin-top: 48px; border-top: 1px solid var(--line); padding-top: 22px;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap;
 }
-.post-body { flex: 1 1 320px; }
-.post-h { font-family: var(--serif); font-size: 19px; font-weight: 700; }
-.post-p { font-size: 14.5px; color: var(--muted-2); line-height: 1.6; margin: 7px 0 0; text-wrap: pretty; }
-.post-buy { flex: 0 0 auto; text-align: center; }
-.post-amt { font-family: var(--serif); font-size: 30px; font-weight: 700; line-height: 1; }
-.post-amt-sub { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ochre); font-weight: 600; margin-top: 6px; }
+.paper-row h3 { font-family: var(--serif); font-size: 18px; font-weight: 600; margin: 0; }
+.paper-row p { font-size: 13.5px; color: var(--muted-2); margin: 6px 0 0; line-height: 1.6; max-width: 44ch; }
+.paper-buys { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+.paper-buys .btn { padding: 9px 16px; font-size: 13px; white-space: nowrap; }
+.fine { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 16px; text-wrap: pretty; }
+.fine a { color: var(--ochre); font-weight: 600; }
 
 /* ---- pay what it is worth ---------------------------------------------
-   Last section before the footer, deliberately. Asking before the page has
-   shown what it is asking for is the wrong order, and a page that opens with a
-   donate button is a page about money rather than about food. */
+   Last before the footer, deliberately. Asking before the page has shown
+   what it is asking for is the wrong order.
+
+   The prototype cut this to two sentences. It is back at length because the
+   long version is the one that was asked for, and because two sentences
+   cannot say both "please give" and "please do not give if it costs you",
+   which is the whole point of the verse it is sitting under. */
+.give-sec { margin-top: 58px; }
 .quote {
-  font-family: var(--serif); font-style: italic; font-size: clamp(19px, 2.6vw, 24px);
-  line-height: 1.5; text-align: center; margin: 0 auto 8px; max-width: 22em;
-  text-wrap: pretty;
+  font-family: var(--serif); font-style: italic; font-size: 18px; line-height: 1.6;
+  color: var(--muted-2); text-align: center; max-width: 460px; margin: 0 auto;
 }
 .quote-src {
-  text-align: center; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
-  color: var(--ochre); font-weight: 600; margin-bottom: 34px;
+  text-align: center; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin-top: 10px;
 }
-.give { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 30px 0 0; }
+.give-sec p { font-size: 14px; color: var(--muted-2); line-height: 1.7; margin: 16px 0 0; text-wrap: pretty; }
+.give { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 26px; }
 .give-card {
-  border: 1px solid var(--line); background: #fff; padding: 15px 16px;
+  border: 1px solid var(--line); background: #fff; padding: 14px 15px; border-radius: 3px;
   display: flex; flex-direction: column; text-align: center; text-decoration: none;
   transition: border-color .12s ease, transform .12s ease;
 }
-a.give-card:hover { border-color: var(--ochre); transform: translateY(-1px); }
-.give-amt { font-family: var(--serif); font-size: 27px; font-weight: 700; }
-.give-what {
-  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--ochre); font-weight: 600; margin-top: 8px;
-}
-.give-note { font-size: 13.5px; color: var(--muted-2); line-height: 1.55; margin-top: 10px; text-wrap: pretty; }
-/* The free one is not a lesser tier and is not styled as one. It is first, and
-   it is the only one with no link on it, because there is nothing to click. */
+a.give-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.give-amt { font-family: var(--serif); font-size: 25px; font-weight: 700; }
+.give-what { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ochre); font-weight: 600; margin-top: 7px; }
+.give-note { font-size: 12.5px; color: var(--muted-2); line-height: 1.55; margin-top: 9px; }
+/* The free one is not a lesser tier and is not drawn as one. It is first,
+   and it is the only card with no link on it, because there is nothing to
+   click. */
 .give-card.free { background: var(--paper); border-style: dashed; }
-.give-foot { font-size: 14.5px; color: var(--muted-2); margin-top: 26px; text-wrap: pretty; }
-
-/* ---- book covers ------------------------------------------------------ */
-.book {
-  border: 1px solid var(--line); background: #fff; padding: 26px 22px; text-align: center;
-}
-.book .vol { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); }
-.book h3 { font-family: var(--serif); font-size: 22px; font-weight: 700; margin: 10px 0 8px; text-wrap: balance; }
-.book .meta { font-size: 13.5px; color: var(--muted-2); }
-.book .dl { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; align-items: center; }
-.book .dl a { font-size: 14px; font-weight: 600; color: var(--ochre); text-decoration: none; }
-.book .dl a:hover { text-decoration: underline; }
-
-/* ---- steps ------------------------------------------------------------ */
-ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 26px 0 0; }
-ol.steps li {
-  counter-increment: s; position: relative; padding-left: 46px; margin-bottom: 20px;
-  color: var(--muted-2); font-size: 15.5px;
-}
-ol.steps li::before {
-  content: counter(s); position: absolute; left: 0; top: -1px;
-  width: 29px; height: 29px; border: 1.5px solid var(--ochre); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: var(--ochre); font-family: var(--sans);
-}
-ol.steps li strong { color: var(--ink); font-weight: 600; }
 
 footer {
-  border-top: 1px solid var(--line); padding: 40px 0 56px; text-align: center;
-  font-size: 14px; color: var(--muted);
+  margin-top: 60px; border-top: 1px solid var(--line); padding-top: 20px;
+  text-align: center; font-size: 12px; color: var(--muted);
 }
 footer a { color: var(--ochre); text-decoration: none; font-weight: 600; }
 footer a:hover { text-decoration: underline; }
-.colophon { font-family: var(--serif); font-style: italic; margin-top: 12px; font-size: 13.5px; }
 
+/* One column below 560. The collage keeps its two, because a book beside a
+   phone is the whole picture and stacking it makes two pictures. */
 @media (max-width: 560px) {
-  .hero { padding-top: 52px; }
-  section { padding: 50px 0; }
+  .hero { padding-top: 44px; }
+  .sec, .dark, .give-sec { margin-top: 46px; }
+  .dark { padding: 24px 18px 14px; }
+  .paper-buys { width: 100%; }
+  .paper-buys .btn { flex: 1; text-align: center; }
+  /* Stacked, the phones have the whole column to themselves, so they get
+     wider than they can be side by side — at 170px the recipe card's method
+     wrapped past the bottom of the screen and was clipped. */
+  .dev { width: min(230px, 62vw); }
+  /* And the code travels down rather than across. The spark animates `left`,
+     which after the quarter turn is the way it is going. The margins are the
+     rotated rail's own length: it still lays out as a 84×12 box, so without
+     them the label and the code sit on top of it. */
+  .link-wire { transform: rotate(90deg); margin: 42px 0; }
 }
 </style>
 </head>
 <body>
 
-<header class="hero">
-  <div class="wrap">
+<div class="wrap">
+
+  <header class="hero">
     <div class="eyebrow">Hive &amp; Hearth</div>
     <h1>Recipes</h1>
-    <p class="lede">
-      266 recipes built mostly out of what the Bishops&rsquo;&nbsp;Storehouse carries. Find one,
-      plan a week, and the shopping list writes itself. Print the whole thing as a real book
-      when you want it on the counter.
-    </p>
+    <p class="lede">266 recipes built mostly from what the Bishops&rsquo;&nbsp;Storehouse carries.
+    Pick one, plan a week, and the shopping list writes itself &mdash; on your phone or as a
+    printed book.</p>
     <div class="cta">
       <a class="btn btn-solid" href="../">Open the app</a>
       <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Download the book</a>
-      <a class="btn btn-ghost" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order it printed &middot; $50</a>
     </div>
-    <p class="cta-note">Free. No account, no sign-up, no app to install. Works with no signal.</p>
-  </div>
-</header>
+    <p class="cta-note">Free. No account. Works with no signal.</p>
+  </header>
 
-<div class="demo">
-  <div class="demo-frame demo-book">
-    <img src="demo/book-1-cover.webp" width="760" height="1175" alt="The printed book: a beehive above the title, Hive and Hearth Recipes">
-    <img src="demo/book-2-opener.webp" width="760" height="1175" alt="">
-    <img src="demo/book-3-recipes.webp" width="760" height="1175" alt="">
-    <img src="demo/book-4-contents.webp" width="760" height="1175" alt="">
-  </div>
-  <div class="demo-frame demo-phone">
-    <img src="demo/app-1-browse.webp" width="470" height="1017" alt="The app on a phone, browsing recipes as cards with their nutrition scores">
-    <img src="demo/app-2-recipe.webp" width="470" height="1017" alt="">
-    <img src="demo/app-3-plan.webp" width="470" height="1017" alt="">
-    <img src="demo/app-4-list.webp" width="470" height="1017" alt="">
-  </div>
-</div>
-<p class="demo-cap">The same 266 recipes, either way. &nbsp;<a href="../">Open the app</a>
-&nbsp;·&nbsp; <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order it printed &middot; $50</a></p>
-
-<section>
-  <div class="wrap">
-    <h2>What it does</h2>
-    <p class="sub">Five things. That&rsquo;s the whole app.</p>
-    <div class="grid">
-      <div class="feat">
-        <span class="n">Browse</span>
-        <h3>266 recipes you can actually find</h3>
-        <p>Filter by book, section, effort, or whether you&rsquo;d have to buy something. Scale
-        any recipe from a quarter up to eight times, and you get fractions back, not decimals.</p>
-      </div>
-      <div class="feat">
-        <span class="n">Plan</span>
-        <h3>Plan a week and it stays planned</h3>
-        <p>There are no dates. Monday is just Monday, nothing clears itself, and you can keep as
-        many weeks as you want.</p>
-      </div>
-      <div class="feat">
-        <span class="n">Shop</span>
-        <h3>The list adds itself up</h3>
-        <p>A diced apple and a sliced apple are both just apples. Three recipes that want
-        cottage cheese come out as one line: 2⅛ cups.</p>
-      </div>
-      <div class="feat">
-        <span class="n">Pantry</span>
-        <h3>What you actually have</h3>
-        <p>It starts as the storehouse order sheet. Take things off as you stop keeping them
-        and every recipe updates what it says you&rsquo;d need to buy. That&rsquo;s what keeps this
-        useful after you stop going.</p>
-      </div>
-      <div class="feat">
-        <span class="n">Print</span>
-        <h3>A real book, not a printout</h3>
-        <p>Half-letter size, with a contents page and proper typesetting. No recipe ever gets
-        cut in half by a page break.</p>
-      </div>
+  <div class="showcase">
+    <div class="demo-frame demo-book sh-a">
+      <img src="demo/book-1-cover.webp" width="760" height="1175" alt="The printed book: a beehive above the title, Hive and Hearth Recipes">
+      <img src="demo/book-4-contents.webp" width="760" height="1175" alt="">
     </div>
-    <p class="demo-cap" style="text-align:left;margin-top:30px">All of it&rsquo;s free, and it
-    stays free. If it earns its keep you can <a href="#give">pay what you think it&rsquo;s
-    worth</a>, or <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">have me print one
-    and post it</a>.</p>
-  </div>
-</section>
-
-<!-- Installing it and sharing it used to be two sections with a heading and
-     136px of padding each, one after the other, both answering "how do I get
-     this onto our phones". They are one story: put it on the home screen, then
-     type the same code on both. -->
-<section class="band">
-  <div class="wrap narrow">
-    <h2>On your phones</h2>
-    <p class="sub">No app store, no account. This is the part people like best.</p>
-
-    <p><strong>Install it</strong> straight from the page. In Safari, <strong>Share → Add to
-    Home Screen</strong>. In Chrome, <strong>⋮ → Install app</strong>. You get an icon, and the
-    recipes are saved on the phone, so it still opens in a storehouse basement with no
-    signal.</p>
-
-    <p><strong>Then share a code.</strong> Everything saves on the phone you&rsquo;re using. Tap
-    the badge, take the code it gives you, and type it on the other phone. That&rsquo;s it.</p>
-
-    <div class="code-demo" role="img"
-         aria-label="Your phone is synced. The code travels to their phone, and it changes from Local to Synced.">
-      <div class="phone"><div class="who">Your phone</div>
-        <div class="badge"><span class="dot"></span>Synced</div></div>
-      <div class="link"><span class="spark"></span></div>
-      <div class="phone"><div class="who">Their phone</div>
-        <div class="badge-swap">
-          <span class="b-off"><span class="dot"></span>Local</span>
-          <span class="b-on"><span class="dot"></span>Synced</span>
-        </div></div>
+    <div class="demo-frame demo-book sh-b">
+      <img src="demo/book-3-recipes.webp" width="760" height="1175" alt="">
+      <img src="demo/book-2-opener.webp" width="760" height="1175" alt="">
     </div>
-    <p class="code-cap"><span class="codeword">KETTLE-4827-ORCHARD</span></p>
-
-    <p>Now your favorites, your weeks and your ticked-off groceries are the same on both
-    phones. You can both edit at once. If one of you is offline it catches up when you&rsquo;re
-    back.</p>
-
-    <p style="color:var(--muted);font-size:14px;font-style:italic;font-family:var(--serif)">The code is the only key. There&rsquo;s no password, so keep it
-    between the two of you. All that&rsquo;s in there is a grocery list. No names, no addresses,
-    no card details.</p>
+    <div class="demo-frame demo-phone">
+      <img src="demo/app-1-browse.webp" width="470" height="1017" alt="The app on a phone, browsing recipes as cards with their nutrition scores">
+      <img src="demo/app-2-recipe.webp" width="470" height="1017" alt="">
+      <img src="demo/app-3-plan.webp" width="470" height="1017" alt="">
+      <img src="demo/app-4-list.webp" width="470" height="1017" alt="">
+    </div>
   </div>
-</section>
+  <p class="demo-cap">The same 266 recipes, either way &mdash;
+  <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">or order it printed, $50</a></p>
 
-<section>
-  <div class="wrap">
-    <h2>Printed</h2>
-    <p class="sub">Already rendered, so it&rsquo;s one click and no print dialog to fight with.</p>
-
-    <!-- The one book leads, because it is the one that is sold and the better
-         object. This section used to open on three volume cards and a paragraph
-         about impositions — five blocks all saying "here is a file", under a
-         heading calling itself two volumes. -->
-    <div class="post">
-      <div class="post-body">
-        <div class="post-h">All 266 recipes, one spiral-bound volume</div>
-        <p class="post-p">160 pages, half-letter, with a contents page and fourteen
-        sections. Spiral bound it lies flat on the counter and stays open at the
-        page you&rsquo;re cooking from. A folded booklet won&rsquo;t.</p>
+  <section class="sec" id="what">
+    <div class="sec-lab">What it does</div>
+    <div class="nums">
+      <div class="num">
+        <div class="num-n">1</div>
+        <div>
+          <h3>Find a recipe, plan a week, shop from it</h3>
+          <p>Filter by effort or by what you&rsquo;d have to buy. Scale any recipe up to eight
+          times and get fractions back, not decimals. Plan a week &mdash; it just stays planned,
+          no dates to expire. The list builds itself and adds duplicates together, so three
+          recipes wanting cottage cheese come out as one line: 2⅛ cups.</p>
+        </div>
       </div>
-      <div class="post-buy">
-        <div class="post-amt">$50</div>
-        <div class="post-amt-sub">Printed and posted to you</div>
-        <div class="cta" style="margin-top:14px;flex-direction:column;gap:8px">
-          <a class="btn btn-solid post-order-btn" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order it printed</a>
-          <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Or download it free</a>
+      <div class="num">
+        <div class="num-n">2</div>
+        <div>
+          <h3>Tell it what&rsquo;s actually in your pantry</h3>
+          <p>It starts as the storehouse order sheet. Take things off as you stop keeping them,
+          and every recipe updates what it says you&rsquo;d need to buy &mdash; the part that keeps
+          this useful after you stop going.</p>
+        </div>
+      </div>
+      <div class="num">
+        <div class="num-n">3</div>
+        <div>
+          <h3>Print it as a real book</h3>
+          <p>Half-letter, with a contents page and proper typesetting. No recipe is ever cut in
+          half by a page break, and the files are rendered ahead of time, so there&rsquo;s no print
+          dialog to argue with about paper size.</p>
         </div>
       </div>
     </div>
+  </section>
 
-    <p class="post-p" style="max-width:62ch;margin-top:22px">Or take it as two booklets you
-    fold and staple yourself. <strong>Run and Not Be Weary</strong> is 100 recipes over 52 pages
-    (<a href="../print/Run-and-Not-Be-Weary.pdf">PDF</a> &middot;
-    <a href="../print/Run-and-Not-Be-Weary-booklet.pdf">imposed for folding</a>).
-    <strong>Around the Table</strong> is 166 over 112
-    (<a href="../print/Around-the-Table.pdf">PDF</a> &middot;
-    <a href="../print/Around-the-Table-booklet.pdf">imposed for folding</a>). The imposed files
-    are deliberately out of page order, so don&rsquo;t hand one to a copy shop for spiral
-    binding.</p>
-  </div>
-</section>
+  <section class="dark">
+    <h2>On your phone, with no signal</h2>
+    <p>Install it from the page &mdash; Safari: <strong>Share → Add to Home Screen</strong>,
+    Chrome: <strong>⋮ → Install app</strong> &mdash; and it keeps working in a storehouse
+    basement with no bars. Two people can share one list: tap the badge on one phone, type the
+    code into the other, and favorites, weeks and the grocery list stay the same on both.</p>
 
-<!-- =====================================================================
-     PAY WHAT IT IS WORTH
+    <div class="devices" role="img"
+         aria-label="A recipe open on one phone. The code is typed into the second, which changes from Local to Synced and shows the same week.">
+      <div class="dev"><div class="dev-screen">
+        <div class="mk-top"><span class="mk-no">I · 001</span><span class="mk-t">3 mins</span></div>
+        <div class="mk-h">Cottage Cheese &amp; Cinnamon Apple Bowl</div>
+        <div class="mk-macros"><span>260 kcal</span><span>28g protein</span></div>
+        <div class="mk-lab">Ingredients</div>
+        <div class="mk-ing">1 cup cottage cheese<br>1 diced apple<br>½ tsp cinnamon<br>dash vanilla</div>
+        <div class="mk-lab">Method</div>
+        <ol class="mk-steps">
+          <li>Scoop cottage cheese into a bowl or jar.</li>
+          <li>Stir in cinnamon and vanilla.</li>
+          <li>Top with diced apple slices and serve cold.</li>
+        </ol>
+        <div class="mk-save">★ Saved</div>
+      </div></div>
 
-     One Stripe link behind all four buttons, of the "customers choose what to
-     pay" kind, so every card lands on its suggested amount and nobody who wants
-     to give something else hits a wall. tests/welcome.test.js will not let this
-     block go live with a placeholder still in it.
+      <div class="link">
+        <div class="link-lab">Type the code</div>
+        <div class="link-wire"><span class="spark"></span></div>
+        <div class="codeword">KETTLE-4827-ORCHARD</div>
+      </div>
 
-     Deliberately a plain link and not an embedded widget: every other thing on
-     this site is served from this repository, and a page whose own footer says
-     "nothing is fetched from any other host" cannot then load a payment script
-     from one. A link fetches nothing until it is clicked.
-================================================================== -->
-<section>
-  <div class="wrap narrow">
-    <h2 id="give">Pay what it is worth to you</h2>
-    <p class="sub">Or nothing. That&rsquo;s the first option, and I mean it.</p>
+      <div class="dev"><div class="dev-screen">
+        <div class="mk-top2"><span class="mk-h2">The Week</span>
+          <span class="badge-swap">
+            <span class="b-off"><i></i>Local</span>
+            <span class="b-on"><i></i>Synced</span>
+          </span></div>
+        <div class="mk-day">Monday</div>
+        <div class="mk-meal">Cottage Cheese &amp; Cinnamon Apple Bowl</div>
+        <div class="mk-day">Tuesday</div>
+        <div class="mk-meal">Spicy Tuna &amp; Bell Pepper Boats</div>
+        <div class="mk-day">Wednesday</div>
+        <div class="mk-meal">Quick Canned Chicken &amp; Salsa Bowl</div>
+        <div class="mk-foot">Same list, added from either phone</div>
+      </div></div>
+    </div>
 
+    <div class="dark-note">The code is the only key. No password, no names &mdash; just a shared
+    grocery list.</div>
+  </section>
+
+  <section class="paper-row">
+    <div>
+      <h3>Prefer paper?</h3>
+      <p>All 266 recipes, 160 pages, spiral bound and posted to you for $50 &mdash; or download
+      it and print it yourself, free.</p>
+    </div>
+    <div class="paper-buys">
+      <a class="btn btn-solid post-order-btn" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order it &mdash; $50</a>
+      <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Download free</a>
+    </div>
+  </section>
+
+  <p class="fine">Or take it as two booklets you fold and staple yourself.
+  <strong>Run and Not Be Weary</strong> is 100 recipes over 52 pages
+  (<a href="../print/Run-and-Not-Be-Weary.pdf">PDF</a> ·
+  <a href="../print/Run-and-Not-Be-Weary-booklet.pdf">imposed for folding</a>).
+  <strong>Around the Table</strong> is 166 over 112
+  (<a href="../print/Around-the-Table.pdf">PDF</a> ·
+  <a href="../print/Around-the-Table-booklet.pdf">imposed for folding</a>). The imposed files are
+  deliberately out of page order, so don&rsquo;t hand one to a copy shop for spiral binding.</p>
+
+  <!-- ===================================================================
+       PAY WHAT IT IS WORTH
+
+       One Stripe link behind every button, of the "customers choose what to
+       pay" kind, so the two suggested amounts land on a page that will take
+       any amount and nobody who wants to give something else hits a wall.
+       tests/welcome.test.js will not let this block go live with a
+       placeholder still in it.
+
+       Deliberately a plain link and not an embedded widget: every other
+       thing on this site is served from this repository, and a page whose
+       own footer says "nothing loads from anywhere else" cannot then load a
+       payment script from somewhere else. A link fetches nothing until it
+       is clicked.
+  ==================================================================== -->
+  <section class="give-sec" id="give">
     <div class="quote">&ldquo;I give not because I have not, but if I had I would give.&rdquo;</div>
-    <div class="quote-src">King Benjamin &middot; Mosiah 4:24</div>
+    <div class="quote-src">King Benjamin · Mosiah 4:24</div>
 
     <p>We&rsquo;re using the bishops&rsquo; storehouse right now. That&rsquo;s not a comfortable
-    sentence to put on a public page, but it&rsquo;s the whole reason this exists. The order
-    sheet is a fixed list, and eating well off a fixed list takes more planning than most
-    weeks have room for.</p>
+    sentence to put on a public page, but it&rsquo;s the whole reason this exists. The order sheet
+    is a fixed list, and eating well off a fixed list takes more planning than most weeks have
+    room for.</p>
 
     <p>So I built it for us: recipes that lean on what&rsquo;s actually on that sheet, a week you
     plan once, and a shopping list that only asks you to buy the things the storehouse
     doesn&rsquo;t carry. My wife and I run it off one shared list across two phones. It worked
-    well enough that I typeset the whole collection, had it printed and bound at a copy shop,
-    and put it here.</p>
+    well enough that I typeset the whole collection, had it printed and bound at a copy shop, and
+    put it here.</p>
 
     <p>It costs you nothing, and it isn&rsquo;t going to. The app is free, both books are free,
     the source is public. That&rsquo;s not a strategy &mdash; it was built by somebody who
@@ -585,8 +588,8 @@ footer a:hover { text-decoration: underline; }
       <div class="give-card free">
         <div class="give-amt">Nothing</div>
         <div class="give-what">Take it</div>
-        <div class="give-note">This is what it&rsquo;s for. If money is tight, it&rsquo;s tight. I&rsquo;d
-        rather you had the book.</div>
+        <div class="give-note">This is what it&rsquo;s for. If money is tight, it&rsquo;s tight.
+        I&rsquo;d rather you had the book.</div>
       </div>
       <a class="give-card" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">
         <div class="give-amt">$8</div>
@@ -600,35 +603,30 @@ footer a:hover { text-decoration: underline; }
       </a>
     </div>
 
-    <!-- The two amounts again, as buttons. The cards above are links and behave
-         like links, but they read as a price list, and a price list is a thing
-         you look at rather than a thing you press. These are the same two
-         suggestions with a verb on them. -->
+    <!-- The two amounts again, with a verb on them. The cards above are
+         links and behave like links, but they read as a price list, and a
+         price list is a thing you look at rather than a thing you press. -->
     <div class="cta" style="justify-content:flex-start">
       <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $8</a>
       <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $40</a>
-      <a class="btn btn-solid give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give what you like</a>
+      <a class="btn btn-gold give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give what you like</a>
     </div>
-    <p class="cta-note" style="text-align:left">All three open the same page, where you type the
+    <p class="fine" style="margin-top:14px">All three open the same page, where you type the
     amount &mdash; so the two above are suggestions, not tiers. Or
-    <a href="../" style="color:var(--ochre);font-weight:600">just open the app</a>.</p>
-  </div>
-</section>
+    <a href="../">just open the app</a>.</p>
+  </section>
 
-
-<footer>
-  <div class="wrap">
-    <a href="../">Open the app</a> &nbsp;·&nbsp;
-    <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order the book</a> &nbsp;·&nbsp;
-    <a href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Pay what it is worth</a> &nbsp;·&nbsp;
-    <a href="https://github.com/blakemerrell/storehouse-recipes">Source on GitHub</a> &nbsp;·&nbsp;
+  <footer>
+    <a href="../">Open the app</a> ·
+    <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order the book</a> ·
+    <a href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Pay what it is worth</a> ·
+    <a href="https://github.com/blakemerrell/storehouse-recipes">Source on GitHub</a> ·
     <a href="https://github.com/blakemerrell/storehouse-recipes/blob/main/SETUP.md">Set up sharing</a>
-    <div class="colophon">
-      Free and open source. Set in Source Serif 4 and Work Sans.<br>
-      Nothing loads from anywhere else. Even the typefaces are in the repo, not Google’s.
-    </div>
-  </div>
-</footer>
+    <div style="margin-top:8px">Free and open source. Nothing loads from anywhere else &mdash;
+    even the typefaces are in the repo, not Google&rsquo;s.</div>
+  </footer>
+
+</div>
 
 </body>
 </html>

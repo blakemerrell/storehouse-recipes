@@ -44,15 +44,17 @@ module.exports = {
     const demo = await p.evaluate(() => ({
       book: document.querySelectorAll('.demo-book img').length,
       app: document.querySelectorAll('.demo-phone img').length,
-      broken: [...document.querySelectorAll('.demo img')]
+      broken: [...document.querySelectorAll('.showcase img')]
         .filter((i) => !i.naturalWidth).map((i) => new URL(i.src).pathname),
       /* One description per stack. Eight would make a screen reader read out
          four pictures of the same book. */
-      described: [...document.querySelectorAll('.demo img')].filter((i) => i.alt).length,
+      described: [...document.querySelectorAll('.showcase img')].filter((i) => i.alt).length,
     }));
     t.ok('the demo shows four frames of the book and four of the app',
       demo.book === 4 && demo.app === 4, JSON.stringify(demo));
     t.ok('and every one of them loaded', demo.broken.length === 0, demo.broken.join(' '));
+    /* One for the book, one for the app. Eight would make a screen reader
+       read out four pictures of the same book. */
     t.ok('with one description per stack rather than eight', demo.described === 2, demo.described);
 
     /* The frames are photographs of a build, and a photograph does not complain
@@ -76,18 +78,60 @@ module.exports = {
       ' — run node tools/build-demo.js');
 
     /* Every way in. Somebody who reads to the end and wants to pay should not
-       have to scroll back up to find out how. */
+       have to scroll back up to find out how, and somebody who decides in the
+       first screen should not have to read to the end.
+
+       'Near the top' rather than 'in the hero': the hero is two buttons now
+       and neither of them takes money, which is the right hero. The paying
+       link moved one block down, to the line under the collage — still above
+       "What it does", which is what the assertion actually cares about. */
     const ways = await p.evaluate(() => {
       const pay = [...document.querySelectorAll('a[href*="buy.stripe.com"]')];
-      const near = (sel) => pay.some((a) => a.closest(sel));
+      const what = document.getElementById('what');
+      const before = (a) => what &&
+        (a.compareDocumentPosition(what) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
       return {
         total: pay.length,
-        hero: near('.hero'), demo: !!document.querySelector('.demo-cap a[href*="stripe"]'),
-        footer: near('footer'),
+        top: pay.some(before),
+        demo: !!document.querySelector('.demo-cap a[href*="stripe"]'),
+        footer: pay.some((a) => a.closest('footer')),
       };
     });
-    t.ok('there is a way to pay in the hero, by the demo and in the footer',
-      ways.hero && ways.demo && ways.footer, JSON.stringify(ways));
+    t.ok('there is a way to pay near the top, by the demo and in the footer',
+      ways.top && ways.demo && ways.footer, JSON.stringify(ways));
+
+    /* The two phone screens in the dark panel are hand-set HTML, not
+       screenshots — a screenshot of two phones side by side would be a
+       screenshot of a page that does not exist. That makes them the one thing
+       on this page that can quietly stop being true, so what is written on
+       them is checked against the recipes themselves: the title, the macros
+       and the ingredients of No. 001, and the name of No. 002 on the Tuesday
+       of the week beside it. Rename a recipe and this fails. */
+    const mock = await p.evaluate(() => {
+      const txt = (s) => (document.querySelector(s) || {}).textContent || '';
+      return {
+        title: txt('.mk-h').trim(),
+        macros: [...document.querySelectorAll('.mk-macros span')].map((e) => e.textContent.trim()),
+        ing: (document.querySelector('.mk-ing') || {}).innerHTML
+          .split(/<br\s*\/?>/i).map((x) => x.trim()),
+        steps: [...document.querySelectorAll('.mk-steps li')].map((e) => e.textContent.trim()),
+        meals: [...document.querySelectorAll('.mk-meal')].map((e) => e.textContent.trim()),
+      };
+    });
+    global.window = {};
+    delete require.cache[require.resolve(require('path').join(__dirname, '..', 'data', 'recipes.js'))];
+    require(require('path').join(__dirname, '..', 'data', 'recipes.js'));
+    const R = global.window.RECIPES;
+    const [one, two, three] = [1, 2, 3].map((id) => R.find((r) => r.id === id));
+    t.ok('the phone screens still say what the recipes say',
+      mock.title === one.name &&
+      mock.macros.join('|') === one.macro.kcal + ' kcal|' + one.macro.p + 'g protein' &&
+      mock.ing.join('|') === one.ing.join('|') &&
+      mock.steps.join('|') === one.steps.join('|') &&
+      mock.meals.join('|') === [one, two, three].map((r) => r.name).join('|'),
+      JSON.stringify(mock) + ' vs ' + JSON.stringify({
+        name: one.name, kcal: one.macro.kcal, p: one.macro.p,
+        ing: one.ing, steps: one.steps, week: [one, two, three].map((r) => r.name) }));
 
     /* Every link on the page, checked rather than assumed — the PDFs in
        particular are named after a volume that was renamed once already. */
