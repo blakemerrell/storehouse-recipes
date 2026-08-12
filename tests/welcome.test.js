@@ -85,7 +85,9 @@ module.exports = {
         /* .post-order, not .post — the same card style is reused for the
            free one-book download, whose href is a local PDF and rightly is
            not a payment URL. Only the one that takes money is guarded. */
-        post: block('.post-order', '.post-order a[href]'),
+        /* The paying button, wherever it sits. It moved when the print
+           section was rebuilt around the one-book edition. */
+        post: block('.post-order-btn', 'a.post-order-btn'),
       };
     });
     const wired = (b) => !b.present ||
@@ -98,9 +100,13 @@ module.exports = {
     /* The page quotes page and sheet counts at people deciding whether to walk
        into a print shop. Those came from the render and go stale silently. */
     const quoted = await p.evaluate(() => document.body.textContent.replace(/\s+/g, ' '));
+    /* Every page count the page quotes at somebody deciding whether to walk
+       into a copy shop. They came out of the render and go stale silently, and
+       the sheet counts went with the volume cards when the section was rebuilt
+       around the one book. */
     t.ok('the page counts it advertises match the books',
-      /108 pages · 27 sheets/.test(quoted) && /52 pages · 13 sheets/.test(quoted),
-      (quoted.match(/\d+ pages · \d+ sheets/g) || []).join(' | '));
+      /156 pages/.test(quoted) && /52 pages/.test(quoted) && /108/.test(quoted),
+      (quoted.match(/\d+ pages?/g) || []).join(' | '));
 
     // a phone must not have to scroll sideways to read it
     await p.setViewportSize({ width: 390, height: 844 });

@@ -277,36 +277,38 @@ footer a:hover { text-decoration: underline; }
 <section>
   <div class="wrap">
     <h2>What it does</h2>
-    <p class="sub">Four things, and it tries to do them properly rather than do twelve badly.</p>
+    <p class="sub">Five things, and it tries to do them properly rather than do twelve badly.</p>
     <div class="grid">
       <div class="feat">
         <span class="n">Browse</span>
         <h3>263 recipes, sorted how you think</h3>
-        <p>Filter by book, section, effort, or whether a recipe needs anything beyond
-        standard storehouse items. Order by healthiest, most protein, or quickest.
-        Every recipe scales from ¼× to 8×, and fractions come out as fractions.</p>
+        <p>Filter by book, section, effort, or whether a recipe needs anything the storehouse
+        does not carry. Every one scales from ¼× to 8×, and fractions stay fractions.</p>
       </div>
       <div class="feat">
         <span class="n">Plan</span>
         <h3>A week that stays where you put it</h3>
-        <p>There are no dates — Monday is a slot, not a date, and nothing resets on
-        its own. Keep as many weeks as you like, name them for what they are, and
-        rotate through them instead of starting from nothing every Sunday.</p>
+        <p>No dates. Monday is a slot, not a date, and nothing resets on its own. Keep as many
+        weeks as you like and rotate through them.</p>
       </div>
       <div class="feat">
         <span class="n">Shop</span>
         <h3>A list that adds up for you</h3>
-        <p>A diced apple and a sliced apple are apples. Three recipes wanting a cup, a
-        cup and two tablespoons of cottage cheese ask for 2⅛ cups — not three separate
-        lines. Seasonings get a name and no number, because nobody shops for two
-        teaspoons of salt.</p>
+        <p>A diced apple and a sliced apple are apples. Three recipes wanting cottage cheese
+        ask for 2⅛ cups, not three separate lines.</p>
+      </div>
+      <div class="feat">
+        <span class="n">Pantry</span>
+        <h3>What you actually keep in</h3>
+        <p>Starts as the storehouse order. Take things off as you stop keeping them and every
+        recipe changes its mind about what you would have to go out for &mdash; so the book
+        outlives the storehouse.</p>
       </div>
       <div class="feat">
         <span class="n">Print</span>
         <h3>An actual book, not a printout</h3>
-        <p>Half-letter, properly typeset, with front matter and its own contents. Pages
-        are measured in the browser and packed to fit, so a recipe is never split
-        across a page and a heading never sits alone at the foot of one.</p>
+        <p>Half-letter, typeset, with front matter and its own contents. Pages are measured in
+        the browser and packed to fit, so a recipe never splits across a leaf.</p>
       </div>
     </div>
   </div>
@@ -352,85 +354,38 @@ footer a:hover { text-decoration: underline; }
 
 <section>
   <div class="wrap">
-    <h2>The two printed volumes</h2>
+    <h2>Printed</h2>
     <p class="sub">Rendered ahead of time, so a printable file is one click and no print dialog to argue with.</p>
-    <p class="post-p" style="margin:-22px 0 30px;max-width:66ch">Three files, for three
-    bindings. The <strong>one-book edition</strong> below is all 263 in a single volume &mdash;
-    take that to a copy shop to be spiral bound and it lies flat on a counter. Each volume's
-    own <strong>PDF</strong> is the same pages split in two. The <strong>booklet</strong> files
-    are imposed out of order, so that folding the stack in half and stapling the spine gives a
-    book that reads in sequence &mdash; take one of those to be spiral bound and the pages come
-    out 1, 52, 2, 51.</p>
-    <div class="books">
-      <div class="book">
-        <div class="vol">Volume I</div>
-        <h3>Run and Not Be Weary</h3>
-        <div class="meta">100 recipes · 52 pages · 13 sheets<br>Four illustrated sections</div>
-        <div class="dl">
-          <a href="../print/Run-and-Not-Be-Weary.pdf">Download PDF</a>
-          <a href="../print/Run-and-Not-Be-Weary-booklet.pdf">Booklet, for folding</a>
-        </div>
-      </div>
-      <div class="book">
-        <div class="vol">Volume II</div>
-        <h3>Around the Table</h3>
-        <div class="meta">163 recipes · 108 pages · 27 sheets<br>Eight illustrated sections</div>
-        <div class="dl">
-          <a href="../print/Around-the-Table.pdf">Download PDF</a>
-          <a href="../print/Around-the-Table-booklet.pdf">Booklet, for folding</a>
-        </div>
-      </div>
-      <div class="book">
-        <div class="vol">Volume III</div>
-        <h3>Ours</h3>
-        <div class="meta">Starts empty and fills with your own.<br>Write a recipe and it joins the rest</div>
-        <div class="dl">
-          <a href="../">Open the app</a>
-        </div>
-      </div>
-    </div>
 
-    <div class="post" style="margin-top:20px">
+    <!-- The one book leads, because it is the one that is sold and the better
+         object. This section used to open on three volume cards and a paragraph
+         about impositions — five blocks all saying "here is a file", under a
+         heading calling itself two volumes. -->
+    <div class="post">
       <div class="post-body">
-        <div class="post-h">All of it in one book</div>
-        <p class="post-p">The same 263 recipes as a single volume &mdash; one cover, one
-        contents, both parts running straight through. This is the file to hand a copy shop
-        for spiral binding. 156 pages, four fewer than the two volumes, because a book only
-        needs one set of front matter.</p>
-      </div>
-      <div class="post-buy">
-        <div class="post-amt-sub" style="margin-bottom:12px">Complete in one volume</div>
-        <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Download the one-book PDF</a>
-      </div>
-    </div>
-
-    <!-- =================================================================
-         PRINTED SET
-
-         A plain link, like the donate block, and the same test guards it: this
-         cannot go live with a placeholder in it.
-
-         One volume, not two. The edition being sold is the combined one, and
-         this copy said "the pair" until the day it stopped being a pair.
-         ============================================================== -->
-    <div class="post post-order">
-      <div class="post-body">
-        <div class="post-h">Or have it printed and posted to you</div>
-        <p class="post-p">All 263 recipes as a single spiral-bound volume with a clear
-        cover, so it lies flat on the counter and stays open at the page you are cooking
-        from &mdash; which a folded booklet will not do. 156 pages, printed and posted
-        anywhere in the United States. The files above stay free and always will; this is
-        for anyone who would rather not spend an afternoon at a copy shop.</p>
+        <div class="post-h">All 263 recipes, one spiral-bound volume</div>
+        <p class="post-p">156 pages, half-letter, properly typeset with its own contents and
+        thirteen illustrated sections. Spiral bound it lies flat on the counter and stays open
+        at the page you are cooking from, which a folded booklet will not do.</p>
       </div>
       <div class="post-buy">
         <div class="post-amt">$50</div>
-        <div class="post-amt-sub">One volume, spiral bound</div>
-        <div class="cta" style="margin-top:14px">
-          <a class="btn btn-solid" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order the book</a>
+        <div class="post-amt-sub">Printed and posted to you</div>
+        <div class="cta" style="margin-top:14px;flex-direction:column;gap:8px">
+          <a class="btn btn-solid post-order-btn" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order it printed</a>
+          <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Or download it free</a>
         </div>
       </div>
     </div>
 
+    <p class="post-p" style="max-width:62ch;margin-top:22px">Or take it as two booklets to fold
+    and staple yourself &mdash; <strong>Run and Not Be Weary</strong>, 100 recipes over 52 pages
+    (<a href="../print/Run-and-Not-Be-Weary.pdf">PDF</a> &middot;
+    <a href="../print/Run-and-Not-Be-Weary-booklet.pdf">imposed for folding</a>) and
+    <strong>Around the Table</strong>, 163 over 108
+    (<a href="../print/Around-the-Table.pdf">PDF</a> &middot;
+    <a href="../print/Around-the-Table-booklet.pdf">imposed for folding</a>). The imposed files
+    run out of page order on purpose; do not hand one to a copy shop for spiral binding.</p>
   </div>
 </section>
 
@@ -470,13 +425,11 @@ footer a:hover { text-decoration: underline; }
     <div class="quote-src">King Benjamin &middot; Mosiah 4:24</div>
 
     <p>I built this because my family needed it. We are using the bishops&rsquo; storehouse
-    at the moment, and I wanted a way to eat well from what it actually carries &mdash; the
-    macros worked out, the shopping list building itself, a week of meals decided in a few
-    minutes instead of an evening.</p>
+    at the moment, and I wanted a way to eat well from what it actually carries.</p>
 
     <p>It works for us. It might work for you, and that costs you nothing: the app is free,
-    both books are free to download and print, and the whole thing is open source. Nothing
-    is held back from anyone, and nothing here is behind a payment.</p>
+    both books are free, and the whole thing is open source. Nothing here is behind a
+    payment.</p>
 
     <p>I am also, honestly, looking for ways to bring something in. If this saved you time
     or money and you are in a position to, anything you send goes straight to my family.</p>
