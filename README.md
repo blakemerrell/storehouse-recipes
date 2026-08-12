@@ -153,15 +153,17 @@ The app is plain static files, so GitHub Pages hosts it for free:
 2. **Settings → Pages → Source: Deploy from a branch**, branch `main`, folder `/ (root)`.
 3. Wait a minute. Your link is `https://<your-username>.github.io/<repo-name>/`.
 
-> **Pick one source and stick to it.** There is also a workflow in
-> `.github/workflows/pages.yml` that publishes through Actions, and the two are
-> mutually exclusive — Pages is either served from the branch or built by
-> Actions, never both. If the Source above says *Deploy from a branch*, the
-> workflow cannot deploy and will fail on every push; if it says *GitHub
-> Actions*, the workflow is what publishes and the branch setting is ignored.
-> A site that stops updating after a push, with no error anywhere the app can
-> show, is usually this. There is no build step here, so the branch setting is
-> the simpler of the two and the workflow can be deleted outright.
+That is the whole deployment. There is deliberately no Actions workflow: Pages
+is either served from a branch or built by Actions, never both, and a repository
+carrying the machinery for the one it is not using is a repository where nobody
+can tell which is real. This one had both for a while, and the answer to "why
+has the site not updated" was harder than it needed to be for exactly that
+reason.
+
+If a push ever does not appear: the service worker serves the shell cache-first,
+so check `?v=` in the page source before suspecting the deploy. Everything the
+browser loads carries one, and a version that has not moved means the deploy has
+not landed rather than that the cache is stale.
 
 There is a landing page at `/welcome/` — what the app is, what it does, the two
 books, and how to install it — for sharing with someone who has not seen it
