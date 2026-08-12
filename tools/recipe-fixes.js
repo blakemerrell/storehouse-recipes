@@ -12,9 +12,18 @@
  * it, so following the recipe literally puts raw chicken into a casserole.
  *
  * 165°F is the USDA figure for poultry.
+ *
+ * The nineteenth is a different kind of wrong, and uses `set` rather than
+ * `add`: the step is replaced instead of appended to. No. 006 said "whisk in
+ * dry milk powder until dissolved", into a cup of yogurt. It does hydrate —
+ * a cup of yogurt is around 200 g of water and two tablespoons of powder is
+ * under nine — but tipped in it clumps, and "until dissolved" promises
+ * something that does not happen in anything that thick. The six warm drinks
+ * added later all turn on the same technique, so the fix is the one they use.
  */
 
 module.exports = [
+  { id: 6, step: 1, set: 'Sprinkle the dry milk over the yogurt a little at a time, whisking as you go, and let it stand a minute. Tipped in all at once it clumps and stays that way.' },
   { id: 54, step: 2, add: 'Check the chicken before serving: no pink at the centre, 165°F on a thermometer.' },
   { id: 57, step: 0, add: 'Cut a piece open to check — the chicken should be white through to the middle, 165°F.' },
   { id: 61, step: 0, add: 'Give it longer if the breasts are thick — done means 165°F and no pink at the centre.' },

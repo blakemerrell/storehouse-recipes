@@ -40,7 +40,12 @@ let applied = 0;
 FIXES.forEach((f) => {
   const r = byId[f.id];
   if (!r || !r.steps[f.step]) throw new Error('recipe fix does not apply: ' + f.id + ' step ' + f.step);
-  r.steps[f.step] = r.steps[f.step].replace(/\s*$/, '') + ' ' + f.add;
+  /* `add` appends, which is right for the eighteen doneness notes — the step
+     is sound and is missing a check. `set` replaces, for the rarer case where
+     the step itself is wrong. Both are listed in recipe-fixes.js so it stays
+     obvious what was changed and why. */
+  if (f.set) r.steps[f.step] = f.set;
+  else r.steps[f.step] = r.steps[f.step].replace(/\s*$/, '') + ' ' + f.add;
   applied++;
 });
 
