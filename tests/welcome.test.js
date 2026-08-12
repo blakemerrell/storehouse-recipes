@@ -66,6 +66,21 @@ module.exports = {
     });
     t.ok('no link on it is dead', dead.length === 0, dead.join(', '));
 
+    /* The donate block is allowed to be absent — it ships switched off until
+       there is somewhere for the money to go. What it is not allowed to be is
+       present and unwired. A dead link anywhere on this page is a nuisance; a
+       dead link on the one button that costs somebody money is the kind of
+       thing you only find out about from the person who tried. */
+    const give = await p.evaluate(() => ({
+      present: !!document.querySelector('.give'),
+      links: [...document.querySelectorAll('a.give-card, .give-foot ~ .cta a, .give a')]
+        .map((a) => a.getAttribute('href')),
+    }));
+    t.ok('the donate block is either off or actually wired up',
+      !give.present || (give.links.length > 0 &&
+        give.links.every((h) => /^https?:\/\//.test(h) && !/GIVE_LINK_HERE/.test(h))),
+      give.present ? give.links.join(' ') : 'off');
+
     /* The page quotes page and sheet counts at people deciding whether to walk
        into a print shop. Those came from the render and go stale silently. */
     const quoted = await p.evaluate(() => document.body.textContent.replace(/\s+/g, ' '));

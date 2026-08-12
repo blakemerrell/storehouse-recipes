@@ -151,6 +151,37 @@ h2 + .sub {
 }
 .link-arrow { color: var(--ochre); font-size: 22px; }
 
+/* ---- pay what it is worth ---------------------------------------------
+   Last section before the footer, deliberately. Asking before the page has
+   shown what it is asking for is the wrong order, and a page that opens with a
+   donate button is a page about money rather than about food. */
+.quote {
+  font-family: var(--serif); font-style: italic; font-size: clamp(19px, 2.6vw, 24px);
+  line-height: 1.5; text-align: center; margin: 0 auto 8px; max-width: 22em;
+  text-wrap: pretty;
+}
+.quote-src {
+  text-align: center; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--ochre); font-weight: 600; margin-bottom: 34px;
+}
+.give { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 30px 0 0; }
+.give-card {
+  border: 1px solid var(--line); background: #fff; padding: 20px 18px;
+  display: flex; flex-direction: column; text-align: center; text-decoration: none;
+  transition: border-color .12s ease, transform .12s ease;
+}
+a.give-card:hover { border-color: var(--ochre); transform: translateY(-1px); }
+.give-amt { font-family: var(--serif); font-size: 27px; font-weight: 700; }
+.give-what {
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ochre); font-weight: 600; margin-top: 8px;
+}
+.give-note { font-size: 13.5px; color: var(--muted-2); line-height: 1.55; margin-top: 10px; text-wrap: pretty; }
+/* The free one is not a lesser tier and is not styled as one. It is first, and
+   it is the only one with no link on it, because there is nothing to click. */
+.give-card.free { background: var(--paper); border-style: dashed; }
+.give-foot { font-size: 14.5px; color: var(--muted-2); margin-top: 26px; text-wrap: pretty; }
+
 /* ---- book covers ------------------------------------------------------ */
 .books { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 26px; margin-top: 30px; }
 .book {
@@ -352,6 +383,79 @@ footer a:hover { text-decoration: underline; }
     </ol>
   </div>
 </section>
+
+<!-- =====================================================================
+     PAY WHAT IT IS WORTH  —  OFF UNTIL THERE IS SOMEWHERE TO PAY
+
+     TO TURN IT ON, TWO STEPS:
+       1. Replace all four GIVE_LINK_HERE below with your payment page.
+       2. Delete this line and the closing marker at the end of the block.
+
+     It ships commented out rather than pointing somewhere hopeful, because a
+     donate button that 404s is the one broken link on a site that costs real
+     money and real credibility. tests/welcome.test.js will not let it go live
+     with the placeholder still in it.
+
+     Deliberately a plain link and not an embedded widget: every other thing on
+     this site is served from this repository, and a page whose own footer says
+     "nothing is fetched from any other host" cannot then load a payment script
+     from one. A link fetches nothing until it is clicked.
+================================================================== -->
+<!-- CUT FROM HERE
+<section>
+  <div class="wrap narrow">
+    <h2>Pay what it is worth to you</h2>
+    <p class="sub">Or nothing. That is a real answer, and it is the first one on the list.</p>
+
+    <div class="quote">&ldquo;I give not because I have not, but if I had I would give.&rdquo;</div>
+    <div class="quote-src">King Benjamin &middot; Mosiah 4:24</div>
+
+    <p>I built this because my family needed it. We are using the bishops&rsquo; storehouse
+    at the moment, and I wanted a way to eat well from what it actually carries &mdash; the
+    macros worked out, the shopping list building itself, a week of meals decided in a few
+    minutes instead of an evening.</p>
+
+    <p>It works for us. It might work for you, and that costs you nothing: the app is free,
+    both books are free to download and print, and the whole thing is open source. Nothing
+    is held back from anyone, and nothing here is behind a payment.</p>
+
+    <p>I am also, honestly, looking for ways to bring something in. If this saved you time
+    or money and you are in a position to, anything you send goes straight to my family.</p>
+
+    <div class="give">
+      <div class="give-card free">
+        <div class="give-amt">Nothing</div>
+        <div class="give-what">Take it</div>
+        <div class="give-note">This is what it is for. If money is tight, it is tight &mdash;
+        I know exactly what that is like, and I would rather you had the book.</div>
+      </div>
+      <a class="give-card" href="GIVE_LINK_HERE">
+        <div class="give-amt">$8</div>
+        <div class="give-what">A printed volume</div>
+        <div class="give-note">About what one of the two books costs to print and bind at a
+        copy shop.</div>
+      </a>
+      <a class="give-card" href="GIVE_LINK_HERE">
+        <div class="give-amt">$40</div>
+        <div class="give-what">A week of the extras</div>
+        <div class="give-note">Roughly a week of the things the storehouse does not carry &mdash;
+        the list at the foot of a recipe.</div>
+      </a>
+    </div>
+
+    <p class="give-foot">Any other amount is welcome, and so is none.
+    <em>&ldquo;It is not requisite that a man should run faster than he has strength&rdquo;</em>
+    &mdash; which is the verse this first volume is named around, and it applies here too.
+    Please do not give out of your own need.</p>
+
+    <div class="cta" style="justify-content:flex-start">
+      <a class="btn btn-solid" href="GIVE_LINK_HERE">Give what you like</a>
+      <a class="btn btn-ghost" href="../">Just open the app</a>
+    </div>
+  </div>
+</section>
+
+END OF CUT -->
 
 <footer>
   <div class="wrap">
