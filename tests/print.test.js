@@ -40,7 +40,7 @@ module.exports = {
       };
     });
 
-    t.ok('both volumes render as 160 pages of paper', b.pages === 160, b.pages + ' pages');
+    t.ok('both volumes render as 164 pages of paper', b.pages === 164, b.pages + ' pages');
 
     /* And the same number the second time. The packer measures in an offscreen
        .pg, which on a phone inherited the preview's transform: scale — and
@@ -235,7 +235,7 @@ module.exports = {
        Both-Books.pdf is two books end to end: a back cover on sheet 52, a
        second front cover on 54, and the four pages of reference matter over
        again. Fine as two booklets, and a printing fault as one spiral book.
-       This mode is the same 263 recipes built as one object, and what is worth
+       This mode is the same 266 recipes built as one object, and what is worth
        asserting is the seams — that there is exactly one of everything a book
        has one of, and that nothing left in it still claims to be a volume. */
     await p.selectOption('#printSet', 'one');
@@ -267,19 +267,19 @@ module.exports = {
     /* Volume Two's Section 1 would otherwise turn up on page 60 of a book that
        already had one. */
     t.ok('sections numbered straight through both parts',
-      one.sections.join('|') === Array.from({ length: 13 }, (_, i) => 'Section ' + (i + 1)).join('|'),
+      one.sections.join('|') === Array.from({ length: 14 }, (_, i) => 'Section ' + (i + 1)).join('|'),
       one.sections.join(' '));
     t.ok('and nothing in it still calls itself a volume of two',
       one.companion === 0 && one.volumeLines === 0,
       one.companion + ' companion lines, ' + one.volumeLines + ' volume lines');
     t.ok('it is shorter than the two volumes printed separately',
-      one.pages === 156 && one.pages < b.pages, one.pages + ' vs ' + b.pages);
+      one.pages === 160 && one.pages < b.pages, one.pages + ' vs ' + b.pages);
 
     await p.selectOption('#printSet', 'all');
     await p.waitForTimeout(4500);
 
     /* The one ask inside the app, and the one place it belongs: somebody
-       reading a 156-page preview and working out what a copy shop charges has
+       reading a 160-page preview and working out what a copy shop charges has
        already decided they want it on paper. It must not follow them into a
        print of this week's plan, which is four pages for a fridge door. */
     const ask = async () => p.evaluate(() =>

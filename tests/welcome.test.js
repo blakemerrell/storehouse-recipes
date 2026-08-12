@@ -122,7 +122,7 @@ module.exports = {
        the sheet counts went with the volume cards when the section was rebuilt
        around the one book. */
     t.ok('the page counts it advertises match the books',
-      /156 pages/.test(quoted) && /52 pages/.test(quoted) && /108/.test(quoted),
+      /160 pages/.test(quoted) && /52 pages/.test(quoted) && /112/.test(quoted),
       (quoted.match(/\d+ pages?/g) || []).join(' | '));
 
     // a phone must not have to scroll sideways to read it

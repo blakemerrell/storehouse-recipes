@@ -61,7 +61,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 263 scored recipes: **15–96**, median **60**.
+Score range across all 266 scored recipes: **15–96**, median **60**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -154,7 +154,7 @@ Around the Table shipped with **no nutrition data**: all 125 recipes carried a t
 the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
-- Recipes given macros: 163 of 163
+- Recipes given macros: 166 of 166
 - Score range: 15–86 (median 54)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
@@ -179,13 +179,14 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-38 recipes across 4 sections were written for this edition rather than carried
+41 recipes across 5 sections were written for this edition rather than carried
 over from the original books:
 
 - **Worth the Afternoon** — 12 recipes
 - **The Copycat Shelf** — 10 recipes
 - **For the Love of Chocolate** — 10 recipes
 - **Warm Drinks** — 6 recipes
+- **Made, Not Bought** — 3 recipes
 
 The data made the gaps plain. Across the original 225, no recipe has more than
 four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens
@@ -193,7 +194,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 19 of the 38
+Every ingredient was checked against the storehouse order list. 22 of the 41
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 

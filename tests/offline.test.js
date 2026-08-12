@@ -39,7 +39,7 @@ module.exports = {
        GitHub Pages serves it with max-age=600 — so a new worker installing a
        new cache could fetch it through the browser's HTTP cache, get the copy
        from before the deploy, and then serve that copy cache-first for the
-       life of the cache. Add six recipes, push, refresh: 263 in the header and
+       life of the cache. Add six recipes, push, refresh: 266 in the header and
        257 on the page. The versioned files were never exposed to it, because
        ?v=30 is a URL the HTTP cache has never seen.
 
@@ -82,7 +82,7 @@ module.exports = {
       font: document.fonts.check('700 20px "Source Serif 4"'),
       planned: window.Store.day('wed').length,
     }));
-    t.ok('it opens with no network at all', alive.cards === 263, alive.cards);
+    t.ok('it opens with no network at all', alive.cards === 266, alive.cards);
     t.ok('in its own typeface rather than a fallback', alive.font);
     t.ok('and the week is where you left it', alive.planned === 1);
 
@@ -91,11 +91,11 @@ module.exports = {
     await p2.goto(t.base + 'index.html');
     await p2.waitForTimeout(1200);
     t.ok('a fresh tab opens offline too',
-      (await p2.evaluate(() => document.querySelectorAll('.card').length)) === 263);
+      (await p2.evaluate(() => document.querySelectorAll('.card').length)) === 266);
     await p2.click('.tab[data-view="book"]');
     await p2.waitForTimeout(3500);
     t.ok('and the whole book still prints',
-      (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 160);
+      (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) === 164);
 
     /* A phone that looks unchanged after a deploy is the hardest thing here to
        tell apart from a deploy that has not landed. The Sharing sheet carries

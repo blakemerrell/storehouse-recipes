@@ -20,6 +20,13 @@
  * under nine — but tipped in it clumps, and "until dissolved" promises
  * something that does not happen in anything that thick. The six warm drinks
  * added later all turn on the same technique, so the fix is the one they use.
+ *
+ * The last group is not a correction at all. Ten recipes call for a bottle of
+ * barbecue sauce or a packet of gravy mix, neither of which the storehouse
+ * carries and both of which it has every part of. Recipes 264 and 265 are those
+ * two, and these entries are the cross-reference from the recipes that want
+ * them. Nine of the ten are here; the tenth is No. 247, which was written for
+ * this collection rather than carried over, so it is edited in place instead.
  */
 
 module.exports = [
@@ -71,7 +78,7 @@ module.exports = [
       '¾ cup milk', 'salt'],
     steps: [
       'Heat the oven to 375°F.',
-      'Brown the beef and drain it. Drain the vegetables, stir them in, and make up the gravy as the packet says.',
+      'Brown the beef and drain it. Drain the vegetables, stir them in, and make up the gravy as the packet says. No packet? Recipe 265, browned dark and made with a cup of water, does the same job.',
       'Rub the cold butter into the flour, baking powder and a teaspoon of salt until crumbly, then stir in the milk until it just comes together.',
       'Spoon the beef into a baking dish, drop the dough over it in rough spoonfuls, and bake 25 minutes until the topping is golden and dry at the centre.',
     ],
@@ -121,4 +128,25 @@ module.exports = [
   { id: 190, step: 1, add: 'Cook and shred the chicken first — 165°F. It will not cook through once it is rolled up and covered in sauce.' },
   { id: 192, step: 2, add: 'Check the chicken is cooked through, 165°F, before serving.' },
   { id: 198, step: 1, add: 'A crisp crust is not proof it is cooked. Check the thickest part reads 165°F.' },
+
+  /* ---- pointers to Made, Not Bought ------------------------------------
+   * Barbecue sauce and gravy mix are the two ingredients that block the most
+   * recipes on their own — five each — and both are makeable from the order
+   * list. Recipes 264 and 265 do that. These ten are where a person finds out.
+   *
+   * The gravy ones are not all the same sentence, because a packet is used four
+   * different ways across them: whisked into water and poured over a roast,
+   * made separately alongside, used as the braising liquid, and cooked in with
+   * the meat. Only the first has an obvious drop-in replacement. The others get
+   * told to cook in plain water and make the gravy from what is in the pot at
+   * the end, which is what the packet was standing in for anyway.
+   */
+  { id: 59, step: 0, add: 'No bottle in the house? Recipe 264 makes barbecue sauce from the storehouse shelf.' },
+  { id: 143, step: 1, add: 'No bottle in the house? Recipe 264 makes barbecue sauce from the storehouse shelf.' },
+  { id: 162, step: 0, add: 'No bottle in the house? Recipe 264 makes barbecue sauce from the storehouse shelf.' },
+  { id: 181, step: 0, add: 'No bottle in the house? Recipe 264 makes barbecue sauce from the storehouse shelf.' },
+  { id: 176, step: 2, add: 'No packet? Pour a cup of plain water over instead, and make Recipe 265 at the end from the liquid in the cooker.' },
+  { id: 182, step: 1, add: 'No packet? Recipe 265, stopped while the flour is still blond, is the pale gravy this wants. Use the juices from the roasting tin.' },
+  { id: 187, step: 0, add: 'No packet? Simmer the beef and onions in 2 cups of plain water instead, and turn that liquid into gravy at the end with Recipe 265.' },
+  { id: 195, step: 1, add: 'No packet? Put a cup of water in with them instead and make Recipe 265 from what is in the cooker at the end.' },
 ];

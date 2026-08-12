@@ -1,6 +1,6 @@
 # Hive & Hearth Recipes
 
-263 recipes from the storehouse, in two volumes, plus a third that starts empty and
+266 recipes from the storehouse, in two volumes, plus a third that starts empty and
 fills with your own — browse them, plan a week, let the shopping list build itself,
 and print the lot as a real half-letter book. It works with no signal.
 
@@ -15,7 +15,7 @@ To put it on your phones, see **Putting it online** below.
 
 ## What is in it
 
-**Browse** — all 263 recipes, filtered by book, section, effort, whether they need
+**Browse** — all 266 recipes, filtered by book, section, effort, whether they need
 anything beyond standard storehouse items, or your favorites, and ordered by book,
 healthiest first, most protein or quickest. Search covers dish names, ingredients
 and section names. Tap a card for the full recipe, where you can
@@ -23,7 +23,7 @@ scale the ingredients from ¼× to 8× (fractions come out as fractions, not dec
 
 **Write a recipe** — yours go in a third volume, *Ours*, which does not exist until
 you put something in it. Name it, list the ingredients a line at a time and the method
-a step at a time, and it behaves like any of the 263: browse it, favorite it, plan it,
+a step at a time, and it behaves like any of the 266: browse it, favorite it, plan it,
 shop from it, print it. Its calories, sodium, fiber and score are worked out from the
 ingredients as you type, by the same code that measured the printed books.
 
@@ -51,8 +51,8 @@ the item is on the list; take the recipe out of the week and its tick is forgott
 an item never comes back to a later list already ticked. Ticks belong to their own
 week, so shopping for one does not tick things off in another.
 
-**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 49
-pages, Around the Table is 101, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
+**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 52
+pages, Around the Table is 112, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
 (how to read a recipe, temperatures and doneness, weights and swaps, what the storehouse
 carries) and its own contents, then is numbered from page one. Front matter carries no
 folio, so adding recipes never shifts the numbering.
@@ -63,7 +63,8 @@ numbering the way the front matter does — a reader turns past them, but they
 neither carry a folio nor advance one, so the contents still points where it says.
 A section finds its picture by slugifying its own name, so putting a file in
 `art/src` named for a section and running `npm run art` is the whole of adding
-one. Both volumes are illustrated: twelve sections, twelve engravings.
+one. Eight of the fourteen sections have one; Warm Drinks and Made, Not Bought were
+added later and open on their heading alone until somebody draws them a picture.
 
 Recipes are measured in the browser and packed two or three to a page, so a page
 holds as many as genuinely fit rather than a fixed number. A recipe is never split
@@ -74,7 +75,7 @@ without looking sparse. Three sections — the long-recipe ones — open with a 
 because a 71-point heading and a 639-point recipe will not share a 666-point page and
 a heading alone at the top of a blank one looks like a mistake.
 
-Two of the 263 recipes are taller on their own than a page's text area, and there is
+Two of the 266 recipes are taller on their own than a page's text area, and there is
 nowhere to move them to. Those two pages are set about three percent smaller so that
 they fit, rather than having the bottom of the page quietly cut off — which is what a
 printed page, being a fixed 7.5 inches with the overflow hidden, does otherwise.
@@ -86,7 +87,7 @@ You can also print just one volume, just your favorites, or just this week.
 
 Each volume opens on a cover and a title page and closes on a back cover that lists its
 sections, and each is padded with blanks to a whole number of folded sheets — 52 pages
-for Run and Not Be Weary, 104 for Around the Table.
+for Run and Not Be Weary, 112 for Around the Table.
 
 **In the app, use Download PDF.** The finished books are rendered ahead of time and ship
 with the app, so a printable file at exactly 5.5 × 8.5 in is one click, with no print
@@ -114,15 +115,15 @@ cannot quietly reach a printer:
   runs down the middle, so a short-edge flip is the one that puts page 2 behind page 1
   rather than upside down under it.
 
-Run and Not Be Weary is 13 sheets, which staples comfortably. Around the Table is 26, which is
+Run and Not Be Weary is 13 sheets, which staples comfortably. Around the Table is 28, which is
 thick for a saddle stitch — worth asking a print shop for perfect binding or a coil
 instead.
 
 The service worker deliberately does not keep them on your phone: five megabytes of PDF
 is the wrong five megabytes to carry into a shop.
 
-The last three sections of Around the Table were written for this edition rather than
-carried over, 32 recipes in all:
+The last five sections of Around the Table were written for this edition rather than
+carried over, 41 recipes in all:
 
 - **Worth the Afternoon** — bread, braises and custards. The original 225 had nothing that
   asked you to actually cook: no recipe had more than four steps, none used yeast, none
@@ -131,6 +132,11 @@ carried over, 32 recipes in all:
 - **For the Love of Chocolate** — the original books had 25 "chocolate" recipes and almost
   all were protein shakes or cake-mix shortcuts. There was not one cookie in the whole
   collection, and chocolate chips appeared in a single recipe.
+- **Warm Drinks** — every high-protein drink in Volume One runs on whey or Crio Bru and
+  the storehouse stocks neither. These six run on non-fat dry milk, which it does.
+- **Made, Not Bought** — barbecue sauce, gravy and a lighter mayonnaise. Counting what
+  blocks a recipe, those three were between them the only thing standing between thirteen
+  recipes and a week with no shopping trip, and the order list has every part of all three.
 
 ## Sharing between the two of you
 
@@ -202,7 +208,7 @@ glance rather than compared digit by digit:
 | **Blue** | 45 to 69 | worth eating |
 | **Grey** | under 45 | worth knowing about |
 
-The median across the 263 is 60, so the bands divide the collection rather than
+The median across the 266 is 60, so the bands divide the collection rather than
 flattering it.
 
 Open a recipe and one bar shows where the score came from. It has a slot per part, each
@@ -261,9 +267,9 @@ src/style.css         all the styling
 src/app.js            browse, plan, list, print
 src/sync.js           saving, and sharing between devices
 src/config.js         the only file you edit for sharing (see SETUP.md)
-data/recipes.js       generated — all 263 recipes with macros, scores and parsed ingredients
+data/recipes.js       generated — all 266 recipes with macros, scores and parsed ingredients
 data/nutrition.js     generated — the food table, parser and score, for the browser
-tools/added-recipes.js the 32 written for this edition (last three sections)
+tools/added-recipes.js the 41 written for this edition (last five sections)
 tools/food-db.js      nutrition reference table used for the estimates
 tools/parse-lib.js    turns an ingredient line into a food and a weight
 tools/recipe-fixes.js corrections applied to the original text at build time

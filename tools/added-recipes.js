@@ -40,12 +40,38 @@
  * id, and favourites and meal plans are keyed by id and synced between two
  * phones. Inserting six recipes into Volume One would renumber everything after
  * them and silently repoint somebody's saved favourites at other recipes.
+ *
+ * ---------------------------------------------------------------------------
+ * Section 10, "Made, Not Bought", came out of counting what actually blocks a
+ * recipe. Fourteen ingredients across the collection are not on the storehouse
+ * order list, and four of them are the only thing standing between a recipe and
+ * a week with no shopping trip at all:
+ *
+ *   cocoa powder     12 recipes    not makeable — cocoa mix is sugar and milk
+ *   BBQ sauce         5 recipes    makeable
+ *   gravy mix         5 recipes    makeable
+ *   chocolate chips   5 recipes    not makeable
+ *   light mayo        3 recipes    makeable
+ *
+ * The three that are makeable are here. Nothing in them is a substitute in the
+ * apologetic sense — a bottle of BBQ sauce is ketchup, sugar, vinegar and onion
+ * with the water boiled out of it, and a packet of gravy mix is browned flour
+ * and salt. The storehouse carries every part of both.
+ *
+ * The order list has no vinegar and no black pepper, which is worth knowing
+ * before you look at the ingredients and wonder. Ketchup and mustard both carry
+ * enough vinegar to do the job, and celery salt covers more ground than it
+ * sounds like it should.
+ *
+ * Once you are making them, put BBQ sauce and gravy back on your Pantry page.
+ * The ten recipes that call for them stop asking you to go out.
  */
 
 const SECTION = 'Worth the Afternoon';
 const COPYCAT = 'The Copycat Shelf';
 const CHOC = 'For the Love of Chocolate';
 const DRINKS = 'Warm Drinks';
+const MADE = 'Made, Not Bought';
 
 module.exports = [
   {
@@ -453,7 +479,7 @@ module.exports = [
     ing: ['½ cup mayo', '2 tbsp honey', '1 tbsp mustard', '2 tbsp BBQ sauce'],
     steps: [
       'Whisk the mayo and honey together until completely smooth.',
-      'Add the mustard and the barbecue sauce and whisk again.',
+      'Add the mustard and the barbecue sauce and whisk again. Recipe 264 makes the barbecue sauce, if there is no bottle.',
       'Taste it. It should be sweet first, tangy second, smoky underneath — adjust with a little more honey or mustard.',
       'Chill 30 minutes before serving.',
     ],
@@ -742,5 +768,49 @@ module.exports = [
     ],
     macro: null, tagline: 'Loosen the Peanut Butter First', score: null, sc: null,
     diff: 'Easy', time: '4 mins', extras: null,
+  },
+  {
+    id: 264, book: 2, secNum: 10, secName: MADE,
+    name: 'Everyday BBQ Sauce',
+    servings: 'About 1½ Cups (12 × 2 tbsp)', servN: 12,
+    ing: ['1 tbsp butter', '½ onion (grated)', '1 cup ketchup', '⅓ cup brown sugar',
+      '2 tbsp mustard', '1 tbsp honey', '¼ cup water', '½ tsp salt', '½ tsp celery salt'],
+    steps: [
+      'Grate the onion on the coarse side of a box grater — chopped is fine but you will taste the pieces. Cook it in the butter over low heat for 8 minutes, until it has gone soft and slightly gold and stopped smelling sharp. This is the whole difference between this and stirring ketchup into sugar. A bottle gets its depth from smoke flavouring; this gets it from onion cooked past soft, and there is no shortcut on high heat.',
+      'Stir in the ketchup, brown sugar, mustard, honey, water, salt and celery salt. There is no vinegar on the storehouse list and none is needed — the ketchup and the mustard between them bring plenty.',
+      'Bring it to a bare simmer and leave it there 15 to 20 minutes, stirring now and then so the sugar does not catch on the bottom. It should end up thick enough that a spoon drawn across the pan leaves a line for a second before it closes.',
+      'Take it off and let it cool. It thickens again cold, so stop while it still looks slightly loose. In a jar in the fridge it keeps two weeks.',
+    ],
+    macro: null, tagline: 'The Onion Does What the Smoke Would', score: null, sc: null,
+    diff: 'Easy', time: '30 mins', extras: null,
+  },
+  {
+    id: 265, book: 2, secNum: 10, secName: MADE,
+    name: 'Pan Gravy, Brown or Pale',
+    servings: 'About 2½ Cups (8 Servings)', servN: 8,
+    ing: ['3 tbsp butter (or the fat from the pan)', '3 tbsp flour', '2 cups water (or the juices from the roast)',
+      '½ cup milk', '½ tsp salt', '¼ tsp celery salt'],
+    steps: [
+      'Melt the butter in a wide pan over medium heat and whisk in the flour. Now decide which gravy you want. For a brown gravy to go with beef, keep whisking for 4 or 5 minutes until it smells like toast and has gone the colour of peanut butter. For a pale gravy for chicken, stop after a minute, while it is still blond. Either way it has to cook — raw flour is the reason packet gravy tastes like paste, and this is the minute that fixes it.',
+      'Take the pan off the heat before any liquid goes near it. Add the water a splash at a time, whisking each splash smooth before the next. Hot roux and a cup of cold liquid all at once is exactly how you get lumps, and the first half-cup is the part that matters.',
+      'Back on medium heat with the milk stirred in. It will look far too thin for a while and then thicken all at once as it comes to the boil. Let it bubble two minutes to lose the floury edge.',
+      'Now salt it. Taste first — if you used the juices off a roast it may need none at all. Too thick, add liquid; too thin, let it simmer down. Do not add more flour to a finished gravy, it will not cook out.',
+    ],
+    macro: null, tagline: 'Brown the Flour and Nothing Lumps', score: null, sc: null,
+    diff: 'Easy', time: '12 mins', extras: null,
+  },
+  {
+    id: 266, book: 2, secNum: 10, secName: MADE,
+    name: 'Lighter Mayo',
+    servings: 'About 1¼ Cups (10 Servings)', servN: 10,
+    ing: ['1 cup cottage cheese', '¼ cup mayo', '1 tsp mustard', '¼ tsp salt'],
+    steps: [
+      'Blend the cottage cheese on its own until it is not curds any more — a full minute, which is longer than it feels like it should take. Stop early and it stays grainy, and nothing added afterwards will hide that.',
+      'Add the mayo, mustard and salt and blend a few seconds more, just enough to bring it together.',
+      'Give it an hour in the fridge. It firms up and the cottage cheese taste settles back into the mayo.',
+      'It is not mayonnaise and it will not pass off a spoon. In tuna, in egg salad, on a sandwich, it does the same job for about a third of the fat and several times the protein.',
+    ],
+    macro: null, tagline: 'Blend It Longer Than You Think', score: null, sc: null,
+    diff: 'Easy', time: '5 mins', extras: null,
   },
 ];

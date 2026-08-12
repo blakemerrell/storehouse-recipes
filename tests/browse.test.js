@@ -6,7 +6,7 @@ module.exports = {
     const p = await t.fresh();
 
     const n = await p.evaluate(() => document.querySelectorAll('.card').length);
-    t.ok('all 263 recipes are on the page', n === 263, n);
+    t.ok('all 266 recipes are on the page', n === 266, n);
 
     /* The head says what you are looking at. The volume blurbs were written for
        the printed covers and used only there, so for a long while the app named
@@ -227,7 +227,7 @@ module.exports = {
     await p.context().close();
 
     /* A desk is the easy case. The panel is read on a phone, where the macro
-       line has 242px next to the leaf \u2014 so check the widest of all 263 there,
+       line has 242px next to the leaf \u2014 so check the widest of all 266 there,
        not just whichever recipe happens to be first. */
     const phone = await t.fresh({ viewport: { width: 376, height: 860 } });
     await phone.click('#grid .card:nth-child(1)');
