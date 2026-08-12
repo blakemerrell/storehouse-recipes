@@ -159,10 +159,14 @@ module.exports = {
           links: root ? [...document.querySelectorAll(linkSel)].map((a) => a.getAttribute('href')) : [] };
       };
       return {
-        /* The paying links only, by class. The section also carries a
-           relative link to the app, and scooping up every anchor in it would
-           fail a block that is perfectly fine. */
-        give: block('.give', 'a.give-card, a.give-btn'),
+        /* Rooted on the section, not on the buttons — a selector that names
+           the very thing it is checking for reports "off" rather than
+           "broken" the moment that thing is renamed, and this guard exists
+           precisely so a dead donate link cannot ship quietly. Only the
+           paying links are collected: the section also carries a relative
+           link to the app, and scooping up every anchor would fail a block
+           that is perfectly fine. */
+        give: block('#give', 'a.give-btn'),
         /* .post-order, not .post — the same card style is reused for the
            free one-book download, whose href is a local PDF and rightly is
            not a payment URL. Only the one that takes money is guarded. */

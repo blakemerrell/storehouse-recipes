@@ -361,34 +361,17 @@ a { color: inherit; }
   color: var(--muted); margin-top: 10px;
 }
 .give-sec p { font-size: 14px; color: var(--muted-2); line-height: 1.7; margin: 16px 0 0; text-wrap: pretty; }
-.give { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 26px; }
-.give-card {
-  border: 1px solid var(--line); background: #fff; padding: 14px 15px; border-radius: 3px;
-  display: flex; flex-direction: column; text-align: center; text-decoration: none;
-  transition: border-color .12s ease, transform .12s ease;
-}
-a.give-card:hover { border-color: var(--gold); transform: translateY(-1px); }
-.give-amt { font-family: var(--serif); font-size: 25px; font-weight: 700; }
-.give-what { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ochre); font-weight: 600; margin-top: 7px; }
-.give-note { font-size: 12.5px; color: var(--muted-2); line-height: 1.55; margin: 9px 0 13px; }
-/* The verb lives on the card rather than in a row of buttons underneath.
-   Both were there for a while and they said the same thing twice: the cards
-   carried the reasoning and the buttons carried the press, an inch apart,
-   with the amounts printed on both. The cards were always links — what they
-   were missing was anything that looked pressable.
+/* Three buttons and no price cards. There were both for a while, and between
+   them they printed "$8" and "$40" twice within an inch — the cards carried
+   the reasoning, the buttons carried the verb, and a reader had to work out
+   that the two rows were the same three choices. The reasoning is one line
+   under the row now, where it costs nothing and repeats nothing.
 
-   margin-top:auto rather than a fixed gap, so the two pills line up with each
-   other even though one card's note runs a line longer than the other's. */
-.give-go {
-  margin-top: auto; align-self: center;
-  display: inline-block; background: var(--ink); color: var(--paper);
-  border-radius: 3px; padding: 8px 15px; font-size: 12.5px; font-weight: 600;
-}
-a.give-card:hover .give-go { background: var(--gold); color: var(--ink); }
-/* The free one is not a lesser tier and is not drawn as one. It is first,
-   and it is the only card with nothing to press, because there is nothing to
-   click. */
-.give-card.free { background: var(--paper); border-style: dashed; }
+   Nothing lost its card with them, which is the right trade: the paragraph
+   directly above already ends "Please don't give out of your own need. Take
+   the book," and saying it twice made it sound like a tier. */
+.give-cta { justify-content: flex-start; margin-top: 26px; }
+.give-cta + .fine { margin-top: 14px; }
 
 footer {
   margin-top: 60px; border-top: 1px solid var(--line); padding-top: 20px;
@@ -598,30 +581,15 @@ footer a:hover { text-decoration: underline; }
     one above: <em>&ldquo;it is not requisite that a man should run faster than he has
     strength.&rdquo;</em> Please don&rsquo;t give out of your own need. Take the book.</p>
 
-    <div class="give">
-      <div class="give-card free">
-        <div class="give-amt">Nothing</div>
-        <div class="give-what">Take it</div>
-        <div class="give-note">This is what it&rsquo;s for. If money is tight, it&rsquo;s tight.
-        I&rsquo;d rather you had the book.</div>
-      </div>
-      <a class="give-card" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">
-        <div class="give-amt">$8</div>
-        <div class="give-what">A printed volume</div>
-        <div class="give-note">About what one book costs me to print and bind.</div>
-        <span class="give-go">Give $8</span>
-      </a>
-      <a class="give-card" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">
-        <div class="give-amt">$40</div>
-        <div class="give-what">A week of the extras</div>
-        <div class="give-note">About a week of the things the storehouse doesn&rsquo;t stock.</div>
-        <span class="give-go">Give $40</span>
-      </a>
+    <div class="cta give-cta">
+      <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $8</a>
+      <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $40</a>
+      <a class="btn btn-gold give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give what you like</a>
     </div>
-
-    <p class="fine" style="margin-top:16px">Any amount works &mdash; those two just open the page
-    with a number in mind. <a class="give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give
-    what you like</a>, or <a href="../">just open the app</a>.</p>
+    <p class="fine">$8 is about what one book costs me to print and bind; $40 is about a week of
+    the things the storehouse doesn&rsquo;t stock. All three open the same page and you type the
+    amount, so they&rsquo;re suggestions rather than tiers. Or
+    <a href="../">just open the app</a>.</p>
   </section>
 
   <footer>
