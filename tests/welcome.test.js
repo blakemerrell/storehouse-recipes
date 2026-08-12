@@ -81,7 +81,7 @@ module.exports = {
         /* The paying links only. The ghost button beside "Give what you
            like" says "Just open the app" and is rightly a relative link, so
            scooping up every anchor in the section fails a block that is fine. */
-        give: block('.give', 'a.give-card, .give-foot ~ .cta a.btn-solid'),
+        give: block('.give', 'a.give-card, .give ~ .cta a.btn-solid'),
         /* .post-order, not .post — the same card style is reused for the
            free one-book download, whose href is a local PDF and rightly is
            not a payment URL. Only the one that takes money is guarded. */
