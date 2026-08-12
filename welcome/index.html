@@ -370,9 +370,23 @@ a { color: inherit; }
 a.give-card:hover { border-color: var(--gold); transform: translateY(-1px); }
 .give-amt { font-family: var(--serif); font-size: 25px; font-weight: 700; }
 .give-what { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ochre); font-weight: 600; margin-top: 7px; }
-.give-note { font-size: 12.5px; color: var(--muted-2); line-height: 1.55; margin-top: 9px; }
+.give-note { font-size: 12.5px; color: var(--muted-2); line-height: 1.55; margin: 9px 0 13px; }
+/* The verb lives on the card rather than in a row of buttons underneath.
+   Both were there for a while and they said the same thing twice: the cards
+   carried the reasoning and the buttons carried the press, an inch apart,
+   with the amounts printed on both. The cards were always links — what they
+   were missing was anything that looked pressable.
+
+   margin-top:auto rather than a fixed gap, so the two pills line up with each
+   other even though one card's note runs a line longer than the other's. */
+.give-go {
+  margin-top: auto; align-self: center;
+  display: inline-block; background: var(--ink); color: var(--paper);
+  border-radius: 3px; padding: 8px 15px; font-size: 12.5px; font-weight: 600;
+}
+a.give-card:hover .give-go { background: var(--gold); color: var(--ink); }
 /* The free one is not a lesser tier and is not drawn as one. It is first,
-   and it is the only card with no link on it, because there is nothing to
+   and it is the only card with nothing to press, because there is nothing to
    click. */
 .give-card.free { background: var(--paper); border-style: dashed; }
 
@@ -595,25 +609,19 @@ footer a:hover { text-decoration: underline; }
         <div class="give-amt">$8</div>
         <div class="give-what">A printed volume</div>
         <div class="give-note">About what one book costs me to print and bind.</div>
+        <span class="give-go">Give $8</span>
       </a>
       <a class="give-card" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">
         <div class="give-amt">$40</div>
         <div class="give-what">A week of the extras</div>
         <div class="give-note">About a week of the things the storehouse doesn&rsquo;t stock.</div>
+        <span class="give-go">Give $40</span>
       </a>
     </div>
 
-    <!-- The two amounts again, with a verb on them. The cards above are
-         links and behave like links, but they read as a price list, and a
-         price list is a thing you look at rather than a thing you press. -->
-    <div class="cta" style="justify-content:flex-start">
-      <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $8</a>
-      <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $40</a>
-      <a class="btn btn-gold give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give what you like</a>
-    </div>
-    <p class="fine" style="margin-top:14px">All three open the same page, where you type the
-    amount &mdash; so the two above are suggestions, not tiers. Or
-    <a href="../">just open the app</a>.</p>
+    <p class="fine" style="margin-top:16px">Any amount works &mdash; those two just open the page
+    with a number in mind. <a class="give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give
+    what you like</a>, or <a href="../">just open the app</a>.</p>
   </section>
 
   <footer>
