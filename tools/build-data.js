@@ -39,13 +39,28 @@ ORIGINAL.forEach((r) => { byId[r.id] = r; });
 let applied = 0;
 FIXES.forEach((f) => {
   const r = byId[f.id];
-  if (!r || !r.steps[f.step]) throw new Error('recipe fix does not apply: ' + f.id + ' step ' + f.step);
-  /* `add` appends, which is right for the eighteen doneness notes — the step
-     is sound and is missing a check. `set` replaces, for the rarer case where
-     the step itself is wrong. Both are listed in recipe-fixes.js so it stays
-     obvious what was changed and why. */
-  if (f.set) r.steps[f.step] = f.set;
-  else r.steps[f.step] = r.steps[f.step].replace(/\s*$/, '') + ' ' + f.add;
+  if (!r) throw new Error('recipe fix does not apply: no recipe ' + f.id);
+  /* Four kinds of correction, in order of how much they change:
+       add    append to a step. The eighteen doneness notes — the step is
+              sound and is missing a check.
+       set    replace one step, where the step itself was wrong.
+       steps  replace the method outright, for a recipe whose ingredients were
+              listed and never used. Nothing short of the whole method fixes
+              that, because the missing part is a step that was never there.
+       ing / name / time / diff  the ingredient list and the label, for when
+              the method could not be written without them.
+     All of it lives in recipe-fixes.js so the original export stays untouched
+     and every change is visible in one file. */
+  if (f.name) r.name = f.name;
+  if (f.ing) r.ing = f.ing.slice();
+  if (f.time) r.time = f.time;
+  if (f.diff) r.diff = f.diff;
+  if (f.steps) r.steps = f.steps.slice();
+  if (f.set !== undefined || f.add !== undefined) {
+    if (!r.steps[f.step]) throw new Error('recipe fix does not apply: ' + f.id + ' step ' + f.step);
+    if (f.set) r.steps[f.step] = f.set;
+    else r.steps[f.step] = r.steps[f.step].replace(/\s*$/, '') + ' ' + f.add;
+  }
   applied++;
 });
 
