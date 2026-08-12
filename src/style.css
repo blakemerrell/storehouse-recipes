@@ -1120,6 +1120,14 @@ select { max-width: 280px; }
   text-wrap: balance;
 }
 .pg-open .pg-rule { margin: 15px 0 13px; }
+/* A part page has no engraving to be balanced against, so its block is the
+   whole composition and takes a measure of its own. The rules are the cover's,
+   which is the point — the two openings should read as the same book. */
+.pg-part .pg-open-txt { width: 3.6in; }
+.pg-part .frule { margin: 18px 0; }
+.pg-part .skep { margin-bottom: 4px; }
+.pg-part .pg-open-t { margin-top: 4px; }
+.pg-part .pg-open-s { margin-top: 8px; }
 .pg-open-s {
   font-family: var(--serif); font-style: italic; font-size: 12.5px;
   color: var(--muted-2); line-height: 1.5; max-width: 3.5in;

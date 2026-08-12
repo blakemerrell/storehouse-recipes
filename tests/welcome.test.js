@@ -79,7 +79,10 @@ module.exports = {
       };
       return {
         give: block('.give', 'a.give-card, .give-foot ~ .cta a'),
-        post: block('.post', '.post a[href]'),
+        /* .post-order, not .post — the same card style is reused for the
+           free one-book download, whose href is a local PDF and rightly is
+           not a payment URL. Only the one that takes money is guarded. */
+        post: block('.post-order', '.post-order a[href]'),
       };
     });
     const wired = (b) => !b.present ||

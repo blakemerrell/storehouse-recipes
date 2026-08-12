@@ -82,6 +82,20 @@
     }
   };
 
+  /* The combined edition. Not a fourth volume — the same 263 recipes as one
+     object, for anyone spiral-binding them rather than folding two booklets.
+     It needs its own cover copy because every word of Volume One's is about
+     being one of two. */
+  var ONE_BOOK = {
+    name: APP_NAME + ' ' + APP_LINE,
+    blurb: 'Two hundred and sixty-three recipes with primary ingredients from the Bishops\u2019\u00a0Storehouse, ' +
+      'in two parts: a hundred built on protein and fiber, and a hundred and sixty-three for the family table.',
+    epigraph: {
+      t: ['And shall run and not be weary,', 'and shall walk and not faint.'],
+      r: 'Doctrine and Covenants 89:20',
+    },
+  };
+
   /* And the same courtesy for the view that is not a book. Someone opening the
      app for the first time lands here, and until this line existed the whole
      answer to "what are the two volumes" was the words "two volumes" in the
@@ -117,6 +131,13 @@
     '2-7': 'The restaurant version, worked out at home.',
     '2-8': 'For when only chocolate will do.',
     '2-9': 'A mug of something warm, with the protein of a small meal.'
+  };
+
+  /* One line under each part title in the combined edition, doing the job the
+     volume blurb does on a cover it no longer has. */
+  var SEC_PART = {
+    1: 'Built on protein, fiber and staying full.',
+    2: 'The family table, from three-minute breakfasts to Sunday roasts.',
   };
 
   var FRAC = {
@@ -597,6 +618,7 @@
 
   // ------------------------------------------------------------- print book
   function printPool() {
+    if (S.printSet === 'one') return RECIPES.filter(function (r) { return r.book !== 3; });
     if (/^[123]$/.test(S.printSet)) {
       var b = Number(S.printSet);
       return RECIPES.filter(function (r) { return r.book === b; });
@@ -620,7 +642,7 @@
   var ORDINAL = { 1: 'I', 2: 'II', 3: 'III' };
 
   function volumeLine(vol) {
-    if (vol.grouped || !ORDINAL[vol.book]) return '';
+    if (vol.single || vol.grouped || !ORDINAL[vol.book]) return '';
     var of = ours().length ? 'III' : 'II';
     return 'Volume ' + ORDINAL[vol.book] + ' of ' + of;
   }
@@ -670,8 +692,14 @@
     var vl = volumeLine(vol);
     return '<div class="pg"><div class="pg-cover">' +
       '<div class="pg-cover-top">' +
-        '<div class="pg-eyebrow">' + esc(APP_NAME) + '</div>' +
-        '<div class="pg-eyebrow">' + esc(APP_LINE) + '</div>' +
+        (vol.single
+          /* On the combined edition the title is the series name, so the
+             eyebrow cannot also be — it read as a stutter. It says which of
+             the three printings you are holding, which is the one thing the
+             cover could not otherwise tell you. */
+          ? '<div class="pg-eyebrow">Complete in one volume</div>'
+          : '<div class="pg-eyebrow">' + esc(APP_NAME) + '</div>' +
+            '<div class="pg-eyebrow">' + esc(APP_LINE) + '</div>') +
       '</div>' +
       '<div class="pg-cover-mid">' +
         skepHTML(52) +
@@ -681,7 +709,12 @@
         '<div class="pg-sub">' + esc(sub) + '</div>' +
         (vl ? '<div class="pg-vol">' + esc(vl) + '</div>' : '') +
       '</div>' +
-      '<div class="pg-foot">' + esc(foot) + (vl ? ' &middot; ' + ROMAN_YEAR : '') + '</div>' +
+      /* The year rides with the book, not with the volume line. It was gated on
+         `vl`, which is empty for the combined edition — so the one cover that
+         is not a volume of anything came out with no year on it at all. A week
+         of somebody's meal plan still does not want one. */
+      '<div class="pg-foot">' + esc(foot) +
+        (vol.grouped ? '' : ' &middot; ' + ROMAN_YEAR) + '</div>' +
     '</div></div>';
   }
 
@@ -727,6 +760,7 @@
     });
     var vl = volumeLine(vol);
     var other = vol.book === 1 ? BOOKS[2].name : BOOKS[1].name;
+    if (vol.single) secs.forEach(function (x, i) { x.num = i + 1; });
 
     return '<div class="pg"><div class="pg-back">' +
       '<div class="bc-top">' +
@@ -758,19 +792,33 @@
          nothing else on purpose. */
       qrHTML() +
       '<div class="bc-foot">' +
-        (vol.grouped ? '' : '<p>The companion volume is <strong>' + esc(other) + '</strong>.</p>') +
+        (vol.grouped || vol.single ? '' : '<p>The companion volume is <strong>' + esc(other) + '</strong>.</p>') +
         '<p>' + vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes') +
           (vl ? ' &middot; ' + esc(vl) : '') + ' &middot; ' + YEAR + '</p>' +
       '</div>' +
     '</div></div>';
   }
 
+  /* The page where one part becomes the next in the combined edition. Built
+     like the section openers it sits among — no folio, centred, quiet — so the
+     book has one vocabulary of divider page rather than two. */
+  function partHTML(book) {
+    return '<div class="pg"><div class="pg-open pg-part"><div class="pg-open-txt">' +
+      skepHTML(34) +
+      fruleHTML() +
+      '<div class="sec-band-n">Part ' + ORDINAL[book] + '</div>' +
+      '<div class="pg-open-t">' + esc(BOOKS[book].name).replace(/-/g, '-\u2060') + '</div>' +
+      '<div class="pg-open-s">' + esc(SEC_PART[book] || '') + '</div>' +
+      fruleHTML() +
+    '</div></div></div>';
+  }
+
   // a page with nothing on it, so the sheet count comes out right for folding
   function blankHTML() { return '<div class="pg"></div>'; }
 
-  function bandHTML(r, count) {
+  function bandHTML(r, count, no) {
     return '<div class="sec-band">' +
-      '<div class="sec-band-n">Section ' + r.secNum + '</div>' +
+      '<div class="sec-band-n">Section ' + (no || r.secNum) + '</div>' +
       '<div class="sec-band-t">' + esc(r.secName) + '</div>' +
       '<div class="sec-band-s">' + esc(SEC_NOTE[r.book + '-' + r.secNum] || '') +
         ' · ' + count + (count === 1 ? ' recipe' : ' recipes') + '</div>' +
@@ -793,11 +841,11 @@
      then the same heading the inline band carries, so the two read as the same
      furniture at two sizes. No folio, like the front matter — a page that is
      not part of the numbered run should not claim a number. */
-  function openerHTML(r, count, art) {
+  function openerHTML(r, count, art, no) {
     return '<div class="pg"><div class="pg-open">' +
       '<div class="pg-open-art"><img src="' + esc(art) + '" alt=""></div>' +
       '<div class="pg-open-txt">' +
-        '<div class="sec-band-n">Section ' + r.secNum + '</div>' +
+        '<div class="sec-band-n">Section ' + (no || r.secNum) + '</div>' +
         /* A word joiner after each hyphen, so a compound never splits at its
            own hyphen: balance was setting "Zero-Cook & Grab- / and-Go Fuel",
            which reads as a hyphenation fault rather than a line break. With
@@ -1153,7 +1201,8 @@
     measure(items);
     return pack(items, avail, m).map(function (col) {
       return '<div class="pg">' +
-        '<div class="pg-run"><span>' + esc(vol.grouped ? vol.title : BOOKS[vol.book].name) + '</span>' +
+        '<div class="pg-run"><span>' +
+          esc(vol.grouped || vol.single ? vol.title : BOOKS[vol.book].name) + '</span>' +
           '<span class="pg-run-sec">Contents</span></div>' +
         '<div class="toc-cols"><div class="toc-col">' +
           col.map(function (x) { return x.html; }).join('') +
@@ -1170,7 +1219,13 @@
     // "Both books" really means two books — each volume opens on its own
     // cover and is numbered from page one.
     var volumes;
-    if (grouped || /^[123]$/.test(S.printSet)) {
+    /* One book, both parts. The two-volume build below is still the default;
+       this is the edition you take to a copy shop to be spiral bound, where a
+       back cover a third of the way in and a second set of front matter would
+       read as a printing fault rather than as two books. */
+    if (S.printSet === 'one') {
+      volumes = [{ book: 1, list: pool, grouped: false, single: true }];
+    } else if (grouped || /^[123]$/.test(S.printSet)) {
       volumes = [{ book: grouped ? 1 : Number(S.printSet), list: pool, grouped: grouped }];
     } else {
       volumes = [1, 2, 3].map(function (b) {
@@ -1193,17 +1248,34 @@
          paid in paper. */
       var items = [];
       var runs = [{ opener: null, items: [] }];
-      var lastSec = null;
+      var lastSec = null, lastBook = null;
+      /* In the combined edition the sections are numbered straight through:
+         Volume Two's "Section 1" would otherwise appear on page 60 of a book
+         that already had one. Built up front so a section knows its number
+         wherever it is printed — band, opener and contents all read it here. */
+      var secNo = {}, running = 0;
+      vol.list.forEach(function (r) {
+        var k = r.book + '-' + r.secNum;
+        if (secNo[k] === undefined) secNo[k] = vol.single ? ++running : r.secNum;
+      });
       vol.list.forEach(function (r) {
         var key = r.book + '-' + r.secNum;
+        /* Where the parts turn. The volume covers cannot be reused — they say
+           "Volume I of II" and name a companion — so the join gets a page of
+           its own that says what it is. */
+        if (vol.single && r.book !== lastBook) {
+          lastBook = r.book;
+          runs.push({ opener: partHTML(r.book), items: [] });
+        }
         if (!vol.grouped && key !== lastSec) {
           lastSec = key;
           var n = vol.list.filter(function (x) { return x.book === r.book && x.secNum === r.secNum; }).length;
           var art = secArt(r);
+          var no = secNo[key];
           if (art) {
-            runs.push({ opener: openerHTML(r, n, art), items: [] });
+            runs.push({ opener: openerHTML(r, n, art, no), items: [] });
           } else {
-            var band = { type: 'band', html: bandHTML(r, n), r: r };
+            var band = { type: 'band', html: bandHTML(r, n, no), r: r };
             runs[runs.length - 1].items.push(band);
             items.push(band);
           }
@@ -1234,25 +1306,25 @@
         pack(run.items, avail, m).forEach(function (p) { packed.push(p); });
       });
 
-      var title = vol.grouped
-        ? (S.printSet === 'fav' ? 'Favorites' : 'This Week')
+      var title = vol.single ? ONE_BOOK.name
+        : vol.grouped ? (S.printSet === 'fav' ? 'Favorites' : 'This Week')
         : BOOKS[vol.book].name;
       vol.title = title;
-      var sub = vol.grouped
-        ? (S.printSet === 'fav' ? 'The ones worth keeping.' : 'The week’s cooking, in order.')
+      var sub = vol.single ? ONE_BOOK.blurb
+        : vol.grouped ? (S.printSet === 'fav' ? 'The ones worth keeping.' : 'The week’s cooking, in order.')
         : BOOKS[vol.book].blurb;
       var volStart = out.length;
       out.push({ kind: 'cover', html: coverHTML(vol, title, sub,
         vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes')) });
       out.push({ kind: 'title', html: titlePageHTML(vol, title, sub,
-        vol.grouped ? null : BOOKS[vol.book].epigraph) });
+        vol.single ? ONE_BOOK.epigraph : vol.grouped ? null : BOOKS[vol.book].epigraph) });
 
       if (!vol.grouped) {
         var fm = frontMatterItems(vol);
         measure(fm);
         pack(fm, avail, m).forEach(function (col) {
           out.push({ kind: 'front', html: '<div class="pg">' +
-            '<div class="pg-run"><span>' + esc(BOOKS[vol.book].name) + '</span>' +
+            '<div class="pg-run"><span>' + esc(vol.single ? ONE_BOOK.name : BOOKS[vol.book].name) + '</span>' +
               '<span class="pg-run-sec">Before you start</span></div>' +
             '<div class="toc-cols"><div class="toc-col">' +
               col.map(function (x) { return x.html; }).join('') +
@@ -1320,7 +1392,8 @@
         out.push({
           kind: 'page',
           html: '<div class="pg">' +
-            '<div class="pg-run"><span>' + esc(vol.grouped ? title : BOOKS[vol.book].name) + '</span>' +
+            '<div class="pg-run"><span>' +
+              esc(vol.grouped ? title : BOOKS[first ? first.r.book : vol.book].name) + '</span>' +
               '<span class="pg-run-sec">' + esc(sec) + '</span></div>' +
             '<div class="pg-flow">' + body + '</div>' +
             '<div class="pg-fol">' + (idx + 1) + '</div>' +
@@ -1450,6 +1523,7 @@
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
     all: { file: 'Both-Books.pdf', label: 'Both books', pages: 160 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 156 },
     1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 52, booklet: true },
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 108, booklet: true }
   };

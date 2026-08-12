@@ -231,6 +231,53 @@ module.exports = {
     t.ok('page numbers run from one in each volume and never go backwards',
       folio.ones === 2 && folio.ascending, JSON.stringify(folio));
 
+    /* ---- the combined edition ------------------------------------------
+       Both-Books.pdf is two books end to end: a back cover on sheet 52, a
+       second front cover on 54, and the four pages of reference matter over
+       again. Fine as two booklets, and a printing fault as one spiral book.
+       This mode is the same 263 recipes built as one object, and what is worth
+       asserting is the seams — that there is exactly one of everything a book
+       has one of, and that nothing left in it still claims to be a volume. */
+    await p.selectOption('#printSet', 'one');
+    await p.waitForTimeout(5000);
+    const one = await p.evaluate(() => {
+      const pgs = [...document.querySelectorAll('.pg:not(.no-print)')];
+      const text = pgs.map((x) => x.textContent.replace(/\s+/g, ' '));
+      const bands = [...document.querySelectorAll('.sec-band-n')]
+        .map((e) => e.textContent).filter((t) => /^Section /.test(t));
+      return {
+        pages: pgs.length,
+        covers: document.querySelectorAll('.pg-cover').length,
+        titles: document.querySelectorAll('.pg-title-page').length,
+        backs: document.querySelectorAll('.pg-back').length,
+        parts: document.querySelectorAll('.pg-part').length,
+        frontMatter: text.filter((t) => /How to read a recipe/.test(t)).length,
+        companion: text.filter((t) => /companion volume/.test(t)).length,
+        sections: bands,
+        volumeLines: document.querySelectorAll('.pg-vol, .tp-vol').length,
+      };
+    });
+    t.ok('the combined edition is one book, not two bound together',
+      one.covers === 1 && one.titles === 1 && one.backs === 1,
+      JSON.stringify({ covers: one.covers, titles: one.titles, backs: one.backs }));
+    t.ok('with the reference pages set once rather than twice',
+      one.frontMatter === 1, one.frontMatter + ' copies of How to read a recipe');
+    t.ok('and a part page where each volume used to start its own cover',
+      one.parts === 2, one.parts + ' part pages');
+    /* Volume Two's Section 1 would otherwise turn up on page 60 of a book that
+       already had one. */
+    t.ok('sections numbered straight through both parts',
+      one.sections.join('|') === Array.from({ length: 13 }, (_, i) => 'Section ' + (i + 1)).join('|'),
+      one.sections.join(' '));
+    t.ok('and nothing in it still calls itself a volume of two',
+      one.companion === 0 && one.volumeLines === 0,
+      one.companion + ' companion lines, ' + one.volumeLines + ' volume lines');
+    t.ok('it is shorter than the two volumes printed separately',
+      one.pages === 156 && one.pages < b.pages, one.pages + ' vs ' + b.pages);
+
+    await p.selectOption('#printSet', 'all');
+    await p.waitForTimeout(4500);
+
     // the other things you can print
     await p.evaluate(() => { window.Store.toggleFav(3); window.Store.toggleFav(9); });
     await p.selectOption('#printSet', 'fav');

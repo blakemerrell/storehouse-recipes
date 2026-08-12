@@ -34,6 +34,7 @@ const BOOKS = {
   2: 'Around-the-Table.pdf',
   3: 'Ours.pdf',
   all: 'Both-Books.pdf',
+  one: 'Hive-and-Hearth-Recipes.pdf',
 };
 
 function serve() {
@@ -59,7 +60,7 @@ function playwright() {
 
 (async () => {
   const want = process.argv.slice(2);
-  const jobs = (want.length ? want : ['1', '2', 'all']).filter((k) => BOOKS[k]);
+  const jobs = (want.length ? want : ['1', '2', 'all', 'one']).filter((k) => BOOKS[k]);
   if (!jobs.length) { console.error('nothing to print; try 1, 2, 3 or all'); process.exit(2); }
 
   fs.mkdirSync(OUT, { recursive: true });
@@ -100,7 +101,7 @@ function playwright() {
     /* The same book again, imposed on letter sheets. Not for the combined
        edition: 142 pages is 36 folded sheets, which is not a booklet, it is a
        phone book. */
-    if (key !== 'all') {
+    if (key !== 'all' && key !== 'one') {
       const bk = file.replace(/\.pdf$/, '-booklet.pdf');
       try {
         const r = await impose(file, bk);
