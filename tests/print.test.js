@@ -40,7 +40,7 @@ module.exports = {
       };
     });
 
-    t.ok('both volumes render as 164 pages of paper', b.pages === 164, b.pages + ' pages');
+    t.ok('both volumes render as 168 pages of paper', b.pages === 168, b.pages + ' pages');
 
     /* And the same number the second time. The packer measures in an offscreen
        .pg, which on a phone inherited the preview's transform: scale — and

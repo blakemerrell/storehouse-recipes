@@ -100,12 +100,12 @@ module.exports = [
     id: 193,
     name: 'Hearty Country Beef Chili & Corn Skillet Bread',
     ing: ['2 lbs ground beef', '2 cans pinto beans', '1 can tomato sauce', '1 cup cheddar',
-      '2 cups pancake mix', '1 can corn', '2 eggs', '1 cup milk'],
+      '2 cups pancake mix', '1 can corn', '2 eggs', '1 cup milk', '1 tbsp butter'],
     steps: [
       'Simmer the beef, beans and tomato sauce 30 minutes.',
-      'Heat the oven to 400°F and butter a 9-inch pan. Whisk the pancake mix with the eggs and milk into a thick batter, then fold in the drained corn.',
-      'Bake 20 to 25 minutes, until the top is golden and a knife in the middle comes out clean.',
-      'Serve the chili topped with the cheddar, with the bread cut into squares alongside.',
+      'Heat the oven to 400°F with a 9-inch oven-safe skillet inside it and the butter in the skillet. Meanwhile whisk the pancake mix with the eggs and milk into a thick batter — closer to muffin batter than pancake batter — and fold in the drained corn.',
+      'Pour the batter into the hot skillet. It should hiss. That is where the crust on a skillet bread comes from, and a cold pan will not give you one. Bake 20 to 25 minutes, until the top is golden and a knife in the middle comes out clean. No oven-safe skillet? A buttered cake pan works — you lose the crust, not the bread.',
+      'Serve the chili topped with the cheddar, with the bread cut into wedges alongside. It is not cornbread, since there is no cornmeal in pancake mix, but with a can of corn through it it does the same job beside a bowl of chili.',
     ],
   },
 

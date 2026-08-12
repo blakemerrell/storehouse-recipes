@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=39">
+<link rel="stylesheet" href="src/style.css?v=40">
 </head>
 <body>
 
@@ -37,7 +37,11 @@
          of other short words is unambiguous, and the long form is right where
          there is room for it. -->
     <div class="tabs" role="tablist">
-      <button class="tab" role="tab" data-view="browse" aria-selected="true">Browse</button>
+      <!-- The label is Recipes, the view is still "browse". A tab called
+           Browse names the verb; the other four name the thing you get —
+           Plan, List, Pantry, Book. This one was the odd one out. The
+           data-view is untouched because it is a key, not a word. -->
+      <button class="tab" role="tab" data-view="browse" aria-selected="true">Recipes</button>
       <button class="tab" role="tab" data-view="plan" aria-selected="false"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
       <button class="tab" role="tab" data-view="list" aria-selected="false"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
       <button class="tab" role="tab" data-view="pantry" aria-selected="false">Pantry</button>
@@ -111,7 +115,7 @@
       </div>
     </div>
     <div class="weekbar no-print" id="weekBar"></div>
-    <div class="plan-note">Open any recipe in Browse and assign it to a day. The shopping list builds itself from whatever lands here, and a week stays put until you change it &mdash; there are no dates, so Monday is just Monday. Keep as many weeks as you like and switch between them above; each one carries its own shopping list, and switching moves both phones together.</div>
+    <div class="plan-note">Open any recipe under Recipes and assign it to a day. The shopping list builds itself from whatever lands here, and a week stays put until you change it &mdash; there are no dates, so Monday is just Monday. Keep as many weeks as you like and switch between them above; each one carries its own shopping list, and switching moves both phones together.</div>
     <div class="plan-grid" id="planGrid"></div>
   </div>
 </section>
@@ -193,14 +197,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=39"></script>
-<script src="data/nutrition.js?v=39"></script>
-<script src="data/art.js?v=39"></script>
-<script src="data/qr.js?v=39"></script>
-<script src="src/config.js?v=39"></script>
+<script src="data/recipes.js?v=40"></script>
+<script src="data/nutrition.js?v=40"></script>
+<script src="data/art.js?v=40"></script>
+<script src="data/qr.js?v=40"></script>
+<script src="src/config.js?v=40"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=39"></script>
-<script src="src/app.js?v=39"></script>
+<script src="src/sync.js?v=40"></script>
+<script src="src/app.js?v=40"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.
