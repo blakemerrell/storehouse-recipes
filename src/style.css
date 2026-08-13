@@ -98,6 +98,11 @@ button { cursor: pointer; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: oklch(0.60 0.02 70); flex: none; }
 .dot.on { background: oklch(0.72 0.16 145); }
 .dot.off { background: oklch(0.70 0.14 45); }
+/* Amber for in-flight or missing, which used to be drawn the same red as a
+   failure. A change that has not reached the other phone yet is worth noticing
+   and is not a fault; drawn as one, the only two states anybody learned were
+   "green, fine" and "not green, broken". */
+.dot.wait { background: oklch(0.79 0.15 85); }
 
 /* ----------------------------------------------------------- filter bar */
 .filters { background: var(--paper-soft); border-bottom: 1px solid var(--line); }

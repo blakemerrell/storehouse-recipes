@@ -2030,12 +2030,17 @@
     var st = window.Store.status;
     var configured = window.Store.configured;
     var house = window.Store.house;
-    var dotCls = st === 'synced' ? 'dot on' : (st === 'error' || st === 'offline') ? 'dot off' : 'dot';
+    var dotCls = st === 'synced' ? 'dot on' : st === 'error' ? 'dot off'
+      : (st === 'sending' || st === 'waiting') ? 'dot wait' : 'dot';
+    var ago = window.Store.lastSync ? agoWords(window.Store.lastSync) : '';
     var label = !configured ? 'Not set up — saving on this device only'
-      : st === 'synced' ? 'Synced as ' + house
-        : st === 'connecting' ? 'Connecting…'
-          : st === 'offline' ? 'Offline — will catch up as soon as there is signal'
-            : st === 'error' ? 'Sync problem' : 'Saving on this device only';
+      : st === 'synced' ? 'The other phones have everything this one has' +
+          (ago ? ' — confirmed ' + ago : '')
+        : st === 'connecting' ? 'Joined. Waiting to hear back from the server…'
+          : st === 'sending' ? 'Sending a change — it has not reached the others yet'
+            : st === 'waiting' ? 'No signal. Everything here has been sent' +
+                (ago ? ', last confirmed ' + ago : '') + '. You may not have their latest yet.'
+              : st === 'error' ? 'Sharing has stopped' : 'Saving on this device only';
 
     var body;
     if (!configured) {
@@ -2084,33 +2089,75 @@
       '</div></div>';
   }
 
-  /* The badge said "Local", which is a state and not an invitation. Nothing on
-     the screen suggested it could be pressed or that pressing it was how two
-     phones end up on one list — a person who had never been told simply read
-     the word and moved on. So when there is nothing to report it says what you
-     can do instead of where you stand; once you are sharing, a status is the
-     right thing to show, because then there is something to know.
+  /* Two questions, and the badge was answering neither.
 
-     The title carries the sentence the badge has no room for, and it is worth
-     the most in the state that looks like bad news: Offline does not mean lost,
-     it means saved here and waiting for signal. */
-  var SYNC_TIP = {
-    synced: 'Sharing with any phone that has your code. Tap for the code.',
-    connecting: 'Connecting…',
-    offline: 'No signal. Changes are saved on this phone and will catch up by themselves.',
-    error: 'Sharing has stopped. Tap to see why — nothing has been lost.',
-    local: 'Saving on this phone only. Tap to share one list with another phone.'
+     "Is this the thing I press to share with my wife?" — it said Local, which
+     is a state, and nothing suggested it could be pressed at all.
+
+     "Have my changes reached her?" — it said Offline, which is network
+     jargon for a Firestore snapshot served out of the local cache, and covers
+     three situations a person would want told apart: an app half a second old
+     that has not heard back yet, a phone holding a change that has not gone
+     anywhere, and a phone that has lost signal but has nothing waiting. Only
+     the middle one means anything is at risk, and it was the one nobody could
+     see.
+
+     So: the word is always about sharing, and the state answers whether the
+     others have it.
+
+       Share       not sharing at all — press this
+       Syncing…    joined, waiting on the first word from the server
+       Sending…    a change here has not been acknowledged yet
+       No signal   nothing of ours is waiting; we may be missing theirs
+       Synced      the others have everything this phone has
+       Sync issue  it has stopped, and the sheet says why
+  */
+  var SYNC_WORD = {
+    local: 'Share', connecting: 'Syncing…', sending: 'Sending…',
+    waiting: 'No signal', synced: 'Synced', error: 'Sync issue'
   };
+  var SYNC_TIP = {
+    local: 'Saving on this phone only. Tap to share one list with other phones.',
+    connecting: 'Joined. Waiting to hear back — tap for the code.',
+    sending: 'A change on this phone has not reached the others yet. It will go by itself.',
+    waiting: 'No signal. Everything here has been sent; you may not have their latest yet.',
+    synced: 'The other phones have everything this one has. Tap for the code.',
+    error: 'Sharing has stopped. Tap to see why — nothing has been lost.'
+  };
+
+  /* "Synced" on its own is a claim without a date on it, and the question
+     underneath it is always how long ago. Minutes for the first hour, then
+     hours; past a day it stops being reassurance and the sheet says so. */
+  function agoWords(ms) {
+    if (!ms) return '';
+    var s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 45) return 'just now';
+    var m = Math.round(s / 60);
+    if (m < 60) return m + (m === 1 ? ' minute ago' : ' minutes ago');
+    var h = Math.round(m / 60);
+    if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
+    var d = Math.round(h / 24);
+    return d + (d === 1 ? ' day ago' : ' days ago');
+  }
+
+  /* Exposed so tests/weeks.test.js can check every state has both, rather than
+     keeping its own copy of the list and going stale the moment one is added. */
+  window.__syncWords = SYNC_WORD;
+  window.__syncTips = SYNC_TIP;
 
   function renderSyncBadge() {
     var st = window.Store.status;
     var dot = $('syncDot'), label = $('syncLabel');
-    dot.className = 'dot' + (st === 'synced' ? ' on' : (st === 'error' || st === 'offline') ? ' off' : '');
-    label.textContent = st === 'synced' ? 'Synced'
-      : st === 'connecting' ? 'Connecting'
-        : st === 'offline' ? 'Offline'
-          : st === 'error' ? 'Sync issue' : 'Share';
-    $('syncBtn').setAttribute('title', SYNC_TIP[st] || SYNC_TIP.local);
+    /* Green only when the others actually have it. Amber while something is in
+       flight or missing, which is the state worth noticing and the one that was
+       previously drawn the same as an error. */
+    dot.className = 'dot' + (st === 'synced' ? ' on'
+      : (st === 'error') ? ' off'
+        : (st === 'sending' || st === 'waiting') ? ' wait' : '');
+    label.textContent = SYNC_WORD[st] || SYNC_WORD.local;
+    var tip = SYNC_TIP[st] || SYNC_TIP.local;
+    if (st === 'synced' && window.Store.lastSync) tip += ' Last confirmed ' + agoWords(window.Store.lastSync) + '.';
+    $('syncBtn').setAttribute('title', tip);
   }
 
   // ----------------------------------------------------------------- pantry

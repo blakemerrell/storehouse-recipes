@@ -219,6 +219,19 @@ module.exports = {
     t.ok('with the whole sentence in its title',
       /tap to share/i.test(badge.tip), badge.tip);
 
+    /* Every state the badge can be in has a word and a sentence, because the
+       one that had neither is the one that sent somebody asking what "Offline"
+       meant. Read straight off the app rather than restated here, so a new
+       state cannot be added without one. */
+    const vocab = await p.evaluate(() => {
+      const w = window.__syncWords, t = window.__syncTips;
+      if (!w || !t) return null;
+      return Object.keys(w).filter((k) => !w[k] || !t[k]);
+    });
+    t.ok('and every sync state has a word and a sentence of its own',
+      vocab !== null && vocab.length === 0,
+      vocab === null ? 'not exposed' : vocab.join(', '));
+
     // and the long names come back where there is room for them
     await p.setViewportSize({ width: 1280, height: 900 });
     await p.waitForTimeout(400);

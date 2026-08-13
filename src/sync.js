@@ -43,7 +43,20 @@ window.Store = (function () {
        rather than frozen at whatever it was the day someone first looked.
        `pantryNew` is what they keep that the books never mention. */
     pantry: {}, pantryNew: {} };
-  var status = 'local';       // local | connecting | synced | offline | error
+  /* local      not sharing — this phone only
+     connecting  joined, still waiting for the first word from the server
+     synced      the server has everything this phone has
+     sending     changes made here have not been acknowledged yet
+     waiting     no signal, and nothing of ours is queued — we may be missing theirs
+     error       sharing has stopped, and statusNote says why
+
+     "offline" used to cover the last three at once, which is why it explained
+     nothing: it was equally the state of a phone that had just been opened, a
+     phone holding an unsent change, and a phone that had simply lost signal.
+     Those want three different sentences from the person reading them. */
+  var status = 'local';
+  var lastSync = 0;           // when the server last confirmed, ms
+  var everLive = false;       // have we heard from the server at all this session
   var statusNote = '';
   var house = '';
   var listeners = [];
@@ -174,7 +187,15 @@ window.Store = (function () {
         state.favs = Array.isArray(d.favs) ? d.favs.slice() : [];
         var made = adopt(d);
         saveLocal();
-        setStatus(snap.metadata.fromCache ? 'offline' : 'synced');
+        /* Firestore answers a new listener out of its own cache first and the
+           server a moment later, so a cache-only snapshot means "not yet" on
+           the first one and "lost signal" on the hundredth. everLive is what
+           tells those apart — without it the app announced OFFLINE half a
+           second after opening, on a phone with five bars. */
+        if (!snap.metadata.fromCache) { everLive = true; lastSync = Date.now(); }
+        setStatus(snap.metadata.hasPendingWrites ? 'sending'
+          : snap.metadata.fromCache ? (everLive ? 'waiting' : 'connecting')
+            : 'synced');
         /* A household last written by the one-week version. Send the week up so
            the other phone sees the same thing; the old plan and checked fields
            are left alone rather than deleted, as a copy of what was there. */
@@ -196,7 +217,10 @@ window.Store = (function () {
     derive();
     saveLocal();
     emit();
-    if (status === 'synced' || status === 'offline') {
+    /* Any state where we are actually joined. Firestore queues a write made
+       with no signal and sends it when there is some, so refusing to try is
+       the one thing that would genuinely lose it. */
+    if (doc && status !== 'local' && status !== 'error') {
       remote().catch(function (err) { setStatus('error', (err && err.message) || 'Write failed.'); });
     }
   }
@@ -226,6 +250,8 @@ window.Store = (function () {
     get state() { return state; },
     get status() { return status; },
     get statusNote() { return statusNote; },
+    /* When the server last confirmed it had everything. 0 if it never has. */
+    get lastSync() { return lastSync; },
     get house() { return house; },
     get configured() { return configured(); },
     encodeKey: encodeKey,
@@ -515,6 +541,7 @@ window.Store = (function () {
       if (unsub) { unsub(); unsub = null; }
       house = ''; write(LS.house, '');
       doc = null;
+      everLive = false; lastSync = 0;
       setStatus('local');
     }
   };
