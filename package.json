@@ -9,6 +9,7 @@
     "test": "node tests/run.js",
     "test:sync": "node tests/run.js sync",
     "print": "node tools/print-books.js",
+    "handout": "node tools/print-handout.js",
     "art": "node tools/prep-art.js"
   },
   "devDependencies": {

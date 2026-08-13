@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recipes from the Storehouse &mdash; one sheet</title>
+<meta name="description" content="A one-page handout: four recipes made only from what the Bishops' Storehouse carries, and a code for 266 more.">
+<link rel="icon" href="../icons/icon-32.png" sizes="32x32">
+
+<!-- ---------------------------------------------------------------------
+     A single letter sheet, meant to go home with an order.
+
+     Three things shaped it and none of them is taste.
+
+     It gets photocopied. Probably from a copy of a copy, on a machine that
+     is not calibrated, by somebody in a hurry. So there is no large ink
+     fill anywhere on it, no reversed type, no rule under 1pt, and nothing
+     that carries meaning by colour alone — the ochre is decoration, and
+     the sheet reads identically with it turned to grey. Body type is
+     9.5pt, which is a point larger than it wants to be, because the third
+     generation of a photocopy is not the first.
+
+     Every recipe on it is storehouse-only. That is the whole claim of the
+     sheet — you can make this from the box, without a shop — so it is the
+     one thing tests/share.test.js will not let go stale. The recipes are
+     read out of data/recipes.js at render rather than typed here, and the
+     test checks each one against window.PANTRY the same way the app does.
+
+     And it has to be one page. Two pages is a stapler and a decision.
+     ------------------------------------------------------------------ -->
+
+<style>
+@font-face {
+  font-family: 'Source Serif 4'; font-style: normal; font-weight: 200 900;
+  font-display: swap; src: url('../fonts/source-serif-4-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Source Serif 4'; font-style: italic; font-weight: 200 900;
+  font-display: swap; src: url('../fonts/source-serif-4-latin-wght-italic.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Work Sans'; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url('../fonts/work-sans-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+:root {
+  --ink:   #000;
+  --rule:  #000;
+  --soft:  #444;
+  --ochre: #8a6a3a;
+  --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --sans:  'Work Sans', system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: #d9d3c6; color: var(--ink);
+  font-family: var(--sans); -webkit-font-smoothing: antialiased;
+}
+
+/* On screen it is a sheet of paper on a desk. On paper it is the paper. */
+.sheet {
+  width: 8.5in; min-height: 11in; padding: 0.5in 0.55in;
+  margin: 26px auto; background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex; flex-direction: column;
+}
+
+/* ---- head ------------------------------------------------------------- */
+.head { border-bottom: 2pt solid var(--rule); padding-bottom: 7pt; }
+.eyebrow {
+  font-size: 8.5pt; letter-spacing: 0.22em; text-transform: uppercase;
+  font-weight: 700; color: var(--ochre);
+}
+.head h1 {
+  font-family: var(--serif); font-size: 25pt; font-weight: 700;
+  line-height: 1.02; margin: 4pt 0 0; letter-spacing: -0.01em;
+}
+.head .lede {
+  font-family: var(--serif); font-size: 10.5pt; line-height: 1.3;
+  margin: 5pt 0 0; max-width: 5.9in;
+}
+.head .lede strong { font-weight: 700; }
+
+/* ---- the four --------------------------------------------------------- */
+.grid {
+  flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10pt 22pt; margin-top: 11pt;
+}
+.rec { break-inside: avoid; }
+.rec-no {
+  font-size: 7.5pt; letter-spacing: 0.18em; text-transform: uppercase;
+  font-weight: 700; color: var(--ochre);
+}
+.rec h2 {
+  font-family: var(--serif); font-size: 13pt; font-weight: 700;
+  line-height: 1.13; margin: 2pt 0 0;
+}
+.rec-meta {
+  font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--soft); margin-top: 2pt;
+  border-bottom: 0.75pt solid var(--rule); padding-bottom: 4pt;
+}
+.rec-lab {
+  font-size: 7.5pt; letter-spacing: 0.16em; text-transform: uppercase;
+  font-weight: 700; margin: 5pt 0 2pt;
+}
+.rec-ing { font-size: 9.5pt; line-height: 1.38; margin: 0; }
+.rec-steps {
+  list-style: none; counter-reset: s; padding: 0; margin: 0;
+  font-size: 9.5pt; line-height: 1.32;
+}
+.rec-steps li {
+  counter-increment: s; position: relative; padding-left: 12pt; margin-bottom: 2.5pt;
+}
+.rec-steps li::before {
+  content: counter(s) "."; position: absolute; left: 0; top: 0;
+  font-weight: 700; font-size: 8.5pt;
+}
+
+/* ---- foot ------------------------------------------------------------- */
+/* The code is the point of the sheet, so it gets the width of the page and
+   a rule of its own rather than a corner. A bare symbol tells you to scan
+   and not why, and nobody scans a code to find out what it was for. */
+.foot {
+  margin-top: 11pt; border-top: 2pt solid var(--rule); padding-top: 9pt;
+  display: flex; gap: 16pt; align-items: center;
+}
+.foot-qr { width: 1.02in; flex: 0 0 auto; }
+.foot-qr svg { width: 100%; height: auto; display: block; }
+.foot-txt { flex: 1; }
+.foot-txt h3 {
+  font-family: var(--serif); font-size: 14pt; font-weight: 700; margin: 0;
+  line-height: 1.15;
+}
+.foot-txt p { font-size: 9.5pt; line-height: 1.38; margin: 3pt 0 0; max-width: 5.3in; }
+.foot-url {
+  font-size: 9pt; font-weight: 700; margin-top: 5pt; word-break: break-all;
+}
+.foot-note {
+  font-size: 7.5pt; color: var(--soft); margin-top: 5pt; line-height: 1.35;
+}
+
+@media print {
+  @page { size: letter portrait; margin: 0; }
+  body { background: #fff; }
+  .sheet { margin: 0; box-shadow: none; width: 8.5in; height: 11in; }
+}
+@media screen and (max-width: 900px) {
+  /* Readable on the phone of whoever is deciding whether to print it. */
+  .sheet { width: 100%; min-height: 0; padding: 22px 18px; margin: 0; box-shadow: none; }
+  .grid { grid-template-columns: 1fr; }
+  .foot { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="head">
+    <div class="eyebrow">Hive &amp; Hearth</div>
+    <h1>Four suppers from the box</h1>
+    <p class="lede">Every recipe here is made <strong>only</strong> from what the
+    Bishops&rsquo;&nbsp;Storehouse carries &mdash; nothing to buy, nothing to substitute.</p>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="foot">
+    <div class="foot-qr" id="qr"></div>
+    <div class="foot-txt">
+      <h3>266 more, free.</h3>
+      <p>Scan the code, or type the address. Nothing to install, no account, and it works with
+      no signal. Plan a week and it writes the shopping list &mdash; asking you to buy only what
+      the storehouse doesn&rsquo;t carry.</p>
+      <div class="foot-url">blakemerrell.github.io/storehouse-recipes/welcome/</div>
+      <div class="foot-note">Free to use, free to copy, free to hand on. Made by a family using
+      the storehouse.</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="../data/recipes.js"></script>
+<script src="../data/qr.js"></script>
+<script>
+/* The four are chosen for spread rather than for score: a dinner the children
+   will finish, something that takes three minutes and no heat, something you
+   start in the morning and forget, and a warm drink for nine at night. Between
+   them they answer the four different times a person opens a cupboard.
+
+   They are rendered from data/recipes.js rather than typed into this page, so
+   a corrected recipe corrects the handout, and tests/share.test.js re-reads
+   them and fails if any of the four stops being storehouse-only. */
+(function () {
+  var IDS = [156, 1, 173, 258];
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  var by = {};
+  (window.RECIPES || []).forEach(function (r) { by[r.id] = r; });
+
+  document.getElementById('grid').innerHTML = IDS.map(function (id) {
+    var r = by[id];
+    if (!r) return '';
+    var m = r.macro || {};
+    var meta = [r.servings, r.time, m.p ? m.p + 'g protein' : null]
+      .filter(Boolean).join(' &nbsp;·&nbsp; ');
+    return '<div class="rec">' +
+      '<div class="rec-no">No. ' + ('00' + r.id).slice(-3) + '</div>' +
+      '<h2>' + esc(r.name) + '</h2>' +
+      '<div class="rec-meta">' + meta + '</div>' +
+      '<div class="rec-lab">Ingredients</div>' +
+      '<p class="rec-ing">' + r.ing.map(esc).join('<br>') + '</p>' +
+      '<div class="rec-lab">Method</div>' +
+      '<ol class="rec-steps">' +
+        r.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') +
+      '</ol>' +
+    '</div>';
+  }).join('');
+
+  if (window.APP_QR) document.getElementById('qr').innerHTML = window.APP_QR;
+}());
+</script>
+</body>
+</html>

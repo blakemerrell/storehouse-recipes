@@ -269,6 +269,8 @@ src/sync.js           saving, and sharing between devices
 src/config.js         the only file you edit for sharing (see SETUP.md)
 data/recipes.js       generated — all 266 recipes with macros, scores and parsed ingredients
 data/nutrition.js     generated — the food table, parser and score, for the browser
+share/index.html     the one-page handout, rendered from the recipes themselves
+tools/print-handout.js renders that sheet to print/Storehouse-Handout.pdf
 tools/added-recipes.js the 41 written for this edition (last five sections)
 tools/food-db.js      nutrition reference table used for the estimates
 tools/parse-lib.js    turns an ingredient line into a food and a weight
