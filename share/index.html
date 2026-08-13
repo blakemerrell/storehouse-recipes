@@ -14,7 +14,7 @@
 
      It gets photocopied. Probably from a copy of a copy, on a machine that
      is not calibrated, by somebody in a hurry. So there is no large ink
-     fill anywhere on it, no reversed type, no rule under 1pt, and nothing
+     fill anywhere on it, no reversed type, no rule under 0.75pt, and nothing
      that carries meaning by colour alone — the ochre is decoration, and
      the sheet reads identically with it turned to grey. Body type is
      9.5pt, which is a point larger than it wants to be, because the third
@@ -48,6 +48,7 @@
   --ink:   #000;
   --rule:  #000;
   --soft:  #444;
+  --hair:  #9a958d;
   --ochre: #8a6a3a;
   --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --sans:  'Work Sans', system-ui, -apple-system, sans-serif;
@@ -88,12 +89,36 @@ body {
 }
 .head .lede strong { font-weight: 700; }
 
-/* ---- the recipes ------------------------------------------------------- */
+/* ---- the recipes -------------------------------------------------------
+   Divided rather than boxed. A rule all the way round each of eight recipes
+   is eight rectangles of ink on a sheet that will be photocopied, and it
+   reads as a form; worse, boxing costs padding on all four sides of all
+   eight, which is about a third of an inch a side on a sheet already sitting
+   at exactly eleven inches. The gutters are already there. Putting a hairline
+   down the middle of them separates the recipes for nothing — no ink to
+   speak of, no height at all.
+
+   0.75pt is the floor. A true hairline is what a tired copier drops first. */
 .grid {
   flex: 1; display: grid; grid-template-columns: 1fr 1fr;
-  gap: 10pt 22pt; margin-top: 11pt;
+  gap: 0 0; margin-top: 11pt;
 }
 .rec { break-inside: avoid; }
+/* :not(.grid-3), because the row of three carries both classes and these rules
+   found it: they gave its third card a right-hand rule it should not have, took
+   away the left padding that keeps it off the divider, and — reading "third
+   child" as "second row" — pushed it down with a border-top of its own. */
+.grid:not(.grid-3) > .rec { padding: 0 11pt; }
+.grid:not(.grid-3) > .rec:nth-child(odd)  { padding-left: 0; border-right: 0.75pt solid var(--hair); }
+.grid:not(.grid-3) > .rec:nth-child(even) { padding-right: 0; }
+/* The second row, separated by the same amount of air it had before — half
+   above the rule and half below, so nothing grows. */
+.grid:not(.grid-3) > .rec:nth-child(n+3) {
+  margin-top: 5pt; padding-top: 5pt; border-top: 0.75pt solid var(--hair);
+}
+/* The feature is closed off underneath rather than beside, because there is
+   nothing beside it. */
+.feature { border-bottom: 0.75pt solid var(--hair); padding-bottom: 9pt; }
 /* The restaurant copies were written with real methods and they are long — the
    chili is twelve ingredients and a paragraph, which in a half-width column is
    six inches tall and drags the whole row down with it. Full width it is two
@@ -106,8 +131,16 @@ body {
 .feature .rec-ing { column-count: 2; column-gap: 22pt; }
 .feature .rec-steps { column-count: 2; column-gap: 22pt; }
 .feature .rec-steps li { break-inside: avoid; }
-.grid-3 { grid-template-columns: repeat(3, 1fr); gap: 10pt 16pt; }
-.grid-3 .rec h2 { font-size: 12pt; }
+.grid-3 { grid-template-columns: repeat(3, 1fr); gap: 0; }
+.grid-3 > .rec { padding: 0 8pt; }
+.grid-3 > .rec:first-child { padding-left: 0; }
+.grid-3 > .rec:last-child { padding-right: 0; }
+.grid-3 > .rec:not(:last-child) { border-right: 0.75pt solid var(--hair); }
+/* Three lines rather than two here. The two-line floor lines up a pair of
+   short titles, but "Sweet Cinnamon Raisin Bread Pudding" runs to three in a
+   column this narrow and put its rule below its neighbours'. The floor has to
+   clear the longest title in the row, not the average one. */
+.grid-3 .rec h2 { font-size: 12pt; min-height: 3.39em; }
 /* Three to a row is narrow enough that one recipe's serving line wraps and the
    others' do not, which put its rule a line below theirs. Floored at two lines
    for the same reason the titles are. */
