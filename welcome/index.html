@@ -352,13 +352,22 @@ a { color: inherit; }
    cannot say both "please give" and "please do not give if it costs you",
    which is the whole point of the verse it is sitting under. */
 .give-sec { margin-top: 58px; }
-.quote {
-  font-family: var(--serif); font-style: italic; font-size: 18px; line-height: 1.6;
-  color: var(--muted-2); text-align: center; max-width: 460px; margin: 0 auto;
+/* The verse used to be this section's headline, set large and centred above
+   everything. Read there, before a word of the story, it stops being his
+   reason for giving the thing away and becomes a line pointed at the reader,
+   which is the opposite of what it is for. It is a footnote to the button
+   now: small, left, under the thing it explains. */
+.give-h {
+  font-family: var(--serif); font-size: clamp(24px, 3.4vw, 30px); font-weight: 700;
+  line-height: 1.15; margin: 0;
 }
-.quote-src {
-  text-align: center; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--muted); margin-top: 10px;
+.give-quote {
+  font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.5;
+  color: var(--muted); margin: 14px 0 0; max-width: 34em;
+}
+.give-quote span {
+  display: block; font-style: normal; font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); margin-top: 5px;
 }
 /* His words, copy-edited and not rewritten. This section was mine for a
    while and read like the rest of the page — balanced sentences, a clause
@@ -383,7 +392,7 @@ a { color: inherit; }
    directly above already ends "Please don't give out of your own need. Take
    the book," and saying it twice made it sound like a tier. */
 .give-cta { justify-content: flex-start; margin-top: 26px; }
-.give-cta + .fine { margin-top: 14px; }
+.give-quote + .fine { margin-top: 16px; }
 
 footer {
   margin-top: 60px; border-top: 1px solid var(--line); padding-top: 20px;
@@ -577,8 +586,7 @@ footer a:hover { text-decoration: underline; }
        is clicked.
   ==================================================================== -->
   <section class="give-sec" id="give">
-    <div class="quote">&ldquo;I give not because I have not, but if I had I would give.&rdquo;</div>
-    <div class="quote-src">King Benjamin · Mosiah 4:24</div>
+    <h2 class="give-h">Where this came from</h2>
 
     <p class="give-lede">My wife and I are using the bishops&rsquo; storehouse right now.</p>
 
@@ -603,35 +611,39 @@ footer a:hover { text-decoration: underline; }
 
     <p class="give-sign">Thanks.</p>
 
-    <!-- Buying the book belongs in this row and not only in the section
-         above it. Somebody who has just read the paragraph above is the one
-         person on the page most likely to want to send something, and for
-         half of them "buy the thing he made" is an easier yes than "give him
-         money" — same amount either way, and a book turns up. It is the last
-         button and it is the solid one, so it reads as a purchase beside
-         three donations rather than as a fourth tier of giving. -->
+    <!-- Two buttons and two verbs. There were four: three ways to give, all
+         of them naming a number, and one to buy. A row of suggested amounts
+         asks a reader to pick a size before they have decided to give at all,
+         and the amounts were the part he kept having to correct. One button
+         says the thing — donate — and Stripe asks the amount, which is where
+         that question belongs.
+
+         Buying stays beside it, solid rather than gold, because for half the
+         people who want to send something "buy the thing he made" is an easier
+         yes than "give him money" — the same fifty dollars, except a book
+         turns up. -->
     <div class="cta give-cta">
-      <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/28E14n4B272IagYeEpbwk00">Give $8</a>
-      <a class="btn btn-ghost give-btn" href="https://buy.stripe.com/9B63cv4B2evagFmcwhbwk01">Give $40</a>
-      <a class="btn btn-gold give-btn" href="https://buy.stripe.com/28E14n4B272IagYeEpbwk00">Give what you like</a>
+      <a class="btn btn-gold give-btn" href="https://buy.stripe.com/28E14n4B272IagYeEpbwk00">Donate</a>
       <a class="btn btn-solid" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Or buy a bound copy &mdash; $50</a>
     </div>
-    <!-- The amounts used to be justified here — "$8 is about what one book
-         costs me to print and bind." It isn't. Both volumes came to $24.44 at
-         the copy shop, and the one-book edition is the thicker object. A
-         number offered as a cost has to be the cost, so the sentence is gone
-         rather than corrected: the suggestions do not need defending, and
-         explaining them was the part that read like a pitch. -->
-    <p class="fine">Whichever you press, the amount arrives already filled in and you can change
-    it to anything &mdash; they are suggestions, not tiers. The last one is a purchase: a bound
-    copy of all 266 recipes, shipped to you, and you&rsquo;ll be asked for a shipping address at
-    checkout. Or <a href="../">just open the app</a>.</p>
+
+    <!-- The verse sits with the button rather than over the story. As the
+         section's headline it was the first thing a reader met, before a word
+         of his — and there it stops being his reason for giving this away and
+         becomes a line pointed at them. Here it is the reason the button
+         exists, which is whose sentence it always was. -->
+    <p class="give-quote">&ldquo;I give not because I have not, but if I had I would&nbsp;give.&rdquo;
+      <span>King Benjamin &middot; Mosiah 4:24</span></p>
+
+    <p class="fine">You type the amount, so it is whatever it is worth to you. The other button
+    is a purchase: a bound copy of all 266 recipes, shipped to you, and you&rsquo;ll be asked for
+    a shipping address at checkout. Or <a href="../">just open the app</a>.</p>
   </section>
 
   <footer>
     <a href="../">Open the app</a> ·
-    <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Order the book</a> ·
-    <a href="https://buy.stripe.com/28E14n4B272IagYeEpbwk00">Pay what it is worth</a> ·
+    <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Buy a bound copy</a> ·
+    <a href="https://buy.stripe.com/28E14n4B272IagYeEpbwk00">Donate</a> ·
     <a href="https://github.com/blakemerrell/storehouse-recipes">Source on GitHub</a> ·
     <a href="https://github.com/blakemerrell/storehouse-recipes/blob/main/SETUP.md">Set up sharing</a>
     <div style="margin-top:8px">Free and open source. Nothing loads from anywhere else &mdash;

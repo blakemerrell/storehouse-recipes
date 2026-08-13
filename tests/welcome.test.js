@@ -180,14 +180,19 @@ module.exports = {
     t.ok('the donate block is either off or actually wired up',
       wired(money.give), money.give.present ? money.give.links.join(' ') : 'off');
 
-    /* Every suggested amount is its own Stripe link, because the amount is
-       baked into the link and not passed in the URL. So a button can say $8
-       and open a box pre-filled with $40, which is what it did — all three
-       pointed at the same link for a fortnight — and nothing about the page
-       looks wrong when it happens. Two buttons naming two different amounts
-       must not share an href. */
+    /* Every amount is its own Stripe link, because the amount is baked into
+       the link and not passed in the URL. So a button can say $8 and open a box
+       pre-filled with $40, which is what one did — three of them pointed at the
+       same link for a fortnight — and nothing about the page looks wrong when
+       it happens. Any two links naming two different amounts must not share an
+       href.
+
+       Every paying link on the page, not just the donate ones: the suggested
+       amounts have gone and $50 is the only figure printed on a button now, but
+       the trap is in how Stripe links work rather than in which button carries
+       them, so the guard should still be here the day another number is. */
     const amounts = await p.evaluate(() =>
-      [...document.querySelectorAll('a.give-btn')]
+      [...document.querySelectorAll('a[href*="buy.stripe.com"]')]
         .map((a) => ({ amt: (a.textContent.match(/\$\d+/) || [null])[0], href: a.getAttribute('href') }))
         .filter((x) => x.amt));
     const clash = amounts.filter((x, i) =>
