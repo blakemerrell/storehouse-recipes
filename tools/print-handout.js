@@ -56,14 +56,16 @@ function serve() {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
 
-  /* One page is the whole point of a handout — two pages is a stapler and a
-     decision — so it is asserted here rather than hoped for. */
-  const n = await page.evaluate(() => {
-    const s = document.querySelector('.sheet');
-    return { recipes: document.querySelectorAll('.rec').length, qr: !!document.querySelector('#qr svg'),
-      h: s.scrollHeight, w: s.scrollWidth };
-  });
-  if (!n.recipes || !n.qr) {
+  /* Two pages exactly: one sheet of paper, printed on both sides. Three is a
+     second sheet and a different photocopying job, so it is asserted here
+     rather than hoped for. */
+  const n = await page.evaluate(() => ({
+    recipes: document.querySelectorAll('.rec').length,
+    sheets: document.querySelectorAll('.sheet').length,
+    qr: document.querySelectorAll('.foot-qr svg').length,
+    url: (document.querySelector('[data-url]') || {}).textContent || '',
+  }));
+  if (n.recipes !== 8 || n.sheets !== 2 || n.qr !== 2 || !n.url) {
     console.error('the sheet did not render: ' + JSON.stringify(n));
     process.exit(1);
   }
@@ -77,10 +79,10 @@ function serve() {
   try {
     pages = execFileSync('pdfinfo', [OUT]).toString().match(/^Pages:\s*(\d+)/m)[1];
   } catch (e) { /* pdfinfo is a nicety, not a dependency */ }
-  console.log('wrote print/Storehouse-Handout.pdf  ' + pages + ' page, ' +
+  console.log('wrote print/Storehouse-Handout.pdf  ' + pages + ' pages, ' +
     n.recipes + ' recipes, ' + Math.round(fs.statSync(OUT).size / 1024) + ' KB');
-  if (pages !== '?' && pages !== '1') {
-    console.error('  it is meant to be one page — something on the sheet grew');
+  if (pages !== '?' && pages !== '2') {
+    console.error('  it is meant to be two — one sheet, printed both sides. Something grew.');
     process.exit(1);
   }
 })();

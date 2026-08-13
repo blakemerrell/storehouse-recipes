@@ -65,6 +65,11 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   display: flex; flex-direction: column;
 }
+/* Front and back of one sheet. The second head is a band rather than a title
+   block — a reader who has turned the page does not need telling again what
+   this is, only that it is the same thing. */
+.head-2 { padding-bottom: 6pt; }
+.head-2 h1 { font-size: 19pt; }
 
 /* ---- head ------------------------------------------------------------- */
 .head { border-bottom: 2pt solid var(--rule); padding-bottom: 7pt; }
@@ -88,19 +93,66 @@ body {
   gap: 10pt 22pt; margin-top: 11pt;
 }
 .rec { break-inside: avoid; }
-.rec-no {
-  font-size: 7.5pt; letter-spacing: 0.18em; text-transform: uppercase;
+/* The restaurant copies were written with real methods and they are long — the
+   chili is twelve ingredients and a paragraph, which in a half-width column is
+   six inches tall and drags the whole row down with it. Full width it is two
+   and a half, its ingredients run in two columns beside the method, and the
+   back page gets something to open on instead of four equal boxes. */
+.feature { margin-top: 11pt; }
+/* The two-line floor is there to line up two titles side by side. The feature
+   has nothing beside it, so it only leaves a hole. */
+.feature .rec h2 { min-height: 0; }
+.feature .rec-ing { column-count: 2; column-gap: 22pt; }
+.feature .rec-steps { column-count: 2; column-gap: 22pt; }
+.feature .rec-steps li { break-inside: avoid; }
+.grid-3 { grid-template-columns: repeat(3, 1fr); gap: 10pt 16pt; }
+.grid-3 .rec h2 { font-size: 12pt; }
+/* Three to a row is narrow enough that one recipe's serving line wraps and the
+   others' do not, which put its rule a line below theirs. Floored at two lines
+   for the same reason the titles are. */
+.grid-3 .rec-meta { font-size: 7.5pt; line-height: 1.35; min-height: 2.7em; }
+.rec-kind {
+  font-size: 7.5pt; letter-spacing: 0.16em; text-transform: uppercase;
   font-weight: 700; color: var(--ochre);
 }
+/* Title left, leaf right, and the title box holds two lines whether it needs
+   them or not. Recipe names here run to one line or two, so without a floor
+   the rule under each title landed at a different height in each column and
+   the two halves of a row read as two unrelated things. */
+.rec-top { display: flex; align-items: flex-start; gap: 7pt; margin-top: 2pt; }
 .rec h2 {
   font-family: var(--serif); font-size: 13pt; font-weight: 700;
-  line-height: 1.13; margin: 2pt 0 0;
+  line-height: 1.13; margin: 0; flex: 1;
+  min-height: 2.26em;
 }
 .rec-meta {
   font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--soft); margin-top: 2pt;
   border-bottom: 0.75pt solid var(--rule); padding-bottom: 4pt;
 }
+/* The score, in the app's own leaf. Three bands: green worth eating often,
+   blue worth eating, grey worth knowing about. The fills are pale and the
+   numeral is near-black, so the leaf survives being photocopied into grey —
+   the colour is a glance, the number is the information. */
+.leaf { position: relative; width: 25pt; height: 30pt; flex: 0 0 auto; display: block; }
+.leaf svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-7deg); }
+.leaf-body { stroke-width: 2.5; stroke-linejoin: round; }
+.leaf-stem { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.leaf-n {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-size: 9pt; font-weight: 700;
+  padding-bottom: 3pt;
+}
+.leaf-good .leaf-body { fill: #cdefd6; stroke: #2f7f4a; }
+.leaf-good .leaf-stem { stroke: #2f7f4a; }
+.leaf-good .leaf-n    { color: #14532b; }
+.leaf-ok   .leaf-body { fill: #d9ecf8; stroke: #3a7ea8; }
+.leaf-ok   .leaf-stem { stroke: #3a7ea8; }
+.leaf-ok   .leaf-n    { color: #1e5273; }
+.leaf-low  .leaf-body { fill: #eae7e2; stroke: #615c56; }
+.leaf-low  .leaf-stem { stroke: #615c56; }
+.leaf-low  .leaf-n    { color: #3f3b36; }
+
 .rec-lab {
   font-size: 7.5pt; letter-spacing: 0.16em; text-transform: uppercase;
   font-weight: 700; margin: 5pt 0 2pt;
@@ -145,6 +197,12 @@ body {
   @page { size: letter portrait; margin: 0; }
   body { background: #fff; }
   .sheet { margin: 0; box-shadow: none; width: 8.5in; height: 11in; }
+  #p1 { break-after: page; page-break-after: always; }
+  /* The pale leaf fills are the one place on the sheet that carries any ink
+     worth suppressing, and a browser that drops them leaves a white leaf with
+     a number in it, which is still the score. Kept anyway for anyone printing
+     in colour. */
+  .leaf-body, .leaf-stem { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 @media screen and (max-width: 900px) {
   /* Readable on the phone of whoever is deciding whether to print it. */
@@ -156,45 +214,76 @@ body {
 </head>
 <body>
 
-<div class="sheet">
-
+<div class="sheet" id="p1">
   <div class="head">
     <div class="eyebrow">Hive &amp; Hearth</div>
-    <h1>Four suppers from the box</h1>
+    <h1>Eight suppers from the box</h1>
     <p class="lede">Every recipe here is made <strong>only</strong> from what the
-    Bishops&rsquo;&nbsp;Storehouse carries &mdash; nothing to buy, nothing to substitute.</p>
+    Bishops&rsquo;&nbsp;Storehouse carries &mdash; nothing to buy, nothing to substitute. The leaf
+    is a nutrition score out of 100, worked out from the ingredients.</p>
   </div>
-
-  <div class="grid" id="grid"></div>
-
+  <div class="grid" id="grid1"></div>
   <div class="foot">
-    <div class="foot-qr" id="qr"></div>
+    <div class="foot-qr" id="qr1"></div>
     <div class="foot-txt">
       <h3>266 more, free.</h3>
       <p>Scan the code, or type the address. Nothing to install, no account, and it works with
       no signal. Plan a week and it writes the shopping list &mdash; asking you to buy only what
       the storehouse doesn&rsquo;t carry.</p>
-      <div class="foot-url">blakemerrell.github.io/storehouse-recipes/welcome/</div>
+      <div class="foot-url" data-url></div>
+      <div class="foot-note">Free to use, free to copy, free to hand on. Made by a family using
+      the storehouse. &nbsp;<strong>Turn over for four more.</strong></div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="p2">
+  <div class="head head-2">
+    <div class="eyebrow">Hive &amp; Hearth &middot; continued</div>
+    <h1>Breakfast, the diner, and pudding</h1>
+  </div>
+  <div class="feature" id="feature2"></div>
+  <div class="grid grid-3" id="grid2"></div>
+  <div class="foot">
+    <div class="foot-qr" id="qr2"></div>
+    <div class="foot-txt">
+      <h3>All 266 of them, on your phone.</h3>
+      <p>Filter by what you have in, plan a week, and let the list add itself up. There is a
+      printed book too, free to download, if you would rather have it on the counter.</p>
+      <div class="foot-url" data-url></div>
       <div class="foot-note">Free to use, free to copy, free to hand on. Made by a family using
       the storehouse.</div>
     </div>
   </div>
-
 </div>
 
 <script src="../data/recipes.js"></script>
 <script src="../data/qr.js"></script>
 <script>
-/* The four are chosen for spread rather than for score: a dinner the children
-   will finish, something that takes three minutes and no heat, something you
-   start in the morning and forget, and a warm drink for nine at night. Between
-   them they answer the four different times a person opens a cupboard.
+/* Eight, chosen for spread rather than for score. The first sheet is the
+   everyday case — a dinner the children will finish, three minutes and no heat,
+   one you start in the morning and forget, and something warm for nine at
+   night. The second says the collection is not only weeknights: a breakfast
+   worth getting up for, a restaurant copy, and two puddings.
 
-   They are rendered from data/recipes.js rather than typed into this page, so
-   a corrected recipe corrects the handout, and tests/share.test.js re-reads
-   them and fails if any of the four stops being storehouse-only. */
+   The label above each title is the promise the recipe answers. Without it,
+   eight recipes on two sheets read as a list; with it they read as a range,
+   which is the argument the handout is actually making.
+
+   They are rendered from data/recipes.js rather than typed onto the page, so
+   correcting a recipe corrects the handout, and tests/share.test.js re-reads
+   them and fails if any of the eight stops being storehouse-only. */
 (function () {
-  var IDS = [156, 1, 173, 258];
+  var SHEETS = [
+    [{ id: 156, kind: 'Weeknight dinner' },
+     { id: 1,   kind: 'Three minutes, no heat' },
+     { id: 173, kind: 'Start it in the morning' },
+     { id: 258, kind: 'Something warm at nine' }],
+    [{ id: 244, kind: 'The copycat shelf', feature: true },
+     { id: 105, kind: 'Hearty breakfast' },
+     { id: 219, kind: 'Pudding' },
+     { id: 206, kind: 'No-bake treat' }],
+  ];
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -202,18 +291,33 @@ body {
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  /* The same three bands as the app, and the same drawn leaf. Drawn rather than
+     set in a font so it survives scaling and photocopying, and the number stays
+     near-black inside it so the sheet still reads with the colour gone. */
+  function band(n) { return n >= 70 ? 'good' : n >= 45 ? 'ok' : 'low'; }
+  function leaf(n) {
+    if (n === null || n === undefined) return '';
+    return '<span class="leaf leaf-' + band(n) + '">' +
+      '<svg viewBox="0 0 44 54" aria-hidden="true">' +
+        '<path class="leaf-body" d="M22 2C17 9 5 16 5 26c0 9 7 15 17 18 10-3 17-9 17-18 0-10-12-17-17-24Z"/>' +
+        '<path class="leaf-stem" d="M22 44c0 4-1 6-3.5 7.5"/>' +
+      '</svg><span class="leaf-n">' + n + '</span></span>';
+  }
+
   var by = {};
   (window.RECIPES || []).forEach(function (r) { by[r.id] = r; });
 
-  document.getElementById('grid').innerHTML = IDS.map(function (id) {
-    var r = by[id];
+  function card(pick) {
+    var r = by[pick.id];
     if (!r) return '';
     var m = r.macro || {};
     var meta = [r.servings, r.time, m.p ? m.p + 'g protein' : null]
-      .filter(Boolean).join(' &nbsp;·&nbsp; ');
+      .filter(Boolean).join(' &nbsp;&middot;&nbsp; ');
     return '<div class="rec">' +
-      '<div class="rec-no">No. ' + ('00' + r.id).slice(-3) + '</div>' +
-      '<h2>' + esc(r.name) + '</h2>' +
+      '<div class="rec-kind">' + esc(pick.kind) + ' &middot; No. ' + ('00' + r.id).slice(-3) + '</div>' +
+      '<div class="rec-top">' +
+        '<h2>' + esc(r.name) + '</h2>' + leaf(r.score) +
+      '</div>' +
       '<div class="rec-meta">' + meta + '</div>' +
       '<div class="rec-lab">Ingredients</div>' +
       '<p class="rec-ing">' + r.ing.map(esc).join('<br>') + '</p>' +
@@ -222,9 +326,29 @@ body {
         r.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') +
       '</ol>' +
     '</div>';
-  }).join('');
+  }
 
-  if (window.APP_QR) document.getElementById('qr').innerHTML = window.APP_QR;
+  SHEETS.forEach(function (picks, i) {
+    var feat = picks.filter(function (x) { return x.feature; });
+    var rest = picks.filter(function (x) { return !x.feature; });
+    var box = document.getElementById('feature' + (i + 1));
+    if (box) box.innerHTML = feat.map(card).join('');
+    document.getElementById('grid' + (i + 1)).innerHTML = rest.map(card).join('');
+  });
+
+  /* The address is printed from the same constant the code encodes, so the two
+     can never disagree — the whole point of printing it is the person whose
+     camera will not focus. */
+  if (window.APP_QR) {
+    document.getElementById('qr1').innerHTML = window.APP_QR;
+    document.getElementById('qr2').innerHTML = window.APP_QR;
+  }
+  if (window.APP_QR_URL) {
+    var shown = window.APP_QR_URL.replace(/^https?:\/\//, '');
+    [].forEach.call(document.querySelectorAll('[data-url]'), function (el) {
+      el.textContent = shown;
+    });
+  }
 }());
 </script>
 </body>

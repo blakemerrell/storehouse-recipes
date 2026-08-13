@@ -6,12 +6,14 @@
  * alone. Somebody reads that, takes the sheet home, and finds out at the stove
  * whether it was true.
  *
- * So the promise is tested rather than trusted. The four recipes are rendered
+ * So the promise is tested rather than trusted. The eight recipes are rendered
  * out of data/recipes.js at page load, and this reads them back and asks the
  * pantry the same question the app asks — not the ingp `x` flag, which is a
- * build-time input to the pantry table and is not the same answer.
+ * build-time input to the pantry table and is not the same answer. That flag
+ * would have waved through a smoothie built on whey protein.
  *
- * And it has to stay one page. Two pages is a stapler and a decision.
+ * And it has to stay one sheet, printed both sides. A third side is a second
+ * sheet and a different photocopying job.
  */
 
 module.exports = {
@@ -34,18 +36,27 @@ module.exports = {
     t.ok('and fetches nothing from another host', outside.length === 0, outside.join(' '));
 
     const sheet = await p.evaluate(() => ({
+      sheets: document.querySelectorAll('.sheet').length,
       recipes: [...document.querySelectorAll('.rec')].map((el) => ({
-        no: (el.querySelector('.rec-no').textContent.match(/\d+/) || [])[0],
+        no: (el.querySelector('.rec-kind').textContent.match(/No\.\s*(\d+)/) || [])[1],
+        kind: el.querySelector('.rec-kind').textContent.split('·')[0].trim(),
+        score: (el.querySelector('.leaf-n') || {}).textContent,
         name: el.querySelector('h2').textContent.trim(),
         ing: el.querySelector('.rec-ing').innerHTML.split(/<br\s*\/?>/i).map((x) => x.trim()),
         steps: [...el.querySelectorAll('.rec-steps li')].map((x) => x.textContent.trim()),
       })),
-      qr: !!document.querySelector('#qr svg'),
-      url: (document.querySelector('.foot-url') || {}).textContent || '',
+      qr: document.querySelectorAll('.foot-qr svg').length,
+      url: (document.querySelector('[data-url]') || {}).textContent || '',
     }));
 
-    t.ok('it puts four recipes on the sheet', sheet.recipes.length === 4, sheet.recipes.length);
-    t.ok('with the code on it', sheet.qr);
+    t.ok('it puts eight recipes on the sheet', sheet.recipes.length === 8, sheet.recipes.length);
+    t.ok('on two sides of one sheet', sheet.sheets === 2, sheet.sheets);
+    t.ok('with the code on both of them', sheet.qr === 2, sheet.qr);
+    /* Every recipe carries the promise it is answering — a dinner, a breakfast,
+       a pudding. Without them eight recipes read as a list rather than a range,
+       which is the argument the sheet is making. */
+    t.ok('and each one says what it is for',
+      sheet.recipes.every((r) => r.kind), sheet.recipes.map((r) => r.kind).join(' | '));
 
     /* The recipes are the book's, not retyped — a corrected recipe has to
        correct the handout, or the sheet becomes a second source of truth that
@@ -85,20 +96,36 @@ module.exports = {
     t.ok('nothing on it sends you to a shop',
       needs.length === 0, needs.map((x) => x.no + ' needs ' + x.needs.join(', ')).join('; '));
 
-    /* Somebody types this by hand when the code will not scan. */
+    /* Somebody types this by hand when the code will not scan, so it has to be
+       the address the code encodes and not a copy of it that drifted. The page
+       renders it from window.APP_QR_URL, which tools/build-qr.js writes beside
+       the symbol it built — so changing the site's address is one edit and a
+       rebuild, and the printed line cannot be left behind. */
+    global.window.APP_QR_URL = undefined;
+    delete require.cache[require.resolve(path.join(root, 'data', 'qr.js'))];
+    require(path.join(root, 'data', 'qr.js'));
     t.ok('the printed address is the one the code encodes',
-      sheet.url.trim() === 'blakemerrell.github.io/storehouse-recipes/welcome/', sheet.url);
+      sheet.url.trim() === String(global.window.APP_QR_URL).replace(/^https?:\/\//, ''),
+      sheet.url + ' vs ' + global.window.APP_QR_URL);
 
-    // one page, measured in print media rather than on screen
+    /* The leaf is on the sheet because a score is a glance, and a glance is the
+       only thing a handout gets. */
+    t.ok('every recipe wears its score',
+      sheet.recipes.every((r) => r.score && byId[Number(r.no)] &&
+        String(byId[Number(r.no)].score) === r.score),
+      sheet.recipes.map((r) => r.no + ':' + r.score).join(' '));
+
+    /* Both sides, measured in print media rather than on screen — and both,
+       because the back is the one that grows: it carries the long recipe. */
     await p.emulateMedia({ media: 'print' });
     await p.waitForTimeout(250);
-    const inches = await p.evaluate(() => {
-      const s = document.querySelector('.sheet');
-      return { content: s.scrollHeight / 96, box: s.getBoundingClientRect().height / 96 };
-    });
-    t.ok('and it still fits on one sheet of letter paper',
-      inches.content <= inches.box + 0.02,
-      inches.content.toFixed(2) + 'in of content in ' + inches.box.toFixed(2) + 'in');
+    const sides = await p.evaluate(() =>
+      [...document.querySelectorAll('.sheet')].map((s) => ({
+        id: s.id, content: s.scrollHeight / 96, box: s.getBoundingClientRect().height / 96 })));
+    const over = sides.filter((x) => x.content > x.box + 0.02);
+    t.ok('and neither side runs off the letter paper',
+      over.length === 0,
+      sides.map((x) => x.id + ' ' + x.content.toFixed(2) + 'in in ' + x.box.toFixed(2) + 'in').join(', '));
 
     /* Rendered ahead of time and committed, like the books, so somebody can be
        handed a file rather than a URL and a print dialog. */
