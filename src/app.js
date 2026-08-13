@@ -2041,13 +2041,14 @@
     if (!configured) {
       body = '<p class="sync-p">Right now your favorites, your weeks and their shopping lists save ' +
         'on <strong>this device only</strong>. Nothing is shared, and nothing leaves the browser.</p>' +
-        '<p class="sync-p">To share one plan between the two of you, follow <strong>SETUP.md</strong> in ' +
+        '<p class="sync-p">To share one plan between your phones, follow <strong>SETUP.md</strong> in ' +
         'the project: create a free Firebase project, paste six values into <code>src/config.js</code>, ' +
         'and this panel will let you make a household code.</p>';
     } else if (!house) {
-      body = '<p class="sync-p">Enter the same household code on both phones and you share the same weeks, ' +
-        'the same favorites, and the same shopping list. Tick something off in the store and it greys out ' +
-        'on the other phone.</p>' +
+      body = '<p class="sync-p">Type the same household code on every phone you want on the list, and they ' +
+        'share the same weeks, the same favorites and the same shopping list. Tick something off in the ' +
+        'store and it greys out on the others. Two phones or six &mdash; there is no limit, and no ' +
+        'accounts to make.</p>' +
         '<div class="sync-code" id="newCode">' + esc(S.pendingCode) + '</div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-sync="use">Use this code</button>' +
@@ -2057,16 +2058,17 @@
           '<input class="txt" id="joinCode" placeholder="Or type a code you already have" aria-label="Household code">' +
           '<button class="ghost" data-sync="join">Join</button>' +
         '</div>' +
-        '<div class="sync-warn">Anyone who has the code can see and change the list, so keep it between ' +
-        'the two of you. There are no names or addresses in here &mdash; it is a meal plan and a grocery list.</div>';
+        '<div class="sync-warn">The code is the only key. Anyone who has it can see and change the list, so ' +
+        'give it only to the people you mean to share with. There are no names or addresses in here &mdash; ' +
+        'it is a meal plan and a grocery list.</div>';
     } else {
       body = '<p class="sync-p">This device is joined to household <strong>' + esc(house) + '</strong>. ' +
-        'Type that same code on the other phone to share the plan.</p>' +
+        'Type that same code on any other phone to put it on the same list.</p>' +
         '<div class="sync-code">' + esc(house) + '</div>' +
         (window.Store.statusNote ? '<div class="sync-warn">' + esc(window.Store.statusNote) + '</div>' : '') +
         '<div class="sync-row"><button class="ghost" data-sync="leave">Stop sharing on this device</button></div>' +
         '<p class="sync-p">Leaving keeps whatever is currently on this device and stops sending changes. ' +
-        'The other phone is untouched.</p>';
+        'The other phones are untouched.</p>';
     }
 
     return '<div class="scrim no-print" data-close="1">' +
@@ -2075,12 +2077,30 @@
           '<div class="sheet-eyebrow">Sharing between devices</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="sheet-name">The two of you, one list</div>' +
+        '<div class="sheet-name">One list, on every phone that has the code</div>' +
         body +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
       '</div></div>';
   }
+
+  /* The badge said "Local", which is a state and not an invitation. Nothing on
+     the screen suggested it could be pressed or that pressing it was how two
+     phones end up on one list — a person who had never been told simply read
+     the word and moved on. So when there is nothing to report it says what you
+     can do instead of where you stand; once you are sharing, a status is the
+     right thing to show, because then there is something to know.
+
+     The title carries the sentence the badge has no room for, and it is worth
+     the most in the state that looks like bad news: Offline does not mean lost,
+     it means saved here and waiting for signal. */
+  var SYNC_TIP = {
+    synced: 'Sharing with any phone that has your code. Tap for the code.',
+    connecting: 'Connecting…',
+    offline: 'No signal. Changes are saved on this phone and will catch up by themselves.',
+    error: 'Sharing has stopped. Tap to see why — nothing has been lost.',
+    local: 'Saving on this phone only. Tap to share one list with another phone.'
+  };
 
   function renderSyncBadge() {
     var st = window.Store.status;
@@ -2089,7 +2109,8 @@
     label.textContent = st === 'synced' ? 'Synced'
       : st === 'connecting' ? 'Connecting'
         : st === 'offline' ? 'Offline'
-          : st === 'error' ? 'Sync issue' : 'Local';
+          : st === 'error' ? 'Sync issue' : 'Share';
+    $('syncBtn').setAttribute('title', SYNC_TIP[st] || SYNC_TIP.local);
   }
 
   // ----------------------------------------------------------------- pantry

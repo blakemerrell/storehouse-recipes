@@ -206,6 +206,19 @@ module.exports = {
       tabs.labels.join('|') === 'Recipes|Plan|List|Pantry|Book', tabs.labels.join(' '));
     t.ok('with the sync button up on the brand line, out of their way', tabs.syncAbove);
 
+    /* It used to say "Local", which is a state and not an invitation, and
+       nothing on the screen said that pressing it was how two phones end up on
+       one list. On a device that is not sharing it has to name the thing you
+       can do, and it has to carry the sentence there is no room to print. */
+    const badge = await p.evaluate(() => ({
+      label: document.getElementById('syncLabel').textContent.trim(),
+      tip: document.getElementById('syncBtn').getAttribute('title') || '',
+    }));
+    t.ok('and it offers to share rather than reporting that it is local',
+      badge.label === 'Share', badge.label);
+    t.ok('with the whole sentence in its title',
+      /tap to share/i.test(badge.tip), badge.tip);
+
     // and the long names come back where there is room for them
     await p.setViewportSize({ width: 1280, height: 900 });
     await p.waitForTimeout(400);

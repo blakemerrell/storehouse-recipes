@@ -40,7 +40,7 @@ you are looking at into a new one, and the strip along the top switches between 
 with the number of recipes in each. Rename them for what they are (*Fast week*,
 *Thanksgiving*, *The one she likes*) and rotate through them instead of building a
 week from nothing every Sunday. Each week carries its own shopping list, and switching
-week moves both phones together, so you are never shopping off different lists.
+week moves every phone together, so nobody is shopping off a different list.
 
 **Shopping List** — builds itself from the week showing, one line per thing, split into
 what comes from the storehouse and what you need to buy. A diced apple and a sliced
@@ -138,7 +138,7 @@ carried over, 41 recipes in all:
   blocks a recipe, those three were between them the only thing standing between thirteen
   recipes and a week with no shopping trip, and the order list has every part of all three.
 
-## Sharing between the two of you
+## Sharing one list between phones
 
 Out of the box, favorites, the weeks and their shopping lists save in whatever
 browser you are using. Your phone and your wife's phone each keep their own.
