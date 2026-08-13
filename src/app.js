@@ -2145,6 +2145,32 @@
   window.__syncWords = SYNC_WORD;
   window.__syncTips = SYNC_TIP;
 
+  /* Shown only where it can be acted on and only until it has been. Three
+     conditions, and each of them is a way of not nagging:
+
+       configured   a copy with no Firebase behind it cannot share at all, and
+                    advertising it would be advertising a dead end
+       no household this phone is not already on a list
+       not dismissed either button puts it away permanently
+
+     It is deliberately not tied to first run. Somebody who has used this alone
+     for a month and then wants their wife on it is the same person with the
+     same question, and a hint that expired on day one would not be there. */
+  var HINT_OFF = 'sh.hintShare';
+  function hintDismissed() {
+    try { return localStorage.getItem(HINT_OFF) === '1'; } catch (e) { return false; }
+  }
+  function dismissHint() {
+    try { localStorage.setItem(HINT_OFF, '1'); } catch (e) { /* private mode */ }
+    renderShareHint();
+  }
+  function renderShareHint() {
+    var el = $('shareHint');
+    if (!el) return;
+    var show = window.Store.configured && !window.Store.house && !hintDismissed();
+    el.classList.toggle('hide', !show);
+  }
+
   function renderSyncBadge() {
     var st = window.Store.status;
     var dot = $('syncDot'), label = $('syncLabel');
@@ -2158,6 +2184,7 @@
     var tip = SYNC_TIP[st] || SYNC_TIP.local;
     if (st === 'synced' && window.Store.lastSync) tip += ' Last confirmed ' + agoWords(window.Store.lastSync) + '.';
     $('syncBtn').setAttribute('title', tip);
+    renderShareHint();
   }
 
   // ----------------------------------------------------------------- pantry
@@ -2426,6 +2453,19 @@
     window.addEventListener('resize', syncTabsFade);
     document.querySelector('.tabs').addEventListener('scroll', syncTabsFade, { passive: true });
     syncTabsFade();
+
+    /* The hint is the door as well as the sign — "where do I go" should be
+       answered by going there, not by being pointed at a corner. Opening it
+       also puts the hint away: the question has been asked. */
+    $('shareHintGo').addEventListener('click', function () {
+      dismissHint();
+      S.syncOpen = true;
+      if (!S.pendingCode) S.pendingCode = window.Store.newCode();
+      renderModal();
+      var x = document.querySelector('.sheet-x');
+      if (x) x.focus();
+    });
+    $('shareHintX').addEventListener('click', dismissHint);
 
     $('syncBtn').addEventListener('click', function () {
       S.syncOpen = true;

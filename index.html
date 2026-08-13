@@ -54,6 +54,23 @@
   </div>
 </header>
 
+<!-- A new person has no reason to look at the top right corner of a header,
+     and nothing else on the screen says that two phones can be put on one
+     list. The badge saying "Share" only helps somebody already looking at it.
+
+     So this says it once, in the run of the page, and then never again: it is
+     dismissed for good on the first tap and hidden the moment there is a
+     household. It is a button rather than a notice, because the answer to
+     "where do I go" should be "here". -->
+<div class="hint no-print hide" id="shareHint">
+  <button class="hint-in" id="shareHintGo">
+    <span class="hint-t">Cooking with someone else?</span>
+    <span class="hint-s">Put both phones on one list &mdash; the same weeks, the same shopping
+      list, ticked off in the store on either one.</span>
+  </button>
+  <button class="hint-x" id="shareHintX" aria-label="Not now">&times;</button>
+</div>
+
 <!-- ------------------------------------------------------------- browse -->
 <section id="view-browse">
   <div class="filters no-print">
@@ -115,7 +132,7 @@
       </div>
     </div>
     <div class="weekbar no-print" id="weekBar"></div>
-    <div class="plan-note">Open any recipe under Recipes and assign it to a day. The shopping list builds itself from whatever lands here, and a week stays put until you change it &mdash; there are no dates, so Monday is just Monday. Keep as many weeks as you like and switch between them above; each one carries its own shopping list, and switching moves both phones together.</div>
+    <div class="plan-note">Open any recipe under Recipes and assign it to a day. The shopping list builds itself from whatever lands here, and a week stays put until you change it &mdash; there are no dates, so Monday is just Monday. Keep as many weeks as you like and switch between them above; each one carries its own shopping list. Sharing with someone? Switching the week moves every phone at once.</div>
     <div class="plan-grid" id="planGrid"></div>
   </div>
 </section>

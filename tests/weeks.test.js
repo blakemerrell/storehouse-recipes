@@ -232,6 +232,32 @@ module.exports = {
       vocab !== null && vocab.length === 0,
       vocab === null ? 'not exposed' : vocab.join(', '));
 
+    /* Nobody reads the top right corner of a header on their way to a recipe,
+       so the app says it once in the run of the page. What matters is that it
+       is a door rather than a sign — pressing it opens the sharing sheet — and
+       that it goes away for good, because a hint that comes back is a nag. */
+    const hint = await p.evaluate(() => {
+      const el = document.getElementById('shareHint');
+      return { shown: el && !el.classList.contains('hide'),
+        words: el ? el.textContent.replace(/\s+/g, ' ').trim() : '' };
+    });
+    t.ok('a new phone is told where sharing lives', hint.shown, hint.words.slice(0, 60));
+
+    await p.click('#shareHintGo');
+    await p.waitForTimeout(300);
+    t.ok('and pressing it opens the sharing sheet rather than pointing at it',
+      await p.evaluate(() => !!document.querySelector('.sync-sheet')));
+
+    await p.click('.sheet-x');
+    await p.waitForTimeout(200);
+    t.ok('asking the question puts the hint away',
+      await p.evaluate(() => document.getElementById('shareHint').classList.contains('hide')));
+
+    await p.reload();
+    await p.waitForTimeout(700);
+    t.ok('and it stays away across a reload',
+      await p.evaluate(() => document.getElementById('shareHint').classList.contains('hide')));
+
     // and the long names come back where there is room for them
     await p.setViewportSize({ width: 1280, height: 900 });
     await p.waitForTimeout(400);

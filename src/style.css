@@ -104,6 +104,39 @@ button { cursor: pointer; }
    "green, fine" and "not green, broken". */
 .dot.wait { background: oklch(0.79 0.15 85); }
 
+/* ---- the sharing hint ---------------------------------------------------
+   One line, once, in the run of the page rather than in a corner of the
+   header. Tinted rather than boxed and never a modal — it is worth saying and
+   it is not worth interrupting anybody for. It leaves for good on the first
+   tap of either button. */
+.hint {
+  display: flex; align-items: stretch; gap: 0;
+  border-bottom: 1px solid var(--line);
+  background: oklch(0.95 0.03 85);
+}
+.hint-in {
+  flex: 1; text-align: left; background: none; border: 0; cursor: pointer;
+  font: inherit; color: inherit; padding: 11px 16px;
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+}
+.hint-in:hover { background: oklch(0.93 0.04 85); }
+.hint-t { font-weight: 600; font-size: 14.5px; }
+.hint-t::after {
+  content: 'Share'; margin-left: 8px; padding: 2px 8px; border-radius: 99px;
+  background: var(--ink); color: var(--paper); font-size: 11.5px;
+  letter-spacing: 0.02em; vertical-align: 1px;
+}
+.hint-s { font-size: 13.5px; color: var(--muted-2); }
+.hint-x {
+  background: none; border: 0; cursor: pointer; color: var(--muted);
+  font-size: 20px; line-height: 1; padding: 0 14px;
+}
+.hint-x:hover { color: var(--ink); }
+@media (max-width: 560px) {
+  .hint-in { padding: 10px 12px; }
+  .hint-s { font-size: 13px; }
+}
+
 /* ----------------------------------------------------------- filter bar */
 .filters { background: var(--paper-soft); border-bottom: 1px solid var(--line); }
 .filters-in {
