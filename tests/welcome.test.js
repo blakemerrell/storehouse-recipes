@@ -100,38 +100,39 @@ module.exports = {
     t.ok('there is a way to pay near the top, by the demo and in the footer',
       ways.top && ways.demo && ways.footer, JSON.stringify(ways));
 
-    /* The two phone screens in the dark panel are hand-set HTML, not
-       screenshots — a screenshot of two phones side by side would be a
-       screenshot of a page that does not exist. That makes them the one thing
-       on this page that can quietly stop being true, so what is written on
-       them is checked against the recipes themselves: the title, the macros
-       and the ingredients of No. 001, and the name of No. 002 on the Tuesday
-       of the week beside it. Rename a recipe and this fails. */
+    /* The two phones in the dark panel walk through setting up sharing — Share
+       is tapped, a code appears, the same code is typed on the second phone,
+       and both land on one week. It is hand-set HTML, not a screen recording,
+       which makes it the one thing on this page that can quietly stop being
+       true. Three things are checked, and they are the three that would make
+       the walkthrough a lie rather than merely dated.
+
+       First, the week both phones end on is the book's week: rename No. 001
+       and this fails. Second, both phones show the *same* three meals — that
+       identity is the whole claim the panel is making, and a stray edit to one
+       column would break it in a way no screenshot review would catch. Third,
+       the code typed on the second phone is the code the first one gave. */
     const mock = await p.evaluate(() => {
-      const txt = (s) => (document.querySelector(s) || {}).textContent || '';
+      const txt = (s) => ((document.querySelector(s) || {}).textContent || '').trim();
       return {
-        title: txt('.mk-h').trim(),
-        macros: [...document.querySelectorAll('.mk-macros span')].map((e) => e.textContent.trim()),
-        ing: (document.querySelector('.mk-ing') || {}).innerHTML
-          .split(/<br\s*\/?>/i).map((x) => x.trim()),
-        steps: [...document.querySelectorAll('.mk-steps li')].map((e) => e.textContent.trim()),
         meals: [...document.querySelectorAll('.mk-meal')].map((e) => e.textContent.trim()),
+        shown: txt('.scr-code'),
+        typed: txt('.typed'),
       };
     });
     global.window = {};
     delete require.cache[require.resolve(require('path').join(__dirname, '..', 'data', 'recipes.js'))];
     require(require('path').join(__dirname, '..', 'data', 'recipes.js'));
     const R = global.window.RECIPES;
-    const [one, two, three] = [1, 2, 3].map((id) => R.find((r) => r.id === id));
-    t.ok('the phone screens still say what the recipes say',
-      mock.title === one.name &&
-      mock.macros.join('|') === one.macro.kcal + ' kcal|' + one.macro.p + 'g protein' &&
-      mock.ing.join('|') === one.ing.join('|') &&
-      mock.steps.join('|') === one.steps.join('|') &&
-      mock.meals.join('|') === [one, two, three].map((r) => r.name).join('|'),
-      JSON.stringify(mock) + ' vs ' + JSON.stringify({
-        name: one.name, kcal: one.macro.kcal, p: one.macro.p,
-        ing: one.ing, steps: one.steps, week: [one, two, three].map((r) => r.name) }));
+    const week = [1, 2, 3].map((id) => R.find((r) => r.id === id).name);
+    const mine = mock.meals.slice(0, 3), theirs = mock.meals.slice(3);
+    t.ok('the week on the phones is still the week in the book',
+      mine.join('|') === week.join('|'), mine.join(' / ') + ' vs ' + week.join(' / '));
+    t.ok('and both phones end the walkthrough on the same three meals',
+      mock.meals.length === 6 && theirs.join('|') === mine.join('|'),
+      mock.meals.length + ': ' + theirs.join(' / '));
+    t.ok('the code typed on the second phone is the one the first phone gave',
+      mock.shown && mock.shown === mock.typed, mock.shown + ' vs ' + mock.typed);
 
     /* Every link on the page, checked rather than assumed — the PDFs in
        particular are named after a volume that was renamed once already. */
