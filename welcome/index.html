@@ -218,25 +218,54 @@ a { color: inherit; }
 .dark p { font-size: 13.5px; line-height: 1.7; color: var(--on-dark); margin: 10px 0 0; max-width: 480px; }
 .dark-note { text-align: center; font-size: 11px; color: var(--muted); padding: 16px 0 4px; }
 
+/* Two columns where there is room, one where there is not, and the label of
+   each is set like the small caps elsewhere on the page so the six read as a
+   reference card rather than as a bulleted paragraph. */
+.facts {
+  list-style: none; margin: 18px 0 0; padding: 0; max-width: 680px;
+  display: grid; gap: 14px 30px;
+  grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
+}
+.facts li { font-size: 13px; line-height: 1.55; color: var(--on-dark); }
+.facts b {
+  display: block; color: var(--paper); font-weight: 700;
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.facts strong { font-weight: 600; color: var(--paper); }
+
 /* ---- the walkthrough ---------------------------------------------------
-   One sixteen-second loop, and every moving part reads its timing off the
+   One twenty-six-second loop, and every moving part reads its timing off the
    same --beat. That is the only reason a tap on one phone, a code appearing,
-   letters typing on the other and two badges turning green stay in step: they
-   are not four animations that happen to agree, they are one clock.
+   letters typing on the other, a star lighting on both and two badges turning
+   green stay in step: they are not a dozen animations that happen to agree,
+   they are one clock.
 
    The percentages below are the story, so they are worth reading as one:
 
-      0–20   the app, and the badge is tapped
-     21–62   the sheet is up on the first phone with the code showing
-     35–66   the second phone types it in, and thinks about it from 54
-     63–100  both phones on the same week, both badges green
+       0–12   the app, and the badge is tapped
+      13–97   the sheet is up on the first phone with the code showing
+      21–41   the second phone types it in, and thinks about it from 33
+      40–65   both on the list: a star is tapped here and lights there, then
+              tapped there and lights here — the point being that it goes both
+              ways, which one direction alone would not say
+      65–85   a recipe is opened on the first phone and given a day, and the
+              day turns up in the week on the second
+      85–100  both phones on the same week, both badges green
+
+   The loop got longer because sharing was only half the question. Somebody
+   deciding whether to set this up wants to know what it buys them afterwards,
+   and the answer is the last two beats: what one of you saves, both of you
+   have, and what one of you plans, both of you are cooking.
 
    The overlaps are deliberate. The first phone keeps its code on screen while
    the second is typing, because that is what the person doing this is looking
-   at — one phone in each hand. */
+   at — one phone in each hand. And the second phone is already on the week
+   while the first is still on the recipe, so the day arriving is visible as a
+   consequence rather than as another screen that changed. */
 .demo2 {
   display: flex; align-items: center; justify-content: center;
-  gap: 14px; flex-wrap: wrap; margin-top: 24px; --beat: 16s;
+  gap: 14px; flex-wrap: wrap; margin-top: 24px; --beat: 26s;
 }
 /* The phone body: bone on ink, with an earpiece and a home bar, so two of
    them on a dark panel read as two phones rather than as two boxes. */
@@ -312,6 +341,14 @@ a { color: inherit; }
   content: ''; position: absolute; inset: -6px; border-radius: 50%;
   border: 2px solid var(--gold); opacity: inherit;
 }
+/* The later taps land on a star in the list and on a day in the row of days.
+   Vertical offsets are in pixels because the rows are laid out in pixels and
+   so do not move when the phone is narrower; the day is placed as a fraction
+   of the row instead, because seven columns do share out the width. */
+.tap-f1, .tap-f2 { right: 11px }
+.tap-f1 { top: 72px }
+.tap-f2 { top: 116px }
+.tap-dy { top: 118px; right: auto; left: calc(35.7% - 6px) }
 
 .scr-lab {
   font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase;
@@ -357,6 +394,55 @@ a { color: inherit; }
   border-radius: 50%; vertical-align: -1px; animation: spin 0.7s linear infinite;
 }
 
+/* The shared list, once both phones are on it. Same grey bars as the opening
+   screen — it is the same list — with a star at the end of each row.
+
+   In the app the star lives on the recipe itself: you open a recipe and tap
+   ☆, and the row in the list then reads "★ Saved". Putting the star on the row
+   here compresses that, which is allowed because nothing on these screens is
+   pretending to be a screenshot — the recipes are grey bars. What is not
+   allowed is showing a control the app does not have, and the star is the
+   app's own mark for a favorite, in the app's own two states. */
+.scr-list { margin-top: 9px; display: flex; flex-direction: column; gap: 7px; }
+.lrow { display: flex; align-items: center; gap: 6px; }
+.lrow i { height: 15px; border-radius: 2px; background: var(--line); flex: 1; opacity: 0.75; }
+.lrow:nth-child(2) i { flex: 0 0 86% }
+.lrow:nth-child(4) i { flex: 0 0 92% }
+.lrow:nth-child(5) i { flex: 0 0 70% }
+/* Hollow under filled, same glyph and size, so the change is the fill and
+   nothing else moves. */
+.fav {
+  position: relative; flex: none; width: 11px; height: 12px;
+  font-size: 11px; line-height: 12px; font-style: normal;
+  color: var(--line-firm); text-align: center;
+}
+.fav b {
+  position: absolute; inset: 0; opacity: 0; color: var(--gold); font-weight: 400;
+}
+
+/* The recipe, opened. Only the two things this beat is about: the star it was
+   saved with, and the row of days underneath "Add to" — which is how a recipe
+   gets into a week in the app, and the part nobody guesses from a paragraph. */
+.sh-t {
+  font-family: var(--serif); font-size: 12.5px; line-height: 1.25;
+  margin-top: 9px; padding-bottom: 9px; border-bottom: 1px solid var(--line);
+}
+.sh-row { display: flex; align-items: center; gap: 7px; margin-top: 11px; }
+.sh-star { font-size: 12px; color: var(--gold); }
+.sh-add {
+  font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+}
+.daybar { display: flex; gap: 3px; margin-top: 7px; }
+.daybar b {
+  flex: 1; text-align: center; font-weight: 400;
+  font-size: 7.5px; letter-spacing: 0.04em; text-transform: uppercase;
+  border: 1px solid var(--line-firm); border-radius: 3px; padding: 5px 0;
+  color: var(--muted-2);
+}
+.daybar b.dw { animation: dayon var(--beat) infinite }
+.sh-p { font-size: 9.5px; color: var(--muted); margin-top: 11px; line-height: 1.4; }
+
 /* Kept as .mk-meal because tests/welcome.test.js reads the week off these to
    check the three days still name recipes 001–003. The rule was lost with the
    old mock's stylesheet; the class was not. */
@@ -372,6 +458,10 @@ a { color: inherit; }
   color: var(--muted-2); font-weight: 700; border-bottom: 1px solid var(--line);
   padding-bottom: 4px; margin: 10px 0 5px;
 }
+/* The day that arrives from the other phone. It lifts a little as it fades,
+   because a row that simply appears at full strength reads as a screen
+   redrawing and a row that rises reads as something turning up. */
+.wk-new { opacity: 0; animation: wknew var(--beat) infinite }
 
 /* The numbered steps between the phones. Real text, always legible, and each
    one lifts as its moment comes round. With motion turned off they are simply
@@ -395,6 +485,8 @@ a { color: inherit; }
 .beat-2 { animation: lit2 var(--beat) infinite }
 .beat-3 { animation: lit3 var(--beat) infinite }
 .beat-4 { animation: lit4 var(--beat) infinite }
+.beat-5 { animation: lit5 var(--beat) infinite }
+.beat-6 { animation: lit6 var(--beat) infinite }
 
 /* Each screen covers the one before it rather than dissolving into it. Two
    dense screens cross-faded spend half a second as a double exposure — two
@@ -408,36 +500,94 @@ a { color: inherit; }
    half-second dissolve back to the beginning reads as a glitch and a cut
    reads as a repeat. */
 .scr-a1, .scr-b1 { opacity: 1 }
-@keyframes scrA2  { 0%, 20% { opacity: 0 } 23%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
-@keyframes scrA3  { 0%, 62% { opacity: 0 } 65%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
-@keyframes scrB2  { 0%, 33% { opacity: 0 } 36%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
-@keyframes scrB3  { 0%, 65% { opacity: 0 } 68%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
+@keyframes scrA2  { 0%, 12.3% { opacity: 0 } 14.2%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
+@keyframes scrA3  { 0%, 40%   { opacity: 0 } 42%,   97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
+@keyframes scrA4  { 0%, 65.4% { opacity: 0 } 67.4%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
+@keyframes scrA5  { 0%, 84.6% { opacity: 0 } 86.6%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
+@keyframes scrB2  { 0%, 20.3% { opacity: 0 } 22.2%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
+@keyframes scrB3  { 0%, 40%   { opacity: 0 } 42%,   97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
+@keyframes scrB4  { 0%, 66.5% { opacity: 0 } 68.5%, 97% { opacity: 1 } 97.5%, 100% { opacity: 0 } }
 .scr-a2 { animation: scrA2 var(--beat) infinite }
 .scr-a3 { animation: scrA3 var(--beat) infinite }
+.scr-a4 { animation: scrA4 var(--beat) infinite }
+.scr-a5 { animation: scrA5 var(--beat) infinite }
 .scr-b2 { animation: scrB2 var(--beat) infinite }
 .scr-b3 { animation: scrB3 var(--beat) infinite }
+.scr-b4 { animation: scrB4 var(--beat) infinite }
 
+/* Four taps, one ring, four moments. Each is its own keyframe rather than one
+   animation delayed four ways, because animation-delay on a loop restarts the
+   ring against a clock the rest of the panel has already moved past. */
 @keyframes tap {
-  0%, 7%   { opacity: 0; transform: scale(0.4) }
-  11%      { opacity: 0.9; transform: scale(1) }
-  17%      { opacity: 0; transform: scale(1.5) }
-  100%     { opacity: 0; transform: scale(0.4) }
+  0%, 4.3%  { opacity: 0; transform: scale(0.4) }
+  6.8%      { opacity: 0.9; transform: scale(1) }
+  10.5%     { opacity: 0; transform: scale(1.5) }
+  100%      { opacity: 0; transform: scale(0.4) }
 }
+@keyframes tapfav {
+  0%, 42%   { opacity: 0; transform: scale(0.4) }
+  45%       { opacity: 0.9; transform: scale(1) }
+  49%       { opacity: 0; transform: scale(1.5) }
+  100%      { opacity: 0; transform: scale(0.4) }
+}
+@keyframes tapfav2 {
+  0%, 51%   { opacity: 0; transform: scale(0.4) }
+  53.5%     { opacity: 0.9; transform: scale(1) }
+  57%       { opacity: 0; transform: scale(1.5) }
+  100%      { opacity: 0; transform: scale(0.4) }
+}
+@keyframes tapday {
+  0%, 69%   { opacity: 0; transform: scale(0.4) }
+  71.5%     { opacity: 0.9; transform: scale(1) }
+  75%       { opacity: 0; transform: scale(1.5) }
+  100%      { opacity: 0; transform: scale(0.4) }
+}
+.tap-f1 { animation: tapfav  var(--beat) infinite }
+.tap-f2 { animation: tapfav2 var(--beat) infinite }
+.tap-dy { animation: tapday  var(--beat) infinite }
+
 @keyframes press {
-  0%, 11%  { background: none; color: var(--muted-2); border-color: var(--line-firm) }
-  14%, 20% { background: var(--ink); color: var(--paper); border-color: var(--ink) }
-  23%,100% { background: none; color: var(--muted-2); border-color: var(--line-firm) }
+  0%, 6.8%    { background: none; color: var(--muted-2); border-color: var(--line-firm) }
+  8.6%, 12.3% { background: var(--ink); color: var(--paper); border-color: var(--ink) }
+  14.2%, 100% { background: none; color: var(--muted-2); border-color: var(--line-firm) }
 }
-@keyframes reveal { 0%, 23% { opacity: 0 } 29%, 100% { opacity: 1 } }
-@keyframes type   { 0%, 38% { width: 0 } 53%, 100% { width: calc(100% - 4px) } }
+@keyframes reveal { 0%, 14.2% { opacity: 0 } 17.8%, 100% { opacity: 1 } }
+@keyframes type   { 0%, 23.4% { width: 0 } 32.6%, 100% { width: calc(100% - 4px) } }
 @keyframes caret  { 0%, 50% { opacity: 1 } 51%, 100% { opacity: 0 } }
-@keyframes caretgone { 0%, 53% { opacity: 1 } 54%, 100% { opacity: 0 } }
-@keyframes joining{ 0%, 53% { opacity: 0 } 56%, 63% { opacity: 1 } 66%, 100% { opacity: 0 } }
+@keyframes caretgone { 0%, 32.6% { opacity: 1 } 33.2%, 100% { opacity: 0 } }
+@keyframes joining{ 0%, 32.6% { opacity: 0 } 34.5%, 38.8% { opacity: 1 } 40.6%, 100% { opacity: 0 } }
 @keyframes spin   { to { transform: rotate(360deg) } }
-@keyframes lit1 { 0%, 20% { color: var(--paper) } 24%, 100% { color: var(--muted) } }
-@keyframes lit2 { 0%, 21% { color: var(--muted) } 24%, 34% { color: var(--paper) } 38%, 100% { color: var(--muted) } }
-@keyframes lit3 { 0%, 35% { color: var(--muted) } 38%, 62% { color: var(--paper) } 66%, 100% { color: var(--muted) } }
-@keyframes lit4 { 0%, 63% { color: var(--muted) } 67%, 97% { color: var(--paper) } 100% { color: var(--muted) } }
+
+/* The four stars, in the order they light. The gap between a star filling on
+   the phone that was tapped and the same star filling on the other one is
+   about three quarters of a second — long enough to read as having travelled,
+   short enough that nobody reads it as slow. Two stars going one way and two
+   going the other is the whole argument of this beat: a single star crossing
+   once would look like the second phone is a mirror of the first. */
+@keyframes favA2 { 0%, 44.5% { opacity: 0 } 46%,   100% { opacity: 1 } }
+@keyframes favB2 { 0%, 47%   { opacity: 0 } 49%,   100% { opacity: 1 } }
+@keyframes favB4 { 0%, 53%   { opacity: 0 } 54.5%, 100% { opacity: 1 } }
+@keyframes favA4 { 0%, 55.5% { opacity: 0 } 57.5%, 100% { opacity: 1 } }
+.fav-a2 b { animation: favA2 var(--beat) infinite }
+.fav-b2 b { animation: favB2 var(--beat) infinite }
+.fav-b4 b { animation: favB4 var(--beat) infinite }
+.fav-a4 b { animation: favA4 var(--beat) infinite }
+
+@keyframes dayon {
+  0%, 70.5% { background: none; color: var(--muted-2); border-color: var(--line-firm) }
+  72%, 100% { background: var(--ink); color: var(--paper); border-color: var(--ink) }
+}
+@keyframes wknew {
+  0%, 73%   { opacity: 0; transform: translateY(4px) }
+  76%, 100% { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes lit1 { 0%, 12.3% { color: var(--paper) } 14.8%, 100% { color: var(--muted) } }
+@keyframes lit2 { 0%, 12.9% { color: var(--muted) } 14.8%, 20.9% { color: var(--paper) } 23.4%, 100% { color: var(--muted) } }
+@keyframes lit3 { 0%, 21.5% { color: var(--muted) } 23.4%, 38.2% { color: var(--paper) } 40.6%, 100% { color: var(--muted) } }
+@keyframes lit4 { 0%, 40%   { color: var(--muted) } 42.5%, 64%   { color: var(--paper) } 67%,   100% { color: var(--muted) } }
+@keyframes lit5 { 0%, 64.5% { color: var(--muted) } 67%,   83%   { color: var(--paper) } 86%,   100% { color: var(--muted) } }
+@keyframes lit6 { 0%, 84%   { color: var(--muted) } 86.5%, 97%   { color: var(--paper) } 100%  { color: var(--muted) } }
 
 /* Somebody who has asked their system not to animate things has asked for a
    reason. They get the first frame of each stack, and the end of the sync
@@ -450,13 +600,15 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .demo-frame img { animation: none }
   .demo-frame img:nth-child(1) { opacity: 1 }
-  .scr, .tap, .chip-press, .scr-code, .typed, .caret, .scr-join, .beat {
+  .scr, .tap, .chip-press, .scr-code, .typed, .caret, .scr-join, .beat,
+  .fav b, .daybar b, .wk-new {
     animation: none;
   }
   .scr { opacity: 0 }
-  .scr-a3, .scr-b3 { opacity: 1 }
+  .scr-a5, .scr-b4 { opacity: 1 }
   .scr-a1, .scr-b1 { opacity: 0 }
   .typed { width: calc(100% - 4px) }
+  .wk-new { opacity: 1; transform: none }
   .beat { color: var(--on-dark) }
 }
 
@@ -617,12 +769,24 @@ footer a:hover { text-decoration: underline; }
 
   <section class="dark">
     <h2>On your phone, with no signal</h2>
-    <p>Install it from the page &mdash; Safari: <strong>Share → Add to Home Screen</strong>,
-    Chrome: <strong>⋮ → Install app</strong> &mdash; and it keeps working in a storehouse
-    basement with no bars. To share one list, tap <strong>Share</strong> on one phone, then type the
-    code it gives you into the others &mdash; favorites, weeks and the grocery list stay the same on all
-    of them. Two phones or six; there is no limit and no account to make. The badge tells you where
-    things stand afterwards: <strong>Synced</strong> when the others have everything this phone has.</p>
+    <!-- This was one paragraph of six sentences, and each sentence was a
+         separate fact somebody might be looking for — how to install it,
+         whether it needs signal, how to share, what gets shared, how many
+         phones, what the badge means. Six answers in a row read as prose is
+         six answers nobody can find. Broken out, the reader's own question is
+         the label they are scanning for, and they stop at it. -->
+    <ul class="facts">
+      <li><b>Install it</b>Safari: <strong>Share → Add to Home Screen</strong>.
+        Chrome: <strong>⋮ → Install app</strong>.</li>
+      <li><b>No bars needed</b>After that it opens and runs in a storehouse basement.</li>
+      <li><b>Share one list</b>Tap <strong>Share</strong> on one phone, then type the code it
+        gives you into the others.</li>
+      <li><b>All of it follows</b>Favorites, weeks and the grocery list stay the same on every
+        phone on the list.</li>
+      <li><b>No limit, no account</b>Two phones or six. Nothing to sign up for.</li>
+      <li><b>You can tell</b>The badge reads <strong>Synced</strong> when the others have
+        everything this phone has.</li>
+    </ul>
 
     <!-- The two phones used to stand still and the paragraph above did the
          explaining. Nobody sets a thing up from a paragraph. This walks it
@@ -635,7 +799,7 @@ footer a:hover { text-decoration: underline; }
          animation is the illustration and the list is the instruction; with
          reduced motion the list is all there is, and it is enough. -->
     <div class="demo2" role="img"
-         aria-label="On the first phone, Share is tapped and a household code appears. On the second, the same code is typed in, it joins, and both phones show the same week marked Synced.">
+         aria-label="On the first phone, Share is tapped and a household code appears. On the second, the same code is typed in and it joins. A recipe starred on the first phone is then starred on the second, and one starred on the second is starred on the first. The first phone opens a recipe and gives it Wednesday, Wednesday appears in the week on the second, and both phones end on the same week marked Synced.">
 
       <div class="devwrap">
       <div class="dev">
@@ -652,7 +816,33 @@ footer a:hover { text-decoration: underline; }
             <div class="scr-code">KETTLE-4827-ORCHARD</div>
             <div class="scr-p">Type this on the other phone.</div>
           </div>
+          <!-- Joined. The same list as the opening screen, which is the point:
+               nothing was imported and nothing was set up, the phones are
+               simply both looking at it now. -->
           <div class="scr scr-a3">
+            <div class="scr-bar"><span class="scr-brand">Hive &amp; Hearth</span>
+              <span class="chip chip-on">&#9679; Synced</span></div>
+            <div class="scr-list">
+              <span class="lrow"><i></i><em class="fav">&#9734;</em></span>
+              <span class="lrow"><i></i><em class="fav fav-a2">&#9734;<b>&#9733;</b></em></span>
+              <span class="lrow"><i></i><em class="fav">&#9734;</em></span>
+              <span class="lrow"><i></i><em class="fav fav-a4">&#9734;<b>&#9733;</b></em></span>
+              <span class="lrow"><i></i><em class="fav">&#9734;</em></span>
+            </div>
+            <span class="tap tap-f1"></span>
+          </div>
+          <!-- The recipe, opened, because "Add to" and the row of days is how a
+               week actually gets built and it is the one part of the app
+               nobody guesses. -->
+          <div class="scr scr-a4">
+            <div class="scr-lab">Recipe</div>
+            <div class="sh-t">Quick Canned Chicken &amp; Salsa Bowl</div>
+            <div class="sh-row"><span class="sh-star">&#9733;</span><span class="sh-add">Add to</span></div>
+            <div class="daybar"><b>Mon</b><b>Tue</b><b class="dw">Wed</b><b>Thu</b><b>Fri</b><b>Sat</b><b>Sun</b></div>
+            <div class="sh-p">Pick a day and it joins the week &mdash; and the grocery list.</div>
+            <span class="tap tap-dy"></span>
+          </div>
+          <div class="scr scr-a5">
             <div class="scr-bar"><span class="scr-brand">The Week</span>
               <span class="chip chip-on">&#9679; Synced</span></div>
             <div class="wk-d">Monday</div><div class="mk-meal">Cottage Cheese &amp; Cinnamon Apple Bowl</div>
@@ -669,7 +859,9 @@ footer a:hover { text-decoration: underline; }
         <li class="beat beat-1"><b>1</b> Tap <em>Share</em></li>
         <li class="beat beat-2"><b>2</b> Take the code</li>
         <li class="beat beat-3"><b>3</b> Type it on theirs</li>
-        <li class="beat beat-4"><b>4</b> One list, both phones</li>
+        <li class="beat beat-4"><b>4</b> Star one &mdash; it&rsquo;s starred on both</li>
+        <li class="beat beat-5"><b>5</b> Give it a day</li>
+        <li class="beat beat-6"><b>6</b> One week, both phones</li>
       </ol>
 
       <div class="devwrap">
@@ -686,12 +878,32 @@ footer a:hover { text-decoration: underline; }
             <div class="scr-field"><span class="typed">KETTLE-4827-ORCHARD</span><span class="caret"></span></div>
             <div class="scr-join">Joining&hellip;</div>
           </div>
+          <!-- The same five rows. The star on the second row lights here a
+               moment after it lit there; then the fourth is tapped here and
+               lights there. -->
           <div class="scr scr-b3">
+            <div class="scr-bar"><span class="scr-brand">Hive &amp; Hearth</span>
+              <span class="chip chip-on">&#9679; Synced</span></div>
+            <div class="scr-list">
+              <span class="lrow"><i></i><em class="fav">&#9734;</em></span>
+              <span class="lrow"><i></i><em class="fav fav-b2">&#9734;<b>&#9733;</b></em></span>
+              <span class="lrow"><i></i><em class="fav">&#9734;</em></span>
+              <span class="lrow"><i></i><em class="fav fav-b4">&#9734;<b>&#9733;</b></em></span>
+              <span class="lrow"><i></i><em class="fav">&#9734;</em></span>
+            </div>
+            <span class="tap tap-f2"></span>
+          </div>
+          <!-- On the week before the other phone is, so that Wednesday
+               arriving is something that happens to this screen rather than
+               something this screen was already showing. -->
+          <div class="scr scr-b4">
             <div class="scr-bar"><span class="scr-brand">The Week</span>
               <span class="chip chip-on">&#9679; Synced</span></div>
             <div class="wk-d">Monday</div><div class="mk-meal">Cottage Cheese &amp; Cinnamon Apple Bowl</div>
             <div class="wk-d">Tuesday</div><div class="mk-meal">Spicy Tuna &amp; Bell Pepper Boats</div>
-            <div class="wk-d">Wednesday</div><div class="mk-meal">Quick Canned Chicken &amp; Salsa Bowl</div>
+            <div class="wk-new">
+              <div class="wk-d">Wednesday</div><div class="mk-meal">Quick Canned Chicken &amp; Salsa Bowl</div>
+            </div>
             <div class="wk-foot">Added from either phone</div>
           </div>
         </div>

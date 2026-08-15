@@ -118,6 +118,9 @@ module.exports = {
         meals: [...document.querySelectorAll('.mk-meal')].map((e) => e.textContent.trim()),
         shown: txt('.scr-code'),
         typed: txt('.typed'),
+        opened: txt('.sh-t'),
+        day: txt('.scr-a4 .daybar b.dw'),
+        days: [...document.querySelectorAll('.scr-a4 .daybar b')].map((e) => e.textContent.trim()),
       };
     });
     global.window = {};
@@ -133,6 +136,20 @@ module.exports = {
       mock.meals.length + ': ' + theirs.join(' / '));
     t.ok('the code typed on the second phone is the one the first phone gave',
       mock.shown && mock.shown === mock.typed, mock.shown + ' vs ' + mock.typed);
+
+    /* The last two beats claim cause and effect: the recipe opened on the first
+       phone is given a day, and that day turns up in the week on the second. If
+       the recipe on the sheet and the recipe on that day ever stop being the
+       same one, the panel is showing two unrelated things happening at once and
+       calling it sync — which is the one lie this animation could tell. */
+    const dayIx = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }[mock.day];
+    t.ok('the recipe given a day is the one that lands on that day',
+      mock.opened && mock.opened === mock.meals[dayIx],
+      mock.day + ': ' + mock.opened + ' vs ' + mock.meals[dayIx]);
+    /* Seven, because a week with six days in it is the kind of thing that
+       survives every review except this one. */
+    t.ok('and the day it is given is one of seven',
+      mock.days.length === 7 && dayIx !== undefined, mock.days.join(' '));
 
     /* Every link on the page, checked rather than assumed — the PDFs in
        particular are named after a volume that was renamed once already. */
