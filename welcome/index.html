@@ -352,22 +352,17 @@ a { color: inherit; }
    cannot say both "please give" and "please do not give if it costs you",
    which is the whole point of the verse it is sitting under. */
 .give-sec { margin-top: 58px; }
-/* The verse used to be this section's headline, set large and centred above
-   everything. Read there, before a word of the story, it stops being his
-   reason for giving the thing away and becomes a line pointed at the reader,
-   which is the opposite of what it is for. It is a footnote to the button
-   now: small, left, under the thing it explains. */
+/* There was a verse here — Mosiah 4:24, first as this section's headline and
+   then as a footnote to the donate button. Moving it helped and did not fix
+   it. Scripture beside an ask reads as leverage however small it is set,
+   because the reader cannot tell whether they are being told why he gives or
+   being told what they owe. His own paragraph already says the true thing
+   plainly: I share it freely, and we could use the help if you feel inclined.
+   That sentence cannot be mistaken for pressure, and it does not need a
+   prophet standing behind it. */
 .give-h {
   font-family: var(--serif); font-size: clamp(24px, 3.4vw, 30px); font-weight: 700;
   line-height: 1.15; margin: 0;
-}
-.give-quote {
-  font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.5;
-  color: var(--muted); margin: 14px 0 0; max-width: 34em;
-}
-.give-quote span {
-  display: block; font-style: normal; font-size: 11px; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--muted); margin-top: 5px;
 }
 /* His words, copy-edited and not rewritten. This section was mine for a
    while and read like the rest of the page — balanced sentences, a clause
@@ -392,7 +387,7 @@ a { color: inherit; }
    directly above already ends "Please don't give out of your own need. Take
    the book," and saying it twice made it sound like a tier. */
 .give-cta { justify-content: flex-start; margin-top: 26px; }
-.give-quote + .fine { margin-top: 16px; }
+.give-cta + .fine { margin-top: 16px; }
 
 footer {
   margin-top: 60px; border-top: 1px solid var(--line); padding-top: 20px;
@@ -455,7 +450,7 @@ footer a:hover { text-decoration: underline; }
     </div>
   </div>
   <p class="demo-cap">The same 266 recipes, either way &mdash;
-  <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">or buy a bound copy, $50</a></p>
+  <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">or buy a bound copy, $40</a></p>
 
   <section class="sec" id="what">
     <div class="sec-lab">What it does</div>
@@ -546,11 +541,11 @@ footer a:hover { text-decoration: underline; }
   <section class="paper-row">
     <div>
       <h3>Prefer paper?</h3>
-      <p>All 266 recipes, 160 pages, spiral bound and shipped to you for $50 &mdash; or download
+      <p>All 266 recipes, 160 pages, spiral bound and shipped to you for $40 &mdash; or download
       it and print it yourself, free. Shipping address is taken at checkout.</p>
     </div>
     <div class="paper-buys">
-      <a class="btn btn-solid post-order-btn" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Buy a bound copy &mdash; $50</a>
+      <a class="btn btn-solid post-order-btn" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Buy a bound copy &mdash; $40</a>
       <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Download free</a>
     </div>
   </section>
@@ -626,16 +621,9 @@ footer a:hover { text-decoration: underline; }
          turns up. -->
     <div class="cta give-cta">
       <a class="btn btn-gold give-btn" href="https://buy.stripe.com/28E14n4B272IagYeEpbwk00">Donate</a>
-      <a class="btn btn-solid" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Or buy a bound copy &mdash; $50</a>
+      <a class="btn btn-solid" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Or buy a bound copy &mdash; $40</a>
     </div>
 
-    <!-- The verse sits with the button rather than over the story. As the
-         section's headline it was the first thing a reader met, before a word
-         of his — and there it stops being his reason for giving this away and
-         becomes a line pointed at them. Here it is the reason the button
-         exists, which is whose sentence it always was. -->
-    <p class="give-quote">&ldquo;I give not because I have not, but if I had I would&nbsp;give.&rdquo;
-      <span>King Benjamin &middot; Mosiah 4:24</span></p>
 
     <p class="fine">You type the amount, so it is whatever it is worth to you. The other button
     is a purchase: a bound copy of all 266 recipes, shipped to you, and you&rsquo;ll be asked for

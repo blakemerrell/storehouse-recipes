@@ -197,6 +197,20 @@ module.exports = {
         .filter((x) => x.amt));
     const clash = amounts.filter((x, i) =>
       amounts.some((y, j) => j !== i && y.amt !== x.amt && y.href === x.href));
+    /* The price of the book is typed in five places across two files and lives
+       for real in Stripe, where nothing here can see it. Nothing on the page
+       looks wrong when one of them is left behind — it just quietly advertises
+       two prices for one object, and the buyer finds out at checkout. Every
+       figure the site prints has to be the same figure. */
+    const priced = await p.evaluate(() =>
+      (document.body.textContent.match(/\$\d+/g) || []));
+    const app = require('fs')
+      .readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8')
+      .match(/\$\d+/g) || [];
+    const allPrices = [...new Set(priced.concat(app))];
+    t.ok('the site quotes one price for the book, not two',
+      allPrices.length === 1, allPrices.join(' and '));
+
     t.ok('each suggested amount has its own payment link',
       amounts.length > 0 && clash.length === 0,
       amounts.map((x) => x.amt + ' → ' + String(x.href).split('/').pop()).join(', '));
