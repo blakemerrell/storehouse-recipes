@@ -71,7 +71,7 @@ function get(url, binary) {
   // is full of curly quotes, fraction glyphs and middots, and without it a host
   // that does not send a charset header decodes them as Latin-1.
   const page = `<meta charset="utf-8">
-<title>Bishops' Storehouse Recipe Books</title>
+<title>bishops' storehouse Recipe Books</title>
 <style>
 ${fontCss}
 ${appCss}

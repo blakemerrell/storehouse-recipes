@@ -78,13 +78,15 @@ module.exports = {
       ' — run node tools/build-demo.js');
 
     /* Every way in. Somebody who reads to the end and wants to pay should not
-       have to scroll back up to find out how, and somebody who decides in the
-       first screen should not have to read to the end.
+       have to scroll back up to find out how.
 
-       'Near the top' rather than 'in the hero': the hero is two buttons now
-       and neither of them takes money, which is the right hero. The paying
-       link moved one block down, to the line under the collage — still above
-       "What it does", which is what the assertion actually cares about. */
+       There is deliberately none of this above "What it does" any more. There
+       was — the line under the collage ended "or buy a bound copy, $50" — and
+       it quoted a price in the first screenful, under a collage, before the
+       page had said what the thing was. What is asserted now is that the three
+       places a reader arrives at *after* the explanation all carry one: the
+       paper block, the story, and the footer. Somebody who decides early
+       scrolls a screen; somebody who has not decided is not asked. */
     const ways = await p.evaluate(() => {
       const pay = [...document.querySelectorAll('a[href*="buy.stripe.com"]')];
       const what = document.getElementById('what');
@@ -92,13 +94,16 @@ module.exports = {
         (a.compareDocumentPosition(what) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
       return {
         total: pay.length,
-        top: pay.some(before),
-        demo: !!document.querySelector('.demo-cap a[href*="stripe"]'),
+        early: pay.filter(before).map((a) => a.textContent.trim()),
+        paper: !!document.querySelector('.paper-row a[href*="stripe"]'),
+        story: !!document.querySelector('#give a[href*="stripe"]'),
         footer: pay.some((a) => a.closest('footer')),
       };
     });
-    t.ok('there is a way to pay near the top, by the demo and in the footer',
-      ways.top && ways.demo && ways.footer, JSON.stringify(ways));
+    t.ok('there is a way to pay by the paper block, in the story and in the footer',
+      ways.paper && ways.story && ways.footer, JSON.stringify(ways));
+    t.ok('and nothing quotes a price before the page has said what it is',
+      ways.early.length === 0, ways.early.join(' | '));
 
     /* The two phones in the dark panel walk through setting up sharing — Share
        is tapped, a code appears, the same code is typed on the second phone,

@@ -5,11 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#3b3630">
 <title>Hive &amp; Hearth Recipes</title>
-<meta name="description" content="266 recipes with primary ingredients from the Bishops' Storehouse. Browse them, plan a week, let the shopping list build itself, and print the lot as a real half-letter book. Works with no signal.">
+<meta name="description" content="266 recipes with primary ingredients from the bishops' storehouse. Browse them, plan a week, let the shopping list build itself, and print the lot as a real half-letter book. Works with no signal.">
 
 <meta property="og:title" content="Hive &amp; Hearth Recipes">
 <meta property="og:description" content="266 recipes, two printed volumes, and a shopping list that builds itself. Free, no account, works with no signal.">
 <meta property="og:type" content="website">
+<!-- This link is never found; it is sent — texted to one person, dropped in a
+     ward group. Without a picture it arrives as a line of grey text, and a
+     line of grey text does not get opened. Absolute URLs because a scraper
+     fetching the page from somewhere else cannot resolve a relative one.
+     Rebuild with: node tools/build-og.js -->
+<meta property="og:url" content="https://blakemerrell.github.io/storehouse-recipes/welcome/">
+<meta property="og:image" content="https://blakemerrell.github.io/storehouse-recipes/welcome/demo/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The printed book beside the words Hive and Hearth Recipes: 266 recipes built mostly from what the bishops’ storehouse carries.">
+<meta name="twitter:card" content="summary_large_image">
 
 <link rel="icon" href="../icons/icon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="../icons/icon-180.png">
@@ -622,6 +633,17 @@ a { color: inherit; }
 .paper-buys { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
 .paper-buys .btn { padding: 9px 16px; font-size: 13px; white-space: nowrap; }
 .fine { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 16px; text-wrap: pretty; }
+
+/* Closed by default, and set like the fine print it hides rather than like a
+   heading, so it reads as a drawer somebody may open and not as a section
+   somebody has skipped. */
+.more-print { margin-top: 18px; }
+.more-print > summary {
+  font-size: 12.5px; color: var(--ochre); font-weight: 600;
+  cursor: pointer; width: fit-content;
+}
+.more-print > summary:hover { text-decoration: underline; }
+.more-print .fine:first-of-type { margin-top: 10px; }
 .fine a { color: var(--ochre); font-weight: 600; }
 
 /* ---- pay what it is worth ---------------------------------------------
@@ -706,7 +728,7 @@ footer a:hover { text-decoration: underline; }
   <header class="hero">
     <div class="eyebrow">Hive &amp; Hearth</div>
     <h1>Recipes</h1>
-    <p class="lede">266 recipes built mostly from what the Bishops&rsquo;&nbsp;Storehouse carries.
+    <p class="lede">266 recipes built mostly from what the bishops&rsquo;&nbsp;storehouse carries.
     Pick one, plan a week, and the shopping list writes itself &mdash; on your phone or as a
     printed book.</p>
     <div class="cta">
@@ -732,8 +754,12 @@ footer a:hover { text-decoration: underline; }
       <img src="demo/app-4-list.webp" width="470" height="1017" alt="">
     </div>
   </div>
-  <p class="demo-cap">The same 266 recipes, either way &mdash;
-  <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">or buy a bound copy, $50</a></p>
+  <!-- This line used to end "or buy a bound copy, $50". It was the first
+       screenful, under a collage, before the page had said what the thing is —
+       a price quoted to somebody who has not yet been told what they would be
+       buying. "Prefer paper?" asks the same question two screens later, after
+       the answer, and the footer catches anyone who read to the end. -->
+  <p class="demo-cap">The same 266 recipes, either way.</p>
 
   <section class="sec" id="what">
     <div class="sec-lab">What it does</div>
@@ -748,8 +774,25 @@ footer a:hover { text-decoration: underline; }
           recipes wanting cottage cheese come out as one line: 2⅛ cups.</p>
         </div>
       </div>
+      <!-- The score was on every card in the collage and explained nowhere on
+           this page. It is the one number a reader is asked to trust, and an
+           unexplained number beside food reads as marketing. So it says what
+           goes into it and, more to the point, that the bands were set either
+           side of the median — a scale where most things score well is a scale
+           that is not measuring. -->
       <div class="num">
         <div class="num-n">2</div>
+        <div>
+          <h3>Every recipe wears a score</h3>
+          <p>One number out of a hundred, from five parts: how much of the calories are protein,
+          how heavy the serving is, how much of it is fat, the sodium, and the fiber. The leaf
+          beside it is green above 70 and grey below 45 &mdash; thresholds set either side of the
+          median, so the bands divide the collection rather than flatter it. Write a recipe of
+          your own and it is measured by the same formula, off the same food table.</p>
+        </div>
+      </div>
+      <div class="num">
+        <div class="num-n">3</div>
         <div>
           <h3>Tell it what&rsquo;s actually in your pantry</h3>
           <p>It starts as the storehouse order sheet. Take things off as you stop keeping them,
@@ -758,7 +801,7 @@ footer a:hover { text-decoration: underline; }
         </div>
       </div>
       <div class="num">
-        <div class="num-n">3</div>
+        <div class="num-n">4</div>
         <div>
           <h3>Print it as a real book</h3>
           <p>Half-letter, with a contents page and proper typesetting. No recipe is ever cut in
@@ -770,7 +813,12 @@ footer a:hover { text-decoration: underline; }
   </section>
 
   <section class="dark">
-    <h2>On your phone, with no signal</h2>
+    <!-- The heading used to say "On your phone, with no signal", which was
+         true of the first two facts under it and of none of the walkthrough.
+         Five of those six beats are about sharing, and somebody scanning the
+         headings on this page got no hint that the largest illustration on it
+         answers the question they most want answered. -->
+    <h2>One list, every phone in the house</h2>
     <!-- This was one paragraph of six sentences, and each sentence was a
          separate fact somebody might be looking for — how to install it,
          whether it needs signal, how to share, what gets shared, how many
@@ -930,22 +978,31 @@ footer a:hover { text-decoration: underline; }
     </div>
   </section>
 
-  <p class="fine">Or take it as two booklets you fold and staple yourself.
-  <strong>Run and Not Be Weary</strong> is 100 recipes over 52 pages
-  (<a href="../print/Run-and-Not-Be-Weary.pdf">PDF</a> ·
-  <a href="../print/Run-and-Not-Be-Weary-booklet.pdf">imposed for folding</a>).
-  <strong>Around the Table</strong> is 166 over 116
-  (<a href="../print/Around-the-Table.pdf">PDF</a> ·
-  <a href="../print/Around-the-Table-booklet.pdf">imposed for folding</a>). The imposed files are
-  deliberately out of page order, so don&rsquo;t hand one to a copy shop for spiral binding.</p>
+  <!-- Seven PDF links and a warning about page order used to sit open here, in
+       the gap between the walkthrough and the story — the two things on this
+       page most worth reading, with a stack of print logistics wedged between
+       them. None of it is for somebody deciding; all of it is for somebody who
+       has already decided to print. So it is folded away behind one line, and
+       the two sections that carry the page now sit next to each other. -->
+  <details class="more-print">
+    <summary>Other ways to print it</summary>
+    <p class="fine">Or take it as two booklets you fold and staple yourself.
+    <strong>Run and Not Be Weary</strong> is 100 recipes over 52 pages
+    (<a href="../print/Run-and-Not-Be-Weary.pdf">PDF</a> ·
+    <a href="../print/Run-and-Not-Be-Weary-booklet.pdf">imposed for folding</a>).
+    <strong>Around the Table</strong> is 166 over 116
+    (<a href="../print/Around-the-Table.pdf">PDF</a> ·
+    <a href="../print/Around-the-Table-booklet.pdf">imposed for folding</a>). The imposed files are
+    deliberately out of page order, so don&rsquo;t hand one to a copy shop for spiral binding.</p>
 
-  <!-- Not a fifth way to get the book — a thing to give somebody else. It sits
-       under the print files because that is where a person who is already
-       thinking about paper will find it, and it is the only link on this page
-       that is for the reader's ward rather than for the reader. -->
-  <p class="fine">Handing these out? <a href="../share/">There&rsquo;s a one-sheet handout</a>
-  &mdash; eight storehouse-only recipes over both sides, with the code on each, made to be
-  photocopied and sent home with an order (<a href="../print/Storehouse-Handout.pdf">PDF</a>).</p>
+    <!-- Not a fifth way to get the book — a thing to give somebody else. It
+         sits under the print files because that is where a person who is
+         already thinking about paper will find it, and it is the only link on
+         this page that is for the reader's ward rather than for the reader. -->
+    <p class="fine">Handing these out? <a href="../share/">There&rsquo;s a one-sheet handout</a>
+    &mdash; eight storehouse-only recipes over both sides, with the code on each, made to be
+    photocopied and sent home with an order (<a href="../print/Storehouse-Handout.pdf">PDF</a>).</p>
+  </details>
 
   <!-- ===================================================================
        PAY WHAT IT IS WORTH
@@ -1063,8 +1120,13 @@ footer a:hover { text-decoration: underline; }
     <a href="../">Open the app</a> ·
     <a href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Buy a bound copy</a> ·
     <a href="https://buy.stripe.com/28E14n4B272IagYeEpbwk00">Donate</a> ·
-    <a href="https://github.com/blakemerrell/storehouse-recipes">Source on GitHub</a> ·
-    <a href="https://github.com/blakemerrell/storehouse-recipes/blob/main/SETUP.md">Set up sharing</a>
+    <!-- "Set up sharing" used to sit here and pointed at SETUP.md, which opens
+         "Make a Firebase project". Sharing on this site needs none of that —
+         the keys are in src/config.js and it works on the first tap — so a
+         footer link by that name told a reader the opposite of the section
+         above it. SETUP.md is for somebody running their own copy, and they
+         will find it through the source link. -->
+    <a href="https://github.com/blakemerrell/storehouse-recipes">Source on GitHub</a>
     <div style="margin-top:8px">Free and open source. Nothing loads from anywhere else &mdash;
     even the typefaces are in the repo, not Google&rsquo;s.</div>
   </footer>
