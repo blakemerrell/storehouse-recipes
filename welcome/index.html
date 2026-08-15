@@ -657,16 +657,15 @@ a { color: inherit; }
   font-family: var(--serif); font-size: 19px; line-height: 1.45;
   color: var(--ink); margin-top: 22px;
 }
-.give-sign { font-family: var(--serif); font-style: italic; }
-/* Three buttons and no price cards. There were both for a while, and between
-   them they printed "$8" and "$40" twice within an inch — the cards carried
+/* Two buttons and no price cards. There were both for a while, and between
+   them they printed the same amounts twice within an inch — the cards carried
    the reasoning, the buttons carried the verb, and a reader had to work out
-   that the two rows were the same three choices. The reasoning is one line
-   under the row now, where it costs nothing and repeats nothing.
+   that the two rows were the same choices. The reasoning is one line under
+   the row now, where it costs nothing and repeats nothing.
 
-   Nothing lost its card with them, which is the right trade: the paragraph
-   directly above already ends "Please don't give out of your own need. Take
-   the book," and saying it twice made it sound like a tier. */
+   The row also carries no lead-in any more. The paragraph above it used to
+   ask, and does not; the buttons are left to be found rather than pointed
+   at, which is the whole of that decision. */
 .give-cta { justify-content: flex-start; margin-top: 26px; }
 .give-cta + .fine { margin-top: 16px; }
 
@@ -1027,11 +1026,17 @@ footer a:hover { text-decoration: underline; }
     how I could make amazing food at home that my kids would love, with the ingredients I already
     had here. After some work, I came up with this.</p>
 
-    <p>It&rsquo;s helpful to us, and I hope it&rsquo;s helpful to you. I share it freely. But if
-    you could &mdash; my family is still trying to make ends meet, and we could use the help if
-    you feel inclined.</p>
+    <!-- There was an ask here — "my family is still trying to make ends meet,
+         and we could use the help if you feel inclined" — and it is gone on
+         purpose. Everything above it is already true and already plain, and a
+         reader who has come this far does not need to be turned toward the
+         buttons; the buttons are right there. An ask at the end of an honest
+         account is the sentence that makes the account read as setup for it.
 
-    <p class="give-sign">Thanks.</p>
+         So the section ends on why it is being given away instead. The
+         buttons stay exactly where they were, and say what they do. -->
+    <p>It&rsquo;s helpful to us, and I hope it&rsquo;s helpful to you. We love the Lord, and we
+    are glad to put this in the hands of anybody it might help. It is free, and it stays free.</p>
 
     <!-- Two buttons and two verbs. There were four: three ways to give, all
          of them naming a number, and one to buy. A row of suggested amounts
