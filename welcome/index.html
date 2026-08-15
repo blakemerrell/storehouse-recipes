@@ -657,17 +657,20 @@ a { color: inherit; }
   font-family: var(--serif); font-size: 19px; line-height: 1.45;
   color: var(--ink); margin-top: 22px;
 }
-/* Two buttons and no price cards. There were both for a while, and between
-   them they printed the same amounts twice within an inch — the cards carried
-   the reasoning, the buttons carried the verb, and a reader had to work out
-   that the two rows were the same choices. The reasoning is one line under
-   the row now, where it costs nothing and repeats nothing.
+/* Three buttons, three verbs, and nothing under them. There were price cards
+   here once, then a paragraph of fine print explaining what each button did —
+   that the amount is typed at Stripe, that the copy is posted, that the app
+   is just there. Every line of it was true and none of it was read: a row of
+   buttons that says give, buy and open is already the explanation, and prose
+   underneath a row of buttons is prose between the reader and the button.
 
-   The row also carries no lead-in any more. The paragraph above it used to
-   ask, and does not; the buttons are left to be found rather than pointed
-   at, which is the whole of that decision. */
+   "Open the app" joins the row rather than trailing after it as a link,
+   because it is the option most people want and it was the one set smallest.
+   Ghost rather than gold or ink, so the row still has an order to it.
+
+   The row carries no lead-in either. The paragraph above it used to ask, and
+   does not; the buttons are left to be found rather than pointed at. */
 .give-cta { justify-content: flex-start; margin-top: 26px; }
-.give-cta + .fine { margin-top: 16px; }
 
 footer {
   margin-top: 60px; border-top: 1px solid var(--line); padding-top: 20px;
@@ -1051,13 +1054,9 @@ footer a:hover { text-decoration: underline; }
          turns up. -->
     <div class="cta give-cta">
       <a class="btn btn-gold give-btn" href="https://buy.stripe.com/28E14n4B272IagYeEpbwk00">Donate</a>
-      <a class="btn btn-solid" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Or buy a bound copy &mdash; $50</a>
+      <a class="btn btn-solid" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Buy a bound copy &mdash; $50</a>
+      <a class="btn btn-ghost" href="../">Open the app</a>
     </div>
-
-
-    <p class="fine">You type the amount, so it is whatever it is worth to you. The other button
-    is a purchase: a bound copy of all 266 recipes, shipped to you, and you&rsquo;ll be asked for
-    a shipping address at checkout. Or <a href="../">just open the app</a>.</p>
   </section>
 
   <footer>
