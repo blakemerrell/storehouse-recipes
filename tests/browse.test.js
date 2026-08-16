@@ -6,7 +6,12 @@ module.exports = {
     const p = await t.fresh();
 
     const n = await p.evaluate(() => document.querySelectorAll('.card').length);
-    t.ok('all 266 recipes are on the page', n === 266, n);
+    /* However many there are, not a number written down here. It has been
+       corrected by hand four times — 257, 263, 266, 271 — every time for
+       having an old copy of the answer rather than because the page was
+       wrong. */
+    const total = await p.evaluate(() => window.RECIPES.length);
+    t.ok('every recipe in the collection is on the page', n === total, n + ' of ' + total);
 
     /* The head says what you are looking at. The volume blurbs were written for
        the printed covers and used only there, so for a long while the app named

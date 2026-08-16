@@ -66,7 +66,8 @@ const ASSIGN = {
   /* The last six are the storehouse-only drinks, moved here from the end of
      Around the Table now that a recipe can be renumbered without moving its
      id — see the note at the top of tools/added-recipes.js. */
-  'Power Drinks': [26, 31, 35, 40, 44, 47, 94, 258, 259, 260, 261, 262, 263],
+  'Power Drinks': [26, 31, 35, 40, 44, 47, 94, 258, 259, 260, 261, 262, 263,
+    267, 268, 269, 270, 271],
   'Batch Prep': [53, 54, 56, 58, 59, 60, 63, 64, 68],
 };
 

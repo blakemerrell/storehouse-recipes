@@ -62,7 +62,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 266 scored recipes: **15–96**, median **60**.
+Score range across all 271 scored recipes: **15–96**, median **60**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -70,10 +70,7 @@ The Run and Not Be Weary recipes that fell furthest from their authored score:
 
 | # | Recipe | Was | Now | Sodium | Fiber |
 |---|---|---|---|---|---|
-| 15 | Shredded Chicken & Cold Ranch Salad | 90 | 55 | 1303 mg | 0.6 g |
-| 5 | Smoked Ham & Mustard Pickle Roll-Ups | 90 | 56 | 1532 mg | 1.2 g |
-| 9 | Roast Beef Lettuce Roll-Ups | 89 | 56 | 1215 mg | 1.7 g |
-| 13 | Cheddar & Sliced Ham Protein Stack | 81 | 49 | 1374 mg | 0.5 g |
+
 
 Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
 
@@ -83,8 +80,8 @@ Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
 | 259 | Fortified Hot Cocoa | null | 78 | 327 mg | 1.8 g |
 | 260 | Iced Vanilla & Cinnamon Milk | null | 78 | 236 mg | 0.7 g |
 | 261 | Morning Oat Steamer | null | 77 | 240 mg | 2.9 g |
-| 262 | Salted Brown Sugar Steamer | null | 75 | 285 mg | 0.7 g |
-| 263 | Peanut Butter Cocoa | null | 71 | 312 mg | 1.8 g |
+| 267 | Banana Malt Milk | null | 76 | 237 mg | 3.8 g |
+| 270 | Cold Oat & Cinnamon Milk | null | 76 | 291 mg | 3.4 g |
 
 Fruit and oats, which the old score had nothing good to say about because it only
 ever asked how much protein was in them.
@@ -181,13 +178,13 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-41 recipes across 5 sections were written for this edition rather than carried
+46 recipes across 5 sections were written for this edition rather than carried
 over from the original books:
 
 - **Worth the Afternoon** — 12 recipes
 - **The Copycat Shelf** — 10 recipes
 - **For the Love of Chocolate** — 10 recipes
-- **Power Drinks** — 6 recipes
+- **Power Drinks** — 11 recipes
 - **Made, Not Bought** — 3 recipes
 
 The data made the gaps plain. Across the original 225, no recipe has more than
@@ -196,7 +193,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 22 of the 41
+Every ingredient was checked against the storehouse order list. 27 of the 46
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 

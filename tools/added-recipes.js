@@ -777,6 +777,90 @@ module.exports = [
     macro: null, tagline: 'Loosen the Peanut Butter First', score: null, sc: null,
     diff: 'Easy', time: '4 mins', extras: null,
   },
+  /* ---- five cold ones -------------------------------------------------
+   *
+   * The six above are five hot drinks and one iced, which is a section that
+   * only works from October. These are the summer half, and the half a person
+   * reaches for after something rather than before bed.
+   *
+   * Same trick underneath: non-fat dry milk is on the order list and is 36%
+   * protein, so it is what turns a glass of milk into something worth calling
+   * a power drink. Cottage cheese does the same job harder — blended it stops
+   * being cottage cheese entirely, and No. 271 carries more protein than any
+   * storehouse-only drink in the book.
+   *
+   * Every one is off the order sheet. Nothing here needs whey, Crio Bru, a
+   * protein powder or a trip anywhere.
+   */
+  {
+    id: 267, book: 1, secNum: 6, secName: 'Power Drinks',
+    name: 'Banana Malt Milk',
+    servings: '1 Tall Glass', servN: 1,
+    ing: ['1 frozen banana', '½ cup non-fat dry milk', '½ cup 2% milk', '½ cup cold water',
+      '2 tsp honey', '½ tsp cinnamon'],
+    steps: [
+      'Peel the banana before you freeze it. Frozen in the skin it is a job for a knife and a bad mood.',
+      'Blend the banana, dry milk, milk, honey and cinnamon until there is no grain left in it.',
+      'It thickens as it stands. Drink it inside ten minutes or add a splash more milk and stir.',
+    ],
+    macro: null, tagline: 'Freeze the Banana Peeled', score: null, sc: null,
+    diff: 'Easy', time: '4 mins', extras: null,
+  },
+  {
+    id: 268, book: 1, secNum: 6, secName: 'Power Drinks',
+    name: 'Peanut Butter Banana Shake',
+    servings: '1 Tall Glass', servN: 1,
+    ing: ['1 frozen banana', '1 tbsp peanut butter', '½ cup non-fat dry milk',
+      '1 cup cold water', '½ tsp cinnamon'],
+    steps: [
+      'Blend everything at once. Peanut butter behaves in a blender the way it does not in a mug — there is nothing to loosen first.',
+      'Stop while it is still thick enough to hold the mark of a spoon.',
+    ],
+    macro: null, tagline: 'Thick Enough to Hold a Spoon Mark', score: null, sc: null,
+    diff: 'Easy', time: '4 mins', extras: null,
+  },
+  {
+    id: 269, book: 1, secNum: 6, secName: 'Power Drinks',
+    name: 'Apple Pie Milk',
+    servings: '1 Tall Glass', servN: 1,
+    ing: ['½ cup applesauce', '½ cup non-fat dry milk', '½ cup 2% milk', '½ cup cold water',
+      '2 tsp brown sugar', '1 tsp cinnamon', 'ice'],
+    steps: [
+      'Whisk the dry milk into the applesauce first. It is thick enough to grind the lumps out against the side of the bowl, which milk alone will not do.',
+      'Stir in the milk, the brown sugar and the cinnamon.',
+      'Pour over ice. Cold and thin, it tastes like the last spoonful of the pie rather than the filling.',
+    ],
+    macro: null, tagline: 'Start With the Applesauce', score: null, sc: null,
+    diff: 'Easy', time: '4 mins', extras: null,
+  },
+  {
+    id: 270, book: 1, secNum: 6, secName: 'Power Drinks',
+    name: 'Cold Oat & Cinnamon Milk',
+    servings: '1 Tall Glass', servN: 1,
+    ing: ['¼ cup oats', '½ cup non-fat dry milk', '1 cup 2% milk', '1 tsp honey',
+      '1 tsp cinnamon'],
+    steps: [
+      'Soak the oats in the cup of milk in the fridge for at least an hour, and overnight if you have it. This is the whole recipe; everything after it takes a minute.',
+      'Blend the lot — oats, milk, dry milk, honey and cinnamon — until smooth.',
+      'Strain it through a sieve if you want it thin. Skip that and it is closer to a drinkable porridge, which is the better breakfast of the two.',
+    ],
+    macro: null, tagline: 'Soak It the Night Before', score: null, sc: null,
+    diff: 'Easy', time: '5 mins', extras: null,
+  },
+  {
+    id: 271, book: 1, secNum: 6, secName: 'Power Drinks',
+    name: 'Chocolate Cottage Cheese Shake',
+    servings: '1 Tall Glass', servN: 1,
+    ing: ['¾ cup cottage cheese', '1 packet hot cocoa mix', '½ cup 2% milk',
+      '1 cup cold water', 'ice'],
+    steps: [
+      'Blend the cottage cheese with the milk on its own until it is completely smooth. Not nearly — completely. Any curd left at this stage is still there at the end.',
+      'Add the cocoa mix and the ice, and blend again. Cottage cheese is doing the work here — it carries more protein than any other drink in this section without any dry milk at all.',
+      'Nobody who drinks this can tell it is cottage cheese, which is the only reason it is worth doing.',
+    ],
+    macro: null, tagline: 'Blend the Curd Out First', score: null, sc: null,
+    diff: 'Easy', time: '5 mins', extras: null,
+  },
   {
     id: 264, book: 2, secNum: 9, secName: MADE,
     name: 'Everyday BBQ Sauce',

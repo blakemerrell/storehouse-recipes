@@ -1,6 +1,6 @@
 # Hive & Hearth Recipes
 
-266 recipes from the storehouse, in two volumes, plus a third that starts empty and
+271 recipes from the storehouse, in two volumes, plus a third that starts empty and
 fills with your own — browse them, plan a week, let the shopping list build itself,
 and print the lot as a real half-letter book. It works with no signal.
 
@@ -15,7 +15,7 @@ To put it on your phones, see **Putting it online** below.
 
 ## What is in it
 
-**Recipes** — all 266 of them, filtered by book, section, effort, whether they need
+**Recipes** — all 271 of them, filtered by book, section, effort, whether they need
 anything beyond standard storehouse items, or your favorites, and ordered by book,
 healthiest first, most protein or quickest. Search covers dish names, ingredients
 and section names. Tap a card for the full recipe, where you can
@@ -23,7 +23,7 @@ scale the ingredients from ¼× to 8× (fractions come out as fractions, not dec
 
 **Write a recipe** — yours go in a third volume, *Ours*, which does not exist until
 you put something in it. Name it, list the ingredients a line at a time and the method
-a step at a time, and it behaves like any of the 266: browse it, favorite it, plan it,
+a step at a time, and it behaves like any of the 271: browse it, favorite it, plan it,
 shop from it, print it. Its calories, sodium, fiber and score are worked out from the
 ingredients as you type, by the same code that measured the printed books.
 
@@ -75,7 +75,7 @@ without looking sparse. Three sections — the long-recipe ones — open with a 
 because a 71-point heading and a 639-point recipe will not share a 666-point page and
 a heading alone at the top of a blank one looks like a mistake.
 
-Two of the 266 recipes are taller on their own than a page's text area, and there is
+Two of the 271 recipes are taller on their own than a page's text area, and there is
 nowhere to move them to. Those two pages are set about three percent smaller so that
 they fit, rather than having the bottom of the page quietly cut off — which is what a
 printed page, being a fixed 7.5 inches with the overflow hidden, does otherwise.
@@ -208,7 +208,7 @@ glance rather than compared digit by digit:
 | **Blue** | 45 to 69 | worth eating |
 | **Grey** | under 45 | worth knowing about |
 
-The median across the 266 is 60, so the bands divide the collection rather than
+The median across the 271 is 60, so the bands divide the collection rather than
 flattering it.
 
 Open a recipe and one bar shows where the score came from. It has a slot per part, each
@@ -267,7 +267,7 @@ src/style.css         all the styling
 src/app.js            browse, plan, list, print
 src/sync.js           saving, and sharing between devices
 src/config.js         the only file you edit for sharing (see SETUP.md)
-data/recipes.js       generated — all 266 recipes with macros, scores and parsed ingredients
+data/recipes.js       generated — all 271 recipes with macros, scores and parsed ingredients
 data/nutrition.js     generated — the food table, parser and score, for the browser
 share/index.html     the handout — eight recipes over one sheet, both sides, rendered from the data
 tools/print-handout.js renders that sheet to print/Storehouse-Handout.pdf

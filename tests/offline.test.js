@@ -102,8 +102,9 @@ module.exports = {
       cards: document.querySelectorAll('.card').length,
       font: document.fonts.check('700 20px "Source Serif 4"'),
       planned: window.Store.day('wed').length,
+      total: window.RECIPES.length,
     }));
-    t.ok('it opens with no network at all', alive.cards === 266, alive.cards);
+    t.ok('it opens with no network at all', alive.cards === alive.total, alive.cards + ' of ' + alive.total);
     t.ok('in its own typeface rather than a fallback', alive.font);
     t.ok('and the week is where you left it', alive.planned === 1);
 
@@ -112,7 +113,8 @@ module.exports = {
     await p2.goto(t.base + 'index.html');
     await p2.waitForTimeout(1200);
     t.ok('a fresh tab opens offline too',
-      (await p2.evaluate(() => document.querySelectorAll('.card').length)) === 266);
+      await p2.evaluate(() => document.querySelectorAll('.card').length === window.RECIPES.length),
+      await p2.evaluate(() => document.querySelectorAll('.card').length + ' of ' + window.RECIPES.length));
     await p2.click('.tab[data-view="book"]');
     await p2.waitForTimeout(3500);
     t.ok('and the whole book still prints',

@@ -23,7 +23,7 @@
   var APP_NAME = 'Hive & Hearth';
   var APP_LINE = 'Recipes';           // the second line on a cover
 
-  var BASE = window.RECIPES || [];    // the 266 in the two printed books
+  var BASE = window.RECIPES || [];    // the 271 in the two printed books
   var SHOP = window.SHOP || {};       // food key -> shopping-list name and unit
   var RECIPES = BASE;                 // those, with your changes, plus your own
   var BY_ID = {};
@@ -82,14 +82,14 @@
     }
   };
 
-  /* The combined edition. Not a fourth volume — the same 266 recipes as one
+  /* The combined edition. Not a fourth volume — the same 271 recipes as one
      object, for anyone spiral-binding them rather than folding two booklets.
      It needs its own cover copy because every word of Volume One's is about
      being one of two. */
   var ONE_BOOK = {
     name: APP_NAME + ' ' + APP_LINE,
-    blurb: 'Two hundred and sixty-six recipes with primary ingredients from the Bishops\u2019\u00a0Storehouse, ' +
-      'in two parts: a hundred and six built on protein and fiber, and a hundred and sixty for the family table.',
+    blurb: 'Two hundred and seventy-one recipes with primary ingredients from the Bishops\u2019\u00a0Storehouse, ' +
+      'in two parts: a hundred and eleven built on protein and fiber, and a hundred and sixty for the family table.',
     epigraph: {
       t: ['And shall run and not be weary,', 'and shall walk and not faint.'],
       r: 'Doctrine and Covenants 89:20',
@@ -101,7 +101,7 @@
      answer to "what are the two volumes" was the words "two volumes" in the
      bar at the top. */
   var COLLECTION_BLURB = 'Two volumes, with primary ingredients from the Bishops’\u00a0Storehouse. Run and ' +
-    'Not Be Weary is a hundred and six recipes built on protein and fiber; Around the Table is a hundred ' +
+    'Not Be Weary is a hundred and eleven recipes built on protein and fiber; Around the Table is a hundred ' +
     'and sixty family recipes, from three-minute breakfasts to Sunday roasts.';
 
   /* What the section picker calls each section. The full names are written
@@ -172,7 +172,7 @@
    * Three bands, because a number on its own is a number and a colour is a
    * glance: green worth eating often, blue worth eating, dark grey worth
    * knowing about. The thresholds sit either side of the median, which is 60
-   * across the 266, so the bands divide the collection rather than flattering
+   * across the 271, so the bands divide the collection rather than flattering
    * it. Drawn rather than set in a font so it prints as a shape at any size.
    */
   function scoreBand(n) { return n >= 70 ? 'good' : n >= 45 ? 'ok' : 'low'; }
@@ -247,7 +247,7 @@
   /* The same line by weight. Every recipe already carries a gram figure per
      ingredient — it is what the scores and the shopping list are computed from
      — so this is showing work that was always there rather than new arithmetic.
-     ingp runs parallel to ing across all 266 recipes; the tests hold that.
+     ingp runs parallel to ing across all 271 recipes; the tests hold that.
 
      What gets stripped is the written amount and, where the ingredient is
      measured by volume, the unit word and any parenthetical sizing after it:
@@ -1462,7 +1462,7 @@
   /* The last word on whether a page fits.
    *
    * The packer works from measured heights and is right about them, but it can
-   * be handed something it cannot solve: two of the 266 recipes are taller on
+   * be handed something it cannot solve: two of the 271 recipes are taller on
    * their own than a page's text area. There is nowhere to move them to, so the
    * packer put them on a page and the printed page — which is a fixed 7.5in with
    * overflow hidden — quietly ate the difference. What went was the page number,
@@ -1610,9 +1610,9 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 164 },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 168 },
     one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 160 },
-    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 56, booklet: true },
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 60, booklet: true },
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 108, booklet: true }
   };
 

@@ -57,9 +57,13 @@ module.exports = {
 
     t.ok('the volume appears once it has a recipe',
       !(await p.evaluate(() => document.getElementById('bookOurs').classList.contains('hide'))));
+    /* The printed collection plus the one just written. As the literal 267 it
+       was really asserting how many recipes the books hold, in a test about
+       writing one — so it went red every time a recipe was added anywhere. */
+    const withMine = await p.evaluate(() => window.RECIPES.length + 1);
     t.ok('and the header counts it',
-      (await p.textContent('.brand-sub')) === '267 recipes · three volumes',
-      await p.textContent('.brand-sub'));
+      (await p.textContent('.brand-sub')) === withMine + ' recipes · three volumes',
+      await p.textContent('.brand-sub') + ' (expected ' + withMine + ')');
 
     // it is a recipe like any other
     await p.fill('#search', 'grandma');
