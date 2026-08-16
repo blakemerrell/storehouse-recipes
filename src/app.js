@@ -89,7 +89,7 @@
   var ONE_BOOK = {
     name: APP_NAME + ' ' + APP_LINE,
     blurb: 'Two hundred and sixty-six recipes with primary ingredients from the Bishops\u2019\u00a0Storehouse, ' +
-      'in two parts: a hundred built on protein and fiber, and a hundred and sixty-six for the family table.',
+      'in two parts: a hundred and six built on protein and fiber, and a hundred and sixty for the family table.',
     epigraph: {
       t: ['And shall run and not be weary,', 'and shall walk and not faint.'],
       r: 'Doctrine and Covenants 89:20',
@@ -101,8 +101,8 @@
      answer to "what are the two volumes" was the words "two volumes" in the
      bar at the top. */
   var COLLECTION_BLURB = 'Two volumes, with primary ingredients from the Bishops’\u00a0Storehouse. Run and ' +
-    'Not Be Weary is a hundred recipes built on protein and fiber; Around the Table is a hundred and ' +
-    'sixty-six family recipes, from three-minute breakfasts to Sunday roasts.';
+    'Not Be Weary is a hundred and six recipes built on protein and fiber; Around the Table is a hundred ' +
+    'and sixty family recipes, from three-minute breakfasts to Sunday roasts.';
 
   /* What the section picker calls each section. The full names are written
      for a printed contents page, where "Low-Calorie Cut Snacks & Late-Night
@@ -1610,10 +1610,10 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 168 },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 164 },
     one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 160 },
-    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 52, booklet: true },
-    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 116, booklet: true }
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 56, booklet: true },
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 108, booklet: true }
   };
 
   function renderDownloads() {

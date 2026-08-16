@@ -63,7 +63,10 @@ const ASSIGN = {
   Lunch: [2, 3, 5, 7, 9, 12, 15, 16, 18, 21, 23],
   Dinner: [51, 52, 55, 57, 61, 62, 65, 66, 67, 69, 70, 71, 72, 73, 74, 75],
   'Best Before Bed': [76, 78, 81, 82, 85, 86, 89, 92, 93, 98, 100],
-  'Power Drinks': [26, 31, 35, 40, 44, 47, 94],
+  /* The last six are the storehouse-only drinks, moved here from the end of
+     Around the Table now that a recipe can be renumbered without moving its
+     id — see the note at the top of tools/added-recipes.js. */
+  'Power Drinks': [26, 31, 35, 40, 44, 47, 94, 258, 259, 260, 261, 262, 263],
   'Batch Prep': [53, 54, 56, 58, 59, 60, 63, 64, 68],
 };
 
@@ -152,14 +155,22 @@ function apply(recipes) {
   const order = book1.slice().sort((a, b) => a.secNum - b.secNum || a.id - b.id);
   order.forEach((r, i) => { r.no = i + 1; });
 
-  const slots = [];
-  recipes.forEach((r, i) => { if (r.book === 1) slots.push(i); });
-  slots.forEach((slot, i) => { recipes[slot] = order[i]; });
-
   const unused = Object.keys(SERVINGS).map(Number).filter((id) => !target[id]);
   if (unused.length) throw new Error('sections: servings given for ' + unused.join(', ') + ', which is not in book 1');
 
-  return { sections: SECTIONS.length, moved: book1.length, relabelled: Object.keys(SERVINGS).length };
+  return { order, sections: SECTIONS.length, moved: book1.length,
+    relabelled: Object.keys(SERVINGS).length };
 }
 
-module.exports = { SECTIONS, ASSIGN, SERVINGS, apply };
+/* The whole collection, in the order it prints: Volume One by its new sections,
+   then everything else exactly as it was. Volume One's recipes have to end up
+   contiguous — six of them now arrive from added-recipes.js at the far end of
+   the array, and leaving them there would print them after Around the Table. */
+function order(recipes) {
+  const run = apply(recipes);
+  module.exports.lastRun = run;
+  const rest = recipes.filter((r) => r.book !== 1);
+  return run.order.concat(rest);
+}
+
+module.exports = { SECTIONS, ASSIGN, SERVINGS, apply, order, lastRun: null };

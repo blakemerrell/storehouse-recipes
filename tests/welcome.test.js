@@ -247,9 +247,33 @@ module.exports = {
        into a copy shop. They came out of the render and go stale silently, and
        the sheet counts went with the volume cards when the section was rebuilt
        around the one book. */
-    t.ok('the page counts it advertises match the books',
-      /160 pages/.test(quoted) && /52 pages/.test(quoted) && /116/.test(quoted),
-      (quoted.match(/\d+ pages?/g) || []).join(' | '));
+    /* Against the files themselves, not against three numbers written in here.
+       As literals — 160, 52, 116 — they went stale the moment six recipes moved
+       from one volume to the other, and the assertion failed for having an old
+       copy of the answer rather than because the page was wrong. */
+    const real = (() => {
+      let lib = null;
+      for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {
+        try { lib = require(m); break; } catch (e) { /* try the next */ }
+      }
+      return lib;
+    })();
+    if (!real) {
+      t.ok('the page counts it advertises match the books', false, 'pdf-lib not available');
+    } else {
+      const fs2 = require('fs'), path2 = require('path');
+      const dir = path2.join(__dirname, '..', 'print');
+      const counts = {};
+      for (const f of ['Hive-and-Hearth-Recipes.pdf', 'Run-and-Not-Be-Weary.pdf', 'Around-the-Table.pdf']) {
+        const doc = await real.PDFDocument.load(fs2.readFileSync(path2.join(dir, f)));
+        counts[f] = doc.getPageCount();
+      }
+      const missing = Object.keys(counts).filter((f) =>
+        quoted.indexOf(String(counts[f])) < 0);
+      t.ok('the page counts it advertises match the books',
+        missing.length === 0,
+        Object.keys(counts).map((f) => f + ' is ' + counts[f]).join(' | '));
+    }
 
     // a phone must not have to scroll sideways to read it
     await p.setViewportSize({ width: 390, height: 844 });

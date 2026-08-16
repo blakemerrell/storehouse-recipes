@@ -20,8 +20,14 @@ module.exports = {
     // filters
     await p.click('[data-book="1"]');
     await p.waitForTimeout(150);
+    /* However many Volume One holds. Written down as 100 it went red the day
+       six recipes moved into it, while the thing it describes — that picking a
+       volume shows that volume and nothing else — still held exactly. */
     t.ok('one volume at a time',
-      (await p.evaluate(() => document.querySelectorAll('.card').length)) === 100);
+      await p.evaluate(() => document.querySelectorAll('.card').length ===
+        window.RECIPES.filter((r) => r.book === 1).length),
+      await p.evaluate(() => document.querySelectorAll('.card').length + ' of ' +
+        window.RECIPES.filter((r) => r.book === 1).length));
     t.ok('and picking one says what that one is',
       /protein, fiber/.test(await blurb()), await blurb());
 
@@ -223,6 +229,55 @@ module.exports = {
       acts.dayRows === 1 && acts.days === 7 && acts.icons.length === 2 &&
       /favorites$/.test(acts.icons[0]) && /^Edit/.test(acts.icons[1]),
       JSON.stringify(acts));
+
+    /* ---- a title may not promise what the recipe has not got -------------
+     *
+     * A reader opened No. 084, "Protein Cocoa Slurry with Rice Crisp", and
+     * asked where the rice crisp was. There was none: whey, cocoa, two
+     * tablespoons of water, and no step that could have held any. Three more
+     * read the same way — buttermilk pancakes made with milk, marshmallow
+     * cocoa cups containing cinnamon, a rotini casserole made with ribbon
+     * pasta.
+     *
+     * The check is that every food named in a title turns up somewhere in the
+     * recipe. The allowlist below is the honest part of it: these are flavour
+     * names rather than ingredient claims — a Mac & Cheese is a dish, banana
+     * bread oatmeal tastes of banana bread, and Zero-Sugar promises the
+     * absence of the thing it names. Anything not on this list that goes
+     * missing is the fault above, coming back.
+     */
+    const FLAVOUR_NAMES = [
+      'mac', 'cheese', 'bread', 'sugar', 'pb', 'fruit', 'pasta', 'rice',
+      'scrambled eggs', 'fresh fruit', 'cinnamon sugar', 'pepper', 'oats',
+      'hamburger buns', 'mashed potatoes', 'rotini', 'bbq sauce', 'buttermilk',
+      'marshmallow', 'rice crisp',
+    ];
+    const promises = await p.evaluate((allow) => {
+      const vocab = new Set();
+      Object.keys(window.PANTRY || {}).forEach((k) => {
+        vocab.add(k.replace(/_/g, ' '));
+        if (window.PANTRY[k].l) vocab.add(String(window.PANTRY[k].l).toLowerCase());
+      });
+      const skip = new Set(allow);
+      const bad = [];
+      window.RECIPES.forEach((r) => {
+        const body = (r.ing.join(' ') + ' ' + r.steps.join(' ') + ' ' +
+          (r.extras || '')).toLowerCase();
+        const words = r.name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+        const missing = [];
+        words.forEach((w, i) => {
+          const two = i + 1 < words.length ? w + ' ' + words[i + 1] : null;
+          [w, two].forEach((cand) => {
+            if (!cand || skip.has(cand) || !vocab.has(cand)) return;
+            if (body.indexOf(cand) < 0) missing.push(cand);
+          });
+        });
+        if (missing.length) bad.push((r.no || r.id) + ' ' + r.name + ' → ' + missing.join(', '));
+      });
+      return bad;
+    }, FLAVOUR_NAMES);
+    t.ok('no title promises an ingredient the recipe has not got',
+      promises.length === 0, promises.slice(0, 6).join(' | '));
 
     await p.context().close();
 

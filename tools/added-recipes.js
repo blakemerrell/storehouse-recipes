@@ -35,11 +35,19 @@
  * caps a storehouse-only drink at about 40% of its energy from protein. High
  * seventies is the ceiling of the ingredients, not a shortfall in the recipes.
  *
- * They are here at the end of Around the Table rather than beside the drinks
- * they replace in Run and Not Be Weary because a recipe's printed number is its
- * id, and favourites and meal plans are keyed by id and synced between two
- * phones. Inserting six recipes into Volume One would renumber everything after
- * them and silently repoint somebody's saved favourites at other recipes.
+ * They sat at the end of Around the Table for a year, away from the drinks
+ * they were written to replace, and the reason was real: a recipe's printed
+ * number was its id, favourites and meal plans are keyed by id and synced
+ * between phones, and inserting six into Volume One would have renumbered
+ * everything after them and silently repointed somebody's saved favourites at
+ * other recipes.
+ *
+ * That is no longer true. The printed number is `no` now and the id is left
+ * alone, so a recipe can be moved, renumbered and reprinted without touching
+ * anything a phone has saved — which is what the separation was for. So they
+ * are where they belong: Power Drinks, in the volume built on protein, beside
+ * the seven that need whey and Crio Bru and cannot be made from the order
+ * sheet at all.
  *
  * ---------------------------------------------------------------------------
  * Section 10, "Made, Not Bought", came out of counting what actually blocks a
@@ -680,7 +688,7 @@ module.exports = [
     diff: 'Medium', time: '50 mins', extras: 'Chocolate Chips',
   },
   {
-    id: 258, book: 2, secNum: 9, secName: DRINKS,
+    id: 258, book: 1, secNum: 6, secName: 'Power Drinks',
     name: 'Vanilla & Cinnamon Steamer',
     servings: '1 Mug', servN: 1,
     ing: ['⅔ cup non-fat dry milk', '1.5 cups hot water', '1 tsp vanilla', '1 tsp cinnamon',
@@ -695,7 +703,7 @@ module.exports = [
     diff: 'Easy', time: '4 mins', extras: null,
   },
   {
-    id: 259, book: 2, secNum: 9, secName: DRINKS,
+    id: 259, book: 1, secNum: 6, secName: 'Power Drinks',
     name: 'Fortified Hot Cocoa',
     servings: '1 Mug', servN: 1,
     ing: ['⅔ cup non-fat dry milk', '½ packet hot cocoa mix', '1.5 cups hot water',
@@ -710,7 +718,7 @@ module.exports = [
     diff: 'Easy', time: '4 mins', extras: null,
   },
   {
-    id: 260, book: 2, secNum: 9, secName: DRINKS,
+    id: 260, book: 1, secNum: 6, secName: 'Power Drinks',
     name: 'Iced Vanilla & Cinnamon Milk',
     servings: '1 Tall Glass', servN: 1,
     ing: ['½ cup non-fat dry milk', '½ cup 2% milk', '1 cup cold water', '1 tsp vanilla',
@@ -725,7 +733,7 @@ module.exports = [
     diff: 'Easy', time: '5 mins', extras: null,
   },
   {
-    id: 261, book: 2, secNum: 9, secName: DRINKS,
+    id: 261, book: 1, secNum: 6, secName: 'Power Drinks',
     name: 'Morning Oat Steamer',
     servings: '1 Large Mug', servN: 1,
     ing: ['½ cup non-fat dry milk', '¼ cup oat flour', '½ cup 2% milk', '1 cup hot water',
@@ -740,7 +748,7 @@ module.exports = [
     diff: 'Easy', time: '8 mins', extras: null,
   },
   {
-    id: 262, book: 2, secNum: 9, secName: DRINKS,
+    id: 262, book: 1, secNum: 6, secName: 'Power Drinks',
     name: 'Salted Brown Sugar Steamer',
     servings: '1 Mug', servN: 1,
     ing: ['½ cup non-fat dry milk', '½ cup 2% milk', '1 cup hot water', '2 tsp brown sugar',
@@ -755,7 +763,7 @@ module.exports = [
     diff: 'Easy', time: '7 mins', extras: null,
   },
   {
-    id: 263, book: 2, secNum: 9, secName: DRINKS,
+    id: 263, book: 1, secNum: 6, secName: 'Power Drinks',
     name: 'Peanut Butter Cocoa',
     servings: '1 Mug', servN: 1,
     ing: ['½ cup non-fat dry milk', '½ packet hot cocoa mix', '2 tsp peanut butter',
@@ -770,7 +778,7 @@ module.exports = [
     diff: 'Easy', time: '4 mins', extras: null,
   },
   {
-    id: 264, book: 2, secNum: 10, secName: MADE,
+    id: 264, book: 2, secNum: 9, secName: MADE,
     name: 'Everyday BBQ Sauce',
     servings: 'About 1½ Cups (12 × 2 tbsp)', servN: 12,
     ing: ['1 tbsp butter', '½ onion (grated)', '1 cup ketchup', '⅓ cup brown sugar',
@@ -785,7 +793,7 @@ module.exports = [
     diff: 'Easy', time: '30 mins', extras: null,
   },
   {
-    id: 265, book: 2, secNum: 10, secName: MADE,
+    id: 265, book: 2, secNum: 9, secName: MADE,
     name: 'Pan Gravy, Brown or Pale',
     servings: 'About 2½ Cups (8 Servings)', servN: 8,
     ing: ['3 tbsp butter (or the fat from the pan)', '3 tbsp flour', '2 cups water (or the juices from the roast)',
@@ -800,7 +808,7 @@ module.exports = [
     diff: 'Easy', time: '12 mins', extras: null,
   },
   {
-    id: 266, book: 2, secNum: 10, secName: MADE,
+    id: 266, book: 2, secNum: 9, secName: MADE,
     name: 'Lighter Mayo',
     servings: 'About 1¼ Cups (10 Servings)', servN: 10,
     ing: ['1 cup cottage cheese', '¼ cup mayo', '1 tsp mustard', '¼ tsp salt'],

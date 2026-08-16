@@ -149,4 +149,30 @@ module.exports = [
   { id: 182, step: 1, add: 'No packet? Recipe 265, stopped while the flour is still blond, is the pale gravy this wants. Use the juices from the roasting tin.' },
   { id: 187, step: 0, add: 'No packet? Simmer the beef and onions in 2 cups of plain water instead, and turn that liquid into gravy at the end with Recipe 265.' },
   { id: 195, step: 1, add: 'No packet? Put a cup of water in with them instead and make Recipe 265 from what is in the cooker at the end.' },
+
+  /* ---- four titles that promise something the recipe has not got --------
+   *
+   * Found by a reader looking at No. 084 and asking where the rice crisp
+   * was. It is a fair question: the title says "with Rice Crisp" and the
+   * recipe is whey, cocoa and two tablespoons of water. Nothing crisp, no
+   * rice, and no step that could have held either.
+   *
+   * Three more read the same way. A pancake stack that calls itself
+   * buttermilk and is made with milk. Cocoa cups that promise marshmallows
+   * and contain cinnamon. A casserole named for rotini that is made with the
+   * ribbon pasta the storehouse actually carries.
+   *
+   * The fix is the title in every case, not the ingredients. None of the four
+   * missing things — crisp rice cereal, buttermilk, marshmallows, rotini — is
+   * on the storehouse order, and the promise this book makes is that its
+   * recipes come off that order. Adding them to keep four titles would break
+   * the thing the titles are attached to.
+   *
+   * Each new name is taken from what the method already does: No. 084 says
+   * "until dark fudge paste forms", so it is a fudge slurry.
+   */
+  { id: 100, name: 'Protein Cocoa Fudge Slurry' },
+  { id: 104, name: 'Fluffy Pancake Stack' },
+  { id: 211, name: 'Hot Cocoa & Cinnamon Cups' },
+  { id: 160, name: 'Creamy Chicken Pasta Casserole' },
 ];
