@@ -48,10 +48,20 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
   const unmatched = [], assumed = [], items = [];
   const names = String(extras || '').toLowerCase().split(/,\s*/).map((x) => x.trim()).filter(Boolean);
 
+  /* One slot per ingredient line, always. The app pairs them by position —
+     line i of `ing` asks about item i of `ingp` — and a line that could not be
+     parsed used to be left out of `items` altogether, which shifted every
+     later pairing by one. The printed collection parses cleanly so it never
+     showed there; a recipe somebody writes with one ingredient the table does
+     not know had its grams labelled with the wrong names from that line on.
+     A placeholder keeps the two lists the same length, and every consumer
+     already skips an item with no food key or ignores it. */
+  const blank = () => items.push({ k: '', g: 0, u: '' });
+
   (ing || []).forEach((line) => {
     const r = parseLine(line);
-    if (!r) return;
-    if (r.unmatched) { unmatched.push(r.unmatched); return; }
+    if (!r) { blank(); return; }
+    if (r.unmatched) { unmatched.push(r.unmatched); blank(); return; }
     if (r.assumed) assumed.push(line + ' \u2014 ' + r.assumed);
     const food = FOODS[r.key];
     const k = r.grams / 100;

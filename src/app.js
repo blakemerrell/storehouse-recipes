@@ -175,8 +175,16 @@
 
   function leaf(n, cls) {
     if (n === null || n === undefined) return '';
-    return '<span class="leaf leaf-' + scoreBand(n) + (cls ? ' ' + cls : '') + '" ' +
-      'title="Nutrition score ' + n + ' out of 100">' +
+    /* The band is in the colour and, now, in the words. Green, blue and grey
+       were the whole of it, so the one thing the collection sorts by was the
+       one thing a reader who cannot separate those colours could not read —
+       and a title attribute never reaches a screen reader on a span. The
+       number is the honest label; the band is what it means. */
+    var band = scoreBand(n);
+    var says = 'Nutrition score ' + n + ' out of 100, ' +
+      (band === 'good' ? 'worth eating often' : band === 'ok' ? 'worth eating' : 'worth knowing about');
+    return '<span class="leaf leaf-' + band + (cls ? ' ' + cls : '') + '" ' +
+      'role="img" aria-label="' + says + '" title="' + says + '">' +
       /* A blade with shoulders, a pointed tip and a stem that kicks left at the
          base — the shape a leaf actually is, rather than the pointed oval that
          reads as an eye. No midrib: it ran straight through the number. */
@@ -891,6 +899,7 @@
   function missingFor(r) {
     var out = [], seen = {};
     (r.ingp || []).forEach(function (it) {
+      if (!it || !it.k) return;   // a line the food table could not place
       /* A `free` line is a seasoning priced at nothing. Most are the salt and
          pepper and cinnamon the storehouse carries, and those are rightly
          silent — but `x` marks the ones it does not, and those were being
@@ -915,7 +924,7 @@
      for. ingp runs parallel to ing, so line i asks about food i. */
   function lineNeedsBuying(r, ix) {
     var it = (r.ingp || [])[ix];
-    return !!it && it.k !== 'free' && it.k !== 'water' && !inPantry(it.k);
+    return !!it && !!it.k && it.k !== 'free' && it.k !== 'water' && !inPantry(it.k);
   }
 
   // "storehouse" is only the right word while the shelf is still the storehouse's
@@ -1452,9 +1461,22 @@
    * rather than calculated, because shrinking type re-wraps it and the height
    * does not fall in proportion.
    */
+  /* The gap left on this sheet, measured the way the loop below measures it. */
+  function roomFor(pg, flow) {
+    var PAPER = 7.5 * 96;
+    var pgTop = pg.getBoundingClientRect().top + parseFloat(getComputedStyle(pg).paddingTop);
+    var below = 0, seen = false;
+    Array.prototype.forEach.call(pg.children, function (c) {
+      if (c === flow || c.contains(flow)) { seen = true; return; }
+      if (seen) below += c.getBoundingClientRect().height;
+    });
+    return (pgTop + PAPER) - flow.getBoundingClientRect().top - below;
+  }
+
   function fitToPaper() {
     var PAPER = 7.5 * 96;
     var squeezed = [];
+    var over = [];
     /* Measure at true size. On a narrow screen .pg carries
        transform: scale(var(--pgscale)), and getBoundingClientRect reports the
        transformed box — so every page measured smaller than it is against a
@@ -1491,10 +1513,18 @@
            thought nothing had happened and shrank it again. */
         var h = flow.getBoundingClientRect().height;
         if (h <= room) break;
+        if (z <= 0.85) { break; }   // the floor; shrinking further is unreadable
         z = Math.max(0.85, z * ((room / h) - 0.004));
         flow.style.zoom = z;
       }
       if (z !== 1) squeezed.push({ page: i + 1, zoom: Math.round(z * 1000) / 1000 });
+      /* Past the floor and still too tall. The slot clips with overflow:hidden,
+         so this used to leave the bottom of a recipe off the paper with nothing
+         to show for it — you found out at the stove, from a method that stops
+         mid-sentence. Say so where somebody is about to press print. */
+      if (flow.getBoundingClientRect().height > roomFor(pg, flow) + 0.5) {
+        over.push(i + 1);
+      }
     });
     if (hadScale) root.style.setProperty('--pgscale', hadScale);
     else root.style.removeProperty('--pgscale');
@@ -1502,7 +1532,7 @@
       console.log('set slightly smaller to fit the page: ' +
         squeezed.map(function (s) { return 'p' + s.page + ' at ' + s.zoom; }).join(', '));
     }
-    return squeezed;
+    return { squeezed: squeezed, over: over };
   }
 
   function renderBook() {
@@ -1533,7 +1563,16 @@
         '<div class="pgslot">' + p.html + '</div>' +
       '</div>';
     }).join('');
-    fitToPaper();
+    var fitted = fitToPaper();
+    /* Appended rather than folded into the line above, because the fitting can
+       only run once the pages are on screen and the line is written before
+       that. A page past the floor is clipped by the slot's overflow:hidden, so
+       without this the foot of a recipe simply is not there — found at the
+       stove, in a method that stops mid-sentence. */
+    if (fitted.over.length) {
+      $('printNote').textContent += ' · too long for the sheet on page ' +
+        fitted.over.join(', ') + ' — the foot of it will not print';
+    }
     fitPages();
     if (window.console && performance.now() - t0 > 1200) {
       console.log('book render took ' + Math.round(performance.now() - t0) + 'ms');
@@ -1687,7 +1726,60 @@
     '</div>';
   }
 
-  function renderModal() {
+  /* ------------------------------------------------------------ focus
+   * Keeping the keyboard where the hands left it.
+   *
+   * Every control in here changes state and then re-renders its whole
+   * container with innerHTML, which throws away the element that was pressed.
+   * With a mouse nobody notices. On a keyboard the focus falls to the body, so
+   * ticking one thing off the shopping list means tabbing back through
+   * everything above it to reach the next — and the same for scaling a recipe,
+   * changing units, or opening the breakdown.
+   *
+   * The control is found again by its own data attributes, which are what make
+   * it that control rather than another one: the tick for milk is
+   * [data-check="milk"] before the render and after it.
+   */
+  var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
+    'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
+    'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab'];
+
+  function focusKey(el) {
+    if (!el || el === document.body || !el.getAttribute) return null;
+    var parts = [];
+    FOCUS_ATTRS.forEach(function (a) {
+      if (el.hasAttribute && el.hasAttribute(a)) {
+        parts.push('[' + a + '="' + String(el.getAttribute(a)).replace(/"/g, '\\"') + '"]');
+      }
+    });
+    if (parts.length) return parts.join('');
+    return el.id ? '#' + el.id : null;
+  }
+
+  /* Which control opened the overlay that is up. Focus is moved into a sheet
+     when it opens and Escape closes it — both already true — but closing it
+     dropped the keyboard on the body, so leaving a recipe meant tabbing back
+     down the whole collection to reach the card you had just been on. */
+  var opener = null;
+  function rememberOpener() { opener = focusKey(document.activeElement); }
+  function restoreOpener() {
+    if (!opener) return;
+    var el;
+    try { el = document.querySelector(opener); } catch (e) { el = null; }
+    opener = null;
+    if (el && el.focus) el.focus();
+  }
+
+  function keepingFocus(fn) {
+    var key = focusKey(document.activeElement);
+    fn();
+    if (!key) return;
+    var back;
+    try { back = document.querySelector(key); } catch (e) { back = null; }
+    if (back && back.focus) back.focus();
+  }
+
+  function renderModalInner() {
     /* Read by the service-worker reload in index.html, which must not throw
        away a recipe somebody is in the middle of typing. */
     window.__editing = !!S.editId;
@@ -2007,7 +2099,7 @@
   }
 
   function editorAction(what) {
-    if (what === 'cancel') { S.editId = null; S.editBase = null; renderModal(); return; }
+    if (what === 'cancel') { S.editId = null; S.editBase = null; renderModal(); restoreOpener(); return; }
 
     if (what === 'delete' || what === 'revert') {
       var id = S.editBase.id;
@@ -2087,6 +2179,7 @@
       f: b.typedMacro ? b.macro.f : ''
     })) : null;
     S.openId = null;
+    rememberOpener();
     S.editId = id;
     renderModal();
   }
@@ -2358,7 +2451,11 @@
     fade.classList.toggle('hide', over <= 1 || tabs.scrollLeft >= over - 1);
   }
 
-  function renderAll() {
+  function renderModal() { keepingFocus(renderModalInner); }
+
+  function renderAll() { keepingFocus(renderAllInner); }
+
+  function renderAllInner() {
     rebuild();                    // your changes and your own recipes, folded in
     renderSections();             // which can add a section, or a whole volume
     renderPantryFilterLabels();   // which follow your shelf once you have one
@@ -2448,6 +2545,7 @@
       S.openId = idOf(c.dataset.open);
       S.scale = 1;
       S.why = false;
+      rememberOpener();
       renderModal();
       var x = document.querySelector('.sheet-x');
       if (x) x.focus();
@@ -2531,6 +2629,7 @@
        also puts the hint away: the question has been asked. */
     $('shareHintGo').addEventListener('click', function () {
       dismissHint();
+      rememberOpener();
       S.syncOpen = true;
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       renderModal();
@@ -2540,6 +2639,7 @@
     $('shareHintX').addEventListener('click', dismissHint);
 
     $('syncBtn').addEventListener('click', function () {
+      rememberOpener();
       S.syncOpen = true;
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       renderModal();
@@ -2623,6 +2723,25 @@
     $('newRecipe').addEventListener('click', function () { openEditor('new'); });
 
     document.addEventListener('keydown', function (e) {
+      /* Tab stays inside whatever is up. A sheet, the editor and the dialog
+         are all drawn over the collection rather than in place of it, so
+         tabbing off the last control walked into the hundreds of cards behind
+         — with no way back but Shift-Tab through all of them, and nothing on
+         screen to say where the keyboard had gone. */
+      if (e.key === 'Tab') {
+        var scrim = document.querySelector('#modalRoot .scrim, #modalRoot .dlg');
+        if (scrim) {
+          var f = Array.prototype.filter.call(
+            scrim.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+            function (el) { return el.offsetParent !== null; });
+          if (f.length) {
+            var first = f[0], last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            else if (!scrim.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+          }
+        }
+      }
       if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
       if (e.key === 'Escape' && (S.openId || S.syncOpen)) close();
@@ -2638,6 +2757,7 @@
     S.editId = null;
     S.editBase = null;
     renderModal();
+    restoreOpener();
   }
 
   // ------------------------------------------------------------------- boot

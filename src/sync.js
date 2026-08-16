@@ -108,6 +108,23 @@ window.Store = (function () {
 
   function obj(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
 
+  /* A map of recipes, with anything the app cannot render dropped. The book
+     number is the one the renderer indexes with and the one that took the page
+     down when it was wrong; name, ing and steps are the three the sheet reads
+     without checking. Everything else has a default somewhere downstream. */
+  function sane(v) {
+    var src = obj(v), out = {};
+    Object.keys(src).forEach(function (k) {
+      var r = src[k];
+      if (!r || typeof r !== 'object' || Array.isArray(r)) return;
+      if (r.book !== 1 && r.book !== 2 && r.book !== 3) return;
+      if (typeof r.name !== 'string') return;
+      if (!Array.isArray(r.ing) || !Array.isArray(r.steps)) return;
+      out[k] = r;
+    });
+    return out;
+  }
+
   function newId() {
     return 'w' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
   }
@@ -199,8 +216,15 @@ window.Store = (function () {
     }
     state.weeks = weeks;
     state.active = d.active && weeks[d.active] ? d.active : ids()[0];
-    state.mine = obj(d.mine);
-    state.edits = obj(d.edits);
+    /* Recipes arrive from the shared document, which means they arrive from
+       somebody else's phone — an older version of the app, a half-finished
+       write, a field that lost its type on the way. One record without a
+       `book` the app knows took every render down, on every other phone in the
+       household, with nothing on screen to say why and no way back except
+       clearing the browser. So they are checked at the door, where a bad one
+       costs its own recipe and nothing else. */
+    state.mine = sane(d.mine);
+    state.edits = sane(d.edits);
     /* The shelf travelled one way only. setPantry and addPantryItem have
        always written pantry.<key> and pantryNew.<key> up to the document, but
        nothing ever read them back — so the second phone in a household never

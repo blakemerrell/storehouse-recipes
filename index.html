@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=49">
+<link rel="stylesheet" href="src/style.css?v=50">
 </head>
 <body>
 
@@ -30,7 +30,7 @@
          side of the screen with nothing to say so. CSS order keeps the desktop
          arrangement exactly as it was. -->
     <button class="synbtn" id="syncBtn" title="Saving on this phone only. Tap to share one list with another phone.">
-      <span class="dot" id="syncDot"></span><span id="syncLabel">Share</span>
+      <span class="dot" id="syncDot"></span><span id="syncLabel" role="status">Share</span>
     </button>
     <!-- Two labels each, and the media query picks one. A tab called "Shopping
          List" on a 390px screen is a tab you cannot see; "List" beside a basket
@@ -214,14 +214,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=49"></script>
-<script src="data/nutrition.js?v=49"></script>
-<script src="data/art.js?v=49"></script>
-<script src="data/qr.js?v=49"></script>
-<script src="src/config.js?v=49"></script>
+<script src="data/recipes.js?v=50"></script>
+<script src="data/nutrition.js?v=50"></script>
+<script src="data/art.js?v=50"></script>
+<script src="data/qr.js?v=50"></script>
+<script src="src/config.js?v=50"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=49"></script>
-<script src="src/app.js?v=49"></script>
+<script src="src/sync.js?v=50"></script>
+<script src="src/app.js?v=50"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

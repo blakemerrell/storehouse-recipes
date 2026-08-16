@@ -270,7 +270,7 @@ const NOT_STOCKED = { crio_bru: 1 };
 const NOT_KEPT = { free: 1, water: 1 };
 const anyExtra = {};
 out.forEach((r) => (r.ingp || []).forEach((it) => {
-  if (NOT_KEPT[it.k]) return;
+  if (!it.k || NOT_KEPT[it.k]) return;
   if (it.x) anyExtra[it.k] = true;
   else if (anyExtra[it.k] === undefined) anyExtra[it.k] = false;
 }));
