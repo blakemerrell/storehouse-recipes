@@ -111,7 +111,8 @@
      have to read rather than scan. These are for the picker alone — the book,
      the headings and the section pages all keep the full name. */
   var SEC_SHORT = {
-    '1-1': 'Zero-Cook', '1-2': 'Morning Brews', '1-3': 'Batch Preps', '1-4': 'Cut Snacks',
+    '1-1': 'Breakfasts', '1-2': 'Snacks', '1-3': 'Lunch', '1-4': 'Dinner',
+    '1-5': 'Best Before Bed', '1-6': 'Power Drinks', '1-7': 'Batch Prep',
     '2-1': 'Weekday Breakfasts', '2-2': 'Lunches & Wraps', '2-3': 'Weeknight Dinners',
     '2-4': 'Sunday Feasts', '2-5': 'Treats & Desserts', '2-6': 'Worth the Afternoon',
     '2-7': 'The Copycat Shelf', '2-8': 'Chocolate', '2-9': 'Warm Drinks',
@@ -119,10 +120,13 @@
   };
 
   var SEC_NOTE = {
-    '1-1': 'Nothing to cook. Open, assemble, eat.',
-    '1-2': 'Breakfasts that hold you until noon.',
-    '1-3': 'Cook once on Sunday, eat all week.',
-    '1-4': 'Late evening, low calorie, still satisfying.',
+    '1-1': 'Enough protein that eleven o’clock is not a problem.',
+    '1-2': 'Small, cold, and nothing to cook.',
+    '1-3': 'Cold, assembled, and enough to be a meal.',
+    '1-4': 'Cooked tonight, eaten tonight.',
+    '1-5': 'Slow protein late on, and nothing that will keep you up.',
+    '1-6': 'Brews, shakes and smoothies, when a cup is easier than a plate.',
+    '1-7': 'Cook once, eat the week.',
     '2-1': 'Weekday mornings, on the clock.',
     '2-2': 'Lunches, wraps, and the after‑school hour.',
     '2-3': 'Weeknight dinners the children will actually finish.',

@@ -121,11 +121,11 @@ The outliers, worth a look before this goes to print:
 | 28 | Savory Egg & Sausage Breakfast Wrap | 410 | 555 | +35% |
 | 89 | Protein Pudding Parfait | 190 | 250 | +32% |
 | 8 | Sliced Cucumber & Cottage Cheese Dip | 180 | 235 | +31% |
-| 44 | Protein Berry Yogurt Smoothie Bowl | 290 | 381 | +31% |
 | 52 | Lean Beef, Broccoli & Potato Hash | 462 | 603 | +31% |
-| 68 | Creamy Chicken & Broccoli Pasta | 410 | 532 | +30% |
+| 44 | Protein Berry Yogurt Smoothie Bowl | 290 | 381 | +31% |
 | 74 | Buffalo Chicken & Rice Prep | 430 | 560 | +30% |
 | 98 | Chocolate Pudding Protein Bowl | 140 | 182 | +30% |
+| 68 | Creamy Chicken & Broccoli Pasta | 410 | 532 | +30% |
 
 
 A gap does not automatically mean the book is wrong. The usual causes are portion

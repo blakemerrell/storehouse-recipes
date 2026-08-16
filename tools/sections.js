@@ -1,0 +1,165 @@
+/*
+ * Run and Not Be Weary, re-sectioned.
+ *
+ * The book shipped in four sections named after how the food was made —
+ * Zero-Cook, Morning Brews, Batch Preps, Cut Snacks. That is the author's
+ * view. Somebody standing in a kitchen at six in the evening has a different
+ * question, and it is always the same one: what am I eating now. So the
+ * sections are meals and moments instead, and the four old names go.
+ *
+ * "Brews" in particular was doing badly. It meant the Crio Bru drinks, and it
+ * sat over nineteen recipes that are eggs, oats and pancakes — so the one
+ * word on the divider named the smallest thing behind it.
+ *
+ * Nothing is rewritten here except sixteen servings lines, below. Every recipe
+ * keeps its number, its ingredients, its method and its score; what changes is
+ * which divider it sits behind. Like recipe-fixes.js, this leaves the export in
+ * design/project/ untouched and keeps the change legible in one file.
+ *
+ * The seven, and what each is for:
+ *
+ *   Breakfasts        the morning food, with the drinks taken out
+ *   Snacks            small, cold, no cooking — from both old halves
+ *   Lunch             the cold assemblies that are a meal, not a handful
+ *   Dinner            cooked tonight, eaten tonight
+ *   Best Before Bed   cottage cheese, puddings, a warm mug. Slow protein and
+ *                     nothing that will keep you up
+ *   Power Drinks      the Crio Bru brews, the shakes, the smoothies
+ *   Batch Prep        cook once, eat the week: slow-cooker, sheet-pan, the
+ *                     six-container ones
+ *
+ * Sizes are deliberately uneven. Snacks is the biggest because that is what
+ * the collection actually holds, and padding a section to make a contents page
+ * look tidy would be arranging the book around the furniture.
+ */
+
+'use strict';
+
+/* Order is the order they print in, and secNum follows from it: through the
+   day, then the two that sit outside it. */
+const SECTIONS = [
+  { n: 1, name: 'Breakfasts', short: 'Breakfasts',
+    note: 'Enough protein that eleven o’clock is not a problem.' },
+  { n: 2, name: 'Snacks', short: 'Snacks',
+    note: 'Small, cold, and nothing to cook.' },
+  { n: 3, name: 'Lunch', short: 'Lunch',
+    note: 'Cold, assembled, and enough to be a meal.' },
+  { n: 4, name: 'Dinner', short: 'Dinner',
+    note: 'Cooked tonight, eaten tonight.' },
+  { n: 5, name: 'Best Before Bed', short: 'Best Before Bed',
+    note: 'Slow protein late on, and nothing that will keep you up.' },
+  { n: 6, name: 'Power Drinks', short: 'Power Drinks',
+    note: 'Brews, shakes and smoothies, when a cup is easier than a plate.' },
+  { n: 7, name: 'Batch Prep', short: 'Batch Prep',
+    note: 'Cook once, eat the week.' },
+];
+
+/* Which recipes go where. Numbers, because a number is the one thing about a
+   recipe that never changes — names get corrected, sections get rethought. */
+const ASSIGN = {
+  Breakfasts: [27, 28, 29, 30, 32, 33, 34, 36, 37, 38, 39, 41, 42, 43, 45, 46, 48, 49, 50],
+  Snacks: [1, 4, 6, 8, 10, 11, 13, 14, 17, 19, 20, 22, 24, 25,
+    77, 79, 80, 83, 84, 87, 88, 90, 91, 95, 96, 97, 99],
+  Lunch: [2, 3, 5, 7, 9, 12, 15, 16, 18, 21, 23],
+  Dinner: [51, 52, 55, 57, 61, 62, 65, 66, 67, 69, 70, 71, 72, 73, 74, 75],
+  'Best Before Bed': [76, 78, 81, 82, 85, 86, 89, 92, 93, 98, 100],
+  'Power Drinks': [26, 31, 35, 40, 44, 47, 94],
+  'Batch Prep': [53, 54, 56, 58, 59, 60, 63, 64, 68],
+};
+
+/* The sixteen.
+ *
+ * All twenty-five of the old Batch Preps were written as meal prep — "4 Meal
+ * Prep Containers" on every one of them — because that was the section they
+ * were in. Sixteen of them are now under Dinner, and a page headed Dinner that
+ * tells you it makes four containers is the book arguing with itself.
+ *
+ * Only the words change. servN stays exactly as it was, so the per-serving
+ * calories, the protein, the score and the shopping list are all untouched —
+ * four containers and four servings are four either way. What moves is what
+ * the line calls them.
+ *
+ * The parenthetical says what a serving actually is, in the same shape the
+ * rest of the collection uses: "4 Servings (1 Bowl Each)".
+ */
+const SERVINGS = {
+  51: '4 Servings (1 Rice Bowl Each)',
+  52: '4 Servings (1 Plate Each)',
+  55: '4 Stuffed Pepper Halves',
+  57: '4 Servings (1 Rice Bowl Each)',
+  61: '4 Servings (1 Plate Each)',
+  62: '4 Servings (1 Bowl Each)',
+  65: '4 Servings (1 Plate Each)',
+  66: '4 Servings (1 Skillet Plate Each)',
+  67: '4 Servings (1 Plate Each)',
+  69: '4 Servings (1 Bowl Each)',
+  70: '4 Servings (1 Bowl Each)',
+  71: '4 Servings (1 Skillet Plate Each)',
+  72: '4 Servings (1 Bowl Each)',
+  73: '4 Servings (1 Plate Each)',
+  74: '4 Servings (1 Rice Bowl Each)',
+  75: '4 Servings (1 Plate Each)',
+};
+
+/* Applied to the recipes in place, after the corrections in recipe-fixes.js.
+   Throws rather than guesses: a recipe this file does not mention, or mentions
+   twice, is a mistake in the map and not something to paper over at build
+   time — the whole point is that the seven sections account for all hundred. */
+function apply(recipes) {
+  const byName = {};
+  SECTIONS.forEach((s) => { byName[s.name] = s; });
+
+  const target = {};
+  Object.keys(ASSIGN).forEach((name) => {
+    if (!byName[name]) throw new Error('sections: no section called ' + name);
+    ASSIGN[name].forEach((id) => {
+      if (target[id]) throw new Error('sections: recipe ' + id + ' is in two sections');
+      target[id] = byName[name];
+    });
+  });
+
+  const book1 = recipes.filter((r) => r.book === 1);
+  const missed = book1.filter((r) => !target[r.id]).map((r) => r.id);
+  if (missed.length) throw new Error('sections: no section for ' + missed.join(', '));
+  const strays = Object.keys(target).map(Number).filter((id) => !book1.some((r) => r.id === id));
+  if (strays.length) throw new Error('sections: ' + strays.join(', ') + ' are not in book 1');
+
+  book1.forEach((r) => {
+    const s = target[r.id];
+    r.secNum = s.n;
+    r.secName = s.name;
+    if (SERVINGS[r.id]) r.servings = SERVINGS[r.id];
+  });
+
+  /* Order, and the number on the page.
+   *
+   * The old sections were blocks of consecutive ids — 1 to 25 was Zero-Cook,
+   * 26 to 50 Morning Brews — so printing in id order printed in section order
+   * for free. These seven cut across that: recipe 1 is a snack, 2 and 3 are
+   * lunch, 4 is a snack again. Printed in id order the book changes section on
+   * almost every recipe, which is exactly what it did: eighty-eight pages
+   * instead of fifty-two, a divider every page or two.
+   *
+   * So the printed order is by section, and `no` — a field the renderer has
+   * always preferred over the id and which nothing has ever set — carries the
+   * number on the page. The book reads 001 to 100 straight through again.
+   *
+   * The id does not move. It is what a favorite, a day of a week and a
+   * household document are all keyed by, and renumbering those would empty a
+   * phone that had been in use. So the number in the book changes and the
+   * thing underneath it does not, which is the only version of this that
+   * costs nobody their meal plan. */
+  const order = book1.slice().sort((a, b) => a.secNum - b.secNum || a.id - b.id);
+  order.forEach((r, i) => { r.no = i + 1; });
+
+  const slots = [];
+  recipes.forEach((r, i) => { if (r.book === 1) slots.push(i); });
+  slots.forEach((slot, i) => { recipes[slot] = order[i]; });
+
+  const unused = Object.keys(SERVINGS).map(Number).filter((id) => !target[id]);
+  if (unused.length) throw new Error('sections: servings given for ' + unused.join(', ') + ', which is not in book 1');
+
+  return { sections: SECTIONS.length, moved: book1.length, relabelled: Object.keys(SERVINGS).length };
+}
+
+module.exports = { SECTIONS, ASSIGN, SERVINGS, apply };

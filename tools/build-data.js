@@ -64,6 +64,13 @@ FIXES.forEach((f) => {
   applied++;
 });
 
+/* Run and Not Be Weary is re-sectioned after the corrections and before
+   anything is measured or paginated — its four making-based sections become
+   seven meals and moments. See tools/sections.js; it throws rather than guess
+   if the map and the collection ever disagree. */
+const SECTIONS = require('./sections.js');
+const resec = SECTIONS.apply(ORIGINAL);
+
 const SRC = ORIGINAL.concat(ADDED);
 // which recipes were written for this edition rather than carried over
 const ADDED_IDS = new Set(ADDED.map((r) => r.id));
@@ -533,6 +540,8 @@ fs.writeFileSync(path.join(ROOT, 'AUDIT.md'), md);
 
 console.log('wrote data/recipes.js  (' + out.length + ' recipes)');
 console.log('recipe corrections applied:', applied);
+console.log('book 1 re-sectioned:', resec.sections, 'sections,',
+  resec.relabelled, 'servings lines relabelled');
 console.log('score mismatches:', scoreMismatch.length);
 console.log('unmatched ingredient names:', allUnmatched.size);
 if (allUnmatched.size) console.log([...allUnmatched.keys()].slice(0, 40).join(' | '));

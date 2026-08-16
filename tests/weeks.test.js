@@ -117,13 +117,21 @@ module.exports = {
     t.ok('and cycles when tapped', (await p.textContent('.day-x2')) === '×3');
 
     await p.click('.tab[data-view="browse"]');
+    /* Whichever recipe the first card is, rather than assuming it is No. 1.
+       The id was written in here as a literal beside a click on nth-child(1),
+       which tied the assertion to the running order of the book: re-sectioning
+       a volume put a different recipe at the front and this asked about a
+       recipe nobody had opened. */
+    const opened = await p.evaluate(() =>
+      Number(document.querySelector('#grid .card').dataset.open));
     await p.click('#grid .card:nth-child(1)');
     await p.click('[data-scale="up"]');
     await p.click('[data-scale="up"]');
     await p.click('.daybtn[data-day="thu"]');
     await p.waitForTimeout(150);
     t.ok('planning from the panel keeps the size you were looking at',
-      (await p.evaluate(() => window.Store.scaleOf(1, 'thu'))) === 4);
+      (await p.evaluate((id) => window.Store.scaleOf(id, 'thu'), opened)) === 4,
+      'recipe ' + opened);
     await p.click('.sheet-x');
 
     // ---- rename, copy, delete, reload -------------------------------------

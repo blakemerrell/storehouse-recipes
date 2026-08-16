@@ -266,9 +266,15 @@ module.exports = {
       one.parts === 2, one.parts + ' part pages');
     /* Volume Two's Section 1 would otherwise turn up on page 60 of a book that
        already had one. */
+    /* However many sections the two volumes hold between them — the number was
+       written in here as 14 and had to be found and changed by hand the first
+       time a volume was re-sectioned, which is a test measuring the copy of the
+       answer it was given rather than the answer. */
+    const secCount = await p.evaluate(() => new Set(
+      window.RECIPES.filter((r) => r.book !== 3).map((r) => r.book + '-' + r.secNum)).size);
     t.ok('sections numbered straight through both parts',
-      one.sections.join('|') === Array.from({ length: 14 }, (_, i) => 'Section ' + (i + 1)).join('|'),
-      one.sections.join(' '));
+      one.sections.join('|') === Array.from({ length: secCount }, (_, i) => 'Section ' + (i + 1)).join('|'),
+      one.sections.join(' ') + '  (expected ' + secCount + ')');
     t.ok('and nothing in it still calls itself a volume of two',
       one.companion === 0 && one.volumeLines === 0,
       one.companion + ' companion lines, ' + one.volumeLines + ' volume lines');

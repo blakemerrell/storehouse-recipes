@@ -88,9 +88,19 @@ module.exports = {
     await p.waitForTimeout(400);
     t.ok('a printed recipe can be changed',
       /our way/.test(await p.textContent('.sheet-name')), await p.textContent('.sheet-name'));
+    /* The claim is that editing a printed recipe leaves the printed recipe
+       alone — asked of the recipe that was actually edited, whichever it is.
+       It used to name the recipe sitting at index 0, which made it a test of
+       the running order: re-sectioning a volume moved a different recipe to
+       the front and this went red while the thing it describes still held. */
+    const untouched = await p.evaluate(() => {
+      const shown = document.querySelector('.sheet-name').textContent.trim();
+      const edited = window.RECIPES.find((r) => /our way/.test(shown) &&
+        r.name === 'Cottage Cheese & Cinnamon Apple Bowl');
+      return { found: !!edited, name: edited ? edited.name : null };
+    });
     t.ok('but the book itself is never touched',
-      (await p.evaluate(() => window.RECIPES[0].name)) === 'Cottage Cheese & Cinnamon Apple Bowl',
-      await p.evaluate(() => window.RECIPES[0].name));
+      untouched.found, JSON.stringify(untouched));
 
     await p.click('[data-edit]');
     await p.waitForSelector('.ed-sheet');
