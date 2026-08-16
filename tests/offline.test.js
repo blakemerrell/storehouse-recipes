@@ -58,12 +58,33 @@ module.exports = {
       return {
         unversioned: assets.filter((a) => !/\?v=\d+/.test(a)),
         missing: assets.filter((a) => !shell.includes(a)),
+        /* The cache name and the asset version, which have to move together.
+           Nothing held them together before and they had already drifted a
+           version apart — which is precisely why nothing could check them. */
+        cacheName: (sw.match(/var CACHE = '([^']+)'/) || [])[1] || '',
+        assetV: [...new Set([...sw.matchAll(/\?v=(\d+)/g)].map((m) => m[1]))],
       };
     });
     t.ok('every script and stylesheet the page loads carries a version',
       versioning.unversioned.length === 0, versioning.unversioned.join(' '));
     t.ok('and the worker caches that exact version, query and all',
       versioning.missing.length === 0, versioning.missing.join(' '));
+
+    /* The cache is named for the build it holds.
+     *
+     * activate deletes every cache but the current one, which is the whole
+     * mechanism for getting a phone off an old build — and it only fires when
+     * the name has changed. Ship new scripts under the old cache name and a
+     * phone that already has the app keeps serving the old ones, forever, with
+     * no error and nothing to notice. Deliberately breaking that was the one
+     * service-worker change nothing in this suite caught, because the two
+     * numbers were free to drift and had already drifted by one.
+     * One number now, in both places. */
+    t.ok('the assets carry a single version between them',
+      versioning.assetV.length === 1, versioning.assetV.join(', ') || 'none found');
+    t.ok('and the cache is named for it, so a new build cannot reuse the old cache',
+      versioning.cacheName === 'storehouse-v' + versioning.assetV[0],
+      versioning.cacheName + ' vs assets at v' + versioning.assetV.join('/'));
     t.ok('recipes, nutrition and typefaces included',
       cached.some((u) => /recipes\.js/.test(u)) &&
       cached.some((u) => /nutrition\.js/.test(u)) &&

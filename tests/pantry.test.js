@@ -121,6 +121,43 @@ module.exports = {
     t.ok('and every recipe marks exactly what its foot says you must buy',
       disagree.length === 0, disagree.slice(0, 8).join('; '));
 
+    /* And the pair of them is anchored to something true.
+     *
+     * The assertion above checks that the foot and the lines agree, which is
+     * the bug it was written for — and on its own it is another example
+     * dressed as a rule. Teach both halves that a flagged seasoning needs
+     * nothing and they agree perfectly, about nothing: mutating the shared
+     * predicate to `return false` for every `free` line left this file green.
+     *
+     * So one known case is held down. No. 017 lists paprika, the storehouse
+     * does not carry it, and the collection has thirty-one lines like it. If
+     * the count ever drops to zero the rule has been switched off, however
+     * neatly the two halves still agree with each other. */
+    await p.click('.tab[data-view="browse"]'); await p.waitForTimeout(250);
+    await p.evaluate(() => {
+      const el = document.querySelector('[data-open="17"]');
+      if (el) el.click();
+      else window.RECIPES.length;   // fall through to the assertion, which will say so
+    });
+    await p.waitForTimeout(400);
+    const grounded = await p.evaluate(() => {
+      const rows = [...document.querySelectorAll('.sheet-ing div')];
+      const pap = rows.find((d) => /paprika/i.test(d.textContent));
+      const salt = rows.find((d) => /^salt$/i.test(d.textContent.trim()));
+      return {
+        opened: rows.length > 0,
+        paprikaMarked: !!(pap && pap.classList.contains('ing-buy')),
+        saltPlain: !!(salt && !salt.classList.contains('ing-buy')),
+        foot: (document.querySelector('.sheet-extras') || {}).textContent || '',
+      };
+    });
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
+    t.ok('a seasoning the storehouse does not carry is marked on its own line',
+      grounded.opened && grounded.paprikaMarked, JSON.stringify(grounded));
+    t.ok('and named at the foot, while the salt beside it stays plain',
+      /paprika/i.test(grounded.foot) && grounded.saltPlain, JSON.stringify(grounded));
+
     // and so does the shopping list
     await p.evaluate(() => window.Store.addToDay(1, 'mon'));
     await p.click('.tab[data-view="list"]'); await p.waitForTimeout(600);

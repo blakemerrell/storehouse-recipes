@@ -265,6 +265,43 @@ module.exports = {
       [...document.querySelectorAll('.tab')].map((b) => b.innerText.trim()));
     t.ok('and the full names return on a wider screen',
       wide.join('|') === 'Recipes|Meal Plan|Shopping List|Pantry|Print Book', wide.join(' '));
+
+    /* ---- text somebody typed is text, not markup -------------------------
+     *
+     * Nothing in this suite tested escaping at all. Removing every replace()
+     * from esc() and running the lot came back green, which is as good as
+     * saying the app has no opinion on the difference between a week called
+     * "Mum's" and a week called "<img onerror=...>".
+     *
+     * It matters more here than on most pages, because a household is other
+     * people's writing: a week name, a recipe, a shelf item typed on one phone
+     * is rendered on every other phone in the house. So the strings below go in
+     * through the same doors that text arrives through and are looked for as
+     * elements, which is the only version of this question that has an answer —
+     * "does it appear escaped" can be true of markup that also ran.
+     */
+    const HOSTILE = '<img src=x onerror="window.__ran=1">&"\'';
+    await p.evaluate((s) => {
+      window.__ran = 0;
+      window.Store.renameWeek(s);
+      window.Store.addPantryItem(s, 'Yours');
+    }, HOSTILE);
+    await p.waitForTimeout(300);
+    await p.click('.tab[data-view="pantry"]');
+    await p.waitForTimeout(300);
+
+    const hostile = await p.evaluate((s) => ({
+      ran: window.__ran,
+      injected: document.querySelectorAll('img[src="x"]').length,
+      weekName: (window.Store.weeks().find((w) => w.name === s) || {}).name,
+      shownSomewhere: document.body.textContent.indexOf(s) >= 0,
+    }), HOSTILE);
+
+    t.ok('a week named like an attack does not become one',
+      hostile.ran === 0 && hostile.injected === 0, JSON.stringify(hostile));
+    t.ok('and is kept and shown as the words that were typed',
+      hostile.weekName === HOSTILE && hostile.shownSomewhere, JSON.stringify(hostile));
+
     await p.context().close();
   },
 };
