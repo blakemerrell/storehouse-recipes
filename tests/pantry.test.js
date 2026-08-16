@@ -88,6 +88,39 @@ module.exports = {
     t.ok('and only that one — what you keep stays plain',
       rows.filter((r) => r.buy).length === 1, JSON.stringify(rows.filter((r) => r.buy)));
 
+    /* The same question, asked of all 266 rather than of one.
+     *
+     * The two assertions above passed for a year while thirty-one lines across
+     * twenty-one recipes were wrong: they check a food taken off the shelf,
+     * and the lines that went unmarked were seasonings the storehouse does not
+     * carry — paprika, cumin, a sweetener. The foot named them and the line
+     * sat in the same colour as the flour above it, because the foot had been
+     * taught about flagged seasonings and the line had not.
+     *
+     * So this asks the invariant instead of an example: whatever the foot of a
+     * recipe says you must buy, the lines must mark, and the other way round.
+     * Any single example can be true while the rule is broken. */
+    const disagree = await p.evaluate(() => {
+      const P = window.PANTRY || {};
+      const kept = (k) => { const d = P[k]; return window.Store.pantryHas(k, d ? d.s : true); };
+      const needs = (it) => {
+        if (!it || !it.k) return false;
+        if (it.k === 'free') return !!it.x;
+        return it.k !== 'water' && !kept(it.k);
+      };
+      const bad = [];
+      window.RECIPES.forEach((r) => {
+        const ingp = r.ingp || [], ing = r.ing || [];
+        if (ingp.length !== ing.length) { bad.push(r.id + ' lists of different length'); return; }
+        const marked = ing.filter((_, ix) => needs(ingp[ix])).length;
+        const foot = ingp.filter(needs).length;
+        if (marked !== foot) bad.push(r.id + ' marks ' + marked + ' but names ' + foot);
+      });
+      return bad;
+    });
+    t.ok('and every recipe marks exactly what its foot says you must buy',
+      disagree.length === 0, disagree.slice(0, 8).join('; '));
+
     // and so does the shopping list
     await p.evaluate(() => window.Store.addToDay(1, 'mon'));
     await p.click('.tab[data-view="list"]'); await p.waitForTimeout(600);

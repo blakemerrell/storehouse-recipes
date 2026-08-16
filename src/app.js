@@ -896,18 +896,29 @@
     return window.Store.pantryHas(key, d ? d.s : true);
   }
 
+  /* Would you have to go out for this one parsed ingredient?
+   *
+   * One answer, asked in two places: the foot of a recipe lists what to buy,
+   * and the ingredient lines themselves are marked. Those used to be two
+   * separate pieces of reasoning, and they disagreed — the foot named paprika
+   * while the line sat in the same colour as the flour above it, because the
+   * foot had been taught about flagged seasonings and the line had not. Two
+   * rules for one question will drift again, so there is one.
+   *
+   * A `free` line is a seasoning priced at nothing. Most are the salt and
+   * pepper and cinnamon the storehouse carries and are rightly silent; `x`
+   * marks the ones it does not. */
+  function itemNeedsBuying(it) {
+    if (!it || !it.k) return false;      // a line the food table could not place
+    if (it.k === 'free') return !!it.x;
+    return it.k !== 'water' && !inPantry(it.k);
+  }
+
   function missingFor(r) {
     var out = [], seen = {};
     (r.ingp || []).forEach(function (it) {
-      if (!it || !it.k) return;   // a line the food table could not place
-      /* A `free` line is a seasoning priced at nothing. Most are the salt and
-         pepper and cinnamon the storehouse carries, and those are rightly
-         silent — but `x` marks the ones it does not, and those were being
-         skipped with the rest. Thirty-one recipes needed paprika or cumin or a
-         sweetener from a shop while the card under them read "All storehouse
-         items", which is the one line on a card that has to be true. */
+      if (!itemNeedsBuying(it)) return;
       if (it.k === 'free') {
-        if (!it.x) return;
         var extra = it.a || 'a seasoning';
         if (!seen[extra]) { seen[extra] = 1; out.push(extra); }
         return;
@@ -923,8 +934,7 @@
   /* Whether a written ingredient line is something you would have to go out
      for. ingp runs parallel to ing, so line i asks about food i. */
   function lineNeedsBuying(r, ix) {
-    var it = (r.ingp || [])[ix];
-    return !!it && !!it.k && it.k !== 'free' && it.k !== 'water' && !inPantry(it.k);
+    return itemNeedsBuying((r.ingp || [])[ix]);
   }
 
   // "storehouse" is only the right word while the shelf is still the storehouse's
