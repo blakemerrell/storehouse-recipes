@@ -112,12 +112,49 @@ window.Store = (function () {
     return 'w' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
   }
 
+  /* Sixty-four words rather than sixteen, and drawn from the machine's own
+     randomness rather than Math.random.
+
+     The code is the only thing standing between a household and anybody else,
+     and the rules let any signed-in client fetch a household by name — they
+     have to, that is how joining works. Sixteen words either side of four
+     digits is 2.3 million codes, which is a number a script can walk. Sixty-
+     four either side is 36.9 million, sixteen times the work, for a code that
+     is exactly as long to say down the phone and exactly as easy to type.
+     Words are still concrete nouns with no near-homophones in the list, since
+     these get read aloud across a kitchen.
+
+     And Math.random is not unpredictable — it is not meant to be. Somewhere
+     that a guessed value costs somebody their grocery list, the browser's
+     crypto is free and right. Old codes keep working; nothing about joining
+     changed, only what a new one is drawn from. */
+  var CODE_WORDS = [
+    'KETTLE', 'PANTRY', 'HEARTH', 'BASKET', 'ORCHARD', 'HARVEST', 'CELLAR', 'GRANARY',
+    'SKILLET', 'LADLE', 'THISTLE', 'JUNIPER', 'CLOVER', 'BRAMBLE', 'MEADOW', 'QUARRY',
+    'ANVIL', 'BARLEY', 'BEACON', 'BELLOWS', 'BIRCH', 'BRIDLE', 'BUTTER', 'CANDLE',
+    'CANYON', 'CIDER', 'COBBLE', 'COMPASS', 'COPPER', 'CRADLE', 'DAMSON', 'FENNEL',
+    'FURROW', 'GARLAND', 'GINGER', 'HAMMOCK', 'HAYLOFT', 'HOLLOW', 'HONEY', 'KINDLING',
+    'LANTERN', 'LATTICE', 'MARROW', 'MILLET', 'MORTAR', 'NUTMEG', 'PADDOCK', 'PARSNIP',
+    'PEBBLE', 'PEWTER', 'PIGEON', 'QUILT', 'RAFTER', 'RHUBARB', 'SADDLE', 'SORREL',
+    'SPINDLE', 'TANSY', 'THIMBLE', 'TIMBER', 'TROWEL', 'VELVET', 'WALNUT', 'WILLOW'
+  ];
+
+  /* Uniform over `n`. Taking a random byte modulo 64 happens to be uniform,
+     but taking one modulo 9000 is not, and a lopsided draw is a smaller
+     keyspace than it looks. Rejection sampling costs nothing here. */
+  function rnd(n) {
+    var c = window.crypto || window.msCrypto;
+    if (c && c.getRandomValues) {
+      var limit = Math.floor(4294967296 / n) * n, v = new Uint32Array(1);
+      do { c.getRandomValues(v); } while (v[0] >= limit);
+      return v[0] % n;
+    }
+    return Math.floor(Math.random() * n);
+  }
+
   function newCodeStr() {
-    var words = ['KETTLE', 'PANTRY', 'HEARTH', 'BASKET', 'ORCHARD', 'HARVEST', 'CELLAR', 'GRANARY',
-      'SKILLET', 'LADLE', 'THISTLE', 'JUNIPER', 'CLOVER', 'BRAMBLE', 'MEADOW', 'QUARRY'];
-    var pick = function () { return words[Math.floor(Math.random() * words.length)]; };
-    var n = String(Math.floor(1000 + Math.random() * 9000));
-    return pick() + '-' + n + '-' + pick();
+    var pick = function () { return CODE_WORDS[rnd(CODE_WORDS.length)]; };
+    return pick() + '-' + String(1000 + rnd(9000)) + '-' + pick();
   }
 
   /* state.plan and state.checked are the active week's, kept as plain fields so

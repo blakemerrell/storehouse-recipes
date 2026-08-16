@@ -1575,7 +1575,19 @@
     bk.classList.toggle('hide', !(r && r.booklet));
     if (!r) return;
     dl.href = 'print/' + r.file;
-    dl.textContent = 'Download PDF · ' + r.pages + ' pages';
+    /* The ready-made files were rendered from the printed collection and know
+       nothing about a recipe somebody wrote last week or a printed one they
+       corrected. The preview above counts those in, so the two disagreed
+       silently — a preview saying 168 pages over a button offering 160, and
+       whoever pressed it got a book without their own recipes in it and no
+       word about why. Say so, and point at the button that does include them. */
+    var own = Object.keys(window.Store.state.mine || {}).length +
+      Object.keys(window.Store.state.edits || {}).length;
+    dl.textContent = 'Download PDF · ' + r.pages + ' pages' +
+      (own ? ' · as published' : '');
+    dl.title = own
+      ? 'The published book. Your own recipes and corrections are not in this file — use Print to include them.'
+      : '';
     if (r.booklet) {
       bk.href = 'print/' + r.file.replace(/\.pdf$/, '-booklet.pdf');
       bk.textContent = 'Booklet PDF · ' + (r.pages / 4) + ' sheets';
