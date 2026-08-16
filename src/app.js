@@ -2063,6 +2063,12 @@
           '<input class="txt" id="joinCode" placeholder="Or type a code you already have" aria-label="Household code">' +
           '<button class="ghost" data-sync="join">Join</button>' +
         '</div>' +
+        /* Worth saying, because the honest answer used to be the opposite:
+           joining wiped this phone and kept the household. Now it carries
+           everything across, and somebody who has been using the app on their
+           own for a month is exactly the person about to press this. */
+        '<div class="sync-p sync-brings">Joining takes your favorites, your weeks and any recipes ' +
+        'you have written with you &mdash; nothing on this phone is lost.</div>' +
         '<div class="sync-warn">The code is the only key. Anyone who has it can see and change the list, so ' +
         'give it only to the people you mean to share with. There are no names or addresses in here &mdash; ' +
         'it is a meal plan and a grocery list.</div>';
@@ -2524,7 +2530,15 @@
       if (sy) {
         var act = sy.dataset.sync;
         if (act === 'reroll') { S.pendingCode = window.Store.newCode(); }
-        if (act === 'use') { window.Store.join(S.pendingCode); }
+        /* Async because the code is checked against the server before it is
+           handed over. It resolves with the code actually claimed, which is
+           the one on screen unless it turned out to be taken. */
+        if (act === 'use') {
+          window.Store.createHousehold(S.pendingCode).then(function (code) {
+            S.pendingCode = code;
+            renderModal();
+          });
+        }
         if (act === 'join') {
           var v = ($('joinCode') || {}).value || '';
           if (v.trim()) window.Store.join(v);

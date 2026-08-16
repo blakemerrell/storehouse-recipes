@@ -178,6 +178,42 @@ module.exports = {
       t.ok('the status settles on synced rather than stuck on cache',
         await waitFor(A, () => window.Store.status === 'synced', 8000),
         await A.evaluate(() => window.Store.status));
+
+      /* ---- a code already in use is never handed out again ------------------
+       *
+       * newCode draws from 2.3 million combinations and nothing ever releases
+       * one, so collisions are rare and cumulative — and a collision is two
+       * families silently sharing a grocery list, which is the kind of bug
+       * nobody reports because neither of them knows the other exists.
+       *
+       * createHousehold takes the code on screen as its first candidate, so
+       * handing it one that is already taken is the collision, staged. It has
+       * to come back with a different one, and it must not have touched what
+       * was there. */
+      const C = await phone();
+      const before = JSON.parse(await C.evaluate((code) => window.firebase.firestore()
+        .collection('households').doc(code).get({ source: 'server' })
+        .then((s) => JSON.stringify(s.data())), CODE));
+      const claimed = await C.evaluate((code) => window.Store.createHousehold(code), CODE);
+      t.ok('a code that is already somebody else\'s is not handed out again',
+        claimed && claimed !== CODE, String(claimed));
+
+      await C.waitForTimeout(1500);
+      const after = JSON.parse(await C.evaluate((code) => window.firebase.firestore()
+        .collection('households').doc(code).get({ source: 'server' })
+        .then((s) => JSON.stringify(s.data())), CODE));
+      t.ok('and the household that already held it is untouched',
+        JSON.stringify(after) === JSON.stringify(before),
+        Object.keys(after || {}).sort().join(','));
+
+      /* The code it settled on is a real household now, and firestore.rules
+         denies delete, so it is emptied rather than removed. A stray document
+         holding nothing is a code out of circulation and no more. */
+      if (claimed && claimed !== CODE) {
+        await C.evaluate((code) => window.firebase.firestore()
+          .collection('households').doc(code)
+          .set({ favs: [], weeks: {}, active: '', mine: {}, edits: {} }), claimed);
+      }
     } finally {
       try { await wipe(); } catch (e) { t.ok('the test household was cleaned up', false, e.message); }
       for (const c of made) { try { await c.close(); } catch (e) { /* already gone */ } }

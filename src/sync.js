@@ -59,6 +59,7 @@ window.Store = (function () {
   var everLive = false;       // have we heard from the server at all this session
   var statusNote = '';
   var house = '';
+  var pendingMerge = false;   // set by join(), consumed by the next connect()
   var listeners = [];
   var db = null, doc = null, unsub = null, FV = null;
 
@@ -85,6 +86,14 @@ window.Store = (function () {
 
   function newId() {
     return 'w' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+  }
+
+  function newCodeStr() {
+    var words = ['KETTLE', 'PANTRY', 'HEARTH', 'BASKET', 'ORCHARD', 'HARVEST', 'CELLAR', 'GRANARY',
+      'SKILLET', 'LADLE', 'THISTLE', 'JUNIPER', 'CLOVER', 'BRAMBLE', 'MEADOW', 'QUARRY'];
+    var pick = function () { return words[Math.floor(Math.random() * words.length)]; };
+    var n = String(Math.floor(1000 + Math.random() * 9000));
+    return pick() + '-' + n + '-' + pick();
   }
 
   /* state.plan and state.checked are the active week's, kept as plain fields so
@@ -135,6 +144,86 @@ window.Store = (function () {
     return made;
   }
 
+  /* Has anybody been put on a day of this week. An empty week is not worth
+     carrying into a household that already has weeks in it. */
+  function planned(w) {
+    var plan = obj(w && w.plan);
+    return Object.keys(plan).some(function (d) {
+      return Array.isArray(plan[d]) && plan[d].length;
+    });
+  }
+
+  function samePlan(a, b) {
+    try { return JSON.stringify(obj(a)) === JSON.stringify(obj(b)); } catch (e) { return false; }
+  }
+
+  /* What this phone has that the household has not.
+   *
+   * Joining used to replace. adopt() overwrote the favorites, the weeks, the
+   * edits and the recipes somebody had written themselves with whatever the
+   * household held, and only the first device into a new household seeded it —
+   * so the second one in always lost everything, with no warning and no undo.
+   * That is the exact case the app invites: two people who have each been
+   * using it, putting both phones on one list.
+   *
+   * So a join contributes instead. Favorites are a union. Recipes written here
+   * and edits made here arrive under their own keys, and where both sides have
+   * touched the same one the household's copy stands — it is the shared record
+   * and this is a phone arriving at it.
+   *
+   * Weeks are the awkward part, because a fresh phone and a fresh household
+   * both call their first week w1: the ids collide while the plans do not. So
+   * a local week comes across when the household has nothing under that id, or
+   * has something different under it, in which case it arrives under a new id
+   * and both are kept. A name already in use gets a number after it, or the
+   * household ends up with two weeks called This Week and no way to tell them
+   * apart.
+   *
+   * Returns null when there is nothing to add, which is the ordinary case —
+   * rejoining a household this phone already mirrors contributes nothing. */
+  function contribute(d) {
+    var out = {}, any = false;
+
+    var theirFavs = Array.isArray(d.favs) ? d.favs : [];
+    var favs = theirFavs.slice();
+    state.favs.forEach(function (id) { if (favs.indexOf(id) < 0) favs.push(id); });
+    if (favs.length !== theirFavs.length) { out.favs = favs; any = true; }
+
+    ['mine', 'edits'].forEach(function (k) {
+      var theirs = obj(d[k]), mine = obj(state[k]), add = {};
+      Object.keys(mine).forEach(function (id) {
+        if (!(id in theirs)) add[id] = mine[id];
+      });
+      if (Object.keys(add).length) { out[k] = add; any = true; }
+    });
+
+    var theirWeeks = obj(d.weeks), addW = {};
+    var used = Object.keys(theirWeeks).map(function (k) { return theirWeeks[k].name; });
+    var ord = Object.keys(theirWeeks).reduce(function (n, k) {
+      return Math.max(n, (theirWeeks[k].ord || 0) + 1);
+    }, 0);
+    Object.keys(state.weeks).forEach(function (id) {
+      var w = state.weeks[id];
+      if (!planned(w)) return;
+      var mirror = theirWeeks[id];
+      if (mirror && samePlan(mirror.plan, w.plan)) return;   // already there under this id
+      var name = w.name || 'This Week', n = 2;
+      while (used.indexOf(name) >= 0) { name = (w.name || 'This Week') + ' (' + n++ + ')'; }
+      used.push(name);
+      addW[mirror ? newId() : id] = {
+        name: name, ord: ord++, plan: obj(w.plan), checked: obj(w.checked)
+      };
+    });
+    if (Object.keys(addW).length) { out.weeks = addW; any = true; }
+
+    return any ? out : null;
+  }
+
+  /* Exposed for tests/joining.test.js. What this does is the difference
+     between joining a household and losing everything on the phone that
+     joined, and it is worth checking without a network in front of it. */
+  window.__contribute = function (d) { return contribute(d); };
+
   function configured() {
     var c = window.FIREBASE_CONFIG;
     return !!(c && c.apiKey && c.projectId);
@@ -151,17 +240,20 @@ window.Store = (function () {
   }
 
   // ------------------------------------------------------------- connecting
-  function connect() {
-    if (!configured() || !house) { setStatus('local'); return; }
-    setStatus('connecting');
-
-    var chain = window.firebase && window.firebase.firestore
+  /* The SDK, the app, offline persistence and the anonymous sign-in. Once,
+     however many things ask for it — connecting to a household and claiming a
+     new code both need all of it, and doing it twice would sign in twice. The
+     promise is dropped again on failure so a later attempt can retry rather
+     than inheriting the first one's error forever. */
+  var readyP = null;
+  function ready() {
+    if (readyP) return readyP;
+    readyP = (window.firebase && window.firebase.firestore
       ? Promise.resolve()
       : loadScript(SDK + 'firebase-app-compat.js')
         .then(function () { return loadScript(SDK + 'firebase-auth-compat.js'); })
-        .then(function () { return loadScript(SDK + 'firebase-firestore-compat.js'); });
-
-    chain.then(function () {
+        .then(function () { return loadScript(SDK + 'firebase-firestore-compat.js'); })
+    ).then(function () {
       if (!window.firebase.apps.length) window.firebase.initializeApp(window.FIREBASE_CONFIG);
       db = window.firebase.firestore();
       FV = window.firebase.firestore.FieldValue;
@@ -169,16 +261,37 @@ window.Store = (function () {
       return db.enablePersistence({ synchronizeTabs: true }).catch(function () {});
     }).then(function () {
       return window.firebase.auth().signInAnonymously();
-    }).then(function () {
+    });
+    readyP.catch(function () { readyP = null; });
+    return readyP;
+  }
+
+  // everything a household document holds, as this phone currently has it
+  function localDoc() {
+    return {
+      favs: state.favs, weeks: state.weeks, active: state.active,
+      mine: state.mine, edits: state.edits
+    };
+  }
+
+  function connect() {
+    if (!configured() || !house) { setStatus('local'); return; }
+    setStatus('connecting');
+
+    /* Only an explicit join contributes. connect() also runs on every page
+       load, and merging then would be wrong in a way that is hard to see: this
+       phone's mirror is stale by definition, so anything the other phone had
+       deleted since would be put back by the phone that had not heard yet. */
+    var merging = pendingMerge; pendingMerge = false;
+
+    ready().then(function () {
       doc = db.collection('households').doc(house);
       return doc.get().then(function (snap) {
         // first device into a new household seeds it with whatever is already here
-        if (!snap.exists) {
-          return doc.set({
-            favs: state.favs, weeks: state.weeks, active: state.active,
-            mine: state.mine, edits: state.edits
-          });
-        }
+        if (!snap.exists) return doc.set(localDoc());
+        if (!merging) return;
+        var add = contribute(snap.data() || {});
+        if (add) return doc.set(add, { merge: true });
       });
     }).then(function () {
       if (unsub) unsub();
@@ -521,18 +634,64 @@ window.Store = (function () {
     },
 
     /* A household code both of you type in once. Random rather than chosen:
-       there is no password on the document, so the code is what keeps it yours. */
-    newCode: function () {
-      var words = ['KETTLE', 'PANTRY', 'HEARTH', 'BASKET', 'ORCHARD', 'HARVEST', 'CELLAR', 'GRANARY',
-        'SKILLET', 'LADLE', 'THISTLE', 'JUNIPER', 'CLOVER', 'BRAMBLE', 'MEADOW', 'QUARRY'];
-      var pick = function () { return words[Math.floor(Math.random() * words.length)]; };
-      var n = String(Math.floor(1000 + Math.random() * 9000));
-      return pick() + '-' + n + '-' + pick();
+       there is no password on the document, so the code is what keeps it yours.
+       This only draws one — createHousehold is what makes sure it is free. */
+    newCode: newCodeStr,
+
+    /* Claim a code nobody is using.
+     *
+     * newCode() draws from sixteen words, four digits and sixteen words: 2.3
+     * million codes, which sounds ample and is not, because nothing ever
+     * releases one. The birthday sum puts some pair of households colliding at
+     * roughly one in five hundred by a hundred households, one in twenty by
+     * five hundred, and even money by eighteen hundred — and a collision is
+     * two families silently sharing a grocery list.
+     *
+     * In a transaction, because a plain get-then-set has a gap in it and the
+     * gap is exactly where the collision lives. With no signal a transaction
+     * cannot run at all, so the code is taken anyway rather than blocking
+     * setup; connect() seeds it when there is signal, and a household created
+     * on a phone with no bars is not one somebody else is racing for.
+     *
+     * `preferred` is the code already on screen. It is tried first so that the
+     * code somebody is reading is the code they get, every time but the rare
+     * one. */
+    createHousehold: function (preferred) {
+      var self = this, tries = 0;
+
+      function attempt(code) {
+        var ref = db.collection('households').doc(code);
+        return db.runTransaction(function (t) {
+          return t.get(ref).then(function (snap) {
+            if (snap.exists) throw new Error('taken');
+            t.set(ref, localDoc());
+          });
+        }).then(function () { return code; }, function (err) {
+          if (err && err.message === 'taken' && ++tries < 6) return attempt(newCodeStr());
+          return code;   // no signal, or six unlucky draws: use it and let connect() sort it out
+        });
+      }
+
+      return ready()
+        .then(function () { return attempt(preferred || newCodeStr()); })
+        .catch(function () { return preferred || newCodeStr(); })
+        .then(function (code) {
+          /* Nothing to contribute: the transaction has just written this
+             phone's state as the whole document. */
+          pendingMerge = false;
+          self.join(code, true);
+          return code;
+        });
     },
 
-    join: function (code) {
+    /* `seeded` is set by createHousehold, which has already put this phone's
+       state in the document. Every other join is somebody typing a code that
+       may well have a household behind it, and those bring their favorites,
+       weeks and written recipes with them. */
+    join: function (code, seeded) {
       house = String(code || '').trim().toUpperCase().replace(/\s+/g, '-');
       write(LS.house, house);
+      pendingMerge = !seeded;
       if (unsub) { unsub(); unsub = null; }
       connect();
     },
@@ -541,7 +700,7 @@ window.Store = (function () {
       if (unsub) { unsub(); unsub = null; }
       house = ''; write(LS.house, '');
       doc = null;
-      everLive = false; lastSync = 0;
+      everLive = false; lastSync = 0; pendingMerge = false;
       setStatus('local');
     }
   };
