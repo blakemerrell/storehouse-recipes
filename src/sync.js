@@ -757,21 +757,26 @@ window.Store = (function () {
             if (snap.exists) throw new Error('taken');
             t.set(ref, localDoc());
           });
-        }).then(function () { return code; }, function (err) {
+        }).then(function () { return { code: code, seeded: true }; }, function (err) {
           if (err && err.message === 'taken' && ++tries < 6) return attempt(newCodeStr());
-          return code;   // no signal, or six unlucky draws: use it and let connect() sort it out
+          // no signal, or six unlucky draws: take it, but do not claim it is ours
+          return { code: code, seeded: false };
         });
       }
 
       return ready()
         .then(function () { return attempt(preferred || newCodeStr()); })
-        .catch(function () { return preferred || newCodeStr(); })
-        .then(function (code) {
-          /* Nothing to contribute: the transaction has just written this
-             phone's state as the whole document. */
-          pendingMerge = false;
-          self.join(code, true);
-          return code;
+        .catch(function () { return { code: preferred || newCodeStr(), seeded: false }; })
+        .then(function (res) {
+          /* seeded only where the transaction actually ran and wrote this
+             phone's state as the whole document. Where it did not — no signal,
+             or the SDK never loaded — the code is unverified, and saying
+             otherwise told join() there was nothing to contribute. If that
+             code turned out to belong to somebody else, the next connect would
+             have adopted a stranger's week straight over the top of this one.
+             Unverified means treat it like any typed code: bring our things. */
+          self.join(res.code, res.seeded);
+          return res.code;
         });
     },
 

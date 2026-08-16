@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=45">
+<link rel="stylesheet" href="src/style.css?v=46">
 </head>
 <body>
 
@@ -111,12 +111,12 @@
     <div class="view-head view-head-tall">
       <div class="view-head-row">
         <div class="view-title" id="browseTitle">The whole collection</div>
-        <div class="view-count" id="browseCount"></div>
+        <div class="view-count" id="browseCount" role="status"></div>
       </div>
       <div class="view-blurb" id="browseBlurb"></div>
     </div>
     <div class="grid" id="grid"></div>
-    <div class="empty hide" id="browseEmpty">Nothing matches those filters.</div>
+    <div class="empty hide" id="browseEmpty" role="status">Nothing matches those filters.</div>
   </div>
 </section>
 
@@ -214,14 +214,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=45"></script>
-<script src="data/nutrition.js?v=45"></script>
-<script src="data/art.js?v=45"></script>
-<script src="data/qr.js?v=45"></script>
-<script src="src/config.js?v=45"></script>
+<script src="data/recipes.js?v=46"></script>
+<script src="data/nutrition.js?v=46"></script>
+<script src="data/art.js?v=46"></script>
+<script src="data/qr.js?v=46"></script>
+<script src="src/config.js?v=46"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=45"></script>
-<script src="src/app.js?v=45"></script>
+<script src="src/sync.js?v=46"></script>
+<script src="src/app.js?v=46"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.
@@ -240,7 +240,14 @@ if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (!hadWorker || reloading) return;
     reloading = true;
-    location.reload();
+    /* Not while somebody is halfway through writing a recipe. The new worker
+       is already in charge either way; this reload only swaps the scripts on
+       screen, and it can wait for the length of an edit rather than throwing
+       one away with no warning and no draft. */
+    (function go() {
+      if (window.__editing) { setTimeout(go, 2000); return; }
+      location.reload();
+    })();
   });
   addEventListener('load', function () {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })

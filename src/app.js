@@ -404,7 +404,7 @@
       if (S.bookF !== 'all' && r.book !== S.bookF) return;
       if (r.book !== lastBook) {
         if (lastBook !== null) opts.push('</optgroup>');
-        opts.push('<optgroup label="' + esc(BOOKS[r.book].name) + '">');
+        opts.push('<optgroup label="' + esc((BOOKS[r.book] || BOOKS[3]).name) + '">');
         lastBook = r.book;
       }
       opts.push('<option value="' + esc(key) + '">' +
@@ -517,7 +517,10 @@
     DAYS.forEach(function (d) {
       (plan[d[0]] || []).forEach(function (e) {
         var rid = e && typeof e === 'object' ? e.i : e;
-        if (seen.indexOf(rid) < 0) seen.push(rid);
+        /* BY_ID, like planEntries and renderPlan already do. Deleting one of
+           your own recipes leaves its id on whatever days it was on, so the
+           chip on the week counted a meal the week could no longer show. */
+        if (BY_ID[rid] && seen.indexOf(rid) < 0) seen.push(rid);
       });
     });
     return seen.length;
@@ -888,7 +891,19 @@
   function missingFor(r) {
     var out = [], seen = {};
     (r.ingp || []).forEach(function (it) {
-      if (it.k === 'free' || it.k === 'water' || inPantry(it.k)) return;
+      /* A `free` line is a seasoning priced at nothing. Most are the salt and
+         pepper and cinnamon the storehouse carries, and those are rightly
+         silent — but `x` marks the ones it does not, and those were being
+         skipped with the rest. Thirty-one recipes needed paprika or cumin or a
+         sweetener from a shop while the card under them read "All storehouse
+         items", which is the one line on a card that has to be true. */
+      if (it.k === 'free') {
+        if (!it.x) return;
+        var extra = it.a || 'a seasoning';
+        if (!seen[extra]) { seen[extra] = 1; out.push(extra); }
+        return;
+      }
+      if (it.k === 'water' || inPantry(it.k)) return;
       var d = (window.PANTRY || {})[it.k];
       var label = d ? d.l : (it.a || String(it.k).replace(/_/g, ' '));
       if (!seen[label]) { seen[label] = 1; out.push(label); }
@@ -1647,6 +1662,9 @@
   }
 
   function renderModal() {
+    /* Read by the service-worker reload in index.html, which must not throw
+       away a recipe somebody is in the middle of typing. */
+    window.__editing = !!S.editId;
     var root = $('modalRoot');
 
     // a re-render triggered by a sync update should not scroll the sheet back
@@ -1851,7 +1869,7 @@
       name: form.name || 'Untitled',
       servings: form.servings || '1 Serving', servN: servN,
       ing: ing, steps: steps, ingp: est.items,
-      macro: macro, tagline: null,
+      macro: macro, tagline: form.tagline !== undefined ? form.tagline : null,
       score: s ? s.score : null, sc: s ? s.sc : null,
       diff: form.diff || 'Easy', time: form.time || '',
       extras: form.extras || null,
@@ -1873,7 +1891,17 @@
     var base = S.editBase || {};
     return {
       id: base.id, book: base.book, secNum: base.secNum, own: base.own,
-      name: g('edName'), secName: g('edSection'), servings: g('edServings'),
+      name: g('edName'),
+      /* The Section field is only drawn for a recipe you wrote, so on a
+         printed one g() found no element and returned '' — which measured()
+         then read as "no section given" and replaced with 'Ours'. Correcting a
+         typo in No. 12 moved it out of its own section and into yours. */
+      secName: $('edSection') ? g('edSection') : (base.secName || ''),
+      /* Same shape of loss: the tagline is not on the form at all, and
+         measured() used to hard-code it to null, so editing a printed recipe
+         threw away the line under its name on every card. */
+      tagline: base.tagline,
+      servings: g('edServings'),
       time: g('edTime'), diff: g('edDiff'), ing: g('edIng'), steps: g('edSteps'),
       extras: g('edExtras'), kcal: g('edKcal'), p: g('edP'), c: g('edC'), f: g('edF')
     };
@@ -2022,7 +2050,15 @@
     S.editMacros = !!b.typedMacro;
     S.editPreview = b.ing && b.ing.length ? measured(Object.assign({}, b, {
       ing: b.ing.join('\n'), steps: (b.steps || []).join('\n'),
-      kcal: b.typedMacro ? b.macro.kcal : '', p: '', c: '', f: ''
+      /* All four, or none. kcal was carried across and the other three were
+         not, so the panel that opens with the editor recomputed a recipe with
+         its calories and no protein at all — a score tens of points below the
+         one on the card the reader had just tapped, until they touched a
+         field and refreshPreview put it right. */
+      kcal: b.typedMacro ? b.macro.kcal : '',
+      p: b.typedMacro ? b.macro.p : '',
+      c: b.typedMacro ? b.macro.c : '',
+      f: b.typedMacro ? b.macro.f : ''
     })) : null;
     S.openId = null;
     S.editId = id;
@@ -2570,6 +2606,11 @@
   function close() {
     S.openId = null;
     S.syncOpen = false;
+    /* The editor too. Without these the × and the backdrop looked broken:
+       renderModal saw S.editId still set, drew the editor again, and the only
+       way out was the Cancel button. */
+    S.editId = null;
+    S.editBase = null;
     renderModal();
   }
 

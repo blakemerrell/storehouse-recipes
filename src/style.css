@@ -27,6 +27,14 @@
   --line-soft:  oklch(0.91 0.015 78);
   --line-firm:  oklch(0.80 0.03 75);
   --ochre:      oklch(0.62 0.10 55);
+  /* The same colour, taken down far enough to be read.
+     --ochre is 3.44:1 on paper: fine for the borders, focus rings and accent
+     bars it mostly draws, where 3:1 is the bar, and short of the 4.5:1 that
+     text has to clear. Splitting the token keeps the accent exactly where it
+     was and gives the words a version at 5.73:1. The print classes keep plain
+     --ochre deliberately — they render the committed books, and ink on white
+     paper is not the same question as pixels on a screen. */
+  --ochre-text: oklch(0.50 0.11 50);
   --green:      oklch(0.46 0.09 145);
   --muted:      oklch(0.52 0.03 65);
   --muted-2:    oklch(0.45 0.03 65);
@@ -194,7 +202,7 @@ select { max-width: 280px; }
 }
 .card:hover { border-color: var(--ochre); box-shadow: 0 3px 14px oklch(0.62 0.10 55 / 0.14); }
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.card-num { font-size: 11px; letter-spacing: 0.12em; color: var(--ochre); font-weight: 600; }
+.card-num { font-size: 11px; letter-spacing: 0.12em; color: var(--ochre-text); font-weight: 600; }
 .card-fav {
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
   color: oklch(0.58 0.03 65); white-space: nowrap;
@@ -286,7 +294,7 @@ select { max-width: 280px; }
 }
 .day-x2:hover { border-color: var(--ochre); color: var(--ink); }
 .day-x { order: 3; }
-.addto-x { color: var(--ochre); font-weight: 600; }
+.addto-x { color: var(--ochre-text); font-weight: 600; }
 .day-empty { font-size: 12px; color: oklch(0.68 0.02 70); font-style: italic; padding: 4px 0 0 2px; }
 .ghost {
   background: none; border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
@@ -332,7 +340,7 @@ select { max-width: 280px; }
 .nut-ask {
   display: block; margin-top: 7px;
   background: none; border: 0; padding: 0;
-  font-family: var(--sans); font-size: 10.5px; color: var(--ochre);
+  font-family: var(--sans); font-size: 10.5px; color: var(--ochre-text);
   text-decoration: underline; text-underline-offset: 2px;
 }
 .nut-ask:hover { color: oklch(0.50 0.11 55); }
@@ -455,7 +463,7 @@ select { max-width: 280px; }
 .list-group { margin-bottom: 26px; }
 .list-group-title {
   font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
-  font-weight: 600; color: var(--ochre); margin-bottom: 9px;
+  font-weight: 600; color: var(--ochre-text); margin-bottom: 9px;
 }
 .list-items { display: flex; flex-direction: column; border-top: 1px solid oklch(0.89 0.015 78); }
 .list-row {
@@ -1070,7 +1078,7 @@ select { max-width: 280px; }
 .toc-col { display: flex; flex-direction: column; min-width: 0; }
 .toc-head {
   font-family: var(--serif); font-size: 13px; font-weight: 700;
-  color: var(--ochre); margin: 9px 0 4px; line-height: 1.2; text-wrap: pretty;
+  color: var(--ochre-text); margin: 9px 0 4px; line-height: 1.2; text-wrap: pretty;
 }
 .toc-col > .toc-head:first-child { margin-top: 0; }
 .toc-row {
@@ -1103,7 +1111,7 @@ select { max-width: 280px; }
 }
 .fm-sub {
   font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
-  font-weight: 600; color: var(--ochre); margin: 14px 0 5px;
+  font-weight: 600; color: var(--ochre-text); margin: 14px 0 5px;
 }
 .fm-block:first-child .fm-sub:first-child { margin-top: 0; }
 .fm-p { font-size: 11px; line-height: 1.55; margin-bottom: 6px; text-wrap: pretty; }
@@ -1119,7 +1127,7 @@ select { max-width: 280px; }
 .fm-pantry { grid-template-columns: 132px 1fr; gap: 0 12px; }
 .fm-pantry > div { font-size: 10.5px; line-height: 1.4; padding: 3px 0; }
 .fm-pantry > div:nth-child(odd) {
-  color: var(--ochre); font-size: 9px; letter-spacing: 0.08em;
+  color: var(--ochre-text); font-size: 9px; letter-spacing: 0.08em;
   text-transform: uppercase; padding-top: 4.5px; white-space: normal;
 }
 .fm-warn {
@@ -1218,7 +1226,7 @@ select { max-width: 280px; }
 .shelf-h {
   display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--ochre); font-weight: 600;
+  color: var(--ochre-text); font-weight: 600;
   padding-bottom: 7px; border-bottom: 1px solid var(--line); margin-bottom: 2px;
 }
 .shelf-n { letter-spacing: 0.08em; color: var(--muted); font-weight: 400; }
@@ -1237,9 +1245,13 @@ select { max-width: 280px; }
    it is faint at rest and solid under the cursor. A mouse can hit 24px; a thumb
    is given the 34px back below, where the columns have collapsed to one. */
 .pitem-x {
-  border: 0; background: transparent; color: var(--line-firm); cursor: pointer;
+  /* Was --line-firm at half opacity: about 1.4:1 against the page, for a
+     control, where 3:1 is the floor. --muted is 5.08:1 and is already what
+     this same glyph uses on a switched-off row a few rules down. The quiet
+     comes from the tint behind it now rather than from fading the mark. */
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
   font-size: 17px; line-height: 1; width: 24px; height: 24px; flex: 0 0 auto;
-  border-radius: 50%; opacity: 0.5; transition: opacity 0.12s;
+  border-radius: 50%; opacity: 0.72; transition: opacity 0.12s, background 0.12s;
 }
 .pitem:hover .pitem-x, .pitem-x:focus-visible { opacity: 1; }
 .pitem-x:hover { color: var(--ochre); background: oklch(0.62 0.10 55 / 0.10); }
@@ -1280,4 +1292,4 @@ select { max-width: 280px; }
    look like the subject. Colour is not the only cue either — the foot of
    every recipe still spells the same items out in words, so a photocopied
    page loses nothing. */
-.ing-buy { color: var(--ochre); }
+.ing-buy { color: var(--ochre-text); }

@@ -21,58 +21,83 @@
 
 /* Bump this when the shell changes. The old cache is deleted on activate, which
    is what gets a phone that is holding a previous build onto the current one. */
-var CACHE = 'storehouse-v44';
+var CACHE = 'storehouse-v45';
 
-var SHELL = [
+/* The app itself. If any one of these does not arrive, the install fails and
+   the phone keeps the worker and the cache it already had. */
+var CORE = [
   './',
   './index.html',
-  './src/style.css?v=45',
-  './src/config.js?v=45',
-  './src/sync.js?v=45',
-  './src/app.js?v=45',
-  './data/recipes.js?v=45',
-  './data/nutrition.js?v=45',
-  './data/art.js?v=45',
-  './data/qr.js?v=45',
+  './src/style.css?v=46',
+  './src/config.js?v=46',
+  './src/sync.js?v=46',
+  './src/app.js?v=46',
+  './data/recipes.js?v=46',
+  './data/nutrition.js?v=46',
+  './data/art.js?v=46',
+  './data/qr.js?v=46',
+  './manifest.webmanifest'
+];
+
+/* Pictures and typefaces. Worth having offline, not worth failing over. */
+var EXTRAS = [
   './art/easy-lunches-wraps-and-after-school-favorites.png',
   './art/elaborate-sunday-feasts-and-roasts.png',
   './art/for-the-love-of-chocolate.png',
+  './art/high-protein-batch-meal-preps.png',
   './art/kid-approved-weeknight-comfort-dinners.png',
+  './art/low-calorie-cut-snacks-and-late-night-treats.png',
+  './art/morning-brews-and-high-protein-breakfasts.png',
   './art/simple-family-treats-and-desserts.png',
   './art/speedy-weekday-breakfasts-and-morning-treats.png',
   './art/the-copycat-shelf.png',
   './art/worth-the-afternoon.png',
+  './art/zero-cook-and-grab-and-go-fuel.png',
   './fonts/source-serif-4-latin-wght-normal.woff2',
   './fonts/source-serif-4-latin-wght-italic.woff2',
   './fonts/work-sans-latin-wght-normal.woff2',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-180.png',
-  './icons/icon-32.png',
-  './manifest.webmanifest'
+  './icons/icon-32.png'
 ];
+
+var SHELL = CORE.concat(EXTRAS);
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE)
-      // one missing file must not take the whole install down with it
       .then(function (c) {
+        /* Split, because "one missing file must not take the whole install
+           down with it" was only half right. It is true of a section
+           illustration and false of app.js: every fetch failure was swallowed,
+           install resolved anyway, and activate then deleted the previous
+           cache — so a phone updating on a flaky connection ended up with a
+           new cache missing the scripts and no old cache to fall back on. The
+           app it had been opening offline for months stopped opening at all.
+           The core must all arrive or the install fails, which leaves the
+           working worker and its cache exactly where they were. */
         /* 'reload' for the same reason the navigate handler uses 'no-cache':
            GitHub Pages serves these with max-age=600, and cache.add() goes
            through the browser's own HTTP cache. So a new service worker could
            seed its brand-new cache with files up to ten minutes old, and then
            serve them cache-first for as long as that cache lived. The
-           versioned URLs were never at risk — ?v=45 is a URL the HTTP cache
+           versioned URLs were never at risk — ?v=46 is a URL the HTTP cache
            has never seen — but data/recipes.js carried no version, so the one
            file that changes every time recipes are added was the one file that
            could arrive stale and stay that way. Both halves are fixed: the
            data files are versioned now, and the shell no longer trusts the
            HTTP cache to tell it what is current. */
-        return Promise.all(SHELL.map(function (u) {
-          return fetch(u, { cache: 'reload' })
-            .then(function (res) { return res && res.ok ? c.put(u, res) : null; })
-            .catch(function () {});
-        }));
+        var get = function (u) {
+          return fetch(u, { cache: 'reload' }).then(function (res) {
+            if (!res || !res.ok) throw new Error(u);
+            return c.put(u, res);
+          });
+        };
+        return Promise.all(CORE.map(get)).then(function () {
+          // the rest is pictures and typefaces: nice to have offline, not the app
+          return Promise.all(EXTRAS.map(function (u) { return get(u).catch(function () {}); }));
+        });
       })
       .then(function () { return self.skipWaiting(); })
   );
@@ -123,13 +148,33 @@ self.addEventListener('fetch', function (e) {
     e.respondWith(
       fetch(req, { cache: 'no-cache' })
         .then(function (res) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+          /* Only a real answer from this origin gets kept. Anything that came
+             back was being written over the cached page before — so a hotel
+             wifi login screen, which is a perfectly successful 200 for a
+             document that is not this one, or a 502 from a bad deploy, became
+             the copy the phone opened with no signal from then on. A page that
+             will not load is recoverable; a page that loads and is wrong is
+             the one somebody stands in a basement arguing with. */
+          if (res && res.ok && res.type === 'basic') {
+            var copy = res.clone();
+            caches.open(CACHE).then(function (c) { c.put(req, copy); });
+          }
           return res;
         })
         .catch(function () {
           return caches.match(req).then(function (hit) {
-            return hit || caches.match('./index.html');
+            /* The shell answers for the app's own address and nothing else.
+               It used to answer for any same-origin path, so a mistyped or
+               dead URL came back as a working-looking cookbook rather than as
+               a page that could not be found. */
+            if (hit) return hit;
+            var root = new URL('./', self.location).pathname;
+            if (url.pathname === root || url.pathname === root + 'index.html') {
+              return caches.match('./index.html');
+            }
+            return new Response('Not available offline.', {
+              status: 404, headers: { 'content-type': 'text/plain' }
+            });
           });
         })
     );
