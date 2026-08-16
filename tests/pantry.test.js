@@ -121,7 +121,25 @@ module.exports = {
       return { last: h.filter((x) => !/Not kept/.test(x)).pop(), note: document.getElementById('pantryNote').textContent };
     });
     t.ok('what you add yourself gets a shelf and survives a reload',
-      own.last === 'Yours' && /101 items/.test(own.note), JSON.stringify(own));
+      own.last === 'Yours' && /100 items/.test(own.note), JSON.stringify(own));
+
+    /* This assertion is the one whose absence let the bug ship, and the count
+       above is the evidence of it. It used to read 101 — one hundred
+       storehouse items plus the oil — which is only the right number if the
+       "I don't keep cottage cheese" answer above has been forgotten across the
+       reload. It had been: LS.pantry and LS.pantryNew were undefined, so both
+       saves landed on one localStorage key named "undefined" and the second
+       overwrote the first. The suite reloaded, saw the answer gone, and
+       asserted the count that proved it.
+       100 is the hundred, less the one taken off, plus the one added. */
+    t.ok('and so does the answer you gave before it',
+      (await p.evaluate(() => window.Store.pantryHas('cottage_cheese', true))) === false,
+      await p.evaluate(() => JSON.stringify(window.Store.state.pantry)));
+    t.ok('each of which is saved under a name, not under "undefined"',
+      await p.evaluate(() => localStorage.getItem('undefined') === null &&
+        localStorage.getItem('bsc.pantry') !== null &&
+        localStorage.getItem('bsc.pantryNew') !== null),
+      await p.evaluate(() => Object.keys(localStorage).sort().join(' ')));
 
     // and back to the book
     await p.evaluate(() => window.Store.resetPantry());

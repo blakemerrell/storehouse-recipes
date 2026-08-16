@@ -449,7 +449,11 @@
       var chip = r.score === null
         ? '<span class="chip plain">' + esc(diffLabel(r.diff)) + '</span>'
         : leaf(r.score);
-      return '<button class="card" data-open="' + r.id + '">' +
+      /* esc, like every other interpolation on this card. A recipe id is
+         generated locally and is safe — but a recipe arriving from the shared
+         household document was typed by somebody else, and the whole point of
+         a household is that it holds other people's writing. */
+      return '<button class="card" data-open="' + esc(r.id) + '">' +
         '<span class="card-top">' +
           '<span class="card-num">' + BOOKS[r.book].short + ' · ' + no(r) + '</span>' +
           '<span class="card-fav">' + (fav ? '★ Saved' : '') + '</span>' +

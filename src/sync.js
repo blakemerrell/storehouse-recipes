@@ -25,8 +25,31 @@ window.Store = (function () {
   var LS = {
     favs: 'bsc.favs', weeks: 'bsc.weeks', active: 'bsc.active', house: 'bsc.house',
     mine: 'bsc.mine', edits: 'bsc.edits',
+    /* These two were missing for as long as the pantry has existed. saveLocal
+       wrote to LS.pantry and LS.pantryNew, both of which were undefined, so
+       both calls landed on one localStorage key literally named "undefined" —
+       the second overwriting the first — and init read that same key back into
+       both fields. Every "I don't keep this" answer died on the next reload,
+       and state.pantry came back holding the {l,c} shape of pantryNew rather
+       than the 1/0 the rest of this file expects. */
+    pantry: 'bsc.pantry', pantryNew: 'bsc.pantryNew',
     plan: 'bsc.plan', checked: 'bsc.checked'   // the single week this replaced
   };
+
+  /* What the bug left behind. pantryNew was written second, so the stray key
+     holds the shelf items somebody typed in by hand — the part that cannot be
+     reconstructed from anything else. The overrides that were written first
+     are not recoverable; they were overwritten on every save. Read once, moved
+     to its proper key, and the stray removed so this never runs again. */
+  function rescueStrayPantry() {
+    try {
+      if (localStorage.getItem('bsc.pantryNew') === null) {
+        var stray = localStorage.getItem('undefined');
+        if (stray) localStorage.setItem('bsc.pantryNew', stray);
+      }
+      localStorage.removeItem('undefined');
+    } catch (e) { /* private mode: nothing to rescue and nowhere to put it */ }
+  }
 
   /* The week carried over from the one-week version gets a fixed id, so if both
      phones do the conversion at the same moment they write the same thing
@@ -60,6 +83,7 @@ window.Store = (function () {
   var statusNote = '';
   var house = '';
   var pendingMerge = false;   // set by join(), consumed by the next connect()
+  var queued = [];            // writes made before the connection was up
   var listeners = [];
   var db = null, doc = null, unsub = null, FV = null;
 
@@ -140,6 +164,19 @@ window.Store = (function () {
     state.active = d.active && weeks[d.active] ? d.active : ids()[0];
     state.mine = obj(d.mine);
     state.edits = obj(d.edits);
+    /* The shelf travelled one way only. setPantry and addPantryItem have
+       always written pantry.<key> and pantryNew.<key> up to the document, but
+       nothing ever read them back — so the second phone in a household never
+       saw a word of it, and a phone that cleared its browser could not recover
+       its own. */
+    /* Only when the document actually carries them. A household written by any
+       version before this one has no pantry field at all, and treating that as
+       "the shelf is empty" would clear the very answers this change exists to
+       keep — on the first load after the upgrade, before the phone had any
+       chance to contribute them. An emptied shelf is a different thing and
+       looks different: resetPantry writes pantry: {}, which is present. */
+    if (d.pantry !== undefined) state.pantry = obj(d.pantry);
+    if (d.pantryNew !== undefined) state.pantryNew = obj(d.pantryNew);
     derive();
     return made;
   }
@@ -189,7 +226,11 @@ window.Store = (function () {
     state.favs.forEach(function (id) { if (favs.indexOf(id) < 0) favs.push(id); });
     if (favs.length !== theirFavs.length) { out.favs = favs; any = true; }
 
-    ['mine', 'edits'].forEach(function (k) {
+    /* pantry and pantryNew join these because they are the same shape of
+       thing: a map keyed by something stable, where a key this phone has and
+       the household has not is a contribution rather than a conflict. A shelf
+       answer the household already holds stands, like everything else here. */
+    ['mine', 'edits', 'pantry', 'pantryNew'].forEach(function (k) {
       var theirs = obj(d[k]), mine = obj(state[k]), add = {};
       Object.keys(mine).forEach(function (id) {
         if (!(id in theirs)) add[id] = mine[id];
@@ -223,6 +264,14 @@ window.Store = (function () {
      between joining a household and losing everything on the phone that
      joined, and it is worth checking without a network in front of it. */
   window.__contribute = function (d) { return contribute(d); };
+
+  /* Also for tests. Both of these are invisible from outside and both are
+     places a change quietly went missing: pendingMerge decides whether the
+     next connect contributes or adopts, and queued holds the writes made
+     before there was anywhere to send them. */
+  window.__syncDebug = function () {
+    return { pendingMerge: pendingMerge, queued: queued.length, status: status };
+  };
 
   function configured() {
     var c = window.FIREBASE_CONFIG;
@@ -270,7 +319,8 @@ window.Store = (function () {
   function localDoc() {
     return {
       favs: state.favs, weeks: state.weeks, active: state.active,
-      mine: state.mine, edits: state.edits
+      mine: state.mine, edits: state.edits,
+      pantry: state.pantry, pantryNew: state.pantryNew
     };
   }
 
@@ -282,18 +332,26 @@ window.Store = (function () {
        load, and merging then would be wrong in a way that is hard to see: this
        phone's mirror is stale by definition, so anything the other phone had
        deleted since would be put back by the phone that had not heard yet. */
-    var merging = pendingMerge; pendingMerge = false;
+    var merging = pendingMerge;
 
     ready().then(function () {
       doc = db.collection('households').doc(house);
       return doc.get().then(function (snap) {
         // first device into a new household seeds it with whatever is already here
-        if (!snap.exists) return doc.set(localDoc());
+        if (!snap.exists) { pendingMerge = false; return doc.set(localDoc()); }
         if (!merging) return;
         var add = contribute(snap.data() || {});
-        if (add) return doc.set(add, { merge: true });
+        /* Only once the contribution is actually away. This used to be cleared
+           at the top of connect(), which meant a join attempted with no signal
+           threw the intention away while join() had already written the house
+           code to localStorage — so the next launch adopted the household over
+           the top of this phone instead of contributing to it, which is the
+           very thing contribute() exists to prevent, moved into the failure
+           path where nobody would see it. */
+        return Promise.resolve(add ? doc.set(add, { merge: true }) : null)
+          .then(function () { pendingMerge = false; });
       });
-    }).then(function () {
+    }).then(flushQueued).then(function () {
       if (unsub) unsub();
       unsub = doc.onSnapshot(function (snap) {
         var d = snap.data() || {};
@@ -335,7 +393,24 @@ window.Store = (function () {
        the one thing that would genuinely lose it. */
     if (doc && status !== 'local' && status !== 'error') {
       remote().catch(function (err) { setStatus('error', (err && err.message) || 'Write failed.'); });
+      return;
     }
+    /* Not local, but not able to send either: `doc` is null for the second or
+       two it takes to fetch three scripts and sign in, and stays null after a
+       failure. A tap in that window used to be applied here and then dropped —
+       Firestore never saw it, so its own offline queue never held it, and the
+       first snapshot to arrive adopted the household over the top of it. Held
+       here instead, and sent by connect() before it starts listening. */
+    if (house && configured()) queued.push(remote);
+  }
+
+  /* In order, and not cleared until they are away — a flush that fails must
+     leave the work where it was rather than swallowing it a second time. */
+  function flushQueued() {
+    if (!queued.length) return Promise.resolve();
+    var sending = queued.slice();
+    return sending.reduce(function (p, fn) { return p.then(function () { return fn(); }); },
+      Promise.resolve()).then(function () { queued = queued.slice(sending.length); });
   }
 
   /* Store a day back. Anything cooked at its own serving count goes in as a
@@ -371,20 +446,36 @@ window.Store = (function () {
 
     init: function (onChange) {
       listeners.push(onChange);
+      rescueStrayPantry();
       state.favs = read(LS.favs, []);
-      state.pantry = read(LS.pantry, {});
-      state.pantryNew = read(LS.pantryNew, {});
+      /* The pantry goes through adopt with everything else now that adopt
+         restores it — reading it into state first and then calling adopt would
+         hand it straight back an empty document and undo the read. */
       adopt({
         weeks: read(LS.weeks, null),
         active: read(LS.active, ''),
         mine: read(LS.mine, {}),
         edits: read(LS.edits, {}),
+        pantry: read(LS.pantry, {}),
+        pantryNew: read(LS.pantryNew, {}),
         plan: read(LS.plan, {}),        // whatever the one-week version left behind
         checked: read(LS.checked, {})
       });
       saveLocal();
       house = read(LS.house, '') || '';
       if (house && configured()) connect(); else setStatus('local');
+
+      /* A way out of 'error'. It used to latch for the whole session: the SDK
+         fails to load on a phone with no bars, status goes to error, and
+         nothing ever tried again — so everything after that was held in the
+         queue above with nowhere to go until the app was killed and reopened.
+         Coming back onto a network is the moment to retry, and connect() is
+         safe to call twice: it drops the old listener before taking a new one. */
+      if (window.addEventListener) {
+        window.addEventListener('online', function () {
+          if (house && configured() && (status === 'error' || status === 'waiting')) connect();
+        });
+      }
     },
 
     isFav: function (id) { return state.favs.indexOf(id) >= 0; },

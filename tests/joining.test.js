@@ -132,6 +132,51 @@ module.exports = {
     t.ok('and they are not all the same one',
       new Set(codes).size > 150, new Set(codes).size + ' distinct of 200');
 
+    /* ---- joining with no signal ------------------------------------------
+     *
+     * The half of this that had no test, and the half that broke. connect()
+     * used to clear pendingMerge at the top, before it had done anything —
+     * so a join attempted with no signal threw away the intention to
+     * contribute while join() had already written the household code to
+     * localStorage. The next launch found a code, no pending merge, and
+     * adopted the household straight over the top of this phone: the exact
+     * loss contribute() exists to prevent, moved into the failure path where
+     * nobody would look for it.
+     *
+     * There is no network in this container, so ready() genuinely cannot load
+     * the SDK. That is the failure being tested, arriving by itself.
+     *
+     * The same window is what queues writes: with `doc` still null there is
+     * nowhere to send a change, and it used to be applied locally and then
+     * dropped, to be overwritten by the first snapshot that ever arrived. */
+    const off = await t.browser.newContext();
+    const q = await off.newPage();
+    await q.goto(t.base + 'index.html');
+    await q.evaluate(() => localStorage.clear());
+    await q.reload();
+    await q.evaluate(() => window.Store.join('KETTLE-4827-ORCHARD'));
+    await q.waitForTimeout(2500);
+
+    const state = await q.evaluate(() => window.__syncDebug());
+    t.ok('a join that cannot reach the server does not give up on merging',
+      state.pendingMerge === true, JSON.stringify(state));
+    t.ok('and says so rather than claiming to be synced',
+      state.status === 'error' || state.status === 'connecting', state.status);
+
+    /* Applied here, and held for the connection rather than dropped. */
+    await q.evaluate(() => window.Store.toggleFav(42));
+    await q.waitForTimeout(300);
+    const after = await q.evaluate(() => ({
+      dbg: window.__syncDebug(),
+      fav: window.Store.isFav(42),
+      saved: JSON.parse(localStorage.getItem('bsc.favs') || '[]'),
+    }));
+    t.ok('a change made before the connection is up is kept on the phone',
+      after.fav && after.saved.indexOf(42) >= 0, JSON.stringify(after));
+    t.ok('and held for the server rather than dropped',
+      after.dbg.queued > 0, JSON.stringify(after.dbg));
+
+    await off.close();
     await ctx.close();
   },
 };
