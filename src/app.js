@@ -62,7 +62,7 @@
          only name on the shelf where the title and the food make the same claim.
          What protein and fiber buy you is the afternoon. */
       name: 'Run and Not Be Weary', short: 'RUN',
-      blurb: 'One hundred recipes built on protein, fiber and staying full, with primary ingredients from the Bishops’\u00a0Storehouse. Every one carries real macros and a computed nutrition score.',
+      blurb: '{N1} recipes built on protein, fiber and staying full, with primary ingredients from the bishops’\u00a0storehouse. Every one carries real macros and a computed nutrition score.',
       epigraph: {
         t: ['And shall run and not be weary,', 'and shall walk and not faint.'],
         r: 'Doctrine and Covenants 89:20',
@@ -70,7 +70,7 @@
     },
     2: {
       name: 'Around the Table', short: 'TABLE',
-      blurb: 'One hundred sixty‑six family recipes with primary ingredients from the Bishops’\u00a0Storehouse: three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.',
+      blurb: '{N2} family recipes with primary ingredients from the bishops’\u00a0storehouse: three‑minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.',
       epigraph: {
         t: ['And did eat their meat with gladness', 'and singleness of heart.'],
         r: 'Acts 2:46',
@@ -82,14 +82,14 @@
     }
   };
 
-  /* The combined edition. Not a fourth volume — the same 271 recipes as one
-     object, for anyone spiral-binding them rather than folding two booklets.
-     It needs its own cover copy because every word of Volume One's is about
-     being one of two. */
+  /* The combined edition. Not a fourth volume — the same recipes as one object,
+     for anyone spiral-binding them rather than folding two booklets. It needs
+     its own cover copy because every word of Volume One's is about being one
+     of two. */
   var ONE_BOOK = {
     name: APP_NAME + ' ' + APP_LINE,
-    blurb: 'Two hundred and seventy-one recipes with primary ingredients from the Bishops\u2019\u00a0Storehouse, ' +
-      'in two parts: a hundred and eleven built on protein and fiber, and a hundred and sixty for the family table.',
+    blurb: '{N} recipes with primary ingredients from the bishops\u2019\u00a0storehouse, ' +
+      'in two parts: {n1} built on protein and fiber, and {n2} for the family table.',
     epigraph: {
       t: ['And shall run and not be weary,', 'and shall walk and not faint.'],
       r: 'Doctrine and Covenants 89:20',
@@ -100,9 +100,57 @@
      app for the first time lands here, and until this line existed the whole
      answer to "what are the two volumes" was the words "two volumes" in the
      bar at the top. */
-  var COLLECTION_BLURB = 'Two volumes, with primary ingredients from the Bishops’\u00a0Storehouse. Run and ' +
-    'Not Be Weary is a hundred and eleven recipes built on protein and fiber; Around the Table is a hundred ' +
-    'and sixty family recipes, from three-minute breakfasts to Sunday roasts.';
+  var COLLECTION_BLURB = 'Two volumes, with primary ingredients from the bishops’\u00a0storehouse. Run and ' +
+    'Not Be Weary is {n1} recipes built on protein and fiber; Around the Table is {n2} ' +
+    'family recipes, from three-minute breakfasts to Sunday roasts.';
+
+  /* ------------------------------------------------------------------------
+   * The counts in those four blurbs.
+   *
+   * Every one of them used to be typed out — "One hundred recipes", "One
+   * hundred sixty-six", "Two hundred and seventy-one" — and every one of them
+   * was correct on the day it was written. Then six drinks were added, then
+   * five more, and the numbers stayed where they were: the browse heading said
+   * a hundred while the count under it said a hundred and eleven, and the same
+   * wrong sentence was printed on the cover and the title page of the book. A
+   * number nobody can see going stale, on the one page you pay a copy shop to
+   * make permanent.
+   *
+   * So the blurbs hold a token and the collection holds the number. {n1} and
+   * {n2} are the two volumes, {n} is whatever is being printed; the capital
+   * forms start a sentence. The rest of the app already counts this way —
+   * the header, the browse count, the contents page — and these were the last
+   * four places carrying a second copy of the answer.
+   * --------------------------------------------------------------------- */
+  var ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
+    'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
+    'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  var TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy',
+    'eighty', 'ninety'];
+
+  function spell(n) {
+    n = Math.max(0, Math.round(n || 0));
+    if (n > 999) return String(n);         // no book is going to reach this
+    var small = function (x) {
+      if (x < 20) return ONES[x];
+      return TENS[Math.floor(x / 10)] + (x % 10 ? '-' + ONES[x % 10] : '');
+    };
+    if (n < 100) return small(n) || 'no';
+    var h = ONES[Math.floor(n / 100)] + ' hundred';
+    return n % 100 ? h + ' and ' + small(n % 100) : h;
+  }
+
+  /* Mid-sentence English prefers "a hundred and eleven" to "one hundred and
+     eleven"; the start of a sentence takes the capital and keeps the "one". */
+  function fillCounts(s, list) {
+    var by = { 1: 0, 2: 0, 3: 0 };
+    (list || []).forEach(function (r) { if (by[r.book] !== undefined) by[r.book]++; });
+    return String(s).replace(/\{([nN])([123]?)\}/g, function (_, c, b) {
+      var w = spell(b ? by[b] : (list || []).length);
+      if (c === 'N') return w.charAt(0).toUpperCase() + w.slice(1);
+      return w.replace(/^one hundred/, 'a hundred');
+    });
+  }
 
   /* What the section picker calls each section. The full names are written
      for a printed contents page, where "Low-Calorie Cut Snacks & Late-Night
@@ -451,7 +499,7 @@
     /* Not while searching. Once you have typed "chicken" the heading is no
        longer about a book and the line under it is in the way of the answer. */
     $('browseBlurb').textContent = qs ? ''
-      : (BOOKS[S.bookF] ? BOOKS[S.bookF].blurb : COLLECTION_BLURB);
+      : fillCounts(BOOKS[S.bookF] ? BOOKS[S.bookF].blurb : COLLECTION_BLURB, RECIPES);
     /* Say how many are here on their own merits and how many arrived because
        their section is named for the search. Without it, "breakfast" returning
        fifty recipes reads as fifty breakfasts, and the reader scrolls looking
@@ -1127,7 +1175,7 @@
          hundred recipes need something the storehouse does not stock, which is
          why every recipe carries a line at its foot saying so. "Actually" was
          arguing with somebody, too. Nobody had said otherwise. */
-      '<div class="fm-lede">Primary ingredients come from the Bishops’&nbsp;Storehouse order.</div>');
+      '<div class="fm-lede">Primary ingredients come from the bishops’&nbsp;storehouse order.</div>');
     block('<div class="fm-sub">The number</div>' +
       '<div class="fm-p">Every recipe has one, running from 001 straight through both volumes. ' +
       'The contents at the front of each book lists them in order with its page.</div>');
@@ -1360,9 +1408,14 @@
         : vol.grouped ? (S.printSet === 'fav' ? 'Favorites' : 'This Week')
         : BOOKS[vol.book].name;
       vol.title = title;
-      var sub = vol.single ? ONE_BOOK.blurb
+      /* Counted off vol.list rather than the whole collection, because that is
+         what this cover is the cover of. Printing Volume One alone and
+         printing it as half of the combined edition are different books with
+         different numbers on them, and the sentence should say the one it is
+         on. */
+      var sub = fillCounts(vol.single ? ONE_BOOK.blurb
         : vol.grouped ? (S.printSet === 'fav' ? 'The ones worth keeping.' : 'The week’s cooking, in order.')
-        : BOOKS[vol.book].blurb;
+        : BOOKS[vol.book].blurb, vol.list);
       var volStart = out.length;
       out.push({ kind: 'cover', html: coverHTML(vol, title, sub,
         vol.list.length + (vol.list.length === 1 ? ' recipe' : ' recipes')) });

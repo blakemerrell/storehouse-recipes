@@ -58,6 +58,37 @@ function playwright() {
   process.exit(2);
 }
 
+/* The page count printed on the Download button, written back into the app.
+ *
+ * READY_MADE in src/app.js says how many pages each shipped PDF has, and until
+ * now that number was typed in by hand after looking at the console output
+ * above. It was wrong three separate times in one afternoon of adding recipes,
+ * which is the whole shape of the problem: two copies of one fact, and only
+ * one of them gets updated when the fact moves. The renderer knows the answer
+ * — it just counted the pages — so it writes it down instead of announcing it
+ * and hoping.
+ *
+ * Only the books actually rendered this run are touched. `node tools/print-
+ * books.js 1` leaves the other three alone, because their files on disk are
+ * also untouched and their numbers are therefore still right.
+ */
+function stampPageCounts(made) {
+  const file = path.join(ROOT, 'src', 'app.js');
+  let src = fs.readFileSync(file, 'utf8');
+  const done = [];
+  Object.keys(made).forEach((key) => {
+    const re = new RegExp("(file: '" + BOOKS[key].replace(/\./g, '\\.') + "',[^}]*?pages: )(\\d+)");
+    const m = src.match(re);
+    if (!m) { console.log('  ' + BOOKS[key] + ' is not in READY_MADE — page count not recorded'); return; }
+    if (Number(m[2]) !== made[key]) done.push(BOOKS[key] + ' ' + m[2] + ' -> ' + made[key]);
+    src = src.replace(re, '$1' + made[key]);
+  });
+  if (!done.length) return;
+  fs.writeFileSync(file, src);
+  console.log('\nsrc/app.js READY_MADE updated: ' + done.join(', ') +
+    '\n  bump ?v= in index.html and sw.js so phones pick it up.');
+}
+
 (async () => {
   const want = process.argv.slice(2);
   const jobs = (want.length ? want : ['1', '2', 'all', 'one']).filter((k) => BOOKS[k]);
@@ -76,6 +107,7 @@ function playwright() {
   await page.evaluate(() => document.fonts.ready);
   await page.click('.tab[data-view="book"]');
 
+  const made = {};
   for (const key of jobs) {
     await page.selectOption('#printSet', key);
 
@@ -95,6 +127,7 @@ function playwright() {
     await page.pdf({ path: file, width: '5.5in', height: '8.5in', printBackground: true, preferCSSPageSize: true });
     await page.emulateMedia({ media: 'screen' });
 
+    made[key] = last;
     console.log(BOOKS[key].padEnd(26), String(last).padStart(3), 'pages  ',
       String(Math.round(fs.statSync(file).size / 1024)).padStart(4) + ' KB');
 
@@ -116,4 +149,5 @@ function playwright() {
   await browser.close();
   srv.close();
   console.log('\nin ' + path.relative(process.cwd(), OUT) + '/');
+  stampPageCounts(made);
 })();

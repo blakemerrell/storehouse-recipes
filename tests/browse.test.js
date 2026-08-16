@@ -36,6 +36,52 @@ module.exports = {
     t.ok('and picking one says what that one is',
       /protein, fiber/.test(await blurb()), await blurb());
 
+    /* The number in the sentence, against the number of recipes there are.
+     *
+     * Both volume blurbs opened with a count typed out in words, and both were
+     * wrong: "One hundred recipes" over a hundred and eleven, "One hundred
+     * sixty-six" over a hundred and sixty. Nothing caught it because nothing
+     * read the sentence — and the same sentence is printed on the cover and
+     * the title page of the book, so the stale number went to a print shop.
+     *
+     * The blurbs hold a token now and the collection fills it in, which is
+     * what this checks: not that it says a hundred and eleven, but that
+     * whatever it says is what is actually there. */
+    const WORDS = {
+      one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+      nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,
+      fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+      twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70,
+      eighty: 80, ninety: 90, a: 1,
+    };
+    const counts = (w) => w === 'hundred' || w === 'and' ||
+      w.split('-').every((x) => WORDS[x] !== undefined);
+    // the leading run of number words: "One hundred and eleven recipes..." -> 111
+    const said = (line) => {
+      let n = 0, part = 0;
+      for (const raw of line.split(/[\s ]+/)) {
+        const w = raw.toLowerCase().replace(/[^a-z-]/g, '');
+        if (!w || !counts(w)) break;
+        if (w === 'and') continue;
+        if (w === 'hundred') { n += (part || 1) * 100; part = 0; continue; }
+        w.split('-').forEach((x) => { part += WORDS[x]; });
+      }
+      return n + part;
+    };
+
+    for (const book of ['1', '2']) {
+      await p.click('[data-book="' + book + '"]');
+      await p.waitForTimeout(150);
+      const line = await blurb();
+      const real = await p.evaluate((b) => window.RECIPES.filter((r) => r.book === Number(b)).length, book);
+      t.ok('volume ' + book + ' counts itself right in its own blurb',
+        said(line) === real, said(line) + ' said, ' + real + ' there — "' + line.slice(0, 60) + '"');
+      t.ok('volume ' + book + ' blurb uses the Church’s casing',
+        /bishops’ ?\s?storehouse/.test(line) && !/Bishops|Storehouse/.test(line), line.slice(0, 90));
+    }
+    await p.click('[data-book="1"]');
+    await p.waitForTimeout(150);
+
     /* Once you have typed a dish name the heading is no longer about a book,
        and a paragraph about the volumes sits between you and the answer. */
     await p.fill('#search', 'chicken'); await p.waitForTimeout(400);

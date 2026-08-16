@@ -74,6 +74,30 @@ module.exports = {
         imp.getPageCount() + ' sides at ' + (size.width / 72).toFixed(1) + ' x ' + (size.height / 72).toFixed(1));
     }
 
+    /* "Download PDF · 108 pages" — against the pages the PDF actually has.
+     *
+     * READY_MADE in src/app.js carried those four numbers by hand, and hand is
+     * the whole problem: three of them were wrong within a single afternoon of
+     * adding recipes, and the button went on confidently offering a page count
+     * from two builds ago. Nobody can tell a wrong number from a right one by
+     * looking, which is what makes it worth a test rather than a proofread.
+     *
+     * tools/print-books.js writes them now, straight off the render. This is
+     * the check that it did, and that nobody has since edited one back. */
+    const table = (fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8')
+      .match(/var READY_MADE = \{[\s\S]*?\n {2}\};/) || [''])[0];
+    const claims = [...table.matchAll(/file: '([^']+)'[^}]*?pages: (\d+)/g)];
+    t.ok('the ready-made table lists every file the app can offer',
+      claims.length === 4, claims.length + ' rows found');
+    for (const [, file, claimed] of claims) {
+      const full = path.join(DIR, file);
+      if (!fs.existsSync(full)) { t.ok(file + ' exists to be counted', false, 'missing'); continue; }
+      const real = (await PDFDocument.load(fs.readFileSync(full))).getPageCount();
+      t.ok('the button offering ' + file + ' names its real length',
+        Number(claimed) === real,
+        'button says ' + claimed + ', file has ' + real + ' — run npm run print');
+    }
+
     // and the selections that cannot be made ahead of time fall back to printing
     await p.selectOption('#printSet', 'fav');
     await p.waitForTimeout(800);
