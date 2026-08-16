@@ -39,7 +39,26 @@ const UNITS = {
 
 // containers whose stated "(N oz)" is a gross weight; canned protein and beans
 // lose liquid when drained.
-const DRAIN = { tuna: 0.85, chicken_canned: 0.85, black_beans: 0.6, pinto_beans: 0.6, white_beans: 0.6, corn: 0.65, green_beans: 0.65, carrot: 0.65 };
+/* What is left after the tin is drained, as a fraction of what the label
+   weighs. A stated size is a gross weight — syrup, brine and all — and only
+   the fruit or the fish goes in the bowl. peaches_canned was missing, so
+   "1 can (29 oz) peaches" weighed 822 g against the 500 g the table gives for
+   a plain "1 can peaches": No. 203 was scored on two-thirds again as much
+   fruit as it has, and the shopping list asked for a second tin. 0.61 puts a
+   29 oz can back at 502 g. */
+const DRAIN = { tuna: 0.85, chicken_canned: 0.85, black_beans: 0.6, pinto_beans: 0.6, white_beans: 0.6, corn: 0.65, green_beans: 0.65, carrot: 0.65, peaches_canned: 0.61 };
+
+/* A tin of something the table only knows raw. "1 can chicken breast" is what
+   is written on the tin and what four recipes say, and it resolved to
+   chicken_breast — raw meat, with none of the salt a tin carries — because
+   the alias matched the words and nothing checked that the food had a `can`
+   weight at all. It then fell through to the `each` weight of a whole raw
+   breast, 174 g, so the recipes lost about a gram of sodium per serving each
+   and gained a protein figure that was never in the room.
+
+   Only consulted when the unit really is a container and the food has no
+   weight for it, which is the shape of the mistake and nothing else. */
+const CANNED = { chicken_breast: 'chicken_canned' };
 
 // vague quantities
 const VAGUE = { dash: 0.02, pinch: 0.02, splash: 2, handful: 0.5 };
@@ -121,7 +140,12 @@ function parseLine(raw) {
 
   const hit = lookupAlias(foodName);
   if (!hit) return { unmatched: foodName, raw };
-  const key = hit.key;
+  let key = hit.key;
+  /* A tin of something the table only knows raw — see CANNED above. */
+  if ((unit === 'can' || unit === 'jar') && CANNED[key] &&
+      !(FOODS[key].g && FOODS[key].g[unit])) {
+    key = CANNED[key];
+  }
   const food = FOODS[key];
 
   // ---- work out grams --------------------------------------------------

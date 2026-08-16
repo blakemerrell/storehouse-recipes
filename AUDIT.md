@@ -69,14 +69,14 @@ The Run and Not Be Weary recipes that fell furthest from their authored score:
 
 | # | Recipe | Was | Now | Sodium | Fiber |
 |---|---|---|---|---|---|
+| 15 | Shredded Chicken & Cold Ranch Salad | 90 | 55 | 1303 mg | 0.6 g |
 | 5 | Smoked Ham & Mustard Pickle Roll-Ups | 90 | 56 | 1532 mg | 1.2 g |
 | 9 | Roast Beef Lettuce Roll-Ups | 89 | 56 | 1215 mg | 1.7 g |
 | 13 | Cheddar & Sliced Ham Protein Stack | 81 | 49 | 1374 mg | 0.5 g |
-| 3 | Quick Canned Chicken & Salsa Bowl | 99 | 72 | 1203 mg | 6.1 g |
+| 3 | Quick Canned Chicken & Salsa Bowl | 99 | 72 | 2249 mg | 6.1 g |
 | 21 | Creamy Chicken & Celery Salad | 81 | 54 | 1380 mg | 0 g |
 | 36 | Ham, Egg & Cheese Scramble Bowl | 72 | 46 | 1079 mg | 0 g |
 | 50 | Scrambled Eggs & Cottage Cheese Power Bowl | 77 | 52 | 1041 mg | 1 g |
-| 53 | Slow-Cooker Shredded Salsa Chicken Bowls | 96 | 71 | 1185 mg | 6.3 g |
 
 Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
 
@@ -96,24 +96,25 @@ its ingredient list is a check on them, not a replacement.
 - Recipes checked: 100
 - Median disagreement on calories: **15%**
 - Within 20% of stated: **61 of 100**
-- Off by 30% or more: **23**
+- Off by 30% or more: **24**
 
 The outliers, worth a look before this goes to print:
 
 | # | Recipe | Stated kcal | Estimated kcal | Diff |
 |---|---|---|---|---|
 | 21 | Creamy Chicken & Celery Salad | 200 | 440 | +120% |
+| 7 | Buffalo Chicken Lettuce Wraps | 210 | 452 | +115% |
+| 15 | Shredded Chicken & Cold Ranch Salad | 220 | 442 | +101% |
 | 67 | Beef & Green Bean Rice Stir-Fry | 410 | 704 | +72% |
 | 86 | Salted Chocolate Cottage Cheese Dip | 120 | 202 | +68% |
-| 3 | Quick Canned Chicken & Salsa Bowl | 310 | 516 | +66% |
 | 48 | Sausage & Egg Muffin Cups | 310 | 122 | -61% |
 | 90 | Frozen Berry Yogurt Pops | 160 | 63 | -61% |
 | 96 | Whipped Strawberry Gelatin Cloud | 120 | 192 | +60% |
 | 38 | Baked Egg & Hash Brown Cups | 270 | 110 | -59% |
+| 3 | Quick Canned Chicken & Salsa Bowl | 310 | 483 | +56% |
 | 65 | Herb Pork Loin & Roasted Carrots | 360 | 549 | +53% |
 | 6 | Sweet Vanilla Yogurt & Grape Crunch | 230 | 343 | +49% |
 | 78 | Zero-Sugar Chocolate Gelatin Fluff | 140 | 76 | -46% |
-| 7 | Buffalo Chicken Lettuce Wraps | 210 | 291 | +39% |
 | 33 | Strawberry Protein Yogurt Parfait | 340 | 468 | +38% |
 | 66 | Chicken & Broccoli Rice Skillet | 420 | 581 | +38% |
 | 57 | Teriyaki Chicken & Broccoli Rice Bowls | 440 | 601 | +37% |

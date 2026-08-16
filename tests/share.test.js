@@ -86,7 +86,18 @@ module.exports = {
       const r = byId[Number(s.no)] || { ingp: [] };
       const out = [];
       (r.ingp || []).forEach((i) => {
-        if (i.k === 'free' || i.k === 'water') return;
+        if (i.k === 'water') return;
+        /* Not `free` wholesale, which is how this promise stayed broken. A
+           free line is a seasoning costing nothing, and most are the salt and
+           cinnamon the storehouse carries — but `x` marks the ones it does
+           not, and skipping the whole class skipped the flag as well. No. 244
+           was on this sheet needing chili powder and cumin from a shop, under
+           a heading that says nothing to buy and nothing to substitute, and
+           the assertion below reported it clean every run. */
+        if (i.k === 'free') {
+          if (i.x && out.indexOf(i.a || 'a seasoning') < 0) out.push(i.a || 'a seasoning');
+          return;
+        }
         const d = P[i.k];
         if (d ? d.s : true) return;
         if (out.indexOf(d ? d.l : i.k) < 0) out.push(d ? d.l : i.k);

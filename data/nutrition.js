@@ -70,7 +70,7 @@ const FOODS = {
   pork_and_beans:  { kcal: 94,  p: 4.8,  c: 17.7, f: 0.9, na: 400, fib: 4, label: 'Pork and beans',  g: { can: 440, cup: 253 } },
 
   // ---- Grains, flours, mixes ---------------------------------------------
-  oats:            { kcal: 379, p: 13.2, c: 67.7, f: 6.5, na: 6, fib: 10.1,  g: { cup: 80, tbsp: 5 }, note: 'dry rolled oats' },
+  oats:            { kcal: 379, p: 13.2, c: 67.7, f: 6.5, na: 6, fib: 10.1,  g: { cup: 80, tbsp: 5 }, def: { qty: 1, unit: 'cup' }, note: 'dry rolled oats' },
   oat_flour:       { kcal: 404, p: 14.7, c: 65.7, f: 9.1, na: 19, fib: 6.5, label: 'Oat flour',  g: { cup: 92, tbsp: 6 } },
   flour:           { kcal: 364, p: 10.3, c: 76.3, f: 1, na: 2, fib: 2.7,    g: { cup: 125, tbsp: 8 }, note: 'all-purpose' },
   rice_dry:        { kcal: 365, p: 7.1,  c: 80,   f: 0.7, na: 5, fib: 1.3, label: 'Rice',  g: { cup: 185 } },
@@ -93,7 +93,7 @@ const FOODS = {
   mashed_potato:   { kcal: 113, p: 2,    c: 17,   f: 4.2, na: 320, fib: 1.5,  g: { cup: 210 }, label: 'Mashed potatoes', note: 'prepared with milk and butter' },
 
   // ---- Vegetables ---------------------------------------------------------
-  carrot:          { kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2, na: 69, fib: 2.8, label: 'Carrots',  g: { lb: 453.6, cup: 128, can: 250, each: 61 } },
+  carrot:          { kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2, na: 69, fib: 2.8, label: 'Carrots',  g: { lb: 453.6, cup: 128, can: 250, each: 61 }, def: { qty: 1, unit: 'each' } },
   green_beans:     { kcal: 20,  p: 1.2,  c: 4.1,  f: 0.1, na: 220, fib: 2.6,  g: { can: 240, cup: 125 }, label: 'Green beans', def: { qty: 1, unit: 'can' }, note: 'canned, drained' },
   corn:            { kcal: 81,  p: 2.6,  c: 19,   f: 1, na: 220, fib: 2.4,    g: { can: 265, cup: 165 }, note: '14.4 oz tin, drained' },
   broccoli:        { kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4, na: 33, fib: 2.6,  g: { lb: 453.6, cup: 91 }, def: { qty: 1, unit: 'lb' } },
@@ -185,7 +185,15 @@ const FOODS = {
  * matter but specificity does: "cream of chicken soup" must exist alongside
  * "chicken" and wins because it is longer.
  */
+/* 'large egg' resolves to the egg entry outright rather than falling into the
+   size block, because that entry's `each` weight of 50 g is already the large
+   egg — it is the USDA standard size. Without this, "2 large eggs" was weighed
+   as three. No recipe in the collection says it today; the editor runs the
+   same parser over whatever somebody types, which is where it would have
+   surfaced. */
 const ALIASES = {
+  'large egg': 'egg', 'large eggs': 'egg',
+  'jumbo egg': 'egg', 'jumbo eggs': 'egg',
   // dairy & eggs
   'milk': 'milk', '2% milk': 'milk', 'cold milk': 'milk', 'splash milk': 'milk', 'whole milk': 'milk',
   'dry milk': 'dry_milk', 'dry milk powder': 'dry_milk', 'non-fat dry milk': 'dry_milk', 'nonfat dry milk': 'dry_milk',
@@ -372,7 +380,26 @@ const UNITS = {
 
 // containers whose stated "(N oz)" is a gross weight; canned protein and beans
 // lose liquid when drained.
-const DRAIN = { tuna: 0.85, chicken_canned: 0.85, black_beans: 0.6, pinto_beans: 0.6, white_beans: 0.6, corn: 0.65, green_beans: 0.65, carrot: 0.65 };
+/* What is left after the tin is drained, as a fraction of what the label
+   weighs. A stated size is a gross weight — syrup, brine and all — and only
+   the fruit or the fish goes in the bowl. peaches_canned was missing, so
+   "1 can (29 oz) peaches" weighed 822 g against the 500 g the table gives for
+   a plain "1 can peaches": No. 203 was scored on two-thirds again as much
+   fruit as it has, and the shopping list asked for a second tin. 0.61 puts a
+   29 oz can back at 502 g. */
+const DRAIN = { tuna: 0.85, chicken_canned: 0.85, black_beans: 0.6, pinto_beans: 0.6, white_beans: 0.6, corn: 0.65, green_beans: 0.65, carrot: 0.65, peaches_canned: 0.61 };
+
+/* A tin of something the table only knows raw. "1 can chicken breast" is what
+   is written on the tin and what four recipes say, and it resolved to
+   chicken_breast — raw meat, with none of the salt a tin carries — because
+   the alias matched the words and nothing checked that the food had a `can`
+   weight at all. It then fell through to the `each` weight of a whole raw
+   breast, 174 g, so the recipes lost about a gram of sodium per serving each
+   and gained a protein figure that was never in the room.
+
+   Only consulted when the unit really is a container and the food has no
+   weight for it, which is the shape of the mistake and nothing else. */
+const CANNED = { chicken_breast: 'chicken_canned' };
 
 // vague quantities
 const VAGUE = { dash: 0.02, pinch: 0.02, splash: 2, handful: 0.5 };
@@ -454,7 +481,12 @@ function parseLine(raw) {
 
   const hit = lookupAlias(foodName);
   if (!hit) return { unmatched: foodName, raw };
-  const key = hit.key;
+  let key = hit.key;
+  /* A tin of something the table only knows raw — see CANNED above. */
+  if ((unit === 'can' || unit === 'jar') && CANNED[key] &&
+      !(FOODS[key].g && FOODS[key].g[unit])) {
+    key = CANNED[key];
+  }
   const food = FOODS[key];
 
   // ---- work out grams --------------------------------------------------
