@@ -284,6 +284,38 @@ module.exports = {
     t.ok('no title promises an ingredient the recipe has not got',
       promises.length === 0, promises.slice(0, 6).join(' | '));
 
+    /* ---- every section is labelled, and every label is a section ---------
+     *
+     * The names in the filter are a hand-kept list keyed by book and section
+     * number — the part that moves. Six recipes left Around the Table's
+     * section 9 for Volume One, Made, Not Bought slid up from 10 to fill the
+     * gap, and the list did not follow: filtering on "Warm Drinks" returned
+     * three sauces, under a heading for a section that no longer existed.
+     *
+     * Both directions matter. A section with no entry falls back to its full
+     * printed name, which is merely ugly; an entry for a section that has gone
+     * is the one that lies, because the number it is keyed by has been given
+     * to something else in the meantime.
+     */
+    const labels = await p.evaluate(() => {
+      const real = new Set(window.RECIPES.filter((r) => r.book !== 3)
+        .map((r) => r.book + '-' + r.secNum));
+      const short = Object.keys(window.__secShort || {});
+      const note = Object.keys(window.__secNote || {});
+      return {
+        orphanShort: short.filter((k) => !real.has(k)),
+        orphanNote: note.filter((k) => !real.has(k)),
+        unlabelled: [...real].filter((k) => short.indexOf(k) < 0),
+        undescribed: [...real].filter((k) => note.indexOf(k) < 0),
+      };
+    });
+    t.ok('every section in the books has a short name and a note',
+      labels.unlabelled.length === 0 && labels.undescribed.length === 0,
+      'no name: ' + labels.unlabelled.join(' ') + ' | no note: ' + labels.undescribed.join(' '));
+    t.ok('and no name is left pointing at a section that has gone',
+      labels.orphanShort.length === 0 && labels.orphanNote.length === 0,
+      'orphans: ' + labels.orphanShort.concat(labels.orphanNote).join(' '));
+
     await p.context().close();
 
     /* A desk is the easy case. The panel is read on a phone, where the macro

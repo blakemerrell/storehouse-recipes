@@ -110,13 +110,20 @@
      phone they wrap to two lines each and twelve of them becomes a wall you
      have to read rather than scan. These are for the picker alone — the book,
      the headings and the section pages all keep the full name. */
+  /* Keyed by book and section number, which is the part that moves. Warm
+     Drinks was section 2-9 until its six recipes went to Power Drinks in
+     Volume One; Made, Not Bought slid up from 2-10 to fill the gap, and this
+     list did not. Filtering on "Warm Drinks" returned three sauces.
+
+     tests/browse.test.js now holds the two lists against the sections that
+     actually exist, so an orphaned key or a section with no label fails rather
+     than mislabelling a filter. */
   var SEC_SHORT = {
     '1-1': 'Breakfasts', '1-2': 'Snacks', '1-3': 'Lunch', '1-4': 'Dinner',
     '1-5': 'Best Before Bed', '1-6': 'Power Drinks', '1-7': 'Batch Prep',
     '2-1': 'Weekday Breakfasts', '2-2': 'Lunches & Wraps', '2-3': 'Weeknight Dinners',
     '2-4': 'Sunday Feasts', '2-5': 'Treats & Desserts', '2-6': 'Worth the Afternoon',
-    '2-7': 'The Copycat Shelf', '2-8': 'Chocolate', '2-9': 'Warm Drinks',
-    '2-10': 'Made, Not Bought'
+    '2-7': 'The Copycat Shelf', '2-8': 'Chocolate', '2-9': 'Made, Not Bought'
   };
 
   var SEC_NOTE = {
@@ -135,8 +142,7 @@
     '2-6': 'Nothing quick here. Bread that rises, gravy that thickens, custard that sets.',
     '2-7': 'The restaurant version, worked out at home.',
     '2-8': 'For when only chocolate will do.',
-    '2-9': 'A mug of something warm, with the protein of a small meal.',
-    '2-10': 'The three bottles the storehouse does not carry, made from what it does.'
+    '2-9': 'The three bottles the storehouse does not carry, made from what it does.'
   };
 
   /* One line under each part title in the combined edition, doing the job the
@@ -2321,6 +2327,8 @@
 
   /* Exposed so tests/weeks.test.js can check every state has both, rather than
      keeping its own copy of the list and going stale the moment one is added. */
+  window.__secShort = SEC_SHORT;
+  window.__secNote = SEC_NOTE;
   window.__syncWords = SYNC_WORD;
   window.__syncTips = SYNC_TIP;
 
