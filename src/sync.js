@@ -475,6 +475,29 @@ window.Store = (function () {
         window.addEventListener('online', function () {
           if (house && configured() && (status === 'error' || status === 'waiting')) connect();
         });
+
+        /* Two tabs of the app used to be two separate copies of everything.
+           Each held the state it had read at load, each wrote the whole of it
+           on every change, and neither ever looked again — so planning a week
+           in one tab and ticking the list in the other meant whichever saved
+           last erased the other's work, including recipes somebody had
+           written. A household hides it, because Firestore tells both tabs;
+           on a phone with no sharing set up there was nothing to tell them.
+
+           The storage event fires only in the *other* tabs, which is exactly
+           the ones that need to hear. Firestore's own synchronizeTabs handles
+           the joined case, so this only steps in when there is no household. */
+        window.addEventListener('storage', function (e) {
+          if (house || !e || !e.key || e.key.indexOf('bsc.') !== 0) return;
+          if (e.key === LS.house) return;
+          state.favs = read(LS.favs, []);
+          adopt({
+            weeks: read(LS.weeks, null), active: read(LS.active, ''),
+            mine: read(LS.mine, {}), edits: read(LS.edits, {}),
+            pantry: read(LS.pantry, {}), pantryNew: read(LS.pantryNew, {})
+          });
+          emit();
+        });
       }
     },
 

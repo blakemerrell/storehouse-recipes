@@ -1455,6 +1455,18 @@
   function fitToPaper() {
     var PAPER = 7.5 * 96;
     var squeezed = [];
+    /* Measure at true size. On a narrow screen .pg carries
+       transform: scale(var(--pgscale)), and getBoundingClientRect reports the
+       transformed box — so every page measured smaller than it is against a
+       PAPER constant that is not scaled, and nothing was ever found to
+       overrun. The first render escaped it because --pgscale is not set until
+       afterwards; every render after that was measuring a phantom. The same
+       trap is already noted one rule above .pg.no-print in the stylesheet,
+       where it was caught for the packer and missed here. */
+    var root = document.documentElement;
+    var hadScale = root.style.getPropertyValue('--pgscale');
+    root.style.setProperty('--pgscale', '1');
+    void root.offsetHeight;
     Array.prototype.forEach.call($('pages').querySelectorAll('.pg'), function (pg, i) {
       /* Whatever this page's content lives in — a run of recipes, a cover, a
          title page, a back cover. Any of them can be handed more than fits. */
@@ -1484,6 +1496,8 @@
       }
       if (z !== 1) squeezed.push({ page: i + 1, zoom: Math.round(z * 1000) / 1000 });
     });
+    if (hadScale) root.style.setProperty('--pgscale', hadScale);
+    else root.style.removeProperty('--pgscale');
     if (squeezed.length && window.console) {
       console.log('set slightly smaller to fit the page: ' +
         squeezed.map(function (s) { return 'p' + s.page + ' at ' + s.zoom; }).join(', '));
