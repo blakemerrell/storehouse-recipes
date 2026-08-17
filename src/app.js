@@ -1713,6 +1713,25 @@
     }
   }
 
+  /* How tall the header is, for anything that has to sit under it.
+   *
+   * CSS cannot ask another element for its height, so the section dividers
+   * carried the answer as a number: top: 56px. That was a guess at one
+   * viewport and wrong at all of them — 60 on a laptop, so four pixels of the
+   * divider hid behind the header, and 94 on a phone, where the brand and the
+   * tabs stack, so the divider pinned nearly forty pixels underneath and was
+   * simply invisible. It read as a feature that had not been built for
+   * mobile.
+   *
+   * Measured on load and on every resize, which is also when it changes: the
+   * only thing that alters the header's height is the width it has. */
+  function syncStick() {
+    var tb = document.querySelector('.topbar');
+    if (!tb) return;
+    document.documentElement.style.setProperty(
+      '--topbar-h', Math.round(tb.getBoundingClientRect().height) + 'px');
+  }
+
   /* A 5.5in page is wider than a phone. Scale it down to fit rather than
      letting the whole document scroll sideways. Printing ignores this. */
   function fitPages() {
@@ -2873,6 +2892,8 @@
 
     window.addEventListener('resize', fitPages);
     window.addEventListener('resize', syncTabsFade);
+    window.addEventListener('resize', syncStick);
+    syncStick();
     document.querySelector('.tabs').addEventListener('scroll', syncTabsFade, { passive: true });
     syncTabsFade();
 

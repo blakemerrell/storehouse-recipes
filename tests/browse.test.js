@@ -429,6 +429,38 @@ module.exports = {
        line has 242px next to the leaf \u2014 so check the widest of all 266 there,
        not just whichever recipe happens to be first. */
     const phone = await t.fresh({ viewport: { width: 376, height: 860 } });
+
+    /* The section divider pins under the header, on the width where it did
+     * not.
+     *
+     * It carried its offset as a number — top: 56px — which was a guess at one
+     * viewport and wrong at every one. The header is 60 tall on a laptop, so
+     * four pixels of the divider hid behind it; on a phone the brand and the
+     * tabs stack and it is 94, so the divider pinned nearly forty pixels
+     * *underneath* the header and could not be seen at all. It looked exactly
+     * like a feature that had not been built for mobile, which is how it was
+     * reported.
+     *
+     * Checked against the header's real bottom edge rather than against a
+     * number, because a number is what caused this. The earlier version of
+     * this check asked only whether something was pinned near the top, and
+     * passed the whole time it was invisible. */
+    await phone.evaluate(() => window.scrollTo(0, 2500));
+    await phone.waitForTimeout(400);
+    const pinned = await phone.evaluate(() => {
+      const bar = document.querySelector('.topbar').getBoundingClientRect();
+      const secs = [...document.querySelectorAll('.grid-sec')].map((e) => e.getBoundingClientRect());
+      const stuck = secs.filter((r) => r.top >= bar.bottom - 1 && r.top < bar.bottom + 3);
+      return { barBottom: Math.round(bar.bottom), stuck: stuck.length,
+        hidden: secs.filter((r) => r.bottom > 0 && r.top < bar.bottom - 1).length };
+    });
+    t.ok('a section divider pins flush under the header on a phone',
+      pinned.stuck === 1, JSON.stringify(pinned));
+    t.ok('and none of them is left sitting behind it',
+      pinned.hidden === 0, JSON.stringify(pinned));
+    await phone.evaluate(() => window.scrollTo(0, 0));
+    await phone.waitForTimeout(300);
+
     await phone.click('#grid .card >> nth=0');
     await phone.waitForTimeout(200);
     const wide = await phone.evaluate(() => {

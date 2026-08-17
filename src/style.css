@@ -237,7 +237,14 @@ select { max-width: 280px; }
    still there when you have scrolled into the middle of a section — which is
    the only moment the question comes up. */
 .grid-sec {
-  grid-column: 1 / -1; position: sticky; top: 56px; z-index: 5;
+  /* Below the header, whatever the header currently is. Written as 56px it
+     was a guess at one viewport: the topbar is 60 tall on a laptop, so four
+     pixels of the divider hid behind it, and on a phone the brand and the
+     tabs sit on two rows and it is 94 — so the divider pinned thirty-eight
+     pixels underneath the header and could not be seen at all. It looked
+     exactly like a feature that had not shipped to mobile.
+     syncStick() in app.js keeps --topbar-h honest. */
+  grid-column: 1 / -1; position: sticky; top: var(--topbar-h, 60px); z-index: 5;
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
   margin: 14px 0 -2px; padding: 8px 2px 7px;
   background: var(--paper); border-bottom: 1px solid var(--line-firm);
