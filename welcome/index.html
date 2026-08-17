@@ -626,8 +626,11 @@ a { color: inherit; }
 /* ---- prefer paper ------------------------------------------------------ */
 .paper-buys { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
 .paper-buys .btn { padding: 9px 16px; font-size: 13px; white-space: nowrap; }
-.buys-lab { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--ochre); font-weight: 600; margin-right: 2px; }
+/* On its own line, not in the row.
+   Inline, it ate the width that decided whether three buttons fit, so the
+   third dropped to a second row and the group read as two things. */
+.buys-lab { flex: 0 0 100%; font-size: 10px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--ochre); font-weight: 600; margin: 0 0 -4px; }
 .fine { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 16px; text-wrap: pretty; }
 
 /* Closed by default, and set like the fine print it hides rather than like a
