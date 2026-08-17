@@ -663,6 +663,13 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
     const it = { k: r.key, g: Math.round(r.grams * 10) / 10, u: r.unit || '' };
     if (food.split) it.a = SPICE_NAMES[r.alias] || r.alias;
     if (names.some((n) => line.toLowerCase().indexOf(n) >= 0)) it.x = 1;
+    /* "(optional)" on the line, meaning it. Two recipes exist so that somebody
+       with nothing but the storehouse order can still make barbecue sauce and
+       gravy, and both listed celery salt — which the order does not carry. So
+       the rescue recipe sent you shopping, which is the one thing it must not
+       do. Marked optional, the line still counts toward the nutrition (you may
+       well add it) but never toward what you have to go out for. */
+    if (/\(\s*optional\s*\)/i.test(line)) it.o = 1;
     items.push(it);
   });
 

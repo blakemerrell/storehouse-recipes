@@ -87,7 +87,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 272 scored recipes: **21–96**, median **62**.
+Score range across all 277 scored recipes: **21–96**, median **62**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -178,7 +178,7 @@ Around the Table shipped with **no nutrition data**: all 125 recipes carried a t
 the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
-- Recipes given macros: 161 of 161
+- Recipes given macros: 166 of 166
 - Score range: 21–86 (median 55)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
@@ -203,14 +203,14 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-47 recipes across 5 sections were written for this edition rather than carried
+52 recipes across 5 sections were written for this edition rather than carried
 over from the original books:
 
 - **Worth the Afternoon** — 12 recipes
 - **The Copycat Shelf** — 10 recipes
 - **For the Love of Chocolate** — 10 recipes
 - **Power Drinks** — 11 recipes
-- **Made, Not Bought** — 4 recipes
+- **Made, Not Bought** — 9 recipes
 
 The data made the gaps plain. Across the original 225, no recipe has more than
 four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens
@@ -218,7 +218,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 28 of the 47
+Every ingredient was checked against the storehouse order list. 33 of the 52
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 

@@ -14,7 +14,51 @@
  * water and free are deliberately absent. Neither is a thing you keep.
  */
 
-module.exports = {
+/* What the storehouse does not carry.
+ *
+ * This used to be worked out rather than written down, and that is how a
+ * reader ended up making his own breadcrumbs on a Sunday with no warning from
+ * the book. An item counted as stocked unless some recipe had named it in its
+ * own `extras` line — so the whole storehouse list was a by-product of whether
+ * authors had remembered to annotate, and anything nobody annotated was
+ * silently declared available. Breadcrumbs are in two recipes and neither said
+ * so, so the app told him everything was on the standard order. The storehouse
+ * does not sell breadcrumbs.
+ *
+ * Four more were wrong the same way, celery salt worst of all: it is an
+ * ingredient of the BBQ sauce recipe, which exists precisely so that somebody
+ * with only the storehouse order can still make barbecue sauce.
+ *
+ * Declared now, in one place, next to the shelving — which is the same kind of
+ * judgement and gets read by the same person. A declaration can still be
+ * wrong, but it is wrong somewhere you can see it. Checked against the
+ * storehouse page printed in the book by tests/recipes.test.js.
+ */
+const NOT_STOCKED = {
+  // named on the order sheet nowhere, and used by recipes
+  breadcrumbs: 'the storehouse carries bread, not crumbs',
+  celery_salt: 'seasonings are cinnamon, black pepper, salt and vanilla',
+  spray_butter: 'butter, yes; the spray tin, no',
+  bbq_sauce: 'condiments run to ketchup and mustard',
+  chocolate_chips: 'cake mixes and cocoa, not chips',
+  cocoa: 'hot cocoa mix is stocked; cocoa powder is not',
+  cola: 'no soft drinks',
+  cornstarch: 'flour is stocked; cornstarch is not',
+  crio_bru: 'a roasted cacao brew, bought outside',
+  garlic: 'fresh produce, but not garlic',
+  gravy_mix: 'no packet gravies',
+  hot_sauce: 'no hot sauce',
+  light_mayo: 'plain mayo is stocked; the light one is not',
+  light_ranch: 'plain ranch is stocked; the light one is not',
+  salsa_verde: 'red salsa only',
+  soy_sauce: 'no soy sauce',
+  whey: 'the storehouse protein is non-fat dry milk',
+  // stocked nowhere and used by nothing, but wrong is wrong
+  cream_cheese: 'the dairy list stops at sour cream',
+  biscuit_dough: 'nothing refrigerated in a tube',
+};
+
+const CATS = {
   // Canned meats
   chicken_canned: 'Canned meats',
   cooked_beef: 'Canned meats',
@@ -161,3 +205,5 @@ module.exports = {
   tortilla_small: 'Bread',
   wheat_bread: 'Bread',
 };
+
+module.exports = { CATS: CATS, NOT_STOCKED: NOT_STOCKED };

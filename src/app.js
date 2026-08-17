@@ -967,7 +967,8 @@
    * pepper and cinnamon the storehouse carries and are rightly silent; `x`
    * marks the ones it does not. */
   function itemNeedsBuying(it) {
-    if (!it || !it.k) return false;      // a line the food table could not place
+    if (!it || !it.k) return false;
+    if (it.o) return false;            // "(optional)" on the line      // a line the food table could not place
     if (it.k === 'free') return !!it.x;
     return it.k !== 'water' && !inPantry(it.k);
   }
@@ -1018,7 +1019,7 @@
              items out in words — so a black-and-white print loses nothing. */
           r.ing.map(function (i, ix) {
             return '<div' + (lineNeedsBuying(r, ix) ? ' class="ing-buy"' : '') + '>' +
-              esc(i) + '</div>';
+              esc(i) + makerHTML(r, ix, false) + '</div>';
           }).join('') +
         '</div></div>' +
         '<div><div class="rp-h">Method</div><div class="rp-steps">' +
@@ -1678,10 +1679,10 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 172 },
-    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 164 },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 176 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 168 },
     1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 60, booklet: true },
-    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 112, booklet: true }
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 116, booklet: true }
   };
 
   function renderDownloads() {
@@ -1763,6 +1764,39 @@
   /* Steps carry markup only where xref put it, so the text is escaped first
      and the reference substituted after — never the other way round. */
   function stepHTML(t) { return xref(esc(t), true); }
+
+  /* An ingredient this collection has a recipe for.
+   *
+   * Fifty ingredient lines name something Made, Not Bought produces, and the
+   * only version of this that scales is the ingredient line carrying the link
+   * itself. The alternative was fifty hand-written sentences, which is the
+   * same paragraph printed fifty times and still silent on the fifty-first.
+   *
+   * Not shown inside Made, Not Bought: a tortilla recipe pointing at the
+   * tortilla recipe is noise, and so is the gravy telling you where to get
+   * gravy. */
+  function makerFor(r, ix) {
+    var M = window.MAKERS;
+    var it = (r.ingp || [])[ix];
+    if (!M || !it || !it.k) return null;
+    var id = M[it.k];
+    if (!id || id === r.id) return null;
+    var t = BY_ID[id];
+    return t && t.secName !== r.secName ? t : null;
+  }
+
+  /* Rendered small and after the line rather than around it, because the
+     ingredient is what somebody is reading down the column for. On paper it is
+     the number alone — there is nothing to press, and "Recipe" in front of it
+     four times in one list is four words nobody needs. */
+  function makerHTML(r, ix, live) {
+    var t = makerFor(r, ix);
+    if (!t) return '';
+    var num = String(t.no || t.id).padStart(3, '0');
+    if (!live) return ' <i class="ing-make">' + num + '</i>';
+    return ' <button class="ing-make" data-open="' + esc(t.id) + '" ' +
+      'title="' + esc('Make it yourself: ' + t.name) + '">' + num + '</button>';
+  }
 
   function scoreParts(r) {
     return [
@@ -1989,7 +2023,7 @@
           return '<div' + (lineNeedsBuying(r, ix) ? ' class="ing-buy"' : '') + '>' +
             esc(S.units === 'grams'
               ? gramIng(i, (r.ingp || [])[ix], f)
-              : scaleIng(i, f)) + '</div>';
+              : scaleIng(i, f)) + makerHTML(r, ix, true) + '</div>';
         }).join('') + '</div>' +
         '<div class="sheet-h" style="margin-top:24px;margin-bottom:10px">Method</div>' +
         '<div class="sheet-steps">' + r.steps.map(function (t, i) {
@@ -2789,7 +2823,7 @@
          stacked: two recipes open at once is a back button nobody asked for,
          and the thing you were reading is one press away in the list you came
          from. Scale resets, because the gravy does not inherit the roast's. */
-      var xr = e.target.closest('.xref[data-open]');
+      var xr = e.target.closest('.xref[data-open], .ing-make[data-open]');
       if (xr) {
         S.openId = idOf(xr.dataset.open);
         S.scale = 1;

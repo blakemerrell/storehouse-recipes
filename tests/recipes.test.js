@@ -129,6 +129,68 @@ module.exports = {
       score.oats > score.sugar + 5,
       'oats ' + score.oats + ' vs sugar ' + score.sugar);
 
+    /* --------------------------------------- ingredients you could make
+     *
+     * The storehouse does not carry breadcrumbs, and the app said it did.
+     * Stocked-ness used to be inferred from whether some recipe had named an
+     * item in its own extras line, so anything nobody annotated was silently
+     * declared available — five items were wrong that way, including the
+     * celery salt in the BBQ sauce recipe, which exists so that somebody with
+     * only the order can still make barbecue sauce.
+     *
+     * It is declared now, and Made, Not Bought answers for what is left. Fifty
+     * ingredient lines name something it produces, and each of those lines
+     * carries the link rather than the section hoping to be browsed. */
+    const makers = await p.evaluate(() => {
+      const M = window.MAKERS || {}, P = window.PANTRY;
+      const by = {}; window.RECIPES.forEach((r) => { by[r.id] = r; });
+      const dead = Object.keys(M).filter((k) => !by[M[k]]);
+      const stocked = Object.keys(M).filter((k) => P[k] && P[k].s);
+      let linked = 0;
+      window.RECIPES.forEach((r) => (r.ingp || []).forEach((it) => {
+        if (it && it.k && M[it.k] && M[it.k] !== r.id &&
+            by[M[it.k]].secName !== r.secName) linked++;
+      }));
+      return { dead, stocked, linked, made: Object.keys(M).length };
+    });
+    t.ok('the collection has recipes for things the storehouse does not carry',
+      makers.made >= 8 && makers.linked >= 40,
+      makers.made + ' made, reachable from ' + makers.linked + ' ingredient lines');
+    t.ok('and each one points at a recipe that exists',
+      makers.dead.length === 0, makers.dead.join(', '));
+    /* And the rescue has to be a rescue.
+     *
+     * Made, Not Bought is for the cook who has the storehouse order and
+     * nothing else, so a recipe in it that needs something off the order is
+     * worse than useless — it sends you to the shop to avoid going to the
+     * shop. Both sauce recipes did: they listed celery salt, which the order
+     * does not carry, and nothing said so because the pantry had celery salt
+     * marked as a staple. It is optional in both now, and optional means
+     * something: the line counts toward the nutrition and never toward what
+     * you have to go out for. */
+    const rescue = await p.evaluate(() => {
+      const P = window.PANTRY;
+      const bad = [];
+      window.RECIPES.filter((r) => r.secName === 'Made, Not Bought').forEach((r) => {
+        (r.ingp || []).forEach((it, i) => {
+          if (it && it.k && !it.o && P[it.k] && !P[it.k].s) {
+            bad.push('no.' + r.no + ' needs ' + r.ing[i]);
+          }
+        });
+      });
+      return bad;
+    });
+    t.ok('and every one of them can be made from the storehouse order alone',
+      rescue.length === 0, rescue.join('; '));
+
+    const bought = await p.evaluate(() => {
+      const P = window.PANTRY;
+      return ['breadcrumbs', 'celery_salt', 'spray_butter', 'cream_cheese', 'biscuit_dough']
+        .filter((k) => P[k] && P[k].s);
+    });
+    t.ok('the five the order never carried are no longer listed as staples',
+      bought.length === 0, bought.join(', ') + ' still marked stocked');
+
     /* --------------------------------------------------- what you were told
      *   to buy
      *

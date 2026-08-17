@@ -884,6 +884,19 @@ select { max-width: 280px; }
   cursor: pointer; white-space: nowrap;
 }
 .xref:hover { text-decoration-color: var(--ink); }
+
+/* The recipe number beside an ingredient you could make yourself.
+   Small, raised, and set in the sans face so it reads as an annotation on the
+   line rather than as part of what you are shopping for. */
+.ing-make {
+  font-family: 'Work Sans', system-ui, sans-serif; font-style: normal;
+  font-size: 0.72em; font-variant-numeric: tabular-nums;
+  vertical-align: 0.35em; letter-spacing: 0.03em;
+  color: oklch(0.55 0.04 65); text-decoration: none; white-space: nowrap;
+}
+button.ing-make { background: none; border: 0; padding: 0 0 0 1px; cursor: pointer; }
+button.ing-make:hover { color: var(--ink); text-decoration: underline; }
+button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; border-radius: 2px; }
 .xref:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; border-radius: 2px; }
 .sheet-extras {
   margin-top: 20px; font-size: 12px; color: var(--muted-2);

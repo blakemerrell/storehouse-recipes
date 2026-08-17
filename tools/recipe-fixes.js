@@ -197,6 +197,11 @@ module.exports = [
    * breadcrumbs, and the storehouse does not carry a box of them. Bread is on
    * the standard order, so the recipe for making them is now in Made, Not
    * Bought and both meatball recipes point at it. */
+  /* Celery salt is not on the storehouse order — a fact that was hidden until
+     the list was declared rather than inferred. Both of these exist so that
+     somebody with only the order can still make the thing, so neither may
+     depend on something the order does not carry. It stays in as an
+     improvement and is now marked optional. */
   { id: 166, step: 0, add: 'No breadcrumbs in the cupboard? {r:272} makes them from bread, which is on the order.' },
   { id: 178, step: 0, add: 'No breadcrumbs in the cupboard? {r:272} makes them from bread, which is on the order.' },
 

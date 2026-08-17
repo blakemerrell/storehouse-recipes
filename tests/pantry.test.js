@@ -31,15 +31,32 @@ module.exports = {
       gone: document.querySelectorAll('.shelf-gone .pitem').length,
       boxes: document.querySelectorAll('#pantryBody input[type=checkbox]').length,
     }));
+    /* Counted off the pantry the app was handed, not written in here. Both
+       numbers moved the day the storehouse list stopped being inferred from
+       recipe annotations and started being declared — five items crossed from
+       one side to the other, and this failed for holding the old split while
+       the page was showing the new one correctly. */
+    const split = await p.evaluate(() => {
+      const P = window.PANTRY, shelves = {};
+      let on = 0, off = 0;
+      Object.keys(P).forEach((k) => { shelves[P[k].c] = 1; if (P[k].s) on++; else off++; });
+      return { shelves: Object.keys(shelves).length, on, off };
+    });
     t.ok('it opens on the storehouse order, every shelf of it',
-      shape.shelves === 16 && shape.kept === 100, JSON.stringify(shape));
-    /* The fourteen the storehouse never carried are not on the shelf, so they
-       sit under what is not kept rather than in the list proper. Five of those
-       fourteen were wrong until a reader said so: an ingredient no recipe
-       flagged looked exactly like a staple, which had the book quietly claiming
-       you could pick up Crio Bru with the flour. */
-    t.ok('with the fourteen it never carried listed as not kept',
-      shape.gone === 14, JSON.stringify(shape));
+      shape.shelves === split.shelves && shape.kept === split.on,
+      JSON.stringify(shape) + ' vs ' + JSON.stringify(split));
+    /* The ones the storehouse never carried are not on the shelf, so they sit
+       under what is not kept rather than in the list proper.
+
+       Five of them were wrong until a reader made his own breadcrumbs on a
+       Sunday. Stocked-ness used to be inferred — an item counted as available
+       unless some recipe had named it in its own extras line — so anything
+       nobody had thought to annotate looked exactly like a staple, and the
+       book quietly claimed you could pick up breadcrumbs with the flour. It is
+       declared in pantry-cats.js now, which is why this counts rather than
+       remembers. */
+    t.ok('with everything it never carried listed as not kept',
+      shape.gone === split.off, JSON.stringify(shape) + ' vs ' + split.off + ' off-list');
     // it is a list of what you keep, not a checklist of what to fetch
     t.ok('and it is a list rather than a checklist', shape.boxes === 0, shape.boxes + ' checkboxes');
 
@@ -65,8 +82,14 @@ module.exports = {
     await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(300);
     await p.click('[data-poff="cottage_cheese"]'); await p.waitForTimeout(400);
 
-    t.ok('taking something off is counted', /99 items/.test(await p.textContent('#pantryNote')),
-      await p.textContent('#pantryNote'));
+    /* One fewer than the storehouse list, whatever that list happens to hold.
+       Written as 99 it measured the size of the order rather than the thing it
+       is about, which is that removing one item removes exactly one. */
+    const onList = await p.evaluate(() =>
+      Object.keys(window.PANTRY).filter((k) => window.PANTRY[k].s).length);
+    t.ok('taking something off is counted',
+      new RegExp('\\b' + (onList - 1) + ' items\\b').test(await p.textContent('#pantryNote')),
+      await p.textContent('#pantryNote') + '  (expected ' + (onList - 1) + ')');
 
     /* The point of the whole feature: the recipe changes its mind. */
     t.ok('and the recipe now says what you would have to go out for',
@@ -191,7 +214,9 @@ module.exports = {
       return { last: h.filter((x) => !/Not kept/.test(x)).pop(), note: document.getElementById('pantryNote').textContent };
     });
     t.ok('what you add yourself gets a shelf and survives a reload',
-      own.last === 'Yours' && /100 items/.test(own.note), JSON.stringify(own));
+      own.last === 'Yours' &&
+      new RegExp('\\b' + onList + ' items\\b').test(own.note),
+      JSON.stringify(own) + '  (expected ' + onList + ')');
 
     /* This assertion is the one whose absence let the bug ship, and the count
        above is the evidence of it. It used to read 101 — one hundred

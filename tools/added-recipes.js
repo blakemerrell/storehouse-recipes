@@ -866,13 +866,14 @@ module.exports = [
     name: 'Everyday BBQ Sauce',
     servings: 'About 1½ Cups (12 × 2 tbsp)', servN: 12,
     ing: ['1 tbsp butter', '½ onion (grated)', '1 cup ketchup', '⅓ cup brown sugar',
-      '2 tbsp mustard', '1 tbsp honey', '¼ cup water', '½ tsp salt', '½ tsp celery salt'],
+      '2 tbsp mustard', '1 tbsp honey', '¼ cup water', '½ tsp salt', '½ tsp celery salt (optional)'],
     steps: [
       'Grate the onion on the coarse side of a box grater — chopped is fine but you will taste the pieces. Cook it in the butter over low heat for 8 minutes, until it has gone soft and slightly gold and stopped smelling sharp. This is the whole difference between this and stirring ketchup into sugar. A bottle gets its depth from smoke flavouring; this gets it from onion cooked past soft, and there is no shortcut on high heat.',
       'Stir in the ketchup, brown sugar, mustard, honey, water, salt and celery salt. There is no vinegar on the storehouse list and none is needed — the ketchup and the mustard between them bring plenty.',
       'Bring it to a bare simmer and leave it there 15 to 20 minutes, stirring now and then so the sugar does not catch on the bottom. It should end up thick enough that a spoon drawn across the pan leaves a line for a second before it closes.',
       'Take it off and let it cool. It thickens again cold, so stop while it still looks slightly loose. In a jar in the fridge it keeps two weeks.',
     ],
+    makes: ['bbq_sauce'],
     macro: null, tagline: 'The Onion Does What the Smoke Would', score: null, sc: null,
     diff: 'Easy', time: '30 mins', extras: null,
   },
@@ -881,13 +882,14 @@ module.exports = [
     name: 'Pan Gravy, Brown or Pale',
     servings: 'About 2½ Cups (8 Servings)', servN: 8,
     ing: ['3 tbsp butter (or the fat from the pan)', '3 tbsp flour', '2 cups water (or the juices from the roast)',
-      '½ cup milk', '½ tsp salt', '¼ tsp celery salt'],
+      '½ cup milk', '½ tsp salt', '¼ tsp celery salt (optional)'],
     steps: [
       'Melt the butter in a wide pan over medium heat and whisk in the flour. Now decide which gravy you want. For a brown gravy to go with beef, keep whisking for 4 or 5 minutes until it smells like toast and has gone the colour of peanut butter. For a pale gravy for chicken, stop after a minute, while it is still blond. Either way it has to cook — raw flour is the reason packet gravy tastes like paste, and this is the minute that fixes it.',
       'Take the pan off the heat before any liquid goes near it. Add the water a splash at a time, whisking each splash smooth before the next. Hot roux and a cup of cold liquid all at once is exactly how you get lumps, and the first half-cup is the part that matters.',
       'Back on medium heat with the milk stirred in. It will look far too thin for a while and then thicken all at once as it comes to the boil. Let it bubble two minutes to lose the floury edge.',
       'Now salt it. Taste first — if you used the juices off a roast it may need none at all. Too thick, add liquid; too thin, let it simmer down. Do not add more flour to a finished gravy, it will not cook out.',
     ],
+    makes: ['gravy_mix'],
     macro: null, tagline: 'Brown the Flour and Nothing Lumps', score: null, sc: null,
     diff: 'Easy', time: '12 mins', extras: null,
   },
@@ -902,6 +904,7 @@ module.exports = [
       'Give it an hour in the fridge. It firms up and the cottage cheese taste settles back into the mayo.',
       'It is not mayonnaise and it will not pass off a spoon. In tuna, in egg salad, on a sandwich, it does the same job for about a third of the fat and several times the protein.',
     ],
+    makes: ['light_mayo'],
     macro: null, tagline: 'Blend It Longer Than You Think', score: null, sc: null,
     diff: 'Easy', time: '5 mins', extras: null,
   },
@@ -918,13 +921,123 @@ module.exports = [
     servings: 'About 1½ Cups (6 Servings)', servN: 6,
     ing: ['6 bread slices', '½ tsp salt'],
     steps: [
-      'Decide which kind you want first, because it changes everything after it. Soft crumbs go into meatballs and meatloaf, where their job is to hold moisture. Dry crumbs go on top of things, where their job is to go crisp. The same bread makes either.',
-      'For soft crumbs: tear fresh bread into pieces and pulse it in a blender or food processor a few seconds at a time. Stale bread will not do this — it powders. Use it the same day; soft crumbs go mouldy in a covered jar within about three.',
-      'For dry crumbs: lay the slices straight on the oven rack at 300°F for 15 to 20 minutes, turning once, until they snap rather than bend. Cool them completely before crushing, in a blender or in a bag with a rolling pin. Warm bread is still flexible and will tear instead of shattering.',
-      'Salt them and nothing else, unless you know what they are for. Crumbs seasoned in the jar are a decision made weeks before it was needed, and unseasoned crumbs go into anything.',
-      'Dry crumbs keep a month in a jar with the lid on. Heels, crusts and the end of a loaf are the right bread for this — it is the one recipe in the book that is better made from what was about to be thrown out.',
+      'Decide which kind first. Soft crumbs go into meatballs and meatloaf, where the job is holding moisture. Dry crumbs go on top of things, where the job is going crisp. The same bread makes either.',
+      'Soft: tear fresh bread and pulse it a few seconds at a time in a blender. Stale bread will not do this, it powders. Use them the same day — in a covered jar they go mouldy in three.',
+      'Dry: slices straight on the oven rack at 300°F for 15 to 20 minutes, turning once, until they snap rather than bend. Cool them completely before crushing, in a blender or in a bag with a rolling pin — warm bread tears instead of shattering.',
+      'Salt and nothing else. Crumbs seasoned in the jar are a decision made weeks early; unseasoned ones go into anything. Dry crumbs keep a month with the lid on, and heels and crusts are the right bread for this.',
     ],
+    makes: ['breadcrumbs'],
     macro: null, tagline: 'The Ends of the Loaf, Kept', score: null, sc: null,
     diff: 'Easy', time: '20 mins', extras: null,
+  },
+
+  /* -------------------------------------------------------------------------
+   * Five more, chosen by counting.
+   *
+   * Every ingredient in the collection was ranked by how many recipes want it
+   * and whether the storehouse order covers it. These five are the ones the
+   * book asks for most often that a cook could make from the order instead —
+   * forty-nine recipes between them, and none of them needs anything the
+   * standard list does not already carry.
+   *
+   * They are here for the evening when the tortillas ran out, not as a claim
+   * that homemade is better. Two of them are plainly worse than the packet and
+   * say so.
+   * --------------------------------------------------------------------- */
+
+  /* Seventeen recipes want tortillas — more than any other made-able thing in
+     either volume. Three ingredients, all on the order. */
+  {
+    id: 273, book: 2, secNum: 9, secName: MADE,
+    name: 'Flour Tortillas',
+    servings: '8 Tortillas', servN: 8,
+    ing: ['2 cups flour', '⅓ cup oil', '¾ cup warm water', '1 tsp salt'],
+    steps: [
+      'Stir the flour and salt, pour in the oil, and rub it through until it looks like damp sand. Oil before water is what keeps them soft; flour that meets water first goes tough.',
+      'Add the warm water, bring it together, and knead two minutes until it stops sticking. It should feel like an earlobe — too dry, wet your hands; too sticky, a spoonful of flour.',
+      'Cover it and leave it 20 minutes. It is not rising, it is the gluten letting go, and it is the difference between a dough you can roll thin and one that springs back every time.',
+      'Divide into 8 balls and roll each as thin as you can, a quarter turn between passes so they stay round. Thin is the whole thing; a thick one is a flatbread.',
+      'Dry skillet, medium-high, no oil. About 45 seconds until bubbles rise and the underside freckles, then 30 seconds on the other side. Longer and it is a cracker. Stack them under a towel as they come off — the steam is what softens them.',
+    ],
+    makes: ['tortilla', 'tortilla_small'],
+    macro: null, tagline: 'Rest the Dough or Fight It', score: null, sc: null,
+    diff: 'Medium', time: '45 mins', extras: null,
+  },
+
+  /* Fourteen recipes call for the box. The box is flour, a raising agent, sugar
+     and salt, and this is that in the proportions the box uses. */
+  {
+    id: 274, book: 2, secNum: 9, secName: MADE,
+    name: 'Pancake & Waffle Mix',
+    servings: 'About 4 Cups Dry Mix (8 Servings)', servN: 8,
+    ing: ['4 cups flour', '3 tbsp sugar', '2 tbsp baking powder', '2 tsp salt'],
+    steps: [
+      'Whisk all four together thoroughly — a full minute, not a few turns. Baking powder that is not evenly spread makes some pancakes rise and others sit there, and you will not be able to tell which is which until they are in the pan.',
+      'Keep it in a jar with the lid on. Six months is fine; after that the baking powder starts giving up and they come out flat.',
+      'To use it: 1 cup of mix, 1 cup of milk, 1 egg, 2 tablespoons of melted butter. Stir it until the dry patches are gone and then stop — batter that has been beaten smooth makes tough pancakes. Lumps are correct.',
+      'Let the batter stand five minutes before the first one goes in the pan. For waffles, add another tablespoon of oil; a waffle needs more fat than a pancake or it welds itself to the iron.',
+      'Medium heat, and turn each pancake when the bubbles on top stop closing over. One flip only.',
+    ],
+    makes: ['pancake_mix'],
+    macro: null, tagline: 'Lumps Are Correct', score: null, sc: null,
+    diff: 'Easy', time: '5 mins', extras: null,
+  },
+
+  /* Seven recipes open a can of it, and it is a white sauce with chicken in it.
+     Cheaper, far less salt, and better — this is the one on the list that is
+     genuinely an improvement rather than a substitute. */
+  {
+    id: 275, book: 2, secNum: 9, secName: MADE,
+    name: 'Cream of Chicken Soup',
+    servings: 'About 1½ Cups — one can’s worth (6 Servings)', servN: 6,
+    ing: ['3 tbsp butter', '3 tbsp flour', '1 cup milk', '½ cup water', '5 oz canned chicken', '½ tsp salt'],
+    steps: [
+      'Melt the butter over medium heat and whisk in the flour. Let it cook a full minute, bubbling, before anything else happens. Raw flour is what makes a sauce taste like paste, and a minute is all it takes.',
+      'Off the heat, add the milk a splash at a time, whisking each one smooth before the next. The first half-cup is the part that decides whether it is lump-free; after that you can pour.',
+      'Back on the heat with the water. Stir until it comes to the boil and thickens — it will look thin for a long while and then arrive all at once.',
+      'Drain the chicken, break it up small, and stir it in with the salt. Simmer two minutes more.',
+      'This is one can. Use it anywhere a recipe opens one, straight in, no dilution. It is thicker than the tin when cold and loosens the moment it is heated.',
+      'Half the salt of the canned version and about a third of the price, and unlike most things on this list it is simply better. Keeps four days in the fridge; it does not freeze well, as the sauce splits.',
+    ],
+    makes: ['cream_soup_chx'],
+    macro: null, tagline: 'A White Sauce With Chicken In It', score: null, sc: null,
+    diff: 'Easy', time: '12 mins', extras: null,
+  },
+
+  /* Seven recipes call for the instant. Potatoes are on the order and cost a
+     fraction of the box. */
+  {
+    id: 276, book: 2, secNum: 9, secName: MADE,
+    name: 'Mashed Potatoes, in Place of Instant',
+    servings: '4 Servings (About 3 Cups)', servN: 4,
+    ing: ['2 lbs potatoes', '½ cup milk', '3 tbsp butter', '1 tsp salt'],
+    steps: [
+      'Peel and cut the potatoes into pieces of roughly the same size — two inches or so. Uneven pieces mean the small ones are falling apart while the big ones are still hard in the middle.',
+      'Start them in cold salted water, not boiling. Dropped into boiling water the outsides cook long before the centres, and you get a lumpy mash however hard you work at it afterwards.',
+      'Simmer 15 to 20 minutes, until a knife meets no resistance. Drain them and stand them in the hot empty pan a minute — the steam coming off is water that would otherwise end up in the mash. Warm the milk and butter before they go in; cold dairy stiffens it.',
+      'Mash, then stop. Potato has a great deal of starch in it and working it hard turns it to glue — this is the one dish where a stand mixer makes things worse. A masher, a fork, or a ricer if you have one.',
+      'Where a recipe wants two cups of instant made up, this quantity stands in for it. It is wetter than the instant and holds together less under a topping, so for a shepherd\u2019s pie let it cool a little first.',
+    ],
+    makes: ['instant_potato', 'mashed_potato'],
+    macro: null, tagline: 'Cold Water, Warm Milk', score: null, sc: null,
+    diff: 'Easy', time: '30 mins', extras: null,
+  },
+
+  /* Four recipes finish with syrup. It is sugar and water. */
+  {
+    id: 277, book: 2, secNum: 9, secName: MADE,
+    name: 'Pancake Syrup',
+    servings: 'About 1 Cup (8 Servings)', servN: 8,
+    ing: ['1 cup brown sugar', '½ cup water', '2 tbsp butter'],
+    steps: [
+      'Brown sugar and water into a small pan. Stir it over medium heat only until the sugar has gone — after that, leave it alone. Stirring a boiling sugar syrup is how it turns grainy.',
+      'Let it boil three minutes without touching it. It will look far too thin. Sugar syrup does almost all of its thickening as it cools, and a syrup that looks right in the pan sets like a toffee in the jug.',
+      'Off the heat, stir in the butter until it disappears. That is what makes it taste like syrup rather than like sweet water.',
+      'It thickens as it cools and keeps a month in the fridge. Warm it before it goes on anything — cold syrup on a hot pancake is a bad trade.',
+      'It is not maple and does not pretend to be. What it is, is the difference between pancakes and no pancakes on a morning when the bottle is empty.',
+    ],
+    makes: ['syrup'],
+    macro: null, tagline: 'Three Minutes and Leave It Alone', score: null, sc: null,
+    diff: 'Easy', time: '8 mins', extras: null,
   },
 ];
