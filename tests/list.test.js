@@ -98,6 +98,35 @@ module.exports = {
       !stocked.some((x) => named.test(x)) && buy.some((x) => named.test(x)),
       flagged.name + ' — storehouse: ' + JSON.stringify(stocked) + '  buy: ' + JSON.stringify(buy));
 
+    /* A tick survives the item changing heading.
+     *
+     * The checked key was prefixed with the heading — base| or extra| — so a
+     * ticked item's identity depended on where it was filed. Take something
+     * off your pantry shelf and every tick against it vanished, because
+     * "base|ground beef" and "extra|ground beef" are two things to a checklist
+     * and one thing to a person standing in a shop. */
+    const survives = await p.evaluate(async () => {
+      const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+      days.forEach((d) => window.Store.day(d).forEach((e) =>
+        window.Store.removeFromDay(e.id !== undefined ? e.id : e, d)));
+      const r = window.RECIPES.find((x) => (x.ingp || []).some((i) => i && i.k === 'ground_beef'));
+      window.Store.addToDay(r.id, 'mon');
+      document.querySelector('.tab[data-view="list"]').click();
+      await new Promise((ok) => setTimeout(ok, 400));
+      const row = [...document.querySelectorAll('.list-row')]
+        .find((x) => /ground beef/i.test(x.textContent));
+      row.querySelector('input').click();
+      await new Promise((ok) => setTimeout(ok, 300));
+      window.Store.setPantry('ground_beef', false);
+      await new Promise((ok) => setTimeout(ok, 500));
+      const after = [...document.querySelectorAll('.list-row')]
+        .find((x) => /ground beef/i.test(x.textContent));
+      return { moved: after.closest('.list-group').querySelector('.list-group-title').textContent,
+        still: after.querySelector('input').checked };
+    });
+    t.ok('a ticked item stays ticked when it moves to the other heading',
+      survives.still, JSON.stringify(survives));
+
     t.ok('water never appears at all', !rows.some((r) => /^Water$/.test(r.name)),
       rows.map((r) => r.name).join(', '));
 

@@ -634,6 +634,15 @@
         /* "(optional)" means you are not being sent out for it. */
         if (it.o) return;
         // seasonings share one food key, so they go by their own name instead
+        /* The food key, and nothing about which heading it lands under.
+        
+           It used to be prefixed with the heading — base| or extra| — which
+           made a ticked item's identity depend on where it was filed. Take
+           something off your pantry shelf mid-shop and every tick against it
+           vanished, because "base|ground beef" and "extra|ground beef" are two
+           different things to a checklist and one thing to a person. Nothing
+           needed the prefix: a food key can only be under one heading at a
+           time, so there was never a collision for it to prevent. */
         var key = s.s ? it.a : it.k;
         if (!bucket[key]) {
           bucket[key] = {
@@ -668,10 +677,7 @@
       var items = Object.keys(bucket).map(function (k) { return bucket[k]; })
         .filter(function (b) { return b.extra === wantExtra; })
         .sort(function (a, b) { return a.label.localeCompare(b.label); });
-      items.forEach(function (b) {
-        b.qty = shopQty(b.g, b.unit, b.per, b.lad);
-        b.key = (b.extra ? 'extra|' : 'base|') + b.key;
-      });
+      items.forEach(function (b) { b.qty = shopQty(b.g, b.unit, b.per, b.lad); });
       return { title: title, items: items };
     };
     return {
@@ -2125,13 +2131,17 @@
 
   function ask(opts, done) {
     D = { title: opts.title, body: opts.body || '', value: opts.value,
-      ok: opts.ok || 'OK', danger: !!opts.danger, done: done };
+      ok: opts.ok || 'OK', danger: !!opts.danger, done: done, pushed: !popping };
+    pushSheet({ d: 1 });
     renderDialog();
   }
 
   function closeDialog(answer) {
     var d = D;
     D = null;
+    /* The entry this dialog pushed, unwound — unless we are already inside a
+       popstate, which is what removed it. */
+    if (d && d.pushed && !popping) { depth = Math.max(0, depth - 1); history.back(); }
     renderDialog();
     if (d && d.done) d.done(answer);
   }
@@ -2389,6 +2399,7 @@
     S.openId = null;
     rememberOpener();
     S.editId = id;
+    pushSheet({ e: String(id) });
     renderModal();
   }
 
@@ -2843,6 +2854,7 @@
       rememberOpener();
       S.syncOpen = true;
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
+      pushSheet({ s: 1 });
       renderModal();
       var x = document.querySelector('.sheet-x');
       if (x) x.focus();
@@ -2853,6 +2865,7 @@
       rememberOpener();
       S.syncOpen = true;
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
+      pushSheet({ s: 1 });
       renderModal();
       var x = document.querySelector('.sheet-x');
       if (x) x.focus();
@@ -2987,15 +3000,32 @@
   var depth = 0;                 // history entries this modal has pushed
   var popping = false;           // inside a popstate, so do not push back
 
+  /* Every sheet is an entry, not just a recipe.
+   *
+   * The first version of this pushed only when a recipe opened, which fixed
+   * the case that was reported and left three that behave identically to a
+   * reader: the Share sheet, the editor, and a confirm dialog all fill the
+   * screen and all have an ×, and backing out of any of them navigated
+   * straight out of the app. Same gesture, same-looking thing, three different
+   * outcomes.
+   *
+   * The state carries the recipe id when there is one, so landing back on that
+   * entry restores the recipe; anything else pops to a closed modal. Which
+   * means the editor needs no special case: opened from a recipe it sits on
+   * top of that entry and back lands on the recipe, opened from the header it
+   * sits on the base entry and back closes. */
+  function pushSheet(state) {
+    if (popping) return;
+    history.pushState(state || {}, '');
+    depth++;
+  }
+
   function openRecipe(id) {
     if (id === S.openId) return;
     S.openId = id;
     S.scale = 1;
     S.why = false;
-    if (!popping) {
-      history.pushState({ r: String(id) }, '');
-      depth++;
-    }
+    pushSheet({ r: String(id) });
     renderModal();
     var x = document.querySelector('.sheet-x');
     if (x) x.focus();
@@ -3004,6 +3034,9 @@
   window.addEventListener('popstate', function (e) {
     var id = e.state && e.state.r;
     popping = true;
+    /* A dialog is not part of the modal, so closing the modal would leave the
+       question sitting there over a page it no longer belongs to. */
+    if (D) closeDialog(false);
     if (id && BY_ID[id]) {
       depth = Math.max(0, depth - 1);
       S.openId = idOf(id);

@@ -1,5 +1,39 @@
 /* Weeks, the plan, and the multiplier a planned recipe carries. */
 
+/* Every sheet answers the back gesture the same way.
+ *
+ * A recipe was made a history entry when a reader complained that swiping back
+ * out of a cross-reference dumped him on the grid. That fixed the case he hit
+ * and left three that look identical to him: the Share sheet, the editor and a
+ * confirm dialog all fill the screen and all have an ×, and backing out of any
+ * of them navigated clean out of the app. Same gesture, same-looking thing,
+ * three different outcomes.
+ *
+ * The check is that back closes the sheet and leaves you where you were —
+ * which means starting somewhere else, so that leaving the app is visible as a
+ * change of address rather than as nothing happening. */
+async function backLeavesYouHere(t, open) {
+  const ctx = await t.browser.newContext({ viewport: { width: 1000, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(t.base + 'welcome/index.html');
+  await p.waitForTimeout(200);
+  await p.goto(t.base + 'index.html');
+  await p.evaluate(() => localStorage.clear());
+  await p.reload();
+  await p.waitForTimeout(700);
+  await open(p);
+  const opened = await p.evaluate(() =>
+    !!document.querySelector('.sheet') || !!document.querySelector('#dialogRoot .dlg'));
+  await p.goBack();
+  await p.waitForTimeout(600);
+  const after = await p.evaluate(() => ({
+    path: location.pathname,
+    sheet: !!document.querySelector('.sheet') || !!document.querySelector('#dialogRoot .dlg'),
+  }));
+  await ctx.close();
+  return { opened, after };
+}
+
 module.exports = {
   name: 'Weeks and the plan',
   async run(t) {
@@ -309,6 +343,25 @@ module.exports = {
       hostile.ran === 0 && hostile.injected === 0, JSON.stringify(hostile));
     t.ok('and is kept and shown as the words that were typed',
       hostile.weekName === HOSTILE && hostile.shownSomewhere, JSON.stringify(hostile));
+
+    /* ---- the back gesture, on every sheet there is ---- */
+    for (const [what, open] of [
+      ['a recipe', async (q) => { await q.evaluate(() =>
+        document.querySelector('.card[data-open]').click()); await q.waitForTimeout(350); }],
+      ['the Share sheet', async (q) => { await q.click('#syncBtn'); await q.waitForTimeout(350); }],
+      ['the editor', async (q) => { await q.click('#newRecipe'); await q.waitForTimeout(450); }],
+      ['a confirm dialog', async (q) => {
+        await q.click('.tab[data-view="pantry"]'); await q.waitForTimeout(350);
+        await q.evaluate(() => window.Store.setPantry('cottage_cheese', false));
+        await q.waitForTimeout(350);
+        await q.click('#pantryReset'); await q.waitForTimeout(350);
+      }],
+    ]) {
+      const r = await backLeavesYouHere(t, open);
+      t.ok('back out of ' + what + ' closes it without leaving the app',
+        r.opened && r.after.path.indexOf('welcome') < 0 && !r.after.sheet,
+        JSON.stringify(r));
+    }
 
     await p.context().close();
   },
