@@ -561,16 +561,43 @@ function gramsFor(line) {
  */
 
 /*
- * This edition's score. Five things, out of 100.
+ * This edition's score. Six things, out of 100.
  *
- * The first three are the original book's, rescaled. The last two are new, and
- * are the reason this was worth redoing: the old score awarded nothing for
- * fiber and counted salt as free, in a collection built on canned chicken,
- * canned soup and boxed mixes. A can of tuna with mayonnaise scored 98 while a
- * pot of beans and vegetables scored in the sixties. Sodium and fiber are
- * estimated from the ingredients for every recipe in both volumes, including
- * the ones whose calories and protein were authored.
+ * The first three are the original book's, rescaled. Sodium and fiber came
+ * next: the old score awarded nothing for fiber and counted salt as free, in a
+ * collection built on canned chicken, canned soup and boxed mixes. A can of
+ * tuna with mayonnaise scored 98 while a pot of beans and vegetables scored in
+ * the sixties.
+ *
+ * Carbohydrate is the sixth, and it was free in exactly the same way salt used
+ * to be. Across the whole collection the correlation between carbohydrate's
+ * share of a recipe's calories and its score was 0.012 — not weak, nothing.
+ * Worse than nothing, in fact: the fat part rewards a low fat share, so
+ * trading fat for sugar at the same calories and the same protein moved a
+ * recipe from 65 to 70. Two hundred and fifty calories of sugar dissolved in
+ * water scored 55. A hot milk with brown sugar in it scored 75.
+ *
+ * What is measured is not carbohydrate. Oats and frosting are both
+ * carbohydrate, and a score that cannot tell them apart is worse than no score
+ * at all — it would mark down the one recipe in the collection built on rolled
+ * oats and slow protein.
+ *
+ * So: a gram of fiber earns ten grams of carbohydrate, which is roughly the
+ * ratio a whole food arrives in. Whatever carbohydrate is left over came with
+ * nothing attached to it, and that is what costs points. Overnight oats come
+ * out at 6% of calories and lose nothing; the same size mug of hot milk and
+ * brown sugar comes out at 49% and loses the lot. No new data was needed for
+ * it — fiber was already estimated for every recipe, and this asks a second
+ * question of a number that was already there.
+ *
+ * Making room for it: every one of the five existing parts keeps its shape and
+ * its band exactly, and only its maximum is scaled down. Nothing about what
+ * earns sodium points or fiber points has changed, so the ordering within each
+ * part is identical to the previous edition — the parts simply add to 88
+ * before carbohydrate has its say.
  */
+const MAX = { p: 27, k: 18, f: 8, s: 22, b: 13, c: 12 };   // 100
+
 function scoreFrom(macro) {
   const pPct = (macro.p * 4) / macro.kcal * 100;
   const fPct = (macro.f * 9) / macro.kcal * 100;
@@ -578,17 +605,27 @@ function scoreFrom(macro) {
   const fib = macro.fib || 0;
   const clamp = (x, hi) => Math.max(0, Math.min(hi, x));
 
-  const p = clamp((pPct / 45) * 30, 30);              // protein share of energy
-  const k = clamp(20 - Math.max(0, macro.kcal - 300) / 25, 20);  // calorie load
-  const f = clamp((10 * (45 - fPct)) / 35, 10);       // fat share of energy
-  const s = clamp(25 * (1200 - na) / 900, 25);        // sodium: full to 300 mg, nothing by 1200
-  const b = clamp(15 * (fib / 7), 15);                // fiber: full marks at 7 g
+  /* Carbohydrate arriving with no fiber beside it, as a share of the calories.
+     The collection's median is 6% and its ninetieth percentile is 43%, so full
+     marks to 10% and nothing left by 50% sits either side of where the recipes
+     actually are rather than at a round number chosen in advance. */
+  const bare = Math.max(0, (macro.c || 0) - fib * 10);
+  const cPct = (bare * 4) / macro.kcal * 100;
+
+  const p = clamp((pPct / 45) * MAX.p, MAX.p);                       // protein share of energy
+  const k = clamp(MAX.k - Math.max(0, macro.kcal - 300) / (25 * 20 / MAX.k), MAX.k);  // calorie load
+  const f = clamp((MAX.f * (45 - fPct)) / 35, MAX.f);                // fat share of energy
+  const s = clamp(MAX.s * (1200 - na) / 900, MAX.s);                 // sodium: full to 300 mg, none by 1200
+  const b = clamp(MAX.b * (fib / 7), MAX.b);                         // fiber: full marks at 7 g
+  const c = clamp(MAX.c * (50 - cPct) / 40, MAX.c);                  // unfibered carbohydrate
 
   return {
-    score: Math.round(p + k + f + s + b),
+    score: Math.round(p + k + f + s + b + c),
     sc: {
-      p: Math.round(p), k: Math.round(k), f: Math.round(f), s: Math.round(s), b: Math.round(b),
-      pPct: Math.round(pPct), fPct: Math.round(fPct), na: Math.round(na), fib: Math.round(fib * 10) / 10,
+      p: Math.round(p), k: Math.round(k), f: Math.round(f), s: Math.round(s),
+      b: Math.round(b), c: Math.round(c),
+      pPct: Math.round(pPct), fPct: Math.round(fPct), cPct: Math.round(cPct),
+      na: Math.round(na), fib: Math.round(fib * 10) / 10,
     },
   };
 }
@@ -641,5 +678,6 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
 
 
 return { FOODS: FOODS, ALIASES: ALIASES, SPICE_NAMES: SPICE_NAMES,
-  parseLine: parseLine, scoreFrom: scoreFrom, nutritionFor: nutritionFor };
+  parseLine: parseLine, scoreFrom: scoreFrom, nutritionFor: nutritionFor,
+  MAX: MAX };
 })();

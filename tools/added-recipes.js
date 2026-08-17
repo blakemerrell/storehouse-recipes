@@ -228,7 +228,7 @@ module.exports = [
     ing: ['4 eggs', '2.5 cups milk', '½ cup sugar', '2 tsp vanilla', 'salt', '1 tsp cinnamon'],
     steps: [
       'Heat the milk until it steams and shows a few bubbles at the edge. Do not let it boil.',
-      'Whisk the eggs, sugar and a pinch of salt together until smooth but not frothy — froth turns into bubbles in the finished custard.',
+      'Whisk the eggs, sugar, vanilla and a pinch of salt together until smooth but not frothy — froth turns into bubbles in the finished custard. The vanilla goes in here rather than into the hot milk, where most of it would boil off.',
       'Pour the hot milk into the eggs in a thin stream, whisking the whole time. Adding it all at once will scramble them.',
       'Pour the mixture through a sieve into a jug. This catches anything that did set and is the difference between silky and grainy.',
       'Divide between six dishes and dust the tops with cinnamon.',
@@ -487,7 +487,7 @@ module.exports = [
     ing: ['½ cup mayo', '2 tbsp honey', '1 tbsp mustard', '2 tbsp BBQ sauce'],
     steps: [
       'Whisk the mayo and honey together until completely smooth.',
-      'Add the mustard and the barbecue sauce and whisk again. Recipe 264 makes the barbecue sauce, if there is no bottle.',
+      'Add the mustard and the barbecue sauce and whisk again. {r:264} makes the barbecue sauce, if there is no bottle.',
       'Taste it. It should be sweet first, tangy second, smoky underneath — adjust with a little more honey or mustard.',
       'Chill 30 minutes before serving.',
     ],
@@ -904,5 +904,27 @@ module.exports = [
     ],
     macro: null, tagline: 'Blend It Longer Than You Think', score: null, sc: null,
     diff: 'Easy', time: '5 mins', extras: null,
+  },
+
+  /* Breadcrumbs. The fourth thing in this section, and the one that was most
+     obviously missing: two recipes in the book call for half a cup of them and
+     the storehouse does not carry a box. Somebody making the meatball feast on
+     a Sunday finds that out standing at the counter with the beef already out.
+
+     Bread is on the standard order, so this needs nothing at all. */
+  {
+    id: 272, book: 2, secNum: 9, secName: MADE,
+    name: 'Breadcrumbs, Dry or Soft',
+    servings: 'About 1½ Cups (6 Servings)', servN: 6,
+    ing: ['6 bread slices', '½ tsp salt'],
+    steps: [
+      'Decide which kind you want first, because it changes everything after it. Soft crumbs go into meatballs and meatloaf, where their job is to hold moisture. Dry crumbs go on top of things, where their job is to go crisp. The same bread makes either.',
+      'For soft crumbs: tear fresh bread into pieces and pulse it in a blender or food processor a few seconds at a time. Stale bread will not do this — it powders. Use it the same day; soft crumbs go mouldy in a covered jar within about three.',
+      'For dry crumbs: lay the slices straight on the oven rack at 300°F for 15 to 20 minutes, turning once, until they snap rather than bend. Cool them completely before crushing, in a blender or in a bag with a rolling pin. Warm bread is still flexible and will tear instead of shattering.',
+      'Salt them and nothing else, unless you know what they are for. Crumbs seasoned in the jar are a decision made weeks before it was needed, and unseasoned crumbs go into anything.',
+      'Dry crumbs keep a month in a jar with the lid on. Heels, crusts and the end of a loaf are the right bread for this — it is the one recipe in the book that is better made from what was about to be thrown out.',
+    ],
+    macro: null, tagline: 'The Ends of the Loaf, Kept', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
   },
 ];

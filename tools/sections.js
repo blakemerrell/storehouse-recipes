@@ -166,12 +166,43 @@ function apply(recipes) {
 /* The whole collection, in the order it prints: Volume One by its new sections,
    then everything else exactly as it was. Volume One's recipes have to end up
    contiguous — six of them now arrive from added-recipes.js at the far end of
-   the array, and leaving them there would print them after Around the Table. */
+   the array, and leaving them there would print them after Around the Table.
+ *
+ * And then numbered, both volumes, straight through.
+ *
+ * Volume One was renumbered when it was re-sectioned and Volume Two was not,
+ * because Volume Two had never needed it: its printed number had always been
+ * its id, and its ids happened to run 101 to 266 in order. Both halves of that
+ * stopped being true on the same afternoon. Six recipes left for Volume One,
+ * which put a six-number hole at 257, and Volume One grew to a hundred and
+ * eleven, which ran its numbers straight into Volume Two's — so the collection
+ * printed eleven numbers twice over. Two recipes called 105. The front matter
+ * one page earlier promises a number "running from 001 straight through both
+ * volumes", and a reader looking one up would have found two.
+ *
+ * Numbering the whole run here is what makes that impossible rather than
+ * fixed: there is one counter, it does not skip, and it cannot reach the same
+ * number twice. Volume Three is left alone — it is numbered from one at
+ * runtime because it is somebody's own recipes and it grows. */
 function order(recipes) {
   const run = apply(recipes);
   module.exports.lastRun = run;
   const rest = recipes.filter((r) => r.book !== 1);
-  return run.order.concat(rest);
+  const all = run.order.concat(rest);
+
+  let n = 0;
+  all.forEach((r) => { if (r.book === 1 || r.book === 2) r.no = ++n; });
+
+  /* The id still does not move. It is what a favorite, a day of a week, a
+     household document and now a cross-reference from one recipe to another
+     are all keyed by; the number on the page is what the reader is given. */
+  const seen = new Set();
+  all.forEach((r) => {
+    const k = r.book + '/' + r.no;
+    if (r.no !== undefined && seen.has(k)) throw new Error('sections: two recipes numbered ' + r.no);
+    seen.add(k);
+  });
+  return all;
 }
 
 module.exports = { SECTIONS, ASSIGN, SERVINGS, apply, order, lastRun: null };

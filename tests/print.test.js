@@ -282,8 +282,13 @@ module.exports = {
     t.ok('and nothing in it still calls itself a volume of two',
       one.companion === 0 && one.volumeLines === 0,
       one.companion + ' companion lines, ' + one.volumeLines + ' volume lines');
+    /* Only the comparison. It used to also assert 160 exactly, which is a
+       second copy of a number the render decides — and it went red the day a
+       recipe was added, for holding an old answer rather than because the book
+       was wrong. What is worth protecting is the reason the combined edition
+       exists: one cover and one set of front matter instead of two. */
     t.ok('it is shorter than the two volumes printed separately',
-      one.pages === 160 && one.pages < b.pages, one.pages + ' vs ' + b.pages);
+      one.pages < b.pages, one.pages + ' vs ' + b.pages);
 
     await p.selectOption('#printSet', 'all');
     await p.waitForTimeout(4500);

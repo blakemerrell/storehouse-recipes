@@ -871,6 +871,20 @@ select { max-width: 280px; }
   font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--ochre); min-width: 17px;
 }
 .sheet-step-t { font-size: 13.5px; line-height: 1.58; text-wrap: pretty; }
+
+/* A reference to another recipe, inside a sentence.
+   Set as running text that happens to be pressable rather than as a control
+   dropped into a paragraph: same size, same line-height, underlined the way a
+   reference in a book is. A pill or a coloured chip here breaks the line it
+   sits in, and the sentence around it is the part doing the explaining. */
+.xref {
+  font: inherit; color: var(--ink); background: none; border: 0; padding: 0;
+  text-decoration: underline; text-decoration-thickness: 1px;
+  text-underline-offset: 2px; text-decoration-color: var(--line-firm);
+  cursor: pointer; white-space: nowrap;
+}
+.xref:hover { text-decoration-color: var(--ink); }
+.xref:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; border-radius: 2px; }
 .sheet-extras {
   margin-top: 20px; font-size: 12px; color: var(--muted-2);
   border-left: 2px solid var(--ochre); padding-left: 11px; line-height: 1.5;

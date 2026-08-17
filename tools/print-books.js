@@ -58,6 +58,50 @@ function playwright() {
   process.exit(2);
 }
 
+/* The landing page quotes the same numbers a third time.
+ *
+ * "All 271 recipes, 160 pages" over a Buy button, and a fold-it-yourself note
+ * giving each volume's recipes and pages — five numbers, all typed, all of
+ * them stale by the end of an afternoon of adding recipes. The suite caught
+ * them only because it reads the PDFs; the page itself had no way to know.
+ *
+ * They are marked with data-n now and filled in from the render and the built
+ * data, so the sentence on the page cannot say one thing while the file behind
+ * the button says another. */
+function stampWelcome(made) {
+  const file = path.join(ROOT, 'welcome', 'index.html');
+  if (!fs.existsSync(file)) return;
+
+  const g = {}; global.window = g;
+  delete require.cache[require.resolve('../data/recipes.js')];
+  require('../data/recipes.js');
+  const R = g.RECIPES || [];
+  const n = (b) => R.filter((r) => r.book === b).length;
+
+  const want = {
+    'all-recipes': R.length,
+    'b1-recipes': n(1),
+    'b2-recipes': n(2),
+    'one-pages': made.one,
+    'b1-pages': made['1'],
+    'b2-pages': made['2'],
+  };
+
+  let src = fs.readFileSync(file, 'utf8');
+  const done = [];
+  Object.keys(want).forEach((k) => {
+    if (want[k] === undefined) return;            // that book was not rendered this run
+    const re = new RegExp('(<span data-n="' + k + '">)(\\d+)(</span>)');
+    const m = src.match(re);
+    if (!m) { console.log('  welcome/index.html has no ' + k + ' to fill in'); return; }
+    if (Number(m[2]) !== want[k]) done.push(k + ' ' + m[2] + ' -> ' + want[k]);
+    src = src.replace(re, '$1' + want[k] + '$3');
+  });
+  if (!done.length) return;
+  fs.writeFileSync(file, src);
+  console.log('welcome/index.html updated: ' + done.join(', '));
+}
+
 /* The page count printed on the Download button, written back into the app.
  *
  * READY_MADE in src/app.js says how many pages each shipped PDF has, and until
@@ -150,4 +194,5 @@ function stampPageCounts(made) {
   srv.close();
   console.log('\nin ' + path.relative(process.cwd(), OUT) + '/');
   stampPageCounts(made);
+  stampWelcome(made);
 })();

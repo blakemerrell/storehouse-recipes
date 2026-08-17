@@ -331,7 +331,12 @@ fs.writeFileSync(path.join(ROOT, 'data', 'nutrition.js'),
   + 'window.Nutrition = (function () {\n'
   + bundleSrc
   + '\nreturn { FOODS: FOODS, ALIASES: ALIASES, SPICE_NAMES: SPICE_NAMES,\n'
-  + '  parseLine: parseLine, scoreFrom: scoreFrom, nutritionFor: nutritionFor };\n'
+  + '  parseLine: parseLine, scoreFrom: scoreFrom, nutritionFor: nutritionFor,\n'
+  /* The weights travel with the scorer. The score breakdown panel draws a bar
+     per part against what that part is worth, and it used to carry its own
+     copy of the six maxima — so changing a weight here silently rescaled every
+     bar in the app against the wrong denominator. */
+  + '  MAX: MAX };\n'
   + '})();\n');
 
 // ---------------------------------------------------------------------------
@@ -405,13 +410,38 @@ a free ingredient worth nothing at all. The result was that a can of tuna with
 mayonnaise scored 98 and a pot of beans and vegetables scored in the sixties. Any
 sort by "healthiest" ran backwards.
 
+**Carbohydrate is in**, and it was free in exactly the way salt used to be. Across
+the collection the correlation between carbohydrate's share of a recipe's calories
+and its score was **0.012** — not weak, nothing. Worse than nothing: the fat part
+rewards a low fat share, so trading fat for sugar at the same calories and the
+same protein moved a recipe from 65 to 70. Two hundred and fifty calories of sugar
+in water scored 55; a mug of hot milk with brown sugar in it scored 75.
+
+What is scored is not carbohydrate. Oats and frosting are both carbohydrate, and a
+part that could not tell them apart would mark down the one breakfast in the book
+built on rolled oats. **A gram of fiber covers ten grams of carbohydrate** —
+roughly the ratio a whole food arrives in — and only what is left over costs
+anything. Overnight oats come out at 6% of calories and lose nothing. The same
+size mug of hot milk and brown sugar comes out at 49% and loses all twelve points.
+It needed no new data: fiber was already estimated for every recipe, and this asks
+a second question of a number that was already there.
+
+Room was made by scaling the five existing parts, not by reshaping them. Every
+band is exactly where it was — what earns sodium points or fiber points has not
+changed, and the ordering within each part is identical to the previous edition.
+
 | Component | Max | Rule |
 |---|---|---|
-| Protein share | 30 | \`min(30, protein% of calories ÷ 45 × 30)\` |
-| Calorie load | 20 | \`20 − (kcal − 300) ÷ 25\`, clamped to 0–20 — full marks to 300 kcal |
-| Fat share | 10 | \`10 × (45 − fat% of calories) ÷ 35\`, clamped to 0–10 |
-| Sodium | 25 | \`25 × (1200 − mg) ÷ 900\`, clamped to 0–25 — full marks to 300 mg, nothing by 1,200 |
-| Fiber | 15 | \`15 × g ÷ 7\`, clamped to 0–15 — full marks at 7 g |
+| Protein share | 27 | \`min(27, protein% of calories ÷ 45 × 27)\` |
+| Calorie load | 18 | \`18 − (kcal − 300) ÷ 27.8\`, clamped to 0–18 — full marks to 300 kcal |
+| Fat share | 8 | \`8 × (45 − fat% of calories) ÷ 35\`, clamped to 0–8 |
+| Sodium | 22 | \`22 × (1200 − mg) ÷ 900\`, clamped to 0–22 — full marks to 300 mg, nothing by 1,200 |
+| Fiber | 13 | \`13 × g ÷ 7\`, clamped to 0–13 — full marks at 7 g |
+| Unfibered carbohydrate | 12 | \`12 × (50 − pct) ÷ 40\`, clamped to 0–12, where \`pct\` is \`max(0, carb g − fiber g × 10) × 4 ÷ kcal × 100\` — full marks to 10%, nothing left by 50% |
+
+The band for the last one is set off where the recipes actually are rather than at
+a round number picked in advance: the collection's median is 6% and its ninetieth
+percentile is 43%.
 
 **Printed scores therefore differ from the original book's, substantially and by
 design.** Score is the rounded sum of the unrounded parts, which is why the pieces

@@ -78,7 +78,7 @@ module.exports = [
       '¾ cup milk', 'salt'],
     steps: [
       'Heat the oven to 375°F.',
-      'Brown the beef and drain it. Drain the vegetables, stir them in, and make up the gravy as the packet says. No packet? Recipe 265, browned dark and made with a cup of water, does the same job.',
+      'Brown the beef and drain it. Drain the vegetables, stir them in, and make up the gravy as the packet says. No packet? {r:265}, browned dark and made with a cup of water, does the same job.',
       'Rub the cold butter into the flour, baking powder and a teaspoon of salt until crumbly, then stir in the milk until it just comes together.',
       'Spoon the beef into a baking dish, drop the dough over it in rough spoonfuls, and bake 25 minutes until the topping is golden and dry at the centre.',
     ],
@@ -141,14 +141,64 @@ module.exports = [
    * told to cook in plain water and make the gravy from what is in the pot at
    * the end, which is what the packet was standing in for anyway.
    */
-  { id: 59, step: 0, add: 'No bottle in the house? Recipe 264 makes barbecue sauce from the storehouse shelf.' },
-  { id: 143, step: 1, add: 'No bottle in the house? Recipe 264 makes barbecue sauce from the storehouse shelf.' },
-  { id: 162, step: 0, add: 'No bottle in the house? Recipe 264 makes barbecue sauce from the storehouse shelf.' },
-  { id: 181, step: 0, add: 'No bottle in the house? Recipe 264 makes barbecue sauce from the storehouse shelf.' },
-  { id: 176, step: 2, add: 'No packet? Pour a cup of plain water over instead, and make Recipe 265 at the end from the liquid in the cooker.' },
-  { id: 182, step: 1, add: 'No packet? Recipe 265, stopped while the flour is still blond, is the pale gravy this wants. Use the juices from the roasting tin.' },
-  { id: 187, step: 0, add: 'No packet? Simmer the beef and onions in 2 cups of plain water instead, and turn that liquid into gravy at the end with Recipe 265.' },
-  { id: 195, step: 1, add: 'No packet? Put a cup of water in with them instead and make Recipe 265 from what is in the cooker at the end.' },
+  { id: 59, step: 0, add: 'No bottle in the house? {r:264} makes barbecue sauce from the storehouse shelf.' },
+  { id: 143, step: 1, add: 'No bottle in the house? {r:264} makes barbecue sauce from the storehouse shelf.' },
+  { id: 162, step: 0, add: 'No bottle in the house? {r:264} makes barbecue sauce from the storehouse shelf.' },
+  { id: 181, step: 0, add: 'No bottle in the house? {r:264} makes barbecue sauce from the storehouse shelf.' },
+  { id: 176, step: 2, add: 'No packet? Pour a cup of plain water over instead, and make {r:265} at the end from the liquid in the cooker.' },
+  { id: 182, step: 1, add: 'No packet? {r:265}, stopped while the flour is still blond, is the pale gravy this wants. Use the juices from the roasting tin.' },
+  { id: 187, step: 0, add: 'No packet? Simmer the beef and onions in 2 cups of plain water instead, and turn that liquid into gravy at the end with {r:265}.' },
+  { id: 195, step: 1, add: 'No packet? Put a cup of water in with them instead and make {r:265} from what is in the cooker at the end.' },
+
+  /* ---- ingredients that were bought and never used ---------------------
+   *
+   * Found by a reader cooking the meatball feast, who got to the end with a
+   * can of green beans still on the counter. The ingredient list asked for it,
+   * the method never mentioned it, and there was nothing on the page to say
+   * whether it had been forgotten or whether he had missed a line.
+   *
+   * A sweep of all two hundred and seventy-one turned up five like it — every
+   * ingredient line checked against every word of its own method, allowing for
+   * the ones covered collectively ("mix ingredients", "make 4 PB&J
+   * sandwiches") and for seasoning nobody narrates. Five is not many, and each
+   * one costs somebody a tin or a stick of butter and a minute of standing
+   * there wondering.
+   *
+   * Each is given the shortest instruction that makes the list true. Nothing
+   * is added to the ingredients and nothing is taken away, so the macros, the
+   * score and the shopping list are all untouched — these were already being
+   * counted. They just were not being cooked. */
+  { id: 106, step: 1, add: 'Butter the dish first — that is what the two tablespoons are for, and a bake this eggy will weld itself to a dry one.' },
+  { id: 177, step: 1, add: 'Heat the green beans through in their own liquid while the noodles boil, then drain them.' },
+  { id: 178, step: 2, add: 'Heat the green beans through, drain them, and put them on the table alongside — a plate of nothing but spaghetti is the reason the can is on the list.' },
+  { id: 189, step: 1, add: 'Cut the carrots into thick batons and season them alongside the potatoes; they roast in the same time.' },
+
+  /* The rest of the same sweep. Smaller than the five above — a condiment
+     nobody was told to put on the table, a seasoning never called for, the
+     milk a boxed cake mix needs — but each one is an ingredient somebody
+     bought and then had to guess about, which is the same failure at a lower
+     price. Two of them are a burrito bar and a taco bar with the salsa left in
+     the fridge. */
+  { id: 38, step: 2, add: 'Season each one with salt and pepper before it goes in.' },
+  { id: 52, step: 3, add: 'Mustard or salsa on the side; it wants something sharp against the beef and potato.' },
+  { id: 53, step: 2, add: 'Chopped tomatoes over the top, added the day you eat it rather than now — they weep if they sit.' },
+  { id: 103, step: 2, add: 'Salsa out beside them.' },
+  { id: 119, step: 1, add: 'Salt and pepper the egg as it sets.' },
+  { id: 128, step: 2, add: 'Sour cream too.' },
+  { id: 135, step: 1, add: 'Salsa on the side, or spooned in before they are rolled.' },
+  { id: 152, step: 2, add: 'Salsa out with them.' },
+  { id: 168, step: 2, add: 'Stir the butter into them while they are hot — that is the difference between a topping and a paste.' },
+  { id: 205, step: 1, add: 'Make the mix up with the milk rather than water; it is a box mix either way, and this is the part that stops it tasting like one.' },
+  { id: 217, step: 0, add: 'Beat the waffle mix, milk and egg together first and let the batter stand a couple of minutes.' },
+
+  /* ---- the two recipes that ask for breadcrumbs -------------------------
+   *
+   * The same reader, the same evening, one step earlier: half a cup of
+   * breadcrumbs, and the storehouse does not carry a box of them. Bread is on
+   * the standard order, so the recipe for making them is now in Made, Not
+   * Bought and both meatball recipes point at it. */
+  { id: 166, step: 0, add: 'No breadcrumbs in the cupboard? {r:272} makes them from bread, which is on the order.' },
+  { id: 178, step: 0, add: 'No breadcrumbs in the cupboard? {r:272} makes them from bread, which is on the order.' },
 
   /* ---- four titles that promise something the recipe has not got --------
    *

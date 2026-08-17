@@ -39,13 +39,38 @@ a free ingredient worth nothing at all. The result was that a can of tuna with
 mayonnaise scored 98 and a pot of beans and vegetables scored in the sixties. Any
 sort by "healthiest" ran backwards.
 
+**Carbohydrate is in**, and it was free in exactly the way salt used to be. Across
+the collection the correlation between carbohydrate's share of a recipe's calories
+and its score was **0.012** — not weak, nothing. Worse than nothing: the fat part
+rewards a low fat share, so trading fat for sugar at the same calories and the
+same protein moved a recipe from 65 to 70. Two hundred and fifty calories of sugar
+in water scored 55; a mug of hot milk with brown sugar in it scored 75.
+
+What is scored is not carbohydrate. Oats and frosting are both carbohydrate, and a
+part that could not tell them apart would mark down the one breakfast in the book
+built on rolled oats. **A gram of fiber covers ten grams of carbohydrate** —
+roughly the ratio a whole food arrives in — and only what is left over costs
+anything. Overnight oats come out at 6% of calories and lose nothing. The same
+size mug of hot milk and brown sugar comes out at 49% and loses all twelve points.
+It needed no new data: fiber was already estimated for every recipe, and this asks
+a second question of a number that was already there.
+
+Room was made by scaling the five existing parts, not by reshaping them. Every
+band is exactly where it was — what earns sodium points or fiber points has not
+changed, and the ordering within each part is identical to the previous edition.
+
 | Component | Max | Rule |
 |---|---|---|
-| Protein share | 30 | `min(30, protein% of calories ÷ 45 × 30)` |
-| Calorie load | 20 | `20 − (kcal − 300) ÷ 25`, clamped to 0–20 — full marks to 300 kcal |
-| Fat share | 10 | `10 × (45 − fat% of calories) ÷ 35`, clamped to 0–10 |
-| Sodium | 25 | `25 × (1200 − mg) ÷ 900`, clamped to 0–25 — full marks to 300 mg, nothing by 1,200 |
-| Fiber | 15 | `15 × g ÷ 7`, clamped to 0–15 — full marks at 7 g |
+| Protein share | 27 | `min(27, protein% of calories ÷ 45 × 27)` |
+| Calorie load | 18 | `18 − (kcal − 300) ÷ 27.8`, clamped to 0–18 — full marks to 300 kcal |
+| Fat share | 8 | `8 × (45 − fat% of calories) ÷ 35`, clamped to 0–8 |
+| Sodium | 22 | `22 × (1200 − mg) ÷ 900`, clamped to 0–22 — full marks to 300 mg, nothing by 1,200 |
+| Fiber | 13 | `13 × g ÷ 7`, clamped to 0–13 — full marks at 7 g |
+| Unfibered carbohydrate | 12 | `12 × (50 − pct) ÷ 40`, clamped to 0–12, where `pct` is `max(0, carb g − fiber g × 10) × 4 ÷ kcal × 100` — full marks to 10%, nothing left by 50% |
+
+The band for the last one is set off where the recipes actually are rather than at
+a round number picked in advance: the collection's median is 6% and its ninetieth
+percentile is 43%.
 
 **Printed scores therefore differ from the original book's, substantially and by
 design.** Score is the rounded sum of the unrounded parts, which is why the pieces
@@ -62,7 +87,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 271 scored recipes: **15–96**, median **60**.
+Score range across all 272 scored recipes: **21–96**, median **62**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -76,12 +101,12 @@ Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
 
 | # | Recipe | Was | Now | Sodium | Fiber |
 |---|---|---|---|---|---|
-| 258 | Vanilla & Cinnamon Steamer | null | 80 | 243 mg | 1.4 g |
-| 259 | Fortified Hot Cocoa | null | 78 | 327 mg | 1.8 g |
-| 260 | Iced Vanilla & Cinnamon Milk | null | 78 | 236 mg | 0.7 g |
-| 261 | Morning Oat Steamer | null | 77 | 240 mg | 2.9 g |
-| 267 | Banana Malt Milk | null | 76 | 237 mg | 3.8 g |
+| 268 | Peanut Butter Banana Shake | null | 78 | 252 mg | 4.7 g |
+| 261 | Morning Oat Steamer | null | 76 | 240 mg | 2.9 g |
 | 270 | Cold Oat & Cinnamon Milk | null | 76 | 291 mg | 3.4 g |
+| 258 | Vanilla & Cinnamon Steamer | null | 75 | 243 mg | 1.4 g |
+| 259 | Fortified Hot Cocoa | null | 74 | 327 mg | 1.8 g |
+| 267 | Banana Malt Milk | null | 73 | 237 mg | 3.8 g |
 
 Fruit and oats, which the old score had nothing good to say about because it only
 ever asked how much protein was in them.
@@ -153,8 +178,8 @@ Around the Table shipped with **no nutrition data**: all 125 recipes carried a t
 the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
-- Recipes given macros: 160 of 160
-- Score range: 15–86 (median 52)
+- Recipes given macros: 161 of 161
+- Score range: 21–86 (median 55)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
 shows "Estimated from ingredients" next to its macros and its score. Run and Not Be Weary's
@@ -178,14 +203,14 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-46 recipes across 5 sections were written for this edition rather than carried
+47 recipes across 5 sections were written for this edition rather than carried
 over from the original books:
 
 - **Worth the Afternoon** — 12 recipes
 - **The Copycat Shelf** — 10 recipes
 - **For the Love of Chocolate** — 10 recipes
 - **Power Drinks** — 11 recipes
-- **Made, Not Bought** — 3 recipes
+- **Made, Not Bought** — 4 recipes
 
 The data made the gaps plain. Across the original 225, no recipe has more than
 four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens
@@ -193,7 +218,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 27 of the 46
+Every ingredient was checked against the storehouse order list. 28 of the 47
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 

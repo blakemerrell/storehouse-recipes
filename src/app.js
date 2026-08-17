@@ -1023,8 +1023,10 @@
         '</div></div>' +
         '<div><div class="rp-h">Method</div><div class="rp-steps">' +
           r.steps.map(function (t, i) {
+            /* Not a button: this one is the printed page. Paper gets the
+               number, which is what a number in a book is for. */
             return '<div class="rp-step"><div class="rp-step-n">' + (i + 1) + '</div>' +
-              '<div class="rp-step-t">' + esc(t) + '</div></div>';
+              '<div class="rp-step-t">' + xref(esc(t), false) + '</div></div>';
           }).join('') +
         '</div></div>' +
       '</div>' +
@@ -1159,7 +1161,7 @@
       head('<div class="fm-title">Ours</div>' +
         '<div class="fm-lede">Written at this table rather than carried over.</div>');
       block('<div class="fm-p">These follow the same shape as the two printed volumes — a number, a ' +
-        'serving count, a time, an effort and a score out of 100. Calories, sodium and fiber are worked ' +
+        'serving count, a time, an effort and a score out of 100. Calories, sodium, fiber and carbohydrate are worked ' +
         'out from the ingredients using the same table, so a score here means what a score there ' +
         'means.</div>');
       return b;
@@ -1188,13 +1190,20 @@
       '</div>');
 
     block('<div class="fm-sub">The line under the title</div>' +
-      '<div class="fm-p">Servings, time, effort, and a nutrition score out of 100. Five things make it up: ' +
-      'how much of the energy comes from protein (30 points, full marks at 45%), how many calories a ' +
-      'serving carries (20, full marks up to 300), how much of the energy comes from fat (10, full marks ' +
-      'at or below a tenth), how much sodium a serving carries (25, full marks to 300 mg and nothing left ' +
-      'by 1,200), and how much fiber (15, full marks at 7 g).</div>' +
-      '<div class="fm-p">Sodium and fiber are worked out from the ingredients rather than measured, in ' +
-      'both volumes. Canned goods carry the salt; that is most of what the sodium figure is telling you.</div>' +
+      '<div class="fm-p">Servings, time, effort, and a nutrition score out of 100. Six things make it up: ' +
+      'how much of the energy comes from protein (27 points, full marks at 45%), how many calories a ' +
+      'serving carries (18, full marks up to 300), how much of the energy comes from fat (8, full marks ' +
+      'at or below a tenth), how much sodium a serving carries (22, full marks to 300 mg and nothing left ' +
+      'by 1,200), how much fiber (13, full marks at 7 g), and how much of the energy is carbohydrate ' +
+      'that arrived without any (12).</div>' +
+      '<div class="fm-p">That last one is not a carbohydrate count. Oats and frosting are both ' +
+      'carbohydrate, and a number that cannot tell them apart is worse than no number. A gram of fiber ' +
+      'covers ten grams of carbohydrate — roughly the ratio a whole food comes in — and only what is ' +
+      'left over costs anything. A bowl of oats loses nothing; a mug of hot milk and brown sugar loses ' +
+      'all twelve.</div>' +
+      '<div class="fm-p">Sodium, fiber and carbohydrate are worked out from the ingredients rather than ' +
+      'measured, in both volumes. Canned goods carry the salt; that is most of what the sodium figure is ' +
+      'telling you.</div>' +
       '<div class="fm-p">It measures one thing only. A high score does not mean a dish is good, and a low ' +
       'one does not mean it is bad — a plate of fudge scores badly and is still fudge. Whether a recipe ' +
       'needs anything beyond the standard order is a separate question, answered on the line at its foot.</div>');
@@ -1669,10 +1678,10 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 168 },
-    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 160 },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 172 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 164 },
     1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 60, booklet: true },
-    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 108, booklet: true }
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 112, booklet: true }
   };
 
   function renderDownloads() {
@@ -1716,13 +1725,58 @@
    * doing the division. The bar takes its colour from its own share, so the
    * component that is dragging the score down is the one that looks different.
    */
+  /* The maxima come from the scorer, which is where the weights are decided.
+     They were written out again here, and a weight changed in one place and
+     not the other draws every bar in the panel against the wrong length —
+     silently, and looking perfectly reasonable. */
+  var W = (window.Nutrition && window.Nutrition.MAX) ||
+    { p: 27, k: 18, f: 8, s: 22, b: 13, c: 12 };
+
+  /* ------------------------------------------------------------------------
+   * One recipe pointing at another.
+   *
+   * Nine steps already did this — "No packet? Recipe 265, browned dark, does
+   * the same job" — and every one of them had the number typed into the
+   * sentence. Which worked exactly until the collection was renumbered, at
+   * which point all ten sent the reader to the wrong page, silently, in the
+   * printed book. Recipe 265 became recipe 270 and nothing said so.
+   *
+   * So a step writes {r:265} — the id, which never moves — and the number is
+   * filled in where the sentence is drawn, from the same table the contents
+   * page is built from. In print it reads "Recipe 270". In the app it is the
+   * same words and you can press them.
+   * --------------------------------------------------------------------- */
+  function xref(text, live) {
+    return String(text).replace(/\{r:(\d+)\}/g, function (whole, id) {
+      var t = BY_ID[id];
+      /* A reference to something that is not there any more. Better a sentence
+         that reads a little short than one that sends somebody looking for a
+         page that does not exist. */
+      if (!t) return 'another recipe';
+      var label = 'Recipe ' + String(t.no || t.id).padStart(3, '0');
+      if (!live) return label;
+      return '<button class="xref" data-open="' + esc(t.id) + '" ' +
+        'title="' + esc(t.name) + '">' + esc(label) + '</button>';
+    });
+  }
+
+  /* Steps carry markup only where xref put it, so the text is escaped first
+     and the reference substituted after — never the other way round. */
+  function stepHTML(t) { return xref(esc(t), true); }
+
   function scoreParts(r) {
     return [
-      { k: 'Protein', ab: 'Prot', v: r.sc.pPct + '%', p: r.sc.p, max: 30, t: r.sc.pPct + '% of the calories come from protein' },
-      { k: 'Calories', ab: 'Cal', v: r.macro.kcal, p: r.sc.k, max: 20, t: r.macro.kcal + ' kcal a serving' },
-      { k: 'Fat', ab: 'Fat', v: r.sc.fPct + '%', p: r.sc.f, max: 10, t: r.sc.fPct + '% of the calories come from fat' },
-      { k: 'Sodium', ab: 'Sod', v: r.sc.na + ' mg', p: r.sc.s, max: 25, t: r.sc.na + ' mg of sodium a serving' },
-      { k: 'Fiber', ab: 'Fib', v: r.sc.fib + ' g', p: r.sc.b, max: 15, t: r.sc.fib + ' g of fiber a serving' }
+      { k: 'Protein', ab: 'Prot', v: r.sc.pPct + '%', p: r.sc.p, max: W.p, t: r.sc.pPct + '% of the calories come from protein' },
+      { k: 'Calories', ab: 'Cal', v: r.macro.kcal, p: r.sc.k, max: W.k, t: r.macro.kcal + ' kcal a serving' },
+      { k: 'Fat', ab: 'Fat', v: r.sc.fPct + '%', p: r.sc.f, max: W.f, t: r.sc.fPct + '% of the calories come from fat' },
+      { k: 'Sodium', ab: 'Sod', v: r.sc.na + ' mg', p: r.sc.s, max: W.s, t: r.sc.na + ' mg of sodium a serving' },
+      { k: 'Fiber', ab: 'Fib', v: r.sc.fib + ' g', p: r.sc.b, max: W.b, t: r.sc.fib + ' g of fiber a serving' },
+      /* Named for what it measures rather than for carbohydrate, because
+         carbohydrate is not what costs the points. A recipe can be most of the
+         way to a hundred grams of it and lose nothing here, so long as the
+         fiber came with it. */
+      { k: 'Refined carbs', ab: 'Carb', v: r.sc.cPct + '%', p: r.sc.c, max: W.c,
+        t: r.sc.cPct + '% of the calories are carbohydrate with no fiber beside it' }
     ];
   }
 
@@ -1744,7 +1798,7 @@
     };
 
     /* Each track is the same length and fills by the share of that part's
-       points the recipe earned, so five rows can be compared straight down the
+       points the recipe earned, so six rows can be compared straight down the
        column. What each part is worth is in the number beside it — tracks
        scaled to the weights made fat, at ten points, too short to read. */
     var why = S.why
@@ -1762,9 +1816,11 @@
                 ((c.max ? c.p / c.max : 0) * 100).toFixed(1) + '%"></i></div>' +
             '</div>';
           }).join('') +
-          '<div class="why-note">Protein and fiber earn points. Calories, fat and ' +
-            'sodium spend them. Every figure is an estimate from a food table, ' +
-            'not a label.</div>' +
+          '<div class="why-note">Protein and fiber earn points. Calories, fat, ' +
+            'sodium and refined carbs spend them. A gram of fiber covers ten ' +
+            'grams of carbohydrate, so oats cost nothing here and sugar costs ' +
+            'the lot. Every figure is an estimate from a food table, not a ' +
+            'label.</div>' +
         '</div>'
       : '';
 
@@ -1938,7 +1994,7 @@
         '<div class="sheet-h" style="margin-top:24px;margin-bottom:10px">Method</div>' +
         '<div class="sheet-steps">' + r.steps.map(function (t, i) {
           return '<div class="sheet-step"><div class="sheet-step-n">' + (i + 1) + '</div>' +
-            '<div class="sheet-step-t">' + esc(t) + '</div></div>';
+            '<div class="sheet-step-t">' + stepHTML(t) + '</div></div>';
         }).join('') + '</div>' +
         /* The line that answers "do I have to go out for anything?", asked of
            the pantry rather than of the storehouse order the book was written
@@ -2728,6 +2784,21 @@
 
       // the backdrop itself, or the × — anything inside the sheet falls through
       if (e.target.classList.contains('scrim') || e.target.closest('.sheet-x')) { close(); return; }
+
+      /* A reference in a step, followed. The sheet is replaced rather than
+         stacked: two recipes open at once is a back button nobody asked for,
+         and the thing you were reading is one press away in the list you came
+         from. Scale resets, because the gravy does not inherit the roast's. */
+      var xr = e.target.closest('.xref[data-open]');
+      if (xr) {
+        S.openId = idOf(xr.dataset.open);
+        S.scale = 1;
+        S.why = false;
+        renderModal();
+        var back = document.querySelector('.sheet-x');
+        if (back) back.focus();
+        return;
+      }
 
       var ed = e.target.closest('[data-edit]');
       if (ed) { openEditor(idOf(ed.dataset.edit)); return; }
