@@ -139,9 +139,47 @@ module.exports = {
       sides.map((x) => x.id + ' ' + x.content.toFixed(2) + 'in in ' + x.box.toFixed(2) + 'in').join(', '));
 
     /* Rendered ahead of time and committed, like the books, so somebody can be
-       handed a file rather than a URL and a print dialog. */
+       handed a file rather than a URL and a print dialog.
+     *
+     * Existing was all this used to ask, which is how the shipped handout came
+     * to be a day older than the collection it advertises — quoting 271
+     * recipes over a code leading to 277, on the one artefact designed to be
+     * photocopied and sent home with an order. The books are held against what
+     * the app renders today; this is the same check for the sheet. */
     const pdf = path.join(root, 'print', 'Storehouse-Handout.pdf');
     t.ok('the rendered handout ships with the repository', fs.existsSync(pdf));
+
+    if (fs.existsSync(pdf)) {
+      let lib = null;
+      for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {
+        try { lib = require(m); break; } catch (e) { /* try the next */ }
+      }
+      if (!lib) {
+        t.ok('and it was rendered from the collection as it stands', false, 'pdf-lib not available');
+      } else {
+        const doc = await lib.PDFDocument.load(fs.readFileSync(pdf));
+        t.ok('and it is the two sides the page lays out',
+          doc.getPageCount() === sides.length,
+          doc.getPageCount() + ' in the file, ' + sides.length + ' laid out');
+
+        /* The number on the sheet, against the collection it points at. Read
+           off the rendered page rather than the source, so a count that is
+           filled in at render time is checked the way a reader meets it. */
+        const said = await p.evaluate(() =>
+          [...document.querySelectorAll('[data-n="all"]')].map((e) => Number(e.textContent)));
+        const real = await p.evaluate(() => window.RECIPES.length);
+        t.ok('and every count printed on it is the size of the collection',
+          said.length >= 2 && said.every((x) => x === real),
+          said.join(', ') + ' printed, ' + real + ' recipes');
+
+        const built = fs.statSync(pdf).mtimeMs;
+        const data = fs.statSync(path.join(root, 'data', 'recipes.js')).mtimeMs;
+        t.ok('and it was rendered no earlier than the recipes it draws from',
+          built >= data - 1000,
+          'handout built ' + new Date(built).toISOString() + ', recipes ' +
+          new Date(data).toISOString() + ' — run npm run handout');
+      }
+    }
 
     await ctx.close();
   },

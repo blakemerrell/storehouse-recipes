@@ -17,6 +17,18 @@ const path = require('path'), fs = require('fs'), http = require('http');
 const root = path.join(__dirname, '..');
 const TYPES = { '.webp': 'image/webp', '.woff2': 'font/woff2', '.png': 'image/png' };
 
+/* The number in the sentence, off the collection.
+ *
+ * It said 266 on a day the collection held 277, which is the worst place on
+ * the whole site for a stale number: this is the picture that arrives in a
+ * message when somebody sends the link to somebody else, and it is the first
+ * and sometimes only thing they read. Nothing rebuilt it and nothing checked
+ * it, because a number baked into a PNG is invisible to every test that reads
+ * markup. */
+const g = {}; global.window = g;
+require('../data/recipes.js');
+const COUNT = (g.RECIPES || []).length;
+
 const HTML = `<!doctype html><meta charset="utf-8"><style>
 @font-face { font-family: 'Source Serif 4'; src: url('/fonts/source-serif-4-latin-wght-normal.woff2') format('woff2');
   font-weight: 200 900; font-display: block }
@@ -37,7 +49,7 @@ p { font-size: 27px; line-height: 1.45; color: #5f574c; max-width: 19em }
 <div>
   <div class="eyebrow">Hive &amp; Hearth</div>
   <h1>Recipes</h1>
-  <p>266 recipes built mostly from what the bishops&rsquo; storehouse carries.</p>
+  <p>${COUNT} recipes built mostly from what the bishops&rsquo; storehouse carries.</p>
   <div class="foot">Free &middot; No account &middot; Works with no signal</div>
 </div>`;
 

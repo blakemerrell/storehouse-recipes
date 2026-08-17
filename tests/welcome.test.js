@@ -251,6 +251,50 @@ module.exports = {
        As literals — 160, 52, 116 — they went stale the moment six recipes moved
        from one volume to the other, and the assertion failed for having an old
        copy of the answer rather than because the page was wrong. */
+    /* Every number on the page, against the thing it counts.
+     *
+     * The page counts were marked and stamped; the recipe counts were not, and
+     * five of them sat at 271 while the collection held 277 — the hero line, a
+     * caption, and three meta tags nobody can see. The og image was worse
+     * still at 266, and a number baked into a PNG is invisible to every test
+     * that reads markup, so tools/build-og.js counts rather than remembers.
+     *
+     * Read off the rendered page, so it is checked the way a reader meets it. */
+    const counts = await p.evaluate(() => {
+      const out = { marked: [], meta: [] };
+      document.querySelectorAll('[data-n]').forEach((el) =>
+        out.marked.push({ k: el.dataset.n, v: Number(el.textContent) }));
+      ['description', 'og:description', 'og:image:alt'].forEach((n) => {
+        const el = document.querySelector('meta[name="' + n + '"], meta[property="' + n + '"]');
+        if (el) {
+          const m = (el.content || '').match(/(\d+) recipes/);
+          out.meta.push({ n: n, v: m ? Number(m[1]) : null });
+        }
+      });
+      return out;
+    });
+    const truth = await (async () => {
+      const app = await p.context().newPage();
+      await app.goto(t.base + 'index.html');
+      await app.waitForTimeout(600);
+      const r = await app.evaluate(() => ({
+        all: window.RECIPES.length,
+        b1: window.RECIPES.filter((x) => x.book === 1).length,
+        b2: window.RECIPES.filter((x) => x.book === 2).length,
+      }));
+      await app.close();
+      return r;
+    })();
+    const wrongRecipes = counts.marked
+      .filter((x) => /-recipes$/.test(x.k))
+      .filter((x) => x.v !== truth[x.k.replace('-recipes', '') === 'all' ? 'all' : x.k.replace('-recipes', '')]);
+    t.ok('every recipe count on the page is the number of recipes there are',
+      counts.marked.length >= 6 && wrongRecipes.length === 0,
+      JSON.stringify(wrongRecipes) + ' of ' + JSON.stringify(counts.marked));
+    t.ok('and so does the text that only a share preview will show',
+      counts.meta.length === 3 && counts.meta.every((m) => m.v === truth.all),
+      JSON.stringify(counts.meta) + ' vs ' + truth.all);
+
     const real = (() => {
       let lib = null;
       for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {

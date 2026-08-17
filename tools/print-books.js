@@ -91,11 +91,28 @@ function stampWelcome(made) {
   const done = [];
   Object.keys(want).forEach((k) => {
     if (want[k] === undefined) return;            // that book was not rendered this run
-    const re = new RegExp('(<span data-n="' + k + '">)(\\d+)(</span>)');
-    const m = src.match(re);
-    if (!m) { console.log('  welcome/index.html has no ' + k + ' to fill in'); return; }
-    if (Number(m[2]) !== want[k]) done.push(k + ' ' + m[2] + ' -> ' + want[k]);
+    const re = new RegExp('(<span data-n="' + k + '">)(\\d+)(</span>)', 'g');
+    const found = src.match(re);
+    if (!found) { console.log('  welcome/index.html has no ' + k + ' to fill in'); return; }
+    const was = (found[0].match(/>(\d+)</) || [])[1];   // the value, not the digits in the key
+    if (Number(was) !== want[k]) done.push(k + ' \u00d7' + found.length + ' ' + was + ' -> ' + want[k]);
     src = src.replace(re, '$1' + want[k] + '$3');
+  });
+
+  /* The three that live in attributes rather than in the page.
+   *
+   * A description, an og:description and the alt text on the shared image, all
+   * saying "271 recipes" on a day there were 277 — and invisible to a reader,
+   * which is why they were the last to be noticed and the longest wrong. They
+   * cannot hold a span, so they are matched on the phrase instead. The image
+   * itself is built by tools/build-og.js, which counts. */
+  const metas = src.match(/<meta[^>]*(?:name="description"|property="og:description"|property="og:image:alt")[^>]*>/g) || [];
+  metas.forEach((tag) => {
+    const fixed = tag.replace(/\b\d+(?= recipes)/g, String(want['all-recipes']));
+    if (fixed !== tag) {
+      done.push('meta ' + (tag.match(/(?:name|property)="([^"]+)"/) || [])[1]);
+      src = src.replace(tag, fixed);
+    }
   });
   if (!done.length) return;
   fs.writeFileSync(file, src);

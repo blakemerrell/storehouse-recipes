@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipes from the Storehouse &mdash; one sheet</title>
-<meta name="description" content="A one-sheet handout: eight recipes made only from what the bishops' storehouse carries, and a code for 271 more.">
+<meta name="description" content="A one-sheet handout: eight recipes made only from what the bishops' storehouse carries, and a code for the rest of the collection.">
 <link rel="icon" href="../icons/icon-32.png" sizes="32x32">
 
 <!-- ---------------------------------------------------------------------
@@ -260,7 +260,7 @@ body {
   <div class="foot">
     <div class="foot-qr" id="qr1"></div>
     <div class="foot-txt">
-      <h3>271 more, free.</h3>
+      <h3><span data-n="all">277</span> recipes, free.</h3>
       <p>Scan the code, or type the address. Nothing to install, no account, and it works with
       no signal. Plan a week and it writes the shopping list &mdash; asking you to buy only what
       the storehouse doesn&rsquo;t carry.</p>
@@ -281,7 +281,7 @@ body {
   <div class="foot">
     <div class="foot-qr" id="qr2"></div>
     <div class="foot-txt">
-      <h3>All 271 of them, on your phone.</h3>
+      <h3>All <span data-n="all">277</span> of them, on your phone.</h3>
       <p>Filter by what you have in, plan a week, and let the list add itself up. There is a
       printed book too, free to download, if you would rather have it on the counter.</p>
       <div class="foot-url" data-url></div>
@@ -308,6 +308,17 @@ body {
    correcting a recipe corrects the handout, and tests/share.test.js re-reads
    them and fails if any of the eight stops being storehouse-only. */
 (function () {
+  /* The collection's size, off the collection.
+   *
+   * It was typed onto the sheet in two places and into the meta description in
+   * a third, and all three said 271 on a day the collection held 277 — the
+   * handout being the one artefact nothing rebuilt and nothing checked. The
+   * page already loads data/recipes.js to draw the eight recipes; it may as
+   * well count them. */
+  document.querySelectorAll('[data-n="all"]').forEach(function (el) {
+    el.textContent = (window.RECIPES || []).length;
+  });
+
   var SHEETS = [
     [{ id: 156, kind: 'Weeknight dinner' },
      { id: 1,   kind: 'Three minutes, no heat' },
