@@ -293,7 +293,15 @@ select { max-width: 280px; }
    characters a line, which is roughly three times what an eye tracks back
    from without losing its place. The pantry's lede was given a width of its
    own when the columns went in; this is the same fix for every one of them. */
-.plan-note { font-size: 13px; color: var(--muted); margin-bottom: 22px; max-width: 74ch; }
+/* The note above a view, set to a readable measure that still fills the page.
+   A flat max-width did neither: at 74ch it stopped two-thirds of the way
+   across a laptop and read as an unfinished left-hand column, and widening it
+   to the container would have given lines of 130 characters. Columns do both —
+   about forty characters each, and the paragraph reaches the right margin.
+   The pantry narrows this to line up with the shelves it introduces; the plan
+   has nothing to line up with, since its own grid is seven days wide. */
+.plan-note { font-size: 13px; color: var(--muted); margin-bottom: 22px;
+  columns: 20rem; column-gap: 40px; }
 /* Seven named days want seven columns. auto-fit gave six and left Sunday on a
    row of its own, which reads as a mistake even though it is not. */
 .plan-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
@@ -1292,7 +1300,7 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
    rule as #pantryBody, so the text lines up with the list underneath it and
    the measure comes out around forty characters, which is the right length
    anyway. */
-.pantry-lede { max-width: none; columns: 15.5rem; column-gap: 40px; }
+.pantry-lede { columns: 15.5rem; }
 #pantryBody { columns: 15.5rem; column-gap: 40px; }
 .shelf { break-inside: avoid; margin: 0 0 24px; }
 .shelf-h {

@@ -149,6 +149,49 @@ module.exports = {
       /name/i.test((await p.textContent('.dlg-t')) || ''), await p.textContent('.dlg-t').catch(() => 'no dialog'));
     await p.click('[data-dlg="ok"]');
 
+    /* ---- a deleted recipe leaves nothing pointing at it ----
+     *
+     * deleteRecipe removed the record and stopped. A recipe of your own that
+     * was on Monday stayed on Monday: the plan kept its id, the day drew empty
+     * because nothing could be found for it, and the dead id went on syncing
+     * to every phone in the household. Copy that week and the ghost came with
+     * it. Favorites had the same hole. Neither shows as an error, because an
+     * id matching nothing is skipped by every reader — which is why it would
+     * have sat there indefinitely. */
+    const ghost = await p.evaluate(async () => {
+      const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+      const S = window.Store;
+      const id = S.newRecipeId();
+      S.saveRecipe({ id: id, book: 3, secNum: 1, secName: 'Ours', name: 'Doomed',
+        servings: '1 Serving', servN: 1, ing: ['1 cup rice'], steps: ['Cook.'],
+        macro: null, score: null, sc: null, diff: 'Easy', time: '5 mins', extras: null });
+      await wait(250);
+      S.addToDay(id, 'mon');
+      S.toggleFav(id);
+      await wait(250);
+      const before = { day: S.day('mon').length, fav: S.isFav(id) };
+      S.deleteRecipe(id);
+      await wait(400);
+      const after = {
+        day: S.day('mon').length,
+        fav: S.isFav(id),
+        inAnyWeek: Object.keys(S.state.weeks).some((k) =>
+          Object.keys(S.state.weeks[k].plan || {}).some((d) =>
+            (S.state.weeks[k].plan[d] || []).some((e) =>
+              (typeof e === 'object' && e ? e.i : e) === id))),
+        inFavs: (S.state.favs || []).indexOf(id) >= 0,
+      };
+      return { before, after };
+    });
+    /* One fewer on the day, and gone from every week — not "the day is empty",
+       because this test has already put another recipe on Monday. */
+    t.ok('a recipe you delete is taken out of the week it was in',
+      ghost.after.day === ghost.before.day - 1 && !ghost.after.inAnyWeek,
+      JSON.stringify(ghost));
+    t.ok('and out of your favorites',
+      ghost.before.fav && !ghost.after.fav && !ghost.after.inFavs,
+      JSON.stringify(ghost));
+
     await p.context().close();
   },
 };

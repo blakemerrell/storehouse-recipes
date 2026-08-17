@@ -796,15 +796,49 @@ window.Store = (function () {
 
     /* Deletes one of yours. On a printed recipe it drops the changes instead,
        which puts the book's own version back. */
+    /* Delete it everywhere it is referred to, not only where it is stored.
+     *
+     * This used to remove the record and stop. A recipe of your own that was
+     * on Monday stayed on Monday: the plan kept its id, the day rendered empty
+     * because nothing could be found to draw, and the dead id went on syncing
+     * to every phone in the household. Copy that week and you copied the
+     * ghost with it.
+     *
+     * Favorites had the same hole. Neither shows up as an error — an id that
+     * matches nothing is skipped by every reader — which is exactly why it
+     * would have sat there.
+     *
+     * Only own recipes can strand a reference this way: an edit to a printed
+     * recipe is a layer over something that still exists, so reverting it
+     * leaves the original in the week, which is right. */
     deleteRecipe: function (id) {
       var own = typeof id === 'string';
       var field = (own ? 'mine.' : 'edits.') + id;
+      var idOfEntry = function (e) { return typeof e === 'object' && e ? e.i : e; };
+
       push(function () {
-        var u = {}; u[field] = FV.delete(); return doc.update(u);
+        var u = {}; u[field] = FV.delete();
+        return doc.update(u).then(function () {
+          if (!own) return null;
+          /* The whole weeks object, because the id may be on any day of any
+             week and Firestore has no way to pull one value out of many
+             nested arrays in a single update. */
+          return doc.set({ favs: FV.arrayRemove(id), weeks: state.weeks }, { merge: true });
+        });
       }, function () {
         var m = Object.assign({}, own ? state.mine : state.edits);
         delete m[id];
         if (own) state.mine = m; else state.edits = m;
+        if (!own) return;
+
+        state.favs = state.favs.filter(function (x) { return x !== id; });
+        Object.keys(state.weeks).forEach(function (k) {
+          var plan = state.weeks[k].plan || {};
+          Object.keys(plan).forEach(function (d) {
+            var kept = (plan[d] || []).filter(function (e) { return idOfEntry(e) !== id; });
+            if (kept.length) plan[d] = kept; else delete plan[d];
+          });
+        });
       });
     },
 
