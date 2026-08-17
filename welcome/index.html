@@ -624,13 +624,7 @@ a { color: inherit; }
 }
 
 /* ---- prefer paper ------------------------------------------------------ */
-.paper-row {
-  margin-top: 48px; border-top: 1px solid var(--line); padding-top: 22px;
-  display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap;
-}
-.paper-row h3 { font-family: var(--serif); font-size: 18px; font-weight: 600; margin: 0; }
-.paper-row p { font-size: 13.5px; color: var(--muted-2); margin: 6px 0 0; line-height: 1.6; max-width: 44ch; }
-.paper-buys { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+.paper-buys { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 .paper-buys .btn { padding: 9px 16px; font-size: 13px; white-space: nowrap; }
 .fine { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 16px; text-wrap: pretty; }
 
@@ -767,11 +761,12 @@ footer a:hover { text-decoration: underline; }
       <div class="num">
         <div class="num-n">1</div>
         <div>
-          <h3>Find a recipe, plan a week, shop from it</h3>
-          <p>Filter by how much work a recipe is, or by how much of it you&rsquo;d have to buy.
-          Scale any recipe up to eight times. Pick your meals for the week and they stay picked.
-          The shopping list builds itself, and three recipes calling for cottage cheese come out
-          as one line: 2⅛ cups.</p>
+          <h3>Cook from a short list</h3>
+          <p>The storehouse carries about a hundred things. Everything here is built from them,
+          so the question stops being what do I feel like and becomes what can I actually make.
+          Pick your meals for the week and they stay picked; the shopping list builds itself,
+          and three recipes calling for cottage cheese come out as one line: 2⅛ cups. Scale any
+          recipe up to eight times.</p>
         </div>
       </div>
       <!-- The score was on every card in the collage and explained nowhere on
@@ -787,29 +782,53 @@ footer a:hover { text-decoration: underline; }
       <div class="num">
         <div class="num-n">2</div>
         <div>
-          <h3>Every recipe has a score</h3>
-          <p>Out of 100, built from protein, calories, fat, sodium and fiber. A green leaf means
-          cook it often. Grey means know what you&rsquo;re getting. I put the cutoffs near the
-          middle of the collection so the score actually sorts it. Write your own recipe and it
-          gets scored the same way.</p>
+          <h3>Know what to order, and what to go out for</h3>
+          <p>Every recipe says at the foot of it whether the storehouse covers the whole thing,
+          or names exactly what it does not carry &mdash; before you start, not halfway through.
+          Filter the whole collection down to what needs nothing bought elsewhere. And the
+          week&rsquo;s shopping list comes out in two parts: what to order, and the short
+          separate list for the one run to the grocery store.</p>
         </div>
       </div>
       <div class="num">
         <div class="num-n">3</div>
         <div>
-          <h3>Tell it what&rsquo;s actually in your pantry</h3>
-          <p>It starts out assuming you keep what the storehouse carries. Take things off as you
-          stop keeping them, and every recipe updates what it says you&rsquo;d need to buy. It
-          still works once you stop going.</p>
+          <h3>Every recipe has a score</h3>
+          <p>Out of 100, built from protein, calories, fat, sodium, fiber and how much of it is
+          refined carbohydrate. A green leaf means cook it often. Grey means know what
+          you&rsquo;re getting. I put the cutoffs near the middle of the collection so the score
+          actually sorts it. Tap the leaf and it shows its working. Write your own recipe and it
+          gets scored the same way.</p>
         </div>
       </div>
       <div class="num">
         <div class="num-n">4</div>
         <div>
-          <h3>Print it as a real book</h3>
+          <h3>The list changes; so can this</h3>
+          <p>The order is not the same everywhere and it does not stay the same. When your
+          storehouse stops carrying something, take it off and every recipe in both volumes
+          updates what it says you&rsquo;d need to buy. The same switch is what keeps this
+          useful if you stop going altogether.</p>
+        </div>
+      </div>
+      <!-- The paper offer used to be its own section two screens further down,
+           headed "Prefer paper?", asking the same question this item answers.
+           Two places saying take it off the screen, with the reader deciding
+           twice. The item explains it and carries the buttons, and the section
+           is gone. -->
+      <div class="num">
+        <div class="num-n">5</div>
+        <div>
+          <h3>Or take it off the screen entirely</h3>
           <p>Half-letter, with a contents page and real typesetting. Recipes don&rsquo;t get split
           across a page break. The PDFs are already made, so you send one to a printer and
-          that&rsquo;s it.</p>
+          that&rsquo;s it &mdash; <span data-n="all-recipes">277</span> recipes over
+          <span data-n="one-pages">176</span> pages. Or have a spiral-bound copy posted to you;
+          the address is taken at checkout.</p>
+          <div class="paper-buys">
+            <a class="btn btn-solid post-order-btn" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Buy a bound copy &mdash; $50</a>
+            <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Download free</a>
+          </div>
         </div>
       </div>
     </div>
@@ -967,18 +986,6 @@ footer a:hover { text-decoration: underline; }
 
     <div class="dark-note">The code is the only key. No password, no names &mdash; just a shared
     grocery list, so give it only to the people you mean to share with.</div>
-  </section>
-
-  <section class="paper-row">
-    <div>
-      <h3>Prefer paper?</h3>
-      <p>All <span data-n="all-recipes">277</span> recipes, <span data-n="one-pages">176</span> pages, spiral bound and shipped to you for $50 &mdash; or download
-      it and print it yourself, free. Shipping address is taken at checkout.</p>
-    </div>
-    <div class="paper-buys">
-      <a class="btn btn-solid post-order-btn" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Buy a bound copy &mdash; $50</a>
-      <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Download free</a>
-    </div>
   </section>
 
   <!-- Seven PDF links and a warning about page order used to sit open here, in

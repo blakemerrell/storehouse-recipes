@@ -631,6 +631,8 @@
       (e.r.ingp || []).forEach(function (it) {
         var s = SHOP[it.k];
         if (!s || it.k === 'water') return;
+        /* "(optional)" means you are not being sent out for it. */
+        if (it.o) return;
         // seasonings share one food key, so they go by their own name instead
         var key = s.s ? it.a : it.k;
         if (!bucket[key]) {
@@ -640,12 +642,25 @@
             label: s.s ? it.a.charAt(0).toUpperCase() + it.a.slice(1) : s.l
           };
         }
-        /* One line per thing, and the pantry decides which heading it falls
-           under. This used to be decided per-recipe, so a recipe that called
-           chocolate chips an extra and one that did not put them on the list
-           twice. Asking the shelf instead makes that impossible rather than
-           merely corrected. */
-        bucket[key].extra = !inPantry(it.k);
+        /* One line per thing, and the same predicate every other part of the
+           app uses to answer the same question. This used to be decided
+           per-recipe, so a recipe that called chocolate chips an extra and one
+           that did not put them on the list twice; asking the shelf instead
+           fixed that and introduced a quieter fault, because asking the shelf
+           is not the whole question.
+           
+           A line the food table cannot weigh carries the key "free" — every
+           seasoning shares it — and the pantry has never heard of "free", so
+           it defaults to kept. That is right for salt and vanilla, which the
+           storehouse does carry. It is wrong for the ones the recipe itself
+           marked as an extra: five grams of creatine came out of a Crio Bru
+           drink and landed under "From the storehouse", telling a reader the
+           storehouse stocks creatine. It does not.
+           
+           itemNeedsBuying reads the recipe's own flag for those and the shelf
+           for everything else, and it is what the coloured ingredient line and
+           the "Also needs" foot already use. One question, one answer. */
+        bucket[key].extra = itemNeedsBuying(it);
         bucket[key].g += it.g * e.x;
       });
     });

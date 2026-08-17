@@ -85,7 +85,7 @@ module.exports = {
        it quoted a price in the first screenful, under a collage, before the
        page had said what the thing was. What is asserted now is that the three
        places a reader arrives at *after* the explanation all carry one: the
-       paper block, the story, and the footer. Somebody who decides early
+       print item that explains the book, the story, and the footer. Somebody who decides early
        scrolls a screen; somebody who has not decided is not asked. */
     const ways = await p.evaluate(() => {
       const pay = [...document.querySelectorAll('a[href*="buy.stripe.com"]')];
@@ -95,12 +95,17 @@ module.exports = {
       return {
         total: pay.length,
         early: pay.filter(before).map((a) => a.textContent.trim()),
-        paper: !!document.querySelector('.paper-row a[href*="stripe"]'),
+        /* The paper offer used to be a section of its own headed "Prefer
+           paper?", asking two screens later the same question the print item
+           in "What it does" already answers — the reader deciding twice about
+           one thing. Merged into that item, buttons and all, so this looks for
+           it where it now lives rather than where it was. */
+        paper: !!document.querySelector('#what a[href*="stripe"]'),
         story: !!document.querySelector('#give a[href*="stripe"]'),
         footer: pay.some((a) => a.closest('footer')),
       };
     });
-    t.ok('there is a way to pay by the paper block, in the story and in the footer',
+    t.ok('there is a way to pay where the book is explained, in the story and in the footer',
       ways.paper && ways.story && ways.footer, JSON.stringify(ways));
     t.ok('and nothing quotes a price before the page has said what it is',
       ways.early.length === 0, ways.early.join(' | '));
