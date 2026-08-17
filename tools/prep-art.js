@@ -194,6 +194,33 @@ async function main() {
     'window.SECTION_ART = ' + JSON.stringify(manifest, null, 2) + ';\n');
   console.log(Object.keys(manifest).length + ' in data/art.js');
 
+  /* And the service worker's copy of the same list.
+   *
+   * data/art.js is generated; the twelve paths in sw.js were typed. Add a
+   * section illustration and the manifest picks it up while the worker does
+   * not, so the picture works online and is missing in a storehouse basement —
+   * and it fails quietly, because EXTRAS are allowed to fail by design so that
+   * one missing engraving cannot take an install down with it. Exactly the
+   * kind of gap that is found months later by somebody with no signal.
+   *
+   * Written from the manifest, so the two cannot disagree. */
+  var swPath = path.join(__dirname, '..', 'sw.js');
+  var sw = fs.readFileSync(swPath, 'utf8');
+  var want = Object.keys(manifest).sort()
+    .map(function (k) { return "  './" + manifest[k] + "',"; }).join('\n');
+  var block = /(var EXTRAS = \[\n)((?:\s*'\.\/art\/[^']+',\n)+)/;
+  if (!block.test(sw)) {
+    console.log('  could not find the art block in sw.js — add the paths by hand');
+  } else {
+    var had = (sw.match(block)[2].match(/art\//g) || []).length;
+    var next = sw.replace(block, '$1' + want + '\n');
+    if (next !== sw) {
+      fs.writeFileSync(swPath, next);
+      console.log('sw.js art list rewritten: ' + had + ' -> ' + Object.keys(manifest).length +
+        '\n  bump ?v= in index.html and sw.js so phones pick it up.');
+    }
+  }
+
   /* The crop is the one thing worth looking at with eyes rather than trusting
      — a seam found two lines too high loses the top of the picture and the
      tests cannot see it. */

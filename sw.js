@@ -41,18 +41,18 @@ var CORE = [
 
 /* Pictures and typefaces. Worth having offline, not worth failing over. */
 var EXTRAS = [
+  './art/batch-prep.png',
+  './art/best-before-bed.png',
+  './art/breakfasts.png',
   './art/easy-lunches-wraps-and-after-school-favorites.png',
   './art/elaborate-sunday-feasts-and-roasts.png',
   './art/for-the-love-of-chocolate.png',
-  './art/batch-prep.png',
   './art/kid-approved-weeknight-comfort-dinners.png',
-  './art/best-before-bed.png',
-  './art/breakfasts.png',
+  './art/lunch.png',
   './art/simple-family-treats-and-desserts.png',
   './art/speedy-weekday-breakfasts-and-morning-treats.png',
   './art/the-copycat-shelf.png',
   './art/worth-the-afternoon.png',
-  './art/lunch.png',
   './fonts/source-serif-4-latin-wght-normal.woff2',
   './fonts/source-serif-4-latin-wght-italic.woff2',
   './fonts/work-sans-latin-wght-normal.woff2',
