@@ -231,6 +231,30 @@ select { max-width: 280px; }
   white-space: nowrap;
 }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 14px; }
+
+/* A section divider, the full width of the grid.
+   Sticky under the header, so the thing that tells you where you are is
+   still there when you have scrolled into the middle of a section — which is
+   the only moment the question comes up. */
+.grid-sec {
+  grid-column: 1 / -1; position: sticky; top: 56px; z-index: 5;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin: 14px 0 -2px; padding: 8px 2px 7px;
+  background: var(--paper); border-bottom: 1px solid var(--line-firm);
+}
+.grid-sec:first-child { margin-top: 0; }
+.grid-sec-b {
+  font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--ochre-text); font-weight: 700;
+}
+.grid-sec b { font-family: var(--serif); font-size: 17px; font-weight: 600; color: var(--ink); }
+.grid-sec-n {
+  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.grid-sec-s { font-size: 12.5px; color: var(--muted); font-style: italic; }
+@media (max-width: 700px) {
+  .grid-sec-s { display: none; }
+}
 .card {
   background: var(--card); border: 1px solid var(--line); border-radius: 3px;
   padding: 16px 17px 14px; text-align: left; width: 100%;

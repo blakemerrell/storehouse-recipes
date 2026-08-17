@@ -82,6 +82,53 @@ module.exports = {
     await p.click('[data-book="1"]');
     await p.waitForTimeout(150);
 
+    /* ---- section dividers down the grid ----
+     *
+     * Two hundred and seventy-seven cards, and in book order they are also
+     * fourteen sections that mean something. None of it was on the page: a
+     * card says RUN · 042 and nothing said why 042 sits between 041 and 043,
+     * so scrolling the collection was scrolling a wall.
+     *
+     * The part worth protecting is when they are *absent*. Sorted by score or
+     * by time the recipes are not in sections any more, and a divider over
+     * that order would be a claim about the cards under it that is not true. */
+    await p.click('[data-book="all"]');
+    await p.selectOption('#sortSel', 'book');
+    await p.waitForTimeout(300);
+    const divs = async () => p.evaluate(() => {
+      const out = [];
+      let sec = null;
+      [...document.querySelectorAll('#grid > *')].forEach((el) => {
+        if (el.classList.contains('grid-sec')) {
+          sec = { name: el.querySelector('b').textContent,
+            says: Number(el.querySelector('.grid-sec-n').textContent), cards: 0 };
+          out.push(sec);
+        } else if (sec) { sec.cards++; }
+      });
+      return out;
+    });
+    const inOrder = await divs();
+    const realSecs = await p.evaluate(() => new Set(
+      window.RECIPES.filter((r) => r.book !== 3).map((r) => r.book + '-' + r.secNum)).size);
+    t.ok('book order puts a divider at the head of every section',
+      inOrder.length === realSecs, inOrder.length + ' dividers for ' + realSecs + ' sections');
+    t.ok('and each one counts the cards actually under it',
+      inOrder.length > 0 && inOrder.every((d) => d.says === d.cards),
+      JSON.stringify(inOrder.filter((d) => d.says !== d.cards)));
+
+    for (const [why, act] of [
+      ['sorted by score', async () => { await p.selectOption('#sortSel', 'healthy'); }],
+      ['searching', async () => { await p.selectOption('#sortSel', 'book'); await p.fill('#search', 'chicken'); }],
+    ]) {
+      await act();
+      await p.waitForTimeout(450);
+      t.ok('and none while ' + why + ', where the order is no longer sections',
+        (await divs()).length === 0, why);
+    }
+    await p.fill('#search', '');
+    await p.selectOption('#sortSel', 'book');
+    await p.waitForTimeout(400);
+
     /* Once you have typed a dish name the heading is no longer about a book,
        and a paragraph about the volumes sits between you and the answer. */
     await p.fill('#search', 'chicken'); await p.waitForTimeout(400);
@@ -146,7 +193,7 @@ module.exports = {
     await p.fill('#search', '');
 
     // favorites survive a reload
-    await p.click('#grid .card:nth-child(2)');
+    await p.click('#grid .card >> nth=1');
     await p.click('[data-fav]');
     await p.waitForTimeout(200);
     await p.click('.sheet-x');
@@ -155,7 +202,7 @@ module.exports = {
     t.ok('a favorite sticks', (await p.textContent('#favCount')) === '(1)', await p.textContent('#favCount'));
 
     // the panel: scaling the ingredients, and the score breakdown
-    await p.click('#grid .card:nth-child(1)');
+    await p.click('#grid .card >> nth=0');
     const before = await p.textContent('.sheet-ing');
     await p.click('[data-scale="up"]');
     const after = await p.textContent('.sheet-ing');
@@ -270,7 +317,7 @@ module.exports = {
     // a different recipe starts shut, rather than inheriting the last one
     await p.click('.sheet-x');
     await p.waitForTimeout(150);
-    await p.click('#grid .card:nth-child(3)');
+    await p.click('#grid .card >> nth=2');
     await p.waitForTimeout(250);
     t.ok('and every recipe opens on the score, not the audit',
       (await p.evaluate(() => document.querySelectorAll('.why-part').length)) === 0);
@@ -382,7 +429,7 @@ module.exports = {
        line has 242px next to the leaf \u2014 so check the widest of all 266 there,
        not just whichever recipe happens to be first. */
     const phone = await t.fresh({ viewport: { width: 376, height: 860 } });
-    await phone.click('#grid .card:nth-child(1)');
+    await phone.click('#grid .card >> nth=0');
     await phone.waitForTimeout(200);
     const wide = await phone.evaluate(() => {
       const foot = document.querySelector('.nut-foot');

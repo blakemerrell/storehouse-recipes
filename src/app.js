@@ -511,7 +511,36 @@
              : (order[S.sort] || ''));
     $('browseEmpty').classList.toggle('hide', list.length !== 0);
 
+    /* Section headings down the grid.
+     *
+     * The collection is two hundred and seventy-seven cards and, in book
+     * order, it is also fourteen sections that mean something — Breakfasts,
+     * then Snacks, then Lunch. None of that was on the page: the card says
+     * RUN · 042 and nothing says why 042 sits between 041 and 043, so
+     * scrolling the whole collection was scrolling a wall.
+     *
+     * Only in book order, and only when there is more than one section in
+     * what is showing. Sorted by score or by time the recipes are no longer
+     * in sections, and a divider claiming otherwise would be a lie about the
+     * order underneath it. Searching, the same. */
+    var secKey = function (r) { return r.book + '-' + r.secNum; };
+    var secCount = {};
+    list.forEach(function (r) { secCount[secKey(r)] = (secCount[secKey(r)] || 0) + 1; });
+    var showSecs = S.sort === 'book' && !qs && Object.keys(secCount).length > 1;
+    var lastSec = null;
+
     $('grid').innerHTML = list.map(function (r) {
+      var head = '';
+      if (showSecs && secKey(r) !== lastSec) {
+        lastSec = secKey(r);
+        var n = secCount[lastSec];
+        head = '<div class="grid-sec">' +
+          '<span class="grid-sec-b">' + esc(BOOKS[r.book].short) + '</span>' +
+          '<b>' + esc(SEC_SHORT[lastSec] || r.secName) + '</b>' +
+          '<span class="grid-sec-n">' + n + '</span>' +
+          (SEC_NOTE[lastSec] ? '<span class="grid-sec-s">' + esc(SEC_NOTE[lastSec]) + '</span>' : '') +
+        '</div>';
+      }
       var fav = window.Store.isFav(r.id);
       var chip = r.score === null
         ? '<span class="chip plain">' + esc(diffLabel(r.diff)) + '</span>'
@@ -520,7 +549,7 @@
          generated locally and is safe — but a recipe arriving from the shared
          household document was typed by somebody else, and the whole point of
          a household is that it holds other people's writing. */
-      return '<button class="card" data-open="' + esc(r.id) + '">' +
+      var card = '<button class="card" data-open="' + esc(r.id) + '">' +
         '<span class="card-top">' +
           '<span class="card-num">' + BOOKS[r.book].short + ' · ' + no(r) + '</span>' +
           '<span class="card-fav">' + (fav ? '★ Saved' : '') + '</span>' +
@@ -532,6 +561,7 @@
           chip +
         '</span>' +
       '</button>';
+      return head + card;
     }).join('');
   }
 

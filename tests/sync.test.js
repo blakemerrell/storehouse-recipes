@@ -127,7 +127,7 @@ module.exports = {
 
       // ---- what one does, the other sees -----------------------------------
       await A.click('.tab[data-view="browse"]');
-      await A.click('#grid .card:nth-child(3)');
+      await A.click('#grid .card >> nth=2');
       await A.click('.daybtn[data-day="thu"]');
       await A.click('.sheet-x');
       t.ok('planning on one phone lands on the other',

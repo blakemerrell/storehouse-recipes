@@ -74,7 +74,7 @@ module.exports = {
     t.ok('delete appears once there are two to choose from', s.del);
 
     await p.click('.tab[data-view="browse"]');
-    await p.click('#grid .card:nth-child(5)');
+    await p.click('#grid .card >> nth=4');
     await p.click('.daybtn[data-day="tue"]');
     await p.click('.sheet-x');
     await p.click('.tab[data-view="plan"]');
@@ -158,7 +158,7 @@ module.exports = {
        recipe nobody had opened. */
     const opened = await p.evaluate(() =>
       Number(document.querySelector('#grid .card').dataset.open));
-    await p.click('#grid .card:nth-child(1)');
+    await p.click('#grid .card >> nth=0');
     await p.click('[data-scale="up"]');
     await p.click('[data-scale="up"]');
     await p.click('.daybtn[data-day="thu"]');
