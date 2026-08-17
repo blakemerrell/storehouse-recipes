@@ -306,6 +306,38 @@ module.exports = {
       counts.meta.length === 3 && counts.meta.every((m) => m.v === truth.all),
       JSON.stringify(counts.meta) + ' vs ' + truth.all);
 
+    /* The screen sits inside the bezel, on all four sides.
+     *
+     * inset alone does not do it. For an absolutely positioned replaced
+     * element — an img — `width: auto` resolves to the intrinsic width and the
+     * opposite offset is dropped as over-constrained, so the screenshot came
+     * out 168 x 364 in a 156 x 337 opening: six pixels past the right bezel,
+     * ten past the bottom, with the drawn home-indicator line lying across the
+     * shopping list. It looked like a broken mock-up of a broken app.
+     *
+     * Measured rather than eyeballed, because a few pixels of overhang is
+     * exactly the amount nobody notices in a review and everybody notices in a
+     * screenshot. */
+    const bezel = await p.evaluate(() => {
+      const f = document.querySelector('.demo-phone');
+      const fr = f.getBoundingClientRect();
+      return [...f.querySelectorAll('img')].map((i) => {
+        const r = i.getBoundingClientRect();
+        return {
+          top: +(r.top - fr.top).toFixed(1), left: +(r.left - fr.left).toFixed(1),
+          right: +(fr.right - r.right).toFixed(1), bottom: +(fr.bottom - r.bottom).toFixed(1),
+        };
+      });
+    });
+    t.ok('every frame sits inside the phone bezel rather than over it',
+      bezel.length > 0 && bezel.every((b) =>
+        b.top > 0 && b.left > 0 && b.right > 0 && b.bottom > 0),
+      JSON.stringify(bezel));
+    t.ok('and is centred in it, with the same bezel either side',
+      bezel.every((b) => Math.abs(b.left - b.right) < 1) &&
+      bezel.every((b) => b.bottom > b.top),
+      JSON.stringify(bezel[0]));
+
     const real = (() => {
       let lib = null;
       for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {

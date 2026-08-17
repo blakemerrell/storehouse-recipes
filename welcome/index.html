@@ -166,8 +166,18 @@ a { color: inherit; }
   padding: var(--bzt) var(--bz) var(--bzb);
   box-shadow: 0 10px 26px rgba(59, 54, 48, 0.18), inset 0 1px 0 #fff;
 }
+/* The screen, sized to the bezel rather than left to work it out.
+ 
+   inset alone does not do it. For an absolutely positioned replaced element —
+   an img — `width: auto` resolves to the intrinsic width and the opposite
+   offset is then ignored as over-constrained, so the screenshot came out
+   168 x 364 inside a 156 x 337 opening: six pixels past the right bezel and
+   ten past the bottom, with the home-indicator line drawn across the list.
+   Stated as the frame minus its own bezel, which is what it always meant. */
 .demo-phone img {
-  inset: var(--bzt) var(--bz) var(--bzb); width: auto; height: auto;
+  inset: var(--bzt) var(--bz) var(--bzb);
+  width: calc(100% - var(--bz) * 2);
+  height: calc(100% - var(--bzt) - var(--bzb));
   border-radius: 6px; animation: fade4 17s infinite;
 }
 .demo-phone::before, .demo-phone::after {
