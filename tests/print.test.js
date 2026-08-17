@@ -125,6 +125,36 @@ module.exports = {
         folio: !!o.closest('.pg').querySelector('.pg-fol'),
       };
     }));
+    /* Which sections have a picture and which do not.
+     *
+     * Not an assertion that all of them do — four do not, and the prompts for
+     * making them are in art/PROMPTS.md, to be run on a machine that can
+     * generate images. This is the reminder, and the thing that would catch an
+     * engraving quietly losing its section: art is matched by a slug derived
+     * from the section name, so renaming a section to something the file is
+     * not named after orphans the picture in silence. */
+    const artState = await p.evaluate(() => {
+      const A = window.SECTION_ART || {};
+      const slug = (x) => x.toLowerCase().replace(/&/g, 'and')
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const seen = {}, without = [];
+      window.RECIPES.filter((r) => r.book < 3).forEach((r) => {
+        const k = r.book + '-' + r.secNum;
+        if (seen[k]) return;
+        seen[k] = 1;
+        if (!A[slug(r.secName)]) without.push(r.secName);
+      });
+      const used = {};
+      window.RECIPES.filter((r) => r.book < 3).forEach((r) => { used[slug(r.secName)] = 1; });
+      return { without, orphan: Object.keys(A).filter((k) => !used[k]),
+        sections: Object.keys(seen).length };
+    });
+    t.ok('no engraving is left pointing at a section that has been renamed',
+      artState.orphan.length === 0, artState.orphan.join(', '));
+    t.ok('the sections still waiting on art are the four in art/PROMPTS.md',
+      artState.without.length <= 4,
+      artState.without.length + ' without art: ' + artState.without.join(', '));
+
     t.ok('every illustrated section opens on a page of its own',
       openers.length === 12 && openers.every((o) => o.size >= 24 && o.centred),
       JSON.stringify(openers.filter((o) => o.size < 24 || !o.centred)) + ' of ' + openers.length);
