@@ -52,11 +52,12 @@ module.exports = {
         Math.abs(size.width / 72 - 5.5) < 0.02 && Math.abs(size.height / 72 - 8.5) < 0.02,
         (size.width / 72).toFixed(2) + ' x ' + (size.height / 72).toFixed(2) + ' in');
 
-      // the download button has to point at the file that exists
-      const href = await p.evaluate(() => {
-        const a = document.getElementById('dlBook');
-        return a.classList.contains('hide') ? null : a.getAttribute('href');
-      });
+      // the row's own download link has to point at the file that exists
+      const href = await p.evaluate((set) => {
+        const pick = document.querySelector('.dl-row [data-print="' + set + '"]');
+        const a = pick && pick.closest('.dl-row').querySelector('.dl-gets a[download]');
+        return a ? a.getAttribute('href') : null;
+      }, set);
       t.ok('and the app offers it for download', href === 'print/' + file, String(href));
     }
 
@@ -102,8 +103,11 @@ module.exports = {
     await p.click('[data-print="fav"]');
     await p.waitForTimeout(800);
     t.ok('favorites offer the print dialog instead, having no file to hand',
-      await p.evaluate(() => document.getElementById('dlBook').classList.contains('hide') &&
-        !document.getElementById('doPrint').classList.contains('hide')));
+      await p.evaluate(() => {
+        const rows = [...document.querySelectorAll('.dl-row')];
+        return !rows.some((r) => r.classList.contains('on')) &&
+          !document.getElementById('doPrint').classList.contains('hide');
+      }));
 
     await p.context().close();
   },

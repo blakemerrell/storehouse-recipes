@@ -486,6 +486,7 @@
     $('bookOurs').classList.toggle('hide', !n);
     $('printOurs').classList.toggle('hide', !n);
     $('printOurs').textContent = 'Ours · ' + n;
+    if (!n && S.printSet === '3') S.printSet = 'all';
     if (!n && S.bookF === 3) { S.bookF = 'all'; }
     document.querySelector('.brand-sub').textContent =
       RECIPES.length + ' recipes · ' + (n ? 'three volumes' : 'two volumes');
@@ -1632,35 +1633,10 @@
     return { squeezed: squeezed, over: over };
   }
 
-  /* What each button is offering, counted rather than typed.
-   *
-   * The four fixed labels carried their own recipe counts — "Both books — all
-   * 271", "Around the Table — 160 recipes" — and both were wrong on a
-   * collection of 277 and 166. A number sitting in a control the reader is
-   * choosing from is the last place it should be a memory of the answer. */
-  function renderPrintSets() {
-    var n = function (b) {
-      return RECIPES.filter(function (r) { return r.book === b; }).length;
-    };
-    var counts = {
-      all: n(1) + n(2), one: n(1) + n(2), 1: n(1), 2: n(2),
-      fav: RECIPES.filter(function (r) { return window.Store.isFav(r.id); }).length
-    };
-    $('printSeg').querySelectorAll('button[data-print]').forEach(function (b) {
-      var k = b.dataset.print;
-      b.setAttribute('aria-pressed', k === S.printSet ? 'true' : 'false');
-      /* Ours and This week write their own, from the week and the shelf. */
-      if (counts[k] === undefined) return;
-      var base = b.textContent.split(' · ')[0];
-      b.textContent = base + ' · ' + counts[k];
-    });
-  }
-
   function renderBook() {
     var t0 = performance.now();
     var pages = buildBook();
     var pool = printPool();
-    renderPrintSets();
     renderDownloads();
     /* How many recipes, and how much paper. It used to also report the average
        recipes a page, which is a number that came out of the packer rather than
@@ -1724,35 +1700,65 @@
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 120, booklet: true }
   };
 
+  /* What each file is, in the words of what you do with it.
+   *
+   * "Both books" and "Booklet PDF" name the artefact; they do not say that one
+   * goes to a copy shop and the other is folded down the middle on a kitchen
+   * table. The row says which, because choosing between them is the only
+   * decision on this screen. */
+  var PRINT_ROWS = [
+    { set: 'all', what: 'Both books, as two booklets',
+      how: 'Each volume opens on its own cover. This is the one to hand a print shop.' },
+    { set: 'one', what: 'Everything in one book',
+      how: 'One cover, one contents page, straight through. For spiral binding.' },
+    { set: '1', what: 'Run and Not Be Weary',
+      how: 'Volume One on its own.' },
+    { set: '2', what: 'Around the Table',
+      how: 'Volume Two on its own.' }
+  ];
+
   function renderDownloads() {
-    var r = READY_MADE[S.printSet];
-    var dl = $('dlBook'), bk = $('dlBooklet');
-    /* Only where it makes sense to offer. Somebody printing Favorites or this
-       week's plan is printing four pages for the fridge, and being asked fifty
-       dollars for a bound book at that moment reads as not paying attention. */
-    $('orderBook').classList.toggle('hide',
-      S.printSet !== 'one' && S.printSet !== 'all' && S.printSet !== '1' && S.printSet !== '2');
-    dl.classList.toggle('hide', !r);
-    bk.classList.toggle('hide', !(r && r.booklet));
-    if (!r) return;
-    dl.href = 'print/' + r.file;
-    /* The ready-made files were rendered from the printed collection and know
-       nothing about a recipe somebody wrote last week or a printed one they
-       corrected. The preview above counts those in, so the two disagreed
-       silently — a preview saying 168 pages over a button offering 160, and
-       whoever pressed it got a book without their own recipes in it and no
-       word about why. Say so, and point at the button that does include them. */
+    /* Your own recipes and your corrections are not in a file that was
+       rendered weeks ago. The preview counts them in, so the two disagree —
+       and whoever pressed Download got a book without their own recipes in it
+       and no word about why. Said once, above the rows, rather than repeated
+       on every one of them. */
     var own = Object.keys(window.Store.state.mine || {}).length +
       Object.keys(window.Store.state.edits || {}).length;
-    dl.textContent = 'Download PDF · ' + r.pages + ' pages' +
-      (own ? ' · as published' : '');
-    dl.title = own
-      ? 'The published book. Your own recipes and corrections are not in this file — use Print to include them.'
-      : '';
-    if (r.booklet) {
-      bk.href = 'print/' + r.file.replace(/\.pdf$/, '-booklet.pdf');
-      bk.textContent = 'Booklet PDF · ' + (r.pages / 4) + ' sheets';
-    }
+
+    $('printRows').innerHTML = PRINT_ROWS.map(function (row) {
+      var r = READY_MADE[row.set];
+      if (!r) return '';
+      var on = S.printSet === row.set;
+      var sheets = r.pages / 4;
+      return '<div class="dl-row' + (on ? ' on' : '') + '">' +
+        '<button class="dl-pick" data-print="' + row.set + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+          '<span class="dl-what">' + esc(row.what) + '</span>' +
+          '<span class="dl-how">' + esc(row.how) + '</span>' +
+        '</button>' +
+        '<div class="dl-gets">' +
+          '<a class="btn-primary" download href="print/' + esc(r.file) + '">' +
+            'PDF · ' + r.pages + ' pages</a>' +
+          (r.booklet
+            ? '<a class="ghost" download href="print/' +
+                esc(r.file.replace(/\.pdf$/, '-booklet.pdf')) + '" ' +
+                'title="Two pages to a sheet, in folding order — print double-sided, fold, staple">' +
+                'Fold &amp; staple · ' + sheets + ' sheets</a>'
+            : '') +
+        '</div>' +
+      '</div>';
+    }).join('') +
+    (own ? '<div class="dl-own">These are the published books. The ' + own +
+      (own === 1 ? ' recipe you have written or corrected is' :
+                   ' recipes you have written or corrected are') +
+      ' not in them &mdash; use Print below to get a copy that includes them.</div>' : '');
+
+    /* The live sets, and the dialog that is the only way to get them. */
+    var live = READY_MADE[S.printSet] === undefined;
+    $('doPrint').classList.toggle('hide', !live);
+    $('printSeg').querySelectorAll('button[data-print]').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.dataset.print === S.printSet ? 'true' : 'false');
+    });
   }
 
   // --------------------------------------------------------------- detail
@@ -2746,13 +2752,8 @@
     $('grid').addEventListener('click', function (e) {
       var c = e.target.closest('[data-open]');
       if (!c) return;
-      S.openId = idOf(c.dataset.open);
-      S.scale = 1;
-      S.why = false;
       rememberOpener();
-      renderModal();
-      var x = document.querySelector('.sheet-x');
-      if (x) x.focus();
+      openRecipe(idOf(c.dataset.open));
     });
 
     $('planGrid').addEventListener('click', function (e) {
@@ -2817,12 +2818,16 @@
       window.Store.toggleChecked(c.dataset.check);
     });
 
-    $('printSeg').addEventListener('click', function (e) {
+    var pickPrint = function (e) {
       var b = e.target.closest('button[data-print]');
       if (!b || b.dataset.print === S.printSet) return;
       S.printSet = b.dataset.print;
       renderBook();
-    });
+    };
+    $('printSeg').addEventListener('click', pickPrint);
+    /* The download links inside a row must not be intercepted; only the name
+       of the row selects it. */
+    $('printRows').addEventListener('click', pickPrint);
     $('doPrint').addEventListener('click', expandAndPrint);
 
     window.addEventListener('resize', fitPages);
@@ -2860,20 +2865,11 @@
       // the backdrop itself, or the × — anything inside the sheet falls through
       if (e.target.classList.contains('scrim') || e.target.closest('.sheet-x')) { close(); return; }
 
-      /* A reference in a step, followed. The sheet is replaced rather than
-         stacked: two recipes open at once is a back button nobody asked for,
-         and the thing you were reading is one press away in the list you came
-         from. Scale resets, because the gravy does not inherit the roast's. */
+      /* A reference in a step, followed. Each hop is a history entry, so the
+         back gesture walks the trail home. Scale resets, because the gravy
+         does not inherit the roast's. */
       var xr = e.target.closest('.xref[data-open], .ing-make[data-open]');
-      if (xr) {
-        S.openId = idOf(xr.dataset.open);
-        S.scale = 1;
-        S.why = false;
-        renderModal();
-        var back = document.querySelector('.sheet-x');
-        if (back) back.focus();
-        return;
-      }
+      if (xr) { openRecipe(idOf(xr.dataset.open)); return; }
 
       var ed = e.target.closest('[data-edit]');
       if (ed) { openEditor(idOf(ed.dataset.edit)); return; }
@@ -2969,7 +2965,67 @@
     });
   }
 
+  /* ------------------------------------------------------------------------
+   * The back gesture.
+   *
+   * There was no history here at all: the open recipe lived in a variable, so
+   * swiping back did the only thing left to it and navigated out of the app.
+   * Coming forward again landed on the grid with nothing open, and the recipe
+   * you had been reading had to be found a second time.
+   *
+   * That got worse when recipes started pointing at each other. Following a
+   * reference from the meatball feast to the breadcrumbs replaced the sheet —
+   * deliberately, on the grounds that two recipes open at once is a back
+   * button nobody asked for. Which was wrong twice over: somebody had asked
+   * for it by swiping, and the gesture was already there.
+   *
+   * So each opened recipe is a history entry. Back walks the trail: from the
+   * breadcrumbs to the feast to the grid. The × closes the lot in one, which
+   * is what a close button means, so it jumps the whole depth rather than
+   * unwinding it a page at a time.
+   * --------------------------------------------------------------------- */
+  var depth = 0;                 // history entries this modal has pushed
+  var popping = false;           // inside a popstate, so do not push back
+
+  function openRecipe(id) {
+    if (id === S.openId) return;
+    S.openId = id;
+    S.scale = 1;
+    S.why = false;
+    if (!popping) {
+      history.pushState({ r: String(id) }, '');
+      depth++;
+    }
+    renderModal();
+    var x = document.querySelector('.sheet-x');
+    if (x) x.focus();
+  }
+
+  window.addEventListener('popstate', function (e) {
+    var id = e.state && e.state.r;
+    popping = true;
+    if (id && BY_ID[id]) {
+      depth = Math.max(0, depth - 1);
+      S.openId = idOf(id);
+      S.scale = 1;
+      S.why = false;
+      renderModal();
+    } else {
+      depth = 0;
+      close();
+    }
+    popping = false;
+  });
+
   function close() {
+    /* Unwind every entry this modal pushed, so one press of × does not leave
+       a trail of recipes behind the back gesture. */
+    if (depth > 0 && !popping) {
+      var n = depth;
+      depth = 0;
+      history.go(-n);
+      return;
+    }
     S.openId = null;
     S.syncOpen = false;
     /* The editor too. Without these the × and the backdrop looked broken:

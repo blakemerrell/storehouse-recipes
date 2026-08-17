@@ -331,16 +331,34 @@ module.exports = {
     await p.waitForTimeout(4500);
 
     /* The one ask inside the app, and the one place it belongs: somebody
-       reading a 160-page preview and working out what a copy shop charges has
-       already decided they want it on paper. It must not follow them into a
-       print of this week's plan, which is four pages for a fridge door. */
-    const ask = async () => p.evaluate(() =>
-      !document.getElementById('orderBook').classList.contains('hide'));
-    t.ok('the printed-copy offer is there when you are looking at a whole book', await ask());
-    await p.click('[data-print="fav"]'); await p.waitForTimeout(1200);
-    t.ok('and gone when you are printing four pages for the fridge', !(await ask()));
-    await p.click('[data-print="1"]'); await p.waitForTimeout(3000);
-    t.ok('and back for a single volume', await ask());
+       reading a 184-page preview and working out what a copy shop charges has
+       already decided they want it on paper. It must not sit beside a print of
+       this week's plan, which is four pages for a fridge door.
+     
+       It used to be shown and hidden by the selection. Now it sits with the
+       books and the week's plan sits below a rule, so position does the job
+       and there is no state to get wrong — which is what this checks. */
+    const where = await p.evaluate(() => {
+      const a = document.getElementById('orderBook');
+      return { withBooks: !!a.closest('.book-bar-in') && !a.closest('.dl-live'),
+               afterRows: !!(document.getElementById('printRows').compareDocumentPosition(a)
+                 & Node.DOCUMENT_POSITION_FOLLOWING) };
+    });
+    t.ok('the printed-copy offer sits with the books, not with the week',
+      where.withBooks && where.afterRows, JSON.stringify(where));
+    /* And every book on the list offers its file. There is no state deciding
+       which one is downloadable any more — a row exists because a file does. */
+    const rows = await p.evaluate(() => [...document.querySelectorAll('.dl-row')].map((r) => ({
+      set: r.querySelector('[data-print]').dataset.print,
+      pdf: (r.querySelector('.dl-gets a[download]') || {}).getAttribute
+        ? r.querySelector('.dl-gets a[download]').getAttribute('href') : null,
+      links: r.querySelectorAll('.dl-gets a[download]').length,
+    })));
+    t.ok('every book on the list hands you a file',
+      rows.length === 4 && rows.every((r) => /^print\/.+\.pdf$/.test(r.pdf || '')),
+      JSON.stringify(rows));
+    t.ok('and the two you fold yourself offer the imposed one as well',
+      rows.filter((r) => r.links === 2).length === 2, JSON.stringify(rows.map((r) => r.links)));
     await p.click('[data-print="all"]'); await p.waitForTimeout(4500);
 
     // the other things you can print
