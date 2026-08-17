@@ -202,6 +202,20 @@ module.exports = [
      somebody with only the order can still make the thing, so neither may
      depend on something the order does not carry. It stays in as an
      improvement and is now marked optional. */
+  /* ---- the three that open a can of mushroom soup --------------------
+   *
+   * Cream of mushroom is on the storehouse order, so these are no different
+   * from any other recipe until the day it is not on the shelf — and unlike
+   * every other tin in the book there is no making it, because the order
+   * carries no mushrooms. {r:275} does, because canned chicken is on the list.
+   *
+   * So each of these says what to reach for instead. Not the same sentence
+   * three times: the soup is doing a different job in each one, and in the
+   * pork roast it is not a soup at all, it is the gravy. */
+  { id: 161, step: 2, add: 'No mushroom soup? {r:275} layers in exactly the same way, and {r:265} made pale does the binding just as well.' },
+  { id: 171, step: 1, add: 'The soup is the gravy here, and {r:265} is a better one — make it pale, with the juices from the tin once the roast is out. {r:275} works too if you want it thicker.' },
+  { id: 196, step: 1, add: 'No mushroom soup? {r:275} is the closer swap; {r:265} made pale is the leaner one. Either way the sour cream goes in off the heat, or it splits.' },
+
   { id: 166, step: 0, add: 'No breadcrumbs in the cupboard? {r:272} makes them from bread, which is on the order.' },
   { id: 178, step: 0, add: 'No breadcrumbs in the cupboard? {r:272} makes them from bread, which is on the order.' },
 
