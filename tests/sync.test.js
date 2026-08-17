@@ -66,7 +66,22 @@ module.exports = {
       return r;
     };
 
-    const wipe = () => admin(async (doc) => { await doc.delete(); });
+    /* Emptied rather than deleted.
+     *
+     * firestore.rules says `allow list, delete: if false` — deliberately, so a
+     * household cannot be enumerated or destroyed by anyone who merely knows a
+     * code. This test signed in as an ordinary anonymous visitor and then
+     * called delete() to tidy up, which the rules refuse, so the one test that
+     * exercises the live project could not finish against the live project.
+     *
+     * create and update are allowed, so the fixture is overwritten with an
+     * empty household instead. Same effect for a test — the next run starts
+     * from nothing — without asking the rules to permit something the app
+     * never does. */
+    const wipe = () => admin(async (doc) => {
+      await doc.set({ favs: [], weeks: {}, active: '', mine: {}, edits: {},
+        pantry: {}, pantryNew: {} });
+    });
 
     try {
       if (!(await t.browser.newContext().then((c) => c.close().then(() => true)))) return;
