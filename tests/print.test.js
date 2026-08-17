@@ -155,11 +155,18 @@ module.exports = {
       artState.without.length <= 4,
       artState.without.length + ' without art: ' + artState.without.join(', '));
 
+    /* One opener per illustrated section, counted off the sections rather than
+       written down. Twelve was right until four engravings arrived, at which
+       point both of these went red while the book was doing exactly what they
+       describe — the fourth assertion in this file to fail for holding an old
+       copy of a number the collection decides. */
+    const illustrated = artState.sections - artState.without.length;
     t.ok('every illustrated section opens on a page of its own',
-      openers.length === 12 && openers.every((o) => o.size >= 24 && o.centred),
-      JSON.stringify(openers.filter((o) => o.size < 24 || !o.centred)) + ' of ' + openers.length);
+      openers.length === illustrated && openers.every((o) => o.size >= 24 && o.centred),
+      JSON.stringify(openers.filter((o) => o.size < 24 || !o.centred)) +
+      ' — ' + openers.length + ' openers for ' + illustrated + ' illustrated sections');
     t.ok('and its engraving actually loaded, rather than leaving a hole',
-      openers.length === 12 && openers.every((o) => o.loaded),
+      openers.length === illustrated && openers.every((o) => o.loaded),
       openers.filter((o) => !o.loaded).map((o) => o.name).join(', '));
     t.ok('and carries no page number, the way the front matter does not',
       openers.every((o) => !o.folio),
