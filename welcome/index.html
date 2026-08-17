@@ -624,8 +624,10 @@ a { color: inherit; }
 }
 
 /* ---- prefer paper ------------------------------------------------------ */
-.paper-buys { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.paper-buys { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
 .paper-buys .btn { padding: 9px 16px; font-size: 13px; white-space: nowrap; }
+.buys-lab { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ochre); font-weight: 600; margin-right: 2px; }
 .fine { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 16px; text-wrap: pretty; }
 
 /* Closed by default, and set like the fine print it hides rather than like a
@@ -702,7 +704,9 @@ footer a:hover { text-decoration: underline; }
   .sec, .dark, .give-sec { margin-top: 46px; }
   .dark { padding: 24px 18px 14px; }
   .paper-buys { width: 100%; }
-  .paper-buys .btn { flex: 1; text-align: center; }
+  /* Not flex:1 any more — that was written for two buttons and makes three of
+     them stretch into three full-width bars. They wrap at their own size. */
+  .paper-buys .btn { text-align: center; }
   /* Stacked, the phones have the whole column to themselves, so they get
      wider than they can be side by side — at 170px the recipe card's method
      wrapped past the bottom of the screen and was clipped. */
@@ -824,15 +828,20 @@ footer a:hover { text-decoration: underline; }
           <h3>Print it, use it, share it, add to it</h3>
           <p>Print the lot for yourself &mdash; half-letter, contents page, real typesetting, and
           no recipe split across a page break. The PDFs are already made, so you send one to a
-          printer and that&rsquo;s it: <span data-n="all-recipes">277</span> recipes over
-          <span data-n="one-pages">176</span> pages, free. Or keep it on your phone, where one
-          code puts the whole household on the same week and the same list. Write your own
-          recipes in and correct any of the printed ones; both print alongside the rest in the
-          same hand. Or have a spiral-bound copy posted to you &mdash; the address is taken at
-          checkout.</p>
+          printer and that&rsquo;s it. Or keep it on your phone, where one code puts the whole
+          household on the same week and the same list. Write your own recipes in and correct
+          any of the printed ones; both print alongside the rest in the same hand.</p>
+          <!-- The files, not an ask. This item used to lead with "Buy a bound
+               copy &mdash; $50" beside a single Download button, which put the
+               one commercial thing on the page in the middle of an
+               explanation of what the thing does. The offer belongs to the
+               block at the end that is for people who have finished reading;
+               here it is just the three books, free. -->
           <div class="paper-buys">
-            <a class="btn btn-solid post-order-btn" href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Buy a bound copy &mdash; $50</a>
-            <a class="btn btn-ghost" href="../print/Hive-and-Hearth-Recipes.pdf">Download free</a>
+            <span class="buys-lab">Download</span>
+            <a class="btn btn-solid" download href="../print/Hive-and-Hearth-Recipes.pdf">Full book &middot; <span data-n="one-pages">176</span> pages</a>
+            <a class="btn btn-ghost" download href="../print/Run-and-Not-Be-Weary.pdf">Run and Not Be Weary &middot; <span data-n="b1-pages">64</span></a>
+            <a class="btn btn-ghost" download href="../print/Around-the-Table.pdf">Around the Table &middot; <span data-n="b2-pages">120</span></a>
           </div>
           <!-- The print logistics, folded away one line under the buttons they
                belong to.
@@ -847,14 +856,17 @@ footer a:hover { text-decoration: underline; }
                So it sits with the decision, still closed. -->
           <details class="more-print">
             <summary>Other ways to print it</summary>
-            <p class="fine">Or take it as two booklets you fold and staple yourself.
-            <strong>Run and Not Be Weary</strong> is <span data-n="b1-recipes">111</span> recipes over <span data-n="b1-pages">64</span> pages
-            (<a href="../print/Run-and-Not-Be-Weary.pdf">PDF</a> &middot;
-            <a href="../print/Run-and-Not-Be-Weary-booklet.pdf">imposed for folding</a>).
-            <strong>Around the Table</strong> is <span data-n="b2-recipes">166</span> over <span data-n="b2-pages">120</span>
-            (<a href="../print/Around-the-Table.pdf">PDF</a> &middot;
-            <a href="../print/Around-the-Table-booklet.pdf">imposed for folding</a>). The imposed files are
-            deliberately out of page order, so don&rsquo;t hand one to a copy shop for spiral binding.</p>
+            <p class="fine">Both volumes are also imposed for folding, so you can print
+            double-sided, fold down the middle and staple:
+            <a href="../print/Run-and-Not-Be-Weary-booklet.pdf"><strong>Run and Not Be Weary</strong></a>
+            (<span data-n="b1-recipes">111</span> recipes) and
+            <a href="../print/Around-the-Table-booklet.pdf"><strong>Around the Table</strong></a>
+            (<span data-n="b2-recipes">166</span>). Those two files are deliberately out of page
+            order, so don&rsquo;t hand one to a copy shop for spiral binding &mdash; give them the
+            full book above.</p>
+            <p class="fine">There is a
+            <a href="../print/Both-Books.pdf">two-volume edition</a> as well, if you would rather
+            have them as separate books than as one.</p>
 
             <!-- Not another way to get the book &mdash; a thing to give somebody
                  else. It sits under the print files because that is where a

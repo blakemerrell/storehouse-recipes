@@ -95,18 +95,24 @@ module.exports = {
       return {
         total: pay.length,
         early: pay.filter(before).map((a) => a.textContent.trim()),
-        /* The paper offer used to be a section of its own headed "Prefer
-           paper?", asking two screens later the same question the print item
-           in "What it does" already answers — the reader deciding twice about
-           one thing. Merged into that item, buttons and all, so this looks for
-           it where it now lives rather than where it was. */
-        paper: !!document.querySelector('#what a[href*="stripe"]'),
+        /* And not inside the explanation at all.
+        
+           The offer went from a section of its own, to merged into the print
+           item, to out of it again: sitting beside "here is what this does" it
+           put the one commercial thing on the page in the middle of somebody
+           still working out whether they want it. That item carries the three
+           free downloads now, and the ask waits for the block at the end that
+           is written for people who have finished reading. */
+        inWhat: !!document.querySelector('#what a[href*="stripe"]'),
+        downloads: document.querySelectorAll('#what a[download]').length,
         story: !!document.querySelector('#give a[href*="stripe"]'),
         footer: pay.some((a) => a.closest('footer')),
       };
     });
-    t.ok('there is a way to pay where the book is explained, in the story and in the footer',
-      ways.paper && ways.story && ways.footer, JSON.stringify(ways));
+    t.ok('the ask waits for the story and the footer',
+      ways.story && ways.footer && !ways.inWhat, JSON.stringify(ways));
+    t.ok('and what it does offers the books themselves, free',
+      ways.downloads >= 3, ways.downloads + ' download links');
     t.ok('and nothing quotes a price before the page has said what it is',
       ways.early.length === 0, ways.early.join(' | '));
 
