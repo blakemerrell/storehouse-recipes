@@ -279,7 +279,7 @@ module.exports = {
        This mode is the same 266 recipes built as one object, and what is worth
        asserting is the seams — that there is exactly one of everything a book
        has one of, and that nothing left in it still claims to be a volume. */
-    await p.selectOption('#printSet', 'one');
+    await p.click('[data-print="one"]');
     await p.waitForTimeout(5000);
     const one = await p.evaluate(() => {
       const pgs = [...document.querySelectorAll('.pg:not(.no-print)')];
@@ -327,7 +327,7 @@ module.exports = {
     t.ok('it is shorter than the two volumes printed separately',
       one.pages < b.pages, one.pages + ' vs ' + b.pages);
 
-    await p.selectOption('#printSet', 'all');
+    await p.click('[data-print="all"]');
     await p.waitForTimeout(4500);
 
     /* The one ask inside the app, and the one place it belongs: somebody
@@ -337,24 +337,24 @@ module.exports = {
     const ask = async () => p.evaluate(() =>
       !document.getElementById('orderBook').classList.contains('hide'));
     t.ok('the printed-copy offer is there when you are looking at a whole book', await ask());
-    await p.selectOption('#printSet', 'fav'); await p.waitForTimeout(1200);
+    await p.click('[data-print="fav"]'); await p.waitForTimeout(1200);
     t.ok('and gone when you are printing four pages for the fridge', !(await ask()));
-    await p.selectOption('#printSet', '1'); await p.waitForTimeout(3000);
+    await p.click('[data-print="1"]'); await p.waitForTimeout(3000);
     t.ok('and back for a single volume', await ask());
-    await p.selectOption('#printSet', 'all'); await p.waitForTimeout(4500);
+    await p.click('[data-print="all"]'); await p.waitForTimeout(4500);
 
     // the other things you can print
     await p.evaluate(() => { window.Store.toggleFav(3); window.Store.toggleFav(9); });
-    await p.selectOption('#printSet', 'fav');
+    await p.click('[data-print="fav"]');
     await p.waitForTimeout(1200);
     t.ok('favorites print on their own',
       (await p.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) >= 2);
 
     await p.evaluate(() => { window.Store.addToDay(12, 'mon'); });
-    await p.selectOption('#printSet', 'plan');
+    await p.click('[data-print="plan"]');
     await p.waitForTimeout(1200);
-    const opt = await p.textContent('#printSet option[value="plan"]');
-    t.ok('and so does the week, named after itself', /^This Week — 1 recipe$/.test(opt), opt);
+    const opt = await p.textContent('#printPlan');
+    t.ok('and so does the week, named after itself', /^This Week · 1$/.test(opt), opt);
 
     // a phone should be able to look at the book without it running off the side
     await p.setViewportSize({ width: 390, height: 780 });

@@ -40,7 +40,7 @@ module.exports = {
       const full = path.join(DIR, file);
       if (!fs.existsSync(full)) { t.ok(file + ' is shipped', false, 'missing — run npm run print'); continue; }
 
-      await p.selectOption('#printSet', set);
+      await p.click('[data-print="' + set + '"]');
       const live = await settle();
       const doc = await PDFDocument.load(fs.readFileSync(full));
       const size = doc.getPage(0).getSize();
@@ -99,7 +99,7 @@ module.exports = {
     }
 
     // and the selections that cannot be made ahead of time fall back to printing
-    await p.selectOption('#printSet', 'fav');
+    await p.click('[data-print="fav"]');
     await p.waitForTimeout(800);
     t.ok('favorites offer the print dialog instead, having no file to hand',
       await p.evaluate(() => document.getElementById('dlBook').classList.contains('hide') &&

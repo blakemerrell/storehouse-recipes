@@ -170,7 +170,7 @@ function stampPageCounts(made) {
 
   const made = {};
   for (const key of jobs) {
-    await page.selectOption('#printSet', key);
+    await page.click('[data-print="' + key + '"]');
 
     /* Packing is measure-then-lay-out and runs asynchronously; wait for the
        page count to stop moving rather than guessing at a timeout. */

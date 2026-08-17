@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=62">
+<link rel="stylesheet" href="src/style.css?v=63">
 </head>
 <body>
 
@@ -165,7 +165,11 @@
         <button class="ghost hide" id="pantryReset">Back to the storehouse</button>
       </div>
     </div>
-    <div class="plan-note pantry-lede">What you keep in. Every recipe asks this list what you would have to go out for, so the line at the foot of a recipe and the shopping list both follow it. Out of the box it is the standard storehouse order &mdash; take things off as you stop keeping them, or add what you keep that the books never mention. Anything you take off drops to the foot of the list, so you can put it back.</div>
+    <!-- This read as "what you keep in", which is a pantry app and is not what
+         this is for. What it is for is the storehouse order changing: the list
+         below is what the storehouse carried when the books were written, and
+         orders differ by place and change over time. -->
+    <div class="plan-note pantry-lede">This is what the storehouse carried when the books were written. If yours has stopped stocking something, take it off &mdash; the recipes stay exactly as they are, and the app simply starts telling you to pick that item up at the grocery store instead. The line at the foot of every recipe and the whole shopping list follow this list. You can also add anything you keep that the books never mention. Whatever you take off drops to the foot, so you can put it back.</div>
     <div id="pantryBody"></div>
   </div>
 </section>
@@ -176,15 +180,21 @@
     <div class="book-bar-in">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <span class="view-count">Include</span>
-        <select id="printSet" aria-label="What to print">
-          <option value="all">Both books &mdash; all 271</option>
-          <option value="one">One book &mdash; all 271, for spiral binding</option>
-          <option value="1">Run and Not Be Weary &mdash; 111 recipes</option>
-          <option value="2">Around the Table &mdash; 160 recipes</option>
-          <option value="3" id="printOurs" class="hide">Ours</option>
-          <option value="fav">Favorites only</option>
-          <option value="plan">This week&rsquo;s plan</option>
-        </select>
+        <!-- Buttons rather than a dropdown. Seven choices behind a closed
+             control, on the one screen where the whole point is comparing them
+             — you cannot see that both books is 184 pages and one volume is 64
+             without opening it twice. The labels carried their own recipe
+             counts too, typed in, and were reading 271 on a collection of 277.
+             They are filled in from the collection now, in renderPrintSets. -->
+        <div class="seg seg-wrap" id="printSeg" role="group" aria-label="What to print">
+          <button data-print="all" aria-pressed="true">Both books</button>
+          <button data-print="one">One book</button>
+          <button data-print="1">Run and Not Be Weary</button>
+          <button data-print="2">Around the Table</button>
+          <button data-print="3" id="printOurs" class="hide">Ours</button>
+          <button data-print="fav">Favorites</button>
+          <button data-print="plan" id="printPlan">This week</button>
+        </div>
         <span class="book-note" id="printNote"></span>
       </div>
       <div class="book-actions">
@@ -214,14 +224,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=62"></script>
-<script src="data/nutrition.js?v=62"></script>
-<script src="data/art.js?v=62"></script>
-<script src="data/qr.js?v=62"></script>
-<script src="src/config.js?v=62"></script>
+<script src="data/recipes.js?v=63"></script>
+<script src="data/nutrition.js?v=63"></script>
+<script src="data/art.js?v=63"></script>
+<script src="data/qr.js?v=63"></script>
+<script src="src/config.js?v=63"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=62"></script>
-<script src="src/app.js?v=62"></script>
+<script src="src/sync.js?v=63"></script>
+<script src="src/app.js?v=63"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

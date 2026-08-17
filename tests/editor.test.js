@@ -124,7 +124,7 @@ module.exports = {
       (await p.evaluate(() => Object.keys(window.Store.state.mine).length)) === 1);
 
     await p.click('.tab[data-view="book"]');
-    await p.selectOption('#printSet', '3');
+    await p.click('[data-print="3"]');
     await p.waitForTimeout(1500);
     const own = await p.evaluate(() => ({
       pages: document.querySelectorAll('.pg:not(.no-print)').length,
@@ -134,7 +134,7 @@ module.exports = {
     t.ok('and prints as a volume of its own, cover and all',
       own.pages >= 2 && own.cover === 'Ours' && own.hasIt, JSON.stringify(own));
 
-    await p.selectOption('#printSet', 'all');
+    await p.click('[data-print="all"]');
     await p.waitForTimeout(3500);
     t.ok('and is in the whole set too',
       await p.evaluate(() => /Grandma/.test(document.getElementById('pages').textContent)));

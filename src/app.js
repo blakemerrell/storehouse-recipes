@@ -485,7 +485,7 @@
     var n = ours().length;
     $('bookOurs').classList.toggle('hide', !n);
     $('printOurs').classList.toggle('hide', !n);
-    $('printOurs').textContent = 'Ours — ' + n + (n === 1 ? ' recipe' : ' recipes');
+    $('printOurs').textContent = 'Ours · ' + n;
     if (!n && S.bookF === 3) { S.bookF = 'all'; }
     document.querySelector('.brand-sub').textContent =
       RECIPES.length + ' recipes · ' + (n ? 'three volumes' : 'two volumes');
@@ -571,9 +571,8 @@
     // there is nothing to delete down to — one week always stays
     $('deleteWeek').classList.toggle('hide', weeks.length < 2);
 
-    var opt = $('printSet').querySelector('option[value="plan"]');
-    if (opt) opt.textContent = active.name + ' — ' + planIds().length +
-      (planIds().length === 1 ? ' recipe' : ' recipes');
+    var pl = $('printPlan');
+    if (pl) pl.textContent = active.name + ' · ' + planIds().length;
   }
 
   function planCount(id) {
@@ -1633,10 +1632,35 @@
     return { squeezed: squeezed, over: over };
   }
 
+  /* What each button is offering, counted rather than typed.
+   *
+   * The four fixed labels carried their own recipe counts — "Both books — all
+   * 271", "Around the Table — 160 recipes" — and both were wrong on a
+   * collection of 277 and 166. A number sitting in a control the reader is
+   * choosing from is the last place it should be a memory of the answer. */
+  function renderPrintSets() {
+    var n = function (b) {
+      return RECIPES.filter(function (r) { return r.book === b; }).length;
+    };
+    var counts = {
+      all: n(1) + n(2), one: n(1) + n(2), 1: n(1), 2: n(2),
+      fav: RECIPES.filter(function (r) { return window.Store.isFav(r.id); }).length
+    };
+    $('printSeg').querySelectorAll('button[data-print]').forEach(function (b) {
+      var k = b.dataset.print;
+      b.setAttribute('aria-pressed', k === S.printSet ? 'true' : 'false');
+      /* Ours and This week write their own, from the week and the shelf. */
+      if (counts[k] === undefined) return;
+      var base = b.textContent.split(' · ')[0];
+      b.textContent = base + ' · ' + counts[k];
+    });
+  }
+
   function renderBook() {
     var t0 = performance.now();
     var pages = buildBook();
     var pool = printPool();
+    renderPrintSets();
     renderDownloads();
     /* How many recipes, and how much paper. It used to also report the average
        recipes a page, which is a number that came out of the packer rather than
@@ -2793,8 +2817,10 @@
       window.Store.toggleChecked(c.dataset.check);
     });
 
-    $('printSet').addEventListener('change', function () {
-      S.printSet = this.value;
+    $('printSeg').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-print]');
+      if (!b || b.dataset.print === S.printSet) return;
+      S.printSet = b.dataset.print;
       renderBook();
     });
     $('doPrint').addEventListener('click', expandAndPrint);

@@ -152,6 +152,12 @@ button { cursor: pointer; }
   display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
 }
 .seg { display: flex; border: 1px solid var(--line-firm); border-radius: 3px; overflow: hidden; }
+/* Seven of them will not sit on one line on a laptop, let alone a phone, and a
+   segmented control that scrolls sideways hides the choices it exists to show.
+   So this one wraps, and the hairlines run both ways. */
+.seg-wrap { flex-wrap: wrap; }
+.seg-wrap button { border-bottom: 1px solid var(--line-firm); }
+.seg-wrap button:first-child { border-left: 0; }
 .seg button {
   background: #fff; color: oklch(0.42 0.03 65); border: none;
   padding: 8px 15px; font-size: 12.5px; font-weight: 500; white-space: nowrap;
