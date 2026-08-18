@@ -612,3 +612,8 @@ console.log('score mismatches:', scoreMismatch.length);
 console.log('unmatched ingredient names:', allUnmatched.size);
 if (allUnmatched.size) console.log([...allUnmatched.keys()].slice(0, 40).join(' | '));
 console.log('Run and Not Be Weary median |Δkcal|:', medAbs + '%', ' within 20%:', within20 + '/' + b1.length, ' ≥30% off:', bigGap.length);
+
+/* data/recipes.js is fetched at ?v=N and served cache-first, so rewriting it
+   without moving N leaves every installed phone on the copy it already has.
+   No-ops when nothing actually changed. */
+require('./bump-version.js').bump('data rebuilt');

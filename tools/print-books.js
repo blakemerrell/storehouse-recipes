@@ -185,8 +185,7 @@ function stampPageCounts(made) {
   });
   if (!done.length) return;
   fs.writeFileSync(file, src);
-  console.log('\nsrc/app.js READY_MADE updated: ' + done.join(', ') +
-    '\n  bump ?v= in index.html and sw.js so phones pick it up.');
+  console.log('\nsrc/app.js READY_MADE updated: ' + done.join(', '));
 }
 
 (async () => {
@@ -252,4 +251,6 @@ function stampPageCounts(made) {
   stampPageCounts(made);
   stampWelcome(made);
   stampApp();
+  /* src/app.js just changed, and it is served cache-first at ?v=N. */
+  require('./bump-version.js').bump('books re-rendered');
 })();

@@ -216,8 +216,7 @@ async function main() {
     var next = sw.replace(block, '$1' + want + '\n');
     if (next !== sw) {
       fs.writeFileSync(swPath, next);
-      console.log('sw.js art list rewritten: ' + had + ' -> ' + Object.keys(manifest).length +
-        '\n  bump ?v= in index.html and sw.js so phones pick it up.');
+      console.log('sw.js art list rewritten: ' + had + ' -> ' + Object.keys(manifest).length);
     }
   }
 
@@ -237,7 +236,16 @@ async function main() {
       };
     }))).png().toFile(sheet);
     console.log('contact sheet: ' + path.relative(process.cwd(), sheet));
+    return;                                   // a look, not a build
   }
+
+  /* data/art.js just changed, and it is fetched at ?v=N and served
+     cache-first. This is the one that bit: four engravings were added, the
+     manifest grew from twelve entries to sixteen, and a browser still holding
+     the twelve-entry copy laid out a 180-page book under a button offering a
+     184-page file. Bumping the version is what makes the URL new, and a new
+     URL is the only thing a cache-first worker will go and fetch. */
+  require('./bump-version.js').bump('art manifest rewritten');
 }
 
 main().catch(function (e) { console.error(e.stack || e.message); process.exit(1); });
