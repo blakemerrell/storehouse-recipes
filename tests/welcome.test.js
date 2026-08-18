@@ -338,6 +338,23 @@ module.exports = {
       bezel.every((b) => b.bottom > b.top),
       JSON.stringify(bezel[0]));
 
+    /* It says, in as many words, that it is not the Church's.
+     *
+     * It did not, anywhere — not on this page, not in the app, not in the
+     * printed book, and not on the handout, which is the one that matters
+     * most: that sheet is made to be photocopied and sent home *with* an
+     * order, where a reader has every reason to assume it came from the
+     * storehouse. The site was a sentence away from implying an endorsement
+     * nobody had given.
+     *
+     * Checked as rendered text rather than as markup, so shortening it into
+     * something that no longer says the thing fails too. */
+    const said = await p.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
+    t.ok('the page says it is not the Church’s and not endorsed by it',
+      /not (an )?official product of The Church of Jesus Christ of Latter-day Saints/i.test(said) &&
+      /not affiliated with or endorsed by the Church/i.test(said),
+      said.slice(-260));
+
     const real = (() => {
       let lib = null;
       for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {

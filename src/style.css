@@ -1037,6 +1037,8 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 }
 /* Pushed to the far end: it answers a question you only ask occasionally. */
 .sync-build { margin-left: auto; opacity: 0.7; font-variant-numeric: tabular-nums; }
+.sync-disclaim { margin-top: 12px; font-size: 11px; line-height: 1.5;
+  color: var(--muted); max-width: 52ch; }
 .sync-warn {
   margin-top: 16px; font-size: 12.5px; line-height: 1.6; color: var(--muted-2);
   border-left: 2px solid var(--ochre); padding-left: 11px;
@@ -1218,6 +1220,8 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 }
 .fm-block:first-child .fm-sub:first-child { margin-top: 0; }
 .fm-p { font-size: 11px; line-height: 1.55; margin-bottom: 6px; text-wrap: pretty; }
+/* The one paragraph in the front matter that is legal rather than culinary. */
+.fm-fine { font-size: 9px; color: oklch(0.52 0.02 65); }
 .fm-table { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; margin: 4px 0 8px; }
 .fm-table > div {
   font-size: 11px; line-height: 1.45; padding: 2.5px 0;

@@ -149,6 +149,15 @@ module.exports = {
       return { without, orphan: Object.keys(A).filter((k) => !used[k]),
         sections: Object.keys(seen).length };
     });
+    /* The book outlives the website and travels further than it: a bound copy
+       on somebody's counter carries no footer and no address bar, so the
+       sentence has to be on the paper. */
+    const onPaper = await p.evaluate(() => document.querySelector('.printwrap').innerText);
+    t.ok('the printed front matter says it is not the Church’s',
+      /not an official product of The Church of Jesus Christ of Latter-day Saints/i.test(onPaper) &&
+      /not affiliated with or endorsed by the Church/i.test(onPaper),
+      onPaper.length + ' characters of book, no disclaimer found');
+
     t.ok('no engraving is left pointing at a section that has been renamed',
       artState.orphan.length === 0, artState.orphan.join(', '));
     t.ok('the sections still waiting on art are the four in art/PROMPTS.md',

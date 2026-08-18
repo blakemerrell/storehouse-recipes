@@ -138,6 +138,16 @@ module.exports = {
       over.length === 0,
       sides.map((x) => x.id + ' ' + x.content.toFixed(2) + 'in in ' + x.box.toFixed(2) + 'in').join(', '));
 
+    /* And on both sides, the sentence that keeps this from reading as the
+       storehouse's own handout. This sheet is made to be photocopied and sent
+       home with an order — of everything here it is the most likely to be
+       mistaken for something official, and it was the last thing to say
+       otherwise. */
+    const disc = await p.evaluate(() => [...document.querySelectorAll('.sheet')]
+      .map((s) => /not affiliated with or endorsed by the Church/i.test(s.innerText)));
+    t.ok('both sides say it is not the Church’s and not endorsed by it',
+      disc.length === 2 && disc.every(Boolean), JSON.stringify(disc));
+
     /* Rendered ahead of time and committed, like the books, so somebody can be
        handed a file rather than a URL and a print dialog.
      *

@@ -1230,6 +1230,14 @@
          why every recipe carries a line at its foot saying so. "Actually" was
          arguing with somebody, too. Nobody had said otherwise. */
       '<div class="fm-lede">Primary ingredients come from the bishops’&nbsp;storehouse order.</div>');
+    /* In the book itself, because the book outlives the website and travels
+       further than it — a spiral-bound copy on somebody's counter carries no
+       footer and no address bar. */
+    block('<div class="fm-p fm-fine">This is not an official product of The Church of Jesus ' +
+      'Christ of Latter-day Saints and is not affiliated with or endorsed by the Church. It is ' +
+      'a family\u2019s own collection, built from what their bishops\u2019&nbsp;storehouse ' +
+      'carries.</div>');
+
     block('<div class="fm-sub">The number</div>' +
       '<div class="fm-p">Every recipe has one, running from 001 straight through both volumes. ' +
       'The contents at the front of each book lists them in order with its page.</div>');
@@ -2519,6 +2527,11 @@
         body +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
+        /* The Sharing sheet is the one screen in the app somebody opens to
+           find out what this thing is and who is behind it, so it is where
+           the app says so. */
+        '<div class="sync-disclaim">Not an official product of The Church of Jesus Christ of ' +
+          'Latter-day Saints, and not affiliated with or endorsed by the Church.</div>' +
       '</div></div>';
   }
 
