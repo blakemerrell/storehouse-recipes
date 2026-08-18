@@ -355,6 +355,25 @@ module.exports = {
       /not affiliated with or endorsed by the Church/i.test(said),
       said.slice(-260));
 
+    /* And sits centred under the two lines above it, rather than beside them.
+     *
+     * `max-width: 62ch` narrowed the block but left it flush left inside a
+     * centred footer, so the newest and most careful sentence on the page was
+     * the one line that looked like a mistake — 121px off centre at desktop
+     * width. Auto margins are what centre a width-constrained block; this
+     * measures the rendered centre rather than reading the rule, so any other
+     * way of getting there is fine and losing it is not. */
+    const mid = await p.evaluate(() => {
+      const c = (el) => { const b = el.getBoundingClientRect(); return b.left + b.width / 2; };
+      const f = document.querySelector('footer');
+      const d = f && f.querySelector('.disclaim');
+      if (!d) return null;
+      return { foot: c(f), disc: c(d) };
+    });
+    t.ok('and it is centred under the footer like the lines above it',
+      mid && Math.abs(mid.foot - mid.disc) < 2,
+      JSON.stringify(mid));
+
     const real = (() => {
       let lib = null;
       for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {

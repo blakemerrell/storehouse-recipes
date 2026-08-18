@@ -368,6 +368,36 @@ module.exports = {
       JSON.stringify(rows));
     t.ok('and the two you fold yourself offer the imposed one as well',
       rows.filter((r) => r.links === 2).length === 2, JSON.stringify(rows.map((r) => r.links)));
+
+    /* And the list reads as one list.
+     *
+     * The bar was a flex row with space-between, which threw its four children
+     * at opposite corners, and each .dl-row wrapped for itself — so the two
+     * rows carrying a second button dropped it under the name while the two
+     * with one button kept it on the right. Four rows, four layouts, and a
+     * bound-copy link and a page count sitting wherever there was room. It
+     * looked, in the owner's word, messy.
+     *
+     * Measured rather than read off the rules: names on one left edge, buttons
+     * on one right edge, and the two lines under the list starting where the
+     * names do. Desktop only — a phone stacks each row on purpose. */
+    const edge = await p.evaluate(() => {
+      const L = (el) => Math.round(el.getBoundingClientRect().left);
+      const R = (el) => Math.round(el.getBoundingClientRect().right);
+      const rs = [...document.querySelectorAll('.dl-row')];
+      return {
+        names: rs.map((r) => L(r.querySelector('.dl-what'))),
+        gets: rs.map((r) => R(r.querySelector('.dl-gets'))),
+        order: L(document.getElementById('orderBook')),
+        live: L(document.querySelector('.dl-live-lab')),
+      };
+    });
+    const same = (a) => a.every((v) => Math.abs(v - a[0]) <= 1);
+    t.ok('the rows line up as one list rather than four layouts',
+      same(edge.names) && same(edge.gets) &&
+      Math.abs(edge.order - edge.names[0]) <= 1 && Math.abs(edge.live - edge.names[0]) <= 1,
+      JSON.stringify(edge));
+
     await p.click('[data-print="all"]'); await p.waitForTimeout(4500);
 
     // the other things you can print

@@ -730,7 +730,10 @@ footer a:hover { text-decoration: underline; }
   .demo2 > .dev:first-of-type { order: 1; }
   .demo2 > .dev:last-of-type { order: 3; }
 }
-.disclaim { margin-top: 10px; max-width: 62ch; opacity: 0.8; }
+/* max-width alone left this block flush to the left of a centred footer, so
+   its lines started somewhere the two above them did not. The auto margins
+   are what actually centre a width-constrained block. */
+.disclaim { margin: 10px auto 0; max-width: 62ch; opacity: 0.8; }
 </style>
 </head>
 <body>
