@@ -152,55 +152,6 @@ button { cursor: pointer; }
   display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
 }
 .seg { display: flex; border: 1px solid var(--line-firm); border-radius: 3px; overflow: hidden; }
-/* The books you can walk out with.
-   
-   One row per file, because there are only four and the choice between them is
-   the only thing this screen asks. The name and the one line under it are the
-   button that shows it in the preview; the links to the right are the files. */
-.dl-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
-/* Two columns, so the buttons line up down the list instead of each row
-   deciding for itself. With flex-wrap the two rows that carry a second button
-   dropped it under the name while the two with one button kept it on the
-   right, which read as four different layouts. */
-.dl-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center; gap: 8px 20px;
-  padding: 10px 12px; border-radius: 4px; border: 1px solid transparent;
-}
-.dl-row.on { background: var(--paper-soft); border-color: var(--line); }
-.dl-pick {
-  min-width: 0; text-align: left; display: block;
-  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
-}
-.dl-what { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
-.dl-row.on .dl-what { text-decoration: underline; text-decoration-color: var(--line-firm);
-  text-underline-offset: 3px; }
-.dl-how { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-.dl-pick:focus-visible { outline: 2px solid var(--ochre); outline-offset: 3px; border-radius: 3px; }
-.dl-gets { display: flex; gap: 8px; justify-content: flex-end; }
-.dl-gets .btn-primary, .dl-gets .ghost { padding: 7px 13px; font-size: 12.5px; white-space: nowrap; }
-/* Separated from the row above it, or it reads as a button belonging to
-   Around the Table rather than as a fifth thing you can do. */
-.dl-order { display: inline-block; margin: 10px 0 16px 12px; font-size: 12.5px; }
-.dl-own { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; padding: 0 12px; max-width: 62ch; }
-
-/* And the two that have no file: a week's plan is four pages for a fridge.
-   Indented by the rows' own padding so its label starts on the same line as
-   the book names, while the rule above it still runs the full width. */
-.dl-live { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 12px 0 0 12px; border-top: 1px solid var(--line); }
-/* The count belongs under what it counts, not opposite it. */
-.book-bar-in .book-note { display: block; margin-top: 10px; padding-left: 12px; }
-
-/* One column on a phone: the name over its buttons, which is the only way two
-   of them fit beside a 5.5-inch page count. */
-@media (max-width: 640px) {
-  .dl-row { grid-template-columns: minmax(0, 1fr); }
-  .dl-gets { justify-content: flex-start; flex-wrap: wrap; }
-}
-.dl-live-lab { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--ochre-text); font-weight: 600; }
-
 /* Seven of them will not sit on one line on a laptop, let alone a phone, and a
    segmented control that scrolls sideways hides the choices it exists to show.
    So this one wraps, and the hairlines run both ways. */
@@ -626,14 +577,13 @@ select { max-width: 280px; }
 .book-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .book-actions a { text-decoration: none; display: inline-block; }
 .book-actions .ghost { line-height: 1.4; }
-/* A stack, not a row.
-   This was flex with space-between, which suited the bar it was written for —
-   one dropdown, one note, one group of buttons. The bar is a list of files
-   now, and space-between flung its four parts into opposite corners: the
-   files left, the fifty-dollar link alone on the right, the week's row below
-   it on the left, the page count off on the right again. Nothing lined up
-   with anything. */
-.book-bar-in { max-width: 1240px; margin: 0 auto; padding: 14px 22px; }
+/* Two rows: the choices, then the files for whichever one is chosen. Both are
+   flex rows that wrap, and the whole bar is two lines deep on a laptop — which
+   is the point of it, because everything below it is the book. */
+.book-bar-in {
+  max-width: 1240px; margin: 0 auto; padding: 14px 22px;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+}
 .book-note { font-size: 12.5px; color: oklch(0.50 0.03 65); }
 .btn-primary {
   background: var(--green); color: oklch(0.98 0.01 145); border: none; border-radius: 3px;

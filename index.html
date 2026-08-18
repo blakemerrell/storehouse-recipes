@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#3b3630">
 <title>Hive &amp; Hearth Recipes</title>
-<meta name="description" content="271 recipes with primary ingredients from the bishops' storehouse. Browse them, plan a week, and let the shopping list build itself.">
+<meta name="description" content="277 recipes with primary ingredients from the bishops' storehouse. Browse them, plan a week, and let the shopping list build itself.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=70">
+<link rel="stylesheet" href="src/style.css?v=71">
 </head>
 <body>
 
@@ -22,7 +22,7 @@
   <div class="topbar-in">
     <div class="brand">
       <div class="brand-name">Hive &amp; Hearth</div>
-      <div class="brand-sub">271 recipes &middot; two volumes</div>
+      <div class="brand-sub">277 recipes &middot; two volumes</div>
     </div>
     <!-- The sync button is a sibling of the tabs rather than one of them. On a
          phone it stays up on the brand row and the five tabs get the whole
@@ -178,42 +178,49 @@
 <section id="view-book" class="hide">
   <div class="book-bar no-print">
     <div class="book-bar-in">
-      <!-- Not a filter with a download bolted on.
-           
-           This was "Include [dropdown]" and then one Download button, which
-           made getting a file a two-step guess: choose a set, read the button,
-           choose again to compare. But there are only ever four books and
-           three of them exist as finished files sitting in print/ — so the
-           files are the interface. Each row is one thing you can end up
-           holding, named for what it is and what you do with it, with its real
-           page count beside it. Pressing a row shows it in the preview below.
-           
-           The two that cannot be made ahead of time — your favorites and this
-           week — are underneath, with the print dialog, because they are a
-           different job: four pages for a fridge door, not a book. -->
-      <div class="dl-list" id="printRows" role="group" aria-label="Books to print"></div>
-      <!-- The one place in the app worth asking from, and it belongs here
-           rather than below: somebody reading a 184-page preview and working
-           out what a copy shop would charge has already decided they want it
-           on paper. It used to hide itself whenever the preview switched to
-           Favorites, because being asked fifty dollars while printing four
-           pages for a fridge door reads as not paying attention. Sitting with
-           the books instead of with the week does the same job by position,
-           which needs no logic to get right. -->
-      <a class="ghost dl-order" id="orderBook" target="_blank" rel="noopener"
-         title="Spiral bound, shipped to you"
-         href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Or buy a bound copy &middot; $50</a>
+      <!-- One row of choices and one row of files.
 
-      <div class="dl-live">
-        <span class="dl-live-lab">Or print what you have picked</span>
-        <div class="seg" id="printSeg" role="group" aria-label="What to print">
+           This spent a while as a list with a row per book, each with its own
+           description and its own buttons — four rows tall, which pushed the
+           preview of the book off the screen on the one page whose job is
+           showing you the book. The owner asked for this back. The choices are
+           worth seeing side by side (that is why they are buttons and not a
+           dropdown), and the file you get changes to match the one you picked,
+           which is one control instead of eight.
+
+           Favorites and This week live in the same row on purpose: they are
+           the same question — what goes on the paper — even though they end at
+           the print dialog rather than at a finished file. -->
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="view-count">Include</span>
+        <!-- The labels carried their own recipe counts, typed in, and were
+             reading 271 on a collection of 277. They are filled in from the
+             collection now, in renderPrintSets. -->
+        <div class="seg seg-wrap" id="printSeg" role="group" aria-label="What to print">
+          <button data-print="all" aria-pressed="true">Both books</button>
+          <button data-print="one">One book</button>
+          <button data-print="1">Run and Not Be Weary</button>
+          <button data-print="2">Around the Table</button>
+          <button data-print="3" id="printOurs" class="hide">Ours</button>
           <button data-print="fav">Favorites</button>
           <button data-print="plan" id="printPlan">This week</button>
-          <button data-print="3" id="printOurs" class="hide">Ours</button>
         </div>
-        <button class="ghost" id="doPrint">Print&hellip;</button>
+        <span class="book-note" id="printNote"></span>
       </div>
-      <span class="book-note" id="printNote"></span>
+      <div class="book-actions">
+        <a class="btn-primary hide" id="dlBook" download>Download PDF</a>
+        <a class="ghost hide" id="dlBooklet" download
+           title="Two pages to a sheet, in folding order — print double-sided, fold, staple">Fold &amp; staple</a>
+        <button class="ghost" id="doPrint">Print&hellip;</button>
+        <!-- The one place in the app worth asking from. Somebody reading a
+             184-page preview and working out what a copy shop would charge is
+             the only person here who has already decided they want it on
+             paper. Shown for the whole-book sets only; nobody ships you a
+             print of this week's plan. -->
+        <a class="ghost hide" id="orderBook" target="_blank" rel="noopener"
+           title="Spiral bound, shipped to you"
+           href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Or buy a bound copy &middot; $50</a>
+      </div>
     </div>
   </div>
   <div class="printwrap" id="pages"></div>
@@ -222,14 +229,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=70"></script>
-<script src="data/nutrition.js?v=70"></script>
-<script src="data/art.js?v=70"></script>
-<script src="data/qr.js?v=70"></script>
-<script src="src/config.js?v=70"></script>
+<script src="data/recipes.js?v=71"></script>
+<script src="data/nutrition.js?v=71"></script>
+<script src="data/art.js?v=71"></script>
+<script src="data/qr.js?v=71"></script>
+<script src="src/config.js?v=71"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=70"></script>
-<script src="src/app.js?v=70"></script>
+<script src="src/sync.js?v=71"></script>
+<script src="src/app.js?v=71"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

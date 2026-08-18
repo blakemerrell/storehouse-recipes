@@ -339,66 +339,62 @@ module.exports = {
     await p.click('[data-print="all"]');
     await p.waitForTimeout(4500);
 
-    /* The one ask inside the app, and the one place it belongs: somebody
-       reading a 184-page preview and working out what a copy shop charges has
-       already decided they want it on paper. It must not sit beside a print of
-       this week's plan, which is four pages for a fridge door.
-     
-       It used to be shown and hidden by the selection. Now it sits with the
-       books and the week's plan sits below a rule, so position does the job
-       and there is no state to get wrong — which is what this checks. */
-    const where = await p.evaluate(() => {
-      const a = document.getElementById('orderBook');
-      return { withBooks: !!a.closest('.book-bar-in') && !a.closest('.dl-live'),
-               afterRows: !!(document.getElementById('printRows').compareDocumentPosition(a)
-                 & Node.DOCUMENT_POSITION_FOLLOWING) };
-    });
-    t.ok('the printed-copy offer sits with the books, not with the week',
-      where.withBooks && where.afterRows, JSON.stringify(where));
-    /* And every book on the list offers its file. There is no state deciding
-       which one is downloadable any more — a row exists because a file does. */
-    const rows = await p.evaluate(() => [...document.querySelectorAll('.dl-row')].map((r) => ({
-      set: r.querySelector('[data-print]').dataset.print,
-      pdf: (r.querySelector('.dl-gets a[download]') || {}).getAttribute
-        ? r.querySelector('.dl-gets a[download]').getAttribute('href') : null,
-      links: r.querySelectorAll('.dl-gets a[download]').length,
-    })));
-    t.ok('every book on the list hands you a file',
-      rows.length === 4 && rows.every((r) => /^print\/.+\.pdf$/.test(r.pdf || '')),
-      JSON.stringify(rows));
+    /* Every choice that has a finished file offers it, and the two you fold
+     * yourself offer the imposed one too.
+     *
+     * This lived for a while as a list with a row per book, each row carrying
+     * its own buttons. It is one Download button again, following the
+     * selection — which means there is state here that can be wrong, and this
+     * walks all six choices rather than reading one.
+     *
+     * The fifty-dollar link goes with it: somebody reading a 184-page preview
+     * and working out what a copy shop charges has already decided they want
+     * it on paper, but nobody ships you a bound print of this week's plan, so
+     * it has to be gone by then. */
+    const offers = {};
+    for (const set of ['all', 'one', '1', '2', 'fav', 'plan']) {
+      await p.click('#printSeg [data-print="' + set + '"]');
+      await p.waitForTimeout(2500);
+      offers[set] = await p.evaluate(() => {
+        const at = (id) => {
+          const e = document.getElementById(id);
+          return e.classList.contains('hide') ? null : (e.getAttribute('href') || true);
+        };
+        return { pdf: at('dlBook'), booklet: at('dlBooklet'), order: !!at('orderBook') };
+      });
+    }
+    const books = ['all', 'one', '1', '2'], live = ['fav', 'plan'];
+    t.ok('every book you can pick hands you its file',
+      books.every((k) => /^print\/.+\.pdf$/.test(offers[k].pdf || '')), JSON.stringify(offers));
     t.ok('and the two you fold yourself offer the imposed one as well',
-      rows.filter((r) => r.links === 2).length === 2, JSON.stringify(rows.map((r) => r.links)));
+      /-booklet\.pdf$/.test(offers['1'].booklet || '') &&
+      /-booklet\.pdf$/.test(offers['2'].booklet || '') &&
+      !offers.all.booklet && !offers.one.booklet, JSON.stringify(offers));
+    t.ok('and the selections with no file fall back to the print dialog',
+      live.every((k) => !offers[k].pdf && !offers[k].booklet), JSON.stringify(offers));
+    t.ok('the printed-copy offer goes with the books, not with the week',
+      books.every((k) => offers[k].order) && live.every((k) => !offers[k].order),
+      JSON.stringify(offers));
 
-    /* And the list reads as one list.
+    /* And the bar stays out of the way of the book.
      *
-     * The bar was a flex row with space-between, which threw its four children
-     * at opposite corners, and each .dl-row wrapped for itself — so the two
-     * rows carrying a second button dropped it under the name while the two
-     * with one button kept it on the right. Four rows, four layouts, and a
-     * bound-copy link and a page count sitting wherever there was room. It
-     * looked, in the owner's word, messy.
-     *
-     * Measured rather than read off the rules: names on one left edge, buttons
-     * on one right edge, and the two lines under the list starting where the
-     * names do. Desktop only — a phone stacks each row on purpose. */
-    const edge = await p.evaluate(() => {
-      const L = (el) => Math.round(el.getBoundingClientRect().left);
-      const R = (el) => Math.round(el.getBoundingClientRect().right);
-      const rs = [...document.querySelectorAll('.dl-row')];
-      return {
-        names: rs.map((r) => L(r.querySelector('.dl-what'))),
-        gets: rs.map((r) => R(r.querySelector('.dl-gets'))),
-        order: L(document.getElementById('orderBook')),
-        live: L(document.querySelector('.dl-live-lab')),
-      };
+     * It spent a while as four rows, one per file, each with a description and
+     * its own buttons — 384px of chrome above a page whose whole job is
+     * showing you the book, which on a laptop meant scrolling before you saw
+     * any of it. Two rows is the shape the owner asked to have back, so this
+     * holds it to that: the bar may not take more than a fifth of the window,
+     * and the first page of the book has to be on screen without scrolling. */
+    await p.click('#printSeg [data-print="all"]');
+    await p.waitForTimeout(4500);
+    const room = await p.evaluate(() => {
+      const bar = document.querySelector('.book-bar').getBoundingClientRect();
+      const pg = document.querySelector('.pg:not(.no-print)');
+      return { bar: Math.round(bar.height), win: window.innerHeight,
+               pageTop: pg ? Math.round(pg.getBoundingClientRect().top) : null };
     });
-    const same = (a) => a.every((v) => Math.abs(v - a[0]) <= 1);
-    t.ok('the rows line up as one list rather than four layouts',
-      same(edge.names) && same(edge.gets) &&
-      Math.abs(edge.order - edge.names[0]) <= 1 && Math.abs(edge.live - edge.names[0]) <= 1,
-      JSON.stringify(edge));
-
-    await p.click('[data-print="all"]'); await p.waitForTimeout(4500);
+    t.ok('and the bar leaves the room to the book it is a bar for',
+      room.bar <= room.win / 5 && room.pageTop !== null && room.pageTop < room.win,
+      JSON.stringify(room));
 
     // the other things you can print
     await p.evaluate(() => { window.Store.toggleFav(3); window.Store.toggleFav(9); });

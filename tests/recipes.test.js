@@ -271,6 +271,30 @@ module.exports = {
     t.ok('nothing on an ingredient list goes unused by its own method',
       orphans.length === 0, orphans.join('; '));
 
+    /* ------------------------------------------------- and the shell says so
+     *
+     * The landing page's counts are stamped and guarded. index.html's were
+     * neither, and it turned out to be saying 271 on a collection of 277 in
+     * two places: the meta description, which is what a search result and a
+     * texted link quote, and the line under the wordmark, which the app
+     * rewrites a moment after load — wrong only for the moment a screenshot
+     * gets taken in.
+     *
+     * Read out of the served markup rather than out of the rendered page, so
+     * the one the app corrects at runtime is checked as it arrives. */
+    const shell = await p.evaluate(async () => {
+      const src = await (await fetch('index.html')).text();
+      const grab = (re) => { const m = src.match(re); return m ? Number(m[1]) : null; };
+      return {
+        real: window.RECIPES.length,
+        meta: grab(/<meta name="description" content="[^"]*?\b(\d+) recipes/),
+        brand: grab(/<div class="brand-sub">(\d+) recipes/),
+      };
+    });
+    t.ok('the app shell quotes the number of recipes there are',
+      shell.meta === shell.real && shell.brand === shell.real,
+      JSON.stringify(shell) + ' — run npm run print');
+
     await p.context().close();
   },
 };

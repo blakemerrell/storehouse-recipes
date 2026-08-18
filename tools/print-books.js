@@ -119,6 +119,45 @@ function stampWelcome(made) {
   console.log('welcome/index.html updated: ' + done.join(', '));
 }
 
+/* And the app's own shell says it a fourth time.
+ *
+ * stampWelcome covers welcome/index.html. It does not cover index.html, which
+ * carries the same claim in two places nobody looks at: the meta description a
+ * search result and a shared link quote, and the "271 recipes · two volumes"
+ * under the wordmark. The second is rewritten by the app a moment after load,
+ * so it is only wrong for the moment before the JavaScript runs — but it is
+ * the moment a screenshot is taken in. The first is never rewritten by
+ * anything and had been saying 271 since the collection was 271.
+ *
+ * Counted from the built data rather than from a render, so it is right even
+ * on a run that printed only one volume. */
+function stampApp() {
+  const file = path.join(ROOT, 'index.html');
+  const g = {}; global.window = g;
+  delete require.cache[require.resolve('../data/recipes.js')];
+  require('../data/recipes.js');
+  const n = (g.RECIPES || []).length;
+  if (!n) return;
+
+  let src = fs.readFileSync(file, 'utf8');
+  const done = [];
+  /* Only these two. "271 recipes" also appears in a comment recounting the
+     day the labels were wrong, which is a record of what happened and not a
+     claim about today — rewriting it would erase the point of it. */
+  [/<meta name="description" content="[^"]*?\b(\d+)(?= recipes)/,
+    /<div class="brand-sub">(\d+)(?= recipes)/].forEach((re) => {
+    const m = src.match(re);
+    if (!m) { console.log('  index.html: nothing matched ' + re); return; }
+    if (Number(m[1]) !== n) {
+      done.push(m[1] + ' -> ' + n);
+      src = src.replace(re, (hit) => hit.replace(/\d+$/, String(n)));
+    }
+  });
+  if (!done.length) return;
+  fs.writeFileSync(file, src);
+  console.log('index.html recipe counts updated: ' + done.join(', '));
+}
+
 /* The page count printed on the Download button, written back into the app.
  *
  * READY_MADE in src/app.js says how many pages each shipped PDF has, and until
@@ -212,4 +251,5 @@ function stampPageCounts(made) {
   console.log('\nin ' + path.relative(process.cwd(), OUT) + '/');
   stampPageCounts(made);
   stampWelcome(made);
+  stampApp();
 })();
