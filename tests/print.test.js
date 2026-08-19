@@ -352,7 +352,9 @@ module.exports = {
      * it has to be gone by then. */
     const offers = {};
     for (const set of ['all', 'one', '1', '2', 'fav', 'plan']) {
-      await p.click('.bk-card[data-print="' + set + '"]');
+      /* Books are covers on the shelf, the picked sets are chips under it —
+         either way it is the control carrying that key. */
+      await p.click('.bk-card[data-print="' + set + '"], .pk[data-print="' + set + '"]');
       await p.waitForTimeout(2500);
       offers[set] = await p.evaluate((set) => {
         const get = document.querySelector('[data-get="' + set + '"]');
@@ -425,9 +427,9 @@ module.exports = {
        somebody may have renamed it to Thanksgiving and that card would then be
        the only thing in the app still calling it something else. */
     const wk = await p.evaluate(() => {
-      const c = document.querySelector('.bk-card[data-print="plan"]');
-      return c && { name: c.querySelector('.bk-what').textContent,
-                    count: c.querySelector('.bk-n').textContent,
+      const c = document.querySelector('.pk[data-print="plan"]');
+      return c && { name: c.firstChild.textContent,
+                    count: c.querySelector('.pk-n').textContent,
                     real: window.Store.activeWeek().name };
     });
     t.ok('and so does the week, named after itself',

@@ -107,10 +107,10 @@ module.exports = {
        an unselected card offering it would print the wrong book onto paper. */
     t.ok('favorites offer the print dialog instead, having no file to hand',
       await p.evaluate(() => {
-        const slot = document.querySelector('.bk-card[data-print="fav"]').closest('.bk-slot');
-        const act = slot.querySelector('.bk-get');
-        return !document.querySelector('[data-get="fav"]') &&
-          act.tagName === 'BUTTON' && act.id === 'doPrint';
+        const pk = document.querySelector('.pk[data-print="fav"]');
+        const go = document.getElementById('doPrint');
+        return !!pk && pk.classList.contains('on') &&
+          !document.querySelector('[data-get="fav"]') && !!go;
       }));
 
     await p.context().close();

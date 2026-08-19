@@ -182,30 +182,43 @@ button { cursor: pointer; }
   text-align: center; text-decoration: none;
 }
 .bk-card:hover { background: var(--paper-soft); }
-.bk-card.on { background: var(--paper-soft); border-color: var(--line); }
+/* The selected book, said loudly enough to be seen. It was a one-pixel line
+   in the palest colour on the page, so the shelf gave no clue which of the
+   four the preview underneath was of. */
+.bk-card.on { background: #fff; border-color: var(--line-firm); box-shadow: 0 1px 0 var(--line); }
 .bk-card:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
 .bk-card[disabled] { opacity: 0.45; cursor: default; }
 .bk-card[disabled]:hover { background: none; }
 /* One height for every face, so the names line up across the shelf whatever
    shape the cover above them is — the combined edition is a stack and is
    taller than the rest. */
-.bk-face { display: flex; align-items: flex-end; justify-content: center; height: 104px; }
+.bk-face { display: flex; align-items: flex-end; justify-content: center; height: 92px; }
 .bk-cover {
   max-height: 100%; width: auto; border-radius: 1px;
   box-shadow: 0 1px 4px rgba(59, 54, 48, 0.22);
 }
-.bk-card.on .bk-cover { box-shadow: 0 2px 7px rgba(59, 54, 48, 0.34); }
-/* The two with no file get a count where a cover would be, so the shelf still
-   reads as a shelf rather than as four books and two gaps. */
-.bk-blank {
-  display: flex; align-items: center; justify-content: center;
-  width: 62px; height: 88px; border: 1px dashed var(--line-firm); border-radius: 2px;
-  font-family: var(--serif); font-size: 22px; color: var(--muted);
+.bk-card.on .bk-cover { box-shadow: 0 2px 9px rgba(59, 54, 48, 0.4); }
+.bk-card.on .bk-what { color: var(--ochre-text); }
+/* Favorites, the week and your own, as a line rather than as book-shaped
+   cards with nothing in them. */
+/* Lost when the old bar's rules were removed; the label was rendering as plain
+   body text in the middle of a row of controls. */
+.dl-live-lab { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ochre-text); font-weight: 600; }
+.pk-row { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.pk {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  background: none; border: 1px solid var(--line-firm); border-radius: 3px;
+  padding: 5px 11px; font: inherit; font-size: 12.5px; cursor: pointer; color: inherit;
 }
+.pk:hover { background: #fff; }
+.pk.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pk-n { font-size: 11px; opacity: 0.65; }
+.pk-go { margin-left: 2px; }
 /* Two lines' worth whether it needs them or not, so "Run and Not Be Weary"
    wrapping does not drop its page count below everybody else's. */
-.bk-what { font-size: 12.5px; font-weight: 600; margin-top: 7px; line-height: 1.25;
-  min-height: 2.5em; display: flex; align-items: center; }
+.bk-what { font-size: 12.5px; font-weight: 600; margin-top: 6px; line-height: 1.2;
+  min-height: 2.4em; display: flex; align-items: center; }
 .bk-sub { font-size: 11px; color: var(--muted); }
 .bk-n { font-size: 11px; color: var(--muted); }
 
@@ -213,21 +226,17 @@ button { cursor: pointer; }
    Tapping the cover used to be the download itself, which is a lot to happen
    to somebody who only wanted a closer look. Picking and taking are two
    intentions, so they are two controls. */
+/* Outlined, not filled. Four saturated green blocks in a row out-shouted the
+   covers above them, which are the thing you are meant to be looking at, and
+   made the shelf read as a row of buy buttons. */
 .bk-get {
-  display: block; margin-top: 5px; padding: 6px 8px; border-radius: 3px;
-  background: var(--green); color: oklch(0.98 0.01 145); border: none;
+  display: block; margin-top: 6px; padding: 5px 8px; border-radius: 3px;
+  background: none; color: var(--green); border: 1px solid var(--green);
   font: inherit; font-size: 11.5px; font-weight: 600; text-align: center;
   text-decoration: none; cursor: pointer; white-space: nowrap;
 }
-.bk-get:hover { filter: brightness(1.08); }
+.bk-get:hover { background: var(--green); color: oklch(0.98 0.01 145); }
 .bk-get:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
-/* The two with no file, when they are not the one selected: the dialog prints
-   whatever is laid out below, so offering it here would print the wrong book
-   onto real paper. It says what to do instead. */
-.bk-get-off {
-  background: none; color: var(--muted); border: 1px dashed var(--line-firm);
-  font-weight: 400; cursor: default;
-}
 .bk-fold {
   display: block; text-align: center; font-size: 10.5px; color: var(--muted);
   margin: -2px 0 0; padding-bottom: 4px;

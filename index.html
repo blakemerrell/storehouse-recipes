@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=74">
+<link rel="stylesheet" href="src/style.css?v=75">
 </head>
 <body>
 
@@ -189,12 +189,16 @@
            tools/build-covers.js every time the books are, because a picture of
            a cover is a claim about what arrives when you press it.
 
-           Favorites and This week are on the same shelf without a cover,
-           because there is no file to show a cover of — they end at the print
-           dialog. Same question, different answer. -->
+           Favorites, the week and your own recipes are not books and are not
+           shelved with them: they have no cover to show, and given cards of
+           the same size they were the weakest thing on the screen — a numeral
+           in a dashed box reads as a picture that failed to load. They are a
+           line of text underneath instead. -->
       <div class="bk-grid" id="printRows" role="group" aria-label="Books to print"></div>
       <div class="dl-own hide" id="dlOwn"></div>
       <div class="dl-live">
+        <span class="dl-live-lab">Or print what you have picked</span>
+        <span class="pk-row" id="printPicked" role="group" aria-label="What else to print"></span>
         <span class="book-note" id="printNote"></span>
         <!-- The one place in the app worth asking from. Somebody reading a
              184-page preview and working out what a copy shop would charge is
@@ -213,14 +217,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=74"></script>
-<script src="data/nutrition.js?v=74"></script>
-<script src="data/art.js?v=74"></script>
-<script src="data/qr.js?v=74"></script>
-<script src="src/config.js?v=74"></script>
+<script src="data/recipes.js?v=75"></script>
+<script src="data/nutrition.js?v=75"></script>
+<script src="data/art.js?v=75"></script>
+<script src="data/qr.js?v=75"></script>
+<script src="src/config.js?v=75"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=74"></script>
-<script src="src/app.js?v=74"></script>
+<script src="src/sync.js?v=75"></script>
+<script src="src/app.js?v=75"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

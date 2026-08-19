@@ -1768,9 +1768,20 @@
     { set: 'one', what: 'Everything in one', sub: 'One spine' },
     { set: '1', what: 'Run and Not Be Weary', sub: 'Volume One' },
     { set: '2', what: 'Around the Table', sub: 'Volume Two' },
-    { set: 'fav', what: 'Favorites', sub: 'Whatever you starred' },
-    { set: 'plan', what: null, sub: 'For the fridge door' },
-    { set: '3', what: 'Ours', sub: 'The ones you wrote' }
+  ];
+
+  /* And the three that are not books.
+   *
+   * These were cards on the shelf beside the covers, at the same size and with
+   * the same weight, and they were the worst thing on the screen: a numeral in
+   * a dashed box reads as a picture that failed to load, and "Pick to print"
+   * next to "Nothing picked yet" is two different dead states side by side.
+   * They are not books and should not be book-shaped. A line of text under the
+   * shelf says what they are and costs nothing. */
+  var PRINT_PICKED = [
+    { set: 'fav', what: 'Favorites' },
+    { set: 'plan', what: null },
+    { set: '3', what: 'Ours' }
   ];
 
   function renderDownloads() {
@@ -1790,23 +1801,9 @@
     var week = planIds().length;
 
     $('printRows').innerHTML = PRINT_CARDS.map(function (c) {
-      if (c.set === '3' && !mine) return '';
       var r = READY_MADE[c.set];
+      if (!r) return '';
       var on = S.printSet === c.set;
-      var live = !r;
-      var count = c.set === 'fav' ? favs : c.set === 'plan' ? week
-        : c.set === '3' ? mine : null;
-      /* The week's card is named after the week, which somebody may have
-         renamed to "Thanksgiving". "This week" would be the wrong name for it
-         and the only place in the app still calling it that. */
-      var what = c.what === null ? window.Store.activeWeek().name : c.what;
-
-      /* A cover only where there is a file whose cover it is. The two live
-         sets get a plain card: drawing them a book would be a picture of
-         something nobody can be handed. */
-      var face = r
-        ? '<img class="bk-cover" src="art/covers/' + esc(c.set) + '.webp" alt="" loading="lazy">'
-        : '<span class="bk-blank" aria-hidden="true">' + (count || 0) + '</span>';
 
       /* The cover shows it; the button under it hands it over.
        *
@@ -1815,36 +1812,20 @@
        * wanted a closer look. Picking a book and taking it are two different
        * intentions, so they are two different controls: the cover selects, the
        * preview below redraws, and the button says what you get. */
-      var line = count === null ? '' :
-        '<span class="bk-n">' + count + (count === 1 ? ' recipe' : ' recipes') + '</span>';
-
-      /* Not disabled when empty. An empty Favorites card still answers a
-         question — you press it, the preview says "Nothing to print yet", and
-         you know where starred recipes would have gone. A dead control answers
-         nothing and looks broken. */
       return '<div class="bk-slot">' +
-        '<button type="button" class="bk-card' + (on ? ' on' : '') + (live ? ' bk-live' : '') + '"' +
-        ' data-print="' + esc(c.set) + '" aria-pressed="' + (on ? 'true' : 'false') + '"' +
-        (c.set === 'plan' ? ' id="printPlan"' : '') +
-        (c.set === '3' ? ' id="printOurs"' : '') + '>' +
-        '<span class="bk-face">' + face + '</span>' +
-        '<span class="bk-what">' + esc(what) + '</span>' +
+        '<button type="button" class="bk-card' + (on ? ' on' : '') + '"' +
+        ' data-print="' + esc(c.set) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+        '<span class="bk-face">' +
+          '<img class="bk-cover" src="art/covers/' + esc(c.set) + '.webp" alt="" loading="lazy">' +
+        '</span>' +
+        '<span class="bk-what">' + esc(c.what) + '</span>' +
         '<span class="bk-sub">' + esc(c.sub) + '</span>' +
-        line +
       '</button>' +
-      (r
-        ? '<a class="bk-get" download href="print/' + esc(r.file) + '" data-get="' + esc(c.set) + '">' +
-            'PDF &middot; ' + r.pages + ' pages</a>'
-        /* The dialog is the only way to get these, and it prints whatever is
-           laid out below — so it is offered on the card that is selected and
-           nowhere else. Offering it on an unselected card would print the
-           wrong book, silently and onto real paper. */
-        : on
-          ? '<button type="button" class="bk-get" id="doPrint">Print&hellip;</button>'
-          : '<span class="bk-get bk-get-off">' + (count ? 'Pick to print' : 'Nothing picked yet') + '</span>') +
+      '<a class="bk-get" download href="print/' + esc(r.file) + '" data-get="' + esc(c.set) + '">' +
+        'PDF &middot; ' + r.pages + ' pages</a>' +
       /* The folded version hangs below: a second thing to do with the same
          book, wanted by far fewer people. */
-      (r && r.booklet
+      (r.booklet
         ? '<a class="bk-fold" download href="print/' +
             esc(r.file.replace(/\.pdf$/, '-booklet.pdf')) + '" data-fold="' + esc(c.set) + '" ' +
             'title="Two pages to a sheet, in folding order — print double-sided, fold, staple">' +
@@ -1852,6 +1833,26 @@
         : '') +
       '</div>';
     }).join('');
+
+    /* The picked sets: one line, no covers. Each says how many are in it, so
+       the count that used to be a numeral in a box is still there — as a fact
+       in a sentence rather than as a picture of nothing. */
+    $('printPicked').innerHTML = PRINT_PICKED.map(function (c) {
+      if (c.set === '3' && !mine) return '';
+      var n = c.set === 'fav' ? favs : c.set === 'plan' ? week : mine;
+      var what = c.what === null ? window.Store.activeWeek().name : c.what;
+      var on = S.printSet === c.set;
+      return '<button type="button" class="pk' + (on ? ' on' : '') + '"' +
+        ' data-print="' + esc(c.set) + '" aria-pressed="' + (on ? 'true' : 'false') + '"' +
+        (c.set === 'plan' ? ' id="printPlan"' : '') +
+        (c.set === '3' ? ' id="printOurs"' : '') + '>' +
+        esc(what) + '<span class="pk-n">' + n + '</span></button>';
+    }).join('') +
+      /* The dialog is the only way to get these, and it prints whatever is laid
+         out below — so it appears once the set is chosen, not before. Offering
+         it beside an unchosen set would print the wrong book onto real paper. */
+      (READY_MADE[S.printSet] ? '' :
+        '<button type="button" class="ghost pk-go" id="doPrint">Print&hellip;</button>');
 
     $('dlOwn').classList.toggle('hide', !own);
     if (own) {
@@ -2941,13 +2942,18 @@
        what you are looking at. The fold-and-staple link beside it is a
        download and nothing else; it must not move the preview, or reaching
        for the booklet would silently change the book on screen. */
-    $('printRows').addEventListener('click', function (e) {
+    var pick = function (e) {
       if (e.target.closest('[data-fold], [data-get], #doPrint')) return;
       var b = e.target.closest('[data-print]');
       if (!b || b.dataset.print === S.printSet) return;
       S.printSet = b.dataset.print;
       renderBook();
-    });
+    };
+    $('printRows').addEventListener('click', pick);
+    /* The picked sets moved out of the shelf into their own row and very
+       nearly moved out of reach with it — the handler was bound to the shelf
+       alone, so Favorites and the week were buttons that did nothing. */
+    $('printPicked').addEventListener('click', pick);
 
     window.addEventListener('resize', fitPages);
     window.addEventListener('resize', syncTabsFade);
