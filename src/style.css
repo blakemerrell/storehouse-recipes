@@ -166,15 +166,19 @@ button { cursor: pointer; }
 
    Sized so the row of them stays a band rather than a page: the covers are
    the smallest that still read as the book they are. */
+/* Centred, not left-packed. auto-fill spread nine columns across a laptop and
+   put four books in the first four, which left the shelf huddled in the corner
+   with half the bar empty beside it. Flex with a fixed slot centres the row
+   however many books there are. */
 .bk-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(134px, 1fr));
-  gap: 6px 10px; align-items: start;
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 10px 20px; align-items: flex-start;
 }
 /* One cell per book, holding the card and the fold-and-staple line under it.
    The fold link was a sibling in the grid to begin with and took a cell of
    its own, which pushed every book after it along and left Around the Table
    sitting under nothing. */
-.bk-slot { display: flex; flex-direction: column; min-width: 0; }
+.bk-slot { display: flex; flex-direction: column; min-width: 0; width: 176px; }
 .bk-card {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   background: none; border: 1px solid transparent; border-radius: 5px;
@@ -192,7 +196,9 @@ button { cursor: pointer; }
 /* One height for every face, so the names line up across the shelf whatever
    shape the cover above them is — the combined edition is a stack and is
    taller than the rest. */
-.bk-face { display: flex; align-items: flex-end; justify-content: center; height: 92px; }
+/* Bigger where there is room for it. A cover you can read the title of is
+   doing the job a cover is here to do; at 92px it was a stamp. */
+.bk-face { display: flex; align-items: flex-end; justify-content: center; height: 136px; }
 .bk-cover {
   max-height: 100%; width: auto; border-radius: 1px;
   box-shadow: 0 1px 4px rgba(59, 54, 48, 0.22);
@@ -203,6 +209,12 @@ button { cursor: pointer; }
    cards with nothing in them. */
 /* Lost when the old bar's rules were removed; the label was rendering as plain
    body text in the middle of a row of controls. */
+/* Two to a row on a phone, filling the width rather than centring two fixed
+   slots with a stripe of nothing either side. */
+@media (max-width: 640px) {
+  .bk-slot { width: calc(50% - 10px); }
+  .bk-face { height: 108px; }
+}
 .dl-live-lab { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--ochre-text); font-weight: 600; }
 .pk-row { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -237,11 +249,17 @@ button { cursor: pointer; }
 }
 .bk-get:hover { background: var(--green); color: oklch(0.98 0.01 145); }
 .bk-get:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
+/* The same shape as the button above it, in the other colour the book uses.
+   As an underlined scrap of text it read as a footnote to the download rather
+   than as the other thing you can do with the same book. */
 .bk-fold {
-  display: block; text-align: center; font-size: 10.5px; color: var(--muted);
-  margin: -2px 0 0; padding-bottom: 4px;
+  display: block; margin-top: 5px; padding: 5px 8px; border-radius: 3px;
+  background: none; color: var(--ochre); border: 1px solid var(--line-firm);
+  font-size: 11.5px; font-weight: 600; text-align: center;
+  text-decoration: none; white-space: nowrap;
 }
-.bk-fold:hover { color: var(--ink); }
+.bk-fold:hover { background: var(--ochre); color: var(--paper); border-color: var(--ochre); }
+.bk-fold:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
 
 /* The note, the ask and the dialog, under the shelf rather than in it. */
 .dl-own { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; max-width: 68ch; }

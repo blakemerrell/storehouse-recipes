@@ -399,8 +399,11 @@ module.exports = {
      * its own buttons — 384px of chrome above a page whose whole job is
      * showing you the book, which on a laptop meant scrolling before you saw
      * any of it. The shelf of covers earns more room than the compact bar did,
-     * but not unboundedly: a third of the window, and the first page of the
-     * book still has to be on screen without scrolling. */
+     * and earned more again when the covers were made big enough to read a
+     * title on — but not unboundedly. Two fifths of the window is the ceiling,
+     * chosen because it still fails the 421px four-row list this replaced
+     * rather than being widened until whatever exists today fits, which is how
+     * a limit stops being one. The book must also still start on screen. */
     await p.click('.bk-card[data-print="all"]');
     await p.waitForTimeout(4500);
     const room = await p.evaluate(() => {
@@ -410,7 +413,7 @@ module.exports = {
                pageTop: pg ? Math.round(pg.getBoundingClientRect().top) : null };
     });
     t.ok('and the bar leaves the room to the book it is a bar for',
-      room.bar <= room.win / 3 && room.pageTop !== null && room.pageTop < room.win,
+      room.bar <= room.win * 0.4 && room.pageTop !== null && room.pageTop < room.win,
       JSON.stringify(room));
 
     // the other things you can print
