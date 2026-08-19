@@ -484,8 +484,8 @@
     // the third volume only exists once there is something in it
     var n = ours().length;
     $('bookOurs').classList.toggle('hide', !n);
-    $('printOurs').classList.toggle('hide', !n);
-    $('printOurs').textContent = 'Ours · ' + n;
+    /* The Ours card is written by renderDownloads, which draws the whole
+       shelf — writing into it from here would clobber its markup. */
     if (!n && S.printSet === '3') S.printSet = 'all';
     if (!n && S.bookF === 3) { S.bookF = 'all'; }
     document.querySelector('.brand-sub').textContent =
@@ -602,8 +602,6 @@
     // there is nothing to delete down to — one week always stays
     $('deleteWeek').classList.toggle('hide', weeks.length < 2);
 
-    var pl = $('printPlan');
-    if (pl) pl.textContent = active.name + ' · ' + planIds().length;
   }
 
   function planCount(id) {
@@ -1677,35 +1675,10 @@
     return { squeezed: squeezed, over: over };
   }
 
-  /* What each button is offering, counted rather than typed.
-   *
-   * The four fixed labels carried their own recipe counts — "Both books — all
-   * 271", "Around the Table — 160 recipes" — and both were wrong on a
-   * collection of 277 and 166. A number sitting in a control the reader is
-   * choosing from is the last place it should be a memory of the answer. */
-  function renderPrintSets() {
-    var n = function (b) {
-      return RECIPES.filter(function (r) { return r.book === b; }).length;
-    };
-    var counts = {
-      all: n(1) + n(2), one: n(1) + n(2), 1: n(1), 2: n(2),
-      fav: RECIPES.filter(function (r) { return window.Store.isFav(r.id); }).length
-    };
-    $('printSeg').querySelectorAll('button[data-print]').forEach(function (b) {
-      var k = b.dataset.print;
-      b.setAttribute('aria-pressed', k === S.printSet ? 'true' : 'false');
-      /* Ours and This week write their own, from the week and the shelf. */
-      if (counts[k] === undefined) return;
-      var base = b.textContent.split(' · ')[0];
-      b.textContent = base + ' · ' + counts[k];
-    });
-  }
-
   function renderBook() {
     var t0 = performance.now();
     var pages = buildBook();
     var pool = printPool();
-    renderPrintSets();
     renderDownloads();
     /* How many recipes, and how much paper. It used to also report the average
        recipes a page, which is a number that came out of the packer rather than
@@ -1788,35 +1761,104 @@
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 120, booklet: true }
   };
 
+  /* The shelf, in the order somebody chooses from it: the whole thing first,
+     then the two volumes, then the two you assemble yourself. */
+  var PRINT_CARDS = [
+    { set: 'all', what: 'Both books', sub: 'Two booklets' },
+    { set: 'one', what: 'Everything in one', sub: 'One spine' },
+    { set: '1', what: 'Run and Not Be Weary', sub: 'Volume One' },
+    { set: '2', what: 'Around the Table', sub: 'Volume Two' },
+    { set: 'fav', what: 'Favorites', sub: 'Whatever you starred' },
+    { set: 'plan', what: null, sub: 'For the fridge door' },
+    { set: '3', what: 'Ours', sub: 'The ones you wrote' }
+  ];
+
   function renderDownloads() {
-    var r = READY_MADE[S.printSet];
-    var dl = $('dlBook'), bk = $('dlBooklet');
-    /* Only where it makes sense to offer. Somebody printing Favorites or this
-       week's plan is printing four pages for the fridge, and being asked fifty
-       dollars for a bound book at that moment reads as not paying attention. */
-    $('orderBook').classList.toggle('hide',
-      S.printSet !== 'one' && S.printSet !== 'all' && S.printSet !== '1' && S.printSet !== '2');
-    dl.classList.toggle('hide', !r);
-    bk.classList.toggle('hide', !(r && r.booklet));
-    if (!r) return;
-    dl.href = 'print/' + r.file;
     /* The ready-made files were rendered from the printed collection and know
        nothing about a recipe somebody wrote last week or a printed one they
-       corrected. The preview above counts those in, so the two disagreed
-       silently — a preview saying 168 pages over a button offering 160, and
-       whoever pressed it got a book without their own recipes in it and no
-       word about why. Say so, and point at the button that does include them. */
+       corrected. The preview counts those in, so the two disagree silently —
+       a preview saying 168 pages over a button offering 160, and whoever
+       pressed it got a book without their own recipes in it and no word about
+       why. Said once, under the shelf, rather than on every cover. */
     var own = Object.keys(window.Store.state.mine || {}).length +
       Object.keys(window.Store.state.edits || {}).length;
-    dl.textContent = 'Download PDF · ' + r.pages + ' pages' +
-      (own ? ' · as published' : '');
-    dl.title = own
-      ? 'The published book. Your own recipes and corrections are not in this file — use Print to include them.'
-      : '';
-    if (r.booklet) {
-      bk.href = 'print/' + r.file.replace(/\.pdf$/, '-booklet.pdf');
-      bk.textContent = 'Fold & staple · ' + (r.pages / 4) + ' sheets';
+    var mine = Object.keys(window.Store.state.mine || {}).length;
+    var favs = RECIPES.filter(function (x) { return window.Store.isFav(x.id); }).length;
+    /* planIds(), not planCount() — planCount takes a week id and answers 0 for
+       undefined, so the card said "Nothing picked yet" over a week with
+       recipes in it. */
+    var week = planIds().length;
+
+    $('printRows').innerHTML = PRINT_CARDS.map(function (c) {
+      if (c.set === '3' && !mine) return '';
+      var r = READY_MADE[c.set];
+      var on = S.printSet === c.set;
+      var live = !r;
+      var count = c.set === 'fav' ? favs : c.set === 'plan' ? week
+        : c.set === '3' ? mine : null;
+      /* The week's card is named after the week, which somebody may have
+         renamed to "Thanksgiving". "This week" would be the wrong name for it
+         and the only place in the app still calling it that. */
+      var what = c.what === null ? window.Store.activeWeek().name : c.what;
+
+      /* A cover only where there is a file whose cover it is. The two live
+         sets get a plain card: drawing them a book would be a picture of
+         something nobody can be handed. */
+      var face = r
+        ? '<img class="bk-cover" src="art/covers/' + esc(c.set) + '.webp" alt="" loading="lazy">'
+        : '<span class="bk-blank" aria-hidden="true">' + (count || 0) + '</span>';
+
+      var foot = r
+        ? '<span class="bk-pages">PDF &middot; ' + r.pages + ' pages</span>'
+        : '<span class="bk-pages">' + (count ? 'Print &middot; ' + count : 'Nothing picked yet') + '</span>';
+
+      /* The card is the download. "Click it and get the print" is the whole
+         ask; a card that only selects, with the button somewhere else, is the
+         list this replaced. The live two open the dialog instead, because
+         there is no file to hand over. */
+      var tag = r ? 'a' : 'button';
+      /* Not disabled when empty. An empty Favorites card still answers a
+         question — you press it, the preview says "Nothing to print yet", and
+         you know where starred recipes would have gone. A dead control answers
+         nothing and looks broken. */
+      var attrs = r ? ' href="print/' + esc(r.file) + '" download' : ' type="button"';
+
+      return '<div class="bk-slot">' +
+        '<' + tag + ' class="bk-card' + (on ? ' on' : '') + (live ? ' bk-live' : '') + '"' +
+        attrs + ' data-print="' + esc(c.set) + '"' +
+        (c.set === 'plan' ? ' id="printPlan"' : '') +
+        (c.set === '3' ? ' id="printOurs"' : '') + '>' +
+        '<span class="bk-face">' + face + '</span>' +
+        '<span class="bk-what">' + esc(what) + '</span>' +
+        '<span class="bk-sub">' + esc(c.sub) + '</span>' +
+        foot +
+      '</' + tag + '>' +
+      /* The folded version hangs off the card rather than sitting in it: it is
+         a second thing to do with the same book, wanted by far fewer people,
+         and a card with two buttons is a card you have to read. */
+      (r && r.booklet
+        ? '<a class="bk-fold" download href="print/' +
+            esc(r.file.replace(/\.pdf$/, '-booklet.pdf')) + '" data-fold="' + esc(c.set) + '" ' +
+            'title="Two pages to a sheet, in folding order — print double-sided, fold, staple">' +
+            'fold &amp; staple &middot; ' + (r.pages / 4) + '</a>'
+        : '') +
+      '</div>';
+    }).join('');
+
+    $('dlOwn').classList.toggle('hide', !own);
+    if (own) {
+      $('dlOwn').textContent = 'The covers are the published books. The ' + own +
+        (own === 1 ? ' recipe you have written or corrected is' :
+                     ' recipes you have written or corrected are') +
+        ' not in them — use Ours or Favorites below to print a copy that has them.';
     }
+
+    /* Only where it makes sense to offer. Somebody printing this week's plan
+       is printing four pages for the fridge, and being asked fifty dollars for
+       a bound book at that moment reads as not paying attention. */
+    var book = !!READY_MADE[S.printSet];
+    $('orderBook').classList.toggle('hide', !book);
+    $('doPrint').classList.toggle('hide', book);
   }
 
   // --------------------------------------------------------------- detail
@@ -2886,8 +2928,14 @@
       window.Store.toggleChecked(c.dataset.check);
     });
 
-    $('printSeg').addEventListener('click', function (e) {
-      var b = e.target.closest('button[data-print]');
+    /* Tapping a cover downloads it — the anchor does that by itself — and
+       also brings it up in the preview underneath, so what you just took is
+       what you are looking at. The fold-and-staple link beside it is a
+       download and nothing else; it must not move the preview, or reaching
+       for the booklet would silently change the book on screen. */
+    $('printRows').addEventListener('click', function (e) {
+      if (e.target.closest('[data-fold]')) return;
+      var b = e.target.closest('[data-print]');
       if (!b || b.dataset.print === S.printSet) return;
       S.printSet = b.dataset.print;
       renderBook();

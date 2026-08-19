@@ -342,9 +342,8 @@ module.exports = {
     /* Every choice that has a finished file offers it, and the two you fold
      * yourself offer the imposed one too.
      *
-     * This lived for a while as a list with a row per book, each row carrying
-     * its own buttons. It is one Download button again, following the
-     * selection — which means there is state here that can be wrong, and this
+     * The shelf draws itself from READY_MADE every render, so a cover can end
+     * up pointing at a file that is not the book it is a picture of. This
      * walks all six choices rather than reading one.
      *
      * The fifty-dollar link goes with it: somebody reading a 184-page preview
@@ -353,15 +352,16 @@ module.exports = {
      * it has to be gone by then. */
     const offers = {};
     for (const set of ['all', 'one', '1', '2', 'fav', 'plan']) {
-      await p.click('#printSeg [data-print="' + set + '"]');
+      await p.click('.bk-card[data-print="' + set + '"]');
       await p.waitForTimeout(2500);
-      offers[set] = await p.evaluate(() => {
-        const at = (id) => {
-          const e = document.getElementById(id);
-          return e.classList.contains('hide') ? null : (e.getAttribute('href') || true);
-        };
-        return { pdf: at('dlBook'), booklet: at('dlBooklet'), order: !!at('orderBook') };
-      });
+      offers[set] = await p.evaluate((set) => {
+        const card = document.querySelector('.bk-card[data-print="' + set + '"]');
+        const fold = document.querySelector('[data-fold="' + set + '"]');
+        const order = document.getElementById('orderBook');
+        return { pdf: card && card.getAttribute('href'),
+                 booklet: fold && fold.getAttribute('href'),
+                 order: !order.classList.contains('hide') };
+      }, set);
     }
     const books = ['all', 'one', '1', '2'], live = ['fav', 'plan'];
     t.ok('every book you can pick hands you its file',
@@ -381,10 +381,10 @@ module.exports = {
      * It spent a while as four rows, one per file, each with a description and
      * its own buttons — 384px of chrome above a page whose whole job is
      * showing you the book, which on a laptop meant scrolling before you saw
-     * any of it. Two rows is the shape the owner asked to have back, so this
-     * holds it to that: the bar may not take more than a fifth of the window,
-     * and the first page of the book has to be on screen without scrolling. */
-    await p.click('#printSeg [data-print="all"]');
+     * any of it. The shelf of covers earns more room than the compact bar did,
+     * but not unboundedly: a third of the window, and the first page of the
+     * book still has to be on screen without scrolling. */
+    await p.click('.bk-card[data-print="all"]');
     await p.waitForTimeout(4500);
     const room = await p.evaluate(() => {
       const bar = document.querySelector('.book-bar').getBoundingClientRect();
@@ -393,7 +393,7 @@ module.exports = {
                pageTop: pg ? Math.round(pg.getBoundingClientRect().top) : null };
     });
     t.ok('and the bar leaves the room to the book it is a bar for',
-      room.bar <= room.win / 5 && room.pageTop !== null && room.pageTop < room.win,
+      room.bar <= room.win / 3 && room.pageTop !== null && room.pageTop < room.win,
       JSON.stringify(room));
 
     // the other things you can print
@@ -406,8 +406,17 @@ module.exports = {
     await p.evaluate(() => { window.Store.addToDay(12, 'mon'); });
     await p.click('[data-print="plan"]');
     await p.waitForTimeout(1200);
-    const opt = await p.textContent('#printPlan');
-    t.ok('and so does the week, named after itself', /^This Week · 1$/.test(opt), opt);
+    /* The week's card is named after the week rather than "This week", because
+       somebody may have renamed it to Thanksgiving and that card would then be
+       the only thing in the app still calling it something else. */
+    const wk = await p.evaluate(() => {
+      const c = document.querySelector('.bk-card[data-print="plan"]');
+      return c && { name: c.querySelector('.bk-what').textContent,
+                    count: c.querySelector('.bk-pages').textContent,
+                    real: window.Store.activeWeek().name };
+    });
+    t.ok('and so does the week, named after itself',
+      !!wk && wk.name === wk.real && /1/.test(wk.count), JSON.stringify(wk));
 
     // a phone should be able to look at the book without it running off the side
     await p.setViewportSize({ width: 390, height: 780 });

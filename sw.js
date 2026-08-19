@@ -21,21 +21,21 @@
 
 /* Bump this when the shell changes. The old cache is deleted on activate, which
    is what gets a phone that is holding a previous build onto the current one. */
-var CACHE = 'storehouse-v72';
+var CACHE = 'storehouse-v73';
 
 /* The app itself. If any one of these does not arrive, the install fails and
    the phone keeps the worker and the cache it already had. */
 var CORE = [
   './',
   './index.html',
-  './src/style.css?v=72',
-  './src/config.js?v=72',
-  './src/sync.js?v=72',
-  './src/app.js?v=72',
-  './data/recipes.js?v=72',
-  './data/nutrition.js?v=72',
-  './data/art.js?v=72',
-  './data/qr.js?v=72',
+  './src/style.css?v=73',
+  './src/config.js?v=73',
+  './src/sync.js?v=73',
+  './src/app.js?v=73',
+  './data/recipes.js?v=73',
+  './data/nutrition.js?v=73',
+  './data/art.js?v=73',
+  './data/qr.js?v=73',
   './manifest.webmanifest'
 ];
 
@@ -63,7 +63,15 @@ var EXTRAS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-180.png',
-  './icons/icon-32.png'
+  './icons/icon-32.png',
+  /* The cover thumbnails on the print screen. Listed after the icons on
+     purpose: prep-art.js rewrites the run of './art/...' lines at the top of
+     this array from the engraving manifest, and anything of its own sitting
+     inside that run would be written straight out again. */
+  './art/covers/all.webp',
+  './art/covers/one.webp',
+  './art/covers/1.webp',
+  './art/covers/2.webp'
 ];
 
 var SHELL = CORE.concat(EXTRAS);
@@ -86,7 +94,7 @@ self.addEventListener('install', function (e) {
            through the browser's own HTTP cache. So a new service worker could
            seed its brand-new cache with files up to ten minutes old, and then
            serve them cache-first for as long as that cache lived. The
-           versioned URLs were never at risk — ?v=72 is a URL the HTTP cache
+           versioned URLs were never at risk — ?v=73 is a URL the HTTP cache
            has never seen — but data/recipes.js carried no version, so the one
            file that changes every time recipes are added was the one file that
            could arrive stale and stay that way. Both halves are fixed: the

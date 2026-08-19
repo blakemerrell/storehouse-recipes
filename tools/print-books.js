@@ -251,6 +251,9 @@ function stampPageCounts(made) {
   stampPageCounts(made);
   stampWelcome(made);
   stampApp();
+  /* The covers on the print screen are page one of the files just written, so
+     they are remade here rather than left to be remembered. */
+  await require('./build-covers.js').build();
   /* src/app.js just changed, and it is served cache-first at ?v=N. */
   require('./bump-version.js').bump('books re-rendered');
 })();

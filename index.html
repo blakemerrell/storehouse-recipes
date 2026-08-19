@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=72">
+<link rel="stylesheet" href="src/style.css?v=73">
 </head>
 <body>
 
@@ -178,40 +178,24 @@
 <section id="view-book" class="hide">
   <div class="book-bar no-print">
     <div class="book-bar-in">
-      <!-- One row of choices and one row of files.
+      <!-- The books, as books.
 
-           This spent a while as a list with a row per book, each with its own
-           description and its own buttons — four rows tall, which pushed the
-           preview of the book off the screen on the one page whose job is
-           showing you the book. The owner asked for this back. The choices are
-           worth seeing side by side (that is why they are buttons and not a
-           dropdown), and the file you get changes to match the one you picked,
-           which is one control instead of eight.
+           Words describing four things you could be holding are doing a job a
+           picture does better and faster: the covers differ, and one glance at
+           them answers "which one is that" without reading anything. So this
+           is a shelf. Tap a cover and the file downloads.
 
-           Favorites and This week live in the same row on purpose: they are
-           the same question — what goes on the paper — even though they end at
-           the print dialog rather than at a finished file. -->
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <span class="view-count">Include</span>
-        <!-- The labels carried their own recipe counts, typed in, and were
-             reading 271 on a collection of 277. They are filled in from the
-             collection now, in renderPrintSets. -->
-        <div class="seg seg-wrap" id="printSeg" role="group" aria-label="What to print">
-          <button data-print="all" aria-pressed="true">Both books</button>
-          <button data-print="one">One book</button>
-          <button data-print="1">Run and Not Be Weary</button>
-          <button data-print="2">Around the Table</button>
-          <button data-print="3" id="printOurs" class="hide">Ours</button>
-          <button data-print="fav">Favorites</button>
-          <button data-print="plan" id="printPlan">This week</button>
-        </div>
+           The thumbnails are page one of the actual rendered PDFs, remade by
+           tools/build-covers.js every time the books are, because a picture of
+           a cover is a claim about what arrives when you press it.
+
+           Favorites and This week are on the same shelf without a cover,
+           because there is no file to show a cover of — they end at the print
+           dialog. Same question, different answer. -->
+      <div class="bk-grid" id="printRows" role="group" aria-label="Books to print"></div>
+      <div class="dl-own hide" id="dlOwn"></div>
+      <div class="dl-live">
         <span class="book-note" id="printNote"></span>
-      </div>
-      <div class="book-actions">
-        <a class="btn-primary hide" id="dlBook" download>Download PDF</a>
-        <a class="ghost hide" id="dlBooklet" download
-           title="Two pages to a sheet, in folding order — print double-sided, fold, staple">Fold &amp; staple</a>
-        <button class="ghost" id="doPrint">Print&hellip;</button>
         <!-- The one place in the app worth asking from. Somebody reading a
              184-page preview and working out what a copy shop would charge is
              the only person here who has already decided they want it on
@@ -220,6 +204,7 @@
         <a class="ghost hide" id="orderBook" target="_blank" rel="noopener"
            title="Spiral bound, shipped to you"
            href="https://buy.stripe.com/7sYbJ15F6gDi3SA0Nzbwk02">Or buy a bound copy &middot; $50</a>
+        <button class="ghost hide" id="doPrint">Print&hellip;</button>
       </div>
     </div>
   </div>
@@ -229,14 +214,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=72"></script>
-<script src="data/nutrition.js?v=72"></script>
-<script src="data/art.js?v=72"></script>
-<script src="data/qr.js?v=72"></script>
-<script src="src/config.js?v=72"></script>
+<script src="data/recipes.js?v=73"></script>
+<script src="data/nutrition.js?v=73"></script>
+<script src="data/art.js?v=73"></script>
+<script src="data/qr.js?v=73"></script>
+<script src="src/config.js?v=73"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=72"></script>
-<script src="src/app.js?v=72"></script>
+<script src="src/sync.js?v=73"></script>
+<script src="src/app.js?v=73"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

@@ -52,12 +52,13 @@ module.exports = {
         Math.abs(size.width / 72 - 5.5) < 0.02 && Math.abs(size.height / 72 - 8.5) < 0.02,
         (size.width / 72).toFixed(2) + ' x ' + (size.height / 72).toFixed(2) + ' in');
 
-      /* And the Download button, which follows the selection, has to be
-         offering the file that was just counted rather than the last one. */
-      const href = await p.evaluate(() => {
-        const a = document.getElementById('dlBook');
-        return a.classList.contains('hide') ? null : a.getAttribute('href');
-      });
+      /* And its cover on the shelf is a link to the file itself — tapping the
+         picture is the download, so the picture has to point at what it is a
+         picture of. */
+      const href = await p.evaluate((set) => {
+        const a = document.querySelector('.bk-card[data-print="' + set + '"]');
+        return a ? a.getAttribute('href') : null;
+      }, set);
       t.ok('and the app offers it for download', href === 'print/' + file, String(href));
     }
 
@@ -104,8 +105,9 @@ module.exports = {
     await p.waitForTimeout(800);
     t.ok('favorites offer the print dialog instead, having no file to hand',
       await p.evaluate(() => {
-        const hidden = (id) => document.getElementById(id).classList.contains('hide');
-        return hidden('dlBook') && hidden('dlBooklet') && !hidden('doPrint');
+        const card = document.querySelector('.bk-card[data-print="fav"]');
+        return !!card && card.tagName === 'BUTTON' && !card.hasAttribute('href') &&
+          !document.getElementById('doPrint').classList.contains('hide');
       }));
 
     await p.context().close();

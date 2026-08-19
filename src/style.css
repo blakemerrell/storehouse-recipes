@@ -158,6 +158,66 @@ button { cursor: pointer; }
 .seg-wrap { flex-wrap: wrap; }
 .seg-wrap button { border-bottom: 1px solid var(--line-firm); }
 .seg-wrap button:first-child { border-left: 0; }
+
+/* -------------------------------------------------------- the print shelf
+   Covers, not sentences. The four books look different from each other, and
+   a picture of the one you would be holding answers "which is that" faster
+   than a name and a line of description. Tapping one downloads it.
+
+   Sized so the row of them stays a band rather than a page: the covers are
+   the smallest that still read as the book they are. */
+.bk-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(134px, 1fr));
+  gap: 6px 10px; align-items: start;
+}
+/* One cell per book, holding the card and the fold-and-staple line under it.
+   The fold link was a sibling in the grid to begin with and took a cell of
+   its own, which pushed every book after it along and left Around the Table
+   sitting under nothing. */
+.bk-slot { display: flex; flex-direction: column; min-width: 0; }
+.bk-card {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: none; border: 1px solid transparent; border-radius: 5px;
+  padding: 8px 6px 6px; cursor: pointer; font: inherit; color: inherit;
+  text-align: center; text-decoration: none;
+}
+.bk-card:hover { background: var(--paper-soft); }
+.bk-card.on { background: var(--paper-soft); border-color: var(--line); }
+.bk-card:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
+.bk-card[disabled] { opacity: 0.45; cursor: default; }
+.bk-card[disabled]:hover { background: none; }
+/* One height for every face, so the names line up across the shelf whatever
+   shape the cover above them is — the combined edition is a stack and is
+   taller than the rest. */
+.bk-face { display: flex; align-items: flex-end; justify-content: center; height: 104px; }
+.bk-cover {
+  max-height: 100%; width: auto; border-radius: 1px;
+  box-shadow: 0 1px 4px rgba(59, 54, 48, 0.22);
+}
+.bk-card.on .bk-cover { box-shadow: 0 2px 7px rgba(59, 54, 48, 0.34); }
+/* The two with no file get a count where a cover would be, so the shelf still
+   reads as a shelf rather than as four books and two gaps. */
+.bk-blank {
+  display: flex; align-items: center; justify-content: center;
+  width: 62px; height: 88px; border: 1px dashed var(--line-firm); border-radius: 2px;
+  font-family: var(--serif); font-size: 22px; color: var(--muted);
+}
+/* Two lines' worth whether it needs them or not, so "Run and Not Be Weary"
+   wrapping does not drop its page count below everybody else's. */
+.bk-what { font-size: 12.5px; font-weight: 600; margin-top: 7px; line-height: 1.25;
+  min-height: 2.5em; display: flex; align-items: center; }
+.bk-sub { font-size: 11px; color: var(--muted); }
+.bk-pages { font-size: 11px; color: var(--ochre-text); font-weight: 600; }
+.bk-fold {
+  display: block; text-align: center; font-size: 10.5px; color: var(--muted);
+  margin: -2px 0 0; padding-bottom: 4px;
+}
+.bk-fold:hover { color: var(--ink); }
+
+/* The note, the ask and the dialog, under the shelf rather than in it. */
+.dl-own { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; max-width: 68ch; }
+.dl-live { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line); }
 .seg button {
   background: #fff; color: oklch(0.42 0.03 65); border: none;
   padding: 8px 15px; font-size: 12.5px; font-weight: 500; white-space: nowrap;
@@ -574,16 +634,9 @@ select { max-width: 280px; }
 
 /* ------------------------------------------------------------ print book */
 .book-bar { background: var(--paper-soft); border-bottom: 1px solid var(--line); }
-.book-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.book-actions a { text-decoration: none; display: inline-block; }
-.book-actions .ghost { line-height: 1.4; }
-/* Two rows: the choices, then the files for whichever one is chosen. Both are
-   flex rows that wrap, and the whole bar is two lines deep on a laptop — which
-   is the point of it, because everything below it is the book. */
-.book-bar-in {
-  max-width: 1240px; margin: 0 auto; padding: 14px 22px;
-  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
-}
+/* A block, not a row. The shelf is a grid and lays itself out; space-between
+   on the container only fought it. */
+.book-bar-in { max-width: 1240px; margin: 0 auto; padding: 12px 22px 14px; }
 .book-note { font-size: 12.5px; color: oklch(0.50 0.03 65); }
 .btn-primary {
   background: var(--green); color: oklch(0.98 0.01 145); border: none; border-radius: 3px;
