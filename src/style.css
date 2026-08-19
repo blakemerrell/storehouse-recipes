@@ -207,7 +207,27 @@ button { cursor: pointer; }
 .bk-what { font-size: 12.5px; font-weight: 600; margin-top: 7px; line-height: 1.25;
   min-height: 2.5em; display: flex; align-items: center; }
 .bk-sub { font-size: 11px; color: var(--muted); }
-.bk-pages { font-size: 11px; color: var(--ochre-text); font-weight: 600; }
+.bk-n { font-size: 11px; color: var(--muted); }
+
+/* The button that hands it over, under the cover that shows it.
+   Tapping the cover used to be the download itself, which is a lot to happen
+   to somebody who only wanted a closer look. Picking and taking are two
+   intentions, so they are two controls. */
+.bk-get {
+  display: block; margin-top: 5px; padding: 6px 8px; border-radius: 3px;
+  background: var(--green); color: oklch(0.98 0.01 145); border: none;
+  font: inherit; font-size: 11.5px; font-weight: 600; text-align: center;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.bk-get:hover { filter: brightness(1.08); }
+.bk-get:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
+/* The two with no file, when they are not the one selected: the dialog prints
+   whatever is laid out below, so offering it here would print the wrong book
+   onto real paper. It says what to do instead. */
+.bk-get-off {
+  background: none; color: var(--muted); border: 1px dashed var(--line-firm);
+  font-weight: 400; cursor: default;
+}
 .bk-fold {
   display: block; text-align: center; font-size: 10.5px; color: var(--muted);
   margin: -2px 0 0; padding-bottom: 4px;

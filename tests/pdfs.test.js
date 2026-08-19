@@ -52,11 +52,10 @@ module.exports = {
         Math.abs(size.width / 72 - 5.5) < 0.02 && Math.abs(size.height / 72 - 8.5) < 0.02,
         (size.width / 72).toFixed(2) + ' x ' + (size.height / 72).toFixed(2) + ' in');
 
-      /* And its cover on the shelf is a link to the file itself — tapping the
-         picture is the download, so the picture has to point at what it is a
-         picture of. */
+      /* The cover picks it up; the button under the cover hands it over. So
+         the button has to point at the file whose cover is above it. */
       const href = await p.evaluate((set) => {
-        const a = document.querySelector('.bk-card[data-print="' + set + '"]');
+        const a = document.querySelector('[data-get="' + set + '"]');
         return a ? a.getAttribute('href') : null;
       }, set);
       t.ok('and the app offers it for download', href === 'print/' + file, String(href));
@@ -103,11 +102,15 @@ module.exports = {
     // and the selections that cannot be made ahead of time fall back to printing
     await p.click('[data-print="fav"]');
     await p.waitForTimeout(800);
+    /* And the two with no file offer the dialog — but only once they are the
+       one selected, because the dialog prints whatever is laid out below and
+       an unselected card offering it would print the wrong book onto paper. */
     t.ok('favorites offer the print dialog instead, having no file to hand',
       await p.evaluate(() => {
-        const card = document.querySelector('.bk-card[data-print="fav"]');
-        return !!card && card.tagName === 'BUTTON' && !card.hasAttribute('href') &&
-          !document.getElementById('doPrint').classList.contains('hide');
+        const slot = document.querySelector('.bk-card[data-print="fav"]').closest('.bk-slot');
+        const act = slot.querySelector('.bk-get');
+        return !document.querySelector('[data-get="fav"]') &&
+          act.tagName === 'BUTTON' && act.id === 'doPrint';
       }));
 
     await p.context().close();

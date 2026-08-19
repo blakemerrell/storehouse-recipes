@@ -355,10 +355,10 @@ module.exports = {
       await p.click('.bk-card[data-print="' + set + '"]');
       await p.waitForTimeout(2500);
       offers[set] = await p.evaluate((set) => {
-        const card = document.querySelector('.bk-card[data-print="' + set + '"]');
+        const get = document.querySelector('[data-get="' + set + '"]');
         const fold = document.querySelector('[data-fold="' + set + '"]');
         const order = document.getElementById('orderBook');
-        return { pdf: card && card.getAttribute('href'),
+        return { pdf: get && get.getAttribute('href'),
                  booklet: fold && fold.getAttribute('href'),
                  order: !order.classList.contains('hide') };
       }, set);
@@ -372,6 +372,21 @@ module.exports = {
       !offers.all.booklet && !offers.one.booklet, JSON.stringify(offers));
     t.ok('and the selections with no file fall back to the print dialog',
       live.every((k) => !offers[k].pdf && !offers[k].booklet), JSON.stringify(offers));
+    /* Picking a book must not also take it.
+     *
+     * The shelf started out with the cover itself as the download link, on the
+     * reading that "click it and get the print" meant one tap. It does not: a
+     * cover is the thing you press to look closer, and pressing it fired a
+     * file at you every time. The cover selects and the button under it
+     * downloads — which is only true so long as the card is not an anchor, so
+     * that is what this reads. */
+    const tags = await p.evaluate(() => [...document.querySelectorAll('.bk-card')].map((c) => ({
+      set: c.dataset.print, tag: c.tagName, href: c.getAttribute('href'),
+    })));
+    t.ok('tapping a cover picks the book up rather than downloading it',
+      tags.length > 0 && tags.every((c) => c.tag === 'BUTTON' && !c.href),
+      JSON.stringify(tags));
+
     t.ok('the printed-copy offer goes with the books, not with the week',
       books.every((k) => offers[k].order) && live.every((k) => !offers[k].order),
       JSON.stringify(offers));
@@ -412,7 +427,7 @@ module.exports = {
     const wk = await p.evaluate(() => {
       const c = document.querySelector('.bk-card[data-print="plan"]');
       return c && { name: c.querySelector('.bk-what').textContent,
-                    count: c.querySelector('.bk-pages').textContent,
+                    count: c.querySelector('.bk-n').textContent,
                     real: window.Store.activeWeek().name };
     });
     t.ok('and so does the week, named after itself',

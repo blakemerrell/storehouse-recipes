@@ -1808,34 +1808,42 @@
         ? '<img class="bk-cover" src="art/covers/' + esc(c.set) + '.webp" alt="" loading="lazy">'
         : '<span class="bk-blank" aria-hidden="true">' + (count || 0) + '</span>';
 
-      var foot = r
-        ? '<span class="bk-pages">PDF &middot; ' + r.pages + ' pages</span>'
-        : '<span class="bk-pages">' + (count ? 'Print &middot; ' + count : 'Nothing picked yet') + '</span>';
+      /* The cover shows it; the button under it hands it over.
+       *
+       * The card was the download to begin with — one tap, one file — and that
+       * is a tap that does something irreversible-looking to somebody who only
+       * wanted a closer look. Picking a book and taking it are two different
+       * intentions, so they are two different controls: the cover selects, the
+       * preview below redraws, and the button says what you get. */
+      var line = count === null ? '' :
+        '<span class="bk-n">' + count + (count === 1 ? ' recipe' : ' recipes') + '</span>';
 
-      /* The card is the download. "Click it and get the print" is the whole
-         ask; a card that only selects, with the button somewhere else, is the
-         list this replaced. The live two open the dialog instead, because
-         there is no file to hand over. */
-      var tag = r ? 'a' : 'button';
       /* Not disabled when empty. An empty Favorites card still answers a
          question — you press it, the preview says "Nothing to print yet", and
          you know where starred recipes would have gone. A dead control answers
          nothing and looks broken. */
-      var attrs = r ? ' href="print/' + esc(r.file) + '" download' : ' type="button"';
-
       return '<div class="bk-slot">' +
-        '<' + tag + ' class="bk-card' + (on ? ' on' : '') + (live ? ' bk-live' : '') + '"' +
-        attrs + ' data-print="' + esc(c.set) + '"' +
+        '<button type="button" class="bk-card' + (on ? ' on' : '') + (live ? ' bk-live' : '') + '"' +
+        ' data-print="' + esc(c.set) + '" aria-pressed="' + (on ? 'true' : 'false') + '"' +
         (c.set === 'plan' ? ' id="printPlan"' : '') +
         (c.set === '3' ? ' id="printOurs"' : '') + '>' +
         '<span class="bk-face">' + face + '</span>' +
         '<span class="bk-what">' + esc(what) + '</span>' +
         '<span class="bk-sub">' + esc(c.sub) + '</span>' +
-        foot +
-      '</' + tag + '>' +
-      /* The folded version hangs off the card rather than sitting in it: it is
-         a second thing to do with the same book, wanted by far fewer people,
-         and a card with two buttons is a card you have to read. */
+        line +
+      '</button>' +
+      (r
+        ? '<a class="bk-get" download href="print/' + esc(r.file) + '" data-get="' + esc(c.set) + '">' +
+            'PDF &middot; ' + r.pages + ' pages</a>'
+        /* The dialog is the only way to get these, and it prints whatever is
+           laid out below — so it is offered on the card that is selected and
+           nowhere else. Offering it on an unselected card would print the
+           wrong book, silently and onto real paper. */
+        : on
+          ? '<button type="button" class="bk-get" id="doPrint">Print&hellip;</button>'
+          : '<span class="bk-get bk-get-off">' + (count ? 'Pick to print' : 'Nothing picked yet') + '</span>') +
+      /* The folded version hangs below: a second thing to do with the same
+         book, wanted by far fewer people. */
       (r && r.booklet
         ? '<a class="bk-fold" download href="print/' +
             esc(r.file.replace(/\.pdf$/, '-booklet.pdf')) + '" data-fold="' + esc(c.set) + '" ' +
@@ -1856,9 +1864,9 @@
     /* Only where it makes sense to offer. Somebody printing this week's plan
        is printing four pages for the fridge, and being asked fifty dollars for
        a bound book at that moment reads as not paying attention. */
-    var book = !!READY_MADE[S.printSet];
-    $('orderBook').classList.toggle('hide', !book);
-    $('doPrint').classList.toggle('hide', book);
+    $('orderBook').classList.toggle('hide', !READY_MADE[S.printSet]);
+    var dp = $('doPrint');
+    if (dp) dp.addEventListener('click', expandAndPrint);
   }
 
   // --------------------------------------------------------------- detail
@@ -2934,13 +2942,12 @@
        download and nothing else; it must not move the preview, or reaching
        for the booklet would silently change the book on screen. */
     $('printRows').addEventListener('click', function (e) {
-      if (e.target.closest('[data-fold]')) return;
+      if (e.target.closest('[data-fold], [data-get], #doPrint')) return;
       var b = e.target.closest('[data-print]');
       if (!b || b.dataset.print === S.printSet) return;
       S.printSet = b.dataset.print;
       renderBook();
     });
-    $('doPrint').addEventListener('click', expandAndPrint);
 
     window.addEventListener('resize', fitPages);
     window.addEventListener('resize', syncTabsFade);
