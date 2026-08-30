@@ -552,6 +552,30 @@ select { max-width: 280px; }
 /* one short caption per section, tops; silent when it has nothing to say */
 .mt-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
 .mt-cap:empty { display: none; }
+
+/* ---- the sheet writes its numbers on lines, not in boxes.
+   A crowd of outlined beige rectangles read as a government form. Typed
+   values are ink on a ledger rule now — serif, underlined, quiet, ochre
+   while your pen is on them — and choices keep their buttons and menus,
+   so what you type and what you pick explain themselves apart. The same
+   line dresses the weigh-in box out on the day. */
+.mt-sheet input:not([type="checkbox"]), .mt-sheet select, #macroWeigh input {
+  border: 0; border-bottom: 1px solid var(--line-firm); border-radius: 0;
+  background: transparent; padding: 4px 2px;
+  font-family: var(--serif); font-size: 16px; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.mt-sheet input:not([type="checkbox"]):focus, .mt-sheet select:focus, #macroWeigh input:focus {
+  outline: none; border-bottom-color: var(--ochre);
+  box-shadow: 0 1px 0 var(--ochre);
+}
+.mt-sheet input::-webkit-inner-spin-button, .mt-sheet input::-webkit-outer-spin-button,
+#macroWeigh input::-webkit-inner-spin-button, #macroWeigh input::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.mt-sheet input[type="number"], #macroWeigh input { -moz-appearance: textfield; text-align: center; }
+/* the two menus stay sans and muted — they are lists to pick from, not ink */
+.mt-sheet select { font-family: var(--sans); font-size: 13px; color: var(--muted-2); }
 /* the meal rows: arrow, name, kind, gone — edited in place, saved together */
 /* One meal, one line: arrow, name, kind, share, gone. Everything is scoped
    under .mtm-row because the phone media query hands every bare .txt the
@@ -565,10 +589,7 @@ select { max-width: 280px; }
 .mtm-row .mtm-name {
   flex: 5 1 40px; min-width: 40px; width: auto; padding: 7px 8px; font-size: 14px;
 }
-.mtm-row .mtm-type {
-  flex: 4 1 60px; min-width: 0; max-width: none; padding: 7px 4px; font-size: 12px;
-  border: 1px solid var(--line-firm); border-radius: 3px; background: var(--paper-soft);
-}
+.mtm-row .mtm-type { flex: 4 1 60px; min-width: 0; max-width: none; font-size: 12px; }
 .mtm-del { flex: none; font-size: 17px; }
 .mtm-share-l { display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--muted-2); flex: none; }
 .mtm-row .mtm-share {
