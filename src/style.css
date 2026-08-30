@@ -622,6 +622,10 @@ select { max-width: 280px; }
 /* one short caption per section, tops; silent when it has nothing to say */
 .mt-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
 .mt-cap:empty { display: none; }
+.mt-warn { display: block; margin-top: 5px; color: oklch(0.50 0.13 45); }
+.mt-sheet input[type="date"] {
+  font-family: var(--serif); font-size: 15px; width: auto; min-width: 130px;
+}
 
 /* ---- the sheet writes its numbers on lines, not in boxes.
    A crowd of outlined beige rectangles read as a government form. Typed
@@ -668,6 +672,12 @@ select { max-width: 280px; }
   -moz-appearance: textfield;
 }
 /* the spinner arrows cost more width than the number they spin */
+/* the running sum of the shares, and which way it leans */
+.mtm-total { margin-top: 12px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.mtm-total b { font-family: var(--serif); font-size: 15px; }
+.mtm-total.ok { color: var(--green); }
+.mtm-total.off { color: oklch(0.50 0.13 45); }
+
 .mtm-share::-webkit-inner-spin-button, .mtm-share::-webkit-outer-spin-button {
   -webkit-appearance: none; margin: 0;
 }
@@ -711,20 +721,65 @@ select { max-width: 280px; }
   font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
   font-weight: 600; color: var(--muted);
 }
-/* the Macros day strip: arrows, the day itself, and the two day-verbs, over
-   the meals they steer. It wraps: on a phone Fill and Rebalance take the
-   second line rather than crushing the day out of its own selector. Named
-   mdaybar, NOT daybar — the recipe sheet already owns .daybar for its
-   Mon-Sun row, and sharing the name handed this strip a seven-column grid. */
-.mdaybar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-/* the buttons hold their shape; only the select gives, and never to nothing */
-.mdaybar .ghost { flex: none; white-space: nowrap; }
-.mdaybar select {
-  flex: 1 1 auto; max-width: 200px; padding: 6px 9px; font-size: 13px;
+/* ---- My Day: the chart rides along, the steps are the morning ----
+   The bars are what you check after every change, so they never scroll away.
+   Below them the tab is the morning in order — weigh in, fill the day, tune
+   it — and each step says whether it is done. Named mday-*, NOT day-* or
+   mstep-*: the recipe sheet owns .daybar and a plate owns .mstep, and both
+   collisions have already cost an afternoon. */
+.mday-stick {
+  position: sticky; top: var(--topbar-h, 60px); z-index: 6;
+  background: var(--paper); padding: 10px 0 8px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.mday-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.mday-title { flex: none; font-size: 20px; margin-right: 2px; }
+.mday-head .ghost { flex: none; white-space: nowrap; padding: 5px 9px; }
+.mday-head select {
+  flex: 1 1 auto; min-width: 0; max-width: 190px; padding: 5px 8px; font-size: 12.5px;
   border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
   background: var(--card); color: var(--muted-2);
 }
-.mdaybar-fill { margin-left: auto; }
+.mday-plan { margin-left: auto; }
+/* the chart, compact enough to ride at the top of every screen */
+.mday-stick .macro-foot {
+  background: none; border: 0; padding: 8px 0 0; margin: 0;
+}
+.mbars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mbars .mbar { margin-bottom: 0; }
+.mbars .mbar-top { display: block; }
+.mbars .mbar-name { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.mbars .mbar-nums { font-size: 11px; line-height: 1.35; }
+.mbar-of, .mbar-left { display: block; }
+.mbar-left { font-weight: 600; }
+
+/* a step: a numbered rule across the page, its one verb on the right */
+.mday-step { margin-top: 20px; }
+.mday-step-h {
+  display: flex; align-items: center; gap: 9px;
+  padding-bottom: 7px; border-bottom: 1px solid var(--line);
+}
+.mday-n {
+  flex: none; width: 21px; height: 21px; border-radius: 50%;
+  border: 1px solid var(--line-firm); color: var(--muted);
+  font-size: 11px; font-weight: 600; display: grid; place-items: center;
+}
+.mday-t {
+  font-family: var(--serif); font-size: 16px; font-weight: 600; flex: none;
+}
+.mday-sub { font-size: 11.5px; color: var(--muted); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mday-act { margin-left: auto; flex: none; }
+.mday-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.mday-step .macro-foot, .mday-step #macroSlots { margin-top: 12px; }
+/* done is quiet: the number becomes a tick and the heading steps back.
+   The digit is hidden by zeroing the parent's font-size, so the tick has to
+   name its own size — inheriting zero renders an empty circle. */
+.mday-step.done .mday-n {
+  border-color: var(--green); color: var(--green); font-size: 0;
+}
+.mday-step.done .mday-n::before { content: '\2713'; font-size: 12px; line-height: 1; }
+.mday-step.done .mday-t { color: var(--muted-2); }
 /* the ? beside the title — a door to the explanation, not a badge */
 .minfo {
   background: none; border: 1px solid var(--line-firm); border-radius: 999px;
@@ -736,7 +791,7 @@ select { max-width: 280px; }
 .mp-fav { color: var(--ochre-text); }
 
 /* the weigh-in card */
-#macroWeigh { margin-top: 14px; }
+#macroWeigh { margin-top: 12px; }
 .mw-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .mw-stat { font-size: 12.5px; color: var(--muted-2); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .mw-spark { display: block; width: 100%; height: 44px; margin-top: 10px; color: var(--ochre-text); }

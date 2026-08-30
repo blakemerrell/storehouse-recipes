@@ -352,6 +352,35 @@ module.exports = {
         document.getElementById('mtTileP').textContent === '175' &&
         document.getElementById('mtBigKcal').textContent === String(4 * 175 + 4 * c2 + 9 * f2),
         [planF, planC]));
+    /* A goal with a date does its own arithmetic — the deficit falls out of
+       the pounds and the weeks rather than out of a preset. */
+    await q.fill('#mtGoalLb', '185');
+    const inTen = await q.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date(); d.setDate(d.getDate() + 70);
+      return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+    });
+    await q.fill('#mtGoalBy', inTen);
+    await q.waitForTimeout(200);
+    t.ok('the sheet says what the day is in service of',
+      /To be 185 lb by/.test(await q.textContent('#mtGoalLine')), await q.textContent('#mtGoalLine'));
+    t.ok('and the pace it implies — 15 lb over ten weeks is 1.5 a week',
+      /15 lb over 10 weeks/.test(await q.textContent('#mtGoalNote')) &&
+      /1\.5 lb a week/.test(await q.textContent('#mtGoalNote')), await q.textContent('#mtGoalNote'));
+    t.ok('which sets the calories from the goal, not from the preset',
+      await q.evaluate(() => {
+        const kc = Number(document.getElementById('mtBigKcal').textContent);
+        // 1.5 lb a week is 750 kcal a day under a ~2900 kcal burn for this profile
+        return kc > 1900 && kc < 2400;
+      }), await q.textContent('#mtBigKcal'));
+    await q.fill('#mtGoalLb', '120');
+    await q.waitForTimeout(200);
+    t.ok('and an impossible pace is held to 1% of bodyweight a week, and says so',
+      /1% of bodyweight/.test(await q.textContent('#mtGoalNote')), await q.textContent('#mtGoalNote'));
+    await q.fill('#mtGoalLb', '');
+    await q.fill('#mtGoalBy', '');
+    await q.waitForTimeout(200);
+
     await q.click('.sheet-x');
     await q.waitForTimeout(250);
 
@@ -780,13 +809,22 @@ module.exports = {
     // shares normalize on Save, and the total line tells the truth meanwhile
     await y.click('#macroTargBtn');
     await y.waitForTimeout(200);
-    t.ok('the total line reads the default shares as they are',
-      /add to 90%/.test(await y.textContent('#mtmTotal')), await y.textContent('#mtmTotal'));
+    t.ok('the total says the sum and which way it leans',
+      /90%/.test(await y.textContent('#mtmTotal')) &&
+      /10% short/.test(await y.textContent('#mtmTotal')), await y.textContent('#mtmTotal'));
     for (let i = 1; i <= 4; i++) {
       await y.fill('#mtMeals .mtm-row:nth-child(' + i + ') .mtm-share', '10');
     }
     t.ok('and follows the boxes as they change',
-      /add to 40%/.test(await y.textContent('#mtmTotal')), await y.textContent('#mtmTotal'));
+      /40%/.test(await y.textContent('#mtmTotal')) &&
+      /60% short/.test(await y.textContent('#mtmTotal')), await y.textContent('#mtmTotal'));
+    await y.fill('#mtMeals .mtm-row:nth-child(1) .mtm-share', '80');
+    await y.waitForTimeout(100);
+    t.ok('and says over when it is over',
+      /110%/.test(await y.textContent('#mtmTotal')) &&
+      /10% over/.test(await y.textContent('#mtmTotal')), await y.textContent('#mtmTotal'));
+    await y.fill('#mtMeals .mtm-row:nth-child(1) .mtm-share', '10');
+    await y.waitForTimeout(100);
     await y.click('[data-mtarg="save"]');
     await y.waitForTimeout(300);
     await y.click('#macroTargBtn');
@@ -795,7 +833,8 @@ module.exports = {
       await y.evaluate(() =>
         [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',') === '25,25,25,25'),
       await y.evaluate(() => [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',')));
-    t.ok('and says so', /add to 100%/.test(await y.textContent('#mtmTotal')));
+    t.ok('and says so', /100%/.test(await y.textContent('#mtmTotal')) &&
+      /spot on/.test(await y.textContent('#mtmTotal')), await y.textContent('#mtmTotal'));
     await y.click('.sheet-x');
     await y.waitForTimeout(300);
 
@@ -859,6 +898,32 @@ module.exports = {
         const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
         return rows.length === 2 && rows.every((r) => ids.indexOf(r.dataset.mpick) >= 0);
       }, famIds));
+
+    /* The day, as plain text, for typing into whatever else you keep. */
+    await y.goBack();                       // the family picker is still up
+    await y.waitForTimeout(250);
+    await y.click('#macroFill');
+    await y.waitForTimeout(400);
+    await y.fill('#mWeight', '188.6');
+    await y.dispatchEvent('#mWeight', 'change');
+    await y.waitForTimeout(250);
+    const copied = await y.evaluate(() => {
+      let got = null;
+      navigator.clipboard.writeText = (t2) => { got = t2; return Promise.resolve(); };
+      document.getElementById('macroCopy').click();
+      return got;
+    });
+    t.ok('the copy carries the weight, the plates and the totals',
+      copied && /Weight: 188\.6 lb/.test(copied) && /Total: \d+ kcal/.test(copied) &&
+      /Target: \d+ kcal/.test(copied) && /×/.test(copied),
+      (copied || '').slice(0, 120));
+    t.ok('and names every meal that has something on it',
+      await y.evaluate((txt) => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = days[Object.keys(days)[0]];
+        const slots = JSON.parse(localStorage.getItem('bsc.macroSlots'));
+        return slots.list.every((s2) => !(day[s2.k] || []).length || txt.indexOf(s2.n + ':') >= 0);
+      }, copied));
 
     await y.context().close();
   },

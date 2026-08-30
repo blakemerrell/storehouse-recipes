@@ -801,7 +801,8 @@
       var pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
       if (pr && typeof pr === 'object') return pr;
     } catch (e) { /* private mode or corrupt */ }
-    return { sex: 'm', age: 0, ft: 0, inch: 0, lb: 0, act: 1.55, goal: 'cut1' };
+    return { sex: 'm', age: 0, ft: 0, inch: 0, lb: 0, act: 1.55, goal: 'cut1',
+      goalLb: 0, goalBy: '', workouts: 0, steps: 0 };
   }
   function mWriteProfile(pr) {
     try { localStorage.setItem('bsc.macroProfile', JSON.stringify(pr)); }
@@ -833,12 +834,38 @@
     return (10 * kg + 6.25 * cm - 5 * pr.age + (pr.sex === 'f' ? -161 : 5)) * pr.act;
   }
 
+  /* A goal with a date does its own arithmetic: the pounds between here and
+     there, over the weeks between now and then, at 3500 kcal to the pound.
+     It beats a preset because it is answerable — you either arrive or you
+     do not — and it is what the preset was standing in for.
+   *
+     Capped at 1% of bodyweight a week. Past that a cut stops being a cut and
+     starts costing muscle, and the sheet says so rather than quietly writing
+     a number nobody should eat to. */
+  function mGoalPace(pr) {
+    if (!pr.goalLb || !pr.goalBy || !pr.lb) return null;
+    var days = Math.round((keyDate(pr.goalBy) - keyDate(todayKey())) / 86400000);
+    if (!isFinite(days) || days < 7) return null;
+    var lbs = pr.lb - pr.goalLb;
+    var perWeek = lbs / (days / 7);
+    var cap = pr.lb * 0.01;
+    var capped = Math.abs(perWeek) > cap;
+    if (capped) perWeek = perWeek > 0 ? cap : -cap;
+    return { days: days, lbs: lbs, perWeek: perWeek, capped: capped,
+      kcal: perWeek * 3500 / 7 };
+  }
+
   function mPlanCalc(pr) {
     var tdee = mTdee(pr);
     if (tdee === null) return null;
     var g = MGOALS[pr.goal] || MGOALS.cut1;
-    var kcal = Math.round(tdee * (1 + g.kcal));
-    var p = Math.round(g.prot * pr.lb);
+    var pace = mGoalPace(pr);
+    var kcal = pace ? Math.round(tdee - pace.kcal) : Math.round(tdee * (1 + g.kcal));
+    var protPerLb = pace
+      ? (pace.perWeek > 0.05 ? (Math.abs(pace.perWeek) > pr.lb * 0.007 ? 1.10 : 1.00)
+        : pace.perWeek < -0.05 ? 0.90 : 0.85)
+      : g.prot;
+    var p = Math.round(protPerLb * pr.lb);
     var f = Math.round(Math.max(0.3 * pr.lb, 0.25 * kcal / 9));
     var c = Math.max(0, Math.round((kcal - 4 * p - 9 * f) / 4));
     return { kcal: kcal, p: p, f: f, c: c, floored: kcal - 4 * p - 9 * f < 0 };
@@ -1237,6 +1264,31 @@
 
     $('macroFoot').innerHTML = macroFootHTML(day, targets);
     $('macroWeigh').innerHTML = macroWeighHTML(k);
+
+    /* Each step says whether it is done, so the tab reads as the morning it
+       is rather than as three headings. Only today can be "done" — looking
+       back at Tuesday is reading, not planning. */
+    var isToday = k === todayK;
+    var plated = 0, ticked = 0;
+    Object.keys(day).forEach(function (sk) {
+      (day[sk] || []).forEach(function (it) { plated++; if (it.eaten) ticked++; });
+    });
+    var tot = mTotals(day);
+    var tuned = plated && ['p', 'f', 'c'].every(function (m2) {
+      return tot.all[m2] <= targets[m2] * 1.05 && tot.all[m2] >= targets[m2] * 0.9;
+    });
+    var mark = function (id, done) { $(id).classList.toggle('done', !!(isToday && done)); };
+    mark('mdayStep1', MWEIGHTS[k] > 0);
+    mark('mdayStep2', slots.list.every(function (s) { return (day[s.k] || []).length; }));
+    mark('mdayStep3', tuned);
+
+    $('mdayTune').innerHTML = !plated
+      ? 'Fill the day first, then this is where you nudge it.'
+      : tuned
+        ? 'The day lands on your targets. Tick each plate as you eat it.'
+        : 'Nudge a portion with &minus; and +, lock what is fixed, swap what is not, ' +
+          'or let Rebalance re-size the un-eaten plates.' +
+          (ticked ? '' : ' Tick each plate as you eat it.');
   }
 
   function macroFootHTML(day, targets) {
@@ -1255,14 +1307,15 @@
       var wPlan = Math.min(100 - wEat, 100 * (all - ate) / den);
       return '<div class="mbar' + (over ? ' over' : '') + '">' +
         '<div class="mbar-top"><span class="mbar-name">' + NAMES[m] + '</span>' +
-          '<span class="mbar-nums">' + all + ' / ' + target + ' g · ' +
-          (over ? (all - target) + ' g over' : (target - all) + ' g left') + '</span></div>' +
+          '<span class="mbar-nums"><span class="mbar-of">' + all + ' / ' + target + ' g</span> ' +
+          '<span class="mbar-left">' +
+          (over ? (all - target) + ' g over' : (target - all) + ' g left') + '</span></span></div>' +
         '<div class="mbar-track">' +
           '<i class="mbar-eaten" style="width:' + wEat.toFixed(1) + '%"></i>' +
           '<i class="mbar-planned" style="width:' + wPlan.toFixed(1) + '%"></i>' +
         '</div></div>';
     }).join('');
-    return bars +
+    return '<div class="mbars">' + bars + '</div>' +
       '<div class="macro-kcal">&asymp; ' + Math.round(tot.all.kcal) + ' of ' + kcalOf(targets) +
         ' kcal on the day' + (tot.eaten.kcal ? ' · ' + Math.round(tot.eaten.kcal) + ' eaten' : '') + '</div>' +
       (tot.est ? '<div class="macro-est">~ marks figures estimated from a food table, not a label.</div>' : '');
@@ -1430,7 +1483,7 @@
           '<div class="sheet-eyebrow">Your plan</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="sheet-name">What a day should add up to</div>' +
+        '<div class="sheet-name" id="mtGoalLine">' + esc(mGoalLine(pr)) + '</div>' +
         /* The answer first. What you open this sheet for on an ordinary day is
            the number, not the form that made it. */
         '<div class="mt-answer">' +
@@ -1455,8 +1508,18 @@
           row('Most days', '<select id="mtAct">' + acts.map(function (a) {
             return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
           }).join('') + '</select>') +
+          '<div class="mt-div">What you are after</div>' +
+          /* A date and a weight beat a preset: you either arrive or you do
+             not, and the deficit falls out of the arithmetic. The four kinds
+             stay for anyone who would rather not name a day. */
+          row('Get to', box('mtGoalLb', pr.goalLb, 'lb')) +
+          row('By', '<input type="date" id="mtGoalBy" value="' + esc(pr.goalBy || '') + '">') +
+          row('Workouts a week', box('mtWorkouts', pr.workouts, '')) +
+          row('Steps a day', '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
+            'inputmode="numeric" value="' + (pr.steps || '') + '">') +
           '<div class="mtl-seg">' + seg('mtgoal', pr.goal,
             [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) + '</div>' +
+          '<div class="mt-cap" id="mtGoalNote">' + mGoalNote(pr) + '</div>' +
           '<div class="mt-div">The day&rsquo;s grams</div>' +
           /* The boxes are the plan's one rendering: they follow the profile,
              take a hand edit, and Save keeps whatever they say. */
@@ -1470,7 +1533,7 @@
         '<div class="mt-div">The day&rsquo;s meals</div>' +
         '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
         '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
-        '<div class="mt-kcal" id="mtmTotal"></div>' +
+        '<div class="mtm-total" id="mtmTotal"></div>' +
         '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-mtarg="save">Save</button>' +
@@ -1560,7 +1623,9 @@
       sex: sexBtn ? sexBtn.dataset.mtsex : 'm',
       age: n('mtAge'), ft: n('mtFt'), inch: n('mtIn'), lb: n('mtLb'),
       act: Number(($('mtAct') || {}).value) || 1.55,
-      goal: goalBtn ? goalBtn.dataset.mtgoal : 'cut1'
+      goal: goalBtn ? goalBtn.dataset.mtgoal : 'cut1',
+      goalLb: n('mtGoalLb'), goalBy: ($('mtGoalBy') || {}).value || '',
+      workouts: n('mtWorkouts'), steps: n('mtSteps')
     };
   }
 
@@ -1573,8 +1638,40 @@
   /* The one line your profile collapses to once it computes. */
   function mtWhoLine(pr) {
     if (!mPlanCalc(pr)) return 'Tell me about you';
-    return [MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1, pr.age,
+    var pace = mGoalPace(pr);
+    return [pace ? mPaceWords(pace) : (MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1), pr.age,
       pr.ft + '\u2032' + pr.inch + '\u2033', pr.lb + ' lb'].join(' \u00b7 ');
+  }
+
+  function mPaceWords(pace) {
+    var v = Math.round(Math.abs(pace.perWeek) * 10) / 10;
+    return (pace.perWeek > 0.05 ? '\u2212' : pace.perWeek < -0.05 ? '+' : '') +
+      (v ? v + ' lb a week' : 'holding');
+  }
+
+  /* The sentence at the top of the sheet: what this day is in service of.
+     A goal you can miss is worth more than a preset you cannot. */
+  function mGoalLine(pr) {
+    var pace = mGoalPace(pr);
+    if (!pace) return 'What a day should add up to';
+    var d = keyDate(pr.goalBy);
+    var when = M_MONS[d.getMonth()] + ' ' + d.getDate();
+    // the direction is the pace note's job; this line is the destination
+    return 'To be ' + pr.goalLb + ' lb by ' + when;
+  }
+
+  /* The line under it: the pace that implies, the commitments beside it, and
+     a word when the arithmetic had to be talked down. */
+  function mGoalNote(pr) {
+    var pace = mGoalPace(pr);
+    if (!pace) return '';
+    var bits = [Math.abs(Math.round(pace.lbs * 10) / 10) + ' lb over ' +
+      Math.round(pace.days / 7) + ' weeks \u2014 ' + mPaceWords(pace)];
+    if (pr.workouts) bits.push(pr.workouts + '\u00d7 a week');
+    if (pr.steps) bits.push(Number(pr.steps).toLocaleString() + ' steps a day');
+    return esc(bits.join(' \u00b7 ')) +
+      (pace.capped ? '<span class="mt-warn">Held to 1% of bodyweight a week &mdash; ' +
+        'faster than that costs muscle, so the date will slip.</span>' : '');
   }
 
   /* The headline follows the boxes, whichever way they were filled in. */
@@ -1609,14 +1706,24 @@
     Array.prototype.forEach.call(document.querySelectorAll('#mtMeals .mtm-share'), function (i) {
       sum += Math.max(0, Math.round(Number(i.value) || 0));
     });
-    el.textContent = sum === 100 ? 'The shares add to 100%.'
-      : 'The shares add to ' + sum + '% — Save rescales them to 100.';
+    /* Which way you are off, not merely that you are. Save squares the books
+       either way, so the number is for your judgement, not a gate. */
+    el.className = 'mtm-total ' + (sum === 100 ? 'ok' : 'off');
+    el.innerHTML = sum === 100
+      ? '<b>100%</b> — spot on.'
+      : '<b>' + sum + '%</b> — ' + Math.abs(100 - sum) + '% ' + (sum > 100 ? 'over' : 'short') +
+        '. Save scales ' + (sum > 100 ? 'down' : 'up') + ' to 100.';
   }
 
   function mtRefreshPlan() {
-    var plan = mPlanCalc(mtProfileFromDom());
+    var prNow = mtProfileFromDom();
+    var plan = mPlanCalc(prNow);
     var el = $('mtPlan');
     if (el) el.innerHTML = mtPlanLine(plan);
+    var gl = $('mtGoalLine');
+    if (gl) gl.textContent = mGoalLine(prNow);
+    var gn = $('mtGoalNote');
+    if (gn) gn.innerHTML = mGoalNote(prNow);
     if (!plan) { mtRefreshAnswer(); return; }
     if ($('mtP')) { $('mtP').value = plan.p; $('mtF').value = plan.f; $('mtC').value = plan.c; }
     mtRefreshAnswer();
@@ -1718,6 +1825,73 @@
       }
     });
     renderMacros();
+  }
+
+  /* The day as plain text, for typing into something else. Phones hand the
+     clipboard around better than they hand files around, and Google Fit's
+     own entry is manual anyway — so this is the day laid out the way you
+     would read it into another app: weight first, then every plate with its
+     portion and its numbers, then the totals. */
+  function mDayText(k) {
+    var day = mDay(k);
+    var slots = mReadSlots();
+    var d = keyDate(k);
+    var out = ['My Day \u2014 ' + M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' +
+      d.getDate() + ' ' + d.getFullYear()];
+    if (MWEIGHTS[k]) out.push('Weight: ' + MWEIGHTS[k] + ' lb');
+    out.push('');
+    var named = [];
+    slots.list.forEach(function (sl) { named.push([sl.k, sl.n]); });
+    Object.keys(day).forEach(function (sk) {
+      if (!named.some(function (n) { return n[0] === sk; })) named.push([sk, slots.names[sk] || 'Meal']);
+    });
+    named.forEach(function (pair) {
+      var items = (day[pair[0]] || []).filter(function (it) { return BY_ID[it.id]; });
+      if (!items.length) return;
+      out.push(pair[1] + ':');
+      items.forEach(function (it) {
+        var r = BY_ID[it.id];
+        var mac = r.macro || {};
+        out.push('  ' + (it.eaten ? '[x] ' : '[ ] ') + r.name + ' \u00d7' + fmtNum(it.x) +
+          ' \u2014 ' + Math.round((mac.kcal || 0) * it.x) + ' kcal, ' +
+          Math.round((mac.p || 0) * it.x) + 'g protein, ' +
+          Math.round((mac.f || 0) * it.x) + 'g fat, ' +
+          Math.round((mac.c || 0) * it.x) + 'g carbs');
+      });
+    });
+    var tot = mTotals(day), t = mReadTargets();
+    out.push('');
+    out.push('Total: ' + Math.round(tot.all.kcal) + ' kcal, ' + Math.round(tot.all.p) +
+      'g protein, ' + Math.round(tot.all.f) + 'g fat, ' + Math.round(tot.all.c) + 'g carbs');
+    out.push('Target: ' + kcalOf(t) + ' kcal, ' + t.p + 'g protein, ' + t.f + 'g fat, ' + t.c + 'g carbs');
+    if (tot.est) out.push('(~ figures are estimated from a food table, not a label.)');
+    return out.join('\n');
+  }
+
+  /* execCommand is the fallback because the async clipboard API is refused
+     outside a secure context and on some in-app browsers — and this button
+     is most wanted on exactly those. */
+  function mCopyDay(btn) {
+    var text = mDayText(mViewKey());
+    var said = function (ok) {
+      btn.textContent = ok ? 'Copied' : 'Press and hold to copy';
+      setTimeout(function () { btn.textContent = 'Copy the day'; }, 2200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { said(true); }, function () { said(false); });
+      return;
+    }
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    said(ok);
   }
 
   function mNavDay(step) {
@@ -4151,6 +4325,7 @@
     });
     $('macroFill').addEventListener('click', mFillDay);
     $('macroRebal').addEventListener('click', mRebalance);
+    $('macroCopy').addEventListener('click', function () { mCopyDay(this); });
 
     /* The tab's one paragraph of explanation, behind the ? beside the title.
        A toggle rather than a dismissal: the person who wants it again next
@@ -4513,7 +4688,7 @@
       // the derived-kcal line follows the three targets as they are typed
       if (S.macroTargOpen && /^mt[PFC]$/.test(e.target.id)) mtRefreshAnswer();
       // and the plan preview follows the profile boxes
-      if (S.macroTargOpen && /^mt(Age|Ft|In|Lb)$/.test(e.target.id)) mtRefreshPlan();
+      if (S.macroTargOpen && /^mt(Age|Ft|In|Lb|GoalLb|GoalBy|Workouts|Steps)$/.test(e.target.id)) mtRefreshPlan();
       // and the share total follows the share boxes
       if (S.macroTargOpen && e.target.classList.contains('mtm-share')) mtmShowTotal();
       // and the folded summary follows the ticks, ready for when it folds
@@ -4522,7 +4697,7 @@
 
     // a select fires change, not input, in enough browsers to matter
     $('modalRoot').addEventListener('change', function (e) {
-      if (S.macroTargOpen && e.target.id === 'mtAct') mtRefreshPlan();
+      if (S.macroTargOpen && (e.target.id === 'mtAct' || e.target.id === 'mtGoalBy')) mtRefreshPlan();
       // the picker's two lenses redraw only the list, like the search box
       if (S.macroPick && e.target.id === 'mpSec') { S.mpSec = e.target.value; refreshMacroPicker(); }
       if (S.macroPick && e.target.id === 'mpSort') { S.mpSort = e.target.value; refreshMacroPicker(); }

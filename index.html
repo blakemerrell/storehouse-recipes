@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=133">
+<link rel="stylesheet" href="src/style.css?v=134">
 </head>
 <body>
 
@@ -146,41 +146,70 @@
 <!-- ------------------------------------------------------------- macros -->
 <section id="view-macros" class="hide">
   <div class="view">
-    <!-- Two rows, two scopes. The head holds what is about YOU — the plan,
-         touched once a month, beside the title the way the Plan tab keeps
-         Rename and Delete. The strip below the line holds what steers the DAY
-         being looked at — arrows, the day itself, and Fill my day — the same
-         place the Plan tab puts its week bar. Mixing the two scopes in one
-         corner is what this used to do, and it read as clutter. -->
-    <div class="view-head">
-      <div class="view-title serif" style="font-size:22px">My Day
-        <button class="minfo no-print" id="macroInfo" aria-label="About this tab"
-          aria-expanded="false">?</button>
+    <!-- The morning, in the order it happens: weigh in, fill the day, tune
+         it, done. The chart is not a step — it is the readout you check after
+         every one of them, so it rides along at the top and never scrolls
+         away. Craft my plan sits up here too: it is setup, not a step. -->
+    <div class="mday-stick no-print">
+      <div class="mday-head">
+        <div class="view-title serif mday-title">My Day
+          <button class="minfo no-print" id="macroInfo" aria-label="About this tab"
+            aria-expanded="false">?</button>
+        </div>
+        <button class="ghost" id="macroPrev" aria-label="Previous day">&lsaquo;</button>
+        <select id="macroDaySel" aria-label="Day"></select>
+        <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
+        <button class="ghost mday-plan" id="macroTargBtn">Craft my plan</button>
       </div>
-      <div class="week-acts no-print">
-        <button class="ghost" id="macroTargBtn">Craft my plan</button>
-      </div>
+      <div class="macro-foot" id="macroFoot"></div>
     </div>
-    <!-- The old always-on paragraph, now behind the ? — it earns its keep on
-         the first visit and was furniture on every visit after. -->
+
     <div class="plan-note hide" id="macroNote">Yours alone &mdash; this tab saves on this phone
       and is not shared with the household. Craft my plan asks who you are and what you are
-      after and works your grams out, add what you plan to eat to each meal, and tick things
-      off as you eat them. The picker suggests a portion size that fits what you have left,
-      Fill my day drafts the empty meals in one press &mdash; favorites first, when they
-      fit &mdash; and Rebalance re-sizes the un-eaten, un-locked plates when the day has
-      drifted off target. The little lock keeps a plate exactly as you set it.</div>
-    <div class="mdaybar no-print">
-      <button class="ghost" id="macroPrev" aria-label="Previous day">&lsaquo;</button>
-      <select id="macroDaySel" aria-label="Day"></select>
-      <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
-      <button class="ghost mdaybar-fill" id="macroFill">Fill my day</button>
-      <button class="ghost" id="macroRebal"
-        title="Re-size the un-eaten, un-locked plates to land the day back on target">Rebalance</button>
+      after and works your grams out. Then each morning: weigh in, fill the day, tune it.
+      The picker suggests a portion that fits what you have left, Fill my day drafts every
+      empty meal at once &mdash; favorites first, when they fit &mdash; and Rebalance re-sizes
+      the un-eaten, un-locked plates when the day has drifted. The little lock keeps a plate
+      exactly as you set it; the pin puts it on every new day.</div>
+
+    <div class="mday-step" id="mdayStep1">
+      <div class="mday-step-h">
+        <span class="mday-n">1</span>
+        <span class="mday-t">Weigh in</span>
+        <span class="mday-sub">first thing, before anything else</span>
+      </div>
+      <div class="macro-foot" id="macroWeigh"></div>
     </div>
-    <div id="macroSlots"></div>
-    <div class="macro-foot" id="macroFoot"></div>
-    <div class="macro-foot" id="macroWeigh"></div>
+
+    <div class="mday-step" id="mdayStep2">
+      <div class="mday-step-h">
+        <span class="mday-n">2</span>
+        <span class="mday-t">Fill the day</span>
+        <button class="ghost mday-act no-print" id="macroFill">Fill my day</button>
+      </div>
+      <div id="macroSlots"></div>
+    </div>
+
+    <div class="mday-step" id="mdayStep3">
+      <div class="mday-step-h">
+        <span class="mday-n">3</span>
+        <span class="mday-t">Tune it</span>
+        <button class="ghost mday-act no-print" id="macroRebal"
+          title="Re-size the un-eaten, un-locked plates to land the day back on target">Rebalance</button>
+      </div>
+      <div class="mday-note" id="mdayTune"></div>
+    </div>
+
+    <div class="mday-step">
+      <div class="mday-step-h">
+        <span class="mday-n">4</span>
+        <span class="mday-t">Log it elsewhere</span>
+        <button class="ghost mday-act no-print" id="macroCopy">Copy the day</button>
+      </div>
+      <div class="mday-note">Puts the day on your clipboard as plain text &mdash; the weight,
+        every plate with its portion and macros, and the totals &mdash; ready to paste into
+        Google Fit or anywhere else that wants typing into.</div>
+    </div>
   </div>
 </section>
 
@@ -264,14 +293,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=133"></script>
-<script src="data/nutrition.js?v=133"></script>
-<script src="data/art.js?v=133"></script>
-<script src="data/qr.js?v=133"></script>
-<script src="src/config.js?v=133"></script>
+<script src="data/recipes.js?v=134"></script>
+<script src="data/nutrition.js?v=134"></script>
+<script src="data/art.js?v=134"></script>
+<script src="data/qr.js?v=134"></script>
+<script src="src/config.js?v=134"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=133"></script>
-<script src="src/app.js?v=133"></script>
+<script src="src/sync.js?v=134"></script>
+<script src="src/app.js?v=134"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.
