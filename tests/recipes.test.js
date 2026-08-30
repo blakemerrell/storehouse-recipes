@@ -391,6 +391,41 @@ module.exports = {
     t.ok('and no step names a thing to make without saying how',
       faults.vague.length === 0, faults.vague.join('; '));
 
+    /* A packet needs what the packet needs.
+     *
+     * Reported by the owner, who was confused by No. 235 — a box of cake mix,
+     * a packet of pudding and two cups of hot water, and step two says "mix
+     * cake batter". Out of what? A boxed mix wants eggs and oil of its own and
+     * neither was listed, so the first real instruction could not be carried
+     * out at all. Four more were the same: a yellow cake with no eggs, a gravy
+     * packet in a slow cooker with nothing to dissolve it in.
+     *
+     * "pancake mix" contains "cake mix", which is how the first pass at this
+     * turned four recipes into nineteen — hence the negative lookbehind. */
+    const packets = await p.evaluate(() => {
+      const NEED = [
+        [/(^|[^n])\bcake mix\b/, ['egg', 'oil', 'water', 'milk'], 'a boxed cake mix', 2],
+        [/\bbrownie mix\b/, ['egg', 'oil', 'water', 'milk'], 'a brownie mix', 2],
+        [/\bpudding mix\b/, ['milk', 'water'], 'a pudding mix', 1],
+        [/\b(pancake|waffle) mix\b/, ['milk', 'water', 'egg'], 'a pancake mix', 1],
+        [/\bgravy mix\b/, ['water', 'milk', 'broth'], 'a gravy packet', 1],
+      ];
+      const out = [];
+      window.RECIPES.filter((r) => r.book < 3).forEach((r) => {
+        const ing = (r.ing || []).join(' ').toLowerCase();
+        const both = ing + ' ' + (r.steps || []).join(' ').toLowerCase();
+        NEED.forEach(([re, wants, label, min]) => {
+          if (!re.test(ing)) return;
+          if (wants.filter((w) => both.indexOf(w) >= 0).length < min) {
+            out.push('no.' + r.no + ' has ' + label + ' and nothing wet (' + r.name + ')');
+          }
+        });
+      });
+      return out;
+    });
+    t.ok('every packaged mix has the liquid the packet needs',
+      packets.length === 0, packets.join('; '));
+
     /* ------------------------------------------------- and the shell says so
      *
      * The landing page's counts are stamped and guarded. index.html's were

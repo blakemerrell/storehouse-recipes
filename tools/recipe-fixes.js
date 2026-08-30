@@ -409,10 +409,13 @@ module.exports = [
      milk in the ingredient list is already in the cake batter. */
   {
     id: 204,
-    ing: ['1 box chocolate cake mix', '3 cups milk', '½ cup butter', '1 pkg chocolate pudding mix'],
+    /* Eggs. A box cake mix without them does not set, and the first pass at
+       fixing this recipe gave it milk and butter and left the eggs out — the
+       packet guard caught that later. */
+    ing: ['1 box chocolate cake mix', '3 eggs', '3 cups milk', '½ cup butter', '1 pkg chocolate pudding mix'],
     steps: [
       'Heat the oven to 350°F and butter a 9x13 dish.',
-      'Whisk the cake mix with 1¼ cups of the milk and the melted butter until smooth.',
+      'Whisk the cake mix with the 3 eggs, 1¼ cups of the milk and the melted butter until smooth.',
       'In a second bowl, whisk the pudding mix with the remaining 1¾ cups of milk for two minutes until it thickens. Do not cook it — it goes in soft.',
       'Pour the cake batter into the dish, spoon the pudding over in blobs, and drag a knife through both once or twice. Two or three passes, not twenty: swirl it too far and it is one colour again.',
       'Bake 28 minutes. The pudding stays fudgy, so a skewer will not come out clean — go by the cake around it, which should spring back.'
@@ -785,4 +788,104 @@ module.exports = [
   { id: 199, lift: { with: 'Onion, garlic, bay, thyme, Worcestershire',
     steps: ['A quartered onion, garlic and a bay leaf in with the beef.',
       'Thyme and a splash of Worcestershire into the tomato sauce.'] } },
+
+  /* ---- No. 235, reported by the owner as confusing -----------------------
+   *
+   * He was right, and it is confusing for four separate reasons.
+   *
+   * "Mix cake batter in 9x13 dish" — out of what? The ingredient list is a
+   * box of cake mix, a packet of pudding mix and hot water. A boxed mix wants
+   * eggs, oil and water of its own, none of which is listed, so the first
+   * real instruction cannot be carried out at all. Same fault as No. 205's
+   * cheese sauce: the recipe knows what it means and never says it.
+   *
+   * Then it tells you to pour two cups of hot water over a dish of cake
+   * batter, which looks like a mistake, and does not say the one thing that
+   * makes it not a mistake: this is a self-saucing pudding. The water and the
+   * dry pudding mix sink while the cake rises through them, and what comes
+   * out is cake on top and hot fudge underneath. Nobody who has not seen it
+   * before will believe the instruction without being told why.
+   *
+   * It also does not say DO NOT STIR, which is the one way to ruin it, and it
+   * gives no doneness cue for a dish whose whole point is that the middle
+   * stays liquid — so "until a skewer comes out clean" would be exactly wrong
+   * and thirty minutes is the only guidance offered.
+   *
+   * And it is called Bowls, makes "6 Bowls", and never portions anything into
+   * a bowl.
+   */
+  {
+    id: 224,
+    time: '45 mins',
+    ing: ['1 box chocolate cake mix', '3 eggs', '½ cup vegetable oil', '1 cup water',
+      '1 pkg chocolate pudding mix', '2 cups hot water'],
+    steps: [
+      'Heat the oven to 350°F. Butter a 9x13 dish.',
+      'Make the cake batter the way the box asks — usually the mix with 3 eggs, ½ cup oil and 1 cup water, beaten smooth. Check your box; they vary. Spread it in the dish.',
+      'Sprinkle the dry pudding mix evenly over the batter. Straight from the packet, not made up — it is the sauce, and it needs to be dry going in.',
+      'Now pour the 2 cups of hot water gently over the whole thing, over the back of a spoon so it does not dig channels. It will look completely wrong: a dish of batter under an inch of water. That is right. Do not stir it. Stirring is the one thing that ruins this.',
+      'Bake 30 to 35 minutes. What happens in the oven is that the water and pudding sink while the cake rises through them, so it comes out as cake on top with hot fudge underneath. Done is a top that looks like cake and springs back at the edges, with the middle still visibly loose — a skewer will not come out clean and is not supposed to.',
+      'Let it stand 10 minutes, then spoon into bowls, digging down so each one gets sauce from the bottom. This is why it is bowls and not slices.'
+    ],
+    lift: {
+      with: 'Instant coffee, flaky salt, vanilla ice cream',
+      steps: [
+        'A teaspoon of instant coffee dissolved into the hot water before it goes over. It does not taste of coffee; it makes the chocolate taste more like chocolate.',
+        'A pinch of flaky salt over each bowl, and ice cream while it is still hot.'
+      ]
+    }
+  },
+
+  /* ---- four more of what No. 235 was ------------------------------------
+   *
+   * Asked how many recipes are like the Hot Fudge Cake. Scanning for
+   * packaged mixes used without the things the packet needs found nineteen,
+   * of which twelve were my own regex matching "cake mix" inside "pancake
+   * mix", and three more name the water in a step rather than on the list,
+   * which is untidy but followable. Four are the real thing.
+   */
+
+  /* A box cake, baked, with no eggs and no oil anywhere — the same fault as
+     No. 235 and the same fix. The frosting is also three ingredients whipped
+     with no method and no order, and butter whipped straight from the fridge
+     into cocoa gives you cocoa-coloured lumps. */
+  {
+    id: 205,
+    time: '50 mins',
+    ing: ['1 box yellow cake mix', '3 eggs', '½ cup vegetable oil', '1 cup milk',
+      '½ cup butter (softened)', '½ cup cocoa powder', '2 cups powdered sugar', 'vanilla', 'salt'],
+    steps: [
+      'Heat the oven to 350°F and butter a 9x13 dish.',
+      'Make the cake batter as the box asks, but with the milk in place of the water — it is a box mix either way and milk makes it taste less like one. Usually that is the mix, 3 eggs, ½ cup oil and 1 cup milk, beaten 2 minutes.',
+      'Bake 25 to 30 minutes, until the top springs back and a skewer in the middle comes out with a crumb or two and no wet batter. Let it cool completely in the dish. Frosting a warm cake slides it off.',
+      'For the frosting, beat the softened butter on its own until it is pale and fluffy — a minute or two, and it must be soft or the cocoa will not go in smoothly. Sift in the cocoa and powdered sugar a bit at a time, then a splash of vanilla and a pinch of salt.',
+      'Spread over the cooled cake.'
+    ]
+  },
+
+  /* "Mix batter" over an ingredient line reading "chocolate chips/cake mix",
+     which is one line trying to be two ingredients and an either-or. */
+  {
+    id: 120,
+    ing: ['2 cups pancake mix', '1 cup milk', '1 egg', '¼ cup chocolate chips'],
+    steps: [
+      'Heat the oven to 375°F and butter a 12-cup mini muffin tin.',
+      'Whisk the pancake mix with the milk and the egg into a batter a little thicker than you would pour for pancakes, then fold in the chocolate chips. Lumps are fine; beaten smooth makes them tough.',
+      'Fill each cup about two-thirds and bake 12 minutes, until risen and dry to a fingertip in the middle.'
+    ]
+  },
+
+  /* A gravy packet in a slow cooker with nothing to dissolve it in, and a
+     gravy packet made up with no quantity given. Both are the same shape as
+     the instant-potato entries above: the packet knows, the person standing
+     at the counter does not. */
+  { id: 195, step: 1, set: 'Put the patties in the slow cooker with the sliced onions, whisk the gravy packet into 1½ cups of water and pour it over, and cook on LOW for 4 hours. Dry powder in a slow cooker will not make gravy — it needs the water. No packet? Use plain water and make {r:265} from the liquid at the end.' },
+  { id: 182, step: 1, set: 'Make up the mashed potatoes — about 3 cups of flakes to 3 cups of boiling water and a splash of milk — and whisk the gravy packet into 1 cup of cold water before heating it, or it goes lumpy. No packet? {r:265}, stopped while the flour is still blond, is the pale gravy this wants.' },
+
+  /* Two real ones from the safety sweep, out of thirty-nine flagged. The
+     other thirty-seven say "Brown beef", which is a doneness cue; the scan
+     only knew "browned" and "until brown". Reading them is the only way to
+     tell, which is the lesson of every sweep in this file. */
+  { id: 65, step: 2, set: 'Bake on a sheet pan at 375°F for 45 minutes, turning the vegetables once. Pork is done at 145°F at the thickest point, with a faint blush still in it — cooked to grey it is dry, and this is the one meat where people routinely overshoot. Rest it 5 minutes before portioning.' },
+  { id: 73, step: 0, set: 'Cook the diced chicken in a skillet over medium-high for about 8 minutes, until no pink is left and a piece cut open at the thickest part reads 165°F, then toss with the hot sauce and ranch.' },
 ];
