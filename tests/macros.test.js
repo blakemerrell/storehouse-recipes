@@ -273,7 +273,7 @@ module.exports = {
     await q.click('#macroTargBtn');
     await q.waitForTimeout(200);
     t.ok('an empty profile asks for the numbers rather than inventing a plan',
-      /age, height and weight/i.test(await q.textContent('#mtPlan')),
+      /work themselves out/i.test(await q.textContent('#mtPlan')),
       await q.textContent('#mtPlan'));
 
     // the same arithmetic the app claims: Mifflin–St Jeor × activity × goal
@@ -291,9 +291,15 @@ module.exports = {
     await q.selectOption('#mtAct', '1.55');
     await q.click('[data-mtgoal="cut2"]');
     await q.waitForTimeout(150);
-    t.ok('the plan line shows the arithmetic the app promises',
-      (await q.textContent('#mtPlan')).indexOf(kcal + ' kcal · ' + planP + 'P / ' + planF + 'F / ' + planC + 'C') >= 0,
-      await q.textContent('#mtPlan') + ' — wanted ' + kcal + '/' + planP + '/' + planF + '/' + planC);
+    /* The boxes are the plan's one rendering now — the old separate preview
+       line could disagree with them by a rounding kcal, and did. A complete
+       profile leaves the status line silent and the kcal readout summing the
+       boxes themselves. */
+    t.ok('a complete profile leaves the status line with nothing to say',
+      (await q.textContent('#mtPlan')).trim() === '', await q.textContent('#mtPlan'));
+    t.ok('and one kcal figure, summed from the boxes',
+      (await q.textContent('#mtKcal')).indexOf('= ' + (4 * planP + 4 * planC + 9 * planF) + ' kcal') >= 0,
+      await q.textContent('#mtKcal'));
 
     /* The plan and the gram boxes are ONE model: the plan writes into the
        boxes as the profile changes, and the single Save commits the boxes.

@@ -1369,10 +1369,12 @@
      which hold every key against a button rather than keeping their own copy. */
   var MGOAL_WORDS = { cut2: 'Hard cut', cut1: 'Steady cut', keep: 'Maintain', gain: 'Lean gain' };
 
+  /* The status line over the gram boxes. The boxes are the plan's one
+     rendering, so this speaks only when something needs saying: the profile
+     cannot compute yet, or the arithmetic had to floor the carbs. */
   function mtPlanLine(plan) {
-    if (!plan) return 'Fill in age, height and weight and the plan appears here.';
-    return plan.kcal + ' kcal &middot; ' + plan.p + 'P / ' + plan.f + 'F / ' + plan.c + 'C' +
-      (plan.floored ? ' &middot; protein and fat alone spend the calories, so carbs floor at zero' : '');
+    if (!plan) return 'Fill in who you are and these work themselves out.';
+    return plan.floored ? 'Protein and fat spend all the calories &mdash; carbs floor at zero.' : '';
   }
 
   function macroTargetsHTML() {
@@ -1406,13 +1408,11 @@
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="sheet-name">What a day should add up to</div>' +
-        '<p class="sync-p">Say who you are and what you are after, and the plan works the grams out ' +
-          '&mdash; base burn from sex, age, height and weight, a day’s burn from how you live, ' +
-          'and the goal moves it up or down. The gram boxes below follow along; overrule them if ' +
-          'you know better, and Save keeps whatever they say. On this phone only, like the rest ' +
-          'of the tab.</p>' +
-        '<div class="mt-row">' + seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']]) + '</div>' +
+        /* No essay. Three short sections do the explaining by existing:
+           who you are, what that makes the grams, how the day divides. */
+        '<div class="mt-div">About you</div>' +
         '<div class="mt-row">' +
+          seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']]) +
           small('mtAge', pr.age, 'Age', '') +
           small('mtFt', pr.ft, 'Height', 'ft') +
           small('mtIn', pr.inch, '', 'in') +
@@ -1421,19 +1421,20 @@
         '<div class="mt-row"><label class="mt-lab">Most days ' +
           '<select id="mtAct">' + acts.map(function (a) {
             return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
-          }).join('') + '</select></label></div>' +
-        '<div class="mt-row">' + seg('mtgoal', pr.goal,
-          [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) + '</div>' +
-        '<div class="mt-kcal" id="mtPlan">' + mtPlanLine(mPlanCalc(pr)) + '</div>' +
-        '<div class="mt-div">The day&rsquo;s grams &mdash; yours to overrule</div>' +
-        '<div class="mt-row">' + num('mtP', t.p, 'Protein') + num('mtF', t.f, 'Fat') + num('mtC', t.c, 'Carbs') + '</div>' +
-        '<div class="mt-kcal" id="mtKcal">= ' + kcalOf(t) + ' kcal</div>' +
+          }).join('') + '</select></label>' +
+          seg('mtgoal', pr.goal,
+            [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) +
+        '</div>' +
+        '<div class="mt-div">The day&rsquo;s grams</div>' +
+        /* One rendering of the numbers, not two. The boxes ARE the plan —
+           they follow the profile, take a hand edit, and Save keeps them.
+           The line above them speaks only when something needs saying. */
+        '<div class="mt-cap" id="mtPlan">' + mtPlanLine(mPlanCalc(pr)) + '</div>' +
+        '<div class="mt-row">' + num('mtP', t.p, 'Protein') + num('mtF', t.f, 'Fat') + num('mtC', t.c, 'Carbs') +
+          '<span class="mt-kcal mt-kcal-in" id="mtKcal">= ' + kcalOf(t) + ' kcal</span>' +
+        '</div>' +
         '<div class="mt-div">The day&rsquo;s meals</div>' +
-        '<p class="sync-p">As many as your day really has &mdash; a morning brew, an afternoon ' +
-          'snack, one before bed. The kind steers what the picker and Fill my day reach for, ' +
-          'and the share says how much of the day each meal deserves &mdash; big for dinner, ' +
-          'small for a snack &mdash; so the suggestions come out meal-sized and snack-sized ' +
-          'instead of four equal plates.</p>' +
+        '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
         '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
         '<div class="mt-kcal" id="mtmTotal"></div>' +
         '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +

@@ -547,6 +547,11 @@ select { max-width: 280px; }
   border: 1px solid var(--line-firm); border-radius: 3px; background: var(--paper-soft);
 }
 .mt-kcal { margin-top: 12px; font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+/* the kcal readout sits in the row with the boxes it sums */
+.mt-kcal-in { margin-top: 0; align-self: center; }
+/* one short caption per section, tops; silent when it has nothing to say */
+.mt-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.mt-cap:empty { display: none; }
 /* the meal rows: arrow, name, kind, gone — edited in place, saved together */
 /* One meal, one line: arrow, name, kind, share, gone. Everything is scoped
    under .mtm-row because the phone media query hands every bare .txt the
@@ -600,7 +605,7 @@ select { max-width: 280px; }
 .mt-seg button { font-size: 12px; }
 /* the divider between "worked out for you" and "typed in yourself" */
 .mt-div {
-  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line);
+  margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line);
   font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
   font-weight: 600; color: var(--muted);
 }
