@@ -181,6 +181,31 @@ module.exports = {
         const over = document.querySelector('.mdial.over');
         return !!over && / g over/.test(over.textContent);
       }), await foot());
+    /* Colour is the verdict, not the eating. A day 10 g past its protein
+       target must not draw the same ring as one that landed on it — which
+       is exactly what happened while green meant "eaten": both sweeps clamp
+       at 100%, so over and on-the-nose were the same picture. */
+    t.ok('every dial names where it stands',
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mdial'))
+        .every((d) => ['under', 'on', 'over'].indexOf(d.dataset.state) >= 0)));
+    t.ok('and an overshoot reads over even with every plate eaten',
+      await p.evaluate(() => {
+        const d = document.querySelector('.mdial.over');
+        return d && d.dataset.state === 'over' && Number(d.dataset.planned) === 100;
+      }));
+    /* Protein is the one macro a cut wants overshot, so its band runs to
+       110%; fat and carbs turn at the line. The fit scorer has always judged
+       them that way and the dial must not contradict it. */
+    t.ok('protein gets a wider band than fat and carbs',
+      await p.evaluate(() => {
+        const pctOf = (d) => {
+          const m2 = d.querySelector('.mbar-of').textContent.match(/(\d+) \/ (\d+)/);
+          return 100 * Number(m2[1]) / Number(m2[2]);
+        };
+        return Array.from(document.querySelectorAll('.mdial')).every((d) =>
+          d.dataset.state !== 'over' ||
+          pctOf(d) > (/Protein/.test(d.textContent) ? 110 : 100));
+      }));
     t.ok('the dial caps at full rather than sweeping twice round',
       await p.evaluate(() => Array.from(document.querySelectorAll('.mdial'))
         .every((d) => Number(d.dataset.planned) <= 100 && Number(d.dataset.eaten) <= 100)));

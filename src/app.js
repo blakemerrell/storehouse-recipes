@@ -1308,23 +1308,44 @@
        rings would, which is what lets them stay pinned to the top. The two
        sweeps are eaten and merely planned, in that order — the same
        distinction the old bars drew, in a circle. */
+    /* Two questions, two channels — and they were fighting over one.
+     *
+     * Colour used to mean "eaten", which meant a day 10 g past its protein
+     * target drew the same full green ring as a day that landed exactly on
+     * it: both sweeps clamp at 100%, and green was already spent saying
+     * something else. So colour now says WHERE YOU STAND and shade says
+     * HOW MUCH IS ALREADY EATEN.
+     *
+     *   grey    the part of the target nothing has claimed yet
+     *   ochre   under target — still filling
+     *   green   landed in the band, 90% to target
+     *   red     past it
+     *
+     * Protein's band runs to 110% because protein is the one macro a cut
+     * wants you to overshoot; fat and carbs turn at the line itself. The
+     * fit scorer has always judged them that way — 0.35 against 2.00 — and
+     * the dial should not contradict the thing filling the day. */
     var dials = ['p', 'f', 'c'].map(function (m) {
       var target = Math.max(1, targets[m]);
       var all = Math.round(tot.all[m]);
       var ate = Math.round(tot.eaten[m]);
-      var over = all > targets[m];
+      var pct = 100 * all / target;
+      var overAt = m === 'p' ? 110 : 100;
+      var over = pct > overAt;
+      var state = over ? 'over' : pct >= 90 ? 'on' : 'under';
       var pEat = Math.min(100, 100 * ate / target);
-      var pAll = Math.min(100, 100 * all / target);
-      var hue = over ? 'var(--over-dial)' : 'var(--ochre)';
-      return '<div class="mdial' + (over ? ' over' : '') + '" data-eaten="' + Math.round(pEat) +
-          '" data-planned="' + Math.round(pAll) + '">' +
-        '<span class="mdial-arc" style="background:conic-gradient(var(--green) 0 ' + pEat.toFixed(1) +
-          '%, ' + hue + ' 0 ' + pAll.toFixed(1) + '%, var(--line) 0)">' +
+      var pAll = Math.min(100, pct);
+      var hue = 'var(--dial-' + state + ')';
+      var pale = 'var(--dial-' + state + '-pale)';
+      return '<div class="mdial ' + state + (over ? ' over' : '') + '" data-eaten="' + Math.round(pEat) +
+          '" data-planned="' + Math.round(pAll) + '" data-state="' + state + '">' +
+        '<span class="mdial-arc" style="background:conic-gradient(' + hue + ' 0 ' + pEat.toFixed(1) +
+          '%, ' + pale + ' 0 ' + pAll.toFixed(1) + '%, var(--line) 0)">' +
           '<i>' + all + '</i></span>' +
         '<span class="mdial-t"><span class="mdial-k">' + NAMES[m] + '</span>' +
           '<span class="mbar-nums"><span class="mbar-of">' + all + ' / ' + targets[m] + ' g</span> ' +
           '<span class="mbar-left">' +
-          (over ? (all - targets[m]) + ' g over' : (targets[m] - all) + ' g left') +
+          (all > targets[m] ? (all - targets[m]) + ' g over' : (targets[m] - all) + ' g left') +
           '</span></span></span>' +
       '</div>';
     }).join('');

@@ -36,7 +36,16 @@
      paper is not the same question as pixels on a screen. */
   --ochre-text: oklch(0.50 0.11 50);
   --green:      oklch(0.46 0.09 145);
-  /* the day has gone past its target — warm, not alarming */
+  /* Where the day stands, and the pale twin of each for the part that is
+     planned but not yet eaten. Under is the book's own ochre; on target is
+     the green it uses for anything finished; over is warm rather than
+     alarming, because a day past its carbs is not an emergency. */
+  --dial-under: oklch(0.62 0.10 55);
+  --dial-under-pale: oklch(0.82 0.055 55);
+  --dial-on: oklch(0.46 0.09 145);
+  --dial-on-pale: oklch(0.74 0.065 145);
+  --dial-over: oklch(0.55 0.14 45);
+  --dial-over-pale: oklch(0.78 0.085 45);
   --over-dial:  oklch(0.55 0.14 45);
   --muted:      oklch(0.52 0.03 65);
   --muted-2:    oklch(0.45 0.03 65);
@@ -761,7 +770,8 @@ select { max-width: 280px; }
 .mdial .mbar-nums { font-size: 10.5px; line-height: 1.3; color: var(--muted-2); }
 .mbar-of { display: block; }
 .mbar-left { display: block; font-weight: 600; }
-.mdial.over .mbar-left { color: var(--over-dial); }
+.mdial.over .mbar-left { color: var(--dial-over); }
+.mdial.on .mbar-left { color: var(--dial-on); }
 
 /* ---- the rail: the day, in the order you live it ----
    A line down the left with a dot at every stop — the weigh-in at the top,
@@ -937,7 +947,8 @@ select { max-width: 280px; }
 .mdial .mbar-nums { font-size: 10.5px; line-height: 1.3; color: var(--muted-2); }
 .mbar-of { display: block; }
 .mbar-left { display: block; font-weight: 600; }
-.mdial.over .mbar-left { color: var(--over-dial); }
+.mdial.over .mbar-left { color: var(--dial-over); }
+.mdial.on .mbar-left { color: var(--dial-on); }
 
 /* a step: a numbered rule across the page, its one verb on the right */
 .mday-step { margin-top: 20px; }
