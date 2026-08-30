@@ -43,7 +43,12 @@
            data-view is untouched because it is a key, not a word. -->
       <button class="tab" role="tab" data-view="browse" aria-selected="true">Recipes</button>
       <button class="tab" role="tab" data-view="plan" aria-selected="false"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
-      <button class="tab" role="tab" data-view="macros" aria-selected="false">Macros</button>
+      <!-- "My Day", the label; "macros", the key. The tab began life named for
+           the numbers and grew into a personal day — routine, portions, the
+           morning weigh-in — sitting beside the household's Plan: the week is
+           ours, the day is mine. data-view stays macros because it is a key,
+           not a word, the same bargain the Recipes tab struck with "browse". -->
+      <button class="tab" role="tab" data-view="macros" aria-selected="false">My Day</button>
       <button class="tab" role="tab" data-view="list" aria-selected="false"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
       <button class="tab" role="tab" data-view="pantry" aria-selected="false">Pantry</button>
       <button class="tab" role="tab" data-view="book" aria-selected="false"><span class="t-long">Print Book</span><span class="t-short">Book</span></button>
@@ -148,7 +153,7 @@
          place the Plan tab puts its week bar. Mixing the two scopes in one
          corner is what this used to do, and it read as clutter. -->
     <div class="view-head">
-      <div class="view-title serif" style="font-size:22px">Macros
+      <div class="view-title serif" style="font-size:22px">My Day
         <button class="minfo no-print" id="macroInfo" aria-label="About this tab"
           aria-expanded="false">?</button>
       </div>
