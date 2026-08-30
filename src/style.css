@@ -36,6 +36,8 @@
      paper is not the same question as pixels on a screen. */
   --ochre-text: oklch(0.50 0.11 50);
   --green:      oklch(0.46 0.09 145);
+  /* the day has gone past its target — warm, not alarming */
+  --over-dial:  oklch(0.55 0.14 45);
   --muted:      oklch(0.52 0.03 65);
   --muted-2:    oklch(0.45 0.03 65);
   --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
@@ -453,37 +455,31 @@ select { max-width: 280px; }
    The Macros tab: four meal cards over a footer of three bars. The cards
    borrow the .day family's bones — same paper, same ochre spine on an item —
    so the tab reads as a sibling of the meal plan rather than another app. */
-.mslot {
-  background: var(--card); border: 1px solid var(--line); border-radius: 3px;
-  margin-bottom: 14px;
-}
-.mslot-h {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-bottom: 1px solid oklch(0.90 0.015 78);
-}
+/* On the rail a meal is a stop, not a card — the dot and the line already
+   say where it begins, and six framed boxes down a phone is a stack of
+   boxes rather than a day. */
+.mslot { margin-bottom: 0; }
+.mslot-h { display: flex; align-items: baseline; gap: 9px; padding: 0 0 3px; }
 .mslot-name {
   font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
   font-weight: 600; color: oklch(0.40 0.03 65);
 }
 .mslot-sub { font-size: 11.5px; color: var(--muted); }
-.mslot-add { margin-left: auto; padding: 4px 10px; }
-.mslot-items { padding: 9px 12px; display: flex; flex-direction: column; gap: 8px; }
+.mslot-add { margin-left: auto; padding: 3px 9px; font-size: 11px; }
+.mslot-items { padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .mslot-empty { font-size: 12px; color: oklch(0.68 0.02 70); font-style: italic; }
-/* A plate is two columns: what it is on the left, what you do to it on the
-   right. Nothing wraps — a long recipe name is clipped, because a name that
-   pushes the portion dial off a phone has cost more than the tail of itself. */
-.mitem {
-  border-left: 2px solid var(--ochre); padding: 3px 0 3px 9px;
-  display: flex; gap: 10px; align-items: center;
-}
-.mitem-main { flex: 1 1 auto; min-width: 0; }
-.mitem-l { display: flex; gap: 8px; align-items: center; min-width: 0; }
+/* A plate is two rows, each with its controls on the right. Row one is the
+   plate and its portion — the dial you reach for most, beside the name. Row
+   two is the paperwork: what it costs, and the three buttons that manage it,
+   with the bin as far from the dial as the row allows. Nothing wraps: a long
+   name is clipped, because a name that pushes the dial off a phone has cost
+   more than the tail of itself. */
+.mitem { border-left: 2px solid var(--ochre); padding: 4px 0 5px 9px; }
+.mitem-r1, .mitem-r2 { display: flex; align-items: center; gap: 10px; }
+.mitem-r2 { margin-top: 3px; }
+.mitem-l { display: flex; gap: 8px; align-items: center; min-width: 0; flex: 1 1 auto; }
 .mitem-l input { width: 16px; height: 16px; flex: none; }
-/* The arithmetic, the pin and the lock, under the name they describe — but
-   flush left, not indented under it. The 24px of tidiness cost the macro
-   line the tail of itself, and the numbers are the reason the row exists. */
-.mitem-sub { display: flex; gap: 7px; align-items: center; margin-top: 2px; }
-.mitem-acts { flex: none; display: flex; gap: 6px; align-items: center; }
+.mitem-acts { flex: none; display: flex; gap: 10px; align-items: center; margin-left: auto; }
 /* the bin: a bin, so it can never be read as another multiplier */
 .mdel {
   background: none; border: none; padding: 2px; line-height: 0;
@@ -505,9 +501,9 @@ select { max-width: 280px; }
 .mitem.eaten .mitem-name { text-decoration: line-through; color: oklch(0.68 0.02 70); }
 .mitem-mac {
   font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.mstep { display: flex; align-items: center; gap: 2px; flex: none; }
+.mstep { display: flex; align-items: center; gap: 2px; flex: none; margin-left: auto; }
 .mstep button {
   background: none; border: 1px solid var(--line-soft); border-radius: 2px;
   width: 22px; height: 22px; line-height: 1; font-size: 13px; color: var(--muted-2);
@@ -742,16 +738,206 @@ select { max-width: 280px; }
 }
 .mday-plan { margin-left: auto; }
 /* the chart, compact enough to ride at the top of every screen */
-.mday-stick .macro-foot {
-  background: none; border: 0; padding: 8px 0 0; margin: 0;
+
+/* three dials on their sides: the sweep is the day so far, the words are
+   what is left of it. Green is eaten, ochre is merely planned. */
+.mdials { display: flex; gap: 8px; padding: 9px 0 0; }
+.mdial { flex: 1; display: flex; align-items: center; gap: 7px; min-width: 0; }
+.mdial-arc {
+  width: 38px; height: 38px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
 }
-.mbars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.mbars .mbar { margin-bottom: 0; }
-.mbars .mbar-top { display: block; }
-.mbars .mbar-name { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
-.mbars .mbar-nums { font-size: 11px; line-height: 1.35; }
-.mbar-of, .mbar-left { display: block; }
-.mbar-left { font-weight: 600; }
+.mdial-arc i {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--paper);
+  display: grid; place-items: center; font-style: normal;
+  font-family: var(--serif); font-size: 11.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mdial-t { min-width: 0; }
+.mdial-k {
+  display: block; font-size: 8.5px; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted);
+}
+.mdial .mbar-nums { font-size: 10.5px; line-height: 1.3; color: var(--muted-2); }
+.mbar-of { display: block; }
+.mbar-left { display: block; font-weight: 600; }
+.mdial.over .mbar-left { color: var(--over-dial); }
+
+/* ---- the rail: the day, in the order you live it ----
+   A line down the left with a dot at every stop — the weigh-in at the top,
+   then each meal — so the screen is shaped like the morning rather than like
+   a form. Every plate keeps its controls in the open: tuning is the point of
+   this screen, and a control you have to tap twice to reach is a control you
+   stop using. */
+.mday-rail { position: relative; padding-left: 20px; margin-top: 14px; }
+.mday-rail::before {
+  content: ''; position: absolute; left: 4px; top: 14px; bottom: 16px;
+  width: 1px; background: var(--line-firm);
+}
+.mday-stop { position: relative; padding: 4px 0 12px; }
+.mday-stop::before {
+  content: ''; position: absolute; left: -20px; top: 12px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--paper); border: 1.5px solid var(--line-firm);
+}
+.mday-stop.filled::before { border-color: var(--ochre); }
+.mday-weigh.done::before { background: var(--green); border-color: var(--green); }
+/* what the day has left once this stop is paid for */
+.mslot-left {
+  font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+  margin-top: 5px; padding-left: 2px;
+}
+.mslot-left.over { color: var(--over-dial); font-weight: 600; }
+.mday-acts { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+.mday-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+
+/* one short caption per section, tops; silent when it has nothing to say */
+.mt-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.mt-cap:empty { display: none; }
+.mt-warn { display: block; margin-top: 5px; color: oklch(0.50 0.13 45); }
+.mt-sheet input[type="date"] {
+  font-family: var(--serif); font-size: 15px; width: auto; min-width: 130px;
+}
+
+/* ---- the sheet writes its numbers on lines, not in boxes.
+   A crowd of outlined beige rectangles read as a government form. Typed
+   values are ink on a ledger rule now — serif, underlined, quiet, ochre
+   while your pen is on them — and choices keep their buttons and menus,
+   so what you type and what you pick explain themselves apart. The same
+   line dresses the weigh-in box out on the day. */
+.mt-sheet input:not([type="checkbox"]), .mt-sheet select, #macroWeigh input {
+  border: 0; border-bottom: 1px solid var(--line-firm); border-radius: 0;
+  background: transparent; padding: 4px 2px;
+  font-family: var(--serif); font-size: 16px; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.mt-sheet input:not([type="checkbox"]):focus, .mt-sheet select:focus, #macroWeigh input:focus {
+  outline: none; border-bottom-color: var(--ochre);
+  box-shadow: 0 1px 0 var(--ochre);
+}
+.mt-sheet input::-webkit-inner-spin-button, .mt-sheet input::-webkit-outer-spin-button,
+#macroWeigh input::-webkit-inner-spin-button, #macroWeigh input::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.mt-sheet input[type="number"], #macroWeigh input { -moz-appearance: textfield; text-align: center; }
+/* the two menus stay sans and muted — they are lists to pick from, not ink */
+.mt-sheet select { font-family: var(--sans); font-size: 13px; color: var(--muted-2); }
+/* the meal rows: arrow, name, kind, gone — edited in place, saved together */
+/* One meal, one line: arrow, name, kind, share, gone. Everything is scoped
+   under .mtm-row because the phone media query hands every bare .txt the
+   whole line (built for the search box), and the meal name must not take
+   that offer — it costs each meal three lines. The name and the kind are
+   the two that give; everything else holds its size. Wrap stays on solely
+   so the sections checklist can take a full line of its own underneath. */
+.mtm-row { margin-top: 8px; }
+.mtm-main { display: flex; align-items: center; gap: 6px; }
+.mtm-move { flex: none; padding: 5px 7px; }
+.mtm-row .mtm-name {
+  flex: 5 1 40px; min-width: 40px; width: auto; padding: 7px 8px; font-size: 14px;
+}
+.mtm-row .mtm-type { flex: 4 1 60px; min-width: 0; max-width: none; font-size: 12px; }
+.mtm-del { flex: none; font-size: 17px; }
+.mtm-share-l { display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--muted-2); flex: none; }
+.mtm-row .mtm-share {
+  width: 34px; min-width: 34px; padding: 7px 4px; font-size: 13px; text-align: right;
+  border: 1px solid var(--line-firm); border-radius: 3px; background: var(--paper-soft);
+  -moz-appearance: textfield;
+}
+/* the spinner arrows cost more width than the number they spin */
+/* the running sum of the shares, and which way it leans */
+.mtm-total { margin-top: 12px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.mtm-total b { font-family: var(--serif); font-size: 15px; }
+.mtm-total.ok { color: var(--green); }
+.mtm-total.off { color: oklch(0.50 0.13 45); }
+
+.mtm-share::-webkit-inner-spin-button, .mtm-share::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+/* the custom-sections checklist, unfolded under its meal row */
+.mtm-secs {
+  flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 4px 12px;
+  padding: 8px 0 4px 40px; font-size: 12px; color: var(--muted-2);
+}
+.mtm-secs-b {
+  flex: 0 0 100%; margin-top: 4px; font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; font-weight: 600; color: var(--muted);
+}
+.mtm-sec { display: flex; align-items: center; gap: 5px; }
+.mtm-secs { align-items: flex-start; }
+.mtm-secdone { margin-top: 6px; margin-left: auto; padding: 4px 16px; font-size: 11.5px; }
+/* what the meal draws from, once the choosing is over */
+.mtm-secsum {
+  display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin-top: 5px; padding: 4px 0 4px 40px; text-align: left;
+  background: none; border: none; font-size: 11.5px; color: var(--muted);
+}
+.mtm-secsum-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtm-secsum-e { flex: none; color: var(--ochre-text); font-weight: 600; }
+.mtm-secsum:hover .mtm-secsum-t { color: var(--muted-2); }
+/* the lock and the pin: dim until they mean something */
+.mlock, .mpin {
+  background: none; border: none; padding: 0 2px; font-size: 13px; line-height: 1;
+  opacity: 0.25; filter: grayscale(1);
+}
+.mlock[aria-pressed="true"], .mpin[aria-pressed="true"] { opacity: 1; filter: none; }
+/* the picker's two lenses share the select dress of the day bar */
+.mp-controls select {
+  padding: 7px 9px; font-size: 12.5px; min-width: 0; max-width: 48%;
+  border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
+  background: var(--card); color: var(--muted-2);
+}
+.mt-seg button { font-size: 12px; }
+/* the divider between "worked out for you" and "typed in yourself" */
+.mt-div {
+  margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line);
+  font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-weight: 600; color: var(--muted);
+}
+/* ---- My Day: the chart rides along, the steps are the morning ----
+   The bars are what you check after every change, so they never scroll away.
+   Below them the tab is the morning in order — weigh in, fill the day, tune
+   it — and each step says whether it is done. Named mday-*, NOT day-* or
+   mstep-*: the recipe sheet owns .daybar and a plate owns .mstep, and both
+   collisions have already cost an afternoon. */
+.mday-stick {
+  position: sticky; top: var(--topbar-h, 60px); z-index: 6;
+  background: var(--paper); padding: 10px 0 8px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.mday-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.mday-title { flex: none; font-size: 20px; margin-right: 2px; }
+.mday-head .ghost { flex: none; white-space: nowrap; padding: 5px 9px; }
+.mday-head select {
+  flex: 1 1 auto; min-width: 0; max-width: 190px; padding: 5px 8px; font-size: 12.5px;
+  border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
+  background: var(--card); color: var(--muted-2);
+}
+.mday-plan { margin-left: auto; }
+/* the chart, compact enough to ride at the top of every screen */
+
+/* three dials on their sides: the sweep is the day so far, the words are
+   what is left of it. Green is eaten, ochre is merely planned. */
+.mdials { display: flex; gap: 8px; padding: 9px 0 0; }
+.mdial { flex: 1; display: flex; align-items: center; gap: 7px; min-width: 0; }
+.mdial-arc {
+  width: 38px; height: 38px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+}
+.mdial-arc i {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--paper);
+  display: grid; place-items: center; font-style: normal;
+  font-family: var(--serif); font-size: 11.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mdial-t { min-width: 0; }
+.mdial-k {
+  display: block; font-size: 8.5px; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted);
+}
+.mdial .mbar-nums { font-size: 10.5px; line-height: 1.3; color: var(--muted-2); }
+.mbar-of { display: block; }
+.mbar-left { display: block; font-weight: 600; }
+.mdial.over .mbar-left { color: var(--over-dial); }
 
 /* a step: a numbered rule across the page, its one verb on the right */
 .mday-step { margin-top: 20px; }
@@ -791,7 +977,9 @@ select { max-width: 280px; }
 .mp-fav { color: var(--ochre-text); }
 
 /* the weigh-in card */
-#macroWeigh { margin-top: 12px; }
+/* the first stop of the day */
+.mday-weigh { padding-top: 2px; }
+.mday-weigh .mw-row { margin-bottom: 6px; }
 .mw-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .mw-stat { font-size: 12.5px; color: var(--muted-2); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .mw-spark { display: block; width: 100%; height: 44px; margin-top: 10px; color: var(--ochre-text); }

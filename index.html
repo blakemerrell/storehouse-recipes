@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=134">
+<link rel="stylesheet" href="src/style.css?v=135">
 </head>
 <body>
 
@@ -146,10 +146,11 @@
 <!-- ------------------------------------------------------------- macros -->
 <section id="view-macros" class="hide">
   <div class="view">
-    <!-- The morning, in the order it happens: weigh in, fill the day, tune
-         it, done. The chart is not a step — it is the readout you check after
-         every one of them, so it rides along at the top and never scrolls
-         away. Craft my plan sits up here too: it is setup, not a step. -->
+    <!-- The day, down a rail, in the order you live it: weigh in at the top,
+         then every meal as a stop with what it costs and what is left after
+         it. The dials ride along above it — they are the readout you check
+         after every change, not a step — and every plate keeps its own
+         controls in the open, because tuning is the point of the screen. -->
     <div class="mday-stick no-print">
       <div class="mday-head">
         <div class="view-title serif mday-title">My Day
@@ -161,7 +162,7 @@
         <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
         <button class="ghost mday-plan" id="macroTargBtn">Craft my plan</button>
       </div>
-      <div class="macro-foot" id="macroFoot"></div>
+      <div id="macroFoot"></div>
     </div>
 
     <div class="plan-note hide" id="macroNote">Yours alone &mdash; this tab saves on this phone
@@ -172,44 +173,19 @@
       the un-eaten, un-locked plates when the day has drifted. The little lock keeps a plate
       exactly as you set it; the pin puts it on every new day.</div>
 
-    <div class="mday-step" id="mdayStep1">
-      <div class="mday-step-h">
-        <span class="mday-n">1</span>
-        <span class="mday-t">Weigh in</span>
-        <span class="mday-sub">first thing, before anything else</span>
-      </div>
-      <div class="macro-foot" id="macroWeigh"></div>
-    </div>
-
-    <div class="mday-step" id="mdayStep2">
-      <div class="mday-step-h">
-        <span class="mday-n">2</span>
-        <span class="mday-t">Fill the day</span>
-        <button class="ghost mday-act no-print" id="macroFill">Fill my day</button>
-      </div>
+    <div class="mday-rail">
+      <div class="mday-stop mday-weigh" id="macroWeigh"></div>
       <div id="macroSlots"></div>
     </div>
 
-    <div class="mday-step" id="mdayStep3">
-      <div class="mday-step-h">
-        <span class="mday-n">3</span>
-        <span class="mday-t">Tune it</span>
-        <button class="ghost mday-act no-print" id="macroRebal"
-          title="Re-size the un-eaten, un-locked plates to land the day back on target">Rebalance</button>
-      </div>
-      <div class="mday-note" id="mdayTune"></div>
+    <div class="mday-acts no-print">
+      <button class="ghost" id="macroFill">Fill my day</button>
+      <button class="ghost" id="macroRebal"
+        title="Re-size the un-eaten, un-locked plates to land the day back on target">Rebalance</button>
+      <button class="ghost" id="macroCopy"
+        title="Puts the day on your clipboard as plain text — not the household Share">Copy as text</button>
     </div>
-
-    <div class="mday-step">
-      <div class="mday-step-h">
-        <span class="mday-n">4</span>
-        <span class="mday-t">Log it elsewhere</span>
-        <button class="ghost mday-act no-print" id="macroCopy">Copy the day</button>
-      </div>
-      <div class="mday-note">Puts the day on your clipboard as plain text &mdash; the weight,
-        every plate with its portion and macros, and the totals &mdash; ready to paste into
-        Google Fit or anywhere else that wants typing into.</div>
-    </div>
+    <div class="mday-note" id="mdayTune"></div>
   </div>
 </section>
 
@@ -293,14 +269,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=134"></script>
-<script src="data/nutrition.js?v=134"></script>
-<script src="data/art.js?v=134"></script>
-<script src="data/qr.js?v=134"></script>
-<script src="src/config.js?v=134"></script>
+<script src="data/recipes.js?v=135"></script>
+<script src="data/nutrition.js?v=135"></script>
+<script src="data/art.js?v=135"></script>
+<script src="data/qr.js?v=135"></script>
+<script src="src/config.js?v=135"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=134"></script>
-<script src="src/app.js?v=134"></script>
+<script src="src/sync.js?v=135"></script>
+<script src="src/app.js?v=135"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

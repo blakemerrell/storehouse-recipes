@@ -1180,6 +1180,9 @@
 
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
+    /* What the day has left after each stop, so you always know what the next
+       meal may cost. Accumulated in the order the meals actually happen. */
+    var runK = kcalOf(targets);
     var slotCard = function (sk, name, onPlan) {
       var items = day[sk] || [];
       /* Rows map over the STORED array so data attributes carry storage
@@ -1206,33 +1209,36 @@
            meaning "times one" and the other "gone", is a misread waiting to
            happen on a thumb-sized target. */
         return '<div class="mitem' + (it.eaten ? ' eaten' : '') + '">' +
-          '<span class="mitem-main">' +
+          /* Row one is the plate and its portion — the tick, the name, and
+             the dial you reach for most. Row two is the paperwork: what it
+             costs you, and the three buttons that manage it. The bin lives
+             down here on purpose, as far from the dial as the row allows. */
+          '<span class="mitem-r1">' +
             '<span class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
               (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
               '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button></span>' +
-            '<span class="mitem-sub">' +
-              '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+            '<span class="mstep no-print">' +
+              '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
+              '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
+              '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
+            '</span>' +
+          '</span>' +
+          '<span class="mitem-r2">' +
+            '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+            '<span class="mitem-acts no-print">' +
               /* The pin is the routine: pinned to this meal, at this portion,
                  on every new day — the Crio Brü that opens every morning
                  without being asked. Unpinning stops tomorrow, not today. */
-              (onPlan ? '<button class="mpin no-print" data-mpin="' + tag + '" aria-pressed="' +
+              (onPlan ? '<button class="mpin" data-mpin="' + tag + '" aria-pressed="' +
                 (pinned ? 'true' : 'false') + '" aria-label="' +
                 (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">&#128204;</button>' : '') +
               /* The lock guards against the MACHINE, not the person:
                  Rebalance leaves a locked plate alone, but the stepper still
                  works — a hand on the dial is you changing your mind. */
-              '<button class="mlock no-print" data-mlock="' + tag + '" aria-pressed="' +
+              '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
                 (it.l ? 'true' : 'false') + '" aria-label="' +
                 (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
-            '</span>' +
-          '</span>' +
-          '<span class="mitem-acts no-print">' +
-            '<span class="mstep">' +
-              '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
-              '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
-              '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
-            '</span>' +
             '<button class="mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
               '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
               'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -1246,13 +1252,17 @@
         var r = BY_ID[it.id];
         if (r && r.macro) { sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x; }
       });
-      return '<div class="mslot">' +
+      runK -= sub.kcal;
+      var left = Math.round(runK);
+      return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') + '">' +
         '<div class="mslot-h"><span class="mslot-name">' + esc(name) + '</span>' +
           (rows ? '<span class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
             Math.round(sub.p) + 'g protein</span>' : '') +
           (onPlan ? '<button class="ghost mslot-add no-print" data-mslot="' + esc(sk) + '">+ Add</button>' : '') +
         '</div>' +
         '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>' +
+        (rows ? '<div class="mslot-left' + (left < 0 ? ' over' : '') + '">' +
+          (left < 0 ? Math.abs(left) + ' kcal over' : left + ' kcal left') + '</div>' : '') +
       '</div>';
     };
     var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');
@@ -1264,11 +1274,11 @@
 
     $('macroFoot').innerHTML = macroFootHTML(day, targets);
     $('macroWeigh').innerHTML = macroWeighHTML(k);
+    // the first stop of the day fills in once the scale has been read
+    $('macroWeigh').classList.toggle('done', MWEIGHTS[k] > 0);
 
-    /* Each step says whether it is done, so the tab reads as the morning it
-       is rather than as three headings. Only today can be "done" — looking
-       back at Tuesday is reading, not planning. */
-    var isToday = k === todayK;
+    /* The rail is the sequence now, so there is nothing to number — but the
+       foot still says what to do next, which is what the steps were for. */
     var plated = 0, ticked = 0;
     Object.keys(day).forEach(function (sk) {
       (day[sk] || []).forEach(function (it) { plated++; if (it.eaten) ticked++; });
@@ -1277,10 +1287,6 @@
     var tuned = plated && ['p', 'f', 'c'].every(function (m2) {
       return tot.all[m2] <= targets[m2] * 1.05 && tot.all[m2] >= targets[m2] * 0.9;
     });
-    var mark = function (id, done) { $(id).classList.toggle('done', !!(isToday && done)); };
-    mark('mdayStep1', MWEIGHTS[k] > 0);
-    mark('mdayStep2', slots.list.every(function (s) { return (day[s.k] || []).length; }));
-    mark('mdayStep3', tuned);
 
     $('mdayTune').innerHTML = !plated
       ? 'Fill the day first, then this is where you nudge it.'
@@ -1293,32 +1299,39 @@
 
   function macroFootHTML(day, targets) {
     if (!targets.p && !targets.f && !targets.c) {
-      return '<div class="macro-none">Set your targets and the bars appear here.</div>';
+      return '<div class="macro-none">Craft your plan and the dials appear here.</div>';
     }
     var tot = mTotals(day);
     var NAMES = { p: 'Protein', f: 'Fat', c: 'Carbs' };
-    var bars = ['p', 'f', 'c'].map(function (m) {
-      var target = targets[m];
+    /* A dial on its side: the sweep says how full the day is, the words beside
+       it say what is left. Lying down they cost a third of the height three
+       rings would, which is what lets them stay pinned to the top. The two
+       sweeps are eaten and merely planned, in that order — the same
+       distinction the old bars drew, in a circle. */
+    var dials = ['p', 'f', 'c'].map(function (m) {
+      var target = Math.max(1, targets[m]);
       var all = Math.round(tot.all[m]);
       var ate = Math.round(tot.eaten[m]);
-      var over = all > target;
-      var den = Math.max(1, target);
-      var wEat = Math.min(100, 100 * ate / den);
-      var wPlan = Math.min(100 - wEat, 100 * (all - ate) / den);
-      return '<div class="mbar' + (over ? ' over' : '') + '">' +
-        '<div class="mbar-top"><span class="mbar-name">' + NAMES[m] + '</span>' +
-          '<span class="mbar-nums"><span class="mbar-of">' + all + ' / ' + target + ' g</span> ' +
+      var over = all > targets[m];
+      var pEat = Math.min(100, 100 * ate / target);
+      var pAll = Math.min(100, 100 * all / target);
+      var hue = over ? 'var(--over-dial)' : 'var(--ochre)';
+      return '<div class="mdial' + (over ? ' over' : '') + '" data-eaten="' + Math.round(pEat) +
+          '" data-planned="' + Math.round(pAll) + '">' +
+        '<span class="mdial-arc" style="background:conic-gradient(var(--green) 0 ' + pEat.toFixed(1) +
+          '%, ' + hue + ' 0 ' + pAll.toFixed(1) + '%, var(--line) 0)">' +
+          '<i>' + all + '</i></span>' +
+        '<span class="mdial-t"><span class="mdial-k">' + NAMES[m] + '</span>' +
+          '<span class="mbar-nums"><span class="mbar-of">' + all + ' / ' + targets[m] + ' g</span> ' +
           '<span class="mbar-left">' +
-          (over ? (all - target) + ' g over' : (target - all) + ' g left') + '</span></span></div>' +
-        '<div class="mbar-track">' +
-          '<i class="mbar-eaten" style="width:' + wEat.toFixed(1) + '%"></i>' +
-          '<i class="mbar-planned" style="width:' + wPlan.toFixed(1) + '%"></i>' +
-        '</div></div>';
+          (over ? (all - targets[m]) + ' g over' : (targets[m] - all) + ' g left') +
+          '</span></span></span>' +
+      '</div>';
     }).join('');
-    return '<div class="mbars">' + bars + '</div>' +
+    return '<div class="mdials">' + dials + '</div>' +
       '<div class="macro-kcal">&asymp; ' + Math.round(tot.all.kcal) + ' of ' + kcalOf(targets) +
-        ' kcal on the day' + (tot.eaten.kcal ? ' · ' + Math.round(tot.eaten.kcal) + ' eaten' : '') + '</div>' +
-      (tot.est ? '<div class="macro-est">~ marks figures estimated from a food table, not a label.</div>' : '');
+        ' kcal' + (tot.eaten.kcal ? ' &middot; ' + Math.round(tot.eaten.kcal) + ' eaten' : '') +
+        (tot.est ? ' &middot; <span class="macro-est">~ estimated from a food table</span>' : '') + '</div>';
   }
 
   /* The picker sheet: search plus a meal/all toggle, over a list ranked by

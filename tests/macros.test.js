@@ -136,19 +136,19 @@ module.exports = {
       (await shown()) + ' vs ' + (await expectP(0.25)));
 
     // ---- eaten: the tick fills the bar and the line-through arrives
-    t.ok('nothing is eaten yet, so the eaten fill is empty',
-      await p.evaluate(() => parseFloat(document.querySelector('.mbar-eaten').style.width) === 0));
+    t.ok('nothing is eaten yet, so the eaten sweep is empty',
+      await p.evaluate(() => document.querySelector('.mdial').dataset.eaten === '0'));
     await p.click('[data-meat="b:0"]');
     await p.waitForTimeout(150);
     t.ok('ticking a meal marks it eaten',
       await p.evaluate(() => !!document.querySelector('.mitem.eaten')));
-    t.ok('and the eaten fill takes on width',
-      await p.evaluate(() => parseFloat(document.querySelector('.mbar-eaten').style.width) > 0));
+    t.ok('and the eaten sweep takes on a share of the dial',
+      await p.evaluate(() => Number(document.querySelector('.mdial').dataset.eaten) > 0));
     await p.click('[data-meat="b:0"]');
     await p.waitForTimeout(150);
     t.ok('unticking reverses it',
       await p.evaluate(() => !document.querySelector('.mitem.eaten') &&
-        parseFloat(document.querySelector('.mbar-eaten').style.width) === 0));
+        document.querySelector('.mdial').dataset.eaten === '0'));
 
     // the name opens the recipe; the back gesture walks home to the day
     await p.click('.mitem-name');
@@ -178,12 +178,12 @@ module.exports = {
     await p.waitForTimeout(300);
     t.ok('a busted macro says over, in the over state',
       await p.evaluate(() => {
-        const over = document.querySelector('.mbar.over');
+        const over = document.querySelector('.mdial.over');
         return !!over && / g over/.test(over.textContent);
       }), await foot());
-    t.ok('the bar caps at full rather than overflowing',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mbar-track i'))
-        .every((i) => parseFloat(i.style.width) <= 100)));
+    t.ok('the dial caps at full rather than sweeping twice round',
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mdial'))
+        .every((d) => Number(d.dataset.planned) <= 100 && Number(d.dataset.eaten) <= 100)));
     await p.click('#macroTargBtn');
     await p.waitForTimeout(150);
     await p.fill('#mtP', '150');
@@ -485,6 +485,8 @@ module.exports = {
     });
     t.ok('a weigh-in lands under the local date, rounded to a tenth',
       logged.keys.length === 1 && logged.val === 187.5, JSON.stringify(logged));
+    t.ok('and the first stop of the day fills in',
+      await w.evaluate(() => document.getElementById('macroWeigh').classList.contains('done')));
 
     // typing alone is enough — the quiet save runs without leaving the box
     await w.fill('#mWeight', '186.2');
