@@ -504,4 +504,285 @@ module.exports = [
      already on the list this time but no hint of how much. */
   { id: 134, step: 0, set: 'Spread the peanut butter on four slices and the jam on the other four, sandwich them, and cut each into quarters.' },
   { id: 209, step: 0, set: 'Whisk the pancake mix with the milk into a batter thick enough to hold its shape on a spoon — thicker than pancake batter. Add the milk a little at a time; loosening it is easy and thickening it is not.' },
+
+  /* ---- the whole-collection sweep ---------------------------------------
+   *
+   * Asked for after the audit: read every recipe, say whether the method is
+   * clear, and add the "better with a few extras" block wherever a few
+   * ordinary spices would genuinely change the dish.
+   *
+   * Two scans. The first looked for cooked recipes missing two or more of
+   * {a time, a heat level, a doneness cue} — 33 of them, against 108 that a
+   * cruder "short method" test had flagged, nearly all of which were cold
+   * assembly and perfectly clear. "Scoop cottage cheese into a bowl" is a
+   * complete instruction. The second looked for savoury recipes with no
+   * aromatic anywhere and sweet ones with no warm spice: 143.
+   *
+   * The lifts are written to an ordinary spice cupboard — garlic, onion,
+   * oregano, basil, Italian seasoning, cumin, chili powder, paprika, thyme,
+   * bay, nutmeg, soy sauce, Worcestershire, hot sauce, lemon, parmesan. None
+   * of it is on the storehouse order, none of it is required, and the recipe
+   * above each block still has to be worth cooking without any of it.
+   */
+
+  /* Scrambled eggs, four times, with a time and no heat and no idea what
+     done looks like. Three minutes on a hot pan is rubber; the cue is what
+     matters. */
+  { id: 32, step: 0, set: 'Scramble the eggs in a buttered skillet over medium-low heat, stirring slowly, about 3 minutes — pull them while they still look slightly wet, because they carry on cooking in the pan.' },
+  { id: 32, lift: { with: 'Hot sauce, cumin, fresh onion',
+    steps: ['A pinch of cumin over the beans while they warm, and a few dashes of hot sauce into the salsa.',
+      'A tablespoon of finely diced raw onion on top gives it the crunch a soft bowl is missing.'] } },
+  { id: 36, step: 1, set: 'Add the beaten eggs and scramble over medium-low, stirring slowly, about 3 minutes — take them off while they still look a little wet.' },
+  { id: 50, step: 0, set: 'Scramble the eggs in a buttered skillet over medium-low heat, about 3 minutes, and stop while they are still glossy.' },
+  { id: 112, step: 0, set: 'Scramble the eggs in a buttered skillet over medium-low heat, about 3 minutes, stopping while they still look slightly wet.' },
+  { id: 112, lift: { with: 'Hot sauce, cumin, fresh cilantro, lime',
+    steps: ['A pinch of cumin into the eggs as they cook, and hot sauce at the table.',
+      'Chopped cilantro and a squeeze of lime over the top. A breakfast taco without acid tastes flat however good the eggs are.'] } },
+
+  /* Oats and porridge: "boil for N minutes" with no heat and no thickness. */
+  { id: 37, step: 0, set: 'Simmer the oats in 1 cup of water over medium heat for about 3 minutes, stirring, until they thicken and the water has gone.' },
+  { id: 115, step: 0, set: 'Simmer the oats and milk over medium heat for about 5 minutes, stirring often so the milk does not catch, until thick enough to hold a spoon-track for a second.' },
+  { id: 115, lift: { with: 'Nutmeg, vanilla, a pinch of salt',
+    steps: ['A pinch of salt in with the milk. Unsalted porridge tastes of nothing and no amount of honey fixes it.',
+      'A scrape of nutmeg and a few drops of vanilla with the cinnamon.'] } },
+
+  { id: 77, step: 2, set: 'Broil 1 to 2 minutes, watching it the whole time — it goes from bubbling to burnt in about twenty seconds.' },
+
+  /* Skillet meals with a time and no heat. */
+  { id: 62, step: 0, set: 'Brown the beef in a skillet over medium-high, breaking it up, about 8 minutes, until no pink is left. Drain the fat.' },
+  { id: 62, lift: { with: 'Onion, garlic, thyme, Worcestershire',
+    steps: ['Soften a diced onion with the beef, and a clove of minced garlic for the last minute.',
+      'A splash of Worcestershire and a pinch of dried thyme into the browned beef. Shepherd\'s pie without either tastes like mince under mash, which is what this is trying not to be.'] } },
+  { id: 67, step: 0, set: 'Brown the ground beef over medium-high, breaking it up, about 8 minutes, until no pink is left. Drain the fat.' },
+  { id: 67, lift: { with: 'Garlic, ginger, sesame oil, chili flakes',
+    steps: ['Minced garlic and ginger into the pan for the last minute of browning, not at the start — both burn.',
+      'A teaspoon of sesame oil off the heat at the end, and chili flakes to taste. Sesame oil cooked hard loses the thing you added it for.'] } },
+  { id: 70, step: 0, set: 'Cook the diced chicken with the salsa in a skillet over medium heat, about 10 minutes, until the chicken is 165°F and the salsa has thickened around it.' },
+  { id: 70, lift: { with: 'Cumin, smoked paprika, lime, cilantro',
+    steps: ['A teaspoon each of cumin and smoked paprika onto the chicken before it goes in the pan. Smoked paprika is what makes this taste chipotle rather than salsa-coloured.',
+      'Lime squeezed over and cilantro scattered at the end.'] } },
+  { id: 71, step: 0, set: 'Sauté the sliced peppers, onions and carrots over medium-high, about 8 minutes, until the edges have taken colour and the carrot has lost its squeak.' },
+  { id: 71, lift: { with: 'Garlic, oregano, smoked paprika, hot sauce',
+    steps: ['Garlic and a teaspoon of oregano in for the last minute with the vegetables.',
+      'Smoked paprika over the pork as it warms through, and hot sauce at the table.'] } },
+  { id: 64, step: 0, set: 'Brown the beef with the drained pinto beans and ¼ cup salsa over medium-high, about 8 minutes, until no pink is left and the liquid has cooked down.' },
+  { id: 64, lift: { with: 'Cumin, chili powder, garlic, onion',
+    steps: ['A diced onion in first, then a teaspoon each of cumin and chili powder with the beef. The recipe is called spicy and has nothing in it that is.',
+      'A clove of garlic for the last minute.'] } },
+  { id: 68, step: 0, set: 'Boil the macaroni and broccoli together about 8 minutes, until the pasta is just tender and the broccoli still has some bite; drain.' },
+  { id: 68, lift: { with: 'Garlic, black pepper, parmesan, lemon',
+    steps: ['A clove of minced garlic and plenty of black pepper stirred into the soup before it meets the pasta.',
+      'Parmesan and a squeeze of lemon at the end. Condensed soup is salty and flat; acid is what lifts it.'] } },
+
+  /* Three the clarity scan turned up that are not toast.
+   *
+   * No. 134 lists "2 soft-boiled eggs" and no step ever boils one, which is
+   * the cooked-chicken fault in a gentler place — and soft-boiled is the one
+   * egg where the timing is the whole recipe. No. 207 stirs sour cream into a
+   * hot pan, which splits it. No. 140 boils franks that are already cooked. */
+  { id: 123, step: 1, set: 'Soft-boil the eggs: lower them into water already at a rolling boil, 6 minutes exactly for a set white and a runny yolk, then run them under cold water for a few seconds so they stop cooking. Serve with the soldiers for dipping.' },
+  { id: 196, step: 1, set: 'Brown the beef over medium-high, about 8 minutes, and drain it. Turn the heat right down before the sour cream goes in — boiled, it splits into grains and oil and will not come back. Stir in the soup first, then the sour cream off the heat. No mushroom soup? {r:275} is the same job from the order.' },
+  { id: 196, lift: { with: 'Onion, garlic, paprika, Worcestershire',
+    steps: ['A diced onion softened before the beef, garlic in at the end of browning.',
+      'A teaspoon of paprika and a splash of Worcestershire with the soup. Stroganoff without paprika is beef in white sauce.'] } },
+  { id: 129, step: 0, set: 'Franks are already cooked, so this is only heating them through: simmer 6 minutes, or grill them turning often until the skins blister and split.' },
+
+  /* ---- lifts, by family --------------------------------------------------
+     Pasta and red sauce. The same three things every time, because it is the
+     same dish underneath: something allium, something green and dried, and
+     something salty and hard at the end. */
+  { id: 155, lift: { with: 'Onion, garlic, oregano, basil, parmesan',
+    steps: ['Soften a diced onion before the beef and add two cloves of garlic once it has browned.',
+      'A teaspoon each of dried oregano and basil into the sauce, and let it simmer the full ten minutes with them in — dried herbs need time in liquid to give anything up.',
+      'Parmesan at the table.'] } },
+  { id: 151, lift: { with: 'Onion, garlic, oregano, parmesan',
+    steps: ['A diced onion with the beef and a clove of garlic at the end.',
+      'A teaspoon of oregano into the tomato sauce, and parmesan over the cheddar before the lid goes on.'] } },
+  { id: 165, lift: { with: 'Garlic, oregano, chili flakes, parmesan',
+    steps: ['Two cloves of garlic and a teaspoon of oregano into the tomato sauce.',
+      'Chili flakes to taste and parmesan at the table.'] } },
+  { id: 141, lift: { with: 'Garlic, oregano, parmesan, chili flakes',
+    steps: ['A clove of garlic and a teaspoon of oregano stirred into the tomato soup — canned soup is sweet, and the herbs are what stop it tasting like a dessert.',
+      'Parmesan and chili flakes over the bowls.'] } },
+  { id: 170, lift: { with: 'Onion, garlic, mustard, Worcestershire',
+    steps: ['A diced onion with the beef, garlic at the end.',
+      'A teaspoon of mustard and a splash of Worcestershire with the ketchup. That combination is what makes a cheeseburger taste of a cheeseburger.'] } },
+  { id: 174, lift: { with: 'Onion, garlic, oregano, parmesan',
+    steps: ['Onion and garlic with the beef, oregano into the sauce.',
+      'Parmesan folded through the cheddar on top.'] } },
+
+  /* Cream-soup casseroles. Condensed soup is salty, sweet and flat; every one
+     of these wants aromatics at the front and acid at the end. */
+  { id: 160, lift: { with: 'Onion, garlic, thyme, lemon, parmesan',
+    steps: ['Soften a diced onion and two cloves of garlic and stir them through the soup.',
+      'A pinch of dried thyme in, and a squeeze of lemon over the top when it comes out. Acid is what a cream-soup bake is always missing.'] } },
+  { id: 163, lift: { with: 'Garlic, mustard powder, black pepper, parmesan',
+    steps: ['A clove of garlic and half a teaspoon of mustard powder into the sauce — mustard makes cheddar taste more of cheddar without tasting of mustard.',
+      'Plenty of black pepper, and parmesan mixed into the cheddar.'] } },
+  { id: 153, lift: { with: 'Onion, garlic, thyme, black pepper',
+    steps: ['A diced onion and a clove of garlic softened and stirred into the soup.',
+      'A good pinch of dried thyme and more black pepper than seems right. Pot pie is a thyme dish.'] } },
+  { id: 161, lift: { with: 'Onion, garlic, paprika, hot sauce',
+    steps: ['A diced onion with the beef and garlic at the end.',
+      'A teaspoon of paprika into the soup, and hot sauce at the table.'] } },
+
+  /* Chowders and soups. */
+  { id: 144, lift: { with: 'Onion, garlic, thyme, bay, black pepper',
+    steps: ['Soften a diced onion in the butter before anything else goes in, with a clove of garlic for the last minute.',
+      'A bay leaf and a pinch of thyme in with the milk, fished out before serving. Potato and milk on their own taste of almost nothing; this is the whole difference.'] } },
+  { id: 147, lift: { with: 'Onion, garlic, cumin, smoked paprika, lime',
+    steps: ['A diced onion softened in the butter, garlic after.',
+      'A teaspoon each of cumin and smoked paprika with the milk, and lime squeezed over the bowls.'] } },
+  { id: 133, lift: { with: 'Black pepper, hot sauce, parsley',
+    steps: ['Canned soup is under-seasoned in one direction only: black pepper, and a few dashes of hot sauce.',
+      'Chopped parsley over the top if you have it.'] } },
+
+  /* Roasts and slow cookers. */
+  { id: 157, lift: { with: 'Garlic, rosemary, black pepper',
+    steps: ['Cut slits in the pork and push slivers of garlic into them before it goes in the cooker.',
+      'A branch of rosemary in with it, and black pepper over the top. Pork and applesauce is a sweet pairing and wants something woody against it.'] } },
+  { id: 171, lift: { with: 'Onion, garlic, thyme, black pepper',
+    steps: ['A sliced onion under the roast and two cloves of garlic in the soup.',
+      'Thyme and black pepper over the meat before it goes in.'] } },
+  { id: 175, lift: { with: 'Garlic, rosemary, thyme',
+    steps: ['Rub the sliced roast with garlic, rosemary and thyme before searing.',
+      'Toss the carrots and potatoes in the same before they roast — the herbs are doing more work on the vegetables than on the beef.'] } },
+  { id: 181, lift: { with: 'Onion, garlic, smoked paprika, cider vinegar',
+    steps: ['A sliced onion under the beef and garlic in with the sauce.',
+      'A teaspoon of smoked paprika, and a splash of cider vinegar stirred through the pulled meat at the end. Bottled barbecue sauce is sweet; vinegar is what cuts it.'] } },
+
+  /* Sheet pans and roasted chicken. */
+  { id: 54, lift: { with: 'Garlic powder, paprika, oregano, lemon',
+    steps: ['A teaspoon each of garlic powder, paprika and oregano tossed with the oil before it all goes on the pan.',
+      'Lemon squeezed over the lot as it comes out of the oven.'] } },
+  { id: 132, lift: { with: 'Onion powder, garlic powder, Worcestershire, pickles',
+    steps: ['Work a teaspoon each of onion and garlic powder and a splash of Worcestershire into the beef before forming the patties.',
+      'Pickle slices in the sliders. A cheeseburger without something sharp is just meat and bread.'] } },
+  { id: 154, lift: { with: 'Garlic powder, smoked paprika, oregano',
+    steps: ['Toss the potatoes and carrots with a teaspoon each of garlic powder and smoked paprika as well as the oil.',
+      'A pinch of oregano over everything for the last ten minutes.'] } },
+
+  /* Melts, wraps and cold salads — all of them short of acid or allium. */
+  { id: 126, lift: { with: 'Fresh garlic, mustard, black pepper',
+    steps: ['Mash a crushed clove of garlic into the butter you spread on the outside. Garlic butter is the difference between a toasted sandwich and a good one.',
+      'A thin scrape of mustard inside, and black pepper on the tomato.'] } },
+  { id: 138, lift: { with: 'Garlic, oregano, chili flakes, parmesan',
+    steps: ['Garlic butter on the outside, oregano stirred into the spaghetti sauce.',
+      'Parmesan with the cheddar, chili flakes if you like it hot.'] } },
+  { id: 139, lift: { with: 'Onion, celery, lemon, dill, black pepper',
+    steps: ['Finely diced raw onion and celery into the tuna mix. Tuna salad is a texture problem before it is a flavour one.',
+      'Lemon, dill and black pepper — the lemon especially, which is what stops mayo tasting heavy.'] } },
+  { id: 130, lift: { with: 'Onion, lemon, dill, black pepper',
+    steps: ['A tablespoon of finely diced onion and a squeeze of lemon into the tuna.',
+      'Dill and black pepper. Every good tuna salad is tuna, something sharp, and something crunchy.'] } },
+  { id: 148, lift: { with: 'Onion, lemon, dill',
+    steps: ['Diced onion into the chicken mix and a squeeze of lemon over the hollowed tomatoes before filling.',
+      'Dill through the mayo.'] } },
+  { id: 15, lift: { with: 'Lemon, black pepper, red onion',
+    steps: ['A squeeze of lemon and plenty of black pepper over the salad.',
+      'Thin-sliced red onion, which gives a cold salad the bite that ranch alone does not.'] } },
+  { id: 127, lift: { with: 'Chives, garlic powder, hot sauce, bacon bits',
+    steps: ['Garlic powder into the butter, chives over the top.',
+      'Hot sauce and bacon bits on the bar. A potato bar is a topping problem, so the answer is more toppings.'] } },
+  { id: 131, lift: { with: 'Mustard powder, garlic powder, black pepper',
+    steps: ['Half a teaspoon of mustard powder and a pinch of garlic powder into the milk before the cheese goes in.',
+      'Black pepper at the end. Stovetop mac is mild by design and takes seasoning better than people expect.'] } },
+  { id: 140, lift: { with: 'Cumin, chili powder, garlic, lime',
+    steps: ['Cumin and chili powder into the chicken before it is rolled.',
+      'Lime over the taquitos as they come out of the pan.'] } },
+  { id: 143, lift: { with: 'Red onion, cilantro, chili flakes',
+    steps: ['Thin-sliced red onion over the barbecue sauce before the cheese.',
+      'Cilantro and chili flakes after it comes out.'] } },
+  { id: 168, lift: { with: 'Onion, garlic, thyme, Worcestershire',
+    steps: ['A diced onion softened with the beef and garlic at the end.',
+      'Thyme and a splash of Worcestershire into the meat before the potato goes on. This is the same seasoning as No. 063 because it is the same dish, done properly.'] } },
+  { id: 174, lift: { with: 'Cumin, chili powder, garlic, lime',
+    steps: ['Cumin and chili powder into the beans and rice.',
+      'Garlic in the tomato sauce, lime over the top.'] } },
+
+  /* No. 062 is called Lemon Pepper Chicken and its ingredient list contains
+     neither. Black pepper is on the storehouse order, so it goes in the
+     recipe; lemon is not, so it goes in the lift. Half a promise kept for
+     free, and the other half named. */
+  { id: 61, step: 0, set: 'Heat the oven to 400°F. Season the chicken well on both sides with salt and a lot of black pepper — more than looks sensible, since this is half of what the title is promising — and bake 20 minutes. Give it longer if the breasts are thick; done means 165°F and no pink at the centre.' },
+  { id: 61, lift: { with: 'Lemon, garlic powder',
+    steps: ['Lemon zest into the pepper rub and the juice squeezed over as it comes out of the oven. That is the other half of the name.',
+      'A teaspoon of garlic powder in the rub.'] } },
+
+  /* The rest of the meal sections. */
+  { id: 12, lift: { with: 'Lemon, dill, red onion',
+    steps: ['Lemon and dill into the mayo before it meets the tuna.',
+      'A little finely diced red onion for bite.'] } },
+  { id: 21, lift: { with: 'Lemon, celery, onion, dill',
+    steps: ['Diced celery and onion for crunch — a chicken salad is mostly texture.',
+      'Lemon and dill through the mayo.'] } },
+  { id: 72, lift: { with: 'Onion, garlic, bay, thyme, Worcestershire',
+    steps: ['Brown the stew meat first, then simmer it with a quartered onion, two cloves of garlic, a bay leaf and a pinch of thyme. Meat simmered in plain water tastes like meat simmered in plain water.',
+      'A splash of Worcestershire at the end.'] } },
+  { id: 58, lift: { with: 'Onion, garlic, smoked paprika, oregano',
+    steps: ['A diced onion softened with the beef, garlic at the end.',
+      'A teaspoon of smoked paprika and one of oregano with the chili powder. Chili powder alone is one note; these are the other two.'] } },
+  { id: 158, lift: { with: 'Onion, garlic, smoked paprika, oregano',
+    steps: ['Onion with the beef, garlic after.',
+      'Smoked paprika and oregano into the pot with the beans.'] } },
+  { id: 193, lift: { with: 'Onion, garlic, smoked paprika, cocoa',
+    steps: ['Onion and garlic with the beef.',
+      'Smoked paprika, and a tablespoon of cocoa powder into the pot. Cocoa in chili does not taste of chocolate; it makes the whole thing taste deeper and older than it is.'] } },
+  { id: 59, lift: { with: 'Onion, smoked paprika, cider vinegar',
+    steps: ['Smoked paprika over the potatoes before they roast.',
+      'A splash of cider vinegar and some raw diced onion through the pulled pork. Sweet sauce needs sharp things against it.'] } },
+  { id: 162, lift: { with: 'Red onion, cider vinegar',
+    steps: ['A splash of cider vinegar stirred through the pulled pork — bottled barbecue sauce is sweet and vinegar is what cuts it.',
+      'Thin-sliced raw red onion on the buns.'] } },
+  { id: 60, lift: { with: 'Lemon, soy sauce, sesame oil, spring onion',
+    steps: ['Lemon or a little soy sauce over the rice while it is still warm, so it soaks in.',
+      'A few drops of sesame oil and sliced spring onion at the end.'] } },
+  { id: 63, lift: { with: 'Onion, garlic, oregano, parmesan',
+    steps: ['Onion and garlic softened and stirred into the spaghetti sauce, with a teaspoon of oregano.',
+      'Parmesan over the top before it bakes.'] } },
+  { id: 136, lift: { with: 'Garlic powder, hot sauce, spring onion',
+    steps: ['Garlic powder and a few dashes of hot sauce into the ranch.',
+      'Sliced spring onion in the wrap.'] } },
+  { id: 142, lift: { with: 'Mustard, black pepper, dill',
+    steps: ['Mustard mixed into the mayo — ham and mustard is the whole point of a ham wrap.',
+      'Black pepper and a little dill.'] } },
+  { id: 146, lift: { with: 'Mustard, black pepper',
+    steps: ['A scrape of mustard inside. Ham, cheese and something sweet needs a sharp corner or it is just sweet.',
+      'Black pepper over the peaches.'] } },
+  { id: 164, lift: { with: 'Onion, garlic, cumin, cilantro, lime',
+    steps: ['Onion and garlic with the beef, and a teaspoon of cumin beyond the taco seasoning.',
+      'Cilantro and lime over the top out of the oven.'] } },
+  { id: 190, lift: { with: 'Onion, garlic, cumin, cilantro, lime',
+    steps: ['Onion and garlic into the chicken filling, cumin with the seasoning.',
+      'Cilantro and lime at the end.'] } },
+  { id: 166, lift: { with: 'Onion, garlic, oregano, parmesan',
+    steps: ['A clove of garlic and a spoon of grated parmesan into the meatball mix.',
+      'Onion and oregano into the marinara while it simmers.'] } },
+  { id: 177, lift: { with: 'Garlic, rosemary, black pepper',
+    steps: ['Garlic and rosemary rubbed over the pork before it roasts.',
+      'Black pepper into the applesauce — a sweet sauce against a savoury roast wants something to argue with.'] } },
+  { id: 182, lift: { with: 'Garlic powder, thyme, black pepper, lemon',
+    steps: ['Garlic powder, thyme and black pepper rubbed over the chicken before roasting.',
+      'Lemon squeezed over at the table.'] } },
+  { id: 184, lift: { with: 'Onion, garlic, oregano, parmesan',
+    steps: ['Onion and garlic with the beef, oregano into the sauce.',
+      'Parmesan folded into the sour cream layer.'] } },
+  { id: 186, lift: { with: 'Onion, garlic, mustard, thyme, parmesan',
+    steps: ['A teaspoon of mustard into the cream soup — mustard is what makes cordon bleu taste like cordon bleu.',
+      'Onion, garlic and thyme in with it, parmesan on top.'] } },
+  { id: 188, lift: { with: 'Onion, garlic, thyme, Worcestershire',
+    steps: ['Onion and garlic with the beef, thyme into the gravy.',
+      'A splash of Worcestershire before the topping goes on.'] } },
+  { id: 191, lift: { with: 'Onion, garlic, bay, thyme, black pepper',
+    steps: ['A quartered onion and two cloves of garlic in the cooker with the roast, and a bay leaf.',
+      'Thyme and black pepper over the meat before searing.'] } },
+  { id: 192, lift: { with: 'Onion, garlic, oregano, parmesan',
+    steps: ['Onion and garlic in the tomato sauce, oregano with them.',
+      'Parmesan over the top.'] } },
+  { id: 198, lift: { with: 'Garlic powder, paprika, black pepper, hot sauce',
+    steps: ['Garlic powder, paprika and plenty of black pepper into the flour before dredging. Seasoned flour is the difference between fried chicken and fried breading.',
+      'A few dashes of hot sauce into the milk you dip it in.'] } },
+  { id: 199, lift: { with: 'Onion, garlic, bay, thyme, Worcestershire',
+    steps: ['A quartered onion, garlic and a bay leaf in with the beef.',
+      'Thyme and a splash of Worcestershire into the tomato sauce.'] } },
 ];

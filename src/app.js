@@ -1755,10 +1755,10 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 188 },
-    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 180 },
-    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 64, booklet: true },
-    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 124, booklet: true }
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 200 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 192 },
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 68, booklet: true },
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 132, booklet: true }
   };
 
   /* The shelf, in the order somebody chooses from it: the whole thing first,

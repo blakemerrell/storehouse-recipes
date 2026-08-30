@@ -220,6 +220,8 @@ module.exports = [
     ],
     macro: null, tagline: 'Bubbling at the Edges', score: null, sc: null,
     diff: 'In-Depth', time: '1 hr', extras: null,
+    lift: { with: 'Nutmeg, lemon',
+      steps: ['A scrape of nutmeg with the cinnamon, and a squeeze of lemon over the peaches. Canned fruit is sweet and flat, and lemon is what wakes it up.'] },
   },
   {
     id: 233, book: 2, secNum: 6, secName: SECTION,
@@ -238,6 +240,8 @@ module.exports = [
     ],
     macro: null, tagline: 'Silky, Set, Just Wobbling', score: null, sc: null,
     diff: 'In-Depth', time: '3 hrs', extras: null,
+    lift: { with: 'Nutmeg',
+      steps: ['Nutmeg grated over the top before it bakes. A baked custard without nutmeg is missing the thing that makes it taste like one.'] },
   },
   {
     id: 234, book: 2, secNum: 6, secName: SECTION,
@@ -257,6 +261,8 @@ module.exports = [
     ],
     macro: null, tagline: 'Stirred, Not Hurried', score: null, sc: null,
     diff: 'In-Depth', time: '1 hr 10 mins', extras: null,
+    lift: { with: 'Nutmeg, lemon zest',
+      steps: ['Nutmeg in with the milk, and a strip of lemon zest left in while it cooks and lifted out at the end.'] },
   },
   {
     id: 235, book: 2, secNum: 6, secName: SECTION,
