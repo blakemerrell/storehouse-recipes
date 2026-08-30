@@ -585,12 +585,12 @@ select { max-width: 280px; }
   text-transform: uppercase; font-weight: 600; color: var(--muted);
 }
 .mtm-sec { display: flex; align-items: center; gap: 5px; }
-/* the lock: dim until it means something */
-.mlock {
+/* the lock and the pin: dim until they mean something */
+.mlock, .mpin {
   background: none; border: none; padding: 0 2px; font-size: 13px; line-height: 1;
   opacity: 0.25; filter: grayscale(1);
 }
-.mlock[aria-pressed="true"] { opacity: 1; filter: none; }
+.mlock[aria-pressed="true"], .mpin[aria-pressed="true"] { opacity: 1; filter: none; }
 /* the picker's two lenses share the select dress of the day bar */
 .mp-controls select {
   padding: 7px 9px; font-size: 12.5px; min-width: 0; max-width: 48%;

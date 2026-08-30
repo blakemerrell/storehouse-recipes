@@ -684,9 +684,12 @@ module.exports = {
     await z.waitForTimeout(250);
     await z.click('#macroTargBtn');
     await z.waitForTimeout(200);
-    t.ok('every meal shows its share of the day, defaulted by kind',
+    /* The kind defaults are 20/25/35/10 — a 90 — and the save that switched
+       breakfast to custom sections has already squared them to 100, so what
+       shows here is the rescaled quartet. */
+    t.ok('every meal shows its share of the day, squared to 100',
       await z.evaluate(() =>
-        [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',') === '20,25,35,10'),
+        [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',') === '22,28,39,11'),
       await z.evaluate(() => [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',')));
     await z.fill('#mtMeals .mtm-row:first-child .mtm-share', '60');
     await z.click('[data-mtarg="save"]');
@@ -701,5 +704,95 @@ module.exports = {
       w60 !== null && w60 >= w20.x, '×' + w20.x + ' → ×' + w60);
 
     await z.context().close();
+
+    /* ---- shares that square to 100, pins, and the family's plan --------- */
+    const y = await t.fresh();
+    await y.click('.tab[data-view="macros"]');
+    await y.waitForTimeout(150);
+
+    // shares normalize on Save, and the total line tells the truth meanwhile
+    await y.click('#macroTargBtn');
+    await y.waitForTimeout(200);
+    t.ok('the total line reads the default shares as they are',
+      /add to 90%/.test(await y.textContent('#mtmTotal')), await y.textContent('#mtmTotal'));
+    for (let i = 1; i <= 4; i++) {
+      await y.fill('#mtMeals .mtm-row:nth-child(' + i + ') .mtm-share', '10');
+    }
+    t.ok('and follows the boxes as they change',
+      /add to 40%/.test(await y.textContent('#mtmTotal')), await y.textContent('#mtmTotal'));
+    await y.click('[data-mtarg="save"]');
+    await y.waitForTimeout(300);
+    await y.click('#macroTargBtn');
+    await y.waitForTimeout(200);
+    t.ok('Save rescales equal shares to a clean hundred',
+      await y.evaluate(() =>
+        [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',') === '25,25,25,25'),
+      await y.evaluate(() => [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',')));
+    t.ok('and says so', /add to 100%/.test(await y.textContent('#mtmTotal')));
+    await y.click('.sheet-x');
+    await y.waitForTimeout(300);
+
+    // pin a plate; a brand-new today arrives with it already served
+    await y.click('[data-mslot="b"]');
+    await y.waitForTimeout(200);
+    await y.click('.mpick-row[data-mpx]');
+    await y.waitForTimeout(300);
+    const pinned = await y.evaluate(() => {
+      const b = document.querySelector('.mitem-name');
+      return { id: b.dataset.open, x: Number(b.dataset.mx) };
+    });
+    await y.click('[data-mpin="b:0"]');
+    await y.waitForTimeout(200);
+    t.ok('the pin takes hold on the plate and in the meal',
+      await y.evaluate((id) => {
+        const btn = document.querySelector('[data-mpin="b:0"]');
+        const slots = JSON.parse(localStorage.getItem('bsc.macroSlots'));
+        const b = slots.list.find((s) => s.k === 'b');
+        return btn.getAttribute('aria-pressed') === 'true' &&
+          b.pins && b.pins.length === 1 && String(b.pins[0].id) === id;
+      }, pinned.id));
+    await y.evaluate(() => localStorage.removeItem('bsc.macroDays'));   // tomorrow, in effect
+    await y.reload();
+    await y.waitForTimeout(400);
+    t.ok('a new day wakes up with the routine already on it',
+      await y.evaluate(([id, x]) => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = days[Object.keys(days)[0]];
+        return day.b.length === 1 && String(day.b[0].id) === id && day.b[0].x === x &&
+          document.querySelector('[data-mpin="b:0"]').getAttribute('aria-pressed') === 'true';
+      }, [pinned.id, pinned.x]));
+    await y.click('[data-mpin="b:0"]');
+    await y.waitForTimeout(200);
+    t.ok('unpinning stops tomorrow but keeps today’s copy',
+      await y.evaluate(() => {
+        const slots = JSON.parse(localStorage.getItem('bsc.macroSlots'));
+        const b = slots.list.find((s) => s.k === 'b');
+        return (!b.pins || !b.pins.length) && document.querySelectorAll('.mitem').length === 1;
+      }));
+
+    // the family's plan feeds in as a picker lens, portioned for your targets
+    const famIds = await y.evaluate(() => {
+      const wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
+      const picks = window.RECIPES.filter((r) => r.book === 2 && r.secNum === 3).slice(0, 2);
+      picks.forEach((r) => window.Store.addToDay(r.id, wd, 1));
+      return picks.map((r) => String(r.id));
+    });
+    await y.waitForTimeout(300);
+    await y.click('[data-mslot="d"]');
+    await y.waitForTimeout(200);
+    t.ok('the picker offers the family’s plan when there is one',
+      await y.evaluate(() => {
+        const o = [...document.querySelectorAll('#mpSec option')].find((x) => x.value === 'family');
+        return !!o && /plan \(2\)/.test(o.textContent);
+      }));
+    await y.selectOption('#mpSec', 'family');
+    await y.waitForTimeout(200);
+    t.ok('and choosing it shows exactly what the family is having, fit-portioned',
+      await y.evaluate((ids) => {
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
+        return rows.length === 2 && rows.every((r) => ids.indexOf(r.dataset.mpick) >= 0);
+      }, famIds));
+
+    await y.context().close();
   },
 };

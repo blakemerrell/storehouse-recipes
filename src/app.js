@@ -1116,9 +1116,27 @@
     $('macroNext').disabled = k >= todayK;
 
     var targets = mReadTargets();
-    var day = mDay(k);
-
     var slots = mReadSlots();
+
+    /* A new today arrives with the routine already on it: anything pinned to
+       a meal is placed at its pinned portion the first time today is looked
+       at. Only today, and only when the day does not exist yet — history and
+       half-built days are never re-seeded, and unpinning tomorrow is done by
+       unpinning, not by deleting today's copy. */
+    if (k === todayK && !MDAYS[k]) {
+      var anyPins = false;
+      slots.list.forEach(function (s) { if (s.pins && s.pins.length) anyPins = true; });
+      if (anyPins) {
+        mEditDay(k, function (day0) {
+          slots.list.forEach(function (s) {
+            (s.pins || []).forEach(function (p) {
+              if (BY_ID[p.id]) (day0[s.k] = day0[s.k] || []).push({ id: p.id, x: p.x || 1, eaten: 0 });
+            });
+          });
+        });
+      }
+    }
+    var day = mDay(k);
 
     // nothing to draft once every meal has something on it
     $('macroFill').disabled = slots.list.every(function (s) { return (day[s.k] || []).length; });
@@ -1140,10 +1158,14 @@
       /* Rows map over the STORED array so data attributes carry storage
          indexes; an unresolvable id (a deleted own recipe) renders as nothing
          but is never purged, the same bargain renderPlan strikes. */
+      var srec = null;
+      slots.list.forEach(function (s) { if (s.k === sk) srec = s; });
+      var pins = (srec && srec.pins) || [];
       var rows = items.map(function (it, i) {
         var r = BY_ID[it.id];
         if (!r) return '';
         var tag = sk + ':' + i;
+        var pinned = pins.some(function (p) { return p.id === it.id; });
         /* The tick and the name are separate targets on purpose: the box says
            "I ate it", the name opens the recipe to see what "it" is. When the
            two shared a label, reading the recipe cost you a phantom tick. */
@@ -1153,6 +1175,12 @@
             '<button class="mitem-name" data-open="' + esc(String(r.id)) +
               '" data-mx="' + it.x + '">' + esc(r.name) + '</button></span>' +
           '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+          /* The pin is the routine: pinned to this meal, at this portion, on
+             every new day — the Crio Brü that opens every morning without
+             being asked for. Unpinning stops tomorrow; today keeps its copy. */
+          (onPlan ? '<button class="mpin no-print" data-mpin="' + tag + '" aria-pressed="' +
+            (pinned ? 'true' : 'false') + '" aria-label="' +
+            (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">&#128204;</button>' : '') +
           /* The lock guards against the MACHINE, not the person: Rebalance
              leaves a locked plate alone, but the stepper still works — a
              hand on the dial is the person changing their mind. */
@@ -1227,9 +1255,23 @@
      fit. Search narrows what is ranked; it does not outrank the fit, because
      somebody typing "chicken" into a macro picker still wants the portion
      that suits the day, not the best textual match at any size. */
+  /* What the household is cooking on this weekday, per the active week's
+     plan. The family plan has no dates — Monday is just Monday — so the
+     macro day borrows its weekday. Nothing new to enter anywhere: if the
+     family planned it, it is on offer, portioned for your own targets. */
+  function mFamilyIds(k) {
+    var wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][keyDate(k).getDay()];
+    var ids = [];
+    window.Store.day(wd).forEach(function (e) {
+      if (BY_ID[e.id] && ids.indexOf(e.id) < 0) ids.push(e.id);
+    });
+    return ids;
+  }
+
   function macroPickerHTML() {
     var name = S.macroPick.n;
     var d = keyDate(mViewKey());
+    var fam = mFamilyIds(mViewKey());
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
         '<div class="sheet-top">' +
@@ -1245,6 +1287,8 @@
              fit-ranked portions behind. */
           '<select id="mpSec" aria-label="Which recipes">' +
             '<option value="meal"' + (S.mpSec === 'meal' ? ' selected' : '') + '>For this meal</option>' +
+            (fam.length ? '<option value="family"' + (S.mpSec === 'family' ? ' selected' : '') +
+              '>On the family\u2019s plan (' + fam.length + ')</option>' : '') +
             '<option value="all"' + (S.mpSec === 'all' ? ' selected' : '') + '>Every recipe</option>' +
             (function () {
               var out = '', bk = 0;
@@ -1272,10 +1316,12 @@
 
   function mpListHTML() {
     var qs = S.mpQuery.trim().toLowerCase();
+    var fam = S.mpSec === 'family' ? mFamilyIds(mViewKey()) : null;
     var pool = RECIPES.filter(function (r) {
       var sk = r.book + '-' + r.secNum;
       if (S.mpSec === 'meal' && S.macroPick.secs.indexOf(sk) < 0) return false;
-      if (S.mpSec !== 'meal' && S.mpSec !== 'all' && sk !== S.mpSec) return false;
+      if (fam && fam.indexOf(r.id) < 0) return false;
+      if (!fam && S.mpSec !== 'meal' && S.mpSec !== 'all' && sk !== S.mpSec) return false;
       if (qs && !matchRank(r, qs)) return false;
       return true;
     });
@@ -1389,6 +1435,7 @@
           'small for a snack &mdash; so the suggestions come out meal-sized and snack-sized ' +
           'instead of four equal plates.</p>' +
         '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
+        '<div class="mt-kcal" id="mtmTotal"></div>' +
         '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-mtarg="save">Save</button>' +
@@ -1461,6 +1508,20 @@
      applied. Two commit buttons on one sheet is a trap; now the plan writes
      straight into the boxes as the profile changes, and Save keeps whatever
      the boxes say, hand-typed or worked out. */
+  /* The running total under the meal shares. It never rewrites the boxes —
+     fields that rescale each other mid-edit fight the fingers typing them —
+     it only says what they add to now, and that Save squares the books. */
+  function mtmShowTotal() {
+    var el = $('mtmTotal');
+    if (!el) return;
+    var sum = 0;
+    Array.prototype.forEach.call(document.querySelectorAll('#mtMeals .mtm-share'), function (i) {
+      sum += Math.max(0, Math.round(Number(i.value) || 0));
+    });
+    el.textContent = sum === 100 ? 'The shares add to 100%.'
+      : 'The shares add to ' + sum + '% — Save rescales them to 100.';
+  }
+
   function mtRefreshPlan() {
     var plan = mPlanCalc(mtProfileFromDom());
     var el = $('mtPlan');
@@ -3032,7 +3093,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin',
     'data-mtsex', 'data-mtgoal'];
 
   function focusKey(el) {
@@ -3122,6 +3183,7 @@
       if (!prev || !prev.querySelector('.mt-sheet')) {
         root.innerHTML = macroTargetsHTML();
         document.body.style.overflow = 'hidden';
+        mtmShowTotal();
       }
       return;
     }
@@ -3941,6 +4003,25 @@
         keepingFocus(renderMacros);
         return;
       }
+      var pn = e.target.closest('[data-mpin]');
+      if (pn) {
+        var pp = pn.dataset.mpin.split(':');
+        var pit = (mDay(mViewKey())[pp[0]] || [])[Number(pp[1])];
+        if (!pit) return;
+        var pslots = mReadSlots();
+        var psrec = null;
+        pslots.list.forEach(function (s) { if (s.k === pp[0]) psrec = s; });
+        if (!psrec) return;
+        psrec.pins = psrec.pins || [];
+        var pat = -1;
+        psrec.pins.forEach(function (p, i2) { if (p.id === pit.id) pat = i2; });
+        if (pat >= 0) psrec.pins.splice(pat, 1);
+        else psrec.pins.push({ id: pit.id, x: pit.x });
+        mWriteSlots(pslots);
+        keepingFocus(renderMacros);
+        return;
+      }
+
       var lk = e.target.closest('[data-mlock]');
       if (lk) {
         var lp = lk.dataset.mlock.split(':');
@@ -4219,6 +4300,7 @@
           mrow.parentNode.insertBefore(mrow, mrow.previousElementSibling);
           mm.focus();
         }
+        mtmShowTotal();
         return;
       }
 
@@ -4256,6 +4338,28 @@
             mlist.push(mrec);
           });
           if (mlist.length) {
+            // pins ride along under the same key — saving the sheet must not
+            // cost anybody their morning routine
+            var keepPins = mReadSlots();
+            mlist.forEach(function (s) {
+              keepPins.list.forEach(function (ps) {
+                if (ps.k === s.k && ps.pins && ps.pins.length) s.pins = ps.pins;
+              });
+            });
+            /* Whatever the boxes added to, the saved shares add to 100 — a
+               proportional rescale, rounded, with the drift handed to the
+               biggest meal, where a point is least felt. */
+            var sumW = 0;
+            mlist.forEach(function (s) { sumW += mSlotW(s); });
+            if (sumW > 0) {
+              var acc = 0, biggest = mlist[0];
+              mlist.forEach(function (s) {
+                s.w = Math.max(1, Math.round(100 * mSlotW(s) / sumW));
+                acc += s.w;
+                if (s.w > biggest.w) biggest = s;
+              });
+              biggest.w += 100 - acc;
+            }
             var prevSlots = mReadSlots();
             var mnames = prevSlots.names || {};
             mlist.forEach(function (s) { mnames[s.k] = s.n; });
@@ -4305,6 +4409,8 @@
       }
       // and the plan preview follows the profile boxes
       if (S.macroTargOpen && /^mt(Age|Ft|In|Lb)$/.test(e.target.id)) mtRefreshPlan();
+      // and the share total follows the share boxes
+      if (S.macroTargOpen && e.target.classList.contains('mtm-share')) mtmShowTotal();
     });
 
     // a select fires change, not input, in enough browsers to matter
