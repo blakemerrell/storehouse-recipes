@@ -426,6 +426,47 @@ module.exports = {
     t.ok('every packaged mix has the liquid the packet needs',
       packets.length === 0, packets.join('; '));
 
+    /* The other direction: a step calling for something the recipe has not got.
+     *
+     * The existing check reads the ingredient list and asks whether the method
+     * uses it. This asks the reverse, and it exists because of a mistake of
+     * mine: a step written for No. 072 landed on No. 071 by a one-digit slip,
+     * telling a sheet-pan roast to fry its chicken and toss it in hot sauce
+     * and ranch — neither of which that recipe has. Nothing caught it. I found
+     * it reading the book.
+     *
+     * Deliberately a short list of distinctive foods rather than every word: a
+     * step may reasonably mention water, salt, a pan or an oven without those
+     * being ingredients, and a check that flags those is a check nobody
+     * keeps. */
+    const ghosts = await p.evaluate(() => {
+      /* Not "gravy": four recipes make gravy, so "the gravy" in a step is the
+         thing being produced rather than a thing being reached for. Same trap
+         for anything a recipe can output. */
+      const NAMED = ['hot sauce', 'ranch', 'mayo', 'salsa', 'ketchup', 'mustard',
+        'soy sauce', 'bbq sauce', 'sour cream', 'yogurt', 'cottage cheese',
+        'peanut butter', 'cheddar', 'parmesan', 'bacon', 'sausage', 'tortilla',
+        'macaroni', 'spaghetti', 'broccoli', 'banana', 'raisin', 'oats'];
+      const out = [];
+      window.RECIPES.filter((r) => r.book < 3).forEach((r) => {
+        const ing = (r.ing || []).join(' ').toLowerCase();
+        const lift = r.lift ? (r.lift.with + ' ' + (r.lift.steps || []).join(' ')).toLowerCase() : '';
+        (r.steps || []).forEach((step) => {
+          const st = String(step).toLowerCase();
+          NAMED.forEach((n) => {
+            /* "the hot sauce" / "with the ranch" — a definite article means the
+               step believes it is already on the list. */
+            if (!new RegExp('\\bthe ' + n + '\\b').test(st)) return;
+            if (ing.indexOf(n) >= 0 || lift.indexOf(n) >= 0) return;
+            out.push('no.' + r.no + ' cooks with "the ' + n + '" and has none (' + r.name + ')');
+          });
+        });
+      });
+      return out;
+    });
+    t.ok('no step reaches for an ingredient the recipe does not have',
+      ghosts.length === 0, ghosts.join('; '));
+
     /* ------------------------------------------------- and the shell says so
      *
      * The landing page's counts are stamped and guarded. index.html's were

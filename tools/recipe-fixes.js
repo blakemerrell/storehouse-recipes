@@ -887,5 +887,172 @@ module.exports = [
      only knew "browned" and "until brown". Reading them is the only way to
      tell, which is the lesson of every sweep in this file. */
   { id: 65, step: 2, set: 'Bake on a sheet pan at 375°F for 45 minutes, turning the vegetables once. Pork is done at 145°F at the thickest point, with a faint blush still in it — cooked to grey it is dry, and this is the one meat where people routinely overshoot. Rest it 5 minutes before portioning.' },
-  { id: 73, step: 0, set: 'Cook the diced chicken in a skillet over medium-high for about 8 minutes, until no pink is left and a piece cut open at the thickest part reads 165°F, then toss with the hot sauce and ranch.' },
+  /* This step was written for No. 072, the buffalo chicken, and landed on
+     No. 071 by a one-digit slip of mine — id 73 instead of 74. It told a
+     sheet-pan roast to fry its chicken in a skillet and then toss it in hot
+     sauce and ranch, neither of which the recipe has. Found by reading the
+     book rather than by any check, which is why the guard below now exists. */
+  { id: 73, step: 0, set: 'Heat the oven to 400°F.' },
+  { id: 74, step: 0, set: 'Cook the diced chicken in a skillet over medium-high for about 8 minutes, until no pink is left and a piece cut open at the thickest part reads 165°F, then toss it with the hot sauce and ranch while it is still hot — the sauce clings to hot chicken and slides off cold.' },
+
+  /* ---- reading all 277, batch 1: Nos. 001-046 ---------------------------
+   *
+   * Not a scan. Every recipe read against the six things a scan could not
+   * check: quantities usable, a doneness cue where something cooks, a warning
+   * where there is one way to ruin it, titles delivering what they promise,
+   * yields matching what the method makes, and safe temperatures for meat.
+   *
+   * Eleven in this batch. Two of them do not work as written.
+   */
+
+  /* Raw grated potato pressed into a muffin cup, an egg cracked on top, and
+     twenty minutes. The egg sets in twelve; the potato is still raw at
+     twenty-five. The crust has to go in on its own first, which is the
+     difference between this recipe working and not. */
+  { id: 38, step: 2, set: 'Bake the potato shells on their own for 15 minutes first, until the edges are going gold. Raw grated potato will not cook through in the time an egg needs — it comes out crunchy in the wrong way. Then crack an egg into each and season with salt and pepper.' },
+  { id: 38, step: 3, set: 'Back in at 375°F for 12 to 14 minutes, until the whites are set and the yolks still soft. Give them 3 minutes more if you want the yolk hard.' },
+
+  /* Cubed raw potato and raw ground beef in a pan together for ten minutes,
+     "until crispy/cooked" — a slash where the two foods disagree. Potato
+     wants fifteen minutes and beef wants eight, so the potato goes in first. */
+  { id: 43, step: 0, set: 'Fry the cubed potatoes in a little oil over medium-high for about 10 minutes first, turning them, until they are gold and give under a spoon. Then add the ground beef and cook 6 to 8 minutes more, breaking it up, until no pink is left. Both in at once leaves you raw potato and overcooked beef.' },
+
+  /* Both hard-boiled egg recipes list the eggs already boiled and never say
+     how, which is fine for somebody who knows and no use at all to somebody
+     who does not. It is also the one egg with a definite answer. */
+  { id: 4, step: 0, set: 'Hard-boil the eggs if they are not already: lower them into water at a rolling boil, 10 minutes for a firm yolk with no grey ring, then straight into cold water for a minute — that is what makes them peel. Peel them.' },
+  { id: 17, step: 0, set: 'Hard-boil the eggs if they are not already — 10 minutes in water at a rolling boil, then a minute in cold water, which is what makes them peel. Peel them into a bowl.' },
+
+  /* Gelatin whipped while it is still hot liquid does nothing at all: it
+     needs to be part-set before there is anything for the beaters to hold
+     air in. The recipe is called a cloud and cannot make one. */
+  { id: 96, time: '1 hr 15 mins', steps: [
+    'Dissolve the gelatin in 1 cup of hot water and stir until no grains are left on the bottom.',
+    'Stir in the dry milk, then chill 45 minutes to an hour, until it is as thick as raw egg white and mounds slightly on a spoon. Whipping it hot does nothing — there is nothing yet for the air to hold on to.',
+    'Now whip it 3 minutes with a hand mixer, until it has doubled and gone pale, then chill 1 hour more to set.'] },
+
+  /* An omelet called fluffy, made by whisking eggs and pouring them in. */
+  { id: 45, step: 0, set: 'Whisk the eggs hard for a good 30 seconds, until they are pale and frothy with bubbles on top — that air is the whole of "fluffy", and it goes flat if the pan is not ready. Fold in the cottage cheese and pepper at the end, gently.' },
+
+  /* A crisp is not raw oats on hot fruit. */
+  { id: 80, step: 2, set: 'Toast the oats in a dry pan for 2 to 3 minutes until they smell nutty, then sprinkle them over. Raw oats on warm apple go slack; the crisp in the title is toasted oats.' },
+
+  /* Cues and heats the scan could not supply. */
+  { id: 34, step: 2, set: 'Pour into the waffle iron and cook about 4 minutes, but go by the steam rather than the clock — a waffle is done when the steam coming out of the sides has mostly stopped. Irons vary more than recipes admit.' },
+  { id: 42, step: 0, set: 'Simmer the oats in 1 cup of water over medium heat for about 3 minutes, stirring, until they thicken and the water has gone.' },
+  { id: 49, step: 0, set: 'Microwave the oats in 1 cup of water for 2 minutes, in a bowl at least twice as big as it needs to be — oats and water climb the sides and go over.' },
+  { id: 48, step: 1, set: 'Cook the sausage and onions in a skillet over medium heat for about 5 minutes, breaking the sausage up, until no pink is left in it.' },
+  { id: 48, step: 3, set: 'Bake at 350°F for 18 minutes, until the egg is set at the centre and does not wobble when you nudge the tin.' },
+
+  /* ---- reading all 277, batch 2: Nos. 047-100 ---------------------------
+   * Four more, and one of them is a burn risk rather than a matter of taste.
+   */
+
+  /* Two drinks say to put hot liquid in a blender and put the lid on. Steam
+     expands, the lid goes, and what comes out is a scalding cocoa across the
+     ceiling and whoever was holding it. This is the one genuinely dangerous
+     instruction in the collection. */
+  { id: 26, step: 2, set: 'Blend on high 15 seconds until frothy — but let the Crio Bru cool for five minutes first, or leave the lid cracked with a towel over it. A sealed blender of near-boiling liquid builds steam and lifts its own lid, and what comes out goes over whoever is holding it.' },
+  { id: 47, step: 1, set: 'Let the Crio Bru stand five minutes off the boil, then blend it with the whey, brown sugar and salt for 15 seconds. Hot liquid in a sealed blender builds steam and blows the lid off — if it must go in hot, leave the lid cracked and cover it with a folded towel.' },
+
+  /* A fluff with nothing whipped in it. Same fault as No. 044 and the same
+     answer: gelatin has to be part-set before it will hold air. */
+  { id: 78, time: '2 hrs 15 mins', steps: [
+    'Dissolve the gelatin packet in 1 cup of boiling water, stirring until no grains are left.',
+    'Whisk in the chocolate whey.',
+    'Chill 45 minutes, until it has thickened to about the consistency of raw egg white — it will not whip before that, and this is the step the recipe was missing.',
+    'Whip 2 to 3 minutes with a hand mixer until pale and doubled, then refrigerate 90 minutes until set.'] },
+
+  /* ---- reading all 277, batch 3: Nos. 101-145 ---------------------------
+   *
+   * Five recipes name their main ingredient with no amount at all — "Waffle
+   * mix", "Rolled oats", "Pancake mix", "broccoli", "green beans" — which is
+   * the base of the dish in three cases. Scanning for unquantified lines
+   * found 23; the other eighteen are "dash vanilla", "pinch brown sugar",
+   * sour cream as a topping, cilantro as a garnish and lollipop sticks, all
+   * of which are right as they are. A quantity is only missing when its
+   * absence leaves you guessing.
+   */
+  { id: 101, ing: ['2 cups waffle mix', '2 eggs', '1 cup milk', '2 tbsp butter', '1 can peaches', '1 tsp cinnamon', '¼ cup syrup'] },
+  { id: 102, ing: ['2 cups rolled oats', '2 cups milk', '2 eggs', '2 tbsp butter', '1 tsp cinnamon', '½ cup brown sugar', '¼ cup raisins'] },
+  { id: 104, ing: ['3 cups pancake mix', '1.5 cups milk', '1 egg', '2 tbsp butter', 'syrup'] },
+  { id: 68, ing: ['2 lbs chicken breast', '16 oz macaroni', '1 can cream of chicken', '1 lb broccoli'] },
+  { id: 72, ing: ['1.2 lbs stewing beef', '2 cups instant potatoes', '1 can green beans'] },
+
+  /* And the glaze No. 113 drizzles is never made — butter and brown sugar sit
+     on the list and step four calls the result a glaze without ever having
+     mixed one. */
+  { id: 102, step: 3, set: 'Melt the butter with the brown sugar in a small pan over low heat, stirring, until the sugar has dissolved into it — about a minute. That is the glaze. Drizzle it over the top while the bake is still warm so it soaks in.' },
+
+  /* A pound of dry macaroni with one cup of cheese and a quarter cup of milk
+     is not a sauce, it is dry pasta with cheese in it. The alfredo bake's
+     second fault, at a smaller scale. */
+  { id: 131, ing: ['1 pkg (16 oz) macaroni', '2.5 cups cheddar', '1 cup milk', '4 tbsp butter', '4 sliced beef franks'] },
+  { id: 131, step: 2, set: 'Melt the butter into the drained pasta, then add the milk and the cheddar a handful at a time over low heat, stirring until each lot has gone before the next. Off a hard boil — cheese boiled into milk goes grainy. Stir the frank coins through at the end.' },
+
+  /* Ground beef is the one meat where the temperature is not optional: a
+     whole cut is sterile inside, a patty has its outside ground through it. */
+  { id: 132, step: 1, add: 'Ground beef wants 160°F all the way through, not the pink middle a steak can have — grinding puts the outside of the meat on the inside.' },
+
+  /* ---- reading all 277, batches 4 and 5: Nos. 146-277 -------------------
+   * Nine more. Three of them cannot produce what they describe.
+   */
+
+  /* A pound of dry macaroni, one can of soup and half a cup of milk. That is
+     the alfredo bake's second fault again — not enough sauce by half. */
+  { id: 141, ing: ['16 oz macaroni', '2 cans tomato soup', '1 cup milk', '1 cup cheddar'] },
+
+  /* Raw cubed potato and sliced franks in a pan together for twelve minutes.
+     The franks are already cooked and the potato is not; twelve minutes is
+     the frank's time, not the potato's. */
+  { id: 149, step: 0, set: 'Fry the cubed potatoes in a little oil over medium heat for 12 to 15 minutes first, turning them, until a corner crushes under a spoon. Then add the onion and the frank coins and give it 5 minutes more — the franks are already cooked and only want colour. Serve with ketchup.' },
+
+  /* Diced raw chicken, ten minutes, no check. */
+  { id: 167, step: 0, set: 'Sauté the peppers, onions and diced chicken over medium-high about 10 minutes, until the chicken is white through and a piece cut at the thickest point reads 165°F.' },
+
+  /* A cup of raw rice in a slow cooker for six hours. Rice is done in forty
+     minutes and then keeps drinking: six hours turns the soup into a solid
+     block of starch that has absorbed all four cups of water. */
+  { id: 173, step: 0, set: 'Put the chicken, carrots, onions and water into the slow cooker — but keep the rice back. A cup of raw rice given six hours drinks every drop of the liquid and turns the soup into a solid block.' },
+  { id: 173, step: 1, set: 'Cook on LOW 6 hours, then lift the chicken out and shred it. Stir the rice in for the last 45 minutes only, or cook it separately and add it to the bowls — either works; six hours in the pot does not.' },
+
+  /* Two cans of green beans given eight hours in a slow cooker. They were
+     cooked in the can before they went in. */
+  { id: 199, step: 0, set: 'Place the stewing beef, quartered potatoes and tomato sauce in the slow cooker. Keep the green beans out — they are cooked already, in the can, and eight hours turns them to threads.' },
+  { id: 199, step: 1, set: 'Cook on LOW for 8 hours until the beef falls apart, then stir the drained green beans through and give them 10 minutes to warm.' },
+
+  /* A pudding with no milk. The packet guard missed this one because the
+     ingredient says "1 pkg vanilla pudding" and not "pudding mix" — which is
+     why the guard now matches both. */
+  { id: 210, ing: ['3 ripe bananas (sliced)', '1 pkg vanilla pudding mix', '2 cups milk', '1 cup oats', '½ cup butter', '¼ cup sugar'] },
+  { id: 210, step: 1, set: 'Whisk the pudding mix with the 2 cups of cold milk for two minutes until it thickens, then layer it with the banana slices in the dish.' },
+
+  /* Flour, peanut butter and butter, and nothing else. That is not a cookie
+     dough — it is 1½ cups of dry flour with half a cup of fat, which will not
+     come together into a ball however long you mix it. It wants sugar, an
+     egg and a raising agent, and then it is a thumbprint cookie. */
+  {
+    id: 213,
+    time: '25 mins',
+    ing: ['1.5 cups flour', '½ cup peanut butter', '½ cup butter (softened)', '¾ cup sugar',
+      '1 egg', '½ tsp baking powder', 'salt', '¼ cup strawberry jam'],
+    steps: [
+      'Heat the oven to 350°F.',
+      'Beat the softened butter, peanut butter and sugar together until light, then beat in the egg.',
+      'Stir in the flour, baking powder and a pinch of salt until it comes together into a soft dough. Flour and fat alone will not — it needs the sugar and the egg to bind, which is the difference between a dough and a bowl of crumbs.',
+      'Roll into 12 balls, set them well apart on a lined sheet, and press a deep thumbprint into each.',
+      'Spoon jam into the hollows and bake 12 to 14 minutes, until the edges are set and just colouring. They firm up as they cool.'
+    ]
+  },
+
+  /* Cocoa on the ingredient list and never used, and the milk doing the work
+     of both. */
+  { id: 214, step: 1, set: 'Mix in the cocoa and the milk until it comes together into a fudgy dough that holds a shape when squeezed. Add the milk a teaspoon at a time — too much and it will not hold a stick.' },
+
+  /* You cannot melt cocoa powder. Cocoa is a dry powder and butter and sugar
+     alone will seize into a paste; it needs liquid to become a sauce you can
+     dip a banana in. */
+  { id: 220, ing: ['2 bananas (halved)', '¼ cup cocoa powder', '¼ cup butter', '¼ cup sugar',
+    '2 tbsp milk', '4 wooden sticks'] },
+  { id: 220, step: 1, set: 'Melt the butter in a small pan over low heat, then whisk in the sugar, the cocoa and the milk until it is glossy and pours off the spoon in a ribbon. Cocoa is a dry powder — without the milk it seizes into a paste you cannot dip anything in.' },
 ];
