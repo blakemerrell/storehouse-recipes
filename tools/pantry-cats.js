@@ -50,6 +50,7 @@ const NOT_STOCKED = {
   hot_sauce: 'no hot sauce',
   light_mayo: 'plain mayo is stocked; the light one is not',
   light_ranch: 'plain ranch is stocked; the light one is not',
+  parmesan: 'the storehouse cheese is cheddar',
   salsa_verde: 'red salsa only',
   soy_sauce: 'no soy sauce',
   whey: 'the storehouse protein is non-fat dry milk',
@@ -106,6 +107,7 @@ const CATS = {
   // Dairy and eggs
   butter: 'Dairy and eggs',
   cheddar: 'Dairy and eggs',
+  parmesan: 'Dairy and eggs',
   cottage_cheese: 'Dairy and eggs',
   cream_cheese: 'Dairy and eggs',
   egg: 'Dairy and eggs',

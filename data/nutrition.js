@@ -40,6 +40,12 @@ const FOODS = {
   evaporated_milk: { kcal: 134, p: 6.8,  c: 10,   f: 7.6, na: 106, fib: 0,  g: { cup: 252, can: 354 }, label: 'Evaporated milk', note: '12 fl oz' },
   cottage_cheese:  { kcal: 84,  p: 11,   c: 4.3,  f: 2.3, na: 330, fib: 0,  g: { cup: 226, tbsp: 14 }, label: 'Cottage cheese', note: '2% cottage cheese' },
   cheddar:         { kcal: 403, p: 23,   c: 3.1,  f: 33, na: 653, fib: 0,   g: { cup: 113, tbsp: 7, oz: 28.35, each: 28 }, label: 'Cheddar cheese', def: { qty: 0.5, unit: 'cup' }, note: 'shredded; "cheddar slice" = 28 g' },
+  /* Not on the storehouse order — it is an extra in the two recipes that use
+     it — but it has to be in the table or the recipes that call for a cup of
+     it are scored as though it were not there. A cup grated is 100 g, which is
+     far lighter than a cup of shredded cheddar; it is a drier cheese and grates
+     into flakes rather than shreds. */
+  parmesan:        { kcal: 420, p: 38,   c: 4.1,  f: 28, na: 1600, fib: 0,  g: { cup: 100, tbsp: 6, oz: 28.35 }, label: 'Parmesan cheese', def: { qty: 0.25, unit: 'cup' }, note: 'grated; not on the storehouse order' },
   cream_cheese:    { kcal: 350, p: 6,    c: 5.5,  f: 34, na: 314, fib: 0, label: 'Cream cheese',   g: { cup: 232, tbsp: 14.5 } },
   sour_cream:      { kcal: 198, p: 2.4,  c: 4.6,  f: 19.4, na: 45, fib: 0, g: { cup: 230, tbsp: 14.4 }, label: 'Sour cream', def: { qty: 2, unit: 'tbsp' } },
   vanilla_yogurt:  { kcal: 85,  p: 4.9,  c: 13.8, f: 1.3, na: 66, fib: 0,  g: { cup: 245, tbsp: 15 }, label: 'Vanilla yogurt', note: 'lowfat vanilla yogurt' },
@@ -201,6 +207,10 @@ const ALIASES = {
   'cottage cheese': 'cottage_cheese', 'cottage/cream cheese': 'cottage_cheese',
   'cream cheese': 'cream_cheese',
   'cheddar': 'cheddar', 'cheddar cheese': 'cheddar', 'cheddar slices': 'cheddar', 'cheddar slice': 'cheddar', 'cheese': 'cheddar',
+  /* Kept after the cheddar line so that bare "cheese" still means cheddar,
+     which is the cheese the storehouse carries and the one every other recipe
+     means by the word. */
+  'parmesan': 'parmesan', 'parmesan cheese': 'parmesan', 'grated parmesan': 'parmesan',
   'sour cream': 'sour_cream',
   'vanilla yogurt': 'vanilla_yogurt', 'yogurt': 'vanilla_yogurt',
   'butter': 'butter', 'melted butter': 'butter', 'spray butter': 'spray_butter',

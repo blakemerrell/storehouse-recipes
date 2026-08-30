@@ -1078,7 +1078,7 @@
             return '<div class="rp-step"><div class="rp-step-n">' + (i + 1) + '</div>' +
               '<div class="rp-step-t">' + xref(esc(t), false) + '</div></div>';
           }).join('') +
-        '</div></div>' +
+        '</div>' + liftHTML(r, false) + '</div>' +
       '</div>' +
       '<div class="rp-foot">' +
         '<span>' + esc(macroLine(r)) + '</span>' +
@@ -1919,6 +1919,46 @@
      and the reference substituted after — never the other way round. */
   function stepHTML(t) { return xref(esc(t), true); }
 
+  /* "Better with a few extras".
+   *
+   * Everything above this block comes off the storehouse order, and the recipe
+   * has to be worth cooking with only that — the whole promise of the book is
+   * that the order is enough. But most kitchens have a jar of something, and a
+   * cook with garlic and a wedge of parmesan should not have to guess where
+   * they would go.
+   *
+   * So: named, numbered from where the method left off, and separate. Never
+   * counted in the macros, never on the shopping list. A recipe that needs its
+   * lift to be any good is a recipe that has not been written properly yet. */
+  function liftHTML(r, live) {
+    var L = r.lift;
+    if (!L || !L.steps || !L.steps.length) return '';
+    var n = (r.steps || []).length;
+
+    /* On paper it is one dense paragraph; on screen it is numbered steps.
+       Same words either way — this is typesetting, not a second copy of the
+       text. A screen scrolls and a page does not, and the first version of
+       this set the alfredo bake 935px tall against 720 of paper, off the
+       bottom of its own sheet even squeezed to the floor. Circles and the gaps
+       between them are what a page cannot afford. */
+    if (!live) {
+      return '<div class="lift"><span class="lift-h">Better with</span> ' +
+        '<span class="lift-w">' + esc(L.with) + '</span> ' +
+        '<span class="lift-p">' + L.steps.map(function (t) {
+          return xref(esc(t), false);
+        }).join(' ') + '</span></div>';
+    }
+
+    return '<div class="lift">' +
+      '<div class="lift-h">Better with a few extras</div>' +
+      '<div class="lift-w">' + esc(L.with) + '</div>' +
+      '<div class="lift-steps">' + L.steps.map(function (t, i) {
+        return '<div class="lift-step"><div class="lift-step-n">' + (n + i + 1) + '</div>' +
+          '<div class="lift-step-t">' + xref(esc(t), true) + '</div></div>';
+      }).join('') + '</div>' +
+    '</div>';
+  }
+
   /* An ingredient this collection has a recipe for.
    *
    * Fifty ingredient lines name something Made, Not Bought produces, and the
@@ -2184,6 +2224,7 @@
           return '<div class="sheet-step"><div class="sheet-step-n">' + (i + 1) + '</div>' +
             '<div class="sheet-step-t">' + stepHTML(t) + '</div></div>';
         }).join('') + '</div>' +
+        liftHTML(r, true) +
         /* The line that answers "do I have to go out for anything?", asked of
            the pantry rather than of the storehouse order the book was written
            against. This is the whole point of the pantry being editable: stop

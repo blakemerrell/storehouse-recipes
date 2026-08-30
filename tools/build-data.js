@@ -49,6 +49,10 @@ FIXES.forEach((f) => {
               that, because the missing part is a step that was never there.
        ing / name / time / diff  the ingredient list and the label, for when
               the method could not be written without them.
+       lift   what the recipe becomes with a few things the storehouse does
+              not carry: the ingredients, and the optional steps that use
+              them. Never counted in the macros, never on the shopping list —
+              the recipe above it has to be worth cooking without any of it.
      All of it lives in recipe-fixes.js so the original export stays untouched
      and every change is visible in one file. */
   if (f.name) r.name = f.name;
@@ -56,6 +60,12 @@ FIXES.forEach((f) => {
   if (f.time) r.time = f.time;
   if (f.diff) r.diff = f.diff;
   if (f.steps) r.steps = f.steps.slice();
+  if (f.lift) r.lift = f.lift;
+  /* extras is what you must buy to cook the recipe at all. Moving an item
+     into a lift makes it optional, so it has to come off that list in the
+     same breath — or the shopping list still sends you out for something the
+     method no longer needs. `null` is a value here, so the test is explicit. */
+  if (f.extras !== undefined) r.extras = f.extras;
   if (f.set !== undefined || f.add !== undefined) {
     if (!r.steps[f.step]) throw new Error('recipe fix does not apply: ' + f.id + ' step ' + f.step);
     if (f.set) r.steps[f.step] = f.set;

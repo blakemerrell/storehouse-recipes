@@ -924,6 +924,7 @@ module.exports = [
       'Decide which kind first. Soft crumbs go into meatballs and meatloaf, where the job is holding moisture. Dry crumbs go on top of things, where the job is going crisp. The same bread makes either.',
       'Soft: tear fresh bread and pulse it a few seconds at a time in a blender. Stale bread will not do this, it powders. Use them the same day — in a covered jar they go mouldy in three.',
       'Dry: slices straight on the oven rack at 300°F for 15 to 20 minutes, turning once, until they snap rather than bend. Cool them completely before crushing, in a blender or in a bag with a rolling pin — warm bread tears instead of shattering.',
+      'Dry, faster: an air fryer does the same job in about 6 minutes at 350°F, and does it better, because the moving air dries the bread through instead of toasting the outside first. Give the slices one layer and shake the basket once. Then cool them and put them through a food processor, which is the one thing that gets crumbs even — a blender leaves half of it powder and half of it lumps.',
       'Salt and nothing else. Crumbs seasoned in the jar are a decision made weeks early; unseasoned ones go into anything. Dry crumbs keep a month with the lid on, and heels and crusts are the right bread for this.',
     ],
     makes: ['breadcrumbs'],

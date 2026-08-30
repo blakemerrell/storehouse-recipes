@@ -271,6 +271,83 @@ module.exports = {
     t.ok('nothing on an ingredient list goes unused by its own method',
       orphans.length === 0, orphans.join('; '));
 
+    /* And nothing you were sent to the shop for, either.
+     *
+     * The check above reads r.ing. "Buy this elsewhere" is r.extras, a
+     * separate list, so it was never covered — and eleven recipes were putting
+     * something on a shopping list that no ingredient line and no step ever
+     * mentioned again. Taco seasoning in five of them, parmesan in the
+     * alfredo bake and the meatball feast, garlic powder, Italian seasoning,
+     * cumin, Worcestershire.
+     *
+     * That is worse than an unused ingredient, because it costs money at a
+     * till on the strength of a recipe that then has no use for it. Found by
+     * the owner cooking No. 190, wondering where the parmesan was meant to go,
+     * and adding it himself.
+     *
+     * Generic tails are stripped before matching, so "Whey Protein" is
+     * satisfied by an ingredient line reading "1 scoop vanilla whey" while
+     * "Parmesan Cheese" is not satisfied by the word "cheese" — the first pass
+     * at this counted twenty-five recipes that were perfectly fine. */
+    const unbought = await p.evaluate(() => {
+      const GENERIC = /^(protein|powder|seasoning|mix|cheese|sauce|spices?)$/;
+      const stem = (w) => w.toLowerCase().replace(/(es|s)$/, '');
+      const out = [];
+      window.RECIPES.forEach((r) => {
+        if (!r.extras) return;
+        const hay = ((r.ing || []).join(' ') + ' ' + (r.steps || []).join(' ')).toLowerCase();
+        String(r.extras).split(/,|;| and /).map((s) => s.trim()).filter(Boolean).forEach((it) => {
+          const words = it.toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/)
+            .filter((w) => w.length > 3);
+          const key = words.filter((w) => !GENERIC.test(w));
+          const need = key.length ? key : words;
+          if (!need.length) return;
+          if (!need.some((w) => hay.indexOf(stem(w)) >= 0)) {
+            out.push('no.' + (r.no || r.id) + ' buys ' + it + ' (' + r.name + ')');
+          }
+        });
+      });
+      return out;
+    });
+    t.ok('and nothing it sends you to the shop for goes unmentioned by the method',
+      unbought.length === 0, unbought.join('; '));
+
+    /* "Better with a few extras" must stay extra.
+     *
+     * The owner keeps herbs and spices the storehouse does not carry, and
+     * wanted the recipes to say what they would do with them — but only after
+     * the recipe is already worth cooking on the order alone, which is the
+     * promise the whole book rests on. So a lift is optional by construction:
+     * its ingredients are named in the block and nowhere in the ingredient
+     * list, which is what keeps them off the shopping list and out of the
+     * macros. Put parmesan in `ing` and it becomes a trip to the shop before
+     * you can cook dinner — which is exactly the mistake made first here, on
+     * the alfredo bake, and undone.
+     *
+     * Its steps also number on from the method rather than restarting at one,
+     * because a cook doing all of it is doing one recipe. */
+    const lifts = await p.evaluate(() => {
+      const bad = [];
+      window.RECIPES.forEach((r) => {
+        if (!r.lift) return;
+        if (!r.lift.with || !(r.lift.steps || []).length) {
+          bad.push('no.' + r.no + ' has a lift with no ingredients or no steps');
+          return;
+        }
+        const ing = (r.ing || []).join(' ').toLowerCase();
+        r.lift.with.split(/,| and /).map((w) => w.trim().toLowerCase())
+          .filter(Boolean).forEach((w) => {
+            const head = w.split(/\s+/).filter((x) => x.length > 3).pop() || w;
+            if (ing.indexOf(head) >= 0) {
+              bad.push('no.' + r.no + ' lifts with ' + w + ', which is already required');
+            }
+          });
+      });
+      return { bad, n: window.RECIPES.filter((r) => r.lift).length };
+    });
+    t.ok('nothing offered as an optional extra is also a required ingredient',
+      lifts.bad.length === 0, lifts.bad.join('; ') + ' (' + lifts.n + ' recipes carry a lift)');
+
     /* ------------------------------------------------- and the shell says so
      *
      * The landing page's counts are stamped and guarded. index.html's were

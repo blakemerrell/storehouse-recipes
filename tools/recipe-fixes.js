@@ -244,4 +244,104 @@ module.exports = [
   { id: 104, name: 'Fluffy Pancake Stack' },
   { id: 211, name: 'Hot Cocoa & Cinnamon Cups' },
   { id: 160, name: 'Creamy Chicken Pasta Casserole' },
+
+  /* ---- eleven things you were sent to the shop for and never told to use --
+   *
+   * Reported by the owner after cooking No. 190, the alfredo bake. He was
+   * confused by the cheese sauce, went and asked elsewhere how to make one,
+   * and came back with a better dish than the book describes.
+   *
+   * Four separate faults in that one recipe, and the same shape underneath
+   * all of them: the recipe knows what it wants and does not say it.
+   *
+   *   - "Whisk evaporated milk, butter, and cheese into sauce" is one line
+   *     doing four jobs. No heat, no order, no thickener, no cue for done.
+   *     Cheddar whisked into evaporated milk with nothing starchy stays thin
+   *     or splits, which is exactly what happened.
+   *   - There was not enough of it. Two cups of sauce for a pound of dry
+   *     pasta and two pounds of chicken, where a baked pasta wants twice
+   *     that, and then twenty minutes in the oven takes more.
+   *   - Parmesan is on the shopping list for this recipe and appears in no
+   *     ingredient line and no step. He added it himself, on top, which is
+   *     where it belongs and where the recipe should have said.
+   *   - The pasta is cooked twice: boiled to done, then baked for twenty
+   *     minutes more.
+   *
+   * The other ten are the third fault on its own — an ingredient the reader
+   * is told to buy and then never told to use. Taco seasoning in five,
+   * garlic powder and Italian seasoning in one, cumin, Worcestershire, and
+   * parmesan again in the meatball feast.
+   *
+   * This is the green bean problem in a different field. The guard written
+   * for that one reads the ingredient list; "buy this elsewhere" is a
+   * separate list, so none of these was ever covered. tests/recipes.test.js
+   * now reads both.
+   *
+   * None of the eleven can be made from the order — the storehouse carries
+   * salt, celery salt, cinnamon and cinnamon sugar, and no other seasoning at
+   * all — so every one of them stays an extra. What changes is that the
+   * method now says where it goes and how much.
+   */
+  {
+    id: 179,
+    time: '45 mins',
+    /* Nothing bought elsewhere any more: the parmesan that was the only thing
+       on this list is optional now, so the alfredo bake is a recipe you can
+       cook out of the order alone. */
+    extras: null,
+    ing: ['2 lbs chicken breast', '16 oz ribbon pasta', '2 cans evaporated milk',
+      '½ cup butter', '¼ cup flour', '2½ cups cheddar',
+      '½ cup breadcrumbs', 'salt and pepper'],
+    /* Parmesan started out in the ingredient list here, which was the wrong
+       answer to the right problem: it made the recipe unfollowable without a
+       trip to the shop. The dish is good on cheddar — that is the point of the
+       book — and the parmesan belongs where anything off the order belongs,
+       under a heading that says it is optional. */
+    lift: {
+      with: 'Parmesan, fresh garlic, Italian seasoning',
+      steps: [
+        'Soften 3 or 4 minced garlic cloves in the butter for a minute before the flour. Garlic in the fat tastes of the dish; garlic added late tastes of garlic.',
+        'Swap half a cup of cheddar for grated parmesan, and keep half back for the top. Salt the sauce after it goes in — parmesan is saltier.',
+        'A teaspoon of Italian seasoning with the cheese, and a pinch of nutmeg if you have it.',
+      ]
+    },
+    /* Written short on purpose. The first version of this rewrite said all of
+       the same things at twice the length and came out 935px tall against 720
+       of paper — off the bottom of its own page even at the 0.85 squeeze
+       floor, which is the packer telling you the recipe does not fit the book.
+       Every instruction below survived the cut; only the words did not. */
+    steps: [
+      'Heat the oven to 375°F. Boil the pasta in well-salted water, but stop two minutes short of the packet time — it finishes in the oven, and pasta boiled soft first bakes to mush. Save a mug of the water.',
+      'Salt and pepper the chicken and cook it in a wide skillet over medium-high, about 6 minutes a side. Done is 165°F, or white through with clear juices. Rest 5 minutes, then slice. Keep the skillet.',
+      'Melt the butter in the same skillet over medium-low. Whisk the flour in and cook it a full minute — it will look like wet sand, and that minute is what stops the sauce tasting of raw flour. Add the evaporated milk a splash at a time, whisking smooth after each, until it thickens at a bare simmer.',
+      'Off the heat — boiled, cheese turns grainy and splits — stir in two cups of cheddar a handful at a time. Loosen with pasta water if it is thicker than pouring cream. Salt until it tastes slightly too strong; a pound of pasta is about to dilute it.',
+      'Fold the pasta and chicken through, tip into a buttered 9x13 dish, and scatter the last half cup of cheddar and the breadcrumbs over. No crumbs? {r:272} makes them, and an air fryer makes better ones than an oven.',
+      'Bake 20 minutes, until it bubbles at the edges and the top has colour. Stand 5 minutes before serving or the first spoonful runs.'
+    ]
+  },
+  { id: 178,
+    extras: null,
+    lift: {
+      with: 'Parmesan, fresh garlic',
+      steps: [
+        'A clove of minced garlic and a tablespoon of grated parmesan into the meatball mix, with the egg and crumbs. Both are in there before it cooks, which is where they do the most.',
+        'Parmesan grated over each plate at the table, not into the pot. It stops tasting of anything after ten minutes in a sauce.',
+      ]
+    } },
+  { id: 58, step: 1,
+    add: 'This is where the cumin goes: a teaspoon of it with the chili powder. Chili powder is mostly mild, and cumin is what makes a pot of beans taste like chili rather than like tomatoes.' },
+  { id: 151, step: 2,
+    add: 'Stir in a teaspoon of garlic powder and a teaspoon of Italian seasoning here — both are on the list for this recipe, and stirred into the sauce is the only place they do anything.' },
+  { id: 145, step: 0,
+    add: 'Add 2 tbsp taco seasoning and ¼ cup water to the browned beef and let it bubble a minute until it clings. Seasoning tipped over the top at the end sits on the meat instead of in it.' },
+  { id: 164, step: 1,
+    add: 'Stir 2 tbsp taco seasoning into the beef with the tomato sauce, and let it simmer a minute before it is layered.' },
+  { id: 172, step: 1,
+    add: 'Add 2 tbsp taco seasoning with the salsa and beans, and give it a minute to come together.' },
+  { id: 190, step: 1,
+    add: 'Toss the shredded chicken with 2 tbsp taco seasoning and a splash of water before it goes in the tortillas — this is what makes it taste of enchilada rather than of plain chicken.' },
+  { id: 200, step: 1,
+    add: '"Seasoned" means it: 2 tbsp taco seasoning and ¼ cup water stirred into the browned beef for a minute, until the liquid has gone and the meat is coated.' },
+  { id: 176, step: 0,
+    add: 'Rub the roast with a tablespoon of Worcestershire before it goes in the pan. It is on the list for this recipe, it is what gives the gravy its savoury depth, and searing it on is better than pouring it over later.' },
 ];

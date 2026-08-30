@@ -1480,3 +1480,35 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
    every recipe still spells the same items out in words, so a photocopied
    page loses nothing. */
 .ing-buy { color: var(--ochre-text); }
+
+/* ------------------------------------------------- better with a few extras
+   Everything above it comes off the storehouse order. This is what the same
+   recipe becomes with a jar of something from a cupboard the book cannot
+   assume — named, and numbered on from where the method stopped, so it reads
+   as more of the same recipe rather than as a different one.
+
+   Set apart by a rule and a lighter ink rather than by a box: it is optional,
+   and a box around it would give it more weight than the method it improves.
+   The numbers stay ochre in print as well as on screen — a reader flipping
+   past should be able to see at a glance that these steps are the elective
+   ones. */
+.lift { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.lift-h { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ochre-text); font-weight: 600; }
+.lift-w { font-size: 13px; color: var(--muted-2, var(--muted)); margin: 3px 0 9px; font-style: italic; }
+.lift-step { display: flex; gap: 10px; margin-bottom: 9px; }
+.lift-step-n {
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid var(--ochre); color: var(--ochre-text);
+  font-size: 11px; font-weight: 600; display: flex; align-items: center;
+  justify-content: center;
+}
+.lift-step-t { flex: 1 1 auto; min-width: 0; }
+
+/* In the book it is one paragraph, quieter than the method it sits under and
+   costing four lines rather than twenty. */
+.rp .lift { margin-top: 6px; padding-top: 4px; font-size: 7.4pt; line-height: 1.34; }
+.rp .lift-h { font-size: 6.2pt; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ochre-text); font-weight: 600; }
+.rp .lift-w { font-style: italic; color: var(--ochre-text); }
+.rp .lift-p { color: oklch(0.44 0.02 65); }
