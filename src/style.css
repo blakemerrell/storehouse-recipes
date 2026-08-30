@@ -548,19 +548,32 @@ select { max-width: 280px; }
 }
 .mt-kcal { margin-top: 12px; font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 /* the meal rows: arrow, name, kind, gone — edited in place, saved together */
-.mtm-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.mtm-move { flex: none; padding: 5px 9px; }
-.mtm-name { flex: 1 1 120px; min-width: 0; padding: 7px 9px; font-size: 14px; }
-.mtm-type {
-  flex: none; max-width: 42%; padding: 7px 6px; font-size: 12px;
+/* One meal, one line: arrow, name, kind, share, gone. Everything is scoped
+   under .mtm-row because the phone media query hands every bare .txt the
+   whole line (built for the search box), and the meal name must not take
+   that offer — it costs each meal three lines. The name and the kind are
+   the two that give; everything else holds its size. Wrap stays on solely
+   so the sections checklist can take a full line of its own underneath. */
+.mtm-row { margin-top: 8px; }
+.mtm-main { display: flex; align-items: center; gap: 6px; }
+.mtm-move { flex: none; padding: 5px 7px; }
+.mtm-row .mtm-name {
+  flex: 5 1 40px; min-width: 40px; width: auto; padding: 7px 8px; font-size: 14px;
+}
+.mtm-row .mtm-type {
+  flex: 4 1 60px; min-width: 0; max-width: none; padding: 7px 4px; font-size: 12px;
   border: 1px solid var(--line-firm); border-radius: 3px; background: var(--paper-soft);
 }
 .mtm-del { flex: none; font-size: 17px; }
-.mtm-row { flex-wrap: wrap; }
-.mtm-share-l { display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted-2); flex: none; }
-.mtm-share {
-  width: 44px; padding: 7px 6px; font-size: 13px; text-align: right;
+.mtm-share-l { display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--muted-2); flex: none; }
+.mtm-row .mtm-share {
+  width: 34px; min-width: 34px; padding: 7px 4px; font-size: 13px; text-align: right;
   border: 1px solid var(--line-firm); border-radius: 3px; background: var(--paper-soft);
+  -moz-appearance: textfield;
+}
+/* the spinner arrows cost more width than the number they spin */
+.mtm-share::-webkit-inner-spin-button, .mtm-share::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
 }
 /* the custom-sections checklist, unfolded under its meal row */
 .mtm-secs {

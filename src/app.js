@@ -1416,18 +1416,24 @@
   function mtMealRow(s) {
     var kinds = [['b', 'Breakfasts'], ['l', 'Lunches'], ['d', 'Dinners'],
       ['s', 'Snacks & drinks'], ['x', 'Choose sections…']];
+    /* The five controls live in their own nowrap row, so a meal is always
+       exactly one line — shrinking to fit rather than shedding its × onto
+       the line below — and the sections checklist sits under it, outside
+       the flexbox entirely. */
     return '<div class="mtm-row" data-mtmk="' + esc(s.k) + '">' +
-      '<button class="ghost mtm-move" data-mtmeal="up" aria-label="Move up">&uarr;</button>' +
-      '<input class="txt mtm-name" value="' + esc(s.n) + '" placeholder="Name the meal" aria-label="Meal name">' +
-      '<select class="mtm-type" data-prev="' + esc(s.t) + '" aria-label="What kind of meal">' +
-        kinds.map(function (o) {
-          return '<option value="' + o[0] + '"' + (o[0] === s.t ? ' selected' : '') + '>' + o[1] + '</option>';
-        }).join('') + '</select>' +
-      /* The meal's share of the day. Weights, not strict percentages — 35
-         against 10 means dinner reaches for three and a half snacks' worth. */
-      '<label class="mtm-share-l"><input class="mtm-share" type="number" min="1" max="99" ' +
-        'inputmode="numeric" value="' + mSlotW(s) + '" aria-label="Share of the day">%</label>' +
-      '<button class="day-x mtm-del" data-mtmeal="del" aria-label="Remove this meal">&times;</button>' +
+      '<div class="mtm-main">' +
+        '<button class="ghost mtm-move" data-mtmeal="up" aria-label="Move up">&uarr;</button>' +
+        '<input class="txt mtm-name" value="' + esc(s.n) + '" placeholder="Name the meal" aria-label="Meal name">' +
+        '<select class="mtm-type" data-prev="' + esc(s.t) + '" aria-label="What kind of meal">' +
+          kinds.map(function (o) {
+            return '<option value="' + o[0] + '"' + (o[0] === s.t ? ' selected' : '') + '>' + o[1] + '</option>';
+          }).join('') + '</select>' +
+        /* The meal's share of the day. Weights, not strict percentages — 35
+           against 10 means dinner reaches for three and a half snacks' worth. */
+        '<label class="mtm-share-l"><input class="mtm-share" type="number" min="1" max="99" ' +
+          'inputmode="numeric" value="' + mSlotW(s) + '" aria-label="Share of the day">%</label>' +
+        '<button class="day-x mtm-del" data-mtmeal="del" aria-label="Remove this meal">&times;</button>' +
+      '</div>' +
       (s.t === 'x' ? mtSecsHTML(s.secs || []) : '') +
     '</div>';
   }
