@@ -542,16 +542,17 @@ select { max-width: 280px; }
 .mbar.over .mbar-nums { color: oklch(0.55 0.14 45); font-weight: 600; }
 .mbar.over .mbar-planned, .mbar.over .mbar-eaten { background: oklch(0.70 0.14 45); }
 .macro-kcal { font-size: 12.5px; color: var(--muted-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
-.macro-est { font-size: 10.5px; color: var(--muted); margin-top: 8px; }
+.macro-est { font-size: 10px; color: var(--muted); margin-top: 6px; }
 
 /* the picker sheet */
 .mp-controls { display: flex; gap: 9px; margin: 14px 0 12px; flex-wrap: wrap; }
 .mp-seg { flex: none; }
 .mpick-row {
-  display: flex; width: 100%; text-align: left; gap: 10px; align-items: baseline;
+  display: flex; width: 100%; text-align: left; gap: 10px; align-items: center;
   background: none; border: none; border-bottom: 1px solid var(--line-soft);
   padding: 9px 2px;
 }
+.mp-body { display: flex; gap: 10px; align-items: baseline; flex: 1 1 auto; min-width: 0; }
 .mpick-row:hover { background: var(--paper-soft); }
 .mp-name { font-family: var(--serif); font-size: 14.5px; flex: 1 1 auto; min-width: 0; }
 .mp-fit {
@@ -792,13 +793,39 @@ select { max-width: 280px; }
 }
 .mday-stop.filled::before { border-color: var(--ochre); }
 .mday-weigh.done::before { background: var(--green); border-color: var(--green); }
-/* what the day has left once this stop is paid for */
-.mslot-left {
-  font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;
-  margin-top: 5px; padding-left: 2px;
+/* the day's calories, spent along a line */
+.mkcal { margin-top: 9px; }
+.mkcal-top {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  font-size: 11px; font-variant-numeric: tabular-nums;
 }
-.mslot-left.over { color: var(--over-dial); font-weight: 600; }
+.mkcal .macro-kcal { margin: 0; color: var(--muted); }
+.mkcal-left { font-weight: 600; color: var(--muted-2); flex: none; }
+.mkcal.on .mkcal-left { color: var(--dial-on); }
+.mkcal.over .mkcal-left { color: var(--dial-over); }
+.mkcal-track {
+  display: flex; height: 5px; margin-top: 4px; border-radius: 3px; overflow: hidden;
+  background: var(--line);
+}
+.mkcal-track i { display: block; height: 100%; }
+.mkcal.under .mkcal-ate { background: var(--dial-under); }
+.mkcal.under .mkcal-plan { background: var(--dial-under-pale); }
+.mkcal.on .mkcal-ate { background: var(--dial-on); }
+.mkcal.on .mkcal-plan { background: var(--dial-on-pale); }
+.mkcal.over .mkcal-ate { background: var(--dial-over); }
+.mkcal.over .mkcal-plan { background: var(--dial-over-pale); }
 .mday-acts { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+/* On a phone the dial belongs hard right, where the thumb is. On a desktop
+   that same rule strands it a hand's width from the name it belongs to, so
+   there it hugs the name instead. */
+@media (min-width: 861px) {
+  .mitem-r1 .mitem-l { flex: 0 1 auto; }
+  .mitem-r1 .mstep { margin-left: 0; }
+  /* and the same for the paperwork row, so a plate reads as one thing
+     rather than as a name here and its buttons a hand's width away */
+  .mitem-r2 .mitem-mac { flex: 0 1 auto; }
+  .mitem-r2 .mitem-acts { margin-left: 4px; }
+}
 .mday-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
 
 /* one short caption per section, tops; silent when it has nothing to say */
@@ -1125,6 +1152,9 @@ select { max-width: 280px; }
   font-family: var(--sans); font-weight: 600;
   font-size: 11.5px; letter-spacing: 0; line-height: 1;
 }
+/* the same leaf, sized for a row rather than a card */
+.leaf-sm { width: 20px; height: 24px; flex: none; }
+.leaf-sm .leaf-n { font-size: 8.5px; }
 .leaf-sr {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip-path: inset(50%); white-space: nowrap;

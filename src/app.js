@@ -1180,9 +1180,6 @@
 
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
-    /* What the day has left after each stop, so you always know what the next
-       meal may cost. Accumulated in the order the meals actually happen. */
-    var runK = kcalOf(targets);
     var slotCard = function (sk, name, onPlan) {
       var items = day[sk] || [];
       /* Rows map over the STORED array so data attributes carry storage
@@ -1225,6 +1222,10 @@
             '</span>' +
           '</span>' +
           '<span class="mitem-r2">' +
+            /* The score, on the plate. Knowing a thing fits the day and
+               knowing it is worth eating are different questions, and the
+               second one was only answerable by opening the recipe. */
+            leaf(r.score, 'leaf-sm') +
             '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
             '<span class="mitem-acts no-print">' +
               /* The pin is the routine: pinned to this meal, at this portion,
@@ -1252,8 +1253,6 @@
         var r = BY_ID[it.id];
         if (r && r.macro) { sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x; }
       });
-      runK -= sub.kcal;
-      var left = Math.round(runK);
       return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') + '">' +
         '<div class="mslot-h"><span class="mslot-name">' + esc(name) + '</span>' +
           (rows ? '<span class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
@@ -1261,8 +1260,6 @@
           (onPlan ? '<button class="ghost mslot-add no-print" data-mslot="' + esc(sk) + '">+ Add</button>' : '') +
         '</div>' +
         '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>' +
-        (rows ? '<div class="mslot-left' + (left < 0 ? ' over' : '') + '">' +
-          (left < 0 ? Math.abs(left) + ' kcal over' : left + ' kcal left') + '</div>' : '') +
       '</div>';
     };
     var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');
@@ -1349,10 +1346,33 @@
           '</span></span></span>' +
       '</div>';
     }).join('');
+    /* Calories get a bar rather than a fourth dial. The macros are ratios —
+       three of them, read against each other, which is what a row of dials
+       is for. Calories are a budget: one number spent along a line, and the
+       line is the shape that says how much of it is gone. It also replaces
+       the running remainder that used to sit under every meal, which was
+       text doing a chart's job six times over. */
+    var kT = kcalOf(targets);
+    var kAll = Math.round(tot.all.kcal);
+    var kAte = Math.round(tot.eaten.kcal);
+    var kOver = kAll > kT;
+    var kState = kOver ? 'over' : (100 * kAll / Math.max(1, kT)) >= 90 ? 'on' : 'under';
+    var wAte = Math.min(100, 100 * kAte / Math.max(1, kT));
+    var wAll = Math.min(100 - wAte, 100 * (kAll - kAte) / Math.max(1, kT));
     return '<div class="mdials">' + dials + '</div>' +
-      '<div class="macro-kcal">&asymp; ' + Math.round(tot.all.kcal) + ' of ' + kcalOf(targets) +
-        ' kcal' + (tot.eaten.kcal ? ' &middot; ' + Math.round(tot.eaten.kcal) + ' eaten' : '') +
-        (tot.est ? ' &middot; <span class="macro-est">~ estimated from a food table</span>' : '') + '</div>';
+      '<div class="mkcal ' + kState + '" data-state="' + kState + '">' +
+        '<div class="mkcal-top">' +
+          '<span class="macro-kcal">' + kAll + ' of ' + kT + ' kcal' +
+            (kAte ? ' &middot; ' + kAte + ' eaten' : '') + '</span>' +
+          '<span class="mkcal-left">' +
+            (kOver ? (kAll - kT) + ' over' : (kT - kAll) + ' left') + '</span>' +
+        '</div>' +
+        '<div class="mkcal-track">' +
+          '<i class="mkcal-ate" style="width:' + wAte.toFixed(1) + '%"></i>' +
+          '<i class="mkcal-plan" style="width:' + wAll.toFixed(1) + '%"></i>' +
+        '</div>' +
+      '</div>' +
+      (tot.est ? '<div class="macro-est">~ estimated from a food table, not a label.</div>' : '');
   }
 
   /* The picker sheet: search plus a meal/all toggle, over a list ranked by
@@ -1453,10 +1473,13 @@
       var fit = e.score === null ? 'no data'
         : '&times;' + fmtNum(e.x) + ' &middot; ' + mMacLine(r, e.x);
       return '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + e.x + '">' +
-        '<span class="mp-name">' +
-          (window.Store.isFav(r.id) ? '<span class="mp-fav">&#9733;</span> ' : '') +
-          esc(r.name) + '</span>' +
-        '<span class="mp-fit">' + fit + '</span>' +
+        leaf(r.score, 'leaf-sm') +
+        '<span class="mp-body">' +
+          '<span class="mp-name">' +
+            (window.Store.isFav(r.id) ? '<span class="mp-fav">&#9733;</span> ' : '') +
+            esc(r.name) + '</span>' +
+          '<span class="mp-fit">' + fit + '</span>' +
+        '</span>' +
       '</button>';
     }).join('');
   }

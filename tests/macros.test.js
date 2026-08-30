@@ -46,6 +46,13 @@ module.exports = {
       new RegExp('/ ' + defC + ' g').test(await foot()), await foot());
     t.ok('the calorie line is derived 4/4/9 from the targets',
       (await foot()).indexOf('of ' + defKcal + ' kcal') >= 0, await foot());
+    /* Calories get the bar, macros get the dials — a budget spent along a
+       line, three ratios read against each other. The bar also replaced the
+       running remainder that used to sit under all six meals, which was text
+       doing a chart's job over and over. */
+    t.ok('and the day’s calories are a chart, not six lines of prose',
+      await p.evaluate(() => !!document.querySelector('.mkcal-track .mkcal-ate') &&
+        !document.querySelector('.mslot-left')));
 
     // ---- edit the targets; they hold across a reload
     await p.click('#macroTargBtn');
@@ -86,6 +93,12 @@ module.exports = {
       };
     });
     t.ok('the picker has rows to rank', sanity.n > 5, sanity.n + ' rows');
+    t.ok('and every row it can score wears its leaf',
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mpick-row[data-mpx]'))
+        .every((row) => {
+          const rec = window.RECIPES.find((x) => String(x.id) === row.dataset.mpick);
+          return rec.score === null || !!row.querySelector('.leaf');
+        })));
     t.ok('no suggested portion exceeds ×3', sanity.maxX <= 3, '×' + sanity.maxX);
     t.ok('the top of the ranking carries more protein per calorie than the bottom',
       sanity.top > sanity.bottom, sanity.top.toFixed(4) + ' vs ' + sanity.bottom.toFixed(4));
@@ -149,6 +162,21 @@ module.exports = {
     t.ok('unticking reverses it',
       await p.evaluate(() => !document.querySelector('.mitem.eaten') &&
         document.querySelector('.mdial').dataset.eaten === '0'));
+
+    /* Whether a plate fits the day and whether it is worth eating are two
+       questions, and the second used to need the recipe opened. */
+    t.ok('a plate wears its nutrition score',
+      await p.evaluate(() => {
+        const lf = document.querySelector('.mitem .leaf');
+        if (!lf) return false;
+        const n = Number(lf.querySelector('.leaf-n').textContent);
+        const day = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const id = String(day[Object.keys(day)[0]].b[0].id);
+        return n === window.RECIPES.find((r) => String(r.id) === id).score;
+      }));
+    t.ok('and the leaf says what it means, for anyone who cannot read the colour',
+      await p.evaluate(() => /out of 100/.test(
+        document.querySelector('.mitem .leaf').getAttribute('aria-label'))));
 
     // the name opens the recipe; the back gesture walks home to the day
     await p.click('.mitem-name');
