@@ -149,6 +149,24 @@ module.exports = {
       await p.evaluate(() => !document.querySelector('.mitem.eaten') &&
         parseFloat(document.querySelector('.mbar-eaten').style.width) === 0));
 
+    // the name opens the recipe; the back gesture walks home to the day
+    await p.click('.mitem-name');
+    await p.waitForTimeout(250);
+    t.ok('tapping the name opens the recipe itself',
+      await p.evaluate(() => {
+        const s = document.querySelector('.sheet-name');
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = days[Object.keys(days)[0]];
+        const r = window.RECIPES.find((x) => String(x.id) === String(day.b[0].id));
+        return !!s && s.textContent === r.name;
+      }));
+    await p.goBack();
+    await p.waitForTimeout(250);
+    t.ok('and back lands on the day, with nothing phantom-ticked',
+      await p.evaluate(() => !document.querySelector('.sheet') &&
+        !document.getElementById('view-macros').classList.contains('hide') &&
+        !document.querySelector('.mitem.eaten')));
+
     // ---- over budget: shrink the targets under what is planned
     await p.click('#macroTargBtn');
     await p.waitForTimeout(150);

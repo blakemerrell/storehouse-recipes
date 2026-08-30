@@ -475,9 +475,13 @@ select { max-width: 280px; }
 }
 .mitem-l { display: flex; gap: 8px; align-items: center; flex: 1 1 auto; min-width: 0; }
 .mitem-l input { width: 16px; height: 16px; flex: none; }
+/* a button in name only — it reads as the dish, and hover admits it opens */
 .mitem-name {
+  background: none; border: none; padding: 0; text-align: left;
   font-family: var(--serif); font-size: 14px; line-height: 1.28; text-wrap: pretty;
+  color: inherit;
 }
+.mitem-name:hover { color: var(--ochre-text); text-decoration: underline; text-underline-offset: 2px; }
 /* eaten is done, not deleted — the line-through the shopping list uses */
 .mitem.eaten .mitem-name { text-decoration: line-through; color: oklch(0.68 0.02 70); }
 .mitem-mac {

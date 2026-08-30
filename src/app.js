@@ -1052,10 +1052,14 @@
         var r = BY_ID[it.id];
         if (!r) return '';
         var tag = s[0] + ':' + i;
+        /* The tick and the name are separate targets on purpose: the box says
+           "I ate it", the name opens the recipe to see what "it" is. When the
+           two shared a label, reading the recipe cost you a phantom tick. */
         return '<div class="mitem' + (it.eaten ? ' eaten' : '') + '">' +
-          '<label class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
+          '<span class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
             (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
-            '<span class="mitem-name">' + esc(r.name) + '</span></label>' +
+            '<button class="mitem-name" data-open="' + esc(String(r.id)) + '">' +
+              esc(r.name) + '</button></span>' +
           '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
           '<span class="mstep no-print">' +
             '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
@@ -3629,6 +3633,14 @@
     /* The Macros day. Items are addressed slot:index into the stored arrays,
        so duplicates of the same recipe stay two separate plates. */
     $('macroSlots').addEventListener('click', function (e) {
+      /* The name is a door to the recipe itself. It goes through openRecipe
+         like every other door, so the back gesture walks home to the day. */
+      var op = e.target.closest('[data-open]');
+      if (op) {
+        rememberOpener();
+        openRecipe(idOf(op.dataset.open));
+        return;
+      }
       var add = e.target.closest('[data-mslot]');
       if (add) {
         rememberOpener();
