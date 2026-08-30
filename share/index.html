@@ -192,12 +192,18 @@ body {
   font-weight: 700; margin: 5pt 0 2pt;
 }
 .rec-ing { font-size: 9.5pt; line-height: 1.38; margin: 0; }
+/* Tightened when the recipes grew.
+   Eight recipes on two sheets is the whole design of this handout, and the
+   recipes got longer because they started saying how to cook rather than
+   naming a technique and moving on. Page one went to 11.41in of an 11in
+   sheet. The right thing to give is the leading, not the instruction — a
+   marketing sheet does not get to shorten a method. */
 .rec-steps {
   list-style: none; counter-reset: s; padding: 0; margin: 0;
-  font-size: 9.5pt; line-height: 1.32;
+  font-size: 9.2pt; line-height: 1.26;
 }
 .rec-steps li {
-  counter-increment: s; position: relative; padding-left: 12pt; margin-bottom: 2.5pt;
+  counter-increment: s; position: relative; padding-left: 12pt; margin-bottom: 1.8pt;
 }
 .rec-steps li::before {
   content: counter(s) "."; position: absolute; left: 0; top: 0;

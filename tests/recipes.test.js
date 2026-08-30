@@ -348,6 +348,49 @@ module.exports = {
     t.ok('nothing offered as an optional extra is also a required ingredient',
       lifts.bad.length === 0, lifts.bad.join('; ') + ' (' + lifts.n + ' recipes carry a lift)');
 
+    /* ------------------------------------------- three faults from one audit
+     *
+     * The owner cooked No. 190 and hit four problems in one recipe. Sweeping
+     * the rest for the same shapes turned up nine more real ones and a great
+     * deal of noise — most classes were false alarms, so only the three that
+     * survived reading are guarded here. A check that fires on forty recipes
+     * that are all fine is worse than no check.
+     *
+     *   cooked twice   pasta boiled to done and then baked, which is how a
+     *                  casserole becomes paste. Seven recipes did it.
+     *   a dry braise   a slow cooker with nothing in it to braise in.
+     *   "make X"       a step naming a component and never saying how, which
+     *                  is the sentence that sent him to look it up elsewhere.
+     */
+    const faults = await p.evaluate(() => {
+      const S = (r) => (r.steps || []).join(' ');
+      const twice = [], dry = [], vague = [];
+      window.RECIPES.filter((r) => r.book < 3).forEach((r) => {
+        const s = S(r);
+        if (/boil[^.]*\b(pasta|macaroni|spaghetti|noodle)\b/i.test(s) && /\bbake\b/i.test(s) &&
+            !/short|firm|al dente|undercook/i.test(s)) twice.push('no.' + r.no);
+        if (/slow.?cook/i.test(s) &&
+            !/water|broth|sauce|juice|milk|gravy|liquid|applesauce|salsa/i
+              .test(s + ' ' + (r.ing || []).join(' '))) dry.push('no.' + r.no);
+        (r.steps || []).forEach((step) => {
+          /* Short and bare: "Make cheese sauce with milk, flour, cheddar." A
+             long step that happens to contain the word make is telling you
+             how, which is the whole difference. */
+          if (/^(make|prepare)\b/i.test(step.trim()) && step.length < 80 &&
+              !/until|by |over |, whisk|, stir|about \d/i.test(step)) {
+            vague.push('no.' + r.no + ' "' + step.trim() + '"');
+          }
+        });
+      });
+      return { twice, dry, vague };
+    });
+    t.ok('no pasta is boiled through and then baked again',
+      faults.twice.length === 0, faults.twice.join(' '));
+    t.ok('nothing goes in a slow cooker with nothing to cook in',
+      faults.dry.length === 0, faults.dry.join(' '));
+    t.ok('and no step names a thing to make without saying how',
+      faults.vague.length === 0, faults.vague.join('; '));
+
     /* ------------------------------------------------- and the shell says so
      *
      * The landing page's counts are stamped and guarded. index.html's were

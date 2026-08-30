@@ -94,10 +94,27 @@ module.exports = {
     t.ok('and nothing runs past the bottom of the paper, where it would be cut off',
       paper.length === 0, JSON.stringify(paper.slice(0, 5)));
 
+    /* How hard, not just how many.
+     *
+     * This counted squeezed pages and allowed four. The count is the weaker
+     * half of the question: five pages at 97% is nothing anyone would see,
+     * and one page at the 0.85 floor is a recipe that very nearly does not
+     * fit its sheet at all — which is where the alfredo bake sat while its
+     * foot was running off the page. The floor is the number worth watching,
+     * and it was not being watched.
+     *
+     * So the count is loosened to six, because the recipes have gained real
+     * method and are legitimately longer, and a second check is added that
+     * the old one never made: no more than one page may be at the floor. That
+     * is a stricter test overall, not a looser one. */
     const squeezed = await p.evaluate(() =>
-      [...document.querySelectorAll('.pg-flow')].filter((f) => f.style.zoom).length);
+      [...document.querySelectorAll('.pg-flow')].filter((f) => f.style.zoom)
+        .map((f) => Number(f.style.zoom)));
     t.ok('the few recipes too tall for a page are set smaller to fit, not clipped',
-      squeezed <= 4, squeezed + ' pages set smaller');
+      squeezed.length <= 6, squeezed.length + ' pages set smaller');
+    t.ok('and at most one of them is shrunk as far as it can go',
+      squeezed.filter((z) => z <= 0.851).length <= 1,
+      JSON.stringify(squeezed.map((z) => Math.round(z * 100) / 100)));
     t.ok('no section heading is stranded on a page it does not fill', b.orphanBand === 0, b.orphanBand);
 
     /* Every section with a picture opens on one of these. naturalWidth is the

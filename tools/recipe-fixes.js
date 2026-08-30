@@ -344,4 +344,164 @@ module.exports = [
     add: '"Seasoned" means it: 2 tbsp taco seasoning and ¼ cup water stirred into the browned beef for a minute, until the liquid has gone and the meat is coated.' },
   { id: 176, step: 0,
     add: 'Rub the roast with a tablespoon of Worcestershire before it goes in the pan. It is on the list for this recipe, it is what gives the gravy its savoury depth, and searing it on is better than pouring it over later.' },
+
+  /* ---- the audit the alfredo bake set off ------------------------------
+   *
+   * No. 190 turned out to have four faults, and the question was how many
+   * others had the same ones. Eight classes were swept; five of them were
+   * almost entirely noise and are worth naming so nobody re-runs them
+   * expecting a haul: "bakes with no oven temperature" was seven slow-cooker
+   * recipes where roast is a noun; "ground meat with no doneness cue" was
+   * forty recipes that all say "brown the beef"; "eggs with no cue for set"
+   * was mostly cakes and puddings where the egg is a binder; and four of the
+   * eight title-promise hits do the thing under another word — spooning tuna
+   * into a hollowed tomato is stuffing it.
+   *
+   * What survived reading is below.
+   */
+
+  /* Six more pastas cooked twice, which is the alfredo bake's third fault.
+     Boiled to done and then baked for another twenty minutes, which is how a
+     casserole turns to paste. Two minutes short is the whole fix, and the
+     reason has to be on the page or the next person "corrects" it back. */
+  { id: 63, step: 0, set: 'Preheat oven to 350°F. Boil the pasta two minutes short of the packet time — it finishes in the oven, and pasta boiled soft first bakes to mush.' },
+  { id: 160, step: 0, set: 'Preheat oven to 350°F. Boil the pasta two minutes short of the packet time; it finishes in the oven. Cook and dice the chicken first — 165°F — because twenty-five minutes under a blanket of soup will not cook it.' },
+  { id: 163, step: 0, set: 'Preheat oven to 350°F. Boil the macaroni two minutes short of the packet time, and add the broccoli for the last three so it keeps some bite. Both finish in the oven.' },
+  { id: 170, step: 0, set: 'Preheat oven to 350°F. Boil the macaroni two minutes short of the packet time — it finishes in the oven.' },
+  { id: 184, step: 0, set: 'Preheat oven to 350°F. Boil the spaghetti two minutes short of the packet time — it finishes in the oven.' },
+  { id: 192, step: 0, set: 'Preheat oven to 350°F. Boil the pasta two minutes short of the packet time; it finishes in the oven. Cook and dice the chicken first — 165°F. Raw breast stirred into sauce and baked twenty-five minutes is not reliably done.' },
+
+  /* No. 205 is the alfredo bake's first and fourth faults in one recipe:
+     "Make cheese sauce with milk, flour, cheddar" is the same instruction
+     that sent the owner to look it up elsewhere, and the ham is called
+     glazed and never glazed. Both fixed, and the potatoes get the parboil
+     they need — sliced raw potato does not cook through under sauce in
+     forty-five minutes, which is the other thing this recipe was quietly
+     wrong about. */
+  {
+    id: 194,
+    time: '70 mins',
+    ing: ['2 lb sliced ham', '2 lbs potatoes (sliced thin)', '2 cups milk', '2 tbsp flour',
+      '2 tbsp butter', '1.5 cups cheddar', '¼ cup brown sugar', '1 tsp mustard', 'salt', 'pepper'],
+    steps: [
+      'Heat the oven to 375°F. Slice the potatoes as thin as you can — a quarter inch or less — and simmer them in salted water for 8 minutes. They will not cook through under the sauce otherwise, however long you give them.',
+      'Melt the butter in a saucepan over medium-low, whisk in the flour and let it cook a full minute — it should look like wet sand. Add the milk a splash at a time, whisking smooth after each, and let it come to a bare simmer until it thickens.',
+      'Off the heat, stir in a cup of the cheddar a handful at a time. Off the heat matters: boiled, cheese goes grainy and the fat splits out. Salt and pepper it, and taste — under sauce, thin potato needs more salt than seems right.',
+      'Layer the drained potatoes and the sauce in a buttered dish, finishing with sauce, and scatter the last half cup of cheddar over. Bake 40 minutes, until a knife goes through the middle with no resistance and the top has browned.',
+      'Meanwhile the glaze the title promises: stir the brown sugar and mustard together, spread it over the ham slices in a second dish, and give them 15 minutes in the same oven until the sugar has gone shiny and dark at the edges. Serve them with the potatoes.'
+    ]
+  },
+
+  /* No. 135 could not be made at all. "Make thick pancake batter" from one
+     cup of dry mix and nothing wet — the ingredient list has sausages, mix
+     and syrup, and no liquid anywhere. The batter is the recipe. */
+  {
+    id: 124,
+    ing: ['4 cooked sausage links', '1 cup pancake mix', '½ cup milk', '1 tbsp oil', '¼ cup syrup'],
+    steps: [
+      'Whisk the pancake mix with the milk into a batter thicker than you would pour for pancakes — it has to cling to a sausage rather than run off it. Add the milk a little at a time; you can always loosen it.',
+      'Heat the oil in a skillet over medium. Dip each sausage in the batter, turning it to coat, and fry 2 minutes a side until golden all round.',
+      'Serve with the syrup.'
+    ]
+  },
+
+  /* No. 215's pudding had no liquid either: the box wants milk, and all the
+     milk in the ingredient list is already in the cake batter. */
+  {
+    id: 204,
+    ing: ['1 box chocolate cake mix', '3 cups milk', '½ cup butter', '1 pkg chocolate pudding mix'],
+    steps: [
+      'Heat the oven to 350°F and butter a 9x13 dish.',
+      'Whisk the cake mix with 1¼ cups of the milk and the melted butter until smooth.',
+      'In a second bowl, whisk the pudding mix with the remaining 1¾ cups of milk for two minutes until it thickens. Do not cook it — it goes in soft.',
+      'Pour the cake batter into the dish, spoon the pudding over in blobs, and drag a knife through both once or twice. Two or three passes, not twenty: swirl it too far and it is one colour again.',
+      'Bake 28 minutes. The pudding stays fudgy, so a skewer will not come out clean — go by the cake around it, which should spring back.'
+    ]
+  },
+
+  /* Two pastries with no water in them and no method. Flour and butter alone
+     is not a dough; it is crumbs. */
+  {
+    id: 212,
+    ing: ['2 fresh apples (quartered)', '1.5 cups flour', '½ cup butter', '4 tbsp cold water',
+      '¼ cup sugar', '1 tsp cinnamon', 'salt'],
+    steps: [
+      'Heat the oven to 375°F.',
+      'Rub the cold butter into the flour and a pinch of salt with your fingertips until it looks like coarse crumbs, then stir in the cold water a tablespoon at a time until it just holds together in a ball. Stop there — a pastry worked smooth goes tough.',
+      'Rest the dough 15 minutes, then roll it out and cut it into four squares.',
+      'Wrap each apple quarter in a square, pinching the seams shut, and sit them seam-down on a baking sheet. Mix the sugar with the cinnamon and scatter it over.',
+      'Bake 25 minutes, until the pastry is golden and a skewer slides into the apple without resistance.'
+    ]
+  },
+  {
+    id: 218,
+    ing: ['1.5 cups flour', '½ cup butter', '4 tbsp cold water', 'salt',
+      '1 pkg chocolate pudding mix', '2 cups milk'],
+    steps: [
+      'Heat the oven to 375°F. Rub the cold butter into the flour and a pinch of salt until it looks like coarse crumbs, then stir in the cold water a tablespoon at a time until it just comes together. Rest it 15 minutes.',
+      'Roll it out, line a pie dish, and prick the base all over with a fork. Bake 15 minutes until dry and pale gold. Pricking is what stops the base rising into a dome under the filling.',
+      'Whisk the pudding mix with the milk for two minutes until it thickens, pour it into the cooled crust, and chill 2 hours before cutting.'
+    ]
+  },
+
+  /* A pot roast in a dry slow cooker. Eight hours on low with nothing in the
+     pot is not braising, and it is the only recipe in the collection that
+     asks for it. */
+  {
+    id: 191,
+    steps: [
+      'Sear the roast hard on both sides in a hot skillet, 3 minutes a side. This is where the colour and most of the flavour of the gravy comes from, and a slow cooker cannot do it.',
+      'Put the roast and the quartered potatoes in the slow cooker with 1 cup of water and a good pinch of salt, and cook on LOW for 8 hours until a fork twists in the meat with no effort.',
+      'Simmer the carrots in a skillet with the brown sugar, the butter and a splash of water for 15 minutes, until the liquid has gone syrupy and coats them.',
+      'Rest the roast 10 minutes before slicing it across the grain. The liquid left in the cooker makes {r:265}, poured over.'
+    ]
+  },
+
+  /* "Crispy Potato Diggers", roasted for 25 minutes in the same pan as
+     broccoli, which is ash by then. And "Crispy Baked Chicken" with nothing
+     on it to crisp. Both titles were promising a texture the method had no
+     way to produce. */
+  {
+    id: 154,
+    steps: [
+      'Heat the oven to 425°F. Hotter than it said: 400 steams cubed potato as often as it crisps it.',
+      'Toss the potatoes and carrots with the oil, salt and pepper and spread them out on a sheet pan in one layer — crowded, they steam. Roast 20 minutes.',
+      'Add the sliced franks and the broccoli, toss everything together, and give it 10 minutes more. The broccoli only needs that; put it in at the start and it is ash by the end.',
+      'The potatoes are done when a corner crushes under a spoon and the outside has gone golden and rough.'
+    ]
+  },
+  /* Kept short: this one is also one of the eight on the handout, which is
+     two sheets and no more, and the first draft of this step pushed page one
+     to 11.76in of an 11in page. */
+  { id: 156, step: 0, set: 'Heat the oven to 425°F. Pat the chicken dry, rub it with oil, salt and pepper, and bake 22 minutes on a rack — dry skin in a hot oven is what crisps it. Check the thickest reads 165°F.' },
+
+  /* Instant mashed potatoes, four times, with no quantity and no pointer at
+     the recipe that replaces them. The packet knows the ratio; the reader
+     standing at the counter with a scoop does not. */
+  { id: 62, step: 1, set: 'Make up the instant potatoes — about 2 cups of flakes to 2 cups of boiling water and a splash of milk, or whatever the tub says. Out of flakes? {r:276} does it from the potatoes on the order.' },
+  { id: 72, step: 1, set: 'Make up the mashed potatoes from the flakes — about 2 cups of flakes to 2 cups of boiling water and a splash of milk, or whatever the tub says. Out of flakes? {r:276} does it from the potatoes on the order.' },
+  { id: 156, step: 1, set: 'Make up the mashed potatoes with the butter and milk, 2 cups of flakes to 2 cups of boiling water. No flakes? {r:276}.' },
+  { id: 171, step: 2, add: 'Out of instant potato flakes? {r:276} makes mashed potatoes from the potatoes on the order.' },
+
+  /* Two the sweep flagged that turned out to be half right.
+   *
+   * No. 208 does make its glaze — the word "glaze" is simply not in the
+   * method — but it brushes a quarter cup of brown sugar onto a roast and
+   * gives it fifty minutes, which is long enough for sugar to burn black.
+   * Late, and twice, is how a glaze goes on.
+   *
+   * No. 80 says "make chocolate pudding" over an ingredient list whose first
+   * line is a serving of chocolate pudding. It is an assembly recipe and the
+   * pudding is somebody else's job — so it says whose. */
+  { id: 197, step: 1, set: 'Puree the peaches with the brown sugar and mustard. Keep it back for now: brushed on at the start it has fifty minutes to burn, and burnt sugar is bitter all the way through.' },
+  { id: 197, step: 2, set: 'Bake the pork roast at 375°F for 35 minutes, then brush the glaze over and give it 15 minutes more, brushing again halfway. Done is 145°F at the thickest part, and it wants 10 minutes\' rest before slicing.' },
+  { id: 89, step: 0, set: 'Make up the chocolate pudding — a packet whisked with 2 cups of milk for two minutes, or {r:202} if you would rather it was already portioned.' },
+
+  /* And the last two the "make X" guard turned up once it existed. A PB&J is
+     not a mystery, but "make 4 PB&J sandwiches" is still the only instruction
+     on a page somebody may be reading because they have not cooked much; and
+     the churro batter is No. 135's fault a second time, with the liquid
+     already on the list this time but no hint of how much. */
+  { id: 134, step: 0, set: 'Spread the peanut butter on four slices and the jam on the other four, sandwich them, and cut each into quarters.' },
+  { id: 209, step: 0, set: 'Whisk the pancake mix with the milk into a batter thick enough to hold its shape on a spoon — thicker than pancake batter. Add the milk a little at a time; loosening it is easy and thickening it is not.' },
 ];
