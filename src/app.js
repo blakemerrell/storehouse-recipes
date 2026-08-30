@@ -56,9 +56,13 @@
     ['sun', 'Sunday', 'Sun']
   ];
 
-  /* The Macros tab's four meals. Slots organize the day; the arithmetic is
-     daily — a breakfast is not scolded for failing to be a whole day. */
-  var MSLOTS = [['b', 'Breakfast'], ['l', 'Lunch'], ['d', 'Dinner'], ['s', 'Snacks']];
+  /* The Macros tab's default meals. Slots organize the day; the arithmetic is
+     daily — a breakfast is not scolded for failing to be a whole day. The
+     day's actual meal list is the reader's to shape under Craft my plan
+     (a morning brew, an afternoon snack, one before bed); these four are only
+     where everyone starts, and their keys are load-bearing — days already
+     saved under b/l/d/s must keep meaning what they meant. [key, name, type] */
+  var MSLOT_DEFS = [['b', 'Breakfast', 'b'], ['l', 'Lunch', 'l'], ['d', 'Dinner', 'd'], ['s', 'Snacks', 's']];
 
   /* Which sections count as "this meal" in the picker's default filter, keyed
      book-secNum. Not a new field on the recipes: the sections are already
@@ -725,13 +729,33 @@
     return {};
   })();
 
+  /* Which meals a day holds, and what each is called. list is the day as the
+     reader shaped it; names remembers every key that ever had one, so a meal
+     removed from the plan can still caption the plates it left on old days. */
+  function mReadSlots() {
+    try {
+      var s = JSON.parse(localStorage.getItem('bsc.macroSlots'));
+      if (s && s.list && s.list.length) return s;
+    } catch (e) { /* private mode or corrupt — the defaults below */ }
+    var names = {};
+    MSLOT_DEFS.forEach(function (d) { names[d[0]] = d[1]; });
+    return {
+      list: MSLOT_DEFS.map(function (d) { return { k: d[0], n: d[1], t: d[2] }; }),
+      names: names
+    };
+  }
+  function mWriteSlots(s) {
+    try { localStorage.setItem('bsc.macroSlots', JSON.stringify(s)); }
+    catch (e) { /* private mode */ }
+  }
+
   function mDay(k) {
     // a fresh object when the day is empty — browsing ‹ › never writes a key
-    return MDAYS[k] || { b: [], l: [], d: [], s: [] };
+    return MDAYS[k] || {};
   }
 
   function mEditDay(k, fn) {
-    var day = MDAYS[k] || (MDAYS[k] = { b: [], l: [], d: [], s: [] });
+    var day = MDAYS[k] || (MDAYS[k] = {});
     fn(day);
     var floor = mEarliestKey();
     Object.keys(MDAYS).forEach(function (dk) { if (dk < floor) delete MDAYS[dk]; });
@@ -907,8 +931,10 @@
     var all = { p: 0, f: 0, c: 0, kcal: 0 };
     var eaten = { p: 0, f: 0, c: 0, kcal: 0 };
     var est = false;
-    MSLOTS.forEach(function (s) {
-      (day[s[0]] || []).forEach(function (it) {
+    /* Over the day's own keys, not the current meal list: a plate logged
+       under a meal since removed from the plan still went into a mouth. */
+    Object.keys(day).forEach(function (sk) {
+      (day[sk] || []).forEach(function (it) {
         var r = BY_ID[it.id];
         if (!r || !r.macro) return;
         if (r.est) est = true;
@@ -930,7 +956,7 @@
   function mShares(day, targets) {
     var tot = mTotals(day);
     var empty = 0;
-    MSLOTS.forEach(function (s) { if (!(day[s[0]] || []).length) empty++; });
+    mReadSlots().list.forEach(function (s) { if (!(day[s.k] || []).length) empty++; });
     var R = {}, T = {}, D = {};
     ['p', 'f', 'c'].forEach(function (m) {
       R[m] = Math.max(0, targets[m] - tot.all[m]);
@@ -1040,26 +1066,30 @@
     var targets = mReadTargets();
     var day = mDay(k);
 
-    // nothing to draft once every meal has something on it
-    $('macroFill').disabled = MSLOTS.every(function (s) { return (day[s[0]] || []).length; });
+    var slots = mReadSlots();
 
-    $('macroSlots').innerHTML = MSLOTS.map(function (s) {
-      var items = day[s[0]] || [];
+    // nothing to draft once every meal has something on it
+    $('macroFill').disabled = slots.list.every(function (s) { return (day[s.k] || []).length; });
+
+    /* One card per meal on the plan, then a card for anything a bygone meal
+       left on this day — removed from the plan is not removed from history. */
+    var slotCard = function (sk, name, onPlan) {
+      var items = day[sk] || [];
       /* Rows map over the STORED array so data attributes carry storage
          indexes; an unresolvable id (a deleted own recipe) renders as nothing
          but is never purged, the same bargain renderPlan strikes. */
       var rows = items.map(function (it, i) {
         var r = BY_ID[it.id];
         if (!r) return '';
-        var tag = s[0] + ':' + i;
+        var tag = sk + ':' + i;
         /* The tick and the name are separate targets on purpose: the box says
            "I ate it", the name opens the recipe to see what "it" is. When the
            two shared a label, reading the recipe cost you a phantom tick. */
         return '<div class="mitem' + (it.eaten ? ' eaten' : '') + '">' +
           '<span class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
             (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
-            '<button class="mitem-name" data-open="' + esc(String(r.id)) + '">' +
-              esc(r.name) + '</button></span>' +
+            '<button class="mitem-name" data-open="' + esc(String(r.id)) +
+              '" data-mx="' + it.x + '">' + esc(r.name) + '</button></span>' +
           '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
           '<span class="mstep no-print">' +
             '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
@@ -1070,20 +1100,27 @@
             esc(r.name) + '">&times;</button>' +
         '</div>';
       }).join('');
+      if (!onPlan && !rows) return '';        // a bygone meal with nothing left says nothing
       var sub = { kcal: 0, p: 0 };
       items.forEach(function (it) {
         var r = BY_ID[it.id];
         if (r && r.macro) { sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x; }
       });
       return '<div class="mslot">' +
-        '<div class="mslot-h"><span class="mslot-name">' + s[1] + '</span>' +
+        '<div class="mslot-h"><span class="mslot-name">' + esc(name) + '</span>' +
           (rows ? '<span class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
             Math.round(sub.p) + 'g protein</span>' : '') +
-          '<button class="ghost mslot-add no-print" data-mslot="' + s[0] + '">+ Add</button>' +
+          (onPlan ? '<button class="ghost mslot-add no-print" data-mslot="' + esc(sk) + '">+ Add</button>' : '') +
         '</div>' +
         '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>' +
       '</div>';
-    }).join('');
+    };
+    var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');
+    var onPlanKeys = slots.list.map(function (s) { return s.k; });
+    Object.keys(day).forEach(function (sk) {
+      if (onPlanKeys.indexOf(sk) < 0) html += slotCard(sk, slots.names[sk] || 'Meal', false);
+    });
+    $('macroSlots').innerHTML = html;
 
     $('macroFoot').innerHTML = macroFootHTML(day, targets);
     $('macroWeigh').innerHTML = macroWeighHTML(k);
@@ -1123,9 +1160,7 @@
      somebody typing "chicken" into a macro picker still wants the portion
      that suits the day, not the best textual match at any size. */
   function macroPickerHTML() {
-    var slot = S.macroPick.slot;
-    var name = '';
-    MSLOTS.forEach(function (s) { if (s[0] === slot) name = s[1]; });
+    var name = S.macroPick.n;
     var d = keyDate(mViewKey());
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
@@ -1147,10 +1182,10 @@
   }
 
   function mpListHTML() {
-    var slot = S.macroPick.slot;
+    var secs = MEAL_SECS[S.macroPick.t] || MEAL_SECS.s;
     var qs = S.mpQuery.trim().toLowerCase();
     var pool = RECIPES.filter(function (r) {
-      if (!S.mpAll && MEAL_SECS[slot].indexOf(r.book + '-' + r.secNum) < 0) return false;
+      if (!S.mpAll && secs.indexOf(r.book + '-' + r.secNum) < 0) return false;
       if (qs && !matchRank(r, qs)) return false;
       return true;
     });
@@ -1243,12 +1278,33 @@
         '<div class="mt-div">The day&rsquo;s grams &mdash; yours to overrule</div>' +
         '<div class="mt-row">' + num('mtP', t.p, 'Protein') + num('mtF', t.f, 'Fat') + num('mtC', t.c, 'Carbs') + '</div>' +
         '<div class="mt-kcal" id="mtKcal">= ' + kcalOf(t) + ' kcal</div>' +
+        '<div class="mt-div">The day&rsquo;s meals</div>' +
+        '<p class="sync-p">As many as your day really has &mdash; a morning brew, an afternoon ' +
+          'snack, one before bed. The kind steers what the picker and Fill my day reach for; ' +
+          'the fair-share arithmetic splits the targets over however many are here.</p>' +
+        '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
+        '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-mtarg="save">Save</button>' +
           '<button class="ghost" data-mtarg="cancel">Cancel</button>' +
         '</div>' +
       '</div></div>';
   }
+
+  function mtMealRow(s) {
+    var kinds = [['b', 'Breakfasts'], ['l', 'Lunches'], ['d', 'Dinners'], ['s', 'Snacks & drinks']];
+    return '<div class="mtm-row" data-mtmk="' + esc(s.k) + '">' +
+      '<button class="ghost mtm-move" data-mtmeal="up" aria-label="Move up">&uarr;</button>' +
+      '<input class="txt mtm-name" value="' + esc(s.n) + '" placeholder="Name the meal" aria-label="Meal name">' +
+      '<select class="mtm-type" aria-label="What kind of meal">' + kinds.map(function (o) {
+        return '<option value="' + o[0] + '"' + (o[0] === s.t ? ' selected' : '') + '>' + o[1] + '</option>';
+      }).join('') + '</select>' +
+      '<button class="day-x mtm-del" data-mtmeal="del" aria-label="Remove this meal">&times;</button>' +
+    '</div>';
+  }
+
+  // keeps two meals added in the same millisecond from sharing a key
+  var mtMealSeq = 0;
 
   /* What the profile boxes currently say, read straight off the sheet — the
      inputs are the draft, so a re-render cannot eat half-typed numbers. */
@@ -1282,10 +1338,18 @@
 
   function mOnDay(day, id) {
     var found = false;
-    MSLOTS.forEach(function (s) {
-      (day[s[0]] || []).forEach(function (it) { if (it.id === id) found = true; });
+    Object.keys(day).forEach(function (sk) {
+      (day[sk] || []).forEach(function (it) { if (it.id === id) found = true; });
     });
     return found;
+  }
+
+  /* The batch that makes exactly your portion: your servings over the
+     recipe's, snapped to the eighths the quantities print in. ×2½ of a
+     one-jar shake is 2½ jars; two plates of a four-plate roast is half
+     the roast. */
+  function mCookScale(x, servN) {
+    return Math.max(0.125, Math.round(x / (servN || 1) * 8) / 8);
   }
 
   /* Draft the empty meals in one press. Slots fill in day order, each seeing
@@ -1298,19 +1362,19 @@
   function mFillDay() {
     var targets = mReadTargets();
     mEditDay(mViewKey(), function (day) {
-      MSLOTS.forEach(function (s) {
-        if ((day[s[0]] || []).length) return;
+      mReadSlots().list.forEach(function (s) {
+        if ((day[s.k] || []).length) return;
         var sh = mShares(day, targets);
         // a slot is only worth filling while the day has real room left
         if (4 * sh.R.p + 4 * sh.R.c + 9 * sh.R.f < 100) return;
         var pool = RECIPES.filter(function (r) {
-          return MEAL_SECS[s[0]].indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
+          return (MEAL_SECS[s.t] || MEAL_SECS.s).indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
         });
         var ranked = mRank(pool, day, targets).filter(function (e) { return e.score !== null; });
         if (!ranked.length) return;
         var top = ranked.slice(0, 3);
         var pick = top[Math.floor(Math.random() * top.length)];
-        day[s[0]].push({ id: pick.r.id, x: pick.x, eaten: 0 });
+        (day[s.k] = day[s.k] || []).push({ id: pick.r.id, x: pick.x, eaten: 0 });
       });
     });
     renderMacros();
@@ -2879,7 +2943,10 @@
 
     var f = S.scale;
     var fav = window.Store.isFav(r.id);
-    var scaleLabel = f === 1 ? '1×' : f < 1 ? fmtNum(f) + '×' : f + '×';
+    /* fmtNum for every size, not just the halves: a recipe opened from the
+       Macros day can arrive at 2½× or ⅝×, and "2.5×" beside quantities
+       printed in fraction glyphs read as two different apps. */
+    var scaleLabel = fmtNum(f) + '×';
 
     root.innerHTML = '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(r.name) + '">' +
@@ -3638,13 +3705,20 @@
       var op = e.target.closest('[data-open]');
       if (op) {
         rememberOpener();
-        openRecipe(idOf(op.dataset.open));
+        var opr = BY_ID[idOf(op.dataset.open)];
+        /* The sheet opens scaled to MAKE the portion on the plan, not to the
+           whole batch — that is the number the plate was budgeted at. */
+        openRecipe(idOf(op.dataset.open),
+          opr ? mCookScale(Number(op.dataset.mx) || 1, opr.servN) : 1);
         return;
       }
       var add = e.target.closest('[data-mslot]');
       if (add) {
         rememberOpener();
-        S.macroPick = { slot: add.dataset.mslot };
+        var srec = null;
+        mReadSlots().list.forEach(function (s) { if (s.k === add.dataset.mslot) srec = s; });
+        if (!srec) return;
+        S.macroPick = { slot: srec.k, t: srec.t, n: srec.n };
         S.mpAll = false;
         S.mpQuery = '';
         pushSheet({ m: 1 });
@@ -3713,9 +3787,28 @@
     });
 
     /* The scale's number, filed under the day being looked at — ‹ lets a
-       missed morning be filled in after the fact. An emptied box un-logs it. */
+       missed morning be filled in after the fact. An emptied box un-logs it.
+     *
+     * Two saves, one truth. The quiet one runs a beat after each keystroke,
+     * so a phone pocketed mid-entry has still kept the number — but it does
+     * NOT redraw, because redrawing the box being typed in eats the trailing
+     * "." of 187.4 as it passes through 187. The loud one runs on leaving the
+     * box, cancels any quiet save still pending, and redraws the stats. The
+     * day key is captured when typing starts: a pending save must not follow
+     * the ‹ › onto a different morning. */
+    var mwTimer = null;
+    $('macroWeigh').addEventListener('input', function (e) {
+      if (e.target.id !== 'mWeight') return;
+      clearTimeout(mwTimer);
+      var key = mViewKey(), val = e.target.value;
+      mwTimer = setTimeout(function () {
+        var lb = Number(val);
+        mWriteWeight(key, isFinite(lb) && lb > 0 ? Math.min(1500, lb) : 0);
+      }, 600);
+    });
     $('macroWeigh').addEventListener('change', function (e) {
       if (e.target.id !== 'mWeight') return;
+      clearTimeout(mwTimer);
       var lb = Number(e.target.value);
       mWriteWeight(mViewKey(), isFinite(lb) && lb > 0 ? Math.min(1500, lb) : 0);
       keepingFocus(renderMacros);
@@ -3912,6 +4005,27 @@
         return;
       }
 
+      /* The meal rows are edited in place — add, remove, move up — because the
+         sheet is a draft and a re-render would eat every half-typed box. */
+      var mm = e.target.closest('[data-mtmeal]');
+      if (mm && S.macroTargOpen) {
+        var mact = mm.dataset.mtmeal;
+        if (mact === 'add') {
+          var holder = document.createElement('div');
+          holder.innerHTML = mtMealRow({ k: 'k' + Date.now().toString(36) + (mtMealSeq++), n: '', t: 's' });
+          $('mtMeals').appendChild(holder.firstChild);
+          var nn = $('mtMeals').lastChild.querySelector('.mtm-name');
+          if (nn) nn.focus();
+        }
+        var mrow = mm.closest('.mtm-row');
+        if (mact === 'del' && mrow) mrow.parentNode.removeChild(mrow);
+        if (mact === 'up' && mrow && mrow.previousElementSibling) {
+          mrow.parentNode.insertBefore(mrow, mrow.previousElementSibling);
+          mm.focus();
+        }
+        return;
+      }
+
       var mt = e.target.closest('[data-mtarg]');
       if (mt) {
         if (mt.dataset.mtarg === 'save') {
@@ -3924,6 +4038,21 @@
           mWriteTargets({ p: gv('mtP'), f: gv('mtF'), c: gv('mtC') });
           // the profile rides along, so next time the sheet already knows you
           mWriteProfile(mtProfileFromDom());
+          /* And the meals, as the rows now stand. A nameless row was a
+             mistake rather than a meal, and an empty list would be a day
+             with nowhere to put food — both fall back rather than save. */
+          var mlist = [];
+          Array.prototype.forEach.call(document.querySelectorAll('#mtMeals .mtm-row'), function (row) {
+            var mname = row.querySelector('.mtm-name').value.trim();
+            if (!mname) return;
+            mlist.push({ k: row.dataset.mtmk, n: mname, t: row.querySelector('.mtm-type').value });
+          });
+          if (mlist.length) {
+            var prevSlots = mReadSlots();
+            var mnames = prevSlots.names || {};
+            mlist.forEach(function (s) { mnames[s.k] = s.n; });
+            mWriteSlots({ list: mlist, names: mnames });
+          }
         }
         close();
         renderMacros();
@@ -4045,10 +4174,12 @@
     depth++;
   }
 
-  function openRecipe(id) {
+  function openRecipe(id, scale) {
     if (id === S.openId) return;
     S.openId = id;
-    S.scale = 1;
+    // the Macros day hands in the batch that makes its portion; every other
+    // door means the recipe as written
+    S.scale = scale || 1;
     S.why = false;
     pushSheet({ r: String(id) });
     renderModal();

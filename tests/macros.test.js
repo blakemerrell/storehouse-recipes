@@ -416,6 +416,15 @@ module.exports = {
     t.ok('a weigh-in lands under the local date, rounded to a tenth',
       logged.keys.length === 1 && logged.val === 187.5, JSON.stringify(logged));
 
+    // typing alone is enough — the quiet save runs without leaving the box
+    await w.fill('#mWeight', '186.2');
+    await w.waitForTimeout(900);
+    t.ok('a weight saves itself as it is typed, no blur required',
+      await w.evaluate(() => {
+        const ws = JSON.parse(localStorage.getItem('bsc.macroWeights'));
+        return ws[Object.keys(ws)[0]] === 186.2;
+      }));
+
     // an emptied box un-logs the day
     await w.fill('#mWeight', '');
     await w.dispatchEvent('#mWeight', 'change');
@@ -470,5 +479,105 @@ module.exports = {
       await w.evaluate(() => document.getElementById('mWeight').value));
 
     await w.context().close();
+
+    /* ---- the day's meals are the reader's to shape --------------------- */
+    const m = await t.fresh();
+    await m.click('.tab[data-view="macros"]');
+    await m.waitForTimeout(150);
+
+    await m.click('#macroTargBtn');
+    await m.waitForTimeout(200);
+    t.ok('the sheet starts with the four meals everyone starts with',
+      await m.evaluate(() => document.querySelectorAll('#mtMeals .mtm-row').length) === 4);
+
+    // a morning brew, added and walked to the top of the day
+    await m.click('[data-mtmeal="add"]');
+    await m.waitForTimeout(100);
+    await m.fill('#mtMeals .mtm-row:last-child .mtm-name', 'Crio Brü');
+    for (let i = 0; i < 4; i++) {
+      await m.evaluate(() => {
+        const row = [...document.querySelectorAll('#mtMeals .mtm-row')]
+          .find((r) => r.querySelector('.mtm-name').value === 'Crio Brü');
+        row.querySelector('.mtm-move').click();
+      });
+      await m.waitForTimeout(50);
+    }
+    t.ok('a new meal can be walked to the top of the day',
+      await m.evaluate(() =>
+        document.querySelector('#mtMeals .mtm-row .mtm-name').value === 'Crio Brü'));
+    await m.click('[data-mtarg="save"]');
+    await m.waitForTimeout(300);
+    const slotNames = () => m.evaluate(() =>
+      [...document.querySelectorAll('#macroSlots .mslot-name')].map((n) => n.textContent));
+    t.ok('the day now has five meals, the brew first',
+      (await slotNames()).length === 5 && (await slotNames())[0] === 'Crio Brü',
+      (await slotNames()).join(' | '));
+
+    await m.click('#macroTargBtn');
+    await m.waitForTimeout(200);
+    t.ok('and the shape survives a reopen',
+      await m.evaluate(() => {
+        const rows = document.querySelectorAll('#mtMeals .mtm-row');
+        return rows.length === 5 && rows[0].querySelector('.mtm-name').value === 'Crio Brü';
+      }));
+    await m.click('.sheet-x');
+    await m.waitForTimeout(300);
+
+    // put something on the brew and on Lunch, for the two tests that follow
+    for (const which of [0, 2]) {
+      await m.evaluate((n) => document.querySelectorAll('[data-mslot]')[n].click(), which);
+      await m.waitForTimeout(250);
+      await m.click('.mpick-row[data-mpx]');
+      await m.waitForTimeout(300);
+    }
+
+    /* The portion ports into the recipe: the sheet opens at the batch that
+       makes the plate — x over servN, snapped to the eighths it prints in. */
+    const port = await m.evaluate(() => {
+      const b = document.querySelector('.mitem-name');
+      const r = window.RECIPES.find((x) => String(x.id) === b.dataset.open);
+      return { x: Number(b.dataset.mx), servN: r.servN || 1 };
+    });
+    const snapped = Math.max(0.125, Math.round(port.x / port.servN * 8) / 8);
+    const fmt = (n) => {
+      const wh = Math.floor(n + 1e-9); const e8 = Math.round((n - wh) * 8);
+      if (e8 === 0) return String(wh || 0); if (e8 === 8) return String(wh + 1);
+      return (wh ? wh + ' ' : '') + { 1: '⅛', 2: '¼', 3: '⅜', 4: '½', 5: '⅝', 6: '¾', 7: '⅞' }[e8];
+    };
+    await m.click('.mitem-name');
+    await m.waitForTimeout(250);
+    t.ok('opening a plate opens its recipe at the batch that makes the portion',
+      (await m.textContent('.scaler-val')).trim() === fmt(snapped) + '×',
+      (await m.textContent('.scaler-val')) + ' — wanted ' + fmt(snapped) + '× (x' + port.x + ', serves ' + port.servN + ')');
+    await m.goBack();
+    await m.waitForTimeout(250);
+
+    /* Removing a meal from the plan does not remove its history: the plate
+       logged under Lunch keeps its card and keeps counting. */
+    const beforeP = await m.evaluate(() => document.querySelector('.mbar-nums').textContent);
+    await m.click('#macroTargBtn');
+    await m.waitForTimeout(200);
+    await m.evaluate(() => {
+      const row = [...document.querySelectorAll('#mtMeals .mtm-row')]
+        .find((r) => r.querySelector('.mtm-name').value === 'Lunch');
+      row.querySelector('[data-mtmeal="del"]').click();
+    });
+    await m.waitForTimeout(100);
+    await m.click('[data-mtarg="save"]');
+    await m.waitForTimeout(300);
+    t.ok('a removed meal with food on the day keeps its card',
+      await m.evaluate(() => {
+        const names = [...document.querySelectorAll('#macroSlots .mslot-name')].map((n) => n.textContent);
+        return names.length === 5 && names.indexOf('Lunch') === 4;
+      }), (await slotNames()).join(' | '));
+    t.ok('but loses its Add button — it is history, not a plan',
+      await m.evaluate(() => {
+        const cards = document.querySelectorAll('#macroSlots .mslot');
+        return !cards[cards.length - 1].querySelector('.mslot-add');
+      }));
+    t.ok('and its grams still count',
+      (await m.evaluate(() => document.querySelector('.mbar-nums').textContent)) === beforeP);
+
+    await m.context().close();
   },
 };
