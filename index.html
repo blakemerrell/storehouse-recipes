@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=114">
+<link rel="stylesheet" href="src/style.css?v=120">
 </head>
 <body>
 
@@ -43,6 +43,7 @@
            data-view is untouched because it is a key, not a word. -->
       <button class="tab" role="tab" data-view="browse" aria-selected="true">Recipes</button>
       <button class="tab" role="tab" data-view="plan" aria-selected="false"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
+      <button class="tab" role="tab" data-view="macros" aria-selected="false">Macros</button>
       <button class="tab" role="tab" data-view="list" aria-selected="false"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
       <button class="tab" role="tab" data-view="pantry" aria-selected="false">Pantry</button>
       <button class="tab" role="tab" data-view="book" aria-selected="false"><span class="t-long">Print Book</span><span class="t-short">Book</span></button>
@@ -137,6 +138,44 @@
   </div>
 </section>
 
+<!-- ------------------------------------------------------------- macros -->
+<section id="view-macros" class="hide">
+  <div class="view">
+    <!-- Two rows, two scopes. The head holds what is about YOU — the plan,
+         touched once a month, beside the title the way the Plan tab keeps
+         Rename and Delete. The strip below the line holds what steers the DAY
+         being looked at — arrows, the day itself, and Fill my day — the same
+         place the Plan tab puts its week bar. Mixing the two scopes in one
+         corner is what this used to do, and it read as clutter. -->
+    <div class="view-head">
+      <div class="view-title serif" style="font-size:22px">Macros
+        <button class="minfo no-print" id="macroInfo" aria-label="About this tab"
+          aria-expanded="false">?</button>
+      </div>
+      <div class="week-acts no-print">
+        <button class="ghost" id="macroTargBtn">Craft my plan</button>
+      </div>
+    </div>
+    <!-- The old always-on paragraph, now behind the ? — it earns its keep on
+         the first visit and was furniture on every visit after. -->
+    <div class="plan-note hide" id="macroNote">Yours alone &mdash; this tab saves on this phone
+      and is not shared with the household. Craft my plan asks who you are and what you are
+      after and works your grams out, add what you plan to eat to each meal, and tick things
+      off as you eat them. The picker suggests a portion size that fits what you have left,
+      and Fill my day drafts the empty meals in one press &mdash; favorites first, when
+      they fit.</div>
+    <div class="daybar no-print">
+      <button class="ghost" id="macroPrev" aria-label="Previous day">&lsaquo;</button>
+      <select id="macroDaySel" aria-label="Day"></select>
+      <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
+      <button class="ghost daybar-fill" id="macroFill">Fill my day</button>
+    </div>
+    <div id="macroSlots"></div>
+    <div class="macro-foot" id="macroFoot"></div>
+    <div class="macro-foot" id="macroWeigh"></div>
+  </div>
+</section>
+
 <!-- ------------------------------------------------------- shopping list -->
 <section id="view-list" class="hide">
   <div class="list-view">
@@ -217,14 +256,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=114"></script>
-<script src="data/nutrition.js?v=114"></script>
-<script src="data/art.js?v=114"></script>
-<script src="data/qr.js?v=114"></script>
-<script src="src/config.js?v=114"></script>
+<script src="data/recipes.js?v=120"></script>
+<script src="data/nutrition.js?v=120"></script>
+<script src="data/art.js?v=120"></script>
+<script src="data/qr.js?v=120"></script>
+<script src="src/config.js?v=120"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=114"></script>
-<script src="src/app.js?v=114"></script>
+<script src="src/sync.js?v=120"></script>
+<script src="src/app.js?v=120"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

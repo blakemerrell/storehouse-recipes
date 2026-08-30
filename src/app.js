@@ -56,6 +56,22 @@
     ['sun', 'Sunday', 'Sun']
   ];
 
+  /* The Macros tab's four meals. Slots organize the day; the arithmetic is
+     daily — a breakfast is not scolded for failing to be a whole day. */
+  var MSLOTS = [['b', 'Breakfast'], ['l', 'Lunch'], ['d', 'Dinner'], ['s', 'Snacks']];
+
+  /* Which sections count as "this meal" in the picker's default filter, keyed
+     book-secNum. Not a new field on the recipes: the sections are already
+     meal-shaped, and a map here can be corrected without a data rebuild. The
+     snack list is broad on purpose — a treat is a snack, and the fit ranking
+     is what sinks it on a cut, not the filter. */
+  var MEAL_SECS = {
+    b: ['1-1', '2-1'],
+    l: ['1-3', '2-2'],
+    d: ['1-4', '2-3', '2-4'],
+    s: ['1-2', '1-5', '1-6', '2-5', '2-6', '2-7', '2-8']
+  };
+
   var BOOKS = {
     1: {
       /* Doctrine and Covenants 89:20 — the Word of Wisdom's own promise, and the
@@ -368,7 +384,11 @@
       try { return localStorage.getItem('sh.units') === 'grams' ? 'grams' : 'cups'; }
       catch (e) { return 'cups'; }
     })(),
-    syncOpen: false, pendingCode: '', joinDraft: '', why: false
+    syncOpen: false, pendingCode: '', joinDraft: '', why: false,
+    /* The Macros tab. macroDate null means "today, worked out at render time",
+       so a phone left open across midnight lands on the new day by itself;
+       an explicit key means the reader pressed ‹ and wants to stay there. */
+    macroDate: null, macroPick: null, macroTargOpen: false, mpQuery: '', mpAll: false
   };
 
   // ------------------------------------------------------------------ browse
@@ -644,6 +664,661 @@
           (list.length ? '' : '<div class="day-empty">&mdash;</div>') +
         '</div></div>';
     }).join('');
+  }
+
+  // ----------------------------------------------------------------- macros
+  /* An RP-Diet-style day, kept as simple as the idea: targets in grams, four
+     meals, tick off what you eat. The picker below suggests a portion of each
+     recipe sized to what the day still needs.
+   *
+   * Everything here is deliberately personal and deliberately local. The keys
+   * are read and written in this file rather than through sync.js, because the
+   * LS map there is precisely the list of things saveLocal() mirrors into the
+   * household document — and a personal cut diary must never ride along into
+   * the merge and join paths. sh.units set the precedent for "device-local,
+   * app-owned"; these follow it under the bsc. prefix. */
+
+  function dayKey(d) {
+    /* Built from the local calendar, never toISOString() — that is UTC, and it
+       files an evening snack in Mountain time under tomorrow. */
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+  }
+  function todayKey() { return dayKey(new Date()); }
+  function keyDate(k) {
+    var m = k.split('-');
+    return new Date(Number(m[0]), Number(m[1]) - 1, Number(m[2]));
+  }
+  function mViewKey() { return S.macroDate || todayKey(); }
+
+  /* Today plus thirteen days behind it. Enough to look back over a week and
+     change your mind about the one before; not enough to become a diary the
+     browser has to carry forever. YYYY-MM-DD sorts as it dates, so the prune
+     is one string comparison. */
+  function mEarliestKey() {
+    var d = new Date();
+    d.setDate(d.getDate() - 13);
+    return dayKey(d);
+  }
+
+  function mReadTargets() {
+    try {
+      var t = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+      if (t && isFinite(t.p) && isFinite(t.f) && isFinite(t.c)) {
+        return { p: Number(t.p), f: Number(t.f), c: Number(t.c) };
+      }
+    } catch (e) { /* private mode or a corrupt value — the defaults stand */ }
+    return { p: 180, f: 50, c: 50 };
+  }
+  function mWriteTargets(t) {
+    try { localStorage.setItem('bsc.macroTargets', JSON.stringify(t)); }
+    catch (e) { /* private mode: the render reads defaults, nothing breaks */ }
+  }
+
+  /* The days live in memory and persist best-effort, so a browser that refuses
+     localStorage still gets a working tab for the session. */
+  var MDAYS = (function () {
+    try {
+      var d = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+    } catch (e) { /* fall through */ }
+    return {};
+  })();
+
+  function mDay(k) {
+    // a fresh object when the day is empty — browsing ‹ › never writes a key
+    return MDAYS[k] || { b: [], l: [], d: [], s: [] };
+  }
+
+  function mEditDay(k, fn) {
+    var day = MDAYS[k] || (MDAYS[k] = { b: [], l: [], d: [], s: [] });
+    fn(day);
+    var floor = mEarliestKey();
+    Object.keys(MDAYS).forEach(function (dk) { if (dk < floor) delete MDAYS[dk]; });
+    try { localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS)); }
+    catch (e) { /* in-memory only for this session */ }
+  }
+
+  function kcalOf(t) { return Math.round(4 * t.p + 4 * t.c + 9 * t.f); }
+
+  function mReadProfile() {
+    try {
+      var pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+      if (pr && typeof pr === 'object') return pr;
+    } catch (e) { /* private mode or corrupt */ }
+    return { sex: 'm', age: 0, ft: 0, inch: 0, lb: 0, act: 1.55, goal: 'cut1' };
+  }
+  function mWriteProfile(pr) {
+    try { localStorage.setItem('bsc.macroProfile', JSON.stringify(pr)); }
+    catch (e) { /* private mode */ }
+  }
+
+  /* The four plans. kcal is the swing off maintenance; prot is grams per pound
+     of bodyweight. The cuts carry more protein than maintenance because a
+     deficit is when muscle is easiest to lose and protein is what argues for
+     keeping it. */
+  var MGOALS = {
+    cut2: { kcal: -0.25, prot: 1.10 },
+    cut1: { kcal: -0.15, prot: 1.00 },
+    keep: { kcal: 0.00, prot: 0.85 },
+    gain: { kcal: 0.10, prot: 0.90 }
+  };
+
+  /* Mifflin–St Jeor for the base burn, an activity multiplier for the day, the
+     goal for the swing. Protein by bodyweight and goal; fat at a quarter of
+     the calories but never under 0.3 g/lb, which is the floor hormones care
+     about; carbs are whatever calories are left. On a very hard cut the
+     leftovers can go negative — carbs floor at zero and `floored` says so
+     rather than silently promising calories the grams do not add up to. */
+  /* A day's burn before the goal touches it — null until the profile can say. */
+  function mTdee(pr) {
+    if (!pr.age || !pr.lb || !(pr.ft * 12 + pr.inch)) return null;
+    var kg = pr.lb * 0.45359237;
+    var cm = (pr.ft * 12 + pr.inch) * 2.54;
+    return (10 * kg + 6.25 * cm - 5 * pr.age + (pr.sex === 'f' ? -161 : 5)) * pr.act;
+  }
+
+  function mPlanCalc(pr) {
+    var tdee = mTdee(pr);
+    if (tdee === null) return null;
+    var g = MGOALS[pr.goal] || MGOALS.cut1;
+    var kcal = Math.round(tdee * (1 + g.kcal));
+    var p = Math.round(g.prot * pr.lb);
+    var f = Math.round(Math.max(0.3 * pr.lb, 0.25 * kcal / 9));
+    var c = Math.max(0, Math.round((kcal - 4 * p - 9 * f) / 4));
+    return { kcal: kcal, p: p, f: f, c: c, floored: kcal - 4 * p - 9 * f < 0 };
+  }
+
+  /* The scale, once a day if you feel like it. Weights keep their own store
+     with their own horizon: a day of meals is stale in two weeks, but a weight
+     trend is the whole point of writing the number down, so these live for a
+     year. Same privacy bargain as the rest of the tab — this phone only. */
+  var MWEIGHTS = (function () {
+    try {
+      var w = JSON.parse(localStorage.getItem('bsc.macroWeights'));
+      if (w && typeof w === 'object' && !Array.isArray(w)) return w;
+    } catch (e) { /* fall through */ }
+    return {};
+  })();
+
+  function mWriteWeight(k, lb) {
+    if (lb) MWEIGHTS[k] = Math.round(lb * 10) / 10;
+    else delete MWEIGHTS[k];              // clearing the box un-logs the day
+    var d = new Date();
+    d.setDate(d.getDate() - 399);
+    var floor = dayKey(d);
+    Object.keys(MWEIGHTS).forEach(function (wk) { if (wk < floor) delete MWEIGHTS[wk]; });
+    try { localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS)); }
+    catch (e) { /* in-memory only for this session */ }
+  }
+
+  /* The numbers a cut actually reads. The seven-day average is the headline —
+     a single morning is water and yesterday's salt — and the week is judged
+     average against average, not spike against spike. */
+  function mWeightStats() {
+    var keys = Object.keys(MWEIGHTS).sort();
+    if (!keys.length) return null;
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var lastN = dayN(keys[keys.length - 1]);
+    var w7 = [], prev7 = [];
+    keys.forEach(function (k) {
+      var back = lastN - dayN(k);
+      if (back < 7) w7.push(MWEIGHTS[k]);
+      else if (back < 14) prev7.push(MWEIGHTS[k]);
+    });
+    var avg = function (a) { return a.reduce(function (s, x) { return s + x; }, 0) / a.length; };
+    var last = keys[keys.length - 1];
+    return {
+      n: keys.length, latest: MWEIGHTS[last], lastKey: last, firstKey: keys[0],
+      avg7: avg(w7),
+      dWeek: prev7.length ? avg(w7) - avg(prev7) : null,
+      dStart: MWEIGHTS[last] - MWEIGHTS[keys[0]]
+    };
+  }
+
+  function mSparkSVG() {
+    var keys = Object.keys(MWEIGHTS).sort().slice(-60);
+    if (keys.length < 2) return '';
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var x0 = dayN(keys[0]), x1 = dayN(keys[keys.length - 1]);
+    var lo = Infinity, hi = -Infinity;
+    keys.forEach(function (k) {
+      if (MWEIGHTS[k] < lo) lo = MWEIGHTS[k];
+      if (MWEIGHTS[k] > hi) hi = MWEIGHTS[k];
+    });
+    if (hi - lo < 1) { hi += 0.5; lo -= 0.5; }   // a flat line should look flat, not jagged
+    var W = 280, H = 44;
+    var pts = keys.map(function (k) {
+      var x = (dayN(k) - x0) / (x1 - x0) * W;
+      var y = 3 + (H - 6) * (1 - (MWEIGHTS[k] - lo) / (hi - lo));
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    });
+    return '<svg class="mw-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+  }
+
+  function mLbWord(d) {
+    var v = Math.round(Math.abs(d) * 10) / 10;
+    return d <= -0.05 ? 'down ' + v + ' lb' : d >= 0.05 ? 'up ' + v + ' lb' : 'holding steady';
+  }
+
+  function mPretty(k) {
+    var d = keyDate(k);
+    return M_MONS[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  function macroWeighHTML(k) {
+    var v = MWEIGHTS[k];
+    var st = mWeightStats();
+    var body;
+    if (st && st.n >= 2) {
+      var r1 = Math.round(st.latest * 10) / 10 + ' lb on ' + mPretty(st.lastKey) +
+        ' &middot; seven-day average ' + (Math.round(st.avg7 * 10) / 10);
+      var r2 = (st.dWeek === null ? '' : mLbWord(st.dWeek) + ' on the week before &middot; ') +
+        mLbWord(st.dStart) + ' since ' + mPretty(st.firstKey);
+      /* What the plan is aiming for, so the trend has something to be judged
+         against: the gap between the day's burn and the day's targets, read
+         at 3500 kcal to the pound. */
+      var pace = '';
+      var tdee = mTdee(mReadProfile());
+      if (tdee !== null) {
+        var rate = (tdee - kcalOf(mReadTargets())) * 7 / 3500;
+        if (Math.abs(rate) >= 0.2) {
+          pace = '<div class="mw-stat">the plan expects about ' +
+            Math.round(Math.abs(rate) * 10) / 10 + ' lb a week ' + (rate > 0 ? 'off' : 'on') + '</div>';
+        }
+      }
+      body = '<div class="mw-stat">' + r1 + '</div><div class="mw-stat">' + r2 + '</div>' +
+        pace + mSparkSVG();
+    } else {
+      body = '<div class="mw-stat">Log it when you weigh in and the trend builds here &mdash; ' +
+        'the seven-day average is the number to trust, not any one morning.</div>';
+    }
+    return '<div class="mw-row"><span class="mslot-name">Weigh-in</span>' +
+      '<label class="mt-lab no-print">Weight <input type="number" id="mWeight" min="0" max="1500" ' +
+        'step="0.1" inputmode="decimal" value="' + (v || '') + '"> lb</label></div>' +
+      body;
+  }
+
+  /* Everything on the day counts against the budget, eaten or not — putting a
+     dinner on the plan is committing its grams, and the picker must not offer
+     the same grams twice. Eaten is tracked separately for the bars. */
+  function mTotals(day) {
+    var all = { p: 0, f: 0, c: 0, kcal: 0 };
+    var eaten = { p: 0, f: 0, c: 0, kcal: 0 };
+    var est = false;
+    MSLOTS.forEach(function (s) {
+      (day[s[0]] || []).forEach(function (it) {
+        var r = BY_ID[it.id];
+        if (!r || !r.macro) return;
+        if (r.est) est = true;
+        ['p', 'f', 'c', 'kcal'].forEach(function (m) {
+          var v = (r.macro[m] || 0) * it.x;
+          all[m] += v;
+          if (it.eaten) eaten[m] += v;
+        });
+      });
+    });
+    return { all: all, eaten: eaten, est: est };
+  }
+
+  /* What this meal should reach for, and what the day can still absorb.
+     R is the day's remaining grams, floored at zero. T is this meal's fair
+     share of it — R split over the empty slots — and D normalizes penalties
+     to the size of the target so the weights mean the same thing whether the
+     target is 50 grams or 180. */
+  function mShares(day, targets) {
+    var tot = mTotals(day);
+    var empty = 0;
+    MSLOTS.forEach(function (s) { if (!(day[s[0]] || []).length) empty++; });
+    var R = {}, T = {}, D = {};
+    ['p', 'f', 'c'].forEach(function (m) {
+      R[m] = Math.max(0, targets[m] - tot.all[m]);
+      T[m] = R[m] / Math.max(1, empty);
+      D[m] = Math.max(1, targets[m]);
+    });
+    return { R: R, T: T, D: D };
+  }
+
+  /* Fill your share, never bust the day.
+   *
+   * Undershoot is judged against the MEAL's share T — a breakfast is not
+   * blamed for failing to deliver the whole day's protein — but overshoot is
+   * judged against the DAY's remaining R, because a portion that spends grams
+   * the day no longer has is a problem no matter which meal spends them. That
+   * one asymmetry is what makes the same formula behave at nine in the morning
+   * (share = a quarter of the day, ×1 of a normal breakfast scores high) and
+   * at nine at night (share = exactly the gap, the picker chases it).
+   *
+   * The weights are the cut, written down: protein is the only macro that is
+   * expensive to leave on the table (1.00 under vs 0.10 for fat and carbs),
+   * and going over on fat or carbs costs twenty times what undershooting them
+   * does (2.00 vs 0.10). Protein overshoot is mildly charged (0.35) so nobody
+   * is told to eat three chicken dinners at bedtime.       [under, over] */
+  var MW = { p: [1.00, 0.35], f: [0.10, 2.00], c: [0.10, 2.00] };
+
+  /* Half a serving up to three. x is servings EATEN, not batches cooked, so
+     there is no cap tied to servN — three servings of a six-serving roast is a
+     plate, and a dessert at any x sinks on its own fat and carbs. */
+  var MX = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
+
+  function macroFit(r, R, T, D) {
+    var best = null;
+    for (var i = 0; i < MX.length; i++) {
+      var x = MX[i], pen = 0;
+      for (var m in MW) {
+        var s = (r.macro[m] || 0) * x;
+        pen += MW[m][0] * Math.max(0, T[m] - s) / D[m];
+        pen += MW[m][1] * Math.max(0, s - R[m]) / D[m];
+      }
+      var sc = Math.round(100 * (1 - pen));
+      // strict >, walking x upward: a tie keeps the smaller portion. On a cut,
+      // when two sizes score the same, eat less.
+      if (!best || sc > best.score) best = { x: x, score: sc };
+    }
+    return best;
+  }
+
+  function mRank(list, day, targets) {
+    var sh = mShares(day, targets);
+    var ranked = [], flat = [];
+    list.forEach(function (r) {
+      if (r.macro && ((r.macro.p || 0) + (r.macro.c || 0) + (r.macro.f || 0)) > 0) {
+        var fit = macroFit(r, sh.R, sh.T, sh.D);
+        /* A few points for a favorite: enough that the meal you love wins the
+           near-tie against the one you have never made, never enough to argue
+           a dessert into a cut. The fit still owns the ranking. */
+        ranked.push({ r: r, x: fit.x, score: fit.score + (window.Store.isFav(r.id) ? 6 : 0) });
+      } else {
+        // reachable, honest, and unranked — a recipe with no numbers cannot
+        // be sorted by them
+        flat.push({ r: r, x: 1, score: null });
+      }
+    });
+    ranked.sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      var pa = a.r.macro.kcal ? a.r.macro.p / a.r.macro.kcal : 0;
+      var pb = b.r.macro.kcal ? b.r.macro.p / b.r.macro.kcal : 0;
+      return (pb - pa) || (a.r.book - b.r.book) || ((a.r.no || 0) - (b.r.no || 0));
+    });
+    return ranked.concat(flat);
+  }
+
+  var M_WDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var M_MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  /* One line of an item's arithmetic: "~415 kcal · 43P · 6F · 42C". The tilde
+     carries the honesty of est through the multiplication — figures estimated
+     from a food table do not become label-accurate by being scaled. */
+  function mMacLine(r, x) {
+    var mac = r.macro || {};
+    return (r.est ? '~' : '') + Math.round((mac.kcal || 0) * x) + ' kcal · ' +
+      Math.round((mac.p || 0) * x) + 'P · ' +
+      Math.round((mac.f || 0) * x) + 'F · ' +
+      Math.round((mac.c || 0) * x) + 'C';
+  }
+
+  function renderMacros() {
+    var todayK = todayKey();
+    var k = mViewKey();
+    if (k > todayK) { S.macroDate = null; k = todayK; }   // midnight passed while ‹ ›'d
+    /* The day is a control, not a caption: every day the tab remembers, named
+       the way you would say it, with the arrows for single steps either side. */
+    var opts = [];
+    for (var back = 0; back < 14; back++) {
+      var od = new Date();
+      od.setDate(od.getDate() - back);
+      var ok = dayKey(od);
+      var word = back === 0 ? 'Today' : back === 1 ? 'Yesterday' : M_WDAYS[od.getDay()];
+      opts.push('<option value="' + ok + '"' + (ok === k ? ' selected' : '') + '>' +
+        word + ' &middot; ' + M_MONS[od.getMonth()] + ' ' + od.getDate() + '</option>');
+    }
+    $('macroDaySel').innerHTML = opts.join('');
+    $('macroPrev').disabled = k <= mEarliestKey();
+    $('macroNext').disabled = k >= todayK;
+
+    var targets = mReadTargets();
+    var day = mDay(k);
+
+    // nothing to draft once every meal has something on it
+    $('macroFill').disabled = MSLOTS.every(function (s) { return (day[s[0]] || []).length; });
+
+    $('macroSlots').innerHTML = MSLOTS.map(function (s) {
+      var items = day[s[0]] || [];
+      /* Rows map over the STORED array so data attributes carry storage
+         indexes; an unresolvable id (a deleted own recipe) renders as nothing
+         but is never purged, the same bargain renderPlan strikes. */
+      var rows = items.map(function (it, i) {
+        var r = BY_ID[it.id];
+        if (!r) return '';
+        var tag = s[0] + ':' + i;
+        return '<div class="mitem' + (it.eaten ? ' eaten' : '') + '">' +
+          '<label class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
+            (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
+            '<span class="mitem-name">' + esc(r.name) + '</span></label>' +
+          '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+          '<span class="mstep no-print">' +
+            '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
+            '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
+            '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
+          '</span>' +
+          '<button class="day-x no-print" data-mdel="' + tag + '" aria-label="Remove ' +
+            esc(r.name) + '">&times;</button>' +
+        '</div>';
+      }).join('');
+      var sub = { kcal: 0, p: 0 };
+      items.forEach(function (it) {
+        var r = BY_ID[it.id];
+        if (r && r.macro) { sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x; }
+      });
+      return '<div class="mslot">' +
+        '<div class="mslot-h"><span class="mslot-name">' + s[1] + '</span>' +
+          (rows ? '<span class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
+            Math.round(sub.p) + 'g protein</span>' : '') +
+          '<button class="ghost mslot-add no-print" data-mslot="' + s[0] + '">+ Add</button>' +
+        '</div>' +
+        '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>' +
+      '</div>';
+    }).join('');
+
+    $('macroFoot').innerHTML = macroFootHTML(day, targets);
+    $('macroWeigh').innerHTML = macroWeighHTML(k);
+  }
+
+  function macroFootHTML(day, targets) {
+    if (!targets.p && !targets.f && !targets.c) {
+      return '<div class="macro-none">Set your targets and the bars appear here.</div>';
+    }
+    var tot = mTotals(day);
+    var NAMES = { p: 'Protein', f: 'Fat', c: 'Carbs' };
+    var bars = ['p', 'f', 'c'].map(function (m) {
+      var target = targets[m];
+      var all = Math.round(tot.all[m]);
+      var ate = Math.round(tot.eaten[m]);
+      var over = all > target;
+      var den = Math.max(1, target);
+      var wEat = Math.min(100, 100 * ate / den);
+      var wPlan = Math.min(100 - wEat, 100 * (all - ate) / den);
+      return '<div class="mbar' + (over ? ' over' : '') + '">' +
+        '<div class="mbar-top"><span class="mbar-name">' + NAMES[m] + '</span>' +
+          '<span class="mbar-nums">' + all + ' / ' + target + ' g · ' +
+          (over ? (all - target) + ' g over' : (target - all) + ' g left') + '</span></div>' +
+        '<div class="mbar-track">' +
+          '<i class="mbar-eaten" style="width:' + wEat.toFixed(1) + '%"></i>' +
+          '<i class="mbar-planned" style="width:' + wPlan.toFixed(1) + '%"></i>' +
+        '</div></div>';
+    }).join('');
+    return bars +
+      '<div class="macro-kcal">&asymp; ' + Math.round(tot.all.kcal) + ' of ' + kcalOf(targets) +
+        ' kcal on the day' + (tot.eaten.kcal ? ' · ' + Math.round(tot.eaten.kcal) + ' eaten' : '') + '</div>' +
+      (tot.est ? '<div class="macro-est">~ marks figures estimated from a food table, not a label.</div>' : '');
+  }
+
+  /* The picker sheet: search plus a meal/all toggle, over a list ranked by
+     fit. Search narrows what is ranked; it does not outrank the fit, because
+     somebody typing "chicken" into a macro picker still wants the portion
+     that suits the day, not the best textual match at any size. */
+  function macroPickerHTML() {
+    var slot = S.macroPick.slot;
+    var name = '';
+    MSLOTS.forEach(function (s) { if (s[0] === slot) name = s[1]; });
+    var d = keyDate(mViewKey());
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">Add to ' + esc(name) + ' · ' +
+            M_MONS[d.getMonth()] + ' ' + d.getDate() + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="mp-controls">' +
+          '<input type="search" class="txt" id="mpSearch" placeholder="Search a dish or ingredient&hellip;" ' +
+            'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
+          '<span class="seg mp-seg" role="group" aria-label="Which recipes">' +
+            '<button data-mpall="0" aria-pressed="' + String(!S.mpAll) + '">For this meal</button>' +
+            '<button data-mpall="1" aria-pressed="' + String(!!S.mpAll) + '">All recipes</button>' +
+          '</span>' +
+        '</div>' +
+        '<div id="mpList">' + mpListHTML() + '</div>' +
+      '</div></div>';
+  }
+
+  function mpListHTML() {
+    var slot = S.macroPick.slot;
+    var qs = S.mpQuery.trim().toLowerCase();
+    var pool = RECIPES.filter(function (r) {
+      if (!S.mpAll && MEAL_SECS[slot].indexOf(r.book + '-' + r.secNum) < 0) return false;
+      if (qs && !matchRank(r, qs)) return false;
+      return true;
+    });
+    var rows = mRank(pool, mDay(mViewKey()), mReadTargets()).slice(0, 40);
+    if (!rows.length) {
+      return '<div class="mslot-empty">Nothing matches' +
+        (S.mpAll ? '.' : ' &mdash; try All recipes.') + '</div>';
+    }
+    return rows.map(function (e) {
+      var r = e.r;
+      var fit = e.score === null ? 'no data'
+        : '&times;' + fmtNum(e.x) + ' &middot; ' + mMacLine(r, e.x);
+      return '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + e.x + '">' +
+        '<span class="mp-name">' +
+          (window.Store.isFav(r.id) ? '<span class="mp-fav">&#9733;</span> ' : '') +
+          esc(r.name) + '</span>' +
+        '<span class="mp-fit">' + fit + '</span>' +
+      '</button>';
+    }).join('');
+  }
+
+  /* Only the list under the search box redraws while you type — redrawing the
+     sheet would fight the cursor for the input. refreshPreview() set the
+     pattern. */
+  function refreshMacroPicker() {
+    var el = $('mpList');
+    if (el) el.innerHTML = mpListHTML();
+  }
+
+  /* Which plan the four buttons describe. Read by the sheet and by the tests,
+     which hold every key against a button rather than keeping their own copy. */
+  var MGOAL_WORDS = { cut2: 'Hard cut', cut1: 'Steady cut', keep: 'Maintain', gain: 'Lean gain' };
+
+  function mtPlanLine(plan) {
+    if (!plan) return 'Fill in age, height and weight and the plan appears here.';
+    return plan.kcal + ' kcal &middot; ' + plan.p + 'P / ' + plan.f + 'F / ' + plan.c + 'C' +
+      (plan.floored ? ' &middot; protein and fat alone spend the calories, so carbs floor at zero' : '');
+  }
+
+  function macroTargetsHTML() {
+    var t = mReadTargets();
+    var pr = mReadProfile();
+    var num = function (id, v, label) {
+      return '<label class="mt-lab">' + label +
+        '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" value="' + v + '"> g</label>';
+    };
+    var small = function (id, v, label, unit) {
+      return '<label class="mt-lab">' + label +
+        '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" value="' +
+        (v || '') + '">' + (unit ? ' ' + unit : '') + '</label>';
+    };
+    var seg = function (attr, val, opts) {
+      return '<span class="seg mt-seg" role="group">' + opts.map(function (o) {
+        return '<button data-' + attr + '="' + o[0] + '" aria-pressed="' + String(o[0] === val) + '">' + o[1] + '</button>';
+      }).join('') + '</span>';
+    };
+    var acts = [
+      [1.2, 'Mostly sitting'],
+      [1.375, 'On my feet some, or 1&ndash;3 workouts a week'],
+      [1.55, 'Active job, or 3&ndash;5 workouts'],
+      [1.725, 'Hard training 6&ndash;7 days'],
+      [1.9, 'Physical job plus hard training']
+    ];
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Your plan">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">Your plan</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="sheet-name">What a day should add up to</div>' +
+        '<p class="sync-p">Say who you are and what you are after, and the plan works the grams out ' +
+          '&mdash; base burn from sex, age, height and weight, a day’s burn from how you live, ' +
+          'and the goal moves it up or down. The gram boxes below follow along; overrule them if ' +
+          'you know better, and Save keeps whatever they say. On this phone only, like the rest ' +
+          'of the tab.</p>' +
+        '<div class="mt-row">' + seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']]) + '</div>' +
+        '<div class="mt-row">' +
+          small('mtAge', pr.age, 'Age', '') +
+          small('mtFt', pr.ft, 'Height', 'ft') +
+          small('mtIn', pr.inch, '', 'in') +
+          small('mtLb', pr.lb, 'Weight', 'lb') +
+        '</div>' +
+        '<div class="mt-row"><label class="mt-lab">Most days ' +
+          '<select id="mtAct">' + acts.map(function (a) {
+            return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
+          }).join('') + '</select></label></div>' +
+        '<div class="mt-row">' + seg('mtgoal', pr.goal,
+          [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) + '</div>' +
+        '<div class="mt-kcal" id="mtPlan">' + mtPlanLine(mPlanCalc(pr)) + '</div>' +
+        '<div class="mt-div">The day&rsquo;s grams &mdash; yours to overrule</div>' +
+        '<div class="mt-row">' + num('mtP', t.p, 'Protein') + num('mtF', t.f, 'Fat') + num('mtC', t.c, 'Carbs') + '</div>' +
+        '<div class="mt-kcal" id="mtKcal">= ' + kcalOf(t) + ' kcal</div>' +
+        '<div class="sync-row">' +
+          '<button class="btn-primary" data-mtarg="save">Save</button>' +
+          '<button class="ghost" data-mtarg="cancel">Cancel</button>' +
+        '</div>' +
+      '</div></div>';
+  }
+
+  /* What the profile boxes currently say, read straight off the sheet — the
+     inputs are the draft, so a re-render cannot eat half-typed numbers. */
+  function mtProfileFromDom() {
+    var n = function (id) { return Number(($(id) || {}).value) || 0; };
+    var sexBtn = document.querySelector('[data-mtsex][aria-pressed="true"]');
+    var goalBtn = document.querySelector('[data-mtgoal][aria-pressed="true"]');
+    return {
+      sex: sexBtn ? sexBtn.dataset.mtsex : 'm',
+      age: n('mtAge'), ft: n('mtFt'), inch: n('mtIn'), lb: n('mtLb'),
+      act: Number(($('mtAct') || {}).value) || 1.55,
+      goal: goalBtn ? goalBtn.dataset.mtgoal : 'cut1'
+    };
+  }
+
+  /* One model, one Save. The first version had a "Use this plan" button above
+     a "Save" button below, and the natural last press — Save, at the foot of
+     the sheet — quietly committed the OLD gram boxes over the plan just
+     applied. Two commit buttons on one sheet is a trap; now the plan writes
+     straight into the boxes as the profile changes, and Save keeps whatever
+     the boxes say, hand-typed or worked out. */
+  function mtRefreshPlan() {
+    var plan = mPlanCalc(mtProfileFromDom());
+    var el = $('mtPlan');
+    if (el) el.innerHTML = mtPlanLine(plan);
+    if (!plan) return;
+    if ($('mtP')) { $('mtP').value = plan.p; $('mtF').value = plan.f; $('mtC').value = plan.c; }
+    var kc = $('mtKcal');
+    if (kc) kc.textContent = '= ' + kcalOf(plan) + ' kcal';
+  }
+
+  function mOnDay(day, id) {
+    var found = false;
+    MSLOTS.forEach(function (s) {
+      (day[s[0]] || []).forEach(function (it) { if (it.id === id) found = true; });
+    });
+    return found;
+  }
+
+  /* Draft the empty meals in one press. Slots fill in day order, each seeing
+     what the ones before it took, so the four picks land as a combination
+     rather than four separate best breakfasts. Only EMPTY slots are touched —
+     what you placed yourself is your business — and each pick comes from the
+     top three fits at random, so pressing it again offers a different day
+     rather than insisting on the same one. Favorites carry their ranking
+     bonus here too, which is what "favorites first when they fit" means. */
+  function mFillDay() {
+    var targets = mReadTargets();
+    mEditDay(mViewKey(), function (day) {
+      MSLOTS.forEach(function (s) {
+        if ((day[s[0]] || []).length) return;
+        var sh = mShares(day, targets);
+        // a slot is only worth filling while the day has real room left
+        if (4 * sh.R.p + 4 * sh.R.c + 9 * sh.R.f < 100) return;
+        var pool = RECIPES.filter(function (r) {
+          return MEAL_SECS[s[0]].indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
+        });
+        var ranked = mRank(pool, day, targets).filter(function (e) { return e.score !== null; });
+        if (!ranked.length) return;
+        var top = ranked.slice(0, 3);
+        var pick = top[Math.floor(Math.random() * top.length)];
+        day[s[0]].push({ id: pick.r.id, x: pick.x, eaten: 0 });
+      });
+    });
+    renderMacros();
+  }
+
+  function mNavDay(step) {
+    var d = keyDate(mViewKey());
+    d.setDate(d.getDate() + step);
+    var k = dayKey(d);
+    if (k > todayKey() || k < mEarliestKey()) return;
+    S.macroDate = k === todayKey() ? null : k;
+    renderMacros();
   }
 
   // ----------------------------------------------------------- shopping list
@@ -2099,7 +2774,9 @@
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
-    'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab'];
+    'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mpall',
+    'data-mtsex', 'data-mtgoal'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -2148,6 +2825,9 @@
     var keepScroll = prev ? prev.scrollTop : 0;
     var draft = root.querySelector('#joinCode');
     if (draft) S.joinDraft = draft.value;
+    // same bargain for the picker's search: a sync emit must not eat the query
+    var mq = root.querySelector('#mpSearch');
+    if (mq) S.mpQuery = mq.value;
 
     /* Re-rendering the editor would throw away half-typed text, so it is drawn
        once when it opens and left alone; the only thing that redraws is the
@@ -2170,6 +2850,25 @@
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
       return;
     }
+
+    if (S.macroPick) {
+      root.innerHTML = macroPickerHTML();
+      document.body.style.overflow = 'hidden';
+      if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
+
+    if (S.macroTargOpen) {
+      /* Drawn once and left alone, like the editor: the profile boxes are a
+         draft, and a sync emit arriving mid-keystroke must not reset them to
+         whatever is saved. */
+      if (!prev || !prev.querySelector('.mt-sheet')) {
+        root.innerHTML = macroTargetsHTML();
+        document.body.style.overflow = 'hidden';
+      }
+      return;
+    }
+
     var r = S.openId ? BY_ID[S.openId] : null;
     if (!r) { root.innerHTML = ''; document.body.style.overflow = ''; return; }
     document.body.style.overflow = 'hidden';
@@ -2797,7 +3496,7 @@
 
   // ------------------------------------------------------------------ views
   function renderView() {
-    ['browse', 'plan', 'list', 'pantry', 'book'].forEach(function (v) {
+    ['browse', 'plan', 'macros', 'list', 'pantry', 'book'].forEach(function (v) {
       $('view-' + v).classList.toggle('hide', S.view !== v);
     });
     document.querySelectorAll('.tab').forEach(function (b) {
@@ -2805,6 +3504,7 @@
     });
     if (S.view === 'browse') renderBrowse();
     if (S.view === 'plan') renderPlan();
+    if (S.view === 'macros') renderMacros();
     if (S.view === 'list') renderList();
     if (S.view === 'pantry') renderPantry();
     if (S.view === 'book') renderBook();
@@ -2924,6 +3624,96 @@
       var id = idOf(m.dataset.mult), day = m.dataset.day;
       var at = SCALES.indexOf(window.Store.scaleOf(id, day));
       window.Store.addToDay(id, day, SCALES[(at + 1) % SCALES.length]);
+    });
+
+    /* The Macros day. Items are addressed slot:index into the stored arrays,
+       so duplicates of the same recipe stay two separate plates. */
+    $('macroSlots').addEventListener('click', function (e) {
+      var add = e.target.closest('[data-mslot]');
+      if (add) {
+        rememberOpener();
+        S.macroPick = { slot: add.dataset.mslot };
+        S.mpAll = false;
+        S.mpQuery = '';
+        pushSheet({ m: 1 });
+        renderModal();
+        var q = $('mpSearch');
+        if (q) q.focus();
+        return;
+      }
+      var st = e.target.closest('[data-mstep]');
+      if (st) {
+        var sp = st.dataset.mstep.split(':');           // slot : index : direction
+        mEditDay(mViewKey(), function (day) {
+          var it = (day[sp[0]] || [])[Number(sp[1])];
+          if (!it) return;
+          /* Quarter-serving steps land on eighths, so fmtNum always has a
+             glyph and never falls back to a decimal. */
+          it.x = sp[2] === 'up' ? Math.min(4, it.x + 0.25) : Math.max(0.25, it.x - 0.25);
+        });
+        keepingFocus(renderMacros);
+        return;
+      }
+      var del = e.target.closest('[data-mdel]');
+      if (del) {
+        var dp = del.dataset.mdel.split(':');
+        mEditDay(mViewKey(), function (day) {
+          (day[dp[0]] || []).splice(Number(dp[1]), 1);
+        });
+        keepingFocus(renderMacros);
+      }
+    });
+
+    $('macroSlots').addEventListener('change', function (e) {
+      var c = e.target.closest('[data-meat]');
+      if (!c) return;
+      var cp = c.dataset.meat.split(':');
+      mEditDay(mViewKey(), function (day) {
+        var it = (day[cp[0]] || [])[Number(cp[1])];
+        if (it) it.eaten = c.checked ? 1 : 0;
+      });
+      keepingFocus(renderMacros);
+    });
+
+    $('macroTargBtn').addEventListener('click', function () {
+      rememberOpener();
+      S.macroTargOpen = true;
+      pushSheet({ m: 1 });
+      renderModal();
+      var f = $('mtP');
+      if (f) f.focus();
+    });
+
+    $('macroPrev').addEventListener('click', function () { mNavDay(-1); });
+    $('macroNext').addEventListener('click', function () { mNavDay(1); });
+    $('macroDaySel').addEventListener('change', function () {
+      S.macroDate = this.value === todayKey() ? null : this.value;
+      keepingFocus(renderMacros);
+    });
+    $('macroFill').addEventListener('click', mFillDay);
+
+    /* The tab's one paragraph of explanation, behind the ? beside the title.
+       A toggle rather than a dismissal: the person who wants it again next
+       month should not have to have kept it on screen all month. */
+    $('macroInfo').addEventListener('click', function () {
+      var open = $('macroNote').classList.toggle('hide');
+      this.setAttribute('aria-expanded', String(!open));
+    });
+
+    /* The scale's number, filed under the day being looked at — ‹ lets a
+       missed morning be filled in after the fact. An emptied box un-logs it. */
+    $('macroWeigh').addEventListener('change', function (e) {
+      if (e.target.id !== 'mWeight') return;
+      var lb = Number(e.target.value);
+      mWriteWeight(mViewKey(), isFinite(lb) && lb > 0 ? Math.min(1500, lb) : 0);
+      keepingFocus(renderMacros);
+    });
+
+    /* A phone that sat open overnight should show the new day the moment it is
+       looked at again, not yesterday's finished plan. Only when the reader has
+       not deliberately navigated somewhere else. */
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && S.view === 'macros' && !S.macroDate) renderMacros();
     });
 
     $('weekBar').addEventListener('click', function (e) {
@@ -3079,6 +3869,55 @@
         return;
       }
 
+      var mp = e.target.closest('[data-mpick]');
+      if (mp && S.macroPick) {
+        var mslot = S.macroPick.slot;
+        var mid = idOf(mp.dataset.mpick);
+        var mx = Number(mp.dataset.mpx) || 1;
+        mEditDay(mViewKey(), function (day) {
+          (day[mslot] = day[mslot] || []).push({ id: mid, x: mx, eaten: 0 });
+        });
+        close();
+        renderMacros();
+        return;
+      }
+
+      var ma = e.target.closest('[data-mpall]');
+      if (ma) {
+        S.mpAll = ma.dataset.mpall === '1';
+        renderModal();
+        return;
+      }
+
+      /* The sex and goal pickers flip in place rather than re-rendering the
+         sheet — the sheet is a draft, and a redraw would cost the other boxes. */
+      var mseg = e.target.closest('[data-mtsex], [data-mtgoal]');
+      if (mseg && S.macroTargOpen) {
+        Array.prototype.forEach.call(mseg.parentElement.querySelectorAll('button'), function (b) {
+          b.setAttribute('aria-pressed', String(b === mseg));
+        });
+        mtRefreshPlan();
+        return;
+      }
+
+      var mt = e.target.closest('[data-mtarg]');
+      if (mt) {
+        if (mt.dataset.mtarg === 'save') {
+          // whole grams, never negative; 999 is not a limit anyone meets honestly
+          var gv = function (id) {
+            var el = $(id);
+            var n = Math.round(Number(el && el.value) || 0);
+            return Math.max(0, Math.min(999, n));
+          };
+          mWriteTargets({ p: gv('mtP'), f: gv('mtF'), c: gv('mtC') });
+          // the profile rides along, so next time the sheet already knows you
+          mWriteProfile(mtProfileFromDom());
+        }
+        close();
+        renderMacros();
+        return;
+      }
+
       var sy = e.target.closest('[data-sync]');
       if (sy) {
         var act = sy.dataset.sync;
@@ -3105,6 +3944,23 @@
     $('modalRoot').addEventListener('input', function (e) {
       if (S.editId && (e.target.id === 'edIng' || e.target.id === 'edServings' ||
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
+      if (S.macroPick && e.target.id === 'mpSearch') {
+        S.mpQuery = e.target.value;
+        refreshMacroPicker();
+      }
+      // the derived-kcal line follows the three targets as they are typed
+      if (S.macroTargOpen && /^mt[PFC]$/.test(e.target.id)) {
+        var kc = $('mtKcal');
+        var gv = function (id) { return Math.max(0, Number(($(id) || {}).value) || 0); };
+        if (kc) kc.textContent = '= ' + kcalOf({ p: gv('mtP'), f: gv('mtF'), c: gv('mtC') }) + ' kcal';
+      }
+      // and the plan preview follows the profile boxes
+      if (S.macroTargOpen && /^mt(Age|Ft|In|Lb)$/.test(e.target.id)) mtRefreshPlan();
+    });
+
+    // a select fires change, not input, in enough browsers to matter
+    $('modalRoot').addEventListener('change', function (e) {
+      if (S.macroTargOpen && e.target.id === 'mtAct') mtRefreshPlan();
     });
 
     $('newRecipe').addEventListener('click', function () { openEditor('new'); });
@@ -3131,7 +3987,7 @@
       }
       if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
-      if (e.key === 'Escape' && (S.openId || S.syncOpen)) close();
+      if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen)) close();
     });
   }
 
@@ -3223,6 +4079,10 @@
        way out was the Cancel button. */
     S.editId = null;
     S.editBase = null;
+    // and the Macros sheets, for exactly the same reason
+    S.macroPick = null;
+    S.macroTargOpen = false;
+    S.mpQuery = '';
     renderModal();
     restoreOpener();
   }
