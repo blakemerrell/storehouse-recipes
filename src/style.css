@@ -746,7 +746,6 @@ select { max-width: 280px; }
   border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
   background: var(--card); color: var(--muted-2);
 }
-.mday-plan { margin-left: auto; }
 /* the chart, compact enough to ride at the top of every screen */
 
 /* three dials on their sides: the sweep is the day so far, the words are
@@ -785,6 +784,9 @@ select { max-width: 280px; }
   content: ''; position: absolute; left: 4px; top: 14px; bottom: 16px;
   width: 1px; background: var(--line-firm);
 }
+/* Anything scrolled to — by the browser, by a test, by a tap on a link —
+   must not land beneath the block pinned over the top of it. */
+#macroPlan, .mday-stop, .mday-acts { scroll-margin-top: calc(var(--topbar-h, 60px) + 150px); }
 .mday-stop { position: relative; padding: 4px 0 12px; }
 .mday-stop::before {
   content: ''; position: absolute; left: -20px; top: 12px;
@@ -814,6 +816,22 @@ select { max-width: 280px; }
 .mkcal.on .mkcal-plan { background: var(--dial-on-pale); }
 .mkcal.over .mkcal-ate { background: var(--dial-over); }
 .mkcal.over .mkcal-plan { background: var(--dial-over-pale); }
+/* the plan, as a sentence rather than a button */
+.mplan {
+  display: flex; align-items: flex-start; gap: 12px;
+  margin-top: 12px; padding: 10px 12px;
+  background: var(--card); border: 1px solid var(--line-soft); border-radius: 4px;
+  font-size: 12.5px; color: var(--muted-2); line-height: 1.5;
+}
+.mplan-t { flex: 1 1 auto; min-width: 0; }
+.mplan-t b { font-family: var(--serif); font-size: 14px; color: var(--ink); font-weight: 600; }
+.mplan-go { flex: none; padding: 4px 11px; font-size: 11.5px; }
+.mplan-v.good { color: var(--dial-on); font-weight: 600; }
+.mplan-v.off { color: var(--dial-over); font-weight: 600; }
+/* nothing to report yet, so the invitation carries the weight */
+.mplan-none { align-items: center; }
+.mplan-none .mplan-go { border-color: var(--ochre); color: var(--ink); }
+
 .mday-acts { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
 /* On a phone the dial belongs hard right, where the thumb is. On a desktop
    that same rule strands it a hand's width from the name it belongs to, so
@@ -949,7 +967,6 @@ select { max-width: 280px; }
   border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
   background: var(--card); color: var(--muted-2);
 }
-.mday-plan { margin-left: auto; }
 /* the chart, compact enough to ride at the top of every screen */
 
 /* three dials on their sides: the sweep is the day so far, the words are

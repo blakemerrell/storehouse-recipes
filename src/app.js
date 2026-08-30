@@ -949,6 +949,63 @@
     return M_MONS[d.getMonth()] + ' ' + d.getDate();
   }
 
+  /* The plan, in two lines, where a button used to sit.
+   *
+   * Crafting a plan is a thing you do every few months; a button for it had
+   * prime daily real estate and said nothing the rest of the time. What
+   * belongs there is what the plan is doing FOR you — the destination, how
+   * far off it is, and whether the scale agrees you are getting there — with
+   * the way in tucked on the end. When there is no plan, the same line is
+   * the invitation to make one, which is the only moment a button was ever
+   * the right answer. */
+  function mPlanNarrative() {
+    var pr = mReadProfile();
+    var plan = mPlanCalc(pr);
+    var btn = function (label) {
+      return '<button class="ghost mplan-go no-print" id="macroTargBtn">' + label + '</button>';
+    };
+    if (!plan) {
+      return '<div class="mplan mplan-none">' +
+        '<span class="mplan-t">No plan yet &mdash; say what you are after and the day works ' +
+          'itself out.</span>' + btn('Craft my plan') + '</div>';
+    }
+    var pace = mGoalPace(pr);
+    var lines = [];
+    if (!pace) {
+      lines.push('<b>' + esc(MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1) + '</b> &middot; ' +
+        plan.kcal + ' kcal a day');
+      lines.push('Name a weight and a date under Adjust and this tracks the arrival.');
+    } else {
+      var st = mWeightStats();
+      var now = st ? st.avg7 : pr.lb;
+      var togo = Math.round((now - pr.goalLb) * 10) / 10;
+      var weeks = Math.max(1, Math.round(pace.days / 7));
+      var d = keyDate(pr.goalBy);
+      lines.push('<b>' + pr.goalLb + ' lb by ' + M_MONS[d.getMonth()] + ' ' + d.getDate() + '</b>' +
+        ' &middot; ' + Math.abs(togo) + ' lb to go over ' + weeks +
+        (weeks === 1 ? ' week' : ' weeks'));
+      /* The scale's opinion of the plan. Needs two weeks before it has one:
+         a single week of mornings is water, not a trend. */
+      var need = Math.abs(togo) / weeks;
+      if (!st || st.dWeek === null) {
+        lines.push('Averaging ' + (st ? Math.round(st.avg7 * 10) / 10 + ' lb' : 'nothing yet') +
+          '. Two weeks of mornings and this says whether you are on pace.');
+      } else {
+        var moving = -st.dWeek;                       // pounds off per week
+        var wanted = togo >= 0 ? need : -need;        // gaining flips the sign
+        var got = togo >= 0 ? moving : -moving;
+        var verdict = got >= wanted * 1.15 ? ['ahead of pace', 'good']
+          : got >= wanted * 0.85 ? ['on pace', 'good']
+            : ['behind pace', 'off'];
+        lines.push('Averaging ' + (Math.round(st.avg7 * 10) / 10) + ' lb, ' +
+          mLbWord(st.dWeek) + ' a week. Needs ' + (Math.round(need * 10) / 10) +
+          '. <span class="mplan-v ' + verdict[1] + '">' + verdict[0] + '.</span>');
+      }
+    }
+    return '<div class="mplan">' +
+      '<span class="mplan-t">' + lines.join('<br>') + '</span>' + btn('Adjust') + '</div>';
+  }
+
   function macroWeighHTML(k) {
     var v = MWEIGHTS[k];
     var st = mWeightStats();
@@ -1270,6 +1327,9 @@
     $('macroSlots').innerHTML = html;
 
     $('macroFoot').innerHTML = macroFootHTML(day, targets);
+    /* Rebuilt every render, so the button inside it is new each time — the
+       handler is delegated from the container rather than bound to it. */
+    $('macroPlan').innerHTML = mPlanNarrative();
     $('macroWeigh').innerHTML = macroWeighHTML(k);
     // the first stop of the day fills in once the scale has been read
     $('macroWeigh').classList.toggle('done', MWEIGHTS[k] > 0);
@@ -4365,12 +4425,13 @@
       keepingFocus(renderMacros);
     });
 
-    $('macroTargBtn').addEventListener('click', function () {
+    $('macroPlan').addEventListener('click', function (e) {
+      if (!e.target.closest('#macroTargBtn')) return;
       rememberOpener();
       S.macroTargOpen = true;
       pushSheet({ m: 1 });
       renderModal();
-      var f = $('mtP');
+      var f = $('mtGoalLb') || $('mtP');
       if (f) f.focus();
     });
 

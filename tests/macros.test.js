@@ -54,6 +54,14 @@ module.exports = {
       await p.evaluate(() => !!document.querySelector('.mkcal-track .mkcal-ate') &&
         !document.querySelector('.mslot-left')));
 
+    /* Crafting a plan is a once-a-season job, so the daily screen carries
+       what the plan is DOING rather than a button for making one. With no
+       plan yet, that same line is the invitation. */
+    t.ok('with no plan, the line asks for one',
+      /No plan yet/.test(await p.textContent('#macroPlan')) &&
+      /Craft my plan/.test(await p.textContent('#macroPlan')),
+      await p.textContent('#macroPlan'));
+
     // ---- edit the targets; they hold across a reload
     await p.click('#macroTargBtn');
     await p.waitForTimeout(150);
@@ -436,6 +444,57 @@ module.exports = {
 
     await q.click('.sheet-x');
     await q.waitForTimeout(250);
+
+    /* With a goal and a date, the line says the destination, the distance
+       and — once the scale has two weeks to compare — whether it agrees. */
+    await q.click('#macroTargBtn');
+    await q.waitForTimeout(250);
+    // a known profile opens on the answer, so unfold the ledger to reach the goal
+    await q.evaluate(() => {
+      if (document.getElementById('mtEditor').classList.contains('hide')) {
+        document.querySelector('[data-mtedit]').click();
+      }
+    });
+    await q.waitForTimeout(150);
+    await q.fill('#mtGoalLb', '185');
+    const tenWeeks = await q.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date(); d.setDate(d.getDate() + 70);
+      return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+    });
+    await q.fill('#mtGoalBy', tenWeeks);
+    await q.click('[data-mtarg="save"]');
+    await q.waitForTimeout(300);
+    const narr = () => q.textContent('#macroPlan');
+    t.ok('the line names the destination and the distance',
+      /185 lb by/.test(await narr()) && /lb to go over 10 weeks/.test(await narr()), await narr());
+    t.ok('and asks for mornings before it judges the pace',
+      /two weeks of mornings|Two weeks of mornings/i.test(await narr()), await narr());
+    t.ok('with Adjust as the way back in, not a standing button',
+      await q.evaluate(() => {
+        const b2 = document.querySelector('#macroPlan #macroTargBtn');
+        return b2 && b2.textContent.trim() === 'Adjust' &&
+          !document.querySelector('.mday-head #macroTargBtn');
+      }));
+
+    /* Two weeks of mornings, losing a pound a week against a goal that needs
+       about two — the line should say so rather than flatter it. */
+    await q.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const ws = {};
+      for (let i = 0; i < 16; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        ws[d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate())] =
+          Math.round((200 + i * 0.14) * 10) / 10;
+      }
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+    });
+    await q.reload();
+    await q.waitForTimeout(400);
+    t.ok('once there are mornings, the scale gets an opinion',
+      /Averaging /.test(await narr()) && /Needs /.test(await narr()), await narr());
+    t.ok('and it is behind pace, because a pound a week is not two',
+      /behind pace/.test(await narr()), await narr());
 
     // ---- a favorite never ranks worse for being loved, and wears its star
     await q.click('[data-mslot="b"]');
