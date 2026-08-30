@@ -63,8 +63,9 @@ module.exports = {
       await foot());
     await p.reload();
     await p.waitForTimeout(300);
-    await p.click('.tab[data-view="macros"]');
-    await p.waitForTimeout(150);
+    t.ok('a refresh lands back on the tab you were on, not on Recipes',
+      await p.evaluate(() => !document.getElementById('view-macros').classList.contains('hide') &&
+        document.querySelector('.tab[data-view="macros"]').getAttribute('aria-selected') === 'true'));
     t.ok('targets survive a reload',
       /\/ 150 g/.test(await foot()), await foot());
 
@@ -196,7 +197,7 @@ module.exports = {
       window.RECIPES.find((r) => r.est && r.macro && r.macro.p + r.macro.c + r.macro.f > 0).name);
     await p.click('[data-mslot="l"]');
     await p.waitForTimeout(200);
-    await p.click('[data-mpall="1"]');
+    await p.selectOption('#mpSec', 'all');
     await p.waitForTimeout(150);
     await p.fill('#mpSearch', estName);
     await p.waitForTimeout(200);
@@ -579,5 +580,126 @@ module.exports = {
       (await m.evaluate(() => document.querySelector('.mbar-nums').textContent)) === beforeP);
 
     await m.context().close();
+
+    /* ---- lenses, locks, and the rebalancer ------------------------------ */
+    const z = await t.fresh();
+    await z.click('.tab[data-view="macros"]');
+    await z.waitForTimeout(150);
+
+    // the picker's sort is a lens: order changes, portions stay
+    await z.click('[data-mslot="b"]');
+    await z.waitForTimeout(200);
+    await z.selectOption('#mpSort', 'protein');
+    await z.waitForTimeout(150);
+    t.ok('sorting by protein puts the most protein first',
+      await z.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
+        const pOf = (r) => window.RECIPES.find((x) => String(x.id) === r.dataset.mpick).macro.p;
+        return rows.length > 2 && rows.every((r, i) => i === 0 || pOf(rows[i - 1]) >= pOf(r));
+      }));
+    await z.selectOption('#mpSort', 'healthy');
+    await z.waitForTimeout(150);
+    t.ok('and by health score, healthiest first',
+      await z.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
+        const sOf = (r) => window.RECIPES.find((x) => String(x.id) === r.dataset.mpick).score;
+        return rows.length > 2 && rows.every((r, i) => i === 0 || sOf(rows[i - 1]) >= sOf(r));
+      }));
+
+    // the section lens speaks the browse tab's vocabulary
+    await z.selectOption('#mpSec', '2-4');
+    await z.waitForTimeout(150);
+    t.ok('a single section can be looked at on its own',
+      await z.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mpick-row')];
+        return rows.length && rows.every((r) => {
+          const rec = window.RECIPES.find((x) => String(x.id) === r.dataset.mpick);
+          return rec.book === 2 && rec.secNum === 4;
+        });
+      }));
+    await z.selectOption('#mpSec', 'meal');
+    await z.waitForTimeout(150);
+
+    // one plate on the day, shrunk by hand, put right by the button
+    await z.click('.mpick-row[data-mpx]');
+    await z.waitForTimeout(300);
+    for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
+    await z.waitForTimeout(150);
+    const leftBefore = await z.evaluate(() =>
+      Number(document.querySelector('.mbar-nums').textContent.match(/(\d+) g left/)[1]));
+    await z.click('#macroRebal');
+    await z.waitForTimeout(250);
+    t.ok('Rebalance grows a shrunken plate back toward the day',
+      await z.evaluate(() => document.querySelector('.mstep-x').textContent !== '×¼'),
+      await z.textContent('.mstep-x'));
+    t.ok('and the day is nearer its protein than before',
+      await z.evaluate((was) => {
+        const m2 = document.querySelector('.mbar-nums').textContent.match(/(\d+) g (left|over)/);
+        return m2[2] === 'over' ? true : Number(m2[1]) < was;
+      }, leftBefore), 'was ' + leftBefore + ' g left');
+
+    // the lock holds against the machine, not the hand
+    await z.click('[data-mlock="b:0"]');
+    await z.waitForTimeout(150);
+    t.ok('a plate can be locked', await z.evaluate(() =>
+      document.querySelector('[data-mlock="b:0"]').getAttribute('aria-pressed') === 'true'));
+    for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
+    await z.waitForTimeout(150);
+    t.ok('the stepper still obeys the hand on a locked plate',
+      (await z.textContent('.mstep-x')).indexOf('¼') >= 0);
+    t.ok('but Rebalance has nothing left to move, and says so',
+      await z.evaluate(() => document.getElementById('macroRebal').disabled));
+
+    // a custom meal draws from exactly the boxes it ticked
+    await z.click('#macroTargBtn');
+    await z.waitForTimeout(200);
+    await z.selectOption('#mtMeals .mtm-row:first-child .mtm-type', 'x');
+    await z.waitForTimeout(150);
+    t.ok('choosing sections unfolds the checklist',
+      await z.evaluate(() => !!document.querySelector('#mtMeals .mtm-row .mtm-secs')));
+    await z.evaluate(() => {
+      document.querySelectorAll('#mtMeals .mtm-row:first-child .mtm-secs input').forEach((cb) => {
+        cb.checked = cb.value === '1-6';        // Power Drinks alone
+      });
+    });
+    await z.click('[data-mtarg="save"]');
+    await z.waitForTimeout(300);
+    await z.click('[data-mslot="b"]');
+    await z.waitForTimeout(200);
+    t.ok('the meal now draws from exactly the section it ticked',
+      await z.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mpick-row')];
+        return rows.length && rows.every((r) => {
+          const rec = window.RECIPES.find((x) => String(x.id) === r.dataset.mpick);
+          return rec.book === 1 && rec.secNum === 6;
+        });
+      }));
+
+    /* Shares: a meal weighted heavier asks for more of the same dish. */
+    const w20 = await z.evaluate(() => {
+      const r = document.querySelector('.mpick-row[data-mpx]');
+      return { id: r.dataset.mpick, x: Number(r.dataset.mpx) };
+    });
+    await z.goBack();
+    await z.waitForTimeout(250);
+    await z.click('#macroTargBtn');
+    await z.waitForTimeout(200);
+    t.ok('every meal shows its share of the day, defaulted by kind',
+      await z.evaluate(() =>
+        [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',') === '20,25,35,10'),
+      await z.evaluate(() => [...document.querySelectorAll('.mtm-share')].map((i) => i.value).join(',')));
+    await z.fill('#mtMeals .mtm-row:first-child .mtm-share', '60');
+    await z.click('[data-mtarg="save"]');
+    await z.waitForTimeout(300);
+    await z.click('[data-mslot="b"]');
+    await z.waitForTimeout(200);
+    const w60 = await z.evaluate((id) => {
+      const r = [...document.querySelectorAll('.mpick-row[data-mpx]')].find((x) => x.dataset.mpick === id);
+      return r ? Number(r.dataset.mpx) : null;
+    }, w20.id);
+    t.ok('a bigger share asks for a bigger portion of the same dish',
+      w60 !== null && w60 >= w20.x, '×' + w20.x + ' → ×' + w60);
+
+    await z.context().close();
   },
 };

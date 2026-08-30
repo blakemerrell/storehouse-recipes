@@ -379,7 +379,17 @@
 
   // ------------------------------------------------------------------ state
   var S = {
-    view: 'browse', bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
+    /* The tab you were on is the tab you come back to. A refresh that threw
+       somebody tracking their day back onto the recipe grid read as the app
+       forgetting them; device-local like sh.units, because which tab you
+       live on is yours, not the household's. */
+    view: (function () {
+      try {
+        var v = localStorage.getItem('sh.view');
+        return ['browse', 'plan', 'macros', 'list', 'pantry', 'book'].indexOf(v) >= 0 ? v : 'browse';
+      } catch (e) { return 'browse'; }
+    })(),
+    bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
     favOnly: false, qy: '', sort: 'book', openId: null, scale: 1, printSet: 'all',
     /* Cups or grams. Persisted on the device rather than shared, because it is
        a preference about reading, not about the plan — one of you can cook by
@@ -392,7 +402,8 @@
     /* The Macros tab. macroDate null means "today, worked out at render time",
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
-    macroDate: null, macroPick: null, macroTargOpen: false, mpQuery: '', mpAll: false
+    macroDate: null, macroPick: null, macroTargOpen: false, mpQuery: '',
+    mpSec: 'meal', mpSort: 'fit'
   };
 
   // ------------------------------------------------------------------ browse
@@ -749,6 +760,26 @@
     catch (e) { /* private mode */ }
   }
 
+  /* Every section there is, in book order, straight off the live data — the
+     same source the browse filter reads, so the two can never drift apart. */
+  function mAllSections() {
+    var seen = {}, out = [];
+    RECIPES.forEach(function (r) {
+      var key = r.book + '-' + r.secNum;
+      if (!seen[key]) { seen[key] = true; out.push({ key: key, book: r.book, name: r.secName }); }
+    });
+    return out;
+  }
+
+  /* Which sections a meal draws from. The four kinds are named bundles of
+     sections; 'x' means the reader chose their own boxes under Craft my plan.
+     A custom set that lost all its boxes falls back to snacks rather than to
+     a meal that can hold nothing. */
+  function mSlotSecs(slot) {
+    if (slot.t === 'x' && slot.secs && slot.secs.length) return slot.secs;
+    return MEAL_SECS[slot.t] || MEAL_SECS.s;
+  }
+
   function mDay(k) {
     // a fresh object when the day is empty — browsing ‹ › never writes a key
     return MDAYS[k] || {};
@@ -948,19 +979,40 @@
     return { all: all, eaten: eaten, est: est };
   }
 
-  /* What this meal should reach for, and what the day can still absorb.
-     R is the day's remaining grams, floored at zero. T is this meal's fair
-     share of it — R split over the empty slots — and D normalizes penalties
-     to the size of the target so the weights mean the same thing whether the
-     target is 50 grams or 180. */
-  function mShares(day, targets) {
+  /* How much of the day each meal deserves. Split evenly, a before-bed snack
+     was offered a plate the size of dinner's; these are the thumbs on the
+     scale. Editable per meal under Craft my plan; the numbers are weights,
+     not a percentage that must sum to anything. */
+  var MSLOT_W = { b: 20, l: 25, d: 35, s: 10, x: 15 };
+  function mSlotW(slot) {
+    var w = Number(slot.w);
+    return w > 0 ? w : (MSLOT_W[slot.t] || 15);
+  }
+
+  /* What THIS meal should reach for, and what the day can still absorb.
+     R is the day's remaining grams, floored at zero. T is the meal's share
+     of it — R split over the still-empty slots by their weights, so dinner
+     reaches for dinner's portion of what is left and a snack for a snack's —
+     and D normalizes penalties to the size of the target so the weights mean
+     the same thing whether the target is 50 grams or 180. */
+  function mShares(day, targets, slot) {
     var tot = mTotals(day);
-    var empty = 0;
-    mReadSlots().list.forEach(function (s) { if (!(day[s.k] || []).length) empty++; });
+    var w = slot ? mSlotW(slot) : 1;
+    var sumW = 0, counted = false;
+    mReadSlots().list.forEach(function (s) {
+      var isThis = slot && s.k === slot.k;
+      if (!(day[s.k] || []).length || isThis) {
+        sumW += mSlotW(s);
+        if (isThis) counted = true;
+      }
+    });
+    if (slot && !counted) sumW += w;    // a bygone meal still being served
+    if (!sumW) sumW = w;
+    var frac = w / sumW;
     var R = {}, T = {}, D = {};
     ['p', 'f', 'c'].forEach(function (m) {
       R[m] = Math.max(0, targets[m] - tot.all[m]);
-      T[m] = R[m] / Math.max(1, empty);
+      T[m] = R[m] * frac;
       D[m] = Math.max(1, targets[m]);
     });
     return { R: R, T: T, D: D };
@@ -1005,8 +1057,8 @@
     return best;
   }
 
-  function mRank(list, day, targets) {
-    var sh = mShares(day, targets);
+  function mRank(list, day, targets, slot) {
+    var sh = mShares(day, targets, slot);
     var ranked = [], flat = [];
     list.forEach(function (r) {
       if (r.macro && ((r.macro.p || 0) + (r.macro.c || 0) + (r.macro.f || 0)) > 0) {
@@ -1071,6 +1123,16 @@
     // nothing to draft once every meal has something on it
     $('macroFill').disabled = slots.list.every(function (s) { return (day[s.k] || []).length; });
 
+    // and nothing to re-size when every plate is eaten, locked, or absent
+    var freeCount = 0;
+    Object.keys(day).forEach(function (sk) {
+      (day[sk] || []).forEach(function (it) {
+        var r = BY_ID[it.id];
+        if (!it.eaten && !it.l && r && r.macro) freeCount++;
+      });
+    });
+    $('macroRebal').disabled = !freeCount;
+
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
     var slotCard = function (sk, name, onPlan) {
@@ -1091,6 +1153,12 @@
             '<button class="mitem-name" data-open="' + esc(String(r.id)) +
               '" data-mx="' + it.x + '">' + esc(r.name) + '</button></span>' +
           '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+          /* The lock guards against the MACHINE, not the person: Rebalance
+             leaves a locked plate alone, but the stepper still works — a
+             hand on the dial is the person changing their mind. */
+          '<button class="mlock no-print" data-mlock="' + tag + '" aria-pressed="' +
+            (it.l ? 'true' : 'false') + '" aria-label="' +
+            (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
           '<span class="mstep no-print">' +
             '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
             '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
@@ -1172,27 +1240,63 @@
         '<div class="mp-controls">' +
           '<input type="search" class="txt" id="mpSearch" placeholder="Search a dish or ingredient&hellip;" ' +
             'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
-          '<span class="seg mp-seg" role="group" aria-label="Which recipes">' +
-            '<button data-mpall="0" aria-pressed="' + String(!S.mpAll) + '">For this meal</button>' +
-            '<button data-mpall="1" aria-pressed="' + String(!!S.mpAll) + '">All recipes</button>' +
-          '</span>' +
+          /* The same section vocabulary the Recipes tab speaks, so filling
+             Dinner can peek at just the Sunday Feasts without leaving the
+             fit-ranked portions behind. */
+          '<select id="mpSec" aria-label="Which recipes">' +
+            '<option value="meal"' + (S.mpSec === 'meal' ? ' selected' : '') + '>For this meal</option>' +
+            '<option value="all"' + (S.mpSec === 'all' ? ' selected' : '') + '>Every recipe</option>' +
+            (function () {
+              var out = '', bk = 0;
+              mAllSections().forEach(function (sec) {
+                if (sec.book !== bk) {
+                  out += (bk ? '</optgroup>' : '') + '<optgroup label="' +
+                    esc(sec.book === 3 ? 'Ours' : BOOKS[sec.book].name) + '">';
+                  bk = sec.book;
+                }
+                out += '<option value="' + sec.key + '"' + (S.mpSec === sec.key ? ' selected' : '') + '>' +
+                  esc(sec.name) + '</option>';
+              });
+              return out + (bk ? '</optgroup>' : '');
+            })() +
+          '</select>' +
+          '<select id="mpSort" aria-label="Order">' +
+            '<option value="fit"' + (S.mpSort === 'fit' ? ' selected' : '') + '>Best fit</option>' +
+            '<option value="protein"' + (S.mpSort === 'protein' ? ' selected' : '') + '>Most protein</option>' +
+            '<option value="healthy"' + (S.mpSort === 'healthy' ? ' selected' : '') + '>Healthiest</option>' +
+          '</select>' +
         '</div>' +
         '<div id="mpList">' + mpListHTML() + '</div>' +
       '</div></div>';
   }
 
   function mpListHTML() {
-    var secs = MEAL_SECS[S.macroPick.t] || MEAL_SECS.s;
     var qs = S.mpQuery.trim().toLowerCase();
     var pool = RECIPES.filter(function (r) {
-      if (!S.mpAll && secs.indexOf(r.book + '-' + r.secNum) < 0) return false;
+      var sk = r.book + '-' + r.secNum;
+      if (S.mpSec === 'meal' && S.macroPick.secs.indexOf(sk) < 0) return false;
+      if (S.mpSec !== 'meal' && S.mpSec !== 'all' && sk !== S.mpSec) return false;
       if (qs && !matchRank(r, qs)) return false;
       return true;
     });
-    var rows = mRank(pool, mDay(mViewKey()), mReadTargets()).slice(0, 40);
+    var rows = mRank(pool, mDay(mViewKey()), mReadTargets(),
+      { k: S.macroPick.slot, w: S.macroPick.w });
+    /* Sorting is a lens, not a different picker: every row keeps the portion
+       the fit worked out, whatever order the rows arrive in. */
+    if (S.mpSort === 'protein') {
+      rows.sort(function (a, b) {
+        return (((b.r.macro && b.r.macro.p) || 0) - ((a.r.macro && a.r.macro.p) || 0));
+      });
+    }
+    if (S.mpSort === 'healthy') {
+      rows.sort(function (a, b) {
+        return (b.r.score === null ? -1 : b.r.score) - (a.r.score === null ? -1 : a.r.score);
+      });
+    }
+    rows = rows.slice(0, 40);
     if (!rows.length) {
       return '<div class="mslot-empty">Nothing matches' +
-        (S.mpAll ? '.' : ' &mdash; try All recipes.') + '</div>';
+        (S.mpSec === 'meal' ? ' &mdash; try Every recipe.' : '.') + '</div>';
     }
     return rows.map(function (e) {
       var r = e.r;
@@ -1280,8 +1384,10 @@
         '<div class="mt-kcal" id="mtKcal">= ' + kcalOf(t) + ' kcal</div>' +
         '<div class="mt-div">The day&rsquo;s meals</div>' +
         '<p class="sync-p">As many as your day really has &mdash; a morning brew, an afternoon ' +
-          'snack, one before bed. The kind steers what the picker and Fill my day reach for; ' +
-          'the fair-share arithmetic splits the targets over however many are here.</p>' +
+          'snack, one before bed. The kind steers what the picker and Fill my day reach for, ' +
+          'and the share says how much of the day each meal deserves &mdash; big for dinner, ' +
+          'small for a snack &mdash; so the suggestions come out meal-sized and snack-sized ' +
+          'instead of four equal plates.</p>' +
         '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
         '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +
         '<div class="sync-row">' +
@@ -1291,15 +1397,38 @@
       '</div></div>';
   }
 
+  /* The checklist a custom meal draws from: every live section, grouped by
+     volume — the same list the browse filter shows, from the same data. */
+  function mtSecsHTML(checked) {
+    var out = '<div class="mtm-secs">', bk = 0;
+    mAllSections().forEach(function (sec) {
+      if (sec.book !== bk) {
+        out += '<span class="mtm-secs-b">' +
+          esc(sec.book === 3 ? 'Ours' : BOOKS[sec.book].short) + '</span>';
+        bk = sec.book;
+      }
+      out += '<label class="mtm-sec"><input type="checkbox" value="' + sec.key + '"' +
+        (checked.indexOf(sec.key) >= 0 ? ' checked' : '') + '> ' + esc(sec.name) + '</label>';
+    });
+    return out + '</div>';
+  }
+
   function mtMealRow(s) {
-    var kinds = [['b', 'Breakfasts'], ['l', 'Lunches'], ['d', 'Dinners'], ['s', 'Snacks & drinks']];
+    var kinds = [['b', 'Breakfasts'], ['l', 'Lunches'], ['d', 'Dinners'],
+      ['s', 'Snacks & drinks'], ['x', 'Choose sections…']];
     return '<div class="mtm-row" data-mtmk="' + esc(s.k) + '">' +
       '<button class="ghost mtm-move" data-mtmeal="up" aria-label="Move up">&uarr;</button>' +
       '<input class="txt mtm-name" value="' + esc(s.n) + '" placeholder="Name the meal" aria-label="Meal name">' +
-      '<select class="mtm-type" aria-label="What kind of meal">' + kinds.map(function (o) {
-        return '<option value="' + o[0] + '"' + (o[0] === s.t ? ' selected' : '') + '>' + o[1] + '</option>';
-      }).join('') + '</select>' +
+      '<select class="mtm-type" data-prev="' + esc(s.t) + '" aria-label="What kind of meal">' +
+        kinds.map(function (o) {
+          return '<option value="' + o[0] + '"' + (o[0] === s.t ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('') + '</select>' +
+      /* The meal's share of the day. Weights, not strict percentages — 35
+         against 10 means dinner reaches for three and a half snacks' worth. */
+      '<label class="mtm-share-l"><input class="mtm-share" type="number" min="1" max="99" ' +
+        'inputmode="numeric" value="' + mSlotW(s) + '" aria-label="Share of the day">%</label>' +
       '<button class="day-x mtm-del" data-mtmeal="del" aria-label="Remove this meal">&times;</button>' +
+      (s.t === 'x' ? mtSecsHTML(s.secs || []) : '') +
     '</div>';
   }
 
@@ -1364,18 +1493,72 @@
     mEditDay(mViewKey(), function (day) {
       mReadSlots().list.forEach(function (s) {
         if ((day[s.k] || []).length) return;
-        var sh = mShares(day, targets);
+        var sh = mShares(day, targets, s);
         // a slot is only worth filling while the day has real room left
         if (4 * sh.R.p + 4 * sh.R.c + 9 * sh.R.f < 100) return;
+        var secs = mSlotSecs(s);
         var pool = RECIPES.filter(function (r) {
-          return (MEAL_SECS[s.t] || MEAL_SECS.s).indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
+          return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
         });
-        var ranked = mRank(pool, day, targets).filter(function (e) { return e.score !== null; });
+        var ranked = mRank(pool, day, targets, s).filter(function (e) { return e.score !== null; });
         if (!ranked.length) return;
         var top = ranked.slice(0, 3);
         var pick = top[Math.floor(Math.random() * top.length)];
         (day[s.k] = day[s.k] || []).push({ id: pick.r.id, x: pick.x, eaten: 0 });
       });
+    });
+    renderMacros();
+  }
+
+  /* Re-size the plates still in play so the day lands back on target. Keeps
+     every dish exactly where it is — swapping food is Fill my day's job, and
+     a button that quietly replaced your dinner would be the app overruling
+     you — and never touches what is eaten (the past has no portion control)
+     or what is locked (the dinner you promised the family).
+   *
+   * The judging is the picker's own weights applied to the WHOLE day against
+     the targets — no fair shares here, because the plates already exist and
+     the only question left is how big each should be. Coordinate descent in
+     quarter steps: each free plate in turn tries every size and keeps the one
+     that hurts the day least, until a pass moves nothing. Ties keep the
+     smaller portion, as everywhere else on a cut. */
+  var MX_ALL = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4];
+
+  function mRebalance() {
+    var targets = mReadTargets();
+    mEditDay(mViewKey(), function (day) {
+      var free = [];
+      Object.keys(day).forEach(function (sk) {
+        (day[sk] || []).forEach(function (it) {
+          var r = BY_ID[it.id];
+          if (!it.eaten && !it.l && r && r.macro) free.push(it);
+        });
+      });
+      if (!free.length) return;
+      var pen = function () {
+        var tot = mTotals(day);
+        var s = 0;
+        ['p', 'f', 'c'].forEach(function (mm) {
+          var D = Math.max(1, targets[mm]);
+          s += MW[mm][0] * Math.max(0, targets[mm] - tot.all[mm]) / D;
+          s += MW[mm][1] * Math.max(0, tot.all[mm] - targets[mm]) / D;
+        });
+        return s;
+      };
+      for (var pass = 0; pass < 3; pass++) {
+        var moved = false;
+        free.forEach(function (it) {
+          var was = it.x, best = it.x, bestPen = pen();
+          for (var i = 0; i < MX_ALL.length; i++) {
+            it.x = MX_ALL[i];
+            var pv = pen();
+            if (pv < bestPen - 1e-9) { bestPen = pv; best = MX_ALL[i]; }
+          }
+          it.x = best;
+          if (best !== was) moved = true;
+        });
+        if (!moved) break;
+      }
     });
     renderMacros();
   }
@@ -2843,7 +3026,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mpall',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock',
     'data-mtsex', 'data-mtgoal'];
 
   function focusKey(el) {
@@ -3622,6 +3805,7 @@
     document.querySelectorAll('.tab').forEach(function (b) {
       b.addEventListener('click', function () {
         S.view = b.dataset.view;
+        try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
         renderView();
       });
     });
@@ -3718,8 +3902,10 @@
         var srec = null;
         mReadSlots().list.forEach(function (s) { if (s.k === add.dataset.mslot) srec = s; });
         if (!srec) return;
-        S.macroPick = { slot: srec.k, t: srec.t, n: srec.n };
-        S.mpAll = false;
+        // sections resolved once at the door; filter and sort start fresh
+        S.macroPick = { slot: srec.k, n: srec.n, secs: mSlotSecs(srec), w: mSlotW(srec) };
+        S.mpSec = 'meal';
+        S.mpSort = 'fit';
         S.mpQuery = '';
         pushSheet({ m: 1 });
         renderModal();
@@ -3745,6 +3931,16 @@
         var dp = del.dataset.mdel.split(':');
         mEditDay(mViewKey(), function (day) {
           (day[dp[0]] || []).splice(Number(dp[1]), 1);
+        });
+        keepingFocus(renderMacros);
+        return;
+      }
+      var lk = e.target.closest('[data-mlock]');
+      if (lk) {
+        var lp = lk.dataset.mlock.split(':');
+        mEditDay(mViewKey(), function (day) {
+          var it = (day[lp[0]] || [])[Number(lp[1])];
+          if (it) it.l = it.l ? 0 : 1;
         });
         keepingFocus(renderMacros);
       }
@@ -3777,6 +3973,7 @@
       keepingFocus(renderMacros);
     });
     $('macroFill').addEventListener('click', mFillDay);
+    $('macroRebal').addEventListener('click', mRebalance);
 
     /* The tab's one paragraph of explanation, behind the ? beside the title.
        A toggle rather than a dismissal: the person who wants it again next
@@ -3987,13 +4184,6 @@
         return;
       }
 
-      var ma = e.target.closest('[data-mpall]');
-      if (ma) {
-        S.mpAll = ma.dataset.mpall === '1';
-        renderModal();
-        return;
-      }
-
       /* The sex and goal pickers flip in place rather than re-rendering the
          sheet — the sheet is a draft, and a redraw would cost the other boxes. */
       var mseg = e.target.closest('[data-mtsex], [data-mtgoal]');
@@ -4045,7 +4235,19 @@
           Array.prototype.forEach.call(document.querySelectorAll('#mtMeals .mtm-row'), function (row) {
             var mname = row.querySelector('.mtm-name').value.trim();
             if (!mname) return;
-            mlist.push({ k: row.dataset.mtmk, n: mname, t: row.querySelector('.mtm-type').value });
+            var mrec = { k: row.dataset.mtmk, n: mname, t: row.querySelector('.mtm-type').value };
+            var mw = Math.round(Number(row.querySelector('.mtm-share').value) || 0);
+            if (mw >= 1 && mw <= 99) mrec.w = mw;   // else the kind's default speaks
+            if (mrec.t === 'x') {
+              var msecs = [];
+              Array.prototype.forEach.call(row.querySelectorAll('.mtm-secs input:checked'), function (cb) {
+                msecs.push(cb.value);
+              });
+              // a meal that can draw from nothing is a mistake — fall back to snacks
+              if (msecs.length) mrec.secs = msecs;
+              else mrec.t = 's';
+            }
+            mlist.push(mrec);
           });
           if (mlist.length) {
             var prevSlots = mReadSlots();
@@ -4102,6 +4304,24 @@
     // a select fires change, not input, in enough browsers to matter
     $('modalRoot').addEventListener('change', function (e) {
       if (S.macroTargOpen && e.target.id === 'mtAct') mtRefreshPlan();
+      // the picker's two lenses redraw only the list, like the search box
+      if (S.macroPick && e.target.id === 'mpSec') { S.mpSec = e.target.value; refreshMacroPicker(); }
+      if (S.macroPick && e.target.id === 'mpSort') { S.mpSort = e.target.value; refreshMacroPicker(); }
+      /* Choosing "Choose sections…" unfolds the checklist under that meal,
+         seeded with whatever the previous kind drew from — a starting point
+         to edit, not a blank sheet. Choosing a kind folds it away. */
+      if (S.macroTargOpen && e.target.classList.contains('mtm-type')) {
+        var trow = e.target.closest('.mtm-row');
+        var oldSecs = trow.querySelector('.mtm-secs');
+        if (oldSecs) oldSecs.parentNode.removeChild(oldSecs);
+        if (e.target.value === 'x') {
+          var seed = MEAL_SECS[e.target.dataset.prev] || MEAL_SECS.s;
+          var holder = document.createElement('div');
+          holder.innerHTML = mtSecsHTML(seed);
+          trow.appendChild(holder.firstChild);
+        }
+        e.target.dataset.prev = e.target.value;
+      }
     });
 
     $('newRecipe').addEventListener('click', function () { openEditor('new'); });
