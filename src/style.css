@@ -681,6 +681,17 @@ select { max-width: 280px; }
   text-transform: uppercase; font-weight: 600; color: var(--muted);
 }
 .mtm-sec { display: flex; align-items: center; gap: 5px; }
+.mtm-secs { align-items: flex-start; }
+.mtm-secdone { margin-top: 6px; margin-left: auto; padding: 4px 16px; font-size: 11.5px; }
+/* what the meal draws from, once the choosing is over */
+.mtm-secsum {
+  display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin-top: 5px; padding: 4px 0 4px 40px; text-align: left;
+  background: none; border: none; font-size: 11.5px; color: var(--muted);
+}
+.mtm-secsum-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtm-secsum-e { flex: none; color: var(--ochre-text); font-weight: 600; }
+.mtm-secsum:hover .mtm-secsum-t { color: var(--muted-2); }
 /* the lock and the pin: dim until they mean something */
 .mlock, .mpin {
   background: none; border: none; padding: 0 2px; font-size: 13px; line-height: 1;

@@ -696,7 +696,34 @@ module.exports = {
     await z.selectOption('#mtMeals .mtm-row:first-child .mtm-type', 'x');
     await z.waitForTimeout(150);
     t.ok('choosing sections unfolds the checklist',
-      await z.evaluate(() => !!document.querySelector('#mtMeals .mtm-row .mtm-secs')));
+      await z.evaluate(() => {
+        const l = document.querySelector('#mtMeals .mtm-row .mtm-secs');
+        return l && !l.classList.contains('hide');
+      }));
+    /* Thirteen ticks have done their job the moment the ticking is over.
+       Done folds them into a line that says what was chosen, and Change
+       brings them back — the wall is not left standing between the meals. */
+    await z.evaluate(() => {
+      document.querySelectorAll('#mtMeals .mtm-row:first-child .mtm-secs input').forEach((cb) => {
+        cb.checked = ['1-6', '1-2'].indexOf(cb.value) >= 0;
+        cb.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    });
+    await z.click('#mtMeals .mtm-row:first-child [data-mtsec="done"]');
+    await z.waitForTimeout(150);
+    t.ok('Done folds the checklist into what it chose',
+      await z.evaluate(() => {
+        const row = document.querySelector('#mtMeals .mtm-row:first-child');
+        return row.querySelector('.mtm-secs').classList.contains('hide') &&
+          !row.querySelector('.mtm-secsum').classList.contains('hide') &&
+          /Snacks/.test(row.querySelector('.mtm-secsum-t').textContent) &&
+          /Power Drinks/.test(row.querySelector('.mtm-secsum-t').textContent);
+      }), await z.textContent('#mtMeals .mtm-row:first-child .mtm-secsum-t'));
+    await z.click('#mtMeals .mtm-row:first-child [data-mtsec="show"]');
+    await z.waitForTimeout(150);
+    t.ok('and Change brings them back',
+      await z.evaluate(() => !document.querySelector('#mtMeals .mtm-row:first-child .mtm-secs')
+        .classList.contains('hide')));
     await z.evaluate(() => {
       document.querySelectorAll('#mtMeals .mtm-row:first-child .mtm-secs input').forEach((cb) => {
         cb.checked = cb.value === '1-6';        // Power Drinks alone

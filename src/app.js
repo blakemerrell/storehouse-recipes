@@ -1481,8 +1481,30 @@
 
   /* The checklist a custom meal draws from: every live section, grouped by
      volume — the same list the browse filter shows, from the same data. */
-  function mtSecsHTML(checked) {
-    var out = '<div class="mtm-secs">', bk = 0;
+  /* The short name a section goes by. The printed names run to seven words
+     — "Speedy Weekday Breakfasts & Morning Treats" — which is a title, not a
+     label, and thirteen of them stacked is a wall. */
+  function mSecLabel(sec) { return SEC_SHORT[sec.key] || sec.name; }
+
+  /* What a custom meal draws from, said in a line: three names and a count.
+     This is what the row shows once the choosing is done. */
+  function mtSecSummary(checked) {
+    if (!checked.length) return 'No sections chosen';
+    var names = [];
+    mAllSections().forEach(function (sec) {
+      if (checked.indexOf(sec.key) >= 0) names.push(mSecLabel(sec));
+    });
+    var head = names.slice(0, 3).join(' \u00b7 ');
+    return names.length > 3 ? head + ' + ' + (names.length - 3) + ' more' : head;
+  }
+
+  /* The checklist, and the one-line summary it folds into. Both are always in
+     the DOM — Save reads the boxes whether or not they are on screen — and
+     only one of them is ever visible. A list of thirteen ticks has done its
+     job the moment the ticking is over; after that it is a wall between you
+     and the next meal. */
+  function mtSecsHTML(checked, open) {
+    var out = '<div class="mtm-secs' + (open ? '' : ' hide') + '">', bk = 0;
     mAllSections().forEach(function (sec) {
       if (sec.book !== bk) {
         out += '<span class="mtm-secs-b">' +
@@ -1490,9 +1512,14 @@
         bk = sec.book;
       }
       out += '<label class="mtm-sec"><input type="checkbox" value="' + sec.key + '"' +
-        (checked.indexOf(sec.key) >= 0 ? ' checked' : '') + '> ' + esc(sec.name) + '</label>';
+        (checked.indexOf(sec.key) >= 0 ? ' checked' : '') + '> ' + esc(mSecLabel(sec)) + '</label>';
     });
-    return out + '</div>';
+    out += '<button class="ghost mtm-secdone" data-mtsec="done">Done</button></div>';
+    return out +
+      '<button class="mtm-secsum' + (open ? ' hide' : '') + '" data-mtsec="show">' +
+        '<span class="mtm-secsum-t">' + esc(mtSecSummary(checked)) + '</span>' +
+        '<span class="mtm-secsum-e">Change</span>' +
+      '</button>';
   }
 
   function mtMealRow(s) {
@@ -1516,7 +1543,7 @@
           'inputmode="numeric" value="' + mSlotW(s) + '" aria-label="Share of the day">%</label>' +
         '<button class="day-x mtm-del" data-mtmeal="del" aria-label="Remove this meal">&times;</button>' +
       '</div>' +
-      (s.t === 'x' ? mtSecsHTML(s.secs || []) : '') +
+      (s.t === 'x' ? mtSecsHTML(s.secs || [], !(s.secs && s.secs.length)) : '') +
     '</div>';
   }
 
@@ -1559,6 +1586,17 @@
     set('mtTileP', t.p); set('mtTileF', t.f); set('mtTileC', t.c);
     set('mtKcal', '= ' + kcalOf(t) + ' kcal');
     set('mtWho', mtWhoLine(mtProfileFromDom()));
+  }
+
+  /* The summary says what the ticks say, the moment they say it. */
+  function mtSecSumSync(row) {
+    if (!row) return;
+    var el = row.querySelector('.mtm-secsum-t');
+    if (!el) return;
+    var on = [];
+    Array.prototype.forEach.call(row.querySelectorAll('.mtm-secs input:checked'),
+      function (cb) { on.push(cb.value); });
+    el.textContent = mtSecSummary(on);
   }
 
   /* The running total under the meal shares. It never rewrites the boxes —
@@ -3146,7 +3184,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -4336,6 +4374,18 @@
 
       /* The meal rows are edited in place — add, remove, move up — because the
          sheet is a draft and a re-render would eat every half-typed box. */
+      var msc = e.target.closest('[data-mtsec]');
+      if (msc && S.macroTargOpen) {
+        var scrow = msc.closest('.mtm-row');
+        var list = scrow.querySelector('.mtm-secs');
+        var summ = scrow.querySelector('.mtm-secsum');
+        var openNow = msc.dataset.mtsec === 'show';
+        list.classList.toggle('hide', !openNow);
+        summ.classList.toggle('hide', openNow);
+        if (!openNow) mtSecSumSync(scrow);
+        return;
+      }
+
       var mm = e.target.closest('[data-mtmeal]');
       if (mm && S.macroTargOpen) {
         var mact = mm.dataset.mtmeal;
@@ -4466,6 +4516,8 @@
       if (S.macroTargOpen && /^mt(Age|Ft|In|Lb)$/.test(e.target.id)) mtRefreshPlan();
       // and the share total follows the share boxes
       if (S.macroTargOpen && e.target.classList.contains('mtm-share')) mtmShowTotal();
+      // and the folded summary follows the ticks, ready for when it folds
+      if (S.macroTargOpen && e.target.closest('.mtm-secs')) mtSecSumSync(e.target.closest('.mtm-row'));
     });
 
     // a select fires change, not input, in enough browsers to matter
@@ -4479,13 +4531,14 @@
          to edit, not a blank sheet. Choosing a kind folds it away. */
       if (S.macroTargOpen && e.target.classList.contains('mtm-type')) {
         var trow = e.target.closest('.mtm-row');
-        var oldSecs = trow.querySelector('.mtm-secs');
-        if (oldSecs) oldSecs.parentNode.removeChild(oldSecs);
+        Array.prototype.forEach.call(trow.querySelectorAll('.mtm-secs, .mtm-secsum'),
+          function (el) { el.parentNode.removeChild(el); });
         if (e.target.value === 'x') {
           var seed = MEAL_SECS[e.target.dataset.prev] || MEAL_SECS.s;
           var holder = document.createElement('div');
-          holder.innerHTML = mtSecsHTML(seed);
-          trow.appendChild(holder.firstChild);
+          // just chosen, so it opens ready to tick
+          holder.innerHTML = mtSecsHTML(seed, true);
+          while (holder.firstChild) trow.appendChild(holder.firstChild);
         }
         e.target.dataset.prev = e.target.value;
       }
