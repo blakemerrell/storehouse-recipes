@@ -1169,31 +1169,48 @@
         /* The tick and the name are separate targets on purpose: the box says
            "I ate it", the name opens the recipe to see what "it" is. When the
            two shared a label, reading the recipe cost you a phantom tick. */
+        /* Two columns. On the left the plate says what it is: the tick, the
+           name (clipped rather than wrapped — a long name must not push the
+           controls off a phone), and under them the arithmetic with the pin
+           and the lock. On the right, always in the same place, the portion
+           dial and the bin.
+         *
+           The bin is a bin and not another ×. Two × glyphs on one row, one
+           meaning "times one" and the other "gone", is a misread waiting to
+           happen on a thumb-sized target. */
         return '<div class="mitem' + (it.eaten ? ' eaten' : '') + '">' +
-          '<span class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
-            (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
-            '<button class="mitem-name" data-open="' + esc(String(r.id)) +
-              '" data-mx="' + it.x + '">' + esc(r.name) + '</button></span>' +
-          '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
-          /* The pin is the routine: pinned to this meal, at this portion, on
-             every new day — the Crio Brü that opens every morning without
-             being asked for. Unpinning stops tomorrow; today keeps its copy. */
-          (onPlan ? '<button class="mpin no-print" data-mpin="' + tag + '" aria-pressed="' +
-            (pinned ? 'true' : 'false') + '" aria-label="' +
-            (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">&#128204;</button>' : '') +
-          /* The lock guards against the MACHINE, not the person: Rebalance
-             leaves a locked plate alone, but the stepper still works — a
-             hand on the dial is the person changing their mind. */
-          '<button class="mlock no-print" data-mlock="' + tag + '" aria-pressed="' +
-            (it.l ? 'true' : 'false') + '" aria-label="' +
-            (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
-          '<span class="mstep no-print">' +
-            '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
-            '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
-            '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
+          '<span class="mitem-main">' +
+            '<span class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
+              (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
+              '<button class="mitem-name" data-open="' + esc(String(r.id)) +
+                '" data-mx="' + it.x + '">' + esc(r.name) + '</button></span>' +
+            '<span class="mitem-sub">' +
+              '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+              /* The pin is the routine: pinned to this meal, at this portion,
+                 on every new day — the Crio Brü that opens every morning
+                 without being asked. Unpinning stops tomorrow, not today. */
+              (onPlan ? '<button class="mpin no-print" data-mpin="' + tag + '" aria-pressed="' +
+                (pinned ? 'true' : 'false') + '" aria-label="' +
+                (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">&#128204;</button>' : '') +
+              /* The lock guards against the MACHINE, not the person:
+                 Rebalance leaves a locked plate alone, but the stepper still
+                 works — a hand on the dial is you changing your mind. */
+              '<button class="mlock no-print" data-mlock="' + tag + '" aria-pressed="' +
+                (it.l ? 'true' : 'false') + '" aria-label="' +
+                (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
+            '</span>' +
           '</span>' +
-          '<button class="day-x no-print" data-mdel="' + tag + '" aria-label="Remove ' +
-            esc(r.name) + '">&times;</button>' +
+          '<span class="mitem-acts no-print">' +
+            '<span class="mstep">' +
+              '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
+              '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
+              '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
+            '</span>' +
+            '<button class="mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
+              '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
+              'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+            '</button>' +
+          '</span>' +
         '</div>';
       }).join('');
       if (!onPlan && !rows) return '';        // a bygone meal with nothing left says nothing
@@ -1380,14 +1397,17 @@
   function macroTargetsHTML() {
     var t = mReadTargets();
     var pr = mReadProfile();
-    var num = function (id, v, label) {
-      return '<label class="mt-lab">' + label +
-        '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" value="' + v + '"> g</label>';
+    var plan = mPlanCalc(pr);
+    /* A ledger row: what it is on the left, what it says on the right. One
+       fact per line, values right-aligned into a column — the arrangement
+       that cannot wrap the way a row of labelled boxes wraps on a phone. */
+    var row = function (label, valueHTML) {
+      return '<div class="mtl-row"><span class="mtl-lab">' + label + '</span>' +
+        '<span class="mtl-val">' + valueHTML + '</span></div>';
     };
-    var small = function (id, v, label, unit) {
-      return '<label class="mt-lab">' + label +
-        '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" value="' +
-        (v || '') + '">' + (unit ? ' ' + unit : '') + '</label>';
+    var box = function (id, v, unit) {
+      return '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" value="' +
+        (v || v === 0 ? v : '') + '">' + (unit ? '<span class="mtl-u">' + unit + '</span>' : '');
     };
     var seg = function (attr, val, opts) {
       return '<span class="seg mt-seg" role="group">' + opts.map(function (o) {
@@ -1401,6 +1421,9 @@
       [1.725, 'Hard training 6&ndash;7 days'],
       [1.9, 'Physical job plus hard training']
     ];
+    /* Open on the answer, not on the form — but a profile that cannot compute
+       yet has no answer to show, so the first visit opens the editor. */
+    var shut = plan ? ' hide' : '';
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Your plan">' +
         '<div class="sheet-top">' +
@@ -1408,30 +1431,41 @@
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="sheet-name">What a day should add up to</div>' +
-        /* No essay. Three short sections do the explaining by existing:
-           who you are, what that makes the grams, how the day divides. */
-        '<div class="mt-div">About you</div>' +
-        '<div class="mt-row">' +
-          seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']]) +
-          small('mtAge', pr.age, 'Age', '') +
-          small('mtFt', pr.ft, 'Height', 'ft') +
-          small('mtIn', pr.inch, '', 'in') +
-          small('mtLb', pr.lb, 'Weight', 'lb') +
+        /* The answer first. What you open this sheet for on an ordinary day is
+           the number, not the form that made it. */
+        '<div class="mt-answer">' +
+          '<div class="mt-big"><span id="mtBigKcal">' + kcalOf(t) + '</span>' +
+            '<small>kcal a day</small></div>' +
+          '<div class="mt-tiles">' +
+            '<span class="mt-tile"><b id="mtTileP">' + t.p + '</b><i>Protein</i></span>' +
+            '<span class="mt-tile"><b id="mtTileF">' + t.f + '</b><i>Fat</i></span>' +
+            '<span class="mt-tile"><b id="mtTileC">' + t.c + '</b><i>Carbs</i></span>' +
+          '</div>' +
         '</div>' +
-        '<div class="mt-row"><label class="mt-lab">Most days ' +
-          '<select id="mtAct">' + acts.map(function (a) {
+        '<button class="mt-who" data-mtedit="1" aria-expanded="' + (plan ? 'false' : 'true') + '">' +
+          '<span id="mtWho">' + mtWhoLine(pr) + '</span>' +
+          '<span class="mt-editw">Edit</span>' +
+        '</button>' +
+        '<div id="mtEditor" class="mt-editor' + shut + '">' +
+          '<div class="mt-div">About you</div>' +
+          '<div class="mtl-seg">' + seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']]) + '</div>' +
+          row('Age', box('mtAge', pr.age, '')) +
+          row('Height', box('mtFt', pr.ft, 'ft') + box('mtIn', pr.inch, 'in')) +
+          row('Weight', box('mtLb', pr.lb, 'lb')) +
+          row('Most days', '<select id="mtAct">' + acts.map(function (a) {
             return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
-          }).join('') + '</select></label>' +
-          seg('mtgoal', pr.goal,
-            [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) +
-        '</div>' +
-        '<div class="mt-div">The day&rsquo;s grams</div>' +
-        /* One rendering of the numbers, not two. The boxes ARE the plan —
-           they follow the profile, take a hand edit, and Save keeps them.
-           The line above them speaks only when something needs saying. */
-        '<div class="mt-cap" id="mtPlan">' + mtPlanLine(mPlanCalc(pr)) + '</div>' +
-        '<div class="mt-row">' + num('mtP', t.p, 'Protein') + num('mtF', t.f, 'Fat') + num('mtC', t.c, 'Carbs') +
-          '<span class="mt-kcal mt-kcal-in" id="mtKcal">= ' + kcalOf(t) + ' kcal</span>' +
+          }).join('') + '</select>') +
+          '<div class="mtl-seg">' + seg('mtgoal', pr.goal,
+            [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) + '</div>' +
+          '<div class="mt-div">The day&rsquo;s grams</div>' +
+          /* The boxes are the plan's one rendering: they follow the profile,
+             take a hand edit, and Save keeps whatever they say. */
+          '<div class="mt-cap" id="mtPlan">' + mtPlanLine(plan) + '</div>' +
+          row('Protein', box('mtP', t.p, 'g')) +
+          row('Fat', box('mtF', t.f, 'g')) +
+          row('Carbs', box('mtC', t.c, 'g')) +
+          '<div class="mtl-row mtl-sum"><span class="mtl-lab">A day</span>' +
+            '<span class="mtl-val" id="mtKcal">= ' + kcalOf(t) + ' kcal</span></div>' +
         '</div>' +
         '<div class="mt-div">The day&rsquo;s meals</div>' +
         '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
@@ -1509,6 +1543,24 @@
      applied. Two commit buttons on one sheet is a trap; now the plan writes
      straight into the boxes as the profile changes, and Save keeps whatever
      the boxes say, hand-typed or worked out. */
+  /* The one line your profile collapses to once it computes. */
+  function mtWhoLine(pr) {
+    if (!mPlanCalc(pr)) return 'Tell me about you';
+    return [MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1, pr.age,
+      pr.ft + '\u2032' + pr.inch + '\u2033', pr.lb + ' lb'].join(' \u00b7 ');
+  }
+
+  /* The headline follows the boxes, whichever way they were filled in. */
+  function mtRefreshAnswer() {
+    var gv = function (id) { return Math.max(0, Math.round(Number(($(id) || {}).value) || 0)); };
+    var t = { p: gv('mtP'), f: gv('mtF'), c: gv('mtC') };
+    var set = function (id, v) { var el = $(id); if (el) el.textContent = v; };
+    set('mtBigKcal', kcalOf(t));
+    set('mtTileP', t.p); set('mtTileF', t.f); set('mtTileC', t.c);
+    set('mtKcal', '= ' + kcalOf(t) + ' kcal');
+    set('mtWho', mtWhoLine(mtProfileFromDom()));
+  }
+
   /* The running total under the meal shares. It never rewrites the boxes —
      fields that rescale each other mid-edit fight the fingers typing them —
      it only says what they add to now, and that Save squares the books. */
@@ -1527,10 +1579,9 @@
     var plan = mPlanCalc(mtProfileFromDom());
     var el = $('mtPlan');
     if (el) el.innerHTML = mtPlanLine(plan);
-    if (!plan) return;
+    if (!plan) { mtRefreshAnswer(); return; }
     if ($('mtP')) { $('mtP').value = plan.p; $('mtF').value = plan.f; $('mtC').value = plan.c; }
-    var kc = $('mtKcal');
-    if (kc) kc.textContent = '= ' + kcalOf(plan) + ' kcal';
+    mtRefreshAnswer();
   }
 
   function mOnDay(day, id) {
@@ -3095,7 +3146,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin',
-    'data-mtsex', 'data-mtgoal'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -4305,6 +4356,13 @@
         return;
       }
 
+      var med = e.target.closest('[data-mtedit]');
+      if (med && S.macroTargOpen) {
+        var shutNow = $('mtEditor').classList.toggle('hide');
+        med.setAttribute('aria-expanded', String(!shutNow));
+        return;
+      }
+
       var mt = e.target.closest('[data-mtarg]');
       if (mt) {
         if (mt.dataset.mtarg === 'save') {
@@ -4403,11 +4461,7 @@
         refreshMacroPicker();
       }
       // the derived-kcal line follows the three targets as they are typed
-      if (S.macroTargOpen && /^mt[PFC]$/.test(e.target.id)) {
-        var kc = $('mtKcal');
-        var gv = function (id) { return Math.max(0, Number(($(id) || {}).value) || 0); };
-        if (kc) kc.textContent = '= ' + kcalOf({ p: gv('mtP'), f: gv('mtF'), c: gv('mtC') }) + ' kcal';
-      }
+      if (S.macroTargOpen && /^mt[PFC]$/.test(e.target.id)) mtRefreshAnswer();
       // and the plan preview follows the profile boxes
       if (S.macroTargOpen && /^mt(Age|Ft|In|Lb)$/.test(e.target.id)) mtRefreshPlan();
       // and the share total follows the share boxes

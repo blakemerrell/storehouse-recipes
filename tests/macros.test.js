@@ -321,6 +321,40 @@ module.exports = {
     t.ok('and remembers who you are for next time',
       await q.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroProfile')).lb === 200));
 
+    /* Answer first: once the plan computes, the sheet opens on the number and
+       the form folds behind one line. The first visit, with nothing to
+       compute from, opens the form instead — there is no answer to lead with. */
+    await q.click('#macroTargBtn');
+    await q.waitForTimeout(250);
+    t.ok('a known profile opens on the answer, with the form folded away',
+      await q.evaluate(() => document.getElementById('mtEditor').classList.contains('hide') &&
+        document.querySelector('.mt-who').getAttribute('aria-expanded') === 'false'));
+    t.ok('the headline is the day, in calories and grams',
+      await q.evaluate(([k, p2, f2, c2]) =>
+        document.getElementById('mtBigKcal').textContent === String(k) &&
+        document.getElementById('mtTileP').textContent === String(p2) &&
+        document.getElementById('mtTileF').textContent === String(f2) &&
+        document.getElementById('mtTileC').textContent === String(c2),
+        [4 * planP + 4 * planC + 9 * planF, planP, planF, planC]));
+    t.ok('and one line says who it was worked out for',
+      /Hard cut · 40 · 6′0″ · 200 lb/.test(await q.textContent('#mtWho')),
+      await q.textContent('#mtWho'));
+    await q.click('[data-mtedit]');
+    await q.waitForTimeout(150);
+    t.ok('Edit unfolds the ledger',
+      await q.evaluate(() => !document.getElementById('mtEditor').classList.contains('hide')));
+    t.ok('where every fact has its own line',
+      await q.evaluate(() => document.querySelectorAll('#mtEditor .mtl-row').length >= 6));
+    await q.fill('#mtP', '175');
+    await q.waitForTimeout(150);
+    t.ok('and a hand-typed gram moves the headline with it',
+      await q.evaluate(([f2, c2]) =>
+        document.getElementById('mtTileP').textContent === '175' &&
+        document.getElementById('mtBigKcal').textContent === String(4 * 175 + 4 * c2 + 9 * f2),
+        [planF, planC]));
+    await q.click('.sheet-x');
+    await q.waitForTimeout(250);
+
     // ---- a favorite never ranks worse for being loved, and wears its star
     await q.click('[data-mslot="b"]');
     await q.waitForTimeout(200);
