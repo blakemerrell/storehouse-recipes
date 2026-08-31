@@ -798,7 +798,8 @@ select { max-width: 280px; }
   background: var(--paper); border: 1.5px solid var(--line-firm);
 }
 .mday-stop.filled::before { border-color: var(--ochre); }
-.mday-weigh.done::before { background: var(--green); border-color: var(--green); }
+/* behind you: the weigh-in once the scale is read, a meal once it is eaten */
+.mday-stop.done::before { background: var(--green); border-color: var(--green); }
 /* the day's calories, spent along a line */
 .mkcal { margin-top: 9px; }
 .mkcal-top {

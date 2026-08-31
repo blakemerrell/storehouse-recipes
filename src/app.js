@@ -1321,7 +1321,16 @@
         var r = BY_ID[it.id];
         if (r && r.macro) { sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x; }
       });
-      return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') + '">' +
+      /* Three states on the rail, not two. A hollow dot is a meal with
+         nothing on it; an ochre one is a meal planned and still ahead of
+         you; a filled one is a meal you have eaten. The last was the whole
+         point of running the day down a line — what is behind you — and it
+         was the one state never wired up. */
+      var eatenAll = items.length && items.every(function (it) {
+        return it.eaten || !BY_ID[it.id];
+      });
+      return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') +
+        (eatenAll ? ' done' : '') + '">' +
         '<div class="mslot-h"><span class="mslot-name">' + esc(name) + '</span>' +
           (rows ? '<span class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
             Math.round(sub.p) + 'g protein</span>' : '') +

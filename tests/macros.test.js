@@ -159,17 +159,30 @@ module.exports = {
     // ---- eaten: the tick fills the bar and the line-through arrives
     t.ok('nothing is eaten yet, so the eaten sweep is empty',
       await p.evaluate(() => document.querySelector('.mdial').dataset.eaten === '0'));
+    t.ok('a planned but uneaten meal is still ahead of you on the rail',
+      await p.evaluate(() => {
+        const st = document.querySelector('#macroSlots .mday-stop.filled');
+        return st && !st.classList.contains('done');
+      }));
     await p.click('[data-meat="b:0"]');
     await p.waitForTimeout(150);
     t.ok('ticking a meal marks it eaten',
       await p.evaluate(() => !!document.querySelector('.mitem.eaten')));
+    /* The point of running the day down a line is seeing what is behind
+       you, and the dot is how it says so. */
+    t.ok('and fills its dot on the rail',
+      await p.evaluate(() => {
+        const st = document.querySelector('.mitem.eaten').closest('.mday-stop');
+        return st.classList.contains('done');
+      }));
     t.ok('and the eaten sweep takes on a share of the dial',
       await p.evaluate(() => Number(document.querySelector('.mdial').dataset.eaten) > 0));
     await p.click('[data-meat="b:0"]');
     await p.waitForTimeout(150);
-    t.ok('unticking reverses it',
+    t.ok('unticking reverses it, dot and all',
       await p.evaluate(() => !document.querySelector('.mitem.eaten') &&
-        document.querySelector('.mdial').dataset.eaten === '0'));
+        document.querySelector('.mdial').dataset.eaten === '0' &&
+        !document.querySelector('#macroSlots .mday-stop.done')));
 
     /* Whether a plate fits the day and whether it is worth eating are two
        questions, and the second used to need the recipe opened. */
