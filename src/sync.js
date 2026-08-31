@@ -505,6 +505,14 @@ window.Store = (function () {
     get configured() { return configured(); },
     encodeKey: encodeKey,
 
+    /* The signed-in Firestore handle, for the one thing in this app that
+       deliberately does not go through this file. My Day is personal — it
+       has been kept out of the household document on purpose since it was
+       built — but "personal" was only ever an argument about WHOSE data it
+       is, never about which devices should see it. It borrows the connection
+       and keeps its own document. */
+    ready: function () { return ready().then(function () { return db; }); },
+
     init: function (onChange) {
       listeners.push(onChange);
       rescueStrayPantry();

@@ -466,6 +466,7 @@
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
     macroDate: null, macroPick: null, macroTargOpen: false, mpQuery: '',
+    macroSyncOpen: false, myPending: '', myJoin: '',
     mpSec: 'meal', mpSort: 'fit',
     /* How far down each meal's ranked list Try again has walked, keyed day
        and meal. Ephemeral on purpose: tomorrow starts at the top again. */
@@ -759,6 +760,135 @@
    * the merge and join paths. sh.units set the precedent for "device-local,
    * app-owned"; these follow it under the bsc. prefix. */
 
+  /* ------------------------------------------------------------------------
+   * My Day, on your other devices.
+   *
+   * The household sync in sync.js shares one plan between people. This shares
+   * one day between DEVICES belonging to one person, which is a different
+   * promise and deserves a different door: a private code, its own document,
+   * and nothing of it in the family's.
+   *
+   * It rides on the same collection because the rule that guards it is the
+   * right rule already — a document addressed by a secret code, fetchable
+   * only by someone who has the code, never listable. A second collection
+   * would need those rules written again and deployed, to say the same thing.
+   *
+   * Every part carries the moment it was written, and days carry one each, so
+   * a phone that has been in a pocket all day cannot land and wipe an evening
+   * entered on the desk. Newer wins, part by part.
+   * --------------------------------------------------------------------- */
+  var S_SYNC_STATE = 'off';
+
+  var MSTAMPS = (function () {
+    try { return JSON.parse(localStorage.getItem('bsc.myStamps')) || {}; }
+    catch (e) { return {}; }
+  })();
+
+  function mStamp(part, sub) {
+    var now = Date.now();
+    if (sub) {
+      MSTAMPS.d = MSTAMPS.d || {};
+      MSTAMPS.d[sub] = now;
+    } else MSTAMPS[part] = now;
+    try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); } catch (e) { /* private */ }
+    mSyncPush();
+  }
+
+  function mMyCode() {
+    try { return localStorage.getItem('bsc.myCode') || ''; } catch (e) { return ''; }
+  }
+
+  /* What this device would send. Read fresh each time so it never ships a
+     stale copy of something edited in another tab. */
+  function mSyncPayload() {
+    var days = {};
+    Object.keys(MDAYS).forEach(function (k) {
+      days[k.replace(/-/g, '_')] = { v: MDAYS[k], at: (MSTAMPS.d || {})[k] || 0 };
+    });
+    var raw = function (key) {
+      try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
+    };
+    return {
+      t: { v: raw('bsc.macroTargets'), at: MSTAMPS.t || 0 },
+      pr: { v: raw('bsc.macroProfile'), at: MSTAMPS.pr || 0 },
+      sl: { v: raw('bsc.macroSlots'), at: MSTAMPS.sl || 0 },
+      w: { v: MWEIGHTS, at: MSTAMPS.w || 0 },
+      d: days
+    };
+  }
+
+  /* Newer wins, part by part. Returns true when anything here changed, so the
+     caller knows whether to redraw. Pure enough to test without a network. */
+  function mMergeRemote(md) {
+    if (!md) return false;
+    var moved = false;
+    var take = function (part, key, apply) {
+      var r = md[part];
+      if (!r || !r.v || !(r.at > (MSTAMPS[part] || 0))) return;
+      apply(r.v);
+      MSTAMPS[part] = r.at;
+      moved = true;
+    };
+    take('t', 'bsc.macroTargets', function (v) {
+      try { localStorage.setItem('bsc.macroTargets', JSON.stringify(v)); } catch (e) { /* private */ }
+    });
+    take('pr', 'bsc.macroProfile', function (v) {
+      try { localStorage.setItem('bsc.macroProfile', JSON.stringify(v)); } catch (e) { /* private */ }
+    });
+    take('sl', 'bsc.macroSlots', function (v) {
+      try { localStorage.setItem('bsc.macroSlots', JSON.stringify(v)); } catch (e) { /* private */ }
+    });
+    take('w', 'bsc.macroWeights', function (v) {
+      Object.keys(v).forEach(function (k) { MWEIGHTS[k] = v[k]; });
+      try { localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS)); } catch (e) { /* private */ }
+    });
+    Object.keys(md.d || {}).forEach(function (enc) {
+      var k = enc.replace(/_/g, '-');
+      var r = md.d[enc];
+      if (!r || !r.v || !(r.at > ((MSTAMPS.d || {})[k] || 0))) return;
+      MDAYS[k] = r.v;
+      MSTAMPS.d = MSTAMPS.d || {};
+      MSTAMPS.d[k] = r.at;
+      moved = true;
+    });
+    if (moved) {
+      try {
+        localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS));
+        localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS));
+      } catch (e) { /* private mode: this session only */ }
+    }
+    return moved;
+  }
+
+  var mSyncDoc = null, mSyncOff = null, mSyncTimer = null;
+  function mSyncStart() {
+    var code = mMyCode();
+    if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
+    if (!code || !window.Store || !window.Store.configured) { S_SYNC_STATE = 'off'; return; }
+    S_SYNC_STATE = 'connecting';
+    window.Store.ready().then(function (db) {
+      mSyncDoc = db.collection('households').doc(code);
+      mSyncOff = mSyncDoc.onSnapshot(function (snap) {
+        var data = snap.exists ? (snap.data() || {}) : null;
+        S_SYNC_STATE = 'on';
+        if (!data || !data.myday) { mSyncPush(true); return; }
+        if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
+        if (S.macroSyncOpen) renderModal();
+      }, function () { S_SYNC_STATE = 'error'; if (S.macroSyncOpen) renderModal(); });
+      mSyncPush(true);
+    }, function () { S_SYNC_STATE = 'error'; });
+  }
+
+  function mSyncPush(now) {
+    if (!mSyncDoc) return;
+    clearTimeout(mSyncTimer);
+    mSyncTimer = setTimeout(function () {
+      mSyncDoc.set({ myday: mSyncPayload() }, { merge: true }).then(function () {
+        S_SYNC_STATE = 'on';
+      }, function () { S_SYNC_STATE = 'error'; });
+    }, now ? 0 : 900);
+  }
+
   function dayKey(d) {
     /* Built from the local calendar, never toISOString() — that is UTC, and it
        files an evening snack in Mountain time under tomorrow. */
@@ -816,6 +946,7 @@
     return t;
   }
   function mWriteTargets(t) {
+    mStamp('t');
     try { localStorage.setItem('bsc.macroTargets', JSON.stringify(t)); }
     catch (e) { /* private mode: the render reads defaults, nothing breaks */ }
   }
@@ -846,6 +977,7 @@
     };
   }
   function mWriteSlots(s) {
+    mStamp('sl');
     try { localStorage.setItem('bsc.macroSlots', JSON.stringify(s)); }
     catch (e) { /* private mode */ }
   }
@@ -882,6 +1014,7 @@
     Object.keys(MDAYS).forEach(function (dk) { if (dk < floor) delete MDAYS[dk]; });
     try { localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS)); }
     catch (e) { /* in-memory only for this session */ }
+    mStamp('d', k);
   }
 
   function kcalOf(t) { return Math.round(4 * t.p + 4 * t.c + 9 * t.f); }
@@ -895,6 +1028,7 @@
       goalLb: 0, goalBy: '', workouts: 0, steps: 0 };
   }
   function mWriteProfile(pr) {
+    mStamp('pr');
     try { localStorage.setItem('bsc.macroProfile', JSON.stringify(pr)); }
     catch (e) { /* private mode */ }
   }
@@ -1116,6 +1250,7 @@
     Object.keys(MWEIGHTS).forEach(function (wk) { if (wk < floor) delete MWEIGHTS[wk]; });
     try { localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS)); }
     catch (e) { /* in-memory only for this session */ }
+    mStamp('w');
   }
 
   /* The numbers a cut actually reads. The seven-day average is the headline —
@@ -1849,6 +1984,45 @@
         'which is what a hard cut is, and not a place to live for months.';
     }
     return '';
+  }
+
+  function macroSyncHTML() {
+    var code = mMyCode();
+    var house = window.Store.house || '';
+    var word = { off: 'Saving on this device only', connecting: 'Connecting\u2026',
+      on: 'Your devices have this day', error: 'Cannot reach the server' }[S_SYNC_STATE];
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet" role="dialog" aria-modal="true" aria-label="My Day on your devices">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">My Day, on your devices</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="sheet-name">The same day on the phone and the desk</div>' +
+        '<p class="sync-p">A private code, separate from the household one. Type it on every ' +
+          'device of yours and they share your plan, your meals and your weigh-ins &mdash; and ' +
+          'nobody sharing the household list sees any of it.</p>' +
+        (code
+          ? '<div class="sync-code">' + esc(code) + '</div>' +
+            '<div class="sync-row"><button class="ghost" data-mysync="leave">Stop syncing this device</button></div>' +
+            '<p class="sync-p">Leaving keeps everything already on this device and stops sending ' +
+            'changes. Your other devices carry on.</p>'
+          : '<div class="sync-code" id="myNewCode">' + esc(S.myPending) + '</div>' +
+            '<div class="sync-row">' +
+              '<button class="btn-primary" data-mysync="use">Use this code</button>' +
+              '<button class="ghost" data-mysync="reroll">Give me another</button>' +
+            '</div>' +
+            '<div class="sync-row">' +
+              '<input class="txt" id="myJoin" placeholder="Or type a code you already have" ' +
+                'aria-label="Private code" value="' + esc(S.myJoin) + '">' +
+              '<button class="ghost" data-mysync="join">Use it</button>' +
+            '</div>') +
+        (house && code === house
+          ? '<div class="sync-warn">That is your household code. Your day would land in the ' +
+            'family\u2019s document, where the rest of the household can read it.</div>' : '') +
+        '<div class="sync-status"><span class="dot' +
+          (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
+            : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>' +
+      '</div></div>';
   }
 
   function macroTargetsHTML() {
@@ -3926,7 +4100,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -4005,6 +4179,14 @@
       root.innerHTML = macroPickerHTML();
       document.body.style.overflow = 'hidden';
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
+
+    if (S.macroSyncOpen) {
+      root.innerHTML = macroSyncHTML();
+      document.body.style.overflow = 'hidden';
+      var mj = root.querySelector('#myJoin');
+      if (mj) mj.value = S.myJoin;
       return;
     }
 
@@ -4917,6 +5099,16 @@
     $('macroFill').addEventListener('click', mFillDay);
     $('macroRebal').addEventListener('click', mRebalance);
     $('macroCopy').addEventListener('click', function () { mCopyDay(this); });
+    $('macroDevices').addEventListener('click', function () {
+      rememberOpener();
+      S.macroSyncOpen = true;
+      if (!S.myPending) S.myPending = window.Store.newCode();
+      pushSheet({ m: 1 });
+      renderModal();
+      var x = document.querySelector('.sheet-x');
+      if (x) x.focus();
+    });
+    mSyncStart();
 
     /* The tab's one paragraph of explanation, behind the ? beside the title.
        A toggle rather than a dismissal: the person who wants it again next
@@ -5188,6 +5380,27 @@
         return;
       }
 
+      var ms = e.target.closest('[data-mysync]');
+      if (ms) {
+        var act2 = ms.dataset.mysync;
+        if (act2 === 'reroll') S.myPending = window.Store.newCode();
+        if (act2 === 'use' || act2 === 'join') {
+          var want = act2 === 'use' ? S.myPending
+            : String((($('myJoin') || {}).value) || '').trim().toLowerCase().replace(/\s+/g, '-');
+          if (want) {
+            try { localStorage.setItem('bsc.myCode', want); } catch (er) { /* private mode */ }
+            mSyncStart();
+          }
+        }
+        if (act2 === 'leave') {
+          try { localStorage.removeItem('bsc.myCode'); } catch (er) { /* private mode */ }
+          S_SYNC_STATE = 'off';
+          mSyncStart();
+        }
+        renderModal();
+        return;
+      }
+
       var use = e.target.closest('[data-mtuse]');
       if (use && S.macroTargOpen) {
         var np = mPlanCalc(mtProfileFromDom());
@@ -5303,6 +5516,7 @@
     $('modalRoot').addEventListener('input', function (e) {
       if (S.editId && (e.target.id === 'edIng' || e.target.id === 'edServings' ||
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
+      if (S.macroSyncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
       if (S.macroPick && e.target.id === 'mpSearch') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();
@@ -5365,7 +5579,8 @@
       }
       if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
-      if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen)) close();
+      if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen ||
+        S.macroSyncOpen)) close();
     });
   }
 
@@ -5462,6 +5677,7 @@
     // and the Macros sheets, for exactly the same reason
     S.macroPick = null;
     S.macroTargOpen = false;
+    S.macroSyncOpen = false;
     S.mpQuery = '';
     renderModal();
     restoreOpener();
