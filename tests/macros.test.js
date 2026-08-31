@@ -110,6 +110,69 @@ module.exports = {
     await p.reload();
     await p.waitForTimeout(300);
 
+    /* A day rarely divides into six whole recipes. What fills the last two
+       hundred calories is a spoon of honey or half a tin of tuna — and the
+       food table those recipes are costed from was already in the browser
+       with no door on it. */
+    await p.click('[data-mslot="l"]');
+    await p.waitForTimeout(250);
+    await p.selectOption('#mpSec', 'foods');
+    await p.waitForTimeout(250);
+    t.ok('the plain foods have a lens of their own',
+      await p.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mpick-row')];
+        return rows.length >= 20 && rows.every((r) => r.dataset.mpick.indexOf('f:') === 0);
+      }), await p.evaluate(() => document.querySelectorAll('.mpick-row').length + ' rows'));
+    t.ok('and each is offered in a unit a person would use',
+      await p.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mpick-row')];
+        const txt = rows.map((r) => r.textContent).join(' ');
+        // a cup of milk and a spoon of honey, not a spoon of milk or a cup of butter
+        return /cup|tbsp|each|oz|can/.test(txt);
+      }));
+    await p.selectOption('#mpSec', 'meal');
+    await p.fill('#mpSearch', 'honey');
+    await p.waitForTimeout(250);
+    t.ok('and a search reaches them from any lens, since typing it says enough',
+      await p.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mpick-row')];
+        return rows.some((r) => /honey/i.test(r.textContent));
+      }));
+    /* "Honey" also matches a recipe with honey in it, which is correct and
+       not what we are after here. */
+    const honeyRow = await p.evaluate(() => {
+      const r = [...document.querySelectorAll('.mpick-row')]
+        .find((x) => x.dataset.mpick.indexOf('f:') === 0 && /honey/i.test(x.textContent));
+      return r ? r.dataset.mpick : null;
+    });
+    t.ok('a food is addable like anything else', honeyRow && honeyRow.indexOf('f:') === 0, honeyRow);
+    await p.evaluate(() => {
+      [...document.querySelectorAll('.mpick-row')]
+        .find((x) => x.dataset.mpick.indexOf('f:') === 0 && /honey/i.test(x.textContent)).click();
+    });
+    await p.waitForTimeout(300);
+    t.ok('and lands on the day carrying its own macros',
+      await p.evaluate(() => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = days[Object.keys(days)[0]];
+        return (day.l || []).some((it) => String(it.id).indexOf('f:') === 0);
+      }));
+    t.ok('with its unit named, and no recipe pretending to be behind it',
+      await p.evaluate(() => {
+        const el = document.querySelector('.mitem-food');
+        return !!el && el.tagName !== 'BUTTON' && !!el.querySelector('.mitem-unit');
+      }));
+    t.ok('while the collection itself is untouched — a spoon of honey is not a recipe',
+      await p.evaluate(() => window.RECIPES.every((r) => String(r.id).indexOf('f:') !== 0)));
+    await p.evaluate(() => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const day = days[Object.keys(days)[0]];
+      day.l = [];
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+    });
+    await p.reload();
+    await p.waitForTimeout(300);
+
     /* Steps and sessions were stored, printed back, and never added up —
        somebody asking what ten thousand steps buys was asking a question the
        app ignored. The day is built from its parts now, so they are levers. */

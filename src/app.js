@@ -48,6 +48,69 @@
       if (r.book === 3) r.no = ++n;
       BY_ID[r.id] = r;
     });
+    mBuildFoods();          // and the plain foods, addable but never shelved
+  }
+
+  /* The hundred and seventeen plain foods the recipes are costed from, made
+     addable in their own right.
+   *
+     A day rarely divides into six whole recipes. What fills the last two
+     hundred calories is a spoon of honey, an apple, half a tin of tuna — and
+     until now the only way to log one was to find a recipe that happened to
+     contain it. The food table was already in the browser, being used to
+     price everything else; it just had no door.
+   *
+     They are shaped as recipes so nothing downstream has to learn a second
+     kind of thing — the totals, the copy, the pins, the dials all keep
+     working — but they are NOT in RECIPES, so they never appear in the
+     collection, the printed book or the shopping list, none of which are
+     about a spoon of honey. */
+  var MFOODS = [];
+
+  function mFoodName(key, f) {
+    if (f.label) return f.label;
+    return key.replace(/_/g, ' ').replace(/^./, function (c) { return c.toUpperCase(); });
+  }
+
+  /* Which unit to call one of. Aim near a hundred and thirty calories: a cup
+     of milk, a tablespoon of honey, one apple — rather than a cup of butter
+     or a tablespoon of milk, which is what any single fixed unit produces. */
+  function mFoodServing(f) {
+    var units = f.g || {};
+    var best = null;
+    Object.keys(units).forEach(function (u) {
+      var grams = units[u];
+      if (!grams) return;
+      var kcal = (f.kcal || 0) * grams / 100;
+      var miss = Math.abs(kcal - 130) + (u === 'each' ? -25 : 0);   // a whole one reads best
+      if (!best || miss < best.miss) best = { unit: u, grams: grams, miss: miss };
+    });
+    return best || { unit: 'g', grams: 100 };
+  }
+
+  function mBuildFoods() {
+    MFOODS = [];
+    var N = window.Nutrition;
+    if (!N || !N.FOODS) return;
+    Object.keys(N.FOODS).forEach(function (key) {
+      var f = N.FOODS[key];
+      if (!f || f.split || !(f.kcal > 0 || f.p > 0)) return;      // 'free' stands for seasonings
+      var sv = mFoodServing(f);
+      var per = sv.grams / 100;
+      var name = mFoodName(key, f);
+      MFOODS.push({
+        id: 'f:' + key, food: true, book: 0, secNum: 0, secName: 'Single foods',
+        name: name, servings: '1 ' + sv.unit, servN: 1, unit: sv.unit,
+        ing: [name], steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
+        macro: {
+          kcal: Math.round((f.kcal || 0) * per), p: Math.round((f.p || 0) * per * 10) / 10,
+          c: Math.round((f.c || 0) * per * 10) / 10, f: Math.round((f.f || 0) * per * 10) / 10,
+          na: Math.round((f.na || 0) * per), fib: Math.round((f.fib || 0) * per * 10) / 10
+        }
+      });
+      BY_ID[MFOODS[MFOODS.length - 1].id] = MFOODS[MFOODS.length - 1];
+    });
+    MFOODS.sort(function (a2, b2) { return a2.name.localeCompare(b2.name); });
   }
 
   var DAYS = [
@@ -1441,8 +1504,11 @@
           '<span class="mitem-r1">' +
             '<span class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
               (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
-              '<button class="mitem-name" data-open="' + esc(String(r.id)) +
-                '" data-mx="' + it.x + '">' + esc(r.name) + '</button></span>' +
+              (r.food
+                ? '<span class="mitem-name mitem-food">' + esc(r.name) +
+                  '<span class="mitem-unit"> &middot; ' + esc(r.unit) + '</span></span>'
+                : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
+                  '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') + '</span>' +
             '<span class="mstep no-print">' +
               '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
               '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
@@ -1675,6 +1741,7 @@
             (fam.length ? '<option value="family"' + (S.mpSec === 'family' ? ' selected' : '') +
               '>On the family\u2019s plan (' + fam.length + ')</option>' : '') +
             '<option value="all"' + (S.mpSec === 'all' ? ' selected' : '') + '>Every recipe</option>' +
+            '<option value="foods"' + (S.mpSec === 'foods' ? ' selected' : '') + '>Single foods</option>' +
             (function () {
               var out = '', bk = 0;
               mAllSections().forEach(function (sec) {
@@ -1702,7 +1769,7 @@
   function mpListHTML() {
     var qs = S.mpQuery.trim().toLowerCase();
     var fam = S.mpSec === 'family' ? mFamilyIds(mViewKey()) : null;
-    var pool = RECIPES.filter(function (r) {
+    var pool = S.mpSec === 'foods' ? [] : RECIPES.filter(function (r) {
       var sk = r.book + '-' + r.secNum;
       if (S.mpSec === 'meal' && S.macroPick.secs.indexOf(sk) < 0) return false;
       if (fam && fam.indexOf(r.id) < 0) return false;
@@ -1710,6 +1777,15 @@
       if (qs && !matchRank(r, qs)) return false;
       return true;
     });
+    /* A spoon of honey is not in any section, so it answers to its own lens
+       — and to a search from any of them, because somebody typing "honey"
+       into a meal picker has already said what they want. */
+    if (S.mpSec === 'foods' || qs) {
+      MFOODS.forEach(function (r) {
+        if (qs && r.name.toLowerCase().indexOf(qs) < 0) return;
+        pool.push(r);
+      });
+    }
     var rows = mRank(pool, mDay(mViewKey()), mReadTargets(),
       { k: S.macroPick.slot, w: S.macroPick.w });
     /* Sorting is a lens, not a different picker: every row keeps the portion
@@ -1732,7 +1808,8 @@
     return rows.map(function (e) {
       var r = e.r;
       var fit = e.score === null ? 'no data'
-        : '&times;' + fmtNum(e.x) + ' &middot; ' + mMacLine(r, e.x);
+        : '&times;' + fmtNum(e.x) + (r.food ? ' ' + esc(r.unit) : '') +
+          ' &middot; ' + mMacLine(r, e.x);
       return '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + e.x + '">' +
         leaf(r.score, 'leaf-sm') +
         '<span class="mp-body">' +

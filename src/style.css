@@ -514,6 +514,10 @@ select { max-width: 280px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mitem-name:hover { color: var(--ochre-text); text-decoration: underline; text-underline-offset: 2px; }
+/* a spoon of honey has no recipe to open, so its name is not a door */
+.mitem-food { cursor: default; }
+.mitem-food:hover { color: inherit; text-decoration: none; }
+.mitem-unit { font-family: var(--sans); font-size: 10.5px; color: var(--muted); }
 /* eaten is done, not deleted — the line-through the shopping list uses */
 .mitem.eaten .mitem-name { text-decoration: line-through; color: oklch(0.68 0.02 70); }
 .mitem-mac {
