@@ -1455,6 +1455,57 @@ module.exports = {
         return slots.list.every((s2) => !(day[s2.k] || []).length || txt.indexOf(s2.n + ':') >= 0);
       }, copied));
 
-    await y.context().close();
+    /* ---- whose day it is ------------------------------------------------
+     * The whole app works without an account, on the device it is open on.
+     * An account does one thing: it lets a second device know you. And the
+     * thing it guards is a weight history, so it is guarded by whose it is
+     * rather than by a code that can be read aloud or forwarded. */
+    const a2 = await t.fresh();
+    await a2.click('.tab[data-view="macros"]');
+    await a2.waitForTimeout(200);
+    t.ok('the whole tab works with nobody signed in',
+      await a2.evaluate(() => document.querySelectorAll('.mslot').length === 4));
+    await a2.click('#macroDevices');
+    await a2.waitForTimeout(300);
+    t.ok('and the way in offers two, with no password to invent',
+      await a2.evaluate(() => {
+        const txt = document.querySelector('.sheet').textContent;
+        return !!document.querySelector('[data-mysync="google"]') &&
+          !!document.querySelector('#myJoin') && /no password/i.test(txt);
+      }));
+    t.ok('while saying plainly that an account is not needed to use it',
+      /do not need an account/i.test(await a2.textContent('.sheet')));
+    t.ok('and that the day stays out of the household\u2019s reach',
+      /nobody with the household code/i.test(await a2.textContent('.sheet')));
+    await a2.fill('#myJoin', 'not-an-email');
+    await a2.click('[data-mysync="email"]');
+    await a2.waitForTimeout(250);
+    t.ok('a malformed address is refused before anything is sent',
+      /does not look like an email/i.test(await a2.textContent('.sheet')));
+
+    /* The old private code guarded this with a secret somebody could recite.
+       Nothing should be reading it any more. */
+    t.ok('no shareable code decides who can read a day now',
+      await a2.evaluate(() => {
+        const src = document.querySelector('script[src*="app.js"]');
+        return !!src && localStorage.getItem('bsc.myCode') === null;
+      }));
+    /* Asking who somebody is means loading Firebase from another host, and
+       doing that on every page load would put a request to gstatic in front
+       of every reader who never signs in — the property this app has kept
+       since it was built. A device that signed in remembers so locally; only
+       that one goes looking. */
+    t.ok('a visitor with no account fetches nothing from another host',
+      await a2.evaluate(() => {
+        const outside = performance.getEntriesByType('resource')
+          .filter((e) => e.name.indexOf(location.origin) !== 0);
+        return outside.length === 0 && localStorage.getItem('bsc.myAccount') === null;
+      }), await a2.evaluate(() => performance.getEntriesByType('resource')
+        .filter((e) => e.name.indexOf(location.origin) !== 0).map((e) => e.name).join(' ')));
+    t.ok('and personal keys still never enter the household document',
+      await a2.evaluate(() => JSON.stringify(Object.keys(window.Store.state))
+        .indexOf('macro') < 0));
+
+    await a2.context().close();
   },
 };

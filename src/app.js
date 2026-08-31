@@ -466,7 +466,7 @@
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
     macroDate: null, macroPick: null, macroTargOpen: false, mpQuery: '',
-    macroSyncOpen: false, myPending: '', myJoin: '',
+    macroSyncOpen: false, myJoin: '', mySent: false, myErr: '',
     mpSec: 'meal', mpSort: 'fit',
     /* How far down each meal's ranked list Try again has walked, keyed day
        and meal. Ephemeral on purpose: tomorrow starts at the top again. */
@@ -794,8 +794,21 @@
     mSyncPush();
   }
 
-  function mMyCode() {
-    try { return localStorage.getItem('bsc.myCode') || ''; } catch (e) { return ''; }
+  /* This used to be a private code, which was the right shape for one person
+     with two phones and the wrong shape the moment the app went to a
+     congregation. A code can be read aloud, forwarded, or guessed, and what
+     it was guarding is a weight history. It is an account now: the document
+     is the signed-in person's own, and the rule that guards it is whose it
+     is rather than what you can recite. */
+  function mAccount() { return window.Store.user ? window.Store.user() : null; }
+
+  /* This device has an account, remembered without asking the network — the
+     one thing that has to be known before deciding whether to reach for it. */
+  function mAccountMark() {
+    try {
+      if (mAccount()) localStorage.setItem('bsc.myAccount', '1');
+      else localStorage.removeItem('bsc.myAccount');
+    } catch (e) { /* private mode: this session only */ }
   }
 
   /* What this device would send. Read fresh each time so it never ships a
@@ -862,12 +875,17 @@
 
   var mSyncDoc = null, mSyncOff = null, mSyncTimer = null;
   function mSyncStart() {
-    var code = mMyCode();
     if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
-    if (!code || !window.Store || !window.Store.configured) { S_SYNC_STATE = 'off'; return; }
+    if (!window.Store || !window.Store.configured || !mAccount()) {
+      S_SYNC_STATE = 'off';
+      if (S.macroSyncOpen) renderModal();
+      return;
+    }
     S_SYNC_STATE = 'connecting';
     window.Store.ready().then(function (db) {
-      mSyncDoc = db.collection('households').doc(code);
+      var uid = window.Store.uid();
+      if (!uid || !mAccount()) { S_SYNC_STATE = 'off'; return; }
+      mSyncDoc = db.collection('users').doc(uid);
       mSyncOff = mSyncDoc.onSnapshot(function (snap) {
         var data = snap.exists ? (snap.data() || {}) : null;
         S_SYNC_STATE = 'on';
@@ -1987,10 +2005,40 @@
   }
 
   function macroSyncHTML() {
-    var code = mMyCode();
-    var house = window.Store.house || '';
+    var who = mAccount();
     var word = { off: 'Saving on this device only', connecting: 'Connecting\u2026',
       on: 'Your devices have this day', error: 'Cannot reach the server' }[S_SYNC_STATE];
+    var body;
+    if (!window.Store.configured) {
+      body = '<p class="sync-p">This copy has no server behind it, so everything stays on this ' +
+        'device. See <strong>SETUP.md</strong> in the project if you want to change that.</p>';
+    } else if (who) {
+      body = '<p class="sync-p">Signed in as <strong>' + esc(who.email || who.name) + '</strong>. ' +
+        'Open the app on any other device, sign in the same way, and your plan, your meals and ' +
+        'your weigh-ins are already there.</p>' +
+        '<div class="sync-row"><button class="ghost" data-mysync="out">Sign out of this device</button></div>' +
+        '<p class="sync-p">Signing out keeps everything already on this device and stops sending ' +
+        'changes. Nothing is deleted anywhere.</p>';
+    } else {
+      body = '<p class="sync-p">You do not need an account to use any of this &mdash; the whole ' +
+        'app works on this device, and that is where it has been saving all along. An account ' +
+        'does one thing: it lets a second device know you.</p>' +
+        (S.mySent
+          ? '<div class="sync-warn">Check <strong>' + esc(S.myJoin) + '</strong> and open the ' +
+            'link. It signs you in on this device.</div>'
+          : '') +
+        '<div class="sync-row">' +
+          '<button class="btn-primary" data-mysync="google">Continue with Google</button>' +
+        '</div>' +
+        '<div class="sync-row">' +
+          '<input class="txt" id="myJoin" type="email" inputmode="email" ' +
+            'placeholder="or your email address" aria-label="Email address" value="' +
+            esc(S.myJoin) + '">' +
+          '<button class="ghost" data-mysync="email">Send me a link</button>' +
+        '</div>' +
+        '<p class="sync-p">No password to invent or forget &mdash; the link is the proof. ' +
+        'Your day is readable by you alone; nobody with the household code can see it.</p>';
+    }
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet" role="dialog" aria-modal="true" aria-label="My Day on your devices">' +
         '<div class="sheet-top">' +
@@ -1998,27 +2046,8 @@
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="sheet-name">The same day on the phone and the desk</div>' +
-        '<p class="sync-p">A private code, separate from the household one. Type it on every ' +
-          'device of yours and they share your plan, your meals and your weigh-ins &mdash; and ' +
-          'nobody sharing the household list sees any of it.</p>' +
-        (code
-          ? '<div class="sync-code">' + esc(code) + '</div>' +
-            '<div class="sync-row"><button class="ghost" data-mysync="leave">Stop syncing this device</button></div>' +
-            '<p class="sync-p">Leaving keeps everything already on this device and stops sending ' +
-            'changes. Your other devices carry on.</p>'
-          : '<div class="sync-code" id="myNewCode">' + esc(S.myPending) + '</div>' +
-            '<div class="sync-row">' +
-              '<button class="btn-primary" data-mysync="use">Use this code</button>' +
-              '<button class="ghost" data-mysync="reroll">Give me another</button>' +
-            '</div>' +
-            '<div class="sync-row">' +
-              '<input class="txt" id="myJoin" placeholder="Or type a code you already have" ' +
-                'aria-label="Private code" value="' + esc(S.myJoin) + '">' +
-              '<button class="ghost" data-mysync="join">Use it</button>' +
-            '</div>') +
-        (house && code === house
-          ? '<div class="sync-warn">That is your household code. Your day would land in the ' +
-            'family\u2019s document, where the rest of the household can read it.</div>' : '') +
+        body +
+        (S.myErr ? '<div class="sync-warn">' + esc(S.myErr) + '</div>' : '') +
         '<div class="sync-status"><span class="dot' +
           (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
             : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>' +
@@ -5102,13 +5131,34 @@
     $('macroDevices').addEventListener('click', function () {
       rememberOpener();
       S.macroSyncOpen = true;
-      if (!S.myPending) S.myPending = window.Store.newCode();
+      S.myErr = '';
       pushSheet({ m: 1 });
       renderModal();
       var x = document.querySelector('.sheet-x');
       if (x) x.focus();
     });
-    mSyncStart();
+    /* Nothing here reaches for the network unless there is a reason.
+     *
+       Asking who we are means loading the Firebase SDK, and loading it on
+       every page load would put a request to another host in front of every
+       reader who never signs in and never asked for one — which is the
+       property this app has kept since it was built, and which its own
+       offline test guards. So a device that has signed in remembers that it
+       did, locally, and only that device goes looking. The other door is an
+       email link landing back on this page, which is visible in the URL
+       without asking anybody. */
+    var linkBack = /[?&](oobCode=|mode=signIn)/.test(location.search);
+    var hasAcct = false;
+    try { hasAcct = localStorage.getItem('bsc.myAccount') === '1'; } catch (e) { /* private */ }
+    if (linkBack && window.Store.completeEmailLink) {
+      window.Store.completeEmailLink().then(function (res) {
+        if (res) { S.mySent = false; mAccountMark(); renderModal(); }
+        mSyncStart();
+      }, function () { mSyncStart(); });
+    } else if (hasAcct) {
+      mSyncStart();
+      if (window.Store.onUser) window.Store.onUser(function () { mSyncStart(); });
+    }
 
     /* The tab's one paragraph of explanation, behind the ? beside the title.
        A toggle rather than a dismissal: the person who wants it again next
@@ -5383,19 +5433,33 @@
       var ms = e.target.closest('[data-mysync]');
       if (ms) {
         var act2 = ms.dataset.mysync;
-        if (act2 === 'reroll') S.myPending = window.Store.newCode();
-        if (act2 === 'use' || act2 === 'join') {
-          var want = act2 === 'use' ? S.myPending
-            : String((($('myJoin') || {}).value) || '').trim().toLowerCase().replace(/\s+/g, '-');
-          if (want) {
-            try { localStorage.setItem('bsc.myCode', want); } catch (er) { /* private mode */ }
-            mSyncStart();
-          }
+        S.myErr = '';
+        var failed = function (err) {
+          S.myErr = (err && err.code === 'auth/popup-blocked')
+            ? 'The sign-in window was blocked. Allow pop-ups for this site, or use the email link.'
+            : 'That did not go through. Try again, or use the other way in.';
+          renderModal();
+        };
+        if (act2 === 'google') {
+          window.Store.signInGoogle().then(function () {
+            S.mySent = false; mAccountMark(); mSyncStart(); renderModal();
+          }, failed);
         }
-        if (act2 === 'leave') {
-          try { localStorage.removeItem('bsc.myCode'); } catch (er) { /* private mode */ }
-          S_SYNC_STATE = 'off';
-          mSyncStart();
+        if (act2 === 'email') {
+          var addr = String((($('myJoin') || {}).value) || '').trim();
+          if (!/.+@.+\..+/.test(addr)) {
+            S.myErr = 'That does not look like an email address.';
+            renderModal();
+            return;
+          }
+          window.Store.sendEmailLink(addr).then(function () {
+            S.myJoin = addr; S.mySent = true; renderModal();
+          }, failed);
+        }
+        if (act2 === 'out') {
+          window.Store.signOutAccount().then(function () {
+            S.mySent = false; mAccountMark(); mSyncStart(); renderModal();
+          }, failed);
         }
         renderModal();
         return;

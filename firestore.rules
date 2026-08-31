@@ -23,11 +23,33 @@ rules_version = '2';
  * delete is off for the same reason it is never used. Nothing in the app
  * removes a household, so nothing should be able to.
  */
+/*
+ * And who may touch a person's own record.
+ *
+ * The household above is shared on purpose: a meal plan and a grocery list,
+ * handed to a spouse by reading them a code. My Day is not that. It holds a
+ * weight history and what somebody eats, and it went out to a congregation,
+ * from where it goes anywhere — so it is not guarded by a secret that can be
+ * read aloud, forwarded, or guessed. It is guarded by whose it is.
+ *
+ * request.auth.uid == uid is the whole rule. Every visitor is still signed in
+ * anonymously and can still use the entire app on their own device without an
+ * account; signing in with Google or an email link only turns an anonymous
+ * identity into one that can be reached from a second device. Nobody else's
+ * uid matches, so nobody else's request does.
+ *
+ * list stays off here for the same reason it is off above.
+ */
 service cloud.firestore {
   match /databases/{database}/documents {
     match /households/{code} {
       allow get, create, update: if request.auth != null;
       allow list, delete: if false;
+    }
+
+    match /users/{uid} {
+      allow get, create, update, delete: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
     }
   }
 }

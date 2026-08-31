@@ -370,7 +370,18 @@ window.Store = (function () {
       // keep working with no signal, and queue writes made while offline
       return db.enablePersistence({ synchronizeTabs: true }).catch(function () {});
     }).then(function () {
-      return window.firebase.auth().signInAnonymously();
+      /* Wait for whatever identity the browser already holds before making a
+         new one. signInAnonymously() on a page where somebody is signed in
+         with their email replaces them with a stranger, and takes their
+         second device with it. */
+      return new Promise(function (done) {
+        var off = window.firebase.auth().onAuthStateChanged(function (u) {
+          off();
+          if (u) return done(u);
+          window.firebase.auth().signInAnonymously()
+            .then(function (c) { done(c.user); }, function () { done(null); });
+        });
+      });
     });
     readyP.catch(function () { readyP = null; });
     return readyP;
@@ -512,6 +523,90 @@ window.Store = (function () {
        is, never about which devices should see it. It borrows the connection
        and keeps its own document. */
     ready: function () { return ready().then(function () { return db; }); },
+
+    /* ------------------------------------------------------------------ who
+     * Everyone is signed in anonymously and everyone can use the whole app
+     * that way, on their own device, forever. An account is not a gate on the
+     * app; it is the only way to be recognised on a SECOND device, which is
+     * the only thing it is offered for.
+     *
+     * Signing in links the anonymous identity rather than replacing it, so
+     * whatever is already on the device comes along. When the account is
+     * already in use somewhere else that link is refused, and the honest
+     * thing then is to sign into it and let the older account's data stand —
+     * it is the one with the history. */
+    user: function () {
+      var u = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+      return u && !u.isAnonymous ? { uid: u.uid, email: u.email || '', name: u.displayName || '' } : null;
+    },
+    uid: function () {
+      var u = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+      return u ? u.uid : '';
+    },
+    onUser: function (cb) {
+      ready().then(function () { window.firebase.auth().onAuthStateChanged(function () { cb(); }); });
+    },
+
+    signInGoogle: function () {
+      return ready().then(function () {
+        var auth = window.firebase.auth();
+        var prov = new window.firebase.auth.GoogleAuthProvider();
+        var cur = auth.currentUser;
+        var link = cur && cur.isAnonymous
+          ? cur.linkWithPopup(prov)
+          : auth.signInWithPopup(prov);
+        return link.catch(function (err) {
+          // already an account of its own: sign into it, keep its history
+          if (err && /credential-already-in-use|email-already-in-use/.test(err.code || '')) {
+            return auth.signInWithCredential(err.credential);
+          }
+          throw err;
+        });
+      });
+    },
+
+    /* No password to invent, forget, or store. The link is the proof. */
+    sendEmailLink: function (email) {
+      return ready().then(function () {
+        var settings = { url: location.href.split('#')[0], handleCodeInApp: true };
+        return window.firebase.auth().sendSignInLinkToEmail(email, settings).then(function () {
+          try { localStorage.setItem('bsc.emailForLink', email); } catch (e) { /* private */ }
+        });
+      });
+    },
+    completeEmailLink: function () {
+      return ready().then(function () {
+        var auth = window.firebase.auth();
+        if (!auth.isSignInWithEmailLink(location.href)) return null;
+        var email = '';
+        try { email = localStorage.getItem('bsc.emailForLink') || ''; } catch (e) { /* private */ }
+        if (!email) email = window.prompt('Which email did you ask for the link with?') || '';
+        if (!email) return null;
+        var cur = auth.currentUser;
+        var cred = window.firebase.auth.EmailAuthProvider.credentialWithLink(email, location.href);
+        var go = cur && cur.isAnonymous
+          ? cur.linkWithCredential(cred)
+          : auth.signInWithCredential(cred);
+        return go.catch(function (err) {
+          if (err && /credential-already-in-use|email-already-in-use/.test(err.code || '')) {
+            return auth.signInWithCredential(cred);
+          }
+          throw err;
+        }).then(function (res) {
+          try { localStorage.removeItem('bsc.emailForLink'); } catch (e) { /* private */ }
+          history.replaceState({}, '', location.pathname + location.search);
+          return res;
+        });
+      });
+    },
+
+    signOutAccount: function () {
+      return ready().then(function () {
+        return window.firebase.auth().signOut().then(function () {
+          return window.firebase.auth().signInAnonymously();
+        });
+      });
+    },
 
     init: function (onChange) {
       listeners.push(onChange);
