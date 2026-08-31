@@ -466,7 +466,7 @@
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
     macroDate: null, macroPick: null, macroTargOpen: false, mpQuery: '',
-    macroSyncOpen: false, myJoin: '', mySent: false, myErr: '',
+    myJoin: '', mySent: false, myErr: '', myNote: '',
     mpSec: 'meal', mpSort: 'fit',
     /* How far down each meal's ranked list Try again has walked, keyed day
        and meal. Ephemeral on purpose: tomorrow starts at the top again. */
@@ -921,7 +921,7 @@
     if (!window.Store || !window.Store.configured) {
       mAuthKnown = true;
       S_SYNC_STATE = 'off';
-      if (S.macroSyncOpen) renderModal();
+      if (S.syncOpen) renderModal();
       return;
     }
     if (!mAccount()) {
@@ -932,16 +932,16 @@
         window.Store.ready().then(function () {
           mAuthKnown = true;
           if (mAccount()) mSyncStart();
-          else if (S.macroSyncOpen) renderModal();
+          else if (S.syncOpen) renderModal();
         }, function () {
           mAuthKnown = true;
-          if (S.macroSyncOpen) renderModal();
+          if (S.syncOpen) renderModal();
         });
         return;
       }
       mAuthKnown = true;
       S_SYNC_STATE = 'off';
-      if (S.macroSyncOpen) renderModal();
+      if (S.syncOpen) renderModal();
       return;
     }
     S_SYNC_STATE = 'connecting';
@@ -951,7 +951,7 @@
       if (!uid || !mAccount()) {
         S_SYNC_STATE = 'off';
         // the answer is known now even though it is "nobody"; say so
-        if (S.macroSyncOpen) renderModal();
+        if (S.syncOpen) renderModal();
         return;
       }
       /* Carrying the day up into an account is for one case only: the
@@ -971,8 +971,8 @@
         S_SYNC_STATE = 'on';
         if (!data || !data.myday) { mSyncPush(true); return; }
         if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
-        if (S.macroSyncOpen) renderModal();
-      }, function () { S_SYNC_STATE = 'error'; if (S.macroSyncOpen) renderModal(); });
+        if (S.syncOpen) renderModal();
+      }, function () { S_SYNC_STATE = 'error'; if (S.syncOpen) renderModal(); });
       mSyncPush(true);
     }, function () { S_SYNC_STATE = 'error'; });
   }
@@ -2089,7 +2089,11 @@
     return '';
   }
 
-  function macroSyncHTML() {
+  /* The personal half of the sharing sheet. The household above is shared
+     with people by reading them a code; this is carried between devices by
+     being you, which is why it is an account and not a code — a weight
+     history is not a thing to guard with a secret meant to be read aloud. */
+  function mAccountBlockHTML() {
     var who = mAccount();
     var waiting = !who && !mAuthKnown && mSuspectAccount();
     var word = { off: 'Saving on this device only', connecting: 'Connecting\u2026',
@@ -2098,20 +2102,33 @@
     if (waiting) {
       body = '<p class="sync-p">This device has an account. Finding it&hellip;</p>';
     } else if (!window.Store.configured) {
-      body = '<p class="sync-p">This copy has no server behind it, so everything stays on this ' +
-        'device. See <strong>SETUP.md</strong> in the project if you want to change that.</p>';
+      body = '<p class="sync-p">No server behind this copy, so your day stays on this device.</p>';
     } else if (who) {
       body = '<p class="sync-p">Signed in as <strong>' + esc(who.email || who.name) + '</strong>. ' +
-        'Open the app on any other device, sign in the same way, and your plan, your meals and ' +
-        'your weigh-ins are already there.</p>' +
+        'Sign in the same way on any other device and your plan, your meals and your weigh-ins ' +
+        'are already there.</p>' +
+        /* Two devices used apart before they were ever joined arrive with
+           two different days and no shared history to reconcile them by. The
+           merge is newest-wins part by part, which is right forever after
+           and arbitrary the first time — so say plainly which one is the
+           real one, once, and then never think about it again. */
+        '<div class="mt-div">If the two do not agree</div>' +
+        '<div class="sync-row">' +
+          '<button class="ghost" data-mysync="push">This device is right</button>' +
+          '<button class="ghost" data-mysync="pull">The account is right</button>' +
+        '</div>' +
+        '<p class="sync-p">The first sends this device&rsquo;s day up and lets it win outright; ' +
+        'the second throws this device&rsquo;s away and takes what the account holds. Only worth ' +
+        'touching once, when two devices that were used apart first meet.</p>' +
         '<div class="sync-row"><button class="ghost" data-mysync="out">Sign out of this device</button></div>' +
         '<p class="sync-p">Signing out clears your day from <em>this</em> device &mdash; the plan, ' +
         'the meals and the weigh-ins &mdash; so the next person to sign in here does not inherit ' +
-        'them. Everything stays in your account, and comes back when you sign in again.</p>';
+        'them. Everything stays in your account and comes back when you sign in again.</p>';
     } else {
-      body = '<p class="sync-p">You do not need an account to use any of this &mdash; the whole ' +
-        'app works on this device, and that is where it has been saving all along. An account ' +
-        'does one thing: it lets a second device know you.</p>' +
+      body = '<p class="sync-p">No account needed to use any of this: the whole app works on ' +
+        'this device, which is where it has been saving all along. An account does one thing &mdash; ' +
+        'it lets a second device know you. Your day is readable by you alone; nobody with the ' +
+        'household code above can see it.</p>' +
         (S.mySent
           ? '<div class="sync-warn">Check <strong>' + esc(S.myJoin) + '</strong> and open the ' +
             'link. It signs you in on this device.</div>'
@@ -2125,22 +2142,14 @@
             esc(S.myJoin) + '">' +
           '<button class="ghost" data-mysync="email">Send me a link</button>' +
         '</div>' +
-        '<p class="sync-p">No password to invent or forget &mdash; the link is the proof. ' +
-        'Your day is readable by you alone; nobody with the household code can see it.</p>';
+        '<p class="sync-p">No password to invent or forget &mdash; the link is the proof.</p>';
     }
-    return '<div class="scrim no-print" data-close="1">' +
-      '<div class="sheet" role="dialog" aria-modal="true" aria-label="My Day on your devices">' +
-        '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">My Day, on your devices</div>' +
-          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
-        '</div>' +
-        '<div class="sheet-name">The same day on the phone and the desk</div>' +
-        body +
-        (S.myErr ? '<div class="sync-warn">' + esc(S.myErr) + '</div>' : '') +
-        '<div class="sync-status"><span class="dot' +
-          (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
-            : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>' +
-      '</div></div>';
+    return body +
+      (S.myNote ? '<div class="sync-warn">' + esc(S.myNote) + '</div>' : '') +
+      (S.myErr ? '<div class="sync-warn">' + esc(S.myErr) + '</div>' : '') +
+      '<div class="sync-status"><span class="dot' +
+        (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
+          : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>';
   }
 
   function macroTargetsHTML() {
@@ -4300,14 +4309,6 @@
       return;
     }
 
-    if (S.macroSyncOpen) {
-      root.innerHTML = macroSyncHTML();
-      document.body.style.overflow = 'hidden';
-      var mj = root.querySelector('#myJoin');
-      if (mj) mj.value = S.myJoin;
-      return;
-    }
-
     if (S.macroTargOpen) {
       /* Drawn once and left alone, like the editor: the profile boxes are a
          draft, and a sync emit arriving mid-keystroke must not reset them to
@@ -4757,16 +4758,26 @@
         'The other phones are untouched.</p>';
     }
 
+    /* Two things travel, and they travelled through two different doors —
+       the household through this sheet, a personal day through a button at
+       the foot of the My Day tab. That is two mental models for one
+       question, and the answer to "how does my stuff get to my other phone"
+       should be in one place. So both live here, under headings that say
+       which is which: the list is shared with people, the day is carried
+       between your own devices. */
     return '<div class="scrim no-print" data-close="1">' +
-      '<div class="sheet sync-sheet" role="dialog" aria-modal="true" aria-label="Sharing">' +
+      '<div class="sheet sync-sheet" role="dialog" aria-modal="true" aria-label="Sharing and sync">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">Sharing between devices</div>' +
+          '<div class="sheet-eyebrow">Sharing and sync</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="sheet-name">One list, on every phone that has the code</div>' +
+        '<div class="sheet-name">What travels, and how far</div>' +
+        '<div class="mt-div">The list, with your household</div>' +
         body +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
+        '<div class="mt-div">My Day, across your own devices</div>' +
+        mAccountBlockHTML() +
         /* The Sharing sheet is the one screen in the app somebody opens to
            find out what this thing is and who is behind it, so it is where
            the app says so. */
@@ -5217,16 +5228,6 @@
     $('macroFill').addEventListener('click', mFillDay);
     $('macroRebal').addEventListener('click', mRebalance);
     $('macroCopy').addEventListener('click', function () { mCopyDay(this); });
-    $('macroDevices').addEventListener('click', function () {
-      rememberOpener();
-      S.macroSyncOpen = true;
-      S.myErr = '';
-      if (!mAuthKnown && mSuspectAccount()) mSyncStart();   // find out while the sheet opens
-      pushSheet({ m: 1 });
-      renderModal();
-      var x = document.querySelector('.sheet-x');
-      if (x) x.focus();
-    });
     /* Nothing here reaches for the network unless there is a reason.
      *
        Asking who we are means loading the Firebase SDK, and loading it on
@@ -5388,6 +5389,9 @@
     $('syncBtn').addEventListener('click', function () {
       rememberOpener();
       S.syncOpen = true;
+      S.myErr = '';
+      if (!mAuthKnown && mSuspectAccount()) mSyncStart();
+      if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       pushSheet({ s: 1 });
       renderModal();
@@ -5524,6 +5528,7 @@
       if (ms) {
         var act2 = ms.dataset.mysync;
         S.myErr = '';
+        S.myNote = '';
         var failed = function (err) {
           S.myErr = (err && err.code === 'auth/popup-blocked')
             ? 'The sign-in window was blocked. Allow pop-ups for this site, or use the email link.'
@@ -5545,6 +5550,29 @@
           window.Store.sendEmailLink(addr).then(function () {
             S.myJoin = addr; S.mySent = true; renderModal();
           }, failed);
+        }
+        if (act2 === 'push') {
+          /* Restamp everything as of now so this device's copy is the newest
+             on every part, then send it. Nothing is deleted anywhere else;
+             it is simply outvoted. */
+          var now = Date.now();
+          ['t', 'pr', 'sl', 'w'].forEach(function (k) { MSTAMPS[k] = now; });
+          MSTAMPS.d = MSTAMPS.d || {};
+          Object.keys(MDAYS).forEach(function (k) { MSTAMPS.d[k] = now; });
+          try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); }
+          catch (er) { /* private mode */ }
+          mSyncPush(true);
+          S.myErr = '';
+          S.myNote = 'Sent. Your other devices will take this the next time they look.';
+        }
+        if (act2 === 'pull') {
+          /* Forget what is here and let the next snapshot fill it back in.
+             The push that follows carries stamps of zero, so it cannot
+             overwrite the account on the way past. */
+          mForgetDay();
+          renderMacros();
+          mSyncStart();
+          S.myNote = 'Cleared. Whatever your account holds is on its way down.';
         }
         if (act2 === 'out') {
           window.Store.signOutAccount().then(function () {
@@ -5675,7 +5703,7 @@
     $('modalRoot').addEventListener('input', function (e) {
       if (S.editId && (e.target.id === 'edIng' || e.target.id === 'edServings' ||
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
-      if (S.macroSyncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
+      if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
       if (S.macroPick && e.target.id === 'mpSearch') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();
@@ -5739,7 +5767,7 @@
       if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
       if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen ||
-        S.macroSyncOpen)) close();
+        S.syncOpen)) close();
     });
   }
 
@@ -5836,7 +5864,7 @@
     // and the Macros sheets, for exactly the same reason
     S.macroPick = null;
     S.macroTargOpen = false;
-    S.macroSyncOpen = false;
+    S.syncOpen = false;
     S.mpQuery = '';
     renderModal();
     restoreOpener();
