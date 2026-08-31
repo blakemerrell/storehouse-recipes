@@ -2195,6 +2195,86 @@
           : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>';
   }
 
+  /* Looking it up instead of guessing at it.
+   *
+     Two sources, because they answer different questions. The USDA's
+     FoodData Central knows what a chicken tamale is, in the sense of what is
+     in one on average — generic, cooked, unbranded food, which is most of
+     what anybody eats and none of what carries a barcode. Open Food Facts
+     knows the packet in your hand by its number.
+   *
+     Neither is asked anything until you ask. A reader who never opens this
+     box never touches either host, which is the property the whole app has
+     kept and its offline test insists on. */
+  function mNutrients(list) {
+    var out = { kcal: 0, p: 0, f: 0, c: 0 };
+    (list || []).forEach(function (n) {
+      var name = n.nutrientName || (n.nutrient && n.nutrient.name) || '';
+      var unit = (n.unitName || (n.nutrient && n.nutrient.unitName) || '').toUpperCase();
+      var v = n.value === undefined ? n.amount : n.value;
+      if (typeof v !== 'number') return;
+      if (name === 'Energy' && unit === 'KCAL') out.kcal = v;
+      else if (name === 'Protein') out.p = v;
+      else if (name === 'Total lipid (fat)') out.f = v;
+      else if (name === 'Carbohydrate, by difference') out.c = v;
+    });
+    return out;
+  }
+
+  function mFoodSearch(q) {
+    var key = window.USDA_KEY || '';
+    if (!key) return Promise.reject(new Error('nokey'));
+    var url = 'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' +
+      encodeURIComponent(key) + '&query=' + encodeURIComponent(q) +
+      '&pageSize=12&dataType=Survey%20(FNDDS),SR%20Legacy,Foundation';
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error('http');
+      return r.json();
+    }).then(function (d) {
+      return (d.foods || []).map(function (f) {
+        var n = mNutrients(f.foodNutrients);
+        return { name: f.description, unit: '100 g', kcal: Math.round(n.kcal),
+          p: Math.round(n.p), f: Math.round(n.f), c: Math.round(n.c),
+          note: f.dataType === 'Branded' ? (f.brandOwner || '') : '' };
+      }).filter(function (x) { return x.kcal || x.p || x.f || x.c; });
+    });
+  }
+
+  function mBarcodeLookup(code) {
+    var url = 'https://world.openfoodfacts.org/api/v2/product/' +
+      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size';
+    return fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      var p = d && d.product;
+      if (!p) throw new Error('none');
+      var nu = p.nutriments || {};
+      var per = function (k) {
+        var v = nu[k + '_serving'];
+        return typeof v === 'number' ? { v: v, serving: true } : { v: nu[k + '_100g'], serving: false };
+      };
+      var e = per('energy-kcal');
+      return [{
+        name: [p.brands, p.product_name].filter(Boolean).join(' ') || ('Barcode ' + code),
+        unit: e.serving ? (p.serving_size || 'serving') : '100 g',
+        kcal: Math.round(e.v || 0), p: Math.round(per('proteins').v || 0),
+        f: Math.round(per('fat').v || 0), c: Math.round(per('carbohydrates').v || 0),
+        note: 'Open Food Facts'
+      }];
+    });
+  }
+
+  function mLookupRows(list) {
+    if (!list.length) return '<div class="mslot-empty">Nothing came back.</div>';
+    return list.map(function (x, i) {
+      MLOOKUP[i] = x;
+      return '<button class="mpick-row" data-nfpick="' + i + '">' +
+        '<span class="mp-body"><span class="mp-name">' + esc(x.name) + '</span>' +
+        '<span class="mp-fit">' + x.kcal + ' kcal &middot; ' + x.p + 'P &middot; ' + x.f +
+        'F &middot; ' + x.c + 'C per ' + esc(x.unit) + '</span></span></button>';
+    }).join('');
+  }
+
+  var MLOOKUP = {};
+
   function mNewFoodHTML() {
     var box = function (id, label, unit, ph) {
       return '<div class="mtl-row"><span class="mtl-lab">' + label + '</span>' +
@@ -2212,6 +2292,14 @@
         '<p class="sync-p">A tamale from a cart, a plate at somebody&rsquo;s house. Give it what ' +
         'you know &mdash; calories alone still counts toward the day &mdash; and it joins your ' +
         'single foods, so next time it is one tap.</p>' +
+        '<div class="mp-controls">' +
+          '<input type="search" class="txt" id="nfFind" placeholder="Look it up &mdash; chicken tamale" ' +
+            'aria-label="Look up a food">' +
+          '<button class="ghost" data-nf="find">Search</button>' +
+          '<button class="ghost" data-nf="code">Barcode</button>' +
+        '</div>' +
+        '<div id="nfResults"></div>' +
+        '<div class="mt-div">Or say what it was</div>' +
         '<div class="mtl-row"><span class="mtl-lab">Called</span>' +
           '<span class="mtl-val"><input type="text" id="nfName" ' +
             'placeholder="Chicken tamale" aria-label="What it is called"></span></div>' +
@@ -4305,7 +4393,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5555,9 +5643,53 @@
         return;
       }
 
+      /* A result, taken. It fills the form rather than saving itself: the
+         numbers are per 100 g or per packet serving, and only you know how
+         much of it you actually ate. */
+      var nfp = e.target.closest('[data-nfpick]');
+      if (nfp && S.newFood) {
+        var got = MLOOKUP[Number(nfp.dataset.nfpick)];
+        if (got) {
+          $('nfName').value = got.name;
+          $('nfUnit').value = got.unit;
+          $('nfKcal').value = got.kcal;
+          $('nfP').value = got.p;
+          $('nfF').value = got.f;
+          $('nfC').value = got.c;
+          $('nfResults').innerHTML = '';
+          $('nfNote').textContent = 'Filled in from ' + (got.note || 'the USDA') +
+            '. Change the amount if you had more or less than one ' + got.unit + '.';
+        }
+        return;
+      }
+
       var nf = e.target.closest('[data-nf]');
       if (nf && S.newFood) {
         if (nf.dataset.nf === 'cancel') { S.newFood = null; close(); return; }
+        if (nf.dataset.nf === 'find' || nf.dataset.nf === 'code') {
+          var term = String((($('nfFind') || {}).value) || '').trim();
+          var byCode = nf.dataset.nf === 'code';
+          if (!term) {
+            $('nfResults').innerHTML = '<div class="mslot-empty">' +
+              (byCode ? 'Type the number under the barcode.' : 'Type what it was.') + '</div>';
+            return;
+          }
+          $('nfResults').innerHTML = '<div class="mslot-empty">Looking&hellip;</div>';
+          MLOOKUP = {};
+          (byCode ? mBarcodeLookup(term.replace(/\D/g, '')) : mFoodSearch(term))
+            .then(function (list) {
+              if (!$('nfResults')) return;
+              $('nfResults').innerHTML = mLookupRows(list);
+            }, function (err) {
+              if (!$('nfResults')) return;
+              $('nfResults').innerHTML = '<div class="mslot-empty">' +
+                (err && err.message === 'nokey'
+                  ? 'Looking food up needs a free USDA key in src/config.js. ' +
+                    'Barcodes work without one.'
+                  : 'That did not come back. Type it in below instead.') + '</div>';
+            });
+          return;
+        }
         var nval = function (id) { return String((($(id) || {}).value) || '').trim(); };
         var nnum = function (id) { return Math.max(0, Math.round(Number(($(id) || {}).value) || 0)); };
         var nm = nval('nfName');
@@ -5832,6 +5964,7 @@
       if (S.editId && (e.target.id === 'edIng' || e.target.id === 'edServings' ||
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
       if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
+      if (S.newFood && e.target.id === 'nfFind') { /* typed; the buttons ask */ }
       if (S.macroPick && e.target.id === 'mpSearch') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();

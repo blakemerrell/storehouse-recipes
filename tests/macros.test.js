@@ -187,6 +187,19 @@ module.exports = {
     await p.waitForTimeout(250);
     await p.click('[data-mpnew]');
     await p.waitForTimeout(250);
+    /* Looking it up beats guessing, and neither host is touched until asked
+       — a reader who never opens this box still fetches nothing. */
+    t.ok('the sheet offers to look it up, by name or by barcode',
+      await p.evaluate(() => !!document.querySelector('[data-nf="find"]') &&
+        !!document.querySelector('[data-nf="code"]') && !!document.querySelector('#nfFind')));
+    t.ok('and asking with an empty box says so rather than reaching out',
+      await p.evaluate(async () => {
+        document.querySelector('[data-nf="find"]').click();
+        await new Promise((r) => setTimeout(r, 150));
+        return /Type what it was/.test(document.getElementById('nfResults').textContent) &&
+          performance.getEntriesByType('resource')
+            .every((e) => e.name.indexOf(location.origin) === 0);
+      }));
     t.ok('which asks what it is called and what is in it',
       await p.evaluate(() => !!document.querySelector('#nfName') &&
         !!document.querySelector('#nfKcal') && !!document.querySelector('#nfP')));
