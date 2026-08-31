@@ -847,15 +847,42 @@
      a number nobody should eat to. */
   function mGoalPace(pr) {
     if (!pr.goalLb || !pr.goalBy || !pr.lb) return null;
+    var tdee = mTdee(pr);
+    if (tdee === null) return null;
     var days = Math.round((keyDate(pr.goalBy) - keyDate(todayKey())) / 86400000);
     if (!isFinite(days) || days < 7) return null;
     var lbs = pr.lb - pr.goalLb;
-    var perWeek = lbs / (days / 7);
-    var cap = pr.lb * 0.01;
+    var wanted = lbs / (days / 7);
+    var bmr = tdee / (pr.act || 1);
+
+    /* Three caps, and the one that used to be here was the weakest of them.
+     *
+     * A pound a week per hundred of bodyweight sounds careful until you do
+     * the arithmetic on a big frame: at 205 lb it allows 2.05 lb a week,
+     * which is a 1,025 kcal deficit — forty percent of the day's burn, and
+     * three hundred calories BELOW what the body spends lying still. The app
+     * was writing that plan and then wondering why no real meal would fit
+     * inside it: sixty percent of the calories went to protein, three
+     * percent to carbs, and every suggestion came back a quarter portion.
+     *
+     * So the rate cap keeps its place, but two more sit in front of it: no
+     * more than a quarter off the day's burn, and never a day under the
+     * basal rate. Whichever bites first wins, and the plan says so. */
+    var floorK = Math.max(bmr, pr.sex === 'f' ? 1200 : 1500);
+    var maxOff = Math.max(0, Math.min(0.25 * tdee, tdee - floorK));
+    var maxOn = 0.20 * tdee;                       // gaining, the other way
+    var capRate = pr.lb * (lbs >= 0 ? 0.01 : 0.005);
+    var capKcal = (lbs >= 0 ? maxOff : maxOn) * 7 / 3500;
+    var cap = Math.min(capRate, capKcal);
+
+    var perWeek = wanted;
     var capped = Math.abs(perWeek) > cap;
     if (capped) perWeek = perWeek > 0 ? cap : -cap;
+    /* When the date cannot be met, the honest thing is to say when it can. */
+    var realWeeks = perWeek ? Math.abs(lbs / perWeek) : null;
     return { days: days, lbs: lbs, perWeek: perWeek, capped: capped,
-      kcal: perWeek * 3500 / 7 };
+      kcal: perWeek * 3500 / 7, realWeeks: realWeeks,
+      floorK: floorK, wanted: wanted };
   }
 
   function mPlanCalc(pr) {
@@ -870,6 +897,16 @@
       : g.prot;
     var p = Math.round(protPerLb * pr.lb);
     var f = Math.round(Math.max(0.3 * pr.lb, 0.25 * kcal / 9));
+    /* Protein and fat first, but not to the last calorie. A day left with
+       three percent of itself for carbohydrate is a day no dinner in the
+       book fits inside, and the picker can only answer it with quarter
+       portions. Protein gives ground before the plate does — down to 0.8 g
+       a pound, which is still more than a cut needs. */
+    var minC = Math.round(0.15 * kcal / 4);
+    if ((kcal - 4 * p - 9 * f) / 4 < minC) {
+      var room = kcal - 9 * f - 4 * minC;
+      p = Math.max(Math.round(0.8 * pr.lb), Math.round(room / 4));
+    }
     var c = Math.max(0, Math.round((kcal - 4 * p - 9 * f) / 4));
     return { kcal: kcal, p: p, f: f, c: c, floored: kcal - 4 * p - 9 * f < 0 };
   }
@@ -1040,7 +1077,9 @@
       body = '<div class="mw-stat">Log it when you weigh in and the trend builds here &mdash; ' +
         'the seven-day average is the number to trust, not any one morning.</div>';
     }
-    return '<div class="mw-row"><span class="mslot-name">Weigh-in</span>' +
+    return '<button class="mday-dot no-print" data-mdot="weigh" ' +
+        'aria-label="Log this morning&rsquo;s weight"></button>' +
+      '<div class="mw-row"><span class="mslot-name">Weigh-in</span>' +
       '<label class="mt-lab no-print">Weight <input type="number" id="mWeight" min="0" max="1500" ' +
         'step="0.1" inputmode="decimal" value="' + (v || '') + '"> lb</label></div>' +
       body;
@@ -1331,6 +1370,15 @@
       });
       return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') +
         (eatenAll ? ' done' : '') + '">' +
+        /* The dot was a pseudo-element: it could say a meal was behind you
+           but never be told so, and no keyboard or screen reader knew it was
+           there at all. It is a button now — press it and the whole meal is
+           eaten, press it again and it is not. */
+        '<button class="mday-dot no-print" data-mdot="' + esc(sk) + '"' +
+          (items.length ? '' : ' disabled') +
+          ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
+          ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten'
+            : 'Mark all of ' + esc(name) + ' eaten') + '"></button>' +
         '<div class="mslot-h"><span class="mslot-name">' + esc(name) + '</span>' +
           (rows ? '<span class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
             Math.round(sub.p) + 'g protein</span>' : '') +
@@ -1666,8 +1714,14 @@
           row('Workouts a week', box('mtWorkouts', pr.workouts, '')) +
           row('Steps a day', '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
             'inputmode="numeric" value="' + (pr.steps || '') + '">') +
-          '<div class="mtl-seg">' + seg('mtgoal', pr.goal,
-            [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) + '</div>' +
+          /* With a weight and a date, those two are the plan and these four
+             are along for the ride — pressing them used to do nothing at
+             all, silently, which is the worst thing a control can do. They
+             go quiet and say who is in charge instead. */
+          '<div class="mtl-seg' + (mGoalPace(pr) ? ' spent' : '') + '" id="mtGoalSeg">' +
+            seg('mtgoal', pr.goal,
+              [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) +
+          '</div>' +
           '<div class="mt-cap" id="mtGoalNote">' + mGoalNote(pr) + '</div>' +
           '<div class="mt-div">The day&rsquo;s grams</div>' +
           /* The boxes are the plan's one rendering: they follow the profile,
@@ -1813,14 +1867,25 @@
      a word when the arithmetic had to be talked down. */
   function mGoalNote(pr) {
     var pace = mGoalPace(pr);
-    if (!pace) return '';
+    if (!pace) return 'Name a weight and a date and they set the pace instead.';
     var bits = [Math.abs(Math.round(pace.lbs * 10) / 10) + ' lb over ' +
       Math.round(pace.days / 7) + ' weeks \u2014 ' + mPaceWords(pace)];
     if (pr.workouts) bits.push(pr.workouts + '\u00d7 a week');
     if (pr.steps) bits.push(Number(pr.steps).toLocaleString() + ' steps a day');
-    return esc(bits.join(' \u00b7 ')) +
-      (pace.capped ? '<span class="mt-warn">Held to 1% of bodyweight a week &mdash; ' +
-        'faster than that costs muscle, so the date will slip.</span>' : '');
+    var warn = '';
+    if (pace.capped && pace.realWeeks) {
+      /* Say when you would actually arrive rather than only that the date
+         slips. A date you cannot meet is worth knowing; the one you can
+         meet is worth more. */
+      var arrive = new Date();
+      arrive.setDate(arrive.getDate() + Math.round(pace.realWeeks * 7));
+      warn = '<span class="mt-warn">That needs ' +
+        (Math.round(Math.abs(pace.wanted) * 10) / 10) + ' lb a week, which would put you ' +
+        'under what your body burns at rest. Held to ' +
+        (Math.round(Math.abs(pace.perWeek) * 10) / 10) + ' &mdash; arriving about ' +
+        M_MONS[arrive.getMonth()] + ' ' + arrive.getDate() + '.</span>';
+    }
+    return esc(bits.join(' \u00b7 ')) + warn;
   }
 
   /* The headline follows the boxes, whichever way they were filled in. */
@@ -1873,6 +1938,8 @@
     if (gl) gl.textContent = mGoalLine(prNow);
     var gn = $('mtGoalNote');
     if (gn) gn.innerHTML = mGoalNote(prNow);
+    var gs = $('mtGoalSeg');
+    if (gs) gs.classList.toggle('spent', !!mGoalPace(prNow));
     if (!plan) { mtRefreshAnswer(); return; }
     if ($('mtP')) { $('mtP').value = plan.p; $('mtF').value = plan.f; $('mtC').value = plan.c; }
     mtRefreshAnswer();
@@ -3553,7 +3620,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec'];
 
   function focusKey(el) {
@@ -4424,6 +4491,25 @@
           opr ? mCookScale(Number(op.dataset.mx) || 1, opr.servN) : 1);
         return;
       }
+      /* The whole meal, in one press. Locked plates are the machine's
+         business, not yours — a hand on this is you saying you ate it. */
+      var dot = e.target.closest('[data-mdot]');
+      if (dot) {
+        if (dot.dataset.mdot === 'weigh') {
+          var wb = $('mWeight');
+          if (wb) { wb.focus(); wb.select(); }
+          return;
+        }
+        var dk = dot.dataset.mdot;
+        mEditDay(mViewKey(), function (day) {
+          var list = day[dk] || [];
+          var allOn = list.length && list.every(function (it) { return it.eaten; });
+          list.forEach(function (it) { it.eaten = allOn ? 0 : 1; });
+        });
+        keepingFocus(renderMacros);
+        return;
+      }
+
       var tr = e.target.closest('[data-mtry]');
       if (tr) { mTryAgain(tr.dataset.mtry); return; }
 

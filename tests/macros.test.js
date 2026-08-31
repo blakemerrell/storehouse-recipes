@@ -179,6 +179,34 @@ module.exports = {
       await p.evaluate(() => Number(document.querySelector('.mdial').dataset.eaten) > 0));
     await p.click('[data-meat="b:0"]');
     await p.waitForTimeout(150);
+    /* The dot said a meal was behind you but could never be told so, and no
+       keyboard or screen reader knew it was there. Now it is the fastest way
+       to say "ate all of that". */
+    t.ok('the dot is a real control, named for what it does',
+      await p.evaluate(() => {
+        const b2 = document.querySelector('#macroSlots .mday-dot');
+        return b2 && b2.tagName === 'BUTTON' && /Mark /.test(b2.getAttribute('aria-label'));
+      }));
+    await p.click('#macroSlots .mday-dot');
+    await p.waitForTimeout(200);
+    t.ok('pressing it eats the whole meal',
+      await p.evaluate(() => {
+        const st = document.querySelector('#macroSlots .mday-stop.filled');
+        return st.classList.contains('done') &&
+          Array.from(st.querySelectorAll('.mitem')).every((i) => i.classList.contains('eaten')) &&
+          st.querySelector('.mday-dot').getAttribute('aria-pressed') === 'true';
+      }));
+    await p.click('#macroSlots .mday-dot');
+    await p.waitForTimeout(200);
+    t.ok('and pressing it again gives the meal back',
+      await p.evaluate(() => {
+        const st = document.querySelector('#macroSlots .mday-stop.filled');
+        return !st.classList.contains('done') && !st.querySelector('.mitem.eaten');
+      }));
+    t.ok('an empty meal has nothing to press',
+      await p.evaluate(() => Array.from(document.querySelectorAll('#macroSlots .mday-stop'))
+        .every((st) => !!st.querySelector('.mitem') ||
+          st.querySelector('.mday-dot').disabled)));
     t.ok('unticking reverses it, dot and all',
       await p.evaluate(() => !document.querySelector('.mitem.eaten') &&
         document.querySelector('.mdial').dataset.eaten === '0' &&
@@ -449,8 +477,31 @@ module.exports = {
       }), await q.textContent('#mtBigKcal'));
     await q.fill('#mtGoalLb', '120');
     await q.waitForTimeout(200);
-    t.ok('and an impossible pace is held to 1% of bodyweight a week, and says so',
-      /1% of bodyweight/.test(await q.textContent('#mtGoalNote')), await q.textContent('#mtGoalNote'));
+    /* The old cap was on the RATE, and a rate cap is no cap at all on a big
+       frame: 1% of 205 lb is 2.05 lb a week, a 1,025 kcal deficit, three
+       hundred calories BELOW basal — and the app wrote that plan, then could
+       only fill it with quarter portions. The deficit is capped now, and the
+       plan says when you would really arrive. */
+    t.ok('an impossible pace is held, and the plan says when you would really arrive',
+      /under what your body burns at rest/.test(await q.textContent('#mtGoalNote')) &&
+      /arriving about /.test(await q.textContent('#mtGoalNote')),
+      await q.textContent('#mtGoalNote'));
+    t.ok('and no plan it writes is ever below the body\u2019s own burn',
+      await q.evaluate(() => {
+        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
+        const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + (pr.sex === 'f' ? -161 : 5);
+        return Number(document.getElementById('mtBigKcal').textContent) >= Math.round(bmr);
+      }), await q.textContent('#mtBigKcal'));
+    t.ok('nor one with no room left to eat carbohydrate',
+      await q.evaluate(() => {
+        const k = Number(document.getElementById('mtBigKcal').textContent);
+        return 4 * Number(document.getElementById('mtC').value) >= 0.14 * k;
+      }), await q.evaluate(() => document.getElementById('mtC').value + 'g of ' +
+        document.getElementById('mtBigKcal').textContent));
+    /* Two controls for one decision, one of them silently dead. */
+    t.ok('and the four presets say the date is in charge rather than doing nothing',
+      await q.evaluate(() => document.getElementById('mtGoalSeg').classList.contains('spent')));
     await q.fill('#mtGoalLb', '');
     await q.fill('#mtGoalBy', '');
     await q.waitForTimeout(200);

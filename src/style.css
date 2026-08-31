@@ -630,6 +630,12 @@ select { max-width: 280px; }
 .mtl-sum { border-bottom: 0; }
 .mtl-sum .mtl-val { font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 .mtl-seg { padding: 9px 0 2px; }
+/* the date is in charge; these are still readable, just not the ones asked */
+.mtl-seg.spent { opacity: 0.45; }
+.mtl-seg.spent::after {
+  content: 'The date above is setting the pace.';
+  display: block; margin-top: 5px; font-size: 11px; color: var(--muted);
+}
 .mtl-seg .seg { width: 100%; }
 .mtl-seg .seg button { flex: 1; }
 
@@ -797,14 +803,24 @@ select { max-width: 280px; }
    must not land beneath the block pinned over the top of it. */
 #macroPlan, .mday-stop, .mday-acts { scroll-margin-top: calc(var(--topbar-h, 60px) + 150px); }
 .mday-stop { position: relative; padding: 4px 0 12px; }
-.mday-stop::before {
-  content: ''; position: absolute; left: -20px; top: 12px;
-  width: 9px; height: 9px; border-radius: 50%;
+/* The dot is a control, so it is a button with a thumb-sized reach and a
+   nine-pixel face — the visible dot is drawn inside it, and the rest is
+   invisible target. Press it and the whole meal is eaten. */
+.mday-dot {
+  position: absolute; left: -33px; top: -1px;
+  width: 35px; height: 35px; padding: 0; border: 0; background: none;
+  display: grid; place-items: center;
+}
+.mday-dot::before {
+  content: ''; width: 9px; height: 9px; border-radius: 50%;
   background: var(--paper); border: 1.5px solid var(--line-firm);
 }
-.mday-stop.filled::before { border-color: var(--ochre); }
+.mday-dot:disabled { cursor: default; }
+.mday-dot:not(:disabled):hover::before { border-color: var(--ochre); }
+.mday-stop.filled .mday-dot::before { border-color: var(--ochre); }
 /* behind you: the weigh-in once the scale is read, a meal once it is eaten */
-.mday-stop.done::before { background: var(--green); border-color: var(--green); }
+.mday-stop.done .mday-dot::before { background: var(--green); border-color: var(--green); }
+.mday-weigh.done .mday-dot::before { background: var(--green); border-color: var(--green); }
 /* the day's calories, spent along a line */
 .mkcal { margin-top: 9px; }
 .mkcal-top {
