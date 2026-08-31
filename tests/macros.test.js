@@ -200,6 +200,40 @@ module.exports = {
           performance.getEntriesByType('resource')
             .every((e) => e.name.indexOf(location.origin) === 0);
       }));
+    /* Safari has no barcode reader and will not grow one, so the decoder is
+       in here rather than on somebody's CDN. Proved against a barcode built
+       to spec, at three sizes, which needs no camera and no luck. */
+    t.ok('the app can read a barcode it has never seen, at any scale',
+      await p.evaluate(() => {
+        const L = ['0001101','0011001','0010011','0111101','0100011','0110001',
+                   '0101111','0111011','0110111','0001011'];
+        const G = ['0100111','0110011','0011011','0100001','0011101','0111001',
+                   '0000101','0010001','0001001','0010111'];
+        const PAT = ['000000','001011','001101','001110','010011','011001',
+                     '011100','010101','010110','011010'];
+        const code = '0038000138416';                 // a real UPC, checksum and all
+        const d = code.split('').map(Number);
+        let bits = '101';
+        for (let i = 1; i <= 6; i++) bits += (PAT[d[0]][i - 1] === '0' ? L : G)[d[i]];
+        bits += '01010';
+        for (let i = 7; i < 13; i++) {
+          bits += L[d[i]].split('').map((b) => (b === '1' ? '0' : '1')).join('');
+        }
+        bits += '101';
+        return [2, 3, 5].every((scale) => {
+          const row = [];
+          for (let q = 0; q < 10 * scale; q++) row.push(255);
+          for (const b of bits) for (let s2 = 0; s2 < scale; s2++) row.push(b === '1' ? 20 : 235);
+          for (let q = 0; q < 10 * scale; q++) row.push(255);
+          return window.__ean(row) === code;
+        });
+      }));
+    t.ok('and a scrambled one is refused rather than guessed at',
+      await p.evaluate(() => {
+        const junk = [];
+        for (let i = 0; i < 400; i++) junk.push(i % 7 < 3 ? 20 : 235);
+        return window.__ean(junk) === null;
+      }));
     t.ok('which asks what it is called and what is in it',
       await p.evaluate(() => !!document.querySelector('#nfName') &&
         !!document.querySelector('#nfKcal') && !!document.querySelector('#nfP')));

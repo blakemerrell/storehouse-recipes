@@ -2285,6 +2285,104 @@
     });
   }
 
+  /* ------------------------------------------------------------------------
+   * Reading a barcode with the camera.
+   *
+   * Safari has no barcode reader of its own and is not going to grow one to
+   * suit us, so on an iPhone the choice was a decoder from somebody else's
+   * CDN or none at all. This app has fetched nothing from another host since
+   * it was built — the typefaces and the engravings are all in here — and a
+   * hundred and fifty lines is a smaller price than breaking that.
+   *
+   * EAN-13 and UPC-A, which is EAN-13 with a nought in front. Ninety-five
+   * modules: a guard, six digits, a centre guard, six digits, a guard. Each
+   * digit is four runs of black and white adding to seven modules, so a digit
+   * can be read from the four run-lengths alone without knowing the scale —
+   * which is what makes this survive a phone held at arm's length rather than
+   * needing the barcode squared up at a fixed distance.
+   *
+   * The left six carry the first digit in their parity, and the checksum
+   * catches what the thresholding gets wrong. A frame that does not decode
+   * simply is not one; the next arrives in a sixtieth of a second.
+   * --------------------------------------------------------------------- */
+  var EAN_L = ['3211', '2221', '2122', '1411', '1132', '1231', '1114', '1312', '1213', '3112'];
+  var EAN_PARITY = { '000000': 0, '001011': 1, '001101': 2, '001110': 3, '010011': 4,
+    '011001': 5, '011100': 6, '010101': 7, '010110': 8, '011010': 9 };
+
+  function mRuns(row) {
+    var mid = 0, i;
+    for (i = 0; i < row.length; i++) mid += row[i];
+    mid /= row.length;
+    var runs = [], cur = row[0] < mid, len = 0;
+    for (i = 0; i < row.length; i++) {
+      var dark = row[i] < mid;
+      if (dark === cur) len++;
+      else { runs.push({ dark: cur, len: len }); cur = dark; len = 1; }
+    }
+    runs.push({ dark: cur, len: len });
+    return runs;
+  }
+
+  function mDigitAt(runs, i) {
+    if (i + 4 > runs.length) return null;
+    var total = 0, k;
+    for (k = 0; k < 4; k++) total += runs[i + k].len;
+    if (total < 4) return null;
+    var unit = total / 7, pat = '';
+    for (k = 0; k < 4; k++) {
+      var m = Math.round(runs[i + k].len / unit);
+      if (m < 1 || m > 4) return null;
+      pat += m;
+    }
+    var odd = EAN_L.indexOf(pat);
+    if (odd >= 0) return { d: odd, parity: '0' };
+    var even = EAN_L.indexOf(pat.split('').reverse().join(''));
+    if (even >= 0) return { d: even, parity: '1' };
+    return null;
+  }
+
+  function mDecodeRuns(runs) {
+    for (var s = 0; s + 59 <= runs.length; s++) {
+      if (!runs[s].dark) continue;
+      if ((runs[s].len + runs[s + 1].len + runs[s + 2].len) / 3 < 0.7) continue;
+      var left = [], par = '', i = s + 3, r, n;
+      for (n = 0; n < 6; n++) { r = mDigitAt(runs, i); if (!r) break; left.push(r.d); par += r.parity; i += 4; }
+      if (left.length !== 6) continue;
+      i += 5;                                   // the centre guard, five runs
+      var right = [];
+      for (n = 0; n < 6; n++) { r = mDigitAt(runs, i); if (!r) break; right.push(r.d); i += 4; }
+      if (right.length !== 6 || !(par in EAN_PARITY)) continue;
+      var digits = [EAN_PARITY[par]].concat(left, right);
+      var sum = 0;
+      for (n = 0; n < 12; n++) sum += digits[n] * (n % 2 ? 3 : 1);
+      if ((10 - (sum % 10)) % 10 !== digits[12]) continue;   // the checksum decides
+      return digits.join('');
+    }
+    return null;
+  }
+
+  function mDecodeRow(row) {
+    return mDecodeRuns(mRuns(row)) ||
+      mDecodeRuns(mRuns(Array.prototype.slice.call(row).reverse()));
+  }
+
+  /* Several lines across the middle of the frame, because a barcode is never
+     quite level and one of them will cross it cleanly. */
+  function mDecodeFrame(img, w, h) {
+    for (var f = 0.35; f <= 0.66; f += 0.06) {
+      var y = Math.floor(h * f), row = [], x;
+      for (x = 0; x < w; x++) {
+        var o = (y * w + x) * 4;
+        row.push((img[o] * 299 + img[o + 1] * 587 + img[o + 2] * 114) / 1000);
+      }
+      var got = mDecodeRow(row);
+      if (got) return got;
+    }
+    return null;
+  }
+
+  window.__ean = mDecodeRow;      // so the tests can read a barcode without a camera
+
   function mBarcodeLookup(code) {
     var url = 'https://world.openfoodfacts.org/api/v2/product/' +
       encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size';
@@ -2322,6 +2420,85 @@
 
   var MLOOKUP = {};
 
+  /* The camera, held over a packet. Native BarcodeDetector where a browser
+     has one, because it is better at this than we are; the decoder above
+     where it does not, which is every iPhone. */
+  var mCam = null;
+
+  function mScanStop() {
+    if (mCam && mCam.stream) mCam.stream.getTracks().forEach(function (t) { t.stop(); });
+    if (mCam && mCam.raf) cancelAnimationFrame(mCam.raf);
+    mCam = null;
+    var el = $('scanRoot');
+    if (el) el.innerHTML = '';
+  }
+
+  function mScanStart() {
+    var root = $('scanRoot');
+    root.innerHTML = '<div class="scan-wrap">' +
+      '<video id="scanVid" playsinline muted></video>' +
+      '<div class="scan-line"></div>' +
+      '<div class="scan-say" id="scanSay">Hold the barcode across the line</div>' +
+      '<button class="ghost scan-x" data-scan="stop">Stop</button>' +
+      '</div>';
+    var vid = $('scanVid');
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d', { willReadFrequently: true });
+    var det = null;
+    if (window.BarcodeDetector) {
+      try { det = new window.BarcodeDetector({ formats: ['ean_13', 'upc_a', 'ean_8', 'upc_e'] }); }
+      catch (e) { det = null; }
+    }
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+    }).then(function (stream) {
+      mCam = { stream: stream, raf: 0 };
+      vid.srcObject = stream;
+      vid.play();
+      var tick = function () {
+        if (!mCam) return;
+        mCam.raf = requestAnimationFrame(tick);
+        if (!vid.videoWidth) return;
+        var w = Math.min(640, vid.videoWidth);
+        var h = Math.round(vid.videoHeight * w / vid.videoWidth);
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(vid, 0, 0, w, h);
+        var found = null;
+        if (det) {
+          det.detect(canvas).then(function (list) {
+            if (list && list.length) mScanGot(list[0].rawValue);
+          }, function () { det = null; });
+        } else {
+          try { found = mDecodeFrame(ctx.getImageData(0, 0, w, h).data, w, h); }
+          catch (e) { found = null; }
+          if (found) mScanGot(found);
+        }
+      };
+      tick();
+    }, function (err) {
+      $('scanSay').textContent = err && err.name === 'NotAllowedError'
+        ? 'The camera was not allowed. Type the number instead.'
+        : 'No camera here. Type the number instead.';
+    });
+  }
+
+  function mScanGot(code) {
+    if (!mCam || !code) return;
+    mScanStop();
+    if ($('nfFind')) $('nfFind').value = code;
+    var res = $('nfResults');
+    if (res) res.innerHTML = '<div class="mslot-empty">Looking up ' + esc(code) + '&hellip;</div>';
+    MLOOKUP = {};
+    mBarcodeLookup(String(code).replace(/\D/g, '')).then(function (list) {
+      if ($('nfResults')) $('nfResults').innerHTML = mLookupRows(list);
+    }, function () {
+      if ($('nfResults')) {
+        $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(code) +
+          ' is not in Open Food Facts. Type what it was below.</div>';
+      }
+    });
+  }
+
   function mNewFoodHTML() {
     var box = function (id, label, unit, ph) {
       return '<div class="mtl-row"><span class="mtl-lab">' + label + '</span>' +
@@ -2345,7 +2522,10 @@
           '<button class="ghost" data-nf="find">Search</button>' +
           '<button class="ghost" data-nf="brand">Packaged</button>' +
           '<button class="ghost" data-nf="code">Barcode</button>' +
+          (navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+            ? '<button class="ghost" data-scan="go">Scan</button>' : '') +
         '</div>' +
+        '<div id="scanRoot"></div>' +
         '<div id="nfResults"></div>' +
         '<div class="mt-div">Or say what it was</div>' +
         '<div class="mtl-row"><span class="mtl-lab">Called</span>' +
@@ -4441,7 +4621,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5694,6 +5874,13 @@
       /* A result, taken. It fills the form rather than saving itself: the
          numbers are per 100 g or per packet serving, and only you know how
          much of it you actually ate. */
+      var sc = e.target.closest('[data-scan]');
+      if (sc && S.newFood) {
+        if (sc.dataset.scan === 'go') mScanStart();
+        else mScanStop();
+        return;
+      }
+
       var nfp = e.target.closest('[data-nfpick]');
       if (nfp && S.newFood) {
         var got = MLOOKUP[Number(nfp.dataset.nfpick)];
@@ -5713,7 +5900,7 @@
 
       var nf = e.target.closest('[data-nf]');
       if (nf && S.newFood) {
-        if (nf.dataset.nf === 'cancel') { S.newFood = null; close(); return; }
+        if (nf.dataset.nf === 'cancel') { mScanStop(); S.newFood = null; close(); return; }
         if (nf.dataset.nf === 'find' || nf.dataset.nf === 'code' || nf.dataset.nf === 'brand') {
           var term = String((($('nfFind') || {}).value) || '').trim();
           var byCode = nf.dataset.nf === 'code';
@@ -6174,6 +6361,7 @@
     // and the Macros sheets, for exactly the same reason
     S.macroPick = null;
     S.macroTargOpen = false;
+    if (S.newFood) mScanStop();          // never leave the camera running
     S.newFood = null;
     S.syncOpen = false;
     S.mpQuery = '';
