@@ -491,6 +491,38 @@ module.exports = {
     });
     await q.reload();
     await q.waitForTimeout(400);
+    /* A goal above your weight is still a goal. Both sides of the verdict are
+       normalized to "progress toward it", so the bar to clear stays positive
+       — negating it told somebody trying to gain that standing still, or
+       losing, was ahead of pace. */
+    t.ok('a gain goal is judged on gaining, not on any movement at all',
+      await q.evaluate(() => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const by = new Date(); by.setDate(by.getDate() + 70);
+        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+        pr.goalLb = pr.lb + 10;            // ten pounds ON, ten weeks
+        pr.goalBy = by.getFullYear() + '-' + p2(by.getMonth() + 1) + '-' + p2(by.getDate());
+        localStorage.setItem('bsc.macroProfile', JSON.stringify(pr));
+        const ws = {};
+        for (let i = 0; i < 16; i++) {     // losing half a pound a week
+          const d = new Date(); d.setDate(d.getDate() - i);
+          ws[d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate())] =
+            Math.round((pr.lb + i * 0.07) * 10) / 10;
+        }
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+        return true;
+      }));
+    await q.reload();
+    await q.waitForTimeout(400);
+    t.ok('and losing weight against a gain goal reads behind, not ahead',
+      /behind pace/.test(await narr()) && !/ahead of pace/.test(await narr()), await narr());
+    await q.evaluate(() => {
+      const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+      pr.goalLb = 185; localStorage.setItem('bsc.macroProfile', JSON.stringify(pr));
+    });
+    await q.reload();
+    await q.waitForTimeout(400);
+
     t.ok('once there are mornings, the scale gets an opinion',
       /Averaging /.test(await narr()) && /Needs /.test(await narr()), await narr());
     t.ok('and it is behind pace, because a pound a week is not two',
@@ -608,6 +640,25 @@ module.exports = {
         const ws = JSON.parse(localStorage.getItem('bsc.macroWeights'));
         return ws[Object.keys(ws)[0]] === 186.2;
       }));
+
+    /* The scale's box is a draft. A sync emit landing mid-keystroke used to
+       replace what was typed with the last saved value, while the pending
+       save still held the typed one — box and store disagreeing until the
+       next render, with further digits landing on the restored old ones. */
+    await w.click('#mWeight');
+    await w.evaluate(() => {
+      const el = document.getElementById('mWeight');
+      el.focus();
+      el.value = '191.3';
+      window.Store.emit && window.Store.emit();
+    });
+    await w.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await w.waitForTimeout(150);
+    t.ok('a re-render mid-keystroke does not eat what is being typed',
+      await w.evaluate(() => document.getElementById('mWeight').value === '191.3'),
+      await w.evaluate(() => document.getElementById('mWeight').value));
+    await w.evaluate(() => { document.getElementById('mWeight').blur(); });
+    await w.waitForTimeout(150);
 
     // an emptied box un-logs the day
     await w.fill('#mWeight', '');
@@ -1018,6 +1069,32 @@ module.exports = {
     await y.waitForTimeout(250);
     await y.click('#macroFill');
     await y.waitForTimeout(400);
+
+    /* A personal portion must not become the household's batch. A recipe
+       opened from My Day arrives scaled to make one plate — an eighth of a
+       roast, say — and that used to be the size planned for the family. */
+    await y.evaluate(() => {
+      const r = window.RECIPES.find((x) => (x.servN || 1) >= 4 && x.macro);
+      window.__probe = r.id;
+      window.Store.state.plan.mon = [];
+    });
+    await y.click('.mitem-name');
+    await y.waitForTimeout(300);
+    const cook = await y.evaluate(() => {
+      const v = document.querySelector('.scaler-val');
+      return v ? v.textContent.trim() : '';
+    });
+    await y.click('[data-add][data-day="mon"]');
+    await y.waitForTimeout(300);
+    t.ok('the week is only ever planned in sizes the week understands',
+      await y.evaluate(() => {
+        const SC = [1, 2, 3, 4, 0.5];
+        return window.Store.day('mon').every((e) => SC.indexOf(e.x) >= 0);
+      }), 'sheet was at ' + cook + ', week got ' +
+        await y.evaluate(() => JSON.stringify(window.Store.day('mon').map((e) => e.x))));
+    await y.goBack();
+    await y.waitForTimeout(250);
+
     await y.fill('#mWeight', '188.6');
     await y.dispatchEvent('#mWeight', 'change');
     await y.waitForTimeout(250);

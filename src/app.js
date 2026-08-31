@@ -991,9 +991,13 @@
         lines.push('Averaging ' + (st ? Math.round(st.avg7 * 10) / 10 + ' lb' : 'nothing yet') +
           '. Two weeks of mornings and this says whether you are on pace.');
       } else {
+        /* Both sides are normalized to "progress toward the goal", so the
+           bar to clear is always the positive one. Negating it for a gain
+           goal made every threshold negative, which told somebody trying to
+           put weight ON that standing still — or losing — was ahead of pace. */
         var moving = -st.dWeek;                       // pounds off per week
-        var wanted = togo >= 0 ? need : -need;        // gaining flips the sign
-        var got = togo >= 0 ? moving : -moving;
+        var got = togo >= 0 ? moving : -moving;       // ...toward the goal
+        var wanted = need;
         var verdict = got >= wanted * 1.15 ? ['ahead of pace', 'good']
           : got >= wanted * 0.85 ? ['on pace', 'good']
             : ['behind pace', 'off'];
@@ -1183,7 +1187,11 @@
   function renderMacros() {
     var todayK = todayKey();
     var k = mViewKey();
-    if (k > todayK) { S.macroDate = null; k = todayK; }   // midnight passed while ‹ ›'d
+    /* Midnight passed while the tab sat on a day. Forward was already
+       handled; backward matters more — the oldest day the tab keeps falls
+       out of the window at midnight, and an edit to it would have been
+       written and then pruned away by the same save. */
+    if (k > todayK || k < mEarliestKey()) { S.macroDate = null; k = todayK; }
     /* The day is a control, not a caption: every day the tab remembers, named
        the way you would say it, with the arrows for single steps either side. */
     var opts = [];
@@ -1330,7 +1338,16 @@
     /* Rebuilt every render, so the button inside it is new each time — the
        handler is delegated from the container rather than bound to it. */
     $('macroPlan').innerHTML = mPlanNarrative();
+    /* The scale's box is a draft like the join code and the picker's search:
+       a sync emit arriving mid-keystroke must not replace "187.4" with the
+       last saved value while the pending save still holds what was typed. */
+    var wIn = $('macroWeigh').querySelector('#mWeight');
+    var wDraft = wIn && document.activeElement === wIn ? wIn.value : null;
     $('macroWeigh').innerHTML = macroWeighHTML(k);
+    if (wDraft !== null) {
+      var wBack = $('macroWeigh').querySelector('#mWeight');
+      if (wBack) { wBack.value = wDraft; wBack.focus(); }
+    }
     // the first stop of the day fills in once the scale has been read
     $('macroWeigh').classList.toggle('done', MWEIGHTS[k] > 0);
 
@@ -1992,7 +2009,8 @@
     var text = mDayText(mViewKey());
     var said = function (ok) {
       btn.textContent = ok ? 'Copied' : 'Press and hold to copy';
-      setTimeout(function () { btn.textContent = 'Copy the day'; }, 2200);
+      // back to the name it shipped with, not a second one invented here
+      setTimeout(function () { btn.textContent = 'Copy as text'; }, 2200);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { said(true); }, function () { said(false); });
@@ -4615,9 +4633,17 @@
       var add = e.target.closest('[data-add]');
       if (add) {
         var id = idOf(add.dataset.add), day = add.dataset.day;
-        // whatever size you are looking at is the size that goes into the week
+        /* Whatever size you are looking at is the size that goes into the
+           week — but only in sizes the week understands. A recipe opened
+           from My Day arrives scaled to make ONE PERSON'S portion, which can
+           be an eighth of a roast; letting that through planned an eighth of
+           a roast for the whole family and shrank the shopping list to
+           match. Snap to the batch sizes the week is built from. */
+        var batch = SCALES.reduce(function (best, v) {
+          return Math.abs(v - S.scale) < Math.abs(best - S.scale) ? v : best;
+        }, SCALES[0]);
         if (window.Store.day(day).some(function (x) { return x.id === id; })) window.Store.removeFromDay(id, day);
-        else window.Store.addToDay(id, day, S.scale);
+        else window.Store.addToDay(id, day, batch);
         return;
       }
 
