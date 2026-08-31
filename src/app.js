@@ -802,6 +802,16 @@
      is rather than what you can recite. */
   function mAccount() { return window.Store.user ? window.Store.user() : null; }
 
+  /* Whether the question "who is signed in?" can be answered yet. It cannot
+     until Firebase has loaded, and Firebase loads asynchronously — so a
+     device that IS signed in shows the signed-out sheet for the moment in
+     between, which reads as "there is no way to sign out" rather than as
+     "wait". Say wait. */
+  var mAuthKnown = false;
+  function mSuspectAccount() {
+    try { return localStorage.getItem('bsc.myAccount') === '1'; } catch (e) { return false; }
+  }
+
   /* This device has an account, remembered without asking the network — the
      one thing that has to be known before deciding whether to reach for it. */
   /* Whose day is on this device. Written beside the data rather than kept in
@@ -908,15 +918,42 @@
   var mSyncDoc = null, mSyncOff = null, mSyncTimer = null;
   function mSyncStart() {
     if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
-    if (!window.Store || !window.Store.configured || !mAccount()) {
+    if (!window.Store || !window.Store.configured) {
+      mAuthKnown = true;
+      S_SYNC_STATE = 'off';
+      if (S.macroSyncOpen) renderModal();
+      return;
+    }
+    if (!mAccount()) {
+      /* Nobody is signed in as far as this page can see — but if the device
+         remembers an account, the SDK may simply not have loaded yet, and
+         saying "signed out" now would be a guess. Ask, then answer. */
+      if (mSuspectAccount() && !mAuthKnown) {
+        window.Store.ready().then(function () {
+          mAuthKnown = true;
+          if (mAccount()) mSyncStart();
+          else if (S.macroSyncOpen) renderModal();
+        }, function () {
+          mAuthKnown = true;
+          if (S.macroSyncOpen) renderModal();
+        });
+        return;
+      }
+      mAuthKnown = true;
       S_SYNC_STATE = 'off';
       if (S.macroSyncOpen) renderModal();
       return;
     }
     S_SYNC_STATE = 'connecting';
     window.Store.ready().then(function (db) {
+      mAuthKnown = true;
       var uid = window.Store.uid();
-      if (!uid || !mAccount()) { S_SYNC_STATE = 'off'; return; }
+      if (!uid || !mAccount()) {
+        S_SYNC_STATE = 'off';
+        // the answer is known now even though it is "nobody"; say so
+        if (S.macroSyncOpen) renderModal();
+        return;
+      }
       /* Carrying the day up into an account is for one case only: the
          anonymous identity this device has been using all along becoming a
          named one. If what is here belonged to somebody else, this device
@@ -2054,10 +2091,13 @@
 
   function macroSyncHTML() {
     var who = mAccount();
+    var waiting = !who && !mAuthKnown && mSuspectAccount();
     var word = { off: 'Saving on this device only', connecting: 'Connecting\u2026',
       on: 'Your devices have this day', error: 'Cannot reach the server' }[S_SYNC_STATE];
     var body;
-    if (!window.Store.configured) {
+    if (waiting) {
+      body = '<p class="sync-p">This device has an account. Finding it&hellip;</p>';
+    } else if (!window.Store.configured) {
       body = '<p class="sync-p">This copy has no server behind it, so everything stays on this ' +
         'device. See <strong>SETUP.md</strong> in the project if you want to change that.</p>';
     } else if (who) {
@@ -5181,6 +5221,7 @@
       rememberOpener();
       S.macroSyncOpen = true;
       S.myErr = '';
+      if (!mAuthKnown && mSuspectAccount()) mSyncStart();   // find out while the sheet opens
       pushSheet({ m: 1 });
       renderModal();
       var x = document.querySelector('.sheet-x');
