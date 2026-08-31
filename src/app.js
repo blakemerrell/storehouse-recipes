@@ -882,11 +882,77 @@
      leftovers can go negative — carbs floor at zero and `floored` says so
      rather than silently promising calories the grams do not add up to. */
   /* A day's burn before the goal touches it — null until the profile can say. */
-  function mTdee(pr) {
+  /* What a day costs, broken into the parts you can actually move.
+   *
+     The activity multiplier was a single vague dial — "active job, or 3-5
+     workouts" — and the steps and sessions asked for underneath it were
+     decorative: stored, printed back, and never once added up. Somebody
+     asking what ten thousand steps buys them was being asked a question the
+     app then ignored.
+   *
+     So the day is built rather than multiplied. A sedentary body costs about
+     1.2 times its basal rate; walking costs roughly 0.53 kcal per kilo per
+     kilometre, which at three-quarters of a metre a step is 0.037 kcal a
+     step for a 205 lb man — 370 for ten thousand; and resistance training
+     runs about 5 METs, near 366 kcal for a 45-minute session at that weight.
+   *
+     Built that way Blake's day comes to 2,539 kcal. His multiplier said
+     2,540. The point was never a different number — it was a number with
+     handles on it. */
+  var MSTEP_BASE = 2500;          // steps a sedentary day already contains
+
+  function mBurn(pr) {
     if (!pr.age || !pr.lb || !(pr.ft * 12 + pr.inch)) return null;
     var kg = pr.lb * 0.45359237;
     var cm = (pr.ft * 12 + pr.inch) * 2.54;
-    return (10 * kg + 6.25 * cm - 5 * pr.age + (pr.sex === 'f' ? -161 : 5)) * pr.act;
+    var bmr = 10 * kg + 6.25 * cm - 5 * pr.age + (pr.sex === 'f' ? -161 : 5);
+    var told = (Number(pr.steps) || 0) > 0 || (Number(pr.workouts) || 0) > 0;
+    if (!told) {
+      // nothing said about steps or sessions, so the old dial still answers
+      return { bmr: bmr, base: bmr * pr.act, steps: 0, train: 0, tdee: bmr * pr.act, told: false };
+    }
+    var base = bmr * 1.2;
+    var perStep = 0.53 * kg * 0.00075;
+    var steps = Math.max(0, (Number(pr.steps) || 0) - MSTEP_BASE) * perStep;
+    var train = (5 * 3.5 * kg / 200) * 45 * (Number(pr.workouts) || 0) / 7;
+    return { bmr: bmr, base: base, steps: steps, train: train,
+      tdee: base + steps + train, told: true };
+  }
+
+  function mTdee(pr) {
+    var b = mBurn(pr);
+    return b === null ? null : b.tdee;
+  }
+
+  /* Where the current plan lands you, and when. The same equation the date
+     solves backwards, solved forwards: pick a pace, get a date. */
+  function mProject(pr) {
+    var plan = mPlanCalc(pr);
+    if (!plan || !pr.goalLb || !pr.lb) return null;
+    var lbs = pr.lb - pr.goalLb;
+    if (Math.abs(lbs) < 0.5) return null;
+    var tdee = mTdee(pr);
+    var perWeek = (tdee - plan.kcal) * 7 / 3500;
+    if (lbs > 0 ? perWeek <= 0.05 : perWeek >= -0.05) return null;
+    var weeks = lbs / perWeek;
+    if (weeks <= 0 || weeks > 260) return null;
+    var d = new Date();
+    d.setDate(d.getDate() + Math.round(weeks * 7));
+    return { perWeek: perWeek, weeks: weeks, when: d, lbs: lbs };
+  }
+
+  /* What one more lever is worth, said both ways — because both are true and
+     people mean different ones. More walking either buys food at the same
+     pace, or the same food sooner. */
+  function mLever(pr, extraKcal) {
+    var pj = mProject(pr);
+    var out = { kcal: Math.round(extraKcal), weeks: null };
+    if (pj) {
+      var faster = pj.perWeek + (pj.lbs > 0 ? 1 : -1) * extraKcal * 7 / 3500;
+      var w2 = pj.lbs / faster;
+      if (w2 > 0) out.weeks = pj.weeks - w2;
+    }
+    return out;
   }
 
   /* A goal with a date does its own arithmetic: the pounds between here and
@@ -1803,6 +1869,7 @@
               'choose by feel instead</button>' +
           '</div>' +
           '<div class="mt-cap" id="mtGoalNote">' + mGoalNote(pr) + '</div>' +
+          '<div id="mtCoach">' + mCoachHTML(pr) + '</div>' +
           '<div class="mt-div">The day&rsquo;s grams</div>' +
           /* The boxes are the plan's one rendering: they follow the profile,
              take a hand edit, and Save keeps whatever they say. */
@@ -1946,6 +2013,79 @@
 
   /* The line under it: the pace that implies, the commitments beside it, and
      a word when the arithmetic had to be talked down. */
+  /* The panel that answers "what would happen if". Three things, in the
+     order somebody asks them: what your day costs and which parts you can
+     move; where the plan you have chosen lands you and when; and what one
+     more lever is worth — said both ways, because more walking either buys
+     food at the same pace or the same food sooner, and people mean different
+     ones. */
+  function mWeeksWords(w) {
+    var v = Math.round(w * 10) / 10;
+    return v + (v === 1 ? ' week' : ' weeks');
+  }
+
+  function mCoachHTML(pr) {
+    var b = mBurn(pr);
+    if (!b) return '';
+    var out = [];
+    var kc = function (n) { return Math.round(n); };
+    out.push('<div class="mco-row"><span class="mco-k">Your day</span><span class="mco-v">' +
+      (b.told
+        ? kc(b.base) + ' living &middot; ' + kc(b.steps) + ' walking &middot; ' +
+          kc(b.train) + ' training = <b>' + kc(b.tdee) + '</b> kcal'
+        : '<b>' + kc(b.tdee) + '</b> kcal &mdash; fill in steps and sessions to see the parts') +
+      '</span></div>');
+
+    var pj = mProject(pr);
+    if (pj) {
+      var slip = mGoalPace(pr) && mGoalPace(pr).capped;
+      out.push('<div class="mco-row"><span class="mco-k">Lands you</span><span class="mco-v">' +
+        'at <b>' + pr.goalLb + ' lb</b> around <b>' + M_MONS[pj.when.getMonth()] + ' ' +
+        pj.when.getDate() + '</b> &middot; ' + mWeeksWords(Math.round(pj.weeks)) + ' at ' +
+        (Math.round(Math.abs(pj.perWeek) * 100) / 100) + ' lb a week' +
+        (slip ? ' &mdash; later than the date you asked for' : '') + '</span></div>');
+    }
+
+    if (b.told && pj) {
+      var kg = pr.lb * 0.45359237;
+      var stepK = 2000 * 0.53 * kg * 0.00075;
+      var sessK = (5 * 3.5 * kg / 200) * 45 / 7;
+      var says = function (label, lev) {
+        return '<div class="mco-row"><span class="mco-k">' + label + '</span><span class="mco-v">' +
+          '<b>+' + lev.kcal + ' kcal</b> to eat at the same pace' +
+          (lev.weeks && lev.weeks > 0.15
+            ? ', or the same food <b>' + mWeeksWords(lev.weeks) + '</b> sooner'
+            : '') + '</span></div>';
+      };
+      out.push(says('2,000 more steps', mLever(pr, stepK)));
+      out.push(says('One more session', mLever(pr, sessK)));
+    }
+    /* The panel describes a plan the boxes below may not be showing: the
+       boxes hold what was last saved, and follow the profile only while it
+       is being typed. Rather than overwrite a day somebody meant, offer it. */
+    var plan = mPlanCalc(pr);
+    /* Against what the boxes say, not what storage holds — the offer is
+       about the day in front of you, and it should go quiet the moment you
+       take it rather than waiting for a save. */
+    var cur = $('mtP')
+      ? { p: Math.round(Number($('mtP').value) || 0), f: Math.round(Number($('mtF').value) || 0),
+        c: Math.round(Number($('mtC').value) || 0) }
+      : mReadTargets();
+    if (plan && (plan.p !== cur.p || plan.f !== cur.f || plan.c !== cur.c)) {
+      out.push('<div class="mco-row"><span class="mco-k">This plan</span><span class="mco-v">' +
+        '<b>' + kcalOf(plan) + '</b> kcal &middot; ' + plan.p + 'P / ' + plan.f + 'F / ' +
+        plan.c + 'C ' +
+        '<button class="ghost mco-use" data-mtuse="1">Use it</button></span></div>');
+    }
+    /* One line about the thing people give up first and miss most. */
+    if (pj && Math.abs(pj.perWeek) > pr.lb * 0.008) {
+      out.push('<div class="mco-row mco-note">At this pace the protein and the sleep are ' +
+        'what keep the loss to fat &mdash; the walking costs least to add and is the first ' +
+        'thing to raise before cutting the food further.</div>');
+    }
+    return '<div class="mco">' + out.join('') + '</div>';
+  }
+
   function mGoalNote(pr) {
     var pace = mGoalPace(pr);
     if (!pace) return 'Name a weight and a date and they set the pace instead.';
@@ -2019,6 +2159,8 @@
     if (gl) { gl.textContent = mGoalLine(prNow); gl.classList.toggle('hide', !mGoalLine(prNow)); }
     var gn = $('mtGoalNote');
     if (gn) gn.innerHTML = mGoalNote(prNow);
+    var co = $('mtCoach');
+    if (co) co.innerHTML = mCoachHTML(prNow);
     var gs = $('mtGoalSeg');
     if (gs) {
       var dated = !!mGoalPace(prNow);
@@ -3707,7 +3849,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -4920,7 +5062,8 @@
          sheet — the sheet is a draft, and a redraw would cost the other boxes. */
       var mseg = e.target.closest('[data-mtsex], [data-mtgoal]');
       if (mseg && S.macroTargOpen) {
-        Array.prototype.forEach.call(mseg.parentElement.querySelectorAll('button'), function (b) {
+        Array.prototype.forEach.call(mseg.parentElement.querySelectorAll('button[data-' +
+          (mseg.dataset.mtsex ? 'mtsex' : 'mtgoal') + ']'), function (b) {
           b.setAttribute('aria-pressed', String(b === mseg));
         });
         mtRefreshPlan();
@@ -4965,6 +5108,17 @@
       if (med && S.macroTargOpen) {
         var shutNow = $('mtEditor').classList.toggle('hide');
         med.setAttribute('aria-expanded', String(!shutNow));
+        return;
+      }
+
+      var use = e.target.closest('[data-mtuse]');
+      if (use && S.macroTargOpen) {
+        var np = mPlanCalc(mtProfileFromDom());
+        if (np && $('mtP')) {
+          $('mtP').value = np.p; $('mtF').value = np.f; $('mtC').value = np.c;
+          mtRefreshAnswer();
+          $('mtCoach').innerHTML = mCoachHTML(mtProfileFromDom());
+        }
         return;
       }
 

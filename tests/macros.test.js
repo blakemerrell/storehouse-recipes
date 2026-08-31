@@ -110,6 +110,59 @@ module.exports = {
     await p.reload();
     await p.waitForTimeout(300);
 
+    /* Steps and sessions were stored, printed back, and never added up —
+       somebody asking what ten thousand steps buys was asking a question the
+       app ignored. The day is built from its parts now, so they are levers. */
+    await p.evaluate(() => {
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+        inch: 11, lb: 205, act: 1.375, goal: 'cut2', goalLb: 175, goalBy: '',
+        workouts: 3, steps: 7000 }));
+    });
+    await p.reload();
+    await p.waitForTimeout(300);
+    await p.click('#macroTargBtn');
+    await p.waitForTimeout(250);
+    await p.evaluate(() => {
+      if (document.getElementById('mtEditor').classList.contains('hide')) {
+        document.querySelector('[data-mtedit]').click();
+      }
+    });
+    await p.waitForTimeout(150);
+    const coach = () => p.textContent('#mtCoach');
+    t.ok('the day is shown in the parts you can move',
+      /living/.test(await coach()) && /walking/.test(await coach()) &&
+      /training/.test(await coach()), await coach());
+    t.ok('and a pace with no date still says where it lands you',
+      /Lands you|LANDS YOU/i.test(await coach()) && /at 175 lb around/.test(await coach()),
+      await coach());
+    t.ok('with each lever priced both ways — food now, or the date sooner',
+      /to eat at the same pace/.test(await coach()) && /sooner/.test(await coach()),
+      await coach());
+    const before = await p.evaluate(() => Number(document.getElementById('mtBigKcal').textContent));
+    await p.fill('#mtSteps', '13000');
+    await p.waitForTimeout(250);
+    t.ok('walking further really does buy more food at the same pace',
+      await p.evaluate((b2) => Number(document.getElementById('mtBigKcal').textContent) > b2, before),
+      before + ' → ' + await p.evaluate(() => document.getElementById('mtBigKcal').textContent));
+    await p.fill('#mtSteps', '7000');
+    await p.waitForTimeout(200);
+    /* The panel describes a plan the boxes may not be showing, so it offers
+       it rather than overwriting a day somebody meant. */
+    t.ok('a plan the boxes are not showing is offered rather than forced',
+      await p.evaluate(() => !!document.querySelector('[data-mtuse]')));
+    await p.click('[data-mtuse]');
+    await p.waitForTimeout(200);
+    t.ok('and taking it fills the boxes with what the panel described',
+      await p.evaluate(() => {
+        const k = Number(document.getElementById('mtBigKcal').textContent);
+        return k >= 1450 && k <= 1600 && !document.querySelector('[data-mtuse]');
+      }), await p.evaluate(() => document.getElementById('mtBigKcal').textContent));
+    await p.click('.sheet-x');
+    await p.waitForTimeout(250);
+    await p.evaluate(() => localStorage.removeItem('bsc.macroProfile'));
+    await p.reload();
+    await p.waitForTimeout(300);
+
     /* A day saved before the deficit was capped is still in storage being
        served every morning, and it can sit below what the body burns at
        rest. Reading it corrects it back up to what the same profile works
