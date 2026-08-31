@@ -2395,11 +2395,19 @@
         return typeof v === 'number' ? { v: v, serving: true } : { v: nu[k + '_100g'], serving: false };
       };
       var e = per('energy-kcal');
+      var pr2 = per('proteins'), fa = per('fat'), ca = per('carbohydrates');
+      /* A great many products in Open Food Facts are photographs and a name
+         with no nutrition table behind them yet. Every figure comes back
+         missing, and rounding a missing figure gives zero — which would put
+         a plate on the day claiming to be free, and quietly wrong the whole
+         day's arithmetic. Missing is not zero, and has to say so. */
+      var known = [e.v, pr2.v, fa.v, ca.v].some(function (v) { return typeof v === 'number'; });
+      if (!known) throw new Error('nonutrition');
+      var num2 = function (v) { return typeof v === 'number' ? Math.round(v) : 0; };
       return [{
         name: [p.brands, p.product_name].filter(Boolean).join(' ') || ('Barcode ' + code),
         unit: e.serving ? (p.serving_size || 'serving') : '100 g',
-        kcal: Math.round(e.v || 0), p: Math.round(per('proteins').v || 0),
-        f: Math.round(per('fat').v || 0), c: Math.round(per('carbohydrates').v || 0),
+        kcal: num2(e.v), p: num2(pr2.v), f: num2(fa.v), c: num2(ca.v),
         note: 'Open Food Facts'
       }];
     });
@@ -2491,10 +2499,12 @@
     MLOOKUP = {};
     mBarcodeLookup(String(code).replace(/\D/g, '')).then(function (list) {
       if ($('nfResults')) $('nfResults').innerHTML = mLookupRows(list);
-    }, function () {
+    }, function (err) {
       if ($('nfResults')) {
         $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(code) +
-          ' is not in Open Food Facts. Type what it was below.</div>';
+          (err && err.message === 'nonutrition'
+            ? ' is in Open Food Facts, but with no nutrition table yet. Read it off the packet below.'
+            : ' is not in Open Food Facts. Type what it was below.') + '</div>';
       }
     });
   }
@@ -5922,7 +5932,10 @@
                 (err && err.message === 'nokey'
                   ? 'Looking food up needs a free USDA key in src/config.js. ' +
                     'Barcodes work without one.'
-                  : 'That did not come back. Type it in below instead.') + '</div>';
+                  : err && err.message === 'nonutrition'
+                    ? 'That one is known, but has no nutrition table yet. ' +
+                      'Read it off the packet below.'
+                    : 'That did not come back. Type it in below instead.') + '</div>';
             });
           return;
         }
