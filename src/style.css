@@ -474,6 +474,10 @@ select { max-width: 280px; }
   font-weight: 600; color: oklch(0.40 0.03 65);
 }
 .mslot-sub { font-size: 11.5px; color: var(--muted); }
+.mslot-try {
+  margin-left: auto; padding: 3px 8px; font-size: 13px; line-height: 1.15;
+}
+.mslot-try + .mslot-add { margin-left: 5px; }
 .mslot-add { margin-left: auto; padding: 3px 9px; font-size: 11px; }
 .mslot-items { padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .mslot-empty { font-size: 12px; color: oklch(0.68 0.02 70); font-style: italic; }

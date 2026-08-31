@@ -872,6 +872,36 @@ module.exports = {
         return m2[2] === 'over' ? true : Number(m2[1]) < was;
       }, leftBefore), 'was ' + leftBefore + ' g left');
 
+    /* "Not that, what else?" — the commonest move there is, and until now it
+       meant deleting a plate and reopening the picker. Try again walks down
+       the ranked list a step at a time. */
+    const firstPick = await z.evaluate(() =>
+      document.querySelector('.mitem-name').dataset.open);
+    await z.click('[data-mtry="b"]');
+    await z.waitForTimeout(250);
+    const second = await z.evaluate(() =>
+      document.querySelector('.mitem-name').dataset.open);
+    t.ok('Try again swaps the plate for another one',
+      second && second !== firstPick, firstPick + ' → ' + second);
+    await z.click('[data-mtry="b"]');
+    await z.waitForTimeout(250);
+    const third = await z.evaluate(() =>
+      document.querySelector('.mitem-name').dataset.open);
+    t.ok('and again walks a further step, not back to the first',
+      third && third !== second && third !== firstPick,
+      [firstPick, second, third].join(' → '));
+    t.ok('leaving exactly one plate on the meal each time',
+      await z.evaluate(() => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        return days[Object.keys(days)[0]].b.length === 1;
+      }));
+    t.ok('and only ever offering what the meal draws from',
+      await z.evaluate(() => {
+        const r = window.RECIPES.find((x) =>
+          String(x.id) === document.querySelector('.mitem-name').dataset.open);
+        return r.book === 1 && r.secNum === 1;      // breakfast's own sections
+      }));
+
     // the lock holds against the machine, not the hand
     await z.click('[data-mlock="b:0"]');
     await z.waitForTimeout(150);
@@ -879,6 +909,15 @@ module.exports = {
       document.querySelector('[data-mlock="b:0"]').getAttribute('aria-pressed') === 'true'));
     for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
+    t.ok('a locked plate is not the machine\u2019s to swap, nor joined by another',
+      await z.evaluate(async () => {
+        const before = document.querySelector('.mitem-name').dataset.open;
+        const n = document.querySelectorAll('.mitem').length;
+        document.querySelector('[data-mtry="b"]').click();
+        await new Promise((r) => setTimeout(r, 250));
+        return document.querySelector('.mitem-name').dataset.open === before &&
+          document.querySelectorAll('.mitem').length === n;
+      }));
     t.ok('the stepper still obeys the hand on a locked plate',
       (await z.textContent('.mstep-x')).indexOf('¼') >= 0);
     t.ok('but Rebalance has nothing left to move, and says so',

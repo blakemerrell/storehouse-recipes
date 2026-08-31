@@ -403,7 +403,10 @@
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
     macroDate: null, macroPick: null, macroTargOpen: false, mpQuery: '',
-    mpSec: 'meal', mpSort: 'fit'
+    mpSec: 'meal', mpSort: 'fit',
+    /* How far down each meal's ranked list Try again has walked, keyed day
+       and meal. Ephemeral on purpose: tomorrow starts at the top again. */
+    mTry: {}
   };
 
   // ------------------------------------------------------------------ browse
@@ -1322,6 +1325,9 @@
         '<div class="mslot-h"><span class="mslot-name">' + esc(name) + '</span>' +
           (rows ? '<span class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
             Math.round(sub.p) + 'g protein</span>' : '') +
+          (onPlan ? '<button class="ghost mslot-try no-print" data-mtry="' + esc(sk) + '" ' +
+            'aria-label="Another suggestion for ' + esc(name) + '" ' +
+            'title="Another suggestion — walks down the best-fit list">&#8635;</button>' : '') +
           (onPlan ? '<button class="ghost mslot-add no-print" data-mslot="' + esc(sk) + '">+ Add</button>' : '') +
         '</div>' +
         '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>' +
@@ -2027,6 +2033,52 @@
     try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
     document.body.removeChild(ta);
     said(ok);
+  }
+
+  /* Another suggestion for one meal, and then the next one after that.
+   *
+   * Fill my day drafts everything at once and picks at random from the top
+   * three; the picker is for when you know what you want. Between them sits
+   * the commonest move of all — "not that, what else?" — which until now
+   * meant deleting a plate and opening the picker to take the next line down.
+   *
+   * So this walks the ranked list a step at a time, keeping a cursor per
+   * meal per day, and leaves alone the three kinds of plate that are not the
+   * machine's to swap: what you have eaten, what you have locked, and what
+   * you have pinned, because a pin is a standing instruction and this would
+   * only be arguing with it. */
+  function mTryAgain(sk) {
+    var k = mViewKey();
+    var targets = mReadTargets();
+    var slots = mReadSlots();
+    var srec = null;
+    slots.list.forEach(function (sl) { if (sl.k === sk) srec = sl; });
+    if (!srec) return;
+    var pins = (srec.pins || []).map(function (pn) { return pn.id; });
+    var cursorKey = k + ':' + sk;
+
+    mEditDay(k, function (day) {
+      var had = (day[sk] || []).length;
+      var keep = (day[sk] || []).filter(function (it) {
+        return it.eaten || it.l || pins.indexOf(it.id) >= 0;
+      });
+      /* Nothing here is the machine's to swap, so there is nothing to try
+         again at. Adding a second plate instead would be answering a
+         question nobody asked — and would quietly hand Rebalance something
+         to move on a meal that was deliberately pinned down. */
+      if (had && keep.length === had) return;
+      day[sk] = keep;
+      var secs = mSlotSecs(srec);
+      var pool = RECIPES.filter(function (r) {
+        return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
+      });
+      var ranked = mRank(pool, day, targets, srec).filter(function (e) { return e.score !== null; });
+      if (!ranked.length) return;
+      S.mTry[cursorKey] = (S.mTry[cursorKey] === undefined ? -1 : S.mTry[cursorKey]) + 1;
+      var pick = ranked[S.mTry[cursorKey] % ranked.length];
+      day[sk].push({ id: pick.r.id, x: pick.x, eaten: 0 });
+    });
+    keepingFocus(renderMacros);
   }
 
   function mNavDay(step) {
@@ -3492,7 +3544,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec'];
 
   function focusKey(el) {
@@ -4363,6 +4415,9 @@
           opr ? mCookScale(Number(op.dataset.mx) || 1, opr.servN) : 1);
         return;
       }
+      var tr = e.target.closest('[data-mtry]');
+      if (tr) { mTryAgain(tr.dataset.mtry); return; }
+
       var add = e.target.closest('[data-mslot]');
       if (add) {
         rememberOpener();
