@@ -2223,17 +2223,45 @@
     return out;
   }
 
-  function mFoodSearch(q) {
+  function mFoodSearch(q, packaged) {
     var key = window.USDA_KEY || '';
     if (!key) return Promise.reject(new Error('nokey'));
-    var url = 'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' +
-      encodeURIComponent(key) + '&query=' + encodeURIComponent(q) +
-      '&pageSize=12&dataType=Survey%20(FNDDS),SR%20Legacy,Foundation';
-    return fetch(url).then(function (r) {
+    /* Generic or packaged, because they are different questions. FNDDS and
+       SR Legacy are cooked, unbranded food — including everything the survey
+       files under "Restaurant, ..." — and Branded is the barcode aisle. There
+       is no restaurant filter as such; restaurant dishes live inside the
+       generic set under that prefix, and the source is shown so you can see
+       which kind of answer you are looking at. */
+    var types = packaged ? ['Branded'] : ['Survey (FNDDS)', 'SR Legacy', 'Foundation'];
+    /* Asked as a POST, because the query string is a minefield here. The
+       list of data sets has to keep its commas as separators, and
+       encodeURIComponent leaves parentheses alone — legal in a URL, and yet
+       the gateway answers "Survey (FNDDS)" with a bare nginx 400 the moment
+       any browser-shaped header is attached, which is every request the app
+       will ever make. The POST body takes the list as a list and none of
+       that arises. Preflight is answered. */
+    return fetch('https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' +
+      encodeURIComponent(key), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, pageSize: 40, dataType: types })
+      }).then(function (r) {
       if (!r.ok) throw new Error('http');
       return r.json();
     }).then(function (d) {
-      return (d.foods || []).map(function (f) {
+      /* The API's idea of relevance is loose — a search for "tamale" comes
+         back with "Candy, gummy" in it — and the same dish appears once per
+         data set, so "Restaurant, Latino, tamale, pork" arrives twice. Keep
+         only what actually mentions what was asked for, and only once. */
+      var words = q.toLowerCase().split(/\s+/).filter(function (w) { return w.length > 2; });
+      var seen = {};
+      return (d.foods || []).filter(function (f) {
+        var desc = String(f.description || '').toLowerCase();
+        if (words.length && !words.some(function (w) { return desc.indexOf(w) >= 0; })) return false;
+        if (seen[desc]) return false;
+        seen[desc] = 1;
+        return true;
+      }).slice(0, 12).map(function (f) {
         var n = mNutrients(f.foodNutrients);
         /* The USDA quotes per hundred grams and then, usually, tells you what
            one of the thing actually weighs — a tamale is 140 g, "1 item, any
@@ -2247,10 +2275,12 @@
         });
         var per = best ? best.gramWeight / 100 : 1;
         var unit = best ? String(best.disseminationText).replace(/^1\s+/, '') : '100 g';
+        var src = f.dataType === 'Branded' ? (f.brandOwner || 'packaged')
+          : f.dataType === 'Survey (FNDDS)' ? 'survey' : 'reference';
         return { name: f.description, unit: unit,
           kcal: Math.round(n.kcal * per), p: Math.round(n.p * per),
           f: Math.round(n.f * per), c: Math.round(n.c * per),
-          note: best ? 'the USDA, ' + best.gramWeight + ' g' : 'the USDA' };
+          src: src, note: best ? 'the USDA, ' + best.gramWeight + ' g' : 'the USDA' };
       }).filter(function (x) { return x.kcal || x.p || x.f || x.c; });
     });
   }
@@ -2284,7 +2314,9 @@
       return '<button class="mpick-row" data-nfpick="' + i + '">' +
         '<span class="mp-body"><span class="mp-name">' + esc(x.name) + '</span>' +
         '<span class="mp-fit">' + x.kcal + ' kcal &middot; ' + x.p + 'P &middot; ' + x.f +
-        'F &middot; ' + x.c + 'C per ' + esc(x.unit) + '</span></span></button>';
+        'F &middot; ' + x.c + 'C per ' + esc(x.unit) +
+        (x.src ? ' <span class="mp-src">' + esc(x.src) + '</span>' : '') +
+        '</span></span></button>';
     }).join('');
   }
 
@@ -2311,6 +2343,7 @@
           '<input type="search" class="txt" id="nfFind" placeholder="Look it up &mdash; chicken tamale" ' +
             'aria-label="Look up a food">' +
           '<button class="ghost" data-nf="find">Search</button>' +
+          '<button class="ghost" data-nf="brand">Packaged</button>' +
           '<button class="ghost" data-nf="code">Barcode</button>' +
         '</div>' +
         '<div id="nfResults"></div>' +
@@ -5681,9 +5714,10 @@
       var nf = e.target.closest('[data-nf]');
       if (nf && S.newFood) {
         if (nf.dataset.nf === 'cancel') { S.newFood = null; close(); return; }
-        if (nf.dataset.nf === 'find' || nf.dataset.nf === 'code') {
+        if (nf.dataset.nf === 'find' || nf.dataset.nf === 'code' || nf.dataset.nf === 'brand') {
           var term = String((($('nfFind') || {}).value) || '').trim();
           var byCode = nf.dataset.nf === 'code';
+          var packaged = nf.dataset.nf === 'brand';
           if (!term) {
             $('nfResults').innerHTML = '<div class="mslot-empty">' +
               (byCode ? 'Type the number under the barcode.' : 'Type what it was.') + '</div>';
@@ -5691,7 +5725,7 @@
           }
           $('nfResults').innerHTML = '<div class="mslot-empty">Looking&hellip;</div>';
           MLOOKUP = {};
-          (byCode ? mBarcodeLookup(term.replace(/\D/g, '')) : mFoodSearch(term))
+          (byCode ? mBarcodeLookup(term.replace(/\D/g, '')) : mFoodSearch(term, packaged))
             .then(function (list) {
               if (!$('nfResults')) return;
               $('nfResults').innerHTML = mLookupRows(list);

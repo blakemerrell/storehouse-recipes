@@ -639,7 +639,16 @@ select { max-width: 280px; }
 .mtl-lab { font-size: 13px; color: var(--muted-2); flex: none; }
 .mtl-val { display: flex; align-items: baseline; gap: 5px; justify-content: flex-end; min-width: 0; }
 .mtl-u { font-size: 11px; color: var(--muted); }
+/* Numbers are short and want a short rule under them; a name is not a
+   number. "Chicken tamale" was being typed into 52 pixels and read as
+   "Chicke", which is the width a gram count needs and no name does. */
 .mt-sheet .mtl-val input { width: 52px; }
+.mt-sheet .mtl-val input[type="text"] { width: auto; flex: 1 1 auto; min-width: 0; text-align: right; }
+.mt-sheet .mtl-row:has(input[type="text"]) .mtl-val { flex: 1 1 auto; }
+.mp-src {
+  display: inline-block; margin-left: 6px; font-size: 9.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted); opacity: 0.8;
+}
 .mt-sheet .mtl-val select { max-width: 190px; text-align: right; text-align-last: right; }
 .mtl-sum { border-bottom: 0; }
 .mtl-sum .mtl-val { font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
