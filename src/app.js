@@ -2384,9 +2384,25 @@
   window.__ean = mDecodeRow;      // so the tests can read a barcode without a camera
 
   function mBarcodeLookup(code) {
+    /* Open Food Facts asks callers to say who they are. A browser cannot set
+       its own User-Agent, so their documented alternative is to name the app
+       in the query — which costs nothing and is the difference between
+       being a known caller and being anonymous traffic to be throttled.
+     *
+       Fifteen product reads a minute per address is the published limit, and
+       a supermarket aisle is exactly where somebody scans four things in a
+       row, so being turned away has to read as "wait a moment" rather than
+       as "this is broken". Their full-text search lives in a separate
+       service and is not part of this API, which is why the searching here
+       is the USDA's job and the barcodes are theirs. */
     var url = 'https://world.openfoodfacts.org/api/v2/product/' +
-      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size';
-    return fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size' +
+      '&app_name=' + encodeURIComponent('Hive and Hearth') +
+      '&app_version=' + encodeURIComponent(BUILD);
+    return fetch(url).then(function (r) {
+      if (r.status === 429 || r.status === 503) throw new Error('toofast');
+      return r.json();
+    }).then(function (d) {
       var p = d && d.product;
       if (!p) throw new Error('none');
       var nu = p.nutriments || {};
@@ -2504,7 +2520,9 @@
         $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(code) +
           (err && err.message === 'nonutrition'
             ? ' is in Open Food Facts, but with no nutrition table yet. Read it off the packet below.'
-            : ' is not in Open Food Facts. Type what it was below.') + '</div>';
+            : err && err.message === 'toofast'
+              ? ' — Open Food Facts is asking us to slow down. Wait a minute, or read the packet below.'
+              : ' is not in Open Food Facts. Type what it was below.') + '</div>';
       }
     });
   }
@@ -5935,7 +5953,9 @@
                   : err && err.message === 'nonutrition'
                     ? 'That one is known, but has no nutrition table yet. ' +
                       'Read it off the packet below.'
-                    : 'That did not come back. Type it in below instead.') + '</div>';
+                    : err && err.message === 'toofast'
+                      ? 'Asked too often just now. Wait a minute, or type it in below.'
+                      : 'That did not come back. Type it in below instead.') + '</div>';
             });
           return;
         }
