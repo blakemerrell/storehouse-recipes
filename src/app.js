@@ -2086,7 +2086,9 @@
       return own + '<div class="mslot-empty">Nothing else matches' +
         (S.mpSec === 'meal' ? ' &mdash; try Every recipe.' : '.') + '</div>';
     }
-    return (qs || S.mpSec === 'foods' ? own : '') + rows.map(function (e) {
+    /* Always there, at the foot of whatever the list is: "none of these" is
+       a thought you have after reading the list, not before. */
+    return rows.map(function (e) {
       var r = e.r;
       var fit = e.score === null ? 'no data'
         : '&times;' + fmtNum(e.x) + (r.food ? ' ' + esc(r.unit) : '') +
@@ -2100,7 +2102,7 @@
           '<span class="mp-fit">' + fit + '</span>' +
         '</span>' +
       '</button>';
-    }).join('');
+    }).join('') + own;
   }
 
   /* Only the list under the search box redraws while you type — redrawing the
@@ -2233,9 +2235,22 @@
     }).then(function (d) {
       return (d.foods || []).map(function (f) {
         var n = mNutrients(f.foodNutrients);
-        return { name: f.description, unit: '100 g', kcal: Math.round(n.kcal),
-          p: Math.round(n.p), f: Math.round(n.f), c: Math.round(n.c),
-          note: f.dataType === 'Branded' ? (f.brandOwner || '') : '' };
+        /* The USDA quotes per hundred grams and then, usually, tells you what
+           one of the thing actually weighs — a tamale is 140 g, "1 item, any
+           size". Offer the item rather than the hundred grams: nobody eats a
+           hundred grams of tamale, they eat a tamale. */
+        var best = null;
+        (f.foodMeasures || []).forEach(function (m) {
+          var t = String(m.disseminationText || '');
+          if (!m.gramWeight || /not specified/i.test(t)) return;
+          if (!best || (m.rank || 99) < (best.rank || 99)) best = m;
+        });
+        var per = best ? best.gramWeight / 100 : 1;
+        var unit = best ? String(best.disseminationText).replace(/^1\s+/, '') : '100 g';
+        return { name: f.description, unit: unit,
+          kcal: Math.round(n.kcal * per), p: Math.round(n.p * per),
+          f: Math.round(n.f * per), c: Math.round(n.c * per),
+          note: best ? 'the USDA, ' + best.gramWeight + ' g' : 'the USDA' };
       }).filter(function (x) { return x.kcal || x.p || x.f || x.c; });
     });
   }

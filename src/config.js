@@ -20,7 +20,7 @@
  * The key is not a secret in any meaningful sense — it is in the page, like
  * the Firebase config below — it is a courtesy so the USDA can tell one
  * caller from another. */
-window.USDA_KEY = "";
+window.USDA_KEY = "VgQ5UXjiPGH5rqI0rdf1IfJg7kfnFigF9Lcwfor0";
 
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyApxpcitqo7qHLVDRS4UX5Xa4XNUKa0Qh0",
