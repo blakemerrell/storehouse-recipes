@@ -736,9 +736,16 @@
        actually eat is left exactly as they typed it. */
     var pr = mReadProfile();
     var tdee = mTdee(pr);
-    if (tdee !== null && kcalOf(t) < tdee / (pr.act || 1)) {
+    /* Two ways a stored day can be uneatable, and the total is only one of
+       them. 226P/62F/13C comes to 1,514 kcal — over the floor, and still a
+       day with three percent of itself left for everything that is not
+       protein or fat, which no dinner in the book fits inside. A deliberate
+       very-low-carb day typed by hand would be corrected once by this too;
+       that is the price of not serving a day nobody can eat. */
+    var starved = 4 * t.c < 0.12 * kcalOf(t);
+    if (tdee !== null && (kcalOf(t) < mFloorK(pr) || starved)) {
       var fresh = mPlanCalc(pr);
-      if (fresh && kcalOf(fresh) > kcalOf(t)) {
+      if (fresh && (kcalOf(fresh) > kcalOf(t) || fresh.c > t.c)) {
         t = { p: fresh.p, f: fresh.f, c: fresh.c };
         mWriteTargets(t);
       }
@@ -833,12 +840,40 @@
      of bodyweight. The cuts carry more protein than maintenance because a
      deficit is when muscle is easiest to lose and protein is what argues for
      keeping it. */
+  /* The four, as Renaissance Periodization frames them: a cut is a RATE, not
+     a percentage off the day's burn.
+   *
+     This matters because the two scale differently. A flat quarter off the
+     day gives a 205 lb man 1,905 kcal and a 120 lb woman 1,200 — the same
+     fraction, wildly different propositions. A pound a week per hundred of
+     bodyweight gives him 1,515 and her 1,000, which is the number the
+     literature actually argues about, and which is what an app that says
+     "hard cut" is expected to mean.
+   *
+     RP's own tiers run about 0.5% of bodyweight a week for slow, 0.75% for
+     moderate and 1% for aggressive, and they stop there: past a percent, the
+     weight coming off stops being mostly fat. Lean gain is slower still.
+     rate is bodyweight fraction per week; positive takes weight off. */
   var MGOALS = {
-    cut2: { kcal: -0.25, prot: 1.10 },
-    cut1: { kcal: -0.15, prot: 1.00 },
-    keep: { kcal: 0.00, prot: 0.85 },
-    gain: { kcal: 0.10, prot: 0.90 }
+    cut2: { rate: 0.0100, prot: 1.10 },
+    cut1: { rate: 0.0075, prot: 1.00 },
+    keep: { rate: 0.0000, prot: 0.85 },
+    gain: { rate: -0.0025, prot: 0.90 }
   };
+
+  /* The floor under every plan this app will write. It is an absolute
+     number, not a fraction of anything: a quarter off a big man's day is a
+     different proposition from a quarter off a small woman's, and the danger
+     is in the absolute.
+   *
+     It used to be the basal rate, which sounds stricter and is — too strict
+     to say what a hard cut means. A hard cut IS below basal; that is the
+     whole of what makes it hard. What made the old below-basal day
+     uneatable was not the calories but the split: protein held 1.1 g a pound
+     whatever was left, so three percent of the day remained for everything
+     else. Protein gives ground now, so the floor can be honest about what a
+     cut is and the plate still fills. */
+  function mFloorK(pr) { return pr.sex === 'f' ? 1200 : 1500; }
 
   /* Mifflin–St Jeor for the base burn, an activity multiplier for the day, the
      goal for the swing. Protein by bodyweight and goal; fat at a quarter of
@@ -885,8 +920,8 @@
      * So the rate cap keeps its place, but two more sit in front of it: no
      * more than a quarter off the day's burn, and never a day under the
      * basal rate. Whichever bites first wins, and the plan says so. */
-    var floorK = Math.max(bmr, pr.sex === 'f' ? 1200 : 1500);
-    var maxOff = Math.max(0, Math.min(0.25 * tdee, tdee - floorK));
+    var floorK = mFloorK(pr);
+    var maxOff = Math.max(0, tdee - floorK);
     var maxOn = 0.20 * tdee;                       // gaining, the other way
     var capRate = pr.lb * (lbs >= 0 ? 0.01 : 0.005);
     var capKcal = (lbs >= 0 ? maxOff : maxOn) * 7 / 3500;
@@ -907,10 +942,13 @@
     if (tdee === null) return null;
     var g = MGOALS[pr.goal] || MGOALS.cut1;
     var pace = mGoalPace(pr);
-    var kcal = pace ? Math.round(tdee - pace.kcal) : Math.round(tdee * (1 + g.kcal));
+    /* One engine, two ways in: a date works out the rate it needs, a preset
+       names one outright. Both arrive here as pounds a week. */
+    var perWeek = pace ? pace.perWeek : g.rate * pr.lb;
+    var kcal = Math.max(mFloorK(pr), Math.round(tdee - perWeek * 3500 / 7));
     var protPerLb = pace
-      ? (pace.perWeek > 0.05 ? (Math.abs(pace.perWeek) > pr.lb * 0.007 ? 1.10 : 1.00)
-        : pace.perWeek < -0.05 ? 0.90 : 0.85)
+      ? (perWeek > 0.05 ? (perWeek > pr.lb * 0.009 ? 1.10 : 1.00)
+        : perWeek < -0.05 ? 0.90 : 0.85)
       : g.prot;
     var p = Math.round(protPerLb * pr.lb);
     var f = Math.round(Math.max(0.3 * pr.lb, 0.25 * kcal / 9));
@@ -1656,9 +1694,18 @@
   /* The status line over the gram boxes. The boxes are the plan's one
      rendering, so this speaks only when something needs saying: the profile
      cannot compute yet, or the arithmetic had to floor the carbs. */
-  function mtPlanLine(plan) {
+  /* Said once, plainly, without a lecture attached: a hard cut is below the
+     rate a body spends doing nothing, and that is what makes it hard. Worth
+     knowing you are there; not the app's business to argue. */
+  function mtPlanLine(plan, pr) {
     if (!plan) return 'Fill in who you are and these work themselves out.';
-    return plan.floored ? 'Protein and fat spend all the calories &mdash; carbs floor at zero.' : '';
+    var tdee = pr ? mTdee(pr) : null;
+    var bmr = tdee === null ? null : tdee / (pr.act || 1);
+    if (bmr !== null && plan.kcal < bmr) {
+      return 'Below the ' + Math.round(bmr) + ' kcal your body spends at rest &mdash; ' +
+        'which is what a hard cut is, and not a place to live for months.';
+    }
+    return '';
   }
 
   function macroTargetsHTML() {
@@ -1914,8 +1961,8 @@
       var arrive = new Date();
       arrive.setDate(arrive.getDate() + Math.round(pace.realWeeks * 7));
       warn = '<span class="mt-warn">That needs ' +
-        (Math.round(Math.abs(pace.wanted) * 10) / 10) + ' lb a week, which would put you ' +
-        'under what your body burns at rest. Held to ' +
+        (Math.round(Math.abs(pace.wanted) * 10) / 10) + ' lb a week, more than a body ' +
+        'gives up without giving up muscle with it. Held to ' +
         (Math.round(Math.abs(pace.perWeek) * 10) / 10) + ' &mdash; arriving about ' +
         M_MONS[arrive.getMonth()] + ' ' + arrive.getDate() + '.</span>';
     }
@@ -1967,7 +2014,7 @@
     var prNow = mtProfileFromDom();
     var plan = mPlanCalc(prNow);
     var el = $('mtPlan');
-    if (el) el.innerHTML = mtPlanLine(plan);
+    if (el) el.innerHTML = mtPlanLine(plan, prNow);
     var gl = $('mtGoalLine');
     if (gl) { gl.textContent = mGoalLine(prNow); gl.classList.toggle('hide', !mGoalLine(prNow)); }
     var gn = $('mtGoalNote');

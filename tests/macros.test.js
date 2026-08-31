@@ -62,6 +62,54 @@ module.exports = {
       /Craft my plan/.test(await p.textContent('#macroPlan')),
       await p.textContent('#macroPlan'));
 
+    /* The four presets are rates, the way RP frames a cut — a percent of
+       bodyweight a week, not a percent off the day's burn — so each one
+       lands where somebody who has used that app expects it to. */
+    t.ok('the presets are rates, and land where a cut is expected to land',
+      await p.evaluate(() => {
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+          inch: 11, lb: 205, act: 1.375, goal: 'cut2' }));
+        return true;
+      }));
+    await p.reload();
+    await p.waitForTimeout(300);
+    await p.click('#macroTargBtn');
+    await p.waitForTimeout(250);
+    const kcalNow = () => p.evaluate(() => Number(document.getElementById('mtBigKcal').textContent));
+    const RATE = { cut2: 0.010, cut1: 0.0075, keep: 0, gain: -0.0025 };
+    for (const key of ['cut2', 'cut1', 'keep', 'gain']) {
+      await p.evaluate(() => {
+        if (document.getElementById('mtEditor').classList.contains('hide')) {
+          document.querySelector('[data-mtedit]').click();
+        }
+      });
+      await p.click('[data-mtgoal="' + key + '"]');
+      await p.waitForTimeout(200);
+      const want = await p.evaluate((r) => {
+        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
+        const tdee = (10 * kg + 6.25 * cm - 5 * pr.age + 5) * pr.act;
+        return Math.max(1500, Math.round(tdee - r * pr.lb * 3500 / 7));
+      }, RATE[key]);
+      /* Within a few kcal: the headline is the sum of the rounded gram
+         boxes, not the raw target, which is the whole point of the boxes
+         being the plan's one rendering. */
+      t.ok('  ' + key + ' is the rate it claims', Math.abs(await kcalNow() - want) <= 8,
+        await kcalNow() + ' vs ' + want);
+    }
+    t.ok('a hard cut lands where a hard cut is expected — near fifteen hundred',
+      (await kcalNow()) > 0 && await p.evaluate(async () => {
+        document.querySelector('[data-mtgoal="cut2"]').click();
+        await new Promise((r) => setTimeout(r, 200));
+        const k = Number(document.getElementById('mtBigKcal').textContent);
+        return k >= 1400 && k <= 1600;
+      }), await kcalNow());
+    await p.click('.sheet-x');
+    await p.waitForTimeout(250);
+    await p.evaluate(() => localStorage.removeItem('bsc.macroProfile'));
+    await p.reload();
+    await p.waitForTimeout(300);
+
     /* A day saved before the deficit was capped is still in storage being
        served every morning, and it can sit below what the body burns at
        rest. Reading it corrects it back up to what the same profile works
@@ -75,14 +123,11 @@ module.exports = {
       }));
     await p.reload();
     await p.waitForTimeout(400);
-    t.ok('so the day it serves is above the basal rate, with room to eat',
+    t.ok('so the day it serves clears the floor, with room left to eat',
       await p.evaluate(() => {
         const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
         const kc = 4 * t2.p + 4 * t2.c + 9 * t2.f;
-        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
-        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
-        const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + 5;
-        return kc >= bmr && 4 * t2.c >= 0.14 * kc;
+        return kc >= 1500 && 4 * t2.c >= 0.14 * kc;
       }), await p.evaluate(() => localStorage.getItem('bsc.macroTargets')));
     await p.evaluate(() => {
       localStorage.removeItem('bsc.macroProfile');
@@ -409,12 +454,24 @@ module.exports = {
       /work themselves out/i.test(await q.textContent('#mtPlan')),
       await q.textContent('#mtPlan'));
 
-    // the same arithmetic the app claims: Mifflin–St Jeor × activity × goal
+    /* The same arithmetic the app claims: Mifflin–St Jeor for the basal rate,
+       an activity multiplier for the day, and then a RATE — a cut is a pound
+       a week per hundred of bodyweight, the way RP frames it, not a flat
+       percentage off the day. A percentage scales wrong: the same quarter
+       off gives a big man a comfortable day and a small woman a dangerous
+       one. */
     const prof = { lb: 200, ftIn: 72, age: 40, act: 1.55 };
     const bmr = 10 * (prof.lb * 0.45359237) + 6.25 * (prof.ftIn * 2.54) - 5 * prof.age + 5;
-    const kcal = Math.round(bmr * prof.act * 0.75);          // hard cut = −25%
-    const planP = Math.round(1.10 * prof.lb);
+    const tdee = bmr * prof.act;
+    const perWeek = 0.01 * prof.lb;                          // hard cut = 1%/wk
+    const kcal = Math.max(1500, Math.round(tdee - perWeek * 3500 / 7));
+    let planP = Math.round(1.10 * prof.lb);
     const planF = Math.round(Math.max(0.3 * prof.lb, 0.25 * kcal / 9));
+    const minC = Math.round(0.15 * kcal / 4);
+    if ((kcal - 4 * planP - 9 * planF) / 4 < minC) {
+      planP = Math.max(Math.round(0.8 * prof.lb),
+        Math.round((kcal - 9 * planF - 4 * minC) / 4));
+    }
     const planC = Math.max(0, Math.round((kcal - 4 * planP - 9 * planF) / 4));
 
     await q.fill('#mtAge', String(prof.age));
@@ -521,16 +578,13 @@ module.exports = {
        only fill it with quarter portions. The deficit is capped now, and the
        plan says when you would really arrive. */
     t.ok('an impossible pace is held, and the plan says when you would really arrive',
-      /under what your body burns at rest/.test(await q.textContent('#mtGoalNote')) &&
+      /more than a body gives up/.test(await q.textContent('#mtGoalNote')) &&
       /arriving about /.test(await q.textContent('#mtGoalNote')),
       await q.textContent('#mtGoalNote'));
-    t.ok('and no plan it writes is ever below the body\u2019s own burn',
-      await q.evaluate(() => {
-        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
-        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
-        const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + (pr.sex === 'f' ? -161 : 5);
-        return Number(document.getElementById('mtBigKcal').textContent) >= Math.round(bmr);
-      }), await q.textContent('#mtBigKcal'));
+    t.ok('and no plan it writes is ever under the floor it keeps',
+      await q.evaluate(() =>
+        Number(document.getElementById('mtBigKcal').textContent) >= 1500),
+      await q.textContent('#mtBigKcal'));
     t.ok('nor one with no room left to eat carbohydrate',
       await q.evaluate(() => {
         const k = Number(document.getElementById('mtBigKcal').textContent);
