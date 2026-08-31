@@ -120,12 +120,12 @@ module.exports = {
     await p.waitForTimeout(250);
     t.ok('the plain foods have a lens of their own',
       await p.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row')];
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
         return rows.length >= 20 && rows.every((r) => r.dataset.mpick.indexOf('f:') === 0);
       }), await p.evaluate(() => document.querySelectorAll('.mpick-row').length + ' rows'));
     t.ok('and each is offered in a unit a person would use',
       await p.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row')];
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
         const txt = rows.map((r) => r.textContent).join(' ');
         // a cup of milk and a spoon of honey, not a spoon of milk or a cup of butter
         return /cup|tbsp|each|oz|can/.test(txt);
@@ -135,19 +135,19 @@ module.exports = {
     await p.waitForTimeout(250);
     t.ok('and a search reaches them from any lens, since typing it says enough',
       await p.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row')];
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
         return rows.some((r) => /honey/i.test(r.textContent));
       }));
     /* "Honey" also matches a recipe with honey in it, which is correct and
        not what we are after here. */
     const honeyRow = await p.evaluate(() => {
-      const r = [...document.querySelectorAll('.mpick-row')]
+      const r = [...document.querySelectorAll('.mpick-row[data-mpick]')]
         .find((x) => x.dataset.mpick.indexOf('f:') === 0 && /honey/i.test(x.textContent));
       return r ? r.dataset.mpick : null;
     });
     t.ok('a food is addable like anything else', honeyRow && honeyRow.indexOf('f:') === 0, honeyRow);
     await p.evaluate(() => {
-      [...document.querySelectorAll('.mpick-row')]
+      [...document.querySelectorAll('.mpick-row[data-mpick]')]
         .find((x) => x.dataset.mpick.indexOf('f:') === 0 && /honey/i.test(x.textContent)).click();
     });
     await p.waitForTimeout(300);
@@ -169,6 +169,69 @@ module.exports = {
       const day = days[Object.keys(days)[0]];
       day.l = [];
       localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+    });
+    await p.reload();
+    await p.waitForTimeout(300);
+
+    /* Food no book and no table has heard of — a tamale from a cart. The day
+       has to add up, and a plate you cannot log is a plate that quietly makes
+       every number on the screen wrong. */
+    await p.click('[data-mslot="d"]');
+    await p.waitForTimeout(250);
+    t.ok('the picker offers a way to name something it has never heard of',
+      await p.evaluate(() => {
+        document.querySelector('#mpSec').value = 'foods';
+        document.querySelector('#mpSec').dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }));
+    await p.waitForTimeout(250);
+    await p.click('[data-mpnew]');
+    await p.waitForTimeout(250);
+    t.ok('which asks what it is called and what is in it',
+      await p.evaluate(() => !!document.querySelector('#nfName') &&
+        !!document.querySelector('#nfKcal') && !!document.querySelector('#nfP')));
+    await p.click('[data-nf="save"]');
+    await p.waitForTimeout(200);
+    t.ok('a nameless one is refused, since it could never be found again',
+      /needs a name/i.test(await p.textContent('#nfNote')));
+    await p.fill('#nfName', 'Chicken tamale');
+    await p.fill('#nfUnit', 'tamale');
+    await p.click('[data-nf="save"]');
+    await p.waitForTimeout(200);
+    t.ok('and one with no numbers at all is refused too',
+      /at least the calories/i.test(await p.textContent('#nfNote')));
+    /* Macros but no calories: the calories follow rather than leaving the
+       day's headline short by a whole plate. */
+    await p.fill('#nfP', '10');
+    await p.fill('#nfF', '12');
+    await p.fill('#nfC', '25');
+    await p.click('[data-nf="save"]');
+    await p.waitForTimeout(350);
+    t.ok('it lands on the meal that asked for it',
+      await p.evaluate(() => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = days[Object.keys(days)[0]];
+        return (day.d || []).some((it) => String(it.id) === 'f:my:chicken_tamale');
+      }));
+    t.ok('with its calories worked out from the macros given',
+      await p.evaluate(() => {
+        const r = window.RECIPES.concat([]).length &&
+          document.querySelector('.mitem-mac');
+        const mine = JSON.parse(localStorage.getItem('bsc.myFoods'));
+        return mine.chicken_tamale.kcal === 4 * 10 + 4 * 25 + 9 * 12;
+      }), await p.evaluate(() => localStorage.getItem('bsc.myFoods')));
+    t.ok('and it is there for next time, in its own words',
+      await p.evaluate(() => {
+        const el = [...document.querySelectorAll('.mitem-food')]
+          .find((x) => /Chicken tamale/.test(x.textContent));
+        return !!el && /tamale/.test(el.querySelector('.mitem-unit').textContent);
+      }));
+    await p.evaluate(() => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const day = days[Object.keys(days)[0]];
+      day.d = [];
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      localStorage.removeItem('bsc.myFoods');
     });
     await p.reload();
     await p.waitForTimeout(300);
@@ -495,7 +558,7 @@ module.exports = {
     await p.waitForTimeout(150);
     await p.fill('#mpSearch', estName);
     await p.waitForTimeout(200);
-    await p.click('.mpick-row');
+    await p.click('.mpick-row[data-mpick]');
     await p.waitForTimeout(300);
     t.ok('an estimated recipe carries the tilde on its line',
       await p.evaluate(() => Array.from(document.querySelectorAll('.mitem-mac'))
@@ -1150,7 +1213,7 @@ module.exports = {
     await z.waitForTimeout(150);
     t.ok('a single section can be looked at on its own',
       await z.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row')];
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
         return rows.length && rows.every((r) => {
           const rec = window.RECIPES.find((x) => String(x.id) === r.dataset.mpick);
           return rec.book === 2 && rec.secNum === 4;
@@ -1273,7 +1336,7 @@ module.exports = {
     await z.waitForTimeout(200);
     t.ok('the meal now draws from exactly the section it ticked',
       await z.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row')];
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
         return rows.length && rows.every((r) => {
           const rec = window.RECIPES.find((x) => String(x.id) === r.dataset.mpick);
           return rec.book === 1 && rec.secNum === 6;

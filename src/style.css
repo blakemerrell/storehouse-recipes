@@ -567,6 +567,9 @@ select { max-width: 280px; }
 .mp-body { display: flex; gap: 10px; align-items: baseline; flex: 1 1 auto; min-width: 0; }
 .mpick-row:hover { background: var(--paper-soft); }
 .mp-name { font-family: var(--serif); font-size: 14.5px; flex: 1 1 auto; min-width: 0; }
+/* the way to name something the book has never heard of */
+.mpick-new { border-bottom: 1px solid var(--line); }
+.mpick-new .mp-name { color: var(--ochre-text); font-weight: 600; }
 .mp-fit {
   flex: none; font-size: 11px; color: var(--muted);
   font-variant-numeric: tabular-nums;

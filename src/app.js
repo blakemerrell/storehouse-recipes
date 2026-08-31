@@ -88,8 +88,44 @@
     return best || { unit: 'g', grams: 100 };
   }
 
+  /* Food you ate that no book and no table has heard of.
+   *
+     The collection is a cookbook and the food table is what its recipes are
+     costed from; neither has heard of a tamale bought from a cart. But the
+     day has to add up, and a plate you cannot log is a plate that quietly
+     makes every number on the screen wrong. So: a name, whatever you know of
+     its macros, and it joins the single foods for good — typed once, tapped
+     ever after. */
+  function mReadMyFoods() {
+    try {
+      var v = JSON.parse(localStorage.getItem('bsc.myFoods'));
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+    } catch (e) { /* private mode or corrupt */ }
+    return {};
+  }
+  function mWriteMyFoods(v) {
+    try { localStorage.setItem('bsc.myFoods', JSON.stringify(v)); }
+    catch (e) { /* private mode: this session only */ }
+    mStamp('mf');
+  }
+
   function mBuildFoods() {
     MFOODS = [];
+    var mine = mReadMyFoods();
+    Object.keys(mine).forEach(function (key) {
+      var f = mine[key];
+      if (!f || typeof f !== 'object') return;
+      var rec = {
+        id: 'f:my:' + key, food: true, book: 0, secNum: 0, secName: 'Single foods',
+        name: String(f.name || 'Something'), servings: '1 ' + String(f.unit || 'serving'),
+        servN: 1, unit: String(f.unit || 'serving'), ing: [String(f.name || 'Something')],
+        steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
+        macro: { kcal: Number(f.kcal) || 0, p: Number(f.p) || 0,
+          c: Number(f.c) || 0, f: Number(f.f) || 0, na: 0, fib: 0 }
+      };
+      MFOODS.push(rec);
+      BY_ID[rec.id] = rec;
+    });
     var N = window.Nutrition;
     if (!N || !N.FOODS) return;
     Object.keys(N.FOODS).forEach(function (key) {
@@ -465,7 +501,7 @@
     /* The Macros tab. macroDate null means "today, worked out at render time",
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
-    macroDate: null, macroPick: null, macroTargOpen: false, mpQuery: '',
+    macroDate: null, macroPick: null, macroTargOpen: false, newFood: null, mpQuery: '',
     myJoin: '', mySent: false, myErr: '', myNote: '',
     mpSec: 'meal', mpSort: 'fit',
     /* How far down each meal's ranked list Try again has walked, keyed day
@@ -838,7 +874,7 @@
      module-level copies, so those have to go too. */
   function mForgetDay() {
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
-      'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myOwner'].forEach(function (k) {
+      'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
@@ -864,6 +900,7 @@
       try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
     };
     return {
+      mf: { v: raw('bsc.myFoods'), at: MSTAMPS.mf || 0 },
       t: { v: raw('bsc.macroTargets'), at: MSTAMPS.t || 0 },
       pr: { v: raw('bsc.macroProfile'), at: MSTAMPS.pr || 0 },
       sl: { v: raw('bsc.macroSlots'), at: MSTAMPS.sl || 0 },
@@ -884,6 +921,9 @@
       MSTAMPS[part] = r.at;
       moved = true;
     };
+    take('mf', 'bsc.myFoods', function (v) {
+      try { localStorage.setItem('bsc.myFoods', JSON.stringify(v)); } catch (e) { /* private */ }
+    });
     take('t', 'bsc.macroTargets', function (v) {
       try { localStorage.setItem('bsc.macroTargets', JSON.stringify(v)); } catch (e) { /* private */ }
     });
@@ -2039,11 +2079,14 @@
       });
     }
     rows = rows.slice(0, 40);
+    var own = '<button class="mpick-row mpick-new" data-mpnew="1">' +
+      '<span class="mp-body"><span class="mp-name">&#43; Something else</span>' +
+      '<span class="mp-fit">name it and give it what numbers you know</span></span></button>';
     if (!rows.length) {
-      return '<div class="mslot-empty">Nothing matches' +
+      return own + '<div class="mslot-empty">Nothing else matches' +
         (S.mpSec === 'meal' ? ' &mdash; try Every recipe.' : '.') + '</div>';
     }
-    return rows.map(function (e) {
+    return (qs || S.mpSec === 'foods' ? own : '') + rows.map(function (e) {
       var r = e.r;
       var fit = e.score === null ? 'no data'
         : '&times;' + fmtNum(e.x) + (r.food ? ' ' + esc(r.unit) : '') +
@@ -2150,6 +2193,41 @@
       '<div class="sync-status"><span class="dot' +
         (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
           : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>';
+  }
+
+  function mNewFoodHTML() {
+    var box = function (id, label, unit, ph) {
+      return '<div class="mtl-row"><span class="mtl-lab">' + label + '</span>' +
+        '<span class="mtl-val"><input type="number" id="' + id + '" min="0" max="9999" ' +
+        'step="1" inputmode="numeric" placeholder="' + (ph || '') + '">' +
+        (unit ? '<span class="mtl-u">' + unit + '</span>' : '') + '</span></div>';
+    };
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Something else">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">Something else</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="sheet-name">Food the book has never heard of</div>' +
+        '<p class="sync-p">A tamale from a cart, a plate at somebody&rsquo;s house. Give it what ' +
+        'you know &mdash; calories alone still counts toward the day &mdash; and it joins your ' +
+        'single foods, so next time it is one tap.</p>' +
+        '<div class="mtl-row"><span class="mtl-lab">Called</span>' +
+          '<span class="mtl-val"><input type="text" id="nfName" ' +
+            'placeholder="Chicken tamale" aria-label="What it is called"></span></div>' +
+        '<div class="mtl-row"><span class="mtl-lab">One of them is</span>' +
+          '<span class="mtl-val"><input type="text" id="nfUnit" ' +
+            'placeholder="tamale" aria-label="What one of them is called"></span></div>' +
+        box('nfKcal', 'Calories', 'kcal', '250') +
+        box('nfP', 'Protein', 'g', '10') +
+        box('nfF', 'Fat', 'g', '12') +
+        box('nfC', 'Carbs', 'g', '25') +
+        '<div class="mt-cap" id="nfNote"></div>' +
+        '<div class="sync-row">' +
+          '<button class="btn-primary" data-nf="save">Add it to the day</button>' +
+          '<button class="ghost" data-nf="cancel">Cancel</button>' +
+        '</div>' +
+      '</div></div>';
   }
 
   function macroTargetsHTML() {
@@ -4227,7 +4305,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -4299,6 +4377,16 @@
       var j = root.querySelector('#joinCode');
       if (j) j.value = S.joinDraft;
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
+
+    if (S.newFood) {
+      if (!prev || !prev.querySelector('#nfName')) {
+        root.innerHTML = mNewFoodHTML();
+        document.body.style.overflow = 'hidden';
+        var nn = root.querySelector('#nfName');
+        if (nn) nn.focus();
+      }
       return;
     }
 
@@ -5458,6 +5546,46 @@
         return;
       }
 
+      var mpn = e.target.closest('[data-mpnew]');
+      if (mpn && S.macroPick) {
+        // remember which meal asked, since the picker closes behind this
+        S.newFood = { slot: S.macroPick.slot };
+        S.macroPick = null;
+        renderModal();
+        return;
+      }
+
+      var nf = e.target.closest('[data-nf]');
+      if (nf && S.newFood) {
+        if (nf.dataset.nf === 'cancel') { S.newFood = null; close(); return; }
+        var nval = function (id) { return String((($(id) || {}).value) || '').trim(); };
+        var nnum = function (id) { return Math.max(0, Math.round(Number(($(id) || {}).value) || 0)); };
+        var nm = nval('nfName');
+        if (!nm) { $('nfNote').textContent = 'It needs a name to be findable again.'; return; }
+        var kc = nnum('nfKcal'), pp = nnum('nfP'), ff = nnum('nfF'), cc = nnum('nfC');
+        if (!kc && !pp && !ff && !cc) {
+          $('nfNote').textContent = 'Give it at least the calories, or it counts for nothing.';
+          return;
+        }
+        /* Macros but no calories: the calories follow from them rather than
+           leaving the day's headline short by a whole plate. */
+        if (!kc) kc = 4 * pp + 4 * cc + 9 * ff;
+        var fkey = nm.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') ||
+          ('x' + Date.now().toString(36));
+        var allF = mReadMyFoods();
+        allF[fkey] = { name: nm, unit: nval('nfUnit') || 'serving', kcal: kc, p: pp, f: ff, c: cc };
+        mWriteMyFoods(allF);
+        mBuildFoods();
+        var nslot = S.newFood.slot;
+        mEditDay(mViewKey(), function (day) {
+          (day[nslot] = day[nslot] || []).push({ id: 'f:my:' + fkey, x: 1, eaten: 0 });
+        });
+        S.newFood = null;
+        close();
+        renderMacros();
+        return;
+      }
+
       var mp = e.target.closest('[data-mpick]');
       if (mp && S.macroPick) {
         var mslot = S.macroPick.slot;
@@ -5766,7 +5894,7 @@
       }
       if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
-      if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen ||
+      if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen || S.newFood ||
         S.syncOpen)) close();
     });
   }
@@ -5864,6 +5992,7 @@
     // and the Macros sheets, for exactly the same reason
     S.macroPick = null;
     S.macroTargOpen = false;
+    S.newFood = null;
     S.syncOpen = false;
     S.mpQuery = '';
     renderModal();
