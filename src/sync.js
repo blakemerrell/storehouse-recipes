@@ -112,6 +112,24 @@ window.Store = (function () {
      number is the one the renderer indexes with and the one that took the page
      down when it was wrong; name, ing and steps are the three the sheet reads
      without checking. Everything else has a default somewhere downstream. */
+  /* Rebuilt field by field, rather than waved through.
+   *
+     This used to check four fields and then keep the whole object — `out[k] =
+     r` — which meant every OTHER field arrived from the household document
+     exactly as somebody else typed it, including fields nothing had ever
+     thought to validate. secNum was one, and it is concatenated into a
+     section key that two of the newer screens wrote straight into an HTML
+     attribute; a household member could put a quote and an img tag in it and
+     run script in everybody else's app. The escaping is fixed at those sinks
+     too, but a sink-by-sink fix only holds until the next sink, and there is
+     no shape here worth trusting a stranger to supply.
+   *
+     A household code is meant to be read aloud. Anyone who has ever heard one
+     can write to that document forever, so what comes back is not friendly
+     data — it is input. */
+  function num(v, fallback) { return typeof v === 'number' && isFinite(v) ? v : fallback; }
+  function str(v, fallback) { return typeof v === 'string' ? v : fallback; }
+
   function sane(v) {
     var src = obj(v), out = {};
     Object.keys(src).forEach(function (k) {
@@ -120,7 +138,35 @@ window.Store = (function () {
       if (r.book !== 1 && r.book !== 2 && r.book !== 3) return;
       if (typeof r.name !== 'string') return;
       if (!Array.isArray(r.ing) || !Array.isArray(r.steps)) return;
-      out[k] = r;
+      var mac = r.macro && typeof r.macro === 'object' && !Array.isArray(r.macro) ? r.macro : null;
+      out[k] = {
+        /* the key is the id, so nothing supplied can disagree with it */
+        id: k,
+        book: r.book,
+        secNum: num(r.secNum, 1),
+        secName: str(r.secName, 'Ours'),
+        name: r.name,
+        ing: r.ing.filter(function (x) { return typeof x === 'string'; }),
+        steps: r.steps.filter(function (x) { return typeof x === 'string'; }),
+        servings: str(r.servings, '1 Serving'),
+        servN: num(r.servN, 1),
+        time: str(r.time, '0 mins'),
+        diff: r.diff === 'Medium' || r.diff === 'In-Depth' ? r.diff : 'Easy',
+        tagline: typeof r.tagline === 'string' ? r.tagline : null,
+        score: typeof r.score === 'number' && isFinite(r.score) ? r.score : null,
+        est: !!r.est,
+        own: !!r.own,
+        no: num(r.no, 0),
+        macro: mac ? {
+          kcal: num(mac.kcal, 0), p: num(mac.p, 0), c: num(mac.c, 0),
+          f: num(mac.f, 0), na: num(mac.na, 0), fib: num(mac.fib, 0)
+        } : null,
+        ingp: Array.isArray(r.ingp) ? r.ingp.filter(function (x) {
+          return x && typeof x === 'object' && typeof x.k === 'string';
+        }).map(function (x) {
+          return { k: x.k, g: num(x.g, 0), u: str(x.u, 'g') };
+        }) : []
+      };
     });
     return out;
   }
@@ -568,7 +614,11 @@ window.Store = (function () {
     /* No password to invent, forget, or store. The link is the proof. */
     sendEmailLink: function (email) {
       return ready().then(function () {
-        var settings = { url: location.href.split('#')[0], handleCodeInApp: true };
+        /* Pinned to the page, not to whatever is in the address bar. Deriving
+           it from location.href carried a spent oobCode from a failed attempt
+           into the next link's continueUrl, and the duplicate parameter made
+           every retry read the stale code and fail. */
+        var settings = { url: location.origin + location.pathname, handleCodeInApp: true };
         return window.firebase.auth().sendSignInLinkToEmail(email, settings).then(function () {
           try { localStorage.setItem('bsc.emailForLink', email); } catch (e) { /* private */ }
         });
@@ -584,19 +634,34 @@ window.Store = (function () {
         if (!email) return null;
         var cur = auth.currentUser;
         var cred = window.firebase.auth.EmailAuthProvider.credentialWithLink(email, location.href);
-        var go = cur && cur.isAnonymous
+        var go = (cur && cur.isAnonymous
           ? cur.linkWithCredential(cred)
-          : auth.signInWithCredential(cred);
-        return go.catch(function (err) {
+          : auth.signInWithCredential(cred)
+        ).catch(function (err) {
           if (err && /credential-already-in-use|email-already-in-use/.test(err.code || '')) {
             return auth.signInWithCredential(cred);
           }
           throw err;
-        }).then(function (res) {
-          try { localStorage.removeItem('bsc.emailForLink'); } catch (e) { /* private */ }
-          history.replaceState({}, '', location.pathname + location.search);
-          return res;
         });
+        var scrub = function () {
+          /* The sign-in parameters are in the QUERY, not the fragment, so the
+             old line — pathname + search — put back everything it meant to
+             remove. And it only ran on success, leaving an unspent code in
+             the bar and the history of every failed attempt. */
+          try {
+            var q = new URLSearchParams(location.search);
+            ['mode', 'oobCode', 'apiKey', 'continueUrl', 'lang', 'tenantId'].forEach(function (k) {
+              q.delete(k);
+            });
+            var rest = q.toString();
+            history.replaceState({}, '', location.pathname + (rest ? '?' + rest : ''));
+          } catch (e) { /* older browser: the link stays in the bar */ }
+        };
+        return go.then(function (res) {
+          try { localStorage.removeItem('bsc.emailForLink'); } catch (e) { /* private */ }
+          scrub();
+          return res;
+        }, function (err) { scrub(); throw err; });
       });
     },
 

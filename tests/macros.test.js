@@ -1506,6 +1506,60 @@ module.exports = {
       await a2.evaluate(() => JSON.stringify(Object.keys(window.Store.state))
         .indexOf('macro') < 0));
 
+    /* ---- what the security review found -------------------------------
+     *
+     * A household code is meant to be read aloud, so anyone who has ever
+     * heard one can write to that document forever — which makes everything
+     * coming back from it input rather than data. sane() used to check four
+     * fields and keep the whole object, so secNum arrived exactly as somebody
+     * else typed it and went into an HTML attribute in two of these screens. */
+    await a2.evaluate(() => {
+      const payload = '"></option></select><img src=x onerror="window.__pwned=1">';
+      const mine = { evil: { book: 3, name: 'Rolls', ing: ['a'], steps: ['b'],
+        secNum: payload, secName: payload } };
+      localStorage.setItem('bsc.mine', JSON.stringify(mine));
+    });
+    await a2.reload();
+    await a2.waitForTimeout(400);
+    t.ok('a hostile secNum never survives the door',
+      await a2.evaluate(() => window.RECIPES.every((r) => typeof r.secNum === 'number')),
+      await a2.evaluate(() => JSON.stringify(window.RECIPES
+        .filter((r) => typeof r.secNum !== 'number').map((r) => r.secNum))));
+    await a2.click('.tab[data-view="macros"]');
+    await a2.waitForTimeout(200);
+    await a2.click('[data-mslot="b"]');
+    await a2.waitForTimeout(300);
+    t.ok('and opening the picker runs nothing',
+      await a2.evaluate(() => !window.__pwned && !document.querySelector('img[src="x"]')));
+    await a2.goBack();
+    await a2.waitForTimeout(250);
+    await a2.click('#macroTargBtn');
+    await a2.waitForTimeout(300);
+    await a2.evaluate(() => {
+      if (document.getElementById('mtEditor').classList.contains('hide')) {
+        document.querySelector('[data-mtedit]').click();
+      }
+      const sel = document.querySelector('#mtMeals .mtm-row .mtm-type');
+      if (sel) { sel.value = 'x'; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+    });
+    await a2.waitForTimeout(300);
+    t.ok('nor does unfolding the section checklist',
+      await a2.evaluate(() => !window.__pwned && !document.querySelector('img[src="x"]')));
+    await a2.evaluate(() => localStorage.removeItem('bsc.mine'));
+
+    /* Signing out has to take the day with it, or the next person to sign in
+       on this device inherits a stranger's weight history — and publishes it
+       into their own account, where its owner can never reach it again. */
+    /* The clearing itself needs a real signed-in account to exercise, which
+       is why tests/sync.test.js is kept out of the default run — it talks to
+       live Firestore. What is checkable here is the promise the sheet makes,
+       since the old copy told people the opposite of what now happens. */
+    t.ok('the sheet no longer promises that nothing is deleted',
+      await a2.evaluate(() => {
+        const src = document.documentElement.innerHTML;
+        return src.indexOf('Nothing is deleted anywhere') < 0;
+      }));
+
     await a2.context().close();
   },
 };

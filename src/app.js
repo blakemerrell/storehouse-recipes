@@ -804,6 +804,38 @@
 
   /* This device has an account, remembered without asking the network — the
      one thing that has to be known before deciding whether to reach for it. */
+  /* Whose day is on this device. Written beside the data rather than kept in
+     the account, because it has to be answerable before the network is. */
+  function mOwner() {
+    try { return localStorage.getItem('bsc.myOwner') || ''; } catch (e) { return ''; }
+  }
+  function mSetOwner(uid) {
+    try {
+      if (uid) localStorage.setItem('bsc.myOwner', uid);
+      else localStorage.removeItem('bsc.myOwner');
+    } catch (e) { /* private mode */ }
+  }
+
+  /* Signing out has to take the day with it.
+   *
+     It did not, and the next person to sign in on the same device inherited
+     it: mSyncStart pushes once on connect, mSyncPayload reads whatever is
+     still in memory and in storage, and Firestore accepts it because the
+     write is honestly authenticated as the new person. A weight history and a
+     food log would land in a stranger's account and follow them onto their
+     own devices, where the person it belonged to could never reach it again.
+     Clearing storage alone is not enough — the payload is rebuilt from the
+     module-level copies, so those have to go too. */
+  function mForgetDay() {
+    ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
+      'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myOwner'].forEach(function (k) {
+      try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
+    });
+    Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
+    Object.keys(MWEIGHTS).forEach(function (k) { delete MWEIGHTS[k]; });
+    Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
+  }
+
   function mAccountMark() {
     try {
       if (mAccount()) localStorage.setItem('bsc.myAccount', '1');
@@ -885,6 +917,17 @@
     window.Store.ready().then(function (db) {
       var uid = window.Store.uid();
       if (!uid || !mAccount()) { S_SYNC_STATE = 'off'; return; }
+      /* Carrying the day up into an account is for one case only: the
+         anonymous identity this device has been using all along becoming a
+         named one. If what is here belonged to somebody else, this device
+         takes what the account has and offers it nothing. */
+      var owner = mOwner();
+      var mine = !owner || owner === uid;
+      if (!mine) {
+        mForgetDay();
+        if (S.view === 'macros') renderMacros();
+      }
+      mSetOwner(uid);
       mSyncDoc = db.collection('users').doc(uid);
       mSyncOff = mSyncDoc.onSnapshot(function (snap) {
         var data = snap.exists ? (snap.data() || {}) : null;
@@ -1002,6 +1045,11 @@
 
   /* Every section there is, in book order, straight off the live data — the
      same source the browse filter reads, so the two can never drift apart. */
+  /* Every consumer of this escapes the key. It is built from secNum, which
+     arrives from the household document, and a section key that reaches an
+     HTML attribute unescaped is a script tag in somebody else's app. sane()
+     in sync.js now rebuilds the record rather than trusting it, which is the
+     fix that holds; this is the one that holds if that one is ever loosened. */
   function mAllSections() {
     var seen = {}, out = [];
     RECIPES.forEach(function (r) {
@@ -1903,7 +1951,7 @@
                     esc(sec.book === 3 ? 'Ours' : BOOKS[sec.book].name) + '">';
                   bk = sec.book;
                 }
-                out += '<option value="' + sec.key + '"' + (S.mpSec === sec.key ? ' selected' : '') + '>' +
+                out += '<option value="' + esc(sec.key) + '"' + (S.mpSec === sec.key ? ' selected' : '') + '>' +
                   esc(sec.name) + '</option>';
               });
               return out + (bk ? '</optgroup>' : '');
@@ -2017,8 +2065,9 @@
         'Open the app on any other device, sign in the same way, and your plan, your meals and ' +
         'your weigh-ins are already there.</p>' +
         '<div class="sync-row"><button class="ghost" data-mysync="out">Sign out of this device</button></div>' +
-        '<p class="sync-p">Signing out keeps everything already on this device and stops sending ' +
-        'changes. Nothing is deleted anywhere.</p>';
+        '<p class="sync-p">Signing out clears your day from <em>this</em> device &mdash; the plan, ' +
+        'the meals and the weigh-ins &mdash; so the next person to sign in here does not inherit ' +
+        'them. Everything stays in your account, and comes back when you sign in again.</p>';
     } else {
       body = '<p class="sync-p">You do not need an account to use any of this &mdash; the whole ' +
         'app works on this device, and that is where it has been saving all along. An account ' +
@@ -2204,7 +2253,7 @@
           esc(sec.book === 3 ? 'Ours' : BOOKS[sec.book].short) + '</span>';
         bk = sec.book;
       }
-      out += '<label class="mtm-sec"><input type="checkbox" value="' + sec.key + '"' +
+      out += '<label class="mtm-sec"><input type="checkbox" value="' + esc(sec.key) + '"' +
         (checked.indexOf(sec.key) >= 0 ? ' checked' : '') + '> ' + esc(mSecLabel(sec)) + '</label>';
     });
     out += '<button class="ghost mtm-secdone" data-mtsec="done">Done</button></div>';
@@ -2921,7 +2970,7 @@
       '</div>' +
       '<div class="bc-list">' +
         secs.map(function (s) {
-          return '<div class="bc-row"><span class="bc-no">' + s.num + '</span>' +
+          return '<div class="bc-row"><span class="bc-no">' + esc(s.num) + '</span>' +
             '<span class="bc-sec">' + esc(s.name) + '</span>' +
             '<span class="bc-n">' + s.n + '</span></div>';
         }).join('') +
@@ -4304,11 +4353,11 @@
           /* Icons, not words. "Save" and "Edit" spelled out took enough of the
              row that the seven days wrapped onto a second line on a phone, and
              the days are the thing this row is for. */
-          '<button class="iconbtn" data-fav="' + r.id + '" aria-pressed="' + fav + '" ' +
+          '<button class="iconbtn" data-fav="' + esc(r.id) + '" aria-pressed="' + fav + '" ' +
             'title="' + (fav ? 'Saved to favorites' : 'Save to favorites') + '" ' +
             'aria-label="' + (fav ? 'Saved to favorites' : 'Save to favorites') + '">' +
             (fav ? '★' : '☆') + '</button>' +
-          '<button class="iconbtn" data-edit="' + r.id + '" title="Edit this recipe" ' +
+          '<button class="iconbtn" data-edit="' + esc(r.id) + '" title="Edit this recipe" ' +
             'aria-label="Edit this recipe">✎</button>' +
           '<span class="addto">Add to</span>' +
           /* Seven equal columns rather than seven things that wrap. A week that
@@ -4317,7 +4366,7 @@
           '<div class="daybar">' +
             DAYS.map(function (d) {
               var on = window.Store.day(d[0]).some(function (e) { return e.id === r.id; });
-              return '<button class="daybtn" data-add="' + r.id + '" data-day="' + d[0] +
+              return '<button class="daybtn" data-add="' + esc(r.id) + '" data-day="' + d[0] +
                 '" aria-pressed="' + on + '">' + d[2] + '</button>';
             }).join('') +
           '</div>' +
@@ -5458,7 +5507,12 @@
         }
         if (act2 === 'out') {
           window.Store.signOutAccount().then(function () {
-            S.mySent = false; mAccountMark(); mSyncStart(); renderModal();
+            S.mySent = false;
+            mForgetDay();
+            mAccountMark();
+            mSyncStart();
+            renderMacros();
+            renderModal();
           }, failed);
         }
         renderModal();
