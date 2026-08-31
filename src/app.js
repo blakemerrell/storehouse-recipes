@@ -720,13 +720,30 @@
   }
 
   function mReadTargets() {
+    var t = null;
     try {
-      var t = JSON.parse(localStorage.getItem('bsc.macroTargets'));
-      if (t && isFinite(t.p) && isFinite(t.f) && isFinite(t.c)) {
-        return { p: Number(t.p), f: Number(t.f), c: Number(t.c) };
+      var raw = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+      if (raw && isFinite(raw.p) && isFinite(raw.f) && isFinite(raw.c)) {
+        t = { p: Number(raw.p), f: Number(raw.f), c: Number(raw.c) };
       }
     } catch (e) { /* private mode or a corrupt value — the defaults stand */ }
-    return { p: 180, f: 50, c: 50 };
+    if (!t) return { p: 180, f: 50, c: 50 };
+    /* A day saved before the deficit was capped can be below what the body
+       spends at rest — the arithmetic that wrote it has since been fixed,
+       but the number it wrote is still sitting in storage being served every
+       morning. Only that case is corrected, and only back up to what the
+       same profile works out to now; a plan somebody typed by hand and can
+       actually eat is left exactly as they typed it. */
+    var pr = mReadProfile();
+    var tdee = mTdee(pr);
+    if (tdee !== null && kcalOf(t) < tdee / (pr.act || 1)) {
+      var fresh = mPlanCalc(pr);
+      if (fresh && kcalOf(fresh) > kcalOf(t)) {
+        t = { p: fresh.p, f: fresh.f, c: fresh.c };
+        mWriteTargets(t);
+      }
+    }
+    return t;
   }
   function mWriteTargets(t) {
     try { localStorage.setItem('bsc.macroTargets', JSON.stringify(t)); }
@@ -1680,7 +1697,7 @@
           '<div class="sheet-eyebrow">Your plan</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="sheet-name" id="mtGoalLine">' + esc(mGoalLine(pr)) + '</div>' +
+
         /* The answer first. What you open this sheet for on an ordinary day is
            the number, not the form that made it. */
         '<div class="mt-answer">' +
@@ -1692,8 +1709,15 @@
             '<span class="mt-tile"><b id="mtTileC">' + t.c + '</b><i>Carbs</i></span>' +
           '</div>' +
         '</div>' +
+        /* The goal belongs under the number it produced, not over it as a
+           display line. A sentence set in the book's largest serif, where
+           every other sheet carries a title, read as a title that had been
+           filled in wrong — and it said again what the day already says. */
         '<button class="mt-who" data-mtedit="1" aria-expanded="' + (plan ? 'false' : 'true') + '">' +
-          '<span id="mtWho">' + mtWhoLine(pr) + '</span>' +
+          '<span class="mt-whotext">' +
+            '<span class="mt-goal" id="mtGoalLine">' + esc(mGoalLine(pr)) + '</span>' +
+            '<span id="mtWho">' + mtWhoLine(pr) + '</span>' +
+          '</span>' +
           '<span class="mt-editw">Edit</span>' +
         '</button>' +
         '<div id="mtEditor" class="mt-editor' + shut + '">' +
@@ -1841,9 +1865,10 @@
   /* The one line your profile collapses to once it computes. */
   function mtWhoLine(pr) {
     if (!mPlanCalc(pr)) return 'Tell me about you';
-    var pace = mGoalPace(pr);
-    return [pace ? mPaceWords(pace) : (MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1), pr.age,
-      pr.ft + '\u2032' + pr.inch + '\u2033', pr.lb + ' lb'].join(' \u00b7 ');
+    // the goal line above carries the pace, so this is just who it is for
+    var bits = mGoalPace(pr) ? [] : [MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1];
+    return bits.concat([pr.age, pr.ft + '\u2032' + pr.inch + '\u2033',
+      pr.lb + ' lb']).join(' \u00b7 ');
   }
 
   function mPaceWords(pace) {
@@ -1854,13 +1879,13 @@
 
   /* The sentence at the top of the sheet: what this day is in service of.
      A goal you can miss is worth more than a preset you cannot. */
+  /* The destination, in the size of a caption. */
   function mGoalLine(pr) {
     var pace = mGoalPace(pr);
-    if (!pace) return 'What a day should add up to';
+    if (!pace) return '';
     var d = keyDate(pr.goalBy);
-    var when = M_MONS[d.getMonth()] + ' ' + d.getDate();
-    // the direction is the pace note's job; this line is the destination
-    return 'To be ' + pr.goalLb + ' lb by ' + when;
+    return pr.goalLb + ' lb by ' + M_MONS[d.getMonth()] + ' ' + d.getDate() +
+      ' \u00b7 ' + mPaceWords(pace);
   }
 
   /* The line under it: the pace that implies, the commitments beside it, and
@@ -1935,7 +1960,7 @@
     var el = $('mtPlan');
     if (el) el.innerHTML = mtPlanLine(plan);
     var gl = $('mtGoalLine');
-    if (gl) gl.textContent = mGoalLine(prNow);
+    if (gl) { gl.textContent = mGoalLine(prNow); gl.classList.toggle('hide', !mGoalLine(prNow)); }
     var gn = $('mtGoalNote');
     if (gn) gn.innerHTML = mGoalNote(prNow);
     var gs = $('mtGoalSeg');

@@ -62,6 +62,37 @@ module.exports = {
       /Craft my plan/.test(await p.textContent('#macroPlan')),
       await p.textContent('#macroPlan'));
 
+    /* A day saved before the deficit was capped is still in storage being
+       served every morning, and it can sit below what the body burns at
+       rest. Reading it corrects it back up to what the same profile works
+       out to now — and leaves a hand-typed, edible plan alone. */
+    t.ok('a saved plan from before the caps is corrected on the way out of storage',
+      await p.evaluate(() => {
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+          inch: 11, lb: 205, act: 1.375, goal: 'cut1', goalLb: 175, goalBy: '2026-12-01' }));
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 226, f: 62, c: 13 }));
+        return true;
+      }));
+    await p.reload();
+    await p.waitForTimeout(400);
+    t.ok('so the day it serves is above the basal rate, with room to eat',
+      await p.evaluate(() => {
+        const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+        const kc = 4 * t2.p + 4 * t2.c + 9 * t2.f;
+        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
+        const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + 5;
+        return kc >= bmr && 4 * t2.c >= 0.14 * kc;
+      }), await p.evaluate(() => localStorage.getItem('bsc.macroTargets')));
+    await p.evaluate(() => {
+      localStorage.removeItem('bsc.macroProfile');
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 150, f: 40, c: 60 }));
+    });
+    await p.reload();
+    await p.waitForTimeout(300);
+    t.ok('and a plan typed by hand, with no profile behind it, is left alone',
+      await p.evaluate(() => localStorage.getItem('bsc.macroTargets').indexOf('150') >= 0));
+
     // ---- edit the targets; they hold across a reload
     await p.click('#macroTargBtn');
     await p.waitForTimeout(150);
@@ -439,7 +470,7 @@ module.exports = {
         document.getElementById('mtTileC').textContent === String(c2),
         [4 * planP + 4 * planC + 9 * planF, planP, planF, planC]));
     t.ok('and one line says who it was worked out for',
-      /Hard cut · 40 · 6′0″ · 200 lb/.test(await q.textContent('#mtWho')),
+      /40 · 6′0″ · 200 lb/.test(await q.textContent('#mtWho')),
       await q.textContent('#mtWho'));
     await q.click('[data-mtedit]');
     await q.waitForTimeout(150);
@@ -464,8 +495,15 @@ module.exports = {
     });
     await q.fill('#mtGoalBy', inTen);
     await q.waitForTimeout(200);
-    t.ok('the sheet says what the day is in service of',
-      /To be 185 lb by/.test(await q.textContent('#mtGoalLine')), await q.textContent('#mtGoalLine'));
+    /* The destination sits under the number it produced, at caption size —
+       set in the book's largest serif above it, a sentence read as a title
+       filled in wrong, and said again what the day already said. */
+    t.ok('the destination is a caption under the number, not a headline over it',
+      /185 lb by/.test(await q.textContent('#mtGoalLine')) &&
+      await q.evaluate(() => {
+        const g = document.getElementById('mtGoalLine');
+        return !!g.closest('.mt-who') && !document.querySelector('.mt-sheet .sheet-name');
+      }), await q.textContent('#mtGoalLine'));
     t.ok('and the pace it implies — 15 lb over ten weeks is 1.5 a week',
       /15 lb over 10 weeks/.test(await q.textContent('#mtGoalNote')) &&
       /1\.5 lb a week/.test(await q.textContent('#mtGoalNote')), await q.textContent('#mtGoalNote'));

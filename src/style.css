@@ -588,7 +588,8 @@ select { max-width: 280px; }
    and the editor behind that line lays every fact on its own row with the
    values right-aligned into a column — the one arrangement that cannot
    wrap the way a row of labelled boxes does on a phone. */
-.mt-answer { text-align: center; padding: 16px 0 2px; }
+/* No display line over the number — the number is the display line. */
+.mt-answer { text-align: center; padding: 6px 0 2px; }
 .mt-big {
   font-family: var(--serif); font-size: 38px; font-weight: 700; line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -607,6 +608,12 @@ select { max-width: 280px; }
   font-style: normal; font-size: 9px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--muted);
 }
+.mt-whotext { display: block; min-width: 0; }
+.mt-goal {
+  display: block; font-family: var(--serif); font-size: 14px; font-weight: 600;
+  color: var(--ink); margin-bottom: 1px;
+}
+.mt-goal.hide { display: none; }
 .mt-who {
   display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px;
   margin-top: 14px; padding: 10px 12px; text-align: left;
