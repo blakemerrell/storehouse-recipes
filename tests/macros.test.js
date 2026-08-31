@@ -235,6 +235,18 @@ module.exports = {
         await new Promise((r) => setTimeout(r, 120));
         return document.querySelectorAll('.mpick-wrap.in').length === 2;
       }));
+    /* A side trip to name something must not throw away what is already
+       collected. The form draws over the picker rather than replacing it. */
+    await p.click('[data-mpnew]');
+    await p.waitForTimeout(250);
+    t.ok('naming a new food draws over the picker rather than closing it',
+      await p.evaluate(() => !!document.querySelector('#nfName')));
+    await p.click('[data-nf="cancel"]');
+    await p.waitForTimeout(250);
+    t.ok('and backing out of it leaves the basket exactly as it was',
+      await p.evaluate(() => document.querySelectorAll('.mpick-wrap.in').length === 2 &&
+        /2/.test((document.querySelector('[data-mpdone]') || {}).textContent || '')));
+
     const basketWas = await p.evaluate(() =>
       [...document.querySelectorAll('.mpick-wrap.in .mpick-row')].map((r) => r.dataset.mpick));
     await p.click('[data-mpdone]');
@@ -353,6 +365,14 @@ module.exports = {
     await p.fill('#nfF', '12');
     await p.fill('#nfC', '25');
     await p.click('[data-nf="save"]');
+    await p.waitForTimeout(350);
+    /* Named from inside the picker, so it joins the basket rather than the
+       day — the picker is still open underneath, and anything already
+       collected is still waiting in it. */
+    t.ok('a food named here joins the basket, not the day behind it',
+      await p.evaluate(() => !!document.querySelector('.mpick-wrap.in') &&
+        !!document.querySelector('[data-mpdone]') && !document.querySelector('#nfName')));
+    await p.click('[data-mpdone]');
     await p.waitForTimeout(350);
     t.ok('it lands on the meal that asked for it',
       await p.evaluate(() => {

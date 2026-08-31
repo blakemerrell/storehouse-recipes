@@ -2082,6 +2082,19 @@
     }).join('');
   }
 
+  /* Everything waiting, listed where it can be seen. The lists themselves
+     tick what is in the basket, but a thing you have just named yourself is
+     on no list yet — and a basket you cannot see is a basket you commit by
+     surprise. */
+  function mBasketListHTML() {
+    var ids = Object.keys(S.mpBasket);
+    if (!ids.length) return '';
+    return '<div class="mt-div">In the basket</div>' + ids.map(function (k) {
+      var r = BY_ID[idOf(k)];
+      return r ? mpRowHTML(r, S.mpBasket[k]) : '';
+    }).join('');
+  }
+
   /* What the basket will do to the meal, said before you commit it rather
      than discovered afterwards on the plate. */
   function mBasketFootHTML() {
@@ -2137,6 +2150,7 @@
       return wrap(
         (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
         mpWaysHTML(true) +
+        mBasketListHTML() +
         mpRecentHTML() +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +
           '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
@@ -2666,6 +2680,7 @@
 
   function mScanStart() {
     var root = $('scanRoot');
+    if (!root) return;                  // the sheet moved on before we got here
     root.innerHTML = '<div class="scan-wrap">' +
       '<video id="scanVid" playsinline muted></video>' +
       '<div class="scan-line"></div>' +
@@ -5883,8 +5898,16 @@
     $('macroMenu').addEventListener('click', function (e) {
       var b = e.target.closest('[data-mmore]');
       if (!b) return;
+      /* Copy says whether it worked by renaming itself, which it cannot do
+         from inside a menu that has already closed. So this one stays open
+         long enough to be read, and goes when the word does. */
+      if (b.dataset.mmore === 'copy') {
+        e.stopPropagation();
+        mCopyDay(b);
+        setTimeout(function () { mMenu(false); }, 2400);
+        return;
+      }
       mMenu(false);
-      if (b.dataset.mmore === 'copy') { mCopyDay(b); return; }
       rememberOpener();
       if (b.dataset.mmore === 'plan') S.macroTargOpen = true;
       else S.syncOpen = true;
@@ -6124,11 +6147,15 @@
         return;
       }
 
+      /* The picker stays alive underneath. It used to be torn down here, which
+         threw away a basket somebody had spent four taps filling the moment
+         they went to name a fifth thing — silently, with no way back. The
+         form draws over it (renderModal checks newFood first) and hands what
+         it makes to the basket rather than to the day. */
       var mpn = e.target.closest('[data-mpnew]');
       if (mpn && S.macroPick) {
-        // remember which meal asked, since the picker closes behind this
-        S.newFood = { slot: S.macroPick.slot };
-        S.macroPick = null;
+        mScanStop();
+        S.newFood = { slot: S.macroPick.slot, back: 1 };
         renderModal();
         return;
       }
@@ -6151,8 +6178,7 @@
            packet's numbers the answer to a question nobody asked. */
         if (got && S.macroPick && !$('nfName')) {
           mScanStop();
-          S.newFood = { slot: S.macroPick.slot, pre: got };
-          S.macroPick = null;
+          S.newFood = { slot: S.macroPick.slot, pre: got, back: 1 };
           renderModal();
           return;
         }
@@ -6172,7 +6198,15 @@
 
       var nf = e.target.closest('[data-nf]');
       if (nf && (S.newFood || S.macroPick)) {
-        if (nf.dataset.nf === 'cancel') { mScanStop(); S.newFood = null; close(); return; }
+        if (nf.dataset.nf === 'cancel') {
+          mScanStop();
+          var wasBack = S.newFood && S.newFood.back && S.macroPick;
+          S.newFood = null;
+          // back to the picker with the basket intact, not out of the sheet
+          if (wasBack) { renderModal(); return; }
+          close();
+          return;
+        }
         if (nf.dataset.nf === 'find' || nf.dataset.nf === 'code' || nf.dataset.nf === 'brand') {
           var term = String((($('nfFind') || {}).value) || '').trim();
           var byCode = nf.dataset.nf === 'code';
@@ -6221,6 +6255,18 @@
         allF[fkey] = { name: nm, unit: nval('nfUnit') || 'serving', kcal: kc, p: pp, f: ff, c: cc };
         mWriteMyFoods(allF);
         mBuildFoods();
+        /* Named from inside the picker, so it joins the basket and the picker
+           comes back — with it ticked, beside whatever was already waiting.
+           Straight onto the day would have skipped the ✓ everything else
+           goes through, and dropped the rest of the basket on the floor. */
+        if (S.newFood.back && S.macroPick) {
+          S.mpBasket['f:my:' + fkey] = 1;
+          S.newFood = null;
+          // home is where the basket is listed, so the new thing is visible
+          S.mpMode = 'home';
+          renderModal();
+          return;
+        }
         var nslot = S.newFood.slot;
         mEditDay(mViewKey(), function (day) {
           (day[nslot] = day[nslot] || []).push({ id: 'f:my:' + fkey, x: 1, eaten: 0 });
