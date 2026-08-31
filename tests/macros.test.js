@@ -164,6 +164,7 @@ module.exports = {
       [...document.querySelectorAll('.mpick-row[data-mpick]')]
         .find((x) => x.dataset.mpick.indexOf('f:') === 0 && /honey/i.test(x.textContent)).click();
     });
+    await p.click('[data-mpdone]');
     await p.waitForTimeout(300);
     t.ok('and lands on the day carrying its own macros',
       await p.evaluate(() => {
@@ -182,6 +183,81 @@ module.exports = {
       const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
       const day = days[Object.keys(days)[0]];
       day.l = [];
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+    });
+    await p.reload();
+    await p.waitForTimeout(300);
+
+    /* ---- the basket ------------------------------------------------------
+     * A meal assembled from parts — a scoop of whey, a splash of half and
+     * half, a spoon of honey — used to cost one full trip through this sheet
+     * per part, because picking anything closed it. */
+    await p.click('[data-mslot="s"]');
+    await p.click('[data-mpmode="recipes"]');
+    await p.waitForTimeout(250);
+    t.ok('picking does not close the sheet, it fills a basket',
+      await p.evaluate(async () => {
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
+        rows[0].click();
+        await new Promise((r) => setTimeout(r, 120));
+        return !!document.querySelector('.sheet') &&
+          document.querySelectorAll('.mpick-wrap.in').length === 1 &&
+          !!document.querySelector('[data-mpdone]');
+      }));
+    // each pick redraws the list, so every press has to find its row afresh
+    t.ok('and several go in before anything is committed',
+      await p.evaluate(async () => {
+        const tap = async (n) => {
+          document.querySelectorAll('.mpick-row[data-mpick]')[n].click();
+          await new Promise((r) => setTimeout(r, 120));
+        };
+        await tap(2);
+        await tap(4);
+        return document.querySelectorAll('.mpick-wrap.in').length === 3 &&
+          /3/.test(document.querySelector('[data-mpdone]').textContent);
+      }));
+    // and the day has not been touched yet — nothing lands until the ✓
+    t.ok('the day stays untouched until it is told to add them',
+      await p.evaluate(() => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        const day = days[Object.keys(days)[0]] || {};
+        return (day.s || []).length === 0;
+      }));
+    t.ok('the foot says what the basket will cost before it costs it',
+      await p.evaluate(() => {
+        const f = document.querySelector('.mp-foot');
+        return !!f && /\d+ kcal/.test(f.textContent) && /\d+P/.test(f.textContent);
+      }), await p.evaluate(() => (document.querySelector('.mp-foot') || {}).textContent));
+    // pressed again, a row comes back out rather than doubling up
+    t.ok('a second press takes it back out',
+      await p.evaluate(async () => {
+        document.querySelectorAll('.mpick-row[data-mpick]')[2].click();
+        await new Promise((r) => setTimeout(r, 120));
+        return document.querySelectorAll('.mpick-wrap.in').length === 2;
+      }));
+    const basketWas = await p.evaluate(() =>
+      [...document.querySelectorAll('.mpick-wrap.in .mpick-row')].map((r) => r.dataset.mpick));
+    await p.click('[data-mpdone]');
+    await p.waitForTimeout(300);
+    t.ok('and the ✓ lands the whole basket on the meal at once',
+      await p.evaluate((was) => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = days[Object.keys(days)[0]];
+        const got = (day.s || []).map((i) => String(i.id));
+        return got.length === was.length && was.every((id) => got.indexOf(id) >= 0) &&
+          !document.querySelector('.sheet');
+      }, basketWas), JSON.stringify(basketWas));
+    // and a fresh sheet starts empty rather than inheriting the last one
+    await p.click('[data-mslot="l"]');
+    await p.waitForTimeout(250);
+    t.ok('the next meal opens with an empty basket',
+      await p.evaluate(() => !document.querySelector('[data-mpdone]') &&
+        !document.querySelector('.mpick-wrap.in')));
+    await p.goBack();
+    await p.waitForTimeout(250);
+    await p.evaluate(() => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      days[Object.keys(days)[0]].s = [];
       localStorage.setItem('bsc.macroDays', JSON.stringify(days));
     });
     await p.reload();
@@ -454,6 +530,7 @@ module.exports = {
       return { id: r.dataset.mpick, x: Number(r.dataset.mpx) };
     });
     await p.click('.mpick-row[data-mpx]');
+    await p.click('[data-mpdone]');
     await p.waitForTimeout(300);
     const shown = async () => {
       const f = await foot();
@@ -633,6 +710,7 @@ module.exports = {
     await p.fill('#mpSearch', estName);
     await p.waitForTimeout(200);
     await p.click('.mpick-row[data-mpick]');
+    await p.click('[data-mpdone]');
     await p.waitForTimeout(300);
     t.ok('an estimated recipe carries the tilde on its line',
       await p.evaluate(() => Array.from(document.querySelectorAll('.mitem-mac'))
@@ -1027,13 +1105,26 @@ module.exports = {
       drafted.tot.p >= 0.6 * planP, Math.round(drafted.tot.p) + ' of ' + planP);
     t.ok('without blowing the fat budget wide open',
       drafted.tot.f <= planF + 30, Math.round(drafted.tot.f) + ' vs ' + planF);
-    t.ok('a full day leaves the button nothing to do', drafted.fillDisabled);
+    /* Disabled exactly when there is nothing left to draft. Fill stops once a
+       meal's remaining budget is under a hundred calories, so on a tight plan
+       it can honestly leave the last one empty — and then the button is
+       rightly still live. Asserting "always disabled after Fill" made this a
+       coin toss on which meals the draft happened to reach. */
+    t.ok('the button goes quiet exactly when every meal has something',
+      drafted.fillDisabled === drafted.perSlot.every((n) => n >= 1),
+      'disabled=' + drafted.fillDisabled + ' slots=' + drafted.perSlot.join(','));
 
-    // only the empty meals are drafted — what you placed is yours
+    /* Only the empty meals are drafted — what you placed is yours. Recorded
+       per meal that actually has something, since a tight plan can leave one
+       of them empty and that is not this assertion's business. */
     const keepIds = await q.evaluate(() => {
       const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
       const day = days[Object.keys(days)[0]];
-      return { b: String(day.b[0].id), d: String(day.d[0].id), s: String(day.s[0].id) };
+      const out = {};
+      ['b', 'd', 's'].forEach((k) => {
+        if ((day[k] || []).length) out[k] = String(day[k][0].id);
+      });
+      return out;
     });
     await q.click('[data-mdel="l:0"]');
     await q.waitForTimeout(200);
@@ -1043,8 +1134,8 @@ module.exports = {
       await q.evaluate((keep) => {
         const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
         const day = days[Object.keys(days)[0]];
-        return day.l.length === 1 && String(day.b[0].id) === keep.b &&
-          String(day.d[0].id) === keep.d && String(day.s[0].id) === keep.s;
+        return day.l.length === 1 && Object.keys(keep).every(
+          (k) => (day[k] || []).length && String(day[k][0].id) === keep[k]);
       }, keepIds));
 
     await q.context().close();
@@ -1208,6 +1299,7 @@ module.exports = {
       await m.click('[data-mpmode="recipes"]');
       await m.waitForTimeout(250);
       await m.click('.mpick-row[data-mpx]');
+      await m.click('[data-mpdone]');
       await m.waitForTimeout(300);
     }
 
@@ -1302,6 +1394,7 @@ module.exports = {
 
     // one plate on the day, shrunk by hand, put right by the button
     await z.click('.mpick-row[data-mpx]');
+    await z.click('[data-mpdone]');
     await z.waitForTimeout(300);
     for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
@@ -1495,6 +1588,7 @@ module.exports = {
     await y.click('[data-mpmode="recipes"]');
     await y.waitForTimeout(200);
     await y.click('.mpick-row[data-mpx]');
+    await y.click('[data-mpdone]');
     await y.waitForTimeout(300);
     const pinned = await y.evaluate(() => {
       const b = document.querySelector('.mitem-name');

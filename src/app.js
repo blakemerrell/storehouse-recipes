@@ -509,6 +509,12 @@
        on a second sheet, which is three taps of ceremony in front of the
        fastest way to name a food. */
     mpMode: 'home', mpLook: '',
+    /* What the picker has been told to add, before it is told to stop. A meal
+       assembled from parts — a scoop of whey, a splash of half and half, a
+       spoon of honey — used to cost one full trip through this sheet per
+       part, because picking anything closed it. The basket holds them all
+       and one ✓ commits the lot. Keyed id -> portion. */
+    mpBasket: {},
     /* How far down each meal's ranked list Try again has walked, keyed day
        and meal. Ephemeral on purpose: tomorrow starts at the top again. */
     mTry: {}
@@ -2024,6 +2030,34 @@
     }).join('') + '</div>';
   }
 
+  /* One row, wherever it is listed. The picker, the look-up and the recent
+     list all offer the same thing — a dish at a portion — so they offer it
+     in the same shape, and the shape knows whether it is already in the
+     basket. */
+  function mpRowHTML(r, x, fitText) {
+    var inB = S.mpBasket[r.id] !== undefined;
+    if (inB) x = S.mpBasket[r.id];
+    var fit = fitText !== undefined && fitText !== null ? fitText
+      : '&times;' + fmtNum(x) + (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, x);
+    return '<div class="mpick-wrap' + (inB ? ' in' : '') + '">' +
+      '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + x + '"' +
+        ' aria-pressed="' + (inB ? 'true' : 'false') + '">' +
+        '<span class="mp-tick" aria-hidden="true">' + (inB ? '&#10003;' : '&#43;') + '</span>' +
+        leaf(r.score, 'leaf-sm') +
+        '<span class="mp-body">' +
+          '<span class="mp-name">' +
+            (window.Store.isFav(r.id) ? '<span class="mp-fav">&#9733;</span> ' : '') +
+            esc(r.name) + '</span>' +
+          '<span class="mp-fit">' + fit + '</span>' +
+        '</span>' +
+      '</button>' +
+      (inB ? '<span class="mp-bstep no-print">' +
+        '<button data-mbstep="' + esc(String(r.id)) + ':-1" aria-label="Smaller">&minus;</button>' +
+        '<button data-mbstep="' + esc(String(r.id)) + ':1" aria-label="Bigger">+</button>' +
+      '</span>' : '') +
+    '</div>';
+  }
+
   /* What you ate lately, newest first, one row each. The everyday case is a
      thing you have already named once — the tamale from last week — and it
      should not need any of the three ways to reach. */
@@ -2044,26 +2078,55 @@
     });
     if (!out.length) return '';
     return '<div class="mt-div">Recent</div>' + out.map(function (e) {
-      return '<button class="mpick-row" data-mpick="' + esc(String(e.r.id)) + '" data-mpx="' + e.x + '">' +
-        leaf(e.r.score, 'leaf-sm') +
-        '<span class="mp-body"><span class="mp-name">' + esc(e.r.name) + '</span>' +
-        '<span class="mp-fit">&times;' + fmtNum(e.x) + (e.r.food ? ' ' + esc(e.r.unit) : '') +
-        ' &middot; ' + mMacLine(e.r, e.x) + '</span></span></button>';
+      return mpRowHTML(e.r, e.x);
     }).join('');
+  }
+
+  /* What the basket will do to the meal, said before you commit it rather
+     than discovered afterwards on the plate. */
+  function mBasketFootHTML() {
+    var ids = Object.keys(S.mpBasket);
+    if (!ids.length) return '';
+    var t = { kcal: 0, p: 0, f: 0, c: 0 }, est = false;
+    ids.forEach(function (k) {
+      var r = BY_ID[idOf(k)];
+      if (!r || !r.macro) return;
+      var x = S.mpBasket[k];
+      t.kcal += (r.macro.kcal || 0) * x; t.p += (r.macro.p || 0) * x;
+      t.f += (r.macro.f || 0) * x; t.c += (r.macro.c || 0) * x;
+      if (r.est) est = true;
+    });
+    var targets = mReadTargets();
+    var busts = false, over = 0;
+    if (targets.p || targets.f || targets.c) {
+      var T = mShares(mDay(mViewKey()), targets,
+        { k: S.macroPick.slot, w: S.macroPick.w }).T;
+      over = Math.round(t.kcal - kcalOf(T));
+      busts = over > kcalOf(T) * 0.07;
+    }
+    return '<div class="mp-foot' + (busts ? ' busts' : '') + '">' +
+      '<span class="mp-foot-l">' + (busts ? 'Over this meal by ' + over : 'Adds') + '</span>' +
+      '<span class="mp-foot-m">' + (est ? '~' : '') + Math.round(t.kcal) + ' kcal &middot; ' +
+        Math.round(t.p) + 'P &middot; ' + Math.round(t.f) + 'F &middot; ' +
+        Math.round(t.c) + 'C</span>' +
+    '</div>';
   }
 
   function macroPickerHTML() {
     var name = S.macroPick.n;
     var d = keyDate(mViewKey());
+    var n = Object.keys(S.mpBasket).length;
     var head = '<div class="sheet-top">' +
         '<div class="sheet-eyebrow">Add to ' + esc(name) + ' · ' +
           M_MONS[d.getMonth()] + ' ' + d.getDate() + '</div>' +
+        (n ? '<span class="mp-cnt" aria-label="' + n + ' waiting">&#129386; ' + n + '</span>' +
+          '<button class="mp-done" data-mpdone="1">Add ' + n + '</button>' : '') +
         '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
       '</div>';
     var wrap = function (inner) {
       return '<div class="scrim no-print" data-close="1">' +
         '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
-        head + inner + '</div></div>';
+        head + inner + mBasketFootHTML() + '</div></div>';
     };
 
     if (S.mpMode === 'home') {
@@ -2167,15 +2230,10 @@
     RECIPES.forEach(function (r) { if (matchRank(r, qs)) pool.push(r); });
     if (!pool.length) return '<div class="mslot-empty">Nothing of yours matches.</div>';
     return mRank(pool, day, targets, pick).slice(0, 12).map(function (e) {
-      var r = e.r;
-      var src = r.food ? 'Yours' : 'Recipe';
-      return '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + e.x + '">' +
-        leaf(r.score, 'leaf-sm') +
-        '<span class="mp-body"><span class="mp-name">' +
-          (window.Store.isFav(r.id) ? '<span class="mp-fav">&#9733;</span> ' : '') +
-          esc(r.name) + '</span>' +
-        '<span class="mp-fit"><span class="mp-src">' + src + '</span> &times;' + fmtNum(e.x) +
-          (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, e.x) + '</span></span></button>';
+      var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
+      return mpRowHTML(r, e.x,
+        '<span class="mp-src">' + (r.food ? 'Yours' : 'Recipe') + '</span> &times;' + fmtNum(xx) +
+        (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx));
     }).join('');
   }
 
@@ -2224,19 +2282,10 @@
     /* Always there, at the foot of whatever the list is: "none of these" is
        a thought you have after reading the list, not before. */
     return rows.map(function (e) {
-      var r = e.r;
-      var fit = e.score === null ? 'no data'
-        : '&times;' + fmtNum(e.x) + (r.food ? ' ' + esc(r.unit) : '') +
-          ' &middot; ' + mMacLine(r, e.x);
-      return '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + e.x + '">' +
-        leaf(r.score, 'leaf-sm') +
-        '<span class="mp-body">' +
-          '<span class="mp-name">' +
-            (window.Store.isFav(r.id) ? '<span class="mp-fav">&#9733;</span> ' : '') +
-            esc(r.name) + '</span>' +
-          '<span class="mp-fit">' + fit + '</span>' +
-        '</span>' +
-      '</button>';
+      var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
+      return mpRowHTML(r, e.x, e.score === null ? 'no data'
+        : '&times;' + fmtNum(xx) + (r.food ? ' ' + esc(r.unit) : '') +
+          ' &middot; ' + mMacLine(r, xx));
     }).join('') + own;
   }
 
@@ -2658,7 +2707,13 @@
       };
       tick();
     }, function (err) {
-      $('scanSay').textContent = err && err.name === 'NotAllowedError'
+      /* The answer can arrive after the question is gone. Scan opens the lens
+         the moment the mode is chosen, so leaving the mode — or the sheet —
+         before the permission prompt resolves tears this element out from
+         under the reply, and writing to it then threw. */
+      var say = $('scanSay');
+      if (!say) return;
+      say.textContent = err && err.name === 'NotAllowedError'
         ? 'The camera was not allowed. Type the number instead.'
         : 'No camera here. Type the number instead.';
     });
@@ -4800,7 +4855,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5725,6 +5780,7 @@
         // always the three ways first; the last way used is not a preference
         S.mpMode = 'home';
         S.mpLook = '';
+        S.mpBasket = {};
         pushSheet({ m: 1 });
         renderModal();
         return;
@@ -6175,14 +6231,41 @@
         return;
       }
 
+      /* Into the basket, not onto the day. Pressed again it comes back out,
+         so a mis-tap costs a tap rather than a trip to the plate to delete
+         it. Nothing reaches the day until ✓. */
       var mp = e.target.closest('[data-mpick]');
       if (mp && S.macroPick) {
-        var mslot = S.macroPick.slot;
         var mid = idOf(mp.dataset.mpick);
-        var mx = Number(mp.dataset.mpx) || 1;
+        if (S.mpBasket[mid] !== undefined) delete S.mpBasket[mid];
+        else S.mpBasket[mid] = Number(mp.dataset.mpx) || 1;
+        renderModal();
+        return;
+      }
+
+      // one portion step on something in the basket, before it is committed
+      var mbs = e.target.closest('[data-mbstep]');
+      if (mbs && S.macroPick) {
+        var bp = mbs.dataset.mbstep.split(':');
+        var bid = idOf(bp[0]);
+        if (S.mpBasket[bid] !== undefined) {
+          var nx2 = S.mpBasket[bid] + Number(bp[1]) * 0.25;
+          S.mpBasket[bid] = Math.max(0.25, Math.min(4, nx2));
+          renderModal();
+        }
+        return;
+      }
+
+      var mcommit = e.target.closest('[data-mpdone]');
+      if (mcommit && S.macroPick) {
+        var cslot = S.macroPick.slot, basket = S.mpBasket;
         mEditDay(mViewKey(), function (day) {
-          (day[mslot] = day[mslot] || []).push({ id: mid, x: mx, eaten: 0 });
+          var list = (day[cslot] = day[cslot] || []);
+          Object.keys(basket).forEach(function (k) {
+            list.push({ id: idOf(k), x: basket[k], eaten: 0 });
+          });
         });
+        mScanStop();
         close();
         renderMacros();
         return;
@@ -6602,12 +6685,15 @@
     S.editId = null;
     S.editBase = null;
     // and the Macros sheets, for exactly the same reason
+    if (S.macroPick) mScanStop();        // never leave the camera running
     S.macroPick = null;
     S.macroTargOpen = false;
-    if (S.newFood) mScanStop();          // never leave the camera running
+    if (S.newFood) mScanStop();
     S.newFood = null;
     S.syncOpen = false;
     S.mpQuery = '';
+    // a basket left behind would silently refill the next meal you opened
+    S.mpBasket = {};
     renderModal();
     restoreOpener();
   }
