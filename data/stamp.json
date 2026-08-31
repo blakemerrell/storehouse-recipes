@@ -1,5 +1,5 @@
 {
-  "v": 142,
+  "v": 143,
   "files": {
     "data/recipes.js": "7440cca7d168269b",
     "data/nutrition.js": "39b6b12094d02d95",
@@ -8,6 +8,6 @@
     "src/app.js": "1fa579d4e0b7460e",
     "src/sync.js": "63ef13a89fbef484",
     "src/config.js": "8d8de9f3bbc44749",
-    "src/style.css": "700e92d1c462ccd7"
+    "src/style.css": "ec847321ef9fc161"
   }
 }

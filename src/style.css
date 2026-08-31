@@ -491,7 +491,11 @@ select { max-width: 280px; }
 .mitem-r1, .mitem-r2 { display: flex; align-items: center; gap: 10px; }
 .mitem-r2 { margin-top: 3px; }
 .mitem-l { display: flex; gap: 8px; align-items: center; min-width: 0; flex: 1 1 auto; }
-.mitem-l input { width: 16px; height: 16px; flex: none; }
+/* The tick is a control, not a third way of saying "eaten" — the struck
+   name and the filled dot on the rail already say that. But it was saying
+   it in the browser's blue, the one colour on the page belonging to nobody:
+   the shopping list has ticked in the book's own green since it was built. */
+.mitem-l input { accent-color: var(--green); width: 16px; height: 16px; flex: none; }
 .mitem-acts { flex: none; display: flex; gap: 10px; align-items: center; margin-left: auto; }
 /* the bin: a bin, so it can never be read as another multiplier */
 .mdel {
@@ -701,6 +705,7 @@ select { max-width: 280px; }
   text-transform: uppercase; font-weight: 600; color: var(--muted);
 }
 .mtm-sec { display: flex; align-items: center; gap: 5px; }
+.mtm-sec input { accent-color: var(--green); }
 .mtm-secs { align-items: flex-start; }
 .mtm-secdone { margin-top: 6px; margin-left: auto; padding: 4px 16px; font-size: 11.5px; }
 /* what the meal draws from, once the choosing is over */
