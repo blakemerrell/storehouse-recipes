@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=164">
+<link rel="stylesheet" href="src/style.css?v=166">
 </head>
 <body>
 
@@ -71,8 +71,7 @@
 <div class="hint no-print hide" id="shareHint">
   <button class="hint-in" id="shareHintGo">
     <span class="hint-t">Cooking with someone else?</span>
-    <span class="hint-s">Put both phones on one list &mdash; the same weeks, the same shopping
-      list, ticked off in the store on either one.</span>
+    <span class="hint-s">Put both phones on one shopping list.</span>
   </button>
   <button class="hint-x" id="shareHintX" aria-label="Not now">&times;</button>
 </div>
@@ -153,24 +152,13 @@
          controls in the open, because tuning is the point of the screen. -->
     <div class="mday-stick no-print">
       <div class="mday-head">
-        <div class="view-title serif mday-title">My Day
-          <button class="minfo no-print" id="macroInfo" aria-label="About this tab"
-            aria-expanded="false">?</button>
-        </div>
+        <div class="view-title serif mday-title">My Day</div>
         <button class="ghost" id="macroPrev" aria-label="Previous day">&lsaquo;</button>
         <select id="macroDaySel" aria-label="Day"></select>
         <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
       </div>
       <div id="macroFoot"></div>
     </div>
-
-    <div class="plan-note hide" id="macroNote">Yours alone &mdash; this tab saves on this phone
-      and is not shared with the household. Craft my plan asks who you are and what you are
-      after and works your grams out. Then each morning: weigh in, fill the day, tune it.
-      The picker suggests a portion that fits what you have left, Fill my day drafts every
-      empty meal at once &mdash; favorites first, when they fit &mdash; and Rebalance re-sizes
-      the un-eaten, un-locked plates when the day has drifted. The little lock keeps a plate
-      exactly as you set it; the pin puts it on every new day.</div>
 
     <!-- What the plan is doing for you, where a button for making one used
          to sit. Crafting is a once-a-season job; this line earns the space
@@ -182,14 +170,23 @@
       <div id="macroSlots"></div>
     </div>
 
+    <!-- The morning's two verbs, against the bottom edge wherever you have
+         scrolled to. They used to sit under six meals, which put the two
+         controls pressed most often furthest from the thumb. Everything
+         else is a once-a-day or once-a-season job and folds behind the
+         third button. -->
     <div class="mday-acts no-print">
-      <button class="ghost" id="macroFill">Fill my day</button>
+      <button class="btn-primary" id="macroFill">Fill my day</button>
       <button class="ghost" id="macroRebal"
         title="Re-size the un-eaten, un-locked plates to land the day back on target">Rebalance</button>
-      <button class="ghost" id="macroCopy"
-        title="Puts the day on your clipboard as plain text — not the household Share">Copy as text</button>
+      <button class="ghost mday-more" id="macroMore" aria-haspopup="true"
+        aria-expanded="false" aria-label="More">&hellip;</button>
+      <div class="mday-menu hide" id="macroMenu" role="menu">
+        <button role="menuitem" data-mmore="plan">Craft my plan</button>
+        <button role="menuitem" data-mmore="copy">Copy as text</button>
+        <button role="menuitem" data-mmore="you">Sync &amp; sharing</button>
+      </div>
     </div>
-    <div class="mday-note" id="mdayTune"></div>
   </div>
 </section>
 
@@ -273,14 +270,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=164"></script>
-<script src="data/nutrition.js?v=164"></script>
-<script src="data/art.js?v=164"></script>
-<script src="data/qr.js?v=164"></script>
-<script src="src/config.js?v=164"></script>
+<script src="data/recipes.js?v=166"></script>
+<script src="data/nutrition.js?v=166"></script>
+<script src="data/art.js?v=166"></script>
+<script src="data/qr.js?v=166"></script>
+<script src="src/config.js?v=166"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=164"></script>
-<script src="src/app.js?v=164"></script>
+<script src="src/sync.js?v=166"></script>
+<script src="src/app.js?v=166"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

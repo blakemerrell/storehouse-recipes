@@ -402,6 +402,18 @@ window.Store = (function () {
      promise is dropped again on failure so a later attempt can retry rather
      than inheriting the first one's error forever. */
   var readyP = null;
+  /* Where a popup cannot be trusted: an installed app has no browser window
+     to open one in, and phones in general treat popups as something to
+     suppress. Desktop keeps the popup, where it stays on the same page and
+     costs no reload. */
+  function wantsRedirect() {
+    try {
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+      if (window.navigator && window.navigator.standalone) return true;
+    } catch (e) { /* older browser: fall through to the agent string */ }
+    return /Android|iPhone|iPad|iPod/i.test((window.navigator && navigator.userAgent) || '');
+  }
+
   function ready() {
     if (readyP) return readyP;
     readyP = (window.firebase && window.firebase.firestore
@@ -415,6 +427,22 @@ window.Store = (function () {
       FV = window.firebase.firestore.FieldValue;
       // keep working with no signal, and queue writes made while offline
       return db.enablePersistence({ synchronizeTabs: true }).catch(function () {});
+    }).then(function () {
+      /* A redirect sign-in finishes HERE, one page load later.
+       *
+         onAuthStateChanged alone would report the new user, but the one
+         failure that matters is invisible without asking: linking the
+         anonymous identity to a Google account that already exists is
+         refused, and on the redirect path that refusal arrives only in the
+         redirect result. Unasked, the sign-in looks like it silently did
+         nothing. Ask, and fall back the same way the popup path does. */
+      return window.firebase.auth().getRedirectResult().catch(function (err) {
+        if (err && /credential-already-in-use|email-already-in-use/.test(err.code || '') &&
+          err.credential) {
+          return window.firebase.auth().signInWithCredential(err.credential);
+        }
+        return null;
+      });
     }).then(function () {
       /* Wait for whatever identity the browser already holds before making a
          new one. signInAnonymously() on a page where somebody is signed in
@@ -593,11 +621,27 @@ window.Store = (function () {
       ready().then(function () { window.firebase.auth().onAuthStateChanged(function () { cb(); }); });
     },
 
+    /* A popup is the wrong instrument on a phone.
+     *
+       Inside an installed PWA there is no window to put it in: Android hands
+       the popup to the browser as a separate task, and the promise waiting on
+       it may reject as blocked or simply never settle. Either way the app sat
+       there having apparently done nothing, and the only thing left to do was
+       press it again — which is what "I seem to be logging in more than I
+       should" felt like from the outside. Redirect leaves the page and comes
+       back signed in, which is the flow phones are built for. */
+    wantsRedirect: wantsRedirect,
+
     signInGoogle: function () {
       return ready().then(function () {
         var auth = window.firebase.auth();
         var prov = new window.firebase.auth.GoogleAuthProvider();
         var cur = auth.currentUser;
+        if (wantsRedirect()) {
+          return cur && cur.isAnonymous
+            ? cur.linkWithRedirect(prov)
+            : auth.signInWithRedirect(prov);
+        }
         var link = cur && cur.isAnonymous
           ? cur.linkWithPopup(prov)
           : auth.signInWithPopup(prov);

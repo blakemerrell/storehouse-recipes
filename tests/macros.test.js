@@ -25,16 +25,29 @@ module.exports = {
         return /^Today ·/.test(s.options[s.selectedIndex].text) && s.options.length === 14;
       }));
 
-    // the explainer lives behind the ?, not on every visit's screen
-    t.ok('the explainer waits behind the ?',
-      await p.evaluate(() => document.getElementById('macroNote').classList.contains('hide')));
-    await p.click('#macroInfo');
-    await p.waitForTimeout(100);
-    t.ok('and the ? opens it',
-      await p.evaluate(() => !document.getElementById('macroNote').classList.contains('hide') &&
-        document.getElementById('macroInfo').getAttribute('aria-expanded') === 'true'));
-    await p.click('#macroInfo');
-    await p.waitForTimeout(100);
+    // the two morning verbs are the bar; everything else folded behind the ⋯
+    t.ok('the day carries two buttons, not a row of five',
+      await p.evaluate(() => {
+        const a = document.querySelector('.mday-acts');
+        return !!document.getElementById('macroFill') && !!document.getElementById('macroRebal') &&
+          getComputedStyle(a).position === 'sticky' &&
+          document.getElementById('macroMenu').classList.contains('hide');
+      }));
+    await p.click('#macroMore');
+    await p.waitForTimeout(80);
+    t.ok('and the ⋯ opens the rest',
+      await p.evaluate(() => !document.getElementById('macroMenu').classList.contains('hide') &&
+        document.getElementById('macroMore').getAttribute('aria-expanded') === 'true' &&
+        document.querySelectorAll('#macroMenu [data-mmore]').length === 3));
+    await p.click('.mday-rail');
+    await p.waitForTimeout(80);
+    t.ok('and a press anywhere else closes it',
+      await p.evaluate(() => document.getElementById('macroMenu').classList.contains('hide')));
+
+    // the tab explains itself by working, not by a paragraph about itself
+    t.ok('no explainer paragraph rides along',
+      await p.evaluate(() => !document.getElementById('macroNote') &&
+        !document.getElementById('mdayTune')));
 
     // ---- default targets, and the calories derived from them, not stored
     const defP = 180, defF = 50, defC = 50;
@@ -115,6 +128,7 @@ module.exports = {
        food table those recipes are costed from was already in the browser
        with no door on it. */
     await p.click('[data-mslot="l"]');
+    await p.click('[data-mpmode="recipes"]');
     await p.waitForTimeout(250);
     await p.selectOption('#mpSec', 'foods');
     await p.waitForTimeout(250);
@@ -177,6 +191,7 @@ module.exports = {
        has to add up, and a plate you cannot log is a plate that quietly makes
        every number on the screen wrong. */
     await p.click('[data-mslot="d"]');
+    await p.click('[data-mpmode="recipes"]');
     await p.waitForTimeout(250);
     t.ok('the picker offers a way to name something it has never heard of',
       await p.evaluate(() => {
@@ -185,21 +200,30 @@ module.exports = {
         return true;
       }));
     await p.waitForTimeout(250);
-    await p.click('[data-mpnew]');
-    await p.waitForTimeout(250);
-    /* Looking it up beats guessing, and neither host is touched until asked
-       — a reader who never opens this box still fetches nothing. */
-    t.ok('the sheet offers to look it up, by name or by barcode',
-      await p.evaluate(() => !!document.querySelector('[data-nf="find"]') &&
+
+    /* The three ways in are the sheet's first screen, and each one is one tap
+       from + Add. Looking it up beats guessing, and neither host is touched
+       until asked — a reader who never opens this box still fetches nothing. */
+    await p.click('[data-mpmode="look"]');
+    await p.waitForTimeout(200);
+    t.ok('Look up is one box, not a mode inside a mode',
+      await p.evaluate(() => !!document.querySelector('#mpLookIn') &&
+        document.querySelectorAll('[data-mpmode]').length === 3));
+    await p.click('[data-mpmode="scan"]');
+    await p.waitForTimeout(200);
+    t.ok('and Scan opens the lens with the typed number beside it',
+      await p.evaluate(() => !!document.querySelector('#scanRoot') &&
         !!document.querySelector('[data-nf="code"]') && !!document.querySelector('#nfFind')));
     t.ok('and asking with an empty box says so rather than reaching out',
       await p.evaluate(async () => {
-        document.querySelector('[data-nf="find"]').click();
+        document.querySelector('[data-nf="code"]').click();
         await new Promise((r) => setTimeout(r, 150));
-        return /Type what it was/.test(document.getElementById('nfResults').textContent) &&
+        return /Type the number/.test(document.getElementById('nfResults').textContent) &&
           performance.getEntriesByType('resource')
             .every((e) => e.name.indexOf(location.origin) === 0);
       }));
+    await p.click('[data-mpnew]');
+    await p.waitForTimeout(250);
     /* Safari has no barcode reader and will not grow one, so the decoder is
        in here rather than on somebody's CDN. Proved against a barcode built
        to spec, at three sizes, which needs no camera and no luck. */
@@ -388,6 +412,7 @@ module.exports = {
 
     // ---- the picker: ranked rows, sane suggestions, protein at the top
     await p.click('[data-mslot="b"]');
+    await p.click('[data-mpmode="recipes"]');
     await p.waitForTimeout(200);
     t.ok('the picker sheet opens on the meal', !!(await p.$('#mpList')));
     const sanity = await p.evaluate(() => {
@@ -422,6 +447,7 @@ module.exports = {
 
     // ---- add the top suggestion; the footer moves by exactly x times the recipe
     await p.click('[data-mslot="b"]');
+    await p.click('[data-mpmode="recipes"]');
     await p.waitForTimeout(200);
     const picked = await p.evaluate(() => {
       const r = document.querySelector('.mpick-row[data-mpx]');
@@ -600,6 +626,7 @@ module.exports = {
     const estName = await p.evaluate(() =>
       window.RECIPES.find((r) => r.est && r.macro && r.macro.p + r.macro.c + r.macro.f > 0).name);
     await p.click('[data-mslot="l"]');
+    await p.click('[data-mpmode="recipes"]');
     await p.waitForTimeout(200);
     await p.selectOption('#mpSec', 'all');
     await p.waitForTimeout(150);
@@ -677,7 +704,7 @@ module.exports = {
     await q.click('#macroTargBtn');
     await q.waitForTimeout(200);
     t.ok('an empty profile asks for the numbers rather than inventing a plan',
-      /work themselves out/i.test(await q.textContent('#mtPlan')),
+      /fill in who you are/i.test(await q.textContent('#mtPlan')),
       await q.textContent('#mtPlan'));
 
     /* The same arithmetic the app claims: Mifflin–St Jeor for the basal rate,
@@ -940,6 +967,7 @@ module.exports = {
 
     // ---- a favorite never ranks worse for being loved, and wears its star
     await q.click('[data-mslot="b"]');
+    await q.click('[data-mpmode="recipes"]');
     await q.waitForTimeout(200);
     const mid = await q.evaluate(() => {
       const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
@@ -954,6 +982,7 @@ module.exports = {
     }, mid.id);
     await q.waitForTimeout(200);
     await q.click('[data-mslot="b"]');
+    await q.click('[data-mpmode="recipes"]');
     await q.waitForTimeout(200);
     const after = await q.evaluate((id) => {
       const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
@@ -1176,6 +1205,7 @@ module.exports = {
     // put something on the brew and on Lunch, for the two tests that follow
     for (const which of [0, 2]) {
       await m.evaluate((n) => document.querySelectorAll('[data-mslot]')[n].click(), which);
+      await m.click('[data-mpmode="recipes"]');
       await m.waitForTimeout(250);
       await m.click('.mpick-row[data-mpx]');
       await m.waitForTimeout(300);
@@ -1237,6 +1267,7 @@ module.exports = {
 
     // the picker's sort is a lens: order changes, portions stay
     await z.click('[data-mslot="b"]');
+    await z.click('[data-mpmode="recipes"]');
     await z.waitForTimeout(200);
     await z.selectOption('#mpSort', 'protein');
     await z.waitForTimeout(150);
@@ -1380,6 +1411,7 @@ module.exports = {
     await z.click('[data-mtarg="save"]');
     await z.waitForTimeout(300);
     await z.click('[data-mslot="b"]');
+    await z.click('[data-mpmode="recipes"]');
     await z.waitForTimeout(200);
     t.ok('the meal now draws from exactly the section it ticked',
       await z.evaluate(() => {
@@ -1410,6 +1442,7 @@ module.exports = {
     await z.click('[data-mtarg="save"]');
     await z.waitForTimeout(300);
     await z.click('[data-mslot="b"]');
+    await z.click('[data-mpmode="recipes"]');
     await z.waitForTimeout(200);
     const w60 = await z.evaluate((id) => {
       const r = [...document.querySelectorAll('.mpick-row[data-mpx]')].find((x) => x.dataset.mpick === id);
@@ -1459,6 +1492,7 @@ module.exports = {
 
     // pin a plate; a brand-new today arrives with it already served
     await y.click('[data-mslot="b"]');
+    await y.click('[data-mpmode="recipes"]');
     await y.waitForTimeout(200);
     await y.click('.mpick-row[data-mpx]');
     await y.waitForTimeout(300);
@@ -1504,6 +1538,7 @@ module.exports = {
     });
     await y.waitForTimeout(300);
     await y.click('[data-mslot="d"]');
+    await y.click('[data-mpmode="recipes"]');
     await y.waitForTimeout(200);
     t.ok('the picker offers the family’s plan when there is one',
       await y.evaluate(() => {
@@ -1555,7 +1590,7 @@ module.exports = {
     const copied = await y.evaluate(() => {
       let got = null;
       navigator.clipboard.writeText = (t2) => { got = t2; return Promise.resolve(); };
-      document.getElementById('macroCopy').click();
+      document.querySelector('#macroMenu [data-mmore="copy"]').click();
       return got;
     });
     t.ok('the copy carries the weight, the plates and the totals',
@@ -1580,28 +1615,32 @@ module.exports = {
     await a2.waitForTimeout(200);
     t.ok('the whole tab works with nobody signed in',
       await a2.evaluate(() => document.querySelectorAll('.mslot').length === 4));
-    /* Both kinds of travel live in one sheet now: the list is shared with
-       people by a code, the day is carried between your own devices by being
-       you. Two doors for one question was one too many. */
+    /* One sheet, two cards, split by whose it is: your day is private and
+       carried between your own devices; the pantry is shared with people by a
+       code. The distinction is the point, so it is drawn by heading rather
+       than by paragraphs of explanation. */
     await a2.click('#syncBtn');
     await a2.waitForTimeout(300);
-    t.ok('and the way in offers two, with no password to invent',
+    t.ok('Google is the way in, said once and not argued for',
       await a2.evaluate(() => {
-        const txt = document.querySelector('.sheet').textContent;
-        return !!document.querySelector('[data-mysync="google"]') &&
-          !!document.querySelector('#myJoin') && /no password/i.test(txt);
+        const b = document.querySelector('[data-mysync="google"]');
+        return !!b && /Sign in with Google/.test(b.textContent) &&
+          document.querySelectorAll('.sheet .sync-p').length <= 2;
       }));
-    t.ok('while saying plainly that an account is not needed to use it',
-      /No account needed/i.test(await a2.textContent('.sheet')),
-      await a2.textContent('.sheet'));
-    t.ok('and both kinds of travel are explained in the one sheet',
+    t.ok('and the two cards say whose each one is',
       await a2.evaluate(() => {
         const txt = document.querySelector('.sheet').textContent;
-        return /household/i.test(txt) && /your own devices/i.test(txt) &&
+        return /Your day/.test(txt) && /Private to you/.test(txt) &&
+          /Your pantry/.test(txt) && /family, friends/.test(txt) &&
           !document.getElementById('macroDevices');
+      }), await a2.textContent('.sheet'));
+    // the email fallback is kept for people with no Google account, folded away
+    t.ok('the email way in waits behind a fold',
+      await a2.evaluate(() => {
+        const d = document.querySelector('.sync-fold');
+        return !!d && !d.open && !!d.querySelector('#myJoin');
       }));
-    t.ok('and that the day stays out of the household\u2019s reach',
-      /nobody with the household code/i.test(await a2.textContent('.sheet')));
+    await a2.evaluate(() => { document.querySelector('.sync-fold').open = true; });
     await a2.fill('#myJoin', 'not-an-email');
     await a2.click('[data-mysync="email"]');
     await a2.waitForTimeout(250);
@@ -1653,6 +1692,7 @@ module.exports = {
     await a2.click('.tab[data-view="macros"]');
     await a2.waitForTimeout(200);
     await a2.click('[data-mslot="b"]');
+    await a2.click('[data-mpmode="recipes"]');
     await a2.waitForTimeout(300);
     t.ok('and opening the picker runs nothing',
       await a2.evaluate(() => !window.__pwned && !document.querySelector('img[src="x"]')));

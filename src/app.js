@@ -504,6 +504,11 @@
     macroDate: null, macroPick: null, macroTargOpen: false, newFood: null, mpQuery: '',
     myJoin: '', mySent: false, myErr: '', myNote: '',
     mpSec: 'meal', mpSort: 'fit',
+    /* Which of the three ways in the picker is showing. It opens on 'home',
+       where the ways are the screen — scanning used to be the fourth button
+       on a second sheet, which is three taps of ceremony in front of the
+       fastest way to name a food. */
+    mpMode: 'home', mpLook: '',
     /* How far down each meal's ranked list Try again has walked, keyed day
        and meal. Ephemeral on purpose: tomorrow starts at the top again. */
     mTry: {}
@@ -971,6 +976,17 @@
       if (mSuspectAccount() && !mAuthKnown) {
         window.Store.ready().then(function () {
           mAuthKnown = true;
+          /* The device's answer, corrected by the real one.
+           *
+             This flag decides whether Firebase loads at all, so it is written
+             locally at sign-in and believed at boot. Believed is the problem:
+             it was never checked again. Android clears site data on a PWA it
+             considers idle, and the flag and the session do not have to go
+             together — leaving a device that says "I have an account",
+             loads the SDK, finds nobody, and quietly signs in anonymously
+             underneath while showing the signed-out sheet. Which reads as a
+             sign-in that did not take. Now the truth wins on every load. */
+          mAccountMark();
           if (mAccount()) mSyncStart();
           else if (S.syncOpen) renderModal();
         }, function () {
@@ -987,6 +1003,7 @@
     S_SYNC_STATE = 'connecting';
     window.Store.ready().then(function (db) {
       mAuthKnown = true;
+      mAccountMark();                       // the truth, again, now that it is knowable
       var uid = window.Store.uid();
       if (!uid || !mAccount()) {
         S_SYNC_STATE = 'off';
@@ -1468,15 +1485,14 @@
     };
     if (!plan) {
       return '<div class="mplan mplan-none">' +
-        '<span class="mplan-t">No plan yet &mdash; say what you are after and the day works ' +
-          'itself out.</span>' + btn('Craft my plan') + '</div>';
+        '<span class="mplan-t">No plan yet.</span>' + btn('Craft my plan') + '</div>';
     }
     var pace = mGoalPace(pr);
     var lines = [];
     if (!pace) {
       lines.push('<b>' + esc(MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1) + '</b> &middot; ' +
         plan.kcal + ' kcal a day');
-      lines.push('Name a weight and a date under Adjust and this tracks the arrival.');
+      lines.push('Name a weight and a date to track the arrival.');
     } else {
       var st = mWeightStats();
       var now = st ? st.avg7 : pr.lb;
@@ -1536,8 +1552,7 @@
       body = '<div class="mw-stat">' + r1 + '</div><div class="mw-stat">' + r2 + '</div>' +
         pace + mSparkSVG();
     } else {
-      body = '<div class="mw-stat">Log it when you weigh in and the trend builds here &mdash; ' +
-        'the seven-day average is the number to trust, not any one morning.</div>';
+      body = '<div class="mw-stat">The seven-day average appears here.</div>';
     }
     return '<button class="mday-dot no-print" data-mdot="weigh" ' +
         'aria-label="Log this morning&rsquo;s weight"></button>' +
@@ -1879,29 +1894,11 @@
     // the first stop of the day fills in once the scale has been read
     $('macroWeigh').classList.toggle('done', MWEIGHTS[k] > 0);
 
-    /* The rail is the sequence now, so there is nothing to number — but the
-       foot still says what to do next, which is what the steps were for. */
-    var plated = 0, ticked = 0;
-    Object.keys(day).forEach(function (sk) {
-      (day[sk] || []).forEach(function (it) { plated++; if (it.eaten) ticked++; });
-    });
-    var tot = mTotals(day);
-    var tuned = plated && ['p', 'f', 'c'].every(function (m2) {
-      return tot.all[m2] <= targets[m2] * 1.05 && tot.all[m2] >= targets[m2] * 0.9;
-    });
-
-    $('mdayTune').innerHTML = !plated
-      ? 'Fill the day first, then this is where you nudge it.'
-      : tuned
-        ? 'The day lands on your targets. Tick each plate as you eat it.'
-        : 'Nudge a portion with &minus; and +, lock what is fixed, swap what is not, ' +
-          'or let Rebalance re-size the un-eaten plates.' +
-          (ticked ? '' : ' Tick each plate as you eat it.');
   }
 
   function macroFootHTML(day, targets) {
     if (!targets.p && !targets.f && !targets.c) {
-      return '<div class="macro-none">Craft your plan and the dials appear here.</div>';
+      return '<div class="macro-none">Craft your plan.</div>';
     }
     var tot = mTotals(day);
     var NAMES = { p: 'Protein', f: 'Fat', c: 'Carbs' };
@@ -1997,17 +1994,118 @@
     return ids;
   }
 
+  /* The three ways to name a piece of food, as the first thing the sheet
+     says rather than as modes buried behind each other. Scanning is one tap
+     from + Add; it used to be four. */
+  var MP_ICON = {
+    // a barcode, a magnifier, a stack of pages — drawn rather than borrowed
+    // from a font, because the glyphs that mean these things are not in every
+    // face and the fallbacks are boxes
+    scan: '<path d="M2 3v10M4.5 3v10M7 3v7M9.5 3v10M12 3v7M14 3v10"/>',
+    look: '<circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 14 14"/>',
+    recipes: '<rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/>'
+  };
+  var MP_WAYS = [['scan', 'Scan'], ['look', 'Look up'], ['recipes', 'Recipes']];
+
+  function mpIcon(k) {
+    return '<svg class="mp-way-i" viewBox="0 0 16 16" aria-hidden="true" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' +
+      MP_ICON[k] + '</svg>';
+  }
+
+  function mpWaysHTML(big) {
+    return '<div class="mp-ways' + (big ? ' big' : '') + '">' + MP_WAYS.map(function (w) {
+      /* No camera, no Scan. Offering a way in that cannot open is worse than
+         two ways, and this is the one device question the sheet can answer
+         before being asked. */
+      if (w[0] === 'scan' && !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return '';
+      return '<button class="mp-way' + (S.mpMode === w[0] ? ' on' : '') + '" data-mpmode="' + w[0] + '">' +
+        mpIcon(w[0]) + '<span class="mp-way-t">' + w[1] + '</span></button>';
+    }).join('') + '</div>';
+  }
+
+  /* What you ate lately, newest first, one row each. The everyday case is a
+     thing you have already named once — the tamale from last week — and it
+     should not need any of the three ways to reach. */
+  function mpRecentHTML() {
+    var seen = {}, out = [];
+    var keys = Object.keys(MDAYS).sort().reverse();
+    keys.forEach(function (k) {
+      var day = MDAYS[k] || {};
+      Object.keys(day).forEach(function (sk) {
+        (day[sk] || []).forEach(function (it) {
+          if (seen[it.id] || out.length >= 6) return;
+          var r = BY_ID[it.id];
+          if (!r) return;
+          seen[it.id] = 1;
+          out.push({ r: r, x: it.x });
+        });
+      });
+    });
+    if (!out.length) return '';
+    return '<div class="mt-div">Recent</div>' + out.map(function (e) {
+      return '<button class="mpick-row" data-mpick="' + esc(String(e.r.id)) + '" data-mpx="' + e.x + '">' +
+        leaf(e.r.score, 'leaf-sm') +
+        '<span class="mp-body"><span class="mp-name">' + esc(e.r.name) + '</span>' +
+        '<span class="mp-fit">&times;' + fmtNum(e.x) + (e.r.food ? ' ' + esc(e.r.unit) : '') +
+        ' &middot; ' + mMacLine(e.r, e.x) + '</span></span></button>';
+    }).join('');
+  }
+
   function macroPickerHTML() {
     var name = S.macroPick.n;
     var d = keyDate(mViewKey());
-    var fam = mFamilyIds(mViewKey());
-    return '<div class="scrim no-print" data-close="1">' +
-      '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
-        '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">Add to ' + esc(name) + ' · ' +
-            M_MONS[d.getMonth()] + ' ' + d.getDate() + '</div>' +
-          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+    var head = '<div class="sheet-top">' +
+        '<div class="sheet-eyebrow">Add to ' + esc(name) + ' · ' +
+          M_MONS[d.getMonth()] + ' ' + d.getDate() + '</div>' +
+        '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+      '</div>';
+    var wrap = function (inner) {
+      return '<div class="scrim no-print" data-close="1">' +
+        '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
+        head + inner + '</div></div>';
+    };
+
+    if (S.mpMode === 'home') {
+      /* What is left of the meal, said once at the top. It is the number you
+         are shopping against, and it used to be readable only by closing the
+         sheet you opened to go shopping. */
+      var rem = mMealLeft();
+      return wrap(
+        (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
+        mpWaysHTML(true) +
+        mpRecentHTML() +
+        '<button class="mpick-row mpick-new" data-mpnew="1">' +
+          '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
+    }
+
+    if (S.mpMode === 'scan') {
+      return wrap(mpWaysHTML() +
+        '<div id="scanRoot"></div>' +
+        '<div class="mp-controls">' +
+          '<input type="search" class="txt" id="nfFind" inputmode="numeric" ' +
+            'placeholder="&hellip;or type the number" aria-label="Barcode number">' +
+          '<button class="ghost" data-nf="code">Go</button>' +
         '</div>' +
+        '<div id="nfResults"></div>' +
+        '<button class="mpick-row mpick-new" data-mpnew="1">' +
+          '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
+    }
+
+    if (S.mpMode === 'look') {
+      return wrap(mpWaysHTML() +
+        '<div class="mp-controls">' +
+          '<input type="search" class="txt" id="mpLookIn" placeholder="Search a food or a dish&hellip;" ' +
+            'aria-label="Search" value="' + esc(S.mpLook) + '">' +
+        '</div>' +
+        '<div id="mpLookList">' + mpLookHTML() + '</div>' +
+        '<div id="nfResults"></div>' +
+        '<button class="mpick-row mpick-new" data-mpnew="1">' +
+          '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
+    }
+
+    var fam = mFamilyIds(mViewKey());
+    return wrap(mpWaysHTML() +
         '<div class="mp-controls">' +
           '<input type="search" class="txt" id="mpSearch" placeholder="Search a dish or ingredient&hellip;" ' +
             'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
@@ -2040,8 +2138,45 @@
             '<option value="healthy"' + (S.mpSort === 'healthy' ? ' selected' : '') + '>Healthiest</option>' +
           '</select>' +
         '</div>' +
-        '<div id="mpList">' + mpListHTML() + '</div>' +
-      '</div></div>';
+        '<div id="mpList">' + mpListHTML() + '</div>');
+  }
+
+  /* What this meal still has room for. mShares works the day's remainder into
+     a share per empty meal; this is that share, in the words the plate rows
+     already use. */
+  function mMealLeft() {
+    var targets = mReadTargets();
+    if (!targets.p && !targets.f && !targets.c) return '';
+    var T = mShares(mDay(mViewKey()), targets, { k: S.macroPick.slot, w: S.macroPick.w }).T;
+    return Math.round(kcalOf(T)) + ' kcal &middot; ' + Math.round(T.p) + 'P &middot; ' +
+      Math.round(T.f) + 'F &middot; ' + Math.round(T.c) + 'C left for this meal';
+  }
+
+  /* One box, one list. Your own foods and the book's recipes together, each
+     saying where it came from, because "do I already have this?" and "what
+     does the USDA call it?" are the same question asked once. The food
+     tables answer underneath, when they answer. */
+  function mpLookHTML() {
+    var qs = S.mpLook.trim().toLowerCase();
+    if (!qs) return '';
+    var day = mDay(mViewKey());
+    var targets = mReadTargets();
+    var pick = { k: S.macroPick.slot, w: S.macroPick.w };
+    var pool = [];
+    MFOODS.forEach(function (r) { if (r.name.toLowerCase().indexOf(qs) >= 0) pool.push(r); });
+    RECIPES.forEach(function (r) { if (matchRank(r, qs)) pool.push(r); });
+    if (!pool.length) return '<div class="mslot-empty">Nothing of yours matches.</div>';
+    return mRank(pool, day, targets, pick).slice(0, 12).map(function (e) {
+      var r = e.r;
+      var src = r.food ? 'Yours' : 'Recipe';
+      return '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + e.x + '">' +
+        leaf(r.score, 'leaf-sm') +
+        '<span class="mp-body"><span class="mp-name">' +
+          (window.Store.isFav(r.id) ? '<span class="mp-fav">&#9733;</span> ' : '') +
+          esc(r.name) + '</span>' +
+        '<span class="mp-fit"><span class="mp-src">' + src + '</span> &times;' + fmtNum(e.x) +
+          (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, e.x) + '</span></span></button>';
+    }).join('');
   }
 
   function mpListHTML() {
@@ -2081,7 +2216,7 @@
     rows = rows.slice(0, 40);
     var own = '<button class="mpick-row mpick-new" data-mpnew="1">' +
       '<span class="mp-body"><span class="mp-name">&#43; Something else</span>' +
-      '<span class="mp-fit">name it and give it what numbers you know</span></span></button>';
+      '</span></button>';
     if (!rows.length) {
       return own + '<div class="mslot-empty">Nothing else matches' +
         (S.mpSec === 'meal' ? ' &mdash; try Every recipe.' : '.') + '</div>';
@@ -2120,16 +2255,15 @@
   /* The status line over the gram boxes. The boxes are the plan's one
      rendering, so this speaks only when something needs saying: the profile
      cannot compute yet, or the arithmetic had to floor the carbs. */
-  /* Said once, plainly, without a lecture attached: a hard cut is below the
-     rate a body spends doing nothing, and that is what makes it hard. Worth
-     knowing you are there; not the app's business to argue. */
+  /* One fact, no lecture attached: a hard cut runs below the rate a body
+     spends doing nothing. Worth knowing you are there; not the app's business
+     to argue about it. */
   function mtPlanLine(plan, pr) {
-    if (!plan) return 'Fill in who you are and these work themselves out.';
+    if (!plan) return 'Fill in who you are.';
     var tdee = pr ? mTdee(pr) : null;
     var bmr = tdee === null ? null : tdee / (pr.act || 1);
     if (bmr !== null && plan.kcal < bmr) {
-      return 'Below the ' + Math.round(bmr) + ' kcal your body spends at rest &mdash; ' +
-        'which is what a hard cut is, and not a place to live for months.';
+      return 'Below your ' + Math.round(bmr) + ' kcal at rest.';
     }
     return '';
   }
@@ -2141,60 +2275,61 @@
   function mAccountBlockHTML() {
     var who = mAccount();
     var waiting = !who && !mAuthKnown && mSuspectAccount();
-    var word = { off: 'Saving on this device only', connecting: 'Connecting\u2026',
-      on: 'Your devices have this day', error: 'Cannot reach the server' }[S_SYNC_STATE];
+    var word = { off: 'On this device only', connecting: 'Connecting\u2026',
+      on: 'Synced', error: 'Cannot reach the server' }[S_SYNC_STATE];
     var body;
     if (waiting) {
-      body = '<p class="sync-p">This device has an account. Finding it&hellip;</p>';
+      body = '<p class="sync-p">Finding your account&hellip;</p>';
     } else if (!window.Store.configured) {
-      body = '<p class="sync-p">No server behind this copy, so your day stays on this device.</p>';
+      body = '<p class="sync-p">No server behind this copy.</p>';
     } else if (who) {
-      body = '<p class="sync-p">Signed in as <strong>' + esc(who.email || who.name) + '</strong>. ' +
-        'Sign in the same way on any other device and your plan, your meals and your weigh-ins ' +
-        'are already there.</p>' +
-        /* Two devices used apart before they were ever joined arrive with
-           two different days and no shared history to reconcile them by. The
-           merge is newest-wins part by part, which is right forever after
-           and arbitrary the first time — so say plainly which one is the
-           real one, once, and then never think about it again. */
-        '<div class="mt-div">If the two do not agree</div>' +
+      body = '<div class="sync-who">Signed in as <strong>' +
+        esc(who.email || who.name) + '</strong></div>' +
+        /* Two devices used apart before they were ever joined arrive with two
+           different days and no shared history to reconcile them by. The merge
+           is newest-wins part by part, which is right forever after and
+           arbitrary the first time — so the tie-breaker stays, folded away.
+           It is a once-ever button, and it was taking three paragraphs and
+           two thirds of the sheet to say so. */
+        '<details class="sync-fold"><summary>The two devices disagree</summary>' +
+          '<div class="sync-row">' +
+            '<button class="ghost" data-mysync="push">This device is right</button>' +
+            '<button class="ghost" data-mysync="pull">The account is right</button>' +
+          '</div>' +
+        '</details>' +
         '<div class="sync-row">' +
-          '<button class="ghost" data-mysync="push">This device is right</button>' +
-          '<button class="ghost" data-mysync="pull">The account is right</button>' +
-        '</div>' +
-        '<p class="sync-p">The first sends this device&rsquo;s day up and lets it win outright; ' +
-        'the second throws this device&rsquo;s away and takes what the account holds. Only worth ' +
-        'touching once, when two devices that were used apart first meet.</p>' +
-        '<div class="sync-row"><button class="ghost" data-mysync="out">Sign out of this device</button></div>' +
-        '<p class="sync-p">Signing out clears your day from <em>this</em> device &mdash; the plan, ' +
-        'the meals and the weigh-ins &mdash; so the next person to sign in here does not inherit ' +
-        'them. Everything stays in your account and comes back when you sign in again.</p>';
+          '<button class="ghost" data-mysync="out">Sign out of this device</button></div>';
     } else {
-      body = '<p class="sync-p">No account needed to use any of this: the whole app works on ' +
-        'this device, which is where it has been saving all along. An account does one thing &mdash; ' +
-        'it lets a second device know you. Your day is readable by you alone; nobody with the ' +
-        'household code above can see it.</p>' +
-        (S.mySent
-          ? '<div class="sync-warn">Check <strong>' + esc(S.myJoin) + '</strong> and open the ' +
-            'link. It signs you in on this device.</div>'
-          : '') +
+      body = (S.mySent
+        ? '<div class="sync-warn">Open the link sent to <strong>' + esc(S.myJoin) + '</strong>.</div>'
+        : '') +
         '<div class="sync-row">' +
-          '<button class="btn-primary" data-mysync="google">Continue with Google</button>' +
+          '<button class="btn-primary" data-mysync="google">Sign in with Google</button>' +
         '</div>' +
-        '<div class="sync-row">' +
-          '<input class="txt" id="myJoin" type="email" inputmode="email" ' +
-            'placeholder="or your email address" aria-label="Email address" value="' +
-            esc(S.myJoin) + '">' +
-          '<button class="ghost" data-mysync="email">Send me a link</button>' +
-        '</div>' +
-        '<p class="sync-p">No password to invent or forget &mdash; the link is the proof.</p>';
+        /* Kept, because a Google account is not a thing everybody has and this
+           is going out to strangers — but folded, because for nearly everybody
+           the button above is the entire answer. */
+        '<details class="sync-fold"><summary>No Google account?</summary>' +
+          '<div class="sync-row">' +
+            '<input class="txt" id="myJoin" type="email" inputmode="email" ' +
+              'placeholder="your email address" aria-label="Email address" value="' +
+              esc(S.myJoin) + '">' +
+            '<button class="ghost" data-mysync="email">Send a link</button>' +
+          '</div>' +
+        '</details>';
     }
     return body +
       (S.myNote ? '<div class="sync-warn">' + esc(S.myNote) + '</div>' : '') +
       (S.myErr ? '<div class="sync-warn">' + esc(S.myErr) + '</div>' : '') +
-      '<div class="sync-status"><span class="dot' +
-        (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
-          : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>';
+      /* Only once there is an account to have a state. Signed out, this said
+         "on this device only" directly above the pantry card saying exactly
+         the same words about a different thing, which reads as one status
+         stuttering rather than two facts. The button already says the state. */
+      (who || waiting
+        ? '<div class="sync-status"><span class="dot' +
+          (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
+            : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>'
+        : '');
   }
 
   /* Looking it up instead of guessing at it.
@@ -2444,6 +2579,29 @@
 
   var MLOOKUP = {};
 
+  /* The food tables, asked once you have stopped typing. Late answers are
+     dropped rather than drawn: a slow reply to "tam" must not land on top of
+     the results for "tamale". */
+  var mLookTimer = null, mLookSeq = 0;
+  function mLookNet(term) {
+    var mine = ++mLookSeq;
+    var res = $('nfResults');
+    if (!res) return;
+    res.innerHTML = '<div class="mslot-empty">Looking in the food tables&hellip;</div>';
+    MLOOKUP = {};
+    mFoodSearch(term, false).then(function (list) {
+      if (mine !== mLookSeq || !$('nfResults')) return;
+      $('nfResults').innerHTML = list.length
+        ? '<div class="mt-div">From the food tables</div>' + mLookupRows(list) : '';
+    }, function (err) {
+      if (mine !== mLookSeq || !$('nfResults')) return;
+      $('nfResults').innerHTML = '<div class="mslot-empty">' +
+        (err && err.message === 'nokey' ? 'No USDA key in src/config.js.'
+          : err && err.message === 'toofast' ? 'Asked too often just now.'
+            : 'The food tables did not answer.') + '</div>';
+    });
+  }
+
   /* The camera, held over a packet. Native BarcodeDetector where a browser
      has one, because it is better at this than we are; the decoder above
      where it does not, which is every iPhone. */
@@ -2528,44 +2686,36 @@
   }
 
   function mNewFoodHTML() {
-    var box = function (id, label, unit, ph) {
+    /* Arriving with the numbers already known — off a barcode or a food
+       table — or arriving empty, which is the same form either way. */
+    var pre = (S.newFood && S.newFood.pre) || null;
+    var box = function (id, label, unit, ph, v) {
       return '<div class="mtl-row"><span class="mtl-lab">' + label + '</span>' +
         '<span class="mtl-val"><input type="number" id="' + id + '" min="0" max="9999" ' +
-        'step="1" inputmode="numeric" placeholder="' + (ph || '') + '">' +
+        'step="1" inputmode="numeric" placeholder="' + (ph || '') + '"' +
+        (v || v === 0 ? ' value="' + esc(String(v)) + '"' : '') + '>' +
         (unit ? '<span class="mtl-u">' + unit + '</span>' : '') + '</span></div>';
     };
     return '<div class="scrim no-print" data-close="1">' +
-      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Something else">' +
+      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Add a food">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">Something else</div>' +
+          '<div class="sheet-eyebrow">' + (pre ? 'How much?' : 'Type it in') + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="sheet-name">Food the book has never heard of</div>' +
-        '<p class="sync-p">A tamale from a cart, a plate at somebody&rsquo;s house. Give it what ' +
-        'you know &mdash; calories alone still counts toward the day &mdash; and it joins your ' +
-        'single foods, so next time it is one tap.</p>' +
-        '<div class="mp-controls">' +
-          '<input type="search" class="txt" id="nfFind" placeholder="Look it up &mdash; chicken tamale" ' +
-            'aria-label="Look up a food">' +
-          '<button class="ghost" data-nf="find">Search</button>' +
-          '<button class="ghost" data-nf="brand">Packaged</button>' +
-          '<button class="ghost" data-nf="code">Barcode</button>' +
-          (navigator.mediaDevices && navigator.mediaDevices.getUserMedia
-            ? '<button class="ghost" data-scan="go">Scan</button>' : '') +
-        '</div>' +
-        '<div id="scanRoot"></div>' +
-        '<div id="nfResults"></div>' +
-        '<div class="mt-div">Or say what it was</div>' +
+        (pre && pre.note
+          ? '<div class="mt-cap">From ' + esc(pre.note) + '</div>' : '') +
         '<div class="mtl-row"><span class="mtl-lab">Called</span>' +
           '<span class="mtl-val"><input type="text" id="nfName" ' +
-            'placeholder="Chicken tamale" aria-label="What it is called"></span></div>' +
+            'placeholder="Chicken tamale" aria-label="What it is called" value="' +
+            esc((pre && pre.name) || '') + '"></span></div>' +
         '<div class="mtl-row"><span class="mtl-lab">One of them is</span>' +
           '<span class="mtl-val"><input type="text" id="nfUnit" ' +
-            'placeholder="tamale" aria-label="What one of them is called"></span></div>' +
-        box('nfKcal', 'Calories', 'kcal', '250') +
-        box('nfP', 'Protein', 'g', '10') +
-        box('nfF', 'Fat', 'g', '12') +
-        box('nfC', 'Carbs', 'g', '25') +
+            'placeholder="tamale" aria-label="What one of them is called" value="' +
+            esc((pre && pre.unit) || '') + '"></span></div>' +
+        box('nfKcal', 'Calories', 'kcal', '250', pre && pre.kcal) +
+        box('nfP', 'Protein', 'g', '10', pre && pre.p) +
+        box('nfF', 'Fat', 'g', '12', pre && pre.f) +
+        box('nfC', 'Carbs', 'g', '25', pre && pre.c) +
         '<div class="mt-cap" id="nfNote"></div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-nf="save">Add it to the day</button>' +
@@ -4649,7 +4799,8 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mmore', 'data-mpmode'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -4735,9 +4886,21 @@
     }
 
     if (S.macroPick) {
-      root.innerHTML = macroPickerHTML();
-      document.body.style.overflow = 'hidden';
-      if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      /* The camera is a live device, not markup: re-rendering the sheet
+         underneath it would tear down the stream and start a second one on
+         every keystroke elsewhere. So scan mode is drawn once, and left. */
+      var already = prev && prev.querySelector('#scanVid');
+      if (!(S.mpMode === 'scan' && already)) {
+        root.innerHTML = macroPickerHTML();
+        document.body.style.overflow = 'hidden';
+        if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+        // Scan is a way in, not a button inside one: choosing it opens the lens
+        if (S.mpMode === 'scan' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          mScanStart();
+        }
+        var lk = root.querySelector('#mpLookIn');
+        if (lk && S.mpLook) { lk.focus(); lk.setSelectionRange(lk.value.length, lk.value.length); }
+      }
       return;
     }
 
@@ -5141,78 +5304,65 @@
     var dotCls = st === 'synced' ? 'dot on' : st === 'error' ? 'dot off'
       : (st === 'sending' || st === 'waiting') ? 'dot wait' : 'dot';
     var ago = window.Store.lastSync ? agoWords(window.Store.lastSync) : '';
-    var label = !configured ? 'Not set up — saving on this device only'
-      : st === 'synced' ? 'The other phones have everything this one has' +
-          (ago ? ' — confirmed ' + ago : '')
-        : st === 'connecting' ? 'Joined. Waiting to hear back from the server…'
-          : st === 'sending' ? 'Sending a change — it has not reached the others yet'
-            : st === 'waiting' ? 'No signal. Everything here has been sent' +
-                (ago ? ', last confirmed ' + ago : '') + '. You may not have their latest yet.'
-              : st === 'error' ? 'Sharing has stopped' : 'Saving on this device only';
+    /* Sync is a thing that either works or has visibly stopped — so the line
+       says which, and nothing else. It used to narrate every intermediate
+       state in a full sentence apiece, which is a lot of prose about a
+       background job that is almost always simply fine. */
+    var label = !configured ? 'On this device only'
+      : st === 'synced' ? 'Shared' + (ago ? ' · ' + ago : '')
+        : st === 'connecting' ? 'Connecting…'
+          : st === 'sending' ? 'Sending…'
+            : st === 'waiting' ? 'Offline · sent when there is signal'
+              : st === 'error' ? 'Sharing stopped' : 'On this device only';
 
     var body;
     if (!configured) {
-      body = '<p class="sync-p">Right now your favorites, your weeks and their shopping lists save ' +
-        'on <strong>this device only</strong>. Nothing is shared, and nothing leaves the browser.</p>' +
-        '<p class="sync-p">To share one plan between your phones, follow <strong>SETUP.md</strong> in ' +
-        'the project: create a free Firebase project, paste six values into <code>src/config.js</code>, ' +
-        'and this panel will let you make a household code.</p>';
+      body = '<p class="sync-p">No server behind this copy. See <strong>SETUP.md</strong>.</p>';
     } else if (!house) {
-      body = '<p class="sync-p">Type the same household code on every phone you want on the list, and they ' +
-        'share the same weeks, the same favorites and the same shopping list. Tick something off in the ' +
-        'store and it greys out on the others. Two phones or six &mdash; there is no limit, and no ' +
-        'accounts to make.</p>' +
-        '<div class="sync-code" id="newCode">' + esc(S.pendingCode) + '</div>' +
+      body = '<div class="sync-code" id="newCode">' + esc(S.pendingCode) + '</div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-sync="use">Use this code</button>' +
-          '<button class="ghost" data-sync="reroll">Give me another</button>' +
+          '<button class="ghost" data-sync="reroll">Another</button>' +
         '</div>' +
         '<div class="sync-row">' +
-          '<input class="txt" id="joinCode" placeholder="Or type a code you already have" aria-label="Household code">' +
+          '<input class="txt" id="joinCode" placeholder="Or type a code you have" aria-label="Pantry code">' +
           '<button class="ghost" data-sync="join">Join</button>' +
         '</div>' +
-        /* Worth saying, because the honest answer used to be the opposite:
-           joining wiped this phone and kept the household. Now it carries
-           everything across, and somebody who has been using the app on their
-           own for a month is exactly the person about to press this. */
-        '<div class="sync-p sync-brings">Joining takes your favorites, your weeks and any recipes ' +
-        'you have written with you &mdash; nothing on this phone is lost.</div>' +
-        '<div class="sync-warn">The code is the only key. Anyone who has it can see and change the list, so ' +
-        'give it only to the people you mean to share with. There are no names or addresses in here &mdash; ' +
-        'it is a meal plan and a grocery list.</div>';
+        /* The one thing worth a sentence, because anyone who has the code can
+           write to the list and there is no undoing having handed it out. */
+        '<div class="sync-warn">Anyone with the code can see and change the list.</div>';
     } else {
-      body = '<p class="sync-p">This device is joined to household <strong>' + esc(house) + '</strong>. ' +
-        'Type that same code on any other phone to put it on the same list.</p>' +
-        '<div class="sync-code">' + esc(house) + '</div>' +
+      body = '<div class="sync-code">' + esc(house) + '</div>' +
         (window.Store.statusNote ? '<div class="sync-warn">' + esc(window.Store.statusNote) + '</div>' : '') +
-        '<div class="sync-row"><button class="ghost" data-sync="leave">Stop sharing on this device</button></div>' +
-        '<p class="sync-p">Leaving keeps whatever is currently on this device and stops sending changes. ' +
-        'The other phones are untouched.</p>';
+        '<div class="sync-row"><button class="ghost" data-sync="leave">Stop sharing here</button></div>';
     }
 
-    /* Two things travel, and they travelled through two different doors —
-       the household through this sheet, a personal day through a button at
-       the foot of the My Day tab. That is two mental models for one
-       question, and the answer to "how does my stuff get to my other phone"
-       should be in one place. So both live here, under headings that say
-       which is which: the list is shared with people, the day is carried
-       between your own devices. */
+    /* Two things travel and they are not the same promise: the pantry is
+       shared with PEOPLE by handing out a code, and My Day is carried between
+       YOUR OWN devices by being you. Merging them into one undifferentiated
+       sheet made the app read as one confusing thing with two kinds of
+       secret. Two cards, split by whose it is, each saying who can see it —
+       and the personal one first, because it is the one with a name on it. */
     return '<div class="scrim no-print" data-close="1">' +
-      '<div class="sheet sync-sheet" role="dialog" aria-modal="true" aria-label="Sharing and sync">' +
+      '<div class="sheet sync-sheet" role="dialog" aria-modal="true" aria-label="Sync and sharing">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">Sharing and sync</div>' +
+          '<div class="sheet-eyebrow">Sync &amp; sharing</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="sheet-name">What travels, and how far</div>' +
-        '<div class="mt-div">The list, with your household</div>' +
+
+        '<div class="mt-div">Your day</div>' +
+        '<p class="sync-p">Your plan, meals and weigh-ins. Private to you.</p>' +
+        mAccountBlockHTML() +
+
+        '<div class="mt-div">Your pantry</div>' +
+        '<p class="sync-p">The shopping list, the week&rsquo;s meals and your favorites &mdash; shared ' +
+        'with family, friends, or anyone you give the code to.</p>' +
         body +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
-        '<div class="mt-div">My Day, across your own devices</div>' +
-        mAccountBlockHTML() +
-        /* The Sharing sheet is the one screen in the app somebody opens to
-           find out what this thing is and who is behind it, so it is where
-           the app says so. */
+
+        /* The one screen somebody opens to find out what this thing is, so it
+           is where the app says who it is not. */
         '<div class="sync-disclaim">Not an official product of The Church of Jesus Christ of ' +
           'Latter-day Saints, and not affiliated with or endorsed by the Church.</div>' +
       '</div></div>';
@@ -5572,10 +5722,11 @@
         S.mpSec = 'meal';
         S.mpSort = 'fit';
         S.mpQuery = '';
+        // always the three ways first; the last way used is not a preference
+        S.mpMode = 'home';
+        S.mpLook = '';
         pushSheet({ m: 1 });
         renderModal();
-        var q = $('mpSearch');
-        if (q) q.focus();
         return;
       }
       var st = e.target.closest('[data-mstep]');
@@ -5659,7 +5810,33 @@
     });
     $('macroFill').addEventListener('click', mFillDay);
     $('macroRebal').addEventListener('click', mRebalance);
-    $('macroCopy').addEventListener('click', function () { mCopyDay(this); });
+
+    /* The three that are not the morning. Craft is a once-a-season job, Copy
+       is a once-a-day one, and the account is neither — none of them belong
+       in front of the two buttons pressed every time the tab is opened. */
+    function mMenu(open) {
+      var m = $('macroMenu');
+      if (!m) return;
+      m.classList.toggle('hide', !open);
+      $('macroMore').setAttribute('aria-expanded', String(!!open));
+    }
+    $('macroMore').addEventListener('click', function (e) {
+      e.stopPropagation();
+      mMenu($('macroMenu').classList.contains('hide'));
+    });
+    $('macroMenu').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-mmore]');
+      if (!b) return;
+      mMenu(false);
+      if (b.dataset.mmore === 'copy') { mCopyDay(b); return; }
+      rememberOpener();
+      if (b.dataset.mmore === 'plan') S.macroTargOpen = true;
+      else S.syncOpen = true;
+      pushSheet({ m: 1 });
+      renderModal();
+    });
+    // anywhere else is "not that, then" — the ordinary way out of a menu
+    document.addEventListener('click', function () { mMenu(false); });
     /* Nothing here reaches for the network unless there is a reason.
      *
        Asking who we are means loading the Firebase SDK, and loading it on
@@ -5682,14 +5859,6 @@
       mSyncStart();
       if (window.Store.onUser) window.Store.onUser(function () { mSyncStart(); });
     }
-
-    /* The tab's one paragraph of explanation, behind the ? beside the title.
-       A toggle rather than a dismissal: the person who wants it again next
-       month should not have to have kept it on screen all month. */
-    $('macroInfo').addEventListener('click', function () {
-      var open = $('macroNote').classList.toggle('hide');
-      this.setAttribute('aria-expanded', String(!open));
-    });
 
     /* The scale's number, filed under the day being looked at — ‹ lets a
        missed morning be filled in after the fact. An emptied box un-logs it.
@@ -5890,6 +6059,15 @@
         return;
       }
 
+      var mpm = e.target.closest('[data-mpmode]');
+      if (mpm && S.macroPick) {
+        // leaving scan means letting go of the camera, whichever way you leave
+        if (S.mpMode === 'scan') mScanStop();
+        S.mpMode = mpm.dataset.mpmode === S.mpMode ? 'home' : mpm.dataset.mpmode;
+        renderModal();
+        return;
+      }
+
       var mpn = e.target.closest('[data-mpnew]');
       if (mpn && S.macroPick) {
         // remember which meal asked, since the picker closes behind this
@@ -5903,15 +6081,25 @@
          numbers are per 100 g or per packet serving, and only you know how
          much of it you actually ate. */
       var sc = e.target.closest('[data-scan]');
-      if (sc && S.newFood) {
+      if (sc && (S.newFood || S.macroPick)) {
         if (sc.dataset.scan === 'go') mScanStart();
         else mScanStop();
         return;
       }
 
       var nfp = e.target.closest('[data-nfpick]');
-      if (nfp && S.newFood) {
+      if (nfp && (S.newFood || S.macroPick)) {
         var got = MLOOKUP[Number(nfp.dataset.nfpick)];
+        /* Picked from inside the picker, where there is no form to fill: carry
+           it over to the one screen that asks how much, rather than making the
+           packet's numbers the answer to a question nobody asked. */
+        if (got && S.macroPick && !$('nfName')) {
+          mScanStop();
+          S.newFood = { slot: S.macroPick.slot, pre: got };
+          S.macroPick = null;
+          renderModal();
+          return;
+        }
         if (got) {
           $('nfName').value = got.name;
           $('nfUnit').value = got.unit;
@@ -5927,7 +6115,7 @@
       }
 
       var nf = e.target.closest('[data-nf]');
-      if (nf && S.newFood) {
+      if (nf && (S.newFood || S.macroPick)) {
         if (nf.dataset.nf === 'cancel') { mScanStop(); S.newFood = null; close(); return; }
         if (nf.dataset.nf === 'find' || nf.dataset.nf === 'code' || nf.dataset.nf === 'brand') {
           var term = String((($('nfFind') || {}).value) || '').trim();
@@ -6065,6 +6253,14 @@
           renderModal();
         };
         if (act2 === 'google') {
+          /* On the redirect path this page is about to be replaced, and the
+             flag that decides whether the next load reaches for Firebase at
+             all is written on the way BACK — which never runs. So claim it
+             now, before leaving. If the sign-in does not happen, the next
+             load asks who we are, finds nobody, and clears it again. */
+          if (window.Store.wantsRedirect && window.Store.wantsRedirect()) {
+            try { localStorage.setItem('bsc.myAccount', '1'); } catch (er2) { /* private */ }
+          }
           window.Store.signInGoogle().then(function () {
             S.mySent = false; mAccountMark(); mSyncStart(); renderModal();
           }, failed);
@@ -6237,6 +6433,20 @@
       if (S.macroPick && e.target.id === 'mpSearch') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();
+      }
+      /* One box over two speeds. What is already on this device answers on
+         the keystroke; the food tables are a request over a network, so they
+         answer when they answer, underneath, and only once you have stopped
+         typing long enough to mean it. */
+      if (S.macroPick && e.target.id === 'mpLookIn') {
+        S.mpLook = e.target.value;
+        var el = $('mpLookList');
+        if (el) el.innerHTML = mpLookHTML();
+        clearTimeout(mLookTimer);
+        var want = S.mpLook.trim();
+        if ($('nfResults')) $('nfResults').innerHTML = '';
+        if (want.length < 3) return;
+        mLookTimer = setTimeout(function () { mLookNet(want); }, 550);
       }
       // the derived-kcal line follows the three targets as they are typed
       if (S.macroTargOpen && /^mt[PFC]$/.test(e.target.id)) mtRefreshAnswer();
