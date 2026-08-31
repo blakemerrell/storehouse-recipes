@@ -1676,9 +1676,10 @@
       return '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" value="' +
         (v || v === 0 ? v : '') + '">' + (unit ? '<span class="mtl-u">' + unit + '</span>' : '');
     };
-    var seg = function (attr, val, opts) {
+    var seg = function (attr, val, opts, off) {
       return '<span class="seg mt-seg" role="group">' + opts.map(function (o) {
-        return '<button data-' + attr + '="' + o[0] + '" aria-pressed="' + String(o[0] === val) + '">' + o[1] + '</button>';
+        return '<button data-' + attr + '="' + o[0] + '" aria-pressed="' + String(o[0] === val) + '"' +
+          (off ? ' disabled' : '') + '>' + o[1] + '</button>';
       }).join('') + '</span>';
     };
     var acts = [
@@ -1742,9 +1743,17 @@
              are along for the ride — pressing them used to do nothing at
              all, silently, which is the worst thing a control can do. They
              go quiet and say who is in charge instead. */
+          /* Dimming them was not enough: they still took the press, still lit
+             up, and still changed nothing — a control that answers and then
+             does nothing is worse than one that is plainly out of use. They
+             are properly inert now, and the way to make them live again is a
+             button rather than a fact you have to work out. */
           '<div class="mtl-seg' + (mGoalPace(pr) ? ' spent' : '') + '" id="mtGoalSeg">' +
             seg('mtgoal', pr.goal,
-              [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]]) +
+              [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]],
+              !!mGoalPace(pr)) +
+            '<button class="ghost mt-byfeel" data-mtfree="1">The date is setting the pace &mdash; ' +
+              'choose by feel instead</button>' +
           '</div>' +
           '<div class="mt-cap" id="mtGoalNote">' + mGoalNote(pr) + '</div>' +
           '<div class="mt-div">The day&rsquo;s grams</div>' +
@@ -1964,7 +1973,12 @@
     var gn = $('mtGoalNote');
     if (gn) gn.innerHTML = mGoalNote(prNow);
     var gs = $('mtGoalSeg');
-    if (gs) gs.classList.toggle('spent', !!mGoalPace(prNow));
+    if (gs) {
+      var dated = !!mGoalPace(prNow);
+      gs.classList.toggle('spent', dated);
+      Array.prototype.forEach.call(gs.querySelectorAll('[data-mtgoal]'),
+        function (b2) { b2.disabled = dated; });
+    }
     if (!plan) { mtRefreshAnswer(); return; }
     if ($('mtP')) { $('mtP').value = plan.p; $('mtF').value = plan.f; $('mtC').value = plan.c; }
     mtRefreshAnswer();
@@ -3646,7 +3660,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec'];
+    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -4904,6 +4918,17 @@
       if (med && S.macroTargOpen) {
         var shutNow = $('mtEditor').classList.toggle('hide');
         med.setAttribute('aria-expanded', String(!shutNow));
+        return;
+      }
+
+      var free = e.target.closest('[data-mtfree]');
+      if (free && S.macroTargOpen) {
+        // the weight stays; only the deadline goes, so it can be typed back
+        if ($('mtGoalBy')) $('mtGoalBy').value = '';
+        Array.prototype.forEach.call(document.querySelectorAll('#mtGoalSeg [data-mtgoal]'),
+          function (b2) { b2.disabled = false; });
+        $('mtGoalSeg').classList.remove('spent');
+        mtRefreshPlan();
         return;
       }
 

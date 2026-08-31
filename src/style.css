@@ -637,12 +637,12 @@ select { max-width: 280px; }
 .mtl-sum { border-bottom: 0; }
 .mtl-sum .mtl-val { font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 .mtl-seg { padding: 9px 0 2px; }
-/* the date is in charge; these are still readable, just not the ones asked */
-.mtl-seg.spent { opacity: 0.45; }
-.mtl-seg.spent::after {
-  content: 'The date above is setting the pace.';
-  display: block; margin-top: 5px; font-size: 11px; color: var(--muted);
-}
+/* the date is in charge; these are readable, plainly out of use, and there
+   is a button to put them back in charge */
+.mtl-seg.spent .seg { opacity: 0.4; }
+.mtl-seg .seg button:disabled { cursor: default; }
+.mt-byfeel { display: none; margin-top: 7px; padding: 5px 11px; font-size: 11.5px; }
+.mtl-seg.spent .mt-byfeel { display: inline-block; }
 .mtl-seg .seg { width: 100%; }
 .mtl-seg .seg button { flex: 1; }
 

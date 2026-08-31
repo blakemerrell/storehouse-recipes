@@ -538,8 +538,36 @@ module.exports = {
       }), await q.evaluate(() => document.getElementById('mtC').value + 'g of ' +
         document.getElementById('mtBigKcal').textContent));
     /* Two controls for one decision, one of them silently dead. */
-    t.ok('and the four presets say the date is in charge rather than doing nothing',
-      await q.evaluate(() => document.getElementById('mtGoalSeg').classList.contains('spent')));
+    /* Dimming was not enough. They still took the press, still lit up, and
+       still changed nothing — which is worse than being plainly out of use. */
+    t.ok('the four presets are properly out of use, not merely faded',
+      await q.evaluate(() => {
+        const seg = document.getElementById('mtGoalSeg');
+        return seg.classList.contains('spent') &&
+          Array.from(seg.querySelectorAll('[data-mtgoal]')).every((b2) => b2.disabled);
+      }));
+    t.ok('and there is a button to put them back in charge',
+      await q.evaluate(() => {
+        const b2 = document.querySelector('[data-mtfree]');
+        return b2 && b2.offsetParent !== null;
+      }));
+    const wasKcal = await q.textContent('#mtBigKcal');
+    await q.click('[data-mtfree]');
+    await q.waitForTimeout(200);
+    t.ok('pressing it drops the deadline and hands the presets back',
+      await q.evaluate(() => {
+        const seg = document.getElementById('mtGoalSeg');
+        return document.getElementById('mtGoalBy').value === '' &&
+          !seg.classList.contains('spent') &&
+          Array.from(seg.querySelectorAll('[data-mtgoal]')).every((b2) => !b2.disabled);
+      }));
+    t.ok('keeping the goal weight, which is not the thing you tired of',
+      await q.evaluate(() => document.getElementById('mtGoalLb').value !== ''));
+    await q.click('[data-mtgoal="keep"]');
+    await q.waitForTimeout(200);
+    t.ok('and now a preset actually moves the day',
+      (await q.textContent('#mtBigKcal')) !== wasKcal,
+      wasKcal + ' → ' + await q.textContent('#mtBigKcal'));
     await q.fill('#mtGoalLb', '');
     await q.fill('#mtGoalBy', '');
     await q.waitForTimeout(200);
