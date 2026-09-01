@@ -954,6 +954,22 @@ select { max-width: 280px; }
 .mwk-d.on .mwk-n { border-color: var(--dial-on); }
 .mwk-d.over .mwk-n { border-color: var(--dial-over); }
 .mwk-d.over .mwk-k { color: var(--dial-over); }
+/* a training day earns more carbohydrate, and says so */
+.mwk-d.train .mwk-k { color: var(--ochre-text); font-weight: 600; }
+/* the seven training-day toggles in the plan sheet */
+.mtrain { display: flex; gap: 4px; }
+.mtrain button {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--card);
+  border: 1px solid var(--line-firm); color: var(--muted); font-family: var(--sans);
+  font-size: 11.5px;
+}
+.mtrain button[aria-pressed="true"] {
+  background: var(--ochre); border-color: var(--ochre); color: var(--paper); font-weight: 600;
+}
+.mwk-d.train .mwk-w::after { content: '\00b7'; margin-left: 2px; color: var(--ochre); }
+/* a training day earns more carbohydrate, and says so */
+.mwk-d.train .mwk-k { color: var(--ochre-text); font-weight: 600; }
+.mwk-d.train .mwk-w::after { content: '\00b7'; margin-left: 2px; color: var(--ochre); }
 
 .mbars { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 0; }
 .mbrow { display: grid; grid-template-columns: 17px 1fr auto; gap: 9px; align-items: center; }

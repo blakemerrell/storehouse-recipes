@@ -1188,6 +1188,60 @@
 
   function kcalOf(t) { return Math.round(4 * t.p + 4 * t.c + 9 * t.f); }
 
+  /* Which days you train, and what that does to the day.
+   *
+     RP does not eat the same thing seven days a week: a training day earns
+     more carbohydrate and a rest day gives it back, so the WEEK averages to
+     the plan while the days differ. Protein and fat hold steady — protein is
+     the thing a cut protects and fat has a floor — so the carbohydrate
+     carries the whole swing.
+   *
+     The days themselves are derived from the workouts-a-week already in the
+     profile, spread evenly from Monday, and then overridden by tapping. The
+     override is stored as its own list so a change to workouts-a-week does
+     not silently rearrange days somebody has set by hand. */
+  var MCYCLE_SWING = 0.25;         // a training day's carbs, over the average
+
+  function mTrainDefault(n) {
+    var out = [];
+    n = Math.max(0, Math.min(7, Math.round(Number(n) || 0)));
+    if (!n) return out;
+    // evenly spread across Mon..Sun, so 3 lands on Mon/Wed/Fri rather than Mon/Tue/Wed
+    for (var i = 0; i < n; i++) out.push(Math.round(i * 7 / n) % 7);
+    return out.sort(function (a, b) { return a - b; });
+  }
+
+  /* Monday-based index, because a training week starts on Monday and
+     getDay() starts on Sunday. */
+  function mWkIx(d) { return (d.getDay() + 6) % 7; }
+
+  function mTrainDays() {
+    var pr = mReadProfile();
+    if (pr.train && Object.prototype.toString.call(pr.train) === '[object Array]') {
+      return pr.train.filter(function (n) { return n >= 0 && n <= 6; });
+    }
+    return mTrainDefault(pr.workouts);
+  }
+
+  /* The targets for one day rather than for every day. With no training days
+     — or with all seven — there is nothing to cycle and this is the plan. */
+  function mDayTargets(k) {
+    var base = mReadTargets();
+    var train = mTrainDays();
+    var T = train.length, R = 7 - T;
+    if (!T || !R || !base.c) return base;
+    var hard = train.indexOf(mWkIx(keyDate(k))) >= 0;
+    /* Whatever the training days gain, the rest days give back, so seven of
+       these still add up to seven of the plan. */
+    var f = hard ? (1 + MCYCLE_SWING) : (1 - MCYCLE_SWING * T / R);
+    return { p: base.p, f: base.f, c: Math.max(0, Math.round(base.c * f)) };
+  }
+
+  function mIsTrainingDay(k) {
+    var train = mTrainDays();
+    return train.length > 0 && train.length < 7 && train.indexOf(mWkIx(keyDate(k))) >= 0;
+  }
+
   function mReadProfile() {
     try {
       var pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
@@ -1722,8 +1776,6 @@
      of today are shown but not reachable — the day is a record, not a diary
      you write forward into. */
   function mWeekHTML(k, todayK) {
-    var targets = mReadTargets();
-    var tK = kcalOf(targets);
     var cur = keyDate(k);
     var mon = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate());
     mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));       // week starts Monday
@@ -1732,17 +1784,24 @@
       var d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
       var dk = dayKey(d);
       var ahead = dk > todayK, tooOld = dk < mEarliestKey();
+      /* Each day's own target, because a training day is not asking for the
+         same thing as a rest day — a strip showing one number for all seven
+         would be describing a plan nobody is on. */
+      var tK = kcalOf(mDayTargets(dk));
+      var train = mIsTrainingDay(dk);
       var got = MDAYS[dk] ? Math.round(mTotals(mDay(dk)).all.kcal) : 0;
-      var state = !got ? '' : !tK ? '' :
+      var state = !got || !tK ? '' :
         got > tK * 1.02 ? ' over' : got >= tK * 0.9 ? ' on' : ' under';
-      out.push('<button class="mwk-d' + (dk === k ? ' now' : '') + state + '"' +
+      out.push('<button class="mwk-d' + (dk === k ? ' now' : '') + state +
+        (train ? ' train' : '') + '"' +
         (ahead || tooOld ? ' disabled' : '') +
         ' data-mweek="' + dk + '" aria-pressed="' + (dk === k ? 'true' : 'false') + '"' +
         ' aria-label="' + M_WDAYS[d.getDay()] + ' ' + M_MONS[d.getMonth()] + ' ' + d.getDate() +
-        (got ? ', ' + got + ' calories' : ', nothing logged') + '">' +
+        (train ? ', training day' : '') + ', ' + tK + ' calorie target' +
+        (got ? ', ' + got + ' eaten' : '') + '">' +
         '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) + '</span>' +
         '<span class="mwk-n">' + d.getDate() + '</span>' +
-        '<span class="mwk-k">' + (got || '&middot;') + '</span>' +
+        '<span class="mwk-k">' + (tK || '&middot;') + '</span>' +
       '</button>');
     }
     return out.join('');
@@ -1772,7 +1831,7 @@
     $('macroNext').disabled = k >= todayK;
     $('macroWeek').innerHTML = mWeekHTML(k, todayK);
 
-    var targets = mReadTargets();
+    var targets = mDayTargets(k);
     var slots = mReadSlots();
 
     /* A new today arrives with the routine already on it: anything pinned to
@@ -2239,7 +2298,7 @@
       t.f += (r.macro.f || 0) * x; t.c += (r.macro.c || 0) * x;
       if (r.est) est = true;
     });
-    var targets = mReadTargets();
+    var targets = mDayTargets(mViewKey());
     var busts = false, over = 0;
     if (targets.p || targets.f || targets.c) {
       var T = mShares(mDay(mViewKey()), targets,
@@ -2352,7 +2411,7 @@
      a share per empty meal; this is that share, in the words the plate rows
      already use. */
   function mMealLeft() {
-    var targets = mReadTargets();
+    var targets = mDayTargets(mViewKey());
     if (!targets.p && !targets.f && !targets.c) return '';
     var T = mShares(mDay(mViewKey()), targets, { k: S.macroPick.slot, w: S.macroPick.w }).T;
     return Math.round(kcalOf(T)) + ' kcal &middot; ' + Math.round(T.p) + 'P &middot; ' +
@@ -2367,7 +2426,7 @@
     var qs = S.mpLook.trim().toLowerCase();
     if (!qs) return '';
     var day = mDay(mViewKey());
-    var targets = mReadTargets();
+    var targets = mDayTargets(mViewKey());
     var pick = { k: S.macroPick.slot, w: S.macroPick.w };
     var pool = [];
     MFOODS.forEach(function (r) { if (r.name.toLowerCase().indexOf(qs) >= 0) pool.push(r); });
@@ -2401,7 +2460,7 @@
         pool.push(r);
       });
     }
-    var rows = mRank(pool, mDay(mViewKey()), mReadTargets(),
+    var rows = mRank(pool, mDay(mViewKey()), mDayTargets(mViewKey()),
       { k: S.macroPick.slot, w: S.macroPick.w });
     /* Sorting is a lens, not a different picker: every row keeps the portion
        the fit worked out, whatever order the rows arrive in. */
@@ -2924,6 +2983,19 @@
       '</div></div>';
   }
 
+  /* Seven toggles, Monday first. Derived from the workouts box until one is
+     pressed; from then on the list is yours. */
+  function mTrainRowHTML() {
+    var on = mTrainDays();
+    var L = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    var FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return '<span class="mtrain" id="mtTrain">' + L.map(function (w, i) {
+      var lit = on.indexOf(i) >= 0;
+      return '<button data-mtrain="' + i + '" aria-pressed="' + (lit ? 'true' : 'false') +
+        '" aria-label="' + FULL[i] + (lit ? ', training day' : '') + '">' + w + '</button>';
+    }).join('') + '</span>';
+  }
+
   function macroTargetsHTML() {
     var t = mReadTargets();
     var pr = mReadProfile();
@@ -3000,6 +3072,12 @@
           row('Get to', box('mtGoalLb', pr.goalLb, 'lb')) +
           row('By', '<input type="date" id="mtGoalBy" value="' + esc(pr.goalBy || '') + '">') +
           row('Workouts a week', box('mtWorkouts', pr.workouts, '')) +
+          /* Which days those workouts fall on. Spread from the number above
+             until you say otherwise, and then held as a list of its own so
+             changing the number does not rearrange days set by hand. The
+             carbohydrate follows: more on a training day, less on a rest one,
+             and the week still averages to the plan. */
+          row('Training days', mTrainRowHTML()) +
           row('Steps a day', '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
             'inputmode="numeric" value="' + (pr.steps || '') + '">') +
           /* With a weight and a date, those two are the plan and these four
@@ -3347,7 +3425,7 @@
      rather than insisting on the same one. Favorites carry their ranking
      bonus here too, which is what "favorites first when they fit" means. */
   function mFillDay() {
-    var targets = mReadTargets();
+    var targets = mDayTargets(mViewKey());
     mEditDay(mViewKey(), function (day) {
       mReadSlots().list.forEach(function (s) {
         if ((day[s.k] || []).length) return;
@@ -3383,7 +3461,7 @@
   var MX_ALL = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4];
 
   function mRebalance() {
-    var targets = mReadTargets();
+    var targets = mDayTargets(mViewKey());
     mEditDay(mViewKey(), function (day) {
       var free = [];
       Object.keys(day).forEach(function (sk) {
@@ -3453,7 +3531,7 @@
           Math.round((mac.c || 0) * it.x) + 'g carbs');
       });
     });
-    var tot = mTotals(day), t = mReadTargets();
+    var tot = mTotals(day), t = mDayTargets(k);
     out.push('');
     out.push('Total: ' + Math.round(tot.all.kcal) + ' kcal, ' + Math.round(tot.all.p) +
       'g protein, ' + Math.round(tot.all.f) + 'g fat, ' + Math.round(tot.all.c) + 'g carbs');
@@ -3503,7 +3581,7 @@
    * only be arguing with it. */
   function mTryAgain(sk) {
     var k = mViewKey();
-    var targets = mReadTargets();
+    var targets = mDayTargets(k);
     var slots = mReadSlots();
     var srec = null;
     slots.list.forEach(function (sl) { if (sl.k === sk) srec = sl; });
@@ -5000,7 +5078,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -6463,6 +6541,20 @@
 
       /* The sex and goal pickers flip in place rather than re-rendering the
          sheet — the sheet is a draft, and a redraw would cost the other boxes. */
+      var trn = e.target.closest('[data-mtrain]');
+      if (trn && S.macroTargOpen) {
+        var ti = Number(trn.dataset.mtrain);
+        var days = mTrainDays(), at = days.indexOf(ti);
+        if (at >= 0) days.splice(at, 1); else days.push(ti);
+        var prT = mReadProfile();
+        prT.train = days.sort(function (a, b) { return a - b; });
+        mWriteProfile(prT);
+        trn.setAttribute('aria-pressed', at >= 0 ? 'false' : 'true');
+        mtRefreshPlan();
+        if (S.view === 'macros') renderMacros();
+        return;
+      }
+
       var mseg = e.target.closest('[data-mtsex], [data-mtgoal]');
       if (mseg && S.macroTargOpen) {
         Array.prototype.forEach.call(mseg.parentElement.querySelectorAll('button[data-' +

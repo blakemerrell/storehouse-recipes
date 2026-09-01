@@ -79,6 +79,62 @@ module.exports = {
         return c.length === 4 && c.every((x) => /^[+-]?\d+$/.test(x.querySelector('b').textContent));
       }), await p.textContent('.mdelta'));
 
+    /* Carb cycling. RP does not eat the same thing seven days a week: a
+       training day earns more carbohydrate and a rest day gives it back, so
+       the WEEK averages to the plan while the days differ. Derived from the
+       workouts box, overridden by tapping a day. */
+    t.ok('with no workouts named, every day asks for the same thing',
+      await p.evaluate(() => {
+        const k = [...document.querySelectorAll('.mwk-k')].map((e) => e.textContent);
+        return k.length === 7 && new Set(k).size === 1;
+      }), await p.textContent('.mweek'));
+    await p.click('#macroTargBtn');
+    await p.waitForTimeout(200);
+    await p.fill('#mtWorkouts', '4');
+    await p.click('[data-mtarg="save"]');
+    await p.waitForTimeout(350);
+    const cyc = await p.evaluate(() => ({
+      week: [...document.querySelectorAll('.mwk-k')].map((e) => Number(e.textContent)),
+      train: [...document.querySelectorAll('.mwk-d')].map((e) => e.classList.contains('train')),
+      base: (() => {
+        const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets')) || { p: 180, f: 50, c: 50 };
+        return 4 * t2.p + 4 * t2.c + 9 * t2.f;
+      })(),
+    }));
+    t.ok('four workouts make four bigger days and three smaller ones',
+      cyc.train.filter(Boolean).length === 4 &&
+      new Set(cyc.week).size === 2 &&
+      Math.max.apply(null, cyc.week) > cyc.base &&
+      Math.min.apply(null, cyc.week) < cyc.base,
+      cyc.week.join(',') + ' around ' + cyc.base);
+    /* The whole point: the week still adds up to the plan. Rounding each of
+       seven days to whole grams is allowed to drift a few calories. */
+    t.ok('and the week still averages to the plan',
+      Math.abs(cyc.week.reduce((a, b) => a + b, 0) - 7 * cyc.base) <= 20,
+      cyc.week.reduce((a, b) => a + b, 0) + ' vs ' + 7 * cyc.base);
+    // protein holds steady; the carbohydrate carries the swing
+    t.ok('protein does not move with the cycle, carbs do',
+      await p.evaluate(() => {
+        const num = (m) => {
+          const r = document.querySelector('.mbrow[data-macro="' + m + '"] .mb-num');
+          return Number(r.textContent.split('/')[1].replace(/\D/g, ''));
+        };
+        const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets')) || { p: 180, f: 50, c: 50 };
+        return num('p') === t2.p && num('f') === t2.f && num('c') !== t2.c;
+      }));
+    // and a day can be flipped by hand without the workouts box undoing it
+    await p.click('#macroTargBtn');
+    await p.waitForTimeout(200);
+    await p.click('[data-mtrain="1"]');
+    await p.waitForTimeout(250);
+    t.ok('tapping a day sets it, and the list is kept as its own',
+      await p.evaluate(() =>
+        JSON.parse(localStorage.getItem('bsc.macroProfile')).train.indexOf(1) >= 0));
+    await p.click('[data-mtrain="1"]');
+    await p.waitForTimeout(200);
+    await p.click('.sheet-x');
+    await p.waitForTimeout(250);
+
     /* Crafting a plan is a once-a-season job, so the daily screen carries
        what the plan is DOING rather than a button for making one. With no
        plan yet, that same line is the invitation. */
