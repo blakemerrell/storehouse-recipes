@@ -1170,11 +1170,11 @@ module.exports = [
     id: 284, book: 1, secNum: 2, secName: 'Snacks',
     name: 'Vanilla Milk Gelatin Cups',
     servings: '2 Cups', servN: 2,
-    ing: ['2 packets gelatin', '½ cup cold water', '2 cups milk', '1 cup non-fat dry milk', '2 tbsp sugar'],
+    ing: ['2 packets gelatin', '½ cup cold water', '2 cups milk', '1 cup non-fat dry milk', '2 tbsp sugar', '1 tsp vanilla'],
     steps: [
       'Sprinkle the gelatin over the cold water in a bowl and leave it 5 minutes. It swells and goes wrinkled. This step cannot be skipped or hurried with heat — gelatin dropped straight into hot liquid seizes into strings.',
       'Warm the milk in a pan with the dry milk and sugar whisked in. Warm, not boiling: boiling weakens gelatin and it will not set properly.',
-      'Pour the hot milk over the bloomed gelatin and stir until it is completely clear. Hold it to the light. Any grain still there now will still be there tomorrow.',
+      'Pour the hot milk over the bloomed gelatin and stir until it is completely clear. Hold it to the light. Any grain still there now will still be there tomorrow. Vanilla in last, off the heat, so none of it cooks away.',
       'Into two cups, cool on the counter, then fridge 4 hours.',
       'The gelatin is here to set it, not to feed you \u2014 a packet is seven grams and most of the protein is coming from the dry milk. This is the answer to nine at night.',
     ],

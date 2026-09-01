@@ -75,15 +75,22 @@ module.exports = {
      * shares it, and the pantry has never heard of "free" so it defaults to
      * kept. Right for salt and vanilla. Wrong for the five grams of creatine
      * in a Crio Bru drink, which came out under "From the storehouse" — the
-     * app telling a reader the storehouse stocks creatine. */
+     * app telling a reader the storehouse stocks creatine.
+     *
+     * The shared bucket is gone: every seasoning has its own key now, and
+     * creatine is declared off the order sheet next to the shelving rather
+     * than being rescued by a flag downstream. So this no longer hunts for an
+     * extra filed under "free" — there are none — it takes any extra at all,
+     * which is what the assertion was ever about. */
     const flagged = await p.evaluate(() => {
-      const r = window.RECIPES.find((x) => (x.ingp || []).some((i) => i && i.k === 'free' && i.x));
+      const r = window.RECIPES.find((x) => (x.ingp || []).some((i) => i && i.x));
       const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
       days.forEach((d) => window.Store.day(d).forEach((e) =>
         window.Store.removeFromDay(e.id !== undefined ? e.id : e, d)));
       window.Store.addToDay(r.id, 'mon');
       document.querySelector('.tab[data-view="list"]').click();
-      const name = (r.ingp.find((i) => i && i.k === 'free' && i.x) || {}).a;
+      const hit = r.ingp.find((i) => i && i.x) || {};
+      const name = ((window.PANTRY || {})[hit.k] || {}).l || hit.a || String(hit.k).replace(/_/g, ' ');
       const groups = [...document.querySelectorAll('.list-group')].map((g) => ({
         title: g.querySelector('.list-group-title').textContent.trim(),
         items: [...g.querySelectorAll('.list-row span:not(.qty)')].map((e) => e.textContent.trim()),

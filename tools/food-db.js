@@ -64,8 +64,8 @@ const FOODS = {
   tuna:            { kcal: 116, p: 26,   c: 0,    f: 0.8, na: 300, fib: 0,  g: { can: 120, oz: 28.35, cup: 154 }, label: 'Canned tuna', note: 'canned in water, 5 oz can drained = 120 g' },
 
   // ---- Beans --------------------------------------------------------------
-  black_beans:     { kcal: 91,  p: 6,    c: 16.6, f: 0.3, na: 250, fib: 6.9,  g: { can: 250, cup: 172 }, label: 'Black beans', note: 'canned, drained' },
-  pinto_beans:     { kcal: 88,  p: 5.5,  c: 16,   f: 0.8, na: 250, fib: 6, label: 'Pinto beans',  g: { can: 250, cup: 171 } },
+  black_beans:     { side: true, kcal: 91,  p: 6,    c: 16.6, f: 0.3, na: 250, fib: 6.9,  g: { can: 250, cup: 172 }, label: 'Black beans', note: 'canned, drained' },
+  pinto_beans:     { side: true, kcal: 88,  p: 5.5,  c: 16,   f: 0.8, na: 250, fib: 6, label: 'Pinto beans',  g: { can: 250, cup: 171 } },
   white_beans:     { kcal: 92,  p: 6.4,  c: 16.5, f: 0.4, na: 250, fib: 6.3,  g: { can: 250, cup: 179 }, label: 'Great Northern beans', note: 'Great Northern, canned' },
   refried_beans:   { kcal: 90,  p: 5.5,  c: 15,   f: 1.2, na: 380, fib: 4.5, label: 'Refried beans',  g: { can: 440, cup: 238 } },
   pork_and_beans:  { kcal: 94,  p: 4.8,  c: 17.7, f: 0.9, na: 400, fib: 4, label: 'Pork and beans',  g: { can: 440, cup: 253 } },
@@ -89,33 +89,33 @@ const FOODS = {
   biscuit_dough:   { kcal: 320, p: 6.6,  c: 48,   f: 11, na: 900, fib: 1.5,   g: { can: 454, each: 57 }, label: 'Biscuit dough', def: { qty: 1, unit: 'can' }, note: 'refrigerated biscuit dough' },
 
   // ---- Potatoes -----------------------------------------------------------
-  potato:          { kcal: 77,  p: 2,    c: 17.5, f: 0.1, na: 6, fib: 2.1,  g: { lb: 453.6, cup: 150, each: 173 }, label: 'Potatoes', note: 'raw; 1 medium = 173 g' },
+  potato:          { side: true, kcal: 77,  p: 2,    c: 17.5, f: 0.1, na: 6, fib: 2.1,  g: { lb: 453.6, cup: 150, each: 173 }, label: 'Potatoes', note: 'raw; 1 medium = 173 g' },
   instant_potato:  { kcal: 357, p: 8,    c: 81,   f: 0.4, na: 60, fib: 6.6,  g: { cup: 60 }, label: 'Instant potatoes', note: 'dry flakes' },
   mashed_potato:   { kcal: 113, p: 2,    c: 17,   f: 4.2, na: 320, fib: 1.5,  g: { cup: 210 }, label: 'Mashed potatoes', note: 'prepared with milk and butter' },
 
   // ---- Vegetables ---------------------------------------------------------
-  carrot:          { kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2, na: 69, fib: 2.8, label: 'Carrots',  g: { lb: 453.6, cup: 128, can: 250, each: 61 }, def: { qty: 1, unit: 'each' } },
-  green_beans:     { kcal: 20,  p: 1.2,  c: 4.1,  f: 0.1, na: 220, fib: 2.6,  g: { can: 240, cup: 125 }, label: 'Green beans', def: { qty: 1, unit: 'can' }, note: 'canned, drained' },
-  corn:            { kcal: 81,  p: 2.6,  c: 19,   f: 1, na: 220, fib: 2.4,    g: { can: 265, cup: 165 }, note: '14.4 oz tin, drained' },
-  broccoli:        { kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4, na: 33, fib: 2.6,  g: { lb: 453.6, cup: 91 }, def: { qty: 1, unit: 'lb' } },
-  lettuce:         { kcal: 15,  p: 1.4,  c: 2.9,  f: 0.2, na: 28, fib: 1.3,  g: { cup: 47, each: 600, oz: 28.35 }, def: { qty: 2, unit: 'cup' }, note: '1 head = 600 g' },
-  onion:           { kcal: 40,  p: 1.1,  c: 9.3,  f: 0.1, na: 4, fib: 1.7,  g: { cup: 160, each: 110 }, label: 'Onions', def: { qty: 0.5, unit: 'each' } },
-  tomato:          { kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2, na: 5, fib: 1.2,  g: { cup: 180, each: 123 }, label: 'Tomatoes', def: { qty: 1, unit: 'each' }, note: '1 large = 182 g, handled by the parser' },
-  tomato_canned:   { kcal: 32,  p: 1.5,  c: 7,    f: 0.2, na: 180, fib: 1.6,  g: { can: 794, cup: 240 }, label: 'Diced tomatoes', note: 'diced tomatoes, 28 oz tin' },
-  bell_pepper:     { kcal: 26,  p: 1,    c: 6,    f: 0.3, na: 4, fib: 2.1,  g: { lb: 453.6, cup: 149, each: 119 }, label: 'Bell peppers', def: { qty: 1, unit: 'each' } },
-  cucumber:        { kcal: 15,  p: 0.65, c: 3.6,  f: 0.1, na: 2, fib: 0.5,  g: { cup: 133, each: 300 }, label: 'Cucumbers', def: { qty: 0.5, unit: 'each' } },
+  carrot:          { side: true, kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2, na: 69, fib: 2.8, label: 'Carrots',  g: { lb: 453.6, cup: 128, can: 250, each: 61 }, def: { qty: 1, unit: 'each' } },
+  green_beans:     { side: true, kcal: 20,  p: 1.2,  c: 4.1,  f: 0.1, na: 220, fib: 2.6,  g: { can: 240, cup: 125 }, label: 'Green beans', def: { qty: 1, unit: 'can' }, note: 'canned, drained' },
+  corn:            { side: true, kcal: 81,  p: 2.6,  c: 19,   f: 1, na: 220, fib: 2.4,    g: { can: 265, cup: 165 }, note: '14.4 oz tin, drained' },
+  broccoli:        { side: true, kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4, na: 33, fib: 2.6,  g: { lb: 453.6, cup: 91 }, def: { qty: 1, unit: 'lb' } },
+  lettuce:         { side: true, kcal: 15,  p: 1.4,  c: 2.9,  f: 0.2, na: 28, fib: 1.3,  g: { cup: 47, each: 600, oz: 28.35 }, def: { qty: 2, unit: 'cup' }, note: '1 head = 600 g' },
+  onion:           { side: true, kcal: 40,  p: 1.1,  c: 9.3,  f: 0.1, na: 4, fib: 1.7,  g: { cup: 160, each: 110 }, label: 'Onions', def: { qty: 0.5, unit: 'each' } },
+  tomato:          { side: true, kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2, na: 5, fib: 1.2,  g: { cup: 180, each: 123 }, label: 'Tomatoes', def: { qty: 1, unit: 'each' }, note: '1 large = 182 g, handled by the parser' },
+  tomato_canned:   { side: true, kcal: 32,  p: 1.5,  c: 7,    f: 0.2, na: 180, fib: 1.6,  g: { can: 794, cup: 240 }, label: 'Diced tomatoes', note: 'diced tomatoes, 28 oz tin' },
+  bell_pepper:     { side: true, kcal: 26,  p: 1,    c: 6,    f: 0.3, na: 4, fib: 2.1,  g: { lb: 453.6, cup: 149, each: 119 }, label: 'Bell peppers', def: { qty: 1, unit: 'each' } },
+  cucumber:        { side: true, kcal: 15,  p: 0.65, c: 3.6,  f: 0.1, na: 2, fib: 0.5,  g: { cup: 133, each: 300 }, label: 'Cucumbers', def: { qty: 0.5, unit: 'each' } },
   garlic:          { kcal: 149, p: 6.4,  c: 33,   f: 0.5, na: 17, fib: 2.1,  g: { each: 3, tsp: 2.8, tbsp: 8.4 }, def: { qty: 1, unit: 'each' } },
 
   // ---- Fruit --------------------------------------------------------------
-  apple:           { kcal: 52,  p: 0.3,  c: 14,   f: 0.2, na: 1, fib: 2.4, label: 'Apples',  g: { cup: 125, each: 182 } },
-  banana:          { kcal: 89,  p: 1.1,  c: 22.8, f: 0.3, na: 1, fib: 2.6, label: 'Bananas',  g: { cup: 150, each: 118 } },
-  orange:          { kcal: 47,  p: 0.9,  c: 11.8, f: 0.1, na: 0, fib: 2.4, label: 'Oranges',  g: { cup: 165, each: 140 } },
-  grapes:          { kcal: 69,  p: 0.7,  c: 18,   f: 0.2, na: 2, fib: 0.9,  g: { cup: 151, each: 5 } },
-  peaches_canned:  { kcal: 54,  p: 0.6,  c: 14,   f: 0.1, na: 6, fib: 1.3,  g: { can: 500, cup: 244 }, label: 'Canned peaches', note: 'storehouse tin is 29 oz, about 500 g drained' },
-  pears_canned:    { kcal: 60,  p: 0.4,  c: 15.6, f: 0.1, na: 5, fib: 1.7,  g: { can: 500, cup: 244 }, label: 'Canned pears', note: '29 oz tin' },
-  applesauce:      { kcal: 68,  p: 0.2,  c: 17.5, f: 0.2, na: 2, fib: 1.1,  g: { jar: 751, cup: 244, can: 751 }, note: '26.5 oz' },
+  apple:           { side: true, kcal: 52,  p: 0.3,  c: 14,   f: 0.2, na: 1, fib: 2.4, label: 'Apples',  g: { cup: 125, each: 182 } },
+  banana:          { side: true, kcal: 89,  p: 1.1,  c: 22.8, f: 0.3, na: 1, fib: 2.6, label: 'Bananas',  g: { cup: 150, each: 118 } },
+  orange:          { side: true, kcal: 47,  p: 0.9,  c: 11.8, f: 0.1, na: 0, fib: 2.4, label: 'Oranges',  g: { cup: 165, each: 140 } },
+  grapes:          { side: true, kcal: 69,  p: 0.7,  c: 18,   f: 0.2, na: 2, fib: 0.9,  g: { cup: 151, each: 5 } },
+  peaches_canned:  { side: true, kcal: 54,  p: 0.6,  c: 14,   f: 0.1, na: 6, fib: 1.3,  g: { can: 500, cup: 244 }, label: 'Canned peaches', note: 'storehouse tin is 29 oz, about 500 g drained' },
+  pears_canned:    { side: true, kcal: 60,  p: 0.4,  c: 15.6, f: 0.1, na: 5, fib: 1.7,  g: { can: 500, cup: 244 }, label: 'Canned pears', note: '29 oz tin' },
+  applesauce:      { side: true, kcal: 68,  p: 0.2,  c: 17.5, f: 0.2, na: 2, fib: 1.1,  g: { jar: 751, cup: 244, can: 751 }, note: '26.5 oz' },
   raisins:         { kcal: 299, p: 3.1,  c: 79,   f: 0.5, na: 11, fib: 3.7,  g: { cup: 145, tbsp: 9 } },
-  fruit_generic:   { kcal: 60,  p: 0.7,  c: 15,   f: 0.2, na: 2, fib: 2,  g: { cup: 150, each: 140 }, label: 'Fresh fruit', def: { qty: 1, unit: 'cup' }, note: 'unspecified fresh/frozen fruit' },
+  fruit_generic:   { side: true, kcal: 60,  p: 0.7,  c: 15,   f: 0.2, na: 2, fib: 2,  g: { cup: 150, each: 140 }, label: 'Fresh fruit', def: { qty: 1, unit: 'cup' }, note: 'unspecified fresh/frozen fruit' },
 
   // ---- Sauces, condiments, sweeteners -------------------------------------
   salsa:           { kcal: 29,  p: 1.5,  c: 6,    f: 0.2, na: 700, fib: 1.5,  g: { cup: 260, tbsp: 16, jar: 751 }, def: { qty: 0.25, unit: 'cup' }, note: '26.5 oz jar' },
@@ -171,6 +171,47 @@ const FOODS = {
   /* Seasonings and non-food items. `split` keeps them off one another's
      shopping line — everything else merges on its food key, but "Vanilla",
      "Paprika" and "Lollipop sticks" would all merge into one row. */
+  /* ---- Seasonings the storehouse does not carry ---------------------------
+   *
+   * These exist to be NAMED, not to be counted. Every one of them used to
+   * resolve to `free`, the single catch-all seasoning, which meant the book
+   * could not tell a reader that a recipe wanted paprika when the storehouse
+   * stocks four seasonings and paprika is not among them. Fresh garlic was
+   * flagged as an extra and garlic powder was not, in the same recipe.
+   *
+   * Their macros are deliberately all zero, exactly as `free` was, so that
+   * declaring them changes what the book SAYS about a recipe and nothing
+   * about what it computes. A teaspoon of dried oregano is not a nutrition
+   * problem. Not knowing you need one, when you are standing in a storehouse
+   * that does not sell it, is a problem.
+   */
+  paprika:         { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 2, tbsp: 6, cup: 96 }, label: 'Paprika' },
+  garlic_powder:   { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 3, tbsp: 9, cup: 144 }, label: 'Garlic powder' },
+  onion_powder:    { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 2, tbsp: 7, cup: 112 }, label: 'Onion powder' },
+  cumin:           { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 2, tbsp: 6, cup: 96 }, label: 'Ground cumin' },
+  oregano:         { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 1, tbsp: 3, cup: 48 }, label: 'Dried oregano' },
+  thyme:           { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 1, tbsp: 3, cup: 48 }, label: 'Dried thyme' },
+  basil:           { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 1, tbsp: 3, cup: 48 }, label: 'Dried basil' },
+  ginger:          { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 2, tbsp: 5, cup: 80 }, label: 'Ground ginger' },
+  mustard_powder:  { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 2, tbsp: 6, cup: 96 }, label: 'Mustard powder' },
+  chili_powder:    { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 3, tbsp: 8, cup: 128 }, label: 'Chili powder' },
+  white_pepper:    { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 2, tbsp: 7, cup: 112 }, label: 'White pepper' },
+  cilantro:        { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 1, tbsp: 3, cup: 16, each: 20 }, label: 'Cilantro' },
+  lime:            { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 5, tbsp: 15, cup: 242, each: 67 }, label: 'Limes' },
+  sweetener:       { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 4, tbsp: 12, cup: 192, each: 1 }, label: 'Sweetener' },
+  stevia:          { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 4, tbsp: 12, cup: 192, each: 1 }, label: 'Stevia' },
+  creatine:        { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 5, tbsp: 15, cup: 240, each: 5 }, label: 'Creatine' },
+  pickle_juice:    { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 5, tbsp: 15, cup: 240 }, label: 'Pickle juice' },
+
+  /* The four the storehouse does carry. Named for the same reason as the
+     seventeen above, and marked stocked rather than flagged — the point was
+     never to warn about pepper, it was to stop every seasoning sharing one
+     nameless bucket. While they did, a recipe listing black pepper counted as
+     "used by its method" because some other line in the method said garlic
+     powder: one key, every alias, any match. */
+  black_pepper:    { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 2, tbsp: 7, cup: 112 }, label: 'Black pepper' },
+  vanilla:         { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 4, tbsp: 13, cup: 208 }, label: 'Vanilla' },
+
   free:            { kcal: 0,   p: 0,    c: 0,    f: 0, na: 0, fib: 0,    g: { cup: 100, tbsp: 6, tsp: 2, each: 1, pkg: 1 }, split: true, note: 'seasonings, sweeteners and non-food items' },
   /* Salt is not free. It was scored as though it were until sodium went into
      the table, which is exactly the sort of thing that made the old score
@@ -323,15 +364,15 @@ const ALIASES = {
 
   // free
   'salt': 'salt', 'sea salt': 'salt', 'salt/pepper': 'salt', 'kosher salt': 'salt',
-  'pepper': 'free', 'black pepper': 'free',
-  'paprika': 'free', 'cumin': 'free', 'garlic powder': 'free', 'chili spices': 'free',
-  'vanilla': 'free', 'vanilla extract': 'free', 'sweetener': 'free', 'stevia': 'free',
-  'lime juice': 'free', 'creatine': 'free',
-  'lime': 'free', 'limes': 'free', 'cilantro': 'free', 'pickle juice': 'free',
-  'chili powder': 'free', 'onion powder': 'free', 'dried oregano': 'free',
-  'dried thyme': 'free', 'dried basil': 'free', 'ground ginger': 'free',
-  'mustard powder': 'free', 'celery salt': 'celery_salt', 'white pepper': 'free',
-  'ground cumin': 'free', 'oregano': 'free', 'thyme': 'free',
+  'pepper': 'black_pepper', 'black pepper': 'black_pepper',
+  'paprika': 'paprika', 'cumin': 'cumin', 'garlic powder': 'garlic_powder', 'chili spices': 'chili_powder',
+  'vanilla': 'vanilla', 'vanilla extract': 'vanilla', 'sweetener': 'sweetener', 'stevia': 'stevia',
+  'lime juice': 'lime', 'creatine': 'creatine',
+  'lime': 'lime', 'limes': 'lime', 'cilantro': 'cilantro', 'pickle juice': 'pickle_juice',
+  'chili powder': 'chili_powder', 'onion powder': 'onion_powder', 'dried oregano': 'oregano',
+  'dried thyme': 'thyme', 'dried basil': 'basil', 'ground ginger': 'ginger',
+  'mustard powder': 'mustard_powder', 'celery salt': 'celery_salt', 'white pepper': 'white_pepper',
+  'ground cumin': 'cumin', 'oregano': 'oregano', 'thyme': 'thyme',
   'lollipop sticks': 'free', 'wooden sticks': 'free',
   'cinnamon': 'cinnamon',
 };
