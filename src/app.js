@@ -3600,15 +3600,28 @@
       var items = (day[pair[0]] || []).filter(function (it) { return BY_ID[it.id]; });
       if (!items.length) return;
       out.push(pair[1] + ':');
+      var mt = { kcal: 0, p: 0, f: 0, c: 0 };
       items.forEach(function (it) {
         var r = BY_ID[it.id];
         var mac = r.macro || {};
+        mt.kcal += (mac.kcal || 0) * it.x; mt.p += (mac.p || 0) * it.x;
+        mt.f += (mac.f || 0) * it.x; mt.c += (mac.c || 0) * it.x;
         out.push('  ' + (it.eaten ? '[x] ' : '[ ] ') + r.name + ' \u00d7' + fmtNum(it.x) +
+          (r.food ? ' ' + r.unit
+            : ' (' + fmtNum(it.x * (r.servN || 1)) +
+              (it.x * (r.servN || 1) === 1 ? ' serving)' : ' servings)')) +
           ' \u2014 ' + Math.round((mac.kcal || 0) * it.x) + ' kcal, ' +
           Math.round((mac.p || 0) * it.x) + 'g protein, ' +
           Math.round((mac.f || 0) * it.x) + 'g fat, ' +
           Math.round((mac.c || 0) * it.x) + 'g carbs');
       });
+      /* The meal's own line. Anything you are typing this into logs a meal at
+         a time — Google Fit included — so the subtotal has to be here rather
+         than added up on a thumb. */
+      if (items.length > 1) {
+        out.push('  = ' + Math.round(mt.kcal) + ' kcal, ' + Math.round(mt.p) +
+          'g protein, ' + Math.round(mt.f) + 'g fat, ' + Math.round(mt.c) + 'g carbs');
+      }
     });
     var tot = mTotals(day), t = mDayTargets(k);
     out.push('');
@@ -6219,6 +6232,22 @@
        renaming itself, and a control whose only feedback is its own label
        cannot live somewhere that closes on the way out. */
     $('macroCopy').addEventListener('click', function () { mCopyDay(this); });
+
+    /* Handing the day to another app rather than to the clipboard. Google Fit
+       has no door we can knock on — its API stopped taking new callers in
+       2024, and what replaced it lives on the phone behind a native app — so
+       the honest route is the phone's own share sheet and Fit's own entry
+       screen. Shown only where there is a sheet to share into. */
+    if (navigator.share) {
+      $('macroShare').classList.remove('hide');
+      $('macroShare').addEventListener('click', function () {
+        var d = keyDate(mViewKey());
+        navigator.share({
+          title: 'My Day \u2014 ' + M_MONS[d.getMonth()] + ' ' + d.getDate(),
+          text: mDayText(mViewKey())
+        }).catch(function () { /* dismissed, which is not a failure */ });
+      });
+    }
 
     $('macroMenu').addEventListener('click', function (e) {
       var b = e.target.closest('[data-mmore]');

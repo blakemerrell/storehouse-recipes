@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=175">
+<link rel="stylesheet" href="src/style.css?v=176">
 </head>
 <body>
 
@@ -198,6 +198,9 @@
       <!-- Copy is a verb you do to today, so it stays with the other two. -->
       <button class="ghost mday-icon" id="macroCopy"
         aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
+      <!-- Shown only where the phone has a share sheet to hand it to. -->
+      <button class="ghost mday-icon hide" id="macroShare"
+        aria-label="Send the day to another app" title="Send the day to another app">&#10132;</button>
     </div>
   </div>
 </section>
@@ -282,14 +285,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=175"></script>
-<script src="data/nutrition.js?v=175"></script>
-<script src="data/art.js?v=175"></script>
-<script src="data/qr.js?v=175"></script>
-<script src="src/config.js?v=175"></script>
+<script src="data/recipes.js?v=176"></script>
+<script src="data/nutrition.js?v=176"></script>
+<script src="data/art.js?v=176"></script>
+<script src="data/qr.js?v=176"></script>
+<script src="src/config.js?v=176"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=175"></script>
-<script src="src/app.js?v=175"></script>
+<script src="src/sync.js?v=176"></script>
+<script src="src/app.js?v=176"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

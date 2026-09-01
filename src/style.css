@@ -1125,6 +1125,10 @@ select { max-width: 280px; }
    to be more important than it is, so there it sits at its own size. */
 @media (min-width: 861px) {
   .mstep { display: inline-flex; }
+  /* On a phone every control is in reach, so they sit in a row. On a desktop
+     the day box stops growing at 190px and the two would otherwise strand
+     themselves mid-line, a hand's width from the edge they belong to. */
+  .mday-head #macroOpenAll { margin-left: auto; }
 }
 .mp-fav { color: var(--ochre-text); }
 
