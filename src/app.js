@@ -2449,6 +2449,11 @@
     });
     $('macroSlots').innerHTML = html;
 
+    var shut = mAnyShut();
+    $('macroOpenAll').setAttribute('aria-pressed', shut ? 'false' : 'true');
+    $('macroOpenAll').setAttribute('aria-label', shut ? 'Open every meal' : 'Close every meal');
+    $('macroOpenAll').innerHTML = shut ? '&#9776;' : '&#9783;';
+
     $('macroFoot').innerHTML = macroFootHTML(day, targets, slots);
     /* Rebuilt every render, so the button inside it is new each time — the
        handler is delegated from the container rather than bound to it. */
@@ -2642,13 +2647,9 @@
        because that is where you are already looking when you decide to. */
     return '<div class="mbars">' + bars + '</div>' +
       '<div class="mdelta" role="status">' + delta + micro +
-        (tot.eaten.kcal ? '<span class="md-ate">' + Math.round(tot.eaten.kcal) + ' eaten</span>' : '') +
-        '<button class="md-open no-print" data-mopen="1" aria-pressed="' +
-          (mAnyShut() ? 'false' : 'true') + '" aria-label="' +
-          (mAnyShut() ? 'Open every meal' : 'Close every meal') + '">' +
-          (mAnyShut() ? '&#9776;' : '&#9783;') + '</button>' +
+
       '</div>' +
-      (tot.est ? '<div class="macro-est">~ estimated from a food table, not a label.</div>' : '');
+      '';
   }
 
   /* The picker sheet: search plus a meal/all toggle, over a list ranked by
@@ -5650,7 +5651,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mopen', 'data-mline'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -6688,10 +6689,7 @@
     /* Open the whole day, or shut it. Which one it does next is whichever
        the day is not already: with anything folded it opens, and once
        everything is open it closes. */
-    /* It lives inside the readout now, which is redrawn on every change, so
-       the press is delegated from the container rather than bound to it. */
-    $('macroFoot').addEventListener('click', function (e) {
-      if (!e.target.closest('[data-mopen]')) return;
+    $('macroOpenAll').addEventListener('click', function () {
       var open = mAnyShut(), day = mDay(mViewKey());
       Object.keys(day).forEach(function (sk2) { S.mFold[sk2] = !open; });
       mReadSlots().list.forEach(function (s2) { S.mFold[s2.k] = !open; });
@@ -6708,21 +6706,7 @@
        cannot live somewhere that closes on the way out. */
     $('macroCopy').addEventListener('click', function () { mCopyDay(this); });
 
-    /* Handing the day to another app rather than to the clipboard. Google Fit
-       has no door we can knock on — its API stopped taking new callers in
-       2024, and what replaced it lives on the phone behind a native app — so
-       the honest route is the phone's own share sheet and Fit's own entry
-       screen. Shown only where there is a sheet to share into. */
-    if (navigator.share) {
-      $('macroShare').classList.remove('hide');
-      $('macroShare').addEventListener('click', function () {
-        var d = keyDate(mViewKey());
-        navigator.share({
-          title: 'My Day \u2014 ' + M_MONS[d.getMonth()] + ' ' + d.getDate(),
-          text: mDayText(mViewKey())
-        }).catch(function () { /* dismissed, which is not a failure */ });
-      });
-    }
+
 
     $('macroMenu').addEventListener('click', function (e) {
       var b = e.target.closest('[data-mmore]');

@@ -869,8 +869,10 @@ module.exports = {
     t.ok('an estimated recipe carries the tilde on its line',
       await p.evaluate(() => Array.from(document.querySelectorAll('.mitem-mac'))
         .some((el) => el.textContent.indexOf('~') === 0)));
-    t.ok('and the footer says what the tilde means',
-      await p.evaluate(() => !!document.querySelector('.macro-est')));
+    // the tilde carries it on the plate itself; the footnote under the day was
+    // one more line of the app talking about itself
+    t.ok('and says so on the plate rather than in a footnote',
+      await p.evaluate(() => !document.querySelector('.macro-est')));
     t.ok('while the authored recipe shows none',
       await p.evaluate(() => {
         const first = document.querySelector('[data-meat="b:0"]');

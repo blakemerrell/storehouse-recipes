@@ -612,7 +612,6 @@ select { max-width: 280px; }
 .mbar.over .mbar-nums { color: oklch(0.55 0.14 45); font-weight: 600; }
 .mbar.over .mbar-planned, .mbar.over .mbar-eaten { background: oklch(0.70 0.14 45); }
 .macro-kcal { font-size: 12.5px; color: var(--muted-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
-.macro-est { font-size: 10px; color: var(--muted); margin-top: 6px; }
 
 /* the picker sheet */
 .mp-controls { display: flex; gap: 9px; margin: 14px 0 12px; flex-wrap: wrap; }
@@ -1077,14 +1076,7 @@ select { max-width: 280px; }
 .md-c.pos b { color: var(--dial-over); }
 .md-c.nil b { color: var(--dial-on); }
 .md-c.neg b { color: var(--muted-2); }
-.md-ate { margin-left: auto; font-size: 10.5px; color: var(--muted); }
-/* the handle for opening the day, on the end of the line you read it from */
-.md-open {
-  flex: none; width: 30px; height: 26px; margin: -3px -4px -3px 4px;
-  background: var(--card); border: 1px solid var(--line-firm); border-radius: 4px;
-  font-size: 13px; color: var(--muted-2);
-}
-.md-open:hover { border-color: var(--ochre); color: var(--ink); }
+
 /* A floor and a ceiling, riding on the same line as what is left. */
 .mm { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px;
   display: inline-flex; align-items: baseline; gap: 3px; }
