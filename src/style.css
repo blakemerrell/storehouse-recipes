@@ -478,13 +478,13 @@ select { max-width: 280px; }
 .mslot { margin-bottom: 0; }
 .mslot-h { display: flex; align-items: baseline; gap: 9px; padding: 0 0 3px; }
 /* the verdict, so a meal says whether it wants you without being opened */
-.mv {
+.mslot-v {
   font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
   background: var(--paper-soft); border: 1px solid var(--line-soft); color: var(--muted);
 }
-.mv.on { border-color: var(--dial-on); color: var(--dial-on); }
-.mv.short { border-color: var(--dial-under); color: var(--ochre-text); }
-.mv.over { border-color: var(--dial-over); color: var(--dial-over); }
+.mslot-v.on { border-color: var(--dial-on); color: var(--dial-on); }
+.mslot-v.short { border-color: var(--dial-under); color: var(--ochre-text); }
+.mslot-v.over { border-color: var(--dial-over); color: var(--dial-over); }
 .mslot-name {
   background: none; border: 0; padding: 0; font-family: var(--sans); text-align: left;
   font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
@@ -545,7 +545,10 @@ select { max-width: 280px; }
 .mitem.eaten .mitem-name { text-decoration: line-through; color: oklch(0.68 0.02 70); }
 /* where it came from, and what one of it is */
 .mitem-chips { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 0 24px; }
-.chip {
+/* NOT .chip — the recipe cards have owned that name since the app was built,
+   and a second rule of equal specificity further down the file quietly
+   repainted every one of them. The same trap .daybar set. */
+.mchip {
   font-size: 9.5px; padding: 1.5px 6px; border-radius: 3px; background: var(--paper-soft);
   border: 1px solid var(--line-soft); color: var(--muted); white-space: nowrap;
 }

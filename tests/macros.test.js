@@ -189,7 +189,7 @@ module.exports = {
       await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
         if (!el || el.tagName === 'BUTTON') return false;
-        const chips = [...el.closest('.mitem').querySelectorAll('.mitem-chips .chip')]
+        const chips = [...el.closest('.mitem').querySelectorAll('.mitem-chips .mchip')]
           .map((c) => c.textContent);
         return chips.indexOf('Yours') >= 0 && chips.length >= 2;
       }), await p.evaluate(() => {

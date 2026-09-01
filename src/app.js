@@ -1871,10 +1871,10 @@
              number on a plate cannot answer by itself. */
           '<span class="mitem-chips">' +
             // the book's short name — its full title is half a phone wide
-            '<span class="chip">' + esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) + '</span>' +
-            '<span class="chip">' + esc(r.food ? r.unit
+            '<span class="mchip">' + esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) + '</span>' +
+            '<span class="mchip">' + esc(r.food ? r.unit
               : fmtNum(it.x * (r.servN || 1)) + (it.x * (r.servN || 1) === 1 ? ' serving' : ' servings')) + '</span>' +
-            (r.est ? '<span class="chip">~ estimated</span>' : '') +
+            (r.est ? '<span class="mchip">~ estimated</span>' : '') +
           '</span>' +
           '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
           /* The lock sits on the amount, beside the number it holds still. It
@@ -1934,7 +1934,7 @@
              open. Pressing the name overrides either way. */
           '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
             (folded ? 'false' : 'true') + '">' + esc(name) + '</button>' +
-          mVerdictHTML(sk, items, onPlan) +
+          mVerdictHTML(sk, items, onPlan, targets, slots) +
           (onPlan ? '<button class="ghost mslot-try no-print" data-mtry="' + esc(sk) + '" ' +
             'aria-label="Another suggestion for ' + esc(name) + '" ' +
             'title="Another suggestion — walks down the best-fit list">&#8635;</button>' : '') +
@@ -1962,7 +1962,7 @@
     });
     $('macroSlots').innerHTML = html;
 
-    $('macroFoot').innerHTML = macroFootHTML(day, targets);
+    $('macroFoot').innerHTML = macroFootHTML(day, targets, slots);
     /* Rebuilt every render, so the button inside it is new each time — the
        handler is delegated from the container rather than bound to it. */
     $('macroPlan').innerHTML = mPlanNarrative();
@@ -1986,9 +1986,10 @@
      is one you have not decided yet — and counting it as zero made a day
      half-planned at nine in the morning read as a catastrophe. It is drawn
      as its own hatched band so it is never mistaken for food. */
-  function mAssumed(day, targets) {
+  function mAssumed(day, targets, slots) {
     var out = { p: 0, f: 0, c: 0, kcal: 0 };
-    var slots = mReadSlots(), sumW = 0;
+    var sumW = 0;
+    slots = slots || mReadSlots();
     slots.list.forEach(function (s) { sumW += mSlotW(s); });
     if (!sumW) return out;
     slots.list.forEach(function (s) {
@@ -2004,16 +2005,15 @@
      share has existed since the picker was built, but it only ever showed
      INSIDE the picker — so the only way to learn that dinner was two hundred
      short was to open dinner and go shopping. Now the header says it. */
-  function mVerdictHTML(sk, items, onPlan) {
-    var targets = mReadTargets();
+  function mVerdictHTML(sk, items, onPlan, targets, slots) {
     if (!targets.p && !targets.f && !targets.c) return '';
-    var slots = mReadSlots(), me = null, sumW = 0;
+    var me = null, sumW = 0;
     slots.list.forEach(function (s) { sumW += mSlotW(s); if (s.k === sk) me = s; });
     if (!me || !sumW) return '';
     var tK = kcalOf(targets) * mSlotW(me) / sumW;
     if (!items.length) {
       return onPlan
-        ? '<span class="mv" data-mv="empty">at its share &middot; ' + Math.round(tK) + '</span>'
+        ? '<span class="mslot-v" data-mv="empty">at its share &middot; ' + Math.round(tK) + '</span>'
         : '';
     }
     var got = 0;
@@ -2024,18 +2024,18 @@
     var d = Math.round(got - tK);
     var eatenAll = items.every(function (it) { return it.eaten || !BY_ID[it.id]; });
     if (Math.abs(d) <= tK * 0.1) {
-      return '<span class="mv on" data-mv="on">' + (eatenAll ? 'eaten &middot; on target' : 'on target') + '</span>';
+      return '<span class="mslot-v on" data-mv="on">' + (eatenAll ? 'eaten &middot; on target' : 'on target') + '</span>';
     }
-    return '<span class="mv ' + (d < 0 ? 'short' : 'over') + '" data-mv="' + (d < 0 ? 'short' : 'over') + '">' +
+    return '<span class="mslot-v ' + (d < 0 ? 'short' : 'over') + '" data-mv="' + (d < 0 ? 'short' : 'over') + '">' +
       Math.abs(d) + (d < 0 ? ' short' : ' over') + '</span>';
   }
 
-  function macroFootHTML(day, targets) {
+  function macroFootHTML(day, targets, slots) {
     if (!targets.p && !targets.f && !targets.c) {
       return '<div class="macro-none">Craft your plan.</div>';
     }
     var tot = mTotals(day);
-    var asm = mAssumed(day, targets);
+    var asm = mAssumed(day, targets, slots);
 
     /* Four bars, not three dials and a bar underneath. Calories are the
        fourth line of the same budget, and reading them off a different shape
