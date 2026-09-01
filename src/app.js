@@ -2077,6 +2077,14 @@
     });
     $('macroSlots').innerHTML = html;
 
+    /* The button says what it will do next, not what it did last. */
+    var anyShut = false;
+    slots.list.forEach(function (s2) { if ((day[s2.k] || []).length && S.mFold[s2.k]) anyShut = true; });
+    Object.keys(day).forEach(function (sk2) { if ((day[sk2] || []).length && S.mFold[sk2]) anyShut = true; });
+    $('macroOpenAll').setAttribute('aria-pressed', anyShut ? 'false' : 'true');
+    $('macroOpenAll').setAttribute('aria-label', anyShut ? 'Open every meal' : 'Close every meal');
+    $('macroOpenAll').innerHTML = anyShut ? '&#9776;' : '&#9783;';
+
     $('macroFoot').innerHTML = macroFootHTML(day, targets, slots);
     /* Rebuilt every render, so the button inside it is new each time — the
        handler is delegated from the container rather than bound to it. */
@@ -6186,6 +6194,23 @@
       m.classList.toggle('hide', !open);
       $('macroMore').setAttribute('aria-expanded', String(!!open));
     }
+    /* Open the whole day, or shut it. Which one it does next is whichever
+       the day is not already: with anything folded it opens, and once
+       everything is open it closes. */
+    $('macroOpenAll').addEventListener('click', function () {
+      var slots = mReadSlots(), day = mDay(mViewKey()), anyShut = false;
+      slots.list.forEach(function (s2) {
+        if ((day[s2.k] || []).length && S.mFold[s2.k]) anyShut = true;
+      });
+      Object.keys(day).forEach(function (sk2) {
+        if ((day[sk2] || []).length && S.mFold[sk2]) anyShut = true;
+      });
+      Object.keys(day).forEach(function (sk2) { S.mFold[sk2] = !anyShut; });
+      slots.list.forEach(function (s2) { S.mFold[s2.k] = !anyShut; });
+      S.mFold.weigh = !anyShut ? undefined : false;
+      keepingFocus(renderMacros);
+    });
+
     $('macroMore').addEventListener('click', function (e) {
       e.stopPropagation();
       mMenu($('macroMenu').classList.contains('hide'));

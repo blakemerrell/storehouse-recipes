@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=174">
+<link rel="stylesheet" href="src/style.css?v=175">
 </head>
 <body>
 
@@ -156,6 +156,18 @@
         <button class="ghost" id="macroPrev" aria-label="Previous day">&lsaquo;</button>
         <select id="macroDaySel" aria-label="Day"></select>
         <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
+        <!-- Open or shut the whole day, and set it up: the two that belong
+             beside the title rather than down with the morning's verbs. -->
+        <button class="ghost mday-icon" id="macroOpenAll" aria-pressed="false"
+          aria-label="Open every meal">&#9776;</button>
+        <button class="ghost mday-icon mday-more" id="macroMore" aria-haspopup="true"
+          aria-expanded="false" aria-label="Set up My Day">&#9881;</button>
+        <div class="mday-menu hide" id="macroMenu" role="menu">
+          <button role="menuitem" data-mmore="plan">Craft my plan</button>
+          <button role="menuitem" data-mmore="meals">Meals &amp; shares</button>
+          <button role="menuitem" data-mmore="you">Sync &amp; sharing</button>
+          <button role="menuitem" data-mmore="help">How My Day works</button>
+        </div>
       </div>
       <!-- The week as a strip: seven days, each with what it came to and
            what it was aiming at, so a day is chosen by looking rather than
@@ -183,18 +195,9 @@
       <button class="btn-primary" id="macroFill">Fill my day</button>
       <button class="ghost" id="macroRebal"
         title="Re-size the un-eaten, un-locked plates to land the day back on target">Rebalance</button>
-      <!-- Copy is a verb you do to today, so it sits with the other two. The
-           gear is where the day is set up rather than run. -->
-      <button class="ghost mday-icon" id="macroCopy" data-mmore="copy"
+      <!-- Copy is a verb you do to today, so it stays with the other two. -->
+      <button class="ghost mday-icon" id="macroCopy"
         aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
-      <button class="ghost mday-more" id="macroMore" aria-haspopup="true"
-        aria-expanded="false" aria-label="Set up My Day">&#9881;</button>
-      <div class="mday-menu hide" id="macroMenu" role="menu">
-        <button role="menuitem" data-mmore="plan">Craft my plan</button>
-        <button role="menuitem" data-mmore="meals">Meals &amp; shares</button>
-        <button role="menuitem" data-mmore="you">Sync &amp; sharing</button>
-        <button role="menuitem" data-mmore="help">How My Day works</button>
-      </div>
     </div>
   </div>
 </section>
@@ -279,14 +282,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=174"></script>
-<script src="data/nutrition.js?v=174"></script>
-<script src="data/art.js?v=174"></script>
-<script src="data/qr.js?v=174"></script>
-<script src="src/config.js?v=174"></script>
+<script src="data/recipes.js?v=175"></script>
+<script src="data/nutrition.js?v=175"></script>
+<script src="data/art.js?v=175"></script>
+<script src="data/qr.js?v=175"></script>
+<script src="src/config.js?v=175"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=174"></script>
-<script src="src/app.js?v=174"></script>
+<script src="src/sync.js?v=175"></script>
+<script src="src/app.js?v=175"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

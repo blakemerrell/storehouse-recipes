@@ -922,11 +922,14 @@ select { max-width: 280px; }
   background: var(--paper); padding: 10px 0 8px; margin-bottom: 4px;
   border-bottom: 1px solid var(--line);
 }
-.mday-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+/* One row, six controls, 390px. Nothing wraps: the title and the buttons hold
+   their size and the date box gives up whatever is left — a gear that dropped
+   to a second line was a gear nobody found. */
+.mday-head { display: flex; align-items: center; gap: 6px; position: relative; }
 .mday-title { flex: none; font-size: 20px; margin-right: 2px; }
-.mday-head .ghost { flex: none; white-space: nowrap; padding: 5px 9px; }
+.mday-head .ghost { flex: none; white-space: nowrap; padding: 5px 8px; }
 .mday-head select {
-  flex: 1 1 auto; min-width: 0; max-width: 190px; padding: 5px 8px; font-size: 12.5px;
+  flex: 1 1 40px; min-width: 0; max-width: 190px; padding: 5px 6px; font-size: 12.5px;
   border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
   background: var(--card); color: var(--muted-2);
 }
@@ -969,8 +972,10 @@ select { max-width: 280px; }
   font-size: 12px; align-items: baseline; }
 .mt-steps dt { font-weight: 600; color: var(--ink); white-space: nowrap; }
 .mt-steps dd { margin: 0; color: var(--muted); }
-/* the day's own controls: two verbs, then copy, then the gear */
+/* the two beside the title: open the day, or set it up */
 .mday-icon { flex: 0 0 auto; padding-left: 11px; padding-right: 11px; }
+.mday-head .mday-icon { padding-left: 8px; padding-right: 8px; font-size: 14px; }
+.mday-head .mday-menu { top: calc(100% + 4px); bottom: auto; }
 .mtrain { display: flex; gap: 4px; }
 .mtrain button {
   width: 30px; height: 30px; border-radius: 50%; background: var(--card);
