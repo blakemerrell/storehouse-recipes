@@ -1395,10 +1395,26 @@ module.exports = {
       }), await early.textContent('.mline'));
     await early.context().close();
 
+    /* No date named means no pace to be off — but the burn is the most useful
+       thing here and it does not need one. Treating a goal date as the price
+       of admission to your own numbers was the bug. */
     const noGoal = await lineFor({ n: 30, rate: 1.5 / 7, noGoal: true });
-    t.ok('and says nothing at all when there is no goal to be off',
-      await noGoal.evaluate(() => !document.querySelector('.mline')));
+    t.ok('with no goal date it still says what you burn and what that is worth',
+      await noGoal.evaluate(() => {
+        const el = document.querySelector('.mline');
+        return !!el && /burning about/.test(el.textContent) &&
+          /lb a week/.test(el.textContent);
+      }), await noGoal.evaluate(() => {
+        const el = document.querySelector('.mline');
+        return el ? el.textContent : '(no line)';
+      }));
     await noGoal.context().close();
+
+    // and nothing at all when there is neither a goal nor enough to measure
+    const bare = await lineFor({ n: 5, rate: 1.5 / 7, noGoal: true });
+    t.ok('and nothing at all when it has neither',
+      await bare.evaluate(() => !document.querySelector('.mline')));
+    await bare.context().close();
 
     /* ---- the weigh-in card ----------------------------------------------
      * Its own page again: weight history is seeded wholesale and the app

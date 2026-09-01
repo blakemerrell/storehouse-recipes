@@ -1783,12 +1783,31 @@
 
     /* Then pace, which needs a plan to be off. */
     var plan = mPlanWeight(k, pr);
-    if (!plan || !st || st.n < 14) {
+
+    /* No date named, so there is no pace to be off — but there is still the
+       most useful thing this whole apparatus computes. A burn measured from
+       what you ate and what the scale did says what your deficit actually is,
+       and that is worth knowing whether or not you have named a day to arrive
+       on. Saying nothing here was treating a goal date as the price of
+       admission to your own numbers. */
+    if (!plan) {
+      if (!meas) return '';
+      var ate = meas.eaten, gap = meas.tdee - ate;
+      var lbWk = Math.round(gap * 7 / 3500 * 10) / 10;
+      return mLineHTML(Math.abs(lbWk) < 0.2 ? 'wait' : 'calm', '\u25CE',
+        '<b>You are burning about ' + meas.tdee.toLocaleString() + ' a day</b> and eating ' +
+        ate.toLocaleString() + '.',
+        lbWk > 0.2 ? 'That is ' + lbWk + ' lb a week off, measured over ' + meas.days + ' days.'
+          : lbWk < -0.2 ? 'That is ' + Math.abs(lbWk) + ' lb a week on, measured over ' +
+            meas.days + ' days.'
+            : 'Which is maintenance, measured over ' + meas.days + ' days.');
+    }
+
+    if (!st || st.n < 14) {
       var have = st ? st.n : 0;
       var days = Object.keys(MDAYS).filter(function (dk) {
         return mTotals(MDAYS[dk]).all.kcal > 400;
       }).length;
-      if (!pr.goalLb || !pr.goalBy) return '';    // nothing to be on pace with
       return mLineHTML('wait', '\u25F7',
         (14 - have > 0 ? (14 - have) + ' more mornings' : 'A few more logged days') +
         ' and this will say whether you are on pace.',
