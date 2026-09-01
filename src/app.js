@@ -509,6 +509,9 @@
        on a second sheet, which is three taps of ceremony in front of the
        fastest way to name a food. */
     mpMode: 'home', mpLook: '',
+    /* Which meals you have pressed open or shut, against the default of
+       folding one you have eaten. Ephemeral: a new day starts fresh. */
+    mFold: {},
     /* What the picker has been told to add, before it is told to stop. A meal
        assembled from parts — a scoop of whey, a splash of half and half, a
        spoon of honey — used to cost one full trip through this sheet per
@@ -1701,12 +1704,48 @@
   /* One line of an item's arithmetic: "~415 kcal · 43P · 6F · 42C". The tilde
      carries the honesty of est through the multiplication — figures estimated
      from a food table do not become label-accurate by being scaled. */
+  /* The same four numbers everywhere they appear, with the letters carrying
+     the macro's own colour. Identity, not status — a P is the same red on a
+     plate, in the picker and in the basket, which is what lets the eye find
+     the protein without reading the line. */
   function mMacLine(r, x) {
     var mac = r.macro || {};
     return (r.est ? '~' : '') + Math.round((mac.kcal || 0) * x) + ' kcal · ' +
-      Math.round((mac.p || 0) * x) + 'P · ' +
-      Math.round((mac.f || 0) * x) + 'F · ' +
-      Math.round((mac.c || 0) * x) + 'C';
+      Math.round((mac.p || 0) * x) + '<i class="mb-p">P</i> · ' +
+      Math.round((mac.f || 0) * x) + '<i class="mb-f">F</i> · ' +
+      Math.round((mac.c || 0) * x) + '<i class="mb-c">C</i>';
+  }
+
+  /* The week you are in, seven buttons wide: each day's letter, its date, and
+     what it actually came to. The dropdown could only be read one option at a
+     time, so "how did this week go" meant opening it seven times. Days ahead
+     of today are shown but not reachable — the day is a record, not a diary
+     you write forward into. */
+  function mWeekHTML(k, todayK) {
+    var targets = mReadTargets();
+    var tK = kcalOf(targets);
+    var cur = keyDate(k);
+    var mon = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate());
+    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));       // week starts Monday
+    var out = [];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
+      var dk = dayKey(d);
+      var ahead = dk > todayK, tooOld = dk < mEarliestKey();
+      var got = MDAYS[dk] ? Math.round(mTotals(mDay(dk)).all.kcal) : 0;
+      var state = !got ? '' : !tK ? '' :
+        got > tK * 1.02 ? ' over' : got >= tK * 0.9 ? ' on' : ' under';
+      out.push('<button class="mwk-d' + (dk === k ? ' now' : '') + state + '"' +
+        (ahead || tooOld ? ' disabled' : '') +
+        ' data-mweek="' + dk + '" aria-pressed="' + (dk === k ? 'true' : 'false') + '"' +
+        ' aria-label="' + M_WDAYS[d.getDay()] + ' ' + M_MONS[d.getMonth()] + ' ' + d.getDate() +
+        (got ? ', ' + got + ' calories' : ', nothing logged') + '">' +
+        '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) + '</span>' +
+        '<span class="mwk-n">' + d.getDate() + '</span>' +
+        '<span class="mwk-k">' + (got || '&middot;') + '</span>' +
+      '</button>');
+    }
+    return out.join('');
   }
 
   function renderMacros() {
@@ -1731,6 +1770,7 @@
     $('macroDaySel').innerHTML = opts.join('');
     $('macroPrev').disabled = k <= mEarliestKey();
     $('macroNext').disabled = k >= todayK;
+    $('macroWeek').innerHTML = mWeekHTML(k, todayK);
 
     var targets = mReadTargets();
     var slots = mReadSlots();
@@ -1796,30 +1836,24 @@
            meaning "times one" and the other "gone", is a misread waiting to
            happen on a thumb-sized target. */
         return '<div class="mitem' + (it.eaten ? ' eaten' : '') + '">' +
-          /* Row one is the plate and its portion — the tick, the name, and
-             the dial you reach for most. Row two is the paperwork: what it
-             costs you, and the three buttons that manage it. The bin lives
-             down here on purpose, as far from the dial as the row allows. */
+          /* Three lines, the shape RP uses and the shape a plate wants: what
+             it is, where it came from and how much of it, then what it costs,
+             then the one control that changes any of that.
+           *
+             The bin is a bin and not another ×. Two × glyphs on one row, one
+             meaning "times one" and the other "gone", is a misread waiting to
+             happen on a thumb-sized target. */
           '<span class="mitem-r1">' +
-            '<span class="mitem-l"><input type="checkbox" data-meat="' + tag + '"' +
+            '<input type="checkbox" data-meat="' + tag + '"' +
               (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
-              (r.food
-                ? '<span class="mitem-name mitem-food">' + esc(r.name) +
-                  '<span class="mitem-unit"> &middot; ' + esc(r.unit) + '</span></span>'
-                : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
-                  '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') + '</span>' +
-            '<span class="mstep no-print">' +
-              '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
-              '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
-              '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
-            '</span>' +
-          '</span>' +
-          '<span class="mitem-r2">' +
             /* The score, on the plate. Knowing a thing fits the day and
                knowing it is worth eating are different questions, and the
                second one was only answerable by opening the recipe. */
             leaf(r.score, 'leaf-sm') +
-            '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+            (r.food
+              ? '<span class="mitem-name mitem-food">' + esc(r.name) + '</span>'
+              : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
+                '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
             '<span class="mitem-acts no-print">' +
               /* The pin is the routine: pinned to this meal, at this portion,
                  on every new day — the Crio Brü that opens every morning
@@ -1827,16 +1861,34 @@
               (onPlan ? '<button class="mpin" data-mpin="' + tag + '" aria-pressed="' +
                 (pinned ? 'true' : 'false') + '" aria-label="' +
                 (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">&#128204;</button>' : '') +
-              /* The lock guards against the MACHINE, not the person:
-                 Rebalance leaves a locked plate alone, but the stepper still
-                 works — a hand on the dial is you changing your mind. */
-              '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
-                (it.l ? 'true' : 'false') + '" aria-label="' +
-                (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
-            '<button class="mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
-              '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
-              'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-            '</button>' +
+              '<button class="mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
+                '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
+                'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+              '</button>' +
+            '</span>' +
+          '</span>' +
+          /* Where it came from and what one of it is — the two questions a
+             number on a plate cannot answer by itself. */
+          '<span class="mitem-chips">' +
+            // the book's short name — its full title is half a phone wide
+            '<span class="chip">' + esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) + '</span>' +
+            '<span class="chip">' + esc(r.food ? r.unit
+              : fmtNum(it.x * (r.servN || 1)) + (it.x * (r.servN || 1) === 1 ? ' serving' : ' servings')) + '</span>' +
+            (r.est ? '<span class="chip">~ estimated</span>' : '') +
+          '</span>' +
+          '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+          /* The lock sits on the amount, beside the number it holds still. It
+             lived with the bin, which put "keep this exactly" next to "throw
+             this away" — two different verbs sharing a thumb's width. It
+             guards against the MACHINE, not you: Rebalance leaves a locked
+             plate alone, but the stepper still works. */
+          '<span class="mstep no-print">' +
+            '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
+              (it.l ? 'true' : 'false') + '" aria-label="' +
+              (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
+            '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
+            '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
+            '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
           '</span>' +
         '</div>';
       }).join('');
@@ -1854,6 +1906,12 @@
       var eatenAll = items.length && items.every(function (it) {
         return it.eaten || !BY_ID[it.id];
       });
+      /* Folded by default on a day that is over, never on the one you are
+         living. Folding the moment a meal was fully ticked collapsed it under
+         the hand that ticked it — and took away the untick. S.mFold holds
+         only what you have pressed, so it never has to be cleaned up. */
+      var folded = items.length &&
+        (S.mFold[sk] === undefined ? !!(eatenAll && k < todayK) : S.mFold[sk]);
       return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') +
         (eatenAll ? ' done' : '') + '">' +
         /* The dot was a pseudo-element: it could say a meal was behind you
@@ -1869,7 +1927,13 @@
            name, the verdict and the controls up top, what the meal actually
            comes to underneath. One row made the Add button wrap and doubled
            the height of every meal on the day. */
-        '<div class="mslot-h"><span class="mslot-name">' + esc(name) + '</span>' +
+        '<div class="mslot-h">' +
+          /* The name is the handle. A meal you have eaten is history — its
+             steppers and locks have nothing left to do — so it folds down to
+             a list of what was on it, and anything still ahead of you stays
+             open. Pressing the name overrides either way. */
+          '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
+            (folded ? 'false' : 'true') + '">' + esc(name) + '</button>' +
           mVerdictHTML(sk, items, onPlan) +
           (onPlan ? '<button class="ghost mslot-try no-print" data-mtry="' + esc(sk) + '" ' +
             'aria-label="Another suggestion for ' + esc(name) + '" ' +
@@ -1878,7 +1942,17 @@
         '</div>' +
         (rows ? '<div class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
           Math.round(sub.p) + 'g protein</div>' : '') +
-        '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>' +
+        (folded
+          ? '<div class="mslot-thin">' + items.map(function (it) {
+              var r2 = BY_ID[it.id];
+              if (!r2) return '';
+              return '<div class="mthin' + (it.eaten ? ' eaten' : '') + '">' +
+                '<span class="mthin-n">' + esc(r2.name) + '</span>' +
+                '<span class="mthin-x">' + (r2.food
+                  ? fmtNum(it.x) + ' &times; ' + esc(r2.unit) : '&times;' + fmtNum(it.x)) +
+                '</span></div>';
+            }).join('') + '</div>'
+          : '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>') +
       '</div>';
     };
     var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');
@@ -4926,7 +5000,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5856,6 +5930,14 @@
         renderModal();
         return;
       }
+      var fold = e.target.closest('[data-mfold]');
+      if (fold) {
+        var fk = fold.dataset.mfold;
+        S.mFold[fk] = !(fold.getAttribute('aria-expanded') === 'false');
+        keepingFocus(renderMacros);
+        return;
+      }
+
       var st = e.target.closest('[data-mstep]');
       if (st) {
         var sp = st.dataset.mstep.split(':');           // slot : index : direction
@@ -5929,6 +6011,12 @@
       if (f) f.focus();
     });
 
+    $('macroWeek').addEventListener('click', function (e) {
+      var d = e.target.closest('[data-mweek]');
+      if (!d || d.disabled) return;
+      S.macroDate = d.dataset.mweek === todayKey() ? null : d.dataset.mweek;
+      keepingFocus(renderMacros);
+    });
     $('macroPrev').addEventListener('click', function () { mNavDay(-1); });
     $('macroNext').addEventListener('click', function () { mNavDay(1); });
     $('macroDaySel').addEventListener('change', function () {

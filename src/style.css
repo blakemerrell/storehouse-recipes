@@ -486,6 +486,7 @@ select { max-width: 280px; }
 .mv.short { border-color: var(--dial-under); color: var(--ochre-text); }
 .mv.over { border-color: var(--dial-over); color: var(--dial-over); }
 .mslot-name {
+  background: none; border: 0; padding: 0; font-family: var(--sans); text-align: left;
   font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
   font-weight: 600; color: oklch(0.40 0.03 65);
 }
@@ -496,6 +497,15 @@ select { max-width: 280px; }
 .mslot-try + .mslot-add { margin-left: 5px; }
 .mslot-add { margin-left: auto; padding: 3px 9px; font-size: 11px; }
 .mslot-items { padding: 0; display: flex; flex-direction: column; gap: 7px; }
+/* A meal that is behind you, folded to what was on it */
+.mslot-thin { border-left: 2px solid var(--line-firm); padding-left: 9px; }
+.mthin { display: flex; gap: 9px; align-items: baseline; padding: 3px 0; font-size: 12px; }
+.mthin-n {
+  font-family: var(--serif); flex: 1 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mthin.eaten .mthin-n { color: var(--muted); text-decoration: line-through; }
+.mthin-x { font-size: 10.5px; color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
 .mslot-empty { font-size: 12px; color: oklch(0.68 0.02 70); font-style: italic; }
 /* A plate is two rows, each with its controls on the right. Row one is the
    plate and its portion — the dial you reach for most, beside the name. Row
@@ -504,14 +514,12 @@ select { max-width: 280px; }
    name is clipped, because a name that pushes the dial off a phone has cost
    more than the tail of itself. */
 .mitem { border-left: 2px solid var(--ochre); padding: 4px 0 5px 9px; }
-.mitem-r1, .mitem-r2 { display: flex; align-items: center; gap: 10px; }
-.mitem-r2 { margin-top: 3px; }
-.mitem-l { display: flex; gap: 8px; align-items: center; min-width: 0; flex: 1 1 auto; }
+.mitem-r1 { display: flex; align-items: center; gap: 8px; }
+.mitem-r1 input { accent-color: var(--green); width: 16px; height: 16px; flex: none; }
 /* The tick is a control, not a third way of saying "eaten" — the struck
    name and the filled dot on the rail already say that. But it was saying
    it in the browser's blue, the one colour on the page belonging to nobody:
    the shopping list has ticked in the book's own green since it was built. */
-.mitem-l input { accent-color: var(--green); width: 16px; height: 16px; flex: none; }
 .mitem-acts { flex: none; display: flex; gap: 10px; align-items: center; margin-left: auto; }
 /* the bin: a bin, so it can never be read as another multiplier */
 .mdel {
@@ -533,22 +541,42 @@ select { max-width: 280px; }
 /* a spoon of honey has no recipe to open, so its name is not a door */
 .mitem-food { cursor: default; }
 .mitem-food:hover { color: inherit; text-decoration: none; }
-.mitem-unit { font-family: var(--sans); font-size: 10.5px; color: var(--muted); }
 /* eaten is done, not deleted — the line-through the shopping list uses */
 .mitem.eaten .mitem-name { text-decoration: line-through; color: oklch(0.68 0.02 70); }
+/* where it came from, and what one of it is */
+.mitem-chips { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 0 24px; }
+.chip {
+  font-size: 9.5px; padding: 1.5px 6px; border-radius: 3px; background: var(--paper-soft);
+  border: 1px solid var(--line-soft); color: var(--muted); white-space: nowrap;
+}
 .mitem-mac {
+  display: block; margin: 5px 0 0 24px;
   font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
-  min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.mstep { display: flex; align-items: center; gap: 2px; flex: none; margin-left: auto; }
+/* the macro letters carry identity everywhere they appear, never status */
+.mitem-mac i, .mp-fit i { font-style: normal; font-weight: 700; font-size: 10px; }
+
+/* The amount, and the lock that holds it. One bar, because "how much" and
+   "keep it exactly" are the same subject — the lock used to sit with the bin,
+   which paired "hold this still" with "throw this away". */
+.mstep {
+  display: flex; align-items: stretch; margin: 7px 0 1px 24px;
+  border: 1px solid var(--line-soft); border-radius: 4px; overflow: hidden;
+}
 .mstep button {
-  background: none; border: 1px solid var(--line-soft); border-radius: 2px;
-  width: 22px; height: 22px; line-height: 1; font-size: 13px; color: var(--muted-2);
+  background: var(--card); border: 0; border-left: 1px solid var(--line-soft);
+  width: 36px; line-height: 1; font-size: 15px; color: var(--muted-2);
 }
-.mstep button:hover { border-color: var(--ochre); color: var(--ink); }
+.mstep button:hover { background: var(--paper-soft); color: var(--ink); }
+.mstep .mlock {
+  border-left: 0; border-right: 1px solid var(--line-soft); width: 34px; font-size: 12px;
+}
+.mstep .mlock[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--ochre) 24%, var(--card)); color: var(--ochre-text);
+}
 .mstep-x {
-  font-size: 11px; color: var(--muted-2); min-width: 30px; text-align: center;
-  font-variant-numeric: tabular-nums;
+  flex: 1 1 auto; padding: 6px 8px; font-size: 12px; font-weight: 600; color: var(--ink);
+  background: var(--paper-soft); text-align: center; font-variant-numeric: tabular-nums;
 }
 .macro-foot {
   background: var(--card); border: 1px solid var(--line); border-radius: 3px;
@@ -901,6 +929,29 @@ select { max-width: 280px; }
    Colour says where you stand, shade says how much is already eaten:
    solid eaten, pale planned, hatched assumed for a meal still empty, grey
    unclaimed. */
+/* The week, seven buttons wide. The dropdown could only be read one option
+   at a time, so "how did this week go" meant opening it seven times. */
+.mweek { display: flex; gap: 3px; margin-top: 10px; }
+.mwk-d {
+  flex: 1 1 0; min-width: 0; background: none; border: 0; padding: 3px 0 2px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px; border-radius: 5px;
+}
+.mwk-d:disabled { opacity: 0.35; cursor: default; }
+.mwk-d:not(:disabled):hover { background: var(--paper-soft); }
+.mwk-w { font-size: 9px; letter-spacing: 0.06em; color: var(--muted); }
+.mwk-n {
+  width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 11.5px; color: var(--muted-2); background: var(--paper-soft);
+  border: 1px solid transparent;
+}
+.mwk-k { font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mwk-d.now .mwk-n { background: var(--ink); color: var(--paper); font-weight: 600; }
+/* the same three verdicts the bars use, so a week reads like a day */
+.mwk-d.under .mwk-n { border-color: var(--dial-under); }
+.mwk-d.on .mwk-n { border-color: var(--dial-on); }
+.mwk-d.over .mwk-n { border-color: var(--dial-over); }
+.mwk-d.over .mwk-k { color: var(--dial-over); }
+
 .mbars { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 0; }
 .mbrow { display: grid; grid-template-columns: 17px 1fr auto; gap: 9px; align-items: center; }
 .mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; }
@@ -1029,16 +1080,11 @@ select { max-width: 280px; }
 }
 .mday-menu button:last-child { border-bottom: 0; }
 .mday-menu button:hover { background: var(--paper-soft); }
-/* On a phone the dial belongs hard right, where the thumb is. On a desktop
-   that same rule strands it a hand's width from the name it belongs to, so
-   there it hugs the name instead. */
+/* The amount bar spans the plate on a phone, where the thumb wants width.
+   On a desktop a control stretched across a column is a control pretending
+   to be more important than it is, so there it sits at its own size. */
 @media (min-width: 861px) {
-  .mitem-r1 .mitem-l { flex: 0 1 auto; }
-  .mitem-r1 .mstep { margin-left: 0; }
-  /* and the same for the paperwork row, so a plate reads as one thing
-     rather than as a name here and its buttons a hand's width away */
-  .mitem-r2 .mitem-mac { flex: 0 1 auto; }
-  .mitem-r2 .mitem-acts { margin-left: 4px; }
+  .mstep { display: inline-flex; }
 }
 .mp-fav { color: var(--ochre-text); }
 
@@ -2066,8 +2112,9 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   /* no hover to reveal with, and a target you can actually hit */
   .pitem { padding: 8px 2px; font-size: 15.5px; }
   .pitem-x { opacity: 1; width: 34px; height: 34px; font-size: 19px; }
-  .mstep button { width: 34px; height: 34px; font-size: 16px; }
-  .mitem-l input { width: 20px; height: 20px; }
+  .mstep button { width: 44px; font-size: 17px; }
+  .mstep-x { padding: 9px 8px; font-size: 13px; }
+  .mitem-r1 input { width: 20px; height: 20px; }
 }
 
 /* Taken off, not deleted — you have to be able to find a thing to put it back.

@@ -184,10 +184,17 @@ module.exports = {
         const day = days[Object.keys(days)[0]];
         return (day.l || []).some((it) => String(it.id).indexOf('f:') === 0);
       }));
+    // the unit is a chip now, beside where it came from
     t.ok('with its unit named, and no recipe pretending to be behind it',
       await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
-        return !!el && el.tagName !== 'BUTTON' && !!el.querySelector('.mitem-unit');
+        if (!el || el.tagName === 'BUTTON') return false;
+        const chips = [...el.closest('.mitem').querySelectorAll('.mitem-chips .chip')]
+          .map((c) => c.textContent);
+        return chips.indexOf('Yours') >= 0 && chips.length >= 2;
+      }), await p.evaluate(() => {
+        const el = document.querySelector('.mitem-food');
+        return el ? el.closest('.mitem').querySelector('.mitem-chips').textContent : 'no food row';
       }));
     t.ok('while the collection itself is untouched — a spoon of honey is not a recipe',
       await p.evaluate(() => window.RECIPES.every((r) => String(r.id).indexOf('f:') !== 0)));
@@ -271,6 +278,23 @@ module.exports = {
         return got.length === was.length && was.every((id) => got.indexOf(id) >= 0) &&
           !document.querySelector('.sheet');
       }, basketWas), JSON.stringify(basketWas));
+    /* A meal folds to what was on it. Today never folds itself — collapsing
+       a meal the instant its last plate was ticked took the untick with it. */
+    t.ok('a meal folds and unfolds by its name, and today starts open',
+      await p.evaluate(async () => {
+        const of = () => [...document.querySelectorAll('#macroSlots [data-mfold]')]
+          .find((b) => b.textContent === 'Snacks');
+        if (!of() || of().getAttribute('aria-expanded') !== 'true') return false;
+        of().click();
+        await new Promise((r) => setTimeout(r, 150));
+        const shut = of().getAttribute('aria-expanded') === 'false' &&
+          !!document.querySelector('.mslot-thin .mthin-n');
+        of().click();
+        await new Promise((r) => setTimeout(r, 150));
+        return shut && of().getAttribute('aria-expanded') === 'true' &&
+          !document.querySelector('.mslot-thin');
+      }));
+
     // and a fresh sheet starts empty rather than inheriting the last one
     await p.click('[data-mslot="l"]');
     await p.waitForTimeout(250);
@@ -403,7 +427,7 @@ module.exports = {
       await p.evaluate(() => {
         const el = [...document.querySelectorAll('.mitem-food')]
           .find((x) => /Chicken tamale/.test(x.textContent));
-        return !!el && /tamale/.test(el.querySelector('.mitem-unit').textContent);
+        return !!el && /tamale/.test(el.closest('.mitem').querySelector('.mitem-chips').textContent);
       }));
     await p.evaluate(() => {
       const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
