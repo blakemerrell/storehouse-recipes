@@ -1031,7 +1031,38 @@ select { max-width: 280px; }
 .mwk-d.train .mwk-k { color: var(--ochre-text); font-weight: 600; }
 .mwk-d.train .mwk-w::after { content: '\00b7'; margin-left: 2px; color: var(--ochre); }
 
-.mbars { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 0; }
+/* The bars are a button: they are the summary of the thing behind them. */
+.mbars {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 4px 8px 0;
+  width: 100%; background: none; border: 0; border-radius: 6px; position: relative;
+  text-align: left; cursor: pointer;
+}
+.mbars:hover { background: var(--paper-soft); }
+.mbars-more { position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 15px; }
+
+/* the charts behind them */
+.mc-sheet { max-width: 640px; }
+.mc-tabs { display: flex; gap: 4px; margin: 12px 0 10px; flex-wrap: wrap; }
+.mc-tabs button {
+  font-size: 11.5px; padding: 6px 11px; border-radius: 5px; background: var(--paper-soft);
+  border: 1px solid var(--line-soft); color: var(--muted); font-family: var(--sans);
+}
+.mc-tabs button[aria-pressed="true"] {
+  background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 600;
+}
+.mc-svg { width: 100%; display: block; }
+.mc-grid { stroke: var(--line-soft); stroke-width: 1; }
+.mc-zero { stroke: var(--muted); stroke-width: 1; opacity: 0.5; }
+.mc-lim { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; opacity: 0.6; }
+.mc-cl { stroke: var(--muted); stroke-width: 1; opacity: 0.7; }
+.mc-line { fill: none; stroke: var(--ink); stroke-width: 1.4; opacity: 0.85; }
+.mc-plan { fill: none; stroke: var(--green); stroke-width: 1.4; stroke-dasharray: 5 3; opacity: 0.8; }
+.mc-dot { fill: var(--ink); opacity: 0.5; }
+.mc-sig { fill: var(--dial-over); }
+.mc-salt { fill: var(--ochre); }
+.mc-ax { font-size: 9px; fill: var(--muted); font-family: var(--sans); }
+.mc-note { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 .mbrow { display: grid; grid-template-columns: 17px 1fr auto; gap: 9px; align-items: center; }
 .mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; }
 /* the letters are identity, never status — status is the bar beside them */

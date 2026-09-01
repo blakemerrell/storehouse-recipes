@@ -534,6 +534,7 @@
     /* Which meals you have pressed open or shut, against the default of
        folding one you have eaten. Ephemeral: a new day starts fresh. */
     mFold: {}, mFoldFor: '', mTouched: '', mtOpen: '',
+    chartOpen: false, chartWhich: 'weight',
     /* What the picker has been told to add, before it is told to stop. A meal
        assembled from parts — a scoop of whey, a splash of half and half, a
        spoon of honey — used to cost one full trip through this sheet per
@@ -2545,6 +2546,177 @@
     return shut;
   }
 
+  /* ------------------------------------------------------ the charts
+   * Four process behaviour charts over the mornings and the meals, behind
+   * the bars they belong to. Wheeler's arithmetic throughout: the centre
+   * comes from the values, the spread from the moving ranges, and the limits
+   * sit 2.660 average moving ranges either side of the centre.
+   *
+   * Limits are taken from a BASELINE — the first three weeks — and held flat
+   * afterwards, rather than recomputed over everything. Recomputing lets the
+   * limits chase the trend until nothing can ever be outside them, which on
+   * a cut means the chart goes quiet exactly when it should be speaking.
+   */
+  var MC_KEYS = [
+    ['weight', 'Weight'], ['off', 'Off plan'], ['jump', 'Day to day'], ['rate', 'Rate']
+  ];
+
+  function mcMean(a) {
+    return a.reduce(function (s2, x) { return s2 + x; }, 0) / (a.length || 1);
+  }
+  function mcRanges(v) {
+    var o = [];
+    for (var i = 1; i < v.length; i++) o.push(Math.abs(v[i] - v[i - 1]));
+    return o;
+  }
+  function mcLimits(v) {
+    if (v.length < 5) return null;
+    var base = v.slice(0, Math.min(21, v.length));
+    var bar = mcMean(mcRanges(base)), cl = mcMean(base);
+    return { cl: cl, bar: bar, unpl: cl + 2.660 * bar, lnpl: cl - 2.660 * bar };
+  }
+
+  /* The series each chart draws, and the sentence under it. Every one can
+     come back empty, and says why rather than drawing an empty box. */
+  function mcSeries(which) {
+    var keys = Object.keys(MWEIGHTS).sort();
+    var pr = mReadProfile();
+    var vals = keys.map(function (k) { return MWEIGHTS[k]; });
+    if (which === 'weight') {
+      if (vals.length < 2) return { need: 'Two mornings on the scale and this draws.' };
+      var plan = [];
+      var okPlan = true;
+      keys.forEach(function (k) {
+        var pw = mPlanWeight(k, pr);
+        if (!pw) okPlan = false; else plan.push(pw.lb);
+      });
+      /* No limits on this one. Baseline limits held across a cut saturate —
+         you leave the band in week two and every morning after is "outside",
+         which flags thirty points and means none of them. Weight is the chart
+         you came to look at; Off plan is the one that signals. */
+      return {
+        v: vals, keys: keys, lim: null, plan: okPlan ? plan : null, dp: 1,
+        note: okPlan ? 'The dashed line is the plan. The gap between them is the whole story.'
+          : 'Name a weight and a date under the gear and the plan draws alongside.'
+      };
+    }
+    if (which === 'off') {
+      var res = [], ok2 = true;
+      keys.forEach(function (k) {
+        var pw = mPlanWeight(k, pr);
+        if (!pw) { ok2 = false; return; }
+        res.push(Math.round((MWEIGHTS[k] - pw.lb) * 100) / 100);
+      });
+      if (!ok2 || res.length < 5) {
+        return { need: ok2 ? 'Five mornings and this draws.'
+          : 'This one needs a goal weight and a date, under the gear.' };
+      }
+      return { v: res, keys: keys, lim: mcLimits(res), zero: true, dp: 1,
+        note: 'Zero is on pace. Above the line is losing slower than you meant to.' };
+    }
+    if (which === 'jump') {
+      if (vals.length < 6) return { need: 'Six mornings and this draws.' };
+      var mr = mcRanges(vals), mkeys = keys.slice(1);
+      var bar = mcMean(mr.slice(0, Math.min(21, mr.length)));
+      /* Salty relative to YOUR days, not to a public ceiling. A storehouse
+         pantry runs over 2,300 mg most days, so a fixed line marked every
+         point on the chart and told you nothing. What moves the scale is a
+         day well above your own usual, followed by a jump big enough to
+         notice — both, or it is not an explanation. */
+      var mine = [];
+      Object.keys(MDAYS).forEach(function (dk) {
+        var na = mSodiumOn(dk);
+        if (na > 0) mine.push(na);
+      });
+      mine.sort(function (a, b) { return a - b; });
+      var mid = mine.length ? mine[Math.floor(mine.length / 2)] : MSALT_DAY;
+      var high = Math.max(MSALT_DAY, mid * 1.3);
+      var salt = mkeys.map(function (k, i) {
+        return mr[i] > bar && mSodiumOn(keys[i]) >= high;   // the day BEFORE the jump
+      });
+      return { v: mr, keys: mkeys, salt: salt, dp: 1,
+        lim: { cl: bar, bar: bar, unpl: 3.268 * bar, lnpl: 0 },
+        note: 'Overnight change. Ochre points follow a day well above your own usual salt.' };
+    }
+    if (vals.length < 15) return { need: 'A fortnight of mornings and this draws.' };
+    var rate = [], rkeys = [];
+    for (var i = 13; i < vals.length; i++) {
+      rate.push(Math.round((mcMean(vals.slice(i - 6, i + 1)) -
+        mcMean(vals.slice(i - 13, i - 6))) * 100) / 100);
+      rkeys.push(keys[i]);
+    }
+    return { v: rate, keys: rkeys, lim: mcLimits(rate), zero: true, dp: 1,
+      note: 'A week against the week before it. A working cut sits below zero.' };
+  }
+
+  function mcChartSVG(sr) {
+    var W = 600, H = 190, PL = 40, PR = 8, PT = 10, PB = 20;
+    var lo = Infinity, hi = -Infinity;
+    var see = function (v) { if (v < lo) lo = v; if (v > hi) hi = v; };
+    sr.v.forEach(see);
+    if (sr.lim) { see(sr.lim.unpl); see(sr.lim.lnpl); }
+    if (sr.plan) sr.plan.forEach(see);
+    if (sr.zero) see(0);
+    if (hi - lo < 0.5) { hi += 0.5; lo -= 0.5; }
+    var pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+    var px = function (i) { return PL + i * (W - PL - PR) / Math.max(1, sr.v.length - 1); };
+    var py = function (v) { return PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo)); };
+    var out = [];
+    var rule = function (v, cls) {
+      out.push('<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + py(v).toFixed(1) +
+        '" y2="' + py(v).toFixed(1) + '" class="' + cls + '"/>');
+    };
+    [lo + (hi - lo) * 0.1, (lo + hi) / 2, hi - (hi - lo) * 0.1].forEach(function (v) {
+      rule(v, 'mc-grid');
+      out.push('<text x="' + (PL - 6) + '" y="' + (py(v) + 3.5).toFixed(1) +
+        '" text-anchor="end" class="mc-ax">' + v.toFixed(sr.dp) + '</text>');
+    });
+    if (sr.zero) rule(0, 'mc-zero');
+    if (sr.lim) { rule(sr.lim.unpl, 'mc-lim'); rule(sr.lim.lnpl, 'mc-lim'); rule(sr.lim.cl, 'mc-cl'); }
+    if (sr.plan) {
+      out.push('<polyline class="mc-plan" points="' + sr.plan.map(function (v, i) {
+        return px(i).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ') + '"/>');
+    }
+    out.push('<polyline class="mc-line" points="' + sr.v.map(function (v, i) {
+      return px(i).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ') + '"/>');
+    sr.v.forEach(function (v, i) {
+      var out2 = sr.lim && (v > sr.lim.unpl || v < sr.lim.lnpl);
+      var sa = sr.salt && sr.salt[i];
+      out.push('<circle cx="' + px(i).toFixed(1) + '" cy="' + py(v).toFixed(1) + '" r="' +
+        (out2 || sa ? 3.4 : 2) + '" class="' +
+        (sa ? 'mc-salt' : out2 ? 'mc-sig' : 'mc-dot') + '"><title>' +
+        esc(mPretty(sr.keys[i])) + ' \u00b7 ' + v.toFixed(sr.dp) + '</title></circle>');
+    });
+    [0, sr.v.length - 1].forEach(function (i) {
+      out.push('<text x="' + px(i).toFixed(1) + '" y="' + (H - 5) + '" text-anchor="' +
+        (i ? 'end' : 'start') + '" class="mc-ax">' + esc(mPretty(sr.keys[i])) + '</text>');
+    });
+    return '<svg class="mc-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
+      esc(sr.note) + '">' + out.join('') + '</svg>';
+  }
+
+  function macroChartHTML() {
+    var sr = mcSeries(S.chartWhich);
+    var body = sr.need
+      ? '<div class="mslot-empty">' + esc(sr.need) + '</div>'
+      : mcChartSVG(sr) + '<div class="mc-note">' + esc(sr.note) + '</div>' +
+        (sr.lim ? '<div class="mc-note">Limits ' + sr.lim.lnpl.toFixed(1) + ' to ' +
+          sr.lim.unpl.toFixed(1) + ', from the first three weeks. ' +
+          'A point outside them is a change rather than a Tuesday.</div>' : '');
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet mc-sheet" role="dialog" aria-modal="true" aria-label="The numbers over time">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">Over time</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="mc-tabs">' + MC_KEYS.map(function (t) {
+          return '<button data-mchart="' + t[0] + '" aria-pressed="' +
+            (S.chartWhich === t[0] ? 'true' : 'false') + '">' + t[1] + '</button>';
+        }).join('') + '</div>' +
+        body +
+      '</div></div>';
+  }
+
   function macroFootHTML(day, targets, slots) {
     if (!targets.p && !targets.f && !targets.c) {
       return '<div class="macro-none">Craft your plan.</div>';
@@ -2653,7 +2825,10 @@
        that are a floor and a ceiling rather than a budget, then what has
        actually been eaten — and the handle for opening the day on its end,
        because that is where you are already looking when you decide to. */
-    return '<div class="mbars">' + bars + '</div>' +
+    /* The bars are the door to their own history. Tapping the summary to see
+       the detail costs no navigation and puts the two in the same place. */
+    return '<button class="mbars" data-mchartopen="1" aria-label="See these over time">' +
+        bars + '<span class="mbars-more" aria-hidden="true">&rsaquo;</span></button>' +
       '<div class="mdelta" role="status">' + delta + micro +
 
       '</div>' +
@@ -5659,7 +5834,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5741,6 +5916,13 @@
         var nn = root.querySelector('#nfName');
         if (nn) nn.focus();
       }
+      return;
+    }
+
+    if (S.chartOpen) {
+      root.innerHTML = macroChartHTML();
+      document.body.style.overflow = 'hidden';
+      if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
       return;
     }
 
@@ -6697,6 +6879,14 @@
     /* Open the whole day, or shut it. Which one it does next is whichever
        the day is not already: with anything folded it opens, and once
        everything is open it closes. */
+    $('macroFoot').addEventListener('click', function (e) {
+      if (!e.target.closest('[data-mchartopen]')) return;
+      rememberOpener();
+      S.chartOpen = true;
+      pushSheet({ m: 1 });
+      renderModal();
+    });
+
     $('macroOpenAll').addEventListener('click', function () {
       var open = mAnyShut(), day = mDay(mViewKey());
       Object.keys(day).forEach(function (sk2) { S.mFold[sk2] = !open; });
@@ -7008,6 +7198,13 @@
         if (un.dataset.units === S.units) return;
         S.units = un.dataset.units;
         try { localStorage.setItem('sh.units', S.units); } catch (err) { /* private mode */ }
+        renderModal();
+        return;
+      }
+
+      var mch = e.target.closest('[data-mchart]');
+      if (mch && S.chartOpen) {
+        S.chartWhich = mch.dataset.mchart;
         renderModal();
         return;
       }
@@ -7640,6 +7837,7 @@
     // and the Macros sheets, for exactly the same reason
     if (S.macroPick) mScanStop();        // never leave the camera running
     S.macroPick = null;
+    S.chartOpen = false;
     S.macroTargOpen = false;
     if (S.newFood) mScanStop();
     S.newFood = null;

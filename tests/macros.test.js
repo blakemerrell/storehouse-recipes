@@ -1301,6 +1301,82 @@ module.exports = {
 
     await q.context().close();
 
+    /* ---- the charts, behind the bars ------------------------------------
+     * Its own page, because the history has to be seeded before boot. */
+    const chartPage = await t.fresh();
+    await chartPage.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const ws = {}, days = {};
+      const norm = window.RECIPES.find((x) => x.macro && x.macro.kcal > 300 && x.macro.na < 200);
+      const salty = window.RECIPES.find((x) => x.macro && x.macro.kcal > 300 && x.macro.na > 900);
+      const jit = [0, 0.4, -0.3, 0.5, -0.2, 0.1, -0.4, 0.3, -0.1, 0.2];
+      for (let i = 39; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        let w = 204 - (1.5 / 7) * (39 - i) + jit[i % 10] * 0.6;
+        if (i % 9 === 0 && i < 39) w += 2.4;
+        ws[key(d)] = Math.round(w * 10) / 10;
+        const r = (i % 9 === 1) ? salty : norm;
+        days[key(d)] = { b: [{ id: r.id, x: Math.round((1700 / r.macro.kcal) * 8) / 8, eaten: 1 }] };
+      }
+      const goal = new Date(); goal.setDate(goal.getDate() + 120);
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
+        goalLb: 175, goalBy: key(goal), workouts: 4, steps: 8000,
+      }));
+    });
+    await chartPage.reload();
+    await chartPage.waitForTimeout(400);
+    await chartPage.click('.tab[data-view="macros"]');
+    await chartPage.waitForTimeout(250);
+    await chartPage.click('[data-mchartopen]');
+    await chartPage.waitForTimeout(300);
+    t.ok('the bars open onto their own history',
+      await chartPage.evaluate(() => !!document.querySelector('.mc-sheet') &&
+        document.querySelectorAll('[data-mchart]').length === 4));
+
+    const chart = async (which) => {
+      await chartPage.click('[data-mchart="' + which + '"]');
+      await chartPage.waitForTimeout(200);
+      return chartPage.evaluate(() => ({
+        pts: document.querySelectorAll('.mc-svg circle').length,
+        flagged: document.querySelectorAll('.mc-sig').length,
+        salt: document.querySelectorAll('.mc-salt').length,
+        plan: !!document.querySelector('.mc-plan'),
+      }));
+    };
+
+    /* Baseline limits held across a cut saturate — you leave the band in week
+       two and every morning after reads as "outside", which flags thirty
+       points and means none of them. Weight is for looking at; Off plan is
+       the chart that signals. */
+    const wc = await chart('weight');
+    t.ok('the weight chart draws the plan beside it and flags nothing',
+      wc.pts === 40 && wc.plan && wc.flagged === 0,
+      JSON.stringify(wc));
+
+    const oc = await chart('off');
+    t.ok('the off-plan chart carries limits and speaks rarely',
+      oc.pts === 40 && oc.flagged > 0 && oc.flagged < 8, JSON.stringify(oc));
+
+    /* A storehouse pantry is over the public sodium line most days, so a
+       fixed threshold marked every point and said nothing. Salt is judged
+       against your own usual, and only where a jump followed it. */
+    const jc = await chart('jump');
+    t.ok('the day-to-day chart marks some mornings as salt, not all of them',
+      jc.salt > 0 && jc.salt < jc.pts / 3, JSON.stringify(jc));
+
+    const rc = await chart('rate');
+    t.ok('and the rate chart draws once there is a fortnight of it', rc.pts > 20);
+
+    await chartPage.goBack();
+    await chartPage.waitForTimeout(250);
+    t.ok('the back gesture closes it like every other sheet',
+      await chartPage.evaluate(() => !document.querySelector('.mc-sheet')));
+    await chartPage.context().close();
+
     /* ---- the morning line -----------------------------------------------
      * One sentence about what to do, and most mornings it says nothing to
      * do. Its own page, because every state needs a different history seeded
