@@ -35,10 +35,11 @@ module.exports = {
       }));
     await p.click('#macroMore');
     await p.waitForTimeout(80);
-    t.ok('and the ⋯ opens the rest',
+    t.ok('and the gear opens where the day is set up',
       await p.evaluate(() => !document.getElementById('macroMenu').classList.contains('hide') &&
         document.getElementById('macroMore').getAttribute('aria-expanded') === 'true' &&
-        document.querySelectorAll('#macroMenu [data-mmore]').length === 3));
+        [...document.querySelectorAll('#macroMenu [data-mmore]')].map((b) => b.dataset.mmore)
+          .join() === 'plan,meals,you,help'));
     await p.click('.mday-rail');
     await p.waitForTimeout(80);
     t.ok('and a press anywhere else closes it',
@@ -52,6 +53,21 @@ module.exports = {
     // ---- default targets, and the calories derived from them, not stored
     const defP = 180, defF = 50, defC = 50;
     const defKcal = 4 * defP + 4 * defC + 9 * defF;
+    /* Meals arrive folded now, so anything reaching for a plate's own
+       controls has to open the day first. Each press redraws, so they are
+       opened one at a time. */
+    const openDay = async (pg) => {
+      for (let i = 0; i < 8; i++) {
+        const did = await pg.evaluate(() => {
+          const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
+          if (!b) return false;
+          b.click();
+          return true;
+        });
+        if (!did) break;
+        await pg.waitForTimeout(120);
+      }
+    };
     const foot = () => p.textContent('#macroFoot');
     t.ok('default targets are 180P / 50F / 50C',
       new RegExp('/ ' + defP + ' g').test(await foot()) &&
@@ -857,7 +873,11 @@ module.exports = {
     await p.waitForTimeout(300);
     await p.click('.tab[data-view="macros"]');
     await p.waitForTimeout(150);
-    t.ok('the day survives a reload',
+    // a reloaded day arrives folded; the plates are there behind the fold
+    t.ok('the day survives a reload, folded',
+      await p.evaluate(() => document.querySelectorAll('.mslot-thin .mthin').length) === 2);
+    await openDay(p);
+    t.ok('and opening it shows both plates with their controls',
       await p.evaluate(() => document.querySelectorAll('.mitem').length) === 2);
 
     // ---- days older than the window are pruned on the next write
@@ -870,6 +890,7 @@ module.exports = {
     await p.waitForTimeout(300);
     await p.click('.tab[data-view="macros"]');
     await p.waitForTimeout(150);
+    await openDay(p);
     await p.click('[data-meat="b:0"]');     // any write prunes
     await p.waitForTimeout(200);
     t.ok('a stale day is gone after the next write, today kept',
@@ -1335,6 +1356,13 @@ module.exports = {
     await w.click('.tab[data-view="macros"]');
     await w.waitForTimeout(150);
     const card = () => w.textContent('#macroWeigh');
+    /* Folded, the card is the number you type and the average — the whole job
+       most mornings. The trend and the sparkline are behind the same press
+       the meals use. */
+    t.ok('folded, the card carries the average and nothing else',
+      /190\.6 lb avg/.test(await card()) && !/since/.test(await card()), await card());
+    await w.click('#macroWeigh [data-mfold]');
+    await w.waitForTimeout(200);
     t.ok('the headline is the seven-day average',
       /seven-day average 190\.6/.test(await card()), await card());
     t.ok('the week is judged average against average',
@@ -1722,6 +1750,7 @@ module.exports = {
     await y.evaluate(() => localStorage.removeItem('bsc.macroDays'));   // tomorrow, in effect
     await y.reload();
     await y.waitForTimeout(400);
+    await openDay(y);
     t.ok('a new day wakes up with the routine already on it',
       await y.evaluate(([id, x]) => {
         const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
@@ -1799,7 +1828,7 @@ module.exports = {
     const copied = await y.evaluate(() => {
       let got = null;
       navigator.clipboard.writeText = (t2) => { got = t2; return Promise.resolve(); };
-      document.querySelector('#macroMenu [data-mmore="copy"]').click();
+      document.getElementById('macroCopy').click();
       return got;
     });
     t.ok('the copy carries the weight, the plates and the totals',

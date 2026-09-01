@@ -476,7 +476,7 @@ select { max-width: 280px; }
    say where it begins, and six framed boxes down a phone is a stack of
    boxes rather than a day. */
 .mslot { margin-bottom: 0; }
-.mslot-h { display: flex; align-items: baseline; gap: 9px; padding: 0 0 3px; }
+.mslot-h { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px; }
 /* the verdict, so a meal says whether it wants you without being opened */
 .mslot-v {
   font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
@@ -490,15 +490,22 @@ select { max-width: 280px; }
   font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
   font-weight: 600; color: oklch(0.40 0.03 65);
 }
-.mslot-sub { font-size: 11.5px; color: var(--muted); margin: -1px 0 4px; }
+/* the meal's four numbers, in the bars' own colours */
+.mslot-sub {
+  display: flex; gap: 13px; padding: 5px 10px; margin: 0;
+  background: var(--paper-soft); border-top: 1px solid var(--line-soft);
+  font-size: 11px; color: var(--muted-2); font-variant-numeric: tabular-nums;
+}
+.mslot-sub i { font-style: normal; font-weight: 700; font-size: 9.5px; margin-right: 3px; }
+.mslot-items, .mslot-thin { padding: 8px 10px 6px; }
 .mslot-try {
   margin-left: auto; padding: 3px 8px; font-size: 13px; line-height: 1.15;
 }
 .mslot-try + .mslot-add { margin-left: 5px; }
 .mslot-add { margin-left: auto; padding: 3px 9px; font-size: 11px; }
-.mslot-items { padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.mslot-items { display: flex; flex-direction: column; gap: 7px; }
 /* A meal that is behind you, folded to what was on it */
-.mslot-thin { border-left: 2px solid var(--line-firm); padding-left: 9px; }
+.mslot-thin { border-top: 1px solid var(--line-soft); }
 .mthin { display: flex; gap: 9px; align-items: baseline; padding: 3px 0; font-size: 12px; }
 .mthin-n {
   font-family: var(--serif); flex: 1 1 auto; min-width: 0;
@@ -957,6 +964,13 @@ select { max-width: 280px; }
 /* a training day earns more carbohydrate, and says so */
 .mwk-d.train .mwk-k { color: var(--ochre-text); font-weight: 600; }
 /* the seven training-day toggles in the plan sheet */
+.mt-help { margin-top: 16px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.mt-steps { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 12px;
+  font-size: 12px; align-items: baseline; }
+.mt-steps dt { font-weight: 600; color: var(--ink); white-space: nowrap; }
+.mt-steps dd { margin: 0; color: var(--muted); }
+/* the day's own controls: two verbs, then copy, then the gear */
+.mday-icon { flex: 0 0 auto; padding-left: 11px; padding-right: 11px; }
 .mtrain { display: flex; gap: 4px; }
 .mtrain button {
   width: 30px; height: 30px; border-radius: 50%; background: var(--card);
@@ -1029,22 +1043,24 @@ select { max-width: 280px; }
    a form. Every plate keeps its controls in the open: tuning is the point of
    this screen, and a control you have to tap twice to reach is a control you
    stop using. */
-.mday-rail { position: relative; padding-left: 20px; margin-top: 14px; }
-.mday-rail::before {
-  content: ''; position: absolute; left: 4px; top: 14px; bottom: 16px;
-  width: 1px; background: var(--line-firm);
-}
+/* Cards, not a rail. The line down the left said where you were in the day,
+   which a card that folds says better: what is behind you is one line, what
+   is in front of you is open. */
+.mday-rail { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 /* Anything scrolled to — by the browser, by a test, by a tap on a link —
    must not land beneath the block pinned over the top of it. */
 #macroPlan, .mday-stop, .mday-acts { scroll-margin-top: calc(var(--topbar-h, 60px) + 150px); }
-.mday-stop { position: relative; padding: 4px 0 12px; }
+.mday-stop {
+  border: 1px solid var(--line-soft); border-radius: 7px; background: var(--card);
+  padding: 0 0 2px; overflow: hidden;
+}
+.mday-stop.done { background: var(--paper-soft); }
 /* The dot is a control, so it is a button with a thumb-sized reach and a
    nine-pixel face — the visible dot is drawn inside it, and the rest is
    invisible target. Press it and the whole meal is eaten. */
 .mday-dot {
-  position: absolute; left: -33px; top: -1px;
-  width: 35px; height: 35px; padding: 0; border: 0; background: none;
-  display: grid; place-items: center;
+  width: 26px; height: 26px; padding: 0; border: 0; background: none; flex: none;
+  display: grid; place-items: center; margin-left: -4px;
 }
 .mday-dot::before {
   content: ''; width: 9px; height: 9px; border-radius: 50%;
@@ -1109,7 +1125,10 @@ select { max-width: 280px; }
 
 /* the weigh-in card */
 /* the first stop of the day */
-.mday-weigh { padding-top: 2px; }
+.mday-weigh .mslot-h { flex-wrap: wrap; padding-bottom: 8px; }
+.mw-avg { font-size: 11px; color: var(--muted); }
+.mw-body { padding: 0 10px 9px; border-top: 1px solid var(--line-soft); padding-top: 8px; }
+.mday-weigh .mt-lab { margin-left: auto; }
 .mday-weigh .mw-row { margin-bottom: 6px; }
 .mw-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .mw-stat { font-size: 12.5px; color: var(--muted-2); margin-top: 4px; font-variant-numeric: tabular-nums; }
@@ -1895,6 +1914,9 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 
 /* --------------------------------------------------------------- print */
 @page { size: 5.5in 8.5in; margin: 0.5in 0.52in 0.5in; }
+@media print {
+  .mday-stop { break-inside: avoid; border-color: var(--line); }
+}
 @media print {
   .no-print { display: none !important; }
   body { background: #fff !important; }

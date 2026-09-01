@@ -511,7 +511,7 @@
     mpMode: 'home', mpLook: '',
     /* Which meals you have pressed open or shut, against the default of
        folding one you have eaten. Ephemeral: a new day starts fresh. */
-    mFold: {},
+    mFold: {}, mFoldFor: '', mTouched: '', mtOpen: '',
     /* What the picker has been told to add, before it is told to stop. A meal
        assembled from parts — a scoop of whey, a splash of half and half, a
        spoon of honey — used to cost one full trip through this sheet per
@@ -1617,12 +1617,26 @@
     } else {
       body = '<div class="mw-stat">The seven-day average appears here.</div>';
     }
-    return '<button class="mday-dot no-print" data-mdot="weigh" ' +
-        'aria-label="Log this morning&rsquo;s weight"></button>' +
-      '<div class="mw-row"><span class="mslot-name">Weigh-in</span>' +
-      '<label class="mt-lab no-print">Weight <input type="number" id="mWeight" min="0" max="1500" ' +
-        'step="0.1" inputmode="decimal" value="' + (v || '') + '"> lb</label></div>' +
-      body;
+    /* The same card the meals wear: the number you type is the header,
+       because that is the whole job most mornings, and the trend and the
+       sparkline fold away behind the same press. It kept its place at the
+       top of the day — it is the first thing you do — but it stopped being
+       four lines of statistics you did not ask for. */
+    var shut = S.mFold.weigh !== false;
+    var head = st && st.n >= 2
+      ? Math.round(st.avg7 * 10) / 10 + ' lb avg' +
+        (st.dWeek === null ? '' : ' &middot; ' + mLbWord(st.dWeek) + ' this week')
+      : '';
+    return '<div class="mslot-h">' +
+        '<button class="mday-dot no-print" data-mdot="weigh" ' +
+          'aria-label="Log this morning&rsquo;s weight"></button>' +
+        '<button class="mslot-name" data-mfold="weigh" aria-expanded="' +
+          (shut ? 'false' : 'true') + '">Weigh-in</button>' +
+        (head ? '<span class="mw-avg">' + head + '</span>' : '') +
+        '<label class="mt-lab no-print">Weight <input type="number" id="mWeight" min="0" max="1500" ' +
+          'step="0.1" inputmode="decimal" value="' + (v || '') + '"> lb</label>' +
+      '</div>' +
+      (shut ? '' : '<div class="mw-body">' + body + '</div>');
   }
 
   /* Everything on the day counts against the budget, eaten or not — putting a
@@ -1807,7 +1821,20 @@
     return out.join('');
   }
 
+  /* Redrawing the day removes the box the weight is typed into, and removing
+     a focused input fires blur, and blur fires change, and change asks for
+     another redraw — arriving in the middle of the first one, whose own
+     removal then finds its node already gone. The browser says so plainly:
+     "the node to be removed is no longer a child of this node". One redraw
+     at a time. */
+  var mRendering = false;
   function renderMacros() {
+    if (mRendering) return;
+    mRendering = true;
+    try { mRenderDay(); } finally { mRendering = false; }
+  }
+
+  function mRenderDay() {
     var todayK = todayKey();
     var k = mViewKey();
     /* Midnight passed while the tab sat on a day. Forward was already
@@ -1853,6 +1880,25 @@
       }
     }
     var day = mDay(k);
+
+    /* The fold is decided when you ARRIVE at a day, and not again. Working it
+       out live meant a meal collapsed under the hand that had just finished
+       ticking it — and computing it from "is this eaten" made every tick a
+       potential disappearing act. So: everything with food on it starts
+       folded, the meal you were last working on stays open, and after that
+       nothing folds unless you fold it. */
+    if (S.mFoldFor !== k) {
+      S.mFoldFor = k;
+      var keepWeigh = S.mFold.weigh;
+      S.mFold = {};
+      if (keepWeigh !== undefined) S.mFold.weigh = keepWeigh;
+      slots.list.forEach(function (s2) {
+        S.mFold[s2.k] = (day[s2.k] || []).length > 0 && s2.k !== S.mTouched;
+      });
+      Object.keys(day).forEach(function (sk2) {
+        if (S.mFold[sk2] === undefined) S.mFold[sk2] = (day[sk2] || []).length > 0;
+      });
+    }
 
     // nothing to draft once every meal has something on it
     $('macroFill').disabled = slots.list.every(function (s) { return (day[s.k] || []).length; });
@@ -1952,10 +1998,12 @@
         '</div>';
       }).join('');
       if (!onPlan && !rows) return '';        // a bygone meal with nothing left says nothing
-      var sub = { kcal: 0, p: 0 };
+      var sub = { kcal: 0, p: 0, f: 0, c: 0 };
       items.forEach(function (it) {
         var r = BY_ID[it.id];
-        if (r && r.macro) { sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x; }
+        if (!r || !r.macro) return;
+        sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x;
+        sub.f += (r.macro.f || 0) * it.x; sub.c += (r.macro.c || 0) * it.x;
       });
       /* Three states on the rail, not two. A hollow dot is a meal with
          nothing on it; an ochre one is a meal planned and still ahead of
@@ -1969,24 +2017,27 @@
          living. Folding the moment a meal was fully ticked collapsed it under
          the hand that ticked it — and took away the untick. S.mFold holds
          only what you have pressed, so it never has to be cleaned up. */
-      var folded = items.length &&
-        (S.mFold[sk] === undefined ? !!(eatenAll && k < todayK) : S.mFold[sk]);
+      var folded = !!(items.length && S.mFold[sk]);
       return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') +
         (eatenAll ? ' done' : '') + '">' +
         /* The dot was a pseudo-element: it could say a meal was behind you
            but never be told so, and no keyboard or screen reader knew it was
            there at all. It is a button now — press it and the whole meal is
            eaten, press it again and it is not. */
-        '<button class="mday-dot no-print" data-mdot="' + esc(sk) + '"' +
-          (items.length ? '' : ' disabled') +
-          ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
-          ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten'
-            : 'Mark all of ' + esc(name) + ' eaten') + '"></button>' +
+
         /* Two lines, because five things will not fit across a phone: the
            name, the verdict and the controls up top, what the meal actually
            comes to underneath. One row made the Add button wrap and doubled
            the height of every meal on the day. */
         '<div class="mslot-h">' +
+          /* The dot came off the rail and onto the card, because it was never
+             decoration: pressing it marks the whole meal eaten. Losing the
+             line it hung from must not lose the control with it. */
+          '<button class="mday-dot no-print" data-mdot="' + esc(sk) + '"' +
+            (items.length ? '' : ' disabled') +
+            ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
+            ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten'
+              : 'Mark all of ' + esc(name) + ' eaten') + '"></button>' +
           /* The name is the handle. A meal you have eaten is history — its
              steppers and locks have nothing left to do — so it folds down to
              a list of what was on it, and anything still ahead of you stays
@@ -1999,8 +2050,13 @@
             'title="Another suggestion — walks down the best-fit list">&#8635;</button>' : '') +
           (onPlan ? '<button class="ghost mslot-add no-print" data-mslot="' + esc(sk) + '">+ Add</button>' : '') +
         '</div>' +
-        (rows ? '<div class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
-          Math.round(sub.p) + 'g protein</div>' : '') +
+        /* What the meal comes to, in the same four colours the bars use. */
+        (rows ? '<div class="mslot-sub">' +
+          '<span>' + Math.round(sub.kcal) + '</span>' +
+          '<span><i class="mb-p">P</i>' + Math.round(sub.p) + '</span>' +
+          '<span><i class="mb-f">F</i>' + Math.round(sub.f) + '</span>' +
+          '<span><i class="mb-c">C</i>' + Math.round(sub.c) + '</span>' +
+        '</div>' : '') +
         (folded
           ? '<div class="mslot-thin">' + items.map(function (it) {
               var r2 = BY_ID[it.id];
@@ -3117,6 +3173,21 @@
           '<button class="btn-primary" data-mtarg="save">Save</button>' +
           '<button class="ghost" data-mtarg="cancel">Cancel</button>' +
         '</div>' +
+        /* The one place the tab explains itself, folded away. It used to be a
+           paragraph on the daily screen behind a ?, which is a paragraph in
+           front of somebody who has read it forty times. */
+        '<details class="sync-fold mt-help" id="mtHelp"><summary>How My Day works</summary>' +
+          '<dl class="mt-steps">' +
+            '<dt>Weigh in</dt><dd>The seven-day average is the number that moves, not any one morning.</dd>' +
+            '<dt>Fill my day</dt><dd>Drafts every empty meal at once, favourites first when they fit.</dd>' +
+            '<dt>&#8635;</dt><dd>Another suggestion for that meal, down the best-fit list.</dd>' +
+            '<dt>Rebalance</dt><dd>Re-sizes the plates you have not eaten or locked, back onto target.</dd>' +
+            '<dt>&#128274;</dt><dd>Holds a portion where you set it. Rebalance leaves it alone.</dd>' +
+            '<dt>&#128204;</dt><dd>Puts the dish on every new day, at that portion.</dd>' +
+            '<dt>Training days</dt><dd>Earn extra carbs; rest days give them back. The week averages to the plan.</dd>' +
+            '<dt>Hatched bar</dt><dd>A meal with nothing on it yet, counted at its share.</dd>' +
+          '</dl>' +
+        '</details>' +
       '</div></div>';
   }
 
@@ -3581,6 +3652,8 @@
    * only be arguing with it. */
   function mTryAgain(sk) {
     var k = mViewKey();
+    S.mTouched = sk;                   // keep the meal you are cycling open
+    S.mFold[sk] = false;
     var targets = mDayTargets(k);
     var slots = mReadSlots();
     var srec = null;
@@ -6117,24 +6190,27 @@
       e.stopPropagation();
       mMenu($('macroMenu').classList.contains('hide'));
     });
+    /* Copy came out of the menu and onto the bar. It reports success by
+       renaming itself, and a control whose only feedback is its own label
+       cannot live somewhere that closes on the way out. */
+    $('macroCopy').addEventListener('click', function () { mCopyDay(this); });
+
     $('macroMenu').addEventListener('click', function (e) {
       var b = e.target.closest('[data-mmore]');
       if (!b) return;
-      /* Copy says whether it worked by renaming itself, which it cannot do
-         from inside a menu that has already closed. So this one stays open
-         long enough to be read, and goes when the word does. */
-      if (b.dataset.mmore === 'copy') {
-        e.stopPropagation();
-        mCopyDay(b);
-        setTimeout(function () { mMenu(false); }, 2400);
-        return;
-      }
       mMenu(false);
       rememberOpener();
-      if (b.dataset.mmore === 'plan') S.macroTargOpen = true;
-      else S.syncOpen = true;
+      S.macroTargOpen = true;
+      if (b.dataset.mmore === 'you') { S.macroTargOpen = false; S.syncOpen = true; }
+      // the two that live inside the plan sheet open it at the right place
+      S.mtOpen = b.dataset.mmore === 'meals' ? 'meals'
+        : b.dataset.mmore === 'help' ? 'help' : '';
       pushSheet({ m: 1 });
       renderModal();
+      if (S.mtOpen) {
+        var jump = $(S.mtOpen === 'meals' ? 'mtMeals' : 'mtHelp');
+        if (jump) jump.scrollIntoView({ block: 'start' });
+      }
     });
     // anywhere else is "not that, then" — the ordinary way out of a menu
     document.addEventListener('click', function () { mMenu(false); });
@@ -6172,6 +6248,15 @@
      * day key is captured when typing starts: a pending save must not follow
      * the ‹ › onto a different morning. */
     var mwTimer = null;
+    /* The weigh-in folds like a meal, but it is its own container — the
+       meals' delegated handler never sees it. */
+    $('macroWeigh').addEventListener('click', function (e) {
+      var wf = e.target.closest('[data-mfold]');
+      if (!wf) return;
+      S.mFold.weigh = !(wf.getAttribute('aria-expanded') === 'false');
+      keepingFocus(renderMacros);
+    });
+
     $('macroWeigh').addEventListener('input', function (e) {
       if (e.target.id !== 'mWeight') return;
       clearTimeout(mwTimer);
@@ -6188,6 +6273,29 @@
       mWriteWeight(mViewKey(), isFinite(lb) && lb > 0 ? Math.min(1500, lb) : 0);
       keepingFocus(renderMacros);
     });
+
+    /* Paper has no fold. A folded meal is a list of dish names with no numbers
+       on them, which is not a day anybody can read off a page — and CSS cannot
+       open it, because the plates are not in the document at all while it is
+       shut. So the day opens for the printer and closes again afterwards. */
+    var mPrintFold = null;
+    if (window.addEventListener) {
+      window.addEventListener('beforeprint', function () {
+        if (S.view !== 'macros') return;
+        mPrintFold = S.mFold;
+        S.mFold = {};
+        /* Held on the day it is already on, so the arrival seed does not run
+           and fold everything straight back down. */
+        S.mFoldFor = mViewKey();
+        renderMacros();
+      });
+      window.addEventListener('afterprint', function () {
+        if (mPrintFold === null) return;
+        S.mFold = mPrintFold;
+        mPrintFold = null;
+        renderMacros();
+      });
+    }
 
     /* A phone that sat open overnight should show the new day the moment it is
        looked at again, not yesterday's finished plan. Only when the reader has
@@ -6527,6 +6635,8 @@
       var mcommit = e.target.closest('[data-mpdone]');
       if (mcommit && S.macroPick) {
         var cslot = S.macroPick.slot, basket = S.mpBasket;
+        S.mTouched = cslot;              // the meal you just filled stays open
+        S.mFold[cslot] = false;
         mEditDay(mViewKey(), function (day) {
           var list = (day[cslot] = day[cslot] || []);
           Object.keys(basket).forEach(function (k) {
