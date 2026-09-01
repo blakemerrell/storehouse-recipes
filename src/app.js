@@ -2349,8 +2349,20 @@
          are expected to cover it — the state must describe the bar you are
          looking at. The assumption is the delta's job, and only the delta's. */
       var pct = 100 * plan / target;
-      var overAt = m === 'p' ? 110 : m === 'kcal' ? 102 : 100;
-      var state = pct > overAt ? 'over' : pct >= 90 ? 'on' : 'under';
+      /* A band, not a line. The old rule turned red the moment a macro
+         crossed its target by anything at all — two grams of fat on a
+         sixty-one gram target drew the same alarm as being a quarter over on
+         carbohydrate, which is not what either of those days is. Ten grams
+         either side of a macro counts as landing on it; calories get three
+         per cent, because ten calories is a rounding error rather than a
+         tolerance.
+       *
+         Protein keeps its wider ceiling on top of that: it is the one macro
+         a cut wants you to overshoot, so it holds on target to 110%. */
+      var diff = plan - target;
+      var near = m === 'kcal' ? Math.abs(diff) <= target * 0.03 : Math.abs(diff) <= 10;
+      var overAt = m === 'p' ? 110 : m === 'kcal' ? 105 : 100;
+      var state = near ? 'on' : pct > overAt ? 'over' : pct >= 90 ? 'on' : 'under';
       var wAte = Math.min(100, 100 * ate / target);
       var wPlan = Math.min(100 - wAte, 100 * (plan - ate) / target);
       var wAsm = Math.min(100 - wAte - wPlan, 100 * assume / target);

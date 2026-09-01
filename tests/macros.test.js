@@ -87,6 +87,25 @@ module.exports = {
             r.querySelector('.mb-asm')) &&
           !document.querySelector('.mslot-left');
       }));
+    /* A band, not a line. Two grams of fat past a sixty-one gram target is
+       landing on it, not busting it — the old rule turned red on the first
+       gram over and made a day that was fine look like a day that was not. */
+    t.ok('a macro within ten grams of target reads as on it',
+      await p.evaluate(() => {
+        const st = (m, plan, target) => {
+          const diff = plan - target, pct = 100 * plan / target;
+          const near = m === 'kcal' ? Math.abs(diff) <= target * 0.03 : Math.abs(diff) <= 10;
+          const overAt = m === 'p' ? 110 : m === 'kcal' ? 105 : 100;
+          return near ? 'on' : pct > overAt ? 'over' : pct >= 90 ? 'on' : 'under';
+        };
+        return st('f', 63, 61) === 'on' &&        // two grams over is on target
+          st('p', 213, 223) === 'on' &&           // ten under is on target
+          st('kcal', 1783, 1709) === 'on' &&      // four per cent is rounding
+          st('c', 83, 67) === 'over' &&           // a quarter over is not
+          st('c', 40, 67) === 'under' &&
+          st('kcal', 1900, 1709) === 'over';
+      }));
+
     /* And one signed line for what is left, which replaced "N g left" said
        four times in four different places. */
     t.ok('and one signed line says what is left of each',
@@ -819,7 +838,7 @@ module.exports = {
         return Array.from(document.querySelectorAll('.mbrow')).every((d) =>
           d.dataset.state !== 'over' ||
           // the shown figure is rounded, so a hair over the line reads as on it
-          pctOf(d) >= (d.dataset.macro === 'p' ? 110 : d.dataset.macro === 'kcal' ? 102 : 100));
+          pctOf(d) >= (d.dataset.macro === 'p' ? 110 : d.dataset.macro === 'kcal' ? 105 : 100));
       }));
     t.ok('the bar caps at full rather than running past its own end',
       await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow'))
