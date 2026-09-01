@@ -656,9 +656,34 @@ select { max-width: 280px; }
   font-size: 13px; line-height: 1; color: var(--muted);
 }
 .mpick-wrap.in .mp-tick { background: var(--green); border-color: var(--green); color: var(--paper); }
-.mp-bstep { display: flex; align-items: center; gap: 2px; padding-right: 2px; flex: none;
+/* the basket, as a thing you can see rather than a number in the header */
+.mp-basket {
+  border: 1px solid var(--green); border-radius: 6px; margin: 12px 0 4px;
+  background: color-mix(in oklab, var(--green) 6%, var(--card)); overflow: hidden;
+}
+.mp-basket-h {
+  font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
+  color: var(--green); padding: 7px 9px 3px;
+}
+.mpb-row { display: flex; align-items: center; gap: 8px; padding: 5px 9px 7px; }
+.mpb-b { flex: 1 1 auto; min-width: 0; }
+.mpb-n { font-family: var(--serif); font-size: 13px; display: block;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mpb-m { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mpb-m i { font-style: normal; font-weight: 700; font-size: 9.5px; }
+.mpb-x { display: flex; align-items: center; gap: 2px; flex: none; }
+.mpb-x > span { font-size: 11px; color: var(--muted-2); min-width: 28px; text-align: center;
+  font-variant-numeric: tabular-nums; }
+.mpb-x button {
+  width: 26px; height: 26px; border: 1px solid var(--line-soft); border-radius: 3px;
+  background: var(--card); color: var(--muted-2); font-size: 14px; line-height: 1;
+}
+.mpb-out { border-color: transparent !important; color: var(--muted) !important; }
+.mp-side { display: flex; align-items: center; gap: 2px; padding-right: 2px; flex: none;
   border-bottom: 1px solid var(--line-soft); }
-.mp-bstep button {
+.mp-star { background: none; border: 0; padding: 4px 6px; font-size: 15px; color: var(--line-firm); }
+.mp-star[aria-pressed="true"] { color: var(--ochre); }
+.mp-side button {
   width: 28px; height: 28px; border: 1px solid var(--line-soft); border-radius: 3px;
   background: var(--card); color: var(--muted-2); font-size: 15px; line-height: 1;
 }
@@ -976,6 +1001,19 @@ select { max-width: 280px; }
 .mday-icon { flex: 0 0 auto; padding-left: 11px; padding-right: 11px; }
 .mday-head .mday-icon { padding-left: 8px; padding-right: 8px; font-size: 14px; }
 .mday-head .mday-menu { top: calc(100% + 4px); bottom: auto; }
+/* what you actually burn, beside what the equation guessed */
+.mt-meas .mtl-val { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+.mt-meas-n { font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.mt-meas-n b { color: var(--ink); font-weight: 600; }
+.mt-meas-n i { font-style: normal; font-size: 11px; color: var(--muted); }
+.mt-meas-b {
+  background: var(--card); border: 1px solid var(--line-firm); border-radius: 4px;
+  padding: 5px 11px; font-family: var(--sans); font-size: 11.5px; color: var(--muted-2);
+}
+.mt-meas-b[aria-pressed="true"] {
+  background: var(--green); border-color: var(--green); color: var(--paper); font-weight: 600;
+}
+.mt-meas-c { margin-top: -2px; }
 .mtrain { display: flex; gap: 4px; }
 .mtrain button {
   width: 30px; height: 30px; border-radius: 50%; background: var(--card);
@@ -1036,6 +1074,15 @@ select { max-width: 280px; }
 .md-c.nil b { color: var(--dial-on); }
 .md-c.neg b { color: var(--muted-2); }
 .md-ate { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+/* A floor and a ceiling, so a line rather than two more bars. */
+.mmicro { display: flex; gap: 16px; margin-top: 7px; font-size: 11px; flex-wrap: wrap; }
+.mm { color: var(--muted); font-variant-numeric: tabular-nums; }
+.mm b { font-weight: 600; color: var(--ink); }
+.mm.low b { color: var(--dial-under); }
+.mm.high b { color: var(--dial-over); }
+/* a plate carrying a third of the day's salt on its own */
+.mchip.salty { border-color: var(--dial-over); color: var(--dial-over); }
+.mp-salt { color: var(--dial-over); }
 /* named for a screen reader, silent for everyone else */
 .vis-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden;

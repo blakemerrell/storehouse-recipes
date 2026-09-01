@@ -109,6 +109,28 @@
     mStamp('mf');
   }
 
+  /* A star, kept where the thing it stars is kept.
+   *
+     The book's favourites belong to the household — everyone on the code sees
+     the same stars, which is the point of them. Your own foods do not: they
+     live in your account, and putting "f:my:chicken_tamale" into the shared
+     document to mark it would post the name of your food to everybody with
+     the code. So a personal food carries its own star, in its own record. */
+  function mIsFav(r) {
+    return r.food ? !!r.fav : window.Store.isFav(r.id);
+  }
+
+  function mToggleFav(r) {
+    if (!r.food) { window.Store.toggleFav(r.id); return; }
+    var key = String(r.id).indexOf('f:my:') === 0 ? String(r.id).slice(5) : '';
+    if (!key) return;                   // a table food is not yours to star
+    var mine = mReadMyFoods();
+    if (!mine[key]) return;
+    mine[key].fav = !mine[key].fav;
+    mWriteMyFoods(mine);
+    mBuildFoods();
+  }
+
   function mBuildFoods() {
     MFOODS = [];
     var mine = mReadMyFoods();
@@ -119,7 +141,7 @@
         id: 'f:my:' + key, food: true, book: 0, secNum: 0, secName: 'Single foods',
         name: String(f.name || 'Something'), servings: '1 ' + String(f.unit || 'serving'),
         servN: 1, unit: String(f.unit || 'serving'), ing: [String(f.name || 'Something')],
-        steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
+        steps: [], est: true, score: null, diff: 'Easy', time: '0 mins', fav: !!f.fav,
         macro: { kcal: Number(f.kcal) || 0, p: Number(f.p) || 0,
           c: Number(f.c) || 0, f: Number(f.f) || 0, na: 0, fib: 0 }
       };
@@ -1339,7 +1361,82 @@
       tdee: base + steps + train, told: true };
   }
 
+  /* What you actually burn, measured rather than assumed.
+   *
+     Mifflin–St Jeor is a population average, and an individual routinely sits
+     two or three hundred calories either side of it — which on a cut is the
+     difference between arriving in December and arriving in March. But the
+     day already knows what you ate and the scale already knows what happened,
+     and those two together say what you burn without any equation about your
+     height at all:
+   *
+       burn = what you ate  −  what you stored
+   *
+     with a pound of body mass taken at 3500 kcal. Eat 2000 and lose a pound a
+     week and you are burning 2500; eat 2000 and gain one and you are burning
+     1500.
+   *
+     Two guards against believing noise. Weight is read as the average of the
+     first week against the average of the last, never two single mornings —
+     a Tuesday against a Tuesday is mostly water and yesterday's salt. And it
+     will not answer at all under three weeks of overlap, because a fortnight
+     of scale noise can manufacture several hundred calories of imaginary
+     burn. */
+  var MTDEE_MIN_DAYS = 21;
+
+  function mMeasuredTdee() {
+    var wKeys = Object.keys(MWEIGHTS).sort();
+    if (wKeys.length < 8) return null;
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var lastN = dayN(wKeys[wKeys.length - 1]);
+    var firstN = dayN(wKeys[0]);
+    var span = lastN - firstN;
+    if (span < MTDEE_MIN_DAYS) return null;
+
+    /* A week at each end, and the distance between their middles — which is
+       the span the weight change actually happened over. */
+    var head = [], tail = [];
+    wKeys.forEach(function (k) {
+      if (dayN(k) - firstN < 7) head.push(MWEIGHTS[k]);
+      if (lastN - dayN(k) < 7) tail.push(MWEIGHTS[k]);
+    });
+    if (head.length < 3 || tail.length < 3) return null;
+    var mean = function (a) {
+      return a.reduce(function (s, x) { return s + x; }, 0) / a.length;
+    };
+    var midHead = firstN + 3, midTail = lastN - 3;
+    var days = midTail - midHead;
+    if (days < 14) return null;
+
+    /* Only days you actually put food on count, and every one of them has to
+       be inside the window — an untouched day is a day you did not log, not a
+       day you fasted, and averaging zeros in would invent a deficit. */
+    var kcals = [];
+    Object.keys(MDAYS).forEach(function (k) {
+      var n = dayN(k);
+      if (n < firstN || n > lastN) return;
+      var t = mTotals(MDAYS[k]).all.kcal;
+      if (t > 400) kcals.push(t);
+    });
+    if (kcals.length < 14) return null;
+
+    var eaten = mean(kcals);
+    var dLb = mean(tail) - mean(head);          // positive means gained
+    var burn = eaten - (dLb * 3500 / days);
+    if (!isFinite(burn) || burn < 800 || burn > 6000) return null;
+    return {
+      tdee: Math.round(burn), days: days, meals: kcals.length,
+      eaten: Math.round(eaten), lb: Math.round(dLb * 10) / 10
+    };
+  }
+
   function mTdee(pr) {
+    /* Measured beats estimated, once you have said so — the formula is only
+       ever a stand-in for this number. */
+    if (pr && pr.useTdee) {
+      var m = mMeasuredTdee();
+      if (m) return m.tdee;
+    }
     var b = mBurn(pr);
     return b === null ? null : b.tdee;
   }
@@ -1643,8 +1740,12 @@
      dinner on the plan is committing its grams, and the picker must not offer
      the same grams twice. Eaten is tracked separately for the bars. */
   function mTotals(day) {
-    var all = { p: 0, f: 0, c: 0, kcal: 0 };
-    var eaten = { p: 0, f: 0, c: 0, kcal: 0 };
+    /* Sodium and fibre ride along. Every recipe has carried both since the
+       book was built — they feed the leaf score — and neither has ever been
+       shown on a day, which is how the app came to draft 3,400 mg days
+       without mentioning it. */
+    var all = { p: 0, f: 0, c: 0, kcal: 0, na: 0, fib: 0 };
+    var eaten = { p: 0, f: 0, c: 0, kcal: 0, na: 0, fib: 0 };
     var est = false;
     /* Over the day's own keys, not the current meal list: a plate logged
        under a meal since removed from the plan still went into a mouth. */
@@ -1653,7 +1754,7 @@
         var r = BY_ID[it.id];
         if (!r || !r.macro) return;
         if (r.est) est = true;
-        ['p', 'f', 'c', 'kcal'].forEach(function (m) {
+        ['p', 'f', 'c', 'kcal', 'na', 'fib'].forEach(function (m) {
           var v = (r.macro[m] || 0) * it.x;
           all[m] += v;
           if (it.eaten) eaten[m] += v;
@@ -1741,6 +1842,56 @@
     return best;
   }
 
+  /* The two the fit scorer never knew about.
+   *
+     Six days drafted by Fill my day averaged 3,408 mg of sodium against a
+     2,300 mg guideline, and 12 g of fibre against 18 — and not one of the six
+     reached the fibre floor. The scorer was choosing honestly against protein,
+     fat and carbohydrate and blind to both, so it kept picking the salty
+     option when two plates fit the macros equally well.
+   *
+     Small on purpose. This is a thumb on the scale between plates that
+     already fit, in the same weight class as the favourite bonus — not a
+     second opinion loud enough to argue a cut out of its protein. A plate is
+     judged per hundred calories, so a big serving is not punished for being
+     big. */
+  /* A plate salty enough to matter on its own says so.
+   *
+     A thumb on the ranking cannot fix this pantry: the median recipe here is
+     128 mg of sodium per 100 kcal against a line of about 115, only 125 of
+     277 sit under it, and one serving of the worst is 2,096 mg — most of a
+     day's ceiling in a single plate. Penalising hard enough to avoid that
+     would quietly hide half the book. So the ranking nudges, and the plate
+     that is actually the problem is named. */
+  var MSALT_FLAG = 800;                 // a third of the day's ceiling, on one plate
+
+  function mSaltChip(r, x) {
+    var na = Math.round(((r.macro || {}).na || 0) * x);
+    if (na < MSALT_FLAG) return '';
+    return '<span class="mchip salty">' + na.toLocaleString() + ' mg salt</span>';
+  }
+
+  function mSaltNote(r, x) {
+    var na = Math.round(((r.macro || {}).na || 0) * x);
+    return na < MSALT_FLAG ? '' : ' <span class="mp-salt">' + na.toLocaleString() + ' mg salt</span>';
+  }
+
+  function mSaltFibre(r, x) {
+    var mac = r.macro || {};
+    var kcal = (mac.kcal || 0) * x;
+    if (kcal < 40) return 0;                    // too small to say anything about
+    var per100 = 100 / kcal;
+    var na = (mac.na || 0) * x * per100;        // mg per 100 kcal
+    var fib = (mac.fib || 0) * x * per100;      // g per 100 kcal
+    /* 2300 mg against ~2000 kcal is about 115 mg per 100 kcal, and 14 g per
+       1000 kcal is 1.4 g per 100. Those are the lines; the score is how far
+       either side of them a plate sits, clamped so one outlier cannot decide
+       a meal on its own. */
+    var salt = Math.max(-6, Math.min(2, (115 - na) / 40));
+    var fibre = Math.max(-2, Math.min(4, (fib - 1.4) * 2));
+    return salt + fibre;
+  }
+
   function mRank(list, day, targets, slot) {
     var sh = mShares(day, targets, slot);
     var ranked = [], flat = [];
@@ -1750,7 +1901,8 @@
         /* A few points for a favorite: enough that the meal you love wins the
            near-tie against the one you have never made, never enough to argue
            a dessert into a cut. The fit still owns the ranking. */
-        ranked.push({ r: r, x: fit.x, score: fit.score + (window.Store.isFav(r.id) ? 6 : 0) });
+        ranked.push({ r: r, x: fit.x,
+          score: fit.score + (mIsFav(r) ? 6 : 0) + mSaltFibre(r, fit.x) });
       } else {
         // reachable, honest, and unranked — a recipe with no numbers cannot
         // be sorted by them
@@ -1980,6 +2132,7 @@
             '<span class="mchip">' + esc(r.food ? r.unit
               : fmtNum(it.x * (r.servN || 1)) + (it.x * (r.servN || 1) === 1 ? ' serving' : ' servings')) + '</span>' +
             (r.est ? '<span class="mchip">~ estimated</span>' : '') +
+            mSaltChip(r, it.x) +
           '</span>' +
           '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
           /* The lock sits on the amount, beside the number it holds still. It
@@ -2229,10 +2382,25 @@
         '<span class="vis-hidden"> ' + row[2] + (v > 0 ? ' over' : ' left') + '</span></span>';
     }).join('');
 
+    /* A floor and a ceiling, not two more budgets — which is why they are a
+       line rather than two more bars. Fibre is what makes a cut survivable
+       and we come up short on it most days; sodium is half again over the
+       guideline on a day this app fills, and it is also what moves the scale
+       overnight without moving any fat. */
+    var naCap = 2300;
+    var fibFloor = Math.round(tK * 14 / 1000);          // 14 g per 1000 kcal
+    var na = Math.round(tot.all.na), fib = Math.round(tot.all.fib);
+    var micro = '<div class="mmicro">' +
+      '<span class="mm ' + (fib >= fibFloor ? 'ok' : 'low') + '">Fibre <b>' + fib +
+        '</b> / ' + fibFloor + ' g</span>' +
+      '<span class="mm ' + (na > naCap ? 'high' : 'ok') + '">Sodium <b>' +
+        na.toLocaleString() + '</b> / ' + naCap.toLocaleString() + ' mg</span>' +
+    '</div>';
+
     return '<div class="mbars">' + bars + '</div>' +
       '<div class="mdelta" role="status">' + delta +
         (tot.eaten.kcal ? '<span class="md-ate">' + Math.round(tot.eaten.kcal) + ' eaten</span>' : '') +
-      '</div>' +
+      '</div>' + micro +
       (tot.est ? '<div class="macro-est">~ estimated from a food table, not a label.</div>' : '');
   }
 
@@ -2289,9 +2457,11 @@
      basket. */
   function mpRowHTML(r, x, fitText) {
     var inB = S.mpBasket[r.id] !== undefined;
+    var inB2 = mIsFav(r);
     if (inB) x = S.mpBasket[r.id];
     var fit = fitText !== undefined && fitText !== null ? fitText
-      : '&times;' + fmtNum(x) + (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, x);
+      : '&times;' + fmtNum(x) + (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' +
+        mMacLine(r, x) + mSaltNote(r, x);
     return '<div class="mpick-wrap' + (inB ? ' in' : '') + '">' +
       '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + x + '"' +
         ' aria-pressed="' + (inB ? 'true' : 'false') + '">' +
@@ -2299,15 +2469,20 @@
         leaf(r.score, 'leaf-sm') +
         '<span class="mp-body">' +
           '<span class="mp-name">' +
-            (window.Store.isFav(r.id) ? '<span class="mp-fav">&#9733;</span> ' : '') +
+            (mIsFav(r) ? '<span class="mp-fav">&#9733;</span> ' : '') +
             esc(r.name) + '</span>' +
           '<span class="mp-fit">' + fit + '</span>' +
         '</span>' +
       '</button>' +
-      (inB ? '<span class="mp-bstep no-print">' +
-        '<button data-mbstep="' + esc(String(r.id)) + ':-1" aria-label="Smaller">&minus;</button>' +
-        '<button data-mbstep="' + esc(String(r.id)) + ':1" aria-label="Bigger">+</button>' +
-      '</span>' : '') +
+      /* The star is a control here, not a badge. Finding a thing once and
+         having to find it again tomorrow is the whole reason to keep one. */
+      '<span class="mp-side no-print">' +
+
+        (r.food && String(r.id).indexOf('f:my:') !== 0 ? '' :
+          '<button class="mp-star" data-mpfav="' + esc(String(r.id)) + '" aria-pressed="' +
+            (inB2 ? 'true' : 'false') + '" aria-label="' +
+            (inB2 ? 'Remove from favorites' : 'Keep as a favorite') + '">&#9733;</button>') +
+      '</span>' +
     '</div>';
   }
 
@@ -2342,10 +2517,28 @@
   function mBasketListHTML() {
     var ids = Object.keys(S.mpBasket);
     if (!ids.length) return '';
-    return '<div class="mt-div">In the basket</div>' + ids.map(function (k) {
-      var r = BY_ID[idOf(k)];
-      return r ? mpRowHTML(r, S.mpBasket[k]) : '';
-    }).join('');
+    /* Its own row, not the picker's. The list already ticks what is in the
+       basket; repeating the whole row here — stepper, star and all — put the
+       same plate on screen twice with two sets of controls. */
+    return '<div class="mp-basket"><div class="mp-basket-h">In the basket &middot; ' +
+      ids.length + '</div>' + ids.map(function (k) {
+        var r = BY_ID[idOf(k)];
+        if (!r) return '';
+        var x = S.mpBasket[k];
+        return '<div class="mpb-row">' +
+          '<span class="mpb-b">' +
+            '<span class="mpb-n">' + esc(r.name) + '</span>' +
+            '<span class="mpb-m">' + mMacLine(r, x) + '</span>' +
+          '</span>' +
+          '<span class="mpb-x no-print">' +
+            '<button data-mbstep="' + esc(String(r.id)) + ':-1" aria-label="Smaller">&minus;</button>' +
+            '<span>&times;' + fmtNum(x) + '</span>' +
+            '<button data-mbstep="' + esc(String(r.id)) + ':1" aria-label="Bigger">+</button>' +
+            '<button class="mpb-out" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + x +
+              '" aria-label="Take out of the basket">&times;</button>' +
+          '</span>' +
+        '</div>';
+      }).join('') + '</div>';
   }
 
   /* What the basket will do to the meal, said before you commit it rather
@@ -2389,10 +2582,14 @@
           '<button class="mp-done" data-mpdone="1">Add ' + n + '</button>' : '') +
         '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
       '</div>';
+    /* The basket rides above whatever list you are in, not only on the first
+       screen. Searching, ticking three things and being unable to see which
+       three is the complaint that put it here — a count in the header is not
+       an answer to "what have I got". */
     var wrap = function (inner) {
       return '<div class="scrim no-print" data-close="1">' +
         '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
-        head + inner + mBasketFootHTML() + '</div></div>';
+        head + mBasketListHTML() + inner + mBasketFootHTML() + '</div></div>';
     };
 
     if (S.mpMode === 'home') {
@@ -2403,7 +2600,6 @@
       return wrap(
         (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
         mpWaysHTML(true) +
-        mBasketListHTML() +
         mpRecentHTML() +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +
           '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
@@ -2552,7 +2748,7 @@
       var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
       return mpRowHTML(r, e.x, e.score === null ? 'no data'
         : '&times;' + fmtNum(xx) + (r.food ? ' ' + esc(r.unit) : '') +
-          ' &middot; ' + mMacLine(r, xx));
+          ' &middot; ' + mMacLine(r, xx) + mSaltNote(r, xx));
     }).join('') + own;
   }
 
@@ -3049,6 +3245,32 @@
 
   /* Seven toggles, Monday first. Derived from the workouts box until one is
      pressed; from then on the list is yours. */
+  /* Offered only once it can be trusted, and never taken without being
+     asked for — a number that quietly redrew somebody's whole plan on the
+     twenty-first morning would be the app changing its mind about them
+     behind their back. */
+  function mMeasuredRowHTML(pr) {
+    var m = mMeasuredTdee();
+    if (!m) return '';
+    var on = !!pr.useTdee;
+    var formula = mBurn(pr);
+    return '<div class="mtl-row mt-meas">' +
+      '<span class="mtl-lab">Measured burn</span>' +
+      '<span class="mtl-val">' +
+        '<span class="mt-meas-n"><b>' + m.tdee.toLocaleString() + '</b> kcal' +
+          (formula ? ' <i>vs ' + Math.round(formula.tdee).toLocaleString() +
+            ' by the formula</i>' : '') + '</span>' +
+        '<button class="mt-meas-b" data-mtdee="' + (on ? '0' : '1') +
+          '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+          (on ? 'In use' : 'Use it') + '</button>' +
+      '</span>' +
+    '</div>' +
+    '<div class="mt-cap mt-meas-c">From ' + m.days + ' days: ' +
+      m.eaten.toLocaleString() + ' kcal a day across ' + m.meals + ' of them, and ' +
+      (m.lb === 0 ? 'no change on the scale'
+        : mLbWord(m.lb) + ' on the scale') + '.</div>';
+  }
+
   function mTrainRowHTML() {
     var on = mTrainDays();
     var L = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -3113,6 +3335,7 @@
            display line. A sentence set in the book's largest serif, where
            every other sheet carries a title, read as a title that had been
            filled in wrong — and it said again what the day already says. */
+        mMeasuredRowHTML(pr) +
         '<button class="mt-who" data-mtedit="1" aria-expanded="' + (plan ? 'false' : 'true') + '">' +
           '<span class="mt-whotext">' +
             '<span class="mt-goal" id="mtGoalLine">' + esc(mGoalLine(pr)) + '</span>' +
@@ -3693,10 +3916,18 @@
          question nobody asked — and would quietly hand Rebalance something
          to move on a meal that was deliberately pinned down. */
       if (had && keep.length === had) return;
+      /* Whatever is being swapped out is out. The cursor starts at the top of
+         a list the removed plate has just rejoined, so the first press could
+         hand you back the very thing you pressed it to be rid of — "not that
+         one" answered with that one. */
+      var dropped = (day[sk] || []).filter(function (it) {
+        return keep.indexOf(it) < 0;
+      }).map(function (it) { return it.id; });
       day[sk] = keep;
       var secs = mSlotSecs(srec);
       var pool = RECIPES.filter(function (r) {
-        return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
+        return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id) &&
+          dropped.indexOf(r.id) < 0;
       });
       var ranked = mRank(pool, day, targets, srec).filter(function (e) { return e.score !== null; });
       if (!ranked.length) return;
@@ -5172,7 +5403,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -6674,6 +6905,13 @@
       }
 
       // one portion step on something in the basket, before it is committed
+      var mpf = e.target.closest('[data-mpfav]');
+      if (mpf && S.macroPick) {
+        var fr = BY_ID[idOf(mpf.dataset.mpfav)];
+        if (fr) { mToggleFav(fr); renderModal(); }
+        return;
+      }
+
       var mbs = e.target.closest('[data-mbstep]');
       if (mbs && S.macroPick) {
         var bp = mbs.dataset.mbstep.split(':');
@@ -6705,6 +6943,16 @@
 
       /* The sex and goal pickers flip in place rather than re-rendering the
          sheet — the sheet is a draft, and a redraw would cost the other boxes. */
+      var mtd = e.target.closest('[data-mtdee]');
+      if (mtd && S.macroTargOpen) {
+        var prD = mReadProfile();
+        prD.useTdee = mtd.dataset.mtdee === '1';
+        mWriteProfile(prD);
+        renderModal();
+        if (S.view === 'macros') renderMacros();
+        return;
+      }
+
       var trn = e.target.closest('[data-mtrain]');
       if (trn && S.macroTargOpen) {
         var ti = Number(trn.dataset.mtrain);

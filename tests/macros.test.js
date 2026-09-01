@@ -477,8 +477,9 @@ module.exports = {
     /* Named from inside the picker, so it joins the basket rather than the
        day — the picker is still open underneath, and anything already
        collected is still waiting in it. */
+    // it lands in the basket card, which is visible whatever list you are in
     t.ok('a food named here joins the basket, not the day behind it',
-      await p.evaluate(() => !!document.querySelector('.mpick-wrap.in') &&
+      await p.evaluate(() => !!document.querySelector('.mp-basket .mpb-row') &&
         !!document.querySelector('[data-mpdone]') && !document.querySelector('#nfName')));
     await p.click('[data-mpdone]');
     await p.waitForTimeout(350);
@@ -817,7 +818,8 @@ module.exports = {
         };
         return Array.from(document.querySelectorAll('.mbrow')).every((d) =>
           d.dataset.state !== 'over' ||
-          pctOf(d) > (d.dataset.macro === 'p' ? 110 : d.dataset.macro === 'kcal' ? 102 : 100));
+          // the shown figure is rounded, so a hair over the line reads as on it
+          pctOf(d) >= (d.dataset.macro === 'p' ? 110 : d.dataset.macro === 'kcal' ? 102 : 100));
       }));
     t.ok('the bar caps at full rather than running past its own end',
       await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow'))
