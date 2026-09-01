@@ -87,7 +87,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 277 scored recipes: **21–96**, median **62**.
+Score range across all 289 scored recipes: **21–96**, median **62**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -101,12 +101,12 @@ Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
 
 | # | Recipe | Was | Now | Sodium | Fiber |
 |---|---|---|---|---|---|
+| 279 | Fortified Oat Porridge | null | 82 | 185 mg | 3.4 g |
+| 282 | Overnight Oats with Dry Milk | null | 82 | 185 mg | 3.4 g |
+| 283 | Tuna & Egg White Breakfast Hash | null | 81 | 666 mg | 1.6 g |
+| 286 | Tuna & Cucumber Rounds | null | 79 | 455 mg | 1.5 g |
 | 268 | Peanut Butter Banana Shake | null | 78 | 252 mg | 4.7 g |
-| 261 | Morning Oat Steamer | null | 76 | 240 mg | 2.9 g |
-| 270 | Cold Oat & Cinnamon Milk | null | 76 | 291 mg | 3.4 g |
-| 258 | Vanilla & Cinnamon Steamer | null | 75 | 243 mg | 1.4 g |
-| 259 | Fortified Hot Cocoa | null | 74 | 327 mg | 1.8 g |
-| 267 | Banana Malt Milk | null | 73 | 237 mg | 3.8 g |
+| 280 | Cottage Cheese & Apple Bowl | null | 77 | 747 mg | 2.9 g |
 
 Fruit and oats, which the old score had nothing good to say about because it only
 ever asked how much protein was in them.
@@ -203,7 +203,7 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-52 recipes across 5 sections were written for this edition rather than carried
+64 recipes across 7 sections were written for this edition rather than carried
 over from the original books:
 
 - **Worth the Afternoon** — 12 recipes
@@ -211,6 +211,8 @@ over from the original books:
 - **For the Love of Chocolate** — 10 recipes
 - **Power Drinks** — 11 recipes
 - **Made, Not Bought** — 9 recipes
+- **Breakfasts** — 6 recipes
+- **Snacks** — 6 recipes
 
 The data made the gaps plain. Across the original 225, no recipe has more than
 four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens
@@ -218,7 +220,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 33 of the 52
+Every ingredient was checked against the storehouse order list. 45 of the 64
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 

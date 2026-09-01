@@ -57,9 +57,13 @@ const SECTIONS = [
 /* Which recipes go where. Numbers, because a number is the one thing about a
    recipe that never changes — names get corrected, sections get rethought. */
 const ASSIGN = {
-  Breakfasts: [27, 28, 29, 30, 32, 33, 34, 36, 37, 38, 39, 41, 42, 43, 45, 46, 48, 49, 50],
+  /* 278-283 and 284-289 were written for this edition rather than carried
+     over — the two sections a hard cut is usually lost at. */
+  Breakfasts: [27, 28, 29, 30, 32, 33, 34, 36, 37, 38, 39, 41, 42, 43, 45, 46, 48, 49, 50,
+    278, 279, 280, 281, 282, 283],
   Snacks: [1, 4, 6, 8, 10, 11, 13, 14, 17, 19, 20, 22, 24, 25,
-    77, 79, 80, 83, 84, 87, 88, 90, 91, 95, 96, 97, 99],
+    77, 79, 80, 83, 84, 87, 88, 90, 91, 95, 96, 97, 99,
+    284, 285, 286, 287, 288, 289],
   Lunch: [2, 3, 5, 7, 9, 12, 15, 16, 18, 21, 23],
   Dinner: [51, 52, 55, 57, 61, 62, 65, 66, 67, 69, 70, 71, 72, 73, 74, 75],
   'Best Before Bed': [76, 78, 81, 82, 85, 86, 89, 92, 93, 98, 100],

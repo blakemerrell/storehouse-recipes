@@ -1047,4 +1047,214 @@ module.exports = [
     macro: null, tagline: 'Three Minutes and Leave It Alone', score: null, sc: null,
     diff: 'Easy', time: '8 mins', extras: null,
   },
+
+  /* ---------------------------------------------------------------------------
+   * Run and Not Be Weary, sections 1 and 2 — written for a hard cut.
+   *
+   * The volume's Lunch, Dinner and Best Before Bed sections already carry a cut:
+   * their medians run 12 to 15 grams of protein per hundred calories, and most
+   * of what is in them fits inside a 400 kcal meal. Breakfasts and Snacks do
+   * not. Breakfasts sits at 8.3 g per hundred with four of nineteen usable on a
+   * deep cut; Snacks is worse, 6.8 and seven of twenty-seven — and those are the
+   * two meals a cut is most often lost at, because they are the two you decide
+   * in a hurry.
+   *
+   * These twelve close that. Everything runs on what the storehouse actually
+   * stocks: egg whites, cottage cheese, non-fat dry milk, plain gelatin, canned
+   * tuna and chicken. Not whey and not Crio Bru, which the pantry data has said
+   * for a year that the storehouse does not carry.
+   *
+   * Plain gelatin does most of the heavy lifting in Snacks. It is 85% protein by
+   * weight and carries almost nothing else — the only ingredient on the order
+   * list that can put fifteen grams of protein into a hundred calories without
+   * bringing fat or sugar along for the ride.
+   *
+   * Macros are computed from the ingredients like everything else added to these
+   * books, and are labelled estimates in the app.
+   * ------------------------------------------------------------------------ */
+
+  {
+    id: 278, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Egg White & Cottage Cheese Scramble',
+    servings: '1 Serving', servN: 1,
+    ing: ['1 cup egg whites', '½ cup cottage cheese', '¼ tsp salt', '¼ tsp black pepper'],
+    steps: [
+      'Warm a non-stick pan over medium-low. Egg whites want lower heat than whole eggs — too hot and they go rubbery before the middle sets.',
+      'Pour in the whites. Leave them thirty seconds, then push them slowly from the edge to the middle with a spatula. Slow and few is the whole trick; stirring fast makes them weep.',
+      'When they are mostly set but still glossy, take the pan off the heat and fold the cottage cheese through. The residual heat is enough — cook it and it splits.',
+      'Salt and pepper at the end. Salting whites early draws the water out and you end up cooking them in it.',
+      'On the plate in six minutes, and it holds like a much bigger breakfast.',
+    ],
+    macro: null, tagline: 'Low Heat, Slow Push', score: null, sc: null,
+    diff: 'Easy', time: '6 mins', extras: null,
+  },
+
+  {
+    id: 279, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Fortified Oat Porridge',
+    servings: '1 Serving', servN: 1,
+    ing: ['⅓ cup oats', '1 cup water', '½ cup non-fat dry milk', '½ tsp cinnamon', '1 tsp brown sugar'],
+    steps: [
+      'Oats and water into a small pan over medium heat. Stir now and then until it thickens, about 5 minutes.',
+      'Off the heat, whisk the dry milk in. Off the heat matters: dry milk stirred into a boiling pan goes grainy and will not come back.',
+      'Cinnamon and sugar, and let it sit 2 minutes. It thickens again as it stands, which is why it looks thin when you stop cooking it.',
+      'Oats on their own are a thin breakfast. The dry milk is what makes this one hold until lunch, and it costs almost nothing in the way of fat.',
+    ],
+    macro: null, tagline: 'Milk Powder Off the Heat', score: null, sc: null,
+    diff: 'Easy', time: '8 mins', extras: null,
+  },
+
+  {
+    id: 280, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Cottage Cheese & Apple Bowl',
+    servings: '1 Serving', servN: 1,
+    ing: ['1 cup cottage cheese', '½ apple', '½ tsp cinnamon'],
+    steps: [
+      'Core the apple and chop it small — small enough that a spoonful gets both things at once.',
+      'Cottage cheese into a bowl, apple on top, cinnamon over.',
+      'If you have two minutes, microwave the chopped apple with the cinnamon first and let it cool a little. Warm apple against cold cheese is a better bowl than either alone.',
+      'No cooking and no pan. This is the one for a morning with no morning in it.',
+    ],
+    macro: null, tagline: 'No Pan, No Heat', score: null, sc: null,
+    diff: 'Easy', time: '3 mins', extras: null,
+  },
+
+  {
+    id: 281, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Ham & Egg White Skillet',
+    servings: '1 Serving', servN: 1,
+    ing: ['1 cup egg whites', '2 oz diced ham', '½ cup chopped onion', '¼ tsp black pepper'],
+    steps: [
+      'Onion into a dry non-stick pan over medium heat with a splash of water. Let it soften 5 minutes — the water keeps it from catching without adding a spoon of oil.',
+      'Ham in for 1 minute, just to warm it and let the edges colour.',
+      'Whites over the top. Leave it alone until the edges set, then push gently from the outside in.',
+      'Pepper at the end and no salt: the ham has brought plenty.',
+      'The ham is here for flavour rather than for protein — two ounces is enough to make the whole pan taste of it without the fat that four would bring.',
+    ],
+    macro: null, tagline: 'Two Ounces Does the Work', score: null, sc: null,
+    diff: 'Easy', time: '10 mins', extras: null,
+  },
+
+  {
+    id: 282, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Overnight Oats with Dry Milk',
+    servings: '1 Serving', servN: 1,
+    ing: ['⅓ cup oats', '½ cup non-fat dry milk', '¾ cup water', '½ tsp cinnamon', '1 tsp brown sugar'],
+    steps: [
+      'Whisk the dry milk into the water first, in the jar, before anything else goes in. Powder added last sits in lumps at the bottom until morning.',
+      'Oats, cinnamon and sugar in. Stir, lid on, fridge.',
+      'It is ready at six hours and better at twelve. Give it a stir before you eat it — it separates a little overnight and that is normal.',
+      'Made the night before, this is the breakfast you eat on a morning you would otherwise skip. The work was done yesterday.',
+    ],
+    macro: null, tagline: 'Powder First, or Lumps', score: null, sc: null,
+    diff: 'Easy', time: '5 mins', extras: null,
+  },
+
+  {
+    id: 283, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Tuna & Egg White Breakfast Hash',
+    servings: '1 Serving', servN: 1,
+    ing: ['1 can tuna', '¾ cup egg whites', '½ cup chopped bell pepper', '¼ tsp black pepper'],
+    steps: [
+      'Drain the tuna properly. Pressing the lid down until nothing more runs out is worth ten seconds — wet tuna steams instead of frying and the pan goes grey.',
+      'Peppers into a dry non-stick pan over medium-high with a splash of water, 4 minutes, until they take a little colour.',
+      'Tuna in, broken up with the spatula, 1 minute.',
+      'Whites over, and from here it is the scramble: leave it, push it slowly, stop while it still looks slightly wet.',
+      'It reads oddly at seven in the morning and eats like an ordinary hash. The leanest breakfast in the volume.',
+    ],
+    macro: null, tagline: 'Drain It Properly', score: null, sc: null,
+    diff: 'Easy', time: '9 mins', extras: null,
+  },
+
+  {
+    id: 284, book: 1, secNum: 2, secName: 'Snacks',
+    name: 'Vanilla Milk Gelatin Cups',
+    servings: '2 Cups', servN: 2,
+    ing: ['2 packets gelatin', '½ cup cold water', '2 cups milk', '1 cup non-fat dry milk', '2 tbsp sugar'],
+    steps: [
+      'Sprinkle the gelatin over the cold water in a bowl and leave it 5 minutes. It swells and goes wrinkled. This step cannot be skipped or hurried with heat — gelatin dropped straight into hot liquid seizes into strings.',
+      'Warm the milk in a pan with the dry milk and sugar whisked in. Warm, not boiling: boiling weakens gelatin and it will not set properly.',
+      'Pour the hot milk over the bloomed gelatin and stir until it is completely clear. Hold it to the light. Any grain still there now will still be there tomorrow.',
+      'Into two cups, cool on the counter, then fridge 4 hours.',
+      'The gelatin is here to set it, not to feed you \u2014 a packet is seven grams and most of the protein is coming from the dry milk. This is the answer to nine at night.',
+    ],
+    macro: null, tagline: 'Bloom It Cold, Melt It Warm', score: null, sc: null,
+    diff: 'Easy', time: '15 mins', extras: null,
+  },
+
+  {
+    id: 285, book: 1, secNum: 2, secName: 'Snacks',
+    name: 'Whipped Cottage Cheese with Cinnamon',
+    servings: '1 Serving', servN: 1,
+    ing: ['1 cup cottage cheese', '1 tsp sugar', '½ tsp cinnamon'],
+    steps: [
+      'Cottage cheese into a bowl and beat it hard with a fork for a full minute. It goes from curds to something close to a thick cream, and it is a different food afterwards.',
+      'Sugar and cinnamon, beaten in.',
+      'A blender does it in ten seconds and smoother, if one is out.',
+      'The whipping is what makes it feel like a dessert rather than a bowl of curds. Same ingredients, different food.',
+    ],
+    macro: null, tagline: 'A Minute with a Fork', score: null, sc: null,
+    diff: 'Easy', time: '3 mins', extras: null,
+  },
+
+  {
+    id: 286, book: 1, secNum: 2, secName: 'Snacks',
+    name: 'Tuna & Cucumber Rounds',
+    servings: '1 Serving', servN: 1,
+    ing: ['1 can tuna', '1 cucumber', '1 tbsp mayo', '¼ tsp black pepper'],
+    steps: [
+      'Slice the cucumber into rounds about a finger thick. Thinner and they bend under the tuna.',
+      'Drain the tuna hard, then mix it with the mayo and the pepper.',
+      'A spoonful on each round.',
+      'One tablespoon of mayo across a whole can is enough to bind it. Two is where a lean snack quietly becomes a fatty one.',
+    ],
+    macro: null, tagline: 'One Spoon of Mayo, Not Two', score: null, sc: null,
+    diff: 'Easy', time: '5 mins', extras: null,
+  },
+
+  {
+    id: 287, book: 1, secNum: 2, secName: 'Snacks',
+    name: 'Canned Chicken Lettuce Cups',
+    servings: '1 Serving', servN: 1,
+    ing: ['5 oz canned chicken', '2 cups shredded lettuce', '1 tbsp mustard', '¼ tsp black pepper'],
+    steps: [
+      'Drain the chicken and break it up with a fork.',
+      'Mustard and pepper through it. Mustard rather than mayo: it binds nearly as well, and it brings no fat at all.',
+      'Spoon into the lettuce leaves.',
+      'Lean enough to eat twice in a day and still feel like a meal both times.',
+    ],
+    macro: null, tagline: 'Mustard Instead of Mayo', score: null, sc: null,
+    diff: 'Easy', time: '4 mins', extras: null,
+  },
+
+  {
+    id: 288, book: 1, secNum: 2, secName: 'Snacks',
+    name: 'Cinnamon Milk Gelatin Whip',
+    servings: '2 Servings', servN: 2,
+    ing: ['2 packets gelatin', '½ cup cold water', '1½ cups milk', '1 cup non-fat dry milk', '2 tbsp sugar', '1 tsp cinnamon'],
+    steps: [
+      'Bloom the gelatin in the cold water, 5 minutes, as always.',
+      'Warm the milk with the dry milk, sugar and cinnamon whisked through, and pour it over the gelatin. Stir until clear.',
+      'Fridge until it is just starting to set — thickened but still loose, about 90 minutes. Setting it hard first is the mistake; you cannot whip a set jelly.',
+      'Beat it hard for 2 minutes. It doubles and goes pale, like a mousse.',
+      'Back in the fridge 2 hours. It holds the air it took.',
+      'Same as the cups, twice the volume. A bigger bowl for the same calories is worth more at night than it sounds on paper.',
+    ],
+    macro: null, tagline: 'Whip It Half-Set', score: null, sc: null,
+    diff: 'Medium', time: '20 mins', extras: null,
+  },
+
+  {
+    id: 289, book: 1, secNum: 2, secName: 'Snacks',
+    name: 'Savoury Cottage Cheese & Cucumber',
+    servings: '1 Serving', servN: 1,
+    ing: ['1 cup cottage cheese', '1 cucumber', '¼ tsp salt', '¼ tsp black pepper'],
+    steps: [
+      'Dice the cucumber small and salt it lightly. Leave it 5 minutes in a sieve and it gives up water that would otherwise thin the bowl.',
+      'Stir it through the cottage cheese with the pepper.',
+      'Unlike everything else in this section it is savoury, which matters more than it should on the fourth day of a cut, when everything sweet has started to taste the same.',
+    ],
+    macro: null, tagline: 'Salt the Cucumber First', score: null, sc: null,
+    diff: 'Easy', time: '7 mins', extras: null,
+  },
 ];
