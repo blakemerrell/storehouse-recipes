@@ -1847,6 +1847,11 @@
     var band = jump ? 2.660 * jump.bar : 3;
     var rate = st.dWeek === null ? null : Math.round(st.dWeek * 10) / 10;
     var rateWord = rate === null ? '' : 'Down ' + Math.abs(rate) + ' lb a week';
+    /* With carb cycling on, the number this offers is the week's average and
+       no single day will read it back — a training day runs higher and a rest
+       day lower. Pressing a button marked 1,853 and watching the bar say
+       1,667 is the app appearing to ignore you, so it says which it means. */
+    var cyc = mTrainDays().length > 0 && mTrainDays().length < 7 ? ' a day on average' : '';
 
     if (off > band) {
       return mLineHTML('act', '\u25B2',
@@ -1859,7 +1864,8 @@
           : capped
             ? 'Landing on time would want less than a body should be asked for, so ' +
               (need.toLocaleString() + ' is as low as this goes \u2014 the date is what moves.')
-            : 'Landing on time wants about ' + need.toLocaleString() + ' kcal a day.'),
+            : 'Landing on time wants about ' + need.toLocaleString() + ' kcal' + cyc + '.') +
+        (cyc ? ' Training days run higher than that and rest days lower.' : ''),
         need ? [['Eat ' + need.toLocaleString(), 'mline:eat:' + need],
           ['Leave it', 'mline:none']] : null);
     }
@@ -1867,8 +1873,10 @@
       var room = need;
       return mLineHTML('ahead', '\u25BC',
         '<b>' + Math.abs(daysOff) + ' days ahead of pace.</b>' +
-        (room ? ' You could eat <b>' + room.toLocaleString() + '</b> and still arrive on time.' : ''),
-        rateWord + (rate === null ? '' : ' \u2014 faster than you asked for') + '.',
+        (room ? ' You could eat <b>' + room.toLocaleString() + '</b>' + cyc +
+          ' and still arrive on time.' : ''),
+        rateWord + (rate === null ? '' : ' \u2014 faster than you asked for') + '.' +
+        (cyc ? ' Training days run higher than that and rest days lower.' : ''),
         room ? [['Eat ' + room.toLocaleString(), 'mline:eat:' + room],
           ['Keep going', 'mline:none']] : null);
     }
