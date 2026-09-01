@@ -1865,14 +1865,19 @@
           ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
           ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten'
             : 'Mark all of ' + esc(name) + ' eaten') + '"></button>' +
+        /* Two lines, because five things will not fit across a phone: the
+           name, the verdict and the controls up top, what the meal actually
+           comes to underneath. One row made the Add button wrap and doubled
+           the height of every meal on the day. */
         '<div class="mslot-h"><span class="mslot-name">' + esc(name) + '</span>' +
-          (rows ? '<span class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
-            Math.round(sub.p) + 'g protein</span>' : '') +
+          mVerdictHTML(sk, items, onPlan) +
           (onPlan ? '<button class="ghost mslot-try no-print" data-mtry="' + esc(sk) + '" ' +
             'aria-label="Another suggestion for ' + esc(name) + '" ' +
             'title="Another suggestion — walks down the best-fit list">&#8635;</button>' : '') +
           (onPlan ? '<button class="ghost mslot-add no-print" data-mslot="' + esc(sk) + '">+ Add</button>' : '') +
         '</div>' +
+        (rows ? '<div class="mslot-sub">' + Math.round(sub.kcal) + ' kcal · ' +
+          Math.round(sub.p) + 'g protein</div>' : '') +
         '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>' +
       '</div>';
     };
@@ -1902,83 +1907,134 @@
 
   }
 
+  /* What the day would come to if the meals with nothing on them landed on
+     their share of it. An unplanned lunch is not a lunch you will skip — it
+     is one you have not decided yet — and counting it as zero made a day
+     half-planned at nine in the morning read as a catastrophe. It is drawn
+     as its own hatched band so it is never mistaken for food. */
+  function mAssumed(day, targets) {
+    var out = { p: 0, f: 0, c: 0, kcal: 0 };
+    var slots = mReadSlots(), sumW = 0;
+    slots.list.forEach(function (s) { sumW += mSlotW(s); });
+    if (!sumW) return out;
+    slots.list.forEach(function (s) {
+      if ((day[s.k] || []).length) return;
+      var fr = mSlotW(s) / sumW;
+      ['p', 'f', 'c'].forEach(function (m) { out[m] += targets[m] * fr; });
+    });
+    out.kcal = kcalOf(out);
+    return out;
+  }
+
+  /* Whether a meal wants you, at a glance. The arithmetic for a meal's own
+     share has existed since the picker was built, but it only ever showed
+     INSIDE the picker — so the only way to learn that dinner was two hundred
+     short was to open dinner and go shopping. Now the header says it. */
+  function mVerdictHTML(sk, items, onPlan) {
+    var targets = mReadTargets();
+    if (!targets.p && !targets.f && !targets.c) return '';
+    var slots = mReadSlots(), me = null, sumW = 0;
+    slots.list.forEach(function (s) { sumW += mSlotW(s); if (s.k === sk) me = s; });
+    if (!me || !sumW) return '';
+    var tK = kcalOf(targets) * mSlotW(me) / sumW;
+    if (!items.length) {
+      return onPlan
+        ? '<span class="mv" data-mv="empty">at its share &middot; ' + Math.round(tK) + '</span>'
+        : '';
+    }
+    var got = 0;
+    items.forEach(function (it) {
+      var r = BY_ID[it.id];
+      if (r && r.macro) got += (r.macro.kcal || 0) * it.x;
+    });
+    var d = Math.round(got - tK);
+    var eatenAll = items.every(function (it) { return it.eaten || !BY_ID[it.id]; });
+    if (Math.abs(d) <= tK * 0.1) {
+      return '<span class="mv on" data-mv="on">' + (eatenAll ? 'eaten &middot; on target' : 'on target') + '</span>';
+    }
+    return '<span class="mv ' + (d < 0 ? 'short' : 'over') + '" data-mv="' + (d < 0 ? 'short' : 'over') + '">' +
+      Math.abs(d) + (d < 0 ? ' short' : ' over') + '</span>';
+  }
+
   function macroFootHTML(day, targets) {
     if (!targets.p && !targets.f && !targets.c) {
       return '<div class="macro-none">Craft your plan.</div>';
     }
     var tot = mTotals(day);
-    var NAMES = { p: 'Protein', f: 'Fat', c: 'Carbs' };
-    /* A dial on its side: the sweep says how full the day is, the words beside
-       it say what is left. Lying down they cost a third of the height three
-       rings would, which is what lets them stay pinned to the top. The two
-       sweeps are eaten and merely planned, in that order — the same
-       distinction the old bars drew, in a circle. */
-    /* Two questions, two channels — and they were fighting over one.
+    var asm = mAssumed(day, targets);
+
+    /* Four bars, not three dials and a bar underneath. Calories are the
+       fourth line of the same budget, and reading them off a different shape
+       in a different place made the day two readouts instead of one.
      *
-     * Colour used to mean "eaten", which meant a day 10 g past its protein
-     * target drew the same full green ring as a day that landed exactly on
-     * it: both sweeps clamp at 100%, and green was already spent saying
-     * something else. So colour now says WHERE YOU STAND and shade says
-     * HOW MUCH IS ALREADY EATEN.
+     * Colour says WHERE YOU STAND and shade says HOW MUCH IS ALREADY EATEN:
      *
-     *   grey    the part of the target nothing has claimed yet
-     *   ochre   under target — still filling
-     *   green   landed in the band, 90% to target
-     *   red     past it
+     *   solid    eaten
+     *   pale     planned, not yet eaten
+     *   hatched  assumed, because that meal is still empty
+     *   grey     nothing has claimed it
      *
-     * Protein's band runs to 110% because protein is the one macro a cut
-     * wants you to overshoot; fat and carbs turn at the line itself. The
-     * fit scorer has always judged them that way — 0.35 against 2.00 — and
-     * the dial should not contradict the thing filling the day. */
-    var dials = ['p', 'f', 'c'].map(function (m) {
-      var target = Math.max(1, targets[m]);
-      var all = Math.round(tot.all[m]);
-      var ate = Math.round(tot.eaten[m]);
-      var pct = 100 * all / target;
-      var overAt = m === 'p' ? 110 : 100;
-      var over = pct > overAt;
-      var state = over ? 'over' : pct >= 90 ? 'on' : 'under';
-      var pEat = Math.min(100, 100 * ate / target);
-      var pAll = Math.min(100, pct);
-      var hue = 'var(--dial-' + state + ')';
-      var pale = 'var(--dial-' + state + '-pale)';
-      return '<div class="mdial ' + state + (over ? ' over' : '') + '" data-eaten="' + Math.round(pEat) +
-          '" data-planned="' + Math.round(pAll) + '" data-state="' + state + '">' +
-        '<span class="mdial-arc" style="background:conic-gradient(' + hue + ' 0 ' + pEat.toFixed(1) +
-          '%, ' + pale + ' 0 ' + pAll.toFixed(1) + '%, var(--line) 0)">' +
-          '<i>' + all + '</i></span>' +
-        '<span class="mdial-t"><span class="mdial-k">' + NAMES[m] + '</span>' +
-          '<span class="mbar-nums"><span class="mbar-of">' + all + ' / ' + targets[m] + ' g</span> ' +
-          '<span class="mbar-left">' +
-          (all > targets[m] ? (all - targets[m]) + ' g over' : (targets[m] - all) + ' g left') +
-          '</span></span></span>' +
+     * ochre under target, green landed in the band, red past it. Protein's
+     * band runs to 110% because protein is the one macro a cut wants you to
+     * overshoot; fat and carbs turn at the line, and calories get two per
+     * cent of rounding grace. The fit scorer has always judged them that way
+     * and the readout must not contradict the thing filling the day. */
+    var ROWS = [['kcal', '\u25CD', 'Calories', ''], ['p', 'P', 'Protein', ' g'],
+      ['f', 'F', 'Fat', ' g'], ['c', 'C', 'Carbs', ' g']];
+    var tK = kcalOf(targets);
+    var bars = ROWS.map(function (row) {
+      var m = row[0];
+      var target = Math.max(1, m === 'kcal' ? tK : targets[m]);
+      var ate = m === 'kcal' ? tot.eaten.kcal : tot.eaten[m];
+      var plan = m === 'kcal' ? tot.all.kcal : tot.all[m];
+      var assume = asm[m];
+      /* The number is what is ACTUALLY on the day; the hatched band beside it
+         is what an empty meal is assumed to become. Adding the assumption
+         into the figure made "how much have I got" unanswerable — you could
+         not tell food from expectation. The delta below is where the two are
+         added up, because that is the question it answers. */
+      var full = Math.round(plan);
+      /* And the colour follows that same number, not the assumption. A bar
+         reading 0 / 180 has no business being green because four empty meals
+         are expected to cover it — the state must describe the bar you are
+         looking at. The assumption is the delta's job, and only the delta's. */
+      var pct = 100 * plan / target;
+      var overAt = m === 'p' ? 110 : m === 'kcal' ? 102 : 100;
+      var state = pct > overAt ? 'over' : pct >= 90 ? 'on' : 'under';
+      var wAte = Math.min(100, 100 * ate / target);
+      var wPlan = Math.min(100 - wAte, 100 * (plan - ate) / target);
+      var wAsm = Math.min(100 - wAte - wPlan, 100 * assume / target);
+      return '<div class="mbrow ' + state + '" data-macro="' + m + '" data-state="' + state +
+          '" data-eaten="' + Math.round(wAte) + '" data-planned="' +
+          Math.round(Math.min(100, 100 * plan / target)) + '">' +
+        '<span class="mb-k mb-' + m + '" aria-hidden="true">' + row[1] + '</span>' +
+        '<span class="mb-track">' +
+          '<i class="mb-ate" style="width:' + wAte.toFixed(1) + '%"></i>' +
+          '<i class="mb-plan" style="width:' + wPlan.toFixed(1) + '%"></i>' +
+          '<i class="mb-asm" style="width:' + wAsm.toFixed(1) + '%"></i>' +
+        '</span>' +
+        '<span class="mb-num"><b>' + full + '</b> / ' +
+          (m === 'kcal' ? tK : targets[m]) + esc(row[3]) + '</span>' +
+        '<span class="vis-hidden">' + row[2] + '</span>' +
       '</div>';
     }).join('');
-    /* Calories get a bar rather than a fourth dial. The macros are ratios —
-       three of them, read against each other, which is what a row of dials
-       is for. Calories are a budget: one number spent along a line, and the
-       line is the shape that says how much of it is gone. It also replaces
-       the running remainder that used to sit under every meal, which was
-       text doing a chart's job six times over. */
-    var kT = kcalOf(targets);
-    var kAll = Math.round(tot.all.kcal);
-    var kAte = Math.round(tot.eaten.kcal);
-    var kOver = kAll > kT;
-    var kState = kOver ? 'over' : (100 * kAll / Math.max(1, kT)) >= 90 ? 'on' : 'under';
-    var wAte = Math.min(100, 100 * kAte / Math.max(1, kT));
-    var wAll = Math.min(100 - wAte, 100 * (kAll - kAte) / Math.max(1, kT));
-    return '<div class="mdials">' + dials + '</div>' +
-      '<div class="mkcal ' + kState + '" data-state="' + kState + '">' +
-        '<div class="mkcal-top">' +
-          '<span class="macro-kcal">' + kAll + ' of ' + kT + ' kcal' +
-            (kAte ? ' &middot; ' + kAte + ' eaten' : '') + '</span>' +
-          '<span class="mkcal-left">' +
-            (kOver ? (kAll - kT) + ' over' : (kT - kAll) + ' left') + '</span>' +
-        '</div>' +
-        '<div class="mkcal-track">' +
-          '<i class="mkcal-ate" style="width:' + wAte.toFixed(1) + '%"></i>' +
-          '<i class="mkcal-plan" style="width:' + wAll.toFixed(1) + '%"></i>' +
-        '</div>' +
+
+    /* One line for what is left, signed. Under is negative, over is positive.
+       It replaces "3 g left" and "45 g over" scattered across four separate
+       readouts with four numbers you can read in one movement. */
+    var delta = ROWS.map(function (row) {
+      var m = row[0];
+      var target = m === 'kcal' ? tK : targets[m];
+      var v = Math.round((m === 'kcal' ? tot.all.kcal : tot.all[m]) + asm[m] - target);
+      return '<span class="md-c ' + (v > 0 ? 'pos' : v < 0 ? 'neg' : 'nil') + '">' +
+        '<span class="mb-' + m + '" aria-hidden="true">' + row[1] + '</span>' +
+        '<b>' + (v > 0 ? '+' : '') + v + '</b>' +
+        '<span class="vis-hidden"> ' + row[2] + (v > 0 ? ' over' : ' left') + '</span></span>';
+    }).join('');
+
+    return '<div class="mbars">' + bars + '</div>' +
+      '<div class="mdelta" role="status">' + delta +
+        (tot.eaten.kcal ? '<span class="md-ate">' + Math.round(tot.eaten.kcal) + ' eaten</span>' : '') +
       '</div>' +
       (tot.est ? '<div class="macro-est">~ estimated from a food table, not a label.</div>' : '');
   }

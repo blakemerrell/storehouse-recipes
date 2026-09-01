@@ -46,6 +46,14 @@
   --dial-on-pale: oklch(0.74 0.065 145);
   --dial-over: oklch(0.55 0.14 45);
   --dial-over-pale: oklch(0.78 0.085 45);
+  /* Identity, not status. The letter beside a bar says WHICH macro; the bar
+     itself says how you are doing on it. Two jobs, two channels — sharing
+     one was what made a full green ring mean both "eaten" and "on target".
+     These are only ever used on the letters, never on a track. */
+  --bar-kcal: oklch(0.50 0.09 250);
+  --bar-p: oklch(0.50 0.13 20);
+  --bar-f: oklch(0.52 0.11 65);
+  --bar-c: oklch(0.44 0.09 150);
   --over-dial:  oklch(0.55 0.14 45);
   --muted:      oklch(0.52 0.03 65);
   --muted-2:    oklch(0.45 0.03 65);
@@ -469,11 +477,19 @@ select { max-width: 280px; }
    boxes rather than a day. */
 .mslot { margin-bottom: 0; }
 .mslot-h { display: flex; align-items: baseline; gap: 9px; padding: 0 0 3px; }
+/* the verdict, so a meal says whether it wants you without being opened */
+.mv {
+  font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+  background: var(--paper-soft); border: 1px solid var(--line-soft); color: var(--muted);
+}
+.mv.on { border-color: var(--dial-on); color: var(--dial-on); }
+.mv.short { border-color: var(--dial-under); color: var(--ochre-text); }
+.mv.over { border-color: var(--dial-over); color: var(--dial-over); }
 .mslot-name {
   font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
   font-weight: 600; color: oklch(0.40 0.03 65);
 }
-.mslot-sub { font-size: 11.5px; color: var(--muted); }
+.mslot-sub { font-size: 11.5px; color: var(--muted); margin: -1px 0 4px; }
 .mslot-try {
   margin-left: auto; padding: 3px 8px; font-size: 13px; line-height: 1.15;
 }
@@ -878,30 +894,64 @@ select { max-width: 280px; }
 }
 /* the chart, compact enough to ride at the top of every screen */
 
-/* three dials on their sides: the sweep is the day so far, the words are
-   what is left of it. Green is eaten, ochre is merely planned. */
-.mdials { display: flex; gap: 8px; padding: 9px 0 0; }
-.mdial { flex: 1; display: flex; align-items: center; gap: 7px; min-width: 0; }
-.mdial-arc {
-  width: 38px; height: 38px; border-radius: 50%; flex: none;
-  display: grid; place-items: center;
+/* Four bars, one budget. Calories are the fourth line of the same thing, not
+   a different chart somewhere else — reading them off a separate shape in a
+   separate place made the day two readouts instead of one.
+
+   Colour says where you stand, shade says how much is already eaten:
+   solid eaten, pale planned, hatched assumed for a meal still empty, grey
+   unclaimed. */
+.mbars { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 0; }
+.mbrow { display: grid; grid-template-columns: 17px 1fr auto; gap: 9px; align-items: center; }
+.mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; }
+/* the letters are identity, never status — status is the bar beside them */
+.mb-kcal { color: var(--bar-kcal); } .mb-p { color: var(--bar-p); }
+.mb-f { color: var(--bar-f); } .mb-c { color: var(--bar-c); }
+.mb-track {
+  display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: var(--line);
 }
-.mdial-arc i {
-  width: 28px; height: 28px; border-radius: 50%; background: var(--paper);
-  display: grid; place-items: center; font-style: normal;
-  font-family: var(--serif); font-size: 11.5px; font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.mb-track i { display: block; height: 100%; }
+/* Scoped to the row, never bare. `.on` and `.over` are words half the app
+   uses; an unscoped rule here would repaint anything that happened to sit
+   inside an element carrying one — the same trap `.daybar` set. */
+.mbrow.under .mb-ate { background: var(--dial-under); }
+.mbrow.under .mb-plan { background: var(--dial-under-pale); }
+.mbrow.on .mb-ate { background: var(--dial-on); }
+.mbrow.on .mb-plan { background: var(--dial-on-pale); }
+.mbrow.over .mb-ate { background: var(--dial-over); }
+.mbrow.over .mb-plan { background: var(--dial-over-pale); }
+.mb-asm {
+  background: repeating-linear-gradient(135deg,
+    color-mix(in oklab, var(--muted) 36%, transparent) 0 3px, transparent 3px 6px);
 }
-.mdial-t { min-width: 0; }
-.mdial-k {
-  display: block; font-size: 8.5px; letter-spacing: 0.09em;
-  text-transform: uppercase; color: var(--muted);
+.mb-num {
+  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+  white-space: nowrap; min-width: 74px; text-align: right;
 }
-.mdial .mbar-nums { font-size: 10.5px; line-height: 1.3; color: var(--muted-2); }
-.mbar-of { display: block; }
-.mbar-left { display: block; font-weight: 600; }
-.mdial.over .mbar-left { color: var(--dial-over); }
-.mdial.on .mbar-left { color: var(--dial-on); }
+.mb-num b { color: var(--ink); font-weight: 600; }
+.mbrow.over .mb-num b { color: var(--dial-over); }
+
+/* What is left, signed, on one line. Under is negative, over is positive —
+   four numbers read in a single movement instead of four "N g left" labels
+   scattered across four separate readouts. */
+.mdelta {
+  display: flex; gap: 13px; align-items: baseline; flex-wrap: wrap;
+  margin-top: 9px; padding: 7px 10px; border-radius: 6px;
+  background: var(--paper-soft); border: 1px solid var(--line-soft);
+}
+.md-c { display: flex; gap: 4px; align-items: baseline; font-size: 12px;
+  font-variant-numeric: tabular-nums; }
+.md-c span { font-size: 10px; font-weight: 700; }
+.md-c b { font-weight: 600; }
+.md-c.pos b { color: var(--dial-over); }
+.md-c.nil b { color: var(--dial-on); }
+.md-c.neg b { color: var(--muted-2); }
+.md-ate { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+/* named for a screen reader, silent for everyone else */
+.vis-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
 
 /* ---- the rail: the day, in the order you live it ----
    A line down the left with a dot at every stop — the weigh-in at the top,
@@ -936,27 +986,6 @@ select { max-width: 280px; }
 /* behind you: the weigh-in once the scale is read, a meal once it is eaten */
 .mday-stop.done .mday-dot::before { background: var(--green); border-color: var(--green); }
 .mday-weigh.done .mday-dot::before { background: var(--green); border-color: var(--green); }
-/* the day's calories, spent along a line */
-.mkcal { margin-top: 9px; }
-.mkcal-top {
-  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
-  font-size: 11px; font-variant-numeric: tabular-nums;
-}
-.mkcal .macro-kcal { margin: 0; color: var(--muted); }
-.mkcal-left { font-weight: 600; color: var(--muted-2); flex: none; }
-.mkcal.on .mkcal-left { color: var(--dial-on); }
-.mkcal.over .mkcal-left { color: var(--dial-over); }
-.mkcal-track {
-  display: flex; height: 5px; margin-top: 4px; border-radius: 3px; overflow: hidden;
-  background: var(--line);
-}
-.mkcal-track i { display: block; height: 100%; }
-.mkcal.under .mkcal-ate { background: var(--dial-under); }
-.mkcal.under .mkcal-plan { background: var(--dial-under-pale); }
-.mkcal.on .mkcal-ate { background: var(--dial-on); }
-.mkcal.on .mkcal-plan { background: var(--dial-on-pale); }
-.mkcal.over .mkcal-ate { background: var(--dial-over); }
-.mkcal.over .mkcal-plan { background: var(--dial-over-pale); }
 /* the plan, as a sentence rather than a button */
 .mplan {
   display: flex; align-items: flex-start; gap: 12px;

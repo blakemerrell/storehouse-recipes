@@ -58,14 +58,26 @@ module.exports = {
       new RegExp('/ ' + defF + ' g').test(await foot()) &&
       new RegExp('/ ' + defC + ' g').test(await foot()), await foot());
     t.ok('the calorie line is derived 4/4/9 from the targets',
-      (await foot()).indexOf('of ' + defKcal + ' kcal') >= 0, await foot());
-    /* Calories get the bar, macros get the dials — a budget spent along a
-       line, three ratios read against each other. The bar also replaced the
-       running remainder that used to sit under all six meals, which was text
-       doing a chart's job over and over. */
-    t.ok('and the day’s calories are a chart, not six lines of prose',
-      await p.evaluate(() => !!document.querySelector('.mkcal-track .mkcal-ate') &&
-        !document.querySelector('.mslot-left')));
+      new RegExp('/ ' + defKcal + '(?!\\d)').test(await foot()), await foot());
+    /* Four bars, one budget: calories are the fourth line of the same thing
+       rather than a different chart in a different place. Each carries three
+       bands — eaten, planned, and the hatched share of a meal still empty. */
+    t.ok('the day is four bars, not three dials and a chart',
+      await p.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mbars .mbrow')];
+        return rows.length === 4 &&
+          rows.map((r) => r.dataset.macro).join() === 'kcal,p,f,c' &&
+          rows.every((r) => r.querySelector('.mb-ate') && r.querySelector('.mb-plan') &&
+            r.querySelector('.mb-asm')) &&
+          !document.querySelector('.mslot-left');
+      }));
+    /* And one signed line for what is left, which replaced "N g left" said
+       four times in four different places. */
+    t.ok('and one signed line says what is left of each',
+      await p.evaluate(() => {
+        const c = [...document.querySelectorAll('.mdelta .md-c')];
+        return c.length === 4 && c.every((x) => /^[+-]?\d+$/.test(x.querySelector('b').textContent));
+      }), await p.textContent('.mdelta'));
 
     /* Crafting a plan is a once-a-season job, so the daily screen carries
        what the plan is DOING rather than a button for making one. With no
@@ -583,7 +595,7 @@ module.exports = {
 
     // ---- eaten: the tick fills the bar and the line-through arrives
     t.ok('nothing is eaten yet, so the eaten sweep is empty',
-      await p.evaluate(() => document.querySelector('.mdial').dataset.eaten === '0'));
+      await p.evaluate(() => document.querySelector('.mbrow').dataset.eaten === '0'));
     t.ok('a planned but uneaten meal is still ahead of you on the rail',
       await p.evaluate(() => {
         const st = document.querySelector('#macroSlots .mday-stop.filled');
@@ -601,7 +613,7 @@ module.exports = {
         return st.classList.contains('done');
       }));
     t.ok('and the eaten sweep takes on a share of the dial',
-      await p.evaluate(() => Number(document.querySelector('.mdial').dataset.eaten) > 0));
+      await p.evaluate(() => Number(document.querySelector('.mbrow').dataset.eaten) > 0));
     await p.click('[data-meat="b:0"]');
     await p.waitForTimeout(150);
     /* The dot said a meal was behind you but could never be told so, and no
@@ -634,7 +646,7 @@ module.exports = {
           st.querySelector('.mday-dot').disabled)));
     t.ok('unticking reverses it, dot and all',
       await p.evaluate(() => !document.querySelector('.mitem.eaten') &&
-        document.querySelector('.mdial').dataset.eaten === '0' &&
+        document.querySelector('.mbrow').dataset.eaten === '0' &&
         !document.querySelector('#macroSlots .mday-stop.done')));
 
     /* Whether a plate fits the day and whether it is worth eating are two
@@ -678,21 +690,24 @@ module.exports = {
     await p.fill('#mtC', '1');
     await p.click('[data-mtarg="save"]');
     await p.waitForTimeout(300);
+    // the bar carries the state, the delta carries how far past you are
     t.ok('a busted macro says over, in the over state',
       await p.evaluate(() => {
-        const over = document.querySelector('.mdial.over');
-        return !!over && / g over/.test(over.textContent);
+        const over = document.querySelector('.mbrow.over');
+        const past = [...document.querySelectorAll('.mdelta .md-c.pos b')]
+          .some((b) => /^\+\d+$/.test(b.textContent));
+        return !!over && past;
       }), await foot());
     /* Colour is the verdict, not the eating. A day 10 g past its protein
        target must not draw the same ring as one that landed on it — which
        is exactly what happened while green meant "eaten": both sweeps clamp
        at 100%, so over and on-the-nose were the same picture. */
-    t.ok('every dial names where it stands',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mdial'))
+    t.ok('every bar names where it stands',
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow'))
         .every((d) => ['under', 'on', 'over'].indexOf(d.dataset.state) >= 0)));
     t.ok('and an overshoot reads over even with every plate eaten',
       await p.evaluate(() => {
-        const d = document.querySelector('.mdial.over');
+        const d = document.querySelector('.mbrow.over');
         return d && d.dataset.state === 'over' && Number(d.dataset.planned) === 100;
       }));
     /* Protein is the one macro a cut wants overshot, so its band runs to
@@ -701,15 +716,15 @@ module.exports = {
     t.ok('protein gets a wider band than fat and carbs',
       await p.evaluate(() => {
         const pctOf = (d) => {
-          const m2 = d.querySelector('.mbar-of').textContent.match(/(\d+) \/ (\d+)/);
+          const m2 = d.querySelector('.mb-num').textContent.match(/(\d+) \/ (\d+)/);
           return 100 * Number(m2[1]) / Number(m2[2]);
         };
-        return Array.from(document.querySelectorAll('.mdial')).every((d) =>
+        return Array.from(document.querySelectorAll('.mbrow')).every((d) =>
           d.dataset.state !== 'over' ||
-          pctOf(d) > (/Protein/.test(d.textContent) ? 110 : 100));
+          pctOf(d) > (d.dataset.macro === 'p' ? 110 : d.dataset.macro === 'kcal' ? 102 : 100));
       }));
-    t.ok('the dial caps at full rather than sweeping twice round',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mdial'))
+    t.ok('the bar caps at full rather than running past its own end',
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow'))
         .every((d) => Number(d.dataset.planned) <= 100 && Number(d.dataset.eaten) <= 100)));
     await p.click('#macroTargBtn');
     await p.waitForTimeout(150);
@@ -1346,7 +1361,7 @@ module.exports = {
 
     /* Removing a meal from the plan does not remove its history: the plate
        logged under Lunch keeps its card and keeps counting. */
-    const beforeP = await m.evaluate(() => document.querySelector('.mbar-nums').textContent);
+    const beforeP = await m.evaluate(() => document.querySelector('.mb-num').textContent);
     await m.click('#macroTargBtn');
     await m.waitForTimeout(200);
     await m.evaluate(() => {
@@ -1368,7 +1383,7 @@ module.exports = {
         return !cards[cards.length - 1].querySelector('.mslot-add');
       }));
     t.ok('and its grams still count',
-      (await m.evaluate(() => document.querySelector('.mbar-nums').textContent)) === beforeP);
+      (await m.evaluate(() => document.querySelector('.mb-num').textContent)) === beforeP);
 
     await m.context().close();
 
@@ -1418,18 +1433,18 @@ module.exports = {
     await z.waitForTimeout(300);
     for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
-    const leftBefore = await z.evaluate(() =>
-      Number(document.querySelector('.mbar-nums').textContent.match(/(\d+) g left/)[1]));
+    // how far the day is off its protein, signed, straight from the delta
+    const protGap = () => z.evaluate(() =>
+      Number(document.querySelector('.mdelta .md-c:nth-child(2) b').textContent));
+    const leftBefore = await protGap();
     await z.click('#macroRebal');
     await z.waitForTimeout(250);
     t.ok('Rebalance grows a shrunken plate back toward the day',
       await z.evaluate(() => document.querySelector('.mstep-x').textContent !== '×¼'),
       await z.textContent('.mstep-x'));
     t.ok('and the day is nearer its protein than before',
-      await z.evaluate((was) => {
-        const m2 = document.querySelector('.mbar-nums').textContent.match(/(\d+) g (left|over)/);
-        return m2[2] === 'over' ? true : Number(m2[1]) < was;
-      }, leftBefore), 'was ' + leftBefore + ' g left');
+      Math.abs(await protGap()) < Math.abs(leftBefore),
+      'was ' + leftBefore + ', now ' + (await protGap()));
 
     /* "Not that, what else?" — the commonest move there is, and until now it
        meant deleting a plate and reopening the picker. Try again walks down
