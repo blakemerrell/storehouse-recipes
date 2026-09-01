@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=185">
+<link rel="stylesheet" href="src/style.css?v=186">
 </head>
 <body>
 
@@ -192,13 +192,20 @@
          else is a once-a-day or once-a-season job and folds behind the
          third button. -->
     <div class="mday-acts no-print">
-      <button class="btn-primary" id="macroFill">Fill my day</button>
-      <button class="ghost" id="macroRebal"
-        title="Re-size the un-eaten, un-locked plates to land the day back on target">Rebalance</button>
-      <!-- Copy is a verb you do to today, so it stays with the other two. -->
+      <!-- Everything you do TO today, in reach of one thumb. Fill keeps its
+           words because it is the one you press without looking; the rest are
+           squares, because five labels do not fit across a phone and an icon
+           you press daily learns its own meaning within a week. -->
+      <button class="btn-primary" id="macroFill">Fill</button>
+      <button class="ghost mday-icon" id="macroRebal"
+        aria-label="Rebalance the day"
+        title="Re-size the un-eaten, un-locked plates to land the day back on target">&#9878;</button>
+      <button class="ghost mday-icon" id="macroAdd"
+        aria-label="Add food to a meal" title="Add food to a meal">&#65291;</button>
+      <button class="ghost mday-icon hide" id="macroScan"
+        aria-label="Scan a barcode" title="Scan a barcode">&#128247;</button>
       <button class="ghost mday-icon" id="macroCopy"
         aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
-      <!-- Open or shut the whole day, on the end of the bar you already reach for. -->
       <button class="ghost mday-icon" id="macroOpenAll" aria-pressed="false"
         aria-label="Open every meal">&#9776;</button>
     </div>
@@ -285,14 +292,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=185"></script>
-<script src="data/nutrition.js?v=185"></script>
-<script src="data/art.js?v=185"></script>
-<script src="data/qr.js?v=185"></script>
-<script src="src/config.js?v=185"></script>
+<script src="data/recipes.js?v=186"></script>
+<script src="data/nutrition.js?v=186"></script>
+<script src="data/art.js?v=186"></script>
+<script src="data/qr.js?v=186"></script>
+<script src="src/config.js?v=186"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=185"></script>
-<script src="src/app.js?v=185"></script>
+<script src="src/sync.js?v=186"></script>
+<script src="src/app.js?v=186"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

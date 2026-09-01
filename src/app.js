@@ -530,11 +530,11 @@
        where the ways are the screen — scanning used to be the fourth button
        on a second sheet, which is three taps of ceremony in front of the
        fastest way to name a food. */
-    mpMode: 'home', mpLook: '',
+    mpMode: 'home', mpLook: '', mpFromBar: false,
     /* Which meals you have pressed open or shut, against the default of
        folding one you have eaten. Ephemeral: a new day starts fresh. */
     mFold: {}, mFoldFor: '', mTouched: '', mtOpen: '',
-    chartOpen: false, chartWhich: 'weight',
+    chartOpen: false, chartWhich: 'weight', keepMeal: '',
     /* What the picker has been told to add, before it is told to stop. A meal
        assembled from parts — a scoop of whey, a splash of half and half, a
        spoon of honey — used to cost one full trip through this sheet per
@@ -2426,6 +2426,14 @@
           '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
             (folded ? 'false' : 'true') + '">' + esc(name) + '</button>' +
           mVerdictHTML(sk, items, onPlan, targets, slots) +
+          /* Only where there is something to solve. One plate has a stepper
+             and needs no algebra; two or more is the question this answers,
+             and a button on every meal from breakfast onward would be four
+             buttons a day that nothing was ever pressed on. */
+          (onPlan && items.length >= 2
+            ? '<button class="ghost mslot-bal no-print" data-mbal="' + esc(sk) + '" ' +
+              'aria-label="Balance ' + esc(name) + ' to its share" ' +
+              'title="Solve these portions against this meal\u2019s macros">&#9878;</button>' : '') +
           (onPlan ? '<button class="ghost mslot-try no-print" data-mtry="' + esc(sk) + '" ' +
             'aria-label="Another suggestion for ' + esc(name) + '" ' +
             'title="Another suggestion — walks down the best-fit list">&#8635;</button>' : '') +
@@ -2448,7 +2456,14 @@
                   ? fmtNum(it.x) + ' &times; ' + esc(r2.unit) : '&times;' + fmtNum(it.x)) +
                 '</span></div>';
             }).join('') + '</div>'
-          : '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') + '</div>') +
+          : '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') +
+            /* Under the plates, not in the header: it is a thing you do once
+               to a meal you have got right, not a control you reach past
+               every day. */
+            (onPlan && items.length >= 2
+              ? '<button class="mslot-keep no-print" data-mkeep="' + esc(sk) + '">' +
+                '&#43; Keep these as one thing</button>' : '') +
+          '</div>') +
       '</div>';
     };
     var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');
@@ -2693,6 +2708,48 @@
     });
     return '<svg class="mc-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
       esc(sr.note) + '">' + out.join('') + '</svg>';
+  }
+
+  /* Naming it, and choosing who gets it. Asked rather than assumed, because
+     the two answers go to different places: the Ours shelf is the household's
+     and your own foods are yours, and neither is obviously the right home for
+     four scanned packets. */
+  function mKeepHTML() {
+    var sk = S.keepMeal, day = mDay(mViewKey());
+    var items = (day[sk] || []).filter(function (it) { return BY_ID[it.id]; });
+    var mac = { kcal: 0, p: 0, f: 0, c: 0 };
+    items.forEach(function (it) {
+      var r = BY_ID[it.id];
+      ['kcal', 'p', 'f', 'c'].forEach(function (m) { mac[m] += ((r.macro || {})[m] || 0) * it.x; });
+    });
+    var slots = mReadSlots(), nm = slots.names[sk] || 'Meal';
+    slots.list.forEach(function (sl) { if (sl.k === sk) nm = sl.n; });
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Keep this meal">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">Keep ' + esc(nm.toLowerCase()) + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="mtl-row"><span class="mtl-lab">Call it</span>' +
+          '<span class="mtl-val"><input type="text" id="mkName" ' +
+            'placeholder="Morning Crio Br\u00fc" aria-label="What to call it"></span></div>' +
+        '<div class="mk-parts">' + items.map(function (it) {
+          var r = BY_ID[it.id];
+          return '<div class="mk-p"><span>' + esc(r.name) + '</span><span>&times;' +
+            fmtNum(it.x) + '</span></div>';
+        }).join('') + '</div>' +
+        '<div class="mk-tot">' + Math.round(mac.kcal) + ' kcal &middot; ' +
+          Math.round(mac.p) + 'P &middot; ' + Math.round(mac.f) + 'F &middot; ' +
+          Math.round(mac.c) + 'C</div>' +
+        '<div class="mt-div">Where it goes</div>' +
+        '<div class="sync-row">' +
+          '<button class="btn-primary" data-mkdo="share">Add to Ours</button>' +
+          '<button class="ghost" data-mkdo="mine">Keep it to myself</button>' +
+        '</div>' +
+        '<div class="mt-cap">Ours is a recipe everyone with the pantry code can see. ' +
+          'The other stays in your account.</div>' +
+        '<div class="mt-cap" id="mkNote"></div>' +
+      '</div></div>';
   }
 
   function macroChartHTML() {
@@ -3002,6 +3059,50 @@
     '</div>';
   }
 
+  /* Which meal the sheet is filling, when you opened it from the bar rather
+     than from a meal. Defaults to the first one you have not finished eating,
+     which is nearly always the one you mean and needs no clock to work out. */
+  function mNextMeal() {
+    var day = mDay(mViewKey()), slots = mReadSlots(), pick = null;
+    slots.list.forEach(function (sl) {
+      if (pick) return;
+      var items = day[sl.k] || [];
+      if (!items.length || !items.every(function (it) { return it.eaten; })) pick = sl;
+    });
+    return pick || slots.list[slots.list.length - 1];
+  }
+
+  function mOpenPicker(slotKey, mode) {
+    var srec = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === slotKey) srec = sl; });
+    if (!srec) srec = mNextMeal();
+    if (!srec) return;
+    rememberOpener();
+    S.macroPick = { slot: srec.k, n: srec.n, secs: mSlotSecs(srec), w: mSlotW(srec) };
+    S.mpSec = 'meal';
+    S.mpSort = 'fit';
+    S.mpQuery = '';
+    S.mpMode = mode || 'home';
+    S.mpLook = '';
+    S.mpBasket = {};
+    pushSheet({ m: 1 });
+    renderModal();
+  }
+
+  /* The chooser, shown only when the sheet was opened from the bar. Coming in
+     through a meal's own + Add has already answered the question, and asking
+     it again would be the app forgetting what you just told it. */
+  function mMealPickHTML() {
+    if (!S.mpFromBar) return '';
+    var day = mDay(mViewKey());
+    return '<div class="mp-meals">' + mReadSlots().list.map(function (sl) {
+      var n = (day[sl.k] || []).length;
+      return '<button data-mpslot="' + esc(sl.k) + '" aria-pressed="' +
+        (sl.k === S.macroPick.slot ? 'true' : 'false') + '">' + esc(sl.n) +
+        (n ? '<i>' + n + '</i>' : '') + '</button>';
+    }).join('') + '</div>';
+  }
+
   function macroPickerHTML() {
     var name = S.macroPick.n;
     var d = keyDate(mViewKey());
@@ -3020,7 +3121,7 @@
     var wrap = function (inner) {
       return '<div class="scrim no-print" data-close="1">' +
         '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
-        head + mBasketListHTML() + inner + mBasketFootHTML() + '</div></div>';
+        head + mMealPickHTML() + mBasketListHTML() + inner + mBasketFootHTML() + '</div></div>';
     };
 
     if (S.mpMode === 'home') {
@@ -4325,6 +4426,118 @@
    * machine's to swap: what you have eaten, what you have locked, and what
    * you have pinned, because a pin is a standing instruction and this would
    * only be arguing with it. */
+  /* Solve the portions of one meal against that meal's own share.
+   *
+     Rebalance does this for the whole day, where the question is "which of
+     twelve plates gives way". Here the question is the one you actually have
+     after putting chicken, rice and broccoli on a plate: how much of each.
+     Same weights the picker fits with, same eighth-of-a-portion steps, and
+     the same two exemptions — what you have eaten and what you have locked
+     are not the machine's to move. */
+  function mBalanceMeal(sk) {
+    var k = mViewKey();
+    var targets = mDayTargets(k);
+    var slots = mReadSlots(), srec = null;
+    slots.list.forEach(function (sl) { if (sl.k === sk) srec = sl; });
+    mEditDay(k, function (day) {
+      var free = (day[sk] || []).filter(function (it) {
+        var r = BY_ID[it.id];
+        return !it.eaten && !it.l && r && r.macro && r.macro.kcal > 0;
+      });
+      if (!free.length) return;
+      /* The meal's FULL share of the day, not what is left of the day after
+         it. mShares answers the picker's question — "how much room is there
+         for one more thing" — and subtracts what this meal already holds. Ask
+         it here and a meal sitting exactly on target is told its target is
+         nearly zero, and gets solved down to a quarter of itself. Which is
+         what happened: 545 kcal, on target, balanced to 252 and called short.
+         The target of a meal is its weight's worth of the day. */
+      var sumW = 0;
+      slots.list.forEach(function (s2) { sumW += mSlotW(s2); });
+      var frac = sumW ? mSlotW(srec || { }) / sumW : 1;
+      var T = { p: targets.p * frac, f: targets.f * frac, c: targets.c * frac };
+      var pen = function () {
+        var got = { p: 0, f: 0, c: 0 };
+        (day[sk] || []).forEach(function (it) {
+          var r = BY_ID[it.id];
+          if (!r || !r.macro) return;
+          got.p += (r.macro.p || 0) * it.x;
+          got.f += (r.macro.f || 0) * it.x;
+          got.c += (r.macro.c || 0) * it.x;
+        });
+        var sum = 0;
+        ['p', 'f', 'c'].forEach(function (m) {
+          var D = Math.max(1, T[m]);
+          sum += MW[m][0] * Math.max(0, T[m] - got[m]) / D;
+          sum += MW[m][1] * Math.max(0, got[m] - T[m]) / D;
+        });
+        return sum;
+      };
+      for (var pass = 0; pass < 4; pass++) {
+        var moved = false;
+        free.forEach(function (it) {
+          var was = it.x, best = it.x, bestPen = pen();
+          for (var i = 0; i < MX_ALL.length; i++) {
+            it.x = MX_ALL[i];
+            var pv = pen();
+            if (pv < bestPen - 1e-9) { bestPen = pv; best = MX_ALL[i]; }
+          }
+          it.x = best;
+          if (best !== was) moved = true;
+        });
+        if (!moved) break;
+      }
+    });
+    keepingFocus(renderMacros);
+  }
+
+  /* Everything on one meal, kept as one thing.
+   *
+     Assembled meals are the case recipes were always for — four scanned
+     packets that go together every Tuesday are a dish, they just have not
+     been named yet. The macros come from the parts as they stand rather than
+     from re-reading the ingredient text, because the parts already carry
+     measured numbers and re-deriving them would only lose accuracy. */
+  function mSaveMeal(sk, name, share) {
+    var day = mDay(mViewKey());
+    var items = (day[sk] || []).filter(function (it) { return BY_ID[it.id]; });
+    if (!items.length || !name) return null;
+    var mac = { kcal: 0, p: 0, f: 0, c: 0, na: 0, fib: 0 };
+    var ing = [], est = false;
+    items.forEach(function (it) {
+      var r = BY_ID[it.id];
+      ['kcal', 'p', 'f', 'c', 'na', 'fib'].forEach(function (m) {
+        mac[m] += ((r.macro || {})[m] || 0) * it.x;
+      });
+      if (r.est) est = true;
+      ing.push(fmtNum(it.x) + (r.food ? ' \u00d7 ' + r.unit : ' \u00d7 serving') + ' ' + r.name);
+    });
+    ['kcal', 'p', 'f', 'c', 'na', 'fib'].forEach(function (m) { mac[m] = Math.round(mac[m]); });
+
+    if (share) {
+      /* Onto the Ours shelf, where it gets everything a recipe gets — the
+         picker's fit ranking, portion scaling, the printed book. And where
+         everyone with the pantry code can see it, which is why this is asked
+         rather than assumed. */
+      var id = window.Store.newRecipeId();
+      window.Store.saveRecipe({
+        id: id, own: true, book: 3, secNum: 1, secName: 'Ours',
+        name: name, servings: '1 Serving', servN: 1, time: '0 mins', diff: 'Easy',
+        ing: ing, steps: [], extras: '', macro: mac, est: est, typedMacro: true
+      });
+      return id;
+    }
+    /* Or into your own foods, which live in your account and go nowhere near
+       the household. One serving of it is one of it. */
+    var key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') ||
+      ('x' + Date.now().toString(36));
+    var mine = mReadMyFoods();
+    mine[key] = { name: name, unit: 'serving', kcal: mac.kcal, p: mac.p, f: mac.f, c: mac.c };
+    mWriteMyFoods(mine);
+    mBuildFoods();
+    return 'f:my:' + key;
+  }
+
   function mTryAgain(sk) {
     var k = mViewKey();
     S.mTouched = sk;                   // keep the meal you are cycling open
@@ -5834,7 +6047,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5915,6 +6128,16 @@
         document.body.style.overflow = 'hidden';
         var nn = root.querySelector('#nfName');
         if (nn) nn.focus();
+      }
+      return;
+    }
+
+    if (S.keepMeal) {
+      if (!prev || !prev.querySelector('#mkName')) {
+        root.innerHTML = mKeepHTML();
+        document.body.style.overflow = 'hidden';
+        var mk = root.querySelector('#mkName');
+        if (mk) mk.focus();
       }
       return;
     }
@@ -6759,18 +6982,24 @@
         mReadSlots().list.forEach(function (s) { if (s.k === add.dataset.mslot) srec = s; });
         if (!srec) return;
         // sections resolved once at the door; filter and sort start fresh
-        S.macroPick = { slot: srec.k, n: srec.n, secs: mSlotSecs(srec), w: mSlotW(srec) };
-        S.mpSec = 'meal';
-        S.mpSort = 'fit';
-        S.mpQuery = '';
-        // always the three ways first; the last way used is not a preference
-        S.mpMode = 'home';
-        S.mpLook = '';
-        S.mpBasket = {};
-        pushSheet({ m: 1 });
-        renderModal();
+        S.mpFromBar = false;
+        mOpenPicker(srec.k, 'home');
         return;
       }
+      var bal = e.target.closest('[data-mbal]');
+      if (bal) { mBalanceMeal(bal.dataset.mbal); return; }
+
+      var keep = e.target.closest('[data-mkeep]');
+      if (keep) {
+        S.keepMeal = keep.dataset.mkeep;
+        rememberOpener();
+        pushSheet({ m: 1 });
+        renderModal();
+        var nm2 = $('mkName');
+        if (nm2) nm2.focus();
+        return;
+      }
+
       var fold = e.target.closest('[data-mfold]');
       if (fold) {
         var fk = fold.dataset.mfold;
@@ -6879,6 +7108,22 @@
     /* Open the whole day, or shut it. Which one it does next is whichever
        the day is not already: with anything folded it opens, and once
        everything is open it closes. */
+    $('macroAdd').addEventListener('click', function () {
+      S.mpFromBar = true;
+      mOpenPicker(null, 'home');
+    });
+
+    /* Scan without going to a meal first. It opens the lens straight away and
+       the meal is chosen from the row above it, which is the order you do it
+       in when you are holding a packet. */
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      $('macroScan').classList.remove('hide');
+      $('macroScan').addEventListener('click', function () {
+        S.mpFromBar = true;
+        mOpenPicker(null, 'scan');
+      });
+    }
+
     $('macroFoot').addEventListener('click', function (e) {
       if (!e.target.closest('[data-mchartopen]')) return;
       rememberOpener();
@@ -7202,10 +7447,42 @@
         return;
       }
 
+      var mkd = e.target.closest('[data-mkdo]');
+      if (mkd && S.keepMeal) {
+        var nm3 = String((($('mkName') || {}).value) || '').trim();
+        if (!nm3) { $('mkNote').textContent = 'It needs a name to be found again.'; return; }
+        var sk3 = S.keepMeal;
+        var newId = mSaveMeal(sk3, nm3, mkd.dataset.mkdo === 'share');
+        if (!newId) { $('mkNote').textContent = 'Nothing on this meal to keep.'; return; }
+        /* The meal becomes the thing it just became: four rows collapse into
+           the one they were always describing, at the portion they add up to.
+           Leaving the parts behind would double the day. */
+        mEditDay(mViewKey(), function (day) {
+          day[sk3] = [{ id: newId, x: 1, eaten: 0 }];
+        });
+        S.keepMeal = '';
+        close();
+        renderMacros();
+        return;
+      }
+
       var mch = e.target.closest('[data-mchart]');
       if (mch && S.chartOpen) {
         S.chartWhich = mch.dataset.mchart;
         renderModal();
+        return;
+      }
+
+      var mps = e.target.closest('[data-mpslot]');
+      if (mps && S.macroPick) {
+        var srec2 = null;
+        mReadSlots().list.forEach(function (sl) { if (sl.k === mps.dataset.mpslot) srec2 = sl; });
+        if (srec2) {
+          /* The fit is worked out against the meal's own share, so changing
+             the meal has to change what the list is ranked for. */
+          S.macroPick = { slot: srec2.k, n: srec2.n, secs: mSlotSecs(srec2), w: mSlotW(srec2) };
+          renderModal();
+        }
         return;
       }
 
@@ -7838,6 +8115,7 @@
     if (S.macroPick) mScanStop();        // never leave the camera running
     S.macroPick = null;
     S.chartOpen = false;
+    S.keepMeal = '';
     S.macroTargOpen = false;
     if (S.newFood) mScanStop();
     S.newFood = null;

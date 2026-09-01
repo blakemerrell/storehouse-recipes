@@ -1301,6 +1301,103 @@ module.exports = {
 
     await q.context().close();
 
+    /* ---- adding from the bar, balancing, and keeping --------------------- */
+    const bar = await t.fresh();
+    await bar.click('.tab[data-view="macros"]');
+    await bar.waitForTimeout(200);
+    t.ok('everything you do to today is one row of the bar',
+      await bar.evaluate(() => {
+        const b2 = [...document.querySelectorAll('.mday-acts button')]
+          .filter((x) => !x.classList.contains('hide')).map((x) => x.id);
+        return b2.indexOf('macroAdd') >= 0 && b2.indexOf('macroRebal') >= 0 &&
+          b2.indexOf('macroOpenAll') >= 0 &&
+          document.querySelector('.mday-acts').getBoundingClientRect().height < 70;
+      }));
+
+    /* Opened from the bar, the sheet has to ask which meal — and answer it
+       first, with the one you have not finished eating. */
+    await bar.click('#macroAdd');
+    await bar.waitForTimeout(300);
+    t.ok('the bar asks which meal, and guesses the one you mean',
+      await bar.evaluate(() => {
+        const chips = [...document.querySelectorAll('[data-mpslot]')];
+        const on = document.querySelector('[data-mpslot][aria-pressed="true"]');
+        return chips.length >= 4 && !!on;
+      }));
+    await bar.click('[data-mpslot="d"]');
+    await bar.waitForTimeout(250);
+    t.ok('and choosing a different one re-aims the whole sheet',
+      /Dinner/i.test(await bar.textContent('.sheet-eyebrow')));
+
+    // three raw foods onto dinner, through the one box
+    await bar.click('[data-mpmode="look"]');
+    await bar.waitForTimeout(200);
+    for (const q of ['chicken breast', 'honey', 'peanut']) {
+      await bar.fill('#mpLookIn', q);
+      await bar.waitForTimeout(400);
+      await bar.evaluate(() => {
+        const r = [...document.querySelectorAll('.mpick-row[data-mpick]')]
+          .find((x) => x.dataset.mpick.indexOf('f:') === 0);
+        if (r) r.click();
+      });
+      await bar.waitForTimeout(180);
+    }
+    await bar.click('[data-mpdone]');
+    await bar.waitForTimeout(350);
+    const openDinner = async () => {
+      for (let i = 0; i < 4; i++) {
+        if (!await bar.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+        await bar.click('#macroOpenAll');
+        await bar.waitForTimeout(180);
+      }
+    };
+    await openDinner();
+    t.ok('a meal of parts offers to be balanced and to be kept',
+      await bar.evaluate(() => !!document.querySelector('[data-mbal="d"]') &&
+        !!document.querySelector('[data-mkeep="d"]')));
+
+    /* Knock the portions out of shape, then solve them. The target of a meal
+       is its weight's worth of the DAY — not what is left of the day after
+       it, which is the picker's question and would solve a meal already on
+       target down to a quarter of itself. */
+    await bar.evaluate(() => {
+      for (let i = 0; i < 8; i++) {
+        const b2 = document.querySelector('[data-mstep$=":up"]');
+        if (b2) b2.click();
+      }
+    });
+    await bar.waitForTimeout(350);
+    const gapOf = () => bar.evaluate(() => {
+      const c = [...document.querySelectorAll('.mslot')].find((x) => x.querySelector('[data-mbal="d"]'));
+      const m = c.querySelector('.mslot-v').textContent.match(/(\d+)\s+(over|short)/);
+      return m ? Number(m[1]) : 0;
+    });
+    const wasOff = await gapOf();
+    await bar.click('[data-mbal="d"]');
+    await bar.waitForTimeout(500);
+    const nowOff = await gapOf();
+    t.ok('balancing a meal moves it toward its share, not away',
+      nowOff < wasOff / 2, wasOff + ' off -> ' + nowOff + ' off');
+
+    /* Kept to yourself means kept to yourself: the household document is
+       where recipes live, and four scanned packets are not everyone's. */
+    await bar.click('[data-mkeep="d"]');
+    await bar.waitForTimeout(300);
+    await bar.fill('#mkName', 'Chicken Rice Bowl');
+    await bar.click('[data-mkdo="mine"]');
+    await bar.waitForTimeout(450);
+    t.ok('keeping it to yourself puts it in your account, not the household',
+      await bar.evaluate(() =>
+        JSON.stringify(window.Store.state.mine || {}).indexOf('Chicken Rice Bowl') < 0 &&
+        (localStorage.getItem('bsc.myFoods') || '').indexOf('Chicken Rice Bowl') >= 0));
+    t.ok('and the parts collapse into the one thing they were describing',
+      await bar.evaluate(() => {
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = d[Object.keys(d)[0]];
+        return day.d.length === 1 && String(day.d[0].id).indexOf('f:my:') === 0;
+      }));
+    await bar.context().close();
+
     /* ---- the charts, behind the bars ------------------------------------
      * Its own page, because the history has to be seeded before boot. */
     const chartPage = await t.fresh();
