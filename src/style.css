@@ -1195,6 +1195,29 @@ select { max-width: 280px; }
 .mday-weigh .mslot-h { flex-wrap: wrap; padding-bottom: 8px; }
 .mw-avg { font-size: 11px; color: var(--muted); }
 .mw-later { margin-left: auto; font-style: italic; }
+
+/* One sentence about what to do, under the number it is about. Most mornings
+   it says nothing to do, and that is the point: the failure on a cut is not
+   laziness, it is acting on a salty Tuesday. */
+.mline {
+  display: flex; gap: 10px; padding: 11px 12px; margin-top: 8px;
+  border: 1px solid var(--line-soft); border-radius: 7px; background: var(--card);
+  border-left: 3px solid var(--line-firm);
+}
+.mline.hush { display: none; }
+.mline.calm { border-left-color: var(--green);
+  background: color-mix(in oklab, var(--green) 5%, var(--card)); }
+.mline.noise { border-left-color: oklch(0.52 0.13 255); }
+.mline.act { border-left-color: var(--ochre);
+  background: color-mix(in oklab, var(--ochre) 7%, var(--card)); }
+.mline.ahead { border-left-color: var(--green);
+  background: color-mix(in oklab, var(--green) 5%, var(--card)); }
+.mline-i { font-size: 15px; line-height: 1.25; flex: none; }
+.mline-b { flex: 1 1 auto; min-width: 0; }
+.mline-t { font-family: var(--serif); font-size: 14px; line-height: 1.4; display: block; }
+.mline-s { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.mline-a { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+.mline-a button { padding: 6px 11px; font-size: 11.5px; border-radius: 4px; }
 /* A day being planned rather than lived: everything that records what
    happened goes quiet, everything that decides what will happen stays. */
 .mday-ahead .mday-dot { opacity: 0.3; }

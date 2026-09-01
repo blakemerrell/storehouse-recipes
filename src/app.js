@@ -1707,6 +1707,174 @@
       '<span class="mplan-t">' + lines.join('<br>') + '</span>' + btn('Adjust') + '</div>';
   }
 
+  /* One sentence, and most mornings it says nothing to do.
+   *
+     Everything above it — the limits, the moving range, the measured burn —
+     exists to earn that word. A chart that tells you you are fine is doing
+     more work than one that tells you to try harder, because the failure on
+     a cut is not laziness. It is cutting calories after a salty Tuesday and
+     then wondering why the week went badly. Deming called that tampering:
+     reacting to routine variation makes a process worse, not better. */
+  var MSALT_JUMP = 1.0;                 // lb overnight worth explaining
+  var MSALT_DAY = 2800;                 // mg the day before that explains it
+
+  /* What the plan said the scale would read today. Anchored on the first
+     morning that was logged rather than on the weight typed into the profile
+     — one is a measurement and the other is a memory. */
+  function mPlanWeight(k, pr) {
+    if (!pr.goalLb || !pr.goalBy) return null;
+    var keys = Object.keys(MWEIGHTS).sort();
+    if (!keys.length) return null;
+    var dayN = function (x) { return Math.round(keyDate(x).getTime() / 86400000); };
+    var from = dayN(keys[0]), to = dayN(pr.goalBy), now = dayN(k);
+    if (to <= from) return null;
+    var span = to - from;
+    var per = (pr.goalLb - MWEIGHTS[keys[0]]) / span;      // lb a day, negative on a cut
+    return { lb: MWEIGHTS[keys[0]] + per * (now - from), per: per, daysLeft: to - now };
+  }
+
+  /* The day-to-day jump, and how big a jump is ordinary for this person.
+     Wheeler's moving range: the limit is 3.268 times its own average. */
+  function mJump(k) {
+    var keys = Object.keys(MWEIGHTS).sort();
+    var at = keys.indexOf(k);
+    if (at < 1) return null;
+    var mr = [];
+    for (var i = 1; i < keys.length; i++) mr.push(Math.abs(MWEIGHTS[keys[i]] - MWEIGHTS[keys[i - 1]]));
+    if (mr.length < 5) return null;
+    var bar = mr.reduce(function (a, b) { return a + b; }, 0) / mr.length;
+    return {
+      d: MWEIGHTS[k] - MWEIGHTS[keys[at - 1]],
+      bar: bar, url: 3.268 * bar, prevKey: keys[at - 1]
+    };
+  }
+
+  function mSodiumOn(k) {
+    if (!MDAYS[k]) return 0;
+    return Math.round(mTotals(MDAYS[k]).all.na);
+  }
+
+  function mMorningHTML(k) {
+    if (mAhead(k)) return '';                     // a morning that has not happened
+    var pr = mReadProfile();
+    var st = mWeightStats();
+    var meas = mMeasuredTdee();
+
+    /* Salt first, because it is the one that stops you doing something. A
+       jump the app can explain is a jump you should not act on, and this is
+       true long before there is enough history to measure a burn. */
+    var jump = mJump(k);
+    if (jump && jump.d >= MSALT_JUMP) {
+      var yest = mSodiumOn(jump.prevKey);
+      if (yest >= MSALT_DAY) {
+        var big = jump.d > jump.url;
+        return mLineHTML('noise', '\uD83E\uDDC2',
+          '<b>Up ' + (Math.round(jump.d * 10) / 10) + ' lb \u2014 that is salt, not fat.</b> ' +
+          esc(mPretty(jump.prevKey)) + ' was ' + yest.toLocaleString() + ' mg.',
+          /* Two different true things, and claiming the wrong one would be
+             worse than saying nothing: a jump inside your usual range needs
+             no explaining, and one outside it needs this one. */
+          big
+            ? 'Bigger than your usual ' + (Math.round(jump.url * 10) / 10) +
+              ' lb overnight \u2014 and the salt accounts for it. The seven-day average is what to watch.'
+            : 'Inside your usual overnight range of ' + (Math.round(jump.url * 10) / 10) + ' lb.');
+      }
+    }
+
+    /* Then pace, which needs a plan to be off. */
+    var plan = mPlanWeight(k, pr);
+    if (!plan || !st || st.n < 14) {
+      var have = st ? st.n : 0;
+      var days = Object.keys(MDAYS).filter(function (dk) {
+        return mTotals(MDAYS[dk]).all.kcal > 400;
+      }).length;
+      if (!pr.goalLb || !pr.goalBy) return '';    // nothing to be on pace with
+      return mLineHTML('wait', '\u25F7',
+        (14 - have > 0 ? (14 - have) + ' more mornings' : 'A few more logged days') +
+        ' and this will say whether you are on pace.',
+        have + ' of 14 weigh-ins &middot; ' + days + ' of 14 days logged');
+    }
+
+    var off = st.avg7 - plan.lb;                  // positive means heavier than planned
+    var perWeek = plan.per * 7;
+    var daysOff = plan.per ? Math.round(off / -plan.per) : 0;
+    var burn = meas ? meas.tdee : mTdee(pr);
+    /* Where you land at the rate you are actually going, and what it would
+       take to land where you meant to. */
+    /* The same three caps the plan calculator lives under, because a line
+       that says "eat 1,278" is not advice — it is arithmetic with nobody
+       reading it. Never under the basal rate, never more than a quarter off
+       the day's burn. When the honest number is capped, the date is what
+       moves, and the line says so instead of pretending. */
+    var bmr = mBurn(pr) ? mBurn(pr).bmr : null;
+    var rawNeed = burn === null ? null
+      : burn - (st.avg7 - pr.goalLb) * 3500 / Math.max(1, plan.daysLeft);
+    var floor = Math.max(bmr || 0, burn === null ? 0 : burn * 0.75);
+    var capped = rawNeed !== null && rawNeed < floor;
+    /* Rounded UP off the floor, never down onto it: a number printed a
+       calorie under the basal rate is still a number under the basal rate. */
+    var need = rawNeed === null ? null
+      : capped ? Math.ceil(floor) : Math.round(rawNeed);
+    var arrive = null;
+    if (st.dWeek !== null && st.dWeek < -0.05) {
+      var wk = Math.ceil((st.avg7 - pr.goalLb) / -st.dWeek);
+      var ad = new Date();
+      ad.setDate(ad.getDate() + wk * 7);
+      arrive = M_MONS[ad.getMonth()] + ' ' + ad.getDate();
+    }
+
+    /* The band around the plan, from the same moving ranges. Inside it there
+       is nothing to decide, and saying so is the whole job. */
+    var band = jump ? 2.660 * jump.bar : 3;
+    var rate = st.dWeek === null ? null : Math.round(st.dWeek * 10) / 10;
+    var rateWord = rate === null ? '' : 'Down ' + Math.abs(rate) + ' lb a week';
+
+    if (off > band) {
+      return mLineHTML('act', '\u25B2',
+        '<b>' + Math.abs(daysOff) + ' days behind pace.</b>' +
+        (meas ? ' Your burn measures <b>' + meas.tdee.toLocaleString() + '</b>, not the ' +
+          Math.round(mBurn(pr) ? mBurn(pr).tdee : meas.tdee).toLocaleString() +
+          ' the formula assumed.' : ''),
+        (arrive ? 'At this rate you arrive ' + arrive + '. ' : '') +
+        (need === null ? ''
+          : capped
+            ? 'Landing on time would want less than a body should be asked for, so ' +
+              (need.toLocaleString() + ' is as low as this goes \u2014 the date is what moves.')
+            : 'Landing on time wants about ' + need.toLocaleString() + ' kcal a day.'),
+        need ? [['Eat ' + need.toLocaleString(), 'mline:eat:' + need],
+          ['Leave it', 'mline:none']] : null);
+    }
+    if (off < -band) {
+      var room = need;
+      return mLineHTML('ahead', '\u25BC',
+        '<b>' + Math.abs(daysOff) + ' days ahead of pace.</b>' +
+        (room ? ' You could eat <b>' + room.toLocaleString() + '</b> and still arrive on time.' : ''),
+        rateWord + (rate === null ? '' : ' \u2014 faster than you asked for') + '.',
+        room ? [['Eat ' + room.toLocaleString(), 'mline:eat:' + room],
+          ['Keep going', 'mline:none']] : null);
+    }
+    return mLineHTML('calm', '\u2713',
+      '<b>Nothing to change.</b> On pace for ' + pr.goalLb + ' lb by ' +
+      esc(mPretty(pr.goalBy)) + '.',
+      (rateWord ? rateWord + ' \u00b7 ' : '') +
+      (meas ? 'burn measures ' + meas.tdee.toLocaleString() : 'formula burn ' +
+        (burn === null ? '\u2014' : Math.round(burn).toLocaleString())));
+  }
+
+  function mLineHTML(kind, icon, text, sub, acts) {
+    return '<div class="mline ' + kind + '" role="status">' +
+      '<span class="mline-i" aria-hidden="true">' + icon + '</span>' +
+      '<span class="mline-b">' +
+        '<span class="mline-t">' + text + '</span>' +
+        (sub ? '<span class="mline-s">' + sub + '</span>' : '') +
+        (acts ? '<span class="mline-a no-print">' + acts.map(function (a, i) {
+          return '<button class="' + (i ? 'ghost' : 'btn-primary') + '" data-mline="' +
+            esc(a[1]) + '">' + esc(a[0]) + '</button>';
+        }).join('') + '</span>' : '') +
+      '</span>' +
+    '</div>';
+  }
+
   function macroWeighHTML(k) {
     var v = MWEIGHTS[k];
     var st = mWeightStats();
@@ -2278,6 +2446,7 @@
     }
     // the first stop of the day fills in once the scale has been read
     $('macroWeigh').classList.toggle('done', MWEIGHTS[k] > 0);
+    $('macroLine').innerHTML = mMorningHTML(k);
 
   }
 
@@ -5462,7 +5631,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mopen'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mopen', 'data-mline'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -6591,6 +6760,29 @@
     var mwTimer = null;
     /* The weigh-in folds like a meal, but it is its own container — the
        meals' delegated handler never sees it. */
+    /* Eat this instead. It rewrites the day's grams at the same split the
+       plan already uses, so the shape of the day survives the change — only
+       its size moves. */
+    $('macroLine').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-mline]');
+      if (!b) return;
+      var parts = b.dataset.mline.split(':');
+      if (parts[1] !== 'eat') { b.closest('.mline').classList.add('hush'); return; }
+      var want = Number(parts[2]);
+      var t = mReadTargets(), now = kcalOf(t);
+      if (!want || !now) return;
+      /* Protein holds its grams: it is the thing a cut protects, and scaling
+         it with the calories would give back exactly what the deficit is for.
+         Fat keeps its floor. The rest lands on carbohydrate. */
+      var pr = mReadProfile();
+      var floorF = pr.lb ? Math.max(1, Math.round(0.3 * pr.lb)) : t.f;
+      var f = Math.max(Math.min(t.f, floorF), Math.round(t.f + (want - now) * 0.25 / 9));
+      var c = Math.round((want - 4 * t.p - 9 * f) / 4);
+      if (c < 0) { c = 0; f = Math.max(floorF, Math.round((want - 4 * t.p) / 9)); }
+      mWriteTargets({ p: t.p, f: Math.max(0, f), c: Math.max(0, c) });
+      renderMacros();
+    });
+
     $('macroWeigh').addEventListener('click', function (e) {
       var wf = e.target.closest('[data-mfold]');
       if (!wf) return;

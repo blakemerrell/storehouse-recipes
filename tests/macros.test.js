@@ -1299,6 +1299,107 @@ module.exports = {
 
     await q.context().close();
 
+    /* ---- the morning line -----------------------------------------------
+     * One sentence about what to do, and most mornings it says nothing to
+     * do. Its own page, because every state needs a different history seeded
+     * underneath it and the app reads those once, at boot. */
+    const lineFor = async (seed) => {
+      const pg = await t.fresh();
+      await pg.evaluate((cfg) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const ws = {}, days = {};
+        const r = window.RECIPES.find((x) => x.macro && x.macro.kcal > 300 && x.macro.na > 400);
+        const jitter = [0, 0.3, -0.2, 0.4, -0.3, 0.1, -0.1, 0.2, -0.4, 0.3];
+        for (let i = cfg.n - 1; i >= 0; i--) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          let w = 204 - cfg.rate * (cfg.n - 1 - i) + jitter[i % 10] * 0.9;
+          if (cfg.saltToday && i === 0) w += 2.6;
+          ws[key(d)] = Math.round(w * 10) / 10;
+          const x = Math.round((1700 / r.macro.kcal) * 8) / 8;
+          days[key(d)] = { b: [{ id: r.id, x: (cfg.saltToday && i === 1) ? x * 3 : x, eaten: 1 }] };
+        }
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+        localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+        const goal = new Date(); goal.setDate(goal.getDate() + 126);
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({
+          sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
+          goalLb: cfg.noGoal ? 0 : 175, goalBy: cfg.noGoal ? '' : key(goal),
+          workouts: 4, steps: 8000,
+        }));
+      }, seed);
+      await pg.reload();
+      await pg.waitForTimeout(400);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(250);
+      return pg;
+    };
+
+    const onPace = await lineFor({ n: 30, rate: 1.5 / 7 });
+    t.ok('on pace, the line says there is nothing to do',
+      await onPace.evaluate(() => {
+        const el = document.querySelector('.mline');
+        return !!el && el.classList.contains('calm') &&
+          /Nothing to change/.test(el.textContent) &&
+          !el.querySelector('[data-mline]');          // no decision, so no buttons
+      }), await onPace.textContent('.mline'));
+    await onPace.context().close();
+
+    /* The one that stops you acting. Cutting calories after a salty Tuesday
+       is the mistake the whole apparatus exists to prevent. */
+    const salty = await lineFor({ n: 30, rate: 1.5 / 7, saltToday: true });
+    t.ok('a jump the sodium explains is named as salt, not fat',
+      await salty.evaluate(() => {
+        const el = document.querySelector('.mline');
+        return !!el && el.classList.contains('noise') && /salt, not fat/.test(el.textContent) &&
+          !el.querySelector('[data-mline]');
+      }), await salty.textContent('.mline'));
+    await salty.context().close();
+
+    const slow = await lineFor({ n: 30, rate: 0.6 / 7 });
+    const behind = await slow.textContent('.mline');
+    t.ok('behind pace, it offers a number and the option to ignore it',
+      await slow.evaluate(() => {
+        const el = document.querySelector('.mline');
+        return !!el && el.classList.contains('act') && /behind pace/.test(el.textContent) &&
+          el.querySelectorAll('[data-mline]').length === 2;
+      }), behind);
+    /* A line that says "eat 1,278" is not advice. Whatever it offers has to
+       clear the basal rate and stay within a quarter of the day's burn. */
+    t.ok('and never asks for less than a body should be asked for',
+      await slow.evaluate(() => {
+        const b = document.querySelector('[data-mline^="mline:eat"]');
+        const want = Number(b.dataset.mline.split(':')[2]);
+        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
+        const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + 5;
+        return want >= bmr;
+      }), behind);
+    // taking it rewrites the grams, and protein is not what gives way
+    const heldP = await slow.evaluate(() => (JSON.parse(
+      localStorage.getItem('bsc.macroTargets')) || { p: 180 }).p);
+    await slow.click('[data-mline^="mline:eat"]');
+    await slow.waitForTimeout(300);
+    t.ok('taking it moves the carbs and leaves the protein alone',
+      await slow.evaluate((wasP) => {
+        const b = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+        return b.p === wasP;
+      }, heldP), await slow.evaluate(() => localStorage.getItem('bsc.macroTargets')));
+    await slow.context().close();
+
+    const early = await lineFor({ n: 9, rate: 1.5 / 7 });
+    t.ok('with too few mornings it says what it is waiting for',
+      await early.evaluate(() => {
+        const el = document.querySelector('.mline');
+        return !!el && el.classList.contains('wait') && /more mornings/.test(el.textContent);
+      }), await early.textContent('.mline'));
+    await early.context().close();
+
+    const noGoal = await lineFor({ n: 30, rate: 1.5 / 7, noGoal: true });
+    t.ok('and says nothing at all when there is no goal to be off',
+      await noGoal.evaluate(() => !document.querySelector('.mline')));
+    await noGoal.context().close();
+
     /* ---- the weigh-in card ----------------------------------------------
      * Its own page again: weight history is seeded wholesale and the app
      * reads its store once at boot, so the seeding needs a clean reload. */
