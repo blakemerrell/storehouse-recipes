@@ -2321,5 +2321,129 @@ module.exports = {
       }));
 
     await a2.context().close();
+
+    /* ---- a week, not the same day seven times --------------------------- */
+    const wk = await t.fresh();
+    await wk.click('.tab[data-view="macros"]');
+    await wk.waitForTimeout(180);
+    const drafted3 = [];
+    for (let d = 0; d < 3; d++) {
+      await wk.click('#macroFill');
+      await wk.waitForTimeout(320);
+      drafted3.push(await wk.evaluate(() => {
+        const D = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        const k = Object.keys(D).sort();
+        const day = D[k[k.length - 1]] || {};
+        const out = [];
+        ['b', 'l', 'd', 's'].forEach((sk) => (day[sk] || []).forEach((it) => out.push(String(it.id))));
+        return out;
+      }));
+      if (d < 2) { await wk.click('#macroNext'); await wk.waitForTimeout(220); }
+    }
+    /* Fill knew only about the day in front of it, so seven drafted days ran
+       to nineteen distinct dishes and served one of them four times. A cook
+       notices that long before they notice a macro. Consecutive days must not
+       share a plate — unless the section is too thin to offer another, which
+       is why this asks about the days either side and not about the week. */
+    const sharedAdjacent = drafted3[0].filter((x) => drafted3[1].indexOf(x) >= 0)
+      .concat(drafted3[1].filter((x) => drafted3[2].indexOf(x) >= 0));
+    t.ok('two days running are not the same day twice',
+      sharedAdjacent.length === 0, sharedAdjacent.join(',') || 'nothing shared');
+    t.ok('and each of them still got fed',
+      drafted3.every((d) => d.length >= 3), drafted3.map((d) => d.length).join(','));
+
+    /* ---- salt is part of the arithmetic now ----------------------------- */
+    /* On a hard cut, and only there. The default plan is roomy enough that
+       the chooser never has to reach for the salted end of the book, so a day
+       drafted against it proves nothing — both assertions below passed with
+       the guards deliberately removed until this profile was put in front of
+       them. A hard cut is where protein crowds a day small enough that the
+       cheapest way to hit it is a salty one. */
+    await wk.evaluate(() => {
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55,
+        goal: 'cut2', goalLb: 0, goalBy: '', workouts: 4, steps: 8000 }));
+      localStorage.removeItem('bsc.macroTargets');
+      localStorage.removeItem('bsc.macroDays');
+    });
+    await wk.reload();
+    await wk.waitForTimeout(380);
+    await wk.click('.tab[data-view="macros"]');
+    await wk.waitForTimeout(180);
+    await wk.click('#macroTargBtn');
+    await wk.waitForTimeout(280);
+    await wk.evaluate(() => {
+      const g = document.querySelector('[data-mtgoal="cut2"]');
+      if (g && !g.disabled) g.click();
+    });
+    await wk.waitForTimeout(160);
+    await wk.evaluate(() => { const u = document.querySelector('[data-mtuse]'); if (u) u.click(); });
+    await wk.waitForTimeout(160);
+    await wk.click('[data-mtarg="save"]');
+    await wk.waitForTimeout(320);
+    const hardCut = await wk.evaluate(() =>
+      JSON.parse(localStorage.getItem('bsc.macroTargets') || 'null'));
+    t.ok('the day under test really is a hard cut',
+      hardCut && hardCut.p >= 190, JSON.stringify(hardCut));
+    for (let d = 0; d < 4; d++) {
+      await wk.click('#macroFill');
+      await wk.waitForTimeout(320);
+      if (d < 3) { await wk.click('#macroNext'); await wk.waitForTimeout(220); }
+    }
+
+    /* Chasing protein, the portion solver took a chicken salad carrying
+       fourteen hundred milligrams a serving to four servings: five and a half
+       grams of sodium out of one bowl, twice the day's ceiling, every macro
+       bar green. Sodium was not in the penalty it was minimising, so nothing
+       objected. No single plate on a drafted day may carry the whole day's
+       ceiling by itself. */
+    const worst = await wk.evaluate(() => {
+      const D = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      let top = 0;
+      Object.keys(D).forEach((k) => ['b', 'l', 'd', 's'].forEach((sk) => (D[k][sk] || []).forEach((it) => {
+        const r = window.RECIPES.find((x) => String(x.id) === String(it.id));
+        if (r && r.macro) top = Math.max(top, r.macro.na * it.x);
+      })));
+      return Math.round(top);
+    });
+    t.ok('no one plate on a drafted day carries the whole day\'s salt',
+      worst < 2300, worst + ' mg on a single plate');
+
+    /* A topper is a spoonful to finish a day. A cup of soy sauce is a hundred
+       and thirty-five calories at fifteen grams of protein per hundred —
+       denser than chicken breast on paper — and fourteen thousand milligrams
+       of sodium, and it scored beautifully until the ceiling was written
+       down.
+     *
+       Opportunistic, and known to be: a topper is only placed when the dishes
+       leave a gap worth closing, so some drafts carry none and this passes by
+       having nothing to judge. It is here to catch the regression when it
+       does fire, not to prove it cannot. The guard it watches is a stated
+       ceiling in the code, not an emergent property to be sampled for. */
+    const topSalt = await wk.evaluate(() => {
+      const D = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const N = (window.Nutrition || {}).FOODS || {};
+      const serve = (f) => {
+        const u = f.g || {}; let best = null;
+        Object.keys(u).forEach((k2) => {
+          const g = u[k2]; if (!g) return;
+          const miss = Math.abs((f.kcal || 0) * g / 100 - 130) + (k2 === 'each' ? -25 : 0);
+          if (!best || miss < best.miss) best = { g, miss };
+        });
+        return best ? best.g : 100;
+      };
+      let top = 0;
+      Object.keys(D).forEach((k) => ['b', 'l', 'd', 's'].forEach((sk) => (D[k][sk] || []).forEach((it) => {
+        const id = String(it.id);
+        if (id.indexOf('f:') !== 0 || id.indexOf('f:my:') === 0) return;
+        const f = N[id.slice(2)]; if (!f) return;
+        top = Math.max(top, (f.na || 0) * serve(f) / 100 * it.x);
+      })));
+      return Math.round(top);
+    });
+    t.ok('and a topper never brings a condiment\'s worth of salt with it',
+      topSalt <= 400, topSalt + ' mg from a single food');
+
+    await wk.context().close();
   },
 };

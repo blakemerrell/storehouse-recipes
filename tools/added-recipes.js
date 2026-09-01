@@ -1257,4 +1257,347 @@ module.exports = [
     macro: null, tagline: 'Salt the Cucumber First', score: null, sc: null,
     diff: 'Easy', time: '7 mins', extras: null,
   },
+
+  /* -------------------------------------------------------------------------
+   * 290-301, written for the hard cut.
+   *
+   * A drafted hard-cut day was coming in over the sodium ceiling nine times
+   * in ten, and the reason was not the pantry. Thirty-two dishes in the book
+   * are dense enough for a hard cut — thirteen grams of protein per hundred
+   * calories, which is what a day at that target demands of every plate on it
+   * — and only ten of those thirty-two sit under the salt line. Eight of the
+   * ten are cocoa mugs and whey drinks. So at breakfast and at lunch the
+   * chooser had almost nothing to take, and took the salted thing.
+   *
+   * These twelve are the missing ones. Nine are built on fresh chicken
+   * breast, stewing beef, pork roast or a roast you cooked yourself, which
+   * are the cleanest protein in the building: chicken breast carries
+   * thirty-eight milligrams of sodium per hundred calories where canned
+   * chicken carries three hundred and eight and the deli counter six hundred
+   * and ninety-two.
+   *
+   * Egg whites are a partner here, never the base. They read as the obvious
+   * cut food and they are dense, but they are so nearly calorie-free that
+   * their own natural sodium — nothing added, it is simply in the albumen —
+   * works out at three hundred and nineteen milligrams per hundred calories,
+   * which is twice what a hard cut can spend. Whites next to chicken are
+   * fine. Whites carrying a whole breakfast are not.
+   *
+   * Not one of the twelve calls for salt. That is the other half of it: a
+   * quarter teaspoon is more sodium than a cup of egg whites and half a cup
+   * of cottage cheese together, and it was going into dishes whose whole
+   * argument was that they were clean. Flavour here comes from the spice
+   * shelf, from onion and pepper cooked down, and from acid.
+   * ---------------------------------------------------------------------- */
+
+  {
+    id: 290, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Chicken & Pepper Breakfast Skillet',
+    servings: '2 Servings', servN: 2,
+    ing: ['12 oz chicken breasts', '1 cup egg whites', '2 bell peppers', '1 onion',
+      '1 tsp paprika', '1 tsp garlic powder', '½ tsp black pepper'],
+    steps: [
+      'Cut the chicken into small pieces — smaller than you think, because they have to cook through before the peppers give up their bite.',
+      'Dry the pan hot, then the chicken, and leave it alone until one side has colour on it. Moving it early is what makes chicken breast grey and weep.',
+      'In with the sliced peppers and onion and the paprika, garlic powder and pepper. Cook until the onion goes soft and sweet.',
+      'Push it all to one side, pour the egg whites into the space, and let them set before you fold the two together.',
+      'A savoury breakfast off a dry pan, which is the whole trick: there is nothing here to spend calories on but the food.',
+    ],
+    macro: null, tagline: 'A Dry Pan and a Hot One', score: null, sc: null,
+    diff: 'Easy', time: '15 mins', extras: null,
+  },
+
+  {
+    id: 291, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Shredded Beef & Onion Morning Hash',
+    servings: '2 Servings', servN: 2,
+    ing: ['10 oz stewing beef', '2 onions', '1 bell pepper', '1 cup egg whites',
+      '1 tsp paprika', '1 tsp ground cumin', '½ tsp black pepper'],
+    steps: [
+      'Brown the beef in a heavy pan, then cover it and leave it on the lowest heat until it pulls apart under a fork. This is the slow part and there is no way around it.',
+      'Shred it in the pan with two forks and let the liquid cook away.',
+      'Add the sliced onion and pepper with the spices. The onion wants to go past soft into sweet.',
+      'Fold the egg whites through at the end, off the heat, so they set on the beef rather than scrambling separately.',
+      'Worth doing on a Sunday for the week — it reheats better than it cooks, which is unusual.',
+    ],
+    macro: null, tagline: 'Past Soft, Into Sweet', score: null, sc: null,
+    diff: 'Medium', time: '90 mins', extras: null,
+  },
+
+  {
+    id: 292, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Chicken Breast & Tomato Breakfast Bowl',
+    servings: '1 Serving', servN: 1,
+    ing: ['6 oz chicken breasts', '2 tomatoes', '½ cup egg whites', '1 tsp dried oregano',
+      '½ tsp black pepper', '1 tsp garlic powder'],
+    steps: [
+      'Poach the chicken in barely-moving water until it is just done, then let it rest before you slice it. Boiling it hard is what makes poached chicken taste like nothing.',
+      'Quarter the tomatoes and cook them in a dry pan until they collapse and their liquid thickens.',
+      'Scramble the egg whites soft in the same pan.',
+      'Build the bowl with the tomato underneath, then the whites, then the sliced chicken, and the oregano, garlic powder and pepper over the top.',
+      'The tomato is doing the work of a sauce without being one.',
+    ],
+    macro: null, tagline: 'Barely-Moving Water', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
+  },
+
+  {
+    id: 293, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Pork Roast & Cabbage-Style Onion Hash',
+    servings: '3 Servings', servN: 3,
+    ing: ['1 lb pork roast', '3 onions', '2 bell peppers', '1 tsp paprika',
+      '1 tsp dried thyme', '½ tsp black pepper'],
+    steps: [
+      'Cook the pork roast low and covered until it shreds, then pull it and drain off what has rendered out. Draining is the difference between this being a cut breakfast and not.',
+      'Slice the onions thin and cook them slowly in the dry pan until they are properly browned. This takes longer than it seems it should.',
+      'Add the peppers, the thyme and the paprika, then the pulled pork, and press it all flat to crisp underneath.',
+      'Leave it undisturbed to catch, then turn it in sections.',
+      'A shoulder is a fatty cut, so the draining step is not optional here the way it is elsewhere.',
+    ],
+    macro: null, tagline: 'Drain It, Then Crisp It', score: null, sc: null,
+    diff: 'Medium', time: '3 hrs', extras: null,
+  },
+
+  {
+    id: 294, book: 1, secNum: 1, secName: 'Breakfasts',
+    name: 'Poached Chicken & Broccoli Breakfast Plate',
+    servings: '1 Serving', servN: 1,
+    ing: ['6 oz chicken breasts', '2 cups broccoli', '½ cup egg whites',
+      '1 tsp garlic powder', '½ tsp black pepper'],
+    steps: [
+      'Poach the chicken gently and let it rest, then slice it against the grain.',
+      'Steam the broccoli until it is bright and still has some resistance. Overcooked broccoli is the reason people say they do not like broccoli.',
+      'Set the egg whites in a dry pan and cut them into ribbons.',
+      'Plate the three together with the garlic powder and pepper.',
+      'The most protein per calorie in the section, and the plate still looks like a meal rather than a supplement.',
+    ],
+    macro: null, tagline: 'Bright, With Resistance', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
+  },
+
+  {
+    id: 295, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Cold Chicken & Cucumber Plate',
+    servings: '1 Serving', servN: 1,
+    ing: ['6 oz chicken breasts', '1 cucumber', '1 tomato', '1 tsp dried oregano',
+      '½ tsp black pepper'],
+    steps: [
+      'Poach the chicken, cool it fully, then slice it thin. Cooling it before slicing is what keeps it from shredding.',
+      'Slice the cucumber and tomato and lay them out with the chicken over the top.',
+      'Oregano and pepper across the whole plate.',
+      'Built to be made the night before and eaten cold, which is what a work lunch actually has to survive.',
+    ],
+    macro: null, tagline: 'Cool It Before You Slice It', score: null, sc: null,
+    diff: 'Easy', time: '15 mins', extras: null,
+  },
+
+  {
+    id: 296, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Sliced Roast Beef & Tomato Stack',
+    servings: '1 Serving', servN: 1,
+    ing: ['5 oz sliced roast beef', '2 tomatoes', '1 cup lettuce', '1 onion',
+      '½ tsp black pepper'],
+    steps: [
+      'Slice your own roast thin rather than buying it sliced. A deli packet carries many times the sodium of the same weight of beef you cooked yourself, and it is the same meat.',
+      'Thick tomato rounds as the base, then the beef, then thin raw onion.',
+      'Lettuce over the top and pepper across it.',
+      'Stack it in a container rather than a roll and it survives until noon without going soft.',
+    ],
+    macro: null, tagline: 'Slice Your Own', score: null, sc: null,
+    diff: 'Easy', time: '10 mins', extras: null,
+  },
+
+  {
+    id: 297, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Chicken & Broccoli Cold Bowl',
+    servings: '1 Serving', servN: 1,
+    ing: ['6 oz chicken breasts', '2 cups broccoli', '1 onion',
+      '1 tsp garlic powder', '½ tsp black pepper'],
+    steps: [
+      'Poach and cool the chicken, then pull it into pieces rather than cutting it. Pulled chicken holds seasoning where sliced chicken sheds it.',
+      'Steam the broccoli and drop it into cold water the moment it turns bright, which stops it cooking and keeps it from going grey in the fridge.',
+      'Toss everything with the raw onion, garlic powder and pepper.',
+      'Fresh broccoli rather than a tin: the canned vegetable carries most of the salt in a bowl that is otherwise almost none.',
+    ],
+    macro: null, tagline: 'Cold Water Stops It', score: null, sc: null,
+    diff: 'Easy', time: '15 mins', extras: null,
+  },
+
+  {
+    id: 298, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Shredded Beef & Carrot Slaw Bowl',
+    servings: '2 Servings', servN: 2,
+    ing: ['10 oz stewing beef', '4 carrots', '1 onion', '1 tsp ground cumin',
+      '1 tsp paprika', '½ tsp black pepper'],
+    steps: [
+      'Braise the beef covered and low until it shreds, then pull it and let it cool in whatever liquid is left. Cooling it in its own liquid is what keeps it from going dry.',
+      'Grate the carrots coarse and slice the onion as thin as you can.',
+      'Toss the cold beef through the raw vegetables with the cumin, paprika and pepper.',
+      'The carrot is here for the crunch and the fibre, both of which a cut runs short on.',
+    ],
+    macro: null, tagline: 'Cool It In Its Own Liquid', score: null, sc: null,
+    diff: 'Medium', time: '2 hrs', extras: null,
+  },
+
+  {
+    id: 299, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Chicken, Pepper & Onion Lunch Box',
+    servings: '2 Servings', servN: 2,
+    ing: ['12 oz chicken breasts', '2 bell peppers', '2 onions', '1 tsp paprika',
+      '1 tsp dried oregano', '½ tsp black pepper'],
+    steps: [
+      'Roast the chicken whole rather than in pieces and slice it after it rests. Pieces dry out at the edges; a whole breast does not.',
+      'Roast the peppers and onions on the same tray until the edges take colour.',
+      'Slice everything and pack it in layers with the paprika, oregano and pepper.',
+      'Two lunches from one tray, and it is as good cold as warm.',
+    ],
+    macro: null, tagline: 'Roast It Whole, Slice It After', score: null, sc: null,
+    diff: 'Easy', time: '40 mins', extras: null,
+  },
+
+  {
+    id: 300, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Braised Stewing Beef with Carrots & Onions',
+    servings: '4 Servings', servN: 4,
+    ing: ['2 lbs stewing beef', '6 carrots', '3 onions', '1 tsp dried thyme',
+      '1 tsp black pepper', '2 cups water'],
+    steps: [
+      'Brown the beef hard in a dry heavy pot, in batches. Crowding the pot steams the meat and you lose the colour that the whole dish is built on.',
+      'Onions in next, cooked down in what the beef left behind.',
+      'Back in with the beef, the water, the thyme and the pepper. Lid on, lowest heat.',
+      'Add the carrots in large pieces for the last stretch so they hold their shape.',
+      'Season at the table rather than in the pot. A braise concentrates as it reduces, so salt added early ends up doubled.',
+    ],
+    macro: null, tagline: 'Season at the Table', score: null, sc: null,
+    diff: 'Medium', time: '3 hrs', extras: null,
+  },
+
+  {
+    id: 301, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Roast Pork with Peppers & Onions',
+    servings: '4 Servings', servN: 4,
+    ing: ['2 lbs pork roast', '4 bell peppers', '3 onions', '1 tsp paprika',
+      '1 tsp ground cumin', '1 tsp black pepper'],
+    steps: [
+      'Rub the roast with the paprika, cumin and pepper and leave it uncovered in the fridge for a few hours. A dry surface is what lets it brown instead of steam.',
+      'Roast it hot to start, then drop the heat and take it slowly the rest of the way.',
+      'Peppers and onions onto the tray for the last stretch, where they cook in the drippings.',
+      'Rest it, then pull or slice it, and drain what has rendered before it goes on the plate.',
+      'Shoulder carries its fat inside the meat, so what you drain off is real and worth draining.',
+    ],
+    macro: null, tagline: 'Dry Surface, Hot Start', score: null, sc: null,
+    diff: 'Medium', time: '3 hrs', extras: null,
+  },
+
+  /* 302-307, all lunches, all clean.
+   *
+     Adding the first twelve fixed the salt on a drafted week and then a
+     week-aware chooser undid it: once Fill stopped serving the same three
+     clean plates over and over, it had to reach, and what it reached for was
+     the salted end of lunch. Six clean dishes out of sixteen is not a pool, it
+     is a rotation with nowhere to go — and six of the ten saltiest plates in
+     the book are lunches, because lunch is the meal that has to travel and
+     the things that travel are cured, canned or dressed.
+   *
+     These six travel without any of that. Rice earns its place here rather
+     than at breakfast: cooked rice carries about one milligram of sodium per
+     hundred grams, so it buys back the carbohydrate a cut spends on protein
+     without spending any of the salt. */
+
+  {
+    id: 302, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Chicken & Rice Lunch Jar',
+    servings: '2 Servings', servN: 2,
+    ing: ['12 oz chicken breasts', '1 cup rice', '2 bell peppers', '1 onion',
+      '1 tsp paprika', '½ tsp black pepper'],
+    steps: [
+      'Cook the rice and spread it out to cool. Rice packed warm sweats and goes claggy by morning.',
+      'Poach or roast the chicken, cool it, and pull it into pieces.',
+      'Cook the peppers and onion until they soften and take a little colour.',
+      'Layer it cold in a jar with the rice at the bottom, then the vegetables, then the chicken on top so it does not steam the rest.',
+      'Rice at the bottom, protein at the top: the layer that would go soggy is the one furthest from the lid.',
+    ],
+    macro: null, tagline: 'Spread It Out to Cool', score: null, sc: null,
+    diff: 'Easy', time: '30 mins', extras: null,
+  },
+
+  {
+    id: 303, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Cold Roast Beef & Pepper Plate',
+    servings: '1 Serving', servN: 1,
+    ing: ['5 oz sliced roast beef', '2 bell peppers', '1 tomato', '1 onion',
+      '½ tsp black pepper'],
+    steps: [
+      'Slice the cold roast thin, across the grain.',
+      'Cut the peppers into wide strips and the tomato into thick rounds.',
+      'Lay it all out flat rather than piling it, with the raw onion scattered over and pepper across the top.',
+      'Beef you roasted and sliced yourself, which is the same meat as the deli packet at a fraction of the salt.',
+    ],
+    macro: null, tagline: 'Across the Grain, Cold', score: null, sc: null,
+    diff: 'Easy', time: '10 mins', extras: null,
+  },
+
+  {
+    id: 304, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Chicken, Apple & Carrot Slaw',
+    servings: '2 Servings', servN: 2,
+    ing: ['12 oz chicken breasts', '2 apples', '4 carrots', '1 onion',
+      '1 tsp cinnamon', '½ tsp black pepper'],
+    steps: [
+      'Poach the chicken, cool it fully and pull it apart.',
+      'Grate the carrots and cut the apple into matchsticks — matchsticks rather than cubes, so the apple reads as part of the slaw instead of a fruit sitting in it.',
+      'Toss everything with the thin-sliced onion, the cinnamon and the pepper.',
+      'Apple goes brown but it does not go bad; made the night before it is fine by noon, just less pretty.',
+    ],
+    macro: null, tagline: 'Matchsticks, Not Cubes', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
+  },
+
+  {
+    id: 305, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Egg, Potato & Onion Lunch Salad',
+    servings: '2 Servings', servN: 2,
+    ing: ['6 eggs', '4 potatoes', '1 onion', '1 bell pepper', '½ tsp black pepper'],
+    steps: [
+      'Boil the potatoes whole and in their skins, then cool them before you cut them. Cut first and they take on water and fall apart.',
+      'Hard-boil the eggs, cool them under running water and peel them.',
+      'Cube the potato, quarter the eggs, and fold them through the raw onion and pepper.',
+      'No dressing. The potato holds enough moisture to carry the seasoning on its own.',
+    ],
+    macro: null, tagline: 'Whole, In Their Skins', score: null, sc: null,
+    diff: 'Easy', time: '30 mins', extras: null,
+  },
+
+  {
+    id: 306, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Chicken & Tomato Rice Bowl',
+    servings: '2 Servings', servN: 2,
+    ing: ['12 oz chicken breasts', '1 cup rice', '3 tomatoes', '1 onion',
+      '1 tsp dried oregano', '½ tsp black pepper'],
+    steps: [
+      'Cook the rice and cool it spread out.',
+      'Roast the chicken and let it rest before slicing.',
+      'Cook the tomatoes down hard with the onion until they thicken into something closer to a sauce than a salad.',
+      'Spoon the tomato over the rice, the chicken over that, and the oregano and pepper on top.',
+      'Eaten cold or warmed, and better warmed if you have the option.',
+    ],
+    macro: null, tagline: 'Cook the Tomato Down Hard', score: null, sc: null,
+    diff: 'Easy', time: '35 mins', extras: null,
+  },
+
+  {
+    id: 307, book: 1, secNum: 3, secName: 'Lunch',
+    name: 'Cold Pork & Broccoli Plate',
+    servings: '2 Servings', servN: 2,
+    ing: ['12 oz pork roast', '3 cups broccoli', '1 onion', '1 tomato',
+      '1 tsp paprika', '½ tsp black pepper'],
+    steps: [
+      'Use pork left from a roast, pulled and drained of what rendered out.',
+      'Steam the broccoli until bright and drop it straight into cold water so it stays green in the fridge.',
+      'Plate the pork and broccoli cold with raw onion and tomato, paprika and pepper over the top.',
+      'A second lunch out of Sunday, which is most of what a roast is for.',
+    ],
+    macro: null, tagline: 'A Second Lunch Out of Sunday', score: null, sc: null,
+    diff: 'Easy', time: '15 mins', extras: null,
+  },
 ];

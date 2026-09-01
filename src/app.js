@@ -4270,6 +4270,36 @@
     return found;
   }
 
+  /* What the days either side of this one already hold.
+   *
+     Fill knew what was on the day it was drafting and nothing else, so
+     "press it again for a different day" was true within a day and false
+     across a week: seven drafted days ran to thirty plates and nineteen
+     dishes, one of them served four times. A cook notices that long before
+     they notice a macro.
+   *
+     Three days in each direction, not seven — the pool of dishes that are
+     both lean enough and clean enough for a hard cut is small, and a week-long
+     memory would empty it and leave meals blank. Three is far enough apart
+     that a repeat reads as a rotation rather than a rut. Both directions,
+     because days can be drafted in any order and Thursday planned before
+     Wednesday should still not echo it. */
+  var MNEAR_DAYS = 3;
+
+  function mNearIds(k) {
+    var out = {}, base = keyDate(k);
+    for (var d = -MNEAR_DAYS; d <= MNEAR_DAYS; d++) {
+      if (!d) continue;
+      var t = new Date(base.getFullYear(), base.getMonth(), base.getDate() + d);
+      var day = MDAYS[dayKey(t)];
+      if (!day) continue;
+      Object.keys(day).forEach(function (sk) {
+        (day[sk] || []).forEach(function (it) { out[it.id] = 1; });
+      });
+    }
+    return out;
+  }
+
   /* The batch that makes exactly your portion: your servings over the
      recipe's, snapped to the eighths the quantities print in. ×2½ of a
      one-jar shake is 2½ jars; two plates of a four-plate roast is half
@@ -4287,6 +4317,7 @@
      bonus here too, which is what "favorites first when they fit" means. */
   function mFillDay() {
     var targets = mDayTargets(mViewKey());
+    var near = mNearIds(mViewKey());
     mEditDay(mViewKey(), function (day) {
       mReadSlots().list.forEach(function (s) {
         if ((day[s.k] || []).length) return;
@@ -4294,9 +4325,14 @@
         // a slot is only worth filling while the day has real room left
         if (4 * sh.R.p + 4 * sh.R.c + 9 * sh.R.f < 100) return;
         var secs = mSlotSecs(s);
-        var pool = RECIPES.filter(function (r) {
+        var inSec = RECIPES.filter(function (r) {
           return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
         });
+        /* What the neighbouring days have not already used — but only while
+           that leaves something to choose from. A meal left empty to avoid a
+           repeat is a worse answer than the repeat. */
+        var fresh = inSec.filter(function (r) { return !near[r.id]; });
+        var pool = fresh.length ? fresh : inSec;
         var ranked = mRank(pool, day, targets, s).filter(function (e) { return e.score !== null; });
         if (!ranked.length) return;
         var top = ranked.slice(0, 3);
@@ -4338,6 +4374,18 @@
   var MTOP_GAP = 120;         // a gap smaller than this is not worth a topper
   var MTOP_MIN = 40;          // a serving under this is a seasoning, not a topper
   var MTOP_MAX = 2;
+  /* A topper has to be food, and the fit score alone cannot tell the
+     difference. A cup of soy sauce is a hundred and thirty-five calories at
+     fifteen grams of protein per hundred — denser than chicken breast, on
+     paper — and fourteen thousand milligrams of sodium, which is six days'
+     worth. It cleared the calorie floor, scored beautifully against a protein
+     gap, and the salt-and-fibre nudge that was supposed to catch it is
+     clamped at six points, because it was built to separate two dinners and
+     not to veto a condiment. So the ceiling is stated outright rather than
+     left to a ranking: a spoonful added to finish a day cannot carry more
+     salt than the meals it is finishing, and never more than the day has
+     left. */
+  var MTOP_NA = 400;
 
   function mTopSlot(day, targets) {
     var list = mReadSlots().list, sumW = 0, best = null;
@@ -4371,12 +4419,15 @@
       var slot = mTopSlot(day, targets);
       if (!slot) return added;
       var best = null;
+      var naRoom = Math.min(MTOP_NA, Math.max(0, 2300 - (tot.all.na || 0)));
       MFOODS.forEach(function (r) {
         var mac = r.macro || {};
         if ((mac.kcal || 0) < MTOP_MIN) return;
         if (((mac.p || 0) + (mac.c || 0) + (mac.f || 0)) <= 0) return;
         if (mOnDay(day, r.id)) return;
         var fit = macroFit(r, R, R, D);
+        // priced at the portion actually being added, not per hundred grams
+        if ((mac.na || 0) * fit.x > naRoom) return;
         var sc = fit.score + mSaltFibre(r, fit.x);
         if (!best || sc > best.score) best = { r: r, x: fit.x, score: sc };
       });
@@ -4401,6 +4452,16 @@
      smaller portion, as everywhere else on a cut. */
   var MX_ALL = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4];
 
+  /* The day's sodium ceiling, and what going past it costs the solver. The
+     cap is the ordinary guideline the bars already show. The weight is set
+     against the macro weights either side of it: a day a full ceiling over
+     carries the same penalty as missing every gram of protein, which is
+     enough to lose an argument about a fourth serving and not enough to
+     starve a day of the protein it is for. */
+  var MNA_CAP = 2300;
+  var MNA_W = 1.0;
+
+
   function mBalanceDay(day, targets) {
     var free = [];
     Object.keys(day).forEach(function (sk) {
@@ -4418,6 +4479,19 @@
         s += MW[mm][0] * Math.max(0, targets[mm] - tot.all[mm]) / D;
         s += MW[mm][1] * Math.max(0, tot.all[mm] - targets[mm]) / D;
       });
+      /* Salt, because the solver was blind to it and a portion is exactly
+         where that blindness costs most. Chasing protein, it took a chicken
+         salad carrying fourteen hundred milligrams a serving to four
+         servings — five and a half grams of sodium out of one bowl, more than
+         twice the day's whole ceiling, and every macro bar green. Nothing in
+         the arithmetic objected because sodium was not in it.
+       *
+         Only overshoot is priced. There is no virtue in a day coming in
+         under on salt the way there is in hitting protein, so this is a
+         ceiling and not a target: free until the day reaches it, then steep
+         enough that a fourth serving of the salty thing loses to a third of
+         something else. */
+      s += MNA_W * Math.max(0, (tot.all.na || 0) - MNA_CAP) / MNA_CAP;
       return s;
     };
     for (var pass = 0; pass < 3; pass++) {
@@ -5809,9 +5883,9 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 216 },
-    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 212 },
-    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 80, booklet: true },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 232 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 224 },
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 96, booklet: true },
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 136, booklet: true }
   };
 

@@ -87,7 +87,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 289 scored recipes: **21–96**, median **62**.
+Score range across all 307 scored recipes: **21–98**, median **64**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -101,12 +101,12 @@ Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
 
 | # | Recipe | Was | Now | Sodium | Fiber |
 |---|---|---|---|---|---|
-| 279 | Fortified Oat Porridge | null | 82 | 185 mg | 3.4 g |
-| 282 | Overnight Oats with Dry Milk | null | 82 | 185 mg | 3.4 g |
-| 283 | Tuna & Egg White Breakfast Hash | null | 81 | 666 mg | 1.6 g |
-| 286 | Tuna & Cucumber Rounds | null | 79 | 455 mg | 1.5 g |
-| 268 | Peanut Butter Banana Shake | null | 78 | 252 mg | 4.7 g |
-| 280 | Cottage Cheese & Apple Bowl | null | 77 | 747 mg | 2.9 g |
+| 297 | Chicken & Broccoli Cold Bowl | null | 98 | 141 mg | 6.6 g |
+| 304 | Chicken, Apple & Carrot Slaw | null | 96 | 165 mg | 9.4 g |
+| 299 | Chicken, Pepper & Onion Lunch Box | null | 94 | 86 mg | 4.4 g |
+| 294 | Poached Chicken & Broccoli Breakfast Plate | null | 93 | 338 mg | 4.7 g |
+| 290 | Chicken & Pepper Breakfast Skillet | null | 92 | 285 mg | 3.4 g |
+| 292 | Chicken Breast & Tomato Breakfast Bowl | null | 91 | 291 mg | 3 g |
 
 Fruit and oats, which the old score had nothing good to say about because it only
 ever asked how much protein was in them.
@@ -118,8 +118,8 @@ its ingredient list is a check on them, not a replacement.
 
 - Recipes checked: 100
 - Median disagreement on calories: **15%**
-- Within 20% of stated: **61 of 100**
-- Off by 30% or more: **24**
+- Within 20% of stated: **60 of 100**
+- Off by 30% or more: **25**
 
 The outliers, worth a look before this goes to print:
 
@@ -135,6 +135,7 @@ The outliers, worth a look before this goes to print:
 | 96 | Whipped Strawberry Gelatin Cloud | 120 | 192 | +60% |
 | 38 | Baked Egg & Hash Brown Cups | 270 | 110 | -59% |
 | 3 | Quick Canned Chicken & Salsa Bowl | 310 | 483 | +56% |
+| 9 | Roast Beef Lettuce Roll-Ups | 200 | 308 | +54% |
 | 65 | Herb Pork Loin & Roasted Carrots | 360 | 549 | +53% |
 | 6 | Sweet Vanilla Yogurt & Grape Crunch | 230 | 343 | +49% |
 | 78 | Zero-Sugar Chocolate Gelatin Fluff | 140 | 76 | -46% |
@@ -203,7 +204,7 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-64 recipes across 7 sections were written for this edition rather than carried
+82 recipes across 9 sections were written for this edition rather than carried
 over from the original books:
 
 - **Worth the Afternoon** — 12 recipes
@@ -211,8 +212,10 @@ over from the original books:
 - **For the Love of Chocolate** — 10 recipes
 - **Power Drinks** — 11 recipes
 - **Made, Not Bought** — 9 recipes
-- **Breakfasts** — 6 recipes
+- **Breakfasts** — 11 recipes
 - **Snacks** — 6 recipes
+- **Lunch** — 11 recipes
+- **Dinner** — 2 recipes
 
 The data made the gaps plain. Across the original 225, no recipe has more than
 four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens
@@ -220,7 +223,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 45 of the 64
+Every ingredient was checked against the storehouse order list. 63 of the 82
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 

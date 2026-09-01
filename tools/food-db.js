@@ -216,7 +216,15 @@ const ALIASES = {
   'chicken breast': 'chicken_breast', 'chicken breasts': 'chicken_breast',
   'canned chicken': 'chicken_canned', 'chicken': 'chicken_canned',
   'ground beef': 'ground_beef',
-  'beef roast': 'beef_roast', 'roast beef': 'roast_beef_deli', 'sliced roast beef': 'roast_beef_deli',
+  /* Roast beef is a roast you cooked and sliced, not a packet from a deli
+     counter. The two differ by fifteen times on sodium — 60 mg per hundred
+     grams against 900 — and the deli reading was landing on a lettuce
+     roll-up that a drafted week served four times, which is most of a day's
+     salt ceiling from a dish that is meat and a leaf. Deli is still reachable
+     by asking for it by name. */
+  'beef roast': 'beef_roast',
+  'roast beef': 'cooked_beef', 'sliced roast beef': 'cooked_beef',
+  'deli roast beef': 'roast_beef_deli', 'sliced deli roast beef': 'roast_beef_deli',
   'stewing beef': 'stewing_beef', 'cooked shredded beef': 'cooked_beef', 'shredded beef': 'cooked_beef',
   'pork roast': 'pork_roast', 'shredded pork roast': 'pork_roast',
   'ham': 'ham', 'sliced ham': 'ham', 'diced ham': 'ham',
