@@ -522,7 +522,6 @@ select { max-width: 280px; }
    more than the tail of itself. */
 .mitem { border-left: 2px solid var(--ochre); padding: 4px 0 5px 9px; }
 .mitem-r1 { display: flex; align-items: center; gap: 8px; }
-.mitem-r1 input { accent-color: var(--green); width: 16px; height: 16px; flex: none; }
 /* The tick is a control, not a third way of saying "eaten" — the struck
    name and the filled dot on the rail already say that. But it was saying
    it in the browser's blue, the one colour on the page belonging to nobody:
@@ -578,6 +577,11 @@ select { max-width: 280px; }
   width: 36px; line-height: 1; font-size: 15px; color: var(--muted-2);
 }
 .mstep button:hover { background: var(--paper-soft); color: var(--ink); }
+.mtick {
+  display: grid; place-items: center; width: 38px; flex: none;
+  border-right: 1px solid var(--line-soft); background: var(--card);
+}
+.mtick input { accent-color: var(--green); width: 17px; height: 17px; margin: 0; }
 .mstep .mlock {
   border-left: 0; border-right: 1px solid var(--line-soft); width: 34px; font-size: 12px;
 }
@@ -1074,9 +1078,16 @@ select { max-width: 280px; }
 .md-c.nil b { color: var(--dial-on); }
 .md-c.neg b { color: var(--muted-2); }
 .md-ate { margin-left: auto; font-size: 10.5px; color: var(--muted); }
-/* A floor and a ceiling, so a line rather than two more bars. */
-.mmicro { display: flex; gap: 16px; margin-top: 7px; font-size: 11px; flex-wrap: wrap; }
-.mm { color: var(--muted); font-variant-numeric: tabular-nums; }
+/* the handle for opening the day, on the end of the line you read it from */
+.md-open {
+  flex: none; width: 30px; height: 26px; margin: -3px -4px -3px 4px;
+  background: var(--card); border: 1px solid var(--line-firm); border-radius: 4px;
+  font-size: 13px; color: var(--muted-2);
+}
+.md-open:hover { border-color: var(--ochre); color: var(--ink); }
+/* A floor and a ceiling, riding on the same line as what is left. */
+.mm { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px;
+  display: inline-flex; align-items: baseline; gap: 3px; }
 .mm b { font-weight: 600; color: var(--ink); }
 .mm.low b { color: var(--dial-under); }
 .mm.high b { color: var(--dial-over); }
@@ -2211,7 +2222,7 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   .pitem-x { opacity: 1; width: 34px; height: 34px; font-size: 19px; }
   .mstep button { width: 44px; font-size: 17px; }
   .mstep-x { padding: 9px 8px; font-size: 13px; }
-  .mitem-r1 input { width: 20px; height: 20px; }
+  .mtick input { width: 20px; height: 20px; }
 }
 
 /* Taken off, not deleted — you have to be able to find a thing to put it back.

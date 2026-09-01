@@ -2101,8 +2101,6 @@
              meaning "times one" and the other "gone", is a misread waiting to
              happen on a thumb-sized target. */
           '<span class="mitem-r1">' +
-            '<input type="checkbox" data-meat="' + tag + '"' +
-              (it.eaten ? ' checked' : '') + ' aria-label="Eaten">' +
             /* The score, on the plate. Knowing a thing fits the day and
                knowing it is worth eating are different questions, and the
                second one was only answerable by opening the recipe. */
@@ -2141,6 +2139,11 @@
              guards against the MACHINE, not you: Rebalance leaves a locked
              plate alone, but the stepper still works. */
           '<span class="mstep no-print">' +
+            /* Eaten, held and sized are three things you do to a portion, so
+               they are three buttons on one bar rather than a tick stranded
+               up beside the name with the paperwork. */
+            '<label class="mtick"><input type="checkbox" data-meat="' + tag + '"' +
+              (it.eaten ? ' checked' : '') + ' aria-label="Eaten"></label>' +
             '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
               (it.l ? 'true' : 'false') + '" aria-label="' +
               (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
@@ -2230,14 +2233,6 @@
     });
     $('macroSlots').innerHTML = html;
 
-    /* The button says what it will do next, not what it did last. */
-    var anyShut = false;
-    slots.list.forEach(function (s2) { if ((day[s2.k] || []).length && S.mFold[s2.k]) anyShut = true; });
-    Object.keys(day).forEach(function (sk2) { if ((day[sk2] || []).length && S.mFold[sk2]) anyShut = true; });
-    $('macroOpenAll').setAttribute('aria-pressed', anyShut ? 'false' : 'true');
-    $('macroOpenAll').setAttribute('aria-label', anyShut ? 'Open every meal' : 'Close every meal');
-    $('macroOpenAll').innerHTML = anyShut ? '&#9776;' : '&#9783;';
-
     $('macroFoot').innerHTML = macroFootHTML(day, targets, slots);
     /* Rebuilt every render, so the button inside it is new each time — the
        handler is delegated from the container rather than bound to it. */
@@ -2304,6 +2299,20 @@
     }
     return '<span class="mslot-v ' + (d < 0 ? 'short' : 'over') + '" data-mv="' + (d < 0 ? 'short' : 'over') + '">' +
       Math.abs(d) + (d < 0 ? ' short' : ' over') + '</span>';
+  }
+
+  /* Whether anything on the day is folded shut — which is what the open-all
+     button offers to change, so it says what it will do next rather than
+     what it did last. */
+  function mAnyShut() {
+    var day = mDay(mViewKey()), shut = false;
+    mReadSlots().list.forEach(function (s2) {
+      if ((day[s2.k] || []).length && S.mFold[s2.k]) shut = true;
+    });
+    Object.keys(day).forEach(function (sk2) {
+      if ((day[sk2] || []).length && S.mFold[sk2]) shut = true;
+    });
+    return shut;
   }
 
   function macroFootHTML(day, targets, slots) {
@@ -2402,17 +2411,26 @@
     var naCap = 2300;
     var fibFloor = Math.round(tK * 14 / 1000);          // 14 g per 1000 kcal
     var na = Math.round(tot.all.na), fib = Math.round(tot.all.fib);
-    var micro = '<div class="mmicro">' +
-      '<span class="mm ' + (fib >= fibFloor ? 'ok' : 'low') + '">Fibre <b>' + fib +
-        '</b> / ' + fibFloor + ' g</span>' +
-      '<span class="mm ' + (na > naCap ? 'high' : 'ok') + '">Sodium <b>' +
-        na.toLocaleString() + '</b> / ' + naCap.toLocaleString() + ' mg</span>' +
-    '</div>';
+    var micro =
+      '<span class="mm ' + (fib >= fibFloor ? 'ok' : 'low') + '" title="Fibre">' +
+        '\uD83C\uDF3E <b>' + fib + '</b>/' + fibFloor +
+        '<span class="vis-hidden"> g of fibre</span></span>' +
+      '<span class="mm ' + (na > naCap ? 'high' : 'ok') + '" title="Sodium">' +
+        '\uD83E\uDDC2 <b>' + na.toLocaleString() + '</b>/' + naCap.toLocaleString() +
+        '<span class="vis-hidden"> mg of sodium</span></span>';
 
+    /* One line for everything left of the day: the four deltas, then the two
+       that are a floor and a ceiling rather than a budget, then what has
+       actually been eaten — and the handle for opening the day on its end,
+       because that is where you are already looking when you decide to. */
     return '<div class="mbars">' + bars + '</div>' +
-      '<div class="mdelta" role="status">' + delta +
+      '<div class="mdelta" role="status">' + delta + micro +
         (tot.eaten.kcal ? '<span class="md-ate">' + Math.round(tot.eaten.kcal) + ' eaten</span>' : '') +
-      '</div>' + micro +
+        '<button class="md-open no-print" data-mopen="1" aria-pressed="' +
+          (mAnyShut() ? 'false' : 'true') + '" aria-label="' +
+          (mAnyShut() ? 'Open every meal' : 'Close every meal') + '">' +
+          (mAnyShut() ? '&#9776;' : '&#9783;') + '</button>' +
+      '</div>' +
       (tot.est ? '<div class="macro-est">~ estimated from a food table, not a label.</div>' : '');
   }
 
@@ -5415,7 +5433,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mopen'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -6453,17 +6471,14 @@
     /* Open the whole day, or shut it. Which one it does next is whichever
        the day is not already: with anything folded it opens, and once
        everything is open it closes. */
-    $('macroOpenAll').addEventListener('click', function () {
-      var slots = mReadSlots(), day = mDay(mViewKey()), anyShut = false;
-      slots.list.forEach(function (s2) {
-        if ((day[s2.k] || []).length && S.mFold[s2.k]) anyShut = true;
-      });
-      Object.keys(day).forEach(function (sk2) {
-        if ((day[sk2] || []).length && S.mFold[sk2]) anyShut = true;
-      });
-      Object.keys(day).forEach(function (sk2) { S.mFold[sk2] = !anyShut; });
-      slots.list.forEach(function (s2) { S.mFold[s2.k] = !anyShut; });
-      S.mFold.weigh = !anyShut ? undefined : false;
+    /* It lives inside the readout now, which is redrawn on every change, so
+       the press is delegated from the container rather than bound to it. */
+    $('macroFoot').addEventListener('click', function (e) {
+      if (!e.target.closest('[data-mopen]')) return;
+      var open = mAnyShut(), day = mDay(mViewKey());
+      Object.keys(day).forEach(function (sk2) { S.mFold[sk2] = !open; });
+      mReadSlots().list.forEach(function (s2) { S.mFold[s2.k] = !open; });
+      S.mFold.weigh = open ? false : undefined;
       keepingFocus(renderMacros);
     });
 
