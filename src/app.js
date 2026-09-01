@@ -2032,11 +2032,19 @@
    * at nine at night (share = exactly the gap, the picker chases it).
    *
    * The weights are the cut, written down: protein is the only macro that is
-   * expensive to leave on the table (1.00 under vs 0.10 for fat and carbs),
-   * and going over on fat or carbs costs twenty times what undershooting them
-   * does (2.00 vs 0.10). Protein overshoot is mildly charged (0.35) so nobody
-   * is told to eat three chicken dinners at bedtime.       [under, over] */
-  var MW = { p: [1.00, 0.35], f: [0.10, 2.00], c: [0.10, 2.00] };
+   * expensive to leave on the table (1.00 under vs 0.55 for fat and carbs),
+   * and going over on fat or carbs costs about twice what undershooting them
+   * does (1.20 vs 0.55). Protein overshoot is mildly charged (0.35) so nobody
+   * is told to eat three chicken dinners at bedtime.       [under, over]
+   *
+   * Fat and carbs were once 0.10 under against 2.00 over — twenty to one, on
+   * the theory that busting a cut is the thing to fear. Measured over ten
+   * drafted days at each of the four goals, that theory cost 250 to 350
+   * calories a day and, on a hard cut, 52 grams of protein; it bought nothing,
+   * because not one day at any weighting went over on fat or carbohydrate.
+   * There was no bust to protect against. Two to one keeps the instinct —
+   * under still beats over on a cut — at a price the day can pay. */
+  var MW = { p: [1.00, 0.35], f: [0.55, 1.20], c: [0.55, 1.20] };
 
   /* Half a serving up to three. x is servings EATEN, not batches cooked, so
      there is no cap tied to servN — three servings of a six-serving roast is a
@@ -3224,7 +3232,15 @@
     MFOODS.forEach(function (r) { if (r.name.toLowerCase().indexOf(qs) >= 0) pool.push(r); });
     RECIPES.forEach(function (r) { if (matchRank(r, qs)) pool.push(r); });
     if (!pool.length) return '<div class="mslot-empty">Nothing of yours matches.</div>';
-    return mRank(pool, day, targets, pick).slice(0, 12).map(function (e) {
+    /* The food you named goes first. Ranked purely on fit, a spoon of honey
+       loses to a dozen recipes that merely list honey among their
+       ingredients, and the row you typed the word for never appears — this
+       box is twelve rows deep. Fit still orders the foods, and orders the
+       recipes under them. */
+    var ranked = mRank(pool, day, targets, pick);
+    var hits = [], rest = [];
+    ranked.forEach(function (e) { (e.r.food ? hits : rest).push(e); });
+    return hits.concat(rest).slice(0, 12).map(function (e) {
       var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
       return mpRowHTML(r, e.x,
         '<span class="mp-src">' + (r.food ? 'Yours' : 'Recipe') + '</span> &times;' + fmtNum(xx) +
@@ -3265,6 +3281,17 @@
       rows.sort(function (a, b) {
         return (b.r.score === null ? -1 : b.r.score) - (a.r.score === null ? -1 : a.r.score);
       });
+    }
+    /* A name match beats a fit score. Forty recipes list honey among their
+       ingredients, so ranking the spoon of honey against them on how well it
+       fills a dinner buries the one row the search was for under forty ways
+       to bake with it. Typing a food's name is the whole of the question —
+       the foods that answer it go first, in whatever order the lens left
+       them, and the recipes follow. */
+    if (qs) {
+      var hits = [], rest = [];
+      rows.forEach(function (e) { (e.r.food ? hits : rest).push(e); });
+      rows = hits.concat(rest);
     }
     rows = rows.slice(0, 40);
     var own = '<button class="mpick-row mpick-new" data-mpnew="1">' +
@@ -4276,8 +4303,88 @@
         var pick = top[Math.floor(Math.random() * top.length)];
         (day[s.k] = day[s.k] || []).push({ id: pick.r.id, x: pick.x, eaten: 0 });
       });
+      /* Settle the portions before asking whether anything is missing. Each
+         dish was sized against its own share while the slots were still being
+         filled, so the raw draft usually sits ON or over the day — the gap
+         only opens once the plates are solved against the finished day. A
+         topper chosen before that would be answering a question nobody asked;
+         one chosen after gets sized in the second pass along with everything
+         else it now sits beside. */
+      mBalanceDay(day, targets);
+      if (mTopUp(day, targets)) mBalanceDay(day, targets);
     });
     renderMacros();
+  }
+
+  /* The topper: honey on the oatmeal, butter for the fat, cottage cheese for
+     the protein the dishes did not carry.
+   *
+     One dish per meal leaves a day short. Four plates chosen to fit their own
+     share land 300-odd calories under the target at every goal, and there is
+     no fifth meal to put the rest in — the book has the food, the day has run
+     out of slots to serve it on. Which is how anybody actually eats: the meal
+     is the dish plus the thing you added to it.
+   *
+     So after the dishes are placed, the gap is closed with a single food
+     rather than a second recipe. It is judged day-level — under and over both
+     measured against what the day still has room for, the same stance
+     Rebalance takes — because a topper exists to finish the day, not to fill
+     a share of it. The same salt-and-fibre nudge applies, which is what keeps
+     the fruit and the cottage cheese ahead of the soy sauce.
+   *
+     Two at most, and only onto a meal still in the future: a day topped up
+     five times is not a meal plan, and adding food to a breakfast already
+     eaten would be the app claiming he ate it. */
+  var MTOP_GAP = 120;         // a gap smaller than this is not worth a topper
+  var MTOP_MIN = 40;          // a serving under this is a seasoning, not a topper
+  var MTOP_MAX = 2;
+
+  function mTopSlot(day, targets) {
+    var list = mReadSlots().list, sumW = 0, best = null;
+    var dayKcal = 4 * targets.p + 4 * targets.c + 9 * targets.f;
+    list.forEach(function (s) { sumW += mSlotW(s); });
+    if (!sumW) return null;
+    list.forEach(function (s) {
+      var items = day[s.k] || [], open = false, have = 0;
+      items.forEach(function (it) {
+        var r = BY_ID[it.id];
+        if (!it.eaten) open = true;
+        if (r && r.macro) have += (r.macro.kcal || 0) * it.x;
+      });
+      // a meal with nothing on it is Fill's job; one already eaten is closed
+      if (!items.length || !open) return;
+      var gap = dayKcal * (mSlotW(s) / sumW) - have;
+      if (!best || gap > best.gap) best = { s: s, gap: gap };
+    });
+    return best ? best.s : null;
+  }
+
+  function mTopUp(day, targets) {
+    var added = 0;
+    for (var n = 0; n < MTOP_MAX; n++) {
+      var tot = mTotals(day), R = {}, D = {};
+      ['p', 'f', 'c'].forEach(function (m) {
+        R[m] = Math.max(0, targets[m] - tot.all[m]);
+        D[m] = Math.max(1, targets[m]);
+      });
+      if (4 * R.p + 4 * R.c + 9 * R.f < MTOP_GAP) return added;
+      var slot = mTopSlot(day, targets);
+      if (!slot) return added;
+      var best = null;
+      MFOODS.forEach(function (r) {
+        var mac = r.macro || {};
+        if ((mac.kcal || 0) < MTOP_MIN) return;
+        if (((mac.p || 0) + (mac.c || 0) + (mac.f || 0)) <= 0) return;
+        if (mOnDay(day, r.id)) return;
+        var fit = macroFit(r, R, R, D);
+        var sc = fit.score + mSaltFibre(r, fit.x);
+        if (!best || sc > best.score) best = { r: r, x: fit.x, score: sc };
+      });
+      if (!best) return added;
+      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0 });
+      added++;
+    }
+    return added;
   }
 
   /* Re-size the plates still in play so the day lands back on target. Keeps
@@ -4294,42 +4401,44 @@
      smaller portion, as everywhere else on a cut. */
   var MX_ALL = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4];
 
+  function mBalanceDay(day, targets) {
+    var free = [];
+    Object.keys(day).forEach(function (sk) {
+      (day[sk] || []).forEach(function (it) {
+        var r = BY_ID[it.id];
+        if (!it.eaten && !it.l && r && r.macro) free.push(it);
+      });
+    });
+    if (!free.length) return;
+    var pen = function () {
+      var tot = mTotals(day);
+      var s = 0;
+      ['p', 'f', 'c'].forEach(function (mm) {
+        var D = Math.max(1, targets[mm]);
+        s += MW[mm][0] * Math.max(0, targets[mm] - tot.all[mm]) / D;
+        s += MW[mm][1] * Math.max(0, tot.all[mm] - targets[mm]) / D;
+      });
+      return s;
+    };
+    for (var pass = 0; pass < 3; pass++) {
+      var moved = false;
+      free.forEach(function (it) {
+        var was = it.x, best = it.x, bestPen = pen();
+        for (var i = 0; i < MX_ALL.length; i++) {
+          it.x = MX_ALL[i];
+          var pv = pen();
+          if (pv < bestPen - 1e-9) { bestPen = pv; best = MX_ALL[i]; }
+        }
+        it.x = best;
+        if (best !== was) moved = true;
+      });
+      if (!moved) break;
+    }
+  }
+
   function mRebalance() {
     var targets = mDayTargets(mViewKey());
-    mEditDay(mViewKey(), function (day) {
-      var free = [];
-      Object.keys(day).forEach(function (sk) {
-        (day[sk] || []).forEach(function (it) {
-          var r = BY_ID[it.id];
-          if (!it.eaten && !it.l && r && r.macro) free.push(it);
-        });
-      });
-      if (!free.length) return;
-      var pen = function () {
-        var tot = mTotals(day);
-        var s = 0;
-        ['p', 'f', 'c'].forEach(function (mm) {
-          var D = Math.max(1, targets[mm]);
-          s += MW[mm][0] * Math.max(0, targets[mm] - tot.all[mm]) / D;
-          s += MW[mm][1] * Math.max(0, tot.all[mm] - targets[mm]) / D;
-        });
-        return s;
-      };
-      for (var pass = 0; pass < 3; pass++) {
-        var moved = false;
-        free.forEach(function (it) {
-          var was = it.x, best = it.x, bestPen = pen();
-          for (var i = 0; i < MX_ALL.length; i++) {
-            it.x = MX_ALL[i];
-            var pv = pen();
-            if (pv < bestPen - 1e-9) { bestPen = pv; best = MX_ALL[i]; }
-          }
-          it.x = best;
-          if (best !== was) moved = true;
-        });
-        if (!moved) break;
-      }
-    });
+    mEditDay(mViewKey(), function (day) { mBalanceDay(day, targets); });
     renderMacros();
   }
 

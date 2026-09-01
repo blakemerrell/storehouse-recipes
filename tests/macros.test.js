@@ -1244,8 +1244,14 @@ module.exports = {
       const items = ['b', 'l', 'd', 's'].map((k) => day[k] || []);
       const ids = [].concat(...items).map((i) => String(i.id));
       const tot = { p: 0, f: 0, c: 0 };
+      /* Recipes only. A drafted day can carry a topper — a single food, which
+         lives in the food table and not in RECIPES — so a lookup that assumed
+         every id was a recipe would throw the moment one appeared. The totals
+         below therefore understate a topped-up day, which is safe: every
+         assertion on them is a floor on protein or a ceiling on fat. */
       ids.forEach((id, n) => {
         const r = window.RECIPES.find((x) => String(x.id) === id);
+        if (!r || !r.macro) return;
         const x = [].concat(...items)[n].x;
         tot.p += r.macro.p * x; tot.f += r.macro.f * x; tot.c += r.macro.c * x;
       });
@@ -1253,6 +1259,12 @@ module.exports = {
         perSlot: items.map((i) => i.length),
         unique: new Set(ids).size === ids.length,
         tot,
+        foods: ids.filter((id) => id.indexOf('f:') === 0).length,
+        bars: [...document.querySelectorAll('.mbrow[data-macro]')].map((row) => {
+          const m = row.querySelector('.mb-num').textContent
+            .replace(/,/g, '').match(/([\d.]+)\s*\/\s*([\d.]+)/);
+          return { m: row.dataset.macro, have: +m[1], want: +m[2] };
+        }),
         fillDisabled: document.getElementById('macroFill').disabled,
       };
     });
@@ -1274,6 +1286,23 @@ module.exports = {
     t.ok('the button goes quiet exactly when every meal has something',
       drafted.fillDisabled === drafted.perSlot.every((n) => n >= 1),
       'disabled=' + drafted.fillDisabled + ' slots=' + drafted.perSlot.join(','));
+
+    /* One press has to produce a day you could actually eat to. Four dishes
+       sized against their own shares land the day near the target but not on
+       it, so Fill settles the portions and then closes what is left with a
+       single food. Judged against the app's OWN target for the day, which is
+       the cycled one — the base plan is not what any single day is aiming at.
+       The tolerance is a real day's worth of slack, not a rounding error. */
+    const kcalBar = drafted.bars.find((b) => b.m === 'kcal');
+    const pBar = drafted.bars.find((b) => b.m === 'p');
+    t.ok('a drafted day lands on the day\'s own calorie target',
+      Math.abs(kcalBar.have - kcalBar.want) <= kcalBar.want * 0.10,
+      kcalBar.have + ' of ' + kcalBar.want);
+    t.ok('and does not leave the protein behind to get there',
+      pBar.have >= pBar.want * 0.88, pBar.have + ' of ' + pBar.want + ' g');
+    /* A topper finishes a day; it does not become the day. */
+    t.ok('and tops up with at most a couple of single foods',
+      drafted.foods <= 2, drafted.foods + ' foods');
 
     /* Only the empty meals are drafted — what you placed is yours. Recorded
        per meal that actually has something, since a tight plan can leave one
@@ -1332,6 +1361,19 @@ module.exports = {
     // three raw foods onto dinner, through the one box
     await bar.click('[data-mpmode="look"]');
     await bar.waitForTimeout(200);
+    /* Typing a food's name has to show that food. Dozens of recipes list
+       honey among their ingredients and every one of them fills a dinner
+       better than a spoonful does, so ranked on fit alone the row the search
+       was for sinks below a twelve-row box. The word you typed is the whole
+       of the question. */
+    await bar.fill('#mpLookIn', 'honey');
+    await bar.waitForTimeout(400);
+    t.ok('searching a food by name puts the food itself on top',
+      await bar.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
+        return rows.length > 0 && rows[0].dataset.mpick.indexOf('f:') === 0;
+      }));
+
     for (const q of ['chicken breast', 'honey', 'peanut']) {
       await bar.fill('#mpLookIn', q);
       await bar.waitForTimeout(400);
