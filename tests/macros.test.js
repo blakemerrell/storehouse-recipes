@@ -22,7 +22,9 @@ module.exports = {
     t.ok('the day selector starts on Today and holds the whole fortnight',
       await p.evaluate(() => {
         const s = document.getElementById('macroDaySel');
-        return /^Today ·/.test(s.options[s.selectedIndex].text) && s.options.length === 14;
+        // a fortnight behind and a week ahead: you can plan Thursday on Tuesday
+        return /^Today ·/.test(s.options[s.selectedIndex].text) && s.options.length === 21 &&
+          /^Tomorrow ·/.test(s.options[s.selectedIndex - 1].text);
       }));
 
     // the two morning verbs are the bar; everything else folded behind the ⋯

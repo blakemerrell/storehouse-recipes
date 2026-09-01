@@ -1098,6 +1098,21 @@
     return dayKey(d);
   }
 
+  /* How far forward the day travels. A week is as far as a plan is worth
+     making: the shopping happens on a horizon like that, and pinned routine
+     lands on a day the moment you first look at it, so a fortnight of empty
+     Thursdays would be a fortnight of half-written days you never meant. */
+  function mLatestKey() {
+    var d = new Date();
+    d.setDate(d.getDate() + 7);
+    return dayKey(d);
+  }
+
+  /* A day you have not lived yet. You can plan one — put food on it, fill it,
+     rebalance it — but you cannot have eaten it, and the scale has nothing to
+     say about a morning that has not happened. */
+  function mAhead(k) { return k > todayKey(); }
+
   function mReadTargets() {
     var t = null;
     try {
@@ -1201,8 +1216,12 @@
   function mEditDay(k, fn) {
     var day = MDAYS[k] || (MDAYS[k] = {});
     fn(day);
-    var floor = mEarliestKey();
-    Object.keys(MDAYS).forEach(function (dk) { if (dk < floor) delete MDAYS[dk]; });
+    /* Only the past falls out of the window. A plan for Thursday is not a
+       stale record, and pruning by one bound would have eaten it. */
+    var floor = mEarliestKey(), roof = mLatestKey();
+    Object.keys(MDAYS).forEach(function (dk) {
+      if (dk < floor || dk > roof) delete MDAYS[dk];
+    });
     try { localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS)); }
     catch (e) { /* in-memory only for this session */ }
     mStamp('d', k);
@@ -1724,14 +1743,17 @@
       ? Math.round(st.avg7 * 10) / 10 + ' lb avg' +
         (st.dWeek === null ? '' : ' &middot; ' + mLbWord(st.dWeek) + ' this week')
       : '';
+    var ahead = mAhead(k);
     return '<div class="mslot-h">' +
-        '<button class="mday-dot no-print" data-mdot="weigh" ' +
-          'aria-label="Log this morning&rsquo;s weight"></button>' +
+        '<button class="mday-dot no-print" data-mdot="weigh"' + (ahead ? ' disabled' : '') +
+          ' aria-label="Log this morning&rsquo;s weight"></button>' +
         '<button class="mslot-name" data-mfold="weigh" aria-expanded="' +
           (shut ? 'false' : 'true') + '">Weigh-in</button>' +
         (head ? '<span class="mw-avg">' + head + '</span>' : '') +
-        '<label class="mt-lab no-print">Weight <input type="number" id="mWeight" min="0" max="1500" ' +
-          'step="0.1" inputmode="decimal" value="' + (v || '') + '"> lb</label>' +
+        (ahead
+          ? '<span class="mw-avg mw-later">not yet</span>'
+          : '<label class="mt-lab no-print">Weight <input type="number" id="mWeight" min="0" max="1500" ' +
+            'step="0.1" inputmode="decimal" value="' + (v || '') + '"> lb</label>') +
       '</div>' +
       (shut ? '' : '<div class="mw-body">' + body + '</div>');
   }
@@ -1949,7 +1971,7 @@
     for (var i = 0; i < 7; i++) {
       var d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
       var dk = dayKey(d);
-      var ahead = dk > todayK, tooOld = dk < mEarliestKey();
+      var ahead = dk > mLatestKey(), tooOld = dk < mEarliestKey();
       /* Each day's own target, because a training day is not asking for the
          same thing as a rest day — a strip showing one number for all seven
          would be describing a plan nobody is on. */
@@ -1993,22 +2015,27 @@
        handled; backward matters more — the oldest day the tab keeps falls
        out of the window at midnight, and an edit to it would have been
        written and then pruned away by the same save. */
-    if (k > todayK || k < mEarliestKey()) { S.macroDate = null; k = todayK; }
+    if (k > mLatestKey() || k < mEarliestKey()) { S.macroDate = null; k = todayK; }
     /* The day is a control, not a caption: every day the tab remembers, named
        the way you would say it, with the arrows for single steps either side. */
     var opts = [];
-    for (var back = 0; back < 14; back++) {
+    for (var step = 7; step > -14; step--) {
       var od = new Date();
-      od.setDate(od.getDate() - back);
+      od.setDate(od.getDate() + step);
       var ok = dayKey(od);
-      var word = back === 0 ? 'Today' : back === 1 ? 'Yesterday' : M_WDAYS[od.getDay()];
+      var word = step === 0 ? 'Today' : step === -1 ? 'Yesterday'
+        : step === 1 ? 'Tomorrow' : M_WDAYS[od.getDay()];
       opts.push('<option value="' + ok + '"' + (ok === k ? ' selected' : '') + '>' +
         word + ' &middot; ' + M_MONS[od.getMonth()] + ' ' + od.getDate() + '</option>');
     }
     $('macroDaySel').innerHTML = opts.join('');
     $('macroPrev').disabled = k <= mEarliestKey();
-    $('macroNext').disabled = k >= todayK;
+    $('macroNext').disabled = k >= mLatestKey();
     $('macroWeek').innerHTML = mWeekHTML(k, todayK);
+    /* A day you are planning rather than living looks identical otherwise,
+       and quietly ticking Thursday's breakfast off on Tuesday is exactly the
+       mistake that would cost. */
+    $('view-macros').classList.toggle('mday-ahead', mAhead(k));
 
     var targets = mDayTargets(k);
     var slots = mReadSlots();
@@ -2018,7 +2045,7 @@
        at. Only today, and only when the day does not exist yet — history and
        half-built days are never re-seeded, and unpinning tomorrow is done by
        unpinning, not by deleting today's copy. */
-    if (k === todayK && !MDAYS[k]) {
+    if (k >= todayK && !MDAYS[k]) {
       var anyPins = false;
       slots.list.forEach(function (s) { if (s.pins && s.pins.length) anyPins = true; });
       if (anyPins) {
@@ -2067,6 +2094,7 @@
 
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
+    var ahead = mAhead(k);
     var slotCard = function (sk, name, onPlan) {
       var items = day[sk] || [];
       /* Rows map over the STORED array so data attributes carry storage
@@ -2143,7 +2171,8 @@
                they are three buttons on one bar rather than a tick stranded
                up beside the name with the paperwork. */
             '<label class="mtick"><input type="checkbox" data-meat="' + tag + '"' +
-              (it.eaten ? ' checked' : '') + ' aria-label="Eaten"></label>' +
+              (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
+              ' aria-label="Eaten"></label>' +
             '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
               (it.l ? 'true' : 'false') + '" aria-label="' +
               (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
@@ -2190,7 +2219,7 @@
              decoration: pressing it marks the whole meal eaten. Losing the
              line it hung from must not lose the control with it. */
           '<button class="mday-dot no-print" data-mdot="' + esc(sk) + '"' +
-            (items.length ? '' : ' disabled') +
+            (items.length && !ahead ? '' : ' disabled') +
             ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
             ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten'
               : 'Mark all of ' + esc(name) + ' eaten') + '"></button>' +
@@ -3972,7 +4001,7 @@
     var d = keyDate(mViewKey());
     d.setDate(d.getDate() + step);
     var k = dayKey(d);
-    if (k > todayKey() || k < mEarliestKey()) return;
+    if (k > mLatestKey() || k < mEarliestKey()) return;
     S.macroDate = k === todayKey() ? null : k;
     renderMacros();
   }

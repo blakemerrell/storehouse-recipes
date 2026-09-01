@@ -1194,6 +1194,12 @@ select { max-width: 280px; }
 /* the first stop of the day */
 .mday-weigh .mslot-h { flex-wrap: wrap; padding-bottom: 8px; }
 .mw-avg { font-size: 11px; color: var(--muted); }
+.mw-later { margin-left: auto; font-style: italic; }
+/* A day being planned rather than lived: everything that records what
+   happened goes quiet, everything that decides what will happen stays. */
+.mday-ahead .mday-dot { opacity: 0.3; }
+.mday-ahead .mtick { background: var(--paper-soft); }
+.mday-ahead .mtick input { opacity: 0.35; }
 .mw-body { padding: 0 10px 9px; border-top: 1px solid var(--line-soft); padding-top: 8px; }
 .mday-weigh .mt-lab { margin-left: auto; }
 .mday-weigh .mw-row { margin-bottom: 6px; }
