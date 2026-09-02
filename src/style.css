@@ -476,7 +476,15 @@ select { max-width: 280px; }
    say where it begins, and six framed boxes down a phone is a stack of
    boxes rather than a day. */
 .mslot { margin-bottom: 0; }
-.mslot-h { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px; }
+/* Six things across a phone now that the fold has a button of its own, so
+   the gap tightens and nothing in here is allowed to break across two lines:
+   an "+ Add" wrapping to "+ / Add" doubles the height of every meal on the
+   day, which is what the two-line header was built to avoid in the first
+   place. If a row still runs out of width it is the meal's NAME that gives,
+   because the name is the one thing the card below it repeats. */
+.mslot-h { display: flex; align-items: center; gap: 5px; padding: 8px 10px 4px; }
+.mslot-h .ghost { white-space: nowrap; flex: none; }
+.mslot-h .mslot-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* the verdict, so a meal says whether it wants you without being opened */
 .mslot-v {
   font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
@@ -487,21 +495,27 @@ select { max-width: 280px; }
 .mslot-v.over { border-color: var(--dial-over); color: var(--dial-over); }
 .mslot-name {
   background: none; border: 0; padding: 0; font-family: var(--sans); text-align: left;
-  font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-size: 11.5px; letter-spacing: 0.11em; text-transform: uppercase;
   font-weight: 600; color: oklch(0.40 0.03 65);
   display: inline-flex; align-items: center;
 }
-/* The fold, made visible. Drawn rather than added to the markup: the name
-   button stays a button with a name in it, so a screen reader reads the meal
-   and not the meal plus a punctuation mark, and aria-expanded goes on saying
-   the state. Only on a meal with something to fold. */
-.mslot-name.mslot-has-fold::after {
-  content: '\2304'; margin-left: 5px; font-size: 13px; line-height: 0.7;
-  letter-spacing: 0; color: var(--ochre-text); transition: transform 0.15s ease;
+/* The fold, over on the right with the other controls, because that is where
+   a thumb is on a phone — the name at the far left folds it too, but nobody
+   reaches across a screen for a word. It is bordered like the buttons beside
+   it: on this row, a thing you press looks like the things you press.
+   `margin-left: auto` opens the gap, the same job .mslot-try used to do
+   alone; whichever of the two comes first takes the free space. */
+.mslot-fold {
+  margin-left: auto; flex: none; padding: 3px 9px; font-size: 13px;
+  line-height: 1.15; color: var(--ochre-text);
 }
-.mslot-name.mslot-has-fold[aria-expanded="false"]::after { transform: rotate(-90deg); }
+/* The glyph turns rather than swapping for another one, so the direction it
+   points is the direction the press goes. Rotating the span and not the
+   button leaves the tap target square. */
+.mslot-fold span { display: block; transition: transform 0.15s ease; }
+.mslot-fold[aria-expanded="false"] span { transform: rotate(-90deg); }
 @media (prefers-reduced-motion: reduce) {
-  .mslot-name.mslot-has-fold::after { transition: none; }
+  .mslot-fold span { transition: none; }
 }
 /* the meal's four numbers, in the bars' own colours */
 .mslot-sub {
@@ -2441,6 +2455,9 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   .mstep button { width: 44px; font-size: 17px; }
   .mstep-x { padding: 9px 8px; font-size: 13px; }
   .mtick input { width: 20px; height: 20px; }
+  /* the fold is the reason this row is reachable at all — give it a thumb,
+     but only as much of one as a six-control row can spare */
+  .mslot-fold { padding: 7px 8px; font-size: 15px; }
 }
 
 /* Taken off, not deleted — you have to be able to find a thing to put it back.

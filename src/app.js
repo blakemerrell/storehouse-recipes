@@ -2574,17 +2574,33 @@
              a list of what was on it, and anything still ahead of you stays
              open. Pressing the name overrides either way.
            *
-             And now the handle looks like one. The name has always been the
-             fold control with nothing saying so; a caret drawn on the button
-             that is already there beats a second, smaller target beside it,
-             and beats a seventh control on a row that carries six. It is
-             drawn in CSS off this class rather than added to the markup, so
-             the button still reads as its own name and nothing but a name.
-             It appears only where there is something to fold. */
-          '<button class="mslot-name' + (items.length ? ' mslot-has-fold' : '') +
-            '" data-mfold="' + esc(sk) + '" aria-expanded="' +
+             The name still folds it, and always has — that target is the
+             width of the word and costs nothing to keep. But the name is at
+             the far LEFT of a phone, which is the one place a thumb is not,
+             and it never said the meal could fold in the first place. The
+             handle that says so lives over on the right, below. */
+          '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
             (folded ? 'false' : 'true') + '">' + esc(name) + '</button>' +
           mVerdictHTML(sk, items, onPlan, targets, slots) +
+          /* The fold, where the hand already is: first of the controls on the
+             right, so it sits under a thumb rather than across the screen at
+             the start of the name.
+           *
+             A chevron, and deliberately not a plus and a minus. "+ Add" is on
+             this very row — two different plusses a centimetre apart, one
+             meaning "open this" and the other "put food in this", is a
+             misread waiting to happen on a thumb-sized target. It turns a
+             quarter of the way round rather than swapping glyph, so the
+             direction of the press is the direction it points.
+           *
+             Only where there is something to fold: an empty meal has nothing
+             to open, the same rule the balance scale already follows. */
+          (items.length
+            ? '<button class="ghost mslot-fold no-print" data-mfold="' + esc(sk) + '"' +
+              ' aria-expanded="' + (folded ? 'false' : 'true') + '"' +
+              ' aria-label="' + (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
+              '<span aria-hidden="true">&#8964;</span></button>'
+            : '') +
           /* Only where there is something to solve. One plate has a stepper
              and needs no algebra; two or more is the question this answers,
              and a button on every meal from breakfast onward would be four

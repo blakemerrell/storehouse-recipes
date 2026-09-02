@@ -2579,6 +2579,63 @@ module.exports = {
 
     await wk.context().close();
 
+    /* ---- the fold on a meal ----------------------------------------------
+     * The meal name has always folded the meal and nothing said so, and the
+     * name is at the far left of a phone, which is the one place a thumb is
+     * not. So the handle is a button over on the right with the other
+     * controls — and the row it joins was already carrying five things, so
+     * what this mostly guards is that a sixth did not break it. */
+    const fold = await t.fresh({ viewport: { width: 375, height: 720 } });
+    await fold.click('.tab[data-view="macros"]');
+    await fold.waitForTimeout(200);
+    await fold.click('#macroTargBtn');
+    await fold.waitForTimeout(200);
+    await fold.click('[data-mtarg="save"]');
+    await fold.waitForTimeout(250);
+    await fold.click('#macroFill');
+    await fold.waitForTimeout(600);
+    t.ok('a meal with something on it carries a fold button, an empty one does not',
+      await fold.evaluate(() => [...document.querySelectorAll('.mslot')].every((s) => {
+        const has = !!s.querySelector('.mslot-fold');
+        const items = s.querySelectorAll('.mitem, .mthin').length > 0;
+        return has === items;
+      })),
+      await fold.evaluate(() => [...document.querySelectorAll('.mslot')].map((s) =>
+        (s.querySelector('.mslot-name') || {}).textContent + ':' +
+        (s.querySelector('.mslot-fold') ? 'fold' : 'none')).join(' | ')));
+    t.ok('and it sits on the right of the row, not beside the name',
+      await fold.evaluate(() => {
+        const s = document.querySelector('.mslot-fold');
+        if (!s) return false;
+        const row = s.closest('.mslot-h').getBoundingClientRect();
+        const b = s.getBoundingClientRect();
+        // past the halfway line of its own row
+        return b.left > row.left + row.width / 2;
+      }));
+    /* Six controls across a 375-wide phone. A wrapped "+ Add" doubles the
+       height of every meal on the day, which is the exact thing the two-line
+       header was built to avoid. */
+    t.ok('and no control on that row wraps onto a second line',
+      await fold.evaluate(() => [...document.querySelectorAll('.mslot-h')].every((h) =>
+        [...h.querySelectorAll('button')].every((b) => b.getBoundingClientRect().height <= 36))),
+      await fold.evaluate(() => [...document.querySelectorAll('.mslot-h button')]
+        .map((b) => b.textContent.trim().slice(0, 8) + ' ' + Math.round(b.getBoundingClientRect().height))
+        .join(' | ')));
+    const shutBefore = await fold.evaluate(() =>
+      document.querySelectorAll('.mslot-thin').length);
+    await fold.click('.mslot-fold');
+    await fold.waitForTimeout(300);
+    t.ok('and pressing it folds that meal down to its list',
+      await fold.evaluate((n) => document.querySelectorAll('.mslot-thin').length === n + 1, shutBefore),
+      'thin lists ' + shutBefore + ' → ' +
+        await fold.evaluate(() => document.querySelectorAll('.mslot-thin').length));
+    t.ok('and the glyph turns to say which way the next press goes',
+      await fold.evaluate(() => {
+        const b = document.querySelector('.mslot-fold[aria-expanded="false"]');
+        return !!b && getComputedStyle(b.querySelector('span')).transform !== 'none';
+      }));
+    await fold.context().close();
+
     /* ---- a portion of a batch --------------------------------------------
      * The two tests above ride on whatever Fill happened to draft, and a day
      * of single-serving plates would pass them while proving nothing: only a
