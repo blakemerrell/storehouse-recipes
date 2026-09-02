@@ -132,11 +132,36 @@ module.exports = {
         const c = [...document.querySelectorAll('.mbrow[data-macro] .mb-d')];
         return c.length === 4 && c.every((x) => /^[+-]?\d+$/.test(x.querySelector('b').textContent));
       }), await p.textContent('#macroFoot'));
+    /* Bars now, under a hairline and on a lighter track than the four above:
+       same family, lesser rank. What must never happen is the two being drawn
+       like the macros, because a full bar means the opposite here — filling
+       the protein bar is progress, filling the SALT bar is a warning. */
     t.ok('fibre and sodium sit under the bars as a floor and a ceiling',
       await p.evaluate(() => {
-        const m = [...document.querySelectorAll('.mdelta .mm')];
-        return m.length === 2 && m.every((x) => /\d+\/[\d,]+/.test(x.textContent.replace(/\s/g, '')));
-      }), await p.textContent('.mdelta'));
+        const m = [...document.querySelectorAll('.mlimits .mlim')];
+        return m.length === 2 && m.every((x) =>
+          /\d+\/[\d,]+/.test(x.querySelector('.mb-num').textContent.replace(/\s/g, '')));
+      }), await p.textContent('.mlimits'));
+    t.ok('and they are quieter than the four, under a divider of their own',
+      await p.evaluate(() => {
+        const lim = document.querySelector('.mlimits');
+        const thin = parseFloat(getComputedStyle(lim.querySelector('.mb-track')).height);
+        const thick = parseFloat(getComputedStyle(
+          document.querySelector('.mbrow[data-macro] .mb-track')).height);
+        return thin < thick && parseFloat(getComputedStyle(lim).borderTopWidth) > 0;
+      }));
+    /* The colours invert here and the app must not forget it: there is no such
+       thing as too much fibre on a cut, and being under a salt ceiling is the
+       default rather than something to congratulate. */
+    t.ok('fibre never turns red and salt never turns green',
+      await p.evaluate(() => {
+        const cls = (sel) => [...(document.querySelector(sel) || { classList: [] }).classList];
+        const fib = cls('.mlimits .mlim:first-child');
+        const na = cls('.mlimits .mlim:last-child');
+        return fib.indexOf('past') < 0 && fib.indexOf('near') < 0 &&
+          na.indexOf('met') < 0;
+      }), await p.evaluate(() => [...document.querySelectorAll('.mlimits .mlim')]
+        .map((x) => x.className).join(' | ')));
 
     /* Carb cycling. RP does not eat the same thing seven days a week: a
        training day earns more carbohydrate and a rest day gives it back, so
@@ -897,8 +922,11 @@ module.exports = {
        target must not draw the same ring as one that landed on it — which
        is exactly what happened while green meant "eaten": both sweeps clamp
        at 100%, so over and on-the-nose were the same picture. */
+    /* The four budget rows. The floor and the ceiling below them are bars
+       too, but they are not budgets and carry no under/on/over — that is the
+       whole point of them being drawn differently. */
     t.ok('every bar names where it stands',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow'))
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow[data-macro]'))
         .every((d) => ['under', 'on', 'over'].indexOf(d.dataset.state) >= 0)));
     t.ok('and an overshoot reads over even with every plate eaten',
       await p.evaluate(() => {
@@ -920,7 +948,7 @@ module.exports = {
           pctOf(d) >= (d.dataset.macro === 'p' ? 110 : d.dataset.macro === 'kcal' ? 105 : 100));
       }));
     t.ok('the bar caps at full rather than running past its own end',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow'))
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow[data-macro]'))
         .every((d) => Number(d.dataset.planned) <= 100 && Number(d.dataset.eaten) <= 100)));
     await openPlan(p);
     await p.waitForTimeout(150);
@@ -2775,7 +2803,7 @@ module.exports = {
         // compare the two with separators stripped from both sides
         const pills = [...document.querySelectorAll('.mpill')].map((x) => x.textContent.replace(/[\s,]/g, ''));
         const rows = [...document.querySelectorAll('.mbrow[data-macro] .mb-d b')].map((x) => x.textContent);
-        const micro = [...document.querySelectorAll('.mdelta .mm')]
+        const micro = [...document.querySelectorAll('.mlimits .mlim .mb-num')]
           .map((x) => x.textContent.replace(/[^\d\/]/g, ''));
         return pills.length === 6 &&
           rows.every((v, i) => pills[i].indexOf(v) >= 0) &&

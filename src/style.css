@@ -1213,10 +1213,29 @@ select { max-width: 280px; }
 .mb-d.nil b { color: var(--dial-on); }
 .mb-d.neg b { color: var(--muted-2); }
 
-/* A floor and a ceiling, not two more budgets — so a line under the bars
-   rather than two more bars. It carries only fibre and sodium now that the
-   four deltas ride on their own rows. */
-.mdelta { display: flex; gap: 14px; align-items: baseline; margin-top: 7px; padding-left: 26px; }
+/* A floor and a ceiling: two more bars, but never two more budgets. They sit
+   under a hairline on a lighter track than the four above — same grid, same
+   columns, less weight — which is what says "same family, lesser rank"
+   without inventing a second visual language for one card.
+ *
+   The colours cannot be the macro colours, because the meaning of a full bar
+   inverts here. Fibre has no red: over a floor is still good. Salt has no
+   green: being under a ceiling is the default rather than an achievement, so
+   it stays grey until it is close. */
+.mlimits {
+  margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line-soft);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.mlimits .mb-track { height: 6px; }
+.mlimits .mb-k { font-size: 12px; }
+.mlim-f { display: block; height: 100%; }
+.mlim.short .mlim-f { background: var(--dial-under); }
+.mlim.met .mlim-f { background: var(--dial-on); }
+/* under a ceiling and nowhere near it: the quiet default */
+.mlim.quiet .mlim-f { background: oklch(0.66 0.02 65); }
+.mlim.near .mlim-f { background: var(--dial-under); }
+.mlim.past .mlim-f { background: var(--dial-over); }
+.mlim.past .mb-num b { color: var(--dial-over); }
 .mm { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px;
   display: inline-flex; align-items: baseline; gap: 3px; }
 .mm b { font-weight: 600; color: var(--ink); }
@@ -1254,7 +1273,7 @@ select { max-width: 280px; }
    the box": opacity does not inherit, so setting it on the wrapper would
    fade the picture without any of these ever saying they had faded, and the
    fade would be invisible to everything except an eye. */
-.mday-fold .mweek, .mday-fold .mbars, .mday-fold .mdelta, .mday-fold .macro-none {
+.mday-fold .mweek, .mday-fold .mbars, .mday-fold .mlimits, .mday-fold .macro-none {
   opacity: calc(1 - var(--fold, 0));
 }
 /* visibility does inherit, so one rule takes the folded-away half out of the
@@ -1288,8 +1307,8 @@ select { max-width: 280px; }
 .mpill.nil b { color: var(--dial-on); }
 .mpill.neg b { color: var(--muted-2); }
 .mpill-m { font-size: 10.5px; }
-.mpill-m.low b { color: var(--dial-under); }
-.mpill-m.high b { color: var(--dial-over); }
+.mpill-m.short b, .mpill-m.near b { color: var(--dial-under); }
+.mpill-m.past b { color: var(--dial-over); }
 /* a plate carrying a third of the day's salt on its own */
 .mchip.salty { border-color: var(--dial-over); color: var(--dial-over); }
 .mp-salt { color: var(--dial-over); }

@@ -3151,15 +3151,44 @@
     var naCap = 2300;
     var fibFloor = Math.round(tK * 14 / 1000);          // 14 g per 1000 kcal
     var na = Math.round(tot.all.na), fib = Math.round(tot.all.fib);
-    var fibState = fib >= fibFloor ? 'ok' : 'low';
-    var naState = na > naCap ? 'high' : 'ok';
+    /* A floor and a ceiling, drawn as bars now \u2014 and never coloured like the
+       four above them. Filling the protein bar is progress; filling the SALT
+       bar is a warning, and the same paint on both would say the opposite of
+       what it means. So:
+     *
+       Fibre NEVER turns red. Over a floor is still good \u2014 there is no such
+       thing as too much fibre on a cut \u2014 so the only two states are short
+       and met.
+     *
+       Salt NEVER turns green. Staying under a ceiling is the default, not an
+       achievement, so it is quiet until it is within a fifth of the cap,
+       then it warns, then it is over. Green there would congratulate you for
+       having eaten nothing in particular.
+     *
+       One fill, not the eaten-and-planned pair the macro rows carry: two
+       shades on a lesser row is detail nobody reads. */
+    var fibState = fib >= fibFloor ? 'met' : 'short';
+    var naState = na > naCap ? 'past' : na >= naCap * 0.8 ? 'near' : 'quiet';
+    var limitRow = function (glyph, state, dCls, val, cap, unit, name) {
+      var d = val - cap;
+      return '<div class="mbrow mlim ' + state + '">' +
+        '<span class="mb-k" aria-hidden="true">' + glyph + '</span>' +
+        '<span class="mb-track"><i class="mlim-f" style="width:' +
+          Math.min(100, 100 * val / cap).toFixed(1) + '%"></i></span>' +
+        '<span class="mb-num"><b>' + val.toLocaleString() + '</b> / ' +
+          cap.toLocaleString() + unit + '</span>' +
+        '<span class="vis-hidden">' + name + '</span>' +
+        '<span class="mb-d ' + dCls + '"><b>' + (d > 0 ? '+' : '') + d.toLocaleString() +
+          '</b></span>' +
+      '</div>';
+    };
     var micro =
-      '<span class="mm ' + fibState + '" title="Fibre">' +
-        '\uD83C\uDF3E <b>' + fib + '</b>/' + fibFloor +
-        '<span class="vis-hidden"> g of fibre</span></span>' +
-      '<span class="mm ' + naState + '" title="Sodium">' +
-        '\uD83E\uDDC2 <b>' + na.toLocaleString() + '</b>/' + naCap.toLocaleString() +
-        '<span class="vis-hidden"> mg of sodium</span></span>';
+      /* Short of the floor is quiet, not alarming: it is a thing to fix at
+         dinner, not a thing you did wrong. Clearing it is the green. */
+      limitRow('\uD83C\uDF3E', fibState, fibState === 'met' ? 'nil' : 'neg',
+        fib, fibFloor, ' g', 'of fibre') +
+      limitRow('\uD83E\uDDC2', naState, naState === 'past' ? 'pos' : 'neg',
+        na, naCap, ' mg', 'of sodium');
 
     /* The same six numbers folded into one row of pills, for when the page
        has scrolled and the bars would be eating the screen. Four signed
@@ -3180,7 +3209,7 @@
     return {
       foot: '<button class="mbars" data-mchartopen="1" aria-label="See these over time">' +
           bars + '<span class="mbars-more" aria-hidden="true">&rsaquo;</span></button>' +
-        '<div class="mdelta" role="status">' + micro + '</div>',
+        '<div class="mlimits" role="status">' + micro + '</div>',
       pills: pills
     };
   }
@@ -6313,12 +6342,21 @@
     if (foldGeo) return foldGeo;
     var fold = $('macroFold'), pills = $('macroPills');
     if (!fold || !pills) return null;
-    /* scrollHeight for the open size: it is the height the content wants,
-       which stays readable when the box has been clipped down mid-fold, so
-       a rebuild can re-measure without first flinging the card open for a
-       frame to look at it. The pills are absolutely placed, so they are not
-       in that number and their own height is the size the box closes to. */
-    var open = fold.scrollHeight, shut = pills.offsetHeight;
+    /* Measured at the fold's NATURAL height, fractions and all. scrollHeight
+       and offsetHeight are whole numbers, and a box whose real height is
+       174.5 measures as 175 — half a pixel the lock never gives back, which
+       is a pixel of page appearing and disappearing under the finger in the
+       middle of a fold. So ask the layout, not the content.
+     *
+       If the box happens to be clipped right now, uncover it for the reading
+       and put it straight back. Nothing is painted in between: this is one
+       synchronous burst inside a single task, and it happens once per
+       rebuild rather than once per frame. */
+    var was = fold.style.height;
+    if (was) fold.style.height = '';
+    var open = fold.getBoundingClientRect().height;
+    var shut = pills.getBoundingClientRect().height;
+    if (was) fold.style.height = was;
     /* A tab that is not on screen measures nothing. Don't remember that as
        the size of the card — a span of zero folds it shut on the first
        pixel of the next scroll. */
@@ -6401,6 +6439,9 @@
        much. The sum is the same at every p, which is the whole trick: the
        page is one height all the way down, so nothing under the card moves
        and there is nothing for scroll anchoring to answer. */
+    /* Unrounded, and paired: what the box gives up, the margin takes back, so
+       the two always add to the same number. Rounding either one on its own
+       is what puts them a pixel apart. */
     fold.style.height = (g.open - g.span * p) + 'px';
     st.style.marginBottom = (gap + g.span * p) + 'px';
     mMarkShut(st, p >= 1);
