@@ -6301,18 +6301,38 @@
         st.style.marginBottom = '';
         fold.style.height = '';
       }
-      /* The room under the card, read here because here is the only place
-         it is honest: the card's own bottom margin collapses with the top
-         margin of the card below it, so the 4px in the stylesheet is not
-         what actually stands between them. Measuring the gap that is really
-         there takes the collapse out of the arithmetic — and the margin we
-         write from it is never smaller than the gap, so from then on it is
-         the margin that wins the collapse. */
-      if (foldGap < 0) {
+      /* The room under the card: its own bottom margin collapses with the
+         top margin of the card below it, so the 4px in the stylesheet is not
+         what actually stands between them — and the margin we write from it
+         is never smaller, so from then on it is ours that wins the collapse.
+       *
+         It has to be measured rather than read off the two margins, because
+         what collapses here is not just those two — the card below hands its
+         own child's top margin outward — so the space that ends up between
+         them is not a number written anywhere in the stylesheet.
+       *
+         But it is only measurable AT THE TOP OF THE PAGE, and that guard is
+         the whole point of this block. The card is position:sticky: the
+         moment the page has scrolled it is pinned to the top of the screen
+         and nowhere near its place in the flow, so "the distance down to the
+         next card" stops being a margin and becomes most of the page. Blake
+         got a blank My Day out of exactly that — a resize handler re-measured
+         this while he was scrolled, and each wrong gap went into a margin
+         that made the next reading wronger still: 12px became 2164px in two
+         resizes, and the day became two thousand pixels of blank paper below
+         the plates. A phone resizes constantly while you scroll, because iOS
+         collapses the URL bar.
+       *
+         So: only at the top, only while none of our own inline margin is on
+         the card to be read back, once, and clamped — a gap is a margin, so
+         it is small or it is wrong. */
+      if (foldGap < 0 && !st.style.marginBottom &&
+          (window.scrollY || window.pageYOffset || 0) <= 0) {
         var next = $('macroPlan');
         // a tab that is not on screen has no gap to read; wait for one that has
         if (next && st.getBoundingClientRect().height > 0) {
-          foldGap = next.getBoundingClientRect().top - st.getBoundingClientRect().bottom;
+          foldGap = Math.max(0, Math.min(64,
+            next.getBoundingClientRect().top - st.getBoundingClientRect().bottom));
         }
       }
       return;
@@ -6351,16 +6371,17 @@
     foldRaf = requestAnimationFrame(syncShrunk);
   }
 
-  /* A resize changes both heights and the room under the card, and it can
-     arrive without a scroll to follow it. The card is opened before it is
-     measured again: a margin this code wrote itself is not a gap, and the
-     way through open is where the honest one is read. */
+  /* A resize changes the two heights — a narrower card wraps to more rows —
+     and it can arrive without a scroll to follow it.
+   *
+     It does NOT touch the gap. The gap is two margins in the stylesheet, and
+     those do not move when the window does; throwing it away here is what
+     made a phone re-measure it mid-scroll, which is the whole story written
+     against the reading of it above. A resize on a phone is usually not even
+     a resize: it is the URL bar collapsing while you scroll. */
   function onResizeFold() {
-    var st = document.querySelector('.mday-stick');
-    if (!st) return;
+    if (!document.querySelector('.mday-stick')) return;
     foldGeo = null;
-    foldGap = -1;
-    mSetFold(st, 0);
     syncShrunk();
   }
 

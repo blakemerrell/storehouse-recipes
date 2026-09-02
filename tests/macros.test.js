@@ -2805,6 +2805,51 @@ module.exports = {
     const creep = await ph.evaluate(() => { window.__w.stop = true; return window.__w.worst; });
     t.ok('and no frame of the fold moves the page or the plates by so much as a pixel',
       creep < 1, 'worst drift seen mid-fold: ' + creep.toFixed(1) + 'px');
+
+    /* A phone resizes while you scroll — iOS collapses the URL bar and the
+       viewport loses forty pixels mid-gesture, over and over. That used to
+       re-measure the room under the card, and the card is position:sticky:
+       once the page has scrolled it is pinned to the top of the screen and
+       nowhere near its place in the flow, so "the distance down to the next
+       card" stopped being a margin and became most of the page. Each wrong
+       reading went into a margin that made the next one wronger — twelve
+       pixels became two thousand in two resizes, and My Day turned into
+       blank paper below the plates. */
+    await ph.evaluate(() => window.scrollTo(0, 260));
+    await ph.waitForTimeout(250);
+    const beforeR = await ph.evaluate(() => ({
+      page: document.documentElement.scrollHeight,
+      margin: parseFloat(document.querySelector('.mday-stick').style.marginBottom) || 0
+    }));
+    for (let i = 0; i < 3; i++) {
+      await ph.setViewportSize({ width: 390, height: 680 });
+      await ph.waitForTimeout(180);
+      await ph.setViewportSize({ width: 390, height: 720 });
+      await ph.waitForTimeout(180);
+    }
+    const afterR = await ph.evaluate(() => {
+      const st = document.querySelector('.mday-stick');
+      const r = st.getBoundingClientRect();
+      return {
+        page: document.documentElement.scrollHeight,
+        margin: parseFloat(st.style.marginBottom) || 0,
+        cardOnScreen: r.bottom > 0 && r.top < window.innerHeight,
+        platesOnScreen: [...document.querySelectorAll('.mitem')]
+          .filter((e) => { const q = e.getBoundingClientRect(); return q.bottom > 0 && q.top < window.innerHeight; }).length
+      };
+    });
+    t.ok('resizing while scrolled — a phone hiding its URL bar — leaves the page where it was',
+      afterR.page === beforeR.page && Math.abs(afterR.margin - beforeR.margin) < 1,
+      'page ' + beforeR.page + ' → ' + afterR.page +
+      ', margin ' + Math.round(beforeR.margin) + ' → ' + Math.round(afterR.margin));
+    t.ok('and the day is still on the screen rather than above a field of margin',
+      afterR.cardOnScreen && afterR.platesOnScreen > 0,
+      'card on screen: ' + afterR.cardOnScreen + ', plates on screen: ' + afterR.platesOnScreen);
+    /* The room under the card is two margins in the stylesheet, and a margin
+       is small. Anything else means it has been measured off the page again. */
+    t.ok('and the room the fold hands back is still the size of a margin',
+      afterR.margin > 0 && afterR.margin < 400, afterR.margin + 'px');
+
     await ph.evaluate(() => window.scrollTo(0, 0));
     await ph.waitForTimeout(250);
     t.ok('back at the top the readout opens again',
