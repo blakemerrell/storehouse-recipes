@@ -6103,22 +6103,66 @@
 
   /* My Day's sticky readout folds to a row of pills once the page has
      scrolled, so the week and the four bars stop eating a third of a phone
-     while you are down among the plates. Two thresholds rather than one:
-     the fold changes the header's height, which moves the page under the
-     finger, and a single line would flap on either side of itself. A day
-     too short to scroll past the fold is left open — folding it would
-     shorten the page, clamp the scroll back under the line, and unfold it
-     again on the next frame. */
+     while you are down among the plates.
+
+     The fold must not move the page. It used to: hiding the week and the
+     bars took about a hundred and forty pixels out of the card, everything
+     below it jumped up by that much in one frame, and on a phone that read
+     as a flash right before the collapse. So the height the fold takes out
+     of the card goes into the card's bottom margin instead. The painted
+     part shrinks, the room it stood in stays, and the plates do not move
+     under the finger. Margin is the right place for it because margin has
+     no background and takes no taps: the plates scroll up through that
+     gap and can be read and pressed there. Unfolding hands the margin
+     back, so the page is the same height either way and nothing has to
+     be compensated for.
+
+     Two thresholds rather than one, so the fold and the unfold cannot
+     chase each other. It folds once the whole open readout has scrolled
+     by: what the fold uncovers is exactly the strip of page the bars were
+     sitting over, and folding any earlier would leave a band of nothing
+     between the pills and the first plate. It opens again near the top. */
   var shrunkRaf = 0;
+  function setShrunk(st, on) {
+    if (!on) {
+      st.classList.remove('shrunk');
+      st.style.marginBottom = '';
+      return;
+    }
+    /* The margin is sized by where the view ends, not by how much the card
+       shrank: the card's bottom margin collapses with the top margin of
+       whatever follows it, so the plain difference in heights came out
+       eight pixels short and the page still stepped. Set, measure, correct
+       — a couple of passes lands it exactly, whatever is collapsing.
+
+       Measured in page coordinates, not viewport ones. Chromium's scroll
+       anchoring answers each intermediate layout by moving the scroll
+       position so that the plates appear not to have moved, and a viewport
+       measurement then reports nothing left to correct while the page has
+       in fact lost the whole strip. */
+    var view = st.parentNode;
+    function bottomOf(el) {
+      return el.getBoundingClientRect().bottom + (window.scrollY || window.pageYOffset || 0);
+    }
+    var before = bottomOf(view);
+    var m = parseFloat(getComputedStyle(st).marginBottom) || 0;
+    st.classList.add('shrunk');
+    for (var i = 0; i < 4; i++) {
+      var off = before - bottomOf(view);
+      if (Math.abs(off) < 0.5) break;
+      m += off;
+      st.style.marginBottom = m + 'px';
+    }
+  }
   function syncShrunk() {
     shrunkRaf = 0;
     var st = document.querySelector('.mday-stick');
     if (!st) return;
-    if (S.view !== 'macros') { st.classList.remove('shrunk'); return; }
+    var shrunk = st.classList.contains('shrunk');
+    if (S.view !== 'macros') { if (shrunk) setShrunk(st, false); return; }
     var y = window.scrollY || window.pageYOffset || 0;
-    var room = document.documentElement.scrollHeight - window.innerHeight;
-    if (!st.classList.contains('shrunk') && y > 120 && room > 420) st.classList.add('shrunk');
-    else if (st.classList.contains('shrunk') && y < 60) st.classList.remove('shrunk');
+    if (!shrunk && y > st.getBoundingClientRect().height) setShrunk(st, true);
+    else if (shrunk && y < 60) setShrunk(st, false);
   }
   function onScrollShrink() {
     if (shrunkRaf) return;

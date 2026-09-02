@@ -2567,7 +2567,17 @@ module.exports = {
           micro.every((v, i) => pills[4 + i].indexOf(v) >= 0);
       }), await ph.evaluate(() => document.querySelector('.mpills').textContent));
     const stickH = await ph.evaluate(() => document.querySelector('.mday-stick').getBoundingClientRect().height);
-    await ph.evaluate(() => window.scrollTo(0, 320));
+    /* The fold is a scroll effect and nothing else: the page must be exactly
+       as tall after it as before, and the plates must stay where they were.
+       The first version took the hidden bars' height out of the flow, so
+       every plate jumped up ~140px in one frame — the "flash" Blake saw
+       right before the collapse. */
+    const pageBefore = await ph.evaluate(() => document.documentElement.scrollHeight);
+    const railAtTop = await ph.evaluate(() => document.querySelector('.mday-rail').getBoundingClientRect().top);
+    const foldAt = Math.ceil(stickH) + 100;
+    // where the rail lands if the scroll moves it and nothing else does
+    const railBefore = railAtTop - foldAt;
+    await ph.evaluate((y) => window.scrollTo(0, y), foldAt);
     await ph.waitForTimeout(250);
     t.ok('scrolling into the day folds the readout to one row of pills',
       await ph.evaluate(() => {
@@ -2580,6 +2590,17 @@ module.exports = {
     const shrunkH = await ph.evaluate(() => document.querySelector('.mday-stick').getBoundingClientRect().height);
     t.ok('and the folded readout is well under half the height of the open one',
       shrunkH < stickH / 2, 'open ' + Math.round(stickH) + 'px, folded ' + Math.round(shrunkH) + 'px');
+    t.ok('folding moves nothing: same scroll position, same page height, plates where they were',
+      await ph.evaluate((args) => {
+        const rail = document.querySelector('.mday-rail').getBoundingClientRect().top;
+        return window.scrollY === args.y &&
+          document.documentElement.scrollHeight === args.page &&
+          Math.abs(rail - args.rail) < 1;
+      }, { y: foldAt, page: pageBefore, rail: railBefore }),
+      await ph.evaluate((args) => 'y=' + window.scrollY + '/' + args.y + ' page=' +
+        document.documentElement.scrollHeight + '/' + args.page + ' rail=' +
+        Math.round(document.querySelector('.mday-rail').getBoundingClientRect().top) + '/' + Math.round(args.rail),
+      { y: foldAt, page: pageBefore, rail: railBefore }));
     t.ok('the fold still fits on one line — pills never wrap',
       await ph.evaluate(() => {
         const tops = [...document.querySelectorAll('.mpill')].map((x) => Math.round(x.getBoundingClientRect().top));
@@ -2615,7 +2636,56 @@ module.exports = {
     await ph.waitForTimeout(250);
     t.ok('back at the top the readout opens again',
       await ph.evaluate(() => !document.querySelector('.mday-stick').classList.contains('shrunk')));
-    await ph.evaluate(() => window.scrollTo(0, 320));
+    t.ok('and opening hands the room back — page height and rail exactly as at the start',
+      await ph.evaluate((args) =>
+        document.documentElement.scrollHeight === args.page &&
+        Math.abs(document.querySelector('.mday-rail').getBoundingClientRect().top - args.rail) < 1 &&
+        document.querySelector('.mday-stick').style.marginBottom === '',
+      { page: pageBefore, rail: railAtTop }),
+      await ph.evaluate(() => 'page=' + document.documentElement.scrollHeight + ' rail=' +
+        Math.round(document.querySelector('.mday-rail').getBoundingClientRect().top) +
+        ' margin="' + document.querySelector('.mday-stick').style.marginBottom + '"'));
+    /* A slow thumb through the fold, ten pixels a frame, the way it is
+       actually met on a phone. One toggle each way, and between any two
+       frames the plates move by the scroll step and nothing more. */
+    const thumb = await ph.evaluate(() => {
+      const st = document.querySelector('.mday-stick');
+      window.__toggles = 0;
+      new MutationObserver(() => { window.__toggles++; })
+        .observe(st, { attributes: true, attributeFilter: ['class'] });
+      return st.getBoundingClientRect().height;
+    });
+    const steps = Math.ceil(thumb / 10) + 12;
+    const jumps = [];
+    let last = await ph.evaluate(() => document.querySelector('.mday-rail').getBoundingClientRect().top);
+    for (let i = 0; i < steps; i++) {
+      await ph.mouse.wheel(0, 10);
+      await ph.waitForTimeout(40);
+      const now = await ph.evaluate(() => document.querySelector('.mday-rail').getBoundingClientRect().top);
+      jumps.push(Math.round(last - now));
+      last = now;
+    }
+    const downToggles = await ph.evaluate(() => window.__toggles);
+    t.ok('a slow thumb down through the fold folds it once',
+      downToggles === 1 && await ph.evaluate(() => document.querySelector('.mday-stick').classList.contains('shrunk')),
+      'toggles=' + downToggles + ' y=' + await ph.evaluate(() => window.scrollY));
+    t.ok('and no frame on the way moved the plates by more than the thumb did',
+      jumps.every((j) => j >= 0 && j <= 12), 'per-step rail moves: ' + jumps.join(' '));
+    for (let i = 0; i < steps; i++) {
+      await ph.mouse.wheel(0, -10);
+      await ph.waitForTimeout(40);
+      const now = await ph.evaluate(() => document.querySelector('.mday-rail').getBoundingClientRect().top);
+      jumps.push(Math.round(now - last));
+      last = now;
+    }
+    const upToggles = await ph.evaluate(() => window.__toggles);
+    t.ok('and back up opens it once, again without a jump',
+      upToggles === 2 && jumps.every((j) => j >= 0 && j <= 12) &&
+        await ph.evaluate(() => !document.querySelector('.mday-stick').classList.contains('shrunk')),
+      'toggles=' + upToggles + ' y=' + await ph.evaluate(() => window.scrollY) + ' moves: ' + jumps.join(' '));
+    await ph.evaluate(() => window.scrollTo(0, 0));
+    await ph.waitForTimeout(250);
+    await ph.evaluate((y) => window.scrollTo(0, y), foldAt);
     await ph.waitForTimeout(250);
     await ph.click('.mpills');
     await ph.waitForTimeout(300);
@@ -2623,9 +2693,9 @@ module.exports = {
       await ph.evaluate(() => window.scrollY === 0 &&
         !document.querySelector('.mday-stick').classList.contains('shrunk')),
       await ph.evaluate(() => 'y=' + window.scrollY + ' ' + document.querySelector('.mday-stick').className));
-    /* Leaving the tab must not carry the fold to the next one, and a day too
-       short to scroll past its own fold is left open — otherwise the readout
-       would collapse on a page that had nowhere to go. */
+    /* Leaving the tab must not carry the fold to the next one, and the fold
+       waits until the whole open readout has scrolled by — earlier, and the
+       pills would sit over a band of nothing the bars had not yet covered. */
     await ph.click('.tab[data-view="browse"]');
     await ph.waitForTimeout(200);
     await ph.evaluate(() => window.scrollTo(0, 320));
@@ -2641,17 +2711,16 @@ module.exports = {
     const wide = await t.fresh();
     await wide.click('.tab[data-view="macros"]');
     await wide.waitForTimeout(200);
+    const wideOpenH = await wide.evaluate(() => document.querySelector('.mday-stick').getBoundingClientRect().height);
     await wide.evaluate(() => window.scrollTo(0, 500));
     await wide.waitForTimeout(250);
-    t.ok('a day folds only when there is room to scroll past its own fold',
-      await wide.evaluate(() => {
-        const room = document.documentElement.scrollHeight - window.innerHeight;
+    t.ok('a day folds only once its own open readout has scrolled by',
+      await wide.evaluate((openH) => {
         const shrunk = document.querySelector('.mday-stick').classList.contains('shrunk');
-        return shrunk === (window.scrollY > 120 && room > 420);
-      }),
-      await wide.evaluate(() => 'y=' + window.scrollY + ' room=' +
-        (document.documentElement.scrollHeight - window.innerHeight) + ' ' +
-        document.querySelector('.mday-stick').className));
+        return shrunk === (window.scrollY > openH);
+      }, wideOpenH),
+      await wide.evaluate((openH) => 'y=' + window.scrollY + ' open=' + Math.round(openH) + ' ' +
+        document.querySelector('.mday-stick').className, wideOpenH));
     await wide.context().close();
   },
 };
