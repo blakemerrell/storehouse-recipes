@@ -2797,18 +2797,56 @@ module.exports = {
           getComputedStyle(document.querySelector('.mbars')).opacity === '1';
       }), await ph.evaluate(() => 'pills opacity ' +
         getComputedStyle(document.querySelector('.mpills')).opacity));
-    t.ok('the pills carry the same six numbers as the rows and the line under them',
+    t.ok('the pills carry the same six numbers as the rows and the bars under them',
       await ph.evaluate(() => {
-        // the sodium pill drops the thousands comma to fit a narrow phone, so
-        // compare the two with separators stripped from both sides
         const pills = [...document.querySelectorAll('.mpill')].map((x) => x.textContent.replace(/[\s,]/g, ''));
         const rows = [...document.querySelectorAll('.mbrow[data-macro] .mb-d b')].map((x) => x.textContent);
-        const micro = [...document.querySelectorAll('.mlimits .mlim .mb-num')]
-          .map((x) => x.textContent.replace(/[^\d\/]/g, ''));
+        /* The limit pills carry the figure only — the fill says the
+           proportion, so a denominator would say it twice, and dropping it is
+           what buys every pill the same width. The open bars keep both. */
+        const lim = [...document.querySelectorAll('.mlimits .mlim .mb-num b')]
+          .map((x) => x.textContent.replace(/[\s,]/g, ''));
         return pills.length === 6 &&
           rows.every((v, i) => pills[i].indexOf(v) >= 0) &&
-          micro.every((v, i) => pills[4 + i].indexOf(v) >= 0);
+          lim.every((v, i) => pills[4 + i].indexOf(v) >= 0);
       }), await ph.evaluate(() => document.querySelector('.mpills').textContent));
+    /* And each one is its own bar. This is the whole reason the row exists in
+       this form: folded, the number gives the gap and the fill gives the
+       proportion, so "under" stops being four identical greys. */
+    t.ok('and each pill is filled to the same point as the bar it stands for',
+      await ph.evaluate(() => {
+        const pct = (el) => {
+          const m = (el.getAttribute('style') || '').match(/0 ([\d.]+)%/);
+          return m ? parseFloat(m[1]) : null;
+        };
+        const pills = [...document.querySelectorAll('.mpill')];
+        const rows = [...document.querySelectorAll('.mbrow[data-macro]')];
+        const okMacro = rows.every((r, i) =>
+          pct(pills[i]) !== null && Math.abs(pct(pills[i]) - Number(r.dataset.planned)) <= 1);
+        const lims = [...document.querySelectorAll('.mlimits .mlim')];
+        const okLim = lims.every((r, i) => {
+          const n = r.querySelector('.mb-num').textContent.replace(/[^\d/]/g, '').split('/');
+          const want = Math.min(100, 100 * Number(n[0]) / Number(n[1]));
+          return pct(pills[4 + i]) !== null && Math.abs(pct(pills[4 + i]) - want) <= 1;
+        });
+        return okMacro && okLim;
+      }),
+      await ph.evaluate(() => [...document.querySelectorAll('.mpill')]
+        .map((x) => x.textContent.trim() + ((x.getAttribute('style') || '').match(/0 [\d.]+%/) || [''])[0])
+        .join(' | ')));
+    /* Folding must not change what the day is said to be: a pill filled green
+       above a bar coloured red would be two opinions of one number. */
+    t.ok('and wears the same verdict, so folding says nothing new',
+      await ph.evaluate(() => {
+        const tone = (el) => ((el.getAttribute('style') || '').match(/--dial-(\w+)-pale|--mlim-(\w+)-pale/) || [])[0] || '';
+        const pills = [...document.querySelectorAll('.mpill')];
+        const rows = [...document.querySelectorAll('.mbrow[data-macro]')];
+        return rows.every((r, i) => tone(pills[i]).indexOf(r.dataset.state) >= 0);
+      }),
+      await ph.evaluate(() => [...document.querySelectorAll('.mbrow[data-macro]')]
+        .map((r, i) => r.dataset.state + '/' +
+          (((document.querySelectorAll('.mpill')[i].getAttribute('style') || '')
+            .match(/--[\w-]+-pale/) || [''])[0])).join(' | ')));
     const stickH = await ph.evaluate(() => document.querySelector('.mday-stick').getBoundingClientRect().height);
     /* The fold is a scroll effect and nothing else: the page must be exactly
        as tall after it as before, and the plates must stay where they were.

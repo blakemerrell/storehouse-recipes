@@ -55,6 +55,9 @@
   --bar-f: oklch(0.52 0.11 65);
   --bar-c: oklch(0.44 0.09 150);
   --over-dial:  oklch(0.55 0.14 45);
+  /* a ceiling nowhere near being hit: present, but not a verdict */
+  --mlim-quiet: oklch(0.66 0.02 65);
+  --mlim-quiet-pale: oklch(0.86 0.012 65);
   --muted:      oklch(0.52 0.03 65);
   --muted-2:    oklch(0.45 0.03 65);
   --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
@@ -1232,7 +1235,7 @@ select { max-width: 280px; }
 .mlim.short .mlim-f { background: var(--dial-under); }
 .mlim.met .mlim-f { background: var(--dial-on); }
 /* under a ceiling and nowhere near it: the quiet default */
-.mlim.quiet .mlim-f { background: oklch(0.66 0.02 65); }
+.mlim.quiet .mlim-f { background: var(--mlim-quiet); }
 .mlim.near .mlim-f { background: var(--dial-under); }
 .mlim.past .mlim-f { background: var(--dial-over); }
 .mlim.past .mb-num b { color: var(--dial-over); }
@@ -1294,8 +1297,13 @@ select { max-width: 280px; }
    "+159 / -24 / +12 / +37 / 8 of 24 / 1474 of 2300" — the row scrolls
    sideways if a wilder day ever overflows it, but a clipped last pill reads
    as a bug, so the sizes below were measured against that day, not guessed. */
+/* One standard box each, so six fills can be compared by eye — a pill that
+   sizes to its own number makes a longer bar mean "longer word". The fill is
+   painted as the background in app.js; everything here is the box it lands
+   in. */
 .mpill {
   flex: none; display: inline-flex; align-items: baseline; gap: 2px;
+  justify-content: center; min-width: 54px;
   padding: 2px 5px; border-radius: 999px; font-size: 11px;
   background: var(--paper-soft); border: 1px solid var(--line-soft);
   color: var(--muted); font-variant-numeric: tabular-nums;
@@ -1306,7 +1314,7 @@ select { max-width: 280px; }
 .mpill.pos b { color: var(--dial-over); }
 .mpill.nil b { color: var(--dial-on); }
 .mpill.neg b { color: var(--muted-2); }
-.mpill-m { font-size: 10.5px; }
+.mpill-m { font-size: 10.5px; min-width: 50px; }
 .mpill-m.short b, .mpill-m.near b { color: var(--dial-under); }
 .mpill-m.past b { color: var(--dial-over); }
 /* a plate carrying a third of the day's salt on its own */

@@ -3088,6 +3088,11 @@
     });
     function signed(v) { return (v > 0 ? '+' : '') + v; }
     function sign(v) { return v > 0 ? 'pos' : v < 0 ? 'neg' : 'nil'; }
+    /* Each row's verdict and how full it is, kept as the bars are built so the
+       folded pills can wear the same two. Folding the card must not change
+       what the day is said to be — the pills are the same reading, a line
+       high, not a second opinion. */
+    var barState = {}, barPct = {};
     var bars = ROWS.map(function (row) {
       var m = row[0];
       var target = Math.max(1, m === 'kcal' ? tK : targets[m]);
@@ -3119,6 +3124,8 @@
       var near = m === 'kcal' ? Math.abs(diff) <= target * 0.03 : Math.abs(diff) <= 10;
       var overAt = m === 'p' ? 110 : m === 'kcal' ? 105 : 100;
       var state = near ? 'on' : pct > overAt ? 'over' : pct >= 90 ? 'on' : 'under';
+      barState[m] = state;
+      barPct[m] = Math.min(100, pct);
       var wAte = Math.min(100, 100 * ate / target);
       var wPlan = Math.min(100 - wAte, 100 * (plan - ate) / target);
       var wAsm = Math.min(100 - wAte - wPlan, 100 * assume / target);
@@ -3194,15 +3201,49 @@
        has scrolled and the bars would be eating the screen. Four signed
        deltas, then fibre and sodium against their floor and ceiling.
        Pressing the row scrolls back up to the bars it stands in for. */
+    /* Each pill IS its own bar. Folded, the row used to give the gap and never
+       the proportion — minus twenty-four reads the same whether you are five
+       per cent off or half a day off, and four pills all reading "under" in
+       the same grey say nothing about which one still has a third of the day
+       in it.
+     *
+       There is no room to draw a bar beside the number: six of these only
+       just fit a 375-wide phone. But a pill is already a rounded box with a
+       background, so it does not need one drawn inside it — it fills left to
+       right instead, and costs nothing. The fill is the PALE tone the open
+       bars use for planned-not-eaten, because a solid one would win the
+       contrast fight against the number sitting on it; and it stops at full,
+       so over target fills the pill and lets the figure carry the overshoot,
+       which is the rule the bars already follow.
+     *
+       Verdict and fill both come from the row above, so folding the card
+       cannot change what the day is said to be.
+     *
+       And the denominators go. The fill says the proportion now, so "/2300"
+       says it a second time — and dropping it is what buys every pill the
+       same width, which is the point: six fills only compare by eye if the
+       boxes match. The open bars keep both numbers. */
+    var fillPill = function (cls, tone, pct, body) {
+      return '<span class="mpill ' + cls + '" style="background:linear-gradient(90deg,' +
+        tone + ' 0 ' + pct.toFixed(1) + '%,var(--paper-soft) ' + pct.toFixed(1) + '%)">' +
+        body + '</span>';
+    };
+    var TONE = { under: 'var(--dial-under-pale)', on: 'var(--dial-on-pale)',
+      over: 'var(--dial-over-pale)', short: 'var(--dial-under-pale)',
+      met: 'var(--dial-on-pale)', quiet: 'var(--mlim-quiet-pale)',
+      near: 'var(--dial-under-pale)', past: 'var(--dial-over-pale)' };
     var pills = ROWS.map(function (row) {
       var m = row[0];
-      return '<span class="mpill ' + sign(left[m]) + '">' +
-        '<span class="mb-' + m + '">' + row[1] + '</span><b>' + signed(left[m]) + '</b></span>';
+      return fillPill(sign(left[m]), TONE[barState[m]] || TONE.under, barPct[m] || 0,
+        '<span class="mb-' + m + '">' + row[1] + '</span><b>' + signed(left[m]) + '</b>');
     }).join('') +
-      '<span class="mpill mpill-m ' + fibState + '">\uD83C\uDF3E<b>' + fib + '</b>/' + fibFloor + '</span>' +
-      // no thousands separators here: "1474/2300" is how the sodium pill fits
-      // a 375-wide phone beside the other five, and it is how Blake writes it
-      '<span class="mpill mpill-m ' + naState + '">\uD83E\uDDC2<b>' + na + '</b>/' + naCap + '</span>';
+      fillPill('mpill-m ' + fibState, TONE[fibState], Math.min(100, 100 * fib / fibFloor),
+        '🌾<b>' + fib + '</b>') +
+      /* no thousands separator: the comma is four pixels, and four pixels is
+         the difference between six pills fitting a 375-wide phone and a
+         clipped sixth one, which reads as a bug */
+      fillPill('mpill-m ' + naState, TONE[naState], Math.min(100, 100 * na / naCap),
+        '🧂<b>' + na + '</b>');
 
     /* The bars are the door to their own history. Tapping the summary to see
        the detail costs no navigation and puts the two in the same place. */
