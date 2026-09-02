@@ -476,12 +476,13 @@ select { max-width: 280px; }
    say where it begins, and six framed boxes down a phone is a stack of
    boxes rather than a day. */
 .mslot { margin-bottom: 0; }
-/* Six things across a phone now that the fold has a button of its own, so
-   the gap tightens and nothing in here is allowed to break across two lines:
-   an "+ Add" wrapping to "+ / Add" doubles the height of every meal on the
-   day, which is what the two-line header was built to avoid in the first
-   place. If a row still runs out of width it is the meal's NAME that gives,
-   because the name is the one thing the card below it repeats. */
+/* Up to six things across a phone — a meal with two plates carries the
+   balance scale as well — so the gap is tight and nothing in here may break
+   across two lines: a "+ Add" wrapping to "+ / Add" doubles the height of
+   every meal on the day, which is what the two-line header was built to
+   avoid in the first place. If a row still runs out of width it is the
+   meal's NAME that gives, because the name is the one thing the card below
+   it repeats. Measured: clean at 360 and up, the name clips on a 320. */
 .mslot-h { display: flex; align-items: center; gap: 5px; padding: 8px 10px 4px; }
 .mslot-h .ghost { white-space: nowrap; flex: none; }
 .mslot-h .mslot-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -499,30 +500,30 @@ select { max-width: 280px; }
   font-weight: 600; color: oklch(0.40 0.03 65);
   display: inline-flex; align-items: center;
 }
-/* The fold, over on the right with the other controls, because that is where
-   a thumb is on a phone — the name at the far left folds it too, but nobody
-   reaches across a screen for a word. It is bordered like the buttons beside
-   it: on this row, a thing you press looks like the things you press.
-   `margin-left: auto` opens the gap, the same job .mslot-try used to do
-   alone; whichever of the two comes first takes the free space. */
-.mslot-fold {
-  margin-left: auto; flex: none; padding: 3px 9px; font-size: 13px;
-  line-height: 1.15; color: var(--ochre-text);
-}
-/* The glyph turns rather than swapping for another one, so the direction it
-   points is the direction the press goes. Rotating the span and not the
-   button leaves the tap target square. */
-.mslot-fold span { display: block; transition: transform 0.15s ease; }
-.mslot-fold[aria-expanded="false"] span { transform: rotate(-90deg); }
-@media (prefers-reduced-motion: reduce) {
-  .mslot-fold span { transition: none; }
-}
-/* the meal's four numbers, in the bars' own colours */
+/* The fold lives on the seam, not in the header — see .mslot-sub below. A
+   boxed caret up here read as a third action button beside Add and the retry,
+   and on a meal carrying the scale as well it made four boxes fighting over
+   one row. */
+/* The meal's four numbers, in the bars' own colours — and the handle that
+   opens and shuts it. This strip is the seam: the plates appear and disappear
+   directly beneath it, so it is the one edge in the card that actually moves.
+   Being the whole width of the card, it is also the largest target on the
+   screen, which a glyph in a header never was. */
 .mslot-sub {
-  display: flex; gap: 13px; padding: 5px 10px; margin: 0;
-  background: var(--paper-soft); border-top: 1px solid var(--line-soft);
+  display: flex; align-items: center; gap: 13px; padding: 5px 10px; margin: 0;
+  width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line-soft);
+  background: var(--paper-soft); font-family: var(--sans); cursor: pointer;
   font-size: 11px; color: var(--muted-2); font-variant-numeric: tabular-nums;
 }
+.mslot-sub:hover { background: var(--paper); }
+/* Small, quiet, and on the end of a line that was already there: the mark
+   says which way the next press goes without becoming another control. */
+.mfold-cue {
+  margin-left: auto; flex: none; font-size: 12px; line-height: 1; display: block;
+  color: var(--muted); opacity: 0.65; transition: transform 0.15s ease;
+}
+[aria-expanded="false"] > .mfold-cue { transform: rotate(-90deg); }
+@media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
 .mslot-sub i { font-style: normal; font-weight: 700; font-size: 9.5px; margin-right: 3px; }
 .mslot-items, .mslot-thin { padding: 8px 10px 6px; }
 .mslot-try {
@@ -1310,7 +1311,7 @@ select { max-width: 280px; }
 .mday-rail { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 /* Anything scrolled to — by the browser, by a test, by a tap on a link —
    must not land beneath the block pinned over the top of it. */
-#macroPlan, .mday-stop, .mday-acts { scroll-margin-top: calc(var(--topbar-h, 60px) + 150px); }
+.mday-stop, .mday-acts { scroll-margin-top: calc(var(--topbar-h, 60px) + 150px); }
 .mday-stop {
   border: 1px solid var(--line-soft); border-radius: 7px; background: var(--card);
   padding: 0 0 2px; overflow: hidden;
@@ -2523,3 +2524,24 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   color: var(--ochre-text); font-weight: 600; }
 .rp .lift-w { font-style: italic; color: var(--ochre-text); }
 .rp .lift-p { color: oklch(0.44 0.02 65); }
+
+/* ---- the morning card's own two lines ----
+   The plan, on the face, under the number it is about. Its own line rather
+   than a second card, because a number and what the number means were never
+   two subjects. */
+.mw-verdict {
+  padding: 2px 10px 7px; font-size: 12.5px; color: var(--muted-2); line-height: 1.4;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px;
+  width: 100%; text-align: left; background: none; border: 0;
+  font-family: var(--sans); cursor: pointer;
+}
+button.mw-verdict:hover { background: var(--paper-soft); }
+.mw-verdict .mfold-cue { align-self: center; }
+.mw-verdict b { color: var(--ink); font-weight: 600; }
+.mw-verdict .mplan-go { flex: none; }
+/* the way into the plan, at the foot of what it produced */
+.mw-adj { display: flex; justify-content: flex-end; margin-top: 9px; }
+/* The morning line sits inside the card now, so it drops the card of its own
+   it used to wear and keeps only the colour that says which kind it is. */
+.mday-weigh .mline { margin: 0; border-radius: 0; border-left-width: 3px; border-right: 0;
+  border-top: 1px solid var(--line-soft); border-bottom: 0; }

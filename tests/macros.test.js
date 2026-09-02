@@ -3,6 +3,19 @@
  * page actually shows, never against counts or macros written down here —
  * the data is rebuilt too often for a copied answer to stay true. */
 
+/* The way into the plan lives behind the morning card's press now that the
+   weigh-in and the plan card are one card: on the face while there is no plan
+   to adjust, folded away with the rest of the evidence once there is. Every
+   test that used to reach straight for the button opens the card first, the
+   way a thumb would. */
+async function openPlan(pg) {
+  if (!await pg.$('#macroTargBtn')) {
+    const handle = await pg.$('.mday-weigh [data-mfold]');
+    if (handle) { await handle.click(); await pg.waitForTimeout(250); }
+  }
+  await pg.click('#macroTargBtn');
+}
+
 module.exports = {
   name: 'Macros',
   async run(t) {
@@ -134,7 +147,7 @@ module.exports = {
         const k = [...document.querySelectorAll('.mwk-k')].map((e) => e.textContent);
         return k.length === 7 && new Set(k).size === 1;
       }), await p.textContent('.mweek'));
-    await p.click('#macroTargBtn');
+    await openPlan(p);
     await p.waitForTimeout(200);
     await p.fill('#mtWorkouts', '4');
     await p.click('[data-mtarg="save"]');
@@ -169,7 +182,7 @@ module.exports = {
         return num('p') === t2.p && num('f') === t2.f && num('c') !== t2.c;
       }));
     // and a day can be flipped by hand without the workouts box undoing it
-    await p.click('#macroTargBtn');
+    await openPlan(p);
     await p.waitForTimeout(200);
     await p.click('[data-mtrain="1"]');
     await p.waitForTimeout(250);
@@ -183,11 +196,13 @@ module.exports = {
 
     /* Crafting a plan is a once-a-season job, so the daily screen carries
        what the plan is DOING rather than a button for making one. With no
-       plan yet, that same line is the invitation. */
-    t.ok('with no plan, the line asks for one',
-      /No plan yet/.test(await p.textContent('#macroPlan')) &&
-      /Craft my plan/.test(await p.textContent('#macroPlan')),
-      await p.textContent('#macroPlan'));
+       plan yet, that same line is the invitation — and it is on the FACE of
+       the morning card, because a first morning that hides the way in behind
+       a press is a first morning with nowhere to go. */
+    t.ok('with no plan, the line asks for one, out in the open',
+      /No plan yet/.test(await p.textContent('.mw-verdict')) &&
+      /Craft my plan/.test(await p.textContent('.mw-verdict')),
+      await p.textContent('.mw-verdict'));
 
     /* The four presets are rates, the way RP frames a cut — a percent of
        bodyweight a week, not a percent off the day's burn — so each one
@@ -200,7 +215,7 @@ module.exports = {
       }));
     await p.reload();
     await p.waitForTimeout(300);
-    await p.click('#macroTargBtn');
+    await openPlan(p);
     await p.waitForTimeout(250);
     const kcalNow = () => p.evaluate(() => Number(document.getElementById('mtBigKcal').textContent));
     const RATE = { cut2: 0.010, cut1: 0.0075, keep: 0, gain: -0.0025 };
@@ -575,7 +590,7 @@ module.exports = {
     });
     await p.reload();
     await p.waitForTimeout(300);
-    await p.click('#macroTargBtn');
+    await openPlan(p);
     await p.waitForTimeout(250);
     await p.evaluate(() => {
       if (document.getElementById('mtEditor').classList.contains('hide')) {
@@ -647,7 +662,7 @@ module.exports = {
       await p.evaluate(() => localStorage.getItem('bsc.macroTargets').indexOf('150') >= 0));
 
     // ---- edit the targets; they hold across a reload
-    await p.click('#macroTargBtn');
+    await openPlan(p);
     await p.waitForTimeout(150);
     await p.fill('#mtP', '150');
     await p.fill('#mtF', '40');
@@ -864,7 +879,7 @@ module.exports = {
         !document.querySelector('.mitem.eaten')));
 
     // ---- over budget: shrink the targets under what is planned
-    await p.click('#macroTargBtn');
+    await openPlan(p);
     await p.waitForTimeout(150);
     await p.fill('#mtP', '1');
     await p.fill('#mtF', '1');
@@ -907,7 +922,7 @@ module.exports = {
     t.ok('the bar caps at full rather than running past its own end',
       await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow'))
         .every((d) => Number(d.dataset.planned) <= 100 && Number(d.dataset.eaten) <= 100)));
-    await p.click('#macroTargBtn');
+    await openPlan(p);
     await p.waitForTimeout(150);
     await p.fill('#mtP', '150');
     await p.fill('#mtF', '40');
@@ -1047,7 +1062,7 @@ module.exports = {
     await q.click('.tab[data-view="macros"]');
     await q.waitForTimeout(150);
 
-    await q.click('#macroTargBtn');
+    await openPlan(q);
     await q.waitForTimeout(200);
     t.ok('an empty profile asks for the numbers rather than inventing a plan',
       /fill in who you are/i.test(await q.textContent('#mtPlan')),
@@ -1113,7 +1128,7 @@ module.exports = {
     /* Answer first: once the plan computes, the sheet opens on the number and
        the form folds behind one line. The first visit, with nothing to
        compute from, opens the form instead — there is no answer to lead with. */
-    await q.click('#macroTargBtn');
+    await openPlan(q);
     await q.waitForTimeout(250);
     t.ok('a known profile opens on the answer, with the form folded away',
       await q.evaluate(() => document.getElementById('mtEditor').classList.contains('hide') &&
@@ -1230,7 +1245,7 @@ module.exports = {
 
     /* With a goal and a date, the line says the destination, the distance
        and — once the scale has two weeks to compare — whether it agrees. */
-    await q.click('#macroTargBtn');
+    await openPlan(q);
     await q.waitForTimeout(250);
     // a known profile opens on the answer, so unfold the ledger to reach the goal
     await q.evaluate(() => {
@@ -1248,17 +1263,23 @@ module.exports = {
     await q.fill('#mtGoalBy', tenWeeks);
     await q.click('[data-mtarg="save"]');
     await q.waitForTimeout(300);
-    const narr = () => q.textContent('#macroPlan');
+    const narr = () => q.textContent('.mw-verdict');
     t.ok('the line names the destination and the distance',
       /185 lb by/.test(await narr()) && /lb to go over 10 weeks/.test(await narr()), await narr());
-    t.ok('and asks for mornings before it judges the pace',
-      /two weeks of mornings|Two weeks of mornings/i.test(await narr()), await narr());
-    t.ok('with Adjust as the way back in, not a standing button',
+    /* It used to add "Two weeks of mornings and this says whether you are on
+       pace" here — the app explaining itself, which is the one thing the copy
+       is not for. With nothing to judge yet it simply claims no verdict. */
+    t.ok('and claims no verdict until the scale has one, without explaining why',
+      !/mornings|on pace|behind pace|ahead of pace/i.test(await narr()), await narr());
+    t.ok('with the way back into the plan behind the press, not standing on the face',
       await q.evaluate(() => {
-        const b2 = document.querySelector('#macroPlan #macroTargBtn');
-        return b2 && b2.textContent.trim() === 'Adjust' &&
+        const face = document.querySelector('.mw-verdict #macroTargBtn');
+        const body = document.querySelector('.mw-body #macroTargBtn');
+        return !face && !!body && /Adjust/.test(body.textContent) &&
           !document.querySelector('.mday-head #macroTargBtn');
-      }));
+      }),
+      await q.evaluate(() => 'face:' + !!document.querySelector('.mw-verdict #macroTargBtn') +
+        ' body:' + ((document.querySelector('.mw-body #macroTargBtn') || {}).textContent || 'none')));
 
     /* Two weeks of mornings, losing a pound a week against a goal that needs
        about two — the line should say so rather than flatter it. */
@@ -1306,9 +1327,21 @@ module.exports = {
     await q.reload();
     await q.waitForTimeout(400);
 
+    /* The verdict and the arithmetic behind it sit on opposite sides of the
+       fold, and deliberately so: "behind pace" is the line you steer by, so
+       it is on the face; "Averaging 200.2 lb, down 0.5 a week. Needs 1.5."
+       is the evidence for it, and evidence lives behind the press with the
+       rest of the evidence. So this pair reads both sides. */
+    const detail = async () => {
+      if (!await q.$('.mw-body')) {
+        await q.click('.mw-verdict');
+        await q.waitForTimeout(300);
+      }
+      return q.textContent('.mw-body');
+    };
     t.ok('once there are mornings, the scale gets an opinion',
-      /Averaging /.test(await narr()) && /Needs /.test(await narr()), await narr());
-    t.ok('and it is behind pace, because a pound a week is not two',
+      /Averaging /.test(await detail()) && /Needs /.test(await detail()), await detail());
+    t.ok('and it is behind pace, because a pound a week is not two — said on the face',
       /behind pace/.test(await narr()), await narr());
 
     // ---- a favorite never ranks worse for being loved, and wears its star
@@ -1886,7 +1919,7 @@ module.exports = {
     await m.click('.tab[data-view="macros"]');
     await m.waitForTimeout(150);
 
-    await m.click('#macroTargBtn');
+    await openPlan(m);
     await m.waitForTimeout(200);
     t.ok('the sheet starts with the four meals everyone starts with',
       await m.evaluate(() => document.querySelectorAll('#mtMeals .mtm-row').length) === 4);
@@ -1914,7 +1947,7 @@ module.exports = {
       (await slotNames()).length === 5 && (await slotNames())[0] === 'Crio Brü',
       (await slotNames()).join(' | '));
 
-    await m.click('#macroTargBtn');
+    await openPlan(m);
     await m.waitForTimeout(200);
     t.ok('and the shape survives a reopen',
       await m.evaluate(() => {
@@ -1958,7 +1991,7 @@ module.exports = {
     /* Removing a meal from the plan does not remove its history: the plate
        logged under Lunch keeps its card and keeps counting. */
     const beforeP = await m.evaluate(() => document.querySelector('.mb-num').textContent);
-    await m.click('#macroTargBtn');
+    await openPlan(m);
     await m.waitForTimeout(200);
     await m.evaluate(() => {
       const row = [...document.querySelectorAll('#mtMeals .mtm-row')]
@@ -2094,7 +2127,7 @@ module.exports = {
       await z.evaluate(() => document.getElementById('macroRebal').disabled));
 
     // a custom meal draws from exactly the boxes it ticked
-    await z.click('#macroTargBtn');
+    await openPlan(z);
     await z.waitForTimeout(200);
     await z.selectOption('#mtMeals .mtm-row:first-child .mtm-type', 'x');
     await z.waitForTimeout(150);
@@ -2153,7 +2186,7 @@ module.exports = {
     });
     await z.goBack();
     await z.waitForTimeout(250);
-    await z.click('#macroTargBtn');
+    await openPlan(z);
     await z.waitForTimeout(200);
     /* The kind defaults are 20/25/35/10 — a 90 — and the save that switched
        breakfast to custom sections has already squared them to 100, so what
@@ -2183,7 +2216,7 @@ module.exports = {
     await y.waitForTimeout(150);
 
     // shares normalize on Save, and the total line tells the truth meanwhile
-    await y.click('#macroTargBtn');
+    await openPlan(y);
     await y.waitForTimeout(200);
     t.ok('the total says the sum and which way it leans',
       /90%/.test(await y.textContent('#mtmTotal')) &&
@@ -2203,7 +2236,7 @@ module.exports = {
     await y.waitForTimeout(100);
     await y.click('[data-mtarg="save"]');
     await y.waitForTimeout(300);
-    await y.click('#macroTargBtn');
+    await openPlan(y);
     await y.waitForTimeout(200);
     t.ok('Save rescales equal shares to a clean hundred',
       await y.evaluate(() =>
@@ -2426,7 +2459,7 @@ module.exports = {
       await a2.evaluate(() => !window.__pwned && !document.querySelector('img[src="x"]')));
     await a2.goBack();
     await a2.waitForTimeout(250);
-    await a2.click('#macroTargBtn');
+    await openPlan(a2);
     await a2.waitForTimeout(300);
     await a2.evaluate(() => {
       if (document.getElementById('mtEditor').classList.contains('hide')) {
@@ -2503,7 +2536,7 @@ module.exports = {
     await wk.waitForTimeout(380);
     await wk.click('.tab[data-view="macros"]');
     await wk.waitForTimeout(180);
-    await wk.click('#macroTargBtn');
+    await openPlan(wk);
     await wk.waitForTimeout(280);
     await wk.evaluate(() => {
       const g = document.querySelector('[data-mtgoal="cut2"]');
@@ -2588,30 +2621,43 @@ module.exports = {
     const fold = await t.fresh({ viewport: { width: 375, height: 720 } });
     await fold.click('.tab[data-view="macros"]');
     await fold.waitForTimeout(200);
-    await fold.click('#macroTargBtn');
+    await openPlan(fold);
     await fold.waitForTimeout(200);
     await fold.click('[data-mtarg="save"]');
     await fold.waitForTimeout(250);
     await fold.click('#macroFill');
     await fold.waitForTimeout(600);
-    t.ok('a meal with something on it carries a fold button, an empty one does not',
+    t.ok('a meal with something on it carries a handle, an empty one does not',
       await fold.evaluate(() => [...document.querySelectorAll('.mslot')].every((s) => {
-        const has = !!s.querySelector('.mslot-fold');
+        const has = !!s.querySelector('.mslot-sub[data-mfold]');
         const items = s.querySelectorAll('.mitem, .mthin').length > 0;
         return has === items;
       })),
       await fold.evaluate(() => [...document.querySelectorAll('.mslot')].map((s) =>
         (s.querySelector('.mslot-name') || {}).textContent + ':' +
-        (s.querySelector('.mslot-fold') ? 'fold' : 'none')).join(' | ')));
-    t.ok('and it sits on the right of the row, not beside the name',
+        (s.querySelector('.mslot-sub[data-mfold]') ? 'handle' : 'none')).join(' | ')));
+    /* The handle is the seam, not a button in the header: the strip the plates
+       appear and disappear directly beneath, running the whole width of the
+       card. A boxed caret up in the header read as a third action button
+       beside Add and the retry. */
+    t.ok('and the handle is the seam the plates move at, the full width of the card',
       await fold.evaluate(() => {
-        const s = document.querySelector('.mslot-fold');
-        if (!s) return false;
-        const row = s.closest('.mslot-h').getBoundingClientRect();
-        const b = s.getBoundingClientRect();
-        // past the halfway line of its own row
-        return b.left > row.left + row.width / 2;
+        const b = document.querySelector('.mslot-sub[data-mfold]');
+        if (!b) return false;
+        const card = b.closest('.mslot').getBoundingClientRect();
+        const r = b.getBoundingClientRect();
+        const plate = b.parentNode.querySelector('.mslot-items, .mslot-thin');
+        return r.width >= card.width - 4 &&
+          !!plate && plate.getBoundingClientRect().top >= r.bottom - 1;
+      }),
+      await fold.evaluate(() => {
+        const b = document.querySelector('.mslot-sub[data-mfold]');
+        const card = b.closest('.mslot').getBoundingClientRect();
+        return 'handle ' + Math.round(b.getBoundingClientRect().width) +
+          'px of card ' + Math.round(card.width) + 'px';
       }));
+    t.ok('and nothing was added to the header row to do it',
+      await fold.evaluate(() => !document.querySelector('.mslot-h [data-mfold]:not(.mslot-name)')));
     /* Six controls across a 375-wide phone. A wrapped "+ Add" doubles the
        height of every meal on the day, which is the exact thing the two-line
        header was built to avoid. */
@@ -2623,16 +2669,16 @@ module.exports = {
         .join(' | ')));
     const shutBefore = await fold.evaluate(() =>
       document.querySelectorAll('.mslot-thin').length);
-    await fold.click('.mslot-fold');
+    await fold.click('.mslot-sub[data-mfold]');
     await fold.waitForTimeout(300);
     t.ok('and pressing it folds that meal down to its list',
       await fold.evaluate((n) => document.querySelectorAll('.mslot-thin').length === n + 1, shutBefore),
       'thin lists ' + shutBefore + ' → ' +
         await fold.evaluate(() => document.querySelectorAll('.mslot-thin').length));
-    t.ok('and the glyph turns to say which way the next press goes',
+    t.ok('and the mark on its end turns to say which way the next press goes',
       await fold.evaluate(() => {
-        const b = document.querySelector('.mslot-fold[aria-expanded="false"]');
-        return !!b && getComputedStyle(b.querySelector('span')).transform !== 'none';
+        const b = document.querySelector('.mslot-sub[aria-expanded="false"]');
+        return !!b && getComputedStyle(b.querySelector('.mfold-cue')).transform !== 'none';
       }));
     await fold.context().close();
 
@@ -2703,7 +2749,7 @@ module.exports = {
     const ph = await t.fresh({ viewport: { width: 390, height: 720 } });
     await ph.click('.tab[data-view="macros"]');
     await ph.waitForTimeout(200);
-    await ph.click('#macroTargBtn');
+    await openPlan(ph);
     await ph.waitForTimeout(200);
     await ph.click('[data-mtarg="save"]');
     await ph.waitForTimeout(250);

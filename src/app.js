@@ -1703,56 +1703,67 @@
    * the way in tucked on the end. When there is no plan, the same line is
    * the invitation to make one, which is the only moment a button was ever
    * the right answer. */
-  function mPlanNarrative() {
+  /* Whether the scale agrees with the plan, in two words. Both sides are
+     normalized to "progress toward the goal", so the bar to clear is always
+     the positive one. Negating it for a gain goal made every threshold
+     negative, which told somebody trying to put weight ON that standing
+     still — or losing — was ahead of pace. */
+  function mPaceVerdict(st, togo, weeks) {
+    if (!st || st.dWeek === null) return null;
+    var need = Math.abs(togo) / weeks;
+    var moving = -st.dWeek;                         // pounds off per week
+    var got = togo >= 0 ? moving : -moving;         // ...toward the goal
+    return got >= need * 1.15 ? ['ahead of pace', 'good']
+      : got >= need * 0.85 ? ['on pace', 'good'] : ['behind pace', 'off'];
+  }
+
+  /* The plan in one line, for the face of the morning card: the goal, the
+     gap, and whether the scale agrees. That is the fact you steer by, and it
+     is the only part of the plan that earns a place on a screen you open
+     every day — the arithmetic behind the verdict is evidence, and evidence
+     goes behind the press with the rest of the evidence.
+   *
+     What used to sit here and no longer does: "Two weeks of mornings and
+     this says whether you are on pace." That is the app explaining itself,
+     which is the one thing the copy is not for. Before there are two weeks
+     of mornings the card simply does not claim a verdict. */
+  function mPlanFace() {
     var pr = mReadProfile();
     var plan = mPlanCalc(pr);
-    var btn = function (label) {
-      return '<button class="ghost mplan-go no-print" id="macroTargBtn">' + label + '</button>';
-    };
-    if (!plan) {
-      return '<div class="mplan mplan-none">' +
-        '<span class="mplan-t">No plan yet.</span>' + btn('Craft my plan') + '</div>';
-    }
+    if (!plan) return { has: false, html: 'No plan yet.' };
     var pace = mGoalPace(pr);
-    var lines = [];
     if (!pace) {
-      lines.push('<b>' + esc(MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1) + '</b> &middot; ' +
-        plan.kcal + ' kcal a day');
-      lines.push('Name a weight and a date to track the arrival.');
-    } else {
-      var st = mWeightStats();
-      var now = st ? st.avg7 : pr.lb;
-      var togo = Math.round((now - pr.goalLb) * 10) / 10;
-      var weeks = Math.max(1, Math.round(pace.days / 7));
-      var d = keyDate(pr.goalBy);
-      lines.push('<b>' + pr.goalLb + ' lb by ' + M_MONS[d.getMonth()] + ' ' + d.getDate() + '</b>' +
-        ' &middot; ' + Math.abs(togo) + ' lb to go over ' + weeks +
-        (weeks === 1 ? ' week' : ' weeks'));
-      /* The scale's opinion of the plan. Needs two weeks before it has one:
-         a single week of mornings is water, not a trend. */
-      var need = Math.abs(togo) / weeks;
-      if (!st || st.dWeek === null) {
-        lines.push('Averaging ' + (st ? Math.round(st.avg7 * 10) / 10 + ' lb' : 'nothing yet') +
-          '. Two weeks of mornings and this says whether you are on pace.');
-      } else {
-        /* Both sides are normalized to "progress toward the goal", so the
-           bar to clear is always the positive one. Negating it for a gain
-           goal made every threshold negative, which told somebody trying to
-           put weight ON that standing still — or losing — was ahead of pace. */
-        var moving = -st.dWeek;                       // pounds off per week
-        var got = togo >= 0 ? moving : -moving;       // ...toward the goal
-        var wanted = need;
-        var verdict = got >= wanted * 1.15 ? ['ahead of pace', 'good']
-          : got >= wanted * 0.85 ? ['on pace', 'good']
-            : ['behind pace', 'off'];
-        lines.push('Averaging ' + (Math.round(st.avg7 * 10) / 10) + ' lb, ' +
-          mLbWord(st.dWeek) + ' a week. Needs ' + (Math.round(need * 10) / 10) +
-          '. <span class="mplan-v ' + verdict[1] + '">' + verdict[0] + '.</span>');
-      }
+      return { has: true, html: '<b>' + esc(MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1) +
+        '</b> &middot; ' + plan.kcal + ' kcal a day &middot; name a weight and a date to track the arrival' };
     }
-    return '<div class="mplan">' +
-      '<span class="mplan-t">' + lines.join('<br>') + '</span>' + btn('Adjust') + '</div>';
+    var st0 = mWeightStats();
+    var now0 = st0 ? st0.avg7 : pr.lb;
+    var togo0 = Math.round((now0 - pr.goalLb) * 10) / 10;
+    var weeks0 = Math.max(1, Math.round(pace.days / 7));
+    var d0 = keyDate(pr.goalBy);
+    var out = '<b>' + pr.goalLb + ' lb by ' + M_MONS[d0.getMonth()] + ' ' + d0.getDate() +
+      '</b> &middot; ' + Math.abs(togo0) + ' lb to go over ' + weeks0 +
+      (weeks0 === 1 ? ' week' : ' weeks');
+    var v0 = mPaceVerdict(st0, togo0, weeks0);
+    if (v0) out += ' <span class="mplan-v ' + v0[1] + '">' + v0[0] + '</span>';
+    return { has: true, html: out };
   }
+
+  /* The arithmetic the verdict came out of, for behind the press. Silent
+     until the scale has an opinion: one week of mornings is water, not a
+     trend, and a line that says so is a line about the app. */
+  function mPlanDetail() {
+    var pr = mReadProfile();
+    if (!mPlanCalc(pr)) return '';
+    var pace = mGoalPace(pr);
+    var st = mWeightStats();
+    if (!pace || !st || st.dWeek === null) return '';
+    var togo = Math.round((st.avg7 - pr.goalLb) * 10) / 10;
+    var weeks = Math.max(1, Math.round(pace.days / 7));
+    return 'Averaging ' + (Math.round(st.avg7 * 10) / 10) + ' lb, ' + mLbWord(st.dWeek) +
+      ' a week. Needs ' + (Math.round(Math.abs(togo) / weeks * 10) / 10) + '.';
+  }
+
 
   /* One sentence, and most mornings it says nothing to do.
    *
@@ -1975,12 +1986,29 @@
     } else {
       body = '<div class="mw-stat">The seven-day average appears here.</div>';
     }
-    /* The same card the meals wear: the number you type is the header,
-       because that is the whole job most mornings, and the trend and the
-       sparkline fold away behind the same press. It kept its place at the
-       top of the day — it is the first thing you do — but it stopped being
-       four lines of statistics you did not ask for. */
+    /* ---- the morning card ----
+     * The same card the meals wear, and now the whole morning rather than
+     * half of it. The weigh-in and the plan were two cards saying one thing:
+     * one held the number, the other held what the number meant, and reading
+     * the second meant carrying the first down the screen to it. Together
+     * they took about two hundred pixels before the day reached any food.
+     *
+     * What is on the face is what you do every morning and the one line that
+     * says whether it is working. What is behind the press is the evidence
+     * for that line — the average, the week, the sparkline, and the way in to
+     * change the plan. Crafting a plan is a once-a-season job and does not
+     * get a permanent seat; the press is the same one the meal cards wear,
+     * so the gesture is already learned by the time it is needed here, and
+     * "Craft my plan" stays in the gear as a second way in.
+     *
+     * The one exception on the face is the morning line, and it earns it by
+     * being rare and by being the only line in the app that ever tells you
+     * NOT to act on the number above it. A salt jump you cannot see is a
+     * salt jump you cut calories over. */
     var shut = S.mFold.weigh !== false;
+    var face = mPlanFace();
+    var detail = mPlanDetail();
+    if (detail) body = '<div class="mw-stat">' + detail + '</div>' + body;
     var head = st && st.n >= 2
       ? Math.round(st.avg7 * 10) / 10 + ' lb avg' +
         (st.dWeek === null ? '' : ' &middot; ' + mLbWord(st.dWeek) + ' this week')
@@ -1997,7 +2025,28 @@
           : '<label class="mt-lab no-print">Weight <input type="number" id="mWeight" min="0" max="1500" ' +
             'step="0.1" inputmode="decimal" value="' + (v || '') + '"> lb</label>') +
       '</div>' +
-      (shut ? '' : '<div class="mw-body">' + body + '</div>');
+      /* The plan, one line, on the face — and the same handle the meals wear,
+         on the seam rather than in the header: this line is the last thing
+         above what folds away, so the mark on the end of it is sitting at the
+         edge that moves.
+       *
+         With no plan yet the line is the invitation instead, and then it is
+         not a handle at all: it carries a button of its own, and a button
+         inside a button is not a thing. The name still folds the card. */
+      (face.has
+        ? '<button class="mw-verdict" data-mfold="weigh" aria-expanded="' +
+          (shut ? 'false' : 'true') + '" aria-label="' +
+          (shut ? 'Open the trend and the plan' : 'Fold the trend and the plan') + '">' +
+          face.html + '<span class="mfold-cue" aria-hidden="true">&#8964;</span></button>'
+        : '<div class="mw-verdict">' + face.html +
+          ' <button class="ghost mplan-go no-print" id="macroTargBtn">Craft my plan</button></div>') +
+      mMorningHTML(k) +
+      (shut ? '' : '<div class="mw-body">' + body +
+        (face.has
+          ? '<div class="mw-adj no-print">' +
+            '<button class="ghost mplan-go" id="macroTargBtn">Adjust my plan</button></div>'
+          : '') +
+      '</div>');
   }
 
   /* Everything on the day counts against the budget, eaten or not — putting a
@@ -2582,25 +2631,6 @@
           '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
             (folded ? 'false' : 'true') + '">' + esc(name) + '</button>' +
           mVerdictHTML(sk, items, onPlan, targets, slots) +
-          /* The fold, where the hand already is: first of the controls on the
-             right, so it sits under a thumb rather than across the screen at
-             the start of the name.
-           *
-             A chevron, and deliberately not a plus and a minus. "+ Add" is on
-             this very row — two different plusses a centimetre apart, one
-             meaning "open this" and the other "put food in this", is a
-             misread waiting to happen on a thumb-sized target. It turns a
-             quarter of the way round rather than swapping glyph, so the
-             direction of the press is the direction it points.
-           *
-             Only where there is something to fold: an empty meal has nothing
-             to open, the same rule the balance scale already follows. */
-          (items.length
-            ? '<button class="ghost mslot-fold no-print" data-mfold="' + esc(sk) + '"' +
-              ' aria-expanded="' + (folded ? 'false' : 'true') + '"' +
-              ' aria-label="' + (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
-              '<span aria-hidden="true">&#8964;</span></button>'
-            : '') +
           /* Only where there is something to solve. One plate has a stepper
              and needs no algebra; two or more is the question this answers,
              and a button on every meal from breakfast onward would be four
@@ -2615,12 +2645,22 @@
           (onPlan ? '<button class="ghost mslot-add no-print" data-mslot="' + esc(sk) + '">+ Add</button>' : '') +
         '</div>' +
         /* What the meal comes to, in the same four colours the bars use. */
-        (rows ? '<div class="mslot-sub">' +
+        /* The handle is the bar the fold actually happens at. A boxed caret up
+           in the header read as a third action button beside Add and the
+           retry, and on a meal that also carries the scale it made four boxes
+           fighting over one row. This is the seam instead: the meal's own
+           numbers, sitting exactly where the plates appear and disappear,
+           with a small mark on the end saying which way the next press goes.
+           Full width, so the target is the whole strip rather than a glyph. */
+        (rows ? '<button class="mslot-sub" data-mfold="' + esc(sk) + '" aria-expanded="' +
+            (folded ? 'false' : 'true') + '" aria-label="' +
+            (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
           '<span>' + Math.round(sub.kcal) + '</span>' +
           '<span><i class="mb-p">P</i>' + Math.round(sub.p) + '</span>' +
           '<span><i class="mb-f">F</i>' + Math.round(sub.f) + '</span>' +
           '<span><i class="mb-c">C</i>' + Math.round(sub.c) + '</span>' +
-        '</div>' : '') +
+          '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
+        '</button>' : '') +
         (folded
           ? '<div class="mslot-thin">' + items.map(function (it) {
               var r2 = BY_ID[it.id];
@@ -2660,9 +2700,6 @@
        them. The row itself is static markup and keeps its own handler; only
        what is inside it changes. */
     $('macroPills').innerHTML = readout.pills;
-    /* Rebuilt every render, so the button inside it is new each time — the
-       handler is delegated from the container rather than bound to it. */
-    $('macroPlan').innerHTML = mPlanNarrative();
     /* The scale's box is a draft like the join code and the picker's search:
        a sync emit arriving mid-keystroke must not replace "187.4" with the
        last saved value while the pending save still holds what was typed. */
@@ -2675,7 +2712,6 @@
     }
     // the first stop of the day fills in once the scale has been read
     $('macroWeigh').classList.toggle('done', MWEIGHTS[k] > 0);
-    $('macroLine').innerHTML = mMorningHTML(k);
 
     /* A day with a different plan is a card of a different height, so the
        fold's measurements go out with the markup they were taken from and
@@ -6344,7 +6380,11 @@
          it is small or it is wrong. */
       if (foldGap < 0 && !st.style.marginBottom &&
           (window.scrollY || window.pageYOffset || 0) <= 0) {
-        var next = $('macroPlan');
+        /* Whatever actually follows the card, rather than a card named here:
+           the plan card that used to sit there has been folded into the
+           weigh-in, and a gap measured against a node that no longer renders
+           is a gap of zero and an eight-pixel step on every fold. */
+        var next = st.nextElementSibling;
         // a tab that is not on screen has no gap to read; wait for one that has
         if (next && st.getBoundingClientRect().height > 0) {
           foldGap = Math.max(0, Math.min(64,
@@ -7812,16 +7852,6 @@
       keepingFocus(renderMacros);
     });
 
-    $('macroPlan').addEventListener('click', function (e) {
-      if (!e.target.closest('#macroTargBtn')) return;
-      rememberOpener();
-      S.macroTargOpen = true;
-      pushSheet({ m: 1 });
-      renderModal();
-      var f = $('mtGoalLb') || $('mtP');
-      if (f) f.focus();
-    });
-
     $('macroWeek').addEventListener('click', function (e) {
       var d = e.target.closest('[data-mweek]');
       if (!d || d.disabled) return;
@@ -7961,7 +7991,7 @@
     /* Eat this instead. It rewrites the day's grams at the same split the
        plan already uses, so the shape of the day survives the change — only
        its size moves. */
-    $('macroLine').addEventListener('click', function (e) {
+    $('macroWeigh').addEventListener('click', function (e) {
       var b = e.target.closest('[data-mline]');
       if (!b) return;
       var parts = b.dataset.mline.split(':');
@@ -7982,6 +8012,17 @@
     });
 
     $('macroWeigh').addEventListener('click', function (e) {
+      /* The way into the plan, wherever the card is showing it: on the face
+         while there is no plan to adjust, behind the press once there is. */
+      if (e.target.closest('#macroTargBtn')) {
+        rememberOpener();
+        S.macroTargOpen = true;
+        pushSheet({ m: 1 });
+        renderModal();
+        var tf = $('mtGoalLb') || $('mtP');
+        if (tf) tf.focus();
+        return;
+      }
       var wf = e.target.closest('[data-mfold]');
       if (!wf) return;
       S.mFold.weigh = !(wf.getAttribute('aria-expanded') === 'false');
