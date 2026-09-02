@@ -436,6 +436,29 @@
   var SINGULAR = {};
   Object.keys(PLURAL).forEach(function (k) { SINGULAR[PLURAL[k]] = k; });
 
+  /* The nouns the books actually yield in — "6 Small Oat Bites", "4 Wrap
+     Rolls", "2 Loaves" — read off the servings lines in data/recipes.js
+     rather than guessed at. Deliberately NOT merged into PLURAL above:
+     that map is also run over ingredient text, where "1 cake flour" doubled
+     would come out "2 cakes flour". A yield is not an ingredient. */
+  var YIELDS = {
+    bite: 'bites', bowl: 'bowls', roll: 'rolls', sandwich: 'sandwiches',
+    glass: 'glasses', mug: 'mugs', square: 'squares', burrito: 'burritos',
+    cookie: 'cookies', jar: 'jars', quesadilla: 'quesadillas', pop: 'pops',
+    popsicle: 'popsicles', half: 'halves', pancake: 'pancakes', taco: 'tacos',
+    boat: 'boats', meal: 'meals', taquito: 'taquitos', wrap: 'wraps',
+    pizza: 'pizzas', tomato: 'tomatoes', sub: 'subs', dumpling: 'dumplings',
+    waffle: 'waffles', loaf: 'loaves', cake: 'cakes', bar: 'bars',
+    tortilla: 'tortillas', container: 'containers'
+  };
+  var YIELD_ONE = {};
+  Object.keys(YIELDS).forEach(function (k) { YIELD_ONE[YIELDS[k]] = k; });
+
+  // plural above one, singular at or below it: "1¾ bites", "¾ bite"
+  function mFixNoun(w, n) {
+    return n > 1 ? (YIELDS[w] || PLURAL[w] || w) : (YIELD_ONE[w] || SINGULAR[w] || w);
+  }
+
   function fixUnit(rest, n) {
     var m = rest.match(/^([a-z]+)\b/i);
     if (!m) return rest;
@@ -2201,21 +2224,61 @@
       Math.round((mac.c || 0) * x) + '<i class="mb-c">C</i>';
   }
 
-  /* How much of a plate this is, in words a kitchen uses: "1 cup · 130 g",
-     "2 whole · 100 g", "1½ servings", "1 plate · 5 parts". A bare unit was
-     the complaint — "serving" next to a kept-together salad said nothing
-     about how much salad — so a food shows its weight, a kept meal how many
-     things went into it, and a recipe how many of its servings. */
-  function mPortionText(r, x) {
-    var n = r.food ? x : x * (r.servN || 1);
-    var unit = r.food ? String(r.unit || 'serving') : 'serving';
-    var grams = r.grams ? Math.round(r.grams * n) : 0;
-    if (unit === 'g') return (grams || Math.round(100 * n)) + ' g';   // a food with no unit of its own
-    var head = unit === 'each' ? fmtNum(n) + ' whole' : fmtNum(n) + ' ' + fixUnit(unit, n);
+  /* What one portion of this is CALLED, in the recipe's own words. A recipe's
+     servings line is a yield — "6 Small Oat Bites", "4 Servings", "2 Loaves"
+     — and the noun on the end of it is the name of one of them. The last word
+     is what keeps it short enough to sit on the stepper: a day counted in
+     "Meal Prep Containers" is counted in containers. A food carries its unit
+     outright. */
+  function mUnitWord(r) {
+    if (r.food) return String(r.unit || 'serving');
+    // a parenthetical or an aside after a dash describes the yield, it is not the yield
+    var s = String(r.servings || '').split(' (')[0].split('—')[0].split('–')[0];
+    // strip the count off the front — digits, fractions and an optional "about"
+    s = s.replace(/^\s*(?:about\s+)?[\d\s.\/¼-¾⅐-⅞-]*/i, '');
+    var w = (s.match(/[A-Za-z][A-Za-z'’]*\s*$/) || [''])[0].trim().toLowerCase();
+    return w || 'serving';
+  }
+
+  /* How much of a plate this is, in two halves.
+   *
+     `head` is the portion itself — "1¾ bites", "¾ serving", "1 cup" — and
+     goes on the stepper, beside the buttons that change it. `detail` is
+     whatever else is worth knowing about that much: a weight, or how many
+     things went into a meal you kept together. A bare unit was the original
+     complaint — "serving" next to a kept-together salad said nothing about
+     how much salad.
+   *
+     `x` is servings EATEN, so the portion is x of them and nothing else.
+     This used to multiply by servN as well, which counted the recipe's whole
+     yield a second time: a plate holding 1¾ of a six-bite batch announced
+     itself as "10½ servings" while the macro line beside it — correctly —
+     charged for 1¾. Every macro, bar and solver in the app has always used x
+     straight, so only this line was ever wrong; it was wrong on every recipe
+     that makes more than one serving. */
+  function mPortion(r, x) {
+    var unit = mUnitWord(r);
+    var grams = r.grams ? Math.round(r.grams * x) : 0;
+    if (unit === 'g') return { head: (grams || Math.round(100 * x)) + ' g', detail: '' };
+    var head = unit === 'each' ? fmtNum(x) + ' whole'
+      : fmtNum(x) + ' ' + (r.food ? fixUnit(unit, x) : mFixNoun(unit, x));
     if (r.parts && r.parts.length) {
-      return head + ' · ' + r.parts.length + (r.parts.length === 1 ? ' part' : ' parts');
+      return { head: head, detail: r.parts.length + (r.parts.length === 1 ? ' part' : ' parts') };
     }
-    return grams ? head + ' · ' + grams + ' g' : head;
+    return { head: head, detail: grams ? grams + ' g' : '' };
+  }
+
+  // the whole phrase, for the places that have room for it
+  function mPortionText(r, x) {
+    var p = mPortion(r, x);
+    return p.detail ? p.head + ' · ' + p.detail : p.head;
+  }
+
+  /* What the recipe makes, which is the other half of "1¾ of what": the
+     stepper says how much you are having, this says how much there was.
+     Only worth saying when it makes more than one — "makes 1" is noise. */
+  function mYieldText(r) {
+    return (!r.food && r.servN > 1) ? 'makes ' + fmtNum(r.servN) : '';
   }
 
   /* The week you are in, seven buttons wide: each day's letter, its date, and
@@ -2373,6 +2436,9 @@
         if (!r) return '';
         var tag = sk + ':' + i;
         var pinned = pins.some(function (p) { return p.id === it.id; });
+        // what you are having, and what there was to have
+        var port = mPortion(r, it.x);
+        var yieldT = mYieldText(r);
         /* The tick and the name are separate targets on purpose: the box says
            "I ate it", the name opens the recipe to see what "it" is. When the
            two shared a label, reading the recipe cost you a phantom tick. */
@@ -2420,34 +2486,45 @@
               '</button>' +
             '</span>' +
           '</span>' +
-          /* Where it came from and what one of it is — the two questions a
-             number on a plate cannot answer by itself. */
+          /* Where it came from, how much it makes, and what it costs — one
+             row. The four numbers used to be a line of their own underneath;
+             they carry no pill border here, so among a row of labels the
+             thing without a border is the data. They wrap onto their own
+             line when the tags fill the width, which is the same thing the
+             old layout did, just not every time. */
           '<span class="mitem-chips">' +
             // the book's short name — its full title is half a phone wide
             '<span class="mchip">' + esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) + '</span>' +
-            '<span class="mchip">' + esc(mPortionText(r, it.x)) + '</span>' +
+            (yieldT ? '<span class="mchip">' + esc(yieldT) + '</span>' : '') +
+            (port.detail ? '<span class="mchip">' + esc(port.detail) + '</span>' : '') +
             (r.est ? '<span class="mchip">~ estimated</span>' : '') +
             mSaltChip(r, it.x) +
+            '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
           '</span>' +
-          '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
-          /* The lock sits on the amount, beside the number it holds still. It
-             lived with the bin, which put "keep this exactly" next to "throw
-             this away" — two different verbs sharing a thumb's width. It
-             guards against the MACHINE, not you: Rebalance leaves a locked
+          /* The amount on one side, the tick on the other, with room between.
+             Eating a plate and resizing one are different verbs, and they
+             were sharing a strip of thumb: the tick sat at the near end of
+             the stepper, exactly where a thumb reaching for "smaller" lands.
+           *
+             The lock stays with the amount, beside the number it holds still.
+             It guards against the MACHINE, not you: Rebalance leaves a locked
              plate alone, but the stepper still works. */
-          '<span class="mstep no-print">' +
-            /* Eaten, held and sized are three things you do to a portion, so
-               they are three buttons on one bar rather than a tick stranded
-               up beside the name with the paperwork. */
+          '<span class="mrow2 no-print">' +
+            '<span class="mstep">' +
+              '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
+                (it.l ? 'true' : 'false') + '" aria-label="' +
+                (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
+              /* The portion, in the units it is a portion OF. It read "×1¾"
+                 for as long as the tab has existed, which names the
+                 arithmetic and not the food — and left "one and three
+                 quarters of WHAT?" with no answer anywhere on the card. */
+              '<span class="mstep-x">' + esc(port.head) + '</span>' +
+              '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
+              '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
+            '</span>' +
             '<label class="mtick"><input type="checkbox" data-meat="' + tag + '"' +
               (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
               ' aria-label="Eaten"></label>' +
-            '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
-              (it.l ? 'true' : 'false') + '" aria-label="' +
-              (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
-            '<span class="mstep-x">&times;' + fmtNum(it.x) + '</span>' +
-            '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
-            '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
           '</span>' +
         '</div>';
       }).join('');
@@ -2495,8 +2572,17 @@
           /* The name is the handle. A meal you have eaten is history — its
              steppers and locks have nothing left to do — so it folds down to
              a list of what was on it, and anything still ahead of you stays
-             open. Pressing the name overrides either way. */
-          '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
+             open. Pressing the name overrides either way.
+           *
+             And now the handle looks like one. The name has always been the
+             fold control with nothing saying so; a caret drawn on the button
+             that is already there beats a second, smaller target beside it,
+             and beats a seventh control on a row that carries six. It is
+             drawn in CSS off this class rather than added to the markup, so
+             the button still reads as its own name and nothing but a name.
+             It appears only where there is something to fold. */
+          '<button class="mslot-name' + (items.length ? ' mslot-has-fold' : '') +
+            '" data-mfold="' + esc(sk) + '" aria-expanded="' +
             (folded ? 'false' : 'true') + '">' + esc(name) + '</button>' +
           mVerdictHTML(sk, items, onPlan, targets, slots) +
           /* Only where there is something to solve. One plate has a stepper
@@ -2552,7 +2638,12 @@
     $('macroOpenAll').setAttribute('aria-label', shut ? 'Open every meal' : 'Close every meal');
     $('macroOpenAll').innerHTML = shut ? '&#9776;' : '&#9783;';
 
-    $('macroFoot').innerHTML = macroFootHTML(day, targets, slots);
+    var readout = macroFootHTML(day, targets, slots);
+    $('macroFoot').innerHTML = readout.foot;
+    /* The pills are the folded copy of the bars, so they are rebuilt with
+       them. The row itself is static markup and keeps its own handler; only
+       what is inside it changes. */
+    $('macroPills').innerHTML = readout.pills;
     /* Rebuilt every render, so the button inside it is new each time — the
        handler is delegated from the container rather than bound to it. */
     $('macroPlan').innerHTML = mPlanNarrative();
@@ -2570,6 +2661,13 @@
     $('macroWeigh').classList.toggle('done', MWEIGHTS[k] > 0);
     $('macroLine').innerHTML = mMorningHTML(k);
 
+    /* A day with a different plan is a card of a different height, so the
+       fold's measurements go out with the markup they were taken from and
+       the card is laid out again from the scroll position it is at. Without
+       this, ticking a meal off while the card is folded would leave it
+       clipped to yesterday's numbers. */
+    mFoldForget();
+    syncShrunk();
   }
 
   /* What the day would come to if the meals with nothing on them landed on
@@ -2894,9 +2992,13 @@
       '</div></div>';
   }
 
+  /* Two pieces of the same readout, because they live in two boxes: the bars
+     are inside the part of the card that folds away, and the pills are what
+     it folds into, outside it. They are built together because they are the
+     same six numbers and neither is worth computing twice. */
   function macroFootHTML(day, targets, slots) {
     if (!targets.p && !targets.f && !targets.c) {
-      return '<div class="macro-none">Craft your plan.</div>';
+      return { foot: '<div class="macro-none">Craft your plan.</div>', pills: '' };
     }
     var tot = mTotals(day);
     var asm = mAssumed(day, targets, slots);
@@ -3009,10 +3111,8 @@
 
     /* The same six numbers folded into one row of pills, for when the page
        has scrolled and the bars would be eating the screen. Four signed
-       deltas, then fibre and sodium against their floor and ceiling. It is
-       hidden from assistive tech because it is a second copy of what the bars
-       already announce, not a second readout; pressing it scrolls back up to
-       the bars it stands in for. */
+       deltas, then fibre and sodium against their floor and ceiling.
+       Pressing the row scrolls back up to the bars it stands in for. */
     var pills = ROWS.map(function (row) {
       var m = row[0];
       return '<span class="mpill ' + sign(left[m]) + '">' +
@@ -3025,10 +3125,12 @@
 
     /* The bars are the door to their own history. Tapping the summary to see
        the detail costs no navigation and puts the two in the same place. */
-    return '<button class="mbars" data-mchartopen="1" aria-label="See these over time">' +
-        bars + '<span class="mbars-more" aria-hidden="true">&rsaquo;</span></button>' +
-      '<div class="mdelta" role="status">' + micro + '</div>' +
-      '<button class="mpills" data-mpills="1" aria-hidden="true" tabindex="-1">' + pills + '</button>';
+    return {
+      foot: '<button class="mbars" data-mchartopen="1" aria-label="See these over time">' +
+          bars + '<span class="mbars-more" aria-hidden="true">&rsaquo;</span></button>' +
+        '<div class="mdelta" role="status">' + micro + '</div>',
+      pills: pills
+    };
   }
 
   /* The picker sheet: search plus a meal/all toggle, over a list ranked by
@@ -4772,10 +4874,11 @@
         var mac = r.macro || {};
         mt.kcal += (mac.kcal || 0) * it.x; mt.p += (mac.p || 0) * it.x;
         mt.f += (mac.f || 0) * it.x; mt.c += (mac.c || 0) * it.x;
-        out.push('  ' + (it.eaten ? '[x] ' : '[ ] ') + r.name + ' \u00d7' + fmtNum(it.x) +
-          (r.food ? ' ' + r.unit
-            : ' (' + fmtNum(it.x * (r.servN || 1)) +
-              (it.x * (r.servN || 1) === 1 ? ' serving)' : ' servings)')) +
+        /* The same portion words the card uses, from the same function \u2014 the
+           line here had its own copy of the servN multiplication and so its
+           own copy of the overstatement that came with it. */
+        out.push('  ' + (it.eaten ? '[x] ' : '[ ] ') + r.name +
+          ' (' + mPortionText(r, it.x) + ')' +
           ' \u2014 ' + Math.round((mac.kcal || 0) * it.x) + ' kcal, ' +
           Math.round((mac.p || 0) * it.x) + 'g protein, ' +
           Math.round((mac.f || 0) * it.x) + 'g fat, ' +
@@ -6101,72 +6204,164 @@
       '--topbar-h', Math.round(tb.getBoundingClientRect().height) + 'px');
   }
 
-  /* My Day's sticky readout folds to a row of pills once the page has
-     scrolled, so the week and the four bars stop eating a third of a phone
-     while you are down among the plates.
+  /* ---- My Day's readout, folding with the scroll ----
 
-     The fold must not move the page. It used to: hiding the week and the
-     bars took about a hundred and forty pixels out of the card, everything
-     below it jumped up by that much in one frame, and on a phone that read
-     as a flash right before the collapse. So the height the fold takes out
-     of the card goes into the card's bottom margin instead. The painted
-     part shrinks, the room it stood in stays, and the plates do not move
-     under the finger. Margin is the right place for it because margin has
-     no background and takes no taps: the plates scroll up through that
-     gap and can be read and pressed there. Unfolding hands the margin
-     back, so the page is the same height either way and nothing has to
-     be compensated for.
+     Once the page has scrolled, the week and the four bars give way to one
+     row of pills, so the card stops eating a third of a phone while you are
+     down among the plates.
 
-     Two thresholds rather than one, so the fold and the unfold cannot
-     chase each other. It folds once the whole open readout has scrolled
-     by: what the fold uncovers is exactly the strip of page the bars were
-     sitting over, and folding any earlier would leave a band of nothing
-     between the pills and the first plate. It opens again near the top. */
-  var shrunkRaf = 0;
-  function setShrunk(st, on) {
-    if (!on) {
-      st.classList.remove('shrunk');
-      st.style.marginBottom = '';
+     It used to be a switch. At a threshold the open half was set to
+     display:none and the pills appeared in its place — which is a hard
+     on/off that nothing can animate, and which needed a second threshold
+     lower down so that the fold and the unfold could not chase each other
+     across the same line.
+
+     It is a fraction now. `p` is how far shut the card is, taken straight
+     from the scroll position: 0 at the top, 1 once you have scrolled one
+     readout's worth. The card closes under the finger at the speed of the
+     scroll, and since p is a pure function of scrollY — the same y always
+     gives the same card — there is no threshold left anywhere for the two
+     states to flap across.
+
+     The distance is the height the fold takes out, which is what makes the
+     card's bottom edge sit still: for every pixel you scroll the card loses
+     a pixel, so the first plate stays glued to the underside of it the
+     whole way down instead of sliding out from behind it.
+
+     Two things make it safe to do this on every frame.
+
+     THE PAGE MUST NOT MOVE. The height the fold takes out of the card goes
+     into the card's bottom margin, so everything below keeps its page
+     position and nothing has to be compensated for. Margin is the right
+     place for it because margin has no background and takes no taps: the
+     plates scroll up through that gap and can be read and pressed there.
+
+     AND NOTHING IS MEASURED DURING A FRAME. The geometry is taken once,
+     while the card is open and still, and every frame after that is four
+     writes and no reads. Chromium's scroll anchoring answers a height
+     change above the anchor by moving the scroll position; a measurement
+     taken between two writes sees that compensation and reports a lie,
+     which is how the old fold ended up chasing its own tail. Nothing is
+     read, so there is nothing to be lied to about. */
+  var foldRaf = 0;
+  var foldGeo = null;   // the two heights; thrown away when the card is rebuilt
+  var foldGap = -1;     // the room under the card; a fact about the stylesheet
+
+  function mFoldForget() { foldGeo = null; }
+
+  /* Someone who has asked for less motion gets the switch back. The fold
+     still happens — it is what makes the card small — but it happens all at
+     once, with the two thresholds that keep an instant fold from chasing
+     itself. */
+  function mReduced() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function mFoldGeo() {
+    if (foldGeo) return foldGeo;
+    var fold = $('macroFold'), pills = $('macroPills');
+    if (!fold || !pills) return null;
+    /* scrollHeight for the open size: it is the height the content wants,
+       which stays readable when the box has been clipped down mid-fold, so
+       a rebuild can re-measure without first flinging the card open for a
+       frame to look at it. The pills are absolutely placed, so they are not
+       in that number and their own height is the size the box closes to. */
+    var open = fold.scrollHeight, shut = pills.offsetHeight;
+    /* A tab that is not on screen measures nothing. Don't remember that as
+       the size of the card — a span of zero folds it shut on the first
+       pixel of the next scroll. */
+    if (open <= 0) return null;
+    foldGeo = { open: open, shut: shut, span: Math.max(1, open - shut) };
+    return foldGeo;
+  }
+
+  /* `.shrunk` marks the far end of the fold, and is written only when it
+     actually changes: a class attribute set to the value it already had is
+     still a change to anything watching the card, and this runs on every
+     frame of every scroll. */
+  function mMarkShut(st, on) {
+    if (on !== st.classList.contains('shrunk')) st.classList.toggle('shrunk', on);
+  }
+
+  function mSetFold(st, p) {
+    var fold = $('macroFold'), pills = $('macroPills');
+    if (!fold || !pills) return;
+    if (p <= 0) {
+      /* Open: hand every inline value back, so the card is laid out by the
+         stylesheet again and whatever we measure next is a clean number.
+         Only when there is something to hand back, though: at the top of the
+         page this runs on every scroll event, and writing the same class and
+         the same styles over and over is work nobody asked for — and a class
+         written to the value it already had still counts as a change to
+         anything watching the card. The margin stands for the set: all four
+         are written together and cleared together. */
+      mMarkShut(st, false);
+      if (st.style.marginBottom) {
+        st.style.removeProperty('--fold');
+        st.style.marginBottom = '';
+        fold.style.height = '';
+      }
+      /* The room under the card, read here because here is the only place
+         it is honest: the card's own bottom margin collapses with the top
+         margin of the card below it, so the 4px in the stylesheet is not
+         what actually stands between them. Measuring the gap that is really
+         there takes the collapse out of the arithmetic — and the margin we
+         write from it is never smaller than the gap, so from then on it is
+         the margin that wins the collapse. */
+      if (foldGap < 0) {
+        var next = $('macroPlan');
+        // a tab that is not on screen has no gap to read; wait for one that has
+        if (next && st.getBoundingClientRect().height > 0) {
+          foldGap = next.getBoundingClientRect().top - st.getBoundingClientRect().bottom;
+        }
+      }
       return;
     }
-    /* The margin is sized by where the view ends, not by how much the card
-       shrank: the card's bottom margin collapses with the top margin of
-       whatever follows it, so the plain difference in heights came out
-       eight pixels short and the page still stepped. Set, measure, correct
-       — a couple of passes lands it exactly, whatever is collapsing.
-
-       Measured in page coordinates, not viewport ones. Chromium's scroll
-       anchoring answers each intermediate layout by moving the scroll
-       position so that the plates appear not to have moved, and a viewport
-       measurement then reports nothing left to correct while the page has
-       in fact lost the whole strip. */
-    var view = st.parentNode;
-    function bottomOf(el) {
-      return el.getBoundingClientRect().bottom + (window.scrollY || window.pageYOffset || 0);
-    }
-    var before = bottomOf(view);
-    var m = parseFloat(getComputedStyle(st).marginBottom) || 0;
-    st.classList.add('shrunk');
-    for (var i = 0; i < 4; i++) {
-      var off = before - bottomOf(view);
-      if (Math.abs(off) < 0.5) break;
-      m += off;
-      st.style.marginBottom = m + 'px';
-    }
+    var g = mFoldGeo();
+    if (!g) return;
+    var gap = foldGap >= 0 ? foldGap : (parseFloat(getComputedStyle(st).marginBottom) || 0);
+    st.style.setProperty('--fold', String(p));
+    /* The box loses `p * span` and the margin below gives back exactly that
+       much. The sum is the same at every p, which is the whole trick: the
+       page is one height all the way down, so nothing under the card moves
+       and there is nothing for scroll anchoring to answer. */
+    fold.style.height = (g.open - g.span * p) + 'px';
+    st.style.marginBottom = (gap + g.span * p) + 'px';
+    mMarkShut(st, p >= 1);
   }
+
   function syncShrunk() {
-    shrunkRaf = 0;
+    foldRaf = 0;
     var st = document.querySelector('.mday-stick');
     if (!st) return;
-    var shrunk = st.classList.contains('shrunk');
-    if (S.view !== 'macros') { if (shrunk) setShrunk(st, false); return; }
+    /* Leaving My Day unfolds its readout, so coming back starts at the top
+       with the bars open rather than with a fold left over from last time. */
+    if (S.view !== 'macros') { mSetFold(st, 0); return; }
+    var g = mFoldGeo();
+    if (!g) return;
     var y = window.scrollY || window.pageYOffset || 0;
-    if (!shrunk && y > st.getBoundingClientRect().height) setShrunk(st, true);
-    else if (shrunk && y < 60) setShrunk(st, false);
+    var p = y / g.span;
+    if (p < 0) p = 0; else if (p > 1) p = 1;
+    if (mReduced()) p = st.classList.contains('shrunk') ? (y < 60 ? 0 : 1) : (y > g.open ? 1 : 0);
+    mSetFold(st, p);
   }
+
   function onScrollShrink() {
-    if (shrunkRaf) return;
-    shrunkRaf = requestAnimationFrame(syncShrunk);
+    if (foldRaf) return;
+    foldRaf = requestAnimationFrame(syncShrunk);
+  }
+
+  /* A resize changes both heights and the room under the card, and it can
+     arrive without a scroll to follow it. The card is opened before it is
+     measured again: a margin this code wrote itself is not a gap, and the
+     way through open is where the honest one is read. */
+  function onResizeFold() {
+    var st = document.querySelector('.mday-stick');
+    if (!st) return;
+    foldGeo = null;
+    foldGap = -1;
+    mSetFold(st, 0);
+    syncShrunk();
   }
 
   /* A 5.5in page is wider than a phone. Scale it down to fit rather than
@@ -7315,8 +7510,6 @@
     if (S.view === 'list') renderList();
     if (S.view === 'pantry') renderPantry();
     if (S.view === 'book') renderBook();
-    /* Leaving My Day unfolds its readout, so coming back starts at the top
-       with the bars open rather than with a fold left over from last time. */
     syncShrunk();
   }
 
@@ -7635,14 +7828,18 @@
       });
     }
 
+    /* The pills are the bars folded up. Pressing them goes back to the top,
+       where the bars are open again — they are the same numbers, not a
+       second readout. Smoothly, so the card unrolls on the way up the same
+       way it rolled shut on the way down; a jump to the top would open it in
+       one frame, which is the hard switch this fold exists to be rid of. */
+    $('macroPills').addEventListener('click', function () {
+      if (mReduced()) { window.scrollTo(0, 0); return; }
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      catch (e) { window.scrollTo(0, 0); }
+    });
+
     $('macroFoot').addEventListener('click', function (e) {
-      /* The shrunk pills are the bars folded up. Pressing them goes back to
-         the top, where the bars are open again — they are the same numbers,
-         not a second readout. */
-      if (e.target.closest('[data-mpills]')) {
-        window.scrollTo(0, 0);
-        return;
-      }
       if (!e.target.closest('[data-mchartopen]')) return;
       rememberOpener();
       S.chartOpen = true;
@@ -7876,6 +8073,7 @@
     window.addEventListener('resize', syncStick);
     syncStick();
     window.addEventListener('scroll', onScrollShrink, { passive: true });
+    window.addEventListener('resize', onResizeFold);
     document.querySelector('.tabs').addEventListener('scroll', syncTabsFade, { passive: true });
     syncTabsFade();
 

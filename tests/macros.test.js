@@ -286,17 +286,23 @@ module.exports = {
         const day = days[Object.keys(days)[0]];
         return (day.l || []).some((it) => String(it.id).indexOf('f:') === 0);
       }));
-    // the unit is a chip now, beside where it came from
-    t.ok('with its unit named, and no recipe pretending to be behind it',
+    /* The unit sits on the stepper, beside the buttons that change it —
+       "1 cup", not "×1". Where it came from stays a chip. */
+    t.ok('with its unit named on the amount, and no recipe pretending to be behind it',
       await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
         if (!el || el.dataset.open) return false;
-        const chips = [...el.closest('.mitem').querySelectorAll('.mitem-chips .mchip')]
-          .map((c) => c.textContent);
-        return chips.indexOf('Yours') >= 0 && chips.length >= 2;
+        const row = el.closest('.mitem');
+        const chips = [...row.querySelectorAll('.mitem-chips .mchip')].map((c) => c.textContent);
+        const amount = row.querySelector('.mstep-x').textContent;
+        return chips.indexOf('Yours') >= 0 &&
+          amount.indexOf('×') < 0 && /[a-z]/i.test(amount);
       }), await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
-        return el ? el.closest('.mitem').querySelector('.mitem-chips').textContent : 'no food row';
+        if (!el) return 'no food row';
+        const row = el.closest('.mitem');
+        return row.querySelector('.mitem-chips').textContent + ' || amount "' +
+          row.querySelector('.mstep-x').textContent + '"';
       }));
     /* The name is a door, though — the same door a recipe's name is. A food
        used to be a dead label, which left a five-part salad that had been
@@ -546,7 +552,8 @@ module.exports = {
       await p.evaluate(() => {
         const el = [...document.querySelectorAll('.mitem-food')]
           .find((x) => /Chicken tamale/.test(x.textContent));
-        return !!el && /tamale/.test(el.closest('.mitem').querySelector('.mitem-chips').textContent);
+        // its own unit, on the amount where the buttons that change it are
+        return !!el && /tamale/.test(el.closest('.mitem').querySelector('.mstep-x').textContent);
       }));
     await p.evaluate(() => {
       const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
@@ -937,6 +944,51 @@ module.exports = {
         const line = first.closest('.mitem').querySelector('.mitem-mac').textContent;
         return r.est ? line.indexOf('~') === 0 : line.indexOf('~') < 0;
       }));
+
+    /* The portion and the calories beside it are two readings of the same
+       number, and for years they disagreed: the calories charged for x
+       servings while the words next to them announced x × the recipe's whole
+       yield, so 1¾ of a six-bite batch read as "10½ servings". Nothing pinned
+       the two to each other, which is how a six-fold overstatement sat on the
+       card without a red test. This is that pin. */
+    const portions = await p.evaluate(() => {
+      const FR = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3,
+        '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875 };
+      const count = (txt) => {
+        const m = txt.trim().match(/^(\d+)?\s*([½¼¾⅓⅔⅛⅜⅝⅞])?/);
+        if (!m || (!m[1] && !m[2])) return null;
+        return (m[1] ? parseInt(m[1], 10) : 0) + (m[2] ? FR[m[2]] : 0);
+      };
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const day = days[Object.keys(days)[0]];
+      const out = [];
+      document.querySelectorAll('.mitem').forEach((row) => {
+        const box = row.querySelector('[data-meat]');
+        if (!box) return;
+        const parts = box.dataset.meat.split(':');
+        const it = (day[parts[0]] || [])[+parts[1]];
+        if (!it) return;
+        const r = window.RECIPES.find((q) => String(q.id) === String(it.id));
+        if (!r || !r.macro) return;                       // a food, priced elsewhere
+        out.push({
+          name: r.name, x: it.x, servN: r.servN || 1,
+          shown: count(row.querySelector('.mstep-x').textContent),
+          words: row.querySelector('.mstep-x').textContent.trim(),
+          kcalShown: parseInt(row.querySelector('.mitem-mac').textContent.replace(/[^\d]/, ''), 10),
+          kcalWant: Math.round(r.macro.kcal * it.x)
+        });
+      });
+      return out;
+    });
+    const mismatched = portions.filter((q) => Math.abs(q.shown - q.x) > 0.001);
+    t.ok('the portion on a plate is the portion its calories were charged for',
+      portions.length > 0 && mismatched.length === 0,
+      mismatched.length
+        ? mismatched.map((q) => q.name + ': says "' + q.words + '", eating ' + q.x).join(' | ')
+        : portions.length + ' plates checked');
+    t.ok('and the calories beside it are that portion priced',
+      portions.every((q) => Math.abs(q.kcalShown - q.kcalWant) <= 1),
+      portions.map((q) => q.name + ' ' + q.kcalShown + '/' + q.kcalWant).join(' | '));
 
     // ---- the day is stored under the LOCAL date and survives a reload
     const stored = await p.evaluate(() => {
@@ -2268,8 +2320,10 @@ module.exports = {
       return got;
     });
     t.ok('the copy carries the weight, the plates and the totals',
+      /* Portions in words, not multipliers: whatever this is pasted into
+         knows what a serving is and has never heard of ×0.75. */
       copied && /Weight: 188\.6 lb/.test(copied) && /Total: \d+ kcal/.test(copied) &&
-      /Target: \d+ kcal/.test(copied) && /×/.test(copied),
+      /Target: \d+ kcal/.test(copied) && /\([\d½¼¾⅓⅔⅛⅜⅝⅞][^)]*\)/.test(copied),
       (copied || '').slice(0, 120));
     t.ok('and names every meal that has something on it',
       await y.evaluate((txt) => {
@@ -2525,13 +2579,70 @@ module.exports = {
 
     await wk.context().close();
 
+    /* ---- a portion of a batch --------------------------------------------
+     * The two tests above ride on whatever Fill happened to draft, and a day
+     * of single-serving plates would pass them while proving nothing: only a
+     * recipe that makes SEVERAL could ever show the fault. So this one puts a
+     * known batch on a known day and reads the card back.
+     *
+     * The case, exactly as it appeared on Blake's phone: a recipe that makes
+     * six, eaten one and three quarters. The card said "10½ servings" — the
+     * portion times the whole yield — while the calories on the same line
+     * charged for 1¾. Six times too much, on every batch recipe in the book. */
+    const batch = await t.fresh();
+    const bat = await batch.evaluate(() => {
+      const r = window.RECIPES.find((q) => q.servN === 6 && q.macro && q.macro.kcal > 0)
+        || window.RECIPES.find((q) => (q.servN || 1) > 1 && q.macro && q.macro.kcal > 0);
+      const d = new Date();
+      const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+        '-' + String(d.getDate()).padStart(2, '0');
+      const days = {}; days[k] = { b: [{ id: r.id, x: 1.75, eaten: 0 }] };
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      return { name: r.name, servN: r.servN, kcal: r.macro.kcal, servings: r.servings };
+    });
+    await batch.reload();
+    await batch.click('.tab[data-view="macros"]');
+    await batch.waitForTimeout(300);
+    // a meal that already has something on it opens shut; the plate is behind that
+    for (let i = 0; i < 3; i++) {
+      if (!await batch.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+      await batch.click('#macroOpenAll');
+      await batch.waitForTimeout(200);
+    }
+    const batCard = await batch.evaluate(() => {
+      const row = document.querySelector('.mitem');
+      if (!row) return null;
+      return {
+        amount: row.querySelector('.mstep-x').textContent.trim(),
+        chips: [...row.querySelectorAll('.mchip')].map((c) => c.textContent.trim()),
+        mac: row.querySelector('.mitem-mac').textContent.trim()
+      };
+    });
+    t.ok('a plate holding part of a batch says the part, not the batch',
+      !!batCard && batCard.amount.indexOf('1') === 0 && /¾/.test(batCard.amount) &&
+        batCard.amount.indexOf(String(bat.servN)) < 0,
+      bat.name + ' (' + bat.servings + ') at ×1¾ shows "' + (batCard && batCard.amount) + '"');
+    t.ok('and the calories on that line are for the part as well',
+      !!batCard && Math.abs(parseInt(batCard.mac.replace(/[^\d]/, ''), 10) -
+        Math.round(bat.kcal * 1.75)) <= 1,
+      (batCard && batCard.mac) + ' — wanted ' + Math.round(bat.kcal * 1.75) + ' kcal');
+    t.ok('while what the recipe makes is said once, as its own tag',
+      !!batCard && batCard.chips.some((c) => c === 'makes ' + bat.servN),
+      (batCard && batCard.chips.join(' | ')));
+    await batch.context().close();
+
     /* ---- the fold ---------------------------------------------------------
      * On a phone the sticky readout — week strip, four bars, fibre and salt —
      * is a third of the screen, and scrolling down to dinner meant reading
-     * dinner through a letterbox. Past the fold it collapses to one row of
-     * pills carrying the same six numbers; back at the top it opens again.
-     * Two thresholds, not one, so a finger resting on the line does not
-     * make it flap. */
+     * dinner through a letterbox. As the page scrolls it closes onto one row
+     * of pills carrying the same six numbers; back at the top it opens again.
+     *
+     * It closes by degrees, not at a line. How far shut the card is comes
+     * straight from the scroll position, so there is no threshold anywhere
+     * for the two states to flap across — the same scroll position always
+     * gives the same card, whichever way you arrived at it, which is what
+     * the two-threshold version was buying with hysteresis. `.shrunk` marks
+     * the far end of the fold and nothing in between. */
     const ph = await t.fresh({ viewport: { width: 390, height: 720 } });
     await ph.click('.tab[data-view="macros"]');
     await ph.waitForTimeout(200);
@@ -2551,9 +2662,10 @@ module.exports = {
         const st = document.querySelector('.mday-stick');
         const pills = document.querySelector('.mpills');
         return !st.classList.contains('shrunk') &&
-          getComputedStyle(pills).display === 'none' &&
-          getComputedStyle(document.querySelector('.mbars')).display !== 'none';
-      }));
+          getComputedStyle(pills).opacity === '0' &&
+          getComputedStyle(document.querySelector('.mbars')).opacity === '1';
+      }), await ph.evaluate(() => 'pills opacity ' +
+        getComputedStyle(document.querySelector('.mpills')).opacity));
     t.ok('the pills carry the same six numbers as the rows and the line under them',
       await ph.evaluate(() => {
         // the sodium pill drops the thousands comma to fit a narrow phone, so
@@ -2583,9 +2695,9 @@ module.exports = {
       await ph.evaluate(() => {
         const st = document.querySelector('.mday-stick');
         return st.classList.contains('shrunk') &&
-          getComputedStyle(document.querySelector('.mpills')).display !== 'none' &&
-          getComputedStyle(document.querySelector('.mbars')).display === 'none' &&
-          getComputedStyle(document.querySelector('.mweek')).display === 'none';
+          getComputedStyle(document.querySelector('.mpills')).opacity === '1' &&
+          getComputedStyle(document.querySelector('.mbars')).opacity === '0' &&
+          getComputedStyle(document.querySelector('.mweek')).visibility === 'hidden';
       }), await ph.evaluate(() => document.querySelector('.mday-stick').className + ' y=' + window.scrollY));
     const shrunkH = await ph.evaluate(() => document.querySelector('.mday-stick').getBoundingClientRect().height);
     t.ok('and the folded readout is well under half the height of the open one',
@@ -2625,13 +2737,74 @@ module.exports = {
         const span = ps[ps.length - 1].getBoundingClientRect().right - ps[0].getBoundingClientRect().left;
         return 'pills ' + Math.round(span) + 'px of ' + (document.querySelector('.mpills').clientWidth - 15) + 'px';
       }));
-    /* The day still has the same items in it; folding is a view, not a
-       write. And it is a scroll effect only, so the page must still land
-       exactly where the finger left it. */
-    await ph.evaluate(() => window.scrollTo(0, 90));
+    /* Half-way down, the card is half shut: both halves of the readout on
+       screen at once, one fading out as the other fades in. This is the
+       whole point of the change — the old fold had no state between open
+       and shut, so there was nothing here to see. */
+    const half = await ph.evaluate((args) => {
+      window.scrollTo(0, args.span / 2);
+      return new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => {
+        const st = document.querySelector('.mday-stick');
+        ok({
+          p: parseFloat(st.style.getPropertyValue('--fold') || 0),
+          card: st.getBoundingClientRect().height,
+          bars: parseFloat(getComputedStyle(document.querySelector('.mbars')).opacity),
+          pills: parseFloat(getComputedStyle(document.querySelector('.mpills')).opacity),
+          shrunk: st.classList.contains('shrunk')
+        });
+      })));
+    }, { span: await ph.evaluate(() => {
+      const f = document.getElementById('macroFold');
+      return f.scrollHeight - document.getElementById('macroPills').offsetHeight;
+    }) });
+    t.ok('half-way down the card is half shut, with both readouts on screen',
+      half.p > 0.3 && half.p < 0.7 && !half.shrunk &&
+        half.bars > 0.2 && half.bars < 0.8 && half.pills > 0.2 && half.pills < 0.8 &&
+        half.card > shrunkH && half.card < stickH,
+      JSON.stringify({ p: +half.p.toFixed(2), card: Math.round(half.card),
+        bars: +half.bars.toFixed(2), pills: +half.pills.toFixed(2) }));
+    /* No threshold means no hysteresis to get wrong: a scroll position gives
+       the same card whichever direction you reached it from. The old fold
+       needed two lines precisely because this was not true of it. */
+    const fromAbove = await ph.evaluate((y) => {
+      window.scrollTo(0, 900);
+      return new Promise((ok) => setTimeout(() => {
+        window.scrollTo(0, y);
+        requestAnimationFrame(() => requestAnimationFrame(() =>
+          ok(document.querySelector('.mday-stick').getBoundingClientRect().height)));
+      }, 120));
+    }, Math.round(await ph.evaluate(() => {
+      const f = document.getElementById('macroFold');
+      return (f.scrollHeight - document.getElementById('macroPills').offsetHeight) / 2;
+    })));
+    t.ok('and the same scroll position gives the same card from either direction',
+      Math.abs(fromAbove - half.card) < 1,
+      'coming down ' + Math.round(half.card) + 'px, coming back up ' + Math.round(fromAbove) + 'px');
+    /* The failure mode of a fold that runs every frame is not a flash, it is
+       a creep: if the margin gives back a pixel less than the card takes out,
+       the page shortens a little on every frame and the plates crawl under
+       the finger. Watch every frame of a slow scroll, not just the ends. */
+    await ph.evaluate(() => window.scrollTo(0, 0));
     await ph.waitForTimeout(250);
-    t.ok('between the two thresholds it stays as it was — no flapping on the line',
-      await ph.evaluate(() => document.querySelector('.mday-stick').classList.contains('shrunk')));
+    await ph.evaluate(() => {
+      const rail = document.querySelector('.mday-rail');
+      const railPage = () => rail.getBoundingClientRect().top + (window.scrollY || 0);
+      window.__w = { page: document.documentElement.scrollHeight, rail: railPage(), worst: 0, stop: false };
+      const tick = () => {
+        if (window.__w.stop) return;
+        window.__w.worst = Math.max(window.__w.worst,
+          Math.abs(document.documentElement.scrollHeight - window.__w.page),
+          Math.abs(railPage() - window.__w.rail));
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await ph.mouse.move(200, 500);
+    for (let i = 0; i < 14; i++) { await ph.mouse.wheel(0, 20); await ph.waitForTimeout(35); }
+    await ph.waitForTimeout(200);
+    const creep = await ph.evaluate(() => { window.__w.stop = true; return window.__w.worst; });
+    t.ok('and no frame of the fold moves the page or the plates by so much as a pixel',
+      creep < 1, 'worst drift seen mid-fold: ' + creep.toFixed(1) + 'px');
     await ph.evaluate(() => window.scrollTo(0, 0));
     await ph.waitForTimeout(250);
     t.ok('back at the top the readout opens again',
@@ -2687,8 +2860,17 @@ module.exports = {
     await ph.waitForTimeout(250);
     await ph.evaluate((y) => window.scrollTo(0, y), foldAt);
     await ph.waitForTimeout(250);
+    /* The pills answer a tap only when the card is all the way shut — while
+       the bars are still on screen they are the thing under the finger. */
+    t.ok('the folded pills are what takes the tap, not the bars behind them',
+      await ph.evaluate(() => getComputedStyle(document.querySelector('.mpills')).pointerEvents === 'auto' &&
+        document.elementFromPoint(60, document.querySelector('.mpills').getBoundingClientRect().top + 10)
+          .closest('[data-mpills]') !== null));
     await ph.click('.mpills');
-    await ph.waitForTimeout(300);
+    /* It glides back rather than jumping, so this waits for the scroll to
+       arrive instead of assuming it already has. */
+    await ph.waitForFunction(() => window.scrollY === 0, null, { timeout: 3000 });
+    await ph.waitForTimeout(150);
     t.ok('pressing the pills takes you back to the top, where the readout is open',
       await ph.evaluate(() => window.scrollY === 0 &&
         !document.querySelector('.mday-stick').classList.contains('shrunk')),
@@ -2708,19 +2890,44 @@ module.exports = {
       await ph.evaluate(() => !document.querySelector('.mday-stick').classList.contains('shrunk')));
     await ph.context().close();
 
+    /* Someone who has asked for less motion gets the switch back rather than
+       the glide: the card is open or it is shut, with the two thresholds
+       that keep an instant fold from chasing itself. */
+    const still = await t.fresh({ viewport: { width: 390, height: 720 }, reducedMotion: 'reduce' });
+    await still.click('.tab[data-view="macros"]');
+    await still.waitForTimeout(200);
+    const stillSpan = await still.evaluate(() => {
+      const f = document.getElementById('macroFold');
+      return f.scrollHeight - document.getElementById('macroPills').offsetHeight;
+    });
+    await still.evaluate((y) => window.scrollTo(0, y), Math.round(stillSpan / 2));
+    await still.waitForTimeout(250);
+    t.ok('asking for less motion trades the glide for the old switch — no half-shut card',
+      await still.evaluate(() => {
+        const st = document.querySelector('.mday-stick');
+        const p = parseFloat(st.style.getPropertyValue('--fold') || 0);
+        return p === 0 || p === 1;
+      }), await still.evaluate(() => 'fold=' + (document.querySelector('.mday-stick').style.getPropertyValue('--fold') || '0')));
+    await still.context().close();
+
     const wide = await t.fresh();
     await wide.click('.tab[data-view="macros"]');
     await wide.waitForTimeout(200);
-    const wideOpenH = await wide.evaluate(() => document.querySelector('.mday-stick').getBoundingClientRect().height);
+    /* The fold runs over exactly the height it takes out of the card, which
+       is what keeps the first plate glued to the underside of it the whole
+       way down instead of sliding out from behind it. */
+    const wideSpan = await wide.evaluate(() => {
+      const f = document.getElementById('macroFold');
+      return f.scrollHeight - document.getElementById('macroPills').offsetHeight;
+    });
     await wide.evaluate(() => window.scrollTo(0, 500));
     await wide.waitForTimeout(250);
-    t.ok('a day folds only once its own open readout has scrolled by',
-      await wide.evaluate((openH) => {
-        const shrunk = document.querySelector('.mday-stick').classList.contains('shrunk');
-        return shrunk === (window.scrollY > openH);
-      }, wideOpenH),
-      await wide.evaluate((openH) => 'y=' + window.scrollY + ' open=' + Math.round(openH) + ' ' +
-        document.querySelector('.mday-stick').className, wideOpenH));
+    t.ok('a day is fully folded once it has given up its own height to the scroll',
+      await wide.evaluate((span) =>
+        document.querySelector('.mday-stick').classList.contains('shrunk') === (window.scrollY >= span),
+      wideSpan),
+      await wide.evaluate((span) => 'y=' + window.scrollY + ' span=' + Math.round(span) + ' ' +
+        document.querySelector('.mday-stick').className, wideSpan));
     await wide.context().close();
   },
 };

@@ -489,6 +489,19 @@ select { max-width: 280px; }
   background: none; border: 0; padding: 0; font-family: var(--sans); text-align: left;
   font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
   font-weight: 600; color: oklch(0.40 0.03 65);
+  display: inline-flex; align-items: center;
+}
+/* The fold, made visible. Drawn rather than added to the markup: the name
+   button stays a button with a name in it, so a screen reader reads the meal
+   and not the meal plus a punctuation mark, and aria-expanded goes on saying
+   the state. Only on a meal with something to fold. */
+.mslot-name.mslot-has-fold::after {
+  content: '\2304'; margin-left: 5px; font-size: 13px; line-height: 0.7;
+  letter-spacing: 0; color: var(--ochre-text); transition: transform 0.15s ease;
+}
+.mslot-name.mslot-has-fold[aria-expanded="false"]::after { transform: rotate(-90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .mslot-name.mslot-has-fold::after { transition: none; }
 }
 /* the meal's four numbers, in the bars' own colours */
 .mslot-sub {
@@ -550,8 +563,8 @@ select { max-width: 280px; }
 .mitem-food { cursor: pointer; }
 /* eaten is done, not deleted — the line-through the shopping list uses */
 .mitem.eaten .mitem-name { text-decoration: line-through; color: oklch(0.68 0.02 70); }
-/* where it came from, and what one of it is */
-.mitem-chips { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 0 24px; }
+/* where it came from, how much it makes, and what it costs */
+.mitem-chips { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin: 4px 0 0 24px; }
 /* NOT .chip — the recipe cards have owned that name since the app was built,
    and a second rule of equal specificity further down the file quietly
    repainted every one of them. The same trap .daybar set. */
@@ -559,18 +572,27 @@ select { max-width: 280px; }
   font-size: 9.5px; padding: 1.5px 6px; border-radius: 3px; background: var(--paper-soft);
   border: 1px solid var(--line-soft); color: var(--muted); white-space: nowrap;
 }
+/* The four numbers, up out of a line of their own and into the tag row. No
+   pill around them: in a row of bordered labels, the one without a border
+   reads as the reading rather than as another label. It keeps its own
+   nowrap, so a narrow phone drops the whole figure to the next line rather
+   than breaking it across two. */
 .mitem-mac {
-  display: block; margin: 5px 0 0 24px;
   font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+  padding-left: 2px; white-space: nowrap;
 }
 /* the macro letters carry identity everywhere they appear, never status */
 .mitem-mac i, .mp-fit i, .mk-tot i, .mfs-pm i { font-style: normal; font-weight: 700; font-size: 10px; }
 
+/* The amount on one side, the tick on the other, with air between them.
+   They were one bar, which put "I ate this" at the near end of the strip a
+   thumb crosses to reach "smaller" — one target for two unrelated verbs. */
+.mrow2 { display: flex; align-items: stretch; gap: 10px; margin: 7px 0 1px 24px; }
 /* The amount, and the lock that holds it. One bar, because "how much" and
    "keep it exactly" are the same subject — the lock used to sit with the bin,
    which paired "hold this still" with "throw this away". */
 .mstep {
-  display: flex; align-items: stretch; margin: 7px 0 1px 24px;
+  display: flex; align-items: stretch; flex: 1 1 auto; min-width: 0;
   border: 1px solid var(--line-soft); border-radius: 4px; overflow: hidden;
 }
 .mstep button {
@@ -578,9 +600,10 @@ select { max-width: 280px; }
   width: 36px; line-height: 1; font-size: 15px; color: var(--muted-2);
 }
 .mstep button:hover { background: var(--paper-soft); color: var(--ink); }
+/* its own box, on the far side of the gap */
 .mtick {
-  display: grid; place-items: center; width: 38px; flex: none;
-  border-right: 1px solid var(--line-soft); background: var(--card);
+  display: grid; place-items: center; width: 46px; flex: none;
+  border: 1px solid var(--line-soft); border-radius: 4px; background: var(--card);
 }
 .mtick input { accent-color: var(--green); width: 17px; height: 17px; margin: 0; }
 .mstep .mlock {
@@ -589,9 +612,13 @@ select { max-width: 280px; }
 .mstep .mlock[aria-pressed="true"] {
   background: color-mix(in oklab, var(--ochre) 24%, var(--card)); color: var(--ochre-text);
 }
+/* It carries words now — "1¾ bites" rather than "×1¾" — so it needs a floor
+   it can shrink to and somewhere for a long yield noun to go. */
 .mstep-x {
-  flex: 1 1 auto; padding: 6px 8px; font-size: 12px; font-weight: 600; color: var(--ink);
-  background: var(--paper-soft); text-align: center; font-variant-numeric: tabular-nums;
+  flex: 1 1 auto; min-width: 0; padding: 6px 8px; font-size: 12px; font-weight: 600;
+  color: var(--ink); background: var(--paper-soft); text-align: center;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .macro-foot {
   background: var(--card); border: 1px solid var(--line); border-radius: 3px;
@@ -1181,19 +1208,54 @@ select { max-width: 280px; }
 .mm.low b { color: var(--dial-under); }
 .mm.high b { color: var(--dial-over); }
 
-/* The readout, folded. Once the page has scrolled (`.shrunk`, set from the
-   scroll position in app.js) the week and the four bars give way to one row
-   of six pills — the same figures, a line high — so the header stops taking
-   a third of a phone while you are down among the plates. The row is a
-   button that scrolls back to the top, where the bars are open again. */
-.mpills { display: none; }
-.mday-stick.shrunk .mweek, .mday-stick.shrunk .mbars, .mday-stick.shrunk .mdelta { display: none; }
-.mday-stick.shrunk .mpills {
-  display: flex; gap: 4px; width: 100%; margin-top: 8px; padding: 0;
-  background: none; border: 0; text-align: left; cursor: pointer;
-  overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+/* The readout, folding. As the page scrolls the week and the four bars give
+   way to one row of six pills — the same figures, a line high — so the
+   header stops taking a third of a phone while you are down among the
+   plates. The row is a button that scrolls back to the top, where the bars
+   are open again.
+
+   `--fold` is how far shut the card is, written from the scroll position on
+   every frame in app.js: 0 open, 1 folded. The heights of the two boxes are
+   written alongside it, so the card loses exactly the room the pills gain.
+   It used to be a switch — display:none at a threshold — which is a hard
+   on/off that nothing can animate; a fraction closes the card under the
+   finger at the speed of the scroll instead.
+
+   `.shrunk` marks the far end of that, and only the far end: it is what
+   makes the pills tappable and takes the folded-away bars out of the
+   assistive tree, both of which want the card to be all the way shut rather
+   than most of the way.
+
+   ONE box closes, not two. The pills hang on the bottom edge of the same
+   box the bars are in, so the box shrinks onto them and stops at exactly
+   their height — which means one height to write per frame, and a height
+   that goes all the way to the pills without passing through a number that
+   is not a real layout. Two boxes could not: a box cannot be shorter than
+   its own padding, so the empty pill row still stood eight pixels tall
+   while the card was open, and the fold quietly lost those eight from the
+   page every time. */
+.mday-fold { position: relative; overflow: hidden; }
+/* The four that fade away, named one by one rather than as "everything in
+   the box": opacity does not inherit, so setting it on the wrapper would
+   fade the picture without any of these ever saying they had faded, and the
+   fade would be invisible to everything except an eye. */
+.mday-fold .mweek, .mday-fold .mbars, .mday-fold .mdelta, .mday-fold .macro-none {
+  opacity: calc(1 - var(--fold, 0));
 }
-.mday-stick.shrunk .mpills::-webkit-scrollbar { display: none; }
+/* visibility does inherit, so one rule takes the folded-away half out of the
+   assistive tree and out of hit testing together */
+.mday-stick.shrunk .mday-fold > div { visibility: hidden; }
+.mpills {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; gap: 4px; padding: 8px 0 0;
+  background: none; border: 0; text-align: left; cursor: pointer;
+  white-space: nowrap; scrollbar-width: none;
+  opacity: var(--fold, 0); pointer-events: none;
+}
+/* Only a card that is all the way shut answers a tap: while the bars are
+   still on screen they are the thing being pressed. */
+.mday-stick.shrunk .mpills { pointer-events: auto; overflow-x: auto; }
+.mpills::-webkit-scrollbar { display: none; }
 /* Sized so the six pills fit a 375-wide phone even on a day like
    "+159 / -24 / +12 / +37 / 8 of 24 / 1474 of 2300" — the row scrolls
    sideways if a wilder day ever overflows it, but a clipped last pill reads
