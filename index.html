@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#3b3630">
 <title>Hive &amp; Hearth Recipes</title>
-<meta name="description" content="307 recipes with primary ingredients from the bishops' storehouse. Browse them, plan a week, and let the shopping list build itself.">
+<meta name="description" content="316 recipes with primary ingredients from the bishops' storehouse. Browse them, plan a week, and let the shopping list build itself.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=202">
+<link rel="stylesheet" href="src/style.css?v=206">
 </head>
 <body>
 
@@ -22,7 +22,7 @@
   <div class="topbar-in">
     <div class="brand">
       <div class="brand-name">Hive &amp; Hearth</div>
-      <div class="brand-sub">307 recipes &middot; two volumes</div>
+      <div class="brand-sub">316 recipes &middot; two volumes</div>
     </div>
     <!-- The sync button is a sibling of the tabs rather than one of them. On a
          phone it stays up on the brand row and the five tabs get the whole
@@ -157,7 +157,11 @@
         <select id="macroDaySel" aria-label="Day"></select>
         <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
         <!-- Open or shut the whole day, and set it up: the two that belong
-             beside the title rather than down with the morning's verbs. -->
+             beside the title rather than down with the morning's verbs. They
+             sit on the far right at every width, so the row reads My Day,
+             the day, then the two switches for the whole screen. -->
+        <button class="ghost mday-icon" id="macroOpenAll" aria-pressed="false"
+          aria-label="Open every meal">&#9776;</button>
         <button class="ghost mday-icon mday-more" id="macroMore" aria-haspopup="true"
           aria-expanded="false" aria-label="Set up My Day">&#9881;</button>
         <div class="mday-menu hide" id="macroMenu" role="menu">
@@ -202,12 +206,17 @@
         title="Re-size the un-eaten, un-locked plates to land the day back on target">&#9878;</button>
       <button class="ghost mday-icon" id="macroAdd"
         aria-label="Add food to a meal" title="Add food to a meal">&#65291;</button>
+      <!-- A drawn barcode rather than the camera emoji: the emoji renders in
+           whatever colours the phone's font ships, which is the one thing on
+           this bar that does not follow the paper-and-ink palette. Same
+           bars the picker's own "Scan" tile uses, framed by viewfinder
+           corners. -->
       <button class="ghost mday-icon hide" id="macroScan"
-        aria-label="Scan a barcode" title="Scan a barcode">&#128247;</button>
+        aria-label="Scan a barcode" title="Scan a barcode"><svg class="mday-svg" viewBox="0 0 16 16"
+        fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true"><path d="M1 4.5V2a1 1 0 0 1 1-1h2.5M11.5 1H14a1 1 0 0 1 1 1v2.5M15 11.5V14a1 1 0 0 1-1 1h-2.5M4.5 15H2a1 1 0 0 1-1-1v-2.5"/><path d="M4 5v6M6.5 5v6M9 5v4M11.5 5v6"/></svg></button>
       <button class="ghost mday-icon" id="macroCopy"
         aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
-      <button class="ghost mday-icon" id="macroOpenAll" aria-pressed="false"
-        aria-label="Open every meal">&#9776;</button>
     </div>
   </div>
 </section>
@@ -292,14 +301,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=202"></script>
-<script src="data/nutrition.js?v=202"></script>
-<script src="data/art.js?v=202"></script>
-<script src="data/qr.js?v=202"></script>
-<script src="src/config.js?v=202"></script>
+<script src="data/recipes.js?v=206"></script>
+<script src="data/nutrition.js?v=206"></script>
+<script src="data/art.js?v=206"></script>
+<script src="data/qr.js?v=206"></script>
+<script src="src/config.js?v=206"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=202"></script>
-<script src="src/app.js?v=202"></script>
+<script src="src/sync.js?v=206"></script>
+<script src="src/app.js?v=206"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

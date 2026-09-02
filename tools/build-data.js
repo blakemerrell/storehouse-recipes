@@ -569,6 +569,11 @@ numbers are never labelled that way, so the two are never confused.
 
 - Meat weights are raw, because that is how the recipes state them. Fat lost to
   draining browned beef is not subtracted.
+- "trimmed" on an ingredient line ("2 lbs pork roast, trimmed") keeps six-tenths
+  of the cut's fat and takes the calories of the rest off with it. Protein is
+  untouched and the grams stay the purchase weight, so the shopping list and the
+  pantry still see one roast. The word has to be on the ingredient line — a step
+  that says "trim it" changes nothing, because the steps are prose.
 - "1 can" without a size means the common size for that item — 15 oz for beans,
   tomato sauce and fruit, 10.5 oz for condensed soup, 5 oz for tuna. Canned
   protein, beans and vegetables are counted at drained weight.

@@ -463,6 +463,9 @@ const CANNED = { chicken_breast: 'chicken_canned' };
 // vague quantities
 const VAGUE = { dash: 0.02, pinch: 0.02, splash: 2, handful: 0.5 };
 
+// preparation words that change what reaches the plate; see the end of parseLine
+const PREP = { trimmed: 0.6 };
+
 const ALIAS_KEYS = Object.keys(ALIASES).sort((a, b) => b.length - a.length);
 
 /* Returns the food key, and the alias that matched. The alias matters for the
@@ -602,7 +605,25 @@ function parseLine(raw) {
   // fried dish read like a stick of butter; food takes up roughly an eighth.
   if (key === 'oil' && /for frying|to fry|for the pan/i.test(raw)) grams *= 0.12;
 
-  return { key, grams, alias: hit.alias, unit: used };
+  /* "trimmed" on the line: the fat cap and the seams come off before the meat
+     is cooked, and the fat that is cut off is never eaten. Only the fat moves —
+     the lean, and so the protein, is what was there all along, and the grams
+     stay the purchase weight because that is what the shopping list is for.
+     It is a fat multiplier and not a second food key on purpose: a shoulder is
+     one item on the storehouse order whether or not you trim it, and a
+     `pork_roast_trim` key would have split the pantry entry in two, so that
+     ticking "Pork roast" lit up half the recipes that use it.
+
+     Six-tenths of the fat stays. USDA's "lean only" figures for chuck and
+     shoulder carry roughly forty percent of the fat of "lean and fat", and
+     those are cut by a butcher with a boning knife and a scale; a home trim
+     reaches the cap and the seams and none of the marbling, so it lands short
+     of that. The word has to be on the ingredient line — a step that says
+     "trim it" counts for nothing, because the steps are prose and this is the
+     only part of a recipe the parser reads. */
+  const fx = /\btrimmed\b/i.test(raw) ? PREP.trimmed : undefined;
+
+  return { key, grams, alias: hit.alias, unit: used, fx };
 }
 
 /** Convenience wrapper: returns { key, grams } or null if unreadable. */
@@ -717,7 +738,13 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
     if (r.assumed) assumed.push(line + ' \u2014 ' + r.assumed);
     const food = FOODS[r.key];
     const k = r.grams / 100;
-    kcal += food.kcal * k; p += food.p * k; c += food.c * k; f += food.f * k;
+    /* A trimmed line (parse-lib) keeps a fraction of the food's fat. The
+       calories in the table already count that fat at nine a gram, so the
+       part cut away is taken back out of them here rather than by scaling the
+       whole figure, which would have cost the lean its calories too. */
+    const fx = r.fx === undefined ? 1 : r.fx;
+    const fat = food.f * fx;
+    kcal += (food.kcal - (food.f - fat) * 9) * k; p += food.p * k; c += food.c * k; f += fat * k;
     na += (food.na || 0) * k; fib += (food.fib || 0) * k;
     const it = { k: r.key, g: Math.round(r.grams * 10) / 10, u: r.unit || '' };
     if (food.split) it.a = SPICE_NAMES[r.alias] || r.alias;

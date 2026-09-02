@@ -137,13 +137,30 @@
     Object.keys(mine).forEach(function (key) {
       var f = mine[key];
       if (!f || typeof f !== 'object') return;
+      /* A meal you kept to yourself remembers what went into it. The parts
+         ride along as their own list so the plate can open and show them
+         (a salad that was five things and became one line was the complaint),
+         and they double as the ingredient lines the search reads, so "beans"
+         still finds the salad they went into. */
+      var parts = Array.isArray(f.parts) ? f.parts.filter(function (pt) {
+        return pt && typeof pt === 'object' && pt.name;
+      }).map(function (pt) {
+        return { id: pt.id, x: Number(pt.x) || 1, name: String(pt.name),
+          unit: String(pt.unit || 'serving') };
+      }) : [];
+      var name = String(f.name || 'Something');
       var rec = {
         id: 'f:my:' + key, food: true, book: 0, secNum: 0, secName: 'Single foods',
-        name: String(f.name || 'Something'), servings: '1 ' + String(f.unit || 'serving'),
-        servN: 1, unit: String(f.unit || 'serving'), ing: [String(f.name || 'Something')],
+        name: name, servings: '1 ' + String(f.unit || 'serving'),
+        servN: 1, unit: String(f.unit || 'serving'),
+        ing: parts.length ? parts.map(function (pt) {
+          return fmtNum(pt.x) + ' × ' + pt.unit + ' ' + pt.name;
+        }) : [name],
+        parts: parts,
         steps: [], est: true, score: null, diff: 'Easy', time: '0 mins', fav: !!f.fav,
         macro: { kcal: Number(f.kcal) || 0, p: Number(f.p) || 0,
-          c: Number(f.c) || 0, f: Number(f.f) || 0, na: 0, fib: 0 }
+          c: Number(f.c) || 0, f: Number(f.f) || 0,
+          na: Number(f.na) || 0, fib: Number(f.fib) || 0 }
       };
       MFOODS.push(rec);
       BY_ID[rec.id] = rec;
@@ -156,9 +173,11 @@
       var sv = mFoodServing(f);
       var per = sv.grams / 100;
       var name = mFoodName(key, f);
+      /* grams rides along so a plate can say "1 cup · 130 g": a unit alone
+         is a meaningful portion for an egg, not for "1 serving" of beans. */
       MFOODS.push({
         id: 'f:' + key, food: true, side: !!f.side, book: 0, secNum: 0, secName: 'Single foods',
-        name: name, servings: '1 ' + sv.unit, servN: 1, unit: sv.unit,
+        name: name, servings: '1 ' + sv.unit, servN: 1, unit: sv.unit, grams: sv.grams,
         ing: [name], steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
         macro: {
           kcal: Math.round((f.kcal || 0) * per), p: Math.round((f.p || 0) * per * 10) / 10,
@@ -411,7 +430,8 @@
   var PLURAL = {
     cup: 'cups', can: 'cans', slice: 'slices', clove: 'cloves', package: 'packages',
     packet: 'packets', stick: 'sticks', pint: 'pints', quart: 'quarts', scoop: 'scoops',
-    head: 'heads', bunch: 'bunches', link: 'links', spear: 'spears', lb: 'lbs', box: 'boxes'
+    head: 'heads', bunch: 'bunches', link: 'links', spear: 'spears', lb: 'lbs', box: 'boxes',
+    serving: 'servings', plate: 'plates', egg: 'eggs', piece: 'pieces'
   };
   var SINGULAR = {};
   Object.keys(PLURAL).forEach(function (k) { SINGULAR[PLURAL[k]] = k; });
@@ -524,6 +544,9 @@
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
     macroDate: null, macroPick: null, macroTargOpen: false, newFood: null, mpQuery: '',
+    /* A food opened from its plate: {id, x}. Foods have no recipe sheet, so
+       this is the sheet that answers "what is one of it, and what went in". */
+    foodOpen: null,
     myJoin: '', mySent: false, myErr: '', myNote: '',
     mpSec: 'meal', mpSort: 'fit',
     /* Which of the three ways in the picker is showing. It opens on 'home',
@@ -1982,6 +2005,22 @@
     return { all: all, eaten: eaten, est: est };
   }
 
+  /* A day is finished when everything on it has been eaten. Plates whose
+     food is gone from the table do not count either way — they cannot be
+     ticked, so they must not keep a day open forever. An empty day is not
+     finished, it is empty. */
+  function mDayDone(day) {
+    var n = 0, left = 0;
+    Object.keys(day).forEach(function (sk) {
+      (day[sk] || []).forEach(function (it) {
+        if (!BY_ID[it.id]) return;
+        n++;
+        if (!it.eaten) left++;
+      });
+    });
+    return n > 0 && left === 0;
+  }
+
   /* How much of the day each meal deserves. Split evenly, a before-bed snack
      was offered a plate the size of dinner's; these are the thumbs on the
      scale. Editable per meal under Craft my plan; the numbers are weights,
@@ -2162,6 +2201,23 @@
       Math.round((mac.c || 0) * x) + '<i class="mb-c">C</i>';
   }
 
+  /* How much of a plate this is, in words a kitchen uses: "1 cup · 130 g",
+     "2 whole · 100 g", "1½ servings", "1 plate · 5 parts". A bare unit was
+     the complaint — "serving" next to a kept-together salad said nothing
+     about how much salad — so a food shows its weight, a kept meal how many
+     things went into it, and a recipe how many of its servings. */
+  function mPortionText(r, x) {
+    var n = r.food ? x : x * (r.servN || 1);
+    var unit = r.food ? String(r.unit || 'serving') : 'serving';
+    var grams = r.grams ? Math.round(r.grams * n) : 0;
+    if (unit === 'g') return (grams || Math.round(100 * n)) + ' g';   // a food with no unit of its own
+    var head = unit === 'each' ? fmtNum(n) + ' whole' : fmtNum(n) + ' ' + fixUnit(unit, n);
+    if (r.parts && r.parts.length) {
+      return head + ' · ' + r.parts.length + (r.parts.length === 1 ? ' part' : ' parts');
+    }
+    return grams ? head + ' · ' + grams + ' g' : head;
+  }
+
   /* The week you are in, seven buttons wide: each day's letter, its date, and
      what it actually came to. The dropdown could only be read one option at a
      time, so "how did this week go" meant opening it seven times. Days ahead
@@ -2181,16 +2237,21 @@
          would be describing a plan nobody is on. */
       var tK = kcalOf(mDayTargets(dk));
       var train = mIsTrainingDay(dk);
-      var got = MDAYS[dk] ? Math.round(mTotals(mDay(dk)).all.kcal) : 0;
+      var dayObj = MDAYS[dk] ? mDay(dk) : null;
+      var got = dayObj ? Math.round(mTotals(dayObj).all.kcal) : 0;
       var state = !got || !tK ? '' :
         got > tK * 1.02 ? ' over' : got >= tK * 0.9 ? ' on' : ' under';
+      /* A ring is a day in progress; a filled circle is a day that has been
+         eaten to the end. The colour is the same verdict either way — under,
+         on, or over its target — so the week reads at a glance. */
+      var done = dayObj ? mDayDone(dayObj) : false;
       out.push('<button class="mwk-d' + (dk === k ? ' now' : '') + state +
-        (train ? ' train' : '') + '"' +
+        (train ? ' train' : '') + (done ? ' done' : '') + '"' +
         (ahead || tooOld ? ' disabled' : '') +
         ' data-mweek="' + dk + '" aria-pressed="' + (dk === k ? 'true' : 'false') + '"' +
         ' aria-label="' + M_WDAYS[d.getDay()] + ' ' + M_MONS[d.getMonth()] + ' ' + d.getDate() +
         (train ? ', training day' : '') + ', ' + tK + ' calorie target' +
-        (got ? ', ' + got + ' eaten' : '') + '">' +
+        (got ? ', ' + got + (done ? ' eaten, all done' : ' on the day') : '') + '">' +
         '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) + '</span>' +
         '<span class="mwk-n">' + d.getDate() + '</span>' +
         '<span class="mwk-k">' + (tK || '&middot;') + '</span>' +
@@ -2337,8 +2398,13 @@
                knowing it is worth eating are different questions, and the
                second one was only answerable by opening the recipe. */
             leaf(r.score, 'leaf-sm') +
+            /* A recipe's name opens the recipe. A food's name opens the
+               food: what one of it is, and — for a meal you kept together —
+               the parts it was made of. It used to be a dead label, which
+               left a five-part salad reading as one word and no way back. */
             (r.food
-              ? '<span class="mitem-name mitem-food">' + esc(r.name) + '</span>'
+              ? '<button class="mitem-name mitem-food" data-mfood="' + esc(String(r.id)) +
+                '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
             '<span class="mitem-acts no-print">' +
@@ -2359,8 +2425,7 @@
           '<span class="mitem-chips">' +
             // the book's short name — its full title is half a phone wide
             '<span class="mchip">' + esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) + '</span>' +
-            '<span class="mchip">' + esc(r.food ? r.unit
-              : fmtNum(it.x * (r.servN || 1)) + (it.x * (r.servN || 1) === 1 ? ' serving' : ' servings')) + '</span>' +
+            '<span class="mchip">' + esc(mPortionText(r, it.x)) + '</span>' +
             (r.est ? '<span class="mchip">~ estimated</span>' : '') +
             mSaltChip(r, it.x) +
           '</span>' +
@@ -2460,9 +2525,10 @@
               if (!r2) return '';
               return '<div class="mthin' + (it.eaten ? ' eaten' : '') + '">' +
                 '<span class="mthin-n">' + esc(r2.name) + '</span>' +
-                '<span class="mthin-x">' + (r2.food
-                  ? fmtNum(it.x) + ' &times; ' + esc(r2.unit) : '&times;' + fmtNum(it.x)) +
-                '</span></div>';
+                /* The same portion words the open plate uses — "1 cup ·
+                   130 g", "1½ servings" — so a folded meal reads as food
+                   rather than as multipliers. */
+                '<span class="mthin-x">' + esc(mPortionText(r2, it.x)) + '</span></div>';
             }).join('') + '</div>'
           : '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') +
             /* Under the plates, not in the header: it is a thing you do once
@@ -2760,6 +2826,52 @@
       '</div></div>';
   }
 
+  /* A food, opened from its plate. Recipes have a sheet with steps in it;
+     a food has nothing to cook, so this is the sheet that answers the two
+     things a plate cannot: what one of it is (a cup, 130 grams), and for a
+     meal you kept together, the parts it was made of and what each brought.
+     The totals are at the plate's own portion, so they match the row that
+     was pressed rather than a nominal "one". */
+  function mFoodSheetHTML() {
+    var o = S.foodOpen || {}, r = BY_ID[o.id];
+    if (!r) return '';
+    var x = o.x > 0 ? o.x : 1;
+    var mac = r.macro || {};
+    var parts = r.parts || [];
+    var partRows = parts.map(function (pt) {
+      /* Each part at the portion it was kept at, scaled by how much of the
+         plate is on the day. The part's own record may be gone (a table
+         food renamed, an own food deleted), so the macro line is only drawn
+         when it can still be worked out. */
+      var pr = BY_ID[pt.id];
+      var px = (Number(pt.x) || 1) * x;
+      var amount = pt.unit === 'each' ? fmtNum(px) + ' whole'
+        : fmtNum(px) + ' ' + fixUnit(String(pt.unit || 'serving'), px);
+      return '<div class="mfs-p">' +
+        '<span class="mfs-pn">' + esc(pt.name) + '</span>' +
+        '<span class="mfs-px">' + esc(amount) + '</span>' +
+        (pr ? '<span class="mfs-pm">' + mMacLine(pr, px) + '</span>' : '') +
+      '</div>';
+    }).join('');
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="' + esc(r.name) + '">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">' + (parts.length ? 'A meal you kept' : 'A food') + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="mfs-name">' + esc(r.name) + '</div>' +
+        '<div class="mfs-one">One of it: ' + esc(mPortionText(r, 1)) + '</div>' +
+        (partRows ? '<div class="mt-div">What went in</div><div class="mfs-parts">' + partRows + '</div>' : '') +
+        '<div class="mt-div">On your plate: ' + esc(mPortionText(r, x)) + '</div>' +
+        '<div class="mk-tot">' + mMacLine(r, x) + '</div>' +
+        '<div class="mfs-micro">' +
+          '<span>&#127806; ' + (Math.round((mac.fib || 0) * x * 10) / 10) + ' g fibre</span>' +
+          '<span>&#129474; ' + Math.round((mac.na || 0) * x).toLocaleString() + ' mg sodium</span>' +
+        '</div>' +
+        (r.est ? '<div class="mt-cap">~ estimated from the food table, not a label.</div>' : '') +
+      '</div></div>';
+  }
+
   function macroChartHTML() {
     var sr = mcSeries(S.chartWhich);
     var body = sr.need
@@ -2805,9 +2917,23 @@
      * overshoot; fat and carbs turn at the line, and calories get two per
      * cent of rounding grace. The fit scorer has always judged them that way
      * and the readout must not contradict the thing filling the day. */
-    var ROWS = [['kcal', '\u25CD', 'Calories', ''], ['p', 'P', 'Protein', ' g'],
+    /* Calories get the flame, not a fourth letter: P, F and C are the three
+       things food is made of and the flame is what the three add up to. */
+    var ROWS = [['kcal', '\uD83D\uDD25', 'Calories', ''], ['p', 'P', 'Protein', ' g'],
       ['f', 'F', 'Fat', ' g'], ['c', 'C', 'Carbs', ' g']];
     var tK = kcalOf(targets);
+    /* What is left of each, signed: under is negative, over is positive. It
+       is the one figure that adds the assumption in \u2014 an empty meal counted
+       at its share \u2014 because "how far off will the day land" is the question
+       it answers, where the bar's own number answers "what is on it". */
+    var left = {};
+    ROWS.forEach(function (row) {
+      var m = row[0];
+      var target = m === 'kcal' ? tK : targets[m];
+      left[m] = Math.round((m === 'kcal' ? tot.all.kcal : tot.all[m]) + asm[m] - target);
+    });
+    function signed(v) { return (v > 0 ? '+' : '') + v; }
+    function sign(v) { return v > 0 ? 'pos' : v < 0 ? 'neg' : 'nil'; }
     var bars = ROWS.map(function (row) {
       var m = row[0];
       var target = Math.max(1, m === 'kcal' ? tK : targets[m]);
@@ -2854,20 +2980,13 @@
         '<span class="mb-num"><b>' + full + '</b> / ' +
           (m === 'kcal' ? tK : targets[m]) + esc(row[3]) + '</span>' +
         '<span class="vis-hidden">' + row[2] + '</span>' +
+        /* What is left sits on the row it belongs to. It used to be a fifth
+           line of four signed numbers under the bars, which meant reading a
+           bar and then hunting its delta on the line below. Same figure, on
+           the same line as the bar it explains. */
+        '<span class="mb-d ' + sign(left[m]) + '"><b>' + signed(left[m]) + '</b>' +
+          '<span class="vis-hidden">' + (left[m] > 0 ? ' over' : ' to go') + '</span></span>' +
       '</div>';
-    }).join('');
-
-    /* One line for what is left, signed. Under is negative, over is positive.
-       It replaces "3 g left" and "45 g over" scattered across four separate
-       readouts with four numbers you can read in one movement. */
-    var delta = ROWS.map(function (row) {
-      var m = row[0];
-      var target = m === 'kcal' ? tK : targets[m];
-      var v = Math.round((m === 'kcal' ? tot.all.kcal : tot.all[m]) + asm[m] - target);
-      return '<span class="md-c ' + (v > 0 ? 'pos' : v < 0 ? 'neg' : 'nil') + '">' +
-        '<span class="mb-' + m + '" aria-hidden="true">' + row[1] + '</span>' +
-        '<b>' + (v > 0 ? '+' : '') + v + '</b>' +
-        '<span class="vis-hidden"> ' + row[2] + (v > 0 ? ' over' : ' left') + '</span></span>';
     }).join('');
 
     /* A floor and a ceiling, not two more budgets — which is why they are a
@@ -2878,26 +2997,38 @@
     var naCap = 2300;
     var fibFloor = Math.round(tK * 14 / 1000);          // 14 g per 1000 kcal
     var na = Math.round(tot.all.na), fib = Math.round(tot.all.fib);
+    var fibState = fib >= fibFloor ? 'ok' : 'low';
+    var naState = na > naCap ? 'high' : 'ok';
     var micro =
-      '<span class="mm ' + (fib >= fibFloor ? 'ok' : 'low') + '" title="Fibre">' +
+      '<span class="mm ' + fibState + '" title="Fibre">' +
         '\uD83C\uDF3E <b>' + fib + '</b>/' + fibFloor +
         '<span class="vis-hidden"> g of fibre</span></span>' +
-      '<span class="mm ' + (na > naCap ? 'high' : 'ok') + '" title="Sodium">' +
+      '<span class="mm ' + naState + '" title="Sodium">' +
         '\uD83E\uDDC2 <b>' + na.toLocaleString() + '</b>/' + naCap.toLocaleString() +
         '<span class="vis-hidden"> mg of sodium</span></span>';
 
-    /* One line for everything left of the day: the four deltas, then the two
-       that are a floor and a ceiling rather than a budget, then what has
-       actually been eaten — and the handle for opening the day on its end,
-       because that is where you are already looking when you decide to. */
+    /* The same six numbers folded into one row of pills, for when the page
+       has scrolled and the bars would be eating the screen. Four signed
+       deltas, then fibre and sodium against their floor and ceiling. It is
+       hidden from assistive tech because it is a second copy of what the bars
+       already announce, not a second readout; pressing it scrolls back up to
+       the bars it stands in for. */
+    var pills = ROWS.map(function (row) {
+      var m = row[0];
+      return '<span class="mpill ' + sign(left[m]) + '">' +
+        '<span class="mb-' + m + '">' + row[1] + '</span><b>' + signed(left[m]) + '</b></span>';
+    }).join('') +
+      '<span class="mpill mpill-m ' + fibState + '">\uD83C\uDF3E<b>' + fib + '</b>/' + fibFloor + '</span>' +
+      // no thousands separators here: "1474/2300" is how the sodium pill fits
+      // a 375-wide phone beside the other five, and it is how Blake writes it
+      '<span class="mpill mpill-m ' + naState + '">\uD83E\uDDC2<b>' + na + '</b>/' + naCap + '</span>';
+
     /* The bars are the door to their own history. Tapping the summary to see
        the detail costs no navigation and puts the two in the same place. */
     return '<button class="mbars" data-mchartopen="1" aria-label="See these over time">' +
         bars + '<span class="mbars-more" aria-hidden="true">&rsaquo;</span></button>' +
-      '<div class="mdelta" role="status">' + delta + micro +
-
-      '</div>' +
-      '';
+      '<div class="mdelta" role="status">' + micro + '</div>' +
+      '<button class="mpills" data-mpills="1" aria-hidden="true" tabindex="-1">' + pills + '</button>';
   }
 
   /* The picker sheet: search plus a meal/all toggle, over a list ranked by
@@ -4783,14 +4914,18 @@
     var items = (day[sk] || []).filter(function (it) { return BY_ID[it.id]; });
     if (!items.length || !name) return null;
     var mac = { kcal: 0, p: 0, f: 0, c: 0, na: 0, fib: 0 };
-    var ing = [], est = false;
+    var ing = [], parts = [], est = false;
     items.forEach(function (it) {
       var r = BY_ID[it.id];
       ['kcal', 'p', 'f', 'c', 'na', 'fib'].forEach(function (m) {
         mac[m] += ((r.macro || {})[m] || 0) * it.x;
       });
       if (r.est) est = true;
-      ing.push(fmtNum(it.x) + (r.food ? ' \u00d7 ' + r.unit : ' \u00d7 serving') + ' ' + r.name);
+      var unit = r.food ? r.unit : 'serving';
+      ing.push(fmtNum(it.x) + ' \u00d7 ' + unit + ' ' + r.name);
+      /* The parts keep their own id, amount and unit so the kept meal can be
+         opened later and read back as what it was \u2014 not just as a total. */
+      parts.push({ id: it.id, x: it.x, name: r.name, unit: unit });
     });
     ['kcal', 'p', 'f', 'c', 'na', 'fib'].forEach(function (m) { mac[m] = Math.round(mac[m]); });
 
@@ -4808,11 +4943,14 @@
       return id;
     }
     /* Or into your own foods, which live in your account and go nowhere near
-       the household. One serving of it is one of it. */
+       the household. One of it is one plate — the whole meal as it stood —
+       and it remembers its parts, sodium and fibre, so the kept salad still
+       reads as beans, dressing and greens when you open it next Tuesday. */
     var key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') ||
       ('x' + Date.now().toString(36));
     var mine = mReadMyFoods();
-    mine[key] = { name: name, unit: 'serving', kcal: mac.kcal, p: mac.p, f: mac.f, c: mac.c };
+    mine[key] = { name: name, unit: 'plate', kcal: mac.kcal, p: mac.p, f: mac.f, c: mac.c,
+      na: mac.na, fib: mac.fib, parts: parts };
     mWriteMyFoods(mine);
     mBuildFoods();
     return 'f:my:' + key;
@@ -5963,6 +6101,30 @@
       '--topbar-h', Math.round(tb.getBoundingClientRect().height) + 'px');
   }
 
+  /* My Day's sticky readout folds to a row of pills once the page has
+     scrolled, so the week and the four bars stop eating a third of a phone
+     while you are down among the plates. Two thresholds rather than one:
+     the fold changes the header's height, which moves the page under the
+     finger, and a single line would flap on either side of itself. A day
+     too short to scroll past the fold is left open — folding it would
+     shorten the page, clamp the scroll back under the line, and unfold it
+     again on the next frame. */
+  var shrunkRaf = 0;
+  function syncShrunk() {
+    shrunkRaf = 0;
+    var st = document.querySelector('.mday-stick');
+    if (!st) return;
+    if (S.view !== 'macros') { st.classList.remove('shrunk'); return; }
+    var y = window.scrollY || window.pageYOffset || 0;
+    var room = document.documentElement.scrollHeight - window.innerHeight;
+    if (!st.classList.contains('shrunk') && y > 120 && room > 420) st.classList.add('shrunk');
+    else if (st.classList.contains('shrunk') && y < 60) st.classList.remove('shrunk');
+  }
+  function onScrollShrink() {
+    if (shrunkRaf) return;
+    shrunkRaf = requestAnimationFrame(syncShrunk);
+  }
+
   /* A 5.5in page is wider than a phone. Scale it down to fit rather than
      letting the whole document scroll sideways. Printing ignores this. */
   function fitPages() {
@@ -5980,9 +6142,9 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 232 },
-    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 224 },
-    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 96, booklet: true },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 240 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 236 },
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 104, booklet: true },
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 136, booklet: true }
   };
 
@@ -6327,7 +6489,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo'];
+    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -6427,6 +6589,16 @@
       document.body.style.overflow = 'hidden';
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
       return;
+    }
+
+    if (S.foodOpen) {
+      root.innerHTML = mFoodSheetHTML();
+      if (!root.innerHTML) { S.foodOpen = null; }       // the food is gone; nothing to show
+      else {
+        document.body.style.overflow = 'hidden';
+        if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+        return;
+      }
     }
 
     if (S.macroPick) {
@@ -7099,6 +7271,9 @@
     if (S.view === 'list') renderList();
     if (S.view === 'pantry') renderPantry();
     if (S.view === 'book') renderBook();
+    /* Leaving My Day unfolds its readout, so coming back starts at the top
+       with the bars open rather than with a fold left over from last time. */
+    syncShrunk();
   }
 
   /* The five tabs fit a 390px phone now, so the fade would be a lie there. It
@@ -7280,6 +7455,18 @@
         return;
       }
 
+      /* A food's name opens the food, the way a recipe's name opens the
+         recipe. For a kept meal that is the only place its parts can be
+         seen again: the plate shows one line for the whole thing. */
+      var fd = e.target.closest('[data-mfood]');
+      if (fd) {
+        rememberOpener();
+        S.foodOpen = { id: fd.dataset.mfood, x: Number(fd.dataset.mx) || 1 };
+        pushSheet({ m: 1 });
+        renderModal();
+        return;
+      }
+
       var fold = e.target.closest('[data-mfold]');
       if (fold) {
         var fk = fold.dataset.mfold;
@@ -7405,6 +7592,13 @@
     }
 
     $('macroFoot').addEventListener('click', function (e) {
+      /* The shrunk pills are the bars folded up. Pressing them goes back to
+         the top, where the bars are open again — they are the same numbers,
+         not a second readout. */
+      if (e.target.closest('[data-mpills]')) {
+        window.scrollTo(0, 0);
+        return;
+      }
       if (!e.target.closest('[data-mchartopen]')) return;
       rememberOpener();
       S.chartOpen = true;
@@ -7637,6 +7831,7 @@
     window.addEventListener('resize', syncTabsFade);
     window.addEventListener('resize', syncStick);
     syncStick();
+    window.addEventListener('scroll', onScrollShrink, { passive: true });
     document.querySelector('.tabs').addEventListener('scroll', syncTabsFade, { passive: true });
     syncTabsFade();
 
@@ -8297,7 +8492,7 @@
       if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
       if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen || S.newFood ||
-        S.syncOpen)) close();
+        S.keepMeal || S.chartOpen || S.foodOpen)) close();
     });
   }
 
@@ -8396,6 +8591,7 @@
     S.macroPick = null;
     S.chartOpen = false;
     S.keepMeal = '';
+    S.foodOpen = null;
     S.macroTargOpen = false;
     if (S.newFood) mScanStop();
     S.newFood = null;

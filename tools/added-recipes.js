@@ -1459,14 +1459,15 @@ module.exports = [
     id: 300, book: 1, secNum: 4, secName: 'Dinner',
     name: 'Braised Stewing Beef with Carrots & Onions',
     servings: '4 Servings', servN: 4,
-    ing: ['2 lbs stewing beef', '6 carrots', '3 onions', '1 tsp dried thyme',
+    ing: ['2 lbs stewing beef, trimmed', '6 carrots', '3 onions', '1 tsp dried thyme',
       '1 tsp black pepper', '2 cups water'],
     steps: [
+      'Trim the beef first: the white cap and every seam of fat a knife can get into. Stewing beef is cut from the chuck, which is a fatty piece, and what comes off now is fat that never has to be skimmed later.',
       'Brown the beef hard in a dry heavy pot, in batches. Crowding the pot steams the meat and you lose the colour that the whole dish is built on.',
       'Onions in next, cooked down in what the beef left behind.',
       'Back in with the beef, the water, the thyme and the pepper. Lid on, lowest heat.',
       'Add the carrots in large pieces for the last stretch so they hold their shape.',
-      'Season at the table rather than in the pot. A braise concentrates as it reduces, so salt added early ends up doubled.',
+      'Skim what has risen to the top, then season at the table rather than in the pot. A braise concentrates as it reduces, so salt added early ends up doubled.',
     ],
     macro: null, tagline: 'Season at the Table', score: null, sc: null,
     diff: 'Medium', time: '3 hrs', extras: null,
@@ -1476,9 +1477,10 @@ module.exports = [
     id: 301, book: 1, secNum: 4, secName: 'Dinner',
     name: 'Roast Pork with Peppers & Onions',
     servings: '4 Servings', servN: 4,
-    ing: ['2 lbs pork roast', '4 bell peppers', '3 onions', '1 tsp paprika',
+    ing: ['2 lbs pork roast, trimmed', '4 bell peppers', '3 onions', '1 tsp paprika',
       '1 tsp ground cumin', '1 tsp black pepper'],
     steps: [
+      'Trim the cap off the shoulder — the thick white layer on the outside. The fat that runs through the meat is out of reach of a knife, and that is what the draining at the end is for.',
       'Rub the roast with the paprika, cumin and pepper and leave it uncovered in the fridge for a few hours. A dry surface is what lets it brown instead of steam.',
       'Roast it hot to start, then drop the heat and take it slowly the rest of the way.',
       'Peppers and onions onto the tray for the last stretch, where they cook in the drippings.',
@@ -1599,5 +1601,188 @@ module.exports = [
     ],
     macro: null, tagline: 'A Second Lunch Out of Sunday', score: null, sc: null,
     diff: 'Easy', time: '15 mins', extras: null,
+  },
+
+  /* -------------------------------------------------------------------------
+   * 308-316, dinners for the hard cut.
+   *
+   * A day at that target is about 1470 calories, 182 grams of protein and
+   * 47 of carbohydrate, and Fill hands dinner about a third of it: 515
+   * calories, 64 grams of protein, 16 of carbohydrate. Two dinners existed
+   * that were clean enough to draft, and both were half a pound of pot roast
+   * a plate. Half a pound of chuck or shoulder is forty grams of protein at
+   * thirty-five to forty of fat — a storehouse hands out the fatty cuts, and
+   * these are them — so the chooser was picking between two plates that each
+   * missed the share by twenty-five grams of protein one way and twenty of
+   * fat the other, and took whichever it was less wrong on. Across a drafted
+   * hard-cut fortnight the dinner slot came in at a median of 340 calories
+   * and 25 grams of protein against that 515 and 64.
+   *
+   * These nine are the missing ones. Seven are chicken breast at ten ounces
+   * raw a plate, which is what reaching the share actually takes; the
+   * vegetables beside it are for fibre and for having something on the fork,
+   * and they are held to a cup or two each because on a hard cut the whole
+   * carbohydrate budget is spent on vegetables and there is nothing left over
+   * for anything else. The two braises keep the roasts in the rotation, with
+   * "trimmed" written on the ingredient line — that word is how the parser
+   * is told the cap came off (parse-lib), and a step that says "trim it"
+   * counts for nothing on its own.
+   *
+   * Nothing here calls for salt, for the same reason as 290-301. Flavour is
+   * the spice shelf, lime, onion and pepper cooked down, and what a hot dry
+   * pan does to chicken.
+   * ---------------------------------------------------------------------- */
+
+  {
+    id: 308, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Sheet-Pan Chicken with Broccoli & Peppers',
+    servings: '2 Servings', servN: 2,
+    ing: ['1¼ lbs chicken breasts', '½ lb broccoli', '2 bell peppers', '1 tbsp oil',
+      '1 tsp paprika', '1 tsp garlic powder', '½ tsp black pepper'],
+    steps: [
+      'Cut the broccoli into small florets and the peppers into wide strips, and toss them on the tray with the oil, the paprika and the garlic powder.',
+      'Lay the chicken breasts on top, pepper over everything, and into a hot oven — hot, so the vegetables char at the edges before the chicken dries out.',
+      'Take the chicken off as soon as it is done and rest it while the vegetables have another few minutes to catch.',
+      'Slice the chicken across the grain and pile it back on the tray to serve.',
+      'One tablespoon of oil for the whole tray, and all of it on the vegetables. Chicken breast browns on its own; broccoli does not.',
+    ],
+    macro: null, tagline: 'Hot, So It Chars', score: null, sc: null,
+    diff: 'Easy', time: '35 mins', extras: null,
+  },
+
+  {
+    id: 309, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Chicken with Green Beans in Tomato & Onion',
+    servings: '2 Servings', servN: 2,
+    ing: ['1¼ lbs chicken breasts', '1 can green beans', '3 tomatoes', '1 onion',
+      '1 tsp dried oregano', '1 tsp dried basil', '½ tsp black pepper'],
+    steps: [
+      'Brown the chicken hard in a dry pan and set it aside; it finishes in the sauce.',
+      'Cook the sliced onion in the same pan until it softens, then add the tomatoes in quarters and cook them down until they collapse into something you would call a sauce.',
+      'Drain and rinse the green beans — rinsing takes a fair part of the tin’s salt down the sink with it — and stir them in with the oregano and basil.',
+      'Chicken back in, lid on, low until it is cooked through, then the pepper.',
+      'Fresh tomatoes make the sauce and the tin only supplies the beans, which is the way round that keeps the salt where a cut can afford it.',
+    ],
+    macro: null, tagline: 'The Tin Only Supplies the Beans', score: null, sc: null,
+    diff: 'Easy', time: '30 mins', extras: null,
+  },
+
+  {
+    id: 310, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Lime & Cumin Chicken with Cucumber & Tomato',
+    servings: '2 Servings', servN: 2,
+    ing: ['1¼ lbs chicken breasts', '1 lime', '1 tsp ground cumin', '1 tsp chili powder',
+      '1 cucumber', '2 tomatoes', '½ onion', '2 tbsp cilantro'],
+    steps: [
+      'Butterfly the chicken breasts so they are an even thickness, and rub them with the cumin, the chili powder and the zest of the lime.',
+      'Cook them in a dry pan hot enough that they colour in the first minute, then turn once and finish.',
+      'While they rest, dice the cucumber and tomatoes, slice the onion paper-thin and toss it all with the juice of the lime and the cilantro.',
+      'Slice the chicken and serve it over the salad, so the juices run into it.',
+      'The lime is doing what salt would do. Acid makes food taste seasoned, and it costs the day nothing.',
+    ],
+    macro: null, tagline: 'Acid Where Salt Would Be', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
+  },
+
+  {
+    id: 311, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Braised Beef with Peppers & Tomatoes',
+    servings: '4 Servings', servN: 4,
+    ing: ['2 lbs stewing beef, trimmed', '3 bell peppers', '2 onions', '4 tomatoes',
+      '1 tsp ground cumin', '1 tsp chili powder', '1 tsp black pepper', '1 cup water'],
+    steps: [
+      'Trim the beef of every seam of fat a knife can get into before it goes near the pot. Stewing beef is chuck, and chuck is a fatty cut; what you cut off now is fat that never has to be skimmed later.',
+      'Brown it hard in batches in a dry heavy pot, and do not crowd it.',
+      'Onions in, cooked in what the beef left behind, then the cumin and chili powder for a minute, then the tomatoes in quarters and the water.',
+      'Beef back in, lid on, lowest heat, until it gives under a fork. The peppers in wide strips for the last half hour.',
+      'Skim the top before it goes out, and pepper it at the table. Cooled overnight the fat lifts off in one piece, which is the easiest skimming there is.',
+    ],
+    macro: null, tagline: 'Lifts Off in One Piece', score: null, sc: null,
+    diff: 'Medium', time: '3 hrs', extras: null,
+  },
+
+  {
+    id: 312, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Chicken & Broccoli with Ginger & Garlic',
+    servings: '2 Servings', servN: 2,
+    ing: ['1¼ lbs chicken breasts', '¾ lb broccoli', '1 bell pepper', '1 tbsp oil',
+      '1 tsp ground ginger', '1 tsp garlic powder', '½ tsp black pepper', '¼ cup water'],
+    steps: [
+      'Slice the chicken thin across the grain and toss it with the ginger, the garlic powder and the pepper.',
+      'Get the oil smoking in the widest pan you have and cook the chicken in two batches, moving it only once it has caught.',
+      'Broccoli in small florets and the pepper in strips go in next with the water, lid on for two minutes to steam them, then lid off to drive the water away.',
+      'Chicken back in, tossed through until it is hot.',
+      'A stir-fry with no soy sauce, because a tablespoon of it is close to half a day’s salt on a cut. Ginger and garlic carry the dish on their own.',
+    ],
+    macro: null, tagline: 'No Soy Sauce', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
+  },
+
+  {
+    id: 313, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Chicken Chili Without the Beans',
+    servings: '4 Servings', servN: 4,
+    ing: ['2 lbs chicken breasts', '2 cups diced tomatoes', '2 bell peppers', '2 onions',
+      '1 tbsp chili powder', '1 tsp ground cumin', '1 tsp dried oregano', '1 tsp black pepper'],
+    steps: [
+      'Dice the chicken small and brown it in a dry pot in batches, then set it aside.',
+      'Cook the onions and peppers, diced, until they soften, then the chili powder, cumin and oregano for a minute in the dry pot so they toast.',
+      'The diced tomatoes with their juice — half of the big tin; the rest keeps — and the chicken back in. Simmer uncovered until it thickens.',
+      'Pepper at the end, and taste it before you reach for anything else.',
+      'The beans are where the carbohydrate in a chili lives. Without them this is a pot of vegetables with two pounds of chicken in it, which is what a hard-cut dinner is.',
+    ],
+    macro: null, tagline: 'Half of the Big Tin', score: null, sc: null,
+    diff: 'Easy', time: '45 mins', extras: null,
+  },
+
+  {
+    id: 314, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Baked Chicken with Carrots & Onion',
+    servings: '2 Servings', servN: 2,
+    ing: ['1¼ lbs chicken breasts', '4 carrots', '1 onion', '1 tbsp oil',
+      '1 tsp dried thyme', '1 tsp mustard powder', '½ tsp black pepper'],
+    steps: [
+      'Cut the carrots into thick batons and the onion into wedges, and toss them with the oil and the thyme in a baking dish.',
+      'Rub the chicken with the mustard powder and the pepper and lay it on top.',
+      'Bake covered until the carrots are nearly tender, then uncovered until the chicken has colour and the onion has caught at the edges.',
+      'Rest it a few minutes before slicing; the carrots will not mind waiting.',
+      'Mustard powder rather than mustard, because the powder is the one part of a mustard that is not salt.',
+    ],
+    macro: null, tagline: 'Covered, Then Uncovered', score: null, sc: null,
+    diff: 'Easy', time: '45 mins', extras: null,
+  },
+
+  {
+    id: 315, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Ginger Chicken Lettuce Wraps',
+    servings: '2 Servings', servN: 2,
+    ing: ['1¼ lbs chicken breasts', '½ head lettuce', '1 bell pepper', '1 onion',
+      '1 tsp ground ginger', '1 tsp garlic powder', '1 lime', '½ tsp black pepper'],
+    steps: [
+      'Chop the chicken fine — nearly minced — and cook it in a hot dry pan with the ginger and the garlic powder until it has colour.',
+      'Dice the bell pepper and onion small and cook them through with the chicken until the onion is soft, then the black pepper and the juice of the lime.',
+      'Separate the lettuce into whole leaves and rinse them cold so they are crisp.',
+      'Spoon the chicken into the leaves at the table and eat them with your hands.',
+      'The lettuce is doing the job of a tortilla, which is why this dinner fits a hard cut and a taco night does not.',
+    ],
+    macro: null, tagline: 'Nearly Minced', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
+  },
+
+  {
+    id: 316, book: 1, secNum: 4, secName: 'Dinner',
+    name: 'Sunday Pot Roast, Trimmed',
+    servings: '4 Servings', servN: 4,
+    ing: ['2 lbs beef roast, trimmed', '4 carrots', '2 onions', '2 cloves garlic',
+      '1 tsp dried thyme', '1 tsp black pepper', '1 cup water'],
+    steps: [
+      'Trim the roast cold, straight from the fridge, when the fat is firm and comes away in sheets. Take the cap and the thick seams; leave the marbling, which you cannot get at anyway.',
+      'Brown it on every side in a dry heavy pot, then take it out.',
+      'Onions in wedges and the garlic, crushed, cooked in what the beef left, then the thyme, the water and the roast back in. Lid on, lowest heat, for as long as it takes to give under a fork.',
+      'Carrots in large pieces for the last hour.',
+      'Skim the top before it goes out and pepper it at the table. Even trimmed, this is the richest dinner in the section — it is here because a Sunday roast is a real dinner and a cut that cannot have one does not last.',
+    ],
+    macro: null, tagline: 'Comes Away in Sheets', score: null, sc: null,
+    diff: 'Medium', time: '3 hrs 30 mins', extras: null,
   },
 ];

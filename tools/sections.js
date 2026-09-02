@@ -69,7 +69,8 @@ const ASSIGN = {
     295, 296, 297, 298, 299,
     302, 303, 304, 305, 306, 307],
   Dinner: [51, 52, 55, 57, 61, 62, 65, 66, 67, 69, 70, 71, 72, 73, 74, 75,
-    300, 301],
+    300, 301,
+    308, 309, 310, 311, 312, 313, 314, 315, 316],
   'Best Before Bed': [76, 78, 81, 82, 85, 86, 89, 92, 93, 98, 100],
   /* The last six are the storehouse-only drinks, moved here from the end of
      Around the Table now that a recipe can be renumbered without moving its

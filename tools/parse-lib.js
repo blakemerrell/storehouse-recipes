@@ -63,6 +63,9 @@ const CANNED = { chicken_breast: 'chicken_canned' };
 // vague quantities
 const VAGUE = { dash: 0.02, pinch: 0.02, splash: 2, handful: 0.5 };
 
+// preparation words that change what reaches the plate; see the end of parseLine
+const PREP = { trimmed: 0.6 };
+
 const ALIAS_KEYS = Object.keys(ALIASES).sort((a, b) => b.length - a.length);
 
 /* Returns the food key, and the alias that matched. The alias matters for the
@@ -202,7 +205,25 @@ function parseLine(raw) {
   // fried dish read like a stick of butter; food takes up roughly an eighth.
   if (key === 'oil' && /for frying|to fry|for the pan/i.test(raw)) grams *= 0.12;
 
-  return { key, grams, alias: hit.alias, unit: used };
+  /* "trimmed" on the line: the fat cap and the seams come off before the meat
+     is cooked, and the fat that is cut off is never eaten. Only the fat moves —
+     the lean, and so the protein, is what was there all along, and the grams
+     stay the purchase weight because that is what the shopping list is for.
+     It is a fat multiplier and not a second food key on purpose: a shoulder is
+     one item on the storehouse order whether or not you trim it, and a
+     `pork_roast_trim` key would have split the pantry entry in two, so that
+     ticking "Pork roast" lit up half the recipes that use it.
+
+     Six-tenths of the fat stays. USDA's "lean only" figures for chuck and
+     shoulder carry roughly forty percent of the fat of "lean and fat", and
+     those are cut by a butcher with a boning knife and a scale; a home trim
+     reaches the cap and the seams and none of the marbling, so it lands short
+     of that. The word has to be on the ingredient line — a step that says
+     "trim it" counts for nothing, because the steps are prose and this is the
+     only part of a recipe the parser reads. */
+  const fx = /\btrimmed\b/i.test(raw) ? PREP.trimmed : undefined;
+
+  return { key, grams, alias: hit.alias, unit: used, fx };
 }
 
 /** Convenience wrapper: returns { key, grams } or null if unreadable. */

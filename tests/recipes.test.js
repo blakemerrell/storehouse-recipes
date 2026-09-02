@@ -129,6 +129,38 @@ module.exports = {
       score.oats > score.sugar + 5,
       'oats ' + score.oats + ' vs sugar ' + score.sugar);
 
+    /* ------------------------------------------------------------- trimmed
+     *
+     * The storehouse roasts are chuck and shoulder — pot-roast cuts, fatty by
+     * nature — and the table says so. A recipe that has you cut the cap off
+     * before it cooks eats less of that fat, and "trimmed" on the ingredient
+     * line is how it says so. The word must move the fat and nothing else:
+     * the protein is in the lean, which stays, and the grams are what you
+     * buy, which is what the shopping list adds up. It is a word on the line
+     * and not a second food, so the pantry's one "Pork roast" still covers
+     * every recipe that uses one. */
+    const trim = await p.evaluate(() => {
+      const N = window.Nutrition;
+      const est = (ing) => N.nutritionFor(ing, 4, null, N.parseLine, N.FOODS, N.SPICE_NAMES);
+      const whole = est(['2 lbs pork roast']), cut = est(['2 lbs pork roast, trimmed']);
+      const users = window.RECIPES.filter((r) => (r.ing || []).some((l) => /trimmed/i.test(l)));
+      return {
+        whole: whole.perServing, cut: cut.perServing,
+        sameKey: whole.items[0].k === cut.items[0].k && whole.items[0].g === cut.items[0].g,
+        users: users.map((r) => r.id),
+        pantryKeys: Object.keys(window.PANTRY || {}).filter((k) => /_trim/.test(k)),
+      };
+    });
+    t.ok('"trimmed" on a roast takes fat off the plate',
+      trim.cut.f < trim.whole.f * 0.7 && trim.cut.kcal < trim.whole.kcal,
+      trim.whole.f + 'g fat whole, ' + trim.cut.f + 'g trimmed');
+    t.ok('and only fat — the protein and the purchase weight are untouched',
+      trim.cut.p === trim.whole.p && trim.cut.na === trim.whole.na && trim.sameKey,
+      JSON.stringify({ whole: trim.whole, cut: trim.cut, sameKey: trim.sameKey }));
+    t.ok('the roast dinners use the word, and the pantry has no second roast for it',
+      trim.users.length >= 2 && trim.pantryKeys.length === 0,
+      'used by ' + trim.users.join(', ') + '; trim keys: ' + trim.pantryKeys.join(','));
+
     /* --------------------------------------- ingredients you could make
      *
      * The storehouse does not carry breadcrumbs, and the app said it did.

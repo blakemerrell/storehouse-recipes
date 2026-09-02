@@ -102,7 +102,13 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
     if (r.assumed) assumed.push(line + ' \u2014 ' + r.assumed);
     const food = FOODS[r.key];
     const k = r.grams / 100;
-    kcal += food.kcal * k; p += food.p * k; c += food.c * k; f += food.f * k;
+    /* A trimmed line (parse-lib) keeps a fraction of the food's fat. The
+       calories in the table already count that fat at nine a gram, so the
+       part cut away is taken back out of them here rather than by scaling the
+       whole figure, which would have cost the lean its calories too. */
+    const fx = r.fx === undefined ? 1 : r.fx;
+    const fat = food.f * fx;
+    kcal += (food.kcal - (food.f - fat) * 9) * k; p += food.p * k; c += food.c * k; f += fat * k;
     na += (food.na || 0) * k; fib += (food.fib || 0) * k;
     const it = { k: r.key, g: Math.round(r.grams * 10) / 10, u: r.unit || '' };
     if (food.split) it.a = SPICE_NAMES[r.alias] || r.alias;

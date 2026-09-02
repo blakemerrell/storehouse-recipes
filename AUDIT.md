@@ -87,7 +87,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 307 scored recipes: **21–98**, median **64**.
+Score range across all 316 scored recipes: **21–98**, median **65**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -190,6 +190,11 @@ numbers are never labelled that way, so the two are never confused.
 
 - Meat weights are raw, because that is how the recipes state them. Fat lost to
   draining browned beef is not subtracted.
+- "trimmed" on an ingredient line ("2 lbs pork roast, trimmed") keeps six-tenths
+  of the cut's fat and takes the calories of the rest off with it. Protein is
+  untouched and the grams stay the purchase weight, so the shopping list and the
+  pantry still see one roast. The word has to be on the ingredient line — a step
+  that says "trim it" changes nothing, because the steps are prose.
 - "1 can" without a size means the common size for that item — 15 oz for beans,
   tomato sauce and fruit, 10.5 oz for condensed soup, 5 oz for tuna. Canned
   protein, beans and vegetables are counted at drained weight.
@@ -204,7 +209,7 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-82 recipes across 9 sections were written for this edition rather than carried
+91 recipes across 9 sections were written for this edition rather than carried
 over from the original books:
 
 - **Worth the Afternoon** — 12 recipes
@@ -215,7 +220,7 @@ over from the original books:
 - **Breakfasts** — 11 recipes
 - **Snacks** — 6 recipes
 - **Lunch** — 11 recipes
-- **Dinner** — 2 recipes
+- **Dinner** — 11 recipes
 
 The data made the gaps plain. Across the original 225, no recipe has more than
 four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens
@@ -223,7 +228,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 63 of the 82
+Every ingredient was checked against the storehouse order list. 72 of the 91
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 

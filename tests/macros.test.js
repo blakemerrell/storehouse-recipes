@@ -108,12 +108,21 @@ module.exports = {
           st('kcal', 1900, 1709) === 'over';
       }));
 
-    /* And one signed line for what is left, which replaced "N g left" said
-       four times in four different places. */
-    t.ok('and one signed line says what is left of each',
+    /* And a signed number for what is left, on the row it belongs to. It
+       began as one line under the bars ("N g left" said four times in four
+       places), then moved onto the rows so a row reads have / want / left
+       without the eye hopping down to a legend. Fibre and sodium keep the
+       line under the bars because they are a floor and a ceiling, not a
+       budget with a "left". */
+    t.ok('and each row says what is left of it, signed',
       await p.evaluate(() => {
-        const c = [...document.querySelectorAll('.mdelta .md-c')];
+        const c = [...document.querySelectorAll('.mbrow[data-macro] .mb-d')];
         return c.length === 4 && c.every((x) => /^[+-]?\d+$/.test(x.querySelector('b').textContent));
+      }), await p.textContent('#macroFoot'));
+    t.ok('fibre and sodium sit under the bars as a floor and a ceiling',
+      await p.evaluate(() => {
+        const m = [...document.querySelectorAll('.mdelta .mm')];
+        return m.length === 2 && m.every((x) => /\d+\/[\d,]+/.test(x.textContent.replace(/\s/g, '')));
       }), await p.textContent('.mdelta'));
 
     /* Carb cycling. RP does not eat the same thing seven days a week: a
@@ -281,7 +290,7 @@ module.exports = {
     t.ok('with its unit named, and no recipe pretending to be behind it',
       await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
-        if (!el || el.tagName === 'BUTTON') return false;
+        if (!el || el.dataset.open) return false;
         const chips = [...el.closest('.mitem').querySelectorAll('.mitem-chips .mchip')]
           .map((c) => c.textContent);
         return chips.indexOf('Yours') >= 0 && chips.length >= 2;
@@ -289,6 +298,22 @@ module.exports = {
         const el = document.querySelector('.mitem-food');
         return el ? el.closest('.mitem').querySelector('.mitem-chips').textContent : 'no food row';
       }));
+    /* The name is a door, though — the same door a recipe's name is. A food
+       used to be a dead label, which left a five-part salad that had been
+       kept together reading as one word with no way back to what was in it.
+       Pressing it opens the food: what one of it is, and its parts. */
+    await p.click('.mitem-food');
+    await p.waitForTimeout(250);
+    t.ok('pressing a food\'s name opens the food',
+      await p.evaluate(() => {
+        const sheet = document.querySelector('.mfs-name');
+        return !!sheet && /honey/i.test(sheet.textContent) &&
+          !!document.querySelector('.mfs-one') && !!document.querySelector('.mk-tot');
+      }), await p.evaluate(() => (document.getElementById('modalRoot') || {}).textContent || ''));
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(200);
+    t.ok('and Escape closes it like any other sheet',
+      await p.evaluate(() => !document.querySelector('.mfs-name')));
     t.ok('while the collection itself is untouched — a spoon of honey is not a recipe',
       await p.evaluate(() => window.RECIPES.every((r) => String(r.id).indexOf('f:') !== 0)));
     await p.evaluate(() => {
@@ -767,6 +792,37 @@ module.exports = {
         document.querySelector('.mbrow').dataset.eaten === '0' &&
         !document.querySelector('#macroSlots .mday-stop.done')));
 
+    /* A day with every plate eaten is a finished day, and the week strip
+       says so: the circle fills, tinted by where the day landed (under, on,
+       over) rather than by the plain fact of eating. Today keeps its ink
+       fill so the strip still says where you are, and wears its verdict as
+       a ring instead — it is the day most often finished while you watch. */
+    t.ok('a day is not done while a plate is still ahead of you',
+      await p.evaluate(() => !document.querySelector('.mwk-d.now').classList.contains('done')));
+    const ringBefore = await p.evaluate(() => getComputedStyle(document.querySelector('.mwk-d.now .mwk-n')).boxShadow);
+    await p.click('#macroSlots .mday-dot');
+    await p.waitForTimeout(200);
+    t.ok('eating every plate marks the day done on the week strip',
+      await p.evaluate(() => {
+        const d = document.querySelector('.mwk-d.now');
+        return d.classList.contains('done') &&
+          ['under', 'on', 'over'].some((s) => d.classList.contains(s)) &&
+          /all done/.test(d.getAttribute('aria-label'));
+      }), await p.evaluate(() => document.querySelector('.mwk-d.now').outerHTML));
+    t.ok('and today, done, looks different from today in progress',
+      await p.evaluate((before) => {
+        const n = document.querySelector('.mwk-d.now .mwk-n');
+        const cs = getComputedStyle(n);
+        return cs.boxShadow !== before && cs.boxShadow !== 'none';
+      }, ringBefore), ringBefore);
+    t.ok('an empty day is never done, whatever the strip says of it',
+      await p.evaluate(() => [...document.querySelectorAll('.mwk-d:not(.now)')]
+        .every((d) => !d.classList.contains('done'))));
+    await p.click('#macroSlots .mday-dot');
+    await p.waitForTimeout(200);
+    t.ok('and giving the meal back takes the day off done',
+      await p.evaluate(() => !document.querySelector('.mwk-d.now').classList.contains('done')));
+
     /* Whether a plate fits the day and whether it is worth eating are two
        questions, and the second used to need the recipe opened. */
     t.ok('a plate wears its nutrition score',
@@ -808,12 +864,11 @@ module.exports = {
     await p.fill('#mtC', '1');
     await p.click('[data-mtarg="save"]');
     await p.waitForTimeout(300);
-    // the bar carries the state, the delta carries how far past you are
+    // the bar carries the state, its own row's delta carries how far past you are
     t.ok('a busted macro says over, in the over state',
       await p.evaluate(() => {
         const over = document.querySelector('.mbrow.over');
-        const past = [...document.querySelectorAll('.mdelta .md-c.pos b')]
-          .some((b) => /^\+\d+$/.test(b.textContent));
+        const past = !!over && /^\+\d+$/.test(over.querySelector('.mb-d.pos b').textContent);
         return !!over && past;
       }), await foot());
     /* Colour is the verdict, not the eating. A day 10 g past its protein
@@ -1339,8 +1394,32 @@ module.exports = {
         const b2 = [...document.querySelectorAll('.mday-acts button')]
           .filter((x) => !x.classList.contains('hide')).map((x) => x.id);
         return b2.indexOf('macroAdd') >= 0 && b2.indexOf('macroRebal') >= 0 &&
-          b2.indexOf('macroOpenAll') >= 0 &&
           document.querySelector('.mday-acts').getBoundingClientRect().height < 70;
+      }));
+    /* The two switches for the whole screen — open every meal, set up My
+       Day — sit beside the title, on the far right, at every width. They
+       spent a version down on the bar with the morning's verbs, where
+       "open everything" read as something you do to a meal. */
+    t.ok('open-all and the gear sit on the far right of the title row',
+      await bar.evaluate(() => {
+        const head = document.querySelector('.mday-head');
+        const all = document.getElementById('macroOpenAll'), gear = document.getElementById('macroMore');
+        const next = document.getElementById('macroNext');
+        if (!head.contains(all) || !head.contains(gear)) return false;
+        const h = head.getBoundingClientRect(), a = all.getBoundingClientRect(), g = gear.getBoundingClientRect();
+        return a.left > next.getBoundingClientRect().right + 40 && g.left >= a.right &&
+          h.right - g.right < 24;
+      }), await bar.evaluate(() => {
+        const r = (id) => Math.round(document.getElementById(id).getBoundingClientRect().left);
+        return 'next ' + r('macroNext') + ' all ' + r('macroOpenAll') + ' gear ' + r('macroMore') +
+          ' head ' + Math.round(document.querySelector('.mday-head').getBoundingClientRect().right);
+      }));
+    /* And the scanner is drawn, not an emoji: the camera glyph came in the
+       phone's own colours, the one thing on the bar off the palette. */
+    t.ok('the scan button is a drawn icon in the ink colour',
+      await bar.evaluate(() => {
+        const b2 = document.getElementById('macroScan');
+        return !!b2.querySelector('svg.mday-svg') && !/📷/.test(b2.textContent);
       }));
 
     /* Opened from the bar, the sheet has to ask which meal — and answer it
@@ -1898,9 +1977,9 @@ module.exports = {
     await z.waitForTimeout(300);
     for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
-    // how far the day is off its protein, signed, straight from the delta
+    // how far the day is off its protein, signed, straight from its row
     const protGap = () => z.evaluate(() =>
-      Number(document.querySelector('.mdelta .md-c:nth-child(2) b').textContent));
+      Number(document.querySelector('.mbrow[data-macro="p"] .mb-d b').textContent));
     const leftBefore = await protGap();
     await z.click('#macroRebal');
     await z.waitForTimeout(250);
@@ -2445,5 +2524,134 @@ module.exports = {
       topSalt <= 400, topSalt + ' mg from a single food');
 
     await wk.context().close();
+
+    /* ---- the fold ---------------------------------------------------------
+     * On a phone the sticky readout — week strip, four bars, fibre and salt —
+     * is a third of the screen, and scrolling down to dinner meant reading
+     * dinner through a letterbox. Past the fold it collapses to one row of
+     * pills carrying the same six numbers; back at the top it opens again.
+     * Two thresholds, not one, so a finger resting on the line does not
+     * make it flap. */
+    const ph = await t.fresh({ viewport: { width: 390, height: 720 } });
+    await ph.click('.tab[data-view="macros"]');
+    await ph.waitForTimeout(200);
+    await ph.click('#macroTargBtn');
+    await ph.waitForTimeout(200);
+    await ph.click('[data-mtarg="save"]');
+    await ph.waitForTimeout(250);
+    await ph.click('#macroFill');
+    await ph.waitForTimeout(500);
+    for (let i = 0; i < 4; i++) {
+      if (!await ph.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+      await ph.click('#macroOpenAll');
+      await ph.waitForTimeout(180);
+    }
+    t.ok('at the top of the day the readout is open and the pills are put away',
+      await ph.evaluate(() => {
+        const st = document.querySelector('.mday-stick');
+        const pills = document.querySelector('.mpills');
+        return !st.classList.contains('shrunk') &&
+          getComputedStyle(pills).display === 'none' &&
+          getComputedStyle(document.querySelector('.mbars')).display !== 'none';
+      }));
+    t.ok('the pills carry the same six numbers as the rows and the line under them',
+      await ph.evaluate(() => {
+        // the sodium pill drops the thousands comma to fit a narrow phone, so
+        // compare the two with separators stripped from both sides
+        const pills = [...document.querySelectorAll('.mpill')].map((x) => x.textContent.replace(/[\s,]/g, ''));
+        const rows = [...document.querySelectorAll('.mbrow[data-macro] .mb-d b')].map((x) => x.textContent);
+        const micro = [...document.querySelectorAll('.mdelta .mm')]
+          .map((x) => x.textContent.replace(/[^\d\/]/g, ''));
+        return pills.length === 6 &&
+          rows.every((v, i) => pills[i].indexOf(v) >= 0) &&
+          micro.every((v, i) => pills[4 + i].indexOf(v) >= 0);
+      }), await ph.evaluate(() => document.querySelector('.mpills').textContent));
+    const stickH = await ph.evaluate(() => document.querySelector('.mday-stick').getBoundingClientRect().height);
+    await ph.evaluate(() => window.scrollTo(0, 320));
+    await ph.waitForTimeout(250);
+    t.ok('scrolling into the day folds the readout to one row of pills',
+      await ph.evaluate(() => {
+        const st = document.querySelector('.mday-stick');
+        return st.classList.contains('shrunk') &&
+          getComputedStyle(document.querySelector('.mpills')).display !== 'none' &&
+          getComputedStyle(document.querySelector('.mbars')).display === 'none' &&
+          getComputedStyle(document.querySelector('.mweek')).display === 'none';
+      }), await ph.evaluate(() => document.querySelector('.mday-stick').className + ' y=' + window.scrollY));
+    const shrunkH = await ph.evaluate(() => document.querySelector('.mday-stick').getBoundingClientRect().height);
+    t.ok('and the folded readout is well under half the height of the open one',
+      shrunkH < stickH / 2, 'open ' + Math.round(stickH) + 'px, folded ' + Math.round(shrunkH) + 'px');
+    t.ok('the fold still fits on one line — pills never wrap',
+      await ph.evaluate(() => {
+        const tops = [...document.querySelectorAll('.mpill')].map((x) => Math.round(x.getBoundingClientRect().top));
+        return new Set(tops).size === 1;
+      }));
+    /* The row may scroll sideways as a last resort, but a clipped sixth pill
+       reads as a bug, so on the narrowest phone in the house (375) the six
+       must fit edge to edge on a wide day — Blake's own example figures, which
+       are about as long as the six numbers get. */
+    t.ok('and all six fit a 375-wide phone even on a day of three-digit deltas',
+      await ph.evaluate(() => {
+        const row = document.querySelector('.mpills');
+        const vals = ['+159', '-24', '+12', '+37', '8', '1474'];
+        row.querySelectorAll('.mpill b').forEach((el, i) => { el.textContent = vals[i]; });
+        // the six pills end to end, against what the row would have on a
+        // phone 15px narrower than this one
+        const ps = row.querySelectorAll('.mpill');
+        const span = ps[ps.length - 1].getBoundingClientRect().right - ps[0].getBoundingClientRect().left;
+        return span <= row.clientWidth - (390 - 375);
+      }), await ph.evaluate(() => {
+        const ps = document.querySelectorAll('.mpill');
+        const span = ps[ps.length - 1].getBoundingClientRect().right - ps[0].getBoundingClientRect().left;
+        return 'pills ' + Math.round(span) + 'px of ' + (document.querySelector('.mpills').clientWidth - 15) + 'px';
+      }));
+    /* The day still has the same items in it; folding is a view, not a
+       write. And it is a scroll effect only, so the page must still land
+       exactly where the finger left it. */
+    await ph.evaluate(() => window.scrollTo(0, 90));
+    await ph.waitForTimeout(250);
+    t.ok('between the two thresholds it stays as it was — no flapping on the line',
+      await ph.evaluate(() => document.querySelector('.mday-stick').classList.contains('shrunk')));
+    await ph.evaluate(() => window.scrollTo(0, 0));
+    await ph.waitForTimeout(250);
+    t.ok('back at the top the readout opens again',
+      await ph.evaluate(() => !document.querySelector('.mday-stick').classList.contains('shrunk')));
+    await ph.evaluate(() => window.scrollTo(0, 320));
+    await ph.waitForTimeout(250);
+    await ph.click('.mpills');
+    await ph.waitForTimeout(300);
+    t.ok('pressing the pills takes you back to the top, where the readout is open',
+      await ph.evaluate(() => window.scrollY === 0 &&
+        !document.querySelector('.mday-stick').classList.contains('shrunk')),
+      await ph.evaluate(() => 'y=' + window.scrollY + ' ' + document.querySelector('.mday-stick').className));
+    /* Leaving the tab must not carry the fold to the next one, and a day too
+       short to scroll past its own fold is left open — otherwise the readout
+       would collapse on a page that had nowhere to go. */
+    await ph.click('.tab[data-view="browse"]');
+    await ph.waitForTimeout(200);
+    await ph.evaluate(() => window.scrollTo(0, 320));
+    await ph.waitForTimeout(250);
+    await ph.click('.tab[data-view="macros"]');
+    await ph.waitForTimeout(250);
+    await ph.evaluate(() => window.scrollTo(0, 0));
+    await ph.waitForTimeout(250);
+    t.ok('coming back to My Day at the top finds the readout open',
+      await ph.evaluate(() => !document.querySelector('.mday-stick').classList.contains('shrunk')));
+    await ph.context().close();
+
+    const wide = await t.fresh();
+    await wide.click('.tab[data-view="macros"]');
+    await wide.waitForTimeout(200);
+    await wide.evaluate(() => window.scrollTo(0, 500));
+    await wide.waitForTimeout(250);
+    t.ok('a day folds only when there is room to scroll past its own fold',
+      await wide.evaluate(() => {
+        const room = document.documentElement.scrollHeight - window.innerHeight;
+        const shrunk = document.querySelector('.mday-stick').classList.contains('shrunk');
+        return shrunk === (window.scrollY > 120 && room > 420);
+      }),
+      await wide.evaluate(() => 'y=' + window.scrollY + ' room=' +
+        (document.documentElement.scrollHeight - window.innerHeight) + ' ' +
+        document.querySelector('.mday-stick').className));
+    await wide.context().close();
   },
 };
