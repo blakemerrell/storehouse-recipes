@@ -6406,9 +6406,19 @@
     if (was) fold.style.height = was;
     /* A tab that is not on screen measures nothing. Don't remember that as
        the size of the card — a span of zero folds it shut on the first
-       pixel of the next scroll. */
-    if (open <= 0) return null;
-    foldGeo = { open: open, shut: shut, span: Math.max(1, open - shut) };
+       pixel of the next scroll.
+     *
+       And nothing bigger than the screen is a reading either. This card is a
+       header: it is a couple of hundred pixels on the tallest phone, and a
+       measurement claiming otherwise was taken of something that was not the
+       card — mid-layout, mid-rotation, or mid-whatever a browser does that
+       this code has not met yet. The number goes into a margin, and a margin
+       taken from a bad number is a screenful of blank paper with the day
+       somewhere above it. Refusing to remember it costs one frame unfolded;
+       believing it costs the tab. */
+    if (open <= 0 || open > window.innerHeight) return null;
+    foldGeo = { open: open, shut: shut,
+      span: Math.max(1, Math.min(open - shut, window.innerHeight)) };
     return foldGeo;
   }
 
@@ -6489,8 +6499,24 @@
     /* Unrounded, and paired: what the box gives up, the margin takes back, so
        the two always add to the same number. Rounding either one on its own
        is what puts them a pixel apart. */
-    fold.style.height = (g.open - g.span * p) + 'px';
-    st.style.marginBottom = (gap + g.span * p) + 'px';
+    var give = g.span * p;
+    /* The last gate before it reaches the page. Everything above bounds the
+       measurement; this bounds the CONSEQUENCE, because the failure this
+       guards against has now happened twice and both times it looked the
+       same from the outside: a My Day of blank paper with the day scrolled
+       off the top of it. A fold that hands back more than a screen has got
+       its sums wrong whatever the reason, and the honest answer to a sum
+       this code cannot trust is to stop folding and show the day. */
+    if (!(give >= 0) || give > window.innerHeight) {
+      foldGeo = null;
+      mMarkShut(st, false);
+      st.style.removeProperty('--fold');
+      st.style.marginBottom = '';
+      fold.style.height = '';
+      return;
+    }
+    fold.style.height = (g.open - give) + 'px';
+    st.style.marginBottom = (gap + give) + 'px';
     mMarkShut(st, p >= 1);
   }
 

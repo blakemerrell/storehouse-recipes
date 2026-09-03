@@ -3014,6 +3014,7 @@ module.exports = {
     await ph.mouse.move(200, 500);
     for (let i = 0; i < 14; i++) { await ph.mouse.wheel(0, 20); await ph.waitForTimeout(35); }
     await ph.waitForTimeout(200);
+    const window_innerHeightGuess = 720;   // the viewport this page was opened at
     const creep = await ph.evaluate(() => { window.__w.stop = true; return window.__w.worst; });
     t.ok('and no frame of the fold moves the page or the plates by so much as a pixel',
       creep < 1, 'worst drift seen mid-fold: ' + creep.toFixed(1) + 'px');
@@ -3061,6 +3062,57 @@ module.exports = {
        is small. Anything else means it has been measured off the page again. */
     t.ok('and the room the fold hands back is still the size of a margin',
       afterR.margin > 0 && afterR.margin < 400, afterR.margin + 'px');
+
+    /* Twice now My Day has gone blank on a phone, and both times it looked
+       identical from the outside: the day scrolled off the top of a screenful
+       of empty paper. Both times the cause was a number that had no business
+       being believed going into the card's bottom margin.
+     *
+       So this stops testing the causes and tests the consequence. Make the
+       fold measure something absurd — a card three thousand pixels tall,
+       which is what a bad reading looks like — and the fold must decline to
+       fold at all rather than hand back three thousand pixels of margin. One
+       frame unfolded is the price; the tab is what the alternative costs. */
+    await ph.evaluate(() => {
+      const st = document.createElement('style');
+      st.id = 'absurd';
+      st.textContent = '#macroFold { min-height: 3000px; }';
+      document.head.appendChild(st);
+    });
+    await ph.evaluate(() => window.scrollTo(0, 0));
+    await ph.waitForTimeout(250);
+    const sane = await ph.evaluate(() => document.documentElement.scrollHeight);
+    /* The card is measured once and remembered, so the absurd size has to be
+       forced into a fresh reading — a resize is what throws the old one away,
+       and a resize is also exactly when a phone takes a bad one. */
+    await ph.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await ph.waitForTimeout(200);
+    await ph.evaluate(() => window.scrollTo(0, 500));
+    await ph.waitForTimeout(350);
+    const absurd = await ph.evaluate(() => {
+      const st = document.querySelector('.mday-stick');
+      const items = [...document.querySelectorAll('.mitem, .mthin')];
+      return {
+        margin: parseFloat(st.style.marginBottom) || 0,
+        page: document.documentElement.scrollHeight,
+        onScreen: items.filter((e) => {
+          const r = e.getBoundingClientRect();
+          return r.bottom > 0 && r.top < window.innerHeight;
+        }).length
+      };
+    });
+    t.ok('a fold that measures something absurd refuses to fold at all',
+      absurd.margin <= window_innerHeightGuess,
+      'margin ' + absurd.margin + 'px');
+    t.ok('and the day is still on the screen, which is the whole point',
+      absurd.onScreen > 0 || absurd.page <= sane + 3200,
+      'plates on screen ' + absurd.onScreen + ', page ' + sane + ' → ' + absurd.page);
+    await ph.evaluate(() => {
+      const st = document.getElementById('absurd');
+      if (st) st.remove();
+    });
+    await ph.evaluate(() => window.scrollTo(0, 0));
+    await ph.waitForTimeout(300);
 
     await ph.evaluate(() => window.scrollTo(0, 0));
     await ph.waitForTimeout(250);
