@@ -1453,7 +1453,24 @@ select { max-width: 280px; }
   flex: 0 0 auto; width: 44px; padding-left: 0; padding-right: 0;
   font-size: 15px; line-height: 1;
 }
-.mday-more { flex: 0 0 auto; padding-left: 12px; padding-right: 12px; }
+.mday-more { flex: 0 0 auto; padding-left: 12px; padding-right: 12px; position: relative; }
+/* The mark that says the day is not reaching the account it belongs to.
+   Only ever drawn for a device that has one — see mSyncTrouble — so a visitor
+   who never signed in never meets it. Warm rather than red: nothing has been
+   lost, something has stopped. The ring is the paper behind it, so the dot
+   stays legible where it overlaps the glyph. */
+.mday-warn::after {
+  content: ''; position: absolute; top: 3px; right: 7px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--dial-over); box-shadow: 0 0 0 1.5px var(--paper);
+}
+/* Who the account belongs to, under the item that opens it. A second line
+   rather than a second item: it is not a thing to press, it is the answer. */
+.mmenu-who {
+  display: block; font-size: 11px; color: var(--muted); margin-top: 2px;
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mmenu-who:empty { display: none; }
 /* the menu opens upward: there is nothing below the bar to open into */
 .mday-menu {
   position: absolute; right: 0; bottom: calc(100% - 4px); z-index: 4;

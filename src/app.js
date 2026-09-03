@@ -914,6 +914,63 @@
    * --------------------------------------------------------------------- */
   var S_SYNC_STATE = 'off';
 
+  /* Every transition through one door.
+   *
+     This was nine bare assignments, and each site separately remembered to
+     redraw the sheet. Two forgot, and both failures were silent: a push that
+     could not be saved set 'error' and told nobody, so a sheet left open went
+     on saying Synced over a day that had not been written; and the load that
+     never arrives set 'error' under a sheet still reading "Connecting…",
+     which is the one word that promises it is still trying.
+
+     A state nobody is told about is not a state, it is a variable. So the
+     assignment and the telling are the same act now, and there is one place
+     left to forget rather than nine. */
+  function mSyncState(next) {
+    S_SYNC_STATE = next;
+    mMarkAccountUI();
+    if (S.syncOpen) renderModal();
+  }
+
+  /* Whether the day is failing to reach the account it belongs to.
+   *
+     Only ever true for a device that HAS one. Someone who has never signed in
+     has not lost anything, and finding that out must not cost them a call to
+     Firebase — the flag is read from storage, and the network is never asked.
+
+     'off' counts only once mAuthKnown: before we have asked, "nobody is
+     signed in" is a guess, and a warning built on a guess is worse than none. */
+  function mSyncTrouble() {
+    if (!mSuspectAccount()) return false;
+    if (S_SYNC_STATE === 'error') return true;
+    return S_SYNC_STATE === 'off' && mAuthKnown;
+  }
+
+  /* The mark on the gear, and the line under the menu item that names who.
+   *
+     The gear is quiet while it works. A dot that is always lit says nothing —
+     it is furniture — so this one appears only when there is something to
+     act on, and its absence is the good news. The menu underneath answers the
+     other half in words, one press away, in both directions: who you are, or
+     that you are nobody yet. It says nothing at all until the SDK has
+     answered, because "Not signed in" before we have asked is a lie that
+     happens to be true half the time. */
+  function mMarkAccountUI() {
+    var g = $('macroMore');
+    if (g) {
+      var bad = mSyncTrouble();
+      // a no-op toggle still rewrites the attribute, and something is watching
+      if (g.classList.contains('mday-warn') !== bad) g.classList.toggle('mday-warn', bad);
+    }
+    var el = $('macroWho');
+    if (el) {
+      var who = mAccount();
+      var says = who ? (who.email || who.name || 'Signed in')
+        : (mAuthKnown ? 'Not signed in' : '');
+      if (el.textContent !== says) el.textContent = says;
+    }
+  }
+
   var MSTAMPS = (function () {
     try { return JSON.parse(localStorage.getItem('bsc.myStamps')) || {}; }
     catch (e) { return {}; }
@@ -1059,8 +1116,7 @@
     if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
     if (!window.Store || !window.Store.configured) {
       mAuthKnown = true;
-      S_SYNC_STATE = 'off';
-      if (S.syncOpen) renderModal();
+      mSyncState('off');
       return;
     }
     if (!mAccount()) {
@@ -1082,27 +1138,28 @@
              sign-in that did not take. Now the truth wins on every load. */
           mAccountMark();
           if (mAccount()) mSyncStart();
-          else if (S.syncOpen) renderModal();
+          /* The device said it had an account and the server says otherwise.
+             That is the drift this whole re-affirmation exists to catch, so
+             it has to reach the gear and not just the sheet. */
+          else mSyncState('off');
         }, function () {
           mAuthKnown = true;
-          if (S.syncOpen) renderModal();
+          mSyncState('error');
         });
         return;
       }
       mAuthKnown = true;
-      S_SYNC_STATE = 'off';
-      if (S.syncOpen) renderModal();
+      mSyncState('off');
       return;
     }
-    S_SYNC_STATE = 'connecting';
+    mSyncState('connecting');
     window.Store.ready().then(function (db) {
       mAuthKnown = true;
       mAccountMark();                       // the truth, again, now that it is knowable
       var uid = window.Store.uid();
       if (!uid || !mAccount()) {
-        S_SYNC_STATE = 'off';
         // the answer is known now even though it is "nobody"; say so
-        if (S.syncOpen) renderModal();
+        mSyncState('off');
         return;
       }
       /* Carrying the day up into an account is for one case only: the
@@ -1119,13 +1176,13 @@
       mSyncDoc = db.collection('users').doc(uid);
       mSyncOff = mSyncDoc.onSnapshot(function (snap) {
         var data = snap.exists ? (snap.data() || {}) : null;
-        S_SYNC_STATE = 'on';
+        mSyncState('on');
         if (!data || !data.myday) { mSyncPush(true); return; }
         if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
         if (S.syncOpen) renderModal();
-      }, function () { S_SYNC_STATE = 'error'; if (S.syncOpen) renderModal(); });
+      }, function () { mSyncState('error'); });
       mSyncPush(true);
-    }, function () { S_SYNC_STATE = 'error'; });
+    }, function () { mSyncState('error'); });
   }
 
   function mSyncPush(now) {
@@ -1133,8 +1190,8 @@
     clearTimeout(mSyncTimer);
     mSyncTimer = setTimeout(function () {
       mSyncDoc.set({ myday: mSyncPayload() }, { merge: true }).then(function () {
-        S_SYNC_STATE = 'on';
-      }, function () { S_SYNC_STATE = 'error'; });
+        mSyncState('on');
+      }, function () { mSyncState('error'); });
     }, now ? 0 : 900);
   }
 
@@ -2474,6 +2531,11 @@
 
     // nothing to draft once every meal has something on it
     $('macroFill').disabled = slots.list.every(function (s) { return (day[s.k] || []).length; });
+
+    /* The gear and its menu are static markup, so a state change paints them
+       once and they stay painted. Painting again here costs a class check and
+       covers the day this header stops being static. */
+    mMarkAccountUI();
 
     // and nothing to re-size when every plate is eaten, locked, or absent
     var freeCount = 0;

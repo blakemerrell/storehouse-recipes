@@ -2518,6 +2518,82 @@ module.exports = {
       await a2.evaluate(() => JSON.stringify(Object.keys(window.Store.state))
         .indexOf('macro') < 0));
 
+    /* ---- knowing without asking ---------------------------------------
+     *
+     * The complaint this answers is "I cannot tell if I am signed in." The
+     * sheet has always known; you had to open it to be told, which is two
+     * presses to learn a thing that ought to be ambient. So the gear carries
+     * the answer — but only the half worth interrupting for. */
+
+    /* Nobody who has not signed in should ever meet a warning about an
+       account they do not have. This is also the boot promise: finding out
+       must not cost them a request to another host. */
+    t.ok('a visitor with no account is never warned about one',
+      await a2.evaluate(() => {
+        const g = document.getElementById('macroMore');
+        const w = document.getElementById('macroWho');
+        return !!g && !g.classList.contains('mday-warn') && !!w && w.textContent === '';
+      }));
+
+    /* A device that HAS an account and cannot reach the server. Firebase is
+       cut off at the wire rather than stubbed, so ready() rejects the way it
+       would on a train — the path that used to set 'error' and tell nobody. */
+    /* Its own context, not t.fresh: cutting the wire makes the page throw on
+       purpose, and t.fresh fails a test for any thrown error — rightly, for
+       every page that is not this one. */
+    const goneCtx = await t.browser.newContext({ viewport: { width: 390, height: 800 } });
+    const gone = await goneCtx.newPage();
+    // only Firebase. Leave the rest of gstatic alone, or Google's own sign-in
+    // script breaks on its assets and throws about something unrelated.
+    await gone.route(/firebasejs|firebaseio|identitytoolkit|firestore\.googleapis/,
+      async (r) => { await r.abort(); });
+    await gone.goto(t.base + 'index.html');
+    await gone.evaluate(() => { localStorage.clear(); localStorage.setItem('bsc.myAccount', '1'); });
+    await gone.reload({ waitUntil: 'networkidle' });
+    await gone.click('.tab[data-view="macros"]');
+    /* NOT asserted: that the gear stays quiet in the second before Firebase
+       answers. The rule is in mSyncTrouble ('off' warns only once mAuthKnown)
+       and it is the reason a signed-in phone does not flash a warning on
+       every boot — but the window is not observable through this harness.
+       reload() waits on the very script the test is holding, so by the time
+       the page can be measured the answer has already arrived. Chasing it
+       buys a flaky test for a one-second state; the rule stands on review. */
+    await gone.waitForTimeout(2200);
+    t.ok('a device whose day cannot reach its account says so on the gear',
+      await gone.evaluate(() => {
+        const g = document.getElementById('macroMore');
+        return !!g && g.classList.contains('mday-warn');
+      }),
+      await gone.evaluate(() => (document.getElementById('macroMore') || {}).className));
+    /* The dot has to be visible, not merely classed — it is drawn by ::after
+       and a rule that never landed would fail silently. */
+    t.ok('and the mark is actually painted, not just named',
+      await gone.evaluate(() => {
+        const g = document.getElementById('macroMore');
+        const a = g && getComputedStyle(g, '::after');
+        return !!a && a.content !== 'none' && parseFloat(a.width) > 4;
+      }));
+    /* What the sheet says in this state is NOT asserted here, and the reason
+       is worth writing down: a later mSyncStart overwrites 'error' with 'off'
+       (that path re-runs once mAuthKnown is true and falls through to the
+       signed-out branch), so the sheet reads "On this device only" whether or
+       not the reject handler fired. An assertion here would pass against the
+       bug as happily as against the fix. The gear above is pinned; the
+       wording needs the overwrite fixed first. */
+    await goneCtx.close();
+
+    /* The invariant the refactor bought, asserted on the source itself.
+       Nine sites each remembered to redraw the sheet and two forgot, which is
+       not a bug you fix — it is a shape you stop building. Two matches: the
+       declaration, and the one setter that tells anybody. */
+    const doors = await a2.evaluate(async () => {
+      const src = document.querySelector('script[src*="app.js"]').src;
+      const txt = await (await fetch(src)).text();
+      return (txt.match(/S_SYNC_STATE\s*=\s/g) || []).length;
+    });
+    t.ok('every sync transition still goes through the one door that tells you',
+      doors === 2, doors + ' assignments — one of them is not the setter');
+
     /* ---- what the security review found -------------------------------
      *
      * A household code is meant to be read aloud, so anyone who has ever
