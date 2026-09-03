@@ -513,12 +513,12 @@ select { max-width: 280px; }
    Being the whole width of the card, it is also the largest target on the
    screen, which a glyph in a header never was. */
 .mslot-sub {
-  display: flex; align-items: center; gap: 13px; padding: 5px 10px; margin: 0;
-  width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line-soft);
-  background: var(--paper-soft); font-family: var(--sans); cursor: pointer;
+  display: flex; align-items: center; gap: 13px; padding: 2px 10px 7px; margin: 0;
+  width: 100%; text-align: left; border: 0;
+  background: none; font-family: var(--sans); cursor: pointer;
   font-size: 11px; color: var(--muted-2); font-variant-numeric: tabular-nums;
 }
-.mslot-sub:hover { background: var(--paper); }
+.mslot-sub:hover { background: var(--paper-soft); }
 /* Small, quiet, and on the end of a line that was already there: the mark
    says which way the next press goes without becoming another control. */
 .mfold-cue {
@@ -528,7 +528,14 @@ select { max-width: 280px; }
 [aria-expanded="false"] > .mfold-cue { transform: rotate(-90deg); }
 @media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
 .mslot-sub i { font-style: normal; font-weight: 700; font-size: 9.5px; margin-right: 3px; }
-.mslot-items, .mslot-thin { padding: 8px 10px 6px; }
+/* The one line in a meal card, and it goes HERE — under the name and the
+   numbers rather than between them. What a meal IS (its name, its verdict,
+   what it comes to) is one thought and reads as one block; what is ON it is
+   the other. The line used to sit above the numbers, which tied them to the
+   plates and left the header floating on its own. */
+.mslot-items, .mslot-thin {
+  padding: 8px 10px 6px; border-top: 1px solid var(--line-soft);
+}
 /* ---- the three controls on a meal, unboxed ----
    A border is how a thing used to say it was pressable, and three borders in a
    row on a card that is already all borders is a great deal of box for very
@@ -557,7 +564,6 @@ select { max-width: 280px; }
 .mslot-bal ~ .mslot-try, .mslot-bal ~ .mslot-add, .mslot-try ~ .mslot-add { margin-left: 0; }
 .mslot-items { display: flex; flex-direction: column; gap: 7px; }
 /* A meal that is behind you, folded to what was on it */
-.mslot-thin { border-top: 1px solid var(--line-soft); }
 .mthin { display: flex; gap: 9px; align-items: baseline; padding: 3px 0; font-size: 12px; }
 .mthin-n {
   font-family: var(--serif); flex: 1 1 auto; min-width: 0;
