@@ -2768,11 +2768,29 @@ module.exports = {
       await fold.evaluate((n) => document.querySelectorAll('.mslot-thin').length === n + 1, shutBefore),
       'thin lists ' + shutBefore + ' → ' +
         await fold.evaluate(() => document.querySelectorAll('.mslot-thin').length));
-    t.ok('and the mark on its end turns to say which way the next press goes',
-      await fold.evaluate(() => {
-        const b = document.querySelector('.mslot-sub[aria-expanded="false"]');
-        return !!b && getComputedStyle(b.querySelector('.mfold-cue')).transform !== 'none';
-      }));
+    /* The chevron says which way the next press goes, in the direction the
+       notification shade taught: DOWN on a shut meal means "this opens",
+       UP on an open one means "this shuts". It used to point sideways when
+       shut, which says neither — so this asserts the two states differ AND
+       which one is which, not merely that something rotates. */
+    const cue = await fold.evaluate(() => {
+      const shut = document.querySelector('.mslot-sub[aria-expanded="false"] .mfold-cue');
+      const open = document.querySelector('.mslot-sub[aria-expanded="true"] .mfold-cue');
+      const box = shut && shut.getBoundingClientRect();
+      return {
+        shutTf: shut ? getComputedStyle(shut).transform : 'missing',
+        openTf: open ? getComputedStyle(open).transform : 'missing',
+        // a round chip, not a bare glyph: a real box with a full radius
+        round: !!shut && parseFloat(getComputedStyle(shut).borderRadius) > 0
+          && box.width > 14 && Math.abs(box.width - box.height) < 2,
+      };
+    });
+    t.ok('a shut meal’s chevron points down, the way it does on the phone',
+      cue.shutTf === 'none', 'shut transform ' + cue.shutTf);
+    t.ok('and an open one is turned over to say the next press shuts it',
+      cue.openTf !== 'none' && cue.openTf !== 'missing', 'open transform ' + cue.openTf);
+    t.ok('and it wears a round chip rather than sitting there as a bare mark',
+      cue.round, JSON.stringify(cue));
     /* Folded, each thing on the meal keeps its leaf as its bullet. Folding
        used to take the scores away with the plates, which meant the one screen
        where several meals get scanned at once was the screen with no quality
@@ -2818,6 +2836,35 @@ module.exports = {
       await fold.evaluate(() => 'seam ' +
         getComputedStyle(document.querySelector('.mslot-sub')).borderTopWidth + ', list ' +
         getComputedStyle(document.querySelector('.mslot-items, .mslot-thin')).borderTopWidth));
+
+    /* A shut meal is still a list of food, and going to the recipe should not
+       cost you opening the meal first. The name on a folded row is the same
+       door the open plate's name is — same attributes, same delegated
+       handler — so the only thing worth asserting is that it IS one and that
+       pressing it lands on the recipe it names. */
+    const door = await fold.evaluate(() => {
+      const n = document.querySelector('.mslot-thin .mthin-n');
+      if (!n) return null;
+      return { tag: n.tagName, id: n.dataset.open || n.dataset.mfood || '',
+        food: n.dataset.mfood !== undefined, name: n.textContent.trim() };
+    });
+    t.ok('a folded meal’s name is a door, not a label',
+      !!door && door.tag === 'BUTTON' && door.id !== '', JSON.stringify(door));
+    /* Recipes open the recipe sheet; a food you entered opens the food sheet.
+       Whichever this row is, pressing it has to leave the day behind. */
+    await fold.click('.mslot-thin .mthin-n');
+    await fold.waitForTimeout(300);
+    t.ok('and pressing it opens what it names, without opening the meal first',
+      await fold.evaluate((d) => {
+        const sheet = document.querySelector('.sheet, #modal:not(.hide)');
+        if (!sheet) return false;
+        // the thing that opened has to be the thing that was pressed
+        return sheet.textContent.indexOf(d.name.slice(0, 12)) !== -1;
+      }, door),
+      await fold.evaluate(() => {
+        const s = document.querySelector('.sheet, #modal:not(.hide)');
+        return s ? s.textContent.trim().slice(0, 90) : 'no sheet opened';
+      }));
     await fold.context().close();
 
     /* The three controls on a meal lost their boxes, which is the point — but

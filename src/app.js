@@ -2694,7 +2694,18 @@
                 (r2.score === null || r2.score === undefined
                   ? '<span class="mthin-dot" aria-hidden="true">&middot;</span>'
                   : leaf(r2.score, 'leaf-sm')) +
-                '<span class="mthin-n">' + esc(r2.name) + '</span>' +
+                /* The same door the open plate's name is. A shut meal is
+                   still a list of food, and the name of a thing you are about
+                   to cook has to be pressable whichever way the card is
+                   folded — going to the recipe should not cost you opening
+                   the meal first. The delegated handlers on #macroSlots
+                   already answer both of these, so the row needs nothing of
+                   its own; it only has to be the same shape. */
+                (r2.food
+                  ? '<button class="mthin-n mitem-food" data-mfood="' + esc(String(r2.id)) +
+                    '" data-mx="' + it.x + '">' + esc(r2.name) + '</button>'
+                  : '<button class="mthin-n" data-open="' + esc(String(r2.id)) +
+                    '" data-mx="' + it.x + '">' + esc(r2.name) + '</button>') +
                 /* The same portion words the open plate uses — "1 cup ·
                    130 g", "1½ servings" — so a folded meal reads as food
                    rather than as multipliers. */
