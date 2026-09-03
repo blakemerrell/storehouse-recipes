@@ -529,11 +529,32 @@ select { max-width: 280px; }
 @media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
 .mslot-sub i { font-style: normal; font-weight: 700; font-size: 9.5px; margin-right: 3px; }
 .mslot-items, .mslot-thin { padding: 8px 10px 6px; }
-.mslot-try {
-  margin-left: auto; padding: 3px 8px; font-size: 13px; line-height: 1.15;
+/* ---- the three controls on a meal, unboxed ----
+   A border is how a thing used to say it was pressable, and three borders in a
+   row on a card that is already all borders is a great deal of box for very
+   little content. The plate rows have carried bare icons since they were
+   built — the pin and the bin have never had one — so this is a pattern the
+   app already owns rather than a new one.
+ *
+   What replaces the border is size and contrast: a bare glyph has to be
+   bigger and darker than a boxed one to read as a control. The padding stays
+   exactly as it was, so the target does not shrink with the paint, and a
+   press tints rather than depresses, which is the only answer a borderless
+   control can give. */
+.mslot-ic {
+  background: none; border: 0; border-radius: 5px; flex: none;
+  font-family: var(--sans); padding: 4px 6px; line-height: 1;
+  font-size: 15px; color: var(--muted-2);
 }
-.mslot-try + .mslot-add { margin-left: 5px; }
-.mslot-add { margin-left: auto; padding: 3px 9px; font-size: 11px; }
+.mslot-ic:hover, .mslot-ic:active { background: var(--paper-soft); color: var(--ink); }
+/* The one the row exists for, so it is the one that carries colour — and the
+   only one drawn large enough to be found without looking. */
+.mslot-add { font-size: 20px; padding: 1px 7px 3px; color: var(--ochre-text); }
+/* Whichever of the three comes first opens the gap; the rest fall in behind
+   it, so they read as one group of controls instead of one stranded beside
+   the verdict and two over on the edge. */
+.mslot-bal, .mslot-try, .mslot-add { margin-left: auto; }
+.mslot-bal ~ .mslot-try, .mslot-bal ~ .mslot-add, .mslot-try ~ .mslot-add { margin-left: 0; }
 .mslot-items { display: flex; flex-direction: column; gap: 7px; }
 /* A meal that is behind you, folded to what was on it */
 .mslot-thin { border-top: 1px solid var(--line-soft); }
@@ -667,7 +688,8 @@ select { max-width: 280px; }
    put, so changing your mind costs a tap and never a back gesture. */
 /* which meal this is filling, when you came in from the bar */
 /* balance this meal, beside the one that swaps it */
-.mslot-bal { font-size: 13px; padding: 4px 8px; }
+/* the scale keeps a hair more room than the retry: it is the wider glyph */
+.mslot-bal { padding: 4px 5px; }
 /* and the way to keep it, under the plates it is made of */
 .mslot-keep {
   display: block; width: 100%; margin-top: 7px; padding: 8px;
@@ -2483,9 +2505,13 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   .mstep button { width: 44px; font-size: 17px; }
   .mstep-x { padding: 9px 8px; font-size: 13px; }
   .mtick input { width: 20px; height: 20px; }
-  /* the fold is the reason this row is reachable at all — give it a thumb,
-     but only as much of one as a six-control row can spare */
-  .mslot-fold { padding: 7px 8px; font-size: 15px; }
+  /* the seam is the fold handle, so give the whole strip a thumb's height */
+  .mslot-sub { padding: 9px 10px; }
+  /* A borderless control has to be given the reach the border used to imply.
+     This is the whole bargain of dropping the box: the paint goes, the target
+     does not. */
+  .mslot-ic { padding: 8px 10px; font-size: 17px; }
+  .mslot-add { font-size: 23px; padding: 4px 11px 6px; }
 }
 
 /* Taken off, not deleted — you have to be able to find a thing to put it back.

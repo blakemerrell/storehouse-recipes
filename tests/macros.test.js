@@ -2710,6 +2710,49 @@ module.exports = {
       }));
     await fold.context().close();
 
+    /* The three controls on a meal lost their boxes, which is the point — but
+       a border is also how a control used to claim its size, and the reach has
+       to survive the paint going away. So on a finger they are bigger than
+       they ever were boxed, and this is the assertion that says so: the rule
+       that grants it lives in a `pointer: coarse` block, and a rule in there
+       is invisible to every test that forgets to bring a touchscreen. It went
+       missing once already without anything going red. */
+    const reachPage = await t.fresh({ viewport: { width: 390, height: 800 },
+      hasTouch: true, isMobile: true });
+    await reachPage.click('.tab[data-view="macros"]');
+    await reachPage.waitForTimeout(200);
+    await openPlan(reachPage);
+    await reachPage.waitForTimeout(150);
+    await reachPage.click('[data-mtarg="save"]');
+    await reachPage.waitForTimeout(250);
+    await reachPage.click('#macroFill');
+    await reachPage.waitForTimeout(600);
+    const reach = await reachPage.evaluate(() => {
+      const box = (sel) => {
+        const e = document.querySelector(sel);
+        if (!e) return null;
+        const r = e.getBoundingClientRect();
+        return { w: Math.round(r.width), h: Math.round(r.height) };
+      };
+      return { coarse: matchMedia('(pointer: coarse)').matches,
+        add: box('.mslot-add'), retry: box('.mslot-try'), seam: box('.mslot-sub') };
+    });
+    t.ok('a reachPage gets a real target on every unboxed control',
+      reach.coarse && reach.add && reach.retry &&
+        reach.add.h >= 30 && reach.add.w >= 30 &&
+        reach.retry.h >= 30 && reach.retry.w >= 30,
+      JSON.stringify(reach));
+    t.ok('and the fold seam is a reachPage tall as well, being the handle',
+      !!reach.seam && reach.seam.h >= 30, JSON.stringify(reach.seam));
+    /* The plus says nothing to the eye but its shape, so it has to say the
+       rest out loud — and it names the meal, which "+ Add" never did. */
+    t.ok('the bare plus still tells a screen reader what it adds to',
+      await reachPage.evaluate(() => [...document.querySelectorAll('.mslot-add')]
+        .every((b) => /^Add food to .+/.test(b.getAttribute('aria-label') || ''))),
+      await reachPage.evaluate(() => (document.querySelector('.mslot-add') || {})
+        .getAttribute('aria-label')));
+    await reachPage.context().close();
+
     /* ---- a portion of a batch --------------------------------------------
      * The two tests above ride on whatever Fill happened to draft, and a day
      * of single-serving plates would pass them while proving nothing: only a

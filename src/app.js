@@ -2636,13 +2636,19 @@
              and a button on every meal from breakfast onward would be four
              buttons a day that nothing was ever pressed on. */
           (onPlan && items.length >= 2
-            ? '<button class="ghost mslot-bal no-print" data-mbal="' + esc(sk) + '" ' +
+            ? '<button class="mslot-ic mslot-bal no-print" data-mbal="' + esc(sk) + '" ' +
               'aria-label="Balance ' + esc(name) + ' to its share" ' +
               'title="Solve these portions against this meal\u2019s macros">&#9878;</button>' : '') +
-          (onPlan ? '<button class="ghost mslot-try no-print" data-mtry="' + esc(sk) + '" ' +
+          (onPlan ? '<button class="mslot-ic mslot-try no-print" data-mtry="' + esc(sk) + '" ' +
             'aria-label="Another suggestion for ' + esc(name) + '" ' +
             'title="Another suggestion — walks down the best-fit list">&#8635;</button>' : '') +
-          (onPlan ? '<button class="ghost mslot-add no-print" data-mslot="' + esc(sk) + '">+ Add</button>' : '') +
+          /* A plus, not "+ Add". Everybody knows what a plus does, and the
+             word was the widest thing on a row that has too much on it. The
+             label the word used to give is now the button's own, said to a
+             screen reader instead of to the eye — and said better, because it
+             names the meal the food is going on. */
+          (onPlan ? '<button class="mslot-ic mslot-add no-print" data-mslot="' + esc(sk) + '" ' +
+            'aria-label="Add food to ' + esc(name) + '">&#43;</button>' : '') +
         '</div>' +
         /* What the meal comes to, in the same four colours the bars use. */
         /* The handle is the bar the fold actually happens at. A boxed caret up
