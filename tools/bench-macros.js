@@ -48,14 +48,49 @@ const DAYS = Number(arg('days', 300));
 const DUMP = Number(arg('dump', 0));
 const TARGETS = { p: 180, f: 50, c: 50 };
 
+/* Which sections each meal may draw from. Fill never crosses these — see
+   mSlotSecs / the `secs.indexOf(...) >= 0` filter — so the mapping decides
+   what a meal is even allowed to consider, and every question about one meal
+   hogging the day's protein starts here.
+     default : the app's own MEAL_SECS
+     wide    : lunch and dinner may also reach into the breakfast sections
+     open    : every meal may reach anywhere
+   Custom slots (t:'x') are the app's own supported way to say this, so these
+   presets are configurations a user could actually set, not test-only hacks. */
+const B = ['1-1', '2-1'], L = ['1-3', '2-2'], D = ['1-4', '2-3', '2-4'];
+const S = ['1-2', '1-5', '1-6', '2-5', '2-6', '2-7', '2-8'];
+const ALL = B.concat(L, D, S);
+const PRESETS = {
+  default: null,
+  wide: [
+    { k: 'b', n: 'Breakfast', t: 'x', w: 20, secs: B },
+    { k: 'l', n: 'Lunch', t: 'x', w: 25, secs: L.concat(B) },
+    { k: 'd', n: 'Dinner', t: 'x', w: 35, secs: D.concat(B) },
+    { k: 's', n: 'Snacks', t: 'x', w: 10, secs: S },
+  ],
+  open: [
+    { k: 'b', n: 'Breakfast', t: 'x', w: 20, secs: ALL },
+    { k: 'l', n: 'Lunch', t: 'x', w: 25, secs: ALL },
+    { k: 'd', n: 'Dinner', t: 'x', w: 35, secs: ALL },
+    { k: 's', n: 'Snacks', t: 'x', w: 10, secs: ALL },
+  ],
+};
+const WHICH = String(arg('slots', 'default'));
+const SLOTS = PRESETS[WHICH];
+if (SLOTS === undefined) { console.error('unknown --slots; try ' + Object.keys(PRESETS)); process.exit(2); }
+
 (async () => {
   const srv = await serve();
   const url = 'http://127.0.0.1:' + srv.address().port + '/';
   const browser = await chromium.launch();
   const page = await (await browser.newContext({ viewport: { width: 390, height: 900 } })).newPage();
-  await page.addInitScript((t) => {
-    localStorage.setItem('bsc.macroTargets', JSON.stringify(t));
-  }, TARGETS);
+  await page.addInitScript((cfg) => {
+    localStorage.setItem('bsc.macroTargets', JSON.stringify(cfg.t));
+    if (cfg.slots) {
+      const names = {}; cfg.slots.forEach((s) => { names[s.k] = s.n; });
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: cfg.slots, names: names }));
+    }
+  }, { t: TARGETS, slots: SLOTS });
   await page.goto(url, { waitUntil: 'networkidle' });
   await page.click('.tab[data-view="macros"]');
   await page.waitForTimeout(400);
@@ -90,6 +125,7 @@ const TARGETS = { p: 180, f: 50, c: 50 };
   const mean = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
   const med = (a) => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 
+  console.log('sections: ' + WHICH);
   console.log(DAYS + ' days in ' + ms + ' ms  (' + (ms / DAYS).toFixed(1) +
     ' ms/day)   target ' + dayK + ' kcal, ' + T.p + ' P\n');
 
