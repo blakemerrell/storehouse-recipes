@@ -4786,7 +4786,13 @@
      top three fits at random, so pressing it again offers a different day
      rather than insisting on the same one. Favorites carry their ranking
      bonus here too, which is what "favorites first when they fit" means. */
-  function mFillDay() {
+  /* The draft itself, with no screen attached.
+   *
+     Split out so the bench can run a few thousand days without a render
+     between each one — see window.__macroLab. Splitting rather than copying:
+     a second copy of this would drift from the first, and the whole point of
+     measuring is that the thing measured is the thing that ships. */
+  function mDraftDay() {
     var targets = mDayTargets(mViewKey());
     var near = mNearIds(mViewKey());
     mEditDay(mViewKey(), function (day) {
@@ -4845,8 +4851,9 @@
       var moved = mSideUp(day, targets, near);
       if (mTopUp(day, targets, near) || moved) mBalanceDay(day, targets);
     });
-    renderMacros();
   }
+
+  function mFillDay() { mDraftDay(); renderMacros(); }
 
   /* The topper: honey on the oatmeal, butter for the fat, cottage cheese for
      the protein the dishes did not carry.
@@ -7712,6 +7719,50 @@
     var d = Math.round(h / 24);
     return d + (d === 1 ? ' day ago' : ' days ago');
   }
+
+  /* The bench for the day planner, in the spirit of __ean above: the barcode
+     tests need a reader without a camera, and this needs a day without a
+     screen.
+   *
+     Fill picks at random from the top three fits, so two settings can only be
+     compared honestly over the SAME days — which means hundreds of them, which
+     is only affordable with nothing rendering in between. Seeding is the
+     bench's own job: it overrides Math.random before calling in, so no source
+     of randomness has to be plumbed through the app to be controlled.
+
+     Read-only from the app's point of view — nothing here is reachable from
+     the interface, and nothing in the interface calls it. */
+  window.__macroLab = {
+    forget: function () { delete MDAYS[mViewKey()]; },
+    draft: mDraftDay,
+    balance: function () {
+      var t = mDayTargets(mViewKey());
+      mEditDay(mViewKey(), function (d) { mBalanceDay(d, t); });
+    },
+    targets: function () { return mDayTargets(mViewKey()); },
+    /* Everything a scoring pass needs, per meal: the share it was given, and
+       for each plate the dish's own numbers beside the portion chosen — so a
+       reader can tell "a big dish at ×1" from "a small dish at ×3", which is
+       the distinction every question about portioning turns on. */
+    read: function () {
+      var day = MDAYS[mViewKey()] || {};
+      var out = { meals: [], tot: mTotals(day).all };
+      mReadSlots().list.forEach(function (s) {
+        out.meals.push({
+          k: s.k, name: s.n, w: mSlotW(s),
+          items: (day[s.k] || []).map(function (it) {
+            var r = BY_ID[it.id];
+            var m = (r && r.macro) || {};
+            return { id: it.id, x: it.x, name: r ? r.name : '(gone)',
+              sec: r ? r.book + '-' + r.secNum : '',
+              kcal: m.kcal || 0, p: m.p || 0, f: m.f || 0, c: m.c || 0,
+              na: m.na || 0, fib: m.fib || 0 };
+          })
+        });
+      });
+      return out;
+    }
+  };
 
   /* Exposed so tests/weeks.test.js can check every state has both, rather than
      keeping its own copy of the list and going stale the moment one is added. */

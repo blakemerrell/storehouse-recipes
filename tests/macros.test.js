@@ -1452,6 +1452,49 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+
+    /* The bench measures the shipped code or it measures nothing.
+     *
+       window.__macroLab.draft() exists so a few thousand days can be drafted
+       without a render between them — Fill picks at random from the top three
+       fits, so comparing two settings honestly means running both over the
+       same days, and that is only affordable with the screen out of the way.
+       The risk that buys is a bench that quietly stops being the button. So:
+       same seed, same empty day, both routes, same plates at the same
+       portions. Its own page, because it drafts and discards days and the
+       tests after this one are reading the day it would leave behind. */
+    const lab = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await lab.click('.tab[data-view="macros"]');
+    await lab.waitForTimeout(300);
+    t.ok('the bench drafts the same day the button does',
+      await lab.evaluate(() => {
+        const L = window.__macroLab;
+        if (!L) return 'no lab';
+        const seeded = (a) => () => {
+          a |= 0; a = a + 0x6D2B79F5 | 0;
+          let t = Math.imul(a ^ a >>> 15, 1 | a);
+          t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+          return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+        const real = Math.random;
+        const plates = () => L.read().meals.map((m) =>
+          m.k + ':' + m.items.map((i) => i.id + '@' + i.x).join(',')).join('|');
+        Math.random = seeded(7); L.forget(); L.draft();
+        const viaLab = plates();
+        /* The button disables itself once every meal has food, and forget()
+           empties the day without redrawing — so the disabled flag is left
+           over from the render before it. Clear it; what is under test is the
+           draft, not the button's own enabling. */
+        Math.random = seeded(7); L.forget();
+        document.getElementById('macroFill').disabled = false;
+        document.getElementById('macroFill').click();
+        const viaBtn = plates();
+        Math.random = real;
+        return viaLab === viaBtn && viaLab.indexOf('@') > 0 ? true : viaLab + ' !== ' + viaBtn;
+      }) === true,
+      await lab.evaluate(() => 'see above'));
+    await lab.context().close();
+
     /* The guard that survived the move, and has to.
      *
        Refusing a meal over a portion that has not been settled yet is wrong;
