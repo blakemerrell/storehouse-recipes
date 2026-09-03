@@ -2408,6 +2408,11 @@ module.exports = {
        carried between your own devices; the pantry is shared with people by a
        code. The distinction is the point, so it is drawn by heading rather
        than by paragraphs of explanation. */
+    /* Everything fetched up to HERE is what a reader who never signs in
+       causes. Taken before the sheet is opened, because opening the sheet is
+       not "never signing in" — it is asking to. */
+    const bootOutside = await a2.evaluate(() => performance.getEntriesByType('resource')
+      .filter((e) => e.name.indexOf(location.origin) !== 0).map((e) => e.name));
     await a2.click('#syncBtn');
     await a2.waitForTimeout(300);
     t.ok('Google is the way in, said once and not argued for',
@@ -2416,6 +2421,47 @@ module.exports = {
         return !!b && /Sign in with Google/.test(b.textContent) &&
           document.querySelectorAll('.sheet .sync-p').length <= 2;
       }));
+    /* ---- signing in without leaving the page ----------------------------
+     * Firebase's own Google sign-in leaves for the firebaseapp.com origin and
+     * comes back, keeping its handshake in that origin's storage — which
+     * every current browser partitions, so the trip back read an empty box
+     * and the app fell through to an anonymous account. Pressing the button
+     * appeared to do nothing at all.
+     *
+     * Google Identity Services never leaves the page, so there is no second
+     * origin to be partitioned. But their script is a third-party host, and a
+     * visitor with no account must still fetch nothing from anywhere — so it
+     * is fetched when the sheet opens and never at boot. offline.test.js
+     * holds the boot half; this holds the rest. */
+    await a2.waitForTimeout(2600);
+    const gis = await a2.evaluate(() => {
+      const seen = (el) => !!el && el.getBoundingClientRect().height > 0;
+      const slot = document.getElementById('myGoogleBtn');
+      return {
+        drew: !!slot && slot.innerHTML.length > 0,
+        ours: seen(document.getElementById('myGoogleFallback')),
+        alt: seen(document.getElementById('myGoogleAlt'))
+      };
+    });
+    /* Whichever way it went, exactly one way in is on offer and it is not
+       none — the test does not require Google to be reachable from wherever
+       this is running. */
+    t.ok('there is one way in on screen, whether or not Google answered',
+      (gis.drew ? !gis.ours : gis.ours), JSON.stringify(gis));
+    /* Google DRAWING a button is not Google accepting it: on an origin the
+       client does not allow, the button appears and then refuses, and the
+       only sign is a console line nobody reads. The console deletes clients
+       unused for six months, so this is not hypothetical. */
+    t.ok('and when Google drew it, the older way is still reachable',
+      !gis.drew || gis.alt, JSON.stringify(gis));
+    /* The client ID is public and belongs in the page. The SECRET beside it
+       in the console belongs to servers, and a web app that ships one has
+       given it away. */
+    t.ok('a client id is configured, and no secret rides along with it',
+      await a2.evaluate(() => !!window.GOOGLE_CLIENT_ID &&
+        /\.apps\.googleusercontent\.com$/.test(window.GOOGLE_CLIENT_ID)),
+      await a2.evaluate(() => String(window.GOOGLE_CLIENT_ID || '').slice(-30)));
+
     t.ok('and the two cards say whose each one is',
       await a2.evaluate(() => {
         const txt = document.querySelector('.sheet').textContent;
@@ -2449,12 +2495,25 @@ module.exports = {
        since it was built. A device that signed in remembers so locally; only
        that one goes looking. */
     t.ok('a visitor with no account fetches nothing from another host',
+      bootOutside.length === 0 &&
+        await a2.evaluate(() => localStorage.getItem('bsc.myAccount') === null),
+      bootOutside.join(' '));
+    /* And once the sheet IS opened, exactly one host may be reached and it is
+       the one that draws the sign-in button. Naming it is the point: the old
+       assertion covered the whole session, so it would have gone red for the
+       right reason and been read as "nothing may ever be fetched", when what
+       the app actually promises is that a reader who never asks to sign in
+       never phones home. Anything else appearing here is a regression. */
+    t.ok('and opening the sheet reaches Google, and nowhere else',
       await a2.evaluate(() => {
-        const outside = performance.getEntriesByType('resource')
-          .filter((e) => e.name.indexOf(location.origin) !== 0);
-        return outside.length === 0 && localStorage.getItem('bsc.myAccount') === null;
-      }), await a2.evaluate(() => performance.getEntriesByType('resource')
-        .filter((e) => e.name.indexOf(location.origin) !== 0).map((e) => e.name).join(' ')));
+        const hosts = [...new Set(performance.getEntriesByType('resource')
+          .filter((e) => e.name.indexOf(location.origin) !== 0)
+          .map((e) => new URL(e.name).hostname))];
+        return hosts.every((h) => h === 'accounts.google.com' || h === 'ssl.gstatic.com');
+      }),
+      await a2.evaluate(() => [...new Set(performance.getEntriesByType('resource')
+        .filter((e) => e.name.indexOf(location.origin) !== 0)
+        .map((e) => new URL(e.name).hostname))].join(', ')));
     t.ok('and personal keys still never enter the household document',
       await a2.evaluate(() => JSON.stringify(Object.keys(window.Store.state))
         .indexOf('macro') < 0));

@@ -22,6 +22,25 @@
  * caller from another. */
 window.USDA_KEY = "VgQ5UXjiPGH5rqI0rdf1IfJg7kfnFigF9Lcwfor0";
 
+/* Signing in without leaving the page.
+ *
+ * The app is served from blakemerrell.github.io and Firebase's own sign-in
+ * lives on storehouse-recipe-book.firebaseapp.com. Those are two origins, and
+ * the redirect between them keeps its handshake in the second one's storage —
+ * which every current browser now partitions, so the trip out worked and the
+ * trip back found nothing. It then fell through to an anonymous account,
+ * which is why signing in appeared to do nothing at all.
+ *
+ * So the page asks Google for the token itself and hands it to Firebase.
+ * Nothing leaves the origin and there is no storage to be partitioned.
+ *
+ * This is the CLIENT ID, which is public and ships in the page like the
+ * Firebase config below. The client SECRET that sits beside it in the console
+ * belongs to servers and must never appear in a browser — it is not here and
+ * must not be added. */
+window.GOOGLE_CLIENT_ID =
+  "1048714331242-cqu4prntuih1hrjv2r7tdkn0p8281gif.apps.googleusercontent.com";
+
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyApxpcitqo7qHLVDRS4UX5Xa4XNUKa0Qh0",
   authDomain: "storehouse-recipe-book.firebaseapp.com",

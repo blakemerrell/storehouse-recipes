@@ -395,6 +395,56 @@ window.Store = (function () {
     });
   }
 
+  /* ------------------------------------------------ signing in, in place
+   * Firebase's own Google sign-in leaves this page for
+   * storehouse-recipe-book.firebaseapp.com and comes back. It keeps the
+   * handshake in that origin's storage, and every current browser now
+   * partitions storage by the top-level site — so the trip out worked, the
+   * trip back read an empty box, and the code below fell through to an
+   * anonymous account. From the outside: press the button, nothing happens,
+   * and the app still does not know who you are.
+   *
+   * Google Identity Services never leaves the page. It hands the page an ID
+   * token and Firebase takes it directly, so there is no second origin and
+   * nothing to partition.
+   *
+   * Loaded on demand and never at boot: a visitor with no account must
+   * fetch nothing from another host, which is the same rule the Firebase
+   * SDK below already follows and a test already holds. */
+  var GIS_SRC = 'https://accounts.google.com/gsi/client';
+  var gisP = null;
+  function gisReady() {
+    if (gisP) return gisP;
+    var cid = window.GOOGLE_CLIENT_ID;
+    if (!cid) return Promise.reject(new Error('no client id'));
+    gisP = loadScript(GIS_SRC).then(function () {
+      var g = window.google && window.google.accounts && window.google.accounts.id;
+      if (!g) throw new Error('identity services did not load');
+      return { id: g, cid: cid };
+    });
+    gisP.catch(function () { gisP = null; });      // let a later attempt retry
+    return gisP;
+  }
+
+  /* The token in hand, become that person. Linking first so whatever is
+     already on this device comes with you; when the account exists already
+     the link is refused and the honest thing is to sign into it and let the
+     older account's history stand — the same bargain the popup path makes. */
+  function useIdToken(token) {
+    return ready().then(function () {
+      var auth = window.firebase.auth();
+      var cred = window.firebase.auth.GoogleAuthProvider.credential(token);
+      var cur = auth.currentUser;
+      if (!cur || !cur.isAnonymous) return auth.signInWithCredential(cred);
+      return cur.linkWithCredential(cred).catch(function (err) {
+        if (err && /credential-already-in-use|email-already-in-use/.test(err.code || '')) {
+          return auth.signInWithCredential(cred);
+        }
+        throw err;
+      });
+    });
+  }
+
   // ------------------------------------------------------------- connecting
   /* The SDK, the app, offline persistence and the anonymous sign-in. Once,
      however many things ask for it — connecting to a household and claiming a
@@ -631,6 +681,39 @@ window.Store = (function () {
        should" felt like from the outside. Redirect leaves the page and comes
        back signed in, which is the flow phones are built for. */
     wantsRedirect: wantsRedirect,
+
+    /* Google's own button, and it has to be Google's: the ID-token flow has no
+       way to be started from a button of ours. It is drawn into whatever
+       element is handed over, and the caller keeps its own button ready for
+       the case where this never loads at all — a browser with the host
+       blocked, or no client id configured.
+     *
+       Rejects rather than throwing into nowhere, so the sheet can put its own
+       button back and say why. */
+    mountGoogleButton: function (el, onDone, onFail) {
+      if (!el) return Promise.reject(new Error('nowhere to put it'));
+      return gisReady().then(function (g) {
+        g.id.initialize({
+          client_id: g.cid,
+          /* FedCM is how a current browser draws the account chooser, and
+             from 2025 it is the only way this library is allowed to. */
+          use_fedcm_for_prompt: true,
+          callback: function (res) {
+            var token = res && res.credential;
+            if (!token) { if (onFail) onFail(new Error('no token came back')); return; }
+            useIdToken(token).then(function () { if (onDone) onDone(); },
+              function (err) { if (onFail) onFail(err); });
+          }
+        });
+        el.innerHTML = '';
+        g.id.renderButton(el, {
+          type: 'standard', theme: 'outline', size: 'large',
+          text: 'signin_with', shape: 'pill', logo_alignment: 'left',
+          width: Math.max(220, Math.min(360, Math.round(el.clientWidth || 280)))
+        });
+        return true;
+      });
+    },
 
     signInGoogle: function () {
       return ready().then(function () {

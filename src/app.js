@@ -3757,9 +3757,24 @@
       body = (S.mySent
         ? '<div class="sync-warn">Open the link sent to <strong>' + esc(S.myJoin) + '</strong>.</div>'
         : '') +
+        /* Google draws its own button in here, because the flow that keeps
+           sign-in on this page can only be started from Google's button. Ours
+           stays underneath as the fallback, hidden the moment theirs lands —
+           so a browser that cannot reach the host still has a way in, and
+           nobody is left looking at an empty box. */
         '<div class="sync-row">' +
-          '<button class="btn-primary" data-mysync="google">Sign in with Google</button>' +
+          '<div id="myGoogleBtn" class="sync-gbtn"></div>' +
+          '<button class="btn-primary" id="myGoogleFallback" data-mysync="google">' +
+            'Sign in with Google</button>' +
         '</div>' +
+        /* Google drawing its button is not the same as Google accepting it:
+           on an origin the client does not allow, the button appears and then
+           refuses, and the only sign is a line in the console nobody is
+           reading. That is not a hypothetical — the console warns it deletes
+           clients unused for six months. So the old way in stays reachable,
+           quietly, whenever theirs is the one on screen. */
+        '<button class="sync-alt hide" id="myGoogleAlt" data-mysync="google">' +
+          'Trouble signing in? Try the older way</button>' +
         /* Kept, because a Google account is not a thing everybody has and this
            is going out to strangers — but folded, because for nearly everybody
            the button above is the entire answer. */
@@ -7751,7 +7766,28 @@
     fade.classList.toggle('hide', over <= 1 || tabs.scrollLeft >= over - 1);
   }
 
-  function renderModal() { keepingFocus(renderModalInner); }
+  function renderModal() {
+    keepingFocus(renderModalInner);
+    /* The sheet is redrawn from scratch, so Google's button has to be drawn
+       into it again each time — and only ever after the sheet exists. Ours
+       stays visible until theirs is actually there, so a failure to load
+       leaves a way in rather than a gap. */
+    var slot = $('myGoogleBtn');
+    if (!slot || !window.Store || !window.Store.mountGoogleButton) return;
+    window.Store.mountGoogleButton(slot, function () {
+      S.mySent = false; mAccountMark(); mSyncStart(); renderModal();
+    }, function () {
+      S.myErr = 'That did not go through. Try again, or use the email link.';
+      renderModal();
+    }).then(function () {
+      /* Theirs is up, so ours steps back — but does not leave, because a
+         rendered button and a working one are not the same thing. */
+      var fb = $('myGoogleFallback');
+      if (fb) fb.classList.add('hide');
+      var alt = $('myGoogleAlt');
+      if (alt) alt.classList.remove('hide');
+    }, function () { /* theirs never arrived; ours is already showing */ });
+  }
 
   function renderAll() { keepingFocus(renderAllInner); }
 
