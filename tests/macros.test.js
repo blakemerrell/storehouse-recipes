@@ -1436,12 +1436,44 @@ module.exports = {
         fillDisabled: document.getElementById('macroFill').disabled,
       };
     });
-    /* Every meal the day still had room for. Fill stops once the remaining
-       budget is under a hundred calories, so on a tight plan the last meal
-       can honestly come back empty. */
-    t.ok('every meal the day had room for gets something',
-      drafted.perSlot.filter((n) => n >= 1).length >= 3, drafted.perSlot.join(','));
+    /* EVERY meal, not most of them.
+     *
+       This asserted "at least three of four" and passed for months over a
+       real bug: the room check sat inside the fill loop and read the day's
+       remaining live, so the dishes Fill had just drafted were the reason the
+       next meal got refused — and meals are walked in order, so it was always
+       the last one. Measured over thirty runs, a five-meal day came back with
+       an empty meal 47% of the time. The draft is resized by mBalanceDay a
+       few lines later, so those dishes were never final and never a reason to
+       refuse anybody.
+       An assertion loose enough to accommodate the bug is how the bug got to
+       stay. A day that starts empty gets every meal drafted. */
+    t.ok('every meal on the plan gets something, not just most of them',
+      drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
+
+    /* The guard that survived the move, and has to.
+     *
+       Refusing a meal over a portion that has not been settled yet is wrong;
+       refusing a day that is already accounted for is right. Press Fill at
+       nine at night with everything logged and it should add nothing at all.
+       So the question is still asked — once, up front, about what the day
+       already held rather than about the draft being written. Delete it and
+       this goes red. */
+    const noRoom = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await noRoom.evaluate(() => localStorage.setItem('bsc.macroTargets',
+      JSON.stringify({ p: 5, f: 2, c: 5 })));   // 58 kcal of room: under the floor
+    await noRoom.reload();
+    await noRoom.click('.tab[data-view="macros"]');
+    await noRoom.waitForTimeout(400);
+    await noRoom.click('#macroFill');
+    await noRoom.waitForTimeout(500);
+    t.ok('a day with no room left is not filled with food anyway',
+      await noRoom.evaluate(() =>
+        document.querySelectorAll('.mitem, .mthin').length === 0),
+      await noRoom.evaluate(() =>
+        document.querySelectorAll('.mitem, .mthin').length + ' plates drafted'));
+    await noRoom.context().close();
     t.ok('the draft chases the protein target',
       drafted.tot.p >= 0.6 * planP, Math.round(drafted.tot.p) + ' of ' + planP);
     t.ok('without blowing the fat budget wide open',

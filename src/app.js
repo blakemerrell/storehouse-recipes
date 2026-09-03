@@ -4790,26 +4790,49 @@
     var targets = mDayTargets(mViewKey());
     var near = mNearIds(mViewKey());
     mEditDay(mViewKey(), function (day) {
+      /* Whether this day has room for a draft at all — asked once, and asked
+         of what was already on it.
+       *
+         This check used to sit inside the loop and read the day's remaining
+         live, which meant the dishes Fill had just placed were the reason the
+         next meal got refused. Meals are walked in order, so it was always the
+         ones at the bottom: an evening snack last in the list came up empty on
+         nearly half of all runs, and pressing Fill again sometimes filled it,
+         which is the tell — nothing about that meal had changed.
+
+         Those dishes were never final. Every one of them is resized by
+         mBalanceDay a few lines down; the draft overshoots by design, and its
+         own comment says so. Refusing a meal over a portion that has not been
+         settled yet is refusing it over a number that does not exist.
+
+         What does justify refusing is a day already accounted for — press Fill
+         at nine at night with everything logged and it should add nothing. So
+         that is the question, and it can only be asked from up here, before
+         the draft has had a chance to answer it for us. */
+      var had = mTotals(day).all;
+      var room = 4 * Math.max(0, targets.p - had.p) +
+        4 * Math.max(0, targets.c - had.c) +
+        9 * Math.max(0, targets.f - had.f);
+      if (room < 100) return;
+
       mReadSlots().list.forEach(function (s) {
-        if ((day[s.k] || []).length) return;
-        var sh = mShares(day, targets, s);
-        // a slot is only worth filling while the day has real room left
-        if (4 * sh.R.p + 4 * sh.R.c + 9 * sh.R.f < 100) return;
-        var secs = mSlotSecs(s);
-        var inSec = RECIPES.filter(function (r) {
-          return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
-        });
-        /* What the neighbouring days have not already used — but only while
-           that leaves something to choose from. A meal left empty to avoid a
-           repeat is a worse answer than the repeat. */
-        var fresh = inSec.filter(function (r) { return !near[r.id]; });
-        var pool = fresh.length ? fresh : inSec;
-        var ranked = mRank(pool, day, targets, s).filter(function (e) { return e.score !== null; });
-        if (!ranked.length) return;
-        var top = ranked.slice(0, 3);
-        var pick = top[Math.floor(Math.random() * top.length)];
-        (day[s.k] = day[s.k] || []).push({ id: pick.r.id, x: pick.x, eaten: 0 });
+          if ((day[s.k] || []).length) return;
+          var secs = mSlotSecs(s);
+          var inSec = RECIPES.filter(function (r) {
+            return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
+          });
+          /* What the neighbouring days have not already used — but only while
+             that leaves something to choose from. A meal left empty to avoid a
+             repeat is a worse answer than the repeat. */
+          var fresh = inSec.filter(function (r) { return !near[r.id]; });
+          var pool = fresh.length ? fresh : inSec;
+          var ranked = mRank(pool, day, targets, s).filter(function (e) { return e.score !== null; });
+          if (!ranked.length) return;
+          var top = ranked.slice(0, 3);
+          var pick = top[Math.floor(Math.random() * top.length)];
+          (day[s.k] = day[s.k] || []).push({ id: pick.r.id, x: pick.x, eaten: 0 });
       });
+
       /* Settle the portions before asking whether anything is missing. Each
          dish was sized against its own share while the slots were still being
          filled, so the raw draft usually sits ON or over the day — the gap
@@ -4818,6 +4841,7 @@
          one chosen after gets sized in the second pass along with everything
          else it now sits beside. */
       mBalanceDay(day, targets);
+
       var moved = mSideUp(day, targets, near);
       if (mTopUp(day, targets, near) || moved) mBalanceDay(day, targets);
     });
