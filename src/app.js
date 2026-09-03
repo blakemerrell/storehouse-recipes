@@ -2672,6 +2672,12 @@
               var r2 = BY_ID[it.id];
               if (!r2) return '';
               return '<div class="mthin' + (it.eaten ? ' eaten' : '') + '">' +
+                /* Its leaf, as the bullet. Shut, this is the only place the
+                   score survives — and a shut meal is exactly when several of
+                   them are being read at once. */
+                (r2.score === null || r2.score === undefined
+                  ? '<span class="mthin-dot" aria-hidden="true">&middot;</span>'
+                  : leaf(r2.score, 'leaf-sm')) +
                 '<span class="mthin-n">' + esc(r2.name) + '</span>' +
                 /* The same portion words the open plate uses — "1 cup ·
                    130 g", "1½ servings" — so a folded meal reads as food

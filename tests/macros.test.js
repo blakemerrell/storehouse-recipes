@@ -2708,6 +2708,51 @@ module.exports = {
         const b = document.querySelector('.mslot-sub[aria-expanded="false"]');
         return !!b && getComputedStyle(b.querySelector('.mfold-cue')).transform !== 'none';
       }));
+    /* Folded, each thing on the meal keeps its leaf as its bullet. Folding
+       used to take the scores away with the plates, which meant the one screen
+       where several meals get scanned at once was the screen with no quality
+       on it at all. A food you entered yourself has no score and takes a plain
+       mark in the same column, so nothing shifts left when one turns up. */
+    await fold.evaluate(() => {
+      const b = document.querySelector('.mslot-sub[aria-expanded="true"]');
+      if (b) b.click();
+    });
+    await fold.waitForTimeout(300);
+    const bullets = await fold.evaluate(() => {
+      const thin = [...document.querySelectorAll('.mthin')];
+      return {
+        rows: thin.length,
+        marked: thin.filter((x) => x.querySelector('.leaf, .mthin-dot')).length,
+        columns: new Set([...document.querySelectorAll('.mthin .leaf, .mthin .mthin-dot')]
+          .map((x) => Math.round(x.getBoundingClientRect().left))).size,
+        smaller: (() => {
+          const f = document.querySelector('.mthin .leaf');
+          const o = document.querySelector('.mitem .leaf');
+          if (!f || !o) return true;
+          return f.getBoundingClientRect().height < o.getBoundingClientRect().height;
+        })()
+      };
+    });
+    t.ok('a folded meal keeps a mark on every line it carries',
+      bullets.rows > 0 && bullets.marked === bullets.rows, JSON.stringify(bullets));
+    t.ok('and they line up in one column, score or no score',
+      bullets.columns === 1, bullets.columns + ' columns');
+    /* Smaller than an open plate's leaf, so a shut meal stays a list rather
+       than becoming a second stack of cards. */
+    t.ok('and are smaller than the leaf an open plate wears', bullets.smaller);
+    /* The line in a meal card sits under the HEADER: fold it and the plates
+       go, but the totals row stays — it is not a summary above the content,
+       it IS the content once the card is shut. */
+    t.ok('and the card\'s one line is under its name, not under its numbers',
+      await fold.evaluate(() => {
+        const seam = document.querySelector('.mslot-sub');
+        const list = document.querySelector('.mslot-items, .mslot-thin');
+        return parseFloat(getComputedStyle(seam).borderTopWidth) > 0 &&
+          parseFloat(getComputedStyle(list).borderTopWidth) === 0;
+      }),
+      await fold.evaluate(() => 'seam ' +
+        getComputedStyle(document.querySelector('.mslot-sub')).borderTopWidth + ', list ' +
+        getComputedStyle(document.querySelector('.mslot-items, .mslot-thin')).borderTopWidth));
     await fold.context().close();
 
     /* The three controls on a meal lost their boxes, which is the point — but
@@ -2737,12 +2782,12 @@ module.exports = {
       return { coarse: matchMedia('(pointer: coarse)').matches,
         add: box('.mslot-add'), retry: box('.mslot-try'), seam: box('.mslot-sub') };
     });
-    t.ok('a reachPage gets a real target on every unboxed control',
+    t.ok('a thumb gets a real target on every unboxed control',
       reach.coarse && reach.add && reach.retry &&
         reach.add.h >= 30 && reach.add.w >= 30 &&
         reach.retry.h >= 30 && reach.retry.w >= 30,
       JSON.stringify(reach));
-    t.ok('and the fold seam is a reachPage tall as well, being the handle',
+    t.ok('and the fold seam is a thumb tall as well, being the handle',
       !!reach.seam && reach.seam.h >= 30, JSON.stringify(reach.seam));
     /* The plus says nothing to the eye but its shape, so it has to say the
        rest out loud — and it names the meal, which "+ Add" never did. */
