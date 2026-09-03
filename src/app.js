@@ -76,6 +76,22 @@
      of milk, a tablespoon of honey, one apple — rather than a cup of butter
      or a tablespoon of milk, which is what any single fixed unit produces. */
   function mFoodServing(f) {
+    /* Where the table says what a portion of this IS, that is the answer, and
+       it was being ignored. Twenty-eight foods carry a `def` written by
+       somebody who knew the food, and the guess below was overruling all of
+       them: cheddar came out as "1 whole" — a whole cheddar cheese — because
+       a 28 g slice happened to land nearest the calorie target, and ketchup,
+       mustard, soy and hot sauce all defaulted to a CUP.
+     *
+       Only the unit is taken, not the quantity. A `def` of half a cup means
+       half of the unit this food is counted in, and the portion is the
+       stepper's business — the fit scorer picks it against the day, the way
+       it does for everything else. What the table settles here is the WORD:
+       cheese is measured in cups, ketchup in spoons, and neither of them
+       comes as a whole one. */
+    if (f.def && f.def.unit && f.g && f.g[f.def.unit]) {
+      return { unit: f.def.unit, grams: f.g[f.def.unit] };
+    }
     var units = f.g || {};
     var best = null;
     Object.keys(units).forEach(function (u) {

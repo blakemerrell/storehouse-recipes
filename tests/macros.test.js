@@ -2617,7 +2617,13 @@ module.exports = {
     const topSalt = await wk.evaluate(() => {
       const D = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
       const N = (window.Nutrition || {}).FOODS || {};
+      /* A second copy of mFoodServing, and it has to track it: the app chose
+         to count cheddar in whole cheeses until the table's own stated
+         portion was honoured, and this copy went on pricing the old unit and
+         reporting salt for a serving nobody was eating. Where the table
+         states the unit, the table wins — here as there. */
       const serve = (f) => {
+        if (f.def && f.def.unit && f.g && f.g[f.def.unit]) return f.g[f.def.unit];
         const u = f.g || {}; let best = null;
         Object.keys(u).forEach((k2) => {
           const g = u[k2]; if (!g) return;
@@ -2797,6 +2803,48 @@ module.exports = {
       await reachPage.evaluate(() => (document.querySelector('.mslot-add') || {})
         .getAttribute('aria-label')));
     await reachPage.context().close();
+
+    /* ---- a portion is measured in what the food is measured in -----------
+     * Blake: "that cheddar cheese unit is weird. i don't eat a whole cheddar
+     * cheese." He was right, and the table already knew: the entry carries a
+     * `def` of half a cup, and the code was overruling it with a guess that
+     * picked whichever unit landed nearest 130 kcal — a 28 g slice, rendered
+     * as "1 whole". Ketchup, mustard, soy and hot sauce were all defaulting
+     * to a CUP for the same reason. Where the table states a portion, the
+     * table wins. */
+    const units = await t.fresh();
+    /* Read off the PLATE, not off a re-derivation. The first version of this
+       asked window.MFOODS, which the app does not expose, so it passed while
+       proving nothing — the same vacuous-green trap the batch test above
+       exists to avoid. Put the cheese on a day and read what the card says. */
+    const put = await units.evaluate(() => {
+      const F = (window.Nutrition || {}).FOODS || {};
+      if (!F.cheddar) return null;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+        '-' + String(d.getDate()).padStart(2, '0');
+      const days = {}; days[k] = { b: [{ id: 'f:cheddar', x: 1, eaten: 0 }] };
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      return { def: F.cheddar.def && F.cheddar.def.unit, has: Object.keys(F.cheddar.g || {}) };
+    });
+    await units.reload();
+    await units.click('.tab[data-view="macros"]');
+    await units.waitForTimeout(400);
+    for (let i = 0; i < 3; i++) {
+      if (!await units.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+      await units.click('#macroOpenAll');
+      await units.waitForTimeout(200);
+    }
+    const said = await units.evaluate(() => {
+      const x = document.querySelector('.mstep-x');
+      return x ? x.textContent.trim() : null;
+    });
+    t.ok('the table states a portion for cheddar, and it is not a whole cheese',
+      !!put && put.def && put.def !== 'each', JSON.stringify(put));
+    t.ok('and the plate counts it in that, not in whole cheeses',
+      !!said && said.indexOf('whole') < 0 && said.indexOf(put.def) >= 0,
+      'the card says "' + said + '", the table says ' + (put && put.def));
+    await units.context().close();
 
     /* ---- opening a day that was left scrolled ----------------------------
      * The one that actually bit. The browser puts the old scroll position
