@@ -6490,7 +6490,21 @@
     }
     var g = mFoldGeo();
     if (!g) return;
-    var gap = foldGap >= 0 ? foldGap : (parseFloat(getComputedStyle(st).marginBottom) || 0);
+    /* No honest gap, no fold. This line used to fall back to the card's own
+       computed bottom margin, which is THE MARGIN THIS CODE WROTE ON THE LAST
+       FRAME — so once the app opened already scrolled, and the gap therefore
+       never got its one honest reading at the top, every frame read back its
+       own output and added to it. 183px became 37,691px in under two seconds,
+       the page grew with it, and My Day was a screenful of blank paper with
+       the day far above. That is the bug Blake saw on a phone and then on a
+       MacBook: "it was like the app had scrolled WAY WAY WAY far away".
+     *
+       There is no safe fallback here, because every number within reach at
+       this moment is downstream of something we wrote. So there is none: the
+       card simply stays open until the top of the page has been seen once,
+       which takes one scroll and costs nothing but a fold that waits. */
+    if (foldGap < 0) return;
+    var gap = foldGap;
     st.style.setProperty('--fold', String(p));
     /* The box loses `p * span` and the margin below gives back exactly that
        much. The sum is the same at every p, which is the whole trick: the
@@ -8264,6 +8278,13 @@
     window.addEventListener('resize', syncTabsFade);
     window.addEventListener('resize', syncStick);
     syncStick();
+    /* The app draws itself after the page loads, so a scroll position the
+       browser puts back belongs to a page that does not exist yet: it lands
+       in whatever happens to be there, and then everything that renders
+       afterwards pushes it further. Opening at the top is both what a day
+       wants and what lets the fold take its one honest measurement before it
+       is asked to do anything. */
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     window.addEventListener('scroll', onScrollShrink, { passive: true });
     window.addEventListener('resize', onResizeFold);
     document.querySelector('.tabs').addEventListener('scroll', syncTabsFade, { passive: true });

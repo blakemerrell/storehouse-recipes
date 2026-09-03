@@ -2753,6 +2753,63 @@ module.exports = {
         .getAttribute('aria-label')));
     await reachPage.context().close();
 
+    /* ---- opening a day that was left scrolled ----------------------------
+     * The one that actually bit. The browser puts the old scroll position
+     * back before the app has drawn anything, so the fold is asked to work
+     * before it has ever seen the top of the page — and the gap it needs used
+     * to fall back to the card's own computed bottom margin, which is the
+     * margin the fold itself wrote a frame earlier. Every frame read its own
+     * output and added to it: 183px became 37,691px in under two seconds, and
+     * My Day was a screenful of blank paper with the day far above it.
+     *
+     * Two things hold it now. The app opens at the top, because a restored
+     * scroll position belongs to a page that did not exist yet. And there is
+     * no fallback at all — with no honest gap the card does not fold. */
+    const reopen = await t.fresh({ viewport: { width: 412, height: 915 },
+      hasTouch: true, isMobile: true });
+    await reopen.click('.tab[data-view="macros"]');
+    await reopen.waitForTimeout(200);
+    await openPlan(reopen);
+    await reopen.waitForTimeout(150);
+    await reopen.click('[data-mtarg="save"]');
+    await reopen.waitForTimeout(250);
+    await reopen.click('#macroFill');
+    await reopen.waitForTimeout(700);
+    const beforeReopen = await reopen.evaluate(() => document.documentElement.scrollHeight);
+    await reopen.evaluate(() => window.scrollTo(0, 600));
+    await reopen.waitForTimeout(400);
+    await reopen.reload();
+    await reopen.waitForTimeout(1000);
+    const back = await reopen.evaluate(() => {
+      const st = document.querySelector('.mday-stick');
+      const items = [...document.querySelectorAll('.mitem, .mthin')];
+      return { y: Math.round(window.scrollY), page: document.documentElement.scrollHeight,
+        margin: parseFloat((st && st.style.marginBottom) || 0) || 0,
+        restoration: history.scrollRestoration,
+        onScreen: items.filter((e) => {
+          const r = e.getBoundingClientRect();
+          return r.bottom > 0 && r.top < window.innerHeight;
+        }).length };
+    });
+    t.ok('reopening a day that was left scrolled starts it at the top',
+      back.y === 0 && back.restoration === 'manual',
+      'y=' + back.y + ' restoration=' + back.restoration);
+    /* The failure was unbounded growth, so what matters is that the page did
+       not BALLOON — it is legitimately shorter, because the meals come back
+       folded. */
+    t.ok('and the page has not run away with itself',
+      back.page < beforeReopen + 300 && back.margin < 400,
+      'page ' + beforeReopen + ' → ' + back.page + ', margin ' + back.margin + 'px');
+    t.ok('and the day is on the screen rather than far above it',
+      back.onScreen > 0, 'plates on screen: ' + back.onScreen);
+    /* And it must settle, not creep: the old bug grew on every frame, so a
+       second look a beat later is the difference between fixed and slower. */
+    await reopen.waitForTimeout(1200);
+    const settled = await reopen.evaluate(() => document.documentElement.scrollHeight);
+    t.ok('and it is still that size a second later, not creeping',
+      settled === back.page, back.page + ' → ' + settled);
+    await reopen.context().close();
+
     /* ---- a portion of a batch --------------------------------------------
      * The two tests above ride on whatever Fill happened to draft, and a day
      * of single-serving plates would pass them while proving nothing: only a
