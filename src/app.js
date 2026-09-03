@@ -7740,6 +7740,25 @@
       mEditDay(mViewKey(), function (d) { mBalanceDay(d, t); });
     },
     targets: function () { return mDayTargets(mViewKey()); },
+    /* Why was this dish not chosen? The ranking, for one meal, on the day as
+       it currently stands — the same call Fill makes, so the answer is the
+       real one. */
+    rank: function (slotKey, top) {
+      var day = MDAYS[mViewKey()] || {};
+      var targets = mDayTargets(mViewKey());
+      var slot = null;
+      mReadSlots().list.forEach(function (s) { if (s.k === slotKey) slot = s; });
+      if (!slot) return [];
+      var secs = mSlotSecs(slot);
+      var pool = RECIPES.filter(function (r) {
+        return secs.indexOf(r.book + '-' + r.secNum) >= 0;
+      });
+      return mRank(pool, day, targets, slot).slice(0, top || 12).map(function (e) {
+        var m = (e.r.macro) || {};
+        return { id: e.r.id, name: e.r.name, score: e.score, x: e.x,
+          kcal: m.kcal || 0, p: m.p || 0, f: m.f || 0, c: m.c || 0, na: m.na || 0 };
+      });
+    },
     /* Everything a scoring pass needs, per meal: the share it was given, and
        for each plate the dish's own numbers beside the portion chosen — so a
        reader can tell "a big dish at ×1" from "a small dish at ×3", which is
