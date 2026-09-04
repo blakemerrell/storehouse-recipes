@@ -692,8 +692,15 @@ select { max-width: 280px; }
   color: var(--ochre-text); white-space: nowrap; flex: none;
 }
 .mslot-try.wide { color: var(--ochre-text); }
-.mstep-wake {
-  background: none; border: 0; font: inherit; text-align: left; cursor: pointer;
+/* Scoped inside .mstep on purpose. `.mstep button` above sets 15px for the
+   − and + keys, and it is more specific than .mstep-x — so an unscoped rule
+   here lost, and the portion grew from 12px to 15px the moment it was eaten:
+   the one row that should look like it has settled down instead shouted.
+   The size and weight are restated rather than inherited, because what is
+   wanted is .mstep-x's own, and CSS has no way to say that. */
+.mstep .mstep-wake {
+  background: none; border: 0; font-family: inherit; cursor: pointer;
+  font-size: 12px; font-weight: 600; text-align: left;
   text-decoration: underline dotted; text-underline-offset: 3px;
   text-decoration-color: var(--line-firm);
 }

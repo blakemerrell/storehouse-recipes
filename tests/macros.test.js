@@ -1467,10 +1467,31 @@ module.exports = {
       if (b) b.click();
     });
     await wake.waitForTimeout(300);
+    /* the type BEFORE it is eaten, to compare against after */
+    const typeWas = await wake.evaluate(() => {
+      const c = getComputedStyle(document.querySelector('.mstep-x'));
+      return { size: c.fontSize, weight: c.fontWeight };
+    });
     await wake.click('.mitem [data-meat]');
     await wake.waitForTimeout(400);
     t.ok('a locked portion offers a way back in',
       await wake.evaluate(() => !!document.querySelector('.mstep-wake')));
+    /* And it does not change SIZE on the way.
+     *
+       Ticking a plate made its portion jump from 12px to 15px, because the
+       way back in is a <button> and `.mstep button` sets 15px for the − and +
+       keys — more specific than .mstep-x, so the row's own size lost. The one
+       row that should look like it has settled down instead shouted. Same
+       type, eaten or not. */
+    t.ok('and the portion does not grow just because it was eaten',
+      await wake.evaluate((was) => {
+        const c = getComputedStyle(document.querySelector('.mstep-x'));
+        return c.fontSize === was.size && c.fontWeight === was.weight;
+      }, typeWas),
+      await wake.evaluate(() => {
+        const c = getComputedStyle(document.querySelector('.mstep-x'));
+        return 'eaten ' + c.fontSize + '/' + c.fontWeight;
+      }));
     await wake.click('.mstep-wake');
     await wake.waitForTimeout(400);
     const woke = await wake.evaluate(() => {
