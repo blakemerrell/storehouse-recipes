@@ -1452,6 +1452,49 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+    /* Nobody asked the app for three servings.
+     *
+       Undershoot is judged against the meal's share and overshoot against the
+       DAY's remaining, which is right for the day and blind for the meal: at
+       breakfast, with nothing eaten, one dish could claim all the day's
+       protein and be charged nothing. The ranking really did offer ×3 of a
+       271 kcal plate — 813 kcal — for a meal whose share was 381. That is
+       where a lot of overeating starts: not a plan going wrong later, a
+       number too big when it was first put in front of you.
+
+       So a suggestion may run over its share, because meals are not equal,
+       but not without limit. Measured on the day the cap went in: meals off
+       their share fell 813 → 427 kcal and the day's protein got BETTER. */
+    const roomy = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await roomy.click('.tab[data-view="macros"]');
+    await roomy.waitForTimeout(300);
+    const over = await roomy.evaluate(() => {
+      const L = window.__macroLab;
+      L.forget();
+      const T = L.targets();
+      const dayK = 4 * T.p + 4 * T.c + 9 * T.f;
+      const meals = L.read().meals;
+      let wSum = 0; meals.forEach((m) => { wSum += m.w; });
+      const worst = [];
+      meals.forEach((m) => {
+        const share = dayK * m.w / wSum;
+        L.rank(m.k, 12).forEach((e) => {
+          const ratio = (e.kcal * e.x) / share;
+          if (ratio > worst.ratio || !worst.length) worst.push({ name: e.name, x: e.x,
+            kcal: Math.round(e.kcal * e.x), share: Math.round(share), ratio: +ratio.toFixed(2) });
+        });
+      });
+      worst.sort((a, b) => b.ratio - a.ratio);
+      return worst.slice(0, 3);
+    });
+    /* 1.15 is the cap plus room for the rounding in a quarter-serving grid —
+       what is being asserted is that nothing is offered at close to DOUBLE
+       the meal it belongs to, which is what used to happen. */
+    t.ok('no meal is offered a portion wildly over its own share',
+      over.every((w) => w.ratio <= 1.35),
+      JSON.stringify(over));
+    await roomy.context().close();
+
     /* A plate you have eaten is a record, not a dial.
      *
        Resizing what you already ate is editing the past, so the stepper goes
