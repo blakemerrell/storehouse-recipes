@@ -2945,10 +2945,21 @@
         (rows ? '<button class="mslot-sub" data-mfold="' + esc(sk) + '" aria-expanded="' +
             (folded ? 'false' : 'true') + '" aria-label="' +
             (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
-          '<span>' + Math.round(sub.kcal) + '</span>' +
-          '<span><i class="mb-p">P</i>' + Math.round(sub.p) + '</span>' +
-          '<span><i class="mb-f">F</i>' + Math.round(sub.f) + '</span>' +
-          '<span><i class="mb-c">C</i>' + Math.round(sub.c) + '</span>' +
+          '<span class="msub-k">' + Math.round(sub.kcal) + '</span>' +
+          /* The verdict, per macro, on the row that already existed.
+           *
+             Same construction as the day's own folded pills one level up: a
+             pale fill to the proportion, the letter and the figure inside. So
+             there is nothing new to read — it is the strip at the top of the
+             screen, said about one meal.
+
+             The number is the DISTANCE from this meal's share, not the amount
+             on the plate. The amount alone says nothing: 67 g of fat is fine
+             at dinner and five times over at lunch, and the pill would have to
+             be read against a divisor held in your head. +53 needs nothing
+             held. It is also what makes a meal that landed go quiet — three
+             pale pills reading +1, −1, +2 and no colour anywhere. */
+          mMacPills(sub, mMealShare(sk, targets, slots), targets) +
           '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
         '</button>' : '') +
         (folded
@@ -3053,38 +3064,76 @@
      share has existed since the picker was built, but it only ever showed
      INSIDE the picker — so the only way to learn that dinner was two hundred
      short was to open dinner and go shopping. Now the header says it. */
-  function mVerdictHTML(sk, items, onPlan, targets, slots) {
-    if (!targets.p && !targets.f && !targets.c) return '';
-    /* Over the meals that are actually happening. A skipped meal releases its
-       share to the rest — that is what the skip DOES — so a pill still
-       dividing by it would call a breakfast "over" when Fill had deliberately
-       made it bigger. The card and the planner have to be dividing by the
-       same number, or they are describing different days. */
+  /* What a meal was meant to hold, and — while it is still empty — an
+     invitation to fill it.
+   *
+     Once there is food on it the header says nothing: the macro pills on the
+     row below carry the verdict now, per macro, which is the thing this pill
+     could never do. It answered calories, so a lunch five times over on fat
+     and fine on protein read as one number with no name on it.
+
+     Over the meals that are actually happening. A skipped meal releases its
+     share to the rest — that is what the skip DOES — so a share still
+     dividing by it would call a breakfast "over" when Fill had deliberately
+     made it bigger. */
+  function mMealShare(sk, targets, slots) {
     var me = null, sumW = 0, vk = mViewKey();
     slots.list.forEach(function (s) {
       if (s.k !== sk && mSkipped(vk, s.k)) return;
       sumW += mSlotW(s);
       if (s.k === sk) me = s;
     });
-    if (!me || !sumW) return '';
-    var tK = kcalOf(targets) * mSlotW(me) / sumW;
-    if (!items.length) {
-      return onPlan
-        ? '<span class="mslot-v" data-mv="empty">at its share &middot; ' + Math.round(tK) + '</span>'
-        : '';
-    }
-    var got = 0;
-    items.forEach(function (it) {
-      var r = BY_ID[it.id];
-      if (r && r.macro) got += (r.macro.kcal || 0) * it.x;
-    });
-    var d = Math.round(got - tK);
-    var eatenAll = items.every(function (it) { return it.eaten || !BY_ID[it.id]; });
-    if (Math.abs(d) <= tK * 0.1) {
-      return '<span class="mslot-v on" data-mv="on">' + (eatenAll ? 'eaten &middot; on target' : 'on target') + '</span>';
-    }
-    return '<span class="mslot-v ' + (d < 0 ? 'short' : 'over') + '" data-mv="' + (d < 0 ? 'short' : 'over') + '">' +
-      Math.abs(d) + (d < 0 ? ' short' : ' over') + '</span>';
+    if (!me || !sumW) return null;
+    var frac = mSlotW(me) / sumW;
+    return { frac: frac, kcal: kcalOf(targets) * frac,
+      p: targets.p * frac, f: targets.f * frac, c: targets.c * frac };
+  }
+
+  /* On it is a BAND, and the band is measured against the DAY.
+   *
+     The first version compared a meal to its own share, and lit almost every
+     pill on an ordinary day — not because the day was bad but because a
+     meal's share of fat is eleven to nineteen grams and no real dish lands
+     within three of that. Colour that is on all the time has stopped saying
+     anything.
+
+     So the question is not "did this meal miss its share" — it always does —
+     but "did it miss by enough to move the day". A tenth of the day's target,
+     or fifteen per cent of the share, whichever is the more forgiving. Four
+     grams of fat over at lunch goes quiet; fifty-three does not. */
+  function mMacState(got, share, dayT) {
+    var d = got - share;
+    if (Math.abs(d) <= Math.max(share * 0.15, (dayT || share) * 0.1)) return 'on';
+    return d > 0 ? 'over' : 'short';
+  }
+
+  var MMAC_TONE = { on: 'var(--dial-on-pale)', over: 'var(--dial-over-pale)',
+    short: 'var(--dial-under-pale)' };
+
+  function mMacPills(sub, sh, targets) {
+    if (!sh) return '';
+    return ['p', 'f', 'c'].map(function (m) {
+      var got = sub[m] || 0, want = sh[m] || 0;
+      var st = mMacState(got, want, (targets || {})[m]);
+      var d = Math.round(got - want);
+      var pct = want > 0 ? Math.min(100, 100 * got / want) : 0;
+      return '<span class="msub-p ' + st + '" style="background:linear-gradient(90deg,' +
+        MMAC_TONE[st] + ' 0 ' + pct.toFixed(1) + '%,var(--paper-soft) ' + pct.toFixed(1) + '%)"' +
+        ' title="' + Math.round(got) + ' g of ' + Math.round(want) + ' g">' +
+        '<i class="mb-' + m + '">' + m.toUpperCase() + '</i><b>' +
+        (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + '</b></span>';
+    }).join('');
+  }
+
+  function mVerdictHTML(sk, items, onPlan, targets, slots) {
+    if (!targets.p && !targets.f && !targets.c) return '';
+    if (items.length) return '';        // the row below says it, per macro
+    var sh = mMealShare(sk, targets, slots);
+    if (!sh) return '';
+    return onPlan
+      ? '<span class="mslot-v" data-mv="empty">at its share &middot; ' +
+        Math.round(sh.kcal) + '</span>'
+      : '';
   }
 
   /* Whether anything on the day is folded shut — which is what the open-all

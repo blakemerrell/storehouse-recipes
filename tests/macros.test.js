@@ -1452,6 +1452,56 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+    /* The verdict, per macro, on the row that already existed.
+     *
+       The header pill answered CALORIES, so a lunch five times over on fat
+       and fine on protein read as one number with no name on it. It is gone
+       from a meal with food on it; the pills say it per macro instead, in the
+       same construction the day's own folded readout uses one level up. */
+    const pillPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await pillPg.click('.tab[data-view="macros"]');
+    await pillPg.waitForTimeout(300);
+    t.ok('an empty meal still says what it is meant to hold',
+      await pillPg.evaluate(() => !!document.querySelector('.mslot [data-mv="empty"]')));
+    await pillPg.click('#macroFill');
+    await pillPg.waitForTimeout(700);
+    const pills = await pillPg.evaluate(() => {
+      const card = document.querySelector('.mslot');
+      return {
+        headerPill: !!card.querySelector('.mslot-v'),
+        pills: [...card.querySelectorAll('.msub-p')].map((e) => e.textContent.trim()),
+        filled: [...card.querySelectorAll('.msub-p')].every((e) =>
+          getComputedStyle(e).backgroundImage.indexOf('gradient') >= 0),
+        letters: [...card.querySelectorAll('.msub-p i')].map((e) => e.textContent).join('')
+      };
+    });
+    t.ok('a meal with food on it drops the pill by its name',
+      !pills.headerPill, JSON.stringify(pills));
+    t.ok('and carries one filled pill per macro instead',
+      pills.pills.length === 3 && pills.letters === 'PFC' && pills.filled,
+      JSON.stringify(pills));
+    /* Signed, because the amount alone says nothing: 67 g of fat is fine at
+       dinner and five times over at lunch, and reading it needs a divisor
+       held in your head. */
+    t.ok('and each says the distance from that meal\u2019s share, with a sign',
+      pills.pills.every(function (t2) { return /^[PFC][+\u2212]?\d+$/.test(t2.replace(/\s/g, '')); }),
+      JSON.stringify(pills.pills));
+
+    /* On it is a BAND. Without one every meal every day is off by something,
+       the colour is on all the time, and colour that is always on has stopped
+       saying anything. */
+    t.ok('a meal that landed goes quiet rather than lighting up',
+      await pillPg.evaluate(() => {
+        const L = window.__macroLab, T = L.targets();
+        L.forget();
+        return typeof L.draft === 'function';
+      }) && await pillPg.evaluate(() => {
+        // every pill on the day is one of the three known states, never blank
+        return [...document.querySelectorAll('.msub-p')].every((e) =>
+          /\b(on|over|short)\b/.test(e.className));
+      }));
+    await pillPg.context().close();
+
     /* Try again can offer a plain food.
      *
        The pool was recipes only, and a food belongs to no section, so one
@@ -2131,10 +2181,20 @@ module.exports = {
       }
     });
     await bar.waitForTimeout(350);
+    /* Read off the day itself rather than off a label. The header pill used
+       to carry "N over" and this parsed it; the pill is now only on an empty
+       meal, because the macro pills on the row say it per macro instead. The
+       thing being tested was never the wording. */
     const gapOf = () => bar.evaluate(() => {
-      const c = [...document.querySelectorAll('.mslot')].find((x) => x.querySelector('[data-mbal="d"]'));
-      const m = c.querySelector('.mslot-v').textContent.match(/(\d+)\s+(over|short)/);
-      return m ? Number(m[1]) : 0;
+      const L = window.__macroLab, T = L.targets(), day = L.read();
+      const dayK = 4 * T.p + 4 * T.c + 9 * T.f;
+      let sumW = 0;
+      day.meals.forEach((m) => { sumW += m.w; });
+      const me = day.meals.find((m) => m.k === 'd');
+      if (!me) return 0;
+      let kc = 0;
+      me.items.forEach((it) => { kc += it.kcal * it.x; });
+      return Math.abs(Math.round(kc - dayK * me.w / sumW));
     });
     const wasOff = await gapOf();
     await bar.click('[data-mbal="d"]');

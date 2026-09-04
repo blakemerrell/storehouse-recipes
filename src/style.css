@@ -541,6 +541,22 @@ select { max-width: 280px; }
 [aria-expanded="true"] > .mfold-cue { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
 .mslot-sub i { font-style: normal; font-weight: 700; font-size: 9.5px; margin-right: 3px; }
+.msub-k { flex: none; font-size: 11.5px; }
+/* The same pill the day's folded readout wears, one level down: a pale fill to
+   the proportion of this meal's share, with the distance from it inside. They
+   share the row's width so three fills can be compared by eye — six pills only
+   compare if the boxes match, and the same is true of three. */
+.msub-p {
+  flex: 1 1 0; min-width: 0; display: inline-flex; align-items: baseline;
+  justify-content: center; gap: 2px; padding: 2px 4px; border-radius: 999px;
+  font-size: 10.5px; border: 1px solid var(--line-soft); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.msub-p i { font-size: 9.5px; margin-right: 0; }
+.msub-p b { font-weight: 600; color: var(--ink); }
+.msub-p.over b { color: var(--dial-over); }
+.msub-p.on b { color: var(--dial-on); }
+.msub-p.short b { color: var(--muted-2); }
 /* The one line in a meal card sits under the HEADER, not under the numbers.
    Fold a meal and the plates go — and what stands in their place is the
    totals row. It is not a summary above the content; when the card is shut it
