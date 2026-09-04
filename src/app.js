@@ -608,7 +608,11 @@
     mTry: {},
     /* Which eaten plate has had its portion woken up for a correction. One at
        a time, and never persisted: it is a gesture, not a setting. */
-    mEdit: ''
+    mEdit: '',
+    /* Which day's summary card is open, or '' for none. A day key rather than
+       a boolean, because the card can be opened for any day from the menu and
+       not only for the one just closed. */
+    mDoneOpen: ''
   };
 
   // ------------------------------------------------------------------ browse
@@ -982,8 +986,12 @@
   function mStamp(part, sub) {
     var now = Date.now();
     if (sub) {
-      MSTAMPS.d = MSTAMPS.d || {};
-      MSTAMPS.d[sub] = now;
+      /* Per-key stamps, for the parts that are maps of days rather than one
+         value: the day log, and which days you have closed. Keyed by part
+         rather than hardcoded to 'd', so two of them can coexist without one
+         quietly writing into the other's stamps. */
+      MSTAMPS[part] = MSTAMPS[part] || {};
+      MSTAMPS[part][sub] = now;
     } else MSTAMPS[part] = now;
     try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); } catch (e) { /* private */ }
     mSyncPush();
@@ -1033,12 +1041,14 @@
      module-level copies, so those have to go too. */
   function mForgetDay() {
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
-      'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner'].forEach(function (k) {
+      'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
+      'bsc.macroDone'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
     Object.keys(MWEIGHTS).forEach(function (k) { delete MWEIGHTS[k]; });
     Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
+    Object.keys(MDONE).forEach(function (k) { delete MDONE[k]; });
   }
 
   function mAccountMark() {
@@ -1055,6 +1065,12 @@
     Object.keys(MDAYS).forEach(function (k) {
       days[k.replace(/-/g, '_')] = { v: MDAYS[k], at: (MSTAMPS.d || {})[k] || 0 };
     });
+    /* Per day, like the day log — so closing Monday here and Tuesday there
+       leaves both closed, instead of the newer write erasing the older. */
+    var done = {};
+    Object.keys(MDONE).forEach(function (k) {
+      done[k.replace(/-/g, '_')] = { v: mDoneAt(k), at: (MSTAMPS.dn || {})[k] || 0 };
+    });
     var raw = function (key) {
       try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
     };
@@ -1064,7 +1080,8 @@
       pr: { v: raw('bsc.macroProfile'), at: MSTAMPS.pr || 0 },
       sl: { v: raw('bsc.macroSlots'), at: MSTAMPS.sl || 0 },
       w: { v: MWEIGHTS, at: MSTAMPS.w || 0 },
-      d: days
+      d: days,
+      dn: done
     };
   }
 
@@ -1105,9 +1122,24 @@
       MSTAMPS.d[k] = r.at;
       moved = true;
     });
+    /* Which days are closed, per day and newest-wins — the same shape as the
+       log above it. Note `r.v` is NOT required to be truthy here the way it
+       is elsewhere: zero is the value that means "I reopened this", and a
+       merge that skipped falsy values would let a reopen be undone by any
+       device that still remembered the close. */
+    Object.keys(md.dn || {}).forEach(function (enc) {
+      var k = enc.replace(/_/g, '-');
+      var r = md.dn[enc];
+      if (!r || r.v === undefined || !(r.at > ((MSTAMPS.dn || {})[k] || 0))) return;
+      MDONE[k] = Number(r.v) || 0;
+      MSTAMPS.dn = MSTAMPS.dn || {};
+      MSTAMPS.dn[k] = r.at;
+      moved = true;
+    });
     if (moved) {
       try {
         localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS));
+        localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE));
         localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS));
       } catch (e) { /* private mode: this session only */ }
     }
@@ -1695,6 +1727,26 @@
      with their own horizon: a day of meals is stale in two weeks, but a weight
      trend is the whole point of writing the number down, so these live for a
      year. Same privacy bargain as the rest of the tab — this phone only. */
+  /* Which days you have said you are finished with.
+   *
+     Keyed day -> the moment you closed it, so the card can say when and a
+     zero can mean "reopened" rather than "never closed" — which is what lets
+     a reopen travel between devices instead of being silently re-closed by
+     whichever one still remembers the original. */
+  var MDONE = (function () {
+    try {
+      var d = JSON.parse(localStorage.getItem('bsc.macroDone'));
+      if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+    } catch (e) { /* fall through */ }
+    return {};
+  })();
+  function mDoneAt(k) { return Number(MDONE[k]) || 0; }
+  function mSetDone(k, on) {
+    MDONE[k] = on ? Date.now() : 0;
+    try { localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE)); } catch (e) { /* private */ }
+    mStamp('dn', k);
+  }
+
   var MWEIGHTS = (function () {
     try {
       var w = JSON.parse(localStorage.getItem('bsc.macroWeights'));
@@ -2584,6 +2636,17 @@
       });
     });
     $('macroRebal').disabled = !freeCount;
+
+    /* The tick fills in when the day is closed, and a future day cannot be
+       finished with — you have not had it yet. */
+    var doneBtn = $('macroDone');
+    var isDone = mDoneAt(mViewKey()) > 0;
+    doneBtn.disabled = mViewKey() > todayKey();
+    if (doneBtn.getAttribute('aria-pressed') !== String(isDone)) {
+      doneBtn.setAttribute('aria-pressed', String(isDone));
+    }
+    if (doneBtn.classList.contains('done') !== isDone) doneBtn.classList.toggle('done', isDone);
+    doneBtn.title = isDone ? 'Day closed \u2014 press to reopen' : 'I am done for today';
 
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
@@ -4378,6 +4441,63 @@
     }).join('') + '</span>';
   }
 
+  /* The card you get for closing a day, and the one the menu opens for any
+     day. Deltas signed and named the way the pills are — over and short, not
+     plus and minus — so the two say the same thing in the same words. */
+  function mSummaryHTML(k) {
+    var sum = mDaySummary(k);
+    var d = keyDate(k);
+    var title = M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' + d.getDate();
+
+    var row = function (r) {
+      var dv = r.got - r.want;
+      var word = dv === 0 ? 'on target' : (dv > 0 ? '+' : '\u2212') + Math.abs(dv) + r.u;
+      var cls = dv === 0 ? 'on' : Math.abs(dv) <= Math.max(10, r.want * 0.08) ? 'near'
+        : dv > 0 ? 'over' : 'short';
+      return '<div class="ds-row"><span class="ds-n">' + r.n + '</span>' +
+        '<span class="ds-v">' + r.got.toLocaleString() + ' / ' + r.want.toLocaleString() + r.u + '</span>' +
+        '<span class="ds-d ' + cls + '">' + word + '</span></div>';
+    };
+
+    /* Seven bars, each against its own target, so a day on a different plan
+       is not made to look like a miss. A day never filled in draws nothing —
+       it is a gap in the record, not a zero. */
+    var top = 1;
+    sum.week.forEach(function (w) { if (w.kcal) top = Math.max(top, w.kcal / w.want); });
+    var bars = sum.week.map(function (w) {
+      if (w.kcal === null) {
+        return '<span class="ds-bar empty" title="' + esc(w.k) + ' \u2014 nothing logged"></span>';
+      }
+      var h = Math.max(6, Math.round(100 * (w.kcal / w.want) / top));
+      return '<span class="ds-bar' + (w.today ? ' today' : '') +
+        (w.kcal > w.want ? ' over' : '') + '" style="height:' + h + '%" title="' +
+        esc(w.k) + ' \u2014 ' + w.kcal.toLocaleString() + ' of ' + w.want.toLocaleString() + '"></span>';
+    }).join('');
+
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet ds-sheet" role="dialog" aria-modal="true" aria-label="How the day went">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">How the day went</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="ds-day">' + esc(title) + '</div>' +
+        (sum.any
+          ? '<div class="ds-rows">' + sum.rows.map(row).join('') + '</div>' +
+            '<div class="ds-week">' +
+              '<div class="ds-week-h">The seven days to here</div>' +
+              '<div class="ds-bars">' + bars + '</div>' +
+              (sum.where ? '<div class="ds-note">Today is ' + esc(sum.where) + '.</div>' : '') +
+              (sum.kept
+                ? '<div class="ds-note">Protein on target ' + sum.onP + ' of ' +
+                  sum.kept + (sum.kept === 1 ? ' day' : ' days') + ' logged.</div>'
+                : '') +
+            '</div>'
+          : '<div class="ds-empty">Nothing was logged on this day.</div>') +
+        '<div class="sync-row"><button class="btn-primary" data-close="1">Done</button></div>' +
+      '</div>' +
+    '</div>';
+  }
+
   function macroTargetsHTML() {
     var t = mReadTargets();
     var pr = mReadProfile();
@@ -5416,6 +5536,54 @@
      each doing its own arithmetic and disagreeing by one. */
   function mWideOpen(sk) {
     return (S.mTry[mViewKey() + ':' + sk] || 0) >= MTRY_WIDE - 1;
+  }
+
+  /* How the day landed, and where it sits in the week.
+   *
+     Everything here is read back through mTotals and mDayTargets — the same
+     two the pills at the top of the screen use — so the card and the strip
+     can never disagree about what you ate. It computes nothing of its own.
+
+     Seven days back from the one being looked at, not Monday-to-Sunday: on a
+     Wednesday a calendar week is three days and answers nothing. */
+  function mDaySummary(k) {
+    var T = mDayTargets(k);
+    var tot = mTotals(mDay(k)).all;
+    var kcal = function (o) { return 4 * (o.p || 0) + 4 * (o.c || 0) + 9 * (o.f || 0); };
+    var rows = [
+      { n: 'Calories', got: Math.round(kcal(tot)), want: Math.round(kcal(T)), u: '' },
+      { n: 'Protein', got: Math.round(tot.p), want: Math.round(T.p), u: ' g' },
+      { n: 'Fat', got: Math.round(tot.f), want: Math.round(T.f), u: ' g' },
+      { n: 'Carbs', got: Math.round(tot.c), want: Math.round(T.c), u: ' g' }
+    ];
+    /* The week behind it. A day with nothing logged is not a zero-calorie day,
+       it is a day that was never filled in — counting it would drag every
+       average down and quietly tell you the cut is going better than it is. */
+    var week = [], onP = 0, kept = 0;
+    var d = keyDate(k);
+    for (var i = 6; i >= 0; i--) {
+      var dd = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i);
+      var dk = dayKey(dd);
+      var dt = mTotals(mDay(dk)).all;
+      var has = (dt.p + dt.f + dt.c) > 0;
+      var dT = mDayTargets(dk);
+      if (has) {
+        kept++;
+        if (Math.abs(dt.p - dT.p) <= Math.max(10, dT.p * 0.08)) onP++;
+      }
+      week.push({ k: dk, kcal: has ? Math.round(kcal(dt)) : null,
+        want: Math.round(kcal(dT)), today: dk === k });
+    }
+    var logged = week.filter(function (w) { return w.kcal !== null; });
+    var high = logged.length > 1 && logged.every(function (w) {
+      return w.k === k || w.kcal <= rows[0].got;
+    });
+    var low = logged.length > 1 && logged.every(function (w) {
+      return w.k === k || w.kcal >= rows[0].got;
+    });
+    return { rows: rows, week: week, onP: onP, kept: kept,
+      where: high ? 'your highest this week' : low ? 'your lowest this week' : '',
+      any: (tot.p + tot.f + tot.c) > 0 };
   }
 
   function mTryAgain(sk) {
@@ -7306,6 +7474,17 @@
       return;
     }
 
+    /* How the day went. Read-only, so unlike the sheets below it there is
+       nothing to protect from a redraw — it can be rebuilt whenever. */
+    if (S.mDoneOpen) {
+      root.innerHTML = mSummaryHTML(S.mDoneOpen);
+      document.body.style.overflow = 'hidden';
+      root.classList.remove('hide');
+      var xb = root.querySelector('.sheet-x');
+      if (xb) xb.focus();
+      return;
+    }
+
     if (S.macroTargOpen) {
       /* Drawn once and left alone, like the editor: the profile boxes are a
          draft, and a sync emit arriving mid-keystroke must not reset them to
@@ -7841,6 +8020,10 @@
       mEditDay(mViewKey(), function (d) { mBalanceDay(d, t); });
     },
     targets: function () { return mDayTargets(mViewKey()); },
+    /* The merge, so the rules that decide what survives a second device can
+       be asserted without one. The closed-day rule in particular is easy to
+       get wrong in a way no single-device test would ever notice. */
+    merge: mMergeRemote,
     /* Why was this dish not chosen? The ranking, for one meal, on the day as
        it currently stands — the same call Fill makes, so the answer is the
        real one. */
@@ -8327,6 +8510,23 @@
       keepingFocus(renderMacros);
     });
     $('macroFill').addEventListener('click', mFillDay);
+
+    /* Done for the day. A statement, not a change: nothing is deleted, food
+       can still be added, and pressing it again takes it back. The card comes
+       up on the way in and not on the way out — closing is the moment you
+       want to be told how it went; reopening is just a correction. */
+    $('macroDone').addEventListener('click', function () {
+      var k = mViewKey();
+      var was = mDoneAt(k) > 0;
+      mSetDone(k, !was);
+      if (!was) {
+        rememberOpener();
+        S.mDoneOpen = k;
+        pushSheet({ m: 1 });
+        renderModal();
+      }
+      renderMacros();
+    });
     $('macroRebal').addEventListener('click', mRebalance);
 
     /* The three that are not the morning. Craft is a once-a-season job, Copy
@@ -8402,6 +8602,9 @@
       rememberOpener();
       S.macroTargOpen = true;
       if (b.dataset.mmore === 'you') { S.macroTargOpen = false; S.syncOpen = true; }
+      /* Any day, closed or not — the card is a reading of the day, and a day
+         does not have to be finished with to be read. */
+      if (b.dataset.mmore === 'went') { S.macroTargOpen = false; S.mDoneOpen = mViewKey(); }
       // the two that live inside the plan sheet open it at the right place
       S.mtOpen = b.dataset.mmore === 'meals' ? 'meals'
         : b.dataset.mmore === 'help' ? 'help' : '';
@@ -9370,6 +9573,7 @@
     }
     S.openId = null;
     S.syncOpen = false;
+    S.mDoneOpen = '';
     /* The editor too. Without these the × and the backdrop looked broken:
        renderModal saw S.editId still set, drew the editor again, and the only
        way out was the Cancel button. */
@@ -9385,6 +9589,7 @@
     if (S.newFood) mScanStop();
     S.newFood = null;
     S.syncOpen = false;
+    S.mDoneOpen = '';
     S.mpQuery = '';
     // a basket left behind would silently refill the next meal you opened
     S.mpBasket = {};

@@ -54,7 +54,7 @@ module.exports = {
       await p.evaluate(() => !document.getElementById('macroMenu').classList.contains('hide') &&
         document.getElementById('macroMore').getAttribute('aria-expanded') === 'true' &&
         [...document.querySelectorAll('#macroMenu [data-mmore]')].map((b) => b.dataset.mmore)
-          .join() === 'plan,meals,you,help'));
+          .join() === 'plan,meals,you,went,help'));
     await p.click('.mday-rail');
     await p.waitForTimeout(80);
     t.ok('and a press anywhere else closes it',
@@ -1451,6 +1451,113 @@ module.exports = {
     t.ok('every meal on the plan gets something, not just most of them',
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
+
+    /* Done for the day.
+     *
+       A statement, not a change: nothing is deleted, food can still be added,
+       and pressing it again takes it back. The card comes up on the way in
+       and not on the way out — closing is the moment you want to be told how
+       it went, reopening is only a correction. */
+    const closed = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await closed.click('.tab[data-view="macros"]');
+    await closed.waitForTimeout(300);
+    await closed.click('#macroFill');
+    await closed.waitForTimeout(600);
+    const barFits = await closed.evaluate(() => {
+      const bar = document.querySelector('.mday-acts');
+      const fill = document.getElementById('macroFill');
+      return { wraps: bar.scrollWidth > bar.clientWidth + 1,
+        fill: Math.round(fill.getBoundingClientRect().width),
+        label: fill.scrollWidth <= fill.clientWidth + 1 };
+    });
+    /* Six controls on one bar was the ask; keeping the word "Fill" readable
+       is the part that has to survive it. */
+    t.ok('six controls still fit the bar on a phone, with Fill still a word',
+      !barFits.wraps && barFits.label && barFits.fill > 60, JSON.stringify(barFits));
+
+    await closed.click('#macroDone');
+    await closed.waitForTimeout(500);
+    const dayCard = await closed.evaluate(() => {
+      const sh = document.querySelector('.ds-sheet');
+      if (!sh) return null;
+      const rows = [...sh.querySelectorAll('.ds-row')].map((r) =>
+        r.querySelector('.ds-n').textContent.trim());
+      return { rows, bars: sh.querySelectorAll('.ds-bar').length,
+        text: sh.textContent.replace(/\s+/g, ' ').slice(0, 60) };
+    });
+    t.ok('closing the day tells you how it went',
+      !!dayCard && dayCard.rows.join() === 'Calories,Protein,Fat,Carbs' && dayCard.bars === 7,
+      JSON.stringify(dayCard));
+    /* The numbers are read back through the same two functions the pills use,
+       so the card and the strip cannot disagree about what you ate. */
+    t.ok('and its numbers are the ones already on the screen',
+      await closed.evaluate(() => {
+        const sh = document.querySelector('.ds-sheet');
+        const got = sh.querySelectorAll('.ds-row')[1].querySelector('.ds-v').textContent;
+        const L = window.__macroLab;
+        const tot = L.read().tot, T = L.targets();
+        return got.indexOf(String(Math.round(tot.p))) === 0 &&
+          got.indexOf(String(Math.round(T.p))) > 0;
+      }));
+    await closed.click('.sheet-x');
+    await closed.waitForTimeout(300);
+    t.ok('and the day is marked closed on the bar',
+      await closed.evaluate(() => {
+        const b = document.getElementById('macroDone');
+        return b.getAttribute('aria-pressed') === 'true' && b.classList.contains('done');
+      }));
+    /* Nothing was taken away by closing it. */
+    t.ok('and nothing on the day was removed by saying you were done',
+      await closed.evaluate(() => document.querySelectorAll('.mslot').length > 0 &&
+        !document.getElementById('macroFill').disabled === false ||
+        document.querySelectorAll('.mitem, .mthin').length > 0));
+    await closed.click('#macroDone');
+    await closed.waitForTimeout(400);
+    t.ok('and pressing it again reopens the day, without a card this time',
+      await closed.evaluate(() =>
+        document.getElementById('macroDone').getAttribute('aria-pressed') === 'false' &&
+        !document.querySelector('.ds-sheet')));
+    /* It survives a reload, which is the whole point of it being a record. */
+    await closed.click('#macroDone');
+    await closed.waitForTimeout(400);
+    await closed.click('.sheet-x');
+    await closed.waitForTimeout(200);
+    await closed.reload();
+    await closed.click('.tab[data-view="macros"]');
+    await closed.waitForTimeout(500);
+    t.ok('and a closed day is still closed tomorrow morning',
+      await closed.evaluate(() =>
+        document.getElementById('macroDone').getAttribute('aria-pressed') === 'true'));
+
+    /* The menu opens the same card for a day you have not closed. */
+    await closed.click('#macroMore');
+    await closed.waitForTimeout(120);
+    await closed.click('[data-mmore="went"]');
+    await closed.waitForTimeout(400);
+    t.ok('and the menu opens it for whatever day you are looking at',
+      await closed.evaluate(() => !!document.querySelector('.ds-sheet')));
+    await closed.click('.sheet-x');
+    await closed.waitForTimeout(200);
+
+    /* The merge rule, which is where the trap is. Zero means REOPENED, and
+       the general merge above skips falsy values — so a reopen would have been
+       silently undone by any device that still remembered the close. */
+    t.ok('reopening a day travels; it is not overwritten by the close it undid',
+      await closed.evaluate(() => {
+        const k = Object.keys(JSON.parse(localStorage.getItem('bsc.macroDone') || '{}'))[0];
+        if (!k) return false;
+        const enc = k.replace(/-/g, '_');
+        const later = Date.now() + 60000;
+        const before = JSON.parse(localStorage.getItem('bsc.macroDone'))[k];
+        window.Store.__mergeProbe = null;
+        // hand the app a remote that says "reopened, and more recently"
+        const moved = window.__macroLab.merge
+          ? window.__macroLab.merge({ dn: { [enc]: { v: 0, at: later } } }) : 'no hook';
+        const after = JSON.parse(localStorage.getItem('bsc.macroDone'))[k];
+        return moved !== 'no hook' ? (before > 0 && after === 0) : 'no hook';
+      }) === true,
+      'needs a merge hook on the lab');
+    await closed.context().close();
 
     /* One tap on a spent portion hands the stepper back.
      *

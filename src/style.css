@@ -698,6 +698,51 @@ select { max-width: 280px; }
    the one row that should look like it has settled down instead shouted.
    The size and weight are restated rather than inherited, because what is
    wanted is .mstep-x's own, and CSS has no way to say that. */
+/* --- how the day went ------------------------------------------------- */
+.ds-day {
+  font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 2px 0 14px;
+}
+.ds-rows { display: flex; flex-direction: column; gap: 2px; }
+.ds-row {
+  display: flex; align-items: baseline; gap: 10px; padding: 7px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.ds-row:last-child { border-bottom: 0; }
+.ds-n { flex: 0 0 auto; width: 68px; font-size: 12.5px; color: var(--muted); }
+.ds-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; }
+.ds-d {
+  flex: 0 0 auto; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.ds-d.on, .ds-d.near { color: var(--green); }
+.ds-d.over { color: var(--dial-over); }
+.ds-d.short { color: var(--ochre-text); }
+.ds-week { margin-top: 20px; }
+.ds-week-h {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 9px;
+}
+/* Seven days, each against its own target. A day never filled in is drawn as
+   an outline rather than a short bar: nothing logged is a gap in the record,
+   not a day of no food, and a stub would read as the second. */
+.ds-bars {
+  display: flex; align-items: flex-end; gap: 6px; height: 54px;
+  padding-bottom: 2px; border-bottom: 1px solid var(--line-soft);
+}
+.ds-bar {
+  flex: 1 1 0; min-width: 0; border-radius: 2px 2px 0 0;
+  background: color-mix(in oklab, var(--ochre) 55%, var(--card));
+}
+.ds-bar.over { background: color-mix(in oklab, var(--dial-over) 55%, var(--card)); }
+.ds-bar.today { background: var(--ochre); }
+.ds-bar.today.over { background: var(--dial-over); }
+.ds-bar.empty {
+  height: 8px; background: none; border: 1px dashed var(--line);
+  border-bottom: 0; border-radius: 2px 2px 0 0;
+}
+.ds-note { font-size: 12.5px; color: var(--muted); margin-top: 9px; }
+.ds-empty { font-size: 13px; color: var(--muted); font-style: italic; padding: 8px 0 4px; }
+
 .mstep .mstep-wake {
   background: none; border: 0; font-family: inherit; cursor: pointer;
   font-size: 12px; font-weight: 600; text-align: left;
@@ -1480,6 +1525,21 @@ select { max-width: 280px; }
 .mday-acts .mday-icon {
   flex: 0 0 auto; width: 44px; padding-left: 0; padding-right: 0;
   font-size: 15px; line-height: 1;
+}
+/* Closed. The tick fills rather than the box lighting up — this is a state
+   the day is in, not a control waiting to be pressed. */
+.mday-acts #macroDone.done {
+  background: color-mix(in oklab, var(--green) 16%, var(--card));
+  border-color: color-mix(in oklab, var(--green) 45%, var(--line));
+  color: var(--green);
+}
+/* Six controls on one bar is what was asked for, and at 390px Fill keeps
+   about a hundred pixels, which is enough for the word. Below that the
+   squares give ground first — a narrower tick is still a tick, whereas a
+   clipped "Fill" is nothing. */
+@media (max-width: 380px) {
+  .mday-acts { gap: 6px; }
+  .mday-acts .mday-icon { width: 38px; }
 }
 .mday-more { flex: 0 0 auto; padding-left: 12px; padding-right: 12px; position: relative; }
 /* The mark that says the day is not reaching the account it belongs to.

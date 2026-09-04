@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=231">
+<link rel="stylesheet" href="src/style.css?v=232">
 </head>
 <body>
 
@@ -172,6 +172,7 @@
                mMarkAccountUI. -->
           <button role="menuitem" data-mmore="you">Sync &amp; sharing<span
             class="mmenu-who" id="macroWho"></span></button>
+          <button role="menuitem" data-mmore="went">How today went</button>
           <button role="menuitem" data-mmore="help">How My Day works</button>
         </div>
       </div>
@@ -215,6 +216,12 @@
            squares, because five labels do not fit across a phone and an icon
            you press daily learns its own meaning within a week. -->
       <button class="btn-primary" id="macroFill">Fill</button>
+      <!-- Closing the day sits beside Fill because that is where the day's
+           verbs are. It is the only one that is a statement rather than an
+           action, which is why it is a tick and not a tool. -->
+      <button class="ghost mday-icon" id="macroDone"
+        aria-pressed="false" aria-label="I am done for today"
+        title="I am done for today">&#10003;</button>
       <button class="ghost mday-icon" id="macroRebal"
         aria-label="Rebalance the day"
         title="Re-size the un-eaten, un-locked plates to land the day back on target">&#9878;</button>
@@ -315,14 +322,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=231"></script>
-<script src="data/nutrition.js?v=231"></script>
-<script src="data/art.js?v=231"></script>
-<script src="data/qr.js?v=231"></script>
-<script src="src/config.js?v=231"></script>
+<script src="data/recipes.js?v=232"></script>
+<script src="data/nutrition.js?v=232"></script>
+<script src="data/art.js?v=232"></script>
+<script src="data/qr.js?v=232"></script>
+<script src="src/config.js?v=232"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=231"></script>
-<script src="src/app.js?v=231"></script>
+<script src="src/sync.js?v=232"></script>
+<script src="src/app.js?v=232"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.
