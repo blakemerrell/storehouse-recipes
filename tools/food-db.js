@@ -30,38 +30,38 @@
 
 const FOODS = {
   // ---- Dairy & eggs -------------------------------------------------------
-  milk:            { kcal: 50,  p: 3.3,  c: 4.8,  f: 2.0, na: 44, fib: 0,  g: { cup: 244, tbsp: 15, tsp: 5 }, note: '2% milk' },
+  milk:            { eat: 1, kcal: 50,  p: 3.3,  c: 4.8,  f: 2.0, na: 44, fib: 0,  g: { cup: 244, tbsp: 15, tsp: 5 }, note: '2% milk' },
   dry_milk:        { kcal: 358, p: 36,   c: 52,   f: 0.8, na: 535, fib: 0,  g: { cup: 68, tbsp: 4.3 }, label: 'Dry milk powder', note: 'non-fat dry milk powder' },
   evaporated_milk: { kcal: 134, p: 6.8,  c: 10,   f: 7.6, na: 106, fib: 0,  g: { cup: 252, can: 354 }, label: 'Evaporated milk', note: '12 fl oz' },
-  cottage_cheese:  { kcal: 84,  p: 11,   c: 4.3,  f: 2.3, na: 330, fib: 0,  g: { cup: 226, tbsp: 14 }, label: 'Cottage cheese', note: '2% cottage cheese' },
-  cheddar:         { kcal: 403, p: 23,   c: 3.1,  f: 33, na: 653, fib: 0,   g: { cup: 113, tbsp: 7, oz: 28.35, each: 28 }, label: 'Cheddar cheese', def: { qty: 0.5, unit: 'cup' }, note: 'shredded; "cheddar slice" = 28 g' },
+  cottage_cheese:  { eat: 1, kcal: 84,  p: 11,   c: 4.3,  f: 2.3, na: 330, fib: 0,  g: { cup: 226, tbsp: 14 }, label: 'Cottage cheese', note: '2% cottage cheese' },
+  cheddar:         { eat: 1, kcal: 403, p: 23,   c: 3.1,  f: 33, na: 653, fib: 0,   g: { cup: 113, tbsp: 7, oz: 28.35, each: 28 }, label: 'Cheddar cheese', def: { qty: 0.5, unit: 'cup' }, note: 'shredded; "cheddar slice" = 28 g' },
   /* Not on the storehouse order — it is an extra in the two recipes that use
      it — but it has to be in the table or the recipes that call for a cup of
      it are scored as though it were not there. A cup grated is 100 g, which is
      far lighter than a cup of shredded cheddar; it is a drier cheese and grates
      into flakes rather than shreds. */
-  parmesan:        { kcal: 420, p: 38,   c: 4.1,  f: 28, na: 1600, fib: 0,  g: { cup: 100, tbsp: 6, oz: 28.35 }, label: 'Parmesan cheese', def: { qty: 0.25, unit: 'cup' }, note: 'grated; not on the storehouse order' },
-  cream_cheese:    { kcal: 350, p: 6,    c: 5.5,  f: 34, na: 314, fib: 0, label: 'Cream cheese',   g: { cup: 232, tbsp: 14.5 } },
-  sour_cream:      { kcal: 198, p: 2.4,  c: 4.6,  f: 19.4, na: 45, fib: 0, g: { cup: 230, tbsp: 14.4 }, label: 'Sour cream', def: { qty: 2, unit: 'tbsp' } },
-  vanilla_yogurt:  { kcal: 85,  p: 4.9,  c: 13.8, f: 1.3, na: 66, fib: 0,  g: { cup: 245, tbsp: 15 }, label: 'Vanilla yogurt', note: 'lowfat vanilla yogurt' },
+  parmesan:        { eat: 1, kcal: 420, p: 38,   c: 4.1,  f: 28, na: 1600, fib: 0,  g: { cup: 100, tbsp: 6, oz: 28.35 }, label: 'Parmesan cheese', def: { qty: 0.25, unit: 'cup' }, note: 'grated; not on the storehouse order' },
+  cream_cheese:    { eat: 1, kcal: 350, p: 6,    c: 5.5,  f: 34, na: 314, fib: 0, label: 'Cream cheese',   g: { cup: 232, tbsp: 14.5 } },
+  sour_cream:      { eat: 1, kcal: 198, p: 2.4,  c: 4.6,  f: 19.4, na: 45, fib: 0, g: { cup: 230, tbsp: 14.4 }, label: 'Sour cream', def: { qty: 2, unit: 'tbsp' } },
+  vanilla_yogurt:  { eat: 1, kcal: 85,  p: 4.9,  c: 13.8, f: 1.3, na: 66, fib: 0,  g: { cup: 245, tbsp: 15 }, label: 'Vanilla yogurt', note: 'lowfat vanilla yogurt' },
   butter:          { kcal: 717, p: 0.85, c: 0.06, f: 81, na: 643, fib: 0,   g: { cup: 227, tbsp: 14.2, tsp: 4.7, each: 113 }, def: { qty: 1, unit: 'tbsp' } },
   spray_butter:    { kcal: 0,   p: 0,    c: 0,    f: 0, na: 0, fib: 0,    g: { cup: 200, tbsp: 5 }, label: 'Spray butter', note: 'spray butter, treated as zero' },
-  egg:             { kcal: 143, p: 12.6, c: 0.7,  f: 9.5, na: 142, fib: 0,  g: { each: 50, cup: 243 }, label: 'Eggs', note: 'whole large egg, 50 g' },
+  egg:             { eat: 1, kcal: 143, p: 12.6, c: 0.7,  f: 9.5, na: 142, fib: 0,  g: { each: 50, cup: 243 }, label: 'Eggs', note: 'whole large egg, 50 g' },
   egg_white:       { kcal: 52,  p: 10.9, c: 0.7,  f: 0.2, na: 166, fib: 0, label: 'Egg whites',  g: { cup: 243, tbsp: 15, each: 33 } },
 
   // ---- Meat & fish --------------------------------------------------------
   chicken_breast:  { kcal: 120, p: 22.5, c: 0,    f: 2.6, na: 45, fib: 0,  g: { lb: 453.6, oz: 28.35, cup: 140, each: 174 }, label: 'Chicken breasts', note: 'raw boneless skinless breast' },
-  chicken_canned:  { kcal: 130, p: 23,   c: 0,    f: 3.5, na: 400, fib: 0,  g: { can: 285, oz: 28.35, cup: 140 }, label: 'Canned chicken', note: 'the storehouse stocks one size, 12.5 oz, about 285 g drained' },
+  chicken_canned:  { eat: 1, kcal: 130, p: 23,   c: 0,    f: 3.5, na: 400, fib: 0,  g: { can: 285, oz: 28.35, cup: 140 }, label: 'Canned chicken', note: 'the storehouse stocks one size, 12.5 oz, about 285 g drained' },
   ground_beef:     { kcal: 250, p: 17.2, c: 0,    f: 20, na: 66, fib: 0,   g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Ground beef', note: 'raw 85/15' },
   beef_roast:      { kcal: 250, p: 17.5, c: 0,    f: 19.5, na: 60, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Beef roast', note: 'raw chuck roast' },
   stewing_beef:    { kcal: 210, p: 19,   c: 0,    f: 14.5, na: 60, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 } },
-  cooked_beef:     { kcal: 250, p: 26,   c: 0,    f: 16, na: 70, fib: 0,   g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Cooked shredded beef', note: 'cooked shredded beef' },
-  roast_beef_deli: { kcal: 130, p: 21,   c: 1,    f: 4, na: 900, fib: 0, label: 'Sliced roast beef', def: { qty: 1, unit: 'slice' },    g: { lb: 453.6, oz: 28.35, each: 28, slice: 28 } },
+  cooked_beef:     { eat: 1, kcal: 250, p: 26,   c: 0,    f: 16, na: 70, fib: 0,   g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Cooked shredded beef', note: 'cooked shredded beef' },
+  roast_beef_deli: { eat: 1, kcal: 130, p: 21,   c: 1,    f: 4, na: 900, fib: 0, label: 'Sliced roast beef', def: { qty: 1, unit: 'slice' },    g: { lb: 453.6, oz: 28.35, each: 28, slice: 28 } },
   pork_roast:      { kcal: 230, p: 17,   c: 0,    f: 18, na: 60, fib: 0,   g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Pork roast', note: 'raw pork shoulder' },
-  ham:             { kcal: 145, p: 16.6, c: 1.5,  f: 8, na: 1200, fib: 0,    g: { lb: 453.6, oz: 28.35, cup: 140, each: 28, slice: 28 }, label: 'Sliced ham', def: { qty: 1, unit: 'slice' }, note: 'sliced deli ham' },
+  ham:             { eat: 1, kcal: 145, p: 16.6, c: 1.5,  f: 8, na: 1200, fib: 0,    g: { lb: 453.6, oz: 28.35, cup: 140, each: 28, slice: 28 }, label: 'Sliced ham', def: { qty: 1, unit: 'slice' }, note: 'sliced deli ham' },
   pork_sausage:    { kcal: 325, p: 12,   c: 1,    f: 30, na: 750, fib: 0,   g: { lb: 453.6, oz: 28.35, each: 45, link: 45 }, label: 'Pork sausage', def: { qty: 1, unit: 'link' }, note: 'raw pork sausage; 1 link = 45 g' },
-  beef_frank:      { kcal: 290, p: 10.6, c: 4,    f: 26, na: 1090, fib: 0, label: 'Beef franks',   g: { lb: 453.6, oz: 28.35, each: 45 } },
-  tuna:            { kcal: 116, p: 26,   c: 0,    f: 0.8, na: 300, fib: 0,  g: { can: 120, oz: 28.35, cup: 154 }, label: 'Canned tuna', note: 'canned in water, 5 oz can drained = 120 g' },
+  beef_frank:      { eat: 1, kcal: 290, p: 10.6, c: 4,    f: 26, na: 1090, fib: 0, label: 'Beef franks',   g: { lb: 453.6, oz: 28.35, each: 45 } },
+  tuna:            { eat: 1, kcal: 116, p: 26,   c: 0,    f: 0.8, na: 300, fib: 0,  g: { can: 120, oz: 28.35, cup: 154 }, label: 'Canned tuna', note: 'canned in water, 5 oz can drained = 120 g' },
 
   // ---- Beans --------------------------------------------------------------
   black_beans:     { side: true, kcal: 91,  p: 6,    c: 16.6, f: 0.3, na: 250, fib: 6.9,  g: { can: 250, cup: 172 }, label: 'Black beans', note: 'canned, drained' },
@@ -85,7 +85,7 @@ const FOODS = {
   bun:             { kcal: 279, p: 9.5,  c: 50,   f: 4.2, na: 490, fib: 2.3,  g: { each: 52 }, label: 'Buns', note: 'hamburger / hot dog bun' },
   slider_bun:      { kcal: 279, p: 9.5,  c: 50,   f: 4.2, na: 490, fib: 2.3, label: 'Slider buns',  g: { each: 30 } },
   breadcrumbs:     { kcal: 395, p: 13.4, c: 72,   f: 5.3, na: 730, fib: 4.5, label: 'Breadcrumbs',  g: { cup: 108, tbsp: 7 } },
-  cereal_o:        { kcal: 386, p: 7,    c: 80,   f: 4.5, na: 500, fib: 7,  g: { cup: 37 }, label: 'Honey Nut O\'s', note: "Honey Nut O's" },
+  cereal_o:        { eat: 1, kcal: 386, p: 7,    c: 80,   f: 4.5, na: 500, fib: 7,  g: { cup: 37 }, label: 'Honey Nut O\'s', note: "Honey Nut O's" },
   biscuit_dough:   { kcal: 320, p: 6.6,  c: 48,   f: 11, na: 900, fib: 1.5,   g: { can: 454, each: 57 }, label: 'Biscuit dough', def: { qty: 1, unit: 'can' }, note: 'refrigerated biscuit dough' },
 
   // ---- Potatoes -----------------------------------------------------------
@@ -114,7 +114,7 @@ const FOODS = {
   peaches_canned:  { side: true, kcal: 54,  p: 0.6,  c: 14,   f: 0.1, na: 6, fib: 1.3,  g: { can: 500, cup: 244 }, label: 'Canned peaches', note: 'storehouse tin is 29 oz, about 500 g drained' },
   pears_canned:    { side: true, kcal: 60,  p: 0.4,  c: 15.6, f: 0.1, na: 5, fib: 1.7,  g: { can: 500, cup: 244 }, label: 'Canned pears', note: '29 oz tin' },
   applesauce:      { side: true, kcal: 68,  p: 0.2,  c: 17.5, f: 0.2, na: 2, fib: 1.1,  g: { jar: 751, cup: 244, can: 751 }, note: '26.5 oz' },
-  raisins:         { kcal: 299, p: 3.1,  c: 79,   f: 0.5, na: 11, fib: 3.7,  g: { cup: 145, tbsp: 9 } },
+  raisins:         { eat: 1, kcal: 299, p: 3.1,  c: 79,   f: 0.5, na: 11, fib: 3.7,  g: { cup: 145, tbsp: 9 } },
   fruit_generic:   { side: true, kcal: 60,  p: 0.7,  c: 15,   f: 0.2, na: 2, fib: 2,  g: { cup: 150, each: 140 }, label: 'Fresh fruit', def: { qty: 1, unit: 'cup' }, note: 'unspecified fresh/frozen fruit' },
 
   // ---- Sauces, condiments, sweeteners -------------------------------------
@@ -138,7 +138,7 @@ const FOODS = {
   syrup:           { kcal: 260, p: 0,    c: 65,   f: 0, na: 12, fib: 0,    g: { cup: 315, tbsp: 20 }, def: { qty: 2, unit: 'tbsp' } },
   honey:           { kcal: 304, p: 0.3,  c: 82,   f: 0, na: 4, fib: 0.2,    g: { cup: 339, tbsp: 21 } },
   jam:             { kcal: 278, p: 0.4,  c: 69,   f: 0, na: 32, fib: 1.1, label: 'Jam',    g: { cup: 320, tbsp: 20 } },
-  peanut_butter:   { kcal: 588, p: 25,   c: 20,   f: 50, na: 430, fib: 6, label: 'Peanut butter',   g: { cup: 258, tbsp: 16 } },
+  peanut_butter:   { eat: 1, kcal: 588, p: 25,   c: 20,   f: 50, na: 430, fib: 6, label: 'Peanut butter',   g: { cup: 258, tbsp: 16 } },
   oil:             { kcal: 884, p: 0,    c: 0,    f: 100, na: 0, fib: 0,  g: { cup: 218, tbsp: 13.6 }, label: 'Oil', def: { qty: 1, unit: 'tbsp' } },
 
   // ---- Baking & sweets ----------------------------------------------------
@@ -163,8 +163,8 @@ const FOODS = {
   yeast:           { kcal: 325, p: 40,   c: 41,   f: 7.6, na: 51, fib: 26.9,  g: { pkg: 7, each: 7, packet: 7, tsp: 3, tbsp: 9 }, note: 'active dry yeast, 1 packet = 7 g', def: { qty: 1, unit: 'packet' } },
 
   // ---- Supplements & drinks ----------------------------------------------
-  whey:            { kcal: 400, p: 80,   c: 8,    f: 5, na: 300, fib: 2,    g: { each: 32, scoop: 32, cup: 120, tbsp: 8 }, label: 'Whey protein', def: { qty: 1, unit: 'scoop' }, note: '1 scoop = 32 g' },
-  crio_bru:        { kcal: 2,   p: 0.3,  c: 0.3,  f: 0.1, na: 2, fib: 0.3,  g: { cup: 240, oz: 29.6 }, label: 'Crio Bru', note: 'brewed cacao, essentially calorie-free' },
+  whey:            { eat: 1, kcal: 400, p: 80,   c: 8,    f: 5, na: 300, fib: 2,    g: { each: 32, scoop: 32, cup: 120, tbsp: 8 }, label: 'Whey protein', def: { qty: 1, unit: 'scoop' }, note: '1 scoop = 32 g' },
+  crio_bru:        { eat: 1, kcal: 2,   p: 0.3,  c: 0.3,  f: 0.1, na: 2, fib: 0.3,  g: { cup: 240, oz: 29.6 }, label: 'Crio Bru', note: 'brewed cacao, essentially calorie-free' },
   water:           { kcal: 0,   p: 0,    c: 0,    f: 0, na: 0, fib: 0,    g: { cup: 240, oz: 29.6, tbsp: 15, each: 240 } },
 
   // ---- Free items (seasonings, non-food) ---------------------------------

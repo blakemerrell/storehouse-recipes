@@ -1452,6 +1452,38 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+    /* Try again can offer a plain food.
+     *
+       The pool was recipes only, and a food belongs to no section, so one
+       could not have got in even by accident. Pressing this on a snack — the
+       meal most likely to be a yoghurt and a stick of cheddar rather than a
+       dish — walked you through the whole book instead.
+
+       Gated on `eat` or `side`, because the food table is mostly INGREDIENTS:
+       unfiltered it offered three ounces of raw stewing beef as a snack,
+       which is a worse answer than the recipe it replaced. */
+    const foodPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await foodPg.click('.tab[data-view="macros"]');
+    await foodPg.waitForTimeout(300);
+    const pool = await foodPg.evaluate(() => {
+      const L = window.__macroLab; L.forget(); L.draft();
+      const all = L.rank('s', 80);
+      const foods = all.filter((e) => String(e.id).indexOf('f:') === 0);
+      return { total: all.length, foods: foods.length,
+        names: foods.map((f) => f.name).slice(0, 40) };
+    });
+    t.ok('a snack can be a plain food, not only a recipe',
+      pool.foods > 0, JSON.stringify(pool).slice(0, 160));
+    /* The two ends of the rule, named outright: something you eat as it comes
+       is in, an ingredient is not. */
+    t.ok('and it is food you could actually eat as it comes',
+      pool.names.some((n) => /cheddar|yogurt|peanut|egg|ham|chicken|cheese/i.test(n)),
+      pool.names.join(', ').slice(0, 140));
+    t.ok('and never a raw ingredient waiting to be cooked',
+      !pool.names.some((n) => /stewing|ground beef|flour|cornstarch|yeast|dry mix|baking/i.test(n)),
+      pool.names.join(', ').slice(0, 140));
+    await foodPg.context().close();
+
     /* Skipping a meal.
      *
        The visible half is a line instead of a card. The half that matters is
@@ -1550,8 +1582,14 @@ module.exports = {
         const got = sh.querySelectorAll('.ds-row')[1].querySelector('.ds-v').textContent;
         const L = window.__macroLab;
         const tot = L.read().tot, T = L.targets();
-        return got.indexOf(String(Math.round(tot.p))) === 0 &&
-          got.indexOf(String(Math.round(T.p))) > 0;
+        /* Parse the two numbers rather than hunting substrings. The first
+           version asked for the target at an index greater than zero, which
+           is false on any day where protein lands exactly ON target — the row
+           reads "180 / 180 g" and both searches find index 0. It failed about
+           one run in three for a reason that had nothing to do with the app. */
+        var nums = got.replace(/,/g, '').match(/\d+/g) || [];
+        return Number(nums[0]) === Math.round(tot.p) &&
+          Number(nums[1]) === Math.round(T.p);
       }));
     await closed.click('.sheet-x');
     await closed.waitForTimeout(300);

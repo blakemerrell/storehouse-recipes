@@ -192,7 +192,7 @@
       /* grams rides along so a plate can say "1 cup · 130 g": a unit alone
          is a meaningful portion for an egg, not for "1 serving" of beans. */
       MFOODS.push({
-        id: 'f:' + key, food: true, side: !!f.side, book: 0, secNum: 0, secName: 'Single foods',
+        id: 'f:' + key, food: true, side: !!f.side, eat: !!f.eat, book: 0, secNum: 0, secName: 'Single foods',
         name: name, servings: '1 ' + sv.unit, servN: 1, unit: sv.unit, grams: sv.grams,
         ing: [name], steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
         macro: {
@@ -5606,6 +5606,30 @@
      outside its own sections. */
   var MTRY_WIDE = 10;
 
+  /* Everything a meal is allowed to be offered — recipes from its sections,
+     plus the plain foods a person eats without cooking them.
+   *
+     One function because there are two callers and they must not drift: Try
+     again, and the bench's rank() that exists to explain what Try again did.
+     A diagnostic reporting a pool the app does not have is worse than no
+     diagnostic, and the first version of this WAS two copies — a test meant
+     to pin the ingredient rule passed with the real gate removed, because it
+     was only ever reading the bench's copy of it.
+
+     The food table is mostly ingredients: flour, cornstarch, yeast, raw
+     stewing beef. Unfiltered it offered three ounces of raw chuck as a snack,
+     which is a worse answer than the recipe it replaced. `eat` says you can
+     eat it as it comes; `side` is already on the vegetables. Condiments are
+     in neither on purpose — butter and honey go ON food. */
+  function mMealPool(slot, wide) {
+    var secs = wide ? mAllSecs() : mSlotSecs(slot);
+    var pool = RECIPES.filter(function (r) {
+      return secs.indexOf(r.book + '-' + r.secNum) >= 0;
+    });
+    MFOODS.forEach(function (r) { if (r.eat || r.side) pool.push(r); });
+    return pool;
+  }
+
   /* Every section there is, from the data rather than from a list here — a
      book gaining a section should not need this remembering. */
   var M_ALL_SECS = null;
@@ -5714,11 +5738,10 @@
          the card — a roast beef breakfast arriving unannounced reads as a
          bug rather than as an answer to what you asked for. */
       var tries = (S.mTry[cursorKey] === undefined ? -1 : S.mTry[cursorKey]) + 1;
-      var secs = tries >= MTRY_WIDE - 1 ? mAllSecs() : mSlotSecs(srec);
-      var pool = RECIPES.filter(function (r) {
-        return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id) &&
-          dropped.indexOf(r.id) < 0;
+      var pool = mMealPool(srec, tries >= MTRY_WIDE - 1).filter(function (r) {
+        return !mOnDay(day, r.id) && dropped.indexOf(r.id) < 0;
       });
+
       var ranked = mRank(pool, day, targets, srec).filter(function (e) { return e.score !== null; });
       if (!ranked.length) return;
       S.mTry[cursorKey] = tries;
@@ -8121,10 +8144,7 @@
       var slot = null;
       mReadSlots().list.forEach(function (s) { if (s.k === slotKey) slot = s; });
       if (!slot) return [];
-      var secs = mSlotSecs(slot);
-      var pool = RECIPES.filter(function (r) {
-        return secs.indexOf(r.book + '-' + r.secNum) >= 0;
-      });
+      var pool = mMealPool(slot, mWideOpen(slotKey));
       return mRank(pool, day, targets, slot).slice(0, top || 12).map(function (e) {
         var m = (e.r.macro) || {};
         return { id: e.r.id, name: e.r.name, score: e.score, x: e.x,
