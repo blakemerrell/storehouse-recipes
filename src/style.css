@@ -698,6 +698,21 @@ select { max-width: 280px; }
    the one row that should look like it has settled down instead shouted.
    The size and weight are restated rather than inherited, because what is
    wanted is .mstep-x's own, and CSS has no way to say that. */
+/* A meal you are not eating today. A line, not a card: it has no numbers, no
+   plates and nothing to fold, and drawing an empty card around it would give
+   it the same weight as the meals that are actually happening. */
+.mslot-skipped {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; background: none; border: 1px dashed var(--line);
+}
+.mslot-skip-n {
+  font-family: var(--serif); font-size: 14px; color: var(--muted);
+  text-decoration: line-through; flex: 0 0 auto;
+}
+.mslot-skip-w { flex: 1 1 auto; min-width: 0; font-size: 11px; color: var(--muted); }
+.mslot-unskip { flex: 0 0 auto; font-size: 12px; padding: 4px 10px; }
+.mslot-skip { font-size: 14px; }
+
 /* --- how the day went ------------------------------------------------- */
 .ds-day {
   font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 2px 0 14px;

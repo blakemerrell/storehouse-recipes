@@ -1042,13 +1042,14 @@
   function mForgetDay() {
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
-      'bsc.macroDone'].forEach(function (k) {
+      'bsc.macroDone', 'bsc.macroSkip'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
     Object.keys(MWEIGHTS).forEach(function (k) { delete MWEIGHTS[k]; });
     Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
     Object.keys(MDONE).forEach(function (k) { delete MDONE[k]; });
+    Object.keys(MSKIP).forEach(function (k) { delete MSKIP[k]; });
   }
 
   function mAccountMark() {
@@ -1071,6 +1072,10 @@
     Object.keys(MDONE).forEach(function (k) {
       done[k.replace(/-/g, '_')] = { v: mDoneAt(k), at: (MSTAMPS.dn || {})[k] || 0 };
     });
+    var skip = {};
+    Object.keys(MSKIP).forEach(function (k) {
+      skip[k.replace(/-/g, '_')] = { v: MSKIP[k], at: (MSTAMPS.sp || {})[k] || 0 };
+    });
     var raw = function (key) {
       try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
     };
@@ -1081,7 +1086,8 @@
       sl: { v: raw('bsc.macroSlots'), at: MSTAMPS.sl || 0 },
       w: { v: MWEIGHTS, at: MSTAMPS.w || 0 },
       d: days,
-      dn: done
+      dn: done,
+      sp: skip
     };
   }
 
@@ -1136,10 +1142,21 @@
       MSTAMPS.dn[k] = r.at;
       moved = true;
     });
+    Object.keys(md.sp || {}).forEach(function (enc) {
+      var k = enc.replace(/_/g, '-');
+      var r = md.sp[enc];
+      // an empty list is a real answer here — it means "I un-skipped them all"
+      if (!r || !Array.isArray(r.v) || !(r.at > ((MSTAMPS.sp || {})[k] || 0))) return;
+      if (r.v.length) MSKIP[k] = r.v.slice(); else delete MSKIP[k];
+      MSTAMPS.sp = MSTAMPS.sp || {};
+      MSTAMPS.sp[k] = r.at;
+      moved = true;
+    });
     if (moved) {
       try {
         localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS));
         localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE));
+        localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP));
         localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS));
       } catch (e) { /* private mode: this session only */ }
     }
@@ -1747,6 +1764,37 @@
     mStamp('dn', k);
   }
 
+  /* Meals you have said you are not eating today.
+   *
+     Keyed day -> the slot keys skipped, with a stamp beside them so a skip
+     travels the way a closed day does. Not a scalar on the day object: the
+     day is a map of slot -> plates and half the app walks it with
+     `(day[k] || []).forEach`, so a stray number in there is a thrown error
+     three files away.
+
+     It has to reach the arithmetic and not only the card. An empty meal still
+     RESERVES its share — mShares divides the day across every empty slot — so
+     a lunch you have decided against goes on holding a quarter of the day and
+     quietly aims every other meal lower. Skipping releases it. */
+  var MSKIP = (function () {
+    try {
+      var d = JSON.parse(localStorage.getItem('bsc.macroSkip'));
+      if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+    } catch (e) { /* fall through */ }
+    return {};
+  })();
+  function mSkipped(k, sk) {
+    var a = MSKIP[k];
+    return !!a && a.indexOf(sk) >= 0;
+  }
+  function mSetSkip(k, sk, on) {
+    var a = (MSKIP[k] || []).filter(function (x) { return x !== sk; });
+    if (on) a.push(sk);
+    if (a.length) MSKIP[k] = a; else delete MSKIP[k];
+    try { localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP)); } catch (e) { /* private */ }
+    mStamp('sp', k);
+  }
+
   var MWEIGHTS = (function () {
     try {
       var w = JSON.parse(localStorage.getItem('bsc.macroWeights'));
@@ -2241,8 +2289,13 @@
     var tot = mTotals(day);
     var w = slot ? mSlotW(slot) : 1;
     var sumW = 0, counted = false;
+    var dk = mViewKey();
     mReadSlots().list.forEach(function (s) {
       var isThis = slot && s.k === slot.k;
+      /* A skipped meal claims nothing. This is the whole point of the skip:
+         an empty meal reserves its share and drags every other meal down to
+         make room for food that is never coming. */
+      if (!isThis && mSkipped(dk, s.k)) return;
       if (!(day[s.k] || []).length || isThis) {
         sumW += mSlotW(s);
         if (isThis) counted = true;
@@ -2798,6 +2851,21 @@
          the hand that ticked it — and took away the untick. S.mFold holds
          only what you have pressed, so it never has to be cleaned up. */
       var folded = !!(items.length && S.mFold[sk]);
+
+      /* Skipped. One line instead of a card, struck through, with the way
+         back on it — a day where lunch is visibly not happening tells you
+         more later than a day where lunch simply is not there. Drawn before
+         the card rather than instead of parts of it, because a skipped meal
+         has no numbers, no plates and nothing to fold. */
+      if (onPlan && !items.length && mSkipped(k, sk)) {
+        return '<div class="mslot mslot-skipped">' +
+          '<span class="mslot-skip-n">' + esc(name) + '</span>' +
+          '<span class="mslot-skip-w">skipped &middot; its share went to the rest</span>' +
+          '<button class="ghost mslot-unskip no-print" data-mskip="' + esc(sk) + '" ' +
+            'aria-label="Put ' + esc(name) + ' back">Undo</button>' +
+        '</div>';
+      }
+
       return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') +
         (eatenAll ? ' done' : '') + '">' +
         /* The dot was a pseudo-element: it could say a meal was behind you
@@ -2856,6 +2924,15 @@
              names the meal the food is going on. */
           (onPlan ? '<button class="mslot-ic mslot-add no-print" data-mslot="' + esc(sk) + '" ' +
             'aria-label="Add food to ' + esc(name) + '">&#43;</button>' : '') +
+          /* Only on a meal with nothing on it. You do not skip a meal you have
+             already put food on — you delete the food — and a button that
+             appears on every meal all day is a button in the way of the ones
+             pressed daily. */
+          (onPlan && !items.length
+            ? '<button class="mslot-ic mslot-skip no-print" data-mskip="' + esc(sk) + '" ' +
+              'aria-label="Skip ' + esc(name) + ' today" ' +
+              'title="Not eating this today \u2014 its share goes to the other meals">' +
+              '&#8856;</button>' : '') +
         '</div>' +
         /* What the meal comes to, in the same four colours the bars use. */
         /* The handle is the bar the fold actually happens at. A boxed caret up
@@ -2978,8 +3055,17 @@
      short was to open dinner and go shopping. Now the header says it. */
   function mVerdictHTML(sk, items, onPlan, targets, slots) {
     if (!targets.p && !targets.f && !targets.c) return '';
-    var me = null, sumW = 0;
-    slots.list.forEach(function (s) { sumW += mSlotW(s); if (s.k === sk) me = s; });
+    /* Over the meals that are actually happening. A skipped meal releases its
+       share to the rest — that is what the skip DOES — so a pill still
+       dividing by it would call a breakfast "over" when Fill had deliberately
+       made it bigger. The card and the planner have to be dividing by the
+       same number, or they are describing different days. */
+    var me = null, sumW = 0, vk = mViewKey();
+    slots.list.forEach(function (s) {
+      if (s.k !== sk && mSkipped(vk, s.k)) return;
+      sumW += mSlotW(s);
+      if (s.k === sk) me = s;
+    });
     if (!me || !sumW) return '';
     var tK = kcalOf(targets) * mSlotW(me) / sumW;
     if (!items.length) {
@@ -5009,6 +5095,8 @@
 
       mReadSlots().list.forEach(function (s) {
           if ((day[s.k] || []).length) return;
+          // you said you are not eating this one
+          if (mSkipped(mViewKey(), s.k)) return;
           var secs = mSlotSecs(s);
           var inSec = RECIPES.filter(function (r) {
             return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id);
@@ -7341,7 +7429,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
@@ -8383,6 +8471,17 @@
          drifts into a state where half of it is quietly editable. */
       var ed = e.target.closest('[data-medit]');
       if (ed) { S.mEdit = ed.dataset.medit; keepingFocus(renderMacros); return; }
+
+      /* Not eating this one today. It toggles, and the share it was holding
+         goes back to the meals that are actually happening — which is the
+         difference between a skip and an empty meal. */
+      var skp = e.target.closest('[data-mskip]');
+      if (skp) {
+        var sKey = skp.dataset.mskip;
+        mSetSkip(mViewKey(), sKey, !mSkipped(mViewKey(), sKey));
+        keepingFocus(renderMacros);
+        return;
+      }
 
       var tr = e.target.closest('[data-mtry]');
       if (tr) { mTryAgain(tr.dataset.mtry); return; }

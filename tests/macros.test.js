@@ -1452,6 +1452,60 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+    /* Skipping a meal.
+     *
+       The visible half is a line instead of a card. The half that matters is
+       arithmetic: an empty meal RESERVES its share — mShares divides the day
+       across every empty slot — so a lunch you have decided against goes on
+       holding a quarter of the day and quietly aims every other meal lower.
+       A skip has to release it, or it is only a costume. */
+    const skipPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await skipPg.click('.tab[data-view="macros"]');
+    await skipPg.waitForTimeout(400);
+    t.ok('an empty meal offers a way to skip it',
+      await skipPg.evaluate(() => !!document.querySelector('[data-mskip]')));
+    /* What breakfast is told to aim for, with every meal still in play and
+       then with lunch dropped out of the divisor. This is the whole feature:
+       the share is a weight over the weights STILL IN PLAY. */
+    const shareRead = () => skipPg.evaluate(() => {
+      const v = document.querySelector('.mslot [data-mv="empty"]');
+      return v ? Number(v.textContent.replace(/[^0-9]/g, '')) : 0;
+    });
+    const bShareBefore = await shareRead();
+    await skipPg.evaluate(() => document.querySelector('[data-mskip="l"]').click());
+    await skipPg.waitForTimeout(400);
+    const skipped = await skipPg.evaluate(() => {
+      const el = document.querySelector('.mslot-skipped');
+      return { line: !!el, says: el ? el.textContent.replace(/\s+/g, ' ').trim() : '',
+        undo: !!(el && el.querySelector('[data-mskip]')) };
+    });
+    t.ok('and it becomes a line that says so, with the way back on it',
+      skipped.line && /skipped/i.test(skipped.says) && skipped.undo,
+      JSON.stringify(skipped));
+    const bShareAfter = await shareRead();
+    /* Asserting the day's TOTAL here proved nothing — mBalanceDay lands the
+       day on target whether or not the share was released, so that version
+       passed with the feature reverted. The share is what actually moves. */
+    t.ok('and the share lunch was holding goes to the meals that remain',
+      bShareAfter > bShareBefore * 1.15,
+      'breakfast share ' + bShareBefore + ' -> ' + bShareAfter);
+
+    /* And Fill respects it. */
+    await skipPg.click('#macroFill');
+    await skipPg.waitForTimeout(800);
+    t.ok('Fill leaves a skipped meal alone',
+      await skipPg.evaluate(() => {
+        const m = window.__macroLab.read().meals.find((x) => x.k === 'l');
+        return !!m && m.items.length === 0;
+      }));
+
+    t.ok('and un-skipping puts the meal back',
+      await skipPg.evaluate(() => {
+        document.querySelector('.mslot-skipped [data-mskip]').click();
+        return !document.querySelector('.mslot-skipped');
+      }));
+    await skipPg.context().close();
+
     /* Done for the day.
      *
        A statement, not a change: nothing is deleted, food can still be added,
