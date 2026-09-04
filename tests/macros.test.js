@@ -1621,7 +1621,18 @@ module.exports = {
         const nums = got.replace(/,/g, '').match(/\d+/g) || [];
         return Number(nums[0]) === Math.round(tot.p) && Number(nums[1]) === Math.round(T.p);
       }));
-    await closed.click('.sheet-x');
+    /* The Done button has to actually be a button. It shipped with
+       data-close="1" and nothing else, and data-close turns out to be
+       decorative everywhere it appears — the modal closes on .scrim and
+       .sheet-x. It was wearing a wire that was never connected. */
+    await closed.click('.ds-sheet .sheet-done');
+    /* close() unwinds the history entries the sheet pushed, and that lands on
+       popstate — so the card is gone a tick later, not on the same line as
+       the click. Checking synchronously said "still open" about a button that
+       works perfectly. */
+    await closed.waitForTimeout(350);
+    t.ok('and the Done button closes the card',
+      await closed.evaluate(() => !document.querySelector('.ds-sheet')));
     await closed.waitForTimeout(300);
     t.ok('and the day is marked closed on the bar',
       await closed.evaluate(() => {

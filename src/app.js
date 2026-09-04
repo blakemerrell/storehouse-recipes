@@ -4667,7 +4667,7 @@
               ? '<div class="ds-blk"><div class="ds-h">Against your week</div>' + facts + '</div>'
               : '')
           : '') +
-        '<div class="sync-row"><button class="btn-primary" data-close="1">Done</button></div>' +
+        '<div class="sync-row"><button class="btn-primary sheet-done">Done</button></div>' +
       '</div>' +
     '</div>';
   }
@@ -9092,7 +9092,14 @@
       if (!root.contains(e.target)) return;
 
       // the backdrop itself, or the × — anything inside the sheet falls through
-      if (e.target.classList.contains('scrim') || e.target.closest('.sheet-x')) { close(); return; }
+      /* The × and the scrim have always closed a sheet; a button that says
+         Done now does too. NOT keyed on [data-close], which is on the scrim
+         as well — closest() would find it from anywhere inside the sheet and
+         every click in the card would shut it. That attribute turns out to be
+         decorative everywhere it appears, which is exactly why the Done
+         button did nothing: it was wearing a wire that was never connected. */
+      if (e.target.classList.contains('scrim') ||
+        e.target.closest('.sheet-x, .sheet-done')) { close(); return; }
 
       /* A reference in a step, followed. Each hop is a history entry, so the
          back gesture walks the trail home. Scale resets, because the gravy
