@@ -1452,6 +1452,100 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+    /* Nothing, chips, bars — one language in three doses.
+     *
+       Silence when a meal is fine, a chip for the macro that is not, and the
+       whole picture only where you are actually dialling it in. Three chips on
+       every meal all day is colour that is always on, and colour that is
+       always on has stopped saying anything. */
+    const dosePg = await t.fresh({ viewport: { width: 390, height: 900 } });
+    await dosePg.click('.tab[data-view="macros"]');
+    await dosePg.waitForTimeout(300);
+    await dosePg.click('#macroFill');
+    await dosePg.waitForTimeout(800);
+    /* Every meal folded, so the whole day is being scanned at once. */
+    /* One at a time, re-querying each round: every click redraws the day, so a
+       NodeList taken up front is a list of detached nodes after the first
+       one. Only the first click was landing. */
+    for (let i = 0; i < 8; i++) {
+      const more = await dosePg.evaluate(() => {
+        const b = document.querySelector('.mslot-sub[aria-expanded="true"]');
+        if (!b) return false;
+        b.click();
+        return true;
+      });
+      if (!more) break;
+      await dosePg.waitForTimeout(120);
+    }
+    await dosePg.waitForTimeout(300);
+    const glance = await dosePg.evaluate(() => {
+      const cards = [...document.querySelectorAll('.mslot')];
+      return {
+        meals: cards.length,
+        chips: cards.map((c) => c.querySelectorAll('.msub-c').length),
+        barsWhileFolded: document.querySelectorAll('.msub-bars').length,
+        everyChipOff: [...document.querySelectorAll('.msub-c')].every((e) =>
+          /\b(over|short)\b/.test(e.className)),
+        kcalAlways: cards.every((c) => !c.querySelector('.mslot-sub') || !!c.querySelector('.msub-k'))
+      };
+    });
+    t.ok('a folded day shows no bars at all',
+      glance.barsWhileFolded === 0, JSON.stringify(glance));
+    /* The chips that ARE drawn are only ever the ones that are off — there is
+       no "on" chip, which is what makes the absence of one mean something. */
+    t.ok('and every chip on it is one that is off',
+      glance.everyChipOff, JSON.stringify(glance));
+    /* Silence cannot be mistaken for "not worked out yet", because the calorie
+       figure is beside it either way. */
+    t.ok('and a meal that says nothing still says its calories',
+      glance.kcalAlways, JSON.stringify(glance));
+
+    /* Open it and the whole picture arrives, next to the buttons that change
+       it — and the chips go, because the same thing said twice in one card is
+       once too many. */
+    await dosePg.evaluate(() => {
+      const b = document.querySelector('.mslot-sub[aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await dosePg.waitForTimeout(400);
+    const opened = await dosePg.evaluate(() => {
+      const card = [...document.querySelectorAll('.mslot')].find((c) =>
+        c.querySelector('.mslot-sub[aria-expanded="true"]'));
+      if (!card) return null;
+      return { bars: card.querySelectorAll('.msub-br').length,
+        chips: card.querySelectorAll('.msub-c').length,
+        marks: card.querySelectorAll('.msub-bm').length,
+        beforePlates: !!card.querySelector('.msub-bars ~ .mitem, .msub-bars + .mitem') ||
+          [...card.querySelectorAll('.msub-bars, .mitem')].findIndex((e) =>
+            e.classList.contains('mitem')) > 0 };
+    });
+    t.ok('opening a meal trades the chips for the whole picture',
+      !!opened && opened.bars === 3 && opened.chips === 0, JSON.stringify(opened));
+    t.ok('and each bar carries the mark where its share sits',
+      opened.marks === 3, JSON.stringify(opened));
+    t.ok('and they sit above the plates, beside the buttons that move them',
+      opened.beforePlates, JSON.stringify(opened));
+
+    /* The picker draws the SAME bars, measuring the same thing. You arrive
+       there from the card mid-gesture; a bar that changed direction between
+       the two screens would read as the same bar saying something new. And
+       "what is left" is negative on a meal already past its share, which
+       drawn as a bar is three empty tracks implying room that is not there. */
+    await dosePg.click('.mslot-add');
+    await dosePg.waitForTimeout(600);
+    t.ok('and the picker shows the same bars, not a sentence',
+      await dosePg.evaluate(() => {
+        const box = document.querySelector('.mp-left');
+        return !!box && box.querySelectorAll('.msub-br').length === 3 &&
+          box.querySelectorAll('.msub-bm').length === 3 &&
+          !/left for this meal/i.test(box.textContent);
+      }),
+      await dosePg.evaluate(() => {
+        const b = document.querySelector('.mp-left');
+        return b ? b.textContent.replace(/\s+/g, ' ').trim().slice(0, 70) : 'no panel';
+      }));
+    await dosePg.context().close();
+
     /* The verdict, per macro, on the row that already existed.
      *
        The header pill answered CALORIES, so a lunch five times over on fat
@@ -1469,17 +1563,21 @@ module.exports = {
       const card = document.querySelector('.mslot');
       return {
         headerPill: !!card.querySelector('.mslot-v'),
-        pills: [...card.querySelectorAll('.msub-p')].map((e) => e.textContent.trim()),
-        filled: [...card.querySelectorAll('.msub-p')].every((e) =>
+        pills: [...card.querySelectorAll('.msub-c')].map((e) => e.textContent.trim()),
+        filled: [...card.querySelectorAll('.msub-c')].every((e) =>
           getComputedStyle(e).backgroundImage.indexOf('gradient') >= 0),
-        letters: [...card.querySelectorAll('.msub-p i')].map((e) => e.textContent).join('')
+        letters: [...card.querySelectorAll('.msub-c i')].map((e) => e.textContent).join('')
       };
     });
     t.ok('a meal with food on it drops the pill by its name',
       !pills.headerPill, JSON.stringify(pills));
-    t.ok('and carries one filled pill per macro instead',
-      pills.pills.length === 3 && pills.letters === 'PFC' && pills.filled,
-      JSON.stringify(pills));
+    /* Only the macro that is off. Three chips on every meal all day is colour
+       that is always on, and colour that is always on has stopped saying
+       anything — the point of "at a glance I don't need it". */
+    t.ok('and carries a chip only for a macro that is off',
+      pills.pills.length <= 3 && pills.letters.split('').every(function (L) {
+        return 'PFC'.indexOf(L) >= 0;
+      }), JSON.stringify(pills));
     /* Signed, because the amount alone says nothing: 67 g of fat is fine at
        dinner and five times over at lunch, and reading it needs a divisor
        held in your head. */
@@ -1497,7 +1595,7 @@ module.exports = {
         return typeof L.draft === 'function';
       }) && await pillPg.evaluate(() => {
         // every pill on the day is one of the three known states, never blank
-        return [...document.querySelectorAll('.msub-p')].every((e) =>
+        return [...document.querySelectorAll('.msub-c')].every((e) =>
           /\b(on|over|short)\b/.test(e.className));
       }));
     await pillPg.context().close();

@@ -2959,7 +2959,9 @@
              be read against a divisor held in your head. +53 needs nothing
              held. It is also what makes a meal that landed go quiet — three
              pale pills reading +1, −1, +2 and no colour anywhere. */
-          mMacPills(sub, mMealShare(sk, targets, slots), targets) +
+          /* Folded, the chips. Open, nothing here — the bars go below, next to
+             the stepper they answer to. */
+          (folded ? mMacChips(sub, mMealShare(sk, targets, slots), targets) : '') +
           '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
         '</button>' : '') +
         (folded
@@ -2990,7 +2992,11 @@
                    rather than as multipliers. */
                 '<span class="mthin-x">' + esc(mPortionText(r2, it.x)) + '</span></div>';
             }).join('') + '</div>'
-          : '<div class="mslot-items">' + (rows || '<div class="mslot-empty">&mdash;</div>') +
+          : '<div class="mslot-items">' +
+            /* Open is where the ± buttons are, so it is where the whole
+               picture belongs — directly above the thing that changes it. */
+            (rows ? mMacBars(sub, mMealShare(sk, targets, slots), targets) : '') +
+            (rows || '<div class="mslot-empty">&mdash;</div>') +
             /* Under the plates, not in the header: it is a thing you do once
                to a meal you have got right, not a control you reach past
                every day. */
@@ -3110,19 +3116,49 @@
   var MMAC_TONE = { on: 'var(--dial-on-pale)', over: 'var(--dial-over-pale)',
     short: 'var(--dial-under-pale)' };
 
-  function mMacPills(sub, sh, targets) {
+  /* At a glance: only what is wrong.
+   *
+     Three pills on every meal all day is colour that is always on, and colour
+     that is always on has stopped saying anything. A meal that landed says
+     nothing at all — the calorie figure beside it is always there, so silence
+     can never be mistaken for "not worked out yet", and a good day looks the
+     way the app looked before any of this existed. */
+  function mMacChips(sub, sh, targets) {
     if (!sh) return '';
     return ['p', 'f', 'c'].map(function (m) {
       var got = sub[m] || 0, want = sh[m] || 0;
       var st = mMacState(got, want, (targets || {})[m]);
+      if (st === 'on') return '';
       var d = Math.round(got - want);
-      var pct = want > 0 ? Math.min(100, 100 * got / want) : 0;
-      return '<span class="msub-p ' + st + '" style="background:linear-gradient(90deg,' +
-        MMAC_TONE[st] + ' 0 ' + pct.toFixed(1) + '%,var(--paper-soft) ' + pct.toFixed(1) + '%)"' +
-        ' title="' + Math.round(got) + ' g of ' + Math.round(want) + ' g">' +
+      return '<span class="msub-c ' + st + '" title="' + Math.round(got) + ' g of ' +
+        Math.round(want) + ' g">' +
         '<i class="mb-' + m + '">' + m.toUpperCase() + '</i><b>' +
-        (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + '</b></span>';
+        (d > 0 ? '+' : '−') + Math.abs(d) + '</b></span>';
     }).join('');
+  }
+
+  /* Open, with a hand on the stepper: the whole picture, with a mark where the
+     share sits so how far past is a distance rather than a subtraction.
+   *
+     Used in the picker too, and deliberately measuring the same thing there —
+     what the meal HOLDS against its share, not what is left of it. Left-over
+     would invert the bar's meaning between two screens you move between in one
+     gesture, and a meal already over its share has a negative remainder, which
+     is three empty bars implying room that is not there. The gap between the
+     bar and the mark is what is left. */
+  function mMacBars(sub, sh, targets) {
+    if (!sh) return '';
+    return '<div class="msub-bars">' + ['p', 'f', 'c'].map(function (m) {
+      var got = sub[m] || 0, want = sh[m] || 0;
+      var st = mMacState(got, want, (targets || {})[m]);
+      var top = Math.max(got, want) * 1.2 || 1;
+      return '<div class="msub-br"><span class="msub-bk mb-' + m + '">' + m.toUpperCase() +
+        '</span><span class="msub-bt">' +
+          '<span class="msub-bb ' + st + '" style="width:' + (100 * got / top).toFixed(1) + '%"></span>' +
+          '<span class="msub-bm" style="left:' + (100 * want / top).toFixed(1) + '%"></span>' +
+        '</span><span class="msub-bv"><b>' + Math.round(got) + '</b> / ' +
+          Math.round(want) + ' g</span></div>';
+    }).join('') + '</div>';
   }
 
   function mVerdictHTML(sk, items, onPlan, targets, slots) {
@@ -3930,12 +3966,37 @@
   /* What this meal still has room for. mShares works the day's remainder into
      a share per empty meal; this is that share, in the words the plate rows
      already use. */
+  /* What this meal holds against its share, drawn the way the open card draws
+     it — because you arrive here from that card, mid-gesture, and a bar that
+     changed direction between the two screens would be read as the same bar
+     saying something new.
+   *
+     Deliberately NOT "what is left". Left-over is a negative on a meal
+     already past its share, and a negative drawn as a bar is three empty
+     tracks implying room that is not there. The gap between the bar and the
+     mark is what is left, and it stays legible when there is none. */
   function mMealLeft() {
-    var targets = mDayTargets(mViewKey());
+    var k = mViewKey();
+    var targets = mDayTargets(k);
     if (!targets.p && !targets.f && !targets.c) return '';
-    var T = mShares(mDay(mViewKey()), targets, { k: S.macroPick.slot, w: S.macroPick.w }).T;
-    return Math.round(kcalOf(T)) + ' kcal &middot; ' + Math.round(T.p) + 'P &middot; ' +
-      Math.round(T.f) + 'F &middot; ' + Math.round(T.c) + 'C left for this meal';
+    var day = mDay(k);
+    var slot = { k: S.macroPick.slot, w: S.macroPick.w };
+    var slots = mReadSlots();
+    var sh = mMealShare(S.macroPick.slot, targets, slots);
+    if (!sh) return '';
+    var sub = { p: 0, f: 0, c: 0 };
+    (day[S.macroPick.slot] || []).forEach(function (it) {
+      var r = BY_ID[it.id];
+      if (!r || !r.macro) return;
+      sub.p += (r.macro.p || 0) * it.x;
+      sub.f += (r.macro.f || 0) * it.x;
+      sub.c += (r.macro.c || 0) * it.x;
+    });
+    var name = '';
+    slots.list.forEach(function (sl) { if (sl.k === S.macroPick.slot) name = sl.n; });
+    return '<div class="mp-cap">' + esc(name || 'This meal') + ' &middot; ' +
+      Math.round(sh.kcal) + ' kcal at its share</div>' +
+      mMacBars(sub, sh, targets);
   }
 
   /* One box, one list. Your own foods and the book's recipes together, each

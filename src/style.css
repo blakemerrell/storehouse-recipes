@@ -546,17 +546,43 @@ select { max-width: 280px; }
    the proportion of this meal's share, with the distance from it inside. They
    share the row's width so three fills can be compared by eye — six pills only
    compare if the boxes match, and the same is true of three. */
-.msub-p {
-  flex: 1 1 0; min-width: 0; display: inline-flex; align-items: baseline;
-  justify-content: center; gap: 2px; padding: 2px 4px; border-radius: 999px;
-  font-size: 10.5px; border: 1px solid var(--line-soft); color: var(--muted);
+/* Only ever drawn for a macro that is off, so it takes its own width and
+   carries no fill: three fills compare by eye only if the boxes match, and
+   here there may be one box or three. Colour does the work. */
+.msub-c {
+  flex: none; display: inline-flex; align-items: baseline; gap: 2px;
+  padding: 1px 6px; border-radius: 999px; font-size: 10.5px;
+  background: var(--paper-soft); border: 1px solid var(--line-soft);
   font-variant-numeric: tabular-nums;
 }
-.msub-p i { font-size: 9.5px; margin-right: 0; }
-.msub-p b { font-weight: 600; color: var(--ink); }
-.msub-p.over b { color: var(--dial-over); }
-.msub-p.on b { color: var(--dial-on); }
-.msub-p.short b { color: var(--muted-2); }
+.msub-c i { font-size: 9.5px; margin-right: 0; }
+.msub-c b { font-weight: 600; }
+.msub-c.over {
+  border-color: color-mix(in oklab, var(--dial-over) 45%, var(--line-soft));
+  background: color-mix(in oklab, var(--dial-over) 9%, var(--paper-soft));
+}
+.msub-c.over b { color: var(--dial-over); }
+.msub-c.short { border-color: color-mix(in oklab, var(--ochre) 42%, var(--line-soft)); }
+.msub-c.short b { color: var(--ochre-text); }
+
+/* Open, beside the stepper. A mark where the share sits, so how far past is a
+   distance rather than a subtraction. */
+.msub-bars { padding: 6px 0 2px; }
+.mp-cap {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 1px;
+}
+.msub-br { display: grid; grid-template-columns: 13px 1fr auto; gap: 8px; align-items: center; margin: 5px 0; }
+.msub-bk { font-size: 10px; font-weight: 700; font-style: normal; }
+.msub-bt { position: relative; height: 8px; border-radius: 4px; background: var(--line-soft); }
+.msub-bb { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--dial-on); }
+.msub-bb.over { background: var(--dial-over); }
+.msub-bb.short { background: var(--ochre); }
+.msub-bm { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: 0.5; }
+.msub-bv {
+  font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.msub-bv b { color: var(--ink); font-weight: 600; }
 /* The one line in a meal card sits under the HEADER, not under the numbers.
    Fold a meal and the plates go — and what stands in their place is the
    totals row. It is not a summary above the content; when the card is shut it
@@ -952,7 +978,12 @@ select { max-width: 280px; }
 .mp-way:hover { border-color: var(--ochre); }
 .mp-way.on { border-color: var(--ochre); box-shadow: inset 0 0 0 1px var(--ochre); color: var(--ink); }
 /* what this meal still has room for, said once at the top */
-.mp-left { font-size: 12px; color: var(--muted); margin-top: 10px; }
+/* It carries bars now rather than a sentence, so it needs to look like the
+   panel it is instead of like a line of prose. */
+.mp-left {
+  margin-top: 10px; padding: 9px 10px 5px;
+  background: var(--paper-soft); border: 1px solid var(--line-soft); border-radius: 7px;
+}
 .mp-seg { flex: none; }
 .mpick-row {
   display: flex; width: 100%; text-align: left; gap: 10px; align-items: center;
