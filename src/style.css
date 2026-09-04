@@ -676,7 +676,14 @@ select { max-width: 280px; }
   background: var(--card); border: 0; border-left: 1px solid var(--line-soft);
   width: 36px; line-height: 1; font-size: 15px; color: var(--muted-2);
 }
-.mstep button:hover { background: var(--paper-soft); color: var(--ink); }
+.mstep button:not(:disabled):hover { background: var(--paper-soft); color: var(--ink); }
+/* A plate that has been eaten. The number stays legible — you want to read
+   what you had — but the two buttons that would change it go quiet, because
+   what is on this row already happened. Only those two: the lock beside them
+   holds a food steady through a rebalance, which is still worth saying about
+   a plate you have eaten. */
+.mstep.spent [data-mstep] { opacity: 0.35; cursor: default; }
+.mstep.spent .mstep-x { color: var(--muted); }
 /* its own box, on the far side of the gap */
 .mtick {
   display: grid; place-items: center; width: 46px; flex: none;

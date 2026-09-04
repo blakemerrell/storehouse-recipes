@@ -1452,6 +1452,83 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+    /* A plate you have eaten is a record, not a dial.
+     *
+       Resizing what you already ate is editing the past, so the stepper goes
+       quiet on the tick — and comes back on the untick, because nothing here
+       is one-way. The lock goes with it: Rebalance already skips anything
+       eaten, so on that row it was a button with nothing to guard. */
+    const spent = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await spent.click('.tab[data-view="macros"]');
+    await spent.waitForTimeout(300);
+    await spent.click('#macroFill');
+    await spent.waitForTimeout(600);
+    // open a meal so a plate and its stepper are on screen
+    await spent.evaluate(() => {
+      const b = document.querySelector('.mslot-sub[aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await spent.waitForTimeout(300);
+    const stepWas = await spent.evaluate(() => {
+      const st = document.querySelector('.mstep');
+      return { x: st.querySelector('.mstep-x').textContent.trim(),
+        live: [...st.querySelectorAll('[data-mstep]')].every((b) => !b.disabled),
+        grey: st.classList.contains('spent') };
+    });
+    t.ok('an uneaten plate can still be resized', stepWas.live && !stepWas.grey,
+      JSON.stringify(stepWas));
+
+    await spent.click('.mitem [data-meat]');
+    await spent.waitForTimeout(400);
+    const stepNow = await spent.evaluate(() => {
+      const st = document.querySelector('.mstep');
+      return { x: st.querySelector('.mstep-x').textContent.trim(),
+        dead: [...st.querySelectorAll('[data-mstep]')].every((b) => b.disabled),
+        lockStillLive: !st.querySelector('.mlock').disabled,
+        grey: st.classList.contains('spent'),
+        /* the STEPPER's own buttons, not the first button in the strip — that
+           is the lock, and it is faded by a rule of its own, so reading it
+           here passed with the fix reverted and proved nothing. */
+        faded: [...st.querySelectorAll('[data-mstep]')]
+          .every((b) => parseFloat(getComputedStyle(b).opacity) < 0.6) };
+    });
+    t.ok('ticking it eaten locks the portion', stepNow.dead && stepNow.grey,
+      JSON.stringify(stepNow));
+    /* The lock is a different job — it holds a food steady while the other
+       meals rebalance around it, which is still worth saying about a plate
+       you have eaten. Only the servings lock. */
+    t.ok('but the lock is left alone, because it does a different job',
+      stepNow.lockStillLive, JSON.stringify(stepNow));
+    t.ok('and greys it, rather than leaving it looking live', stepNow.faded,
+      JSON.stringify(stepNow));
+    /* Still readable: the number is the whole point of keeping the row. */
+    t.ok('and the portion it was eaten at is still on the card',
+      stepNow.x === stepWas.x && stepNow.x.length > 0, stepWas.x + ' -> ' + stepNow.x);
+
+    /* The rule sits in the handler as well as the markup, because a disabled
+       attribute is paint — anything that reaches the delegated handler by
+       another road still has to be refused. */
+    t.ok('and the day does not move even if the press gets through',
+      await spent.evaluate(() => {
+        const st = document.querySelector('.mstep');
+        const was = st.querySelector('.mstep-x').textContent.trim();
+        const b = st.querySelector('[data-mstep$=":up"]');
+        b.disabled = false;               // the paint comes off
+        b.click();
+        const now = document.querySelector('.mstep .mstep-x').textContent.trim();
+        return was === now;
+      }));
+
+    await spent.click('.mitem [data-meat]');
+    await spent.waitForTimeout(400);
+    t.ok('unticking hands the stepper back',
+      await spent.evaluate(() => {
+        const st = document.querySelector('.mstep');
+        return !st.classList.contains('spent') &&
+          [...st.querySelectorAll('[data-mstep]')].every((b) => !b.disabled);
+      }));
+    await spent.context().close();
+
 
     /* The bench measures the shipped code or it measures nothing.
      *

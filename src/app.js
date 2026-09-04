@@ -2637,7 +2637,18 @@
              It guards against the MACHINE, not you: Rebalance leaves a locked
              plate alone, but the stepper still works. */
           '<span class="mrow2 no-print">' +
-            '<span class="mstep">' +
+            /* Eaten is a record, not a dial.
+             *
+               Once the tick is on, this plate is a thing that happened, and
+               resizing what you already ate is editing the past — so the
+               stepper goes quiet.
+
+               The LOCK stays live. It is a different job — it holds a food
+               steady while the other meals are rebalanced around it — and
+               that is a thing you may still want to say about a plate you
+               have already eaten. Only the servings lock.
+               Untick and the stepper comes back; nothing here is one-way. */
+            '<span class="mstep' + (it.eaten ? ' spent' : '') + '">' +
               '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
                 (it.l ? 'true' : 'false') + '" aria-label="' +
                 (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
@@ -2646,8 +2657,10 @@
                  arithmetic and not the food — and left "one and three
                  quarters of WHAT?" with no answer anywhere on the card. */
               '<span class="mstep-x">' + esc(port.head) + '</span>' +
-              '<button data-mstep="' + tag + ':down" aria-label="Smaller portion">&minus;</button>' +
-              '<button data-mstep="' + tag + ':up" aria-label="Bigger portion">+</button>' +
+              '<button data-mstep="' + tag + ':down"' + (it.eaten ? ' disabled' : '') +
+                ' aria-label="Smaller portion">&minus;</button>' +
+              '<button data-mstep="' + tag + ':up"' + (it.eaten ? ' disabled' : '') +
+                ' aria-label="Bigger portion">+</button>' +
             '</span>' +
             '<label class="mtick"><input type="checkbox" data-meat="' + tag + '"' +
               (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
@@ -8148,6 +8161,8 @@
         mEditDay(mViewKey(), function (day) {
           var it = (day[sp[0]] || [])[Number(sp[1])];
           if (!it) return;
+          // the disabled attribute is paint; this is the rule
+          if (it.eaten) return;
           /* Quarter-serving steps land on eighths, so fmtNum always has a
              glyph and never falls back to a decimal. */
           it.x = sp[2] === 'up' ? Math.min(4, it.x + 0.25) : Math.max(0.25, it.x - 0.25);
