@@ -683,6 +683,20 @@ select { max-width: 280px; }
    holds a food steady through a rebalance, which is still worth saying about
    a plate you have eaten. */
 .mstep.spent [data-mstep] { opacity: 0.35; cursor: default; }
+/* The number is the way back in when the portion is locked, so it has to look
+   like something rather than like text that happens to be there. */
+/* This meal has been opened up to every section. Quiet — it is a statement of
+   fact about where the suggestions are coming from, not a warning. */
+.mslot-wide {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ochre-text); white-space: nowrap; flex: none;
+}
+.mslot-try.wide { color: var(--ochre-text); }
+.mstep-wake {
+  background: none; border: 0; font: inherit; text-align: left; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+  text-decoration-color: var(--line-firm);
+}
 .mstep.spent .mstep-x { color: var(--muted); }
 /* its own box, on the far side of the gap */
 .mtick {

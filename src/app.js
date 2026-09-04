@@ -605,7 +605,10 @@
     mpBasket: {},
     /* How far down each meal's ranked list Try again has walked, keyed day
        and meal. Ephemeral on purpose: tomorrow starts at the top again. */
-    mTry: {}
+    mTry: {},
+    /* Which eaten plate has had its portion woken up for a correction. One at
+       a time, and never persisted: it is a gesture, not a setting. */
+    mEdit: ''
   };
 
   // ------------------------------------------------------------------ browse
@@ -2683,7 +2686,7 @@
                that is a thing you may still want to say about a plate you
                have already eaten. Only the servings lock.
                Untick and the stepper comes back; nothing here is one-way. */
-            '<span class="mstep' + (it.eaten ? ' spent' : '') + '">' +
+            '<span class="mstep' + (it.eaten && S.mEdit !== tag ? ' spent' : '') + '">' +
               '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
                 (it.l ? 'true' : 'false') + '" aria-label="' +
                 (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
@@ -2691,10 +2694,18 @@
                  for as long as the tab has existed, which names the
                  arithmetic and not the food — and left "one and three
                  quarters of WHAT?" with no answer anywhere on the card. */
-              '<span class="mstep-x">' + esc(port.head) + '</span>' +
-              '<button data-mstep="' + tag + ':down"' + (it.eaten ? ' disabled' : '') +
+              /* Eaten, this is the way back in. Correcting a portion after
+                 the fact used to be untick, adjust, re-tick — three actions
+                 for the ordinary case of eating more than you planned. One
+                 tap on the number now hands the stepper back, which is still
+                 a deliberate act and no longer a chore. */
+              (it.eaten && S.mEdit !== tag
+                ? '<button class="mstep-x mstep-wake" data-medit="' + tag +
+                  '" title="Correct this portion">' + esc(port.head) + '</button>'
+                : '<span class="mstep-x">' + esc(port.head) + '</span>') +
+              '<button data-mstep="' + tag + ':down"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
                 ' aria-label="Smaller portion">&minus;</button>' +
-              '<button data-mstep="' + tag + ':up"' + (it.eaten ? ' disabled' : '') +
+              '<button data-mstep="' + tag + ':up"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
                 ' aria-label="Bigger portion">+</button>' +
             '</span>' +
             '<label class="mtick"><input type="checkbox" data-meat="' + tag + '"' +
@@ -2765,7 +2776,14 @@
             ? '<button class="mslot-ic mslot-bal no-print" data-mbal="' + esc(sk) + '" ' +
               'aria-label="Balance ' + esc(name) + ' to its share" ' +
               'title="Solve these portions against this meal\u2019s macros">&#9878;</button>' : '') +
-          (onPlan ? '<button class="mslot-ic mslot-try no-print" data-mtry="' + esc(sk) + '" ' +
+          /* Said out loud, because an answer from outside this meal's own
+             sections is exactly what was asked for and exactly what looks
+             like a fault if it turns up unexplained. */
+          (onPlan && mWideOpen(sk)
+            ? '<span class="mslot-wide" title="After ten tries this meal is ' +
+              'choosing from every section">everywhere</span>' : '') +
+          (onPlan ? '<button class="mslot-ic mslot-try no-print' +
+            (mWideOpen(sk) ? ' wide' : '') + '" data-mtry="' + esc(sk) + '" ' +
             'aria-label="Another suggestion for ' + esc(name) + '" ' +
             'title="Another suggestion — walks down the best-fit list">&#8635;</button>' : '') +
           /* A plus, not "+ Add". Everybody knows what a plus does, and the
@@ -5376,6 +5394,30 @@
     return 'f:my:' + key;
   }
 
+  /* How many "not that one"s it takes before a meal is allowed to look
+     outside its own sections. */
+  var MTRY_WIDE = 10;
+
+  /* Every section there is, from the data rather than from a list here — a
+     book gaining a section should not need this remembering. */
+  var M_ALL_SECS = null;
+  function mAllSecs() {
+    if (!M_ALL_SECS) {
+      var seen = {};
+      RECIPES.forEach(function (r) { seen[r.book + '-' + r.secNum] = 1; });
+      M_ALL_SECS = Object.keys(seen);
+    }
+    return M_ALL_SECS;
+  }
+
+  /* Whether this meal has been opened up, for the card to say so. */
+  /* The cursor is zero-based — the first press stores 0 — so the tenth press
+     stores 9. Both readers compare against the same expression rather than
+     each doing its own arithmetic and disagreeing by one. */
+  function mWideOpen(sk) {
+    return (S.mTry[mViewKey() + ':' + sk] || 0) >= MTRY_WIDE - 1;
+  }
+
   function mTryAgain(sk) {
     var k = mViewKey();
     S.mTouched = sk;                   // keep the meal you are cycling open
@@ -5406,15 +5448,25 @@
         return keep.indexOf(it) < 0;
       }).map(function (it) { return it.id; });
       day[sk] = keep;
-      var secs = mSlotSecs(srec);
+      /* Ten presses is not exhaustion — a lunch has forty-odd recipes to walk
+         and the cursor wraps long before you run out. It is disagreement.
+         You have said "not that one" ten times, which is the clearest signal
+         anybody gives that the sections this meal is allowed to look at are
+         not where the answer is. So it stops being allowed to look only there.
+
+         It stays open for the rest of the day on that meal, and says so on
+         the card — a roast beef breakfast arriving unannounced reads as a
+         bug rather than as an answer to what you asked for. */
+      var tries = (S.mTry[cursorKey] === undefined ? -1 : S.mTry[cursorKey]) + 1;
+      var secs = tries >= MTRY_WIDE - 1 ? mAllSecs() : mSlotSecs(srec);
       var pool = RECIPES.filter(function (r) {
         return secs.indexOf(r.book + '-' + r.secNum) >= 0 && !mOnDay(day, r.id) &&
           dropped.indexOf(r.id) < 0;
       });
       var ranked = mRank(pool, day, targets, srec).filter(function (e) { return e.score !== null; });
       if (!ranked.length) return;
-      S.mTry[cursorKey] = (S.mTry[cursorKey] === undefined ? -1 : S.mTry[cursorKey]) + 1;
-      var pick = ranked[S.mTry[cursorKey] % ranked.length];
+      S.mTry[cursorKey] = tries;
+      var pick = ranked[tries % ranked.length];
       day[sk].push({ id: pick.r.id, x: pick.x, eaten: 0 });
     });
     keepingFocus(renderMacros);
@@ -5426,6 +5478,7 @@
     var k = dayKey(d);
     if (k > mLatestKey() || k < mEarliestKey()) return;
     S.macroDate = k === todayKey() ? null : k;
+    S.mEdit = '';                    // a different day, a different plate
     renderMacros();
   }
 
@@ -7120,7 +7173,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
@@ -8142,6 +8195,12 @@
         return;
       }
 
+      /* One tap on a spent portion hands its stepper back. Only one plate at a
+         time is awake, so tapping another puts the first away — the day never
+         drifts into a state where half of it is quietly editable. */
+      var ed = e.target.closest('[data-medit]');
+      if (ed) { S.mEdit = ed.dataset.medit; keepingFocus(renderMacros); return; }
+
       var tr = e.target.closest('[data-mtry]');
       if (tr) { mTryAgain(tr.dataset.mtry); return; }
 
@@ -8197,7 +8256,7 @@
           var it = (day[sp[0]] || [])[Number(sp[1])];
           if (!it) return;
           // the disabled attribute is paint; this is the rule
-          if (it.eaten) return;
+          if (it.eaten && S.mEdit !== sp.slice(0, 2).join(':')) return;
           /* Quarter-serving steps land on eighths, so fmtNum always has a
              glyph and never falls back to a decimal. */
           it.x = sp[2] === 'up' ? Math.min(4, it.x + 0.25) : Math.max(0.25, it.x - 0.25);

@@ -1452,6 +1452,80 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+    /* One tap on a spent portion hands the stepper back.
+     *
+       Correcting a portion after ticking used to be untick, adjust, re-tick —
+       three actions for the ordinary case of having eaten more than planned.
+       It is still a deliberate act, it is just no longer a chore. */
+    const wake = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await wake.click('.tab[data-view="macros"]');
+    await wake.waitForTimeout(300);
+    await wake.click('#macroFill');
+    await wake.waitForTimeout(600);
+    await wake.evaluate(() => {
+      const b = document.querySelector('.mslot-sub[aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await wake.waitForTimeout(300);
+    await wake.click('.mitem [data-meat]');
+    await wake.waitForTimeout(400);
+    t.ok('a locked portion offers a way back in',
+      await wake.evaluate(() => !!document.querySelector('.mstep-wake')));
+    await wake.click('.mstep-wake');
+    await wake.waitForTimeout(400);
+    const woke = await wake.evaluate(() => {
+      const st = document.querySelector('.mstep');
+      return { live: [...st.querySelectorAll('[data-mstep]')].every((b) => !b.disabled),
+        grey: st.classList.contains('spent'),
+        stillEaten: !!document.querySelector('.mitem [data-meat]:checked') };
+    });
+    t.ok('and one tap wakes it, without unticking the meal',
+      woke.live && !woke.grey && woke.stillEaten, JSON.stringify(woke));
+    /* And it actually moves — waking it is no use if the press is still
+       refused by the handler's own rule. */
+    t.ok('and the portion can then be changed',
+      await wake.evaluate(() => {
+        const was = document.querySelector('.mstep-x').textContent.trim();
+        document.querySelector('[data-mstep$=":up"]').click();
+        return document.querySelector('.mstep-x').textContent.trim() !== was;
+      }));
+
+    /* Ten "not that one"s is disagreement, not exhaustion — a lunch has forty
+       recipes and the cursor wraps long before you run out. So the meal stops
+       being confined to its own sections, and says so, because a roast beef
+       breakfast arriving unannounced reads as a fault. */
+    const argued = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await argued.click('.tab[data-view="macros"]');
+    await argued.waitForTimeout(300);
+    await argued.click('#macroFill');
+    await argued.waitForTimeout(600);
+    t.ok('a meal says nothing about its sections until it has been argued with',
+      await argued.evaluate(() => !document.querySelector('.mslot-wide')));
+    for (let i = 0; i < 10; i++) {
+      await argued.evaluate(() => {
+        const b = document.querySelector('[data-mtry]');
+        if (b) b.click();
+      });
+      await argued.waitForTimeout(90);
+    }
+    await argued.waitForTimeout(400);
+    t.ok('ten tries later it is looking everywhere, and says so',
+      await argued.evaluate(() => {
+        const w = document.querySelector('.mslot-wide');
+        return !!w && /everywhere/i.test(w.textContent);
+      }),
+      await argued.evaluate(() => (document.querySelector('.mslot-h') || {}).textContent || ''));
+    /* And the widening is real, not just a caption: what it offers now has to
+       be reachable from outside that meal's own sections. */
+    t.ok('and the pool it draws from is genuinely wider',
+      await argued.evaluate(() => {
+        const L = window.__macroLab;
+        return L.rank('b', 40).length > L.rank('l', 40).length ||
+          window.RECIPES.filter((r) => r.book === 1 && r.secNum === 1).length < 40;
+      }));
+    await argued.context().close();
+    await wake.context().close();
+
     /* Nobody asked the app for three servings.
      *
        Undershoot is judged against the meal's share and overshoot against the
