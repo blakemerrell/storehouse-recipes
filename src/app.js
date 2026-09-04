@@ -4530,35 +4530,118 @@
   /* The card you get for closing a day, and the one the menu opens for any
      day. Deltas signed and named the way the pills are — over and short, not
      plus and minus — so the two say the same thing in the same words. */
+  /* The card you get for closing a day, and the one the menu opens for any
+     day.
+   *
+     A sentence before a number. At nine at night the useful thing is what
+     kind of day it was; the arithmetic is the evidence for it, not the
+     headline. Everything below is read back through mTotals and mDayTargets —
+     the same two the pills at the top use — so the card and the strip cannot
+     come to different conclusions about what you ate. */
   function mSummaryHTML(k) {
-    var sum = mDaySummary(k);
+    var s = mDaySummary(k);
     var d = keyDate(k);
     var title = M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' + d.getDate();
+    var dk = s.got - s.want;
 
-    var row = function (r) {
-      var dv = r.got - r.want;
-      var word = dv === 0 ? 'on target' : (dv > 0 ? '+' : '\u2212') + Math.abs(dv) + r.u;
-      var cls = dv === 0 ? 'on' : Math.abs(dv) <= Math.max(10, r.want * 0.08) ? 'near'
-        : dv > 0 ? 'over' : 'short';
-      return '<div class="ds-row"><span class="ds-n">' + r.n + '</span>' +
-        '<span class="ds-v">' + r.got.toLocaleString() + ' / ' + r.want.toLocaleString() + r.u + '</span>' +
-        '<span class="ds-d ' + cls + '">' + word + '</span></div>';
-    };
+    /* One clause about the thing that actually went wrong, in the order a
+       person notices it: did you eat the day, then did you get the protein. */
+    var says;
+    if (!s.any) {
+      says = 'Nothing was written down on this day.';
+    } else if (s.thin) {
+      says = 'Only <b>' + s.got.toLocaleString() + '</b> written down. Either a very light day ' +
+        'or one that stopped being logged — this cannot tell those apart, and does not guess.';
+    } else if (dk > s.want * 0.12 && s.rows[0].got - s.rows[0].want < -20) {
+      says = 'Over by <b>' + Math.abs(dk) + '</b> and <b>' +
+        Math.abs(s.rows[0].got - s.rows[0].want) + ' g short on protein</b>. ' +
+        'The calories went somewhere that was not protein.';
+    } else if (dk > s.want * 0.12) {
+      says = '<b>' + Math.abs(dk) + ' over</b>, with the protein where it should be.';
+    } else if (s.rows[0].got - s.rows[0].want < -20) {
+      says = 'Calories landed, but <b>' + Math.abs(s.rows[0].got - s.rows[0].want) +
+        ' g short on protein</b>.';
+    } else if (Math.abs(dk) <= s.want * 0.05) {
+      says = 'On the day and on the protein. <b>Nothing to fix.</b>';
+    } else {
+      says = 'Close enough on both.';
+    }
 
-    /* Seven bars, each against its own target, so a day on a different plan
-       is not made to look like a miss. A day never filled in draws nothing —
-       it is a gap in the record, not a zero. */
-    var top = 1;
-    sum.week.forEach(function (w) { if (w.kcal) top = Math.max(top, w.kcal / w.want); });
-    var bars = sum.week.map(function (w) {
-      if (w.kcal === null) {
-        return '<span class="ds-bar empty" title="' + esc(w.k) + ' \u2014 nothing logged"></span>';
-      }
-      var h = Math.max(6, Math.round(100 * (w.kcal / w.want) / top));
-      return '<span class="ds-bar' + (w.today ? ' today' : '') +
-        (w.kcal > w.want ? ' over' : '') + '" style="height:' + h + '%" title="' +
-        esc(w.k) + ' \u2014 ' + w.kcal.toLocaleString() + ' of ' + w.want.toLocaleString() + '"></span>';
+    /* The ring carries the OVERSHOOT as well as the fill. A bar that stops at
+       a hundred per cent cannot tell fourteen hundred from twenty-one; past
+       target this keeps going on an inner track, so busting the day looks
+       like busting the day. */
+    var R = 55, C = 2 * Math.PI * R, R2 = 41, C2 = 2 * Math.PI * R2;
+    var pct = s.want ? s.got / s.want : 0;
+    var over = Math.max(0, Math.min(1, pct - 1));
+    var ringCol = pct > 1.05 ? 'var(--dial-over)' : pct < 0.9 ? 'var(--ochre)' : 'var(--green)';
+    var ring = '<div class="ds-ring"><svg viewBox="0 0 132 132" aria-hidden="true">' +
+      '<circle class="t" cx="66" cy="66" r="' + R + '"></circle>' +
+      '<circle class="f" cx="66" cy="66" r="' + R + '" stroke="' + ringCol + '" ' +
+        'stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' +
+        (C * (1 - Math.min(1, pct))).toFixed(1) + '"></circle>' +
+      (over > 0 ? '<circle class="o" cx="66" cy="66" r="' + R2 + '" stroke-dasharray="' +
+        C2.toFixed(1) + '" stroke-dashoffset="' + (C2 * (1 - over)).toFixed(1) + '"></circle>' : '') +
+      '</svg><span class="ds-ring-m"><b>' + s.got.toLocaleString() + '</b>' +
+      '<i>of ' + s.want.toLocaleString() + '</i></span></div>';
+
+    /* Protein, day by day. The week's fact, sitting inside the day. */
+    var pips = '<div class="ds-pips">' + s.week.map(function (w) {
+      var c = w.hit === null ? '' : w.hit ? (w.today ? ' today' : ' hit') : ' miss';
+      return '<span class="ds-pip' + c + '"></span>';
+    }).join('') + '</div><div class="ds-sub">protein, day by day</div>';
+
+    /* A mark where the target sits, so "how far past" is a distance you can
+       see rather than a subtraction you have to do. */
+    var bars = s.rows.map(function (r) {
+      var top = Math.max(r.got, r.want) * 1.15 || 1;
+      var bust = r.got > r.want * 1.08;
+      return '<div class="ds-m"><span class="ds-mk ' + r.kk + '">' +
+        r.kk.toUpperCase() + '</span>' +
+        '<span class="ds-mt"><span class="ds-mb ' + (bust ? 'bust' : r.kk) + '" style="width:' +
+          (100 * r.got / top).toFixed(1) + '%"></span>' +
+          '<span class="ds-mk-t" style="left:' + (100 * r.want / top).toFixed(1) + '%"></span>' +
+        '</span>' +
+        '<span class="ds-mv"><b>' + r.got + '</b> / ' + r.want + ' g</span></div>';
     }).join('');
+
+    var top = 1;
+    s.week.forEach(function (w) { if (w.kcal) top = Math.max(top, w.kcal, w.want); });
+    top = top * 1.12;
+    var week = '<div class="ds-week">' + s.week.map(function (w) {
+      if (w.kcal === null) {
+        return '<span class="ds-wk none" title="' + esc(w.k) + ' — nothing logged">' +
+          '<i style="height:8px"></i></span>';
+      }
+      return '<span class="ds-wk' + (w.today ? ' today' : '') +
+        (w.kcal > w.want ? ' over' : '') + '" title="' + esc(w.k) + ' — ' +
+        w.kcal.toLocaleString() + ' of ' + w.want.toLocaleString() + '">' +
+        '<i style="height:' + (100 * w.kcal / top).toFixed(1) + '%"></i></span>';
+    }).join('') + '<span class="ds-line" style="top:' +
+      (100 - 100 * s.want / top).toFixed(1) + '%"><span>target</span></span></div>' +
+      '<div class="ds-days">' + s.week.map(function (w) {
+        return '<span' + (w.today ? ' class="today"' : '') + '>' + esc(w.lab) + '</span>';
+      }).join('') + '</div>';
+
+    var COL = ['var(--ochre)', 'oklch(0.58 0.09 40)', 'var(--green)', 'oklch(0.52 0.07 70)'];
+    var split = s.meals.length
+      ? '<div class="ds-split">' + s.meals.map(function (m, i) {
+          var pc = m.kcal / (s.mTot || 1);
+          return '<span style="flex:' + m.kcal + ' 1 0;background:' + COL[i % 4] + '">' +
+            (pc > 0.14 ? esc(m.n.slice(0, 1)) + ' ' + Math.round(pc * 100) + '%' : '') + '</span>';
+        }).join('') + '</div>' +
+        '<div class="ds-splitl"><span>' + esc(s.meals.map(function (m) { return m.n; }).join(' · ')) +
+        '</span><span><b>' + Math.round(100 * s.biggest.kcal / (s.mTot || 1)) + '%</b> in ' +
+        esc(s.biggest.n.toLowerCase()) + '</span></div>'
+      : '';
+
+    var dv = s.got - s.avg;
+    var facts = '<div class="ds-facts">' +
+      (s.avg ? '<div class="ds-fact"><em>' + (dv > 0 ? '+' : '') + dv + '</em><span>against your ' +
+        'seven-day average of <b>' + s.avg.toLocaleString() + '</b></span></div>' : '') +
+      (s.kept ? '<div class="ds-fact"><em>' + s.onP + '/' + s.kept + '</em><span>days on protein, ' +
+        'of the ones you wrote down</span></div>' : '') +
+    '</div>';
 
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet ds-sheet" role="dialog" aria-modal="true" aria-label="How the day went">' +
@@ -4567,18 +4650,23 @@
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="ds-day">' + esc(title) + '</div>' +
-        (sum.any
-          ? '<div class="ds-rows">' + sum.rows.map(row).join('') + '</div>' +
-            '<div class="ds-week">' +
-              '<div class="ds-week-h">The seven days to here</div>' +
-              '<div class="ds-bars">' + bars + '</div>' +
-              (sum.where ? '<div class="ds-note">Today is ' + esc(sum.where) + '.</div>' : '') +
-              (sum.kept
-                ? '<div class="ds-note">Protein on target ' + sum.onP + ' of ' +
-                  sum.kept + (sum.kept === 1 ? ' day' : ' days') + ' logged.</div>'
-                : '') +
-            '</div>'
-          : '<div class="ds-empty">Nothing was logged on this day.</div>') +
+        '<p class="ds-says">' + says + '</p>' +
+        (s.any
+          ? '<div class="ds-hero">' + ring +
+              '<div class="ds-side"><div class="ds-d ' +
+                (Math.abs(dk) <= s.want * 0.05 ? 'on' : dk > 0 ? 'over' : 'under') + '">' +
+                (dk > 0 ? '+' : '') + dk + '</div>' +
+                '<div class="ds-sub">calories against target</div>' + pips +
+              '</div>' +
+            '</div>' +
+            '<div class="ds-macros">' + bars + '</div>' +
+            '<div class="ds-blk"><div class="ds-h">The seven days to here</div>' + week + '</div>' +
+            (split ? '<div class="ds-blk"><div class="ds-h">Where the day went</div>' +
+              split + '</div>' : '') +
+            (facts.indexOf('ds-fact') > 0
+              ? '<div class="ds-blk"><div class="ds-h">Against your week</div>' + facts + '</div>'
+              : '')
+          : '') +
         '<div class="sync-row"><button class="btn-primary" data-close="1">Done</button></div>' +
       '</div>' +
     '</div>';
@@ -5660,41 +5748,66 @@
      Wednesday a calendar week is three days and answers nothing. */
   function mDaySummary(k) {
     var T = mDayTargets(k);
-    var tot = mTotals(mDay(k)).all;
+    var day = mDay(k);
+    var tot = mTotals(day).all;
     var kcal = function (o) { return 4 * (o.p || 0) + 4 * (o.c || 0) + 9 * (o.f || 0); };
+    var got = Math.round(kcal(tot)), want = Math.round(kcal(T));
+
     var rows = [
-      { n: 'Calories', got: Math.round(kcal(tot)), want: Math.round(kcal(T)), u: '' },
-      { n: 'Protein', got: Math.round(tot.p), want: Math.round(T.p), u: ' g' },
-      { n: 'Fat', got: Math.round(tot.f), want: Math.round(T.f), u: ' g' },
-      { n: 'Carbs', got: Math.round(tot.c), want: Math.round(T.c), u: ' g' }
+      { n: 'Protein', kk: 'p', got: Math.round(tot.p), want: Math.round(T.p) },
+      { n: 'Fat', kk: 'f', got: Math.round(tot.f), want: Math.round(T.f) },
+      { n: 'Carbs', kk: 'c', got: Math.round(tot.c), want: Math.round(T.c) }
     ];
-    /* The week behind it. A day with nothing logged is not a zero-calorie day,
-       it is a day that was never filled in — counting it would drag every
-       average down and quietly tell you the cut is going better than it is. */
-    var week = [], onP = 0, kept = 0;
+
+    /* Where the day actually went. The one number you cannot read off the
+       cards is how much of it landed in a single meal. */
+    var meals = [];
+    mReadSlots().list.forEach(function (s) {
+      var kc = 0;
+      (day[s.k] || []).forEach(function (it) {
+        var r = BY_ID[it.id];
+        if (r && r.macro) kc += (r.macro.kcal || 0) * it.x;
+      });
+      if (kc > 0) meals.push({ n: s.n, kcal: Math.round(kc) });
+    });
+    var mTot = 0, biggest = null;
+    meals.forEach(function (m) {
+      mTot += m.kcal;
+      if (!biggest || m.kcal > biggest.kcal) biggest = m;
+    });
+
+    /* The week behind it, each day against ITS OWN target — a day on a
+       different plan is not made to look like a miss. A day never filled in
+       draws nothing: nothing logged is a gap in the record, not a day of no
+       food, and counting it as a zero would quietly tell you the cut is going
+       better than it is. */
+    var week = [], onP = 0, kept = 0, sumK = 0;
     var d = keyDate(k);
     for (var i = 6; i >= 0; i--) {
       var dd = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i);
       var dk = dayKey(dd);
       var dt = mTotals(mDay(dk)).all;
-      var has = (dt.p + dt.f + dt.c) > 0;
       var dT = mDayTargets(dk);
+      var has = (dt.p + dt.f + dt.c) > 0;
+      var hit = null;
       if (has) {
         kept++;
-        if (Math.abs(dt.p - dT.p) <= Math.max(10, dT.p * 0.08)) onP++;
+        sumK += kcal(dt);
+        hit = Math.abs(dt.p - dT.p) <= Math.max(10, dT.p * 0.08) ? 1 : 0;
+        if (hit) onP++;
       }
       week.push({ k: dk, kcal: has ? Math.round(kcal(dt)) : null,
-        want: Math.round(kcal(dT)), today: dk === k });
+        want: Math.round(kcal(dT)), hit: hit, today: dk === k,
+        lab: M_WDAYS[dd.getDay()].slice(0, 1) });
     }
-    var logged = week.filter(function (w) { return w.kcal !== null; });
-    var high = logged.length > 1 && logged.every(function (w) {
-      return w.k === k || w.kcal <= rows[0].got;
-    });
-    var low = logged.length > 1 && logged.every(function (w) {
-      return w.k === k || w.kcal >= rows[0].got;
-    });
-    return { rows: rows, week: week, onP: onP, kept: kept,
-      where: high ? 'your highest this week' : low ? 'your lowest this week' : '',
+
+    /* A day barely written down is not a day of great restraint, and this is
+       the one state these cards usually lie about. It does not guess which it
+       was — it says it cannot tell. */
+    var thin = got > 0 && got < want * 0.45;
+    return { rows: rows, week: week, onP: onP, kept: kept, meals: meals,
+      biggest: biggest, mTot: mTot, got: got, want: want, thin: thin,
+      avg: kept ? Math.round(sumK / kept) : 0,
       any: (tot.p + tot.f + tot.c) > 0 };
   }
 

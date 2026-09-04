@@ -713,50 +713,114 @@ select { max-width: 280px; }
 .mslot-unskip { flex: 0 0 auto; font-size: 12px; padding: 4px 10px; }
 .mslot-skip { font-size: 14px; }
 
-/* --- how the day went ------------------------------------------------- */
-.ds-day {
-  font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 2px 0 14px;
+/* --- how the day went ---------------------------------------------------
+   A sentence, then the evidence for it. Every number here is the one already
+   on the day's own strip; nothing is computed twice. */
+.ds-day { font-family: var(--serif); font-size: 21px; font-weight: 600; margin: 2px 0 4px; }
+.ds-says {
+  font-family: var(--serif); font-size: 14.5px; line-height: 1.42; color: var(--muted);
+  margin: 0 0 18px; text-wrap: balance;
 }
-.ds-rows { display: flex; flex-direction: column; gap: 2px; }
-.ds-row {
-  display: flex; align-items: baseline; gap: 10px; padding: 7px 0;
-  border-bottom: 1px solid var(--line-soft);
+.ds-says b { color: var(--ink); font-weight: 600; }
+
+.ds-hero { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.ds-ring { flex: 0 0 auto; position: relative; width: 128px; height: 128px; }
+.ds-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
+.ds-ring .t { fill: none; stroke: var(--line-soft); stroke-width: 11; }
+.ds-ring .f { fill: none; stroke-width: 11; stroke-linecap: round; }
+/* the inner track is the overshoot: a bar stopping at 100% cannot tell 1,400
+   from 2,100, and the day you most want telling about is the second one */
+.ds-ring .o { fill: none; stroke: var(--dial-over); stroke-width: 9; stroke-linecap: round; }
+.ds-ring-m {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px;
 }
-.ds-row:last-child { border-bottom: 0; }
-.ds-n { flex: 0 0 auto; width: 68px; font-size: 12.5px; color: var(--muted); }
-.ds-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; }
+.ds-ring-m b {
+  font-family: var(--serif); font-size: 27px; font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ds-ring-m i {
+  font-style: normal; font-size: 9.5px; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted);
+}
+.ds-side { flex: 1 1 auto; min-width: 0; }
 .ds-d {
-  flex: 0 0 auto; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  font-family: var(--serif); font-size: 25px; font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-.ds-d.on, .ds-d.near { color: var(--green); }
-.ds-d.over { color: var(--dial-over); }
-.ds-d.short { color: var(--ochre-text); }
-.ds-week { margin-top: 20px; }
-.ds-week-h {
+.ds-d.over { color: var(--dial-over); } .ds-d.under { color: var(--ochre-text); }
+.ds-d.on { color: var(--green); }
+.ds-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.ds-pips { display: flex; gap: 4px; margin-top: 12px; }
+/* Same rule as the bars above: a day never written down is a gap in the
+   record, not a day the protein was missed on, so it is an outline and not a
+   grey pip. Reading six misses where three were blanks is the exact lie this
+   card exists not to tell. */
+.ds-pip {
+  flex: 1 1 0; height: 4px; border-radius: 2px; background: none;
+  border: 1px dashed var(--line);
+}
+.ds-pip.hit { background: color-mix(in oklab, var(--green) 60%, var(--card)); border: 0; }
+.ds-pip.today { background: var(--green); border: 0; }
+.ds-pip.miss { background: var(--line-firm); border: 0; }
+
+.ds-macros { display: flex; flex-direction: column; gap: 11px; margin-bottom: 4px; }
+.ds-m { display: grid; grid-template-columns: 15px 1fr auto; gap: 9px; align-items: center; }
+.ds-mk { font-size: 11px; font-weight: 700; }
+.ds-mk.p { color: var(--bar-p); } .ds-mk.f { color: var(--bar-f); } .ds-mk.c { color: var(--bar-c); }
+.ds-mt { position: relative; height: 9px; border-radius: 5px; background: var(--line-soft); }
+.ds-mb { position: absolute; inset: 0 auto 0 0; border-radius: 5px; }
+.ds-mb.p { background: var(--bar-p); } .ds-mb.f { background: var(--bar-f); }
+.ds-mb.c { background: var(--bar-c); } .ds-mb.bust { background: var(--dial-over); }
+/* where the target sits, so how far past is a distance and not a subtraction */
+.ds-mk-t { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: 0.5; }
+.ds-mv { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ds-mv b { color: var(--ink); font-weight: 600; }
+
+.ds-blk { border-top: 1px solid var(--line-soft); padding-top: 15px; margin-top: 18px; }
+.ds-h {
   font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--muted); margin-bottom: 9px;
+  color: var(--muted); margin-bottom: 11px;
 }
-/* Seven days, each against its own target. A day never filled in is drawn as
-   an outline rather than a short bar: nothing logged is a gap in the record,
-   not a day of no food, and a stub would read as the second. */
-.ds-bars {
-  display: flex; align-items: flex-end; gap: 6px; height: 54px;
-  padding-bottom: 2px; border-bottom: 1px solid var(--line-soft);
+.ds-week { position: relative; display: flex; align-items: flex-end; gap: 6px; height: 60px; }
+.ds-wk { flex: 1 1 0; height: 100%; display: flex; align-items: flex-end; }
+.ds-wk i {
+  display: block; width: 100%; border-radius: 3px 3px 0 0;
+  background: color-mix(in oklab, var(--ochre) 42%, var(--card));
 }
-.ds-bar {
-  flex: 1 1 0; min-width: 0; border-radius: 2px 2px 0 0;
-  background: color-mix(in oklab, var(--ochre) 55%, var(--card));
+.ds-wk.over i { background: color-mix(in oklab, var(--dial-over) 42%, var(--card)); }
+.ds-wk.today i { background: var(--ochre); }
+.ds-wk.today.over i { background: var(--dial-over); }
+/* nothing logged is a gap in the record, not a day of no food — an outline
+   says that where a short bar would have claimed the second */
+.ds-wk.none i { background: none; border: 1px dashed var(--line); border-bottom: 0; }
+.ds-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--ink); opacity: 0.35; }
+.ds-line span {
+  position: absolute; right: 0; top: -12px; font-size: 8.5px; color: var(--muted);
+  background: var(--card); padding: 0 3px;
 }
-.ds-bar.over { background: color-mix(in oklab, var(--dial-over) 55%, var(--card)); }
-.ds-bar.today { background: var(--ochre); }
-.ds-bar.today.over { background: var(--dial-over); }
-.ds-bar.empty {
-  height: 8px; background: none; border: 1px dashed var(--line);
-  border-bottom: 0; border-radius: 2px 2px 0 0;
+.ds-days { display: flex; gap: 6px; margin-top: 5px; }
+.ds-days span { flex: 1 1 0; text-align: center; font-size: 9px; color: var(--muted); }
+.ds-days span.today { color: var(--ochre-text); font-weight: 700; }
+
+.ds-split { display: flex; height: 26px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.ds-split span {
+  display: flex; align-items: center; justify-content: center; min-width: 0;
+  font-size: 9.5px; font-weight: 600; color: oklch(0.99 0.004 85);
 }
-.ds-note { font-size: 12.5px; color: var(--muted); margin-top: 9px; }
-.ds-empty { font-size: 13px; color: var(--muted); font-style: italic; padding: 8px 0 4px; }
+.ds-splitl {
+  display: flex; justify-content: space-between; gap: 10px; margin-top: 7px;
+  font-size: 10.5px; color: var(--muted);
+}
+.ds-splitl b { color: var(--ink); font-weight: 600; }
+
+.ds-facts { display: flex; flex-direction: column; gap: 9px; }
+.ds-fact { display: flex; gap: 9px; align-items: baseline; font-size: 12.5px; color: var(--muted); }
+.ds-fact b { color: var(--ink); font-weight: 600; }
+.ds-fact em {
+  flex: 0 0 auto; font-style: normal; font-family: var(--serif); font-size: 17px;
+  font-weight: 700; color: var(--ochre-text); font-variant-numeric: tabular-nums; min-width: 34px;
+}
 
 .mstep .mstep-wake {
   background: none; border: 0; font-family: inherit; cursor: pointer;

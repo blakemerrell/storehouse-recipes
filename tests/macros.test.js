@@ -1566,30 +1566,60 @@ module.exports = {
     const dayCard = await closed.evaluate(() => {
       const sh = document.querySelector('.ds-sheet');
       if (!sh) return null;
-      const rows = [...sh.querySelectorAll('.ds-row')].map((r) =>
-        r.querySelector('.ds-n').textContent.trim());
-      return { rows, bars: sh.querySelectorAll('.ds-bar').length,
-        text: sh.textContent.replace(/\s+/g, ' ').slice(0, 60) };
+      const num = (el) => Number((el.textContent.replace(/,/g, '').match(/\d+/) || [0])[0]);
+      return {
+        says: sh.querySelector('.ds-says').textContent.trim(),
+        ring: num(sh.querySelector('.ds-ring-m b')),
+        macros: [...sh.querySelectorAll('.ds-mk')].map((e) => e.textContent.trim()).join(),
+        targetMarks: sh.querySelectorAll('.ds-mk-t').length,
+        weekBars: sh.querySelectorAll('.ds-wk').length,
+        targetLine: !!sh.querySelector('.ds-line'),
+        pips: sh.querySelectorAll('.ds-pip').length,
+        split: sh.querySelectorAll('.ds-split span').length,
+        biggest: (sh.querySelector('.ds-splitl b') || {}).textContent || ''
+      };
     });
-    t.ok('closing the day tells you how it went',
-      !!dayCard && dayCard.rows.join() === 'Calories,Protein,Fat,Carbs' && dayCard.bars === 7,
+    /* A sentence before a number: at nine at night the useful thing is what
+       kind of day it was, and the arithmetic is the evidence for it. */
+    /* Not "contains a number" — a day that went well says "On the day and on
+       the protein. Nothing to fix.", and demanding a digit there was asking
+       the sentence to be a statistic, which is the thing it is not. */
+    t.ok('closing the day says what kind of day it was, in words',
+      !!dayCard && dayCard.says.length > 12 && / /.test(dayCard.says.trim()),
       JSON.stringify(dayCard));
+    t.ok('and shows the day as a ring, three macros and seven days',
+      dayCard.macros === 'P,F,C' && dayCard.weekBars === 7 && dayCard.ring > 0,
+      JSON.stringify(dayCard));
+    /* The three things that make it readable rather than a list of numbers:
+       a mark where each target sits, a target line across the week, and the
+       day broken down by meal. */
+    t.ok('and marks where each target sits, so overshoot is a distance',
+      dayCard.targetMarks === 3, JSON.stringify(dayCard));
+    t.ok('and draws the target across the week rather than narrating it',
+      dayCard.targetLine, JSON.stringify(dayCard));
+    t.ok('and says how much of the day landed in one meal',
+      dayCard.split > 0 && /%/.test(dayCard.biggest), JSON.stringify(dayCard));
+    t.ok('and carries the week\u2019s protein record inside the day',
+      dayCard.pips === 7, JSON.stringify(dayCard));
+    /* A day never written down is a gap in the record, not a day the protein
+       was missed on — the same rule the week bars follow. Reading blanks as
+       misses is the exact lie this card exists not to tell. */
+    t.ok('and an unlogged day is a gap, not a miss',
+      await closed.evaluate(() => {
+        const gap = [...document.querySelectorAll('.ds-pip')].filter((e) =>
+          !e.className.match(/hit|miss|today/));
+        if (!gap.length) return true;                 // a fully logged week
+        return getComputedStyle(gap[0]).borderStyle.indexOf('dashed') === 0;
+      }));
     /* The numbers are read back through the same two functions the pills use,
        so the card and the strip cannot disagree about what you ate. */
     t.ok('and its numbers are the ones already on the screen',
       await closed.evaluate(() => {
-        const sh = document.querySelector('.ds-sheet');
-        const got = sh.querySelectorAll('.ds-row')[1].querySelector('.ds-v').textContent;
+        const got = document.querySelectorAll('.ds-mv')[0].textContent;
         const L = window.__macroLab;
         const tot = L.read().tot, T = L.targets();
-        /* Parse the two numbers rather than hunting substrings. The first
-           version asked for the target at an index greater than zero, which
-           is false on any day where protein lands exactly ON target — the row
-           reads "180 / 180 g" and both searches find index 0. It failed about
-           one run in three for a reason that had nothing to do with the app. */
-        var nums = got.replace(/,/g, '').match(/\d+/g) || [];
-        return Number(nums[0]) === Math.round(tot.p) &&
-          Number(nums[1]) === Math.round(T.p);
+        const nums = got.replace(/,/g, '').match(/\d+/g) || [];
+        return Number(nums[0]) === Math.round(tot.p) && Number(nums[1]) === Math.round(T.p);
       }));
     await closed.click('.sheet-x');
     await closed.waitForTimeout(300);
