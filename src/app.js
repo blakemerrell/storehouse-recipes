@@ -3045,7 +3045,30 @@
              measured against the day while the bar beside it was drawn
              against the share. No shares on screen, no way for two of them
              to differ. */
-          '<span class="msub-k">' + Math.round(sub.kcal) + '</span>' +
+          /* The gauges go here, where the bare calorie number used to sit.
+           *
+             They were on the header row first, beside the name, which is
+             where Blake asked for them — and at 390 px with a name, a scale,
+             a retry and a plus already on that row, "BREAKFAST" rendered as
+             "BREAKFAS". Four gauges do not fit beside three buttons, and
+             clipping the meal's own name to make room is the wrong thing to
+             give up.
+
+             This strip is the better home anyway: it is full width, it is
+             directly under the name, it is where the meal's numbers have
+             always been, and it was left with nothing but a floating chevron
+             when the calories moved. The whole strip stays the fold target,
+             so a thumb landing anywhere on a gauge still opens the meal.
+
+             An empty meal draws none of this, and does not need a guard of
+             its own to be sure of it: this whole strip is inside `rows ?`,
+             and rows is built from the plates. No plates, no seam, no
+             gauges — the meal gets its flame and its number from
+             mVerdictHTML up on the header instead. (There WAS a second
+             `items.length` check here. It could not fail, and a mutation
+             that removed it left the suite green, which is how it was found
+             out.) */
+          mGaugesHTML(sub, mMealShare(sk, targets, slots), targets, !eatenAll) +
           /* The verdict, per macro, on the row that already existed.
            *
              Same construction as the day's own folded pills one level up: a
@@ -3091,7 +3114,21 @@
                 /* The same portion words the open plate uses — "1 cup ·
                    130 g", "1½ servings" — so a folded meal reads as food
                    rather than as multipliers. */
-                '<span class="mthin-x">' + esc(mPortionText(r2, it.x)) + '</span></div>';
+                /* Held, said where the holding is visible.
+                 *
+                   The lock lives on the open plate, beside the portion it
+                   holds still. Shut, the row carried no sign of it at all —
+                   so the ordinary gesture (lock the dinner you promised the
+                   family, fold the card, press Rebalance) gave back a day
+                   with no way to see what had been spared. Eaten already
+                   marks itself here; held had nothing.
+
+                   Beside the portion, because that is where it sits on the
+                   open plate and a fold should not move things. */
+                '<span class="mthin-x">' + esc(mPortionText(r2, it.x)) +
+                  (it.l ? ' <span class="mthin-l" role="img" aria-label="held through Rebalance"'
+                    + ' title="Held through Rebalance">&#128274;</span>' : '') +
+                '</span></div>';
             }).join('') + '</div>'
           : '<div class="mslot-items">' +
             /* Open is where the ± buttons are, so it is where the whole
@@ -3190,6 +3227,80 @@
      read "on". mEditDay un-skips on the way in, so the two can only disagree
      when a skip arrives from the other device after the food did. This is the
      arithmetic refusing to hand out more than a day even then. */
+  /* One gauge: what is on the plate, against a tick where the plan is.
+   *
+     A meal was judged here once before, by chips and by bars, and both were
+     taken off on the grounds that you steer by the DAY. They are back at
+     Blake's asking, and the thing that killed them the first time was not
+     the idea — it was that "the meal's share" had two definitions that
+     disagreed, so a panel could invite food its own footer called a bust.
+     There is one definition now, mMealShare, and every gauge on this screen
+     reads it. If a second one ever appears, this is the comment that was
+     supposed to stop it.
+
+     The BAND is measured against the day, not against the share, and that is
+     also hard-won: a meal's share of fat is eleven to nineteen grams, no real
+     dish lands within three of that, and a bar judged against its own share
+     was coloured on every meal of every day. Colour that is always on has
+     stopped saying anything. The band asks the only question worth asking —
+     did this meal miss by enough to move the DAY.
+
+     The tick is drawn at the share and the track is scaled so it has somewhere
+     to sit: fifteen per cent of headroom past the plan when the plate is
+     under it, and the plate's own size when it has run past. So a bar that
+     has blown through the tick still shows HOW far through, which a bar
+     pinned at its own maximum cannot. */
+  function mGauge(got, want, dayT) {
+    if (!(want > 0)) return null;
+    /* The day-relative floor stops tiny shares going always-red; the cap
+       stops the colour contradicting the length.
+     *
+       Floor alone gave a protein bar filled to 55% of its track, with the
+       tick at 87%, painted GREEN — because a fifteen gram miss is only seven
+       per cent of the day and the band forgave it. Both facts were true and
+       the bar said them at once: short means "not there", green means
+       "there". A reader cannot hold that.
+
+       So the band may not exceed 40% of the meal's own share. Below roughly
+       three fifths of the tick a bar is ochre whatever the day thinks, which
+       is exactly where it stops LOOKING landed. */
+    var band = Math.min(Math.max(want * 0.15, (dayT || want) * 0.1), want * 0.4);
+    var scale = Math.max(got, want * 1.15);
+    return {
+      fill: scale > 0 ? Math.min(100, (got / scale) * 100) : 0,
+      tick: scale > 0 ? Math.min(100, (want / scale) * 100) : 0,
+      st: got < want - band ? 'u' : got > want + band ? 'x' : 'o',
+    };
+  }
+
+  var MGAUGE = [['kcal', '\uD83D\uDD25'], ['p', 'P'], ['f', 'F'], ['c', 'C']];
+
+  /* The four of them, on the meal's own header row.
+   *
+     Calories carries a gauge like the other three rather than sitting beside
+     them as a bare number: three bars with a stray digit in front read as a
+     number that had nowhere else to go. The figure sits ABOVE its own track,
+     which is also the only way four of these fit on a 390 px row.
+
+     Planned but not eaten draws faded — a full-looking dinner at eleven in
+     the morning otherwise reads as food you have already had. */
+  function mGaugesHTML(sub, sh, targets, planned) {
+    if (!sh) return '';
+    var day = { kcal: kcalOf(targets), p: targets.p, f: targets.f, c: targets.c };
+    var out = MGAUGE.map(function (g) {
+      var m = g[0], gg = mGauge(sub[m] || 0, sh[m] || 0, day[m]);
+      if (!gg) return '';
+      return '<span class="mgg-1' + (m === 'kcal' ? ' kc' : '') + '">' +
+        '<span class="mgg-l">' + (m === 'kcal' ? g[1] + Math.round(sub.kcal) : g[1]) + '</span>' +
+        '<span class="mgg-t">' +
+          '<span class="mgg-f ' + gg.st + '" style="width:' + gg.fill.toFixed(1) + '%"></span>' +
+          '<span class="mgg-k" style="left:' + gg.tick.toFixed(1) + '%"></span>' +
+        '</span></span>';
+    }).join('');
+    return out ? '<span class="mgg' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
+      out + '</span>' : '';
+  }
+
   function mMealShare(sk, targets, slots) {
     var me = null, sumW = 0, vk = mViewKey(), day = mDay(vk);
     slots.list.forEach(function (s) {
@@ -3329,14 +3440,25 @@
     }).join('') + '</div>';
   }
 
+  /* An empty meal, and what it is for.
+   *
+     It read "at its share &middot; 98". A share is how the solver divides the
+     day's remainder between the meals you have not filled — an implementation
+     detail wearing a chip, and the one thing on this screen Blake said was
+     not intuitive. He is right: nobody should have to learn that word to read
+     their own breakfast.
+
+     The number was never the problem. It stays, with the flame the rest of
+     the row uses, and the sentence goes. No gauges here — there is nothing on
+     the plate to draw, and four empty tracks per meal is most of what you see
+     first thing in the morning. */
   function mVerdictHTML(sk, items, onPlan, targets, slots) {
     if (!targets.p && !targets.f && !targets.c) return '';
-    if (items.length) return '';        // the row below says it, per macro
+    if (items.length) return '';        // the gauges say it, per macro
     var sh = mMealShare(sk, targets, slots);
     if (!sh) return '';
     return onPlan
-      ? '<span class="mslot-v" data-mv="empty">at its share &middot; ' +
-        Math.round(sh.kcal) + '</span>'
+      ? '<span class="mslot-v" data-mv="empty">&#128293;' + Math.round(sh.kcal) + '</span>'
       : '';
   }
 
@@ -5331,7 +5453,8 @@
             '<dt>&#128274;</dt><dd>Holds a portion where you set it. Rebalance leaves it alone.</dd>' +
             '<dt>&#128204;</dt><dd>Puts the dish on every new day, at that portion.</dd>' +
             '<dt>Training days</dt><dd>Earn extra carbs; rest days give them back. The week averages to the plan.</dd>' +
-            '<dt>Hatched bar</dt><dd>A meal with nothing on it yet, counted at its share.</dd>' +
+            '<dt>Hatched bar</dt><dd>A meal with nothing on it yet, counted at what it is for.</dd>' +
+            '<dt>The tick</dt><dd>On a meal\u2019s bars, where that meal is aiming. Past it the bar turns warm.</dd>' +
           '</dl>' +
         '</details>' +
       '</div></div>';
@@ -8941,6 +9064,10 @@
        be asserted without one. The closed-day rule in particular is easy to
        get wrong in a way no single-device test would ever notice. */
     merge: mMergeRemote,
+    /* The gauge's band rule, because it only bites in a narrow window and no
+       arbitrary day's plates land in it — asked through the DOM the test
+       passed with the rule removed. */
+    gauge: mGauge,
     /* The lever bench and the combo builder, so how CLOSE a combo lands can be
        measured over hundreds of shares rather than eyeballed on one. */
     levers: function () {

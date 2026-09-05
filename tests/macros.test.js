@@ -1486,7 +1486,10 @@ module.exports = {
         barsWhileFolded: document.querySelectorAll('.msub-bars').length,
         everyChipOff: [...document.querySelectorAll('.msub-c')].every((e) =>
           /\b(over|short)\b/.test(e.className)),
-        kcalAlways: cards.every((c) => !c.querySelector('.mslot-sub') || !!c.querySelector('.msub-k'))
+        /* The calorie figure moved off the seam and onto its own gauge, so
+           it is read off the flame label now rather than .msub-k. */
+        kcalAlways: cards.every((c) => !c.querySelector('.mslot-sub') ||
+          /\uD83D\uDD25\s*\d/.test(c.querySelector('.mslot-sub').textContent)),
       };
     });
     t.ok('a folded day shows no bars at all',
@@ -1580,12 +1583,27 @@ module.exports = {
     const quietFolded = await pillPg.evaluate(() => ({
       cards: document.querySelectorAll('.mslot').length,
       chips: document.querySelectorAll('.msub-c').length,
-      bars: document.querySelectorAll('.msub-bars').length,
-      kcal: document.querySelectorAll('.msub-k').length
+      oldBars: document.querySelectorAll('.msub-bars').length,
+      seams: document.querySelectorAll('.mslot-sub').length,
+      gauges: document.querySelectorAll('.mslot-sub .mgg').length,
+      ticks: document.querySelectorAll('.mslot-sub .mgg-k').length,
+      kcal: [...document.querySelectorAll('.mslot-sub')]
+        .filter((e) => /\uD83D\uDD25\s*\d/.test(e.textContent)).length,
     }));
-    t.ok('a folded meal says its calories and nothing about macros',
+    /* Reversed deliberately. This used to assert that a folded meal said its
+       calories and NOTHING about macros — you steer by the day, a meal is a
+       container, and grading each one against a share it never agreed to was
+       a second opinion nobody asked for.
+
+       Blake asked for the verdict back, twice, having been shown what it
+       costs. So the seam carries four gauges now: the calories it always
+       carried, and P/F/C against a tick at the meal's share. What must NOT
+       come back is the old apparatus — the chips and the .msub-bars that had
+       a second, disagreeing definition of that share. */
+    t.ok('a folded meal shows its calories and its macros against the plan',
       quietFolded.cards > 0 && quietFolded.kcal > 0 &&
-      quietFolded.chips === 0 && quietFolded.bars === 0,
+      quietFolded.gauges > 0 && quietFolded.ticks === quietFolded.gauges * 4 &&
+      quietFolded.chips === 0 && quietFolded.oldBars === 0,
       JSON.stringify(quietFolded));
     /* And opening one does not bring them back — the open card is plates and
        steppers, which is what it is for. */
@@ -2432,6 +2450,190 @@ module.exports = {
     t.ok('and it stops offering once there is nothing left to close',
       await histPage.evaluate(() => !document.querySelector('.mcombo')));
     await histPage.context().close();
+
+    /* ---- the meal's four gauges ------------------------------------------
+     * Calories and P/F/C on the meal's own seam, each read against a tick
+     * where the plan is. */
+    const gaugePage = await t.fresh();
+    await gaugePage.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg', x: 3, eaten: 1 }, { id: 'f:cheddar', x: 0.25, eaten: 1 }],
+        l: [{ id: 'f:chicken_breast', x: 1, eaten: 0 }],
+        d: [], s: [] } }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
+        goalLb: 175, goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000,
+      }));
+    });
+    await gaugePage.reload();
+    await gaugePage.waitForTimeout(400);
+    await gaugePage.click('.tab[data-view="macros"]');
+    await gaugePage.waitForTimeout(350);
+
+    const gz = await gaugePage.evaluate(() => {
+      const out = [];
+      document.querySelectorAll('.mslot').forEach((card) => {
+        const nm = card.querySelector('.mslot-name');
+        const gg = card.querySelector('.mgg');
+        const chip = card.querySelector('[data-mv="empty"]');
+        out.push({
+          name: nm ? nm.textContent : '',
+          hasGauges: !!gg,
+          planned: !!gg && gg.classList.contains('planned'),
+          chip: chip ? chip.textContent : '',
+          bars: gg ? [...gg.querySelectorAll('.mgg-1')].map((o) => ({
+            l: o.querySelector('.mgg-l').textContent,
+            st: o.querySelector('.mgg-f').className.replace('mgg-f ', ''),
+            fill: parseFloat(o.querySelector('.mgg-f').style.width),
+            tick: parseFloat(o.querySelector('.mgg-k').style.left),
+          })) : [],
+        });
+      });
+      return out;
+    });
+    const fed = gz.filter((c) => c.hasGauges);
+    /* Selected by the CHIP alone. Filtering on "has no gauges" and then
+       asserting it has no gauges is a tautology, and it passed happily with
+       the gauges drawn on every empty meal. */
+    const noFood = gz.filter((c) => c.chip);
+
+    t.ok('a meal with food carries four gauges, calories among them',
+      fed.length >= 2 && fed.every((c) => c.bars.length === 4 &&
+        /\uD83D\uDD25\s*\d/.test(c.bars[0].l)),
+      JSON.stringify(fed.map((c) => c.name + ':' + c.bars.length)));
+
+    /* The tick is the point of the whole thing: without it the bar is a
+       length with nothing to be long against. */
+    t.ok('and every bar carries a tick, none of them pinned at either end',
+      fed.length > 0 && fed.every((c) => c.bars.every((g) =>
+        g.tick > 1 && g.tick <= 100)),
+      JSON.stringify(fed[0] && fed[0].bars));
+
+    /* A plate past its share runs the fill pastPlan the tick, and the tick stays
+       put — a bar pinned at its own maximum cannot say HOW far past. */
+    const pastPlan = [];
+    fed.forEach((c) => c.bars.forEach((g) => { if (g.st === 'x') pastPlan.push(g); }));
+    t.ok('a plate past the plan runs its bar pastPlan a tick that stays where it was',
+      pastPlan.length > 0 && pastPlan.every((g) => g.fill >= 99 && g.tick < 99),
+      JSON.stringify(pastPlan));
+
+    /* Colour says whether it matters; length says how much. They may not
+       contradict — a short bar painted green is unreadable.
+     *
+       Asked of whatever the seed happened to draw, this proved nothing: the
+       cap only bites in a narrow window and no plate on an arbitrary day
+       lands in it. So it asks the rule directly. A five-meal day gives each
+       meal a fifth of the target, and the day-relative floor alone would
+       forgive a miss of a tenth of the DAY — which is half of that meal's
+       whole share. Half short is not "landed" however little it moves the
+       day. */
+    const bandRule = await gaugePage.evaluate(() => {
+      const day = 200, want = day * 0.2;            // 40 g, a fifth of the day
+      const at = (frac) => window.__macroLab.gauge(want * frac, want, day).st;
+      return { half: at(0.55), most: at(0.85), on: at(1.0), past: at(1.6) };
+    });
+    t.ok('and nothing is painted landed while its bar is nowhere near the tick',
+      bandRule.half === 'u' && bandRule.most === 'o' &&
+      bandRule.on === 'o' && bandRule.past === 'x', JSON.stringify(bandRule));
+
+    /* Planned but not eaten draws faded — a full-looking dinner at eleven in
+       the morning otherwise reads as food you have already had. */
+    t.ok('a meal planned but not eaten draws faded, an eaten one solid',
+      fed.some((c) => c.planned) && fed.some((c) => !c.planned),
+      JSON.stringify(fed.map((c) => c.name + (c.planned ? ':faded' : ':solid'))));
+
+    /* Blake: "I don't like the at it's share. it's not intuitive to me." The
+       number survives; the vocabulary does not. */
+    t.ok('an empty meal says what it is for with no vocabulary to learn',
+      noFood.length > 0 && noFood.every((c) => /\uD83D\uDD25\s*\d/.test(c.chip)) &&
+      !(await gaugePage.evaluate(() => /at its share/i.test(document.body.textContent))),
+      JSON.stringify(noFood.map((c) => c.name + ':' + c.chip)));
+
+    /* And no gauges on an empty meal: four tracks at zero, times five meals,
+       is what the morning would open on. */
+    t.ok('and draws no empty tracks while there is nothing on the plate',
+      noFood.length > 0 && noFood.every((c) => !c.hasGauges));
+
+    /* The gauges went on the header row first and rendered BREAKFAST as
+       BREAKFAS. They live on the seam for that reason. */
+    t.ok('and the meal keeps its whole name at phone width',
+      await gaugePage.evaluate(() =>
+        [...document.querySelectorAll('.mslot-name')]
+          .every((n) => n.scrollWidth <= n.clientWidth + 1)),
+      await gaugePage.evaluate(() => [...document.querySelectorAll('.mslot-name')]
+        .filter((n) => n.scrollWidth > n.clientWidth + 1).map((n) => n.textContent).join(', ')));
+    await gaugePage.context().close();
+
+    /* ---- what is held, said where it can be seen -------------------------
+     * Lock the dinner you promised the family, fold the card, press
+     * Rebalance. The whole gesture happens on the folded view, and the
+     * folded view used to carry no sign of the lock at all. */
+    const heldPage = await t.fresh();
+    await heldPage.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      /* Two plates, so Rebalance has something to move the difference ONTO —
+         with one plate and that plate held there is nothing to solve, and the
+         test would pass on an app that had simply given up. */
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg_white', x: 2, eaten: 0 }, { id: 'f:cheddar', x: 1, eaten: 0 }],
+        l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
+        goalLb: 175, goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000,
+      }));
+    });
+    await heldPage.reload();
+    await heldPage.waitForTimeout(400);
+    await heldPage.click('.tab[data-view="macros"]');
+    await heldPage.waitForTimeout(300);
+    await heldPage.click('[data-mfold="b"]');           // open breakfast
+    await heldPage.waitForTimeout(300);
+    const heldOk = await heldPage.evaluate(() => document.querySelectorAll('[data-mlock]').length > 0);
+    t.ok('an open plate offers the lock', heldOk);
+
+    await heldPage.click('[data-mlock]');
+    await heldPage.waitForTimeout(300);
+    t.ok('and tapping it is recorded on the plate, not just drawn',
+      await heldPage.evaluate(() => {
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        const day = d[Object.keys(d).sort().pop()] || {};
+        return (day.b || []).some((it) => it.l);
+      }));
+
+    await heldPage.click('[data-mfold="b"]');           // fold it again
+    await heldPage.waitForTimeout(300);
+    t.ok('and the fold still says which food is being held',
+      await heldPage.evaluate(() => {
+        const thin = document.querySelectorAll('.mslot-thin .mthin');
+        return thin.length > 0 && document.querySelectorAll('.mslot-thin .mthin-l').length === 1;
+      }), await heldPage.evaluate(() =>
+        (document.querySelector('.mslot-thin') || {}).textContent || 'no folded list'));
+
+    /* The point of the mark: Rebalance is about to skip that plate, and you
+       are looking at the folded card when you press it. */
+    t.ok('and Rebalance leaves the held plate at the size it was held at',
+      await heldPage.evaluate(() => {
+        const read = () => {
+          const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+          return (d[Object.keys(d).sort().pop()] || {}).b || [];
+        };
+        const was = read().filter((it) => it.l).map((it) => it.x);
+        const btn = document.getElementById('macroRebal');
+        if (!btn || btn.disabled) return false;
+        btn.click();
+        const now = read().filter((it) => it.l).map((it) => it.x);
+        return was.length > 0 && was.join() === now.join();
+      }));
+    await heldPage.context().close();
 
     /* ---- Look up browses, instead of waiting to be told a word -----------
      * It opened on a search box and nothing else: no way in unless you

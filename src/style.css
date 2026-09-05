@@ -1029,6 +1029,44 @@ select { max-width: 280px; }
   width: 100%; padding: 9px; border-radius: 7px;
   background: var(--green); border: none; color: #fff;
 }
+/* Small and quiet: it is a state, not a control. The control is on the open
+   plate; this only says the state survived the fold. */
+.mthin-l { font-size: 10px; opacity: 0.75; }
+/* ---- the meal's four gauges -------------------------------------------
+   Four of them have to fit on a 390 px row beside a name and three buttons,
+   so the figure sits ABOVE its track rather than beside it. Calories carries
+   a gauge like the other three: three bars with a stray digit in front read
+   as a number that had nowhere else to go. */
+/* On the seam, so it gets the width four of them need and the meal name
+   keeps its own row. flex:1 with the cue after it pins the chevron right. */
+.mgg { display: flex; gap: 9px; flex: 1 1 auto; align-items: flex-end; min-width: 0; }
+.mgg-1 { flex: 1 1 0; min-width: 0; }
+.mgg-1.kc { flex: 0 0 46px; }
+.mgg-l {
+  display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--muted); text-align: center; line-height: 1; padding-bottom: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.mgg-1.kc .mgg-l { font-size: 10px; letter-spacing: 0; }
+.mgg-t {
+  display: block; position: relative; height: 5px; border-radius: 3px;
+  background: var(--line-soft);
+}
+.mgg-f { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 3px; }
+.mgg-f.u { background: var(--dial-under); }
+.mgg-f.o { background: var(--dial-on); }
+.mgg-f.x { background: var(--dial-over); }
+/* The tick IS the plan. It sits OVER the fill, proud of the track top and
+   bottom, so a bar that has run past it still shows where enough was — a bar
+   pinned at its own maximum cannot say how far past it went. */
+.mgg-k {
+  position: absolute; top: -2.5px; bottom: -2.5px; width: 1.5px;
+  background: var(--ink); opacity: 0.6; border-radius: 1px;
+}
+/* Planned and not yet eaten. A full-looking dinner at eleven in the morning
+   reads as food you have already had. */
+.mgg.planned { opacity: 0.5; }
+
 .mp-seg { flex: none; }
 .mpick-row {
   display: flex; width: 100%; text-align: left; gap: 10px; align-items: center;
