@@ -4462,13 +4462,24 @@
           ' aria-label="Another ' + MMAC_WORD[c.m] + ' source">&rsaquo;</button>' +
       '</div>';
     }).join('');
+    /* Say how many are actually there.
+     *
+       A meal with its protein already covered gets two levers, not three —
+       the combo builder drops a rung whose macro has nothing left to move.
+       The heading and the button both said "three" regardless, so the panel
+       offered two foods under the word Three and a button reading Add all
+       three. It counts them now. */
+    var nWord = ['', 'One', 'Two', 'Three'][combo.length] || String(combo.length);
+    var addWord = combo.length === 1 ? 'Add it'
+      : combo.length === 2 ? 'Add both' : 'Add all ' + nWord.toLowerCase();
     return '<div class="mcombo">' +
-      '<div class="mp-cap">Three foods for ' + esc(mComboSlotName().toLowerCase()) + '</div>' +
+      '<div class="mp-cap">' + nWord + (combo.length === 1 ? ' food for ' : ' foods for ') +
+        esc(mComboSlotName().toLowerCase()) + '</div>' +
       rows +
       '<div class="mcb-sum">' + Math.round(got.kcal) + ' kcal &middot; ' +
         Math.round(got.p) + 'P &middot; ' + Math.round(got.f) + 'F &middot; ' +
         Math.round(got.c) + 'C</div>' +
-      '<button class="mcb-add" data-mcombo="add">Add all three</button>' +
+      '<button class="mcb-add" data-mcombo="add">' + addWord + '</button>' +
     '</div>';
   }
 

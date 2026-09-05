@@ -2419,6 +2419,54 @@ module.exports = {
       cbo.names.join(' | '));
     await comboPage.context().close();
 
+    /* Reproduced from the shape of Blake's own screenshot: a day whose fat
+       is mostly spent by the evening, so the last meal's fat rung has
+       nothing left to move and drops out. Two earlier guesses at this seed
+       both produced three rungs, and the test passed on the three-branch
+       while the two-branch — the one that was actually broken — went
+       unexercised. Confirmed by hand before it was written down: this seed
+       renders "Two foods for snacks" / "Add both". */
+    const comboPage2 = await t.fresh();
+    await comboPage2.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:cheddar', x: 1, eaten: 1 }, { id: 'f:egg', x: 3, eaten: 1 }],
+        l: [{ id: 'f:peanut_butter', x: 2, eaten: 1 }], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1', goalLb: 175,
+        goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000 }));
+    });
+    await comboPage2.reload();
+    await comboPage2.waitForTimeout(400);
+    await comboPage2.click('.tab[data-view="macros"]');
+    await comboPage2.waitForTimeout(300);
+    const lastAdd = await comboPage2.$$('.mslot-add');
+    await lastAdd[lastAdd.length - 1].click();
+    await comboPage2.waitForTimeout(400);
+
+    /* The panel says how many foods it is actually offering. A meal whose
+       protein is already covered gets two levers, and it read "Three foods
+       for dinner" over two rows with a button saying "Add all three". */
+    const counted = await comboPage2.evaluate(() => {
+      const el = document.querySelector('.mcombo');
+      if (!el) return null;
+      return { rows: el.querySelectorAll('.mcb-row').length,
+        cap: el.querySelector('.mp-cap').textContent,
+        btn: el.querySelector('.mcb-add').textContent };
+    });
+    /* Pinned to TWO, not to "whatever it drew". Accepting any of the three
+       branches let the seed wander back to three rungs and the assertion go
+       quiet — which is exactly what happened twice. */
+    t.ok('the panel counts the foods it is actually offering',
+      !!counted && counted.rows === 2 &&
+      /^Two foods/.test(counted.cap) && /both/i.test(counted.btn),
+      JSON.stringify(counted));
+    await comboPage2.context().close();
+
     /* Slots are yours to name, so no food carries a `breakfast` flag -- what
        orders the rungs is what you have put in THIS meal before. The control
        above shares every other condition, so a failure here is the history
