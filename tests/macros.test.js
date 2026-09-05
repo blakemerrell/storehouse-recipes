@@ -2404,6 +2404,70 @@ module.exports = {
     const rc = await chart('rate');
     t.ok('and the rate chart draws once there is a fortnight of it', rc.pts > 20);
 
+    /* ---- a gap is not a moving range ------------------------------------
+     * Miss a fortnight of mornings and the next reading is a fortnight of
+     * drift. Pairing it with the last one before the gap and calling the
+     * difference a "day-to-day change" inflates mR-bar, which widens every
+     * limit on every chart and makes the salt warning fire LESS often --
+     * the failure is silent and points the wrong way. Thirty consecutive
+     * mornings, a fortnight away, then six more. */
+    const gapPage = await t.fresh();
+    await gapPage.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const ws = {}, days = {};
+      const r = window.RECIPES.find((x) => x.macro && x.macro.kcal > 300);
+      const jit = [0, 0.3, -0.2, 0.4, -0.3, 0.1, -0.1, 0.2, -0.4, 0.3];
+      const at = (i) => { const d = new Date(); d.setDate(d.getDate() - i); return key(d); };
+      [].concat(
+        Array.from({ length: 30 }, (_, n) => 49 - n),   // 49..20, consecutive
+        Array.from({ length: 6 }, (_, n) => 5 - n),     // 5..0, after the gap
+      ).forEach((i) => {
+        ws[at(i)] = Math.round((204 - 0.2 * (49 - i) + jit[i % 10]) * 10) / 10;
+        days[at(i)] = { b: [{ id: r.id, x: 1, eaten: 1 }] };
+      });
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      const goal = new Date(); goal.setDate(goal.getDate() + 120);
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
+        goalLb: 175, goalBy: key(goal), workouts: 4, steps: 8000,
+      }));
+    });
+    await gapPage.reload();
+    await gapPage.waitForTimeout(400);
+    await gapPage.click('.tab[data-view="macros"]');
+    await gapPage.waitForTimeout(250);
+    await gapPage.click('[data-mchartopen]');
+    await gapPage.waitForTimeout(300);
+    await gapPage.click('[data-mchart="jump"]');
+    await gapPage.waitForTimeout(200);
+    const gc = await gapPage.evaluate(() => Array.prototype.map.call(
+      document.querySelectorAll('.mc-svg circle title'), (el) => el.textContent));
+
+    /* Every assertion carries its own length check: an empty list makes
+       .every() true, which is exactly how a broken chart passes a test. */
+    t.ok('the pair that straddles the gap is not plotted as a day-to-day change',
+      gc.length === 34, 'points: ' + gc.length);
+
+    /* And the harm the limits take: bridged, that one ~3 lb "overnight
+       change" sits far outside its own upper limit and flags -- while
+       dragging mR-bar up under every other chart's limits with it. */
+    t.ok('and nothing on the chart reads as a signal, because nothing is one',
+      await gapPage.evaluate(() => document.querySelectorAll('.mc-sig').length) === 0);
+
+    /* The consequence the limits actually turn on: with the gap bridged, a
+       fortnight of loss enters mR-bar as one ~3 lb overnight change. */
+    t.ok('and no plotted overnight change is a fortnight of drift in disguise',
+      gc.length > 0 && gc.every((s) => Math.abs(parseFloat(s.split('\u00b7').pop())) < 2),
+      gc.filter((s) => Math.abs(parseFloat(s.split('\u00b7').pop())) >= 2).join(' | '));
+
+    await gapPage.click('[data-mchart="weight"]');
+    await gapPage.waitForTimeout(200);
+    t.ok('while the weight chart still plots every morning there was one',
+      await gapPage.evaluate(() => document.querySelectorAll('.mc-svg circle').length) === 36);
+    await gapPage.context().close();
+
     await chartPage.goBack();
     await chartPage.waitForTimeout(250);
     t.ok('the back gesture closes it like every other sheet',
@@ -2422,13 +2486,16 @@ module.exports = {
         const ws = {}, days = {};
         const r = window.RECIPES.find((x) => x.macro && x.macro.kcal > 300 && x.macro.na > 400);
         const jitter = [0, 0.3, -0.2, 0.4, -0.3, 0.1, -0.1, 0.2, -0.4, 0.3];
+        const gap = cfg.gapDays || 0;         // mornings missed just before today
+        const prevI = gap + 1;                // so the last morning there WAS one
         for (let i = cfg.n - 1; i >= 0; i--) {
+          if (i > 0 && i <= gap) continue;    // the fortnight away
           const d = new Date(); d.setDate(d.getDate() - i);
           let w = 204 - cfg.rate * (cfg.n - 1 - i) + jitter[i % 10] * 0.9;
           if (cfg.saltToday && i === 0) w += 2.6;
           ws[key(d)] = Math.round(w * 10) / 10;
           const x = Math.round((1700 / r.macro.kcal) * 8) / 8;
-          days[key(d)] = { b: [{ id: r.id, x: (cfg.saltToday && i === 1) ? x * 3 : x, eaten: 1 }] };
+          days[key(d)] = { b: [{ id: r.id, x: (cfg.saltToday && i === prevI) ? x * 3 : x, eaten: 1 }] };
         }
         localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
         localStorage.setItem('bsc.macroDays', JSON.stringify(days));
@@ -2466,6 +2533,24 @@ module.exports = {
           !el.querySelector('[data-mline]');
       }), await salty.textContent('.mline'));
     await salty.context().close();
+
+    /* The same claim, after a fortnight away. "Up 2.6 lb -- that is salt,
+       not fat" is the one line in the app whose whole job is to stop you
+       cutting; aimed at a fortnight of regain and pinned on a dinner two
+       weeks gone, it stops you acting on something you should act on. The
+       control above it holds every other thing equal, so a failure here is
+       the gap and nothing else. */
+    const gapCtl = await lineFor({ n: 30, rate: 0, saltToday: true });
+    t.ok('a salty morning against yesterday still reads as salt',
+      /salt, not fat/.test(await gapCtl.textContent('.mline')),
+      await gapCtl.textContent('.mline'));
+    await gapCtl.context().close();
+
+    const gapped = await lineFor({ n: 30, rate: 0, saltToday: true, gapDays: 14 });
+    const gapLine = await gapped.textContent('.mline');
+    t.ok('but the same morning after a fortnight away is not blamed on a dinner',
+      gapLine.length > 0 && !/salt, not fat/.test(gapLine), gapLine);
+    await gapped.context().close();
 
     const slow = await lineFor({ n: 30, rate: 0.6 / 7 });
     const behind = await slow.textContent('.mline');

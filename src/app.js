@@ -2043,9 +2043,18 @@
     var keys = Object.keys(MWEIGHTS).sort();
     var at = keys.indexOf(k);
     if (at < 1) return null;
+    /* Same rule as the charts: a pair that straddles a gap is not a moving
+       range. This one decides whether an overnight change is worth
+       mentioning, so bridging a fortnight here quietly RAISES the bar for
+       "unusual" and the morning stops saying anything. */
     var mr = [];
-    for (var i = 1; i < keys.length; i++) mr.push(Math.abs(MWEIGHTS[keys[i]] - MWEIGHTS[keys[i - 1]]));
+    for (var i = 1; i < keys.length; i++) {
+      if (mcDaysApart(keys[i - 1], keys[i]) > MC_GAP) continue;
+      mr.push(Math.abs(MWEIGHTS[keys[i]] - MWEIGHTS[keys[i - 1]]));
+    }
     if (mr.length < 5) return null;
+    // and the jump itself is only a jump if it is against yesterday
+    if (mcDaysApart(keys[at - 1], k) > MC_GAP) return null;
     var bar = mr.reduce(function (a, b) { return a + b; }, 0) / mr.length;
     return {
       d: MWEIGHTS[k] - MWEIGHTS[keys[at - 1]],
@@ -3358,15 +3367,46 @@
   function mcMean(a) {
     return a.reduce(function (s2, x) { return s2 + x; }, 0) / (a.length || 1);
   }
-  function mcRanges(v) {
+  /* A moving range measures how far the process moves in ONE step. Pairing
+     two readings a fortnight apart and calling the difference a moving range
+     is a category error: it is a fortnight of drift wearing a day's clothes,
+     and it goes straight into mR-bar, which widens every limit on the chart
+     and makes the salt warning fire LESS often than it should.
+
+     These arrays came in as bare numbers, so nothing here could see that two
+     adjacent entries were two weeks apart. They carry their dates now.
+
+     One missed morning still pairs — a two-day step is the same process seen
+     a little later, and refusing it would throw away most of a real series.
+     Beyond that the pair is dropped rather than stretched. */
+  var MC_GAP = 2;
+
+  function mcDaysApart(a, b) {
+    if (!a || !b) return 1;
+    return Math.round((keyDate(b) - keyDate(a)) / 86400000);
+  }
+
+  /* The ranges, each carrying the key it ends on — so a caller that PLOTS the
+     ranges can label them without re-deriving which pairs survived. */
+  function mcRangePairs(v, keys) {
     var o = [];
-    for (var i = 1; i < v.length; i++) o.push(Math.abs(v[i] - v[i - 1]));
+    for (var i = 1; i < v.length; i++) {
+      if (keys && mcDaysApart(keys[i - 1], keys[i]) > MC_GAP) continue;
+      o.push({ k: keys ? keys[i] : null, r: Math.abs(v[i] - v[i - 1]) });
+    }
     return o;
   }
-  function mcLimits(v) {
+  function mcRanges(v, keys) {
+    return mcRangePairs(v, keys).map(function (p) { return p.r; });
+  }
+  function mcLimits(v, keys) {
     if (v.length < 5) return null;
-    var base = v.slice(0, Math.min(21, v.length));
-    var bar = mcMean(mcRanges(base)), cl = mcMean(base);
+    var n = Math.min(21, v.length);
+    var base = v.slice(0, n);
+    var bkeys = keys ? keys.slice(0, n) : null;
+    var ranges = mcRanges(base, bkeys);
+    if (ranges.length < 4) return null;      // too little of it was consecutive
+    var bar = mcMean(ranges), cl = mcMean(base);
     return { cl: cl, bar: bar, unpl: cl + 2.660 * bar, lnpl: cl - 2.660 * bar };
   }
 
@@ -3405,12 +3445,18 @@
         return { need: ok2 ? 'Five mornings and this draws.'
           : 'This one needs a goal weight and a date, under the gear.' };
       }
-      return { v: res, keys: keys, lim: mcLimits(res), zero: true, dp: 1,
+      return { v: res, keys: keys, lim: mcLimits(res, keys), zero: true, dp: 1,
         note: 'Zero is on pace. Above the line is losing slower than you meant to.' };
     }
     if (which === 'jump') {
       if (vals.length < 6) return { need: 'Six mornings and this draws.' };
-      var mr = mcRanges(vals), mkeys = keys.slice(1);
+      /* The pairs, not a bare list: a pair that straddled a gap is dropped
+         now, so the keys have to come from the same filter or every point
+         after the first missed morning is labelled with the wrong date. */
+      var pairs = mcRangePairs(vals, keys);
+      if (pairs.length < 5) return { need: 'Six mornings close together and this draws.' };
+      var mr = pairs.map(function (pp) { return pp.r; });
+      var mkeys = pairs.map(function (pp) { return pp.k; });
       var bar = mcMean(mr.slice(0, Math.min(21, mr.length)));
       /* Salty relative to YOUR days, not to a public ceiling. A storehouse
          pantry runs over 2,300 mg most days, so a fixed line marked every
@@ -3425,8 +3471,13 @@
       mine.sort(function (a, b) { return a - b; });
       var mid = mine.length ? mine[Math.floor(mine.length / 2)] : MSALT_DAY;
       var high = Math.max(MSALT_DAY, mid * 1.3);
+      /* The day BEFORE the jump — found from the key the range ENDS on rather
+         than from a parallel index, which only lined up while every pair
+         survived. One dropped pair used to shift every salt flag after it by
+         a day, quietly blaming the wrong dinner. */
       var salt = mkeys.map(function (k, i) {
-        return mr[i] > bar && mSodiumOn(keys[i]) >= high;   // the day BEFORE the jump
+        var at2 = keys.indexOf(k);
+        return mr[i] > bar && at2 > 0 && mSodiumOn(keys[at2 - 1]) >= high;
       });
       return { v: mr, keys: mkeys, salt: salt, dp: 1,
         lim: { cl: bar, bar: bar, unpl: 3.268 * bar, lnpl: 0 },
@@ -3439,7 +3490,7 @@
         mcMean(vals.slice(i - 13, i - 6))) * 100) / 100);
       rkeys.push(keys[i]);
     }
-    return { v: rate, keys: rkeys, lim: mcLimits(rate), zero: true, dp: 1,
+    return { v: rate, keys: rkeys, lim: mcLimits(rate, rkeys), zero: true, dp: 1,
       note: 'A week against the week before it. A working cut sits below zero.' };
   }
 
