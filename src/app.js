@@ -49,6 +49,23 @@
       BY_ID[r.id] = r;
     });
     mBuildFoods();          // and the plain foods, addable but never shelved
+    /* And forget which sections there are, because that answer has just
+       changed. mAllSecs caches the section list off RECIPES, and RECIPES is
+       replaced on the line above — a household member's first shared recipe,
+       or the first one you write yourself, brings section 3-1 into a world
+       that until then held only the two printed books.
+     *
+       A meal widened by ten "not that one"s draws from that cached list and
+       from nothing else: 3-1 is in no entry of MEAL_SECS, so your own recipes
+       reach a meal through the wide pool or they do not reach it at all. A
+       stale copy therefore makes the recipe you have just written the one
+       dish the machine will never offer, for the rest of the session, while
+       the card goes on saying it is looking everywhere.
+     *
+       Cleared here rather than guarded inside mAllSecs because this is the
+       only place RECIPES is ever reassigned: the cache goes stale exactly
+       when this function runs, and at no other moment. */
+    M_ALL_SECS = null;
   }
 
   /* The hundred and seventeen plain foods the recipes are costed from, made
@@ -1388,6 +1405,32 @@
   function mEditDay(k, fn) {
     var day = MDAYS[k] || (MDAYS[k] = {});
     fn(day);
+    /* Food on a meal un-skips it.
+     *
+       The rest of the app already assumes a skipped meal is an empty one: the
+       skip button is only drawn on a meal with nothing on it, the struck-out
+       line only stands in for a card with nothing on it, and Fill walks past a
+       skipped meal without looking. Nothing enforced it. The chooser on the add
+       sheet lists skipped meals like any other, so two taps put a plate on a
+       lunch that was still marked not-happening.
+
+       What that costs is the day itself. Every OTHER meal divides the day by
+       the weights of the meals still in play, so a skipped lunch is subtracted
+       from their divisor — and then paid its own share on top, out of a divisor
+       that counts it. On the default weights a skipped-but-filled lunch hands
+       the four cards 20/65, 25/90, 35/65 and 10/65: 128 per cent of a day, with
+       every card free to say it landed on its share.
+
+       Enforced here rather than at the doors food comes in by, because there
+       are four of them — the tick on the picker, a new food saved straight onto a
+       meal, Keep-these-as-one, and the pins a fresh day is seeded with — and a
+       rule that has to be remembered at four doors is a rule that will be
+       missed at the fifth. The food is the newer statement about the meal, so
+       it wins; and mSetSkip stamps, so the un-skip travels to the other device
+       instead of losing to the skip still sitting there. */
+    Object.keys(day).forEach(function (sk) {
+      if ((day[sk] || []).length && mSkipped(k, sk)) mSetSkip(k, sk, false);
+    });
     /* Only the past falls out of the window. A plan for Thursday is not a
        stale record, and pruning by one bound would have eaten it. */
     var floor = mEarliestKey(), roof = mLatestKey();
@@ -1758,8 +1801,33 @@
     return {};
   })();
   function mDoneAt(k) { return Number(MDONE[k]) || 0; }
+  /* Both day-keyed flag maps fall out of the same window the day log lives in
+     — see mEditDay — and on the same schedule, when something is written.
+   *
+     That window is the right one because it is the only one anything ever
+     reads. A closed-day flag is asked for exactly once, about mViewKey(), and
+     a skip likewise; mRenderDay clamps that key into [mEarliestKey(),
+     mLatestKey()] before it draws and mNavDay refuses to leave it. The week
+     strip's filled dot is not this map at all — it is mDayDone() off the
+     plates — and the review card's seven days behind read mDay(). So nothing
+     on screen can want a flag from outside the window, and a flag kept past it
+     is an orphan: a note that Tuesday was closed, for a Tuesday whose plates
+     were pruned a fortnight ago, riding in the sync payload forever.
+
+     The per-key stamps in MSTAMPS are deliberately NOT pruned alongside. The
+     stamp is what tells mMergeRemote it has already seen that day, and the
+     remote document keeps every key it was ever sent — the push is a merge
+     write. Drop the stamp and the copy still sitting in Firestore looks new
+     again on the next read, and the pruned flag walks straight back in. */
+  function mPruneWindow(m) {
+    var floor = mEarliestKey(), roof = mLatestKey();
+    Object.keys(m).forEach(function (dk) {
+      if (dk < floor || dk > roof) delete m[dk];
+    });
+  }
   function mSetDone(k, on) {
     MDONE[k] = on ? Date.now() : 0;
+    mPruneWindow(MDONE);
     try { localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE)); } catch (e) { /* private */ }
     mStamp('dn', k);
   }
@@ -1791,6 +1859,7 @@
     var a = (MSKIP[k] || []).filter(function (x) { return x !== sk; });
     if (on) a.push(sk);
     if (a.length) MSKIP[k] = a; else delete MSKIP[k];
+    mPruneWindow(MSKIP);       // the day log's window, for the reason above it
     try { localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP)); } catch (e) { /* private */ }
     mStamp('sp', k);
   }
@@ -2960,8 +3029,10 @@
              held. It is also what makes a meal that landed go quiet — three
              pale pills reading +1, −1, +2 and no colour anywhere. */
           /* Folded, the chips. Open, nothing here — the bars go below, next to
-             the stepper they answer to. */
-          (folded ? mMacChips(sub, mMealShare(sk, targets, slots), targets) : '') +
+             the stepper they answer to. Except on paper, where the bars are
+             three background colours a printer will not print: there the chips
+             stay on the open card, so the verdict survives as ink. */
+          (folded || mOnPaper ? mMacChips(sub, mMealShare(sk, targets, slots), targets) : '') +
           '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
         '</button>' : '') +
         (folded
@@ -3081,11 +3152,19 @@
      Over the meals that are actually happening. A skipped meal releases its
      share to the rest — that is what the skip DOES — so a share still
      dividing by it would call a breakfast "over" when Fill had deliberately
-     made it bigger. */
+     made it bigger.
+
+     But only while it is still EMPTY. A skip releases a share; food on the
+     meal takes it back, and a divisor that dropped a meal WITH FOOD ON IT
+     while that same meal was still paid its own share gave the day away
+     twice — 128 per cent of it on the default weights, every card able to
+     read "on". mEditDay un-skips on the way in, so the two can only disagree
+     when a skip arrives from the other device after the food did. This is the
+     arithmetic refusing to hand out more than a day even then. */
   function mMealShare(sk, targets, slots) {
-    var me = null, sumW = 0, vk = mViewKey();
+    var me = null, sumW = 0, vk = mViewKey(), day = mDay(vk);
     slots.list.forEach(function (s) {
-      if (s.k !== sk && mSkipped(vk, s.k)) return;
+      if (s.k !== sk && mSkipped(vk, s.k) && !(day[s.k] || []).length) return;
       sumW += mSlotW(s);
       if (s.k === sk) me = s;
     });
@@ -3107,14 +3186,40 @@
      but "did it miss by enough to move the day". A tenth of the day's target,
      or fifteen per cent of the share, whichever is the more forgiving. Four
      grams of fat over at lunch goes quiet; fifty-three does not. */
+  /* One band, one definition.
+   *
+     It was written down once as the colour's threshold and, in the bar that
+     draws the same judgement, not at all — which is how a green fill came to
+     stop a third of a track short of its own mark with nothing on screen
+     explaining why. Anything that colours or draws a meal against its share
+     comes through here.
+
+     The half-gram floor is not decoration. Both terms are FRACTIONS of a
+     target, so a day targeting zero of a macro has a band of no width at all
+     and the smallest trace is "over" — and a zero target is not exotic, the
+     carb cycle produces one every week: with six training days the rest-day
+     factor 1 − 0.25·T/R goes negative and mDayTargets clamps that day's
+     carbohydrate to nought. Four tenths of a gram of carbohydrate in a steak
+     dinner was drawing a red chip reading "C −0". Half a gram is under the
+     rounding of every number this band is ever compared against. */
+  function mMacBand(share, dayT) {
+    return Math.max(0.5, share * 0.15, (dayT || share) * 0.1);
+  }
+
   function mMacState(got, share, dayT) {
     var d = got - share;
-    if (Math.abs(d) <= Math.max(share * 0.15, (dayT || share) * 0.1)) return 'on';
+    if (Math.abs(d) <= mMacBand(share, dayT)) return 'on';
     return d > 0 ? 'over' : 'short';
   }
 
-  var MMAC_TONE = { on: 'var(--dial-on-pale)', over: 'var(--dial-over-pale)',
-    short: 'var(--dial-under-pale)' };
+  /* The state NAME is the whole payload. A chip takes its colour from
+     .msub-c.over / .msub-c.short in the stylesheet, so there is no tone map
+     here — unlike the day's bars one level up, which fill to a proportion and
+     so must carry their colour as an inline style (TONE, down in the footer).
+     The pale-tone map that used to sit beside this belonged to the
+     proportional meal pill the chips replaced and went out with it; the
+     --dial-*-pale tokens it named are still live for those bars, so a later
+     sweep for unused tokens should leave them alone. */
 
   /* At a glance: only what is wrong.
    *
@@ -3123,6 +3228,21 @@
      nothing at all — the calorie figure beside it is always there, so silence
      can never be mistaken for "not worked out yet", and a good day looks the
      way the app looked before any of this existed. */
+  /* Except on paper, where colour is not a thing you can count on.
+   *
+     The verdict this app puts on a meal is a colour, and a printer drops
+     background colour by default. beforeprint deliberately opens every meal —
+     see the fold note in wire() — which trades these chips for the bars, and
+     the bars are the one readout made ENTIRELY of background: what comes out
+     of the printer is three blank strips per meal over a row of grams. The
+     grams are the amounts. The distance from the share is the verdict, and
+     the verdict is the half that was lost. So while the day is being drawn
+     for paper the chips stay on the open card: a chip says +53 in ink, and
+     ink is the only thing a printer is certain to lay down. Not a duplicate
+     of the bar beneath it — that one says what is on the plate, this one says
+     how far it is from where it should be, and it still goes quiet on a meal
+     that landed. */
+  var mOnPaper = false;
   function mMacChips(sub, sh, targets) {
     if (!sh) return '';
     return ['p', 'f', 'c'].map(function (m) {
@@ -3130,32 +3250,88 @@
       var st = mMacState(got, want, (targets || {})[m]);
       if (st === 'on') return '';
       var d = Math.round(got - want);
+      /* The sign is read off the VERDICT, not off the rounded number.
+       *
+         The two agree everywhere except at zero, and zero is reachable. Six
+         training days leave one rest day carrying the whole giveback, its
+         carbohydrate floors at nought, the band around nought is nought wide
+         — and half a gram of carbohydrate is then genuinely over by a distance
+         that rounds to none. Taking the sign from the rounded figure printed
+         that as "C −0": a minus on a macro the colour beside it is calling
+         over, which is the one thing the chip exists to say. */
       return '<span class="msub-c ' + st + '" title="' + Math.round(got) + ' g of ' +
         Math.round(want) + ' g">' +
         '<i class="mb-' + m + '">' + m.toUpperCase() + '</i><b>' +
-        (d > 0 ? '+' : '−') + Math.abs(d) + '</b></span>';
+        (st === 'over' ? '+' : '−') + Math.abs(d) + '</b></span>';
     }).join('');
   }
 
   /* Open, with a hand on the stepper: the whole picture, with a mark where the
      share sits so how far past is a distance rather than a subtraction.
    *
-     Used in the picker too, and deliberately measuring the same thing there —
-     what the meal HOLDS against its share, not what is left of it. Left-over
+     Used in the picker too, measuring what the meal holds PLUS what the
+     basket is about to add — against the same plan share the card behind the
+     sheet uses, and the same one its balance button solves to. Left-over
      would invert the bar's meaning between two screens you move between in one
      gesture, and a meal already over its share has a negative remainder, which
      is three empty bars implying room that is not there. The gap between the
-     bar and the mark is what is left. */
+     bar and the mark is what is left.
+   *
+     The axis is the SHARE, and it is the same axis on all three rows.
+     Normalising each row to max(got, want) drew EVERY over state at the same
+     83.3%: 45 of 45, 64 of 45 and 225 of 45 were one identical bar and only
+     the mark moved, so how far past was readable — backwards, and
+     non-linearly — from the tick alone. It also gave P, F and C each its own
+     top, which put the tick at three different places in one card and left
+     the three fills with nothing to be read against. The row-filling pills
+     this replaced could be read against each other, because they shared one
+     width.
+   *
+     So the share sits at MBAR_MARK on every track, always, and the fill is
+     what the meal holds measured in shares rather than in grams — grams
+     cannot be the shared unit, since 150 of protein beside 60 of fat on one
+     gram axis says nothing. Below the share the first two thirds are linear:
+     half your protein is a half-length bar. Past it the last third carries
+     the overshoot as 1 - want/got, the fraction of the plate that is excess,
+     so double the share fills half of that third, triple two thirds, and no
+     amount ever runs off the end. Past the mark is compressed on purpose:
+     the question there is whether this is a little over or wildly over, and
+     the grams beside the bar answer it exactly. */
+  var MBAR_MARK = 66.7;
+
+  /* A share of zero has no axis to sit on — anything at all is infinitely
+     over it, and nothing is not — so both ends are drawn as the limit. The
+     divisor this replaced carried a `|| 1` for the same reason; without one
+     the width would be NaN and the bar would silently not draw. */
+  function mBarPct(got, want) {
+    if (!(want > 0)) return got > 0 ? 100 : 0;
+    if (got <= want) return MBAR_MARK * (got / want);
+    return MBAR_MARK + (100 - MBAR_MARK) * (1 - want / got);
+  }
+
   function mMacBars(sub, sh, targets) {
     if (!sh) return '';
     return '<div class="msub-bars">' + ['p', 'f', 'c'].map(function (m) {
       var got = sub[m] || 0, want = sh[m] || 0;
-      var st = mMacState(got, want, (targets || {})[m]);
-      var top = Math.max(got, want) * 1.2 || 1;
+      var dayT = (targets || {})[m];
+      var st = mMacState(got, want, dayT);
+      /* The band, drawn. The colour and the bar were answering the same
+         question from two different definitions of "close enough": the state
+         allowed a tenth of the DAY either way, the track knew only the
+         meal's share, and the result was a green fill visibly a third short
+         of its own mark with nothing to account for the gap. It is the same
+         band either way now, and it is on the track — so a fill that stops
+         inside the shaded zone reads as landed, and one that stops outside
+         it reads as missed, without a number being consulted. */
+      var band = mMacBand(want, dayT);
+      var lo = mBarPct(Math.max(0, want - band), want);
+      var hi = mBarPct(want + band, want);
       return '<div class="msub-br"><span class="msub-bk mb-' + m + '">' + m.toUpperCase() +
         '</span><span class="msub-bt">' +
-          '<span class="msub-bb ' + st + '" style="width:' + (100 * got / top).toFixed(1) + '%"></span>' +
-          '<span class="msub-bm" style="left:' + (100 * want / top).toFixed(1) + '%"></span>' +
+          '<span class="msub-bz" style="left:' + lo.toFixed(1) + '%;width:' +
+            Math.max(0, hi - lo).toFixed(1) + '%"></span>' +
+          '<span class="msub-bb ' + st + '" style="width:' + mBarPct(got, want).toFixed(1) + '%"></span>' +
+          '<span class="msub-bm" style="left:' + MBAR_MARK.toFixed(1) + '%"></span>' +
         '</span><span class="msub-bv"><b>' + Math.round(got) + '</b> / ' +
           Math.round(want) + ' g</span></div>';
     }).join('') + '</div>';
@@ -3807,13 +3983,38 @@
       t.f += (r.macro.f || 0) * x; t.c += (r.macro.c || 0) * x;
       if (r.est) est = true;
     });
-    var targets = mDayTargets(mViewKey());
+    /* Judged against the same thing the bars above it are drawn against, and
+       measuring the same quantity.
+     *
+       It used to weigh the BASKET ALONE against mShares — the room left for
+       one more thing — while the panel twenty pixels above drew committed
+       PLUS basket against the meal's plan share. Two quantities, two
+       denominators, one sheet: the top invited food the bottom called a bust.
+
+       The plan share is the one to keep, and not by preference. The card
+       behind this sheet uses it, and so does the balance button on that card,
+       whose own comment rejects mShares for this job with the regression it
+       caused written into it — a meal sitting exactly on target told its
+       target was nearly zero. A picker that spoke the remainder would have
+       invited roughly double what that button then solved away.
+
+       mRank still asks mShares, and should: "what fits the room left" is a
+       real question and a different one. It decides what to OFFER. This
+       decides whether the meal you are building lands. */
+    var k = mViewKey();
+    var targets = mDayTargets(k);
     var busts = false, over = 0;
     if (targets.p || targets.f || targets.c) {
-      var T = mShares(mDay(mViewKey()), targets,
-        { k: S.macroPick.slot, w: S.macroPick.w }).T;
-      over = Math.round(t.kcal - kcalOf(T));
-      busts = over > kcalOf(T) * 0.07;
+      var sh = mMealShare(S.macroPick.slot, targets, mReadSlots());
+      if (sh) {
+        var held = 0;
+        (mDay(k)[S.macroPick.slot] || []).forEach(function (it) {
+          var r2 = BY_ID[it.id];
+          if (r2 && r2.macro) held += (r2.macro.kcal || 0) * it.x;
+        });
+        over = Math.round(held + t.kcal - sh.kcal);
+        busts = over > sh.kcal * 0.07;
+      }
     }
     return '<div class="mp-foot' + (busts ? ' busts' : '') + '">' +
       '<span class="mp-foot-l">' + (busts ? 'Over this meal by ' + over : 'Adds') + '</span>' +
@@ -3966,36 +4167,50 @@
   /* What this meal still has room for. mShares works the day's remainder into
      a share per empty meal; this is that share, in the words the plate rows
      already use. */
-  /* What this meal holds against its share, drawn the way the open card draws
-     it — because you arrive here from that card, mid-gesture, and a bar that
-     changed direction between the two screens would be read as the same bar
-     saying something new.
+  /* What this meal holds against its share — plus what the basket is about to
+     put on it — drawn the way the open card draws it, because you arrive here
+     from that card, mid-gesture, and a bar that changed direction between the
+     two screens would be read as the same bar saying something new.
    *
      Deliberately NOT "what is left". Left-over is a negative on a meal
      already past its share, and a negative drawn as a bar is three empty
      tracks implying room that is not there. The gap between the bar and the
-     mark is what is left, and it stays legible when there is none. */
+     mark is what is left, and it stays legible when there is none.
+   *
+     The basket counts here before it is committed. A tick redraws this whole
+     sheet, so the bars visibly redrew WITHOUT moving while the line directly
+     under them changed by that same tick — one gesture answered twice, and
+     the bigger drawing was the stale one. Pending and eaten land in the one
+     bar because the bar answers "where will this meal stand", which is the
+     question the sheet was opened to ask; the basket list above names which
+     part is not on the plate yet, and the caption says the bar counts it. */
   function mMealLeft() {
     var k = mViewKey();
     var targets = mDayTargets(k);
     if (!targets.p && !targets.f && !targets.c) return '';
     var day = mDay(k);
-    var slot = { k: S.macroPick.slot, w: S.macroPick.w };
     var slots = mReadSlots();
     var sh = mMealShare(S.macroPick.slot, targets, slots);
     if (!sh) return '';
     var sub = { p: 0, f: 0, c: 0 };
-    (day[S.macroPick.slot] || []).forEach(function (it) {
-      var r = BY_ID[it.id];
+    var addTo = function (r, x) {
       if (!r || !r.macro) return;
-      sub.p += (r.macro.p || 0) * it.x;
-      sub.f += (r.macro.f || 0) * it.x;
-      sub.c += (r.macro.c || 0) * it.x;
+      sub.p += (r.macro.p || 0) * x;
+      sub.f += (r.macro.f || 0) * x;
+      sub.c += (r.macro.c || 0) * x;
+    };
+    (day[S.macroPick.slot] || []).forEach(function (it) {
+      addTo(BY_ID[it.id], it.x);
+    });
+    var pend = Object.keys(S.mpBasket);
+    pend.forEach(function (bk) {
+      addTo(BY_ID[idOf(bk)], S.mpBasket[bk]);
     });
     var name = '';
     slots.list.forEach(function (sl) { if (sl.k === S.macroPick.slot) name = sl.n; });
     return '<div class="mp-cap">' + esc(name || 'This meal') + ' &middot; ' +
-      Math.round(sh.kcal) + ' kcal at its share</div>' +
+      Math.round(sh.kcal) + ' kcal at its share' +
+      (pend.length ? ' &middot; basket included' : '') + '</div>' +
       mMacBars(sub, sh, targets);
   }
 
@@ -5829,7 +6044,13 @@
   }
 
   /* Every section there is, from the data rather than from a list here — a
-     book gaining a section should not need this remembering. */
+     book gaining a section should not need this remembering.
+   *
+     Cached because a widened meal rebuilds its pool on every "not that one",
+     and dropped by rebuild() whenever RECIPES is replaced. The list is an
+     answer ABOUT RECIPES; it can only outlive that array by lying, and the
+     lie is silent — a section missing from here is a recipe that is simply
+     never offered, with nothing anywhere to say it was skipped. */
   var M_ALL_SECS = null;
   function mAllSecs() {
     if (!M_ALL_SECS) {
@@ -9056,13 +9277,21 @@
     /* Paper has no fold. A folded meal is a list of dish names with no numbers
        on them, which is not a day anybody can read off a page — and CSS cannot
        open it, because the plates are not in the document at all while it is
-       shut. So the day opens for the printer and closes again afterwards. */
+       shut. So the day opens for the printer and closes again afterwards.
+     *
+       Opening it costs something, though, and that cost went unpaid for a
+       while: an open meal says its verdict in the bars, and the bars are
+       background colour a printer drops. Opening every meal therefore threw
+       away the one thing on the card that was printable — the chips. So the
+       day is also marked as being drawn for paper, which puts them back on
+       the open card. Same verdict, in ink. */
     var mPrintFold = null;
     if (window.addEventListener) {
       window.addEventListener('beforeprint', function () {
         if (S.view !== 'macros') return;
         mPrintFold = S.mFold;
         S.mFold = {};
+        mOnPaper = true;
         /* Held on the day it is already on, so the arrival seed does not run
            and fold everything straight back down. */
         S.mFoldFor = mViewKey();
@@ -9072,6 +9301,7 @@
         if (mPrintFold === null) return;
         S.mFold = mPrintFold;
         mPrintFold = null;
+        mOnPaper = false;
         renderMacros();
       });
     }

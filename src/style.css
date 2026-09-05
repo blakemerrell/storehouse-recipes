@@ -489,14 +489,18 @@ select { max-width: 280px; }
 .mslot-h { display: flex; align-items: center; gap: 5px; padding: 8px 10px 4px; }
 .mslot-h .ghost { white-space: nowrap; flex: none; }
 .mslot-h .mslot-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* the verdict, so a meal says whether it wants you without being opened */
+/* What an EMPTY meal is meant to hold — one state, and never a verdict.
+   It used to judge a filled meal too, in on/short/over colours, but that
+   answered CALORIES: a lunch five times over on fat and fine on protein came
+   out as one number with no name on it. The per-macro chips on the row below
+   say it properly, so mVerdictHTML drops this pill the moment a meal has
+   items, and the three coloured variants that used to live here had nothing
+   left to match. Anything that gives this pill a state again needs to answer
+   the calorie question first. */
 .mslot-v {
   font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
   background: var(--paper-soft); border: 1px solid var(--line-soft); color: var(--muted);
 }
-.mslot-v.on { border-color: var(--dial-on); color: var(--dial-on); }
-.mslot-v.short { border-color: var(--dial-under); color: var(--ochre-text); }
-.mslot-v.over { border-color: var(--dial-over); color: var(--dial-over); }
 .mslot-name {
   background: none; border: 0; padding: 0; font-family: var(--sans); text-align: left;
   font-size: 11.5px; letter-spacing: 0.11em; text-transform: uppercase;
@@ -542,10 +546,6 @@ select { max-width: 280px; }
 @media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
 .mslot-sub i { font-style: normal; font-weight: 700; font-size: 9.5px; margin-right: 3px; }
 .msub-k { flex: none; font-size: 11.5px; }
-/* The same pill the day's folded readout wears, one level down: a pale fill to
-   the proportion of this meal's share, with the distance from it inside. They
-   share the row's width so three fills can be compared by eye — six pills only
-   compare if the boxes match, and the same is true of three. */
 /* Only ever drawn for a macro that is off, so it takes its own width and
    carries no fill: three fills compare by eye only if the boxes match, and
    here there may be one box or three. Colour does the work. */
@@ -578,6 +578,13 @@ select { max-width: 280px; }
 .msub-bb { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--dial-on); }
 .msub-bb.over { background: var(--dial-over); }
 .msub-bb.short { background: var(--ochre); }
+/* The tolerance the colour is using, drawn on the track it colours. Under the
+   fill, so a bar that lands inside it reads as landed without a number being
+   consulted, and one that stops outside it has its shortfall explained. */
+.msub-bz {
+  position: absolute; top: 0; bottom: 0; border-radius: 2px;
+  background: var(--line); opacity: 0.55;
+}
 .msub-bm { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: 0.5; }
 .msub-bv {
   font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
@@ -896,20 +903,30 @@ select { max-width: 280px; }
   padding: 14px 16px; margin-top: 4px;
 }
 .macro-none { font-size: 13px; color: var(--muted); }
-.mbar { margin-bottom: 12px; }
-.mbar-top { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; }
-.mbar-name { font-weight: 600; color: var(--muted-2); letter-spacing: 0.02em; }
-.mbar-nums { color: var(--muted); font-variant-numeric: tabular-nums; }
-.mbar-track {
-  display: flex; height: 6px; margin-top: 4px; border-radius: 2px; overflow: hidden;
-  background: oklch(0.93 0.006 70);
-}
-.mbar-track i { display: block; height: 100%; }
-.mbar-eaten { background: var(--green); }
-.mbar-planned { background: oklch(0.62 0.10 55 / 0.45); }
-/* the amber the sync dot uses for its own bad news */
-.mbar.over .mbar-nums { color: oklch(0.55 0.14 45); font-weight: 600; }
-.mbar.over .mbar-planned, .mbar.over .mbar-eaten { background: oklch(0.70 0.14 45); }
+/* A fourth macro bar used to live here — .mbar and .mbar-track, with a track,
+   a fill and an over state of its own. Nothing emitted it. Searching the whole
+   repo for those names finds them in this file and in the generated
+   preview.html, which only inlines this stylesheet; the one .mbar-ish thing in
+   any markup is `class="mbars"`, the button the day's totals sit in, which is a
+   different element with its own rules further down. A class selector matches
+   whole tokens, so `.mbar` never painted `.mbars` — the block was dead, not
+   quietly load-bearing, and it is deleted rather than folded into one of the
+   three bars that are real.
+ *
+   And those three are not one component wearing modifiers, however much a count
+   of them argues otherwise — this is worth writing down because the count is
+   the first thing anyone reading the file notices. .ds-m is the dashboard bar;
+   .msub-b* is the same reading one size step smaller inside a meal card — 15px
+   glyph column, 9px track, 5px radius, 11px letter against 13px, 8px, 4px,
+   10px, different in every dimension deliberately. They also mean different
+   things by colour, which is the part that does not survive a merge: .ds-mb
+   paints by MACRO, so the day's three lines are told apart at a glance, while
+   .msub-bb paints by STATE, so a single meal says whether it is at its share.
+   Folding them together needs a size modifier AND a paint modifier — more CSS
+   than the duplication costs — and it ties a meal card's proportions to the
+   dashboard sheet's, so the next nudge to one silently moves the other. The
+   only genuinely identical pair is the target mark, .ds-mk-t and .msub-bm, and
+   two lines are cheaper read twice than chased across two components. */
 .macro-kcal { font-size: 12.5px; color: var(--muted-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
 
 /* the picker sheet */
@@ -2534,6 +2551,22 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 @page { size: 5.5in 8.5in; margin: 0.5in 0.52in 0.5in; }
 @media print {
   .mday-stop { break-inside: avoid; border-color: var(--line); }
+  /* An open meal's three bars are made ENTIRELY of background colour: a pale
+     track, a coloured fill, a mark. A printer drops backgrounds by default,
+     so they come out as blank 8px strips under a row of grams — and
+     beforeprint opens every meal, so that is every meal on the page rather
+     than an edge case. Two answers, because they fail differently. Ask for
+     the colour back, which a colour printer will give. And draw the track in
+     ink, so on the mono printer a day plan is actually printed on, the fill
+     still has a length to be read against. The chips carry the verdict
+     itself — see mMacChips — because on grey paper on, over and short are
+     three shades of the same grey. */
+  .msub-bt, .msub-bb, .msub-bm {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  /* box-sizing is border-box globally, so this costs no height and moves
+     nothing: the fill and the mark are positioned against the padding box. */
+  .msub-bt { border: 1px solid var(--line); }
 }
 @media print {
   .no-print { display: none !important; }

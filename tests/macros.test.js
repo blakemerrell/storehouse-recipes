@@ -1521,10 +1521,17 @@ module.exports = {
     });
     t.ok('opening a meal trades the chips for the whole picture',
       !!opened && opened.bars === 3 && opened.chips === 0, JSON.stringify(opened));
+    /* Guarded again, not only on the line above. t.ok evaluates its condition
+       before the call, and tests/run.js catches a throw at SUITE level: one
+       TypeError here is recorded as the single failure "the suite ran to the
+       end" and takes the 209 later assertion sites in this file with it,
+       including the whole scroll-fold section. A missing card has to cost one
+       assertion, never the rest of the file. The guard fails rather than
+       passes when the card is absent, so nothing here can pass vacuously. */
     t.ok('and each bar carries the mark where its share sits',
-      opened.marks === 3, JSON.stringify(opened));
+      !!opened && opened.marks === 3, JSON.stringify(opened));
     t.ok('and they sit above the plates, beside the buttons that move them',
-      opened.beforePlates, JSON.stringify(opened));
+      !!opened && opened.beforePlates, JSON.stringify(opened));
 
     /* The picker draws the SAME bars, measuring the same thing. You arrive
        there from the card mid-gesture; a bar that changed direction between
@@ -1559,31 +1566,82 @@ module.exports = {
       await pillPg.evaluate(() => !!document.querySelector('.mslot [data-mv="empty"]')));
     await pillPg.click('#macroFill');
     await pillPg.waitForTimeout(700);
+    /* FOLD THE DAY FIRST. Chips render only in the folded branch, and
+       S.mFold is decided once on ARRIVAL at a day — Fill does not re-fold. So
+       the version of this that shipped read .msub-c off four OPEN cards and
+       got []. Every assertion it made was then over an empty array: a
+       tautological "length <= 3", an "".split("").every(), a regex that also
+       accepted a state no chip can carry. Proved by mutation rather than by
+       reading: with `return "";` injected at the head of mMacChips the whole
+       suite stayed green at 367/0 — the feature could be deleted outright and
+       nothing went red. */
+    for (let i = 0; i < 8; i++) {
+      const more = await pillPg.evaluate(() => {
+        const b = document.querySelector('.mslot-sub[aria-expanded="true"]');
+        if (!b) return false;
+        b.click();
+        return true;
+      });
+      if (!more) break;
+      await pillPg.waitForTimeout(110);
+    }
+    await pillPg.waitForTimeout(300);
     const pills = await pillPg.evaluate(() => {
-      const card = document.querySelector('.mslot');
+      const cards = [...document.querySelectorAll('.mslot')].filter(
+        (c) => c.querySelector('.mslot-sub'));
+      const read = (c) => [...c.querySelectorAll('.msub-c')].map((e) => ({
+        letter: (e.querySelector('i') || {}).textContent || '',
+        text: e.textContent.replace(/\s/g, ''),
+        state: (e.className.match(/\b(over|short|on)\b/) || [''])[0]
+      }));
       return {
-        headerPill: !!card.querySelector('.mslot-v'),
-        pills: [...card.querySelectorAll('.msub-c')].map((e) => e.textContent.trim()),
-        filled: [...card.querySelectorAll('.msub-c')].every((e) =>
-          getComputedStyle(e).backgroundImage.indexOf('gradient') >= 0),
-        letters: [...card.querySelectorAll('.msub-c i')].map((e) => e.textContent).join('')
+        cards: cards.length,
+        headerPills: cards.filter((c) => c.querySelector('.mslot-v')).length,
+        chips: cards.map(read),
+        anyBars: document.querySelectorAll('.msub-bars').length
       };
     });
+    /* Every assertion below carries its own `allChips.length > 0`, and that is
+       not belt-and-braces. [].every() is TRUE — so without it, gutting
+       mMacChips leaves four of these five green and only the existence check
+       goes red. That is the same shape as the bug this block was rewritten to
+       fix, one level down. Each one has to fail on its own. */
+    const allChips = pills.chips.reduce(function (a, b) { return a.concat(b); }, []);
     t.ok('a meal with food on it drops the pill by its name',
-      !pills.headerPill, JSON.stringify(pills));
+      pills.cards > 0 && pills.headerPills === 0, JSON.stringify(pills).slice(0, 200));
+    /* The state this whole block asserts on has to actually exist, or every
+       assertion under it is an .every() over nothing. */
+    t.ok('and the drafted day really does have a macro off its share, and says so',
+      allChips.length > 0, JSON.stringify(pills.chips));
     /* Only the macro that is off. Three chips on every meal all day is colour
        that is always on, and colour that is always on has stopped saying
        anything — the point of "at a glance I don't need it". */
-    t.ok('and carries a chip only for a macro that is off',
-      pills.pills.length <= 3 && pills.letters.split('').every(function (L) {
-        return 'PFC'.indexOf(L) >= 0;
-      }), JSON.stringify(pills));
+    t.ok('and carries a chip for a macro that is off and none for one that landed',
+      allChips.length > 0 &&
+      allChips.every(function (c) { return c.state === 'over' || c.state === 'short'; }) &&
+      pills.chips.some(function (row) { return row.length < 3; }),
+      JSON.stringify(pills.chips));
     /* Signed, because the amount alone says nothing: 67 g of fat is fine at
        dinner and five times over at lunch, and reading it needs a divisor
        held in your head. */
     t.ok('and each says the distance from that meal\u2019s share, with a sign',
-      pills.pills.every(function (t2) { return /^[PFC][+\u2212]?\d+$/.test(t2.replace(/\s/g, '')); }),
-      JSON.stringify(pills.pills));
+      allChips.length > 0 &&
+      allChips.every(function (c) { return /^[PFC][+\u2212]\d+$/.test(c.text); }),
+      JSON.stringify(allChips.map(function (c) { return c.text; })));
+    /* The sign has to agree with the state. An "over" chip wearing a minus is
+       what a zero-target day produced: the band is a fraction of a target, so
+       at zero it had no width, four tenths of a gram was "over", and
+       Math.round made the number nought — "C −0". Do NOT soften this regex to
+       accept an optional sign; that tolerance is how the bug got through. */
+    t.ok('and the sign it wears agrees with the verdict it carries',
+      allChips.length > 0 &&
+      allChips.every(function (c) {
+        return c.state === 'over' ? c.text.indexOf('+') === 1 : c.text.indexOf('\u2212') === 1;
+      }),
+      JSON.stringify(allChips));
+    /* Folded is chips only — the bars belong to the open card. */
+    t.ok('and a folded day draws no bars at all', pills.anyBars === 0,
+      String(pills.anyBars));
 
     /* On it is a BAND. Without one every meal every day is off by something,
        the colour is on all the time, and colour that is always on has stopped
