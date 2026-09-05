@@ -49,13 +49,18 @@ const FOODS = {
   cream_cheese:    { eat: 1, kcal: 350, p: 6,    c: 5.5,  f: 34, na: 314, fib: 0, label: 'Cream cheese',   g: { cup: 232, tbsp: 14.5 } },
   sour_cream:      { eat: 1, kcal: 198, p: 2.4,  c: 4.6,  f: 19.4, na: 45, fib: 0, g: { cup: 230, tbsp: 14.4 }, label: 'Sour cream', def: { qty: 2, unit: 'tbsp' } },
   vanilla_yogurt:  { eat: 1, kcal: 85,  p: 4.9,  c: 13.8, f: 1.3, na: 66, fib: 0,  g: { cup: 245, tbsp: 15 }, label: 'Vanilla yogurt', note: 'lowfat vanilla yogurt' },
+  /* `lever` is the condiment flag -- things that go ON food. Egg whites and
+     a chicken breast are levers too, but they are also dinner, so they carry
+     `eat` as well: without it the combo builder ranked canned tuna ahead of
+     egg whites for breakfast, because the ladder sorts anything you can eat
+     as it comes above anything you can only add to a plate. */
   butter:          { lever: 1, kcal: 717, p: 0.85, c: 0.06, f: 81, na: 643, fib: 0,   g: { cup: 227, tbsp: 14.2, tsp: 4.7, each: 113 }, def: { qty: 1, unit: 'tbsp' } },
   spray_butter:    { kcal: 0,   p: 0,    c: 0,    f: 0, na: 0, fib: 0,    g: { cup: 200, tbsp: 5 }, label: 'Spray butter', note: 'spray butter, treated as zero' },
   egg:             { eat: 1, kcal: 143, p: 12.6, c: 0.7,  f: 9.5, na: 142, fib: 0,  g: { each: 50, cup: 243 }, label: 'Eggs', note: 'whole large egg, 50 g' },
-  egg_white:       { lever: 1, kcal: 52,  p: 10.9, c: 0.7,  f: 0.2, na: 166, fib: 0, label: 'Egg whites',  g: { cup: 243, tbsp: 15, each: 33 } },
+  egg_white:       { eat: 1, lever: 1, kcal: 52,  p: 10.9, c: 0.7,  f: 0.2, na: 166, fib: 0, label: 'Egg whites',  g: { cup: 243, tbsp: 15, each: 33 } },
 
   // ---- Meat & fish --------------------------------------------------------
-  chicken_breast:  { lever: 1, kcal: 120, p: 22.5, c: 0,    f: 2.6, na: 45, fib: 0,  g: { lb: 453.6, oz: 28.35, cup: 140, each: 174 }, label: 'Chicken breasts', note: 'raw boneless skinless breast' },
+  chicken_breast:  { eat: 1, lever: 1, kcal: 120, p: 22.5, c: 0,    f: 2.6, na: 45, fib: 0,  g: { lb: 453.6, oz: 28.35, cup: 140, each: 174 }, label: 'Chicken breasts', note: 'raw boneless skinless breast' },
   chicken_canned:  { eat: 1, kcal: 130, p: 23,   c: 0,    f: 3.5, na: 400, fib: 0,  g: { can: 285, oz: 28.35, cup: 140 }, label: 'Canned chicken', note: 'the storehouse stocks one size, 12.5 oz, about 285 g drained' },
   ground_beef:     { kcal: 250, p: 17.2, c: 0,    f: 20, na: 66, fib: 0,   g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Ground beef', note: 'raw 85/15' },
   beef_roast:      { kcal: 250, p: 17.5, c: 0,    f: 19.5, na: 60, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Beef roast', note: 'raw chuck roast' },

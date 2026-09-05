@@ -2334,6 +2334,176 @@ module.exports = {
       }));
     await bar.context().close();
 
+    /* ---- three foods that close the meal ---------------------------------
+     * A food taking most of its energy from ONE macro is a knob you can turn
+     * without disturbing the other two, and three of them reach any P/F/C
+     * combination exactly. The panel is that, made tappable. */
+    const comboAt = async (seed) => {
+      const pg = await t.fresh();
+      await pg.evaluate((cfg) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const days = {};
+        for (let i = 8; i >= 1; i--) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          days[key(d)] = cfg.hist
+            ? { b: cfg.hist.map((id) => ({ id: id, x: 1, eaten: 1 })), l: [], d: [], s: [] }
+            : { b: [], l: [], d: [], s: [] };
+        }
+        days[key(new Date())] = { b: [], l: [], d: [], s: [] };
+        const g = new Date(); g.setDate(g.getDate() + 120);
+        localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({
+          sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
+          goalLb: 175, goalBy: key(g), workouts: 4, steps: 8000,
+        }));
+      }, seed || {});
+      await pg.reload();
+      await pg.waitForTimeout(400);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(250);
+      await (await pg.$$('.mslot-add'))[0].click();       // breakfast
+      await pg.waitForTimeout(300);
+      return pg;
+    };
+
+    const comboPage = await comboAt();
+    const cbo = await comboPage.evaluate(() => {
+      const el = document.querySelector('.mcombo');
+      if (!el) return null;
+      return {
+        names: Array.prototype.map.call(el.querySelectorAll('.mcb-name'), (n) => n.textContent),
+        sum: el.querySelector('.mcb-sum').textContent,
+        arrows: el.querySelectorAll('.mcb-arrow').length,
+      };
+    });
+    t.ok('the picker offers three foods, one per macro, with a way past each',
+      !!cbo && cbo.names.length === 3 && cbo.arrows === 6, JSON.stringify(cbo));
+
+    /* The bug this had on its first outing: pointed at the DAY it asked three
+       foods to BE a day. Every portion pegged at the ×4 ceiling -- four cans
+       of tuna -- and still came up short, because no three foods are 180 g of
+       protein. It is aimed at the meal's share of the gap. */
+    const cboFit = await comboPage.evaluate(() => {
+      const p = Number(/(\d+)P/.exec(document.querySelector('.mcb-sum').textContent)[1]);
+      const t = window.__macroLab.targets();
+      return { p: p, day: t.p, share: t.p / 4 };
+    });
+    t.ok('and it is a meal, not the whole day, asked of three foods',
+      cboFit.p > cboFit.share * 0.6 && cboFit.p < cboFit.day * 0.6, JSON.stringify(cboFit));
+
+    /* Purity says oil is the best fat lever on the shelf, at 100%. It is also
+       not breakfast. A food you can eat as it comes outranks a thing that
+       goes ON food, and the rung below is where the oil lives. */
+    t.ok('and no rung opens on a condiment while there is a food for it',
+      cbo.names.length === 3 &&
+      cbo.names.every((n) => !/^(Oil|Butter|Mayo|Light mayo|Ranch|Light ranch)$/.test(n)),
+      cbo.names.join(' | '));
+    await comboPage.context().close();
+
+    /* Slots are yours to name, so no food carries a `breakfast` flag -- what
+       orders the rungs is what you have put in THIS meal before. The control
+       above shares every other condition, so a failure here is the history
+       and nothing else. */
+    const noHist = cbo.names[0];
+    const histPage = await comboAt({ hist: ['f:egg_white', 'f:salsa'] });
+    const withHist = await histPage.evaluate(() =>
+      document.querySelector('.mcb-name').textContent);
+    t.ok('a week of egg whites at breakfast puts egg whites at the top of it',
+      withHist === 'Egg whites' && noHist !== 'Egg whites',
+      'no history: ' + noHist + ' -- with: ' + withHist);
+
+    /* Into the basket like every other row here. Three foods arriving on the
+       plate with no ✓ in between would be the only thing in this sheet that
+       commits itself. */
+    await histPage.click('[data-mcombo="add"]');
+    await histPage.waitForTimeout(300);
+    t.ok('adding all three fills the basket and leaves the plate alone',
+      await histPage.evaluate(() => {
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const dd = new Date();
+        const k = dd.getFullYear() + '-' + p2(dd.getMonth() + 1) + '-' + p2(dd.getDate());
+        return document.querySelectorAll('.mpb-out').length === 3 &&
+          ((d[k] || {}).b || []).length === 0;
+      }));
+
+    /* And once the basket covers the share, three more foods is not help. */
+    t.ok('and it stops offering once there is nothing left to close',
+      await histPage.evaluate(() => !document.querySelector('.mcombo')));
+    await histPage.context().close();
+
+    /* ---- Look up browses, instead of waiting to be told a word -----------
+     * It opened on a search box and nothing else: no way in unless you
+     * already knew what you wanted to type. */
+    const lookPage = await comboAt();
+    await lookPage.click('[data-mpmode="look"]');
+    await lookPage.waitForTimeout(400);
+    const lk = await lookPage.evaluate(() => {
+      const el = document.getElementById('mpLookList');
+      if (!el) return null;
+      const heads = [], rows = {};
+      let cur = '';
+      Array.prototype.forEach.call(el.children, (c) => {
+        if (c.classList.contains('mt-div')) { cur = c.textContent; heads.push(cur); rows[cur] = []; }
+        else if (cur) {
+          const b = c.querySelector('[data-mpick]');
+          if (b) rows[cur].push(b.dataset.mpick);
+        }
+      });
+      return { heads: heads, rows: rows };
+    });
+    t.ok('an untouched Look up lists foods by macro, protein first',
+      !!lk && lk.heads.join('/') === 'Protein/Carbs/Fats', JSON.stringify(lk && lk.heads));
+
+    /* Classed by where the calories come from, not by grams -- a cup of milk
+       carries more grams of carbohydrate than fat and is not a fat. */
+    const misfiled = await lookPage.evaluate((rows) => {
+      /* Read the macros off the rendered rows rather than out of the app --
+         a check that asks the code under test for its own answer proves
+         nothing. Every row prints "62P · 2F · 0C". */
+      const bad = [];
+      Object.keys(rows).forEach((h) => {
+        const want = h === 'Protein' ? 'p' : h === 'Carbs' ? 'c' : 'f';
+        rows[h].forEach((id) => {
+          const btn = document.querySelector('[data-mpick="' + id + '"]');
+          const txt = btn ? btn.textContent : '';
+          const g = (l) => { const m = new RegExp('(\\d+)' + l).exec(txt); return m ? +m[1] : 0; };
+          const kp = g('P') * 4, kf = g('F') * 9, kc = g('C') * 4;
+          if (!(kp + kf + kc)) return;
+          const dom = kp >= kf && kp >= kc ? 'p' : (kf >= kc ? 'f' : 'c');
+          if (dom !== want) bad.push(h + ':' + id);
+        });
+      });
+      return bad;
+    }, lk ? lk.rows : {});
+    t.ok('and every food is filed under the macro its calories come from',
+      !!lk && lk.rows.Protein.length > 2 && lk.rows.Carbs.length > 2 &&
+        lk.rows.Fats.length > 2 && misfiled.length === 0,
+      misfiled.join(' '));
+
+    /* Oil is the purest fat on the shelf and it is not dinner. A thing that
+       goes ON food sits under the food, in this list and on the combo's
+       rungs both -- same rule, stated once. */
+    const lkFats = lk ? lk.rows.Fats : [];
+    t.ok('and the condiments sit under the foods, not over them',
+      lkFats.length > 4 &&
+      lkFats.indexOf('f:oil') > 0 && lkFats.indexOf('f:cheddar') >= 0 &&
+      lkFats.indexOf('f:oil') > lkFats.indexOf('f:cheddar'),
+      lkFats.join(' '));
+
+    /* And the search it used to be is still the search it is. */
+    await lookPage.fill('#mpLookIn', 'honey');
+    await lookPage.waitForTimeout(400);
+    t.ok('and typing still narrows it to what you typed',
+      await lookPage.evaluate(() => {
+        const el = document.getElementById('mpLookList');
+        return !el.querySelector('.mt-div') &&
+          /honey/i.test(el.textContent) && el.querySelectorAll('[data-mpick]').length > 0;
+      }), await lookPage.evaluate(() =>
+        document.getElementById('mpLookList').textContent.slice(0, 120)));
+    await lookPage.context().close();
+
     /* ---- the charts, behind the bars ------------------------------------
      * Its own page, because the history has to be seeded before boot. */
     const chartPage = await t.fresh();
@@ -2583,12 +2753,32 @@ module.exports = {
       }, heldP), await slow.evaluate(() => localStorage.getItem('bsc.macroTargets')));
     await slow.context().close();
 
+    /* It used to draw "7 more mornings and this will say whether you are on
+       pace" here, with a progress count under it — a line whose content was
+       that it had no content, first thing every morning for a fortnight. A
+       line that cannot answer is not a smaller answer.
+
+       Note the failure message reads the CARD, not the line: asking for the
+       text of an element that should not exist is a thirty-second timeout
+       rather than a red test, which is how this one announced itself. */
     const early = await lineFor({ n: 9, rate: 1.5 / 7 });
-    t.ok('with too few mornings it says what it is waiting for',
+    t.ok('with too few mornings to judge, it says nothing at all',
+      await early.evaluate(() => !document.querySelector('.mline')),
+      await early.evaluate(() => (document.querySelector('.mline') || {}).textContent || ''));
+
+    /* Nothing of it survives, not just the outer box — and the first thing
+       in the card is the weigh-in, which was the complaint: it was one of
+       the first things read, every morning, and it never said anything.
+
+       (The check this replaced looked for .mline-wrap / .mline-box. Neither
+       class has ever existed, so it passed whatever the code did.) */
+    t.ok('and nothing of the line is left in the card above the plate',
       await early.evaluate(() => {
-        const el = document.querySelector('.mline');
-        return !!el && el.classList.contains('wait') && /more mornings/.test(el.textContent);
-      }), await early.textContent('.mline'));
+        const card = document.querySelector('.mw, .mweigh') || document.body;
+        return card.querySelectorAll('[class*="mline"]').length === 0 &&
+          /WEIGH/i.test(card.textContent) && !/more mornings|on pace/i.test(card.textContent);
+      }), await early.evaluate(() =>
+        (document.querySelector('.mw, .mweigh') || document.body).textContent.slice(0, 100)));
     await early.context().close();
 
     /* No date named means no pace to be off — but the burn is the most useful

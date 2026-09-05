@@ -621,6 +621,12 @@
        part, because picking anything closed it. The basket holds them all
        and one ✓ commits the lot. Keyed id -> portion. */
     mpBasket: {},
+    /* Which rung of each ladder the three-food combo is standing on. One
+       index per macro so ‹ › walks ONE of them and the other two resize
+       around it — walking all three at once is a different combo every
+       press and no way to keep the half you liked. Ephemeral: the day moves
+       under it, so yesterday's rung means nothing this morning. */
+    mpCombo: { p: 0, f: 0, c: 0 },
     /* How far down each meal's ranked list Try again has walked, keyed day
        and meal. Ephemeral on purpose: tomorrow starts at the top again. */
     mTry: {},
@@ -2116,16 +2122,15 @@
             : 'Which is maintenance, measured over ' + meas.days + ' days.');
     }
 
-    if (!st || st.n < 14) {
-      var have = st ? st.n : 0;
-      var days = Object.keys(MDAYS).filter(function (dk) {
-        return mTotals(MDAYS[dk]).all.kcal > 400;
-      }).length;
-      return mLineHTML('wait', '\u25F7',
-        (14 - have > 0 ? (14 - have) + ' more mornings' : 'A few more logged days') +
-        ' and this will say whether you are on pace.',
-        have + ' of 14 weigh-ins &middot; ' + days + ' of 14 days logged');
-    }
+    /* Not enough history to say anything, so it says nothing.
+     *
+       This used to draw a line reading "7 more mornings and this will say
+       whether you are on pace", with a progress count under it. Its content
+       was that it had no content, and it sat above the plate for a
+       fortnight — the first thing read every morning, every morning saying
+       wait. A line that cannot answer is not a smaller answer; it is the
+       question taking up the room. */
+    if (!st || st.n < 14) return '';
 
     var off = st.avg7 - plan.lb;                  // positive means heavier than planned
     var perWeek = plan.per * 7;
@@ -4079,6 +4084,7 @@
     S.mpMode = mode || 'home';
     S.mpLook = '';
     S.mpBasket = {};
+    S.mpCombo = { p: 0, f: 0, c: 0 };
     pushSheet({ m: 1 });
     renderModal();
   }
@@ -4125,6 +4131,7 @@
       var rem = mMealLeft();
       return wrap(
         (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
+        mComboHTML() +
         mpWaysHTML(true) +
         mpRecentHTML() +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +
@@ -4213,10 +4220,13 @@
      line directly beneath them changed by that same tick, is one gesture
      answered twice with the bigger drawing stale. Whole grams the day is
      still owed, and what the basket would take off that. */
-  function mMealLeft() {
-    var k = mViewKey();
-    var targets = mDayTargets(k);
-    if (!targets.p && !targets.f && !targets.c) return '';
+  /* Everything on the day plus everything in the basket, in grams.
+   *
+     Extracted because the bars and the three-food combo underneath them have
+     to be answering the same question. When each worked out the day's
+     position for itself the combo could offer food the bars called a bust,
+     which is the same argument the panel and the footer used to have. */
+  function mDayEaten(k) {
     var day = mDay(k);
     var sub = { p: 0, f: 0, c: 0 };
     var addTo = function (r, x) {
@@ -4230,20 +4240,187 @@
     Object.keys(day).forEach(function (sk) {
       (day[sk] || []).forEach(function (it) { addTo(BY_ID[it.id], it.x); });
     });
+    Object.keys(S.mpBasket).forEach(function (bk) {
+      addTo(BY_ID[idOf(bk)], S.mpBasket[bk]);
+    });
+    return sub;
+  }
+
+  function mMealLeft() {
+    var k = mViewKey();
+    var targets = mDayTargets(k);
+    if (!targets.p && !targets.f && !targets.c) return '';
+    var sub = mDayEaten(k);
     var pend = Object.keys(S.mpBasket);
-    pend.forEach(function (bk) { addTo(BY_ID[idOf(bk)], S.mpBasket[bk]); });
     return '<div class="mp-cap">Where the day stands' +
       (pend.length ? ' &middot; basket included' : '') + '</div>' +
       mMacBars(sub, { p: targets.p, f: targets.f, c: targets.c }, targets);
+  }
+
+  /* Three foods that close the day, one per macro.
+   *
+     A food taking most of its energy from ONE macro is a knob you can turn
+     without disturbing the other two, and three such knobs reach any
+     combination of P/F/C exactly. That is the whole trick behind "egg
+     whites, cheese and salsa" — not a recipe, a basis.
+
+     So this is not a suggestion engine and it is not ranked. It is three
+     slots, each holding the day's gap in that one macro, each swappable
+     without resizing the meal into something else: walk the protein rung to
+     tuna and the cheese and salsa resize around it. Which is why ‹ › sits on
+     each row rather than one button re-rolling all three — re-rolling loses
+     the one you had already decided about.
+
+     Nothing here is offered when the day is nearly closed. Three foods to
+     take off the last four grams is not help.
+
+     Aimed at THIS MEAL's share of the day's gap, not the whole gap. Pointed
+     at the day it asked three foods to be a day: every portion pegged at the
+     ×4 ceiling — four cans of tuna, four scoops of whey — and still came up
+     short, because no three foods are 180 g of protein. The bars measure the
+     day; a plate is still a meal. */
+  var MCOMBO_MIN = 10;                  // grams of gap worth three foods
+  var MMAC_WORD = { p: 'protein', f: 'fat', c: 'carbohydrate' };
+
+  function mComboSlotName() {
+    var slots = mReadSlots(), sk = S.macroPick && S.macroPick.slot;
+    var nm = slots.names[sk] || 'this meal';
+    slots.list.forEach(function (sl) { if (sl.k === sk) nm = sl.n; });
+    return nm;
+  }
+
+  function mComboGap(k) {
+    var targets = mDayTargets(k);
+    if (!targets.p && !targets.f && !targets.c) return null;
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) {
+      if (sl.k === (S.macroPick && S.macroPick.slot)) slot = sl;
+    });
+    var sh = mShares(mDay(k), targets, slot).T;
+    /* Less whatever is already in the basket — it is bound for this meal, so
+       it has already taken its bite out of this meal's share. */
+    var gap = { p: sh.p, f: sh.f, c: sh.c };
+    Object.keys(S.mpBasket).forEach(function (bk) {
+      var r = BY_ID[idOf(bk)], x = S.mpBasket[bk];
+      if (!r || !r.macro) return;
+      ['p', 'f', 'c'].forEach(function (m) { gap[m] -= (r.macro[m] || 0) * x; });
+    });
+    ['p', 'f', 'c'].forEach(function (m) { gap[m] = Math.max(0, gap[m]); });
+    return gap;
+  }
+
+  function mComboHTML() {
+    var k = mViewKey();
+    var gap = mComboGap(k);
+    if (!gap) return '';
+    if (gap.p + gap.f + gap.c < MCOMBO_MIN) return '';
+    var combo = mComboFor(gap, S.mpCombo, S.macroPick && S.macroPick.slot);
+    if (!combo || !combo.length) return '';
+    var got = { p: 0, f: 0, c: 0, kcal: 0 };
+    combo.forEach(function (c) {
+      ['p', 'f', 'c', 'kcal'].forEach(function (m) {
+        got[m] += ((c.r.macro || {})[m] || 0) * c.x;
+      });
+    });
+    var rows = combo.map(function (c) {
+      var depth = mLevers()[c.m].length;
+      return '<div class="mcb-row">' +
+        '<button class="mcb-arrow" data-mcombo="' + c.m + ':-1" ' +
+          'aria-label="Another ' + MMAC_WORD[c.m] + ' source">&lsaquo;</button>' +
+        '<span class="mcb-food">' +
+          '<span class="mcb-name">' + esc(c.r.name) + '</span>' +
+          '<span class="mcb-x">&times;' + fmtNum(c.x) +
+            (c.r.unit ? ' ' + esc(c.r.unit) : '') + '</span>' +
+        '</span>' +
+        '<button class="mcb-arrow" data-mcombo="' + c.m + ':1"' +
+          (depth < 2 ? ' disabled' : '') +
+          ' aria-label="Another ' + MMAC_WORD[c.m] + ' source">&rsaquo;</button>' +
+      '</div>';
+    }).join('');
+    return '<div class="mcombo">' +
+      '<div class="mp-cap">Three foods for ' + esc(mComboSlotName().toLowerCase()) + '</div>' +
+      rows +
+      '<div class="mcb-sum">' + Math.round(got.kcal) + ' kcal &middot; ' +
+        Math.round(got.p) + 'P &middot; ' + Math.round(got.f) + 'F &middot; ' +
+        Math.round(got.c) + 'C</div>' +
+      '<button class="mcb-add" data-mcombo="add">Add all three</button>' +
+    '</div>';
   }
 
   /* One box, one list. Your own foods and the book's recipes together, each
      saying where it came from, because "do I already have this?" and "what
      does the USDA call it?" are the same question asked once. The food
      tables answer underneath, when they answer. */
+  /* Which macro a food IS, by where its calories come from — not by grams.
+     A cup of milk carries more grams of carbohydrate than fat and is not a
+     carbohydrate. Unlike the lever bench this classes EVERYTHING, purity
+     floor or not: a food has to land in one of the three groups or it is
+     missing from a list whose whole job is to be browsable. */
+  function mFoodDom(r) {
+    var m = r && r.macro;
+    if (!m) return null;
+    var kp = (m.p || 0) * 4, kf = (m.f || 0) * 9, kc = (m.c || 0) * 4;
+    if (!(kp + kf + kc > 0)) return null;
+    return { d: kp >= kf && kp >= kc ? 'p' : (kf >= kc ? 'f' : 'c'),
+      pur: Math.max(kp, kf, kc) / (kp + kf + kc) };
+  }
+
+  var MDOM_HEAD = [['p', 'Protein'], ['c', 'Carbs'], ['f', 'Fats']];
+
+  /* Every food you can eat as it comes, under the macro it is for.
+   *
+     Look up opened on a blank screen: a search box, and nothing until you
+     already knew the word. The thing you want at seven in the morning is not
+     a word, it is "show me the protein" — so that is what is under the box
+     now, in the order a cut cares about. Protein first because it is the one
+     to hit; fats last because they are what closes a plate rather than
+     starts one.
+
+     Grouped headings rather than tabs or a filter, because both of those are
+     a tap to see a list that could simply have been there, and neither fills
+     the empty screen that was the actual complaint.
+
+     Ordered inside each group the way the combo's rungs are: something you
+     would eat before something that goes ON food, then by how cleanly it
+     carries its macro. Same rule in both places on purpose. */
+  function mpBrowseHTML() {
+    var pool = MFOODS.filter(function (r) {
+      if (!(r.eat || r.side || r.lever)) return false;
+      /* The same floor the lever bench uses, for the same reason. A five
+         calorie cup of cacao brew takes most of its nothing from protein,
+         which filed it under Protein next to canned tuna. Nothing this light
+         is a source of anything — it is flavour. Still findable by typing
+         its name; only the browse groups turn it away. */
+      return ((r.macro && r.macro.kcal) || 0) >= 8;
+    });
+    if (!pool.length) return '';
+    var ranked = mRank(pool, mDay(mViewKey()), mDayTargets(mViewKey()),
+      { k: S.macroPick.slot, w: S.macroPick.w });
+    var byDom = { p: [], f: [], c: [] };
+    ranked.forEach(function (e) {
+      var dm = mFoodDom(e.r);
+      if (dm) byDom[dm.d].push({ e: e, pur: dm.pur });
+    });
+    var out = '';
+    MDOM_HEAD.forEach(function (h) {
+      var rows = byDom[h[0]];
+      if (!rows.length) return;
+      rows.sort(function (a, b) {
+        var af = (a.e.r.eat || a.e.r.side) ? 1 : 0, bf = (b.e.r.eat || b.e.r.side) ? 1 : 0;
+        return (bf - af) || (b.pur - a.pur);
+      });
+      out += '<div class="mt-div">' + h[1] + '</div>' + rows.map(function (row) {
+        var r = row.e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : row.e.x;
+        return mpRowHTML(r, row.e.x, '&times;' + fmtNum(xx) + ' ' + esc(r.unit) +
+          ' &middot; ' + mMacLine(r, xx) + mSaltNote(r, xx));
+      }).join('');
+    });
+    return out;
+  }
+
   function mpLookHTML() {
     var qs = S.mpLook.trim().toLowerCase();
-    if (!qs) return '';
+    if (!qs) return mpBrowseHTML();
     var day = mDay(mViewKey());
     var targets = mDayTargets(mViewKey());
     var pick = { k: S.macroPick.slot, w: S.macroPick.w };
@@ -6135,8 +6312,51 @@
      lever is the purest of the three and so the best thing to close with.
      Two passes: sizing the carb lever moves the fat total a little, and one
      more sweep takes the residual out. */
-  function mComboFor(share, pick) {
+  /* How often each food has landed in THIS meal before.
+   *
+     Purity is the right answer to "what moves one macro cleanly" and the
+     wrong answer to "what do you eat in the morning". Canned tuna is the
+     purest protein on the shelf you can eat as it comes, and offering it at
+     seven a.m. is how a panel gets ignored.
+
+     The fix is not a `breakfast: 1` flag on the food table. The slots are
+     yours to name and reorder — a food tagged for breakfast would be the app
+     deciding what breakfast is on the one screen where you already decided.
+     What orders the rungs instead is what you have actually put in this meal
+     before. It opens on purity and becomes yours. */
+  function mSlotSeen(slot) {
+    var seen = {};
+    if (!slot) return seen;
+    Object.keys(MDAYS).forEach(function (k) {
+      ((MDAYS[k] || {})[slot] || []).forEach(function (it) {
+        seen[it.id] = (seen[it.id] || 0) + 1;
+      });
+    });
+    return seen;
+  }
+
+  function mComboFor(share, pick, slot) {
     var bench = mLevers();
+    if (slot) {
+      var seen = mSlotSeen(slot);
+      var by = {};
+      ['p', 'f', 'c'].forEach(function (m) {
+        /* A copy — mLevers() hands back the one cached bench, and sorting it
+           in place would reorder every other reader by whichever meal asked
+           last. */
+        by[m] = bench[m].slice().sort(function (a, b) {
+          /* History first, then the ladder's own order — BOTH of its terms.
+             Sorting on history-then-purity alone quietly dropped the rule
+             that a food outranks a condiment, and breakfast came back
+             offering three quarters of a tablespoon of oil: oil is 100% fat
+             and cheddar is 74%, which is exactly why purity cannot be the
+             last word on its own. */
+          var af = (a.r.eat || a.r.side) ? 1 : 0, bf = (b.r.eat || b.r.side) ? 1 : 0;
+          return ((seen[b.r.id] || 0) - (seen[a.r.id] || 0)) || (bf - af) || (b.pur - a.pur);
+        });
+      });
+      bench = by;
+    }
     var chosen = [];
     ['p', 'c', 'f'].forEach(function (m) {
       var rung = bench[m];
@@ -8038,7 +8258,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mcombo', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
@@ -9832,6 +10052,32 @@
         return;
       }
 
+      /* The three-food combo: walk one rung, or take all three.
+       *
+         Adding puts them in the BASKET rather than on the day, like every
+         other row in this sheet — three foods arriving on the plate with no
+         ✓ in between would be the only thing here that commits itself. */
+      var mcb = e.target.closest('[data-mcombo]');
+      if (mcb && S.macroPick) {
+        var cv = mcb.dataset.mcombo;
+        if (cv === 'add') {
+          var picked = mComboFor(mComboGap(mViewKey()) || {}, S.mpCombo,
+            S.macroPick && S.macroPick.slot);
+          (picked || []).forEach(function (c) { S.mpBasket[c.r.id] = c.x; });
+        } else {
+          /* Wrapping rather than clamping, and by the rung's own length: the
+             ladders are different depths and a rung that stops at its end
+             looks like a broken button. */
+          var cp = cv.split(':'), rung = mLevers()[cp[0]];
+          if (rung && rung.length) {
+            S.mpCombo[cp[0]] =
+              ((S.mpCombo[cp[0]] + Number(cp[1])) % rung.length + rung.length) % rung.length;
+          }
+        }
+        renderModal();
+        return;
+      }
+
       /* Into the basket, not onto the day. Pressed again it comes back out,
          so a mis-tap costs a tap rather than a trip to the plate to delete
          it. Nothing reaches the day until ✓. */
@@ -10333,6 +10579,7 @@
     S.mpQuery = '';
     // a basket left behind would silently refill the next meal you opened
     S.mpBasket = {};
+    S.mpCombo = { p: 0, f: 0, c: 0 };
     renderModal();
     restoreOpener();
   }

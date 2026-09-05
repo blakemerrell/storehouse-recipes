@@ -995,6 +995,40 @@ select { max-width: 280px; }
   margin-top: 10px; padding: 9px 10px 5px;
   background: var(--paper-soft); border: 1px solid var(--line-soft); border-radius: 7px;
 }
+/* Three foods that close the day. It sits directly under the bars it is
+   answering, so it reads as the same panel continuing rather than a second
+   opinion — one border, and the rows inside it. */
+.mcombo {
+  margin-top: 8px; padding: 9px 10px 10px;
+  background: var(--paper-soft); border: 1px solid var(--line-soft); border-radius: 7px;
+}
+.mcb-row {
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--line-soft); padding: 3px 0;
+}
+.mcb-row:last-of-type { border-bottom: none; }
+/* The arrows are the affordance, so they get the tap target and the food
+   name gets the room. */
+.mcb-arrow {
+  flex: none; width: 30px; height: 30px; line-height: 1;
+  background: none; border: 1px solid var(--line-soft); border-radius: 6px;
+  color: var(--muted); font-size: 16px;
+}
+.mcb-arrow:disabled { opacity: 0.35; }
+.mcb-food {
+  flex: 1 1 auto; min-width: 0; display: flex; gap: 8px;
+  align-items: baseline; justify-content: space-between;
+}
+.mcb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcb-x { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mcb-sum {
+  color: var(--muted); font-size: 12px; padding: 7px 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.mcb-add {
+  width: 100%; padding: 9px; border-radius: 7px;
+  background: var(--green); border: none; color: #fff;
+}
 .mp-seg { flex: none; }
 .mpick-row {
   display: flex; width: 100%; text-align: left; gap: 10px; align-items: center;
@@ -2808,6 +2842,10 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
      does not. */
   .mslot-ic { padding: 8px 10px; font-size: 17px; }
   .mslot-add { font-size: 23px; padding: 4px 11px 6px; }
+  /* Swapping a lever is a thumb gesture repeated a dozen times in a row —
+     the arrows are the most-tapped thing in the sheet. */
+  .mcb-arrow { width: 40px; height: 40px; font-size: 19px; }
+  .mcb-add { padding: 12px; }
 }
 
 /* Taken off, not deleted — you have to be able to find a thing to put it back.
