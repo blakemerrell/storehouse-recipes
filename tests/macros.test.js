@@ -1966,22 +1966,12 @@ module.exports = {
     await argued.waitForTimeout(300);
     await argued.click('#macroFill');
     await argued.waitForTimeout(600);
-    t.ok('a meal says nothing about its sections until it has been argued with',
-      await argued.evaluate(() => !document.querySelector('.mslot-wide')));
-    for (let i = 0; i < 10; i++) {
-      await argued.evaluate(() => {
-        const b = document.querySelector('[data-mtry]');
-        if (b) b.click();
-      });
-      await argued.waitForTimeout(90);
-    }
-    await argued.waitForTimeout(400);
-    t.ok('ten tries later it is looking everywhere, and says so',
-      await argued.evaluate(() => {
-        const w = document.querySelector('.mslot-wide');
-        return !!w && /everywhere/i.test(w.textContent);
-      }),
-      await argued.evaluate(() => (document.querySelector('.mslot-h') || {}).textContent || ''));
+    /* No assertion on a LABEL any more. It said "everywhere", which only means
+       something to somebody who already knows a meal is normally fenced to its
+       own sections — and that fence has no marker of its own, so the word was
+       naming the exit from a room nobody had been told they were in. What is
+       asserted below is the thing that actually matters and always did: that
+       the pool really does get wider. */
     /* And the widening is real, not just a caption: what it offers now has to
        be reachable from outside that meal's own sections. */
     t.ok('and the pool it draws from is genuinely wider',

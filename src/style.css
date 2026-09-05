@@ -734,12 +734,6 @@ select { max-width: 280px; }
 .mstep.spent [data-mstep] { opacity: 0.35; cursor: default; }
 /* The number is the way back in when the portion is locked, so it has to look
    like something rather than like text that happens to be there. */
-/* This meal has been opened up to every section. Quiet — it is a statement of
-   fact about where the suggestions are coming from, not a warning. */
-.mslot-wide {
-  font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--ochre-text); white-space: nowrap; flex: none;
-}
 .mslot-try.wide { color: var(--ochre-text); }
 /* Scoped inside .mstep on purpose. `.mstep button` above sets 15px for the
    − and + keys, and it is more specific than .mstep-x — so an unscoped rule

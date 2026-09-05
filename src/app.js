@@ -2976,12 +2976,12 @@
             ? '<button class="mslot-ic mslot-bal no-print" data-mbal="' + esc(sk) + '" ' +
               'aria-label="Balance ' + esc(name) + ' to its share" ' +
               'title="Solve these portions against this meal\u2019s macros">&#9878;</button>' : '') +
-          /* Said out loud, because an answer from outside this meal's own
-             sections is exactly what was asked for and exactly what looks
-             like a fault if it turns up unexplained. */
-          (onPlan && mWideOpen(sk)
-            ? '<span class="mslot-wide" title="After ten tries this meal is ' +
-              'choosing from every section">everywhere</span>' : '') +
+          /* No label. It said "everywhere", which only means something to
+             somebody who already knows a meal is normally fenced to its own
+             sections — and that fence has no marker of its own, so the word
+             was naming the exit from a room nobody had been told they were
+             in. The widening still happens; it just stops announcing itself
+             in a vocabulary of one word. The suggestions ARE the message. */
           (onPlan ? '<button class="mslot-ic mslot-try no-print' +
             (mWideOpen(sk) ? ' wide' : '') + '" data-mtry="' + esc(sk) + '" ' +
             'aria-label="Another suggestion for ' + esc(name) + '" ' +
