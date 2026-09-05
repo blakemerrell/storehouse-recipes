@@ -209,7 +209,8 @@
       /* grams rides along so a plate can say "1 cup · 130 g": a unit alone
          is a meaningful portion for an egg, not for "1 serving" of beans. */
       MFOODS.push({
-        id: 'f:' + key, food: true, side: !!f.side, eat: !!f.eat, book: 0, secNum: 0, secName: 'Single foods',
+        id: 'f:' + key, food: true, side: !!f.side, eat: !!f.eat, lever: !!f.lever,
+        book: 0, secNum: 0, secName: 'Single foods',
         name: name, servings: '1 ' + sv.unit, servN: 1, unit: sv.unit, grams: sv.grams,
         ing: [name], steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
         macro: {
@@ -6019,6 +6020,125 @@
      outside its own sections. */
   var MTRY_WIDE = 10;
 
+  /* ---------------------------------------------------------------- combos
+   *
+     Why a combo works when a recipe does not.
+   *
+     Scaling a barbacoa moves protein, fat and carbohydrate together — one
+     knob wired to three dials — so the solver can land the meal's calories
+     and still miss every macro under them. A food that takes most of its
+     energy from ONE macro is a lever: move it and the other two barely
+     stir. Three levers are three independent knobs, and three knobs can hit
+     any share exactly. That is the whole idea, and it is the reason
+     mBalanceDay struggles on a day of ordinary dishes.
+
+     Egg whites are 90% protein by calories, ranch 93% fat, salsa 75% carb
+     at twenty-nine calories a hundred grams. Cheddar and beef roast are
+     NOT protein levers whatever they feel like — 74% and 71% of their
+     energy is fat, which is worth knowing before you build a steak dinner
+     to hit a protein number.
+
+     `lever` is a flag of its own and not a reuse of `eat`, because the best
+     fat levers are the condiments — oil, butter, dressing — and those were
+     deliberately kept out of `eat` on the grounds that they go ON food
+     rather than being food. In a combo that is exactly their job. */
+  var MLEV_PURE = 0.6;          // a lever earns the name at 60% of its calories
+  var MLEV_MIN = 0.25;          // below a quarter portion it is a garnish, not a lever
+  var MLEV_MAX = 4;
+
+  function mLeverDom(r) {
+    var m = r && r.macro;
+    if (!m) return null;
+    var kp = (m.p || 0) * 4, kf = (m.f || 0) * 9, kc = (m.c || 0) * 4;
+    var tot = kp + kf + kc;
+    if (!(tot > 0)) return null;
+    var d = kp >= kf && kp >= kc ? 'p' : (kf >= kc ? 'f' : 'c');
+    var pur = (d === 'p' ? kp : d === 'f' ? kf : kc) / tot;
+    return pur >= MLEV_PURE ? { d: d, pur: pur } : null;
+  }
+
+  /* The bench, built once. Sorted by purity so the first choice on each rung
+     is the cleanest lever available and ‹ › walks down toward the ones that
+     bring more baggage with them. */
+  var MLEVERS = null;
+  function mLevers() {
+    if (!MLEVERS) {
+      MLEVERS = { p: [], f: [], c: [] };
+      MFOODS.forEach(function (r) {
+        if (!(r.eat || r.side || r.lever)) return;
+        if (!r.macro || (r.macro.kcal || 0) < 8) return;
+        var dm = mLeverDom(r);
+        if (!dm) return;
+        MLEVERS[dm.d].push({ r: r, pur: dm.pur });
+      });
+      /* Sorted by purity ALONE this built canned tuna, applesauce and a
+         spoon of oil — three perfect levers and nothing anybody would eat.
+         The purest fat source on the shelf is oil, at a hundred per cent, and
+         that is exactly the problem: purity measures how cleanly a food moves
+         one macro, not whether it is food.
+
+         So something you would eat as part of a meal outranks a condiment
+         even when the condiment is cleaner. Cheddar at 74% fat comes before
+         oil at 100%; the oil is still there, one tap down the rung, for the
+         day you want the fat and not the cheese. `lever`-only is precisely
+         the set of things that go ON food rather than being it, which is why
+         that flag is the one to sort behind. */
+      ['p', 'f', 'c'].forEach(function (d) {
+        MLEVERS[d].sort(function (a, b) {
+          var af = (a.r.eat || a.r.side) ? 1 : 0, bf = (b.r.eat || b.r.side) ? 1 : 0;
+          return (bf - af) || (b.pur - a.pur);
+        });
+      });
+    }
+    return MLEVERS;
+  }
+
+  /* A portion that hits `want` grams of macro `m`, snapped to the quarter
+     steps the stepper already moves in, and refused outright below a quarter
+     — a tenth of a serving of dressing is a rounding error wearing a name. */
+  function mLeverX(r, m, want) {
+    var per = (r.macro && r.macro[m]) || 0;
+    if (!(per > 0) || !(want > 0)) return 0;
+    var x = Math.round((want / per) * 4) / 4;
+    if (x < MLEV_MIN) return 0;
+    return Math.min(MLEV_MAX, x);
+  }
+
+  /* Build one. `pick` carries an index per rung so ‹ › can walk a rung
+     without disturbing the other two — the sizes resize around whatever you
+     land on, which is the point of choosing.
+   *
+     Protein first because it is the macro worth being exact about and the
+     bench is thinnest there; then carbohydrate, then fat, because the fat
+     lever is the purest of the three and so the best thing to close with.
+     Two passes: sizing the carb lever moves the fat total a little, and one
+     more sweep takes the residual out. */
+  function mComboFor(share, pick) {
+    var bench = mLevers();
+    var chosen = [];
+    ['p', 'c', 'f'].forEach(function (m) {
+      var rung = bench[m];
+      if (!rung.length) return;
+      var i = ((pick && pick[m]) || 0) % rung.length;
+      chosen.push({ m: m, r: rung[i].r, x: 0 });
+    });
+    if (!chosen.length) return null;
+    var pass, held;
+    for (pass = 0; pass < 2; pass++) {
+      chosen.forEach(function (c) {
+        held = { p: 0, f: 0, c: 0 };
+        chosen.forEach(function (o) {
+          if (o === c || !o.x) return;
+          held.p += (o.r.macro.p || 0) * o.x;
+          held.f += (o.r.macro.f || 0) * o.x;
+          held.c += (o.r.macro.c || 0) * o.x;
+        });
+        c.x = mLeverX(c.r, c.m, (share[c.m] || 0) - held[c.m]);
+      });
+    }
+    return chosen.filter(function (c) { return c.x > 0; });
+  }
+
   /* Everything a meal is allowed to be offered — recipes from its sections,
      plus the plain foods a person eats without cooking them.
    *
@@ -8579,6 +8699,25 @@
        be asserted without one. The closed-day rule in particular is easy to
        get wrong in a way no single-device test would ever notice. */
     merge: mMergeRemote,
+    /* The lever bench and the combo builder, so how CLOSE a combo lands can be
+       measured over hundreds of shares rather than eyeballed on one. */
+    levers: function () {
+      var b = mLevers(), out = {};
+      ['p', 'f', 'c'].forEach(function (d) {
+        out[d] = b[d].map(function (e) {
+          return { id: e.r.id, name: e.r.name, purity: e.pur };
+        });
+      });
+      return out;
+    },
+    combo: function (share, pick) {
+      var c = mComboFor(share, pick);
+      return c && c.map(function (e) {
+        return { m: e.m, id: e.r.id, name: e.r.name, x: e.x,
+          p: (e.r.macro.p || 0) * e.x, f: (e.r.macro.f || 0) * e.x,
+          c: (e.r.macro.c || 0) * e.x, kcal: (e.r.macro.kcal || 0) * e.x };
+      });
+    },
     /* Why was this dish not chosen? The ranking, for one meal, on the day as
        it currently stands — the same call Fill makes, so the answer is the
        real one. */
