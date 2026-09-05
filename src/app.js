@@ -3015,6 +3015,22 @@
         (rows ? '<button class="mslot-sub" data-mfold="' + esc(sk) + '" aria-expanded="' +
             (folded ? 'false' : 'true') + '" aria-label="' +
             (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
+          /* Calories, and nothing else about macros.
+           *
+             A meal used to be judged here against its SHARE of the day —
+             chips when folded, bars when open. Both are gone, and the reason
+             is worth keeping: you steer by the DAY, and the day says how it
+             is stacking in the strip pinned at the top of this screen. A meal
+             is a container. Grading each one against a share it never agreed
+             to was a second opinion nobody asked for.
+
+             What went with it is being TOLD which meal blew the day; that is
+             now something you look for. What also went with it is a whole
+             class of bug — shares had two definitions that disagreed, a
+             picker panel that argued with its own footer, a tolerance
+             measured against the day while the bar beside it was drawn
+             against the share. No shares on screen, no way for two of them
+             to differ. */
           '<span class="msub-k">' + Math.round(sub.kcal) + '</span>' +
           /* The verdict, per macro, on the row that already existed.
            *
@@ -3033,7 +3049,6 @@
              the stepper they answer to. Except on paper, where the bars are
              three background colours a printer will not print: there the chips
              stay on the open card, so the verdict survives as ink. */
-          (folded || mOnPaper ? mMacChips(sub, mMealShare(sk, targets, slots), targets) : '') +
           '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
         '</button>' : '') +
         (folded
@@ -3067,7 +3082,6 @@
           : '<div class="mslot-items">' +
             /* Open is where the ± buttons are, so it is where the whole
                picture belongs — directly above the thing that changes it. */
-            (rows ? mMacBars(sub, mMealShare(sk, targets, slots), targets) : '') +
             (rows || '<div class="mslot-empty">&mdash;</div>') +
             /* Under the plates, not in the header: it is a thing you do once
                to a meal you have got right, not a control you reach past
@@ -3229,43 +3243,6 @@
      nothing at all — the calorie figure beside it is always there, so silence
      can never be mistaken for "not worked out yet", and a good day looks the
      way the app looked before any of this existed. */
-  /* Except on paper, where colour is not a thing you can count on.
-   *
-     The verdict this app puts on a meal is a colour, and a printer drops
-     background colour by default. beforeprint deliberately opens every meal —
-     see the fold note in wire() — which trades these chips for the bars, and
-     the bars are the one readout made ENTIRELY of background: what comes out
-     of the printer is three blank strips per meal over a row of grams. The
-     grams are the amounts. The distance from the share is the verdict, and
-     the verdict is the half that was lost. So while the day is being drawn
-     for paper the chips stay on the open card: a chip says +53 in ink, and
-     ink is the only thing a printer is certain to lay down. Not a duplicate
-     of the bar beneath it — that one says what is on the plate, this one says
-     how far it is from where it should be, and it still goes quiet on a meal
-     that landed. */
-  var mOnPaper = false;
-  function mMacChips(sub, sh, targets) {
-    if (!sh) return '';
-    return ['p', 'f', 'c'].map(function (m) {
-      var got = sub[m] || 0, want = sh[m] || 0;
-      var st = mMacState(got, want, (targets || {})[m]);
-      if (st === 'on') return '';
-      var d = Math.round(got - want);
-      /* The sign is read off the VERDICT, not off the rounded number.
-       *
-         The two agree everywhere except at zero, and zero is reachable. Six
-         training days leave one rest day carrying the whole giveback, its
-         carbohydrate floors at nought, the band around nought is nought wide
-         — and half a gram of carbohydrate is then genuinely over by a distance
-         that rounds to none. Taking the sign from the rounded figure printed
-         that as "C −0": a minus on a macro the colour beside it is calling
-         over, which is the one thing the chip exists to say. */
-      return '<span class="msub-c ' + st + '" title="' + Math.round(got) + ' g of ' +
-        Math.round(want) + ' g">' +
-        '<i class="mb-' + m + '">' + m.toUpperCase() + '</i><b>' +
-        (st === 'over' ? '+' : '−') + Math.abs(d) + '</b></span>';
-    }).join('');
-  }
 
   /* Open, with a hand on the stepper: the whole picture, with a mark where the
      share sits so how far past is a distance rather than a subtraction.
@@ -4168,31 +4145,28 @@
   /* What this meal still has room for. mShares works the day's remainder into
      a share per empty meal; this is that share, in the words the plate rows
      already use. */
-  /* What this meal holds against its share — plus what the basket is about to
-     put on it — drawn the way the open card draws it, because you arrive here
-     from that card, mid-gesture, and a bar that changed direction between the
-     two screens would be read as the same bar saying something new.
+  /* The DAY, and what the basket would do to it.
    *
-     Deliberately NOT "what is left". Left-over is a negative on a meal
-     already past its share, and a negative drawn as a bar is three empty
-     tracks implying room that is not there. The gap between the bar and the
-     mark is what is left, and it stays legible when there is none.
-   *
-     The basket counts here before it is committed. A tick redraws this whole
-     sheet, so the bars visibly redrew WITHOUT moving while the line directly
-     under them changed by that same tick — one gesture answered twice, and
-     the bigger drawing was the stale one. Pending and eaten land in the one
-     bar because the bar answers "where will this meal stand", which is the
-     question the sheet was opened to ask; the basket list above names which
-     part is not on the plate yet, and the caption says the bar counts it. */
+     It used to draw this meal against this meal's share. That is gone with
+     the chips and the bars on the cards, and for the same reason: a share is
+     a planning device, not a thing anybody eats against. You are shopping to
+     close the DAY, wherever the food ends up sitting.
+
+     Which also settles an argument this sheet was having with itself. The
+     panel spoke one share and the footer under it spoke another, so the top
+     invited food the bottom called a bust. There is one number now and both
+     halves read it.
+
+     The basket counts before it is committed, because a tick redraws this
+     whole sheet — and the bars visibly redrawing WITHOUT moving, while the
+     line directly beneath them changed by that same tick, is one gesture
+     answered twice with the bigger drawing stale. Whole grams the day is
+     still owed, and what the basket would take off that. */
   function mMealLeft() {
     var k = mViewKey();
     var targets = mDayTargets(k);
     if (!targets.p && !targets.f && !targets.c) return '';
     var day = mDay(k);
-    var slots = mReadSlots();
-    var sh = mMealShare(S.macroPick.slot, targets, slots);
-    if (!sh) return '';
     var sub = { p: 0, f: 0, c: 0 };
     var addTo = function (r, x) {
       if (!r || !r.macro) return;
@@ -4200,19 +4174,16 @@
       sub.f += (r.macro.f || 0) * x;
       sub.c += (r.macro.c || 0) * x;
     };
-    (day[S.macroPick.slot] || []).forEach(function (it) {
-      addTo(BY_ID[it.id], it.x);
+    /* Every meal on the day, not just the one being filled — the gap is the
+       day's, and food added here counts against it wherever it lands. */
+    Object.keys(day).forEach(function (sk) {
+      (day[sk] || []).forEach(function (it) { addTo(BY_ID[it.id], it.x); });
     });
     var pend = Object.keys(S.mpBasket);
-    pend.forEach(function (bk) {
-      addTo(BY_ID[idOf(bk)], S.mpBasket[bk]);
-    });
-    var name = '';
-    slots.list.forEach(function (sl) { if (sl.k === S.macroPick.slot) name = sl.n; });
-    return '<div class="mp-cap">' + esc(name || 'This meal') + ' &middot; ' +
-      Math.round(sh.kcal) + ' kcal at its share' +
+    pend.forEach(function (bk) { addTo(BY_ID[idOf(bk)], S.mpBasket[bk]); });
+    return '<div class="mp-cap">Where the day stands' +
       (pend.length ? ' &middot; basket included' : '') + '</div>' +
-      mMacBars(sub, sh, targets);
+      mMacBars(sub, { p: targets.p, f: targets.f, c: targets.c }, targets);
   }
 
   /* One box, one list. Your own foods and the book's recipes together, each
