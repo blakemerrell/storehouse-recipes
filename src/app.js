@@ -610,7 +610,7 @@
        where the ways are the screen — scanning used to be the fourth button
        on a second sheet, which is three taps of ceremony in front of the
        fastest way to name a food. */
-    mpMode: 'home', mpLook: '', mpFromBar: false,
+    mpMode: 'home', mpFromBar: false,
     /* Which meals you have pressed open or shut, against the default of
        folding one you have eaten. Ephemeral: a new day starts fresh. */
     mFold: {}, mFoldFor: '', mTouched: '', mtOpen: '',
@@ -4202,9 +4202,12 @@
     S.macroPick = { slot: srec.k, n: srec.n, secs: mSlotSecs(srec), w: mSlotW(srec) };
     S.mpSec = 'meal';
     S.mpSort = 'fit';
+    /* ONE query. There were two — S.mpQuery behind the Recipes box and
+       S.mpLook behind the Look up box — with near-identical placeholders and
+       no shared state, so typing "chicken" into one and switching to the
+       other silently threw the word away and asked for it again. */
     S.mpQuery = '';
     S.mpMode = mode || 'home';
-    S.mpLook = '';
     S.mpBasket = {};
     S.mpCombo = { p: 0, f: 0, c: 0 };
     pushSheet({ m: 1 });
@@ -4277,7 +4280,7 @@
       return wrap(mpWaysHTML() +
         '<div class="mp-controls">' +
           '<input type="search" class="txt" id="mpLookIn" placeholder="Search a food or a dish&hellip;" ' +
-            'aria-label="Search" value="' + esc(S.mpLook) + '">' +
+            'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
         '</div>' +
         '<div id="mpLookList">' + mpLookHTML() + '</div>' +
         '<div id="nfResults"></div>' +
@@ -4469,6 +4472,70 @@
     '</div>';
   }
 
+  /* What the box was asked, when what was typed is not a name.
+   *
+     A recipe number is the fastest way in that exists, and it was not wired
+     to anything. Every recipe in the two printed volumes carries one — "No.
+     142" on the card, on the page and in the contents — so a person standing
+     over the open book already has the answer in front of them and had to
+     type its title instead.
+
+     Books 1 and 2 only, deliberately. The Ours shelf gets its numbers
+     assigned at boot (`if (r.book === 3) r.no = ++n`), starting again at 1,
+     so Ours No. 1 and the printed No. 1 are two different dishes wearing the
+     same badge. Only one of those numbers is printed on a page, and that is
+     the one somebody is reading off.
+
+     Eight digits or more is nobody's recipe number; it is a barcode, and the
+     scanner already knows what to do with one. Typing it is the same act as
+     pointing a camera at it, so it gets the same answer. */
+  function mQueryKind(q) {
+    var t = String(q || '').trim();
+    if (/^[0-9]{8,}$/.test(t)) return { k: 'barcode', v: t };
+    if (/^[0-9]{1,3}$/.test(t)) return { k: 'no', v: parseInt(t, 10) };
+    return { k: 'text', v: t };
+  }
+
+  function mNumberHit(n) {
+    var hit = null;
+    RECIPES.forEach(function (r) {
+      /* Ours numbers are not printed on anything, so they are not what a
+         person reading a number off a page has typed.
+       *
+         Honest note: this clause is belt-and-braces, not the thing doing the
+         work. rebuild() lays the printed books down first and pushes the
+         shelf after, so first-match already answers with the printed one —
+         deleting this line leaves the suite green, which is how that was
+         found out. It stays because it states the rule; if the order ever
+         changes it becomes the rule. */
+      if (hit || r.book === 3) return;
+      if (Number(r.no || r.id) === n) hit = r;
+    });
+    return hit;
+  }
+
+  /* The band that answers a number, drawn above whatever the list was going
+     to say. It does not replace the list: the number may be a typo, and a
+     picker that goes blank on a mistyped digit is worse than one that shows
+     you the recipe you meant plus everything else. */
+  function mQueryTopHTML(q, day, targets, pick) {
+    var kind = mQueryKind(q);
+    if (kind.k === 'barcode') {
+      return '<div class="mt-div">Barcode</div>' +
+        '<button class="mpick-row mpick-new" data-nfcode="' + esc(kind.v) + '">' +
+          '<span class="mp-body"><span class="mp-name">Look up ' + esc(kind.v) + '</span>' +
+          '</span></button>';
+    }
+    if (kind.k !== 'no') return '';
+    var r = mNumberHit(kind.v);
+    if (!r) return '';
+    var e = mRank([r], day, targets, pick)[0];
+    return '<div class="mt-div">Recipe no. ' + esc(String(kind.v)) + '</div>' +
+      mpRowHTML(r, e ? e.x : 1, e && e.score === null ? 'no data'
+        : '&times;' + fmtNum(e ? e.x : 1) + ' &middot; ' + mMacLine(r, e ? e.x : 1) +
+          mSaltNote(r, e ? e.x : 1));
+  }
+
   /* One box, one list. Your own foods and the book's recipes together, each
      saying where it came from, because "do I already have this?" and "what
      does the USDA call it?" are the same question asked once. The food
@@ -4541,15 +4608,19 @@
   }
 
   function mpLookHTML() {
-    var qs = S.mpLook.trim().toLowerCase();
+    var qs = S.mpQuery.trim().toLowerCase();
     if (!qs) return mpBrowseHTML();
+    var top = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
+      { k: S.macroPick.slot, w: S.macroPick.w });
     var day = mDay(mViewKey());
     var targets = mDayTargets(mViewKey());
     var pick = { k: S.macroPick.slot, w: S.macroPick.w };
     var pool = [];
     MFOODS.forEach(function (r) { if (r.name.toLowerCase().indexOf(qs) >= 0) pool.push(r); });
     RECIPES.forEach(function (r) { if (matchRank(r, qs)) pool.push(r); });
-    if (!pool.length) return '<div class="mslot-empty">Nothing of yours matches.</div>';
+    if (!pool.length) {
+      return top + (top ? '' : '<div class="mslot-empty">Nothing of yours matches.</div>');
+    }
     /* The food you named goes first. Ranked purely on fit, a spoon of honey
        loses to a dozen recipes that merely list honey among their
        ingredients, and the row you typed the word for never appears — this
@@ -4558,7 +4629,7 @@
     var ranked = mRank(pool, day, targets, pick);
     var hits = [], rest = [];
     ranked.forEach(function (e) { (e.r.food ? hits : rest).push(e); });
-    return hits.concat(rest).slice(0, 12).map(function (e) {
+    return top + hits.concat(rest).slice(0, 12).map(function (e) {
       var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
       return mpRowHTML(r, e.x,
         '<span class="mp-src">' + (r.food ? 'Yours' : 'Recipe') + '</span> &times;' + fmtNum(xx) +
@@ -4568,6 +4639,8 @@
 
   function mpListHTML() {
     var qs = S.mpQuery.trim().toLowerCase();
+    var top = qs ? mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
+      { k: S.macroPick.slot, w: S.macroPick.w }) : '';
     var fam = S.mpSec === 'family' ? mFamilyIds(mViewKey()) : null;
     var pool = S.mpSec === 'foods' ? [] : RECIPES.filter(function (r) {
       var sk = r.book + '-' + r.secNum;
@@ -4616,12 +4689,12 @@
       '<span class="mp-body"><span class="mp-name">&#43; Something else</span>' +
       '</span></button>';
     if (!rows.length) {
-      return own + '<div class="mslot-empty">Nothing else matches' +
-        (S.mpSec === 'meal' ? ' &mdash; try Every recipe.' : '.') + '</div>';
+      return top + own + (top ? '' : '<div class="mslot-empty">Nothing else matches' +
+        (S.mpSec === 'meal' ? ' &mdash; try Every recipe.' : '.') + '</div>');
     }
     /* Always there, at the foot of whatever the list is: "none of these" is
        a thought you have after reading the list, not before. */
-    return rows.map(function (e) {
+    return top + rows.map(function (e) {
       var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
       return mpRowHTML(r, e.x, e.score === null ? 'no data'
         : '&times;' + fmtNum(xx) + (r.food ? ' ' + esc(r.unit) : '') +
@@ -8383,7 +8456,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mcombo', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
+    'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -8509,7 +8582,7 @@
           mScanStart();
         }
         var lk = root.querySelector('#mpLookIn');
-        if (lk && S.mpLook) { lk.focus(); lk.setSelectionRange(lk.value.length, lk.value.length); }
+        if (lk && S.mpQuery) { lk.focus(); lk.setSelectionRange(lk.value.length, lk.value.length); }
       }
       return;
     }
@@ -10098,6 +10171,18 @@
         return;
       }
 
+      /* A barcode typed into the search box is the same request the camera
+         makes, so it goes to the same place rather than growing a second
+         path beside it. */
+      var nfc = e.target.closest('[data-nfcode]');
+      if (nfc) {
+        var code = nfc.dataset.nfcode;
+        S.mpMode = 'scan';
+        renderModal();
+        mScanGot(code);
+        return;
+      }
+
       var nf = e.target.closest('[data-nf]');
       if (nf && (S.newFood || S.macroPick)) {
         if (nf.dataset.nf === 'cancel') {
@@ -10529,11 +10614,11 @@
          answer when they answer, underneath, and only once you have stopped
          typing long enough to mean it. */
       if (S.macroPick && e.target.id === 'mpLookIn') {
-        S.mpLook = e.target.value;
+        S.mpQuery = e.target.value;
         var el = $('mpLookList');
         if (el) el.innerHTML = mpLookHTML();
         clearTimeout(mLookTimer);
-        var want = S.mpLook.trim();
+        var want = S.mpQuery.trim();
         if ($('nfResults')) $('nfResults').innerHTML = '';
         if (want.length < 3) return;
         mLookTimer = setTimeout(function () { mLookNet(want); }, 550);

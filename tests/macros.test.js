@@ -2635,6 +2635,133 @@ module.exports = {
       }));
     await heldPage.context().close();
 
+    /* ---- one query, not two ---------------------------------------------
+     * There were two search boxes with near-identical placeholders — "Search
+     * a food or a dish…" and "Search a dish or ingredient…" — backed by two
+     * separate state fields. Typing a word into one and switching to the
+     * other threw the word away and asked for it again. */
+    const oneQ = await comboAt();
+    await oneQ.click('[data-mpmode="look"]');
+    await oneQ.waitForTimeout(350);
+    await oneQ.fill('#mpLookIn', 'chicken');
+    await oneQ.waitForTimeout(500);
+    const lookHits = await oneQ.evaluate(() =>
+      document.querySelectorAll('#mpLookList [data-mpick]').length);
+
+    await oneQ.click('[data-mpmode="recipes"]');
+    await oneQ.waitForTimeout(450);
+    t.ok('a word typed in one box is still there in the other',
+      await oneQ.evaluate(() => (document.getElementById('mpSearch') || {}).value === 'chicken'),
+      JSON.stringify(await oneQ.evaluate(() => (document.getElementById('mpSearch') || {}).value)));
+
+    /* And it is the same word doing the same work, not merely the same
+       string sitting in a box: both lists answer to it. */
+    t.ok('and it is narrowing the other list too',
+      lookHits > 0 && await oneQ.evaluate(() =>
+        document.querySelectorAll('#mpList [data-mpick]').length > 0 &&
+        [...document.querySelectorAll('#mpList .mp-name')]
+          .some((n) => /chicken/i.test(n.textContent))));
+    await oneQ.context().close();
+
+    /* ---- the box answers a number -----------------------------------------
+     * Every recipe in the two printed volumes carries a number, on the card,
+     * the page and the contents. Standing over the open book at No. 142, the
+     * fastest way in is to type 142 — and it was wired to nothing. */
+    const numQ = await comboAt();
+    await numQ.click('[data-mpmode="look"]');
+    await numQ.waitForTimeout(350);
+
+    /* The expectation is computed from the data, never written down here: a
+       literal name would pass on an app that had stopped reading .no. */
+    const want142 = await numQ.evaluate(() => {
+      const r = window.RECIPES.find((x) => x.book !== 3 && Number(x.no || x.id) === 142);
+      return r ? r.name : null;
+    });
+    await numQ.fill('#mpLookIn', '142');
+    await numQ.waitForTimeout(500);
+    t.ok('typing a recipe number puts that recipe at the top',
+      !!want142 && await numQ.evaluate((nm) => {
+        const band = document.querySelector('#mpLookList .mt-div');
+        const first = document.querySelector('#mpLookList .mp-name');
+        return !!band && /Recipe no\. 142/.test(band.textContent) &&
+          !!first && first.textContent === nm;
+      }, want142),
+      want142 + ' — got ' + await numQ.evaluate(() =>
+        (document.querySelector('#mpLookList .mp-name') || {}).textContent));
+
+    /* The Ours shelf numbers itself from 1 at every boot, so the FIRST
+       household recipe collides with printed No. 1 immediately.
+     *
+       Asked at 142 this proved nothing: the shelf is empty in a fresh
+       profile, so there was no collision to detect and the check passed with
+       the book-3 guard deleted. It seeds a household recipe and asks at the
+       number that actually collides. */
+    await numQ.evaluate(() => {
+      const mine = JSON.parse(localStorage.getItem('bsc.mine') || '{}');
+      mine.ucollide1 = { id: 'ucollide1', book: 3, secNum: 1, secName: 'Ours',
+        name: 'Household Collision Test Loaf', servings: '1 Serving', servN: 1,
+        ing: ['flour'], steps: ['bake'], time: '0 mins', diff: 'Easy',
+        macro: { kcal: 300, p: 20, c: 30, f: 8, na: 200, fib: 2 } };
+      localStorage.setItem('bsc.mine', JSON.stringify(mine));
+    });
+    await numQ.reload();
+    await numQ.waitForTimeout(400);
+    await numQ.click('.tab[data-view="macros"]');
+    await numQ.waitForTimeout(250);
+    await (await numQ.$$('.mslot-add'))[0].click();
+    await numQ.waitForTimeout(300);
+    await numQ.click('[data-mpmode="look"]');
+    await numQ.waitForTimeout(300);
+
+    /* window.RECIPES is the BASE array the data file ships (app.js:26 keeps
+       the rebuilt list, with Ours folded in, module-scoped) — so the shelf
+       has to be confirmed through the interface, by searching for it. */
+    await numQ.fill('#mpLookIn', 'Household Collision');
+    await numQ.waitForTimeout(500);
+    const seeded = await numQ.evaluate(() =>
+      [...document.querySelectorAll('#mpLookList .mp-name')]
+        .some((n) => /Household Collision Test Loaf/.test(n.textContent)));
+
+    const printedNo1 = await numQ.evaluate(() => {
+      const r = window.RECIPES.find((x) => Number(x.no || x.id) === 1);
+      return r ? r.name : null;      // BASE is printed-only, which is the point
+    });
+    await numQ.fill('#mpLookIn', '1');
+    await numQ.waitForTimeout(500);
+    t.ok('and it is the printed book\u2019s number, not the Ours shelf\u2019s',
+      seeded && !!printedNo1 && await numQ.evaluate((nm) => {
+        const first = document.querySelector('#mpLookList .mp-name');
+        return !!first && first.textContent === nm;
+      }, printedNo1),
+      'shelf seeded: ' + seeded + ', printed No.1 is ' + printedNo1 + ', got ' +
+      await numQ.evaluate(() =>
+        (document.querySelector('#mpLookList .mp-name') || {}).textContent));
+
+    /* Eight digits is nobody's recipe number. It is a barcode, and typing one
+       is the same request the camera makes. */
+    await numQ.fill('#mpLookIn', '012345678901');
+    await numQ.waitForTimeout(500);
+    t.ok('and eight digits or more is read as a barcode instead',
+      await numQ.evaluate(() => {
+        const band = document.querySelector('#mpLookList .mt-div');
+        const row = document.querySelector('[data-nfcode]');
+        return !!band && /Barcode/.test(band.textContent) &&
+          !!row && row.dataset.nfcode === '012345678901';
+      }));
+
+    /* A mistyped digit must not blank the screen. The band is drawn ABOVE
+       whatever the list was going to say, never instead of it. */
+    await numQ.fill('#mpLookIn', '999');
+    await numQ.waitForTimeout(500);
+    t.ok('and a number nobody has still says something',
+      await numQ.evaluate(() => {
+        const el = document.getElementById('mpLookList');
+        return el.textContent.trim().length > 0 &&
+          !document.querySelector('#mpLookList .mt-div');
+      }), await numQ.evaluate(() =>
+        document.getElementById('mpLookList').textContent.trim().slice(0, 80)));
+    await numQ.context().close();
+
     /* ---- Look up browses, instead of waiting to be told a word -----------
      * It opened on a search box and nothing else: no way in unless you
      * already knew what you wanted to type. */
