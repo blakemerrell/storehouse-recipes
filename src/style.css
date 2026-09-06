@@ -1067,6 +1067,38 @@ select { max-width: 280px; }
    reads as food you have already had. */
 .mgg.planned { opacity: 0.5; }
 
+/* Still to fill. Kin to the day's own pills — same shape, same letters —
+   but a flat tint rather than a proportional fill, because these say how
+   much is OWED and the day's say how far off it landed. Two different
+   questions should not wear identical clothes. */
+.mgps { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+.mgp {
+  flex: 1 1 auto; display: inline-flex; align-items: baseline; gap: 3px;
+  justify-content: center; min-width: 56px;
+  padding: 4px 8px; border-radius: 999px; font-size: 12px;
+  background: oklch(0.945 0.032 55); border: 1px solid var(--dial-under-pale);
+  color: var(--ochre-text); font-variant-numeric: tabular-nums;
+}
+.mgp span { font-size: 10.5px; font-weight: 700; }
+.mgp b { font-weight: 700; }
+/* Nothing left to fill is a different state, not a small amount left. */
+.mgp.met {
+  background: oklch(0.935 0.048 145); border-color: var(--dial-on-pale);
+  color: var(--green);
+}
+/* A macro read against what the day is still owed: green where this portion
+   lands it, warm where it busts it, and nothing at all where it does neither
+   — silence is most of the row and is what makes the colour mean something. */
+.mgc.lands { font-weight: 700; color: var(--dial-on); }
+.mgc.busts { font-weight: 600; color: var(--dial-over); }
+/* The one badge nothing else can earn. Small, inline with the name, and
+   green because landing everything at once is the good outcome. */
+.mp-closes {
+  display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; vertical-align: 1px;
+  background: oklch(0.935 0.048 145); color: var(--green);
+  border-radius: 999px; padding: 1px 6px;
+}
 .mp-seg { flex: none; }
 .mpick-row {
   display: flex; width: 100%; text-align: left; gap: 10px; align-items: center;

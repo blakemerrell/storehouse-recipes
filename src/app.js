@@ -2565,12 +2565,86 @@
      the macro's own colour. Identity, not status — a P is the same red on a
      plate, in the picker and in the basket, which is what lets the eye find
      the protein without reading the line. */
-  function mMacLine(r, x) {
+  /* What the day is still owed, cached for the length of one render.
+   *
+     Every row on a forty-row list asks the same question, and answering it
+     per row walked the whole day forty times. Cleared by mGapFresh() at the
+     top of each list build, because a tick changes the answer and a stale
+     one would paint the row that just moved against the gap it moved from. */
+  var MGAP = null;
+  function mGapFresh() { MGAP = null; }
+  function mGapLeft() {
+    if (MGAP) return MGAP;
+    var k = mViewKey(), t = mDayTargets(k);
+    if (!t.p && !t.f && !t.c) { MGAP = { none: true }; return MGAP; }
+    var sub = mDayEaten(k);
+    MGAP = { none: false, p: Math.max(0, t.p - sub.p), f: Math.max(0, t.f - sub.f),
+      c: Math.max(0, t.c - sub.c), t: t };
+    return MGAP;
+  }
+
+  /* Does this portion LAND the macro it is being read against, or bust it?
+   *
+     The band is the day's, not the row's — a tenth of the day's target,
+     floored so a nearly-closed macro does not call everything a bust. The
+     same rule the meal gauges use, and for the same reason: a tolerance
+     measured against a small remainder lights up on everything. */
+  /* Honest note on `busts`: it is nearly unreachable from the picker's own
+     suggested portions, and that is the fit engine working rather than a
+     bug. macroFit prices fat and carb overshoot at twenty times undershoot,
+     so the portion it solves for almost never lands past the gap — a
+     mutation that disabled busting entirely left the suite green, on every
+     seeded day tried. It fires where a portion is not fit-solved: a plate
+     stepped up by hand. Kept because that path is real, not claimed as
+     covered. */
+  function mAgainstGap(m, got) {
+    var g = mGapLeft();
+    if (g.none || !(g[m] > 0)) return '';
+    var band = Math.max(3, (g.t[m] || 0) * 0.1);
+    if (got > g[m] + band) return ' busts';
+    if (Math.abs(got - g[m]) <= band) return ' lands';
+    return '';
+  }
+
+  /* `vsGap` is opt-in, and the reason is worth stating: reading a macro
+     against what the day is still owed only means something for food you
+     have NOT put on the day yet.
+   *
+     A plate you already ate is counted IN that gap — mDayEaten walks the
+     whole day — so painting it against the remainder is circular: the plate
+     turns warm for busting a gap it is itself the reason for. Same for a row
+     sitting in the basket, which is counted before it is committed. Those
+     rows state what they are; only candidates are judged. */
+  function mMacLine(r, x, vsGap) {
     var mac = r.macro || {};
+    var cell = function (m, lbl) {
+      var v = Math.round((mac[m] || 0) * x);
+      return '<span class="mgc' + (vsGap ? mAgainstGap(m, (mac[m] || 0) * x) : '') + '">' + v +
+        '<i class="mb-' + m + '">' + lbl + '</i></span>';
+    };
     return (r.est ? '~' : '') + Math.round((mac.kcal || 0) * x) + ' kcal · ' +
-      Math.round((mac.p || 0) * x) + '<i class="mb-p">P</i> · ' +
-      Math.round((mac.f || 0) * x) + '<i class="mb-f">F</i> · ' +
-      Math.round((mac.c || 0) * x) + '<i class="mb-c">C</i>';
+      cell('p', 'P') + ' · ' + cell('f', 'F') + ' · ' + cell('c', 'C');
+  }
+
+  /* The one mark nothing else on the list can earn: this portion of this
+     dish leaves every macro inside the band at once.
+   *
+     Rare on purpose. Judged only when there is a real gap to close — with a
+     gram of protein and no fat left, almost anything lands all three, and a
+     badge on twelve rows is the same as a badge on none. It also has to do
+     some of the work rather than merely not disturb it. */
+  function mClosesIt(r, x) {
+    var g = mGapLeft();
+    if (g.none) return false;
+    var owed = g.p + g.f + g.c;
+    if (owed < 25) return false;
+    var mac = r.macro || {}, did = 0, ok = true;
+    ['p', 'f', 'c'].forEach(function (m) {
+      var got = (mac[m] || 0) * x;
+      did += got;
+      if (Math.abs(g[m] - got) >= 8) ok = false;
+    });
+    return ok && did >= owed * 0.5;
   }
 
   /* What one portion of this is CALLED, in the recipe's own words. A recipe's
@@ -4045,7 +4119,7 @@
     if (inB) x = S.mpBasket[r.id];
     var fit = fitText !== undefined && fitText !== null ? fitText
       : '&times;' + fmtNum(x) + (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' +
-        mMacLine(r, x) + mSaltNote(r, x);
+        mMacLine(r, x, true) + mSaltNote(r, x);
     return '<div class="mpick-wrap' + (inB ? ' in' : '') + '">' +
       '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + x + '"' +
         ' aria-pressed="' + (inB ? 'true' : 'false') + '">' +
@@ -4054,7 +4128,12 @@
         '<span class="mp-body">' +
           '<span class="mp-name">' +
             (mIsFav(r) ? '<span class="mp-fav">&#9733;</span> ' : '') +
-            esc(r.name) + '</span>' +
+            esc(r.name) +
+            /* The badge sits with the NAME, not out on the row's edge: it is
+               a fact about this dish at this portion, and a column of its own
+               would have to be reserved on every row that cannot earn it. */
+            (mClosesIt(r, x) ? ' <span class="mp-closes">closes</span>' : '') +
+          '</span>' +
           '<span class="mp-fit">' + fit + '</span>' +
         '</span>' +
       '</button>' +
@@ -4074,6 +4153,7 @@
      thing you have already named once — the tamale from last week — and it
      should not need any of the three ways to reach. */
   function mpRecentHTML() {
+    mGapFresh();
     var seen = {}, out = [];
     var keys = Object.keys(MDAYS).sort().reverse();
     keys.forEach(function (k) {
@@ -4371,15 +4451,45 @@
     return sub;
   }
 
+  /* What the day is still owed, in the pills the day already speaks.
+   *
+     It was four bars reading "60 / 203 g" — where the day STANDS. Standing
+     is the right question for the strip pinned at the top of My Day, and the
+     wrong one here: in this sheet you are shopping, and shopping is done
+     against what is missing. The subtraction was being done in your head on
+     every row.
+
+     Owed, not signed. The day's own pills carry +12 / −47 because the day
+     can be over as well as under; a thing you are still owed cannot be
+     negative, so it floors at nothing and turns green when there is nothing
+     left of it — the same green a landed macro wears everywhere else.
+
+     The basket counts before it is committed. A tick redraws this whole
+     sheet, and pills that visibly redrew WITHOUT moving while the line under
+     them changed would be one gesture answered twice. */
+  function mGapPill(m, lbl, left) {
+    var done = left < 1;
+    return '<span class="mgp' + (done ? ' met' : '') + '">' +
+      '<span class="mb-' + m + '">' + lbl + '</span><b>' +
+      Math.round(left) + '</b></span>';
+  }
+
   function mMealLeft() {
     var k = mViewKey();
     var targets = mDayTargets(k);
     if (!targets.p && !targets.f && !targets.c) return '';
     var sub = mDayEaten(k);
     var pend = Object.keys(S.mpBasket);
-    return '<div class="mp-cap">Where the day stands' +
-      (pend.length ? ' &middot; basket included' : '') + '</div>' +
-      mMacBars(sub, { p: targets.p, f: targets.f, c: targets.c }, targets);
+    var tK = kcalOf(targets);
+    var eK = 4 * sub.p + 4 * sub.c + 9 * sub.f;
+    return '<div class="mp-cap">Still to fill' +
+      (pend.length ? ' &middot; basket counted' : '') + '</div>' +
+      '<div class="mgps">' +
+        mGapPill('kcal', '\uD83D\uDD25', Math.max(0, tK - eK)) +
+        mGapPill('p', 'P', Math.max(0, targets.p - sub.p)) +
+        mGapPill('f', 'F', Math.max(0, targets.f - sub.f)) +
+        mGapPill('c', 'C', Math.max(0, targets.c - sub.c)) +
+      '</div>';
   }
 
   /* Three foods that close the day, one per macro.
@@ -4543,7 +4653,7 @@
     var e = mRank([r], day, targets, pick)[0];
     return '<div class="mt-div">Recipe no. ' + esc(String(kind.v)) + '</div>' +
       mpRowHTML(r, e ? e.x : 1, e && e.score === null ? 'no data'
-        : '&times;' + fmtNum(e ? e.x : 1) + ' &middot; ' + mMacLine(r, e ? e.x : 1) +
+        : '&times;' + fmtNum(e ? e.x : 1) + ' &middot; ' + mMacLine(r, e ? e.x : 1, true) +
           mSaltNote(r, e ? e.x : 1));
   }
 
@@ -4584,6 +4694,7 @@
      would eat before something that goes ON food, then by how cleanly it
      carries its macro. Same rule in both places on purpose. */
   function mpBrowseHTML() {
+    mGapFresh();
     var pool = MFOODS.filter(function (r) {
       if (!(r.eat || r.side || r.lever)) return false;
       /* The same floor the lever bench uses, for the same reason. A five
@@ -4612,13 +4723,14 @@
       out += '<div class="mt-div">' + h[1] + '</div>' + rows.map(function (row) {
         var r = row.e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : row.e.x;
         return mpRowHTML(r, row.e.x, '&times;' + fmtNum(xx) + ' ' + esc(r.unit) +
-          ' &middot; ' + mMacLine(r, xx) + mSaltNote(r, xx));
+          ' &middot; ' + mMacLine(r, xx, true) + mSaltNote(r, xx));
       }).join('');
     });
     return out;
   }
 
   function mpLookHTML() {
+    mGapFresh();
     var qs = S.mpQuery.trim().toLowerCase();
     if (!qs) return mpBrowseHTML();
     var top = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
@@ -4644,11 +4756,12 @@
       var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
       return mpRowHTML(r, e.x,
         '<span class="mp-src">' + (r.food ? 'Yours' : 'Recipe') + '</span> &times;' + fmtNum(xx) +
-        (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx));
+        (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx, true));
     }).join('');
   }
 
   function mpListHTML() {
+    mGapFresh();
     var qs = S.mpQuery.trim().toLowerCase();
     var top = qs ? mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
       { k: S.macroPick.slot, w: S.macroPick.w }) : '';
@@ -4709,7 +4822,7 @@
       var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
       return mpRowHTML(r, e.x, e.score === null ? 'no data'
         : '&times;' + fmtNum(xx) + (r.food ? ' ' + esc(r.unit) : '') +
-          ' &middot; ' + mMacLine(r, xx) + mSaltNote(r, xx));
+          ' &middot; ' + mMacLine(r, xx, true) + mSaltNote(r, xx));
     }).join('') + own;
   }
 

@@ -1534,18 +1534,35 @@ module.exports = {
       const box = document.querySelector('.mp-left');
       if (!box) return null;
       const L = window.__macroLab, T = L.targets(), tot = L.read().tot;
-      const nums = [...box.querySelectorAll('.msub-bv')].map(
-        (e) => (e.textContent.replace(/,/g, '').match(/\d+/g) || []).map(Number));
+      const pills = [...box.querySelectorAll('.mgp')].map((e) => ({
+        txt: e.textContent.trim(),
+        n: Number((e.textContent.match(/\d+/g) || [0]).pop()),
+        met: e.classList.contains('met'),
+      }));
       return { cap: (box.querySelector('.mp-cap') || {}).textContent || '',
-        bars: box.querySelectorAll('.msub-br').length,
-        nums: nums, dayP: Math.round(tot.p), targetP: Math.round(T.p) };
+        pills: pills, oldBars: box.querySelectorAll('.msub-br').length,
+        owedP: Math.max(0, Math.round(T.p) - Math.round(tot.p)) };
     });
-    t.ok('the picker shows where the DAY stands, against the day\u2019s target',
-      !!dayPanel && dayPanel.bars === 3 &&
-      dayPanel.nums[0][0] === dayPanel.dayP && dayPanel.nums[0][1] === dayPanel.targetP,
-      JSON.stringify(dayPanel));
-    t.ok('and says so, rather than naming a meal',
-      /day/i.test(dayPanel.cap) && !/share/i.test(dayPanel.cap), dayPanel.cap);
+    /* Reversed deliberately. It read "Where the day stands · 60 / 203 g" —
+       four bars of standing. Standing is the right question for the strip at
+       the top of My Day and the wrong one in this sheet, where you are
+       shopping: shopping is done against what is MISSING, and the
+       subtraction was being done in Blake's head on every row. */
+    t.ok('the picker says what the day is still OWED, as pills',
+      !!dayPanel && dayPanel.pills.length === 4 && dayPanel.oldBars === 0,
+      JSON.stringify(dayPanel && { cap: dayPanel.cap, n: dayPanel.pills.length,
+        bars: dayPanel.oldBars }));
+
+    /* And it is the remainder, computed the same way the bench computes it —
+       never a literal, which would pass on an app that had stopped
+       subtracting at all. */
+    t.ok('and the protein pill is the target less what is on the day',
+      !!dayPanel && dayPanel.pills.some((x) => x.n === dayPanel.owedP),
+      JSON.stringify({ owed: dayPanel && dayPanel.owedP,
+        pills: dayPanel && dayPanel.pills.map((x) => x.txt) }));
+
+    t.ok('and says so, rather than naming a meal or a share',
+      /still to fill/i.test(dayPanel.cap) && !/share/i.test(dayPanel.cap), dayPanel.cap);
     await dosePg.context().close();
 
     /* The verdict, per macro, on the row that already existed.
@@ -2710,6 +2727,103 @@ module.exports = {
         [...document.querySelectorAll('#mpList .mp-name')]
           .some((n) => /chicken/i.test(n.textContent))));
     await oneQ.context().close();
+
+    /* ---- a row read against what the day is owed -------------------------
+     * The numbers on a row used to be facts about the dish. They are facts
+     * about the dish AGAINST YOUR DAY now: green where this portion lands a
+     * macro, warm where it busts one, silent where it does neither. */
+    const gapRow = await t.fresh();
+    await gapRow.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [], l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1', goalLb: 175,
+        goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000 }));
+    });
+    await gapRow.reload();
+    await gapRow.waitForTimeout(400);
+    await gapRow.click('.tab[data-view="macros"]');
+    await gapRow.waitForTimeout(300);
+    await (await gapRow.$$('.mslot-add'))[0].click();
+    await gapRow.waitForTimeout(400);
+    await gapRow.click('[data-mpmode="recipes"]');
+    await gapRow.waitForTimeout(500);
+
+    /* Every claim is recomputed from the rendered number and the bench's own
+       gap, so the colouring has to AGREE with the arithmetic rather than
+       merely exist. */
+    const painted = await gapRow.evaluate(() => {
+      const T = window.__macroLab.targets();
+      const tot = window.__macroLab.read().tot;
+      const owed = { p: Math.max(0, T.p - tot.p), f: Math.max(0, T.f - tot.f),
+        c: Math.max(0, T.c - tot.c) };
+      const band = (m) => Math.max(3, (T[m] || 0) * 0.1);
+      const wrong = [];
+      let lands = 0, busts = 0, plain = 0;
+      document.querySelectorAll('#mpList .mgc').forEach((el) => {
+        const v = Number((el.textContent.match(/\d+/) || [0])[0]);
+        const m = el.querySelector('i').className.replace('mb-', '');
+        const want = !(owed[m] > 0) ? ''
+          : v > owed[m] + band(m) ? 'busts'
+          : Math.abs(v - owed[m]) <= band(m) ? 'lands' : '';
+        const got = el.classList.contains('busts') ? 'busts'
+          : el.classList.contains('lands') ? 'lands' : '';
+        if (got !== want) wrong.push(m + ' ' + v + ' owed ' + Math.round(owed[m]) +
+          ' want ' + (want || 'plain') + ' got ' + (got || 'plain'));
+        if (got === 'lands') lands++; else if (got === 'busts') busts++; else plain++;
+      });
+      return { wrong: wrong.slice(0, 4), lands: lands, busts: busts, plain: plain };
+    });
+    t.ok('every macro on a row is painted to match the arithmetic',
+      painted.wrong.length === 0 && (painted.lands + painted.busts + painted.plain) > 20,
+      JSON.stringify(painted));
+
+    /* Silence has to be most of the row, or the colour says nothing. */
+    t.ok('and most of them say nothing, which is what makes colour mean something',
+      painted.plain > painted.lands + painted.busts, JSON.stringify(painted));
+
+    /* And something is actually judged — all-plain would satisfy the two
+       checks above and would mean the feature was not running. */
+    t.ok('and something on the list is judged either way',
+      painted.lands + painted.busts > 0, JSON.stringify(painted));
+
+    /* Only CANDIDATES are judged against the gap.
+     *
+       A plate already on the day is counted IN that gap — mDayEaten walks
+       the whole day — so painting it against the remainder is circular: the
+       plate turns warm for busting a gap it is itself the reason for. A row
+       in the basket is counted before it is committed, so the same applies.
+       Both state what they are; neither is graded. */
+    await gapRow.click('[data-mpmode="home"]').catch(() => {});
+    await gapRow.waitForTimeout(300);
+    const basketBtn = await gapRow.$('[data-mpick]');
+    if (basketBtn) { await basketBtn.click(); await gapRow.waitForTimeout(350); }
+    t.ok('a plate on the day and a row in the basket are never graded against it',
+      await gapRow.evaluate(() =>
+        document.querySelectorAll('.mpb-m .mgc.lands, .mpb-m .mgc.busts').length === 0 &&
+        document.querySelectorAll('.mitem-mac .mgc.lands, .mitem-mac .mgc.busts').length === 0),
+      await gapRow.evaluate(() => 'basket ' +
+        document.querySelectorAll('.mpb-m .mgc.lands, .mpb-m .mgc.busts').length + ', plates ' +
+        document.querySelectorAll('.mitem-mac .mgc.lands, .mitem-mac .mgc.busts').length));
+
+    /* ...and the basket really did get a row, so the check above had
+       something to be wrong about. */
+    t.ok('and the basket actually had a row to not grade',
+      await gapRow.evaluate(() => document.querySelectorAll('.mpb-m').length > 0));
+
+    /* The badge is rare by construction: it needs a real gap AND a row that
+       lands all three at once AND does half the work. */
+    const badges = await gapRow.evaluate(() => ({
+      n: document.querySelectorAll('#mpList .mp-closes').length,
+      rows: document.querySelectorAll('#mpList [data-mpick]').length,
+    }));
+    t.ok('and the closes badge stays rare enough to mean something',
+      badges.rows > 10 && badges.n <= Math.ceil(badges.rows * 0.25), JSON.stringify(badges));
+    await gapRow.context().close();
 
     /* ---- the box answers a number -----------------------------------------
      * Every recipe in the two printed volumes carries a number, on the card,
