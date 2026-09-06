@@ -4152,9 +4152,66 @@
   /* What you ate lately, newest first, one row each. The everyday case is a
      thing you have already named once — the tamale from last week — and it
      should not need any of the three ways to reach. */
-  function mpRecentHTML() {
+  /* The two bands the home screen was missing.
+   *
+     Opening this sheet used to offer six things you ate lately and a way to
+     go looking. What it never offered was the answer to the question you
+     opened it with — what would close the day — even though the app has
+     worked that out for every dish since the tab was built. It was one
+     option inside a sort dropdown, two taps and a mode away, called "Best
+     fit".
+
+     Now it is a band, on arrival, with the portions already solved. */
+  function mpPinsHTML(shown) {
     mGapFresh();
-    var seen = {}, out = [];
+    if (!S.macroPick) return '';
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    var pins = (slot && slot.pins) || [];
+    var rows = pins.map(function (pn) {
+      var r = BY_ID[idOf(pn.id)];
+      if (!r) return '';
+      if (shown) shown[r.id] = 1;
+      return mpRowHTML(r, pn.x || 1);
+    }).filter(Boolean).join('');
+    return rows ? '<div class="mt-div">Every day</div>' + rows : '';
+  }
+
+  /* What closes the day, from this meal's own pool, portions solved.
+   *
+     Skips anything the bands above already drew: a pin that is also a recent
+     and also the best fit would otherwise be three rows saying the same
+     thing, and a list that repeats itself reads as a list that is not
+     thinking. */
+  function mpFitsHTML(skip) {
+    mGapFresh();
+    if (!S.macroPick) return '';
+    var targets = mDayTargets(mViewKey());
+    if (!targets.p && !targets.f && !targets.c) return '';
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    if (!slot) return '';
+    /* The slot OBJECT, not its key. mSlotSecs reads slot.t, and a string has
+       no .t — so it fell through to MEAL_SECS.s and every meal, breakfast
+       included, was ranked against the snack sections. Nothing threw; the
+       band just quietly offered the wrong pool. */
+    var pool = mMealPool(slot, mWideOpen(S.macroPick.slot));
+    var ranked = mRank(pool, mDay(mViewKey()), targets, slot)
+      .filter(function (e) { return e.score !== null && !skip[e.r.id]; })
+      .slice(0, 10);
+    if (!ranked.length) return '';
+    return '<div class="mt-div">Fits best</div>' + ranked.map(function (e) {
+      return mpRowHTML(e.r, e.x);
+    }).join('');
+  }
+
+  /* `shown` is shared with the bands above and below, so the same dish is
+     never drawn three times under three headings. Passed in rather than kept
+     here, because whoever composes the screen is the only thing that knows
+     what order the bands ran in. */
+  function mpRecentHTML(shown) {
+    mGapFresh();
+    var seen = shown || {}, out = [];
     var keys = Object.keys(MDAYS).sort().reverse();
     keys.forEach(function (k) {
       var day = MDAYS[k] || {};
@@ -4334,11 +4391,19 @@
          are shopping against, and it used to be readable only by closing the
          sheet you opened to go shopping. */
       var rem = mMealLeft();
+      /* One set, threaded through the bands in the order they are drawn, so
+         a dish that is pinned AND recent AND the best fit appears once —
+         under the first heading that has a claim on it. */
+      var shown = {};
+      var pins = mpPinsHTML(shown);
+      var recent = mpRecentHTML(shown);
       return wrap(
         (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
         mComboHTML() +
         mpWaysHTML(true) +
-        mpRecentHTML() +
+        pins +
+        recent +
+        mpFitsHTML(shown) +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +
           '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
     }

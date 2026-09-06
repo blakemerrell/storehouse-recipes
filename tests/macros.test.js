@@ -2728,6 +2728,117 @@ module.exports = {
           .some((n) => /chicken/i.test(n.textContent))));
     await oneQ.context().close();
 
+    /* ---- what closes the day, on arrival ---------------------------------
+     * The sheet used to open on six things eaten lately and a way to go
+     * looking. The one thing it never offered was the answer to the question
+     * it was opened with — what would close the day — even though the app
+     * has worked that out for every dish since the tab existed. It was an
+     * option inside a sort dropdown, two taps and a mode away. */
+    /* Seeded with a RECIPE eaten yesterday, not a food: it lands in Recent
+       and is also in the meal's own ranked pool, so the two bands genuinely
+       compete for it. Without that overlap the dedupe check below is
+       vacuous — which it was, and a mutation removing the dedupe left the
+       suite green. */
+    const fitsPg = await t.fresh();
+    /* Two-phase: settle the day first, ask the fit engine which dish it
+       would put FIRST, and make that the thing eaten yesterday. Anything
+       less than rank one is not enough — the band draws ten, so a recent
+       sitting fiftieth never competes and the dedupe has nothing to do.
+       (Seeded at rank 200 first; the mutation still passed.) */
+    await fitsPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [], l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1', goalLb: 175,
+        goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000 }));
+    });
+    await fitsPg.reload();
+    await fitsPg.waitForTimeout(400);
+    await fitsPg.click('.tab[data-view="macros"]');
+    await fitsPg.waitForTimeout(300);
+    const seedId = await fitsPg.evaluate(() => {
+      const top = window.__macroLab.rank('b', 1);
+      return top && top.length ? top[0].id : null;
+    });
+    await fitsPg.evaluate((rid) => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (o) => { const d = new Date(); d.setDate(d.getDate() - o);
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({
+        [key(1)]: { b: [{ id: rid, x: 1, eaten: 1 }], l: [], d: [], s: [] },
+        [key(0)]: { b: [], l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1', goalLb: 175,
+        goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000 }));
+    }, seedId);
+    await fitsPg.reload();
+    await fitsPg.waitForTimeout(400);
+    await fitsPg.click('.tab[data-view="macros"]');
+    await fitsPg.waitForTimeout(300);
+    await (await fitsPg.$$('.mslot-add'))[0].click();
+    await fitsPg.waitForTimeout(500);
+    const fits = await fitsPg.evaluate(() => {
+      const bands = [...document.querySelectorAll('.sheet .mt-div')].map((d) => d.textContent);
+      const under = (label) => {
+        const d = [...document.querySelectorAll('.sheet .mt-div')]
+          .find((x) => new RegExp(label, 'i').test(x.textContent));
+        if (!d) return [];
+        const out = []; let el = d.nextElementSibling;
+        while (el && !el.classList.contains('mt-div')) {
+          const b = el.querySelector('[data-mpick]');
+          if (b) out.push({ id: b.dataset.mpick, x: Number(b.dataset.mpx) });
+          el = el.nextElementSibling;
+        }
+        return out;
+      };
+      const all = [...document.querySelectorAll('.sheet [data-mpick]')].map((b) => b.dataset.mpick);
+      return { bands: bands, fits: under('Fits best'), recent: under('Recent'),
+        dupes: all.filter((x, i) => all.indexOf(x) !== i) };
+    });
+    t.ok('the sheet opens with what fits the day, no mode to pick first',
+      fits.bands.some((b) => /Fits best/i.test(b)) && fits.fits.length >= 5,
+      JSON.stringify({ bands: fits.bands, n: fits.fits.length }));
+
+    /* The same dish under two headings is a list that is not thinking. The
+       first clause proves the two bands were actually competing: the recent
+       dish IS in this meal's ranked pool, so only the dedupe keeps it from
+       being drawn twice. */
+    const couldClash = await fitsPg.evaluate((rid) =>
+      window.__macroLab.rank('b', 10).some((e) => String(e.id) === String(rid)), seedId);
+    t.ok('and no dish is drawn twice under two headings',
+      couldClash && fits.recent.length > 0 && fits.dupes.length === 0,
+      JSON.stringify({ couldClash: couldClash, recent: fits.recent.length,
+        dupes: fits.dupes }));
+
+    /* The portions are solved, not defaulted — the whole point is that the
+       row arrives at the size that fills the gap. */
+    t.ok('and every row arrives at a portion the fit worked out',
+      fits.fits.length > 0 && fits.fits.every((e) => e.x > 0) &&
+      fits.fits.some((e) => e.x !== 1),
+      JSON.stringify(fits.fits.map((e) => e.x)));
+
+    /* And it really is ranked, not merely listed: the bench scores the same
+       pool and the band must agree with its order. */
+    t.ok('and the band is in the order the fit engine ranks them',
+      await fitsPg.evaluate((shown) => {
+        const ranked = window.__macroLab.rank('b', 60);
+        if (!ranked || !ranked.length) return false;
+        const pos = {};
+        ranked.forEach((e, i) => { pos[String(e.id)] = i; });
+        const seq = shown.map((e) => pos[String(e.id)]).filter((n) => n !== undefined);
+        if (seq.length < 3) return false;
+        for (let i = 1; i < seq.length; i++) if (seq[i] < seq[i - 1]) return false;
+        return true;
+      }, fits.fits),
+      JSON.stringify(fits.fits.map((e) => e.id)));
+    await fitsPg.context().close();
+
     /* ---- a row read against what the day is owed -------------------------
      * The numbers on a row used to be facts about the dish. They are facts
      * about the dish AGAINST YOUR DAY now: green where this portion lands a
