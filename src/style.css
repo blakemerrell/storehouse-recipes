@@ -718,13 +718,36 @@ select { max-width: 280px; }
    "keep it exactly" are the same subject — the lock used to sit with the bin,
    which paired "hold this still" with "throw this away". */
 .mstep {
+  /* One value for the portion's type, because it is worn by TWO elements —
+     the span when the plate is planned and a <button> once it is eaten, so
+     you can tap it to correct. Those were restated separately, the older
+     comment below says so outright ("CSS has no way to say that"), and the
+     first time this size changed only one of them moved: the number jumped
+     the moment a plate was ticked, which is the exact bug that comment was
+     written for. It can be said now, so it is said once. */
+  --mstep-type: 13.5px;
   display: flex; align-items: stretch; flex: 1 1 auto; min-width: 0;
-  border: 1px solid var(--line-soft); border-radius: 4px; overflow: hidden;
+  border: 1px solid var(--line-soft); border-radius: 7px; overflow: hidden;
 }
+/* Thumb-sized, and flex:none on every one of them.
+ *
+   `width` inside a flex row is a suggestion: a plate with a long yield noun
+   ("1¾ meal prep containers") squeezed the lock and both keys to 36 px while
+   the CSS still said 44. Measured, not guessed — that is how a 44 px target
+   ships at 36 and nobody notices. */
 .mstep button {
-  background: var(--card); border: 0; border-left: 1px solid var(--line-soft);
-  width: 36px; line-height: 1; font-size: 15px; color: var(--muted-2);
+  flex: none; background: var(--card); border: 0; border-left: 1px solid var(--line-soft);
+  width: 44px; height: 44px; line-height: 1; color: var(--muted-2);
 }
+/* The KEYS carry the type size, not every button in the strip.
+ *
+   `.mstep button { font-size }` is more specific than `.mstep-x`, and an
+   eaten portion becomes a <button> so you can tap it to correct — so the
+   unscoped rule made the number jump size the moment a plate was ticked.
+   The one row that should look settled instead shouted. It happened once
+   before at 15px, the comment below records it, and raising the keys to 18
+   did it again. Scoped now, so it cannot. */
+.mstep button[data-mstep] { font-size: 18px; }
 .mstep button:not(:disabled):hover { background: var(--paper-soft); color: var(--ink); }
 /* A plate that has been eaten. The number stays legible — you want to read
    what you had — but the two buttons that would change it go quiet, because
@@ -867,19 +890,24 @@ select { max-width: 280px; }
 
 .mstep .mstep-wake {
   background: none; border: 0; font-family: inherit; cursor: pointer;
-  font-size: 12px; font-weight: 600; text-align: left;
+  font-size: var(--mstep-type); font-weight: 600; text-align: left;
   text-decoration: underline dotted; text-underline-offset: 3px;
   text-decoration-color: var(--line-firm);
 }
 .mstep.spent .mstep-x { color: var(--muted); }
 /* its own box, on the far side of the gap */
+/* The label was 46 wide and the box inside it 17 — so the thing that LOOKS
+   like the target and the thing that IS one were different sizes. Both are
+   44 now, and the label carries the paint. */
 .mtick {
-  display: grid; place-items: center; width: 46px; flex: none;
-  border: 1px solid var(--line-soft); border-radius: 4px; background: var(--card);
+  flex: none; width: 44px; height: 44px; display: flex; align-items: center;
+  justify-content: center; border: 1px solid var(--line-soft); border-radius: 7px;
+  background: var(--card);
 }
-.mtick input { accent-color: var(--green); width: 17px; height: 17px; margin: 0; }
+.mtick input { accent-color: var(--green); width: 22px; height: 22px; margin: 0; }
 .mstep .mlock {
-  border-left: 0; border-right: 1px solid var(--line-soft); width: 34px; font-size: 12px;
+  flex: none; border-left: 0; border-right: 1px solid var(--line-soft);
+  width: 44px; height: 44px; font-size: 15px; background: var(--paper-soft);
 }
 .mstep .mlock[aria-pressed="true"] {
   background: color-mix(in oklab, var(--ochre) 24%, var(--card)); color: var(--ochre-text);
@@ -887,7 +915,8 @@ select { max-width: 280px; }
 /* It carries words now — "1¾ bites" rather than "×1¾" — so it needs a floor
    it can shrink to and somewhere for a long yield noun to go. */
 .mstep-x {
-  flex: 1 1 auto; min-width: 0; padding: 6px 8px; font-size: 12px; font-weight: 600;
+  flex: 1 1 auto; min-width: 0; padding: 0 10px; font-size: var(--mstep-type); font-weight: 600;
+  display: flex; align-items: center;
   color: var(--ink); background: var(--paper-soft); text-align: center;
   font-variant-numeric: tabular-nums;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -2905,9 +2934,12 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   /* no hover to reveal with, and a target you can actually hit */
   .pitem { padding: 8px 2px; font-size: 15.5px; }
   .pitem-x { opacity: 1; width: 34px; height: 34px; font-size: 19px; }
-  .mstep button { width: 44px; font-size: 17px; }
-  .mstep-x { padding: 9px 8px; font-size: 13px; }
-  .mtick input { width: 20px; height: 20px; }
+  /* the base rule is already 44x44 with flex:none — a coarse pointer needs
+     nothing more, and re-stating a width here is how one of them drifts */
+  .mstep button[data-mstep] { font-size: 19px; }
+  /* one value, so the span and the eaten <button> cannot drift apart */
+  .mstep { --mstep-type: 14px; }
+  .mtick input { width: 22px; height: 22px; }
   /* the seam is the fold handle, so give the whole strip a thumb's height */
   .mslot-sub { padding: 9px 10px; }
   /* A borderless control has to be given the reach the border used to imply.

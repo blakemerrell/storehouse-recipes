@@ -210,6 +210,9 @@
          is a meaningful portion for an egg, not for "1 serving" of beans. */
       MFOODS.push({
         id: 'f:' + key, food: true, side: !!f.side, eat: !!f.eat, lever: !!f.lever,
+        /* which shelf a cook would reach on, carried through from the food
+           table so mShelfKey does not have to keep its own list */
+        veg: !!f.veg, starch: !!f.starch,
         book: 0, secNum: 0, secName: 'Single foods',
         name: name, servings: '1 ' + sv.unit, servN: 1, unit: sv.unit, grams: sv.grams,
         ing: [name], steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
@@ -4753,6 +4756,53 @@
     if (!(kp + kf + kc > 0)) return null;
     return { d: kp >= kf && kp >= kc ? 'p' : (kf >= kc ? 'f' : 'c'),
       pur: Math.max(kp, kf, kc) / (kp + kf + kc) };
+  }
+
+  /* The shelves a food can sit on, in the order a cut cares about.
+   *
+     Not the same question as "which macro is this mostly", which is what
+     mFoodDom answers. A shelf is where you would REACH for a thing: fruit
+     and starch are both carbohydrate and you go looking for them in
+     different moods, and 🥦 Veggies only means anything if it means the
+     things you can eat a lot of — which is why potatoes and corn are
+     shelved with the cereal.
+
+     The first four flags win where a food has one; everything else falls
+     through to whichever macro carries its calories. */
+  var MSHELF = [
+    ['protein', '\uD83E\uDD69', 'Protein'],
+    ['veg',     '\uD83E\uDD66', 'Veggies'],
+    ['fruit',   '\uD83C\uDF4E', 'Fruit'],
+    ['starch',  '\uD83E\uDD56', 'Starch'],
+    ['carb',    '\uD83C\uDF5A', 'Carbs'],
+    ['fat',     '\uD83E\uDD51', 'Fats'],
+    ['dairy',   '\uD83E\uDDC0', 'Dairy'],
+    ['oil',     '\uD83E\uDED2', 'Oils'],
+  ];
+  var MSHELF_NAME = {}, MSHELF_EMO = {};
+  MSHELF.forEach(function (s) { MSHELF_EMO[s[0]] = s[1]; MSHELF_NAME[s[0]] = s[2]; });
+
+  var MDAIRY = ['milk', 'cheddar', 'parmesan', 'cottage_cheese', 'cream_cheese',
+    'sour_cream', 'yogurt', 'egg'];
+  var MOILY = ['oil', 'butter', 'mayo', 'ranch', 'peanut_butter'];
+  var MFRUIT = ['apple', 'banana', 'orange', 'grape', 'peaches_canned',
+    'pears_canned', 'applesauce', 'fruit', 'raisin'];
+
+  function mShelfKey(r) {
+    if (!r || !r.food) return '';
+    var k = String(r.id).indexOf('f:') === 0 ? String(r.id).slice(2) : String(r.id);
+    var starts = function (list) {
+      var hit = false;
+      list.forEach(function (v) { if (k === v || k.indexOf(v) === 0) hit = true; });
+      return hit;
+    };
+    if (r.veg) return 'veg';
+    if (r.starch) return 'starch';
+    if (starts(MFRUIT)) return 'fruit';
+    if (starts(MOILY)) return 'oil';
+    if (starts(MDAIRY)) return 'dairy';
+    var d = mFoodDom(r);
+    return d ? ({ p: 'protein', f: 'fat', c: 'carb' })[d.d] : '';
   }
 
   var MDOM_HEAD = [['p', 'Protein'], ['c', 'Carbs'], ['f', 'Fats']];

@@ -2654,6 +2654,57 @@ module.exports = {
         .filter((n) => n.scrollWidth > n.clientWidth + 1).map((n) => n.textContent).join(', ')));
     await gaugePage.context().close();
 
+    /* ---- a tinyPhone's targets44 ---------------------------------------------------
+     * The lock was 34x33, the keys 44 wide but 33 tall, and the eaten
+     * checkbox a 46 px label wrapped around a 17 px box — the thing that
+     * LOOKED like the target and the thing that WAS one were different
+     * sizes. Measured on a real phone viewport, not asserted from the CSS,
+     * because `width` inside a flex row is only a suggestion: a plate with a
+     * long yield noun squeezed all three to 36 while the rule still said 44. */
+    const tinyPhone = await t.fresh({ viewport: { width: 320, height: 900 }, hasTouch: true, isMobile: true });
+    await tinyPhone.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      /* a recipe as well as a food, so the long yield noun is in play */
+      const long = (window.RECIPES.find((r) => /container|meal prep/i.test(r.servings || '')) ||
+        window.RECIPES.find((r) => r.macro && r.macro.kcal > 200) || {}).id;
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:whey', x: 1, eaten: 0 }].concat(long ? [{ id: long, x: 1.75, eaten: 0 }] : []),
+        l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1', goalLb: 175,
+        goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000 }));
+    });
+    await tinyPhone.reload();
+    await tinyPhone.waitForTimeout(400);
+    await tinyPhone.click('.tab[data-view="macros"]');
+    await tinyPhone.waitForTimeout(300);
+    await tinyPhone.click('[data-mfold="b"]');
+    await tinyPhone.waitForTimeout(350);
+
+    const targets44 = await tinyPhone.evaluate(() => {
+      const els = [...document.querySelectorAll('.mstep .mlock, .mstep button[data-mstep], .mtick')];
+      const small = els.map((e) => {
+        const b = e.getBoundingClientRect();
+        return { w: Math.round(b.width), h: Math.round(b.height),
+          what: e.className.split(' ')[0] || e.tagName };
+      }).filter((x) => x.w < 44 || x.h < 44);
+      return { n: els.length, small: small };
+    });
+    t.ok('every control on a plate is a thumb wide at the narrowest phone',
+      targets44.n >= 4 && targets44.small.length === 0,
+      JSON.stringify(targets44));
+
+    /* And the row still fits — 44 px targets that overflow are not a fix. */
+    t.ok('and the row still fits without scrolling sideways',
+      await tinyPhone.evaluate(() =>
+        [...document.querySelectorAll('.mrow2')].every((e) => e.scrollWidth <= e.clientWidth + 1) &&
+        document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+    await tinyPhone.context().close();
+
     /* ---- what is held, said where it can be seen -------------------------
      * Lock the dinner you promised the family, fold the card, press
      * Rebalance. The whole gesture happens on the folded view, and the

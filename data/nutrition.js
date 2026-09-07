@@ -49,6 +49,16 @@ const FOODS = {
   cream_cheese:    { eat: 1, kcal: 350, p: 6,    c: 5.5,  f: 34, na: 314, fib: 0, label: 'Cream cheese',   g: { cup: 232, tbsp: 14.5 } },
   sour_cream:      { eat: 1, kcal: 198, p: 2.4,  c: 4.6,  f: 19.4, na: 45, fib: 0, g: { cup: 230, tbsp: 14.4 }, label: 'Sour cream', def: { qty: 2, unit: 'tbsp' } },
   vanilla_yogurt:  { eat: 1, kcal: 85,  p: 4.9,  c: 13.8, f: 1.3, na: 66, fib: 0,  g: { cup: 245, tbsp: 15 }, label: 'Vanilla yogurt', note: 'lowfat vanilla yogurt' },
+  /* `veg` and `starch` split what `side` could not.
+   *
+     `side` is produce: broccoli and lettuce sit in it beside bananas and
+     applesauce, and pantry-cats.js shelves them all as "Fresh" because that
+     is where a cook looks, not what a macro is. On a cut the useful question
+     is different — 🥦 Veggies means the things you can eat a lot of, and the
+     measured split is unambiguous: lettuce through carrots run 15 to 41 kcal
+     per 100 g, then potatoes at 77 and corn at 81, double the top of the
+     range. Those two are starch and behave like it, so they are shelved with
+     the cereal rather than with the broccoli. */
   /* `lever` is the condiment flag -- things that go ON food. Egg whites and
      a chicken breast are levers too, but they are also dinner, so they carry
      `eat` as well: without it the combo builder ranked canned tuna ahead of
@@ -95,25 +105,25 @@ const FOODS = {
   bun:             { kcal: 279, p: 9.5,  c: 50,   f: 4.2, na: 490, fib: 2.3,  g: { each: 52 }, label: 'Buns', note: 'hamburger / hot dog bun' },
   slider_bun:      { kcal: 279, p: 9.5,  c: 50,   f: 4.2, na: 490, fib: 2.3, label: 'Slider buns',  g: { each: 30 } },
   breadcrumbs:     { kcal: 395, p: 13.4, c: 72,   f: 5.3, na: 730, fib: 4.5, label: 'Breadcrumbs',  g: { cup: 108, tbsp: 7 } },
-  cereal_o:        { eat: 1, kcal: 386, p: 7,    c: 80,   f: 4.5, na: 500, fib: 7,  g: { cup: 37 }, label: 'Honey Nut O\'s', note: "Honey Nut O's" },
+  cereal_o:        { starch: 1, eat: 1, kcal: 386, p: 7,    c: 80,   f: 4.5, na: 500, fib: 7,  g: { cup: 37 }, label: 'Honey Nut O\'s', note: "Honey Nut O's" },
   biscuit_dough:   { kcal: 320, p: 6.6,  c: 48,   f: 11, na: 900, fib: 1.5,   g: { can: 454, each: 57 }, label: 'Biscuit dough', def: { qty: 1, unit: 'can' }, note: 'refrigerated biscuit dough' },
 
   // ---- Potatoes -----------------------------------------------------------
-  potato:          { side: true, kcal: 77,  p: 2,    c: 17.5, f: 0.1, na: 6, fib: 2.1,  g: { lb: 453.6, cup: 150, each: 173 }, label: 'Potatoes', note: 'raw; 1 medium = 173 g' },
+  potato:          { starch: 1, side: true, kcal: 77,  p: 2,    c: 17.5, f: 0.1, na: 6, fib: 2.1,  g: { lb: 453.6, cup: 150, each: 173 }, label: 'Potatoes', note: 'raw; 1 medium = 173 g' },
   instant_potato:  { kcal: 357, p: 8,    c: 81,   f: 0.4, na: 60, fib: 6.6,  g: { cup: 60 }, label: 'Instant potatoes', note: 'dry flakes' },
   mashed_potato:   { kcal: 113, p: 2,    c: 17,   f: 4.2, na: 320, fib: 1.5,  g: { cup: 210 }, label: 'Mashed potatoes', note: 'prepared with milk and butter' },
 
   // ---- Vegetables ---------------------------------------------------------
-  carrot:          { side: true, kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2, na: 69, fib: 2.8, label: 'Carrots',  g: { lb: 453.6, cup: 128, can: 250, each: 61 }, def: { qty: 1, unit: 'each' } },
-  green_beans:     { side: true, kcal: 20,  p: 1.2,  c: 4.1,  f: 0.1, na: 220, fib: 2.6,  g: { can: 240, cup: 125 }, label: 'Green beans', def: { qty: 1, unit: 'can' }, note: 'canned, drained' },
-  corn:            { side: true, kcal: 81,  p: 2.6,  c: 19,   f: 1, na: 220, fib: 2.4,    g: { can: 265, cup: 165 }, note: '14.4 oz tin, drained' },
-  broccoli:        { side: true, kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4, na: 33, fib: 2.6,  g: { lb: 453.6, cup: 91 }, def: { qty: 1, unit: 'lb' } },
-  lettuce:         { side: true, kcal: 15,  p: 1.4,  c: 2.9,  f: 0.2, na: 28, fib: 1.3,  g: { cup: 47, each: 600, oz: 28.35 }, def: { qty: 2, unit: 'cup' }, note: '1 head = 600 g' },
-  onion:           { side: true, kcal: 40,  p: 1.1,  c: 9.3,  f: 0.1, na: 4, fib: 1.7,  g: { cup: 160, each: 110 }, label: 'Onions', def: { qty: 0.5, unit: 'each' } },
-  tomato:          { side: true, kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2, na: 5, fib: 1.2,  g: { cup: 180, each: 123 }, label: 'Tomatoes', def: { qty: 1, unit: 'each' }, note: '1 large = 182 g, handled by the parser' },
-  tomato_canned:   { side: true, kcal: 32,  p: 1.5,  c: 7,    f: 0.2, na: 180, fib: 1.6,  g: { can: 794, cup: 240 }, label: 'Diced tomatoes', note: 'diced tomatoes, 28 oz tin' },
-  bell_pepper:     { side: true, kcal: 26,  p: 1,    c: 6,    f: 0.3, na: 4, fib: 2.1,  g: { lb: 453.6, cup: 149, each: 119 }, label: 'Bell peppers', def: { qty: 1, unit: 'each' } },
-  cucumber:        { side: true, kcal: 15,  p: 0.65, c: 3.6,  f: 0.1, na: 2, fib: 0.5,  g: { cup: 133, each: 300 }, label: 'Cucumbers', def: { qty: 0.5, unit: 'each' } },
+  carrot:          { veg: 1, side: true, kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2, na: 69, fib: 2.8, label: 'Carrots',  g: { lb: 453.6, cup: 128, can: 250, each: 61 }, def: { qty: 1, unit: 'each' } },
+  green_beans:     { veg: 1, side: true, kcal: 20,  p: 1.2,  c: 4.1,  f: 0.1, na: 220, fib: 2.6,  g: { can: 240, cup: 125 }, label: 'Green beans', def: { qty: 1, unit: 'can' }, note: 'canned, drained' },
+  corn:            { starch: 1, side: true, kcal: 81,  p: 2.6,  c: 19,   f: 1, na: 220, fib: 2.4,    g: { can: 265, cup: 165 }, note: '14.4 oz tin, drained' },
+  broccoli:        { veg: 1, side: true, kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4, na: 33, fib: 2.6,  g: { lb: 453.6, cup: 91 }, def: { qty: 1, unit: 'lb' } },
+  lettuce:         { veg: 1, side: true, kcal: 15,  p: 1.4,  c: 2.9,  f: 0.2, na: 28, fib: 1.3,  g: { cup: 47, each: 600, oz: 28.35 }, def: { qty: 2, unit: 'cup' }, note: '1 head = 600 g' },
+  onion:           { veg: 1, side: true, kcal: 40,  p: 1.1,  c: 9.3,  f: 0.1, na: 4, fib: 1.7,  g: { cup: 160, each: 110 }, label: 'Onions', def: { qty: 0.5, unit: 'each' } },
+  tomato:          { veg: 1, side: true, kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2, na: 5, fib: 1.2,  g: { cup: 180, each: 123 }, label: 'Tomatoes', def: { qty: 1, unit: 'each' }, note: '1 large = 182 g, handled by the parser' },
+  tomato_canned:   { veg: 1, side: true, kcal: 32,  p: 1.5,  c: 7,    f: 0.2, na: 180, fib: 1.6,  g: { can: 794, cup: 240 }, label: 'Diced tomatoes', note: 'diced tomatoes, 28 oz tin' },
+  bell_pepper:     { veg: 1, side: true, kcal: 26,  p: 1,    c: 6,    f: 0.3, na: 4, fib: 2.1,  g: { lb: 453.6, cup: 149, each: 119 }, label: 'Bell peppers', def: { qty: 1, unit: 'each' } },
+  cucumber:        { veg: 1, side: true, kcal: 15,  p: 0.65, c: 3.6,  f: 0.1, na: 2, fib: 0.5,  g: { cup: 133, each: 300 }, label: 'Cucumbers', def: { qty: 0.5, unit: 'each' } },
   garlic:          { kcal: 149, p: 6.4,  c: 33,   f: 0.5, na: 17, fib: 2.1,  g: { each: 3, tsp: 2.8, tbsp: 8.4 }, def: { qty: 1, unit: 'each' } },
 
   // ---- Fruit --------------------------------------------------------------
