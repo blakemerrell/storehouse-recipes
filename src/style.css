@@ -1099,6 +1099,9 @@ select { max-width: 280px; }
   background: oklch(0.935 0.048 145); color: var(--green);
   border-radius: 999px; padding: 1px 6px;
 }
+/* The meal name on a card with nothing on it: the same words in the same
+   place, but not a button, because there is nothing for it to fold. */
+.mslot-name-flat { background: none; border: 0; cursor: default; }
 .mp-seg { flex: none; }
 .mpick-row {
   display: flex; width: 100%; text-align: left; gap: 10px; align-items: center;

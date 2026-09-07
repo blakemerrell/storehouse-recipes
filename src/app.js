@@ -3054,8 +3054,23 @@
              the far LEFT of a phone, which is the one place a thumb is not,
              and it never said the meal could fold in the first place. The
              handle that says so lives over on the right, below. */
-          '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
-            (folded ? 'false' : 'true') + '">' + esc(name) + '</button>' +
+          /* ...but only while there is something to fold.
+           *
+             On an EMPTY meal the name was still a fold button, and pressing
+             it did nothing you could see — `folded` is gated on items.length
+             and the seam only exists `if (rows)`, so the card did not move.
+             The handler wrote S.mFold[sk] all the same, and mFoldFor stops
+             Fill from clearing it. So: press an empty meal's name, press
+             Fill, and that one meal comes back FOLDED with no steppers while
+             every other meal opens. Measured — 157px and zero steppers
+             against 193px and two.
+
+             The fix is the honest one rather than clearing the flag later: a
+             control that cannot do anything should not be a control. */
+          (rows
+            ? '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
+              (folded ? 'false' : 'true') + '">' + esc(name) + '</button>'
+            : '<span class="mslot-name mslot-name-flat">' + esc(name) + '</span>') +
           mVerdictHTML(sk, items, onPlan, targets, slots) +
           /* Only where there is something to solve. One plate has a stepper
              and needs no algebra; two or more is the question this answers,

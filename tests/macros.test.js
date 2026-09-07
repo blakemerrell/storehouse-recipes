@@ -2475,12 +2475,21 @@ module.exports = {
         cap: el.querySelector('.mp-cap').textContent,
         btn: el.querySelector('.mcb-add').textContent };
     });
-    /* Pinned to TWO, not to "whatever it drew". Accepting any of the three
-       branches let the seed wander back to three rungs and the assertion go
-       quiet — which is exactly what happened twice. */
+    /* Pinned to FEWER THAN THREE, and to the words agreeing with the count.
+     *
+       It was pinned to exactly two, which passed on the Saturday it was
+       written and failed on the Sunday after: the targets are carb-cycled by
+       weekday, so a rest day's smaller carb gap closes a second rung and the
+       panel offers one. The seed cannot control the weekday, so the
+       assertion must not depend on it.
+
+       Still not vacuous — the branch that was broken said "Three foods" over
+       whatever it drew, so any count below three with matching words catches
+       it, and a hardcoded "Three" fails on every one of them. */
     t.ok('the panel counts the foods it is actually offering',
-      !!counted && counted.rows === 2 &&
-      /^Two foods/.test(counted.cap) && /both/i.test(counted.btn),
+      !!counted && counted.rows > 0 && counted.rows < 3 && (
+        (counted.rows === 2 && /^Two foods/.test(counted.cap) && /both/i.test(counted.btn)) ||
+        (counted.rows === 1 && /^One food/.test(counted.cap) && /Add it/i.test(counted.btn))),
       JSON.stringify(counted));
     await comboPage2.context().close();
 
@@ -2496,20 +2505,31 @@ module.exports = {
       withHist === 'Egg whites' && noHist !== 'Egg whites',
       'no history: ' + noHist + ' -- with: ' + withHist);
 
-    /* Into the basket like every other row here. Three foods arriving on the
-       plate with no ✓ in between would be the only thing in this sheet that
-       commits itself. */
+    /* Into the basket like every other row here. Food arriving on the plate
+       with no ✓ in between would be the only thing in this sheet that
+       commits itself.
+     *
+       Counted BEFORE the press, obviously — the panel disappears once the
+       basket covers the share, so counting after would count nothing. */
+    /* However many it offered — three on a training day, fewer on a rest day
+       when a smaller carb gap closes a rung. The claim is that the button
+       adds ALL of them and touches nothing on the plate, not that there are
+       three. (It asserted three, and broke the first Sunday it met.) */
+    const offered = await histPage.evaluate(() =>
+      document.querySelectorAll('.mcombo .mcb-row').length);
     await histPage.click('[data-mcombo="add"]');
     await histPage.waitForTimeout(300);
-    t.ok('adding all three fills the basket and leaves the plate alone',
-      await histPage.evaluate(() => {
+    t.ok('adding them all fills the basket and leaves the plate alone',
+      offered > 0 && await histPage.evaluate((n) => {
         const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
-        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const p2 = (x) => (x < 10 ? '0' : '') + x;
         const dd = new Date();
         const k = dd.getFullYear() + '-' + p2(dd.getMonth() + 1) + '-' + p2(dd.getDate());
-        return document.querySelectorAll('.mpb-out').length === 3 &&
+        return document.querySelectorAll('.mpb-out').length === n &&
           ((d[k] || {}).b || []).length === 0;
-      }));
+      }, offered),
+      'offered ' + offered + ', basket ' +
+      await histPage.evaluate(() => document.querySelectorAll('.mpb-out').length));
 
     /* And once the basket covers the share, three more foods is not help. */
     t.ok('and it stops offering once there is nothing left to close',
@@ -2727,6 +2747,50 @@ module.exports = {
         [...document.querySelectorAll('#mpList .mp-name')]
           .some((n) => /chicken/i.test(n.textContent))));
     await oneQ.context().close();
+
+    /* ---- a control that cannot do anything is not a control ---------------
+     * The meal name was a fold button on an EMPTY meal too, where there is
+     * nothing to fold: `folded` is gated on items.length and the seam only
+     * exists `if (rows)`, so the press did nothing you could see. It wrote
+     * S.mFold[sk] regardless, and mFoldFor stops Fill from clearing it — so
+     * pressing an empty meal's name and then pressing Fill brought that one
+     * meal back FOLDED, with no steppers, while every other meal opened. */
+    const deadFold = await t.fresh();
+    await deadFold.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [], l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1', goalLb: 175,
+        goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000 }));
+    });
+    await deadFold.reload();
+    await deadFold.waitForTimeout(400);
+    await deadFold.click('.tab[data-view="macros"]');
+    await deadFold.waitForTimeout(300);
+
+    t.ok('an empty meal\u2019s name is not offered as a fold handle',
+      await deadFold.evaluate(() =>
+        document.querySelectorAll('.mslot').length > 0 &&
+        !document.querySelector('.mslot .mslot-name[data-mfold]')));
+
+    /* The consequence, which is what actually bit: press it, then Fill. */
+    await deadFold.click('.mslot .mslot-name');
+    await deadFold.waitForTimeout(300);
+    await deadFold.click('#macroFill');
+    await deadFold.waitForTimeout(700);
+    const afterFill = await deadFold.evaluate(() =>
+      [...document.querySelectorAll('.mslot')]
+        .filter((c) => c.querySelector('.mslot-name'))
+        .map((c) => ({ n: c.querySelector('.mslot-name').textContent.trim(),
+          steppers: c.querySelectorAll('[data-mstep]').length })));
+    t.ok('and pressing it before Fill does not bring one meal back folded',
+      afterFill.length >= 3 && afterFill.every((m) => m.steppers > 0),
+      JSON.stringify(afterFill));
+    await deadFold.context().close();
 
     /* ---- what closes the day, on arrival ---------------------------------
      * The sheet used to open on six things eaten lately and a way to go
