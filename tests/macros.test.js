@@ -971,15 +971,41 @@ module.exports = {
     await p.click('.mpick-row[data-mpick]');
     await p.click('[data-mpdone]');
     await p.waitForTimeout(300);
-    /* Said on the plate, in words. It used to be a bare tilde in front of the
-       macro line — but that line is suppressed on a one-plate meal now,
-       because every number on it is already on the seam. The chip beside it
-       says the same thing more plainly and was always there. */
-    t.ok('an estimated recipe says so on the plate',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mitem-chips .mchip'))
-        .some((el) => /estimated/i.test(el.textContent)) ||
-        Array.from(document.querySelectorAll('.mitem-mac'))
-        .some((el) => el.textContent.indexOf('~') === 0)));
+    /* Reversed on purpose. A plate used to wear "~ estimated" and its macro
+       line a leading tilde — but two thirds of the book is estimated from
+       the food table rather than a label, so the mark was on most rows most
+       of the time. A hedge that is always on is not a hedge; it is noise
+       taking the width the numbers needed, and with it gone the four figures
+       sit on the tag row instead of wrapping under it.
+
+       Blake's call, in his words: "our food estimates just need to be
+       reliable". The `est` field is still on the record — only the apology
+       is gone — so nothing here stops it being said again somewhere it
+       would mean something. */
+    t.ok('the numbers do not apologise for themselves',
+      await p.evaluate(() =>
+        !document.querySelector('#view-macros .mchip[class]:not([hidden])') ||
+        (!Array.from(document.querySelectorAll('#view-macros .mchip'))
+          .some((el) => /estimated/i.test(el.textContent)) &&
+         !Array.from(document.querySelectorAll('.mitem-mac'))
+          .some((el) => el.textContent.trim().indexOf('~') === 0))),
+      await p.evaluate(() => Array.from(document.querySelectorAll('#view-macros .mchip'))
+        .map((e) => e.textContent.trim()).join(' | ')));
+
+    /* And the four numbers made it onto the tag row, which is the point of
+       having removed it. */
+    t.ok('and the macros sit on the tag row rather than wrapping under it',
+      await p.evaluate(() => {
+        const wrap = document.querySelector('.mitem-chips');
+        const chip = wrap && wrap.querySelector('.mchip');
+        const mac = document.querySelector('.mitem-mac');
+        if (!chip || !mac) return false;
+        /* a plate carrying a salt warning is allowed its second line — the
+           warning is worth more than the tidiness */
+        if (wrap.querySelector('.mchip.salty')) return true;
+        return Math.abs(chip.getBoundingClientRect().top -
+          mac.getBoundingClientRect().top) < 6;
+      }));
     // the tilde carries it on the plate itself; the footnote under the day was
     // one more line of the app talking about itself
     t.ok('and says so on the plate rather than in a footnote',

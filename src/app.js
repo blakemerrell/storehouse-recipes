@@ -2625,7 +2625,13 @@
       return '<span class="mgc' + (vsGap ? mAgainstGap(m, (mac[m] || 0) * x) : '') + '">' + v +
         '<i class="mb-' + m + '">' + lbl + '</i></span>';
     };
-    return (r.est ? '~' : '') + Math.round((mac.kcal || 0) * x) + ' kcal · ' +
+    /* No tilde. Two thirds of the book's recipes are estimated from the
+       food table rather than a label, so the mark was on most rows most of
+       the time — and a hedge that is always on is not a hedge, it is noise
+       taking up the width the numbers needed. The figures earn trust by
+       being right, not by apologising. (`est` is still on the record; only
+       the apology is gone.) */
+    return Math.round((mac.kcal || 0) * x) + ' kcal · ' +
       cell('p', 'P') + ' · ' + cell('f', 'F') + ' · ' + cell('c', 'C');
   }
 
@@ -2939,7 +2945,6 @@
             '<span class="mchip">' + esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) + '</span>' +
             (yieldT ? '<span class="mchip">' + esc(yieldT) + '</span>' : '') +
             (port.detail ? '<span class="mchip">' + esc(port.detail) + '</span>' : '') +
-            (r.est ? '<span class="mchip">~ estimated</span>' : '') +
             mSaltChip(r, it.x) +
             '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
           '</span>' +
@@ -3879,7 +3884,6 @@
           '<span>&#127806; ' + (Math.round((mac.fib || 0) * x * 10) / 10) + ' g fibre</span>' +
           '<span>&#129474; ' + Math.round((mac.na || 0) * x).toLocaleString() + ' mg sodium</span>' +
         '</div>' +
-        (r.est ? '<div class="mt-cap">~ estimated from the food table, not a label.</div>' : '') +
       '</div></div>';
   }
 
@@ -6539,7 +6543,6 @@
     out.push('Total: ' + Math.round(tot.all.kcal) + ' kcal, ' + Math.round(tot.all.p) +
       'g protein, ' + Math.round(tot.all.f) + 'g fat, ' + Math.round(tot.all.c) + 'g carbs');
     out.push('Target: ' + kcalOf(t) + ' kcal, ' + t.p + 'g protein, ' + t.f + 'g fat, ' + t.c + 'g carbs');
-    if (tot.est) out.push('(~ figures are estimated from a food table, not a label.)');
     return out.join('\n');
   }
 
