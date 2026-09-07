@@ -1131,6 +1131,26 @@ select { max-width: 280px; }
 /* The meal name on a card with nothing on it: the same words in the same
    place, but not a button, because there is nothing for it to fold. */
 .mslot-name-flat { background: none; border: 0; cursor: default; }
+/* The meal's pills, on the seam. The day row's construction said about one
+   meal: a proportional fill painted behind the number, the letter in front,
+   the target after it in a lighter tone. */
+.mmps { display: flex; gap: 5px; flex: 1 1 auto; min-width: 0; align-items: center; }
+.mmp {
+  flex: 1 1 0; min-width: 0; display: inline-flex; align-items: baseline;
+  justify-content: center; gap: 2px; border-radius: 999px; padding: 3px 5px;
+  font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap;
+  border: 1px solid var(--line-soft); color: var(--muted-2);
+}
+.mmp.kc { flex: 0 0 58px; }
+.mmp i { font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--muted); }
+.mmp b { font-weight: 700; color: var(--ink); }
+.mmp-t { opacity: 0.55; }
+.mmp.u { border-color: var(--dial-under-pale); } .mmp.u b { color: var(--ochre-text); }
+.mmp.o { border-color: var(--dial-on-pale); }    .mmp.o b { color: var(--dial-on); }
+.mmp.x { border-color: var(--dial-over-pale); }  .mmp.x b { color: var(--dial-over); }
+/* Planned and not yet eaten. A full-looking dinner at eleven in the morning
+   otherwise reads as food you have already had. */
+.mmps.planned { opacity: 0.55; }
 .mp-seg { flex: none; }
 .mpick-row {
   display: flex; width: 100%; text-align: left; gap: 10px; align-items: center;

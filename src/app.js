@@ -3160,7 +3160,7 @@
              `items.length` check here. It could not fail, and a mutation
              that removed it left the suite green, which is how it was found
              out.) */
-          mGaugesHTML(sub, mMealShare(sk, targets, slots), targets, !eatenAll) +
+          mMealPillsHTML(sub, mMealShare(sk, targets, slots), targets, !eatenAll) +
           /* The verdict, per macro, on the row that already existed.
            *
              Same construction as the day's own folded pills one level up: a
@@ -3376,6 +3376,42 @@
 
      Planned but not eaten draws faded — a full-looking dinner at eleven in
      the morning otherwise reads as food you have already had. */
+  /* The meal's four numbers, as pills that fill toward that meal's target.
+   *
+     These replace the ticked gauges. The gauges were the right answer to
+     "how far along is this" and a poor one to "how far along toward WHAT" —
+     the tick marked the target but never named it, so the number it was
+     marking lived only in the bar's geometry. A pill says 128/217 outright
+     and fills behind it, which is the day row's own construction said about
+     one meal. One vocabulary on the screen instead of two.
+
+     The colour rule is the gauges' and is unchanged, because it was the part
+     that was hard-won: the band is measured against the DAY, not the meal's
+     share, or a meal's eleven-to-nineteen grams of fat colours every card
+     every day and colour that is always on has stopped saying anything. */
+  function mMealPillsHTML(sub, sh, targets, planned) {
+    if (!sh) return '';
+    var day = { kcal: kcalOf(targets), p: targets.p, f: targets.f, c: targets.c };
+    var out = MGAUGE.map(function (g) {
+      var m = g[0], want = sh[m] || 0, got = sub[m] || 0;
+      var gg = mGauge(got, want, day[m]);
+      if (!gg) return '';
+      /* The fill is proportion of the TARGET and stops at the pill's end;
+         the tone says which side of the band it landed. Painted here rather
+         than by a class because the proportion is the data. */
+      var pct = want > 0 ? Math.min(100, (got / want) * 100) : 0;
+      var tone = gg.st === 'o' ? 'var(--dial-on-pale)'
+        : gg.st === 'x' ? 'var(--dial-over-pale)' : 'var(--dial-under-pale)';
+      return '<span class="mmp' + (m === 'kcal' ? ' kc' : '') + ' ' + gg.st +
+        '" style="background:linear-gradient(90deg,' + tone + ' 0 ' + pct.toFixed(1) +
+        '%,var(--paper-soft) ' + pct.toFixed(1) + '%)">' +
+        '<i>' + g[1] + '</i><b>' + Math.round(got) + '</b>' +
+        '<span class="mmp-t">/' + Math.round(want) + '</span></span>';
+    }).join('');
+    return out ? '<span class="mmps' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
+      out + '</span>' : '';
+  }
+
   function mGaugesHTML(sub, sh, targets, planned) {
     if (!sh) return '';
     var day = { kcal: kcalOf(targets), p: targets.p, f: targets.f, c: targets.c };

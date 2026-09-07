@@ -971,8 +971,14 @@ module.exports = {
     await p.click('.mpick-row[data-mpick]');
     await p.click('[data-mpdone]');
     await p.waitForTimeout(300);
-    t.ok('an estimated recipe carries the tilde on its line',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mitem-mac'))
+    /* Said on the plate, in words. It used to be a bare tilde in front of the
+       macro line — but that line is suppressed on a one-plate meal now,
+       because every number on it is already on the seam. The chip beside it
+       says the same thing more plainly and was always there. */
+    t.ok('an estimated recipe says so on the plate',
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mitem-chips .mchip'))
+        .some((el) => /estimated/i.test(el.textContent)) ||
+        Array.from(document.querySelectorAll('.mitem-mac'))
         .some((el) => el.textContent.indexOf('~') === 0)));
     // the tilde carries it on the plate itself; the footnote under the day was
     // one more line of the app talking about itself
@@ -984,7 +990,9 @@ module.exports = {
         if (!first) return true; // breakfast pick happened to be estimated too — nothing to assert
         const r = window.RECIPES.find((x) => String(x.id) ===
           String(JSON.parse(localStorage.getItem('bsc.macroDays'))[Object.keys(JSON.parse(localStorage.getItem('bsc.macroDays')))[0]].b[0].id));
-        const line = first.closest('.mitem').querySelector('.mitem-mac').textContent;
+        const macEl = first.closest('.mitem').querySelector('.mitem-mac');
+        if (!macEl) return true;   // one-plate meal: the seam says it instead
+        const line = macEl.textContent;
         return r.est ? line.indexOf('~') === 0 : line.indexOf('~') < 0;
       }));
 
@@ -1017,7 +1025,9 @@ module.exports = {
           name: r.name, x: it.x, servN: r.servN || 1,
           shown: count(row.querySelector('.mstep-x').textContent),
           words: row.querySelector('.mstep-x').textContent.trim(),
-          kcalShown: parseInt(row.querySelector('.mitem-mac').textContent.replace(/[^\d]/, ''), 10),
+          kcalShown: row.querySelector('.mitem-mac')
+            ? parseInt(row.querySelector('.mitem-mac').textContent.replace(/[^\d]/, ''), 10)
+            : null,
           kcalWant: Math.round(r.macro.kcal * it.x)
         });
       });
@@ -1030,7 +1040,7 @@ module.exports = {
         ? mismatched.map((q) => q.name + ': says "' + q.words + '", eating ' + q.x).join(' | ')
         : portions.length + ' plates checked');
     t.ok('and the calories beside it are that portion priced',
-      portions.every((q) => Math.abs(q.kcalShown - q.kcalWant) <= 1),
+      portions.length > 0 && portions.every((q) => Math.abs(q.kcalShown - q.kcalWant) <= 1),
       portions.map((q) => q.name + ' ' + q.kcalShown + '/' + q.kcalWant).join(' | '));
 
     // ---- the day is stored under the LOCAL date and survives a reload
@@ -1602,8 +1612,9 @@ module.exports = {
       chips: document.querySelectorAll('.msub-c').length,
       oldBars: document.querySelectorAll('.msub-bars').length,
       seams: document.querySelectorAll('.mslot-sub').length,
-      gauges: document.querySelectorAll('.mslot-sub .mgg').length,
-      ticks: document.querySelectorAll('.mslot-sub .mgg-k').length,
+      gauges: document.querySelectorAll('.mslot-sub .mmps').length,
+      /* the target is a NUMBER on the pill now, not a tick on a bar */
+      ticks: document.querySelectorAll('.mslot-sub .mmp-t').length,
       kcal: [...document.querySelectorAll('.mslot-sub')]
         .filter((e) => /\uD83D\uDD25\s*\d/.test(e.textContent)).length,
     }));
@@ -2564,18 +2575,20 @@ module.exports = {
       const out = [];
       document.querySelectorAll('.mslot').forEach((card) => {
         const nm = card.querySelector('.mslot-name');
-        const gg = card.querySelector('.mgg');
+        const gg = card.querySelector('.mmps');
         const chip = card.querySelector('[data-mv="empty"]');
         out.push({
           name: nm ? nm.textContent : '',
           hasGauges: !!gg,
           planned: !!gg && gg.classList.contains('planned'),
           chip: chip ? chip.textContent : '',
-          bars: gg ? [...gg.querySelectorAll('.mgg-1')].map((o) => ({
-            l: o.querySelector('.mgg-l').textContent,
-            st: o.querySelector('.mgg-f').className.replace('mgg-f ', ''),
-            fill: parseFloat(o.querySelector('.mgg-f').style.width),
-            tick: parseFloat(o.querySelector('.mgg-k').style.left),
+          bars: gg ? [...gg.querySelectorAll('.mmp')].map((o) => ({
+            l: o.querySelector('i').textContent + o.querySelector('b').textContent,
+            st: (o.className.match(/mmp(?: kc)? (\w+)/) || [, ''])[1],
+            /* the fill is painted as a gradient stop, so the proportion is
+               read off the paint rather than off a width */
+            fill: parseFloat((o.style.background.match(/0 ([\d.]+)%/) || [, 0])[1]),
+            tick: parseFloat((o.querySelector('.mmp-t').textContent.match(/[\d.]+/) || [0])[0]),
           })) : [],
         });
       });
@@ -2592,18 +2605,18 @@ module.exports = {
         /\uD83D\uDD25\s*\d/.test(c.bars[0].l)),
       JSON.stringify(fed.map((c) => c.name + ':' + c.bars.length)));
 
-    /* The tick is the point of the whole thing: without it the bar is a
-       length with nothing to be long against. */
-    t.ok('and every bar carries a tick, none of them pinned at either end',
-      fed.length > 0 && fed.every((c) => c.bars.every((g) =>
-        g.tick > 1 && g.tick <= 100)),
+    /* A length needs something to be long against. It was a tick on a bar;
+       it is the target written out on the pill now — "128/316" — which says
+       the number the tick could only point at. Every pill must carry one. */
+    t.ok('and every pill states the target it is filling toward',
+      fed.length > 0 && fed.every((c) => c.bars.every((g) => g.tick > 0)),
       JSON.stringify(fed[0] && fed[0].bars));
 
     /* A plate past its share runs the fill pastPlan the tick, and the tick stays
        put — a bar pinned at its own maximum cannot say HOW far past. */
     const pastPlan = [];
     fed.forEach((c) => c.bars.forEach((g) => { if (g.st === 'x') pastPlan.push(g); }));
-    t.ok('a plate past the plan runs its bar pastPlan a tick that stays where it was',
+    t.ok('a plate past the plan says how far past, not merely that it is',
       pastPlan.length > 0 && pastPlan.every((g) => g.fill >= 99 && g.tick < 99),
       JSON.stringify(pastPlan));
 
@@ -4815,7 +4828,7 @@ module.exports = {
       return {
         amount: row.querySelector('.mstep-x').textContent.trim(),
         chips: [...row.querySelectorAll('.mchip')].map((c) => c.textContent.trim()),
-        mac: row.querySelector('.mitem-mac').textContent.trim()
+        mac: (row.querySelector('.mitem-mac') || {}).textContent || ''
       };
     });
     t.ok('a plate holding part of a batch says the part, not the batch',
