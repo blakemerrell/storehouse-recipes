@@ -4369,7 +4369,14 @@
             '<button data-mbstep="' + esc(String(r.id)) + ':-1" aria-label="Smaller">&minus;</button>' +
             '<span>&times;' + fmtNum(x) + '</span>' +
             '<button data-mbstep="' + esc(String(r.id)) + ':1" aria-label="Bigger">+</button>' +
-            '<button class="mpb-out" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + x +
+            /* Its own attribute, not a second data-mpick. Carrying the list
+               row's attribute made the two indistinguishable to focusKey: after
+               an add, the focus restore looked up
+               [data-mpick=<id>][data-mpx=<x>], found TWO, and took the first in
+               document order — this one, which sits at the top of the sheet.
+               Focusing it scrolled the scrim to 0, so every add threw the list
+               back to the top from wherever you had scrolled to. */
+            '<button class="mpb-out" data-mpout="' + esc(String(r.id)) +
               '" aria-label="Take out of the basket">&times;</button>' +
           '</span>' +
         '</div>';
@@ -8876,7 +8883,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
@@ -10707,6 +10714,16 @@
       /* Into the basket, not onto the day. Pressed again it comes back out,
          so a mis-tap costs a tap rather than a trip to the plate to delete
          it. Nothing reaches the day until ✓. */
+      /* Taking something back OUT, from the basket panel's own control. Same
+         effect as untapping the row, but a separate attribute so the two are
+         separate elements to the focus restore. */
+      var mpo = e.target.closest('[data-mpout]');
+      if (mpo && S.macroPick) {
+        delete S.mpBasket[idOf(mpo.dataset.mpout)];
+        renderModal();
+        return;
+      }
+
       var mp = e.target.closest('[data-mpick]');
       if (mp && S.macroPick) {
         var mid = idOf(mp.dataset.mpick);

@@ -1799,6 +1799,58 @@ module.exports = {
       JSON.stringify(eatenPortion));
     await wakePg.context().close();
 
+    /* ---- adding does not throw the list back to the top ------------------
+     * The basket's remove button used to carry `data-mpick` — the same
+     * attribute the list row carries. After an add there were two elements
+     * answering the same focus key, and focusKey takes the FIRST in document
+     * order: the basket copy, which sits at the top of the sheet. Focusing it
+     * scrolled the scrim to 0, so every add threw the list back to the top
+     * from wherever you had scrolled to.
+     *
+     * MUST BE A REAL POINTER CLICK. `element.click()` from page script never
+     * moves focus, so focusKey has nothing to restore and the bug is
+     * invisible — a probe driven that way reports a preserved scroll against
+     * broken code. */
+    const jumpPg = await t.fresh({ viewport: { width: 320, height: 640 } });
+    await jumpPg.click('.tab[data-view="macros"]');
+    await jumpPg.waitForTimeout(250);
+    await (await jumpPg.$$('.mslot-add'))[0].click();
+    await jumpPg.waitForTimeout(500);
+    /* One thing in the basket first: the duplicate key only ever existed once
+       an add had drawn the basket panel. */
+    await jumpPg.evaluate(() => {
+      document.querySelectorAll('#modalRoot .mpick-row[data-mpick]')[0].click();
+    });
+    await jumpPg.waitForTimeout(400);
+    /* Asserted on the attribute itself, not on a live duplicate count: a
+       freshly added row usually RE-RANKS OUT of its band, so counting matches
+       finds one either way and passes against the bug. (It did — caught by
+       mutating the fix back in and watching this stay green.) */
+    const dupKeys = await jumpPg.evaluate(() => {
+      const outs = [...document.querySelectorAll('.mpb-out')];
+      return { n: outs.length, borrowing: outs.filter((b) => b.hasAttribute('data-mpick')).length };
+    });
+    t.ok('the basket’s remove control does not answer the list row’s attribute',
+      dupKeys.n > 0 && dupKeys.borrowing === 0, JSON.stringify(dupKeys));
+
+    await jumpPg.evaluate(() => { document.querySelector('.scrim').scrollTop = 300; });
+    await jumpPg.waitForTimeout(200);
+    const target = await jumpPg.evaluate(() => {
+      const w = [...document.querySelectorAll('#modalRoot .mpick-wrap')]
+        .find((x) => !x.classList.contains('in') &&
+          x.getBoundingClientRect().top > 90 && x.getBoundingClientRect().bottom < 560);
+      if (!w) return null;
+      const r = w.querySelector('.mpick-row').getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + 12 };
+    });
+    if (target) await jumpPg.mouse.click(target.x, target.y);
+    await jumpPg.waitForTimeout(450);
+    const heldScroll = await jumpPg.evaluate(() =>
+      Math.round(document.querySelector('.scrim').scrollTop));
+    t.ok('and adding it leaves the list where you were reading it',
+      !!target && heldScroll === 300, 'scrollTop ' + heldScroll + ' (was 300)');
+    await jumpPg.context().close();
+
     /* Nothing, chips, bars — one language in three doses.
      *
        Silence when a meal is fine, a chip for the macro that is not, and the
