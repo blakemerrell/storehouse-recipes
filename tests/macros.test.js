@@ -3710,6 +3710,15 @@ module.exports = {
           const g = (l) => { const m = new RegExp('(\\d+)' + l).exec(txt); return m ? +m[1] : 0; };
           const kp = g('P') * 4, kf = g('F') * 9, kc = g('C') * 4;
           if (!(kp + kf + kc)) return;
+          /* A row PRINTS whole grams; the app files on the unrounded ones.
+             Mushrooms are 3.1 g protein against 3.3 g carbohydrate per 100 g,
+             so a 70 g cup renders "2P · 2C" and the tie-break here picks
+             protein while the app correctly picks carbohydrate. Within one
+             gram of a tie the rendered row simply cannot say which shelf is
+             right, so it is not evidence either way — the same reason the
+             gap-row painting check skips its band edges. */
+          const rank = [kp, kf, kc].sort((a, b) => b - a);
+          if (rank[0] - rank[1] <= 4) return;
           const dom = kp >= kf && kp >= kc ? 'p' : (kf >= kc ? 'f' : 'c');
           if (dom !== want) bad.push(h + ':' + id);
         });

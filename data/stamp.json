@@ -1,8 +1,8 @@
 {
-  "v": 277,
+  "v": 278,
   "files": {
-    "data/recipes.js": "0c91803cfbe82dd3",
-    "data/nutrition.js": "fc5348a874a56c72",
+    "data/recipes.js": "b2bd1698bead18a7",
+    "data/nutrition.js": "6344450bfd0cf0be",
     "data/art.js": "6400869a8b1c044a",
     "data/qr.js": "ad816e709c904c25",
     "src/app.js": "b385483a088507eb",

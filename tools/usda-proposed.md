@@ -9,23 +9,6 @@ line: the query is written to hit one preparation and the search is loose.
 
 | key | matched | set | kcal | P | C | F | Na | fib |
 |---|---|---|---|---|---|---|---|---|
-| `salmon` | Fish, salmon, Atlantic, wild, raw | SR Legacy | 142 | 19.8 | 0 | 6.3 | 44 | 0 |
-| `cod` | Fish, cod, Atlantic, raw | SR Legacy | 82 | 17.8 | 0 | 0.7 | 54 | 0 |
-| `halibut` | Fish, halibut, Atlantic and Pacific, raw | SR Legacy | 91 | 18.6 | 0 | 1.3 | 68 | 0 |
-| `tilapia` | Fish, tilapia, raw | SR Legacy | 96 | 20.1 | 0 | 1.7 | 52 | 0 |
-| `tuna_steak` | Fish, tuna, fresh, yellowfin, raw | SR Legacy | 109 | 24.4 | 0 | 0.5 | 45 | 0 |
-| `trout` | Fish, trout, rainbow, farmed, raw | SR Legacy | 141 | 19.9 | 0 | 6.2 | 51 | 0 |
-| `haddock` | Fish, haddock, raw | SR Legacy | 74 | 16.3 | 0 | 0.5 | 213 | 0 |
-| `snapper` | Fish, snapper, mixed species, raw | SR Legacy | 100 | 20.5 | 0 | 1.3 | 64 | 0 |
-| `mackerel` | Fish, mackerel, Atlantic, raw | SR Legacy | 205 | 18.6 | 0 | 13.9 | 90 | 0 |
-| `catfish` | Fish, catfish, channel, farmed, raw | SR Legacy | 119 | 15.2 | 0 | 5.9 | 98 | 0 |
-| `sardines` | Fish, sardine, Atlantic, canned in oil, drained solids with bone | SR Legacy | 208 | 24.6 | 0 | 11.4 | 307 | 0 |
-| `shrimp` | Crustaceans, shrimp, mixed species, raw (may contain additives to retain moisture) | SR Legacy | 71 | 13.6 | 0.9 | 1 | 566 | 0 |
-| `crab` | Crustaceans, crab, blue, raw | SR Legacy | 87 | 18.1 | 0 | 1.1 | 293 | 0 |
-| `lobster` | Crustaceans, lobster, northern, raw | SR Legacy | 77 | 16.5 | 0 | 0.8 | 423 | 0 |
-| `scallops` | Mollusks, scallop, mixed species, raw | SR Legacy | 69 | 12.1 | 3.2 | 0.5 | 392 | 0 |
-| `clams` | Mollusks, clam, mixed species, raw | SR Legacy | 86 | 14.7 | 3.6 | 1 | 601 | 0 |
-| `calamari` | Mollusks, squid, mixed species, raw | SR Legacy | 92 | 15.6 | 3.1 | 1.4 | 44 | 0 |
 | `turkey_breast` | Turkey, whole, breast, meat only, raw | SR Legacy | 114 | 23.7 | 0.1 | 1.5 | 113 | 0 |
 | `turkey_deli` | Turkey breast, low salt, prepackaged or deli, luncheon meat | SR Legacy | 109 | 21.8 | 3.5 | 0.8 | 772 | 0.5 |
 | `turkey_ground` | Turkey, ground, 93% lean, 7% fat, raw | SR Legacy | 150 | 18.7 | 0 | 8.3 | 69 | 0 |
@@ -35,16 +18,6 @@ line: the query is written to hit one preparation and the search is loose.
 | `greek_yogurt` | Yogurt, Greek, plain, lowfat | SR Legacy | 73 | 10 | 3.9 | 1.9 | 34 | 0 |
 | `plain_yogurt` | Yogurt, plain, low fat | SR Legacy | 63 | 5.3 | 7 | 1.6 | 70 | 0 |
 | `egg_sub` | Egg substitute, liquid or frozen, fat free | SR Legacy | 48 | 10 | 2 | 0 | 199 | 0 |
-| `olive_oil` | Oil, olive, salad or cooking | SR Legacy | 884 | 0 | 0 | 100 | 2 | 0 |
-| `almonds` | Nuts, almonds | SR Legacy | 579 | 21.2 | 21.6 | 49.9 | 1 | 12.5 |
-| `almond_butter` | Nuts, almond butter, plain, without salt added | SR Legacy | 614 | 21 | 18.8 | 55.5 | 7 | 10.3 |
-| `walnuts` | Nuts, walnuts, english | SR Legacy | 654 | 15.2 | 13.7 | 65.2 | 2 | 6.7 |
-| `cashews` | Nuts, cashew nuts, raw | SR Legacy | 553 | 18.2 | 30.2 | 43.8 | 12 | 3.3 |
-| `macadamia` | Nuts, macadamia nuts, raw | SR Legacy | 718 | 7.9 | 13.8 | 75.8 | 5 | 8.6 |
-| `peanuts` | Peanuts, all types, raw | SR Legacy | 567 | 25.8 | 16.1 | 49.2 | 18 | 8.5 |
-| `avocado` | Avocados, raw, all commercial varieties | SR Legacy | 160 | 2 | 8.5 | 14.7 | 7 | 6.7 |
-| `olives` | Olives, ripe, canned (small-extra large) | SR Legacy | 116 | 0.8 | 6 | 10.9 | 735 | 1.6 |
-| `tahini` | Seeds, sesame butter, tahini, from roasted and toasted kernels (most common type) | SR Legacy | 595 | 17 | 21.2 | 53.8 | 115 | 9.3 |
 | `asparagus` | Asparagus, raw | SR Legacy | 20 | 2.2 | 3.9 | 0.1 | 2 | 2.1 |
 | `brussels` | Brussels sprouts, raw | SR Legacy | 43 | 3.4 | 9 | 0.3 | 25 | 3.8 |
 | `cauliflower` | Cauliflower, raw | SR Legacy | 25 | 1.9 | 5 | 0.3 | 30 | 2 |
@@ -98,40 +71,6 @@ line: the query is written to hit one preparation and the search is loose.
 ## Entries to author
 
 ```js
-  // Fish, salmon, Atlantic, wild, raw  (FDC 173686)
-  salmon: { /* TODO flags */ kcal: 142, p: 19.8, c: 0, f: 6.3, na: 44, fib: 0, g: { /* TODO */ }, label: "Salmon", zone: "protein" },
-  // Fish, cod, Atlantic, raw  (FDC 171955)
-  cod: { /* TODO flags */ kcal: 82, p: 17.8, c: 0, f: 0.7, na: 54, fib: 0, g: { /* TODO */ }, label: "Cod", zone: "protein" },
-  // Fish, halibut, Atlantic and Pacific, raw  (FDC 174200)
-  halibut: { /* TODO flags */ kcal: 91, p: 18.6, c: 0, f: 1.3, na: 68, fib: 0, g: { /* TODO */ }, label: "Halibut", zone: "protein" },
-  // Fish, tilapia, raw  (FDC 175176)
-  tilapia: { /* TODO flags */ kcal: 96, p: 20.1, c: 0, f: 1.7, na: 52, fib: 0, g: { /* TODO */ }, label: "Tilapia", zone: "protein" },
-  // Fish, tuna, fresh, yellowfin, raw  (FDC 175159)
-  tuna_steak: { /* TODO flags */ kcal: 109, p: 24.4, c: 0, f: 0.5, na: 45, fib: 0, g: { /* TODO */ }, label: "Tuna steak", zone: "protein" },
-  // Fish, trout, rainbow, farmed, raw  (FDC 173717)
-  trout: { /* TODO flags */ kcal: 141, p: 19.9, c: 0, f: 6.2, na: 51, fib: 0, g: { /* TODO */ }, label: "Trout", zone: "protein" },
-  // Fish, haddock, raw  (FDC 171964)
-  haddock: { /* TODO flags */ kcal: 74, p: 16.3, c: 0, f: 0.5, na: 213, fib: 0, g: { /* TODO */ }, label: "Haddock", zone: "protein" },
-  // Fish, snapper, mixed species, raw  (FDC 173698)
-  snapper: { /* TODO flags */ kcal: 100, p: 20.5, c: 0, f: 1.3, na: 64, fib: 0, g: { /* TODO */ }, label: "Snapper", zone: "protein" },
-  // Fish, mackerel, Atlantic, raw  (FDC 175119)
-  mackerel: { /* TODO flags */ kcal: 205, p: 18.6, c: 0, f: 13.9, na: 90, fib: 0, g: { /* TODO */ }, label: "Mackerel", zone: "protein" },
-  // Fish, catfish, channel, farmed, raw  (FDC 175165)
-  catfish: { /* TODO flags */ kcal: 119, p: 15.2, c: 0, f: 5.9, na: 98, fib: 0, g: { /* TODO */ }, label: "Catfish", zone: "protein" },
-  // Fish, sardine, Atlantic, canned in oil, drained solids with bone  (FDC 175139)
-  sardines: { /* TODO flags */ kcal: 208, p: 24.6, c: 0, f: 11.4, na: 307, fib: 0, g: { /* TODO */ }, label: "Sardines", zone: "protein" },
-  // Crustaceans, shrimp, mixed species, raw (may contain additives to retain moisture)  (FDC 174210)
-  shrimp: { /* TODO flags */ kcal: 71, p: 13.6, c: 0.9, f: 1, na: 566, fib: 0, g: { /* TODO */ }, label: "Shrimp", zone: "protein" },
-  // Crustaceans, crab, blue, raw  (FDC 174204)
-  crab: { /* TODO flags */ kcal: 87, p: 18.1, c: 0, f: 1.1, na: 293, fib: 0, g: { /* TODO */ }, label: "Crab meat", zone: "protein" },
-  // Crustaceans, lobster, northern, raw  (FDC 174208)
-  lobster: { /* TODO flags */ kcal: 77, p: 16.5, c: 0, f: 0.8, na: 423, fib: 0, g: { /* TODO */ }, label: "Lobster", zone: "protein" },
-  // Mollusks, scallop, mixed species, raw  (FDC 174220)
-  scallops: { /* TODO flags */ kcal: 69, p: 12.1, c: 3.2, f: 0.5, na: 392, fib: 0, g: { /* TODO */ }, label: "Scallops", zone: "protein" },
-  // Mollusks, clam, mixed species, raw  (FDC 174214)
-  clams: { /* TODO flags */ kcal: 86, p: 14.7, c: 3.6, f: 1, na: 601, fib: 0, g: { /* TODO */ }, label: "Clams", zone: "protein" },
-  // Mollusks, squid, mixed species, raw  (FDC 174223)
-  calamari: { /* TODO flags */ kcal: 92, p: 15.6, c: 3.1, f: 1.4, na: 44, fib: 0, g: { /* TODO */ }, label: "Calamari", zone: "protein" },
   // Turkey, whole, breast, meat only, raw  (FDC 171098)
   turkey_breast: { /* TODO flags */ kcal: 114, p: 23.7, c: 0.1, f: 1.5, na: 113, fib: 0, g: { /* TODO */ }, label: "Turkey breast", zone: "protein" },
   // Turkey breast, low salt, prepackaged or deli, luncheon meat  (FDC 174572)
@@ -150,26 +89,6 @@ line: the query is written to hit one preparation and the search is loose.
   plain_yogurt: { /* TODO flags */ kcal: 63, p: 5.3, c: 7, f: 1.6, na: 70, fib: 0, g: { /* TODO */ }, label: "Plain yogurt", zone: "protein" },
   // Egg substitute, liquid or frozen, fat free  (FDC 173462)
   egg_sub: { /* TODO flags */ kcal: 48, p: 10, c: 2, f: 0, na: 199, fib: 0, g: { /* TODO */ }, label: "Egg substitute", zone: "protein" },
-  // Oil, olive, salad or cooking  (FDC 171413)
-  olive_oil: { /* TODO flags */ kcal: 884, p: 0, c: 0, f: 100, na: 2, fib: 0, g: { /* TODO */ }, label: "Olive oil", zone: "fat" },
-  // Nuts, almonds  (FDC 170567)
-  almonds: { /* TODO flags */ kcal: 579, p: 21.2, c: 21.6, f: 49.9, na: 1, fib: 12.5, g: { /* TODO */ }, label: "Almonds", zone: "fat" },
-  // Nuts, almond butter, plain, without salt added  (FDC 168588)
-  almond_butter: { /* TODO flags */ kcal: 614, p: 21, c: 18.8, f: 55.5, na: 7, fib: 10.3, g: { /* TODO */ }, label: "Almond butter", zone: "fat" },
-  // Nuts, walnuts, english  (FDC 170187)
-  walnuts: { /* TODO flags */ kcal: 654, p: 15.2, c: 13.7, f: 65.2, na: 2, fib: 6.7, g: { /* TODO */ }, label: "Walnuts", zone: "fat" },
-  // Nuts, cashew nuts, raw  (FDC 170162)
-  cashews: { /* TODO flags */ kcal: 553, p: 18.2, c: 30.2, f: 43.8, na: 12, fib: 3.3, g: { /* TODO */ }, label: "Cashews", zone: "fat" },
-  // Nuts, macadamia nuts, raw  (FDC 170178)
-  macadamia: { /* TODO flags */ kcal: 718, p: 7.9, c: 13.8, f: 75.8, na: 5, fib: 8.6, g: { /* TODO */ }, label: "Macadamia nuts", zone: "fat" },
-  // Peanuts, all types, raw  (FDC 172430)
-  peanuts: { /* TODO flags */ kcal: 567, p: 25.8, c: 16.1, f: 49.2, na: 18, fib: 8.5, g: { /* TODO */ }, label: "Peanuts", zone: "fat" },
-  // Avocados, raw, all commercial varieties  (FDC 171705)
-  avocado: { /* TODO flags */ kcal: 160, p: 2, c: 8.5, f: 14.7, na: 7, fib: 6.7, g: { /* TODO */ }, label: "Avocado", zone: "fat" },
-  // Olives, ripe, canned (small-extra large)  (FDC 169094)
-  olives: { /* TODO flags */ kcal: 116, p: 0.8, c: 6, f: 10.9, na: 735, fib: 1.6, g: { /* TODO */ }, label: "Olives", zone: "fat" },
-  // Seeds, sesame butter, tahini, from roasted and toasted kernels (most common type)  (FDC 170189)
-  tahini: { /* TODO flags */ kcal: 595, p: 17, c: 21.2, f: 53.8, na: 115, fib: 9.3, g: { /* TODO */ }, label: "Tahini", zone: "fat" },
   // Asparagus, raw  (FDC 168389)
   asparagus: { /* TODO flags */ kcal: 20, p: 2.2, c: 3.9, f: 0.1, na: 2, fib: 2.1, g: { /* TODO */ }, label: "Asparagus", zone: "carbohydrate" },
   // Brussels sprouts, raw  (FDC 170383)
@@ -272,23 +191,6 @@ line: the query is written to hit one preparation and the search is loose.
 
 ## Runners-up, in case a match is wrong
 
-- **salmon** — Fish, salmon, Atlantic, farmed, raw · Fish, salmon, coho, wild, raw
-- **cod** — Fish, cod, Atlantic, wild caught, raw · Fish, cod, Atlantic, dried and salted
-- **halibut** — Fish, halibut, Greenland, raw · Fish, mackerel, Pacific and jack, mixed species, raw
-- **tilapia** — Fish, tilapia, farm raised, raw · Fish, bluefish, raw
-- **tuna_steak** — Fish, tuna, fresh, bluefin, raw · Fish, tuna, fresh, skipjack, raw
-- **trout** — Fish, trout, rainbow, wild, raw · Fish, trout, mixed species, raw
-- **haddock** — Fish, haddock, raw · Fish, haddock, smoked
-- **snapper** — Fish, eel, mixed species, raw · Fish, grouper, mixed species, raw
-- **mackerel** — Fish, mackerel, king, raw · Fish, mackerel, spanish, raw
-- **catfish** — Fish, catfish, channel, wild, raw · Fish, salmon, Atlantic, farmed, raw
-- **sardines** — Fish, sardine, Pacific, canned in tomato sauce, drained solids with bone · Fish, salmon, chum, canned, drained solids with bone
-- **shrimp** — Crustaceans, crayfish, mixed species, farmed, raw · Crustaceans, crayfish, mixed species, wild, raw
-- **crab** — Crustaceans, crab, dungeness, raw · Crustaceans, crab, queen, raw
-- **lobster** — Crustaceans, spiny lobster, mixed species, raw · Crustaceans, shrimp, raw
-- **scallops** — Mollusks, abalone, mixed species, raw · Mollusks, clam, mixed species, raw
-- **clams** — Mollusks, abalone, mixed species, raw · Mollusks, cuttlefish, mixed species, raw
-- **calamari** — Mollusks, abalone, mixed species, raw · Mollusks, clam, mixed species, raw
 - **turkey_breast** — Turkey, retail parts, breast, meat only, raw · Turkey, retail parts, breast, meat only, with added solution, raw
 - **turkey_deli** — Turkey breast, sliced, prepackaged · Chicken breast, deli, rotisserie seasoned, sliced, prepackaged
 - **turkey_ground** — Turkey, ground, 93% lean/ 7% fat, raw · Turkey, ground, 93% lean, 7% fat, patties, broiled
@@ -298,16 +200,6 @@ line: the query is written to hit one preparation and the search is loose.
 - **greek_yogurt** — Yogurt, Greek, strawberry, lowfat · Yogurt, Greek, vanilla, lowfat
 - **plain_yogurt** — Yogurt, Greek, plain, lowfat · Yogurt, vanilla, low fat.
 - **egg_sub** — Cream substitute, flavored, liquid · Cream substitute, liquid, light
-- **olive_oil** — Oil, cottonseed, salad or cooking · Oil, peanut, salad or cooking
-- **almonds** — Nuts, almonds, blanched · Nuts, almonds, honey roasted, unblanched
-- **almond_butter** — Nuts, cashew butter, plain, without salt added · Nuts, almond butter, plain, with salt added
-- **walnuts** — Nuts, walnuts, English, halves, raw · Nuts, walnuts, glazed
-- **cashews** — Nuts, cashew nuts, raw · Nuts, ginkgo nuts, raw
-- **macadamia** — Nuts, macadamia nuts, raw · Nuts, cashew nuts, raw
-- **peanuts** — Peanuts, all types, cooked, boiled, with salt · Peanuts, all types, dry-roasted, with salt
-- **avocado** — Oranges, raw, all commercial varieties · Pineapple, raw, all varieties
-- **olives** — Olives, ripe, canned (jumbo-super colossal) · Tomatoes, red, ripe, canned, stewed
-- **tahini** — Seeds, sesame butter, tahini, from raw and stone ground kernels · Seeds, sesame butter, tahini, from unroasted kernels (non-chemically removed seed coat)
 - **asparagus** — Asparagus, green, raw · Asparagus, frozen, unprepared
 - **brussels** — Brussels sprouts, raw · Brussels sprouts, frozen, unprepared
 - **cauliflower** — Cauliflower, green, raw · Cauliflower, raw
@@ -360,4 +252,31 @@ line: the query is written to hit one preparation and the search is loose.
 
 ## Problems
 
+- salmon: already in food-db.js — remove it from zone-best.js or rename the key
+- cod: already in food-db.js — remove it from zone-best.js or rename the key
+- halibut: already in food-db.js — remove it from zone-best.js or rename the key
+- tilapia: already in food-db.js — remove it from zone-best.js or rename the key
+- tuna_steak: already in food-db.js — remove it from zone-best.js or rename the key
+- trout: already in food-db.js — remove it from zone-best.js or rename the key
+- haddock: already in food-db.js — remove it from zone-best.js or rename the key
+- snapper: already in food-db.js — remove it from zone-best.js or rename the key
+- mackerel: already in food-db.js — remove it from zone-best.js or rename the key
+- catfish: already in food-db.js — remove it from zone-best.js or rename the key
+- sardines: already in food-db.js — remove it from zone-best.js or rename the key
+- shrimp: already in food-db.js — remove it from zone-best.js or rename the key
+- crab: already in food-db.js — remove it from zone-best.js or rename the key
+- lobster: already in food-db.js — remove it from zone-best.js or rename the key
+- scallops: already in food-db.js — remove it from zone-best.js or rename the key
+- clams: already in food-db.js — remove it from zone-best.js or rename the key
+- calamari: already in food-db.js — remove it from zone-best.js or rename the key
+- olive_oil: already in food-db.js — remove it from zone-best.js or rename the key
+- almonds: already in food-db.js — remove it from zone-best.js or rename the key
+- almond_butter: already in food-db.js — remove it from zone-best.js or rename the key
+- walnuts: already in food-db.js — remove it from zone-best.js or rename the key
+- cashews: already in food-db.js — remove it from zone-best.js or rename the key
+- macadamia: already in food-db.js — remove it from zone-best.js or rename the key
+- peanuts: already in food-db.js — remove it from zone-best.js or rename the key
+- avocado: already in food-db.js — remove it from zone-best.js or rename the key
+- olives: already in food-db.js — remove it from zone-best.js or rename the key
+- tahini: already in food-db.js — remove it from zone-best.js or rename the key
 - watercress: "Watercress, raw" states 11 kcal but its macros come to 14 (30%) — check the match
