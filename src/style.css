@@ -735,9 +735,22 @@ select { max-width: 280px; }
    ("1¾ meal prep containers") squeezed the lock and both keys to 36 px while
    the CSS still said 44. Measured, not guessed — that is how a 44 px target
    ships at 36 and nobody notices. */
+/* Only what EVERY button in the strip wants. The 44x44 box belongs to the
+   keys and is set with the type size below.
+ *
+   Third time this rule has caught the eaten portion, and the first two were
+   only ever about font-size, so the scoping was done for font-size alone
+   while the box stayed unscoped. An eaten portion is
+   `<button class="mstep-x mstep-wake">`, and `.mstep button` (0-1-1) outranks
+   `.mstep-x` (0-1-0) — so `flex: none; width: 44px` beat `flex: 1 1 auto`,
+   the cell shrank to 44px, and `.mstep-x`'s own 20px of padding left 24px for
+   the words. "2 1/2 cups" rendered "2 1/2 c", and the keys slid left with
+   dead space behind them. Ticking a plate silently truncated what you ate.
+ *
+   .mlock does not rely on this: it restates its own box at .mstep .mlock. */
 .mstep button {
-  flex: none; background: var(--card); border: 0; border-left: 1px solid var(--line-soft);
-  width: 44px; height: 44px; line-height: 1; color: var(--muted-2);
+  background: var(--card); border: 0; border-left: 1px solid var(--line-soft);
+  height: 44px; line-height: 1; color: var(--muted-2);
 }
 /* The KEYS carry the type size, not every button in the strip.
  *
@@ -747,7 +760,7 @@ select { max-width: 280px; }
    The one row that should look settled instead shouted. It happened once
    before at 15px, the comment below records it, and raising the keys to 18
    did it again. Scoped now, so it cannot. */
-.mstep button[data-mstep] { font-size: 18px; }
+.mstep button[data-mstep] { flex: none; width: 44px; font-size: 18px; }
 .mstep button:not(:disabled):hover { background: var(--paper-soft); color: var(--ink); }
 /* A plate that has been eaten. The number stays legible — you want to read
    what you had — but the two buttons that would change it go quiet, because

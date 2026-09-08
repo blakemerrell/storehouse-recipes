@@ -1741,6 +1741,64 @@ module.exports = {
       JSON.stringify(shortList));
     await barPg.context().close();
 
+    /* ---- ticking a plate must not truncate what you ate ------------------
+     * An eaten portion becomes `<button class="mstep-x mstep-wake">` so it can
+     * be tapped to correct. `.mstep button` is 0-1-1 and `.mstep-x` is 0-1-0,
+     * so every box property on the former beat the latter: `flex: none` and
+     * `width: 44px` shrank the cell to a key's size, and `.mstep-x`'s own
+     * 20px of padding left 24px for the words. "2 ½ cups" rendered "2 ½ c".
+     *
+     * THIS RULE HAS NOW CAUGHT THAT ELEMENT THREE TIMES — twice on font-size
+     * (15px, then 18px) and once on width. The first two fixes scoped
+     * font-size alone and left the box unscoped, which is why there was a
+     * third. Asserted as an invariant rather than a measurement: ticking
+     * changes the state of a plate, never the words on it.
+     *
+     * Coarse pointer, because that is where the 44px box rules live. */
+    const wakePg = await t.fresh({ viewport: { width: 412, height: 915 },
+      hasTouch: true, isMobile: true });
+    await wakePg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [],
+        l: [{ id: 'f:egg_white', x: 2.5, eaten: 0 }, { id: 'f:applesauce', x: 0.75, eaten: 0 }],
+        d: [], s: [] } }));
+    });
+    await wakePg.reload();
+    await wakePg.waitForTimeout(400);
+    await wakePg.click('.tab[data-view="macros"]');
+    await wakePg.waitForTimeout(300);
+    await wakePg.evaluate(() => {
+      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await wakePg.waitForTimeout(400);
+    const portionCells = () => wakePg.evaluate(() =>
+      [...document.querySelectorAll('.mstep-x')].map((e) => ({
+        text: e.textContent.trim(), w: Math.round(e.getBoundingClientRect().width),
+        clipped: e.scrollWidth > e.clientWidth + 1 })));
+    const before2 = await portionCells();
+    for (let i = 0; i < 4; i++) {
+      const did = await wakePg.evaluate(() => {
+        const c = document.querySelector('#macroSlots input[data-meat]:not(:checked)');
+        if (!c) return false;
+        c.click();
+        return true;
+      });
+      if (!did) break;
+      await wakePg.waitForTimeout(350);
+    }
+    const eatenPortion = await portionCells();
+    t.ok('a plate reads the same words once it is eaten',
+      before2.length > 1 && eatenPortion.length === before2.length &&
+      before2.every((x, i) => x.text === eatenPortion[i].text),
+      JSON.stringify({ before: before2, after: eatenPortion }));
+    t.ok('and the portion is not clipped down to a key’s width',
+      eatenPortion.length > 0 && eatenPortion.every((x, i) => !x.clipped && x.w === before2[i].w),
+      JSON.stringify(eatenPortion));
+    await wakePg.context().close();
+
     /* Nothing, chips, bars — one language in three doses.
      *
        Silence when a meal is fine, a chip for the macro that is not, and the
