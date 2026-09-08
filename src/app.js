@@ -4285,6 +4285,26 @@
      fit".
 
      Now it is a band, on arrival, with the portions already solved. */
+  /* The one question every band asks of the query.
+   *
+     Searching used to REPLACE the ranked bands, because Every day / Recent /
+     the closers / Fits best were emitted only in the home branch and typing
+     switched you out of it. So the moment you looked for something, the
+     thinking the sheet had done for you vanished — which is most of what
+     "bouncing around" was.
+   *
+     Now the bands NARROW instead. One predicate, so a dish cannot pass in one
+     band and fail in another: foods match on their name, the way the look-up
+     box has always matched them, and recipes go through matchRank, which
+     reads the ingredient list too — searching "honey" should find the dish
+     that uses it, not just a spoon of it. */
+  function mpQ() { return (S.mpQuery || '').trim().toLowerCase(); }
+  function mpMatches(r, qs) {
+    if (!qs) return true;
+    if (!r) return false;
+    return r.food ? r.name.toLowerCase().indexOf(qs) >= 0 : !!matchRank(r, qs);
+  }
+
   function mpPinsHTML(shown) {
     mGapFresh();
     if (!S.macroPick) return '';
@@ -4294,6 +4314,7 @@
     var rows = pins.map(function (pn) {
       var r = BY_ID[idOf(pn.id)];
       if (!r) return '';
+      if (!mpMatches(r, mpQ())) return '';
       if (shown) shown[r.id] = 1;
       return mpRowHTML(r, pn.x || 1);
     }).filter(Boolean).join('');
@@ -4306,6 +4327,45 @@
      and also the best fit would otherwise be three rows saying the same
      thing, and a list that repeats itself reads as a list that is not
      thinking. */
+  /* Everything else the query finds.
+   *
+     Without this, narrowing the bands would be worse than replacing them:
+     the bands hold a few dozen dishes, so typing "salmon" would filter all
+     four to nothing and the sheet would say there is no salmon — while the
+     table holds it. This is the old look-up result, folded in underneath
+     rather than shown instead.
+   *
+     Only when something is typed. With an empty box the ranked bands ARE the
+     answer and a fifth band of everything in the book underneath them is not
+     help. */
+  function mpElseHTML(shown) {
+    var q = mpQ();
+    if (!q || !S.macroPick) return '';
+    var day = mDay(mViewKey()), targets = mDayTargets(mViewKey());
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    var pool = [];
+    MFOODS.forEach(function (r) { if (!shown[r.id] && mpMatches(r, q)) pool.push(r); });
+    RECIPES.forEach(function (r) { if (!shown[r.id] && mpMatches(r, q)) pool.push(r); });
+    if (!pool.length) return '';
+    var ranked = mRank(pool, day, targets, slot || { k: S.macroPick.slot, w: S.macroPick.w });
+    /* The thing you named before the dishes that merely mention it: ranked
+       purely on fit, a spoon of honey loses to a dozen recipes listing honey
+       among their ingredients and the row you typed the word for never
+       appears. Same rule the look-up box has always used. */
+    var hits = [], rest = [];
+    ranked.forEach(function (e) { (e.r.food ? hits : rest).push(e); });
+    var rows = hits.concat(rest).slice(0, 12);
+    if (!rows.length) return '';
+    rows.forEach(function (e) { shown[e.r.id] = 1; });
+    return '<div class="mt-div">Everything else</div>' + rows.map(function (e) {
+      var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
+      return mpRowHTML(r, e.x,
+        '<span class="mp-src">' + (r.food ? 'Yours' : 'Recipe') + '</span> &times;' + fmtNum(xx) +
+        (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx, true));
+    }).join('');
+  }
+
   function mpFitsHTML(skip) {
     mGapFresh();
     if (!S.macroPick) return '';
@@ -4319,10 +4379,14 @@
        included, was ranked against the snack sections. Nothing threw; the
        band just quietly offered the wrong pool. */
     var pool = mMealPool(slot, mWideOpen(S.macroPick.slot));
+    var q = mpQ();
     var ranked = mRank(pool, mDay(mViewKey()), targets, slot)
-      .filter(function (e) { return e.score !== null && !skip[e.r.id]; })
+      .filter(function (e) { return e.score !== null && !skip[e.r.id] && mpMatches(e.r, q); })
       .slice(0, 10);
     if (!ranked.length) return '';
+    /* Writes into the shared set, which it never used to — safe only while it
+       was composed last, and it is not last any more. */
+    ranked.forEach(function (e) { skip[e.r.id] = 1; });
     return '<div class="mt-div">Fits best</div>' + ranked.map(function (e) {
       return mpRowHTML(e.r, e.x);
     }).join('');
@@ -4343,6 +4407,7 @@
           if (seen[it.id] || out.length >= 6) return;
           var r = BY_ID[it.id];
           if (!r) return;
+          if (!mpMatches(r, mpQ())) return;
           seen[it.id] = 1;
           out.push({ r: r, x: it.x });
         });
@@ -4550,13 +4615,32 @@
       var pins = mpPinsHTML(shown);
       var recent = mpRecentHTML(shown);
       var closers = mpComboHTML(shown);
+      var fits = mpFitsHTML(shown);
+      var rest2 = mpElseHTML(shown);
+      var body = pins + recent + closers + fits + rest2;
+      /* Home had no empty state at all: every band returns '' when it has
+         nothing, so a query that matches nothing rendered the gap panel and
+         the type-it-in row with a silence between them. */
+      if (!body) {
+        body = '<div class="mslot-empty">' + (mpQ()
+          ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
+          : 'Nothing to offer for this meal yet.') + '</div>';
+      }
       return wrap(
         (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
+        /* One box, in the sheet you were already looking at. Its results do
+           not replace what is under it — the bands narrow and anything else
+           the query finds is appended, so the thinking the sheet did for you
+           survives being searched. */
+        '<div class="mp-controls">' +
+          '<input type="search" class="txt" id="mpFind" ' +
+            'placeholder="Search, barcode, or recipe no.&hellip;" ' +
+            'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
+        '</div>' +
+        '<div id="mpTop">' + mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
+          { k: S.macroPick.slot, w: S.macroPick.w }) + '</div>' +
         mpWaysHTML(true) +
-        pins +
-        recent +
-        closers +
-        mpFitsHTML(shown) +
+        '<div id="mpList">' + body + '</div>' +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +
           '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
     }
@@ -4791,7 +4875,9 @@
        count in this one follows what is actually left to draw — the panel
        used to say "Three" over two rows, which is the same bug in its own
        shape. */
-    var fresh = combo.filter(function (c) { return !(shown && shown[c.r.id]); });
+    var fresh = combo.filter(function (c) {
+      return !(shown && shown[c.r.id]) && mpMatches(c.r, mpQ());
+    });
     if (!fresh.length) return '';
     fresh.forEach(function (c) { if (shown) shown[c.r.id] = 1; });
     var rows = fresh.map(function (c) { return mpRowHTML(c.r, c.x); }).join('');
@@ -5084,9 +5170,34 @@
   /* Only the list under the search box redraws while you type — redrawing the
      sheet would fight the cursor for the input. refreshPreview() set the
      pattern. */
+  /* Rebuilds ONLY the list, never the sheet.
+   *
+     This is what keeps the search box alive across a keystroke: the input is
+     a sibling of #mpList, not inside it, so replacing the list cannot take
+     the focus or the caret with it. A renderModal here would redraw the box
+     mid-word.
+   *
+     Dispatches on mode because #mpList now exists in two of them and holds
+     different things: the resting screen's four narrowed bands, or the
+     Recipes lens's own ranked list. */
   function refreshMacroPicker() {
     var el = $('mpList');
-    if (el) el.innerHTML = mpListHTML();
+    if (!el) return;
+    if (S.mpMode !== 'home') { el.innerHTML = mpListHTML(); return; }
+    var shown = {};
+    var body = mpPinsHTML(shown) + mpRecentHTML(shown) + mpComboHTML(shown) +
+      mpFitsHTML(shown) + mpElseHTML(shown);
+    el.innerHTML = body || '<div class="mslot-empty">' + (mpQ()
+      ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
+      : 'Nothing to offer for this meal yet.') + '</div>';
+    /* The band above the list answers a different question — a bare number is
+       a recipe number and eight digits is a barcode — and it lives outside
+       #mpList, so it is repainted by hand. */
+    var top = $('mpTop');
+    if (top) {
+      top.innerHTML = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
+        { k: S.macroPick.slot, w: S.macroPick.w });
+    }
   }
 
   /* Which plan the four buttons describe. Read by the sheet and by the tests,
@@ -8994,7 +9105,8 @@
     var draft = root.querySelector('#joinCode');
     if (draft) S.joinDraft = draft.value;
     // same bargain for the picker's search: a sync emit must not eat the query
-    var mq = root.querySelector('#mpSearch');
+    var mq = root.querySelector('#mpFind') || root.querySelector('#mpSearch') ||
+      root.querySelector('#mpLookIn');
     if (mq) S.mpQuery = mq.value;
 
     /* Re-rendering the editor would throw away half-typed text, so it is drawn
@@ -11103,6 +11215,10 @@
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
       if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
       if (S.newFood && e.target.id === 'nfFind') { /* typed; the buttons ask */ }
+      if (S.macroPick && e.target.id === 'mpFind') {
+        S.mpQuery = e.target.value;
+        refreshMacroPicker();
+      }
       if (S.macroPick && e.target.id === 'mpSearch') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();

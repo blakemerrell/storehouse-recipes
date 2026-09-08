@@ -1851,6 +1851,79 @@ module.exports = {
       !!target && heldScroll === 300, 'scrollTop ' + heldScroll + ' (was 300)');
     await jumpPg.context().close();
 
+    /* ---- searching narrows the list instead of replacing it --------------
+     * Every day / Recent / the closers / Fits best were emitted only in the
+     * home branch, and typing switched you out of it — so the moment you went
+     * looking for something, the thinking the sheet had done for you
+     * vanished. That is most of what "bouncing around" was.
+     *
+     * Now one box sits on the resting screen, the four bands narrow, and
+     * anything else the query finds is appended underneath. */
+    const findPg = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await findPg.click('.tab[data-view="macros"]');
+    await findPg.waitForTimeout(250);
+    await (await findPg.$$('.mslot-add'))[0].click();
+    await findPg.waitForTimeout(500);
+    const bandsOf = () => findPg.evaluate(() =>
+      [...document.querySelectorAll('#mpList .mt-div')].map((e) => e.textContent));
+    const resting = await bandsOf();
+    t.ok('the resting screen has a search box on it',
+      await findPg.evaluate(() => !!document.getElementById('mpFind')));
+    t.ok('and ranked bands under it', resting.length > 0, JSON.stringify(resting));
+
+    /* A word taken from a row the ranking itself chose, so the assertion is
+       that the band SURVIVES being searched — never a literal dish, which
+       would be pinning today's arithmetic. */
+    const word = await findPg.evaluate(() => {
+      const n = (document.querySelector('#mpList .mpick-wrap .mp-name') || {}).textContent || '';
+      return (n.split(/[\s,&]+/).find((w) => w.length > 4) || '').toLowerCase();
+    });
+    await findPg.fill('#mpFind', word);
+    await findPg.waitForTimeout(450);
+    const narrowed = await bandsOf();
+    t.ok('typing keeps the ranked bands rather than throwing them away',
+      !!word && narrowed.length > 0 &&
+      narrowed.some((b) => resting.indexOf(b) >= 0), word + ' -> ' + JSON.stringify(narrowed));
+
+    /* And it still reaches what the bands do not hold. Salmon is deliberately
+       kept out of the ranked pool by the storehouse gate; searching must find
+       it anyway, because looking a thing up is how you decide to buy it. */
+    await findPg.fill('#mpFind', 'salmon');
+    await findPg.waitForTimeout(450);
+    t.ok('and still finds what the bands were never going to offer',
+      await findPg.evaluate(() => [...document.querySelectorAll('#mpList .mp-name')]
+        .some((e) => /salmon/i.test(e.textContent))));
+
+    /* THE CONSTRAINT THE WHOLE DESIGN RESTS ON: the box is a SIBLING of
+       #mpList, and a keystroke rebuilds only the list. Replacing the sheet
+       would redraw the input mid-word. Typed with a real keyboard and the
+       caret put back inside the word, because page.fill() would not notice. */
+    await findPg.evaluate(() => {
+      const i = document.getElementById('mpFind');
+      i.focus();
+      i.setSelectionRange(3, 3);
+    });
+    await findPg.keyboard.type('x');
+    await findPg.waitForTimeout(400);
+    const typedState = await findPg.evaluate(() => ({
+      active: document.activeElement.id,
+      caret: document.activeElement.selectionStart,
+      val: document.activeElement.value }));
+    t.ok('and a keystroke leaves the caret where you put it',
+      typedState.active === 'mpFind' && typedState.caret === 4 && typedState.val === 'salxmon',
+      JSON.stringify(typedState));
+
+    /* Home had no empty state at all — every band returns '' when it has
+       nothing, so a query matching nothing rendered a silence. */
+    await findPg.fill('#mpFind', 'zzzqqqxx');
+    await findPg.waitForTimeout(400);
+    t.ok('and a query that matches nothing says so',
+      await findPg.evaluate(() => {
+        const e = document.querySelector('#mpList .mslot-empty');
+        return !!e && /zzzqqqxx/.test(e.textContent);
+      }));
+    await findPg.context().close();
+
     /* ---- food the storehouse does not stock ------------------------------
      * The books are written to be cooked out of the standard order, and a day
      * drafted from salmon and almonds is not a day if there is no salmon in
