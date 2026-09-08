@@ -1659,6 +1659,88 @@ module.exports = {
     t.ok('and Save keeps what the sheet has no box for',
       kept2.train === 'mo,we,fr' && kept2.lb === 205, JSON.stringify(kept2));
 
+    /* ---- the commit button rides the bar, not the header -----------------
+     * The one control that commits a basket used to sit in .sheet-top, the
+     * first element of the sheet, which has no position — so it scrolled off
+     * the top the moment you moved down the list to fill the basket it
+     * commits. Meanwhile the only element pinned to the bottom of the
+     * viewport, where a thumb actually rests, carried no control at all.
+     *
+     * Measured in a coarse-pointer context at 320px, the narrowest the app
+     * supports, because that is where the bar is tallest and the button
+     * nearest the edge. */
+    const barPg = await t.fresh({ viewport: { width: 320, height: 844 },
+      hasTouch: true, isMobile: true });
+    await barPg.click('.tab[data-view="macros"]');
+    await barPg.waitForTimeout(250);
+    await (await barPg.$$('.mslot-add'))[0].click();
+    await barPg.waitForTimeout(400);
+    t.ok('the sheet header no longer carries the thing that commits',
+      await barPg.evaluate(() => !document.querySelector('.sheet-top [data-mpdone]')));
+    await barPg.evaluate(() => { document.querySelectorAll('.mpick-row[data-mpick]')[0].click(); });
+    await barPg.waitForTimeout(400);
+    const pinnedBar = await barPg.evaluate(() => {
+      const f = document.querySelector('.mp-foot');
+      const d = document.querySelector('[data-mpdone]');
+      if (!f || !d) return null;
+      const fr = f.getBoundingClientRect(), dr = d.getBoundingClientRect();
+      return { inFoot: !!f.querySelector('[data-mpdone]'),
+        count: document.querySelectorAll('[data-mpdone]').length,
+        footBottom: Math.round(fr.bottom), view: window.innerHeight,
+        btnH: Math.round(dr.height), fullBleed: Math.round(fr.width) === window.innerWidth,
+        overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+    });
+    t.ok('it is on the bar pinned to the bottom of the screen',
+      !!pinnedBar && pinnedBar.inFoot && pinnedBar.footBottom === pinnedBar.view,
+      JSON.stringify(pinnedBar));
+    /* One in the document, or focus restore picks whichever comes first. */
+    t.ok('and there is exactly one of it', pinnedBar && pinnedBar.count === 1,
+      JSON.stringify(pinnedBar && pinnedBar.count));
+    /* The picker had never been named in the coarse-pointer block at all. */
+    t.ok('a thumb can hit it', pinnedBar && pinnedBar.btnH >= 44,
+      String(pinnedBar && pinnedBar.btnH));
+    t.ok('and the bar reaches both edges without scrolling the page sideways',
+      pinnedBar && pinnedBar.fullBleed && pinnedBar.overflowX === 0,
+      JSON.stringify(pinnedBar));
+
+    /* Scrolled to the very end, the bar must not be sitting on the last row —
+       a pinned bar that hides what it is pinned over trades one unreachable
+       control for another. */
+    await barPg.evaluate(() => { const s = document.querySelector('.scrim'); s.scrollTop = s.scrollHeight; });
+    await barPg.waitForTimeout(300);
+    const footGeo = await barPg.evaluate(() => {
+      const f = document.querySelector('.mp-foot').getBoundingClientRect();
+      const rows = [...document.querySelectorAll('.mpick-row')];
+      return { hidden: rows.filter((r) => {
+        const b = r.getBoundingClientRect();
+        return b.bottom > f.top + 1 && b.top < f.bottom;
+      }).length };
+    });
+    t.ok('and at the end of the list it covers nothing',
+      footGeo.hidden === 0, JSON.stringify(footGeo));
+
+    /* THE ONE THAT NEARLY SHIPPED. Sticky only ever pulls an element UP from
+       where the flow put it, and the phone rule gives every sheet
+       min-height:100% — so on a list of one row the bar sat wherever the
+       content ended, measured 438px of empty sheet below it. Harmless while
+       it was two lines of grey text. Not harmless once it is the only way to
+       commit. */
+    await barPg.click('[data-mpmode="recipes"]');
+    await barPg.waitForTimeout(400);
+    await barPg.fill('#mpSearch', 'zzzzzqqq');
+    await barPg.waitForTimeout(500);
+    const shortList = await barPg.evaluate(() => {
+      const f = document.querySelector('.mp-foot');
+      if (!f) return null;
+      const fr = f.getBoundingClientRect();
+      return { rows: document.querySelectorAll('.mpick-row').length,
+        gapBelow: Math.round(window.innerHeight - fr.bottom) };
+    });
+    t.ok('a list too short to fill the screen still puts the bar on the bottom of it',
+      !!shortList && shortList.rows <= 1 && shortList.gapBelow === 0,
+      JSON.stringify(shortList));
+    await barPg.context().close();
+
     /* Nothing, chips, bars — one language in three doses.
      *
        Silence when a meal is fine, a chip for the macro that is not, and the

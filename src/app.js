@@ -4423,11 +4423,20 @@
         busts = over > sh.kcal * 0.07;
       }
     }
+    /* The commit button lives here now, beside the number it commits.
+     *
+       It is still gated on a basket with something in it — this whole
+       function returns early on an empty one — because a button that adds
+       nothing is not a button, and a test pins that contract. What changed is
+       only WHERE it sits once it exists: on the bar already pinned to the
+       bottom of the viewport rather than at the top of a header that scrolls
+       away while you fill the basket it commits. */
     return '<div class="mp-foot' + (busts ? ' busts' : '') + '">' +
       '<span class="mp-foot-l">' + (busts ? 'Over this meal by ' + over : 'Adds') + '</span>' +
       '<span class="mp-foot-m">' + (est ? '~' : '') + Math.round(t.kcal) + ' kcal &middot; ' +
         Math.round(t.p) + 'P &middot; ' + Math.round(t.f) + 'F &middot; ' +
         Math.round(t.c) + 'C</span>' +
+      '<button class="mp-done" data-mpdone="1">Add ' + ids.length + '</button>' +
     '</div>';
   }
 
@@ -4486,8 +4495,14 @@
     var head = '<div class="sheet-top">' +
         '<div class="sheet-eyebrow">Add to ' + esc(name) + ' · ' +
           M_MONS[d.getMonth()] + ' ' + d.getDate() + '</div>' +
-        (n ? '<span class="mp-cnt" aria-label="' + n + ' waiting">&#129386; ' + n + '</span>' +
-          '<button class="mp-done" data-mpdone="1">Add ' + n + '</button>' : '') +
+        /* The count chip and the Add button both left this header for the bar
+           along the bottom. They were the first thing in the sheet and the
+           header has no position, so the one control that commits a basket
+           scrolled off the moment you moved down the list to fill it — while
+           the one element pinned to the bottom of the screen, where a thumb
+           actually rests, carried no control at all. The chip did not follow
+           them: "Add 3" already carries the count, and the basket panel above
+           already lists what the three are. */
         '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
       '</div>';
     /* The basket rides above whatever list you are in, not only on the first
@@ -4496,7 +4511,15 @@
        an answer to "what have I got". */
     var wrap = function (inner) {
       return '<div class="scrim no-print" data-close="1">' +
-        '<div class="sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
+        /* mp-sheet, and only this sheet: a column, so the bar along the
+           bottom can be pushed to the bottom of a SHORT one. Sticky only ever
+           pulls an element up from where the flow put it, and the phone rule
+           gives every sheet min-height:100%, so a list of two rows left the
+           bar floating mid-card with 438 measured pixels of empty sheet below
+           it. Harmless while it was two lines of grey text; not harmless now
+           that it is the only way to commit. Nine other sheets share .sheet
+           and none of them want this. */
+        '<div class="sheet mp-sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
         head + mMealPickHTML() + mBasketListHTML() + inner + mBasketFootHTML() + '</div></div>';
     };
 

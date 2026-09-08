@@ -1218,17 +1218,42 @@ select { max-width: 280px; }
   .mp-body { flex-direction: column; align-items: flex-start; gap: 2px; }
   .mp-body .mp-name { flex: 0 0 auto; }
 }
-/* the basket, in the sheet's own header */
-.mp-cnt { font-size: 12px; color: var(--muted); white-space: nowrap; margin-left: auto; }
+/* The picker sheet is a column so its bottom bar can be pushed down on a
+   short list. Scoped to .mp-sheet: nine other sheets use .sheet and a flex
+   column would let their children shrink instead of overflowing. */
+.sheet.mp-sheet { display: flex; flex-direction: column; }
+/* What the basket will cost, and the button that commits it, along the bottom.
+ *
+   `margin-top: auto` is what does the work on a short list — sticky can only
+   pull an element up from its flow position, so on a two-row list the bar
+   would otherwise sit wherever the content ended, mid-card.
+ *
+   `align-items: center`, not baseline: a padded button baseline-aligns on its
+   own text, and the macro span wraps to a second line at narrow widths, which
+   at 320px measured 14px of extra bar permanently covering the list. Centre
+   costs nothing and holds 65px at every width from 320 to 430.
+ *
+   The safe-area inset goes in padding-bottom, never in `bottom` — moving the
+   bar up would let the list show through underneath it. The inset resolves to
+   0 today because index.html has no viewport-fit=cover; this line is inert
+   until it does, and correct on the day it does. Adding that meta is its own
+   change: it would also drop the topbar under the Android status bar and
+   inflate .mday-acts, which the suite cannot see because env() is 0 in
+   headless Chromium. */
+.mp-foot {
+  position: sticky; bottom: 0; display: flex; gap: 10px; align-items: center;
+  margin: auto -4px -4px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--card); border-top: 1px solid var(--line); border-radius: 0 0 6px 6px;
+}
+/* Pinned right in both states. The button used to inherit its right-hand
+   position from the count chip's margin-left:auto in the header; with that
+   chip gone it needs its own, or the commit target slides 89 measured pixels
+   sideways depending on whether the readout says "Adds" or "Over this meal
+   by 427". */
 .mp-done {
   background: var(--green); color: var(--paper); border: 0; border-radius: 4px;
+  margin-left: auto;
   padding: 7px 12px; font-family: var(--sans); font-size: 12.5px; font-weight: 600; white-space: nowrap;
-}
-/* and what it will cost, along the bottom */
-.mp-foot {
-  position: sticky; bottom: 0; display: flex; gap: 10px; align-items: baseline;
-  margin: 8px -4px -4px; padding: 10px 12px;
-  background: var(--card); border-top: 1px solid var(--line); border-radius: 0 0 6px 6px;
 }
 .mp-foot-l { font-size: 11.5px; color: var(--muted); flex: none; }
 .mp-foot-m { font-size: 12px; color: var(--ink); }
@@ -2625,6 +2650,18 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   .grid { grid-template-columns: 1fr; }
   .scrim { padding: 0; }
   .sheet { border-radius: 0; min-height: 100%; padding: 22px 18px 40px; }
+  /* Out to both edges on a phone. The base rule pulls back 4px against the
+     desktop sheet's 34px padding; against this rule's 18px that left the bar
+     14px short of each side, which nobody could see while it was the same
+     colour as the sheet — and which will read as a bug the moment .busts
+     tints it and it is carrying the commit button. */
+  .mp-foot { margin-left: -18px; margin-right: -18px; margin-bottom: 0;
+    padding-left: 18px; padding-right: 18px; }
+  /* The bar carries its own bottom padding, so the sheet's 40px would only
+     hold it 36px off the screen — flush on a long list where sticky pins it,
+     floating on a short one where it sits in flow. Same bar, two positions,
+     for no reason a reader could see. */
+  .sheet.mp-sheet { padding-bottom: 0; }
   .sheet-name { font-size: 23px; }
   .sheet-ing { grid-template-columns: 1fr; }
   .list-row { padding: 12px 2px; }
@@ -2955,6 +2992,11 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 .pitem-x:hover { color: var(--ochre); background: oklch(0.62 0.10 55 / 0.10); }
 .pitem-x.back { font-size: 17px; }
 @media (pointer: coarse) {
+  /* The one control in the picker that commits, and the first .mp-* class
+     this block has ever named — the whole picker missed the 44px pass, and
+     this button measured 29px while being the thing the sheet exists to let
+     you press. */
+  .mp-done { min-height: 44px; }
   /* no hover to reveal with, and a target you can actually hit */
   .pitem { padding: 8px 2px; font-size: 15.5px; }
   .pitem-x { opacity: 1; width: 34px; height: 34px; font-size: 19px; }
