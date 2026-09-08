@@ -1851,6 +1851,71 @@ module.exports = {
       !!target && heldScroll === 300, 'scrollTop ' + heldScroll + ' (was 300)');
     await jumpPg.context().close();
 
+    /* ---- food the storehouse does not stock ------------------------------
+     * The books are written to be cooked out of the standard order, and a day
+     * drafted from salmon and almonds is not a day if there is no salmon in
+     * the house. So external foods are gated on a setting, and off is the
+     * default because it is the answer that cannot surprise you.
+     *
+     * Asserted as a DIFFERENCE between the two settings on one seeded day,
+     * never against a named food: which external food wins a rung depends on
+     * the day's gap, and pinning "tuna steak" would be pinning today's
+     * arithmetic. */
+    const extPg = async (on) => {
+      const pg = await t.fresh();
+      await pg.evaluate((e) => {
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+          inch: 11, lb: 190, act: 1.375, goal: 'cut1', goalLb: 175, goalBy: '',
+          workouts: 4, steps: 8000, extFill: e }));
+      }, on);
+      await pg.reload();
+      await pg.waitForTimeout(350);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(250);
+      await (await pg.$$('.mslot-add'))[0].click();
+      await pg.waitForTimeout(500);
+      return pg.evaluate(() => {
+        const N = window.Nutrition.FOODS;
+        const extNames = {};
+        Object.keys(N).forEach((k) => { if (N[k].ext) extNames[(N[k].label || k).toLowerCase()] = 1; });
+        const rows = [...document.querySelectorAll('#modalRoot .mpick-wrap .mp-name')]
+          .map((e) => e.textContent);
+        /* Checked on this page rather than a page from earlier in the suite:
+           `p` is closed by the time this runs, and reaching for it threw
+           rather than failed, which reads as a broken suite instead of a
+           broken assertion. */
+        const bad = [];
+        Object.keys(N).forEach((k) => {
+          const f = N[k];
+          if (!f.ext) return;
+          if (!f.g || !Object.keys(f.g).length) bad.push(k + ': no g');
+          else if (!f.def) bad.push(k + ': no def');
+          else if (!f.g[f.def.unit]) bad.push(k + ': def unit "' + f.def.unit + '" has no weight');
+          else if (!f.label) bad.push(k + ': no label');
+          else if (!f.zone) bad.push(k + ': no zone');
+          else if (!(f.kcal > 0)) bad.push(k + ': no calories');
+        });
+        return { rows: rows.length, bad: bad,
+          ext: rows.filter((n) => extNames[String(n).toLowerCase()]),
+          known: Object.keys(extNames).length };
+      });
+    };
+    const extOff = await extPg(false);
+    const extOn = await extPg(true);
+    t.ok('the table knows food the storehouse does not stock',
+      extOff.known >= 20, String(extOff.known));
+    t.ok('and does not offer any of it by default',
+      extOff.rows > 5 && extOff.ext.length === 0, JSON.stringify(extOff.ext));
+    t.ok('but offers it once you say Fill may shop',
+      extOn.ext.length > 0, JSON.stringify(extOn.ext));
+
+    /* A half-authored entry is the failure this guards. The six numbers come
+       from the USDA and are fetched; `g`, `def`, `label` and what the food is
+       FOR are judgement and are typed by hand, and a missing `def` is how a
+       portion once defaulted to a cup of soy sauce. */
+    t.ok('and every one of them is a complete entry',
+      extOff.bad.length === 0, extOff.bad.slice(0, 6).join(' | '));
+
     /* Nothing, chips, bars — one language in three doses.
      *
        Silence when a meal is fine, a chip for the macro that is not, and the

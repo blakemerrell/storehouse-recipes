@@ -213,6 +213,15 @@
         /* which shelf a cook would reach on, carried through from the food
            table so mShelfKey does not have to keep its own list */
         veg: !!f.veg, starch: !!f.starch,
+        /* Not on the storehouse order. Carried so the picker can offer it to
+           log — Blake will happily go and buy salmon tomorrow — while Fill
+           stays out of it unless he says otherwise, because a day drafted out
+           of food that is not in the house is not a day.
+         *
+           `zone` is the Zone table's own block for the food, which is a
+           judgement about what it is FOR rather than anything derivable from
+           the macros, and it is the axis the shelf rail speaks. */
+        ext: !!f.ext, zone: f.zone || '',
         book: 0, secNum: 0, secName: 'Single foods',
         name: name, servings: '1 ' + sv.unit, servN: 1, unit: sv.unit, grams: sv.grams,
         ing: [name], steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
@@ -5837,6 +5846,19 @@
         '<div id="mtEditor" class="mt-editor' + shut + '">' +
           '<div class="mt-div">About you</div>' +
           '<div class="mtl-seg">' + seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']]) + '</div>' +
+          /* What Fill is allowed to shop from.
+           *
+             The books are written to be cooked out of the storehouse order,
+             and a day drafted from salmon and almonds is not a day if there
+             is no salmon in the house. But Blake will happily stop at a shop
+             on the way home, and said so — so it is a question with two
+             honest answers rather than a rule. Off is the default because it
+             is the one that cannot surprise you.
+           *
+             Searching and logging an external food is never gated. Looking
+             one up is how you decide to go and buy it. */
+          row('Fill from', seg('mtext', pr.extFill ? '1' : '0',
+            [['0', 'The storehouse'], ['1', 'Anything']])) +
           row('Age', box('mtAge', pr.age, '')) +
           row('Height', box('mtFt', pr.ft, 'ft') + box('mtIn', pr.inch, 'in')) +
           /* Asked for only until the scale can answer. Two boxes for one
@@ -6022,6 +6044,8 @@
     out.lb = n('mtLb', stored.lb);
     out.act = Number(($('mtAct') || {}).value) || stored.act || 1.55;
     out.goal = goalBtn ? goalBtn.dataset.mtgoal : stored.goal;
+    var extBtn = document.querySelector('[data-mtext][aria-pressed="true"]');
+    out.extFill = extBtn ? extBtn.dataset.mtext === '1' : !!stored.extFill;
     out.goalLb = n('mtGoalLb', stored.goalLb);
     out.goalBy = $('mtGoalBy') ? ($('mtGoalBy').value || '') : (stored.goalBy || '');
     out.workouts = n('mtWorkouts', stored.workouts);
@@ -6443,6 +6467,7 @@
       var best = null;
       MFOODS.forEach(function (r) {
         var mac = r.macro || {};
+        if (r.ext && !mExtOk()) return;     // Fill does not shop
         if (!r.side) return;
         if (!(mac.fib > 0) || !(mac.kcal > 0)) return;
         if (mac.fib * 100 / mac.kcal < MSIDE_DENS) return;
@@ -6513,6 +6538,7 @@
       var naRoom = Math.min(MTOP_NA, Math.max(0, 2300 - (tot.all.na || 0)));
       MFOODS.forEach(function (r) {
         var mac = r.macro || {};
+        if (r.ext && !mExtOk()) return;     // Fill does not shop
         if ((mac.kcal || 0) < MTOP_MIN) return;
         if (((mac.p || 0) + (mac.c || 0) + (mac.f || 0)) <= 0) return;
         if (mOnDay(day, r.id) || (near && near[r.id])) return;
@@ -6885,10 +6911,27 @@
      is the cleanest lever available and ‹ › walks down toward the ones that
      bring more baggage with them. */
   var MLEVERS = null;
+  /* What the cached bench was built FROM, so it cannot outlive its inputs.
+   *
+     Two things move it. MFOODS is rebuilt whenever a food of your own is
+     saved, and the external-food setting decides whether half the fat rungs
+     exist at all — a cache built while the setting was off would go on
+     offering three-quarters of a tablespoon of Oil after it was turned on,
+     with nothing to say why. Keyed rather than cleared, because clearing
+     relies on remembering every place either input changes and this file
+     already carries one comment about a cache that went stale exactly that
+     way. */
+  var MLEVERS_ON = null;
   function mLevers() {
+    var levKey = MFOODS.length + ':' + (mExtOk() ? 1 : 0);
+    if (MLEVERS_ON !== levKey) { MLEVERS = null; MLEVERS_ON = levKey; }
     if (!MLEVERS) {
       MLEVERS = { p: [], f: [], c: [] };
       MFOODS.forEach(function (r) {
+        /* The rungs the closers band is built from. Gated with the rest, so
+           the opt-in turns the whole vocabulary on at once rather than the
+           picker recommending an almond the draft may not use. */
+        if (r.ext && !mExtOk()) return;
         if (!(r.eat || r.side || r.lever)) return;
         if (!r.macro || (r.macro.kcal || 0) < 8) return;
         var dm = mLeverDom(r);
@@ -7021,12 +7064,28 @@
      which is a worse answer than the recipe it replaced. `eat` says you can
      eat it as it comes; `side` is already on the vegetables. Condiments are
      in neither on purpose — butter and honey go ON food. */
+  /* Whether Fill may draft food the storehouse does not stock.
+   *
+     Off unless it is turned on, and off is the honest default: a day built
+     out of salmon and almonds is not a day if there is no salmon in the
+     house. Turned on, it is the right answer for a Blake who is happy to
+     stop at a shop on the way home — which is exactly how he asked for it.
+   *
+     This gates DRAFTING only. Searching and logging an external food is
+     always allowed, because looking one up is how you decide to go and buy
+     it. */
+  function mExtOk() { return !!mReadProfileRaw().extFill; }
+
   function mMealPool(slot, wide) {
     var secs = wide ? mAllSecs() : mSlotSecs(slot);
     var pool = RECIPES.filter(function (r) {
       return secs.indexOf(r.book + '-' + r.secNum) >= 0;
     });
-    MFOODS.forEach(function (r) { if (r.eat || r.side) pool.push(r); });
+    var ext = mExtOk();
+    MFOODS.forEach(function (r) {
+      if (r.ext && !ext) return;
+      if (r.eat || r.side) pool.push(r);
+    });
     return pool;
   }
 
@@ -8884,7 +8943,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
-    'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
@@ -10796,10 +10855,18 @@
         return;
       }
 
-      var mseg = e.target.closest('[data-mtsex], [data-mtgoal]');
+      var mseg = e.target.closest('[data-mtsex], [data-mtgoal], [data-mtext]');
       if (mseg && S.macroTargOpen) {
+        /* Which segment this is, asked of the element instead of guessed from
+           a pair. The ternary that used to sit here had to grow a branch for
+           every segment added, and the failure when one is missed is silent:
+           the press lands, the wrong row's buttons are queried, and nothing
+           moves. */
+        var segAttr = ['mtsex', 'mtgoal', 'mtext'].filter(function (a) {
+          return mseg.dataset[a] !== undefined;
+        })[0];
         Array.prototype.forEach.call(mseg.parentElement.querySelectorAll('button[data-' +
-          (mseg.dataset.mtsex ? 'mtsex' : 'mtgoal') + ']'), function (b) {
+          segAttr + ']'), function (b) {
           b.setAttribute('aria-pressed', String(b === mseg));
         });
         mtRefreshPlan();

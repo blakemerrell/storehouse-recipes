@@ -234,6 +234,66 @@ const FOODS = {
   salt:            { kcal: 0,   p: 0,    c: 0,    f: 0, na: 38758, fib: 0, g: { cup: 292, tbsp: 18, tsp: 6, each: 6 }, def: { qty: 0.125, unit: 'tsp' }, label: 'Salt', note: 'table salt, 6 g per teaspoon' },
   celery_salt:     { kcal: 0,   p: 0,    c: 0,    f: 0, na: 26000, fib: 0, g: { cup: 230, tbsp: 14, tsp: 4.7 }, def: { qty: 0.5, unit: 'tsp' }, label: 'Celery salt' },
   cinnamon:        { kcal: 247, p: 4,    c: 81,   f: 1.2, na: 10, fib: 53.1,  g: { cup: 124, tbsp: 7.8, tsp: 2.6 }, def: { qty: 1, unit: 'tsp' } },
+
+  /* ---------------------------------------------------------------------
+   * Foods the storehouse does not stock.
+   *
+   * Everything above this line is on the standard order, and the books are
+   * written to be cooked from it. These are not: they carry `ext: 1`, which
+   * is what lets the app offer them to log without letting Fill draft a day
+   * out of things Blake would have to go and buy first.
+   *
+   * The list is the Best-rated half of the Zone food-block table, minus what
+   * the storehouse already carries. The CURATION is the Zone table's — it
+   * says what is worth eating. The NUMBERS are the USDA's, fetched by
+   * tools/usda-fetch.js from SR Legacy, the same standard-reference set every
+   * figure above came from. A Zone block fixes only one macro per food (9 g
+   * carbohydrate, 7 g protein, 1.5 g fat) and is silent on the other two, so
+   * it could never have been the source.
+   *
+   * `zone` keeps the table's own block for each food, because it is a
+   * judgement rather than something derivable: it is what a person decided
+   * the food is FOR, which is the axis the picker's shelf rail speaks.
+   *
+   * Fish is counted RAW, like the meat above it, because that is the weight
+   * you buy and the weight a recipe would state. Two exceptions are marked in
+   * their notes.
+   * --------------------------------------------------------------------- */
+
+  // ---- fish and seafood: the leanest protein on the list
+  salmon:      { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 142, p: 19.8, c: 0, f: 6.3, na: 44, fib: 0, g: { lb: 453.6, oz: 28.35, each: 170 }, def: { qty: 6, unit: 'oz' }, label: 'Salmon', note: 'Atlantic, wild, raw; 1 fillet = 170 g' },
+  cod:         { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 82, p: 17.8, c: 0, f: 0.7, na: 54, fib: 0, g: { lb: 453.6, oz: 28.35, each: 170 }, def: { qty: 6, unit: 'oz' }, label: 'Cod', note: 'Atlantic, raw' },
+  halibut:     { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 91, p: 18.6, c: 0, f: 1.3, na: 68, fib: 0, g: { lb: 453.6, oz: 28.35, each: 159 }, def: { qty: 6, unit: 'oz' }, label: 'Halibut', note: 'raw' },
+  tilapia:     { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 96, p: 20.1, c: 0, f: 1.7, na: 52, fib: 0, g: { lb: 453.6, oz: 28.35, each: 116 }, def: { qty: 6, unit: 'oz' }, label: 'Tilapia', note: 'raw; 1 fillet = 116 g' },
+  tuna_steak:  { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 109, p: 24.4, c: 0, f: 0.5, na: 45, fib: 0, g: { lb: 453.6, oz: 28.35 }, def: { qty: 6, unit: 'oz' }, label: 'Tuna steak', note: 'yellowfin, fresh, raw — the leanest protein in the table' },
+  trout:       { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 141, p: 19.9, c: 0, f: 6.2, na: 51, fib: 0, g: { lb: 453.6, oz: 28.35, each: 143 }, def: { qty: 6, unit: 'oz' }, label: 'Trout', note: 'rainbow, farmed, raw' },
+  haddock:     { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 74, p: 16.3, c: 0, f: 0.5, na: 213, fib: 0, g: { lb: 453.6, oz: 28.35, each: 150 }, def: { qty: 6, unit: 'oz' }, label: 'Haddock', note: 'raw; the sodium is the fish, not a cure' },
+  snapper:     { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 100, p: 20.5, c: 0, f: 1.3, na: 64, fib: 0, g: { lb: 453.6, oz: 28.35, each: 170 }, def: { qty: 6, unit: 'oz' }, label: 'Snapper', note: 'mixed species, raw' },
+  mackerel:    { ext: 1, eat: 1, zone: 'protein', kcal: 205, p: 18.6, c: 0, f: 13.9, na: 90, fib: 0, g: { lb: 453.6, oz: 28.35, each: 112 }, def: { qty: 5, unit: 'oz' }, label: 'Mackerel', note: 'Atlantic, raw; no lever flag — two thirds of its energy is fat, so it moves both knobs at once' },
+  catfish:     { ext: 1, eat: 1, zone: 'protein', kcal: 119, p: 15.2, c: 0, f: 5.9, na: 98, fib: 0, g: { lb: 453.6, oz: 28.35, each: 159 }, def: { qty: 6, unit: 'oz' }, label: 'Catfish', note: 'channel, farmed, raw' },
+  sardines:    { ext: 1, eat: 1, zone: 'protein', kcal: 208, p: 24.6, c: 0, f: 11.4, na: 307, fib: 0, g: { can: 92, oz: 28.35 }, def: { qty: 1, unit: 'can' }, label: 'Sardines', note: 'canned in oil, drained, with bone; a tin is 92 g drained' },
+  shrimp:      { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 71, p: 13.6, c: 0.9, f: 1, na: 566, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 145, each: 15 }, def: { qty: 4, unit: 'oz' }, label: 'Shrimp', note: 'raw. The sodium is high because the USDA figure is for shrimp treated to retain moisture, which is what a shop sells; untreated is nearer 120 mg' },
+  crab:        { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 87, p: 18.1, c: 0, f: 1.1, na: 293, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 135 }, def: { qty: 4, unit: 'oz' }, label: 'Crab meat', note: 'blue, raw' },
+  lobster:     { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 77, p: 16.5, c: 0, f: 0.8, na: 423, fib: 0, g: { lb: 453.6, oz: 28.35 }, def: { qty: 4, unit: 'oz' }, label: 'Lobster', note: 'northern, raw' },
+  scallops:    { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 69, p: 12.1, c: 3.2, f: 0.5, na: 392, fib: 0, g: { lb: 453.6, oz: 28.35, each: 15 }, def: { qty: 4, unit: 'oz' }, label: 'Scallops', note: 'mixed species, raw' },
+  clams:       { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 86, p: 14.7, c: 3.6, f: 1, na: 601, fib: 0, g: { lb: 453.6, oz: 28.35, can: 184 }, def: { qty: 4, unit: 'oz' }, label: 'Clams', note: 'mixed species, raw' },
+  calamari:    { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 92, p: 15.6, c: 3.1, f: 1.4, na: 44, fib: 0, g: { lb: 453.6, oz: 28.35 }, def: { qty: 4, unit: 'oz' }, label: 'Calamari', note: 'squid, mixed species, raw' },
+
+  /* ---- oils, nuts and spreads.
+     The fat shelf held one food before this — cooking oil — which is why the
+     combo builder kept offering three-quarters of a tablespoon of Oil for
+     breakfast: it was the only fat lever on the shelf and there was nothing
+     to lose the argument to. */
+  olive_oil:    { ext: 1, lever: 1, zone: 'fat', kcal: 884, p: 0, c: 0, f: 100, na: 2, fib: 0, g: { cup: 216, tbsp: 13.5, tsp: 4.5 }, def: { qty: 1, unit: 'tbsp' }, label: 'Olive oil' },
+  almonds:      { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 579, p: 21.2, c: 21.6, f: 49.9, na: 1, fib: 12.5, g: { cup: 143, oz: 28.35, tbsp: 9, each: 1.2 }, def: { qty: 1, unit: 'oz' }, label: 'Almonds', note: 'whole, raw; 1 nut = 1.2 g' },
+  almond_butter: { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 614, p: 21, c: 18.8, f: 55.5, na: 7, fib: 10.3, g: { cup: 256, tbsp: 16, tsp: 5.3 }, def: { qty: 1, unit: 'tbsp' }, label: 'Almond butter', note: 'plain, unsalted' },
+  walnuts:      { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 654, p: 15.2, c: 13.7, f: 65.2, na: 2, fib: 6.7, g: { cup: 117, oz: 28.35, tbsp: 7.3 }, def: { qty: 1, unit: 'oz' }, label: 'Walnuts', note: 'english, shelled' },
+  cashews:      { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 553, p: 18.2, c: 30.2, f: 43.8, na: 12, fib: 3.3, g: { cup: 137, oz: 28.35, each: 1.4 }, def: { qty: 1, unit: 'oz' }, label: 'Cashews', note: 'raw' },
+  macadamia:    { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 718, p: 7.9, c: 13.8, f: 75.8, na: 5, fib: 8.6, g: { cup: 134, oz: 28.35, each: 2.5 }, def: { qty: 1, unit: 'oz' }, label: 'Macadamia nuts', note: 'raw; the densest food in the table' },
+  peanuts:      { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 567, p: 25.8, c: 16.1, f: 49.2, na: 18, fib: 8.5, g: { cup: 146, oz: 28.35, each: 1 }, def: { qty: 1, unit: 'oz' }, label: 'Peanuts', note: 'all types, raw' },
+  avocado:      { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 160, p: 2, c: 8.5, f: 14.7, na: 7, fib: 6.7, g: { cup: 150, oz: 28.35, each: 201 }, def: { qty: 0.5, unit: 'each' }, label: 'Avocado', note: 'raw, all commercial varieties; 1 whole = 201 g' },
+  olives:       { ext: 1, eat: 1, zone: 'fat', kcal: 116, p: 0.8, c: 6, f: 10.9, na: 735, fib: 1.6, g: { cup: 135, oz: 28.35, each: 4 }, def: { qty: 5, unit: 'each' }, label: 'Olives', note: 'ripe, canned; no lever flag — a fat you would have to eat 700 mg of sodium to move' },
+  tahini:       { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 595, p: 17, c: 21.2, f: 53.8, na: 115, fib: 9.3, g: { cup: 240, tbsp: 15, tsp: 5 }, def: { qty: 1, unit: 'tbsp' }, label: 'Tahini', note: 'from roasted and toasted kernels' },
 };
 
 /*
