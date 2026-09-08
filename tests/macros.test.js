@@ -294,7 +294,11 @@ module.exports = {
       await p.click('[data-mtgoal="' + key + '"]');
       await p.waitForTimeout(200);
       const want = await p.evaluate((r) => {
-        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+        /* The profile as the APP reads it: bodyweight comes off the scale
+           now, and bsc.macroProfile holds only the fallback for a plan made
+           before there was a log. Reading storage here tests a body the
+           fixture may have spent thirty mornings losing. */
+        const pr = window.__macroLab.profile();
         const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
         const tdee = (10 * kg + 6.25 * cm - 5 * pr.age + 5) * pr.act;
         return Math.max(1500, Math.round(tdee - r * pr.lb * 3500 / 7));
@@ -1583,6 +1587,77 @@ module.exports = {
     });
     t.ok('but Rebalance, which you pressed, may still move it',
       rebal !== 1, 'x after rebalance: ' + rebal);
+
+    /* Bodyweight was stored twice and the two disagreed: a falling weigh-in
+       log, and a `lb` in the profile that only the plan sheet has ever
+       written. Every target built on bodyweight was worked out against the
+       stale one and nothing said so.
+     *
+       Asserted differentially rather than against a number: two pages with
+       the SAME profile weight and different logs must produce different
+       plans, and the heavier log the higher protein. A literal here would
+       pass against an app that had stopped reading the scale at all, which
+       is the whole bug. */
+    const sotPage = async (lbNow) => {
+      const pg = await t.fresh();
+      await pg.evaluate((lb) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const w = {};
+        for (let i = 13; i >= 0; i--) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          w[d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate())] = lb;
+        }
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+          inch: 11, lb: 205, act: 1.375, goal: 'cut1', goalLb: 0, goalBy: '',
+          workouts: 4, steps: 8000, train: ['mo', 'we', 'fr'] }));
+        localStorage.removeItem('bsc.macroTargets');
+      }, lbNow);
+      await pg.reload();
+      await pg.waitForTimeout(350);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(250);
+      await openPlan(pg);
+      await pg.waitForTimeout(350);
+      return pg;
+    };
+    const planBoxes = (pg) => pg.evaluate(() =>
+      ['mtP', 'mtF', 'mtC'].map((id) => Number((document.getElementById(id) || {}).value) || 0));
+
+    const lightLog = await sotPage(150);
+    const heavyLog = await sotPage(240);
+    const lightPlan = await planBoxes(lightLog);
+    const heavyPlan = await planBoxes(heavyLog);
+    t.ok('the plan is built on the scale, not the weight typed into the sheet',
+      lightPlan[0] !== heavyPlan[0],
+      'protein light ' + lightPlan[0] + ' vs heavy ' + heavyPlan[0] + ' (profile says 205 in both)');
+    t.ok('and it follows the scale the right way round',
+      heavyPlan[0] > lightPlan[0], heavyPlan[0] + ' > ' + lightPlan[0]);
+
+    /* Two boxes for one number is how they came to disagree, so once the log
+       can answer, the sheet states it instead of asking again. */
+    const scaleSot = await lightLog.evaluate(() => {
+      const rows = [...document.querySelectorAll('.mtl-row')]
+        .map((r) => r.textContent.replace(/\s+/g, ' ').trim());
+      return { row: rows.find((x) => /^Weight/.test(x)),
+        input: !!document.getElementById('mtLb'),
+        stored: (JSON.parse(localStorage.getItem('bsc.macroProfile')) || {}).lb };
+    });
+    t.ok('the sheet states the weight from the log rather than asking for it again',
+      !scaleSot.input && /150/.test(scaleSot.row), JSON.stringify(scaleSot));
+
+    /* Save rebuilt the profile from the DOM over a bare setItem, so it
+       silently dropped everything the sheet has no box for — the training
+       days were being lost on every save, and the fallback weight was about
+       to join them now that its box is gone. */
+    await lightLog.click('[data-mtarg="save"]');
+    await lightLog.waitForTimeout(600);
+    const kept2 = await lightLog.evaluate(() => {
+      const pr = JSON.parse(localStorage.getItem('bsc.macroProfile')) || {};
+      return { lb: pr.lb, train: (pr.train || []).join(','), steps: pr.steps };
+    });
+    t.ok('and Save keeps what the sheet has no box for',
+      kept2.train === 'mo,we,fr' && kept2.lb === 205, JSON.stringify(kept2));
 
     /* Nothing, chips, bars — one language in three doses.
      *
@@ -3153,6 +3228,15 @@ module.exports = {
       document.querySelectorAll('#mpList .mgc').forEach((el) => {
         const v = Number((el.textContent.match(/\d+/) || [0])[0]);
         const m = el.querySelector('i').className.replace('mb-', '');
+        /* The row PRINTS a rounded gram count; the app CLASSIFIED the
+           unrounded contribution. A dish sitting within half a gram of a band
+           edge can legitimately render one side of it and be coloured by the
+           other, and such a row is not evidence about the rule either way.
+           Same rounding family as mGapPill taking Math.round of the
+           difference while a test rounded the operands. */
+        const edge = Math.min(Math.abs(v - (owed[m] + band(m))),
+          Math.abs(Math.abs(v - owed[m]) - band(m)));
+        if (owed[m] > 0 && edge <= 1) return;
         const want = !(owed[m] > 0) ? ''
           : v > owed[m] + band(m) ? 'busts'
           : Math.abs(v - owed[m]) <= band(m) ? 'lands' : '';
@@ -3613,7 +3697,11 @@ module.exports = {
       await slow.evaluate(() => {
         const b = document.querySelector('[data-mline^="mline:eat"]');
         const want = Number(b.dataset.mline.split(':')[2]);
-        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+        /* The profile as the APP reads it: bodyweight comes off the scale
+           now, and bsc.macroProfile holds only the fallback for a plan made
+           before there was a log. Reading storage here tests a body the
+           fixture may have spent thirty mornings losing. */
+        const pr = window.__macroLab.profile();
         const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
         const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + 5;
         return want >= bmr;

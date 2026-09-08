@@ -1525,13 +1525,47 @@
     return train.length > 0 && train.length < 7 && train.indexOf(mWkIx(keyDate(k))) >= 0;
   }
 
-  function mReadProfile() {
+  /* What is actually in storage. Only the plan sheet's Save has any business
+     with this — everything else wants mReadProfile below, which reads the
+     weight off the scale. */
+  function mReadProfileRaw() {
     try {
       var pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
       if (pr && typeof pr === 'object') return pr;
     } catch (e) { /* private mode or corrupt */ }
     return { sex: 'm', age: 0, ft: 0, inch: 0, lb: 0, act: 1.55, goal: 'cut1',
       goalLb: 0, goalBy: '', workouts: 0, steps: 0 };
+  }
+
+  /* The scale, as one number.
+   *
+     Bodyweight was stored twice and the two disagreed: 57 mornings falling
+     205 -> 190 in the weigh-in log, and `lb: 205` still sitting in the profile
+     because the plan sheet is the only thing that has ever written it. Every
+     target built on bodyweight — protein by the pound, the 0.3 g/lb fat
+     floor, the pace cap — was being worked out against a weight fifteen
+     pounds stale, and no screen said so.
+   *
+     The seven-day average rather than this morning's number: a target that
+     moved with a night's water would be noise wearing a decimal point, and
+     the average is already what mPlanFace steers by, so this makes one number
+     out of two rather than adding a third. Guarded on MWEIGHTS because it is
+     assigned by an IIFE further down the file. */
+  function mScaleLb() {
+    if (typeof MWEIGHTS === 'undefined' || !MWEIGHTS) return 0;
+    var st = mWeightStats();
+    return st && st.avg7 ? Math.round(st.avg7 * 10) / 10 : 0;
+  }
+
+  /* The profile as the rest of the app should see it: what you told it, with
+     the weight overwritten by what the scale has since said. The stored `lb`
+     survives as the fallback for the case it is genuinely for — the first
+     plan, before there is a log to read. */
+  function mReadProfile() {
+    var pr = mReadProfileRaw();
+    var lb = mScaleLb();
+    if (lb) pr.lb = lb;
+    return pr;
   }
   function mWriteProfile(pr) {
     mStamp('pr');
@@ -5712,6 +5746,17 @@
     var t = mReadTargets();
     var pr = mReadProfile();
     var plan = mPlanCalc(pr);
+    /* With nothing stored the DAY shows no plan and says so — but this is the
+       sheet where a plan gets made, so it opens on the one the profile works
+       out to rather than on three zeros. Proposing is not asserting: nothing
+       is written until Save, and with no profile to work from there is still
+       nothing to propose and the boxes stay empty.
+     *
+       Without this the boxes read 0/0/0 and Save stored three zeros, which
+       then came back out of mReadTargets repaired to a real plan by the
+       below-the-floor correction — the right numbers arriving by accident,
+       from a screen that had shown the wrong ones. */
+    if (!kcalOf(t) && plan) t = { p: plan.p, f: plan.f, c: plan.c };
     /* A ledger row: what it is on the left, what it says on the right. One
        fact per line, values right-aligned into a column — the arrangement
        that cannot wrap the way a row of labelled boxes wraps on a phone. */
@@ -5774,7 +5819,14 @@
           '<div class="mtl-seg">' + seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']]) + '</div>' +
           row('Age', box('mtAge', pr.age, '')) +
           row('Height', box('mtFt', pr.ft, 'ft') + box('mtIn', pr.inch, 'in')) +
-          row('Weight', box('mtLb', pr.lb, 'lb')) +
+          /* Asked for only until the scale can answer. Two boxes for one
+             number is how they came to disagree; once there are mornings in
+             the log this states what they say instead of inviting a second
+             opinion nothing would ever read. */
+          row('Weight', mScaleLb()
+            ? '<span class="mtl-fact">' + mScaleLb() + '</span>' +
+              '<span class="mtl-u">lb &middot; from your weigh-ins</span>'
+            : box('mtLb', pr.lb, 'lb')) +
           row('Most days', '<select id="mtAct">' + acts.map(function (a) {
             return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
           }).join('') + '</select>') +
@@ -5922,18 +5974,39 @@
 
   /* What the profile boxes currently say, read straight off the sheet — the
      inputs are the draft, so a re-render cannot eat half-typed numbers. */
+  /* Merged onto what is stored, never built fresh from the DOM.
+   *
+     This function can only report what the sheet has boxes for, and
+     mWriteProfile is a bare setItem — so every Save was silently dropping
+     whatever the DOM did not carry. `train`, the days carb cycling swings on,
+     was the casualty: set the days by hand, change anything else, press Save,
+     and they snapped back to whatever the workout count implies, with nothing
+     said. Weight would have been the second, now that its box goes away once
+     the scale has something to say — an absent box reads as 0 through `n`,
+     which would have wiped the fallback the first plan is built on. */
   function mtProfileFromDom() {
-    var n = function (id) { return Number(($(id) || {}).value) || 0; };
+    var n = function (id, fb) {
+      var el = $(id);
+      if (!el) return fb;
+      return Number(el.value) || 0;
+    };
+    var stored = mReadProfileRaw();
     var sexBtn = document.querySelector('[data-mtsex][aria-pressed="true"]');
     var goalBtn = document.querySelector('[data-mtgoal][aria-pressed="true"]');
-    return {
-      sex: sexBtn ? sexBtn.dataset.mtsex : 'm',
-      age: n('mtAge'), ft: n('mtFt'), inch: n('mtIn'), lb: n('mtLb'),
-      act: Number(($('mtAct') || {}).value) || 1.55,
-      goal: goalBtn ? goalBtn.dataset.mtgoal : 'cut1',
-      goalLb: n('mtGoalLb'), goalBy: ($('mtGoalBy') || {}).value || '',
-      workouts: n('mtWorkouts'), steps: n('mtSteps')
-    };
+    var out = {};
+    Object.keys(stored).forEach(function (k) { out[k] = stored[k]; });
+    out.sex = sexBtn ? sexBtn.dataset.mtsex : stored.sex;
+    out.age = n('mtAge', stored.age);
+    out.ft = n('mtFt', stored.ft);
+    out.inch = n('mtIn', stored.inch);
+    out.lb = n('mtLb', stored.lb);
+    out.act = Number(($('mtAct') || {}).value) || stored.act || 1.55;
+    out.goal = goalBtn ? goalBtn.dataset.mtgoal : stored.goal;
+    out.goalLb = n('mtGoalLb', stored.goalLb);
+    out.goalBy = $('mtGoalBy') ? ($('mtGoalBy').value || '') : (stored.goalBy || '');
+    out.workouts = n('mtWorkouts', stored.workouts);
+    out.steps = n('mtSteps', stored.steps);
+    return out;
   }
 
   /* One model, one Save. The first version had a "Use this plan" button above
@@ -9469,6 +9542,11 @@
       mEditDay(mViewKey(), function (d) { mBalanceDay(d, t); });
     },
     targets: function () { return mDayTargets(mViewKey()); },
+    /* The profile as the app reads it — weight from the scale, not the stale
+       copy in storage. Exposed so a test can check the arithmetic against the
+       number actually used instead of keeping its own copy of the averaging
+       rule, which is how the mFoodServing duplicate drifted. */
+    profile: mReadProfile,
     /* The merge, so the rules that decide what survives a second device can
        be asserted without one. The closed-day rule in particular is easy to
        get wrong in a way no single-device test would ever notice. */

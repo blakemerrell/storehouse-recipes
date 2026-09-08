@@ -1304,6 +1304,10 @@ select { max-width: 280px; }
 .mtl-lab { font-size: 13px; color: var(--muted-2); flex: none; }
 .mtl-val { display: flex; align-items: baseline; gap: 5px; justify-content: flex-end; min-width: 0; }
 .mtl-u { font-size: 11px; color: var(--muted); }
+/* A row that states a number rather than asking for one. Sized and aligned
+   like the boxes beside it so the column of values still reads as a column;
+   no border, because a border is what says "type here". */
+.mtl-fact { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--ink); }
 /* Numbers are short and want a short rule under them; a name is not a
    number. "Chicken tamale" was being typed into 52 pixels and read as
    "Chicke", which is the width a gram count needs and no name does. */
