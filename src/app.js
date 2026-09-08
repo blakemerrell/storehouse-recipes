@@ -4469,7 +4469,6 @@
     S.mpQuery = '';
     S.mpMode = mode || 'home';
     S.mpBasket = {};
-    S.mpCombo = { p: 0, f: 0, c: 0 };
     pushSheet({ m: 1 });
     renderModal();
   }
@@ -4534,12 +4533,13 @@
       var shown = {};
       var pins = mpPinsHTML(shown);
       var recent = mpRecentHTML(shown);
+      var closers = mpComboHTML(shown);
       return wrap(
         (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
-        mComboHTML() +
         mpWaysHTML(true) +
         pins +
         recent +
+        closers +
         mpFitsHTML(shown) +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +
           '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
@@ -4746,53 +4746,43 @@
     return gap;
   }
 
-  function mComboHTML() {
+  /* The foods that close this meal, as rows in the list rather than a panel
+     of their own.
+   *
+     They used to be a widget above everything: a caption, up to three rows
+     with a pair of arrows each for cycling alternatives, a macro summary line
+     and an "Add all three" button. That is a second way to read a food and a
+     second way to add one, sitting on top of the list that already does both
+     — and it pushed the list itself most of a screen down. Blake: "instead of
+     the three foods that close the day, just put them in my suggested foods
+     area."
+   *
+     So they are ordinary picker rows now: same tick, same portion, same tap
+     into the basket. What goes with the panel is the cycling and the add-all,
+     and neither is missed — the basket already accumulates and the bar along
+     the bottom already totals what it will add.
+   *
+     Drawn before Fits best and marked into `shown`, so a food that closes the
+     meal is never offered again further down at a different portion. */
+  function mpComboHTML(shown) {
     var k = mViewKey();
     var gap = mComboGap(k);
     if (!gap) return '';
     if (gap.p + gap.f + gap.c < MCOMBO_MIN) return '';
-    var combo = mComboFor(gap, S.mpCombo, S.macroPick && S.macroPick.slot);
+    var combo = mComboFor(gap, { p: 0, f: 0, c: 0 }, S.macroPick && S.macroPick.slot);
     if (!combo || !combo.length) return '';
-    var got = { p: 0, f: 0, c: 0, kcal: 0 };
-    combo.forEach(function (c) {
-      ['p', 'f', 'c', 'kcal'].forEach(function (m) {
-        got[m] += ((c.r.macro || {})[m] || 0) * c.x;
-      });
-    });
-    var rows = combo.map(function (c) {
-      var depth = mLevers()[c.m].length;
-      return '<div class="mcb-row">' +
-        '<button class="mcb-arrow" data-mcombo="' + c.m + ':-1" ' +
-          'aria-label="Another ' + MMAC_WORD[c.m] + ' source">&lsaquo;</button>' +
-        '<span class="mcb-food">' +
-          '<span class="mcb-name">' + esc(c.r.name) + '</span>' +
-          '<span class="mcb-x">&times;' + fmtNum(c.x) +
-            (c.r.unit ? ' ' + esc(c.r.unit) : '') + '</span>' +
-        '</span>' +
-        '<button class="mcb-arrow" data-mcombo="' + c.m + ':1"' +
-          (depth < 2 ? ' disabled' : '') +
-          ' aria-label="Another ' + MMAC_WORD[c.m] + ' source">&rsaquo;</button>' +
-      '</div>';
-    }).join('');
-    /* Say how many are actually there.
-     *
-       A meal with its protein already covered gets two levers, not three —
-       the combo builder drops a rung whose macro has nothing left to move.
-       The heading and the button both said "three" regardless, so the panel
-       offered two foods under the word Three and a button reading Add all
-       three. It counts them now. */
-    var nWord = ['', 'One', 'Two', 'Three'][combo.length] || String(combo.length);
-    var addWord = combo.length === 1 ? 'Add it'
-      : combo.length === 2 ? 'Add both' : 'Add all ' + nWord.toLowerCase();
-    return '<div class="mcombo">' +
-      '<div class="mp-cap">' + nWord + (combo.length === 1 ? ' food for ' : ' foods for ') +
-        esc(mComboSlotName().toLowerCase()) + '</div>' +
-      rows +
-      '<div class="mcb-sum">' + Math.round(got.kcal) + ' kcal &middot; ' +
-        Math.round(got.p) + 'P &middot; ' + Math.round(got.f) + 'F &middot; ' +
-        Math.round(got.c) + 'C</div>' +
-      '<button class="mcb-add" data-mcombo="add">' + addWord + '</button>' +
-    '</div>';
+    /* Anything a band above already drew keeps its first heading, and the
+       count in this one follows what is actually left to draw — the panel
+       used to say "Three" over two rows, which is the same bug in its own
+       shape. */
+    var fresh = combo.filter(function (c) { return !(shown && shown[c.r.id]); });
+    if (!fresh.length) return '';
+    fresh.forEach(function (c) { if (shown) shown[c.r.id] = 1; });
+    var rows = fresh.map(function (c) { return mpRowHTML(c.r, c.x); }).join('');
+    var nWord = ['', 'One', 'Two', 'Three'][fresh.length] || String(fresh.length);
+    return '<div class="mt-div">' + nWord +
+      (fresh.length === 1 ? ' food that closes ' : ' foods that close ') +
+      esc(mComboSlotName().toLowerCase()) + '</div>' + rows;
   }
 
   /* What the box was asked, when what was typed is not a name.
@@ -8886,7 +8876,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mcombo', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
     'data-mtsex', 'data-mtgoal', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
@@ -9588,6 +9578,19 @@
         });
       });
       return out;
+    },
+    /* The foods that close the open meal, in the order the levers rank them,
+       BEFORE the list dedupes them against the bands above. What a row ends
+       up under is a rendering question; which food each rung opens on is the
+       rule, and it stopped being observable in the DOM the moment a food you
+       ate yesterday started being claimed by "Recent" instead. */
+    closers: function () {
+      var gap = mComboGap(mViewKey());
+      if (!gap) return null;
+      var c = mComboFor(gap, { p: 0, f: 0, c: 0 }, S.macroPick && S.macroPick.slot);
+      return c && c.map(function (e) {
+        return { m: e.m, id: e.r.id, name: e.r.name, x: e.x };
+      });
     },
     combo: function (share, pick) {
       var c = mComboFor(share, pick);
@@ -10701,32 +10704,6 @@
         return;
       }
 
-      /* The three-food combo: walk one rung, or take all three.
-       *
-         Adding puts them in the BASKET rather than on the day, like every
-         other row in this sheet — three foods arriving on the plate with no
-         ✓ in between would be the only thing here that commits itself. */
-      var mcb = e.target.closest('[data-mcombo]');
-      if (mcb && S.macroPick) {
-        var cv = mcb.dataset.mcombo;
-        if (cv === 'add') {
-          var picked = mComboFor(mComboGap(mViewKey()) || {}, S.mpCombo,
-            S.macroPick && S.macroPick.slot);
-          (picked || []).forEach(function (c) { S.mpBasket[c.r.id] = c.x; });
-        } else {
-          /* Wrapping rather than clamping, and by the rung's own length: the
-             ladders are different depths and a rung that stops at its end
-             looks like a broken button. */
-          var cp = cv.split(':'), rung = mLevers()[cp[0]];
-          if (rung && rung.length) {
-            S.mpCombo[cp[0]] =
-              ((S.mpCombo[cp[0]] + Number(cp[1])) % rung.length + rung.length) % rung.length;
-          }
-        }
-        renderModal();
-        return;
-      }
-
       /* Into the basket, not onto the day. Pressed again it comes back out,
          so a mis-tap costs a tap rather than a trip to the plate to delete
          it. Nothing reaches the day until ✓. */
@@ -11228,7 +11205,6 @@
     S.mpQuery = '';
     // a basket left behind would silently refill the next meal you opened
     S.mpBasket = {};
-    S.mpCombo = { p: 0, f: 0, c: 0 };
     renderModal();
     restoreOpener();
   }

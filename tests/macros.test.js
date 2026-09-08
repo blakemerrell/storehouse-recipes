@@ -2755,28 +2755,49 @@ module.exports = {
       return pg;
     };
 
-    const comboPage = await comboAt();
-    const cbo = await comboPage.evaluate(() => {
-      const el = document.querySelector('.mcombo');
-      if (!el) return null;
-      return {
-        names: Array.prototype.map.call(el.querySelectorAll('.mcb-name'), (n) => n.textContent),
-        sum: el.querySelector('.mcb-sum').textContent,
-        arrows: el.querySelectorAll('.mcb-arrow').length,
-      };
+    /* The foods that close the meal are rows in the list now, not a panel of
+       their own — read the way the list is read: a heading, then every row
+       under it until the next heading. */
+    const closersOf = (pg) => pg.evaluate(() => {
+      const kids = [...document.querySelectorAll('#modalRoot .mt-div, #modalRoot .mpick-wrap')];
+      let on = false;
+      const out = { cap: null, names: [], prot: 0, panel: !!document.querySelector('.mcombo') };
+      for (const el of kids) {
+        if (el.classList.contains('mt-div')) {
+          if (on) break;
+          if (/that closes?\b/.test(el.textContent)) { on = true; out.cap = el.textContent; }
+          continue;
+        }
+        if (!on) continue;
+        out.names.push((el.querySelector('.mp-name') || {}).textContent);
+        const m = /(\d+)P/.exec(el.textContent);
+        if (m) out.prot += Number(m[1]);
+      }
+      return out;
     });
-    t.ok('the picker offers three foods, one per macro, with a way past each',
-      !!cbo && cbo.names.length === 3 && cbo.arrows === 6, JSON.stringify(cbo));
+
+    const comboPage = await comboAt();
+    const cbo = await closersOf(comboPage);
+    t.ok('the picker offers three foods, one per macro, as rows in the list',
+      cbo.names.length === 3, JSON.stringify(cbo));
+    /* Blake: "instead of the three foods that close the day, just put them in
+       my suggested foods area." No second way to read a food, no second way
+       to add one. */
+    t.ok('and no panel of its own above the list',
+      !cbo.panel && /^Three foods that close /.test(cbo.cap || ''), JSON.stringify(cbo.cap));
 
     /* The bug this had on its first outing: pointed at the DAY it asked three
        foods to BE a day. Every portion pegged at the ×4 ceiling -- four cans
        of tuna -- and still came up short, because no three foods are 180 g of
-       protein. It is aimed at the meal's share of the gap. */
-    const cboFit = await comboPage.evaluate(() => {
-      const p = Number(/(\d+)P/.exec(document.querySelector('.mcb-sum').textContent)[1]);
-      const t = window.__macroLab.targets();
-      return { p: p, day: t.p, share: t.p / 4 };
-    });
+       protein. It is aimed at the meal's share of the gap.
+     *
+       Summed off the rows the page actually renders, which is also the check
+       that the rows carry the combo's own portions rather than a ranked
+       one. */
+    const cboFit = await comboPage.evaluate((p) => {
+      const t2 = window.__macroLab.targets();
+      return { p: p, day: t2.p, share: t2.p / 4 };
+    }, cbo.prot);
     t.ok('and it is a meal, not the whole day, asked of three foods',
       cboFit.p > cboFit.share * 0.6 && cboFit.p < cboFit.day * 0.6, JSON.stringify(cboFit));
 
@@ -2787,6 +2808,10 @@ module.exports = {
       cbo.names.length === 3 &&
       cbo.names.every((n) => !/^(Oil|Butter|Mayo|Light mayo|Ranch|Light ranch)$/.test(n)),
       cbo.names.join(' | '));
+    /* The control for the history test below, taken while this page is still
+       open and from the same source, so the two are comparable. */
+    const noHistLevers = await comboPage.evaluate(() =>
+      (window.__macroLab.closers() || []).map((c) => c.name));
     await comboPage.context().close();
 
     /* Reproduced from the shape of Blake's own screenshot: a day whose fat
@@ -2794,8 +2819,7 @@ module.exports = {
        nothing left to move and drops out. Two earlier guesses at this seed
        both produced three rungs, and the test passed on the three-branch
        while the two-branch — the one that was actually broken — went
-       unexercised. Confirmed by hand before it was written down: this seed
-       renders "Two foods for snacks" / "Add both". */
+       unexercised. */
     const comboPage2 = await t.fresh();
     await comboPage2.evaluate(() => {
       const p2 = (n) => (n < 10 ? '0' : '') + n;
@@ -2818,31 +2842,21 @@ module.exports = {
     await lastAdd[lastAdd.length - 1].click();
     await comboPage2.waitForTimeout(400);
 
-    /* The panel says how many foods it is actually offering. A meal whose
-       protein is already covered gets two levers, and it read "Three foods
-       for dinner" over two rows with a button saying "Add all three". */
-    const counted = await comboPage2.evaluate(() => {
-      const el = document.querySelector('.mcombo');
-      if (!el) return null;
-      return { rows: el.querySelectorAll('.mcb-row').length,
-        cap: el.querySelector('.mp-cap').textContent,
-        btn: el.querySelector('.mcb-add').textContent };
-    });
-    /* Pinned to FEWER THAN THREE, and to the words agreeing with the count.
+    /* The heading says how many foods are actually under it. A meal whose
+       protein is already covered gets two levers, and the old panel read
+       "Three foods for dinner" over two rows.
      *
-       It was pinned to exactly two, which passed on the Saturday it was
-       written and failed on the Sunday after: the targets are carb-cycled by
-       weekday, so a rest day's smaller carb gap closes a second rung and the
-       panel offers one. The seed cannot control the weekday, so the
-       assertion must not depend on it.
-
-       Still not vacuous — the branch that was broken said "Three foods" over
-       whatever it drew, so any count below three with matching words catches
-       it, and a hardcoded "Three" fails on every one of them. */
-    t.ok('the panel counts the foods it is actually offering',
-      !!counted && counted.rows > 0 && counted.rows < 3 && (
-        (counted.rows === 2 && /^Two foods/.test(counted.cap) && /both/i.test(counted.btn)) ||
-        (counted.rows === 1 && /^One food/.test(counted.cap) && /Add it/i.test(counted.btn))),
+       Pinned to FEWER THAN THREE and to the words agreeing with the count,
+       never to exactly two: the targets are carb-cycled by weekday, so a rest
+       day's smaller carb gap closes a second rung and only one is offered.
+       The seed cannot control the weekday, so the assertion must not depend
+       on it — and it is still not vacuous, because the broken branch said
+       "Three" over whatever it drew. */
+    const counted = await closersOf(comboPage2);
+    t.ok('the heading counts the foods actually under it',
+      counted.names.length > 0 && counted.names.length < 3 && (
+        (counted.names.length === 2 && /^Two foods that close /.test(counted.cap)) ||
+        (counted.names.length === 1 && /^One food that closes /.test(counted.cap))),
       JSON.stringify(counted));
     await comboPage2.context().close();
 
@@ -2850,29 +2864,35 @@ module.exports = {
        orders the rungs is what you have put in THIS meal before. The control
        above shares every other condition, so a failure here is the history
        and nothing else. */
-    const noHist = cbo.names[0];
+    /* Read off the bench, not the rendered rows. A food you ate yesterday is
+       claimed by "Recent" and deduped out of the closers band, so the DOM
+       stopped being able to show which rung it opened — which is a rendering
+       fact, and this assertion is about the rule. */
     const histPage = await comboAt({ hist: ['f:egg_white', 'f:salsa'] });
     const withHist = await histPage.evaluate(() =>
-      document.querySelector('.mcb-name').textContent);
+      (window.__macroLab.closers() || []).map((c) => c.name));
     t.ok('a week of egg whites at breakfast puts egg whites at the top of it',
-      withHist === 'Egg whites' && noHist !== 'Egg whites',
-      'no history: ' + noHist + ' -- with: ' + withHist);
+      withHist[0] === 'Egg whites' && noHistLevers[0] !== 'Egg whites',
+      'no history: ' + noHistLevers.join(' | ') + ' -- with: ' + withHist.join(' | '));
 
-    /* Into the basket like every other row here. Food arriving on the plate
-       with no ✓ in between would be the only thing in this sheet that
+    /* Ordinary rows: tapping one puts it in the BASKET at the portion the
+       band offered, and touches nothing on the plate. Food arriving on the
+       plate with no ✓ in between would be the only thing in this sheet that
        commits itself.
      *
-       Counted BEFORE the press, obviously — the panel disappears once the
-       basket covers the share, so counting after would count nothing. */
-    /* However many it offered — three on a training day, fewer on a rest day
-       when a smaller carb gap closes a rung. The claim is that the button
-       adds ALL of them and touches nothing on the plate, not that there are
-       three. (It asserted three, and broke the first Sunday it met.) */
-    const offered = await histPage.evaluate(() =>
-      document.querySelectorAll('.mcombo .mcb-row').length);
-    await histPage.click('[data-mcombo="add"]');
-    await histPage.waitForTimeout(300);
-    t.ok('adding them all fills the basket and leaves the plate alone',
+       The add-all button went with the panel and is not missed — the basket
+       accumulates and the bar along the bottom totals what it will add. */
+    const offered = (await closersOf(histPage)).names.length;
+    for (let i = 0; i < offered; i++) {
+      await histPage.evaluate((nm) => {
+        const row = [...document.querySelectorAll('#modalRoot .mpick-wrap')]
+          .find((w) => (w.querySelector('.mp-name') || {}).textContent === nm &&
+            !w.classList.contains('in'));
+        if (row) row.querySelector('.mpick-row').click();
+      }, (await closersOf(histPage)).names[0]);
+      await histPage.waitForTimeout(300);
+    }
+    t.ok('tapping them fills the basket and leaves the plate alone',
       offered > 0 && await histPage.evaluate((n) => {
         const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
         const p2 = (x) => (x < 10 ? '0' : '') + x;
@@ -2884,9 +2904,10 @@ module.exports = {
       'offered ' + offered + ', basket ' +
       await histPage.evaluate(() => document.querySelectorAll('.mpb-out').length));
 
-    /* And once the basket covers the share, three more foods is not help. */
+    /* And once the basket covers the share, more foods to close it is not
+       help — the heading goes with them. */
     t.ok('and it stops offering once there is nothing left to close',
-      await histPage.evaluate(() => !document.querySelector('.mcombo')));
+      (await closersOf(histPage)).cap === null);
     await histPage.context().close();
 
     /* ---- the meal's four gauges ------------------------------------------
