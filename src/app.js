@@ -6235,7 +6235,7 @@
           if (!ranked.length) return;
           var top = ranked.slice(0, 3);
           var pick = top[Math.floor(Math.random() * top.length)];
-          (day[s.k] = day[s.k] || []).push({ id: pick.r.id, x: pick.x, eaten: 0 });
+          (day[s.k] = day[s.k] || []).push({ id: pick.r.id, x: pick.x, eaten: 0, by: 'f' });
       });
 
       /* Settle the portions before asking whether anything is missing. Each
@@ -6245,10 +6245,10 @@
          topper chosen before that would be answering a question nobody asked;
          one chosen after gets sized in the second pass along with everything
          else it now sits beside. */
-      mBalanceDay(day, targets);
+      mBalanceDay(day, targets, true);
 
       var moved = mSideUp(day, targets, near);
-      if (mTopUp(day, targets, near) || moved) mBalanceDay(day, targets);
+      if (mTopUp(day, targets, near) || moved) mBalanceDay(day, targets, true);
     });
   }
 
@@ -6379,7 +6379,7 @@
         if (!best || sc > best.score) best = { r: r, x: x, score: sc };
       });
       if (!best) return added;
-      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0 });
+      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0, by: 'f' });
       added++;
     }
     return added;
@@ -6430,7 +6430,7 @@
         if (!best || sc > best.score) best = { r: r, x: fit.x, score: sc };
       });
       if (!best) return added;
-      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0 });
+      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0, by: 'f' });
       added++;
     }
     return added;
@@ -6460,11 +6460,32 @@
   var MNA_W = 1.0;
 
 
-  function mBalanceDay(day, targets) {
+  /* `own` narrows the solver to the plates FILL ITSELF PUT THERE (`by:'f'`).
+   *
+     Fill is an offer to build out the empty meals. It was also quietly
+     resizing the full ones: a hand-placed 1,139 kcal pulled beef put on
+     dinner at one serving came back at ×0.25 after a single press, and the
+     day then read 184/180 P in green while being some 850 kcal wrong. The
+     day's arithmetic was right — the plate was not the plate you put down.
+   *
+     Nothing here can tell whose a plate is, because nothing was recording it:
+     every free-list frees whatever is neither eaten nor locked, and Fill's
+     plates and yours are the same shape. So Fill now signs its own work and
+     asks only for that back. Note the DEFAULT is unsigned, which means a day
+     drafted before this shipped reads as entirely hand-placed — the safe
+     direction, since the cost is a solver with less to move rather than a
+     portion silently overwritten.
+   *
+     Rebalance is deliberately NOT narrowed, here or in mBalanceMeal. Pressing
+     ⚖ is asking the machine to move things; answering "only my own" would be
+     refusing the request. The rule is about what Fill may do UNASKED, not
+     about the plates. */
+  function mBalanceDay(day, targets, own) {
     var free = [];
     Object.keys(day).forEach(function (sk) {
       (day[sk] || []).forEach(function (it) {
         var r = BY_ID[it.id];
+        if (own && it.by !== 'f') return;
         if (!it.eaten && !it.l && r && r.macro) free.push(it);
       });
     });

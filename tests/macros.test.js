@@ -1529,6 +1529,61 @@ module.exports = {
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
 
+    /* Fill is an offer to build out the EMPTY meals. It was resizing the full
+       ones too: a hand-placed 1,139 kcal Slow-Cooker Pulled Beef on dinner at
+       one serving came back at ×0.25 after a single press, and the day then
+       read 184/180 P in green while being some 850 kcal wrong. Nothing could
+       tell whose a plate was — every free-list frees whatever is neither
+       eaten nor locked — so Fill signs its own work now and asks only for
+       that back.
+     *
+       The dish is chosen from the data rather than named, and the assertion
+       is that the portion is UNCHANGED, not that it is any particular number:
+       a literal would pass against an app that had stopped solving at all. */
+    const mine = await t.fresh();
+    const heavy = await mine.evaluate(() => {
+      const r = window.RECIPES.filter((x) => x.macro && x.macro.kcal > 700)
+        .sort((a, b) => b.macro.kcal - a.macro.kcal)[0];
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays',
+        JSON.stringify({ [k]: { b: [], l: [], d: [{ id: r.id, x: 1, eaten: 0 }], s: [] } }));
+      return { id: r.id, kcal: r.macro.kcal };
+    });
+    await mine.reload();
+    await mine.waitForTimeout(400);
+    await mine.click('.tab[data-view="macros"]');
+    await mine.waitForTimeout(300);
+    await mine.click('#macroFill');
+    await mine.waitForTimeout(900);
+    const kept = await mine.evaluate(() => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const day = days[Object.keys(days)[0]];
+      return { x: day.d[0].x, by: day.d[0].by,
+        others: ['b', 'l', 's'].reduce((n, k) => n + (day[k] || []).length, 0) };
+    });
+    t.ok('Fill leaves a plate you placed by hand at the portion you placed it',
+      kept.x === 1, JSON.stringify({ heavy: heavy.kcal, after: kept.x }));
+    t.ok('and does not sign it, because it is not Fill’s',
+      kept.by === undefined, String(kept.by));
+    /* The other half: a fix that simply stopped the solver would pass the two
+       above and break Fill. */
+    t.ok('and still fills every empty meal around it',
+      kept.others >= 3, String(kept.others));
+
+    /* Rebalance is deliberately NOT narrowed. Pressing ⚖ is asking the
+       machine to move things; answering "only my own" would be refusing the
+       request. This is what stops the fix above from growing too broad. */
+    await mine.click('#macroRebal');
+    await mine.waitForTimeout(700);
+    const rebal = await mine.evaluate(() => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      return days[Object.keys(days)[0]].d[0].x;
+    });
+    t.ok('but Rebalance, which you pressed, may still move it',
+      rebal !== 1, 'x after rebalance: ' + rebal);
+
     /* Nothing, chips, bars — one language in three doses.
      *
        Silence when a meal is fine, a chip for the macro that is not, and the
