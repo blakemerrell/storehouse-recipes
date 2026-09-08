@@ -1319,8 +1319,25 @@
       if (raw && isFinite(raw.p) && isFinite(raw.f) && isFinite(raw.c)) {
         t = { p: Number(raw.p), f: Number(raw.f), c: Number(raw.c) };
       }
-    } catch (e) { /* private mode or a corrupt value — the defaults stand */ }
-    if (!t) return { p: 180, f: 50, c: 50 };
+    } catch (e) { /* private mode or a corrupt value — nothing is stored */ }
+    /* Nothing stored is not the same as a plan of 180/50/50. That triple was
+       a placeholder that hardened into an assertion: it belongs to nobody —
+       not even to the person it was typed for, whose own profile works out to
+       something else — and every screen that reads a target rendered it in
+       exactly the shape it renders a plan somebody made. A first run opened on
+       "No plan yet." above a full week of 1,370-kcal budgets, four bars
+       reading 0 / 180 g, and a Fill button that would draft a real day out of
+       real recipes against a target nobody had set.
+     *
+       Zero is what the rest of this file was already written for. Both empty
+       states downstream — macroFootHTML's "Craft your plan." and
+       mVerdictHTML's silent meal — guard on all three being falsy, and with a
+       placeholder in their way neither could ever fire; they were written
+       correctly, twice, and defeated here. mShares denominates with
+       Math.max(1, targets[m]) for the same reason, so an unset target still
+       divides. Handing back zeros does not add an empty state. It lets the
+       two that were always here start working. */
+    if (!t) return { p: 0, f: 0, c: 0 };
     /* A day saved before the deficit was capped can be below what the body
        spends at rest — the arithmetic that wrote it has since been fixed,
        but the number it wrote is still sitting in storage being served every
@@ -2839,8 +2856,13 @@
       });
     }
 
-    // nothing to draft once every meal has something on it
-    $('macroFill').disabled = slots.list.every(function (s) { return (day[s.k] || []).length; });
+    /* Nothing to draft once every meal has something on it — or before there
+       is a plan to draft against. Fill reads mDayTargets and portion-solves
+       against whatever comes back, so with nothing set it would build a real
+       day out of real recipes and present it as the answer to a question
+       nobody asked. */
+    $('macroFill').disabled = !kcalOf(targets) ||
+      slots.list.every(function (s) { return (day[s.k] || []).length; });
 
     /* The gear and its menu are static markup, so a state change paints them
        once and they stay painted. Painting again here costs a class check and

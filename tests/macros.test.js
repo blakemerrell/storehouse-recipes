@@ -19,7 +19,28 @@ async function openPlan(pg) {
 module.exports = {
   name: 'Macros',
   async run(t) {
-    const p = await t.fresh();
+    /* Every page in this suite starts with a plan on it. A page without one no
+       longer invents targets — the bars say "Craft your plan." and Fill is
+       disabled — so a test that wants a working day has to set one, the way a
+       user does. Wrapping t.fresh rather than editing thirty-nine call sites:
+       the harness builds a new `t` per suite, so this reaches nothing else,
+       and a scripted rename across that many lines is how test names have been
+       corrupted here before.
+     *
+       The first-run tests take their page from bare(), which is the whole
+       point of them — they are the ones asserting that an unplanned day says
+       so. */
+    const freshBare = t.fresh.bind(t);
+    t.fresh = async (opts) => {
+      const pg = await freshBare(opts);
+      await pg.evaluate(() => localStorage.setItem('bsc.macroTargets',
+        JSON.stringify({ p: 180, f: 50, c: 50 })));
+      await pg.reload();
+      await pg.evaluate(() => document.fonts.ready);
+      return pg;
+    };
+
+    const p = await freshBare();
 
     // ---- the tab exists and swaps the view like the other five
     await p.click('.tab[data-view="macros"]');
@@ -65,7 +86,7 @@ module.exports = {
       await p.evaluate(() => !document.getElementById('macroNote') &&
         !document.getElementById('mdayTune')));
 
-    // ---- default targets, and the calories derived from them, not stored
+    // ---- a first run has no plan, then one that is set and its derived calories
     const defP = 180, defF = 50, defC = 50;
     const defKcal = 4 * defP + 4 * defC + 9 * defF;
     /* Meals arrive folded now, so anything reaching for a plate's own
@@ -84,7 +105,27 @@ module.exports = {
       }
     };
     const foot = () => p.textContent('#macroFoot');
-    t.ok('default targets are 180P / 50F / 50C',
+    /* What used to be asserted here: "default targets are 180P / 50F / 50C".
+       That triple was a placeholder, and this test was what held it in place.
+       It rendered in exactly the shape a plan somebody made renders, so a
+       first run opened on "No plan yet." above a full week of 1,370-kcal
+       budgets belonging to nobody, four bars reading 0 / 180 g, and a Fill
+       button ready to draft a real day against them. Both empty states were
+       already written — the placeholder was the only reason neither fired. */
+    t.ok('a first run says there is no plan rather than inventing one',
+      /Craft your plan/.test(await foot()), await foot());
+    t.ok('and Fill will not draft a day against a plan nobody set',
+      await p.evaluate(() => document.getElementById('macroFill').disabled));
+    t.ok('and no empty meal is handed a calorie budget of its own',
+      await p.evaluate(() => !document.querySelector('#macroSlots [data-mv="empty"]')));
+
+    // a plan that IS set reads back off the bars, calories derived not stored
+    await p.evaluate((tg) => localStorage.setItem('bsc.macroTargets', JSON.stringify(tg)),
+      { p: defP, f: defF, c: defC });
+    await p.reload();
+    await p.click('.tab[data-view="macros"]');
+    await p.waitForTimeout(250);
+    t.ok('a plan that is set shows its three targets on the bars',
       new RegExp('/ ' + defP + ' g').test(await foot()) &&
       new RegExp('/ ' + defF + ' g').test(await foot()) &&
       new RegExp('/ ' + defC + ' g').test(await foot()), await foot());
@@ -1577,7 +1618,12 @@ module.exports = {
       }));
       return { cap: (box.querySelector('.mp-cap') || {}).textContent || '',
         pills: pills, oldBars: box.querySelectorAll('.msub-br').length,
-        owedP: Math.max(0, Math.round(T.p) - Math.round(tot.p)) };
+        /* Rounded the same way the pill rounds it — mGapPill takes
+           Math.round of the DIFFERENCE, so rounding the two operands first
+           disagrees by one whenever both fractions straddle a half. That is
+           what made this assertion pass alone and fail in a full run: not
+           load, just which targets the page happened to be carrying. */
+        owedP: Math.max(0, Math.round(T.p - tot.p)) };
     });
     /* Reversed deliberately. It read "Where the day stands · 60 / 203 g" —
        four bars of standing. Standing is the right question for the strip at
@@ -3013,8 +3059,28 @@ module.exports = {
     await gapRow.waitForTimeout(400);
     await gapRow.click('.tab[data-view="macros"]');
     await gapRow.waitForTimeout(300);
-    await (await gapRow.$$('.mslot-add'))[0].click();
-    await gapRow.waitForTimeout(400);
+    /* A row is judged against what the day still OWES, so the day has to be
+       most of the way built before a portion can land or bust anything.
+     *
+       This used to run on an empty day and still saw a mix — but only because
+       targets were the 180/50/50 placeholder, and for the 204 lb man this test
+       sets up, 1,370 kcal sits under the 1,500 floor. The correction that
+       exists to catch exactly that never ran, because the early return in
+       mReadTargets handed the placeholder back before it could. With a real
+       plan the gap on an empty day is wider than any single portion and every
+       row goes silent, which is the honest answer to a day nobody has started.
+     *
+       So Fill builds the day and lunch and dinner are emptied. Two meals owed
+       is the shape this feature is for: a list saying which dishes close what
+       is left. */
+    await gapRow.click('#macroFill');
+    await gapRow.waitForTimeout(700);
+    await gapRow.click('[data-mdel="l:0"]');
+    await gapRow.waitForTimeout(300);
+    await gapRow.click('[data-mdel="d:0"]');
+    await gapRow.waitForTimeout(300);
+    await gapRow.click('.mslot-add[data-mslot="l"]');
+    await gapRow.waitForTimeout(450);
     await gapRow.click('[data-mpmode="recipes"]');
     await gapRow.waitForTimeout(500);
 
