@@ -4614,7 +4614,24 @@
       ranked.forEach(function (e) { ((e.r.eat || e.r.side) ? eats : cond).push(e); });
       ranked = eats.concat(cond);
     }
-    ranked = ranked.slice(0, S.mpSec === 'meal' ? 10 : 40);
+    /* Anything already in the basket stays on screen, outside the cap.
+     *
+       Picking something used to make it VANISH: a closer stops being a closer
+       once it is in the basket, and it fits worse afterwards — the gap it
+       filled is gone — so it fell out of the ranking too. Measured, the list
+       went 13 rows to 12 to 11 to 10 over three taps, `.mpick-wrap.in` was
+       never once on screen, and the scrollport's maximum collapsed from 162
+       to 4 — so the browser clamped the position and the list crawled up
+       under the finger. The ✓ and the green wash a picked row wears had
+       nothing to wear them.
+     *
+       Held at the end rather than the top: it is no longer a suggestion, and
+       promoting it would push the actual suggestions down. */
+    var held = [], offer = [];
+    ranked.forEach(function (e) {
+      (S.mpBasket[e.r.id] !== undefined ? held : offer).push(e);
+    });
+    ranked = offer.slice(0, S.mpSec === 'meal' ? 10 : 40).concat(held);
     if (!ranked.length) return '';
     /* Writes into the shared set, which it never used to — safe only while it
        was composed last, and it is not last any more. */
@@ -4697,6 +4714,28 @@
 
   /* What the basket will do to the meal, said before you commit it rather
      than discovered afterwards on the plate. */
+  /* The basket and what it costs, together, on the bar along the bottom.
+   *
+     The list of what you have picked used to sit in the SCROLL, above the
+     rows, and grow as you picked: measured, 71px after one thing, 119 after
+     two, 167 after three. Two costs, both felt. The rows slid down under the
+     finger on every tap — preserving scrollTop is what does that, since the
+     content above the list got taller — and once you had scrolled past it the
+     panel was off-screen (measured at y -106), so the one thing it exists to
+     answer, "what have I got", could not be answered without scrolling back.
+   *
+     It is folded into the bar now: shut it costs nothing and the readout is
+     the summary; open it lists what is in there, over the list rather than
+     inside it, capped so it can never take the screen. Shut again on every
+     open of the sheet, because a basket you have not filled yet has nothing
+     to say. */
+  function mBasketBarHTML() {
+    var foot = mBasketFootHTML();
+    if (!foot) return '';
+    return '<div class="mp-bar">' +
+      (S.mpBasketOpen ? mBasketListHTML() : '') + foot + '</div>';
+  }
+
   function mBasketFootHTML() {
     var ids = Object.keys(S.mpBasket);
     if (!ids.length) return '';
@@ -4750,11 +4789,20 @@
        only WHERE it sits once it exists: on the bar already pinned to the
        bottom of the viewport rather than at the top of a header that scrolls
        away while you fill the basket it commits. */
+    /* The readout is the handle. It already says what the basket comes to, so
+       pressing it to see what that is made of is the shortest sentence the
+       sheet can offer — and it puts a second control on the bar without
+       adding a second thing to read. */
     return '<div class="mp-foot' + (busts ? ' busts' : '') + '">' +
-      '<span class="mp-foot-l">' + (busts ? 'Over this meal by ' + over : 'Adds') + '</span>' +
-      '<span class="mp-foot-m">' + (est ? '~' : '') + Math.round(t.kcal) + ' kcal &middot; ' +
-        Math.round(t.p) + 'P &middot; ' + Math.round(t.f) + 'F &middot; ' +
-        Math.round(t.c) + 'C</span>' +
+      '<button class="mp-foot-t" data-mpbasket="1" aria-expanded="' +
+        (S.mpBasketOpen ? 'true' : 'false') + '" aria-label="' +
+        (S.mpBasketOpen ? 'Hide what is in the basket' : 'Show what is in the basket') + '">' +
+        '<span class="mp-foot-l">' + (busts ? 'Over this meal by ' + over : 'Adds') + '</span>' +
+        '<span class="mp-foot-m">' + (est ? '~' : '') + Math.round(t.kcal) + ' kcal &middot; ' +
+          Math.round(t.p) + 'P &middot; ' + Math.round(t.f) + 'F &middot; ' +
+          Math.round(t.c) + 'C</span>' +
+        '<span class="mp-foot-c" aria-hidden="true">&#8249;</span>' +
+      '</button>' +
       '<button class="mp-done" data-mpdone="1">Add ' + ids.length + '</button>' +
     '</div>';
   }
@@ -4787,6 +4835,7 @@
        other silently threw the word away and asked for it again. */
     S.mpQuery = '';
     S.mpShelf = '';
+    S.mpBasketOpen = false;
     S.mpMode = mode || 'home';
     S.mpBasket = {};
     pushSheet({ m: 1 });
@@ -4839,7 +4888,7 @@
            that it is the only way to commit. Nine other sheets share .sheet
            and none of them want this. */
         '<div class="sheet mp-sheet" role="dialog" aria-modal="true" aria-label="Add to ' + esc(name) + '">' +
-        head + mMealPickHTML() + mBasketListHTML() + inner + mBasketFootHTML() + '</div></div>';
+        head + mMealPickHTML() + inner + mBasketBarHTML() + '</div></div>';
     };
 
     if (S.mpMode === 'scan') {
@@ -9299,7 +9348,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
+    'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -9333,7 +9382,19 @@
     if (!key) return;
     var back;
     try { back = document.querySelector(key); } catch (e) { back = null; }
-    if (back && back.focus) back.focus();
+    if (!back || !back.focus) return;
+    /* Focus without scrolling to it.
+     *
+       A plain focus() brings its element into view, and this runs AFTER the
+       scroll position has been restored — so it overrode the restore and
+       moved the list under the finger. It went unnoticed while the element
+       usually vanished on a re-render (focus fell to the body and nothing
+       scrolled); the moment picked rows started staying put, every tap on a
+       picker row jumped the list to wherever that row had moved to.
+     *
+       preventScroll is ignored by browsers that do not know it, which leaves
+       them exactly where they were before. */
+    try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); }
   }
 
   function renderModalInner() {
@@ -10979,6 +11040,17 @@
          renderModal: that would rebuild the sheet, and the sheet now holds
          the search box — a chip pressed mid-word would redraw the input and
          take the caret with it. Same rule the keystroke path follows. */
+      /* Open or shut the basket. renderModal, not a list refresh: this changes
+         the bar itself, which lives outside #mpList. Safe for the search box
+         because a press is not a keystroke — the box keeps its value through
+         S.mpQuery either way. */
+      var mbk = e.target.closest('[data-mpbasket]');
+      if (mbk && S.macroPick) {
+        S.mpBasketOpen = !S.mpBasketOpen;
+        renderModal();
+        return;
+      }
+
       var msh = e.target.closest('[data-mpshelf]');
       if (msh && S.macroPick) {
         var want = msh.dataset.mpshelf;
@@ -11673,6 +11745,7 @@
     S.mDoneOpen = '';
     S.mpQuery = '';
     S.mpShelf = '';
+    S.mpBasketOpen = false;
     // a basket left behind would silently refill the next meal you opened
     S.mpBasket = {};
     renderModal();

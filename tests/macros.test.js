@@ -27,6 +27,18 @@ async function openPlan(pg) {
      holds single foods beside dishes now, and a food plate is opened by a
      different attribute and has no entry in window.RECIPES — so tests that go
      on to read the recipe behind the plate have to ask for one. */
+  /* Opens the basket on the bar. It is shut when a sheet opens — a basket you
+     have not filled has nothing to say — and it holds the rows a test needs to
+     count or click. The readout on the bar is the handle. */
+  async function openBasket(pg) {
+    const t2 = await pg.$('[data-mpbasket]');
+    if (!t2) return;
+    if (await pg.evaluate(() => (document.querySelector('[data-mpbasket]') || {})
+      .getAttribute('aria-expanded') === 'true')) return;
+    await pg.click('[data-mpbasket]');
+    await pg.waitForTimeout(250);
+  }
+
   async function pickRecipe(pg) {
     await pg.evaluate(() => {
       const r = [...document.querySelectorAll('.mpick-row[data-mpx]')]
@@ -474,8 +486,10 @@ module.exports = {
         const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
         rows[0].click();
         await new Promise((r) => setTimeout(r, 150));
+        /* Counted off the bar, which is where the basket lives now and is
+           always on screen; the list of what is in it is behind the press. */
         return !!document.querySelector('.sheet') &&
-          document.querySelectorAll('.mpb-out').length === 1 &&
+          /\b1\b/.test((document.querySelector('[data-mpdone]') || {}).textContent || '') &&
           !!document.querySelector('[data-mpdone]');
       }));
     // each pick redraws the list, so every press has to find its row afresh
@@ -491,8 +505,7 @@ module.exports = {
           row.click();
           await new Promise((r) => setTimeout(r, 160));
         }
-        return document.querySelectorAll('.mpb-out').length === 3 &&
-          /3/.test(document.querySelector('[data-mpdone]').textContent);
+        return /\b3\b/.test(document.querySelector('[data-mpdone]').textContent);
       }));
     // and the day has not been touched yet — nothing lands until the ✓
     t.ok('the day stays untouched until it is told to add them',
@@ -509,6 +522,7 @@ module.exports = {
     // pressed again, a row comes back out rather than doubling up
     /* Out through the basket's own control, which is the one that is always
        on screen: the list row it came from may have left with its band. */
+    await openBasket(p);
     t.ok('a second press takes it back out',
       await p.evaluate(async () => {
         document.querySelector('.mpb-out').click();
@@ -669,6 +683,7 @@ module.exports = {
        day — the picker is still open underneath, and anything already
        collected is still waiting in it. */
     // it lands in the basket card, which is visible whatever list you are in
+    await openBasket(p);
     t.ok('a food named here joins the basket, not the day behind it',
       await p.evaluate(() => !!document.querySelector('.mp-basket .mpb-row') &&
         !!document.querySelector('[data-mpdone]') && !document.querySelector('#nfName')));
@@ -1971,6 +1986,7 @@ module.exports = {
        freshly added row usually RE-RANKS OUT of its band, so counting matches
        finds one either way and passes against the bug. (It did — caught by
        mutating the fix back in and watching this stay green.) */
+    await openBasket(jumpPg);
     const dupKeys = await jumpPg.evaluate(() => {
       const outs = [...document.querySelectorAll('.mpb-out')];
       return { n: outs.length, borrowing: outs.filter((b) => b.hasAttribute('data-mpick')).length };
@@ -1995,6 +2011,90 @@ module.exports = {
     t.ok('and adding it leaves the list where you were reading it',
       !!target && heldScroll === 300, 'scrollTop ' + heldScroll + ' (was 300)');
     await jumpPg.context().close();
+
+    /* ---- the basket rides the bar, and a pick holds your place ------------
+     * It used to sit in the SCROLL above the rows and grow as you picked —
+     * measured at 71px after one thing, 119 after two, 167 after three — so
+     * the list slid down under the finger on every tap, and once you had
+     * scrolled past it the panel was off-screen (y -106) and the one question
+     * it answers, "what have I got", needed scrolling back to ask.
+     *
+     * Two things had to change together for the place to hold. The panel came
+     * out of the flow, and a picked row stopped VANISHING: it left the closers
+     * band once it was in the basket and then fit worse, so it fell out of the
+     * ranking too — the list went 13 rows to 10 over three taps and
+     * `.mpick-wrap.in` was never once on screen. */
+    /* 412x915, a Pixel, and NOT the narrow phone: at 320 the list is long
+       enough that a picked row can survive inside the top ten by itself, so
+       the tick assertion passes with the fix reverted. Mutation said so. */
+    const barPg2 = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await barPg2.click('.tab[data-view="macros"]');
+    await barPg2.waitForTimeout(250);
+    await (await barPg2.$$('.mslot-add'))[0].click();
+    await barPg2.waitForTimeout(500);
+    t.ok('the basket is not in the list, and the bar is shut to start with',
+      await barPg2.evaluate(() => !document.querySelector('.mp-basket')));
+
+    const heldAt = [];
+    for (let i = 0; i < 3; i++) {
+      /* Scroll as far as this sheet allows and READ BACK what it gave: a
+         sheet shorter than the ask clamps, and comparing against the ask
+         rather than the result would report a failure the browser had no
+         choice about. */
+      const at = await barPg2.evaluate(() => {
+        const s = document.querySelector('.scrim');
+        /* Deliberately short of the end. Scrolled to the very bottom of a list
+           that then gets shorter, the browser must clamp and no amount of
+           care can hold the position — asserting there would be asserting
+           against the platform. */
+        s.scrollTop = Math.min(120, (s.scrollHeight - s.clientHeight) - 40);
+        return Math.round(s.scrollTop);
+      });
+      await barPg2.waitForTimeout(200);
+      const box = await barPg2.evaluate(() => {
+        const w = [...document.querySelectorAll('#mpList .mpick-wrap:not(.in)')]
+          .find((x) => x.getBoundingClientRect().top > 120 &&
+            x.getBoundingClientRect().bottom < window.innerHeight - 90);
+        if (!w) return null;
+        const r = w.querySelector('.mpick-row').getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + 12 };
+      });
+      if (!box) break;
+      /* A REAL pointer click: a scripted one never moves focus, and the focus
+         restore is half of what used to move the list. */
+      await barPg2.mouse.click(box.x, box.y);
+      await barPg2.waitForTimeout(400);
+      heldAt.push({ was: at, now: await barPg2.evaluate(() =>
+        Math.round(document.querySelector('.scrim').scrollTop)) });
+    }
+    t.ok('adding something leaves the list where you were reading it',
+      heldAt.length === 3 && heldAt.every((h) => h.now === h.was),
+      JSON.stringify(heldAt));
+    /* The ✓ and the green wash a picked row wears had nothing to wear them
+       while picked rows disappeared. */
+    t.ok('and the row you picked stays, wearing its tick',
+      await barPg2.evaluate(() =>
+        document.querySelectorAll('#mpList .mpick-wrap.in').length === 3));
+
+    const railBar = await barPg2.evaluate(() => {
+      const bar = document.querySelector('.mp-bar').getBoundingClientRect();
+      return { bottom: Math.round(bar.bottom), view: window.innerHeight,
+        h: Math.round(bar.height), basket: !!document.querySelector('.mp-basket') };
+    });
+    t.ok('the bar stays on the bottom of the screen and stays shut',
+      railBar.bottom === railBar.view && !railBar.basket, JSON.stringify(railBar));
+
+    await barPg2.click('[data-mpbasket]');
+    await barPg2.waitForTimeout(350);
+    t.ok('and pressing what it costs shows what it is made of',
+      await barPg2.evaluate(() => {
+        const bar = document.querySelector('.mp-bar').getBoundingClientRect();
+        const bk = document.querySelector('.mp-basket');
+        return !!bk && bk.querySelectorAll('.mpb-row').length === 3 &&
+          Math.round(bar.bottom) === window.innerHeight &&
+          bar.height <= window.innerHeight * 0.6;
+      }));
+    await barPg2.context().close();
 
     /* ---- searching narrows the list instead of replacing it --------------
      * Every day / Recent / the closers / Fits best were emitted only in the
@@ -3339,6 +3439,7 @@ module.exports = {
       }, (await closersOf(histPage)).names[0]);
       await histPage.waitForTimeout(300);
     }
+    await openBasket(histPage);
     t.ok('tapping them fills the basket and leaves the plate alone',
       offered > 0 && await histPage.evaluate((n) => {
         const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
@@ -3890,6 +3991,7 @@ module.exports = {
 
     /* ...and the basket really did get a row, so the check above had
        something to be wrong about. */
+    await openBasket(gapRow);
     t.ok('and the basket actually had a row to not grade',
       await gapRow.evaluate(() => document.querySelectorAll('.mpb-m').length > 0));
 
