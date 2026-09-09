@@ -5023,14 +5023,24 @@
      to be answering the same question. When each worked out the day's
      position for itself the combo could offer food the bars called a bust,
      which is the same argument the panel and the footer used to have. */
+  /* Calories are carried, not re-derived.
+   *
+     4P + 4C + 9F is how a TARGET becomes calories — a target is grams and has
+     no other answer. A plate is different: it states its own energy, and that
+     is the number mTotals sums for the day bar. Deriving it again here made
+     the picker and the day bar disagree about the same day — 1,655 against
+     1,554 on an ordinary one, and 250 against nothing at all for a food typed
+     in with only its calories, which has no grams to derive from and so was
+     invisible to the sheet that exists to say what is left. */
   function mDayEaten(k) {
     var day = mDay(k);
-    var sub = { p: 0, f: 0, c: 0 };
+    var sub = { p: 0, f: 0, c: 0, kcal: 0 };
     var addTo = function (r, x) {
       if (!r || !r.macro) return;
       sub.p += (r.macro.p || 0) * x;
       sub.f += (r.macro.f || 0) * x;
       sub.c += (r.macro.c || 0) * x;
+      sub.kcal += (r.macro.kcal || 0) * x;
     };
     /* Every meal on the day, not just the one being filled — the gap is the
        day's, and food added here counts against it wherever it lands. */
@@ -5072,8 +5082,11 @@
     if (!targets.p && !targets.f && !targets.c) return '';
     var sub = mDayEaten(k);
     var pend = Object.keys(S.mpBasket);
+    /* The target's calories are derived because a target is only grams; the
+       day's are stated because a plate states them. That asymmetry is the
+       app's convention everywhere else, the day bar included. */
     var tK = kcalOf(targets);
-    var eK = 4 * sub.p + 4 * sub.c + 9 * sub.f;
+    var eK = sub.kcal;
     return '<div class="mp-cap">Still to fill' +
       (pend.length ? ' &middot; basket counted' : '') + '</div>' +
       '<div class="mgps">' +
@@ -7202,11 +7215,23 @@
          it here and a meal sitting exactly on target is told its target is
          nearly zero, and gets solved down to a quarter of itself. Which is
          what happened: 545 kcal, on target, balanced to 252 and called short.
-         The target of a meal is its weight's worth of the day. */
-      var sumW = 0;
-      slots.list.forEach(function (s2) { sumW += mSlotW(s2); });
-      var frac = sumW ? mSlotW(srec || { }) / sumW : 1;
-      var T = { p: targets.p * frac, f: targets.f * frac, c: targets.c * frac };
+         The target of a meal is its weight's worth of the day.
+     *
+         And that weight's worth is mMealShare's to say, not this function's.
+         It was worked out here a second time — over EVERY slot, where
+         mMealShare drops the ones you have skipped and left empty — so on a
+         day with skips the button solved a meal to roughly half of what the
+         pills directly above it were printing as its share. Same button, same
+         card, two answers. A skipped meal is not still coming; the pills, the
+         verdict, the basket foot and the day's assumption all already know
+         that, and now so does the one control that acts on it.
+     *
+         Null means the meal is not in the slot list at all, which the card
+         this button sits on cannot be — there is nothing to solve against, so
+         nothing is solved rather than a share being invented. */
+      var sh = mMealShare(sk, targets, slots);
+      if (!sh) return;
+      var T = { p: sh.p, f: sh.f, c: sh.c };
       var pen = function () {
         var got = { p: 0, f: 0, c: 0 };
         (day[sk] || []).forEach(function (it) {

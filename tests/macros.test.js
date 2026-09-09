@@ -2524,6 +2524,24 @@ module.exports = {
 
     t.ok('and says so, rather than naming a meal or a share',
       /still to fill/i.test(dayPanel.cap) && !/share/i.test(dayPanel.cap), dayPanel.cap);
+
+    /* The flame agrees with the day bar, because both read the calories the
+       plates STATE. This sheet used to derive them back out of the grams —
+       4P + 4C + 9F — which is how a target becomes calories, a target being
+       grams and having no other answer, but not how a plate does. So the same
+       day carried two eaten-calorie totals, and a food typed in with only its
+       calories had no grams to derive from and counted as nothing at all. */
+    const flame = await dosePg.evaluate(() => {
+      const L = window.__macroLab, T = L.targets(), tot = L.read().tot;
+      const pill = [...document.querySelectorAll('.mp-left .mgp')]
+        .find((e) => /🔥/.test(e.textContent));
+      return { shown: Number((pill.textContent.match(/\d+/g) || [0]).pop()),
+        stated: Math.max(0, Math.round(Math.round(4 * T.p + 4 * T.c + 9 * T.f) - tot.kcal)),
+        derived: Math.max(0, Math.round(Math.round(4 * T.p + 4 * T.c + 9 * T.f)
+          - (4 * tot.p + 4 * tot.c + 9 * tot.f))) };
+    });
+    t.ok('the flame counts the calories the plates state, as the day bar does',
+      flame.shown === flame.stated, JSON.stringify(flame));
     await dosePg.context().close();
 
     /* The verdict, per macro, on the row that already existed.
@@ -2706,6 +2724,91 @@ module.exports = {
         return !document.querySelector('.mslot-skipped');
       }));
     await skipPg.context().close();
+
+    /* ---- Balance solves against the share the card is printing ------------
+     * The meal's pills say what the meal is owed; the ⚖ on the same card
+     * solves the plates toward it. Those were two different sums: the pills
+     * drop a meal you have skipped and left empty, and the button divided by
+     * every slot on the day regardless. So on a day with skips the button
+     * pulled a meal to roughly half of the target printed an inch above it,
+     * then the pills called it short. Asserted against the pills' own printed
+     * denominator rather than a computed share, because the pills are what
+     * the reader is looking at when they press it. */
+    /* Seeded rather than Filled: mFill picks at random from its top three, so
+       a day it builds is a different day each run — and this assertion is a
+       comparison between two days that have to be identical apart from the
+       skips. The two dishes come out of window.RECIPES at run time, never
+       written down here. */
+    const balDay = async (skips) => {
+      const pg = await t.fresh({ viewport: { width: 390, height: 800 } });
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(250);
+      await pg.evaluate(() => {
+        /* Protein-dense and small, so the solver's answer is an interior one
+           it has to think about. Given two carb-heavy dishes it drives both
+           days to the ×¼ floor — the same answer for opposite reasons, which
+           tells a comparison nothing. */
+        const two = window.RECIPES.filter((r) => r.macro && r.macro.kcal > 40)
+          .sort((a, b) => (b.macro.p / b.macro.kcal) - (a.macro.p / a.macro.kcal))
+          .slice(0, 2);
+        const d = new Date();
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]:
+          { b: [], l: two.map((r) => ({ id: r.id, x: 1, eaten: 0 })), d: [], s: [] } }));
+      });
+      await pg.reload();
+      await pg.waitForTimeout(400);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(350);
+      for (const sk of skips) {
+        await pg.evaluate((s2) => {
+          const b = document.querySelector('[data-mskip="' + s2 + '"]');
+          if (b) b.click();
+        }, sk);
+        await pg.waitForTimeout(250);
+      }
+      return pg;
+    };
+    const lunchOf = (pg) => pg.evaluate(() => {
+      const card = [...document.querySelectorAll('.mslot')]
+        .find((c) => c.querySelector('[data-mbal="l"]'));
+      const L = window.__macroLab.read();
+      const meal = L.meals.find((m) => m.k === 'l') || { items: [] };
+      return {
+        want: card ? [...card.querySelectorAll('.mmp')].map((e) =>
+          Number(((e.querySelector('.mmp-t') || {}).textContent || '').replace('/', '')) || 0) : null,
+        kcal: Math.round(meal.items.reduce((n, i) => n + i.kcal * i.x, 0)),
+        xs: meal.items.map((i) => i.x).join(','),
+      };
+    });
+
+    const plain = await balDay([]);
+    /* Every other meal skipped, so lunch's share is the whole day against the
+       quarter of it the old sum handed out — far enough apart that a step of
+       an eighth cannot land on both. */
+    const withSkips = await balDay(['b', 'd', 's']);
+    const plainBefore = await lunchOf(plain);
+    const skipBefore = await lunchOf(withSkips);
+    t.ok('skipping the other meals raises what lunch is asked to hold',
+      !!plainBefore.want && !!skipBefore.want && skipBefore.want[0] > plainBefore.want[0],
+      JSON.stringify({ plain: plainBefore.want, skipped: skipBefore.want }));
+
+    /* The bug, stated as a comparison. The pills already dropped a skipped
+       empty meal from the sum; the button divided by every slot regardless —
+       so the SAME two dishes solved to exactly the same portions on both of
+       these days, while the cards above them printed different targets. */
+    await plain.click('[data-mbal="l"]');
+    await withSkips.click('[data-mbal="l"]');
+    await plain.waitForTimeout(700);
+    await withSkips.waitForTimeout(700);
+    const plainAfter = await lunchOf(plain);
+    const skipAfter = await lunchOf(withSkips);
+    t.ok('so balancing aims at the raised share, not the whole-day one',
+      skipAfter.kcal > plainAfter.kcal,
+      JSON.stringify({ plain: plainAfter, skipped: skipAfter }));
+    await plain.context().close();
+    await withSkips.context().close();
 
     /* Done for the day.
      *
