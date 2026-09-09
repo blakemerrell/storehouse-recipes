@@ -212,7 +212,7 @@
         id: 'f:' + key, food: true, side: !!f.side, eat: !!f.eat, lever: !!f.lever,
         /* which shelf a cook would reach on, carried through from the food
            table so mShelfKey does not have to keep its own list */
-        veg: !!f.veg, starch: !!f.starch,
+        veg: !!f.veg, starch: !!f.starch, shelf: f.shelf || '',
         /* Not on the storehouse order. Carried so the picker can offer it to
            log — Blake will happily go and buy salmon tomorrow — while Fill
            stays out of it unless he says otherwise, because a day drafted out
@@ -4299,9 +4299,62 @@
      reads the ingredient list too — searching "honey" should find the dish
      that uses it, not just a spoon of it. */
   function mpQ() { return (S.mpQuery || '').trim().toLowerCase(); }
+
+  /* The shelf rail. One chip at a time, '' meaning all of them.
+   *
+     It NARROWS what is already on screen rather than replacing it, exactly as
+     the search box does, and the two compose: 🥩 with "chicken" typed is the
+     chicken that is mostly protein. That is the whole reason a chip is a
+     filter and not a mode — Recipes as a MODE could never have been crossed
+     with a macro.
+   *
+     Not persisted. A shelf is a thought you are having about this meal, not a
+     setting; the sheet opens showing everything, the way it always has. */
+  function mpShelfOK(r) {
+    if (!S.mpShelf) return true;
+    if (S.mpShelf === 'recipes') return !r.food;
+    return mShelfKey(r) === S.mpShelf;
+  }
+
+  /* Only the shelves that would actually find something, counted over the
+     pool this meal can see. An 🫒 Oils chip that filters to one row is worse
+     than no chip: it looks like the app has nothing, when what it has is one
+     oil. Counted rather than assumed, because the pool moves — the
+     storehouse-only pool and the shop-anywhere pool are different books. */
+  var MSHELF_MIN = 3;
+  function mpShelvesHTML() {
+    if (!S.macroPick) return '';
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    if (!slot) return '';
+    var n = {}, anyRecipe = false;
+    mMealPool(slot, true).forEach(function (r) {
+      if (!r.food) { anyRecipe = true; return; }
+      var k = mShelfKey(r);
+      if (k) n[k] = (n[k] || 0) + 1;
+    });
+    var chips = '<button class="mp-shelf' + (S.mpShelf ? '' : ' on') +
+      '" data-mpshelf="" aria-pressed="' + (S.mpShelf ? 'false' : 'true') + '">All</button>';
+    if (anyRecipe) {
+      /* An emoji like the rest. Spelled out it was 89 px — a third of a
+         320 px rail for one chip, which bought five of the nine a place
+         behind the fade. The pot is as legible as the carrot beside it. */
+      chips += '<button class="mp-shelf emo' + (S.mpShelf === 'recipes' ? ' on' : '') +
+        '" data-mpshelf="recipes" aria-pressed="' + (S.mpShelf === 'recipes' ? 'true' : 'false') +
+        '" aria-label="Recipes"><i>\uD83C\uDF72</i></button>';
+    }
+    MSHELF.forEach(function (sh) {
+      if ((n[sh[0]] || 0) < MSHELF_MIN) return;
+      chips += '<button class="mp-shelf emo' + (S.mpShelf === sh[0] ? ' on' : '') +
+        '" data-mpshelf="' + sh[0] + '" aria-pressed="' + (S.mpShelf === sh[0] ? 'true' : 'false') +
+        '" aria-label="' + esc(sh[2]) + '"><i>' + sh[1] + '</i></button>';
+    });
+    return '<div class="mp-shelves" id="mpShelves">' + chips + '</div>';
+  }
   function mpMatches(r, qs) {
-    if (!qs) return true;
     if (!r) return false;
+    if (!mpShelfOK(r)) return false;
+    if (!qs) return true;
     return r.food ? r.name.toLowerCase().indexOf(qs) >= 0 : !!matchRank(r, qs);
   }
 
@@ -4548,6 +4601,7 @@
        no shared state, so typing "chicken" into one and switching to the
        other silently threw the word away and asked for it again. */
     S.mpQuery = '';
+    S.mpShelf = '';
     S.mpMode = mode || 'home';
     S.mpBasket = {};
     pushSheet({ m: 1 });
@@ -4637,6 +4691,7 @@
             'placeholder="Search, barcode, or recipe no.&hellip;" ' +
             'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
         '</div>' +
+        mpShelvesHTML() +
         '<div id="mpTop">' + mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
           { k: S.macroPick.slot, w: S.macroPick.w }) + '</div>' +
         mpWaysHTML(true) +
@@ -4999,8 +5054,31 @@
   var MFRUIT = ['apple', 'banana', 'orange', 'grape', 'peaches_canned',
     'pears_canned', 'applesauce', 'fruit', 'raisin'];
 
+  /* Which shelf a thing sits on.
+   *
+     RECIPES TOO, not just single foods. It used to return '' for anything
+     without a food flag, which was every one of the 316 — so a rail built on
+     it would have hidden the entire book behind any chip. A dish is shelved
+     by the macro its calories come from, which is the same question
+     mFoodDom answers and the only one that can be asked of a plate: there is
+     no sense in which a chicken casserole is "on the vegetable shelf".
+   *
+     Foods get the finer answer, because a cook reaches for them differently:
+     fruit and starch are both carbohydrate and you go looking for them in
+     different moods.
+   *
+     `shelf` on the food beats the prefix lists below it. Those lists match
+     the START of a key, which worked while the table was the storehouse
+     order and broke the moment it grew: thirteen new fruits landed under
+     Carbs because no entry began with "apple" or "grape". The lists stay for
+     the storehouse keys they were written for; anything new says what it is
+     instead of hoping its name starts with the right word. */
   function mShelfKey(r) {
-    if (!r || !r.food) return '';
+    if (!r) return '';
+    var d = mFoodDom(r);
+    var byMacro = d ? ({ p: 'protein', f: 'fat', c: 'carb' })[d.d] : '';
+    if (!r.food) return byMacro;
+    if (r.shelf) return r.shelf;
     var k = String(r.id).indexOf('f:') === 0 ? String(r.id).slice(2) : String(r.id);
     var starts = function (list) {
       var hit = false;
@@ -5012,8 +5090,7 @@
     if (starts(MFRUIT)) return 'fruit';
     if (starts(MOILY)) return 'oil';
     if (starts(MDAIRY)) return 'dairy';
-    var d = mFoodDom(r);
-    return d ? ({ p: 'protein', f: 'fat', c: 'carb' })[d.d] : '';
+    return byMacro;
   }
 
   var MDOM_HEAD = [['p', 'Protein'], ['c', 'Carbs'], ['f', 'Fats']];
@@ -9055,7 +9132,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
+    'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -10731,6 +10808,26 @@
         return;
       }
 
+      /* A chip flips its own pressed state and refreshes the list. NOT a
+         renderModal: that would rebuild the sheet, and the sheet now holds
+         the search box — a chip pressed mid-word would redraw the input and
+         take the caret with it. Same rule the keystroke path follows. */
+      var msh = e.target.closest('[data-mpshelf]');
+      if (msh && S.macroPick) {
+        var want = msh.dataset.mpshelf;
+        S.mpShelf = S.mpShelf === want ? '' : want;
+        var rail = $('mpShelves');
+        if (rail) {
+          Array.prototype.forEach.call(rail.querySelectorAll('[data-mpshelf]'), function (b2) {
+            var on = b2.dataset.mpshelf === S.mpShelf;
+            b2.setAttribute('aria-pressed', String(on));
+            b2.classList.toggle('on', on);
+          });
+        }
+        refreshMacroPicker();
+        return;
+      }
+
       var mpm = e.target.closest('[data-mpmode]');
       if (mpm && S.macroPick) {
         // leaving scan means letting go of the camera, whichever way you leave
@@ -11403,6 +11500,7 @@
     S.syncOpen = false;
     S.mDoneOpen = '';
     S.mpQuery = '';
+    S.mpShelf = '';
     // a basket left behind would silently refill the next meal you opened
     S.mpBasket = {};
     renderModal();

@@ -289,7 +289,7 @@ const FOODS = {
      combo builder kept offering three-quarters of a tablespoon of Oil for
      breakfast: it was the only fat lever on the shelf and there was nothing
      to lose the argument to. */
-  olive_oil:    { ext: 1, lever: 1, zone: 'fat', kcal: 884, p: 0, c: 0, f: 100, na: 2, fib: 0, g: { cup: 216, tbsp: 13.5, tsp: 4.5 }, def: { qty: 1, unit: 'tbsp' }, label: 'Olive oil' },
+  olive_oil:    { ext: 1, shelf: 'oil', lever: 1, zone: 'fat', kcal: 884, p: 0, c: 0, f: 100, na: 2, fib: 0, g: { cup: 216, tbsp: 13.5, tsp: 4.5 }, def: { qty: 1, unit: 'tbsp' }, label: 'Olive oil' },
   almonds:      { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 579, p: 21.2, c: 21.6, f: 49.9, na: 1, fib: 12.5, g: { cup: 143, oz: 28.35, tbsp: 9, each: 1.2 }, def: { qty: 1, unit: 'oz' }, label: 'Almonds', note: 'whole, raw; 1 nut = 1.2 g' },
   almond_butter: { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 614, p: 21, c: 18.8, f: 55.5, na: 7, fib: 10.3, g: { cup: 256, tbsp: 16, tsp: 5.3 }, def: { qty: 1, unit: 'tbsp' }, label: 'Almond butter', note: 'plain, unsalted' },
   walnuts:      { ext: 1, eat: 1, lever: 1, zone: 'fat', kcal: 654, p: 15.2, c: 13.7, f: 65.2, na: 2, fib: 6.7, g: { cup: 117, oz: 28.35, tbsp: 7.3 }, def: { qty: 1, unit: 'oz' }, label: 'Walnuts', note: 'english, shelled' },
@@ -309,9 +309,9 @@ const FOODS = {
   turkey_bacon:     { ext: 1, eat: 1, zone: 'protein', kcal: 368, p: 29.5, c: 4.2, f: 25.9, na: 2020, fib: 0, g: { oz: 28.35, each: 14, slice: 14 }, def: { qty: 2, unit: 'slice' }, label: 'Turkey bacon', note: 'cooked, because that is the form eaten. Two slices carry 283 mg of sodium; the Zone table rates it Best on its macros alone' },
   canadian_bacon:   { ext: 1, eat: 1, zone: 'protein', kcal: 146, p: 28.3, c: 1.8, f: 2.8, na: 993, fib: 0, g: { oz: 28.35, each: 28, slice: 28 }, def: { qty: 2, unit: 'slice' }, label: 'Canadian bacon', note: 'cooked. Very lean and very salty — no lever flag for the same reason as the deli turkey' },
   ground_beef_lean: { ext: 1, zone: 'protein', kcal: 152, p: 20.8, c: 0, f: 7, na: 66, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 }, def: { qty: 4, unit: 'oz' }, label: 'Lean ground beef', note: '93/7, raw; the storehouse ground beef above is 85/15' },
-  greek_yogurt:     { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 73, p: 10, c: 3.9, f: 1.9, na: 34, fib: 0, g: { cup: 245, tbsp: 15, oz: 28.35 }, def: { qty: 0.5, unit: 'cup' }, label: 'Greek yogurt', note: 'plain, low-fat' },
-  plain_yogurt:     { ext: 1, eat: 1, zone: 'protein', kcal: 63, p: 5.3, c: 7, f: 1.6, na: 70, fib: 0, g: { cup: 245, tbsp: 15 }, def: { qty: 0.5, unit: 'cup' }, label: 'Plain yogurt', note: 'low-fat, unsweetened — the vanilla one above carries the sugar' },
-  egg_sub:          { ext: 1, eat: 1, lever: 1, zone: 'protein', kcal: 48, p: 10, c: 2, f: 0, na: 199, fib: 0, g: { cup: 245, tbsp: 15, oz: 28.35 }, def: { qty: 0.25, unit: 'cup' }, label: 'Egg substitute', note: 'liquid, fat free' },
+  greek_yogurt:     { ext: 1, shelf: 'dairy', eat: 1, lever: 1, zone: 'protein', kcal: 73, p: 10, c: 3.9, f: 1.9, na: 34, fib: 0, g: { cup: 245, tbsp: 15, oz: 28.35 }, def: { qty: 0.5, unit: 'cup' }, label: 'Greek yogurt', note: 'plain, low-fat' },
+  plain_yogurt:     { ext: 1, shelf: 'dairy', eat: 1, zone: 'protein', kcal: 63, p: 5.3, c: 7, f: 1.6, na: 70, fib: 0, g: { cup: 245, tbsp: 15 }, def: { qty: 0.5, unit: 'cup' }, label: 'Plain yogurt', note: 'low-fat, unsweetened — the vanilla one above carries the sugar' },
+  egg_sub:          { ext: 1, shelf: 'dairy', eat: 1, lever: 1, zone: 'protein', kcal: 48, p: 10, c: 2, f: 0, na: 199, fib: 0, g: { cup: 245, tbsp: 15, oz: 28.35 }, def: { qty: 0.25, unit: 'cup' }, label: 'Egg substitute', note: 'liquid, fat free' },
 
   /* ---- vegetables. `side` and `veg` together, the way every vegetable above
      carries them: `side` is what lets the fibre step reach for one, `veg` is
@@ -356,19 +356,19 @@ const FOODS = {
   hummus:         { ext: 1, eat: 1, zone: 'carbohydrate', kcal: 237, p: 7.8, c: 15, f: 17.8, na: 426, fib: 5.5, g: { cup: 246, tbsp: 15, oz: 28.35 }, def: { qty: 2, unit: 'tbsp' }, label: 'Hummus', note: 'the Zone table blocks it as carbohydrate; by calories it is mostly fat, and the app will shelve it where the arithmetic puts it' },
 
   /* ---- fruit. `side` only, the way every fruit above carries it. */
-  blueberries:  { ext: 1, side: true, zone: 'carbohydrate', kcal: 57, p: 0.7, c: 14.5, f: 0.3, na: 1, fib: 2.4, g: { cup: 148, oz: 28.35, lb: 453.6 }, def: { qty: 0.5, unit: 'cup' }, label: 'Blueberries' },
-  strawberries: { ext: 1, side: true, zone: 'carbohydrate', kcal: 32, p: 0.7, c: 7.7, f: 0.3, na: 1, fib: 2, g: { cup: 152, each: 12, lb: 453.6 }, def: { qty: 1, unit: 'cup' }, label: 'Strawberries' },
-  raspberries:  { ext: 1, side: true, zone: 'carbohydrate', kcal: 52, p: 1.2, c: 11.9, f: 0.7, na: 1, fib: 6.5, g: { cup: 123, lb: 453.6 }, def: { qty: 1, unit: 'cup' }, label: 'Raspberries' },
-  blackberries: { ext: 1, side: true, zone: 'carbohydrate', kcal: 43, p: 1.4, c: 9.6, f: 0.5, na: 1, fib: 5.3, g: { cup: 144, lb: 453.6 }, def: { qty: 1, unit: 'cup' }, label: 'Blackberries' },
-  cherries:     { ext: 1, side: true, zone: 'carbohydrate', kcal: 63, p: 1.1, c: 16, f: 0.2, na: 0, fib: 2.1, g: { cup: 154, each: 8, lb: 453.6 }, def: { qty: 1, unit: 'cup' }, label: 'Cherries', note: 'sweet' },
-  apricots:     { ext: 1, side: true, zone: 'carbohydrate', kcal: 48, p: 1.4, c: 11.1, f: 0.4, na: 1, fib: 2, g: { cup: 155, each: 35, lb: 453.6 }, def: { qty: 3, unit: 'each' }, label: 'Apricots' },
-  peach:        { ext: 1, side: true, zone: 'carbohydrate', kcal: 39, p: 0.9, c: 9.5, f: 0.3, na: 0, fib: 1.5, g: { cup: 154, each: 150, lb: 453.6 }, def: { qty: 1, unit: 'each' }, label: 'Peaches' },
-  pear:         { ext: 1, side: true, zone: 'carbohydrate', kcal: 57, p: 0.4, c: 15.2, f: 0.1, na: 1, fib: 3.1, g: { cup: 140, each: 178, lb: 453.6 }, def: { qty: 1, unit: 'each' }, label: 'Pears' },
-  plum:         { ext: 1, side: true, zone: 'carbohydrate', kcal: 46, p: 0.7, c: 11.4, f: 0.3, na: 0, fib: 1.4, g: { cup: 165, each: 66, lb: 453.6 }, def: { qty: 1, unit: 'each' }, label: 'Plums' },
-  nectarine:    { ext: 1, side: true, zone: 'carbohydrate', kcal: 44, p: 1.1, c: 10.6, f: 0.3, na: 0, fib: 1.7, g: { cup: 143, each: 142, lb: 453.6 }, def: { qty: 1, unit: 'each' }, label: 'Nectarines' },
-  kiwi:         { ext: 1, side: true, zone: 'carbohydrate', kcal: 61, p: 1.1, c: 14.7, f: 0.5, na: 3, fib: 3, g: { cup: 180, each: 69 }, def: { qty: 1, unit: 'each' }, label: 'Kiwi' },
-  grapefruit:   { ext: 1, side: true, zone: 'carbohydrate', kcal: 32, p: 0.6, c: 8.1, f: 0.1, na: 0, fib: 1.1, g: { cup: 230, each: 246 }, def: { qty: 0.5, unit: 'each' }, label: 'Grapefruit' },
-  tangerine:    { ext: 1, side: true, zone: 'carbohydrate', kcal: 53, p: 0.8, c: 13.3, f: 0.3, na: 2, fib: 1.8, g: { cup: 195, each: 88 }, def: { qty: 1, unit: 'each' }, label: 'Tangerines' },
+  blueberries:  { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 57, p: 0.7, c: 14.5, f: 0.3, na: 1, fib: 2.4, g: { cup: 148, oz: 28.35, lb: 453.6 }, def: { qty: 0.5, unit: 'cup' }, label: 'Blueberries' },
+  strawberries: { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 32, p: 0.7, c: 7.7, f: 0.3, na: 1, fib: 2, g: { cup: 152, each: 12, lb: 453.6 }, def: { qty: 1, unit: 'cup' }, label: 'Strawberries' },
+  raspberries:  { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 52, p: 1.2, c: 11.9, f: 0.7, na: 1, fib: 6.5, g: { cup: 123, lb: 453.6 }, def: { qty: 1, unit: 'cup' }, label: 'Raspberries' },
+  blackberries: { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 43, p: 1.4, c: 9.6, f: 0.5, na: 1, fib: 5.3, g: { cup: 144, lb: 453.6 }, def: { qty: 1, unit: 'cup' }, label: 'Blackberries' },
+  cherries:     { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 63, p: 1.1, c: 16, f: 0.2, na: 0, fib: 2.1, g: { cup: 154, each: 8, lb: 453.6 }, def: { qty: 1, unit: 'cup' }, label: 'Cherries', note: 'sweet' },
+  apricots:     { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 48, p: 1.4, c: 11.1, f: 0.4, na: 1, fib: 2, g: { cup: 155, each: 35, lb: 453.6 }, def: { qty: 3, unit: 'each' }, label: 'Apricots' },
+  peach:        { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 39, p: 0.9, c: 9.5, f: 0.3, na: 0, fib: 1.5, g: { cup: 154, each: 150, lb: 453.6 }, def: { qty: 1, unit: 'each' }, label: 'Peaches' },
+  pear:         { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 57, p: 0.4, c: 15.2, f: 0.1, na: 1, fib: 3.1, g: { cup: 140, each: 178, lb: 453.6 }, def: { qty: 1, unit: 'each' }, label: 'Pears' },
+  plum:         { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 46, p: 0.7, c: 11.4, f: 0.3, na: 0, fib: 1.4, g: { cup: 165, each: 66, lb: 453.6 }, def: { qty: 1, unit: 'each' }, label: 'Plums' },
+  nectarine:    { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 44, p: 1.1, c: 10.6, f: 0.3, na: 0, fib: 1.7, g: { cup: 143, each: 142, lb: 453.6 }, def: { qty: 1, unit: 'each' }, label: 'Nectarines' },
+  kiwi:         { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 61, p: 1.1, c: 14.7, f: 0.5, na: 3, fib: 3, g: { cup: 180, each: 69 }, def: { qty: 1, unit: 'each' }, label: 'Kiwi' },
+  grapefruit:   { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 32, p: 0.6, c: 8.1, f: 0.1, na: 0, fib: 1.1, g: { cup: 230, each: 246 }, def: { qty: 0.5, unit: 'each' }, label: 'Grapefruit' },
+  tangerine:    { ext: 1, shelf: 'fruit', side: true, zone: 'carbohydrate', kcal: 53, p: 0.8, c: 13.3, f: 0.3, na: 2, fib: 1.8, g: { cup: 195, each: 88 }, def: { qty: 1, unit: 'each' }, label: 'Tangerines' },
 
   /* ---- a grain. No flags, like the oats and rice above it: dry weight, and
      not a thing you eat as it comes. */

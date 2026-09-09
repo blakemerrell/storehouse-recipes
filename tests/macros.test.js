@@ -1922,7 +1922,110 @@ module.exports = {
         const e = document.querySelector('#mpList .mslot-empty');
         return !!e && /zzzqqqxx/.test(e.textContent);
       }));
+    /* ---- the shelf rail --------------------------------------------------
+     * Chips that narrow the same list the search box narrows, so the two
+     * compose: 🥩 with "chicken" typed is the chicken that is mostly protein.
+     * That is why a chip is a filter and not a mode — Recipes as a MODE could
+     * never have been crossed with a macro.
+     *
+     * Measured at 320, the narrowest width supported, because that is where
+     * the rail is tightest and the chips nearest the edge. */
     await findPg.context().close();
+    const railPg = await t.fresh({ viewport: { width: 320, height: 844 },
+      hasTouch: true, isMobile: true });
+    await railPg.click('.tab[data-view="macros"]');
+    await railPg.waitForTimeout(250);
+    await (await railPg.$$('.mslot-add'))[0].click();
+    await railPg.waitForTimeout(500);
+    const railInfo = await railPg.evaluate(() => {
+      const rail = document.getElementById('mpShelves');
+      if (!rail) return null;
+      const chips = [...rail.querySelectorAll('[data-mpshelf]')];
+      return { n: chips.length,
+        labels: chips.map((c) => c.getAttribute('aria-label') || c.textContent.trim()),
+        tap: Math.min(...chips.map((c) => Math.round(c.getBoundingClientRect().height))),
+        scrolls: rail.scrollWidth - rail.clientWidth > 1,
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+    });
+    t.ok('the picker has a shelf rail', !!railInfo && railInfo.n >= 5, JSON.stringify(railInfo));
+    /* A thumb target, and the rail — not the page — is what scrolls sideways. */
+    t.ok('and its chips are a thumb’s worth, without pushing the page sideways',
+      railInfo.tap >= 40 && railInfo.pageOverflow === 0, JSON.stringify(railInfo));
+
+    /* An 🫒 Oils chip that filters to one row is worse than no chip: it looks
+       like the app has nothing when what it has is one oil. Every chip drawn
+       has to find something. */
+    const shelved = await railPg.evaluate(async () => {
+      const out = {};
+      const chips = [...document.querySelectorAll('[data-mpshelf]')]
+        .map((c) => c.dataset.mpshelf).filter((k) => k);
+      for (const k of chips) {
+        document.querySelector('[data-mpshelf="' + k + '"]').click();
+        await new Promise((r) => setTimeout(r, 120));
+        out[k] = document.querySelectorAll('#mpList .mpick-wrap').length;
+      }
+      return out;
+    });
+    t.ok('and every chip it draws actually finds something',
+      Object.keys(shelved).length > 0 &&
+      Object.keys(shelved).every((k) => shelved[k] > 0), JSON.stringify(shelved));
+
+    /* Composed with the box, which is the whole reason it is a filter. */
+    await railPg.evaluate(() => {
+      const v = document.querySelector('[data-mpshelf="veg"]');
+      if (v && v.getAttribute('aria-pressed') !== 'true') v.click();
+    });
+    await railPg.waitForTimeout(300);
+    await railPg.fill('#mpFind', 'bean');
+    await railPg.waitForTimeout(450);
+    t.ok('a chip and a query narrow together, not one instead of the other',
+      await railPg.evaluate(() => {
+        const rows = [...document.querySelectorAll('#mpList .mp-name')].map((e) => e.textContent);
+        return rows.length > 0 && rows.every((n) => /bean/i.test(n));
+      }),
+      await railPg.evaluate(() =>
+        [...document.querySelectorAll('#mpList .mp-name')].map((e) => e.textContent).join(' | ')));
+
+    /* Same constraint as the keystroke path: pressing a chip repaints the
+       list, never the sheet, or the search box would be redrawn mid-word. */
+    await railPg.evaluate(() => {
+      const i = document.getElementById('mpFind');
+      i.focus();
+      i.setSelectionRange(2, 2);
+    });
+    await railPg.keyboard.type('X');
+    await railPg.waitForTimeout(350);
+    t.ok('and typing after pressing one keeps both the caret and the chip',
+      await railPg.evaluate(() => document.activeElement.id === 'mpFind' &&
+        document.activeElement.selectionStart === 3 &&
+        (document.querySelector('.mp-shelf.on') || {}).dataset.mpshelf === 'veg'));
+
+    /* A recipe used to be unshelvable: mShelfKey returned '' for anything
+       without a food flag, which was all 316 of them, so every macro chip
+       would have hidden the whole book.
+     *
+       ASSERTED ON A MACRO CHIP, never the Recipes one. Recipes filters on
+       `!r.food` and never asks mShelfKey at all, so it stays green with the
+       shelving reverted — I wrote it that way first and only found out by
+       mutating the fix back in. A dish under 🥩 is the thing that cannot
+       happen unless a recipe can be shelved. */
+    await railPg.evaluate(() => {
+      const i = document.getElementById('mpFind');
+      i.value = '';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+      const p2 = document.querySelector('[data-mpshelf="protein"]');
+      if (p2) p2.click();
+    });
+    await railPg.waitForTimeout(400);
+    t.ok('and a recipe can sit on a macro shelf, not just a single food',
+      await railPg.evaluate(() => {
+        const rows = [...document.querySelectorAll('#mpList .mpick-wrap .mpick-row')];
+        /* A dish, not a food: food ids are prefixed, recipe ids are numbers. */
+        return rows.some((r) => !/^f:/.test(r.dataset.mpick));
+      }),
+      await railPg.evaluate(() => [...document.querySelectorAll('#mpList .mpick-wrap .mpick-row')]
+        .map((r) => r.dataset.mpick).join(',')));
+    await railPg.context().close();
 
     /* ---- food the storehouse does not stock ------------------------------
      * The books are written to be cooked out of the standard order, and a day

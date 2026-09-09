@@ -1017,6 +1017,37 @@ select { max-width: 280px; }
   background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 600;
 }
 .mp-meals i { font-style: normal; opacity: 0.6; margin-left: 5px; }
+/* The shelf rail.
+ *
+   A row of chips that narrows what is already on screen. It scrolls
+   sideways, and the fade on the right is the only thing that says so — a rail
+   whose last chips are simply off the edge of a 320px phone reads as a rail
+   with four chips on it. Masked rather than drawn, so the fade follows
+   whatever is behind it and does not have to know the background.
+ *
+   The emoji chips are square and the two word chips are not, because an emoji
+   is the label: All and Recipes have to say what they are, the rest are
+   recognisable at a glance and a text label beside each would be three
+   screens of rail. */
+.mp-shelves {
+  display: flex; gap: 5px; margin: 8px 0 2px; padding-bottom: 2px;
+  overflow-x: auto; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+}
+.mp-shelves::-webkit-scrollbar { display: none; }
+.mp-shelf {
+  flex: none; font-family: var(--sans); font-size: 11.5px; padding: 6px 11px;
+  border-radius: 999px; white-space: nowrap; cursor: pointer;
+  background: var(--paper-soft); border: 1px solid var(--line-soft); color: var(--muted-2);
+}
+.mp-shelf i { font-style: normal; font-size: 15px; line-height: 1; }
+.mp-shelf.on {
+  background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 600;
+}
+/* The chip that is on keeps its emoji legible: white-on-ink washes an emoji
+   out at this size, and the emoji IS the label. */
+.mp-shelf.on i { filter: none; }
 .mp-ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
 .mp-way {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -2974,6 +3005,15 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 .pitem-x:hover { color: var(--ochre); background: oklch(0.62 0.10 55 / 0.10); }
 .pitem-x.back { font-size: 17px; }
 @media (pointer: coarse) {
+  /* A rail chip is a target like any other. 44 would make the rail taller
+     than the search box above it, so the emoji chips get a square 40 and the
+     word chips grow by their padding. */
+  .mp-shelf { min-height: 40px; padding: 8px 13px; }
+  /* An emoji chip is square. The word chips need side padding to breathe;
+     an emoji does not, and paying it on seven chips cost 49px each against a
+     284px rail — three chips' worth of what fits before scrolling. */
+  .mp-shelf.emo { padding: 8px 0; width: 40px; }
+  .mp-shelf i { font-size: 17px; }
   /* The one control in the picker that commits, and the first .mp-* class
      this block has ever named — the whole picker missed the 44px pass, and
      this button measured 29px while being the thing the sheet exists to let

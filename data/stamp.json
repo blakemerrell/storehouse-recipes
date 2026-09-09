@@ -1,13 +1,13 @@
 {
-  "v": 279,
+  "v": 281,
   "files": {
     "data/recipes.js": "b2bd1698bead18a7",
-    "data/nutrition.js": "6344450bfd0cf0be",
+    "data/nutrition.js": "2a507da4607ba32a",
     "data/art.js": "6400869a8b1c044a",
     "data/qr.js": "ad816e709c904c25",
-    "src/app.js": "147f01bb092e6355",
+    "src/app.js": "78e204c0649fe1e0",
     "src/sync.js": "594321872aad26af",
     "src/config.js": "aa98e88f0eef54e6",
-    "src/style.css": "31aed5b64e3dd50b"
+    "src/style.css": "9f377ec683d25ade"
   }
 }
