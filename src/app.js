@@ -2595,8 +2595,23 @@
   function mRank(list, day, targets, slot) {
     var sh = mShares(day, targets, slot);
     var ranked = [], flat = [];
+    /* No plan, no ranking.
+     *
+       With targets of 0/0/0 every share is 0 and D falls to its floor of 1,
+       which leaves macroFit nothing to weigh but the overshoot term — and
+       that is smallest at the smallest portion it is allowed to try. So every
+       row came back at ×½: the picker offered half a serving of everything,
+       and a tap logged half a serving nobody had asked for, on the one kind
+       of day where the app has already said it will not make anything up.
+   *
+       A day with no targets has no fit to compute, which is the same case as
+       a recipe with no numbers — so it takes the same honest answer the flat
+       branch below already gives: the whole thing, in book order, ranked
+       against nothing and saying so. Callers that need a fit filter on
+       `score !== null` and correctly find none. */
+    var planned = !!(targets && (targets.p || targets.f || targets.c));
     list.forEach(function (r) {
-      if (r.macro && ((r.macro.p || 0) + (r.macro.c || 0) + (r.macro.f || 0)) > 0) {
+      if (planned && r.macro && ((r.macro.p || 0) + (r.macro.c || 0) + (r.macro.f || 0)) > 0) {
         var fit = macroFit(r, sh.R, sh.T, sh.D);
         /* A few points for a favorite: enough that the meal you love wins the
            near-tie against the one you have never made, never enough to argue
@@ -6429,14 +6444,25 @@
      and they snapped back to whatever the workout count implies, with nothing
      said. Weight would have been the second, now that its box goes away once
      the scale has something to say — an absent box reads as 0 through `n`,
-     which would have wiped the fallback the first plan is built on. */
+     which would have wiped the fallback the first plan is built on.
+   *
+     Merged onto mReadProfile — the resolved profile, weight and all — and not
+     onto the raw store. The absent weight box IS the case mReadProfile exists
+     for: once the scale has answered, the sheet states that fact instead of
+     offering a box, so the fallback `n` reaches for has to be the same fact.
+     Reaching into the raw store got the stale typed number instead, and the
+     sheet opened on the scale's plan and then flipped to the stale one the
+     moment any other control was touched — the fifteen-pound drift described
+     above mScaleLb, back through a side door, with the weight row still
+     saying it came from the weigh-ins. What the weight is has one definition
+     and mReadProfile is where it lives. */
   function mtProfileFromDom() {
     var n = function (id, fb) {
       var el = $(id);
       if (!el) return fb;
       return Number(el.value) || 0;
     };
-    var stored = mReadProfileRaw();
+    var stored = mReadProfile();
     var sexBtn = document.querySelector('[data-mtsex][aria-pressed="true"]');
     var goalBtn = document.querySelector('[data-mtgoal][aria-pressed="true"]');
     var out = {};

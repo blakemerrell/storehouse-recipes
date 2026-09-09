@@ -1738,15 +1738,52 @@ module.exports = {
     /* Save rebuilt the profile from the DOM over a bare setItem, so it
        silently dropped everything the sheet has no box for — the training
        days were being lost on every save, and the fallback weight was about
-       to join them now that its box is gone. */
+       to join them now that its box is gone.
+     *
+       The weight it keeps is the LOG'S, not the stale typed one. The absent
+       box falls back to mReadProfile, which is where what-the-weight-is is
+       defined; falling back to the raw store instead wrote 205 back over a
+       log that had been saying 150 for a fortnight, and the number the sheet
+       had just been built from was not the number Save committed. */
     await lightLog.click('[data-mtarg="save"]');
     await lightLog.waitForTimeout(600);
     const kept2 = await lightLog.evaluate(() => {
       const pr = JSON.parse(localStorage.getItem('bsc.macroProfile')) || {};
       return { lb: pr.lb, train: (pr.train || []).join(','), steps: pr.steps };
     });
-    t.ok('and Save keeps what the sheet has no box for',
-      kept2.train === 'mo,we,fr' && kept2.lb === 205, JSON.stringify(kept2));
+    t.ok('and Save keeps what the sheet has no box for, at the weight the log states',
+      kept2.train === 'mo,we,fr' && kept2.lb === 150, JSON.stringify(kept2));
+
+    /* ---- and the sheet never slips back to the stale weight ---------------
+     * The weight box goes away once the log can answer — so mtProfileFromDom
+     * has no #mtLb to read and falls back. Falling back to the raw store got
+     * the very number the log supersedes: the sheet OPENED on the scale's
+     * plan and then flipped to the stale one the moment any other control was
+     * touched, with the weight row still crediting the weigh-ins underneath
+     * it. Age is the control used here because it is the one least related to
+     * weight on the sheet — changing it and changing it straight back has to
+     * leave the proposal exactly where it started. */
+    const slip = await sotPage(150);
+    const whoOf = (pg) => pg.evaluate(() =>
+      ((document.getElementById('mtWho') || {}).textContent || '').replace(/\s+/g, ' ').trim());
+    const openedOn = await planBoxes(slip);
+    const whoOpened = await whoOf(slip);
+    /* The editor is folded away while there is a plan to show, so the boxes
+       are reached the way a thumb reaches them: by pressing Edit. */
+    await slip.click('[data-mtedit]');
+    await slip.waitForTimeout(200);
+    await slip.fill('#mtAge', '44');
+    await slip.waitForTimeout(300);
+    await slip.fill('#mtAge', '43');
+    await slip.waitForTimeout(300);
+    const settledOn = await planBoxes(slip);
+    const whoSettled = await whoOf(slip);
+    t.ok('touching another control does not swap the scale weight for the stale one',
+      whoSettled.indexOf('150') >= 0 && whoSettled.indexOf('205') < 0,
+      'who: "' + whoOpened + '" -> "' + whoSettled + '"');
+    t.ok('so the plan it proposes is still the plan it opened on',
+      openedOn.join() === settledOn.join(), openedOn.join() + ' -> ' + settledOn.join());
+    await slip.context().close();
 
     /* ---- the commit button rides the bar, not the header -----------------
      * The one control that commits a basket used to sit in .sheet-top, the
@@ -2104,6 +2141,31 @@ module.exports = {
      *
      * Now one box sits on the resting screen, the four bands narrow, and
      * anything else the query finds is appended underneath. */
+    /* ---- an unplanned day offers whole servings, never half ones ----------
+     * With targets of 0/0/0 every share is 0 and D falls to its floor, which
+     * leaves the fit nothing to weigh but the overshoot term — and that is
+     * smallest at the smallest portion it is allowed to try. So every ranked
+     * row came back at ×½: the picker offered half a serving of everything
+     * and a tap logged half a serving nobody had asked for, on the one kind
+     * of day the app has already promised not to invent numbers on. */
+    const noPlan = await freshBare();
+    await noPlan.click('.tab[data-view="macros"]');
+    await noPlan.waitForTimeout(250);
+    await (await noPlan.$$('.mslot-add'))[0].click();
+    await noPlan.waitForTimeout(500);
+    await noPlan.fill('#mpFind', 'chicken');
+    await noPlan.waitForTimeout(400);
+    const unplannedRows = await noPlan.evaluate(() =>
+      [...document.querySelectorAll('.mpick-row[data-mpx]')].map((r) => ({
+        x: Number(r.dataset.mpx),
+        t: r.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) })));
+    t.ok('a day with no plan still has rows to offer',
+      unplannedRows.length > 0, JSON.stringify(unplannedRows.slice(0, 3)));
+    t.ok('and every one of them is a whole serving, not a half',
+      unplannedRows.every((r) => r.x === 1),
+      JSON.stringify(unplannedRows.filter((r) => r.x !== 1).slice(0, 5)));
+    await noPlan.context().close();
+
     const findPg = await t.fresh({ viewport: { width: 412, height: 915 } });
     await findPg.click('.tab[data-view="macros"]');
     await findPg.waitForTimeout(250);
