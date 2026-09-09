@@ -3354,9 +3354,31 @@
     var out = { p: 0, f: 0, c: 0, kcal: 0 };
     var sumW = 0;
     slots = slots || mReadSlots();
-    slots.list.forEach(function (s) { sumW += mSlotW(s); });
+    var vk = mViewKey();
+    /* A SKIPPED meal assumes nothing, and is not in the denominator either.
+     *
+       This counted every meal with no food on it as one still to come, which
+       is exactly what a skipped meal is not: skipping says the food is not
+       coming and hands the share to the rest, which is the whole point of the
+       gesture. So a day with four of six meals skipped had roughly half the
+       day's target quietly added to the delta — Blake's Monday read
+       "1802 / 1745" beside "+930", the bar and the number on the same row
+       disagreeing by 873 kcal of food he had already said he was not eating.
+       Fibre and sodium were right throughout, because they are a different
+       code path and never asked about assumptions.
+     *
+       The rule is copied from mMealShare on purpose, down to the clause about
+       a skipped meal that somehow has food on it. Two definitions of a share
+       is how this file has been bitten before; the comment there says a share
+       still dividing by a skipped meal calls a breakfast "over" when Fill had
+       deliberately made it bigger. This is the same error one level up. */
+    var counts = function (s) {
+      return !(mSkipped(vk, s.k) && !(day[s.k] || []).length);
+    };
+    slots.list.forEach(function (s) { if (counts(s)) sumW += mSlotW(s); });
     if (!sumW) return out;
     slots.list.forEach(function (s) {
+      if (!counts(s)) return;
       if ((day[s.k] || []).length) return;
       var fr = mSlotW(s) / sumW;
       ['p', 'f', 'c'].forEach(function (m) { out[m] += targets[m] * fr; });

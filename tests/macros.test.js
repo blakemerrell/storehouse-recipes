@@ -1799,6 +1799,77 @@ module.exports = {
       JSON.stringify(eatenPortion));
     await wakePg.context().close();
 
+    /* ---- a skipped meal is not still coming -----------------------------
+     * From Blake's screenshots: the bar read "1802 / 1745" and the number on
+     * the same row read "+930". Both cannot be true. The meal cards summed to
+     * 1802 against 1745, so the bar was right and the delta was wrong — by
+     * 873 kcal, which is almost exactly half the day.
+     *
+     * The delta is `on the day + ASSUMED - target`, and mAssumed counted
+     * every meal with no food on it as one still to come. Four of his six
+     * were SKIPPED, which is the opposite claim: skipping says the food is
+     * not coming and hands the share to the rest. So half the day's target
+     * was being added back as food he had already said he was not eating.
+     *
+     * Asserted as the invariant rather than against his numbers: once no meal
+     * is both empty and expected, there is nothing left to assume, so the
+     * delta IS got minus target. */
+    const skipPg2 = await t.fresh();
+    await skipPg2.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        l: [{ id: 'f:egg_white', x: 1.5, eaten: 1 }, { id: 'f:cheddar', x: 0.5, eaten: 1 }],
+        d: [{ id: 'f:cooked_beef', x: 2, eaten: 1 }, { id: 'f:potato', x: 1.5, eaten: 1 }] } }));
+    });
+    await skipPg2.reload();
+    await skipPg2.waitForTimeout(400);
+    await skipPg2.click('.tab[data-view="macros"]');
+    await skipPg2.waitForTimeout(300);
+    const deltaRows = () => skipPg2.evaluate(() =>
+      [...document.querySelectorAll('.mbrow[data-macro]')].map((r) => {
+        const num = (r.querySelector('.mb-num') || {}).textContent || '';
+        const m = /(-?[\d,]+)\s*\/\s*([\d,]+)/.exec(num.replace(/\s+/g, ' '));
+        /* The minus is already in the string — parsing it AND multiplying by
+           -1 turned every negative delta positive, which is how this first
+           reported 612 against an expected -612. */
+        const shown = Number(String((r.querySelector('.mb-d') || {}).textContent || '')
+          .replace(/[^\-\d]/g, '')) || 0;
+        return m ? { k: r.dataset.macro, got: Number(m[1].replace(/,/g, '')),
+          target: Number(m[2].replace(/,/g, '')), shown: shown } : null;
+      }).filter(Boolean));
+
+    /* With empty meals still on the day the delta SHOULD differ from
+       got − target — that is what the assumption is for, and asserting
+       otherwise here would pass with the assumption deleted entirely. */
+    const emptyDelta = await deltaRows();
+    t.ok('an empty meal is still expected, so the delta is not just what is on the day',
+      emptyDelta.length === 4 && emptyDelta.some((r) => r.shown !== r.got - r.target),
+      JSON.stringify(emptyDelta));
+
+    /* Now skip everything that is still empty. */
+    await skipPg2.evaluate(async () => {
+      for (let i = 0; i < 8; i++) {
+        const b = [...document.querySelectorAll('#macroSlots [data-mskip]')]
+          .find((x) => !/undo/i.test(x.textContent));
+        if (!b) break;
+        b.click();
+        await new Promise((r) => setTimeout(r, 180));
+      }
+    });
+    await skipPg2.waitForTimeout(500);
+    const skipDelta = await deltaRows();
+    t.ok('and once it is skipped it is not expected any more',
+      skipDelta.length === 4 &&
+      skipDelta.every((r) => Math.abs(r.shown - (r.got - r.target)) <= 1),
+      JSON.stringify(skipDelta));
+    /* The bar and the number beside it are one reading of one day. */
+    t.ok('so the bar and the number on its own row agree',
+      skipDelta.every((r) => (r.got > r.target) === (r.shown > 0) || r.got === r.target),
+      JSON.stringify(skipDelta));
+    await skipPg2.context().close();
+
     /* ---- adding does not throw the list back to the top ------------------
      * The basket's remove button used to carry `data-mpick` — the same
      * attribute the list row carries. After an add there were two elements
