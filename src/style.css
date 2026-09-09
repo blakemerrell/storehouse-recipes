@@ -1048,6 +1048,31 @@ select { max-width: 280px; }
 /* The chip that is on keeps its emoji legible: white-on-ink washes an emoji
    out at this size, and the emoji IS the label. */
 .mp-shelf.on i { filter: none; }
+/* The camera, inside the field. Absolute rather than a flex sibling: the
+   narrow rule gives .txt a 100% flex-basis, so a sibling button drops onto its
+   own row on every phone and costs 35px of a header that has to earn each one.
+   The input keeps its right-hand padding clear of it. */
+.mp-find { position: relative; }
+.mp-find .txt { padding-right: 44px; }
+.mp-cam {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0;
+}
+.mp-cam svg { width: 19px; height: 19px; }
+.mp-back {
+  background: none; border: 0; font-family: var(--sans); font-size: 12.5px;
+  color: var(--ochre-text); padding: 6px 0; cursor: pointer; font-weight: 600;
+}
+/* The lens rides the band divider. `mt-div` is uppercase small caps for a
+   heading; these are controls, so they undo that rather than inherit it. */
+.mt-div-x { display: flex; align-items: center; gap: 8px; }
+.mp-lens { margin-left: auto; display: flex; gap: 5px; text-transform: none; letter-spacing: 0; }
+.mp-lens select {
+  font-family: var(--sans); font-size: 11px; padding: 3px 4px; max-width: 116px;
+  border: 1px solid var(--line-soft); border-radius: 4px;
+  background: var(--paper-soft); color: var(--muted-2);
+}
 .mp-ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
 .mp-way {
   display: flex; flex-direction: column; align-items: center; gap: 3px;

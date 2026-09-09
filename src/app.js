@@ -4343,6 +4343,50 @@
      than no chip: it looks like the app has nothing, when what it has is one
      oil. Counted rather than assumed, because the pool moves — the
      storehouse-only pool and the shop-anywhere pool are different books. */
+  /* Which recipes, and in what order. Two selects, on the band divider.
+   *
+     The section vocabulary is the one the Recipes tab speaks, and it answers
+     a different question from the shelf rail: the rail is macros, this is
+     sections and books. "On the family's plan" has no chip equivalent at all
+     and would simply have been lost. */
+  function mpLensHTML() {
+    var fam = mFamilyIds(mViewKey());
+    return '<span class="mp-lens">' +
+      '<select id="mpSec" aria-label="Which recipes">' +
+        '<option value="meal"' + (S.mpSec === 'meal' ? ' selected' : '') + '>For this meal</option>' +
+        (fam.length ? '<option value="family"' + (S.mpSec === 'family' ? ' selected' : '') +
+          '>On the family\u2019s plan (' + fam.length + ')</option>' : '') +
+        '<option value="all"' + (S.mpSec === 'all' ? ' selected' : '') + '>Every recipe</option>' +
+        /* Restored after being cut for the shelf rail, which turned out not to
+           do this job. A macro chip narrows to things that are MOSTLY that
+           macro and then ranks them by fit — and for a main meal a dish fits
+           better than a spoonful, so pressing 🥩 gives ten recipes and one
+           tin of tuna. That is the right answer to "what protein should I
+           eat" and the wrong answer to "let me see the plain foods", which is
+           a question about kind, not macro. The rail cannot ask it: it is the
+           same axis as "Every recipe", which is why it belongs here. */
+        '<option value="foods"' + (S.mpSec === 'foods' ? ' selected' : '') + '>Single foods</option>' +
+        (function () {
+          var out = '', bk = 0;
+          mAllSections().forEach(function (sec) {
+            if (sec.book !== bk) {
+              out += (bk ? '</optgroup>' : '') + '<optgroup label="' +
+                esc(sec.book === 3 ? 'Ours' : BOOKS[sec.book].name) + '">';
+              bk = sec.book;
+            }
+            out += '<option value="' + esc(sec.key) + '"' + (S.mpSec === sec.key ? ' selected' : '') + '>' +
+              esc(sec.name) + '</option>';
+          });
+          return out + (bk ? '</optgroup>' : '');
+        })() +
+      '</select>' +
+      '<select id="mpSort" aria-label="Order">' +
+        '<option value="fit"' + (S.mpSort === 'fit' ? ' selected' : '') + '>Best fit</option>' +
+        '<option value="protein"' + (S.mpSort === 'protein' ? ' selected' : '') + '>Most protein</option>' +
+        '<option value="healthy"' + (S.mpSort === 'healthy' ? ' selected' : '') + '>Nutrition score</option>' +
+      '</select></span>';
+  }
+
   var MSHELF_MIN = 3;
   function mpShelvesHTML() {
     if (!S.macroPick) return '';
@@ -4378,6 +4422,32 @@
     if (!mpShelfOK(r)) return false;
     if (!qs) return true;
     return r.food ? r.name.toLowerCase().indexOf(qs) >= 0 : !!matchRank(r, qs);
+  }
+
+  /* The thing you actually named, before anything that merely mentions it.
+   *
+     Ranked on fit alone a spoonful loses to every dinner that lists honey
+     among its ingredients, so the row the search was FOR sinks below a
+     screenful of recipes. The old Look up screen had this rule and it went
+     out with the screen; the bands that replaced it rank by fit, which is the
+     right question when you are browsing and the wrong one the moment you
+     have typed a word. A search is not a browse: the word is the whole of the
+     question. */
+  function mpNamedHTML(shown) {
+    var q = mpQ();
+    if (!q || !S.macroPick) return '';
+    var rows = [];
+    MFOODS.forEach(function (r) {
+      if (rows.length >= 6 || shown[r.id]) return;
+      if (!mpShelfOK(r)) return;
+      if (r.name.toLowerCase().indexOf(q) < 0) return;
+      rows.push(r);
+    });
+    if (!rows.length) return '';
+    rows.forEach(function (r) { shown[r.id] = 1; });
+    return '<div class="mt-div">Foods</div>' + rows.map(function (r) {
+      return mpRowHTML(r, 1);
+    }).join('');
   }
 
   function mpPinsHTML(shown) {
@@ -4445,24 +4515,117 @@
     mGapFresh();
     if (!S.macroPick) return '';
     var targets = mDayTargets(mViewKey());
-    if (!targets.p && !targets.f && !targets.c) return '';
     var slot = null;
     mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
     if (!slot) return '';
+    /* With no plan there is no fit to rank by, but there is still a whole
+       book and a whole food table, and logging what you ate cannot wait on
+       making a plan. This band used to return '' here and the "Single foods"
+       lens was the only other way in — so when that lens went to the shelf
+       rail, an unplanned day lost its last door and the picker opened on
+       nothing at all. It offers the pool in book order instead, and says so
+       rather than claiming a fit it cannot compute. */
+    var planned = !!(targets.p || targets.f || targets.c);
     /* The slot OBJECT, not its key. mSlotSecs reads slot.t, and a string has
        no .t — so it fell through to MEAL_SECS.s and every meal, breakfast
        included, was ranked against the snack sections. Nothing threw; the
        band just quietly offered the wrong pool. */
-    var pool = mMealPool(slot, mWideOpen(S.macroPick.slot));
+    /* The lens decides the pool; the rail and the box narrow it afterwards.
+       "For this meal" is the meal's own sections, which is what this band has
+       always meant; anything else widens or names a section outright. */
+    var pool;
+    if (S.mpSec === 'foods') {
+      /* Every food with macros on it, condiments included. The ranked bands
+         gate on `eat || side` — nobody wants a spoon of oil OFFERED as a
+         snack — but this lens is somebody going to look through the shelf,
+         and a tablespoon of oil is a real thing to have eaten and to log.
+         They sort under the foods rather than out of the list: a thing that
+         goes ON food is not the answer to "what shall I eat", which is the
+         same rule the combo's rungs follow. */
+      pool = [];
+      var extF = mExtOk();
+      MFOODS.forEach(function (r) {
+        if (r.ext && !extF) return;
+        if (!r.macro || !(r.macro.kcal > 0 || r.macro.p > 0)) return;
+        pool.push(r);
+      });
+    } else if (S.mpSec === 'meal') {
+      pool = mMealPool(slot, mWideOpen(S.macroPick.slot));
+    } else {
+      var fam = S.mpSec === 'family' ? mFamilyIds(mViewKey()) : null;
+      pool = RECIPES.filter(function (r) {
+        if (fam) return fam.indexOf(r.id) >= 0;
+        return S.mpSec === 'all' || (r.book + '-' + r.secNum) === S.mpSec;
+      });
+      /* Foods ride along only where they were asked for. Naming a section is
+         naming what you want to look through — answering "Sunday Feasts" with
+         the Sunday Feasts and then the entire food table is answering a
+         question nobody asked. A typed word is different: somebody who types
+         "honey" has already said what they want, and it should reach them
+         from whatever lens they happen to be standing in. */
+      if (mpQ()) {
+        var extOK = mExtOk();
+        MFOODS.forEach(function (r) {
+          if (r.ext && !extOK) return;
+          if (r.eat || r.side) pool.push(r);
+        });
+      }
+    }
     var q = mpQ();
-    var ranked = mRank(pool, mDay(mViewKey()), targets, slot)
-      .filter(function (e) { return e.score !== null && !skip[e.r.id] && mpMatches(e.r, q); })
-      .slice(0, 10);
+    var ranked = planned
+      ? mRank(pool, mDay(mViewKey()), targets, slot)
+        .filter(function (e) { return e.score !== null && !skip[e.r.id] && mpMatches(e.r, q); })
+      : (function () {
+        /* Foods and dishes alternated, not a prefix of the pool. mMealPool
+           puts every recipe before every food, so a plain slice of ten was
+           ten recipes and the 🥩 chip showed no foods at all — the chip is
+           mostly there to reach the foods. Without a plan there is no fit to
+           order by, so the only honest order is "some of each". */
+        var ok = pool.filter(function (r) { return !skip[r.id] && mpMatches(r, q); });
+        var fd = [], rc = [], out = [];
+        ok.forEach(function (r) { (r.food ? fd : rc).push(r); });
+        for (var i = 0; i < Math.max(fd.length, rc.length); i++) {
+          if (fd[i]) out.push({ r: fd[i], x: 1 });
+          if (rc[i]) out.push({ r: rc[i], x: 1 });
+        }
+        return out;
+      })();
+    /* An order is a lens, not a different picker: every row keeps the portion
+       the fit worked out, whatever order they arrive in. */
+    if (S.mpSort === 'protein') {
+      ranked.sort(function (a, b) {
+        return ((b.r.macro && b.r.macro.p) || 0) - ((a.r.macro && a.r.macro.p) || 0);
+      });
+    } else if (S.mpSort === 'healthy') {
+      ranked.sort(function (a, b) { return (b.r.score || 0) - (a.r.score || 0); });
+    }
+    /* Ten while the lens is where it opens, forty once it has been moved.
+     *
+       Ten is the right length for "here are the best fits" — a shortlist you
+       read rather than a catalogue you scroll. But choosing a lens is asking
+       a different question: "Single foods" or "Sunday Feasts" is somebody
+       going to look through a shelf, and answering that with the top ten is
+       answering the shortlist question again. The old Recipes screen showed
+       forty for exactly this reason and it went out with the mode. */
+    if (S.mpSec === 'foods') {
+      /* Stable: the fit order is kept inside each group, and the condiments
+         simply move below the foods. */
+      var eats = [], cond = [];
+      ranked.forEach(function (e) { ((e.r.eat || e.r.side) ? eats : cond).push(e); });
+      ranked = eats.concat(cond);
+    }
+    ranked = ranked.slice(0, S.mpSec === 'meal' ? 10 : 40);
     if (!ranked.length) return '';
     /* Writes into the shared set, which it never used to — safe only while it
        was composed last, and it is not last any more. */
     ranked.forEach(function (e) { skip[e.r.id] = 1; });
-    return '<div class="mt-div">Fits best</div>' + ranked.map(function (e) {
+    /* The lens and the order ride the divider rather than the pinned header:
+       a header has to earn every pixel and these are asked for rarely, but
+       they are asked for — "show me the Sunday Feasts" is a real thing to
+       want and no macro chip can say it. */
+    return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' : 'On the shelf') +
+      mpLensHTML() + '</div>' +
+      ranked.map(function (e) {
       return mpRowHTML(e.r, e.x);
     }).join('');
   }
@@ -4679,51 +4842,10 @@
         head + mMealPickHTML() + mBasketListHTML() + inner + mBasketFootHTML() + '</div></div>';
     };
 
-    if (S.mpMode === 'home') {
-      /* What is left of the meal, said once at the top. It is the number you
-         are shopping against, and it used to be readable only by closing the
-         sheet you opened to go shopping. */
-      var rem = mMealLeft();
-      /* One set, threaded through the bands in the order they are drawn, so
-         a dish that is pinned AND recent AND the best fit appears once —
-         under the first heading that has a claim on it. */
-      var shown = {};
-      var pins = mpPinsHTML(shown);
-      var recent = mpRecentHTML(shown);
-      var closers = mpComboHTML(shown);
-      var fits = mpFitsHTML(shown);
-      var rest2 = mpElseHTML(shown);
-      var body = pins + recent + closers + fits + rest2;
-      /* Home had no empty state at all: every band returns '' when it has
-         nothing, so a query that matches nothing rendered the gap panel and
-         the type-it-in row with a silence between them. */
-      if (!body) {
-        body = '<div class="mslot-empty">' + (mpQ()
-          ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
-          : 'Nothing to offer for this meal yet.') + '</div>';
-      }
-      return wrap(
-        (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
-        /* One box, in the sheet you were already looking at. Its results do
-           not replace what is under it — the bands narrow and anything else
-           the query finds is appended, so the thinking the sheet did for you
-           survives being searched. */
-        '<div class="mp-controls">' +
-          '<input type="search" class="txt" id="mpFind" ' +
-            'placeholder="Search, barcode, or recipe no.&hellip;" ' +
-            'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
-        '</div>' +
-        mpShelvesHTML() +
-        '<div id="mpTop">' + mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
-          { k: S.macroPick.slot, w: S.macroPick.w }) + '</div>' +
-        mpWaysHTML(true) +
-        '<div id="mpList">' + body + '</div>' +
-        '<button class="mpick-row mpick-new" data-mpnew="1">' +
-          '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
-    }
-
     if (S.mpMode === 'scan') {
-      return wrap(mpWaysHTML() +
+      /* One way back, because the three tiles that used to offer it are gone.
+         It says where it goes rather than naming a mode nobody chose. */
+      return wrap('<button class="mp-back" data-mpmode="home">&lsaquo; Back to the list</button>' +
         '<div id="scanRoot"></div>' +
         '<div class="mp-controls">' +
           '<input type="search" class="txt" id="nfFind" inputmode="numeric" ' +
@@ -4735,53 +4857,80 @@
           '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
     }
 
-    if (S.mpMode === 'look') {
-      return wrap(mpWaysHTML() +
-        '<div class="mp-controls">' +
-          '<input type="search" class="txt" id="mpLookIn" placeholder="Search a food or a dish&hellip;" ' +
+    /* 'look' and 'recipes' are gone. Each was a whole screen that replaced
+       the ranked bands with a flat list, and each had its own search box:
+       three boxes, three states, and typing in any of them threw away the
+       thinking the sheet had done. One box on the resting screen does both
+       jobs now, and the section lens that only 'recipes' could offer rides
+       the Fits best divider.
+     *
+       They fall through to home rather than being errors, because S.mpMode
+       can still hold either — a phone that reloads mid-session, or an old
+       value read back from anywhere. */
+    /* Everything that is not the camera. 'look' and 'recipes' used to be two
+       more branches here and land in the same place now, which is why this is
+       a fall-through rather than a test for 'home': S.mpMode can still hold
+       either — a phone that reloads mid-session, an old value read back from
+       anywhere — and neither should be an error. */
+    {
+      /* What is left of the meal, said once at the top. It is the number you
+         are shopping against, and it used to be readable only by closing the
+         sheet you opened to go shopping. */
+      var rem = mMealLeft();
+      /* One set, threaded through the bands in the order they are drawn, so
+         a dish that is pinned AND recent AND the best fit appears once —
+         under the first heading that has a claim on it. */
+      var shown = {};
+      var named = mpNamedHTML(shown);
+      var pins = mpPinsHTML(shown);
+      var recent = mpRecentHTML(shown);
+      var closers = mpComboHTML(shown);
+      var fits = mpFitsHTML(shown);
+      var rest2 = mpElseHTML(shown);
+      var body = named + pins + recent + closers + fits + rest2;
+      /* The answer to a typed number or barcode belongs IN the list, at the
+         top of it: it is a result, not a chrome. It sat in a sibling div so
+         the keystroke path could repaint it separately, which cost a special
+         case in refreshMacroPicker and put it outside the element every other
+         row lives in. Rebuilt with the list now, for free. */
+      var qTop = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
+        { k: S.macroPick.slot, w: S.macroPick.w });
+      /* Home had no empty state at all: every band returns '' when it has
+         nothing, so a query that matches nothing rendered the gap panel and
+         the type-it-in row with a silence between them. */
+      /* Judged on the BANDS, not on qTop: a barcode with nothing behind it
+         draws a band and no rows, and "nothing matches" is still the honest
+         thing to say under it. */
+      if (!body) {
+        body = '<div class="mslot-empty">' + (mpQ()
+          ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
+          : 'Nothing to offer for this meal yet.') + '</div>';
+      }
+      body = qTop + body;
+      return wrap(
+        (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
+        /* One box, in the sheet you were already looking at. Its results do
+           not replace what is under it — the bands narrow and anything else
+           the query finds is appended, so the thinking the sheet did for you
+           survives being searched. */
+        /* The camera sits INSIDE the field rather than beside it. As a flex
+           sibling it drops onto its own row on every phone — the narrow rule
+           gives .txt flex-basis 100% — and costs another 35px of a header
+           that has to earn every pixel. */
+        '<div class="mp-controls mp-find">' +
+          '<input type="search" class="txt" id="mpFind" ' +
+            'placeholder="Search, barcode, or recipe no.&hellip;" ' +
             'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
+          (navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+            ? '<button class="mp-cam" data-mpmode="scan" aria-label="Scan a barcode">' +
+              mpIcon('scan') + '</button>' : '') +
         '</div>' +
-        '<div id="mpLookList">' + mpLookHTML() + '</div>' +
-        '<div id="nfResults"></div>' +
+        mpShelvesHTML() +
+        '<div id="mpList">' + body + '</div>' +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +
           '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
     }
 
-    var fam = mFamilyIds(mViewKey());
-    return wrap(mpWaysHTML() +
-        '<div class="mp-controls">' +
-          '<input type="search" class="txt" id="mpSearch" placeholder="Search a dish or ingredient&hellip;" ' +
-            'aria-label="Search" value="' + esc(S.mpQuery) + '">' +
-          /* The same section vocabulary the Recipes tab speaks, so filling
-             Dinner can peek at just the Sunday Feasts without leaving the
-             fit-ranked portions behind. */
-          '<select id="mpSec" aria-label="Which recipes">' +
-            '<option value="meal"' + (S.mpSec === 'meal' ? ' selected' : '') + '>For this meal</option>' +
-            (fam.length ? '<option value="family"' + (S.mpSec === 'family' ? ' selected' : '') +
-              '>On the family\u2019s plan (' + fam.length + ')</option>' : '') +
-            '<option value="all"' + (S.mpSec === 'all' ? ' selected' : '') + '>Every recipe</option>' +
-            '<option value="foods"' + (S.mpSec === 'foods' ? ' selected' : '') + '>Single foods</option>' +
-            (function () {
-              var out = '', bk = 0;
-              mAllSections().forEach(function (sec) {
-                if (sec.book !== bk) {
-                  out += (bk ? '</optgroup>' : '') + '<optgroup label="' +
-                    esc(sec.book === 3 ? 'Ours' : BOOKS[sec.book].name) + '">';
-                  bk = sec.book;
-                }
-                out += '<option value="' + esc(sec.key) + '"' + (S.mpSec === sec.key ? ' selected' : '') + '>' +
-                  esc(sec.name) + '</option>';
-              });
-              return out + (bk ? '</optgroup>' : '');
-            })() +
-          '</select>' +
-          '<select id="mpSort" aria-label="Order">' +
-            '<option value="fit"' + (S.mpSort === 'fit' ? ' selected' : '') + '>Best fit</option>' +
-            '<option value="protein"' + (S.mpSort === 'protein' ? ' selected' : '') + '>Most protein</option>' +
-            '<option value="healthy"' + (S.mpSort === 'healthy' ? ' selected' : '') + '>Healthiest</option>' +
-          '</select>' +
-        '</div>' +
-        '<div id="mpList">' + mpListHTML() + '</div>');
   }
 
   /* What this meal still has room for. mShares works the day's remainder into
@@ -5284,19 +5433,15 @@
     if (!el) return;
     if (S.mpMode !== 'home') { el.innerHTML = mpListHTML(); return; }
     var shown = {};
-    var body = mpPinsHTML(shown) + mpRecentHTML(shown) + mpComboHTML(shown) +
-      mpFitsHTML(shown) + mpElseHTML(shown);
-    el.innerHTML = body || '<div class="mslot-empty">' + (mpQ()
-      ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
-      : 'Nothing to offer for this meal yet.') + '</div>';
-    /* The band above the list answers a different question — a bare number is
-       a recipe number and eight digits is a barcode — and it lives outside
-       #mpList, so it is repainted by hand. */
-    var top = $('mpTop');
-    if (top) {
-      top.innerHTML = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
-        { k: S.macroPick.slot, w: S.macroPick.w });
+    var body = mpNamedHTML(shown) + mpPinsHTML(shown) + mpRecentHTML(shown) +
+      mpComboHTML(shown) + mpFitsHTML(shown) + mpElseHTML(shown);
+    if (!body) {
+      body = '<div class="mslot-empty">' + (mpQ()
+        ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
+        : 'Nothing to offer for this meal yet.') + '</div>';
     }
+    el.innerHTML = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
+      { k: S.macroPick.slot, w: S.macroPick.w }) + body;
   }
 
   /* Which plan the four buttons describe. Read by the sheet and by the tests,
@@ -11334,6 +11479,11 @@
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
       if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
       if (S.newFood && e.target.id === 'nfFind') { /* typed; the buttons ask */ }
+      if (S.macroPick && (e.target.id === 'mpSec' || e.target.id === 'mpSort')) {
+        if (e.target.id === 'mpSec') S.mpSec = e.target.value;
+        else S.mpSort = e.target.value;
+        refreshMacroPicker();
+      }
       if (S.macroPick && e.target.id === 'mpFind') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();

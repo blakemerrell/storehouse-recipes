@@ -16,6 +16,34 @@ async function openPlan(pg) {
   await pg.click('#macroTargBtn');
 }
 
+  /* The picker's resting list. It used to be reached by pressing one of three
+     tiles — Scan / Look up / Recipes — each of which drew a whole different
+     screen. Two of those are gone: one box on the resting screen does both
+     jobs, so "go to the list" is now "make sure no chip is filtering it".
+     Kept as a helper rather than deleted from twenty-four call sites, because
+     every one of them means "get me to the list" and that is worth still
+     being able to say. */
+  /* Puts a RECIPE on the plate, not whatever row is first. The picker's list
+     holds single foods beside dishes now, and a food plate is opened by a
+     different attribute and has no entry in window.RECIPES — so tests that go
+     on to read the recipe behind the plate have to ask for one. */
+  async function pickRecipe(pg) {
+    await pg.evaluate(() => {
+      const r = [...document.querySelectorAll('.mpick-row[data-mpx]')]
+        .find((x) => !/^f:/.test(x.dataset.mpick));
+      if (r) r.click();
+    });
+    await pg.waitForTimeout(200);
+  }
+
+  async function pickerList(pg) {
+    await pg.evaluate(() => {
+      const on = document.querySelector('.mp-shelf.on[data-mpshelf]');
+      if (on && on.dataset.mpshelf) on.click();
+    });
+    await pg.waitForTimeout(200);
+  }
+
 module.exports = {
   name: 'Macros',
   async run(t) {
@@ -327,24 +355,36 @@ module.exports = {
        food table those recipes are costed from was already in the browser
        with no door on it. */
     await p.click('[data-mslot="l"]');
-    await p.click('[data-mpmode="recipes"]');
+    await pickerList(p);
     await p.waitForTimeout(250);
+    /* The lens, not the rail. A macro chip narrows to things that are mostly
+       that macro and then ranks them by FIT, so on a main meal a dish beats a
+       spoonful and 🥩 gives ten recipes and one tin of tuna — the right answer
+       to "what protein should I eat" and the wrong one to "show me the plain
+       foods". That second question is about KIND, and the lens is where kind
+       lives, beside "Every recipe".
+     *
+       I cut this option when the rail shipped, assuming the chips replaced
+       it. They do not, and the failure looked like flakiness for three
+       attempts before the app was asked what it was actually showing. */
     await p.selectOption('#mpSec', 'foods');
-    await p.waitForTimeout(250);
+    await p.waitForTimeout(300);
     t.ok('the plain foods have a lens of their own',
       await p.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
+        const rows = [...document.querySelectorAll('#mpList .mpick-row[data-mpick]')];
         return rows.length >= 20 && rows.every((r) => r.dataset.mpick.indexOf('f:') === 0);
-      }), await p.evaluate(() => document.querySelectorAll('.mpick-row').length + ' rows'));
+      }), await p.evaluate(() =>
+        document.querySelectorAll('#mpList .mpick-row').length + ' rows'))
     t.ok('and each is offered in a unit a person would use',
       await p.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
+        const rows = [...document.querySelectorAll('#mpList .mpick-row[data-mpick]')];
         const txt = rows.map((r) => r.textContent).join(' ');
         // a cup of milk and a spoon of honey, not a spoon of milk or a cup of butter
-        return /cup|tbsp|each|oz|can/.test(txt);
+        return rows.length > 0 && /cup|tbsp|each|oz|can/.test(txt);
       }));
     await p.selectOption('#mpSec', 'meal');
-    await p.fill('#mpSearch', 'honey');
+    await p.waitForTimeout(250);
+    await p.fill('#mpFind', 'honey');
     await p.waitForTimeout(250);
     t.ok('and a search reaches them from any lens, since typing it says enough',
       await p.evaluate(() => {
@@ -421,27 +461,37 @@ module.exports = {
      * half, a spoon of honey — used to cost one full trip through this sheet
      * per part, because picking anything closed it. */
     await p.click('[data-mslot="s"]');
-    await p.click('[data-mpmode="recipes"]');
+    await pickerList(p);
     await p.waitForTimeout(250);
+    /* Seen in the BASKET, not necessarily still in the list. A picked row can
+       legitimately leave: the closers band is computed net of the basket, so
+       the food that closed the meal stops being a closer the moment it goes
+       in. The claim is that the sheet stays open and you can see what you
+       took — which the basket panel answers whether or not the row survived
+       its band. */
     t.ok('picking does not close the sheet, it fills a basket',
       await p.evaluate(async () => {
         const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
         rows[0].click();
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, 150));
         return !!document.querySelector('.sheet') &&
-          document.querySelectorAll('.mpick-wrap.in').length === 1 &&
+          document.querySelectorAll('.mpb-out').length === 1 &&
           !!document.querySelector('[data-mpdone]');
       }));
     // each pick redraws the list, so every press has to find its row afresh
+    /* Picked by taking whatever row is NOT yet in the basket, never by index:
+       every pick re-ranks the bands, so the row that was third is not third
+       afterwards — and a row that has entered the basket can leave the list
+       entirely when the band it sat in is computed net of the basket. */
     t.ok('and several go in before anything is committed',
       await p.evaluate(async () => {
-        const tap = async (n) => {
-          document.querySelectorAll('.mpick-row[data-mpick]')[n].click();
-          await new Promise((r) => setTimeout(r, 120));
-        };
-        await tap(2);
-        await tap(4);
-        return document.querySelectorAll('.mpick-wrap.in').length === 3 &&
+        for (let i = 0; i < 2; i++) {
+          const row = [...document.querySelectorAll('.mpick-wrap:not(.in) .mpick-row[data-mpick]')][0];
+          if (!row) break;
+          row.click();
+          await new Promise((r) => setTimeout(r, 160));
+        }
+        return document.querySelectorAll('.mpb-out').length === 3 &&
           /3/.test(document.querySelector('[data-mpdone]').textContent);
       }));
     // and the day has not been touched yet — nothing lands until the ✓
@@ -457,11 +507,13 @@ module.exports = {
         return !!f && /\d+ kcal/.test(f.textContent) && /\d+P/.test(f.textContent);
       }), await p.evaluate(() => (document.querySelector('.mp-foot') || {}).textContent));
     // pressed again, a row comes back out rather than doubling up
+    /* Out through the basket's own control, which is the one that is always
+       on screen: the list row it came from may have left with its band. */
     t.ok('a second press takes it back out',
       await p.evaluate(async () => {
-        document.querySelectorAll('.mpick-row[data-mpick]')[2].click();
-        await new Promise((r) => setTimeout(r, 120));
-        return document.querySelectorAll('.mpick-wrap.in').length === 2;
+        document.querySelector('.mpb-out').click();
+        await new Promise((r) => setTimeout(r, 160));
+        return document.querySelectorAll('.mpb-out').length === 2;
       }));
     /* A side trip to name something must not throw away what is already
        collected. The form draws over the picker rather than replacing it. */
@@ -472,11 +524,13 @@ module.exports = {
     await p.click('[data-nf="cancel"]');
     await p.waitForTimeout(250);
     t.ok('and backing out of it leaves the basket exactly as it was',
-      await p.evaluate(() => document.querySelectorAll('.mpick-wrap.in').length === 2 &&
+      await p.evaluate(() => document.querySelectorAll('.mpb-out').length === 2 &&
         /2/.test((document.querySelector('[data-mpdone]') || {}).textContent || '')));
 
+    /* Read off the basket panel, which lists what is actually in it. The list
+       rows are a view of the pool and a picked one can drop out of its band. */
     const basketWas = await p.evaluate(() =>
-      [...document.querySelectorAll('.mpick-wrap.in .mpick-row')].map((r) => r.dataset.mpick));
+      [...document.querySelectorAll('.mpb-out')].map((r) => r.dataset.mpout));
     await p.click('[data-mpdone]');
     await p.waitForTimeout(300);
     t.ok('and the ✓ lands the whole basket on the meal at once',
@@ -524,7 +578,7 @@ module.exports = {
        has to add up, and a plate you cannot log is a plate that quietly makes
        every number on the screen wrong. */
     await p.click('[data-mslot="d"]');
-    await p.click('[data-mpmode="recipes"]');
+    await pickerList(p);
     await p.waitForTimeout(250);
     t.ok('the picker offers a way to name something it has never heard of',
       await p.evaluate(() => {
@@ -537,11 +591,11 @@ module.exports = {
     /* The three ways in are the sheet's first screen, and each one is one tap
        from + Add. Looking it up beats guessing, and neither host is touched
        until asked — a reader who never opens this box still fetches nothing. */
-    await p.click('[data-mpmode="look"]');
+    await pickerList(p);
     await p.waitForTimeout(200);
     t.ok('Look up is one box, not a mode inside a mode',
-      await p.evaluate(() => !!document.querySelector('#mpLookIn') &&
-        document.querySelectorAll('[data-mpmode]').length === 3));
+      await p.evaluate(() => !!document.querySelector('#mpFind') &&
+        !!document.querySelector('.mp-cam[data-mpmode="scan"]')));
     await p.click('[data-mpmode="scan"]');
     await p.waitForTimeout(200);
     t.ok('and Scan opens the lens with the typed number beside it',
@@ -755,11 +809,16 @@ module.exports = {
 
     // ---- the picker: ranked rows, sane suggestions, protein at the top
     await p.click('[data-mslot="b"]');
-    await p.click('[data-mpmode="recipes"]');
+    await pickerList(p);
     await p.waitForTimeout(200);
     t.ok('the picker sheet opens on the meal', !!(await p.$('#mpList')));
+    /* Recipe rows only. The list is one list now and holds single foods
+       beside dishes, so a lookup in window.RECIPES comes back undefined for
+       "f:tuna" — and these four assertions are about the RECIPE ranking. Food
+       ids carry a prefix; recipe ids are numbers. */
     const sanity = await p.evaluate(() => {
-      const rows = Array.from(document.querySelectorAll('.mpick-row[data-mpx]'));
+      const rows = Array.from(document.querySelectorAll('.mpick-row[data-mpx]'))
+        .filter((r) => !/^f:/.test(r.dataset.mpick));
       const macsOf = (r) => window.RECIPES.find((x) => String(x.id) === r.dataset.mpick).macro;
       const ppk = (r) => { const m = macsOf(r); return m.kcal ? m.p / m.kcal : 0; };
       const mean = (a) => a.reduce((s, x) => s + x, 0) / (a.length || 1);
@@ -773,9 +832,10 @@ module.exports = {
     t.ok('the picker has rows to rank', sanity.n > 5, sanity.n + ' rows');
     t.ok('and every row it can score wears its leaf',
       await p.evaluate(() => Array.from(document.querySelectorAll('.mpick-row[data-mpx]'))
+        .filter((r) => !/^f:/.test(r.dataset.mpick))
         .every((row) => {
           const rec = window.RECIPES.find((x) => String(x.id) === row.dataset.mpick);
-          return rec.score === null || !!row.querySelector('.leaf');
+          return !rec || rec.score === null || !!row.querySelector('.leaf');
         })));
     t.ok('no suggested portion exceeds ×3', sanity.maxX <= 3, '×' + sanity.maxX);
     t.ok('the top of the ranking carries more protein per calorie than the bottom',
@@ -790,13 +850,22 @@ module.exports = {
 
     // ---- add the top suggestion; the footer moves by exactly x times the recipe
     await p.click('[data-mslot="b"]');
-    await p.click('[data-mpmode="recipes"]');
+    await pickerList(p);
     await p.waitForTimeout(200);
+    /* A RECIPE row, deliberately: everything below multiplies the recipe's own
+       macros by the portion, and the list holds single foods beside dishes
+       now, so taking the first row can hand back "f:tuna" and every lookup in
+       window.RECIPES then comes back undefined. */
     const picked = await p.evaluate(() => {
-      const r = document.querySelector('.mpick-row[data-mpx]');
+      const r = [...document.querySelectorAll('.mpick-row[data-mpx]')]
+        .find((x) => !/^f:/.test(x.dataset.mpick));
       return { id: r.dataset.mpick, x: Number(r.dataset.mpx) };
     });
-    await p.click('.mpick-row[data-mpx]');
+    await p.evaluate((id) => {
+      [...document.querySelectorAll('.mpick-row[data-mpx]')]
+        .find((x) => x.dataset.mpick === id).click();
+    }, picked.id);
+    await p.waitForTimeout(200);
     await p.click('[data-mpdone]');
     await p.waitForTimeout(300);
     const shown = async () => {
@@ -1007,11 +1076,11 @@ module.exports = {
     const estName = await p.evaluate(() =>
       window.RECIPES.find((r) => r.est && r.macro && r.macro.p + r.macro.c + r.macro.f > 0).name);
     await p.click('[data-mslot="l"]');
-    await p.click('[data-mpmode="recipes"]');
+    await pickerList(p);
     await p.waitForTimeout(200);
     await p.selectOption('#mpSec', 'all');
     await p.waitForTimeout(150);
-    await p.fill('#mpSearch', estName);
+    await p.fill('#mpFind', estName);
     await p.waitForTimeout(200);
     await p.click('.mpick-row[data-mpick]');
     await p.click('[data-mpdone]');
@@ -1455,12 +1524,16 @@ module.exports = {
 
     // ---- a favorite never ranks worse for being loved, and wears its star
     await q.click('[data-mslot="b"]');
-    await q.click('[data-mpmode="recipes"]');
+    await pickerList(q);
     await q.waitForTimeout(200);
+    /* A recipe from the middle of the ranking. Recipes only, because the line
+       below looks it up in window.RECIPES to star it — the list carries
+       single foods too now, and a food id finds nothing there. */
     const mid = await q.evaluate(() => {
-      const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
-      return { id: rows[Math.min(7, rows.length - 1)].dataset.mpick,
-        at: Math.min(7, rows.length - 1) };
+      const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')]
+        .filter((r) => !/^f:/.test(r.dataset.mpick));
+      const at = Math.min(7, rows.length - 1);
+      return { id: rows[at].dataset.mpick, at: at };
     });
     await q.goBack();
     await q.waitForTimeout(250);
@@ -1470,10 +1543,11 @@ module.exports = {
     }, mid.id);
     await q.waitForTimeout(200);
     await q.click('[data-mslot="b"]');
-    await q.click('[data-mpmode="recipes"]');
+    await pickerList(q);
     await q.waitForTimeout(200);
     const after = await q.evaluate((id) => {
-      const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
+      const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')]
+        .filter((r) => !/^f:/.test(r.dataset.mpick));
       const at = rows.findIndex((r) => r.dataset.mpick === id);
       return { at, starred: at >= 0 && rows[at].textContent.indexOf('★') >= 0 };
     }, mid.id);
@@ -1725,9 +1799,9 @@ module.exports = {
        content ended, measured 438px of empty sheet below it. Harmless while
        it was two lines of grey text. Not harmless once it is the only way to
        commit. */
-    await barPg.click('[data-mpmode="recipes"]');
+    await pickerList(barPg);
     await barPg.waitForTimeout(400);
-    await barPg.fill('#mpSearch', 'zzzzzqqq');
+    await barPg.fill('#mpFind', 'zzzzzqqq');
     await barPg.waitForTimeout(500);
     const shortList = await barPg.evaluate(() => {
       const f = document.querySelector('.mp-foot');
@@ -1945,9 +2019,18 @@ module.exports = {
     /* A word taken from a row the ranking itself chose, so the assertion is
        that the band SURVIVES being searched — never a literal dish, which
        would be pinning today's arithmetic. */
+    /* A word from a RECIPE in the ranked bands, not from whatever row is
+       first: a food that matches by name is hoisted into its own "Foods" band
+       ahead of everything, so a word taken from row one tests the hoist
+       rather than the survival of the ranking. */
     const word = await findPg.evaluate(() => {
-      const n = (document.querySelector('#mpList .mpick-wrap .mp-name') || {}).textContent || '';
-      return (n.split(/[\s,&]+/).find((w) => w.length > 4) || '').toLowerCase();
+      const row = [...document.querySelectorAll('#mpList .mpick-wrap')]
+        .find((w) => {
+          const b = w.querySelector('.mpick-row');
+          return b && !/^f:/.test(b.dataset.mpick);
+        });
+      const n = row ? (row.querySelector('.mp-name') || {}).textContent || '' : '';
+      return (n.split(/[\s,&]+/).find((w2) => w2.length > 4) || '').toLowerCase();
     });
     await findPg.fill('#mpFind', word);
     await findPg.waitForTimeout(450);
@@ -2995,14 +3078,14 @@ module.exports = {
       /Dinner/i.test(await bar.textContent('.sheet-eyebrow')));
 
     // three raw foods onto dinner, through the one box
-    await bar.click('[data-mpmode="look"]');
+    await pickerList(bar);
     await bar.waitForTimeout(200);
     /* Typing a food's name has to show that food. Dozens of recipes list
        honey among their ingredients and every one of them fills a dinner
        better than a spoonful does, so ranked on fit alone the row the search
        was for sinks below a twelve-row box. The word you typed is the whole
        of the question. */
-    await bar.fill('#mpLookIn', 'honey');
+    await bar.fill('#mpFind', 'honey');
     await bar.waitForTimeout(400);
     t.ok('searching a food by name puts the food itself on top',
       await bar.evaluate(() => {
@@ -3011,7 +3094,7 @@ module.exports = {
       }));
 
     for (const q of ['chicken breast', 'honey', 'peanut']) {
-      await bar.fill('#mpLookIn', q);
+      await bar.fill('#mpFind', q);
       await bar.waitForTimeout(400);
       await bar.evaluate(() => {
         const r = [...document.querySelectorAll('.mpick-row[data-mpick]')]
@@ -3517,18 +3600,18 @@ module.exports = {
      * separate state fields. Typing a word into one and switching to the
      * other threw the word away and asked for it again. */
     const oneQ = await comboAt();
-    await oneQ.click('[data-mpmode="look"]');
+    await pickerList(oneQ);
     await oneQ.waitForTimeout(350);
-    await oneQ.fill('#mpLookIn', 'chicken');
+    await oneQ.fill('#mpFind', 'chicken');
     await oneQ.waitForTimeout(500);
     const lookHits = await oneQ.evaluate(() =>
-      document.querySelectorAll('#mpLookList [data-mpick]').length);
+      document.querySelectorAll('#mpList [data-mpick]').length);
 
-    await oneQ.click('[data-mpmode="recipes"]');
+    await pickerList(oneQ);
     await oneQ.waitForTimeout(450);
     t.ok('a word typed in one box is still there in the other',
-      await oneQ.evaluate(() => (document.getElementById('mpSearch') || {}).value === 'chicken'),
-      JSON.stringify(await oneQ.evaluate(() => (document.getElementById('mpSearch') || {}).value)));
+      await oneQ.evaluate(() => (document.getElementById('mpFind') || {}).value === 'chicken'),
+      JSON.stringify(await oneQ.evaluate(() => (document.getElementById('mpFind') || {}).value)));
 
     /* And it is the same word doing the same work, not merely the same
        string sitting in a box: both lists answer to it. */
@@ -3736,7 +3819,7 @@ module.exports = {
     await gapRow.waitForTimeout(300);
     await gapRow.click('.mslot-add[data-mslot="l"]');
     await gapRow.waitForTimeout(450);
-    await gapRow.click('[data-mpmode="recipes"]');
+    await pickerList(gapRow);
     await gapRow.waitForTimeout(500);
 
     /* Every claim is recomputed from the rendered number and the bench's own
@@ -3793,7 +3876,7 @@ module.exports = {
        plate turns warm for busting a gap it is itself the reason for. A row
        in the basket is counted before it is committed, so the same applies.
        Both state what they are; neither is graded. */
-    await gapRow.click('[data-mpmode="home"]').catch(() => {});
+    await pickerList(gapRow);
     await gapRow.waitForTimeout(300);
     const basketBtn = await gapRow.$('[data-mpick]');
     if (basketBtn) { await basketBtn.click(); await gapRow.waitForTimeout(350); }
@@ -3825,7 +3908,7 @@ module.exports = {
      * the page and the contents. Standing over the open book at No. 142, the
      * fastest way in is to type 142 — and it was wired to nothing. */
     const numQ = await comboAt();
-    await numQ.click('[data-mpmode="look"]');
+    await pickerList(numQ);
     await numQ.waitForTimeout(350);
 
     /* The expectation is computed from the data, never written down here: a
@@ -3834,17 +3917,17 @@ module.exports = {
       const r = window.RECIPES.find((x) => x.book !== 3 && Number(x.no || x.id) === 142);
       return r ? r.name : null;
     });
-    await numQ.fill('#mpLookIn', '142');
+    await numQ.fill('#mpFind', '142');
     await numQ.waitForTimeout(500);
     t.ok('typing a recipe number puts that recipe at the top',
       !!want142 && await numQ.evaluate((nm) => {
-        const band = document.querySelector('#mpLookList .mt-div');
-        const first = document.querySelector('#mpLookList .mp-name');
+        const band = document.querySelector('#mpList .mt-div');
+        const first = document.querySelector('#mpList .mp-name');
         return !!band && /Recipe no\. 142/.test(band.textContent) &&
           !!first && first.textContent === nm;
       }, want142),
       want142 + ' — got ' + await numQ.evaluate(() =>
-        (document.querySelector('#mpLookList .mp-name') || {}).textContent));
+        (document.querySelector('#mpList .mp-name') || {}).textContent));
 
     /* The Ours shelf numbers itself from 1 at every boot, so the FIRST
        household recipe collides with printed No. 1 immediately.
@@ -3867,40 +3950,40 @@ module.exports = {
     await numQ.waitForTimeout(250);
     await (await numQ.$$('.mslot-add'))[0].click();
     await numQ.waitForTimeout(300);
-    await numQ.click('[data-mpmode="look"]');
+    await pickerList(numQ);
     await numQ.waitForTimeout(300);
 
     /* window.RECIPES is the BASE array the data file ships (app.js:26 keeps
        the rebuilt list, with Ours folded in, module-scoped) — so the shelf
        has to be confirmed through the interface, by searching for it. */
-    await numQ.fill('#mpLookIn', 'Household Collision');
+    await numQ.fill('#mpFind', 'Household Collision');
     await numQ.waitForTimeout(500);
     const seeded = await numQ.evaluate(() =>
-      [...document.querySelectorAll('#mpLookList .mp-name')]
+      [...document.querySelectorAll('#mpList .mp-name')]
         .some((n) => /Household Collision Test Loaf/.test(n.textContent)));
 
     const printedNo1 = await numQ.evaluate(() => {
       const r = window.RECIPES.find((x) => Number(x.no || x.id) === 1);
       return r ? r.name : null;      // BASE is printed-only, which is the point
     });
-    await numQ.fill('#mpLookIn', '1');
+    await numQ.fill('#mpFind', '1');
     await numQ.waitForTimeout(500);
     t.ok('and it is the printed book\u2019s number, not the Ours shelf\u2019s',
       seeded && !!printedNo1 && await numQ.evaluate((nm) => {
-        const first = document.querySelector('#mpLookList .mp-name');
+        const first = document.querySelector('#mpList .mp-name');
         return !!first && first.textContent === nm;
       }, printedNo1),
       'shelf seeded: ' + seeded + ', printed No.1 is ' + printedNo1 + ', got ' +
       await numQ.evaluate(() =>
-        (document.querySelector('#mpLookList .mp-name') || {}).textContent));
+        (document.querySelector('#mpList .mp-name') || {}).textContent));
 
     /* Eight digits is nobody's recipe number. It is a barcode, and typing one
        is the same request the camera makes. */
-    await numQ.fill('#mpLookIn', '012345678901');
+    await numQ.fill('#mpFind', '012345678901');
     await numQ.waitForTimeout(500);
     t.ok('and eight digits or more is read as a barcode instead',
       await numQ.evaluate(() => {
-        const band = document.querySelector('#mpLookList .mt-div');
+        const band = document.querySelector('#mpList .mt-div');
         const row = document.querySelector('[data-nfcode]');
         return !!band && /Barcode/.test(band.textContent) &&
           !!row && row.dataset.nfcode === '012345678901';
@@ -3908,39 +3991,53 @@ module.exports = {
 
     /* A mistyped digit must not blank the screen. The band is drawn ABOVE
        whatever the list was going to say, never instead of it. */
-    await numQ.fill('#mpLookIn', '999');
+    await numQ.fill('#mpFind', '999');
     await numQ.waitForTimeout(500);
     t.ok('and a number nobody has still says something',
       await numQ.evaluate(() => {
-        const el = document.getElementById('mpLookList');
+        const el = document.getElementById('mpList');
         return el.textContent.trim().length > 0 &&
-          !document.querySelector('#mpLookList .mt-div');
+          !document.querySelector('#mpList .mt-div');
       }), await numQ.evaluate(() =>
-        document.getElementById('mpLookList').textContent.trim().slice(0, 80)));
+        document.getElementById('mpList').textContent.trim().slice(0, 80)));
     await numQ.context().close();
 
     /* ---- Look up browses, instead of waiting to be told a word -----------
      * It opened on a search box and nothing else: no way in unless you
      * already knew what you wanted to type. */
     const lookPage = await comboAt();
-    await lookPage.click('[data-mpmode="look"]');
+    await pickerList(lookPage);
     await lookPage.waitForTimeout(400);
-    const lk = await lookPage.evaluate(() => {
-      const el = document.getElementById('mpLookList');
-      if (!el) return null;
-      const heads = [], rows = {};
-      let cur = '';
-      Array.prototype.forEach.call(el.children, (c) => {
-        if (c.classList.contains('mt-div')) { cur = c.textContent; heads.push(cur); rows[cur] = []; }
-        else if (cur) {
-          const b = c.querySelector('[data-mpick]');
-          if (b) rows[cur].push(b.dataset.mpick);
-        }
-      });
-      return { heads: heads, rows: rows };
-    });
-    t.ok('an untouched Look up lists foods by macro, protein first',
-      !!lk && lk.heads.join('/') === 'Protein/Carbs/Fats', JSON.stringify(lk && lk.heads));
+    /* The Look up screen that grouped foods under Protein / Carbs / Fats is
+       gone; the shelf rail asks the same question and asks it of dishes too,
+       so the foods are harvested one chip at a time. Pressed from the test
+       rather than inside one evaluate(), because each press re-renders the
+       list and a node captured beforehand is detached by the next round. */
+    /* The LENS says foods, the CHIP says which macro — the two compose, and
+       between them they are the old browse screen's question. The chip alone
+       is not: on a planned day Fits best ranks by fit and a dish out-fits a
+       spoonful, so 🍚 on its own answers with ten recipes and no foods, which
+       is the right answer to "what carbohydrate should I eat" and not to
+       "show me the carbohydrate foods". */
+    await lookPage.selectOption('#mpSec', 'foods');
+    await lookPage.waitForTimeout(250);
+    const lk = { heads: [], rows: {} };
+    for (const [key, head] of [['protein', 'Protein'], ['carb', 'Carbs'], ['fat', 'Fats']]) {
+      if (!(await lookPage.$('[data-mpshelf="' + key + '"]'))) continue;
+      await lookPage.click('[data-mpshelf="' + key + '"]');
+      await lookPage.waitForTimeout(250);
+      lk.heads.push(head);
+      lk.rows[head] = await lookPage.evaluate(() =>
+        [...document.querySelectorAll('#mpList .mpick-row[data-mpick]')]
+          .map((r) => r.dataset.mpick).filter((id) => /^f:/.test(id)));
+      await lookPage.click('[data-mpshelf="' + key + '"]');
+      await lookPage.waitForTimeout(200);
+    }
+    t.ok('the lens and the rail together file foods by macro, protein first',
+      lk.heads.join('/') === 'Protein/Carbs/Fats' &&
+      lk.heads.every((h) => lk.rows[h].length > 0),
+      JSON.stringify(lk.heads) + ' ' + JSON.stringify(
+        lk.heads.map((h) => lk.rows[h].length)));
 
     /* Classed by where the calories come from, not by grams -- a cup of milk
        carries more grams of carbohydrate than fat and is not a fat. */
@@ -3981,22 +4078,41 @@ module.exports = {
        goes ON food sits under the food, in this list and on the combo's
        rungs both -- same rule, stated once. */
     const lkFats = lk ? lk.rows.Fats : [];
+    /* The RULE, not two ids. It used to name oil and cheddar, and which
+       particular foods reach a fit-ranked list of forty is not the claim —
+       the claim is that anything you put ON food sits below everything you
+       eat as it comes. Asserted over the whole list, which is also stronger:
+       one condiment out of place fails it. */
+    const condOrder = await lookPage.evaluate((ids) => {
+      const N = window.Nutrition.FOODS;
+      let lastFood = -1, firstCond = 1e9, conds = 0;
+      ids.forEach((id, i) => {
+        const f = N[String(id).replace(/^f:/, '')];
+        if (!f) return;
+        if (f.eat || f.side) lastFood = i;
+        else { conds++; firstCond = Math.min(firstCond, i); }
+      });
+      return { lastFood: lastFood, firstCond: firstCond, conds: conds, n: ids.length };
+    }, lkFats);
     t.ok('and the condiments sit under the foods, not over them',
-      lkFats.length > 4 &&
-      lkFats.indexOf('f:oil') > 0 && lkFats.indexOf('f:cheddar') >= 0 &&
-      lkFats.indexOf('f:oil') > lkFats.indexOf('f:cheddar'),
-      lkFats.join(' '));
+      condOrder.n > 4 && condOrder.conds > 0 && condOrder.firstCond > condOrder.lastFood,
+      JSON.stringify(condOrder) + ' ' + lkFats.join(' '));
 
     /* And the search it used to be is still the search it is. */
-    await lookPage.fill('#mpLookIn', 'honey');
+    await lookPage.fill('#mpFind', 'honey');
     await lookPage.waitForTimeout(400);
+    /* It used to require NO headings, because the old Look up screen threw
+       the ranked bands away the moment you typed. Keeping them is the point
+       of the rework, so the claim is now the one that always mattered: the
+       thing you named leads, and the list is about it. */
     t.ok('and typing still narrows it to what you typed',
       await lookPage.evaluate(() => {
-        const el = document.getElementById('mpLookList');
-        return !el.querySelector('.mt-div') &&
-          /honey/i.test(el.textContent) && el.querySelectorAll('[data-mpick]').length > 0;
+        const el = document.getElementById('mpList');
+        const first = el.querySelector('.mpick-row[data-mpick] .mp-name');
+        return el.querySelectorAll('[data-mpick]').length > 0 &&
+          !!first && /honey/i.test(first.textContent);
       }), await lookPage.evaluate(() =>
-        document.getElementById('mpLookList').textContent.slice(0, 120)));
+        document.getElementById('mpList').textContent.slice(0, 120)));
     await lookPage.context().close();
 
     /* ---- the charts, behind the bars ------------------------------------
@@ -4464,9 +4580,18 @@ module.exports = {
     // put something on the brew and on Lunch, for the two tests that follow
     for (const which of [0, 2]) {
       await m.evaluate((n) => document.querySelectorAll('[data-mslot]')[n].click(), which);
-      await m.click('[data-mpmode="recipes"]');
+      await pickerList(m);
       await m.waitForTimeout(250);
-      await m.click('.mpick-row[data-mpx]');
+      /* A RECIPE, because what follows opens the plate as a recipe and scales
+         it by servN. The list holds single foods beside dishes now, so taking
+         the first row can put a spoonful on the plate and the lookup then
+         finds nothing. */
+      await m.evaluate(() => {
+        const r = [...document.querySelectorAll('.mpick-row[data-mpx]')]
+          .find((x) => !/^f:/.test(x.dataset.mpick));
+        if (r) r.click();
+      });
+      await m.waitForTimeout(200);
       await m.click('[data-mpdone]');
       await m.waitForTimeout(300);
     }
@@ -4474,9 +4599,10 @@ module.exports = {
     /* The portion ports into the recipe: the sheet opens at the batch that
        makes the plate — x over servN, snapped to the eighths it prints in. */
     const port = await m.evaluate(() => {
-      const b = document.querySelector('.mitem-name');
+      const b = [...document.querySelectorAll('.mitem-name')]
+        .find((x) => x.dataset.open && !/^f:/.test(x.dataset.open));
       const r = window.RECIPES.find((x) => String(x.id) === b.dataset.open);
-      return { x: Number(b.dataset.mx), servN: r.servN || 1 };
+      return { x: Number(b.dataset.mx), servN: r.servN || 1, id: b.dataset.open };
     });
     const snapped = Math.max(0.125, Math.round(port.x / port.servN * 8) / 8);
     const fmt = (n) => {
@@ -4527,41 +4653,71 @@ module.exports = {
 
     // the picker's sort is a lens: order changes, portions stay
     await z.click('[data-mslot="b"]');
-    await z.click('[data-mpmode="recipes"]');
+    await pickerList(z);
     await z.waitForTimeout(200);
+    /* The RANKED band only, and its recipe rows only.
+     *
+       An order is a lens on the ranking, and the ranking is what "Fits best"
+       holds. Pins sit above it under "Every day" and stay there whatever the
+       order says — a pin means always, and a sort must not outrank it — so
+       reading every row on the screen would test the composition rather than
+       the sort. */
+    const rankedRows = () => z.evaluate(() => {
+      const out = [];
+      let inBand = false;
+      [...document.querySelectorAll('#mpList > *')].forEach((el) => {
+        if (el.classList.contains('mt-div')) { inBand = /^Fits best|^On the shelf/.test(el.textContent); return; }
+        if (!inBand) return;
+        const b = el.querySelector('.mpick-row[data-mpx]');
+        if (b && !/^f:/.test(b.dataset.mpick)) out.push(b.dataset.mpick);
+      });
+      return out;
+    });
     await z.selectOption('#mpSort', 'protein');
-    await z.waitForTimeout(150);
+    await z.waitForTimeout(250);
+    const byP = await rankedRows();
     t.ok('sorting by protein puts the most protein first',
-      await z.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
-        const pOf = (r) => window.RECIPES.find((x) => String(x.id) === r.dataset.mpick).macro.p;
-        return rows.length > 2 && rows.every((r, i) => i === 0 || pOf(rows[i - 1]) >= pOf(r));
-      }));
+      byP.length > 2 && await z.evaluate((ids) => {
+        const pOf = (id) => window.RECIPES.find((x) => String(x.id) === id).macro.p;
+        return ids.every((id, i) => i === 0 || pOf(ids[i - 1]) >= pOf(id));
+      }, byP), byP.length + ' ranked rows');
     await z.selectOption('#mpSort', 'healthy');
-    await z.waitForTimeout(150);
+    await z.waitForTimeout(250);
+    const byH = await rankedRows();
     t.ok('and by health score, healthiest first',
-      await z.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
-        const sOf = (r) => window.RECIPES.find((x) => String(x.id) === r.dataset.mpick).score;
-        return rows.length > 2 && rows.every((r, i) => i === 0 || sOf(rows[i - 1]) >= sOf(r));
-      }));
+      byH.length > 2 && await z.evaluate((ids) => {
+        const sOf = (id) => window.RECIPES.find((x) => String(x.id) === id).score;
+        return ids.every((id, i) => i === 0 || sOf(ids[i - 1]) >= sOf(id));
+      }, byH), byH.length + ' ranked rows');
 
     // the section lens speaks the browse tab's vocabulary
     await z.selectOption('#mpSec', '2-4');
     await z.waitForTimeout(150);
+    /* The lens drives the RANKED band's pool. Pins, recents and the closers
+       are their own bands with their own reasons for being there — a pin is
+       always offered, which is what a pin means — so the claim is about what
+       the ranking draws from, not about every row on the screen. */
     t.ok('a single section can be looked at on its own',
       await z.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
-        return rows.length && rows.every((r) => {
-          const rec = window.RECIPES.find((x) => String(x.id) === r.dataset.mpick);
-          return rec.book === 2 && rec.secNum === 4;
+        const rows = [];
+        let inBand = false;
+        [...document.querySelectorAll('#mpList > *')].forEach((el) => {
+          if (el.classList.contains('mt-div')) { inBand = /^Fits best|^On the shelf/.test(el.textContent); return; }
+          if (!inBand) return;
+          const b = el.querySelector('.mpick-row[data-mpick]');
+          if (b) rows.push(b.dataset.mpick);
+        });
+        return rows.length > 0 && rows.every((id) => {
+          if (/^f:/.test(id)) return false;
+          const rec = window.RECIPES.find((x) => String(x.id) === id);
+          return rec && rec.book === 2 && rec.secNum === 4;
         });
       }));
     await z.selectOption('#mpSec', 'meal');
     await z.waitForTimeout(150);
 
     // one plate on the day, shrunk by hand, put right by the button
-    await z.click('.mpick-row[data-mpx]');
+    await pickRecipe(z);
     await z.click('[data-mpdone]');
     await z.waitForTimeout(300);
     for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
@@ -4602,11 +4758,19 @@ module.exports = {
         const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
         return days[Object.keys(days)[0]].b.length === 1;
       }));
+    /* A plain food is a legitimate answer here — they were added to Try again
+       deliberately, because a day rarely divides into whole recipes — so the
+       claim is that whatever it offered came from the meal's own pool: a
+       recipe from breakfast's sections, or a food you can eat as it comes. */
     t.ok('and only ever offering what the meal draws from',
       await z.evaluate(() => {
-        const r = window.RECIPES.find((x) =>
-          String(x.id) === document.querySelector('.mitem-name').dataset.open);
-        return r.book === 1 && r.secNum === 1;      // breakfast's own sections
+        const id = document.querySelector('.mitem-name').dataset.open;
+        if (/^f:/.test(id)) {
+          const f = window.Nutrition.FOODS[String(id).replace(/^f:/, '')];
+          return !!f && !!(f.eat || f.side);
+        }
+        const r = window.RECIPES.find((x) => String(x.id) === id);
+        return !!r && r.book === 1 && r.secNum === 1;   // breakfast's own sections
       }));
 
     // the lock holds against the machine, not the hand
@@ -4672,14 +4836,26 @@ module.exports = {
     await z.click('[data-mtarg="save"]');
     await z.waitForTimeout(300);
     await z.click('[data-mslot="b"]');
-    await z.click('[data-mpmode="recipes"]');
+    await pickerList(z);
     await z.waitForTimeout(200);
+    /* Every RECIPE the ranking offers comes from that section. Single foods
+       ride along in every meal's pool by design — a day rarely divides into
+       whole recipes — and pins and recents are their own bands with their own
+       reasons, so the claim is about what the ranking draws from. */
     t.ok('the meal now draws from exactly the section it ticked',
       await z.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')];
-        return rows.length && rows.every((r) => {
-          const rec = window.RECIPES.find((x) => String(x.id) === r.dataset.mpick);
-          return rec.book === 1 && rec.secNum === 6;
+        const ids = [];
+        let inBand = false;
+        [...document.querySelectorAll('#mpList > *')].forEach((el) => {
+          if (el.classList.contains('mt-div')) { inBand = /^Fits best|^On the shelf/.test(el.textContent); return; }
+          if (!inBand) return;
+          const b = el.querySelector('.mpick-row[data-mpick]');
+          if (b) ids.push(b.dataset.mpick);
+        });
+        const recs = ids.filter((id) => !/^f:/.test(id));
+        return recs.length > 0 && recs.every((id) => {
+          const rec = window.RECIPES.find((x) => String(x.id) === id);
+          return rec && rec.book === 1 && rec.secNum === 6;
         });
       }));
 
@@ -4703,7 +4879,7 @@ module.exports = {
     await z.click('[data-mtarg="save"]');
     await z.waitForTimeout(300);
     await z.click('[data-mslot="b"]');
-    await z.click('[data-mpmode="recipes"]');
+    await pickerList(z);
     await z.waitForTimeout(200);
     const w60 = await z.evaluate((id) => {
       const r = [...document.querySelectorAll('.mpick-row[data-mpx]')].find((x) => x.dataset.mpick === id);
@@ -4753,9 +4929,9 @@ module.exports = {
 
     // pin a plate; a brand-new today arrives with it already served
     await y.click('[data-mslot="b"]');
-    await y.click('[data-mpmode="recipes"]');
+    await pickerList(y);
     await y.waitForTimeout(200);
-    await y.click('.mpick-row[data-mpx]');
+    await pickRecipe(y);
     await y.click('[data-mpdone]');
     await y.waitForTimeout(300);
     const pinned = await y.evaluate(() => {
@@ -4801,7 +4977,7 @@ module.exports = {
     });
     await y.waitForTimeout(300);
     await y.click('[data-mslot="d"]');
-    await y.click('[data-mpmode="recipes"]');
+    await pickerList(y);
     await y.waitForTimeout(200);
     t.ok('the picker offers the family’s plan when there is one',
       await y.evaluate(() => {
@@ -4810,10 +4986,21 @@ module.exports = {
       }));
     await y.selectOption('#mpSec', 'family');
     await y.waitForTimeout(200);
+    /* Exactly the family's two, in the band the lens drives. The other bands
+       answer their own questions — a pin is offered whatever lens you are
+       standing in — so "exactly what the family is having" is a claim about
+       the ranking. */
     t.ok('and choosing it shows exactly what the family is having, fit-portioned',
       await y.evaluate((ids) => {
-        const rows = [...document.querySelectorAll('.mpick-row[data-mpx]')];
-        return rows.length === 2 && rows.every((r) => ids.indexOf(r.dataset.mpick) >= 0);
+        const rows = [];
+        let inBand = false;
+        [...document.querySelectorAll('#mpList > *')].forEach((el) => {
+          if (el.classList.contains('mt-div')) { inBand = /^Fits best|^On the shelf/.test(el.textContent); return; }
+          if (!inBand) return;
+          const b = el.querySelector('.mpick-row[data-mpx]');
+          if (b) rows.push(b.dataset.mpick);
+        });
+        return rows.length === 2 && rows.every((id) => ids.indexOf(id) >= 0);
       }, famIds));
 
     /* The day, as plain text, for typing into whatever else you keep. */
@@ -5092,7 +5279,7 @@ module.exports = {
     await a2.click('.tab[data-view="macros"]');
     await a2.waitForTimeout(200);
     await a2.click('[data-mslot="b"]');
-    await a2.click('[data-mpmode="recipes"]');
+    await pickerList(a2);
     await a2.waitForTimeout(300);
     t.ok('and opening the picker runs nothing',
       await a2.evaluate(() => !window.__pwned && !document.querySelector('img[src="x"]')));
