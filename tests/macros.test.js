@@ -2725,6 +2725,73 @@ module.exports = {
       }));
     await skipPg.context().close();
 
+    /* ---- and the un-skip reaches the other phone -------------------------
+     * Half of a sync bug lives on the sending side. Un-skipping the last
+     * skipped meal deletes the day's entry from MSKIP, and the payload was
+     * built by walking MSKIP — so the day stopped being mentioned at all.
+     * The document is written with merge: true, so an unmentioned day leaves
+     * the server's copy of the skip standing: the other phone kept the meal
+     * struck out and Fill kept walking past it.
+     *
+     * Asserted on the payload and then through the merge, because a test
+     * that only exercised the merge would have passed throughout — the
+     * empty-list branch it relies on was correct all along and simply never
+     * received anything to run on. */
+    const wire = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await wire.click('.tab[data-view="macros"]');
+    await wire.waitForTimeout(300);
+    const spOf = (pg) => pg.evaluate(() => {
+      const sp = window.__macroLab.payload().sp || {};
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const enc = (d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()))
+        .replace(/-/g, '_');
+      return { has: Object.prototype.hasOwnProperty.call(sp, enc),
+        v: sp[enc] ? sp[enc].v : null, at: sp[enc] ? sp[enc].at : 0 };
+    });
+    await wire.evaluate(() => document.querySelector('[data-mskip="l"]').click());
+    await wire.waitForTimeout(350);
+    const sentSkip = await spOf(wire);
+    t.ok('skipping a meal is something the payload says out loud',
+      sentSkip.has && (sentSkip.v || []).indexOf('l') >= 0, JSON.stringify(sentSkip));
+    await wire.evaluate(() => {
+      const u = document.querySelector('.mslot-skipped [data-mskip]');
+      if (u) u.click();
+    });
+    await wire.waitForTimeout(350);
+    const sentBack = await spOf(wire);
+    t.ok('and so is taking it back — an empty list, not a silence',
+      sentBack.has && Array.isArray(sentBack.v) && sentBack.v.length === 0 &&
+        sentBack.at > 0, JSON.stringify(sentBack));
+
+    /* The receiving half, fed exactly what the sending half now emits. */
+    const landed = await wire.evaluate((wireSp) => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const key = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const enc = key.replace(/-/g, '_');
+      /* This phone still believes the meal is skipped, stamped older than the
+         un-skip the other one is sending. */
+      localStorage.setItem('bsc.macroSkip', JSON.stringify({ [key]: ['l'] }));
+      const st = JSON.parse(localStorage.getItem('bsc.myStamps') || '{}');
+      st.sp = st.sp || {}; st.sp[key] = wireSp.at - 1000;
+      localStorage.setItem('bsc.myStamps', JSON.stringify(st));
+      return { before: JSON.parse(localStorage.getItem('bsc.macroSkip')),
+        enc: enc, at: wireSp.at };
+    }, sentBack);
+    await wire.reload();
+    await wire.waitForTimeout(400);
+    const merged = await wire.evaluate((info) => {
+      const doc = { sp: {} };
+      doc.sp[info.enc] = { v: [], at: info.at };
+      window.__macroLab.merge(doc);
+      return JSON.parse(localStorage.getItem('bsc.macroSkip') || '{}');
+    }, landed);
+    t.ok('so the other phone stops striking the meal out',
+      !Object.keys(merged).length || !(merged[Object.keys(merged)[0]] || []).length,
+      'before ' + JSON.stringify(landed.before) + ' after ' + JSON.stringify(merged));
+    await wire.context().close();
+
     /* ---- Balance solves against the share the card is printing ------------
      * The meal's pills say what the meal is owed; the ⚖ on the same card
      * solves the plates toward it. Those were two different sums: the pills

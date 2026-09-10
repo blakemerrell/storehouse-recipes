@@ -1108,9 +1108,26 @@
     Object.keys(MDONE).forEach(function (k) {
       done[k.replace(/-/g, '_')] = { v: mDoneAt(k), at: (MSTAMPS.dn || {})[k] || 0 };
     });
-    var skip = {};
-    Object.keys(MSKIP).forEach(function (k) {
-      skip[k.replace(/-/g, '_')] = { v: MSKIP[k], at: (MSTAMPS.sp || {})[k] || 0 };
+    /* Over the STAMPS, not over MSKIP.
+     *
+       Un-skipping the last skipped meal of a day deletes the key — an empty
+       list is not kept — so a payload built from the surviving keys simply
+       stopped mentioning that day. The document is written with merge: true,
+       which means "not mentioned" leaves the other phone's copy of that skip
+       exactly where it was: the meal stayed struck out over there for good,
+       Fill kept walking past it, and the empty-list branch on the merge side
+       — the one whose comment says "it means I un-skipped them all" — could
+       never be reached, because nothing ever sent an empty list.
+     *
+       The stamp is the record that this device said something about that
+       day's skips, which is precisely the set of days worth mentioning.
+       MSKIP is still unioned in so a day carrying skips from before there
+       were stamps is not dropped. */
+    var skip = {}, spDays = {};
+    Object.keys(MSKIP).forEach(function (k) { spDays[k] = 1; });
+    Object.keys(MSTAMPS.sp || {}).forEach(function (k) { spDays[k] = 1; });
+    Object.keys(spDays).forEach(function (k) {
+      skip[k.replace(/-/g, '_')] = { v: MSKIP[k] || [], at: (MSTAMPS.sp || {})[k] || 0 };
     });
     var raw = function (key) {
       try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
@@ -1930,6 +1947,11 @@
     if (on) a.push(sk);
     if (a.length) MSKIP[k] = a; else delete MSKIP[k];
     mPruneWindow(MSKIP);       // the day log's window, for the reason above it
+    /* The stamps go through the same window as the skips they stamp. The
+       payload is built from these now, so a stamp left behind for a day that
+       has fallen out of the fortnight would go on announcing an empty skip
+       list for that day forever. */
+    if (MSTAMPS.sp) mPruneWindow(MSTAMPS.sp);
     try { localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP)); } catch (e) { /* private */ }
     mStamp('sp', k);
   }
@@ -10098,6 +10120,11 @@
        be asserted without one. The closed-day rule in particular is easy to
        get wrong in a way no single-device test would ever notice. */
     merge: mMergeRemote,
+    /* And what this device would SEND, for the same reason. Half of a sync
+       bug lives on the sending side — a day the payload never mentions is a
+       day the other phone never hears has changed — and that half is
+       invisible to a test that only exercises the merge. */
+    payload: mSyncPayload,
     /* The gauge's band rule, because it only bites in a narrow window and no
        arbitrary day's plates land in it — asked through the DOM the test
        passed with the rule removed. */
