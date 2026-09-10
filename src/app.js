@@ -5054,33 +5054,15 @@
       /* One set, threaded through the bands in the order they are drawn, so
          a dish that is pinned AND recent AND the best fit appears once —
          under the first heading that has a claim on it. */
-      var shown = {};
-      var named = mpNamedHTML(shown);
-      var pins = mpPinsHTML(shown);
-      var recent = mpRecentHTML(shown);
-      var closers = mpComboHTML(shown);
-      var fits = mpFitsHTML(shown);
-      var rest2 = mpElseHTML(shown);
-      var body = named + pins + recent + closers + fits + rest2;
       /* The answer to a typed number or barcode belongs IN the list, at the
          top of it: it is a result, not a chrome. It sat in a sibling div so
          the keystroke path could repaint it separately, which cost a special
          case in refreshMacroPicker and put it outside the element every other
          row lives in. Rebuilt with the list now, for free. */
-      var qTop = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
-        { k: S.macroPick.slot, w: S.macroPick.w });
       /* Home had no empty state at all: every band returns '' when it has
          nothing, so a query that matches nothing rendered the gap panel and
          the type-it-in row with a silence between them. */
-      /* Judged on the BANDS, not on qTop: a barcode with nothing behind it
-         draws a band and no rows, and "nothing matches" is still the honest
-         thing to say under it. */
-      if (!body) {
-        body = '<div class="mslot-empty">' + (mpQ()
-          ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
-          : 'Nothing to offer for this meal yet.') + '</div>';
-      }
-      body = qTop + body;
+      var body = mpHomeBodyHTML();
       return wrap(
         (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
         /* One box, in the sheet you were already looking at. Its results do
@@ -5605,6 +5587,53 @@
   /* Only the list under the search box redraws while you type — redrawing the
      sheet would fight the cursor for the input. refreshPreview() set the
      pattern. */
+  /* The way to a food the storehouse has never heard of.
+   *
+     The live lookup has been in here all along — it is what fills a packet's
+     numbers in from the USDA — but the only thing that ever called it was the
+     search box inside the "Look up" tile, and the tiles went in v283. The
+     function survived; the door did not. So typing a food the book does not
+     stock ended at "Nothing matches american cheese." with the one thing that
+     could have answered it sitting a function call away, and the app looked
+     like it had lost a feature it had merely stopped offering.
+   *
+     A row rather than an automatic fetch: the tables are somebody else's
+     server and every keystroke is not a question. Three characters because
+     that is what the old box asked for, and a barcode is left to mQueryTopHTML
+     — it already offers that one, and two rows saying "look this up" is the
+     tile problem coming back in miniature. */
+  function mpLookFootHTML() {
+    var q = S.mpQuery.trim();
+    if (q.length < 3 || mQueryKind(q).k === 'barcode') return '';
+    return '<button class="mpick-row mpick-new" data-mplook="' + esc(q) + '">' +
+      '<span class="mp-body"><span class="mp-name">Look up &ldquo;' + esc(q) +
+      '&rdquo; in the food tables</span></span></button>' +
+      '<div id="nfResults"></div>';
+  }
+
+  /* The home list, in ONE place.
+   *
+     It was composed twice — once when the sheet is drawn and once on every
+     keystroke — and the two copies are exactly the kind of pair this app has
+     been bitten by all week: they have to agree, nothing makes them, and a
+     row added to one is a row missing from the other for as long as nobody
+     notices. */
+  function mpHomeBodyHTML() {
+    var shown = {};
+    var body = mpNamedHTML(shown) + mpPinsHTML(shown) + mpRecentHTML(shown) +
+      mpComboHTML(shown) + mpFitsHTML(shown) + mpElseHTML(shown);
+    /* Judged on the BANDS, not on qTop: a barcode with nothing behind it
+       draws a band and no rows, and "nothing matches" is still the honest
+       thing to say under it. */
+    if (!body) {
+      body = '<div class="mslot-empty">' + (mpQ()
+        ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
+        : 'Nothing to offer for this meal yet.') + '</div>';
+    }
+    return mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
+      { k: S.macroPick.slot, w: S.macroPick.w }) + body + mpLookFootHTML();
+  }
+
   /* Rebuilds ONLY the list, never the sheet.
    *
      This is what keeps the search box alive across a keystroke: the input is
@@ -5619,16 +5648,7 @@
     var el = $('mpList');
     if (!el) return;
     if (S.mpMode !== 'home') { el.innerHTML = mpListHTML(); return; }
-    var shown = {};
-    var body = mpNamedHTML(shown) + mpPinsHTML(shown) + mpRecentHTML(shown) +
-      mpComboHTML(shown) + mpFitsHTML(shown) + mpElseHTML(shown);
-    if (!body) {
-      body = '<div class="mslot-empty">' + (mpQ()
-        ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
-        : 'Nothing to offer for this meal yet.') + '</div>';
-    }
-    el.innerHTML = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
-      { k: S.macroPick.slot, w: S.macroPick.w }) + body;
+    el.innerHTML = mpHomeBodyHTML();
   }
 
   /* Which plan the four buttons describe. Read by the sheet and by the tests,
@@ -9508,7 +9528,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
-    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
@@ -11247,6 +11267,17 @@
          they went to name a fifth thing — silently, with no way back. The
          form draws over it (renderModal checks newFood first) and hands what
          it makes to the basket rather than to the day. */
+      /* Ask the food tables about the words in the box. The results land in
+         #nfResults under the row, and taking one goes through the same
+         [data-nfpick] path a scanned packet does — it carries the numbers
+         over to the sheet that asks how much, rather than making a per-100 g
+         figure the answer to a question nobody asked. */
+      var mpl = e.target.closest('[data-mplook]');
+      if (mpl && S.macroPick) {
+        mLookNet(mpl.dataset.mplook);
+        return;
+      }
+
       var mpn = e.target.closest('[data-mpnew]');
       if (mpn && S.macroPick) {
         mScanStop();

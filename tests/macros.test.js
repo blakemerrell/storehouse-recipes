@@ -1862,8 +1862,13 @@ module.exports = {
       return { rows: document.querySelectorAll('.mpick-row').length,
         gapBelow: Math.round(window.innerHeight - fr.bottom) };
     });
+    /* Two rows, not one: a query that matches nothing now carries a way on
+       from there — "look it up in the food tables" above "type it in
+       yourself". The claim being made here is the BAR's, and it is
+       gapBelow; the row count is only how the test says "this list does not
+       reach the fold". */
     t.ok('a list too short to fill the screen still puts the bar on the bottom of it',
-      !!shortList && shortList.rows <= 1 && shortList.gapBelow === 0,
+      !!shortList && shortList.rows <= 2 && shortList.gapBelow === 0,
       JSON.stringify(shortList));
     await barPg.context().close();
 
@@ -2165,6 +2170,64 @@ module.exports = {
       unplannedRows.every((r) => r.x === 1),
       JSON.stringify(unplannedRows.filter((r) => r.x !== 1).slice(0, 5)));
     await noPlan.context().close();
+
+    /* ---- a food the storehouse has never heard of -------------------------
+     * The live lookup was in the app the whole time — it is what fills a
+     * packet's numbers in from the USDA — but the only thing that called it
+     * was the search box inside the "Look up" tile, and the tiles went in
+     * v283. So typing a food the book does not stock ended at "Nothing
+     * matches american cheese." and there was no way on from there. Blake
+     * hit it looking for American cheese, which the table does not carry and
+     * the tables do.
+     *
+     * The click asserts the WIRING, not the USDA: the row is pressed and the
+     * container underneath it must say it is asking. What the tables answer
+     * is their business and not something a test should wait on. */
+    const look = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await look.click('.tab[data-view="macros"]');
+    await look.waitForTimeout(250);
+    await (await look.$$('.mslot-add'))[0].click();
+    await look.waitForTimeout(600);
+    const lookRow = () => look.evaluate(() => {
+      const b = document.querySelector('[data-mplook]');
+      return { there: !!b, q: b ? b.dataset.mplook : null,
+        results: !!document.getElementById('nfResults'),
+        says: (document.querySelector('#mpList .mslot-empty') || {}).textContent || '' };
+    });
+
+    await look.fill('#mpFind', 'american cheese');
+    await look.waitForTimeout(500);
+    const dead = await lookRow();
+    t.ok('a food the book does not stock still offers somewhere to go',
+      dead.there && dead.q === 'american cheese' && dead.results, JSON.stringify(dead));
+    t.ok('and still says plainly that it has nothing of its own',
+      /nothing matches/i.test(dead.says), JSON.stringify(dead.says));
+
+    /* Two characters is not a question worth asking somebody else's server. */
+    await look.fill('#mpFind', 'am');
+    await look.waitForTimeout(400);
+    t.ok('two letters is not a lookup', !(await lookRow()).there);
+
+    /* A barcode already has its own row at the top; two rows offering to look
+       the same thing up is the tile problem again, smaller. */
+    await look.fill('#mpFind', '01234567890');
+    await look.waitForTimeout(400);
+    const codeRow = await look.evaluate(() => ({
+      look: !!document.querySelector('[data-mplook]'),
+      code: !!document.querySelector('[data-nfcode]') }));
+    t.ok('a barcode is offered once, by the row that already did it',
+      !codeRow.look && codeRow.code, JSON.stringify(codeRow));
+
+    /* And the row is actually wired to the lookup. */
+    await look.fill('#mpFind', 'american cheese');
+    await look.waitForTimeout(500);
+    await look.click('[data-mplook]');
+    await look.waitForTimeout(120);
+    t.ok('pressing it asks the food tables',
+      await look.evaluate(() =>
+        /looking in the food tables/i.test(document.getElementById('nfResults').textContent)),
+      await look.evaluate(() => document.getElementById('nfResults').textContent));
+    await look.context().close();
 
     const findPg = await t.fresh({ viewport: { width: 412, height: 915 } });
     await findPg.click('.tab[data-view="macros"]');
