@@ -94,8 +94,8 @@
      or a tablespoon of milk, which is what any single fixed unit produces. */
   function mFoodServing(f) {
     /* Where the table says what a portion of this IS, that is the answer, and
-       it was being ignored. Twenty-eight foods carry a `def` written by
-       somebody who knew the food, and the guess below was overruling all of
+       it was being ignored. A hundred and twenty-four foods carry a `def`
+       written by somebody who knew the food, and the guess below was overruling all of
        them: cheddar came out as "1 whole" — a whole cheddar cheese — because
        a 28 g slice happened to land nearest the calorie target, and ketchup,
        mustard, soy and hot sauce all defaulted to a CUP.

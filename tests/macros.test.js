@@ -4074,15 +4074,51 @@ module.exports = {
        plan the gap on an empty day is wider than any single portion and every
        row goes silent, which is the honest answer to a day nobody has started.
      *
-       So Fill builds the day and lunch and dinner are emptied. Two meals owed
-       is the shape this feature is for: a list saying which dishes close what
-       is left. */
-    await gapRow.click('#macroFill');
-    await gapRow.waitForTimeout(700);
-    await gapRow.click('[data-mdel="l:0"]');
+       So breakfast and snacks are built and lunch and dinner left empty. Two
+       meals owed is the shape this feature is for: a list saying which dishes
+       close what is left.
+     *
+       Seeded rather than Filled, because Fill picks at random from its top
+       three and the gap it leaves is a different gap every run. The judgement
+       needs that gap in a WINDOW — under a band and every row lands, well
+       over one and every row goes silent — so a random day flipped this
+       assertion between pass and fail with nothing in the code changing.
+       Dishes are taken in id order and added until what is owed sits between
+       one band and a bit over two, which is the shape the sentence above
+       describes, arrived at on purpose. */
+    await gapRow.evaluate(() => {
+      const T = window.__macroLab.targets();
+      const band = Math.max(3, T.p * 0.1);
+      const pool = window.RECIPES.filter((r) => r.macro && r.macro.p > 0)
+        .sort((a, b) => a.id - b.id);
+      const put = { b: [], l: [], d: [], s: [] };
+      let got = 0;
+      for (const r of pool) {
+        if (T.p - (got + r.macro.p) < band) continue;   // never fill the gap shut
+        put[put.b.length <= put.s.length ? 'b' : 's'].push({ id: r.id, x: 1, eaten: 0 });
+        got += r.macro.p;
+        if (T.p - got <= 2.2 * band) break;
+      }
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: put }));
+    });
+    await gapRow.reload();
+    await gapRow.waitForTimeout(400);
+    await gapRow.click('.tab[data-view="macros"]');
     await gapRow.waitForTimeout(300);
-    await gapRow.click('[data-mdel="d:0"]');
-    await gapRow.waitForTimeout(300);
+    /* Said out loud, so that a day which failed to reach the window fails
+       HERE, naming the setup, instead of further down where it would read as
+       the judgement being broken. */
+    const gapWindow = await gapRow.evaluate(() => {
+      const T = window.__macroLab.targets(), tot = window.__macroLab.read().tot;
+      const band = Math.max(3, T.p * 0.1);
+      return { owed: Math.round(T.p - tot.p), band: Math.round(band),
+        ok: (T.p - tot.p) > band && (T.p - tot.p) <= 2.4 * band };
+    });
+    t.ok('the day is built to leave a gap the size a portion can be judged against',
+      gapWindow.ok, JSON.stringify(gapWindow));
     await gapRow.click('.mslot-add[data-mslot="l"]');
     await gapRow.waitForTimeout(450);
     await pickerList(gapRow);
