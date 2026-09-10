@@ -2792,6 +2792,117 @@ module.exports = {
       'before ' + JSON.stringify(landed.before) + ' after ' + JSON.stringify(merged));
     await wire.context().close();
 
+    /* ---- a morning you cleared stays cleared, on both phones --------------
+     * The weight log was stamped as ONE value, the way the profile is. One
+     * stamp for a whole map can say "mine is newer" and nothing else — so a
+     * merge that replaced wholesale would drop every morning the newer phone
+     * had not seen, and the merge that shipped unioned instead. Union has no
+     * way to express a morning taken away, so clearing a weigh-in here and
+     * opening the other phone brought it straight back. Since v271 that also
+     * moves the targets, because the plan is built on the seven-day average.
+     *
+     * Stamped per morning now, like the day log and the closed days, with
+     * zero meaning "no weigh-in for this morning" exactly as zero means
+     * "reopened" over there. */
+    const scale = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await scale.click('.tab[data-view="macros"]');
+    await scale.waitForTimeout(300);
+    const wPayload = (pg) => pg.evaluate(() => {
+      const w = window.__macroLab.payload().w || {};
+      const out = {};
+      Object.keys(w).forEach((k) => { out[k.replace(/_/g, '-')] = w[k]; });
+      return out;
+    });
+    const seedW = (pg, map, stampAt) => pg.evaluate((a) => {
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(a.map));
+      const st = JSON.parse(localStorage.getItem('bsc.myStamps') || '{}');
+      st.w = {};
+      Object.keys(a.map).forEach((k) => { st.w[k] = a.at; });
+      localStorage.setItem('bsc.myStamps', JSON.stringify(st));
+    }, { map: map, at: stampAt });
+
+    await seedW(scale, { '2026-09-01': 190, '2026-09-02': 189 }, 1000);
+    await scale.reload();
+    await scale.waitForTimeout(400);
+    await scale.click('.tab[data-view="macros"]');
+    await scale.waitForTimeout(300);
+
+    /* Clearing a morning is a value the payload carries, not an absence. */
+    const cleared = await scale.evaluate(() => {
+      window.__macroLab.merge({ w: { '2026_09_02': { v: 0, at: 5000 } } });
+      return { stored: JSON.parse(localStorage.getItem('bsc.macroWeights')),
+        sent: window.__macroLab.payload().w['2026_09_02'] };
+    });
+    t.ok('a cleared morning is a zero the payload states, not a key it drops',
+      cleared.stored['2026-09-02'] === undefined && cleared.sent &&
+        cleared.sent.v === 0 && cleared.sent.at === 5000, JSON.stringify(cleared));
+
+    /* And it does not come back on the next push from the other phone. */
+    const resurrect = await scale.evaluate(() => {
+      window.__macroLab.merge({ w: { '2026_09_01': { v: 190, at: 6000 },
+        '2026_09_02': { v: 189, at: 4000 } } });
+      return JSON.parse(localStorage.getItem('bsc.macroWeights'));
+    });
+    t.ok('and an older push carrying it again does not raise it',
+      resurrect['2026-09-02'] === undefined && resurrect['2026-09-01'] === 190,
+      JSON.stringify(resurrect));
+
+    /* Weighing again on that date is newer, so it wins. */
+    const relog = await scale.evaluate(() => {
+      window.__macroLab.merge({ w: { '2026_09_02': { v: 187.5, at: 9000 } } });
+      return JSON.parse(localStorage.getItem('bsc.macroWeights'));
+    });
+    t.ok('and standing on the scale again puts it back',
+      relog['2026-09-02'] === 187.5, JSON.stringify(relog));
+
+    /* The property that ruled out replacing the map wholesale: a phone that
+       was offline when this morning was logged sends a NEWER map without it,
+       and this morning must survive that. */
+    const keptW = await scale.evaluate(() => {
+      window.__macroLab.merge({ w: { '2026_09_03': { v: 186, at: 20000 } } });
+      return JSON.parse(localStorage.getItem('bsc.macroWeights'));
+    });
+    t.ok('a newer phone that never saw a morning does not erase it',
+      keptW['2026-09-01'] === 190 && keptW['2026-09-03'] === 186, JSON.stringify(keptW));
+
+    /* A phone still on the old build pushes the old single-stamped shape.
+       It cannot express a deletion, so it is unioned exactly as before —
+       guessing a deletion from an absent key would erase every morning that
+       phone has not heard of. */
+    const legacy = await scale.evaluate(() => {
+      window.__macroLab.merge({ w: { v: { '2026-08-30': 192 }, at: 999999 } });
+      return JSON.parse(localStorage.getItem('bsc.macroWeights'));
+    });
+    t.ok('and a phone on the old build is still understood',
+      legacy['2026-08-30'] === 192 && legacy['2026-09-01'] === 190, JSON.stringify(legacy));
+    await scale.context().close();
+
+    /* The upgrade itself: a device arriving with one number where the map now
+       goes. Read as a map that number swallows every write in silence, so it
+       is converted at load with the old stamp standing for every morning
+       already logged. */
+    const upgrade = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await upgrade.evaluate(() => {
+      localStorage.setItem('bsc.macroWeights',
+        JSON.stringify({ '2026-09-01': 190, '2026-09-02': 189 }));
+      localStorage.setItem('bsc.myStamps', JSON.stringify({ w: 4242 }));
+    });
+    await upgrade.reload();
+    await upgrade.waitForTimeout(400);
+    await upgrade.click('.tab[data-view="macros"]');
+    await upgrade.waitForTimeout(300);
+    const converted = await upgrade.evaluate(() => {
+      const st = JSON.parse(localStorage.getItem('bsc.myStamps'));
+      const sent = window.__macroLab.payload().w;
+      return { shape: typeof st.w, stamps: st.w,
+        sent01: sent['2026_09_01'], sent02: sent['2026_09_02'] };
+    });
+    t.ok('a device upgrading turns its one weight stamp into one per morning',
+      converted.shape === 'object' && converted.stamps['2026-09-01'] === 4242 &&
+        converted.sent01.v === 190 && converted.sent02.at === 4242,
+      JSON.stringify(converted));
+    await upgrade.context().close();
+
     /* ---- Balance solves against the share the card is printing ------------
      * The meal's pills say what the meal is owed; the ⚖ on the same card
      * solves the plates toward it. Those were two different sums: the pills

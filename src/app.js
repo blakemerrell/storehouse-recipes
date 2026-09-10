@@ -1015,8 +1015,33 @@
   }
 
   var MSTAMPS = (function () {
-    try { return JSON.parse(localStorage.getItem('bsc.myStamps')) || {}; }
-    catch (e) { return {}; }
+    var st;
+    try { st = JSON.parse(localStorage.getItem('bsc.myStamps')) || {}; }
+    catch (e) { st = {}; }
+    /* The weight log used to be stamped as one value, the way the profile and
+       the targets still are, and that is what made a cleared weigh-in come
+       back: one stamp for the whole map can only say "mine is newer", never
+       "this morning is gone", so the merge had to union the two maps and a
+       deletion had nowhere to live. It is stamped per morning now, like the
+       day log and the closed days.
+     *
+       Devices upgrading carry a number here. Read as a map it would silently
+       swallow every write — `n[key] = v` on a primitive throws nothing and
+       stores nothing — so it is converted once, with the old single stamp
+       standing as the stamp of every morning already logged. */
+    if (typeof st.w === 'number') {
+      var was = st.w, map = {};
+      try {
+        var w = JSON.parse(localStorage.getItem('bsc.macroWeights'));
+        if (w && typeof w === 'object') {
+          Object.keys(w).forEach(function (k) { map[k] = was; });
+        }
+      } catch (e2) { /* nothing logged, or unreadable: an empty map is right */ }
+      st.w = map;
+      try { localStorage.setItem('bsc.myStamps', JSON.stringify(st)); }
+      catch (e3) { /* private mode: the conversion holds for this session */ }
+    }
+    return st;
   })();
 
   function mStamp(part, sub) {
@@ -1129,6 +1154,21 @@
     Object.keys(spDays).forEach(function (k) {
       skip[k.replace(/-/g, '_')] = { v: MSKIP[k] || [], at: (MSTAMPS.sp || {})[k] || 0 };
     });
+    /* One entry per morning, stamped per morning, so that a morning you
+       CLEARED is something this device can say. As one blob it could only be
+       offered whole and newest-wins, and newest-wins on a log loses every
+       entry the newer device happened not to have seen — log Monday on a
+       phone that is offline, log Tuesday on the laptop, and Monday goes.
+       That is why the merge unioned instead, and why a deletion could never
+       cross: an absent key is indistinguishable from a key never heard of.
+       Zero is the value that means "there is no weigh-in for this morning",
+       the same way zero means "I reopened this" in the closed-day log. */
+    var weights = {}, wDays = {};
+    Object.keys(MWEIGHTS).forEach(function (k) { wDays[k] = 1; });
+    Object.keys(MSTAMPS.w || {}).forEach(function (k) { wDays[k] = 1; });
+    Object.keys(wDays).forEach(function (k) {
+      weights[k.replace(/-/g, '_')] = { v: MWEIGHTS[k] || 0, at: (MSTAMPS.w || {})[k] || 0 };
+    });
     var raw = function (key) {
       try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
     };
@@ -1137,7 +1177,7 @@
       t: { v: raw('bsc.macroTargets'), at: MSTAMPS.t || 0 },
       pr: { v: raw('bsc.macroProfile'), at: MSTAMPS.pr || 0 },
       sl: { v: raw('bsc.macroSlots'), at: MSTAMPS.sl || 0 },
-      w: { v: MWEIGHTS, at: MSTAMPS.w || 0 },
+      w: weights,
       d: days,
       dn: done,
       sp: skip
@@ -1168,10 +1208,46 @@
     take('sl', 'bsc.macroSlots', function (v) {
       try { localStorage.setItem('bsc.macroSlots', JSON.stringify(v)); } catch (e) { /* private */ }
     });
-    take('w', 'bsc.macroWeights', function (v) {
-      Object.keys(v).forEach(function (k) { MWEIGHTS[k] = v[k]; });
-      try { localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS)); } catch (e) { /* private */ }
-    });
+    /* Per morning, newest wins, and zero is a real answer — the same three
+       rules the closed-day log runs on, and for the same reason. A morning
+       cleared on one phone used to come straight back from the other's next
+       push: the map was unioned in wholesale and nothing in it could say a
+       morning had been taken away. Since v271 that also quietly moved the
+       targets, because the plan is built on the seven-day average.
+     *
+       The old single-stamped shape is still read, because a phone that has
+       not been opened since v288 is still pushing it. Unioned, exactly as it
+       used to be: those payloads genuinely cannot express a deletion, and
+       guessing one from an absent key would delete every morning that phone
+       has not heard of yet. */
+    var wRemote = md.w;
+    if (wRemote && wRemote.v && typeof wRemote.at === 'number') {
+      /* Not through take(): take() weighs one number against MSTAMPS[part],
+         and MSTAMPS.w is a map of mornings now, so every comparison against
+         it would be against an object and quietly false. The old payload's
+         one stamp is weighed against each morning's own instead, which is
+         also the closest thing to right — a morning cleared here keeps its
+         deletion unless that phone genuinely spoke later. It cannot say
+         "deleted" at all, so a later push from it does resurrect; there is no
+         fixing that from this side, only outliving it. */
+      MSTAMPS.w = MSTAMPS.w || {};
+      Object.keys(wRemote.v).forEach(function (k) {
+        if (!(wRemote.at > (MSTAMPS.w[k] || 0))) return;
+        MWEIGHTS[k] = wRemote.v[k];
+        MSTAMPS.w[k] = wRemote.at;
+        moved = true;
+      });
+    } else {
+      Object.keys(wRemote || {}).forEach(function (enc) {
+        var k = enc.replace(/_/g, '-');
+        var r = wRemote[enc];
+        if (!r || r.v === undefined || !(r.at > ((MSTAMPS.w || {})[k] || 0))) return;
+        if (r.v > 0) MWEIGHTS[k] = r.v; else delete MWEIGHTS[k];
+        MSTAMPS.w = MSTAMPS.w || {};
+        MSTAMPS.w[k] = r.at;
+        moved = true;
+      });
+    }
     Object.keys(md.d || {}).forEach(function (enc) {
       var k = enc.replace(/_/g, '-');
       var r = md.d[enc];
@@ -1210,6 +1286,9 @@
         localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS));
         localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE));
         localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP));
+        /* Written here now that the weight log is merged per morning above
+           rather than by an apply() that saved as it went. */
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS));
         localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS));
       } catch (e) { /* private mode: this session only */ }
     }
@@ -1971,9 +2050,18 @@
     d.setDate(d.getDate() - 399);
     var floor = dayKey(d);
     Object.keys(MWEIGHTS).forEach(function (wk) { if (wk < floor) delete MWEIGHTS[wk]; });
+    /* The stamps age out on the same year-and-a-bit as the mornings they
+       stamp — they are what the payload is built from, so one left behind
+       would go on announcing an empty morning long after the morning itself
+       had gone. */
+    if (MSTAMPS.w) {
+      Object.keys(MSTAMPS.w).forEach(function (wk) { if (wk < floor) delete MSTAMPS.w[wk]; });
+    }
     try { localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS)); }
     catch (e) { /* in-memory only for this session */ }
-    mStamp('w');
+    /* Per morning, so that clearing this one is a thing the payload can say
+       without claiming anything about any other. */
+    mStamp('w', k);
   }
 
   /* The numbers a cut actually reads. The seven-day average is the headline —
