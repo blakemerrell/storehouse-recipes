@@ -6353,6 +6353,37 @@ module.exports = {
       'thin lists ' + thinWas + ' -> ' +
         await fold.evaluate(() => document.querySelectorAll('.mslot-thin').length));
 
+    /* The verbs read left to right, and only the plus pushes.
+     *
+       All three carried margin-left:auto from their years in the header,
+       where the first of them shoved the cluster against the right edge. Flex
+       hands every auto margin a share of the free space, so in the acts row
+       Another and Balance were each given sixty-one pixels of nothing to
+       their left and the row read as three buttons scattered across it. */
+    const actsRow = await fold.evaluate(() => {
+      const row = document.querySelector('.mslot-acts');
+      if (!row) return null;
+      const rb = row.getBoundingClientRect();
+      const k = [...row.children].map((c) => {
+        const r = c.getBoundingClientRect();
+        return { t: c.textContent.replace(/\s+/g, ' ').trim(),
+          x: Math.round(r.x - rb.x), w: Math.round(r.width),
+          right: Math.round(rb.right - r.right) };
+      });
+      const cs = getComputedStyle(row);
+      return { pad: parseFloat(cs.paddingLeft), gap: parseFloat(cs.columnGap) || 0, kids: k };
+    });
+    t.ok('the first verb starts at the left edge of its row',
+      !!actsRow && actsRow.kids[0].x <= actsRow.pad + 1, JSON.stringify(actsRow));
+    /* Measured off the real boxes and the real gap, not off a guess at how
+       wide nine characters are — the first version of this used a character
+       count and passed with the bug still in, which the mutation caught. */
+    t.ok('and the plus is the only one that pushes, to the right edge',
+      !!actsRow &&
+        actsRow.kids[1].x - (actsRow.kids[0].x + actsRow.kids[0].w) <= actsRow.gap + 1 &&
+        actsRow.kids[actsRow.kids.length - 1].right <= actsRow.pad + 1,
+      JSON.stringify(actsRow));
+
     /* One meal open at a time — the other half of the mockup's sentence. Six
        open meals is six screenfuls of steppers between you and the one you
        are filling, which is the thing the fold was for. */

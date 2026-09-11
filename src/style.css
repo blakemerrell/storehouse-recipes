@@ -660,8 +660,13 @@ select { max-width: 280px; }
 /* Whichever of the three comes first opens the gap; the rest fall in behind
    it, so they read as one group of controls instead of one stranded beside
    the verdict and two over on the edge. */
-.mslot-bal, .mslot-try, .mslot-add { margin-left: auto; }
-.mslot-bal ~ .mslot-try, .mslot-bal ~ .mslot-add, .mslot-try ~ .mslot-add { margin-left: 0; }
+/* These three used to live in the header, where the first of them wore
+   margin-left:auto to shove the cluster against the right edge and the rest
+   zeroed it so they stayed together. In the acts row that auto is a bug: flex
+   splits the free space between every auto margin it finds, so Another and
+   Balance were each given sixty-one pixels of nothing to their left and the
+   row read as three buttons scattered across it. The only one that pushes now
+   is the plus, which is the one that should. */
 .mslot-items { display: flex; flex-direction: column; gap: 7px; }
 /* A meal that is behind you, folded to what was on it */
 /* Folded, each thing on the meal keeps its leaf as its bullet. Folding used
@@ -1011,8 +1016,9 @@ select { max-width: 280px; }
    put, so changing your mind costs a tap and never a back gesture. */
 /* which meal this is filling, when you came in from the bar */
 /* balance this meal, beside the one that swaps it */
-/* the scale keeps a hair more room than the retry: it is the wider glyph */
-.mslot-bal { padding: 4px 5px; }
+/* The scale used to keep a hair more room than the retry as a bare glyph in
+   the header. Both are words in the acts row now and .mslot-act sets their
+   padding; a 4px override here would have squeezed one of the two. */
 /* and the way to keep it, under the plates it is made of */
 .mslot-keep {
   display: block; width: 100%; margin-top: 7px; padding: 8px;
