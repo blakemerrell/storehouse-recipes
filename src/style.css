@@ -3123,20 +3123,57 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 .pitem-x:hover { color: var(--ochre); background: oklch(0.62 0.10 55 / 0.10); }
 .pitem-x.back { font-size: 17px; }
 @media (pointer: coarse) {
-  /* A rail chip is a target like any other. 44 would make the rail taller
-     than the search box above it, so the emoji chips get a square 40 and the
-     word chips grow by their padding. */
-  .mp-shelf { min-height: 40px; padding: 8px 13px; }
+  /* A rail chip is a target like any other. It was held at 40 to keep the
+     rail from standing taller than the search box above it — and the search
+     box was 33 and under the line itself, so the rail was being measured
+     against something that was also wrong. The box is 44 now and the reason
+     is gone with it. */
+  .mp-shelf { min-height: 44px; min-width: 44px; padding: 8px 13px; }
   /* An emoji chip is square. The word chips need side padding to breathe;
      an emoji does not, and paying it on seven chips cost 49px each against a
      284px rail — three chips' worth of what fits before scrolling. */
-  .mp-shelf.emo { padding: 8px 0; width: 40px; }
+  .mp-shelf.emo { padding: 8px 0; width: 44px; }
+  /* Counted, it needs room for the number beside the emoji. */
+  .mp-shelf.emo.counted { width: auto; min-width: 44px; padding: 8px 9px; }
   .mp-shelf i { font-size: 17px; }
+/* The count a search puts on a chip. Beside the emoji, not over it: the chip
+   still has to read as the shelf it is, and a badge would say "new" in a
+   place where nothing is new. */
+.mp-shn {
+  font-size: 11px; font-weight: 700; margin-left: 4px;
+  font-variant-numeric: tabular-nums; color: var(--muted);
+}
+.mp-shelf.on .mp-shn { color: inherit; opacity: 0.75; }
   /* The one control in the picker that commits, and the first .mp-* class
      this block has ever named — the whole picker missed the 44px pass, and
      this button measured 29px while being the thing the sheet exists to let
      you press. */
   .mp-done { min-height: 44px; }
+  /* The rest of that pass, measured rather than guessed at: every control the
+     picker draws, at 412 and at 320, that came back under 44 on its short
+     side. The rail chips were already handled above; these are what was left.
+   *
+     The × was the worst of them at 21x22 — the one control on the sheet whose
+     job is to get you out of it. Grown by padding rather than by a width, so
+     the glyph stays the size it was and the reach around it is what changes.
+   *
+     The two selects are 23px of a native control. A select cannot be given
+     a min-height on every engine, so they take padding and a line-height; the
+     text stays where it was and the box grows under it.
+   *
+     The star is a favourite toggle sitting inside a row that is itself a
+     button — it cannot grow the row without moving the food's name, so it
+     takes its reach from padding and a negative margin, which leaves the
+     printed star where the eye already found it. */
+  .sheet-x { min-width: 44px; min-height: 44px; padding: 11px; margin: -11px; }
+  .mp-lens select, #mpSec, #mpSort { min-height: 44px; padding: 6px 8px; }
+  .mp-find .txt { min-height: 44px; }
+  .mp-cam { width: 44px; height: 44px; }
+  .mp-star {
+    min-width: 44px; min-height: 44px; padding: 0; margin: -10px -6px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .mpick-new { min-height: 44px; }
   /* no hover to reveal with, and a target you can actually hit */
   .pitem { padding: 8px 2px; font-size: 15.5px; }
   .pitem-x { opacity: 1; width: 34px; height: 34px; font-size: 19px; }

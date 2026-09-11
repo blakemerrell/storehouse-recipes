@@ -4476,6 +4476,22 @@
      a different question from the shelf rail: the rail is macros, this is
      sections and books. "On the family's plan" has no chip equivalent at all
      and would simply have been lost. */
+  /* An order is a question you have about a long list.
+   *
+     The mockup puts it plainly: sorts only appear on Recipes, because a shelf
+     of nine vegetables does not need one. Both places that decide this read
+     the same function, because a sort control that is hidden while the list
+     is still sorted by it is an invisible setting steering what you see —
+     which is the exact shape of half the bugs this app has had.
+   *
+     "Recipes" here means what you are browsing, not a mode: the Single foods
+     lens is a list of foods, and so is any macro shelf. Pressing 🍲 is
+     browsing recipes and keeps its order. */
+  function mpSortsOn() {
+    return !(S.mpSec === 'foods' || (S.mpShelf && S.mpShelf !== 'recipes'));
+  }
+  function mpSortNow() { return mpSortsOn() ? S.mpSort : 'fit'; }
+
   function mpLensHTML() {
     var fam = mFamilyIds(mViewKey());
     return '<span class="mp-lens">' +
@@ -4507,11 +4523,13 @@
           return out + (bk ? '</optgroup>' : '');
         })() +
       '</select>' +
-      '<select id="mpSort" aria-label="Order">' +
-        '<option value="fit"' + (S.mpSort === 'fit' ? ' selected' : '') + '>Best fit</option>' +
-        '<option value="protein"' + (S.mpSort === 'protein' ? ' selected' : '') + '>Most protein</option>' +
-        '<option value="healthy"' + (S.mpSort === 'healthy' ? ' selected' : '') + '>Nutrition score</option>' +
-      '</select></span>';
+      (mpSortsOn()
+        ? '<select id="mpSort" aria-label="Order">' +
+          '<option value="fit"' + (S.mpSort === 'fit' ? ' selected' : '') + '>Best fit</option>' +
+          '<option value="protein"' + (S.mpSort === 'protein' ? ' selected' : '') + '>Most protein</option>' +
+          '<option value="healthy"' + (S.mpSort === 'healthy' ? ' selected' : '') + '>Nutrition score</option>' +
+          '</select>'
+        : '') + '</span>';
   }
 
   var MSHELF_MIN = 3;
@@ -4520,27 +4538,54 @@
     var slot = null;
     mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
     if (!slot) return '';
-    var n = {}, anyRecipe = false;
+    /* Typed, the rail counts.
+     *
+       The chips were built from the whole pool whatever was in the box, so a
+       search left a row of shelves describing a list that was no longer on
+       screen — and the one question you have while typing is WHERE the hits
+       are. Narrowed by the query, each chip says how many of them it holds,
+       and MSHELF_MIN steps aside: three is the floor for a shelf worth
+       offering on a resting screen, and two hits for a word you just typed is
+       worth knowing about. */
+    var q = mpQ();
+    var n = {}, anyRecipe = false, total = 0, cooked = 0;
     mMealPool(slot, true).forEach(function (r) {
-      if (!r.food) { anyRecipe = true; return; }
+      if (!r.food) anyRecipe = anyRecipe || !q;   // the chip exists if the pool has any
+      if (q && !mpMatches(r, q)) return;
+      total++;
+      if (!r.food) { anyRecipe = true; cooked++; return; }
       var k = mShelfKey(r);
       if (k) n[k] = (n[k] || 0) + 1;
     });
+    var tag = function (c) {
+      return q ? '<b class="mp-shn">' + c + '</b>' : '';
+    };
     var chips = '<button class="mp-shelf' + (S.mpShelf ? '' : ' on') +
-      '" data-mpshelf="" aria-pressed="' + (S.mpShelf ? 'false' : 'true') + '">All</button>';
-    if (anyRecipe) {
+      '" data-mpshelf="" aria-pressed="' + (S.mpShelf ? 'false' : 'true') + '">All' +
+      tag(total) + '</button>';
+    if (anyRecipe || S.mpShelf === 'recipes') {
       /* An emoji like the rest. Spelled out it was 89 px — a third of a
          320 px rail for one chip, which bought five of the nine a place
          behind the fade. The pot is as legible as the carrot beside it. */
-      chips += '<button class="mp-shelf emo' + (S.mpShelf === 'recipes' ? ' on' : '') +
+      chips += '<button class="mp-shelf emo' + (q ? ' counted' : '') +
+        (S.mpShelf === 'recipes' ? ' on' : '') +
         '" data-mpshelf="recipes" aria-pressed="' + (S.mpShelf === 'recipes' ? 'true' : 'false') +
-        '" aria-label="Recipes"><i>\uD83C\uDF72</i></button>';
+        '" aria-label="Recipes' + (q ? ', ' + cooked + ' of them' : '') +
+        '"><i>\uD83C\uDF72</i>' + tag(cooked) + '</button>';
     }
     MSHELF.forEach(function (sh) {
-      if ((n[sh[0]] || 0) < MSHELF_MIN) return;
-      chips += '<button class="mp-shelf emo' + (S.mpShelf === sh[0] ? ' on' : '') +
+      var c = n[sh[0]] || 0;
+      /* The chip you are standing on never leaves, even at nought. Dropping
+         it took away the only way to un-press the thing that emptied the
+         list — press 🥦, type a word no vegetable answers to, and both the
+         rows and the chip were gone. A zero is a real answer: this shelf has
+         none of what you typed. */
+      if (c < (q ? 1 : MSHELF_MIN) && S.mpShelf !== sh[0]) return;
+      chips += '<button class="mp-shelf emo' + (q ? ' counted' : '') +
+        (S.mpShelf === sh[0] ? ' on' : '') +
         '" data-mpshelf="' + sh[0] + '" aria-pressed="' + (S.mpShelf === sh[0] ? 'true' : 'false') +
-        '" aria-label="' + esc(sh[2]) + '"><i>' + sh[1] + '</i></button>';
+        '" aria-label="' + esc(sh[2]) + (q ? ', ' + c + ' of them' : '') +
+        '"><i>' + sh[1] + '</i>' + tag(c) + '</button>';
     });
     return '<div class="mp-shelves" id="mpShelves">' + chips + '</div>';
   }
@@ -4728,11 +4773,12 @@
       })();
     /* An order is a lens, not a different picker: every row keeps the portion
        the fit worked out, whatever order they arrive in. */
-    if (S.mpSort === 'protein') {
+    var order = mpSortNow();
+    if (order === 'protein') {
       ranked.sort(function (a, b) {
         return ((b.r.macro && b.r.macro.p) || 0) - ((a.r.macro && a.r.macro.p) || 0);
       });
-    } else if (S.mpSort === 'healthy') {
+    } else if (order === 'healthy') {
       ranked.sort(function (a, b) { return (b.r.score || 0) - (a.r.score || 0); });
     }
     /* Ten while the lens is where it opens, forty once it has been moved.
@@ -4768,7 +4814,36 @@
       (S.mpBasket[e.r.id] !== undefined ? held : offer).push(e);
     });
     ranked = offer.slice(0, S.mpSec === 'meal' ? 10 : 40).concat(held);
-    if (!ranked.length) return '';
+    /* An empty band still draws its divider, because the divider is where the
+       lens and the order live and they are the way back out.
+     *
+       A shelf chip and a lens compose — that is the whole point of a chip
+       being a filter — and some pairs have nothing in them: press 🥦 while
+       the lens says "Every recipe" and you are asking for a recipe that is a
+       vegetable. The band returned '' and took the two controls with it, so
+       the sheet showed an empty list and no way to undo the thing that
+       emptied it. It says what it has none of instead, and keeps the handles. */
+    if (!ranked.length) {
+      /* Empty because of the LENS: keep the divider, because the lens and the
+         order live on it and they are the way back out. Press 🥦 while the
+         lens says "Every recipe" and you have asked for a recipe that is a
+         vegetable — the band used to return '' and take both controls with
+         it, leaving an empty list and no way to undo the thing that emptied
+         it.
+       *
+         Empty because of a QUERY is not that: the box is right there with the
+         caret in it, so the way out is already under your hands, and a "Fits
+         best" heading standing over no rows would be a band claiming content
+         it does not have. No divider, and the list says "Nothing matches" in
+         its own words.
+       *
+         No message here either way. A band that returns any string at all
+         makes the list look non-empty, and that is what buried the honest
+         sentence the first time this was tried. */
+      if (mpQ()) return '';
+      return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' : 'On the shelf') +
+        mpLensHTML() + '</div>';
+    }
     /* Writes into the shared set, which it never used to — safe only while it
        was composed last, and it is not last any more. */
     ranked.forEach(function (e) { skip[e.r.id] = 1; });
@@ -5503,13 +5578,19 @@
     var shown = {};
     var body = mpNamedHTML(shown) + mpPinsHTML(shown) + mpRecentHTML(shown) +
       mpComboHTML(shown) + mpFitsHTML(shown) + mpElseHTML(shown);
-    /* Judged on the BANDS, not on qTop: a barcode with nothing behind it
-       draws a band and no rows, and "nothing matches" is still the honest
-       thing to say under it. */
-    if (!body) {
-      body = '<div class="mslot-empty">' + (mpQ()
+    /* Judged on the ROWS, not on the string. A barcode with nothing behind it
+       draws a band and no rows, and so does a shelf crossed with a lens that
+       has nothing in it — and the Fits band now keeps its divider either way,
+       because the lens and the order live on it and they are the way back out
+       of the thing that emptied the list. Counting characters would read
+       either of those as a list with something in it. Every band writes the
+       rows it drew into `shown`, so that is the count. */
+    if (!Object.keys(shown).length) {
+      body += '<div class="mslot-empty">' + (mpQ()
         ? 'Nothing matches ' + esc(S.mpQuery.trim()) + '.'
-        : 'Nothing to offer for this meal yet.') + '</div>';
+        : S.mpShelf || S.mpSec !== 'meal'
+          ? 'Nothing here in this lens.'
+          : 'Nothing to offer for this meal yet.') + '</div>';
     }
     return mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
       { k: S.macroPick.slot, w: S.macroPick.w }) + body + mpLookFootHTML();
@@ -5525,9 +5606,35 @@
      Dispatches on mode because #mpList now exists in two of them and holds
      different things: the resting screen's four narrowed bands, or the
      Recipes lens's own ranked list. */
+  /* The rail follows the query, and nothing else.
+   *
+     refreshMacroPicker rebuilds ONLY the list — that is what keeps the search
+     box alive across a keystroke — so the chips went on describing the pool
+     as it was before you typed. They are rebuilt here when the query changes
+     and only then: a chip press re-renders the list too, and rebuilding the
+     rail under a thumb that has just pressed one would take the press with
+     it. The rail remembers what it was built for, so the comparison lives on
+     the element rather than in a variable that can go stale behind a sheet
+     being closed and opened. */
+  function mRailSync() {
+    var rail = $('mpShelves');
+    if (!rail) return;
+    var q = mpQ();
+    if (rail.getAttribute('data-q') === q) return;
+    keepingFocus(function () {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = mpShelvesHTML();
+      var next = tmp.firstChild;
+      if (!next) return;
+      next.setAttribute('data-q', q);
+      rail.parentNode.replaceChild(next, rail);
+    });
+  }
+
   function refreshMacroPicker() {
     var el = $('mpList');
     if (!el) return;
+    mRailSync();
 
     el.innerHTML = mpHomeBodyHTML();
   }

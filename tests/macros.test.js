@@ -2273,6 +2273,128 @@ module.exports = {
       JSON.stringify(unplannedRows.filter((r) => r.x !== 1).slice(0, 5)));
     await noPlan.context().close();
 
+    /* ---- the rail counts what you typed ----------------------------------
+     * The chips were built from the whole pool whatever was in the box, so a
+     * search left a row of shelves describing a list that had moved on — and
+     * the one question you have while typing is WHERE the hits are. The
+     * mockup's words: searching turns the chips into counts instead of
+     * blanking them.
+     *
+     * Asserted on the arithmetic rather than on a number: All has to equal
+     * what the other chips add up to, whatever the food table happens to hold
+     * this week. */
+    const railPg2 = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await railPg2.click('.tab[data-view="macros"]');
+    await railPg2.waitForTimeout(300);
+    await addOn(railPg2);
+    await railPg2.waitForTimeout(500);
+    const railOf = () => railPg2.evaluate(() =>
+      [...document.querySelectorAll('.mp-shelf')].map((c) => ({
+        k: c.dataset.mpshelf,
+        n: (c.querySelector('.mp-shn') || {}).textContent || null })));
+    const restingRail = await railOf();
+    t.ok('a resting rail carries no counts',
+      restingRail.length > 2 && restingRail.every((c) => c.n === null),
+      JSON.stringify(restingRail));
+    await railPg2.fill('#mpFind', 'bean');
+    await railPg2.waitForTimeout(600);
+    const typedRail = await railOf();
+    const allChip = typedRail.filter((c) => c.k === '')[0];
+    const rest = typedRail.filter((c) => c.k !== '');
+    t.ok('typing turns them into counts',
+      !!allChip && allChip.n !== null && rest.length > 0 && rest.every((c) => c.n !== null),
+      JSON.stringify(typedRail));
+    /* Guarded on the counts existing at all: Number(null) is 0, so without
+       this an app that had stopped counting would satisfy "0 equals 0". */
+    t.ok('and the counts add up to what All says',
+      !!allChip && allChip.n !== null &&
+        Number(allChip.n) === rest.reduce((s2, c) => s2 + Number(c.n), 0),
+      JSON.stringify(typedRail));
+    await railPg2.fill('#mpFind', '');
+    await railPg2.waitForTimeout(600);
+    /* And it had them to take away — otherwise this is green on an app that
+       never counted. */
+    t.ok('and clearing the box takes the counts away again',
+      typedRail.some((c) => c.n !== null) &&
+        (await railOf()).every((c) => c.n === null), JSON.stringify(await railOf()));
+
+    /* ---- an order is a question about a long list -------------------------
+     * The mockup: sorts only appear on Recipes, because a shelf of nine
+     * vegetables does not need one. Both the control and the sorting itself
+     * read one function — a hidden control still steering the order is an
+     * invisible setting, which is the shape of half the bugs this app has had.
+     */
+    const sortWhen = async (fn) => {
+      await fn();
+      await railPg2.waitForTimeout(600);
+      return railPg2.evaluate(() => ({
+        lens: !!document.getElementById('mpSec'),
+        sort: !!document.getElementById('mpSort') }));
+    };
+    t.ok('browsing recipes offers an order',
+      (await sortWhen(async () => railPg2.selectOption('#mpSec', 'all'))).sort,
+      'lens=all');
+    t.ok('a shelf of single foods does not',
+      !(await sortWhen(async () => railPg2.selectOption('#mpSec', 'foods'))).sort,
+      'lens=foods');
+    /* And the way back out survives a lens with nothing in it. Press a food
+       shelf while the lens says "Every recipe" and you have asked for a
+       recipe that is a vegetable: the band used to return nothing and take
+       the lens with it, leaving no way to undo what emptied the list. */
+    const stranded = await sortWhen(async () => {
+      await railPg2.selectOption('#mpSec', 'all');
+      await railPg2.waitForTimeout(400);
+      await railPg2.evaluate(() => {
+        const ch = document.querySelector('.mp-shelf[data-mpshelf="veg"]');
+        if (ch) ch.click();
+      });
+    });
+    t.ok('and an empty lens keeps the control that undoes it',
+      stranded.lens && !stranded.sort, JSON.stringify(stranded));
+    t.ok('and says so rather than showing a heading over nothing',
+      await railPg2.evaluate(() =>
+        document.querySelectorAll('.mpick-row[data-mpick]').length === 0 &&
+        /nothing here in this lens/i.test(document.getElementById('mpList').textContent)),
+      await railPg2.evaluate(() =>
+        document.getElementById('mpList').textContent.replace(/\s+/g, ' ').trim().slice(0, 70)));
+    await railPg2.context().close();
+
+    /* ---- every control in the picker is a thumb's width ------------------
+     * The mockup asks for it in three words — "Every control 44px" — and the
+     * picker had never had the pass: measured at 412 and at 320 it came back
+     * with twenty-seven under it, including the × that gets you out of the
+     * sheet at 21x22, the camera at 36, the two selects at 23 and every shelf
+     * chip at 40. The chips had been held at 40 deliberately, to keep the
+     * rail from standing taller than the search box — and the search box was
+     * 33 and under the line itself, so the rail was being measured against
+     * something that was also wrong.
+     *
+     * A standing count rather than a list of sizes: a rule the whole sheet
+     * has to keep is worth a test that notices a NEW control breaking it, and
+     * naming today's controls would only ever check today's. */
+    for (const vp of [{ width: 412, height: 915 }, { width: 320, height: 568 }]) {
+      const tapPg = await t.fresh({ viewport: vp, hasTouch: true, isMobile: true });
+      await tapPg.click('.tab[data-view="macros"]');
+      await tapPg.waitForTimeout(300);
+      await addOn(tapPg);
+      await tapPg.waitForTimeout(500);
+      const undersized = await tapPg.evaluate(() => {
+        const out = [];
+        document.querySelectorAll('#modalRoot button, #modalRoot select, #modalRoot input')
+          .forEach((e) => {
+            const r = e.getBoundingClientRect();
+            if (!r.width || !r.height) return;              // not drawn
+            if (Math.min(r.width, r.height) >= 44) return;
+            out.push(((e.className && String(e.className).split(' ')[0]) || e.id || e.tagName) +
+              ' ' + Math.round(r.width) + 'x' + Math.round(r.height));
+          });
+        return out;
+      });
+      t.ok('every control in the picker is at least 44px at ' + vp.width,
+        undersized.length === 0, JSON.stringify(undersized));
+      await tapPg.context().close();
+    }
+
     /* ---- a food the storehouse has never heard of -------------------------
      * The live lookup was in the app the whole time — it is what fills a
      * packet's numbers in from the USDA — but the only thing that called it
