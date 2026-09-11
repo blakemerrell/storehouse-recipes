@@ -4360,7 +4360,6 @@
     look: '<circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 14 14"/>',
     recipes: '<rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/>'
   };
-  var MP_WAYS = [['scan', 'Scan'], ['look', 'Look up'], ['recipes', 'Recipes']];
 
   function mpIcon(k) {
     return '<svg class="mp-way-i" viewBox="0 0 16 16" aria-hidden="true" fill="none" ' +
@@ -4368,16 +4367,6 @@
       MP_ICON[k] + '</svg>';
   }
 
-  function mpWaysHTML(big) {
-    return '<div class="mp-ways' + (big ? ' big' : '') + '">' + MP_WAYS.map(function (w) {
-      /* No camera, no Scan. Offering a way in that cannot open is worse than
-         two ways, and this is the one device question the sheet can answer
-         before being asked. */
-      if (w[0] === 'scan' && !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return '';
-      return '<button class="mp-way' + (S.mpMode === w[0] ? ' on' : '') + '" data-mpmode="' + w[0] + '">' +
-        mpIcon(w[0]) + '<span class="mp-way-t">' + w[1] + '</span></button>';
-    }).join('') + '</div>';
-  }
 
   /* One row, wherever it is listed. The picker, the look-up and the recent
      list all offer the same thing — a dish at a portion — so they offer it
@@ -4666,11 +4655,20 @@
          and a tablespoon of oil is a real thing to have eaten and to log.
          They sort under the foods rather than out of the list: a thing that
          goes ON food is not the answer to "what shall I eat", which is the
-         same rule the combo's rungs follow. */
+         same rule the combo's rungs follow.
+     *
+         EVERY food, including the ones the storehouse does not stock. "Fill
+         from: the storehouse" says what the SOLVER may shop from — a day
+         drafted out of salmon that is not in the house is not a day — and it
+         has never had anything to say about what you may look at or log.
+         Gating this lens on it hid all twenty-eight of the outside foods
+         from the one lens whose whole job is "let me look through the
+         shelf", while the same foods came straight back the moment you typed
+         their name, which is a shelf that disagrees with its own search box.
+         The gate belongs in mMealPool, mSideUp, mTopUp and mLevers, and it is
+         still in all four. */
       pool = [];
-      var extF = mExtOk();
       MFOODS.forEach(function (r) {
-        if (r.ext && !extF) return;
         if (!r.macro || !(r.macro.kcal > 0 || r.macro.p > 0)) return;
         pool.push(r);
       });
@@ -4688,10 +4686,10 @@
          question nobody asked. A typed word is different: somebody who types
          "honey" has already said what they want, and it should reach them
          from whatever lens they happen to be standing in. */
+      /* And a typed word reaches the outside foods too, for the same reason
+         the lens does: the setting is about drafting, not about looking. */
       if (mpQ()) {
-        var extOK = mExtOk();
         MFOODS.forEach(function (r) {
-          if (r.ext && !extOK) return;
           if (r.eat || r.side) pool.push(r);
         });
       }
@@ -5451,138 +5449,8 @@
      Ordered inside each group the way the combo's rungs are: something you
      would eat before something that goes ON food, then by how cleanly it
      carries its macro. Same rule in both places on purpose. */
-  function mpBrowseHTML() {
-    mGapFresh();
-    var pool = MFOODS.filter(function (r) {
-      if (!(r.eat || r.side || r.lever)) return false;
-      /* The same floor the lever bench uses, for the same reason. A five
-         calorie cup of cacao brew takes most of its nothing from protein,
-         which filed it under Protein next to canned tuna. Nothing this light
-         is a source of anything — it is flavour. Still findable by typing
-         its name; only the browse groups turn it away. */
-      return ((r.macro && r.macro.kcal) || 0) >= 8;
-    });
-    if (!pool.length) return '';
-    var ranked = mRank(pool, mDay(mViewKey()), mDayTargets(mViewKey()),
-      { k: S.macroPick.slot, w: S.macroPick.w });
-    var byDom = { p: [], f: [], c: [] };
-    ranked.forEach(function (e) {
-      var dm = mFoodDom(e.r);
-      if (dm) byDom[dm.d].push({ e: e, pur: dm.pur });
-    });
-    var out = '';
-    MDOM_HEAD.forEach(function (h) {
-      var rows = byDom[h[0]];
-      if (!rows.length) return;
-      rows.sort(function (a, b) {
-        var af = (a.e.r.eat || a.e.r.side) ? 1 : 0, bf = (b.e.r.eat || b.e.r.side) ? 1 : 0;
-        return (bf - af) || (b.pur - a.pur);
-      });
-      out += '<div class="mt-div">' + h[1] + '</div>' + rows.map(function (row) {
-        var r = row.e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : row.e.x;
-        return mpRowHTML(r, row.e.x, '&times;' + fmtNum(xx) + ' ' + esc(r.unit) +
-          ' &middot; ' + mMacLine(r, xx, true) + mSaltNote(r, xx));
-      }).join('');
-    });
-    return out;
-  }
 
-  function mpLookHTML() {
-    mGapFresh();
-    var qs = S.mpQuery.trim().toLowerCase();
-    if (!qs) return mpBrowseHTML();
-    var top = mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
-      { k: S.macroPick.slot, w: S.macroPick.w });
-    var day = mDay(mViewKey());
-    var targets = mDayTargets(mViewKey());
-    var pick = { k: S.macroPick.slot, w: S.macroPick.w };
-    var pool = [];
-    MFOODS.forEach(function (r) { if (r.name.toLowerCase().indexOf(qs) >= 0) pool.push(r); });
-    RECIPES.forEach(function (r) { if (matchRank(r, qs)) pool.push(r); });
-    if (!pool.length) {
-      return top + (top ? '' : '<div class="mslot-empty">Nothing of yours matches.</div>');
-    }
-    /* The food you named goes first. Ranked purely on fit, a spoon of honey
-       loses to a dozen recipes that merely list honey among their
-       ingredients, and the row you typed the word for never appears — this
-       box is twelve rows deep. Fit still orders the foods, and orders the
-       recipes under them. */
-    var ranked = mRank(pool, day, targets, pick);
-    var hits = [], rest = [];
-    ranked.forEach(function (e) { (e.r.food ? hits : rest).push(e); });
-    return top + hits.concat(rest).slice(0, 12).map(function (e) {
-      var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
-      return mpRowHTML(r, e.x,
-        '<span class="mp-src">' + (r.food ? 'Yours' : 'Recipe') + '</span> &times;' + fmtNum(xx) +
-        (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx, true));
-    }).join('');
-  }
 
-  function mpListHTML() {
-    mGapFresh();
-    var qs = S.mpQuery.trim().toLowerCase();
-    var top = qs ? mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
-      { k: S.macroPick.slot, w: S.macroPick.w }) : '';
-    var fam = S.mpSec === 'family' ? mFamilyIds(mViewKey()) : null;
-    var pool = S.mpSec === 'foods' ? [] : RECIPES.filter(function (r) {
-      var sk = r.book + '-' + r.secNum;
-      if (S.mpSec === 'meal' && S.macroPick.secs.indexOf(sk) < 0) return false;
-      if (fam && fam.indexOf(r.id) < 0) return false;
-      if (!fam && S.mpSec !== 'meal' && S.mpSec !== 'all' && sk !== S.mpSec) return false;
-      if (qs && !matchRank(r, qs)) return false;
-      return true;
-    });
-    /* A spoon of honey is not in any section, so it answers to its own lens
-       — and to a search from any of them, because somebody typing "honey"
-       into a meal picker has already said what they want. */
-    if (S.mpSec === 'foods' || qs) {
-      MFOODS.forEach(function (r) {
-        if (qs && r.name.toLowerCase().indexOf(qs) < 0) return;
-        pool.push(r);
-      });
-    }
-    var rows = mRank(pool, mDay(mViewKey()), mDayTargets(mViewKey()),
-      { k: S.macroPick.slot, w: S.macroPick.w });
-    /* Sorting is a lens, not a different picker: every row keeps the portion
-       the fit worked out, whatever order the rows arrive in. */
-    if (S.mpSort === 'protein') {
-      rows.sort(function (a, b) {
-        return (((b.r.macro && b.r.macro.p) || 0) - ((a.r.macro && a.r.macro.p) || 0));
-      });
-    }
-    if (S.mpSort === 'healthy') {
-      rows.sort(function (a, b) {
-        return (b.r.score === null ? -1 : b.r.score) - (a.r.score === null ? -1 : a.r.score);
-      });
-    }
-    /* A name match beats a fit score. Forty recipes list honey among their
-       ingredients, so ranking the spoon of honey against them on how well it
-       fills a dinner buries the one row the search was for under forty ways
-       to bake with it. Typing a food's name is the whole of the question —
-       the foods that answer it go first, in whatever order the lens left
-       them, and the recipes follow. */
-    if (qs) {
-      var hits = [], rest = [];
-      rows.forEach(function (e) { (e.r.food ? hits : rest).push(e); });
-      rows = hits.concat(rest);
-    }
-    rows = rows.slice(0, 40);
-    var own = '<button class="mpick-row mpick-new" data-mpnew="1">' +
-      '<span class="mp-body"><span class="mp-name">&#43; Something else</span>' +
-      '</span></button>';
-    if (!rows.length) {
-      return top + own + (top ? '' : '<div class="mslot-empty">Nothing else matches' +
-        (S.mpSec === 'meal' ? ' &mdash; try Every recipe.' : '.') + '</div>');
-    }
-    /* Always there, at the foot of whatever the list is: "none of these" is
-       a thought you have after reading the list, not before. */
-    return top + rows.map(function (e) {
-      var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
-      return mpRowHTML(r, e.x, e.score === null ? 'no data'
-        : '&times;' + fmtNum(xx) + (r.food ? ' ' + esc(r.unit) : '') +
-          ' &middot; ' + mMacLine(r, xx, true) + mSaltNote(r, xx));
-    }).join('') + own;
-  }
 
   /* Only the list under the search box redraws while you type — redrawing the
      sheet would fight the cursor for the input. refreshPreview() set the
@@ -5647,7 +5515,7 @@
   function refreshMacroPicker() {
     var el = $('mpList');
     if (!el) return;
-    if (S.mpMode !== 'home') { el.innerHTML = mpListHTML(); return; }
+
     el.innerHTML = mpHomeBodyHTML();
   }
 
@@ -6000,7 +5868,7 @@
   /* The food tables, asked once you have stopped typing. Late answers are
      dropped rather than drawn: a slow reply to "tam" must not land on top of
      the results for "tamale". */
-  var mLookTimer = null, mLookSeq = 0;
+  var mLookSeq = 0;
   function mLookNet(term) {
     var mine = ++mLookSeq;
     var res = $('nfResults');
@@ -9591,8 +9459,11 @@
     var draft = root.querySelector('#joinCode');
     if (draft) S.joinDraft = draft.value;
     // same bargain for the picker's search: a sync emit must not eat the query
-    var mq = root.querySelector('#mpFind') || root.querySelector('#mpSearch') ||
-      root.querySelector('#mpLookIn');
+    /* One box. It was three — #mpFind, #mpSearch and #mpLookIn — one per
+       screen, back when the picker had three. Two of those screens went in
+       v283 and the fallbacks outlived them, quietly asking for elements that
+       can no longer be rendered. */
+    var mq = root.querySelector('#mpFind');
     if (mq) S.mpQuery = mq.value;
 
     /* Re-rendering the editor would throw away half-typed text, so it is drawn
@@ -9667,8 +9538,6 @@
         if (S.mpMode === 'scan' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
           mScanStart();
         }
-        var lk = root.querySelector('#mpLookIn');
-        if (lk && S.mpQuery) { lk.focus(); lk.setSelectionRange(lk.value.length, lk.value.length); }
       }
       return;
     }
@@ -11748,16 +11617,22 @@
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
       if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
       if (S.newFood && e.target.id === 'nfFind') { /* typed; the buttons ask */ }
+      /* Held, because these two now live INSIDE #mpList.
+       *
+         They used to sit in .mp-controls, a sibling of the list, where
+         replacing the list could not touch them. They moved onto the
+         "Fits best / On the shelf" divider, which mpFitsHTML returns as part
+         of the list — so redrawing the list destroys the very select that
+         asked for the redraw, and focus falls to the body. A keyboard or
+         screen-reader user had to tab from the top of the sheet back down
+         for every single change. focusKey falls back to #id, so there is
+         nothing to add to FOCUS_ATTRS; there was simply nothing holding on. */
       if (S.macroPick && (e.target.id === 'mpSec' || e.target.id === 'mpSort')) {
         if (e.target.id === 'mpSec') S.mpSec = e.target.value;
         else S.mpSort = e.target.value;
-        refreshMacroPicker();
+        keepingFocus(refreshMacroPicker);
       }
       if (S.macroPick && e.target.id === 'mpFind') {
-        S.mpQuery = e.target.value;
-        refreshMacroPicker();
-      }
-      if (S.macroPick && e.target.id === 'mpSearch') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();
       }
@@ -11765,16 +11640,6 @@
          the keystroke; the food tables are a request over a network, so they
          answer when they answer, underneath, and only once you have stopped
          typing long enough to mean it. */
-      if (S.macroPick && e.target.id === 'mpLookIn') {
-        S.mpQuery = e.target.value;
-        var el = $('mpLookList');
-        if (el) el.innerHTML = mpLookHTML();
-        clearTimeout(mLookTimer);
-        var want = S.mpQuery.trim();
-        if ($('nfResults')) $('nfResults').innerHTML = '';
-        if (want.length < 3) return;
-        mLookTimer = setTimeout(function () { mLookNet(want); }, 550);
-      }
       // the derived-kcal line follows the three targets as they are typed
       if (S.macroTargOpen && /^mt[PFC]$/.test(e.target.id)) mtRefreshAnswer();
       // and the plan preview follows the profile boxes
@@ -11789,8 +11654,12 @@
     $('modalRoot').addEventListener('change', function (e) {
       if (S.macroTargOpen && (e.target.id === 'mtAct' || e.target.id === 'mtGoalBy')) mtRefreshPlan();
       // the picker's two lenses redraw only the list, like the search box
-      if (S.macroPick && e.target.id === 'mpSec') { S.mpSec = e.target.value; refreshMacroPicker(); }
-      if (S.macroPick && e.target.id === 'mpSort') { S.mpSort = e.target.value; refreshMacroPicker(); }
+      if (S.macroPick && e.target.id === 'mpSec') {
+        S.mpSec = e.target.value; keepingFocus(refreshMacroPicker);
+      }
+      if (S.macroPick && e.target.id === 'mpSort') {
+        S.mpSort = e.target.value; keepingFocus(refreshMacroPicker);
+      }
       /* Choosing "Choose sections…" unfolds the checklist under that meal,
          seeded with whatever the previous kind drew from — a starting point
          to edit, not a blank sheet. Choosing a kind folds it away. */

@@ -2229,6 +2229,93 @@ module.exports = {
       await look.evaluate(() => document.getElementById('nfResults').textContent));
     await look.context().close();
 
+    /* ---- "Fill from" governs drafting, not looking ------------------------
+     * The setting says what the SOLVER may shop from — a day drafted out of
+     * salmon that is not in the house is not a day. It was also gating the
+     * "Single foods" lens and the typed-word pool, so all twenty-eight
+     * outside foods vanished from the one lens whose whole job is "let me
+     * look through the shelf" — while the same foods came straight back the
+     * moment you typed their name. A shelf disagreeing with its own search
+     * box. Three comments in the file say the gate is about drafting; only
+     * the four drafting pools should hold it, and this asserts BOTH halves,
+     * because deleting the gate outright would be the worse bug. */
+    const extGate = async (extFill) => {
+      const pg = await t.fresh({ viewport: { width: 412, height: 915 } });
+      await pg.evaluate((e) => {
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43,
+          ft: 5, inch: 11, lb: 190, act: 1.375, goal: 'cut1', goalLb: 0, goalBy: '',
+          workouts: 4, steps: 8000, extFill: e }));
+      }, extFill);
+      await pg.reload();
+      await pg.waitForTimeout(400);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(300);
+      await (await pg.$$('.mslot-add'))[0].click();
+      await pg.waitForTimeout(600);
+      await pg.evaluate(() => {
+        const sel = document.getElementById('mpSec');
+        if (sel) { sel.value = 'foods'; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+      });
+      await pg.waitForTimeout(500);
+      const out = await pg.evaluate(() => {
+        const N = window.Nutrition.FOODS;
+        const isExt = (id) => id.indexOf('f:') === 0 && N[id.slice(2)] && !!N[id.slice(2)].ext;
+        const rows = [...document.querySelectorAll('.mpick-row[data-mpick]')]
+          .map((r) => r.dataset.mpick);
+        const lev = window.__macroLab.levers();
+        const levIds = [].concat(lev.p || [], lev.f || [], lev.c || []).map((x) => x.id);
+        return { browse: rows.filter(isExt).length, shelf: rows.length,
+          drafting: levIds.filter(isExt).length };
+      });
+      await pg.context().close();
+      return out;
+    };
+    const gateShut = await extGate(false);
+    const gateOpen = await extGate(true);
+    /* Counted, not named: the list is capped at forty plus whatever is held,
+       and no individual outside food is guaranteed to survive that cap — the
+       closers come off a different bench in the two settings and claim
+       different rows into `shown`. What is not a matter of ranking is whether
+       ANY of them can appear, and before this that number was flatly zero. */
+    t.ok('the shelf shows the outside foods even when Fill may not shop for them',
+      gateShut.browse > 20, JSON.stringify(gateShut));
+    t.ok('and shows about as many of them either way',
+      Math.abs(gateShut.browse - gateOpen.browse) <= 4,
+      JSON.stringify({ shut: gateShut, open: gateOpen }));
+    /* The half that must NOT change: deleting the gate would be worse than
+       the bug, because a drafted day would send you shopping. */
+    t.ok('while the solver still refuses to draft from them',
+      gateShut.drafting === 0 && gateOpen.drafting > 0,
+      JSON.stringify({ shutDraft: gateShut.drafting, openDraft: gateOpen.drafting }));
+
+    /* ---- the lens and the order keep the focus that changed them ----------
+     * Both selects used to sit in .mp-controls, a sibling of #mpList, where
+     * redrawing the list could not touch them. They moved onto the "Fits best
+     * / On the shelf" divider, which mpFitsHTML returns as PART of the list —
+     * so the redraw destroyed the very select that asked for it and focus
+     * fell to the body. A keyboard or screen-reader user had to tab from the
+     * top of the sheet back down again for every change. focusKey already
+     * falls back to #id; nothing was holding on. */
+    const lensPg = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await lensPg.click('.tab[data-view="macros"]');
+    await lensPg.waitForTimeout(250);
+    await (await lensPg.$$('.mslot-add'))[0].click();
+    await lensPg.waitForTimeout(600);
+    const held = [];
+    for (const [id, val] of [['mpSec', 'all'], ['mpSort', 'protein']]) {
+      await lensPg.focus('#' + id);
+      await lensPg.selectOption('#' + id, val);
+      await lensPg.waitForTimeout(350);
+      held.push(await lensPg.evaluate((i) => ({
+        id: i, active: document.activeElement ? document.activeElement.id || document.activeElement.tagName : 'NONE',
+        value: (document.getElementById(i) || {}).value }), id));
+    }
+    t.ok('changing the lens leaves the focus on the lens',
+      held[0].active === 'mpSec' && held[0].value === 'all', JSON.stringify(held[0]));
+    t.ok('and changing the order leaves it on the order',
+      held[1].active === 'mpSort' && held[1].value === 'protein', JSON.stringify(held[1]));
+    await lensPg.context().close();
+
     const findPg = await t.fresh({ viewport: { width: 412, height: 915 } });
     await findPg.click('.tab[data-view="macros"]');
     await findPg.waitForTimeout(250);
