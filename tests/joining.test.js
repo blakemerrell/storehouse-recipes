@@ -143,13 +143,24 @@ module.exports = {
      * loss contribute() exists to prevent, moved into the failure path where
      * nobody would look for it.
      *
-     * There is no network in this container, so ready() genuinely cannot load
-     * the SDK. That is the failure being tested, arriving by itself.
+     * The no-signal condition is MADE here, not assumed. This used to rely on
+     * the container having no network — "ready() genuinely cannot load the
+     * SDK, the failure arrives by itself" — which is true on a build box and
+     * false on a laptop, where gstatic answers and the premise of the whole
+     * block quietly evaporates. That is why these three assertions have been
+     * failing two runs in three and passing the third: not a race in the app,
+     * an assumption about the room it was running in. The SDK's own host is
+     * refused instead, so the failure being tested is the failure that
+     * happens, wherever this runs.
      *
      * The same window is what queues writes: with `doc` still null there is
      * nowhere to send a change, and it used to be applied locally and then
      * dropped, to be overwritten by the first snapshot that ever arrived. */
     const off = await t.browser.newContext();
+    /* Only the SDK's host. Blocking everything would take the page itself
+       down with it — it is served from the test server on 127.0.0.1, and a
+       page that never loads proves nothing about a page that cannot sync. */
+    await off.route('**://www.gstatic.com/**', (r) => r.abort());
     const q = await off.newPage();
     await q.goto(t.base + 'index.html');
     await q.evaluate(() => localStorage.clear());
