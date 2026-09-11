@@ -11676,6 +11676,26 @@
     });
 
     // a select fires change, not input, in enough browsers to matter
+    /* A nought you have not answered yet is a placeholder, and tapping it
+       should not leave you typing AROUND it.
+     *
+       The plan sheet's About-you boxes open at 0 on a first run, and a tap
+       puts the caret wherever the thumb landed — usually left of the digit,
+       because the digit sits right-aligned at the far end of the row. Typing
+       180 into the weight box then produced "1800", which the sheet accepted
+       (max=999 is the browser's business, not mtProfileFromDom's) and built a
+       ten-thousand-calorie plan out of. The first number a new reader types
+       into this app came back wrong by a factor of ten.
+     *
+       Only an exact "0", so a real figure you tapped into to correct keeps
+       its caret where you put it. focusin because focus does not bubble. */
+    $('modalRoot').addEventListener('focusin', function (e) {
+      var el = e.target;
+      if (!S.macroTargOpen || !el || el.tagName !== 'INPUT' || el.type !== 'number') return;
+      if (el.value !== '0') return;
+      try { el.select(); } catch (e2) { /* older webviews: leave the caret be */ }
+    });
+
     $('modalRoot').addEventListener('change', function (e) {
       if (S.macroTargOpen && (e.target.id === 'mtAct' || e.target.id === 'mtGoalBy')) mtRefreshPlan();
       // the picker's two lenses redraw only the list, like the search box

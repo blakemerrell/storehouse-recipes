@@ -2309,6 +2309,40 @@ module.exports = {
       JSON.stringify(paperErrs));
     await paper.context().close();
 
+    /* ---- the first number a new reader types --------------------------
+     * The About-you boxes open at 0 on a first run, right-aligned at the far
+     * end of their row, and a tap puts the caret wherever the thumb landed —
+     * usually LEFT of the digit. Typing 180 into the weight box produced
+     * "1800", which the sheet accepted (max=999 is the browser's business,
+     * not mtProfileFromDom's) and turned into a ten-thousand-calorie plan.
+     * The very first number anybody types into this app came back wrong by a
+     * factor of ten. Typed with real keys at the caret the tap leaves, not
+     * with fill(), which replaces the value and would pass either way. */
+    const zeroBox = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await zeroBox.evaluate(() => localStorage.removeItem('bsc.macroProfile'));
+    await zeroBox.reload();
+    await zeroBox.waitForTimeout(400);
+    await zeroBox.click('.tab[data-view="macros"]');
+    await zeroBox.waitForTimeout(300);
+    await openPlan(zeroBox);
+    await zeroBox.waitForTimeout(500);
+    const opensAtZero = await zeroBox.evaluate(() =>
+      (document.getElementById('mtLb') || {}).value);
+    t.ok('the weight box opens at a nought nobody has answered yet',
+      opensAtZero === '0', JSON.stringify(opensAtZero));
+    /* A tap at the LEFT edge of the box — where a thumb aiming at the box
+       rather than at the digit lands. */
+    const lbBox = await zeroBox.$('#mtLb');
+    const lbRect = await lbBox.boundingBox();
+    await zeroBox.mouse.click(lbRect.x + 4, lbRect.y + lbRect.height / 2);
+    await zeroBox.waitForTimeout(200);
+    await zeroBox.keyboard.type('180');
+    await zeroBox.waitForTimeout(400);
+    t.ok('and typing a weight into it gives that weight, not ten times it',
+      await zeroBox.evaluate(() => (document.getElementById('mtLb') || {}).value) === '180',
+      await zeroBox.evaluate(() => (document.getElementById('mtLb') || {}).value));
+    await zeroBox.context().close();
+
     /* ---- "Fill from" governs drafting, not looking ------------------------
      * The setting says what the SOLVER may shop from — a day drafted out of
      * salmon that is not in the house is not a day. It was also gating the
