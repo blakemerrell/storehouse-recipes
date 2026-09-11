@@ -1806,6 +1806,65 @@ module.exports = {
      * it. Age is the control used here because it is the one least related to
      * weight on the sheet — changing it and changing it straight back has to
      * leave the proposal exactly where it started. */
+    /* ---- a comma is not a weight ------------------------------------------
+     * The box was type=number, and a number input EATS a comma before any
+     * script sees it: "80,5" arrived as "805", a real number that passed
+     * every guard and stored eight hundred and five pounds — doubling the
+     * day's calories off a seven-day average that had just moved four hundred
+     * pounds. Blake does not write weights with commas, so a comma is not a
+     * weight to interpret; it is a keystroke that means the entry is wrong.
+     * It can only be refused if it survives to be seen, which is why the box
+     * is text with a decimal keypad rather than a number.
+     *
+     * Typed with real keys, because the entire bug lives in what the browser
+     * does to a keystroke before the value is ever read. fill() sets the
+     * value directly and would prove nothing. */
+    /* Built here rather than borrowed from sotPage, which leaves the plan
+       sheet open over the box this is about. */
+    const wPage = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await wPage.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const w = {};
+      for (let i = 9; i >= 1; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        w[d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate())] = 205;
+      }
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+        inch: 11, lb: 205, act: 1.375, goal: 'cut1', goalLb: 175, goalBy: '',
+        workouts: 4, steps: 8000 }));
+    });
+    await wPage.reload();
+    await wPage.waitForTimeout(400);
+    await wPage.click('.tab[data-view="macros"]');
+    await wPage.waitForTimeout(400);
+    const wState = () => wPage.evaluate(() => {
+      const d = new Date(), q = (n) => (n < 10 ? '0' : '') + n;
+      const key = d.getFullYear() + '-' + q(d.getMonth() + 1) + '-' + q(d.getDate());
+      return { box: (document.getElementById('mWeight') || {}).value,
+        note: ((document.getElementById('mWeightNote') || {}).textContent || '').trim(),
+        stored: (JSON.parse(localStorage.getItem('bsc.macroWeights') || '{}'))[key] };
+    });
+    const wType = async (txt) => {
+      await wPage.click('#mWeight');
+      await wPage.evaluate(() => { const e = document.getElementById('mWeight'); e.value = ''; });
+      await wPage.keyboard.type(txt);
+      await wPage.waitForTimeout(850);
+    };
+    await wType('185');
+    const wGood = await wState();
+    t.ok('a plain weight is taken', wGood.stored === 185 && !wGood.note, JSON.stringify(wGood));
+    await wType('80,5');
+    const wComma = await wState();
+    t.ok('a comma is shown back to you rather than swallowed',
+      wComma.box === '80,5', JSON.stringify(wComma));
+    t.ok('and it is refused, not read as eight hundred and five',
+      !!wComma.note && wComma.stored === 185, JSON.stringify(wComma));
+    await wType('205.4');
+    const wPoint = await wState();
+    t.ok('a point still works', wPoint.stored === 205.4, JSON.stringify(wPoint));
+    await wPage.context().close();
+
     const slip = await sotPage(150);
     const whoOf = (pg) => pg.evaluate(() =>
       ((document.getElementById('mtWho') || {}).textContent || '').replace(/\s+/g, ' ').trim());
@@ -6383,6 +6442,39 @@ module.exports = {
         actsRow.kids[1].x - (actsRow.kids[0].x + actsRow.kids[0].w) <= actsRow.gap + 1 &&
         actsRow.kids[actsRow.kids.length - 1].right <= actsRow.pad + 1,
       JSON.stringify(actsRow));
+
+    /* ---- an empty meal offers the verb it has ----------------------------
+     * Another means "not that one, what else" and Balance means "solve these
+     * against each other". Neither is a question you have about a meal with
+     * nothing on it, and drawn anyway they were two dead buttons on every
+     * empty meal of every empty day. Skip is the verb that meal DOES have,
+     * and it used to sit in the header wearing a ⊘ nobody reads as a word.
+     *
+     * Its own page, unfilled: the fold page above has food on every meal by
+     * the time it gets here, which is the one state this cannot be asked in.
+     */
+    const emptyPg = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await emptyPg.click('.tab[data-view="macros"]');
+    await emptyPg.waitForTimeout(300);
+    const emptyVerbs = await emptyPg.evaluate(() => {
+      const card = [...document.querySelectorAll('.mslot')]
+        .find((c) => !c.querySelector('.mitem') && !c.querySelector('.mthin'));
+      if (!card) return null;
+      const row = card.querySelector('.mslot-acts');
+      return {
+        verbs: row ? [...row.querySelectorAll('button')].map((b) => ({
+          t: b.textContent.replace(/\s+/g, ' ').trim(), off: b.disabled })) : null,
+        skipInHeader: !!card.querySelector('.mslot-h [data-mskip]'),
+      };
+    });
+    t.ok('an empty meal offers Skip, not two verbs it cannot use',
+      !!emptyVerbs && emptyVerbs.verbs.length === 2 &&
+        /skip/i.test(emptyVerbs.verbs[0].t) && !emptyVerbs.verbs[0].off &&
+        !emptyVerbs.verbs.some((v) => /another|balance/i.test(v.t)),
+      JSON.stringify(emptyVerbs));
+    t.ok('and skip is no longer a glyph in the header',
+      !!emptyVerbs && !emptyVerbs.skipInHeader, JSON.stringify(emptyVerbs));
+    await emptyPg.context().close();
 
     /* One meal open at a time — the other half of the mockup's sentence. Six
        open meals is six screenfuls of steppers between you and the one you

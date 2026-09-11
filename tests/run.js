@@ -93,6 +93,35 @@ function playwright() {
       async fresh(opts) {
         const ctx = await browser.newContext(Object.assign({ viewport: { width: 1100, height: 900 } }, opts));
         const page = await ctx.newPage();
+        /* FAST=1 trades the suite's padding for a settle.
+         *
+           Two and a half minutes of a four minute run is this file sleeping:
+           486 waitForTimeout calls adding up to 152 seconds, nearly all of
+           them waiting on a render that finished in under a frame. The app
+           writes innerHTML synchronously on a click, so what a test actually
+           needs is "let the frame land", not "count to three hundred".
+         *
+           Capped rather than removed, and the cap is above every debounce the
+           app runs on its own clock — the weigh-in's 600ms quiet save, the
+           sync push's 900ms, the lookup's 550ms — because those are real
+           waits and shortening them would be testing a different app. Under
+           the cap it waits two animation frames instead.
+         *
+           Off by default. It is only worth having if it gives the SAME
+           answers, and the way to know that is to run both and compare, not
+           to assume. */
+        if (process.env.FAST) {
+          const real = page.waitForTimeout.bind(page);
+          const FLOOR = 500;                    // leave the app's own debounces alone
+          page.waitForTimeout = async (ms) => {
+            if (ms >= FLOOR) return real(ms);
+            try {
+              await page.evaluate(() => new Promise((r) =>
+                requestAnimationFrame(() => requestAnimationFrame(r))));
+            } catch (e) { /* navigated mid-wait: fall through to the sleep */ }
+            return real(Math.min(ms, 30));
+          };
+        }
         page.on('pageerror', (e) => t.ok('no uncaught error on the page', false, e.message));
         await page.goto(URL_BASE + 'index.html');
         await page.evaluate(() => localStorage.clear());

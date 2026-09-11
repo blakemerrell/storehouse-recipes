@@ -2463,9 +2463,22 @@
            card; the unit is the only word that carries anything. */
         (ahead
           ? '<span class="mw-avg mw-later">not yet</span>'
-          : '<label class="mt-lab no-print"><input type="number" id="mWeight" min="0" max="1500" ' +
-            'step="0.1" inputmode="decimal" aria-label="This morning\u2019s weight in pounds" ' +
-            'value="' + (v || '') + '"> lb</label>') +
+          /* Text, not number, with the decimal keypad asked for separately.
+           *
+             A number input EATS a comma before any script sees it: type
+             "80,5" and the browser hands you "805", which is a real number,
+             passes every guard, stores eight hundred and five pounds and
+             doubles the day's calories off a seven-day average. Blake does
+             not write weights with commas — so a comma is not a weight that
+             needs interpreting, it is a keystroke that means the entry is
+             wrong. It can only be refused if it survives long enough to be
+             seen, and only a text box lets it. Length-capped because the box
+             no longer has a max of its own. */
+          : '<label class="mt-lab no-print"><input type="text" id="mWeight" maxlength="6" ' +
+            'inputmode="decimal" autocomplete="off" ' +
+            'aria-label="This morning\u2019s weight in pounds" ' +
+            'value="' + (v || '') + '"> lb' +
+            '<span class="mw-note" id="mWeightNote" role="status"></span></label>') +
       '</div>' +
       /* The plan, one line, on the face — and the same handle the meals wear,
          on the seam rather than in the header: this line is the last thing
@@ -3320,15 +3333,7 @@
              screen reader instead of to the eye — and said better, because it
              names the meal the food is going on. */
 
-          /* Only on a meal with nothing on it. You do not skip a meal you have
-             already put food on — you delete the food — and a button that
-             appears on every meal all day is a button in the way of the ones
-             pressed daily. */
-          (onPlan && !items.length
-            ? '<button class="mslot-ic mslot-skip no-print" data-mskip="' + esc(sk) + '" ' +
-              'aria-label="Skip ' + esc(name) + ' today" ' +
-              'title="Not eating this today \u2014 its share goes to the other meals">' +
-              '&#8856;</button>' : '') +
+
         '</div>' +
         /* What the meal comes to, in the same four colours the bars use. */
         /* The handle is the bar the fold actually happens at. A boxed caret up
@@ -3402,14 +3407,32 @@
                balance plates you cannot see. */
             (onPlan
               ? '<div class="mslot-acts no-print">' +
-                '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
-                  (items.length ? '' : ' disabled') +
-                  ' title="Another suggestion \u2014 walks down the best-fit list">' +
-                  '&#8635; Another</button>' +
-                '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
-                  (items.length >= 2 ? '' : ' disabled') +
-                  ' title="Solve these portions against this meal\u2019s macros">' +
-                  '&#9878; Balance</button>' +
+                /* Only the verbs this meal can actually use.
+                 *
+                   An EMPTY meal gets Skip instead of the other two. "Another"
+                   means "not that one, what else" and "Balance" means "solve
+                   these against each other", and neither is a question you
+                   have about a meal with nothing on it — drawn anyway they
+                   were two dead buttons on every empty meal of every empty
+                   day, which is most of what tomorrow looks like. Skip is the
+                   verb that meal DOES have, and it was over in the header
+                   wearing a ⊘ that nobody reads as a word. The mockup's own
+                   rule: controls that cannot act are not drawn.
+                 *
+                   And you still do not skip a meal you have put food on —
+                   you delete the food. */
+                (items.length
+                  ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
+                      ' title="Another suggestion \u2014 walks down the best-fit list">' +
+                      '&#8635; Another</button>' +
+                    '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
+                      (items.length >= 2 ? '' : ' disabled') +
+                      ' title="Solve these portions against this meal\u2019s macros">' +
+                      '&#9878; Balance</button>'
+                  : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" ' +
+                      'aria-label="Skip ' + esc(name) + ' today" ' +
+                      'title="Not eating this today \u2014 its share goes to the other meals">' +
+                      '&#8856; Skip</button>') +
                 /* Still .mslot-add: it is still the meal's add button, which
                    is what that name has always meant. Only where it sits
                    changed. */
@@ -10839,20 +10862,48 @@
       keepingFocus(renderMacros);
     });
 
+    /* What counts as a weight, in one place.
+     *
+       Digits, optionally a point and up to two more. A comma fails it, and so
+       does anything else that is not a number — which is the whole point:
+       "80,5" used to reach here as "805" because the number input had already
+       thrown the comma away, and eight hundred and five pounds passed every
+       guard there was. Nothing is stored while the box holds something that
+       is not a weight, and the box says so rather than guessing which number
+       you meant.
+     *
+       An empty box is not bad input — it is how you clear a morning. */
+    var mWeightBad = false;
+    function mWeightOf(raw) {
+      var t = String(raw == null ? '' : raw).trim();
+      if (!t) return { empty: true, lb: 0 };
+      if (!/^\d{1,4}(\.\d{1,2})?$/.test(t)) return { bad: true, lb: 0 };
+      var n = Number(t);
+      if (!isFinite(n) || n <= 0) return { bad: true, lb: 0 };
+      return { lb: Math.min(1500, n) };
+    }
+    function mWeightSay(bad) {
+      var el = $('mWeightNote');
+      if (el) el.textContent = bad ? 'Weights take digits and a point.' : '';
+      var box = $('mWeight');
+      if (box) box.setAttribute('aria-invalid', bad ? 'true' : 'false');
+      mWeightBad = bad;
+    }
     $('macroWeigh').addEventListener('input', function (e) {
       if (e.target.id !== 'mWeight') return;
       clearTimeout(mwTimer);
-      var key = mViewKey(), val = e.target.value;
-      mwTimer = setTimeout(function () {
-        var lb = Number(val);
-        mWriteWeight(key, isFinite(lb) && lb > 0 ? Math.min(1500, lb) : 0);
-      }, 600);
+      var key = mViewKey(), got = mWeightOf(e.target.value);
+      mWeightSay(!!got.bad);
+      if (got.bad) return;                       // nothing is written from nonsense
+      mwTimer = setTimeout(function () { mWriteWeight(key, got.lb); }, 600);
     });
     $('macroWeigh').addEventListener('change', function (e) {
       if (e.target.id !== 'mWeight') return;
       clearTimeout(mwTimer);
-      var lb = Number(e.target.value);
-      mWriteWeight(mViewKey(), isFinite(lb) && lb > 0 ? Math.min(1500, lb) : 0);
+      var got = mWeightOf(e.target.value);
+      mWeightSay(!!got.bad);
+      if (got.bad) return;
+      mWriteWeight(mViewKey(), got.lb);
       keepingFocus(renderMacros);
     });
 

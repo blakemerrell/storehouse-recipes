@@ -833,7 +833,10 @@ select { max-width: 280px; }
 }
 .mslot-skip-w { flex: 1 1 auto; min-width: 0; font-size: 11px; color: var(--muted); }
 .mslot-unskip { flex: 0 0 auto; font-size: 12px; padding: 4px 10px; }
-.mslot-skip { font-size: 14px; }
+/* Skip was a bare ⊘ in the header and needed the extra size to read as a
+   glyph. It is a word in the acts row now and takes .mslot-act's type like
+   its neighbours; left here it would have set one button in a larger size
+   than the two beside it. */
 
 /* --- how the day went ---------------------------------------------------
    A sentence, then the evidence for it. Every number here is the one already
@@ -1378,6 +1381,9 @@ select { max-width: 280px; }
 /* the targets sheet */
 .mt-row { display: flex; gap: 14px; margin-top: 16px; flex-wrap: wrap; }
 .mt-lab { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted-2); }
+/* The weigh-in box carries a note under it when what is in it is not a
+   weight, so its label wraps where the others do not. */
+.mday-weigh .mt-lab { flex-wrap: wrap; justify-content: flex-end; }
 .mt-lab input {
   width: 64px; padding: 7px 9px; font-size: 15px;
   border: 1px solid var(--line-firm); border-radius: 3px; background: var(--paper-soft);
@@ -2027,6 +2033,15 @@ select { max-width: 280px; }
    prose; the header keeps the name and the one thing you came here to do. */
 .mday-weigh .mslot-h { padding-bottom: 6px; }
 .mw-avg { font-size: 11px; color: var(--muted); }
+/* Said beside the box it is about, and only while it is about something. It
+   takes no room when empty, so a card that is fine does not carry a gap where
+   a complaint might one day go. */
+.mw-note:empty { display: none; }
+.mw-note {
+  flex: 1 0 100%; text-align: right; font-size: 11px;
+  color: var(--dial-over); margin-top: 2px;
+}
+#mWeight[aria-invalid="true"] { border-bottom-color: var(--dial-over); }
 .mw-later { margin-left: auto; font-style: italic; }
 
 /* One sentence about what to do, under the number it is about. Most mornings
