@@ -489,6 +489,51 @@ select { max-width: 280px; }
 .mslot-h { display: flex; align-items: center; gap: 5px; padding: 8px 10px 4px; }
 .mslot-h .ghost { white-space: nowrap; flex: none; }
 .mslot-h .mslot-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The whole head is the door — the approved mockup's words.
+ *
+   One button carrying the name, the cue and the meal's pills, filling the row
+   beside the dot. It could not be a button while the row held three icon
+   buttons, so the fold target had shrunk to the width of the word: 78x14 in a
+   378x45 row, which is why nobody could find it. The verbs are at the foot of
+   the open meal now and the head is what it looks like. */
+.mslot-head {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+  gap: 5px; align-self: stretch; background: none; border: 0; cursor: pointer;
+  font-family: var(--sans); text-align: left;
+  margin: -8px -10px -4px 0; padding: 8px 10px 4px 0;
+}
+.mslot-head:hover .mslot-name { color: var(--ink); }
+/* The head is two rows tall now, so a row centred on it puts the dot down
+   between the name and the pills, hanging off nothing. It belongs beside the
+   name — that is the row it reads with. */
+.mslot > .mslot-h { align-items: flex-start; }
+.mslot > .mslot-h > .mday-dot { margin-top: -3px; }
+.mslot-hrow { display: flex; align-items: center; gap: 5px; width: 100%; }
+.mslot-sp { flex: 1 1 auto; }
+/* The weigh-in card keeps a plain name button; its row carries the box. */
+.mday-weigh > .mslot-h > .mslot-name {
+  flex: 1 1 auto; align-self: stretch; min-height: 40px;
+  margin: -8px 0 -4px; padding: 8px 0 4px;
+}
+
+/* The verbs, at the foot of the meal they act on, as words. A scale glyph and
+   a recycle glyph are a guess every time until you have pressed them once. */
+.mslot-acts {
+  display: flex; gap: 6px; align-items: center;
+  padding: 8px 10px 10px; border-top: 1px solid var(--line-soft);
+}
+.mslot-act {
+  flex: 0 1 auto; min-height: 34px; padding: 6px 11px;
+  background: none; border: 1px solid var(--line-soft); border-radius: 7px;
+  font-family: var(--sans); font-size: 12.5px; color: var(--muted-2);
+  cursor: pointer; white-space: nowrap;
+}
+.mslot-act:disabled { opacity: 0.4; cursor: default; }
+.mslot-act.add {
+  margin-left: auto; flex: none; min-width: 44px; font-size: 17px;
+  color: var(--ochre-text); border-color: var(--line-firm);
+}
+@media (pointer: coarse) { .mslot-act { min-height: 44px; } }
 /* What an EMPTY meal is meant to hold — one state, and never a verdict.
    It used to judge a filled meal too, in on/short/over colours, but that
    answered CALORIES: a lunch five times over on fat and fine on protein came
@@ -507,22 +552,11 @@ select { max-width: 280px; }
   font-weight: 600; color: oklch(0.40 0.03 65);
   display: inline-flex; align-items: center;
 }
-/* The fold lives on the seam, not in the header — see .mslot-sub below. A
-   boxed caret up here read as a third action button beside Add and the retry,
-   and on a meal carrying the scale as well it made four boxes fighting over
-   one row. */
-/* The meal's four numbers, in the bars' own colours — and the handle that
-   opens and shuts it. This strip is the seam: the plates appear and disappear
-   directly beneath it, so it is the one edge in the card that actually moves.
-   Being the whole width of the card, it is also the largest target on the
-   screen, which a glyph in a header never was. */
-.mslot-sub {
-  display: flex; align-items: center; gap: 13px; padding: 7px 10px 5px; margin: 0;
-  width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line-soft);
-  background: none; font-family: var(--sans); cursor: pointer;
-  font-size: 11px; color: var(--muted-2); font-variant-numeric: tabular-nums;
-}
-.mslot-sub:hover { background: var(--paper-soft); }
+/* The seam went with the three-screen header. It was a strip of its own below
+   the row, carrying the meal's numbers and the fold, because the header was
+   full of icon buttons and could not be a button itself. The numbers are in
+   the head now and the head is the door, so the line that used to sit ABOVE
+   them sits below the whole thing instead — a door has one edge, not two. */
 /* Small, quiet, and on the end of a line that was already there: the mark
    says which way the next press goes without becoming another control. */
 /* The chevron wears a button now, because that is what it is. A bare glyph
@@ -542,9 +576,12 @@ select { max-width: 280px; }
 /* Down means "this opens", up means "this shuts" — the direction the
    notification shade already taught every thumb on this phone. It used to
    point sideways when shut, which says neither one. */
-[aria-expanded="true"] > .mfold-cue { transform: rotate(180deg); }
+/* The cue is a grandchild now — the head wraps its name row around it — so
+   the direct-child selector stopped reaching it and an open meal's chevron
+   stayed pointing the way a shut one's does. */
+[aria-expanded="true"] > .mfold-cue,
+[aria-expanded="true"] > .mslot-hrow > .mfold-cue { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
-.mslot-sub i { font-style: normal; font-weight: 700; font-size: 9.5px; margin-right: 3px; }
 .msub-k { flex: none; font-size: 11.5px; }
 /* Only ever drawn for a macro that is off, so it takes its own width and
    carries no fill: three fills compare by eye only if the boxes match, and
@@ -597,7 +634,8 @@ select { max-width: 280px; }
    header is the meal, and everything below the line is what is in it,
    whether that is four numbers or four numbers and three plates. No rule
    between the totals and the plates: they are the same half. */
-.mslot-items, .mslot-thin { padding: 2px 10px 6px; }
+/* The edge the plates appear and disappear at. */
+.mslot-items, .mslot-thin { padding: 2px 10px 6px; border-top: 1px solid var(--line-soft); }
 /* ---- the three controls on a meal, unboxed ----
    A border is how a thing used to say it was pressable, and three borders in a
    row on a card that is already all borders is a great deal of box for very
@@ -1172,15 +1210,24 @@ select { max-width: 280px; }
 /* The meal's pills, on the seam. The day row's construction said about one
    meal: a proportional fill painted behind the number, the letter in front,
    the target after it in a lighter tone. */
-.mmps { display: flex; gap: 5px; flex: 1 1 auto; min-width: 0; align-items: center; }
+/* Small. These are a glance, not a read: the meal's own numbers live on the
+   plates below and the day's live at the top of the screen, so this strip
+   only has to say which way each macro is leaning. At 11px in a 24px seam it
+   was taking a full row of a phone to repeat what the card already implies. */
+.mmps { display: flex; gap: 4px; flex: 1 1 auto; min-width: 0; align-items: center; }
 .mmp {
-  flex: 1 1 0; min-width: 0; display: inline-flex; align-items: baseline;
-  justify-content: center; gap: 2px; border-radius: 999px; padding: 3px 5px;
-  font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap;
+  /* Sized to what they say, not stretched across the card. Four pills on
+     `flex: 1 1 0` split the full width between them whatever the numbers
+     were, so a meal's glance took a whole row of a phone and the fills were
+     reading as a chart nobody asked for. They are chips now: they end where
+     the figures end, and the row ends with them. */
+  flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: baseline;
+  justify-content: center; gap: 1px; border-radius: 999px; padding: 1px 5px;
+  font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap;
   border: 1px solid var(--line-soft); color: var(--muted-2);
 }
-.mmp.kc { flex: 0 0 58px; }
-.mmp i { font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--muted); }
+.mmp.kc { flex: 0 0 auto; }
+.mmp i { font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--muted); }
 .mmp b { font-weight: 700; color: var(--ink); }
 .mmp-t { opacity: 0.55; }
 .mmp.u { border-color: var(--dial-under-pale); } .mmp.u b { color: var(--ochre-text); }
@@ -1967,7 +2014,12 @@ select { max-width: 280px; }
 
 /* the weigh-in card */
 /* the first stop of the day */
-.mday-weigh .mslot-h { flex-wrap: wrap; padding-bottom: 8px; }
+/* One row. It wrapped because it carried four things — the name, the
+   seven-day average, the word "Weight" and the box — and the box fell to a
+   line of its own with a label on it repeating the name of the card it was
+   sitting in. The average moved down to the line that already reads like
+   prose; the header keeps the name and the one thing you came here to do. */
+.mday-weigh .mslot-h { padding-bottom: 6px; }
 .mw-avg { font-size: 11px; color: var(--muted); }
 .mw-later { margin-left: auto; font-style: italic; }
 
@@ -3074,7 +3126,6 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   .mstep { --mstep-type: 14px; }
   .mtick input { width: 22px; height: 22px; }
   /* the seam is the fold handle, so give the whole strip a thumb's height */
-  .mslot-sub { padding: 9px 10px; }
   /* A borderless control has to be given the reach the border used to imply.
      This is the whole bargain of dropping the box: the paint goes, the target
      does not. */
@@ -3158,6 +3209,11 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   width: 100%; text-align: left; background: none; border: 0;
   font-family: var(--sans); cursor: pointer;
 }
+/* The scale's line and the goal's line are two thoughts, so they are two
+   lines. Flowed together they wrapped wherever the words happened to run out
+   and put a leading middot at the start of the second row — a run-on made of
+   facts that have nothing to do with each other. */
+.mw-verdict .mw-avg { flex: 1 0 100%; }
 button.mw-verdict:hover { background: var(--paper-soft); }
 .mw-verdict .mfold-cue { align-self: center; }
 .mw-verdict b { color: var(--ink); font-weight: 600; }

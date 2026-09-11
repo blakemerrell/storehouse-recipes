@@ -2167,7 +2167,11 @@
     var weeks0 = Math.max(1, Math.round(pace.days / 7));
     var d0 = keyDate(pr.goalBy);
     var out = '<b>' + pr.goalLb + ' lb by ' + M_MONS[d0.getMonth()] + ' ' + d0.getDate() +
-      '</b> &middot; ' + Math.abs(togo0) + ' lb to go over ' + weeks0 +
+      /* "30.3 lb in 19 weeks" rather than "30.3 lb to go over 19 weeks":
+         same two facts, five words shorter, and short enough that the pace
+         verdict stays on the line it is a verdict about instead of dropping
+         to one of its own. */
+      '</b> &middot; ' + Math.abs(togo0) + ' lb in ' + weeks0 +
       (weeks0 === 1 ? ' week' : ' weeks');
     var v0 = mPaceVerdict(st0, togo0, weeks0);
     if (v0) out += ' <span class="mplan-v ' + v0[1] + '">' + v0[0] + '</span>';
@@ -2452,11 +2456,16 @@
           ' aria-label="Log this morning&rsquo;s weight"></button>' +
         '<button class="mslot-name" data-mfold="weigh" aria-expanded="' +
           (shut ? 'false' : 'true') + '">Weigh-in</button>' +
-        (head ? '<span class="mw-avg">' + head + '</span>' : '') +
+        /* The box, and nothing else. It wore the word "Weight" in front of
+           it — on a card headed WEIGH-IN, above a line about weight, next to
+           a figure in pounds — which pushed the whole thing onto a second
+           row to say what the card had already said twice. The label is the
+           card; the unit is the only word that carries anything. */
         (ahead
           ? '<span class="mw-avg mw-later">not yet</span>'
-          : '<label class="mt-lab no-print">Weight <input type="number" id="mWeight" min="0" max="1500" ' +
-            'step="0.1" inputmode="decimal" value="' + (v || '') + '"> lb</label>') +
+          : '<label class="mt-lab no-print"><input type="number" id="mWeight" min="0" max="1500" ' +
+            'step="0.1" inputmode="decimal" aria-label="This morning\u2019s weight in pounds" ' +
+            'value="' + (v || '') + '"> lb</label>') +
       '</div>' +
       /* The plan, one line, on the face — and the same handle the meals wear,
          on the seam rather than in the header: this line is the last thing
@@ -2470,8 +2479,10 @@
         ? '<button class="mw-verdict" data-mfold="weigh" aria-expanded="' +
           (shut ? 'false' : 'true') + '" aria-label="' +
           (shut ? 'Open the trend and the plan' : 'Fold the trend and the plan') + '">' +
+          (head ? '<span class="mw-avg">' + head + '</span>' : '') +
           face.html + '<span class="mfold-cue" aria-hidden="true">&#8964;</span></button>'
-        : '<div class="mw-verdict">' + face.html +
+        : '<div class="mw-verdict">' +
+          (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html +
           ' <button class="ghost mplan-go no-print" id="macroTargBtn">Craft my plan</button></div>') +
       mMorningHTML(k) +
       (shut ? '' : '<div class="mw-body">' + body +
@@ -3265,36 +3276,50 @@
 
              The fix is the honest one rather than clearing the flag later: a
              control that cannot do anything should not be a control. */
+          /* The whole head is the door.
+           *
+             The mockup Blake approved says it in those words, and its card is
+             one <button> carrying the name, the cue AND the meal's pills. The
+             app had the name as a button instead — 11.5px of uppercase text,
+             a 78x14 target adrift in a 378x45 row — because the row was
+             carrying three icon buttons and a button cannot hold buttons. So
+             the verbs moved to the foot of the open meal, where the mockup
+             has them and where they read as words, and the head became what
+             it looks like: the thing you press to open the meal.
+           *
+             The dot stays outside it. It marks the whole meal eaten, which is
+             an action of its own, and the mockup's dot is decoration only
+             because the mockup never modelled that control. */
           (rows
-            ? '<button class="mslot-name" data-mfold="' + esc(sk) + '" aria-expanded="' +
-              (folded ? 'false' : 'true') + '">' + esc(name) + '</button>'
-            : '<span class="mslot-name mslot-name-flat">' + esc(name) + '</span>') +
-          mVerdictHTML(sk, items, onPlan, targets, slots) +
+            ? '<button class="mslot-head" data-mfold="' + esc(sk) + '" aria-expanded="' +
+              (folded ? 'false' : 'true') + '" aria-label="' +
+              (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
+              '<span class="mslot-hrow">' +
+                '<span class="mslot-name">' + esc(name) + '</span>' +
+                '<span class="mslot-sp"></span>' +
+                '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
+              '</span>' + mMealPillsHTML(sub, mMealShare(sk, targets, slots), targets, !eatenAll) +
+              '</button>'
+            : '<span class="mslot-name mslot-name-flat">' + esc(name) + '</span>' +
+              mVerdictHTML(sk, items, onPlan, targets, slots)) +
           /* Only where there is something to solve. One plate has a stepper
              and needs no algebra; two or more is the question this answers,
              and a button on every meal from breakfast onward would be four
              buttons a day that nothing was ever pressed on. */
-          (onPlan && items.length >= 2
-            ? '<button class="mslot-ic mslot-bal no-print" data-mbal="' + esc(sk) + '" ' +
-              'aria-label="Balance ' + esc(name) + ' to its share" ' +
-              'title="Solve these portions against this meal\u2019s macros">&#9878;</button>' : '') +
+
           /* No label. It said "everywhere", which only means something to
              somebody who already knows a meal is normally fenced to its own
              sections — and that fence has no marker of its own, so the word
              was naming the exit from a room nobody had been told they were
              in. The widening still happens; it just stops announcing itself
              in a vocabulary of one word. The suggestions ARE the message. */
-          (onPlan ? '<button class="mslot-ic mslot-try no-print' +
-            (mWideOpen(sk) ? ' wide' : '') + '" data-mtry="' + esc(sk) + '" ' +
-            'aria-label="Another suggestion for ' + esc(name) + '" ' +
-            'title="Another suggestion — walks down the best-fit list">&#8635;</button>' : '') +
+
           /* A plus, not "+ Add". Everybody knows what a plus does, and the
              word was the widest thing on a row that has too much on it. The
              label the word used to give is now the button's own, said to a
              screen reader instead of to the eye — and said better, because it
              names the meal the food is going on. */
-          (onPlan ? '<button class="mslot-ic mslot-add no-print" data-mslot="' + esc(sk) + '" ' +
-            'aria-label="Add food to ' + esc(name) + '">&#43;</button>' : '') +
+
           /* Only on a meal with nothing on it. You do not skip a meal you have
              already put food on — you delete the food — and a button that
              appears on every meal all day is a button in the way of the ones
@@ -3313,68 +3338,6 @@
            numbers, sitting exactly where the plates appear and disappear,
            with a small mark on the end saying which way the next press goes.
            Full width, so the target is the whole strip rather than a glyph. */
-        (rows ? '<button class="mslot-sub" data-mfold="' + esc(sk) + '" aria-expanded="' +
-            (folded ? 'false' : 'true') + '" aria-label="' +
-            (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
-          /* Calories, and nothing else about macros.
-           *
-             A meal used to be judged here against its SHARE of the day —
-             chips when folded, bars when open. Both are gone, and the reason
-             is worth keeping: you steer by the DAY, and the day says how it
-             is stacking in the strip pinned at the top of this screen. A meal
-             is a container. Grading each one against a share it never agreed
-             to was a second opinion nobody asked for.
-
-             What went with it is being TOLD which meal blew the day; that is
-             now something you look for. What also went with it is a whole
-             class of bug — shares had two definitions that disagreed, a
-             picker panel that argued with its own footer, a tolerance
-             measured against the day while the bar beside it was drawn
-             against the share. No shares on screen, no way for two of them
-             to differ. */
-          /* The gauges go here, where the bare calorie number used to sit.
-           *
-             They were on the header row first, beside the name, which is
-             where Blake asked for them — and at 390 px with a name, a scale,
-             a retry and a plus already on that row, "BREAKFAST" rendered as
-             "BREAKFAS". Four gauges do not fit beside three buttons, and
-             clipping the meal's own name to make room is the wrong thing to
-             give up.
-
-             This strip is the better home anyway: it is full width, it is
-             directly under the name, it is where the meal's numbers have
-             always been, and it was left with nothing but a floating chevron
-             when the calories moved. The whole strip stays the fold target,
-             so a thumb landing anywhere on a gauge still opens the meal.
-
-             An empty meal draws none of this, and does not need a guard of
-             its own to be sure of it: this whole strip is inside `rows ?`,
-             and rows is built from the plates. No plates, no seam, no
-             gauges — the meal gets its flame and its number from
-             mVerdictHTML up on the header instead. (There WAS a second
-             `items.length` check here. It could not fail, and a mutation
-             that removed it left the suite green, which is how it was found
-             out.) */
-          mMealPillsHTML(sub, mMealShare(sk, targets, slots), targets, !eatenAll) +
-          /* The verdict, per macro, on the row that already existed.
-           *
-             Same construction as the day's own folded pills one level up: a
-             pale fill to the proportion, the letter and the figure inside. So
-             there is nothing new to read — it is the strip at the top of the
-             screen, said about one meal.
-
-             The number is the DISTANCE from this meal's share, not the amount
-             on the plate. The amount alone says nothing: 67 g of fat is fine
-             at dinner and five times over at lunch, and the pill would have to
-             be read against a divisor held in your head. +53 needs nothing
-             held. It is also what makes a meal that landed go quiet — three
-             pale pills reading +1, −1, +2 and no colour anywhere. */
-          /* Folded, the chips. Open, nothing here — the bars go below, next to
-             the stepper they answer to. Except on paper, where the bars are
-             three background colours a printer will not print: there the chips
-             stay on the open card, so the verdict survives as ink. */
-          '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
-        '</button>' : '') +
         (folded
           ? '<div class="mslot-thin">' + items.map(function (it) {
               var r2 = BY_ID[it.id];
@@ -3427,6 +3390,33 @@
             (onPlan && items.length >= 2
               ? '<button class="mslot-keep no-print" data-mkeep="' + esc(sk) + '">' +
                 '&#43; Keep these as one thing</button>' : '') +
+            /* The verbs, at the foot of the meal they act on.
+             *
+               They were three icon buttons in the header, which is what
+               stopped the header being a button and left the fold target the
+               width of the word "BREAKFAST". Down here they are words: a ⚖
+               and a ↻ are a guess every time until you have pressed them
+               once, and the row they used to crowd is now the thing you press
+               to open the meal. They are also only drawn on an OPEN meal,
+               which is the only state they mean anything in — you cannot
+               balance plates you cannot see. */
+            (onPlan
+              ? '<div class="mslot-acts no-print">' +
+                '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
+                  (items.length ? '' : ' disabled') +
+                  ' title="Another suggestion \u2014 walks down the best-fit list">' +
+                  '&#8635; Another</button>' +
+                '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
+                  (items.length >= 2 ? '' : ' disabled') +
+                  ' title="Solve these portions against this meal\u2019s macros">' +
+                  '&#9878; Balance</button>' +
+                /* Still .mslot-add: it is still the meal's add button, which
+                   is what that name has always meant. Only where it sits
+                   changed. */
+                '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
+                  'aria-label="Add food to ' + esc(name) + '">&#43;</button>' +
+                '</div>'
+              : '') +
           '</div>') +
       '</div>';
     };
@@ -10557,10 +10547,32 @@
         return;
       }
 
+      /* One meal open at a time.
+       *
+         The mockup Blake approved says so in those words, and it holds a
+         single key rather than a map: opening a meal is also the act of
+         shutting the last one. Six meals that can all be open at once is six
+         screenfuls of steppers to scroll past to reach the one you are
+         actually filling, which is the thing the fold was for.
+       *
+         The map survives underneath — the print handler saves and restores
+         it, the scroll-linked fold reads it, and the weigh-in card keeps its
+         own key in it — so this closes the siblings rather than changing what
+         is stored. Shutting the open meal leaves every meal shut, which is
+         what pressing an open door should do. */
       var fold = e.target.closest('[data-mfold]');
       if (fold) {
         var fk = fold.dataset.mfold;
-        S.mFold[fk] = !(fold.getAttribute('aria-expanded') === 'false');
+        var opening = fold.getAttribute('aria-expanded') === 'false';
+        if (opening && fk !== 'weigh') {
+          mReadSlots().list.forEach(function (s2) {
+            if (s2.k !== fk) S.mFold[s2.k] = true;
+          });
+          Object.keys(mDay(mViewKey())).forEach(function (dk) {
+            if (dk !== fk) S.mFold[dk] = true;
+          });
+        }
+        S.mFold[fk] = !opening;
         keepingFocus(renderMacros);
         return;
       }
