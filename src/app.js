@@ -5957,8 +5957,19 @@
     });
   }
 
-  function mScanGot(code) {
-    if (!mCam || !code) return;
+  /* `typed` means a human handed this over rather than a camera frame
+     decoding it.
+   *
+     The mCam guard is here to ignore a late decode arriving after the camera
+     has been stopped, which is the only thing that can call this without
+     being asked. A barcode typed into the picker is asked for — and it was
+     being thrown away by that guard, because nothing had started a camera.
+     Worse, it was thrown away even WITH one: the handler renders the scan
+     sheet and calls straight through, while mScanStart only sets mCam once
+     getUserMedia has resolved, so mCam is still null on the next line. That
+     row has not worked since it was added. */
+  function mScanGot(code, typed) {
+    if (!code || (!typed && !mCam)) return;
     mScanStop();
     if ($('nfFind')) $('nfFind').value = code;
     var res = $('nfResults');
@@ -10843,7 +10854,21 @@
        background colour a printer drops. Opening every meal therefore threw
        away the one thing on the card that was printable — the chips. So the
        day is also marked as being drawn for paper, which puts them back on
-       the open card. Same verdict, in ink. */
+       the open card. Same verdict, in ink.
+     *
+       `mOnPaper` was never DECLARED, and under 'use strict' an assignment to
+       a name that does not exist throws. It threw on the line before
+       renderMacros(), so the whole point of the handler — opening the day
+       for the printer — never happened: a day with a folded meal printed as
+       dish names with no numbers, which is the exact thing the paragraph
+       above says this exists to prevent. Two uncaught ReferenceErrors per
+       print, on every print from My Day, since the day it was written.
+     *
+       Declared here. Note that nothing READS it yet: the "chips back on the
+       open card" half of the paragraph above is still unbuilt, and is left
+       visible rather than quietly deleted, because the fold half is the half
+       that was doing the damage. */
+    var mOnPaper = false;
     var mPrintFold = null;
     if (window.addEventListener) {
       window.addEventListener('beforeprint', function () {
@@ -11199,7 +11224,7 @@
         var code = nfc.dataset.nfcode;
         S.mpMode = 'scan';
         renderModal();
-        mScanGot(code);
+        mScanGot(code, true);   // typed, not decoded
         return;
       }
 

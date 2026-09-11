@@ -2229,6 +2229,86 @@ module.exports = {
       await look.evaluate(() => document.getElementById('nfResults').textContent));
     await look.context().close();
 
+    /* ---- a barcode you TYPE is a barcode you asked about -------------------
+     * The picker offers "Look up <number>" for anything that parses as a
+     * barcode, and pressing it did nothing at all. It routes through
+     * mScanGot, whose first line is a guard against a late decode arriving
+     * after the camera has been stopped — and a typed number has no camera
+     * behind it, so the guard ate the request. It ate it even WITH a working
+     * camera: the handler renders the scan sheet and calls straight through,
+     * while mScanStart only sets mCam once getUserMedia resolves, so mCam is
+     * still null on the very next line. The row had never worked.
+     *
+     * Asserted on the asking, not on the answer: Open Food Facts is somebody
+     * else's server and whether it knows a given packet is not this suite's
+     * business. */
+    const codePg = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await codePg.click('.tab[data-view="macros"]');
+    await codePg.waitForTimeout(250);
+    await (await codePg.$$('.mslot-add'))[0].click();
+    await codePg.waitForTimeout(600);
+    await codePg.fill('#mpFind', '028400090896');
+    await codePg.waitForTimeout(500);
+    const codeOffer = await codePg.evaluate(() => {
+      const b = document.querySelector('[data-nfcode]');
+      return { there: !!b, text: b ? b.textContent.replace(/\s+/g, ' ').trim() : '' };
+    });
+    t.ok('a typed barcode is offered as a lookup', codeOffer.there, JSON.stringify(codeOffer));
+    await codePg.click('[data-nfcode]');
+    await codePg.waitForTimeout(250);
+    t.ok('and pressing it actually asks, rather than opening a blank scanner',
+      await codePg.evaluate(() => {
+        const r = document.getElementById('nfResults');
+        return !!r && /looking up/i.test(r.textContent);
+      }),
+      await codePg.evaluate(() => {
+        const r = document.getElementById('nfResults');
+        return 'scanSheet=' + !!document.getElementById('scanRoot') +
+          ' nfResults=' + JSON.stringify(r ? r.textContent.trim() : null);
+      }));
+    await codePg.context().close();
+
+    /* ---- printing a day opens it, instead of throwing -------------------
+     * `mOnPaper` was assigned in both print handlers and never declared, and
+     * under 'use strict' that throws. It threw on the line BEFORE
+     * renderMacros(), so the unfold-for-paper pass never ran: a day with a
+     * folded meal printed as dish names with no numbers on them — the exact
+     * thing the comment above the handler says it exists to prevent — and
+     * every print from My Day raised two uncaught ReferenceErrors.
+     *
+     * Asserted through the events rather than a real print dialog, which is
+     * what beforeprint/afterprint are for. */
+    const paper = await t.fresh({ viewport: { width: 412, height: 915 } });
+    const paperErrs = [];
+    paper.on('pageerror', (e) => paperErrs.push(e.message));
+    await paper.click('.tab[data-view="macros"]');
+    await paper.waitForTimeout(250);
+    await paper.click('#macroFill');
+    await paper.waitForTimeout(700);
+    await paper.evaluate(() => {
+      const h = document.querySelector('.mslot [data-mfold]');
+      if (h) h.click();
+    });
+    await paper.waitForTimeout(400);
+    const foldedBefore = await paper.evaluate(() => document.querySelectorAll('.mslot-thin').length);
+    t.ok('a meal can be folded, so the printer has something to open',
+      foldedBefore > 0, String(foldedBefore));
+    paperErrs.length = 0;
+    await paper.emulateMedia({ media: 'print' });
+    await paper.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    await paper.waitForTimeout(500);
+    const onPaper = await paper.evaluate(() => document.querySelectorAll('.mslot-thin').length);
+    t.ok('the day opens for the printer rather than throwing',
+      paperErrs.length === 0 && onPaper === 0,
+      'errors ' + JSON.stringify(paperErrs) + ' folded-on-paper ' + onPaper);
+    await paper.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await paper.waitForTimeout(400);
+    t.ok('and closes again afterwards, still without throwing',
+      paperErrs.length === 0 &&
+        await paper.evaluate(() => document.querySelectorAll('.mslot-thin').length) > 0,
+      JSON.stringify(paperErrs));
+    await paper.context().close();
+
     /* ---- "Fill from" governs drafting, not looking ------------------------
      * The setting says what the SOLVER may shop from — a day drafted out of
      * salmon that is not in the house is not a day. It was also gating the
