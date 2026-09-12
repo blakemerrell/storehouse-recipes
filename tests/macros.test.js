@@ -3041,8 +3041,16 @@ module.exports = {
     const pillPg = await t.fresh({ viewport: { width: 390, height: 800 } });
     await pillPg.click('.tab[data-view="macros"]');
     await pillPg.waitForTimeout(300);
+    /* In four pills now rather than one flame. A lone calorie figure told you
+       the SIZE of the meal and nothing about its shape, and the shape is the
+       part you plan against: 0 of 44 protein says what to go looking for. */
     t.ok('an empty meal still says what it is meant to hold',
-      await pillPg.evaluate(() => !!document.querySelector('.mslot [data-mv="empty"]')));
+      await pillPg.evaluate(() => {
+        const card = document.querySelector('.mslot');
+        const ps = [...card.querySelectorAll('.mmp')];
+        return ps.length === 4 && ps.every((e) =>
+          /\/\s*\d/.test((e.querySelector('.mmp-t') || {}).textContent || ''));
+      }));
     await pillPg.click('#macroFill');
     await pillPg.waitForTimeout(700);
     /* A meal says its calories and what is on it. Nothing else.
@@ -3174,9 +3182,16 @@ module.exports = {
     /* What breakfast is told to aim for, with every meal still in play and
        then with lunch dropped out of the divisor. This is the whole feature:
        the share is a weight over the weights STILL IN PLAY. */
+    /* Read off the kcal pill's denominator. It used to come from the lone
+       flame an empty meal wore; the meal wears its four pills now and the
+       share is the first of them. The claim underneath is unchanged — and it
+       is the one that matters, because asserting the day's TOTAL here proved
+       nothing. */
     const shareRead = () => skipPg.evaluate(() => {
-      const v = document.querySelector('.mslot [data-mv="empty"]');
-      return v ? Number(v.textContent.replace(/[^0-9]/g, '')) : 0;
+      const card = [...document.querySelectorAll('.mslot')]
+        .find((c) => c.querySelector('.mslot-name-flat'));
+      const t2 = card && card.querySelector('.mmp.kc .mmp-t');
+      return t2 ? Number(t2.textContent.replace(/[^0-9]/g, '')) : 0;
     });
     const bShareBefore = await shareRead();
     await skipPg.evaluate(() => document.querySelector('[data-mskip="l"]').click());
@@ -4326,12 +4341,16 @@ module.exports = {
       document.querySelectorAll('.mslot').forEach((card) => {
         const nm = card.querySelector('.mslot-name');
         const gg = card.querySelector('.mmps');
-        const chip = card.querySelector('[data-mv="empty"]');
         out.push({
           name: nm ? nm.textContent : '',
+          /* No food on the plate. NOT "has no .mitem rows" — the accordion
+             keeps every meal but one folded, and a folded meal renders no
+             rows either. The honest signal is the fold handle: a meal with
+             food gets a head you can fold, an empty one has nothing to hide
+             and renders its name flat. */
+          empty: !!card.querySelector('.mslot-name-flat'),
           hasGauges: !!gg,
           planned: !!gg && gg.classList.contains('planned'),
-          chip: chip ? chip.textContent : '',
           bars: gg ? [...gg.querySelectorAll('.mmp')].map((o) => ({
             l: o.querySelector('i').textContent + o.querySelector('b').textContent,
             st: (o.className.match(/mmp(?: kc)? (\w+)/) || [, ''])[1],
@@ -4345,10 +4364,10 @@ module.exports = {
       return out;
     });
     const fed = gz.filter((c) => c.hasGauges);
-    /* Selected by the CHIP alone. Filtering on "has no gauges" and then
-       asserting it has no gauges is a tautology, and it passed happily with
+    /* Selected by having no item rows. Filtering on "has no gauges" and then
+       asserting it has no gauges was a tautology, and it passed happily with
        the gauges drawn on every empty meal. */
-    const noFood = gz.filter((c) => c.chip);
+    const noFood = gz.filter((c) => c.empty);
 
     t.ok('a meal with food carries four gauges, calories among them',
       fed.length >= 2 && fed.every((c) => c.bars.length === 4 &&
@@ -4398,14 +4417,20 @@ module.exports = {
     /* Blake: "I don't like the at it's share. it's not intuitive to me." The
        number survives; the vocabulary does not. */
     t.ok('an empty meal says what it is for with no vocabulary to learn',
-      noFood.length > 0 && noFood.every((c) => /\uD83D\uDD25\s*\d/.test(c.chip)) &&
+      noFood.length > 0 && noFood.every((c) => c.bars.length === 4) &&
       !(await gaugePage.evaluate(() => /at its share/i.test(document.body.textContent))),
-      JSON.stringify(noFood.map((c) => c.name + ':' + c.chip)));
+      JSON.stringify(noFood.map((c) => c.name + ':' + c.bars.length)));
 
-    /* And no gauges on an empty meal: four tracks at zero, times five meals,
-       is what the morning would open on. */
-    t.ok('and draws no empty tracks while there is nothing on the plate',
-      noFood.length > 0 && noFood.every((c) => !c.hasGauges));
+    /* Reversed, deliberately. This asserted that an empty meal draws NO
+       tracks — "four at zero times five meals is what the morning would open
+       on" — and Blake asked for the opposite: a meal you have not filled is
+       precisely the meal you need the numbers for, because they are what you
+       plan against. The noise the old rule was guarding against is handled
+       instead by the strip being drawn at planned weight, so a morning of
+       untouched meals reads quietly rather than as twenty-four accusations. */
+    t.ok('an empty meal draws its pills, faded, so the morning reads quietly',
+      noFood.length > 0 && noFood.every((c) => c.hasGauges && c.planned),
+      JSON.stringify(noFood.map((c) => c.name + (c.planned ? ':faded' : ':SOLID'))));
 
     /* The gauges went on the header row first and rendered BREAKFAST as
        BREAKFAS. They live on the seam for that reason. */

@@ -566,18 +566,9 @@ select { max-width: 280px; }
 /* No coarse-pointer bump, deliberately: these match the bottom bar and the
    bar is 29. Growing them on a phone would make the two rows of buttons
    differ on the only device that has a thumb. */
-/* What an EMPTY meal is meant to hold — one state, and never a verdict.
-   It used to judge a filled meal too, in on/short/over colours, but that
-   answered CALORIES: a lunch five times over on fat and fine on protein came
-   out as one number with no name on it. The per-macro chips on the row below
-   say it properly, so mVerdictHTML drops this pill the moment a meal has
-   items, and the three coloured variants that used to live here had nothing
-   left to match. Anything that gives this pill a state again needs to answer
-   the calorie question first. */
-.mslot-v {
-  font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
-  background: var(--paper-soft); border: 1px solid var(--line-soft); color: var(--muted);
-}
+/* The empty meal's lone flame went with mVerdictHTML: an empty meal wears
+   the same four pills as a full one now, because the shape of the meal is
+   the part you plan against and one calorie figure never said it. */
 .mslot-name {
   background: none; border: 0; padding: 0; font-family: var(--sans); text-align: left;
   font-size: 11.5px; letter-spacing: 0.11em; text-transform: uppercase;

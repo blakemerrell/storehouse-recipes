@@ -1435,8 +1435,8 @@
        real recipes against a target nobody had set.
      *
        Zero is what the rest of this file was already written for. Both empty
-       states downstream — macroFootHTML's "Craft your plan." and
-       mVerdictHTML's silent meal — guard on all three being falsy, and with a
+       states downstream — macroFootHTML's "Craft your plan." and the meal
+       pills' silent strip — guard on all three being falsy, and with a
        placeholder in their way neither could ever fire; they were written
        correctly, twice, and defeated here. mShares denominates with
        Math.max(1, targets[m]) for the same reason, so an unset target still
@@ -3329,8 +3329,23 @@
                 '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
               '</span>' +
               '</button>'
+            /* An empty meal wears the same four pills as a full one.
+             *
+               It used to get a single flame and a calorie figure, which told
+               you the size of the meal and nothing about its shape — and the
+               shape is the part you plan against. A meal you have not filled
+               is precisely the meal you need the numbers for: 0 of 44 protein
+               says what to go looking for, 🔥387 does not.
+             *
+               No mark on the end, because there is nothing behind it to fold.
+               The strip is drawn at planned weight either way, so a day of
+               six untouched meals reads as six quiet rows rather than
+               twenty-four accusations. */
             : '<span class="mslot-name mslot-name-flat">' + esc(name) + '</span>' +
-              mVerdictHTML(sk, items, onPlan, targets, slots)) +
+              '<span class="mslot-sp"></span>' +
+              '<span class="mslot-tail">' +
+                mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll) +
+              '</span>') +
           /* Only where there is something to solve. One plate has a stepper
              and needs no algebra; two or more is the question this answers,
              and a button on every meal from breakfast onward would be four
@@ -3954,19 +3969,6 @@
      the row uses, and the sentence goes. No gauges here — there is nothing on
      the plate to draw, and four empty tracks per meal is most of what you see
      first thing in the morning. */
-  function mVerdictHTML(sk, items, onPlan, targets, slots) {
-    if (!targets.p && !targets.f && !targets.c) return '';
-    if (items.length) return '';        // the gauges say it, per macro
-    /* What an empty meal is asked for now. It is the only number on a meal
-       with nothing on it, and quoting the plan there would send you shopping
-       for a meal the day can no longer pay for. */
-    var ask0 = mMealAsk(sk, targets, slots);
-    var sh = ask0 && ask0.now;
-    if (!sh) return '';
-    return onPlan
-      ? '<span class="mslot-v" data-mv="empty">&#128293;' + Math.round(sh.kcal) + '</span>'
-      : '';
-  }
 
   /* Whether anything on the day is folded shut — which is what the open-all
      button offers to change, so it says what it will do next rather than
