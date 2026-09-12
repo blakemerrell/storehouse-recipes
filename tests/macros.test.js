@@ -6499,9 +6499,7 @@ module.exports = {
         h.getBoundingClientRect().height <= 64 &&
         [...h.querySelectorAll('button')].every((b) =>
           b.classList.contains('mslot-head') || b.classList.contains('mslot-name') ||
-          b.getBoundingClientRect().height <= 36) &&
-        [...h.querySelectorAll('.mslot-hrow')].every((r) =>
-          r.getBoundingClientRect().height <= 28))),
+          b.getBoundingClientRect().height <= 36))),
       await fold.evaluate(() => [...document.querySelectorAll('.mslot-h')]
         .map((h) => 'row ' + Math.round(h.getBoundingClientRect().height) + ' [' +
           [...h.querySelectorAll('button')].map((b) => b.textContent.trim().slice(0, 6) + ' ' +
@@ -6767,14 +6765,27 @@ module.exports = {
         return { w: Math.round(r.width), h: Math.round(r.height) };
       };
       return { coarse: matchMedia('(pointer: coarse)').matches,
-        add: box('.mslot-add'), retry: box('.mslot-try'), seam: box('.mslot-head') };
+        add: box('.mslot-add'), retry: box('.mslot-try'), seam: box('.mslot-head'),
+        /* The bar's own button, measured rather than written down. */
+        bar: box('.mday-acts button:not(#macroFill)') };
     });
-    t.ok('a thumb gets a real target on every unboxed control',
-      reach.coarse && reach.add && reach.retry &&
-        reach.add.h >= 30 && reach.add.w >= 30 &&
-        reach.retry.h >= 30 && reach.retry.w >= 30,
+    /* Against the BAR, not against a number.
+     *
+       This used to read `h >= 30`, and the card's verbs are 29 now — Blake
+       picked them off a mockup that showed them beside the bar they are
+       matching, because the card and the bar were drawing the same three
+       controls two different ways. A literal floor would have failed by one
+       pixel and told us nothing; what the rule actually is, now, is "the same
+       button in both places", and that is a claim that cannot drift. */
+    t.ok('the card\u2019s verbs are the same button the bottom bar draws',
+      reach.coarse && reach.add && reach.retry && reach.bar &&
+        reach.add.h === reach.bar.h && reach.retry.h === reach.bar.h &&
+        reach.add.w === reach.bar.w,
       JSON.stringify(reach));
-    t.ok('and the fold seam is a thumb tall as well, being the handle',
+    /* The head is the handle and stays a thumb's worth, whatever the verbs
+       below it do — it is the control you press most and the one nobody could
+       find when it was the width of a word. */
+    t.ok('and the head is a thumb tall as well, being the handle',
       !!reach.seam && reach.seam.h >= 30, JSON.stringify(reach.seam));
     /* The plus says nothing to the eye but its shape, so it has to say the
        rest out loud — and it names the meal, which "+ Add" never did. */

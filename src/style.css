@@ -497,18 +497,41 @@ select { max-width: 280px; }
    378x45 row, which is why nobody could find it. The verbs are at the foot of
    the open meal now and the head is what it looks like. */
 .mslot-head {
-  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
-  gap: 5px; align-self: stretch; background: none; border: 0; cursor: pointer;
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center;
+  /* Six, not eight. Breakfast needed 342px of a 341px row — it was missing a
+     single line by one pixel, and two of these gaps is where it came from. */
+  column-gap: 6px; row-gap: 3px;
+  align-self: stretch; background: none; border: 0; cursor: pointer;
   font-family: var(--sans); text-align: left;
   margin: -8px -10px -4px 0; padding: 8px 10px 4px 0;
 }
+/* The name clips, it does not vanish.
+ *
+   Told to give way first it gave way entirely: at 320 every meal name was
+   squeezed to nought and the header read as four numbers belonging to
+   nothing. So the name keeps its own width and clips only against the CARD —
+   "EVENING SN…" still says which meal it is — and when the numbers cannot fit
+   beside it they take the next line instead of taking the name. One row where
+   there is room for one, two where there is not, and the name is on the first
+   either way. */
+.mslot-head { flex-wrap: wrap; }
+.mslot-head .mslot-name {
+  /* Shrinks to a floor, then clips. "EVENING SNACK" is the only name long
+     enough to push the numbers onto a line of their own at 412, and losing
+     three letters off the end of a word you can still read is a better trade
+     than giving the meal a second row. Below the floor it stops shrinking and
+     the numbers wrap instead — which is what happens at 320, where nothing
+     was going to fit on one line however much the name gave up. */
+  flex: 0 1 auto; min-width: 3.6em; max-width: 100%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.mslot-head .mmps { flex: 0 0 auto; }
+/* The mark reads last, on the right, where a thing that opens the card
+   belongs. Ordered ahead of the numbers it landed between the name and them,
+   which reads as a control belonging to the word rather than to the card. */
 .mslot-head:hover .mslot-name { color: var(--ink); }
-/* The head is two rows tall now, so a row centred on it puts the dot down
-   between the name and the pills, hanging off nothing. It belongs beside the
-   name — that is the row it reads with. */
-.mslot > .mslot-h { align-items: flex-start; }
-.mslot > .mslot-h > .mday-dot { margin-top: -3px; }
-.mslot-hrow { display: flex; align-items: center; gap: 5px; width: 100%; }
+/* The head is one row again, so the dot centres on it like everything else. */
+/* .mslot-hrow went with the two-row head — the head IS the row now. */
 .mslot-sp { flex: 1 1 auto; }
 /* The weigh-in card keeps a plain name button; its row carries the box. */
 .mday-weigh > .mslot-h > .mslot-name {
@@ -523,17 +546,22 @@ select { max-width: 280px; }
   padding: 8px 10px 10px; border-top: 1px solid var(--line-soft);
 }
 .mslot-act {
-  flex: 0 1 auto; min-height: 34px; padding: 6px 11px;
-  background: none; border: 1px solid var(--line-soft); border-radius: 7px;
+  /* The same button the bottom bar draws: 29 tall, 3px corners. Picked off a
+     mockup that showed it beside the bar it is matching — the card and the bar
+     were drawing the same three verbs two different ways. */
+  flex: 0 1 auto; height: 29px; padding: 0 11px;
+  background: none; border: 1px solid var(--line-soft); border-radius: 3px;
   font-family: var(--sans); font-size: 12.5px; color: var(--muted-2);
   cursor: pointer; white-space: nowrap;
 }
 .mslot-act:disabled { opacity: 0.4; cursor: default; }
 .mslot-act.add {
-  margin-left: auto; flex: none; min-width: 44px; font-size: 17px;
+  margin-left: auto; flex: none; width: 44px; padding: 0; font-size: 17px;
   color: var(--ochre-text); border-color: var(--line-firm);
 }
-@media (pointer: coarse) { .mslot-act { min-height: 44px; } }
+/* No coarse-pointer bump, deliberately: these match the bottom bar and the
+   bar is 29. Growing them on a phone would make the two rows of buttons
+   differ on the only device that has a thumb. */
 /* What an EMPTY meal is meant to hold — one state, and never a verdict.
    It used to judge a filled meal too, in on/short/over colours, but that
    answered CALORIES: a lunch five times over on fat and fine on protein came
@@ -579,8 +607,7 @@ select { max-width: 280px; }
 /* The cue is a grandchild now — the head wraps its name row around it — so
    the direct-child selector stopped reaching it and an open meal's chevron
    stayed pointing the way a shut one's does. */
-[aria-expanded="true"] > .mfold-cue,
-[aria-expanded="true"] > .mslot-hrow > .mfold-cue { transform: rotate(180deg); }
+[aria-expanded="true"] > .mfold-cue { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
 .msub-k { flex: none; font-size: 11.5px; }
 /* Only ever drawn for a macro that is off, so it takes its own width and
@@ -1223,7 +1250,7 @@ select { max-width: 280px; }
    plates below and the day's live at the top of the screen, so this strip
    only has to say which way each macro is leaning. At 11px in a 24px seam it
    was taking a full row of a phone to repeat what the card already implies. */
-.mmps { display: flex; gap: 4px; flex: 1 1 auto; min-width: 0; align-items: center; }
+.mmps { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; align-items: center; }
 .mmp {
   /* Sized to what they say, not stretched across the card. Four pills on
      `flex: 1 1 0` split the full width between them whatever the numbers
@@ -1231,8 +1258,8 @@ select { max-width: 280px; }
      reading as a chart nobody asked for. They are chips now: they end where
      the figures end, and the row ends with them. */
   flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: baseline;
-  justify-content: center; gap: 1px; border-radius: 999px; padding: 1px 5px;
-  font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap;
+  justify-content: center; gap: 1px; border-radius: 999px; padding: 1px 3px;
+  font-size: 9.5px; font-variant-numeric: tabular-nums; white-space: nowrap;
   border: 1px solid var(--line-soft); color: var(--muted-2);
 }
 .mmp.kc { flex: 0 0 auto; }

@@ -3307,11 +3307,19 @@
             ? '<button class="mslot-head" data-mfold="' + esc(sk) + '" aria-expanded="' +
               (folded ? 'false' : 'true') + '" aria-label="' +
               (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
-              '<span class="mslot-hrow">' +
-                '<span class="mslot-name">' + esc(name) + '</span>' +
-                '<span class="mslot-sp"></span>' +
-                '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
-              '</span>' + mMealPillsHTML(sub, mMealShare(sk, targets, slots), targets, !eatenAll) +
+              /* One line: the name, then the meal's numbers, then the mark.
+               *
+                 They were stacked — name on top, pills beneath — which gave
+                 every meal a two-row header and pushed the plates down by the
+                 height of a row times six meals. On the line with the name
+                 they read as what they are: this meal, and how it is going.
+                 The name gives way first when the row runs out, because a
+                 clipped word still says which meal it is and a clipped number
+                 says nothing at all. */
+              '<span class="mslot-name">' + esc(name) + '</span>' +
+              '<span class="mslot-sp"></span>' +
+              mMealPillsHTML(sub, mMealShare(sk, targets, slots), targets, !eatenAll) +
+              '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
               '</button>'
             : '<span class="mslot-name mslot-name-flat">' + esc(name) + '</span>' +
               mVerdictHTML(sk, items, onPlan, targets, slots)) +
