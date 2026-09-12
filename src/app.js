@@ -3698,6 +3698,11 @@
       out + '</span>' : '';
   }
 
+  /* The order a shrinking day gives way in, and what a gram of each costs.
+     Protein last to go because a deficit is when muscle is easiest to lose;
+     carbohydrate first because it was the remainder when the plan was built. */
+  var MDRAW = [['p', 4], ['f', 9], ['c', 4]];
+
   /* Is this meal finished? Plates on it, and every one of them eaten.
    *
      A meal with nothing on it is not finished, it is empty — and an empty
@@ -3738,10 +3743,40 @@
 
     var vk = mViewKey(), day = mDay(vk);
     var eaten = mTotals(day).eaten;
-    var left = { p: Math.max(0, targets.p - eaten.p),
+    /* One budget, spent in the order the plan was built in.
+     *
+       Taken macro by macro this produced a card that contradicted itself: a
+       breakfast a thousand over left 315 calories in the day and 114 g of
+       protein untouched, so lunch was asked for 41 g of protein and 17 g of
+       fat inside a 113 kcal budget — three hundred kcal of food in a third of
+       that. The overrun was real but it was CARBS, and flooring each macro at
+       nought threw that away while the calorie line still counted it.
+     *
+       So the calories left are the budget, and the macros are drawn from it
+       in turn: protein, then fat, then whatever is still there for carbs.
+       That is the order mPlanCalc builds the plan in — protein off bodyweight,
+       fat to its floor, carbohydrate the remainder — so a day that has to
+       shrink gives way in the reverse order it was built, and carbohydrate,
+       which was the remainder, is the remainder still.
+     *
+       It costs nothing on a day going to plan: with nothing eaten the three
+       draws come to exactly the targets, because that is how the targets were
+       computed. It only bites once the day is short, which is the only time
+       anybody needs to be told what to protect. */
+    var budget = Math.max(0, kcalOf(targets) - eaten.kcal);
+    var room = { p: Math.max(0, targets.p - eaten.p),
       f: Math.max(0, targets.f - eaten.f),
       c: Math.max(0, targets.c - eaten.c) };
-    left.kcal = Math.max(0, kcalOf(targets) - eaten.kcal);
+    var left = {};
+    MDRAW.forEach(function (d2) {
+      var m = d2[0], per = d2[1];
+      var take = Math.min(room[m], budget / per);
+      left[m] = take;
+      budget -= take * per;
+    });
+    /* Derived, so the calorie line and the three macro lines are the same
+       statement said two ways rather than two statements that can disagree. */
+    left.kcal = 4 * left.p + 4 * left.c + 9 * left.f;
 
     /* The meals the slack has to go to: everything not skipped and not
        finished. This one is always among them — it is the meal being asked

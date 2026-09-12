@@ -6639,16 +6639,23 @@ module.exports = {
        size the day's calories and carbs are gone outright — those pills are
        spent and carry no plan to compare against — and the macro that still
        has something left is where the lowering is visible. */
+    /* Lowered, or gone entirely. A breakfast this size does not just shrink
+       the day, it spends it — and a pill the day cannot pay for is the most
+       lowered a pill can be. */
     t.ok('eating a meal over its share lowers what the meals ahead are asked for',
-      !!lunch && lunch.some((p2) => p2.was !== null && p2.want < Number(p2.was)),
+      !!lunch && lunch.every((p2) => p2.spent || (p2.was !== null && p2.want < Number(p2.was))) &&
+        lunch.some((p2) => p2.spent || p2.was !== null),
       JSON.stringify(lunch));
     /* And the plan is shown ONLY where it moved. A macro whose share came
        out the same — fat, here, because that breakfast was huge but lean —
        carries nothing, because repeating a number back to itself is noise on
        a row that has four of them. */
-    t.ok('and the plan is shown only where the number actually moved',
-      !!lunch && lunch.every((p2) => p2.was === null || Number(p2.was) !== p2.want) &&
-        lunch.some((p2) => p2.was !== null),
+    /* And where a plan IS shown it differs from the number beside it —
+       repeating a figure back to itself is noise on a row with four of them.
+       The undereat case below is what proves a plan gets shown at all; this
+       is the rule about when it should not be. */
+    t.ok('and the plan is never repeated back as the number it replaced',
+      !!lunch && lunch.every((p2) => p2.was === null || Number(p2.was) !== p2.want),
       JSON.stringify(lunch));
     t.ok('while the meal that was eaten keeps its own plan, being history',
       !!brek && brek.every((p2) => p2.was === null), JSON.stringify(brek));
@@ -6657,6 +6664,41 @@ module.exports = {
     t.ok('a macro the day cannot pay for says so rather than showing a nought',
       !!lunch && lunch.some((p2) => p2.spent), JSON.stringify(lunch));
     await overPg.context().close();
+
+    /* ---- a skipped meal hands its share over ------------------------------
+     * The share is divided among the meals still in play, and a meal you have
+     * said you are not eating is not one of them — which is the whole point of
+     * the skip, and the same rule the plan already used. It has to hold here
+     * too, or the day would go on reserving a quarter of itself for food that
+     * is never coming. */
+    const skipPg3 = await askPg(1);
+    const lunchBefore = (await asked(skipPg3)).Lunch;
+    /* Opened first: both the delete and the Skip live in the acts row at the
+       foot of an OPEN meal, and one meal is open at a time now — so a folded
+       Snacks has neither on the page to press. */
+    await skipPg3.evaluate(() => {
+      const h = [...document.querySelectorAll('#macroSlots [data-mfold]')]
+        .find((b) => ((b.querySelector('.mslot-name') || {}).textContent || '') === 'Snacks');
+      if (h && h.getAttribute('aria-expanded') === 'false') h.click();
+    });
+    await skipPg3.waitForTimeout(450);
+    /* Empty it, then skip it — you do not skip a meal you have put food on,
+       you delete the food. */
+    await skipPg3.evaluate(() => {
+      [...document.querySelectorAll('[data-mdel]')]
+        .filter((d) => d.dataset.mdel.indexOf('s:') === 0).forEach((d) => d.click());
+    });
+    await skipPg3.waitForTimeout(450);
+    await skipPg3.evaluate(() => {
+      const b = document.querySelector('[data-mskip="s"]');
+      if (b) b.click();
+    });
+    await skipPg3.waitForTimeout(550);
+    const lunchAfter = (await asked(skipPg3)).Lunch;
+    t.ok('skipping a meal raises what the meals still in play are asked for',
+      !!lunchBefore && !!lunchAfter && lunchAfter[1].want > lunchBefore[1].want,
+      JSON.stringify({ before: lunchBefore, after: lunchAfter }));
+    await skipPg3.context().close();
 
     const underPg = await askPg(0.25);
     await underPg.evaluate(() => {
