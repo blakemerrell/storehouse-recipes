@@ -6563,6 +6563,123 @@ module.exports = {
         actsRow.kids[actsRow.kids.length - 1].right <= actsRow.pad + 1,
       JSON.stringify(actsRow));
 
+    /* ---- the slack from a finished meal goes to the meals ahead ----------
+     * A meal's denominator was a fixed slice of the day by weight: eat a
+     * breakfast a thousand calories over and Lunch and Dinner went on asking
+     * for 483 and 677 as though nothing had happened. The day strip knew; the
+     * meals never found out, and Rebalance solved toward a plan the day could
+     * no longer pay for.
+     *
+     * What is LEFT is the targets less what has actually been EATEN — not
+     * less what is merely plated, because a dinner you have not had is a plan
+     * and a plan cannot use up a day — split across the meals still to come
+     * by the same weights the plan uses. A finished meal keeps its plan,
+     * because "1,425 against a 387 plan" is the sentence you want tomorrow.
+     *
+     * Asserted as relationships, never as figures: the arithmetic is the
+     * app's and a copied number would only pin today's food table. */
+    const askPg = async (x) => {
+      const pg = await t.fresh({ viewport: { width: 412, height: 915 } });
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(250);
+      await pg.evaluate((mult) => {
+        const big = window.RECIPES.filter((r) => r.macro && r.macro.kcal > 400)[0];
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        /* Food on every meal: an EMPTY meal draws its verdict chip instead of
+           pills, so a day of empty meals has nothing here to read. */
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]:
+          { b: [{ id: big.id, x: mult, eaten: 0 }],
+            l: [{ id: big.id, x: 1, eaten: 0 }],
+            d: [{ id: big.id, x: 1, eaten: 0 }],
+            s: [{ id: big.id, x: 1, eaten: 0 }] } }));
+      }, x);
+      await pg.reload();
+      await pg.waitForTimeout(400);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(400);
+      return pg;
+    };
+    const asked = (pg) => pg.evaluate(() => {
+      const out = {};
+      [...document.querySelectorAll('.mslot')].forEach((card) => {
+        const nm = (card.querySelector('.mslot-name') || {}).textContent;
+        if (!nm) return;
+        out[nm] = [...card.querySelectorAll('.mmp')].map((e) => ({
+          want: Number(((e.querySelector('.mmp-t') || {}).textContent || '').replace('/', '')),
+          was: (e.querySelector('.mmp-was') || {}).textContent || null,
+          spent: e.classList.contains('spent') }));
+      });
+      return out;
+    });
+
+    const overPg = await askPg(3);
+    const beforeAte = await asked(overPg);
+    t.ok('before anything is eaten, no meal is asked for anything but its plan',
+      Object.keys(beforeAte).length > 2 &&
+        Object.values(beforeAte).every((ps) => ps.every((p2) => p2.was === null)),
+      JSON.stringify(beforeAte));
+
+    /* Eat the oversized breakfast. */
+    await overPg.evaluate(() => {
+      const h = [...document.querySelectorAll('#macroSlots [data-mfold]')]
+        .find((b) => ((b.querySelector('.mslot-name') || {}).textContent || '') === 'Breakfast');
+      if (h && h.getAttribute('aria-expanded') === 'false') h.click();
+    });
+    await overPg.waitForTimeout(400);
+    await overPg.evaluate(() => {
+      const tick = document.querySelector('.mslot .mtick input');
+      if (tick) tick.click();
+    });
+    await overPg.waitForTimeout(600);
+    const afterAte = await asked(overPg);
+    const lunch = afterAte.Lunch, brek = afterAte.Breakfast;
+    /* Read across the pills, not off the first one. After a breakfast that
+       size the day's calories and carbs are gone outright — those pills are
+       spent and carry no plan to compare against — and the macro that still
+       has something left is where the lowering is visible. */
+    t.ok('eating a meal over its share lowers what the meals ahead are asked for',
+      !!lunch && lunch.some((p2) => p2.was !== null && p2.want < Number(p2.was)),
+      JSON.stringify(lunch));
+    /* And the plan is shown ONLY where it moved. A macro whose share came
+       out the same — fat, here, because that breakfast was huge but lean —
+       carries nothing, because repeating a number back to itself is noise on
+       a row that has four of them. */
+    t.ok('and the plan is shown only where the number actually moved',
+      !!lunch && lunch.every((p2) => p2.was === null || Number(p2.was) !== p2.want) &&
+        lunch.some((p2) => p2.was !== null),
+      JSON.stringify(lunch));
+    t.ok('while the meal that was eaten keeps its own plan, being history',
+      !!brek && brek.every((p2) => p2.was === null), JSON.stringify(brek));
+    /* Carbs are gone for the day after that breakfast — and three meals
+       printing 0/0 would be true and useless. */
+    t.ok('a macro the day cannot pay for says so rather than showing a nought',
+      !!lunch && lunch.some((p2) => p2.spent), JSON.stringify(lunch));
+    await overPg.context().close();
+
+    const underPg = await askPg(0.25);
+    await underPg.evaluate(() => {
+      const h = [...document.querySelectorAll('#macroSlots [data-mfold]')]
+        .find((b) => ((b.querySelector('.mslot-name') || {}).textContent || '') === 'Breakfast');
+      if (h && h.getAttribute('aria-expanded') === 'false') h.click();
+    });
+    await underPg.waitForTimeout(400);
+    await underPg.evaluate(() => {
+      const tick = document.querySelector('.mslot .mtick input');
+      if (tick) tick.click();
+    });
+    await underPg.waitForTimeout(600);
+    const light = (await asked(underPg)).Lunch;
+    /* Guarded on the plan being there at all. Number(null) is 0, so without
+       it an app that had stopped redistributing entirely would satisfy
+       "bigger than nothing" — which is exactly what it did the first time
+       this was mutated. */
+    t.ok('and leaving food on a plate raises what the meals ahead are asked for',
+      !!light && light.some((p2) => p2.was !== null && p2.want > Number(p2.was)),
+      JSON.stringify(light));
+    await underPg.context().close();
+
     /* ---- an empty meal offers the verb it has ----------------------------
      * Another means "not that one, what else" and Balance means "solve these
      * against each other". Neither is a question you have about a meal with

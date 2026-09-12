@@ -3318,8 +3318,16 @@
                  says nothing at all. */
               '<span class="mslot-name">' + esc(name) + '</span>' +
               '<span class="mslot-sp"></span>' +
-              mMealPillsHTML(sub, mMealShare(sk, targets, slots), targets, !eatenAll) +
-              '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
+              /* The numbers and the mark travel together. Loose, the mark
+                 wrapped on its own the moment the row ran out — a chevron
+                 alone on a second line, under nothing, belonging to nothing.
+                 As one piece they either both sit beside the name or both
+                 take the next line, and the mark is at the right of whichever
+                 line they are on. */
+              '<span class="mslot-tail">' +
+                mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll) +
+                '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
+              '</span>' +
               '</button>'
             : '<span class="mslot-name mslot-name-flat">' + esc(name) + '</span>' +
               mVerdictHTML(sk, items, onPlan, targets, slots)) +
@@ -3627,11 +3635,21 @@
      that was hard-won: the band is measured against the DAY, not the meal's
      share, or a meal's eleven-to-nineteen grams of fat colours every card
      every day and colour that is always on has stopped saying anything. */
-  function mMealPillsHTML(sub, sh, targets, planned) {
-    if (!sh) return '';
+  function mMealPillsHTML(sub, ask, targets, planned) {
+    if (!ask) return '';
+    var sh = ask.now || ask;                 // plain shares still work
+    var was = ask.plan || sh;
+    var spent = ask.spent || {};
     var day = { kcal: kcalOf(targets), p: targets.p, f: targets.f, c: targets.c };
     var out = MGAUGE.map(function (g) {
       var m = g[0], want = sh[m] || 0, got = sub[m] || 0;
+      /* Nothing left of this macro, and the day has begun: say it in a word.
+         A meal asked for 0 and holding 0 is not "on target", it is a meal the
+         day can no longer pay for, and 0/0 says the first of those. */
+      if (spent[m]) {
+        return '<span class="mmp spent' + (m === 'kcal' ? ' kc' : '') + '">' +
+          '<i>' + g[1] + '</i><b>' + (got > 0 ? Math.round(got) : '&mdash;') + '</b></span>';
+      }
       var gg = mGauge(got, want, day[m]);
       if (!gg) return '';
       /* The fill is proportion of the TARGET and stops at the pill's end;
@@ -3640,11 +3658,24 @@
       var pct = want > 0 ? Math.min(100, (got / want) * 100) : 0;
       var tone = gg.st === 'o' ? 'var(--dial-on-pale)'
         : gg.st === 'x' ? 'var(--dial-over-pale)' : 'var(--dial-under-pale)';
+      /* The plan, kept beside the number that replaced it.
+       *
+         Without it a target that moved while you were not looking is just a
+         different number, and a plate you made an hour ago turns amber with
+         nothing on the card admitting why. With it the card can answer "was
+         that me, or did the day move" — which is the only reason a moving
+         target is safe to show at all. Only when it has actually moved: on an
+         untouched day every meal is asked for exactly its plan, and repeating
+         it would be noise. */
+      var moved = Math.round(want) !== Math.round(was[m] || 0);
       return '<span class="mmp' + (m === 'kcal' ? ' kc' : '') + ' ' + gg.st +
+        (moved ? ' moved' : '') +
         '" style="background:linear-gradient(90deg,' + tone + ' 0 ' + pct.toFixed(1) +
         '%,var(--paper-soft) ' + pct.toFixed(1) + '%)">' +
         '<i>' + g[1] + '</i><b>' + Math.round(got) + '</b>' +
-        '<span class="mmp-t">/' + Math.round(want) + '</span></span>';
+        '<span class="mmp-t">/' + Math.round(want) + '</span>' +
+        (moved ? '<span class="mmp-was">' + Math.round(was[m] || 0) + '</span>' : '') +
+        '</span>';
     }).join('');
     return out ? '<span class="mmps' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
       out + '</span>' : '';
@@ -3665,6 +3696,76 @@
     }).join('');
     return out ? '<span class="mgg' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
       out + '</span>' : '';
+  }
+
+  /* Is this meal finished? Plates on it, and every one of them eaten.
+   *
+     A meal with nothing on it is not finished, it is empty — and an empty
+     meal is the one most in need of a share. */
+  function mMealDone(sk) {
+    var items = (mDay(mViewKey())[sk] || []).filter(function (it) { return BY_ID[it.id]; });
+    if (!items.length) return false;
+    return items.every(function (it) { return it.eaten; });
+  }
+
+  /* What a meal is being asked for NOW, and what it was planned for.
+   *
+     The two are the same until something is eaten. After that they part, and
+     the gap between them is the whole answer to "where did the slack go":
+     eat a breakfast a thousand over and the meals still ahead are asked for
+     less; leave half of it and they are asked for more.
+   *
+     The arithmetic is the plain one. What is LEFT is the day's targets less
+     what has actually been EATEN — not less what is merely plated, because a
+     dinner you have not had yet is a plan, not a fact, and a plan cannot use
+     up a day. What is left is then split across the meals still to come, by
+     the same weights the plan uses, so the split is the plan's own rule
+     applied to a smaller day.
+   *
+     A finished meal keeps its PLAN as its denominator. It is history: "1,425
+     against a 387 plan" is the sentence you want tomorrow, and a finished
+     meal that quietly re-scored itself against the day it left behind would
+     be rewriting what happened.
+   *
+     `spent` is the honest part. Overrun the day's carbs and every meal still
+     to come is owed nought of them — and three meals printing 0/0 is true and
+     useless. The pill says so in a word instead. */
+  function mMealAsk(sk, targets, slots) {
+    var plan = mMealShare(sk, targets, slots);
+    if (!plan) return null;
+    var done = mMealDone(sk);
+    if (done) return { now: plan, plan: plan, done: true, spent: {} };
+
+    var vk = mViewKey(), day = mDay(vk);
+    var eaten = mTotals(day).eaten;
+    var left = { p: Math.max(0, targets.p - eaten.p),
+      f: Math.max(0, targets.f - eaten.f),
+      c: Math.max(0, targets.c - eaten.c) };
+    left.kcal = Math.max(0, kcalOf(targets) - eaten.kcal);
+
+    /* The meals the slack has to go to: everything not skipped and not
+       finished. This one is always among them — it is the meal being asked
+       about, and a meal cannot be asked for nothing on the grounds that it
+       does not exist. */
+    var sumW = 0, me = null;
+    slots.list.forEach(function (s2) {
+      if (s2.k === sk) me = s2;
+      if (s2.k !== sk && mSkipped(vk, s2.k) && !(day[s2.k] || []).length) return;
+      if (s2.k !== sk && mMealDone(s2.k)) return;
+      sumW += mSlotW(s2);
+    });
+    if (!me) return { now: plan, plan: plan, done: false, spent: {} };
+    if (!sumW) sumW = mSlotW(me);
+    var frac = mSlotW(me) / sumW;
+
+    var now = {}, spent = {};
+    ['kcal', 'p', 'f', 'c'].forEach(function (m) {
+      now[m] = left[m] * frac;
+      /* Nothing left to give, and the day has actually started — an untouched
+         day has nothing eaten and is not "spent", it is just beginning. */
+      spent[m] = left[m] <= 0 && eaten.kcal > 0;
+    });
+    return { now: now, plan: plan, done: false, spent: spent };
   }
 
   function mMealShare(sk, targets, slots) {
@@ -3821,7 +3922,11 @@
   function mVerdictHTML(sk, items, onPlan, targets, slots) {
     if (!targets.p && !targets.f && !targets.c) return '';
     if (items.length) return '';        // the gauges say it, per macro
-    var sh = mMealShare(sk, targets, slots);
+    /* What an empty meal is asked for now. It is the only number on a meal
+       with nothing on it, and quoting the plan there would send you shopping
+       for a meal the day can no longer pay for. */
+    var ask0 = mMealAsk(sk, targets, slots);
+    var sh = ask0 && ask0.now;
     if (!sh) return '';
     return onPlan
       ? '<span class="mslot-v" data-mv="empty">&#128293;' + Math.round(sh.kcal) + '</span>'
@@ -7366,8 +7471,17 @@
          Null means the meal is not in the slot list at all, which the card
          this button sits on cannot be — there is nothing to solve against, so
          nothing is solved rather than a share being invented. */
-      var sh = mMealShare(sk, targets, slots);
-      if (!sh) return;
+      /* Toward what the meal is asked for NOW, not what it was planned for.
+       *
+         This is the button Blake had in mind when he asked to see the slack
+         move: solving dinner to a 677-kcal plan after a breakfast that ran a
+         thousand over would push the day further past itself while claiming
+         to balance it. Aimed at the live share, the plates walk toward the
+         number on the card — which is also the first time this button has
+         shown what it was aiming at. */
+      var ask = mMealAsk(sk, targets, slots);
+      if (!ask) return;
+      var sh = ask.now;
       var T = { p: sh.p, f: sh.f, c: sh.c };
       var pen = function () {
         var got = { p: 0, f: 0, c: 0 };

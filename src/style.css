@@ -525,7 +525,11 @@ select { max-width: 280px; }
   flex: 0 1 auto; min-width: 3.6em; max-width: 100%; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
-.mslot-head .mmps { flex: 0 0 auto; }
+.mslot-head .mmps { flex: 0 1 auto; min-width: 0; }
+.mslot-tail {
+  display: flex; align-items: center; gap: 6px;
+  flex: 0 1 auto; min-width: 0; margin-left: auto;
+}
 /* The mark reads last, on the right, where a thing that opens the card
    belongs. Ordered ahead of the numbers it landed between the name and them,
    which reads as a control belonging to the word rather than to the card. */
@@ -607,7 +611,13 @@ select { max-width: 280px; }
 /* The cue is a grandchild now — the head wraps its name row around it — so
    the direct-child selector stopped reaching it and an open meal's chevron
    stayed pointing the way a shut one's does. */
-[aria-expanded="true"] > .mfold-cue { transform: rotate(180deg); }
+/* Both places the cue can sit. This selector has now broken twice by being
+   direct-child only — once when the head grew a row wrapper, once when the
+   numbers and the mark were grouped — and each time the failure was silent:
+   an open meal's chevron simply went on pointing the way a shut one's does,
+   which no layout test was looking at. */
+[aria-expanded="true"] > .mfold-cue,
+[aria-expanded="true"] > .mslot-tail > .mfold-cue { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
 .msub-k { flex: none; font-size: 11.5px; }
 /* Only ever drawn for a macro that is off, so it takes its own width and
@@ -1266,6 +1276,22 @@ select { max-width: 280px; }
 .mmp i { font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--muted); }
 .mmp b { font-weight: 700; color: var(--ink); }
 .mmp-t { opacity: 0.55; }
+/* The plan, after the number that replaced it. Small and grey on purpose: it
+   is not a second target, it is where the first one was — the thing that lets
+   a card answer "was that me, or did the day move". */
+.mmp-was {
+  font-size: 7.5px; font-weight: 700; opacity: 0.5; margin-left: 2px;
+  align-self: flex-start; line-height: 1.6;
+}
+/* A macro the day can no longer pay for. Dashed, because the shape still says
+   "this is the fat pill" while the border stops claiming a target it does not
+   have — and the figure is an em dash rather than a nought, which would read
+   as a meal sitting exactly on nothing. */
+.mmp.spent {
+  border-style: dashed; border-color: var(--line-firm);
+  background: none; opacity: 0.75;
+}
+.mmp.spent b { color: var(--muted); font-weight: 600; }
 .mmp.u { border-color: var(--dial-under-pale); } .mmp.u b { color: var(--ochre-text); }
 .mmp.o { border-color: var(--dial-on-pale); }    .mmp.o b { color: var(--dial-on); }
 .mmp.x { border-color: var(--dial-over-pale); }  .mmp.x b { color: var(--dial-over); }
