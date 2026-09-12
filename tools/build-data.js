@@ -171,16 +171,33 @@ const out = SRC.map((r) => {
     if (chk.score !== r.score || JSON.stringify(chk.sc) !== JSON.stringify(r.sc)) {
       scoreMismatch.push({ id: r.id, stated: { score: r.score, sc: r.sc }, recomputed: chk });
     }
-    rec.est = false;
-    /* Calories, protein, carbohydrate and fat are as authored. Sodium and fiber
-       were never in the book, so they come from the ingredients here — which
-       makes the sodium and fiber halves of every score an estimate, in both
-       volumes. The app says so. */
-    rec.macro = Object.assign({}, r.macro, { na: est.perServing.na, fib: est.perServing.fib });
-    const ns = scoreFrom(rec.macro);
-    rec.score = ns.score;
-    rec.sc = ns.sc;
-    rec.estMacro = est.perServing;
+    /* One definition per question. "What is in a serving of this recipe" used
+       to get two different answers depending on which book the recipe came
+       from: Volume One kept the figure printed under its title, Around the
+       Table added up its ingredients. Both answers were stored — the authored
+       one on `macro`, the computed one on `estMacro` — and nothing reconciled
+       them. Twenty-five recipes disagreed with themselves by more than 30%,
+       and the app planned against one number while the plate showed the other.
+
+       So both volumes now answer it the same way: add up what is actually in
+       the bowl. The authored figure is kept as `bookMacro` — it is what is
+       printed in the physical book and a reader holding one deserves to be
+       able to find it — but it is no longer what the app counts.
+
+       This is the honest direction because the ingredients are the thing you
+       can check. A printed 310 kcal cannot be argued with; four eggs and two
+       ounces of sausage can be weighed, and they do not come to 1240. */
+    rec.est = true;
+    rec.macro = est.perServing;
+    rec.bookMacro = Object.assign({}, r.macro);
+    /* Same zero guard the other volume uses: a recipe whose ingredients come
+       to nothing cannot be scored, and scoreFrom divides by the calories. */
+    const safe1 = rec.macro.kcal > 0 ? rec.macro : { kcal: 1, p: 0, c: 0, f: 0 };
+    const ns = scoreFrom(safe1);
+    rec.score = rec.macro.kcal > 0 ? ns.score : null;
+    rec.sc = rec.macro.kcal > 0 ? ns.sc : null;
+    /* estMacro is gone. It was the second copy of exactly this number, and
+       keeping it would recreate the thing this change removes. */
     const d = est.perServing.kcal - r.macro.kcal;
     const servN = r.servN && r.servN > 0 ? r.servN : 1;
     book1Delta.push({

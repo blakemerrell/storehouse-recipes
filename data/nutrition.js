@@ -72,7 +72,21 @@ const FOODS = {
   // ---- Meat & fish --------------------------------------------------------
   chicken_breast:  { eat: 1, lever: 1, kcal: 120, p: 22.5, c: 0,    f: 2.6, na: 45, fib: 0,  g: { lb: 453.6, oz: 28.35, cup: 140, each: 174 }, label: 'Chicken breasts', note: 'raw boneless skinless breast' },
   chicken_canned:  { eat: 1, kcal: 130, p: 23,   c: 0,    f: 3.5, na: 400, fib: 0,  g: { can: 285, oz: 28.35, cup: 140 }, label: 'Canned chicken', note: 'the storehouse stocks one size, 12.5 oz, about 285 g drained' },
-  ground_beef:     { kcal: 250, p: 17.2, c: 0,    f: 20, na: 66, fib: 0,   g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Ground beef', note: 'raw 85/15' },
+  /* 90/10, not the 85/15 this said for a long time. Nothing on a package
+     settled it — the recipes did. Eight of Run and Not Be Weary's recipes
+     brown ground beef, and against 85/15 their printed figures are out by
+     26% on calories, 14% on protein and 95% on fat. Against 90/10 the same
+     eight come to 11%, 6% and 12%. Three independent numbers all fall into
+     line at once, which a wrong guess does not do.
+
+     The rival explanation was that the beef is 85/15 and the fat renders off
+     in the pan. That one fixes calories and leaves protein 14% out and fat
+     29% out, because draining cannot ADD the protein the book claims. So it
+     is the cut, not the cooking. Two of the eight are titled "Lean Beef".
+
+     If the storehouse package says otherwise, the package wins — change it
+     here and the eight recipes follow. */
+  ground_beef:     { kcal: 176, p: 20,   c: 0,    f: 10, na: 66, fib: 0,   g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Ground beef', note: 'raw 90/10' },
   beef_roast:      { kcal: 250, p: 17.5, c: 0,    f: 19.5, na: 60, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Beef roast', note: 'raw chuck roast' },
   stewing_beef:    { kcal: 210, p: 19,   c: 0,    f: 14.5, na: 60, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 } },
   cooked_beef:     { eat: 1, kcal: 250, p: 26,   c: 0,    f: 16, na: 70, fib: 0,   g: { lb: 453.6, oz: 28.35, cup: 225 }, label: 'Cooked shredded beef', note: 'cooked shredded beef' },
@@ -308,7 +322,7 @@ const FOODS = {
   turkey_ground:    { ext: 1, zone: 'protein', kcal: 150, p: 18.7, c: 0, f: 8.3, na: 69, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 }, def: { qty: 4, unit: 'oz' }, label: 'Ground turkey', note: '93/7, raw; no eat flag — it is an ingredient, like the ground beef above' },
   turkey_bacon:     { ext: 1, eat: 1, zone: 'protein', kcal: 368, p: 29.5, c: 4.2, f: 25.9, na: 2020, fib: 0, g: { oz: 28.35, each: 7, slice: 7 }, def: { qty: 2, unit: 'slice' }, label: 'Turkey bacon', note: 'cooked, because that is the form eaten \u2014 so the slice is the COOKED 7 g one, not the 14 g it went into the pan as. Two slices carry 283 mg of sodium; the Zone table rates it Best on its macros alone' },
   canadian_bacon:   { ext: 1, eat: 1, zone: 'protein', kcal: 146, p: 28.3, c: 1.8, f: 2.8, na: 993, fib: 0, g: { oz: 28.35, each: 28, slice: 28 }, def: { qty: 2, unit: 'slice' }, label: 'Canadian bacon', note: 'cooked. Very lean and very salty — no lever flag for the same reason as the deli turkey' },
-  ground_beef_lean: { ext: 1, zone: 'protein', kcal: 152, p: 20.8, c: 0, f: 7, na: 66, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 }, def: { qty: 4, unit: 'oz' }, label: 'Lean ground beef', note: '93/7, raw; the storehouse ground beef above is 85/15' },
+  ground_beef_lean: { ext: 1, zone: 'protein', kcal: 152, p: 20.8, c: 0, f: 7, na: 66, fib: 0, g: { lb: 453.6, oz: 28.35, cup: 225 }, def: { qty: 4, unit: 'oz' }, label: 'Lean ground beef', note: '93/7, raw; the storehouse ground beef above is 90/10' },
   greek_yogurt:     { ext: 1, shelf: 'dairy', eat: 1, lever: 1, zone: 'protein', kcal: 73, p: 10, c: 3.9, f: 1.9, na: 34, fib: 0, g: { cup: 245, tbsp: 15, oz: 28.35 }, def: { qty: 0.5, unit: 'cup' }, label: 'Greek yogurt', note: 'plain, low-fat' },
   plain_yogurt:     { ext: 1, shelf: 'dairy', eat: 1, zone: 'protein', kcal: 63, p: 5.3, c: 7, f: 1.6, na: 70, fib: 0, g: { cup: 245, tbsp: 15 }, def: { qty: 0.5, unit: 'cup' }, label: 'Plain yogurt', note: 'low-fat, unsweetened — the vanilla one above carries the sugar' },
   egg_sub:          { ext: 1, shelf: 'dairy', eat: 1, lever: 1, zone: 'protein', kcal: 48, p: 10, c: 2, f: 0, na: 199, fib: 0, g: { cup: 245, tbsp: 15, oz: 28.35 }, def: { qty: 0.25, unit: 'cup' }, label: 'Egg substitute', note: 'liquid, fat free' },
@@ -896,6 +910,15 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
     kcal += (food.kcal - (food.f - fat) * 9) * k; p += food.p * k; c += food.c * k; f += fat * k;
     na += (food.na || 0) * k; fib += (food.fib || 0) * k;
     const it = { k: r.key, g: Math.round(r.grams * 10) / 10, u: r.unit || '' };
+    /* How much of the fat survived the knife, when the line said "trimmed".
+       `g` is what you buy and carry home, so it stays the untrimmed weight —
+       the shopping list would send you out for too little otherwise — which
+       means a reader adding this row up from `g` alone lands above what the
+       recipe actually feeds you, by about a quarter on a roast. Recording the
+       factor makes the row say so instead of leaving the difference to be
+       rediscovered. Absent on every line that was not trimmed, so the common
+       case costs nothing. */
+    if (r.fx !== undefined && r.fx !== 1) it.pr = r.fx;
     if (food.split) it.a = SPICE_NAMES[r.alias] || r.alias;
     if (names.some((n) => line.toLowerCase().indexOf(n) >= 0)) it.x = 1;
     /* "(optional)" on the line, meaning it. Two recipes exist so that somebody

@@ -523,6 +523,101 @@ module.exports = {
       shell.meta === shell.real && shell.brand === shell.real,
       JSON.stringify(shell) + ' — run npm run print');
 
+    /* ------------------------------------------------- one macro per recipe
+     *
+     * The guard that should have existed from the start. "What is in a
+     * serving of this" used to get two answers depending on which volume the
+     * recipe came from — Volume One kept the figure printed under its title,
+     * Around the Table added up its ingredients — and both were stored on the
+     * record, on `macro` and on `estMacro`, with nothing reconciling them.
+     * Twenty-five recipes disagreed with themselves by more than thirty per
+     * cent. The app planned against one number and the plate showed the
+     * other, and the only reason anyone found out was Blake asking why a
+     * recipe's parts did not come to its total.
+     *
+     * Nothing structural stopped it, so nothing stopped it. This does: every
+     * recipe's macro IS the sum of its ingredients, checked here against the
+     * same food table the shopping list uses, in the browser, against the
+     * file a phone actually loads.
+     *
+     * A tolerance rather than an equality because the record rounds and this
+     * does not. It is not a place to absorb a disagreement — if this starts
+     * failing, a second source of truth has grown back. */
+    const sums = await p.evaluate(() => {
+      const F = window.FOODS || (window.Nutrition && window.Nutrition.FOODS);
+      if (!F) return { noTable: true };
+      const bad = [];
+      let checked = 0;
+      window.RECIPES.forEach((r) => {
+        if (!r.ingp || !r.ingp.length || !r.macro || !r.macro.kcal) return;
+        /* The food table's own kcal, NOT 4p+4c+9f derived from the sums.
+           The two differ by a couple of per cent — real foods round, and
+           their label calories are not exactly their macros times four and
+           nine — and the record is built from the former. Deriving here
+           would make this check fail 300 recipes for a disagreement between
+           two definitions of a calorie rather than for any recipe being
+           wrong. (That disagreement is real and lives in the app too:
+           mTotals SUMS macro.kcal while kcalOf DERIVES it. Worth its own
+           look; it is not what this guard is for.) */
+        const t = { p: 0, c: 0, f: 0, kcal: 0 };
+        let missing = false;
+        r.ingp.forEach((ip) => {
+          const fd = F[ip.k];
+          if (!fd) { missing = true; return; }
+          const g = Number(ip.g) || 0;
+          /* `pr` is what survived the knife on a line that said "trimmed".
+             `g` stays the weight you buy, so the fat has to come off here —
+             and only the fat, and only its own calories with it. Protein and
+             carbohydrate are in the lean and do not go in the bin. */
+          const keep = ip.pr === undefined ? 1 : ip.pr;
+          const fat = fd.f * keep;
+          t.p += fd.p * g / 100; t.c += fd.c * g / 100;
+          t.f += fat * g / 100;
+          t.kcal += (fd.kcal - (fd.f - fat) * 9) * g / 100;
+        });
+        if (missing) return;
+        const n = Number(r.servN) > 0 ? Number(r.servN) : 1;
+        checked++;
+        /* Half a gram of slack because the record rounds to whole numbers and
+           this does not: a line holding 5.5 g of fat is stored as 6, which is
+           a 9% disagreement about nothing. The relative bound is what catches
+           a real drift on the big figures. */
+        const off = (k, v) => Math.abs(v / n - (r.macro[k] || 0)) >
+          Math.max(0.51, (r.macro[k] || 0) * 0.02);
+        if (off('kcal', t.kcal) || off('p', t.p) || off('c', t.c) || off('f', t.f)) {
+          bad.push(r.no + ' ' + r.name + ': record ' + Math.round(r.macro.kcal) +
+            ' kcal ' + Math.round(r.macro.p) + 'P ' + Math.round(r.macro.f) +
+            'F, ingredients ' + Math.round(t.kcal / n) + ' kcal ' +
+            Math.round(t.p / n) + 'P ' + Math.round(t.f / n) + 'F');
+        }
+      });
+      return { checked: checked, bad: bad.slice(0, 6), n: bad.length };
+    });
+    t.ok('every recipe\u2019s macro is the sum of its own ingredients',
+      !sums.noTable && sums.checked > 250 && sums.n === 0, JSON.stringify(sums));
+
+    /* And the printed figure is kept, not quietly dropped. A reader holding
+       the physical book has to be able to find the number under its title,
+       even where the app no longer counts it. */
+    const kept = await p.evaluate(() => {
+      const b1 = window.RECIPES.filter((r) => r.book === 1 && r.bookMacro);
+      const far = b1.filter((r) =>
+        Math.abs(r.macro.kcal / Math.max(r.bookMacro.kcal, 1) - 1) > 0.30);
+      return { withBook: b1.length, far: far.length,
+        worst: far.sort((a, b) => Math.abs(b.macro.kcal - b.bookMacro.kcal) -
+          Math.abs(a.macro.kcal - a.bookMacro.kcal)).slice(0, 3)
+          .map((r) => r.no + ' print ' + r.bookMacro.kcal + ' app ' + Math.round(r.macro.kcal)) };
+    });
+    t.ok('and what the book printed is kept beside it, not thrown away',
+      kept.withBook >= 100, JSON.stringify(kept));
+
+    /* A ratchet, not a target. Twenty-five recipes were more than thirty per
+       cent away from print when this was written and the work brought it to
+       nineteen; the number may only go down. Raising it is how a data change
+       that quietly wrecks a shelf of recipes gets through unnoticed. */
+    t.ok('and no more of them drift from print than already did',
+      kept.far <= 19, kept.far + ' of ' + kept.withBook + ' — ' + JSON.stringify(kept.worst));
+
     await p.context().close();
   },
 };

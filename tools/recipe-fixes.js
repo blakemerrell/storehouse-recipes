@@ -1055,4 +1055,31 @@ module.exports = [
   { id: 220, ing: ['2 bananas (halved)', '¼ cup cocoa powder', '¼ cup butter', '¼ cup sugar',
     '2 tbsp milk', '4 wooden sticks'] },
   { id: 220, step: 1, set: 'Melt the butter in a small pan over low heat, then whisk in the sugar, the cocoa and the milk until it is glossy and pours off the spoon in a ribbon. Cocoa is a dry powder — without the milk it seizes into a paste you cannot dip anything in.' },
+
+  /* ---- six recipes that say "rice" and mean cooked rice -----------------
+   * A cup of rice weighs 185 g dry and 158 g cooked, and holds 675 calories
+   * dry against 205 cooked. The same three words, "2 cups rice", therefore
+   * name two portions that differ by a factor of three, and every one of
+   * these six was being charged the dry figure for rice its own method never
+   * cooks.
+   *
+   * The method is what settles it, not a guess: all six say "cooked rice" in
+   * a step, and No. 51 spells the quantity out — "½ cup cooked rice" into
+   * each of four containers is two cups cooked, which is exactly what the
+   * ingredient line says once it says which it means.
+   *
+   * Not applied to the other seven recipes that charge dry rice. Two of them
+   * boil it in the method and five give no instruction either way, and dry is
+   * the right reading for all seven: you measure rice before you cook it.
+   * "Cilantro Lime Rice" is a pan of rice, not a bowl of someone else's.
+   *
+   * The ingredient line is the only thing changed. The method already said
+   * cooked; it is the shopping list and the macros that were reading the
+   * wrong one, and the macros by a factor of three. */
+  { id: 51, ing: ['1.5 lbs chicken breast', '2 cups cooked rice', '1 can black beans', 'bell peppers', 'onions', 'salsa'] },
+  { id: 57, ing: ['1.5 lbs chicken breast', '2 cups cooked rice', '1 lb broccoli', '2 tbsp soy sauce', '1 tbsp honey'] },
+  { id: 66, ing: ['1.5 lbs chicken breast', '2 cups cooked rice', '1 lb broccoli', 'garlic', 'black pepper'] },
+  { id: 67, ing: ['1.2 lbs ground beef', '2 cans green beans', '2 cups cooked rice', 'soy sauce'] },
+  { id: 74, ing: ['1.5 lbs chicken breast', '2 cups cooked rice', '4 tbsp hot sauce', '2 tbsp light ranch'] },
+  { id: 167, ing: ['1.5 lbs chicken breast', '2 cups cooked rice', '1 cup cheddar', '1 bell pepper', '½ onion'] },
 ];

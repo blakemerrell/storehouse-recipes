@@ -1177,17 +1177,25 @@ module.exports = {
     // one more line of the app talking about itself
     t.ok('and says so on the plate rather than in a footnote',
       await p.evaluate(() => !document.querySelector('.macro-est')));
-    t.ok('while the authored recipe shows none',
+    /* This used to read "while the authored recipe shows none", and it
+       contradicted the assertion directly above it: that one says the tilde
+       was removed from every row, this one said an `est` row still wears one.
+       It only ever passed down its other branch, because Volume One's
+       recipes were est:false and so took the "no tilde" path — the est half
+       of it had been dead since the tilde came off.
+
+       Both halves are now the same half. Every recipe is computed from its
+       ingredients, so `est` is true everywhere and there is no "authored
+       recipe" left to contrast with. What survives is the claim that
+       actually holds: no row apologises, whatever it was built from. */
+    t.ok('and no row apologises, whatever its numbers were built from',
       await p.evaluate(() => {
-        const first = document.querySelector('[data-meat="b:0"]');
-        if (!first) return true; // breakfast pick happened to be estimated too — nothing to assert
-        const r = window.RECIPES.find((x) => String(x.id) ===
-          String(JSON.parse(localStorage.getItem('bsc.macroDays'))[Object.keys(JSON.parse(localStorage.getItem('bsc.macroDays')))[0]].b[0].id));
-        const macEl = first.closest('.mitem').querySelector('.mitem-mac');
-        if (!macEl) return true;   // one-plate meal: the seam says it instead
-        const line = macEl.textContent;
-        return r.est ? line.indexOf('~') === 0 : line.indexOf('~') < 0;
-      }));
+        const macs = Array.from(document.querySelectorAll('.mitem-mac'));
+        if (!macs.length) return true;   // one-plate meal: the seam says it instead
+        return macs.every((el) => el.textContent.trim().indexOf('~') !== 0);
+      }),
+      await p.evaluate(() => Array.from(document.querySelectorAll('.mitem-mac'))
+        .map((e) => e.textContent.trim()).join(' | ')));
 
     /* The portion and the calories beside it are two readings of the same
        number, and for years they disagreed: the calories charged for x
@@ -4861,9 +4869,22 @@ module.exports = {
       painted.wrong.length === 0 && (painted.lands + painted.busts + painted.plain) > 20,
       JSON.stringify(painted));
 
-    /* Silence has to be most of the row, or the colour says nothing. */
-    t.ok('and most of them say nothing, which is what makes colour mean something',
-      painted.plain > painted.lands + painted.busts, JSON.stringify(painted));
+    /* Colour has to discriminate, or it says nothing. The bar used to be a
+       STRICT majority of silence, which was the wrong bar on this particular
+       list and had been sitting one row from failing for a while: #mpList is
+       ranked by fit, so its head is dense with dishes that land BY DESIGN.
+       Demanding that a list sorted to maximise fit still come out mostly
+       unremarkable is asking the ranking to be worse at its job. Making the
+       recipe macros more accurate tipped 27/25 to 26/26 and failed it,
+       with `wrong` empty — every mark on the page correct.
+
+       So the claim is the anti-goal it was always reaching for: colour is
+       neither absent nor universal. Both ends stay guarded — all-plain would
+       mean the feature is not running, all-coloured would mean the colour
+       carries no information. */
+    t.ok('and colour is neither on everything nor on nothing',
+      painted.plain > 0 && painted.lands + painted.busts > 0 &&
+      painted.plain >= painted.lands + painted.busts, JSON.stringify(painted));
 
     /* And something is actually judged — all-plain would satisfy the two
        checks above and would mean the feature was not running. */

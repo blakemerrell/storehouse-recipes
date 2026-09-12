@@ -117,9 +117,9 @@ The stated macros are kept as authored. Estimating each recipe independently fro
 its ingredient list is a check on them, not a replacement.
 
 - Recipes checked: 100
-- Median disagreement on calories: **15%**
-- Within 20% of stated: **60 of 100**
-- Off by 30% or more: **25**
+- Median disagreement on calories: **14%**
+- Within 20% of stated: **67 of 100**
+- Off by 30% or more: **20**
 
 The outliers, worth a look before this goes to print:
 
@@ -128,7 +128,6 @@ The outliers, worth a look before this goes to print:
 | 21 | Creamy Chicken & Celery Salad | 200 | 440 | +120% |
 | 7 | Buffalo Chicken Lettuce Wraps | 210 | 452 | +115% |
 | 15 | Shredded Chicken & Cold Ranch Salad | 220 | 442 | +101% |
-| 67 | Beef & Green Bean Rice Stir-Fry | 410 | 704 | +72% |
 | 86 | Salted Chocolate Cottage Cheese Dip | 120 | 202 | +68% |
 | 48 | Sausage & Egg Muffin Cups | 310 | 122 | -61% |
 | 90 | Frozen Berry Yogurt Pops | 160 | 63 | -61% |
@@ -140,14 +139,10 @@ The outliers, worth a look before this goes to print:
 | 6 | Sweet Vanilla Yogurt & Grape Crunch | 230 | 343 | +49% |
 | 78 | Zero-Sugar Chocolate Gelatin Fluff | 140 | 76 | -46% |
 | 33 | Strawberry Protein Yogurt Parfait | 340 | 468 | +38% |
-| 66 | Chicken & Broccoli Rice Skillet | 420 | 581 | +38% |
-| 57 | Teriyaki Chicken & Broccoli Rice Bowls | 440 | 601 | +37% |
 | 28 | Savory Egg & Sausage Breakfast Wrap | 410 | 555 | +35% |
 | 89 | Protein Pudding Parfait | 190 | 250 | +32% |
 | 8 | Sliced Cucumber & Cottage Cheese Dip | 180 | 235 | +31% |
-| 52 | Lean Beef, Broccoli & Potato Hash | 462 | 603 | +31% |
 | 44 | Protein Berry Yogurt Smoothie Bowl | 290 | 381 | +31% |
-| 74 | Buffalo Chicken & Rice Prep | 430 | 560 | +30% |
 | 98 | Chocolate Pudding Protein Bowl | 140 | 182 | +30% |
 | 68 | Creamy Chicken & Broccoli Pasta | 410 | 532 | +30% |
 
@@ -180,7 +175,7 @@ the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
 - Recipes given macros: 166 of 166
-- Score range: 21–86 (median 55)
+- Score range: 21–86 (median 56)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
 shows "Estimated from ingredients" next to its macros and its score. Run and Not Be Weary's

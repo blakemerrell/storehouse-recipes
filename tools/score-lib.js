@@ -111,6 +111,15 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
     kcal += (food.kcal - (food.f - fat) * 9) * k; p += food.p * k; c += food.c * k; f += fat * k;
     na += (food.na || 0) * k; fib += (food.fib || 0) * k;
     const it = { k: r.key, g: Math.round(r.grams * 10) / 10, u: r.unit || '' };
+    /* How much of the fat survived the knife, when the line said "trimmed".
+       `g` is what you buy and carry home, so it stays the untrimmed weight —
+       the shopping list would send you out for too little otherwise — which
+       means a reader adding this row up from `g` alone lands above what the
+       recipe actually feeds you, by about a quarter on a roast. Recording the
+       factor makes the row say so instead of leaving the difference to be
+       rediscovered. Absent on every line that was not trimmed, so the common
+       case costs nothing. */
+    if (r.fx !== undefined && r.fx !== 1) it.pr = r.fx;
     if (food.split) it.a = SPICE_NAMES[r.alias] || r.alias;
     if (names.some((n) => line.toLowerCase().indexOf(n) >= 0)) it.x = 1;
     /* "(optional)" on the line, meaning it. Two recipes exist so that somebody
