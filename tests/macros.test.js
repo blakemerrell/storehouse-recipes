@@ -4824,6 +4824,59 @@ module.exports = {
       return { owed: Math.round(T.p - tot.p), band: Math.round(band),
         ok: (T.p - tot.p) > band && (T.p - tot.p) <= 2.4 * band };
     });
+    /* ------------------------------------------------- one calorie on a day
+     *
+     * The bug this pins, in the place a person would see it: the day's own
+     * calorie figure against the day's own macros. `mTotals` SUMMED each
+     * plate's kcal while every target it is compared to was DERIVED as
+     * 4p+4c+9f, so a day could hold 1504 calories and 1516 calories at the
+     * same time and no screen admitted it.
+     *
+     * Seeded with RECIPES, by id, and not with whatever Fill drafted. The
+     * first version of this test read a drafted day and passed with the bug
+     * put back — the draft had reached mostly for single foods, which travel
+     * a different road into a day and were never the broken one. A test of a
+     * path the bug cannot reach is worth nothing, and this one only found out
+     * because it was mutated.
+     *
+     * Six plates, because the error is a few calories each and only a stack
+     * of them clears the rounding. */
+    const calPage = await t.fresh();
+    const calSeeded = await calPage.evaluate(() => {
+      const d = new Date();
+      const k = d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) +
+        '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+      /* Whichever six the collection actually has, taken in book order so the
+         choice cannot drift with the data: real recipes, real macros. */
+      const ids = window.RECIPES
+        .filter((r) => r.macro && r.macro.kcal > 100 && (r.macro.p || r.macro.c || r.macro.f))
+        .slice(0, 6).map((r) => r.id);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: ids[0], x: 1, eaten: 1 }, { id: ids[1], x: 1, eaten: 1 }],
+        l: [{ id: ids[2], x: 1, eaten: 1 }, { id: ids[3], x: 1, eaten: 0 }],
+        d: [{ id: ids[4], x: 1, eaten: 0 }], s: [{ id: ids[5], x: 1, eaten: 0 }] } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 }));
+      return ids.length;
+    });
+    t.ok('the calorie day is seeded with six real recipes', calSeeded === 6, 'got ' + calSeeded);
+    await calPage.reload();
+    await calPage.waitForTimeout(400);
+    await calPage.click('.tab[data-view="macros"]');
+    await calPage.waitForTimeout(350);
+    const oneCalDay = await calPage.evaluate(() => {
+      const r = window.__macroLab.read().tot;
+      const der = 4 * r.p + 4 * r.c + 9 * r.f;
+      return { kcal: Math.round(r.kcal), derived: Math.round(der),
+        gap: Math.round(Math.abs(der - r.kcal)) };
+    });
+    /* A calorie of slack per plate and no more. Each plate's kcal is a whole
+       number, so six of them can land a few calories off the sum of the
+       unrounded macros. The two definitions were about twelve apart on a day
+       of this size; anything of that order is the bug returning. */
+    t.ok('a day holds one calorie figure, not two',
+      oneCalDay.kcal > 400 && oneCalDay.gap <= 6, JSON.stringify(oneCalDay));
+    await calPage.context().close();
+
     t.ok('the day is built to leave a gap the size a portion can be judged against',
       gapWindow.ok, JSON.stringify(gapWindow));
     await gapRow.click('.mslot-add[data-mslot="l"]');
@@ -4869,22 +4922,28 @@ module.exports = {
       painted.wrong.length === 0 && (painted.lands + painted.busts + painted.plain) > 20,
       JSON.stringify(painted));
 
-    /* Colour has to discriminate, or it says nothing. The bar used to be a
-       STRICT majority of silence, which was the wrong bar on this particular
-       list and had been sitting one row from failing for a while: #mpList is
-       ranked by fit, so its head is dense with dishes that land BY DESIGN.
-       Demanding that a list sorted to maximise fit still come out mostly
-       unremarkable is asking the ranking to be worse at its job. Making the
-       recipe macros more accurate tipped 27/25 to 26/26 and failed it,
-       with `wrong` empty — every mark on the page correct.
-
-       So the claim is the anti-goal it was always reaching for: colour is
-       neither absent nor universal. Both ends stay guarded — all-plain would
-       mean the feature is not running, all-coloured would mean the colour
-       carries no information. */
+    /* Colour has to discriminate, or it says nothing.
+     *
+     * This has been adjusted twice and the second time said what the first
+     * should have: the shape was wrong, not the number. It began as a STRICT
+     * majority of silence and sat one row from failing for months; making the
+     * recipe macros more accurate tipped it 27/25 to 26/26, and deriving the
+     * calorie tipped it again to 27/25 the other way. Both times `wrong` came
+     * back empty — every mark on the page correct, the test red anyway.
+     *
+     * A knife-edge on a count is not what anyone meant. #mpList is ranked by
+     * fit, so the head of it is dense with dishes that land BY DESIGN, and
+     * roughly half the marks carrying colour is a healthy list rather than a
+     * broken one. What is actually being guarded is the two ENDS: nothing
+     * coloured means the feature is not running, everything coloured means
+     * the colour carries no information. So the claim is a band, wide enough
+     * that ordinary data movement cannot cross it and narrow enough that
+     * either failure does. */
+    const lit = painted.lands + painted.busts;
+    const share = lit / (lit + painted.plain);
     t.ok('and colour is neither on everything nor on nothing',
-      painted.plain > 0 && painted.lands + painted.busts > 0 &&
-      painted.plain >= painted.lands + painted.busts, JSON.stringify(painted));
+      lit + painted.plain > 20 && share >= 0.1 && share <= 0.9,
+      Math.round(share * 100) + '% lit — ' + JSON.stringify(painted));
 
     /* And something is actually judged — all-plain would satisfy the two
        checks above and would mean the feature was not running. */

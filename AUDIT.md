@@ -102,7 +102,7 @@ Deli ham, canned soup and bottled sauce, every one. And the ones that rose:
 | # | Recipe | Was | Now | Sodium | Fiber |
 |---|---|---|---|---|---|
 | 297 | Chicken & Broccoli Cold Bowl | null | 98 | 141 mg | 6.6 g |
-| 304 | Chicken, Apple & Carrot Slaw | null | 96 | 165 mg | 9.4 g |
+| 304 | Chicken, Apple & Carrot Slaw | null | 95 | 165 mg | 9.4 g |
 | 299 | Chicken, Pepper & Onion Lunch Box | null | 94 | 86 mg | 4.4 g |
 | 294 | Poached Chicken & Broccoli Breakfast Plate | null | 93 | 338 mg | 4.7 g |
 | 290 | Chicken & Pepper Breakfast Skillet | null | 92 | 285 mg | 3.4 g |
@@ -117,34 +117,36 @@ The stated macros are kept as authored. Estimating each recipe independently fro
 its ingredient list is a check on them, not a replacement.
 
 - Recipes checked: 100
-- Median disagreement on calories: **14%**
-- Within 20% of stated: **67 of 100**
-- Off by 30% or more: **20**
+- Median disagreement on calories: **15%**
+- Within 20% of stated: **60 of 100**
+- Off by 30% or more: **22**
 
 The outliers, worth a look before this goes to print:
 
 | # | Recipe | Stated kcal | Estimated kcal | Diff |
 |---|---|---|---|---|
-| 21 | Creamy Chicken & Celery Salad | 200 | 440 | +120% |
-| 7 | Buffalo Chicken Lettuce Wraps | 210 | 452 | +115% |
-| 15 | Shredded Chicken & Cold Ranch Salad | 220 | 442 | +101% |
-| 86 | Salted Chocolate Cottage Cheese Dip | 120 | 202 | +68% |
-| 48 | Sausage & Egg Muffin Cups | 310 | 122 | -61% |
-| 90 | Frozen Berry Yogurt Pops | 160 | 63 | -61% |
+| 21 | Creamy Chicken & Celery Salad | 200 | 425 | +113% |
+| 7 | Buffalo Chicken Lettuce Wraps | 210 | 437 | +108% |
+| 15 | Shredded Chicken & Cold Ranch Salad | 220 | 425 | +93% |
+| 86 | Salted Chocolate Cottage Cheese Dip | 120 | 224 | +87% |
+| 48 | Sausage & Egg Muffin Cups | 310 | 117 | -62% |
+| 38 | Baked Egg & Hash Brown Cups | 270 | 109 | -60% |
 | 96 | Whipped Strawberry Gelatin Cloud | 120 | 192 | +60% |
-| 38 | Baked Egg & Hash Brown Cups | 270 | 110 | -59% |
-| 3 | Quick Canned Chicken & Salsa Bowl | 310 | 483 | +56% |
-| 9 | Roast Beef Lettuce Roll-Ups | 200 | 308 | +54% |
-| 65 | Herb Pork Loin & Roasted Carrots | 360 | 549 | +53% |
-| 6 | Sweet Vanilla Yogurt & Grape Crunch | 230 | 343 | +49% |
-| 78 | Zero-Sugar Chocolate Gelatin Fluff | 140 | 76 | -46% |
-| 33 | Strawberry Protein Yogurt Parfait | 340 | 468 | +38% |
-| 28 | Savory Egg & Sausage Breakfast Wrap | 410 | 555 | +35% |
-| 89 | Protein Pudding Parfait | 190 | 250 | +32% |
-| 8 | Sliced Cucumber & Cottage Cheese Dip | 180 | 235 | +31% |
-| 44 | Protein Berry Yogurt Smoothie Bowl | 290 | 381 | +31% |
-| 98 | Chocolate Pudding Protein Bowl | 140 | 182 | +30% |
-| 68 | Creamy Chicken & Broccoli Pasta | 410 | 532 | +30% |
+| 90 | Frozen Berry Yogurt Pops | 160 | 65 | -59% |
+| 6 | Sweet Vanilla Yogurt & Grape Crunch | 230 | 360 | +57% |
+| 9 | Roast Beef Lettuce Roll-Ups | 200 | 311 | +56% |
+| 65 | Herb Pork Loin & Roasted Carrots | 360 | 555 | +54% |
+| 3 | Quick Canned Chicken & Salsa Bowl | 310 | 471 | +52% |
+| 78 | Zero-Sugar Chocolate Gelatin Fluff | 140 | 77 | -45% |
+| 33 | Strawberry Protein Yogurt Parfait | 340 | 470 | +38% |
+| 28 | Savory Egg & Sausage Breakfast Wrap | 410 | 551 | +34% |
+| 44 | Protein Berry Yogurt Smoothie Bowl | 290 | 389 | +34% |
+| 30 | High-Protein Banana Pancake Stack | 360 | 477 | +33% |
+| 8 | Sliced Cucumber & Cottage Cheese Dip | 180 | 237 | +32% |
+| 20 | Sweet Cinnamon Yogurt & Raisin Cup | 210 | 275 | +31% |
+| 98 | Chocolate Pudding Protein Bowl | 140 | 183 | +31% |
+| 18 | Cold Pinto Bean & Salsa Salad | 210 | 274 | +30% |
+| 89 | Protein Pudding Parfait | 190 | 247 | +30% |
 
 
 A gap does not automatically mean the book is wrong. The usual causes are portion
@@ -161,8 +163,8 @@ estimate for the full recipe.
 
 | # | Recipe | Servings | Stated "per serving" | Est. per serving | Est. whole batch |
 |---|---|---|---|---|---|
-| 38 | Baked Egg & Hash Brown Cups | 3 | 270 | 110 | 330 |
-| 78 | Zero-Sugar Chocolate Gelatin Fluff | 2 | 140 | 76 | 152 |
+| 38 | Baked Egg & Hash Brown Cups | 3 | 270 | 109 | 327 |
+| 78 | Zero-Sugar Chocolate Gelatin Fluff | 2 | 140 | 77 | 154 |
 
 This is worth a decision before printing. If these really are batch figures, the
 scores on those recipes are penalised for a calorie load their eater never sees.
@@ -175,7 +177,7 @@ the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
 - Recipes given macros: 166 of 166
-- Score range: 21–86 (median 56)
+- Score range: 21–87 (median 56)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
 shows "Estimated from ingredients" next to its macros and its score. Run and Not Be Weary's

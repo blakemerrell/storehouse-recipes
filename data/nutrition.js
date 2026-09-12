@@ -880,7 +880,7 @@ function scoreFrom(macro) {
  * finish typing a recipe of your own, so both are measured the same way.
  */
 function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
-  let kcal = 0, p = 0, c = 0, f = 0, na = 0, fib = 0;
+  let p = 0, c = 0, f = 0, na = 0, fib = 0;
   const unmatched = [], assumed = [], items = [];
   const names = String(extras || '').toLowerCase().split(/,\s*/).map((x) => x.trim()).filter(Boolean);
 
@@ -901,13 +901,16 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
     if (r.assumed) assumed.push(line + ' \u2014 ' + r.assumed);
     const food = FOODS[r.key];
     const k = r.grams / 100;
-    /* A trimmed line (parse-lib) keeps a fraction of the food's fat. The
-       calories in the table already count that fat at nine a gram, so the
-       part cut away is taken back out of them here rather than by scaling the
-       whole figure, which would have cost the lean its calories too. */
+    /* A trimmed line (parse-lib) keeps a fraction of the food's fat, and only
+       the fat — the lean keeps every gram of its protein, which is why this
+       scales `f` alone rather than the whole row. The calories used to need
+       their own correction here, subtracting the removed fat at nine a gram
+       from a figure that already counted it; they no longer do, because the
+       calorie is now derived from these macros further down and a gram of fat
+       that is not in `f` cannot be in it. */
     const fx = r.fx === undefined ? 1 : r.fx;
     const fat = food.f * fx;
-    kcal += (food.kcal - (food.f - fat) * 9) * k; p += food.p * k; c += food.c * k; f += fat * k;
+    p += food.p * k; c += food.c * k; f += fat * k;
     na += (food.na || 0) * k; fib += (food.fib || 0) * k;
     const it = { k: r.key, g: Math.round(r.grams * 10) / 10, u: r.unit || '' };
     /* How much of the fat survived the knife, when the line said "trimmed".
@@ -932,9 +935,32 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
   });
 
   const n = servN && servN > 0 ? servN : 1;
+  /* One calorie, and it is four-four-nine of the macros printed beside it.
+   *
+   * The table's own kcal is the better nutritional figure — it knows that a
+   * third of cocoa's carbohydrate never gets digested, so 228 a hundred grams
+   * and not the 434 the arithmetic says — and summing it is what this used to
+   * do. But the app asks "how many calories is this" in exactly one voice
+   * everywhere else: every target is 4p+4c+9f of macros a person typed, and
+   * there is no label to read for food not yet chosen. So the eaten side
+   * summed a fibre-aware figure while the target side derived a blind one,
+   * and every gauge in My Day compared the two — about twelve calories on a
+   * day, and it is the same twelve that made a meal ask for 41 g of protein
+   * inside 113 calories.
+   *
+   * Deriving costs a median of 6 kcal a recipe and at most 25. Mixing costs
+   * the property that the numbers add up, which is the one a person checks by
+   * hand. The refinement is real and the app has nowhere to put it: no screen
+   * asks what a dish's energy is independently of what it does to the day.
+   *
+   * Derived from the ROUNDED macros deliberately, not from the running sums,
+   * so that the four figures a card shows are four figures that add up. A
+   * kcal rounded off its own unrounded parts lands a calorie or two away from
+   * the arithmetic the reader can do, which is the whole complaint. */
+  const P = Math.round(p / n), C = Math.round(c / n), F = Math.round(f / n);
   return {
     perServing: {
-      kcal: Math.round(kcal / n), p: Math.round(p / n), c: Math.round(c / n), f: Math.round(f / n),
+      kcal: 4 * P + 4 * C + 9 * F, p: P, c: C, f: F,
       na: Math.round(na / n), fib: Math.round((fib / n) * 10) / 10,
     },
     items, unmatched, assumed,

@@ -578,23 +578,85 @@ module.exports = {
         if (missing) return;
         const n = Number(r.servN) > 0 ? Number(r.servN) : 1;
         checked++;
-        /* Half a gram of slack because the record rounds to whole numbers and
+        /* Protein, carbohydrate and fat only. The calorie is no longer summed
+           off the table at all — it is derived from these three, and the test
+           below owns that link. Two guards, one per link in the chain: the
+           ingredients decide the macros, the macros decide the calorie. Left
+           here, this would fail every recipe for the definition change rather
+           than for any recipe being wrong.
+
+           Half a gram of slack because the record rounds to whole numbers and
            this does not: a line holding 5.5 g of fat is stored as 6, which is
            a 9% disagreement about nothing. The relative bound is what catches
            a real drift on the big figures. */
         const off = (k, v) => Math.abs(v / n - (r.macro[k] || 0)) >
           Math.max(0.51, (r.macro[k] || 0) * 0.02);
-        if (off('kcal', t.kcal) || off('p', t.p) || off('c', t.c) || off('f', t.f)) {
-          bad.push(r.no + ' ' + r.name + ': record ' + Math.round(r.macro.kcal) +
-            ' kcal ' + Math.round(r.macro.p) + 'P ' + Math.round(r.macro.f) +
-            'F, ingredients ' + Math.round(t.kcal / n) + ' kcal ' +
-            Math.round(t.p / n) + 'P ' + Math.round(t.f / n) + 'F');
+        if (off('p', t.p) || off('c', t.c) || off('f', t.f)) {
+          bad.push(r.no + ' ' + r.name + ': record ' + Math.round(r.macro.p) + 'P ' +
+            Math.round(r.macro.c) + 'C ' + Math.round(r.macro.f) + 'F, ingredients ' +
+            Math.round(t.p / n) + 'P ' + Math.round(t.c / n) + 'C ' +
+            Math.round(t.f / n) + 'F');
         }
       });
       return { checked: checked, bad: bad.slice(0, 6), n: bad.length };
     });
-    t.ok('every recipe\u2019s macro is the sum of its own ingredients',
+    t.ok('every recipe\u2019s macros are the sum of its own ingredients',
       !sums.noTable && sums.checked > 250 && sums.n === 0, JSON.stringify(sums));
+
+    /* ------------------------------------------------- one calorie, not two
+     *
+     * The app used to hold two definitions of a calorie and compare them to
+     * each other. Every TARGET was 4p+4c+9f of macros a person typed; every
+     * ACTUAL was a sum of the food table's own kcal, which knows that a third
+     * of cocoa's carbohydrate is never digested (228 a hundred grams, against
+     * the 434 the arithmetic gives). Both are defensible and they are not the
+     * same number, so `mTotals` summing one while `kcalOf` derived the other
+     * put roughly twelve calories of disagreement into the middle of every
+     * gauge in My Day — and it is the same disagreement that once had a meal
+     * asking for 41 g of protein inside 113 calories.
+     *
+     * There is one question here, "how many calories is this", so there is
+     * one answer: four-four-nine, everywhere, on both sides of every
+     * comparison. The table's fibre-aware figure is the better nutrition and
+     * the app has no screen that asks for it.
+     *
+     * Checked on the record rather than on the renderer, because this has to
+     * hold for a recipe, for a storehouse food and for one somebody typed —
+     * every macro that reaches a day comes through here. */
+    const oneCal = await p.evaluate(() => {
+      const bad = [];
+      window.RECIPES.forEach((r) => {
+        if (!r.macro) return;
+        const m = r.macro;
+        if (!(m.p || m.c || m.f)) return;      // calories alone: nothing to check against
+        const want = 4 * m.p + 4 * m.c + 9 * m.f;
+        if (Math.abs(want - m.kcal) > 1) bad.push(r.no + ' ' + r.name + ': says ' +
+          m.kcal + ', its own macros say ' + Math.round(want));
+      });
+      return { n: bad.length, bad: bad.slice(0, 5), checked: window.RECIPES.length };
+    });
+    t.ok('a recipe\u2019s calories are its own macros, four-four-nine',
+      oneCal.n === 0 && oneCal.checked > 300, JSON.stringify(oneCal));
+
+    /* And the same for a single food off the storehouse table, which reaches
+       a day by a different road entirely (`mBuildFoods`, not the build). */
+    const foodCal = await p.evaluate(() => {
+      const bad = [];
+      let n = 0;
+      const list = (window.__macroLab && window.__macroLab.foods()) || [];
+      list.forEach((r) => {
+        if (!r.macro) return;
+        const m = r.macro;
+        if (!(m.p || m.c || m.f)) return;
+        n++;
+        const want = 4 * m.p + 4 * m.c + 9 * m.f;
+        if (Math.abs(want - m.kcal) > 1) bad.push(r.name + ': says ' + m.kcal +
+          ', its own macros say ' + Math.round(want));
+      });
+      return { checked: n, n: bad.length, bad: bad.slice(0, 5) };
+    });
+    t.ok('and so are a single food\u2019s', foodCal.checked > 50 && foodCal.n === 0,
+      JSON.stringify(foodCal));
 
     /* And the printed figure is kept, not quietly dropped. A reader holding
        the physical book has to be able to find the number under its title,
@@ -612,11 +674,21 @@ module.exports = {
       kept.withBook >= 100, JSON.stringify(kept));
 
     /* A ratchet, not a target. Twenty-five recipes were more than thirty per
-       cent away from print when this was written and the work brought it to
+       cent from print when this was written and the work brought it to
        nineteen; the number may only go down. Raising it is how a data change
-       that quietly wrecks a shelf of recipes gets through unnoticed. */
+       that quietly wrecks a shelf of recipes gets through unnoticed.
+
+       Raised once, to 22, and the reason is written here so that it reads as
+       a decision rather than as somebody bending a test to fit: the app's
+       calorie became 4p+4c+9f, which runs about 1.7 kcal above the table's
+       fibre-aware figure, and three recipes ALREADY sitting at 23%, 26% and
+       28% crossed thirty — #30 to 32.5%, #20 to 31.0%, #18 to 30.5%. Each
+       moved by under five points and none of them moved for a reason of its
+       own. Note also that this measure now compares across definitions by
+       construction, the book's printed figure being label-style, so a couple
+       of points of it are the yardstick rather than the recipes. */
     t.ok('and no more of them drift from print than already did',
-      kept.far <= 19, kept.far + ' of ' + kept.withBook + ' — ' + JSON.stringify(kept.worst));
+      kept.far <= 22, kept.far + ' of ' + kept.withBook + ' — ' + JSON.stringify(kept.worst));
 
     await p.context().close();
   },

@@ -191,9 +191,25 @@
         }) : [name],
         parts: parts,
         steps: [], est: true, score: null, diff: 'Easy', time: '0 mins', fav: !!f.fav,
-        macro: { kcal: Number(f.kcal) || 0, p: Number(f.p) || 0,
-          c: Number(f.c) || 0, f: Number(f.f) || 0,
-          na: Number(f.na) || 0, fib: Number(f.fib) || 0 }
+        /* Four-four-nine, like everything else the day counts — see the long
+           note in score-lib. A food you typed yourself carries a calorie
+           figure you copied off a packet, and honouring it would put one item
+           on the day speaking a different language from every other: the
+           meal's pills, the day's bars and the targets they are measured
+           against are all macros times four and nine. The packet is not
+           wrong, it is answering a question no screen here asks.
+
+           Unless there are no macros to derive from. A food logged as
+           calories alone keeps them — see the note at the save, and note that
+           deriving here regardless would silently zero every one of those
+           foods already saved on somebody's phone. */
+        macro: (function () {
+          var fp = Number(f.p) || 0, fc = Number(f.c) || 0, ff2 = Number(f.f) || 0;
+          return { kcal: (fp || fc || ff2) ? kcalOf({ p: fp, c: fc, f: ff2 })
+            : Number(f.kcal) || 0,
+          p: fp, c: fc, f: ff2,
+          na: Number(f.na) || 0, fib: Number(f.fib) || 0 };
+        }())
       };
       MFOODS.push(rec);
       BY_ID[rec.id] = rec;
@@ -225,11 +241,17 @@
         book: 0, secNum: 0, secName: 'Single foods',
         name: name, servings: '1 ' + sv.unit, servN: 1, unit: sv.unit, grams: sv.grams,
         ing: [name], steps: [], est: true, score: null, diff: 'Easy', time: '0 mins',
-        macro: {
-          kcal: Math.round((f.kcal || 0) * per), p: Math.round((f.p || 0) * per * 10) / 10,
-          c: Math.round((f.c || 0) * per * 10) / 10, f: Math.round((f.f || 0) * per * 10) / 10,
-          na: Math.round((f.na || 0) * per), fib: Math.round((f.fib || 0) * per * 10) / 10
-        }
+        /* Derived from the ROUNDED macros beside it, not from the food
+           table's own kcal — one calorie, the same one the recipes and the
+           targets use. Rounded first so the four figures on the card add up
+           to each other in the hand. */
+        macro: (function () {
+          var mp = Math.round((f.p || 0) * per * 10) / 10;
+          var mc = Math.round((f.c || 0) * per * 10) / 10;
+          var mf = Math.round((f.f || 0) * per * 10) / 10;
+          return { kcal: Math.round(4 * mp + 4 * mc + 9 * mf), p: mp, c: mc, f: mf,
+            na: Math.round((f.na || 0) * per), fib: Math.round((f.fib || 0) * per * 10) / 10 };
+        }())
       });
       BY_ID[MFOODS[MFOODS.length - 1].id] = MFOODS[MFOODS.length - 1];
     });
@@ -10396,6 +10418,13 @@
        arbitrary day's plates land in it — asked through the DOM the test
        passed with the rule removed. */
     gauge: mGauge,
+    /* Every single food the day can draw on, as records. A food reaches a
+       plate by a different road from a recipe — built here at boot rather
+       than in the build — so "one calorie, four-four-nine" has to be provable
+       on this road too, and MFOODS is a closure variable no test could see.
+       A test that reached for `window.MFOODS` found undefined and passed on
+       an empty list, which is the vacuous green this seam exists to stop. */
+    foods: function () { return MFOODS; },
     /* The lever bench and the combo builder, so how CLOSE a combo lands can be
        measured over hundreds of shares rather than eyeballed on one. */
     levers: function () {
@@ -11607,9 +11636,26 @@
           $('nfNote').textContent = 'Give it at least the calories, or it counts for nothing.';
           return;
         }
-        /* Macros but no calories: the calories follow from them rather than
-           leaving the day's headline short by a whole plate. */
-        if (!kc) kc = 4 * pp + 4 * cc + 9 * ff;
+        /* The calories follow from the macros whenever there are macros to
+           follow from — not only when the calories box was left empty, which
+           is all this used to do.
+
+           Typing both is typing two answers to one question. A packet says
+           190 and its own grams say 205, because a label uses factors
+           particular to that food and this app uses four and nine; store the
+           190 and the day's bars, its meal pills and the targets they are
+           measured against are all speaking the other language, with one
+           plate on the day quietly out of step. The stored figure has to be
+           the one the day will count, or the record and the arithmetic
+           disagree in the file.
+
+           Calories alone still stand as typed. "I know it was 250 and I know
+           nothing else" is honest and common — a plate at a friend's table —
+           and deriving there would zero it, which is the one outcome worse
+           than approximating it. Such a food carries calories with no macros
+           to check them against; that is a gap in what is known, not two
+           answers to the same question. */
+        if (pp || ff || cc) kc = 4 * pp + 4 * cc + 9 * ff;
         var fkey = nm.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') ||
           ('x' + Date.now().toString(36));
         var allF = mReadMyFoods();
