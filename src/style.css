@@ -3408,8 +3408,20 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    which meal it is. So the denominator and the padding give it back: the
    denominator is context, not the number you read, and it was set only one
    step down from the figure it qualifies. */
-.mmp { padding: 1px 2px; justify-content: center; min-width: 44px; }
-.mmp.kc { min-width: 59px; }
+.mmp { padding: 1px 2px; justify-content: center; min-width: 44px; position: relative; }
+/* 63.4 px is the widest the app can draw — 🔥2100/1078 on a heavy day against
+   a large plan. Measured, not guessed, and set AT the maximum: a floor the
+   occasional big meal overflows is uniform except when it matters. */
+.mmp.kc { min-width: 64px; }
+/* Hung under the pill, not carried inside it. Inline with a 2px margin it
+   made a moved pill 75.4 px against an unmoved 59, so the numbers that say
+   "the day moved under you" were the ones breaking the alignment they were
+   drawn on. The strip below takes the height for them. */
+.mmp-was {
+  position: absolute; left: 50%; transform: translateX(-50%); top: 100%;
+  margin-left: 0; line-height: 1.3; white-space: nowrap; pointer-events: none;
+}
+.mmps.waswas { padding-bottom: 10px; }
 .mmp-t { font-size: 7.5px; }
 /* Two pixels over, at 390, is the difference between one row and two: the
    header spends 15 (dot) + 18 (three 6px gaps) + 78 (BREAKFAST) + 227 (pills)

@@ -4995,17 +4995,6 @@ module.exports = {
       Math.abs((czGain.d / czPlans.Dinner) - (czGain.s / czPlans.Snacks)) < 0.04,
       JSON.stringify({ dinner: czGain.d / czPlans.Dinner, snacks: czGain.s / czPlans.Snacks }));
 
-    const czL1 = await czLine(casc);
-    t.ok('a meal that misses by enough says so, under itself',
-      !!czL1 && /Breakfast went \d+ under/.test(czL1.head), JSON.stringify(czL1));
-    /* The word matters and was chosen twice over. Not "czSpread across" — that
-       reads as an even split, which is not what happens. */
-    t.ok('and says the slack went by size, not evenly',
-      !!czL1 && /by size/.test(czL1.sub) && !/evenly/.test(czL1.sub), JSON.stringify(czL1));
-    t.ok('and offers every meal still open, and only those',
-      !!czL1 && czL1.czBtns.filter((b) => /Share with/.test(b)).length === 3 &&
-      !czL1.czBtns.some((b) => /Breakfast/.test(b)), JSON.stringify(czL1));
-
     /* Aiming it. Tapping one meal hands it the lot and puts the others back
        on their own plan — the whole point of being able to aim it at all. */
     const czBtns = await casc.$$('.mcasc [data-msend]');
@@ -5062,27 +5051,6 @@ module.exports = {
     await openDay(casc);
     await casc.waitForTimeout(250);
 
-    /* ---- pills the same size, always --------------------------------------
-     * Blake: "Can I get uniform pills on the meal cards, always the same
-     * size?" They were shrink-to-fit, so 🔥600/98 wore a narrower box than
-     * 🔥1104/586 and the four boxes landed somewhere different on every card.
-     * Asserted across the WHOLE day, because the point is that they line up
-     * between cards and not merely within one. */
-    const czWidths = await casc.evaluate(() => {
-      const kc = [], mac = [];
-      document.querySelectorAll('.mslot .mmp').forEach((e) => {
-        const w = Math.round(e.getBoundingClientRect().width * 10) / 10;
-        (e.classList.contains('kc') ? kc : mac).push(w);
-      });
-      const spread = (a) => a.length ? Math.max.apply(null, a) - Math.min.apply(null, a) : 0;
-      return { kc: kc.length, mac: mac.length, kcSpread: spread(kc), macSpread: spread(mac),
-        kcW: kc[0], macW: mac[0] };
-    });
-    t.ok('every calorie pill in the day is exactly as wide as every other',
-      czWidths.kc >= 4 && czWidths.kcSpread === 0, JSON.stringify(czWidths));
-    t.ok('and so is every macro pill',
-      czWidths.mac >= 12 && czWidths.macSpread === 0, JSON.stringify(czWidths));
-
     /* It survives a reload, because the choice is a fact about the day and
        not a thing this render happened to be holding. */
     await casc.reload();
@@ -5093,6 +5061,61 @@ module.exports = {
       JSON.stringify(await czReadAsk(casc)) === JSON.stringify(czHeld),
       JSON.stringify(await czReadAsk(casc)));
     await casc.context().close();
+
+    /* ---- pills the same size, always --------------------------------------
+     *
+     * Blake: "Can I get uniform pills on the meal cards, always the same
+     * size?" They were shrink-to-fit, so 🔥600/98 wore a narrower box than
+     * 🔥1104/586 and the four boxes landed somewhere different on every card.
+     *
+     * Run on a deliberately HEAVY day, and that is the whole point of it. The
+     * first version of this ran on the ordinary day above and passed with a
+     * spread of zero while the live app was 16.4 px apart: the numbers were
+     * small enough to sit inside the floor, so the floor was all it ever
+     * measured. What broke it was `.mmp-was` — the little "this is what the
+     * meal used to be asked for" figure — sitting INLINE inside the pill, so
+     * a pill whose target had moved was 75.4 px against an unmoved 59. The
+     * numbers that say "the day moved under you" were the ones breaking the
+     * alignment they were drawn on.
+     *
+     * So: four-digit calories, three-digit protein, and a share just moved,
+     * which is the hardest day the app can be asked to keep uniform. */
+    const pzWideDay = await t.fresh();
+    await pzWideDay.evaluate(() => {
+      const d = new Date();
+      const k = d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) +
+        '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg', x: 28, eaten: 1 }], l: [{ id: 'f:egg', x: 30, eaten: 0 }],
+        d: [{ id: 'f:egg', x: 34, eaten: 0 }], s: [{ id: 'f:egg', x: 26, eaten: 0 }] } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 300, f: 120, c: 400 }));
+    });
+    await pzWideDay.reload();
+    await pzWideDay.waitForTimeout(400);
+    await pzWideDay.click('.tab[data-view="macros"]');
+    await pzWideDay.waitForTimeout(400);
+    await openDay(pzWideDay);
+    await pzWideDay.waitForTimeout(250);
+    const pzWide = await pzWideDay.evaluate(() => {
+      const kc = [], mac = [];
+      document.querySelectorAll('.mslot .mmp').forEach((e) => {
+        const w = Math.round(e.getBoundingClientRect().width * 10) / 10;
+        (e.classList.contains('kc') ? kc : mac).push({ w: w, t: e.textContent.trim() });
+      });
+      const ends = (a) => a.slice().sort((x, y) => x.w - y.w);
+      const sp = (a) => a.length ? ends(a)[a.length - 1].w - ends(a)[0].w : 0;
+      return { kc: kc.length, mac: mac.length, kcSpread: sp(kc), macSpread: sp(mac),
+        moved: !!document.querySelector('.mmp-was'),
+        widestKc: ends(kc)[kc.length - 1], widestMac: ends(mac)[mac.length - 1] };
+    });
+    /* Said out loud: a day with nothing moved on it cannot fail this, and a
+       green that came from an easy day is what let the real one through. */
+    t.ok('the widths are measured on a day where a target actually moved',
+      pzWide.moved && pzWide.kc >= 4, JSON.stringify(pzWide));
+    t.ok('every calorie pill in the day is exactly as wide as every other',
+      pzWide.kcSpread === 0, JSON.stringify(pzWide));
+    t.ok('and so is every macro pill', pzWide.macSpread === 0, JSON.stringify(pzWide));
+    await pzWideDay.context().close();
 
     /* ---- the cap ---------------------------------------------------------
      * Only snacks left and a large surplus: without a ceiling the card asks

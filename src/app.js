@@ -3805,7 +3805,14 @@
         (moved ? '<span class="mmp-was">' + Math.round(was[m] || 0) + '</span>' : '') +
         '</span>';
     }).join('');
-    return out ? '<span class="mmps' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
+    /* The strip makes room for the was-numbers rather than each pill making
+       room for its own. A pill that grew to hold one was wider than a pill
+       that had nothing to say, which is exactly the unevenness the fixed
+       widths were meant to end — measured on a real day, a moved calorie pill
+       came out 75.4 px against an unmoved 59. So the was-number is lifted out
+       of the box and hung under it, and the strip takes the height. */
+    return out ? '<span class="mmps' + (planned ? ' planned' : '') +
+      (/mmp-was/.test(out) ? ' waswas' : '') + '" aria-hidden="true">' +
       out + '</span>' : '';
   }
 
