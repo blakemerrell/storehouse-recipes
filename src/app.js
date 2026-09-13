@@ -2787,10 +2787,25 @@
      that is actually the problem is named. */
   var MSALT_FLAG = 800;                 // a third of the day's ceiling, on one plate
 
+  /* The fifth thing a plate costs you, said on the cost line with the other
+     four — not as a bordered chip beside the book.
+   *
+     The box was the bug. At 74x16 inside an 11px-tall .mitem-from carrying
+     overflow:hidden it overhung 2.5px each way, so the top and bottom borders
+     were clipped off and what reached the screen was "RUN │1,079 mg salt│" —
+     two vertical strokes around the words. A border that survives being cut in
+     half is not a border, and the warning colour was doing the work anyway.
+     The triangle is the app's own line-art, at the weight the bin is drawn. */
   function mSaltChip(r, x) {
     var na = Math.round(((r.macro || {}).na || 0) * x);
     if (na < MSALT_FLAG) return '';
-    return '<span class="mchip salty">' + na.toLocaleString() + ' mg salt</span>';
+    return '<span class="msalt">' +
+      '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+        '<path d="M8 2.6 14.4 13.4H1.6Z" fill="none" stroke="currentColor" ' +
+          'stroke-width="1.3" stroke-linejoin="round"/>' +
+        '<path d="M8 6.8v2.6M8 11.3v.1" fill="none" stroke="currentColor" ' +
+          'stroke-width="1.3" stroke-linecap="round"/>' +
+      '</svg>' + na.toLocaleString() + ' mg salt</span>';
   }
 
   function mSaltNote(r, x) {
@@ -3003,12 +3018,11 @@
     return p.detail ? p.head + ' · ' + p.detail : p.head;
   }
 
-  /* What the recipe makes, which is the other half of "1¾ of what": the
-     stepper says how much you are having, this says how much there was.
-     Only worth saying when it makes more than one — "makes 1" is noise. */
-  function mYieldText(r) {
-    return (!r.food && r.servN > 1) ? 'makes ' + fmtNum(r.servN) : '';
-  }
+  /* mYieldText — "makes 4" — went with the provenance row it was the middle
+     third of. The plate had one caller and there was never a second; the
+     recipe says what it makes, on the recipe, where you read it while
+     cooking rather than while eating. Deleted rather than left standing: a
+     function nothing calls is a claim that something does. */
 
   /* The week you are in, seven buttons wide: each day's letter, its date, and
      what it actually came to. The dropdown could only be read one option at a
@@ -3186,9 +3200,9 @@
         if (!r) return '';
         var tag = sk + ':' + i;
         var pinned = pins.some(function (p) { return p.id === it.id; });
-        // what you are having, and what there was to have
+        // what you are having. What there was to have — the yield — went with
+        // the provenance row, and mYieldText with it: this was its only caller.
         var port = mPortion(r, it.x);
-        var yieldT = mYieldText(r);
         /* The tick and the name are separate targets on purpose: the box says
            "I ate it", the name opens the recipe to see what "it" is. When the
            two shared a label, reading the recipe cost you a phantom tick. */
@@ -3262,19 +3276,28 @@
              the space beside the tick, which is 44 px tall and otherwise
              empty.
 
-             The book, the yield and the portion detail lost their pill borders
-             on the way here: a border around a word claims the word is a
-             control, and four such claims per plate were most of what made a
-             meal read as an instrument panel. The SALT chip keeps its border,
-             being the one of them that is a warning. */
+             The provenance row is gone, and with it the book, the yield and
+             the portion detail. The book was one of four words — RUN, TABLE,
+             OURS, Yours — repeated at 10px on every plate forever, and the
+             other two are cooking facts rather than eating ones. All three
+             are a tap away on the recipe. Blake, asked how far to cut: all of
+             it goes.
+           *
+             The salt comes UP onto the cost line, which is where it belongs:
+             it is not a label alongside the book, it is the fifth thing the
+             food costs you. Losing the box is also what fixes it. The chip was
+             74x16 inside an 11px .mitem-from with overflow:hidden — it
+             overhung 2.5px top and bottom and both were clipped, so the border
+             the old comment here was proud of ("the one of them that is a
+             warning") reached the screen as two stray vertical pipes. A word
+             in the warning colour says it without a box to be cut in half. */
+          /* The salt is a SIBLING of the figure, not inside it. .mitem-mac
+             holds the four numbers and nothing else — it keeps its own nowrap
+             so the figure drops to the next line whole rather than breaking
+             across two, and .mitem-meta is the thing that wraps. */
           '<span class="mitem-meta">' +
               '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
-              '<span class="mitem-from">' +
-                esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) +
-                (yieldT ? ' &middot; ' + esc(yieldT) : '') +
-                (port.detail ? ' &middot; ' + esc(port.detail) : '') +
-                mSaltChip(r, it.x) +
-              '</span>' +
+              mSaltChip(r, it.x) +
             '</span>' +
           '<span class="mitem-r2">' +
             /* Eaten is a record, not a dial. Once the tick is on, this plate
@@ -3305,16 +3328,36 @@
             /* The three things you can do to this plate, grouped and pushed
                to the far side. The dial is a different kind of control and
                was sharing a left-packed strip with them. */
+            /* All three drawn, not two borrowed. The lock and the pin were
+               emoji — 🔒 and 📌, rendered by the system in whatever style it
+               fancies — sitting either side of a 1.2px line-art bin. Three
+               controls of one scope in one row, in two drawing languages, and
+               the two emoji could not take the ink colour that says a lock is
+               ON. They are the bin's siblings now: same grid, same stroke,
+               same currentColor, so aria-pressed can be seen as well as read. */
             '<span class="mitem-acts2 no-print">' +
             (onPlan ? '<button class="mic mlock no-print" data-mlock="' + tag + '" aria-pressed="' +
               (it.l ? 'true' : 'false') + '" aria-label="' +
-              (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' : '') +
+              (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">' +
+              '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+                '<rect x="3.4" y="7" width="9.2" height="6.4" rx="1.6" fill="none" ' +
+                  'stroke="currentColor" stroke-width="1.2"/>' +
+                '<path d="M5.6 7V5.1a2.4 2.4 0 0 1 4.8 0V7" fill="none" ' +
+                  'stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
+              '</svg></button>' : '') +
             /* The pin is the routine: this food on this meal on every new
                day — the Crio Brü that opens every morning without being
                asked. Unpinning stops tomorrow, not today. */
             (onPlan ? '<button class="mic mpin no-print" data-mpin="' + tag + '" aria-pressed="' +
               (pinned ? 'true' : 'false') + '" aria-label="' +
-              (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">&#128204;</button>' : '') +
+              (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">' +
+              '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+                '<path d="M5.4 2.6h5.2M8 2.6v4.3M6.4 6.9c-.4 1.7-1.5 2.7-2.6 3.1h8.4' +
+                  'c-1.1-.4-2.2-1.4-2.6-3.1Z" fill="none" stroke="currentColor" ' +
+                  'stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>' +
+                '<path d="M8 10v3.4" fill="none" stroke="currentColor" ' +
+                  'stroke-width="1.2" stroke-linecap="round"/>' +
+              '</svg></button>' : '') +
             '<button class="mic mdel no-print" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
               '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
               'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -3542,12 +3585,6 @@
                is reached. The card goes from three rows to two, and the row
                it loses is the one that was nothing. */
             rows +
-            /* Under the plates, not in the header: it is a thing you do once
-               to a meal you have got right, not a control you reach past
-               every day. */
-            (onPlan && items.length >= 2
-              ? '<button class="mslot-keep no-print" data-mkeep="' + esc(sk) + '">' +
-                '&#43; Keep these as one thing</button>' : '') +
             /* The verbs, at the foot of the meal they act on.
              *
                They were three icon buttons in the header, which is what
@@ -3586,6 +3623,25 @@
                       'aria-label="Skip ' + esc(name) + ' today" ' +
                       'title="Not eating this today \u2014 its share goes to the other meals">' +
                       '&#8856; Skip</button>') +
+                /* Keeping several plates as one thing is a verb, and this is
+                   where this meal's verbs live.
+                 *
+                   It was a full-width dashed slab between the last plate and
+                   this row — as tall as a plate, drawn in the ochre a control
+                   is drawn in, competing with the food above it for a thing
+                   you do to a meal maybe twice. The scope system the plate was
+                   rebuilt around says it plainly: the block is THIS FOOD, this
+                   row is THIS MEAL, the cascade line is THE DAY. A slab
+                   floating between the plates and the verbs belonged to
+                   neither. It is still only drawn where it can act.
+                 *
+                   No leading plus. Four buttons need the width: measured, the
+                   row fits at 390 with 19px to spare and wraps below 375,
+                   which is the same bargain .mslot-acts already strikes. */
+                (items.length >= 2
+                  ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" ' +
+                    'title="Merge these plates into one food you can reuse">' +
+                    'Keep as one</button>' : '') +
                 /* Still .mslot-add: it is still the meal's add button, which
                    is what that name has always meant. Only where it sits
                    changed. */

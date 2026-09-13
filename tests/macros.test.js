@@ -470,26 +470,35 @@ module.exports = {
       }));
     /* The unit sits on the stepper, beside the buttons that change it —
        "1 cup", not "×1". Where it came from stays a chip. */
+    /* The "Yours" half of this went with the provenance row. A plate no
+       longer says which shelf its food came from — not the book, not the
+       yield, not "Yours" — because that was a whole row per plate spent on
+       reference rather than on the decision in front of you, and all of it is
+       a tap away behind the name. Asked how far to cut, Blake: all of it goes.
+
+       What is asserted here is the half that was always the point: the unit
+       is named ON THE AMOUNT. "1 cup", not "×1". */
     t.ok('with its unit named on the amount, and no recipe pretending to be behind it',
       await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
         if (!el || el.dataset.open) return false;
         const row = el.closest('.mitem');
-        /* "Yours" lost its pill border with the rest of the provenance — a
-           border around a word claims the word is a control, and four such
-           claims per plate were most of what made a meal read as an
-           instrument panel. It is still said, in .mitem-from. */
-        const from = (row.querySelector('.mitem-from') || {}).textContent || '';
         const amount = row.querySelector('.mstep-x').textContent;
-        return /Yours/.test(from) &&
-          amount.indexOf('×') < 0 && /[a-z]/i.test(amount);
+        return amount.indexOf('×') < 0 && /[a-z]/i.test(amount);
       }), await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
         if (!el) return 'no food row';
         const row = el.closest('.mitem');
-        return ((row.querySelector('.mitem-from') || {}).textContent || 'no from') +
-          ' || amount "' + row.querySelector('.mstep-x').textContent + '"';
+        return 'amount "' + row.querySelector('.mstep-x').textContent + '"';
       }));
+
+    /* The plate says nothing about where the food came from. Guarding the
+       deletion, not just doing it: the row grew back once before, as a line
+       of chips, and a note in a stylesheet does not stop that. */
+    t.ok('and the plate no longer names the shelf it came from',
+      await p.evaluate(() => !document.querySelector('#macroSlots .mitem-from')),
+      await p.evaluate(() => (document.querySelector('#macroSlots .mitem-from') || {})
+        .textContent || ''));
     /* The name is a door, though — the same door a recipe's name is. A food
        used to be a dead label, which left a five-part salad that had been
        kept together reading as one word with no way back to what was in it.
@@ -1175,31 +1184,35 @@ module.exports = {
       await p.evaluate(() => Array.from(document.querySelectorAll('#view-macros .mchip'))
         .map((e) => e.textContent.trim()).join(' | ')));
 
-    /* REVERSED, deliberately. This asserted the four numbers sat on the SAME
-       line as the provenance tags — the point of a change that had just
-       removed a row. The plate is built by containment now: row one is the
-       food, row two is today's portion and what it costs, and the cost block
-       stacks the macros over where-it-came-from at the far side. They are on
-       two lines on purpose, ranked, rather than competing for one.
+    /* This asserted the cost was ranked OVER its provenance — stacked, macros
+       first, provenance quieter. There is no provenance on the plate to rank
+       against any more, so the claim has nothing left to be true about and
+       the assertion goes with the row. Its replacement is above: the row is
+       gone and must stay gone.
 
-       What survives is the claim worth keeping: the macros are the loud half
-       and the provenance the quiet half, and neither is a bordered pill. */
-    t.ok('the cost is ranked over its provenance, and neither is a pill',
+       The row it freed pays for the thing this asserts instead: the NAME is
+       never cut off. It is the one fact on the plate you cannot reconstruct
+       from anything else — measured, the longest name in the book wanted
+       395px and was given 241, so 39% of it went, while the two rows beneath
+       it ended at 55% and 45% of the same width. An invariant over every
+       plate on the day, so it has a subject whatever the fixture holds. */
+    t.ok('and no plate cuts off the one thing it cannot reconstruct — its name',
       await p.evaluate(() => {
-        const meta = document.querySelector('.mitem-meta');
-        const mac = meta && meta.querySelector('.mitem-mac');
-        const from = meta && meta.querySelector('.mitem-from');
-        if (!mac || !from) return false;
-        const mb = mac.getBoundingClientRect(), fb = from.getBoundingClientRect();
-        const fs = (el) => parseFloat(getComputedStyle(el).fontSize);
-        /* stacked, macros first, and the provenance genuinely quieter */
-        return fb.top >= mb.bottom - 1 && fs(mac) > fs(from) &&
-          getComputedStyle(from).borderBottomWidth === '0px';
-      }), await p.evaluate(() => {
-        const meta = document.querySelector('.mitem-meta');
-        return meta ? meta.textContent.trim() : 'no meta';
-      }));
+        const names = Array.from(document.querySelectorAll('#macroSlots .mitem-name'));
+        if (!names.length) return false;
+        return names.every((el) =>
+          /* wrapped, not clipped — both halves, because either alone can be
+             true while the name is still being lost */
+          getComputedStyle(el).whiteSpace !== 'nowrap' &&
+          el.scrollWidth <= el.clientWidth + 1);
+      }), await p.evaluate(() => Array.from(document.querySelectorAll('#macroSlots .mitem-name'))
+        .map((el) => el.textContent.trim() + ' [' + Math.round(el.clientWidth) + '<' +
+          Math.round(el.scrollWidth) + ' ' + getComputedStyle(el).whiteSpace + ']').join(' | ')));
 
+    /* The salt warning that came off that row is asserted on a page of its
+       own, further down — putting a fourth plate on this meal to give it a
+       subject would move the plate count every later test in this block
+       counts on. */
     t.ok('and the old tag row is gone',
       await p.evaluate(() => {
         const wrap = document.querySelector('.mitem-chips');
@@ -4595,7 +4608,91 @@ module.exports = {
       await tinyPhone.evaluate(() =>
         [...document.querySelectorAll('.mitem-r2')].every((e) => e.scrollWidth <= e.clientWidth + 1) &&
         document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+    /* "A portion either fits or gets its own row; it never gets clipped" —
+       the rule this file has stated twice and enforced neither time. It was
+       false here: the 380px block gave the dial `flex: 1 1 100%` and the 54%
+       cap three hundred lines up quietly outranked it, so the dial took a
+       whole line and was squeezed onto half of it. Measured at 320, "1
+       serving" wanted 58px of text, got 46, and reached the screen as "1
+       servin". A portion that silently loses its last letters is the app
+       misreporting what you ate, which is the one thing this tab is for. */
+    t.ok('and no portion on it is clipped, on the narrowest phone there is',
+      await tinyPhone.evaluate(() =>
+        [...document.querySelectorAll('#macroSlots .mstep-x')].length > 0 &&
+        [...document.querySelectorAll('#macroSlots .mstep-x')].every((e) =>
+          e.scrollWidth <= e.clientWidth + 1 && e.scrollHeight <= e.clientHeight + 1)),
+      await tinyPhone.evaluate(() =>
+        [...document.querySelectorAll('#macroSlots .mstep-x')].map((e) =>
+          JSON.stringify(e.textContent.trim()) + ' box ' + Math.round(e.clientWidth) + 'x' +
+          Math.round(e.clientHeight) + ' needs ' + e.scrollWidth + 'x' + e.scrollHeight).join(' | ')));
     await tinyPhone.context().close();
+
+    /* ---- and the spacing says which controls belong together -------------
+     * The stylesheet has claimed "two groups, and air between them" since the
+     * chrome came off this row, and for a while it was not true: measured at
+     * 390, the white between the three glyphs was 29px and the white between
+     * the dial and the first of them was 24. The gap INSIDE the group was
+     * wider than the gap AROUND it, so proximity argued against the grouping
+     * and the row read as five scattered things. Blake, off his own phone:
+     * "work on the spacing of the buttons".
+     *
+     * Measured rather than read off the CSS, because the gap is not in the
+     * CSS: it is 44 minus the glyph, and the glyph is set three rules away.
+     * That is exactly why nothing here caught it the first time. */
+    const spacePhone = await t.fresh({ viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true });
+    await spacePhone.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:whey', x: 1, eaten: 0 }], l: [], d: [], s: [] } }));
+    });
+    await spacePhone.reload();
+    await spacePhone.waitForTimeout(400);
+    await spacePhone.click('.tab[data-view="macros"]');
+    await spacePhone.waitForTimeout(300);
+    await spacePhone.click('[data-mfold="b"]');
+    await spacePhone.waitForTimeout(300);
+    const spacing = await spacePhone.evaluate(() => {
+      const row = document.querySelector('#macroSlots .mitem-r2');
+      if (!row) return null;
+      const dial = row.querySelector('.mstep');
+      const acts = row.querySelector('.mitem-acts2');
+      if (!dial || !acts) return null;
+      /* One line only. Wrapped — which is what 320 does — the group is on a
+         row of its own and proximity is settled by the line break instead. */
+      if (Math.abs(dial.getBoundingClientRect().top -
+        acts.getBoundingClientRect().top) > 2) return { wrapped: true };
+      const g = [...acts.querySelectorAll('.mic svg')].map((e) => e.getBoundingClientRect());
+      if (g.length < 2) return null;
+      const within = Math.round(g[1].left - g[0].right);
+      const between = Math.round(g[0].left - dial.getBoundingClientRect().right);
+      return { within, between, glyph: Math.round(g[0].width) };
+    });
+    /* The white between two of these must not be wider than the icons it
+       separates. Stated that way on purpose: "inside is less than outside"
+       reads better but is not a test — the void outside is whatever the
+       portion happens to leave, and "1 scoop" leaves enough that the old
+       spacing passed it. This one is fixture-proof, and it is the rule the
+       old values broke: a 17px glyph in a 44px box left 29px of gap, so the
+       white was 1.7x the things it was separating. */
+    t.ok('no verb is further from its neighbour than a verb is wide',
+      !!spacing && (spacing.wrapped || spacing.within <= spacing.glyph),
+      JSON.stringify(spacing));
+    /* And, on this day, the grouping still reads the way round it claims. */
+    t.ok('and the air inside the group is less than the air around it',
+      !!spacing && (spacing.wrapped || spacing.within < spacing.between),
+      JSON.stringify(spacing));
+    /* The other half of the same bargain: the boxes did not move to get it.
+       The glyph grew into padding the 44px target already had. */
+    t.ok('and it bought that without shrinking a single target',
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r2 .mic')]
+        .every((e) => { const b = e.getBoundingClientRect();
+          return Math.round(b.width) >= 44 && Math.round(b.height) >= 44; })),
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r2 .mic')]
+        .map((e) => { const b = e.getBoundingClientRect();
+          return Math.round(b.width) + 'x' + Math.round(b.height); }).join(' ')));
+    await spacePhone.context().close();
 
     /* ---- what is held, said where it can be seen -------------------------
      * Lock the dinner you promised the family, fold the card, press
@@ -7915,17 +8012,93 @@ module.exports = {
       !!batCard && Math.abs(parseInt(batCard.mac.replace(/[^\d]/, ''), 10) -
         Math.round(bat.kcal * 1.75)) <= 1,
       (batCard && batCard.mac) + ' — wanted ' + Math.round(bat.kcal * 1.75) + ' kcal');
-    /* Still said once, no longer a tag. The book, the yield and the portion
-       detail lost their pill borders when the plate was rebuilt — a border
-       around a word claims the word is a control, and four such claims per
-       plate were most of what made a meal read as an instrument panel. The
-       salt chip is the only one that kept its border, being the only one of
-       them that is a warning rather than a label. */
-    t.ok('while what the recipe makes is said once, beside where it came from',
-      !!batCard && batCard.from.indexOf('makes ' + bat.servN) >= 0 &&
-      batCard.from.split('makes ' + bat.servN).length === 2,
-      (batCard && batCard.from));
+    /* And what the recipe MAKES is no longer said here at all. The yield went
+       with the book and the portion detail when the provenance row was
+       deleted: it is a cooking fact rather than an eating one, and the plate
+       is the eating. "Makes 4" is on the recipe, behind the name.
+
+       The distinction this leaves is the one that was always doing the work,
+       and it is asserted directly above: the plate says the PART, not the
+       batch. A row that said "1¾ servings" and "makes 8" in the same breath
+       was offering two numbers for one question. */
+    t.ok('while what the recipe makes is no longer said on the plate',
+      !!batCard && batCard.from === '' &&
+      batCard.amount.indexOf('makes') < 0 && batCard.mac.indexOf('makes') < 0,
+      'from "' + (batCard && batCard.from) + '" amount "' +
+        (batCard && batCard.amount) + '" mac "' + (batCard && batCard.mac) + '"');
     await batch.context().close();
+
+    /* ---- the one thing on that row worth keeping -------------------------
+     * The salt warning came off the provenance row rather than going with it:
+     * it is the only one of those four that was a WARNING and not a label, so
+     * it moved up beside the figures, which is where the other things a plate
+     * costs you already are.
+     *
+     * It stopped being a chip on the way, and that is the bug. At 74x16 inside
+     * an 11px-tall .mitem-from carrying overflow:hidden it overhung 2.5px top
+     * and bottom, and both were shaved off — so the border drawn to mark it as
+     * a warning reached the screen as two loose vertical strokes either side
+     * of the words: "RUN │1,079 mg salt│". The comment in the stylesheet was
+     * proud of that border for months.
+     *
+     * A known salty recipe on a known day, for the same reason the batch above
+     * gets one: the shared fixture's plates are whatever Fill drafted, and a
+     * day of unsalted ones would pass this while proving nothing. */
+    const saltPage = await t.fresh();
+    const salt = await saltPage.evaluate(() => {
+      const r = window.RECIPES.find((q) => q.macro && q.macro.na > 900);
+      if (!r) return null;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+        '-' + String(d.getDate()).padStart(2, '0');
+      const days = {}; days[k] = { b: [{ id: r.id, x: 1, eaten: 0 }] };
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      return { name: r.name, na: r.macro.na };
+    });
+    t.ok('the book still holds a plate salty enough to warn about',
+      !!salt, JSON.stringify(salt));
+    await saltPage.reload();
+    await saltPage.click('.tab[data-view="macros"]');
+    await saltPage.waitForTimeout(300);
+    for (let i = 0; i < 3; i++) {
+      if (!await saltPage.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+      await saltPage.click('#macroOpenAll');
+      await saltPage.waitForTimeout(200);
+    }
+    t.ok('a salty plate says so in words, whole, inside its own box on every edge',
+      await saltPage.evaluate(() => {
+        const el = document.querySelector('#macroSlots .msalt');
+        if (!el) return false;
+        const meta = el.closest('.mitem-meta');
+        const mb = meta.getBoundingClientRect(), sb = el.getBoundingClientRect();
+        return /mg salt/.test(el.textContent) &&
+          /* Nothing of it clipped, on either axis. The chip it replaces failed
+             on the VERTICAL, which is the axis nobody thinks to check — and
+             the reason it was invisible for so long is that the horizontal
+             was fine. */
+          sb.top >= mb.top - 0.5 && sb.bottom <= mb.bottom + 0.5 &&
+          sb.left >= mb.left - 0.5 && sb.right <= mb.right + 0.5 &&
+          el.scrollWidth <= el.clientWidth + 1 &&
+          el.scrollHeight <= el.clientHeight + 1;
+      }),
+      await saltPage.evaluate(() => {
+        const el = document.querySelector('#macroSlots .msalt');
+        if (!el) return 'no salt warning drawn';
+        const box = (e) => { const b = e.getBoundingClientRect();
+          return [b.top, b.bottom, b.left, b.right].map(Math.round).join(','); };
+        return el.textContent.trim() + ' salt[' + box(el) + '] meta[' +
+          box(el.closest('.mitem-meta')) + ']';
+      }));
+    /* And it is a warning rather than a label, said by the ink now that there
+       is no border left to say it. */
+    t.ok('and says it in the warning colour, not in the colour of the figures',
+      await saltPage.evaluate(() => {
+        const el = document.querySelector('#macroSlots .msalt');
+        const mac = document.querySelector('#macroSlots .mitem-mac');
+        if (!el || !mac) return false;
+        return getComputedStyle(el).color !== getComputedStyle(mac).color;
+      }));
+    await saltPage.context().close();
 
     /* ---- the fold ---------------------------------------------------------
      * On a phone the sticky readout — week strip, four bars, fibre and salt —

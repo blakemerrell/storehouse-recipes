@@ -731,12 +731,13 @@ select { max-width: 280px; }
    name is clipped, because a name that pushes the dial off a phone has cost
    more than the tail of itself. */
 .mitem { border-left: 2px solid var(--ochre); padding: 4px 0 5px 9px; }
-.mitem-r1 { display: flex; align-items: center; gap: 8px; }
-/* The tick is a control, not a third way of saying "eaten" — the struck
-   name and the filled dot on the rail already say that. But it was saying
-   it in the browser's blue, the one colour on the page belonging to nobody:
-   the shopping list has ticked in the book's own green since it was built. */
-.mitem-acts { flex: none; display: flex; gap: 10px; align-items: center; margin-left: auto; }
+/* .mitem-r1 and .mitem-acts went with the grid that replaced them and were
+   left behind styling nothing. .mitem-r2 and .mitem-acts2 are the elements
+   that exist. */
+/* The tick is a control, not a third way of saying "eaten" — the filled dot
+   on the rail already says that. But it was saying it in the browser's blue,
+   the one colour on the page belonging to nobody: the shopping list has
+   ticked in the book's own green since it was built. */
 /* the bin: a bin, so it can never be read as another multiplier */
 .mdel {
   background: none; border: none; padding: 2px; line-height: 0;
@@ -749,26 +750,41 @@ select { max-width: 280px; }
   background: none; border: none; padding: 0; text-align: left;
   font-family: var(--serif); font-size: 14px; line-height: 1.28;
   color: inherit;
-  /* clipped, not wrapped — see .mitem */
+  /* It WRAPS. Measured: the longest name in the book — "Crispy Baked Chicken
+     Breasts with Mashed Potatoes & Corn" — wants 395px and is given 241, so
+     39% of it was cut off, while the rows beneath it ended at 55% and 45% of
+     the same width. A name clipped mid-word beside half a row of empty space
+     is the one trade on this plate that was never worth making.
+   *
+     The nowrap it replaces was justified, in the note on .mitem, by a long
+     name pushing the dial off a phone. The dial has had a row of its own since
+     the plate became a grid, so nothing is behind the name to be pushed — and
+     the tick already spans two rows, so a second line costs nothing until the
+     name is longer than the tick is tall. */
   flex: 1 1 auto; min-width: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  overflow-wrap: break-word; text-wrap: pretty;
 }
 .mitem-name:hover { color: var(--ochre-text); text-decoration: underline; text-underline-offset: 2px; }
 /* A food's name opens the food now, the same door a recipe's name is. It
    used to be a dead label, and a kept meal — six things merged into one
    line — had nowhere left to show what went into it. */
 .mitem-food { cursor: pointer; }
-/* eaten is done, not deleted — the line-through the shopping list uses */
-.mitem.eaten .mitem-name { text-decoration: line-through; color: oklch(0.68 0.02 70); }
-/* where it came from, how much it makes, and what it costs */
-.mitem-chips { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin: 4px 0 0 24px; }
-/* NOT .chip — the recipe cards have owned that name since the app was built,
-   and a second rule of equal specificity further down the file quietly
-   repainted every one of them. The same trap .daybar set. */
-.mchip {
-  font-size: 9.5px; padding: 1.5px 6px; border-radius: 3px; background: var(--paper-soft);
-  border: 1px solid var(--line-soft); color: var(--muted); white-space: nowrap;
-}
+/* Eaten is done, and the tick is what says so.
+ *
+   It used to say it three times over: a filled green tick, a rule drawn
+   through the name, and the whole plate at 86% opacity. Three signals for one
+   state, and the loudest of them was a line through a display serif, which
+   reads as DELETED rather than done — the food was not deleted, it was eaten.
+   The shopping list keeps its line-through; a list of things to buy and a
+   record of things you ate are not the same claim.
+ *
+   What is left: the tick, loud, and the name stepped back to muted. */
+.mitem.eaten .mitem-name { color: oklch(0.68 0.02 70); }
+/* .mitem-chips and .mchip are gone. The tag row they dressed was deleted a
+   rebuild ago and the chips with it; the last one standing was the salt
+   warning, which is .msalt now — a word in the warning colour rather than a
+   bordered box, because the box was being clipped in half by its own parent.
+   See mSaltChip. */
 /* The four numbers, up out of a line of their own and into the tag row. No
    pill around them: in a row of bordered labels, the one without a border
    reads as the reading rather than as another label. It keeps its own
@@ -781,10 +797,7 @@ select { max-width: 280px; }
 /* the macro letters carry identity everywhere they appear, never status */
 .mitem-mac i, .mp-fit i, .mk-tot i, .mfs-pm i { font-style: normal; font-weight: 700; font-size: 10px; }
 
-/* The amount on one side, the tick on the other, with air between them.
-   They were one bar, which put "I ate this" at the near end of the strip a
-   thumb crosses to reach "smaller" — one target for two unrelated verbs. */
-.mrow2 { display: flex; align-items: stretch; gap: 10px; margin: 7px 0 1px 24px; }
+/* .mrow2 went with the same rebuild as .mitem-r1; .mitem-r2 is the row. */
 /* The amount, and the lock that holds it. One bar, because "how much" and
    "keep it exactly" are the same subject — the lock used to sit with the bin,
    which paired "hold this still" with "throw this away". */
@@ -1051,12 +1064,16 @@ select { max-width: 280px; }
    the header. Both are words in the acts row now and .mslot-act sets their
    padding; a 4px override here would have squeezed one of the two. */
 /* and the way to keep it, under the plates it is made of */
-.mslot-keep {
-  display: block; width: 100%; margin-top: 7px; padding: 8px;
-  background: none; border: 1px dashed var(--line-firm); border-radius: 5px;
-  font-family: var(--sans); font-size: 11.5px; color: var(--ochre-text);
-}
-.mslot-keep:hover { border-color: var(--ochre); }
+/* A verb among this meal's verbs. It inherits the whole of .mslot-act — 29
+   tall, 3px corners, the bottom bar's own button — and needs nothing of its
+   own but the ink, because it is an offer rather than an instruction.
+ *
+   It used to be a full-width dashed slab above this row: as tall as a plate,
+   drawn in ochre, sitting between the food and the verbs and belonging to
+   neither scope. The dashes were claiming "drop something here", which is not
+   what pressing it does. */
+.mslot-keep { color: var(--ochre-text); }
+.mslot-keep:hover:not(:disabled) { border-color: var(--ochre); }
 .mk-parts { margin: 12px 0 0; border-top: 1px solid var(--line-soft); }
 .mk-p { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0;
   border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
@@ -1635,12 +1652,22 @@ select { max-width: 280px; }
 .mtm-secsum-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mtm-secsum-e { flex: none; color: var(--ochre-text); font-weight: 600; }
 .mtm-secsum:hover .mtm-secsum-t { color: var(--muted-2); }
-/* the lock and the pin: dim until they mean something */
+/* The lock and the pin. Both were emoji until the plate's three controls
+   became one drawn family, and this rule is what emoji cost: `grayscale(1)`
+   to stop 🔒 and 📌 shouting in colours belonging to nobody, and `opacity:
+   0.25` to stop them out-weighing everything around them.
+ *
+   Neither means anything now. grayscale on a currentColor SVG is a no-op, and
+   the quarter opacity was actively lying: measured at 0.25 against the bin's
+   1.0, in the same ink at the same size and stroke, two LIVE controls read as
+   disabled beside a third that did not. The whole point of drawing them was
+   that they could finally take the app's own ink — including the ochre that
+   says a lock is on, which .mitem-r2 .mic[aria-pressed="true"] already gives
+   them. Dim until they mean something is still right; the ink is what says
+   it, and a fifth of the contrast was never what "dim" meant. */
 .mlock, .mpin {
-  background: none; border: none; padding: 0 2px; font-size: 13px; line-height: 1;
-  opacity: 0.25; filter: grayscale(1);
+  background: none; border: none; padding: 0 2px; line-height: 1;
 }
-.mlock[aria-pressed="true"], .mpin[aria-pressed="true"] { opacity: 1; filter: none; }
 /* the picker's two lenses share the select dress of the day bar */
 .mp-controls select {
   padding: 7px 9px; font-size: 12.5px; min-width: 0; max-width: 48%;
@@ -1942,7 +1969,9 @@ select { max-width: 280px; }
 .mpill-m.short b, .mpill-m.near b { color: var(--dial-under); }
 .mpill-m.past b { color: var(--dial-over); }
 /* a plate carrying a third of the day's salt on its own */
-.mchip.salty { border-color: var(--dial-over); color: var(--dial-over); }
+/* .mchip.salty is gone — see .msalt, which is the same warning without the
+   box that was being clipped in half. mSaltNote still paints .mp-salt in the
+   picker, where the warning is a run of words inside a sentence. */
 .mp-salt { color: var(--dial-over); }
 /* named for a screen reader, silent for everyone else */
 .vis-hidden {
@@ -3498,7 +3527,11 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 /* Held through Rebalance. The block itself says so, because the lock is a
    claim about the whole plate rather than about the dial it used to live in. */
 .mitem.held { border-color: var(--ochre); }
-.mitem.eaten { opacity: 0.86; }
+/* No dimming. It was the third of three ways this plate said "eaten" — see
+   the note on .mitem.eaten .mitem-name — and it was the one that took the
+   figures down with it: fading the whole block fades the four numbers you
+   came back to read. A plate you ate is a RECORD, and a record is not a
+   greyed-out control. The tick says it; the plate keeps its ground. */
 
 /* Row one: are you done with it, what is it, is it worth eating. */
 /* A grid, so the tick can stand beside TWO lines instead of forcing a row of
@@ -3580,24 +3613,43 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   background: color-mix(in oklab, var(--ochre) 24%, var(--card));
   border-color: var(--ochre); color: var(--ochre-text);
 }
-.mitem-r2 .mdel svg { width: 14px; height: 14px; }
+/* All three, one size. The bin was the only one of them that was ever drawn
+   rather than typed, so it was the only one carrying a size — and the moment
+   the lock and the pin became SVGs too they had none and filled their whole
+   44px target. Scoped to .mic, which all three wear, so the next one added
+   cannot arrive naked. */
+.mitem-r2 .mic svg { width: 18px; height: 18px; display: block; }
 .mitem-r2 .mdel:hover { color: oklch(0.50 0.16 25); border-color: oklch(0.50 0.16 25); }
 
-/* What it costs, and where it came from, at the far side. The book, the yield
-   and the portion detail lost their pill borders on the way here: a border
-   around a word claims the word is a control, and four such claims per plate
-   were most of what made a meal read as an instrument panel. The salt chip
-   keeps its border — it is the one of them that is a warning, not a label. */
-/* Left-aligned under the name, and clipped rather than spilling. It used to
-   be margin-left:auto with no overflow rule, so a long macro line ran out of
-   its box and under the leaf badge instead of stopping. */
-.mitem-meta { text-align: left; overflow: hidden; }
-.mitem-meta .mitem-mac { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mitem-from {
-  display: block; font-size: 10px; color: var(--muted); margin-top: 1px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+/* What it costs. Where it came from is no longer said here — .mitem-from went
+   with the book, the yield and the portion detail, which were a whole row per
+   plate spent on reference rather than on the decision in front of you. All
+   three are on the recipe, a tap away through the name.
+ *
+   Left-aligned under the name, and it WRAPS now rather than clipping: the
+   salt warning rides the end of this line, and a plate that is both salty and
+   four-figure would otherwise lose the warning off the right edge — which is
+   the failure the warning exists to prevent. */
+.mitem-meta {
+  text-align: left; min-width: 0;
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: 7px; row-gap: 1px;
 }
-.mitem-from .mchip { margin-left: 4px; }
+/* The figure's own nowrap is stated once, on .mitem-mac itself — a narrow
+   phone drops the whole thing to the next line rather than breaking "38C"
+   across two. Restating it here is how a property ends up living in two
+   places and only one of them getting updated, which this file has been
+   caught by twice. The wrapping this block adds happens at .mitem-meta,
+   BETWEEN the figure and the warning beside it. */
+/* The fifth thing the plate costs you, in the warning colour, with no box.
+   The box it lost was 16px tall inside an 11px line with overflow:hidden, so
+   its top and bottom borders were clipped away and it reached the screen as
+   two stray vertical pipes around the words. See mSaltChip. */
+.msalt {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600; color: var(--dial-over); white-space: nowrap;
+}
+.msalt svg { width: 10px; height: 10px; flex: none; display: block; }
 
 @media (pointer: coarse) {
   /* Forty-four, every one of them, and no argument.
@@ -3624,7 +3676,13 @@ button.mw-verdict:hover { background: var(--paper-soft); }
      opposite in a commit message. */
   .mitem-r2 { margin-left: 0; }
   .mitem-r2 .mic { width: 44px; height: 44px; font-size: 15px; }
-  .mitem-r2 .mdel svg { width: 17px; height: 17px; }
+  /* 22, not 17. The glyph grows into the padding of a box that is not
+     changing size, which is the only lever the 44px floor leaves: it buys
+     back 5px of white on each side of every icon and turns the gap between
+     them from the widest thing on the row into the narrowest. It also puts
+     them at the optical weight of the stepper's own 19px glyphs, which they
+     were reading light against. */
+  .mitem-r2 .mic svg { width: 22px; height: 22px; }
   .mitem-r2 .mstep button { height: 44px; }
   .mitem-r2 .mstep button[data-mstep] { width: 44px; font-size: 18px; }
   .mitem-r2 .mstep-x { padding: 0 10px; font-size: 13px; }
@@ -3642,7 +3700,16 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    its own row; it never gets clipped. */
 @media (max-width: 380px) {
   .mitem-r2 { margin-left: 0; }
-  .mitem-r2 .mstep { flex: 1 1 100%; }
+  /* max-width as well as flex, and the max-width is the half that matters.
+   *
+     `flex: 1 1 100%` was here on its own, and the 54% cap three hundred lines
+     up outranked it on the only property that could do anything: flex-basis
+     asks for the whole row, max-width hands back 54% of it. So the dial got
+     its own line and was still squeezed onto half of it — measured at 320,
+     the portion needed 58px of text and was given 46, and "1 serving" reached
+     the screen as "1 servin". Which is the exact failure the comment above
+     says must never happen, on the exact phone it was written for. */
+  .mitem-r2 .mstep { flex: 1 1 100%; max-width: none; }
   .mitem-meta { text-align: left; margin-left: 0; }
 }
 
@@ -3682,8 +3749,19 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 }
 .mitem-r2 .mic:hover { background: none; color: var(--ink); }
 
-/* Two groups, and air between them. They were five boxes in a left-packed
-   row, which is what "not spread out well" is: the amount and the three
-   things you can do to the plate are different kinds of control and were
-   reading as one undifferentiated strip. */
-.mitem-acts2 { display: flex; align-items: center; gap: 2px; margin-left: auto; flex: none; }
+/* Two groups, and air between them — said above, and for a while not true.
+ *
+   Measured at 390: 29px of white between the three glyphs, 24px between the
+   dial and the first of them. The gap INSIDE the group was wider than the gap
+   AROUND it, so proximity was arguing the opposite of the grouping, and the
+   row read as five scattered things rather than a dial and three verbs. Blake:
+   "work on the spacing of the buttons".
+ *
+   The 44px boxes cannot move — the suite measures them at 320 and it is
+   right to. But a 17px glyph in a 44px box spends 27px of that box on
+   padding, and that padding IS the gap. So the glyph grows into the box it
+   already has: at 22px the white between two of them falls to 22, the void
+   before them rises to 28 with the width the group gives back, and the
+   spacing finally says what the grouping means. Nothing about the target
+   changes; a thumb cannot tell the difference and an eye can. */
+.mitem-acts2 { display: flex; align-items: center; gap: 0; margin-left: auto; flex: none; }
