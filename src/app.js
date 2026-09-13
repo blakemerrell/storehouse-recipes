@@ -3249,6 +3249,28 @@
                second was only answerable by opening the recipe. It moved off
                the left edge because a badge drawn for a recipe and absent for
                a food cannot be the thing a column starts on. */
+            /* What it costs, and where it came from, on the FIRST row beside
+               the name. It was on a row of its own below, and the plate came
+               out 160 px tall against the 104 it replaced — measured on a
+               real touch viewport, against the previous commit, after a
+               mockup with 26 px controls had me claim the opposite in a
+               commit message. Four 44 px targets need a row; the arithmetic
+               does not need a third one.
+
+               The book, the yield and the portion detail lost their pill
+               borders on the way here: a border around a word claims the word
+               is a control, and four such claims per plate were most of what
+               made a meal read as an instrument panel. The SALT chip keeps
+               its border, being the one of them that is a warning. */
+            '<span class="mitem-meta">' +
+              '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+              '<span class="mitem-from">' +
+                esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) +
+                (yieldT ? ' &middot; ' + esc(yieldT) : '') +
+                (port.detail ? ' &middot; ' + esc(port.detail) : '') +
+                mSaltChip(r, it.x) +
+              '</span>' +
+            '</span>' +
             leaf(r.score, 'leaf-sm') +
           '</span>' +
           '<span class="mitem-r2">' +
@@ -3290,21 +3312,6 @@
               '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
               'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
             '</button>' +
-            /* What it costs, and where it came from, at the far side. The
-               book, the yield and the portion detail lost their pill borders
-               on the way here: a border around a word claims the word is a
-               control, and four such claims per plate were most of what made
-               a meal read as an instrument panel. The SALT chip keeps its
-               border, being the one of them that is a warning not a label. */
-            '<span class="mitem-meta">' +
-              '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
-              '<span class="mitem-from">' +
-                esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) +
-                (yieldT ? ' &middot; ' + esc(yieldT) : '') +
-                (port.detail ? ' &middot; ' + esc(port.detail) : '') +
-                mSaltChip(r, it.x) +
-              '</span>' +
-            '</span>' +
           '</span>' +
         '</div>';
       }).join('');

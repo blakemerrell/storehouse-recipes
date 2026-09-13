@@ -3486,8 +3486,13 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   background: var(--paper-soft);
   border: 1px solid var(--line-soft);
   border-radius: 7px;
-  padding: 7px 8px;
-  margin-bottom: 6px;
+  /* Tight. The block, the row of 44px targets and the gap between rows are
+     all the height this costs, so the padding is the only place left to give
+     any back — and a plate that ends up taller than the three-row strip it
+     replaced has bought organisation with scroll, which is not a trade worth
+     making on a six-meal day. */
+  padding: 5px 8px;
+  margin-bottom: 5px;
 }
 .mitem:last-of-type { margin-bottom: 0; }
 /* Held through Rebalance. The block itself says so, because the lock is a
@@ -3496,7 +3501,8 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mitem.eaten { opacity: 0.86; }
 
 /* Row one: are you done with it, what is it, is it worth eating. */
-.mitem-r1 { display: flex; align-items: flex-start; gap: 7px; }
+.mitem-r1 { display: flex; align-items: center; gap: 7px; }
+.mitem-r1 .mitem-name { flex: 1 1 auto; min-width: 0; }
 /* Small, and first. It was a 44px bordered box at the far right of a third
    row — the single most important fact about a plate, reached last. The 44px
    target is kept on coarse pointers below; on a mouse it can be the size it
@@ -3512,7 +3518,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 /* Row two: today's portion, what may be done to it, what it costs. */
 .mitem-r2 {
   display: flex; align-items: center; gap: 5px;
-  margin: 6px 0 0 29px;
+  margin: 3px 0 0 29px;
   /* It wraps, and the cost is what wraps. Four 44px targets and a dial do not
      fit beside the arithmetic on a 320px phone, and the suite says so — so on
      a narrow screen the controls keep the line and .mitem-meta drops under
@@ -3572,7 +3578,15 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   .mitem-r1 .mtick { width: 44px; height: 44px; border: 0; background: none; margin-top: 0; }
   .mitem-r1 .mtick input { width: 20px; height: 20px; }
   .mitem-r1 .mitem-name { align-self: center; }
-  .mitem-r2 { margin-left: 44px; }
+  /* No indent on a touch phone. Aligning the control strip under the name
+     reads tidily and costs a wrap: the dial plus three 44px targets is 308px
+     against the 290 a 390px phone leaves once 44 has gone to the indent, so
+     row two folded onto two lines and the plate came out 160px tall against
+     the 104 it replaced. Measured against the previous commit in a worktree,
+     which is the only reason it was caught — the suite had nothing to say
+     about height, and a mockup built with 26px controls had me claim the
+     opposite in a commit message. */
+  .mitem-r2 { margin-left: 0; }
   .mitem-r2 .mic { width: 44px; height: 44px; font-size: 15px; }
   .mitem-r2 .mdel svg { width: 17px; height: 17px; }
   .mitem-r2 .mstep button { height: 44px; }

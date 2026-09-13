@@ -5164,6 +5164,58 @@ module.exports = {
       plated.contained && plated.mealVerbsOutside, JSON.stringify(plated));
     await platePg.context().close();
 
+    /* And it does not cost height, which nothing here was checking.
+     *
+       The rebuild shipped once at 160 px a plate against the 104 it replaced
+       — the control row wrapping onto two lines, because a 44px indent left
+       290 px for 308 px of dial and targets. The suite was entirely silent:
+       every assertion was about structure and none about the one thing a
+       six-meal day actually feels. It was caught by measuring the previous
+       commit in a worktree, after a mockup built with 26 px controls had me
+       claim the opposite in a commit message.
+
+       Asserted as ONE ROW rather than as a pixel budget: the height follows
+       from the targets and the padding and will move again, but the control
+       strip folding in half is the failure, and it is the same failure at any
+       size. Measured on a touch viewport, because the 44 px rule that causes
+       it only applies there. */
+    const rowFit = await t.fresh({ viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true });
+    await rowFit.evaluate(() => {
+      const d = new Date();
+      const k = d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) +
+        '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+      const rec = (window.RECIPES.find((r) => r.score > 0 && r.macro && r.macro.kcal > 150) || {}).id;
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg', x: 3, eaten: 0 }].concat(rec ? [{ id: rec, x: 1, eaten: 0 }] : []),
+        l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 }));
+    });
+    await rowFit.reload();
+    await rowFit.waitForTimeout(400);
+    await rowFit.click('.tab[data-view="macros"]');
+    await rowFit.waitForTimeout(350);
+    await openDay(rowFit);
+    await rowFit.waitForTimeout(250);
+    const fit = await rowFit.evaluate(() => {
+      const rows = [...document.querySelectorAll('.mitem-r2')];
+      if (!rows.length) return { none: true };
+      return rows.map((r) => {
+        const kids = [...r.children];
+        /* Bucketed, not exact. The children are 44 and 46 tall in a centred
+           row, so their tops differ by a pixel while plainly sharing a line —
+           counting raw tops reported two rows for a row that had not
+           wrapped. A wrap moves an item by its own height, not by one. */
+        const tops = kids.map((k) => Math.round(k.getBoundingClientRect().top / 20));
+        return { h: Math.round(r.getBoundingClientRect().height),
+          lines: new Set(tops).size, widest: Math.max.apply(null, kids.map((k) =>
+            Math.round(k.getBoundingClientRect().height))) };
+      });
+    });
+    t.ok('a plate\u2019s controls sit on one row at phone width',
+      !fit.none && fit.length >= 2 && fit.every((r) => r.lines === 1 && r.h <= r.widest + 4),
+      JSON.stringify(fit));
+    await rowFit.context().close();
+
     /* ---- the cascade -----------------------------------------------------
      *
      * A meal that comes in light or heavy changes what every meal after it is
