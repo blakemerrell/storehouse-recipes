@@ -1133,6 +1133,7 @@
     Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
     Object.keys(MDONE).forEach(function (k) { delete MDONE[k]; });
     Object.keys(MSKIP).forEach(function (k) { delete MSKIP[k]; });
+    Object.keys(MSEND).forEach(function (k) { delete MSEND[k]; });
   }
 
   function mAccountMark() {
@@ -1176,6 +1177,17 @@
     Object.keys(spDays).forEach(function (k) {
       skip[k.replace(/-/g, '_')] = { v: MSKIP[k] || [], at: (MSTAMPS.sp || {})[k] || 0 };
     });
+    /* Where each day's miss was sent, by the same rules as the skips beside
+       it — stamped per day, so "I put it back to spreading" is something a
+       device can say and not merely fail to mention. Null is the real answer
+       for a day whose choice was cleared; an absent key would be
+       indistinguishable from a day this device never heard of. */
+    var send = {}, snDays = {};
+    Object.keys(MSEND).forEach(function (k) { snDays[k] = 1; });
+    Object.keys(MSTAMPS.sn || {}).forEach(function (k) { snDays[k] = 1; });
+    Object.keys(snDays).forEach(function (k) {
+      send[k.replace(/-/g, '_')] = { v: MSEND[k] || null, at: (MSTAMPS.sn || {})[k] || 0 };
+    });
     /* One entry per morning, stamped per morning, so that a morning you
        CLEARED is something this device can say. As one blob it could only be
        offered whole and newest-wins, and newest-wins on a log loses every
@@ -1202,7 +1214,8 @@
       w: weights,
       d: days,
       dn: done,
-      sp: skip
+      sp: skip,
+      sn: send
     };
   }
 
@@ -1303,11 +1316,23 @@
       MSTAMPS.sp[k] = r.at;
       moved = true;
     });
+    Object.keys(md.sn || {}).forEach(function (enc) {
+      var k = enc.replace(/_/g, '-');
+      var r = md.sn[enc];
+      if (!r || !(r.at > ((MSTAMPS.sn || {})[k] || 0))) return;
+      // null is a real answer: it means "I cleared that day's choice"
+      if (r.v && typeof r.v === 'object' && !Array.isArray(r.v)) MSEND[k] = r.v;
+      else delete MSEND[k];
+      MSTAMPS.sn = MSTAMPS.sn || {};
+      MSTAMPS.sn[k] = r.at;
+      moved = true;
+    });
     if (moved) {
       try {
         localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS));
         localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE));
         localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP));
+        localStorage.setItem('bsc.macroSend', JSON.stringify(MSEND));
         /* Written here now that the weight log is merged per morning above
            rather than by an apply() that saved as it went. */
         localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS));
@@ -2057,6 +2082,44 @@
     mStamp('sp', k);
   }
 
+  /* Where a meal's miss went, and which meal's miss it was.
+   *
+     A meal that comes in light or heavy changes what every meal after it is
+     asked for — that has always happened, on every render, silently. This is
+     the record of what you did about it: nothing (the slack shares out across
+     the meals left, by size), or one meal at a time (`to`, in the order you
+     tapped them), or nothing at all (`off`, every meal keeps its plan and the
+     day is allowed to end where it fell).
+
+     Beside the day and never on it. Twelve places walk a day with
+     `Object.keys(day).forEach(function (sk) { (day[sk] || []).forEach(...) })`
+     and a string sitting among the plate lists throws in mTotals on the very
+     next render. MSKIP solved the same problem the same way and this follows
+     it exactly, down to the pruning window and the stamp.
+
+     `f` is the meal whose miss this is about. It is what lets the line clear
+     itself: once a LATER meal is finished the question has moved on, and four
+     buttons parked under breakfast at nine at night are just clutter. */
+  var MSEND = (function () {
+    try {
+      var d = JSON.parse(localStorage.getItem('bsc.macroSend'));
+      if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+    } catch (e) { /* fall through */ }
+    return {};
+  })();
+  function mSendOf(k) {
+    var v = MSEND[k];
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    return { f: v.f || '', to: (v.to || []).slice(), off: !!v.off };
+  }
+  function mSetSend(k, v) {
+    if (v && (v.f || (v.to && v.to.length) || v.off)) MSEND[k] = v; else delete MSEND[k];
+    mPruneWindow(MSEND);
+    if (MSTAMPS.sn) mPruneWindow(MSTAMPS.sn);
+    try { localStorage.setItem('bsc.macroSend', JSON.stringify(MSEND)); } catch (e) { /* private */ }
+    mStamp('sn', k);
+  }
+
   var MWEIGHTS = (function () {
     try {
       var w = JSON.parse(localStorage.getItem('bsc.macroWeights'));
@@ -2477,7 +2540,13 @@
         '<button class="mday-dot no-print" data-mdot="weigh"' + (ahead ? ' disabled' : '') +
           ' aria-label="Log this morning&rsquo;s weight"></button>' +
         '<button class="mslot-name" data-mfold="weigh" aria-expanded="' +
-          (shut ? 'false' : 'true') + '">Weigh-in</button>' +
+          (shut ? 'false' : 'true') + '">Weigh-in' +
+          /* The handle lives on this row now, because on a morning you have
+             not weighed yet this row IS the card. It used to sit on the
+             verdict line below, which only exists once there is a plan and a
+             week of mornings to say anything about. */
+          (face.has ? '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' : '') +
+        '</button>' +
         /* The box, and nothing else. It wore the word "Weight" in front of
            it — on a card headed WEIGH-IN, above a line about weight, next to
            a figure in pounds — which pushed the whole thing onto a second
@@ -2511,11 +2580,8 @@
          not a handle at all: it carries a button of its own, and a button
          inside a button is not a thing. The name still folds the card. */
       (face.has
-        ? '<button class="mw-verdict" data-mfold="weigh" aria-expanded="' +
-          (shut ? 'false' : 'true') + '" aria-label="' +
-          (shut ? 'Open the trend and the plan' : 'Fold the trend and the plan') + '">' +
-          (head ? '<span class="mw-avg">' + head + '</span>' : '') +
-          face.html + '<span class="mfold-cue" aria-hidden="true">&#8964;</span></button>'
+        ? (shut ? '' : '<div class="mw-verdict mw-open">' +
+            (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html + '</div>')
         : '<div class="mw-verdict">' +
           (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html +
           ' <button class="ghost mplan-go no-print" id="macroTargBtn">Craft my plan</button></div>') +
@@ -3440,8 +3506,17 @@
             }).join('') + '</div>'
           : '<div class="mslot-items">' +
             /* Open is where the ± buttons are, so it is where the whole
-               picture belongs — directly above the thing that changes it. */
-            (rows || '<div class="mslot-empty">&mdash;</div>') +
+               picture belongs — directly above the thing that changes it.
+             *
+               An empty meal gets NOTHING here, where it used to get an em
+               dash on a line of its own. The dash said what the pills on the
+               header already say — a meal reading 🔥0/262 is plainly empty —
+               and it said it in about 26 px, on every empty meal, of every
+               empty day, which is most of what tomorrow looks like. On a
+               six-meal day that is over 150 px of placeholder before any food
+               is reached. The card goes from three rows to two, and the row
+               it loses is the one that was nothing. */
+            rows +
             /* Under the plates, not in the header: it is a thing you do once
                to a meal you have got right, not a control you reach past
                every day. */
@@ -3494,7 +3569,11 @@
                 '</div>'
               : '') +
           '</div>') +
-      '</div>';
+      '</div>' +
+      /* Outside the card, under it. It belongs to the meal but it is not part
+         of it — a folded meal still has to be able to say what its miss did,
+         and putting it inside would hide the news with the plates. */
+      (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');
     };
     var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');
     var onPlanKeys = slots.list.map(function (s) { return s.k; });
@@ -3705,7 +3784,13 @@
          untouched day every meal is asked for exactly its plan, and repeating
          it would be noise. */
       var moved = Math.round(want) !== Math.round(was[m] || 0);
-      return '<span class="mmp' + (m === 'kcal' ? ' kc' : '') + ' ' + gg.st +
+      /* A meal asked for as much, or as little, as a meal can be asked for.
+         Only the calorie pill carries it, because the cap is a calorie cap —
+         and only when it BINDS, which on an ordinary day is never. It is the
+         one mark that says the number beside it is not the arithmetic's
+         answer but the limit the arithmetic ran into. */
+      var capMark = (ask.capped && m === 'kcal') ? ' mmp-cap' : '';
+      return '<span class="mmp' + (m === 'kcal' ? ' kc' : '') + capMark + ' ' + gg.st +
         (moved ? ' moved' : '') +
         '" style="background:linear-gradient(90deg,' + tone + ' 0 ' + pct.toFixed(1) +
         '%,var(--paper-soft) ' + pct.toFixed(1) + '%)">' +
@@ -3819,16 +3904,18 @@
        finished. This one is always among them — it is the meal being asked
        about, and a meal cannot be asked for nothing on the grounds that it
        does not exist. */
-    var sumW = 0, me = null;
+    var open = [], me = null;
     slots.list.forEach(function (s2) {
-      if (s2.k === sk) me = s2;
-      if (s2.k !== sk && mSkipped(vk, s2.k) && !(day[s2.k] || []).length) return;
-      if (s2.k !== sk && mMealDone(s2.k)) return;
-      sumW += mSlotW(s2);
+      if (s2.k === sk) { me = s2; open.push(s2); return; }
+      if (mSkipped(vk, s2.k) && !(day[s2.k] || []).length) return;
+      if (mMealDone(s2.k)) return;
+      open.push(s2);
     });
     if (!me) return { now: plan, plan: plan, done: false, spent: {} };
-    if (!sumW) sumW = mSlotW(me);
-    var frac = mSlotW(me) / sumW;
+
+    var share = mPlaceLeft(left, open, targets, slots);
+    var frac = share.w[sk];
+    if (frac === undefined) frac = 1;
 
     var now = {}, spent = {};
     ['kcal', 'p', 'f', 'c'].forEach(function (m) {
@@ -3837,7 +3924,203 @@
          day has nothing eaten and is not "spent", it is just beginning. */
       spent[m] = left[m] <= 0 && eaten.kcal > 0;
     });
-    return { now: now, plan: plan, done: false, spent: spent };
+    return { now: now, plan: plan, done: false, spent: spent,
+      capped: !!share.capped[sk], unplaced: share.unplaced };
+  }
+
+  /* A meal is never asked for less than a third of its plan nor more than
+     double it. Below the floor it has stopped being a meal; above the ceiling
+     the app is asking you to eat a dinner and calling it a snack — which is
+     what happens without one the moment the only thing left is snacks. */
+  var MFLOOR = 0.35, MCEIL = 2;
+
+  /* How what is LEFT divides across the meals that are left.
+   *
+     Worked in fractions of `left` rather than in calories, and that is the
+     load-bearing choice: every meal's four figures are then `left` times one
+     number, so the macros a meal is asked for always add up to the macros the
+     day has left, and the protein-first waterfall above survives intact. Hand
+     out calories and then reconstruct macros from them and the two drift —
+     which is the same two-answers-to-one-question this app keeps being bitten
+     by, in a new place.
+
+     The default is by size, never evenly. Dinner is the biggest meal, so it
+     takes the biggest share of a surplus and gives up the most of a debt, and
+     every meal moves by the same PROPORTION. Split evenly, 260 spare calories
+     make a snack 41% bigger and a dinner 18% bigger, and the day stops looking
+     like the day that was planned. */
+  function mPlaceLeft(left, open, targets, slots) {
+    var w = {}, capped = {}, lo = {}, hi = {}, plan = {};
+    var vk = mViewKey();
+    var sent = mSendOf(vk) || { to: [], off: false };
+    var K = left.kcal;
+    if (!(K > 0)) {
+      /* Nothing left to divide. Everyone asks for nothing rather than for a
+         share of a negative number, which would read as the day owing food. */
+      open.forEach(function (s) { w[s.k] = 0; });
+      return { w: w, capped: capped, unplaced: 0 };
+    }
+    open.forEach(function (s) {
+      var pl = mMealShare(s.k, targets, slots);
+      plan[s.k] = pl ? pl.kcal : 0;
+      w[s.k] = plan[s.k] / K;                    // what following the plan costs
+      lo[s.k] = (plan[s.k] * MFLOOR) / K;
+      hi[s.k] = (plan[s.k] * MCEIL) / K;
+    });
+    /* Positive: the meals before this one came in light and there is more to
+       go round than the plan claims. Negative: they ran over and the rest of
+       the day has to give some back. */
+    var rest = 1 - open.reduce(function (a, s) { return a + w[s.k]; }, 0);
+
+    function give(keys, amount, byWeight) {
+      var pass = 0;
+      while (Math.abs(amount) > 1e-6 && pass < 8) {
+        var able = keys.filter(function (k) {
+          return amount > 0 ? w[k] < hi[k] - 1e-9 : w[k] > lo[k] + 1e-9;
+        });
+        if (!able.length) break;
+        var sum = able.reduce(function (a, k) {
+          return a + (byWeight ? mSlotW(mSlotOf(slots, k)) : 1);
+        }, 0);
+        if (!sum) break;
+        var moved = 0;
+        able.forEach(function (k) {
+          var want = amount * ((byWeight ? mSlotW(mSlotOf(slots, k)) : 1) / sum);
+          var room = amount > 0 ? hi[k] - w[k] : lo[k] - w[k];
+          var take = amount > 0 ? Math.min(want, room) : Math.max(want, room);
+          w[k] += take;
+          moved += take;
+          if (Math.abs(w[k] - (amount > 0 ? hi[k] : lo[k])) < 1e-9) capped[k] = 1;
+        });
+        amount -= moved;
+        if (Math.abs(moved) < 1e-9) break;
+        pass++;
+      }
+      return amount;
+    }
+
+    var keys = open.map(function (s) { return s.k; });
+    /* The meals you tapped, in the order you tapped them, each taking all it
+       can hold before the next is asked. One tap does one thing; if it did not
+       cover the miss the line says how much is still to place and you tap
+       again. Never a form, never a confirm. */
+    sent.to.forEach(function (k) {
+      if (keys.indexOf(k) >= 0) rest = give([k], rest, false);
+    });
+    if (!sent.off) {
+      var untapped = keys.filter(function (k) { return sent.to.indexOf(k) < 0; });
+      rest = give(sent.to.length ? untapped : keys, rest, true);
+    }
+    return { w: w, capped: capped, unplaced: rest * K };
+  }
+
+  function mSlotOf(slots, k) {
+    var out = null;
+    slots.list.forEach(function (s) { if (s.k === k) out = s; });
+    return out || { k: k };
+  }
+
+  /* Big enough that the meals after it visibly change size. Under this the day
+     still moves — it always has — it just does it without saying so, which is
+     what most days are. Raise it if the line starts reading as nagging; it is
+     one number and it is not a setting, deliberately. */
+  var MCASCADE_MIN = 150;
+
+  /* The meal the line is about: the last one finished or skipped that still
+     has meals after it.
+   *
+     DERIVED, not recorded. Nothing has to hook the eaten toggle, the whole-meal
+     dot, the skip button and every other road to "this meal is over" — and
+     nothing can be missed when a new road is added. It also gives the clearing
+     rule away for free: finish lunch and lunch becomes the last finished meal,
+     so breakfast's line stops being drawn without anything having to remember
+     to remove it. Four buttons parked under breakfast at nine at night was the
+     alternative. */
+  function mLastFinished(targets, slots) {
+    var vk = mViewKey(), day = mDay(vk), out = null, openAfter = false;
+    for (var i = slots.list.length - 1; i >= 0; i--) {
+      var s = slots.list[i];
+      var items = (day[s.k] || []).filter(function (it) { return BY_ID[it.id]; });
+      var skipped = mSkipped(vk, s.k) && !items.length;
+      var done = mMealDone(s.k);
+      if (!done && !skipped) { openAfter = true; continue; }
+      if (!openAfter) continue;          // nothing left after it to share with
+      var plan = mMealShare(s.k, targets, slots);
+      if (!plan) continue;
+      var got = { kcal: 0, p: 0, f: 0, c: 0 };
+      items.forEach(function (it) {
+        var r = BY_ID[it.id];
+        if (!r || !r.macro) return;
+        ['kcal', 'p', 'f', 'c'].forEach(function (m) { got[m] += (r.macro[m] || 0) * it.x; });
+      });
+      out = { k: s.k, name: s.n, skipped: skipped, got: got, plan: plan,
+        miss: got.kcal - plan.kcal };
+      break;
+    }
+    return out;
+  }
+
+  /* One line, under the meal it is about, saying what already happened and
+     offering to do it differently. It reports rather than asks: the share has
+     landed by the time you read this, so ignoring the line entirely still
+     leaves the day right and nothing sits half-updated waiting on an answer. */
+  function mCascadeLineHTML(sk, targets, slots) {
+    var ev = mLastFinished(targets, slots);
+    if (!ev || ev.k !== sk) return '';
+    if (Math.abs(ev.miss) < MCASCADE_MIN) return '';
+    var vk = mViewKey(), day = mDay(vk);
+    var sent = mSendOf(vk);
+    if (sent && sent.f !== sk) sent = null;         // the question has moved on
+    var to = sent ? sent.to : [], off = !!(sent && sent.off);
+    var over = ev.miss > 0;
+    var amt = Math.abs(Math.round(ev.miss));
+
+    var open = [];
+    slots.list.forEach(function (s2) {
+      if (mMealDone(s2.k)) return;
+      if (mSkipped(vk, s2.k) && !(day[s2.k] || []).length) return;
+      open.push(s2);
+    });
+    if (!open.length) return '';
+
+    var ask = mMealAsk(open[0].k, targets, slots);
+    var short = ask && Math.abs(ask.unplaced || 0) >= 1 ? Math.abs(Math.round(ask.unplaced)) : 0;
+
+    var said;
+    if (off) {
+      said = over ? 'No meal shrinks. The day ends ' + amt + ' over.'
+        : 'No meal grows. You keep the ' + amt + '.';
+    } else if (to.length) {
+      var names = to.map(function (k) { return mSlotOf(slots, k).n || k; }).join(' and ');
+      said = (over ? 'Borrowed from ' : 'Shared with ') + names + '.' +
+        (short ? ' ' + short + ' still to place.' : '');
+    } else {
+      said = (over ? 'Borrowed from the meals left, by size.'
+        : 'Shared with the meals left, by size.') +
+        (short ? ' ' + short + ' would not fit.' : '');
+    }
+
+    var head = ev.skipped
+      ? 'Skipping ' + esc(ev.name) + ' frees ' + amt + '.'
+      : esc(ev.name) + ' went ' + amt + (over ? ' over.' : ' under.');
+
+    var acts = open.filter(function (s2) { return to.indexOf(s2.k) < 0; })
+      .map(function (s2) {
+        return '<button class="ghost" data-msend="' + esc(s2.k) + '">' +
+          (over ? 'Borrow from ' : 'Share with ') + esc(s2.n) + '</button>';
+      }).join('');
+
+    return '<div class="mcasc' + (over ? ' over' : '') + '" role="status">' +
+      '<span class="mcasc-i" aria-hidden="true">' + (over ? '&#8599;' : '&#8600;') + '</span>' +
+      '<span class="mcasc-b">' +
+        '<span class="mcasc-t">' + head + '</span>' +
+        '<span class="mcasc-s">' + said + '</span>' +
+        '<span class="mcasc-a no-print">' + acts +
+          (to.length ? '<button class="ghost" data-msend="reset">Start over</button>' : '') +
+          '<button class="ghost" data-msend="off" aria-pressed="' + (off ? 'true' : 'false') + '">' +
+            (over ? 'Don&rsquo;t borrow' : 'Don&rsquo;t share') + '</button>' +
+        '</span>' +
+      '</span></div>';
   }
 
   function mMealShare(sk, targets, slots) {
@@ -9707,7 +9990,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
@@ -10825,6 +11108,31 @@
         return;
       }
 
+      /* Where a meal's miss goes. Tapping a meal adds it to the queue rather
+         than replacing what is there, because one tap takes only what that
+         meal can hold — if it did not cover the miss the line says how much is
+         still to place and the next tap continues it. Tapping the same meal
+         twice takes it back out, so a mis-tap costs one tap and not a trip
+         through Start over. */
+      var snd = e.target.closest('[data-msend]');
+      if (snd) {
+        var sv = snd.dataset.msend;
+        var sKey2 = mViewKey();
+        var ev2 = mLastFinished(mDayTargets(sKey2), mReadSlots());
+        var cur = mSendOf(sKey2);
+        if (!cur || !ev2 || cur.f !== ev2.k) cur = { f: ev2 ? ev2.k : '', to: [], off: false };
+        if (sv === 'reset') cur = { f: cur.f, to: [], off: false };
+        else if (sv === 'off') cur = { f: cur.f, to: [], off: !cur.off };
+        else {
+          cur.off = false;
+          var at = cur.to.indexOf(sv);
+          if (at >= 0) cur.to.splice(at, 1); else cur.to.push(sv);
+        }
+        mSetSend(sKey2, cur);
+        keepingFocus(renderMacros);
+        return;
+      }
+
       var tr = e.target.closest('[data-mtry]');
       if (tr) { mTryAgain(tr.dataset.mtry); return; }
 
@@ -11199,6 +11507,16 @@
       mWeightSay(!!got.bad);
       if (got.bad) return;
       mWriteWeight(mViewKey(), got.lb);
+      /* Committing a weight opens the card, once.
+       *
+         The card sits shut on a morning you have not weighed yet, because
+         until you have there is nothing for it to say — it used to open on
+         "not yet" and then talk for three lines about an average, a week and
+         a pace, all of it evidence for a number that was not there. Handing
+         it the number is the one moment that evidence is worth the room, so
+         that is the moment it answers. After this the row is the handle and
+         it stays wherever you last put it. */
+      S.mFold.weigh = false;
       keepingFocus(renderMacros);
     });
 

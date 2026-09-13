@@ -8,6 +8,17 @@
    to adjust, folded away with the rest of the evidence once there is. Every
    test that used to reach straight for the button opens the card first, the
    way a thumb would. */
+/* The morning card sits SHUT until a weight is entered — the trend, the week
+   and the pace are evidence for a number, and before there is a number there
+   is nothing for them to be evidence of. So anything reading .mw-verdict has
+   to open the card first; it used to be on the face and is now behind the
+   same handle the meals wear. */
+async function openWeigh(pg) {
+  if (await pg.$('.mw-verdict')) return;
+  const h = await pg.$('.mday-weigh [data-mfold]');
+  if (h) { await h.click(); await pg.waitForTimeout(250); }
+}
+
 async function openPlan(pg) {
   if (!await pg.$('#macroTargBtn')) {
     const handle = await pg.$('.mday-weigh [data-mfold]');
@@ -338,6 +349,7 @@ module.exports = {
        plan yet, that same line is the invitation — and it is on the FACE of
        the morning card, because a first morning that hides the way in behind
        a press is a first morning with nowhere to go. */
+    await openWeigh(p);
     t.ok('with no plan, the line asks for one, out in the open',
       /No plan yet/.test(await p.textContent('.mw-verdict')) &&
       /Craft my plan/.test(await p.textContent('.mw-verdict')),
@@ -1502,7 +1514,7 @@ module.exports = {
     await q.fill('#mtGoalBy', tenWeeks);
     await q.click('[data-mtarg="save"]');
     await q.waitForTimeout(300);
-    const narr = () => q.textContent('.mw-verdict');
+    const narr = async () => { await openWeigh(q); return q.textContent('.mw-verdict'); };
     /* Both facts, in the shorter words: "15 lb in 10 weeks" says what "15 lb
        to go over 10 weeks" said, and is short enough that the pace verdict
        stays on the line it is a verdict about rather than dropping to one of
@@ -1515,6 +1527,7 @@ module.exports = {
        is not for. With nothing to judge yet it simply claims no verdict. */
     t.ok('and claims no verdict until the scale has one, without explaining why',
       !/mornings|on pace|behind pace|ahead of pace/i.test(await narr()), await narr());
+    await openWeigh(q);
     t.ok('with the way back into the plan behind the press, not standing on the face',
       await q.evaluate(() => {
         const face = document.querySelector('.mw-verdict #macroTargBtn');
@@ -1578,8 +1591,8 @@ module.exports = {
        rest of the evidence. So this pair reads both sides. */
     const detail = async () => {
       if (!await q.$('.mw-body')) {
-        await q.click('.mw-verdict');
-        await q.waitForTimeout(300);
+        const h = await q.$('.mday-weigh [data-mfold]');
+        if (h) { await h.click(); await q.waitForTimeout(300); }
       }
       return q.textContent('.mw-body');
     };
@@ -4824,6 +4837,250 @@ module.exports = {
       return { owed: Math.round(T.p - tot.p), band: Math.round(band),
         ok: (T.p - tot.p) > band && (T.p - tot.p) <= 2.4 * band };
     });
+    /* ---- two cards carrying more than they earned ------------------------
+     *
+     * Blake, off a screenshot of his own day: the weigh-in card announces a
+     * seven-day average, a week's trend, a goal date, the pounds remaining
+     * and a pace verdict — under the words "not yet". Four lines of evidence
+     * for a number he had not entered. And every empty meal wore an em dash
+     * on a line of its own. */
+    const trimPg = await t.fresh();
+    await trimPg.evaluate(() => {
+      const d = new Date();
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 41, ft: 5, inch: 11,
+        lb: 204, act: 1.55, goal: 'cut1', goalLb: 175,
+        goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000 }));
+      localStorage.removeItem('bsc.macroDays');
+      localStorage.removeItem('bsc.macroWeights');
+    });
+    await trimPg.reload();
+    await trimPg.waitForTimeout(400);
+    await trimPg.click('.tab[data-view="macros"]');
+    await trimPg.waitForTimeout(400);
+
+    const shutState = await trimPg.evaluate(() => ({
+      verdict: !!document.querySelector('.mw-verdict'),
+      body: !!document.querySelector('.mw-body'),
+      box: !!document.querySelector('#mWeight'),
+      cue: !!document.querySelector('.mday-weigh .mslot-name .mfold-cue'),
+    }));
+    t.ok('a morning with no weight on it claims nothing yet',
+      !shutState.verdict && !shutState.body, JSON.stringify(shutState));
+    t.ok('but the box to enter one is right there, on the one row it has',
+      shutState.box && shutState.cue, JSON.stringify(shutState));
+
+    /* Entering it is what opens the card: you have just handed it the number,
+       which is the one moment the evidence is worth the room. */
+    await trimPg.fill('#mWeight', '204.6');
+    await trimPg.press('#mWeight', 'Enter');
+    await trimPg.waitForTimeout(450);
+    const savedState = await trimPg.evaluate(() => ({
+      verdict: !!document.querySelector('.mw-verdict'),
+      body: !!document.querySelector('.mw-body'),
+      says: (document.querySelector('.mw-verdict') || {}).textContent || '',
+    }));
+    t.ok('saving a weight opens the card and it answers',
+      savedState.verdict && savedState.body && /175 lb by/.test(savedState.says),
+      JSON.stringify(savedState));
+
+    /* And after that the row is the handle, which is the gesture the meal
+       cards already teach. */
+    await trimPg.click('.mday-weigh .mslot-name');
+    await trimPg.waitForTimeout(350);
+    t.ok('and after that the row shuts it again',
+      await trimPg.evaluate(() => !document.querySelector('.mw-body')));
+
+    /* The dash. Asserted on the ROW COUNT and not merely on the character,
+       because the point was the 26 px it took on every empty meal of every
+       empty day, not the glyph. */
+    const emptyCard = await trimPg.evaluate(() => {
+      const cards = [...document.querySelectorAll('.mslot')].filter((c) =>
+        c.querySelector('.mslot-name-flat') || (!c.querySelector('.mitem') &&
+          c.querySelector('.mslot-acts')));
+      const c = cards[0];
+      if (!c) return null;
+      const items = c.querySelector('.mslot-items');
+      return {
+        dash: !!c.querySelector('.mslot-empty'),
+        emDash: /\u2014/.test(c.textContent),
+        /* what the items box actually holds on an empty meal: the verbs and
+           nothing else */
+        kids: items ? [...items.children].map((k) => k.className) : [],
+      };
+    });
+    t.ok('an empty meal draws no placeholder row',
+      !!emptyCard && !emptyCard.dash && !emptyCard.emDash, JSON.stringify(emptyCard));
+    t.ok('and holds nothing but its verbs',
+      !!emptyCard && emptyCard.kids.length === 1 && /mslot-acts/.test(emptyCard.kids[0]),
+      JSON.stringify(emptyCard));
+    await trimPg.context().close();
+
+    /* ---- the cascade -----------------------------------------------------
+     *
+     * A meal that comes in light or heavy changes what every meal after it is
+     * asked for. That has always happened, on every render, in silence. These
+     * cover the part that is new: saying so, and letting it be czAimed.
+     *
+     * Seeded by id and by hand throughout. A drafted day would put whatever
+     * Fill happened to pick under the assertions, and the one time a test in
+     * this file read a drafted day it passed with the bug it was written for
+     * put straight back. */
+    const casc = await t.fresh();
+    const czCascPlan = await casc.evaluate(() => {
+      const d = new Date();
+      const k = d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) +
+        '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg', x: 1, eaten: 0 }], l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 }));
+      return k;
+    });
+    await casc.reload();
+    await casc.waitForTimeout(400);
+    await casc.click('.tab[data-view="macros"]');
+    await casc.waitForTimeout(400);
+
+    const czReadAsk = (pg) => pg.evaluate(() => {
+      const out = {};
+      document.querySelectorAll('.mslot').forEach((c) => {
+        const n = (c.querySelector('.mslot-name') || {}).textContent;
+        const t2 = c.querySelector('.mmp.kc .mmp-t');
+        if (n && t2) out[n.trim()] = Number(t2.textContent.replace(/[^0-9]/g, ''));
+      });
+      return out;
+    });
+    const czLine = (pg) => pg.evaluate(() => {
+      const el = document.querySelector('.mcasc');
+      return el ? { head: el.querySelector('.mcasc-t').textContent,
+        sub: el.querySelector('.mcasc-s').textContent,
+        czBtns: [...el.querySelectorAll('[data-msend]')].map((b) => b.textContent.trim()) } : null;
+    });
+
+    /* By SIZE, and the claim has to be about what each meal GAINED.
+     *
+       This first read "dinner is asked for more than snacks", which is true
+       of the plans before anything happens and stays true under an even
+       split — it survived the mutation that spread the slack equally, which
+       is the whole behaviour it was written to pin. An assertion that cannot
+       fail is not evidence.
+
+       So: measure the plans first, with breakfast on the day but NOT eaten,
+       then finish it and measure again. The difference is the slack, and
+       under an even split those three differences are identical. */
+    const czPlans = await czReadAsk(casc);
+    await casc.click('.mday-dot[data-mdot="b"]');
+    await casc.waitForTimeout(400);
+    const czSpread = await czReadAsk(casc);
+    const czGain = {
+      l: czSpread.Lunch - czPlans.Lunch,
+      d: czSpread.Dinner - czPlans.Dinner,
+      s: czSpread.Snacks - czPlans.Snacks
+    };
+    t.ok('the slack lands by size — dinner GAINS more of it than snacks',
+      czGain.d > czGain.l + 1 && czGain.l > czGain.s + 1,
+      JSON.stringify({ czPlans, czSpread, czGain }));
+    /* And by the same proportion, which is the other half of "by size": each
+       meal grows by the same fraction of itself, so the day keeps its shape.
+       An even split makes a snack half again as big and barely moves dinner. */
+    t.ok('and every meal grows by the same proportion of itself',
+      Math.abs((czGain.d / czPlans.Dinner) - (czGain.s / czPlans.Snacks)) < 0.04,
+      JSON.stringify({ dinner: czGain.d / czPlans.Dinner, snacks: czGain.s / czPlans.Snacks }));
+
+    const czL1 = await czLine(casc);
+    t.ok('a meal that misses by enough says so, under itself',
+      !!czL1 && /Breakfast went \d+ under/.test(czL1.head), JSON.stringify(czL1));
+    /* The word matters and was chosen twice over. Not "czSpread across" — that
+       reads as an even split, which is not what happens. */
+    t.ok('and says the slack went by size, not evenly',
+      !!czL1 && /by size/.test(czL1.sub) && !/evenly/.test(czL1.sub), JSON.stringify(czL1));
+    t.ok('and offers every meal still open, and only those',
+      !!czL1 && czL1.czBtns.filter((b) => /Share with/.test(b)).length === 3 &&
+      !czL1.czBtns.some((b) => /Breakfast/.test(b)), JSON.stringify(czL1));
+
+    /* Aiming it. Tapping one meal hands it the lot and puts the others back
+       on their own plan — the whole point of being able to aim it at all. */
+    const czBtns = await casc.$$('.mcasc [data-msend]');
+    for (const b of czBtns) {
+      if (/Dinner/.test(await b.textContent())) { await b.click(); break; }
+    }
+    await casc.waitForTimeout(350);
+    const czAimed = await czReadAsk(casc);
+    t.ok('tapping one meal hands it the lot',
+      czAimed.Dinner > czSpread.Dinner && czAimed.Lunch < czSpread.Lunch &&
+      czAimed.Snacks < czSpread.Snacks, JSON.stringify(czAimed));
+    t.ok('and the others go back to exactly their own plan, not to nothing',
+      czAimed.Lunch > 0 && czAimed.Snacks > 0 &&
+      Math.abs((czAimed.Lunch + czAimed.Dinner + czAimed.Snacks) -
+        (czSpread.Lunch + czSpread.Dinner + czSpread.Snacks)) <= 2,
+      JSON.stringify({ czAimed, czSpread }));
+    const czL2 = await czLine(casc);
+    t.ok('and the czLine says where it went',
+      !!czL2 && /Shared with Dinner/.test(czL2.sub), JSON.stringify(czL2));
+
+    /* Don't share: every meal keeps its plan and the day is allowed to end
+       short. On a cut that is frequently the one you want — a light breakfast
+       is progress, not a debt to spend. */
+    const czOffBtn = await casc.$('.mcasc [data-msend="off"]');
+    await czOffBtn.click();
+    await casc.waitForTimeout(350);
+    const czHeld = await czReadAsk(casc);
+    t.ok('and declining to share leaves every meal on its own plan',
+      czHeld.Lunch < czSpread.Lunch && czHeld.Dinner < czSpread.Dinner &&
+      czHeld.Snacks < czSpread.Snacks, JSON.stringify(czHeld));
+    t.ok('and says the day will end short rather than naming an attitude',
+      /You keep the \d+/.test((await czLine(casc)).sub), JSON.stringify(await czLine(casc)));
+
+    /* It survives a reload, because the choice is a fact about the day and
+       not a thing this render happened to be holding. */
+    await casc.reload();
+    await casc.waitForTimeout(500);
+    await casc.click('.tab[data-view="macros"]');
+    await casc.waitForTimeout(350);
+    t.ok('and the choice is still there after a reload',
+      JSON.stringify(await czReadAsk(casc)) === JSON.stringify(czHeld),
+      JSON.stringify(await czReadAsk(casc)));
+    await casc.context().close();
+
+    /* ---- the cap ---------------------------------------------------------
+     * Only snacks left and a large surplus: without a ceiling the card asks
+     * for a six-hundred-calorie snack. The rule came out of Blake's own word
+     * for it — you cannot borrow from a meal that has nothing to lend, and
+     * you cannot hand a snack a dinner. */
+    const czCapPg = await t.fresh();
+    await czCapPg.evaluate(() => {
+      const d = new Date();
+      const k = d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) +
+        '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+      /* Breakfast, lunch and dinner all finished and all tiny, so almost the
+         whole day is still unspent with only snacks to put it in. */
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg', x: 1, eaten: 1 }],
+        l: [{ id: 'f:egg', x: 1, eaten: 1 }],
+        d: [{ id: 'f:egg', x: 1, eaten: 1 }], s: [] } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 }));
+    });
+    await czCapPg.reload();
+    await czCapPg.waitForTimeout(400);
+    await czCapPg.click('.tab[data-view="macros"]');
+    await czCapPg.waitForTimeout(400);
+    const czCapped = await czCapPg.evaluate(() => {
+      const cards = [...document.querySelectorAll('.mslot')];
+      const sn = cards.filter((c) => /Snacks/.test((c.querySelector('.mslot-name') || {}).textContent || ''))[0];
+      const t2 = sn && sn.querySelector('.mmp.kc .mmp-t');
+      return { ask: t2 ? Number(t2.textContent.replace(/[^0-9]/g, '')) : 0,
+        marked: !!(sn && sn.querySelector('.mmp.kc.mmp-cap')) };
+    });
+    /* Snacks plan on a 1,000 kcal day at weight 10 of 90 is about 111, so the
+       ceiling is about 222. The day has well over a thousand spare. */
+    t.ok('a snack is never asked to be a dinner',
+      czCapped.ask > 0 && czCapped.ask < 400, JSON.stringify(czCapped));
+    t.ok('and the pill says the number is a limit and not an answer',
+      czCapped.marked, JSON.stringify(czCapped));
+    await czCapPg.context().close();
+
     /* ------------------------------------------------- one calorie on a day
      *
      * The bug this pins, in the place a person would see it: the day's own

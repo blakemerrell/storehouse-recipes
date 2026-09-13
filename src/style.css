@@ -3341,3 +3341,45 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   color: var(--muted); text-decoration: underline; text-underline-offset: 2px;
 }
 .sync-alt:hover { color: var(--ink); }
+
+/* ---- the cascade line ---------------------------------------------------
+ *
+ * Under the meal it is about, outside the card, so a folded meal can still
+ * say what its miss did. Ochre down the left rather than a full tint: it is
+ * news, not a warning, and the day is not in trouble because breakfast was
+ * light. The over case takes the warm red the dials already use for past
+ * target, which is the one colour in the app that means "beyond", so nothing
+ * new has to be learnt.
+ */
+.mcasc {
+  display: flex; gap: 7px; margin: -2px 0 9px; padding: 9px 10px;
+  background: var(--paper-soft); border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--ochre); border-radius: 7px;
+}
+.mcasc.over { border-left-color: var(--dial-over); }
+.mcasc-i { font-size: 13px; line-height: 1.25; color: var(--ochre-text); flex: 0 0 auto; }
+.mcasc.over .mcasc-i { color: var(--dial-over); }
+.mcasc-b { flex: 1 1 auto; min-width: 0; }
+.mcasc-t { display: block; font-size: 11.5px; font-weight: 600; line-height: 1.4; }
+.mcasc-s { display: block; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.mcasc-a { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.mcasc-a button {
+  font-size: 10.5px; font-weight: 600; padding: 4px 8px; border-radius: 4px;
+  min-height: 26px;
+}
+.mcasc-a button[aria-pressed="true"] {
+  background: var(--ochre); border-color: var(--ochre); color: var(--paper-soft);
+}
+/* A meal asked for as much or as little as a meal can be. The kcal pill is
+   the one that carries it, because the cap is a calorie cap. */
+.mmp.mmp-cap { border-color: var(--dial-over); }
+@media (pointer: coarse) {
+  .mcasc-a button { min-height: 44px; padding: 4px 12px; }
+}
+
+/* The trend and the plan, once the card is open. It used to be the fold
+   handle itself, sitting on the face — which meant the evidence for a number
+   was on screen before the number was. The handle moved to the header row,
+   where it is the one row a card always has. */
+.mw-verdict.mw-open { padding-top: 7px; margin-top: 7px; border-top: 1px solid var(--line-soft); }
+.mslot-name .mfold-cue { margin-left: 5px; }
