@@ -3201,19 +3201,40 @@
            The bin is a bin and not another ×. Two × glyphs on one row, one
            meaning "times one" and the other "gone", is a misread waiting to
            happen on a thumb-sized target. */
-        return '<div class="mitem' + (it.eaten ? ' eaten' : '') + '">' +
-          /* Three lines, the shape RP uses and the shape a plate wants: what
-             it is, where it came from and how much of it, then what it costs,
-             then the one control that changes any of that.
-           *
-             The bin is a bin and not another ×. Two × glyphs on one row, one
-             meaning "times one" and the other "gone", is a misread waiting to
-             happen on a thumb-sized target. */
+        /* One plate, contained.
+         *
+           It used to be three rows with three different left edges — name and
+           its icons, then chips and the arithmetic, then a stepper slab and a
+           tick box. Blake: "it feels off to me. does not flow." The diagnosis
+           that stuck was that the card was built out of CONTROLS with the
+           content squeezed between them, and that the loudest boxes on it —
+           the stepper and the tick — were the two things touched least often,
+           while the name read every time carried no weight at all.
+
+           He also ruled out the easy fix: "I have the skip, add, share,
+           balance, lock, borrow... all those are things I want and use. They
+           just need to be organized better." So nothing was removed.
+
+           The plate is its own block, and everything inside it obviously
+           belongs to it. That containment is the scope system: this block is
+           THIS FOOD, the verbs at the card's foot are THIS MEAL, the borrow
+           line is THE DAY — three scopes that previously looked identical and
+           sat in one card. Word labels were drawn for the same job and
+           dropped; the box says it without spending three rows per meal.
+
+           Row one is the food: are you done with it, what is it, is it worth
+           eating. Row two is today's portion and what it costs. */
+        return '<div class="mitem' + (it.eaten ? ' eaten' : '') +
+            (it.l ? ' held' : '') + '">' +
           '<span class="mitem-r1">' +
-            /* The score, on the plate. Knowing a thing fits the day and
-               knowing it is worth eating are different questions, and the
-               second one was only answerable by opening the recipe. */
-            leaf(r.score, 'leaf-sm') +
+            /* The tick, first. It is the state of the plate and the thing
+               pressed most, and putting it in the left column gives every
+               plate one honest left edge — which the leaf badge used to
+               break, starting a food with a score 28 px right of one
+               without. */
+            '<label class="mtick no-print"><input type="checkbox" data-meat="' + tag + '"' +
+              (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
+              ' aria-label="Eaten"></label>' +
             /* A recipe's name opens the recipe. A food's name opens the
                food: what one of it is, and — for a meal you kept together —
                the parts it was made of. It used to be a dead label, which
@@ -3223,78 +3244,67 @@
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
-            '<span class="mitem-acts no-print">' +
-              /* The pin is the routine: pinned to this meal, at this portion,
-                 on every new day — the Crio Brü that opens every morning
-                 without being asked. Unpinning stops tomorrow, not today. */
-              (onPlan ? '<button class="mpin" data-mpin="' + tag + '" aria-pressed="' +
-                (pinned ? 'true' : 'false') + '" aria-label="' +
-                (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">&#128204;</button>' : '') +
-              '<button class="mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
-                '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
-                'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-              '</button>' +
-            '</span>' +
+            /* The score, on the right now. Knowing a thing fits the day and
+               knowing it is worth eating are different questions, and the
+               second was only answerable by opening the recipe. It moved off
+               the left edge because a badge drawn for a recipe and absent for
+               a food cannot be the thing a column starts on. */
+            leaf(r.score, 'leaf-sm') +
           '</span>' +
-          /* Where it came from, how much it makes, and what it costs — one
-             row. The four numbers used to be a line of their own underneath;
-             they carry no pill border here, so among a row of labels the
-             thing without a border is the data. They wrap onto their own
-             line when the tags fill the width, which is the same thing the
-             old layout did, just not every time. */
-          '<span class="mitem-chips">' +
-            // the book's short name — its full title is half a phone wide
-            '<span class="mchip">' + esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) + '</span>' +
-            (yieldT ? '<span class="mchip">' + esc(yieldT) + '</span>' : '') +
-            (port.detail ? '<span class="mchip">' + esc(port.detail) + '</span>' : '') +
-            mSaltChip(r, it.x) +
-            '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
-          '</span>' +
-          /* The amount on one side, the tick on the other, with room between.
-             Eating a plate and resizing one are different verbs, and they
-             were sharing a strip of thumb: the tick sat at the near end of
-             the stepper, exactly where a thumb reaching for "smaller" lands.
-           *
-             The lock stays with the amount, beside the number it holds still.
-             It guards against the MACHINE, not you: Rebalance leaves a locked
-             plate alone, but the stepper still works. */
-          '<span class="mrow2 no-print">' +
-            /* Eaten is a record, not a dial.
-             *
-               Once the tick is on, this plate is a thing that happened, and
-               resizing what you already ate is editing the past — so the
-               stepper goes quiet.
-
-               The LOCK stays live. It is a different job — it holds a food
-               steady while the other meals are rebalanced around it — and
-               that is a thing you may still want to say about a plate you
-               have already eaten. Only the servings lock.
-               Untick and the stepper comes back; nothing here is one-way. */
-            '<span class="mstep' + (it.eaten && S.mEdit !== tag ? ' spent' : '') + '">' +
-              '<button class="mlock" data-mlock="' + tag + '" aria-pressed="' +
-                (it.l ? 'true' : 'false') + '" aria-label="' +
-                (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' +
+          '<span class="mitem-r2">' +
+            /* Eaten is a record, not a dial. Once the tick is on, this plate
+               is a thing that happened, and resizing what you already ate is
+               editing the past — so the stepper goes quiet. One tap on the
+               number hands it back, which is still deliberate and no longer
+               the untick / adjust / re-tick chore it was. */
+            '<span class="mstep no-print' + (it.eaten && S.mEdit !== tag ? ' spent' : '') + '">' +
+              '<button data-mstep="' + tag + ':down"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
+                ' aria-label="Smaller portion">&minus;</button>' +
               /* The portion, in the units it is a portion OF. It read "×1¾"
                  for as long as the tab has existed, which names the
-                 arithmetic and not the food — and left "one and three
-                 quarters of WHAT?" with no answer anywhere on the card. */
-              /* Eaten, this is the way back in. Correcting a portion after
-                 the fact used to be untick, adjust, re-tick — three actions
-                 for the ordinary case of eating more than you planned. One
-                 tap on the number now hands the stepper back, which is still
-                 a deliberate act and no longer a chore. */
+                 arithmetic and not the food. */
               (it.eaten && S.mEdit !== tag
                 ? '<button class="mstep-x mstep-wake" data-medit="' + tag +
                   '" title="Correct this portion">' + esc(port.head) + '</button>'
                 : '<span class="mstep-x">' + esc(port.head) + '</span>') +
-              '<button data-mstep="' + tag + ':down"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
-                ' aria-label="Smaller portion">&minus;</button>' +
               '<button data-mstep="' + tag + ':up"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
                 ' aria-label="Bigger portion">+</button>' +
             '</span>' +
-            '<label class="mtick"><input type="checkbox" data-meat="' + tag + '"' +
-              (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
-              ' aria-label="Eaten"></label>' +
+            /* Out of the dial and beside it. The lock guards against the
+               MACHINE, not you — Rebalance leaves a locked plate alone but
+               the stepper still works — so it was never part of the dial, and
+               sitting inside it paired "hold this still" with "make this
+               bigger". Live even on an eaten plate: holding a food steady
+               while the rest of the day moves around it is still worth
+               saying afterwards. */
+            (onPlan ? '<button class="mic mlock no-print" data-mlock="' + tag + '" aria-pressed="' +
+              (it.l ? 'true' : 'false') + '" aria-label="' +
+              (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' : '') +
+            /* The pin is the routine: this food on this meal on every new
+               day — the Crio Brü that opens every morning without being
+               asked. Unpinning stops tomorrow, not today. */
+            (onPlan ? '<button class="mic mpin no-print" data-mpin="' + tag + '" aria-pressed="' +
+              (pinned ? 'true' : 'false') + '" aria-label="' +
+              (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">&#128204;</button>' : '') +
+            '<button class="mic mdel no-print" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
+              '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
+              'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+            '</button>' +
+            /* What it costs, and where it came from, at the far side. The
+               book, the yield and the portion detail lost their pill borders
+               on the way here: a border around a word claims the word is a
+               control, and four such claims per plate were most of what made
+               a meal read as an instrument panel. The SALT chip keeps its
+               border, being the one of them that is a warning not a label. */
+            '<span class="mitem-meta">' +
+              '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+              '<span class="mitem-from">' +
+                esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) +
+                (yieldT ? ' &middot; ' + esc(yieldT) : '') +
+                (port.detail ? ' &middot; ' + esc(port.detail) : '') +
+                mSaltChip(r, it.x) +
+              '</span>' +
+            '</span>' +
           '</span>' +
         '</div>';
       }).join('');
@@ -3760,7 +3770,6 @@
   function mMealPillsHTML(sub, ask, targets, planned) {
     if (!ask) return '';
     var sh = ask.now || ask;                 // plain shares still work
-    var was = ask.plan || sh;
     var spent = ask.spent || {};
     var day = { kcal: kcalOf(targets), p: targets.p, f: targets.f, c: targets.c };
     var out = MGAUGE.map(function (g) {
@@ -3780,16 +3789,17 @@
       var pct = want > 0 ? Math.min(100, (got / want) * 100) : 0;
       var tone = gg.st === 'o' ? 'var(--dial-on-pale)'
         : gg.st === 'x' ? 'var(--dial-over-pale)' : 'var(--dial-under-pale)';
-      /* The plan, kept beside the number that replaced it.
+      /* The old plan used to be kept beside the number that replaced it, so
+         the card could answer "was that me, or did the day move". Blake, on
+         his own day: "those little numbers under the pills? I don't know what
+         they mean. Let's just get rid of them."
        *
-         Without it a target that moved while you were not looking is just a
-         different number, and a plate you made an hour ago turns amber with
-         nothing on the card admitting why. With it the card can answer "was
-         that me, or did the day move" — which is the only reason a moving
-         target is safe to show at all. Only when it has actually moved: on an
-         untouched day every meal is asked for exactly its plan, and repeating
-         it would be noise. */
-      var moved = Math.round(want) !== Math.round(was[m] || 0);
+         Fair, and the reasoning was thin. A second figure under a pill is
+         only legible if you already know the first one moved, which is the
+         thing it was there to tell you — and it cost the pills their one
+         width, since a pill grown to hold one came out 75.4 px against an
+         unmoved 59. The cascade line above the meals says what moved, in
+         words, at the moment it moves. That is the place for it. */
       /* A meal asked for as much, or as little, as a meal can be asked for.
          Only the calorie pill carries it, because the cap is a calorie cap —
          and only when it BINDS, which on an ordinary day is never. It is the
@@ -3797,22 +3807,13 @@
          answer but the limit the arithmetic ran into. */
       var capMark = (ask.capped && m === 'kcal') ? ' mmp-cap' : '';
       return '<span class="mmp' + (m === 'kcal' ? ' kc' : '') + capMark + ' ' + gg.st +
-        (moved ? ' moved' : '') +
         '" style="background:linear-gradient(90deg,' + tone + ' 0 ' + pct.toFixed(1) +
         '%,var(--paper-soft) ' + pct.toFixed(1) + '%)">' +
         '<i>' + g[1] + '</i><b>' + Math.round(got) + '</b>' +
         '<span class="mmp-t">/' + Math.round(want) + '</span>' +
-        (moved ? '<span class="mmp-was">' + Math.round(was[m] || 0) + '</span>' : '') +
         '</span>';
     }).join('');
-    /* The strip makes room for the was-numbers rather than each pill making
-       room for its own. A pill that grew to hold one was wider than a pill
-       that had nothing to say, which is exactly the unevenness the fixed
-       widths were meant to end — measured on a real day, a moved calorie pill
-       came out 75.4 px against an unmoved 59. So the was-number is lifted out
-       of the box and hung under it, and the strip takes the height. */
-    return out ? '<span class="mmps' + (planned ? ' planned' : '') +
-      (/mmp-was/.test(out) ? ' waswas' : '') + '" aria-hidden="true">' +
+    return out ? '<span class="mmps' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
       out + '</span>' : '';
   }
 

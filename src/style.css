@@ -1267,13 +1267,6 @@ select { max-width: 280px; }
 .mmp i { font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--muted); }
 .mmp b { font-weight: 700; color: var(--ink); }
 .mmp-t { opacity: 0.55; }
-/* The plan, after the number that replaced it. Small and grey on purpose: it
-   is not a second target, it is where the first one was — the thing that lets
-   a card answer "was that me, or did the day move". */
-.mmp-was {
-  font-size: 7.5px; font-weight: 700; opacity: 0.5; margin-left: 2px;
-  align-self: flex-start; line-height: 1.6;
-}
 /* A macro the day can no longer pay for. Dashed, because the shape still says
    "this is the fat pill" while the border stops claiming a target it does not
    have — and the figure is an em dash rather than a nought, which would read
@@ -3429,15 +3422,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    a large plan. Measured, not guessed, and set AT the maximum: a floor the
    occasional big meal overflows is uniform except when it matters. */
 .mmp.kc { min-width: 64px; }
-/* Hung under the pill, not carried inside it. Inline with a 2px margin it
-   made a moved pill 75.4 px against an unmoved 59, so the numbers that say
-   "the day moved under you" were the ones breaking the alignment they were
-   drawn on. The strip below takes the height for them. */
-.mmp-was {
-  position: absolute; left: 50%; transform: translateX(-50%); top: 100%;
-  margin-left: 0; line-height: 1.3; white-space: nowrap; pointer-events: none;
-}
-.mmps.waswas { padding-bottom: 10px; }
+
 .mmp-t { font-size: 7.5px; }
 /* Two pixels over, at 390, is the difference between one row and two: the
    header spends 15 (dot) + 18 (three 6px gaps) + 78 (BREAKFAST) + 227 (pills)
@@ -3480,4 +3465,133 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mp-stick::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px;
   background: linear-gradient(var(--card), transparent); pointer-events: none;
+}
+
+/* ---- the plate, contained -----------------------------------------------
+ *
+ * Blake, on the open meal: "it feels off to me. does not flow." The card was
+ * built out of controls with the content squeezed between them — three rows
+ * per plate at three different left edges, and the two loudest boxes on it
+ * (the stepper slab and the tick box) belonging to the two things he touches
+ * least. The name he reads every time carried no weight at all.
+ *
+ * A plate is now its own block, and what is inside it plainly acts on it.
+ * That containment is the whole scope system: this block is THIS FOOD, the
+ * verbs at the card's foot are THIS MEAL, the borrow line is THE DAY. Word
+ * labels were drawn for the same job and dropped — the box says it without
+ * spending three rows per meal saying it.
+ */
+.mitem {
+  border-left: 0;
+  background: var(--paper-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  padding: 7px 8px;
+  margin-bottom: 6px;
+}
+.mitem:last-of-type { margin-bottom: 0; }
+/* Held through Rebalance. The block itself says so, because the lock is a
+   claim about the whole plate rather than about the dial it used to live in. */
+.mitem.held { border-color: var(--ochre); }
+.mitem.eaten { opacity: 0.86; }
+
+/* Row one: are you done with it, what is it, is it worth eating. */
+.mitem-r1 { display: flex; align-items: flex-start; gap: 7px; }
+/* Small, and first. It was a 44px bordered box at the far right of a third
+   row — the single most important fact about a plate, reached last. The 44px
+   target is kept on coarse pointers below; on a mouse it can be the size it
+   looks. */
+.mitem-r1 .mtick {
+  flex: none; width: 22px; height: 22px; border-radius: 5px; margin-top: 1px;
+  border: 1px solid var(--line-firm); background: var(--card);
+  display: flex; align-items: center; justify-content: center;
+}
+.mitem-r1 .mtick input { width: 15px; height: 15px; }
+.mitem-r1 .leaf-sm { flex: none; margin-top: 1px; }
+
+/* Row two: today's portion, what may be done to it, what it costs. */
+.mitem-r2 {
+  display: flex; align-items: center; gap: 5px;
+  margin: 6px 0 0 29px;
+  /* It wraps, and the cost is what wraps. Four 44px targets and a dial do not
+     fit beside the arithmetic on a 320px phone, and the suite says so — so on
+     a narrow screen the controls keep the line and .mitem-meta drops under
+     them, still right-aligned by its own margin. The alternative was shrinking
+     the targets, which is the thing that must not happen. */
+  flex-wrap: wrap; row-gap: 4px;
+}
+/* The dial shrinks to what it is. It was flex:1 across most of the card with
+   44px keys — a slab that outweighed the food's name. */
+.mitem-r2 .mstep { flex: 0 0 auto; border-radius: 5px; }
+.mitem-r2 .mstep button { height: 28px; }
+.mitem-r2 .mstep button[data-mstep] { width: 26px; font-size: 15px; }
+.mitem-r2 .mstep-x { padding: 0 7px; font-size: 11.5px; }
+/* Lock, pin and bin: one shape, one size, in one order, on every plate. They
+   were a 44px cell inside the dial (lock) and two bare glyphs on the name row
+   (pin, bin) — three controls of the same scope wearing three different
+   clothes in two different places. */
+.mitem-r2 .mic {
+  flex: none; width: 28px; height: 28px; padding: 0; line-height: 1;
+  border: 1px solid var(--line-soft); border-radius: 5px;
+  background: var(--card); color: var(--muted-2); font-size: 12px;
+}
+.mitem-r2 .mic[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--ochre) 24%, var(--card));
+  border-color: var(--ochre); color: var(--ochre-text);
+}
+.mitem-r2 .mdel svg { width: 14px; height: 14px; }
+.mitem-r2 .mdel:hover { color: oklch(0.50 0.16 25); border-color: oklch(0.50 0.16 25); }
+
+/* What it costs, and where it came from, at the far side. The book, the yield
+   and the portion detail lost their pill borders on the way here: a border
+   around a word claims the word is a control, and four such claims per plate
+   were most of what made a meal read as an instrument panel. The salt chip
+   keeps its border — it is the one of them that is a warning, not a label. */
+.mitem-meta { margin-left: auto; text-align: right; min-width: 0; }
+.mitem-meta .mitem-mac { display: block; }
+.mitem-from {
+  display: block; font-size: 10px; color: var(--muted); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mitem-from .mchip { margin-left: 4px; }
+
+@media (pointer: coarse) {
+  /* Forty-four, every one of them, and no argument.
+   *
+     The first draft of this shrank them to 34 for the look of it and the
+     suite caught it inside a minute — there is a test that measures every
+     control on a plate at 320px, written after a 44px target shipped at 36
+     and nobody noticed. Small controls were never the goal: the goal was
+     controls that stop outweighing the food's name, and that was won by
+     taking a row out and by stopping the dial stretching across the card,
+     not by making anything harder to hit.
+   *
+     The TICK carries its 44 invisibly — no border, no ground, just a 20px
+     box centred in a 44px target. It reads as light as it looks in the
+     mockup and answers a thumb like everything else. */
+  .mitem-r1 .mtick { width: 44px; height: 44px; border: 0; background: none; margin-top: 0; }
+  .mitem-r1 .mtick input { width: 20px; height: 20px; }
+  .mitem-r1 .mitem-name { align-self: center; }
+  .mitem-r2 { margin-left: 44px; }
+  .mitem-r2 .mic { width: 44px; height: 44px; font-size: 15px; }
+  .mitem-r2 .mdel svg { width: 17px; height: 17px; }
+  .mitem-r2 .mstep button { height: 44px; }
+  .mitem-r2 .mstep button[data-mstep] { width: 44px; font-size: 18px; }
+  .mitem-r2 .mstep-x { padding: 0 10px; font-size: 13px; }
+}
+
+/* The narrowest phones. "1¾ meal prep containers" is a real portion in this
+   collection, and at 320px the dial holding it is wider than the row left
+   after a 44px indent — so the indent goes and the dial takes a line of its
+   own, with the three controls and the cost wrapping beneath it.
+ *
+   NOT by letting the dial shrink. There is a comment three hundred lines up
+   recording what that costs: `.mstep-x` truncating turned "2 1/2 cups" into
+   "2 1/2 c" and the keys slid left with dead space behind them, so ticking a
+   plate silently changed what it said you ate. A portion either fits or gets
+   its own row; it never gets clipped. */
+@media (max-width: 380px) {
+  .mitem-r2 { margin-left: 0; }
+  .mitem-r2 .mstep { flex: 1 1 100%; }
+  .mitem-meta { text-align: left; margin-left: 0; }
 }

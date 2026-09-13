@@ -475,16 +475,20 @@ module.exports = {
         const el = document.querySelector('.mitem-food');
         if (!el || el.dataset.open) return false;
         const row = el.closest('.mitem');
-        const chips = [...row.querySelectorAll('.mitem-chips .mchip')].map((c) => c.textContent);
+        /* "Yours" lost its pill border with the rest of the provenance — a
+           border around a word claims the word is a control, and four such
+           claims per plate were most of what made a meal read as an
+           instrument panel. It is still said, in .mitem-from. */
+        const from = (row.querySelector('.mitem-from') || {}).textContent || '';
         const amount = row.querySelector('.mstep-x').textContent;
-        return chips.indexOf('Yours') >= 0 &&
+        return /Yours/.test(from) &&
           amount.indexOf('×') < 0 && /[a-z]/i.test(amount);
       }), await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
         if (!el) return 'no food row';
         const row = el.closest('.mitem');
-        return row.querySelector('.mitem-chips').textContent + ' || amount "' +
-          row.querySelector('.mstep-x').textContent + '"';
+        return ((row.querySelector('.mitem-from') || {}).textContent || 'no from') +
+          ' || amount "' + row.querySelector('.mstep-x').textContent + '"';
       }));
     /* The name is a door, though — the same door a recipe's name is. A food
        used to be a dead label, which left a five-part salad that had been
@@ -1171,14 +1175,37 @@ module.exports = {
       await p.evaluate(() => Array.from(document.querySelectorAll('#view-macros .mchip'))
         .map((e) => e.textContent.trim()).join(' | ')));
 
-    /* And the four numbers made it onto the tag row, which is the point of
-       having removed it. */
-    t.ok('and the macros sit on the tag row rather than wrapping under it',
+    /* REVERSED, deliberately. This asserted the four numbers sat on the SAME
+       line as the provenance tags — the point of a change that had just
+       removed a row. The plate is built by containment now: row one is the
+       food, row two is today's portion and what it costs, and the cost block
+       stacks the macros over where-it-came-from at the far side. They are on
+       two lines on purpose, ranked, rather than competing for one.
+
+       What survives is the claim worth keeping: the macros are the loud half
+       and the provenance the quiet half, and neither is a bordered pill. */
+    t.ok('the cost is ranked over its provenance, and neither is a pill',
+      await p.evaluate(() => {
+        const meta = document.querySelector('.mitem-meta');
+        const mac = meta && meta.querySelector('.mitem-mac');
+        const from = meta && meta.querySelector('.mitem-from');
+        if (!mac || !from) return false;
+        const mb = mac.getBoundingClientRect(), fb = from.getBoundingClientRect();
+        const fs = (el) => parseFloat(getComputedStyle(el).fontSize);
+        /* stacked, macros first, and the provenance genuinely quieter */
+        return fb.top >= mb.bottom - 1 && fs(mac) > fs(from) &&
+          getComputedStyle(from).borderBottomWidth === '0px';
+      }), await p.evaluate(() => {
+        const meta = document.querySelector('.mitem-meta');
+        return meta ? meta.textContent.trim() : 'no meta';
+      }));
+
+    t.ok('and the old tag row is gone',
       await p.evaluate(() => {
         const wrap = document.querySelector('.mitem-chips');
         const chip = wrap && wrap.querySelector('.mchip');
         const mac = document.querySelector('.mitem-mac');
-        if (!chip || !mac) return false;
+        if (!chip || !mac) return true;
         /* a plate carrying a salt warning is allowed its second line — the
            warning is worth more than the tidiness */
         if (wrap.querySelector('.mchip.salty')) return true;
@@ -3878,9 +3905,15 @@ module.exports = {
     await spent.waitForTimeout(400);
     const stepNow = await spent.evaluate(() => {
       const st = document.querySelector('.mstep');
+      /* The lock is a SIBLING of the dial now, not a cell inside it. It
+         guards against the machine rather than against you — Rebalance
+         leaves a locked plate alone while the stepper still works — so it
+         was never a part of the dial, and sitting in it paired "hold this
+         still" with "make this bigger". */
+      const lock = st.closest('.mitem').querySelector('.mlock');
       return { x: st.querySelector('.mstep-x').textContent.trim(),
         dead: [...st.querySelectorAll('[data-mstep]')].every((b) => b.disabled),
-        lockStillLive: !st.querySelector('.mlock').disabled,
+        lockStillLive: !!lock && !lock.disabled,
         grey: st.classList.contains('spent'),
         /* the STEPPER's own buttons, not the first button in the strip — that
            is the lock, and it is faded by a rule of its own, so reading it
@@ -4541,7 +4574,11 @@ module.exports = {
     await tinyPhone.waitForTimeout(350);
 
     const targets44 = await tinyPhone.evaluate(() => {
-      const els = [...document.querySelectorAll('.mstep .mlock, .mstep button[data-mstep], .mtick')];
+      /* The lock left the stepper and the pin and the bin came down off the
+         name row, so the plate's controls are .mic now — and a selector that
+         no longer matches them is a 44px rule with nothing to check. */
+      const els = [...document.querySelectorAll(
+        '.mitem-r2 .mic, .mstep button[data-mstep], .mtick')];
       const small = els.map((e) => {
         const b = e.getBoundingClientRect();
         return { w: Math.round(b.width), h: Math.round(b.height),
@@ -4556,7 +4593,7 @@ module.exports = {
     /* And the row still fits — 44 px targets that overflow are not a fix. */
     t.ok('and the row still fits without scrolling sideways',
       await tinyPhone.evaluate(() =>
-        [...document.querySelectorAll('.mrow2')].every((e) => e.scrollWidth <= e.clientWidth + 1) &&
+        [...document.querySelectorAll('.mitem-r2')].every((e) => e.scrollWidth <= e.clientWidth + 1) &&
         document.documentElement.scrollWidth <= document.documentElement.clientWidth));
     await tinyPhone.context().close();
 
@@ -5050,6 +5087,83 @@ module.exports = {
       await pk.evaluate(() => !!document.querySelector('.mp-foot-c.open')));
     await pk.context().close();
 
+    /* ---- the plate, contained --------------------------------------------
+     *
+     * Blake, on the open meal: "it feels off to me. does not flow. why do I
+     * feel that way when interacting with it?" Three rows per plate at three
+     * different left edges, and the two loudest boxes on the card — the
+     * stepper slab and the tick — belonging to the two things he touches
+     * least, while the name he reads every time carried no weight.
+     *
+     * He also ruled out the obvious fix: "I have the skip, add, share,
+     * balance, lock, borrow... all those are things I want and use. They just
+     * need to be organized better." So nothing was removed. What changed is
+     * that a plate is now its own block, which is what says its controls act
+     * on IT rather than on the meal or on the day. */
+    const platePg = await t.fresh();
+    await platePg.evaluate(() => {
+      const d = new Date();
+      const k = d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) +
+        '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+      /* A scored recipe AND a bare food, deliberately: the leaf badge is the
+         thing that used to shift one name 28 px right of the other. */
+      const rec = (window.RECIPES.find((r) => r.score > 0 && r.macro && r.macro.kcal > 150) || {}).id;
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg', x: 3, eaten: 0 }].concat(rec ? [{ id: rec, x: 1, eaten: 0 }] : []),
+        l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 }));
+    });
+    await platePg.reload();
+    await platePg.waitForTimeout(400);
+    await platePg.click('.tab[data-view="macros"]');
+    await platePg.waitForTimeout(350);
+    await openDay(platePg);
+    await platePg.waitForTimeout(250);
+
+    const plated = await platePg.evaluate(() => {
+      const rows = [...document.querySelectorAll('.mitem')];
+      if (rows.length < 2) return { few: rows.length };
+      const card = rows[0].closest('.mslot');
+      const cs = getComputedStyle(rows[0]), cardCs = getComputedStyle(card);
+      return {
+        n: rows.length,
+        /* contained: its own ground and its own edge, different from the card
+           it sits in — which is what makes "inside this box" mean anything */
+        ownGround: cs.backgroundColor !== cardCs.backgroundColor,
+        ownEdge: parseFloat(cs.borderTopWidth) > 0 && parseFloat(cs.borderRadius) > 0,
+        /* every name starts at the same x, leaf or no leaf */
+        nameLefts: rows.map((r) => Math.round(r.querySelector('.mitem-name').getBoundingClientRect().left)),
+        leaves: rows.map((r) => !!r.querySelector('.leaf-sm')),
+        /* the tick leads the plate */
+        tickFirst: rows.every((r) => {
+          const tick = r.querySelector('.mtick'), name = r.querySelector('.mitem-name');
+          return tick && name &&
+            tick.getBoundingClientRect().left < name.getBoundingClientRect().left;
+        }),
+        /* and every control that acts on this food is inside this food's box */
+        contained: rows.every((r) => ['.mtick', '.mstep', '.mlock', '.mpin', '.mdel']
+          .every((sel) => !!r.querySelector(sel))),
+        /* while the ones that act on the meal are not */
+        mealVerbsOutside: rows.every((r) => !r.querySelector('[data-mbal], [data-mskip], [data-mslot]')),
+      };
+    });
+    t.ok('the plate is seeded with a scored recipe and a bare food',
+      plated.n >= 2 && plated.leaves.indexOf(true) >= 0 && plated.leaves.indexOf(false) >= 0,
+      JSON.stringify(plated));
+    /* The complaint, made measurable. A badge that is drawn for a recipe and
+       absent for a food cannot be the thing a column starts on — so it moved
+       to the other end and the tick took the left edge. */
+    t.ok('every plate\u2019s name starts at the same edge, leaf or no leaf',
+      new Set(plated.nameLefts).size === 1, JSON.stringify(plated.nameLefts));
+    t.ok('and the tick leads the plate rather than ending it', plated.tickFirst);
+    t.ok('a plate is a block of its own, not a strip of the card',
+      plated.ownGround && plated.ownEdge, JSON.stringify(plated));
+    /* The scope, structurally: everything that acts on this food is in this
+       food's box, and nothing that acts on the meal is. */
+    t.ok('everything that changes this food lives inside this food\u2019s box',
+      plated.contained && plated.mealVerbsOutside, JSON.stringify(plated));
+    await platePg.context().close();
+
     /* ---- the cascade -----------------------------------------------------
      *
      * A meal that comes in light or heavy changes what every meal after it is
@@ -5237,13 +5351,16 @@ module.exports = {
       const ends = (a) => a.slice().sort((x, y) => x.w - y.w);
       const sp = (a) => a.length ? ends(a)[a.length - 1].w - ends(a)[0].w : 0;
       return { kc: kc.length, mac: mac.length, kcSpread: sp(kc), macSpread: sp(mac),
-        moved: !!document.querySelector('.mmp-was'),
         widestKc: ends(kc)[kc.length - 1], widestMac: ends(mac)[mac.length - 1] };
     });
-    /* Said out loud: a day with nothing moved on it cannot fail this, and a
-       green that came from an easy day is what let the real one through. */
-    t.ok('the widths are measured on a day where a target actually moved',
-      pzWide.moved && pzWide.kc >= 4, JSON.stringify(pzWide));
+    /* Said out loud: a green that came from an easy day is what let the real
+       one through, so the day has to be hard before the widths mean anything.
+       Hard means FOUR DIGITS — numbers big enough that a pill would overflow
+       its floor if the floor were the only thing holding it. (This used to
+       check that a was-number was rendered; those are gone, and the digits
+       were always the better proxy anyway.) */
+    t.ok('the widths are measured on a day whose numbers are big enough to matter',
+      pzWide.kc >= 4 && /\d{4}/.test(pzWide.widestKc.t), JSON.stringify(pzWide));
     t.ok('every calorie pill in the day is exactly as wide as every other',
       pzWide.kcSpread === 0, JSON.stringify(pzWide));
     t.ok('and so is every macro pill', pzWide.macSpread === 0, JSON.stringify(pzWide));
@@ -7175,7 +7292,6 @@ module.exports = {
         if (!nm) return;
         out[nm] = [...card.querySelectorAll('.mmp')].map((e) => ({
           want: Number(((e.querySelector('.mmp-t') || {}).textContent || '').replace('/', '')),
-          was: (e.querySelector('.mmp-was') || {}).textContent || null,
           spent: e.classList.contains('spent') }));
       });
       return out;
@@ -7183,10 +7299,27 @@ module.exports = {
 
     const overPg = await askPg(3);
     const beforeAte = await asked(overPg);
-    t.ok('before anything is eaten, no meal is asked for anything but its plan',
+    /* Said against the plan itself rather than against the absence of a
+       was-number, which is what this used to read and which is gone. Stronger
+       for it: "nothing is marked as moved" is satisfied by an app that never
+       marks anything, while this compares the figure on the card to the share
+       the weights actually give it. */
+    const plansNow = await overPg.evaluate(() => {
+      const T = window.__macroLab.targets();
+      const dayK = 4 * T.p + 4 * T.c + 9 * T.f;
+      const list = JSON.parse(localStorage.getItem('bsc.macroSlots') || 'null');
+      const ws = (list && list.list ? list.list : []).map((sl) => ({
+        n: sl.n, w: typeof sl.w === 'number' ? sl.w : 20 }));
+      const sum = ws.reduce((a, x) => a + x.w, 0) || 1;
+      const out = {};
+      ws.forEach((x) => { out[x.n] = Math.round(dayK * (x.w / sum)); });
+      return out;
+    });
+    t.ok('before anything is eaten, every meal is asked for exactly its plan share',
       Object.keys(beforeAte).length > 2 &&
-        Object.values(beforeAte).every((ps) => ps.every((p2) => p2.was === null)),
-      JSON.stringify(beforeAte));
+      Object.keys(plansNow).every((n) => !beforeAte[n] ||
+        Math.abs(beforeAte[n][0].want - plansNow[n]) <= 2),
+      JSON.stringify({ shown: beforeAte, share: plansNow }));
 
     /* Eat the oversized breakfast. */
     await overPg.evaluate(() => {
@@ -7217,15 +7350,16 @@ module.exports = {
        out the same — fat, here, because that breakfast was huge but lean —
        carries nothing, because repeating a number back to itself is noise on
        a row that has four of them. */
-    /* And where a plan IS shown it differs from the number beside it —
-       repeating a figure back to itself is noise on a row with four of them.
-       The undereat case below is what proves a plan gets shown at all; this
-       is the rule about when it should not be. */
-    t.ok('and the plan is never repeated back as the number it replaced',
-      !!lunch && lunch.every((p2) => p2.was === null || Number(p2.was) !== p2.want),
-      JSON.stringify(lunch));
+    /* The rule about never repeating a plan back to itself went with the
+       was-numbers it was about — there is no second figure on a pill to
+       repeat anything. What survives is the claim underneath it, and it is
+       the one that matters: a meal already eaten is HISTORY, so the day
+       moving does not move it. Read before and after rather than off the
+       rendering. */
     t.ok('while the meal that was eaten keeps its own plan, being history',
-      !!brek && brek.every((p2) => p2.was === null), JSON.stringify(brek));
+      !!brek && !!beforeAte.Breakfast && brek.length === beforeAte.Breakfast.length &&
+      brek.every((p2, i) => p2.want === beforeAte.Breakfast[i].want),
+      JSON.stringify({ before: beforeAte.Breakfast, after: brek }));
     /* Carbs are gone for the day after that breakfast — and three meals
        printing 0/0 would be true and useless. */
     t.ok('a macro the day cannot pay for says so rather than showing a nought',
@@ -7268,6 +7402,13 @@ module.exports = {
     await skipPg3.context().close();
 
     const underPg = await askPg(0.25);
+    /* Read BEFORE, act, read AFTER — the way the skip test above does it.
+       This used to compare a pill's want against the little was-number
+       rendered beside it, which is gone: Blake, on his own day, "those little
+       numbers under the pills? I don't know what they mean." Leaning on a
+       rendering artifact for the 'before' also meant the test could only see
+       what the renderer chose to admit. */
+    const lightBefore = (await asked(underPg)).Lunch;
     await underPg.evaluate(() => {
       const h = [...document.querySelectorAll('#macroSlots [data-mfold]')]
         .find((b) => ((b.querySelector('.mslot-name') || {}).textContent || '') === 'Breakfast');
@@ -7284,9 +7425,14 @@ module.exports = {
        it an app that had stopped redistributing entirely would satisfy
        "bigger than nothing" — which is exactly what it did the first time
        this was mutated. */
+    /* Guarded on both readings existing. Number(null) is 0, so without it an
+       app that had stopped redistributing entirely would satisfy "bigger than
+       nothing" — which is exactly what it did the first time this was
+       mutated. */
     t.ok('and leaving food on a plate raises what the meals ahead are asked for',
-      !!light && light.some((p2) => p2.was !== null && p2.want > Number(p2.was)),
-      JSON.stringify(light));
+      !!lightBefore && !!light && lightBefore.length === light.length &&
+      light.some(function (p2, i) { return p2.want > lightBefore[i].want; }),
+      JSON.stringify({ before: lightBefore, after: light }));
     await underPg.context().close();
 
     /* ---- an empty meal offers the verb it has ----------------------------
@@ -7657,6 +7803,7 @@ module.exports = {
       return {
         amount: row.querySelector('.mstep-x').textContent.trim(),
         chips: [...row.querySelectorAll('.mchip')].map((c) => c.textContent.trim()),
+        from: (row.querySelector('.mitem-from') || {}).textContent || '',
         mac: (row.querySelector('.mitem-mac') || {}).textContent || ''
       };
     });
@@ -7668,9 +7815,16 @@ module.exports = {
       !!batCard && Math.abs(parseInt(batCard.mac.replace(/[^\d]/, ''), 10) -
         Math.round(bat.kcal * 1.75)) <= 1,
       (batCard && batCard.mac) + ' — wanted ' + Math.round(bat.kcal * 1.75) + ' kcal');
-    t.ok('while what the recipe makes is said once, as its own tag',
-      !!batCard && batCard.chips.some((c) => c === 'makes ' + bat.servN),
-      (batCard && batCard.chips.join(' | ')));
+    /* Still said once, no longer a tag. The book, the yield and the portion
+       detail lost their pill borders when the plate was rebuilt — a border
+       around a word claims the word is a control, and four such claims per
+       plate were most of what made a meal read as an instrument panel. The
+       salt chip is the only one that kept its border, being the only one of
+       them that is a warning rather than a label. */
+    t.ok('while what the recipe makes is said once, beside where it came from',
+      !!batCard && batCard.from.indexOf('makes ' + bat.servN) >= 0 &&
+      batCard.from.split('makes ' + bat.servN).length === 2,
+      (batCard && batCard.from));
     await batch.context().close();
 
     /* ---- the fold ---------------------------------------------------------
