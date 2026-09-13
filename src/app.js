@@ -3226,8 +3226,7 @@
            eating. Row two is today's portion and what it costs. */
         return '<div class="mitem' + (it.eaten ? ' eaten' : '') +
             (it.l ? ' held' : '') + '">' +
-          '<span class="mitem-r1">' +
-            /* The tick, first. It is the state of the plate and the thing
+          /* The tick, first. It is the state of the plate and the thing
                pressed most, and putting it in the left column gives every
                plate one honest left edge — which the leaf badge used to
                break, starting a food with a score 28 px right of one
@@ -3235,6 +3234,7 @@
             '<label class="mtick no-print"><input type="checkbox" data-meat="' + tag + '"' +
               (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
               ' aria-label="Eaten"></label>' +
+          '<span class="mitem-head">' +
             /* A recipe's name opens the recipe. A food's name opens the
                food: what one of it is, and — for a meal you kept together —
                the parts it was made of. It used to be a dead label, which
@@ -3244,25 +3244,30 @@
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
-            /* The score, on the right now. Knowing a thing fits the day and
-               knowing it is worth eating are different questions, and the
-               second was only answerable by opening the recipe. It moved off
-               the left edge because a badge drawn for a recipe and absent for
-               a food cannot be the thing a column starts on. */
-            /* What it costs, and where it came from, on the FIRST row beside
-               the name. It was on a row of its own below, and the plate came
-               out 160 px tall against the 104 it replaced — measured on a
-               real touch viewport, against the previous commit, after a
-               mockup with 26 px controls had me claim the opposite in a
-               commit message. Four 44 px targets need a row; the arithmetic
-               does not need a third one.
+            /* The score, at the far end of the name's own line. A badge
+               drawn for a recipe and absent for a food cannot be the thing a
+               column starts on: it was putting two plates of one meal at two
+               different left edges, which is a thing you feel without being
+               able to name it. */
+            leaf(r.score, 'leaf-sm') +
+          '</span>' +
+          /* What it costs, on a line of its own beside the tick.
+           *
+             It has now been on all three rows in two days and the middle one
+             was the mistake: sharing the name's line, it forced a 24-character
+             recipe title into 141 px and then overflowed its own box under the
+             leaf — Blake's screenshot has "12P · (46)F · 8" with the badge
+             sitting on top of the arithmetic. Four 44 px targets need a row of
+             their own and the name needs most of another, so the cost takes
+             the space beside the tick, which is 44 px tall and otherwise
+             empty.
 
-               The book, the yield and the portion detail lost their pill
-               borders on the way here: a border around a word claims the word
-               is a control, and four such claims per plate were most of what
-               made a meal read as an instrument panel. The SALT chip keeps
-               its border, being the one of them that is a warning. */
-            '<span class="mitem-meta">' +
+             The book, the yield and the portion detail lost their pill borders
+             on the way here: a border around a word claims the word is a
+             control, and four such claims per plate were most of what made a
+             meal read as an instrument panel. The SALT chip keeps its border,
+             being the one of them that is a warning. */
+          '<span class="mitem-meta">' +
               '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
               '<span class="mitem-from">' +
                 esc(r.food ? 'Yours' : (r.book === 3 ? 'OURS' : BOOKS[r.book].short)) +
@@ -3271,8 +3276,6 @@
                 mSaltChip(r, it.x) +
               '</span>' +
             '</span>' +
-            leaf(r.score, 'leaf-sm') +
-          '</span>' +
           '<span class="mitem-r2">' +
             /* Eaten is a record, not a dial. Once the tick is on, this plate
                is a thing that happened, and resizing what you already ate is

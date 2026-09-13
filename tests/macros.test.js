@@ -5185,8 +5185,19 @@ module.exports = {
       const k = d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) +
         '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
       const rec = (window.RECIPES.find((r) => r.score > 0 && r.macro && r.macro.kcal > 150) || {}).id;
+      /* The plate that actually broke it, off Blake's own phone. A food typed
+         in from a label carries whatever unit the label used, and this one is
+         a sentence: three of them render "3 1 skillet cooked slice (15 g)",
+         a 298px dial that left nothing for three 44px targets. The first
+         version of this test used "3 whole" and "1 serving" and passed
+         happily while his breakfast was folding in half. */
+      localStorage.setItem('bsc.myFoods', JSON.stringify({
+        bacon_bb: { name: "Butcher's Box Uncured Bacon",
+          unit: '1 skillet cooked slice (15 g)', kcal: 71, p: 2, f: 7, c: 0 } }));
       localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
-        b: [{ id: 'f:egg', x: 3, eaten: 0 }].concat(rec ? [{ id: rec, x: 1, eaten: 0 }] : []),
+        b: [{ id: 'f:egg', x: 3, eaten: 0 }]
+          .concat(rec ? [{ id: rec, x: 1, eaten: 0 }] : [])
+          .concat([{ id: 'f:my:bacon_bb', x: 3, eaten: 0 }]),
         l: [], d: [], s: [] } }));
       localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 }));
     });
@@ -5201,18 +5212,20 @@ module.exports = {
       if (!rows.length) return { none: true };
       return rows.map((r) => {
         const kids = [...r.children];
-        /* Bucketed, not exact. The children are 44 and 46 tall in a centred
-           row, so their tops differ by a pixel while plainly sharing a line —
-           counting raw tops reported two rows for a row that had not
-           wrapped. A wrap moves an item by its own height, not by one. */
-        const tops = kids.map((k) => Math.round(k.getBoundingClientRect().top / 20));
-        return { h: Math.round(r.getBoundingClientRect().height),
-          lines: new Set(tops).size, widest: Math.max.apply(null, kids.map((k) =>
-            Math.round(k.getBoundingClientRect().height))) };
+        /* Height against the tallest child, and nothing else. Counting
+           distinct tops was tried twice and is wrong twice over: the children
+           are 44 and 46 tall in a centred row, so their tops differ by a
+           pixel while plainly sharing a line, and bucketing those tops then
+           mis-reports whenever the bucket boundary falls between them. A row
+           that has wrapped is a row taller than the tallest thing in it. */
+        const widest = Math.max.apply(null, kids.map((k) =>
+          Math.round(k.getBoundingClientRect().height)));
+        const h = Math.round(r.getBoundingClientRect().height);
+        return { h: h, widest: widest, wrapped: h > widest + 4 };
       });
     });
     t.ok('a plate\u2019s controls sit on one row at phone width',
-      !fit.none && fit.length >= 2 && fit.every((r) => r.lines === 1 && r.h <= r.widest + 4),
+      !fit.none && fit.length >= 3 && fit.every((r) => !r.wrapped),
       JSON.stringify(fit));
     await rowFit.context().close();
 

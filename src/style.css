@@ -3501,8 +3501,27 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mitem.eaten { opacity: 0.86; }
 
 /* Row one: are you done with it, what is it, is it worth eating. */
-.mitem-r1 { display: flex; align-items: center; gap: 7px; }
-.mitem-r1 .mitem-name { flex: 1 1 auto; min-width: 0; }
+/* A grid, so the tick can stand beside TWO lines instead of forcing a row of
+   its own to 44px. Column one is the tick; column two holds the name and then
+   the cost; the controls take the full width underneath.
+ *
+   This is the third arrangement in two days and the measurements are why. On
+   one row with the name, the cost squeezed a 24-character title into 141px
+   and then overflowed its box under the leaf. On a row of its own, the plate
+   came out 160px against the 104 it replaced. Beside the tick it is free:
+   that column is 44px tall for the target's sake and was otherwise empty. */
+.mitem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 7px; row-gap: 1px;
+  align-items: center;
+}
+.mitem .mtick { grid-row: 1 / span 2; grid-column: 1; }
+.mitem-head { grid-column: 2; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mitem-head .mitem-name { flex: 1 1 auto; min-width: 0; }
+.mitem-head .leaf-sm { flex: none; }
+.mitem-meta { grid-column: 2; min-width: 0; }
+.mitem-r2 { grid-column: 1 / -1; }
 /* Small, and first. It was a 44px bordered box at the far right of a third
    row — the single most important fact about a plate, reached last. The 44px
    target is kept on coarse pointers below; on a mouse it can be the size it
@@ -3517,8 +3536,8 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 
 /* Row two: today's portion, what may be done to it, what it costs. */
 .mitem-r2 {
-  display: flex; align-items: center; gap: 5px;
-  margin: 3px 0 0 29px;
+  display: flex; align-items: center; gap: 4px;
+  margin: 3px 0 0 0;
   /* It wraps, and the cost is what wraps. Four 44px targets and a dial do not
      fit beside the arithmetic on a 320px phone, and the suite says so — so on
      a narrow screen the controls keep the line and .mitem-meta drops under
@@ -3528,7 +3547,17 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 }
 /* The dial shrinks to what it is. It was flex:1 across most of the card with
    44px keys — a slab that outweighed the food's name. */
-.mitem-r2 .mstep { flex: 0 0 auto; border-radius: 5px; }
+/* The dial takes what it needs and no more than most of the row. A food typed
+   in from a label can carry a portion that is a sentence — Blake's bacon reads
+   "3 1 skillet cooked slice (15 g)" — and at 298px that alone plus three 44px
+   targets is 430 of a 334px row, so the controls folded onto a second line.
+ *
+   It WRAPS rather than clips. There is a comment further up recording what
+   clipping costs: .mstep-x truncating turned "2 1/2 cups" into "2 1/2 c" and
+   ticking a plate silently changed what it said you ate. Two short lines
+   inside a 44px-tall dial cost nothing at all. */
+.mitem-r2 .mstep { flex: 0 1 auto; min-width: 0; max-width: 54%; border-radius: 5px; }
+.mitem-r2 .mstep-x { white-space: normal; line-height: 1.15; text-align: center; }
 .mitem-r2 .mstep button { height: 28px; }
 .mitem-r2 .mstep button[data-mstep] { width: 26px; font-size: 15px; }
 .mitem-r2 .mstep-x { padding: 0 7px; font-size: 11.5px; }
@@ -3553,8 +3582,11 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    around a word claims the word is a control, and four such claims per plate
    were most of what made a meal read as an instrument panel. The salt chip
    keeps its border — it is the one of them that is a warning, not a label. */
-.mitem-meta { margin-left: auto; text-align: right; min-width: 0; }
-.mitem-meta .mitem-mac { display: block; }
+/* Left-aligned under the name, and clipped rather than spilling. It used to
+   be margin-left:auto with no overflow rule, so a long macro line ran out of
+   its box and under the leaf badge instead of stopping. */
+.mitem-meta { text-align: left; overflow: hidden; }
+.mitem-meta .mitem-mac { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mitem-from {
   display: block; font-size: 10px; color: var(--muted); margin-top: 1px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
