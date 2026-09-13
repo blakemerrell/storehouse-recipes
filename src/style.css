@@ -3526,13 +3526,19 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    row — the single most important fact about a plate, reached last. The 44px
    target is kept on coarse pointers below; on a mouse it can be the size it
    looks. */
-.mitem-r1 .mtick {
-  flex: none; width: 22px; height: 22px; border-radius: 5px; margin-top: 1px;
-  border: 1px solid var(--line-firm); background: var(--card);
-  display: flex; align-items: center; justify-content: center;
+/* .mitem-r1 went with the grid and took six rules with it — including the
+   one that made this borderless, so the tick fell back to the bordered 44px
+   box the old control strip used and drew as a big empty square beside a 14px
+   name. Scoped to .mitem now, which is the element that exists.
+
+   The target is 44px and INVISIBLE: no border, no ground, a 20px checkbox
+   centred in it. A hit area is not a thing to look at. */
+.mitem > .mtick {
+  flex: none; width: 44px; height: 44px; border: 0; background: none;
+  border-radius: 0; display: flex; align-items: center; justify-content: center;
 }
-.mitem-r1 .mtick input { width: 15px; height: 15px; }
-.mitem-r1 .leaf-sm { flex: none; margin-top: 1px; }
+.mitem > .mtick input { width: 20px; height: 20px; }
+.mitem-head .leaf-sm { flex: none; }
 
 /* Row two: today's portion, what may be done to it, what it costs. */
 .mitem-r2 {
@@ -3607,9 +3613,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
      The TICK carries its 44 invisibly — no border, no ground, just a 20px
      box centred in a 44px target. It reads as light as it looks in the
      mockup and answers a thumb like everything else. */
-  .mitem-r1 .mtick { width: 44px; height: 44px; border: 0; background: none; margin-top: 0; }
-  .mitem-r1 .mtick input { width: 20px; height: 20px; }
-  .mitem-r1 .mitem-name { align-self: center; }
+
   /* No indent on a touch phone. Aligning the control strip under the name
      reads tidily and costs a wrap: the dial plus three 44px targets is 308px
      against the 290 a 390px phone leaves once 44 has gone to the indent, so
@@ -3641,3 +3645,45 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   .mitem-r2 .mstep { flex: 1 1 100%; }
   .mitem-meta { text-align: left; margin-left: 0; }
 }
+
+/* ---- the control row, at the weight of the words -------------------------
+ *
+ * Blake, on v319: "buttons are too big. And not spread out well and are out
+ * of balance with the rest of the text on the card." He is right and it is
+ * not the touch targets: those must stay 44px and do. It is that every one of
+ * them was a bordered, filled BOX — a dial in a box beside three buttons in
+ * boxes beside a checkbox in a box — so a row of five outlines sat under a
+ * 14px name and a 10px macro line and read as a keypad.
+ *
+ * The targets keep their 44. The CHROME goes. A glyph with a generous
+ * invisible margin around it is the same thing to a thumb and a quieter thing
+ * to an eye, and it is what pin and bin already were before this rebuild
+ * boxed them.
+ */
+.mitem-r2 .mstep {
+  border: 0; background: none; border-radius: 0; overflow: visible;
+}
+.mitem-r2 .mstep button {
+  border: 0; border-left: 0; background: none; color: var(--muted-2);
+}
+.mitem-r2 .mstep button[data-mstep] { font-size: 19px; font-weight: 400; }
+.mitem-r2 .mstep button:not(:disabled):hover { background: none; color: var(--ochre-text); }
+/* The portion reads as the words it is, not as a cell in a dial. Underlined
+   only when it is the way back in to a locked portion. */
+.mitem-r2 .mstep-x { border: 0; padding: 0 6px; font-weight: 600; }
+.mitem-r2 .mstep-wake { text-decoration: underline dotted; text-underline-offset: 3px; }
+
+.mitem-r2 .mic { border: 0; background: none; }
+.mitem-r2 .mic[aria-pressed="true"] {
+  background: none; border: 0;
+  /* On, said by the ink rather than by a filled box — the same way the app
+     says a favourite is on. */
+  color: var(--ochre-text);
+}
+.mitem-r2 .mic:hover { background: none; color: var(--ink); }
+
+/* Two groups, and air between them. They were five boxes in a left-packed
+   row, which is what "not spread out well" is: the amount and the three
+   things you can do to the plate are different kinds of control and were
+   reading as one undifferentiated strip. */
+.mitem-acts2 { display: flex; align-items: center; gap: 2px; margin-left: auto; flex: none; }

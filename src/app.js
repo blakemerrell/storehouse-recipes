@@ -3302,6 +3302,10 @@
                bigger". Live even on an eaten plate: holding a food steady
                while the rest of the day moves around it is still worth
                saying afterwards. */
+            /* The three things you can do to this plate, grouped and pushed
+               to the far side. The dial is a different kind of control and
+               was sharing a left-packed strip with them. */
+            '<span class="mitem-acts2 no-print">' +
             (onPlan ? '<button class="mic mlock no-print" data-mlock="' + tag + '" aria-pressed="' +
               (it.l ? 'true' : 'false') + '" aria-label="' +
               (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">&#128274;</button>' : '') +
@@ -3315,6 +3319,7 @@
               '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
               'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
             '</button>' +
+            '</span>' +
           '</span>' +
         '</div>';
       }).join('');

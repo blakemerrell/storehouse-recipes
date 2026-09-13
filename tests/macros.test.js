@@ -5224,6 +5224,41 @@ module.exports = {
         return { h: h, widest: widest, wrapped: h > widest + 4 };
       });
     });
+    /* And they are not boxes.
+     *
+       Blake on the first version of this row: "buttons are too big. And not
+       spread out well and are out of balance with the rest of the text on the
+       card." It was not the touch targets — those are 44px and stay 44px, and
+       there is a test above that measures them. It was that every one of them
+       was a bordered, filled box, so five outlines sat under a 14px name and
+       a 10px macro line and the plate read as a keypad. A glyph with a
+       generous invisible margin is the same thing to a thumb and a quieter
+       thing to an eye.
+
+       Measured on the CONTROLS rather than on the plate, because the plate's
+       own block is a box on purpose — that containment is what says which
+       scope these controls belong to. */
+    const chrome = await rowFit.evaluate(() => {
+      const out = [];
+      document.querySelectorAll('.mitem-r2 .mic, .mitem-r2 .mstep, .mitem-r2 .mstep button, .mitem > .mtick')
+        .forEach((e) => {
+          const c = getComputedStyle(e);
+          const boxed = parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0;
+          const filled = c.backgroundColor !== 'rgba(0, 0, 0, 0)' && c.backgroundColor !== 'transparent';
+          if (boxed || filled) out.push((e.className || e.tagName) + (boxed ? ' boxed' : '') + (filled ? ' filled' : ''));
+        });
+      const st = document.querySelector('.mitem-r2 .mstep');
+      const ac = document.querySelector('.mitem-acts2');
+      return { chromed: out.slice(0, 5), n: out.length,
+        air: st && ac ? Math.round(ac.getBoundingClientRect().left - st.getBoundingClientRect().right) : -1 };
+    });
+    t.ok('and none of them is drawn as a box', chrome.n === 0, JSON.stringify(chrome));
+    /* "Not spread out well" was five boxes in a left-packed strip. The amount
+       and the three things you can do to the plate are different kinds of
+       control and now read as two groups with air between them. */
+    t.ok('and the amount and the actions are two groups, not one strip',
+      chrome.air > 8, JSON.stringify(chrome));
+
     t.ok('a plate\u2019s controls sit on one row at phone width',
       !fit.none && fit.length >= 3 && fit.every((r) => !r.wrapped),
       JSON.stringify(fit));
