@@ -5476,14 +5476,45 @@
       '<button class="mp-foot-t" data-mpbasket="1" aria-expanded="' +
         (S.mpBasketOpen ? 'true' : 'false') + '" aria-label="' +
         (S.mpBasketOpen ? 'Hide what is in the basket' : 'Show what is in the basket') + '">' +
-        '<span class="mp-foot-l">' + (busts ? 'Over this meal by ' + over : 'Adds') + '</span>' +
-        '<span class="mp-foot-m">' + (est ? '~' : '') + Math.round(t.kcal) + ' kcal &middot; ' +
-          Math.round(t.p) + 'P &middot; ' + Math.round(t.f) + 'F &middot; ' +
-          Math.round(t.c) + 'C</span>' +
-        '<span class="mp-foot-c" aria-hidden="true">&#8249;</span>' +
+        '<span class="mp-foot-b">' +
+          '<span class="mp-foot-m">' +
+            (busts ? '<i class="mp-foot-l">Over this meal by ' + over + '</i> &middot; ' : '') +
+            (est ? '~' : '') + Math.round(t.kcal) + ' kcal &middot; ' +
+            Math.round(t.p) + 'P &middot; ' + Math.round(t.f) + 'F &middot; ' +
+            Math.round(t.c) + 'C</span>' +
+          /* The names, on the bar. The list behind this button has always
+             existed and Blake never found it — "I see I have a qty but I
+             don't see what they are" — because the only thing pointing at it
+             was a ‹, a LEFT-pointing chevron on a drawer that opens upward,
+             sitting beside a number instead of beside what it reveals. The
+             same mistake the meal fold made in v211: the mark was not on the
+             edge that moves.
+
+             Two names and a count. Three fits when they are short and does
+             not when one of them is "Genius Gourmet Sparkling Protein Fruit
+             Punch", and a bar that reflows as you pick is worse than one that
+             always says the same amount. The drawer keeps the rest, and keeps
+             the quantities, which are the part you adjust least. */
+          '<span class="mp-foot-n">' + esc(mBasketNames(ids)) + '</span>' +
+        '</span>' +
+        '<span class="mp-foot-c' + (S.mpBasketOpen ? ' open' : '') +
+          '" aria-hidden="true">&#8964;</span>' +
       '</button>' +
       '<button class="mp-done" data-mpdone="1">Add ' + ids.length + '</button>' +
     '</div>';
+  }
+
+  /* Two names and a tally. Not every name: the bar has one line for them and
+     the longest food in Blake's own basket is forty-three characters. */
+  function mBasketNames(ids) {
+    var names = [];
+    ids.forEach(function (bk) {
+      var r = BY_ID[idOf(bk)];
+      if (r) names.push(r.name);
+    });
+    if (!names.length) return '';
+    if (names.length <= 2) return names.join(', ');
+    return names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
   }
 
   /* Which meal the sheet is filling, when you opened it from the bar rather
@@ -5618,6 +5649,20 @@
          the type-it-in row with a silence between them. */
       var body = mpHomeBodyHTML();
       return wrap(
+        /* Pinned: what the meal still wants, and the box you search with.
+         *
+           Blake: "make the top sticky so the filter icons and search bar and
+           macros stay in view." All three is 280 px of a 560 px sheet — half
+           the screen held still on a list whose whole job is to be scrolled.
+           So two of the three. The search box earns it by being the main
+           control and the first thing lost to a flick. The pills earn it now
+           they count THIS meal: pinned, they fall toward zero as you pick, so
+           you can watch the meal close without scrolling back up.
+
+           The shelves are left to scroll. A filter is something you set and
+           then read past, and keeping them costs 75 px on every screen to
+           save one scroll-up per change of mind. */
+        '<div class="mp-stick">' +
         (rem ? '<div class="mp-left">' + rem + '</div>' : '') +
         /* One box, in the sheet you were already looking at. Its results do
            not replace what is under it — the bands narrow and anything else
@@ -5634,6 +5679,7 @@
           (navigator.mediaDevices && navigator.mediaDevices.getUserMedia
             ? '<button class="mp-cam" data-mpmode="scan" aria-label="Scan a barcode">' +
               mpIcon('scan') + '</button>' : '') +
+        '</div>' +
         '</div>' +
         mpShelvesHTML() +
         '<div id="mpList">' + body + '</div>' +
@@ -5722,25 +5768,73 @@
       Math.round(left) + '</b></span>';
   }
 
+  /* What the MEAL this sheet is filling still wants — not the day's remainder.
+   *
+     The function was already called mMealLeft and its first two lines read
+     mDayTargets and mDayEaten: named for the meal, returning the day. Blake,
+     looking at a sheet headed ADD TO SNACKS showing 1745 kcal: "the macro
+     pills at the top are for the whole day? why not for the meal I am trying
+     to make?" Snacks was asking for 87. Everything else in the sheet was
+     already meal-scoped — the ranking, and a section that literally says one
+     food that closes Snacks — so the pills were the only thing answering a
+     different question, twenty times larger.
+
+     It matters more since the cascade than it would have last week: a meal's
+     ask is no longer a fixed slice of the day. Overrun dinner and Snacks is
+     asking for less than its plan; share a light breakfast onto it and Snacks
+     is asking for more. The day's remainder cannot show either.
+
+     want − got, which is exactly what the meal card's own pills draw, so the
+     sheet and the card behind it cannot disagree about the same meal. */
   function mMealLeft() {
     var k = mViewKey();
     var targets = mDayTargets(k);
     if (!targets.p && !targets.f && !targets.c) return '';
-    var sub = mDayEaten(k);
-    var pend = Object.keys(S.mpBasket);
-    /* The target's calories are derived because a target is only grams; the
-       day's are stated because a plate states them. That asymmetry is the
-       app's convention everywhere else, the day bar included. */
-    var tK = kcalOf(targets);
-    var eK = sub.kcal;
-    return '<div class="mp-cap">Still to fill' +
-      (pend.length ? ' &middot; basket counted' : '') + '</div>' +
+    var slots = mReadSlots();
+    var sk = S.macroPick && S.macroPick.slot;
+    var ask = sk ? mMealAsk(sk, targets, slots) : null;
+    var want = ask ? (ask.now || ask.plan) : null;
+    if (!want) {
+      /* No meal to speak for — the day is the honest fallback, and says so. */
+      var dsub = mDayEaten(k);
+      return '<div class="mp-cap">The day still wants</div>' +
+        '<div class="mgps">' +
+          mGapPill('kcal', '\uD83D\uDD25', Math.max(0, kcalOf(targets) - dsub.kcal)) +
+          mGapPill('p', 'P', Math.max(0, targets.p - dsub.p)) +
+          mGapPill('f', 'F', Math.max(0, targets.f - dsub.f)) +
+          mGapPill('c', 'C', Math.max(0, targets.c - dsub.c)) +
+        '</div>';
+    }
+    var got = mMealHolds(k, sk);
+    var nm = mSlotOf(slots, sk).n || 'This meal';
+    var closed = ['kcal', 'p', 'f', 'c'].every(function (m) {
+      return (want[m] || 0) - (got[m] || 0) <= 0;
+    });
+    return '<div class="mp-cap">' + esc(closed ? nm + ' is closed' : nm + ' still wants') + '</div>' +
       '<div class="mgps">' +
-        mGapPill('kcal', '\uD83D\uDD25', Math.max(0, tK - eK)) +
-        mGapPill('p', 'P', Math.max(0, targets.p - sub.p)) +
-        mGapPill('f', 'F', Math.max(0, targets.f - sub.f)) +
-        mGapPill('c', 'C', Math.max(0, targets.c - sub.c)) +
+        mGapPill('kcal', '\uD83D\uDD25', Math.max(0, (want.kcal || 0) - got.kcal)) +
+        mGapPill('p', 'P', Math.max(0, (want.p || 0) - got.p)) +
+        mGapPill('f', 'F', Math.max(0, (want.f || 0) - got.f)) +
+        mGapPill('c', 'C', Math.max(0, (want.c || 0) - got.c)) +
       '</div>';
+  }
+
+  /* Everything already on one meal, plus the basket waiting to join it. The
+     basket belongs here and not in the day's version: it is destined for THIS
+     meal, so it is what this meal will hold the moment you press Add. */
+  function mMealHolds(k, sk) {
+    var day = mDay(k);
+    var sub = { p: 0, f: 0, c: 0, kcal: 0 };
+    var addTo = function (r, x) {
+      if (!r || !r.macro) return;
+      sub.p += (r.macro.p || 0) * x; sub.f += (r.macro.f || 0) * x;
+      sub.c += (r.macro.c || 0) * x; sub.kcal += (r.macro.kcal || 0) * x;
+    };
+    (day[sk] || []).forEach(function (it) { addTo(BY_ID[it.id], it.x); });
+    Object.keys(S.mpBasket).forEach(function (bk) {
+      addTo(BY_ID[idOf(bk)], S.mpBasket[bk]);
+    });
+    return sub;
   }
 
   /* Three foods that close the day, one per macro.

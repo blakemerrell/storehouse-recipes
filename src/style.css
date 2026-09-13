@@ -1399,9 +1399,25 @@ select { max-width: 280px; }
   background: none; border: 0; padding: 0; font-family: var(--sans); cursor: pointer;
   text-align: left;
 }
-.mp-foot-c { flex: none; color: var(--muted); font-size: 15px; transform: rotate(-90deg);
+/* Pointing at what it opens. It was a ‹ rotated -90deg, so shut it pointed
+   DOWN at a drawer that rises from the bar — which says the opposite of what
+   happens, and is why the list behind it went unfound. Shut it now points up,
+   open it points down at the way to shut it: the Android shade's rule, and
+   the same one the meal cards were corrected to in v223. */
+.mp-foot-c { flex: none; color: var(--muted); font-size: 13px; transform: rotate(180deg);
   transition: transform .16s ease; }
-.mp-foot-t[aria-expanded="true"] .mp-foot-c { transform: rotate(90deg); }
+.mp-foot-c.open { transform: rotate(0deg); }
+/* The totals and the names, stacked, so the bar says what as well as how
+   much. One line each and both clipped rather than wrapped — a footer that
+   grows a row as you pick things is a footer that moves the commit button. */
+.mp-foot-b { flex: 1 1 auto; min-width: 0; }
+.mp-foot-n {
+  display: block; font-size: 10.5px; color: var(--muted); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mp-foot-n:empty { display: none; }
+.mp-foot-m { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-foot-l { font-style: normal; }
 @media (prefers-reduced-motion: reduce) { .mp-foot-c { transition: none; } }
 /* Pinned right in both states. The button used to inherit its right-hand
    position from the count chip's margin-left:auto in the header; with that
@@ -1413,7 +1429,7 @@ select { max-width: 280px; }
   margin-left: auto;
   padding: 7px 12px; font-family: var(--sans); font-size: 12.5px; font-weight: 600; white-space: nowrap;
 }
-.mp-foot-l { font-size: 11.5px; color: var(--muted); flex: none; }
+.mp-foot-l { font-size: 11.5px; color: var(--muted); }
 .mp-foot-m { font-size: 12px; color: var(--ink); }
 .mp-foot.busts { background: color-mix(in oklab, var(--dial-over) 12%, var(--card)); }
 .mp-foot.busts .mp-foot-l { color: var(--dial-over); font-weight: 600; }
@@ -3447,3 +3463,21 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 /* A spent meal keeps the width too. Its pill says a word rather than a
    figure — 🔥— , nothing left to give — and letting it shrink would break the
    column on exactly the day the columns are worth reading. */
+
+/* The picker's pinned head: what the meal still wants, and the search box.
+   Not the shelves — see the note at the markup. Sits above the rows and
+   below the commit bar, and carries the sheet's own ground so the list does
+   not show through it. */
+.mp-stick {
+  position: sticky; top: 0; z-index: 4;
+  background: var(--card);
+  padding-top: 2px;
+  margin: 0 -2px;
+  padding-left: 2px; padding-right: 2px;
+}
+/* A hairline of shade under the pinned block, so a row scrolling beneath it
+   passes under an edge rather than appearing to be cut off by nothing. */
+.mp-stick::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px;
+  background: linear-gradient(var(--card), transparent); pointer-events: none;
+}

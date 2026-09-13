@@ -3023,34 +3023,80 @@ module.exports = {
       JSON.stringify(dayPanel && { cap: dayPanel.cap, n: dayPanel.pills.length,
         bars: dayPanel.oldBars }));
 
-    /* And it is the remainder, computed the same way the bench computes it —
-       never a literal, which would pass on an app that had stopped
-       subtracting at all. */
-    t.ok('and the protein pill is the target less what is on the day',
-      !!dayPanel && dayPanel.pills.some((x) => x.n === dayPanel.owedP),
-      JSON.stringify({ owed: dayPanel && dayPanel.owedP,
-        pills: dayPanel && dayPanel.pills.map((x) => x.txt) }));
+    /* And it is a remainder rather than a target — still computed and never a
+       literal, which would pass on an app that had stopped subtracting at
+       all. The quantity changed with the scope: it was the DAY's target less
+       what the day holds, and is now this MEAL's ask less what the meal
+       holds. Read off the meal card rather than recomputed here, because the
+       claim that matters is that the two agree. */
+    const owedNow = await dosePg.evaluate(() => {
+      const cap = (document.querySelector('.mp-cap') || {}).textContent || '';
+      const meal = (cap.match(/^(.*?)\s+(?:still wants|is closed)/i) || [, ''])[1].trim();
+      const card = [...document.querySelectorAll('.mslot')].find((c) =>
+        ((c.querySelector('.mslot-name') || {}).textContent || '').trim()
+          .replace(/[^A-Za-z ]/g, '').trim().toLowerCase() === meal.toLowerCase());
+      const pil = card && [...card.querySelectorAll('.mmp')].find((e) =>
+        /^P/.test((e.querySelector('i') || {}).textContent || ''));
+      if (!pil) return null;
+      const got = Number((pil.querySelector('b').textContent.match(/\d+/) || [0])[0]);
+      const want = Number((pil.querySelector('.mmp-t').textContent.match(/\d+/) || [0])[0]);
+      const shown = [...document.querySelectorAll('.mp-left .mgp')]
+        .filter((e) => /P/.test(e.textContent) && !/🔥/.test(e.textContent))
+        .map((e) => Number((e.textContent.match(/\d+/g) || [0]).pop()))[0];
+      return { shown: shown, cardLeft: Math.max(0, want - got) };
+    });
+    t.ok('and the protein pill is this meal\u2019s ask less what the meal holds',
+      !!owedNow && Math.abs(owedNow.shown - owedNow.cardLeft) <= 1,
+      JSON.stringify(owedNow));
 
-    t.ok('and says so, rather than naming a meal or a share',
-      /still to fill/i.test(dayPanel.cap) && !/share/i.test(dayPanel.cap), dayPanel.cap);
+    /* REVERSED. This said "and says so, rather than naming a meal or a share"
+       and asserted the caption did NOT name a meal — the sheet counted the
+       day, so naming one would have been a lie. Blake, looking at a sheet
+       headed ADD TO SNACKS reading 1745 kcal while Snacks was asking for 87:
+       "the macro pills at the top are for the whole day? why not for the meal
+       I am trying to make?"
 
-    /* The flame agrees with the day bar, because both read the calories the
-       plates STATE. This sheet used to derive them back out of the grams —
-       4P + 4C + 9F — which is how a target becomes calories, a target being
-       grams and having no other answer, but not how a plate does. So the same
-       day carried two eaten-calorie totals, and a food typed in with only its
-       calories had no grams to derive from and counted as nothing at all. */
+       So the pills answer the meal now, and the caption has to name it or the
+       figure has no scope at all. Everything else in this sheet was already
+       meal-scoped — the ranking, and a section that says one food that closes
+       Snacks — and the pills were the only thing left answering the day. */
+    t.ok('and names the meal it is counting, because it counts a meal now',
+      /still wants|is closed/i.test(dayPanel.cap) && /\w/.test(dayPanel.cap),
+      dayPanel.cap);
+
+    /* The flame in the sheet agrees with the flame on the card behind it.
+     *
+       This used to assert the sheet's flame equalled the DAY's remainder, and
+       that it was summed from what the plates state rather than derived back
+       out of their grams — two eaten-calorie totals for one day. That second
+       worry is gone: since one calorie became 4P+4C+9F everywhere, summing
+       and deriving are the same operation, and recipes.test.js guards it at
+       the record.
+
+       What is worth pinning now is scope. The sheet fills one meal and the
+       card for that meal is directly behind it, so the two have to agree
+       about the same meal or the sheet invites food the card calls a bust —
+       which is the exact failure this file already records at mShares. */
     const flame = await dosePg.evaluate(() => {
-      const L = window.__macroLab, T = L.targets(), tot = L.read().tot;
       const pill = [...document.querySelectorAll('.mp-left .mgp')]
         .find((e) => /🔥/.test(e.textContent));
-      return { shown: Number((pill.textContent.match(/\d+/g) || [0]).pop()),
-        stated: Math.max(0, Math.round(Math.round(4 * T.p + 4 * T.c + 9 * T.f) - tot.kcal)),
-        derived: Math.max(0, Math.round(Math.round(4 * T.p + 4 * T.c + 9 * T.f)
-          - (4 * tot.p + 4 * tot.c + 9 * tot.f))) };
+      const shown = Number((pill.textContent.match(/\d+/g) || [0]).pop());
+      /* The same figure off the meal card: its calorie pill is got/want, and
+         what the sheet reports is what is left of that. */
+      const cap = (document.querySelector('.mp-cap') || {}).textContent || '';
+      const meal = (cap.match(/^(.*?)\s+(?:still wants|is closed)/i) || [, ''])[1].trim();
+      const card = [...document.querySelectorAll('.mslot')].find((c) =>
+        ((c.querySelector('.mslot-name') || {}).textContent || '').trim()
+          .replace(/[^A-Za-z ]/g, '').trim().toLowerCase() === meal.toLowerCase());
+      const t2 = card && card.querySelector('.mmp.kc');
+      const got = t2 ? Number((t2.querySelector('b').textContent.match(/\d+/) || [0])[0]) : null;
+      const want = t2 ? Number((t2.querySelector('.mmp-t').textContent.match(/\d+/) || [0])[0]) : null;
+      return { shown: shown, meal: meal, got: got, want: want,
+        cardLeft: (got === null ? null : Math.max(0, want - got)) };
     });
-    t.ok('the flame counts the calories the plates state, as the day bar does',
-      flame.shown === flame.stated, JSON.stringify(flame));
+    t.ok('the flame in the sheet is the same gap the meal card is showing',
+      flame.cardLeft !== null && Math.abs(flame.shown - flame.cardLeft) <= 1,
+      JSON.stringify(flame));
     await dosePg.context().close();
 
     /* The verdict, per macro, on the row that already existed.
@@ -4917,6 +4963,92 @@ module.exports = {
       !!emptyCard && emptyCard.kids.length === 1 && /mslot-acts/.test(emptyCard.kids[0]),
       JSON.stringify(emptyCard));
     await trimPg.context().close();
+
+    /* ---- the picker speaks for the meal it is filling ---------------------
+     *
+     * Blake, on a sheet headed ADD TO SNACKS showing 1745 kcal while Snacks
+     * was asking for 87: "the macro pills at the top are for the whole day?
+     * why not for the meal I am trying to make?" The function was already
+     * called mMealLeft and its first two lines read mDayTargets/mDayEaten. */
+    const pk = await t.fresh();
+    await pk.evaluate(() => {
+      const d = new Date();
+      const k = d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) +
+        '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [], l: [], d: [], s: [] } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 }));
+    });
+    await pk.reload();
+    await pk.waitForTimeout(400);
+    await pk.click('.tab[data-view="macros"]');
+    await pk.waitForTimeout(350);
+    await openDay(pk);
+    await pk.click('.mslot-add[data-mslot="s"]');
+    await pk.waitForTimeout(450);
+
+    const pkRead = await pk.evaluate(() => {
+      const pills = [...document.querySelectorAll('.mp-left .mgp')]
+        .map((e) => Number((e.textContent.match(/\d+/g) || [0]).pop()));
+      const T = window.__macroLab.targets();
+      const tot = window.__macroLab.read().tot;
+      return { pills: pills, cap: (document.querySelector('.mp-cap') || {}).textContent || '',
+        dayKcal: Math.round(4 * T.p + 4 * T.c + 9 * T.f - tot.kcal),
+        dayP: Math.round(T.p - tot.p) };
+    });
+    t.ok('the sheet names the meal it is filling', /Snacks/i.test(pkRead.cap), pkRead.cap);
+    /* The load-bearing one. On an untouched day the DAY's remainder is the
+       whole target, and a snack's share is a fraction of it — so a pill still
+       reading the day's number is caught here and nowhere else. Asserted as
+       "much smaller", not "different", because a scope bug that happened to
+       be off by one would still be a scope bug. */
+    t.ok('and its pills are the meal\u2019s share, not the whole day\u2019s',
+      pkRead.pills[0] > 0 && pkRead.pills[0] < pkRead.dayKcal * 0.6 &&
+      pkRead.pills[1] > 0 && pkRead.pills[1] < pkRead.dayP * 0.6,
+      JSON.stringify(pkRead));
+
+    /* Sticky: the target and the search box, and NOT the shelves. All three
+       is 280 px of a 560 px sheet. */
+    const pkStick = await pk.evaluate(() => {
+      const st = document.querySelector('.mp-stick');
+      if (!st) return { none: true };
+      return { pills: !!st.querySelector('.mp-left'), find: !!st.querySelector('#mpFind'),
+        shelves: !!st.querySelector('[data-mpshelf]'),
+        pos: getComputedStyle(st).position };
+    });
+    t.ok('the meal\u2019s target and the search box are pinned',
+      pkStick.pos === 'sticky' && pkStick.pills && pkStick.find, JSON.stringify(pkStick));
+    t.ok('and the shelves are not, because a filter is set once and read past',
+      pkStick.shelves === false, JSON.stringify(pkStick));
+
+    /* The basket bar says WHAT, not only how many. */
+    await pickerList(pk);
+    await pk.waitForTimeout(250);
+    const pkName = await pk.evaluate(() => {
+      const row = document.querySelector('.mpick-row[data-mpick]');
+      const nm = row ? (row.querySelector('.mp-name') || {}).textContent || '' : '';
+      if (row) row.click();
+      return nm.trim();
+    });
+    await pk.waitForTimeout(350);
+    const pkFoot = await pk.evaluate(() => ({
+      names: (document.querySelector('.mp-foot-n') || {}).textContent || '',
+      chevOpen: !!document.querySelector('.mp-foot-c.open'),
+      done: (document.querySelector('.mp-done') || {}).textContent || '',
+    }));
+    t.ok('the basket bar names what is in it',
+      !!pkName && pkFoot.names.length > 0 &&
+      pkFoot.names.slice(0, 12) === pkName.slice(0, 12),
+      JSON.stringify({ picked: pkName, bar: pkFoot.names }));
+    /* Shut, the chevron points at what it opens — the drawer rises from the
+       bar. It used to be a left-pointing ‹ rotated to point DOWN, which is
+       why the list behind it went unfound. */
+    t.ok('and its chevron points up at the drawer while the drawer is shut',
+      pkFoot.chevOpen === false, JSON.stringify(pkFoot));
+    await pk.click('.mp-foot-t');
+    await pk.waitForTimeout(300);
+    t.ok('and turns over once the drawer is open',
+      await pk.evaluate(() => !!document.querySelector('.mp-foot-c.open')));
+    await pk.context().close();
 
     /* ---- the cascade -----------------------------------------------------
      *
