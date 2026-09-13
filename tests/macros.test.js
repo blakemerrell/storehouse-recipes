@@ -4973,6 +4973,12 @@ module.exports = {
     const czPlans = await czReadAsk(casc);
     await casc.click('.mday-dot[data-mdot="b"]');
     await casc.waitForTimeout(400);
+    /* The line lives INSIDE the meal's fold now — Blake's call, because a
+       question about a meal should not outlive shutting that meal. So the
+       meal has to be open to be read, exactly as it is on his phone when he
+       finishes one. */
+    await openDay(casc);
+    await casc.waitForTimeout(250);
     const czSpread = await czReadAsk(casc);
     const czGain = {
       l: czSpread.Lunch - czPlans.Lunch,
@@ -5032,6 +5038,50 @@ module.exports = {
       czHeld.Snacks < czSpread.Snacks, JSON.stringify(czHeld));
     t.ok('and says the day will end short rather than naming an attitude',
       /You keep the \d+/.test((await czLine(casc)).sub), JSON.stringify(await czLine(casc)));
+
+    /* Shutting the meal takes the line with it.
+     *
+       It used to sit OUTSIDE the card so that a folded meal could still say
+       what its miss did. Blake, off his own day: "the overage tag is still
+       seen even after I closed the meal tag... as soon as I select that share
+       or steal, I'd expect the macro pills to update and then when I close
+       the card it's not seen any more." Shutting a meal is how you say you
+       are done with it. The pills keep the answer, and they are on the header,
+       which a shut card keeps. */
+    await casc.click('#macroSlots [data-mfold="b"]');
+    await casc.waitForTimeout(350);
+    t.ok('shutting the meal takes its line with it',
+      await casc.evaluate(() => !document.querySelector('.mcasc')));
+    t.ok('and the pills on the shut header still carry the answer',
+      await casc.evaluate(() => {
+        const c = [...document.querySelectorAll('.mslot')].filter((x) =>
+          /Dinner/.test((x.querySelector('.mslot-name') || {}).textContent || ''))[0];
+        const t2 = c && c.querySelector('.mmp.kc .mmp-t');
+        return !!t2 && Number(t2.textContent.replace(/[^0-9]/g, '')) > 0;
+      }));
+    await openDay(casc);
+    await casc.waitForTimeout(250);
+
+    /* ---- pills the same size, always --------------------------------------
+     * Blake: "Can I get uniform pills on the meal cards, always the same
+     * size?" They were shrink-to-fit, so 🔥600/98 wore a narrower box than
+     * 🔥1104/586 and the four boxes landed somewhere different on every card.
+     * Asserted across the WHOLE day, because the point is that they line up
+     * between cards and not merely within one. */
+    const czWidths = await casc.evaluate(() => {
+      const kc = [], mac = [];
+      document.querySelectorAll('.mslot .mmp').forEach((e) => {
+        const w = Math.round(e.getBoundingClientRect().width * 10) / 10;
+        (e.classList.contains('kc') ? kc : mac).push(w);
+      });
+      const spread = (a) => a.length ? Math.max.apply(null, a) - Math.min.apply(null, a) : 0;
+      return { kc: kc.length, mac: mac.length, kcSpread: spread(kc), macSpread: spread(mac),
+        kcW: kc[0], macW: mac[0] };
+    });
+    t.ok('every calorie pill in the day is exactly as wide as every other',
+      czWidths.kc >= 4 && czWidths.kcSpread === 0, JSON.stringify(czWidths));
+    t.ok('and so is every macro pill',
+      czWidths.mac >= 12 && czWidths.macSpread === 0, JSON.stringify(czWidths));
 
     /* It survives a reload, because the choice is a fact about the day and
        not a thing this render happened to be holding. */

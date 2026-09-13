@@ -3383,3 +3383,55 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    where it is the one row a card always has. */
 .mw-verdict.mw-open { padding-top: 7px; margin-top: 7px; border-top: 1px solid var(--line-soft); }
 .mslot-name .mfold-cue { margin-left: 5px; }
+
+/* ---- pills the same size, always ----------------------------------------
+ *
+ * Blake: "Can I get uniform pills on the meal cards, always the same size?"
+ * They were shrink-to-fit, so a meal reading 🔥600/98 wore a narrower box
+ * than one reading 🔥1104/586, and the four boxes landed in a different place
+ * on every card. Nothing lines up down a day of six meals, and comparing two
+ * meals by eye means reading both rather than seeing them.
+ *
+ * The widths are the measured maxima of the widest day the app can draw —
+ * 🔥1400/533 at 65.3 px and P126/70 at 48.5 px — rounded up by a hair. Picked
+ * as maxima and not as a comfortable middle deliberately: a floor that the
+ * occasional four-digit meal overflows is not uniform, it is uniform except
+ * when it matters. The same reasoning, and the same two-width split, as the
+ * folded pills at v214.
+ *
+ * This is the width-critical row in the app. Re-measure before changing a
+ * pill, a gap or a font size here: at 390 the header spends 338 px of 356.
+ */
+/* The width had to come from somewhere. At the natural maxima the four boxes
+   take 239 px of a 336 px row and leave 70 for the name, so BREAKFAST clips on
+   every card at 390 — uniform bought at the price of the one word that says
+   which meal it is. So the denominator and the padding give it back: the
+   denominator is context, not the number you read, and it was set only one
+   step down from the figure it qualifies. */
+.mmp { padding: 1px 2px; justify-content: center; min-width: 44px; }
+.mmp.kc { min-width: 59px; }
+.mmp-t { font-size: 7.5px; }
+/* Two pixels over, at 390, is the difference between one row and two: the
+   header spends 15 (dot) + 18 (three 6px gaps) + 78 (BREAKFAST) + 227 (pills)
+   = 338 of the 336 it has. The gap gives it back — 4px still separates a dot
+   from a word, and nothing else on the row is negotiable without losing
+   either the name or the uniformity. */
+/* BOTH headers. A meal with food wears button.mslot-head; an empty one and
+   the weigh-in card wear div.mslot-h. They are the same row to a reader and
+   have to behave the same, and styling only one of them is why this looked
+   fixed on an empty day and wrapped on a real one. */
+.mslot-h, .mslot-head { column-gap: 4px; }
+/* On a phone with room, the row does not wrap — the NAME gives way instead.
+   With flex-wrap on, a header one pixel too wide moves the whole strip of
+   pills to a second line rather than shortening the word, which is the
+   expensive way to lose the argument: a clipped BREAKFAST still says which
+   meal it is, a second row costs 15 px on every card. Below 375 there is not
+   enough room for that trade and the strip takes its own line, still uniform.
+   The name already carries text-overflow: ellipsis; this lets it reach it. */
+@media (min-width: 375px) {
+  .mslot-h, .mslot-head { flex-wrap: nowrap; }
+  .mslot-h .mslot-name, .mslot-head .mslot-name { min-width: 2.4em; }
+}
+/* A spent meal keeps the width too. Its pill says a word rather than a
+   figure — 🔥— , nothing left to give — and letting it shrink would break the
+   column on exactly the day the columns are worth reading. */

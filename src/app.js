@@ -3568,12 +3568,18 @@
                   'aria-label="Add food to ' + esc(name) + '">&#43;</button>' +
                 '</div>'
               : '') +
+            /* INSIDE the fold, and last. It was outside the card on the
+               reasoning that a folded meal should still be able to say what
+               its miss did — which was wrong about what folding means. Blake,
+               on his own day: "the overage tag is still seen even after I
+               closed the meal tag". Shutting a meal is how you say you are
+               done with it, and the line is a question about that meal; a
+               question that outlives being dismissed is a nag. The pills
+               carry the answer afterwards, and they are on the header, which
+               a folded card keeps. */
+            (onPlan ? mCascadeLineHTML(sk, targets, slots) : '') +
           '</div>') +
-      '</div>' +
-      /* Outside the card, under it. It belongs to the meal but it is not part
-         of it — a folded meal still has to be able to say what its miss did,
-         and putting it inside would hide the news with the plates. */
-      (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');
+      '</div>';
     };
     var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');
     var onPlanKeys = slots.list.map(function (s) { return s.k; });
