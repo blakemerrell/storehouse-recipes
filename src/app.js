@@ -667,6 +667,11 @@
     /* Which eaten plate has had its portion woken up for a correction. One at
        a time, and never persisted: it is a gesture, not a setting. */
     mEdit: '',
+    /* Which plate has its portion open as a typed box, or null for none. One
+       at a time and never persisted, for the same reason mEdit is not: it is
+       a gesture. null rather than '' so "nothing is being typed" and "the box
+       holds an empty string" can never be the same state. */
+    mType: null,
     /* Which day's summary card is open, or '' for none. A day key rather than
        a boolean, because the card can be opened for any day from the menu and
        not only for the one just closed. */
@@ -3075,13 +3080,54 @@
     patty: 1, scoop: 1, packet: 1, can: 1, bag: 1 };
 
   function mStepRule(r) {
-    if (!r || !r.food) return { step: 0.25, max: 8 };   // servings of a dish
+    /* A dish keeps a ceiling, because x means MULTIPLES OF A SERVING there
+       and the recipe panel has scaled one a quarter to eight times since the
+       app was built. Eight servings of one dish is the end of the question. */
+    if (!r || !r.food) return { step: 0.25, max: 8 };
     var unit = String(mUnitWord(r) || '').toLowerCase();
     var step = MSTEP_COUNT[unit] || 0.25;
-    /* A ceiling a real plate cannot reach, kept only so a stuck key cannot
-       write nine thousand. Counts get the loose one; a food measured in cups
-       or ounces is still a food and gets the same. */
-    return { step: step, max: 99 };
+    /* A food has NO ceiling. Blake: "why even have a cap? Probably can remove
+       it for foods." He is right, and the reasoning is the same one that made
+       four wrong: x is a count of the thing itself, so a ceiling is the app
+       deciding how much of it a person may eat. Ninety-nine was as arbitrary
+       as four; it only bit less often.
+     *
+       Nothing downstream wanted the bound either. The cost line and the day's
+       bars are computed from x and redraw as it moves, the bars clamp their
+       own fills, and a number typed wrong is one tap from right. Only the
+       ARITHMETIC has to hold, which is what the guard below is for: a portion
+       must stay a positive, finite number. */
+    return { step: step, max: Infinity };
+  }
+
+  /* The sizes the solver may PROPOSE for one plate.
+   *
+     Coordinate descent used a single global ladder — MX_ALL, a quarter to
+     four — for every plate on the day. That is the right ladder for servings
+     of a dish and the wrong one for a count of a thing: it could never offer
+     eighteen nuts or two hundred grams, only snap toward four. Hand-stepping
+     past it survived by luck rather than design, because `best` starts at the
+     plate's current size and a bigger one wins on a day still under target —
+     on a day gone OVER the same code walks it back down to four.
+   *
+     So the ladder follows the food: its own step, the low end kept so the
+     solver can still shrink a plate to nothing much, and a dozen rungs either
+     side of where the plate actually sits so it can be tuned rather than
+     replaced. Bounded in length because the descent runs this for every free
+     plate on every pass. */
+  function mLadder(r, x) {
+    if (!r || !r.food) return MX_ALL;
+    var step = mStepRule(r).step;
+    var here = Number(x) > 0 ? Number(x) : step;
+    var seen = {}, out = [];
+    var put = function (v) {
+      v = Math.round(v / step) * step;
+      v = Math.round(v * 1000) / 1000;
+      if (v >= step && !seen[v]) { seen[v] = 1; out.push(v); }
+    };
+    for (var i = 1; i <= 12; i++) put(i * step);        // the low end, always
+    for (var j = -6; j <= 6; j++) put(here + j * step); // and where it sits now
+    return out.sort(function (a, b) { return a - b; });
   }
 
   /* One step, in whichever direction, under that rule. Shared because the two
@@ -3094,6 +3140,32 @@
     next = Math.round(next / rule.step) * rule.step;
     next = Math.max(rule.step, Math.min(rule.max, next));
     return Math.round(next * 1000) / 1000;
+  }
+
+  /* The portion as a number you could type, and back again.
+   *
+     They are not the same number. For everything counted in its own units — a
+     nut, a slice, a serving, a cup — x IS the count and the conversion is the
+     identity. For a food measured in grams it is not: mPortion shows
+     r.grams * x, so the 185 on screen is a weight and the x behind it is a
+     multiple of one portion of that food. Typing 185 and storing 185 would be
+     storing a hundred and eighty-five servings. */
+  function mGramBase(r) { return (r && r.grams) || 100; }
+
+  function mTypedFromX(r, x) {
+    var n = String(mUnitWord(r) || '').toLowerCase() === 'g'
+      ? (Number(x) || 0) * mGramBase(r) : (Number(x) || 0);
+    return Math.round(n * 100) / 100;
+  }
+
+  function mXFromTyped(r, n) {
+    var v = String(mUnitWord(r) || '').toLowerCase() === 'g'
+      ? (Number(n) || 0) / mGramBase(r) : (Number(n) || 0);
+    /* The only bound left, and it is arithmetic rather than policy: a portion
+       has to be a positive, finite number or every figure downstream of it is
+       NaN. There is no ceiling — see mStepRule. */
+    if (!isFinite(v) || v <= 0) return null;
+    return Math.round(v * 10000) / 10000;
   }
 
   function mPortion(r, x) {
@@ -3407,8 +3479,25 @@
              holds the four numbers and nothing else — it keeps its own nowrap
              so the figure drops to the next line whole rather than breaking
              across two, and .mitem-meta is the thing that wraps. */
+          /* The weight, beside what it costs.
+           *
+             Blake: "sometimes it's just easier for me to measure the food on
+             a scale than using cups." It is, and a kitchen scale is the only
+             honest instrument in the room — a cup of oats is a range and 40 g
+             of oats is 40 g. Every one of the 221 foods in the table carries
+             unit-to-gram weights, so this is a fact the app already had.
+           *
+             It HAD it on the plate, too, until the provenance row was deleted
+             and took mPortion's detail with it: "1 cup · 130 g" became
+             "1 cup". That was named as the cost of removing the row and it
+             was accepted, and then real use found it — which is the right
+             order for that to happen in, and the reason it comes back here
+             rather than the row coming back with it. It belongs beside the
+             cost, where the other measured facts about this plate are, and
+             not beside the shelf the food came from. */
           '<span class="mitem-meta">' +
               '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+              (port.detail ? '<span class="mitem-g">' + esc(port.detail) + '</span>' : '') +
               mSaltChip(r, it.x) +
             '</span>' +
           '<span class="mitem-r2">' +
@@ -3423,10 +3512,34 @@
               /* The portion, in the units it is a portion OF. It read "×1¾"
                  for as long as the tab has existed, which names the
                  arithmetic and not the food. */
-              (it.eaten && S.mEdit !== tag
+              /* Three states, because a portion is read far more often than
+                 it is changed and changed far more often than it is stepped.
+               *
+                 The dial got you from one to two. It never got you to thirty
+                 nuts or a hundred and eighty-five grams: at a step a tap that
+                 is twenty-nine taps and seven hundred and forty. The ceiling
+                 was never really what stopped you — Blake found the ceiling
+                 first because it stops you sooner, but the stepper is what
+                 makes a food logger unusable at any size worth logging.
+               *
+                 So the number is a button, and pressing it lets you type one.
+                 The unit stays put beside the box: x is a count in the food's
+                 own unit and that is the only thing being typed — no parsing
+                 of "2 cups" into anything, no guessing which of two units a
+                 bare number meant. */
+              (S.mType === tag
+                ? '<span class="mstep-x mstep-typing">' +
+                    '<input class="mstep-in" type="text" inputmode="decimal" ' +
+                      'autocomplete="off" data-mtypein="' + tag + '" ' +
+                      'aria-label="Portion, in ' + esc(mUnitWord(r)) + '" ' +
+                      'value="' + esc(String(mTypedFromX(r, it.x))) + '">' +
+                    '<i>' + esc(mUnitWord(r) === 'each' ? 'whole' : mUnitWord(r)) + '</i>' +
+                  '</span>'
+                : it.eaten && S.mEdit !== tag
                 ? '<button class="mstep-x mstep-wake" data-medit="' + tag +
                   '" title="Correct this portion">' + esc(port.head) + '</button>'
-                : '<span class="mstep-x">' + esc(port.head) + '</span>') +
+                : '<button class="mstep-x mstep-type" data-mtype="' + tag +
+                  '" title="Type a portion">' + esc(port.head) + '</button>') +
               '<button data-mstep="' + tag + ':up"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
                 ' aria-label="Bigger portion">+</button>' +
             '</span>' +
@@ -8086,10 +8199,13 @@
       var moved = false;
       free.forEach(function (it) {
         var was = it.x, best = it.x, bestPen = pen();
-        for (var i = 0; i < MX_ALL.length; i++) {
-          it.x = MX_ALL[i];
+        /* Per plate, not one ladder for the day: a dish is sized in servings
+           and a food in whatever it is counted in. See mLadder. */
+        var rungs = mLadder(BY_ID[it.id], it.x);
+        for (var i = 0; i < rungs.length; i++) {
+          it.x = rungs[i];
           var pv = pen();
-          if (pv < bestPen - 1e-9) { bestPen = pv; best = MX_ALL[i]; }
+          if (pv < bestPen - 1e-9) { bestPen = pv; best = rungs[i]; }
         }
         it.x = best;
         if (best !== was) moved = true;
@@ -8269,10 +8385,12 @@
         var moved = false;
         free.forEach(function (it) {
           var was = it.x, best = it.x, bestPen = pen();
-          for (var i = 0; i < MX_ALL.length; i++) {
-            it.x = MX_ALL[i];
+          /* The same per-plate ladder mBalanceDay uses — see mLadder. */
+          var rungs = mLadder(BY_ID[it.id], it.x);
+          for (var i = 0; i < rungs.length; i++) {
+            it.x = rungs[i];
             var pv = pen();
-            if (pv < bestPen - 1e-9) { bestPen = pv; best = MX_ALL[i]; }
+            if (pv < bestPen - 1e-9) { bestPen = pv; best = rungs[i]; }
           }
           it.x = best;
           if (best !== was) moved = true;
@@ -11520,6 +11638,19 @@
       var ed = e.target.closest('[data-medit]');
       if (ed) { S.mEdit = ed.dataset.medit; keepingFocus(renderMacros); return; }
 
+      /* Tap the number, type a number. The render puts a box where the words
+         were; this focuses it and selects what is in it, so the first key
+         replaces the portion rather than appending to it — nobody taps a
+         portion in order to add a digit to the end of it. */
+      var ty = e.target.closest('[data-mtype]');
+      if (ty) {
+        S.mType = ty.dataset.mtype;
+        renderMacros();
+        var box = $('macroSlots').querySelector('.mstep-in');
+        if (box) { box.focus(); box.select(); }
+        return;
+      }
+
       /* Not eating this one today. It toggles, and the share it was holding
          goes back to the meals that are actually happening — which is the
          difference between a skip and an empty meal. */
@@ -11678,6 +11809,40 @@
         });
         keepingFocus(renderMacros);
       }
+    });
+
+    /* Committing a typed portion, and the two ways out of it.
+     *
+       Enter commits and blur commits, because a phone has no Enter worth
+       relying on and tapping elsewhere is what "I am done" looks like there.
+       Escape leaves the portion as it was. Nothing is written while typing:
+       a re-render mid-keystroke would take the box away under the thumb. */
+    function mCommitTyped(box) {
+      if (!box || !box.dataset.mtypein) return;
+      var sp = box.dataset.mtypein.split(':');
+      var typed = parseFloat(String(box.value).replace(/[^0-9.]/g, ''));
+      S.mType = null;
+      mEditDay(mViewKey(), function (day) {
+        var it = (day[sp[0]] || [])[Number(sp[1])];
+        if (!it) return;
+        var nx = mXFromTyped(BY_ID[it.id], typed);
+        /* Nonsense is not a portion. An empty box, a stray letter or a nought
+           leaves the plate exactly as it was rather than writing a zero and
+           quietly taking the food off the day's arithmetic. */
+        if (nx !== null) it.x = nx;
+      });
+      renderMacros();
+    }
+
+    $('macroSlots').addEventListener('keydown', function (e) {
+      if (!e.target.classList || !e.target.classList.contains('mstep-in')) return;
+      if (e.key === 'Enter') { e.preventDefault(); mCommitTyped(e.target); return; }
+      if (e.key === 'Escape') { e.preventDefault(); S.mType = null; renderMacros(); }
+    });
+    $('macroSlots').addEventListener('focusout', function (e) {
+      if (!e.target.classList || !e.target.classList.contains('mstep-in')) return;
+      if (S.mType === null) return;                 // already committed by Enter
+      mCommitTyped(e.target);
     });
 
     $('macroSlots').addEventListener('change', function (e) {

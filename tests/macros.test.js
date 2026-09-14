@@ -8138,6 +8138,190 @@ module.exports = {
       (await readX()) > 0, JSON.stringify({ x: await readX() }));
     await qty.context().close();
 
+    /* ---- what it weighs --------------------------------------------------
+     * Blake: "sometimes it's just easier for me to measure the food on a scale
+     * than using cups." A cup of oats is a range; 40 g of oats is 40 g. The
+     * weight was on the plate until the provenance row was deleted and took
+     * mPortion's detail with it — named as that removal's cost at the time,
+     * and then found in use, which is the right order. It is back beside the
+     * cost rather than beside the shelf the food came from. */
+    const wg = await t.fresh();
+    await wg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 55, c: 120 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:cheddar', x: 1, eaten: 0 }], l: [], d: [], s: [] } }));
+    });
+    await wg.reload();
+    await wg.waitForTimeout(400);
+    await wg.click('.tab[data-view="macros"]');
+    await wg.waitForTimeout(300);
+    await wg.evaluate(() => {
+      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await wg.waitForTimeout(300);
+    const weighed = await wg.evaluate(() => {
+      const row = document.querySelector('#macroSlots .mitem');
+      const g = row.querySelector('.mitem-g');
+      const mac = row.querySelector('.mitem-mac');
+      if (!g || !mac) return null;
+      const gb = g.getBoundingClientRect(), mb = mac.getBoundingClientRect();
+      return { text: g.textContent.trim(),
+        portion: (row.querySelector('.mstep-x') || {}).textContent.trim(),
+        /* on the cost line, not on a line of its own */
+        sameLine: Math.abs(gb.top - mb.top) < 6,
+        quieter: parseFloat(getComputedStyle(g).fontSize) <=
+          parseFloat(getComputedStyle(mac).fontSize) };
+    });
+    t.ok('a plate measured in cups also says what it weighs',
+      !!weighed && /\d+\s*g$/.test(weighed.text), JSON.stringify(weighed));
+    t.ok('and it says it on the cost line, where the eye already is',
+      !!weighed && weighed.sameLine, JSON.stringify(weighed));
+    t.ok('and quieter than the cost, being how you measure it rather than what it costs',
+      !!weighed && weighed.quieter, JSON.stringify(weighed));
+    /* And it follows the portion: doubling the plate doubles the weight. */
+    await wg.click('#macroSlots [data-mstep$=":up"]');
+    await wg.waitForTimeout(250);
+    t.ok('and the weight follows the portion rather than standing still',
+      await wg.evaluate((was) => {
+        const g = document.querySelector('#macroSlots .mitem-g');
+        return !!g && g.textContent.trim() !== was;
+      }, weighed.text),
+      await wg.evaluate(() => (document.querySelector('#macroSlots .mitem-g') || {}).textContent));
+    await wg.context().close();
+
+    /* ---- typing a portion ------------------------------------------------
+     * Blake: "why even have a cap? Probably can remove it for foods." Right,
+     * and the cap was never what stopped him: thirty nuts is twenty-nine taps
+     * and a hundred and eighty-five grams is seven hundred and forty. The dial
+     * gets you from one to two. A logger has to let you say the number.
+     *
+     * The unit stays beside the box and only the count is typed, so there is
+     * nothing to parse and no way for a bare number to mean two things. */
+    const typ = await t.fresh();
+    await typ.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.myFoods', JSON.stringify({
+        corn_nuts: { name: 'Corn nuts', unit: 'nut', kcal: 4, p: 0, f: 0.2, c: 0.6 },
+        rice: { name: 'Rice, cooked', unit: 'g', kcal: 130, p: 2.7, f: 0.3, c: 28 } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 55, c: 120 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:my:corn_nuts', x: 1, eaten: 0 },
+            { id: 'f:my:rice', x: 1, eaten: 0 }], l: [], d: [], s: [] } }));
+    });
+    await typ.reload();
+    await typ.waitForTimeout(400);
+    await typ.click('.tab[data-view="macros"]');
+    await typ.waitForTimeout(300);
+    await typ.evaluate(() => {
+      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await typ.waitForTimeout(300);
+    const plate = (n) => typ.evaluate((i) => {
+      const e = document.querySelectorAll('#macroSlots .mitem')[i];
+      return { portion: (e.querySelector('.mstep-x') || {}).textContent.trim(),
+        mac: (e.querySelector('.mitem-mac') || {}).textContent };
+    }, n);
+
+    await typ.click('#macroSlots .mitem:nth-of-type(1) [data-mtype]');
+    await typ.waitForTimeout(200);
+    t.ok('tapping a portion opens a box holding the number that was there',
+      (await typ.inputValue('#macroSlots .mstep-in')) === '1',
+      await typ.inputValue('#macroSlots .mstep-in'));
+    await typ.fill('#macroSlots .mstep-in', '30');
+    await typ.keyboard.press('Enter');
+    await typ.waitForTimeout(300);
+    const nuts = await plate(0);
+    t.ok('and typing thirty makes it thirty, in the food own word',
+      /^30\s*nuts?$/.test(nuts.portion), JSON.stringify(nuts));
+    t.ok('and the cost follows it rather than the number alone moving',
+      /^120 kcal/.test(nuts.mac), JSON.stringify(nuts));
+
+    /* Grams are the case where the number on screen is NOT x: mPortion shows
+       r.grams * x, so typing 185 and storing 185 would store a hundred and
+       eighty-five portions of it. */
+    await typ.click('#macroSlots .mitem:nth-of-type(2) [data-mtype]');
+    await typ.waitForTimeout(200);
+    t.ok('a food measured in grams opens on its grams, not on its multiplier',
+      (await typ.inputValue('#macroSlots .mstep-in')) === '100',
+      await typ.inputValue('#macroSlots .mstep-in'));
+    await typ.fill('#macroSlots .mstep-in', '185');
+    await typ.keyboard.press('Enter');
+    await typ.waitForTimeout(300);
+    const rice = await plate(1);
+    t.ok('and typing its grams shows those grams back', /^185\s*g$/.test(rice.portion),
+      JSON.stringify(rice));
+    t.ok('and 185 g of it costs 185 g worth', /^233 kcal/.test(rice.mac),
+      JSON.stringify(rice));
+    t.ok('and what is stored is the multiplier, not the weight',
+      await typ.evaluate(() => {
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const k = Object.keys(d).sort().pop();
+        return (d[k].b.filter((i) => i.id === 'f:my:rice')[0] || {}).x === 1.85;
+      }),
+      await typ.evaluate(() => {
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const k = Object.keys(d).sort().pop();
+        return JSON.stringify(d[k].b);
+      }));
+
+    /* Nonsense is not a portion. An empty box or a stray letter leaves the
+       plate as it was rather than writing a nought and quietly taking the
+       food off the day arithmetic. */
+    await typ.click('#macroSlots .mitem:nth-of-type(1) [data-mtype]');
+    await typ.waitForTimeout(200);
+    await typ.fill('#macroSlots .mstep-in', 'abc');
+    await typ.keyboard.press('Enter');
+    await typ.waitForTimeout(300);
+    t.ok('and nonsense typed into it changes nothing',
+      /^30\s*nuts?$/.test((await plate(0)).portion), JSON.stringify(await plate(0)));
+    await typ.click('#macroSlots .mitem:nth-of-type(1) [data-mtype]');
+    await typ.waitForTimeout(200);
+    await typ.fill('#macroSlots .mstep-in', '0');
+    await typ.keyboard.press('Enter');
+    await typ.waitForTimeout(300);
+    t.ok('and nor does a nought, which is not a portion either',
+      /^30\s*nuts?$/.test((await plate(0)).portion), JSON.stringify(await plate(0)));
+
+    /* And the solver may now PROPOSE a size a food actually comes in.
+     *
+       Asserted by making it climb, not by leaving a big number alone: the
+       descent starts from the plate's current size and only moves if a rung
+       beats it, so a hand-set thirty survives the old quarter-to-four ladder
+       too — on a day still under target, where bigger always scores better.
+       That made the first version of this test pass against the very code it
+       was written to catch. Starting LOW is what separates them: the old
+       ladder could not offer more than four of anything, whatever the day
+       wanted. */
+    await typ.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:my:corn_nuts', x: 1, eaten: 0 }], l: [], d: [], s: [] } }));
+    });
+    await typ.reload();
+    await typ.waitForTimeout(400);
+    await typ.click('.tab[data-view="macros"]');
+    await typ.waitForTimeout(300);
+    await typ.evaluate(() => {
+      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await typ.waitForTimeout(300);
+    await typ.click('#macroRebal');
+    await typ.waitForTimeout(700);
+    const reb = await plate(0);
+    t.ok('Rebalance can offer more of a food than a dish ceiling ever allowed',
+      Number((reb.portion.match(/[\d.]+/) || [0])[0]) > 4, JSON.stringify(reb));
+    await typ.context().close();
+
     /* ---- the family week, on the day ------------------------------------
      * The two halves of this app had never spoken. The Plan tab keeps a week
      * of meals for the house — shared with whoever holds the code — and My Day

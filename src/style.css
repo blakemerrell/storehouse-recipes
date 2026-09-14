@@ -988,6 +988,30 @@ select { max-width: 280px; }
   font-weight: 700; color: var(--ochre-text); font-variant-numeric: tabular-nums; min-width: 34px;
 }
 
+/* The portion, as the button it now is. It carries no chrome of its own —
+   the whole row lost its boxes when the plate was rebuilt at the weight of
+   the words around it, and a border here would put one back on the element a
+   reader looks at most. The dotted underline is the same mark .mstep-wake
+   uses: this text does something. */
+.mstep .mstep-type {
+  background: none; border: 0; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+  text-decoration-color: var(--line-firm);
+}
+.mstep .mstep-type:hover { color: var(--ochre-text); text-decoration-color: var(--ochre); }
+/* Typing. The box is the width of the words it replaced and no wider — a
+   portion is two or three characters, and an input sized for a sentence would
+   push the dial's keys off a phone. */
+.mstep .mstep-typing { display: inline-flex; align-items: baseline; gap: 3px; }
+.mstep .mstep-in {
+  width: 4.5ch; min-width: 0; font: inherit; font-weight: 600;
+  text-align: right; color: var(--ink);
+  background: var(--card); border: 0; border-bottom: 1.5px solid var(--ochre);
+  border-radius: 0; padding: 0 1px;
+}
+.mstep .mstep-in:focus { outline: none; border-bottom-color: var(--ochre-text); }
+.mstep .mstep-typing i { font-style: normal; font-size: 11px; color: var(--muted); }
+
 .mstep .mstep-wake {
   background: none; border: 0; font-family: inherit; cursor: pointer;
   font-size: var(--mstep-type); font-weight: 600; text-align: left;
@@ -3658,6 +3682,20 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    places and only one of them getting updated, which this file has been
    caught by twice. The wrapping this block adds happens at .mitem-meta,
    BETWEEN the figure and the warning beside it. */
+/* What it weighs, for the times a scale is easier than a cup. Quieter than
+   the cost it sits beside — it is how you MEASURE the plate rather than what
+   the plate costs you — and on the same line, because that is the line an eye
+   is already on when it asks "how much is that". */
+.mitem-g {
+  font-size: 10.5px; color: var(--muted); white-space: nowrap;
+  /* Air, not a middot. The cost line separates its own four cells with
+     middots, so joining this on with another would read as a fifth macro —
+     and "105C · 3390 g" invites the eye to run the two numbers together. It
+     is a different kind of fact about the same plate: what you would put on a
+     scale, not what it costs you. Space says that; punctuation would not. */
+  margin-left: 5px;
+}
+
 /* The fifth thing the plate costs you, in the warning colour, with no box.
    The box it lost was 16px tall inside an 11px line with overflow:hidden, so
    its top and bottom borders were clipped away and it reached the screen as
