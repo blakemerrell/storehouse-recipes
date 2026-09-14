@@ -1025,7 +1025,16 @@ select { max-width: 280px; }
   background: var(--card); border: 1px solid var(--line); border-radius: 3px;
   padding: 14px 16px; margin-top: 4px;
 }
-.macro-none { font-size: 13px; color: var(--muted); }
+/* The tab's own empty state, which it went without for its whole life while
+   every other tab had one. It is a sentence, so it is set like a sentence —
+   the 13px muted line it replaces was sized for the two words it used to
+   hold. The lead is the ink, because "This is your day" is the part that
+   answers the question a newcomer actually has. */
+.macro-none {
+  font-size: 13px; line-height: 1.5; color: var(--muted);
+  max-width: 44ch; text-wrap: pretty; padding: 2px 0 4px;
+}
+.macro-none b { color: var(--ink); font-weight: 600; }
 /* A fourth macro bar used to live here — .mbar and .mbar-track, with a track,
    a fill and an over state of its own. Nothing emitted it. Searching the whole
    repo for those names finds them in this file and in the generated
@@ -2355,6 +2364,13 @@ select { max-width: 280px; }
 .dlg-b { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.55; }
 .dlg .txt { width: 100%; margin-top: 14px; }
 .dlg-a { display: flex; gap: 9px; margin-top: 18px; }
+/* The bottom bar's button, doing its other job. Same size and same place —
+   it is the same control, and moving it would be the app hiding the one thing
+   it wants pressed — but the ochre says it opens something rather than doing
+   something, which is the difference between "make me a plan" and "fill this
+   day in". */
+.btn-primary.to-plan { background: var(--ochre-text); }
+.btn-primary.to-plan:hover { background: var(--ochre); }
 .btn-primary.danger { background: oklch(0.46 0.14 30); }
 .btn-primary.danger:hover { background: oklch(0.40 0.15 30); }
 

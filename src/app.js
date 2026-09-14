@@ -1576,6 +1576,31 @@
     return MEAL_SECS[slot.t] || MEAL_SECS.s;
   }
 
+  /* The household's dishes for this day come from mFamilyIds, which the
+     picker's family lens has used since it was built — and which I duplicated
+     here before finding it, because the grep that found "the two halves never
+     touch" was for Store.plan and Store.weeks and this reads Store.day. The
+     halves DID touch: manually adding food already offered what the family
+     planned. What was missing was the automatic path. */
+
+  /* Which meal a planned dish belongs to. The week assigns a dish to a DAY
+     and says nothing about when in it — so the dish's own section decides,
+     using the map Fill already steers by. A breakfast recipe lands on
+     breakfast. Anything the map does not place falls to the slot the reader
+     keeps for everything else, which is where an unclassifiable dish would
+     have been put by hand. */
+  function mSlotForRecipe(r, slots) {
+    var sec = r.book + '-' + r.secNum, found = null;
+    slots.list.forEach(function (s) {
+      if (found) return;
+      if (mSlotSecs(s).indexOf(sec) >= 0) found = s;
+    });
+    if (found) return found;
+    var last = null;
+    slots.list.forEach(function (s) { if (s.t === 's') last = last || s; });
+    return last || slots.list[slots.list.length - 1] || null;
+  }
+
   function mDay(k) {
     // a fresh object when the day is empty — browsing ‹ › never writes a key
     return MDAYS[k] || {};
@@ -2485,6 +2510,9 @@
   function macroWeighHTML(k) {
     var v = MWEIGHTS[k];
     var st = mWeightStats();
+    /* Whether there is a plan at all decides which of the two doors this card
+       shows — and whether it shows one. See the note beside the button. */
+    var hasPlan = !!kcalOf(mDayTargets(k));
     var body;
     if (st && st.n >= 2) {
       var r1 = Math.round(st.latest * 10) / 10 + ' lb on ' + mPretty(st.lastKey) +
@@ -2582,9 +2610,32 @@
       (face.has
         ? (shut ? '' : '<div class="mw-verdict mw-open">' +
             (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html + '</div>')
+        /* The button here only while there IS a plan to adjust.
+         *
+           With NO plan there were three "Craft my plan" in one screenful —
+           this one, the readout's line above it, and the gear — none of them
+           the thing a thumb lands on. The bottom bar's primary button is that
+           way in now: the largest control on the tab, and previously dead and
+           green at exactly this moment.
+         *
+           But it may not simply go. Dropping it outright left a plan that was
+           already set, on a morning not yet weighed, with no way into the
+           sheet except the gear — because the "Adjust my plan" copy below
+           only renders once there is a weigh-in to fold away. The suite
+           caught it in one run. So: gone when the bar is carrying it, present
+           when the bar has gone back to Fill.
+         *
+           And it still says CRAFT, not adjust. Two different things get called
+           a plan here: kcalOf(targets) is "are there numbers to eat against",
+           which is what the bar branches on, and face.has is "is there a
+           profile behind them" — a goal, a weight, a date. This is the
+           face.has === false branch, so there is no crafted plan to adjust
+           yet however the numbers got set, and "Adjust" would be offering to
+           change something that does not exist. */
         : '<div class="mw-verdict">' +
           (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html +
-          ' <button class="ghost mplan-go no-print" id="macroTargBtn">Craft my plan</button></div>') +
+          (hasPlan ? ' <button class="ghost mplan-go no-print" id="macroTargBtn">' +
+            'Craft my plan</button>' : '') + '</div>') +
       mMorningHTML(k) +
       (shut ? '' : '<div class="mw-body">' + body +
         (face.has
@@ -3000,6 +3051,51 @@
      charged for 1¾. Every macro, bar and solver in the app has always used x
      straight, so only this line was ever wrong; it was wrong on every recipe
      that makes more than one serving. */
+  /* How far a portion may be stepped, and by how much.
+   *
+     Blake, logging his lunch: "the limit on the qty I can select. Is it
+     limiting me to 4 nuts and won't let me add more." It was, and not only
+     nuts — his day had bacon at 4 slices, gummies at 4 pieces, hard candy at
+     4 pieces and ground beef at 4 oz, every one of them sitting on the same
+     ceiling. Both steppers, the plate's and the picker's, carried their own
+     copy of Math.min(4, x + 0.25).
+   *
+     Four is a sane ceiling for a RECIPE, where x is a multiple of a serving —
+     the recipe panel has scaled a dish a quarter to eight times since the app
+     was built, so eight is the app's own answer to "how much of one dish is
+     still a portion". It was never a ceiling for a FOOD, where x is a count
+     of the thing itself: four nuts is not a snack, it is a rounding error.
+   *
+     A quarter is the wrong STEP for those too. You cannot eat a quarter of a
+     nut, a quarter of a slice of bacon or a quarter of a gummy; you can very
+     easily eat a quarter of a cup. So the countable things step by one and
+     the measurable ones keep their quarters. */
+  var MSTEP_COUNT = { nut: 1, piece: 1, slice: 1, each: 1, whole: 1, egg: 1,
+    bar: 1, cookie: 1, cracker: 1, chip: 1, wrap: 1, tortilla: 1, link: 1,
+    patty: 1, scoop: 1, packet: 1, can: 1, bag: 1 };
+
+  function mStepRule(r) {
+    if (!r || !r.food) return { step: 0.25, max: 8 };   // servings of a dish
+    var unit = String(mUnitWord(r) || '').toLowerCase();
+    var step = MSTEP_COUNT[unit] || 0.25;
+    /* A ceiling a real plate cannot reach, kept only so a stuck key cannot
+       write nine thousand. Counts get the loose one; a food measured in cups
+       or ounces is still a food and gets the same. */
+    return { step: step, max: 99 };
+  }
+
+  /* One step, in whichever direction, under that rule. Shared because the two
+     steppers that need it were already two copies of one line. */
+  function mStepX(r, x, dir) {
+    var rule = mStepRule(r);
+    var next = (Number(x) || 0) + (dir > 0 ? rule.step : -rule.step);
+    /* Land back on the grid when a portion arrives off it — a food solved to
+       1.75 nuts by the balancer should step to 2, not to 2.75. */
+    next = Math.round(next / rule.step) * rule.step;
+    next = Math.max(rule.step, Math.min(rule.max, next));
+    return Math.round(next * 1000) / 1000;
+  }
+
   function mPortion(r, x) {
     var unit = mUnitWord(r);
     var grams = r.grams ? Math.round(r.grams * x) : 0;
@@ -3154,8 +3250,24 @@
        is a plan to draft against. Fill reads mDayTargets and portion-solves
        against whatever comes back, so with nothing set it would build a real
        day out of real recipes and present it as the answer to a question
-       nobody asked. */
-    $('macroFill').disabled = !kcalOf(targets) ||
+       nobody asked.
+     *
+       But it does not sit there DEAD and green either. Driven cold, the first
+       thing this tab shows a newcomer is the biggest, brightest control on
+       the screen, disabled, with nothing saying why — and behind it the whole
+       of My Day: the targets, the favourites, the best fits, and now the
+       family's own week. Every one of those is reached through this button.
+       A front door that cannot be opened and will not say so is the worst
+       thing in the app, and it costs one branch to fix: with no plan, the
+       button IS the way to make one, and says so. */
+    var fillBtn = $('macroFill');
+    var noPlan = !kcalOf(targets);
+    fillBtn.classList.toggle('to-plan', noPlan);
+    fillBtn.textContent = noPlan ? 'Craft my plan' : 'Fill';
+    fillBtn.setAttribute('aria-label', noPlan
+      ? 'Craft my plan — My Day needs one before it can draft anything'
+      : 'Fill the day');
+    fillBtn.disabled = !noPlan &&
       slots.list.every(function (s) { return (day[s.k] || []).length; });
 
     /* The gear and its menu are static markup, so a state change paints them
@@ -4747,9 +4859,37 @@
      are inside the part of the card that folds away, and the pills are what
      it folds into, outside it. They are built together because they are the
      same six numbers and neither is worth computing twice. */
+  /* The one way into the plan sheet. It was written inline in the weigh-in
+     card's click handler, which was the only door there was; the bottom bar's
+     button is a second, and a second copy of six lines is how two doors start
+     opening onto slightly different rooms. */
+  function mOpenTargets() {
+    rememberOpener();
+    S.macroTargOpen = true;
+    pushSheet({ m: 1 });
+    renderModal();
+    var tf = $('mtGoalLb') || $('mtP');
+    if (tf) tf.focus();
+  }
+
   function macroFootHTML(day, targets, slots) {
+    /* The one sentence this tab never had.
+     *
+       Driven cold, every other tab in the app explains itself when it is
+       empty — Plan says what a week is for, List says where its lines come
+       from, Pantry says what the storehouse carries. My Day said "Craft your
+       plan." here and "No plan yet. [Craft my plan]" a hundred pixels below,
+       which is the same instruction twice and an explanation none. It is also
+       the tab with the steepest ideas in it.
+     *
+       So: what this is, and what happens first. The second prompt goes — the
+       card below carries the button, and the bottom bar's own button is now
+       the third and loudest way in. */
     if (!targets.p && !targets.f && !targets.c) {
-      return { foot: '<div class="macro-none">Craft your plan.</div>', pills: '' };
+      return { foot: '<div class="macro-none">' +
+        '<b>This is your day.</b> Set a goal — lose, hold or gain — and My Day ' +
+        'works out what to eat, drafts a day from the recipes you like, and ' +
+        'keeps count as you tick things off.</div>', pills: '' };
     }
     var tot = mTotals(day);
     var asm = mAssumed(day, targets, slots);
@@ -7617,6 +7757,33 @@
         4 * Math.max(0, targets.c - had.c) +
         9 * Math.max(0, targets.f - had.f);
       if (room < 100) return;
+
+      /* The family's plan gets first claim.
+       *
+         Before a single best-fit is chosen, whatever the house is having
+         today is placed on the meal its section names. Everything below then
+         steps over those meals by the rule it already had — "a meal with food
+         on it is left alone" — so the draft builds AROUND the family dinner
+         rather than instead of it, and mBalanceDay sizes it against your own
+         targets along with everything else. Blake, on the flow he wants:
+         "seeding my day with family recipes planned for that day would be
+         good... auto fill a day based on my favorites and best fits."
+       *
+         At 1x to begin with. The portion is not guessed here because it is
+         not guessed anywhere — the solver at the foot of this function sizes
+         every plate on the day at once, which is the only place that can see
+         what the rest of the day came to. */
+      var wSlots = mReadSlots();
+      mFamilyIds(mViewKey()).forEach(function (fid) {
+        var r = BY_ID[fid];
+        if (!r || !r.macro) return;                    // no macros, nothing to solve
+        if (mOnDay(day, r.id)) return;                 // already there, by any route
+        var s = mSlotForRecipe(r, wSlots);
+        if (!s) return;
+        if ((day[s.k] || []).length) return;           // that meal is spoken for
+        if (mSkipped(mViewKey(), s.k)) return;         // you said you are not eating it
+        (day[s.k] = day[s.k] || []).push({ id: r.id, x: 1, eaten: 0, by: 'w' });
+      });
 
       mReadSlots().list.forEach(function (s) {
           if ((day[s.k] || []).length) return;
@@ -11469,7 +11636,7 @@
           if (it.eaten && S.mEdit !== sp.slice(0, 2).join(':')) return;
           /* Quarter-serving steps land on eighths, so fmtNum always has a
              glyph and never falls back to a decimal. */
-          it.x = sp[2] === 'up' ? Math.min(4, it.x + 0.25) : Math.max(0.25, it.x - 0.25);
+          it.x = mStepX(BY_ID[it.id], it.x, sp[2] === 'up' ? 1 : -1);
         });
         keepingFocus(renderMacros);
         return;
@@ -11536,7 +11703,13 @@
       S.macroDate = this.value === todayKey() ? null : this.value;
       keepingFocus(renderMacros);
     });
-    $('macroFill').addEventListener('click', mFillDay);
+    /* One button, two jobs, and which one it is doing is written on its face.
+       With no plan there is nothing to fill and the press opens the sheet
+       that makes one — see the note where the label is set. */
+    $('macroFill').addEventListener('click', function () {
+      if ($('macroFill').classList.contains('to-plan')) { mOpenTargets(); return; }
+      mFillDay();
+    });
 
     /* Done for the day. A statement, not a change: nothing is deleted, food
        can still be added, and pressing it again takes it back. The card comes
@@ -11706,15 +11879,7 @@
     $('macroWeigh').addEventListener('click', function (e) {
       /* The way into the plan, wherever the card is showing it: on the face
          while there is no plan to adjust, behind the press once there is. */
-      if (e.target.closest('#macroTargBtn')) {
-        rememberOpener();
-        S.macroTargOpen = true;
-        pushSheet({ m: 1 });
-        renderModal();
-        var tf = $('mtGoalLb') || $('mtP');
-        if (tf) tf.focus();
-        return;
-      }
+      if (e.target.closest('#macroTargBtn')) { mOpenTargets(); return; }
       var wf = e.target.closest('[data-mfold]');
       if (!wf) return;
       S.mFold.weigh = !(wf.getAttribute('aria-expanded') === 'false');
@@ -12293,8 +12458,7 @@
         var bp = mbs.dataset.mbstep.split(':');
         var bid = idOf(bp[0]);
         if (S.mpBasket[bid] !== undefined) {
-          var nx2 = S.mpBasket[bid] + Number(bp[1]) * 0.25;
-          S.mpBasket[bid] = Math.max(0.25, Math.min(4, nx2));
+          S.mpBasket[bid] = mStepX(BY_ID[bid], S.mpBasket[bid], Number(bp[1]));
           renderModal();
         }
         return;

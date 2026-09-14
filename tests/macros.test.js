@@ -19,7 +19,16 @@ async function openWeigh(pg) {
   if (h) { await h.click(); await pg.waitForTimeout(250); }
 }
 
+/* Two doors, and which one is showing depends on whether there is a plan yet.
+   With none, the bottom bar's primary button IS the way in — it used to sit
+   there disabled and green at exactly this moment, which is the first thing a
+   newcomer met. Once a plan exists the bar goes back to saying Fill and the
+   card carries "Adjust my plan" behind its fold. */
 async function openPlan(pg) {
+  if (await pg.evaluate(() => {
+    const b = document.getElementById('macroFill');
+    return !!b && b.classList.contains('to-plan') && !b.disabled;
+  })) { await pg.click('#macroFill'); await pg.waitForTimeout(250); return; }
   if (!await pg.$('#macroTargBtn')) {
     const handle = await pg.$('.mday-weigh [data-mfold]');
     if (handle) { await handle.click(); await pg.waitForTimeout(250); }
@@ -196,10 +205,36 @@ module.exports = {
        budgets belonging to nobody, four bars reading 0 / 180 g, and a Fill
        button ready to draft a real day against them. Both empty states were
        already written — the placeholder was the only reason neither fired. */
-    t.ok('a first run says there is no plan rather than inventing one',
-      /Craft your plan/.test(await foot()), await foot());
-    t.ok('and Fill will not draft a day against a plan nobody set',
-      await p.evaluate(() => document.getElementById('macroFill').disabled));
+    /* It says what the tab IS, not just what to do next. Every other tab in
+       the app explains itself when empty; this one said "Craft your plan."
+       and, a hundred pixels below, "No plan yet. Craft my plan" — the same
+       instruction twice and an explanation none, on the tab with the steepest
+       ideas in it. */
+    t.ok('a first run explains what this tab is, rather than only ordering you about',
+      /your day/i.test(await foot()) && /(lose|goal)/i.test(await foot()), await foot());
+    /* The safety property is unchanged and is the one worth asserting: no
+       plan, no draft. What changed is that the button no longer sits there
+       dead — it is the way to MAKE the plan, which is the only useful thing
+       it could do at that moment. */
+    t.ok('and the biggest button on the tab is the way in, not a dead end',
+      await p.evaluate(() => {
+        const b = document.getElementById('macroFill');
+        return !!b && !b.disabled && b.classList.contains('to-plan') &&
+          /plan/i.test(b.textContent);
+      }),
+      await p.evaluate(() => {
+        const b = document.getElementById('macroFill');
+        return b ? JSON.stringify({ text: b.textContent, disabled: b.disabled,
+          cls: b.className }) : 'no button';
+      }));
+    t.ok('and pressing it will not draft a day against a plan nobody set',
+      await p.evaluate(() => {
+        document.getElementById('macroFill').click();
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        return Object.keys(d).every((k) => Object.keys(d[k] || {})
+          .every((sk) => !(d[k][sk] || []).length));
+      }),
+      await p.evaluate(() => localStorage.getItem('bsc.macroDays') || 'no days'));
     t.ok('and no empty meal is handed a calorie budget of its own',
       await p.evaluate(() => !document.querySelector('#macroSlots [data-mv="empty"]')));
 
@@ -346,14 +381,42 @@ module.exports = {
 
     /* Crafting a plan is a once-a-season job, so the daily screen carries
        what the plan is DOING rather than a button for making one. With no
-       plan yet, that same line is the invitation — and it is on the FACE of
-       the morning card, because a first morning that hides the way in behind
-       a press is a first morning with nowhere to go. */
+       plan yet the line still says so — and the way in is still out in the
+       OPEN, because a first morning that hides it behind a press is a first
+       morning with nowhere to go. What changed is where open is.
+     *
+       It used to be a ghost button on this card, one of three "Craft my plan"
+       in a screenful, none of them the thing a thumb lands on. It is the
+       bottom bar's primary button now: pinned, always visible, the largest
+       control on the tab, and — measured on a cold first run — previously
+       sitting there disabled and green at exactly this moment. */
     await openWeigh(p);
-    t.ok('with no plan, the line asks for one, out in the open',
-      /No plan yet/.test(await p.textContent('.mw-verdict')) &&
-      /Craft my plan/.test(await p.textContent('.mw-verdict')),
+    t.ok('with no plan, the card still says so',
+      /No plan yet/.test(await p.textContent('.mw-verdict')),
       await p.textContent('.mw-verdict'));
+    /* Asserted as a RULE rather than a snapshot, because which of the two
+       states a page is in depends on the fixture and the rule holds in both:
+       exactly one place offers the way into the plan, it is reachable without
+       a press, and it says which job it is doing. Written as an either/or so
+       it cannot pass by both doors being shut. */
+    t.ok('and exactly one way into the plan is on the face, saying what it does',
+      await p.evaluate(() => {
+        const bar = document.getElementById('macroFill');
+        const card = document.querySelector('#macroTargBtn');
+        const seen = (e) => { if (!e || e.disabled) return false;
+          const r = e.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < window.innerHeight && r.bottom > 0; };
+        const barIsDoor = !!bar && bar.classList.contains('to-plan');
+        if (barIsDoor) return seen(bar) && /plan/i.test(bar.textContent) && !card;
+        return seen(card) && /plan/i.test(card.textContent) &&
+          /fill/i.test(bar.textContent);
+      }),
+      await p.evaluate(() => {
+        const bar = document.getElementById('macroFill');
+        const card = document.querySelector('#macroTargBtn');
+        return 'bar=' + (bar ? bar.textContent + '/' + bar.className : 'none') +
+          ' card=' + (card ? card.textContent : 'none');
+      }));
 
     /* The four presets are rates, the way RP frames a cut — a percent of
        bodyweight a week, not a percent off the day's burn — so each one
@@ -6313,9 +6376,27 @@ module.exports = {
     await w.click('.tab[data-view="macros"]');
     await w.waitForTimeout(150);
 
+    /* The invitation is on the bar while there is nothing to adjust; the card
+       only offers "Adjust my plan", and only once there is one. Two labels,
+       each naming the thing it actually does — the card used to say "Craft my
+       plan" whether or not a plan existed. */
+    /* Invites, wherever it is showing. "Craft" while nothing has been
+       crafted; "Adjust" only once a profile stands behind the numbers. And
+       only one of them at a time — there used to be three in a screenful. */
     t.ok('the plan button invites rather than administrates',
-      (await w.textContent('#macroTargBtn')).trim() === 'Craft my plan',
-      await w.textContent('#macroTargBtn'));
+      await w.evaluate(() => {
+        const bar = document.getElementById('macroFill');
+        const card = document.querySelector('#macroTargBtn');
+        const doors = [bar && bar.classList.contains('to-plan') ? bar : null, card]
+          .filter(Boolean);
+        return doors.length === 1 && /^Craft my plan$/.test(doors[0].textContent.trim());
+      }),
+      await w.evaluate(() => {
+        const bar = document.getElementById('macroFill');
+        const card = document.querySelector('#macroTargBtn');
+        return 'bar=' + (bar ? bar.textContent + '/' + bar.className : 'none') +
+          ' card=' + (card ? card.textContent : 'none');
+      }));
 
     // one morning's number, filed under the local date at one decimal
     await w.fill('#mWeight', '187.45');
@@ -7994,6 +8075,177 @@ module.exports = {
     t.ok('and it is still that size a second later, not creeping',
       settled === back.page, back.page + ' → ' + settled);
     await reopen.context().close();
+
+    /* ---- how far a portion goes ------------------------------------------
+     * Blake, logging his lunch: "the limit on the qty I can select. Is it
+     * limiting me to 4 nuts and won't let me add more." It was — and his day
+     * had bacon at 4 slices, gummies at 4 pieces and ground beef at 4 oz, all
+     * pinned on the same ceiling. Both steppers carried their own copy of
+     * Math.min(4, x + 0.25): a sane ceiling for a multiple of a SERVING, and
+     * a nonsense one for a count of a THING. */
+    const qty = await t.fresh();
+    const qtyFood = await qty.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      /* Blake's own case, seeded the way he made it: a food of his own,
+         counted in a unit you cannot have a quarter of. The single foods the
+         table ships are measured in grams and cups and never hit this. */
+      localStorage.setItem('bsc.myFoods', JSON.stringify({
+        corn_nuts: { name: 'Corn nuts', unit: 'nut', kcal: 4, p: 0, f: 0.2, c: 0.6 } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 55, c: 120 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:my:corn_nuts', x: 1, eaten: 0 }], l: [], d: [], s: [] } }));
+      return { id: 'f:my:corn_nuts', unit: 'nut', name: 'Corn nuts' };
+    });
+    await qty.reload();
+    await qty.waitForTimeout(400);
+    await qty.click('.tab[data-view="macros"]');
+    await qty.waitForTimeout(300);
+    await qty.evaluate(() => {
+      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await qty.waitForTimeout(300);
+    const readX = () => qty.evaluate(() => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const k = Object.keys(days).sort().pop();
+      return ((days[k] || {}).b || [])[0].x;
+    });
+    for (let i = 0; i < 12; i++) {
+      await qty.click('#macroSlots [data-mstep$=":up"]');
+      await qty.waitForTimeout(60);
+    }
+    const climbed = await readX();
+    t.ok('a countable food climbs past four rather than stopping on it',
+      climbed > 4, JSON.stringify({ food: qtyFood, x: climbed }));
+    /* And it climbs in whole ones: a quarter of a nut is not a portion, it is
+       an arithmetic accident. */
+    /* Twelve presses from one, a whole nut each: thirteen. Asserted exactly,
+       because "more than four" alone would pass on a stepper that had merely
+       had its ceiling raised while still counting in quarters. */
+    t.ok('and it climbs in whole ones, not in quarters',
+      climbed === 13, JSON.stringify({ unit: qtyFood.unit, x: climbed }));
+    t.ok('and the plate says so in the food own word',
+      /13\s*nuts?/.test(await qty.textContent('#macroSlots .mstep-x')),
+      await qty.textContent('#macroSlots .mstep-x'));
+    /* The floor still holds: a portion never steps to nothing. */
+    for (let i = 0; i < 40; i++) {
+      await qty.click('#macroSlots [data-mstep$=":down"]');
+      await qty.waitForTimeout(40);
+    }
+    t.ok('and it never steps down to nothing',
+      (await readX()) > 0, JSON.stringify({ x: await readX() }));
+    await qty.context().close();
+
+    /* ---- the family week, on the day ------------------------------------
+     * The two halves of this app had never spoken. The Plan tab keeps a week
+     * of meals for the house — shared with whoever holds the code — and My Day
+     * kept a private day measured against a cut, and neither read the other.
+     * You could plan Tuesday's dinner on one screen and, on Tuesday, press
+     * Fill on the other and be handed something else.
+     *
+     * Blake: "seeding my day with family recipes planned for that day would be
+     * good... auto fill a day based on my favorites and best fits." So Fill
+     * now means: draft my day, starting from what the family already decided.
+     *
+     * The week is dateless by design — "Monday is a slot, not a date" — so the
+     * join is the weekday, and it is a READ. The day may take from the week;
+     * the week must never notice. */
+    const fam = await t.fresh();
+    const famPick = await fam.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      /* A dinner, so the slot it lands on is decided by its own section and
+         can be checked rather than assumed. */
+      const dinner = window.RECIPES.find((r) => r.macro && r.macro.kcal > 250 &&
+        ['1-4', '2-3', '2-4'].indexOf(r.book + '-' + r.secNum) >= 0);
+      const wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][d.getDay()];
+      const weeks = { w1: { name: 'This Week', ord: 0, plan: {}, checked: {} } };
+      weeks.w1.plan[wd] = [{ i: dinner.id, x: 1 }];
+      localStorage.setItem('bsc.weeks', JSON.stringify(weeks));
+      localStorage.setItem('bsc.active', 'w1');
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 43, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1', goalLb: 175,
+        goalBy: g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate()),
+        workouts: 4, steps: 8000 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {} }));
+      return { id: dinner.id, name: dinner.name, weekday: wd, kcal: dinner.macro.kcal };
+    });
+    await fam.reload();
+    await fam.waitForTimeout(400);
+    await fam.click('.tab[data-view="macros"]');
+    await fam.waitForTimeout(300);
+    await fam.click('#macroFill');
+    await fam.waitForTimeout(600);
+
+    const famDay = await fam.evaluate((want) => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const k = Object.keys(days).sort().pop();
+      const day = days[k] || {};
+      const where = Object.keys(day).filter((sk) => (day[sk] || [])
+        .some((it) => it.id === want.id));
+      const plate = (day[where[0]] || []).filter((it) => it.id === want.id)[0];
+      const all = Object.keys(day).reduce((n, sk) => n + (day[sk] || []).length, 0);
+      return { on: where, plate: plate || null, plates: all,
+        weekUntouched: localStorage.getItem('bsc.weeks') };
+    }, famPick);
+
+    t.ok('Fill puts the dish the family planned for today on the day',
+      famDay.on.length === 1, JSON.stringify({ famPick, on: famDay.on }));
+    /* Its section decides the meal — the same map Fill steers by. A dinner
+       recipe does not land on breakfast. */
+    t.ok('and on the meal its own section names, not the first one going',
+      famDay.on[0] === 'd', JSON.stringify(famDay.on));
+    /* Marked, so a plate knows where it came from — beside 'f' for fill. */
+    t.ok('and the plate says it came from the week',
+      !!famDay.plate && famDay.plate.by === 'w', JSON.stringify(famDay.plate));
+    /* The portion is not left at the 1x it was placed with: mBalanceDay sizes
+       every plate on the finished day at once, which is the only place that
+       can see what the rest of the day came to. This is the "solved to fit my
+       macros" half of the answer. */
+    t.ok('and its portion is solved against the day rather than left at one',
+      !!famDay.plate && famDay.plate.x > 0, JSON.stringify(famDay.plate));
+    /* Fill still did its own job around it. */
+    t.ok('and the rest of the day is drafted around it',
+      famDay.plates > 1, JSON.stringify({ plates: famDay.plates }));
+    /* The week belongs to the house. Reading it must not edit it. */
+    t.ok('and the family\u2019s week is not touched by any of it',
+      (() => { const w2 = JSON.parse(famDay.weekUntouched || '{}');
+        const pl = ((w2.w1 || {}).plan || {})[famPick.weekday] || [];
+        return pl.length === 1 && (pl[0].i || pl[0]) === famPick.id; })(),
+      famDay.weekUntouched);
+
+    /* And it does not overwrite a meal you have already dealt with. */
+    await fam.evaluate((want) => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const k = Object.keys(days).sort().pop();
+      const other = window.RECIPES.find((r) => r.macro && r.id !== want.id);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({
+        [k]: { d: [{ id: other.id, x: 1, eaten: 1 }] } }));
+      window.__other = other.id;
+    }, famPick);
+    await fam.reload();
+    await fam.waitForTimeout(400);
+    await fam.click('.tab[data-view="macros"]');
+    await fam.waitForTimeout(300);
+    await fam.click('#macroFill');
+    await fam.waitForTimeout(600);
+    t.ok('and a meal already eaten is left exactly as it was',
+      await fam.evaluate((want) => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        const k = Object.keys(days).sort().pop();
+        const d = (days[k] || {}).d || [];
+        return d.length === 1 && d[0].id !== want.id && d[0].eaten === 1;
+      }, famPick),
+      await fam.evaluate(() => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        const k = Object.keys(days).sort().pop();
+        return JSON.stringify((days[k] || {}).d || []);
+      }));
+    await fam.context().close();
 
     /* ---- a portion of a batch --------------------------------------------
      * The two tests above ride on whatever Fill happened to draft, and a day
