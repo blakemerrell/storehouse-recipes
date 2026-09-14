@@ -2993,8 +2993,10 @@ module.exports = {
           /\b(over|short)\b/.test(e.className)),
         /* The calorie figure moved off the seam and onto its own gauge, so
            it is read off the flame label now rather than .msub-k. */
+        /* The flame went with the pills' rebuild — the calorie cell says
+           "kcal", the word the plate and the day bars both use. */
         kcalAlways: cards.every((c) => !c.querySelector('.mslot-head') ||
-          /\uD83D\uDD25\s*\d/.test(c.querySelector('.mslot-head').textContent)),
+          /\d+\s*kcal/.test(c.querySelector('.mslot-head').textContent)),
       };
     });
     t.ok('a folded day shows no bars at all',
@@ -3078,10 +3080,10 @@ module.exports = {
       const pil = card && [...card.querySelectorAll('.mmp')].find((e) =>
         /^P/.test((e.querySelector('i') || {}).textContent || ''));
       if (!pil) return null;
-      const got = Number((pil.querySelector('b').textContent.match(/\d+/) || [0])[0]);
-      const want = Number((pil.querySelector('.mmp-t').textContent.match(/\d+/) || [0])[0]);
+      const got = Number((pil.querySelector('.mmp-v').textContent.match(/\d+/) || [0])[0]);
+      const want = Number(pil.dataset.want || 0);
       const shown = [...document.querySelectorAll('.mp-left .mgp')]
-        .filter((e) => /P/.test(e.textContent) && !/🔥/.test(e.textContent))
+        .filter((e) => /P/.test(e.textContent) && !/kcal/.test(e.textContent))
         .map((e) => Number((e.textContent.match(/\d+/g) || [0]).pop()))[0];
       return { shown: shown, cardLeft: Math.max(0, want - got) };
     });
@@ -3119,7 +3121,7 @@ module.exports = {
        which is the exact failure this file already records at mShares. */
     const flame = await dosePg.evaluate(() => {
       const pill = [...document.querySelectorAll('.mp-left .mgp')]
-        .find((e) => /🔥/.test(e.textContent));
+        .find((e) => /kcal/.test(e.textContent));
       const shown = Number((pill.textContent.match(/\d+/g) || [0]).pop());
       /* The same figure off the meal card: its calorie pill is got/want, and
          what the sheet reports is what is left of that. */
@@ -3129,8 +3131,8 @@ module.exports = {
         ((c.querySelector('.mslot-name') || {}).textContent || '').trim()
           .replace(/[^A-Za-z ]/g, '').trim().toLowerCase() === meal.toLowerCase());
       const t2 = card && card.querySelector('.mmp.kc');
-      const got = t2 ? Number((t2.querySelector('b').textContent.match(/\d+/) || [0])[0]) : null;
-      const want = t2 ? Number((t2.querySelector('.mmp-t').textContent.match(/\d+/) || [0])[0]) : null;
+      const got = t2 ? Number((t2.querySelector('.mmp-v').textContent.match(/\d+/) || [0])[0]) : null;
+      const want = t2 ? Number(t2.dataset.want || 0) : null;
       return { shown: shown, meal: meal, got: got, want: want,
         cardLeft: (got === null ? null : Math.max(0, want - got)) };
     });
@@ -3156,7 +3158,7 @@ module.exports = {
         const card = document.querySelector('.mslot');
         const ps = [...card.querySelectorAll('.mmp')];
         return ps.length === 4 && ps.every((e) =>
-          /\/\s*\d/.test((e.querySelector('.mmp-t') || {}).textContent || ''));
+          Number(e.dataset.want) > 0);
       }));
     await pillPg.click('#macroFill');
     await pillPg.waitForTimeout(700);
@@ -3186,9 +3188,9 @@ module.exports = {
       seams: document.querySelectorAll('.mslot-head').length,
       gauges: document.querySelectorAll('.mslot-head .mmps').length,
       /* the target is a NUMBER on the pill now, not a tick on a bar */
-      ticks: document.querySelectorAll('.mslot-head .mmp-t').length,
+      ticks: document.querySelectorAll('.mslot-head .mmp[data-want]').length,
       kcal: [...document.querySelectorAll('.mslot-head')]
-        .filter((e) => /\uD83D\uDD25\s*\d/.test(e.textContent)).length,
+        .filter((e) => /\d+\s*kcal/.test(e.textContent)).length,
     }));
     /* Reversed deliberately. This used to assert that a folded meal said its
        calories and NOTHING about macros — you steer by the day, a meal is a
@@ -3297,8 +3299,8 @@ module.exports = {
     const shareRead = () => skipPg.evaluate(() => {
       const card = [...document.querySelectorAll('.mslot')]
         .find((c) => c.querySelector('.mslot-name-flat'));
-      const t2 = card && card.querySelector('.mmp.kc .mmp-t');
-      return t2 ? Number(t2.textContent.replace(/[^0-9]/g, '')) : 0;
+      const t2 = card && card.querySelector('.mmp.kc[data-want]');
+      return t2 ? Number(t2.dataset.want) : 0;
     });
     const bShareBefore = await shareRead();
     await skipPg.evaluate(() => document.querySelector('[data-mskip="l"]').click());
@@ -3571,7 +3573,7 @@ module.exports = {
       const meal = L.meals.find((m) => m.k === 'l') || { items: [] };
       return {
         want: card ? [...card.querySelectorAll('.mmp')].map((e) =>
-          Number(((e.querySelector('.mmp-t') || {}).textContent || '').replace('/', '')) || 0) : null,
+          Number(e.dataset.want) || 0) : null,
         kcal: Math.round(meal.items.reduce((n, i) => n + i.kcal * i.x, 0)),
         xs: meal.items.map((i) => i.x).join(','),
       };
@@ -4465,12 +4467,14 @@ module.exports = {
           hasGauges: !!gg,
           planned: !!gg && gg.classList.contains('planned'),
           bars: gg ? [...gg.querySelectorAll('.mmp')].map((o) => ({
-            l: o.querySelector('i').textContent + o.querySelector('b').textContent,
+            l: o.querySelector('i').textContent + o.querySelector('.mmp-v').textContent,
             st: (o.className.match(/mmp(?: kc)? (\w+)/) || [, ''])[1],
-            /* the fill is painted as a gradient stop, so the proportion is
-               read off the paint rather than off a width */
-            fill: parseFloat((o.style.background.match(/0 ([\d.]+)%/) || [, 0])[1]),
-            tick: parseFloat((o.querySelector('.mmp-t').textContent.match(/[\d.]+/) || [0])[0]),
+            /* The fill is the rail under the figure. It used to be painted
+               as a gradient stop on the pill itself and read off the paint;
+               it is a width on a real element now, which is the same number
+               in the place an eye can also see it. */
+            fill: parseFloat(((o.querySelector('.mmp-tr i') || {}).style || {}).width || 0),
+            tick: parseFloat(o.dataset.want || 0),
           })) : [],
         });
       });
@@ -4484,7 +4488,7 @@ module.exports = {
 
     t.ok('a meal with food carries four gauges, calories among them',
       fed.length >= 2 && fed.every((c) => c.bars.length === 4 &&
-        /\uD83D\uDD25\s*\d/.test(c.bars[0].l)),
+        /kcal/.test(c.bars[0].l)),
       JSON.stringify(fed.map((c) => c.name + ':' + c.bars.length)));
 
     /* A length needs something to be long against. It was a tick on a bar;
@@ -4493,6 +4497,33 @@ module.exports = {
     t.ok('and every pill states the target it is filling toward',
       fed.length > 0 && fed.every((c) => c.bars.every((g) => g.tick > 0)),
       JSON.stringify(fed[0] && fed[0].bars));
+
+    /* The target lives in two places now and must not drift. It came off the
+       glyph — 7.5px at 55% opacity was not a comparison, it was a rumour —
+       and landed in two: data-want, for anything mechanical, and the head's
+       own aria-label, in words, which is the first time this strip has been
+       readable to a screen reader at all. Two spellings of one fact is how
+       facts diverge, so the suite reads both and insists they agree. */
+    t.ok('and what the pills claim is what the head says out loud',
+      await gaugePage.evaluate(() => {
+        const heads = [...document.querySelectorAll('#macroSlots .mslot-head')]
+          .filter((h) => h.querySelector('.mmp[data-want]'));
+        if (!heads.length) return false;
+        return heads.every((head) => {
+          const said = head.getAttribute('aria-label') || '';
+          return [...head.querySelectorAll('.mmp[data-want]')].every((pl) => {
+            const got = (pl.querySelector('.mmp-v') || {}).textContent.trim();
+            return said.indexOf(got + ' of ' + pl.dataset.want) >= 0;
+          });
+        });
+      }),
+      await gaugePage.evaluate(() => {
+        const head = document.querySelector('#macroSlots .mslot-head');
+        if (!head) return 'no head';
+        return (head.getAttribute('aria-label') || '') + ' || pills ' +
+          [...head.querySelectorAll('.mmp[data-want]')].map((pl) =>
+            (pl.querySelector('.mmp-v') || {}).textContent.trim() + '/' + pl.dataset.want).join(' ');
+      }));
 
     /* A plate past its share runs the fill pastPlan the tick, and the tick stays
        put — a bar pinned at its own maximum cannot say HOW far past. */
@@ -5390,8 +5421,8 @@ module.exports = {
       const out = {};
       document.querySelectorAll('.mslot').forEach((c) => {
         const n = (c.querySelector('.mslot-name') || {}).textContent;
-        const t2 = c.querySelector('.mmp.kc .mmp-t');
-        if (n && t2) out[n.trim()] = Number(t2.textContent.replace(/[^0-9]/g, ''));
+        const t2 = c.querySelector('.mmp.kc[data-want]');
+        if (n && t2) out[n.trim()] = Number(t2.dataset.want);
       });
       return out;
     });
@@ -5488,8 +5519,8 @@ module.exports = {
       await casc.evaluate(() => {
         const c = [...document.querySelectorAll('.mslot')].filter((x) =>
           /Dinner/.test((x.querySelector('.mslot-name') || {}).textContent || ''))[0];
-        const t2 = c && c.querySelector('.mmp.kc .mmp-t');
-        return !!t2 && Number(t2.textContent.replace(/[^0-9]/g, '')) > 0;
+        const t2 = c && c.querySelector('.mmp.kc[data-want]');
+        return !!t2 && Number(t2.dataset.want) > 0;
       }));
     await openDay(casc);
     await casc.waitForTimeout(250);
@@ -5588,8 +5619,8 @@ module.exports = {
     const czCapped = await czCapPg.evaluate(() => {
       const cards = [...document.querySelectorAll('.mslot')];
       const sn = cards.filter((c) => /Snacks/.test((c.querySelector('.mslot-name') || {}).textContent || ''))[0];
-      const t2 = sn && sn.querySelector('.mmp.kc .mmp-t');
-      return { ask: t2 ? Number(t2.textContent.replace(/[^0-9]/g, '')) : 0,
+      const t2 = sn && sn.querySelector('.mmp.kc[data-want]');
+      return { ask: t2 ? Number(t2.dataset.want) : 0,
         marked: !!(sn && sn.querySelector('.mmp.kc.mmp-cap')) };
     });
     /* Snacks plan on a 1,000 kcal day at weight 10 of 90 is about 111, so the
@@ -7488,7 +7519,7 @@ module.exports = {
         const nm = (card.querySelector('.mslot-name') || {}).textContent;
         if (!nm) return;
         out[nm] = [...card.querySelectorAll('.mmp')].map((e) => ({
-          want: Number(((e.querySelector('.mmp-t') || {}).textContent || '').replace('/', '')),
+          want: Number(e.dataset.want),
           spent: e.classList.contains('spent') }));
       });
       return out;

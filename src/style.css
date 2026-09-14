@@ -1196,35 +1196,13 @@ select { max-width: 280px; }
    so the figure sits ABOVE its track rather than beside it. Calories carries
    a gauge like the other three: three bars with a stray digit in front read
    as a number that had nowhere else to go. */
-/* On the seam, so it gets the width four of them need and the meal name
-   keeps its own row. flex:1 with the cue after it pins the chevron right. */
-.mgg { display: flex; gap: 9px; flex: 1 1 auto; align-items: flex-end; min-width: 0; }
-.mgg-1 { flex: 1 1 0; min-width: 0; }
-.mgg-1.kc { flex: 0 0 46px; }
-.mgg-l {
-  display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
-  color: var(--muted); text-align: center; line-height: 1; padding-bottom: 3px;
-  font-variant-numeric: tabular-nums;
-}
-.mgg-1.kc .mgg-l { font-size: 10px; letter-spacing: 0; }
-.mgg-t {
-  display: block; position: relative; height: 5px; border-radius: 3px;
-  background: var(--line-soft);
-}
-.mgg-f { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 3px; }
-.mgg-f.u { background: var(--dial-under); }
-.mgg-f.o { background: var(--dial-on); }
-.mgg-f.x { background: var(--dial-over); }
-/* The tick IS the plan. It sits OVER the fill, proud of the track top and
-   bottom, so a bar that has run past it still shows where enough was — a bar
-   pinned at its own maximum cannot say how far past it went. */
-.mgg-k {
-  position: absolute; top: -2.5px; bottom: -2.5px; width: 1.5px;
-  background: var(--ink); opacity: 0.6; border-radius: 1px;
-}
-/* Planned and not yet eaten. A full-looking dinner at eleven in the morning
-   reads as food you have already had. */
-.mgg.planned { opacity: 0.5; }
+/* The ticked gauges are gone, and mGaugesHTML with them. They were the right
+   answer to "how far along is this" and were replaced by the pills; the
+   function outlived the markup by several rebuilds, defined and never called,
+   and its twelve rules dressed an element nothing emitted. The tick idea did
+   survive — the pills' rail is the same bar, and .mmp.x darkens its ground
+   for exactly the reason the tick existed: a bar at its own maximum cannot
+   say how far past the maximum it went. */
 
 /* Still to fill. Kin to the day's own pills — same shape, same letters —
    but a flat tint rather than a proportional fill, because these say how
@@ -1268,34 +1246,50 @@ select { max-width: 280px; }
    plates below and the day's live at the top of the screen, so this strip
    only has to say which way each macro is leaning. At 11px in a 24px seam it
    was taking a full row of a phone to repeat what the card already implies. */
-.mmps { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; align-items: center; }
+/* The meal's four numbers: a figure over a track, which is the day chart's
+   own construction one altitude down.
+ *
+   They were chips — a value, a 7.5px target at 55% opacity, and a gradient
+   fill standing in for the proportion. Three ways of saying the same thing
+   in a box 44px wide, and the only one an eye could use at arm's length was
+   the colour. The fill knew the proportion all along; it just had nowhere to
+   be read. Now it is a rail under the number, the target lives in its length
+   instead of in type three sizes below anything near it, and the value gets
+   the room that buys: 9.5px to 12.
+ *
+   No border, no ground. A box around each of four numbers was most of what
+   made a row of meals read as an instrument panel, and it was the same claim
+   the plate's chips were making before they came off. */
+.mmps { display: flex; gap: 7px; flex: 0 1 auto; min-width: 0; align-items: flex-end; }
 .mmp {
-  /* Sized to what they say, not stretched across the card. Four pills on
-     `flex: 1 1 0` split the full width between them whatever the numbers
-     were, so a meal's glance took a whole row of a phone and the fills were
-     reading as a chart nobody asked for. They are chips now: they end where
-     the figures end, and the row ends with them. */
-  flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: baseline;
-  justify-content: center; gap: 1px; border-radius: 999px; padding: 1px 3px;
-  font-size: 9.5px; font-variant-numeric: tabular-nums; white-space: nowrap;
-  border: 1px solid var(--line-soft); color: var(--muted-2);
+  flex: none; display: inline-flex; flex-direction: column; align-items: flex-end;
+  gap: 3px; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.mmp.kc { flex: 0 0 auto; }
-.mmp i { font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--muted); }
-.mmp b { font-weight: 700; color: var(--ink); }
-.mmp-t { opacity: 0.55; }
+.mmp-n { display: flex; align-items: baseline; gap: 2px; font-size: 12px; }
+.mmp-v { font-weight: 600; color: var(--ink); }
+/* The letter is identity and never status — the same rule, and the same
+   mb-* classes, the plate's cost line and the day's bars already follow. It
+   was a flat grey here, which made P mean one thing on the plate and another
+   six pixels above it. */
+.mmp i { font-style: normal; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; }
+.mmp-tr {
+  display: block; width: 30px; height: 3px; border-radius: 999px;
+  background: var(--line-soft); overflow: hidden;
+}
+.mmp-tr i { display: block; height: 100%; border-radius: 999px; background: var(--line-firm); }
 /* A macro the day can no longer pay for. Dashed, because the shape still says
    "this is the fat pill" while the border stops claiming a target it does not
    have — and the figure is an em dash rather than a nought, which would read
    as a meal sitting exactly on nothing. */
-.mmp.spent {
-  border-style: dashed; border-color: var(--line-firm);
-  background: none; opacity: 0.75;
-}
-.mmp.spent b { color: var(--muted); font-weight: 600; }
-.mmp.u { border-color: var(--dial-under-pale); } .mmp.u b { color: var(--ochre-text); }
-.mmp.o { border-color: var(--dial-on-pale); }    .mmp.o b { color: var(--dial-on); }
-.mmp.x { border-color: var(--dial-over-pale); }  .mmp.x b { color: var(--dial-over); }
+.mmp.spent { opacity: 0.75; }
+.mmp.spent .mmp-v { color: var(--muted); font-weight: 600; }
+.mmp.u .mmp-v { color: var(--ochre-text); }  .mmp.u .mmp-tr i { background: var(--dial-under); }
+.mmp.o .mmp-v { color: var(--dial-on); }     .mmp.o .mmp-tr i { background: var(--dial-on); }
+/* Over fills the rail AND darkens its ground. A bar pinned at its own end
+   cannot say how far past the end it went; the ground behind it can. */
+.mmp.x .mmp-v { color: var(--dial-over); }
+.mmp.x .mmp-tr { background: var(--dial-over-pale); }
+.mmp.x .mmp-tr i { background: var(--dial-over); }
 /* Planned and not yet eaten. A full-looking dinner at eleven in the morning
    otherwise reads as food you have already had. */
 .mmps.planned { opacity: 0.55; }
@@ -1825,10 +1819,18 @@ select { max-width: 280px; }
 .mc-note { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 /* glyph, bar, what is on it, what is left — four columns, one row per line
    of the budget. The delta used to be a fifth line under the bars. */
-.mbrow { display: grid; grid-template-columns: 17px 1fr auto auto; gap: 9px; align-items: center; }
-.mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; }
-/* the flame is an emoji, and an emoji at letter size is a smudge */
-.mb-k.mb-kcal { font-size: 12.5px; }
+/* The label column fits the longest label, which is now a word. It was 17px,
+   sized for one letter and one emoji, and "kcal" at 9px wants 19 — so the
+   day's top row rendered as "kca" over "l", a label broken across two lines
+   directly above the number it labels. The seven pixels come back off the
+   gap, which had nine and can spare two. */
+.mbrow { display: grid; grid-template-columns: 24px 1fr auto auto; gap: 7px; align-items: center; }
+.mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; white-space: nowrap; }
+/* "kcal" is four letters where the others are one, so it takes the size the
+   row can spare rather than the size a one-letter label wants. The 12.5px
+   here was propping up an emoji — "an emoji at letter size is a smudge" —
+   and the emoji is gone. */
+.mb-k.mb-kcal { font-size: 9px; letter-spacing: 0.02em; }
 /* the letters are identity, never status — status is the bar beside them */
 .mb-kcal { color: var(--bar-kcal); } .mb-p { color: var(--bar-p); }
 .mb-f { color: var(--bar-f); } .mb-c { color: var(--bar-c); }
@@ -1960,7 +1962,12 @@ select { max-width: 280px; }
   color: var(--muted); font-variant-numeric: tabular-nums;
 }
 .mpill span { font-size: 10px; font-weight: 700; }
-.mpill .mb-kcal { font-size: 10.5px; }
+/* Four letters where the flame was one glyph, so the label takes the size
+   that keeps the pill inside the 54px box every other pill wears — six fills
+   only compare by eye if the boxes match, which is what the min-width above
+   is for, and a kcal pill grown to fit its own word would break exactly that
+   and push the sixth off a 375 phone. Measured at 375, not guessed. */
+.mpill .mb-kcal { font-size: 8.5px; letter-spacing: 0; }
 .mpill b { font-weight: 600; color: var(--ink); }
 .mpill.pos b { color: var(--dial-over); }
 .mpill.nil b { color: var(--dial-on); }
@@ -3446,13 +3453,12 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    which meal it is. So the denominator and the padding give it back: the
    denominator is context, not the number you read, and it was set only one
    step down from the figure it qualifies. */
-.mmp { padding: 1px 2px; justify-content: center; min-width: 44px; position: relative; }
-/* 63.4 px is the widest the app can draw — 🔥2100/1078 on a heavy day against
-   a large plan. Measured, not guessed, and set AT the maximum: a floor the
-   occasional big meal overflows is uniform except when it matters. */
-.mmp.kc { min-width: 64px; }
-
-.mmp-t { font-size: 7.5px; }
+/* Uniform down the day, which is the whole reason a floor is set at all: six
+   meals whose columns do not line up is six readings you cannot compare. Set
+   at the widest the app can draw — "1090" over a 30px rail — rather than at
+   the common case, so the occasional big meal is uniform too. */
+.mmp { min-width: 34px; }
+.mmp.kc { min-width: 56px; }
 /* Two pixels over, at 390, is the difference between one row and two: the
    header spends 15 (dot) + 18 (three 6px gaps) + 78 (BREAKFAST) + 227 (pills)
    = 338 of the 336 it has. The gap gives it back — 4px still separates a dot

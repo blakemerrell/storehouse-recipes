@@ -3387,6 +3387,8 @@
          the hand that ticked it — and took away the untick. S.mFold holds
          only what you have pressed, so it never has to be cleaned up. */
       var folded = !!(items.length && S.mFold[sk]);
+      /* Said once, used by whichever of the two headers this meal draws. */
+      var pillsSay = mMealPillsSay(sub, mMealAsk(sk, targets, slots), targets);
 
       /* Skipped. One line instead of a card, struck through, with the way
          back on it — a day where lunch is visibly not happening tells you
@@ -3460,9 +3462,17 @@
              an action of its own, and the mockup's dot is decoration only
              because the mockup never modelled that control. */
           (rows
+            /* The label carries the meal's numbers now, because nothing else
+               can. The pills are aria-hidden and always were; the head is a
+               <button>, and a button's accessible name comes from its own
+               aria-label and overrides everything inside it — so marking up
+               the pills would not have helped even before they were hidden.
+               A screen reader has been getting "Open Breakfast" and not one
+               figure off the card since this header was built. */
             ? '<button class="mslot-head" data-mfold="' + esc(sk) + '" aria-expanded="' +
               (folded ? 'false' : 'true') + '" aria-label="' +
-              (folded ? 'Open ' : 'Fold ') + esc(name) + '">' +
+              (folded ? 'Open ' : 'Fold ') + esc(name) +
+              (pillsSay ? ' — ' + esc(pillsSay) : '') + '">' +
               /* One line: the name, then the meal's numbers, then the mark.
                *
                  They were stacked — name on top, pills beneath — which gave
@@ -3497,7 +3507,13 @@
                The strip is drawn at planned weight either way, so a day of
                six untouched meals reads as six quiet rows rather than
                twenty-four accusations. */
+            /* An empty meal has no button to hang a label on, so it says the
+               same sentence in a span only a reader hears. It is the meal
+               MOST worth hearing — an empty one is the one you are about to
+               fill, and "0 of 44 protein" is what tells you what to go
+               looking for. */
             : '<span class="mslot-name mslot-name-flat">' + esc(name) + '</span>' +
+              (pillsSay ? '<span class="vis-hidden">' + esc(pillsSay) + '</span>' : '') +
               '<span class="mslot-sp"></span>' +
               '<span class="mslot-tail">' +
                 mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll) +
@@ -3814,7 +3830,14 @@
     };
   }
 
-  var MGAUGE = [['kcal', '\uD83D\uDD25'], ['p', 'P'], ['f', 'F'], ['c', 'C']];
+  /* The four, in the order they are said everywhere else, with the letter
+     each is known by. Calories lost the flame: the plate says "432 kcal" and
+     the day bar says "kcal", so a third spelling on the row between them was
+     the only thing keeping the three altitudes from reading as one sentence \u2014
+     and it was an emoji, drawn by the system in whatever style it liked, in a
+     row that had just had its last two emoji redrawn as line art. */
+  var MGAUGE = [['kcal', 'kcal'], ['p', 'P'], ['f', 'F'], ['c', 'C']];
+  var MGAUGE_SAY = { kcal: 'calories', p: 'grams of protein', f: 'grams of fat', c: 'grams of carbohydrate' };
 
   /* The four of them, on the meal's own header row.
    *
@@ -3849,17 +3872,20 @@
          A meal asked for 0 and holding 0 is not "on target", it is a meal the
          day can no longer pay for, and 0/0 says the first of those. */
       if (spent[m]) {
+        /* No track, because there is no target left to be a proportion OF —
+           an empty rail under an em dash would be a bar drawn against zero.
+           The dashed cell says it instead, the way it always has. */
         return '<span class="mmp spent' + (m === 'kcal' ? ' kc' : '') + '">' +
-          '<i>' + g[1] + '</i><b>' + (got > 0 ? Math.round(got) : '&mdash;') + '</b></span>';
+          '<span class="mmp-n"><span class="mmp-v">' +
+          (got > 0 ? Math.round(got) : '&mdash;') + '</span>' +
+          '<i class="mb-' + m + '">' + g[1] + '</i></span></span>';
       }
       var gg = mGauge(got, want, day[m]);
       if (!gg) return '';
-      /* The fill is proportion of the TARGET and stops at the pill's end;
-         the tone says which side of the band it landed. Painted here rather
-         than by a class because the proportion is the data. */
+      /* The fill is proportion of the TARGET and stops at the track's end;
+         the state class says which side of the band it landed. Painted here
+         rather than by a class because the proportion is the data. */
       var pct = want > 0 ? Math.min(100, (got / want) * 100) : 0;
-      var tone = gg.st === 'o' ? 'var(--dial-on-pale)'
-        : gg.st === 'x' ? 'var(--dial-over-pale)' : 'var(--dial-under-pale)';
       /* The old plan used to be kept beside the number that replaced it, so
          the card could answer "was that me, or did the day move". Blake, on
          his own day: "those little numbers under the pills? I don't know what
@@ -3877,32 +3903,69 @@
          one mark that says the number beside it is not the arithmetic's
          answer but the limit the arithmetic ran into. */
       var capMark = (ask.capped && m === 'kcal') ? ' mmp-cap' : '';
+      /* The target stops being a printed figure and becomes the length of the
+         track under the number.
+       *
+         It was 7.5px at 55% opacity — the smallest type in the app, three
+         sizes below anything near it — so a pill said a number and a mood and
+         the comparison, which is the pill's entire job, was not legible at
+         arm's length. That is the same complaint that killed the figures
+         UNDER the pills a few commits ago ("I don't know what they mean"),
+         and it applies with more force to the one that mattered.
+       *
+         The proportion was already being computed — it painted the pill's
+         gradient — so nothing is lost by drawing it as a bar instead of
+         hiding it behind a fill: the same number, at a size an eye can use,
+         and the value beside it climbs from 9.5px to 12. Over target fills
+         the track whole and darkens its ground, because a bar pinned at its
+         own maximum cannot say how far past it went and the ground can.
+       *
+         The figure is not gone from the app, only from the glyph: it is in
+         the head's own aria-label, said in words, which is the first time
+         this strip has been readable to a screen reader at all. */
+      /* data-want is the target, kept as a number on the element that draws
+         it. Not scaffolding: the figure left the glyph and the only other
+         place it survives is a sentence in the head's label, and prose is the
+         wrong thing for anything but a reader to parse — reword the sentence
+         and every check of it breaks for no reason. This is the machine half
+         of the same fact, taken from the same `want`, and the suite asserts
+         the two agree so they cannot drift apart in silence. */
       return '<span class="mmp' + (m === 'kcal' ? ' kc' : '') + capMark + ' ' + gg.st +
-        '" style="background:linear-gradient(90deg,' + tone + ' 0 ' + pct.toFixed(1) +
-        '%,var(--paper-soft) ' + pct.toFixed(1) + '%)">' +
-        '<i>' + g[1] + '</i><b>' + Math.round(got) + '</b>' +
-        '<span class="mmp-t">/' + Math.round(want) + '</span>' +
+        '" data-want="' + Math.round(want) + '">' +
+        '<span class="mmp-n"><span class="mmp-v">' + Math.round(got) + '</span>' +
+          '<i class="mb-' + m + '">' + g[1] + '</i></span>' +
+        '<span class="mmp-tr"><i style="width:' + pct.toFixed(1) + '%"></i></span>' +
         '</span>';
     }).join('');
+    /* Still aria-hidden, and now honestly so: every figure on this strip is
+       said in words in the head's own label, so a reader that announced both
+       would hear the meal twice. See mMealPillsSay. */
     return out ? '<span class="mmps' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
       out + '</span>' : '';
   }
 
-  function mGaugesHTML(sub, sh, targets, planned) {
-    if (!sh) return '';
+  /* The same four numbers, in words, for the label of whatever carries them.
+   *
+     The strip has been aria-hidden since it was built and nothing ever said
+     the numbers instead, so a screen reader got "Open Breakfast" and not one
+     figure off the card — and the head is a <button>, whose accessible name
+     comes from its own label and overrides anything inside it, so no amount
+     of marking up the pills could have fixed that from within. The target
+     figure that came off the glyph lands here, where it is finally said at a
+     size that has nothing to do with pixels. */
+  function mMealPillsSay(sub, ask, targets) {
+    if (!ask) return '';
+    var sh = ask.now || ask;
+    var spent = ask.spent || {};
     var day = { kcal: kcalOf(targets), p: targets.p, f: targets.f, c: targets.c };
-    var out = MGAUGE.map(function (g) {
-      var m = g[0], gg = mGauge(sub[m] || 0, sh[m] || 0, day[m]);
-      if (!gg) return '';
-      return '<span class="mgg-1' + (m === 'kcal' ? ' kc' : '') + '">' +
-        '<span class="mgg-l">' + (m === 'kcal' ? g[1] + Math.round(sub.kcal) : g[1]) + '</span>' +
-        '<span class="mgg-t">' +
-          '<span class="mgg-f ' + gg.st + '" style="width:' + gg.fill.toFixed(1) + '%"></span>' +
-          '<span class="mgg-k" style="left:' + gg.tick.toFixed(1) + '%"></span>' +
-        '</span></span>';
-    }).join('');
-    return out ? '<span class="mgg' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
-      out + '</span>' : '';
+    var parts = [];
+    MGAUGE.forEach(function (g) {
+      var m = g[0], want = sh[m] || 0, got = Math.round(sub[m] || 0);
+      if (spent[m]) { parts.push(got + ' ' + MGAUGE_SAY[m] + ', none left to spend'); return; }
+      if (!mGauge(sub[m] || 0, want, day[m])) return;
+      parts.push(got + ' of ' + Math.round(want) + ' ' + MGAUGE_SAY[m]);
+    });
+    return parts.join(', ');
   }
 
   /* The order a shrinking day gives way in, and what a gram of each costs.
@@ -4701,9 +4764,18 @@
      * overshoot; fat and carbs turn at the line, and calories get two per
      * cent of rounding grace. The fit scorer has always judged them that way
      * and the readout must not contradict the thing filling the day. */
-    /* Calories get the flame, not a fourth letter: P, F and C are the three
-       things food is made of and the flame is what the three add up to. */
-    var ROWS = [['kcal', '\uD83D\uDD25', 'Calories', ''], ['p', 'P', 'Protein', ' g'],
+    /* Calories get the word, like everywhere else that says them.
+     *
+       The flame was here on the reasoning that P, F and C are the three
+       things food is made of and the flame is what they add up to — a fair
+       distinction, and it cost more than it bought. The plate says "432
+       kcal", the meal head says "953 kcal", and a reader whose eye runs up
+       from a plate to the day it lands in should not have to translate an
+       emoji on the last step. The two rows BELOW these four keep their
+       glyphs, and that is the line that actually matters: these four are the
+       budget, those two are limits, and a word against a picture says so
+       better than a flame among letters ever did. */
+    var ROWS = [['kcal', 'kcal', 'Calories', ''], ['p', 'P', 'Protein', ' g'],
       ['f', 'F', 'Fat', ' g'], ['c', 'C', 'Carbs', ' g']];
     var tK = kcalOf(targets);
     /* What is left of each, signed: under is negative, over is positive. It
@@ -5833,8 +5905,15 @@
      The basket counts before it is committed. A tick redraws this whole
      sheet, and pills that visibly redrew WITHOUT moving while the line under
      them changed would be one gesture answered twice. */
-  function mGapPill(m, lbl, left) {
-    var done = left < 1;
+  /* The label is looked up rather than passed in. It was passed at eight call
+     sites, four of them spelling calories as a flame — so when the meal head,
+     the plate and the day bars all settled on the word "kcal", this sheet
+     went on saying it in an emoji and the app had two spellings again, which
+     is the thing that change existed to end. One table, MGAUGE, and nothing
+     left to keep in step by hand. */
+  function mGapPill(m, left) {
+    var done = left < 1, lbl = m;
+    MGAUGE.forEach(function (g) { if (g[0] === m) lbl = g[1]; });
     return '<span class="mgp' + (done ? ' met' : '') + '">' +
       '<span class="mb-' + m + '">' + lbl + '</span><b>' +
       Math.round(left) + '</b></span>';
@@ -5871,10 +5950,10 @@
       var dsub = mDayEaten(k);
       return '<div class="mp-cap">The day still wants</div>' +
         '<div class="mgps">' +
-          mGapPill('kcal', '\uD83D\uDD25', Math.max(0, kcalOf(targets) - dsub.kcal)) +
-          mGapPill('p', 'P', Math.max(0, targets.p - dsub.p)) +
-          mGapPill('f', 'F', Math.max(0, targets.f - dsub.f)) +
-          mGapPill('c', 'C', Math.max(0, targets.c - dsub.c)) +
+          mGapPill('kcal', Math.max(0, kcalOf(targets) - dsub.kcal)) +
+          mGapPill('p', Math.max(0, targets.p - dsub.p)) +
+          mGapPill('f', Math.max(0, targets.f - dsub.f)) +
+          mGapPill('c', Math.max(0, targets.c - dsub.c)) +
         '</div>';
     }
     var got = mMealHolds(k, sk);
@@ -5884,10 +5963,10 @@
     });
     return '<div class="mp-cap">' + esc(closed ? nm + ' is closed' : nm + ' still wants') + '</div>' +
       '<div class="mgps">' +
-        mGapPill('kcal', '\uD83D\uDD25', Math.max(0, (want.kcal || 0) - got.kcal)) +
-        mGapPill('p', 'P', Math.max(0, (want.p || 0) - got.p)) +
-        mGapPill('f', 'F', Math.max(0, (want.f || 0) - got.f)) +
-        mGapPill('c', 'C', Math.max(0, (want.c || 0) - got.c)) +
+        mGapPill('kcal', Math.max(0, (want.kcal || 0) - got.kcal)) +
+        mGapPill('p', Math.max(0, (want.p || 0) - got.p)) +
+        mGapPill('f', Math.max(0, (want.f || 0) - got.f)) +
+        mGapPill('c', Math.max(0, (want.c || 0) - got.c)) +
       '</div>';
   }
 
