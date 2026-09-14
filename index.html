@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=329">
+<link rel="stylesheet" href="src/style.css?v=330">
 </head>
 <body>
 
@@ -187,6 +187,15 @@
       <div class="mday-fold" id="macroFold">
         <div class="mweek" id="macroWeek"></div>
         <div id="macroFoot"></div>
+        <!-- Salt over its ceiling, fibre short of its floor: nothing on a day
+             that is fine, one line when one of them is off. It lives HERE,
+             in the page, rather than inside the readout's own markup,
+             because a live region has to exist and be watched BEFORE it
+             gains content — and the readout is replaced whole on every
+             redraw, which would hand a screen reader a brand new region
+             every time and announce none of them. Only its contents
+             change. -->
+        <div class="mlimits" id="macroLimits" role="status"></div>
         <!-- The same six numbers, a line high, for when the page has
              scrolled. It rides the bottom edge of the folding box rather
              than sitting under it, so there is one height to animate
@@ -322,14 +331,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=329"></script>
-<script src="data/nutrition.js?v=329"></script>
-<script src="data/art.js?v=329"></script>
-<script src="data/qr.js?v=329"></script>
-<script src="src/config.js?v=329"></script>
+<script src="data/recipes.js?v=330"></script>
+<script src="data/nutrition.js?v=330"></script>
+<script src="data/art.js?v=330"></script>
+<script src="data/qr.js?v=330"></script>
+<script src="src/config.js?v=330"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=329"></script>
-<script src="src/app.js?v=329"></script>
+<script src="src/sync.js?v=330"></script>
+<script src="src/app.js?v=330"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

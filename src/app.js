@@ -3192,11 +3192,20 @@
      cooking rather than while eating. Deleted rather than left standing: a
      function nothing calls is a claim that something does. */
 
-  /* The week you are in, seven buttons wide: each day's letter, its date, and
-     what it actually came to. The dropdown could only be read one option at a
-     time, so "how did this week go" meant opening it seven times. Days ahead
-     of today are shown but not reachable — the day is a record, not a diary
-     you write forward into. */
+  /* The day you are on says its verdict in a word, and no other day does.
+     A key under the strip — a swatch each for under, on and over — is a
+     thing you read once and then have to keep re-reading, because three
+     tints of one family do not stay learned. One word under the one square
+     you already had a reason to look at teaches the whole strip instead:
+     you see "close" under a pale green square, and the other six are
+     legible from then on, with no legend anywhere on the card. */
+  var MWK_SAY = { under: 'under', on: 'close', over: 'over' };
+
+  /* The week you are in, seven blocks wide: each day's letter, its date, and
+     the colour of how it went. The dropdown could only be read one option at
+     a time, so "how did this week go" meant opening it seven times. Days
+     ahead of today are shown but not reachable — the day is a record, not a
+     diary you write forward into. */
   function mWeekHTML(k, todayK) {
     var cur = keyDate(k);
     var mon = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate());
@@ -3219,6 +3228,7 @@
          eaten to the end. The colour is the same verdict either way — under,
          on, or over its target — so the week reads at a glance. */
       var done = dayObj ? mDayDone(dayObj) : false;
+      var word = dk === k && state ? MWK_SAY[state.slice(1)] : '';
       out.push('<button class="mwk-d' + (dk === k ? ' now' : '') + state +
         (train ? ' train' : '') + (done ? ' done' : '') + '"' +
         (ahead || tooOld ? ' disabled' : '') +
@@ -3228,7 +3238,7 @@
         (got ? ', ' + got + (done ? ' eaten, all done' : ' on the day') : '') + '">' +
         '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) + '</span>' +
         '<span class="mwk-n">' + d.getDate() + '</span>' +
-        '<span class="mwk-k">' + (tK || '&middot;') + '</span>' +
+        '<span class="mwk-s">' + (word || '&nbsp;') + '</span>' +
       '</button>');
     }
     return out.join('');
@@ -3917,6 +3927,9 @@
 
     var readout = macroFootHTML(day, targets, slots);
     $('macroFoot').innerHTML = readout.foot;
+    /* Contents only — the region itself must outlive the redraw or it
+       announces nothing. */
+    $('macroLimits').innerHTML = readout.limits;
     /* The pills are the folded copy of the bars, so they are rebuilt with
        them. The row itself is static markup and keeps its own handler; only
        what is inside it changes. */
@@ -4999,10 +5012,13 @@
        card below carries the button, and the bottom bar's own button is now
        the third and loudest way in. */
     if (!targets.p && !targets.f && !targets.c) {
+      /* `limits` spelled out rather than left off: the caller assigns it to
+         innerHTML, and a missing key there writes the word "undefined"
+         across the card. */
       return { foot: '<div class="macro-none">' +
         '<b>This is your day.</b> Set a goal — lose, hold or gain — and My Day ' +
         'works out what to eat, drafts a day from the recipes you like, and ' +
-        'keeps count as you tick things off.</div>', pills: '' };
+        'keeps count as you tick things off.</div>', limits: '', pills: '' };
     }
     var tot = mTotals(day);
     var asm = mAssumed(day, targets, slots);
@@ -5025,7 +5041,15 @@
      * and the readout must not contradict the thing filling the day. */
     /* Calories get the flame, not a fourth letter: P, F and C are the three
        things food is made of and the flame is what the three add up to. The
-       row names itself "Calories" in words to a reader either way. */
+       row names itself "Calories" in words to a reader either way.
+     *
+       And calories are not the fourth of four equal lines. They are the
+       headline \u2014 the one figure the day is steered by, and the sum the other
+       three are components of. Four identical bars said the opposite: that
+       protein and the whole day's energy are the same rank of fact. So the
+       flame takes the top of the card at display size with a bar the full
+       width of it, and P, F and C sit under it as three columns of one
+       height. Same four numbers, in the shape of what they are. */
     var ROWS = [['kcal', '\uD83D\uDD25', 'Calories', ''], ['p', 'P', 'Protein', ' g'],
       ['f', 'F', 'Fat', ' g'], ['c', 'C', 'Carbs', ' g']];
     var tK = kcalOf(targets);
@@ -5046,7 +5070,8 @@
        what the day is said to be — the pills are the same reading, a line
        high, not a second opinion. */
     var barState = {}, barPct = {};
-    var bars = ROWS.map(function (row) {
+    var barHTML = {};
+    ROWS.forEach(function (row) {
       var m = row[0];
       var target = Math.max(1, m === 'kcal' ? tK : targets[m]);
       var ate = m === 'kcal' ? tot.eaten.kcal : tot.eaten[m];
@@ -5082,26 +5107,46 @@
       var wAte = Math.min(100, 100 * ate / target);
       var wPlan = Math.min(100 - wAte, 100 * (plan - ate) / target);
       var wAsm = Math.min(100 - wAte - wPlan, 100 * assume / target);
-      return '<div class="mbrow ' + state + '" data-macro="' + m + '" data-state="' + state +
-          '" data-eaten="' + Math.round(wAte) + '" data-planned="' +
-          Math.round(Math.min(100, 100 * plan / target)) + '">' +
-        '<span class="mb-k mb-' + m + '" aria-hidden="true">' + row[1] + '</span>' +
-        '<span class="mb-track">' +
+      var track = '<span class="mb-track">' +
           '<i class="mb-ate" style="width:' + wAte.toFixed(1) + '%"></i>' +
           '<i class="mb-plan" style="width:' + wPlan.toFixed(1) + '%"></i>' +
           '<i class="mb-asm" style="width:' + wAsm.toFixed(1) + '%"></i>' +
-        '</span>' +
-        '<span class="mb-num"><b>' + full + '</b> / ' +
-          (m === 'kcal' ? tK : targets[m]) + esc(row[3]) + '</span>' +
-        '<span class="vis-hidden">' + row[2] + '</span>' +
-        /* What is left sits on the row it belongs to. It used to be a fifth
-           line of four signed numbers under the bars, which meant reading a
-           bar and then hunting its delta on the line below. Same figure, on
-           the same line as the bar it explains. */
-        '<span class="mb-d ' + sign(left[m]) + '"><b>' + signed(left[m]) + '</b>' +
-          '<span class="vis-hidden">' + (left[m] > 0 ? ' over' : ' to go') + '</span></span>' +
-      '</div>';
-    }).join('');
+        '</span>';
+      var num = '<span class="mb-num"><b>' + (m === 'kcal' ? full.toLocaleString() : full) +
+        '</b> / ' + (m === 'kcal' ? tK.toLocaleString() + ' kcal' : targets[m] + esc(row[3])) +
+        '</span>';
+      /* What is left of the line, signed. It used to be printed beside every
+         bar; three columns have no room for a third figure at a width a
+         phone actually is, and the pills carry the same number visibly a
+         line higher. So it stays in the markup, spoken rather than printed —
+         which is also what keeps a reader who cannot see the fill told how
+         far off the day is. */
+      var delta = '<span class="mb-d ' + sign(left[m]) + ' vis-hidden"><b>' +
+        signed(left[m]) + '</b>' + (left[m] > 0 ? ' over' : ' to go') + '</span>';
+      var open = '<div class="' + (m === 'kcal' ? 'mhead' : 'mbrow') + ' ' + state +
+        '" data-macro="' + m + '" data-state="' + state +
+        '" data-eaten="' + Math.round(wAte) + '" data-planned="' +
+        Math.round(Math.min(100, 100 * plan / target)) + '">';
+      barHTML[m] = m === 'kcal'
+        /* the headline: flame, the figure at display size, the target beside
+           it, and a bar the full width of the card under the pair */
+        ? open +
+            '<span class="mhead-n">' +
+              '<span class="mb-k mb-kcal" aria-hidden="true">' + row[1] + '</span>' + num +
+            '</span>' + track +
+            '<span class="vis-hidden">' + row[2] + '</span>' + delta +
+          '</div>'
+        /* a column: letter and figure on one line, bar under, all three the
+           same width so the fills compare by eye */
+        : open +
+            '<span class="mb-t">' +
+              '<span class="mb-k mb-' + m + '" aria-hidden="true">' + row[1] + '</span>' + num +
+            '</span>' + track +
+            '<span class="vis-hidden">' + row[2] + '</span>' + delta +
+          '</div>';
+    });
+    var bars = barHTML.kcal + '<div class="mbars3">' +
+      barHTML.p + barHTML.f + barHTML.c + '</div>';
 
     /* A floor and a ceiling, not two more budgets — which is why they are a
        line rather than two more bars. Fibre is what makes a cut survivable
@@ -5111,44 +5156,62 @@
     var naCap = 2300;
     var fibFloor = Math.round(tK * 14 / 1000);          // 14 g per 1000 kcal
     var na = Math.round(tot.all.na), fib = Math.round(tot.all.fib);
-    /* A floor and a ceiling, drawn as bars now \u2014 and never coloured like the
-       four above them. Filling the protein bar is progress; filling the SALT
-       bar is a warning, and the same paint on both would say the opposite of
-       what it means. So:
-     *
-       Fibre NEVER turns red. Over a floor is still good \u2014 there is no such
+    /* Fibre NEVER turns red. Over a floor is still good \u2014 there is no such
        thing as too much fibre on a cut \u2014 so the only two states are short
        and met.
      *
        Salt NEVER turns green. Staying under a ceiling is the default, not an
        achievement, so it is quiet until it is within a fifth of the cap,
        then it warns, then it is over. Green there would congratulate you for
-       having eaten nothing in particular.
-     *
-       One fill, not the eaten-and-planned pair the macro rows carry: two
-       shades on a lesser row is detail nobody reads. */
+       having eaten nothing in particular. */
     var fibState = fib >= fibFloor ? 'met' : 'short';
     var naState = na > naCap ? 'past' : na >= naCap * 0.8 ? 'near' : 'quiet';
-    var limitRow = function (glyph, state, dCls, val, cap, unit, name) {
-      var d = val - cap;
-      return '<div class="mbrow mlim ' + state + '">' +
-        '<span class="mb-k" aria-hidden="true">' + glyph + '</span>' +
-        '<span class="mb-track"><i class="mlim-f" style="width:' +
-          Math.min(100, 100 * val / cap).toFixed(1) + '%"></i></span>' +
-        '<span class="mb-num"><b>' + val.toLocaleString() + '</b> / ' +
-          cap.toLocaleString() + unit + '</span>' +
-        '<span class="vis-hidden">' + name + '</span>' +
-        '<span class="mb-d ' + dCls + '"><b>' + (d > 0 ? '+' : '') + d.toLocaleString() +
-          '</b></span>' +
-      '</div>';
+    /* And that is the whole argument for why these two are not a row of the
+       readout any more.
+     *
+       They were a pair of bars under the macros, which put five things in a
+       column and invited you to read them as five budgets to fill. Salt is
+       not a budget. Filling the protein bar is the day going right and
+       filling the salt bar is the day going wrong, and drawing both the same
+       way, always, in the same stack, is the readout arguing with itself.
+     *
+       So they are silent. Nothing is drawn while fibre clears its floor and
+       salt is nowhere near its ceiling, which is most days and is exactly
+       when there is nothing to do about either. When one goes off, one line
+       appears and says which and by how much.
+     *
+       This is the rule the app already keeps a level down: a plate has no
+       "on" chip, and the absence of one is what makes a chip mean something.
+       A warning that is always on the screen is not a warning, it is
+       furniture. */
+    var limitLine = function (state, glyph, text, name) {
+      return '<div class="mlim ' + state + '" data-lim="' + name + '">' +
+        '<span class="mlim-g" aria-hidden="true">' + glyph + '</span>' +
+        '<span class="mlim-t">' + text + '</span></div>';
     };
-    var micro =
-      /* Short of the floor is quiet, not alarming: it is a thing to fix at
-         dinner, not a thing you did wrong. Clearing it is the green. */
-      limitRow('\uD83C\uDF3E', fibState, fibState === 'met' ? 'nil' : 'neg',
-        fib, fibFloor, ' g', 'of fibre') +
-      limitRow('\uD83E\uDDC2', naState, naState === 'past' ? 'pos' : 'neg',
-        na, naCap, ' mg', 'of sodium');
+    var micro = '';
+    /* A ceiling can be busted at lunch; a floor can only be missed at the
+       end. So the two do not warn on the same schedule.
+     *
+       An empty day is short of fibre by the whole floor, and saying so is
+       the most useless sentence this card could carry \u2014 of course it is, you
+       have not eaten yet, and the rest of the day is precisely what fixes
+       it. A day still carrying an empty meal is the same story less far
+       along. So fibre holds its tongue until nothing is being assumed any
+       more: every meal has something in it, the day is built, and a
+       shortfall is now a finding rather than an unfinished sentence.
+     *
+       Salt has no such patience. Two thousand milligrams by lunch is worth
+       knowing at lunch, while there are still meals left to choose. */
+    if (fibState === 'short' && !asm.kcal) {
+      micro += limitLine('short', '\uD83C\uDF3E', '<b>' + fib + ' g</b> fibre &middot; ' +
+        (fibFloor - fib) + ' short of the floor', 'fib');
+    }
+    if (naState !== 'quiet') {
+      micro += limitLine(naState, '\uD83E\uDDC2', '<b>' + na.toLocaleString() + ' mg</b> salt &middot; ' +
+        (naState === 'past' ? 'over' : 'nearing') + ' the ' + naCap.toLocaleString() +
+        ' ceiling', 'na');
+    }
 
     /* The same six numbers folded into one row of pills, for when the page
        has scrolled and the bars would be eating the screen. Four signed
@@ -5202,8 +5265,12 @@
        the detail costs no navigation and puts the two in the same place. */
     return {
       foot: '<button class="mbars" data-mchartopen="1" aria-label="See these over time">' +
-          bars + '<span class="mbars-more" aria-hidden="true">&rsaquo;</span></button>' +
-        '<div class="mlimits" role="status">' + micro + '</div>',
+          bars + '<span class="mbars-more" aria-hidden="true">&rsaquo;</span></button>',
+      /* Handed back separately, because the element it goes into is static
+         markup in the page. A live region has to be on the page and watched
+         BEFORE it gains content; building it here would mean a new region
+         every redraw, and a screen reader announcing none of them. */
+      limits: micro,
       pills: pills
     };
   }

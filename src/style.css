@@ -55,8 +55,9 @@
   --bar-f: oklch(0.52 0.11 65);
   --bar-c: oklch(0.44 0.09 150);
   --over-dial:  oklch(0.55 0.14 45);
-  /* a ceiling nowhere near being hit: present, but not a verdict */
-  --mlim-quiet: oklch(0.66 0.02 65);
+  /* a ceiling nowhere near being hit: present, but not a verdict. Only the
+     pale one survives — the readout draws nothing at all for a quiet
+     ceiling now, and the pills are the one place the state is still shown. */
   --mlim-quiet-pale: oklch(0.86 0.012 65);
   --muted:      oklch(0.52 0.03 65);
   --muted-2:    oklch(0.45 0.03 65);
@@ -1745,46 +1746,69 @@ select { max-width: 280px; }
    unclaimed. */
 /* The week, seven buttons wide. The dropdown could only be read one option
    at a time, so "how did this week go" meant opening it seven times. */
-.mweek { display: flex; gap: 3px; margin-top: 10px; }
+/* Seven blocks of colour, not seven rings around seven numbers.
+ *
+   The rail used to draw a 25px circle per day with a coloured border, a
+   weekday letter above it and that day's calorie target below — three lines
+   of type per column, which is a table of seven rows turned on its side. A
+   week is not read that way. What you want off it is the SHAPE of the week:
+   which days landed, which ran over, how long the good run is. That is a
+   heatmap, and a heatmap is a filled block; a 1px ring around a number is
+   the least legible way to say "green" that exists.
+ *
+   So the block takes the colour, and the verdict reads from across the room.
+   The target that used to sit under each day goes — it is a fact about the
+   PLAN and this strip is a record of OUTCOMES, and today's own target is
+   printed at full size two inches below. It stays in each button's label
+   for anyone listening rather than looking. */
+.mweek { display: flex; gap: 4px; margin-top: 10px; }
 .mwk-d {
-  flex: 1 1 0; min-width: 0; background: none; border: 0; padding: 3px 0 2px;
-  display: flex; flex-direction: column; align-items: center; gap: 1px; border-radius: 5px;
+  flex: 1 1 0; min-width: 0; background: none; border: 0; padding: 0;
+  display: flex; flex-direction: column; align-items: stretch; gap: 3px;
 }
-.mwk-d:disabled { opacity: 0.35; cursor: default; }
-.mwk-d:not(:disabled):hover { background: var(--paper-soft); }
-.mwk-w { font-size: 9px; letter-spacing: 0.06em; color: var(--muted); }
+.mwk-d:disabled { opacity: 0.4; cursor: default; }
+.mwk-w {
+  font-size: 9px; letter-spacing: 0.06em; color: var(--muted); text-align: center;
+}
 .mwk-n {
-  width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 11.5px; color: var(--muted-2); background: var(--paper-soft);
-  border: 1px solid transparent;
+  height: 34px; border-radius: 8px; display: grid; place-items: center;
+  font-size: 12.5px; color: var(--muted-2); background: var(--paper-soft);
+  font-variant-numeric: tabular-nums;
 }
-.mwk-k { font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.mwk-d.now .mwk-n { background: var(--ink); color: var(--paper); font-weight: 600; }
-/* the same three verdicts the bars use, so a week reads like a day */
-.mwk-d.under .mwk-n { border-color: var(--dial-under); }
-.mwk-d.on .mwk-n { border-color: var(--dial-on); }
-.mwk-d.over .mwk-n { border-color: var(--dial-over); }
-.mwk-d.over .mwk-k { color: var(--dial-over); }
-/* A ring is a day in progress; a filled circle is a day eaten to the end.
-   The fill takes the verdict's colour, faintly, so the week reads as seven
-   outcomes at a glance — and today keeps its ink fill either way, since
-   "which day is this" outranks "how did it go". */
-.mwk-d.done .mwk-n { color: var(--ink); font-weight: 600; }
-.mwk-d.done.under .mwk-n { background: color-mix(in oklab, var(--dial-under) 24%, var(--paper-soft)); }
-.mwk-d.done.on .mwk-n { background: color-mix(in oklab, var(--dial-on) 24%, var(--paper-soft)); }
-.mwk-d.done.over .mwk-n { background: color-mix(in oklab, var(--dial-over) 24%, var(--paper-soft)); }
-/* Today is the day most often finished while you are looking at it, and its
-   ink fill has no room for a tint — so its verdict goes on as a ring around
-   the fill, a hair of paper between the two so the ring reads as a ring. */
-.mwk-d.done.now .mwk-n {
-  background: var(--ink); color: var(--paper);
-  box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--muted-2);
+.mwk-d:not(:disabled):hover .mwk-n { filter: brightness(0.96); }
+/* The word under today, and only under today — the legend, moved onto the
+   one square whose colour you already have a reason to look at. The empty
+   span on the other six holds the row's height steady so the strip does not
+   jump a line when the day you are on changes verdict. */
+.mwk-s {
+  font-size: 9px; line-height: 1; text-align: center; color: var(--muted);
+  font-weight: 600; min-height: 9px;
 }
-.mwk-d.done.now.under .mwk-n { box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--dial-under); }
-.mwk-d.done.now.on .mwk-n { box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--dial-on); }
-.mwk-d.done.now.over .mwk-n { box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--dial-over); }
+/* The same three verdicts the bars use, so a week reads like a day. Pale
+   while the day is still being eaten, solid once it is done: the fill says
+   how the day went and the WEIGHT of it says whether that is the final
+   word. The number stays ink on the pale fills and paper on the solid ones,
+   which is the only pair that stays legible against all six. */
+.mwk-d.under .mwk-n { background: color-mix(in oklab, var(--dial-under) 22%, var(--paper-soft)); color: var(--ink); }
+.mwk-d.on .mwk-n { background: color-mix(in oklab, var(--dial-on) 22%, var(--paper-soft)); color: var(--ink); }
+.mwk-d.over .mwk-n { background: color-mix(in oklab, var(--dial-over) 22%, var(--paper-soft)); color: var(--ink); }
+.mwk-d.done.under .mwk-n { background: var(--dial-under); color: var(--paper); font-weight: 600; }
+.mwk-d.done.on .mwk-n { background: var(--dial-on); color: var(--paper); font-weight: 600; }
+.mwk-d.done.over .mwk-n { background: var(--dial-over); color: var(--paper); font-weight: 600; }
+/* Which day you are on outranks how it went, so it is said in ink and in a
+   shape none of the six can take: a ring drawn outside the block, with a
+   hair of paper between, so it reads as a ring rather than a thicker edge.
+   Inset so a full-bleed block at the end of the row cannot clip it. */
+.mwk-d.now .mwk-n {
+  box-shadow: 0 0 0 1.5px var(--paper) inset, 0 0 0 2px var(--ink);
+  font-weight: 600;
+}
+.mwk-d.now:not(.under):not(.on):not(.over) .mwk-n { background: var(--ink); color: var(--paper); }
+.mwk-d.now .mwk-w { color: var(--ink); font-weight: 600; }
+.mwk-d.now.under .mwk-s { color: var(--dial-under); }
+.mwk-d.now.on .mwk-s { color: var(--dial-on); }
+.mwk-d.now.over .mwk-s { color: var(--dial-over); }
 /* a training day earns more carbohydrate, and says so */
-.mwk-d.train .mwk-k { color: var(--ochre-text); font-weight: 600; }
 .mwk-d.train .mwk-w::after { content: '\00b7'; margin-left: 2px; color: var(--ochre); }
 /* the seven training-day toggles in the plan sheet */
 .mt-help { margin-top: 16px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
@@ -1860,7 +1884,34 @@ select { max-width: 280px; }
    the seven pixels it borrowed for the word "kcal" belong to the bar. The
    nowrap stays — it costs nothing and it is the thing that would have turned
    a too-long label into a visible "kca" over "l" rather than a silent one. */
-.mbrow { display: grid; grid-template-columns: 17px 1fr auto auto; gap: 9px; align-items: center; }
+/* The headline. Calories are the sum the other three are parts of, and the
+   day is steered by them — so they get the top of the card, the figure at
+   display size in the serif the rest of the app reserves for things that
+   are not UI chrome, and a bar as wide as the card is. */
+.mhead { display: flex; flex-direction: column; gap: 6px; }
+.mhead-n { display: flex; align-items: baseline; gap: 6px; }
+/* The figure is the headline; the target is the scale it is read against.
+   At one size they compete, and "1,633 / 1,745" becomes a fraction to be
+   worked out rather than a number to be read. */
+.mhead .mb-num {
+  font-size: 11.5px; color: var(--muted); min-width: 0; text-align: left;
+  line-height: 1; white-space: nowrap;
+}
+.mhead .mb-num b {
+  font-family: var(--serif); font-size: 25px; font-weight: 600; color: var(--ink);
+  margin-right: 2px; letter-spacing: -0.01em;
+}
+.mhead .mb-k.mb-kcal { font-size: 15px; }
+.mhead .mb-track { height: 11px; }
+/* P, F and C: three columns of equal width, because three fills only
+   compare by eye if the tracks they sit in are the same length. The old
+   stack gave each a full card width and a label column, which made three
+   bars that could not be compared to each other at all — only each to its
+   own target, one at a time, which is four readings of a thing that should
+   take one. */
+.mbars3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 13px; }
+.mbrow { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mb-t { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
 .mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; white-space: nowrap; }
 /* the flame is an emoji, and an emoji at letter size is a smudge */
 .mb-k.mb-kcal { font-size: 12.5px; }
@@ -1868,9 +1919,17 @@ select { max-width: 280px; }
 .mb-kcal { color: var(--bar-kcal); } .mb-p { color: var(--bar-p); }
 .mb-f { color: var(--bar-f); } .mb-c { color: var(--bar-c); }
 .mb-track {
-  display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: var(--line);
+  display: flex; height: 7px; border-radius: 4px; overflow: hidden; background: var(--line);
 }
 .mb-track i { display: block; height: 100%; }
+/* the headline is a bar of the same family, so it takes the same paint */
+.mhead.under .mb-ate { background: var(--dial-under); }
+.mhead.under .mb-plan { background: var(--dial-under-pale); }
+.mhead.on .mb-ate { background: var(--dial-on); }
+.mhead.on .mb-plan { background: var(--dial-on-pale); }
+.mhead.over .mb-ate { background: var(--dial-over); }
+.mhead.over .mb-plan { background: var(--dial-over-pale); }
+.mhead.over .mb-num b { color: var(--dial-over); }
 /* Scoped to the row, never bare. `.on` and `.over` are words half the app
    uses; an unscoped rule here would repaint anything that happened to sit
    inside an element carrying one — the same trap `.daybar` set. */
@@ -1885,46 +1944,36 @@ select { max-width: 280px; }
     color-mix(in oklab, var(--muted) 36%, transparent) 0 3px, transparent 3px 6px);
 }
 .mb-num {
-  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
-  white-space: nowrap; min-width: 74px; text-align: right;
+  font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+  white-space: nowrap; text-align: right;
 }
 .mb-num b { color: var(--ink); font-weight: 600; }
 .mbrow.over .mb-num b { color: var(--dial-over); }
-/* What is left of the line, signed, on the line itself. Under is negative
-   and quiet; over is positive and red; landed is green. Fixed width so the
-   four figures stack in a column rather than jittering with their sign. */
-.mb-d {
-  font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap;
-  min-width: 36px; text-align: right;
-}
-.mb-d b { font-weight: 600; }
-.mb-d.pos b { color: var(--dial-over); }
-.mb-d.nil b { color: var(--dial-on); }
-.mb-d.neg b { color: var(--muted-2); }
+/* `.mb-d` — what is left of the line, signed — carries no styling any more:
+   it is spoken, never printed, and the pills print the same figure. Its
+   rules went with the column that used to hold it. */
 
-/* A floor and a ceiling: two more bars, but never two more budgets. They sit
-   under a hairline on a lighter track than the four above — same grid, same
-   columns, less weight — which is what says "same family, lesser rank"
-   without inventing a second visual language for one card.
+/* A floor and a ceiling, and neither is a budget — which is why they are
+   not bars any more, and why on most days they are not anything at all.
+   They draw one line, only when one of them is off, and the line says which
+   and by how much. An empty container on the quiet days, so the live region
+   is on the page and being watched before it has anything to announce.
  *
-   The colours cannot be the macro colours, because the meaning of a full bar
-   inverts here. Fibre has no red: over a floor is still good. Salt has no
-   green: being under a ceiling is the default rather than an achievement, so
-   it stays grey until it is close. */
-.mlimits {
-  margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line-soft);
-  display: flex; flex-direction: column; gap: 6px;
+   The colours cannot be the macro colours, because the meaning inverts here.
+   Fibre has no red: short of a floor is a thing to fix at dinner, so it is
+   the same quiet ochre as any macro still to go. Salt has no green: being
+   under a ceiling is the default rather than an achievement. */
+.mlimits { display: flex; flex-direction: column; gap: 5px; }
+.mlimits:not(:empty) {
+  margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--line-soft);
 }
-.mlimits .mb-track { height: 6px; }
-.mlimits .mb-k { font-size: 12px; }
-.mlim-f { display: block; height: 100%; }
-.mlim.short .mlim-f { background: var(--dial-under); }
-.mlim.met .mlim-f { background: var(--dial-on); }
-/* under a ceiling and nowhere near it: the quiet default */
-.mlim.quiet .mlim-f { background: var(--mlim-quiet); }
-.mlim.near .mlim-f { background: var(--dial-under); }
-.mlim.past .mlim-f { background: var(--dial-over); }
-.mlim.past .mb-num b { color: var(--dial-over); }
+.mlim { display: flex; align-items: baseline; gap: 6px; font-size: 11px; }
+.mlim-g { flex: 0 0 auto; font-size: 11px; }
+.mlim-t { color: var(--muted); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+.mlim-t b { font-weight: 600; }
+.mlim.short .mlim-t b, .mlim.near .mlim-t b { color: var(--dial-under); }
+.mlim.past .mlim-t b { color: var(--dial-over); }
+.mlim.past .mlim-t { color: var(--dial-over); }
 .mm { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px;
   display: inline-flex; align-items: baseline; gap: 3px; }
 .mm b { font-weight: 600; color: var(--ink); }

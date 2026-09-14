@@ -249,19 +249,38 @@ module.exports = {
       new RegExp('/ ' + defF + ' g').test(await foot()) &&
       new RegExp('/ ' + defC + ' g').test(await foot()), await foot());
     t.ok('the calorie line is derived 4/4/9 from the targets',
-      new RegExp('/ ' + defKcal + '(?!\\d)').test(await foot()), await foot());
-    /* Four bars, one budget: calories are the fourth line of the same thing
-       rather than a different chart in a different place. Each carries three
-       bands — eaten, planned, and the hatched share of a meal still empty. */
-    t.ok('the day is four bars, not three dials and a chart',
+      new RegExp('/ ' + defKcal.toLocaleString() + '(?!\\d)').test(await foot()), await foot());
+    /* One budget in the shape of what it is: calories are the SUM the other
+       three are parts of, so they are the headline and P/F/C are three
+       columns under it. Four identical bars said protein and the whole day's
+       energy were the same rank of fact. Each of the four still carries its
+       three bands — eaten, planned, and the hatched share of a meal still
+       empty — because that is the reading, not the layout. */
+    t.ok('calories are the headline and the macros are three columns under it',
       await p.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mbars .mbrow')];
-        return rows.length === 4 &&
-          rows.map((r) => r.dataset.macro).join() === 'kcal,p,f,c' &&
-          rows.every((r) => r.querySelector('.mb-ate') && r.querySelector('.mb-plan') &&
-            r.querySelector('.mb-asm')) &&
-          !document.querySelector('.mslot-left');
-      }));
+        const head = document.querySelector('.mbars .mhead');
+        const cols = [...document.querySelectorAll('.mbars3 .mbrow')];
+        const bands = (r) => r.querySelector('.mb-ate') && r.querySelector('.mb-plan') &&
+          r.querySelector('.mb-asm');
+        return !!head && head.dataset.macro === 'kcal' && bands(head) &&
+          cols.length === 3 && cols.map((r) => r.dataset.macro).join() === 'p,f,c' &&
+          cols.every(bands) &&
+          // no stray fourth bar left in the old stack
+          !document.querySelector('.mbars > .mbrow') && !document.querySelector('.mslot-left');
+      }), await p.evaluate(() => document.querySelector('.mbars').innerHTML.slice(0, 300)));
+    /* Three fills only compare by eye if the tracks they sit in are the same
+       length. The old stack gave each macro a full card width and its own
+       label column, which made three bars that could only be read one at a
+       time against their own targets — four readings of a thing that should
+       take one. */
+    t.ok('and the three columns are the same width as each other',
+      await p.evaluate(() => {
+        const w = [...document.querySelectorAll('.mbars3 .mb-track')]
+          .map((e) => Math.round(e.getBoundingClientRect().width));
+        return w.length === 3 && Math.max.apply(null, w) - Math.min.apply(null, w) <= 1 &&
+          w[0] > 40;
+      }), await p.evaluate(() => [...document.querySelectorAll('.mbars3 .mb-track')]
+        .map((e) => e.getBoundingClientRect().width).join(', ')));
     /* A band, not a line. Two grams of fat past a sixty-one gram target is
        landing on it, not busting it — the old rule turned red on the first
        gram over and made a day that was fine look like a day that was not. */
@@ -281,64 +300,154 @@ module.exports = {
           st('kcal', 1900, 1709) === 'over';
       }));
 
-    /* And a signed number for what is left, on the row it belongs to. It
-       began as one line under the bars ("N g left" said four times in four
-       places), then moved onto the rows so a row reads have / want / left
-       without the eye hopping down to a legend. Fibre and sodium keep the
-       line under the bars because they are a floor and a ceiling, not a
-       budget with a "left". */
-    t.ok('and each row says what is left of it, signed',
+    /* And a signed number for what is left, on the line it belongs to —
+       spoken rather than printed, now that three columns have no room for a
+       third figure at a width a phone actually is. The pills a line above
+       print the same number. Losing it from the markup would take it from a
+       screen reader too, which is the reading that has nowhere else to go. */
+    t.ok('and each of the four still says what is left of it, signed',
       await p.evaluate(() => {
-        const c = [...document.querySelectorAll('.mbrow[data-macro] .mb-d')];
-        return c.length === 4 && c.every((x) => /^[+-]?\d+$/.test(x.querySelector('b').textContent));
+        const c = [...document.querySelectorAll('[data-macro] .mb-d')];
+        return c.length === 4 &&
+          c.every((x) => /^[+-]?\d+$/.test(x.querySelector('b').textContent)) &&
+          c.every((x) => /\b(to go|over)$/.test(x.textContent.trim()));
       }), await p.textContent('#macroFoot'));
-    /* Bars now, under a hairline and on a lighter track than the four above:
-       same family, lesser rank. What must never happen is the two being drawn
-       like the macros, because a full bar means the opposite here — filling
-       the protein bar is progress, filling the SALT bar is a warning. */
-    t.ok('fibre and sodium sit under the bars as a floor and a ceiling',
-      await p.evaluate(() => {
-        const m = [...document.querySelectorAll('.mlimits .mlim')];
-        return m.length === 2 && m.every((x) =>
-          /\d+\/[\d,]+/.test(x.querySelector('.mb-num').textContent.replace(/\s/g, '')));
-      }), await p.textContent('.mlimits'));
-    t.ok('and they are quieter than the four, under a divider of their own',
+    /* A floor and a ceiling, and neither is a budget — which is why on a day
+       that is fine they are NOTHING. They were two bars under the macros,
+       which put five things in a column and invited you to read them as five
+       budgets to fill; filling the protein bar is the day going right and
+       filling the salt bar is the day going wrong, and drawing both the same
+       way, always, is the readout arguing with itself.
+     *
+       The rule is the one a plate already keeps: there is no "on" chip, and
+       that is what makes a chip mean something. */
+    /* The day here is empty: no salt anywhere near the ceiling, and a fibre
+       floor that is only "missed" in the sense that the day has not happened
+       yet. Both silent. */
+    t.ok('a day inside the floor and under the ceiling says nothing about either',
       await p.evaluate(() => {
         const lim = document.querySelector('.mlimits');
-        const thin = parseFloat(getComputedStyle(lim.querySelector('.mb-track')).height);
-        const thick = parseFloat(getComputedStyle(
-          document.querySelector('.mbrow[data-macro] .mb-track')).height);
-        return thin < thick && parseFloat(getComputedStyle(lim).borderTopWidth) > 0;
-      }));
-    /* The colours invert here and the app must not forget it: there is no such
-       thing as too much fibre on a cut, and being under a salt ceiling is the
-       default rather than something to congratulate. */
-    t.ok('fibre never turns red and salt never turns green',
+        return !!lim && lim.children.length === 0;
+      }), await p.evaluate(() => (document.querySelector('.mlimits') || {}).outerHTML));
+    /* But the live region has to be ON the page while it is empty. A status
+       region added at the moment it gains content is a region nothing was
+       watching when it changed, and the announcement is lost. */
+    t.ok('and the region that would carry the warning is already there, watched',
       await p.evaluate(() => {
-        const cls = (sel) => [...(document.querySelector(sel) || { classList: [] }).classList];
-        const fib = cls('.mlimits .mlim:first-child');
-        const na = cls('.mlimits .mlim:last-child');
-        return fib.indexOf('past') < 0 && fib.indexOf('near') < 0 &&
-          na.indexOf('met') < 0;
-      }), await p.evaluate(() => [...document.querySelectorAll('.mlimits .mlim')]
-        .map((x) => x.className).join(' | ')));
+        const lim = document.querySelector('.mlimits');
+        return !!lim && lim.getAttribute('role') === 'status';
+      }));
+    /* Silent has to mean silent. An empty container that still draws its
+       divider and holds its margin is the furniture this change was made to
+       remove — the card would look exactly as it did, minus the words. */
+    t.ok('and it draws no rule and takes no height while it is empty',
+      await p.evaluate(() => {
+        const lim = document.querySelector('.mlimits');
+        return lim.children.length === 0 &&
+          parseFloat(getComputedStyle(lim).borderTopWidth) === 0 &&
+          Math.round(lim.getBoundingClientRect().height) === 0;
+      }), await p.evaluate(() => {
+        const l = document.querySelector('.mlimits');
+        return getComputedStyle(l).borderTopWidth + ' / ' +
+          l.getBoundingClientRect().height + ' / ' + l.children.length;
+      }));
+
+    /* ---- and the other half of that guard --------------------------------
+     * "It says nothing" passes just as well against a readout that can no
+     * longer say anything at all. So the same claim from the other side, on
+     * a page of its own: a day carrying half a bottle of soy sauce across
+     * four meals, which busts the ceiling and leaves the floor nowhere near
+     * met. Both lines must appear, name their number, and carry the state
+     * that colours them. */
+    const limPg = await t.fresh();
+    await limPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 }));
+      /* every meal carries something, so nothing is being ASSUMED — which is
+         the condition fibre waits for before it will say a word */
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg_white', x: 2, eaten: 1 }, { id: 'f:soy_sauce', x: 1, eaten: 1 }],
+        l: [{ id: 'f:cooked_beef', x: 1.5, eaten: 1 }, { id: 'f:soy_sauce', x: 1, eaten: 1 }],
+        d: [{ id: 'f:cooked_beef', x: 1.5, eaten: 1 }, { id: 'f:soy_sauce', x: 1, eaten: 1 }],
+        s: [{ id: 'f:cheddar', x: 1, eaten: 1 }] } }));
+    });
+    await limPg.reload();
+    await limPg.waitForTimeout(400);
+    await limPg.click('.tab[data-view="macros"]');
+    await limPg.waitForTimeout(350);
+    const limSay = await limPg.evaluate(() => {
+      const rows = [...document.querySelectorAll('.mlimits .mlim')];
+      return { n: rows.length, text: rows.map((r) => r.textContent).join(' ~ '),
+        keys: rows.map((r) => r.dataset.lim).join(),
+        states: rows.map((r) => [...r.classList].filter((c) => c !== 'mlim').join()).join(' '),
+        border: parseFloat(getComputedStyle(document.querySelector('.mlimits')).borderTopWidth) };
+    });
+    t.ok('but a day over the ceiling and short of the floor says both, by name',
+      limSay.n === 2 && limSay.keys === 'fib,na' &&
+      /\d+ g fibre/.test(limSay.text) &&
+      /short of the floor/.test(limSay.text) &&
+      /mg.*salt/.test(limSay.text) && /over the [\d,]+ ceiling/.test(limSay.text),
+      JSON.stringify(limSay));
+    /* The colours invert here and the app must not forget it: there is no
+       such thing as too much fibre on a cut, and being under a salt ceiling
+       is the default rather than something to congratulate. */
+    t.ok('and fibre never turns red while salt never turns green',
+      /\bshort\b/.test(limSay.states) && !/\bpast\b|\bnear\b/.test(limSay.states.split(' ')[0]) &&
+      /\bpast\b/.test(limSay.states.split(' ')[1] || '') &&
+      !/\bmet\b/.test(limSay.states.split(' ')[1] || ''),
+      limSay.states);
+    // and now the rule IS drawn, because there is something under it
+    t.ok('and only now does it draw its rule across the card', limSay.border > 0,
+      String(limSay.border));
+    /* Fibre's patience, asserted directly: empty the snack slot and the same
+       shortfall stops being a finding, because the rest of the day is what
+       fixes it. Salt keeps talking — a ceiling can be busted at lunch. */
+    await limPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      days[k].s = [];
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+    });
+    await limPg.reload();
+    await limPg.waitForTimeout(400);
+    await limPg.click('.tab[data-view="macros"]');
+    await limPg.waitForTimeout(350);
+    t.ok('and a meal still to come is what buys fibre its silence, not salt',
+      await limPg.evaluate(() => {
+        const k = [...document.querySelectorAll('.mlimits .mlim')].map((r) => r.dataset.lim);
+        return k.length === 1 && k[0] === 'na';
+      }), await limPg.evaluate(() => (document.querySelector('.mlimits') || {}).textContent));
+    await limPg.context().close();
 
     /* Carb cycling. RP does not eat the same thing seven days a week: a
        training day earns more carbohydrate and a rest day gives it back, so
        the WEEK averages to the plan while the days differ. Derived from the
        workouts box, overridden by tapping a day. */
+    /* The strip stopped printing each day's target under it — that is a fact
+       about the PLAN, and the strip is a record of OUTCOMES, and three lines
+       of type per column is a table turned on its side rather than a
+       heatmap. It stays in the label, which is where a reader who is
+       listening rather than looking was always getting it. */
+    const wkTarget = () => p.evaluate(() => [...document.querySelectorAll('.mwk-d')]
+      .map((e) => Number((e.getAttribute('aria-label')
+        .match(/(\d+) calorie target/) || [0, 0])[1])));
     t.ok('with no workouts named, every day asks for the same thing',
-      await p.evaluate(() => {
-        const k = [...document.querySelectorAll('.mwk-k')].map((e) => e.textContent);
-        return k.length === 7 && new Set(k).size === 1;
-      }), await p.textContent('.mweek'));
+      await (async () => {
+        const k = await wkTarget();
+        return k.length === 7 && new Set(k).size === 1 && k[0] > 0;
+      })(), (await wkTarget()).join(','));
     await openPlan(p);
     await p.waitForTimeout(200);
     await p.fill('#mtWorkouts', '4');
     await p.click('[data-mtarg="save"]');
     await p.waitForTimeout(350);
     const cyc = await p.evaluate(() => ({
-      week: [...document.querySelectorAll('.mwk-k')].map((e) => Number(e.textContent)),
+      week: [...document.querySelectorAll('.mwk-d')].map((e) => Number((e.getAttribute('aria-label')
+        .match(/(\d+) calorie target/) || [0, 0])[1])),
       train: [...document.querySelectorAll('.mwk-d')].map((e) => e.classList.contains('train')),
       base: (() => {
         const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets')) || { p: 180, f: 50, c: 50 };
@@ -1040,7 +1149,7 @@ module.exports = {
 
     // ---- eaten: the tick fills the bar and the line-through arrives
     t.ok('nothing is eaten yet, so the eaten sweep is empty',
-      await p.evaluate(() => document.querySelector('.mbrow').dataset.eaten === '0'));
+      await p.evaluate(() => document.querySelector('[data-macro="kcal"]').dataset.eaten === '0'));
     t.ok('a planned but uneaten meal is still ahead of you on the rail',
       await p.evaluate(() => {
         const st = document.querySelector('#macroSlots .mday-stop.filled');
@@ -1058,7 +1167,7 @@ module.exports = {
         return st.classList.contains('done');
       }));
     t.ok('and the eaten sweep takes on a share of the dial',
-      await p.evaluate(() => Number(document.querySelector('.mbrow').dataset.eaten) > 0));
+      await p.evaluate(() => Number(document.querySelector('[data-macro="kcal"]').dataset.eaten) > 0));
     await p.click('[data-meat="b:0"]');
     await p.waitForTimeout(150);
     /* The dot said a meal was behind you but could never be told so, and no
@@ -1091,7 +1200,7 @@ module.exports = {
           st.querySelector('.mday-dot').disabled)));
     t.ok('unticking reverses it, dot and all',
       await p.evaluate(() => !document.querySelector('.mitem.eaten') &&
-        document.querySelector('.mbrow').dataset.eaten === '0' &&
+        document.querySelector('[data-macro="kcal"]').dataset.eaten === '0' &&
         !document.querySelector('#macroSlots .mday-stop.done')));
 
     /* A day with every plate eaten is a finished day, and the week strip
@@ -1101,7 +1210,16 @@ module.exports = {
        a ring instead — it is the day most often finished while you watch. */
     t.ok('a day is not done while a plate is still ahead of you',
       await p.evaluate(() => !document.querySelector('.mwk-d.now').classList.contains('done')));
-    const ringBefore = await p.evaluate(() => getComputedStyle(document.querySelector('.mwk-d.now .mwk-n')).boxShadow);
+    /* How "done" is SAID has moved once already — it was a tinted fill under
+       a ring, it is now a solid fill inside one — so the guard asks the
+       question rather than naming the property: does the square look
+       different at all. Pinning it to box-shadow is what made this fail the
+       first time the answer moved to the background. */
+    const paintOf = () => p.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('.mwk-d.now .mwk-n'));
+      return [cs.backgroundColor, cs.boxShadow, cs.color, cs.fontWeight].join(' | ');
+    });
+    const ringBefore = await paintOf();
     await p.click('#macroSlots .mday-dot');
     await p.waitForTimeout(200);
     t.ok('eating every plate marks the day done on the week strip',
@@ -1111,12 +1229,12 @@ module.exports = {
           ['under', 'on', 'over'].some((s) => d.classList.contains(s)) &&
           /all done/.test(d.getAttribute('aria-label'));
       }), await p.evaluate(() => document.querySelector('.mwk-d.now').outerHTML));
+    const ringAfter = await paintOf();
     t.ok('and today, done, looks different from today in progress',
-      await p.evaluate((before) => {
-        const n = document.querySelector('.mwk-d.now .mwk-n');
-        const cs = getComputedStyle(n);
-        return cs.boxShadow !== before && cs.boxShadow !== 'none';
-      }, ringBefore), ringBefore);
+      ringAfter !== ringBefore &&
+      // and it is still marked as the day you are on, either way
+      !/none/.test(ringAfter.split(' | ')[1]),
+      ringBefore + '\n   vs ' + ringAfter);
     t.ok('an empty day is never done, whatever the strip says of it',
       await p.evaluate(() => [...document.querySelectorAll('.mwk-d:not(.now)')]
         .every((d) => !d.classList.contains('done'))));
@@ -1181,7 +1299,7 @@ module.exports = {
        too, but they are not budgets and carry no under/on/over — that is the
        whole point of them being drawn differently. */
     t.ok('every bar names where it stands',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow[data-macro]'))
+      await p.evaluate(() => Array.from(document.querySelectorAll('[data-macro]'))
         .every((d) => ['under', 'on', 'over'].indexOf(d.dataset.state) >= 0)));
     t.ok('and an overshoot reads over even with every plate eaten',
       await p.evaluate(() => {
@@ -1197,13 +1315,13 @@ module.exports = {
           const m2 = d.querySelector('.mb-num').textContent.match(/(\d+) \/ (\d+)/);
           return 100 * Number(m2[1]) / Number(m2[2]);
         };
-        return Array.from(document.querySelectorAll('.mbrow')).every((d) =>
+        return Array.from(document.querySelectorAll('[data-macro]')).every((d) =>
           d.dataset.state !== 'over' ||
           // the shown figure is rounded, so a hair over the line reads as on it
           pctOf(d) >= (d.dataset.macro === 'p' ? 110 : d.dataset.macro === 'kcal' ? 105 : 100));
       }));
     t.ok('the bar caps at full rather than running past its own end',
-      await p.evaluate(() => Array.from(document.querySelectorAll('.mbrow[data-macro]'))
+      await p.evaluate(() => Array.from(document.querySelectorAll('[data-macro]'))
         .every((d) => Number(d.dataset.planned) <= 100 && Number(d.dataset.eaten) <= 100)));
     await openPlan(p);
     await p.waitForTimeout(150);
@@ -1765,7 +1883,7 @@ module.exports = {
         unique: new Set(ids).size === ids.length,
         tot,
         foods: ids.filter((id) => id.indexOf('f:') === 0).length,
-        bars: [...document.querySelectorAll('.mbrow[data-macro]')].map((row) => {
+        bars: [...document.querySelectorAll('[data-macro]')].map((row) => {
           const m = row.querySelector('.mb-num').textContent
             .replace(/,/g, '').match(/([\d.]+)\s*\/\s*([\d.]+)/);
           return { m: row.dataset.macro, have: +m[1], want: +m[2] };
@@ -2184,8 +2302,11 @@ module.exports = {
     await skipPg2.waitForTimeout(400);
     await skipPg2.click('.tab[data-view="macros"]');
     await skipPg2.waitForTimeout(300);
+    /* `[data-macro]`, not `.mbrow[data-macro]`: calories are the headline
+       now and wear `.mhead`, and scoping to the old class would have quietly
+       dropped them from a guard that counts four. */
     const deltaRows = () => skipPg2.evaluate(() =>
-      [...document.querySelectorAll('.mbrow[data-macro]')].map((r) => {
+      [...document.querySelectorAll('[data-macro]')].map((r) => {
         const num = (r.querySelector('.mb-num') || {}).textContent || '';
         const m = /(-?[\d,]+)\s*\/\s*([\d,]+)/.exec(num.replace(/\s+/g, ' '));
         /* The minus is already in the string — parsing it AND multiplying by
@@ -8605,15 +8726,26 @@ module.exports = {
     t.ok('the pills carry the same six numbers as the rows and the bars under them',
       await ph.evaluate(() => {
         const pills = [...document.querySelectorAll('.mpill')].map((x) => x.textContent.replace(/[\s,]/g, ''));
-        const rows = [...document.querySelectorAll('.mbrow[data-macro] .mb-d b')].map((x) => x.textContent);
+        const rows = [...document.querySelectorAll('[data-macro] .mb-d b')].map((x) => x.textContent);
         /* The limit pills carry the figure only — the fill says the
            proportion, so a denominator would say it twice, and dropping it is
-           what buys every pill the same width. The open bars keep both. */
-        const lim = [...document.querySelectorAll('.mlimits .mlim .mb-num b')]
-          .map((x) => x.textContent.replace(/[\s,]/g, ''));
+           what buys every pill the same width. The open bars keep both.
+         *
+           The limit ROWS are gone from the card unless one of them is off,
+           so they cannot be the source here: `lim` would be empty and
+           `[].every()` is true, which is a guard that passes hardest when
+           the thing it guards has been deleted. So the last two pills are
+           asserted on their own terms — the glyph that names which limit,
+           and a figure — and any row that IS showing must agree with its
+           pill. */
+        const lim = [...document.querySelectorAll('.mlimits .mlim')].map((r) =>
+          ({ k: r.dataset.lim, v: (r.querySelector('.mlim-t b').textContent
+            .match(/[\d,]+/) || [''])[0].replace(/,/g, '') }));
+        const IDX = { fib: 4, na: 5 };
         return pills.length === 6 &&
-          rows.every((v, i) => pills[i].indexOf(v) >= 0) &&
-          lim.every((v, i) => pills[4 + i].indexOf(v) >= 0);
+          rows.length === 4 && rows.every((v, i) => pills[i].indexOf(v) >= 0) &&
+          /🌾\d/.test(pills[4]) && /🧂\d/.test(pills[5]) &&
+          lim.every((x) => pills[IDX[x.k]].indexOf(x.v) >= 0);
       }), await ph.evaluate(() => document.querySelector('.mpills').textContent));
     /* And each one is its own bar. This is the whole reason the row exists in
        this form: folded, the number gives the gap and the fill gives the
@@ -8625,16 +8757,24 @@ module.exports = {
           return m ? parseFloat(m[1]) : null;
         };
         const pills = [...document.querySelectorAll('.mpill')];
-        const rows = [...document.querySelectorAll('.mbrow[data-macro]')];
+        const rows = [...document.querySelectorAll('[data-macro]')];
         const okMacro = rows.every((r, i) =>
           pct(pills[i]) !== null && Math.abs(pct(pills[i]) - Number(r.dataset.planned)) <= 1);
-        const lims = [...document.querySelectorAll('.mlimits .mlim')];
-        const okLim = lims.every((r, i) => {
-          const n = r.querySelector('.mb-num').textContent.replace(/[^\d/]/g, '').split('/');
-          const want = Math.min(100, 100 * Number(n[0]) / Number(n[1]));
-          return pct(pills[4 + i]) !== null && Math.abs(pct(pills[4 + i]) - want) <= 1;
+        /* The two limit pills are checked against the caps themselves,
+           because the rows that used to carry a denominator only appear when
+           one of them is off — and a comparison against an absent row is a
+           comparison that always holds. The sodium ceiling is fixed; the
+           fibre floor is 14 g per 1000 kcal of the day's own target, which
+           the headline prints. */
+        const tK = Number((document.querySelector('.mhead .mb-num').textContent
+          .match(/\/\s*([\d,]+)/) || [0, 0])[1].replace(/,/g, ''));
+        const CAP = { 4: Math.round(tK * 14 / 1000), 5: 2300 };
+        const okLim = [4, 5].every((i) => {
+          const got = Number((pills[i].textContent.match(/[\d,]+/) || ['0'])[0].replace(/,/g, ''));
+          const want = Math.min(100, 100 * got / CAP[i]);
+          return CAP[i] > 0 && pct(pills[i]) !== null && Math.abs(pct(pills[i]) - want) <= 1;
         });
-        return okMacro && okLim;
+        return okMacro && rows.length === 4 && okLim;
       }),
       await ph.evaluate(() => [...document.querySelectorAll('.mpill')]
         .map((x) => x.textContent.trim() + ((x.getAttribute('style') || '').match(/0 [\d.]+%/) || [''])[0])
@@ -8645,10 +8785,10 @@ module.exports = {
       await ph.evaluate(() => {
         const tone = (el) => ((el.getAttribute('style') || '').match(/--dial-(\w+)-pale|--mlim-(\w+)-pale/) || [])[0] || '';
         const pills = [...document.querySelectorAll('.mpill')];
-        const rows = [...document.querySelectorAll('.mbrow[data-macro]')];
+        const rows = [...document.querySelectorAll('[data-macro]')];
         return rows.every((r, i) => tone(pills[i]).indexOf(r.dataset.state) >= 0);
       }),
-      await ph.evaluate(() => [...document.querySelectorAll('.mbrow[data-macro]')]
+      await ph.evaluate(() => [...document.querySelectorAll('[data-macro]')]
         .map((r, i) => r.dataset.state + '/' +
           (((document.querySelectorAll('.mpill')[i].getAttribute('style') || '')
             .match(/--[\w-]+-pale/) || [''])[0])).join(' | ')));
