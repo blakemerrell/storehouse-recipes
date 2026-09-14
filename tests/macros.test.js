@@ -2993,10 +2993,10 @@ module.exports = {
           /\b(over|short)\b/.test(e.className)),
         /* The calorie figure moved off the seam and onto its own gauge, so
            it is read off the flame label now rather than .msub-k. */
-        /* The flame went with the pills' rebuild — the calorie cell says
-           "kcal", the word the plate and the day bars both use. */
+        /* The calorie figure moved off the seam and onto its own gauge, so
+           it is read off the flame label now rather than .msub-k. */
         kcalAlways: cards.every((c) => !c.querySelector('.mslot-head') ||
-          /\d+\s*kcal/.test(c.querySelector('.mslot-head').textContent)),
+          /\uD83D\uDD25\s*\d/.test(c.querySelector('.mslot-head').textContent)),
       };
     });
     t.ok('a folded day shows no bars at all',
@@ -3083,7 +3083,7 @@ module.exports = {
       const got = Number((pil.querySelector('.mmp-v').textContent.match(/\d+/) || [0])[0]);
       const want = Number(pil.dataset.want || 0);
       const shown = [...document.querySelectorAll('.mp-left .mgp')]
-        .filter((e) => /P/.test(e.textContent) && !/kcal/.test(e.textContent))
+        .filter((e) => /P/.test(e.textContent) && !/\uD83D\uDD25/.test(e.textContent))
         .map((e) => Number((e.textContent.match(/\d+/g) || [0]).pop()))[0];
       return { shown: shown, cardLeft: Math.max(0, want - got) };
     });
@@ -3121,7 +3121,7 @@ module.exports = {
        which is the exact failure this file already records at mShares. */
     const flame = await dosePg.evaluate(() => {
       const pill = [...document.querySelectorAll('.mp-left .mgp')]
-        .find((e) => /kcal/.test(e.textContent));
+        .find((e) => /\uD83D\uDD25/.test(e.textContent));
       const shown = Number((pill.textContent.match(/\d+/g) || [0]).pop());
       /* The same figure off the meal card: its calorie pill is got/want, and
          what the sheet reports is what is left of that. */
@@ -3190,7 +3190,7 @@ module.exports = {
       /* the target is a NUMBER on the pill now, not a tick on a bar */
       ticks: document.querySelectorAll('.mslot-head .mmp[data-want]').length,
       kcal: [...document.querySelectorAll('.mslot-head')]
-        .filter((e) => /\d+\s*kcal/.test(e.textContent)).length,
+        .filter((e) => /\uD83D\uDD25\s*\d/.test(e.textContent)).length,
     }));
     /* Reversed deliberately. This used to assert that a folded meal said its
        calories and NOTHING about macros — you steer by the day, a meal is a
@@ -4488,7 +4488,7 @@ module.exports = {
 
     t.ok('a meal with food carries four gauges, calories among them',
       fed.length >= 2 && fed.every((c) => c.bars.length === 4 &&
-        /kcal/.test(c.bars[0].l)),
+        /\uD83D\uDD25\s*\d/.test(c.bars[0].l)),
       JSON.stringify(fed.map((c) => c.name + ':' + c.bars.length)));
 
     /* A length needs something to be long against. It was a tick on a bar;

@@ -3830,13 +3830,19 @@
     };
   }
 
-  /* The four, in the order they are said everywhere else, with the letter
-     each is known by. Calories lost the flame: the plate says "432 kcal" and
-     the day bar says "kcal", so a third spelling on the row between them was
-     the only thing keeping the three altitudes from reading as one sentence \u2014
-     and it was an emoji, drawn by the system in whatever style it liked, in a
-     row that had just had its last two emoji redrawn as line art. */
-  var MGAUGE = [['kcal', 'kcal'], ['p', 'P'], ['f', 'F'], ['c', 'C']];
+  /* The four, in the order they are said everywhere else, with the mark each
+     is known by. Calories keep the FLAME \u2014 Blake's call, and the older
+     comment's argument too: P, F and C are the three things food is made of
+     and the flame is what the three add up to, so a fourth letter would make
+     the sum look like a fourth component. It was briefly a word here, on the
+     grounds that three altitudes ought to read as one sentence \u2014 but what
+     makes them one sentence is four cells in one order wearing one set of
+     colours, and a mark saying "this one is not like those three" is
+     information rather than noise.
+
+     The SPOKEN form stays the word: MGAUGE_SAY feeds the head's label, so a
+     screen reader hears "983 of 290 calories" and never a glyph's name. */
+  var MGAUGE = [['kcal', '\uD83D\uDD25'], ['p', 'P'], ['f', 'F'], ['c', 'C']];
   var MGAUGE_SAY = { kcal: 'calories', p: 'grams of protein', f: 'grams of fat', c: 'grams of carbohydrate' };
 
   /* The four of them, on the meal's own header row.
@@ -4764,18 +4770,10 @@
      * overshoot; fat and carbs turn at the line, and calories get two per
      * cent of rounding grace. The fit scorer has always judged them that way
      * and the readout must not contradict the thing filling the day. */
-    /* Calories get the word, like everywhere else that says them.
-     *
-       The flame was here on the reasoning that P, F and C are the three
-       things food is made of and the flame is what they add up to — a fair
-       distinction, and it cost more than it bought. The plate says "432
-       kcal", the meal head says "953 kcal", and a reader whose eye runs up
-       from a plate to the day it lands in should not have to translate an
-       emoji on the last step. The two rows BELOW these four keep their
-       glyphs, and that is the line that actually matters: these four are the
-       budget, those two are limits, and a word against a picture says so
-       better than a flame among letters ever did. */
-    var ROWS = [['kcal', 'kcal', 'Calories', ''], ['p', 'P', 'Protein', ' g'],
+    /* Calories get the flame, not a fourth letter: P, F and C are the three
+       things food is made of and the flame is what the three add up to. The
+       row names itself "Calories" in words to a reader either way. */
+    var ROWS = [['kcal', '\uD83D\uDD25', 'Calories', ''], ['p', 'P', 'Protein', ' g'],
       ['f', 'F', 'Fat', ' g'], ['c', 'C', 'Carbs', ' g']];
     var tK = kcalOf(targets);
     /* What is left of each, signed: under is negative, over is positive. It

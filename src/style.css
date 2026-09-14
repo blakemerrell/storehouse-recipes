@@ -1272,6 +1272,10 @@ select { max-width: 280px; }
    was a flat grey here, which made P mean one thing on the plate and another
    six pixels above it. */
 .mmp i { font-style: normal; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; }
+/* The flame is not a letter and cannot be set like one: at 9px beside a 12px
+   figure it is a smudge, which is the same note the day bar has carried about
+   it for as long as it has been there. */
+.mmp .mb-kcal { font-size: 11px; letter-spacing: 0; }
 .mmp-tr {
   display: block; width: 30px; height: 3px; border-radius: 999px;
   background: var(--line-soft); overflow: hidden;
@@ -1819,18 +1823,14 @@ select { max-width: 280px; }
 .mc-note { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 /* glyph, bar, what is on it, what is left — four columns, one row per line
    of the budget. The delta used to be a fifth line under the bars. */
-/* The label column fits the longest label, which is now a word. It was 17px,
-   sized for one letter and one emoji, and "kcal" at 9px wants 19 — so the
-   day's top row rendered as "kca" over "l", a label broken across two lines
-   directly above the number it labels. The seven pixels come back off the
-   gap, which had nine and can spare two. */
-.mbrow { display: grid; grid-template-columns: 24px 1fr auto auto; gap: 7px; align-items: center; }
+/* Back to 17px and a 9px gap: the column holds one letter or one glyph, and
+   the seven pixels it borrowed for the word "kcal" belong to the bar. The
+   nowrap stays — it costs nothing and it is the thing that would have turned
+   a too-long label into a visible "kca" over "l" rather than a silent one. */
+.mbrow { display: grid; grid-template-columns: 17px 1fr auto auto; gap: 9px; align-items: center; }
 .mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; white-space: nowrap; }
-/* "kcal" is four letters where the others are one, so it takes the size the
-   row can spare rather than the size a one-letter label wants. The 12.5px
-   here was propping up an emoji — "an emoji at letter size is a smudge" —
-   and the emoji is gone. */
-.mb-k.mb-kcal { font-size: 9px; letter-spacing: 0.02em; }
+/* the flame is an emoji, and an emoji at letter size is a smudge */
+.mb-k.mb-kcal { font-size: 12.5px; }
 /* the letters are identity, never status — status is the bar beside them */
 .mb-kcal { color: var(--bar-kcal); } .mb-p { color: var(--bar-p); }
 .mb-f { color: var(--bar-f); } .mb-c { color: var(--bar-c); }
@@ -1962,12 +1962,7 @@ select { max-width: 280px; }
   color: var(--muted); font-variant-numeric: tabular-nums;
 }
 .mpill span { font-size: 10px; font-weight: 700; }
-/* Four letters where the flame was one glyph, so the label takes the size
-   that keeps the pill inside the 54px box every other pill wears — six fills
-   only compare by eye if the boxes match, which is what the min-width above
-   is for, and a kcal pill grown to fit its own word would break exactly that
-   and push the sixth off a 375 phone. Measured at 375, not guessed. */
-.mpill .mb-kcal { font-size: 8.5px; letter-spacing: 0; }
+.mpill .mb-kcal { font-size: 10.5px; }
 .mpill b { font-weight: 600; color: var(--ink); }
 .mpill.pos b { color: var(--dial-over); }
 .mpill.nil b { color: var(--dial-on); }
