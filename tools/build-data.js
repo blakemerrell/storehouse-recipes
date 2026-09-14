@@ -36,6 +36,12 @@ const { CATS, NOT_STOCKED } = require('./pantry-cats.js');
 const ORIGINAL = global.window.RECIPES.map((r) => Object.assign({}, r, { steps: r.steps.slice() }));
 const byId = {};
 ORIGINAL.forEach((r) => { byId[r.id] = r; });
+/* The method exactly as printed, taken before a single correction lands.
+   Corrections mutate ORIGINAL in place, so without this snapshot there is
+   nothing left to compare the finished method against. Used only to write
+   the deviation table in AUDIT.md — it never reaches the app. */
+const PRINT = {};
+ORIGINAL.forEach((r) => { PRINT[r.id] = r.steps.slice(); });
 let applied = 0;
 FIXES.forEach((f) => {
   const r = byId[f.id];
@@ -625,6 +631,22 @@ a whole pan of frying oil as eaten made fried chicken read at 1,849 kcal a servi
 
 Their macros are estimates on the same footing as the rest of the volume, and the
 app labels them as such. They have not been kitchen-tested.
+
+### Recipes whose method differs from the printed book
+
+${(() => {
+  const rows = out.filter((r) => PRINT[r.id] && (
+    PRINT[r.id].length !== r.steps.length ||
+    PRINT[r.id].some((s, i) => s !== r.steps[i])
+  ));
+  if (!rows.length) return 'None. Every method is as printed.';
+  return `${rows.length} of the ${Object.keys(PRINT).length} carried-over recipes are cooked differently here than\nthe book prints them. The app shows the corrected method and says nothing about\nthe change; this table is the whole record of it.\n\n| No. | Recipe | Printed | Here |\n|---|---|---|---|\n` + rows.map((r) => {
+    const a = PRINT[r.id], b = r.steps;
+    const i = a.findIndex((s, k) => s !== b[k]);
+    const cell = (t) => (t === undefined ? '_(no such step)_' : '`' + String(t).replace(/\|/g, '\\|').slice(0, 120) + (String(t).length > 120 ? '…' : '') + '`');
+    return `| ${r.no || r.id} | ${r.name} | ${cell(a[i])} | ${cell(b[i])} |`;
+  }).join('\n');
+})()}
 
 ${allUnmatched.size ? `### Ingredients the parser could not price
 

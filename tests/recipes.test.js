@@ -690,6 +690,83 @@ module.exports = {
     t.ok('and no more of them drift from print than already did',
       kept.far <= 22, kept.far + ' of ' + kept.withBook + ' — ' + JSON.stringify(kept.worst));
 
+
+    /* ------------------------------------------------- nobody's voice but the cook's
+     *
+     * Six recipes were caught explaining their own edit history to whoever
+     * was trying to cook from them: "this is the step the recipe was
+     * missing", "Hotter than it said", '"Seasoned" means it', "It is on the
+     * list for this recipe", "unlike most things on this list". A further
+     * handful ranked themselves inside the collection — "the leanest
+     * breakfast in the volume", "the most protein per calorie in the
+     * section".
+     *
+     * Every one of them was in a recipe written or patched here; not one was
+     * in the book's own text. They got in because nothing objected, and the
+     * fixes file is grouped by kind of fix rather than by recipe, so no one
+     * place ever showed what a recipe finally reads like.
+     *
+     * This catches self-reference only: a recipe talking about the
+     * collection, or about its own revision. It is deliberately blind to
+     * voice — "Irons vary more than recipes admit" passes, and is meant to.
+     * Tone is a matter of taste and is not a test's business; a recipe
+     * narrating its own edit history is not a matter of taste. */
+    const selfRef = await p.evaluate(() => {
+      const PAT = [
+        [/\bthis list\b/i, 'refers to the collection as a list'],
+        [/\bin the (section|volume)\b/i, 'ranks itself within the collection'],
+        [/\bthis collection\b/i, 'refers to the collection'],
+        [/\bthan it said\b/i, 'refers to what the original said'],
+        [/\bthe recipe was\b/i, 'refers to the recipe\u2019s own past state'],
+        [/"[^"]+"\s+means it\b/i, 'glosses the original\u2019s wording'],
+        [/\bthe book (says|prints|printed)\b/i, 'refers to the printed book'],
+        [/\bon the list for this recipe\b/i, 'refers to the ingredient list as a list'],
+      ];
+      const out = [];
+      window.RECIPES.forEach((r) => {
+        const texts = []
+          .concat(r.steps || [])
+          .concat((r.lift && r.lift.steps) || [])
+          .concat(typeof r.tagline === 'string' ? [r.tagline] : []);
+        texts.forEach((txt) => {
+          PAT.forEach(([re, why]) => {
+            if (re.test(txt)) out.push(r.no + ' ' + r.name + ' \u2014 ' + why + ' \u2014 "' + txt.slice(0, 90) + '"');
+          });
+        });
+      });
+      return out;
+    });
+    t.ok('no recipe talks about the collection or about its own edits',
+      selfRef.length === 0, selfRef.slice(0, 6).join(' | '));
+
+    /* Mutation proof, both ways: the guard has to fire on a planted line and
+       stay quiet on a voiced one, or it is decoration. */
+    const proof = await p.evaluate(() => {
+      const PAT = [/\bthis list\b/i, /\bin the (section|volume)\b/i, /\bthan it said\b/i,
+        /\bthe recipe was\b/i, /"[^"]+"\s+means it\b/i];
+      const fires = (s) => PAT.some((re) => re.test(s));
+      return {
+        caught: [
+          'Chill 45 minutes \u2014 this is the step the recipe was missing.',
+          'Heat the oven to 425\u00b0F. Hotter than it said: 400 steams the potato.',
+          '"Seasoned" means it: 2 tbsp taco seasoning into the beef.',
+          'The leanest breakfast in the volume.',
+          'Unlike most things on this list it is simply better.',
+        ].filter(fires).length,
+        spared: [
+          'Irons vary more than recipes admit.',
+          'Cold butter is what keeps these thick instead of spreading flat.',
+          'Overcooked broccoli is the reason people say they do not like broccoli.',
+          'Same as the cups, twice the volume.',
+          'Done means 165\u00b0F and clear juices.',
+        ].filter(fires).length,
+      };
+    });
+    t.ok('and the guard fires on every planted self-reference',
+      proof.caught === 5, proof.caught + ' of 5');
+    t.ok('and spares voice, which is not its business',
+      proof.spared === 0, proof.spared + ' false positives');
+
     await p.context().close();
   },
 };

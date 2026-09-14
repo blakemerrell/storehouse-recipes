@@ -93,7 +93,7 @@ module.exports = [
       'Brown the beef 8 minutes, breaking it up, and drain it. Add the beans, tomato sauce and diced tomatoes and simmer 20 minutes.',
       'Meanwhile whisk the pancake mix with the egg and milk into a thick batter — closer to muffin batter than pancake batter — and fold in the drained corn.',
       'Heat the oil in a skillet over medium. Pour the batter in, cover, and cook 6 to 8 minutes until the top is set, then flip it and give it 3 minutes more.',
-      'Cut it into wedges and serve with the chili. It is not cornbread, since there is no cornmeal in pancake mix, but with the corn through it it does the same job beside a bowl of chili.',
+      'Cut it into wedges and serve with the chili.',
     ],
   },
   {
@@ -105,7 +105,7 @@ module.exports = [
       'Simmer the beef, beans and tomato sauce 30 minutes.',
       'Heat the oven to 400°F with a 9-inch oven-safe skillet inside it and the butter in the skillet. Meanwhile whisk the pancake mix with the eggs and milk into a thick batter — closer to muffin batter than pancake batter — and fold in the drained corn.',
       'Pour the batter into the hot skillet. It should hiss. That is where the crust on a skillet bread comes from, and a cold pan will not give you one. Bake 20 to 25 minutes, until the top is golden and a knife in the middle comes out clean. No oven-safe skillet? A buttered cake pan works — you lose the crust, not the bread.',
-      'Serve the chili topped with the cheddar, with the bread cut into wedges alongside. It is not cornbread, since there is no cornmeal in pancake mix, but with a can of corn through it it does the same job beside a bowl of chili.',
+      'Serve the chili topped with the cheddar, with the bread cut into wedges alongside.',
     ],
   },
 
@@ -118,15 +118,12 @@ module.exports = [
   { id: 73, step: 2, add: 'Thick breasts may want another five minutes. Done means 165°F and clear juices.' },
   { id: 153, step: 1, add: 'Cook the chicken through before it goes into the dish — 165°F, no pink at the centre. The topping bakes faster than raw chicken would.' },
   { id: 156, step: 0, add: 'Check the thickest breast reads 165°F before taking them out.' },
-  { id: 160, step: 2, add: 'The chicken must be cooked through — 165°F. Cook it first if it went in raw and diced.' },
   { id: 163, step: 1, add: 'Cook the chicken through first if it is raw — 165°F, no pink at the centre.' },
   { id: 165, step: 1, add: 'Check it is white through the middle, 165°F, before the sauce goes in.' },
   { id: 169, step: 1, add: 'Strips this thin cook quickly, but check one at the thickest point: 165°F, no pink.' },
   { id: 179, step: 1, add: 'Cook it through — 165°F — before it is mixed with the pasta.' },
   { id: 182, step: 0, add: 'Roast until the thickest breast reads 165°F and the juices run clear.' },
   { id: 186, step: 2, add: 'Whole breasts under a blanket of sauce take longer than you expect. Check the thickest one reads 165°F before serving.' },
-  { id: 190, step: 1, add: 'Cook and shred the chicken first — 165°F. It will not cook through once it is rolled up and covered in sauce.' },
-  { id: 192, step: 2, add: 'Check the chicken is cooked through, 165°F, before serving.' },
   { id: 198, step: 1, add: 'A crisp crust is not proof it is cooked. Check the thickest part reads 165°F.' },
 
   /* ---- pointers to Made, Not Bought ------------------------------------
@@ -170,7 +167,7 @@ module.exports = [
    * counted. They just were not being cooked. */
   { id: 106, step: 1, add: 'Butter the dish first — that is what the two tablespoons are for, and a bake this eggy will weld itself to a dry one.' },
   { id: 177, step: 1, add: 'Heat the green beans through in their own liquid while the noodles boil, then drain them.' },
-  { id: 178, step: 2, add: 'Heat the green beans through, drain them, and put them on the table alongside — a plate of nothing but spaghetti is the reason the can is on the list.' },
+  { id: 178, step: 2, add: 'Heat the green beans through, drain them, and put them on the table alongside.' },
   { id: 189, step: 1, add: 'Cut the carrots into thick batons and season them alongside the potatoes; they roast in the same time.' },
 
   /* The rest of the same sweep. Smaller than the five above — a condiment
@@ -331,19 +328,17 @@ module.exports = [
   { id: 58, step: 1,
     add: 'This is where the cumin goes: a teaspoon of it with the chili powder. Chili powder is mostly mild, and cumin is what makes a pot of beans taste like chili rather than like tomatoes.' },
   { id: 151, step: 2,
-    add: 'Stir in a teaspoon of garlic powder and a teaspoon of Italian seasoning here — both are on the list for this recipe, and stirred into the sauce is the only place they do anything.' },
+    add: 'Stir in a teaspoon of garlic powder and a teaspoon of Italian seasoning here — stirred into the sauce is the only place they do anything.' },
   { id: 145, step: 0,
     add: 'Add 2 tbsp taco seasoning and ¼ cup water to the browned beef and let it bubble a minute until it clings. Seasoning tipped over the top at the end sits on the meat instead of in it.' },
   { id: 164, step: 1,
     add: 'Stir 2 tbsp taco seasoning into the beef with the tomato sauce, and let it simmer a minute before it is layered.' },
   { id: 172, step: 1,
     add: 'Add 2 tbsp taco seasoning with the salsa and beans, and give it a minute to come together.' },
-  { id: 190, step: 1,
-    add: 'Toss the shredded chicken with 2 tbsp taco seasoning and a splash of water before it goes in the tortillas — this is what makes it taste of enchilada rather than of plain chicken.' },
   { id: 200, step: 1,
-    add: '"Seasoned" means it: 2 tbsp taco seasoning and ¼ cup water stirred into the browned beef for a minute, until the liquid has gone and the meat is coated.' },
+    add: 'Stir 2 tbsp taco seasoning and ¼ cup water into the browned beef and let it bubble a minute, until the liquid has gone and the meat is coated.' },
   { id: 176, step: 0,
-    add: 'Rub the roast with a tablespoon of Worcestershire before it goes in the pan. It is on the list for this recipe, it is what gives the gravy its savoury depth, and searing it on is better than pouring it over later.' },
+    add: 'Rub the roast with a tablespoon of Worcestershire before it goes in the pan. It is what gives the gravy its savoury depth, and searing it on is better than pouring it over later.' },
 
   /* ---- the audit the alfredo bake set off ------------------------------
    *
@@ -365,11 +360,9 @@ module.exports = [
      casserole turns to paste. Two minutes short is the whole fix, and the
      reason has to be on the page or the next person "corrects" it back. */
   { id: 63, step: 0, set: 'Preheat oven to 350°F. Boil the pasta two minutes short of the packet time — it finishes in the oven, and pasta boiled soft first bakes to mush.' },
-  { id: 160, step: 0, set: 'Preheat oven to 350°F. Boil the pasta two minutes short of the packet time; it finishes in the oven. Cook and dice the chicken first — 165°F — because twenty-five minutes under a blanket of soup will not cook it.' },
   { id: 163, step: 0, set: 'Preheat oven to 350°F. Boil the macaroni two minutes short of the packet time, and add the broccoli for the last three so it keeps some bite. Both finish in the oven.' },
   { id: 170, step: 0, set: 'Preheat oven to 350°F. Boil the macaroni two minutes short of the packet time — it finishes in the oven.' },
   { id: 184, step: 0, set: 'Preheat oven to 350°F. Boil the spaghetti two minutes short of the packet time — it finishes in the oven.' },
-  { id: 192, step: 0, set: 'Preheat oven to 350°F. Boil the pasta two minutes short of the packet time; it finishes in the oven. Cook and dice the chicken first — 165°F. Raw breast stirred into sauce and baked twenty-five minutes is not reliably done.' },
 
   /* No. 205 is the alfredo bake's first and fourth faults in one recipe:
      "Make cheese sauce with milk, flour, cheddar" is the same instruction
@@ -467,7 +460,7 @@ module.exports = [
   {
     id: 154,
     steps: [
-      'Heat the oven to 425°F. Hotter than it said: 400 steams cubed potato as often as it crisps it.',
+      'Heat the oven to 425°F. At 400 the cubed potato steams as often as it crisps.',
       'Toss the potatoes and carrots with the oil, salt and pepper and spread them out on a sheet pan in one layer — crowded, they steam. Roast 20 minutes.',
       'Add the sliced franks and the broccoli, toss everything together, and give it 10 minutes more. The broccoli only needs that; put it in at the start and it is ash by the end.',
       'The potatoes are done when a corner crushes under a spoon and the outside has gone golden and rough.'
@@ -960,7 +953,7 @@ module.exports = [
   { id: 78, time: '2 hrs 15 mins', steps: [
     'Dissolve the gelatin packet in 1 cup of boiling water, stirring until no grains are left.',
     'Whisk in the chocolate whey.',
-    'Chill 45 minutes, until it has thickened to about the consistency of raw egg white — it will not whip before that, and this is the step the recipe was missing.',
+    'Chill 45 minutes, until it has thickened to about the consistency of raw egg white — it will not whip before that.',
     'Whip 2 to 3 minutes with a hand mixer until pale and doubled, then refrigerate 90 minutes until set.'] },
 
   /* ---- reading all 277, batch 3: Nos. 101-145 ---------------------------
@@ -1082,4 +1075,38 @@ module.exports = [
   { id: 67, ing: ['1.2 lbs ground beef', '2 cans green beans', '2 cups cooked rice', 'soy sauce'] },
   { id: 74, ing: ['1.5 lbs chicken breast', '2 cups cooked rice', '4 tbsp hot sauce', '2 tbsp light ranch'] },
   { id: 167, ing: ['1.5 lbs chicken breast', '2 cups cooked rice', '1 cup cheddar', '1 bell pepper', '½ onion'] },
+
+  /* ---- three recipes that assembled raw chicken -----------------------
+   *
+   * 160, 190 and 192 each had the doneness note added by one group above,
+   * the pasta timing by another and the seasoning by a third. Every entry
+   * was right on its own. Appended, they produced a step that says to fill
+   * the tortillas and then, afterwards, to cook the chicken first — which a
+   * careful adult re-reads and a child does not.
+   *
+   * Nothing short of the whole method fixes an ordering fault, so these are
+   * `steps` rather than `add`: cooking the chicken is its own step, before
+   * the one that uses it, and each step is a single action. */
+  { id: 160, steps: [
+    'Heat the oven to 350°F.',
+    'Cook and dice the chicken — 165°F, no pink at the centre. Twenty-five minutes under a blanket of soup will not cook it, so it goes in already done.',
+    'Boil the pasta two minutes short of the packet time; it finishes in the oven.',
+    'Mix the chicken, pasta, soup, broccoli and cheese in a 9x13 dish.',
+    'Bake at 350°F for 25 minutes, until it bubbles at the edges.',
+  ] },
+  { id: 190, steps: [
+    'Heat the oven to 375°F.',
+    'Cook and shred the chicken — 165°F, no pink at the centre. It will not cook through once it is rolled up and covered in sauce.',
+    'Toss the shredded chicken with 2 tbsp taco seasoning and a splash of water, until the liquid has gone and the meat is coated.',
+    'Fill the tortillas with the chicken and beans and roll them into the dish.',
+    'Cover with the tomato sauce and the cheddar.',
+    'Bake 30 minutes.',
+  ] },
+  { id: 192, steps: [
+    'Heat the oven to 350°F.',
+    'Cook and dice the chicken — 165°F, no pink at the centre. Raw breast stirred into sauce and baked twenty-five minutes is not reliably done.',
+    'Boil the pasta two minutes short of the packet time; it finishes in the oven.',
+    'Mix the chicken, pasta, tomato sauce, cream soup and cheese in the dish.',
+    'Bake 25 minutes.',
+  ] },
 ];
