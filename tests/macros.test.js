@@ -1822,6 +1822,66 @@ module.exports = {
     t.ok('and it is behind pace, because a pound a week is not two — said on the face',
       /behind pace/.test(await narr()), await narr());
 
+    /* ---- a card sent away stays away --------------------------------
+     *
+     * "Leave it" added a class that set display:none, and did nothing else.
+     * The class was written nowhere and read nowhere, so it lasted exactly as
+     * long as the element did — and a check, a portion nudge, a weigh-in or an
+     * arriving sync all rebuild this region. Blake dismissed the pace card and
+     * it was back a tap later, over and over, which reads as the app not
+     * listening to him.
+     *
+     * Reload is the honest test of it: nothing was being stored at all, so
+     * anything that redraws from scratch brought it back. */
+    const paceCard = () => q.evaluate(() => {
+      const el = document.querySelector('.mline.act');
+      return el ? el.textContent.slice(0, 40) : null;
+    });
+    t.ok('the pace card is showing, with a way to send it away',
+      !!(await paceCard()) && !!(await q.$('.mline.act [data-mline^="mline:none"]')),
+      String(await paceCard()));
+
+    await q.click('.mline.act [data-mline^="mline:none"]');
+    await q.waitForTimeout(300);
+    t.ok('sending it away takes it off the day', (await paceCard()) === null,
+      String(await paceCard()));
+
+    await q.reload();
+    await q.waitForTimeout(500);
+    t.ok('and it is still gone after everything redraws', (await paceCard()) === null,
+      String(await paceCard()));
+
+    /* The other half, and the reason the refusal is keyed to the advice and
+       not only to the day: refusing 1,903 is a decision about 1,903. Asserted
+       against the stored key rather than by moving the goal and hoping the
+       arithmetic lands somewhere useful — pushing the goal around moves the
+       card between branches, which would prove something else. A refusal of
+       a number that is not today's number must not silence today's card. */
+    t.ok('and what it wrote down is the advice, not just the day',
+      await q.evaluate(() => {
+        const h = JSON.parse(localStorage.getItem('bsc.macroHush') || '{}');
+        const k = Object.keys(h)[0];
+        return !!k && /^act:\d+$/.test(h[k]);
+      }),
+      await q.evaluate(() => localStorage.getItem('bsc.macroHush')));
+
+    await q.evaluate(() => {
+      const h = JSON.parse(localStorage.getItem('bsc.macroHush'));
+      const k = Object.keys(h)[0];
+      h[k] = 'act:1';                  // a refusal of some quite different number
+      localStorage.setItem('bsc.macroHush', JSON.stringify(h));
+    });
+    await q.reload();
+    await q.waitForTimeout(500);
+    t.ok('but advice you have not refused is still entitled to speak',
+      !!(await paceCard()), String(await paceCard()));
+
+    /* leave the day clean for everything downstream */
+    await q.evaluate(() => localStorage.removeItem('bsc.macroHush'));
+    await q.reload();
+    await q.waitForTimeout(500);
+
+
     // ---- a favorite never ranks worse for being loved, and wears its star
     await q.click('[data-mslot="b"]');
     await pickerList(q);

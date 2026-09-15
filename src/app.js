@@ -1130,7 +1130,7 @@
   function mForgetDay() {
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
-      'bsc.macroDone', 'bsc.macroSkip'].forEach(function (k) {
+      'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroHush'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
@@ -1138,6 +1138,7 @@
     Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
     Object.keys(MDONE).forEach(function (k) { delete MDONE[k]; });
     Object.keys(MSKIP).forEach(function (k) { delete MSKIP[k]; });
+    Object.keys(MHUSH).forEach(function (k) { delete MHUSH[k]; });
     Object.keys(MSEND).forEach(function (k) { delete MSEND[k]; });
   }
 
@@ -2098,6 +2099,37 @@
     var a = MSKIP[k];
     return !!a && a.indexOf(sk) >= 0;
   }
+
+  /* A morning card that was sent away, and the advice it was sent away over.
+
+     "Leave it" used to add a class that set display:none and nothing else.
+     The class was written nowhere and read nowhere, so it lasted exactly as
+     long as the element did — and every check, portion nudge, weigh-in and
+     arriving sync rebuilds this region. The card came back within a tap or
+     two, every time, which reads as the app not listening.
+
+     Stored against the advice and not just the day, because the two are
+     different statements. Sending away "eat 1,903" is a decision about 1,903;
+     if tomorrow's weigh-in makes it 2,050, or the day flips from behind to
+     ahead, that is news and has not been refused yet. Same day, same number,
+     stays gone.
+
+     Local, not synced. It is what one person did to one card on one phone,
+     and it has no business travelling. */
+  var MHUSH = (function () {
+    try {
+      var h = JSON.parse(localStorage.getItem('bsc.macroHush'));
+      if (h && typeof h === 'object' && !Array.isArray(h)) return h;
+    } catch (e) { /* fall through */ }
+    return {};
+  })();
+  function mHushed(k, sig) { return MHUSH[k] === sig; }
+  function mSetHush(k, sig) {
+    MHUSH[k] = sig;
+    mPruneWindow(MHUSH);        // the day log's window, like the skips
+    try { localStorage.setItem('bsc.macroHush', JSON.stringify(MHUSH)); }
+    catch (e) { /* private mode */ }
+  }
   function mSetSkip(k, sk, on) {
     var a = (MSKIP[k] || []).filter(function (x) { return x !== sk; });
     if (on) a.push(sk);
@@ -2464,6 +2496,7 @@
     var cyc = mTrainDays().length > 0 && mTrainDays().length < 7 ? ' a day on average' : '';
 
     if (off > band) {
+      if (mHushed(k, 'act:' + need)) return '';
       return mLineHTML('act', '\u25B2',
         '<b>' + Math.abs(daysOff) + ' days behind pace.</b>' +
         (meas ? ' Your burn measures <b>' + meas.tdee.toLocaleString() + '</b>, not the ' +
@@ -2477,10 +2510,11 @@
             : 'Landing on time wants about ' + need.toLocaleString() + ' kcal' + cyc + '.') +
         (cyc ? ' Training days run higher than that and rest days lower.' : ''),
         need ? [['Eat ' + need.toLocaleString(), 'mline:eat:' + need],
-          ['Leave it', 'mline:none']] : null);
+          ['Leave it', 'mline:none:act:' + need]] : null);
     }
     if (off < -band) {
       var room = need;
+      if (mHushed(k, 'ahead:' + room)) return '';
       return mLineHTML('ahead', '\u25BC',
         '<b>' + Math.abs(daysOff) + ' days ahead of pace.</b>' +
         (room ? ' You could eat <b>' + room.toLocaleString() + '</b>' + cyc +
@@ -2488,7 +2522,7 @@
         rateWord + (rate === null ? '' : ' \u2014 faster than you asked for') + '.' +
         (cyc ? ' Training days run higher than that and rest days lower.' : ''),
         room ? [['Eat ' + room.toLocaleString(), 'mline:eat:' + room],
-          ['Keep going', 'mline:none']] : null);
+          ['Keep going', 'mline:none:ahead:' + room]] : null);
     }
     return mLineHTML('calm', '\u2713',
       '<b>Nothing to change.</b> On pace for ' + pr.goalLb + ' lb by ' +
@@ -12092,7 +12126,13 @@
       var b = e.target.closest('[data-mline]');
       if (!b) return;
       var parts = b.dataset.mline.split(':');
-      if (parts[1] !== 'eat') { b.closest('.mline').classList.add('hush'); return; }
+      /* Not a class on a node this time: the node is about to be replaced.
+         Hiding it was the whole bug. */
+      if (parts[1] !== 'eat') {
+        mSetHush(mViewKey(), parts.slice(2).join(':'));
+        renderMacros();
+        return;
+      }
       var want = Number(parts[2]);
       var t = mReadTargets(), now = kcalOf(t);
       if (!want || !now) return;

@@ -2218,7 +2218,6 @@ select { max-width: 280px; }
   border: 1px solid var(--line-soft); border-radius: 7px; background: var(--card);
   border-left: 3px solid var(--line-firm);
 }
-.mline.hush { display: none; }
 .mline.calm { border-left-color: var(--green);
   background: color-mix(in oklab, var(--green) 5%, var(--card)); }
 .mline.noise { border-left-color: oklch(0.52 0.13 255); }
