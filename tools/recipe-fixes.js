@@ -166,7 +166,6 @@ module.exports = [
    * is added to the ingredients and nothing is taken away, so the macros, the
    * score and the shopping list are all untouched — these were already being
    * counted. They just were not being cooked. */
-  { id: 106, step: 1, add: 'Butter the dish first — that is what the two tablespoons are for, and a bake this eggy will weld itself to a dry one.' },
   { id: 177, step: 1, add: 'Heat the green beans through in their own liquid while the noodles boil, then drain them.' },
   { id: 178, step: 2, add: 'Heat the green beans through, drain them, and put them on the table alongside.' },
   { id: 189, step: 1, add: 'Cut the carrots into thick batons and season them alongside the potatoes; they roast in the same time.' },
@@ -1146,4 +1145,49 @@ module.exports = [
     ],
     lift: { with: 'Nutmeg',
       steps: ['A good grating of nutmeg into the custard with the cinnamon. It is the spice nobody can name in a bread pudding and everybody misses when it is gone.'] } },
+
+  /* ---- the last custard-over-bread bake with no soak ------------------
+   *
+   * No. 156 is the bread pudding's fault in a different dish: tear bread into
+   * the dish, "whisk eggs, milk, and cinnamon; pour over bread", bake. A
+   * custard put straight in the oven sets around the bread rather than inside
+   * it, and comes out soaked underneath and dry on top.
+   *
+   * Swept the whole collection for the shape — bread, egg, milk, baked. Three
+   * recipes have it. The oatmeal bake soaks, the bread pudding soaks now, and
+   * this was the last one that did not.
+   *
+   * Vanilla goes in because it is on the order sheet and the other French
+   * toast in the book already uses it, and the timer becomes a test, because
+   * twenty-five minutes tells you nothing about a custard. The buttering note
+   * that used to be appended to step 1 is folded in where it belongs, first,
+   * before there is anything in the dish to butter around. */
+  { id: 106,
+    time: '55 mins',
+    ing: ['8 bread slices', '4 eggs', '1 cup milk', '1 tsp cinnamon', '1 tsp vanilla',
+      '½ cup strawberry jam', '2 tbsp butter'],
+    steps: [
+      'Butter the baking dish well. A bake this eggy welds itself to a dry one, and that is what the two tablespoons are for.',
+      'Tear the bread into the dish. Stale bread is better than fresh here — it drinks the custard and keeps its shape.',
+      'Whisk the eggs, milk, cinnamon and vanilla together until no streaks of white are left.',
+      'Pour it over the bread and press the pieces down with the back of a spoon until every one of them is wet.',
+      'Leave it to soak 20 minutes, pressing it down once more halfway. Baked straight away, the custard sets around the bread instead of inside it.',
+      'Heat the oven to 350°F while it soaks.',
+      'Spoon the jam over in blobs rather than spreading it. Spread out it bakes into one sweet layer; in blobs you get pockets of it.',
+      'Bake 25 to 30 minutes, until the edges are set and the middle only just wobbles when you move the dish.',
+      'Stand it 5 minutes before cutting. It firms as it cools.',
+    ] },
+
+  /* No. 11 is the same dish done in a pan, and it had the same hole in a
+     smaller way: "dip bread slices to soak" sets no time, so a reader has no
+     idea whether that is two seconds or two minutes — and the method never
+     says what to cook it in. A dry non-stick pan rather than butter, because
+     this one is in the section written for a cut and adding fat to it would
+     be answering a different question than the recipe asked. */
+  { id: 39,
+    steps: [
+      'Whisk the eggs, milk, cinnamon and vanilla together in a shallow dish.',
+      'Lay each slice in and give it 30 seconds a side, pressing it down. Long enough to take the egg up, and not so long that it falls apart on the way to the pan.',
+      'Cook in a non-stick pan over medium heat, about 3 minutes a side, until set through and golden.',
+    ] },
 ];

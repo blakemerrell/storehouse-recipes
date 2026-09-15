@@ -238,7 +238,7 @@ app labels them as such. They have not been kitchen-tested.
 
 ### Recipes whose method differs from the printed book
 
-114 of the 225 carried-over recipes are cooked differently here than
+115 of the 225 carried-over recipes are cooked differently here than
 the book prints them. The app shows the corrected method and says nothing about
 the change; this table is the whole record of it.
 
@@ -249,6 +249,7 @@ the change; this table is the whole record of it.
 | 8 | Ham, Egg & Cheese Scramble Bowl | `Add beaten eggs and scramble for 3 mins.` | `Add the beaten eggs and scramble over medium-low, stirring slowly, about 3 minutes — take them off while they still look…` |
 | 9 | PB & Banana Protein Oatmeal | `Boil oats in 1 cup water for 3 mins.` | `Simmer the oats in 1 cup of water over medium heat for about 3 minutes, stirring, until they thicken and the water has g…` |
 | 10 | Baked Egg & Hash Brown Cups | `Crack 1 egg into each cup.` | `Bake the potato shells on their own for 15 minutes first, until the edges are going gold. Raw grated potato will not coo…` |
+| 11 | High-Protein French Toast Slices | `Whisk eggs, milk, cinnamon, and vanilla in a shallow dish.` | `Whisk the eggs, milk, cinnamon and vanilla together in a shallow dish.` |
 | 13 | Chocolate Banana Protein Porridge | `Cook oats in 1 cup water for 3 mins.` | `Simmer the oats in 1 cup of water over medium heat for about 3 minutes, stirring, until they thicken and the water has g…` |
 | 14 | Savory Beef & Egg Morning Hash | `Pan-fry cubed potatoes and ground beef in skillet for 10 mins until crispy/cooked.` | `Fry the cubed potatoes in oil over medium-high about 10 minutes, until gold. Then add the beef, 6 to 8 minutes more, unt…` |
 | 15 | Cottage Cheese & Egg Fluffy Omelet | `Whisk eggs with cottage cheese and pepper.` | `Whisk the eggs hard for a good 30 seconds, until they are pale and frothy with bubbles on top — that air is the whole of…` |
@@ -286,7 +287,7 @@ the change; this table is the whole record of it.
 | 150 | Creamy Chicken & Broccoli Pasta | `Boil macaroni and broccoli together for 8 mins; drain.` | `Boil the macaroni and broccoli together about 8 minutes, until the pasta is just tender and the broccoli still has some …` |
 | 152 | Cinnamon Roll Baked Oatmeal | `Drizzle melted butter and brown sugar glaze over top.` | `Melt the butter with the brown sugar in a small pan over low heat, stirring, until the sugar has dissolved into it — abo…` |
 | 153 | Loaded Breakfast Burrito Factory | `Set out warm tortillas, eggs, sausage, potatoes, and cheese for custom burrito rolling.` | `Set out warm tortillas, eggs, sausage, potatoes, and cheese for custom burrito rolling. Salsa out beside them.` |
-| 156 | French Toast Bake with Strawberry Jam | `Tear bread into baking dish.` | `Tear bread into baking dish. Butter the dish first — that is what the two tablespoons are for, and a bake this eggy will…` |
+| 156 | French Toast Bake with Strawberry Jam | `Preheat oven to 350°F.` | `Butter the baking dish well. A bake this eggy welds itself to a dry one, and that is what the two tablespoons are for.` |
 | 157 | Cheesy Sausage & Egg Biscuit Cups | `Preheat oven to 375°F.` | `Heat the oven to 375°F and butter six cups of a muffin tin.` |
 | 162 | Scrambled Egg & Cheese Breakfast Tacos | `Scramble eggs in skillet for 3 mins.` | `Scramble the eggs in a buttered skillet over medium-low heat, about 3 minutes, stopping while they still look slightly w…` |
 | 165 | Warm Cinnamon Rolled Oats with Raisins & Honey | `Boil oats and milk for 5 mins.` | `Simmer the oats and milk over medium heat for about 5 minutes, stirring often so the milk does not catch, until thick en…` |
