@@ -7420,8 +7420,17 @@
         '<span class="mtl-val">' + valueHTML + '</span></div>';
     };
     var box = function (id, v, unit) {
+      /* Unanswered is not zero. On a first visit nine of these read 0 before
+         the reader had typed anything — an answer stated where there is none,
+         and the worse of the two on a phone besides: tap a box holding 0,
+         type 43, and you get 043. Blank until there is something to say.
+
+         Only while there is no plan. Once one exists a 0 is a real answer —
+         six foot nothing is a height — and blanking it would be the same
+         mistake pointed the other way. */
+      var blank = !v && !plan;
       return '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" value="' +
-        (v || v === 0 ? v : '') + '">' + (unit ? '<span class="mtl-u">' + unit + '</span>' : '');
+        (blank ? '' : (v || v === 0 ? v : '')) + '">' + (unit ? '<span class="mtl-u">' + unit + '</span>' : '');
     };
     var seg = function (attr, val, opts, off) {
       return '<span class="seg mt-seg" role="group">' + opts.map(function (o) {
@@ -7449,12 +7458,12 @@
         /* The answer first. What you open this sheet for on an ordinary day is
            the number, not the form that made it. */
         '<div class="mt-answer">' +
-          '<div class="mt-big"><span id="mtBigKcal">' + kcalOf(t) + '</span>' +
+          '<div class="mt-big"><span id="mtBigKcal">' + mtDash(kcalOf(t)) + '</span>' +
             '<small>kcal a day</small></div>' +
           '<div class="mt-tiles">' +
-            '<span class="mt-tile"><b id="mtTileP">' + t.p + '</b><i>Protein</i></span>' +
-            '<span class="mt-tile"><b id="mtTileF">' + t.f + '</b><i>Fat</i></span>' +
-            '<span class="mt-tile"><b id="mtTileC">' + t.c + '</b><i>Carbs</i></span>' +
+            '<span class="mt-tile"><b id="mtTileP">' + mtDash(t.p) + '</b><i>Protein</i></span>' +
+            '<span class="mt-tile"><b id="mtTileF">' + mtDash(t.f) + '</b><i>Fat</i></span>' +
+            '<span class="mt-tile"><b id="mtTileC">' + mtDash(t.c) + '</b><i>Carbs</i></span>' +
           '</div>' +
         '</div>' +
         /* The goal belongs under the number it produced, not over it as a
@@ -7539,7 +7548,7 @@
           row('Fat', box('mtF', t.f, 'g')) +
           row('Carbs', box('mtC', t.c, 'g')) +
           '<div class="mtl-row mtl-sum"><span class="mtl-lab">A day</span>' +
-            '<span class="mtl-val" id="mtKcal">= ' + kcalOf(t) + ' kcal</span></div>' +
+            '<span class="mtl-val" id="mtKcal">' + (kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '\u2014') + '</span></div>' +
         '</div>' +
         '<div class="mt-div">The day&rsquo;s meals</div>' +
         '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
@@ -7820,14 +7829,25 @@
     return esc(bits.join(' \u00b7 ')) + warn;
   }
 
+  /* A plan nobody has made yet is not a plan of zero calories. Shown as a
+     dash until the boxes have something in them, in the render and here both
+     — this reads the boxes back, so without it the first keystroke anywhere
+     in the sheet wrote every zero straight back onto the headline. */
+  function mtDash(v) {
+    return v ? String(v) : '<span class="mt-none">\u2014</span>';
+  }
+
   /* The headline follows the boxes, whichever way they were filled in. */
   function mtRefreshAnswer() {
     var gv = function (id) { return Math.max(0, Math.round(Number(($(id) || {}).value) || 0)); };
     var t = { p: gv('mtP'), f: gv('mtF'), c: gv('mtC') };
-    var set = function (id, v) { var el = $(id); if (el) el.textContent = v; };
-    set('mtBigKcal', kcalOf(t));
-    set('mtTileP', t.p); set('mtTileF', t.f); set('mtTileC', t.c);
-    set('mtKcal', '= ' + kcalOf(t) + ' kcal');
+    /* innerHTML, because the empty state is a marked-up dash rather than a
+       number. Everything through here is either a figure this file computed
+       or that span; none of it is anyone's text. */
+    var set = function (id, v) { var el = $(id); if (el) el.innerHTML = v; };
+    set('mtBigKcal', mtDash(kcalOf(t)));
+    set('mtTileP', mtDash(t.p)); set('mtTileF', mtDash(t.f)); set('mtTileC', mtDash(t.c));
+    set('mtKcal', kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '\u2014');
     set('mtWho', mtWhoLine(mtProfileFromDom()));
   }
 

@@ -1509,6 +1509,10 @@ select { max-width: 280px; }
   font-family: var(--serif); font-size: 38px; font-weight: 700; line-height: 1;
   font-variant-numeric: tabular-nums;
 }
+/* A figure that does not exist yet. Muted and light, so an empty plan reads
+   as waiting for you rather than as a large black bar where a number goes. */
+.mt-none { color: var(--line-firm); font-weight: 400; }
+.mt-big .mt-none { font-size: 26px; vertical-align: 0.14em; }
 .mt-big small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; font-family: var(--sans); }
 .mt-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
 .mt-tile {

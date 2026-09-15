@@ -2839,14 +2839,22 @@ module.exports = {
     await paper.context().close();
 
     /* ---- the first number a new reader types --------------------------
-     * The About-you boxes open at 0 on a first run, right-aligned at the far
-     * end of their row, and a tap puts the caret wherever the thumb landed —
-     * usually LEFT of the digit. Typing 180 into the weight box produced
-     * "1800", which the sheet accepted (max=999 is the browser's business,
-     * not mtProfileFromDom's) and turned into a ten-thousand-calorie plan.
-     * The very first number anybody types into this app came back wrong by a
-     * factor of ten. Typed with real keys at the caret the tap leaves, not
-     * with fill(), which replaces the value and would pass either way. */
+     * The About-you boxes used to open at 0 on a first run, right-aligned at
+     * the far end of their row, and a tap puts the caret wherever the thumb
+     * landed — usually LEFT of the digit. Typing 180 into the weight box
+     * produced "1800", which the sheet accepted (max=999 is the browser's
+     * business, not mtProfileFromDom's) and turned into a ten-thousand-calorie
+     * plan. The very first number anybody typed into this app came back wrong
+     * by a factor of ten.
+     *
+     * That was answered by making the caret safe. The nought is gone as well
+     * now — unanswered is not zero, and a box that opens empty cannot be
+     * typed in front of — so the first assertion below is the new state and
+     * the second still guards the caret, which matters the moment a box DOES
+     * hold a figure and somebody edits it.
+     *
+     * Typed with real keys at the caret the tap leaves, not with fill(),
+     * which replaces the value and would pass either way. */
     const zeroBox = await t.fresh({ viewport: { width: 412, height: 915 } });
     await zeroBox.evaluate(() => localStorage.removeItem('bsc.macroProfile'));
     await zeroBox.reload();
@@ -2857,8 +2865,8 @@ module.exports = {
     await zeroBox.waitForTimeout(500);
     const opensAtZero = await zeroBox.evaluate(() =>
       (document.getElementById('mtLb') || {}).value);
-    t.ok('the weight box opens at a nought nobody has answered yet',
-      opensAtZero === '0', JSON.stringify(opensAtZero));
+    t.ok('the weight box opens empty, because nobody has answered it yet',
+      opensAtZero === '', JSON.stringify(opensAtZero));
     /* A tap at the LEFT edge of the box — where a thumb aiming at the box
        rather than at the digit lands. */
     const lbBox = await zeroBox.$('#mtLb');
@@ -2870,7 +2878,83 @@ module.exports = {
     t.ok('and typing a weight into it gives that weight, not ten times it',
       await zeroBox.evaluate(() => (document.getElementById('mtLb') || {}).value) === '180',
       await zeroBox.evaluate(() => (document.getElementById('mtLb') || {}).value));
+
+    /* And the dash is not a permanent state — one answer is enough for the
+       arithmetic to have something to say, and it says it while you are still
+       standing in the sheet. */
+    t.ok('and the dash becomes a figure the moment there is one to show',
+      await zeroBox.evaluate(() =>
+        /\d/.test((document.getElementById('mtBigKcal') || {}).textContent || '')),
+      await zeroBox.evaluate(() =>
+        (document.getElementById('mtBigKcal') || {}).textContent));
+
     await zeroBox.context().close();
+
+    /* The other side of it, and the reason the blanking is conditional: with a
+       plan made, a 0 is a real answer — six foot nothing is a height — and the
+       boxes have to show what was saved. Blanking those would be the same
+       mistake pointed the other way. */
+    const filled = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await filled.evaluate(() => {
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43,
+        ft: 6, inch: 0, lb: 190, act: 1.375, goal: 'cut1', goalLb: 175,
+        goalBy: '', workouts: 4, steps: 8000 }));
+    });
+    await filled.reload();
+    await filled.waitForTimeout(400);
+    await filled.click('.tab[data-view="macros"]');
+    await filled.waitForTimeout(300);
+    await openPlan(filled);
+    await filled.waitForTimeout(500);
+    t.ok('but a plan that exists shows every figure it was given, noughts and all',
+      await filled.evaluate(() => {
+        const v = (id) => (document.getElementById(id) || {}).value;
+        return v('mtAge') === '43' && v('mtFt') === '6' && v('mtIn') === '0' &&
+          v('mtGoalLb') === '175';
+      }),
+      await filled.evaluate(() => ['mtAge', 'mtFt', 'mtIn', 'mtGoalLb']
+        .map((id) => id + '=' + (document.getElementById(id) || {}).value).join(' ')));
+    t.ok('and its headline is a number, not a dash',
+      await filled.evaluate(() =>
+        /\d/.test((document.getElementById('mtBigKcal') || {}).textContent || '')),
+      await filled.evaluate(() =>
+        (document.getElementById('mtBigKcal') || {}).textContent));
+    await filled.context().close();
+
+    /* The headline over the boxes is the same statement in larger type, and it
+       said 0 kcal a day over 0 protein, 0 fat, 0 carbs — a plan of nothing,
+       stated as fact, to somebody who has not been asked a question yet.
+
+       Its own page, and everything cleared. The fixture above legitimately
+       carries saved grams with no profile — you can hand-edit the three boxes
+       without answering anything about yourself — and a figure is the right
+       answer there. The dash is for a reader who has stored nothing. */
+    const cold = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await cold.evaluate(() => {
+      ['bsc.macroProfile', 'bsc.macroTargets', 'bsc.macroWeights']
+        .forEach((k) => localStorage.removeItem(k));
+    });
+    await cold.reload();
+    await cold.waitForTimeout(400);
+    await cold.click('.tab[data-view="macros"]');
+    await cold.waitForTimeout(300);
+    await openPlan(cold);
+    await cold.waitForTimeout(500);
+    t.ok('a plan nobody has made says so, rather than claiming nought calories',
+      await cold.evaluate(() => {
+        const big = document.getElementById('mtBigKcal');
+        return !!big && !/\d/.test(big.textContent);
+      }),
+      await cold.evaluate(() =>
+        (document.getElementById('mtBigKcal') || {}).textContent));
+    t.ok('and neither do the three tiles under it',
+      await cold.evaluate(() => ['mtTileP', 'mtTileF', 'mtTileC'].every((id) => {
+        const el = document.getElementById(id);
+        return el && !/\d/.test(el.textContent);
+      })),
+      await cold.evaluate(() => ['mtTileP', 'mtTileF', 'mtTileC']
+        .map((id) => (document.getElementById(id) || {}).textContent).join('|')));
+    await cold.context().close();
 
     /* ---- "Fill from" governs drafting, not looking ------------------------
      * The setting says what the SOLVER may shop from — a day drafted out of
