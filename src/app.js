@@ -7422,8 +7422,9 @@
     /* A ledger row: what it is on the left, what it says on the right. One
        fact per line, values right-aligned into a column — the arrangement
        that cannot wrap the way a row of labelled boxes wraps on a phone. */
-    var row = function (label, valueHTML) {
-      return '<div class="mtl-row"><span class="mtl-lab">' + label + '</span>' +
+    var row = function (label, valueHTML, stack) {
+      return '<div class="mtl-row' + (stack ? ' stack' : '') + '">' +
+        '<span class="mtl-lab">' + label + '</span>' +
         '<span class="mtl-val">' + valueHTML + '</span></div>';
     };
     var box = function (id, v, unit) {
@@ -7487,7 +7488,7 @@
       row('How much are you on your feet on a normal day?',
         '<select id="mtAct">' + acts.map(function (a) {
           return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
-        }).join('') + '</select>') +
+        }).join('') + '</select>', true) +
       row('Roughly how many steps a day?',
         '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
         'inputmode="numeric" value="' + (pr.steps || '') + '">') +
@@ -7557,72 +7558,193 @@
       '<div class="mtl-row mtl-sum"><span class="mtl-lab">That is a day of</span>' +
         '<span class="mtl-val" id="mtKcal">' + (kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '—') + '</span></div>';
 
-    /* Open on the answer, not on the form — but a profile that cannot compute
-       yet has no answer to show, so the first visit opens the editor. */
+    /* Open on the answer, not on the form. A profile that cannot compute yet
+       has no answer to show, so a first run gets the wizard instead — the same
+       rows, asked four at a time, each group answering before the next is put. */
     var shut = plan ? ' hide' : '';
-    return '<div class="scrim no-print" data-close="1">' +
-      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Your plan">' +
-        '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">Your plan</div>' +
-          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
-        '</div>' +
 
-        /* The answer first. What you open this sheet for on an ordinary day is
-           the number, not the form that made it. */
-        '<div class="mt-answer">' +
-          '<div class="mt-big"><span id="mtBigKcal">' + mtDash(kcalOf(t)) + '</span>' +
-            '<small>kcal a day</small></div>' +
-          '<div class="mt-tiles">' +
-            '<span class="mt-tile"><b id="mtTileP">' + mtDash(t.p) + '</b><i>Protein</i></span>' +
-            '<span class="mt-tile"><b id="mtTileF">' + mtDash(t.f) + '</b><i>Fat</i></span>' +
-            '<span class="mt-tile"><b id="mtTileC">' + mtDash(t.c) + '</b><i>Carbs</i></span>' +
-          '</div>' +
+    var answerHTML =
+      '<div class="mt-answer">' +
+        '<div class="mt-big"><span id="mtBigKcal">' + mtDash(kcalOf(t)) + '</span>' +
+          '<small>calories a day</small></div>' +
+        '<div class="mt-tiles">' +
+          '<span class="mt-tile"><b id="mtTileP">' + mtDash(t.p) + '</b><i>Protein</i></span>' +
+          '<span class="mt-tile"><b id="mtTileF">' + mtDash(t.f) + '</b><i>Fat</i></span>' +
+          '<span class="mt-tile"><b id="mtTileC">' + mtDash(t.c) + '</b><i>Carbs</i></span>' +
         '</div>' +
-        /* The goal belongs under the number it produced, not over it as a
-           display line. A sentence set in the book's largest serif, where
-           every other sheet carries a title, read as a title that had been
-           filled in wrong — and it said again what the day already says. */
-        mMeasuredRowHTML(pr) +
-        '<button class="mt-who" data-mtedit="1" aria-expanded="' + (plan ? 'false' : 'true') + '">' +
-          '<span class="mt-whotext">' +
-            '<span class="mt-goal" id="mtGoalLine">' + esc(mGoalLine(pr)) + '</span>' +
-            '<span id="mtWho">' + mtWhoLine(pr) + '</span>' +
-          '</span>' +
-          '<span class="mt-editw">Edit</span>' +
-        '</button>' +
-        '<div id="mtEditor" class="mt-editor' + shut + '">' +
-          '<div class="mt-div">A few things about you</div>' + qAbout +
-          '<div class="mt-div">How you move</div>' + qMove +
-          '<div class="mt-div">What you are after</div>' + qGoal +
-          '<div class="mt-div">Where your meals come from</div>' + qPrefs +
-          '<div class="mt-div">What you will eat in a day</div>' + qGrams +
+      '</div>';
+
+    /* The goal belongs under the number it produced, not over it as a display
+       line. A sentence in the book's largest serif, where every other sheet
+       carries a title, read as a title filled in wrong. */
+    var whoHTML =
+      '<button class="mt-who" data-mtedit="1" aria-expanded="' + (plan ? 'false' : 'true') + '">' +
+        '<span class="mt-whotext">' +
+          '<span class="mt-goal" id="mtGoalLine">' + esc(mGoalLine(pr)) + '</span>' +
+          '<span id="mtWho">' + mtWhoLine(pr) + '</span>' +
+        '</span>' +
+        '<span class="mt-editw">Edit</span>' +
+      '</button>';
+
+    var mealsHTML =
+      '<div class="mt-div">The day&rsquo;s meals</div>' +
+      '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
+      '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
+      '<div class="mtm-total" id="mtmTotal"></div>' +
+      '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>';
+
+    var saveHTML =
+      '<div class="sync-row">' +
+        '<button class="btn-primary" data-mtarg="save">Save</button>' +
+        '<button class="ghost" data-mtarg="cancel">Cancel</button>' +
+      '</div>';
+
+    /* The one place the tab explains itself, folded away. It used to be a
+       paragraph on the daily screen behind a ?, which is a paragraph in front
+       of somebody who has read it forty times. */
+    var helpHTML =
+      '<details class="sync-fold mt-help" id="mtHelp"><summary>How My Day works</summary>' +
+        '<dl class="mt-steps">' +
+          '<dt>Weigh in</dt><dd>The seven-day average is the number that moves, not any one morning.</dd>' +
+          '<dt>Fill my day</dt><dd>Drafts every empty meal at once, favourites first when they fit.</dd>' +
+          '<dt>&#8635;</dt><dd>Another suggestion for that meal, down the best-fit list.</dd>' +
+          '<dt>Rebalance</dt><dd>Re-sizes the plates you have not eaten or locked, back onto target.</dd>' +
+          '<dt>&#128274;</dt><dd>Holds a portion where you set it. Rebalance leaves it alone.</dd>' +
+          '<dt>&#128204;</dt><dd>Puts the dish on every new day, at that portion.</dd>' +
+          '<dt>Training days</dt><dd>Earn extra carbs; rest days give them back. The week averages to the plan.</dd>' +
+          '<dt>Hatched bar</dt><dd>A meal with nothing on it yet, counted at what it is for.</dd>' +
+          '<dt>The tick</dt><dd>On a meal’s bars, where that meal is aiming. Past it the bar turns warm.</dd>' +
+        '</dl>' +
+      '</details>';
+
+    var shell = function (inner) {
+      return '<div class="scrim no-print" data-close="1">' +
+        '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Your plan">' +
+          '<div class="sheet-top">' +
+            '<div class="sheet-eyebrow">Your plan</div>' +
+            '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+          '</div>' + inner +
+        '</div></div>';
+    };
+
+    /* ---------------------------------------------------------------- first run
+     *
+       Four steps, all of them rendered and three of them hidden. That is not a
+       style: mtProfileFromDom reads the whole form out of the live DOM in one
+       pass and falls back to storage for any field it cannot find, so a step
+       taken out of the document would have its questions answered as zeros and
+       a plan computed confidently from them.
+
+       The who-line and the measured row come too, hidden, for the same reason
+       — every id the rest of the file looks up still exists. The answer block
+       is on step four and nowhere else, because two of it would be two
+       elements with one id. */
+    if (!plan) {
+      var WORDS = ['one', 'two', 'three', 'four'];
+      var step = function (n, title, body, said) {
+        return '<section class="mtw-step" data-mtwstep="' + n + '"' + (n === 1 ? '' : ' hidden') + '>' +
+          '<div class="mtw-no">Step ' + WORDS[n - 1] + ' of four</div>' +
+          '<h3 class="mtw-h">' + title + '</h3>' + body +
+          '<div class="mtw-said" id="mtwSaid' + n + '">' + (said || '') + '</div>' +
+        '</section>';
+      };
+      return shell(
+        '<div class="mtw-bar" aria-hidden="true">' +
+          '<span class="mtw-pip on"></span><span class="mtw-pip"></span>' +
+          '<span class="mtw-pip"></span><span class="mtw-pip"></span>' +
         '</div>' +
-        '<div class="mt-div">The day&rsquo;s meals</div>' +
-        '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
-        '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
-        '<div class="mtm-total" id="mtmTotal"></div>' +
-        '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +
-        '<div class="sync-row">' +
-          '<button class="btn-primary" data-mtarg="save">Save</button>' +
-          '<button class="ghost" data-mtarg="cancel">Cancel</button>' +
+        '<div class="mtw-keep hide">' + mMeasuredRowHTML(pr) + whoHTML + '</div>' +
+        '<div id="mtEditor" class="mt-editor">' +
+          step(1, 'A few things about you', qAbout, mtSaidBase(pr)) +
+          step(2, 'How you move', qMove, mtSaidBurn(pr)) +
+          step(3, 'What you are after', qGoal, '') +
+          step(4, 'Here is your plan', answerHTML + qGrams + qPrefs + mealsHTML + saveHTML, '') +
         '</div>' +
-        /* The one place the tab explains itself, folded away. It used to be a
-           paragraph on the daily screen behind a ?, which is a paragraph in
-           front of somebody who has read it forty times. */
-        '<details class="sync-fold mt-help" id="mtHelp"><summary>How My Day works</summary>' +
-          '<dl class="mt-steps">' +
-            '<dt>Weigh in</dt><dd>The seven-day average is the number that moves, not any one morning.</dd>' +
-            '<dt>Fill my day</dt><dd>Drafts every empty meal at once, favourites first when they fit.</dd>' +
-            '<dt>&#8635;</dt><dd>Another suggestion for that meal, down the best-fit list.</dd>' +
-            '<dt>Rebalance</dt><dd>Re-sizes the plates you have not eaten or locked, back onto target.</dd>' +
-            '<dt>&#128274;</dt><dd>Holds a portion where you set it. Rebalance leaves it alone.</dd>' +
-            '<dt>&#128204;</dt><dd>Puts the dish on every new day, at that portion.</dd>' +
-            '<dt>Training days</dt><dd>Earn extra carbs; rest days give them back. The week averages to the plan.</dd>' +
-            '<dt>Hatched bar</dt><dd>A meal with nothing on it yet, counted at what it is for.</dd>' +
-            '<dt>The tick</dt><dd>On a meal\u2019s bars, where that meal is aiming. Past it the bar turns warm.</dd>' +
-          '</dl>' +
-        '</details>' +
-      '</div></div>';
+        '<div class="mtw-nav">' +
+          '<button class="ghost" data-mtw="back" hidden>&lsaquo; Back</button>' +
+          '<button class="btn-primary" data-mtw="next">Next &rsaquo;</button>' +
+        '</div>' + helpHTML
+      );
+    }
+
+    /* ------------------------------------------------------- and every time after
+       One screen. Changing your step count should not be four taps through
+       questions you answered months ago. */
+    return shell(
+      answerHTML + mMeasuredRowHTML(pr) + whoHTML +
+      '<div id="mtEditor" class="mt-editor' + shut + '">' +
+        '<div class="mt-div">A few things about you</div>' + qAbout +
+        '<div class="mt-div">How you move</div>' + qMove +
+        '<div class="mt-div">What you are after</div>' + qGoal +
+        '<div class="mt-div">Where your meals come from</div>' + qPrefs +
+        '<div class="mt-div">What you will eat in a day</div>' + qGrams +
+      '</div>' + mealsHTML + saveHTML + helpHTML
+    );
+  }
+
+  /* What a step says back once it has been answered.
+   *
+     The figures are the same mBurn the plan is built from — nothing here is
+     computed twice or rounded differently — and the line under them says what
+     the figure is FOR, which is most of the difference between a form and a
+     guide. Both return nothing at all until there is enough answered to say
+     something true, so a half-filled step is quiet rather than wrong. */
+  /* Show one step and hide the rest, and say where you are in three places:
+     the pips, the Back button, and what Next is called on the last one. */
+  function mtwGo(n) {
+    var steps = document.querySelectorAll('[data-mtwstep]');
+    if (!steps.length) return;
+    var last = steps.length;
+    n = Math.max(1, Math.min(last, n));
+    Array.prototype.forEach.call(steps, function (sc) {
+      sc.hidden = Number(sc.dataset.mtwstep) !== n;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.mtw-pip'), function (p, i) {
+      p.className = 'mtw-pip' + (i + 1 === n ? ' on' : i + 1 < n ? ' done' : '');
+    });
+    var back = document.querySelector('[data-mtw="back"]');
+    if (back) back.hidden = (n === 1);
+    /* The last step is the plan itself and carries its own Save, so Next
+       steps aside there rather than becoming a second button that does the
+       same thing through a different path. */
+    var next = document.querySelector('[data-mtw="next"]');
+    if (next) next.hidden = (n === last);
+    /* Each step is a screen of its own, so it starts at the top of itself
+       rather than wherever the last one had been scrolled to. */
+    var sheet = document.querySelector('.mt-sheet');
+    if (sheet) sheet.scrollTop = 0;
+    mtRefreshPlan();
+  }
+
+  function mtSaidBase(pr) {
+    var b = mBurn(pr);
+    if (!b) return '';
+    /* bmr × 1.2 and not b.base, which is two different quantities wearing one
+       name: with nothing said about steps or sessions it is the whole day
+       through the activity dial, and after that it is the resting rate plus
+       the little that moving about adds. Reading it here gave a man of 43 a
+       resting burn of 2,757 — and then step two, having been told about his
+       steps, called the same idea 2,135. One figure, said once, both times. */
+    return '<div class="mtw-head">You burn about <b>' +
+      Math.round(b.bmr * 1.2).toLocaleString() + '</b> a day just being alive.</div>' +
+      '<p class="mtw-for">That is what your body spends keeping you going — warm, ' +
+      'breathing, thinking — before you have walked anywhere. Everything else is added to it.</p>';
+  }
+
+  function mtSaidBurn(pr) {
+    var b = mBurn(pr);
+    if (!b) return '';
+    var part = function (n, what) {
+      return '<div class="mtw-part"><b>' + Math.round(n).toLocaleString() + '</b><i>' + what + '</i></div>';
+    };
+    return '<div class="mtw-head">Altogether, about <b>' + Math.round(b.tdee).toLocaleString() +
+      '</b> a day.</div>' +
+      (b.told
+        ? '<div class="mtw-parts">' + part(b.base, 'just being alive') +
+          part(b.steps, 'walking about') + part(b.train, 'exercising') + '</div>'
+        : '') +
+      '<p class="mtw-for">This is the number everything else works from. Eat under it ' +
+      'and you lose weight; eat over it and you put it on.</p>';
   }
 
   /* The checklist a custom meal draws from: every live section, grouped by
@@ -7939,6 +8061,12 @@
     if (gn) gn.innerHTML = mGoalNote(prNow);
     var co = $('mtCoach');
     if (co) co.innerHTML = mCoachHTML(prNow);
+    /* The wizard's two answers are computed from the same profile as the rest
+       and go stale the same way, so they are refreshed with it. */
+    var s1 = $('mtwSaid1');
+    if (s1) s1.innerHTML = mtSaidBase(prNow);
+    var s2 = $('mtwSaid2');
+    if (s2) s2.innerHTML = mtSaidBurn(prNow);
     var gs = $('mtGoalSeg');
     if (gs) {
       var dated = !!mGoalPace(prNow);
@@ -10700,7 +10828,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
-    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
@@ -12996,6 +13124,26 @@
           function (b2) { b2.disabled = false; });
         $('mtGoalSeg').classList.remove('spent');
         mtRefreshPlan();
+        return;
+      }
+
+      /* Stepping the first run. The steps are all in the document and three
+         of them are hidden, so this only ever changes which one is shown —
+         nothing is built, nothing is thrown away, and every field stays
+         readable by mtProfileFromDom the whole way through.
+
+         Next on the last step is Save, because a wizard that ends on a step
+         called "here is your plan" and then asks you to find a button is a
+         wizard with one screen too many. */
+      var mtw = e.target.closest('[data-mtw]');
+      if (mtw) {
+        var steps = document.querySelectorAll('[data-mtwstep]');
+        if (!steps.length) return;
+        var at = 1;
+        Array.prototype.forEach.call(steps, function (sc) {
+          if (!sc.hidden) at = Number(sc.dataset.mtwstep);
+        });
+        mtwGo(at + (mtw.dataset.mtw === 'next' ? 1 : -1));
         return;
       }
 

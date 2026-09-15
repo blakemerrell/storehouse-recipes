@@ -1549,6 +1549,14 @@ select { max-width: 280px; }
   padding: 7px 1px; border-bottom: 1px solid var(--line-soft);
 }
 .mtl-lab { font-size: 13px; color: var(--muted-2); flex: none; }
+/* A question and a control that cannot share one line. Labels became real
+   questions, and "How much are you on your feet on a normal day?" beside a
+   select reading "Active job, or 3–5 workouts" had the two printed over each
+   other. Stacked, both get the full width. */
+.mtl-row.stack { display: block; }
+.mtl-row.stack .mtl-lab { display: block; margin-bottom: 6px; }
+.mtl-row.stack .mtl-val { justify-content: flex-start; }
+.mtl-row.stack select { width: 100%; }
 .mtl-val { display: flex; align-items: baseline; gap: 5px; justify-content: flex-end; min-width: 0; }
 .mtl-u { font-size: 11px; color: var(--muted); }
 /* A row that states a number rather than asking for one. Sized and aligned
@@ -1581,6 +1589,40 @@ select { max-width: 280px; }
 .mtl-sum { border-bottom: 0; }
 .mtl-sum .mtl-val { font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 .mtl-seg { padding: 9px 0 2px; }
+/* ---- the first run, four steps ------------------------------------------
+   The steps are all in the document; only one is ever shown. */
+.mtw-bar { display: flex; gap: 4px; margin: 0 0 14px; }
+.mtw-pip { flex: 1; height: 4px; border-radius: 2px; background: var(--line-firm); opacity: 0.45; }
+.mtw-pip.on { background: var(--ochre); opacity: 1; }
+.mtw-pip.done { background: var(--green); opacity: 1; }
+.mtw-no {
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ochre-text); font-weight: 600;
+}
+.mtw-h {
+  font-family: var(--serif); font-size: 22px; font-weight: 600;
+  margin: 4px 0 12px; text-wrap: balance;
+}
+/* What the step says back. Empty until there is something true to say, so a
+   half-answered step is quiet rather than wrong — hence :empty. */
+.mtw-said:empty { display: none; }
+.mtw-said {
+  display: block; margin-top: 16px; padding: 14px 15px;
+  background: var(--paper-soft); border-top: 1px solid var(--line-soft);
+  border-radius: 0 0 5px 5px;
+}
+.mtw-head { font-size: 14.5px; font-weight: 600; margin-bottom: 9px; }
+.mtw-head b { font-family: var(--serif); font-size: 19px; font-weight: 700; }
+.mtw-parts { display: grid; gap: 3px; margin-bottom: 10px; }
+.mtw-part { display: flex; gap: 10px; font-size: 13px; }
+.mtw-part b {
+  font-family: var(--serif); font-size: 14px; font-weight: 600; width: 48px;
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.mtw-part i { font-style: normal; color: var(--muted); }
+.mtw-for { font-size: 12.5px; color: var(--ink-soft); margin: 0; max-width: 44ch; }
+.mtw-nav { display: flex; gap: 8px; margin-top: 18px; }
+.mtw-nav .btn-primary { flex: 1; }
 /* The four kinds, stacked so each one has room to say what it does. A row of
    four buttons fits four words and no explanation, which is how they stayed
    gym vocabulary for as long as they did. */

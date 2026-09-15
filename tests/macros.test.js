@@ -28,12 +28,27 @@ async function openPlan(pg) {
   if (await pg.evaluate(() => {
     const b = document.getElementById('macroFill');
     return !!b && b.classList.contains('to-plan') && !b.disabled;
-  })) { await pg.click('#macroFill'); await pg.waitForTimeout(250); return; }
+  })) { await pg.click('#macroFill'); await pg.waitForTimeout(250); await revealPlanFields(pg); return; }
   if (!await pg.$('#macroTargBtn')) {
     const handle = await pg.$('.mday-weigh [data-mfold]');
     if (handle) { await handle.click(); await pg.waitForTimeout(250); }
   }
   await pg.click('#macroTargBtn');
+  await revealPlanFields(pg);
+}
+
+/* A first run opens as four steps with three of them hidden, and Playwright
+   will not type into what it cannot see. Nearly every test that touches these
+   fields is about something else entirely — carb cycling, the measured burn,
+   what Save keeps — so they get the sheet with everything reachable rather
+   than a page of Next-tapping in front of the thing they are actually
+   asserting. The stepping itself has its own tests, which open the sheet
+   without this. */
+async function revealPlanFields(pg) {
+  await pg.evaluate(() => {
+    document.querySelectorAll('[data-mtwstep]').forEach((s) => { s.hidden = false; });
+  });
+  await pg.waitForTimeout(80);
 }
 
   /* The picker's resting list. It used to be reached by pressing one of three
@@ -2962,6 +2977,136 @@ module.exports = {
         .map((id) => (document.getElementById(id) || {}).textContent).join('|')));
     await cold.context().close();
 
+    /* ---- the first run is four steps, and all of them are in the document
+     *
+     * mtProfileFromDom reads the whole form out of the live DOM in one pass
+     * and falls back to storage for any field it cannot find:
+     *
+     *     var n = function (id, fb) { var el = $(id); if (!el) return fb; ... }
+     *
+     * So a step that was built when you reached it, rather than hidden until
+     * then, would have every question on it answered as a zero — and a plan
+     * computed confidently from those zeros, with nothing thrown and nothing
+     * to see. That is the whole reason the steps are rendered together and
+     * only shown apart, and it is what this asserts. */
+    const wiz = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await wiz.evaluate(() => {
+      ['bsc.macroProfile', 'bsc.macroTargets', 'bsc.macroWeights']
+        .forEach((k) => localStorage.removeItem(k));
+    });
+    await wiz.reload();
+    await wiz.waitForTimeout(400);
+    await wiz.click('.tab[data-view="macros"]');
+    await wiz.waitForTimeout(300);
+    /* deliberately NOT openPlan(), which reveals every step for the tests
+       that are about something else */
+    await wiz.click('#macroFill');
+    await wiz.waitForTimeout(500);
+
+    t.ok('a first run opens as four steps with one of them showing',
+      await wiz.evaluate(() => {
+        const all = [...document.querySelectorAll('[data-mtwstep]')];
+        const shown = all.filter((s) => !s.hidden);
+        return all.length === 4 && shown.length === 1 && shown[0].dataset.mtwstep === '1';
+      }),
+      await wiz.evaluate(() => [...document.querySelectorAll('[data-mtwstep]')]
+        .map((s) => s.dataset.mtwstep + (s.hidden ? ':hidden' : ':shown')).join(' ')));
+
+    const FIELDS = ['mtAge', 'mtFt', 'mtIn', 'mtLb', 'mtAct', 'mtSteps',
+      'mtWorkouts', 'mtGoalLb', 'mtGoalBy', 'mtP', 'mtF', 'mtC'];
+    t.ok('and every question is in the document, including the ones not showing',
+      await wiz.evaluate((ids) => ids.every((id) => !!document.getElementById(id)), FIELDS),
+      await wiz.evaluate((ids) => ids.filter((id) => !document.getElementById(id)).join(', ')
+        || 'all present', FIELDS));
+
+    /* The step you are on is answered before the next is put. Nothing is said
+       until there is enough to say something true. */
+    t.ok('step one says nothing before it has been answered',
+      await wiz.evaluate(() => !(document.getElementById('mtwSaid1') || {}).textContent.trim()),
+      await wiz.evaluate(() => (document.getElementById('mtwSaid1') || {}).textContent));
+
+    await wiz.fill('#mtAge', '43');
+    await wiz.fill('#mtFt', '5');
+    await wiz.fill('#mtIn', '11');
+    await wiz.fill('#mtLb', '190');
+    await wiz.waitForTimeout(350);
+    t.ok('and answers with a figure once it can',
+      await wiz.evaluate(() => /\d/.test((document.getElementById('mtwSaid1') || {}).textContent || '')),
+      await wiz.evaluate(() => ((document.getElementById('mtwSaid1') || {}).textContent || '').trim().slice(0, 60)));
+
+    /* The figure step one calls being alive is the figure step two breaks out
+       under the same words. mBurn's `base` is two different quantities wearing
+       one name depending on whether steps have been given yet, and reading it
+       here gave a resting burn of 2,757 on step one against 2,135 on step
+       two — the same idea, two numbers, one screen apart. */
+    await wiz.click('[data-mtw="next"]');
+    await wiz.waitForTimeout(300);
+    await wiz.fill('#mtSteps', '8000');
+    await wiz.fill('#mtWorkouts', '3');
+    await wiz.waitForTimeout(350);
+    t.ok('and step two breaks the same figure out, not a different one',
+      await wiz.evaluate(() => {
+        const one = ((document.getElementById('mtwSaid1') || {}).textContent || '').match(/[\d,]+/);
+        const two = ((document.getElementById('mtwSaid2') || {}).textContent || '').match(/[\d,]+/g);
+        return !!one && !!two && two.indexOf(one[0]) >= 0;
+      }),
+      await wiz.evaluate(() => [(document.getElementById('mtwSaid1') || {}).textContent,
+        (document.getElementById('mtwSaid2') || {}).textContent].join(' || ').slice(0, 150)));
+
+    t.ok('Back goes back, and the step you left is showing again',
+      await (async () => {
+        await wiz.click('[data-mtw="back"]');
+        await wiz.waitForTimeout(300);
+        return wiz.evaluate(() => {
+          const shown = [...document.querySelectorAll('[data-mtwstep]')].filter((s) => !s.hidden);
+          return shown.length === 1 && shown[0].dataset.mtwstep === '1';
+        });
+      })(),
+      await wiz.evaluate(() => [...document.querySelectorAll('[data-mtwstep]')]
+        .map((s) => s.dataset.mtwstep + (s.hidden ? ':hidden' : ':shown')).join(' ')));
+
+    /* The last step is the plan, and it carries the Save. Next used to stand
+       in for it by finding the button and clicking it — which worked in the
+       one-screen sheet, where such a button exists, and did nothing at all in
+       the wizard, where it did not. The wizard could not save. */
+    for (let i = 0; i < 3; i++) {
+      await wiz.click('[data-mtw="next"]');
+      await wiz.waitForTimeout(250);
+    }
+    t.ok('the last step carries a Save you can actually press',
+      await wiz.evaluate(() => {
+        const sv = document.querySelector('[data-mtarg="save"]');
+        const nx = document.querySelector('[data-mtw="next"]');
+        return !!sv && !sv.closest('[data-mtwstep]').hidden && !!nx && nx.hidden;
+      }),
+      await wiz.evaluate(() => {
+        const sv = document.querySelector('[data-mtarg="save"]');
+        return 'save:' + (sv ? (sv.closest('[data-mtwstep]').hidden ? 'hidden' : 'shown') : 'MISSING');
+      }));
+
+    await wiz.click('[data-mtarg="save"]');
+    await wiz.waitForTimeout(400);
+    t.ok('and saving from it keeps every answer, including the hidden steps',
+      await wiz.evaluate(() => {
+        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile') || '{}');
+        return pr.age === 43 && pr.ft === 5 && pr.inch === 11 && pr.lb === 190 &&
+          Number(pr.steps) === 8000 && pr.workouts === 3;
+      }),
+      await wiz.evaluate(() => localStorage.getItem('bsc.macroProfile')));
+
+    /* And every time after, it is one screen. Changing your step count should
+       not be four taps through questions you answered months ago. */
+    await wiz.reload();
+    await wiz.waitForTimeout(400);
+    await wiz.click('.tab[data-view="macros"]');
+    await wiz.waitForTimeout(300);
+    await openPlan(wiz);
+    await wiz.waitForTimeout(400);
+    t.ok('but a plan already made opens as one sheet, not four steps',
+      await wiz.evaluate(() => document.querySelectorAll('[data-mtwstep]').length === 0 &&
+        !!document.getElementById('mtEditor')),
+      await wiz.evaluate(() => 'steps:' + document.querySelectorAll('[data-mtwstep]').length));
+    await wiz.context().close();
     /* ---- "Fill from" governs drafting, not looking ------------------------
      * The setting says what the SOLVER may shop from — a day drafted out of
      * salmon that is not in the house is not a day. It was also gating the
