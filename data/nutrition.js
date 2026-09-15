@@ -768,6 +768,14 @@ function parseLine(raw) {
   // fried dish read like a stick of butter; food takes up roughly an eighth.
   if (key === 'oil' && /for frying|to fry|for the pan/i.test(raw)) grams *= 0.12;
 
+  // The same thing happens to a pretzel's soda bath: it is boiled, dipped into
+  // for thirty seconds and poured down the sink. What stays is the alkaline
+  // film that makes the crust brown and taste of pretzel, not two thirds of a
+  // cup of bicarbonate. Counted in full it read 5,673 mg of sodium a pretzel —
+  // twice a day's worth from one roll, and the highest figure in the book by a
+  // factor of four.
+  if (key === 'baking_soda' && /for the water|for boiling|for the bath/i.test(raw)) grams *= 0.02;
+
   /* "trimmed" on the line: the fat cap and the seams come off before the meat
      is cooked, and the fat that is cut off is never eaten. Only the fat moves —
      the lean, and so the protein, is what was there all along, and the grams

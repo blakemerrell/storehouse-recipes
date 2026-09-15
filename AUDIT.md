@@ -87,7 +87,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 316 scored recipes: **21–98**, median **65**.
+Score range across all 332 scored recipes: **21–98**, median **64**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -176,8 +176,8 @@ Around the Table shipped with **no nutrition data**: all 125 recipes carried a t
 the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
-- Recipes given macros: 166 of 166
-- Score range: 21–87 (median 56)
+- Recipes given macros: 182 of 182
+- Score range: 21–87 (median 55)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
 shows "Estimated from ingredients" next to its macros and its score. Run and Not Be Weary's
@@ -206,14 +206,14 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-91 recipes across 9 sections were written for this edition rather than carried
+107 recipes across 9 sections were written for this edition rather than carried
 over from the original books:
 
 - **Worth the Afternoon** — 12 recipes
-- **The Copycat Shelf** — 10 recipes
+- **The Copycat Shelf** — 25 recipes
 - **For the Love of Chocolate** — 10 recipes
 - **Power Drinks** — 11 recipes
-- **Made, Not Bought** — 9 recipes
+- **Made, Not Bought** — 10 recipes
 - **Breakfasts** — 11 recipes
 - **Snacks** — 6 recipes
 - **Lunch** — 11 recipes
@@ -225,7 +225,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 72 of the 91
+Every ingredient was checked against the storehouse order list. 88 of the 107
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 
