@@ -66,11 +66,17 @@ module.exports = {
     delete require.cache[require.resolve(path.join(root, 'data', 'recipes.js'))];
     require(path.join(root, 'data', 'recipes.js'));
     const R = global.window.RECIPES, P = global.window.PANTRY;
-    const byId = {};
-    R.forEach((r) => { byId[r.id] = r; });
+    /* Keyed on the printed number, which is what the sheet shows and what a
+       reader holding the book can look up. This was keyed on the id, and so
+       was the sheet — and every one of the 335 recipes has an id that is no
+       longer its number. Somebody handed the sheet and told to find No. 219,
+       the bread pudding, opened the book at Shepherd's Pie. The sheet prints
+       `no` now; this joins on the same thing it prints. */
+    const byNo = {};
+    R.forEach((r) => { byNo[r.no] = r; });
 
     const wrong = sheet.recipes.filter((s) => {
-      const r = byId[Number(s.no)];
+      const r = byNo[Number(s.no)];
       return !r || r.name !== s.name ||
         r.ing.join('|') !== s.ing.join('|') ||
         r.steps.join('|') !== s.steps.join('|');
@@ -83,7 +89,7 @@ module.exports = {
        PANTRY[key].s, not ingp[].x, which says something else and would pass a
        recipe built on whey protein. */
     const needs = sheet.recipes.map((s) => {
-      const r = byId[Number(s.no)] || { ingp: [] };
+      const r = byNo[Number(s.no)] || { ingp: [] };
       const out = [];
       (r.ingp || []).forEach((i) => {
         if (i.k === 'water') return;
@@ -122,8 +128,8 @@ module.exports = {
     /* The leaf is on the sheet because a score is a glance, and a glance is the
        only thing a handout gets. */
     t.ok('every recipe wears its score',
-      sheet.recipes.every((r) => r.score && byId[Number(r.no)] &&
-        String(byId[Number(r.no)].score) === r.score),
+      sheet.recipes.every((r) => r.score && byNo[Number(r.no)] &&
+        String(byNo[Number(r.no)].score) === r.score),
       sheet.recipes.map((r) => r.no + ':' + r.score).join(' '));
 
     /* Both sides, measured in print media rather than on screen — and both,

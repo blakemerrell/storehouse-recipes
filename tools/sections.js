@@ -196,8 +196,19 @@ function apply(recipes) {
 function order(recipes) {
   const run = apply(recipes);
   module.exports.lastRun = run;
+  /* Volume Two is numbered in section order, not in the order the sources
+     happen to be concatenated in. It used to be the second of those, which
+     worked only for as long as every recipe written for this edition belonged
+     to a section at the end of the book: add a breakfast to section 1 and it
+     numbered 335, printing between 175 and 176 with three hundred numbers
+     between it and its neighbours. A stable sort by section fixes it for any
+     section, and cannot reorder anything inside one. */
   const rest = recipes.filter((r) => r.book !== 1);
-  const all = run.order.concat(rest);
+  const b2 = rest.filter((r) => r.book === 2)
+    .map((r, i) => [r, i])
+    .sort((a, b) => (a[0].secNum - b[0].secNum) || (a[1] - b[1]))
+    .map((x) => x[0]);
+  const all = run.order.concat(b2, rest.filter((r) => r.book !== 2));
 
   let n = 0;
   all.forEach((r) => { if (r.book === 1 || r.book === 2) r.no = ++n; });

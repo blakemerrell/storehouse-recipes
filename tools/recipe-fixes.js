@@ -1112,4 +1112,38 @@ module.exports = [
     'Mix the chicken, pasta, tomato sauce, cream soup and cheese in the dish.',
     'Bake 25 minutes.',
   ] },
+
+  /* ---- the bread pudding had no soak --------------------------------
+   *
+   * No. 269 as printed: whisk the custard, "pour over bread cubes and raisins
+   * in baking dish; bake at 350°F for 35 mins". Three steps, and the one
+   * thing a bread pudding actually does is missing. Custard poured over dry
+   * cubes and put straight in the oven sets around the bread rather than
+   * inside it, and what comes out is soaked underneath and dry on top.
+   *
+   * It also had no butter and no vanilla, both of which are on the order
+   * sheet, and no way to tell when a custard is done — the collection's own
+   * Baked Vanilla Custard (no. 283) spends three hours being careful about
+   * exactly that, twelve recipes away.
+   *
+   * The ratio is left alone: three eggs to a cup and a half of milk is the
+   * right custard and was right as printed. What changes is the half hour
+   * between mixing it and baking it. */
+  { id: 219,
+    time: '1 hr 20 mins',
+    ing: ['6 bread slices (cubed)', '3 eggs', '1.5 cups milk', '⅓ cup sugar',
+      '¼ cup raisins', '1 tsp cinnamon', '1 tsp vanilla', '2 tbsp butter'],
+    steps: [
+      'Butter the baking dish and heat the oven to 350°F.',
+      'Use bread that has gone stale. If it is fresh, spread the cubes on a tray and dry them in the oven for 10 minutes — soft bread turns to paste, dry bread drinks the custard and keeps its shape.',
+      'Scatter the bread cubes and the raisins in the dish.',
+      'Whisk the eggs, milk, sugar, cinnamon, vanilla and a pinch of salt together until no streaks of white are left.',
+      'Pour it over the bread and press the cubes down with the back of a spoon until every one of them is wet.',
+      'Leave it to soak 30 minutes, pressing it down again halfway. Baked straight away, the custard sets around the bread instead of inside it.',
+      'Dot the rest of the butter over the top.',
+      'Bake 35 to 40 minutes, until the edges are set and the middle still wobbles a little when you move the dish. It firms as it cools, and baked until the centre is solid it comes out dry.',
+      'Stand it 10 minutes before serving. {r:235} poured over the top makes it a pudding for company.',
+    ],
+    lift: { with: 'Nutmeg',
+      steps: ['A good grating of nutmeg into the custard with the cinnamon. It is the spice nobody can name in a bread pudding and everybody misses when it is gone.'] } },
 ];

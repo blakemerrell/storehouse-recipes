@@ -783,6 +783,54 @@ module.exports = [
     macro: null, tagline: 'A Rolling Boil, Then Flour', score: null, sc: null,
     diff: 'In-Depth', time: '40 mins', extras: null,
   },
+  /* Two more, both asked for by name.
+   *
+   * The pot roast is the only recipe on this shelf that needed a new food in
+   * the table: pepperoncini, pickled and drained, and the figure that matters
+   * is its sodium — they come out of brine, and the tang everyone remembers is
+   * salt as much as heat.
+   *
+   * The soup is Olive Garden's, and the kale is the problem: the storehouse
+   * carries no leafy green that holds up in a hot pot. Broccoli cut small is
+   * the nearest thing on the shelf that keeps its bite, and the rest of the
+   * soup — sausage, potato, onion, something creamy that will not split — is
+   * on the order sheet as it stands. Evaporated milk rather than cream is not
+   * a compromise here; it is the thing least likely to break over heat. */
+  {
+    id: 333, book: 2, secNum: 7, secName: COPYCAT,
+    name: 'Mississippi Pot Roast',
+    servings: '8 Servings', servN: 8,
+    ing: ['3 lbs beef roast', '½ cup ranch', '¼ cup butter', '6 pepperoncini', '1 tsp black pepper'],
+    steps: [
+      'Put the roast in the slow cooker. Add no water — the roast gives up more liquid than you expect, and water on top of that makes soup of it.',
+      'Spoon the ranch over the top and lay the butter over that in slices.',
+      'Scatter the pepperoncini over, and a tablespoon of the brine from the jar with them. The brine is the tang this is known for; the peppers themselves are mild.',
+      'Cover and cook on LOW for 8 hours, until it pulls apart under a fork. Every time the lid comes off it costs about twenty minutes.',
+      'Shred the beef in the pot and stir it back through the liquid.',
+      'Serve it over {r:276} or rice. The liquid in the pot is the sauce; {r:265} made with it instead of water turns it into gravy.',
+    ],
+    macro: null, tagline: 'No Water, Eight Hours', score: null, sc: null,
+    diff: 'Easy', time: '8 hrs 10 mins', extras: 'Pepperoncini',
+  },
+  {
+    id: 334, book: 2, secNum: 7, secName: COPYCAT,
+    name: 'Zuppa Toscana',
+    servings: '8 Servings', servN: 8,
+    ing: ['1 lb pork sausage', '4 oz ham', '2 lbs potatoes', '1 onion', '4 cups water',
+      '1 can cream of chicken', '1 can evaporated milk', '½ lb broccoli',
+      '1 tsp salt', '1 tsp black pepper'],
+    steps: [
+      'Brown the sausage in a large pot, breaking it up small, until no pink is left. Pour off all but a spoonful of the fat.',
+      'Add the ham and the onion, both diced, and cook 6 minutes, until the onion has gone soft.',
+      'Add the potatoes cut into half-inch slices and the water. Simmer 15 minutes, until a knife goes into a potato without resistance.',
+      'Stir in the soup and the evaporated milk and bring it back to a bare simmer. Boiled hard from here it will split.',
+      'Add the broccoli cut small and give it 5 minutes more, until it is bright and still has some bite.',
+      'Salt and pepper it, then taste it again. A potato soup takes more salt than seems right.',
+      'It thickens overnight and is better the next day. Loosen it with a splash of milk as it warms.',
+    ],
+    macro: null, tagline: 'A Bare Simmer, Never a Boil', score: null, sc: null,
+    diff: 'Medium', time: '50 mins', extras: null,
+  },
   // ==================== For the Love of Chocolate =========================
   {
     id: 248, book: 2, secNum: 8, secName: CHOC,
@@ -2083,5 +2131,32 @@ module.exports = [
     ],
     macro: null, tagline: 'Comes Away in Sheets', score: null, sc: null,
     diff: 'Medium', time: '3 hrs 30 mins', extras: null,
+  },
+
+  /* Asked for by name, and a real gap: nothing in either volume puffs.
+     It goes in with the morning treats rather than with the recipes written
+     for this edition, because that is where somebody would look for it.
+
+     Everything about it is technique and none of it is difficulty. The dish
+     has to be hot and the butter sizzling, the eggs have to be beaten far
+     harder than seems necessary, and the oven door has to stay shut. Get any
+     of the three wrong and it is a thick flat omelette. */
+  {
+    id: 335, book: 2, secNum: 1, secName: 'Speedy Weekday Breakfasts & Morning Treats',
+    name: 'German Pancakes',
+    servings: '6 Servings', servN: 6,
+    ing: ['6 eggs', '1 cup milk', '1 cup white flour', '½ tsp salt', '1 tsp vanilla',
+      '4 tbsp butter', '2 tbsp powdered sugar'],
+    steps: [
+      'Heat the oven to 425°F with a 9x13 dish inside it and the butter in the dish. The dish has to be hot and the butter sizzling before any batter goes near it.',
+      'Beat the eggs hard for a full minute, until they are pale and frothy. This is where the rise comes from, and it is more beating than seems necessary.',
+      'Whisk in the milk, flour, salt and vanilla until the batter is completely smooth. Lumps of flour will not cook out.',
+      'Pour the batter into the hot buttered dish all at once and put it straight back in the oven.',
+      'Bake 20 minutes and do not open the door. It climbs the sides of the dish and goes deep gold; opened early, it drops and will not come back up.',
+      'It sinks as it comes out, which is what it is supposed to do. Dust it with the powdered sugar and cut it in the dish.',
+      'Jam or {r:277} over the top, and it wants eating straight away.',
+    ],
+    macro: null, tagline: 'It Climbs, Then It Falls', score: null, sc: null,
+    diff: 'Easy', time: '30 mins', extras: null,
   },
 ];

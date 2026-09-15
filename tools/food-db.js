@@ -134,6 +134,10 @@ const FOODS = {
   bell_pepper:     { veg: 1, side: true, kcal: 26,  p: 1,    c: 6,    f: 0.3, na: 4, fib: 2.1,  g: { lb: 453.6, cup: 149, each: 119 }, label: 'Bell peppers', def: { qty: 1, unit: 'each' } },
   cucumber:        { veg: 1, side: true, kcal: 15,  p: 0.65, c: 3.6,  f: 0.1, na: 2, fib: 0.5,  g: { cup: 133, each: 300 }, label: 'Cucumbers', def: { qty: 0.5, unit: 'each' } },
   garlic:          { kcal: 149, p: 6.4,  c: 33,   f: 0.5, na: 17, fib: 2.1,  g: { each: 3, tsp: 2.8, tbsp: 8.4 }, def: { qty: 1, unit: 'each' } },
+  /* Pickled and drained. The figure that matters here is sodium: they come out
+     of brine, and a recipe leaning on pepperoncini leans on salt as much as on
+     heat. One pepper is about 12 g, so six of them carry roughly 900 mg. */
+  pepperoncini:    { veg: 1, kcal: 20,  p: 0.7,  c: 4.4,  f: 0.3, na: 1200, fib: 2.4,  g: { each: 12, cup: 130, jar: 340 }, label: 'Pepperoncini', def: { qty: 4, unit: 'each' }, note: 'pickled, drained' },
 
   // ---- Fruit --------------------------------------------------------------
   apple:           { side: true, kcal: 52,  p: 0.3,  c: 14,   f: 0.2, na: 1, fib: 2.4, label: 'Apples',  g: { cup: 125, each: 182 } },
@@ -470,6 +474,7 @@ const ALIASES = {
   'onion': 'onion', 'onions': 'onion',
   'tomato': 'tomato', 'tomatoes': 'tomato', 'diced tomatoes': 'tomato_canned',
   'bell pepper': 'bell_pepper', 'bell peppers': 'bell_pepper',
+  'pepperoncini': 'pepperoncini', 'pepperoncinis': 'pepperoncini', 'pepperoncini peppers': 'pepperoncini',
   'cucumber': 'cucumber', 'cucumbers': 'cucumber', 'diced cucumber': 'cucumber', 'diced cucumbers': 'cucumber',
   'cucumber spears': 'cucumber', 'fresh cucumber slices': 'cucumber',
   'garlic': 'garlic',

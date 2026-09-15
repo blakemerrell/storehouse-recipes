@@ -334,7 +334,7 @@ body {
      { id: 258, kind: 'Something warm at nine' }],
     [{ id: 245, kind: 'The copycat shelf', feature: true },
      { id: 41, kind: 'Hearty breakfast' },
-     { id: 219, kind: 'Pudding' },
+     { id: 202, kind: 'Pudding' },
      { id: 206, kind: 'No-bake treat' }],
   ];
 
@@ -367,7 +367,7 @@ body {
     var meta = [r.servings, r.time, m.p ? m.p + 'g protein' : null]
       .filter(Boolean).join(' &nbsp;&middot;&nbsp; ');
     return '<div class="rec">' +
-      '<div class="rec-kind">' + esc(pick.kind) + ' &middot; No. ' + ('00' + r.id).slice(-3) + '</div>' +
+      '<div class="rec-kind">' + esc(pick.kind) + ' &middot; No. ' + ('00' + r.no).slice(-3) + '</div>' +
       '<div class="rec-top">' +
         '<h2>' + esc(r.name) + '</h2>' + leaf(r.score) +
       '</div>' +
