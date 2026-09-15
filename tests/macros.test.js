@@ -2073,7 +2073,7 @@ module.exports = {
     const scaleSot = await lightLog.evaluate(() => {
       const rows = [...document.querySelectorAll('.mtl-row')]
         .map((r) => r.textContent.replace(/\s+/g, ' ').trim());
-      return { row: rows.find((x) => /^Weight/.test(x)),
+      return { row: rows.find((x) => /weigh/i.test(x)),
         input: !!document.getElementById('mtLb'),
         stored: (JSON.parse(localStorage.getItem('bsc.macroProfile')) || {}).lb };
     });
@@ -2870,6 +2870,12 @@ module.exports = {
     /* A tap at the LEFT edge of the box — where a thumb aiming at the box
        rather than at the digit lands. */
     const lbBox = await zeroBox.$('#mtLb');
+    /* Into view first. The tap below is at real coordinates, so a box sitting
+       under the fold is a tap on whatever is at those coordinates instead —
+       which is a test that breaks every time a row moves, rather than when
+       the thing it is about breaks. */
+    await lbBox.scrollIntoViewIfNeeded();
+    await zeroBox.waitForTimeout(150);
     const lbRect = await lbBox.boundingBox();
     await zeroBox.mouse.click(lbRect.x + 4, lbRect.y + lbRect.height / 2);
     await zeroBox.waitForTimeout(200);

@@ -6706,7 +6706,14 @@
 
   /* Which plan the four buttons describe. Read by the sheet and by the tests,
      which hold every key against a button rather than keeping their own copy. */
-  var MGOAL_WORDS = { cut2: 'Hard cut', cut1: 'Steady cut', keep: 'Maintain', gain: 'Lean gain' };
+  /* Named by what happens to you, not by what a gym calls it. "Hard cut",
+     "Steady cut", "Maintain" and "Lean gain" were four pieces of vocabulary
+     that explain themselves only to somebody who has already been told what
+     they mean, sitting on the one screen a newcomer cannot get past. */
+  var MGOAL_WORDS = {
+    cut2: 'Lose weight quickly', cut1: 'Lose weight steadily',
+    keep: 'Stay about where I am', gain: 'Put weight on slowly'
+  };
 
   /* The status line over the gram boxes. The boxes are the plan's one
      rendering, so this speaks only when something needs saying: the profile
@@ -7445,6 +7452,111 @@
       [1.725, 'Hard training 6&ndash;7 days'],
       [1.9, 'Physical job plus hard training']
     ];
+    /* The form in the groups a first-timer is asked them in.
+     *
+       Named pieces rather than one run of string, because the same rows have
+       to make two shapes: four steps on a first run, and one scrolling sheet
+       every time after that. The wording lives here and only here, so neither
+       shape owns it.
+
+       Every id is the id it has always had, and that is load-bearing:
+       mtProfileFromDom reads the whole form out of the live DOM in one pass
+       and falls back to storage for anything it cannot find. A field that is
+       off-screen must therefore still be IN the document, or the plan is
+       computed from zeros for every question not currently showing. The
+       wizard hides steps. It never removes them. */
+    var cap = function (s) { return '<div class="mt-cap">' + s + '</div>'; };
+
+    var qAbout =
+      row('Are you male or female?', seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']])) +
+      cap('Two bodies the same size burn slightly different amounts at rest.') +
+      row('How old are you?', box('mtAge', pr.age, 'years')) +
+      row('How tall are you?', box('mtFt', pr.ft, 'ft') + box('mtIn', pr.inch, 'in')) +
+      /* Asked for only until the scale can answer. Two boxes for one number is
+         how they came to disagree; once there are mornings in the log this
+         states what they say instead of inviting a second opinion nothing
+         would ever read. */
+      row('What do you weigh today?', mScaleLb()
+        ? '<span class="mtl-fact">' + mScaleLb() + '</span>' +
+          '<span class="mtl-u">lb &middot; from your weigh-ins</span>'
+        : box('mtLb', pr.lb, 'lb')) +
+      (mScaleLb() ? ''
+        : cap('Only asked until you have weighed in a few times. After that the scale answers it.'));
+
+    var qMove =
+      row('How much are you on your feet on a normal day?',
+        '<select id="mtAct">' + acts.map(function (a) {
+          return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
+        }).join('') + '</select>') +
+      row('Roughly how many steps a day?',
+        '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
+        'inputmode="numeric" value="' + (pr.steps || '') + '">') +
+      cap('A guess is fine. Leave it blank if you have no idea.') +
+      row('How many times a week do you exercise?', box('mtWorkouts', pr.workouts, '')) +
+      /* Which days those workouts fall on. Spread from the number above until
+         you say otherwise, and then held as a list of its own so changing the
+         number does not rearrange days set by hand. */
+      row('Which days?', mTrainRowHTML()) +
+      cap('Exercise days get more food than rest days, and the week still averages out to your plan.');
+
+    /* The four kinds, as a stack that has room to say what each one does
+       rather than four words in a row that do not.
+     *
+       "Hard cut", "Steady cut", "Maintain", "Lean gain" were four pieces of
+       gym vocabulary on controls that explain themselves to nobody who has
+       not already been told. The data attributes are unchanged, so every
+       handler and test that presses one still finds it.
+
+       With a weight and a date named, these are along for the ride — pressing
+       them used to do nothing at all, silently, which is the worst thing a
+       control can do. They go properly inert and say who is in charge. */
+    var goalPick = function (val, title, what) {
+      var on = pr.goal === val, off = !!mGoalPace(pr);
+      return '<button class="mt-pick' + (on ? ' on' : '') + '" data-mtgoal="' + val + '"' +
+        ' aria-pressed="' + String(on) + '"' + (off ? ' disabled' : '') + '>' +
+        '<b>' + title + '</b><span>' + what + '</span></button>';
+    };
+    var qGoal =
+      '<div class="mt-picks' + (mGoalPace(pr) ? ' spent' : '') + '" id="mtGoalSeg">' +
+        goalPick('cut2', MGOAL_WORDS.cut2, 'About 1&frac12; lb a week. Hungry work, and hard to keep up for long.') +
+        goalPick('cut1', MGOAL_WORDS.cut1, 'About 1 lb a week. The pace most people actually finish.') +
+        goalPick('keep', MGOAL_WORDS.keep, 'Eat roughly what you burn.') +
+        goalPick('gain', MGOAL_WORDS.gain, 'About &frac12; lb a week.') +
+        '<button class="ghost mt-byfeel" data-mtfree="1">A weight and a date are setting your pace &mdash; ' +
+          'choose one of these instead</button>' +
+      '</div>' +
+      row('What weight would you like to reach?', box('mtGoalLb', pr.goalLb, 'lb')) +
+      row('When would you like to get there?',
+        '<input type="date" id="mtGoalBy" value="' + esc(pr.goalBy || '') + '">') +
+      '<div class="mt-cap" id="mtGoalNote">' + mGoalNote(pr) + '</div>' +
+      '<div id="mtCoach">' + mCoachHTML(pr) + '</div>';
+
+    /* What Fill is allowed to shop from. The books are written to be cooked
+       out of the storehouse order, and a day drafted from salmon and almonds
+       is not a day if there is no salmon in the house. But Blake will happily
+       stop at a shop on the way home, and said so — so it is a question with
+       two honest answers rather than a rule. Storehouse-only is the default
+       because it is the one that cannot surprise you.
+
+       Searching and logging an outside food is never gated. Looking one up is
+       how you decide to go and buy it. */
+    var qPrefs =
+      row('Should My Day only suggest storehouse food?',
+        seg('mtext', pr.extFill ? '1' : '0', [['0', 'Yes'], ['1', 'No']])) +
+      cap('Say no and it will also suggest food you would have to buy at a shop. ' +
+        'Either way you can look up and log anything you like.');
+
+    /* The boxes are the plan's one rendering: they follow the profile, take a
+       hand edit, and Save keeps whatever they say. */
+    var qGrams =
+      '<div class="mt-cap" id="mtPlan">' + mtPlanLine(plan) + '</div>' +
+      row('Protein', box('mtP', t.p, 'g')) +
+      row('Fat', box('mtF', t.f, 'g')) +
+      row('Carbs', box('mtC', t.c, 'g')) +
+      cap('Worked out from your answers. Change them if you would rather set your own, and yours are kept.') +
+      '<div class="mtl-row mtl-sum"><span class="mtl-lab">That is a day of</span>' +
+        '<span class="mtl-val" id="mtKcal">' + (kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '—') + '</span></div>';
+
     /* Open on the answer, not on the form — but a profile that cannot compute
        yet has no answer to show, so the first visit opens the editor. */
     var shut = plan ? ' hide' : '';
@@ -7479,76 +7591,11 @@
           '<span class="mt-editw">Edit</span>' +
         '</button>' +
         '<div id="mtEditor" class="mt-editor' + shut + '">' +
-          '<div class="mt-div">About you</div>' +
-          '<div class="mtl-seg">' + seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']]) + '</div>' +
-          /* What Fill is allowed to shop from.
-           *
-             The books are written to be cooked out of the storehouse order,
-             and a day drafted from salmon and almonds is not a day if there
-             is no salmon in the house. But Blake will happily stop at a shop
-             on the way home, and said so — so it is a question with two
-             honest answers rather than a rule. Off is the default because it
-             is the one that cannot surprise you.
-           *
-             Searching and logging an external food is never gated. Looking
-             one up is how you decide to go and buy it. */
-          row('Fill from', seg('mtext', pr.extFill ? '1' : '0',
-            [['0', 'The storehouse'], ['1', 'Anything']])) +
-          row('Age', box('mtAge', pr.age, '')) +
-          row('Height', box('mtFt', pr.ft, 'ft') + box('mtIn', pr.inch, 'in')) +
-          /* Asked for only until the scale can answer. Two boxes for one
-             number is how they came to disagree; once there are mornings in
-             the log this states what they say instead of inviting a second
-             opinion nothing would ever read. */
-          row('Weight', mScaleLb()
-            ? '<span class="mtl-fact">' + mScaleLb() + '</span>' +
-              '<span class="mtl-u">lb &middot; from your weigh-ins</span>'
-            : box('mtLb', pr.lb, 'lb')) +
-          row('Most days', '<select id="mtAct">' + acts.map(function (a) {
-            return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
-          }).join('') + '</select>') +
-          '<div class="mt-div">What you are after</div>' +
-          /* A date and a weight beat a preset: you either arrive or you do
-             not, and the deficit falls out of the arithmetic. The four kinds
-             stay for anyone who would rather not name a day. */
-          row('Get to', box('mtGoalLb', pr.goalLb, 'lb')) +
-          row('By', '<input type="date" id="mtGoalBy" value="' + esc(pr.goalBy || '') + '">') +
-          row('Workouts a week', box('mtWorkouts', pr.workouts, '')) +
-          /* Which days those workouts fall on. Spread from the number above
-             until you say otherwise, and then held as a list of its own so
-             changing the number does not rearrange days set by hand. The
-             carbohydrate follows: more on a training day, less on a rest one,
-             and the week still averages to the plan. */
-          row('Training days', mTrainRowHTML()) +
-          row('Steps a day', '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
-            'inputmode="numeric" value="' + (pr.steps || '') + '">') +
-          /* With a weight and a date, those two are the plan and these four
-             are along for the ride — pressing them used to do nothing at
-             all, silently, which is the worst thing a control can do. They
-             go quiet and say who is in charge instead. */
-          /* Dimming them was not enough: they still took the press, still lit
-             up, and still changed nothing — a control that answers and then
-             does nothing is worse than one that is plainly out of use. They
-             are properly inert now, and the way to make them live again is a
-             button rather than a fact you have to work out. */
-          '<div class="mtl-seg' + (mGoalPace(pr) ? ' spent' : '') + '" id="mtGoalSeg">' +
-            seg('mtgoal', pr.goal,
-              [['cut2', MGOAL_WORDS.cut2], ['cut1', MGOAL_WORDS.cut1], ['keep', MGOAL_WORDS.keep], ['gain', MGOAL_WORDS.gain]],
-              !!mGoalPace(pr)) +
-            '<button class="ghost mt-byfeel" data-mtfree="1">The date is setting the pace &mdash; ' +
-              'choose by feel instead</button>' +
-          '</div>' +
-          '<div class="mt-cap" id="mtGoalNote">' + mGoalNote(pr) + '</div>' +
-          '<div id="mtCoach">' + mCoachHTML(pr) + '</div>' +
-          '<div class="mt-div">The day&rsquo;s grams</div>' +
-          /* The boxes are the plan's one rendering: they follow the profile,
-             take a hand edit, and Save keeps whatever they say. */
-          '<div class="mt-cap" id="mtPlan">' + mtPlanLine(plan) + '</div>' +
-          row('Protein', box('mtP', t.p, 'g')) +
-          row('Fat', box('mtF', t.f, 'g')) +
-          row('Carbs', box('mtC', t.c, 'g')) +
-          '<div class="mtl-row mtl-sum"><span class="mtl-lab">A day</span>' +
-            '<span class="mtl-val" id="mtKcal">' + (kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '\u2014') + '</span></div>' +
+          '<div class="mt-div">A few things about you</div>' + qAbout +
+          '<div class="mt-div">How you move</div>' + qMove +
+          '<div class="mt-div">What you are after</div>' + qGoal +
+          '<div class="mt-div">Where your meals come from</div>' + qPrefs +
+          '<div class="mt-div">What you will eat in a day</div>' + qGrams +
         '</div>' +
         '<div class="mt-div">The day&rsquo;s meals</div>' +
         '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
@@ -7808,7 +7855,7 @@
 
   function mGoalNote(pr) {
     var pace = mGoalPace(pr);
-    if (!pace) return 'Name a weight and a date and they set the pace instead.';
+    if (!pace) return 'Give a weight and a date and they set your pace for you. Leave the date blank and the choices above set it instead.';
     var bits = [Math.abs(Math.round(pace.lbs * 10) / 10) + ' lb over ' +
       Math.round(pace.days / 7) + ' weeks \u2014 ' + mPaceWords(pace)];
     if (pr.workouts) bits.push(pr.workouts + '\u00d7 a week');
