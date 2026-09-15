@@ -103,8 +103,9 @@ module.exports = [
       '2 cups pancake mix', '1 can corn', '2 eggs', '1 cup milk', '1 tbsp butter'],
     steps: [
       'Simmer the beef, beans and tomato sauce 30 minutes.',
-      'Heat the oven to 400°F with a 9-inch oven-safe skillet inside it and the butter in the skillet. Meanwhile whisk the pancake mix with the eggs and milk into a thick batter — closer to muffin batter than pancake batter — and fold in the drained corn.',
-      'Pour the batter into the hot skillet. It should hiss. That is where the crust on a skillet bread comes from, and a cold pan will not give you one. Bake 20 to 25 minutes, until the top is golden and a knife in the middle comes out clean. No oven-safe skillet? A buttered cake pan works — you lose the crust, not the bread.',
+      'Heat the oven to 400°F with a 9-inch oven-safe skillet inside, the butter in the skillet. Meanwhile whisk the pancake mix with the eggs and milk into a thick batter, and fold in the drained corn.',
+      'Pour the batter into the hot skillet. It should hiss — that is where the crust comes from, and a cold pan will not give you one.',
+      'Bake 20 to 25 minutes, until the top is golden and a knife in the middle comes out clean. No oven-safe skillet? A buttered cake pan works — you lose the crust, not the bread.',
       'Serve the chili topped with the cheddar, with the bread cut into wedges alongside.',
     ],
   },
@@ -308,10 +309,11 @@ module.exports = [
        floor, which is the packer telling you the recipe does not fit the book.
        Every instruction below survived the cut; only the words did not. */
     steps: [
-      'Heat the oven to 375°F. Boil the pasta in well-salted water, but stop two minutes short of the packet time — it finishes in the oven, and pasta boiled soft first bakes to mush. Save a mug of the water.',
+      'Heat the oven to 375°F. Boil the pasta in well-salted water, but stop two minutes short of the packet time — it finishes in the oven. Save a mug of the water.',
       'Salt and pepper the chicken and cook it in a wide skillet over medium-high, about 6 minutes a side. Done is 165°F, or white through with clear juices. Rest 5 minutes, then slice. Keep the skillet.',
-      'Melt the butter in the same skillet over medium-low. Whisk the flour in and cook it a full minute — it will look like wet sand, and that minute is what stops the sauce tasting of raw flour. Add the evaporated milk a splash at a time, whisking smooth after each, until it thickens at a bare simmer.',
-      'Off the heat — boiled, cheese turns grainy and splits — stir in two cups of cheddar a handful at a time. Loosen with pasta water if it is thicker than pouring cream. Salt until it tastes slightly too strong; a pound of pasta is about to dilute it.',
+      'Melt the butter in the same skillet over medium-low. Whisk the flour in and cook it a full minute. It will look like wet sand, and that minute is what stops the sauce tasting of raw flour.',
+    'Add the evaporated milk a splash at a time, whisking smooth after each, until it thickens at a bare simmer.',
+      'Off the heat — boiled, cheese turns grainy and splits — stir in two cups of cheddar a handful at a time. Loosen with pasta water if it is thicker than pouring cream, then salt it well.',
       'Fold the pasta and chicken through, tip into a buttered 9x13 dish, and scatter the last half cup of cheddar and the breadcrumbs over. No crumbs? {r:272} makes them, and an air fryer makes better ones than an oven.',
       'Bake 20 minutes, until it bubbles at the edges and the top has colour. Stand 5 minutes before serving or the first spoonful runs.'
     ]
@@ -577,7 +579,7 @@ module.exports = [
    * egg where the timing is the whole recipe. No. 207 stirs sour cream into a
    * hot pan, which splits it. No. 140 boils franks that are already cooked. */
   { id: 123, step: 1, set: 'Soft-boil the eggs: lower them into water already at a rolling boil, 6 minutes exactly for a set white and a runny yolk, then run them under cold water for a few seconds so they stop cooking. Serve with the soldiers for dipping.' },
-  { id: 196, step: 1, set: 'Brown the beef over medium-high, about 8 minutes, and drain it. Turn the heat right down before the sour cream goes in — boiled, it splits into grains and oil and will not come back. Stir in the soup first, then the sour cream off the heat. No mushroom soup? {r:275} is the same job from the order.' },
+  { id: 196, step: 1, set: 'Brown the beef over medium-high about 8 minutes and drain it. Turn the heat down before the sour cream goes in — boiled, it splits and will not come back. Soup in first, sour cream off the heat. No mushroom soup? {r:275} does the same job.' },
   { id: 196, lift: { with: 'Onion, garlic, paprika, Worcestershire',
     steps: ['A diced onion softened before the beef, garlic in at the end of browning.',
       'A teaspoon of paprika and a splash of Worcestershire with the soup. Stroganoff without paprika is beef in white sauce.'] } },
@@ -700,7 +702,7 @@ module.exports = [
      neither. Black pepper is on the storehouse order, so it goes in the
      recipe; lemon is not, so it goes in the lift. Half a promise kept for
      free, and the other half named. */
-  { id: 61, step: 0, set: 'Heat the oven to 400°F. Season the chicken well on both sides with salt and a lot of black pepper — more than looks sensible, since this is half of what the title is promising — and bake 20 minutes. Give it longer if the breasts are thick; done means 165°F and no pink at the centre.' },
+  { id: 61, step: 0, set: 'Heat the oven to 400°F. Season the chicken on both sides with salt and a lot of black pepper — more than looks sensible, since pepper is half of what the name promises. Bake 20 minutes; done means 165°F and no pink at the centre.' },
   { id: 61, lift: { with: 'Lemon, garlic powder',
     steps: ['Lemon zest into the pepper rub and the juice squeezed over as it comes out of the oven. That is the other half of the name.',
       'A teaspoon of garlic powder in the rub.'] } },
@@ -816,8 +818,9 @@ module.exports = [
       'Heat the oven to 350°F. Butter a 9x13 dish.',
       'Make the cake batter the way the box asks — usually the mix with 3 eggs, ½ cup oil and 1 cup water, beaten smooth. Check your box; they vary. Spread it in the dish.',
       'Sprinkle the dry pudding mix evenly over the batter. Straight from the packet, not made up — it is the sauce, and it needs to be dry going in.',
-      'Now pour the 2 cups of hot water gently over the whole thing, over the back of a spoon so it does not dig channels. It will look completely wrong: a dish of batter under an inch of water. That is right. Do not stir it. Stirring is the one thing that ruins this.',
-      'Bake 30 to 35 minutes. What happens in the oven is that the water and pudding sink while the cake rises through them, so it comes out as cake on top with hot fudge underneath. Done is a top that looks like cake and springs back at the edges, with the middle still visibly loose — a skewer will not come out clean and is not supposed to.',
+      'Pour the 2 cups of hot water gently over the whole thing, over the back of a spoon so it does not dig channels. It will look wrong — batter under an inch of water. That is right. Do not stir it.',
+      'Bake 30 to 35 minutes. The water and pudding sink while the cake rises through them, so it comes out cake on top with hot fudge underneath.',
+    'Done is a top that looks like cake and springs back at the edges, with the middle still visibly loose. A skewer will not come out clean, and is not supposed to.',
       'Let it stand 10 minutes, then spoon into bowls, digging down so each one gets sauce from the bottom. This is why it is bowls and not slices.'
     ],
     lift: {
@@ -872,21 +875,21 @@ module.exports = [
      gravy packet made up with no quantity given. Both are the same shape as
      the instant-potato entries above: the packet knows, the person standing
      at the counter does not. */
-  { id: 195, step: 1, set: 'Put the patties in the slow cooker with the sliced onions, whisk the gravy packet into 1½ cups of water and pour it over, and cook on LOW for 4 hours. Dry powder in a slow cooker will not make gravy — it needs the water. No packet? Use plain water and make {r:265} from the liquid at the end.' },
-  { id: 182, step: 1, set: 'Make up the mashed potatoes — about 3 cups of flakes to 3 cups of boiling water and a splash of milk — and whisk the gravy packet into 1 cup of cold water before heating it, or it goes lumpy. No packet? {r:265}, stopped while the flour is still blond, is the pale gravy this wants.' },
+  { id: 195, step: 1, set: 'Put the patties in the slow cooker with the sliced onions. Whisk the gravy packet into 1½ cups of water and pour it over — dry powder alone will not make gravy. Cook on LOW for 4 hours. No packet? Use plain water and make {r:265} from the liquid.' },
+  { id: 182, step: 1, set: 'Make up the mashed potatoes: about 3 cups of flakes to 3 cups of boiling water and a splash of milk. Whisk the gravy packet into 1 cup of cold water before heating it, or it goes lumpy. No packet? {r:265}, stopped while the flour is still blond.' },
 
   /* Two real ones from the safety sweep, out of thirty-nine flagged. The
      other thirty-seven say "Brown beef", which is a doneness cue; the scan
      only knew "browned" and "until brown". Reading them is the only way to
      tell, which is the lesson of every sweep in this file. */
-  { id: 65, step: 2, set: 'Bake on a sheet pan at 375°F for 45 minutes, turning the vegetables once. Pork is done at 145°F at the thickest point, with a faint blush still in it — cooked to grey it is dry, and this is the one meat where people routinely overshoot. Rest it 5 minutes before portioning.' },
+  { id: 65, step: 2, set: 'Bake on a sheet pan at 375°F for 45 minutes, turning the vegetables once. Pork is done at 145°F, with a faint blush still in it — cooked to grey it is dry. Rest it 5 minutes before portioning.' },
   /* This step was written for No. 072, the buffalo chicken, and landed on
      No. 071 by a one-digit slip of mine — id 73 instead of 74. It told a
      sheet-pan roast to fry its chicken in a skillet and then toss it in hot
      sauce and ranch, neither of which the recipe has. Found by reading the
      book rather than by any check, which is why the guard below now exists. */
   { id: 73, step: 0, set: 'Heat the oven to 400°F.' },
-  { id: 74, step: 0, set: 'Cook the diced chicken in a skillet over medium-high for about 8 minutes, until no pink is left and a piece cut open at the thickest part reads 165°F, then toss it with the hot sauce and ranch while it is still hot — the sauce clings to hot chicken and slides off cold.' },
+  { id: 74, step: 0, set: 'Cook the diced chicken over medium-high about 8 minutes, until no pink is left and the thickest part reads 165°F. Toss with the hot sauce and ranch while hot — the sauce slides off cold chicken.' },
 
   /* ---- reading all 277, batch 1: Nos. 001-046 ---------------------------
    *
@@ -908,7 +911,7 @@ module.exports = [
   /* Cubed raw potato and raw ground beef in a pan together for ten minutes,
      "until crispy/cooked" — a slash where the two foods disagree. Potato
      wants fifteen minutes and beef wants eight, so the potato goes in first. */
-  { id: 43, step: 0, set: 'Fry the cubed potatoes in a little oil over medium-high for about 10 minutes first, turning them, until they are gold and give under a spoon. Then add the ground beef and cook 6 to 8 minutes more, breaking it up, until no pink is left. Both in at once leaves you raw potato and overcooked beef.' },
+  { id: 43, step: 0, set: 'Fry the cubed potatoes in oil over medium-high about 10 minutes, until gold. Then add the beef, 6 to 8 minutes more, until no pink is left. Both at once leaves raw potato and overcooked beef.' },
 
   /* Both hard-boiled egg recipes list the eggs already boiled and never say
      how, which is fine for somebody who knows and no use at all to somebody
@@ -998,7 +1001,7 @@ module.exports = [
   /* Raw cubed potato and sliced franks in a pan together for twelve minutes.
      The franks are already cooked and the potato is not; twelve minutes is
      the frank's time, not the potato's. */
-  { id: 149, step: 0, set: 'Fry the cubed potatoes in a little oil over medium heat for 12 to 15 minutes first, turning them, until a corner crushes under a spoon. Then add the onion and the frank coins and give it 5 minutes more — the franks are already cooked and only want colour. Serve with ketchup.' },
+  { id: 149, step: 0, set: 'Fry the cubed potatoes in oil over medium 12 to 15 minutes, until a corner crushes under a spoon. Then add the onion and frank coins for 5 minutes more; the franks only want colour. Serve with ketchup.' },
 
   /* Diced raw chicken, ten minutes, no check. */
   { id: 167, step: 0, set: 'Sauté the peppers, onions and diced chicken over medium-high about 10 minutes, until the chicken is white through and a piece cut at the thickest point reads 165°F.' },
