@@ -2416,7 +2416,6 @@
        fault rather than being a second one: the refusal is stored against the
        day it was made on, so dismissing it on Sunday silenced Sunday and left
        every other past day still carrying it. */
-    if (k !== todayKey()) return '';
     var pr = mReadProfile();
     var st = mWeightStats();
     var meas = mMeasuredTdee();
@@ -2441,6 +2440,15 @@
             : 'Inside your usual overnight range of ' + (Math.round(jump.url * 10) / 10) + ' lb.');
       }
     }
+
+    /* Everything below is about where you stand NOW — the seven-day average,
+       the days off pace, the number to eat to get back on it — so it is only
+       true of today and is only drawn there. Below the salt card and not at
+       the top of the function on purpose: mJump compares a day to the morning
+       before it, so "Up 2.3 lb, that is salt, not fat" IS about the day being
+       looked at and is worth reading about last Tuesday. Guarding the whole
+       function took that away too, which was a wider cut than the fault. */
+    if (k !== todayKey()) return '';
 
     /* Then pace, which needs a plan to be off. */
     var plan = mPlanWeight(k, pr);
@@ -5151,7 +5159,13 @@
          Protein keeps its wider ceiling on top of that: it is the one macro
          a cut wants you to overshoot, so it holds on target to 110%. */
       var diff = plan - target;
-      var near = m === 'kcal' ? Math.abs(diff) <= target * 0.03 : Math.abs(diff) <= 10;
+      /* Off the same constant as the verdict below it, or it quietly puts back
+         the bug it is sitting above: at 3% a day at 102.5% of target counted as
+         near and so drew green, while the strip — over at 2% — had already
+         called it over. One threshold has to mean one threshold. */
+      var near = m === 'kcal'
+        ? Math.abs(diff) <= target * ((MKCAL_OVER - 100) / 100)
+        : Math.abs(diff) <= 10;
       /* The week strip calls a day over at 2% past its target and this called
          it over at 5%, so a day at 1,888 against 1,813 — 104% — was a red
          square on the strip and a green bar underneath it, on one screen,
