@@ -44,9 +44,18 @@ async function openPlan(pg) {
    than a page of Next-tapping in front of the thing they are actually
    asserting. The stepping itself has its own tests, which open the sheet
    without this. */
+/* The meal rows and Save fold away on a known profile for the same reason —
+   the sheet opens on the plan, not on the editor — so they are opened here
+   too. #mtEditor is deliberately NOT: whether the profile form arrives folded
+   is a thing tests assert, and the ones that want the boxes press Edit, which
+   is what a reader does. */
 async function revealPlanFields(pg) {
   await pg.evaluate(() => {
     document.querySelectorAll('[data-mtwstep]').forEach((s) => { s.hidden = false; });
+    ['mtMealsWrap', 'mtSave'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hide');
+    });
   });
   await pg.waitForTimeout(80);
 }
@@ -1628,7 +1637,7 @@ module.exports = {
         document.getElementById('mtTileC').textContent === String(c2),
         [4 * planP + 4 * planC + 9 * planF, planP, planF, planC]));
     t.ok('and one line says who it was worked out for',
-      /40 · 6′0″ · 200 lb/.test(await q.textContent('#mtWho')),
+      /40 · 6′0″ · male/.test(await q.textContent('#mtWho')),
       await q.textContent('#mtWho'));
     await q.click('[data-mtedit]');
     await q.waitForTimeout(150);
@@ -1653,15 +1662,19 @@ module.exports = {
     });
     await q.fill('#mtGoalBy', inTen);
     await q.waitForTimeout(200);
-    /* The destination sits under the number it produced, at caption size —
-       set in the book's largest serif above it, a sentence read as a title
-       filled in wrong, and said again what the day already said. */
-    t.ok('the destination is a caption under the number, not a headline over it',
-      /185 lb by/.test(await q.textContent('#mtGoalLine')) &&
-      await q.evaluate(() => {
-        const g = document.getElementById('mtGoalLine');
-        return !!g.closest('.mt-who') && !document.querySelector('.mt-sheet .sheet-name');
-      }), await q.textContent('#mtGoalLine'));
+    /* The destination is a FACT in the ledger under the number, not a
+       headline over it and not a sentence crushed onto the fold's handle.
+       It used to be set in the book's largest serif above the plan, where a
+       sentence reads as a title filled in wrong; then it moved onto the
+       handle, where it was said twice on one screen. */
+    t.ok('the destination is a fact in the ledger, not a headline over it',
+      /200 lb → 185 lb/.test(await q.textContent('#mtFacts')) &&
+      await q.evaluate(() => !document.querySelector('.mt-sheet .sheet-name') &&
+        !document.getElementById('mtGoalLine')),
+      await q.textContent('#mtFacts'));
+    t.ok('and the pace beside it, from the date rather than a preset',
+      /1\.5 lb a week/.test(await q.textContent('#mtFacts')),
+      await q.textContent('#mtFacts'));
     t.ok('and the pace it implies — 15 lb over ten weeks is 1.5 a week',
       /15 lb over 10 weeks/.test(await q.textContent('#mtGoalNote')) &&
       /1\.5 lb a week/.test(await q.textContent('#mtGoalNote')), await q.textContent('#mtGoalNote'));
@@ -2183,8 +2196,11 @@ module.exports = {
     await wPage.context().close();
 
     const slip = await sotPage(150);
+    /* The ledger, not the fold's handle: the weight moved there when the plan
+       screen was rearranged, and it is the ledger that is built from the
+       profile's resolved lb — which is the value this drift was in. */
     const whoOf = (pg) => pg.evaluate(() =>
-      ((document.getElementById('mtWho') || {}).textContent || '').replace(/\s+/g, ' ').trim());
+      ((document.getElementById('mtFacts') || {}).textContent || '').replace(/\s+/g, ' ').trim());
     const openedOn = await planBoxes(slip);
     const whoOpened = await whoOf(slip);
     /* The editor is folded away while there is a plan to show, so the boxes
@@ -2199,7 +2215,7 @@ module.exports = {
     const whoSettled = await whoOf(slip);
     t.ok('touching another control does not swap the scale weight for the stale one',
       whoSettled.indexOf('150') >= 0 && whoSettled.indexOf('205') < 0,
-      'who: "' + whoOpened + '" -> "' + whoSettled + '"');
+      'ledger: "' + whoOpened + '" -> "' + whoSettled + '"');
     t.ok('so the plan it proposes is still the plan it opened on',
       openedOn.join() === settledOn.join(), openedOn.join() + ' -> ' + settledOn.join());
     await slip.context().close();
@@ -9435,5 +9451,134 @@ module.exports = {
       await wide.evaluate((span) => 'y=' + window.scrollY + ' span=' + Math.round(span) + ' ' +
         document.querySelector('.mday-stick').className, wideSpan));
     await wide.context().close();
+
+    /* ---- the plan screen, rearranged ------------------------------------
+     *
+     * Three things moved. The plan became four facts you can read; the meal
+     * editor — six rows of five controls, about three fifths of the screen —
+     * folded to the one line anybody opens it to check; and Save went with
+     * it, because a screen you are only reading has nothing to commit.
+     *
+     * The fourth fact is the one that was not on this screen at all: where
+     * the scale says you actually stand. It lived only on My Day, so the plan
+     * could be read end to end without ever meeting the evidence for it. */
+    const planPage = async (drift) => {
+      const pg = await t.fresh();
+      await pg.evaluate((dr) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const key = (off) => {
+          const d = new Date(); d.setDate(d.getDate() + off);
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        };
+        const ws = {};
+        // twenty mornings, drifting `dr` lb a day off a 205 lb start
+        for (let i = 19; i >= 0; i--) ws[key(-i)] = Math.round((205 - (19 - i) * dr) * 10) / 10;
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+          inch: 11, lb: 205, act: 1.375, goal: 'cut1', goalLb: 185, goalBy: key(70),
+          workouts: 3, steps: 8000 }));
+        localStorage.removeItem('bsc.macroTargets');
+      }, drift);
+      await pg.reload();
+      await pg.waitForTimeout(400);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(350);
+      return pg;
+    };
+    /* Opened the way a thumb opens it, NOT through openPlan — that helper
+       unfolds everything on purpose, and what is folded is the thing under
+       test here. */
+    const openPlanShut = async (pg) => {
+      if (!await pg.$('#macroTargBtn')) {
+        const h = await pg.$('.mday-weigh [data-mfold]');
+        if (h) { await h.click(); await pg.waitForTimeout(250); }
+      }
+      await pg.click('#macroTargBtn');
+      await pg.waitForTimeout(350);
+    };
+
+    // flat on the scale against a plan that wants a pound a week: planShut
+    const planShut = await planPage(0);
+    const planMorn = await planShut.evaluate(() => {
+      const el = document.querySelector('.mline.act .mline-t');
+      return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+    });
+    t.ok('My Day says how many days off pace you are',
+      /\d+ days (behind|ahead of) pace/.test(planMorn), planMorn);
+
+    await openPlanShut(planShut);
+    const planLedger = () => planShut.evaluate(() => {
+      const el = document.getElementById('mtFacts');
+      return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+    });
+    const led0 = await planLedger();
+    t.ok('the plan sheet opens on four facts: where to, how fast, when, and where you stand',
+      /Going from\s*205 lb → 185 lb/.test(led0) && /At\s*\d/.test(led0) &&
+      /Arriving/.test(led0) && /Averaging now\s*205 lb/.test(led0), led0);
+
+    /* One arithmetic, two screens. They used to be worked out separately,
+       which is two chances to disagree about one fact — and on the calorie
+       bar and the week strip they already had. */
+    const planSays = await planShut.evaluate(() => {
+      const el = document.getElementById('mtStatus');
+      return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+    });
+    const dayCount = (str) => (str.match(/(\d+) days/) || [])[1];
+    t.ok('and the pace line beneath them is the SAME count My Day gave, not a second one',
+      !!dayCount(planSays) && dayCount(planSays) === dayCount(planMorn),
+      'sheet: "' + planSays + '" vs day: "' + planMorn + '"');
+
+    /* Both folds shut, so there is nothing on screen that Save could commit. */
+    const pl_shutState = () => planShut.evaluate(() => ({
+      who: document.getElementById('mtEditor').classList.contains('hide'),
+      meals: document.getElementById('mtMealsWrap').classList.contains('hide'),
+      save: document.getElementById('mtSave').classList.contains('hide'),
+      rows: document.querySelectorAll('#mtMeals .mtm-row').length,
+      handle: document.getElementById('mtMealSum').textContent.replace(/\s+/g, ' ').trim()
+    }));
+    const st0 = await pl_shutState();
+    t.ok('the meal editor arrives folded, with its rows still in the document',
+      st0.meals && st0.who && st0.rows >= 4, JSON.stringify(st0));
+    t.ok('and its handle says how many meals and at what shares',
+      /^\w+ meals · (\d+ \/ )+\d+%$/.test(st0.handle), st0.handle);
+    t.ok('with nothing being edited, there is no Save to press', st0.save,
+      JSON.stringify(st0));
+
+    await planShut.click('[data-mtmfold]');
+    await planShut.waitForTimeout(200);
+    const st1 = await pl_shutState();
+    t.ok('opening the meals unfolds them and brings Save back with them',
+      !st1.meals && !st1.save && st1.who, JSON.stringify(st1));
+    await planShut.click('[data-mtmfold]');
+    await planShut.waitForTimeout(200);
+    t.ok('and shutting them takes it away again', (await pl_shutState()).save);
+    await planShut.click('[data-mtedit]');
+    await planShut.waitForTimeout(200);
+    const st2 = await pl_shutState();
+    t.ok('the other fold brings it back just the same', !st2.who && !st2.save,
+      JSON.stringify(st2));
+
+    /* Editing the goal moves the planLedger with it — the whole point of putting
+       the facts and the boxes on one screen is that they cannot disagree. */
+    await planShut.fill('#mtGoalLb', '175');
+    await planShut.waitForTimeout(300);
+    t.ok('and a goal typed into the open fold moves the facts above it',
+      /→ 175 lb/.test(await planLedger()), await planLedger());
+    await planShut.context().close();
+
+    /* On pace, it says nothing at all. A plan you are keeping to has no news,
+       and the last line of a card speaks only when something needs doing. */
+    const onPacePg = await planPage((20 / 89) * (19 / 16));
+    await openPlanShut(onPacePg);
+    t.ok('a plan being kept to says nothing where the pace line would be',
+      await onPacePg.evaluate(() => {
+        const el = document.getElementById('mtStatus');
+        return !!el && !el.textContent.trim() && el.classList.contains('hide');
+      }), await onPacePg.evaluate(() =>
+        (document.getElementById('mtStatus') || {}).textContent));
+    t.ok('though the four facts are still there to read',
+      /Averaging now/.test(await onPacePg.evaluate(() =>
+        document.getElementById('mtFacts').textContent)));
+    await onPacePg.context().close();
   },
 };

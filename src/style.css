@@ -1528,11 +1528,35 @@ select { max-width: 280px; }
   text-transform: uppercase; color: var(--muted);
 }
 .mt-whotext { display: block; min-width: 0; }
-.mt-goal {
-  display: block; font-family: var(--serif); font-size: 14px; font-weight: 600;
-  color: var(--ink); margin-bottom: 1px;
+/* The name of a fold, over the one line of what it is hiding. The line
+   truncates rather than wrapping, because a handle that changes height as
+   your step count gains a digit is a handle that moves under your thumb. */
+.mt-foldname {
+  display: block; font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 1px;
 }
-.mt-goal.hide { display: none; }
+.mt-whotext > span:last-child {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The four facts the sheet is opened to read. A ledger, like the questions
+   below it, so the whole sheet reads down one column of values. */
+.mt-facts {
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-soft);
+  display: grid; gap: 7px;
+}
+.mtf-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.mtf-row span { font-size: 13px; color: var(--muted-2); flex: none; }
+.mtf-row b {
+  font-size: 14px; font-weight: 600; text-align: right;
+  font-variant-numeric: tabular-nums; min-width: 0;
+}
+/* The only line on the sheet that speaks when something needs doing. Marked
+   down the edge rather than boxed, so it reads as a note against the facts
+   above it and not as a fifth fact. */
+.mt-status {
+  margin-top: 13px; padding: 10px 12px; background: var(--card);
+  border-left: 2px solid var(--ochre); font-size: 13px; color: var(--muted-2);
+}
+.mt-status b { font-weight: 600; color: var(--ink); }
 .mt-who {
   display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px;
   margin-top: 14px; padding: 10px 12px; text-align: left;

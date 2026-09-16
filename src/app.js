@@ -2402,6 +2402,62 @@
     return Math.round(mTotals(MDAYS[k]).all.na);
   }
 
+  /* Where the scale stands against the plan, as numbers rather than as a card.
+   *
+     Two screens say this: the morning line on My Day, and the plan sheet.
+     They used to work it out separately, which is two chances to disagree
+     about one fact — and they already had, on the calorie bar. One place
+     computes it; both places read it. Today only, because every figure in it
+     is about where you stand NOW. */
+  function mPaceFacts(k, draft) {
+    k = k || todayKey();
+    /* The saved profile, unless a sheet is holding an unsaved one. The plan
+       screen previews what an edit would do, and a pace line that answered
+       for the old goal while the ledger above it answered for the new one
+       would be the two-sources bug again, one field apart. */
+    var pr = draft || mReadProfile();
+    var st = mWeightStats();
+    var plan = mPlanWeight(k, pr);
+    if (!plan || !st || st.n < 14) return null;
+    var meas = mMeasuredTdee();
+    var jump = mJump(k);
+
+    var off = st.avg7 - plan.lb;                  // positive means heavier than planned
+    var daysOff = plan.per ? Math.round(off / -plan.per) : 0;
+    var burn = meas ? meas.tdee : mTdee(pr);
+    /* The same three caps the plan calculator lives under, because a line
+       that says "eat 1,278" is not advice — it is arithmetic with nobody
+       reading it. Never under the basal rate, never more than a quarter off
+       the day's burn. When the honest number is capped, the date is what
+       moves, and the line says so instead of pretending. */
+    var bmr = mBurn(pr) ? mBurn(pr).bmr : null;
+    var rawNeed = burn === null ? null
+      : burn - (st.avg7 - pr.goalLb) * 3500 / Math.max(1, plan.daysLeft);
+    var floor = Math.max(bmr || 0, burn === null ? 0 : burn * 0.75);
+    var capped = rawNeed !== null && rawNeed < floor;
+    /* Rounded UP off the floor, never down onto it: a number printed a
+       calorie under the basal rate is still a number under the basal rate. */
+    var need = rawNeed === null ? null
+      : capped ? Math.ceil(floor) : Math.round(rawNeed);
+    var arrive = null;
+    if (st.dWeek !== null && st.dWeek < -0.05) {
+      var wk = Math.ceil((st.avg7 - pr.goalLb) / -st.dWeek);
+      var ad = new Date();
+      ad.setDate(ad.getDate() + wk * 7);
+      arrive = M_MONS[ad.getMonth()] + ' ' + ad.getDate();
+    }
+    /* The band around the plan, from the same moving ranges. Inside it there
+       is nothing to decide, and saying so is the whole job. */
+    var band = jump ? 2.660 * jump.bar : 3;
+    var rate = st.dWeek === null ? null : Math.round(st.dWeek * 10) / 10;
+    return {
+      pr: pr, st: st, plan: plan, meas: meas, burn: burn,
+      off: off, band: band, daysOff: daysOff,
+      need: need, capped: capped, arrive: arrive, rate: rate,
+      side: off > band ? 'behind' : off < -band ? 'ahead' : 'on'
+    };
+  }
+
   function mMorningHTML(k) {
     if (mAhead(k)) return '';                     // a morning that has not happened
     /* And not a morning that has been and gone. Every figure on this card —
@@ -2480,40 +2536,10 @@
        fortnight — the first thing read every morning, every morning saying
        wait. A line that cannot answer is not a smaller answer; it is the
        question taking up the room. */
-    if (!st || st.n < 14) return '';
-
-    var off = st.avg7 - plan.lb;                  // positive means heavier than planned
-    var perWeek = plan.per * 7;
-    var daysOff = plan.per ? Math.round(off / -plan.per) : 0;
-    var burn = meas ? meas.tdee : mTdee(pr);
-    /* Where you land at the rate you are actually going, and what it would
-       take to land where you meant to. */
-    /* The same three caps the plan calculator lives under, because a line
-       that says "eat 1,278" is not advice — it is arithmetic with nobody
-       reading it. Never under the basal rate, never more than a quarter off
-       the day's burn. When the honest number is capped, the date is what
-       moves, and the line says so instead of pretending. */
-    var bmr = mBurn(pr) ? mBurn(pr).bmr : null;
-    var rawNeed = burn === null ? null
-      : burn - (st.avg7 - pr.goalLb) * 3500 / Math.max(1, plan.daysLeft);
-    var floor = Math.max(bmr || 0, burn === null ? 0 : burn * 0.75);
-    var capped = rawNeed !== null && rawNeed < floor;
-    /* Rounded UP off the floor, never down onto it: a number printed a
-       calorie under the basal rate is still a number under the basal rate. */
-    var need = rawNeed === null ? null
-      : capped ? Math.ceil(floor) : Math.round(rawNeed);
-    var arrive = null;
-    if (st.dWeek !== null && st.dWeek < -0.05) {
-      var wk = Math.ceil((st.avg7 - pr.goalLb) / -st.dWeek);
-      var ad = new Date();
-      ad.setDate(ad.getDate() + wk * 7);
-      arrive = M_MONS[ad.getMonth()] + ' ' + ad.getDate();
-    }
-
-    /* The band around the plan, from the same moving ranges. Inside it there
-       is nothing to decide, and saying so is the whole job. */
-    var band = jump ? 2.660 * jump.bar : 3;
-    var rate = st.dWeek === null ? null : Math.round(st.dWeek * 10) / 10;
+    var pf = mPaceFacts(k);
+    if (!pf) return '';
+    var off = pf.off, band = pf.band, daysOff = pf.daysOff, burn = pf.burn,
+      need = pf.need, capped = pf.capped, arrive = pf.arrive, rate = pf.rate;
     var rateWord = rate === null ? '' : 'Down ' + Math.abs(rate) + ' lb a week';
     /* With carb cycling on, the number this offers is the week's average and
        no single day will read it back — a training day runs higher and a rest
@@ -7618,27 +7644,52 @@
     /* The goal belongs under the number it produced, not over it as a display
        line. A sentence in the book's largest serif, where every other sheet
        carries a title, read as a title filled in wrong. */
+    /* The handle on the profile fold. It used to carry the goal in the
+       book's caption face with the profile beneath it. The goal is a fact in
+       the ledger now — said once — so what is left on the handle is the
+       fold's name and the answers it is hiding. */
     var whoHTML =
-      '<button class="mt-who" data-mtedit="1" aria-expanded="' + (plan ? 'false' : 'true') + '">' +
+      '<button class="mt-who" data-mtedit="1" aria-expanded="' + (plan ? 'false' : 'true') +
+        '" aria-controls="mtEditor">' +
         '<span class="mt-whotext">' +
-          '<span class="mt-goal" id="mtGoalLine">' + esc(mGoalLine(pr)) + '</span>' +
+          '<span class="mt-foldname">About you</span>' +
           '<span id="mtWho">' + mtWhoLine(pr) + '</span>' +
         '</span>' +
         '<span class="mt-editw">Edit</span>' +
       '</button>';
 
-    var mealsHTML =
-      '<div class="mt-div">The day&rsquo;s meals</div>' +
-      '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
-      '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
-      '<div class="mtm-total" id="mtmTotal"></div>' +
-      '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>';
+    /* And the handle on the meals fold. Six rows of five controls each took
+       about three fifths of a screen you set once and then read for a year.
+       It folds to the one line anybody opens it to check, and opens to
+       exactly what was there before. */
+    var mealHeadHTML =
+      '<button class="mt-who" data-mtmfold="1" aria-expanded="' + (plan ? 'false' : 'true') +
+        '" aria-controls="mtMealsWrap">' +
+        '<span class="mt-whotext">' +
+          '<span class="mt-foldname">The day&rsquo;s meals</span>' +
+          '<span id="mtMealSum">' + mtMealSumHTML() + '</span>' +
+        '</span>' +
+        '<span class="mt-editw">Edit</span>' +
+      '</button>';
 
-    var saveHTML =
-      '<div class="sync-row">' +
+    var mealsHTML =
+      '<div id="mtMealsWrap" class="mt-editor' + shut + '">' +
+        '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
+        '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
+        '<div class="mtm-total" id="mtmTotal"></div>' +
+        '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +
+      '</div>';
+
+    /* One Save, and it belongs to whichever fold is open rather than sitting
+       at the foot of a form nobody was filling in. A screen you are only
+       reading has nothing to commit, and a button that commits what you have
+       not touched will eventually commit something you did not mean. */
+    var saveHTML = function (hid) {
+      return '<div class="sync-row mt-save' + (hid ? ' hide' : '') + '" id="mtSave">' +
         '<button class="btn-primary" data-mtarg="save">Save</button>' +
         '<button class="ghost" data-mtarg="cancel">Cancel</button>' +
       '</div>';
+    };
 
     /* The one place the tab explains itself, folded away. It used to be a
        paragraph on the daily screen behind a ?, which is a paragraph in front
@@ -7699,7 +7750,8 @@
           step(1, 'A few things about you', qAbout, mtSaidBase(pr)) +
           step(2, 'How you move', qMove, mtSaidBurn(pr)) +
           step(3, 'What you are after', qGoal, '') +
-          step(4, 'Here is your plan', answerHTML + qGrams + qPrefs + mealsHTML + saveHTML, '') +
+          step(4, 'Here is your plan',
+            answerHTML + qGrams + qPrefs + mealHeadHTML + mealsHTML + saveHTML(false), '') +
         '</div>' +
         '<div class="mtw-nav">' +
           '<button class="ghost" data-mtw="back" hidden>&lsaquo; Back</button>' +
@@ -7712,14 +7764,19 @@
        One screen. Changing your step count should not be four taps through
        questions you answered months ago. */
     return shell(
-      answerHTML + mMeasuredRowHTML(pr) + whoHTML +
+      answerHTML +
+      '<div class="mt-facts' + (mtFactsHTML(pr) ? '' : ' hide') + '" id="mtFacts">' +
+        mtFactsHTML(pr) + '</div>' +
+      '<div class="mt-status' + (mtStatusHTML(pr) ? '' : ' hide') + '" id="mtStatus" role="status">' +
+        mtStatusHTML(pr) + '</div>' +
+      mMeasuredRowHTML(pr) + whoHTML +
       '<div id="mtEditor" class="mt-editor' + shut + '">' +
         '<div class="mt-div">A few things about you</div>' + qAbout +
         '<div class="mt-div">How you move</div>' + qMove +
         '<div class="mt-div">What you are after</div>' + qGoal +
         '<div class="mt-div">Where your meals come from</div>' + qPrefs +
         '<div class="mt-div">What you will eat in a day</div>' + qGrams +
-      '</div>' + mealsHTML + saveHTML + helpHTML
+      '</div>' + mealHeadHTML + mealsHTML + saveHTML(!!plan) + helpHTML
     );
   }
 
@@ -7918,27 +7975,132 @@
   /* The one line your profile collapses to once it computes. */
   function mtWhoLine(pr) {
     if (!mPlanCalc(pr)) return 'Tell me about you';
-    // the goal line above carries the pace, so this is just who it is for
-    var bits = mGoalPace(pr) ? [] : [MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1];
-    return bits.concat([pr.age, pr.ft + '\u2032' + pr.inch + '\u2033',
-      pr.lb + ' lb']).join(' \u00b7 ');
+    /* What the fold is hiding, so you can decide without opening it. The
+       goal used to be said here; it is a fact in the ledger above now, and
+       saying it twice on one screen was how the two came to disagree. What
+       belongs on the handle is the answers behind it. */
+    var bits = [pr.age, pr.ft + '\u2032' + pr.inch + '\u2033',
+      pr.sex === 'f' ? 'female' : 'male'];
+    if (pr.steps) bits.push(Number(pr.steps).toLocaleString() + ' steps');
+    if (pr.workouts) bits.push(pr.workouts +
+      (Number(pr.workouts) === 1 ? ' session' : ' sessions') + ' a week');
+    return bits.join(' \u00b7 ');
+  }
+
+  /* The four things the sheet is opened to read: where you are going, how
+     fast, when you get there, and what the scale actually says.
+   *
+     Three of them used to be crushed into one two-line box above the meal
+     editor, and the fourth was not on this screen at all — it lived only on
+     My Day, so the plan could be read end to end without ever meeting the
+     evidence for or against it. A ledger, because these are facts and not
+     controls: label left, value right, one per line, nothing to press. */
+  function mtFactsHTML(pr) {
+    var rows = [];
+    var st = mWeightStats();
+    var pace = mGoalPace(pr);
+    var pj = mProject(pr);
+    var fact = function (lab, val) {
+      return '<div class="mtf-row"><span>' + lab + '</span><b>' + val + '</b></div>';
+    };
+    var lb = function (v) { return (Math.round(v * 10) / 10).toLocaleString() + ' lb'; };
+    /* The profile's weight, which mReadProfile has already resolved to what
+       the scale says — NOT a second read of mWeightStats. Two routes to one
+       number is how the sheet came to open on the scale's plan and then flip
+       to the stale typed one the moment any other control was touched. */
+    var now = pr.lb;
+
+    if (pr.goalLb && now) {
+      rows.push(fact('Going from', lb(now) + ' \u2192 ' + lb(pr.goalLb)));
+    } else if (MGOAL_WORDS[pr.goal]) {
+      rows.push(fact('Aiming to', esc(MGOAL_WORDS[pr.goal])));
+    }
+
+    /* A named date sets the pace; without one the plan's own pace is what
+       there is. Direction is already in the line above, so this is a rate. */
+    var per = pace ? pace.perWeek : pj ? pj.perWeek : null;
+    if (per !== null) {
+      var v = Math.round(Math.abs(per) * 10) / 10;
+      rows.push(fact('At', v ? v + ' lb a week' : 'holding steady'));
+    }
+
+    /* Where the plan lands you, not the day you asked for — they differ
+       whenever a cap bit, and the one that is true is the one worth reading. */
+    if (pj) {
+      rows.push(fact('Arriving', 'about ' + M_MONS[pj.when.getMonth()] + ' ' +
+        pj.when.getDate()));
+    } else if (pace) {
+      rows.push(fact('Arriving', esc(mPretty(pr.goalBy))));
+    }
+
+    /* The weight here is `now` — the profile's resolved lb — and NOT a second
+       read of mWeightStats.avg7, even though mReadProfile defines one as the
+       other. Two routes to one number is the whole fault this screen was
+       rearranged to end: they agree until something breaks the resolution,
+       and then the sheet states one weight and plans from another. Only the
+       RATE comes off the stats, because nothing else carries it. */
+    if (st && now) {
+      var w = lb(now);
+      if (st.dWeek !== null) {
+        var d = Math.round(Math.abs(st.dWeek) * 10) / 10;
+        w += Math.abs(st.dWeek) < 0.05 ? ', holding steady'
+          : ', ' + (st.dWeek < 0 ? 'down ' : 'up ') + d + ' a week';
+      }
+      rows.push(fact('Averaging now', w));
+    }
+
+    return rows.join('');
+  }
+
+  /* The one line on the sheet that speaks only when something needs doing.
+     On pace it says nothing at all — a plan you are keeping to has no news —
+     and what it does say is mPaceFacts, the same arithmetic My Day's morning
+     line is drawn from. */
+  function mtStatusHTML(pr) {
+    var f = mPaceFacts(todayKey(), pr);
+    if (!f || f.side === 'on') return '';
+    var says;
+    if (f.side === 'behind') {
+      says = '<b>\u25B2 ' + Math.abs(f.daysOff) + ' days behind that.</b>' +
+        (f.need === null ? ''
+          : f.capped
+            ? ' Landing on time would want less than a body should be asked for, so ' +
+              f.need.toLocaleString() + ' is as low as this goes \u2014 the date is what moves.'
+            : ' Eating ' + f.need.toLocaleString() + ' would put you back on it \u2014 ' +
+              'or keep going and arrive later.');
+    } else {
+      says = '<b>\u25BC ' + Math.abs(f.daysOff) + ' days ahead of that.</b>' +
+        (f.need === null ? '' : ' You could eat ' + f.need.toLocaleString() +
+          ' and still arrive on time.');
+    }
+    return says;
+  }
+
+  /* What the meals fold says on its handle: how many, and the shares. That
+     is what anybody opens it to check, so checking it should not cost the
+     opening. Read off the live rows while they exist, because those are the
+     draft — storage is a version of this screen that may be one edit old. */
+  function mtMealSumHTML() {
+    var rows = document.querySelectorAll('#mtMeals .mtm-row');
+    var ws = [];
+    if (rows.length) {
+      Array.prototype.forEach.call(rows, function (r) {
+        ws.push(Math.max(0, Math.round(Number(r.querySelector('.mtm-share').value) || 0)));
+      });
+    } else {
+      mReadSlots().list.forEach(function (sl) { ws.push(mSlotW(sl)); });
+    }
+    if (!ws.length) return 'No meals yet';
+    var N = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight',
+      'Nine', 'Ten', 'Eleven', 'Twelve'];
+    return (N[ws.length] || ws.length) + (ws.length === 1 ? ' meal' : ' meals') +
+      ' \u00b7 ' + ws.join(' / ') + '%';
   }
 
   function mPaceWords(pace) {
     var v = Math.round(Math.abs(pace.perWeek) * 10) / 10;
     return (pace.perWeek > 0.05 ? '\u2212' : pace.perWeek < -0.05 ? '+' : '') +
       (v ? v + ' lb a week' : 'holding');
-  }
-
-  /* The sentence at the top of the sheet: what this day is in service of.
-     A goal you can miss is worth more than a preset you cannot. */
-  /* The destination, in the size of a caption. */
-  function mGoalLine(pr) {
-    var pace = mGoalPace(pr);
-    if (!pace) return '';
-    var d = keyDate(pr.goalBy);
-    return pr.goalLb + ' lb by ' + M_MONS[d.getMonth()] + ' ' + d.getDate() +
-      ' \u00b7 ' + mPaceWords(pace);
   }
 
   /* The line under it: the pace that implies, the commitments beside it, and
@@ -8089,6 +8251,21 @@
       ? '<b>100%</b> — spot on.'
       : '<b>' + sum + '%</b> — ' + Math.abs(100 - sum) + '% ' + (sum > 100 ? 'over' : 'short') +
         '. Save scales ' + (sum > 100 ? 'down' : 'up') + ' to 100.';
+    /* The handle says how many meals and at what shares, so it goes stale
+       the moment a row is added, removed, or renumbered. Kept in step here
+       rather than at three call sites, because every one of them is an edit
+       to the rows this reads. */
+    var sum2 = $('mtMealSum');
+    if (sum2) sum2.innerHTML = mtMealSumHTML();
+  }
+
+  /* Save belongs to whatever is open. Both folds shut is a screen being
+     read, and a read has nothing to commit. */
+  function mtSyncSave() {
+    var sv = $('mtSave');
+    if (!sv) return;
+    var open = function (id) { var e = $(id); return e && !e.classList.contains('hide'); };
+    sv.classList.toggle('hide', !(open('mtEditor') || open('mtMealsWrap')));
   }
 
   function mtRefreshPlan() {
@@ -8096,8 +8273,16 @@
     var plan = mPlanCalc(prNow);
     var el = $('mtPlan');
     if (el) el.innerHTML = mtPlanLine(plan, prNow);
-    var gl = $('mtGoalLine');
-    if (gl) { gl.textContent = mGoalLine(prNow); gl.classList.toggle('hide', !mGoalLine(prNow)); }
+    /* The ledger, the pace line and the fold's handle are all answers to
+       the boxes below them, so they follow the boxes rather than waiting for
+       a Save. A screen showing last month's goal above this month's plan is
+       the disagreement this layout exists to end. */
+    var fx = $('mtFacts');
+    if (fx) { fx.innerHTML = mtFactsHTML(prNow); fx.classList.toggle('hide', !fx.innerHTML); }
+    var sx = $('mtStatus');
+    if (sx) { sx.innerHTML = mtStatusHTML(prNow); sx.classList.toggle('hide', !sx.innerHTML); }
+    var wl = $('mtWho');
+    if (wl) wl.innerHTML = mtWhoLine(prNow);
     var gn = $('mtGoalNote');
     if (gn) gn.innerHTML = mGoalNote(prNow);
     var co = $('mtCoach');
@@ -10876,7 +11061,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
-    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
@@ -13084,6 +13269,19 @@
       if (med && S.macroTargOpen) {
         var shutNow = $('mtEditor').classList.toggle('hide');
         med.setAttribute('aria-expanded', String(!shutNow));
+        mtSyncSave();
+        return;
+      }
+
+      var mmf = e.target.closest('[data-mtmfold]');
+      if (mmf && S.macroTargOpen) {
+        var mShutNow = $('mtMealsWrap').classList.toggle('hide');
+        mmf.setAttribute('aria-expanded', String(!mShutNow));
+        /* Opening it is the moment the shares stop being a summary and start
+           being boxes, so the total under them has to be right from the
+           first look rather than from the first keystroke. */
+        if (!mShutNow) mtmShowTotal();
+        mtSyncSave();
         return;
       }
 
