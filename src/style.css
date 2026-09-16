@@ -2630,6 +2630,10 @@ select { max-width: 280px; }
    day in". */
 .btn-primary.to-plan { background: var(--ochre-text); }
 .btn-primary.to-plan:hover { background: var(--ochre); }
+/* A ghost button that is nonetheless the dangerous one on its row. Sign out
+   and Delete my account sit together and do very different things. */
+.ghost.danger { color: oklch(0.46 0.14 30); border-color: oklch(0.72 0.09 30); }
+.ghost.danger:hover { background: oklch(0.96 0.03 30); }
 .btn-primary.danger { background: oklch(0.46 0.14 30); }
 .btn-primary.danger:hover { background: oklch(0.40 0.15 30); }
 

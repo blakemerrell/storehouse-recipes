@@ -1446,6 +1446,31 @@
     }, function () { mSyncState('error'); });
   }
 
+  /* Everything of yours, gone from both ends.
+
+     The remote record first, through the sync layer, and this device's copy
+     inside it — mForgetDay wipes the local stores AND the module-level
+     objects the payload is rebuilt from, which matters: clearing storage
+     alone would leave the next push to write it all straight back up.
+
+     The household is deliberately untouched. It is a shared thing, the rules
+     do not permit deleting it, and taking a spouse's meal plan away because
+     you closed your own account would be a surprise nobody asked for. */
+  function mDeleteAccount() {
+    if (!window.Store || !window.Store.deleteAccount) return Promise.reject(new Error('no-account'));
+    return window.Store.deleteAccount(function () {
+      if (mSyncOff) { mSyncOff(); mSyncOff = null; }
+      mSyncDoc = null;
+      mForgetDay();
+      return null;
+    }).then(function () {
+      mSyncState('local');
+      mAccountMark();
+      if (S.view === 'macros') renderMacros();
+      if (S.syncOpen) renderModal();
+    });
+  }
+
   function mSyncPush(now) {
     if (!mSyncDoc) return;
     clearTimeout(mSyncTimer);
@@ -7085,7 +7110,20 @@
           '</div>' +
         '</details>' +
         '<div class="sync-row">' +
-          '<button class="ghost" data-mysync="out">Sign out of this device</button></div>';
+          '<button class="ghost" data-mysync="out">Sign out of this device</button></div>' +
+        /* Signing out leaves everything where it is; this does not, and the two
+           sit next to each other, so it says which is which. */
+        '<div class="sync-row sync-note">' +
+          '<a href="privacy/" target="_blank" rel="noopener">What is stored, and where</a></div>' +
+        '<details class="sync-fold"><summary>Delete my account</summary>' +
+          '<p class="sync-note">Removes your weigh-ins, your food log, your plan ' +
+            'and any foods you added, from this device and from the account. ' +
+            'It cannot be undone, and it does not touch a shared plan you are ' +
+            'joined to \u2014 that belongs to the household, not to you.</p>' +
+          '<div class="sync-row">' +
+            '<button class="ghost danger" data-mysync="delete">Delete my account</button>' +
+          '</div>' +
+        '</details>';
     } else {
       body = (S.mySent
         ? '<div class="sync-warn">Open the link sent to <strong>' + esc(S.myJoin) + '</strong>.</div>'
@@ -13609,6 +13647,33 @@
           window.Store.sendEmailLink(addr).then(function () {
             S.myJoin = addr; S.mySent = true; renderModal();
           }, failed);
+        }
+        /* Asked properly, because it cannot be undone and the button sits a
+           centimetre from Sign out, which can. */
+        if (act2 === 'delete') {
+          ask({
+            title: 'Delete your account?',
+            body: 'Your weigh-ins, your food log, your plan and any foods you added ' +
+              'go from this device and from the account. This cannot be undone.',
+            ok: 'Delete everything',
+            danger: true
+          }, function (yes) {
+            if (!yes) return;
+            mDeleteAccount().then(function () {
+              S.myErr = '';
+              S.myNote = 'Your account and everything in it are gone.';
+              renderModal();
+            }, function (err) {
+              /* Firebase will not delete an identity that has not signed in
+                 recently. Saying so is the only useful thing to do with it —
+                 the alternative is a button that silently does nothing. */
+              S.myErr = (err && err.message === 'recent-login')
+                ? 'Sign out and sign in again first, then delete. Firebase asks for a recent sign-in before it will remove an account.'
+                : 'Could not delete the account. Check your signal and try again.';
+              renderModal();
+            });
+          });
+          return;
         }
         if (act2 === 'push') {
           /* Restamp everything as of now so this device's copy is the newest

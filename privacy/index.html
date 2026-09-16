@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#3b3630">
+<title>Privacy &amp; your data — Hive &amp; Hearth Recipes</title>
+<meta name="description" content="What Hive &amp; Hearth Recipes stores, what leaves your device, who can see it, and how to delete all of it.">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="../icons/icon-192.png">
+<style>
+  /* The app's own tokens, so the policy looks like the thing it is about. */
+  :root {
+    --ink:        oklch(0.26 0.02 60);
+    --ink-soft:   oklch(0.42 0.02 60);
+    --muted:      oklch(0.52 0.02 65);
+    --paper:      oklch(0.962 0.016 85);
+    --paper-soft: oklch(0.988 0.008 85);
+    --card:       oklch(0.995 0.006 85);
+    --line:       oklch(0.87 0.02 75);
+    --line-soft:  oklch(0.91 0.015 78);
+    --ochre:      oklch(0.62 0.10 55);
+    --ochre-text: oklch(0.50 0.11 50);
+    --green:      oklch(0.46 0.09 145);
+    --header:     oklch(0.24 0.018 60);
+    --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --sans: 'Work Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @font-face {
+    font-family: 'Source Serif 4'; font-style: normal; font-weight: 200 900;
+    font-display: swap; src: url('../fonts/source-serif-4-latin-wght-normal.woff2') format('woff2-variations');
+  }
+  @font-face {
+    font-family: 'Work Sans'; font-style: normal; font-weight: 100 900;
+    font-display: swap; src: url('../fonts/work-sans-latin-wght-normal.woff2') format('woff2-variations');
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .top { background: var(--header); color: oklch(0.96 0.012 85); padding: 26px 22px 22px; }
+  .top .wrap { max-width: 660px; margin: 0 auto; }
+  .top a { color: oklch(0.82 0.03 80); font-size: 13px; text-decoration: none; }
+  .top a:hover { text-decoration: underline; }
+  .top h1 {
+    font-family: var(--serif); font-size: 27px; font-weight: 600;
+    margin: 8px 0 6px; letter-spacing: -0.01em;
+  }
+  .top p { margin: 0; font-size: 14px; color: oklch(0.80 0.02 80); }
+
+  main { max-width: 660px; margin: 0 auto; padding: 0 22px 80px; }
+  h2 {
+    font-family: var(--serif); font-size: 21px; font-weight: 600;
+    margin: 38px 0 4px; text-wrap: balance;
+  }
+  h3 { font-size: 15px; font-weight: 600; margin: 22px 0 4px; }
+  p { margin: 10px 0; max-width: 62ch; }
+  ul { margin: 10px 0; padding-left: 20px; max-width: 62ch; }
+  li { margin: 5px 0; }
+  a { color: var(--ochre-text); }
+  strong { font-weight: 600; }
+
+  .lede {
+    margin: 22px 0 0; padding: 16px 18px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 6px; font-size: 15.5px;
+  }
+  .lede p:first-child { margin-top: 0; }
+  .lede p:last-child { margin-bottom: 0; }
+
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  th { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td:first-child { width: 38%; font-weight: 500; }
+  .scroll { overflow-x: auto; }
+
+  .fill {
+    background: oklch(0.95 0.07 90); border: 1px solid oklch(0.78 0.11 85);
+    border-radius: 4px; padding: 2px 7px; font-weight: 600; font-size: 14px;
+  }
+  .steps { counter-reset: s; list-style: none; padding-left: 0; }
+  .steps li {
+    counter-increment: s; position: relative; padding-left: 32px; margin: 9px 0;
+  }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 1px;
+    width: 21px; height: 21px; border-radius: 50%; background: var(--header);
+    color: oklch(0.96 0.01 85); font-size: 11px; font-weight: 600;
+    display: grid; place-items: center;
+  }
+  footer {
+    border-top: 1px solid var(--line); margin-top: 44px; padding-top: 18px;
+    font-size: 13px; color: var(--muted);
+  }
+  footer p { margin: 0 0 8px; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="wrap">
+    <a href="../welcome/">&lsaquo; Hive &amp; Hearth Recipes</a>
+    <h1>Privacy &amp; your data</h1>
+    <p>Last updated 15 September 2026</p>
+  </div>
+</div>
+
+<main>
+
+  <div class="lede">
+    <p><strong>The short version.</strong> Hive &amp; Hearth works entirely on your
+      own device and needs no account. Nothing you enter leaves your phone unless
+      you choose to sync it. There are no analytics, no advertising, no trackers,
+      and nothing is sold or shared with anybody.</p>
+    <p>If you do sync, your weigh-ins and food log are readable only by your own
+      sign-in, and you can delete the whole lot from inside the app at any time.</p>
+  </div>
+
+  <h2>What is kept on your device</h2>
+  <p>Everything the app does &mdash; browsing recipes, planning a week, building a
+    shopping list, tracking My&nbsp;Day &mdash; is stored in your browser on your
+    own device. That includes any weigh-ins, food you log, your plan, your
+    favourites, your own recipes and your pantry.</p>
+  <p>If you never turn on syncing, that is the end of it. None of it is sent
+    anywhere, and clearing your browser data removes it.</p>
+
+  <h2>What leaves your device, and when</h2>
+  <p>Two separate things can be synced, and they work differently.</p>
+
+  <h3>A shared household, joined by a code</h3>
+  <p>If you join a household by typing a code, the plan the household shares is
+    stored online so a second phone can see it. It holds:</p>
+  <ul>
+    <li>Favourited recipes</li>
+    <li>Meal plans and which week is active</li>
+    <li>Recipes you have written yourself, and edits to existing recipes</li>
+    <li>What is in your pantry</li>
+  </ul>
+  <p><strong>Anyone who has the code can read and change it.</strong> That is what
+    the code is for. Treat it like a key: give it to the people you cook with and
+    nobody else. A household is not tied to an account, and it holds nothing
+    about your body or what you eat.</p>
+
+  <h3>Your own record, if you sign in</h3>
+  <p>My&nbsp;Day is not shared. If you sign in &mdash; with Google, or by an
+    email link &mdash; so that your own phone and tablet stay in step, a record
+    is stored against your sign-in containing:</p>
+  <div class="scroll">
+  <table>
+    <tr><th>What</th><th>Which is</th></tr>
+    <tr><td>Your profile</td><td>Sex, age, height, weight, goal weight, goal date, usual steps and how often you exercise</td></tr>
+    <tr><td>Your weigh-ins</td><td>One weight per morning you logged</td></tr>
+    <tr><td>Your food log</td><td>What you ate, by meal, for the last fortnight</td></tr>
+    <tr><td>Your plan</td><td>Daily calorie and macro targets, and the meals your day is divided into</td></tr>
+    <tr><td>Foods you added</td><td>Any food you entered yourself that was not already in the book</td></tr>
+  </table>
+  </div>
+  <p><strong>Only your sign-in can read it.</strong> The rule on the database is
+    that the record's owner and nobody else may fetch it; no other signed-in
+    person, however they ask, gets an answer. It cannot be listed, searched or
+    browsed by anyone.</p>
+  <p>Some of this is health information &mdash; your body weight and what you
+    eat. It is treated as the private half of the app for exactly that reason,
+    and it is never put in a household.</p>
+
+  <h2>Signing in anonymously</h2>
+  <p>To make the sharing above possible at all, the app signs every visitor in
+    <em>anonymously</em> the first time it loads. This is an identifier with no
+    name, no email and no personal detail attached, and it exists so that the
+    database can tell one device from another. It is not an account, you are not
+    asked for anything, and on its own it stores nothing about you.</p>
+  <p>Signing in with Google or an email link turns that anonymous identifier into
+    one you can reach from a second device. At that point the app knows the email
+    address you signed in with, so it can show you which account you are using.</p>
+
+  <h2>Who processes it</h2>
+  <p>Syncing and sign-in use <strong>Google Firebase</strong> (Cloud Firestore and
+    Firebase Authentication). Data synced by the app is stored on Google's
+    servers under Google's terms. Nothing is shared with anyone else, and there
+    is no other third party involved: no analytics service, no advertising
+    network, no crash reporter, no embedded trackers.</p>
+
+  <h2>How long it is kept</h2>
+  <ul>
+    <li><strong>Weigh-ins</strong> &mdash; kept for a little over a year, then
+      the oldest fall away automatically.</li>
+    <li><strong>The food log</strong> &mdash; kept for a fortnight. Older days
+      are removed on their own and cannot be recovered.</li>
+    <li><strong>Your profile, plan and your own foods</strong> &mdash; kept until
+      you change or delete them.</li>
+    <li><strong>A household</strong> &mdash; kept while anyone is using it.</li>
+  </ul>
+
+  <h2>Deleting your account and everything in it</h2>
+  <p>You can do this yourself, from inside the app, at any time:</p>
+  <ol class="steps">
+    <li>Open the app and tap <strong>SYNC</strong> at the top of the screen.</li>
+    <li>Sign in, if you are not already signed in &mdash; the delete option only
+      appears for the account it belongs to.</li>
+    <li>Open <strong>Delete my account</strong> at the foot of that panel.</li>
+    <li>Confirm. Your synced record is removed, your sign-in is removed, and this
+      device's copy is wiped.</li>
+  </ol>
+  <p>Firebase asks for a recent sign-in before it will remove an account. If you
+    are told to, sign out and back in, then delete &mdash; the app will say so
+    rather than pretending it worked.</p>
+
+  <h3>What deleting does not remove</h3>
+  <p>A shared household is not yours alone, so closing your account does not
+    delete it &mdash; taking a spouse's meal plan away would be a surprise nobody
+    asked for. To leave a household, disconnect from it in the same panel. If you
+    want a household removed entirely, write to us using the address below.</p>
+
+  <h3>If you cannot get into the app</h3>
+  <p>Write to <span class="fill">[ADD YOUR CONTACT EMAIL BEFORE PUBLISHING]</span>
+    from the address you signed in with, and ask for your record to be deleted.</p>
+
+  <h2>Children</h2>
+  <p>This app is not directed at children and asks for nothing from them. The
+    recipe half needs no account at all and stores nothing about anybody.</p>
+
+  <h2>Your choices, in one place</h2>
+  <ul>
+    <li><strong>Use it with no account.</strong> The whole app works this way, and
+      nothing is stored online.</li>
+    <li><strong>Leave a household.</strong> Disconnect in the sync panel; your own
+      copy stays on your device.</li>
+    <li><strong>Sign out.</strong> Stops this device syncing. Nothing is deleted.</li>
+    <li><strong>Delete your account.</strong> Removes the record and the sign-in,
+      and wipes this device. This cannot be undone.</li>
+  </ul>
+
+  <h2>Changes</h2>
+  <p>If what the app stores changes, this page changes with it and the date at the
+    top moves. There is no mailing list to notify, because we do not have your
+    address unless you have written to us.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about any of this, or a request about your data:
+    <span class="fill">[ADD YOUR CONTACT EMAIL BEFORE PUBLISHING]</span></p>
+
+  <footer>
+    <p>Hive &amp; Hearth Recipes is a personal project built around the recipe
+      books used with the bishops' storehouse. It is not affiliated with or
+      endorsed by the Church.</p>
+    <p><a href="../welcome/">Back to Hive &amp; Hearth Recipes</a></p>
+  </footer>
+
+</main>
+</body>
+</html>

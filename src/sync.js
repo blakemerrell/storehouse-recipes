@@ -792,6 +792,40 @@ window.Store = (function () {
       });
     },
 
+    /* Delete the account outright: the record first, then the identity.
+
+       That order is the whole of it. Firestore's rule on /users/{uid} is
+       `request.auth.uid == uid` — so deleting the sign-in first would leave a
+       document nobody on earth can reach, least of all its owner, and no way
+       left to ask for it to go. The record goes while there is still somebody
+       entitled to remove it.
+
+       Firebase refuses to delete an identity that has not signed in recently,
+       which is correct and is not an error to swallow: it comes back as
+       'recent-login' so the caller can say so rather than reporting a success
+       that did not happen.
+
+       Then straight back to an anonymous identity, because every visitor has
+       one and the app is unusable without it. Deleting your account is not
+       the same as deleting the app. */
+    deleteAccount: function (onGone) {
+      return ready().then(function () {
+        var auth = window.firebase.auth();
+        var u = auth.currentUser;
+        if (!u || u.isAnonymous) return Promise.reject(new Error('no-account'));
+        return db.collection('users').doc(u.uid).delete()
+          .then(function () { return onGone ? onGone() : null; })
+          .then(function () { return u.delete(); })
+          .catch(function (err) {
+            if (err && err.code === 'auth/requires-recent-login') {
+              throw new Error('recent-login');
+            }
+            throw err;
+          })
+          .then(function () { return auth.signInAnonymously(); });
+      });
+    },
+
     signOutAccount: function () {
       return ready().then(function () {
         return window.firebase.auth().signOut().then(function () {

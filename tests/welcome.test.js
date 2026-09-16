@@ -404,6 +404,60 @@ module.exports = {
     t.ok('and nothing runs off the side of a phone',
       await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
 
+    /* ---- the privacy policy ------------------------------------------
+     *
+     * Required by Play for anything with a sign-in, and required in plainer
+     * terms the moment somebody else's body weight is in the database. It is
+     * reachable from the page people actually land on, it says the things it
+     * has to say, and it does not go out with a blank in it.
+     */
+    t.ok('the landing page offers the privacy policy',
+      await p.evaluate(() => !!document.querySelector('a[href*="privacy"]')),
+      await p.evaluate(() => [...document.querySelectorAll('footer a')]
+        .map((a) => a.getAttribute('href')).join(' ')));
+
+    await p.goto(t.base + 'privacy/', { waitUntil: 'domcontentloaded' });
+    await p.waitForTimeout(300);
+    const pol = await p.evaluate(() => ({
+      heads: [...document.querySelectorAll('h2')].map((h) => h.textContent.trim()),
+      text: document.body.textContent.replace(/\s+/g, ' '),
+      blanks: document.querySelectorAll('.fill').length,
+      back: !!document.querySelector('a[href*="welcome"]'),
+      wide: document.documentElement.scrollWidth <= window.innerWidth + 1,
+    }));
+
+    /* The five a policy for THIS app cannot do without: what is kept, what
+       leaves, who holds it, how long, and how to be rid of it. */
+    t.ok('and the policy covers what it has to',
+      /kept on your device/i.test(pol.heads.join(' | ')) &&
+      /leaves your device/i.test(pol.heads.join(' | ')) &&
+      /processes it/i.test(pol.heads.join(' | ')) &&
+      /how long/i.test(pol.heads.join(' | ')) &&
+      /deleting your account/i.test(pol.heads.join(' | ')),
+      pol.heads.join(' | '));
+
+    /* Named outright, because these are the two that make it a health app
+       rather than a cookbook, and a policy that talks around them is not one. */
+    t.ok('and names the two things people would actually worry about',
+      /weigh-ins/i.test(pol.text) && /food log/i.test(pol.text) &&
+      /Firebase/i.test(pol.text),
+      'weigh-ins:' + /weigh-ins/i.test(pol.text) +
+      ' food log:' + /food log/i.test(pol.text) +
+      ' Firebase:' + /Firebase/i.test(pol.text));
+
+    t.ok('and says how to delete an account from inside the app',
+      /Delete my account/i.test(pol.text) && /SYNC/.test(pol.text), '');
+
+    t.ok('and it leads back to the app', pol.back, '');
+    t.ok('and nothing on it runs off the side of a phone', pol.wide, '');
+
+    /* A policy published with a blank in it is worse than no policy: it names
+       a way to reach somebody and then does not give one. This fails until
+       the address is filled in, which is the point. */
+    t.ok('and it has no blanks left to fill in',
+      pol.blanks === 0,
+      pol.blanks + ' placeholder(s) still in the page — put the contact address in');
+
     await ctx.close();
   },
 };
