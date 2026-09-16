@@ -1468,6 +1468,11 @@
   /* A day you have not lived yet. You can plan one — put food on it, fill it,
      rebalance it — but you cannot have eaten it, and the scale has nothing to
      say about a morning that has not happened. */
+  /* Over, in one place. The bar and the week strip both answer "is this day
+     past its target" and used to answer it differently, which put a red
+     square above a green bar about the same day. */
+  var MKCAL_OVER = 102;
+
   function mAhead(k) { return k > todayKey(); }
 
   function mReadTargets() {
@@ -2399,6 +2404,19 @@
 
   function mMorningHTML(k) {
     if (mAhead(k)) return '';                     // a morning that has not happened
+    /* And not a morning that has been and gone. Every figure on this card —
+       the seven-day average, the days off pace, what to eat to get back on
+       it — is computed from where you stand NOW, not from where you stood on
+       the day being looked at. Drawn over Sunday it said Sunday was eighteen
+       days behind pace, which was neither true of Sunday nor something Sunday
+       could be talked into doing anything about; the button offered to
+       rewrite today's targets from a card sitting on a closed day.
+
+       It also could not be sent away there, and that followed from the same
+       fault rather than being a second one: the refusal is stored against the
+       day it was made on, so dismissing it on Sunday silenced Sunday and left
+       every other past day still carrying it. */
+    if (k !== todayKey()) return '';
     var pr = mReadProfile();
     var st = mWeightStats();
     var meas = mMeasuredTdee();
@@ -3257,7 +3275,7 @@
       var dayObj = MDAYS[dk] ? mDay(dk) : null;
       var got = dayObj ? Math.round(mTotals(dayObj).all.kcal) : 0;
       var state = !got || !tK ? '' :
-        got > tK * 1.02 ? ' over' : got >= tK * 0.9 ? ' on' : ' under';
+        got > tK * (MKCAL_OVER / 100) ? ' over' : got >= tK * 0.9 ? ' on' : ' under';
       /* A ring is a day in progress; a filled circle is a day that has been
          eaten to the end. The colour is the same verdict either way — under,
          on, or over its target — so the week reads at a glance. */
@@ -5134,7 +5152,16 @@
          a cut wants you to overshoot, so it holds on target to 110%. */
       var diff = plan - target;
       var near = m === 'kcal' ? Math.abs(diff) <= target * 0.03 : Math.abs(diff) <= 10;
-      var overAt = m === 'p' ? 110 : m === 'kcal' ? 105 : 100;
+      /* The week strip calls a day over at 2% past its target and this called
+         it over at 5%, so a day at 1,888 against 1,813 — 104% — was a red
+         square on the strip and a green bar underneath it, on one screen,
+         about one day. Two thresholds answering one question is not a display
+         difference; one of them is telling the reader the wrong thing.
+
+         The strip's is the one that wins, because it is the one with the word
+         under it: a square that says "over" is a verdict, and the bar had
+         better not disagree with a verdict. */
+      var overAt = m === 'p' ? 110 : m === 'kcal' ? MKCAL_OVER : 100;
       var state = near ? 'on' : pct > overAt ? 'over' : pct >= 90 ? 'on' : 'under';
       barState[m] = state;
       barPct[m] = Math.min(100, pct);
@@ -8575,10 +8602,17 @@
      is most wanted on exactly those. */
   function mCopyDay(btn) {
     var text = mDayText(mViewKey());
+    /* What the button was before it was pressed, which is a glyph in a slot
+       the width of a glyph. It used to put back the WORDS "Copy as text" —
+       the comment said "the name it shipped with" and the name it shipped
+       with is \u2398 — so one press turned an icon into a three-word label
+       that wrapped onto three lines and climbed out of the bottom bar, and
+       stayed that way for good. */
+    var wasHTML = btn.getAttribute('data-icon') || btn.innerHTML;
+    if (!btn.getAttribute('data-icon')) btn.setAttribute('data-icon', wasHTML);
     var said = function (ok) {
-      btn.textContent = ok ? 'Copied' : 'Press and hold to copy';
-      // back to the name it shipped with, not a second one invented here
-      setTimeout(function () { btn.textContent = 'Copy as text'; }, 2200);
+      btn.textContent = ok ? 'Copied' : 'Press and hold';
+      setTimeout(function () { btn.innerHTML = btn.getAttribute('data-icon'); }, 2200);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { said(true); }, function () { said(false); });
@@ -12273,6 +12307,12 @@
       renderModal();
       if (S.mtOpen) {
         var jump = $(S.mtOpen === 'meals' ? 'mtMeals' : 'mtHelp');
+        /* Open it, not merely scroll to it. "How My Day works" pointed at a
+           shut accordion at the foot of the sheet — and a shut accordion that
+           has been scrolled to looks exactly like nothing having happened, so
+           the entry landed a reader in the same place "Craft my plan" did and
+           appeared to be the same command twice. */
+        if (jump && jump.tagName === 'DETAILS') jump.open = true;
         if (jump) jump.scrollIntoView({ block: 'start' });
       }
     });

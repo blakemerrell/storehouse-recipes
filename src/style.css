@@ -1825,7 +1825,12 @@ select { max-width: 280px; }
    PLAN and this strip is a record of OUTCOMES, and today's own target is
    printed at full size two inches below. It stays in each button's label
    for anyone listening rather than looking. */
-.mweek { display: flex; gap: 4px; margin-top: 10px; }
+/* The two pixels are for the selected day's ring, which is an outer shadow and
+   therefore lives outside the cell it rings. On Monday or Sunday — the first
+   and last cells — it fell past the end of the strip and was cut off flat
+   against it, so the day you were looking at was the one day drawn wrong. The
+   negative margin gives it the room without moving the strip. */
+.mweek { display: flex; gap: 4px; margin-top: 10px; padding: 2px; margin-left: -2px; margin-right: -2px; }
 .mwk-d {
   flex: 1 1 0; min-width: 0; background: none; border: 0; padding: 0;
   display: flex; flex-direction: column; align-items: stretch; gap: 3px;
