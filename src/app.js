@@ -2177,10 +2177,22 @@
   function mSendOf(k) {
     var v = MSEND[k];
     if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-    return { f: v.f || '', to: (v.to || []).slice(), off: !!v.off };
+    /* `ack` rides back out as well as in. It did not, for one commit, and
+       the symptom was the whole point of the flag: Done wrote ack to
+       storage, the next read dropped it on the floor, and the card opened
+       again — a dismissal that does not survive the read is the pace card's
+       bug wearing a different name. */
+    return { f: v.f || '', to: (v.to || []).slice(), off: !!v.off, ack: !!v.ack };
   }
   function mSetSend(k, v) {
-    if (v && (v.f || (v.to && v.to.length) || v.off)) MSEND[k] = v; else delete MSEND[k];
+    /* `f` — which meal the question is about — is what keeps the row, and it
+       is set for every card there is, so an answer of any kind survives:
+       a set of meals, a None, or a fold. `|| v.ack` was here for a commit
+       and could not be made to fail, because there is no path that acks a
+       card without naming the meal it is about. A clause no mutation can
+       reach is not a safeguard, it is a comment claiming credit for one. */
+    if (v && (v.f || (v.to && v.to.length) || v.off)) MSEND[k] = v;
+    else delete MSEND[k];
     mPruneWindow(MSEND);
     if (MSTAMPS.sn) mPruneWindow(MSTAMPS.sn);
     try { localStorage.setItem('bsc.macroSend', JSON.stringify(MSEND)); } catch (e) { /* private */ }
@@ -4499,17 +4511,24 @@
     }
 
     var keys = open.map(function (s) { return s.k; });
-    /* The meals you tapped, in the order you tapped them, each taking all it
-       can hold before the next is asked. One tap does one thing; if it did not
-       cover the miss the line says how much is still to place and you tap
-       again. Never a form, never a confirm. */
-    sent.to.forEach(function (k) {
-      if (keys.indexOf(k) >= 0) rest = give([k], rest, false);
-    });
-    if (!sent.off) {
-      var untapped = keys.filter(function (k) { return sent.to.indexOf(k) < 0; });
-      rest = give(sent.to.length ? untapped : keys, rest, true);
-    }
+    /* The meals you ticked are the whole set, and they share by size.
+     *
+       Two things changed here when the card became a list of checkboxes.
+       It used to walk the tapped meals IN THE ORDER TAPPED, each absorbing
+       all it could before the next was asked, and then hand whatever was
+       left to the meals you had NOT tapped. Both of those make a tick mean
+       "first in the queue" rather than "this one" — untick a meal and it
+       could still end up paying, which is the one thing a cleared checkbox
+       must not do. A set is unordered and a set is exhaustive.
+
+       What is left over when the ticked meals hit their floors is not
+       quietly pushed somewhere else now: it stays unplaced, and the card
+       says the day ends that far off. That is the answer Blake asked this
+       card for — "let me know what's going to happen" — and it can only be
+       given honestly if the overflow is allowed to exist. */
+    var picked = sent.to.filter(function (k) { return keys.indexOf(k) >= 0; });
+    if (picked.length) rest = give(picked, rest, true);
+    else if (!sent.off) rest = give(keys, rest, true);
     return { w: w, capped: capped, unplaced: rest * K };
   }
 
@@ -4571,6 +4590,7 @@
     var sent = mSendOf(vk);
     if (sent && sent.f !== sk) sent = null;         // the question has moved on
     var to = sent ? sent.to : [], off = !!(sent && sent.off);
+    var shut = !!(sent && sent.ack);
     var over = ev.miss > 0;
     var amt = Math.abs(Math.round(ev.miss));
 
@@ -4582,44 +4602,122 @@
     });
     if (!open.length) return '';
 
-    var ask = mMealAsk(open[0].k, targets, slots);
-    var short = ask && Math.abs(ask.unplaced || 0) >= 1 ? Math.abs(Math.round(ask.unplaced)) : 0;
+    /* Every open meal's own share and what it is being asked for now. The
+       difference is what this miss did to it, and it is read off mMealAsk
+       rather than worked out again here — the card and the meal's own pills
+       have to agree about the same meal, and the only way to guarantee that
+       is to read the same function. */
+    var rows = [], floored = [], un = 0;
+    open.forEach(function (s2) {
+      var a = mMealAsk(s2.k, targets, slots);
+      if (!a || !a.plan) return;
+      var was = Math.round(a.plan.kcal);
+      var now = Math.round((a.now || a.plan).kcal);
+      var on = off ? false : (to.length ? to.indexOf(s2.k) >= 0 : true);
+      if (on && a.capped) floored.push(s2.n);
+      /* One number for the whole day's remainder, so every open meal's ask
+         carries the same copy of it. Read rather than reconstructed: the
+         first version of this line worked the landing out as "the miss minus
+         what the rows gave up", which are two different quantities — the
+         miss is measured against LUNCH'S share and the rows against their
+         own — and it confidently reported a day 463 over that was not. */
+      if (typeof a.unplaced === 'number') un = Math.round(a.unplaced);
+      rows.push({ k: s2.k, n: s2.n, was: was, now: now, d: was - now, on: on, cap: !!a.capped });
+    });
+    if (!rows.length) return '';
 
-    var said;
-    if (off) {
-      said = over ? 'No meal shrinks. The day ends ' + amt + ' over.'
-        : 'No meal grows. You keep the ' + amt + '.';
-    } else if (to.length) {
-      var names = to.map(function (k) { return mSlotOf(slots, k).n || k; }).join(' and ');
-      said = (over ? 'Borrowed from ' : 'Shared with ') + names + '.' +
-        (short ? ' ' + short + ' still to place.' : '');
-    } else {
-      said = (over ? 'Borrowed from the meals left, by size.'
-        : 'Shared with the meals left, by size.') +
-        (short ? ' ' + short + ' would not fit.' : '');
-    }
+    /* Where the day lands, in the same sentence in every state. Negative
+       means the meals left cannot give back enough and the day runs over;
+       positive means they cannot absorb it all and the day comes in short. */
+    var lands = un < -0.5 ? 'The day ends <b>' + Math.abs(un) + ' over</b>.'
+      : un > 0.5 ? 'The day ends <b>' + un + ' short</b>.'
+      : 'The day still <b>lands on plan</b>.';
+
+    /* Where the day LANDS. The old card ended on what it had done —
+       "Borrowed from Evening Snack and Dinner" — which is the app's own
+       bookkeeping, in the app's vocabulary, leaving the reader to work out
+       what it meant for them. Blake: "I kind of want something that will let
+       me know what's going to happen now that I've overeaten."
+     *
+       A meal never drops below a third of its share nor grows past twice it,
+       so a big miss frequently cannot be absorbed at all — and the line that
+       matters is the one saying so. Ending on "borrowed from" implied the
+       books were square when they were hundreds of calories from it. */
+    var said = off
+      ? (over ? '<b>No meal shrinks.</b> ' : '<b>No meal grows.</b> ') + lands
+      : lands + (floored.length
+        ? ' ' + floored.join(' and ') + (floored.length > 1 ? ' are' : ' is') +
+          ' at the ' + (over ? 'floor' : 'ceiling') + ' — ticking more places no more.'
+        : '');
 
     var head = ev.skipped
       ? 'Skipping ' + esc(ev.name) + ' frees ' + amt + '.'
-      : esc(ev.name) + ' went ' + amt + (over ? ' over.' : ' under.');
+      : esc(ev.name) + ' went ' + amt + (over ? ' over its share' : ' under its share');
 
-    var acts = open.filter(function (s2) { return to.indexOf(s2.k) < 0; })
-      .map(function (s2) {
-        return '<button class="ghost" data-msend="' + esc(s2.k) + '">' +
-          (over ? 'Borrow from ' : 'Share with ') + esc(s2.n) + '</button>';
-      }).join('');
+    var shell = function (inner, ariaShut) {
+      return '<div class="mcasc' + (over ? ' over' : '') + (shut ? ' shut' : '') +
+        '" role="status">' +
+        '<span class="mcasc-i" aria-hidden="true">' + (over ? '&#8599;' : '&#8600;') + '</span>' +
+        '<span class="mcasc-b">' + inner + '</span></div>';
+    };
 
-    return '<div class="mcasc' + (over ? ' over' : '') + '" role="status">' +
-      '<span class="mcasc-i" aria-hidden="true">' + (over ? '&#8599;' : '&#8600;') + '</span>' +
-      '<span class="mcasc-b">' +
-        '<span class="mcasc-t">' + head + '</span>' +
-        '<span class="mcasc-s">' + said + '</span>' +
-        '<span class="mcasc-a no-print">' + acts +
-          (to.length ? '<button class="ghost" data-msend="reset">Start over</button>' : '') +
-          '<button class="ghost" data-msend="off" aria-pressed="' + (off ? 'true' : 'false') + '">' +
-            (over ? 'Don&rsquo;t borrow' : 'Don&rsquo;t share') + '</button>' +
+    /* Answered, so it gets out of the way. The day was already right before
+       any of this was read — the share lands on render — so once you have
+       looked at it the card has no further business taking a third of the
+       screen. The line stays, because what happened to the day is worth
+       being able to see; the apparatus for changing it does not. */
+    if (shut) {
+      return shell(
+        '<button class="mcasc-fold" data-msend="open" aria-expanded="false">' +
+          '<span class="mcasc-foldt">' +
+            '<span class="mcasc-t">' + head + '</span>' +
+            '<span class="mcasc-s">' + said + '</span>' +
+          '</span>' +
+          '<span class="mcasc-cue" aria-hidden="true">&#8964;</span>' +
+        '</button>');
+    }
+
+    /* A list you choose several from, drawn as one. Each was a ghost button
+       reading "Borrow from Dinner" that toggled when pressed a second time —
+       a control that toggles ought to look like it toggles — and "Don't
+       borrow" sat at the bottom in different words for what is plainly the
+       None of this list. */
+    var pick = rows.map(function (r) {
+      return '<button class="mcasc-row" role="checkbox" data-msend="' + esc(r.k) + '"' +
+        ' aria-checked="' + (r.on ? 'true' : 'false') + '">' +
+        '<span class="mcasc-box" aria-hidden="true">&#10003;</span>' +
+        '<span class="mcasc-nm">' + esc(r.n) +
+          (r.on && r.cap
+            ? '<span class="mcasc-cap">at its ' + (over ? 'floor' : 'ceiling') + '</span>'
+            : '') +
         '</span>' +
-      '</span></div>';
+        /* The price of ticking this one, on the row that does it. Choosing
+           between consequences rather than between meal names. */
+        '<span class="mcasc-was">' + r.was + ' &rarr; <i>' + r.now + '</i></span>' +
+        '<span class="mcasc-d">' + (r.on && r.d ? (over ? '&minus;' : '+') +
+          Math.abs(r.d) : '&mdash;') + '</span>' +
+      '</button>';
+    }).join('');
+
+    return shell(
+      '<span class="mcasc-t">' + head + '</span>' +
+      '<span class="mcasc-s">' + said + '</span>' +
+      '<div class="mcasc-pick no-print">' +
+        '<div class="mcasc-ph">' +
+          '<span>' + (over ? 'Take it from' : 'Give it to') + '</span>' +
+          '<span class="mcasc-pa">' +
+            '<button data-msend="all">All</button>' +
+            '<button data-msend="none" aria-pressed="' + (off ? 'true' : 'false') + '">None</button>' +
+          '</span>' +
+        '</div>' + pick +
+        '<div class="mcasc-note">A meal never ' +
+          (over ? 'drops below a third of its share' : 'grows past twice its share') +
+          ', so there is a limit to what ' + (over ? 'an overshoot' : 'a surplus') +
+          ' can be made to disappear into.</div>' +
+        '<div class="mcasc-done">' +
+          '<button class="btn-primary" data-msend="ack">Done</button>' +
+        '</div>' +
+      '</div>');
   }
 
   function mMealShare(sk, targets, slots) {
@@ -12222,15 +12320,38 @@
       if (snd) {
         var sv = snd.dataset.msend;
         var sKey2 = mViewKey();
-        var ev2 = mLastFinished(mDayTargets(sKey2), mReadSlots());
+        var slots2 = mReadSlots();
+        var ev2 = mLastFinished(mDayTargets(sKey2), slots2);
         var cur = mSendOf(sKey2);
-        if (!cur || !ev2 || cur.f !== ev2.k) cur = { f: ev2 ? ev2.k : '', to: [], off: false };
-        if (sv === 'reset') cur = { f: cur.f, to: [], off: false };
-        else if (sv === 'off') cur = { f: cur.f, to: [], off: !cur.off };
-        else {
-          cur.off = false;
-          var at = cur.to.indexOf(sv);
-          if (at >= 0) cur.to.splice(at, 1); else cur.to.push(sv);
+        if (!cur || !ev2 || cur.f !== ev2.k) {
+          cur = { f: ev2 ? ev2.k : '', to: [], off: false, ack: false };
+        }
+        /* Which meals the list is offering. Needed because an empty `to` is
+           stored for "all of them" — the default — and a checkbox list has
+           to turn that into every box ticked before one can be cleared. */
+        var dayN2 = mDay(sKey2);
+        var openK = [];
+        slots2.list.forEach(function (s2) {
+          if (mMealDone(s2.k)) return;
+          if (mSkipped(sKey2, s2.k) && !(dayN2[s2.k] || []).length) return;
+          openK.push(s2.k);
+        });
+
+        if (sv === 'ack') cur.ack = true;
+        else if (sv === 'open') cur.ack = false;
+        else if (sv === 'all') { cur.to = []; cur.off = false; }
+        else if (sv === 'none') { cur.to = []; cur.off = true; }
+        else if (openK.indexOf(sv) >= 0) {
+          /* A tick, not a queue position. An empty `to` means every box is
+             ticked, so clearing the first one has to write out the rest. */
+          var set = cur.off ? [] : (cur.to.length ? cur.to.slice() : openK.slice());
+          var at = set.indexOf(sv);
+          if (at >= 0) set.splice(at, 1); else set.push(sv);
+          /* Two normalisations, so one state has one spelling: every meal
+             ticked is the default, and no meal ticked is None. */
+          var all = openK.every(function (k) { return set.indexOf(k) >= 0; });
+          cur.to = (all || !set.length) ? [] : set;
+          cur.off = !set.length;
         }
         mSetSend(sKey2, cur);
         keepingFocus(renderMacros);

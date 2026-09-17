@@ -5998,8 +5998,21 @@ module.exports = {
       const el = document.querySelector('.mcasc');
       return el ? { head: el.querySelector('.mcasc-t').textContent,
         sub: el.querySelector('.mcasc-s').textContent,
+        shut: el.classList.contains('shut'),
+        h: Math.round(el.getBoundingClientRect().height),
+        /* Which meals are ticked, by name, so a checkbox list can be
+           asserted as a set rather than as a row of button captions. */
+        on: [...el.querySelectorAll('.mcasc-row[aria-checked="true"] .mcasc-nm')]
+          .map((n) => n.textContent.replace(/at its (floor|ceiling)/, '').trim()),
         czBtns: [...el.querySelectorAll('[data-msend]')].map((b) => b.textContent.trim()) } : null;
     });
+    const czTick = async (pg, name) => {
+      const rows = await pg.$$('.mcasc .mcasc-row');
+      for (const r of rows) {
+        if (new RegExp(name).test(await r.textContent())) { await r.click(); break; }
+      }
+      await pg.waitForTimeout(350);
+    };
 
     /* By SIZE, and the claim has to be about what each meal GAINED.
      *
@@ -6037,38 +6050,143 @@ module.exports = {
       Math.abs((czGain.d / czPlans.Dinner) - (czGain.s / czPlans.Snacks)) < 0.04,
       JSON.stringify({ dinner: czGain.d / czPlans.Dinner, snacks: czGain.s / czPlans.Snacks }));
 
-    /* Aiming it. Tapping one meal hands it the lot and puts the others back
-       on their own plan — the whole point of being able to aim it at all. */
-    const czBtns = await casc.$$('.mcasc [data-msend]');
-    for (const b of czBtns) {
-      if (/Dinner/.test(await b.textContent())) { await b.click(); break; }
-    }
-    await casc.waitForTimeout(350);
+    /* ---- the chooser ---------------------------------------------------
+     *
+       It was a row of ghost buttons reading "Share with Dinner", each
+       toggling when pressed a second time, with "Don't share" at the foot in
+       different words for what is plainly this list's None. Blake asked for
+       "a list of check boxes — share all or steal all, or select the meals
+       that I want to share or steal from", so it is a set now: every box
+       ticked is the default, and clearing one takes that meal out. */
+    const czAll = await czLine(casc);
+    t.ok('every meal left is offered, and starts ticked',
+      !!czAll && czAll.on.length === 3 &&
+      ['Lunch', 'Dinner', 'Snacks'].every((n) => czAll.on.indexOf(n) >= 0),
+      JSON.stringify(czAll));
+
+    /* Aiming it, the way a checkbox list aims: take the others out. Ticking
+       ONE meal hands it the lot and leaves the rest on their own plan. */
+    await czTick(casc, 'Lunch');
+    await czTick(casc, 'Snacks');
     const czAimed = await czReadAsk(casc);
-    t.ok('tapping one meal hands it the lot',
+    t.ok('leaving one meal ticked hands it the lot',
       czAimed.Dinner > czSpread.Dinner && czAimed.Lunch < czSpread.Lunch &&
       czAimed.Snacks < czSpread.Snacks, JSON.stringify(czAimed));
     t.ok('and the others go back to exactly their own plan, not to nothing',
-      czAimed.Lunch > 0 && czAimed.Snacks > 0 &&
-      Math.abs((czAimed.Lunch + czAimed.Dinner + czAimed.Snacks) -
-        (czSpread.Lunch + czSpread.Dinner + czSpread.Snacks)) <= 2,
-      JSON.stringify({ czAimed, czSpread }));
-    const czL2 = await czLine(casc);
-    t.ok('and the czLine says where it went',
-      !!czL2 && /Shared with Dinner/.test(czL2.sub), JSON.stringify(czL2));
+      czAimed.Lunch > 0 && czAimed.Snacks > 0, JSON.stringify(czAimed));
 
-    /* Don't share: every meal keeps its plan and the day is allowed to end
-       short. On a cut that is frequently the one you want — a light breakfast
-       is progress, not a debt to spend. */
-    const czOffBtn = await casc.$('.mcasc [data-msend="off"]');
-    await czOffBtn.click();
+    /* A cleared box must not pay. It used to: the tapped meals were walked
+       in tap order, each absorbing all it could, and whatever was LEFT was
+       handed to the meals you had not tapped — which makes a tick mean
+       "first in the queue" rather than "this one". Unticked Lunch and Snacks
+       are on their own plan to the pound here, not somewhere between. */
+    t.ok('and an unticked meal pays nothing at all',
+      Math.abs(czAimed.Lunch - czPlans.Lunch) <= 2 &&
+      Math.abs(czAimed.Snacks - czPlans.Snacks) <= 2,
+      JSON.stringify({ czAimed, czPlans }));
+
+    /* The line ends on where the DAY lands, not on what the app did. Blake:
+       "I kind of want something that will let me know what's going to happen
+       now that I've overeaten or under eaten." "Shared with Dinner" is the
+       app's own bookkeeping in the app's own vocabulary. */
+    const czL2 = await czLine(casc);
+    t.ok('and the line says where the day lands, not what it did',
+      !!czL2 && /lands on plan|day ends \d+ (over|short)/.test(czL2.sub) &&
+      !/Shared with|Borrowed from/.test(czL2.sub), JSON.stringify(czL2));
+
+    /* None: every meal keeps its plan and the day is allowed to end short.
+       On a cut that is frequently the one you want — a light breakfast is
+       progress, not a debt to spend. */
+    await casc.click('.mcasc [data-msend="none"]');
     await casc.waitForTimeout(350);
     const czHeld = await czReadAsk(casc);
-    t.ok('and declining to share leaves every meal on its own plan',
+    t.ok('and None leaves every meal on its own plan',
       czHeld.Lunch < czSpread.Lunch && czHeld.Dinner < czSpread.Dinner &&
       czHeld.Snacks < czSpread.Snacks, JSON.stringify(czHeld));
-    t.ok('and says the day will end short rather than naming an attitude',
-      /You keep the \d+/.test((await czLine(casc)).sub), JSON.stringify(await czLine(casc)));
+    t.ok('and says so, with where the day lands',
+      /No meal grows/.test((await czLine(casc)).sub) &&
+      /day ends \d+ short|lands on plan/.test((await czLine(casc)).sub),
+      JSON.stringify(await czLine(casc)));
+    t.ok('and no box is ticked', (await czLine(casc)).on.length === 0,
+      JSON.stringify(await czLine(casc)));
+
+    /* All puts it back to the default spread. */
+    await casc.click('.mcasc [data-msend="all"]');
+    await casc.waitForTimeout(350);
+    const czBack = await czReadAsk(casc);
+    t.ok('and All puts every meal back on the spread',
+      Math.abs(czBack.Dinner - czSpread.Dinner) <= 2 &&
+      Math.abs(czBack.Snacks - czSpread.Snacks) <= 2,
+      JSON.stringify({ czBack, czSpread }));
+
+    /* The spill, which is the half of the old behaviour a checkbox cannot
+       keep.
+     *
+       Tapped meals used to be walked in tap order, each absorbing all it
+       could, and whatever was LEFT was handed to the meals you had NOT
+       tapped. With one uncapped meal ticked that is invisible — it absorbs
+       the lot and there is nothing to spill — so this ticks the SMALLEST
+       meal on its own. Snacks is 5% of the day and cannot grow past twice
+       its share, so most of the surplus has nowhere to go, and where it goes
+       is the whole question: onto meals whose boxes are clear, or nowhere.
+     *
+       Nowhere is the answer, and the card says how much. */
+    await casc.click('.mcasc [data-msend="none"]');
+    await casc.waitForTimeout(350);
+    await czTick(casc, 'Snacks');
+    const czOne = await czReadAsk(casc);
+    const czOneLine = await czLine(casc);
+    t.ok('the one ticked meal takes all it can hold',
+      czOne.Snacks > czSpread.Snacks + 1, JSON.stringify({ czOne, czSpread }));
+    t.ok('and the meals whose boxes are clear stay on their own plan to the pound',
+      Math.abs(czOne.Lunch - czPlans.Lunch) <= 2 &&
+      Math.abs(czOne.Dinner - czPlans.Dinner) <= 2,
+      JSON.stringify({ czOne, czPlans }));
+    t.ok('and the card says how far off the day now lands, rather than hiding it',
+      /day ends \d+ short/.test(czOneLine.sub) &&
+      /at the ceiling/.test(czOneLine.sub), JSON.stringify(czOneLine));
+
+    await casc.click('.mcasc [data-msend="all"]');
+    await casc.waitForTimeout(350);
+
+    /* ---- and then it gets out of the way -------------------------------
+       Blake: "when it's done how can I collapse that card so it's not so
+       prominent?" The day is already right before any of this is read — the
+       share lands on render — so once it has been looked at, the apparatus
+       for changing it has no business taking a third of the screen. */
+    const czOpenH = (await czLine(casc)).h;
+    await casc.click('.mcasc [data-msend="ack"]');
+    await casc.waitForTimeout(350);
+    const czShut = await czLine(casc);
+    t.ok('Done folds it to one line, and a much shorter card',
+      !!czShut && czShut.shut && czShut.h < czOpenH / 2 && czShut.on.length === 0,
+      JSON.stringify({ open: czOpenH, shut: czShut && czShut.h }));
+    t.ok('and the folded line still says what happened and where it lands',
+      /went \d+ (over|under) its share/.test(czShut.head) &&
+      /lands on plan|day ends \d+ (over|short)/.test(czShut.sub),
+      JSON.stringify(czShut));
+
+    /* Stored, not held in a class. Blake dismissed the pace card and it was
+       back a tap later, because its state was a CSS class and every redraw
+       wiped it; `ack` rides in bsc.macroSend beside the choice itself. The
+       reload is the honest test — anything that redraws from scratch brought
+       the old one back. */
+    await casc.reload();
+    await casc.waitForTimeout(500);
+    await casc.click('.tab[data-view="macros"]');
+    await casc.waitForTimeout(400);
+    await openDay(casc);
+    await casc.waitForTimeout(250);
+    t.ok('and it is still folded after everything redraws',
+      !!(await czLine(casc)) && (await czLine(casc)).shut,
+      JSON.stringify(await czLine(casc)));
+
+    await casc.click('.mcasc [data-msend="open"]');
+    await casc.waitForTimeout(350);
+    const czReopen = await czLine(casc);
+    t.ok('and the line reopens on the same three choices',
+      !!czReopen && !czReopen.shut && czReopen.on.length === 3,
+      JSON.stringify(czReopen));
 
     /* Shutting the meal takes the line with it.
      *
@@ -6094,14 +6212,21 @@ module.exports = {
     await casc.waitForTimeout(250);
 
     /* It survives a reload, because the choice is a fact about the day and
-       not a thing this render happened to be holding. */
+       not a thing this render happened to be holding.
+     *
+       Self-contained on purpose: it used to compare against whatever state
+       the tests above happened to leave behind, so re-ordering them broke an
+       assertion that was not about ordering. It makes its own distinctive
+       choice, reads the numbers, and reloads. */
+    await czTick(casc, 'Snacks');                 // take one meal out of the set
+    const czPinned = await czReadAsk(casc);
     await casc.reload();
     await casc.waitForTimeout(500);
     await casc.click('.tab[data-view="macros"]');
     await casc.waitForTimeout(350);
     t.ok('and the choice is still there after a reload',
-      JSON.stringify(await czReadAsk(casc)) === JSON.stringify(czHeld),
-      JSON.stringify(await czReadAsk(casc)));
+      JSON.stringify(await czReadAsk(casc)) === JSON.stringify(czPinned),
+      JSON.stringify({ now: await czReadAsk(casc), was: czPinned }));
     await casc.context().close();
 
     /* ---- pills the same size, always --------------------------------------
