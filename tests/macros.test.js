@@ -4961,8 +4961,20 @@ module.exports = {
           empty: !!card.querySelector('.mslot-name-flat'),
           hasGauges: !!gg,
           planned: !!gg && gg.classList.contains('planned'),
+          /* A meal with nothing on it prints its TARGET where a fed one
+             prints its plate, so the strip says which end it is speaking
+             from. NOT `.empty` — that is a global utility class carrying
+             60px of padding, and wearing it grew every blank meal's header
+             from 38px to 156. */
+          blank: !!gg && gg.classList.contains('mmps-blank'),
+          /* Every figure's resolved colour, so "quiet" can be asserted
+             against a real reference rather than against whatever colour
+             some other meal happens to be wearing. */
+          inks: gg ? [...gg.querySelectorAll('.mmp-v')]
+            .map((v) => getComputedStyle(v).color) : [],
           bars: gg ? [...gg.querySelectorAll('.mmp')].map((o) => ({
             l: o.querySelector('i').textContent + o.querySelector('.mmp-v').textContent,
+            v: Number(o.querySelector('.mmp-v').textContent),
             st: (o.className.match(/mmp(?: kc)? (\w+)/) || [, ''])[1],
             /* The fill is the rail under the figure. It used to be painted
                as a gradient stop on the pill itself and read off the paint;
@@ -5060,16 +5072,77 @@ module.exports = {
       !(await gaugePage.evaluate(() => /at its share/i.test(document.body.textContent))),
       JSON.stringify(noFood.map((c) => c.name + ':' + c.bars.length)));
 
-    /* Reversed, deliberately. This asserted that an empty meal draws NO
-       tracks — "four at zero times five meals is what the morning would open
-       on" — and Blake asked for the opposite: a meal you have not filled is
-       precisely the meal you need the numbers for, because they are what you
-       plan against. The noise the old rule was guarding against is handled
-       instead by the strip being drawn at planned weight, so a morning of
-       untouched meals reads quietly rather than as twenty-four accusations. */
-    t.ok('an empty meal draws its pills, faded, so the morning reads quietly',
-      noFood.length > 0 && noFood.every((c) => c.hasGauges && c.planned),
-      JSON.stringify(noFood.map((c) => c.name + (c.planned ? ':faded' : ':SOLID'))));
+    /* Reversed twice, and this is the second one.
+     *
+       It first asserted that an empty meal draws NO tracks — "four at zero
+       times five meals is what the morning would open on". Blake asked for
+       the opposite: the meal you have not filled is precisely the one you
+       need the numbers for. So it drew four pills, faded, all reading 0.
+
+       And that was still not the number. The target lived in the LENGTH of
+       the rail, which says nothing when the fill is nought, and in data-want
+       and a screen-reader sentence — every audience but the one holding the
+       phone. Blake, on his own breakfast: "I can't see what my target macros
+       are from the main screen. I simply want this breakfast to show a
+       greyed out target number instead of zeros."
+
+       So a blank meal PRINTS what it is for. Mutation-proof by construction:
+       print `got` there instead of `want` and every figure goes to nought
+       while data-want does not, and the first clause fails. */
+    t.ok('a meal with nothing on it prints its target, not four noughts',
+      noFood.length > 0 && noFood.every((c) => c.blank && c.bars.length === 4 &&
+        c.bars.every((g) => g.tick > 0 && g.v === g.tick)),
+      JSON.stringify(noFood.map((c) => c.name + ' ' +
+        c.bars.map((g) => g.v + '/' + g.tick).join(' '))));
+
+    /* And a fed meal still prints the plate. Without this the one above is
+       satisfied by printing the target everywhere, which would be the same
+       screen with the other number missing. */
+    t.ok('while a meal with food on it still prints the food',
+      fed.length > 0 && fed.some((c) => c.bars.some((g) => g.v !== g.tick)),
+      JSON.stringify(fed.map((c) => c.name + ' ' +
+        c.bars.map((g) => g.v + '/' + g.tick).join(' '))));
+
+    /* Quiet, still. A blank meal wears no verdict colour: six untouched
+       meals would otherwise draw twenty-four ochre "short" marks first thing
+       in the morning, about food the day has not got to yet. The colour
+       arrives with the food, which is when it starts meaning something. */
+    /* Resolved through the same engine the pills are, so the comparison is
+       between two colours and not between two spellings of one. */
+    const greyRef = await gaugePage.evaluate(() => {
+      const el = document.createElement('span');
+      el.style.color = 'var(--muted)';
+      document.body.appendChild(el);
+      const c = getComputedStyle(el).color;
+      el.remove();
+      return c;
+    });
+    t.ok('and it reads quietly — every figure the same grey, no verdict',
+      noFood.length > 0 && noFood.every((c) => c.inks.length === 4 &&
+        c.inks.every((x) => x === greyRef)),
+      JSON.stringify({ grey: greyRef, blank: noFood.map((c) => c.name + ':' + c.inks.join('|')) }));
+
+    /* ...and the colour does arrive with the food, or the rule above is
+       satisfied by painting the whole strip grey for ever. */
+    t.ok('while a fed meal wears its verdict in colour',
+      fed.length > 0 && fed.some((c) => c.inks.some((x) => x !== greyRef)),
+      JSON.stringify(fed.map((c) => c.name + ':' + c.inks.join('|'))));
+
+    /* The header does not grow to make room for it. This is the whole reason
+       the figure went INTO the pill rather than beside it or under it: at 390
+       the four groups fit exactly as they are, and a blank meal's row is the
+       same height as a fed one's. */
+    t.ok('and a blank meal is the same height as a fed one',
+      await gaugePage.evaluate(() => {
+        const hs = [...document.querySelectorAll('.mslot')]
+          .filter((s2) => s2.querySelector('.mmps'))
+          .map((s2) => Math.round(s2.querySelector('.mslot-h').getBoundingClientRect().height));
+        return hs.length > 1 && Math.max.apply(null, hs) === Math.min.apply(null, hs);
+      }),
+      await gaugePage.evaluate(() => [...document.querySelectorAll('.mslot')]
+        .filter((s2) => s2.querySelector('.mmps'))
+        .map((s2) => ((s2.querySelector('.mslot-name') || {}).textContent || '').trim() + ':' +
+          Math.round(s2.querySelector('.mslot-h').getBoundingClientRect().height)).join(' ')));
 
     /* The gauges went on the header row first and rendered BREAKFAST as
        BREAKFAS. They live on the seam for that reason. */

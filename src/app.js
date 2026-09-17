@@ -3812,7 +3812,7 @@
                  take the next line, and the mark is at the right of whichever
                  line they are on. */
               '<span class="mslot-tail">' +
-                mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll) +
+                mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll, !rows) +
                 '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
               '</span>' +
               '</button>'
@@ -3837,7 +3837,7 @@
               (pillsSay ? '<span class="vis-hidden">' + esc(pillsSay) + '</span>' : '') +
               '<span class="mslot-sp"></span>' +
               '<span class="mslot-tail">' +
-                mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll) +
+                mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll, !rows) +
               '</span>') +
           /* Only where there is something to solve. One plate has a stepper
              and needs no algebra; two or more is the question this answers,
@@ -4191,7 +4191,24 @@
      that was hard-won: the band is measured against the DAY, not the meal's
      share, or a meal's eleven-to-nineteen grams of fat colours every card
      every day and colour that is always on has stopped saying anything. */
-  function mMealPillsHTML(sub, ask, targets, planned) {
+  /* `empty` is a meal with nothing on it, and it changes which number the
+     pill prints.
+   *
+     The target used to live in the LENGTH of the rail, which works while
+     there is food on the meal and says nothing at all when there is not: an
+     empty meal's fill is nought, so the rail is blank and the only figure
+     left standing is the 0. Blake, looking at a breakfast reading 0/0/0/0:
+     "I can't see what my target macros are from the main screen." The figure
+     existed the whole time — in data-want, and spoken to a screen reader as
+     "0 of 51 protein" — which is every audience but the one holding the
+     phone.
+
+     So an empty meal prints what it is FOR instead of printing nought four
+     times. Nothing else moves: same pill, same width, same rail, same row.
+     The moment food lands the number becomes what is on the plate and the
+     colour wakes up, which is also the moment the rail starts saying
+     something. */
+  function mMealPillsHTML(sub, ask, targets, planned, empty) {
     if (!ask) return '';
     var sh = ask.now || ask;                 // plain shares still work
     var spent = ask.spent || {};
@@ -4260,9 +4277,13 @@
          and every check of it breaks for no reason. This is the machine half
          of the same fact, taken from the same `want`, and the suite asserts
          the two agree so they cannot drift apart in silence. */
+      /* An empty meal prints its target where a fed one prints its plate.
+         Both are the same fact said from different ends, and the strip's own
+         `empty` class is what tells a reader which end this is. */
       return '<span class="mmp' + (m === 'kcal' ? ' kc' : '') + capMark + ' ' + gg.st +
         '" data-want="' + Math.round(want) + '">' +
-        '<span class="mmp-n"><span class="mmp-v">' + Math.round(got) + '</span>' +
+        '<span class="mmp-n"><span class="mmp-v">' +
+          Math.round(empty ? want : got) + '</span>' +
           '<i class="mb-' + m + '">' + g[1] + '</i></span>' +
         '<span class="mmp-tr"><i style="width:' + pct.toFixed(1) + '%"></i></span>' +
         '</span>';
@@ -4270,8 +4291,8 @@
     /* Still aria-hidden, and now honestly so: every figure on this strip is
        said in words in the head's own label, so a reader that announced both
        would hear the meal twice. See mMealPillsSay. */
-    return out ? '<span class="mmps' + (planned ? ' planned' : '') + '" aria-hidden="true">' +
-      out + '</span>' : '';
+    return out ? '<span class="mmps' + (empty ? ' mmps-blank' : planned ? ' planned' : '') +
+      '" aria-hidden="true">' + out + '</span>' : '';
   }
 
   /* The same four numbers, in words, for the label of whatever carries them.

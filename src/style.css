@@ -1331,6 +1331,21 @@ select { max-width: 280px; }
 /* Planned and not yet eaten. A full-looking dinner at eleven in the morning
    otherwise reads as food you have already had. */
 .mmps.planned { opacity: 0.55; }
+/* Nothing on the meal yet, so the figure is the TARGET rather than the plate.
+ *
+   Full opacity, because it is the only real number on the row and a target
+   read through 55% of anything is the 7.5px denominator all over again. Grey
+   rather than a verdict colour: an empty meal has not done anything wrong,
+   and six of them first thing in the morning would otherwise draw twenty-four
+   ochre "short" marks about food the day has not got to yet. The colour
+   arrives with the food, which is when it starts meaning something. */
+/* NOT `.empty` — that is a global utility for empty-state SCREENS and it
+   carries `padding: 60px 20px`, which the strip inherited: 120px of air
+   above and below four pills, and every blank meal's header went 38px to
+   156. A component class that reuses a utility name is a component class
+   that quietly wears the utility's box. */
+.mmps.mmps-blank { opacity: 1; }
+.mmps.mmps-blank .mmp-v { color: var(--muted); font-weight: 600; }
 .mp-seg { flex: none; }
 .mpick-row {
   display: flex; width: 100%; text-align: left; gap: 10px; align-items: center;
