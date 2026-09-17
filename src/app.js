@@ -3727,13 +3727,30 @@
          back on it — a day where lunch is visibly not happening tells you
          more later than a day where lunch simply is not there. Drawn before
          the card rather than instead of parts of it, because a skipped meal
-         has no numbers, no plates and nothing to fold. */
+         has no numbers, no plates and nothing to fold.
+       *
+         ...but it does have a WHOLE MEAL'S worth of calories to hand out,
+         which is the largest cascade there is, and this row used to announce
+         the handout as a fait accompli: "its share went to the rest". Blake:
+         "with skip, should I also be able to tell it where to send the
+         macros and calories?" He could not — and not because the chooser
+         refused him, but because it was unreachable: it renders inside
+         .mslot-items, and this branch returns before that exists. So the
+         line carries it. Folded, the card is itself one line, which is what
+         this row already was. */
       if (onPlan && !items.length && mSkipped(k, sk)) {
-        return '<div class="mslot mslot-skipped">' +
-          '<span class="mslot-skip-n">' + esc(name) + '</span>' +
-          '<span class="mslot-skip-w">skipped &middot; its share went to the rest</span>' +
-          '<button class="ghost mslot-unskip no-print" data-mskip="' + esc(sk) + '" ' +
-            'aria-label="Put ' + esc(name) + ' back">Undo</button>' +
+        var skSend = mCascadeLineHTML(sk, targets, slots);
+        return '<div class="mslot mslot-skipped' + (skSend ? ' mslot-skipped-c' : '') + '">' +
+          '<div class="mslot-skip-h">' +
+            '<span class="mslot-skip-n">' + esc(name) + '</span>' +
+            /* The row says only that it is skipped once the card below it is
+               saying where the food went. Two sentences about one handout,
+               one of them vague, is how the old row read. */
+            '<span class="mslot-skip-w">' +
+              (skSend ? 'skipped' : 'skipped &middot; its share went to the rest') + '</span>' +
+            '<button class="ghost mslot-unskip no-print" data-mskip="' + esc(sk) + '" ' +
+              'aria-label="Put ' + esc(name) + ' back">Undo</button>' +
+          '</div>' + skSend +
         '</div>';
       }
 
@@ -4372,7 +4389,11 @@
     var plan = mMealShare(sk, targets, slots);
     if (!plan) return null;
     var done = mMealDone(sk);
-    if (done) return { now: plan, plan: plan, done: true, spent: {} };
+    /* Behind you, so its share is the plain one — see the note on `past`. */
+    if (done) {
+      var was = mMealShare(sk, targets, slots, true) || plan;
+      return { now: was, plan: was, done: true, spent: {} };
+    }
 
     var vk = mViewKey(), day = mDay(vk);
     var eaten = mTotals(day).eaten;
@@ -4563,7 +4584,10 @@
       var done = mMealDone(s.k);
       if (!done && !skipped) { openAfter = true; continue; }
       if (!openAfter) continue;          // nothing left after it to share with
-      var plan = mMealShare(s.k, targets, slots);
+      /* The plain share, for the same reason: this meal is finished or
+         skipped, and its miss is measured against what the day actually
+         asked it for rather than against a figure a later skip inflated. */
+      var plan = mMealShare(s.k, targets, slots, true);
       if (!plan) continue;
       var got = { kcal: 0, p: 0, f: 0, c: 0 };
       items.forEach(function (it) {
@@ -4651,7 +4675,7 @@
         : '');
 
     var head = ev.skipped
-      ? 'Skipping ' + esc(ev.name) + ' frees ' + amt + '.'
+      ? 'Skipping ' + esc(ev.name) + ' frees ' + amt
       : esc(ev.name) + ' went ' + amt + (over ? ' over its share' : ' under its share');
 
     var shell = function (inner, ariaShut) {
@@ -4720,10 +4744,21 @@
       '</div>');
   }
 
-  function mMealShare(sk, targets, slots) {
+  /* `past` asks for the share a meal BEHIND you had, which is its plain
+     share of the day and nothing else.
+   *
+     A skipped meal's weight comes out of the denominator so that its food
+     goes to the meals still ahead of you. That is right for those meals and
+     wrong for every meal already eaten: skipping a lunch raised Wake Up's
+     target from 248 to 310, hours after Wake Up was eaten and closed, and
+     its bar then read 62 short of something the day never asked it for.
+     Nothing moved — a done meal's ask is its own plan either way — but the
+     figure beside it was a claim about the past that the past did not make.
+     You cannot send freed calories backwards in time. */
+  function mMealShare(sk, targets, slots, past) {
     var me = null, sumW = 0, vk = mViewKey(), day = mDay(vk);
     slots.list.forEach(function (s) {
-      if (s.k !== sk && mSkipped(vk, s.k) && !(day[s.k] || []).length) return;
+      if (!past && s.k !== sk && mSkipped(vk, s.k) && !(day[s.k] || []).length) return;
       sumW += mSlotW(s);
       if (s.k === sk) me = s;
     });

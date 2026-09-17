@@ -6229,6 +6229,137 @@ module.exports = {
       JSON.stringify({ now: await czReadAsk(casc), was: czPinned }));
     await casc.context().close();
 
+    /* ---- skipping a meal ------------------------------------------------
+     *
+       Blake: "with skip, should I also be able to tell it where to send the
+       macros and calories?" He could not, and not because the chooser
+       refused him: it renders inside .mslot-items and the skipped-meal
+       branch returns before that exists, so it was unreachable. The row just
+       announced the handout as done — "its share went to the rest".
+     *
+       Its own page, because a skip is the largest cascade the day makes: a
+       whole meal's share, handed out at once. */
+    const skp = await t.fresh();
+    await skp.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n; const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 204, f: 61, c: 72 }));
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
+        { k: 'a', n: 'Wake Up', t: 's', w: 15 }, { k: 'b', n: 'Breakfast', t: 'b', w: 25 },
+        { k: 'c', n: 'Snacks', t: 's', w: 5 }, { k: 'l', n: 'Lunch', t: 'l', w: 20 },
+        { k: 'd', n: 'Dinner', t: 'd', w: 30 }, { k: 'f', n: 'Evening Snack', t: 's', w: 5 }] }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        a: [{ id: 'f:egg', x: 2, eaten: 1 }], b: [{ id: 'f:egg', x: 3, eaten: 1 }],
+        c: [], l: [], d: [], f: [] } }));
+    });
+    await skp.reload();
+    await skp.waitForTimeout(450);
+    await skp.click('.tab[data-view="macros"]');
+    await skp.waitForTimeout(400);
+    const skAsk = (pg) => pg.evaluate(() => {
+      const o = {};
+      document.querySelectorAll('.mslot').forEach((c) => {
+        const n = (c.querySelector('.mslot-name') || {}).textContent;
+        const t2 = c.querySelector('.mmp.kc[data-want]');
+        if (n && t2) o[n.trim()] = Number(t2.dataset.want);
+      });
+      return o;
+    });
+    const skCard = (pg) => pg.evaluate(() => {
+      const el = document.querySelector('.mcasc');
+      if (!el) return null;
+      return { inSkip: !!el.closest('.mslot-skipped'),
+        shut: el.classList.contains('shut'),
+        h: Math.round(el.getBoundingClientRect().height),
+        head: (el.querySelector('.mcasc-t') || {}).textContent,
+        said: (el.querySelector('.mcasc-s') || {}).textContent,
+        on: [...el.querySelectorAll('.mcasc-row[aria-checked="true"] .mcasc-nm')]
+          .map((n) => n.textContent.replace(/at its (floor|ceiling)/, '').trim()),
+        /* Each row's own share and what it is asked for, so an assertion can
+           say "back to its share" rather than guessing a figure. */
+        rows: [...el.querySelectorAll('.mcasc-row')].map((r) => ({
+          n: (r.querySelector('.mcasc-nm') || {}).textContent
+            .replace(/at its (floor|ceiling)/, '').trim(),
+          was: Number(((r.querySelector('.mcasc-was') || {}).textContent || '')
+            .split('\u2192')[0].trim()),
+          on: r.getAttribute('aria-checked') === 'true' })) };
+    });
+    const skBefore = await skAsk(skp);
+    await skp.click('#macroSlots [data-mskip="l"]');
+    await skp.waitForTimeout(500);
+    const skAfter = await skAsk(skp);
+    const skOpen = await skCard(skp);
+
+    t.ok('skipping a meal offers the same chooser, on the skipped row itself',
+      !!skOpen && skOpen.inSkip && !skOpen.shut && skOpen.on.length === 3,
+      JSON.stringify(skOpen));
+    t.ok('and it names the meal and what skipping it frees',
+      !!skOpen && /Skipping Lunch frees \d+/.test(skOpen.head), JSON.stringify(skOpen));
+
+    /* You cannot send freed calories backwards in time. A skipped meal's
+       weight comes out of the denominator so its food goes to the meals
+       still AHEAD of you — which used to raise the target on meals already
+       eaten and closed: Wake Up went 248 to 310 hours after it was finished,
+       and its bar then read 62 short of something the day never asked it
+       for. Nothing moved; the figure beside it was a false claim about the
+       past. */
+    t.ok('and a meal already eaten keeps the target the day actually asked it for',
+      skAfter['Wake Up'] === skBefore['Wake Up'] &&
+      skAfter.Breakfast === skBefore.Breakfast,
+      JSON.stringify({ before: skBefore, after: skAfter }));
+    t.ok('while the meals still ahead of you take the freed share',
+      skAfter.Dinner > skBefore.Dinner + 1 && skAfter.Snacks > skBefore.Snacks + 1,
+      JSON.stringify({ before: skBefore, after: skAfter }));
+
+    /* And it can be steered, which is the whole ask. Take Dinner out and it
+       goes back to its own plan while the two small meals hit their ceiling
+       — a meal never grows past twice its share — so most of a whole meal's
+       worth has nowhere to go, and the card says how much. */
+    const skRows = await skp.$$('.mcasc .mcasc-row');
+    for (const r of skRows) {
+      if (/Dinner/.test(await r.textContent())) { await r.click(); break; }
+    }
+    await skp.waitForTimeout(450);
+    const skAimed = await skAsk(skp);
+    const skLine = await skCard(skp);
+    /* Back to its own share — and its own share, for a meal still ahead of
+       you on a day with a skip in it, already counts the skipped meal's
+       weight. That is upstream of this card, in mMealShare, and it is there
+       for a reason the file records: Fill sizes a plate to the post-skip
+       share, so a share that still divided by the skipped meal called that
+       plate "over". mAssumed copies the same rule.
+     *
+       So the checkbox governs the CASCADE — the part mPlaceLeft hands out,
+       357 of Dinner's 480 here — and not the denominator. Asserted against
+       the row's own `was` rather than against the pre-skip ask, because the
+       row is telling the truth about what it covers and the test should pin
+       that truth rather than a tidier one. */
+    const skDin = skLine.rows.filter((r) => r.n === 'Dinner')[0];
+    t.ok('unticking a meal puts it back on the share its own row states',
+      !!skDin && !skDin.on && Math.abs(skAimed.Dinner - skDin.was) <= 2 &&
+      skAimed.Dinner < skAfter.Dinner - 100 &&
+      skAimed.Snacks > skAfter.Snacks + 1,
+      JSON.stringify({ skAimed, skAfter, row: skDin }));
+    t.ok('and the card says how much of the freed meal has nowhere to go',
+      /day ends \d+ short/.test(skLine.said) && /at the ceiling/.test(skLine.said),
+      JSON.stringify(skLine));
+
+    /* Then it folds, and the skipped row is a line again. */
+    const skH = skLine.h;
+    await skp.click('.mcasc [data-msend="ack"]');
+    await skp.waitForTimeout(450);
+    const skShut = await skCard(skp);
+    t.ok('Done folds it back into the skipped row',
+      !!skShut && skShut.inSkip && skShut.shut && skShut.h < skH / 2,
+      JSON.stringify({ open: skH, shut: skShut && skShut.h }));
+    t.ok('and the row stops claiming the share simply went to the rest',
+      await skp.evaluate(() => {
+        const w = document.querySelector('.mslot-skipped .mslot-skip-w');
+        return !!w && !/went to the rest/.test(w.textContent);
+      }),
+      await skp.evaluate(() => (document.querySelector('.mslot-skipped .mslot-skip-w') || {}).textContent));
+    await skp.context().close();
+
     /* ---- pills the same size, always --------------------------------------
      *
      * Blake: "Can I get uniform pills on the meal cards, always the same

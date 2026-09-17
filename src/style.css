@@ -869,6 +869,17 @@ select { max-width: 280px; }
   display: flex; align-items: center; gap: 10px;
   padding: 9px 12px; background: none; border: 1px dashed var(--line);
 }
+/* ...unless it is carrying the chooser, in which case the struck-through
+   name, the word and the Undo keep their own row and the card sits under
+   them. A whole meal's worth of food is the biggest handout the day makes
+   and this is where it gets steered. */
+.mslot-skipped-c { display: block; padding: 9px 10px; }
+.mslot-skipped-c .mslot-skip-h {
+  display: flex; align-items: center; gap: 10px; padding: 0 2px;
+}
+.mslot-skipped-c .mcasc {
+  margin: 8px 0 0; background: var(--card); border-style: solid;
+}
 .mslot-skip-n {
   font-family: var(--serif); font-size: 14px; color: var(--muted);
   text-decoration: line-through; flex: 0 0 auto;
