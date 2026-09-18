@@ -3893,17 +3893,27 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    The grid that used to be here put the tick in a 44px column of its own so
    the name and the cost could share its height. The tick is not in a corner
    any more, so the column went with it. */
-.mitem { display: block; }
+.mitem { display: block; position: relative; }
 .mitem-r1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .mitem-r1 .mitem-name { flex: 1 1 auto; min-width: 0; }
 .mitem-r1 .leaf-md { flex: none; }
 /* An empty slot the size of the badge, so a food and a recipe start their
    names in the same place. */
 .leaf-gap { display: block; }
-.mitem-keep { flex: none; display: flex; gap: 2px; }
+/* Pin and star, out of the name's line and into the corner of the box.
+ *
+   Blake: "Star and pin icons can move closer and to the right top corner
+   more." They were the last two items of a flex row, so the name gave way to
+   them — and "Pink Sugar Cookies, Served Cold" is a name that cannot afford
+   to. In the corner they are a badge on the box rather than the end of a
+   sentence, and the name gets about sixty pixels back. Touching, because two
+   controls of one job read as one thing. */
+.mitem-keep { position: absolute; top: 2px; right: 2px; display: flex; gap: 0; z-index: 1; }
 
 /* Row two, indented to the name: the leaf's width plus the gap, so the
    figures start where the title does rather than at the block's edge. */
+/* The name's row keeps clear of the corner badge. */
+.mitem-r1 { padding-right: 62px; min-height: 30px; }
 .mitem-r2 {
   display: flex; flex-wrap: wrap; align-items: baseline;
   column-gap: 7px; row-gap: 2px;
@@ -3930,8 +3940,21 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    turns two quiet glyphs into a keypad, which is the complaint this row was
    rebuilt to answer. */
 .mitem-verbs { flex: none; display: flex; align-items: center; gap: 0; }
+/* Smaller controls, closer together, and the portion takes what that frees.
+ *
+   Blake: "Smaller buttons. A bit less space between buttons. Wider serving
+   box." 34px rather than 44, six of gap rather than fourteen — and the box
+   goes from a 46px floor to 80, which is the difference between "1 serving"
+   on one line and "1 / serving" on two.
+ *
+   34 is under the 44px thumb target this app has held everywhere else, and
+   that is Blake's call rather than a slip: he was shown the number and asked
+   for it. It clears the 24px accessibility floor with room, and a plate is
+   four controls in a row rather than a dense grid. The rule that enforced 44
+   was rewritten to say 34 and to say why, so the next person to read it is
+   not left guessing whether this was deliberate. */
 .mitem-r3 {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 14px; row-gap: 5px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; row-gap: 5px;
   margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line-soft);
 }
 /* The portion, boxed, with its two steppers joined to its right — so the
@@ -3949,7 +3972,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    "2 1/2 c" and ticking the plate silently changed what it said you ate. Two
    short lines inside the box cost nothing. */
 .mitem-r3 .mstep .mitem-amt {
-  flex: 1 1 auto; min-width: 46px; min-height: 30px; padding: 3px 7px;
+  flex: 1 1 auto; min-width: 80px; min-height: 30px; padding: 3px 7px;
   /* A bounded grid, not a flex row. The portion is a bare text node, so
      under `display: flex` it becomes an ANONYMOUS flex item — and one of
      those sizes to max-content and will not shrink, so the words never wrap
@@ -4018,93 +4041,39 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 /* The thing pressed most, on the side a thumb is, with a word on it. It was
    a 21px box in the top-left corner: the state of the plate, given the
    smallest target and the longest reach. Still a real checkbox underneath. */
+/* One box, and the box is the input. Blake: "why a check box inside a box?"
+   — it was a 16px checkbox centred in a 34px bordered button, two edges
+   saying the same thing. The control is drawn at full size now, which is
+   also the arrangement that can actually be clicked: the previous version
+   hid a 0x0 input behind a decorative span, reachable only through its
+   label. */
 .mitem-ate {
-  flex: none; margin-left: auto; display: flex; align-items: center;
-  justify-content: center; gap: 6px;
-  min-height: 30px; padding: 0 9px 0 8px; cursor: pointer;
-  border: 1px solid var(--line-firm); border-radius: 4px;
-  font-size: 11.5px; font-weight: 600; color: var(--muted-2);
-}
-/* The input IS the box. It was a zero-sized input behind a decorative span,
-   which is the arrangement that cannot be clicked: not by Playwright, not by
-   anything driving the page by coordinates, and not by a pointer that lands
-   on the 0x0 element rather than the label. A control you can only reach
-   through its label is a control with one way in. */
-.mitem-ate input {
-  appearance: none; -webkit-appearance: none; margin: 0; flex: none; cursor: pointer;
-  width: 16px; height: 16px; border-radius: 3px;
-  border: 1.5px solid var(--line-firm); background: none;
+  appearance: none; -webkit-appearance: none; margin: 0 0 0 auto; flex: none;
+  width: 30px; height: 30px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--line-firm); background: var(--card);
   display: grid; place-items: center;
 }
-.mitem-ate input::after { content: '\2713'; font-size: 10px; line-height: 1; color: transparent; }
-.mitem-ate:has(input:checked) {
-  background: var(--green); border-color: var(--green); color: var(--paper-soft);
-}
-.mitem-ate input:checked {
-  background: oklch(1 0 0 / 0.22); border-color: oklch(1 0 0 / 0.55);
-}
-.mitem-ate input:checked::after { color: var(--paper-soft); }
-.mitem-ate:has(input:focus-visible) { outline: 2px solid var(--ochre); outline-offset: 2px; }
-.mitem-ate:has(input:disabled) { opacity: 0.4; cursor: default; }
-
-/* At 320 the six controls want about twenty pixels more than the card has,
-   so the word goes and the box stays. It keeps its spoken label either way,
-   and a tick in a 30px target is not a thing anybody misreads. */
-@media (max-width: 360px) {
-  .mitem-ate { padding: 0 7px; }
-  .mitem-ate-w { display: none; }
-  .mitem-r3 { gap: 4px; }
-  .mitem-r3 .mstep .mitem-amt { min-width: 40px; padding: 0 4px; }
-}
-/* A thumb is 44px and this app has held that line everywhere else. The strip
-   is drawn at 30 on a mouse, where a pointer is a pixel; on a phone every
-   piece of it grows to the target it needs. That is what the row costs on a
-   touch device, and it is not negotiable — the note on .mp-shelf records the
-   one time a whole surface missed this pass. */
-@media (pointer: coarse) {
-  .mitem-r1 .mic, .mitem-r3 .mic { width: 44px; height: 44px; }
-  .mitem-r3 .mstep .mitem-amt { min-height: 44px; min-width: 44px; }
-  .mitem-r3 .mstep-keys button { width: 44px; height: 44px; }
-  .mitem-ate { min-height: 44px; min-width: 44px; }
-  /* Blake, on the built row: "the icons in the new meal tabs can be
-     smaller." They were 24 to buy the group its proximity by arithmetic —
-     two 44px targets with a small glyph put more white INSIDE the group than
-     around it — and that is the wrong way round to solve it. The glyph is
-     his call; the grouping is the container's job, below. */
-  .mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 18px; height: 18px; }
-  /* The dial keeps a line of its own once the row has to wrap, so the two
-     keys never end up orphaned under their own box. */
-  .mitem-r3 .mstep { flex: 1 1 128px; }
-}
-/* The word goes before the portion does.
- *
-   On a phone the strip is exactly full: two 44px verbs, two 44px keys, the
-   tick and whatever is left for the amount. At 390 that left 44px, and
-   "1 serving" wants 76 — so the portion overflowed its box, which is the one
-   thing on this row that must stay readable. There is a note further up
-   recording what a clipped portion costs: "2 1/2 cups" became "2 1/2 c" and
-   ticking the plate silently changed what it said you ate.
- *
-   So the tick gives up its label and keeps everything else — the box, the
-   colour, the 44px target and its spoken name. It comes back on a wider
-   phone and on a mouse. */
-@media (pointer: coarse) and (max-width: 400px) {
-  .mitem-ate-w { display: none; }
-  .mitem-ate { padding: 0; }
-}
+.mitem-ate::after { content: '\2713'; font-size: 15px; line-height: 1; color: transparent; }
+.mitem-ate:checked { background: var(--green); border-color: var(--green); }
+.mitem-ate:checked::after { color: var(--paper-soft); }
+.mitem-ate:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
+.mitem-ate:disabled { opacity: 0.4; cursor: default; }
 
 /* Lock, pin and bin: one shape, one size, in one order, on every plate. They
    were a 44px cell inside the dial (lock) and two bare glyphs on the name row
    (pin, bin) — three controls of the same scope wearing three different
-   clothes in two different places. */
+   clothes in two different places. Each is a glyph with a generous invisible
+   margin, which is the same thing to a thumb and a quieter thing to an eye. */
 .mitem-r1 .mic, .mitem-r3 .mic {
   flex: none; width: 28px; height: 28px; padding: 0; line-height: 1;
-  border: 1px solid var(--line-soft); border-radius: 5px;
-  background: var(--card); color: var(--muted-2); font-size: 12px;
+  border: 0; border-radius: 5px; background: none;
+  color: var(--muted-2); font-size: 12px;
 }
+.mitem-r1 .mic:hover, .mitem-r3 .mic:hover { background: none; color: var(--ink); }
 .mitem-r1 .mic[aria-pressed="true"], .mitem-r3 .mic[aria-pressed="true"] {
-  background: color-mix(in oklab, var(--ochre) 24%, var(--card));
-  border-color: var(--ochre); color: var(--ochre-text);
+  /* On, said by the ink rather than by a filled box — the same way the app
+     says a favourite is on. */
+  background: none; border: 0; color: var(--ochre-text);
 }
 /* All three, one size. The bin was the only one of them that was ever drawn
    rather than typed, so it was the only one carrying a size — and the moment
@@ -4112,6 +4081,41 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    44px target. Scoped to .mic, which all three wear, so the next one added
    cannot arrive naked. */
 .mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 16px; height: 16px; display: block; }
+
+/* Everything above is the mouse: a 28px glyph, because a pointer is a pixel.
+   On a phone every piece of the strip grows to the target it needs. This is
+   the ONE place the plate's touch sizes are written — twice now a second copy
+   of these rules has survived a rewrite, sat later in the file, and won on
+   source order, shipping a commit that changed nothing on a phone. If a size
+   for this row appears anywhere below, it is that bug again.
+ *
+   Blake's call on the sizes: "Smaller buttons. A but less space between
+   buttons. Wider serving box." 34 is under the 44 the rest of the app holds
+   and well over the 24 floor, on a row where every control is a repeat of
+   one already reachable at full size elsewhere. */
+@media (pointer: coarse) {
+  .mitem-r1 .mic, .mitem-r3 .mic { width: 34px; height: 34px; }
+  .mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 18px; height: 18px; }
+  .mitem-r3 .mstep .mitem-amt { min-height: 34px; min-width: 80px; }
+  .mitem-r3 .mstep-keys button { width: 34px; height: 34px; }
+  .mitem-ate { width: 34px; height: 34px; }
+  /* The dial keeps a line of its own once the row has to wrap, so the two
+     keys never end up orphaned under their own box. */
+  .mitem-r3 .mstep { flex: 1 1 128px; }
+}
+/* At 320 the dial wants 148 of the 138px it is given — the portion's 80 plus
+   two 34px keys — and the portion is the only one of the three that can give
+   any back. This sits AFTER the sizes it narrows: an equal-specificity rule
+   written above the one it means to override is not an override, it is a
+   comment, which is how this exact pair spent a release disagreeing. */
+@media (pointer: coarse) and (max-width: 360px) {
+  .mitem-r3 { gap: 4px; }
+  .mitem-r3 .mstep .mitem-amt { min-width: 64px; padding: 0 4px; }
+}
+/* The rule that hid the tick's label below 400px went with the label. It
+   existed because the strip was exactly full at 390 with 44px targets and
+   the portion was the thing being squeezed; at 34px with the word gone there
+   is room for all of it and eighty pixels of portion besides. */
 .mitem-r3 .mdel:hover { color: oklch(0.50 0.16 25); border-color: oklch(0.50 0.16 25); }
 
 /* What it costs. Where it came from is no longer said here — .mitem-from went
@@ -4177,17 +4181,13 @@ button.mw-verdict:hover { background: var(--paper-soft); }
      about height, and a mockup built with 26px controls had me claim the
      opposite in a commit message. */
   .mitem-r2 { margin-left: 0; }
-  .mitem-r1 .mic, .mitem-r3 .mic { width: 44px; height: 44px; font-size: 15px; }
-  /* 22, not 17. The glyph grows into the padding of a box that is not
-     changing size, which is the only lever the 44px floor leaves: it buys
-     back 5px of white on each side of every icon and turns the gap between
-     them from the widest thing on the row into the narrowest. It also puts
-     them at the optical weight of the stepper's own 19px glyphs, which they
-     were reading light against. */
-  .mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 22px; height: 22px; }
-  .mitem-r2 .mstep button { height: 44px; }
-  .mitem-r2 .mstep button[data-mstep] { width: 44px; font-size: 18px; }
-  .mitem-r2 .mstep-x { padding: 0 10px; font-size: 13px; }
+  /* The plate's control sizes are set ONCE, in the coarse block above with
+     the rest of its thumb sizing. Copies lived down here from the two-row
+     layout and — because a bulk selector rename pointed them at the new row
+     — quietly won on source order: first the icon size, so the commit that
+     shrank the icons shipped without changing a pixel on a phone, and then
+     the 44px box, so the commit that shrank the boxes did the same. Twice is
+     a pattern, and the pattern is duplicate rules for one fact. */
 }
 
 /* The narrowest phones. "1¾ meal prep containers" is a real portion in this
@@ -4211,7 +4211,6 @@ button.mw-verdict:hover { background: var(--paper-soft); }
      the portion needed 58px of text and was given 46, and "1 serving" reached
      the screen as "1 servin". Which is the exact failure the comment above
      says must never happen, on the exact phone it was written for. */
-  .mitem-r2 .mstep { flex: 1 1 100%; max-width: none; }
   .mitem-r2 { margin-left: 0; }
 }
 
@@ -4229,27 +4228,6 @@ button.mw-verdict:hover { background: var(--paper-soft); }
  * to an eye, and it is what pin and bin already were before this rebuild
  * boxed them.
  */
-.mitem-r2 .mstep {
-  border: 0; background: none; border-radius: 0; overflow: visible;
-}
-.mitem-r2 .mstep button {
-  border: 0; border-left: 0; background: none; color: var(--muted-2);
-}
-.mitem-r2 .mstep button[data-mstep] { font-size: 19px; font-weight: 400; }
-.mitem-r2 .mstep button:not(:disabled):hover { background: none; color: var(--ochre-text); }
-/* The portion reads as the words it is, not as a cell in a dial. Underlined
-   only when it is the way back in to a locked portion. */
-.mitem-r2 .mstep-x { border: 0; padding: 0 6px; font-weight: 600; }
-.mitem-r2 .mstep-wake { text-decoration: underline dotted; text-underline-offset: 3px; }
-
-.mitem-r1 .mic, .mitem-r3 .mic { border: 0; background: none; }
-.mitem-r1 .mic[aria-pressed="true"], .mitem-r3 .mic[aria-pressed="true"] {
-  background: none; border: 0;
-  /* On, said by the ink rather than by a filled box — the same way the app
-     says a favourite is on. */
-  color: var(--ochre-text);
-}
-.mitem-r2 .mic:hover { background: none; color: var(--ink); }
 
 /* Two groups, and air between them — said above, and for a while not true.
  *

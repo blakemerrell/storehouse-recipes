@@ -149,22 +149,38 @@
      live in your account, and putting "f:my:chicken_tamale" into the shared
      document to mark it would post the name of your food to everybody with
      the code. So a personal food carries its own star, in its own record. */
+  /* A food of your own carries its own flag, because it lives in your own
+     store. Everything else — a book recipe, a food out of the reference
+     table — is kept in the household's favourites, which is a list of ids
+     and has never cared what kind of id it is given. */
   function mIsFav(r) {
-    return r.food ? !!r.fav : window.Store.isFav(r.id);
+    if (r.food && String(r.id).indexOf('f:my:') === 0) return !!r.fav;
+    return window.Store.isFav(r.id);
   }
 
-  /* A book recipe is the household's to keep, and so is a food of your own.
-     A food out of the reference table is neither — it is the table — so it
-     gets no star. Same rule the picker has always applied, lifted out of the
-     markup so the plate and the picker cannot come to differ about it. */
+  /* Everything can be kept.
+   *
+     The rule was "a book recipe is yours to keep and so is a food you typed
+     in, but a food out of the reference table is the table's" — and Blake,
+     looking at a breakfast of it: "I am not seeing a star on Greek yogurt.
+     Why? ... if I select a food from the USDA food list and then favorite
+     it, can it add to my database of foods that I like?"
+   *
+     Nothing was ever stopping it. Store.toggleFav takes an id and puts it in
+     a list; the block was a judgement about whose the table is, and a list
+     of foods you like is yours by definition. Kept as a function rather than
+     deleted, because the picker and the plate both ask the question and must
+     not come to differ about it again. */
   function mCanFav(r) {
-    return !!r && (!r.food || String(r.id).indexOf('f:my:') === 0);
+    return !!r;
   }
 
   function mToggleFav(r) {
     if (!r.food) { window.Store.toggleFav(r.id); return; }
     var key = String(r.id).indexOf('f:my:') === 0 ? String(r.id).slice(5) : '';
-    if (!key) return;                   // a table food is not yours to star
+    /* A table food is kept the way a recipe is: in the household's list, so
+       it syncs, and so the fit scorer's favourite bonus reaches it. */
+    if (!key) { window.Store.toggleFav(r.id); return; }
     var mine = mReadMyFoods();
     if (!mine[key]) return;
     mine[key].fav = !mine[key].fav;
@@ -3756,14 +3772,16 @@
                   ' aria-label="Bigger portion">+</button>' +
               '</span>' +
             '</span>' +
-            /* The thing pressed most, on the side a thumb is, with a word on
-               it. It was a 21px box in the top-left corner — the state of the
-               plate, given the smallest target and the furthest reach. Still
-               a real checkbox underneath, so every handler and every reader
-               finds what it has always found. */
-            '<label class="mitem-ate"><input type="checkbox" data-meat="' + tag + '"' +
+            /* The thing pressed most, at the end of the strip. It was a 21px
+               box in the top-left corner — the state of the plate, given the
+               smallest target and the furthest reach — then a labelled
+               button, and now the box on its own: Blake, on the labelled
+               one, "why a check box inside a box?" Quite. The input IS the
+               control and it is drawn at full size; a frame around a
+               checkbox is a second edge saying what the first one said. */
+            '<input class="mitem-ate" type="checkbox" data-meat="' + tag + '"' +
               (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
-              ' aria-label="Eaten"><span class="mitem-ate-w">Ate it</span></label>' +
+              ' aria-label="Eaten">' +
           '</div>' +
         '</div>';
       }).join('');
@@ -5683,7 +5701,7 @@
          having to find it again tomorrow is the whole reason to keep one. */
       '<span class="mp-side no-print">' +
 
-        (r.food && String(r.id).indexOf('f:my:') !== 0 ? '' :
+        (!mCanFav(r) ? '' :
           '<button class="mp-star" data-mpfav="' + esc(String(r.id)) + '" aria-pressed="' +
             (inB2 ? 'true' : 'false') + '" aria-label="' +
             (inB2 ? 'Remove from favorites' : 'Keep as a favorite') + '">&#9733;</button>') +

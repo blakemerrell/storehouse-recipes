@@ -5187,11 +5187,19 @@ module.exports = {
     await tinyPhone.click('[data-mfold="b"]');
     await tinyPhone.waitForTimeout(350);
 
+    /* 34, not the 44 the rest of the app holds. Blake, off the built row:
+       "Smaller buttons. A but less space between buttons. Wider serving box"
+       — and a plate is the one surface where that trade is affordable,
+       because every control on it repeats something reachable at full size
+       somewhere else: the bin and the lock in the recipe, the portion by
+       typing it, the tick by the meal's own. 34 clears the 24px floor with
+       room, and the figure is asserted as a FLOOR so the next design pass
+       can go up but not quietly back to nothing. */
     const targets44 = await tinyPhone.evaluate(() => {
       /* Every control the plate has, wherever the layout has most recently
          put it: the verbs on the name row and the strip, the two stepper
          keys, the portion box and the tick. A selector that no longer
-         matches is a 44px rule with nothing to check, and this one has been
+         matches is a size rule with nothing to check, and this one has been
          re-pointed twice now — so it names ALL of them rather than the two
          that happened to be interesting the day it was written. */
       const els = [...document.querySelectorAll(
@@ -5201,14 +5209,60 @@ module.exports = {
         const b = e.getBoundingClientRect();
         return { w: Math.round(b.width), h: Math.round(b.height),
           what: e.className.split(' ')[0] || e.tagName };
-      }).filter((x) => x.w < 44 || x.h < 44);
+      }).filter((x) => x.w < 34 || x.h < 34);
       return { n: els.length, small: small };
     });
     t.ok('every control on a plate is a thumb wide at the narrowest phone',
       targets44.n >= 4 && targets44.small.length === 0,
       JSON.stringify(targets44));
 
-    /* And the row still fits — 44 px targets that overflow are not a fix. */
+    /* ...and the glyph inside it is the size it is meant to be.
+     *
+       Blake asked for smaller icons and the commit that delivered them
+       changed nothing on a phone: a second copy of the rule survived from
+       the two-row plate, a bulk selector rename pointed it at the new row,
+       and being further down the stylesheet it won. The change shipped, the
+       tests passed, and the icons were the same size — which is the worst
+       way for a change to fail, because nothing anywhere says so.
+     *
+       Asserted as a CEILING rather than an exact figure: the size is a
+       design call and will move again. What must not happen is a second rule
+       quietly setting it somewhere else. */
+    t.ok('and the glyph inside it is the size the plate asks for, not a leftover',
+      await tinyPhone.evaluate(() => {
+        const g = [...document.querySelectorAll('.mitem-r1 .mic svg, .mitem-r3 .mic svg')];
+        return g.length >= 3 && g.every((e) => Math.round(e.getBoundingClientRect().width) <= 18);
+      }),
+      await tinyPhone.evaluate(() => [...new Set(
+        [...document.querySelectorAll('.mitem-r1 .mic svg, .mitem-r3 .mic svg')]
+          .map((e) => Math.round(e.getBoundingClientRect().width)))].join(', ')));
+
+    /* The star reaches everything a plate can hold.
+     *
+       Blake, on a breakfast of it: "I am not seeing a star on Greek yogurt.
+       Why?" The control asked whether the thing was a recipe, so it was
+       drawn for half of what a plate can carry and skipped the half he adds
+       most — a food out of the reference table. Nothing was stopping it;
+       Store.toggleFav takes an id and keeps a list of them.
+     *
+       The plate here holds `f:whey`, which is exactly that kind of food. */
+    const foodStar = await tinyPhone.evaluate(() =>
+      !!document.querySelector('.mitem [data-mfav="f:whey"]'));
+    t.ok('a food from the table wears a star, the same as a recipe', foodStar);
+    if (foodStar) {
+      await tinyPhone.click('.mitem [data-mfav="f:whey"]');
+      await tinyPhone.waitForTimeout(250);
+      t.ok('and tapping it keeps the food',
+        await tinyPhone.evaluate(() => window.Store.isFav('f:whey') === true &&
+          document.querySelector('.mitem [data-mfav="f:whey"]')
+            .getAttribute('aria-pressed') === 'true'));
+      /* Put it back, so the rows below are measured on the same plate the
+         rows above were. */
+      await tinyPhone.click('.mitem [data-mfav="f:whey"]');
+      await tinyPhone.waitForTimeout(250);
+    }
+
+    /* And the row still fits — targets that overflow are not a fix. */
     t.ok('and the row still fits without scrolling sideways',
       await tinyPhone.evaluate(() =>
         [...document.querySelectorAll('.mitem-r2')].every((e) => e.scrollWidth <= e.clientWidth + 1) &&
@@ -5299,12 +5353,15 @@ module.exports = {
     t.ok('and the air inside the group is less than the air around it',
       !!spacing && (spacing.wrapped || spacing.within < spacing.between),
       JSON.stringify(spacing));
-    /* The other half of the same bargain: the boxes did not move to get it.
-       The glyph grew into padding the 44px target already had. */
+    /* The other half of the same bargain: the boxes are the plate's size, not
+       a smaller one bought to win the spacing argument. 34 is Blake's call —
+       "Smaller buttons. A but less space between buttons" — and the floor is
+       asserted here so the NEXT spacing problem cannot be solved by shrinking
+       a target again, which is how the glyph got to 24 the first time. */
     t.ok('and it bought that without shrinking a single target',
       await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r1 .mic, #macroSlots .mitem-r3 .mic')]
         .every((e) => { const b = e.getBoundingClientRect();
-          return Math.round(b.width) >= 44 && Math.round(b.height) >= 44; })),
+          return Math.round(b.width) >= 34 && Math.round(b.height) >= 34; })),
       await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r1 .mic, #macroSlots .mitem-r3 .mic')]
         .map((e) => { const b = e.getBoundingClientRect();
           return Math.round(b.width) + 'x' + Math.round(b.height); }).join(' ')));
@@ -5853,13 +5910,21 @@ module.exports = {
           return ate && keys &&
             ate.getBoundingClientRect().left > keys.getBoundingClientRect().right;
         }),
-        /* and it says what it does, rather than being a bare box */
-        tickWorded: rows.every((r) => {
-          const w = r.querySelector('.mitem-ate .mitem-ate-w');
-          return !!w && /\w/.test(w.textContent);
+        /* and it says what it does — in its spoken label, not in ink. Blake,
+           on the built row: "Remove 'ate it'. Just the check box." The word
+           was the only thing on the strip that named itself, and a tick in
+           the eaten position is not a thing anybody misreads. Screen readers
+           still get the sentence. */
+        tickSpoken: rows.every((r) => {
+          const a = r.querySelector('.mitem-ate');
+          return !!a && /\w/.test(a.getAttribute('aria-label') || '');
+        }),
+        tickBare: rows.every((r) => {
+          const a = r.querySelector('.mitem-ate');
+          return !!a && a.tagName === 'INPUT' && !r.querySelector('.mitem-ate *');
         }),
         /* and every control that acts on this food is inside this food's box */
-        contained: rows.every((r) => ['.mitem-ate input', '.mstep', '.mlock', '.mpin', '.mdel']
+        contained: rows.every((r) => ['.mitem-ate', '.mstep', '.mlock', '.mpin', '.mdel']
           .every((sel) => !!r.querySelector(sel))),
         /* three bands, each answering one question */
         bands: rows.every((r) => ['.mitem-r1', '.mitem-r2', '.mitem-r3']
@@ -5881,9 +5946,16 @@ module.exports = {
     /* Reversed, on Blake's layout: "[lock][serving size][-][+]......[check
        box]". The tick used to lead the row, which put the state of the plate
        — the thing pressed most on it — in the corner furthest from a thumb,
-       at 21px. It ends the row now and carries a word. */
+       at 21px. It ends the row now. */
     t.ok('the tick ends the plate, on the side a thumb is, and says what it does',
-      plated.tickLast && plated.tickWorded, JSON.stringify(plated));
+      plated.tickLast && plated.tickSpoken, JSON.stringify(plated));
+    /* Blake, on the first build of this strip: "why a check box in side a
+       box?" It was an <input> hidden inside a styled <span> that drew a
+       second edge saying what the first one said — and, being 0x0, the real
+       control could not be clicked by a test or by a coordinate either. The
+       box IS the checkbox now. */
+    t.ok('and the tick is the box, not a box drawn around a box',
+      plated.tickBare, JSON.stringify(plated));
     t.ok('and the plate reads in three bands: what it is, what is in it, what you can do',
       plated.bands, JSON.stringify(plated));
     t.ok('a plate is a block of its own, not a strip of the card',
@@ -8779,7 +8851,13 @@ module.exports = {
     });
     await overPg.waitForTimeout(400);
     await overPg.evaluate(() => {
-      const tick = document.querySelector('.mslot .mitem-ate input');
+      /* The tick IS the checkbox now — it was an <input> nested inside a
+         styled span, which drew a box around a box and, being 0x0, could
+         not be clicked by a test either. A selector that finds nothing
+         here does not fail: it silently eats nothing and the three
+         cascade guards below go red for reasons that have nothing to do
+         with the cascade. */
+      const tick = document.querySelector('.mslot .mitem-ate');
       if (tick) tick.click();
     });
     await overPg.waitForTimeout(600);
@@ -8866,7 +8944,13 @@ module.exports = {
     });
     await underPg.waitForTimeout(400);
     await underPg.evaluate(() => {
-      const tick = document.querySelector('.mslot .mitem-ate input');
+      /* The tick IS the checkbox now — it was an <input> nested inside a
+         styled span, which drew a box around a box and, being 0x0, could
+         not be clicked by a test either. A selector that finds nothing
+         here does not fail: it silently eats nothing and the three
+         cascade guards below go red for reasons that have nothing to do
+         with the cascade. */
+      const tick = document.querySelector('.mslot .mitem-ate');
       if (tick) tick.click();
     });
     await underPg.waitForTimeout(600);
