@@ -3710,7 +3710,9 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mcasc-box {
   flex: none; width: 16px; height: 16px; border-radius: 3px; line-height: 1;
   border: 1.5px solid var(--line-firm); display: grid; place-items: center;
-  font-size: 10px; color: transparent;
+  /* Ghosted like the plate's tick, and for the same reason — one checkbox
+     idiom in the app, not one per surface. */
+  font-size: 10px; color: var(--line-firm);
 }
 .mcasc-row[aria-checked="true"] .mcasc-box {
   background: var(--dial-on); border-color: var(--dial-on); color: var(--paper-soft);
@@ -4053,7 +4055,17 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   border: 1px solid var(--line-firm); background: var(--card);
   display: grid; place-items: center;
 }
-.mitem-ate::after { content: '\2713'; font-size: 15px; line-height: 1; color: transparent; }
+/* The tick is drawn whether or not it is ticked, at the weight of the box's
+   own edge. Blake: "might need a shadow of a checkmark on that checkmark box
+   so i know it is something i am to check." An empty square sitting beside
+   the − and + keys — same size, same outline — reads as a third key whose
+   label fell off, not as something to press.
+ *
+   Safe only because the STATE is carried by the fill: a hairline mark on
+   paper against a white mark on solid green. A grey-ink ghost was tried and
+   rejected — it reads as ticked-and-disabled, which this row can actually
+   be (a meal ahead of now), so it would be saying the wrong thing twice. */
+.mitem-ate::after { content: '\2713'; font-size: 15px; line-height: 1; color: var(--line-firm); }
 .mitem-ate:checked { background: var(--green); border-color: var(--green); }
 .mitem-ate:checked::after { color: var(--paper-soft); }
 .mitem-ate:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }

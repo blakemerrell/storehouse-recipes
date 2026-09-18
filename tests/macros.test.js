@@ -5956,6 +5956,31 @@ module.exports = {
        box IS the checkbox now. */
     t.ok('and the tick is the box, not a box drawn around a box',
       plated.tickBare, JSON.stringify(plated));
+
+    /* Blake: "might need a shadow of a checkmark on that checkmark box so i
+       know it is something i am to check." An empty square sitting beside
+       the − and + keys — same size, same outline, no glyph — reads as a
+       third key whose label fell off, not as something to press.
+     *
+       Two things have to hold at once, and the second is what makes the
+       first safe: the mark is DRAWN when unticked, and the STATE is still
+       told by the fill. A ghost mark on a box whose only other cue is the
+       same mark, darker, is how you build a checkbox nobody can read. */
+    const ghost = await platePg.evaluate(() => {
+      const t0 = document.querySelector('.mitem-ate');
+      const read = () => ({ mark: getComputedStyle(t0, '::after').color,
+        fill: getComputedStyle(t0).backgroundColor });
+      const off = read();
+      t0.click();
+      return { off: off, on: read() };
+    });
+    await platePg.waitForTimeout(300);
+    const unseen = (c) => /transparent/.test(c) || /,\s*0\)$/.test(c);
+    t.ok('an unticked plate still draws its tick, so the box says what it is for',
+      !unseen(ghost.off.mark), JSON.stringify(ghost));
+    t.ok('and ticking it is said by the FILL, not by the mark getting darker',
+      ghost.off.fill !== ghost.on.fill && !unseen(ghost.on.fill) &&
+      ghost.off.mark !== ghost.on.mark, JSON.stringify(ghost));
     t.ok('and the plate reads in three bands: what it is, what is in it, what you can do',
       plated.bands, JSON.stringify(plated));
     t.ok('a plate is a block of its own, not a strip of the card',
@@ -6219,6 +6244,20 @@ module.exports = {
       Math.abs(czAimed.Lunch - czPlans.Lunch) <= 2 &&
       Math.abs(czAimed.Snacks - czPlans.Snacks) <= 2,
       JSON.stringify({ czAimed, czPlans }));
+
+    /* One checkbox idiom in the app, not one per surface. These rows are
+       16px where the plate's tick is 34, and they were drawn by the same
+       trick — a mark parked at `transparent` — so they ghost the same way or
+       the two surfaces teach different things about what a box means. */
+    const czBox = await casc.evaluate(() => {
+      const pick = (on) => document.querySelector('.mcasc-row[aria-checked="' + on + '"] .mcasc-box');
+      const rd = (e) => e && { mark: getComputedStyle(e).color,
+        fill: getComputedStyle(e).backgroundColor };
+      return { off: rd(pick('false')), on: rd(pick('true')) };
+    });
+    t.ok('and a cleared row on the chooser draws its tick too, like the plate does',
+      !!czBox.off && !!czBox.on && !/transparent|,\s*0\)$/.test(czBox.off.mark) &&
+      czBox.off.fill !== czBox.on.fill, JSON.stringify(czBox));
 
     /* The line ends on where the DAY lands, not on what the app did. Blake:
        "I kind of want something that will let me know what's going to happen
