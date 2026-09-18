@@ -278,14 +278,16 @@ module.exports = {
        three are parts of, so they are the headline and P/F/C are three
        columns under it. Four identical bars said protein and the whole day's
        energy were the same rank of fact. Each of the four still carries its
-       three bands — eaten, planned, and the hatched share of a meal still
-       empty — because that is the reading, not the layout. */
+       two bands — eaten and planned — because that is the reading, not the
+       layout. (A third hatched in what an empty meal was assumed to become;
+       Blake: "I don't need the hash lines when blank. Just blank is fine.")
+       The assumption still lands in the delta the top pills print. */
     t.ok('calories are the headline and the macros are three columns under it',
       await p.evaluate(() => {
         const head = document.querySelector('.mbars .mhead');
         const cols = [...document.querySelectorAll('.mbars3 .mbrow')];
         const bands = (r) => r.querySelector('.mb-ate') && r.querySelector('.mb-plan') &&
-          r.querySelector('.mb-asm');
+          !r.querySelector('.mb-asm');
         return !!head && head.dataset.macro === 'kcal' && bands(head) &&
           cols.length === 3 && cols.map((r) => r.dataset.macro).join() === 'p,f,c' &&
           cols.every(bands) &&
@@ -5186,11 +5188,15 @@ module.exports = {
     await tinyPhone.waitForTimeout(350);
 
     const targets44 = await tinyPhone.evaluate(() => {
-      /* The lock left the stepper and the pin and the bin came down off the
-         name row, so the plate's controls are .mic now — and a selector that
-         no longer matches them is a 44px rule with nothing to check. */
+      /* Every control the plate has, wherever the layout has most recently
+         put it: the verbs on the name row and the strip, the two stepper
+         keys, the portion box and the tick. A selector that no longer
+         matches is a 44px rule with nothing to check, and this one has been
+         re-pointed twice now — so it names ALL of them rather than the two
+         that happened to be interesting the day it was written. */
       const els = [...document.querySelectorAll(
-        '.mitem-r2 .mic, .mstep button[data-mstep], .mtick')];
+        '.mitem-r1 .mic, .mitem-r3 .mic, .mstep button[data-mstep], ' +
+        '.mitem-r3 .mitem-amt, .mitem-ate')];
       const small = els.map((e) => {
         const b = e.getBoundingClientRect();
         return { w: Math.round(b.width), h: Math.round(b.height),
@@ -5253,19 +5259,25 @@ module.exports = {
     await spacePhone.click('[data-mfold="b"]');
     await spacePhone.waitForTimeout(300);
     const spacing = await spacePhone.evaluate(() => {
-      const row = document.querySelector('#macroSlots .mitem-r2');
+      const row = document.querySelector('#macroSlots .mitem-r3');
       if (!row) return null;
       const dial = row.querySelector('.mstep');
-      const acts = row.querySelector('.mitem-acts2');
+      /* The verbs are a group of their own at the HEAD of the strip now —
+         bin and lock. `.mitem-acts2` held three of them at the far end when
+         the plate was two rows; pin went up to the name row with the star
+         when it became three bands. */
+      const acts = row.querySelector('.mitem-verbs');
       if (!dial || !acts) return null;
-      /* One line only. Wrapped — which is what 320 does — the group is on a
-         row of its own and proximity is settled by the line break instead. */
+      /* One line only. Wrapped — which is what a narrow phone does — the
+         group is on a row of its own and proximity is settled by the line
+         break instead. */
       if (Math.abs(dial.getBoundingClientRect().top -
         acts.getBoundingClientRect().top) > 2) return { wrapped: true };
       const g = [...acts.querySelectorAll('.mic svg')].map((e) => e.getBoundingClientRect());
       if (g.length < 2) return null;
       const within = Math.round(g[1].left - g[0].right);
-      const between = Math.round(g[0].left - dial.getBoundingClientRect().right);
+      /* The air AFTER the group, since the group leads the strip now. */
+      const between = Math.round(dial.getBoundingClientRect().left - g[1].right);
       return { within, between, glyph: Math.round(g[0].width) };
     });
     /* The white between two of these must not be wider than the icons it
@@ -5285,10 +5297,10 @@ module.exports = {
     /* The other half of the same bargain: the boxes did not move to get it.
        The glyph grew into padding the 44px target already had. */
     t.ok('and it bought that without shrinking a single target',
-      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r2 .mic')]
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r1 .mic, #macroSlots .mitem-r3 .mic')]
         .every((e) => { const b = e.getBoundingClientRect();
           return Math.round(b.width) >= 44 && Math.round(b.height) >= 44; })),
-      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r2 .mic')]
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r1 .mic, #macroSlots .mitem-r3 .mic')]
         .map((e) => { const b = e.getBoundingClientRect();
           return Math.round(b.width) + 'x' + Math.round(b.height); }).join(' ')));
     await spacePhone.context().close();
@@ -5829,15 +5841,23 @@ module.exports = {
         ownEdge: parseFloat(cs.borderTopWidth) > 0 && parseFloat(cs.borderRadius) > 0,
         /* every name starts at the same x, leaf or no leaf */
         nameLefts: rows.map((r) => Math.round(r.querySelector('.mitem-name').getBoundingClientRect().left)),
-        leaves: rows.map((r) => !!r.querySelector('.leaf-sm')),
-        /* the tick leads the plate */
-        tickFirst: rows.every((r) => {
-          const tick = r.querySelector('.mtick'), name = r.querySelector('.mitem-name');
-          return tick && name &&
-            tick.getBoundingClientRect().left < name.getBoundingClientRect().left;
+        leaves: rows.map((r) => !!r.querySelector('.leaf-md .leaf-n')),
+        /* the tick ENDS the plate, on the side a thumb is */
+        tickLast: rows.every((r) => {
+          const ate = r.querySelector('.mitem-ate'), keys = r.querySelector('.mstep-keys');
+          return ate && keys &&
+            ate.getBoundingClientRect().left > keys.getBoundingClientRect().right;
+        }),
+        /* and it says what it does, rather than being a bare box */
+        tickWorded: rows.every((r) => {
+          const w = r.querySelector('.mitem-ate .mitem-ate-w');
+          return !!w && /\w/.test(w.textContent);
         }),
         /* and every control that acts on this food is inside this food's box */
-        contained: rows.every((r) => ['.mtick', '.mstep', '.mlock', '.mpin', '.mdel']
+        contained: rows.every((r) => ['.mitem-ate input', '.mstep', '.mlock', '.mpin', '.mdel']
+          .every((sel) => !!r.querySelector(sel))),
+        /* three bands, each answering one question */
+        bands: rows.every((r) => ['.mitem-r1', '.mitem-r2', '.mitem-r3']
           .every((sel) => !!r.querySelector(sel))),
         /* while the ones that act on the meal are not */
         mealVerbsOutside: rows.every((r) => !r.querySelector('[data-mbal], [data-mskip], [data-mslot]')),
@@ -5846,12 +5866,21 @@ module.exports = {
     t.ok('the plate is seeded with a scored recipe and a bare food',
       plated.n >= 2 && plated.leaves.indexOf(true) >= 0 && plated.leaves.indexOf(false) >= 0,
       JSON.stringify(plated));
-    /* The complaint, made measurable. A badge that is drawn for a recipe and
-       absent for a food cannot be the thing a column starts on — so it moved
-       to the other end and the tick took the left edge. */
+    /* The complaint, made measurable, and it survives the leaf moving back to
+       the front: a badge drawn for a recipe and absent for a food cannot be
+       the thing a column starts on. The slot is kept empty on a food so both
+       start their names in the same place. */
     t.ok('every plate\u2019s name starts at the same edge, leaf or no leaf',
       new Set(plated.nameLefts).size === 1, JSON.stringify(plated.nameLefts));
-    t.ok('and the tick leads the plate rather than ending it', plated.tickFirst);
+
+    /* Reversed, on Blake's layout: "[lock][serving size][-][+]......[check
+       box]". The tick used to lead the row, which put the state of the plate
+       — the thing pressed most on it — in the corner furthest from a thumb,
+       at 21px. It ends the row now and carries a word. */
+    t.ok('the tick ends the plate, on the side a thumb is, and says what it does',
+      plated.tickLast && plated.tickWorded, JSON.stringify(plated));
+    t.ok('and the plate reads in three bands: what it is, what is in it, what you can do',
+      plated.bands, JSON.stringify(plated));
     t.ok('a plate is a block of its own, not a strip of the card',
       plated.ownGround && plated.ownEdge, JSON.stringify(plated));
     /* The scope, structurally: everything that acts on this food is in this
@@ -5904,7 +5933,7 @@ module.exports = {
     await openDay(rowFit);
     await rowFit.waitForTimeout(250);
     const fit = await rowFit.evaluate(() => {
-      const rows = [...document.querySelectorAll('.mitem-r2')];
+      const rows = [...document.querySelectorAll('.mitem-r3')];
       if (!rows.length) return { none: true };
       return rows.map((r) => {
         const kids = [...r.children];
@@ -5913,10 +5942,19 @@ module.exports = {
            are 44 and 46 tall in a centred row, so their tops differ by a
            pixel while plainly sharing a line, and bucketing those tops then
            mis-reports whenever the bucket boundary falls between them. A row
-           that has wrapped is a row taller than the tallest thing in it. */
+           that has wrapped is a row taller than the tallest thing in it.
+         *
+           Its CONTENT height, though. The strip carries a rule and six
+           pixels of padding above it now — the band separator — and measuring
+           the border box against the children reported every plate as folded
+           in half when all four controls were plainly on one line at top=7.
+           A row's own padding is not a second row. */
+        const cs = getComputedStyle(r);
         const widest = Math.max.apply(null, kids.map((k) =>
           Math.round(k.getBoundingClientRect().height)));
-        const h = Math.round(r.getBoundingClientRect().height);
+        const h = Math.round(r.getBoundingClientRect().height -
+          parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) -
+          parseFloat(cs.borderTopWidth) - parseFloat(cs.borderBottomWidth));
         return { h: h, widest: widest, wrapped: h > widest + 4 };
       });
     });
@@ -5935,25 +5973,45 @@ module.exports = {
        own block is a box on purpose — that containment is what says which
        scope these controls belong to. */
     const chrome = await rowFit.evaluate(() => {
-      const out = [];
-      document.querySelectorAll('.mitem-r2 .mic, .mitem-r2 .mstep, .mitem-r2 .mstep button, .mitem > .mtick')
-        .forEach((e) => {
-          const c = getComputedStyle(e);
-          const boxed = parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0;
-          const filled = c.backgroundColor !== 'rgba(0, 0, 0, 0)' && c.backgroundColor !== 'transparent';
-          if (boxed || filled) out.push((e.className || e.tagName) + (boxed ? ' boxed' : '') + (filled ? ' filled' : ''));
-        });
-      const st = document.querySelector('.mitem-r2 .mstep');
-      const ac = document.querySelector('.mitem-acts2');
-      return { chromed: out.slice(0, 5), n: out.length,
-        air: st && ac ? Math.round(ac.getBoundingClientRect().left - st.getBoundingClientRect().right) : -1 };
+      const boxy = (e) => {
+        const c = getComputedStyle(e);
+        return parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0 ||
+          (c.backgroundColor !== 'rgba(0, 0, 0, 0)' && c.backgroundColor !== 'transparent');
+      };
+      const verbs = [...document.querySelectorAll('.mitem-r1 .mic, .mitem-r3 .mic')];
+      const amt = document.querySelector('.mitem-r3 .mitem-amt');
+      const keys = [...document.querySelectorAll('.mitem-r3 .mstep-keys button')];
+      const first = document.querySelector('.mitem-r3 .mic');
+      const ate = document.querySelector('.mitem-r3 .mitem-ate');
+      const strip = document.querySelector('.mitem-r3');
+      return {
+        verbsBoxed: verbs.filter(boxy).map((e) => e.className).slice(0, 4),
+        verbsN: verbs.length,
+        amtBoxed: !!amt && boxy(amt),
+        keysBoxed: keys.length > 0 && keys.every(boxy),
+        /* the verbs at one end, the tick at the other */
+        spread: (first && ate && strip)
+          ? Math.round(ate.getBoundingClientRect().left - first.getBoundingClientRect().right)
+          : -1
+      };
     });
-    t.ok('and none of them is drawn as a box', chrome.n === 0, JSON.stringify(chrome));
-    /* "Not spread out well" was five boxes in a left-packed strip. The amount
-       and the three things you can do to the plate are different kinds of
-       control and now read as two groups with air between them. */
-    t.ok('and the amount and the actions are two groups, not one strip',
-      chrome.air > 8, JSON.stringify(chrome));
+    /* Blake, on an earlier version of this row: "buttons are too big. And not
+       spread out well and are out of balance with the rest of the text on the
+       card." The VERBS keep that answer — bin, lock, pin, star are glyphs
+       with generous invisible margins, the same thing to a thumb and a
+       quieter thing to an eye. */
+    t.ok('the verbs are glyphs, not boxes',
+      chrome.verbsN >= 3 && chrome.verbsBoxed.length === 0, JSON.stringify(chrome));
+    /* ...and the PORTION is boxed, on his newer one: "Outline the serving
+       size in a box as well. With +/- on the right side of it." It is the
+       control you operate rather than a verb you press once, and boxing it is
+       what makes the three pieces read as one dial. */
+    t.ok('while the portion and its two keys are boxed, being the thing you operate',
+      chrome.amtBoxed && chrome.keysBoxed, JSON.stringify(chrome));
+    /* The verbs at one end and the tick at the other, with the dial between:
+       "not spread out well" was five boxes left-packed into a strip. */
+    t.ok('and the strip is spread — verbs one end, the tick the other',
+      chrome.spread > 40, JSON.stringify(chrome));
 
     t.ok('a plate\u2019s controls sit on one row at phone width',
       !fit.none && fit.length >= 3 && fit.every((r) => !r.wrapped),
@@ -6290,9 +6348,10 @@ module.exports = {
           inkFig: col(ink, '.mb-num b'),
           /* the clip follows the EATEN edge, not the end of the whole fill */
           clip: pap ? getComputedStyle(pap).clipPath : '',
-          /* and the three bands survive */
-          bands: ['mb-ate', 'mb-plan', 'mb-asm']
+          /* eaten and planned survive; the hatched assumption does not */
+          bands: ['mb-ate', 'mb-plan']
             .filter((c) => !!el.querySelector('.' + c)).length,
+          hatch: !!el.querySelector('.mb-asm'),
           /* nothing spills out of the pill */
           spills: ink && track
             ? ink.getBoundingClientRect().right > track.getBoundingClientRect().right + 1 : null,
@@ -6327,11 +6386,20 @@ module.exports = {
     t.ok('the paper copy is clipped to the fill rather than painted over it',
       pilAll.every((b) => /inset\(/.test(b.clip)), JSON.stringify(pilAll.map((b) => b.clip)));
 
-    /* Eaten, planned and assumed are three different claims about the day —
-       food, intention, and arithmetic — and a single-colour pill would have
-       thrown two of them away to gain nothing. */
-    t.ok('and eaten, planned and assumed are all still separate bands',
-      pilAll.every((b) => b.bands === 3), JSON.stringify(pilAll.map((b) => b.bands)));
+    /* Eaten and planned are two different claims — food, and intention —
+       and both are things you have put on the day yourself. A flat
+       single-colour pill would have thrown that away to gain nothing. */
+    t.ok('eaten and planned are still separate bands',
+      pilAll.every((b) => b.bands === 2), JSON.stringify(pilAll.map((b) => b.bands)));
+
+    /* The third band was the hatching, and it is gone. It drew what an EMPTY
+       meal is assumed to become, which on a morning covered most of four
+       bars and was the one band with nothing on it to act on. The assumption
+       has not gone — it is still in the delta the top pills print — only the
+       hatching has. */
+    t.ok('and an empty meal no longer hatches itself across the bar',
+      pilAll.every((b) => b.hatch === false),
+      JSON.stringify(pilAll.map((b) => b.state + ':' + b.hatch)));
 
     t.ok('nothing spills out of a pill, and the headline is the tallest',
       pilAll.every((b) => b.spills === false) &&
@@ -8706,7 +8774,7 @@ module.exports = {
     });
     await overPg.waitForTimeout(400);
     await overPg.evaluate(() => {
-      const tick = document.querySelector('.mslot .mtick input');
+      const tick = document.querySelector('.mslot .mitem-ate input');
       if (tick) tick.click();
     });
     await overPg.waitForTimeout(600);
@@ -8793,7 +8861,7 @@ module.exports = {
     });
     await underPg.waitForTimeout(400);
     await underPg.evaluate(() => {
-      const tick = document.querySelector('.mslot .mtick input');
+      const tick = document.querySelector('.mslot .mitem-ate input');
       if (tick) tick.click();
     });
     await underPg.waitForTimeout(600);
@@ -9233,7 +9301,10 @@ module.exports = {
     await wg.waitForTimeout(300);
     const weighed = await wg.evaluate(() => {
       const row = document.querySelector('#macroSlots .mitem');
-      const g = row.querySelector('.mitem-g');
+      /* It has its own chip on the facts band now, ahead of the figures —
+         the weight is how you MEASURE the plate, so it leads the line that
+         says what the plate is. */
+      const g = row.querySelector('.mitem-uom');
       const mac = row.querySelector('.mitem-mac');
       if (!g || !mac) return null;
       const gb = g.getBoundingClientRect(), mb = mac.getBoundingClientRect();
@@ -9255,10 +9326,10 @@ module.exports = {
     await wg.waitForTimeout(250);
     t.ok('and the weight follows the portion rather than standing still',
       await wg.evaluate((was) => {
-        const g = document.querySelector('#macroSlots .mitem-g');
+        const g = document.querySelector('#macroSlots .mitem-uom');
         return !!g && g.textContent.trim() !== was;
       }, weighed.text),
-      await wg.evaluate(() => (document.querySelector('#macroSlots .mitem-g') || {}).textContent));
+      await wg.evaluate(() => (document.querySelector('#macroSlots .mitem-uom') || {}).textContent));
     await wg.context().close();
 
     /* ---- typing a portion ------------------------------------------------
@@ -9604,7 +9675,7 @@ module.exports = {
       await saltPage.evaluate(() => {
         const el = document.querySelector('#macroSlots .msalt');
         if (!el) return false;
-        const meta = el.closest('.mitem-meta');
+        const meta = el.closest('.mitem-r2');
         const mb = meta.getBoundingClientRect(), sb = el.getBoundingClientRect();
         return /mg salt/.test(el.textContent) &&
           /* Nothing of it clipped, on either axis. The chip it replaces failed
@@ -9622,7 +9693,7 @@ module.exports = {
         const box = (e) => { const b = e.getBoundingClientRect();
           return [b.top, b.bottom, b.left, b.right].map(Math.round).join(','); };
         return el.textContent.trim() + ' salt[' + box(el) + '] meta[' +
-          box(el.closest('.mitem-meta')) + ']';
+          box(el.closest('.mitem-r2')) + ']';
       }));
     /* And it is a warning rather than a label, said by the ink now that there
        is no border left to say it. */

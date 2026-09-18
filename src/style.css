@@ -2414,8 +2414,10 @@ select { max-width: 280px; }
 /* A day being planned rather than lived: everything that records what
    happened goes quiet, everything that decides what will happen stays. */
 .mday-ahead .mday-dot { opacity: 0.3; }
-.mday-ahead .mtick { background: var(--paper-soft); }
-.mday-ahead .mtick input { opacity: 0.35; }
+/* A day you are planning rather than living: the tick is disabled, and it
+   wears .mitem-ate now that it is a labelled button at the end of the strip
+   rather than a bare box in the corner. */
+.mday-ahead .mitem-ate { background: var(--paper-soft); opacity: 0.45; }
 .mw-body { padding: 0 10px 9px; border-top: 1px solid var(--line-soft); padding-top: 8px; }
 .mday-weigh .mt-lab { margin-left: auto; }
 .mday-weigh .mw-row { margin-bottom: 6px; }
@@ -2555,6 +2557,11 @@ select { max-width: 280px; }
 }
 /* the same leaf, sized for a row rather than a card */
 .leaf-sm { width: 20px; height: 24px; flex: none; }
+/* The plate's leaf leads its row now rather than trailing the name, so it
+   is sized to lead: it is the only image a plate has and it carries a
+   number worth reading. */
+.leaf-md { width: 28px; height: 33px; flex: none; }
+.leaf-md .leaf-n { font-size: 11px; }
 .leaf-sm .leaf-n { font-size: 8.5px; }
 .leaf-sr {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -3876,83 +3883,223 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    came back to read. A plate you ate is a RECORD, and a record is not a
    greyed-out control. The tick says it; the plate keeps its ground. */
 
-/* Row one: are you done with it, what is it, is it worth eating. */
-/* A grid, so the tick can stand beside TWO lines instead of forcing a row of
-   its own to 44px. Column one is the tick; column two holds the name and then
-   the cost; the controls take the full width underneath.
+/* Three bands, and each answers one question.
  *
-   This is the third arrangement in two days and the measurements are why. On
-   one row with the name, the cost squeezed a 24-character title into 141px
-   and then overflowed its box under the leaf. On a row of its own, the plate
-   came out 160px against the 104 it replaced. Beside the tick it is free:
-   that column is 44px tall for the target's sake and was otherwise empty. */
-.mitem {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 7px; row-gap: 1px;
-  align-items: center;
-}
-.mitem .mtick { grid-row: 1 / span 2; grid-column: 1; }
-.mitem-head { grid-column: 2; display: flex; align-items: center; gap: 6px; min-width: 0; }
-.mitem-head .mitem-name { flex: 1 1 auto; min-width: 0; }
-.mitem-head .leaf-sm { flex: none; }
-.mitem-meta { grid-column: 2; min-width: 0; }
-.mitem-r2 { grid-column: 1 / -1; }
-/* Small, and first. It was a 44px bordered box at the far right of a third
-   row — the single most important fact about a plate, reached last. The 44px
-   target is kept on coarse pointers below; on a mouse it can be the size it
-   looks. */
-/* .mitem-r1 went with the grid and took six rules with it — including the
-   one that made this borderless, so the tick fell back to the bordered 44px
-   box the old control strip used and drew as a big empty square beside a 14px
-   name. Scoped to .mitem now, which is the element that exists.
+   Blake's layout. WHAT IS THIS — the leaf leads at full size, the name runs
+   to the two controls that keep it. WHAT IS IN IT — the weight and the four
+   figures, indented under the name so they read as belonging to it. WHAT CAN
+   I DO — one outlined strip with every verb that acts on this plate.
+ *
+   The grid that used to be here put the tick in a 44px column of its own so
+   the name and the cost could share its height. The tick is not in a corner
+   any more, so the column went with it. */
+.mitem { display: block; }
+.mitem-r1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mitem-r1 .mitem-name { flex: 1 1 auto; min-width: 0; }
+.mitem-r1 .leaf-md { flex: none; }
+/* An empty slot the size of the badge, so a food and a recipe start their
+   names in the same place. */
+.leaf-gap { display: block; }
+.mitem-keep { flex: none; display: flex; gap: 2px; }
 
-   The target is 44px and INVISIBLE: no border, no ground, a 20px checkbox
-   centred in it. A hit area is not a thing to look at. */
-.mitem > .mtick {
-  flex: none; width: 44px; height: 44px; border: 0; background: none;
-  border-radius: 0; display: flex; align-items: center; justify-content: center;
-}
-.mitem > .mtick input { width: 20px; height: 20px; }
-.mitem-head .leaf-sm { flex: none; }
-
-/* Row two: today's portion, what may be done to it, what it costs. */
+/* Row two, indented to the name: the leaf's width plus the gap, so the
+   figures start where the title does rather than at the block's edge. */
 .mitem-r2 {
-  display: flex; align-items: center; gap: 4px;
-  margin: 3px 0 0 0;
-  /* It wraps, and the cost is what wraps. Four 44px targets and a dial do not
-     fit beside the arithmetic on a 320px phone, and the suite says so — so on
-     a narrow screen the controls keep the line and .mitem-meta drops under
-     them, still right-aligned by its own margin. The alternative was shrinking
-     the targets, which is the thing that must not happen. */
-  flex-wrap: wrap; row-gap: 4px;
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: 7px; row-gap: 2px;
+  margin: 2px 0 0 36px; min-width: 0;
 }
-/* The dial shrinks to what it is. It was flex:1 across most of the card with
-   44px keys — a slab that outweighed the food's name. */
-/* The dial takes what it needs and no more than most of the row. A food typed
-   in from a label can carry a portion that is a sentence — Blake's bacon reads
-   "3 1 skillet cooked slice (15 g)" — and at 298px that alone plus three 44px
-   targets is 430 of a 334px row, so the controls folded onto a second line.
+/* What it weighs, first, because Blake weighs. A cup of oats is a range and
+   40 g of oats is 40 g. */
+.mitem-uom {
+  flex: none; font-size: 10.5px; font-weight: 600; color: var(--muted-2);
+  padding: 1px 6px; border-radius: 3px;
+  background: var(--card); border: 1px solid var(--line-soft);
+}
+
+/* Row three: everything that acts on this plate, in one outlined strip. */
+/* It WRAPS. At 320 with a thumb the six targets want more than the card has,
+   and the two ways out are shrinking the targets or taking a second line —
+   the first of which is the thing that must not happen. The old row above
+   this made the same trade and its note says so. */
+/* Bin and lock, tight together, so proximity says they are one group and the
+   portion beside them is another. */
+/* gap: 0, and the glyph grows into the padding the 44px target already has.
+   Two 44px boxes with air between them put more white INSIDE the group than
+   around it, which says the opposite of what the grouping means — there is a
+   note on the old .mitem-acts2 recording the same arithmetic. */
+.mitem-verbs { flex: none; display: flex; align-items: center; gap: 0; }
+.mitem-r3 {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px; row-gap: 5px;
+  margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line-soft);
+}
+/* The portion, boxed, with its two steppers joined to its right — so the
+   three things that change the amount read as one control instead of a
+   number with a button on either side of it. */
+/* Written under .mstep so it outranks `.mstep .mstep-type`, which strips the
+   border and the ground off this same element from a thousand lines further
+   up. That rule is right for what it was written for — the portion used to be
+   a dotted-underlined word inside a bordered dial — and it is the dial that
+   has the outline now, so the word needs its own. */
+/* min-height, never height. A food typed in from a label carries whatever
+   unit the label used and Blake's bacon reads "1 skillet cooked slice (15 g)"
+   — at a fixed height that clips, and there is a note further up this file
+   recording exactly what clipping a portion costs: "2 1/2 cups" became
+   "2 1/2 c" and ticking the plate silently changed what it said you ate. Two
+   short lines inside the box cost nothing. */
+.mitem-r3 .mstep .mitem-amt {
+  flex: 1 1 auto; min-width: 46px; min-height: 30px; padding: 3px 7px;
+  /* A bounded grid, not a flex row. The portion is a bare text node, so
+     under `display: flex` it becomes an ANONYMOUS flex item — and one of
+     those sizes to max-content and will not shrink, so the words never wrap
+     and "1 ¾ containers" simply ran two pixels past the box. A grid track of
+     `minmax(0, 1fr)` is bounded by the box, which is what lets the text wrap
+     inside it at all. */
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  align-content: center; justify-items: center; gap: 3px;
+  border: 1px solid var(--line-firm); border-radius: 4px; background: var(--card);
+  font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink);
+  /* Wraps at spaces, and breaks a word ONLY when the word cannot fit a line
+     of its own. `anywhere` was the first try and it broke "1 serving" into
+     "1 / serv / ing" — three lines of nonsense where two honest ones fit,
+     because it breaks wherever it likes rather than only where it must.
+     Plain `normal` was the second and it let "1 ¾ containers" overflow the
+     box by two pixels, which this file calls the worst of the three: a
+     portion that silently loses its last letters is the app misreporting
+     what you ate.
+   *
+     `anywhere`, in the end, and the difference from `break-word` is the one
+     that matters here: only `anywhere` shrinks the intrinsic MIN-CONTENT
+     size. `break-word` will break a too-long word when it lays the line out,
+     but the box is a grid item whose automatic minimum is still the longest
+     word — so the item refused to be narrower than "containers" and ran two
+     pixels past its track, wrapping or not. The three-line "1 / serv / ing"
+     that made me abandon `anywhere` the first time was not its fault either:
+     the box was 44px then, because the tick was still carrying its label. It
+     is 62 to 66 now, which is wider than any word a unit is made of. */
+  line-height: 1.15; text-align: center; white-space: normal; overflow-wrap: anywhere;
+  /* ...and the box grows to hold it. `.mstep-x` sets overflow:hidden with
+     text-overflow:ellipsis a thousand lines up — right for a nowrap dial,
+     fatal for a wrapping one: the words wrapped to four lines and the box
+     clipped them at two. "3 1 skillet cooked slice (15 g)" needed 57px in a
+     42px box. Both halves of that rule have to be undone, not just the
+     white-space. */
+  overflow: visible; text-overflow: clip;
+  /* height:auto, not just min-height. The portion is a <button> while it is
+     being stepped, so `.mstep button { height: 44px }` applies to it — and a
+     min-height cannot undo a height. That rule has its own note a thousand
+     lines up warning that it outranks `.mstep-x`, which is how it truncated
+     "2 1/2 cups" to "2 1/2 c" the last time. Same rule, third visit. */
+  height: auto;
+}
+.mitem-r3 .mstep .mitem-amt.mstep-type:hover,
+.mitem-r3 .mstep .mitem-amt.mstep-wake:hover {
+  border-color: var(--ochre); color: var(--ochre-text);
+}
+.mitem-r3 .mstep .mitem-amt.mstep-wake { text-align: center; }
+.mitem-typing i { font-style: normal; font-size: 10.5px; color: var(--muted); font-weight: 400; }
+.mitem-typing .mstep-in { width: 3.2em; min-width: 0; }
+/* The dial is a plain row now: the box carries its own outline and the two
+   keys carry theirs, so the container has nothing left to draw. */
+.mitem-r3 .mstep {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 5px;
+  border: 0; background: none; border-radius: 0; padding: 0; max-width: none;
+}
+.mstep-keys { flex: none; display: flex; }
+.mitem-r3 .mstep-keys button {
+  flex: none; width: 30px; height: 30px; font-size: 15px; padding: 0;
+  border: 1px solid var(--line-firm); background: var(--card); color: var(--muted-2);
+}
+.mitem-r3 .mstep-keys button:first-child { border-radius: 4px 0 0 4px; }
+.mitem-r3 .mstep-keys button:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
+.mitem-r3 .mstep.spent .mstep-keys button { opacity: 0.35; cursor: default; }
+
+/* The thing pressed most, on the side a thumb is, with a word on it. It was
+   a 21px box in the top-left corner: the state of the plate, given the
+   smallest target and the longest reach. Still a real checkbox underneath. */
+.mitem-ate {
+  flex: none; margin-left: auto; display: flex; align-items: center;
+  justify-content: center; gap: 6px;
+  min-height: 30px; padding: 0 9px 0 8px; cursor: pointer;
+  border: 1px solid var(--line-firm); border-radius: 4px;
+  font-size: 11.5px; font-weight: 600; color: var(--muted-2);
+}
+/* The input IS the box. It was a zero-sized input behind a decorative span,
+   which is the arrangement that cannot be clicked: not by Playwright, not by
+   anything driving the page by coordinates, and not by a pointer that lands
+   on the 0x0 element rather than the label. A control you can only reach
+   through its label is a control with one way in. */
+.mitem-ate input {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none; cursor: pointer;
+  width: 16px; height: 16px; border-radius: 3px;
+  border: 1.5px solid var(--line-firm); background: none;
+  display: grid; place-items: center;
+}
+.mitem-ate input::after { content: '\2713'; font-size: 10px; line-height: 1; color: transparent; }
+.mitem-ate:has(input:checked) {
+  background: var(--green); border-color: var(--green); color: var(--paper-soft);
+}
+.mitem-ate input:checked {
+  background: oklch(1 0 0 / 0.22); border-color: oklch(1 0 0 / 0.55);
+}
+.mitem-ate input:checked::after { color: var(--paper-soft); }
+.mitem-ate:has(input:focus-visible) { outline: 2px solid var(--ochre); outline-offset: 2px; }
+.mitem-ate:has(input:disabled) { opacity: 0.4; cursor: default; }
+
+/* At 320 the six controls want about twenty pixels more than the card has,
+   so the word goes and the box stays. It keeps its spoken label either way,
+   and a tick in a 30px target is not a thing anybody misreads. */
+@media (max-width: 360px) {
+  .mitem-ate { padding: 0 7px; }
+  .mitem-ate-w { display: none; }
+  .mitem-r3 { gap: 4px; }
+  .mitem-r3 .mstep .mitem-amt { min-width: 40px; padding: 0 4px; }
+}
+/* A thumb is 44px and this app has held that line everywhere else. The strip
+   is drawn at 30 on a mouse, where a pointer is a pixel; on a phone every
+   piece of it grows to the target it needs. That is what the row costs on a
+   touch device, and it is not negotiable — the note on .mp-shelf records the
+   one time a whole surface missed this pass. */
+@media (pointer: coarse) {
+  .mitem-r1 .mic, .mitem-r3 .mic { width: 44px; height: 44px; }
+  .mitem-r3 .mstep .mitem-amt { min-height: 44px; min-width: 44px; }
+  .mitem-r3 .mstep-keys button { width: 44px; height: 44px; }
+  .mitem-ate { min-height: 44px; min-width: 44px; }
+  /* Bigger on a thumb, which costs nothing — the target was already 44 and
+     the glyph was floating in the middle of it. It is what buys the group
+     its proximity back. */
+  .mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 24px; height: 24px; }
+  /* The dial keeps a line of its own once the row has to wrap, so the two
+     keys never end up orphaned under their own box. */
+  .mitem-r3 .mstep { flex: 1 1 128px; }
+}
+/* The word goes before the portion does.
  *
-   It WRAPS rather than clips. There is a comment further up recording what
-   clipping costs: .mstep-x truncating turned "2 1/2 cups" into "2 1/2 c" and
-   ticking a plate silently changed what it said you ate. Two short lines
-   inside a 44px-tall dial cost nothing at all. */
-.mitem-r2 .mstep { flex: 0 1 auto; min-width: 0; max-width: 54%; border-radius: 5px; }
-.mitem-r2 .mstep-x { white-space: normal; line-height: 1.15; text-align: center; }
-.mitem-r2 .mstep button { height: 28px; }
-.mitem-r2 .mstep button[data-mstep] { width: 26px; font-size: 15px; }
-.mitem-r2 .mstep-x { padding: 0 7px; font-size: 11.5px; }
+   On a phone the strip is exactly full: two 44px verbs, two 44px keys, the
+   tick and whatever is left for the amount. At 390 that left 44px, and
+   "1 serving" wants 76 — so the portion overflowed its box, which is the one
+   thing on this row that must stay readable. There is a note further up
+   recording what a clipped portion costs: "2 1/2 cups" became "2 1/2 c" and
+   ticking the plate silently changed what it said you ate.
+ *
+   So the tick gives up its label and keeps everything else — the box, the
+   colour, the 44px target and its spoken name. It comes back on a wider
+   phone and on a mouse. */
+@media (pointer: coarse) and (max-width: 400px) {
+  .mitem-ate-w { display: none; }
+  .mitem-ate { padding: 0; }
+}
+
 /* Lock, pin and bin: one shape, one size, in one order, on every plate. They
    were a 44px cell inside the dial (lock) and two bare glyphs on the name row
    (pin, bin) — three controls of the same scope wearing three different
    clothes in two different places. */
-.mitem-r2 .mic {
+.mitem-r1 .mic, .mitem-r3 .mic {
   flex: none; width: 28px; height: 28px; padding: 0; line-height: 1;
   border: 1px solid var(--line-soft); border-radius: 5px;
   background: var(--card); color: var(--muted-2); font-size: 12px;
 }
-.mitem-r2 .mic[aria-pressed="true"] {
+.mitem-r1 .mic[aria-pressed="true"], .mitem-r3 .mic[aria-pressed="true"] {
   background: color-mix(in oklab, var(--ochre) 24%, var(--card));
   border-color: var(--ochre); color: var(--ochre-text);
 }
@@ -3961,23 +4108,18 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    the lock and the pin became SVGs too they had none and filled their whole
    44px target. Scoped to .mic, which all three wear, so the next one added
    cannot arrive naked. */
-.mitem-r2 .mic svg { width: 18px; height: 18px; display: block; }
-.mitem-r2 .mdel:hover { color: oklch(0.50 0.16 25); border-color: oklch(0.50 0.16 25); }
+.mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 18px; height: 18px; display: block; }
+.mitem-r3 .mdel:hover { color: oklch(0.50 0.16 25); border-color: oklch(0.50 0.16 25); }
 
 /* What it costs. Where it came from is no longer said here — .mitem-from went
    with the book, the yield and the portion detail, which were a whole row per
    plate spent on reference rather than on the decision in front of you. All
    three are on the recipe, a tap away through the name.
  *
-   Left-aligned under the name, and it WRAPS now rather than clipping: the
-   salt warning rides the end of this line, and a plate that is both salty and
-   four-figure would otherwise lose the warning off the right edge — which is
-   the failure the warning exists to prevent. */
-.mitem-meta {
-  text-align: left; min-width: 0;
-  display: flex; flex-wrap: wrap; align-items: baseline;
-  column-gap: 7px; row-gap: 1px;
-}
+   .mitem-meta went with the two-row plate: the figures and the salt warning
+   live on the facts band now, which does its own wrapping. The rule that used
+   to be here set the same flex properties .mitem-r2 already sets. */
+
 /* The figure's own nowrap is stated once, on .mitem-mac itself — a narrow
    phone drops the whole thing to the next line rather than breaking "38C"
    across two. Restating it here is how a property ends up living in two
@@ -4032,14 +4174,14 @@ button.mw-verdict:hover { background: var(--paper-soft); }
      about height, and a mockup built with 26px controls had me claim the
      opposite in a commit message. */
   .mitem-r2 { margin-left: 0; }
-  .mitem-r2 .mic { width: 44px; height: 44px; font-size: 15px; }
+  .mitem-r1 .mic, .mitem-r3 .mic { width: 44px; height: 44px; font-size: 15px; }
   /* 22, not 17. The glyph grows into the padding of a box that is not
      changing size, which is the only lever the 44px floor leaves: it buys
      back 5px of white on each side of every icon and turns the gap between
      them from the widest thing on the row into the narrowest. It also puts
      them at the optical weight of the stepper's own 19px glyphs, which they
      were reading light against. */
-  .mitem-r2 .mic svg { width: 22px; height: 22px; }
+  .mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 22px; height: 22px; }
   .mitem-r2 .mstep button { height: 44px; }
   .mitem-r2 .mstep button[data-mstep] { width: 44px; font-size: 18px; }
   .mitem-r2 .mstep-x { padding: 0 10px; font-size: 13px; }
@@ -4067,7 +4209,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
      the screen as "1 servin". Which is the exact failure the comment above
      says must never happen, on the exact phone it was written for. */
   .mitem-r2 .mstep { flex: 1 1 100%; max-width: none; }
-  .mitem-meta { text-align: left; margin-left: 0; }
+  .mitem-r2 { margin-left: 0; }
 }
 
 /* ---- the control row, at the weight of the words -------------------------
@@ -4097,8 +4239,8 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mitem-r2 .mstep-x { border: 0; padding: 0 6px; font-weight: 600; }
 .mitem-r2 .mstep-wake { text-decoration: underline dotted; text-underline-offset: 3px; }
 
-.mitem-r2 .mic { border: 0; background: none; }
-.mitem-r2 .mic[aria-pressed="true"] {
+.mitem-r1 .mic, .mitem-r3 .mic { border: 0; background: none; }
+.mitem-r1 .mic[aria-pressed="true"], .mitem-r3 .mic[aria-pressed="true"] {
   background: none; border: 0;
   /* On, said by the ink rather than by a filled box — the same way the app
      says a favourite is on. */

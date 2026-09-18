@@ -153,6 +153,14 @@
     return r.food ? !!r.fav : window.Store.isFav(r.id);
   }
 
+  /* A book recipe is the household's to keep, and so is a food of your own.
+     A food out of the reference table is neither — it is the table — so it
+     gets no star. Same rule the picker has always applied, lifted out of the
+     markup so the plate and the picker cannot come to differ about it. */
+  function mCanFav(r) {
+    return !!r && (!r.food || String(r.id).indexOf('f:my:') === 0);
+  }
+
   function mToggleFav(r) {
     if (!r.food) { window.Store.toggleFav(r.id); return; }
     var key = String(r.id).indexOf('f:my:') === 0 ? String(r.id).slice(5) : '';
@@ -3584,17 +3592,41 @@
 
            Row one is the food: are you done with it, what is it, is it worth
            eating. Row two is today's portion and what it costs. */
+        /* Three bands, and each answers one question.
+         *
+           Blake's layout, after a round of drawings: "Box. Outline.
+           [Image][leaf score][name]......[pin][fav] / Practical uom. Cal PFC
+           / [lock][serving size][-][+]......[check box]".
+         *
+           WHAT IS THIS — the leaf leads the row at full size, the name runs
+           to the two controls that keep it: pin for the routine, the star
+           for the book. WHAT IS IN IT — the weight and the four figures,
+           indented under the name so they read as belonging to it. WHAT CAN
+           I DO — one outlined strip carrying every verb that acts on this
+           plate, with the portion boxed and its steppers joined to its right
+           so the three things that change the amount read as one control.
+         *
+           The check moves to the far end of that strip and gains a word. It
+           is the thing pressed most on the row and it was a 21px square in
+           the corner furthest from a thumb, which is exactly backwards.
+         *
+           There is no image slot, because there are no images: 335 recipes
+           and 221 foods, not a photograph among them. The leaf is what a
+           plate has, and it is the better token anyway — it carries a number
+           worth reading. */
         return '<div class="mitem' + (it.eaten ? ' eaten' : '') +
             (it.l ? ' held' : '') + '">' +
-          /* The tick, first. It is the state of the plate and the thing
-               pressed most, and putting it in the left column gives every
-               plate one honest left edge — which the leaf badge used to
-               break, starting a food with a score 28 px right of one
-               without. */
-            '<label class="mtick no-print"><input type="checkbox" data-meat="' + tag + '"' +
-              (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
-              ' aria-label="Eaten"></label>' +
-          '<span class="mitem-head">' +
+          '<div class="mitem-r1">' +
+            /* The slot is kept even when there is no score to put in it.
+               A badge drawn for a recipe and absent for a food cannot be the
+               thing a column starts on: it puts two plates of one meal at two
+               different left edges, which is a thing you feel without being
+               able to name it. This file has the note already, from the last
+               time the leaf led a row — and leading it again is exactly how
+               the fault comes back. */
+            (r.score === null || r.score === undefined
+              ? '<span class="leaf-md leaf-gap" aria-hidden="true"></span>'
+              : leaf(r.score, 'leaf-md')) +
             /* A recipe's name opens the recipe. A food's name opens the
                food: what one of it is, and — for a meal you kept together —
                the parts it was made of. It used to be a dead label, which
@@ -3604,126 +3636,67 @@
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
-            /* The score, at the far end of the name's own line. A badge
-               drawn for a recipe and absent for a food cannot be the thing a
-               column starts on: it was putting two plates of one meal at two
-               different left edges, which is a thing you feel without being
-               able to name it. */
-            leaf(r.score, 'leaf-sm') +
-          '</span>' +
-          /* What it costs, on a line of its own beside the tick.
-           *
-             It has now been on all three rows in two days and the middle one
-             was the mistake: sharing the name's line, it forced a 24-character
-             recipe title into 141 px and then overflowed its own box under the
-             leaf — Blake's screenshot has "12P · (46)F · 8" with the badge
-             sitting on top of the arithmetic. Four 44 px targets need a row of
-             their own and the name needs most of another, so the cost takes
-             the space beside the tick, which is 44 px tall and otherwise
-             empty.
-
-             The provenance row is gone, and with it the book, the yield and
-             the portion detail. The book was one of four words — RUN, TABLE,
-             OURS, Yours — repeated at 10px on every plate forever, and the
-             other two are cooking facts rather than eating ones. All three
-             are a tap away on the recipe. Blake, asked how far to cut: all of
-             it goes.
-           *
-             The salt comes UP onto the cost line, which is where it belongs:
-             it is not a label alongside the book, it is the fifth thing the
-             food costs you. Losing the box is also what fixes it. The chip was
-             74x16 inside an 11px .mitem-from with overflow:hidden — it
-             overhung 2.5px top and bottom and both were clipped, so the border
-             the old comment here was proud of ("the one of them that is a
-             warning") reached the screen as two stray vertical pipes. A word
-             in the warning colour says it without a box to be cut in half. */
-          /* The salt is a SIBLING of the figure, not inside it. .mitem-mac
-             holds the four numbers and nothing else — it keeps its own nowrap
-             so the figure drops to the next line whole rather than breaking
-             across two, and .mitem-meta is the thing that wraps. */
-          /* The weight, beside what it costs.
-           *
-             Blake: "sometimes it's just easier for me to measure the food on
-             a scale than using cups." It is, and a kitchen scale is the only
-             honest instrument in the room — a cup of oats is a range and 40 g
-             of oats is 40 g. Every one of the 221 foods in the table carries
-             unit-to-gram weights, so this is a fact the app already had.
-           *
-             It HAD it on the plate, too, until the provenance row was deleted
-             and took mPortion's detail with it: "1 cup · 130 g" became
-             "1 cup". That was named as the cost of removing the row and it
-             was accepted, and then real use found it — which is the right
-             order for that to happen in, and the reason it comes back here
-             rather than the row coming back with it. It belongs beside the
-             cost, where the other measured facts about this plate are, and
-             not beside the shelf the food came from. */
-          '<span class="mitem-meta">' +
-              '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
-              (port.detail ? '<span class="mitem-g">' + esc(port.detail) + '</span>' : '') +
-              mSaltChip(r, it.x) +
+            '<span class="mitem-keep no-print">' +
+              /* The pin is the routine: this food on this meal on every new
+                 day — the Crio Brü that opens every morning without being
+                 asked. Unpinning stops tomorrow, not today. */
+              (onPlan ? '<button class="mic mpin" data-mpin="' + tag + '" aria-pressed="' +
+                (pinned ? 'true' : 'false') + '" aria-label="' +
+                (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">' +
+                '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+                  '<path d="M5.4 2.6h5.2M8 2.6v4.3M6.4 6.9c-.4 1.7-1.5 2.7-2.6 3.1h8.4' +
+                    'c-1.1-.4-2.2-1.4-2.6-3.1Z" fill="none" stroke="currentColor" ' +
+                    'stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>' +
+                  '<path d="M8 10v3.4" fill="none" stroke="currentColor" ' +
+                    'stroke-width="1.2" stroke-linecap="round"/>' +
+                '</svg></button>' : '') +
+              /* The star, new here. It lived only in the picker, which meant
+                 you could keep a dish while shopping for it and not on the
+                 day you actually ate it — and the day you ate it is the day
+                 you know. A table food is not yours to star; one of your own
+                 is. */
+              (mCanFav(r) ? '<button class="mic mfav" data-mfav="' + esc(String(r.id)) +
+                '" aria-pressed="' + (mIsFav(r) ? 'true' : 'false') + '" aria-label="' +
+                (mIsFav(r) ? 'Remove from favourites' : 'Keep as a favourite') + '">' +
+                '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+                  '<path d="M8 2.2l1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4L2.2 6.5l4-.6Z" ' +
+                    'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>' +
+                '</svg></button>' : '') +
             '</span>' +
-          '<span class="mitem-r2">' +
-            /* Eaten is a record, not a dial. Once the tick is on, this plate
-               is a thing that happened, and resizing what you already ate is
-               editing the past — so the stepper goes quiet. One tap on the
-               number hands it back, which is still deliberate and no longer
-               the untick / adjust / re-tick chore it was. */
-            '<span class="mstep no-print' + (it.eaten && S.mEdit !== tag ? ' spent' : '') + '">' +
-              '<button data-mstep="' + tag + ':down"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
-                ' aria-label="Smaller portion">&minus;</button>' +
-              /* The portion, in the units it is a portion OF. It read "×1¾"
-                 for as long as the tab has existed, which names the
-                 arithmetic and not the food. */
-              /* Three states, because a portion is read far more often than
-                 it is changed and changed far more often than it is stepped.
-               *
-                 The dial got you from one to two. It never got you to thirty
-                 nuts or a hundred and eighty-five grams: at a step a tap that
-                 is twenty-nine taps and seven hundred and forty. The ceiling
-                 was never really what stopped you — Blake found the ceiling
-                 first because it stops you sooner, but the stepper is what
-                 makes a food logger unusable at any size worth logging.
-               *
-                 So the number is a button, and pressing it lets you type one.
-                 The unit stays put beside the box: x is a count in the food's
-                 own unit and that is the only thing being typed — no parsing
-                 of "2 cups" into anything, no guessing which of two units a
-                 bare number meant. */
-              (S.mType === tag
-                ? '<span class="mstep-x mstep-typing">' +
-                    '<input class="mstep-in" type="text" inputmode="decimal" ' +
-                      'autocomplete="off" data-mtypein="' + tag + '" ' +
-                      'aria-label="Portion, in ' + esc(mUnitWord(r)) + '" ' +
-                      'value="' + esc(String(mTypedFromX(r, it.x))) + '">' +
-                    '<i>' + esc(mUnitWord(r) === 'each' ? 'whole' : mUnitWord(r)) + '</i>' +
-                  '</span>'
-                : it.eaten && S.mEdit !== tag
-                ? '<button class="mstep-x mstep-wake" data-medit="' + tag +
-                  '" title="Correct this portion">' + esc(port.head) + '</button>'
-                : '<button class="mstep-x mstep-type" data-mtype="' + tag +
-                  '" title="Type a portion">' + esc(port.head) + '</button>') +
-              '<button data-mstep="' + tag + ':up"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
-                ' aria-label="Bigger portion">+</button>' +
-            '</span>' +
-            /* Out of the dial and beside it. The lock guards against the
-               MACHINE, not you — Rebalance leaves a locked plate alone but
-               the stepper still works — so it was never part of the dial, and
-               sitting inside it paired "hold this still" with "make this
-               bigger". Live even on an eaten plate: holding a food steady
-               while the rest of the day moves around it is still worth
-               saying afterwards. */
-            /* The three things you can do to this plate, grouped and pushed
-               to the far side. The dial is a different kind of control and
-               was sharing a left-packed strip with them. */
-            /* All three drawn, not two borrowed. The lock and the pin were
-               emoji — 🔒 and 📌, rendered by the system in whatever style it
-               fancies — sitting either side of a 1.2px line-art bin. Three
-               controls of one scope in one row, in two drawing languages, and
-               the two emoji could not take the ink colour that says a lock is
-               ON. They are the bin's siblings now: same grid, same stroke,
-               same currentColor, so aria-pressed can be seen as well as read. */
-            '<span class="mitem-acts2 no-print">' +
-            (onPlan ? '<button class="mic mlock no-print" data-mlock="' + tag + '" aria-pressed="' +
+          '</div>' +
+          /* What it is in the kitchen, and what it costs you.
+           *
+             The weight leads, because Blake weighs: "sometimes it's just
+             easier for me to measure the food on a scale than using cups."
+             A cup of oats is a range and 40 g of oats is 40 g, and every one
+             of the foods in the table carries unit-to-gram weights.
+           *
+             The salt is a sibling of the figures, not inside them: the four
+             numbers keep their own nowrap so they drop to a second line
+             whole rather than breaking across two. */
+          '<div class="mitem-r2">' +
+            (port.detail ? '<span class="mitem-uom">' + esc(port.detail) + '</span>' : '') +
+            '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
+            mSaltChip(r, it.x) +
+          '</div>' +
+          '<div class="mitem-r3 no-print">' +
+            /* The two verbs in a group of their own, tight together, with the
+               dial's own air after them. Proximity is the only thing saying
+               these two belong to each other rather than to the portion
+               beside them — spaced like everything else they read as one
+               left-packed strip, which is what Blake called "not spread out
+               well" the last time this row was built. */
+            '<span class="mitem-verbs">' +
+            '<button class="mic mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
+              '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
+              'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+            '</button>' +
+            /* The lock guards against the MACHINE, not you — Rebalance leaves
+               a locked plate alone but the stepper still works — so it sits
+               beside the bin rather than inside the dial. Live even on an
+               eaten plate: holding a food steady while the rest of the day
+               moves around it is still worth saying afterwards. */
+            (onPlan ? '<button class="mic mlock" data-mlock="' + tag + '" aria-pressed="' +
               (it.l ? 'true' : 'false') + '" aria-label="' +
               (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">' +
               '<svg viewBox="0 0 16 16" aria-hidden="true">' +
@@ -3732,25 +3705,66 @@
                 '<path d="M5.6 7V5.1a2.4 2.4 0 0 1 4.8 0V7" fill="none" ' +
                   'stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
               '</svg></button>' : '') +
-            /* The pin is the routine: this food on this meal on every new
-               day — the Crio Brü that opens every morning without being
-               asked. Unpinning stops tomorrow, not today. */
-            (onPlan ? '<button class="mic mpin no-print" data-mpin="' + tag + '" aria-pressed="' +
-              (pinned ? 'true' : 'false') + '" aria-label="' +
-              (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">' +
-              '<svg viewBox="0 0 16 16" aria-hidden="true">' +
-                '<path d="M5.4 2.6h5.2M8 2.6v4.3M6.4 6.9c-.4 1.7-1.5 2.7-2.6 3.1h8.4' +
-                  'c-1.1-.4-2.2-1.4-2.6-3.1Z" fill="none" stroke="currentColor" ' +
-                  'stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>' +
-                '<path d="M8 10v3.4" fill="none" stroke="currentColor" ' +
-                  'stroke-width="1.2" stroke-linecap="round"/>' +
-              '</svg></button>' : '') +
-            '<button class="mic mdel no-print" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
-              '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
-              'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-            '</button>' +
             '</span>' +
-          '</span>' +
+            /* Eaten is a record, not a dial. Once the tick is on, this plate
+               is a thing that happened, and resizing what you already ate is
+               editing the past — so the stepper goes quiet. One tap on the
+               number hands it back.
+             *
+               The number is a button and pressing it lets you type one. The
+               dial got you from one to two; it never got you to thirty nuts
+               or a hundred and eighty-five grams. */
+            /* The portion and its two steppers, together, in that order.
+             *
+               Blake: "Outline the serving size in a box as well. With +/- on
+               the right side of it." Which is also the better grouping: the
+               three things that change the amount now read as one control
+               rather than as a number with a button on either side of it.
+             *
+               Still inside .mstep, and the figure still wears .mstep-x. Those
+               two names are what fifteen tests reach for — typing a portion,
+               stepping it, what it wraps to, what an eaten plate does to it —
+               and not one of them is about where on the card it sits. Moving
+               the element out of its own container to rearrange it is how a
+               layout change turns into a behaviour change. */
+            '<span class="mstep' + (it.eaten && S.mEdit !== tag ? ' spent' : '') + '">' +
+              /* Eaten is a record, not a dial. Once the tick is on, this plate
+                 is a thing that happened, and resizing what you already ate is
+                 editing the past — so the stepper goes quiet. One tap on the
+                 number hands it back.
+               *
+                 The number is a button and pressing it lets you type one. The
+                 dial got you from one to two; it never got you to thirty nuts
+                 or a hundred and eighty-five grams. */
+              (S.mType === tag
+                ? '<span class="mstep-x mitem-amt mitem-typing">' +
+                    '<input class="mstep-in" type="text" inputmode="decimal" ' +
+                      'autocomplete="off" data-mtypein="' + tag + '" ' +
+                      'aria-label="Portion, in ' + esc(mUnitWord(r)) + '" ' +
+                      'value="' + esc(String(mTypedFromX(r, it.x))) + '">' +
+                    '<i>' + esc(mUnitWord(r) === 'each' ? 'whole' : mUnitWord(r)) + '</i>' +
+                  '</span>'
+                : it.eaten && S.mEdit !== tag
+                ? '<button class="mstep-x mitem-amt mstep-wake" data-medit="' + tag +
+                  '" title="Correct this portion">' + esc(port.head) + '</button>'
+                : '<button class="mstep-x mitem-amt mstep-type" data-mtype="' + tag +
+                  '" title="Type a portion">' + esc(port.head) + '</button>') +
+              '<span class="mstep-keys">' +
+                '<button data-mstep="' + tag + ':down"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
+                  ' aria-label="Smaller portion">&minus;</button>' +
+                '<button data-mstep="' + tag + ':up"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
+                  ' aria-label="Bigger portion">+</button>' +
+              '</span>' +
+            '</span>' +
+            /* The thing pressed most, on the side a thumb is, with a word on
+               it. It was a 21px box in the top-left corner — the state of the
+               plate, given the smallest target and the furthest reach. Still
+               a real checkbox underneath, so every handler and every reader
+               finds what it has always found. */
+            '<label class="mitem-ate"><input type="checkbox" data-meat="' + tag + '"' +
+              (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
+              ' aria-label="Eaten"><span class="mitem-ate-w">Ate it</span></label>' +
+          '</div>' +
         '</div>';
       }).join('');
       if (!onPlan && !rows) return '';        // a bygone meal with nothing left says nothing
@@ -5433,15 +5447,23 @@
          planned band and the assumed hatching are both pale and ink is what
          reads on those.
        *
-         The three bands stay. Solid is eaten, pale is planned, hatched is a
-         meal still empty and counted at its share — that distinction is the
-         difference between food and expectation, and a single-colour pill
-         would have thrown it away to gain nothing. */
+         Two bands, not three. Solid is eaten, pale is planned — food and
+         intention, which are both things you have actually put on the day.
+         The third used to hatch in what an EMPTY meal is assumed to become,
+         and Blake, on the new pills: "I don't need the hash lines when
+         blank. Just blank is fine." He is right that it was loud: on a
+         morning it covered most of four bars, and it is the one band you
+         cannot act on — there is nothing on that meal to nudge.
+       *
+         The assumption itself has not gone anywhere. It still lands in the
+         delta, which is what the pills at the top of the day print, so an
+         untouched day still says +316 rather than 600 short. See the note on
+         `left` above: that figure is what the DAY will come to, and this bar
+         is what is on it. */
       var words = '<span class="mb-k mb-' + m + '" aria-hidden="true">' + row[1] + '</span>' + num;
       var track = '<span class="mb-track" style="--f:' + wAte.toFixed(1) + '%">' +
           '<i class="mb-ate" style="width:' + wAte.toFixed(1) + '%"></i>' +
           '<i class="mb-plan" style="width:' + wPlan.toFixed(1) + '%"></i>' +
-          '<i class="mb-asm" style="width:' + wAsm.toFixed(1) + '%"></i>' +
           '<span class="mb-w">' + words + '</span>' +
           '<span class="mb-w mb-on" aria-hidden="true">' + words + '</span>' +
         '</span>';
@@ -11277,7 +11299,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
+    'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
     'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
@@ -12550,6 +12572,16 @@
         keepingFocus(renderMacros);
         return;
       }
+      /* The star, on a plate. It only lived in the picker before, so you
+         could keep a dish while shopping for it but not on the day you ate
+         it — and the day you ate it is the day you know. */
+      var mfv = e.target.closest('[data-mfav]');
+      if (mfv) {
+        var fvr = BY_ID[idOf(mfv.dataset.mfav)];
+        if (fvr && mCanFav(fvr)) { mToggleFav(fvr); keepingFocus(renderMacros); }
+        return;
+      }
+
       var pn = e.target.closest('[data-mpin]');
       if (pn) {
         var pp = pn.dataset.mpin.split(':');
