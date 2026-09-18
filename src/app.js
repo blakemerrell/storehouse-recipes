@@ -9540,8 +9540,27 @@
     var T = mDayTargets(k);
     var day = mDay(k);
     var tot = mTotals(day).all;
-    var kcal = function (o) { return 4 * (o.p || 0) + 4 * (o.c || 0) + 9 * (o.f || 0); };
-    var got = Math.round(kcal(tot)), want = Math.round(kcal(T));
+    /* Eaten calories are CARRIED. A target's are DERIVED. They are two
+       different quantities and only one of them has a second answer.
+     *
+       A plate states its own energy: a packet's label uses factors particular
+       to that food, and a food typed in with nothing but its calories has no
+       grams to derive from at all. A target is grams and has nothing else it
+       could be.
+     *
+       This sheet ran 4P + 4C + 9F over both. The day bar carries, so the two
+       disagreed about the same day — 2,006 on the bar against 2,005 here on
+       an ordinary one — and a calories-only plate scored nothing at all: a
+       700 kcal salad logged at breakfast read "Nothing was written down on
+       this day" underneath a bar that said 700. That is the whole of what a
+       person who ate out has to show for writing it down.
+     *
+       The same rule is already written out above mDayEaten, where the picker
+       was fixed for exactly this. It never reached this function. The local
+       helper that made the mistake possible is deleted rather than corrected:
+       kcalOf is the one way to turn a target into calories, and there is now
+       nothing in scope that will quietly do it to a plate. */
+    var got = Math.round(tot.kcal || 0), want = kcalOf(T);
 
     var rows = [
       { n: 'Protein', kk: 'p', got: Math.round(tot.p), want: Math.round(T.p) },
@@ -9578,16 +9597,18 @@
       var dk = dayKey(dd);
       var dt = mTotals(mDay(dk)).all;
       var dT = mDayTargets(dk);
-      var has = (dt.p + dt.f + dt.c) > 0;
+      /* Calories count as something written down, here as everywhere else on
+         this sheet. A week of eating out was a week of blank bars. */
+      var has = (dt.p + dt.f + dt.c + (dt.kcal || 0)) > 0;
       var hit = null;
       if (has) {
         kept++;
-        sumK += kcal(dt);
+        sumK += (dt.kcal || 0);
         hit = Math.abs(dt.p - dT.p) <= Math.max(10, dT.p * 0.08) ? 1 : 0;
         if (hit) onP++;
       }
-      week.push({ k: dk, kcal: has ? Math.round(kcal(dt)) : null,
-        want: Math.round(kcal(dT)), hit: hit, today: dk === k,
+      week.push({ k: dk, kcal: has ? Math.round(dt.kcal || 0) : null,
+        want: kcalOf(dT), hit: hit, today: dk === k,
         lab: M_WDAYS[dd.getDay()].slice(0, 1) });
     }
 
@@ -9598,7 +9619,7 @@
     return { rows: rows, week: week, onP: onP, kept: kept, meals: meals,
       biggest: biggest, mTot: mTot, got: got, want: want, thin: thin,
       avg: kept ? Math.round(sumK / kept) : 0,
-      any: (tot.p + tot.f + tot.c) > 0 };
+      any: (tot.p + tot.f + tot.c + (tot.kcal || 0)) > 0 };
   }
 
   function mTryAgain(sk) {

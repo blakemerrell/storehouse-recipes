@@ -10415,5 +10415,42 @@ module.exports = {
       /Averaging now/.test(await onPacePg.evaluate(() =>
         document.getElementById('mtFacts').textContent)));
     await onPacePg.context().close();
+
+    /* ---- a food logged with nothing but its calories ------------------- */
+    /* Eating out is the one entry that arrives as a single number, and the
+       summary sheet used to lose it whole. mDaySummary derived the day's
+       energy as 4P + 4C + 9F, so a 700 kcal salad carrying no macros came to
+       nothing: the sheet said "Nothing was written down on this day" directly
+       underneath a day bar reading 700. A plate states its own energy and the
+       bar has always carried it; this pins the sheet to the same reading of
+       the same day. */
+    const outPg = await t.fresh();
+    await outPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.myFoods', JSON.stringify({
+        cafe_rio_salad: { name: 'Cafe Rio salad', unit: 'salad', kcal: 700, p: 0, f: 0, c: 0 },
+      }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({
+        [k]: { b: [{ id: 'f:my:cafe_rio_salad', x: 1, eaten: 1 }] },
+      }));
+    });
+    await outPg.reload();
+    await outPg.evaluate(() => document.fonts.ready);
+    await outPg.click('.tab[data-view="macros"]');
+    await outPg.waitForTimeout(250);
+    const outDay = (await outPg.innerText('#view-macros')).replace(/\s+/g, ' ');
+    t.ok('the day bar counts a food logged with only its calories',
+      /700 \/ 1,370 kcal/.test(outDay), outDay.slice(0, 200));
+
+    await outPg.click('[aria-label="I am done for today"]');
+    await outPg.waitForTimeout(400);
+    const outSheet = (await outPg.innerText('#modalRoot')).replace(/\s+/g, ' ');
+    t.ok('and the summary does not call that day blank',
+      !/Nothing was written down/.test(outSheet), outSheet.slice(0, 200));
+    t.ok('and the summary reads the same calories the bar does',
+      /700/.test(outSheet) && /1,370/.test(outSheet), outSheet.slice(0, 200));
+    await outPg.context().close();
   },
 };
