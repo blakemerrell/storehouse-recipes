@@ -3418,8 +3418,35 @@
       var keepWeigh = S.mFold.weigh;
       S.mFold = {};
       if (keepWeigh !== undefined) S.mFold.weigh = keepWeigh;
+      /* ...and the meal holding an unanswered question stays open too.
+       *
+         The cascade card lives INSIDE the meal's fold, which is Blake's own
+         call and the right one: "as soon as I select that share or steal
+         I'd expect the macro pills to update, and then when I close the card
+         it's not seen any more." A question about a meal should not outlive
+         shutting that meal.
+       *
+         But arriving at the day is not shutting it. Everything with food on
+         it folds on arrival, the finished meal carrying the card has food on
+         it, and so the card was folded away before it had been read once —
+         every reload, every tab switch, every return to My Day. Blake, on a
+         day whose lunch ran 750 over: no card anywhere. The one screen that
+         would tell him where the overflow went was reachable only in the
+         same session he ticked the meal off in, which is why the whole thing
+         has been redesigned twice by somebody who had never seen it at rest.
+       *
+         Answered is different. Done sets `ack`, the card becomes one line,
+         and this stops holding the meal open — which is the point of having
+         answered it. */
+      var askK = '';
+      var ev0 = mLastFinished(targets, slots);
+      if (ev0 && Math.abs(ev0.miss) >= MCASCADE_MIN) {
+        var sn0 = mSendOf(k);
+        if (!(sn0 && sn0.f === ev0.k && sn0.ack)) askK = ev0.k;
+      }
       slots.list.forEach(function (s2) {
-        S.mFold[s2.k] = (day[s2.k] || []).length > 0 && s2.k !== S.mTouched;
+        S.mFold[s2.k] = (day[s2.k] || []).length > 0 &&
+          s2.k !== S.mTouched && s2.k !== askK;
       });
       Object.keys(day).forEach(function (sk2) {
         if (S.mFold[sk2] === undefined) S.mFold[sk2] = (day[sk2] || []).length > 0;

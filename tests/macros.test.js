@@ -6358,7 +6358,106 @@ module.exports = {
         return !!w && !/went to the rest/.test(w.textContent);
       }),
       await skp.evaluate(() => (document.querySelector('.mslot-skipped .mslot-skip-w') || {}).textContent));
+
     await skp.context().close();
+
+    /* ---- the question survives ARRIVING at the day ----------------------
+     *
+       On a meal WITH FOOD, which is where the fold is: a skipped meal's card
+       sits on its own row and was never at risk, and writing this against
+       one is how the first version of this guard passed while the bug stood.
+     *
+       The card lives inside the meal's fold, which is Blake's call and the
+       right one — a question about a meal should not outlive shutting that
+       meal. But arriving at the day is not shutting it. Everything with food
+       on it folds on arrival, the finished meal carrying the card has food
+       on it, and so the card was folded away before it had ever been read:
+       every reload, every tab switch, every return to My Day. Blake's own
+       screenshot, a lunch 750 over its share, no card anywhere.
+     *
+       This arrives the way a thumb arrives — reload, press the tab — and
+       calls no helper to open anything. The cascade block above opens the
+       meal by hand and would pass with the card unreachable, which is how it
+       stayed unreachable through two redesigns of the thing. */
+    const arv = await t.fresh();
+    await arv.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n; const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 204, f: 61, c: 72 }));
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
+        { k: 'b', n: 'Breakfast', t: 'b', w: 25 }, { k: 'l', n: 'Lunch', t: 'l', w: 35 },
+        { k: 'd', n: 'Dinner', t: 'd', w: 40 }] }));
+      // a breakfast of eight tablespoons of butter, eaten: far over its share
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:butter', x: 8, eaten: 1 }], l: [{ id: 'f:egg', x: 1 }], d: [] } }));
+    });
+    const arrive = async () => {
+      await arv.reload();
+      await arv.waitForTimeout(500);
+      await arv.click('.tab[data-view="macros"]');
+      await arv.waitForTimeout(450);
+      return arv.evaluate(() => {
+        const el = document.querySelector('.mcasc');
+        const bk = [...document.querySelectorAll('.mslot')].filter((x) =>
+          /breakfast/i.test((x.querySelector('.mslot-name') || {}).textContent || ''))[0];
+        return { card: el ? (el.querySelector('.mcasc-t') || {}).textContent : null,
+          open: !!(bk && bk.querySelector('.mslot-items')) };
+      });
+    };
+    const arv1 = await arrive();
+    t.ok('the meal holding an unanswered question is open the moment you arrive',
+      !!arv1.card && arv1.open && /went \d+ over its share/.test(arv1.card),
+      JSON.stringify(arv1));
+
+    /* ...and once answered it stops holding the meal open, which is what
+       answering it was for. The pills keep the result. */
+    await arv.click('.mcasc [data-msend="ack"]');
+    await arv.waitForTimeout(400);
+    const arv2 = await arrive();
+    t.ok('and once answered it folds away like any other finished meal',
+      !arv2.card && !arv2.open, JSON.stringify(arv2));
+    await arv.context().close();
+
+    /* ---- a skipped meal with nothing to hand out is still a ROW ---------
+     *
+       Only the LAST finished meal carries a cascade, so most skipped meals
+       have no card — and that is the branch I broke. The row and the card
+       were one element; when the card moved in, the flex layout stayed on
+       the outer box and the row became a bare block, so it only laid itself
+       out when a card happened to be there to pull it into shape. Blake's
+       phone read "Snacksskipped" with the Undo shoved against the words. */
+    const skb = await t.fresh();
+    await skb.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n; const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 204, f: 61, c: 72 }));
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
+        { k: 'b', n: 'Breakfast', t: 'b', w: 30 }, { k: 'l', n: 'Lunch', t: 'l', w: 30 },
+        { k: 'f', n: 'Evening Snack', t: 's', w: 40 }] }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [], l: [], f: [] } }));
+      // the LAST meal, so there is nothing after it and no cascade to carry
+      localStorage.setItem('bsc.macroSkip', JSON.stringify({ [k]: ['f'] }));
+    });
+    await skb.reload();
+    await skb.waitForTimeout(450);
+    await skb.click('.tab[data-view="macros"]');
+    await skb.waitForTimeout(400);
+    const skbRow = await skb.evaluate(() => {
+      const el = document.querySelector('.mslot-skipped');
+      if (!el) return null;
+      const h = el.querySelector('.mslot-skip-h');
+      const n = el.querySelector('.mslot-skip-n'), w = el.querySelector('.mslot-skip-w');
+      const u = el.querySelector('.mslot-unskip');
+      return { card: !!el.querySelector('.mcasc'),
+        row: !!h && getComputedStyle(h).display === 'flex',
+        gap: Math.round(w.getBoundingClientRect().left - n.getBoundingClientRect().right),
+        undoInside: u.getBoundingClientRect().right <= el.getBoundingClientRect().right + 1,
+        onOneLine: Math.abs(n.getBoundingClientRect().top - u.getBoundingClientRect().top) < 30 };
+    });
+    t.ok('a skipped meal with no cascade to show is still laid out as a row',
+      !!skbRow && !skbRow.card && skbRow.row && skbRow.gap >= 6 &&
+      skbRow.undoInside && skbRow.onOneLine, JSON.stringify(skbRow));
+    await skb.context().close();
 
     /* ---- pills the same size, always --------------------------------------
      *

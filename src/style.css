@@ -865,18 +865,20 @@ select { max-width: 280px; }
 /* A meal you are not eating today. A line, not a card: it has no numbers, no
    plates and nothing to fold, and drawing an empty card around it would give
    it the same weight as the meals that are actually happening. */
-.mslot-skipped {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; background: none; border: 1px dashed var(--line);
-}
-/* ...unless it is carrying the chooser, in which case the struck-through
-   name, the word and the Undo keep their own row and the card sits under
-   them. A whole meal's worth of food is the biggest handout the day makes
-   and this is where it gets steered. */
-.mslot-skipped-c { display: block; padding: 9px 10px; }
-.mslot-skipped-c .mslot-skip-h {
-  display: flex; align-items: center; gap: 10px; padding: 0 2px;
-}
+.mslot-skipped { padding: 9px 12px; background: none; border: 1px dashed var(--line); }
+/* The ROW is the flex container, not the card around it.
+ *
+   These two were one element until the chooser moved in, and when it did
+   the layout stayed on the outer box while the row became a bare block —
+   so it only laid out when a card happened to be there to pull it into
+   shape. A skipped meal with nothing to hand out read "Snacksskipped" with
+   the Undo shoved against the words, which is most skipped meals: only the
+   LAST finished meal carries a cascade, so every other skip on the day got
+   the broken one. Layout belongs to the thing being laid out. */
+.mslot-skip-h { display: flex; align-items: center; gap: 10px; }
+/* ...and when the card IS there, the row keeps its own line above it. */
+.mslot-skipped-c { padding: 9px 10px; }
+.mslot-skipped-c .mslot-skip-h { padding: 0 2px; }
 .mslot-skipped-c .mcasc {
   margin: 8px 0 0; background: var(--card); border-style: solid;
 }
