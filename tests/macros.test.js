@@ -6229,6 +6229,214 @@ module.exports = {
       JSON.stringify({ now: await czReadAsk(casc), was: czPinned }));
     await casc.context().close();
 
+    /* ---- the figures live inside the bar -------------------------------
+     *
+       Blake's layout: "Pills for the bar charts with text in the pill. And
+       full color as the bar." The bar was a stripe under a caption, so the
+       fill got whatever width the numbers beside it did not want.
+     *
+       The words are drawn TWICE — ink over the unfilled part, paper over the
+       filled part, the paper copy clipped at exactly the eaten edge. That is
+       the only arrangement in which a figure sitting on a partial fill is
+       legible at both ends, and it is worth a guard because it broke twice
+       while I was building it: both times a rule further down the stylesheet
+       outranked the paper copy's own colour and painted the number out. The
+       fat bar read "F  / 61 g" with the 106 missing. */
+    const pil = await t.fresh();
+    await pil.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n; const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 204, f: 61, c: 72 }));
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
+        { k: 'a', n: 'Breakfast', t: 'b', w: 30 }, { k: 'l', n: 'Lunch', t: 'l', w: 35 },
+        { k: 'd', n: 'Dinner', t: 'd', w: 35 }] }));
+      /* Eight tablespoons of butter EATEN puts fat far past its target and a
+         full pill on screen; an uneaten plate gives the planned band; an
+         empty meal gives the assumed hatching. All three in one render. */
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        a: [{ id: 'f:butter', x: 8, eaten: 1 }], l: [{ id: 'f:egg', x: 3 }], d: [] } }));
+    });
+    await pil.reload();
+    await pil.waitForTimeout(450);
+    await pil.click('.tab[data-view="macros"]');
+    await pil.waitForTimeout(450);
+    /* Resolved through the page, so the comparison is between two colours
+       and not between two spellings of one. */
+    const pilPaper = await pil.evaluate(() => {
+      const el = document.createElement('span');
+      el.style.color = 'var(--paper)';
+      document.body.appendChild(el);
+      const c = getComputedStyle(el).color;
+      el.remove();
+      return c;
+    });
+    const pilRead = await pil.evaluate((paper) => {
+      const out = {};
+      document.querySelectorAll('[data-macro]').forEach((el) => {
+        const track = el.querySelector('.mb-track');
+        const ink = el.querySelector('.mb-w:not(.mb-on)');
+        const pap = el.querySelector('.mb-w.mb-on');
+        const col = (n, sel) => n && n.querySelector(sel)
+          ? getComputedStyle(n.querySelector(sel)).color : '';
+        out[el.dataset.macro] = {
+          state: el.dataset.state,
+          fill: parseFloat(track ? track.style.getPropertyValue('--f') : 'NaN'),
+          /* both layers, and the words in each */
+          inkWords: ink ? ink.textContent.replace(/\s+/g, ' ').trim() : null,
+          papWords: pap ? pap.textContent.replace(/\s+/g, ' ').trim() : null,
+          /* the paper copy is paper, figure and all */
+          papFig: col(pap, '.mb-num b'), papUnit: col(pap, '.mb-num'),
+          /* the ink copy is not */
+          inkFig: col(ink, '.mb-num b'),
+          /* the clip follows the EATEN edge, not the end of the whole fill */
+          clip: pap ? getComputedStyle(pap).clipPath : '',
+          /* and the three bands survive */
+          bands: ['mb-ate', 'mb-plan', 'mb-asm']
+            .filter((c) => !!el.querySelector('.' + c)).length,
+          /* nothing spills out of the pill */
+          spills: ink && track
+            ? ink.getBoundingClientRect().right > track.getBoundingClientRect().right + 1 : null,
+          h: track ? Math.round(track.getBoundingClientRect().height) : null
+        };
+      });
+      return out;
+    }, pilPaper);
+    const pilAll = Object.keys(pilRead).map((m) => pilRead[m]);
+
+    t.ok('all four bars are pills with the figures inside them, twice over',
+      pilAll.length === 4 && pilAll.every((b) => b.inkWords && b.papWords &&
+        b.inkWords === b.papWords && /\d/.test(b.inkWords)),
+      JSON.stringify(pilAll.map((b) => b.inkWords)));
+
+    /* The one that kept breaking. A full pill is solid colour end to end, so
+       its paper copy is the only legible one — and if any rule repaints that
+       figure, the figure is gone. */
+    t.ok('the paper copy is paper THROUGHOUT, figure included',
+      pilAll.every((b) => b.papFig === pilPaper && b.papUnit === pilPaper),
+      JSON.stringify(pilAll.map((b) => b.state + ' fig:' + b.papFig)));
+    t.ok('and the ink copy is not paper, or the unfilled end would be blank',
+      pilAll.every((b) => b.inkFig && b.inkFig !== pilPaper),
+      JSON.stringify(pilAll.map((b) => b.inkFig)));
+
+    /* A bar filled to its end and one filled to nothing, in the same render:
+       whichever way round it is, one of the two copies is doing the reading. */
+    t.ok('the day under test has both a full pill and an almost empty one',
+      pilAll.some((b) => b.fill >= 99) && pilAll.some((b) => b.fill <= 5),
+      JSON.stringify(pilAll.map((b) => b.state + ':' + b.fill + '%')));
+
+    t.ok('the paper copy is clipped to the fill rather than painted over it',
+      pilAll.every((b) => /inset\(/.test(b.clip)), JSON.stringify(pilAll.map((b) => b.clip)));
+
+    /* Eaten, planned and assumed are three different claims about the day —
+       food, intention, and arithmetic — and a single-colour pill would have
+       thrown two of them away to gain nothing. */
+    t.ok('and eaten, planned and assumed are all still separate bands',
+      pilAll.every((b) => b.bands === 3), JSON.stringify(pilAll.map((b) => b.bands)));
+
+    t.ok('nothing spills out of a pill, and the headline is the tallest',
+      pilAll.every((b) => b.spills === false) &&
+      pilRead.kcal.h > pilRead.p.h && pilRead.p.h === pilRead.c.h,
+      JSON.stringify(pilAll.map((b) => b.h)));
+    await pil.context().close();
+
+    /* ---- how far off, not merely which side ----------------------------
+     *
+       Blake, on his own week: "Right now I'm just seeing a lot of red and
+       even though I'm close on some days I'm over so it's red." The square
+       carried a verdict and nothing else, so a day 3% past its target drew
+       the same red as a day 43% past it.
+     *
+       Widening the threshold does not fix that. Wherever the line is put,
+       the day one calorie past it looks exactly like the day four hundred
+       past it — moving a threshold moves the cliff. So the square carries a
+       rail with the target marked on it, at the same place on all seven, and
+       the verdict colour stays exactly as it was. */
+    const spk = await t.fresh();
+    const spkR = [1.05, 1.45, 0.75, 0.60];
+    await spk.evaluate((ratios) => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (o) => { const d = new Date(); d.setDate(d.getDate() + o);
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 204, f: 61, c: 72 }));
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
+        { k: 'a', n: 'Breakfast', t: 'b', w: 30 }, { k: 'l', n: 'Lunch', t: 'l', w: 35 },
+        { k: 'd', n: 'Dinner', t: 'd', w: 35 }] }));
+      /* Butter, because one food at a chosen multiple lands a day on an
+         exact fraction of its target and nothing here is about the food. */
+      const days = {};
+      ratios.forEach((r, i) => {
+        days[key(i - (ratios.length - 1))] = {
+          a: [{ id: 'f:butter', x: 4 * 4.134 * r, eaten: 1 }], l: [], d: [] };
+      });
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+    }, spkR);
+    await spk.reload();
+    await spk.waitForTimeout(450);
+    await spk.click('.tab[data-view="macros"]');
+    await spk.waitForTimeout(450);
+    const spkRead = await spk.evaluate(() => [...document.querySelectorAll('.mwk-d')].map((d) => {
+      const fill = d.querySelector('.mwk-b i'), rail = d.querySelector('.mwk-b');
+      const mark = d.querySelector('.mwk-g');
+      const lab = d.getAttribute('aria-label') || '';
+      const ate = Number((lab.match(/, (\d+) (?:eaten|on the day)/) || [])[1] || 0);
+      const tgt = Number((lab.match(/(\d+) calorie target/) || [])[1] || 0);
+      return { pct: tgt ? ate / tgt : 0,
+        verdict: (d.className.match(/\b(under|on|over)\b/) || [''])[0],
+        /* Measured in pixels, because a percentage is what the code wrote and
+           pixels are what an eye is given. */
+        px: fill ? fill.getBoundingClientRect().width : null,
+        railPx: rail ? rail.getBoundingClientRect().width : null,
+        markPx: (mark && rail)
+          ? mark.getBoundingClientRect().left - rail.getBoundingClientRect().left : null };
+    }));
+    const spkFed = spkRead.filter((d) => d.pct > 0);
+    t.ok('every day with food on it carries a rail, and the empty ones do not',
+      spkFed.length === 4 && spkFed.every((d) => d.px !== null) &&
+      spkRead.filter((d) => !d.pct).every((d) => d.px === null),
+      JSON.stringify(spkRead.map((d) => Math.round(d.pct * 100) + '%:' +
+        (d.px === null ? 'none' : Math.round(d.px)))));
+
+    /* The whole point: two days that are both "over" are told apart. */
+    const spkNear = spkFed.filter((d) => d.pct > 1.02 && d.pct < 1.12)[0];
+    const spkFar = spkFed.filter((d) => d.pct > 1.3)[0];
+    t.ok('two days that are both over read as different distances',
+      !!spkNear && !!spkFar && spkNear.verdict === 'over' && spkFar.verdict === 'over' &&
+      spkFar.px - spkNear.px >= 6,
+      JSON.stringify({ near: spkNear && Math.round(spkNear.px),
+        far: spkFar && Math.round(spkFar.px), rail: spkFed[0].railPx }));
+
+    /* The mark is where the target is, and that is the whole legend: the
+       fill has either passed the notch or it has not.
+     *
+       Asserted as a RELATIONSHIP rather than by seeding a day at exactly
+       100% of target. The first version fed a chosen multiple of one food
+       and demanded the fill land on the mark — the multiple drifted 4%, the
+       "on target" day arrived at 104%, and the assertion failed for
+       arithmetic reasons with nothing to do with the rail. What a reader
+       uses is the side, not the pixel. */
+    t.ok('a day under its target stops short of the mark, and one over passes it',
+      spkFed.length === 4 &&
+      spkFed.filter((d) => d.pct < 0.98).every((d) => d.px < d.markPx - 1) &&
+      spkFed.filter((d) => d.pct > 1.02).every((d) => d.px > d.markPx + 1),
+      JSON.stringify(spkFed.map((d) => Math.round(d.pct * 100) + '%: fill ' +
+        Math.round(d.px) + ' vs mark ' + Math.round(d.markPx))));
+
+    /* The mark is in the same place on all seven, so the week reads across as
+       well as down — seven rails each scaled to their own day would be seven
+       charts, not one. */
+    t.ok('and the mark sits at the same place on every square',
+      spkFed.every((d) => Math.abs(d.markPx - spkFed[0].markPx) <= 1),
+      JSON.stringify(spkFed.map((d) => Math.round(d.markPx))));
+
+    /* And the verdict colour is untouched: this adds distance, it does not
+       replace the thing that was already working. */
+    t.ok('the verdict colours are still there underneath',
+      spkFed.every((d) => !!d.verdict) &&
+      spkFed.filter((d) => d.verdict === 'over').length >= 2 &&
+      spkFed.filter((d) => d.verdict === 'under').length >= 1,
+      JSON.stringify(spkFed.map((d) => Math.round(d.pct * 100) + '%:' + d.verdict)));
+    await spk.context().close();
+
     /* ---- skipping a meal ------------------------------------------------
      *
        Blake: "with skip, should I also be able to tell it where to send the

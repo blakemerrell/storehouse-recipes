@@ -1895,7 +1895,33 @@ select { max-width: 280px; }
   height: 34px; border-radius: 8px; display: grid; place-items: center;
   font-size: 12.5px; color: var(--muted-2); background: var(--paper-soft);
   font-variant-numeric: tabular-nums;
+  /* the rail sits against the foot of the square, so both need this */
+  position: relative; overflow: hidden;
 }
+/* The date lifts two pixels to leave the rail its own air, rather than being
+   centred in a box it no longer has to itself. */
+.mwk-n b { font-weight: inherit; position: relative; margin-bottom: 4px; }
+/* HOW FAR off, inside the square that already says WHICH SIDE.
+ *
+   Ink on the pale fills, paper on the solid ones — the same pair the date
+   itself switches between, and the only one that stays legible against all
+   six verdict grounds plus the empty one. */
+.mwk-b {
+  position: absolute; left: 4px; right: 4px; bottom: 4px; height: 3px;
+  border-radius: 999px; background: oklch(0 0 0 / 0.10); overflow: hidden;
+}
+.mwk-b i { display: block; height: 100%; border-radius: 999px; background: oklch(0 0 0 / 0.40); }
+.mwk-d.done .mwk-b { background: oklch(1 0 0 / 0.28); }
+.mwk-d.done .mwk-b i { background: oklch(1 0 0 / 0.92); }
+/* Where the target is. Same place on all seven squares, so the week reads
+   across as well as down: a mark you can line your eye along beats seven
+   rails each scaled to their own day. */
+.mwk-g {
+  position: absolute; bottom: 2px; height: 7px; width: 1px;
+  left: calc(4px + (100% - 8px) * 0.66);
+  background: oklch(0 0 0 / 0.38);
+}
+.mwk-d.done .mwk-g { background: oklch(1 0 0 / 0.75); }
 .mwk-d:not(:disabled):hover .mwk-n { filter: brightness(0.96); }
 /* The word under today, and only under today — the legend, moved onto the
    one square whose colour you already have a reason to look at. The empty
@@ -2015,23 +2041,32 @@ select { max-width: 280px; }
    At one size they compete, and "1,633 / 1,745" becomes a fraction to be
    worked out rather than a number to be read. */
 .mhead .mb-num {
-  font-size: 11.5px; color: var(--muted); min-width: 0; text-align: left;
+  font-size: 12px; color: var(--muted-2); min-width: 0; text-align: left;
   line-height: 1; white-space: nowrap;
 }
 .mhead .mb-num b {
-  font-family: var(--serif); font-size: 25px; font-weight: 600; color: var(--ink);
-  margin-right: 2px; letter-spacing: -0.01em;
+  font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--ink);
+  margin-right: 3px; letter-spacing: -0.01em;
 }
 .mhead .mb-k.mb-kcal { font-size: 15px; }
-.mhead .mb-track { height: 11px; }
+/* The headline is the same pill, taller. Not a different kind of object —
+   which is what a display figure over a hairline stripe had become. */
+.mhead .mb-track { height: 42px; }
+.mhead .mb-w { padding: 0 14px; gap: 8px; }
 /* P, F and C: three columns of equal width, because three fills only
    compare by eye if the tracks they sit in are the same length. The old
    stack gave each a full card width and a label column, which made three
    bars that could not be compared to each other at all — only each to its
    own target, one at a time, which is four readings of a thing that should
    take one. */
-.mbars3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 13px; }
+.mbars3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 9px; }
 .mbrow { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* Three columns of pill, so the fills still compare by eye. Tighter padding
+   and a smaller figure than the headline, because a third of a phone is what
+   each one has. */
+.mbrow .mb-w { padding: 0 8px; gap: 4px; }
+.mbrow .mb-num { font-size: 11px; color: var(--muted-2); line-height: 1; }
+.mbrow .mb-num b { font-size: 13px; font-weight: 700; color: var(--ink); }
 .mb-t { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
 .mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; white-space: nowrap; }
 /* the flame is an emoji, and an emoji at letter size is a smudge */
@@ -2040,9 +2075,27 @@ select { max-width: 280px; }
 .mb-kcal { color: var(--bar-kcal); } .mb-p { color: var(--bar-p); }
 .mb-f { color: var(--bar-f); } .mb-c { color: var(--bar-c); }
 .mb-track {
-  display: flex; height: 7px; border-radius: 4px; overflow: hidden; background: var(--line);
+  display: flex; height: 30px; border-radius: 999px; overflow: hidden;
+  background: var(--line); position: relative;
 }
 .mb-track i { display: block; height: 100%; }
+/* The figures, inside the bar. Twice: ink over the part that is not filled,
+   paper over the part that is, the paper copy clipped at exactly the eaten
+   edge. One copy in a single colour is illegible at one end or the other,
+   whichever way you pick, and a figure you cannot read is not a figure. */
+.mb-w {
+  position: absolute; inset: 0; display: flex; align-items: center; gap: 6px;
+  padding: 0 11px; white-space: nowrap; pointer-events: none;
+}
+.mb-on { clip-path: inset(0 calc(100% - var(--f)) 0 0); }
+/* Written as .mb-w.mb-on so it outranks `.mhead .mb-num b` and
+   `.mbrow .mb-num b`, which set the figure's colour and are both one class
+   plus one element deep. At equal specificity source order decides, and the
+   macro rule sits later in this file — so the paper copy of a FULL pill was
+   drawing its number in ink on a solid fill, i.e. not at all. The F bar read
+   "F  / 61 g" with the 106 missing. */
+.mb-w.mb-on, .mb-w.mb-on .mb-num,
+.mb-w.mb-on .mb-num b, .mb-w.mb-on .mb-k { color: var(--paper); }
 /* the headline is a bar of the same family, so it takes the same paint */
 .mhead.under .mb-ate { background: var(--dial-under); }
 .mhead.under .mb-plan { background: var(--dial-under-pale); }
@@ -2050,7 +2103,6 @@ select { max-width: 280px; }
 .mhead.on .mb-plan { background: var(--dial-on-pale); }
 .mhead.over .mb-ate { background: var(--dial-over); }
 .mhead.over .mb-plan { background: var(--dial-over-pale); }
-.mhead.over .mb-num b { color: var(--dial-over); }
 /* Scoped to the row, never bare. `.on` and `.over` are words half the app
    uses; an unscoped rule here would repaint anything that happened to sit
    inside an element carrying one — the same trap `.daybar` set. */
@@ -2069,7 +2121,14 @@ select { max-width: 280px; }
   white-space: nowrap; text-align: right;
 }
 .mb-num b { color: var(--ink); font-weight: 600; }
-.mbrow.over .mb-num b { color: var(--dial-over); }
+/* The figure is NOT tinted by the verdict any more, and both rules that did
+   it are gone. They made sense while the figure sat above its bar: the
+   number went red when the bar did, and said the verdict twice. Inside the
+   pill the fill IS the verdict, and a red figure on a red fill is a figure
+   painted out — the fat bar read "F  / 61 g" with the 106 missing, because
+   `.mbrow.over .mb-num b` outranked the paper copy's own colour and sat
+   later in this file besides. One thing says the verdict; the figure says
+   the figure. */
 /* `.mb-d` — what is left of the line, signed — carries no styling any more:
    it is spoken, never printed, and the pills print the same figure. Its
    rules went with the column that used to hold it. */

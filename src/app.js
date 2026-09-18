@@ -3304,6 +3304,11 @@
      a time, so "how did this week go" meant opening it seven times. Days
      ahead of today are shown but not reachable — the day is a record, not a
      diary you write forward into. */
+  /* Where the target sits along each square's rail, as a fraction of it. Two
+     thirds: enough of the rail before it to read a half-eaten day, enough
+     after it to tell 103% from 140%. */
+  var MWK_GOAL = 0.66;
+
   function mWeekHTML(k, todayK) {
     var cur = keyDate(k);
     var mon = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate());
@@ -3327,6 +3332,28 @@
          on, or over its target — so the week reads at a glance. */
       var done = dayObj ? mDayDone(dayObj) : false;
       var word = dk === k && state ? MWK_SAY[state.slice(1)] : '';
+      /* How FAR off, inside the square that already says which side of the
+         line it fell on.
+       *
+         Blake: "Right now I'm just seeing a lot of red and even though I'm
+         close on some days I'm over so it's red." He is right, and the
+         threshold is not the fix: a day one calorie past the line looks
+         exactly like a day four hundred past it wherever the line is put.
+         Moving a threshold moves the cliff; this removes it.
+       *
+         The goal sits two thirds along the rail on every square, so the
+         seven marks line up and a day can be read against its neighbours as
+         well as against its own target. That leaves the last third for the
+         overshoot: 151% of target fills the rail, and anything past that
+         pins — by which point the colour has said everything the length
+         could add. */
+      var spark = '';
+      if (got && tK) {
+        var ratio = got / tK;
+        spark = '<span class="mwk-b" aria-hidden="true">' +
+            '<i style="width:' + Math.min(100, ratio * 100 * MWK_GOAL).toFixed(1) + '%"></i>' +
+          '</span><span class="mwk-g" aria-hidden="true"></span>';
+      }
       out.push('<button class="mwk-d' + (dk === k ? ' now' : '') + state +
         (train ? ' train' : '') + (done ? ' done' : '') + '"' +
         (ahead || tooOld ? ' disabled' : '') +
@@ -3335,7 +3362,7 @@
         (train ? ', training day' : '') + ', ' + tK + ' calorie target' +
         (got ? ', ' + got + (done ? ' eaten, all done' : ' on the day') : '') + '">' +
         '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) + '</span>' +
-        '<span class="mwk-n">' + d.getDate() + '</span>' +
+        '<span class="mwk-n"><b>' + d.getDate() + '</b>' + spark + '</span>' +
         '<span class="mwk-s">' + (word || '&nbsp;') + '</span>' +
       '</button>');
     }
@@ -5389,13 +5416,34 @@
       var wAte = Math.min(100, 100 * ate / target);
       var wPlan = Math.min(100 - wAte, 100 * (plan - ate) / target);
       var wAsm = Math.min(100 - wAte - wPlan, 100 * assume / target);
-      var track = '<span class="mb-track">' +
+      var num = '<span class="mb-num"><b>' + (m === 'kcal' ? full.toLocaleString() : full) +
+        '</b> / ' + (m === 'kcal' ? tK.toLocaleString() + ' kcal' : targets[m] + esc(row[3])) +
+        '</span>';
+      /* The figures go INSIDE the bar, and the fill is the whole pill.
+       *
+         Blake's layout. The bar used to be a stripe under a caption, which
+         gave the fill whatever width the numbers beside it did not want; as
+         the pill it gets the entire card and reads as a quantity rather than
+         as decoration under a line of text.
+       *
+         The words are drawn TWICE — once in ink and once in paper, the paper
+         copy clipped at exactly the eaten edge — which is the only way a
+         figure sitting on a partial fill stays legible at both ends. Clipped
+         at `wAte` rather than at the end of the whole fill, because the
+         planned band and the assumed hatching are both pale and ink is what
+         reads on those.
+       *
+         The three bands stay. Solid is eaten, pale is planned, hatched is a
+         meal still empty and counted at its share — that distinction is the
+         difference between food and expectation, and a single-colour pill
+         would have thrown it away to gain nothing. */
+      var words = '<span class="mb-k mb-' + m + '" aria-hidden="true">' + row[1] + '</span>' + num;
+      var track = '<span class="mb-track" style="--f:' + wAte.toFixed(1) + '%">' +
           '<i class="mb-ate" style="width:' + wAte.toFixed(1) + '%"></i>' +
           '<i class="mb-plan" style="width:' + wPlan.toFixed(1) + '%"></i>' +
           '<i class="mb-asm" style="width:' + wAsm.toFixed(1) + '%"></i>' +
-        '</span>';
-      var num = '<span class="mb-num"><b>' + (m === 'kcal' ? full.toLocaleString() : full) +
-        '</b> / ' + (m === 'kcal' ? tK.toLocaleString() + ' kcal' : targets[m] + esc(row[3])) +
+          '<span class="mb-w">' + words + '</span>' +
+          '<span class="mb-w mb-on" aria-hidden="true">' + words + '</span>' +
         '</span>';
       /* What is left of the line, signed. It used to be printed beside every
          bar; three columns have no room for a third figure at a width a
@@ -5409,23 +5457,11 @@
         '" data-macro="' + m + '" data-state="' + state +
         '" data-eaten="' + Math.round(wAte) + '" data-planned="' +
         Math.round(Math.min(100, 100 * plan / target)) + '">';
-      barHTML[m] = m === 'kcal'
-        /* the headline: flame, the figure at display size, the target beside
-           it, and a bar the full width of the card under the pair */
-        ? open +
-            '<span class="mhead-n">' +
-              '<span class="mb-k mb-kcal" aria-hidden="true">' + row[1] + '</span>' + num +
-            '</span>' + track +
-            '<span class="vis-hidden">' + row[2] + '</span>' + delta +
-          '</div>'
-        /* a column: letter and figure on one line, bar under, all three the
-           same width so the fills compare by eye */
-        : open +
-            '<span class="mb-t">' +
-              '<span class="mb-k mb-' + m + '" aria-hidden="true">' + row[1] + '</span>' + num +
-            '</span>' + track +
-            '<span class="vis-hidden">' + row[2] + '</span>' + delta +
-          '</div>';
+      /* One shape for all four now: the pill IS the row. The headline is the
+         same pill at display size, which is what keeps calories the headline
+         without making them a different kind of object. */
+      barHTML[m] = open + track +
+        '<span class="vis-hidden">' + row[2] + '</span>' + delta + '</div>';
     });
     var bars = barHTML.kcal + '<div class="mbars3">' +
       barHTML.p + barHTML.f + barHTML.c + '</div>';
