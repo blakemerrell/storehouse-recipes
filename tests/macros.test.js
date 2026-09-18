@@ -5280,15 +5280,20 @@ module.exports = {
       const between = Math.round(dial.getBoundingClientRect().left - g[1].right);
       return { within, between, glyph: Math.round(g[0].width) };
     });
-    /* The white between two of these must not be wider than the icons it
-       separates. Stated that way on purpose: "inside is less than outside"
-       reads better but is not a test — the void outside is whatever the
-       portion happens to leave, and "1 scoop" leaves enough that the old
-       spacing passed it. This one is fixture-proof, and it is the rule the
-       old values broke: a 17px glyph in a 44px box left 29px of gap, so the
-       white was 1.7x the things it was separating. */
-    t.ok('no verb is further from its neighbour than a verb is wide',
-      !!spacing && (spacing.wrapped || spacing.within <= spacing.glyph),
+    /* Two verbs must sit closer together than one of them is a TARGET wide —
+       they are neighbours, not a scattered row.
+     *
+       It used to be measured against the glyph, and that was a rule the
+       glyph had to be inflated to satisfy: a 44px target with a 16px icon
+       has 28px of its own padding, so "gap smaller than the icon" forces the
+       icon to at least 22 whatever it looks like. It was 24 for exactly that
+       reason until Blake said "the icons in the new meal tabs can be
+       smaller", which is his call to make and not an arithmetic one. The
+       grouping is still asserted, and by the pair of rules that actually
+       carry it: adjacent (this) and closer to each other than to the next
+       group (below). */
+    t.ok('two verbs sit within a target of each other, not scattered',
+      !!spacing && (spacing.wrapped || spacing.within <= 44),
       JSON.stringify(spacing));
     /* And, on this day, the grouping still reads the way round it claims. */
     t.ok('and the air inside the group is less than the air around it',

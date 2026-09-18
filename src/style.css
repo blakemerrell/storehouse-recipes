@@ -3924,10 +3924,11 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    this made the same trade and its note says so. */
 /* Bin and lock, tight together, so proximity says they are one group and the
    portion beside them is another. */
-/* gap: 0, and the glyph grows into the padding the 44px target already has.
-   Two 44px boxes with air between them put more white INSIDE the group than
-   around it, which says the opposite of what the grouping means — there is a
-   note on the old .mitem-acts2 recording the same arithmetic. */
+/* Bin and lock, edge to edge, so proximity says they are one group and the
+   portion beside them is another. gap: 0 is doing all of that work — a box
+   around the pair was tried and drawn back out: it groups them, and it also
+   turns two quiet glyphs into a keypad, which is the complaint this row was
+   rebuilt to answer. */
 .mitem-verbs { flex: none; display: flex; align-items: center; gap: 0; }
 .mitem-r3 {
   display: flex; align-items: center; flex-wrap: wrap; gap: 14px; row-gap: 5px;
@@ -4065,10 +4066,12 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   .mitem-r3 .mstep .mitem-amt { min-height: 44px; min-width: 44px; }
   .mitem-r3 .mstep-keys button { width: 44px; height: 44px; }
   .mitem-ate { min-height: 44px; min-width: 44px; }
-  /* Bigger on a thumb, which costs nothing — the target was already 44 and
-     the glyph was floating in the middle of it. It is what buys the group
-     its proximity back. */
-  .mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 24px; height: 24px; }
+  /* Blake, on the built row: "the icons in the new meal tabs can be
+     smaller." They were 24 to buy the group its proximity by arithmetic —
+     two 44px targets with a small glyph put more white INSIDE the group than
+     around it — and that is the wrong way round to solve it. The glyph is
+     his call; the grouping is the container's job, below. */
+  .mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 18px; height: 18px; }
   /* The dial keeps a line of its own once the row has to wrap, so the two
      keys never end up orphaned under their own box. */
   .mitem-r3 .mstep { flex: 1 1 128px; }
@@ -4108,7 +4111,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    the lock and the pin became SVGs too they had none and filled their whole
    44px target. Scoped to .mic, which all three wear, so the next one added
    cannot arrive naked. */
-.mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 18px; height: 18px; display: block; }
+.mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 16px; height: 16px; display: block; }
 .mitem-r3 .mdel:hover { color: oklch(0.50 0.16 25); border-color: oklch(0.50 0.16 25); }
 
 /* What it costs. Where it came from is no longer said here — .mitem-from went
