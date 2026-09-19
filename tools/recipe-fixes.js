@@ -1199,19 +1199,27 @@ module.exports = [
    * The same shape as the barbecue sauce and the gravy mix above, with one
    * difference that decided its shelf: the seasoning's seven spices are all
    * off the order, so No. 337 lives on the Copycat Shelf and says so, and
-   * these are the recipes that want it. Unlike those ten, the ingredient here was MISSING rather than
+   * these are the recipes that want it.
+   *
+   * Optional on the line, the celery-salt treatment, and extras come off in
+   * the same breath. Blake: "taco seasoning should footnote, like other
+   * recipes." A taco salad is beef, salsa and cheese; the packet makes it
+   * taste like the restaurant. Optional means the salt still counts toward
+   * the nutrition and never toward what a storehouse cook is sent out for,
+   * which gives the six their storehouse bonus back — honestly, this time,
+   * because the list now says what the method has always said. Unlike those ten, the ingredient here was MISSING rather than
    * merely bought, so each list gains the line at the amount its own step
    * already states. No. 203 stated none, and now does. */
-  { id: 145, ing: ['1 lb ground beef', '2 cups lettuce', '2 tomatoes', '½ cup cheddar', 'salsa', 'sour cream', '2 tbsp taco seasoning'],
+  { id: 145, extras: null, ing: ['1 lb ground beef', '2 cups lettuce', '2 tomatoes', '½ cup cheddar', 'salsa', 'sour cream', '2 tbsp taco seasoning (optional)'],
     step: 0, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
-  { id: 152, ing: ['1.5 lbs ground beef', '12 tortillas', '1 can black beans', '1 can corn', 'lettuce', 'cheddar', 'salsa', '2 tbsp taco seasoning'],
+  { id: 152, extras: null, ing: ['1.5 lbs ground beef', '12 tortillas', '1 can black beans', '1 can corn', 'lettuce', 'cheddar', 'salsa', '2 tbsp taco seasoning (optional)'],
     step: 0, set: 'Brown ground beef in skillet 8 mins with 2 tbsp taco seasoning and ¼ cup water, until the water has gone and the seasoning clings. No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
-  { id: 164, ing: ['1.5 lbs ground beef', '8 tortillas', '1 can tomato sauce', '1 can black beans', '1 cup cheddar', '2 tbsp taco seasoning'],
+  { id: 164, extras: null, ing: ['1.5 lbs ground beef', '8 tortillas', '1 can tomato sauce', '1 can black beans', '1 cup cheddar', '2 tbsp taco seasoning (optional)'],
     step: 1, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
-  { id: 172, ing: ['1 lb ground beef', '16 oz macaroni', '1 cup salsa', '1 can black beans', '1 cup cheddar', '2 tbsp taco seasoning'],
+  { id: 172, extras: null, ing: ['1 lb ground beef', '16 oz macaroni', '1 cup salsa', '1 can black beans', '1 cup cheddar', '2 tbsp taco seasoning (optional)'],
     step: 1, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
-  { id: 190, ing: ['2 lbs chicken breast (shredded)', '12 tortillas', '1 can tomato sauce', '1 can black beans', '1.5 cups cheddar', '2 tbsp taco seasoning'],
+  { id: 190, extras: null, ing: ['2 lbs chicken breast (shredded)', '12 tortillas', '1 can tomato sauce', '1 can black beans', '1.5 cups cheddar', '2 tbsp taco seasoning (optional)'],
     step: 2, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
-  { id: 200, ing: ['1.5 lbs ground beef', '12 tortillas (baked crisp)', '1 can black beans', '1 can corn', '1.5 cups cheddar', 'salsa', 'sour cream', '2 tbsp taco seasoning'],
+  { id: 200, extras: null, ing: ['1.5 lbs ground beef', '12 tortillas (baked crisp)', '1 can black beans', '1 can corn', '1.5 cups cheddar', 'salsa', 'sour cream', '2 tbsp taco seasoning (optional)'],
     step: 1, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
 ];
