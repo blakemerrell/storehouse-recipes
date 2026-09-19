@@ -5349,6 +5349,55 @@
   /* The shelves alone. Two screens draw them — the fifth step of the first
      run, and "Food I eat" in the gear menu ever after — and a second copy of
      a hundred-food grid is a second copy that drifts. */
+  /* What the button that finishes this screen should say. It is the same
+     sentence on the gear sheet and on the wizard's last step, and it has to
+     be true in both: nothing chosen is a skip, and a skip is a real answer
+     here rather than a failure to answer. */
+  function mFavDoneLabel() {
+    var n = 0;
+    MFOODS.forEach(function (r) { if (r.food && mIsFav(r)) n++; });
+    return n ? 'Done &middot; ' + n + ' chosen' : 'Skip for now';
+  }
+
+  /* The wizard's sheet is drawn once and left — the same bargain the editor
+     strikes, and for the same reason: a redraw would throw away half-typed
+     answers on four other steps and put you back on the first. So a tap here
+     repaints what the tap changed and nothing else.
+   *
+     Without this the chip did not visibly move. The favourite was written —
+     bsc.favs had it — and the screen said nothing, so the honest reading was
+     that the tap had missed, and the next tap took it back off again. */
+  function mFavChipSync(btn, r) {
+    var on = mIsFav(r);
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    var shelf = btn.closest('.fp-shelf');
+    if (shelf) {
+      var tag = shelf.querySelector('.fp-shelf-h i');
+      if (tag) {
+        /* The total is whatever it already said — the chips in the document
+           are only the ones this shelf has been asked to show. */
+        var all = Number(String(tag.textContent).split(/\s+/).pop()) || 0;
+        var chosen = shelf.querySelectorAll('.fp-chip.on').length;
+        tag.textContent = chosen ? chosen + ' of ' + all : String(all);
+      }
+    }
+    var done = document.querySelector('[data-mtw="done"]');
+    if (done) done.innerHTML = mFavDoneLabel();
+    /* Turning shopping on has to say so here too; the sheet's own copy of
+       this line is written at render time and there is no render. */
+    if (mExtOk() && !document.querySelector('.fp-note')) {
+      var first = document.querySelector('.fp-shelf');
+      if (first && first.parentNode) {
+        var note = document.createElement('div');
+        note.className = 'fp-note';
+        note.textContent = 'You have picked food the storehouse does not carry, ' +
+          'so Fill may now shop outside it.';
+        first.parentNode.insertBefore(note, first);
+      }
+    }
+  }
+
   function mFavPickBodyHTML() {
     return mFavPickInner().blocks;
   }
@@ -8395,7 +8444,8 @@
           '<button class="btn-primary" data-mtw="next">Next &rsaquo;</button>' +
           /* The last step has no Next to press, and a step you can only leave
              by the × in the corner is a step that looks unfinished. */
-          '<button class="btn-primary" data-mtw="done" hidden>Done</button>' +
+          '<button class="btn-primary" data-mtw="done" hidden>' +
+            mFavDoneLabel() + '</button>' +
         '</div>' + helpHTML
       );
     }
@@ -13736,7 +13786,10 @@
             pr9.extFill = true;
             mWriteProfile(pr9);
           }
-          renderModal();
+          /* The gear sheet is cheap to redraw and has nothing to lose by it.
+             The wizard is not, so it gets the surgical version. */
+          if (S.favPick) renderModal();
+          else mFavChipSync(fpp, fpr);
         }
         return;
       }

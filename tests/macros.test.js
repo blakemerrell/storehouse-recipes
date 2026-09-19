@@ -3142,6 +3142,42 @@ module.exports = {
         const dn = document.querySelector('[data-mtw="done"]');
         return 'done ' + (dn ? (dn.hidden ? 'hidden' : 'shown') : 'missing');
       }));
+    /* A tap on the last step has to SHOW. The wizard's sheet is drawn once
+       and left — a redraw would throw away half-typed answers on four other
+       steps — so renderModal does nothing here, and the first version of this
+       screen wrote the favourite and repainted nothing. bsc.favs had the
+       food; the chip looked untouched; the honest reading was that the tap
+       had missed, and the next tap took it back off. */
+    const fav1 = await wiz.evaluate(() => {
+      const b = document.querySelector('.fp-chip:not(.on)');
+      const id = b.dataset.fppick;
+      b.click();
+      return id;
+    });
+    await wiz.waitForTimeout(300);
+    t.ok('a food tapped on the last step shows that it was tapped',
+      await wiz.evaluate((id) => {
+        const b = document.querySelector('[data-fppick="' + id + '"]');
+        return !!b && b.classList.contains('on') &&
+          b.getAttribute('aria-pressed') === 'true';
+      }, fav1), fav1);
+    t.ok('and it is still the last step afterwards, not back at the first',
+      await wiz.evaluate(() => {
+        const st = [...document.querySelectorAll('[data-mtwstep]')].find((x) => !x.hidden);
+        return !!st && st.dataset.mtwstep === '5';
+      }));
+    /* The button says which of the two things pressing it means. */
+    t.ok('and the finish button counts what you chose',
+      await wiz.evaluate(() =>
+        /\d+ chosen/.test(document.querySelector('[data-mtw="done"]').textContent)),
+      await wiz.evaluate(() => document.querySelector('[data-mtw="done"]').textContent));
+    await wiz.evaluate((id) => document.querySelector('[data-fppick="' + id + '"]').click(), fav1);
+    await wiz.waitForTimeout(300);
+    t.ok('and offers to skip once nothing is chosen',
+      await wiz.evaluate(() =>
+        /skip/i.test(document.querySelector('[data-mtw="done"]').textContent)),
+      await wiz.evaluate(() => document.querySelector('[data-mtw="done"]').textContent));
+
     /* Back to the plan step, because Save lives there and the next assertion
        presses it. */
     await wiz.click('[data-mtw="back"]');
