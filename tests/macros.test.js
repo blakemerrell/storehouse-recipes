@@ -10592,6 +10592,39 @@ module.exports = {
     });
     t.ok('and fills the meal around it rather than counting it as done',
       bKcal !== null && bKcal > 100, 'breakfast came to ' + bKcal + ' kcal');
+    /* And a pin that has been EATEN closes the meal like anything else.
+       The carve-out above was written for pins — "a pin says I have this
+       every day, not this meal is finished" — and forgot a pin can be ticked
+       like any other plate. A meal holding one eaten pin read as empty to the
+       drafter, and Fill put a second dish on a breakfast that was over. */
+    await pinPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays', JSON.stringify({
+        [k]: { b: [{ id: 'f:crio_bru', x: 1, eaten: 1 }], l: [], d: [], s: [] } }));
+    });
+    await pinPg.reload();
+    await pinPg.evaluate(() => document.fonts.ready);
+    await pinPg.click('.tab[data-view="macros"]');
+    await pinPg.waitForTimeout(300);
+    await pinPg.click('#macroFill');
+    await pinPg.waitForTimeout(900);
+    t.ok('and Fill adds nothing to a meal whose pin has been eaten',
+      await pinPg.evaluate(() => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const day = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}')[k] || {};
+        return (day.b || []).length === 1 && day.b[0].id === 'f:crio_bru';
+      }),
+      await pinPg.evaluate(() => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const day = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}')[k] || {};
+        return JSON.stringify(day.b || []);
+      }));
     await pinPg.context().close();
 
     /* ---- "What do you actually eat" ------------------------------------ */
@@ -10657,6 +10690,52 @@ module.exports = {
         !!document.querySelector('.fp-note') &&
         JSON.parse(localStorage.getItem('bsc.macroProfile') || '{}').extFill === true),
       await fpPg.evaluate(() => (document.querySelector('.fp-note') || {}).textContent || '(no note)'));
+    /* And it has a door. close() clears every sheet flag there is, and this
+       one was added without being added to it — so x and the backdrop both
+       called close(), close() left S.favPick standing, and renderModal drew
+       the grid straight back. Blake, stuck inside it: "when I click done or
+       try to exit out of this screen it doesn't let me go anywhere." The note
+       above that block in close() describes this exact failure, from the last
+       time somebody made it. */
+    await fpPg.evaluate(() => document.querySelector('.sheet-x').click());
+    await fpPg.waitForTimeout(400);
+    t.ok('the food screen closes on the x',
+      await fpPg.evaluate(() => !document.querySelector('.fp-shelf')));
+
+    await fpPg.click('#macroMore');
+    await fpPg.waitForTimeout(120);
+    await fpPg.click('[data-mmore="foods"]');
+    await fpPg.waitForTimeout(400);
+    await fpPg.evaluate(() => {
+      const b = document.querySelector('.fp-chip:not(.on)');
+      if (b) b.click();
+    });
+    await fpPg.waitForTimeout(300);
+    await fpPg.evaluate(() => document.querySelector('.sync-row .btn-primary').click());
+    await fpPg.waitForTimeout(400);
+    t.ok('and on its own Done, with food chosen',
+      await fpPg.evaluate(() => !document.querySelector('.fp-shelf')));
+    t.ok('and the day is reachable again behind it',
+      await fpPg.evaluate(() => !!document.getElementById('macroFill')));
+    /* The wizard's own finish, which takes a different road out — its own
+       handler rather than the sheet-done class — and has to arrive anyway. */
+    await fpPg.evaluate(() => {
+      ['bsc.macroProfile', 'bsc.macroTargets'].forEach((k) => localStorage.removeItem(k));
+    });
+    await fpPg.reload();
+    await fpPg.waitForTimeout(400);
+    await fpPg.click('.tab[data-view="macros"]');
+    await fpPg.waitForTimeout(250);
+    await fpPg.click('#macroFill');
+    await fpPg.waitForTimeout(400);
+    for (let i = 0; i < 4; i++) {
+      await fpPg.click('[data-mtw="next"]');
+      await fpPg.waitForTimeout(220);
+    }
+    await fpPg.click('[data-mtw="done"]');
+    await fpPg.waitForTimeout(400);
+    t.ok('and the first run lets go when its last step is finished',
+      await fpPg.evaluate(() => !document.querySelector('[data-mtwstep]')));
     await fpPg.context().close();
   },
 };

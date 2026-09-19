@@ -1664,7 +1664,21 @@
     var items = day[s.k] || [];
     if (!items.length) return false;
     var pinned = (s.pins || []).map(function (p) { return p.id; });
-    return items.some(function (it) { return pinned.indexOf(it.id) < 0; });
+    return items.some(function (it) {
+      /* Eaten or locked means hands off, whatever else is true of it.
+       *
+         This carve-out was written for pins alone — "a pin says I have this
+         every day, not this meal is finished" — and it forgot that a pin can
+         be eaten like anything else. A meal holding one pinned food you had
+         already ticked read as EMPTY to the drafter, so Fill put a second
+         dish on a breakfast that was over. Blake, finding it: "Fill is
+         putting foods into meals that are complete".
+       *
+         A tick is the strongest statement on this screen. Nothing may be
+         added to a meal carrying one. */
+      if (it.eaten || it.l) return true;
+      return pinned.indexOf(it.id) < 0;
+    });
   }
 
   function mSlotKind(slot) {
@@ -5468,7 +5482,12 @@
           'these when it suggests food &mdash; it does not stop offering anything ' +
           'else. You can change your mind on any food, any time.</div>' +
         inner.blocks +
-        '<div class="sync-row"><button class="btn-primary" data-close="1">' +
+        /* sheet-done, not data-close. The attribute is decorative — it sits
+           on the scrim too, so closest() would find it from anywhere inside
+           the card and every tap would shut the sheet. The class is the wire.
+           The note on that handler says so, and says it was written because
+           a Done button had already been built wearing the decoration once. */
+        '<div class="sync-row"><button class="btn-primary sheet-done">' +
           (total ? 'Done &middot; ' + total + ' chosen' : 'Skip for now') +
         '</button></div>' +
       '</div></div>';
@@ -14557,6 +14576,14 @@
     S.keepMeal = '';
     S.foodOpen = null;
     S.macroTargOpen = false;
+    /* And the food grid. It was added without this line and the sheet became
+       a room with no door: × and the backdrop both call close(), close() left
+       S.favPick standing, and renderModal drew the grid straight back. Blake,
+       stuck in it: "when I click done or try to exit out of this screen it
+       doesn't let me go anywhere." Exactly the failure the note above this
+       block describes, made again four sheets later. */
+    S.favPick = false;
+    S.fpOpen = null;
     if (S.newFood) mScanStop();
     S.newFood = null;
     S.syncOpen = false;
