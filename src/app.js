@@ -250,6 +250,7 @@
          is a meaningful portion for an egg, not for "1 serving" of beans. */
       MFOODS.push({
         id: 'f:' + key, food: true, side: !!f.side, eat: !!f.eat, lever: !!f.lever,
+        meals: f.meals || '',
         /* which shelf a cook would reach on, carried through from the food
            table so mShelfKey does not have to keep its own list */
         veg: !!f.veg, starch: !!f.starch, shelf: f.shelf || '',
@@ -1649,6 +1650,33 @@
      breakfast. Anything the map does not place falls to the slot the reader
      keeps for everything else, which is where an unclassifiable dish would
      have been put by hand. */
+  /* A meal's KIND, from a slot or a bare slot key. The four defaults are
+     their own kind; a meal somebody made themselves is 'x' and has none. */
+  function mSlotKind(slot) {
+    if (!slot) return '';
+    if (typeof slot === 'object') return slot.t || '';
+    var t = '';
+    mReadSlots().list.forEach(function (sl) { if (sl.k === slot) t = sl.t || ''; });
+    return t;
+  }
+
+  /* Whether a food belongs at this meal at all.
+   *
+     `meals` on a food names the meals it is ordinarily eaten at on its own,
+     and only exceptions carry one — so a food without the field is fine
+     anywhere, which is most food. A custom meal has no kind to judge against
+     and is never withheld from: somebody who built their own meal has said
+     more about it than this table knows. See the note in tools/food-db.js.
+   *
+     Recipes are untouched. They have always been placed by section, which is
+     the same fact stated for a dish. */
+  function mFoodMealOK(r, slot) {
+    if (!r || !r.meals) return true;
+    var t = mSlotKind(slot);
+    if (!t || t === 'x') return true;
+    return r.meals.indexOf(t) >= 0;
+  }
+
   function mSlotForRecipe(r, slots) {
     var sec = r.book + '-' + r.secNum, found = null;
     slots.list.forEach(function (s) {
@@ -8849,6 +8877,7 @@
         var mac = r.macro || {};
         if (r.ext && !mExtOk()) return;     // Fill does not shop
         if (!r.side) return;
+        if (!mFoodMealOK(r, slot)) return;
         if (!(mac.fib > 0) || !(mac.kcal > 0)) return;
         if (mac.fib * 100 / mac.kcal < MSIDE_DENS) return;
         if (mOnDay(day, r.id) || (near && near[r.id])) return;
@@ -8919,6 +8948,7 @@
       MFOODS.forEach(function (r) {
         var mac = r.macro || {};
         if (r.ext && !mExtOk()) return;     // Fill does not shop
+        if (!mFoodMealOK(r, slot)) return;
         if ((mac.kcal || 0) < MTOP_MIN) return;
         if (((mac.p || 0) + (mac.c || 0) + (mac.f || 0)) <= 0) return;
         if (mOnDay(day, r.id) || (near && near[r.id])) return;
@@ -9425,7 +9455,9 @@
         /* A copy — mLevers() hands back the one cached bench, and sorting it
            in place would reorder every other reader by whichever meal asked
            last. */
-        by[m] = bench[m].slice().sort(function (a, b) {
+        by[m] = bench[m].filter(function (e) {
+          return mFoodMealOK(e.r, slot);
+        }).sort(function (a, b) {
           /* History first, then the ladder's own order — BOTH of its terms.
              Sorting on history-then-purity alone quietly dropped the rule
              that a food outranks a condiment, and breakfast came back
@@ -9495,6 +9527,13 @@
       return secs.indexOf(r.book + '-' + r.secNum) >= 0;
     });
     var ext = mExtOk();
+    /* No meal filter here, deliberately. This pool is what the picker LETS
+       YOU LOOK THROUGH for a meal, and `meals` is about what gets SUGGESTED —
+       the same line the ext gate is held to a few lines up in mpFitsHTML.
+       Filtering here emptied whole shelves out of the rail at breakfast while
+       the search box went on finding every one of them, which is a shelf that
+       disagrees with itself. The tag does its work in mComboFor, mTopUp and
+       mSideUp, which are the three places something is offered unasked. */
     MFOODS.forEach(function (r) {
       if (r.ext && !ext) return;
       if (r.eat || r.side) pool.push(r);

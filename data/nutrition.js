@@ -566,6 +566,54 @@ const SPICE_NAMES = {
   'chili spices': 'chili powder',
 };
 
+/* ---------------------------------------------------------------------------
+ * Which meals a food is ordinarily eaten at ON ITS OWN.
+ *
+ * `eat` and `side` already say a food can be eaten as it comes, and that was
+ * the only thing the suggester knew. So it ranked the shelf by how cleanly
+ * each food moves one macro and offered the winners — which is how "three
+ * foods that close breakfast" came back as canned tuna, applesauce and cream
+ * cheese. Every number right, and nothing anybody eats at eight in the
+ * morning.
+ *
+ * This is a fact about food, in the same category as `eat` and `side`, and it
+ * is kept here with them rather than being inferred from macros — no amount
+ * of protein per calorie will ever work out that tuna is not breakfast.
+ *
+ * Only exceptions are listed. A food named nowhere below is fine at any meal,
+ * which is the honest default: most food is.
+ *
+ * The letters are the app's own slot keys: b breakfast, l lunch, d dinner,
+ * s snacks. Custom meals inherit their kind, so a second dinner is still 'd'.
+ * ------------------------------------------------------------------------- */
+
+/* Savoury meat, fish and the things that go beside them. Ham, bacon and eggs
+   are deliberately absent — those ARE breakfast. */
+const NOT_AT_BREAKFAST = [
+  'tuna', 'chicken_breast', 'chicken_canned', 'cooked_beef', 'roast_beef_deli',
+  'beef_frank', 'turkey_deli', 'turkey_breast',
+  'salmon', 'cod', 'halibut', 'tilapia', 'tuna_steak', 'trout', 'haddock',
+  'snapper', 'mackerel', 'catfish', 'sardines', 'shrimp', 'crab', 'lobster',
+  'scallops', 'clams', 'calamari',
+  'olives', 'hummus', 'parmesan', 'sour_cream',
+];
+
+/* Vegetables, minus the six that turn up in an omelette or beside an egg.
+   Fruit is not here at all: fruit is a breakfast food. */
+const VEG_NOT_AT_BREAKFAST = [
+  'black_beans', 'pinto_beans', 'carrot', 'green_beans', 'corn', 'broccoli',
+  'lettuce', 'tomato_canned', 'cucumber', 'asparagus', 'brussels', 'cauliflower',
+  'cabbage', 'kale', 'swiss_chard', 'collards', 'bok_choy', 'zucchini',
+  'yellow_squash', 'spaghetti_squash', 'eggplant', 'okra', 'leeks', 'artichoke',
+  'turnip', 'turnip_greens', 'celery', 'radish', 'romaine', 'snow_peas',
+  'bean_sprouts', 'alfalfa', 'water_chestnut', 'bamboo_shoots', 'watercress',
+  'endive', 'jalapeno', 'sauerkraut', 'chickpeas', 'kidney_beans', 'lentils',
+];
+
+NOT_AT_BREAKFAST.concat(VEG_NOT_AT_BREAKFAST).forEach((k) => {
+  if (FOODS[k]) FOODS[k].meals = 'lds';
+});
+
 
 /*
  * Turns an ingredient line into a food key and a weight in grams.

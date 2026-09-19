@@ -4873,19 +4873,33 @@ module.exports = {
       JSON.stringify(counted));
     await comboPage2.context().close();
 
-    /* Slots are yours to name, so no food carries a `breakfast` flag -- what
-       orders the rungs is what you have put in THIS meal before. The control
-       above shares every other condition, so a failure here is the history
-       and nothing else. */
+    /* Two rules, and this pins the second one.
+     *
+       A food may now carry `meals`, which GATES the meals it can be offered
+       at unasked -- canned tuna is not breakfast, and no amount of protein
+       per calorie was ever going to work that out. See tools/food-db.js. What
+       ORDERS the foods that pass that gate is still, and only, what you have
+       put in THIS meal before. Slots are still yours to name: a meal you made
+       yourself has no kind to judge against and is never gated at all.
+     *
+       Whey rather than egg whites, which this used to seed with. Egg whites
+       are the purest protein the breakfast gate admits, so they now open the
+       band on their own and the assertion could no longer tell history from
+       the default -- it passed against itself. The seed has to be a food the
+       ordering must MOVE, and it also has to clear MLEV_PURE or it is not on
+       the bench to be moved: cottage cheese reads like a breakfast protein
+       and is 52% of its calories, so it never appears at all.
+       The control above shares every other condition, so a failure here is
+       the history and nothing else. */
     /* Read off the bench, not the rendered rows. A food you ate yesterday is
        claimed by "Recent" and deduped out of the closers band, so the DOM
        stopped being able to show which rung it opened — which is a rendering
        fact, and this assertion is about the rule. */
-    const histPage = await comboAt({ hist: ['f:egg_white', 'f:salsa'] });
+    const histPage = await comboAt({ hist: ['f:whey', 'f:salsa'] });
     const withHist = await histPage.evaluate(() =>
       (window.__macroLab.closers() || []).map((c) => c.name));
-    t.ok('a week of egg whites at breakfast puts egg whites at the top of it',
-      withHist[0] === 'Egg whites' && noHistLevers[0] !== 'Egg whites',
+    t.ok('a week of whey at breakfast puts whey at the top of it',
+      withHist[0] === 'Whey protein' && noHistLevers[0] !== 'Whey protein',
       'no history: ' + noHistLevers.join(' | ') + ' -- with: ' + withHist.join(' | '));
 
     /* Ordinary rows: tapping one puts it in the BASKET at the portion the
