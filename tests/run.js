@@ -92,6 +92,22 @@ function playwright() {
          exception is a failure even when the assertions all pass. */
       async fresh(opts) {
         const ctx = await browser.newContext(Object.assign({ viewport: { width: 1100, height: 900 } }, opts));
+        /* The food tables are somebody else's server and this run is the one
+           that needs no network. That was true by accident until the picker's
+           lookup started firing on its own once you stop typing — every test
+           that types three characters into the search box now reaches for the
+           USDA, which makes the suite depend on a third party being up and
+           puts a live request in the middle of everything else's timing.
+         *
+           Refused here rather than switched off in the app: the app should
+           not know it is being tested, and the contract being enforced is the
+           runner's own. mLookNet already has an answer for a request that
+           does not come back, and the test that pins the wiring accepts it.
+         *
+           Only the USDA. Open Food Facts is what a barcode asks, and a barcode
+           is still only ever asked for by a press — the tests that exercise it
+           mean to reach it. */
+        await ctx.route(/api\.nal\.usda\.gov/, (route) => route.abort());
         const page = await ctx.newPage();
         /* FAST=1 trades the suite's padding for a settle.
          *

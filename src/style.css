@@ -4261,3 +4261,22 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    spacing finally says what the grouping means. Nothing about the target
    changes; a thumb cannot tell the difference and an eye can. */
 .mitem-acts2 { display: flex; align-items: center; gap: 0; margin-left: auto; flex: none; }
+
+/* What the meal already holds, in the sheet you are adding to it from. Shares
+   the basket's row shape deliberately — same kind of object — and refuses its
+   green in full, frame and all: green means "about to be added" everywhere
+   else in this sheet, and a green box holding food that is already on the
+   plate is the one reading this panel must never invite. */
+.mp-on {
+  margin-top: 10px;
+  border-color: var(--line-firm);
+  background: var(--paper-soft);
+}
+.mp-on .mp-basket-h { color: var(--ochre-text); }
+.mpb-por {
+  flex: 0 0 auto; font-size: 11px; color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.mpb-more {
+  font-size: 11px; color: var(--muted); padding: 0 9px 7px;
+}

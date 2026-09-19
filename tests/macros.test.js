@@ -2750,45 +2750,45 @@ module.exports = {
     await look.waitForTimeout(250);
     await addOn(look);
     await look.waitForTimeout(600);
-    const lookRow = () => look.evaluate(() => {
-      const b = document.querySelector('[data-mplook]');
-      return { there: !!b, q: b ? b.dataset.mplook : null,
-        results: !!document.getElementById('nfResults'),
-        says: (document.querySelector('#mpList .mslot-empty') || {}).textContent || '' };
-    });
+    const lookRow = () => look.evaluate(() => ({
+      results: !!document.getElementById('nfResults'),
+      says: (document.querySelector('#mpList .mslot-empty') || {}).textContent || '',
+      net: (document.getElementById('nfResults') || {}).textContent || '',
+    }));
 
     await look.fill('#mpFind', 'american cheese');
     await look.waitForTimeout(500);
     const dead = await lookRow();
-    t.ok('a food the book does not stock still offers somewhere to go',
-      dead.there && dead.q === 'american cheese' && dead.results, JSON.stringify(dead));
+    t.ok('a food the book does not stock still has somewhere for the answer to land',
+      dead.results, JSON.stringify(dead));
     t.ok('and still says plainly that it has nothing of its own',
       /nothing matches/i.test(dead.says), JSON.stringify(dead.says));
+
+    /* And it goes and asks, with no row to press. Any of the states mLookNet
+       can be in counts — asking, answered, or refused — because what the
+       tables say is their business and this is about the wiring. The query is
+       still "american cheese" here: the two-letter case below retypes it, and
+       putting this after that was checking a lookup that correctly never
+       happened. */
+    await look.waitForTimeout(900);
+    t.ok('and asks the food tables on its own once the typing stops',
+      /looking in the food tables|from the food tables|did not answer|asked too often|no usda key|nothing came back/i
+        .test((await lookRow()).net), JSON.stringify((await lookRow()).net.slice(0, 120)));
 
     /* Two characters is not a question worth asking somebody else's server. */
     await look.fill('#mpFind', 'am');
     await look.waitForTimeout(400);
-    t.ok('two letters is not a lookup', !(await lookRow()).there);
+    t.ok('two letters is not a lookup', !(await lookRow()).results);
 
     /* A barcode already has its own row at the top; two rows offering to look
        the same thing up is the tile problem again, smaller. */
     await look.fill('#mpFind', '01234567890');
     await look.waitForTimeout(400);
     const codeRow = await look.evaluate(() => ({
-      look: !!document.querySelector('[data-mplook]'),
+      look: !!document.getElementById('nfResults'),
       code: !!document.querySelector('[data-nfcode]') }));
     t.ok('a barcode is offered once, by the row that already did it',
       !codeRow.look && codeRow.code, JSON.stringify(codeRow));
-
-    /* And the row is actually wired to the lookup. */
-    await look.fill('#mpFind', 'american cheese');
-    await look.waitForTimeout(500);
-    await look.click('[data-mplook]');
-    await look.waitForTimeout(120);
-    t.ok('pressing it asks the food tables',
-      await look.evaluate(() =>
-        /looking in the food tables/i.test(document.getElementById('nfResults').textContent)),
-      await look.evaluate(() => document.getElementById('nfResults').textContent));
     await look.context().close();
 
     /* ---- a barcode you TYPE is a barcode you asked about -------------------

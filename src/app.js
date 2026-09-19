@@ -6245,6 +6245,48 @@
      tick what is in the basket, but a thing you have just named yourself is
      on no list yet — and a basket you cannot see is a basket you commit by
      surprise. */
+  /* What is ALREADY on the meal you are adding to.
+   *
+     The bar along the bottom lists the basket, and only once something is in
+     it — so a meal you had half-built was invisible from the sheet you build
+     it in. Blake: "when I open the meal picker I can't see what I have
+     already picked... I'd like to see the contents of that meal if there are
+     contents already selected."
+   *
+     Two different statements, so two different panels: this is what the meal
+     holds, the basket is what is about to join it. Same row shape so they
+     read as one family, a different heading colour so they are never mistaken
+     for each other — the basket's green means "about to be added", and
+     nothing here is about to be anything.
+   *
+     Below the sticky header rather than inside it. The header has to earn
+     every pixel and this is something you read once on the way in, not a
+     number you watch while you scroll. */
+  function mMealOnHTML() {
+    if (!S.macroPick) return '';
+    var sk = S.macroPick.slot;
+    if (!sk) return '';
+    var items = (mDay(mViewKey())[sk] || []).filter(function (it) { return BY_ID[it.id]; });
+    if (!items.length) return '';
+    var nm = mSlotOf(mReadSlots(), sk);
+    var show = items.slice(0, 4), rest = items.length - show.length;
+    return '<div class="mp-basket mp-on"><div class="mp-basket-h">Already on ' +
+      esc((nm && nm.n) || 'this meal') + ' &middot; ' + items.length + '</div>' +
+      show.map(function (it) {
+        var r = BY_ID[it.id];
+        return '<div class="mpb-row">' +
+          '<span class="mpb-b">' +
+            '<span class="mpb-n">' + esc(r.name) + '</span>' +
+            '<span class="mpb-m">' + mMacLine(r, it.x) + '</span>' +
+          '</span>' +
+          '<span class="mpb-por">' + esc(mPortionText(r, it.x)) + '</span>' +
+        '</div>';
+      }).join('') +
+      (rest > 0 ? '<div class="mpb-more">and ' + rest +
+        (rest === 1 ? ' more' : ' more') + '</div>' : '') +
+      '</div>';
+  }
+
   function mBasketListHTML() {
     var ids = Object.keys(S.mpBasket);
     if (!ids.length) return '';
@@ -6569,6 +6611,7 @@
               mpIcon('scan') + '</button>' : '') +
         '</div>' +
         '</div>' +
+        mMealOnHTML() +
         mpShelvesHTML() +
         '<div id="mpList">' + body + '</div>' +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +
@@ -6771,16 +6814,33 @@
     mReadSlots().list.forEach(function (sl) {
       if (sl.k === (S.macroPick && S.macroPick.slot)) slot = sl;
     });
-    var sh = mShares(mDay(k), targets, slot).T;
-    /* Less whatever is already in the basket — it is bound for this meal, so
-       it has already taken its bite out of this meal's share. */
-    var gap = { p: sh.p, f: sh.f, c: sh.c };
-    Object.keys(S.mpBasket).forEach(function (bk) {
-      var r = BY_ID[idOf(bk)], x = S.mpBasket[bk];
-      if (!r || !r.macro) return;
-      ['p', 'f', 'c'].forEach(function (m) { gap[m] -= (r.macro[m] || 0) * x; });
+    /* The SAME question the header above it asks, from the same two numbers.
+     *
+       This used to read mShares(...).T — the meal's static slice of the day —
+       and subtract only the basket, never what was already on the plate. So a
+       meal the header had just called closed still had a full share of gap
+       down here, and the band offered a food to close something with nothing
+       left in it. Blake's screenshot: BREAKFAST IS CLOSED, four zero pills,
+       and under them "one food that closes breakfast: tuna steak".
+     *
+       mMealAsk is also the cascade-aware number, which mShares is not: overrun
+       dinner and this meal is owed less than its slice; share a light
+       breakfast onto it and it is owed more. The header has read that all
+       along. This is the argument the panel and the footer already had, in a
+       new place — one question, one source.
+     *
+       mMealHolds counts the basket along with the plate, so there is nothing
+       further to subtract here. */
+    var sk2 = S.macroPick && S.macroPick.slot;
+    if (!sk2) return null;
+    var ask2 = mMealAsk(sk2, targets, mReadSlots());
+    var want2 = ask2 ? (ask2.now || ask2.plan) : null;
+    if (!want2) return null;
+    var got2 = mMealHolds(k, sk2);
+    var gap = {};
+    ['p', 'f', 'c'].forEach(function (m) {
+      gap[m] = Math.max(0, (want2[m] || 0) - (got2[m] || 0));
     });
-    ['p', 'f', 'c'].forEach(function (m) { gap[m] = Math.max(0, gap[m]); });
     return gap;
   }
 
@@ -7018,10 +7078,19 @@
   function mpLookFootHTML() {
     var q = S.mpQuery.trim();
     if (q.length < 3 || mQueryKind(q).k === 'barcode') return '';
-    return '<button class="mpick-row mpick-new" data-mplook="' + esc(q) + '">' +
-      '<span class="mp-body"><span class="mp-name">Look up &ldquo;' + esc(q) +
-      '&rdquo; in the food tables</span></span></button>' +
-      '<div id="nfResults"></div>';
+    /* The row that asked is gone; the fetch happens on its own now. Blake:
+       "when I do a food search, why doesn't it automatically show me foods
+       from the database that are best matches?" — and the note on the input
+       handler had described exactly that all along ("they answer when they
+       answer, underneath, and only once you have stopped typing long enough
+       to mean it") without anything ever calling mLookNet but a button.
+     *
+       The objection the button existed for is real and is answered by the
+       debounce rather than by a tap: somebody else's server sees one request
+       per word you finish, not one per keystroke. mLookNet already drops
+       late replies, so a slow answer to "tam" cannot land on top of the
+       results for "tamale". The retry lives in the failure text. */
+    return '<div id="nfResults"></div>';
   }
 
   /* The home list, in ONE place.
@@ -7466,6 +7535,26 @@
      dropped rather than drawn: a slow reply to "tam" must not land on top of
      the results for "tamale". */
   var mLookSeq = 0;
+  /* One request per word you finish typing, not one per keystroke.
+   *
+     600ms because it has to outlast the gap between two letters typed by a
+     thumb and not feel like a pause. The query is re-read when the timer
+     fires rather than captured when it is set, so backspacing to something
+     shorter than three characters cancels the request that was in flight for
+     the longer one. */
+  var mpLookTimer = null;
+  function mpLookSoon() {
+    if (mpLookTimer) clearTimeout(mpLookTimer);
+    mpLookTimer = setTimeout(function () {
+      mpLookTimer = null;
+      if (!S.macroPick) return;                    // the sheet closed under it
+      var q = (S.mpQuery || '').trim();
+      if (q.length < 3 || mQueryKind(q).k === 'barcode') return;
+      if (!$('nfResults')) return;                 // nothing on screen wants it
+      mLookNet(q);
+    }, 600);
+  }
+
   function mLookNet(term) {
     var mine = ++mLookSeq;
     var res = $('nfResults');
@@ -7481,7 +7570,13 @@
       $('nfResults').innerHTML = '<div class="mslot-empty">' +
         (err && err.message === 'nokey' ? 'No USDA key in src/config.js.'
           : err && err.message === 'toofast' ? 'Asked too often just now.'
-            : 'The food tables did not answer.') + '</div>';
+            : 'The food tables did not answer.') + '</div>' +
+        /* The one place a tap is still the right answer: the network failed
+           and only you know whether it is worth asking again. */
+        (err && err.message === 'nokey' ? ''
+          : '<button class="mpick-row mpick-new" data-mplook="' + esc(term) +
+            '"><span class="mp-body"><span class="mp-name">Try the food tables again' +
+            '</span></span></button>');
     });
   }
 
@@ -13971,6 +14066,7 @@
       if (S.macroPick && e.target.id === 'mpFind') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();
+        mpLookSoon();
       }
       /* One box over two speeds. What is already on this device answers on
          the keystroke; the food tables are a request over a network, so they
