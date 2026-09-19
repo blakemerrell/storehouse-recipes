@@ -3031,11 +3031,11 @@ module.exports = {
     await wiz.click('#macroFill');
     await wiz.waitForTimeout(500);
 
-    t.ok('a first run opens as four steps with one of them showing',
+    t.ok('a first run opens as five steps with one of them showing',
       await wiz.evaluate(() => {
         const all = [...document.querySelectorAll('[data-mtwstep]')];
         const shown = all.filter((s) => !s.hidden);
-        return all.length === 4 && shown.length === 1 && shown[0].dataset.mtwstep === '1';
+        return all.length === 5 && shown.length === 1 && shown[0].dataset.mtwstep === '1';
       }),
       await wiz.evaluate(() => [...document.querySelectorAll('[data-mtwstep]')]
         .map((s) => s.dataset.mtwstep + (s.hidden ? ':hidden' : ':shown')).join(' ')));
@@ -3093,24 +3093,59 @@ module.exports = {
       await wiz.evaluate(() => [...document.querySelectorAll('[data-mtwstep]')]
         .map((s) => s.dataset.mtwstep + (s.hidden ? ':hidden' : ':shown')).join(' ')));
 
-    /* The last step is the plan, and it carries the Save. Next used to stand
-       in for it by finding the button and clicking it — which worked in the
-       one-screen sheet, where such a button exists, and did nothing at all in
-       the wizard, where it did not. The wizard could not save. */
+    /* The pips are drawn from the step count now. They were four spans typed
+       by hand, so the fifth step would have arrived under a bar still saying
+       four — the kind of disagreement nobody sees until they count. */
+    t.ok('and the progress bar has a pip per step, not a hardcoded four',
+      await wiz.evaluate(() =>
+        document.querySelectorAll('.mtw-pip').length ===
+        document.querySelectorAll('[data-mtwstep]').length),
+      await wiz.evaluate(() => document.querySelectorAll('.mtw-pip').length + ' pips'));
+
+    /* The PLAN step carries the Save. Next used to stand in for it by finding
+       the button and clicking it — which worked in the one-screen sheet,
+       where such a button exists, and did nothing at all in the wizard, where
+       it did not. The wizard could not save.
+     *
+       It is no longer the LAST step: the food grid comes after it, because
+       "1,910 calories a day" is the answer that earns "so what do you eat".
+       So Next is still there on this one, and what has to hold is that Save
+       is present and reachable rather than that nothing follows it. */
     for (let i = 0; i < 3; i++) {
       await wiz.click('[data-mtw="next"]');
       await wiz.waitForTimeout(250);
     }
-    t.ok('the last step carries a Save you can actually press',
+    t.ok('the plan step carries a Save you can actually press',
       await wiz.evaluate(() => {
         const sv = document.querySelector('[data-mtarg="save"]');
-        const nx = document.querySelector('[data-mtw="next"]');
-        return !!sv && !sv.closest('[data-mtwstep]').hidden && !!nx && nx.hidden;
+        const st = [...document.querySelectorAll('[data-mtwstep]')].find((x) => !x.hidden);
+        return !!sv && !sv.closest('[data-mtwstep]').hidden &&
+          st && st.dataset.mtwstep === '4';
       }),
       await wiz.evaluate(() => {
         const sv = document.querySelector('[data-mtarg="save"]');
         return 'save:' + (sv ? (sv.closest('[data-mtwstep]').hidden ? 'hidden' : 'shown') : 'MISSING');
       }));
+
+    /* And the last step finishes rather than leaving you to the x in the
+       corner: Next stands down, Done takes its place. */
+    await wiz.click('[data-mtw="next"]');
+    await wiz.waitForTimeout(300);
+    t.ok('the last step swaps Next for a Done',
+      await wiz.evaluate(() => {
+        const nx = document.querySelector('[data-mtw="next"]');
+        const dn = document.querySelector('[data-mtw="done"]');
+        const st = [...document.querySelectorAll('[data-mtwstep]')].find((x) => !x.hidden);
+        return !!nx && nx.hidden && !!dn && !dn.hidden && st.dataset.mtwstep === '5';
+      }),
+      await wiz.evaluate(() => {
+        const dn = document.querySelector('[data-mtw="done"]');
+        return 'done ' + (dn ? (dn.hidden ? 'hidden' : 'shown') : 'missing');
+      }));
+    /* Back to the plan step, because Save lives there and the next assertion
+       presses it. */
+    await wiz.click('[data-mtw="back"]');
+    await wiz.waitForTimeout(300);
 
     await wiz.click('[data-mtarg="save"]');
     await wiz.waitForTimeout(400);

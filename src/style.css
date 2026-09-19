@@ -4323,3 +4323,12 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   background: var(--paper-soft); padding: 9px 11px; margin: 12px 0 0;
   font-size: 12.5px; color: var(--muted-2);
 }
+
+/* The wizard's nav, pinned. Four short forms did not need it; a step that is
+   a hundred-food grid does — Next at the far end of a long scroll reads as no
+   Next at all. */
+.mtw-nav {
+  position: sticky; bottom: 0; z-index: 2;
+  padding: 12px 0 4px; margin-top: 18px;
+  background: linear-gradient(to bottom, transparent, var(--card) 22%);
+}

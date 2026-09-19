@@ -5346,7 +5346,14 @@
     return by;
   }
 
-  function mFavPickHTML() {
+  /* The shelves alone. Two screens draw them — the fifth step of the first
+     run, and "Food I eat" in the gear menu ever after — and a second copy of
+     a hundred-food grid is a second copy that drifts. */
+  function mFavPickBodyHTML() {
+    return mFavPickInner().blocks;
+  }
+
+  function mFavPickInner() {
     var by = mFavPickShelves(), total = 0;
     var blocks = MSHELF.map(function (sh) {
       /* What the storehouse carries first, then the rest, then alphabetical.
@@ -5393,6 +5400,15 @@
        is a tap that did nothing — but the app changing what it drafts is not
        something to learn by noticing. */
     var shopping = mExtOk();
+    return { blocks: (shopping
+        ? '<div class="fp-note">You have picked food the storehouse does not ' +
+          'carry, so Fill may now shop outside it.</div>' : '') + blocks,
+      total: total };
+  }
+
+  function mFavPickHTML() {
+    var inner = mFavPickInner();
+    var total = inner.total;
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="What you eat">' +
         '<div class="sheet-top">' +
@@ -5402,10 +5418,7 @@
         '<div class="mt-cap">Tap anything you eat regularly. My Day leans toward ' +
           'these when it suggests food &mdash; it does not stop offering anything ' +
           'else. You can change your mind on any food, any time.</div>' +
-        (shopping
-          ? '<div class="fp-note">You have picked food the storehouse does not ' +
-            'carry, so Fill may now shop outside it.</div>' : '') +
-        blocks +
+        inner.blocks +
         '<div class="sync-row"><button class="btn-primary" data-close="1">' +
           (total ? 'Done &middot; ' + total + ' chosen' : 'Skip for now') +
         '</button></div>' +
@@ -8333,18 +8346,28 @@
        is on step four and nowhere else, because two of it would be two
        elements with one id. */
     if (!plan) {
-      var WORDS = ['one', 'two', 'three', 'four'];
+      var WORDS = ['one', 'two', 'three', 'four', 'five'];
+      var STEPS = 5;
       var step = function (n, title, body, said) {
         return '<section class="mtw-step" data-mtwstep="' + n + '"' + (n === 1 ? '' : ' hidden') + '>' +
-          '<div class="mtw-no">Step ' + WORDS[n - 1] + ' of four</div>' +
+          '<div class="mtw-no">Step ' + WORDS[n - 1] + ' of ' + WORDS[STEPS - 1] + '</div>' +
           '<h3 class="mtw-h">' + title + '</h3>' + body +
           '<div class="mtw-said" id="mtwSaid' + n + '">' + (said || '') + '</div>' +
         '</section>';
       };
       return shell(
+        /* Drawn from the step count rather than written out. Four pips were
+           typed by hand here, so a fifth step would have arrived with a bar
+           that still said four — the kind of disagreement nobody sees until
+           they count. */
         '<div class="mtw-bar" aria-hidden="true">' +
-          '<span class="mtw-pip on"></span><span class="mtw-pip"></span>' +
-          '<span class="mtw-pip"></span><span class="mtw-pip"></span>' +
+          (function () {
+            var out = '';
+            for (var i = 1; i <= STEPS; i++) {
+              out += '<span class="mtw-pip' + (i === 1 ? ' on' : '') + '"></span>';
+            }
+            return out;
+          })() +
         '</div>' +
         '<div class="mtw-keep hide">' + mMeasuredRowHTML(pr) + whoHTML + '</div>' +
         '<div id="mtEditor" class="mt-editor">' +
@@ -8353,10 +8376,26 @@
           step(3, 'What you are after', qGoal, '') +
           step(4, 'Here is your plan',
             answerHTML + qGrams + qPrefs + mealHeadHTML + mealsHTML + saveHTML(false), '') +
+          /* The food comes last, after the plan has paid for the question.
+             "1,910 calories a day" is the answer that earns "so what do you
+             eat" — asked before it, the same screen is a survey.
+           *
+             Skippable in one tap, and it says so. The table's own defaults
+             carry anybody who skips, and the picker dials the rest in as they
+             use it, which was Blake's instinct before it was a step: "as I
+             use it I dial it in as they show up as suggestions". */
+          step(5, 'What do you actually eat?',
+            '<div class="mt-cap">Tap anything you eat regularly. My Day leans ' +
+              'toward these when it suggests food &mdash; it never stops offering ' +
+              'anything else, and you can change your mind on any food later.</div>' +
+            mFavPickBodyHTML(), '') +
         '</div>' +
         '<div class="mtw-nav">' +
           '<button class="ghost" data-mtw="back" hidden>&lsaquo; Back</button>' +
           '<button class="btn-primary" data-mtw="next">Next &rsaquo;</button>' +
+          /* The last step has no Next to press, and a step you can only leave
+             by the × in the corner is a step that looks unfinished. */
+          '<button class="btn-primary" data-mtw="done" hidden>Done</button>' +
         '</div>' + helpHTML
       );
     }
@@ -8408,6 +8447,8 @@
        same thing through a different path. */
     var next = document.querySelector('[data-mtw="next"]');
     if (next) next.hidden = (n === last);
+    var fin = document.querySelector('[data-mtw="done"]');
+    if (fin) fin.hidden = (n !== last);
     /* Each step is a screen of its own, so it starts at the top of itself
        rather than wherever the last one had been scrolled to. */
     var sheet = document.querySelector('.mt-sheet');
@@ -14154,6 +14195,7 @@
         Array.prototype.forEach.call(steps, function (sc) {
           if (!sc.hidden) at = Number(sc.dataset.mtwstep);
         });
+        if (mtw.dataset.mtw === 'done') { close(); return; }
         mtwGo(at + (mtw.dataset.mtw === 'next' ? 1 : -1));
         return;
       }
