@@ -1652,6 +1652,21 @@
      have been put by hand. */
   /* A meal's KIND, from a slot or a bare slot key. The four defaults are
      their own kind; a meal somebody made themselves is 'x' and has none. */
+  /* Whether a meal is spoken for, as far as drafting is concerned.
+   *
+     Food on a meal means Fill leaves it alone: what you put there is your
+     business. A PIN is not that kind of statement. It says "I have this every
+     day", not "this meal is finished" — and a seven-calorie Crio Bru pinned to
+     breakfast was making Fill step over breakfast altogether, so the day came
+     back with a seven-calorie breakfast and every other meal carrying what it
+     should have held. */
+  function mSlotSpokenFor(day, s) {
+    var items = day[s.k] || [];
+    if (!items.length) return false;
+    var pinned = (s.pins || []).map(function (p) { return p.id; });
+    return items.some(function (it) { return pinned.indexOf(it.id) < 0; });
+  }
+
   function mSlotKind(slot) {
     if (!slot) return '';
     if (typeof slot === 'object') return slot.t || '';
@@ -8716,6 +8731,35 @@
         9 * Math.max(0, targets.f - had.f);
       if (room < 100) return;
 
+      /* Pins get the first claim of all.
+       *
+         A pin is a standing instruction and Fill is the machine acting on
+         your instructions, so it has to be able to read them. It could not:
+         pins were placed in exactly one moment, the first time a day was ever
+         looked at, and nowhere else. Empty a day and its key survives as an
+         object with empty arrays, which is truthy, so that branch never ran
+         again — the pin was gone from that day for good, through Fill and
+         through a reload both. Blake, who found it: "I cleared a day and then
+         filled and I have my crio bru pinned and it did not show up."
+       *
+         At the pinned portion rather than at 1x. mRenderDay's seeding has
+         always honoured p.x, and this is the same statement arriving by a
+         different road; the two must not disagree about what a pin says.
+       *
+         Before the family's plan, because a pin is the older promise. They
+         rarely contend — a pin is an item and the family's dish is placed by
+         its section — and mSlotSpokenFor keeps either from shutting a meal. */
+      var pinSlots = mReadSlots();
+      pinSlots.list.forEach(function (ps) {
+        if (mSkipped(mViewKey(), ps.k)) return;        // you said you are not eating it
+        (ps.pins || []).forEach(function (p) {
+          var pr = BY_ID[p.id];
+          if (!pr || !pr.macro) return;                // no macros, nothing to solve
+          if (mOnDay(day, p.id)) return;               // already there, by any route
+          (day[ps.k] = day[ps.k] || []).push({ id: p.id, x: p.x || 1, eaten: 0 });
+        });
+      });
+
       /* The family's plan gets first claim.
        *
          Before a single best-fit is chosen, whatever the house is having
@@ -8738,13 +8782,13 @@
         if (mOnDay(day, r.id)) return;                 // already there, by any route
         var s = mSlotForRecipe(r, wSlots);
         if (!s) return;
-        if ((day[s.k] || []).length) return;           // that meal is spoken for
+        if (mSlotSpokenFor(day, s)) return;            // that meal is spoken for
         if (mSkipped(mViewKey(), s.k)) return;         // you said you are not eating it
         (day[s.k] = day[s.k] || []).push({ id: r.id, x: 1, eaten: 0, by: 'w' });
       });
 
       mReadSlots().list.forEach(function (s) {
-          if ((day[s.k] || []).length) return;
+          if (mSlotSpokenFor(day, s)) return;
           // you said you are not eating this one
           if (mSkipped(mViewKey(), s.k)) return;
           var secs = mSlotSecs(s);

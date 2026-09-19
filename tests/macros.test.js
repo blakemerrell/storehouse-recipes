@@ -10466,5 +10466,51 @@ module.exports = {
     t.ok('and the summary reads the same calories the bar does',
       /700/.test(outSheet) && /1,370/.test(outSheet), outSheet.slice(0, 200));
     await outPg.context().close();
+
+    /* ---- a pin survives an emptied day, and does not shut the meal ------ */
+    /* Two faults, found dogfooding. Pins were placed in one moment only --
+       the first time a day was ever looked at -- and an emptied day keeps its
+       key as an object with empty arrays, which is truthy, so that branch
+       never ran again and the pin was gone for good. And a pin counted as the
+       meal being spoken for, so seven calories of Crio Bru pinned to breakfast
+       made Fill step over breakfast entirely. */
+    const pinPg = await t.fresh();
+    await pinPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({
+        list: [{ k: 'b', n: 'Breakfast', t: 'b', pins: [{ id: 'f:crio_bru', x: 1 }] },
+          { k: 'l', n: 'Lunch', t: 'l' }, { k: 'd', n: 'Dinner', t: 'd' },
+          { k: 's', n: 'Snacks', t: 's' }],
+        names: { b: 'Breakfast', l: 'Lunch', d: 'Dinner', s: 'Snacks' } }));
+      // the day EXISTS and is empty -- what deleting every plate leaves behind
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [], l: [], d: [], s: [] } }));
+    });
+    await pinPg.reload();
+    await pinPg.evaluate(() => document.fonts.ready);
+    await pinPg.click('.tab[data-view="macros"]');
+    await pinPg.waitForTimeout(300);
+    t.ok('an emptied day is not re-seeded with its pins just by arriving',
+      !/Crio Bru/.test(await pinPg.innerText('#view-macros')));
+
+    await pinPg.click('#macroFill');
+    await pinPg.waitForTimeout(900);
+    const pinDay = (await pinPg.innerText('#view-macros')).replace(/\s+/g, ' ');
+    t.ok('but Fill puts the pin back, because a pin is a standing instruction',
+      /Crio Bru/.test(pinDay), pinDay.slice(0, 200));
+
+    /* The pin must not be the whole of breakfast. Read off the bench rather
+       than the card's own number, which is formatted with a comma. */
+    const bKcal = await pinPg.evaluate(() => {
+      const day = window.__macroLab.read ? null : null;
+      const rows = [...document.querySelectorAll('.mday-stop')];
+      const b = rows.find((r) => /BREAKFAST/i.test(r.innerText));
+      const m = b && b.innerText.replace(/,/g, '').match(/(\d{2,5})\s*\u{1F525}/u);
+      return m ? Number(m[1]) : null;
+    });
+    t.ok('and fills the meal around it rather than counting it as done',
+      bKcal !== null && bKcal > 100, 'breakfast came to ' + bKcal + ' kcal');
+    await pinPg.context().close();
   },
 };
