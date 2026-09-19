@@ -6259,18 +6259,26 @@
      for each other — the basket's green means "about to be added", and
      nothing here is about to be anything.
    *
-     Below the sticky header rather than inside it. The header has to earn
-     every pixel and this is something you read once on the way in, not a
-     number you watch while you scroll. */
+     In the BAR, not in the scroll. It began as a panel under the sticky
+     header and Blake moved it: "I want this basket to fold into the footer.
+     If there are foods already on that meal I meant to see them in the sticky
+     footer basket." Which is right — what the meal holds and what is about to
+     join it are the same question asked a second apart, and the bar is where
+     the answer was already kept. It also gives the list back the ~200px the
+     panel was spending on something you read once. */
+  function mMealOnItems() {
+    if (!S.macroPick || !S.macroPick.slot) return [];
+    return (mDay(mViewKey())[S.macroPick.slot] || []).filter(function (it) {
+      return BY_ID[it.id];
+    });
+  }
+
   function mMealOnHTML() {
-    if (!S.macroPick) return '';
-    var sk = S.macroPick.slot;
-    if (!sk) return '';
-    var items = (mDay(mViewKey())[sk] || []).filter(function (it) { return BY_ID[it.id]; });
+    var items = mMealOnItems();
     if (!items.length) return '';
-    var nm = mSlotOf(mReadSlots(), sk);
+    var nm = mSlotOf(mReadSlots(), S.macroPick.slot);
     var show = items.slice(0, 4), rest = items.length - show.length;
-    return '<div class="mp-basket mp-on"><div class="mp-basket-h">Already on ' +
+    return '<div class="mp-basket-h mp-on-h">Already on ' +
       esc((nm && nm.n) || 'this meal') + ' &middot; ' + items.length + '</div>' +
       show.map(function (it) {
         var r = BY_ID[it.id];
@@ -6282,18 +6290,22 @@
           '<span class="mpb-por">' + esc(mPortionText(r, it.x)) + '</span>' +
         '</div>';
       }).join('') +
-      (rest > 0 ? '<div class="mpb-more">and ' + rest +
-        (rest === 1 ? ' more' : ' more') + '</div>' : '') +
-      '</div>';
+      (rest > 0 ? '<div class="mpb-more">and ' + rest + ' more</div>' : '');
   }
 
   function mBasketListHTML() {
     var ids = Object.keys(S.mpBasket);
-    if (!ids.length) return '';
+    var on = mMealOnHTML();
+    /* Neutral while the basket is empty. The green wash means "about to be
+       added" wherever it appears in this sheet, and a drawer holding only
+       what is ALREADY on the plate must not wear it. With both halves in
+       there the tint is the basket's and the two headings carry the rest. */
+    if (!ids.length) return on ? '<div class="mp-basket mp-basket-on">' + on + '</div>' : '';
     /* Its own row, not the picker's. The list already ticks what is in the
        basket; repeating the whole row here — stepper, star and all — put the
        same plate on screen twice with two sets of controls. */
-    return '<div class="mp-basket"><div class="mp-basket-h">In the basket &middot; ' +
+    return '<div class="mp-basket">' + on +
+      '<div class="mp-basket-h">In the basket &middot; ' +
       ids.length + '</div>' + ids.map(function (k) {
         var r = BY_ID[idOf(k)];
         if (!r) return '';
@@ -6347,7 +6359,41 @@
 
   function mBasketFootHTML() {
     var ids = Object.keys(S.mpBasket);
-    if (!ids.length) return '';
+    /* An empty basket used to take the whole bar with it, so a meal you had
+       half-built showed nothing anywhere: the plates were on the day behind
+       the sheet and the sheet said nothing about them. The bar speaks for the
+       MEAL now when the basket has nothing to say — same handle, same drawer,
+       and no Add, because a button that adds nothing is still not a button. */
+    if (!ids.length) {
+      var onItems = mMealOnItems();
+      if (!onItems.length) return '';
+      var ot = { kcal: 0, p: 0, f: 0, c: 0 };
+      onItems.forEach(function (it) {
+        var r0 = BY_ID[it.id];
+        if (!r0 || !r0.macro) return;
+        ['kcal', 'p', 'f', 'c'].forEach(function (m) {
+          ot[m] += (r0.macro[m] || 0) * it.x;
+        });
+      });
+      var onm = mSlotOf(mReadSlots(), S.macroPick.slot);
+      return '<div class="mp-foot mp-foot-on">' +
+        '<button class="mp-foot-t" data-mpbasket="1" aria-expanded="' +
+          (S.mpBasketOpen ? 'true' : 'false') + '" aria-label="' +
+          (S.mpBasketOpen ? 'Hide what is on this meal' : 'Show what is on this meal') + '">' +
+          '<span class="mp-foot-b">' +
+            '<span class="mp-foot-m">On ' + esc((onm && onm.n) || 'this meal') +
+              ' &middot; ' + Math.round(ot.kcal) + ' kcal &middot; ' +
+              Math.round(ot.p) + 'P &middot; ' + Math.round(ot.f) + 'F &middot; ' +
+              Math.round(ot.c) + 'C</span>' +
+            '<span class="mp-foot-n">' + esc(mBasketNames(onItems.map(function (it) {
+              return String(it.id);
+            }))) + '</span>' +
+          '</span>' +
+          '<span class="mp-foot-c' + (S.mpBasketOpen ? ' open' : '') +
+            '" aria-hidden="true">&#8964;</span>' +
+        '</button>' +
+      '</div>';
+    }
     var t = { kcal: 0, p: 0, f: 0, c: 0 }, est = false;
     ids.forEach(function (k) {
       var r = BY_ID[idOf(k)];
@@ -6611,7 +6657,6 @@
               mpIcon('scan') + '</button>' : '') +
         '</div>' +
         '</div>' +
-        mMealOnHTML() +
         mpShelvesHTML() +
         '<div id="mpList">' + body + '</div>' +
         '<button class="mpick-row mpick-new" data-mpnew="1">' +

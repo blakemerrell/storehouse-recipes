@@ -4262,21 +4262,25 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    changes; a thumb cannot tell the difference and an eye can. */
 .mitem-acts2 { display: flex; align-items: center; gap: 0; margin-left: auto; flex: none; }
 
-/* What the meal already holds, in the sheet you are adding to it from. Shares
-   the basket's row shape deliberately — same kind of object — and refuses its
-   green in full, frame and all: green means "about to be added" everywhere
-   else in this sheet, and a green box holding food that is already on the
-   plate is the one reading this panel must never invite. */
-.mp-on {
-  margin-top: 10px;
-  border-color: var(--line-firm);
-  background: var(--paper-soft);
+/* What the meal already holds, in the drawer the basket folds into. It keeps
+   the basket's row shape — same kind of object — and refuses its green: green
+   means "about to be added" everywhere else in this sheet, and nothing under
+   this heading is about to be anything. The rule below it separates the two
+   halves of one drawer. */
+.mp-on-h { color: var(--ochre-text) !important; }
+.mp-on-h ~ .mp-basket-h {
+  border-top: 1px solid var(--line-soft); margin-top: 4px; padding-top: 9px;
 }
-.mp-on .mp-basket-h { color: var(--ochre-text); }
+/* The bar speaking for the meal rather than the basket: no commit button
+   beside it, so the handle takes the whole width. */
+.mp-foot-on .mp-foot-t { flex: 1 1 auto; }
 .mpb-por {
   flex: 0 0 auto; font-size: 11px; color: var(--muted);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .mpb-more {
   font-size: 11px; color: var(--muted); padding: 0 9px 7px;
+}
+.mp-basket-on {
+  border-color: var(--line-firm); background: var(--paper-soft);
 }
