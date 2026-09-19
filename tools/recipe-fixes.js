@@ -1190,4 +1190,28 @@ module.exports = [
       'Lay each slice in and give it 30 seconds a side, pressing it down. Long enough to take the egg up, and not so long that it falls apart on the way to the pan.',
       'Cook in a non-stick pan over medium heat, about 3 minutes a side, until set through and golden.',
     ] },
+  /* ---- six recipes that season with a packet they never list ----------
+   * Blake, off No. 196: "Add 2 tbsp taco seasoning" in the method, and
+   * nothing of the kind in the ingredients. Six do it. The seasoning could
+   * not be listed because it was not a food, so its salt went uncounted in
+   * all six and the shopping list never asked for it.
+   *
+   * The same shape as the barbecue sauce and the gravy mix above, with one
+   * difference that decided its shelf: the seasoning's seven spices are all
+   * off the order, so No. 337 lives on the Copycat Shelf and says so, and
+   * these are the recipes that want it. Unlike those ten, the ingredient here was MISSING rather than
+   * merely bought, so each list gains the line at the amount its own step
+   * already states. No. 203 stated none, and now does. */
+  { id: 145, ing: ['1 lb ground beef', '2 cups lettuce', '2 tomatoes', '½ cup cheddar', 'salsa', 'sour cream', '2 tbsp taco seasoning'],
+    step: 0, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
+  { id: 152, ing: ['1.5 lbs ground beef', '12 tortillas', '1 can black beans', '1 can corn', 'lettuce', 'cheddar', 'salsa', '2 tbsp taco seasoning'],
+    step: 0, set: 'Brown ground beef in skillet 8 mins with 2 tbsp taco seasoning and ¼ cup water, until the water has gone and the seasoning clings. No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
+  { id: 164, ing: ['1.5 lbs ground beef', '8 tortillas', '1 can tomato sauce', '1 can black beans', '1 cup cheddar', '2 tbsp taco seasoning'],
+    step: 1, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
+  { id: 172, ing: ['1 lb ground beef', '16 oz macaroni', '1 cup salsa', '1 can black beans', '1 cup cheddar', '2 tbsp taco seasoning'],
+    step: 1, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
+  { id: 190, ing: ['2 lbs chicken breast (shredded)', '12 tortillas', '1 can tomato sauce', '1 can black beans', '1.5 cups cheddar', '2 tbsp taco seasoning'],
+    step: 2, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
+  { id: 200, ing: ['1.5 lbs ground beef', '12 tortillas (baked crisp)', '1 can black beans', '1 can corn', '1.5 cups cheddar', 'salsa', 'sour cream', '2 tbsp taco seasoning'],
+    step: 1, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
 ];

@@ -202,6 +202,14 @@ const FOODS = {
 
   // ---- Supplements & drinks ----------------------------------------------
   whey:            { eat: 1, kcal: 400, p: 80,   c: 8,    f: 5, na: 300, fib: 2,    g: { each: 32, scoop: 32, cup: 120, tbsp: 8 }, label: 'Whey protein', def: { qty: 1, unit: 'scoop' }, note: '1 scoop = 32 g' },
+  /* A homemade blend, per 100 g: 2 tbsp chili powder, 1 tbsp cumin, and a
+     teaspoon each of paprika, garlic powder, onion powder, oregano, salt and
+     cornstarch — about 39 g a batch, enough for two pounds of meat. The
+     spices ride at zero here like every other spice in this table, so the
+     figures are the salt and the cornstarch: 6 g of salt in 39 g is 6,000 mg
+     of sodium per hundred, roughly half what a packet carries. Six recipes
+     use it in their method and, until the recipe existed, none listed it. */
+  taco_seasoning:  { kcal: 27, p: 0, c: 6.3, f: 0, na: 6000, fib: 0, g: { tbsp: 8, tsp: 2.7, cup: 128 }, label: 'Taco seasoning', note: 'homemade; the Taco Seasoning recipe on the Copycat Shelf' },
   crio_bru:        { eat: 1, kcal: 2,   p: 0.3,  c: 0.3,  f: 0.1, na: 2, fib: 0.3,  g: { cup: 240, oz: 29.6 }, label: 'Crio Bru', note: 'brewed cacao, essentially calorie-free' },
   water:           { kcal: 0,   p: 0,    c: 0,    f: 0, na: 0, fib: 0,    g: { cup: 240, oz: 29.6, tbsp: 15, each: 240 } },
 
@@ -455,6 +463,7 @@ const ALIASES = {
   'oats': 'oats', 'rolled oats': 'oats', 'oat flour': 'oat_flour',
   'flour': 'flour',
   'rice': 'rice_dry', 'cooked rice': 'rice_cooked',
+  'taco seasoning': 'taco_seasoning',
   'pancake mix': 'pancake_mix', 'waffle mix': 'pancake_mix',
   'macaroni': 'pasta', 'ribbon pasta': 'pasta', 'spaghetti': 'pasta', 'pasta': 'pasta', 'rotini': 'pasta',
   'bread': 'bread', 'bread slices': 'bread', 'bread slice': 'bread', 'slices bread': 'bread',

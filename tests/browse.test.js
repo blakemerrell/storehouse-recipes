@@ -364,6 +364,19 @@ module.exports = {
         if (window.PANTRY[k].l) vocab.add(String(window.PANTRY[k].l).toLowerCase());
       });
       const skip = new Set(allow);
+      /* A recipe other recipes point at is named for its output, wherever it
+         is shelved. The six taco recipes say "{r:337} makes taco seasoning",
+         and 337 is a recipe called Taco Seasoning whose list is seven spices
+         — listing taco seasoning would be the actual mistake. It sits on the
+         Copycat Shelf because its spices are off the order, which the Made,
+         Not Bought guard rightly refuses, so the shelf exemption below could
+         not reach it. The cross-reference is the reason that does. */
+      const madeFor = new Set();
+      window.RECIPES.forEach((r) => {
+        (r.steps || []).forEach((st) => {
+          String(st).replace(/\{r:(\d+)\}/g, (m, id) => { madeFor.add(Number(id)); return m; });
+        });
+      });
       const bad = [];
       window.RECIPES.forEach((r) => {
         /* Made, Not Bought is the one section named for its output rather than
@@ -373,6 +386,7 @@ module.exports = {
            new one to the list of allowed words above — the section is the
            reason, and a reason holds for the next one too. */
         if (r.secName === 'Made, Not Bought') return;
+        if (madeFor.has(r.id)) return;
         const body = (r.ing.join(' ') + ' ' + r.steps.join(' ') + ' ' +
           (r.extras || '')).toLowerCase();
         const words = r.name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);

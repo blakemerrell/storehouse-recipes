@@ -359,17 +359,68 @@ module.exports = [
     id: 336, book: 2, secNum: 7, secName: COPYCAT,
     name: 'Horchata, Cafe Rio Style',
     servings: '8 Servings (1 Pitcher)', servN: 8,
-    ing: ['1 cup rice', '2 tsp cinnamon', '4 cups water', '2 cups milk',
-      '0.75 cup sugar', '1 tsp vanilla'],
+    ing: ['1 cup rice', '2 tsp cinnamon', '4 cups hot water', '2 cups cold water',
+      '0.5 cup sugar', '0.5 cup evaporated milk', '1 tsp vanilla', '1 pinch salt'],
     steps: [
-      'Put the rice, cinnamon and 2 cups of the water in a blender and run it 1 minute, until the rice is broken to grit. The grit is what gives the water its body.',
-      'Pour it into a jug, add the other 2 cups of water, cover, and leave it in the fridge at least 4 hours or overnight. The rice softens and the water turns milky and takes on the cinnamon.',
-      'Blend it again, hard, for 2 minutes, then pour it through a fine sieve lined with a clean cloth. Press the grit with a spoon to get the last of the liquid, then throw the grit away.',
-      'Stir in the milk, sugar and vanilla until the sugar is gone. Taste it: it should be sweeter than you think, because the ice will water it down.',
-      'Chill it well and stir before pouring, since the rice settles. Serve over ice with a shake of cinnamon on top.',
+      'Rinse the rice until the water runs mostly clear. Put it in a bowl with the cinnamon and the 4 cups of hot water, cover, and leave it at least 4 hours or overnight in the fridge. Hot water pulls more out of the rice than cold.',
+      'Tip the lot into a blender and run it on high for 2 minutes, until the rice is a fine, milky slurry.',
+      'Pour it through a fine sieve lined with a clean cloth into a jug. Squeeze the cloth to get the last of it, then throw the grit away. Strain it twice if you want it silky.',
+      'Stir in the sugar, the evaporated milk, the vanilla, the salt and the 2 cups of cold water until the sugar is gone. Taste it: sweet, but not syrupy.',
+      'Chill it an hour. It separates, so stir before you pour. Serve over plenty of ice with a shake of cinnamon on top.',
     ],
+    /* Ground cinnamon is on the order and canela is not, so the sticks are
+       the lift rather than the recipe. Both tellings arrived the same
+       afternoon — this one and a longer one Blake had from elsewhere — and the
+       longer one was the better glass: the hot soak, evaporated milk for body
+       without watering it down, a pinch of salt, and less sugar. Its method
+       is here in the house voice; its canela is here as what the drink
+       becomes with a thing the storehouse does not carry. */
+    lift: {
+      with: 'Canela (Mexican cinnamon sticks)',
+      steps: [
+        'Soak 2 canela sticks with the rice in place of the ground cinnamon, and blend them in with it. The flavour is rounder and less dusty.',
+        'A quarter cup of blanched almonds soaked alongside the rice makes it richer still.',
+      ]
+    },
     macro: null, tagline: 'Sweet, Cold, Faintly of Cinnamon', score: null, sc: null,
-    diff: 'Easy', time: '4 hrs 15 mins', extras: null,
+    diff: 'Easy', time: '5 hrs 15 mins', extras: null,
+  },
+
+  {
+    /* On the Copycat Shelf, not Made, Not Bought, and the test that guards
+       that section is why: it is for the cook with the order and nothing
+       else, and every one of these seven spices is off the order. The
+       sauces got in by making celery salt optional; nothing here is optional,
+       the spices are the recipe. So it sits beside the taco beef it seasons,
+       on the shelf where a recipe may honestly send you to the shop. */
+    id: 337, book: 2, secNum: 7, secName: COPYCAT,
+    name: 'Taco Seasoning',
+    servings: '8 Tablespoons (4 Batches)', servN: 4,
+    ing: ['2 tbsp chili powder', '1 tbsp cumin', '1 tsp paprika', '1 tsp garlic powder',
+      '1 tsp onion powder', '1 tsp oregano', '1 tsp salt', '1 tsp cornstarch'],
+    steps: [
+      'Stir everything together in a small jar and put the lid on. That is the whole method.',
+      'Two tablespoons seasons a pound of meat. Add it to browned meat with a quarter cup of water and let it bubble a minute until it clings — the cornstarch is what makes it cling rather than sit on top.',
+      'It keeps in the cupboard for months. Shake the jar before you measure, since the salt settles to the bottom.',
+    ],
+    macro: null, tagline: 'Two Tablespoons to the Pound', score: null, sc: null,
+    diff: 'Easy', time: '5 mins',
+    extras: 'Chili powder, Cumin, Paprika, Garlic powder, Onion powder, Oregano, Cornstarch',
+  },
+  {
+    id: 338, book: 2, secNum: 7, secName: COPYCAT,
+    name: 'Taco Beef, Drive-Through Style',
+    servings: '8 Tacos', servN: 8,
+    ing: ['1 lb ground beef', '2 tbsp taco seasoning', '1 tbsp flour', '1 cup water'],
+    steps: [
+      'Brown the beef in a dry skillet over medium-high heat, chopping it with the edge of the spoon as it cooks. Keep chopping: the drive-through version is fine and even, with no big crumbles, and that texture comes from the spoon, not the recipe.',
+      'Tip off the fat. Sprinkle the flour over the meat and stir it through for a minute so it cooks out.',
+      'Add the taco seasoning and the water, bring it to a simmer, and let it go 10 to 12 minutes, stirring now and then, until the liquid has thickened to a sauce that coats the meat and nothing pools in the pan.',
+      'Taste it. It should be a little saltier than seems right on its own, because a tortilla, lettuce and cheese all take some of that back.',
+      'Two tablespoons in a warm tortilla is a taco. It reheats well, which is the point of making a pound.',
+    ],
+    macro: null, tagline: 'Fine, Saucy, Made in a Pan', score: null, sc: null,
+    diff: 'Easy', time: '25 mins', extras: 'Taco seasoning',
   },
   {
     id: 240, book: 2, secNum: 7, secName: COPYCAT,
