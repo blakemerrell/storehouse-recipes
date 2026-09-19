@@ -356,6 +356,22 @@ module.exports = [
     diff: 'Medium', time: '40 mins', extras: 'Lime, Cilantro',
   },
   {
+    id: 336, book: 2, secNum: 7, secName: COPYCAT,
+    name: 'Horchata, Cafe Rio Style',
+    servings: '8 Servings (1 Pitcher)', servN: 8,
+    ing: ['1 cup rice', '2 tsp cinnamon', '4 cups water', '2 cups milk',
+      '0.75 cup sugar', '1 tsp vanilla'],
+    steps: [
+      'Put the rice, cinnamon and 2 cups of the water in a blender and run it 1 minute, until the rice is broken to grit. The grit is what gives the water its body.',
+      'Pour it into a jug, add the other 2 cups of water, cover, and leave it in the fridge at least 4 hours or overnight. The rice softens and the water turns milky and takes on the cinnamon.',
+      'Blend it again, hard, for 2 minutes, then pour it through a fine sieve lined with a clean cloth. Press the grit with a spoon to get the last of the liquid, then throw the grit away.',
+      'Stir in the milk, sugar and vanilla until the sugar is gone. Taste it: it should be sweeter than you think, because the ice will water it down.',
+      'Chill it well and stir before pouring, since the rice settles. Serve over ice with a shake of cinnamon on top.',
+    ],
+    macro: null, tagline: 'Sweet, Cold, Faintly of Cinnamon', score: null, sc: null,
+    diff: 'Easy', time: '4 hrs 15 mins', extras: null,
+  },
+  {
     id: 240, book: 2, secNum: 7, secName: COPYCAT,
     name: 'Creamy Tomatillo Ranch Dressing',
     servings: '12 Servings (2 Tbsp Each)', servN: 12,
