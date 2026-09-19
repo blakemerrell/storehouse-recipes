@@ -5314,6 +5314,104 @@
      meal you kept together, the parts it was made of and what each brought.
      The totals are at the plate's own portion, so they match the row that
      was pressed rather than a nominal "one". */
+  /* "What do you actually eat" — the screen that gives the ranker something
+     to go on before there is any history to read.
+   *
+     It is the favourite star, laid out as a grid. That is the whole trick:
+     mRank already pays a favourite six points, favourites already travel to
+     the other phone, and mCanFav already says any food may wear one — so a
+     screen of taps improves every suggestion in the app the moment it is
+     closed, with no new ranking anywhere. Blake asked for it as onboarding,
+     "that way they get favorited early... and then they seed my food
+     selector", and the cheapest true version of that is the star.
+   *
+     Chips rather than rows: you are scanning for names you recognise, not
+     reading macros, and a shelf you can see all of at once is a shelf you
+     answer in one look. Rows put six on a screen; this puts a category.
+   *
+     Truncated per shelf rather than scrolled forever, because the table runs
+     past a hundred foods once the ones the storehouse does not stock are in
+     it. What you have already chosen is always drawn, open or shut — a
+     screen that hides your own answers is worse than a long one. */
+  var MFP_SHOWN = 8;                   // chips before a shelf offers the rest
+
+  function mFavPickShelves() {
+    var by = {};
+    MFOODS.forEach(function (r) {
+      if (!r.food || !(r.eat || r.side)) return;
+      if (String(r.id).indexOf('f:my:') === 0) return;   // your own foods are already yours
+      var sh = mShelfKey(r) || 'protein';
+      (by[sh] = by[sh] || []).push(r);
+    });
+    return by;
+  }
+
+  function mFavPickHTML() {
+    var by = mFavPickShelves(), total = 0;
+    var blocks = MSHELF.map(function (sh) {
+      /* What the storehouse carries first, then the rest, then alphabetical.
+         Straight A-Z opened Protein on calamari, catfish and clams — eight
+         chips of the most obscure things in the table, with chicken and eggs
+         below the fold. The order has to put the likely answer in the part
+         you can see. */
+      var list = (by[sh[0]] || []).sort(function (a, b) {
+        return ((a.ext ? 1 : 0) - (b.ext ? 1 : 0)) ||
+          String(a.name).localeCompare(String(b.name));
+      });
+      if (!list.length) return '';
+      var on = [], off = [];
+      list.forEach(function (r) { (mIsFav(r) ? on : off).push(r); });
+      total += on.length;
+      /* Chosen first and always drawn; the rest up to the cap, and the cap
+         lifts for this shelf alone once it is asked to. */
+      var open = S.fpOpen && S.fpOpen[sh[0]];
+      var room = Math.max(0, MFP_SHOWN - on.length);
+      var rest = open ? off : off.slice(0, room);
+      var hidden = off.length - rest.length;
+      var chip = function (r) {
+        return '<button class="fp-chip' + (mIsFav(r) ? ' on' : '') +
+          (r.ext ? ' ext' : '') + '" data-fppick="' + esc(String(r.id)) +
+          '" aria-pressed="' + (mIsFav(r) ? 'true' : 'false') + '">' +
+          esc(r.name) + '</button>';
+      };
+      return '<div class="fp-shelf">' +
+        '<div class="fp-shelf-h"><span class="fp-emo" aria-hidden="true">' + sh[1] +
+          '</span>' + esc(sh[2]) + '<i>' +
+          (on.length ? on.length + ' of ' + list.length : String(list.length)) +
+          '</i></div>' +
+        '<div class="fp-chips">' + on.map(chip).join('') + rest.map(chip).join('') +
+          (hidden > 0
+            ? '<button class="fp-more" data-fpmore="' + esc(sh[0]) + '">+ ' +
+              hidden + ' more</button>'
+            : (open && off.length > MFP_SHOWN
+              ? '<button class="fp-more" data-fpmore="' + esc(sh[0]) + '">Fewer</button>'
+              : '')) +
+        '</div></div>';
+    }).join('');
+    /* Said, not done quietly. Ticking a food the storehouse does not carry
+       turns on Fill-may-shop, because a favourite that can never be drafted
+       is a tap that did nothing — but the app changing what it drafts is not
+       something to learn by noticing. */
+    var shopping = mExtOk();
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="What you eat">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">What do you actually eat?</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="mt-cap">Tap anything you eat regularly. My Day leans toward ' +
+          'these when it suggests food &mdash; it does not stop offering anything ' +
+          'else. You can change your mind on any food, any time.</div>' +
+        (shopping
+          ? '<div class="fp-note">You have picked food the storehouse does not ' +
+            'carry, so Fill may now shop outside it.</div>' : '') +
+        blocks +
+        '<div class="sync-row"><button class="btn-primary" data-close="1">' +
+          (total ? 'Done &middot; ' + total + ' chosen' : 'Skip for now') +
+        '</button></div>' +
+      '</div></div>';
+  }
+
   function mFoodSheetHTML() {
     var o = S.foodOpen || {}, r = BY_ID[o.id];
     if (!r) return '';
@@ -11626,7 +11724,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -11739,6 +11837,13 @@
 
     if (S.chartOpen) {
       root.innerHTML = macroChartHTML();
+      document.body.style.overflow = 'hidden';
+      if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
+
+    if (S.favPick) {
+      root.innerHTML = mFavPickHTML();
       document.body.style.overflow = 'hidden';
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
       return;
@@ -13092,6 +13197,11 @@
       mMenu(false);
       rememberOpener();
       S.macroTargOpen = true;
+      if (b.dataset.mmore === 'foods') {
+        S.macroTargOpen = false; S.favPick = true; S.fpOpen = {};
+        renderModal();
+        return;
+      }
       if (b.dataset.mmore === 'you') { S.macroTargOpen = false; S.syncOpen = true; }
       /* Any day, closed or not — the card is a reading of the day, and a day
          does not have to be finished with to be read. */
@@ -13569,6 +13679,31 @@
       var mpl = e.target.closest('[data-mplook]');
       if (mpl && S.macroPick) {
         mLookNet(mpl.dataset.mplook);
+        return;
+      }
+
+      var fpp = e.target.closest('[data-fppick]');
+      if (fpp) {
+        var fpr = BY_ID[idOf(fpp.dataset.fppick)];
+        if (fpr && mCanFav(fpr)) {
+          mToggleFav(fpr);
+          /* A favourite the drafter may never use is a tap that did nothing,
+             so choosing food the storehouse does not carry turns shopping on.
+             The sheet says so above the shelves; it is not done in silence. */
+          if (fpr.ext && mIsFav(fpr) && !mExtOk()) {
+            var pr9 = mReadProfileRaw();
+            pr9.extFill = true;
+            mWriteProfile(pr9);
+          }
+          renderModal();
+        }
+        return;
+      }
+      var fpm = e.target.closest('[data-fpmore]');
+      if (fpm) {
+        S.fpOpen = S.fpOpen || {};
+        S.fpOpen[fpm.dataset.fpmore] = !S.fpOpen[fpm.dataset.fpmore];
+        renderModal();
         return;
       }
 

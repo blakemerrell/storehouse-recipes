@@ -4284,3 +4284,42 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mp-basket-on {
   border-color: var(--line-firm); background: var(--paper-soft);
 }
+
+/* ---- "What do you actually eat" -------------------------------------------
+   The favourite star as a grid. Chips because you are scanning for names you
+   know, not reading macros — a shelf you can take in at one look is a shelf
+   you answer in one look. */
+.fp-shelf { margin: 18px 0 0; }
+.fp-shelf-h {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-weight: 600; color: var(--muted-2); padding-bottom: 7px;
+  border-bottom: 1px solid var(--line-soft); margin-bottom: 9px;
+}
+.fp-shelf-h .fp-emo { font-size: 15px; }
+.fp-shelf-h i {
+  margin-left: auto; font-style: normal; color: var(--muted); letter-spacing: 0.04em;
+}
+.fp-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.fp-chip {
+  border: 1px solid var(--line); border-radius: 99px; background: var(--card);
+  color: var(--ink); font-size: 13px; padding: 7px 13px; line-height: 1.2;
+}
+/* Green is "chosen" here, the same promise it keeps in the picker's basket. */
+.fp-chip.on {
+  background: color-mix(in oklab, var(--green) 12%, var(--card));
+  border-color: var(--green); color: var(--green); font-weight: 600;
+}
+.fp-chip.on::before { content: "\2713\00a0"; }
+/* Food the storehouse does not carry, marked rather than hidden: a dotted
+   edge says "you can have this, it just is not on the order". */
+.fp-chip.ext { border-style: dashed; }
+.fp-more {
+  border: 0; background: none; color: var(--ochre-text); font-size: 12.5px;
+  font-weight: 600; padding: 7px 6px; text-decoration: underline;
+}
+.fp-note {
+  border: 1px solid var(--line-firm); border-radius: 5px;
+  background: var(--paper-soft); padding: 9px 11px; margin: 12px 0 0;
+  font-size: 12.5px; color: var(--muted-2);
+}

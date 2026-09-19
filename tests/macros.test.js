@@ -191,7 +191,7 @@ module.exports = {
       await p.evaluate(() => !document.getElementById('macroMenu').classList.contains('hide') &&
         document.getElementById('macroMore').getAttribute('aria-expanded') === 'true' &&
         [...document.querySelectorAll('#macroMenu [data-mmore]')].map((b) => b.dataset.mmore)
-          .join() === 'plan,meals,you,went,help'));
+          .join() === 'plan,meals,foods,you,went,help'));
     await p.click('.mday-rail');
     await p.waitForTimeout(80);
     t.ok('and a press anywhere else closes it',
@@ -10522,5 +10522,70 @@ module.exports = {
     t.ok('and fills the meal around it rather than counting it as done',
       bKcal !== null && bKcal > 100, 'breakfast came to ' + bKcal + ' kcal');
     await pinPg.context().close();
+
+    /* ---- "What do you actually eat" ------------------------------------ */
+    /* The favourite star laid out as a grid, so the ranker has something to
+       go on before there is any history. It asserts the WIRING — a tap leaves
+       a favourite behind, and picking food the storehouse does not carry says
+       so and turns shopping on — not which foods are on which shelf, which is
+       the food table's business and changes. */
+    const fpPg = await t.fresh();
+    await fpPg.click('.tab[data-view="macros"]');
+    await fpPg.waitForTimeout(200);
+    await fpPg.click('#macroMore');
+    await fpPg.waitForTimeout(120);
+    await fpPg.click('[data-mmore="foods"]');
+    await fpPg.waitForTimeout(400);
+
+    const fpShape = await fpPg.evaluate(() => ({
+      shelves: document.querySelectorAll('.fp-shelf').length,
+      chips: document.querySelectorAll('.fp-chip').length,
+      more: document.querySelectorAll('[data-fpmore]').length,
+    }));
+    t.ok('the food screen groups the table onto its shelves',
+      fpShape.shelves > 2 && fpShape.chips > 20, JSON.stringify(fpShape));
+    /* Truncated, or the table's hundred-plus foods are one endless column. */
+    t.ok('and a long shelf offers the rest rather than printing it',
+      fpShape.more > 0, JSON.stringify(fpShape));
+
+    const grew = await (async () => {
+      await fpPg.click('[data-fpmore]');
+      await fpPg.waitForTimeout(300);
+      return fpPg.evaluate(() => document.querySelectorAll('.fp-chip').length);
+    })();
+    t.ok('and asking for them gives them', grew > fpShape.chips,
+      fpShape.chips + ' -> ' + grew);
+
+    /* A tap is the star, which is the whole point: it costs no new ranking. */
+    const fpTap = await fpPg.evaluate(() => {
+      const b = [...document.querySelectorAll('.fp-chip:not(.on)')][0];
+      const id = b.dataset.fppick;
+      b.click();
+      return id;
+    });
+    await fpPg.waitForTimeout(300);
+    t.ok('tapping a food keeps it as a favourite',
+      await fpPg.evaluate((id) => {
+        const on = document.querySelector('[data-fppick="' + id + '"]');
+        return !!on && on.classList.contains('on') &&
+          on.getAttribute('aria-pressed') === 'true';
+      }, fpTap), fpTap);
+
+    /* Choosing food the storehouse does not carry turns Fill-may-shop on --
+       a favourite the drafter can never use is a tap that did nothing -- and
+       the sheet says so rather than letting you find out by noticing. */
+    const fpExt = await fpPg.evaluate(() => {
+      const b = [...document.querySelectorAll('.fp-chip.ext:not(.on)')][0];
+      if (!b) return null;
+      b.click();
+      return true;
+    });
+    await fpPg.waitForTimeout(300);
+    t.ok('picking food the storehouse lacks turns shopping on, and says so',
+      !fpExt || await fpPg.evaluate(() =>
+        !!document.querySelector('.fp-note') &&
+        JSON.parse(localStorage.getItem('bsc.macroProfile') || '{}').extFill === true),
+      await fpPg.evaluate(() => (document.querySelector('.fp-note') || {}).textContent || '(no note)'));
+    await fpPg.context().close();
   },
 };
