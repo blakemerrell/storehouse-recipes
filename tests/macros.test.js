@@ -10737,5 +10737,59 @@ module.exports = {
     t.ok('and the first run lets go when its last step is finished',
       await fpPg.evaluate(() => !document.querySelector('[data-mtwstep]')));
     await fpPg.context().close();
+
+    /* ---- the cascade card's rows are about THIS meal's miss ------------ */
+    /* They showed each meal's plan share against its current ask, which
+       folds in every meal finished so far — so under "Lunch went 216 under"
+       the rows summed to 850, and the sign on each was chosen by whether
+       lunch went over rather than by which way the row moved: "573 -> 524
+       +49". Blake, with before/after screenshots: "the macro is shifting
+       after I click Complete". Two assertions, one per fault: the deltas add
+       up to the miss, and every sign points the way its arrow does. */
+    const ccPg = await t.fresh();
+    await ccPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 62, c: 133 }));
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
+        { k: 'w', n: 'Wake Up', t: 'b', w: 15 }, { k: 'b', n: 'Breakfast', t: 'b', w: 25 },
+        { k: 'l', n: 'Lunch', t: 'l', w: 20 }, { k: 'd', n: 'Dinner', t: 'd', w: 30 },
+        { k: 'e', n: 'Evening Snack', t: 's', w: 10 }],
+        names: { w: 'Wake Up', b: 'Breakfast', l: 'Lunch', d: 'Dinner', e: 'Evening Snack' } }));
+      // two meals already over their share, lunch finished light
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        w: [{ id: 27, x: 1, eaten: 1 }], b: [{ id: 28, x: 1, eaten: 1 }, { id: 'f:egg', x: 2, eaten: 1 }],
+        l: [{ id: 'f:egg_white', x: 1.25, eaten: 1 }], d: [], e: [] } }));
+    });
+    await ccPg.reload();
+    await ccPg.evaluate(() => document.fonts.ready);
+    await ccPg.click('.tab[data-view="macros"]');
+    await ccPg.waitForTimeout(400);
+    const cc = await ccPg.evaluate(() => {
+      const el = document.querySelector('.mcasc');
+      if (!el) return null;
+      const head = (el.querySelector('.mcasc-t') || {}).textContent || '';
+      const miss = Number((head.match(/(\d+) (under|over)/) || [])[1]);
+      const rows = [...el.querySelectorAll('.mcasc-row[aria-checked="true"]')].map((r) => {
+        const w = (r.querySelector('.mcasc-was') || {}).textContent || '';
+        const was = Number(w.split('\u2192')[0].trim()), now = Number(w.split('\u2192')[1].trim());
+        const dTxt = (r.querySelector('.mcasc-d') || {}).textContent || '';
+        return { was, now, sign: dTxt.charAt(0), d: Number(dTxt.replace(/[^\d]/g, '')) };
+      });
+      return { head, miss, rows };
+    });
+    t.ok('the cascade card appears under a lunch that finished light',
+      !!cc && /under/.test(cc.head) && cc.rows.length > 0, JSON.stringify(cc));
+    /* Within a few calories of rounding, and only when nothing is capped —
+       a capped meal cannot take its full part, and the landing line says so. */
+    t.ok('and its rows add up to the miss the heading names',
+      !!cc && Math.abs(cc.rows.reduce((a, r) => a + r.d, 0) - cc.miss) <= cc.rows.length + 1,
+      !!cc && cc.rows.map((r) => r.d).join(' + ') + ' vs ' + cc.miss);
+    t.ok('and every sign points the way its own arrow does',
+      !!cc && cc.rows.every((r) => (r.now > r.was && r.sign === '+') ||
+        (r.now < r.was && r.sign === '\u2212') || r.now === r.was),
+      !!cc && JSON.stringify(cc.rows));
+    await ccPg.context().close();
   },
 };

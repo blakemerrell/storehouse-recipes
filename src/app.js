@@ -4553,7 +4553,7 @@
      `spent` is the honest part. Overrun the day's carbs and every meal still
      to come is owed nought of them — and three meals printing 0/0 is true and
      useless. The pill says so in a word instead. */
-  function mMealAsk(sk, targets, slots) {
+  function mMealAsk(sk, targets, slots, adjust) {
     var plan = mMealShare(sk, targets, slots);
     if (!plan) return null;
     var done = mMealDone(sk);
@@ -4565,6 +4565,15 @@
 
     var vk = mViewKey(), day = mDay(vk);
     var eaten = mTotals(day).eaten;
+    /* `adjust`, when given, is added to what has been eaten before anything
+       is drawn from it. It exists for one caller: the cascade card asks what
+       each open meal would be asked for had the meal that just finished
+       landed exactly on its share, and the difference between that answer
+       and the real one is what that meal's miss did — and nothing else. */
+    if (adjust) {
+      eaten = { kcal: eaten.kcal + (adjust.kcal || 0), p: eaten.p + (adjust.p || 0),
+        f: eaten.f + (adjust.f || 0), c: eaten.c + (adjust.c || 0) };
+    }
     /* One budget, spent in the order the plan was built in.
      *
        Taken macro by macro this produced a card that contradicted itself: a
@@ -4800,10 +4809,24 @@
        have to agree about the same meal, and the only way to guarantee that
        is to read the same function. */
     var rows = [], floored = [], un = 0;
+    /* `was` is each meal's ask had this meal landed on its share; `now` is
+       its ask as things stand. The difference is what THIS miss did to it.
+     *
+       It used to show the meal's plan share against its current ask, which
+       folds in every meal finished so far — so under a heading that said
+       "Lunch went 216 under", the rows summed to 850, and a wake-up and a
+       breakfast that had run over were doing most of the moving. Blake, with
+       the screenshots: "the macro is shifting after I click Complete". The
+       rows were true and the heading was about something else. The note on
+       `un` below records the same confusion caught once already, for the
+       landing line; this is the rows catching up. */
+    var undo = { kcal: ev.plan.kcal - ev.got.kcal, p: ev.plan.p - ev.got.p,
+      f: ev.plan.f - ev.got.f, c: ev.plan.c - ev.got.c };
     open.forEach(function (s2) {
       var a = mMealAsk(s2.k, targets, slots);
       if (!a || !a.plan) return;
-      var was = Math.round(a.plan.kcal);
+      var before = mMealAsk(s2.k, targets, slots, undo);
+      var was = Math.round(((before && before.now) || a.plan).kcal);
       var now = Math.round((a.now || a.plan).kcal);
       var on = off ? false : (to.length ? to.indexOf(s2.k) >= 0 : true);
       if (on && a.capped) floored.push(s2.n);
@@ -4886,7 +4909,11 @@
         /* The price of ticking this one, on the row that does it. Choosing
            between consequences rather than between meal names. */
         '<span class="mcasc-was">' + r.was + ' &rarr; <i>' + r.now + '</i></span>' +
-        '<span class="mcasc-d">' + (r.on && r.d ? (over ? '&minus;' : '+') +
+        /* The sign is the row's own. It was chosen by whether the finished
+           meal went over, so a row moving down read "+49" whenever lunch had
+           come in light. `d` is was - now: positive means this meal is being
+           asked for less than it would have been, and that is a minus. */
+        '<span class="mcasc-d">' + (r.on && r.d ? (r.d > 0 ? '&minus;' : '+') +
           Math.abs(r.d) : '&mdash;') + '</span>' +
       '</button>';
     }).join('');
