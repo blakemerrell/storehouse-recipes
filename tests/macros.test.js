@@ -2528,8 +2528,18 @@ module.exports = {
         /* Deliberately short of the end. Scrolled to the very bottom of a list
            that then gets shorter, the browser must clamp and no amount of
            care can hold the position — asserting there would be asserting
-           against the platform. */
-        s.scrollTop = Math.min(120, (s.scrollHeight - s.clientHeight) - 40);
+           against the platform.
+         *
+           240 and not 40 since the closers were moved BELOW Fits best. The
+           row this test finds is a recipe now, and a recipe that fits closes
+           the meal outright — which retires the whole closers band, three
+           rows at once, from under your finger. That is a bigger shrink than
+           the old margin allowed for, and the clamp it caused was the
+           platform doing its job, not the scroll restore failing. Worth
+           knowing the reorder made the common case BETTER: what disappears is
+           below the reader now rather than above, so it only bites at the very
+           end of the list, which is exactly where nothing can help. */
+        s.scrollTop = Math.min(120, Math.max(0, (s.scrollHeight - s.clientHeight) - 240));
         return Math.round(s.scrollTop);
       });
       await barPg2.waitForTimeout(200);

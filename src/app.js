@@ -6841,6 +6841,9 @@
     ['p', 'f', 'c'].forEach(function (m) {
       gap[m] = Math.max(0, (want2[m] || 0) - (got2[m] || 0));
     });
+    /* The ask rides along so the band can tell a top-up from a whole meal. */
+    gap.askK = kcalOf({ p: want2.p || 0, f: want2.f || 0, c: want2.c || 0 });
+    gap.gapK = kcalOf({ p: gap.p, f: gap.f, c: gap.c });
     return gap;
   }
 
@@ -7102,8 +7105,30 @@
      notices. */
   function mpHomeBodyHTML() {
     var shown = {};
-    var body = mpNamedHTML(shown) + mpPinsHTML(shown) + mpRecentHTML(shown) +
-      mpComboHTML(shown) + mpFitsHTML(shown) + mpElseHTML(shown);
+    /* Composed in one order and PRINTED in another, and the difference is
+       load-bearing.
+     *
+       `shown` is claimed in composition order, so whichever band runs first
+       owns a dish and the ones after it step over. The closers have to run
+       before Fits best or Fits best would list the very foods that close the
+       meal and leave the band with nothing to say.
+     *
+       But on screen it is the other way round. Blake: "real food then macro
+       fill/math suggestions". An untouched meal opening on three single foods
+       put the arithmetic above the cooking — the recipes are what a meal
+       actually is, and they were a quarter of a phone screen further down
+       than the levers that close it. So the claim order is unchanged and the
+       output order is reversed, which costs nothing and moves the dishes up.
+     *
+       The alternative was suppressing the closers on an untouched meal, and
+       it was worse: it deleted a three-tap way to land the macros exactly, on
+       the one screen where somebody eating to a number wants it most. */
+    var named = mpNamedHTML(shown);
+    var pins = mpPinsHTML(shown);
+    var recent = mpRecentHTML(shown);
+    var closers = mpComboHTML(shown);
+    var fits = mpFitsHTML(shown);
+    var body = named + pins + recent + fits + closers + mpElseHTML(shown);
     /* Judged on the ROWS, not on the string. A barcode with nothing behind it
        draws a band and no rows, and so does a shelf crossed with a lens that
        has nothing in it — and the Fits band now keeps its divider either way,
