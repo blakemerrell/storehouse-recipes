@@ -1828,6 +1828,10 @@ module.exports = {
         const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
         pr.goalLb = pr.lb + 10;            // ten pounds ON, ten weeks
         pr.goalBy = by.getFullYear() + '-' + p2(by.getMonth() + 1) + '-' + p2(by.getDate());
+        /* A goal written by hand bypasses the writer that stamps where it
+           started; leaving the old stamp on it is a goal set from another
+           goal's morning, which nothing in the app can produce. */
+        delete pr.goalSet; delete pr.goalFrom;
         localStorage.setItem('bsc.macroProfile', JSON.stringify(pr));
         const ws = {};
         for (let i = 0; i < 16; i++) {     // losing half a pound a week
@@ -1844,7 +1848,8 @@ module.exports = {
       /behind pace/.test(await narr()) && !/ahead of pace/.test(await narr()), await narr());
     await q.evaluate(() => {
       const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
-      pr.goalLb = 185; localStorage.setItem('bsc.macroProfile', JSON.stringify(pr));
+      pr.goalLb = 185; delete pr.goalSet; delete pr.goalFrom;
+      localStorage.setItem('bsc.macroProfile', JSON.stringify(pr));
     });
     await q.reload();
     await q.waitForTimeout(400);
@@ -4231,6 +4236,119 @@ module.exports = {
     const leftOff = storedKeys.filter((k) => wipeList.indexOf("'" + k + "'") < 0);
     t.ok('and the wipe names every My Day key the app writes',
       storedKeys.length >= 10 && leftOff.length === 0, leftOff.join(' ') || storedKeys.length + ' keys');
+
+    /* ---- the plan's calories are its grams -------------------------------
+     *
+     * When the floor bit, kcal was clamped and the protein and fat floors
+     * were not, so a 250 lb woman on a quick cut got a plan reading 1,200
+     * over grams that add to 1,475. The face, the projection and the plan
+     * line printed one; the wizard, the coach and the day bars the other.
+     * A `floored` flag was set to say so and nothing ever read it. */
+    const planPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    const planGrams = await planPg.evaluate(() => {
+      const pl = window.__macroLab.plan({ sex: 'f', age: 40, ft: 5, inch: 4, lb: 250, act: 1.2,
+        goal: 'cut2', goalLb: 0, goalBy: '', workouts: 0, steps: 0 });
+      return { kcal: pl.kcal, sum: 4 * pl.p + 4 * pl.c + 9 * pl.f, p: pl.p, f: pl.f, c: pl.c };
+    });
+    await planPg.context().close();
+    t.ok('a plan whose floors add to more than its floor says the larger number',
+      planGrams.kcal === planGrams.sum && planGrams.sum > 1200 &&
+        planGrams.p >= 200 && planGrams.f >= 75,
+      JSON.stringify(planGrams));
+
+    /* ---- one verdict on the morning card ---------------------------------
+     *
+     * The face judged by RATE (this week's loss against the rate the date
+     * needs) and the line beneath it by POSITION (the seven-day average
+     * against the plan line). A fortnight that gained for a week and then
+     * lost fast reads "on pace" by rate — the week's loss is what the date
+     * needs — while sitting well above the line: the face said on pace over
+     * a line saying days behind. Now both read the side of the line. */
+    const twoFaces = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await twoFaces.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const ws = {};
+      for (let i = 0; i < 15; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        // a week climbing 0.4 a day, then a week falling 0.7 a day
+        ws[key(d)] = Math.round((i >= 7 ? 205 + (14 - i) * 0.4 : 207.8 - (7 - i) * 0.7) * 10) / 10;
+      }
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+      const g = new Date(); g.setDate(g.getDate() + 100);
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 205, act: 1.375, goal: 'cut1',
+        goalLb: 185, goalBy: key(g), workouts: 4, steps: 8000 }));
+    });
+    await twoFaces.reload();
+    await twoFaces.waitForTimeout(400);
+    await twoFaces.click('.tab[data-view="macros"]');
+    await twoFaces.waitForTimeout(300);
+    await openWeigh(twoFaces);
+    const faceSaid = await twoFaces.textContent('.mw-verdict');
+    const lineSaid = await twoFaces.evaluate(() => {
+      const el = document.querySelector('.mline');
+      return { text: el ? el.textContent : '', side: window.__macroLab.pace().side };
+    });
+    t.ok('the face and the morning line give one verdict, the side of the line',
+      lineSaid.side === 'behind' && /behind pace/.test(faceSaid) && !/on pace|ahead of pace/.test(faceSaid) &&
+        /behind pace/.test(lineSaid.text),
+      'face: ' + faceSaid + ' | line: ' + lineSaid.text.slice(0, 80));
+    await twoFaces.context().close();
+
+    /* ---- the plan line starts where the goal was set ----------------------
+     *
+     * It used to start at the first morning ever logged, which for a goal
+     * set after weeks of mornings was a weight long gone, and today's
+     * "planned" figure came out pounds above the scale — ahead of a pace
+     * nobody set. Saving a goal now records the morning and what the scale
+     * averaged; a goal saved before that keeps the old anchor. */
+    const anchorPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await anchorPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const ws = {};
+      for (let i = 0; i < 40; i++) {           // 205 down to 195 over forty mornings
+        const d = new Date(); d.setDate(d.getDate() - i);
+        ws[key(d)] = Math.round((195.25 + i * 0.25) * 10) / 10;
+      }
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+      const g = new Date(); g.setDate(g.getDate() + 100);
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 41, ft: 5, inch: 11, lb: 205, act: 1.375, goal: 'cut1',
+        goalLb: 175, goalBy: key(g), workouts: 4, steps: 8000 }));
+    });
+    await anchorPg.reload();
+    await anchorPg.waitForTimeout(400);
+    await anchorPg.click('.tab[data-view="macros"]');
+    await anchorPg.waitForTimeout(300);
+    const kf = await anchorPg.evaluate(() => {
+      const pf = window.__macroLab.pace();
+      return { legacy: pf && Math.round(pf.plan.lb * 10) / 10, avg7: window.__macroLab.profile().lb };
+    });
+    await openPlan(anchorPg);
+    // a returning reader's rows sit behind Edit, and the helper leaves that fold as it found it
+    if (await anchorPg.evaluate(() => document.getElementById('mtEditor').classList.contains('hide'))) {
+      await anchorPg.click('[data-mtedit]');
+      await anchorPg.waitForTimeout(150);
+    }
+    await anchorPg.fill('#mtGoalLb', '176');
+    await anchorPg.click('[data-mtarg="save"]');
+    await anchorPg.waitForTimeout(400);
+    const anchored = await anchorPg.evaluate(() => {
+      const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+      const pf = window.__macroLab.pace();
+      const ws = Object.keys(JSON.parse(localStorage.getItem('bsc.macroWeights'))).sort();
+      return { set: pr.goalSet, today: ws[ws.length - 1], from: pr.goalFrom,
+        planned: pf && Math.round(pf.plan.lb * 10) / 10, side: pf && pf.side };
+    });
+    t.ok('a saved goal records the morning it was set and what the scale read',
+      anchored.set === anchored.today && Math.abs(anchored.from - kf.avg7) < 0.11,
+      JSON.stringify({ before: kf, after: anchored }));
+    t.ok('and the plan line starts there, so the day a goal is set is on pace',
+      anchored.planned === anchored.from && anchored.side === 'on' && kf.legacy !== anchored.planned,
+      JSON.stringify({ before: kf, after: anchored }));
+    await anchorPg.context().close();
 
     /* ---- Balance solves against the share the card is printing ------------
      * The meal's pills say what the meal is owed; the ⚖ on the same card

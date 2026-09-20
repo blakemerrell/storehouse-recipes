@@ -1904,6 +1904,15 @@
     return pr;
   }
   function mWriteProfile(pr) {
+    /* A goal remembers the morning it was set and what the scale read then,
+       so the plan line has somewhere true to start from. Only a CHANGED goal
+       is stamped: a training-day toggle must not quietly move the line. */
+    var was = mReadProfileRaw();
+    if (pr.goalLb && pr.goalBy && (pr.goalLb !== was.goalLb || pr.goalBy !== was.goalBy)) {
+      pr.goalSet = todayKey();
+      pr.goalFrom = mScaleLb() || Math.round((Number(pr.lb) || 0) * 10) / 10;
+    }
+    if (!pr.goalLb || !pr.goalBy) { delete pr.goalSet; delete pr.goalFrom; }
     mStamp('pr');
     try { localStorage.setItem('bsc.macroProfile', JSON.stringify(pr)); }
     catch (e) { /* private mode */ }
@@ -1952,8 +1961,8 @@
      goal for the swing. Protein by bodyweight and goal; fat at a quarter of
      the calories but never under 0.3 g/lb, which is the floor hormones care
      about; carbs are whatever calories are left. On a very hard cut the
-     leftovers can go negative — carbs floor at zero and `floored` says so
-     rather than silently promising calories the grams do not add up to. */
+     leftovers can go negative — carbs floor at zero and the calories follow
+     the grams, so the plan never promises a number they do not add up to. */
   /* A day's burn before the goal touches it — null until the profile can say. */
   /* What a day costs, broken into the parts you can actually move.
    *
@@ -2119,9 +2128,8 @@
     if (!isFinite(days) || days < 7) return null;
     var lbs = pr.lb - pr.goalLb;
     var wanted = lbs / (days / 7);
-    var bmr = tdee / (pr.act || 1);
 
-    /* Three caps, and the one that used to be here was the weakest of them.
+    /* Two caps, and the one that used to be here was the weaker of them.
      *
      * A pound a week per hundred of bodyweight sounds careful until you do
      * the arithmetic on a big frame: at 205 lb it allows 2.05 lb a week,
@@ -2131,9 +2139,11 @@
      * inside it: sixty percent of the calories went to protein, three
      * percent to carbs, and every suggestion came back a quarter portion.
      *
-     * So the rate cap keeps its place, but two more sit in front of it: no
-     * more than a quarter off the day's burn, and never a day under the
-     * basal rate. Whichever bites first wins, and the plan says so. */
+     * So the rate cap keeps its place, and a second sits in front of it: the
+     * deficit may not take the day under the floor the plan lives at
+     * (mFloorK — 1,500 for a man, 1,200 for a woman). Whichever bites first
+     * wins, and the plan says so. The morning line keeps a stricter floor of
+     * its own, never under the basal rate; see mPaceFacts. */
     var floorK = mFloorK(pr);
     var maxOff = Math.max(0, tdee - floorK);
     var maxOn = 0.20 * tdee;                       // gaining, the other way
@@ -2177,7 +2187,11 @@
       p = Math.max(Math.round(0.8 * pr.lb), Math.round(room / 4));
     }
     var c = Math.max(0, Math.round((kcal - 4 * p - 9 * f) / 4));
-    return { kcal: kcal, p: p, f: f, c: c, floored: kcal - 4 * p - 9 * f < 0 };
+    /* Said once, off the grams. A floor can lift the day but not lower the
+       protein and fat floors under it, and a plan that printed 1,200 over
+       grams adding to 1,475 was two answers to one question — the face and
+       the projection read one, the bars and the wizard the other. */
+    return { kcal: kcalOf({ p: p, f: f, c: c }), p: p, f: f, c: c };
   }
 
   /* The scale, once a day if you feel like it. Weights keep their own store
@@ -2440,19 +2454,6 @@
    * the way in tucked on the end. When there is no plan, the same line is
    * the invitation to make one, which is the only moment a button was ever
    * the right answer. */
-  /* Whether the scale agrees with the plan, in two words. Both sides are
-     normalized to "progress toward the goal", so the bar to clear is always
-     the positive one. Negating it for a gain goal made every threshold
-     negative, which told somebody trying to put weight ON that standing
-     still — or losing — was ahead of pace. */
-  function mPaceVerdict(st, togo, weeks) {
-    if (!st || st.dWeek === null) return null;
-    var need = Math.abs(togo) / weeks;
-    var moving = -st.dWeek;                         // pounds off per week
-    var got = togo >= 0 ? moving : -moving;         // ...toward the goal
-    return got >= need * 1.15 ? ['ahead of pace', 'good']
-      : got >= need * 0.85 ? ['on pace', 'good'] : ['behind pace', 'off'];
-  }
 
   /* The plan in one line, for the face of the morning card: the goal, the
      gap, and whether the scale agrees. That is the fact you steer by, and it
@@ -2485,8 +2486,16 @@
          to one of its own. */
       '</b> &middot; ' + Math.abs(togo0) + ' lb in ' + weeks0 +
       (weeks0 === 1 ? ' week' : ' weeks');
-    var v0 = mPaceVerdict(st0, togo0, weeks0);
-    if (v0) out += ' <span class="mplan-v ' + v0[1] + '">' + v0[0] + '</span>';
+    /* The same side the morning line acts on. This used to judge by the
+       week's RATE against the rate the date needs, while the line beneath
+       it judged by POSITION against the plan line — and five pounds behind
+       the line while losing fast this week read "on pace" over "12 days
+       behind pace". One question, one answer: where you stand. */
+    var pf0 = mPaceFacts(todayKey());
+    if (pf0) {
+      var word0 = { ahead: 'ahead of pace', on: 'on pace', behind: 'behind pace' }[pf0.side];
+      out += ' <span class="mplan-v ' + (pf0.side === 'behind' ? 'off' : 'good') + '">' + word0 + '</span>';
+    }
     return { has: true, html: out };
   }
 
@@ -2517,19 +2526,28 @@
   var MSALT_JUMP = 1.0;                 // lb overnight worth explaining
   var MSALT_DAY = 2800;                 // mg the day before that explains it
 
-  /* What the plan said the scale would read today. Anchored on the first
-     morning that was logged rather than on the weight typed into the profile
-     — one is a measurement and the other is a memory. */
+  /* What the plan said the scale would read today. Anchored on the morning
+     the goal was set, at what the scale averaged that morning — a
+     measurement, not the weight typed into the profile, which is a memory.
+     It used to anchor on the FIRST morning ever logged, which is the same
+     thing for a goal set on day one and a year-old number for a goal set
+     after a year of mornings: 205 in January, 185 now, a new goal of 175,
+     and today's "planned" weight came out at 197 — twelve pounds ahead of
+     a pace nobody set. A goal saved before this was recorded keeps the
+     first logged morning, since nothing better is known about it. */
   function mPlanWeight(k, pr) {
     if (!pr.goalLb || !pr.goalBy) return null;
     var keys = Object.keys(MWEIGHTS).sort();
     if (!keys.length) return null;
     var dayN = function (x) { return Math.round(keyDate(x).getTime() / 86400000); };
-    var from = dayN(keys[0]), to = dayN(pr.goalBy), now = dayN(k);
+    var set = pr.goalSet && pr.goalFrom > 0;
+    var startK = set ? pr.goalSet : keys[0];
+    var startLb = set ? pr.goalFrom : MWEIGHTS[keys[0]];
+    var from = dayN(startK), to = dayN(pr.goalBy), now = dayN(k);
     if (to <= from) return null;
     var span = to - from;
-    var per = (pr.goalLb - MWEIGHTS[keys[0]]) / span;      // lb a day, negative on a cut
-    return { lb: MWEIGHTS[keys[0]] + per * (now - from), per: per, daysLeft: to - now };
+    var per = (pr.goalLb - startLb) / span;      // lb a day, negative on a cut
+    return { lb: startLb + per * (now - from), per: per, daysLeft: to - now };
   }
 
   /* The day-to-day jump, and how big a jump is ordinary for this person.
@@ -2585,11 +2603,13 @@
     var off = st.avg7 - plan.lb;                  // positive means heavier than planned
     var daysOff = plan.per ? Math.round(off / -plan.per) : 0;
     var burn = meas ? meas.tdee : mTdee(pr);
-    /* The same three caps the plan calculator lives under, because a line
-       that says "eat 1,278" is not advice — it is arithmetic with nobody
-       reading it. Never under the basal rate, never more than a quarter off
-       the day's burn. When the honest number is capped, the date is what
-       moves, and the line says so instead of pretending. */
+    /* A floor of this line's own, because a line that says "eat 1,278" is
+       not advice — it is arithmetic with nobody reading it. Never under the
+       basal rate, never more than a quarter off the day's burn. It is
+       stricter than the plan calculator's floor (mFloorK), so a plan written
+       under that one can already sit below this, and then the number here
+       is the least the line will ask for, not a cut. When the honest number
+       is capped, the date is what moves, and the line says so. */
     var bmr = mBurn(pr) ? mBurn(pr).bmr : null;
     var rawNeed = burn === null ? null
       : burn - (st.avg7 - pr.goalLb) * 3500 / Math.max(1, plan.daysLeft);
@@ -2599,9 +2619,16 @@
        calorie under the basal rate is still a number under the basal rate. */
     var need = rawNeed === null ? null
       : capped ? Math.ceil(floor) : Math.round(rawNeed);
+    /* Everything below is read TOWARD the goal, so a gain goal is judged on
+       gaining: heavier than the line is behind on a cut and ahead on a
+       gain. daysOff already carried the sign through plan.per; side and the
+       arrival did not, and told somebody putting weight on that being
+       heavier than planned was behind. */
+    var toward = plan.per < 0 ? off : -off;         // positive means behind
+    var closing = st.dWeek === null ? null : (plan.per < 0 ? -st.dWeek : st.dWeek);
     var arrive = null;
-    if (st.dWeek !== null && st.dWeek < -0.05) {
-      var wk = Math.ceil((st.avg7 - pr.goalLb) / -st.dWeek);
+    if (closing !== null && closing > 0.05) {
+      var wk = Math.ceil(Math.abs(st.avg7 - pr.goalLb) / closing);
       var ad = new Date();
       ad.setDate(ad.getDate() + wk * 7);
       arrive = M_MONS[ad.getMonth()] + ' ' + ad.getDate();
@@ -2614,7 +2641,7 @@
       pr: pr, st: st, plan: plan, meas: meas, burn: burn,
       off: off, band: band, daysOff: daysOff,
       need: need, capped: capped, arrive: arrive, rate: rate,
-      side: off > band ? 'behind' : off < -band ? 'ahead' : 'on'
+      side: toward > band ? 'behind' : toward < -band ? 'ahead' : 'on'
     };
   }
 
@@ -2700,7 +2727,9 @@
     if (!pf) return '';
     var off = pf.off, band = pf.band, daysOff = pf.daysOff, burn = pf.burn,
       need = pf.need, capped = pf.capped, arrive = pf.arrive, rate = pf.rate;
-    var rateWord = rate === null ? '' : 'Down ' + Math.abs(rate) + ' lb a week';
+    var rw = rate === null ? '' : mLbWord(rate);
+    var rateWord = !rw ? '' : rw === 'holding steady' ? 'Holding steady'
+      : rw.charAt(0).toUpperCase() + rw.slice(1) + ' a week';
     /* With carb cycling on, the number this offers is the week's average and
        no single day will read it back — a training day runs higher and a rest
        day lower. Pressing a button marked 1,853 and watching the bar say
@@ -2715,18 +2744,18 @@
        what is being done and stops asking. */
     var eating = need !== null && kcalOf(mReadTargets()) > 0 &&
       Math.abs(kcalOf(mReadTargets()) - need) <= 5;
-    if (off > band && eating) {
+    if (pf.side === 'behind' && eating) {
       return mLineHTML('calm', '\u25B2',
         '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + Math.abs(daysOff) + ' days behind pace' +
         (capped ? ' \u2014 as low as this goes, so the date is what moves.' : ' \u2014 this is the number that lands on time.'),
         (arrive ? 'At this rate you arrive ' + arrive + '.' : ''), null);
     }
-    if (off < -band && eating) {
+    if (pf.side === 'ahead' && eating) {
       return mLineHTML('calm', '\u25BC',
         '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + Math.abs(daysOff) + ' days ahead of pace, and still arriving on time.',
         rateWord ? rateWord + '.' : '', null);
     }
-    if (off > band) {
+    if (pf.side === 'behind') {
       if (mHushed(k, 'act:' + need)) return '';
       return mLineHTML('act', '\u25B2',
         '<b>' + Math.abs(daysOff) + ' days behind pace.</b>' +
@@ -2743,7 +2772,7 @@
         need ? [['Eat ' + need.toLocaleString(), 'mline:eat:' + need],
           ['Leave it', 'mline:none:act:' + need]] : null);
     }
-    if (off < -band) {
+    if (pf.side === 'ahead') {
       var room = need;
       if (mHushed(k, 'ahead:' + room)) return '';
       return mLineHTML('ahead', '\u25BC',
@@ -12881,6 +12910,10 @@
        only renders signed in, and the bug it once had — a number written
        over the weight map — was invisible until the next weigh-in. */
     claim: mClaimAll,
+    /* The plan calculator and the pace facts, so a test can ask for the
+       figures instead of re-deriving the arithmetic beside them. */
+    plan: mPlanCalc,
+    pace: mPaceFacts,
     /* The gauge's band rule, because it only bites in a narrow window and no
        arbitrary day's plates land in it — asked through the DOM the test
        passed with the rule removed. */
