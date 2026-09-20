@@ -8339,37 +8339,49 @@
        wizard hides steps. It never removes them. */
     var cap = function (s) { return '<div class="mt-cap">' + s + '</div>'; };
 
-    var qAbout =
-      row('Are you male or female?', seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']])) +
-      cap('Two bodies the same size burn slightly different amounts at rest.') +
-      row('How old are you?', box('mtAge', pr.age, 'years')) +
-      row('How tall are you?', box('mtFt', pr.ft, 'ft') + box('mtIn', pr.inch, 'in')) +
+    /* The rows, without captions. Blake: "I want simplicity and intelligent
+       outputs with few clicks" — the sentence under every field was the
+       first thing to go, in both shapes of this sheet. The ids are the ids:
+       the wizard and the one-screen editor are never on the page together,
+       so the same id in both is one element either way, and
+       mtProfileFromDom reads it the same. */
+    var rowsAbout =
+      row('You are', seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']])) +
+      row('Age', box('mtAge', pr.age, 'years')) +
+      row('Height', box('mtFt', pr.ft, 'ft') + box('mtIn', pr.inch, 'in')) +
       /* Asked for only until the scale can answer. Two boxes for one number is
          how they came to disagree; once there are mornings in the log this
          states what they say instead of inviting a second opinion nothing
          would ever read. */
-      row('What do you weigh today?', mScaleLb()
+      row('Weight today', mScaleLb()
         ? '<span class="mtl-fact">' + mScaleLb() + '</span>' +
           '<span class="mtl-u">lb &middot; from your weigh-ins</span>'
-        : box('mtLb', pr.lb, 'lb')) +
-      (mScaleLb() ? ''
-        : cap('Only asked until you have weighed in a few times. After that the scale answers it.'));
-
-    var qMove =
-      row('How much are you on your feet on a normal day?',
-        '<select id="mtAct">' + acts.map(function (a) {
-          return '<option value="' + a[0] + '"' + (Number(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
-        }).join('') + '</select>', true) +
-      row('Roughly how many steps a day?',
+        : box('mtLb', pr.lb, 'lb'));
+    /* Three words for the day's activity instead of a five-line dropdown
+       that was cut off mid-word on a phone. The workouts asked next carry
+       the training; this is only the job. The select every other reader of
+       the profile knows stays in the document, hidden, and the three
+       buttons set it. */
+    var ACT3 = [[1.2, 'At a desk'], [1.375, 'On my feet'], [1.55, 'Active job']];
+    var rowsMove =
+      row('A normal day, you are mostly', seg('mtact', mtActNear(pr.act), ACT3), true) +
+      '<select id="mtAct" class="hide" aria-hidden="true" tabindex="-1">' + acts.map(function (a) {
+        return '<option value="' + a[0] + '"' + (mtActNear(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
+      }).join('') + '</select>' +
+      row('Workouts a week', '<span class="mt-stepper">' +
+        '<button type="button" data-mtwk="-1" aria-label="One fewer">&minus;</button>' +
+        box('mtWorkouts', pr.workouts, '') +
+        '<button type="button" data-mtwk="1" aria-label="One more">+</button></span>') +
+      row('Steps a day <span class="mtl-opt">(optional)</span>',
         '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
-        'inputmode="numeric" value="' + (pr.steps || '') + '">') +
-      cap('A guess is fine. Leave it blank if you have no idea.') +
-      row('How many times a week do you exercise?', box('mtWorkouts', pr.workouts, '')) +
-      /* Which days those workouts fall on. Spread from the number above until
-         you say otherwise, and then held as a list of its own so changing the
-         number does not rearrange days set by hand. */
-      row('Which days?', mTrainRowHTML()) +
-      cap('Exercise days get more food than rest days, and the week still averages out to your plan.');
+        'inputmode="numeric" value="' + (pr.steps || '') + '">');
+    /* Which days those workouts fall on. Spread from the number above until
+       you say otherwise, and then held as a list of its own so changing the
+       number does not rearrange days set by hand. */
+    var rowDays = row('Which days?', mTrainRowHTML());
+    var fold = function (title, inner, open) {
+      return '<details class="mt-fold"' + (open ? ' open' : '') + '><summary>' + title + '</summary>' + inner + '</details>';
+    };
 
     /* The four kinds, as a stack that has room to say what each one does
        rather than four words in a row that do not.
@@ -8419,9 +8431,7 @@
        how you decide to go and buy it. */
     var qPrefs =
       row('Should My Day only suggest storehouse food?',
-        seg('mtext', pr.extFill ? '1' : '0', [['0', 'Yes'], ['1', 'No']])) +
-      cap('Say no and it will also suggest food you would have to buy at a shop. ' +
-        'Either way you can look up and log anything you like.');
+        seg('mtext', pr.extFill ? '1' : '0', [['0', 'Yes'], ['1', 'No']]));
 
     /* The boxes are the plan's one rendering: they follow the profile, take a
        hand edit, and Save keeps whatever they say. */
@@ -8430,7 +8440,6 @@
       row('Protein', box('mtP', t.p, 'g')) +
       row('Fat', box('mtF', t.f, 'g')) +
       row('Carbs', box('mtC', t.c, 'g')) +
-      cap('Worked out from your answers. Change them if you would rather set your own, and yours are kept.') +
       '<div class="mtl-row mtl-sum"><span class="mtl-lab">That is a day of</span>' +
         '<span class="mtl-val" id="mtKcal">' + (kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '—') + '</span></div>';
 
@@ -8549,45 +8558,10 @@
           '<div class="mtw-said" id="mtwSaid' + n + '">' + (said || '') + '</div>' +
         '</section>';
       };
-      /* The wizard's shape of the same questions. Blake: "I want simplicity
-         and intelligent outputs with few clicks." So: the rows without their
-         captions, one answer under each step, and everything that is not a
-         question folded behind a tap or left to the gear. The ids are the
-         ids — the wizard and the one-screen editor are never on the page
-         together, so the same id in both is one element either way, and
-         mtProfileFromDom reads it the same. */
-      var wAbout =
-        row('You are', seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']])) +
-        row('Age', box('mtAge', pr.age, 'years')) +
-        row('Height', box('mtFt', pr.ft, 'ft') + box('mtIn', pr.inch, 'in')) +
-        row('Weight today', mScaleLb()
-          ? '<span class="mtl-fact">' + mScaleLb() + '</span>' +
-            '<span class="mtl-u">lb &middot; from your weigh-ins</span>'
-          : box('mtLb', pr.lb, 'lb'));
-      /* Three words for the day's activity instead of a five-line dropdown
-         that was cut off mid-word on a phone. The workouts asked next carry
-         the training; this is only the job. The select every other reader
-         of the profile knows stays in the document, hidden, and the three
-         buttons set it. */
-      var ACT3 = [[1.2, 'At a desk'], [1.375, 'On my feet'], [1.55, 'Active job']];
-      var wMove =
-        row('A normal day, you are mostly', seg('mtact', mtActNear(pr.act), ACT3), true) +
-        '<select id="mtAct" class="hide" aria-hidden="true" tabindex="-1">' + acts.map(function (a) {
-          return '<option value="' + a[0] + '"' + (mtActNear(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
-        }).join('') + '</select>' +
-        row('Workouts a week', '<span class="mt-stepper">' +
-          '<button type="button" data-mtwk="-1" aria-label="One fewer">&minus;</button>' +
-          box('mtWorkouts', pr.workouts, '') +
-          '<button type="button" data-mtwk="1" aria-label="One more">+</button></span>') +
-        row('Steps a day <span class="mtl-opt">(optional)</span>',
-          '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
-          'inputmode="numeric" value="' + (pr.steps || '') + '">') +
-        '<details class="mt-fold"><summary>Pick the training days</summary>' +
-          row('Which days?', mTrainRowHTML()) +
-        '</details>';
-      var wGoal =
-        goalPicksHTML +
-        '<details class="mt-fold"><summary>Reach a weight by a date</summary>' + goalPaceHTML + '</details>';
+      /* The wizard's shape: one screen at a time, the settings that are not
+         questions folded behind a tap. */
+      var wMove = rowsMove + fold('Pick the training days', rowDays);
+      var wGoal = goalPicksHTML + fold('Reach a weight by a date', goalPaceHTML);
       return shell(
         /* Drawn from the step count rather than written out. Four pips were
            typed by hand here, so a fifth step would have arrived with a bar
@@ -8604,7 +8578,7 @@
         '</div>' +
         '<div class="mtw-keep hide">' + mMeasuredRowHTML(pr) + whoHTML + '</div>' +
         '<div id="mtEditor" class="mt-editor">' +
-          step(1, 'About you', wAbout, mtSaidBase(pr)) +
+          step(1, 'About you', rowsAbout, mtSaidBase(pr)) +
           step(2, 'How you move', wMove, mtSaidBurn(pr)) +
           step(3, 'What you&rsquo;re after', wGoal, mtSaidGoal(pr)) +
           /* The answer, once. It was the headline and the tiles and then the
@@ -8661,12 +8635,16 @@
       '<div class="mt-status' + (mtStatusHTML(pr) ? '' : ' hide') + '" id="mtStatus" role="status">' +
         mtStatusHTML(pr) + '</div>' +
       mMeasuredRowHTML(pr) + whoHTML +
+      /* The same rows the wizard asks, one screen, nothing folded that a
+         returning reader came to change: the training days and the
+         weight-and-date pace sit open here, because Edit is the tap that
+         said "I want at those". */
       '<div id="mtEditor" class="mt-editor' + shut + '">' +
-        '<div class="mt-div">A few things about you</div>' + qAbout +
-        '<div class="mt-div">How you move</div>' + qMove +
-        '<div class="mt-div">What you are after</div>' + qGoal +
+        '<div class="mt-div">About you</div>' + rowsAbout +
+        '<div class="mt-div">How you move</div>' + rowsMove + rowDays +
+        '<div class="mt-div">What you&rsquo;re after</div>' + qGoal +
         '<div class="mt-div">Where your meals come from</div>' + qPrefs +
-        '<div class="mt-div">What you will eat in a day</div>' + qGrams +
+        '<div class="mt-div">Adjust the numbers</div>' + qGrams +
       '</div>' + mealHeadHTML + mealsHTML + saveHTML(!!plan) + helpHTML
     );
   }
@@ -8738,7 +8716,11 @@
   function mtSaidGoal(pr) {
     var b = mBurn(pr), plan = mPlanCalc(pr);
     if (!b || !plan) return '';
-    var diff = Math.round(b.tdee) - plan.kcal;
+    /* kcalOf the rounded grams, not plan.kcal: the plan step's tiles add
+       the grams up, and the two were a calorie apart — 1,707 on one screen,
+       1706 on the next. One calorie, said once. */
+    var kcal = kcalOf(plan);
+    var diff = Math.round(b.tdee) - kcal;
     var pace = mGoalPace(pr);
     var perWeek = pace ? pace.perWeek : (MGOALS[pr.goal] || MGOALS.cut1).rate * pr.lb;
     var lbs = Math.round(Math.abs(perWeek) * 10) / 10;
@@ -8747,7 +8729,7 @@
       : diff < 0
       ? Math.abs(diff).toLocaleString() + ' over what you burn &mdash; about ' + lbs + ' lb a week on.'
       : 'What you burn, so the scale holds.';
-    return mtwOut(plan.kcal, 'kcal a day', line);
+    return mtwOut(kcal, 'kcal a day', line);
   }
 
   function mtSaidBurn(pr) {
