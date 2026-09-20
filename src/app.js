@@ -306,7 +306,15 @@
     b: ['1-1', '2-1'],
     l: ['1-3', '2-2'],
     d: ['1-4', '2-3', '2-4'],
-    s: ['1-2', '1-5', '1-6', '2-5', '2-6', '2-7', '2-8']
+    /* Not 2-6 and not 2-7. "A treat is a snack" held for churros; it did not
+       hold for Worth the Afternoon — bread, cinnamon rolls, braised beef,
+       chicken pot pie, 326 kcal a serving — or for the Copycat Shelf, where
+       barbacoa and taco beef live. A fourteen-day audit on Blake's own plan
+       had Snacks' Fits best opening on Braised Beef with Onion Gravy and Fill
+       putting Taco Beef ×2¾ into an evening snack. The treats those shelves
+       do hold are reachable by name and by the Every-recipe lens; they are
+       just not offered unasked at ten at night. */
+    s: ['1-2', '1-5', '1-6', '2-5', '2-8']
   };
 
   var BOOKS = {
@@ -2998,6 +3006,15 @@
      reach its protein, and constraining it costs about 14 g a day, which is
      measured and not worth it. */
   var MX_OVER = 1.15;
+  /* A single food offered as a dish stops at a plateful. The ladder counts
+     in the food's own unit, and for the vegetables that unit is the pound —
+     so "no portion exceeds ×3" was a three-pound ceiling for broccoli, and the
+     picker opened Wake Up on Broccoli ×1½ lb · 281 kcal · 19P, a protein
+     source that is a bag of broccoli. Four hundred grams clears every real
+     plate in the book (a cup and a half of egg whites is 365) and stops the
+     bag. Foods only: a dish is measured in servings, and its own portion has
+     its own rule. */
+  var MFOOD_G_MAX = 400;
 
   function macroFit(r, R, T, D) {
     var best = null, smallest = null;
@@ -3006,6 +3023,7 @@
     var kc = (r.macro && r.macro.kcal) || 0;
     for (var i = 0; i < MX.length; i++) {
       var x = MX[i], pen = 0;
+      if (r.food && r.grams && r.grams * x > MFOOD_G_MAX) break;   // rungs only go up
       for (var m in MW) {
         var s = (r.macro[m] || 0) * x;
         pen += MW[m][0] * Math.max(0, T[m] - s) / D[m];

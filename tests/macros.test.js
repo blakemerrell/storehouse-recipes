@@ -10791,5 +10791,67 @@ module.exports = {
         (r.now < r.was && r.sign === '\u2212') || r.now === r.was),
       !!cc && JSON.stringify(cc.rows));
     await ccPg.context().close();
+
+    { /* own scope: run(t) is one function and its names are spoken for */
+    /* ---- two things a fourteen-day audit found on Blake's own plan ------ */
+    /* Snacks drew from Worth the Afternoon and the Copycat Shelf, so its
+       Fits best opened on a braise and Fill put taco beef in an evening
+       snack; and the picker's portion cap counts in the food's own unit,
+       which for the vegetables is the pound, so Wake Up was offered a bag of
+       broccoli as a protein source. Pinned against the rendered picker. */
+    const auPg = await t.fresh();
+    await auPg.evaluate(() => {
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 62, c: 133 }));
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
+        { k: 'w', n: 'Wake Up', t: 'b', w: 12 }, { k: 'b', n: 'Breakfast', t: 'b', w: 23 },
+        { k: 's', n: 'Snacks', t: 's', w: 8 }, { k: 'l', n: 'Lunch', t: 'l', w: 22 },
+        { k: 'd', n: 'Dinner', t: 'd', w: 27 }, { k: 'e', n: 'Evening Snack', t: 's', w: 8 }],
+        names: { w: 'Wake Up', b: 'Breakfast', s: 'Snacks', l: 'Lunch', d: 'Dinner', e: 'Evening Snack' } }));
+    });
+    await auPg.reload();
+    await auPg.evaluate(() => document.fonts.ready);
+    await auPg.click('.tab[data-view="macros"]');
+    await auPg.waitForTimeout(300);
+    const fitsOf = async (slotKey) => {
+      await auPg.click('[data-mslot="' + slotKey + '"]');
+      await auPg.waitForTimeout(500);
+      const rows = await auPg.evaluate(() => {
+        const ds = [...document.querySelectorAll('#mpList .mt-div')];
+        const h = ds.find((d) => /fits best|on the shelf/i.test(d.innerText));
+        const out = []; let n = h && h.nextElementSibling;
+        while (n && !n.classList.contains('mt-div')) {
+          const b = n.querySelector && n.querySelector('.mpick-row');
+          if (b) {
+            const id = b.dataset.mpick, x = Number(b.dataset.mpx);
+            const r = window.RECIPES.find((rr) => String(rr.id) === id);
+            out.push({ id, x, sec: r ? r.book + '-' + r.secNum : null, food: !r,
+              grams: r ? null : (b.querySelector('.mp-fit') || {}).textContent });
+          }
+          n = n.nextElementSibling;
+        }
+        return out;
+      });
+      await auPg.evaluate(() => document.querySelector('.sheet-x').click());
+      await auPg.waitForTimeout(250);
+      return rows;
+    };
+    const auSnack = await fitsOf('s');
+    t.ok('a snack slot is never offered a dish from Worth the Afternoon or the Copycat Shelf',
+      auSnack.length > 0 && auSnack.every((r) => r.sec !== '2-6' && r.sec !== '2-7'),
+      JSON.stringify(auSnack.map((r) => r.sec)));
+    /* Read the gram figure off the row's own fit line: a food's portion is
+       stated there as "×1 lb" or "×2 each", and the plate it makes is what
+       the fit line prices. Four hundred grams is the ceiling in the code. */
+    const auWake = await fitsOf('w');
+    const heavy = await auPg.evaluate((rows) => rows.filter((r) => r.food).map((r) => r.grams), auWake);
+    t.ok('and no single food is offered as a dish beyond a plateful',
+      !/\d\s*lb\b/.test(heavy.join(' | ')) || heavy.every((g) => {
+        const m = /×\s*([\d\s¼½¾⅓⅔]+)\s*lb/.exec(g || '');
+        if (!m) return true;
+        const n = m[1].replace(/\s/g, '').replace('½', '.5').replace('¼', '.25').replace('¾', '.75');
+        return Number(n) * 453.6 <= 400;
+      }), JSON.stringify(heavy));
+    await auPg.context().close();
+    }
   },
 };
