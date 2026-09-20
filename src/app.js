@@ -11799,8 +11799,8 @@
   var READY_MADE = {
     all: { file: 'Both-Books.pdf', label: 'Both books', pages: 292 },
     one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 284 },
-    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 112, booklet: true },
-    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 180, booklet: true }
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 116, booklet: true },
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 176, booklet: true }
   };
 
   /* The shelf, in the order somebody chooses from it: the whole thing first,

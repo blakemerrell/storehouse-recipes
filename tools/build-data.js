@@ -34,8 +34,14 @@ const { CATS, NOT_STOCKED } = require('./pantry-cats.js');
 
 // apply the corrections to the original text without editing the source export
 const ORIGINAL = global.window.RECIPES.map((r) => Object.assign({}, r, { steps: r.steps.slice() }));
+/* The added recipes too. Fixes used to reach only the export, so a note for
+   a recipe written for this edition had to be edited into its own entry —
+   which is fine for one pink cookie and hopeless for a pass across the
+   book. Blake: "why can't the fixes file reach the other recipes?" Now it
+   can: the same file, the same four kinds of correction, one lookup. The
+   added objects are corrected in place before SRC is assembled from them. */
 const byId = {};
-ORIGINAL.forEach((r) => { byId[r.id] = r; });
+ORIGINAL.concat(ADDED).forEach((r) => { byId[r.id] = r; });
 /* The method exactly as printed, taken before a single correction lands.
    Corrections mutate ORIGINAL in place, so without this snapshot there is
    nothing left to compare the finished method against. Used only to write
