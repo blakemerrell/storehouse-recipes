@@ -110,8 +110,27 @@
       <button class="favbtn" id="favBtn" aria-pressed="false">&#9733; Favorites <span id="favCount"></span></button>
       <button class="favbtn" id="newRecipe" title="Write a recipe of your own">&#9998; Write a recipe</button>
       <input type="search" class="txt" id="search" placeholder="Search a dish or ingredient&hellip;" aria-label="Search">
+      <!-- Only while the bar is unfolded from the strip below; CSS keeps it
+           away the rest of the time, when there is nothing to close. -->
+      <button class="favbtn filters-done" id="filtersDone">Done</button>
     </div>
   </div>
+  <!-- The bar that follows you down. The filter bar above is at the top of
+       the page and the collection is three hundred cards long, so two screens
+       in the search box is gone and the only way to a filter is a scroll back
+       up that loses your place. This rail takes no room of its own: it sits
+       right under the filter bar, pins under the header the moment the bar
+       scrolls away, and only then draws a search box and one button that
+       unfolds the real filter bar in place — the same controls, not a copy. -->
+  <div class="brw-strip no-print" id="brwStrip" aria-hidden="true">
+    <div class="brw-strip-in">
+      <div class="brw-strip-c">
+        <input type="search" class="txt" id="searchStrip" placeholder="Search a dish or ingredient&hellip;" aria-label="Search">
+        <button class="brw-filt" id="filtBtn" aria-expanded="false">Filters<span class="brw-filt-n" id="filtCount"></span></button>
+      </div>
+    </div>
+  </div>
+  <div class="brw-scrim no-print hide" id="brwScrim"></div>
   <div class="view">
     <div class="view-head view-head-tall">
       <div class="view-head-row">

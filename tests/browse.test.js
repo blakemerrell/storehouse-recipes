@@ -461,16 +461,23 @@ module.exports = {
      * passed the whole time it was invisible. */
     await phone.evaluate(() => window.scrollTo(0, 2500));
     await phone.waitForTimeout(400);
+    /* The edge is the strip's, not the header's, once the page has scrolled:
+       the strip that follows you down sits under the header and the divider
+       parks under the strip. Measured off the strip's real bottom edge for
+       the same reason as before — a number is what caused this. */
     const pinned = await phone.evaluate(() => {
       const bar = document.querySelector('.topbar').getBoundingClientRect();
+      const strip = document.querySelector('.brw-strip-in').getBoundingClientRect();
+      const up = document.getElementById('view-browse').classList.contains('stripped');
+      const edge = up ? strip.bottom : bar.bottom;
       const secs = [...document.querySelectorAll('.grid-sec')].map((e) => e.getBoundingClientRect());
-      const stuck = secs.filter((r) => r.top >= bar.bottom - 1 && r.top < bar.bottom + 3);
-      return { barBottom: Math.round(bar.bottom), stuck: stuck.length,
-        hidden: secs.filter((r) => r.bottom > 0 && r.top < bar.bottom - 1).length };
+      const stuck = secs.filter((r) => r.top >= edge - 1 && r.top < edge + 3);
+      return { barBottom: Math.round(bar.bottom), stripUp: up, edge: Math.round(edge), stuck: stuck.length,
+        hidden: secs.filter((r) => r.bottom > 0 && r.top < edge - 1).length };
     });
-    t.ok('a section divider pins flush under the header on a phone',
-      pinned.stuck === 1, JSON.stringify(pinned));
-    t.ok('and none of them is left sitting behind it',
+    t.ok('a section divider pins flush under the strip on a phone',
+      pinned.stripUp && pinned.stuck === 1, JSON.stringify(pinned));
+    t.ok('and none of them is left sitting behind the header or the strip',
       pinned.hidden === 0, JSON.stringify(pinned));
     await phone.evaluate(() => window.scrollTo(0, 0));
     await phone.waitForTimeout(300);
@@ -510,5 +517,66 @@ module.exports = {
       JSON.stringify(openPhone) + ' for ' + phoneParts + ' parts');
 
     await phone.context().close();
+
+    /* The strip that follows you down.
+     *
+     * The filter bar is at the top of the page and the collection is three
+     * hundred cards long, so two screens in the search box was gone and the
+     * only way to a filter was a scroll back up that lost your place. */
+    {
+      const sp = await t.fresh({ viewport: { width: 390, height: 780 } });
+      const on = () => sp.evaluate(() => document.getElementById('view-browse').classList.contains('stripped'));
+      t.ok('at the top of Recipes the strip stays out of the way', !(await on()));
+      await sp.evaluate(() => window.scrollTo(0, 1600));
+      await sp.waitForTimeout(150);
+      t.ok('scroll the filter bar away and a search box follows you down', await on());
+      /* Where a divider parks, against where the header ends: it must clear the
+         strip, or the strip covers the one line that says where you are. */
+      const park = await sp.evaluate(() => {
+        const s = document.querySelector('.grid-sec'), tb = document.querySelector('.topbar');
+        return Math.round(parseFloat(getComputedStyle(s).top) - tb.getBoundingClientRect().height);
+      });
+      t.ok('and the section dividers park under it rather than behind it', park >= 44, park + 'px below the header');
+
+      await sp.fill('#searchStrip', 'chicken');
+      await sp.waitForTimeout(200);
+      const hits = await sp.evaluate(() => document.querySelectorAll('.card').length);
+      const echoed = await sp.inputValue('#search');
+      t.ok('typing in the strip searches the collection', hits > 0 && hits < 100, hits + ' cards');
+      t.ok('and the box at the top says the same thing', echoed === 'chicken', echoed);
+      await sp.fill('#searchStrip', '');
+      await sp.waitForTimeout(200);
+
+      await sp.evaluate(() => window.scrollTo(0, 1600));
+      await sp.waitForTimeout(150);
+      await sp.click('#filtBtn');
+      await sp.waitForTimeout(100);
+      const popped = () => sp.evaluate(() => document.querySelector('#view-browse .filters').classList.contains('pop') &&
+        !document.getElementById('brwScrim').classList.contains('hide'));
+      t.ok('the Filters button unfolds the real filter bar in place', await popped());
+      await sp.selectOption('#diffSel', 'Easy');
+      await sp.waitForTimeout(200);
+      const easy = await sp.evaluate(() => {
+        const shown = [...document.querySelectorAll('.card')].map((c) => c.dataset.open);
+        const by = {}; window.RECIPES.forEach((r) => { by[r.id] = r; });
+        return shown.length && shown.every((id) => by[id].diff === 'Easy');
+      });
+      t.ok('and a filter picked there is the same filter', easy);
+      t.ok('the button counts what is on', (await sp.textContent('#filtCount')) === '1', await sp.textContent('#filtCount'));
+      await sp.click('#filtersDone');
+      await sp.waitForTimeout(100);
+      t.ok('Done folds it away', !(await popped()));
+      await sp.selectOption('#diffSel', 'all');
+      await sp.waitForTimeout(200);
+
+      await sp.evaluate(() => window.scrollTo(0, 1600));
+      await sp.waitForTimeout(150);
+      await sp.click('#filtBtn');
+      await sp.waitForTimeout(100);
+      await sp.click('.tab[data-view="plan"]');
+      await sp.waitForTimeout(150);
+      t.ok('leaving Recipes puts the strip and its bar away', !(await popped()) && !(await on()));
+      await sp.context().close();
+    }
   },
 };

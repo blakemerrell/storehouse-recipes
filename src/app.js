@@ -656,6 +656,7 @@
     })(),
     bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
     favOnly: false, qy: '', sort: 'book', openId: null, scale: 1, printSet: 'all',
+    filtPop: false,
     /* Cups or grams. Persisted on the device rather than shared, because it is
        a preference about reading, not about the plan — one of you can cook by
        weight while the other cooks by cup without either overruling the other. */
@@ -850,6 +851,12 @@
       (loose ? ' · ' + (list.length - loose) + ' matching, ' + loose + ' more from sections named for it'
              : (order[S.sort] || ''));
     $('browseEmpty').classList.toggle('hide', list.length !== 0);
+    /* The strip's button says how many filters are on, so "Filters" with two
+       set does not read the same as "Filters" with none. Sort counts: a list
+       in protein order is not the book, and the reader may have forgotten. */
+    var fn = filtCount();
+    $('filtCount').textContent = fn ? String(fn) : '';
+    $('filtBtn').setAttribute('aria-label', fn ? 'Filters, ' + fn + ' on' : 'Filters');
 
     /* Section headings down the grid.
      *
@@ -903,6 +910,9 @@
       '</button>';
       return head + card;
     }).join('');
+    /* A search that leaves twelve cards can pull the page back up past the
+       rail, and the strip should go with it. */
+    syncStrip();
   }
 
   // ---------------------------------------------------------------- planning
@@ -11326,6 +11336,52 @@
       '--topbar-h', Math.round(tb.getBoundingClientRect().height) + 'px');
   }
 
+  /* ---- The strip on Recipes ----
+
+     A zero-height sticky rail sits right under the filter bar. Because it
+     has no height it never moves a card, and because it is sticky it pins
+     under the header the moment the filter bar scrolls away — and that is
+     the test: pinned means the bar you would want is gone, so draw the small
+     one. Nothing is measured but where the rail is. */
+  var stripRaf = 0;
+  function filtCount() {
+    var n = 0;
+    if (S.bookF !== 'all') n++;
+    if (S.secF !== 'all') n++;
+    if (S.diffF !== 'all') n++;
+    if (S.pantryF !== 'all') n++;
+    if (S.sort !== 'book') n++;
+    if (S.favOnly) n++;
+    return n;
+  }
+  function syncStrip() {
+    stripRaf = 0;
+    var st = $('brwStrip'), sec = $('view-browse'), tb = document.querySelector('.topbar');
+    if (!st || !sec || !tb) return;
+    var on = S.view === 'browse' &&
+      st.getBoundingClientRect().top <= tb.getBoundingClientRect().bottom + 1;
+    if (on === sec.classList.contains('stripped')) return;
+    sec.classList.toggle('stripped', on);
+    st.setAttribute('aria-hidden', on ? 'false' : 'true');
+    /* Fold the bar away with the strip that opened it; a fixed panel over a
+       page that has scrolled back to its own copy of the same controls is
+       the one arrangement that would confuse. */
+    if (!on) filtersPop(false);
+  }
+  function onScrollStrip() {
+    if (stripRaf) return;
+    stripRaf = requestAnimationFrame(syncStrip);
+  }
+  /* The real filter bar, unfolded under the header. Same element, so every
+     control keeps its wiring and its state; only where it sits changes. */
+  function filtersPop(open) {
+    if (open === S.filtPop) return;
+    S.filtPop = open;
+    document.querySelector('#view-browse .filters').classList.toggle('pop', open);
+    $('brwScrim').classList.toggle('hide', !open);
+    $('filtBtn').setAttribute('aria-expanded', String(open));
+  }
+
   /* ---- My Day's readout, folding with the scroll ----
 
      Once the page has scrolled, the week and the four bars give way to one
@@ -12859,6 +12915,7 @@
     if (S.view === 'pantry') renderPantry();
     if (S.view === 'book') renderBook();
     syncShrunk();
+    syncStrip();
   }
 
   /* The five tabs fit a 390px phone now, so the fade would be a lie there. It
@@ -12973,7 +13030,15 @@
         });
     });
 
-    $('search').addEventListener('input', function () { S.qy = this.value; renderBrowse(); });
+    $('search').addEventListener('input', function () {
+      S.qy = this.value; $('searchStrip').value = this.value; renderBrowse();
+    });
+    $('searchStrip').addEventListener('input', function () {
+      S.qy = this.value; $('search').value = this.value; renderBrowse();
+    });
+    $('filtBtn').addEventListener('click', function () { filtersPop(!S.filtPop); });
+    $('filtersDone').addEventListener('click', function () { filtersPop(false); });
+    $('brwScrim').addEventListener('click', function () { filtersPop(false); });
     $('sortSel').addEventListener('change', function () { S.sort = this.value; renderBrowse(); });
 
     $('favBtn').addEventListener('click', function () {
@@ -13692,7 +13757,9 @@
        is asked to do anything. */
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     window.addEventListener('scroll', onScrollShrink, { passive: true });
+    window.addEventListener('scroll', onScrollStrip, { passive: true });
     window.addEventListener('resize', onResizeFold);
+    window.addEventListener('resize', onScrollStrip);
     document.querySelector('.tabs').addEventListener('scroll', syncTabsFade, { passive: true });
     syncTabsFade();
 
@@ -14566,6 +14633,7 @@
       }
       if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
+      if (e.key === 'Escape' && S.filtPop) { filtersPop(false); return; }
       if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen || S.newFood ||
         S.keepMeal || S.chartOpen || S.foodOpen)) close();
     });

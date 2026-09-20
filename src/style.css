@@ -343,7 +343,10 @@ select { max-width: 280px; }
      pixels underneath the header and could not be seen at all. It looked
      exactly like a feature that had not shipped to mobile.
      syncStick() in app.js keeps --topbar-h honest. */
-  grid-column: 1 / -1; position: sticky; top: var(--topbar-h, 60px); z-index: 5;
+  grid-column: 1 / -1; position: sticky; z-index: 5;
+  /* Under the strip while the strip is up, under the header when it is not;
+     --brw-strip-h is the strip's height or nothing, set by .stripped. */
+  top: calc(var(--topbar-h, 60px) + var(--brw-strip-h, 0px));
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
   margin: 14px 0 -2px; padding: 8px 2px 7px;
   background: var(--paper); border-bottom: 1px solid var(--line-firm);
@@ -361,6 +364,67 @@ select { max-width: 280px; }
 @media (max-width: 700px) {
   .grid-sec-s { display: none; }
 }
+
+/* --------------------------------------------- the strip that follows you
+   A zero-height sticky rail directly under the filter bar. Taking no room it
+   never shifts a card; the bar inside is absolute, and drawn only once the
+   rail is pinned under the header — which is exactly the moment the real
+   filter bar has scrolled out of reach. syncStrip() in app.js sets .stripped
+   on the section, and the section dividers read --brw-strip-h to park under
+   the strip instead of behind it. */
+#view-browse { --brw-strip-h: 0px; }
+#view-browse.stripped { --brw-strip-h: 48px; }
+.brw-strip { position: sticky; top: var(--topbar-h, 60px); height: 0; z-index: 7; }
+.brw-strip-in {
+  position: absolute; left: 0; right: 0; top: 0; height: 48px;
+  background: var(--paper-soft); border-bottom: 1px solid var(--line);
+  box-shadow: 0 2px 6px rgba(59, 54, 48, 0.08);
+  visibility: hidden; opacity: 0; transform: translateY(-6px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0.16s;
+}
+.stripped .brw-strip-in {
+  visibility: visible; opacity: 1; transform: none;
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0s;
+}
+.brw-strip-c {
+  max-width: 1240px; margin: 0 auto; padding: 0 22px; height: 100%;
+  display: flex; align-items: center; gap: 8px;
+}
+.brw-strip .txt { flex: 1 1 auto; min-width: 0; padding: 6px 10px; font-size: 14px; }
+.brw-filt {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px; border: 1px solid var(--line-firm); border-radius: 3px;
+  background: #fff; font: inherit; font-size: 13px; cursor: pointer; color: inherit;
+  white-space: nowrap;
+}
+.brw-filt:hover { background: var(--paper); }
+.brw-filt[aria-expanded="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.brw-filt:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
+/* How many filters are on, so "Filters" with two set does not look like
+   "Filters" with none. */
+.brw-filt-n {
+  font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1;
+  padding: 3px 6px; border-radius: 9px; background: var(--ink); color: var(--paper);
+}
+.brw-filt-n:empty { display: none; }
+.brw-filt[aria-expanded="true"] .brw-filt-n { background: var(--paper); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .brw-strip-in { transition: none; } }
+
+/* The filter bar, unfolded from the strip. The same element with the same
+   controls and the same wiring: it leaves the flow and pins itself under the
+   header over a scrim, so nothing about what a filter does has a second copy
+   to drift from the first. */
+.filters.pop {
+  position: fixed; left: 0; right: 0; top: var(--topbar-h, 60px); z-index: 45;
+  max-height: calc(100vh - var(--topbar-h, 60px)); overflow: auto;
+  box-shadow: 0 8px 20px rgba(59, 54, 48, 0.18);
+}
+.filters-done { display: none; }
+.filters.pop .filters-done { display: inline-flex; justify-content: center; }
+/* Starts under the header so the tabs stay live; a tap anywhere on it folds
+   the bar away again. */
+.brw-scrim { position: fixed; left: 0; right: 0; bottom: 0; top: var(--topbar-h, 60px);
+  background: oklch(0.26 0.02 60 / 0.35); z-index: 44; }
 .card {
   background: var(--card); border: 1px solid var(--line); border-radius: 3px;
   padding: 16px 17px 14px; text-align: left; width: 100%;
@@ -3133,6 +3197,7 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   .filters-in select { flex: 1 1 46%; min-width: 0; }
   /* the book names are too long to sit three-across in half a phone width */
   .filters-in .seg { flex: 1 1 100%; }
+  .brw-strip-c { padding: 0 16px; }
   .filters-in .seg button {
     flex: 1; padding: 8px 6px; font-size: 11.5px; white-space: normal;
   }
