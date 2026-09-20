@@ -125,7 +125,7 @@ module.exports = [
   { id: 179, step: 1, add: 'Cook it through — 165°F — before it is mixed with the pasta.' },
   { id: 182, step: 0, add: 'Roast until the thickest breast reads 165°F and the juices run clear.' },
   { id: 186, step: 2, add: 'Whole breasts under a blanket of sauce take longer than you expect. Check the thickest one reads 165°F before serving.' },
-  { id: 198, step: 1, add: 'A crisp crust is not proof it is cooked. Check the thickest part reads 165°F.' },
+  { id: 198, step: 1, add: 'A crisp crust is not proof it is cooked. Check the thickest part reads 165°F. Rest it five minutes before cutting.' },
 
   /* ---- pointers to Made, Not Bought ------------------------------------
    * Barbecue sauce and gravy mix are the two ingredients that block the most
@@ -336,8 +336,11 @@ module.exports = [
     add: 'Stir 2 tbsp taco seasoning into the beef with the tomato sauce, and let it simmer a minute before it is layered.' },
   { id: 172, step: 1,
     add: 'Add 2 tbsp taco seasoning with the salsa and beans, and give it a minute to come together.' },
-  { id: 200, step: 1,
-    add: 'Stir 2 tbsp taco seasoning and ¼ cup water into the browned beef and let it bubble a minute, until the liquid has gone and the meat is coated.' },
+  { id: 200, steps: [
+      'Brown the beef in a hot pan, breaking it up, and drain it. Stir in 2 tbsp taco seasoning and ¼ cup water and let it bubble a minute, until the liquid has gone and the meat is coated.',
+      'Bake tortilla wedges at 400°F 8 mins until crisp.',
+      'Top with the beef, beans, corn, and cheese; melt under broiler 3 mins. Serve with salsa/sour cream.',
+    ] },
   { id: 176, step: 0,
     add: 'Rub the roast with a tablespoon of Worcestershire before it goes in the pan. It is what gives the gravy its savoury depth, and searing it on is better than pouring it over later.' },
 
@@ -566,7 +569,11 @@ module.exports = [
   { id: 64, lift: { with: 'Cumin, chili powder, garlic, onion',
     steps: ['A diced onion in first, then a teaspoon each of cumin and chili powder with the beef. The recipe is called spicy and has nothing in it that is.',
       'A clove of garlic for the last minute.'] } },
-  { id: 68, step: 0, set: 'Boil the macaroni and broccoli together about 8 minutes, until the pasta is just tender and the broccoli still has some bite; drain.' },
+  { id: 68, steps: [
+      'Salt the chicken fifteen minutes ahead, poach it until it reads 165°F, rest it five minutes and dice it. Dry chicken is a method problem, not a chicken problem.',
+      'Boil the macaroni and broccoli together about 8 minutes, until the pasta is just tender and the broccoli still has some bite; drain.',
+      'Stir in the chicken and cream of chicken soup. Portion into 6 containers.',
+    ] },
   { id: 68, lift: { with: 'Garlic, black pepper, parmesan, lemon',
     steps: ['A clove of minced garlic and plenty of black pepper stirred into the soup before it meets the pasta.',
       'Parmesan and a squeeze of lemon at the end. Condensed soup is salty and flat; acid is what lifts it.'] } },
@@ -1221,7 +1228,7 @@ module.exports = [
   { id: 190, extras: null, ing: ['2 lbs chicken breast (shredded)', '12 tortillas', '1 can tomato sauce', '1 can black beans', '1.5 cups cheddar', '2 tbsp taco seasoning (optional)'],
     step: 2, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
   { id: 200, extras: null, ing: ['1.5 lbs ground beef', '12 tortillas (baked crisp)', '1 can black beans', '1 can corn', '1.5 cups cheddar', 'salsa', 'sour cream', '2 tbsp taco seasoning (optional)'],
-    step: 1, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
+    step: 0, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
 
   /* ---- sour cream, where it helps ---------------------------------------
    * Blake, on his sister-in-law's pink cookies and his son's waffles: "why
@@ -1295,7 +1302,7 @@ module.exports = [
       'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
       'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
     ] } },
-  { id: 54, step: 1, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 54, step: 1, add: 'Cut the chicken into even pieces, about an inch, so none of it dries out waiting for the rest.' },
   { id: 55, lift: { with: 'A head of garlic, Cumin and paprika', steps: [
       'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
       'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
@@ -1333,7 +1340,6 @@ module.exports = [
       'A teaspoon of sesame oil off the heat at the end, and chili flakes to taste. Sesame oil cooked hard loses the thing you added it for.',
       'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
     ] } },
-  { id: 68, step: 1, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
   { id: 69, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
       'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
       'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
@@ -1357,16 +1363,15 @@ module.exports = [
   { id: 73, step: 1, add: 'Pound the thick end level and salt it while the pan heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
   { id: 102, step: 1, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
   { id: 103, step: 0, add: 'Get the pan hot before the pork goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
-  { id: 107, step: 1, add: 'Get the pan hot before the beef goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
+  { id: 107, step: 1, add: 'Get the pan hot before the sausage goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
   { id: 113, lift: { with: 'Parmesan', steps: [
       'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
     ] } },
   { id: 115, step: 0, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
-  { id: 116, step: 0, add: 'Get the pan hot before the beef goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
+  { id: 116, step: 0, add: 'Get the pan hot before the sausage goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
   { id: 119, step: 2, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
-  { id: 121, step: 0, add: 'Get the pan hot before the beef goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
+  { id: 121, step: 0, add: 'Get the pan hot before the sausage goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
   { id: 121, step: 1, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
-  { id: 128, step: 0, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
   { id: 128, lift: { with: 'Cumin and paprika', steps: [
       'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
     ] } },
@@ -1487,7 +1492,7 @@ module.exports = [
       'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
       'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
     ] } },
-  { id: 186, step: 1, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 186, step: 1, set: 'Salt the chicken fifteen minutes ahead and pound the thick end level — dry chicken is a method problem, not a chicken problem. Layer chicken breasts and ham slices in dish, cover with cream soup and cheddar.' },
   { id: 187, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
       'Two cloves of garlic, chopped fine, in after the onion and before the liquid. Thirty seconds is enough; it only needs to smell.',
       'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
@@ -1508,7 +1513,7 @@ module.exports = [
       'Two cloves of garlic, chopped fine, in after the onion and before the liquid. Thirty seconds is enough; it only needs to smell.',
       'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
     ] } },
-  { id: 198, step: 0, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 198, step: 0, set: 'Salt the chicken fifteen minutes ahead and pound the thick end level — dry chicken is a method problem, not a chicken problem. Dip chicken in milk, coat in flour.' },
   { id: 198, lift: { with: 'Garlic powder, paprika, black pepper, hot sauce, A bottle of vinegar', steps: [
       'Garlic powder, paprika and plenty of black pepper into the flour before dredging. Seasoned flour is the difference between fried chicken and fried breading.',
       'A few dashes of hot sauce into the milk you dip it in.',
@@ -1535,7 +1540,7 @@ module.exports = [
   { id: 283, step: 4, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
   { id: 290, step: 0, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
   { id: 294, step: 1, add: 'Or roast it: oil, salt, 425°F, twenty minutes, until the edges go dark. Steamed broccoli is a chore; roasted broccoli is a snack.' },
-  { id: 294, step: 0, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 294, step: 0, set: 'Salt the chicken fifteen minutes ahead and pound the thick end level. Poach it gently, let it rest five minutes, then slice it against the grain. Dry chicken is a method problem, not a chicken problem.' },
   { id: 294, lift: { with: 'A lemon', steps: [
       'The juice of half a lemon over the chicken and the greens at the table. It is the thing the plate was missing.',
     ] } },
@@ -1547,9 +1552,9 @@ module.exports = [
       'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
     ] } },
   { id: 302, step: 0, add: 'A minute in the oil before the water goes in, stirred, and the rice tastes of something instead of nothing.' },
-  { id: 304, step: 0, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 304, step: 0, set: 'Salt the chicken fifteen minutes ahead. Poach it, cool it fully and pull it apart.' },
   { id: 305, step: 3, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
-  { id: 306, step: 1, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 306, step: 1, set: 'Salt the chicken fifteen minutes ahead and pound the thick end level. Roast it, let it rest five minutes, then slice it. Dry chicken is a method problem, not a chicken problem.' },
   { id: 306, step: 0, add: 'A minute in the oil before the water goes in, stirred, and the rice tastes of something instead of nothing.' },
   { id: 306, lift: { with: 'A head of garlic, Soy sauce', steps: [
       'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',

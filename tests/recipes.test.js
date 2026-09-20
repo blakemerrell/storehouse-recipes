@@ -767,6 +767,75 @@ module.exports = {
     t.ok('and spares voice, which is not its business',
       proof.spared === 0, proof.spared + ' false positives');
 
+
+    /* ------------------------------------------------ the note and the meat
+     *
+     * The second time a pass of technique notes went wrong it went wrong in
+     * two shapes. Three sausage recipes were told to get the pan hot "before
+     * the beef goes in", because the note was written once for browning and
+     * handed out by kind. And the chicken note — salt it ahead, pound the
+     * thick end level, rest it before cutting — was appended to steps that
+     * had already drained a can, dredged the breast, layered the casserole
+     * or portioned the containers, so the recipe read as assemble first,
+     * cook after. Every entry was right on its own; the fault was where it
+     * landed, and the fixes file has no view of that.
+     *
+     * Two rules, both blind to voice. A step that speaks of "the beef" is
+     * speaking of an ingredient in hand, so that meat must be on the list —
+     * a gravy "for beef" or mayonnaise "in tuna" is not, and is left alone.
+     * And once a step has served or portioned the dish, no later sentence in
+     * it may start cooking the meat.
+     *
+     * One function judges the book and the planted lines both, so the proof
+     * cannot drift from the rule it is proving. */
+    const meat = await p.evaluate(() => {
+      const MEATS = 'beef|sausage|pork|chicken|turkey|ham|steak|bacon|tuna|salmon|shrimp';
+      const inHand = new RegExp('\\bthe (' + MEATS + ')\\b', 'ig');
+      const cooks = new RegExp('^(Brown|Cook|Sear|Fry|Salt|Pound|Simmer|Bake|Boil|Roast|Grill|Poach|Stir|Drain|Heat)\\b[^.]*\\b(' + MEATS + ')\\b', 'i');
+      const served = /^(Serve|Portion|Divide|Plate)\b/;
+      const faults = (r) => {
+        const list = (r.ing || []).join(' ').toLowerCase();
+        const out = [];
+        (r.steps || []).forEach((step, i) => {
+          let m;
+          inHand.lastIndex = 0;
+          while ((m = inHand.exec(step))) {
+            const word = m[1].toLowerCase();
+            if (!new RegExp('\\b' + word + '\\b').test(list)) out.push('step ' + (i + 1) + ' speaks of the ' + word + ' and has none');
+          }
+          const sents = step.split(/(?<=[.!?])\s+/);
+          const at = sents.findIndex((t) => served.test(t));
+          if (at >= 0 && sents.slice(at + 1).some((t) => cooks.test(t))) out.push('step ' + (i + 1) + ' cooks the meat after serving it');
+        });
+        return out;
+      };
+      const real = [];
+      window.RECIPES.forEach((r) => faults(r).forEach((f) => real.push(r.no + ' ' + r.name + ' — ' + f)));
+      const planted = (step) => faults({ ing: ['4 oz sausage', '3 eggs', 'salt'], steps: [step] }).length > 0;
+      return {
+        real: real,
+        caught: [
+          'Cook the sausage until no pink is left. Get the pan hot before the beef goes in.',
+          'Drain the chicken and chop it.',
+          'Portion into 6 containers. Salt the chicken fifteen minutes ahead.',
+          'Serve with salsa. Stir the seasoning into the browned beef.',
+        ].filter(planted).length,
+        spared: [
+          'Get the pan hot before the sausage goes in.',
+          'For brown gravy for beef, whisk until it smells like toast.',
+          'In tuna, in egg salad, on a sandwich, it does the same job.',
+          'Serve over spaghetti. Heat the green beans through and put them on the side.',
+          'Ground beef wants 160°F, not the pink middle a steak can have.',
+        ].filter(planted).length,
+      };
+    });
+    t.ok('a step that speaks of the meat has that meat on its list, and never cooks it after serving',
+      meat.real.length === 0, meat.real.slice(0, 6).join(' | '));
+    t.ok('and the meat guard fires on every planted note',
+      meat.caught === 4, meat.caught + ' of 4');
+    t.ok('and spares a sauce that names what it is for',
+      meat.spared === 0, meat.spared + ' false positives');
+
     await p.context().close();
   },
 };
