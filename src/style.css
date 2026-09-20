@@ -371,38 +371,32 @@ select { max-width: 280px; }
   .grid-sec-s { display: none; }
 }
 
-/* --------------------------------------------- the strip that follows you
-   A zero-height sticky rail directly under the filter bar. Taking no room it
-   never shifts a card; the bar inside is absolute, and drawn only once the
-   rail is pinned under the header — which is exactly the moment the real
-   filter bar has scrolled out of reach. syncStrip() in app.js sets .stripped
-   on the section, and the section dividers read --brw-strip-h to park under
-   the strip instead of behind it. */
-#view-browse { --brw-strip-h: 0px; }
-#view-browse.stripped { --brw-strip-h: 48px; }
-.brw-strip { position: sticky; top: var(--topbar-h, 60px); height: 0; z-index: 7; }
-.brw-strip-in {
-  position: absolute; left: 0; right: 0; top: 0; height: 48px;
+/* --------------------------------------------- the one search row
+   Pinned under the header from the top of the page, in the flow — the bar
+   of books and sections sits below it and scrolls away underneath. The
+   section dividers park under it (--brw-strip-h). The Filters button is the
+   only part that comes and goes: syncStrip() sets .stripped on the section
+   once the filter bar has scrolled out of reach, and the button appears to
+   unfold it in place. */
+#view-browse { --brw-strip-h: 48px; }
+.brw-strip {
+  position: sticky; top: var(--topbar-h, 60px); z-index: 7;
   background: var(--paper-soft); border-bottom: 1px solid var(--line);
-  box-shadow: 0 2px 6px rgba(59, 54, 48, 0.08);
-  visibility: hidden; opacity: 0; transform: translateY(-6px);
-  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0.16s;
 }
-.stripped .brw-strip-in {
-  visibility: visible; opacity: 1; transform: none;
-  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0s;
-}
+.brw-strip-in { height: 48px; }
+.stripped .brw-strip { box-shadow: 0 2px 6px rgba(59, 54, 48, 0.08); }
 .brw-strip-c {
   max-width: 1240px; margin: 0 auto; padding: 0 22px; height: 100%;
   display: flex; align-items: center; gap: 8px;
 }
 .brw-strip .txt { flex: 1 1 auto; min-width: 0; padding: 6px 10px; font-size: 14px; }
 .brw-filt {
-  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  display: none; flex: none; align-items: center; gap: 6px;
   padding: 6px 11px; border: 1px solid var(--line-firm); border-radius: 3px;
   background: #fff; font: inherit; font-size: 13px; cursor: pointer; color: inherit;
   white-space: nowrap;
 }
+.stripped .brw-filt { display: inline-flex; }
 .brw-filt:hover { background: var(--paper); }
 .brw-filt[aria-expanded="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .brw-filt:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
@@ -414,22 +408,21 @@ select { max-width: 280px; }
 }
 .brw-filt-n:empty { display: none; }
 .brw-filt[aria-expanded="true"] .brw-filt-n { background: var(--paper); color: var(--ink); }
-@media (prefers-reduced-motion: reduce) { .brw-strip-in { transition: none; } }
 
 /* The filter bar, unfolded from the strip. The same element with the same
    controls and the same wiring: it leaves the flow and pins itself under the
    header over a scrim, so nothing about what a filter does has a second copy
    to drift from the first. */
 .filters.pop {
-  position: fixed; left: 0; right: 0; top: var(--topbar-h, 60px); z-index: 45;
-  max-height: calc(100vh - var(--topbar-h, 60px)); overflow: auto;
+  position: fixed; left: 0; right: 0; top: calc(var(--topbar-h, 60px) + var(--brw-strip-h, 48px)); z-index: 45;
+  max-height: calc(100vh - var(--topbar-h, 60px) - var(--brw-strip-h, 48px)); overflow: auto;
   box-shadow: 0 8px 20px rgba(59, 54, 48, 0.18);
 }
 .filters-done { display: none; }
 .filters.pop .filters-done { display: inline-flex; justify-content: center; }
 /* Starts under the header so the tabs stay live; a tap anywhere on it folds
    the bar away again. */
-.brw-scrim { position: fixed; left: 0; right: 0; bottom: 0; top: var(--topbar-h, 60px);
+.brw-scrim { position: fixed; left: 0; right: 0; bottom: 0; top: calc(var(--topbar-h, 60px) + var(--brw-strip-h, 48px));
   background: oklch(0.26 0.02 60 / 0.35); z-index: 44; }
 .card {
   background: var(--card); border: 1px solid var(--line); border-radius: 3px;

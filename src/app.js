@@ -11496,13 +11496,12 @@
       '--topbar-h', Math.round(tb.getBoundingClientRect().height) + 'px');
   }
 
-  /* ---- The strip on Recipes ----
+  /* ---- The search row on Recipes ----
 
-     A zero-height sticky rail sits right under the filter bar. Because it
-     has no height it never moves a card, and because it is sticky it pins
-     under the header the moment the filter bar scrolls away — and that is
-     the test: pinned means the bar you would want is gone, so draw the small
-     one. Nothing is measured but where the rail is. */
+     One box, pinned under the header from the top of the page. What comes
+     and goes is the Filters button beside it: once the filter bar below has
+     scrolled up under the row, the button appears and unfolds the real bar
+     in place. Nothing is measured but where the bar is. */
   var stripRaf = 0;
   function filtCount() {
     var n = 0;
@@ -11516,20 +11515,18 @@
   }
   function syncStrip() {
     stripRaf = 0;
-    var st = $('brwStrip'), sec = $('view-browse'), tb = document.querySelector('.topbar');
-    if (!st || !sec || !tb) return;
+    var st = $('brwStrip'), sec = $('view-browse');
+    var bar = document.querySelector('#view-browse .filters');
+    if (!st || !sec || !bar) return;
+    /* Unfolded, the bar is a fixed panel and its edges say nothing about
+       the page; a redraw under it — picking a filter — must not read it as
+       "scrolled back to the top" and fold it away mid-choice. */
+    if (bar.classList.contains('pop') && S.view === 'browse') return;
     var on = S.view === 'browse' &&
-      st.getBoundingClientRect().top <= tb.getBoundingClientRect().bottom + 1;
-    /* Not out from under a typing thumb. Three letters into "horchata" the
-       list is one card, the page is back at the top, and the rail is no
-       longer pinned — but the box being typed into is on the strip, and
-       hiding it there closes the keyboard mid-word. It stays while the box
-       has focus and goes on the blur. */
-    if (S.view === 'browse' && document.activeElement === $('searchStrip')) on = true;
+      bar.getBoundingClientRect().bottom <= st.getBoundingClientRect().bottom + 1;
     if (on === sec.classList.contains('stripped')) return;
     sec.classList.toggle('stripped', on);
-    st.setAttribute('aria-hidden', on ? 'false' : 'true');
-    /* Fold the bar away with the strip that opened it; a fixed panel over a
+    /* Fold the bar away with the button that opened it; a fixed panel over a
        page that has scrolled back to its own copy of the same controls is
        the one arrangement that would confuse. */
     if (!on) filtersPop(false);
@@ -13196,13 +13193,7 @@
         });
     });
 
-    $('search').addEventListener('input', function () {
-      S.qy = this.value; $('searchStrip').value = this.value; renderBrowse();
-    });
-    $('searchStrip').addEventListener('input', function () {
-      S.qy = this.value; $('search').value = this.value; renderBrowse();
-    });
-    $('searchStrip').addEventListener('blur', syncStrip);
+    $('search').addEventListener('input', function () { S.qy = this.value; renderBrowse(); });
     $('filtBtn').addEventListener('click', function () { filtersPop(!S.filtPop); });
     $('filtersDone').addEventListener('click', function () { filtersPop(false); });
     $('brwScrim').addEventListener('click', function () { filtersPop(false); });

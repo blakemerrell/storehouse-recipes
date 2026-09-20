@@ -518,44 +518,55 @@ module.exports = {
 
     await phone.context().close();
 
-    /* The strip that follows you down.
+    /* The one search row.
      *
-     * The filter bar is at the top of the page and the collection is three
-     * hundred cards long, so two screens in the search box was gone and the
-     * only way to a filter was a scroll back up that lost your place. */
+     * There were two boxes — one in the filter bar, one on a strip that
+     * appeared once the bar had scrolled away — and on a phone they could sit
+     * one above the other. Blake: "two of the same rows to search here..
+     * why?" One box now, pinned under the header from the first pixel; what
+     * comes and goes is the Filters button beside it, which appears once the
+     * bar has scrolled out of reach and unfolds the real bar in place. */
     {
       const sp = await t.fresh({ viewport: { width: 390, height: 780 } });
       const on = () => sp.evaluate(() => document.getElementById('view-browse').classList.contains('stripped'));
-      t.ok('at the top of Recipes the strip stays out of the way', !(await on()));
+      const filt = () => sp.evaluate(() => { const b = document.getElementById('filtBtn'); return !!b && b.offsetParent !== null; });
+      t.ok('there is exactly one search box on Recipes',
+        await sp.evaluate(() => document.querySelectorAll('#view-browse input[type="search"]').length === 1));
+      /* At the top the row sits in the flow — under the share hint on a first
+         visit — with no Filters button yet: the bar is right there below it. */
+      t.ok('at the top it is on screen with no Filters button beside it yet',
+        await sp.evaluate(() => {
+          const s = document.querySelector('.brw-strip').getBoundingClientRect();
+          return s.top >= 0 && s.bottom <= window.innerHeight;
+        }) && !(await on()) && !(await filt()));
       await sp.evaluate(() => window.scrollTo(0, 1600));
       await sp.waitForTimeout(150);
-      t.ok('scroll the filter bar away and a search box follows you down', await on());
+      t.ok('scroll the filter bar away and the row is still there, now with Filters',
+        await sp.evaluate(() => {
+          const s = document.querySelector('.brw-strip').getBoundingClientRect(), h = document.querySelector('.topbar').getBoundingClientRect();
+          return Math.abs(s.top - h.bottom) <= 1;
+        }) && (await on()) && (await filt()));
       /* Where a divider parks, against where the header ends: it must clear the
-         strip, or the strip covers the one line that says where you are. */
+         row, or the row covers the one line that says where you are. */
       const park = await sp.evaluate(() => {
         const s = document.querySelector('.grid-sec'), tb = document.querySelector('.topbar');
         return Math.round(parseFloat(getComputedStyle(s).top) - tb.getBoundingClientRect().height);
       });
       t.ok('and the section dividers park under it rather than behind it', park >= 44, park + 'px below the header');
 
-      await sp.fill('#searchStrip', 'chicken');
+      await sp.fill('#search', 'chicken');
       await sp.waitForTimeout(200);
       const hits = await sp.evaluate(() => document.querySelectorAll('.card').length);
-      const echoed = await sp.inputValue('#search');
-      t.ok('typing in the strip searches the collection', hits > 0 && hits < 100, hits + ' cards');
-      t.ok('and the box at the top says the same thing', echoed === 'chicken', echoed);
-      /* One card is not enough page to keep the rail pinned, and the first
-         build hid the strip the moment that happened — out from under the
-         thumb typing into it, keyboard and all. */
-      await sp.fill('#searchStrip', 'horchata');
+      t.ok('typing in it searches the collection', hits > 0 && hits < 100, hits + ' cards');
+      /* One card is not enough page to scroll: the page is back at the top,
+         and the box being typed into is exactly where it was. */
+      await sp.fill('#search', 'horchata');
       await sp.waitForTimeout(200);
-      const oneCard = await sp.evaluate(() => ({ cards: document.querySelectorAll('.card').length,
-        y: window.scrollY, focused: document.activeElement === document.getElementById('searchStrip') }));
-      t.ok('a search that leaves one card keeps the strip while you are typing into it',
-        oneCard.cards === 1 && oneCard.focused && await on(), JSON.stringify(oneCard));
-      await sp.evaluate(() => document.getElementById('searchStrip').blur());
-      await sp.waitForTimeout(150);
-      t.ok('and lets it go once you leave the box', !(await on()));
+      const one = await sp.evaluate(() => ({ cards: document.querySelectorAll('.card').length,
+        focused: document.activeElement === document.getElementById('search'),
+        visible: document.getElementById('search').offsetParent !== null }));
+      t.ok('a search that leaves one card keeps the box under your thumb',
+        one.cards === 1 && one.focused && one.visible, JSON.stringify(one));
       await sp.fill('#search', '');
       await sp.waitForTimeout(200);
 
@@ -566,6 +577,12 @@ module.exports = {
       const popped = () => sp.evaluate(() => document.querySelector('#view-browse .filters').classList.contains('pop') &&
         !document.getElementById('brwScrim').classList.contains('hide'));
       t.ok('the Filters button unfolds the real filter bar in place', await popped());
+      t.ok('under the search row, not over it',
+        await sp.evaluate(() => {
+          const bar = document.querySelector('#view-browse .filters').getBoundingClientRect();
+          const row = document.querySelector('.brw-strip').getBoundingClientRect();
+          return bar.top >= row.bottom - 1;
+        }));
       await sp.selectOption('#diffSel', 'Easy');
       await sp.waitForTimeout(200);
       const easy = await sp.evaluate(() => {
@@ -587,7 +604,7 @@ module.exports = {
       await sp.waitForTimeout(100);
       await sp.click('.tab[data-view="plan"]');
       await sp.waitForTimeout(150);
-      t.ok('leaving Recipes puts the strip and its bar away', !(await popped()) && !(await on()));
+      t.ok('leaving Recipes puts the bar and the button away', !(await popped()) && !(await on()));
       await sp.context().close();
     }
   },
