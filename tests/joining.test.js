@@ -187,6 +187,113 @@ module.exports = {
     t.ok('and held for the server rather than dropped',
       after.dbg.queued > 0, JSON.stringify(after.dbg));
 
+
+    /* ---- a code that matches nobody must not become a household ----------
+     *
+     * There is no password on a household document, so the code is the whole
+     * of the security, and a code that matches nobody had the worst possible
+     * answer: connect() seeded a brand-new household from whatever was on the
+     * phone, and the sheet said "Shared · just now" — pixel for pixel what a
+     * real join says. You end up alone in a household of one, syncing
+     * perfectly with nobody, with nothing anywhere to tell you.
+     *
+     * Creating still has to seed one, including a create made with no signal,
+     * which is seeded on a later connect and possibly after a reload. So the
+     * intent is written down rather than inferred: `seeded` is false for both
+     * an unverified create and every typed code, and cannot separate them. */
+    const typo = await off.newPage();
+    await typo.goto(t.base + 'index.html');
+    await typo.evaluate(() => localStorage.clear());
+    await typo.reload();
+    await typo.evaluate(() => window.Store.join('NOBODY-0000-HOME'));
+    await typo.waitForTimeout(200);
+    t.ok('a typed code is not ours to bring into being',
+      await typo.evaluate(() => window.Store.houseIsMine === false &&
+        JSON.parse(localStorage.getItem('bsc.houseNew')) === ''),
+      await typo.evaluate(() => window.Store.houseIsMine + ' / ' + localStorage.getItem('bsc.houseNew')));
+
+    const mine = await typo.evaluate(() => window.Store.createHousehold('MYOWN-1234-KITCHEN')
+      .then(() => ({ flag: window.Store.houseIsMine, saved: JSON.parse(localStorage.getItem('bsc.houseNew')) })));
+    t.ok('a code this device drew for itself is',
+      mine.flag === true && mine.saved === '1', JSON.stringify(mine));
+
+    await typo.reload();
+    await typo.waitForTimeout(200);
+    t.ok('and it survives the reload a no-signal create is seeded after',
+      await typo.evaluate(() => window.Store.houseIsMine === true),
+      await typo.evaluate(() => String(window.Store.houseIsMine)));
+
+    await typo.evaluate(() => window.Store.leave());
+    t.ok('leaving forgets the intent with the code',
+      await typo.evaluate(() => window.Store.houseIsMine === false),
+      await typo.evaluate(() => String(window.Store.houseIsMine)));
+    await typo.close();
+
+    /* A household already on a device predates the flag. Being strict with it
+       would evict people who joined perfectly well, so it is grandfathered
+       once; the rule is for codes typed from here on. */
+    const grand = await off.newPage();
+    await grand.goto(t.base + 'index.html');
+    await grand.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('bsc.house', JSON.stringify('OLDER-5555-HOUSE'));
+    });
+    await grand.reload();
+    await grand.waitForTimeout(200);
+    t.ok('a household from before this rule is left alone',
+      await grand.evaluate(() => window.Store.houseIsMine === true),
+      await grand.evaluate(() => String(window.Store.houseIsMine)));
+    await grand.close();
+
+    const strict = await off.newPage();
+    await strict.goto(t.base + 'index.html');
+    await strict.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('bsc.house', JSON.stringify('TYPED-6666-CODE'));
+      localStorage.setItem('bsc.houseNew', JSON.stringify(''));
+    });
+    await strict.reload();
+    await strict.waitForTimeout(200);
+    t.ok('but a code typed under it stays not-ours across a reload',
+      await strict.evaluate(() => window.Store.houseIsMine === false),
+      await strict.evaluate(() => String(window.Store.houseIsMine)));
+    await strict.close();
+
+    /* ---- "Cannot reach the server" has to survive to the screen -----------
+     *
+     * ready() rejects and the state goes to 'error'. Then the next call to
+     * mSyncStart — opening the sheet, pressing a button — finds the auth
+     * answer "known" and nobody signed in, falls through to the signed-out
+     * branch, and writes 'off' over it. The sheet then reads "On this device
+     * only", which is the same words a phone that never had an account shows,
+     * so a dead network read as a fresh invitation to sign in. */
+    const err = await off.newPage();
+    await err.goto(t.base + 'index.html');
+    await err.evaluate(() => { localStorage.clear(); localStorage.setItem('bsc.myAccount', '1'); });
+    await err.reload();
+    await err.waitForTimeout(2500);
+    const before = await err.evaluate(() => window.__macroLab.syncState());
+    await err.evaluate(() => window.__macroLab.syncStart());
+    await err.waitForTimeout(300);
+    t.ok('a device that cannot reach the server keeps saying so',
+      before === 'error' && await err.evaluate(() => window.__macroLab.syncState()) === 'error',
+      before + ' -> ' + await err.evaluate(() => window.__macroLab.syncState()));
+    await err.close();
+
+    /* ---- the sheet says which half an account carries ---------------------
+     *
+     * An account backs up My Day and nothing else: favorites, the week and
+     * the shopping list live on the household code. Somebody who signs in
+     * after favoriting twenty recipes has backed up none of them, and the
+     * screen that exists to explain sharing did not say so. */
+    await p.click('#syncBtn');
+    await p.waitForTimeout(300);
+    const copy = await p.evaluate(() => Array.from(document.querySelectorAll('.sync-p'))
+      .map((e) => e.textContent).join(' | '));
+    t.ok('the sheet says an account carries the day and the code carries the pantry',
+      /only part an account carries/i.test(copy) && /live on the code, not on your account/i.test(copy),
+      copy.slice(0, 200));
+
     await off.close();
     await ctx.close();
   },

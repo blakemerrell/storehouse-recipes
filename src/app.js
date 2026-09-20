@@ -1411,6 +1411,16 @@
   }
 
   var mSyncDoc = null, mSyncOff = null, mSyncTimer = null;
+  /* The last attempt to reach the server failed, rather than answering
+     "nobody". The two are different facts and the sheet has different
+     words for them, but only one of them survived: ready() rejects, the
+     state goes to 'error', and then the NEXT mSyncStart — opening the
+     sheet, pressing a button — finds mAuthKnown true and nobody signed in,
+     falls through to the signed-out branch and writes 'off' straight over
+     it. "Cannot reach the server" could never reach the screen it was
+     written for; a dead network read as a fresh invitation to sign in. */
+  var mSyncUnreachable = false;
+
   function mSyncStart() {
     if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
     if (!window.Store || !window.Store.configured) {
@@ -1436,6 +1446,7 @@
              underneath while showing the signed-out sheet. Which reads as a
              sign-in that did not take. Now the truth wins on every load. */
           mAccountMark();
+          mSyncUnreachable = false;                 // the server answered
           if (mAccount()) mSyncStart();
           /* The device said it had an account and the server says otherwise.
              That is the drift this whole re-affirmation exists to catch, so
@@ -1443,17 +1454,22 @@
           else mSyncState('off');
         }, function () {
           mAuthKnown = true;
+          mSyncUnreachable = true;
           mSyncState('error');
         });
         return;
       }
       mAuthKnown = true;
-      mSyncState('off');
+      /* Signed out, or unreachable and this device remembers an account.
+         Only the second of those is worth a warning, and only that one keeps
+         the error it already has. */
+      mSyncState(mSyncUnreachable && mSuspectAccount() ? 'error' : 'off');
       return;
     }
     mSyncState('connecting');
     window.Store.ready().then(function (db) {
       mAuthKnown = true;
+      mSyncUnreachable = false;             // it answered
       mAccountMark();                       // the truth, again, now that it is knowable
       var uid = window.Store.uid();
       if (!uid || !mAccount()) {
@@ -12855,12 +12871,14 @@
         '</div>' +
 
         '<div class="mt-div">Your day</div>' +
-        '<p class="sync-p">Your plan, meals and weigh-ins. Private to you.</p>' +
+        '<p class="sync-p">Your plan, meals and weigh-ins. Private to you, and the only ' +
+        'part an account carries.</p>' +
         mAccountBlockHTML() +
 
         '<div class="mt-div">Your pantry</div>' +
         '<p class="sync-p">The shopping list, the week&rsquo;s meals and your favorites &mdash; shared ' +
-        'with family, friends, or anyone you give the code to.</p>' +
+        'with family, friends, or anyone you give the code to. These live on the code, ' +
+        'not on your account: without one they stay on this device.</p>' +
         body +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
@@ -12969,6 +12987,11 @@
        to the figure on the meal's own pills without re-running the descent
        — which the day-level terms can win on their own. */
     wants: function () { return mMealWants(mDay(mViewKey()), mDayTargets(mViewKey())); },
+    /* The account half's state, and the door that sets it. A reachability
+       failure used to be overwritten by the next call to this, and that
+       overwrite is only visible if a test can make the second call. */
+    syncState: function () { return S_SYNC_STATE; },
+    syncStart: function () { return mSyncStart(); },
     /* The gauge's band rule, because it only bites in a narrow window and no
        arbitrary day's plates land in it — asked through the DOM the test
        passed with the rule removed. */

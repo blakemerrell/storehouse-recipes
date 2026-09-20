@@ -32,7 +32,7 @@ window.Store = (function () {
        both fields. Every "I don't keep this" answer died on the next reload,
        and state.pantry came back holding the {l,c} shape of pantryNew rather
        than the 1/0 the rest of this file expects. */
-    pantry: 'bsc.pantry', pantryNew: 'bsc.pantryNew',
+    pantry: 'bsc.pantry', pantryNew: 'bsc.pantryNew', houseNew: 'bsc.houseNew',
     plan: 'bsc.plan', checked: 'bsc.checked'   // the single week this replaced
   };
 
@@ -83,6 +83,22 @@ window.Store = (function () {
   var statusNote = '';
   var house = '';
   var pendingMerge = false;   // set by join(), consumed by the next connect()
+  /* Whether this code is ours to bring into being.
+   *
+     A code is not a login and there is no password on the document, so the
+     only thing standing between a typo and somebody else's grocery list is
+     that the code is hard to guess. What there was no guard on at all was a
+     typo that matches NOBODY: connect() seeded a brand-new household from
+     whatever was on the phone, and the sheet then said "Shared, just now",
+     pixel for pixel what a real join says. You end up alone in a household
+     of one, syncing perfectly with nobody, with nothing to tell you.
+   *
+     Creating still has to seed, and a household created with no signal is
+     seeded on the next connect, possibly after a reload — so the intent
+     cannot live in memory and cannot be inferred from `seeded`, which is
+     false for both an unverified create and every typed code. It is
+     written down instead, by the one caller entitled to it. */
+  var houseMine = false;
   var queued = [];            // writes made before the connection was up
   var listeners = [];
   var db = null, doc = null, unsub = null, FV = null;
@@ -533,8 +549,23 @@ window.Store = (function () {
     ready().then(function () {
       doc = db.collection('households').doc(house);
       return doc.get().then(function (snap) {
-        // first device into a new household seeds it with whatever is already here
-        if (!snap.exists) { pendingMerge = false; return doc.set(localDoc()); }
+        if (!snap.exists) {
+          // first device into a household we are creating seeds it with what is here
+          if (houseMine) {
+            pendingMerge = false;
+            return doc.set(localDoc()).then(function () { write(LS.houseNew, ''); houseMine = false; });
+          }
+          /* We reached the server and there is no such household. Typing a
+             code wrong is the likeliest way to arrive here, and the worst
+             answer is to make the typo real. Let it go and say so; an
+             offline join never reaches this line, because ready() rejects
+             first and the code stays pending for the next try. */
+          var missed = house;
+          house = ''; write(LS.house, '');
+          pendingMerge = false; doc = null;
+          setStatus('local', 'No shared pantry with the code ' + missed + '. Check it and try again.');
+          return;
+        }
         if (!merging) return;
         var add = contribute(snap.data() || {});
         /* Only once the contribution is actually away. This used to be cleared
@@ -634,6 +665,10 @@ window.Store = (function () {
     get state() { return state; },
     get status() { return status; },
     get statusNote() { return statusNote; },
+    /* Whether connect() would bring this code into being if the server had
+       never heard of it. The decision is one line and the cost of getting
+       it wrong is a household of one, so it is askable. */
+    get houseIsMine() { return houseMine; },
     /* When the server last confirmed it had everything. 0 if it never has. */
     get lastSync() { return lastSync; },
     get house() { return house; },
@@ -853,6 +888,11 @@ window.Store = (function () {
       });
       saveLocal();
       house = read(LS.house, '') || '';
+      houseMine = read(LS.houseNew, null) === '1';
+      /* A household already on this device predates the flag, and being
+         strict with it would evict people who joined perfectly well. The
+         rule is for codes typed from here on. */
+      if (house && read(LS.houseNew, null) === null) { houseMine = true; write(LS.houseNew, '1'); }
       if (house && configured()) connect(); else setStatus('local');
 
       /* A way out of 'error'. It used to latch for the whole session: the SDK
@@ -1222,7 +1262,7 @@ window.Store = (function () {
              code turned out to belong to somebody else, the next connect would
              have adopted a stranger's week straight over the top of this one.
              Unverified means treat it like any typed code: bring our things. */
-          self.join(res.code, res.seeded);
+          self.join(res.code, res.seeded, true);
           return res.code;
         });
     },
@@ -1231,9 +1271,11 @@ window.Store = (function () {
        state in the document. Every other join is somebody typing a code that
        may well have a household behind it, and those bring their favorites,
        weeks and written recipes with them. */
-    join: function (code, seeded) {
+    join: function (code, seeded, mine) {
       house = String(code || '').trim().toUpperCase().replace(/\s+/g, '-');
       write(LS.house, house);
+      houseMine = !!mine;
+      write(LS.houseNew, houseMine ? '1' : '');
       pendingMerge = !seeded;
       if (unsub) { unsub(); unsub = null; }
       connect();
@@ -1242,6 +1284,7 @@ window.Store = (function () {
     leave: function () {
       if (unsub) { unsub(); unsub = null; }
       house = ''; write(LS.house, '');
+      houseMine = false; write(LS.houseNew, '');
       doc = null;
       everLive = false; lastSync = 0; pendingMerge = false;
       setStatus('local');
