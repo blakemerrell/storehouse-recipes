@@ -1006,11 +1006,16 @@ module.exports = {
     t.ok('the day is shown in the parts you can move',
       /living/.test(await coach()) && /walking/.test(await coach()) &&
       /training/.test(await coach()), await coach());
+    /* Said once, in the ledger — the coach used to say it again a screen
+       lower, and Blake called the sheet messy. The ledger's Arriving row is
+       the projection when there is no date, so a dateless pace still lands
+       somewhere the reader can see. */
+    const ledger = () => p.textContent('#mtFacts');
     t.ok('and a pace with no date still says where it lands you',
-      /Lands you|LANDS YOU/i.test(await coach()) && /at 175 lb around/.test(await coach()),
-      await coach());
+      /→ 175 lb/.test(await ledger()) && /Arriving\s*about /.test(await ledger()),
+      await ledger());
     t.ok('with each lever priced both ways — food now, or the date sooner',
-      /to eat at the same pace/.test(await coach()) && /sooner/.test(await coach()),
+      /a day at the same pace/.test(await coach()) && /sooner/.test(await coach()),
       await coach());
     const before = await p.evaluate(() => Number(document.getElementById('mtBigKcal').textContent));
     await p.fill('#mtSteps', '13000');

@@ -8978,7 +8978,20 @@
   function mtStatusHTML(pr) {
     var f = mPaceFacts(todayKey(), pr);
     if (!f || f.side === 'on') return '';
+    /* The boxes are the plan while this sheet is open; storage is one edit
+       old. When they already hold what the line would ask for, the line says
+       so instead of asking — the same rule the morning card follows. */
+    var boxes = $('mtP')
+      ? { p: Number($('mtP').value) || 0, f: Number($('mtF').value) || 0, c: Number($('mtC').value) || 0 }
+      : mReadTargets();
+    var eating = f.need !== null && kcalOf(boxes) > 0 && Math.abs(kcalOf(boxes) - f.need) <= 5;
     var says;
+    if (f.side === 'behind' && eating) {
+      return '<b>\u25B2 ' + Math.abs(f.daysOff) + ' days behind that.</b> Eating ' +
+        kcalOf(boxes).toLocaleString() +
+        (f.capped ? ' \u2014 as low as this goes, so the date is what moves.'
+          : ' \u2014 the number that lands on time.');
+    }
     if (f.side === 'behind') {
       says = '<b>\u25B2 ' + Math.abs(f.daysOff) + ' days behind that.</b>' +
         (f.need === null ? ''
@@ -9038,34 +9051,31 @@
   function mCoachHTML(pr) {
     var b = mBurn(pr);
     if (!b) return '';
+    /* Four rows at most, in the ledger's own voice. Blake, on the sheet:
+       "Craft my plan pages still looks messy" — this block was five rows of
+       shouting labels, a lands-you line the ledger above already said, and
+       an italic paragraph of advice. What is left is what the ledger cannot
+       say: what you burn, what one more lever buys, and the formula's own
+       plan when it differs from the boxes. */
     var out = [];
-    var kc = function (n) { return Math.round(n); };
-    out.push('<div class="mco-row"><span class="mco-k">Your day</span><span class="mco-v">' +
+    var kc = function (n) { return Math.round(n).toLocaleString(); };
+    out.push('<div class="mco-row"><span class="mco-k">You burn</span><span class="mco-v">' +
+      '<b>' + kc(b.tdee) + '</b> a day' +
       (b.told
-        ? kc(b.base) + ' living &middot; ' + kc(b.steps) + ' walking &middot; ' +
-          kc(b.train) + ' training = <b>' + kc(b.tdee) + '</b> kcal'
-        : '<b>' + kc(b.tdee) + '</b> kcal &mdash; fill in steps and sessions to see the parts') +
+        ? ' &middot; ' + kc(b.base) + ' living, ' + kc(b.steps) + ' walking, ' + kc(b.train) + ' training'
+        : ' &mdash; fill in steps and sessions to see the parts') +
       '</span></div>');
 
     var pj = mProject(pr);
-    if (pj) {
-      var slip = mGoalPace(pr) && mGoalPace(pr).capped;
-      out.push('<div class="mco-row"><span class="mco-k">Lands you</span><span class="mco-v">' +
-        'at <b>' + pr.goalLb + ' lb</b> around <b>' + M_MONS[pj.when.getMonth()] + ' ' +
-        pj.when.getDate() + '</b> &middot; ' + mWeeksWords(Math.round(pj.weeks)) + ' at ' +
-        (Math.round(Math.abs(pj.perWeek) * 100) / 100) + ' lb a week' +
-        (slip ? ' &mdash; later than the date you asked for' : '') + '</span></div>');
-    }
-
     if (b.told && pj) {
       var kg = pr.lb * 0.45359237;
       var stepK = 2000 * 0.53 * kg * 0.00075;
       var sessK = (5 * 3.5 * kg / 200) * 45 / 7;
       var says = function (label, lev) {
         return '<div class="mco-row"><span class="mco-k">' + label + '</span><span class="mco-v">' +
-          '<b>+' + lev.kcal + ' kcal</b> to eat at the same pace' +
+          '<b>+' + lev.kcal + ' kcal</b> a day at the same pace' +
           (lev.weeks && lev.weeks > 0.15
-            ? ', or the same food <b>' + mWeeksWords(lev.weeks) + '</b> sooner'
+            ? ', or ' + mWeeksWords(lev.weeks) + ' sooner on the same food'
             : '') + '</span></div>';
       };
       out.push(says('2,000 more steps', mLever(pr, stepK)));
@@ -9083,16 +9093,10 @@
         c: Math.round(Number($('mtC').value) || 0) }
       : mReadTargets();
     if (plan && (plan.p !== cur.p || plan.f !== cur.f || plan.c !== cur.c)) {
-      out.push('<div class="mco-row"><span class="mco-k">This plan</span><span class="mco-v">' +
-        '<b>' + kcalOf(plan) + '</b> kcal &middot; ' + plan.p + 'P / ' + plan.f + 'F / ' +
+      out.push('<div class="mco-row"><span class="mco-k">The formula says</span><span class="mco-v">' +
+        '<b>' + kcalOf(plan).toLocaleString() + '</b> kcal &middot; ' + plan.p + 'P / ' + plan.f + 'F / ' +
         plan.c + 'C ' +
         '<button class="ghost mco-use" data-mtuse="1">Use it</button></span></div>');
-    }
-    /* One line about the thing people give up first and miss most. */
-    if (pj && Math.abs(pj.perWeek) > pr.lb * 0.008) {
-      out.push('<div class="mco-row mco-note">At this pace the protein and the sleep are ' +
-        'what keep the loss to fat &mdash; the walking costs least to add and is the first ' +
-        'thing to raise before cutting the food further.</div>');
     }
     return '<div class="mco">' + out.join('') + '</div>';
   }
@@ -9100,10 +9104,11 @@
   function mGoalNote(pr) {
     var pace = mGoalPace(pr);
     if (!pace) return 'Give a weight and a date and they set your pace for you. Leave the date blank and the choices above set it instead.';
+    /* The pace, and the warning if the pace cannot be had. It used to
+       finish with "3× a week · 7,000 steps a day" — the answers from the
+       rows above, read back to the person who typed them. */
     var bits = [Math.abs(Math.round(pace.lbs * 10) / 10) + ' lb over ' +
       Math.round(pace.days / 7) + ' weeks \u2014 ' + mPaceWords(pace)];
-    if (pr.workouts) bits.push(pr.workouts + '\u00d7 a week');
-    if (pr.steps) bits.push(Number(pr.steps).toLocaleString() + ' steps a day');
     var warn = '';
     if (pace.capped && pace.realWeeks) {
       /* Say when you would actually arrive rather than only that the date
