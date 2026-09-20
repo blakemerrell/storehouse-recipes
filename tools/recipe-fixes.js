@@ -1251,4 +1251,307 @@ module.exports = [
     add: 'A quarter cup of sour cream or Greek yogurt in place of a quarter cup of the milk: crisper edges, softer middle.' },
   { id: 225, step: 0,
     add: 'Two tablespoons of sour cream or Greek yogurt in the batter make the fritters lighter and more tender.' },
+
+  /* ---- the delight pass ------------------------------------------------
+   * Blake: "Ideally it's items from the storehouse that I can use to make a
+   * regular meal turn into delightful. But if a common buy item is worth
+   * it, then let's consider it in enrichment." Then, on the audit: "I have
+   * the vinegar and spices and will buy them. Put them in the book."
+   *
+   * Two kinds of line. A NOTE is a lever the order already carries — an
+   * onion in the pan first, browning the meat, roasting instead of boiling,
+   * salting the chicken early, toasting the oats, cheese or salsa on the
+   * eggs, salt and vanilla in the sweet things — appended to the step where
+   * it happens. A LIFT is a thing the order does not carry — a head of
+   * garlic, a bottle of vinegar, cumin and paprika, a lemon, Parmesan, soy
+   * — in the block that already tells seventy-five recipes what they become
+   * with a trip to the shop, so a reader with only the order is never sent
+   * there. Where a recipe already had a lift, the old lines come first.
+   * Two notes and two lift lines per recipe at most; never a change to an
+   * ingredient list, so every recipe stays costed as written.
+   *
+   * Written from a scan of every method (scratchpad delight-gen.js), then
+   * read. The added recipes are not here, because this file cannot reach
+   * them. */
+  { id: 29, step: 1, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
+  { id: 37, step: 0, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
+  { id: 38, step: 3, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
+  { id: 38, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 42, step: 0, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
+  { id: 43, step: 1, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
+  { id: 48, step: 1, add: 'Get the pan hot before the pork goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
+  { id: 48, step: 3, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
+  { id: 49, step: 0, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
+  { id: 51, step: 0, add: 'Pound the thick end level and salt it while the pan heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
+  { id: 51, lift: { with: 'A head of garlic, Cumin and paprika', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+      'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
+    ] } },
+  { id: 52, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 53, step: 0, add: 'An onion first: chopped, into the hot fat, and left until the edges go gold before the rest arrives.' },
+  { id: 53, lift: { with: 'A head of garlic, Cumin and paprika', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+      'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
+    ] } },
+  { id: 54, step: 1, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 55, lift: { with: 'A head of garlic, Cumin and paprika', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+      'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
+    ] } },
+  { id: 56, step: 1, add: 'Brown the beef in a hot pan before it goes into the cooker, dark on every side. The cooker cannot make that crust, and the stew tastes of it for hours.' },
+  { id: 56, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+    ] } },
+  { id: 57, step: 1, add: 'Or roast it: oil, salt, 425°F, twenty minutes, until the edges go dark. Steamed broccoli is a chore; roasted broccoli is a snack.' },
+  { id: 57, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 59, lift: { with: 'Onion, smoked paprika, cider vinegar, A head of garlic', steps: [
+      'Smoked paprika over the potatoes before they roast.',
+      'A splash of cider vinegar and some raw diced onion through the pulled pork. Sweet sauce needs sharp things against it.',
+      'Two cloves of garlic, chopped fine, in after the onion and before the liquid. Thirty seconds is enough; it only needs to smell.',
+    ] } },
+  { id: 61, step: 1, add: 'Or roast them: oil, salt, 425°F, fifteen minutes, until they blister. Boiled beans are a side; roasted beans get eaten off the tray.' },
+  { id: 62, lift: { with: 'Onion, garlic, thyme, Worcestershire, A bottle of vinegar', steps: [
+      'Soften a diced onion with the beef, and a clove of minced garlic for the last minute.',
+      'A splash of Worcestershire and a pinch of dried thyme into the browned beef. Shepherd\'s pie without either tastes like mince under mash, which is what this is trying not to be.',
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+    ] } },
+  { id: 63, step: 1, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 66, step: 0, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 66, step: 1, add: 'Or roast it: oil, salt, 425°F, twenty minutes, until the edges go dark. Steamed broccoli is a chore; roasted broccoli is a snack.' },
+  { id: 66, lift: { with: 'A bottle of vinegar, A lemon', steps: [
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+      'The juice of half a lemon over the chicken and the greens at the table. It is the thing the plate was missing.',
+    ] } },
+  { id: 67, lift: { with: 'Garlic, ginger, sesame oil, chili flakes, A bottle of vinegar', steps: [
+      'Minced garlic and ginger into the pan for the last minute of browning, not at the start — both burn.',
+      'A teaspoon of sesame oil off the heat at the end, and chili flakes to taste. Sesame oil cooked hard loses the thing you added it for.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 68, step: 1, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 69, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 70, lift: { with: 'Cumin, smoked paprika, lime, cilantro, A head of garlic', steps: [
+      'A teaspoon each of cumin and smoked paprika onto the chicken before it goes in the pan. Smoked paprika is what makes this taste chipotle rather than salsa-coloured.',
+      'Lime squeezed over and cilantro scattered at the end.',
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+    ] } },
+  { id: 71, lift: { with: 'Garlic, oregano, smoked paprika, hot sauce, A bottle of vinegar', steps: [
+      'Garlic and a teaspoon of oregano in for the last minute with the vegetables.',
+      'Smoked paprika over the pork as it warms through, and hot sauce at the table.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 72, lift: { with: 'Onion, garlic, bay, thyme, Worcestershire, A bottle of vinegar, Soy sauce', steps: [
+      'Brown the stew meat first, then simmer it with a quartered onion, two cloves of garlic, a bay leaf and a pinch of thyme. Meat simmered in plain water tastes like meat simmered in plain water.',
+      'A splash of Worcestershire at the end.',
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+      'A tablespoon of soy sauce in with the liquid. Nobody tastes soy; they taste more beef.',
+    ] } },
+  { id: 73, step: 1, add: 'Pound the thick end level and salt it while the pan heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
+  { id: 88, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 102, step: 1, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
+  { id: 102, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 103, step: 0, add: 'Get the pan hot before the pork goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
+  { id: 106, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 107, step: 1, add: 'Get the pan hot before the beef goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
+  { id: 113, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 115, step: 0, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
+  { id: 116, step: 0, add: 'Get the pan hot before the beef goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
+  { id: 118, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 119, step: 2, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
+  { id: 121, step: 0, add: 'Get the pan hot before the beef goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
+  { id: 121, step: 1, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
+  { id: 127, lift: { with: 'Chives, garlic powder, hot sauce, bacon bits, Parmesan', steps: [
+      'Garlic powder into the butter, chives over the top.',
+      'Hot sauce and bacon bits on the bar. A potato bar is a topping problem, so the answer is more toppings.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 128, step: 0, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 128, lift: { with: 'Cumin and paprika', steps: [
+      'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
+    ] } },
+  { id: 133, step: 0, add: 'Start with half an onion in the pan, cooked until it is soft and sweet — five minutes nobody ever regrets.' },
+  { id: 133, lift: { with: 'Black pepper, hot sauce, parsley, A head of garlic, A bottle of vinegar', steps: [
+      'Canned soup is under-seasoned in one direction only: black pepper, and a few dashes of hot sauce.',
+      'Chopped parsley over the top if you have it.',
+      'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 135, lift: { with: 'A head of garlic, Cumin and paprika', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+      'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
+    ] } },
+  { id: 144, lift: { with: 'Onion, garlic, thyme, bay, black pepper, A bottle of vinegar', steps: [
+      'Soften a diced onion in the butter before anything else goes in, with a clove of garlic for the last minute.',
+      'A bay leaf and a pinch of thyme in with the milk, fished out before serving. Potato and milk on their own taste of almost nothing; this is the whole difference.',
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+    ] } },
+  { id: 149, lift: { with: 'A head of garlic', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+    ] } },
+  { id: 152, lift: { with: 'A head of garlic', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',
+    ] } },
+  { id: 153, lift: { with: 'Onion, garlic, thyme, black pepper, A bottle of vinegar, Parmesan', steps: [
+      'A diced onion and a clove of garlic softened and stirred into the soup.',
+      'A good pinch of dried thyme and more black pepper than seems right. Pot pie is a thyme dish.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 154, lift: { with: 'Garlic powder, smoked paprika, oregano, Parmesan', steps: [
+      'Toss the potatoes and carrots with a teaspoon each of garlic powder and smoked paprika as well as the oil.',
+      'A pinch of oregano over everything for the last ten minutes.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 155, step: 0, add: 'Or roast them: oil, salt, 425°F, fifteen minutes, until they blister. Boiled beans are a side; roasted beans get eaten off the tray.' },
+  { id: 156, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 157, step: 0, add: 'Brown the pork in a hot pan before it goes into the cooker, dark on every side. The cooker cannot make that crust, and the stew tastes of it for hours.' },
+  { id: 157, lift: { with: 'Garlic, rosemary, black pepper, A bottle of vinegar, Parmesan', steps: [
+      'Cut slits in the pork and push slivers of garlic into them before it goes in the cooker.',
+      'A branch of rosemary in with it, and black pepper over the top. Pork and applesauce is a sweet pairing and wants something woody against it.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 159, step: 0, add: 'Brown the beef in a hot pan before it goes into the cooker, dark on every side. The cooker cannot make that crust, and the stew tastes of it for hours.' },
+  { id: 159, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped fine, in after the onion and before the liquid. Thirty seconds is enough; it only needs to smell.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 160, step: 1, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 161, lift: { with: 'Onion, garlic, paprika, hot sauce, A bottle of vinegar, Parmesan', steps: [
+      'A diced onion with the beef and garlic at the end.',
+      'A teaspoon of paprika into the soup, and hot sauce at the table.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 162, lift: { with: 'Red onion, cider vinegar, A head of garlic', steps: [
+      'A splash of cider vinegar stirred through the pulled pork — bottled barbecue sauce is sweet and vinegar is what cuts it.',
+      'Thin-sliced raw red onion on the buns.',
+      'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',
+    ] } },
+  { id: 163, step: 1, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 164, lift: { with: 'Onion, garlic, cumin, cilantro, lime, Parmesan', steps: [
+      'Onion and garlic with the beef, and a teaspoon of cumin beyond the taco seasoning.',
+      'Cilantro and lime over the top out of the oven.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 165, step: 1, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 167, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 169, step: 1, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 170, lift: { with: 'Onion, garlic, mustard, Worcestershire, Parmesan', steps: [
+      'A diced onion with the beef, garlic at the end.',
+      'A teaspoon of mustard and a splash of Worcestershire with the ketchup. That combination is what makes a cheeseburger taste of a cheeseburger.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 171, lift: { with: 'Onion, garlic, thyme, black pepper, A bottle of vinegar', steps: [
+      'A sliced onion under the roast and two cloves of garlic in the soup.',
+      'Thyme and black pepper over the meat before it goes in.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 172, lift: { with: 'A head of garlic, Parmesan', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 173, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped fine, in after the onion and before the liquid. Thirty seconds is enough; it only needs to smell.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 174, lift: { with: 'Cumin, chili powder, garlic, lime, Parmesan', steps: [
+      'Cumin and chili powder into the beans and rice.',
+      'Garlic in the tomato sauce, lime over the top.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 176, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+    ] } },
+  { id: 177, lift: { with: 'Garlic, rosemary, black pepper, A bottle of vinegar, Parmesan', steps: [
+      'Garlic and rosemary rubbed over the pork before it roasts.',
+      'Black pepper into the applesauce — a sweet sauce against a savoury roast wants something to argue with.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 180, step: 0, add: 'Brown the beef first, in batches, dark on every side. The stew tastes of that crust; skip it and it tastes of boiled beef.' },
+  { id: 180, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+    ] } },
+  { id: 182, lift: { with: 'Garlic powder, thyme, black pepper, lemon, Parmesan', steps: [
+      'Garlic powder, thyme and black pepper rubbed over the chicken before roasting.',
+      'Lemon squeezed over at the table.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 183, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 185, step: 0, add: 'An onion first: chopped, into the hot fat, and left until the edges go gold before the rest arrives.' },
+  { id: 185, lift: { with: 'A head of garlic, Cumin and paprika', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
+      'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
+    ] } },
+  { id: 186, step: 1, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 187, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped fine, in after the onion and before the liquid. Thirty seconds is enough; it only needs to smell.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 188, lift: { with: 'Onion, garlic, thyme, Worcestershire, A bottle of vinegar', steps: [
+      'Onion and garlic with the beef, thyme into the gravy.',
+      'A splash of Worcestershire before the topping goes on.',
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+    ] } },
+  { id: 190, step: 1, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 190, lift: { with: 'Onion, garlic, cumin, cilantro, lime, Parmesan', steps: [
+      'Onion and garlic into the chicken filling, cumin with the seasoning.',
+      'Cilantro and lime at the end.',
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 191, lift: { with: 'Onion, garlic, bay, thyme, black pepper, Soy sauce', steps: [
+      'A quartered onion and two cloves of garlic in the cooker with the roast, and a bay leaf.',
+      'Thyme and black pepper over the meat before searing.',
+      'A tablespoon of soy sauce in with the liquid. Nobody tastes soy; they taste more beef.',
+    ] } },
+  { id: 192, step: 1, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 195, lift: { with: 'A head of garlic, A bottle of vinegar', steps: [
+      'Two cloves of garlic, chopped fine, in after the onion and before the liquid. Thirty seconds is enough; it only needs to smell.',
+      'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
+    ] } },
+  { id: 198, step: 0, add: 'Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off the heat before it is cut. Dry chicken is a method problem, not a chicken problem.' },
+  { id: 198, lift: { with: 'Garlic powder, paprika, black pepper, hot sauce, A bottle of vinegar', steps: [
+      'Garlic powder, paprika and plenty of black pepper into the flour before dredging. Seasoned flour is the difference between fried chicken and fried breading.',
+      'A few dashes of hot sauce into the milk you dip it in.',
+      'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
+    ] } },
+  { id: 199, step: 1, add: 'Brown the beef in a hot pan before it goes into the cooker, dark on every side. The cooker cannot make that crust, and the stew tastes of it for hours.' },
+  { id: 200, lift: { with: 'A head of garlic', steps: [
+      'Two cloves of garlic, chopped, into the pan for the last thirty seconds before the liquid goes in — any longer and it burns bitter.',
+    ] } },
+  { id: 204, lift: { with: 'Parmesan', steps: [
+      'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
+    ] } },
+  { id: 206, step: 1, add: 'A pinch of salt and half a teaspoon of vanilla in with it — the two things a box leaves out, and the two that make it taste like a kitchen.' },
+  { id: 222, step: 0, add: 'A pinch of salt and half a teaspoon of vanilla in with it — the two things a box leaves out, and the two that make it taste like a kitchen.' },
 ];

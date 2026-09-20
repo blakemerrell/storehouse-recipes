@@ -238,12 +238,13 @@ app labels them as such. They have not been kitchen-tested.
 
 ### Recipes whose method differs from the printed book
 
-117 of the 225 carried-over recipes are cooked differently here than
+129 of the 225 carried-over recipes are cooked differently here than
 the book prints them. The app shows the corrected method and says nothing about
 the change; this table is the whole record of it.
 
 | No. | Recipe | Printed | Here |
 |---|---|---|---|
+| 3 | Fluffy Egg White & Bell Pepper Scramble | `Pour egg whites in and scramble for 3 mins until firm.` | `Pour egg whites in and scramble for 3 mins until firm. A spoon of salsa on top, or a tablespoon of cheddar in the last m…` |
 | 5 | Scrambled Egg & Black Bean Breakfast Bowl | `Scramble eggs in skillet for 3 mins.` | `Scramble the eggs in a buttered skillet over medium-low heat, stirring slowly, about 3 minutes — pull them while they st…` |
 | 7 | Cottage Cheese Protein Waffles | `Pour into waffle iron and cook 4 mins.` | `Pour into the waffle iron and cook about 4 minutes, but go by the steam rather than the clock — a waffle is done when th…` |
 | 8 | Ham, Egg & Cheese Scramble Bowl | `Add beaten eggs and scramble for 3 mins.` | `Add the beaten eggs and scramble over medium-low, stirring slowly, about 3 minutes — take them off while they still look…` |
@@ -262,12 +263,13 @@ the change; this table is the whole record of it.
 | 45 | Cinnamon Cottage Cheese Toast Crisp | `Place under oven broiler for 1 min.` | `Broil 1 to 2 minutes, watching it the whole time — it goes from bubbling to burnt in about twenty seconds.` |
 | 47 | Microwave Apple Cinnamon Crisp | `Sprinkle oats on top.` | `Toast the oats in a dry pan for 2 to 3 minutes until they smell nutty, then sprinkle them over. Raw oats on warm apple g…` |
 | 55 | Whipped Strawberry Gelatin Cloud | `Dissolve gelatin in 1 cup hot water.` | `Dissolve the gelatin in 1 cup of hot water and stir until no grains are left on the bottom.` |
+| 86 | Fiesta Chicken & Black Bean Rice Bowls | `Preheat oven to 400°F. Season chicken, bake 20 mins until 165°F inside, then slice.` | `Preheat oven to 400°F. Season chicken, bake 20 mins until 165°F inside, then slice. Pound the thick end level and salt i…` |
 | 87 | Lean Beef, Broccoli & Potato Hash | `Portion equally into 4 containers.` | `Portion equally into 4 containers. Mustard or salsa on the side; it wants something sharp against the beef and potato.` |
 | 89 | Teriyaki Chicken & Broccoli Rice Bowls | `Pan-fry diced chicken in skillet 8 mins. Add soy sauce and honey, cook 2 mins.` | `Pan-fry diced chicken in skillet 8 mins. Add soy sauce and honey, cook 2 mins. Cut a piece open to check — the chicken s…` |
 | 90 | Lemon Pepper Chicken Breast & Green Beans | `Preheat oven to 400°F. Season chicken, bake 20 mins.` | `Heat the oven to 400°F. Season the chicken on both sides with salt and a lot of black pepper — more than looks sensible,…` |
 | 91 | Savory Beef & Mash Shepherd's Bowls | `Brown beef in skillet 8 mins, drain fat.` | `Brown the beef in a skillet over medium-high, breaking it up, about 8 minutes, until no pink is left. Drain the fat.` |
 | 92 | Herb Pork Loin & Roasted Carrots | `Bake on sheet pan at 375°F for 45 mins. Portion into 4 containers.` | `Bake on a sheet pan at 375°F for 45 minutes, turning the vegetables once. Pork is done at 145°F, with a faint blush stil…` |
-| 93 | Chicken & Broccoli Rice Skillet | `Pan-fry diced chicken 8 mins.` | `Pan-fry diced chicken 8 mins. Check a piece: white all the way through, 165°F.` |
+| 93 | Chicken & Broccoli Rice Skillet | `Pan-fry diced chicken 8 mins.` | `Pan-fry diced chicken 8 mins. Check a piece: white all the way through, 165°F. Pat the chicken dry and lay it in a hot p…` |
 | 94 | Beef & Green Bean Rice Stir-Fry | `Brown ground beef 8 mins, drain fat.` | `Brown the ground beef over medium-high, breaking it up, about 8 minutes, until no pink is left. Drain the fat.` |
 | 96 | Chipotle Chicken & Bean Bowls | `Cook diced chicken with salsa in skillet 10 mins.` | `Cook the diced chicken with the salsa in a skillet over medium heat, about 10 minutes, until the chicken is 165°F and th…` |
 | 97 | Shredded Pork & Veggie Skillet | `Sauté sliced bell peppers, onions, and carrots in skillet 8 mins.` | `Sauté the sliced peppers, onions and carrots over medium-high, about 8 minutes, until the edges have taken colour and th…` |
@@ -278,27 +280,31 @@ the change; this table is the whole record of it.
 | 119 | Protein Pudding Parfait | `Make chocolate pudding.` | `Make up the chocolate pudding — a packet whisked with 2 cups of milk for two minutes, or {r:202} if you would rather it …` |
 | 124 | Crio Bru Power Morning Cocktail | `Blend on high for 15 seconds until frothy.` | `Blend on high 15 seconds until frothy — but let the Crio Bru cool for five minutes first, or leave the lid cracked with …` |
 | 129 | Salted Caramel Crio Bru Shake | `Blend hot Crio Bru, whey, brown sugar, and sea salt for 15 seconds.` | `Let the Crio Bru stand five minutes off the boil, then blend it with the whey, brown sugar and salt for 15 seconds. Hot …` |
-| 142 | Slow-Cooker Shredded Salsa Chicken Bowls | `Divide into 6 containers over lettuce, beans, and corn.` | `Divide into 6 containers over lettuce, beans, and corn. Chopped tomatoes over the top, added the day you eat it rather t…` |
-| 143 | Sheet-Pan Chicken & Roasted Veggie Medley | `Spread on 2 pans and bake at 400°F for 25 mins.` | `Spread on 2 pans and bake at 400°F for 25 mins. Check the chicken before serving: no pink at the centre, 165°F on a ther…` |
+| 142 | Slow-Cooker Shredded Salsa Chicken Bowls | `Put chicken and salsa into slow cooker. Cook LOW 4 hours (or HIGH 2.5 hours).` | `Put chicken and salsa into slow cooker. Cook LOW 4 hours (or HIGH 2.5 hours). An onion first: chopped, into the hot fat,…` |
+| 143 | Sheet-Pan Chicken & Roasted Veggie Medley | `Cube chicken, potatoes, broccoli, and peppers. Toss with 1 tbsp oil, salt, pepper.` | `Cube chicken, potatoes, broccoli, and peppers. Toss with 1 tbsp oil, salt, pepper. Salt the chicken fifteen minutes ahea…` |
+| 144 | Stewing Beef & Root Veggie Slow-Cooker Stew | `Cover and cook LOW 8 hours until beef falls apart.` | `Cover and cook LOW 8 hours until beef falls apart. Brown the beef in a hot pan before it goes into the cooker, dark on e…` |
 | 145 | Lean Beef & Pinto Bean Chili | `Add pinto beans, diced tomatoes, 1 tbsp chili powder, and 1 cup water.` | `Add pinto beans, diced tomatoes, 1 tbsp chili powder, and 1 cup water. This is where the cumin goes: a teaspoon of it wi…` |
 | 146 | BBQ Shredded Pork & Potato Bowls | `Cook pork roast in slow cooker on LOW 6 hours; shred with forks and mix with BBQ sauce.` | `Cook pork roast in slow cooker on LOW 6 hours; shred with forks and mix with BBQ sauce. No bottle in the house? {r:264} …` |
 | 148 | Chicken & Ribbon Pasta Bake | `Preheat oven to 350°F. Boil pasta 8 mins.` | `Preheat oven to 350°F. Boil the pasta two minutes short of the packet time — it finishes in the oven, and pasta boiled s…` |
 | 149 | Spicy Beef & Pinto Burrito Meal Prep | `Brown beef with drained pinto beans and ¼ cup salsa in skillet for 8 mins.` | `Brown the beef with the drained pinto beans and ¼ cup salsa over medium-high, about 8 minutes, until no pink is left and…` |
 | 150 | Creamy Chicken & Broccoli Pasta | `Boil macaroni and broccoli together for 8 mins; drain.` | `Boil the macaroni and broccoli together about 8 minutes, until the pasta is just tender and the broccoli still has some …` |
-| 152 | Cinnamon Roll Baked Oatmeal | `Drizzle melted butter and brown sugar glaze over top.` | `Melt the butter with the brown sugar in a small pan over low heat, stirring, until the sugar has dissolved into it — abo…` |
-| 153 | Loaded Breakfast Burrito Factory | `Set out warm tortillas, eggs, sausage, potatoes, and cheese for custom burrito rolling.` | `Set out warm tortillas, eggs, sausage, potatoes, and cheese for custom burrito rolling. Salsa out beside them.` |
+| 152 | Cinnamon Roll Baked Oatmeal | `Mix oats, milk, eggs, cinnamon, and raisins in a 9x13 baking dish.` | `Mix oats, milk, eggs, cinnamon, and raisins in a 9x13 baking dish. Toast the oats two minutes in the dry pan first, unti…` |
+| 153 | Loaded Breakfast Burrito Factory | `Fry cubed potatoes and sausage in skillet 10 mins.` | `Fry cubed potatoes and sausage in skillet 10 mins. Get the pan hot before the pork goes in, and leave it alone until it …` |
 | 156 | French Toast Bake with Strawberry Jam | `Preheat oven to 350°F.` | `Butter the baking dish well. A bake this eggy welds itself to a dry one, and that is what the two tablespoons are for.` |
 | 157 | Cheesy Sausage & Egg Biscuit Cups | `Preheat oven to 375°F.` | `Heat the oven to 375°F and butter six cups of a muffin tin.` |
 | 162 | Scrambled Egg & Cheese Breakfast Tacos | `Scramble eggs in skillet for 3 mins.` | `Scramble the eggs in a buttered skillet over medium-low heat, about 3 minutes, stopping while they still look slightly w…` |
 | 165 | Warm Cinnamon Rolled Oats with Raisins & Honey | `Boil oats and milk for 5 mins.` | `Simmer the oats and milk over medium heat for about 5 minutes, stirring often so the milk does not catch, until thick en…` |
+| 166 | Sausage & Cheese Breakfast Quesadillas | `Cook sausage in pan 5 mins.` | `Cook sausage in pan 5 mins. Get the pan hot before the beef goes in, and leave it alone until it lets go of the pan on i…` |
 | 169 | Egg in a Hole Toast Slices | `Melt butter in pan, lay bread down, crack egg into center.` | `Melt butter in pan, lay bread down, crack egg into center. Salt and pepper the egg as it sets.` |
 | 170 | Chocolate Chip Pancake Bites | `Preheat oven to 375°F.` | `Heat the oven to 375°F and butter a 12-cup mini muffin tin.` |
+| 171 | Hash Brown & Sausage Scramble | `Fry potatoes and sausage in skillet 10 mins.` | `Fry potatoes and sausage in skillet 10 mins. Get the pan hot before the beef goes in, and leave it alone until it lets g…` |
 | 173 | Cinnamon Toast Soldiers with Soft Eggs | `Serve alongside soft-boiled eggs for dipping.` | `Soft-boil the eggs: lower them into water already at a rolling boil, 6 minutes exactly for a set white and a runny yolk,…` |
 | 174 | Sweet Sausage Roll-Ups | `Make thick pancake batter.` | `Whisk the pancake mix with the milk into a batter thicker than you would pour for pancakes — it has to cling to a sausag…` |
-| 181 | Cheesy Chicken Quesadillas with Salsa | `Cook medium heat 3 mins per side until crispy. Serve with salsa.` | `Cook medium heat 3 mins per side until crispy. Serve with salsa. Sour cream too.` |
+| 181 | Cheesy Chicken Quesadillas with Salsa | `Drain chicken and chop.` | `Drain chicken and chop. Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five minutes off …` |
 | 182 | Classic Beef Franks on Buns with Cucumber Sticks | `Boil or grill beef franks 6 mins.` | `Franks are already cooked, so this is only heating them through: simmer 6 minutes, or grill them turning often until the…` |
 | 184 | Stovetop Mac & Cheese with Hot Dog Coins | `Stir cheddar, milk, butter, and hot dog coins into warm pasta.` | `Melt the butter into the drained pasta, then add the milk and the cheddar a handful at a time over low heat, stirring un…` |
 | 185 | Mini Cheeseburger Sliders with Potato Wedges | `Form beef into 8 small patties, cook on skillet 3 mins per side, top with cheddar.` | `Form beef into 8 small patties, cook on skillet 3 mins per side, top with cheddar. Ground beef wants 160°F all the way t…` |
+| 186 | Chicken Rotini Soup & Buttered Toast Soldiers | `Heat soup in pot 6 mins.` | `Heat soup in pot 6 mins. Start with half an onion in the pan, cooked until it is soft and sweet — five minutes nobody ev…` |
 | 187 | PB&J Bento Box Platters | `Make 4 PB&J sandwiches and cut into quarters.` | `Spread the peanut butter on four slices and the jam on the other four, sandwich them, and cut each into quarters.` |
 | 188 | Refried Bean & Cheese Burritos | `Spread onto tortillas, top with cheddar, roll into burritos, and pan-warm 2 mins.` | `Spread onto tortillas, top with cheddar, roll into burritos, and pan-warm 2 mins. Salsa on the side, or spooned in befor…` |
 | 196 | BBQ Chicken Tortilla Pizzas | `Spread BBQ sauce on tortillas, top with chicken and cheddar.` | `Spread BBQ sauce on tortillas, top with chicken and cheddar. No bottle in the house? {r:264} makes barbecue sauce from t…` |
@@ -308,14 +314,17 @@ the change; this table is the whole record of it.
 | 205 | Soft Taco & Burrito Bowl Bar | `Brown ground beef in skillet 8 mins with taco seasoning.` | `Brown ground beef in skillet 8 mins with 2 tbsp taco seasoning and ¼ cup water, until the water has gone and the seasoni…` |
 | 206 | Creamy Chicken & Biscuit Pot Pie Casserole | `Mix chicken, soup, green beans, and corn in 9x13 dish.` | `Mix chicken, soup, green beans, and corn in 9x13 dish. Cook the chicken through before it goes into the dish — 165°F, no…` |
 | 207 | Sheet-Pan Franks & Crispy Potato Diggers | `Preheat oven to 400°F.` | `Heat the oven to 425°F. At 400 the cubed potato steams as often as it crisps.` |
+| 208 | Classic Spaghetti & Meat Sauce | `Boil spaghetti 9 mins.` | `Boil spaghetti 9 mins. Or roast them: oil, salt, 425°F, fifteen minutes, until they blister. Boiled beans are a side; ro…` |
 | 209 | Crispy Baked Chicken Breasts with Mashed Potatoes & Corn | `Preheat oven to 400°F. Season chicken breasts, bake 22 mins.` | `Heat the oven to 425°F. Pat the chicken dry, rub it with oil, salt and pepper, and bake 22 minutes on a rack — dry skin …` |
+| 210 | Slow-Cooker Pork Roast with Applesauce & Green Beans | `Put pork roast and quartered potatoes into slow cooker with 1 cup water. Cook LOW 8 hours.` | `Put pork roast and quartered potatoes into slow cooker with 1 cup water. Cook LOW 8 hours. Brown the pork in a hot pan b…` |
 | 211 | Mild Beef & Bean Chili with Corn Skillet Bread | `Brown beef 8 mins; add beans, tomato sauce, and tomatoes; simmer 20 mins.` | `Brown the beef 8 minutes, breaking it up, and drain it. Add the beans, tomato sauce and diced tomatoes and simmer 20 min…` |
+| 212 | Slow-Cooker Beef Stew with Ribbon Pasta | `Place beef, potatoes, carrots, onions, and 2 cups water in slow cooker. Cook LOW 8 hours.` | `Place beef, potatoes, carrots, onions, and 2 cups water in slow cooker. Cook LOW 8 hours. Brown the beef in a hot pan be…` |
 | 213 | Creamy Chicken Pasta Casserole | `Preheat oven to 350°F. Boil pasta 8 mins.` | `Heat the oven to 350°F.` |
 | 214 | Cheesy Ground Beef Potato Casserole | `Layer potatoes, beef, mushroom soup, and cheddar in baking dish.` | `Layer potatoes, beef, mushroom soup, and cheddar in baking dish. No mushroom soup? {r:275} layers in exactly the same wa…` |
 | 215 | BBQ Pulled Pork Sandwiches on Buns | `Cook pork roast in slow cooker on LOW 6 hours; shred and stir in BBQ sauce.` | `Cook pork roast in slow cooker on LOW 6 hours; shred and stir in BBQ sauce. No bottle in the house? {r:264} makes barbec…` |
 | 216 | Chicken & Broccoli Macaroni Bake | `Preheat oven to 350°F. Boil macaroni and broccoli 8 mins.` | `Preheat oven to 350°F. Boil the macaroni two minutes short of the packet time, and add the broccoli for the last three s…` |
 | 217 | Ground Beef Enchilada Casserole | `Brown beef with black beans and tomato sauce.` | `Brown beef with black beans and tomato sauce. Stir 2 tbsp taco seasoning into the beef with the tomato sauce, and let it…` |
-| 218 | Creamy Tomato & Chicken Pasta Skillet | `Pan-fry chicken 8 mins.` | `Pan-fry chicken 8 mins. Check it is white through the middle, 165°F, before the sauce goes in.` |
+| 218 | Creamy Tomato & Chicken Pasta Skillet | `Pan-fry chicken 8 mins.` | `Pan-fry chicken 8 mins. Check it is white through the middle, 165°F, before the sauce goes in. Pat the chicken dry and l…` |
 | 219 | Meatball Marinara Sub Sandwiches | `Preheat oven to 400°F. Mix beef, egg, breadcrumbs into meatballs; bake 20 mins.` | `Preheat oven to 400°F. Mix beef, egg, breadcrumbs into meatballs; bake 20 mins. No breadcrumbs in the cupboard? {r:272} …` |
 | 220 | Cheesy Chicken & Rice Skillet Dinner | `Sauté peppers, onions, and diced chicken 10 mins.` | `Sauté the peppers, onions and diced chicken over medium-high about 10 minutes, until the chicken is white through and a …` |
 | 221 | Shepherd's Pie with Fluffy Potato Topping | `Make instant potatoes.` | `Make instant potatoes. Stir the butter into them while they are hot — that is the difference between a topping and a pas…` |
@@ -328,11 +337,12 @@ the change; this table is the whole record of it.
 | 230 | Roast Pork Loin with Sweet Applesauce & Ribbon Noodles | `Boil ribbon noodles 8 mins; toss with butter.` | `Boil ribbon noodles 8 mins; toss with butter. Heat the green beans through in their own liquid while the noodles boil, t…` |
 | 231 | Homemade Meatballs & Italian Spaghetti Feast | `Preheat oven to 400°F. Mix ground beef, egg, and breadcrumbs; roll into meatballs. Bake 20 mins.` | `Preheat oven to 400°F. Mix ground beef, egg, and breadcrumbs; roll into meatballs. Bake 20 mins. No breadcrumbs in the c…` |
 | 232 | Creamy Chicken & Ribbon Pasta Alfredo Bake | `Preheat oven to 350°F. Boil pasta 8 mins.` | `Heat the oven to 375°F. Boil the pasta in well-salted water, but stop two minutes short of the packet time — it finishes…` |
-| 233 | Dutch Oven Beef Stew with Fluffy Drop Biscuits | `Simmer beef, potatoes, carrots, onions in 3 cups water in Dutch oven 1 hour.` | `Simmer the beef, potatoes, carrots and onion in 3 cups of water in a Dutch oven for 1 hour.` |
+| 233 | Dutch Oven Beef Stew with Fluffy Drop Biscuits | `Simmer beef, potatoes, carrots, onions in 3 cups water in Dutch oven 1 hour.` | `Simmer the beef, potatoes, carrots and onion in 3 cups of water in a Dutch oven for 1 hour. Brown the beef first, in bat…` |
 | 234 | Slow-Cooker Pulled Beef BBQ Feast | `Cook beef roast in slow cooker on LOW for 8 hours; shred and toss with BBQ sauce.` | `Cook beef roast in slow cooker on LOW for 8 hours; shred and toss with BBQ sauce. No bottle in the house? {r:264} makes …` |
 | 235 | Homestyle Roasted Chicken & Gravy with Mashed Potatoes | `Preheat oven to 400°F. Roast chicken breasts 25 mins.` | `Preheat oven to 400°F. Roast chicken breasts 25 mins. Roast until the thickest breast reads 165°F and the juices run cle…` |
 | 237 | Cheesy Beef & Spaghetti Roll-Up Bake | `Preheat oven to 350°F. Boil spaghetti 9 mins.` | `Preheat oven to 350°F. Boil the spaghetti two minutes short of the packet time — it finishes in the oven.` |
-| 239 | Chicken Cordon Bleu Casserole | `Bake at 375°F for 30 mins. Serve over rice.` | `Bake at 375°F for 30 mins. Serve over rice. Whole breasts under a blanket of sauce take longer than you expect. Check th…` |
+| 238 | Slow-Cooked Pork Carnitas Feast | `Cook pork roast in slow cooker on LOW 6 hours with salsa; shred and sear on hot skillet until crispy.` | `Cook pork roast in slow cooker on LOW 6 hours with salsa; shred and sear on hot skillet until crispy. An onion first: ch…` |
+| 239 | Chicken Cordon Bleu Casserole | `Layer chicken breasts and ham slices in dish, cover with cream soup and cheddar.` | `Layer chicken breasts and ham slices in dish, cover with cream soup and cheddar. Salt the chicken fifteen minutes ahead,…` |
 | 240 | Braised Stewing Beef over Rice | `Simmer stewing beef and onions in gravy mix with 2 cups water for 1.5 hours until tender.` | `Simmer stewing beef and onions in gravy mix with 2 cups water for 1.5 hours until tender. No packet? Simmer the beef and…` |
 | 241 | Savory Beef & Vegetable Cobbler | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
 | 242 | Roasted Pork Loin with Garlic Potatoes | `Season pork roast and potatoes with garlic powder and butter.` | `Season pork roast and potatoes with garlic powder and butter. Cut the carrots into thick batons and season them alongsid…` |
@@ -344,12 +354,13 @@ the change; this table is the whole record of it.
 | 248 | Slow-Cooked Salisbury Steak Patties with Gravy | `Put in slow cooker with onions and brown gravy mix; cook LOW 4 hours. Serve over potatoes.` | `Put the patties in the slow cooker with the sliced onions. Whisk the gravy packet into 1½ cups of water and pour it over…` |
 | 249 | Creamy Beef Stroganoff over Noodles | `Brown beef 8 mins; stir in cream of mushroom soup and sour cream.` | `Brown the beef over medium-high about 8 minutes and drain it. Turn the heat down before the sour cream goes in — boiled,…` |
 | 250 | Roasted Pork Loin with Peach Glaze | `Puree peaches with brown sugar and mustard; brush over pork roast.` | `Puree the peaches with the brown sugar and mustard. Keep it back for now: brushed on at the start it has fifty minutes t…` |
-| 251 | Country Fried Chicken Breasts with Gravy | `Pan-fry in butter 5 mins per side until crispy.` | `Pan-fry in butter 5 mins per side until crispy. A crisp crust is not proof it is cooked. Check the thickest part reads 1…` |
+| 251 | Country Fried Chicken Breasts with Gravy | `Dip chicken in milk, coat in flour.` | `Dip chicken in milk, coat in flour. Salt the chicken fifteen minutes ahead, pound the thick end level, and give it five …` |
 | 252 | Slow-Cooker Beef Stew Meat in Rich Tomato Sauce | `Place stewing beef, quartered potatoes, green beans, and tomato sauce in slow cooker.` | `Place the stewing beef, quartered potatoes and tomato sauce in the slow cooker. Keep the green beans out — they are cook…` |
 | 253 | Ultimate Family Taco & Nacho Grand Platter | `Top with seasoned ground beef, beans, corn, and cheese; melt under broiler 3 mins. Serve with salsa/sour cream.` | `Top with seasoned ground beef, beans, corn, and cheese; melt under broiler 3 mins. Serve with salsa/sour cream. Stir 2 t…` |
 | 256 | Warm Peach Cobbler | `Whisk pancake mix, sugar, butter, and milk into batter.` | `Whisk pancake mix, sugar, butter, and milk into batter. Sour cream or Greek yogurt in place of half the milk gives a sof…` |
 | 257 | Fudgy Chocolate Cake Bake | `Preheat oven to 350°F.` | `Heat the oven to 350°F and butter a 9x13 dish.` |
 | 258 | Golden Yellow Cake with Chocolate Frosting | `Preheat oven to 350°F.` | `Heat the oven to 350°F and butter a 9x13 dish.` |
+| 259 | No-Bake PB & Oat Squares | `Stir in oats and raisins.` | `Stir in oats and raisins. A pinch of salt and half a teaspoon of vanilla in with it — the two things a box leaves out, a…` |
 | 262 | Cinnamon Sugar Churro Bites | `Make thick pancake batter.` | `Whisk the pancake mix with the milk into a batter thick enough to hold its shape on a spoon — thicker than pancake batte…` |
 | 263 | Warm Banana Pudding Crisp | `Layer banana slices and vanilla pudding in dish.` | `Whisk the pudding mix with the 2 cups of cold milk for two minutes until it thickens, then layer it with the banana slic…` |
 | 265 | Apple Cinnamon Dumplings | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
@@ -359,6 +370,7 @@ the change; this table is the whole record of it.
 | 271 | Homemade Chocolate Pudding Pie | `Preheat oven to 375°F. Make pastry crust with flour and butter, bake 15 mins.` | `Heat the oven to 375°F. Rub the cold butter into the flour and a pinch of salt until it looks like coarse crumbs, then s…` |
 | 272 | Sweet Cinnamon Raisin Bread Pudding | `Preheat oven to 350°F.` | `Butter the baking dish and heat the oven to 350°F.` |
 | 273 | Chocolate Covered Banana Pops | `Melt cocoa powder, butter, and sugar into chocolate sauce.` | `Melt the butter in a small pan over low heat, then whisk in the sugar, the cocoa and the milk until it is glossy and pou…` |
+| 275 | Peanut Butter Fudge Squares | `Stir melted butter, peanut butter, and powdered sugar in bowl until smooth.` | `Stir melted butter, peanut butter, and powdered sugar in bowl until smooth. A pinch of salt and half a teaspoon of vanil…` |
 | 277 | Hot Fudge Cake Bowls | `Preheat oven to 350°F.` | `Heat the oven to 350°F. Butter a 9x13 dish.` |
 | 278 | Cinnamon Sugar Apple Fritter Bites | `Whisk pancake mix, milk, and diced apple.` | `Whisk pancake mix, milk, and diced apple. Two tablespoons of sour cream or Greek yogurt in the batter make the fritters …` |
 
