@@ -3443,8 +3443,13 @@
     var grams = r.grams ? Math.round(r.grams * x) : 0;
     if (unit === 'g') return { head: (grams || Math.round(100 * x)) + ' g', detail: '' };
     /* The chip is the weight said in the kitchen's word, to the nearest
-       eighth: 145 g of chicken is "1 cup", 21 g of peanut butter "1⅜ tbsp". */
-    if (mByGram(r)) return { head: grams + ' g', detail: fmtNum(x) + ' ' + fixUnit(unit, x) };
+       eighth: 145 g of chicken is "1 cup", 21 g of peanut butter "1⅜ tbsp".
+       Plural by the eighth that is SHOWN, not by x — 145 g is 1.04 cups, and
+       the live site said "1 cups" of it. */
+    if (mByGram(r)) {
+      var shown = Math.round(x * 8) / 8;
+      return { head: grams + ' g', detail: fmtNum(shown) + ' ' + fixUnit(unit, shown) };
+    }
     var head = unit === 'each' ? fmtNum(x) + ' whole'
       : fmtNum(x) + ' ' + (r.food ? fixUnit(unit, x) : mFixNoun(unit, x));
     if (r.parts && r.parts.length) {

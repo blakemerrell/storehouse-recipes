@@ -10964,6 +10964,9 @@ module.exports = {
       await gp.waitForTimeout(150);
       const c1 = await row('l');
       t.ok('a tap moves it five grams', parseInt(c1.dial, 10) === parseInt(c0.dial, 10) + 5, c0.dial + ' → ' + c1.dial);
+      /* 145 g is 1.04 cups: the chip rounds to the eighth and says "1 cup" —
+         the live site said "1 cups", plural by the unrounded number. */
+      t.ok('and the chip still says one cup, not one cups', /^1 cup$/.test(c1.chip), JSON.stringify(c1));
       await gp.click('[data-mtype="l:0"]');
       await gp.waitForTimeout(100);
       await gp.fill('.mstep-in', '185');
