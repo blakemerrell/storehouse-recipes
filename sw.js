@@ -21,21 +21,21 @@
 
 /* Bump this when the shell changes. The old cache is deleted on activate, which
    is what gets a phone that is holding a previous build onto the current one. */
-var CACHE = 'storehouse-v397';
+var CACHE = 'storehouse-v398';
 
 /* The app itself. If any one of these does not arrive, the install fails and
    the phone keeps the worker and the cache it already had. */
 var CORE = [
   './',
   './index.html',
-  './src/style.css?v=397',
-  './src/config.js?v=397',
-  './src/sync.js?v=397',
-  './src/app.js?v=397',
-  './data/recipes.js?v=397',
-  './data/nutrition.js?v=397',
-  './data/art.js?v=397',
-  './data/qr.js?v=397',
+  './src/style.css?v=398',
+  './src/config.js?v=398',
+  './src/sync.js?v=398',
+  './src/app.js?v=398',
+  './data/recipes.js?v=398',
+  './data/nutrition.js?v=398',
+  './data/art.js?v=398',
+  './data/qr.js?v=398',
   './manifest.webmanifest'
 ];
 
@@ -94,7 +94,7 @@ self.addEventListener('install', function (e) {
            through the browser's own HTTP cache. So a new service worker could
            seed its brand-new cache with files up to ten minutes old, and then
            serve them cache-first for as long as that cache lived. The
-           versioned URLs were never at risk — ?v=397 is a URL the HTTP cache
+           versioned URLs were never at risk — ?v=398 is a URL the HTTP cache
            has never seen — but data/recipes.js carried no version, so the one
            file that changes every time recipes are added was the one file that
            could arrive stale and stay that way. Both halves are fixed: the
