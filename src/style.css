@@ -2287,6 +2287,23 @@ select { max-width: 280px; }
   background: var(--paper-soft); border: 1px solid var(--line-soft);
   color: var(--muted); font-variant-numeric: tabular-nums;
 }
+/* Spread across the row, with the two limits set apart. Blake: "the 5 pills
+   are not spaced out across the whole top of the screen", and "a little
+   separation from the macros and the fiber and salt — most important is
+   calories and macros; fiber and sodium is great if I do try and get that
+   perfect, but not critical." So the four macro pills share the width
+   between them, and the two limit pills keep their own size, sit past a
+   hairline, and are a shade quieter. Still fits a 375-wide phone without
+   scrolling on its worst day — "🧂2300" is a 52px pill — and the budget is
+   4 × 52 + 48 + 52 + five 4px gaps + the 8px break = 336 of 343; whatever
+   is left over goes to the four. */
+.mpill:not(.mpill-m) { flex: 1 1 0; min-width: 52px; }
+.mpill.mpill-m { min-width: 48px; opacity: 0.82; }
+.mpill:not(.mpill-m) + .mpill-m { margin-left: 8px; position: relative; }
+.mpill:not(.mpill-m) + .mpill-m::before {
+  content: ''; position: absolute; left: -6px; top: 3px; bottom: 3px; width: 1px;
+  background: var(--line-firm);
+}
 .mpill span { font-size: 10px; font-weight: 700; }
 .mpill .mb-kcal { font-size: 10.5px; }
 .mpill b { font-weight: 600; color: var(--ink); }

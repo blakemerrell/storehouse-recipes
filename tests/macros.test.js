@@ -10003,6 +10003,28 @@ module.exports = {
     /* And each one is its own bar. This is the whole reason the row exists in
        this form: folded, the number gives the gap and the fill gives the
        proportion, so "under" stops being four identical greys. */
+    /* Across the whole row, and the two limits set apart from the four
+       that matter most. Measured at 375, the narrowest phone the row was
+       ever sized for, and the row must not scroll there. */
+    await ph.setViewportSize({ width: 375, height: 720 });
+    await ph.waitForTimeout(200);
+    const laid = await ph.evaluate(() => {
+      const row = document.querySelector('.mpills').getBoundingClientRect();
+      const ps = [...document.querySelectorAll('.mpill')].map((p) => p.getBoundingClientRect());
+      const w = ps.slice(0, 4).map((r) => Math.round(r.width));
+      return { n: ps.length, macroWidths: w,
+        equal: Math.max.apply(null, w) - Math.min.apply(null, w) <= 1,
+        fillsRow: Math.round(row.right - ps[ps.length - 1].right) <= 1,
+        breakBeforeLimits: Math.round(ps[4].left - ps[3].right) >= 8,
+        scrolls: document.querySelector('.mpills').scrollWidth >
+          document.querySelector('.mpills').clientWidth + 1 };
+    });
+    t.ok('the four macro pills share the row equally and reach its far edge',
+      laid.n === 6 && laid.equal && laid.fillsRow, JSON.stringify(laid));
+    t.ok('with a break before fibre and salt, and no sideways scroll on a 375 phone',
+      laid.breakBeforeLimits && !laid.scrolls, JSON.stringify(laid));
+    await ph.setViewportSize({ width: 390, height: 720 });
+    await ph.waitForTimeout(200);
     t.ok('and each pill is filled to the same point as the bar it stands for',
       await ph.evaluate(() => {
         const pct = (el) => {
@@ -10089,21 +10111,27 @@ module.exports = {
        reads as a bug, so on the narrowest phone in the house (375) the six
        must fit edge to edge on a wide day — Blake's own example figures, which
        are about as long as the six numbers get. */
+    /* Measured on a real 375 viewport now. The old proxy — the pills' span
+       against "this row minus 15px" on a 390 page — assumed the pills keep
+       their natural width, and since the four macro pills share the row
+       they always span all of it. The honest check is the narrow phone
+       itself: no sideways scroll, and the last pill inside the row. */
+    await ph.setViewportSize({ width: 375, height: 720 });
+    await ph.waitForTimeout(200);
     t.ok('and all six fit a 375-wide phone even on a day of three-digit deltas',
       await ph.evaluate(() => {
         const row = document.querySelector('.mpills');
         const vals = ['+159', '-24', '+12', '+37', '8', '1474'];
         row.querySelectorAll('.mpill b').forEach((el, i) => { el.textContent = vals[i]; });
-        // the six pills end to end, against what the row would have on a
-        // phone 15px narrower than this one
         const ps = row.querySelectorAll('.mpill');
-        const span = ps[ps.length - 1].getBoundingClientRect().right - ps[0].getBoundingClientRect().left;
-        return span <= row.clientWidth - (390 - 375);
+        return row.scrollWidth <= row.clientWidth + 1 &&
+          ps[ps.length - 1].getBoundingClientRect().right <= row.getBoundingClientRect().right + 1;
       }), await ph.evaluate(() => {
-        const ps = document.querySelectorAll('.mpill');
-        const span = ps[ps.length - 1].getBoundingClientRect().right - ps[0].getBoundingClientRect().left;
-        return 'pills ' + Math.round(span) + 'px of ' + (document.querySelector('.mpills').clientWidth - 15) + 'px';
+        const row = document.querySelector('.mpills');
+        return 'row scrolls ' + row.scrollWidth + 'px of ' + row.clientWidth + 'px';
       }));
+    await ph.setViewportSize({ width: 390, height: 720 });
+    await ph.waitForTimeout(200);
     /* Half-way down, the card is half shut: both halves of the readout on
        screen at once, one fading out as the other fades in. This is the
        whole point of the change — the old fold had no state between open
