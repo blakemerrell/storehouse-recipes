@@ -1374,16 +1374,23 @@ module.exports = [
   /* Fourteen recipes call for the box. The box is flour, a raising agent, sugar
      and salt, and this is that in the proportions the box uses. */
   {
+    /* Blake: "something stunningly more than basic bagged mix". The jar was
+       flour, sugar, baking powder and salt — the bag without the bag. Dry
+       milk browns deeper and lets the mix take plain water; a little baking
+       soda waits for the sour cream that No. 339 brings, and helps the colour
+       even without it. The same four cups, so the yield line stands; the
+       wet side is in the method, as it was, and is not costed. */
     id: 274, book: 2, secNum: 9, secName: MADE,
     name: 'Pancake & Waffle Mix',
     servings: 'About 4 Cups Dry Mix (8 Servings)', servN: 8,
-    ing: ['4 cups flour', '3 tbsp sugar', '2 tbsp baking powder', '2 tsp salt'],
+    ing: ['3 cups flour', '¾ cup dry milk', '3 tbsp sugar', '1½ tbsp baking powder',
+      '¾ tsp baking soda', '1½ tsp salt'],
     steps: [
-      'Whisk all four together thoroughly — a full minute, not a few turns. Baking powder that is not evenly spread makes some pancakes rise and others sit there, and you will not be able to tell which is which until they are in the pan.',
-      'Keep it in a jar with the lid on. Six months is fine; after that the baking powder starts giving up and they come out flat.',
-      'To use it: 1 cup of mix, 1 cup of milk, 1 egg, 2 tablespoons of melted butter. Stir it until the dry patches are gone and then stop — batter that has been beaten smooth makes tough pancakes. Lumps are correct.',
-      'Let the batter stand five minutes before the first one goes in the pan. For waffles, add another tablespoon of oil; a waffle needs more fat than a pancake or it welds itself to the iron.',
-      'Medium heat, and turn each pancake when the bubbles on top stop closing over. One flip only.',
+      'Whisk all six together thoroughly — a full minute, not a few turns. Baking powder that is not evenly spread makes some pancakes rise and others sit there, and you will not be able to tell which is which until they are in the pan.',
+      'Keep it in a jar with the lid on. Six months is fine; after that the baking powder starts giving up and they come out flat. The dry milk is why it takes water: the milk is already in the jar.',
+      'Everyday pancakes: 1 cup of mix, ¾ cup of water, 1 egg, 2 tablespoons of oil or melted butter and half a teaspoon of vanilla. Stir until the dry patches are gone and then stop — batter that has been beaten smooth makes tough pancakes. Lumps are correct.',
+      'Let the batter stand five minutes before the first one goes in the pan. Medium heat, and turn each pancake when the bubbles on top stop closing over. One flip only.',
+      'For waffles, {r:339} is the Sunday method: sour cream in the batter, the whites whipped and folded in last, browned butter. Same jar.',
     ],
     makes: ['pancake_mix'],
     macro: null, tagline: 'Lumps Are Correct', score: null, sc: null,
@@ -2225,5 +2232,66 @@ module.exports = [
     ],
     macro: null, tagline: 'It Climbs, Then It Falls', score: null, sc: null,
     diff: 'Easy', time: '30 mins', extras: null,
+  },
+
+  {
+    /* The Sunday method for No. 274's jar. Blake asked for a mix
+       "stunningly more than basic bagged mix", and the stunning part is
+       all on the wet side: sour cream for the tender, tangy crumb and the
+       lift it gives the soda in the jar, the whites whipped and folded in
+       last, butter browned first. Every one of them is on the order. In the
+       breakfasts because that is when it is eaten; it is a project, but a
+       twenty-minute one. */
+    id: 339, book: 2, secNum: 1, secName: 'Speedy Weekday Breakfasts & Morning Treats',
+    name: 'Sunday Waffles',
+    servings: '4 Waffles', servN: 4,
+    ing: ['1.5 cups pancake mix', '2 eggs', '¾ cup milk', '½ cup sour cream',
+      '3 tbsp butter', '1 tsp vanilla', '1 tbsp sugar'],
+    steps: [
+      'Brown the butter first: melt it in a small pan over medium heat and swirl it until the foam goes quiet and the specks at the bottom turn the colour of toast, 3 to 4 minutes. Pour it into a bowl at once, specks and all, or it goes on cooking.',
+      'Separate the eggs, whites into a clean bowl. Whisk the yolks with the milk, sour cream, vanilla and the browned butter.',
+      'Stir the mix ({r:274}) into the wet side until the dry patches are gone, and no further. Let it stand 10 minutes while the iron heats — the flour drinks, and the batter thickens on its own.',
+      'Beat the whites with the sugar to soft peaks — the tips fold over when the beater lifts — and fold them into the batter in three or four strokes. Streaks of white are fine; a batter stirred smooth has lost what the whites brought.',
+      'A scant cup of batter on a hot iron, and leave the lid shut until the steam slows to a thread. Crisp at the edges, soft in the middle. Keep the first ones on a rack in a warm oven, not stacked, or the steam softens what the iron just crisped.',
+      'Butter and {r:277} syrup, or canned peaches warmed through with a shake of cinnamon.',
+    ],
+    lift: {
+      with: 'Malted milk powder',
+      steps: [
+        'A tablespoon of malted milk powder in with the mix is the flavour of a diner waffle — sweet, toasty, faintly of the malt shop.',
+      ]
+    },
+    macro: null, tagline: 'Whites Folded In Last', score: null, sc: null,
+    diff: 'Medium', time: '30 mins', extras: null,
+  },
+
+  {
+    /* Blake: "Buttermilk pancakes and syrup … and buttermilk substitute if I
+       can't buy buttermilk. I usually have vinegar." The jar (No. 274) has
+       the soda waiting for exactly this acid. Costed on the storehouse
+       stand-in — milk soured with sour cream — so the recipe is honest for
+       the cook with the order and nothing else; real buttermilk and the
+       vinegar trick are the lift, because neither is on the order. */
+    id: 340, book: 2, secNum: 1, secName: 'Speedy Weekday Breakfasts & Morning Treats',
+    name: 'Buttermilk Pancakes',
+    servings: '8 Pancakes (4 Servings)', servN: 4,
+    ing: ['1 cup pancake mix', '¾ cup milk', '¼ cup sour cream', '1 egg',
+      '2 tbsp butter', '½ tsp vanilla'],
+    steps: [
+      'Stir the sour cream into the milk until it is smooth — that is the buttermilk, near enough, and the sour in it is what wakes the soda in the mix ({r:274}).',
+      'Melt the butter. Whisk the egg and the vanilla into the soured milk, then the butter.',
+      'Stir the mix in until the dry patches are gone and then stop. Lumps are correct; a batter beaten smooth makes tough pancakes. Let it stand five minutes — it thickens on its own.',
+      'A heavy pan on medium, a film of butter, a scant quarter cup of batter to a pancake. Turn each one when the bubbles on top stop closing over, and once only. The second side takes half the time of the first.',
+      'Butter and {r:277} syrup, hot. Keep the early ones on a rack in a warm oven, not stacked.',
+    ],
+    lift: {
+      with: 'Buttermilk, or a splash of vinegar',
+      steps: [
+        'A cup of real buttermilk in place of the milk and sour cream: tangier, and the pancakes rise a shade higher.',
+        'No buttermilk? A tablespoon of vinegar stirred into a cup of milk and left five minutes does the same job. It looks curdled; that is the point.',
+      ]
+    },
+    macro: null, tagline: 'Sour Wakes the Soda', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
   },
 ];
