@@ -4147,6 +4147,91 @@ module.exports = {
       JSON.stringify(converted));
     await upgrade.context().close();
 
+    /* ---- "This device is right" keeps every stamp in its shape -----------
+     *
+     * The button once wrote one number over the weight map. Every morning
+     * then shipped with a stamp of zero, which no other device would take,
+     * and the next weigh-in tried to set a property on a number and threw —
+     * the weight was stored, unstamped, and stayed home until a reload
+     * converted the stamp back. It also restamped four parts of nine, so the
+     * account could go on outvoting the closed days, skips, share choices and
+     * custom foods it had just been told were wrong about.
+     *
+     * The lab presses it, because the sheet that carries the button only
+     * renders signed in. The weigh-in afterwards is the proof: the harness
+     * fails the suite on any thrown error, so a throw here cannot hide. */
+    const claim = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await claim.evaluate(() => {
+      localStorage.setItem('bsc.macroWeights',
+        JSON.stringify({ '2026-09-01': 190, '2026-09-02': 189 }));
+      localStorage.setItem('bsc.macroDone', JSON.stringify({ '2026-09-01': 1700000000000 }));
+      localStorage.setItem('bsc.myStamps', JSON.stringify({
+        w: { '2026-09-01': 4242, '2026-09-02': 4243 }, sp: { '2026-09-01': 4244 }, t: 4245 }));
+    });
+    await claim.reload();
+    await claim.waitForTimeout(400);
+    await claim.click('.tab[data-view="macros"]');
+    await claim.waitForTimeout(300);
+    const claimed = await claim.evaluate(() => {
+      const before = Date.now();
+      window.__macroLab.claim();
+      const st = JSON.parse(localStorage.getItem('bsc.myStamps'));
+      const sent = window.__macroLab.payload();
+      const fresh = (v) => typeof v === 'number' && v >= before;
+      return {
+        shapes: ['d', 'dn', 'sp', 'sn', 'w'].map((k) => typeof st[k]).join(','),
+        singles: ['t', 'pr', 'sl', 'mf'].every((k) => fresh(st[k])),
+        mornings: fresh(st.w['2026-09-01']) && fresh(st.w['2026-09-02']),
+        cleared: fresh(st.sp['2026-09-01']),
+        closed: fresh(st.dn['2026-09-01']),
+        sent: fresh(sent.w['2026_09_01'].at),
+      };
+    });
+    t.ok('this device is right stamps every part, each in its own shape',
+      claimed.shapes === 'object,object,object,object,object' && claimed.singles &&
+        claimed.mornings && claimed.cleared && claimed.closed && claimed.sent,
+      JSON.stringify(claimed));
+    await claim.fill('#mWeight', '188.4');
+    await claim.dispatchEvent('#mWeight', 'change');
+    await claim.waitForTimeout(300);
+    const afterClaim = await claim.evaluate(() => {
+      const w = JSON.parse(localStorage.getItem('bsc.macroWeights') || '{}');
+      const st = JSON.parse(localStorage.getItem('bsc.myStamps'));
+      const today = Object.keys(w).filter((k) => k !== '2026-09-01' && k !== '2026-09-02')[0];
+      return { today, lb: w[today], stamp: today && st.w[today] };
+    });
+    t.ok('and the next weigh-in is stored and stamped',
+      afterClaim.lb === 188.4 && typeof afterClaim.stamp === 'number' && afterClaim.stamp > 4245,
+      JSON.stringify(afterClaim));
+    await claim.context().close();
+
+    /* ---- the buttons that empty this device ask first ---------------------
+     *
+     * Delete was asked; Sign out and "The account is right" were not, and
+     * both call the same wipe. Sign in, lose the signal, log a day and a
+     * weigh-in, tap Sign out: gone from the only place they existed. The
+     * sheet only renders these signed in, so this reads the source — the
+     * same way the sync door is counted — and asks two things of it: each
+     * branch reaches the wipe through ask(), and the wipe names every My Day
+     * key the file writes, since bsc.macroSend was once left off it and the
+     * previous person's share choices reloaded into the next account. */
+    const sources = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'app.js'), 'utf8');
+    const wipes = ['pull', 'out', 'delete'].map((act) => {
+      const at = sources.indexOf("if (act2 === '" + act + "')");
+      const next = sources.indexOf('if (act2 ===', at + 10);
+      const block = sources.slice(at, next > 0 ? next : at + 1400);
+      const asks = block.indexOf('ask({'), wipe = block.indexOf('mForgetDay()'), del = block.indexOf('mDeleteAccount()');
+      return act + ':' + (at > 0 && asks > 0 && asks < Math.max(wipe, del) ? 'asked' : 'silent');
+    });
+    t.ok('sign out, pull and delete each ask before emptying this device',
+      wipes.every((w) => /asked$/.test(w)), wipes.join(' '));
+    const wipeList = sources.slice(sources.indexOf('function mForgetDay()'), sources.indexOf('function mForgetDay()') + 900);
+    const storedKeys = Array.from(new Set((sources.match(/setItem\('bsc\.(macro\w+|myFoods|myStamps|myOwner)'/g) || [])
+      .map((m) => m.replace(/^setItem\('/, '').replace(/'$/, ''))));
+    const leftOff = storedKeys.filter((k) => wipeList.indexOf("'" + k + "'") < 0);
+    t.ok('and the wipe names every My Day key the app writes',
+      storedKeys.length >= 10 && leftOff.length === 0, leftOff.join(' ') || storedKeys.length + ' keys');
+
     /* ---- Balance solves against the share the card is printing ------------
      * The meal's pills say what the meal is owed; the ⚖ on the same card
      * solves the plates toward it. Those were two different sums: the pills

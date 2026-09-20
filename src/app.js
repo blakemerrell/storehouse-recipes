@@ -1128,6 +1128,25 @@
     mSyncPush();
   }
 
+  /* Every part stamped as of now, each in the shape it keeps its stamps: one
+     number for a single value, a map for a part keyed by day or by morning.
+     The first version of "this device is right" wrote a number over the
+     weight map. Every morning then shipped with a stamp of zero, which no
+     other device would take, and the next weigh-in tried to set a property
+     on a number and threw. A part's stamp has one shape, and this is the
+     only place that writes all of them at once. */
+  function mClaimAll() {
+    var now = Date.now();
+    ['t', 'pr', 'sl', 'mf'].forEach(function (k) { MSTAMPS[k] = now; });
+    [['d', MDAYS], ['dn', MDONE], ['sp', MSKIP], ['sn', MSEND], ['w', MWEIGHTS]].forEach(function (pair) {
+      var part = pair[0];
+      var map = (MSTAMPS[part] && typeof MSTAMPS[part] === 'object') ? MSTAMPS[part] : {};
+      MSTAMPS[part] = map;
+      Object.keys(map).concat(Object.keys(pair[1])).forEach(function (k) { map[k] = now; });
+    });
+    try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); } catch (e) { /* private mode */ }
+  }
+
   /* This used to be a private code, which was the right shape for one person
      with two phones and the wrong shape the moment the app went to a
      congregation. A code can be read aloud, forwarded, or guessed, and what
@@ -1173,7 +1192,7 @@
   function mForgetDay() {
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
-      'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroHush'].forEach(function (k) {
+      'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroHush'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
@@ -12858,6 +12877,10 @@
        day the other phone never hears has changed — and that half is
        invisible to a test that only exercises the merge. */
     payload: mSyncPayload,
+    /* And "this device is right", because the sheet that carries the button
+       only renders signed in, and the bug it once had — a number written
+       over the weight map — was invisible until the next weigh-in. */
+    claim: mClaimAll,
     /* The gauge's band rule, because it only bites in a narrow window and no
        arbitrary day's plates land in it — asked through the DOM the test
        passed with the rule removed. */
@@ -14528,12 +14551,7 @@
           /* Restamp everything as of now so this device's copy is the newest
              on every part, then send it. Nothing is deleted anywhere else;
              it is simply outvoted. */
-          var now = Date.now();
-          ['t', 'pr', 'sl', 'w'].forEach(function (k) { MSTAMPS[k] = now; });
-          MSTAMPS.d = MSTAMPS.d || {};
-          Object.keys(MDAYS).forEach(function (k) { MSTAMPS.d[k] = now; });
-          try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); }
-          catch (er) { /* private mode */ }
+          mClaimAll();
           mSyncPush(true);
           S.myErr = '';
           S.myNote = 'Sent. Your other devices will take this the next time they look.';
@@ -14541,21 +14559,45 @@
         if (act2 === 'pull') {
           /* Forget what is here and let the next snapshot fill it back in.
              The push that follows carries stamps of zero, so it cannot
-             overwrite the account on the way past. */
-          mForgetDay();
-          renderMacros();
-          mSyncStart();
-          S.myNote = 'Cleared. Whatever your account holds is on its way down.';
+             overwrite the account on the way past. Asked first: a day logged
+             while the signal was down has never reached the account, and
+             this is the button that throws it away. */
+          ask({
+            title: 'Take the account\u2019s copy?',
+            body: 'My Day on this device is replaced by what your account holds. ' +
+              'Anything logged here that has not reached the account is lost.',
+            ok: 'Use the account\u2019s copy'
+          }, function (yes) {
+            if (!yes) return;
+            mForgetDay();
+            renderMacros();
+            mSyncStart();
+            S.myNote = 'Cleared. Whatever your account holds is on its way down.';
+            renderModal();
+          });
+          return;
         }
         if (act2 === 'out') {
-          window.Store.signOutAccount().then(function () {
-            S.mySent = false;
-            mForgetDay();
-            mAccountMark();
-            mSyncStart();
-            renderMacros();
-            renderModal();
-          }, failed);
+          /* Signing out clears My Day from this device, so it is asked like
+             anything else that removes what you typed. The account keeps what
+             it has already received. */
+          ask({
+            title: 'Sign out of this device?',
+            body: 'My Day is cleared from this device. Your account keeps everything ' +
+              'it has already received; anything not yet sent is lost.',
+            ok: 'Sign out'
+          }, function (yes) {
+            if (!yes) return;
+            window.Store.signOutAccount().then(function () {
+              S.mySent = false;
+              mForgetDay();
+              mAccountMark();
+              mSyncStart();
+              renderMacros();
+              renderModal();
+            }, failed);
+          });
+          return;
         }
         renderModal();
         return;
