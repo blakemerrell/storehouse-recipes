@@ -1539,7 +1539,12 @@
   /* Over, in one place. The bar and the week strip both answer "is this day
      past its target" and used to answer it differently, which put a red
      square above a green bar about the same day. */
-  var MKCAL_OVER = 102;
+  /* Blake, on a week he felt had gone fine and a strip that said otherwise:
+     "widen the threshold for what the target is. ±125 cals, or possibly a
+     reasonable %?" A percentage, so it scales with the plan: 6.5% is 125
+     calories on his 1,910 and 90 on a 1,400 cut. The strip, the day's bars
+     and the pills all read this one number, so one verdict is one verdict. */
+  var MKCAL_OVER = 106.5;
 
   function mAhead(k) { return k > todayKey(); }
 
@@ -3532,12 +3537,18 @@
          overshoot: 151% of target fills the rail, and anything past that
          pins — by which point the colour has said everything the length
          could add. */
+      /* A bar now, not a square with a rail in it. Blake: "make the heat
+         map icons a pill bar chart for how the day did, subtle target line
+         and gradient blue to green to ochre" — and the gradient is what the
+         rail's comment above was reaching for: no cliff at all. The fill
+         rises through one gradient fixed to the track, blue at the foot,
+         green across the target line, ochre above it, so the colour at the
+         tip IS the distance, and a day at 104% is a green bar a hair past
+         the line rather than a red square. */
       var spark = '';
       if (got && tK) {
         var ratio = got / tK;
-        spark = '<span class="mwk-b" aria-hidden="true">' +
-            '<i style="width:' + Math.min(100, ratio * 100 * MWK_GOAL).toFixed(1) + '%"></i>' +
-          '</span><span class="mwk-g" aria-hidden="true"></span>';
+        spark = '<i style="height:' + Math.min(100, ratio * 100 * MWK_GOAL).toFixed(1) + '%"></i>';
       }
       out.push('<button class="mwk-d' + (dk === k ? ' now' : '') + state +
         (train ? ' train' : '') + (done ? ' done' : '') + '"' +
@@ -3547,7 +3558,12 @@
         (train ? ', training day' : '') + ', ' + tK + ' calorie target' +
         (got ? ', ' + got + (done ? ' eaten, all done' : ' on the day') : '') + '">' +
         '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) + '</span>' +
-        '<span class="mwk-n"><b>' + d.getDate() + '</b>' + spark + '</span>' +
+        /* The track and the target line are on every day, food or not, so
+           the seven lines read as one line across the week. */
+        '<span class="mwk-c" aria-hidden="true">' +
+          '<span class="mwk-b">' + spark + '</span><span class="mwk-g"></span>' +
+        '</span>' +
+        '<span class="mwk-n"><b>' + d.getDate() + '</b></span>' +
         '<span class="mwk-s">' + (word || '&nbsp;') + '</span>' +
       '</button>');
     }

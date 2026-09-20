@@ -1241,9 +1241,14 @@ module.exports = {
        question rather than naming the property: does the square look
        different at all. Pinning it to box-shadow is what made this fail the
        first time the answer moved to the background. */
+    /* Read off the BAR now: the square became a pill of a bar chart, and
+       what marks today is an ink edge on its track while a finished day is
+       a solid fill where an unfinished one is pale. */
     const paintOf = () => p.evaluate(() => {
-      const cs = getComputedStyle(document.querySelector('.mwk-d.now .mwk-n'));
-      return [cs.backgroundColor, cs.boxShadow, cs.color, cs.fontWeight].join(' | ');
+      const tr = getComputedStyle(document.querySelector('.mwk-d.now .mwk-b'));
+      const fill = document.querySelector('.mwk-d.now .mwk-b i');
+      return [tr.borderColor, tr.borderWidth, fill ? getComputedStyle(fill).opacity : 'no fill',
+        getComputedStyle(document.querySelector('.mwk-d.now .mwk-n')).fontWeight].join(' | ');
     });
     const ringBefore = await paintOf();
     await p.click('#macroSlots .mday-dot');
@@ -1258,8 +1263,8 @@ module.exports = {
     const ringAfter = await paintOf();
     t.ok('and today, done, looks different from today in progress',
       ringAfter !== ringBefore &&
-      // and it is still marked as the day you are on, either way
-      !/none/.test(ringAfter.split(' | ')[1]),
+      // and it is still marked as the day you are on, either way: the ink edge
+      parseFloat(ringAfter.split(' | ')[1]) >= 2 && parseFloat(ringBefore.split(' | ')[1]) >= 2,
       ringBefore + '\n   vs ' + ringAfter);
     t.ok('an empty day is never done, whatever the strip says of it',
       await p.evaluate(() => [...document.querySelectorAll('.mwk-d:not(.now)')]
@@ -6653,6 +6658,9 @@ module.exports = {
     await spk.waitForTimeout(450);
     await spk.click('.tab[data-view="macros"]');
     await spk.waitForTimeout(450);
+    /* Heights now, not widths: the rail became a bar standing in a chart
+       cell, with the target a hairline across the week. Everything below
+       is measured up from the track's foot. */
     const spkRead = await spk.evaluate(() => [...document.querySelectorAll('.mwk-d')].map((d) => {
       const fill = d.querySelector('.mwk-b i'), rail = d.querySelector('.mwk-b');
       const mark = d.querySelector('.mwk-g');
@@ -6663,10 +6671,10 @@ module.exports = {
         verdict: (d.className.match(/\b(under|on|over)\b/) || [''])[0],
         /* Measured in pixels, because a percentage is what the code wrote and
            pixels are what an eye is given. */
-        px: fill ? fill.getBoundingClientRect().width : null,
-        railPx: rail ? rail.getBoundingClientRect().width : null,
+        px: fill ? fill.getBoundingClientRect().height : null,
+        railPx: rail ? rail.getBoundingClientRect().height : null,
         markPx: (mark && rail)
-          ? mark.getBoundingClientRect().left - rail.getBoundingClientRect().left : null };
+          ? rail.getBoundingClientRect().bottom - mark.getBoundingClientRect().bottom : null };
     }));
     const spkFed = spkRead.filter((d) => d.pct > 0);
     t.ok('every day with food on it carries a rail, and the empty ones do not',
@@ -6703,7 +6711,7 @@ module.exports = {
     /* The mark is in the same place on all seven, so the week reads across as
        well as down — seven rails each scaled to their own day would be seven
        charts, not one. */
-    t.ok('and the mark sits at the same place on every square',
+    t.ok('and the target line sits at the same height on every bar',
       spkFed.every((d) => Math.abs(d.markPx - spkFed[0].markPx) <= 1),
       JSON.stringify(spkFed.map((d) => Math.round(d.markPx))));
 

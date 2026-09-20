@@ -46,6 +46,12 @@
   --dial-on-pale: oklch(0.74 0.065 145);
   --dial-over: oklch(0.55 0.14 45);
   --dial-over-pale: oklch(0.78 0.085 45);
+  /* The week's bars: blue at the foot, green across the target, ochre past
+     it. The blue is the one colour the page did not have; kept as muted as
+     the ochre so it sits on the paper rather than on top of it. */
+  --wk-lo: oklch(0.56 0.09 240);
+  --wk-on: var(--dial-on);
+  --wk-hi: var(--dial-over);
   /* Identity, not status. The letter beside a bar says WHICH macro; the bar
      itself says how you are doing on it. Two jobs, two channels — sharing
      one was what made a full green ring mean both "eaten" and "on target".
@@ -1956,67 +1962,66 @@ select { max-width: 280px; }
   font-size: 9px; letter-spacing: 0.06em; color: var(--muted); text-align: center;
 }
 .mwk-n {
-  height: 34px; border-radius: 8px; display: grid; place-items: center;
-  font-size: 12.5px; color: var(--muted-2); background: var(--paper-soft);
-  font-variant-numeric: tabular-nums;
-  /* the rail sits against the foot of the square, so both need this */
-  position: relative; overflow: hidden;
+  font-size: 12px; text-align: center; color: var(--muted-2);
+  font-variant-numeric: tabular-nums; line-height: 1;
 }
-/* The date lifts two pixels to leave the rail its own air, rather than being
-   centred in a box it no longer has to itself. */
-.mwk-n b { font-weight: inherit; position: relative; margin-bottom: 4px; }
-/* HOW FAR off, inside the square that already says WHICH SIDE.
- *
-   Ink on the pale fills, paper on the solid ones — the same pair the date
-   itself switches between, and the only one that stays legible against all
-   six verdict grounds plus the empty one. */
+.mwk-n b { font-weight: inherit; }
+/* The bar. A narrow pill of a track standing in a chart cell the width of
+   the column, and the fill rising in it from the foot. One gradient, fixed
+   to the track's height and anchored at its foot, is shared by every fill:
+   blue at the bottom, a band of green either side of the target line, ochre
+   above it — so the colour at the top of a fill is a reading of where the
+   day landed, with no threshold to fall off. Two thirds up is the target
+   (MWK_GOAL); the top third is for the overshoot, and 151% of target fills
+   the track. */
+.mwk-c { --mwk-h: 44px; position: relative; height: var(--mwk-h); }
 .mwk-b {
-  position: absolute; left: 4px; right: 4px; bottom: 4px; height: 3px;
-  border-radius: 999px; background: oklch(0 0 0 / 0.10); overflow: hidden;
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 16px;
+  transform: translateX(-50%); box-sizing: border-box;
+  border-radius: 999px; background: var(--paper-soft);
+  border: 1px solid var(--line-soft); overflow: hidden;
 }
-.mwk-b i { display: block; height: 100%; border-radius: 999px; background: oklch(0 0 0 / 0.40); }
-.mwk-d.done .mwk-b { background: oklch(1 0 0 / 0.28); }
-.mwk-d.done .mwk-b i { background: oklch(1 0 0 / 0.92); }
-/* Where the target is. Same place on all seven squares, so the week reads
-   across as well as down: a mark you can line your eye along beats seven
-   rails each scaled to their own day. */
+.mwk-b i {
+  position: absolute; left: 0; right: 0; bottom: 0; display: block;
+  /* Green from 91% to 106% of target — the same band the word uses — and
+     fully ochre by 130%, so an over day is ochre at the tip rather than a
+     greener green. */
+  background: linear-gradient(to top, var(--wk-lo) 0%, var(--wk-on) 60%, var(--wk-on) 70%, var(--wk-hi) 86%);
+  /* the padding box is the track less its two 1px edges */
+  background-size: 100% calc(var(--mwk-h) - 2px); background-position: left bottom;
+  background-repeat: no-repeat;
+}
+/* Pale while the day is still being eaten, solid once it is done: the fill
+   says how the day went and the weight of it says whether that is the final
+   word. */
+.mwk-d:not(.done) .mwk-b i { opacity: 0.5; }
+/* The target line: one hairline the width of the week, at the same height
+   in every cell, reaching two pixels past each cell to bridge the gaps so
+   the seven pieces read as one line. Subtle: it is a reference, not a
+   verdict. Sits at two thirds of the track's padding box, above the track's
+   bottom edge. */
 .mwk-g {
-  position: absolute; bottom: 2px; height: 7px; width: 1px;
-  left: calc(4px + (100% - 8px) * 0.66);
-  background: oklch(0 0 0 / 0.38);
+  position: absolute; left: -2px; right: -2px; height: 1px;
+  bottom: calc((var(--mwk-h) - 2px) * 0.66 + 1px);
+  background: oklch(0 0 0 / 0.26);
 }
-.mwk-d.done .mwk-g { background: oklch(1 0 0 / 0.75); }
-.mwk-d:not(:disabled):hover .mwk-n { filter: brightness(0.96); }
+.mwk-d:not(:disabled):hover .mwk-b { filter: brightness(0.97); }
 /* The word under today, and only under today — the legend, moved onto the
-   one square whose colour you already have a reason to look at. The empty
+   one bar whose colour you already have a reason to look at. The empty
    span on the other six holds the row's height steady so the strip does not
    jump a line when the day you are on changes verdict. */
 .mwk-s {
   font-size: 9px; line-height: 1; text-align: center; color: var(--muted);
   font-weight: 600; min-height: 9px;
 }
-/* The same three verdicts the bars use, so a week reads like a day. Pale
-   while the day is still being eaten, solid once it is done: the fill says
-   how the day went and the WEIGHT of it says whether that is the final
-   word. The number stays ink on the pale fills and paper on the solid ones,
-   which is the only pair that stays legible against all six. */
-.mwk-d.under .mwk-n { background: color-mix(in oklab, var(--dial-under) 22%, var(--paper-soft)); color: var(--ink); }
-.mwk-d.on .mwk-n { background: color-mix(in oklab, var(--dial-on) 22%, var(--paper-soft)); color: var(--ink); }
-.mwk-d.over .mwk-n { background: color-mix(in oklab, var(--dial-over) 22%, var(--paper-soft)); color: var(--ink); }
-.mwk-d.done.under .mwk-n { background: var(--dial-under); color: var(--paper); font-weight: 600; }
-.mwk-d.done.on .mwk-n { background: var(--dial-on); color: var(--paper); font-weight: 600; }
-.mwk-d.done.over .mwk-n { background: var(--dial-over); color: var(--paper); font-weight: 600; }
-/* Which day you are on outranks how it went, so it is said in ink and in a
-   shape none of the six can take: a ring drawn outside the block, with a
-   hair of paper between, so it reads as a ring rather than a thicker edge.
-   Inset so a full-bleed block at the end of the row cannot clip it. */
-.mwk-d.now .mwk-n {
-  box-shadow: 0 0 0 1.5px var(--paper) inset, 0 0 0 2px var(--ink);
-  font-weight: 600;
-}
-.mwk-d.now:not(.under):not(.on):not(.over) .mwk-n { background: var(--ink); color: var(--paper); }
-.mwk-d.now .mwk-w { color: var(--ink); font-weight: 600; }
-.mwk-d.now.under .mwk-s { color: var(--dial-under); }
+/* Which day you are on: an ink edge on the track and a bold date, the one
+   mark none of the fills can make. A done day's date goes bold too. */
+/* Two pixels, not one and a half: Chrome snaps a 1.5px border to one device
+   pixel on a 1× screen, and one ink pixel beside six pale ones is not a mark. */
+.mwk-d.now .mwk-b { border-color: var(--ink); border-width: 2px; }
+.mwk-d.now .mwk-n, .mwk-d.now .mwk-w { color: var(--ink); font-weight: 600; }
+.mwk-d.done .mwk-n { font-weight: 600; }
+.mwk-d.now.under .mwk-s { color: var(--wk-lo); }
 .mwk-d.now.on .mwk-s { color: var(--dial-on); }
 .mwk-d.now.over .mwk-s { color: var(--dial-over); }
 /* a training day earns more carbohydrate, and says so */
