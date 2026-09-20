@@ -9723,29 +9723,54 @@
      ⚖ is asking the machine to move things; answering "only my own" would be
      refusing the request. The rule is about what Fill may do UNASKED, not
      about the plates. */
+  /* What each open meal is asked for, as the solver prices it. Read once
+     before the descent — mMealAsk walks the day, and pen() runs once per
+     rung per plate per pass. Skipped-and-empty meals are not in play; a meal
+     with plates already eaten still has its ask, because the plates still
+     on it are what this is sizing.
+   *
+     `now`, not `plan`: what the meal is asked for once the day so far is
+     paid for, which is the figure on its pills. Priced at the plan share, a
+     dinner was pulled toward 533 while its pill asked 383 after a heavy
+     breakfast — the scale and the card disagreeing about one meal. `now`
+     reads only what has been EATEN, so it does not move while the plates
+     below are solved. */
+  function mMealWants(day, targets) {
+    var asks = [];
+    if (!MSHARE_W || kcalOf(targets) <= 0) return asks;
+    var slots0 = mReadSlots(), vk0 = mViewKey();
+    slots0.list.forEach(function (s0) {
+      if (mSkipped(vk0, s0.k) && !(day[s0.k] || []).length) return;
+      var a0 = mMealAsk(s0.k, targets, slots0);
+      var w0 = a0 && (a0.now || a0.plan);
+      if (w0 && w0.kcal > 0) asks.push({ k: s0.k, want: w0.kcal });
+    });
+    return asks;
+  }
+
   function mBalanceDay(day, targets, own) {
+    /* Walked in the meals' own order, never in the order the day object
+       happened to be built in. Coordinate descent visits one plate at a
+       time, so the order is part of the answer: the same three plates
+       solved forward and backward landed a day at 1,254 and at 1,322 kcal.
+       A pinned meal was inserted first, a hand-built day in tap order, a
+       synced day as it was stored — three roads in, three answers. */
+    var order = mReadSlots().list.map(function (s1) { return s1.k; });
+    Object.keys(day).forEach(function (sk) { if (order.indexOf(sk) < 0) order.push(sk); });
     var free = [];
-    Object.keys(day).forEach(function (sk) {
+    order.forEach(function (sk) {
       (day[sk] || []).forEach(function (it) {
         var r = BY_ID[it.id];
-        if (own && it.by !== 'f') return;
+        /* Asked to size only its own work, Fill's own work includes the
+           plate the family plan seeded — placed at ×1 by the machine on the
+           promise that the solver would size it, a promise this line used
+           to break. What a hand placed stays where the hand put it. */
+        if (own && it.by !== 'f' && it.by !== 'w') return;
         if (!it.eaten && !it.l && r && r.macro) free.push(it);
       });
     });
     if (!free.length) return;
-    /* Each open meal's ask, read once — pen() runs once per rung per plate
-       per pass, and mMealAsk walks the day. Skipped-and-empty meals are not
-       in play; a meal with plates already eaten still has its ask, because
-       the plates still on it are what this is sizing. */
-    var asks = [], dayK = kcalOf(targets);
-    if (MSHARE_W && dayK > 0) {
-      var slots0 = mReadSlots(), vk0 = mViewKey();
-      slots0.list.forEach(function (s0) {
-        if (mSkipped(vk0, s0.k) && !(day[s0.k] || []).length) return;
-        var a0 = mMealAsk(s0.k, targets, slots0);
-        if (a0 && a0.plan && a0.plan.kcal > 0) asks.push({ k: s0.k, want: a0.plan.kcal });
-      });
-    }
+    var asks = mMealWants(day, targets), dayK = kcalOf(targets);
     var pen = function () {
       var tot = mTotals(day);
       var s = 0;
@@ -12922,6 +12947,10 @@
        figures instead of re-deriving the arithmetic beside them. */
     plan: mPlanCalc,
     pace: mPaceFacts,
+    /* And what the solver prices each meal against, so a test can hold it
+       to the figure on the meal's own pills without re-running the descent
+       — which the day-level terms can win on their own. */
+    wants: function () { return mMealWants(mDay(mViewKey()), mDayTargets(mViewKey())); },
     /* The gauge's band rule, because it only bites in a narrow window and no
        arbitrary day's plates land in it — asked through the DOM the test
        passed with the rule removed. */

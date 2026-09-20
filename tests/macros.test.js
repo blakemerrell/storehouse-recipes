@@ -4388,6 +4388,110 @@ module.exports = {
       JSON.stringify(plateWords));
     await unitPg.context().close();
 
+    /* ---- Fill sizes the plate the family plan seeded ------------------------
+     *
+     * A dish on the week's plan for today arrives on the day at ×1 with a
+     * comment promising the solver will size it. Fill's solver was narrowed
+     * to its OWN plates — the right rule for what a hand placed — and the
+     * family plate was not one, so a 1,143-kcal dinner sat at ×1 on a
+     * 1,370-kcal day and the solver shrank Fill's own plates to pay for it. */
+    const famPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await famPg.evaluate(() => {
+      const wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
+      const r = window.RECIPES.find((q) => /pulled beef/i.test(q.name));
+      window.Store.addToDay(r.id, wd, 1);
+    });
+    await famPg.reload();
+    await famPg.waitForTimeout(400);
+    await famPg.click('.tab[data-view="macros"]');
+    await famPg.waitForTimeout(300);
+    await famPg.click('#macroFill');
+    await famPg.waitForTimeout(600);
+    const famPlate = await famPg.evaluate(() => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const day = days[Object.keys(days)[0]] || {};
+      let w = null;
+      Object.keys(day).forEach((k) => day[k].forEach((it) => { if (it.by === 'w') w = it; }));
+      const r = w && window.RECIPES.find((q) => q.id === w.id);
+      return w ? { x: w.x, kcal: r && Math.round(r.macro.kcal * w.x) } : null;
+    });
+    t.ok('Fill sizes the family plate along with its own',
+      !!famPlate && famPlate.x < 1 && famPlate.kcal < 900, JSON.stringify(famPlate));
+    await famPg.context().close();
+
+    /* ---- the solver prices a meal at the ask its pills show ----------------
+     *
+     * The share term priced each meal at its PLAN share while the meal's
+     * pills showed what the day so far still leaves it. After a breakfast
+     * that ate most of the day, dinner's pill asked a few hundred and the
+     * solver pulled the dinner plate toward its five hundred plan. */
+    const priceDayPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await priceDayPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const beef = window.RECIPES.find((q) => /pulled beef/i.test(q.name));
+      const plate = window.RECIPES.find((q) => /cold roast beef & pepper/i.test(q.name));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: beef.id, x: 0.75, eaten: 1 }],
+        d: [{ id: plate.id, x: 1, eaten: 0 }],
+      } }));
+    });
+    await priceDayPg.reload();
+    await priceDayPg.waitForTimeout(400);
+    await priceDayPg.click('.tab[data-view="macros"]');
+    await priceDayPg.waitForTimeout(300);
+    /* Read the price, not the landing: the day-level terms shrink a plate
+       after a breakfast like that on their own, so where the plate lands
+       proves nothing about which figure the share term used. The figure it
+       used is what the test holds to the pill. */
+    const priced = await priceDayPg.evaluate(() => {
+      const card = document.querySelector('[data-mdot="d"]').closest('.mslot');
+      const pill = Number(card.querySelector('.mmp.kc').dataset.want);
+      const want = (window.__macroLab.wants().find((a) => a.k === 'd') || {}).want;
+      const dayK = 4 * 180 + 4 * 50 + 9 * 50;
+      return { pill: pill, want: want && Math.round(want), planShare: Math.round(dayK * 0.39) };
+    });
+    t.ok('after a heavy breakfast the solver prices dinner at the ask on its pills, not its plan share',
+      priced.pill > 0 && priced.want === priced.pill && priced.pill < 0.8 * priced.planShare,
+      JSON.stringify(priced));
+    await priceDayPg.context().close();
+
+    /* ---- the answer does not depend on the order the day was built --------
+     *
+     * Coordinate descent visits one plate at a time, so the order it walks
+     * them in is part of the answer, and it walked them in the order the
+     * day object was built: a pinned meal first, a hand-built day in tap
+     * order, a synced day as stored. These three plates, solved forward and
+     * backward, landed at ×¼ / ×1 / ×¾ and at ×½ / ×1 / ×½. The solver walks
+     * the meals in their own order now, whatever road the day came in by. */
+    const ordered = [];
+    for (const keys of [['b', 'l', 'd'], ['d', 'l', 'b']]) {
+      const ordPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+      await ordPg.evaluate((ks) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const ids = { b: 150, l: 311, d: 195 };
+        const day = {};
+        ks.forEach((kk) => { day[kk] = [{ id: ids[kk], x: 1, eaten: 0 }]; });
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: day }));
+      }, keys);
+      await ordPg.reload();
+      await ordPg.waitForTimeout(400);
+      await ordPg.click('.tab[data-view="macros"]');
+      await ordPg.waitForTimeout(300);
+      ordered.push(await ordPg.evaluate(() => {
+        window.__macroLab.balance();
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = days[Object.keys(days)[0]];
+        return ['b', 'l', 'd'].map((kk) => day[kk][0].x).join('/');
+      }));
+      await ordPg.context().close();
+    }
+    t.ok('the same plates solve to the same portions whichever way the day was built',
+      ordered[0] === ordered[1], ordered.join(' vs '));
+
     /* ---- Balance solves against the share the card is printing ------------
      * The meal's pills say what the meal is owed; the ⚖ on the same card
      * solves the plates toward it. Those were two different sums: the pills
