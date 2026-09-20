@@ -238,7 +238,7 @@ app labels them as such. They have not been kitchen-tested.
 
 ### Recipes whose method differs from the printed book
 
-115 of the 225 carried-over recipes are cooked differently here than
+117 of the 225 carried-over recipes are cooked differently here than
 the book prints them. The app shows the corrected method and says nothing about
 the change; this table is the whole record of it.
 
@@ -347,6 +347,7 @@ the change; this table is the whole record of it.
 | 249 | Country Fried Chicken Breasts with Gravy | `Pan-fry in butter 5 mins per side until crispy.` | `Pan-fry in butter 5 mins per side until crispy. A crisp crust is not proof it is cooked. Check the thickest part reads 1…` |
 | 250 | Slow-Cooker Beef Stew Meat in Rich Tomato Sauce | `Place stewing beef, quartered potatoes, green beans, and tomato sauce in slow cooker.` | `Place the stewing beef, quartered potatoes and tomato sauce in the slow cooker. Keep the green beans out — they are cook…` |
 | 251 | Ultimate Family Taco & Nacho Grand Platter | `Top with seasoned ground beef, beans, corn, and cheese; melt under broiler 3 mins. Serve with salsa/sour cream.` | `Top with seasoned ground beef, beans, corn, and cheese; melt under broiler 3 mins. Serve with salsa/sour cream. Stir 2 t…` |
+| 254 | Warm Peach Cobbler | `Whisk pancake mix, sugar, butter, and milk into batter.` | `Whisk pancake mix, sugar, butter, and milk into batter. Sour cream or Greek yogurt in place of half the milk gives a sof…` |
 | 255 | Fudgy Chocolate Cake Bake | `Preheat oven to 350°F.` | `Heat the oven to 350°F and butter a 9x13 dish.` |
 | 256 | Golden Yellow Cake with Chocolate Frosting | `Preheat oven to 350°F.` | `Heat the oven to 350°F and butter a 9x13 dish.` |
 | 260 | Cinnamon Sugar Churro Bites | `Make thick pancake batter.` | `Whisk the pancake mix with the milk into a batter thick enough to hold its shape on a spoon — thicker than pancake batte…` |
@@ -359,6 +360,7 @@ the change; this table is the whole record of it.
 | 270 | Sweet Cinnamon Raisin Bread Pudding | `Preheat oven to 350°F.` | `Butter the baking dish and heat the oven to 350°F.` |
 | 271 | Chocolate Covered Banana Pops | `Melt cocoa powder, butter, and sugar into chocolate sauce.` | `Melt the butter in a small pan over low heat, then whisk in the sugar, the cocoa and the milk until it is glossy and pou…` |
 | 275 | Hot Fudge Cake Bowls | `Preheat oven to 350°F.` | `Heat the oven to 350°F. Butter a 9x13 dish.` |
+| 276 | Cinnamon Sugar Apple Fritter Bites | `Whisk pancake mix, milk, and diced apple.` | `Whisk pancake mix, milk, and diced apple. Two tablespoons of sour cream or Greek yogurt in the batter make the fritters …` |
 
 ### Coverage
 
