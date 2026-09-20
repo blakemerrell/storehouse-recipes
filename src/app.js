@@ -9450,6 +9450,32 @@
   var MNA_CAP = 2300;
   var MNA_W = 1.0;
 
+  /* What a meal landing away from its share costs the solver.
+   *
+     pen() priced four things — protein, fat, carbohydrate and salt — and all
+     four are day-level. Nothing in it said where the food should land, so a
+     day could put a seven-calorie plate on the last meal and a thousand on
+     dinner and score as a perfect day. On a plan shaped like Blake's, over
+     fourteen consecutive days, the evening snack came in at 0.59 of its share
+     and was a token on thirteen of them: a quarter of a churro and two bell
+     peppers, on a day that still finished two hundred under. Meals draft in
+     order, and by the last slot the asymmetric weights — over at 1.2, under
+     at 0.55 — make leaving calories on the table cheaper than overshooting.
+   *
+     Priced against the meal's own ask, read off mMealAsk so this and the
+     meal's pills agree about the same meal, and normalised on the day's
+     calories so a 150-kcal snack and an 800-kcal dinner get the same rule.
+     Symmetric, because a 90-kcal snack and a 1,000-kcal dinner are one fault
+     seen from either end.
+   *
+     One, measured on Blake's own plan over fourteen consecutive days rather
+     than on the bench, whose default profile is an extreme cut and whose
+     knee sat at two. On his plan two bought one fewer token evening than one
+     did and paid four grams of protein and twenty-five calories a day for it;
+     one took the evening snack from 0.59 of its share to 0.86, cleared every
+     oversized plate, and moved day accuracy by one calorie. */
+  var MSHARE_W = 1;
+
 
   /* `own` narrows the solver to the plates FILL ITSELF PUT THERE (`by:'f'`).
    *
@@ -9481,6 +9507,19 @@
       });
     });
     if (!free.length) return;
+    /* Each open meal's ask, read once — pen() runs once per rung per plate
+       per pass, and mMealAsk walks the day. Skipped-and-empty meals are not
+       in play; a meal with plates already eaten still has its ask, because
+       the plates still on it are what this is sizing. */
+    var asks = [], dayK = kcalOf(targets);
+    if (MSHARE_W && dayK > 0) {
+      var slots0 = mReadSlots(), vk0 = mViewKey();
+      slots0.list.forEach(function (s0) {
+        if (mSkipped(vk0, s0.k) && !(day[s0.k] || []).length) return;
+        var a0 = mMealAsk(s0.k, targets, slots0);
+        if (a0 && a0.plan && a0.plan.kcal > 0) asks.push({ k: s0.k, want: a0.plan.kcal });
+      });
+    }
     var pen = function () {
       var tot = mTotals(day);
       var s = 0;
@@ -9502,6 +9541,15 @@
          enough that a fourth serving of the salty thing loses to a third of
          something else. */
       s += MNA_W * Math.max(0, (tot.all.na || 0) - MNA_CAP) / MNA_CAP;
+      /* And where it lands. See MSHARE_W. */
+      for (var ai = 0; ai < asks.length; ai++) {
+        var kc = 0, items = day[asks[ai].k] || [];
+        for (var ii = 0; ii < items.length; ii++) {
+          var ri = BY_ID[items[ii].id];
+          if (ri && ri.macro) kc += (ri.macro.kcal || 0) * items[ii].x;
+        }
+        s += MSHARE_W * Math.abs(kc - asks[ai].want) / dayK;
+      }
       return s;
     };
     for (var pass = 0; pass < 3; pass++) {

@@ -10853,5 +10853,44 @@ module.exports = {
       }), JSON.stringify(heavy));
     await auPg.context().close();
     }
+
+    /* ---- the solver prices where food lands, not only how much ---------- */
+    /* Fill is random, so this pins mBalanceDay directly on a built day: a
+       dinner holding three servings of one dish beside an empty lunch. With
+       nothing pricing the meal shares, the balancer had no reason to move
+       calories from dinner to lunch — the day's totals are the same either
+       way — and on Blake's plan the last meal came in at 0.59 of its share as
+       a result. With the share term it does. Deterministic: no draw. */
+    { const shPg = await t.fresh();
+    const shWas = await shPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 62, c: 133 }));
+      const dish = window.RECIPES.find((r) => r.book === 2 && r.secNum === 3 && r.macro && r.macro.kcal > 350);
+      const lunch = window.RECIPES.find((r) => r.book === 2 && r.secNum === 2 && r.macro && r.macro.kcal > 300);
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [], l: [{ id: lunch.id, x: 0.5, eaten: 0, by: 'f' }],
+        d: [{ id: dish.id, x: 3, eaten: 0, by: 'f' }], s: [] } }));
+      return { dish: dish.id, lunch: lunch.id, k };
+    });
+    await shPg.reload();
+    await shPg.evaluate(() => document.fonts.ready);
+    await shPg.click('.tab[data-view="macros"]');
+    await shPg.waitForTimeout(300);
+    const shAfter = await shPg.evaluate((w) => {
+      window.__macroLab.balance();
+      const day = JSON.parse(localStorage.getItem('bsc.macroDays'))[w.k];
+      return { dinnerX: day.d[0].x, lunchX: day.l[0].x };
+    }, shWas);
+    /* The first of these holds with the share term zeroed — a day over its
+       target shrinks its biggest plate whatever prices the meals — so it is
+       the setting, not the evidence. The second is the evidence: with the
+       term at nought the lunch stays at half a serving, mutation-proved. */
+    t.ok('balancing a day over target brings the three-serving dinner down',
+      shAfter.dinnerX < 3, 'dinner ×' + shAfter.dinnerX);
+    t.ok('and the share term moves food onto the lunch beside it, not only off the dinner',
+      shAfter.lunchX > 0.5, 'lunch ×' + shAfter.lunchX);
+    await shPg.context().close(); }
   },
 };
