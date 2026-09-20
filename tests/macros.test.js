@@ -10995,6 +10995,15 @@ module.exports = {
       /* 145 g is 1.04 cups: the chip rounds to the eighth and says "1 cup" —
          the live site said "1 cups", plural by the unrounded number. */
       t.ok('and the chip still says one cup, not one cups', /^1 cup$/.test(c1.chip), JSON.stringify(c1));
+      /* And keeps moving. 145 of a 140 g cup is 1.0357 of it, which times
+         140 is 144.998 — one grid point short of the dial — and the second
+         tap landed on 145 again. Blake: "it stops at a number and won't go
+         past." Ten taps, fifty grams, on the one food he eats most. */
+      for (let i = 0; i < 9; i++) await gp.click('[data-mstep="l:0:up"]');
+      await gp.waitForTimeout(200);
+      const c10 = await row('l');
+      t.ok('and ten taps are fifty grams, not one tap and a wall',
+        parseInt(c10.dial, 10) === parseInt(c0.dial, 10) + 50, c0.dial + ' → ' + c10.dial + ' after ten taps');
       await gp.click('[data-mtype="l:0"]');
       await gp.waitForTimeout(100);
       await gp.fill('.mstep-in', '185');

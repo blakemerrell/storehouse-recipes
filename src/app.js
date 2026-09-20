@@ -3400,8 +3400,13 @@
        solver's ladder (mLadder) keeps stepping in the food's own unit, where
        a rung is a kitchen-sized move rather than a nudge. */
     if (mByGram(r)) {
-      var g = (Number(x) || 0) * mGramBase(r), st = MGRAM_STEP;
-      g = dir > 0 ? Math.floor(g / st + 1e-9) * st + st : Math.ceil(g / st - 1e-9) * st - st;
+      /* Whole grams first. x is kept to four decimals, and 145 g of a
+         140 g cup is 1.0357 of it — which times 140 is 144.998, one grid
+         point SHORT of where the dial says it is, so the next tap up landed
+         on 145 again and chicken breast stuck there for good. The dial
+         rounds to the gram; the step starts from the same number. */
+      var g = Math.round((Number(x) || 0) * mGramBase(r)), st = MGRAM_STEP;
+      g = dir > 0 ? Math.floor(g / st) * st + st : Math.ceil(g / st) * st - st;
       g = Math.max(st, g);
       return Math.round(g / mGramBase(r) * 10000) / 10000;
     }
