@@ -780,7 +780,7 @@ module.exports = [
       '3 tbsp milk'],
     steps: [
       'Heat the oven to 350°F.',
-      'Cream the 1.5 cups of butter with the sugar until light. Beat in the eggs and a teaspoon of the vanilla.',
+      'Cream the 1.5 cups of butter with the sugar until light. Beat in the eggs and a teaspoon of the vanilla. Half a cup of sour cream beaten in with the eggs, with a quarter cup more flour, makes a softer, cake-like cookie.',
       'Mix in the flour, baking powder and salt, only until it comes together.',
       'Scoop the dough into sixteen balls and set them well apart on trays. They spread.',
       'Dip the bottom of a drinking glass in sugar and press each ball flat, to about half an inch.',

@@ -1222,4 +1222,33 @@ module.exports = [
     step: 2, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
   { id: 200, extras: null, ing: ['1.5 lbs ground beef', '12 tortillas (baked crisp)', '1 can black beans', '1 can corn', '1.5 cups cheddar', 'salsa', 'sour cream', '2 tbsp taco seasoning (optional)'],
     step: 1, add: 'No packet in the house? {r:337} makes taco seasoning from seven pantry spices.' },
+
+  /* ---- sour cream, where it helps ---------------------------------------
+   * Blake, on his sister-in-law's pink cookies and his son's waffles: "why
+   * would she do that? They are delicious!" Sour cream is fat, acid and
+   * water in one spoon — a tender crumb, lift off the baking soda, a tang
+   * that cuts the sugar. It is on the storehouse order, and plain Greek
+   * yogurt does the same job with a third of the calories, so each note
+   * names both. The feast and treat sections; the pink cookie he asked
+   * about is an added recipe and carries its note in its own entry. A note
+   * on the mixing step, never a change to the list: the recipe is costed
+   * as written and the swap is the cook's to make. */
+  { id: 180, step: 2,
+    add: 'Sour cream for a quarter cup of the milk makes them softer and taller.' },
+  { id: 188, step: 2,
+    add: 'Sour cream or plain Greek yogurt in place of a quarter cup of the milk makes the topping softer and taller.' },
+  { id: 193, step: 1,
+    add: 'Sour cream or Greek yogurt for a quarter cup of the milk keeps the corn bread moist.' },
+  { id: 194, step: 3,
+    add: 'Half a cup of sour cream in the sauce gives it body and tang.' },
+  { id: 203, step: 2,
+    add: 'Sour cream or Greek yogurt in place of half the milk gives a softer, closer crumb.' },
+  { id: 204, step: 1,
+    add: 'Half a cup of sour cream or Greek yogurt in place of half a cup of that milk makes the cake softer and richer.' },
+  { id: 205, step: 1,
+    add: 'Sour cream or Greek yogurt for half the milk: a closer, softer crumb.' },
+  { id: 217, step: 0,
+    add: 'A quarter cup of sour cream or Greek yogurt in place of a quarter cup of the milk: crisper edges, softer middle.' },
+  { id: 225, step: 0,
+    add: 'Two tablespoons of sour cream or Greek yogurt in the batter make the fritters lighter and more tender.' },
 ];
