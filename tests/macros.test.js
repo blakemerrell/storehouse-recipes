@@ -52,7 +52,11 @@ async function openPlan(pg) {
 async function revealPlanFields(pg) {
   await pg.evaluate(() => {
     document.querySelectorAll('[data-mtwstep]').forEach((s) => { s.hidden = false; });
-    ['mtMealsWrap', 'mtSave'].forEach((id) => {
+    // and the wizard's folds — the pace rows, the training days, the gram boxes
+    document.querySelectorAll('.mt-sheet details').forEach((d) => { d.open = true; });
+    // the activity select is hidden behind three words on a first run; the
+    // tests that pick a multiplier off it are about the multiplier
+    ['mtMealsWrap', 'mtSave', 'mtAct'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.classList.remove('hide');
     });
@@ -3133,7 +3137,17 @@ module.exports = {
       }));
 
     /* And the last step finishes rather than leaving you to the x in the
-       corner: Next stands down, Done takes its place. */
+       corner: Next stands down, Done takes its place. Blake: "make the pick
+       my foods the next step, with a subtle I'm ready to just start now" —
+       so Next is the way on, and the Save on the plan step is the quiet
+       line under it. */
+    t.ok('and the plan step keeps Next, with the quiet start-now line as its Save',
+      await wiz.evaluate(() => {
+        const nx = document.querySelector('[data-mtw="next"]');
+        const sv = document.querySelector('[data-mtarg="save"]');
+        return !!nx && !nx.hidden && !!sv && sv.classList.contains('mtw-link') &&
+          /start now/i.test(sv.textContent);
+      }), await wiz.evaluate(() => (document.querySelector('[data-mtarg="save"]') || {}).textContent));
     await wiz.click('[data-mtw="next"]');
     await wiz.waitForTimeout(300);
     t.ok('the last step swaps Next for a Done',

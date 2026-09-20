@@ -1745,6 +1745,40 @@ select { max-width: 280px; }
 .mtw-for { font-size: 12.5px; color: var(--ink-soft); margin: 0; max-width: 44ch; }
 .mtw-nav { display: flex; gap: 8px; margin-top: 18px; }
 .mtw-nav .btn-primary { flex: 1; }
+/* The wizard's folds: a setting that is not a question sits behind one line
+   with a chevron, and opens in place. */
+.mt-fold { margin-top: 10px; border-top: 1px solid var(--line-soft); }
+.mt-fold > summary {
+  cursor: pointer; padding: 10px 0; font-size: 13px; font-weight: 600;
+  color: var(--ochre-text); list-style: none; display: flex;
+  justify-content: space-between; align-items: center;
+}
+.mt-fold > summary::-webkit-details-marker { display: none; }
+.mt-fold > summary::after { content: '\203a'; font-size: 18px; line-height: 1; transition: transform 0.15s; }
+.mt-fold[open] > summary::after { transform: rotate(90deg); }
+.mt-fold > summary:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .mt-fold > summary::after { transition: none; } }
+/* One fewer, one more: the number between two keys, thumb-sized. */
+.mt-stepper { display: inline-flex; align-items: center; gap: 4px; }
+.mt-stepper button {
+  width: 34px; height: 34px; border: 1px solid var(--line-firm); border-radius: 4px;
+  background: var(--card); font: inherit; font-size: 17px; line-height: 1; cursor: pointer; color: var(--ink);
+}
+.mt-stepper button:hover { background: var(--paper-soft); }
+.mt-stepper input { width: 44px; text-align: center; }
+.mtl-opt { color: var(--muted); font-weight: 400; }
+/* The three activity words fill their row. */
+.mtl-row.stack .mt-seg { display: flex; width: 100%; }
+.mtl-row.stack .mt-seg button { flex: 1; padding: 8px 4px; }
+/* The quiet way out of the plan step: a line under Next, not a second
+   button competing with it. It is the Save. */
+.mtw-link {
+  display: block; width: 100%; background: none; border: 0; font: inherit;
+  font-size: 13px; font-weight: 600; color: var(--muted-2); padding: 14px 0 0;
+  cursor: pointer; text-align: center; text-decoration: underline dotted;
+  text-underline-offset: 3px; text-decoration-color: var(--line-firm);
+}
+.mtw-link:hover { text-decoration: underline; }
 /* The four kinds, stacked so each one has room to say what it does. A row of
    four buttons fits four words and no explanation, which is how they stayed
    gym vocabulary for as long as they did. */
