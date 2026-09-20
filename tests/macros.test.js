@@ -675,7 +675,7 @@ module.exports = {
        a tap away behind the name. Asked how far to cut, Blake: all of it goes.
 
        What is asserted here is the half that was always the point: the unit
-       is named ON THE AMOUNT. "1 cup", not "×1". */
+       is named ON THE AMOUNT. "21 g" or "1 cup", not "×1". */
     t.ok('with its unit named on the amount, and no recipe pretending to be behind it',
       await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
@@ -9367,15 +9367,19 @@ module.exports = {
       await units.click('#macroOpenAll');
       await units.waitForTimeout(200);
     }
+    /* The cup is on the chip now and the weight on the dial — a food
+       measured by the cup is dialled by the gram — so the word the table
+       chose is read off the chip, and the dial is checked for the thing it
+       must not say. */
     const said = await units.evaluate(() => {
-      const x = document.querySelector('.mstep-x');
-      return x ? x.textContent.trim() : null;
+      const x = document.querySelector('.mstep-x'), u = document.querySelector('.mitem-uom');
+      return x ? { dial: x.textContent.trim(), chip: u ? u.textContent.trim() : '' } : null;
     });
     t.ok('the table states a portion for cheddar, and it is not a whole cheese',
       !!put && put.def && put.def !== 'each', JSON.stringify(put));
     t.ok('and the plate counts it in that, not in whole cheeses',
-      !!said && said.indexOf('whole') < 0 && said.indexOf(put.def) >= 0,
-      'the card says "' + said + '", the table says ' + (put && put.def));
+      !!said && said.dial.indexOf('whole') < 0 && said.chip.indexOf(put.def) >= 0,
+      'the card says ' + JSON.stringify(said) + ', the table says ' + (put && put.def));
     await units.context().close();
 
     /* ---- opening a day that was left scrolled ----------------------------
@@ -9538,21 +9542,29 @@ module.exports = {
         quieter: parseFloat(getComputedStyle(g).fontSize) <=
           parseFloat(getComputedStyle(mac).fontSize) };
     });
-    t.ok('a plate measured in cups also says what it weighs',
-      !!weighed && /\d+\s*g$/.test(weighed.text), JSON.stringify(weighed));
+    /* Turned around since: the weight is the number on the dial, because a
+       food measured by the cup is dialled by the gram, and the cup it came
+       in is the chip on the cost line. */
+    t.ok('a plate measured in cups is dialled by the gram',
+      !!weighed && /^\d+\s*g$/.test(weighed.portion), JSON.stringify(weighed));
+    t.ok('and the cup it came in is the chip beside it',
+      !!weighed && /cup/.test(weighed.text), JSON.stringify(weighed));
     t.ok('and it says it on the cost line, where the eye already is',
       !!weighed && weighed.sameLine, JSON.stringify(weighed));
     t.ok('and quieter than the cost, being how you measure it rather than what it costs',
       !!weighed && weighed.quieter, JSON.stringify(weighed));
-    /* And it follows the portion: doubling the plate doubles the weight. */
+    /* And a tap is at most five grams, to the next point on the five-gram
+       grid: a cup of cheddar is 113 g and goes to 115, not to 120. The chip
+       only moves when the weight crosses an eighth of a cup; the dial moves
+       every time. */
     await wg.click('#macroSlots [data-mstep$=":up"]');
     await wg.waitForTimeout(250);
-    t.ok('and the weight follows the portion rather than standing still',
+    t.ok('and a tap moves the weight up to the next five grams',
       await wg.evaluate((was) => {
-        const g = document.querySelector('#macroSlots .mitem-uom');
-        return !!g && g.textContent.trim() !== was;
-      }, weighed.text),
-      await wg.evaluate(() => (document.querySelector('#macroSlots .mitem-uom') || {}).textContent));
+        const x = document.querySelector('#macroSlots .mstep-x');
+        return !!x && parseInt(x.textContent, 10) === Math.floor(parseInt(was, 10) / 5) * 5 + 5;
+      }, weighed.portion),
+      weighed.portion + ' → ' + await wg.evaluate(() => (document.querySelector('#macroSlots .mstep-x') || {}).textContent));
     await wg.context().close();
 
     /* ---- typing a portion ------------------------------------------------
@@ -10892,5 +10904,81 @@ module.exports = {
     t.ok('and the share term moves food onto the lunch beside it, not only off the dinner',
       shAfter.lunchX > 0.5, 'lunch ×' + shAfter.lunchX);
     await shPg.context().close(); }
+
+    /* Dialled by the gram.
+     *
+       Blake weighs, and asked for it outright: "adjust grams with the +/-
+       and show the serving size where the grams are being shown now." A food
+       measured by the cup or the spoon shows its weight on the dial and its
+       kitchen unit on the chip; a tap moves five grams; typing types grams.
+       A food that comes in ones — an egg — still counts in ones. */
+    {
+      const gp = await t.fresh();
+      await gp.click('.tab[data-view="macros"]');
+      await gp.waitForTimeout(300);
+      const cup = await gp.evaluate(() => {
+        const r = window.__macroLab.foods().find((f) => /chicken breast/i.test(f.name));
+        const egg = window.__macroLab.foods().find((f) => f.unit === 'each' && /^eggs?$/i.test(f.name));
+        return { id: r && r.id, grams: r && r.grams, unit: r && r.unit, egg: egg && egg.id };
+      });
+      t.ok('chicken breast is a cup in the table', cup.unit === 'cup' && cup.grams > 0, JSON.stringify(cup));
+      await gp.evaluate(([id, egg]) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+          b: [{ id: egg, x: 2, eaten: 0 }], l: [{ id: id, x: 1, eaten: 0 }], d: [], s: [] } }));
+      }, [cup.id, cup.egg]);
+      await gp.reload();
+      await gp.click('.tab[data-view="macros"]');
+      await gp.waitForTimeout(400);
+      /* One fold at a time: a click redraws the card, and the rest of a list
+         taken before the click are elements that are no longer on the page. */
+      for (let i = 0; i < 8; i++) {
+        const more = await gp.evaluate(() => {
+          const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
+          if (b) b.click();
+          return !!b;
+        });
+        await gp.waitForTimeout(200);
+        if (!more) break;
+      }
+      /* Opening one meal folds the others, so a row is read with its meal
+         opened first. */
+      const row = async (slot) => {
+        await gp.evaluate((s) => {
+          const b = document.querySelector('#macroSlots [data-mfold="' + s + '"][aria-expanded="false"]');
+          if (b) b.click();
+        }, slot);
+        await gp.waitForTimeout(200);
+        return gp.evaluate((s) => {
+          const it = document.querySelector('[data-meat^="' + s + ':0"]').closest('.mitem');
+          return { dial: it.querySelector('.mstep-x').textContent.trim(),
+            chip: (it.querySelector('.mitem-uom') || {}).textContent || '' };
+        }, slot);
+      };
+      const c0 = await row('l');
+      t.ok('a cup of chicken shows its weight on the dial', /^\d+ g$/.test(c0.dial), JSON.stringify(c0));
+      t.ok('and the cup on the chip', /1 cup/.test(c0.chip), JSON.stringify(c0));
+      await gp.click('[data-mstep="l:0:up"]');
+      await gp.waitForTimeout(150);
+      const c1 = await row('l');
+      t.ok('a tap moves it five grams', parseInt(c1.dial, 10) === parseInt(c0.dial, 10) + 5, c0.dial + ' → ' + c1.dial);
+      await gp.click('[data-mtype="l:0"]');
+      await gp.waitForTimeout(100);
+      await gp.fill('.mstep-in', '185');
+      await gp.press('.mstep-in', 'Enter');
+      await gp.waitForTimeout(200);
+      const c2 = await row('l');
+      const stored = await gp.evaluate(() => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        return days[Object.keys(days)[0]].l[0].x;
+      });
+      t.ok('typing 185 is a hundred and eighty-five grams', c2.dial === '185 g', JSON.stringify(c2));
+      t.ok('stored as a share of the cup, not as servings', Math.abs(stored * cup.grams - 185) < 0.6, stored + ' × ' + cup.grams);
+      const e0 = await row('b');
+      t.ok('but an egg still counts in ones', /^2 whole$/.test(e0.dial) && /\d+ g/.test(e0.chip), JSON.stringify(e0));
+      await gp.context().close();
+    }
   },
 };

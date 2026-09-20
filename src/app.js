@@ -3311,6 +3311,34 @@
     bar: 1, cookie: 1, cracker: 1, chip: 1, wrap: 1, tortilla: 1, link: 1,
     patty: 1, scoop: 1, packet: 1, can: 1, bag: 1 };
 
+  /* Dialled by the gram, or counted in ones.
+   *
+     Blake weighs: "sometimes it's just easier for me to measure the food on
+     a scale than using cups" — and then, of the dial, "adjust grams with the
+     +/- and show the serving size where the grams are being shown now." So a
+     food measured by the cup, the spoon, the ounce or the pound is dialled by
+     the gram: the weight is the number on the stepper, and the unit it came
+     in is the chip beside it — the old arrangement turned around. A food
+     that comes in ones — an egg, a slice, a nut, a bar — still counts in
+     ones with its weight on the chip, because nobody weighs an egg. A food
+     you typed yourself has no weight to dial. */
+  var MGRAM_STEP = 5;
+  function mByGram(r) {
+    if (!r || !r.food) return false;
+    var unit = String(mUnitWord(r) || '').toLowerCase();
+    /* A food you typed yourself in grams has no weight per unit and needs
+       none: its unit IS the gram (mGramBase says a hundred of them). */
+    if (unit === 'g') return true;
+    return !!r.grams && !MSTEP_COUNT[unit];
+  }
+  /* What the number on the dial is counted in: grams, or the food's own
+     unit with "each" said as "whole". */
+  function mDialUnit(r) {
+    if (mByGram(r)) return 'g';
+    var u = mUnitWord(r);
+    return u === 'each' ? 'whole' : u;
+  }
+
   function mStepRule(r) {
     /* A dish keeps a ceiling, because x means MULTIPLES OF A SERVING there
        and the recipe panel has scaled one a quarter to eight times since the
@@ -3365,6 +3393,18 @@
   /* One step, in whichever direction, under that rule. Shared because the two
      steppers that need it were already two copies of one line. */
   function mStepX(r, x, dir) {
+    /* Five grams a tap, on the five-gram grid, never below five. A weight
+       that arrives off the grid — 113 g, a cup of cheddar the solver sized —
+       goes to the NEXT grid point in the direction pressed (115, then 120),
+       so no tap ever moves more than five grams. Only the hand dial: the
+       solver's ladder (mLadder) keeps stepping in the food's own unit, where
+       a rung is a kitchen-sized move rather than a nudge. */
+    if (mByGram(r)) {
+      var g = (Number(x) || 0) * mGramBase(r), st = MGRAM_STEP;
+      g = dir > 0 ? Math.floor(g / st + 1e-9) * st + st : Math.ceil(g / st - 1e-9) * st - st;
+      g = Math.max(st, g);
+      return Math.round(g / mGramBase(r) * 10000) / 10000;
+    }
     var rule = mStepRule(r);
     var next = (Number(x) || 0) + (dir > 0 ? rule.step : -rule.step);
     /* Land back on the grid when a portion arrives off it — a food solved to
@@ -3385,14 +3425,12 @@
   function mGramBase(r) { return (r && r.grams) || 100; }
 
   function mTypedFromX(r, x) {
-    var n = String(mUnitWord(r) || '').toLowerCase() === 'g'
-      ? (Number(x) || 0) * mGramBase(r) : (Number(x) || 0);
+    var n = mByGram(r) ? (Number(x) || 0) * mGramBase(r) : (Number(x) || 0);
     return Math.round(n * 100) / 100;
   }
 
   function mXFromTyped(r, n) {
-    var v = String(mUnitWord(r) || '').toLowerCase() === 'g'
-      ? (Number(n) || 0) / mGramBase(r) : (Number(n) || 0);
+    var v = mByGram(r) ? (Number(n) || 0) / mGramBase(r) : (Number(n) || 0);
     /* The only bound left, and it is arithmetic rather than policy: a portion
        has to be a positive, finite number or every figure downstream of it is
        NaN. There is no ceiling — see mStepRule. */
@@ -3404,6 +3442,9 @@
     var unit = mUnitWord(r);
     var grams = r.grams ? Math.round(r.grams * x) : 0;
     if (unit === 'g') return { head: (grams || Math.round(100 * x)) + ' g', detail: '' };
+    /* The chip is the weight said in the kitchen's word, to the nearest
+       eighth: 145 g of chicken is "1 cup", 21 g of peanut butter "1⅜ tbsp". */
+    if (mByGram(r)) return { head: grams + ' g', detail: fmtNum(x) + ' ' + fixUnit(unit, x) };
     var head = unit === 'each' ? fmtNum(x) + ' whole'
       : fmtNum(x) + ' ' + (r.food ? fixUnit(unit, x) : mFixNoun(unit, x));
     if (r.parts && r.parts.length) {
@@ -3866,9 +3907,9 @@
                 ? '<span class="mstep-x mitem-amt mitem-typing">' +
                     '<input class="mstep-in" type="text" inputmode="decimal" ' +
                       'autocomplete="off" data-mtypein="' + tag + '" ' +
-                      'aria-label="Portion, in ' + esc(mUnitWord(r)) + '" ' +
+                      'aria-label="Portion, in ' + esc(mDialUnit(r)) + '" ' +
                       'value="' + esc(String(mTypedFromX(r, it.x))) + '">' +
-                    '<i>' + esc(mUnitWord(r) === 'each' ? 'whole' : mUnitWord(r)) + '</i>' +
+                    '<i>' + esc(mDialUnit(r)) + '</i>' +
                   '</span>'
                 : it.eaten && S.mEdit !== tag
                 ? '<button class="mstep-x mitem-amt mstep-wake" data-medit="' + tag +
