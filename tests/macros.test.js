@@ -1903,7 +1903,6 @@ module.exports = {
         return !!k && /^act:\d+$/.test(h[k]);
       }),
       await q.evaluate(() => localStorage.getItem('bsc.macroHush')));
-
     await q.evaluate(() => {
       const h = JSON.parse(localStorage.getItem('bsc.macroHush'));
       const k = Object.keys(h)[0];
@@ -1919,6 +1918,37 @@ module.exports = {
     await q.evaluate(() => localStorage.removeItem('bsc.macroHush'));
     await q.reload();
     await q.waitForTimeout(500);
+
+    /* ---- and the other button has to be SEEN to work -------------------
+     *
+     * "Eat 1,846" wrote the targets and redrew the card, and the card —
+     * computed from the scale alone — came back word for word with the same
+     * button on it. Blake: "I hit eat it but nothing happened." It had.
+     * Once the plan already eats what the card would ask, the card says so
+     * and stops asking. */
+    const targetsBefore = await q.evaluate(() => localStorage.getItem('bsc.macroTargets'));
+    const eatBtn = await q.$('.mline.act [data-mline^="mline:eat"]');
+    t.ok('the pace card is back with an Eat button once the refusal is forgotten', !!eatBtn);
+    const askedFor = await q.evaluate(() =>
+      Number((document.querySelector('.mline.act [data-mline^="mline:eat"]').dataset.mline.split(':')[2])));
+    await q.click('.mline.act [data-mline^="mline:eat"]');
+    await q.waitForTimeout(300);
+    const took = await q.evaluate(() => {
+      const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+      const kcal = 4 * t2.p + 4 * t2.c + 9 * t2.f;
+      const line = document.querySelector('.mline');
+      return { kcal, text: line ? line.textContent.replace(/\s+/g, ' ').trim() : '',
+        stillAsking: !!document.querySelector('[data-mline^="mline:eat"]') };
+    });
+    t.ok('pressing Eat writes the number into the plan', Math.abs(took.kcal - askedFor) <= 5,
+      took.kcal + ' vs ' + askedFor);
+    t.ok('and the card says it is being eaten, instead of asking again',
+      !took.stillAsking && new RegExp('Eating ' + askedFor.toLocaleString()).test(took.text), took.text.slice(0, 120));
+    /* and put the plan back the way it was, for everything downstream */
+    await q.evaluate((tb) => localStorage.setItem('bsc.macroTargets', tb), targetsBefore);
+    await q.reload();
+    await q.waitForTimeout(500);
+
 
 
     // ---- a favorite never ranks worse for being loved, and wears its star

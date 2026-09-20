@@ -2688,6 +2688,25 @@
        1,667 is the app appearing to ignore you, so it says which it means. */
     var cyc = mTrainDays().length > 0 && mTrainDays().length < 7 ? ' a day on average' : '';
 
+    /* The number already taken. Pressing "Eat 1,846" wrote the targets and
+       redrew the card — and the card, computed from the scale alone, came
+       back word for word with the same button. Blake: "I hit eat it but
+       nothing happened." It had; nothing said so. Once the plan already eats
+       what the card would ask, there is no decision left, so the card says
+       what is being done and stops asking. */
+    var eating = need !== null && kcalOf(mReadTargets()) > 0 &&
+      Math.abs(kcalOf(mReadTargets()) - need) <= 5;
+    if (off > band && eating) {
+      return mLineHTML('calm', '\u25B2',
+        '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + Math.abs(daysOff) + ' days behind pace' +
+        (capped ? ' \u2014 as low as this goes, so the date is what moves.' : ' \u2014 this is the number that lands on time.'),
+        (arrive ? 'At this rate you arrive ' + arrive + '.' : ''), null);
+    }
+    if (off < -band && eating) {
+      return mLineHTML('calm', '\u25BC',
+        '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + Math.abs(daysOff) + ' days ahead of pace, and still arriving on time.',
+        rateWord ? rateWord + '.' : '', null);
+    }
     if (off > band) {
       if (mHushed(k, 'act:' + need)) return '';
       return mLineHTML('act', '\u25B2',
