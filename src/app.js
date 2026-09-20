@@ -11401,6 +11401,12 @@
     if (!st || !sec || !tb) return;
     var on = S.view === 'browse' &&
       st.getBoundingClientRect().top <= tb.getBoundingClientRect().bottom + 1;
+    /* Not out from under a typing thumb. Three letters into "horchata" the
+       list is one card, the page is back at the top, and the rail is no
+       longer pinned — but the box being typed into is on the strip, and
+       hiding it there closes the keyboard mid-word. It stays while the box
+       has focus and goes on the blur. */
+    if (S.view === 'browse' && document.activeElement === $('searchStrip')) on = true;
     if (on === sec.classList.contains('stripped')) return;
     sec.classList.toggle('stripped', on);
     st.setAttribute('aria-hidden', on ? 'false' : 'true');
@@ -13077,6 +13083,7 @@
     $('searchStrip').addEventListener('input', function () {
       S.qy = this.value; $('search').value = this.value; renderBrowse();
     });
+    $('searchStrip').addEventListener('blur', syncStrip);
     $('filtBtn').addEventListener('click', function () { filtersPop(!S.filtPop); });
     $('filtersDone').addEventListener('click', function () { filtersPop(false); });
     $('brwScrim').addEventListener('click', function () { filtersPop(false); });

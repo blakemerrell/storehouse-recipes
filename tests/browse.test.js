@@ -544,7 +544,19 @@ module.exports = {
       const echoed = await sp.inputValue('#search');
       t.ok('typing in the strip searches the collection', hits > 0 && hits < 100, hits + ' cards');
       t.ok('and the box at the top says the same thing', echoed === 'chicken', echoed);
-      await sp.fill('#searchStrip', '');
+      /* One card is not enough page to keep the rail pinned, and the first
+         build hid the strip the moment that happened — out from under the
+         thumb typing into it, keyboard and all. */
+      await sp.fill('#searchStrip', 'horchata');
+      await sp.waitForTimeout(200);
+      const oneCard = await sp.evaluate(() => ({ cards: document.querySelectorAll('.card').length,
+        y: window.scrollY, focused: document.activeElement === document.getElementById('searchStrip') }));
+      t.ok('a search that leaves one card keeps the strip while you are typing into it',
+        oneCard.cards === 1 && oneCard.focused && await on(), JSON.stringify(oneCard));
+      await sp.evaluate(() => document.getElementById('searchStrip').blur());
+      await sp.waitForTimeout(150);
+      t.ok('and lets it go once you leave the box', !(await on()));
+      await sp.fill('#search', '');
       await sp.waitForTimeout(200);
 
       await sp.evaluate(() => window.scrollTo(0, 1600));
