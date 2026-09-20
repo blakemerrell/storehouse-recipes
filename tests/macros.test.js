@@ -4388,6 +4388,39 @@ module.exports = {
       JSON.stringify(plateWords));
     await unitPg.context().close();
 
+    /* ---- the sheet a plate opens cooks the plate ---------------------------
+     *
+     * mCookScale snapped the batch fraction to an eighth, which is exact
+     * only when the yield is 1, 2, 4 or 8. One plate of a six-serving dish
+     * opened at ⅛ and made three quarters of a serving; one and three
+     * quarters of a twelve-serving sauce opened at ⅛ and made a serving and
+     * a half. The sheet said "at ×⅛" over both. Now the factor is the true
+     * one and the sheet says the portion in servings. */
+    const cooked = [];
+    /* fmtNum spaces a fraction off its whole number — "1 ¾", not "1¾" —
+       which is what the sheet has always printed beside quantities. */
+    for (const seed of [{ id: 91, x: 1, want: /for 1 serving\b/ }, { id: 264, x: 1.75, want: /for 1\s*¾ servings/ }]) {
+      const cookPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+      await cookPg.evaluate((sd) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { l: [{ id: sd.id, x: sd.x, eaten: 0 }] } }));
+      }, seed);
+      await cookPg.reload();
+      await cookPg.waitForTimeout(400);
+      await cookPg.click('.tab[data-view="macros"]');
+      await cookPg.waitForTimeout(300);
+      await openDay(cookPg);
+      await cookPg.click('.mitem [data-open="' + seed.id + '"]');
+      await cookPg.waitForTimeout(300);
+      const label = await cookPg.evaluate(() => (document.querySelector('.addto-x') || {}).textContent || '(no label)');
+      cooked.push({ id: seed.id, x: seed.x, label, ok: seed.want.test(label) && !/⅛/.test(label) });
+      await cookPg.context().close();
+    }
+    t.ok('a sheet opened from a plate makes the plate, and says so in servings',
+      cooked.every((c) => c.ok), JSON.stringify(cooked));
+
     /* ---- Fill sizes the plate the family plan seeded ------------------------
      *
      * A dish on the week's plan for today arrives on the day at ×1 with a

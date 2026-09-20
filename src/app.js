@@ -9326,11 +9326,29 @@
   }
 
   /* The batch that makes exactly your portion: your servings over the
-     recipe's, snapped to the eighths the quantities print in. ×2½ of a
-     one-jar shake is 2½ jars; two plates of a four-plate roast is half
-     the roast. */
+     recipe's. ×2½ of a one-jar shake is 2½ jars; two plates of a four-plate
+     roast is half the roast; one plate of a six-serving bake is a sixth.
+   *
+     This used to snap to the eighths the quantities print in, which is
+     exact only when the yield is 1, 2, 4 or 8: a sixth became an eighth,
+     so one plate of a six-serving dish opened a sheet that made three
+     quarters of it, and a twelfth became an eighth and made one and a half.
+     A hundred and nine recipes yield something else. The quantities still
+     print in eighths — each one is rounded where it is printed — but the
+     factor between them is the true one, and the sheet says the portion
+     in servings rather than a fraction that was never quite right. */
   function mCookScale(x, servN) {
-    return Math.max(0.125, Math.round(x / (servN || 1) * 8) / 8);
+    return Math.max(0.05, x / (servN || 1));
+  }
+
+  /* What the sheet calls its scale. A factor the dial can reach — a half,
+     a double, an eighth — is said as one; a factor that came from a plate
+     is said as the servings it makes, which is what it was asked for. */
+  function mScaleWords(f, r) {
+    var eighth = Math.abs(f * 8 - Math.round(f * 8)) < 1e-9;
+    if (eighth) return null;
+    var n = f * ((r && r.servN) || 1);
+    return 'for ' + fmtNum(n) + (Math.abs(n - 1) < 1e-9 ? ' serving' : ' servings');
   }
 
   /* Draft the empty meals in one press. Slots fill in day order, each seeing
@@ -12411,7 +12429,7 @@
     /* fmtNum for every size, not just the halves: a recipe opened from the
        Macros day can arrive at 2½× or ⅝×, and "2.5×" beside quantities
        printed in fraction glyphs read as two different apps. */
-    var scaleLabel = fmtNum(f) + '×';
+    var scaleLabel = mScaleWords(f, r) || (fmtNum(f) + '×');
 
     root.innerHTML = '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(r.name) + '">' +
@@ -12492,7 +12510,7 @@
                 '" aria-pressed="' + on + '">' + d[2] + '</button>';
             }).join('') +
           '</div>' +
-          (f !== 1 ? '<span class="addto addto-x">at &times;' + fmtNum(f) + '</span>' : '') +
+          (f !== 1 ? '<span class="addto addto-x">' + (mScaleWords(f, r) || ('at &times;' + fmtNum(f))) + '</span>' : '') +
         '</div></div>' +
       '</div></div>';
 
@@ -14093,7 +14111,10 @@
 
       var sc = e.target.closest('[data-scale]');
       if (sc) {
-        S.scale = sc.dataset.scale === 'up' ? Math.min(8, S.scale * 2) : Math.max(0.25, S.scale / 2);
+        /* Halving stops at a quarter, but a sheet that arrived below that
+           from a plate must not go UP on the minus key: it stays. */
+        S.scale = sc.dataset.scale === 'up' ? Math.min(8, S.scale * 2)
+          : Math.max(Math.min(0.25, S.scale), S.scale / 2);
         renderModal();
         return;
       }
