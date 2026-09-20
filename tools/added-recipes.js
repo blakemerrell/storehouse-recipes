@@ -82,6 +82,33 @@ const DRINKS = 'Warm Drinks';
 const MADE = 'Made, Not Bought';
 
 module.exports = [
+  /* ---- Simple Family Treats & Desserts ---------------------------------
+   *
+   * Blake's sister-in-law's cookie, from her own handwritten card. A pint of
+   * sour cream is the whole point of it: it is what makes the crumb cakey
+   * rather than short, and the soda is in there to answer its acid. That is
+   * a different cookie from the pressed sugar cookie at {r:328}, which is
+   * why it is here under its own name instead of as a note on that one. */
+  {
+    id: 341, book: 2, secNum: 5, secName: 'Simple Family Treats & Desserts',
+    name: 'Mandie’s Sour Cream Sugar Cookies',
+    servings: '48 Servings (1 Cookie)', servN: 48,
+    ing: ['1 cup butter', '2 cups sugar', '2 eggs', '2 cups sour cream',
+      '2 tsp vanilla', '2 tsp baking soda', '1 tsp salt', '6½ cups white flour',
+      '½ cup butter', '4 cups powdered sugar', '¼ cup milk', '1 tsp vanilla'],
+    steps: [
+      'Heat the oven to 350°F.',
+      'Cream the 1 cup of butter with the sugar until light. Beat in the eggs and 2 teaspoons of the vanilla.',
+      'Beat in the sour cream, the soda and the salt. The batter will look loose at this stage, and it is meant to.',
+      'Work in 4 cups of the flour, then the last 2½ cups a cup at a time, until the dough is soft and just holds together. It stays softer than a dough you would roll.',
+      'Drop rounded spoonfuls onto trays, well apart. They spread.',
+      'Bake 8 to 10 minutes. They are done when the tops are set and dry to a light touch and the edges have barely coloured. Browned, they are overbaked.',
+      'Cool them a minute on the tray, then move them to a rack to cool through. Frosting a warm one slides it off.',
+      'Beat the ½ cup of butter with the powdered sugar, the milk and the last teaspoon of vanilla until smooth and light. Frost the cookies cold. A drop of food colouring stirred into the frosting is what makes them pink.',
+    ],
+    macro: null, tagline: 'Frosted Pink', score: null, sc: null,
+    diff: 'Medium', time: '45 mins', extras: null,
+  },
   {
     id: 226, book: 2, secNum: 6, secName: SECTION,
     name: 'Everyday White Bread',
