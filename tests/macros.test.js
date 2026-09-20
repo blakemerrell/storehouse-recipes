@@ -4350,6 +4350,44 @@ module.exports = {
       JSON.stringify({ before: kf, after: anchored }));
     await anchorPg.context().close();
 
+    /* ---- the word beside the amount is the serving's word ----------------
+     *
+     * The word came off the servings line — its last word before the
+     * parenthesis — on the assumption that the number in front was the
+     * serving count. On "8 Pancakes (4 Servings)" a plate at ×1 read "1
+     * pancake" and charged two; on "2 Loaves (24 Slices)" a slice read "1
+     * loaf". Three plates: the pancakes, the bread, and a line that always
+     * led with its count, so the ordinary word still comes through. */
+    const unitPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await unitPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 340, x: 1, eaten: 0 }, { id: 226, x: 1, eaten: 0 }, { id: 91, x: 1, eaten: 0 }],
+      } }));
+    });
+    await unitPg.reload();
+    await unitPg.waitForTimeout(400);
+    await unitPg.click('.tab[data-view="macros"]');
+    await unitPg.waitForTimeout(300);
+    await openDay(unitPg);
+    const plateWords = await unitPg.evaluate(() => {
+      const out = {};
+      document.querySelectorAll('.mitem').forEach((row) => {
+        const b = row.querySelector('[data-open]');
+        const x = row.querySelector('.mstep-x');
+        if (b && x) out[String(b.dataset.open)] = x.textContent.trim();
+      });
+      return out;
+    });
+    t.ok('a plate is counted in servings, slices and bites — never in the yield’s word',
+      /serving/.test(plateWords['340'] || '') && !/pancake/.test(plateWords['340'] || '') &&
+        /slice/.test(plateWords['226'] || '') && !/loa/.test(plateWords['226'] || '') &&
+        /bite/.test(plateWords['91'] || ''),
+      JSON.stringify(plateWords));
+    await unitPg.context().close();
+
     /* ---- Balance solves against the share the card is printing ------------
      * The meal's pills say what the meal is owed; the ⚖ on the same card
      * solves the plates toward it. Those were two different sums: the pills

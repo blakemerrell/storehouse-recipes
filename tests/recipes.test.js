@@ -768,6 +768,23 @@ module.exports = {
       proof.spared === 0, proof.spared + ' false positives');
 
 
+    /* ----------------------------------------- the count in front is the count
+     *
+     * Eleven lines led with the YIELD — "8 Pancakes (4 Servings)", "About 1
+     * Cup (8 Servings)" — and two readers took the number in front for the
+     * serving count: My Day named a plate "1 pancake" and charged two, and
+     * the editor rebuilt servN from it, so opening the BBQ sauce to fix a
+     * comma and saving would have made it one serving of twelve. The line
+     * leads with the count now, and this holds it there. */
+    const leads = await p.evaluate(() => window.RECIPES
+      .filter((r) => r.book === 1 || r.book === 2)
+      .map((r) => ({ no: r.no, name: r.name, servings: r.servings, servN: r.servN,
+        lead: parseFloat(String(r.servings || '').replace(/^\s*about\s+/i, '')) }))
+      .filter((r) => !(r.lead > 0) || Math.abs(r.lead - r.servN) > 0.01)
+      .map((r) => r.no + ' ' + r.name + ' "' + r.servings + '" servN ' + r.servN));
+    t.ok('every servings line leads with the number of servings it counts',
+      leads.length === 0, leads.slice(0, 6).join(' | '));
+
     /* ------------------------------------------------ the note and the meat
      *
      * The second time a pass of technique notes went wrong it went wrong in

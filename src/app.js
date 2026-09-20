@@ -3336,6 +3336,14 @@
      outright. */
   function mUnitWord(r) {
     if (r.food) return String(r.unit || 'serving');
+    /* The word is only the serving's word when the count in front of it IS
+       the serving count. "8 Pancakes (4 Servings)" named a plate "1 pancake"
+       and charged two; "About 1 Cup (8 Servings)" of syrup read "1 cup" for
+       an eighth of one. The book's lines lead with the count now, and a line
+       that does not — an own recipe reading "Makes a dozen" — gets the plain
+       word rather than a wrong one. */
+    var lead = parseFloat(String(r.servings || '').replace(/^\s*about\s+/i, ''));
+    if (!(lead > 0) || Math.abs(lead - (r.servN || 1)) > 0.01) return 'serving';
     // a parenthetical or an aside after a dash describes the yield, it is not the yield
     var s = String(r.servings || '').split(' (')[0].split('—')[0].split('–')[0];
     // strip the count off the front — digits, fractions and an optional "about"

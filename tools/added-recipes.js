@@ -85,7 +85,7 @@ module.exports = [
   {
     id: 226, book: 2, secNum: 6, secName: SECTION,
     name: 'Everyday White Bread',
-    servings: '2 Loaves (24 Slices)', servN: 24,
+    servings: '24 Slices (2 Loaves)', servN: 24,
     ing: ['5 cups white flour', '1.75 cups warm water', '1 packet yeast', '2 tbsp sugar',
       '3 tbsp non-fat dry milk', '2 tsp salt', '3 tbsp melted butter'],
     steps: [
@@ -395,7 +395,7 @@ module.exports = [
        on the shelf where a recipe may honestly send you to the shop. */
     id: 337, book: 2, secNum: 7, secName: COPYCAT,
     name: 'Taco Seasoning',
-    servings: '8 Tablespoons (4 Batches)', servN: 4,
+    servings: '4 Servings (2 Tablespoons Each)', servN: 4,
     ing: ['2 tbsp chili powder', '1 tbsp cumin', '1 tsp paprika', '1 tsp garlic powder',
       '1 tsp onion powder', '1 tsp oregano', '1 tsp salt', '1 tsp cornstarch'],
     steps: [
@@ -1267,7 +1267,7 @@ module.exports = [
   {
     id: 264, book: 2, secNum: 9, secName: MADE,
     name: 'Everyday BBQ Sauce',
-    servings: 'About 1½ Cups (12 × 2 tbsp)', servN: 12,
+    servings: '12 Servings (2 tbsp Each, About 1½ Cups)', servN: 12,
     ing: ['1 tbsp butter', '½ onion (grated)', '1 cup ketchup', '⅓ cup brown sugar',
       '2 tbsp mustard', '1 tbsp honey', '¼ cup water', '½ tsp salt', '½ tsp celery salt (optional)'],
     steps: [
@@ -1284,7 +1284,7 @@ module.exports = [
   {
     id: 265, book: 2, secNum: 9, secName: MADE,
     name: 'Pan Gravy, Brown or Pale',
-    servings: 'About 2½ Cups (8 Servings)', servN: 8,
+    servings: '8 Servings (About 2½ Cups)', servN: 8,
     ing: ['3 tbsp butter (or the fat from the pan)', '3 tbsp flour', '2 cups water (or the juices from the roast)',
       '½ cup milk', '½ tsp salt', '¼ tsp celery salt (optional)'],
     steps: [
@@ -1301,7 +1301,7 @@ module.exports = [
   {
     id: 266, book: 2, secNum: 9, secName: MADE,
     name: 'Lighter Mayo',
-    servings: 'About 1¼ Cups (10 Servings)', servN: 10,
+    servings: '10 Servings (About 1¼ Cups)', servN: 10,
     ing: ['1 cup cottage cheese', '¼ cup mayo', '1 tsp mustard', '¼ tsp salt'],
     steps: [
       'Blend the cottage cheese on its own until it is not curds any more — a full minute, which is longer than it feels like it should take. Stop early and it stays grainy, and nothing added afterwards will hide that.',
@@ -1323,7 +1323,7 @@ module.exports = [
   {
     id: 272, book: 2, secNum: 9, secName: MADE,
     name: 'Breadcrumbs, Dry or Soft',
-    servings: 'About 1½ Cups (6 Servings)', servN: 6,
+    servings: '6 Servings (About 1½ Cups)', servN: 6,
     ing: ['6 bread slices', '½ tsp salt'],
     steps: [
       'Decide which kind first. Soft crumbs go into meatballs and meatloaf, where the job is holding moisture. Dry crumbs go on top of things, where the job is going crisp. The same bread makes either.',
@@ -1382,7 +1382,7 @@ module.exports = [
        wet side is in the method, as it was, and is not costed. */
     id: 274, book: 2, secNum: 9, secName: MADE,
     name: 'Pancake & Waffle Mix',
-    servings: 'About 4 Cups Dry Mix (8 Servings)', servN: 8,
+    servings: '8 Servings (About 4 Cups Dry Mix)', servN: 8,
     ing: ['3 cups flour', '¾ cup dry milk', '3 tbsp sugar', '1½ tbsp baking powder',
       '¾ tsp baking soda', '1½ tsp salt'],
     steps: [
@@ -1403,7 +1403,7 @@ module.exports = [
   {
     id: 275, book: 2, secNum: 9, secName: MADE,
     name: 'Cream of Chicken Soup',
-    servings: 'About 1½ Cups — one can’s worth (6 Servings)', servN: 6,
+    servings: '6 Servings (About 1½ Cups, One Can’s Worth)', servN: 6,
     ing: ['3 tbsp butter', '3 tbsp flour', '1 cup milk', '½ cup water', '5 oz canned chicken', '½ tsp salt'],
     steps: [
       'Melt the butter over medium heat and whisk in the flour. Let it cook a full minute, bubbling, before anything else happens. Raw flour is what makes a sauce taste like paste, and a minute is all it takes.',
@@ -1441,7 +1441,7 @@ module.exports = [
   {
     id: 277, book: 2, secNum: 9, secName: MADE,
     name: 'Pancake Syrup',
-    servings: 'About 1 Cup (8 Servings)', servN: 8,
+    servings: '8 Servings (About 1 Cup)', servN: 8,
     ing: ['1 cup brown sugar', '½ cup water', '2 tbsp butter'],
     steps: [
       'Brown sugar and water into a small pan. Stir it over medium heat only until the sugar has gone — after that, leave it alone. Stirring a boiling sugar syrup is how it turns grainy.',
@@ -1460,7 +1460,7 @@ module.exports = [
   {
     id: 332, book: 2, secNum: 9, secName: MADE,
     name: 'Fry Sauce',
-    servings: 'About 1⅓ Cups (10 Servings)', servN: 10,
+    servings: '10 Servings (About 1⅓ Cups)', servN: 10,
     ing: ['1 cup mayo', '⅓ cup ketchup'],
     steps: [
       'Stir the mayo and ketchup together until the colour is even all through.',
@@ -2274,7 +2274,7 @@ module.exports = [
        vinegar trick are the lift, because neither is on the order. */
     id: 340, book: 2, secNum: 1, secName: 'Speedy Weekday Breakfasts & Morning Treats',
     name: 'Buttermilk Pancakes',
-    servings: '8 Pancakes (4 Servings)', servN: 4,
+    servings: '4 Servings (8 Pancakes)', servN: 4,
     ing: ['1 cup pancake mix', '¾ cup milk', '¼ cup sour cream', '1 egg',
       '2 tbsp butter', '½ tsp vanilla'],
     steps: [
