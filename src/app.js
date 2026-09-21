@@ -2791,7 +2791,26 @@
     };
   }
 
-  function mMorningHTML(k) {
+  /* Two places, one function, because the two lines it can draw belong on
+     opposite sides of the fold.
+   *
+     `where` is 'face' or 'body'. The salt line is EVIDENCE — it exists to
+     explain a number, and Blake's rule for this card has always been that
+     what you do daily stays out and what is evidence for it goes behind the
+     press. It was the deliberate exception, on the face because it is the
+     only line in the app that says do NOT act on the number above it. He has
+     now lived with it: "I don't like the persistent salt notice... I think it
+     is interesting once, but should collapse into the rest of the card that
+     carries the weight trend line." So it joins the trend line and the pace
+     arithmetic behind the press.
+   *
+     The suppression it was doing stays. On a morning the salt explains, the
+     FACE says nothing at all rather than falling through to "you are behind
+     pace, eat less" — which is the advice the salt line existed to stop. A
+     quiet face and an explanation one tap away, which is silence beating a
+     stat and a stat beating a verdict, in that order. */
+  function mMorningHTML(k, where) {
+    var body = where === 'body';
     if (mAhead(k)) return '';                     // a morning that has not happened
     /* And not a morning that has been and gone. Every figure on this card —
        the seven-day average, the days off pace, what to eat to get back on
@@ -2816,6 +2835,9 @@
     if (jump && jump.d >= MSALT_JUMP) {
       var yest = mSodiumOn(jump.prevKey);
       if (yest >= MSALT_DAY) {
+        /* The face keeps quiet on a salt morning; the explanation is in the
+           fold. Returning '' here is the suppression, not an oversight. */
+        if (!body) return '';
         var big = jump.d > jump.url;
         return mLineHTML('noise', '\uD83E\uDDC2',
           '<b>Up ' + (Math.round(jump.d * 10) / 10) + ' lb \u2014 that is salt, not fat.</b> ' +
@@ -2829,6 +2851,9 @@
             : 'Inside your usual overnight range of ' + (Math.round(jump.url * 10) / 10) + ' lb.');
       }
     }
+    /* Past the salt line there is nothing the fold wants: everything below is
+       what to DO, which belongs on the face. */
+    if (body) return '';
 
     /* Everything below is about where you stand NOW — the seven-day average,
        the days off pace, the number to eat to get back on it — so it is only
@@ -3111,8 +3136,8 @@
           (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html +
           (hasPlan ? ' <button class="ghost mplan-go no-print" id="macroTargBtn">' +
             'Craft my plan</button>' : '') + '</div>') +
-      mMorningHTML(k) +
-      (shut ? '' : '<div class="mw-body">' + body +
+      mMorningHTML(k, 'face') +
+      (shut ? '' : '<div class="mw-body">' + mMorningHTML(k, 'body') + body +
         (face.has
           ? '<div class="mw-adj no-print">' +
             '<button class="ghost mplan-go" id="macroTargBtn">Adjust my plan</button></div>'

@@ -7235,6 +7235,16 @@ module.exports = {
       const p2 = (n) => (n < 10 ? '0' : '') + n;
       const key = (o) => { const d = new Date(); d.setDate(d.getDate() + o);
         return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+      /* LAST week, Monday first, and every one of its days already past.
+       *
+         The strip draws the Monday-to-Sunday week the viewed day sits in, and
+         this used to seed "the last four days" — which lands four cells in
+         that week on most days and ONE of them on a Monday, when today is
+         the first cell and the other six have not happened. Four tests
+         therefore passed six days in seven, and went red on the seventh for
+         a reason that had nothing to do with the code. Seeded against last
+         week's Monday there is no such day. */
+      const back = ((new Date().getDay() + 6) % 7) + 7;
       localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 204, f: 61, c: 72 }));
       localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
         { k: 'a', n: 'Breakfast', t: 'b', w: 30 }, { k: 'l', n: 'Lunch', t: 'l', w: 35 },
@@ -7243,7 +7253,7 @@ module.exports = {
          exact fraction of its target and nothing here is about the food. */
       const days = {};
       ratios.forEach((r, i) => {
-        days[key(i - (ratios.length - 1))] = {
+        days[key(i - back)] = {
           a: [{ id: 'f:butter', x: 4 * 4.134 * r, eaten: 1 }], l: [], d: [] };
       });
       localStorage.setItem('bsc.macroDays', JSON.stringify(days));
@@ -7252,6 +7262,13 @@ module.exports = {
     await spk.waitForTimeout(450);
     await spk.click('.tab[data-view="macros"]');
     await spk.waitForTimeout(450);
+    // and look at that week, so the strip is drawing the days just seeded
+    await spk.selectOption('#macroDaySel', await spk.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date(); d.setDate(d.getDate() - (((new Date().getDay() + 6) % 7) + 7));
+      return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+    }));
+    await spk.waitForTimeout(350);
     /* Heights now, not widths: the rail became a bar standing in a chart
        cell, with the target a hairline across the week. Everything below
        is measured up from the track's foot. */
@@ -7298,7 +7315,13 @@ module.exports = {
     t.ok('a day under its target stops short of the mark, and one over passes it',
       spkFed.length === 4 &&
       spkFed.filter((d) => d.pct < 0.98).every((d) => d.px < d.markPx - 1) &&
-      spkFed.filter((d) => d.pct > 1.02).every((d) => d.px > d.markPx + 1),
+      /* And a day only a whisker over is not evidence either way. The fill
+         is 0.66 of the track per unit of target and the mark sits at 0.66 of
+         it, so at 109% the two are a pixel apart — inside the rendering's
+         own noise, and inside the 4% the butter multiple drifts by. Same
+         reasoning as the sentence above, pointed at the other end: what a
+         reader uses is the side, and a day this close has no side. */
+      spkFed.filter((d) => d.pct > 1.15).every((d) => d.px > d.markPx + 1),
       JSON.stringify(spkFed.map((d) => Math.round(d.pct * 100) + '%: fill ' +
         Math.round(d.px) + ' vs mark ' + Math.round(d.markPx))));
 
@@ -8222,6 +8245,13 @@ module.exports = {
     /* The one that stops you acting. Cutting calories after a salty Tuesday
        is the mistake the whole apparatus exists to prevent. */
     const salty = await lineFor({ n: 30, rate: 1.5 / 7, saltToday: true });
+    /* Behind the press now. It is evidence for a number rather than a thing
+       to do, and Blake asked for it with the trend line: "I don't like the
+       persistent salt notice... it is interesting once." */
+    t.ok('a salty morning says nothing on the face, where a verdict would go',
+      await salty.evaluate(() => !document.querySelector('.mw-verdict ~ .mline, .mslot-h ~ .mline')),
+      await salty.evaluate(() => (document.querySelector('.mline') || {}).textContent || '(none)'));
+    await openWeigh(salty);
     t.ok('a jump the sodium explains is named as salt, not fat',
       await salty.evaluate(() => {
         const el = document.querySelector('.mline');
@@ -8237,12 +8267,14 @@ module.exports = {
        control above it holds every other thing equal, so a failure here is
        the gap and nothing else. */
     const gapCtl = await lineFor({ n: 30, rate: 0, saltToday: true });
+    await openWeigh(gapCtl);
     t.ok('a salty morning against yesterday still reads as salt',
       /salt, not fat/.test(await gapCtl.textContent('.mline')),
       await gapCtl.textContent('.mline'));
     await gapCtl.context().close();
 
     const gapped = await lineFor({ n: 30, rate: 0, saltToday: true, gapDays: 14 });
+    await openWeigh(gapped);
     const gapLine = await gapped.textContent('.mline');
     t.ok('but the same morning after a fortnight away is not blamed on a dinner',
       gapLine.length > 0 && !/salt, not fat/.test(gapLine), gapLine);
