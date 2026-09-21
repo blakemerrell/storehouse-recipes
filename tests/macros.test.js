@@ -4548,6 +4548,95 @@ module.exports = {
       leanPlan.lean > leanPlan.fat, JSON.stringify(leanPlan));
     await floorPg.context().close();
 
+    /* ---- the burn switch, and the two things it must not lie about --------
+     *
+     * The measured burn sat below the four facts in the EDITOR's row
+     * language, with a filled green pill reading "In use" / "Use it", and it
+     * was wrong in two ways at once.
+     *
+     * The row showed the MEASURED figure whether or not the plan was built
+     * on it, and said which in the pill — so the one number on screen was
+     * not necessarily the one the plan used. And tapping the pill wrote
+     * useTdee to storage and then called renderModal, which returns without
+     * touching the DOM while the plan sheet is open (the sheet is drawn once
+     * so a sync arriving mid-keystroke cannot reset the draft boxes). The
+     * pill still read "In use" after turning the measured burn OFF.
+     *
+     * Its replacement repaints through mtRefreshPlan, the sheet's own
+     * mechanism for "the profile moved, redraw the answers". That mechanism
+     * also writes the worked-out plan into the gram boxes, which is right
+     * for every control inside the editor fold and wrong for this one: it
+     * can be tapped with both folds shut and no Save on screen, and it put
+     * grams on the sheet that storage did not hold and offered no way to
+     * commit them. */
+    const burnPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await burnPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      /* Four weeks of mornings and four weeks of logged days is what
+         mMeasuredTdee asks for: eight weigh-ins at least, three in each end
+         week, twenty-one days between the first and the last, and fourteen
+         days with real food on them. Eating far under the formula's guess so
+         the two numbers cannot be confused for one another. */
+      const W = {}, D = {}, now = new Date();
+      for (let i = 27; i >= 0; i--) {
+        const d = new Date(now); d.setDate(d.getDate() - i);
+        W[key(d)] = Math.round((198 - (27 - i) * 0.055) * 10) / 10;
+        D[key(d)] = { b: [{ id: 150, x: 1, eaten: 1 }], l: [{ id: 311, x: 1, eaten: 1 }],
+          d: [{ id: 195, x: 1, eaten: 1 }] };
+      }
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(W));
+      localStorage.setItem('bsc.macroDays', JSON.stringify(D));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 38, lb: 198,
+        ft: 6, inch: 1, act: 1.55, goal: 'cut1', goalLb: 180, goalBy: '', workouts: 0,
+        steps: 7000, useTdee: true }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 60, c: 190 }));
+    });
+    await burnPg.reload();
+    await burnPg.waitForTimeout(400);
+    await burnPg.click('.tab[data-view="macros"]');
+    await burnPg.waitForTimeout(300);
+    await burnPg.click('#macroMore');
+    await burnPg.waitForTimeout(150);
+    await burnPg.click('[data-mmore="plan"]');
+    await burnPg.waitForTimeout(400);
+
+    /* Both burns are read off the screen and the pair is asserted to SWAP,
+       so no kcal figure is typed into this file — the fixture's measured
+       burn moves with whatever mMeasuredTdee makes of those weigh-ins. */
+    const burnRead = () => burnPg.evaluate(() => {
+      const num = (s) => Number(String(s || '').replace(/[^0-9]/g, '')) || 0;
+      const row = document.querySelector('.mt-burn .mtf-row b');
+      const swap = document.querySelector('.mt-swap');
+      return {
+        shown: num(row && row.textContent),
+        offer: num(swap && swap.textContent),
+        useTdee: !!JSON.parse(localStorage.getItem('bsc.macroProfile')).useTdee,
+        boxes: ['mtP', 'mtF', 'mtC'].map((i) => (document.getElementById(i) || {}).value).join('/'),
+        saved: JSON.stringify(JSON.parse(localStorage.getItem('bsc.macroTargets'))),
+      };
+    });
+    const burnOn = await burnRead();
+    await burnPg.click('.mt-swap');
+    await burnPg.waitForTimeout(350);
+    const burnOff = await burnRead();
+
+    t.ok('the plan sheet states a measured burn and offers the other number',
+      burnOn.shown > 0 && burnOn.offer > 0 && burnOn.shown !== burnOn.offer,
+      JSON.stringify(burnOn));
+    t.ok('tapping it switches which burn the plan is built on',
+      burnOn.useTdee === true && burnOff.useTdee === false, JSON.stringify([burnOn, burnOff]));
+    /* The fault the old pill had: storage flipped and the screen did not. */
+    t.ok('and the row states the burn now in use, not the measured one regardless',
+      burnOff.shown === burnOn.offer && burnOff.offer === burnOn.shown,
+      JSON.stringify([burnOn, burnOff]));
+    /* The fault repainting introduced: a plan on screen that storage does
+       not hold, with both folds shut and no Save to close the gap. */
+    t.ok('and it leaves the grams alone, on the screen and in storage',
+      burnOff.boxes === burnOn.boxes && burnOff.saved === burnOn.saved,
+      JSON.stringify([burnOn.boxes, burnOff.boxes, burnOn.saved, burnOff.saved]));
+    await burnPg.context().close();
+
     /* ---- sweeping the day back to what you actually ate -------------------
      *
      * Blake: "sometimes I just want to sweep the whole day that hasn't been

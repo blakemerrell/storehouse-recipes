@@ -8418,26 +8418,43 @@
      asked for — a number that quietly redrew somebody's whole plan on the
      twenty-first morning would be the app changing its mind about them
      behind their back. */
+  /* The burn the plan is built on, written as a fact like the four above it.
+     It used to sit below them in the EDITOR's row language — a ledger row
+     with a rule under it, and a filled green pill for the only saturated
+     colour on a page of quiet type. The rule fell between the number and
+     the caption explaining it, so the evidence read as a heading for the
+     cards below rather than as a note on the row above.
+
+     It also showed the measured figure whether or not the plan used it, and
+     said which in a pill. The row states the number the plan is ACTUALLY
+     built on now, and the caption underneath carries the other one and the
+     tap that switches. */
   function mMeasuredRowHTML(pr) {
     var m = mMeasuredTdee();
     if (!m) return '';
     var on = !!pr.useTdee;
     var formula = mBurn(pr);
-    return '<div class="mtl-row mt-meas">' +
-      '<span class="mtl-lab">Measured burn</span>' +
-      '<span class="mtl-val">' +
-        '<span class="mt-meas-n"><b>' + m.tdee.toLocaleString() + '</b> kcal' +
-          (formula ? ' <i>vs ' + Math.round(formula.tdee).toLocaleString() +
-            ' by the formula</i>' : '') + '</span>' +
-        '<button class="mt-meas-b" data-mtdee="' + (on ? '0' : '1') +
-          '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
-          (on ? 'In use' : 'Use it') + '</button>' +
-      '</span>' +
-    '</div>' +
-    '<div class="mt-cap mt-meas-c">From ' + m.days + ' days: ' +
-      m.eaten.toLocaleString() + ' kcal a day across ' + m.meals + ' of them, and ' +
-      (m.lb === 0 ? 'no change on the scale'
-        : mLbWord(m.lb) + ' on the scale') + '.</div>';
+    var other = formula ? Math.round(formula.tdee) : null;
+    /* Nothing to offer and nothing to compare against: without the formula
+       there is one number, and a switch to nowhere is worse than no switch. */
+    if (!other) return '';
+    var used = on ? m.tdee : other;
+    /* The caption says where the number in use came from; the tap beside it
+       names the number it would switch to. Neither repeats the other, so
+       both fit on two lines beside each other at 390px. */
+    var cap = on
+      ? 'From ' + m.days + ' days: ' + m.eaten.toLocaleString() + ' kcal a day, ' +
+        (m.lb === 0 ? 'no change on the scale' : mLbWord(m.lb)) + '.'
+      : 'By the formula, from your size and how you move.';
+    return '<div class="mt-burn">' +
+      '<div class="mtf-row"><span>Burning</span><b>' +
+        used.toLocaleString() + ' kcal a day</b></div>' +
+      '<div class="mt-burn-c"><span>' + cap + '</span>' +
+        '<button class="mt-swap" data-mtdee="' + (on ? '0' : '1') + '">Use ' +
+          (on ? 'the formula&rsquo;s ' + other.toLocaleString()
+              : 'the measured ' + m.tdee.toLocaleString()) +
+        '</button></div>' +
+    '</div>';
   }
 
   function mTrainRowHTML() {
@@ -8964,7 +8981,7 @@
         mtFactsHTML(pr) + '</div>' +
       '<div class="mt-status' + (mtStatusHTML(pr) ? '' : ' hide') + '" id="mtStatus" role="status">' +
         mtStatusHTML(pr) + '</div>' +
-      mMeasuredRowHTML(pr) + whoHTML +
+      whoHTML +
       /* The same rows the wizard asks, one screen, nothing folded that a
          returning reader came to change: the training days and the
          weight-and-date pace sit open here, because Edit is the tap that
@@ -9280,6 +9297,11 @@
       rows.push(fact('Averaging now', w));
     }
 
+    /* Last, because it is the one fact that carries its own caption, and a
+       caption reads as a note on the row above it — never as a heading for
+       whatever comes next. */
+    rows.push(mMeasuredRowHTML(pr));
+
     return rows.join('');
   }
 
@@ -9504,11 +9526,25 @@
     sv.classList.toggle('hide', !(open('mtEditor') || open('mtMealsWrap')));
   }
 
-  function mtRefreshPlan() {
+  /* `holdBoxes` is for the one profile control that lives OUTSIDE the editor
+     fold: the burn switch among the facts. Every other caller is a question
+     the reader is looking at with Save on screen, so writing the worked-out
+     plan into the gram boxes hands them an answer they can commit. The burn
+     switch can be tapped with both folds shut and no Save anywhere, and
+     rewriting the boxes there put 197/59/86 on a sheet whose storage still
+     held 180/60/190 and offered no way to close the gap — a screen stating a
+     plan the app is not on, which is the whole fault this layout ended.
+     Tapping it changes what the facts and the status line say; the grams wait
+     for a Save to be asked for. */
+  function mtRefreshPlan(holdBoxes) {
     var prNow = mtProfileFromDom();
     var plan = mPlanCalc(prNow);
+    /* This caption is an answer to the gram boxes — it says when THEY sit
+       under what a body spends lying still. Held boxes mean nothing it
+       describes has moved, and writing it anyway warned about a plan that
+       was not on the screen. */
     var el = $('mtPlan');
-    if (el) el.innerHTML = mtPlanLine(plan, prNow);
+    if (el && !holdBoxes) el.innerHTML = mtPlanLine(plan, prNow);
     /* The ledger, the pace line and the fold's handle are all answers to
        the boxes below them, so they follow the boxes rather than waiting for
        a Save. A screen showing last month's goal above this month's plan is
@@ -9538,7 +9574,7 @@
       Array.prototype.forEach.call(gs.querySelectorAll('[data-mtgoal]'),
         function (b2) { b2.disabled = dated; });
     }
-    if (!plan) { mtRefreshAnswer(); return; }
+    if (!plan || holdBoxes) { mtRefreshAnswer(); return; }
     if ($('mtP')) { $('mtP').value = plan.p; $('mtF').value = plan.f; $('mtC').value = plan.c; }
     mtRefreshAnswer();
   }
@@ -14772,7 +14808,16 @@
         var prD = mReadProfile();
         prD.useTdee = mtd.dataset.mtdee === '1';
         mWriteProfile(prD);
-        renderModal();
+        /* renderModal stood here and did nothing. The plan sheet is drawn
+           once and left alone — so a sync arriving mid-keystroke cannot
+           reset the draft boxes — and a second call while it is open returns
+           without touching the DOM. The tap wrote useTdee to storage and the
+           screen kept the old state: the pill still read "In use" after
+           turning the measured burn off, while the plan underneath had
+           already changed. This is the mechanism the sheet has for exactly
+           that — repaint the answers from the profile, leave the questions
+           and, here, the grams alone. */
+        mtRefreshPlan(true);
         if (S.view === 'macros') renderMacros();
         return;
       }

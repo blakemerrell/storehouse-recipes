@@ -2067,19 +2067,20 @@ select { max-width: 280px; }
 .mday-svg { width: 16px; height: 16px; display: block; margin: 0 auto; }
 .mday-head .mday-icon { padding-left: 8px; padding-right: 8px; font-size: 14px; }
 .mday-head .mday-menu { top: calc(100% + 4px); bottom: auto; }
-/* what you actually burn, beside what the equation guessed */
-.mt-meas .mtl-val { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
-.mt-meas-n { font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
-.mt-meas-n b { color: var(--ink); font-weight: 600; }
-.mt-meas-n i { font-style: normal; font-size: 11px; color: var(--muted); }
-.mt-meas-b {
-  background: var(--card); border: 1px solid var(--line-firm); border-radius: 4px;
-  padding: 5px 11px; font-family: var(--sans); font-size: 11.5px; color: var(--muted-2);
+/* What you actually burn, as the fifth fact — its evidence tucked under it
+   and the switch set in the same ochre as Edit. The old row was a form row
+   with a border under it and a filled green pill beside it, which put a rule
+   between the number and its caption and the loudest colour on the sheet on
+   a toggle. Nothing here is louder than the type. */
+.mt-burn { display: grid; gap: 3px; }
+.mt-burn-c {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  font-size: 12.5px; color: var(--muted);
 }
-.mt-meas-b[aria-pressed="true"] {
-  background: var(--green); border-color: var(--green); color: var(--paper); font-weight: 600;
+.mt-swap {
+  background: none; border: 0; padding: 0; flex: none; text-align: right;
+  font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ochre-text);
 }
-.mt-meas-c { margin-top: -2px; }
 .mtrain { display: flex; gap: 4px; }
 .mtrain button {
   width: 30px; height: 30px; border-radius: 50%; background: var(--card);
