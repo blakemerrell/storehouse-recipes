@@ -1592,4 +1592,40 @@ module.exports = [
       'A tablespoon of soy sauce in with the liquid. Nobody tastes soy; they taste more beef.',
     ] } },
   { id: 334, step: 3, add: 'Or roast it: oil, salt, 425°F, twenty minutes, until the edges go dark. Steamed broccoli is a chore; roasted broccoli is a snack.' },
+
+  /* ---- name the pan, and say what lines it ------------------------------
+   *
+   * Blake, cooking from the printed book: "How big is a pan for this recipe?
+   * Line with what?" No. 331 said "press into a lined square pan" and never
+   * answered either question. Nineteen recipes named a vessel with no size
+   * anywhere in them, and three said "lined" without saying what with, which
+   * is the word that decides whether the slab comes out in one piece.
+   *
+   * Sized by what actually goes in rather than by the serving count: an
+   * 8-inch square is 412 cm2 of floor, a 9-inch 524, a 9x13 dish 756, a 9x5
+   * loaf 291, and two to four centimetres deep is the band a bake cooks
+   * through evenly. No. 328 already did this properly, buttering the pan and
+   * lining it with a strip of parchment hanging over two sides, and it is the
+   * model the rest of these follow. */
+  { id: 314, step: 0, set: "Cut the carrots into thick batons and the onion into wedges, and toss them with the oil and the thyme in an 8-inch square baking dish." },
+  { id: 63, step: 2, set: "Mix chicken, pasta, and spaghetti sauce in a 9x13-inch baking dish." },
+  { id: 106, step: 0, set: "Butter an 8-inch square baking dish well. A bake this eggy welds itself to a dry one, and that is what the two tablespoons are for." },
+  { id: 118, step: 1, set: "Mix the ingredients in an 8-inch square baking dish." },
+  { id: 161, step: 2, set: "Layer potatoes, beef, mushroom soup, and cheddar in a 9x13-inch baking dish. No mushroom soup? {r:275} layers in exactly the same way, and {r:265} made pale does the binding just as well." },
+  { id: 171, step: 1, set: "Place the pork roast in a 9x13-inch baking dish, cover with mushroom soup. The soup is the gravy here, and {r:265} is a better one — make it pale, with the juices from the tin once the roast is out. {r:275} works too if you want it thicker." },
+  { id: 174, step: 1, set: "Mix black beans, rice, tomato sauce, and sour cream in an 8-inch square baking dish." },
+  { id: 188, step: 3, set: "Spoon the beef into a 9x13-inch baking dish, drop the dough over it in rough spoonfuls, and bake 25 minutes until the topping is golden and dry at the centre." },
+  { id: 201, step: 1, set: "Toss sliced apples with 1 tsp cinnamon in an 8-inch square baking dish." },
+  { id: 203, step: 1, set: "Pour the peaches into an 8-inch square baking dish." },
+  { id: 206, step: 2, set: "Press firmly into a parchment-lined 8-inch square pan and chill in fridge 1 hour before cutting." },
+  { id: 218, step: 1, set: "Roll it out, line a 9-inch pie dish, and prick the base all over with a fork. Bake 15 minutes until dry and pale gold. Pricking is what stops the base rising into a dome under the filling." },
+  { id: 219, step: 0, set: "Butter an 8-inch square baking dish and heat the oven to 350°F." },
+  { id: 222, step: 1, set: "Press into a parchment-lined 8-inch square pan and freeze 30 mins before cutting into squares." },
+  { id: 232, step: 1, set: "Tip into an 8-inch square baking dish and put it in the oven at 400°F for 10 minutes, until the fruit is hot and beginning to bubble. Putting the topping on hot fruit is what cooks its underside." },
+  { id: 254, step: 0, set: "Butter an 8-inch square pan and line it with a strip of parchment hanging over two sides." },
+  { id: 255, step: 5, set: "Pour into a parchment-lined 9x5-inch loaf tin and scatter a few more chips on top." },
+  { id: 256, step: 1, set: "Roll it out, line a deep 9-inch pie dish, prick the base all over and line it with paper and baking weights." },
+  { id: 257, step: 4, set: "Press into a 9-inch square pan lined with parchment hanging over two sides, and press the remaining chips into the top. The overhang is what lifts the slab out whole to be cut." },
+  { id: 213, step: 3, set: "Roll into 12 balls, set them well apart on a parchment-lined sheet, and press a deep thumbprint into each." },
+  { id: 330, step: 4, set: "Set them on a parchment-lined tray, cover them, and rise 30 minutes." },
 ];
