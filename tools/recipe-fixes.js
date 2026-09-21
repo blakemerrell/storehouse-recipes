@@ -1628,4 +1628,51 @@ module.exports = [
   { id: 257, step: 4, set: "Press into a 9-inch square pan lined with parchment hanging over two sides, and press the remaining chips into the top. The overhang is what lifts the slab out whole to be cut." },
   { id: 213, step: 3, set: "Roll into 12 balls, set them well apart on a parchment-lined sheet, and press a deep thumbprint into each." },
   { id: 330, step: 4, set: "Set them on a parchment-lined tray, cover them, and rise 30 minutes." },
+
+  /* ---- how hot, how long, and how you know ------------------------------
+   *
+   * Sixteen recipes cooked raw chicken, pork or beef with no temperature, no
+   * time and no doneness cue anywhere in them. No. 104 said "into a hot
+   * oven" and then "take the chicken off as soon as it is done", defining
+   * neither. No. 103 roasted pork for three hours on "hot to start, then
+   * drop the heat", naming two temperatures and giving no number for either.
+   *
+   * Three of them — nos. 75, 77 and 82 — poach chicken, cool it and serve it
+   * cold, which is the one combination in this book that can make somebody
+   * ill, and all three said only "poach the chicken".
+   *
+   * Chicken to 165F, whole-muscle pork to 145F and a rest, the shoulder
+   * taken past that because it is being pulled, braises to fork-tender.
+   * Times sized to the cut each recipe actually calls for. */
+  { id: 295, step: 0, set: "Poach the chicken 12 to 15 minutes, until it reads 165°F at the thickest part, then cool it fully and slice it thin. Cooling it before slicing is what keeps it from shredding." },
+  { id: 297, step: 0, set: "Poach the chicken 12 to 15 minutes, until it reads 165°F at the thickest part, then cool it and pull it into pieces rather than cutting it. Pulled chicken holds seasoning where sliced chicken sheds it." },
+  { id: 304, step: 0, set: "Salt the chicken fifteen minutes ahead. Poach it 12 to 15 minutes, until it reads 165°F at the thickest part, then cool it fully and pull it apart." },
+  { id: 302, step: 1, set: "Poach the chicken 12 to 15 minutes, or roast it at 400°F for 20 to 25, until it reads 165°F at the thickest part; cool it and pull it into pieces." },
+  { id: 292, step: 0, set: "Poach the chicken in barely-moving water 12 to 15 minutes, until it reads 165°F at the thickest part, then let it rest before you slice it. Boiling it hard is what makes poached chicken taste like nothing." },
+  { id: 299, step: 0, set: "Roast the chicken whole rather than in pieces, at 400°F for 20 to 25 minutes, until it reads 165°F at the thickest part, and slice it after it rests. Pieces dry out at the edges; a whole breast does not." },
+  { id: 306, step: 1, set: "Salt the chicken fifteen minutes ahead and pound the thick end level. Roast it at 400°F for 20 to 25 minutes, until it reads 165°F at the thickest part, let it rest five minutes, then slice it. Dry chicken is a method problem, not a chicken problem." },
+  { id: 290, step: 2, set: "In with the sliced peppers and onion and the paprika, garlic powder and pepper. Cook until the onion goes soft and sweet and the chicken is cooked through, 6 to 8 minutes; cut a piece to check there is no pink at the centre." },
+  { id: 308, step: 1, set: "Lay the chicken breasts on top, pepper over everything, and into a 425°F oven — hot, so the vegetables char at the edges before the chicken dries out." },
+  { id: 308, step: 2, set: "Take the chicken off after 18 to 22 minutes, as soon as it reads 165°F at the thickest part, and rest it while the vegetables have another few minutes to catch." },
+  { id: 310, step: 1, set: "Cook them in a dry pan hot enough that they colour in the first minute, then turn once and finish, 4 to 5 minutes a side, until they read 165°F at the thickest part." },
+  { id: 313, step: 2, set: "The diced tomatoes with their juice — half of the big tin; the rest keeps — and the chicken back in. Simmer uncovered 15 to 20 minutes, until it thickens and the chicken is cooked through with no pink at the centre." },
+  { id: 315, step: 0, set: "Chop the chicken fine — nearly minced — and cook it in a hot dry pan with the ginger and the garlic powder 6 to 8 minutes, until it has colour and no pink remains." },
+  { id: 301, step: 2, set: "Roast it at 450°F for 20 minutes, then drop the heat to 325°F and take it slowly the rest of the way, about 2½ hours, until a fork twists in it without resistance." },
+  { id: 291, step: 0, set: "Brown the beef in a heavy pan, then cover it and leave it on the lowest heat about an hour and a quarter, until it pulls apart under a fork. This is the slow part and there is no way around it." },
+  { id: 300, step: 3, set: "Back in with the beef, the water, the thyme and the pepper. Lid on, lowest heat, about 2½ hours." },
+  { id: 300, step: 4, set: "Add the carrots in large pieces for the last 40 minutes so they hold their shape." },
+  { id: 311, step: 3, set: "Beef back in, lid on, lowest heat, about 2½ hours, until it gives under a fork. The peppers in wide strips for the last half hour." },
+  { id: 316, step: 2, set: "Onions in wedges and the garlic, crushed, cooked in what the beef left, then the thyme, the water and the roast back in. Lid on, lowest heat, for about 3 hours, until it gives under a fork." },
+
+  /* Two the first pass missed. No. 110 dropped out of a sweep for recipes
+     with no digits in them because the pan pass had just put "8-inch" in
+     one — a filter made stale by my own edit an hour earlier. No. 102 got
+     its clock but not its cue, while its two siblings kept theirs. */
+  { id: 314, step: 2, set: "Bake covered at 375°F for 25 minutes, until the carrots are nearly tender, then uncovered another 15 to 20, until the chicken reads 165°F at the thickest part and the onion has caught at the edges." },
+  { id: 300, step: 3, set: "Back in with the beef, the water, the thyme and the pepper. Lid on, lowest heat, about 2½ hours, until it gives under a fork." },
+
+  /* The last two, found by asking the question of every raw-chicken recipe
+     rather than of the ones a keyword sweep had already turned up. */
+  { id: 294, step: 0, set: "Salt the chicken fifteen minutes ahead and pound the thick end level. Poach it gently 12 to 15 minutes, until it reads 165°F at the thickest part, let it rest five minutes, then slice it against the grain. Dry chicken is a method problem, not a chicken problem." },
+  { id: 312, step: 3, set: "Chicken back in, tossed through until it is hot and no pink remains at the centre." },
 ];

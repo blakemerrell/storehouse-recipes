@@ -785,6 +785,56 @@ module.exports = {
     t.ok('every servings line leads with the number of servings it counts',
       leads.length === 0, leads.slice(0, 6).join(' | '));
 
+    /* ----------------------------------------------- chicken says when it is done
+     *
+     * Sixteen recipes cooked raw chicken, pork or beef with no temperature,
+     * no time and no doneness cue anywhere in them. Three of those poached
+     * chicken, cooled it and served it cold, on the words "poach the
+     * chicken" alone — which is the one combination in this book that can
+     * make somebody ill.
+     *
+     * Chicken is the one this guards, because it is the one with a number
+     * everybody agrees on and the one that turns up raw most often. A recipe
+     * that starts from raw chicken has to say 165°F, or say the pink is
+     * gone, or hand it to a slow cooker for hours where the clock is the
+     * cue. Ground beef and braises are deliberately out of scope: "brown the
+     * beef" and "until it gives under a fork" are real cues in their own
+     * right and a guard that argued with them would be noise. */
+    const rawBird = await p.evaluate(() => {
+      const RAW = /\b\d[\d¼½¾.\s]*(?:lbs?|oz)\s+chicken (?:breasts?|thighs?)\b/i;
+      const CUE = /165\s*°?F|no pink|no longer pink|not pink|juices run clear|cooked through/i;
+      const SLOW = /slow cooker|LOW \d+ hours?|HIGH \d/i;
+      return window.RECIPES
+        .filter((r) => RAW.test((r.ing || []).join(' ')))
+        .filter((r) => {
+          const st = (r.steps || []).join(' ');
+          return !CUE.test(st) && !SLOW.test(st);
+        })
+        .map((r) => r.no + ' ' + r.name);
+    });
+    t.ok('a recipe that starts from raw chicken says how you know it is cooked',
+      rawBird.length === 0, rawBird.slice(0, 8).join(' | '));
+
+    const birdProof = await p.evaluate(() => {
+      const CUE = /165\s*°?F|no pink|no longer pink|not pink|juices run clear|cooked through/i;
+      const SLOW = /slow cooker|LOW \d+ hours?|HIGH \d/i;
+      const ok = (s) => CUE.test(s) || SLOW.test(s);
+      return {
+        caught: ['Poach the chicken, cool it fully, then slice it thin.',
+          'Roast the chicken whole and slice it after it rests.',
+          'Take the chicken off as soon as it is done.',
+          'Cook it in a hot dry pan until it has colour.'].filter((s) => !ok(s)).length,
+        spared: ['Poach it 12 to 15 minutes, until it reads 165°F at the thickest part.',
+          'Simmer about 15 minutes, until it is no longer pink in the middle.',
+          'Put chicken and salsa into slow cooker. Cook LOW 4 hours.',
+          'Simmer 15 to 20 minutes, until the chicken is cooked through.'].filter((s) => !ok(s)).length,
+      };
+    });
+    t.ok('and the cue guard fires on every way of not saying it',
+      birdProof.caught === 4, birdProof.caught + ' of 4');
+    t.ok('and spares every real way of saying it',
+      birdProof.spared === 0, birdProof.spared + ' false positives');
+
     /* ------------------------------------------------ the note and the meat
      *
      * The second time a pass of technique notes went wrong it went wrong in
