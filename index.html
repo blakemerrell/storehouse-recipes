@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=454">
+<link rel="stylesheet" href="src/style.css?v=456">
 </head>
 <body>
 
@@ -280,15 +280,20 @@
            A broom rather than a cross: a cross on this row would read as
            closing something. Drawn upright with one bristle line, because at
            16px the first attempt — a tilted head with a stick — was a blob,
-           and the variants without the handle read as a dustpan while the
-           ones with extra bristles read as a stool. Rendered and looked at
-           rather than reasoned about. -->
+           and the variants without the handle read as a dustpan. Five
+           bristles at 0.75 rather than one at the outline's 1.3: they splay
+           with the flare, and being LIGHTER than the outline is what makes
+           them read as bristles rather than as the head being divided into
+           boxes. Rendered at 16px on a 3x screen and looked at, twice,
+           because an icon is a thing you look at. -->
       <button class="ghost mday-icon" id="macroSweep"
         aria-label="Sweep what you have not eaten"
         title="Clear every plate you have not ticked — what you ate and what you locked stay"><svg
         class="mday-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"
-        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.4V6.2"/><path
-        d="M3.6 6.2h8.8l1.1 7.6H2.5z"/><path d="M8 6.2v7.6"/></svg></button>
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.4V5.6"/><path
+        d="M3.6 5.6h8.8l1.1 8.2H2.5z"/><path d="M3.9 7.8h8.3" stroke-width=".8"/><path
+        d="M5.36 7.8 4.7 13.8" stroke-width=".8"/><path d="M7.12 7.8 6.9 13.8" stroke-width=".8"/><path
+        d="M8.88 7.8 9.1 13.8" stroke-width=".8"/><path d="M10.64 7.8 11.3 13.8" stroke-width=".8"/></svg></button>
       <button class="ghost mday-icon" id="macroCopy"
         aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
     </div>
@@ -375,14 +380,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=454"></script>
-<script src="data/nutrition.js?v=454"></script>
-<script src="data/art.js?v=454"></script>
-<script src="data/qr.js?v=454"></script>
-<script src="src/config.js?v=454"></script>
+<script src="data/recipes.js?v=456"></script>
+<script src="data/nutrition.js?v=456"></script>
+<script src="data/art.js?v=456"></script>
+<script src="data/qr.js?v=456"></script>
+<script src="src/config.js?v=456"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=454"></script>
-<script src="src/app.js?v=454"></script>
+<script src="src/sync.js?v=456"></script>
+<script src="src/app.js?v=456"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.
