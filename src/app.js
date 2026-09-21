@@ -2474,6 +2474,10 @@
     var last = keys[keys.length - 1];
     return {
       n: keys.length, latest: MWEIGHTS[last], lastKey: last, firstKey: keys[0],
+      /* Mornings since the scale last had anything to say. Every figure below
+         is anchored on that morning rather than on today, so anything that
+         compares them to today has to know how far apart they are. */
+      staleDays: Math.max(0, Math.round(keyDate(todayKey()).getTime() / 86400000) - lastN),
       avg7: avg(w7),
       dWeek: prev7.length ? avg(w7) - avg(prev7) : null,
       dStart: MWEIGHTS[last] - MWEIGHTS[keys[0]]
@@ -2666,7 +2670,17 @@
     var meas = mMeasuredTdee();
     var jump = mJump(k);
 
-    var off = st.avg7 - plan.lb;                  // positive means heavier than planned
+    /* Measured against the plan line ON THE MORNING THE AVERAGE IS OF, not
+       against today's.
+     *
+       avg7 is anchored on the last weigh-in; plan.lb moves every day. Compared
+       across that gap the difference grew on its own: identical mornings and
+       an identical plan, read the day of the last weigh-in, said 12 days
+       behind, and read a fortnight later said 24. Half of that number was
+       just the days since he stood on the scale, and the card never said so.
+       A stale reading should go stale, not get worse. */
+    var atPlan = mPlanWeight(st.lastKey, pr) || plan;
+    var off = st.avg7 - atPlan.lb;                // positive means heavier than planned
     var daysOff = plan.per ? Math.round(off / -plan.per) : 0;
     var burn = meas ? meas.tdee : mTdee(pr);
     /* A floor of this line's own, because a line that says "eat 1,278" is
@@ -2712,7 +2726,7 @@
     var rate = st.dWeek === null ? null : Math.round(st.dWeek * 10) / 10;
     return {
       pr: pr, st: st, plan: plan, meas: meas, burn: burn,
-      off: off, band: band, daysOff: daysOff,
+      off: off, band: band, daysOff: daysOff, stale: st.staleDays,
       need: need, capped: capped, arrive: arrive, rate: rate,
       side: toward > band ? 'behind' : toward < -band ? 'ahead' : 'on'
     };
@@ -2815,6 +2829,22 @@
        nothing happened." It had; nothing said so. Once the plan already eats
        what the card would ask, there is no decision left, so the card says
        what is being done and stops asking. */
+    /* Nothing here was measured today. The average is of a morning that has
+       been and gone, and the honest thing is to say which morning and what it
+       read — not to hand down a verdict on it, and not to ask anybody to eat
+       a number worked out from it. Blake, on being shown a pace verdict under
+       an empty weigh-in box: "I didn't want to be nagged, but coached and
+       informed." A stat, then silence, which is his own rule for the last
+       line of a card. */
+    if (pf.stale > 1) {
+      if (mHushed(k, 'stale:' + pf.st.lastKey)) return '';
+      return mLineHTML('wait', '\u25CE',
+        '<b>Last weighed ' + esc(mPretty(pf.st.lastKey)) + ', ' +
+        (Math.round(pf.st.latest * 10) / 10) + ' lb.</b> ' +
+        (pf.stale === 2 ? 'Nothing since.' : pf.stale + ' mornings since.'),
+        'The scale is what this reads; there is nothing to say about a day it has not seen.',
+        [['Leave it', 'mline:none:stale:' + pf.st.lastKey]]);
+    }
     var eating = need !== null && kcalOf(mReadTargets()) > 0 &&
       Math.abs(kcalOf(mReadTargets()) - need) <= 5;
     if (pf.side === 'behind' && eating) {

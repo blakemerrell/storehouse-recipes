@@ -4544,6 +4544,63 @@ module.exports = {
       leanPlan.lean > leanPlan.fat, JSON.stringify(leanPlan));
     await floorPg.context().close();
 
+    /* ---- a stale reading goes stale, it does not get worse ---------------
+     *
+     * The seven-day average is anchored on the last weigh-in. The plan line
+     * it was compared against was for TODAY. So every morning off the scale
+     * widened the gap on its own: identical mornings and an identical plan
+     * read 12 days behind on the day of the last weigh-in and 24 a fortnight
+     * later, and half of that number was just the days since he stood on it.
+     *
+     * Blake, shown a pace verdict under an empty weigh-in box: "I didn't want
+     * to be nagged, but coached and informed." So past a day the card states
+     * which morning it is reading and what that morning said, and asks for
+     * nothing — a stat, then silence, which is his own rule for a last line. */
+    const staleSeed = (gap) => (g) => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const ws = {};
+      for (let i = 0; i < 30; i++) {
+        const d = new Date(); d.setDate(d.getDate() - g - i);
+        ws[key(d)] = Math.round((195 + i * 0.1) * 10) / 10;
+      }
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+      const goal = new Date(); goal.setDate(goal.getDate() + 120);
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 43, ft: 5, inch: 10, lb: 195, act: 1.375, goal: 'cut1',
+        goalLb: 175, goalBy: key(goal), workouts: 4, steps: 8000 }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 120 }));
+    };
+    const staleAt = async (gap) => {
+      const pg = await t.fresh({ viewport: { width: 390, height: 800 } });
+      await pg.evaluate(staleSeed(gap), gap);
+      await pg.reload();
+      await pg.waitForTimeout(400);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(250);
+      const out = await pg.evaluate(() => {
+        const f = window.__macroLab.pace();
+        const el = document.querySelector('.mline');
+        return { daysOff: f && f.daysOff, stale: f && f.stale,
+          text: el ? el.textContent : '',
+          eat: !!document.querySelector('[data-mline^="mline:eat"]') };
+      });
+      await pg.context().close();
+      return out;
+    };
+    const staleFresh = await staleAt(0);
+    const staleOld = await staleAt(14);
+    t.ok('days behind pace does not grow just because nobody stood on the scale',
+      Math.abs(staleFresh.daysOff - staleOld.daysOff) <= 2,
+      'fresh ' + staleFresh.daysOff + ' vs 14 days later ' + staleOld.daysOff);
+    t.ok('and a fortnight-old reading says which morning it is reading, and asks for nothing',
+      staleOld.stale === 14 && /Last weighed/.test(staleOld.text) &&
+        /14 mornings since/.test(staleOld.text) && !staleOld.eat,
+      JSON.stringify(staleOld).slice(0, 180));
+    t.ok('while a reading taken this morning still gives its verdict',
+      staleFresh.stale === 0 && /behind pace|Nothing to change|ahead of pace/.test(staleFresh.text),
+      staleFresh.text.slice(0, 90));
+
     /* ---- the answer does not depend on the order the day was built --------
      *
      * Coordinate descent visits one plate at a time, so the order it walks
