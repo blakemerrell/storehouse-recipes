@@ -1675,4 +1675,34 @@ module.exports = [
      rather than of the ones a keyword sweep had already turned up. */
   { id: 294, step: 0, set: "Salt the chicken fifteen minutes ahead and pound the thick end level. Poach it gently 12 to 15 minutes, until it reads 165°F at the thickest part, let it rest five minutes, then slice it against the grain. Dry chicken is a method problem, not a chicken problem." },
   { id: 312, step: 3, set: "Chicken back in, tossed through until it is hot and no pink remains at the centre." },
+
+  /* ---- instant, and the potatoes nobody served --------------------------
+   *
+   * Nine recipes called for pudding mix and not one said instant. Six of
+   * them whisk it into cold milk, which cook-and-serve never sets in: the
+   * cook ends up with a pie shell and a bowl of chocolate milk.
+   *
+   * No. 269 was worse than a wording gap. "1 pkg vanilla pudding" parsed as
+   * already-made pudding while the recipe ALSO listed two cups of milk, and
+   * its own step whisks the packet with that milk — so the milk was counted
+   * twice and the macros have been wrong. Naming it a mix fixes the food,
+   * not just the sentence.
+   *
+   * And no. 248 listed three cups of instant potatoes that no step ever
+   * mentioned. That is half the plate, priced into every serving and never
+   * made. */
+  { id: 98, ing: ["1 pkg instant chocolate pudding mix", "2 cups milk", "1 scoop whey"] },
+  { id: 202, ing: ["1 pkg instant chocolate pudding mix", "2 cups milk", "1 can peaches (diced)"] },
+  { id: 204, ing: ["1 box chocolate cake mix", "3 eggs", "3 cups milk", "½ cup butter", "1 pkg instant chocolate pudding mix"] },
+  { id: 208, ing: ["1 pkg instant vanilla pudding mix", "2 cups milk", "1 diced apple", "1 sliced banana", "1 cup grapes"] },
+  { id: 210, ing: ["3 ripe bananas (sliced)", "1 pkg instant vanilla pudding mix", "2 cups milk", "1 cup oats", "½ cup butter", "¼ cup sugar"] },
+  { id: 216, ing: ["½ yellow cake (cubed)", "1 pkg instant vanilla pudding mix", "2 cups milk", "1 can peaches (diced)"] },
+  { id: 218, ing: ["1.5 cups flour", "½ cup butter", "4 tbsp cold water", "salt", "1 pkg instant chocolate pudding mix", "2 cups milk"] },
+  { id: 224, ing: ["1 box chocolate cake mix", "3 eggs", "½ cup vegetable oil", "1 cup water", "1 pkg instant chocolate pudding mix", "2 cups hot water"] },
+  { id: 195, steps: [
+      'Sear beef patties in skillet 3 mins per side.',
+      'Put the patties in the slow cooker with the sliced onions. Whisk the gravy packet into 1\u00bd cups of water and pour it over \u2014 dry powder alone will not make gravy. Cook on LOW for 4 hours. No packet? Use plain water and make {r:265} from the liquid.',
+      'Stir the instant potatoes into 3 cups of boiling water, let them stand a minute, and serve the patties and their gravy over them.',
+    ] },
+  { id: 89, step: 0, set: 'Use a serving of made-up chocolate pudding \u2014 a packet whisked with 2 cups of cold milk makes four of them, or {r:202} if you would rather it was already portioned.' },
 ];

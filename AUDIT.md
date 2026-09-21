@@ -278,7 +278,7 @@ the change; this table is the whole record of it.
 | 99 | Roasted Chicken Breast & Potato Wedges | `Preheat oven to 400°F.` | `Heat the oven to 400°F.` |
 | 100 | Buffalo Chicken & Rice Prep | `Cook diced chicken in skillet 8 mins; toss with hot sauce and ranch.` | `Cook the diced chicken over medium-high about 8 minutes, until no pink is left and the thickest part reads 165°F. Toss w…` |
 | 114 | Zero-Sugar Chocolate Gelatin Fluff | `Dissolve gelatin packet in 1 cup boiling water.` | `Dissolve the gelatin packet in 1 cup of boiling water, stirring until no grains are left.` |
-| 119 | Protein Pudding Parfait | `Make chocolate pudding.` | `Make up the chocolate pudding — a packet whisked with 2 cups of milk for two minutes, or {r:202} if you would rather it …` |
+| 119 | Protein Pudding Parfait | `Make chocolate pudding.` | `Use a serving of made-up chocolate pudding — a packet whisked with 2 cups of cold milk makes four of them, or {r:202} if…` |
 | 124 | Crio Bru Power Morning Cocktail | `Blend on high for 15 seconds until frothy.` | `Blend on high 15 seconds until frothy — but let the Crio Bru cool for five minutes first, or leave the lid cracked with …` |
 | 129 | Salted Caramel Crio Bru Shake | `Blend hot Crio Bru, whey, brown sugar, and sea salt for 15 seconds.` | `Let the Crio Bru stand five minutes off the boil, then blend it with the whey, brown sugar and salt for 15 seconds. Hot …` |
 | 142 | Slow-Cooker Shredded Salsa Chicken Bowls | `Put chicken and salsa into slow cooker. Cook LOW 4 hours (or HIGH 2.5 hours).` | `Put chicken and salsa into slow cooker. Cook LOW 4 hours (or HIGH 2.5 hours). An onion first: chopped, into the hot fat,…` |
