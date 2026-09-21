@@ -3971,15 +3971,43 @@
        A front door that cannot be opened and will not say so is the worst
        thing in the app, and it costs one branch to fix: with no plan, the
        button IS the way to make one, and says so. */
+    /* One button, saying the next thing the day needs.
+     *
+       It used to be Fill beside a tick, and Fill went DEAD the moment every
+       meal had something on it: the biggest, brightest control on the screen,
+       disabled, for most of the day — the same fault the paragraph above
+       describes for the no-plan case and fixes only there. Blake: "when all
+       the foods are check marked I get to see a complete button for a day
+       instead of a fill, because fill at that point doesn't make sense
+       anymore."
+     *
+       Four states in order of what is left to do: make a plan, draft the
+       day, close it, reopen it. The tick that used to carry the last two is
+       gone from the bar; this is the same verb in the slot that was going to
+       waste. */
     var fillBtn = $('macroFill');
     var noPlan = !kcalOf(targets);
-    fillBtn.classList.toggle('to-plan', noPlan);
-    fillBtn.textContent = noPlan ? 'Craft my plan' : 'Fill';
-    fillBtn.setAttribute('aria-label', noPlan
-      ? 'Craft my plan — My Day needs one before it can draft anything'
-      : 'Fill the day');
-    fillBtn.disabled = !noPlan &&
+    var nothingToFill = !noPlan &&
       slots.list.every(function (s) { return (day[s.k] || []).length; });
+    var dayDone = mDoneAt(mViewKey()) > 0;
+    var future = mViewKey() > todayKey();
+    var mode = noPlan ? 'plan' : dayDone ? 'open' : nothingToFill ? 'done' : 'fill';
+    var SAY = { plan: 'Craft my plan', fill: 'Fill', done: 'Done for today', open: 'Reopen the day' };
+    var TELL = {
+      plan: 'Craft my plan — My Day needs one before it can draft anything',
+      fill: 'Fill the day',
+      done: 'I am done for today',
+      open: 'Day closed — press to reopen it'
+    };
+    fillBtn.classList.toggle('to-plan', noPlan);
+    fillBtn.classList.toggle('to-done', mode === 'done' || mode === 'open');
+    fillBtn.dataset.mode = mode;
+    if (fillBtn.textContent !== SAY[mode]) fillBtn.textContent = SAY[mode];
+    fillBtn.setAttribute('aria-label', TELL[mode]);
+    fillBtn.title = TELL[mode];
+    /* A day that has not happened cannot be finished with, and there is
+       nothing to draft against on it either. */
+    fillBtn.disabled = future && mode !== 'fill';
 
     /* The gear and its menu are static markup, so a state change paints them
        once and they stay painted. Painting again here costs a class check and
@@ -3995,17 +4023,6 @@
       });
     });
     $('macroRebal').disabled = !freeCount;
-
-    /* The tick fills in when the day is closed, and a future day cannot be
-       finished with — you have not had it yet. */
-    var doneBtn = $('macroDone');
-    var isDone = mDoneAt(mViewKey()) > 0;
-    doneBtn.disabled = mViewKey() > todayKey();
-    if (doneBtn.getAttribute('aria-pressed') !== String(isDone)) {
-      doneBtn.setAttribute('aria-pressed', String(isDone));
-    }
-    if (doneBtn.classList.contains('done') !== isDone) doneBtn.classList.toggle('done', isDone);
-    doneBtn.title = isDone ? 'Day closed \u2014 press to reopen' : 'I am done for today';
 
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
@@ -13866,26 +13883,25 @@
        With no plan there is nothing to fill and the press opens the sheet
        that makes one — see the note where the label is set. */
     $('macroFill').addEventListener('click', function () {
-      if ($('macroFill').classList.contains('to-plan')) { mOpenTargets(); return; }
-      mFillDay();
-    });
-
-    /* Done for the day. A statement, not a change: nothing is deleted, food
-       can still be added, and pressing it again takes it back. The card comes
-       up on the way in and not on the way out — closing is the moment you
-       want to be told how it went; reopening is just a correction. */
-    $('macroDone').addEventListener('click', function () {
-      var k = mViewKey();
-      var was = mDoneAt(k) > 0;
-      mSetDone(k, !was);
+      var mode = $('macroFill').dataset.mode;
+      if (mode === 'plan') { mOpenTargets(); return; }
+      if (mode === 'fill') { mFillDay(); return; }
+      /* Done for the day. A statement, not a change: nothing is deleted,
+         food can still be added, and pressing it again takes it back. The
+         card comes up on the way IN and not on the way out — closing is the
+         moment you want to be told how it went; reopening is a correction. */
+      var dk = mViewKey();
+      var was = mDoneAt(dk) > 0;
+      mSetDone(dk, !was);
       if (!was) {
         rememberOpener();
-        S.mDoneOpen = k;
+        S.mDoneOpen = dk;
         pushSheet({ m: 1 });
         renderModal();
       }
       renderMacros();
     });
+
     $('macroRebal').addEventListener('click', mRebalance);
 
     /* The three that are not the morning. Craft is a once-a-season job, Copy
@@ -13905,16 +13921,10 @@
       mOpenPicker(null, 'home');
     });
 
-    /* Scan without going to a meal first. It opens the lens straight away and
-       the meal is chosen from the row above it, which is the order you do it
-       in when you are holding a packet. */
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      $('macroScan').classList.remove('hide');
-      $('macroScan').addEventListener('click', function () {
-        S.mpFromBar = true;
-        mOpenPicker(null, 'scan');
-      });
-    }
+    /* The bar's barcode button has gone: it opened the same sheet the plus
+       opens, one step further in, and that sheet carries a camera in its own
+       search field. Blake: "the plus button and the scanner button are the
+       same thing." One door, and the lens is inside it. */
 
     /* The pills are the bars folded up. Pressing them goes back to the top,
        where the bars are open again — they are the same numbers, not a
@@ -13969,9 +13979,11 @@
       /* Any day, closed or not — the card is a reading of the day, and a day
          does not have to be finished with to be read. */
       if (b.dataset.mmore === 'went') { S.macroTargOpen = false; S.mDoneOpen = mViewKey(); }
-      // the two that live inside the plan sheet open it at the right place
-      S.mtOpen = b.dataset.mmore === 'meals' ? 'meals'
-        : b.dataset.mmore === 'help' ? 'help' : '';
+      /* The plan sheet is one entry now. "Meals & shares" and "How My Day
+         works" were two more doors into it — three in a six-item menu
+         landing in one room — and both of their destinations are accordions
+         the sheet already shows. */
+      S.mtOpen = '';
       pushSheet({ m: 1 });
       renderModal();
       if (S.mtOpen) {

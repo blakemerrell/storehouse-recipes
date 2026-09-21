@@ -2482,7 +2482,10 @@ select { max-width: 280px; }
    width. On a phone the day box already fills the gap so this changes
    nothing; on a desktop it stops growing at 190px and the two would strand
    themselves mid-line, a hand's width from the edge they belong to. */
-.mday-head #macroOpenAll { margin-left: auto; }
+/* The gear is the only thing left on the right of the title row, so it is
+   the one that pushes. The expander used to carry this and took the push
+   with it when it went down to the bar. */
+.mday-head #macroMore { margin-left: auto; }
 .mp-fav { color: var(--ochre-text); }
 
 /* the weigh-in card */
@@ -2772,6 +2775,12 @@ select { max-width: 280px; }
    day in". */
 .btn-primary.to-plan { background: var(--ochre-text); }
 .btn-primary.to-plan:hover { background: var(--ochre); }
+/* Done for today, and reopening it. A statement rather than an action, so it
+   steps back from Fill's green without becoming a warning: the day is over,
+   not wrong. Same slot, because the slot is "the next thing this day needs"
+   and by then the next thing is to close it. */
+.btn-primary.to-done { background: var(--muted); }
+.btn-primary.to-done:hover { background: var(--ink); }
 /* A ghost button that is nonetheless the dangerous one on its row. Sign out
    and Delete my account sit together and do very different things. */
 .ghost.danger { color: oklch(0.46 0.14 30); border-color: oklch(0.72 0.09 30); }

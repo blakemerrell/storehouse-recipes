@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=451">
+<link rel="stylesheet" href="src/style.css?v=452">
 </head>
 <body>
 
@@ -176,17 +176,23 @@
         <button class="ghost" id="macroPrev" aria-label="Previous day">&lsaquo;</button>
         <select id="macroDaySel" aria-label="Day"></select>
         <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
-        <!-- Open or shut the whole day, and set it up: the two that belong
-             beside the title rather than down with the morning's verbs. They
-             sit on the far right at every width, so the row reads My Day,
-             the day, then the two switches for the whole screen. -->
-        <button class="ghost mday-icon" id="macroOpenAll" aria-pressed="false"
-          aria-label="Open every meal">&#9776;</button>
+        <!-- The gear alone now. Opening every meal is a thing you do WHILE
+             reading the day, with the thumb already at the bottom of the
+             screen, so it went down to the bar with the rest of the verbs —
+             Blake: "the auto expander button at the very top, I think I want
+             to move to the bottom rail." -->
         <button class="ghost mday-icon mday-more" id="macroMore" aria-haspopup="true"
           aria-expanded="false" aria-label="Set up My Day">&#9881;</button>
         <div class="mday-menu hide" id="macroMenu" role="menu">
-          <button role="menuitem" data-mmore="plan">Craft my plan</button>
-          <button role="menuitem" data-mmore="meals">Meals &amp; shares</button>
+          <!-- One entry for the plan sheet, not three. "Craft my plan",
+               "Meals & shares" and "How My Day works" all opened the SAME
+               sheet, two of them scrolled to an accordion inside it — and
+               "shares" there means the meal percentages, which read as
+               sharing two rows above "Sync & sharing". Blake: "all those take
+               me to the exact same place. So do I need three buttons that
+               take me to the exact same place?" The meals and the help are
+               accordions in the sheet, where they can be seen. -->
+          <button role="menuitem" data-mmore="plan">My plan</button>
           <button role="menuitem" data-mmore="foods">Food I eat</button>
           <!-- The menu item answers "signed in as who?" without opening the
                sheet. Empty until the SDK has actually answered — see
@@ -194,7 +200,6 @@
           <button role="menuitem" data-mmore="you">Sync &amp; sharing<span
             class="mmenu-who" id="macroWho"></span></button>
           <button role="menuitem" data-mmore="went">How today went</button>
-          <button role="menuitem" data-mmore="help">How My Day works</button>
         </div>
       </div>
       <!-- Everything that folds away, in one box that can be clipped. The
@@ -245,27 +250,27 @@
            words because it is the one you press without looking; the rest are
            squares, because five labels do not fit across a phone and an icon
            you press daily learns its own meaning within a week. -->
+      <!-- One primary, saying the next thing the day needs. It used to be
+           Fill beside a tick, and Fill went DEAD once every meal had
+           something on it — the biggest, brightest control on the screen,
+           disabled, for most of the day. Blake: "when all the foods are check
+           marked I get to see a complete button for a day instead of a fill,
+           because fill at that point doesn't make sense anymore." So the one
+           button walks: Craft my plan, then Fill, then Done for today, then
+           Reopen. -->
       <button class="btn-primary" id="macroFill">Fill</button>
-      <!-- Closing the day sits beside Fill because that is where the day's
-           verbs are. It is the only one that is a statement rather than an
-           action, which is why it is a tick and not a tool. -->
-      <button class="ghost mday-icon" id="macroDone"
-        aria-pressed="false" aria-label="I am done for today"
-        title="I am done for today">&#10003;</button>
       <button class="ghost mday-icon" id="macroRebal"
         aria-label="Rebalance the day"
         title="Re-size the un-eaten, un-locked plates to land the day back on target">&#9878;</button>
       <button class="ghost mday-icon" id="macroAdd"
         aria-label="Add food to a meal" title="Add food to a meal">&#65291;</button>
-      <!-- A drawn barcode rather than the camera emoji: the emoji renders in
-           whatever colours the phone's font ships, which is the one thing on
-           this bar that does not follow the paper-and-ink palette. Same
-           bars the picker's own "Scan" tile uses, framed by viewfinder
-           corners. -->
-      <button class="ghost mday-icon hide" id="macroScan"
-        aria-label="Scan a barcode" title="Scan a barcode"><svg class="mday-svg" viewBox="0 0 16 16"
-        fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
-        stroke-linejoin="round" aria-hidden="true"><path d="M1 4.5V2a1 1 0 0 1 1-1h2.5M11.5 1H14a1 1 0 0 1 1 1v2.5M15 11.5V14a1 1 0 0 1-1 1h-2.5M4.5 15H2a1 1 0 0 1-1-1v-2.5"/><path d="M4 5v6M6.5 5v6M9 5v4M11.5 5v6"/></svg></button>
+      <!-- The barcode button has gone. It opened the same sheet the plus
+           opens, one step further in, and that sheet carries a camera in its
+           own search field — Blake: "the plus button and the scanner button
+           are the same thing. In both cases I should be able to open up and
+           scan something right away." One door, and the lens is inside it. -->
+      <button class="ghost mday-icon" id="macroOpenAll" aria-pressed="false"
+        aria-label="Open every meal" title="Open every meal">&#9776;</button>
       <button class="ghost mday-icon" id="macroCopy"
         aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
     </div>
@@ -352,14 +357,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=451"></script>
-<script src="data/nutrition.js?v=451"></script>
-<script src="data/art.js?v=451"></script>
-<script src="data/qr.js?v=451"></script>
-<script src="src/config.js?v=451"></script>
+<script src="data/recipes.js?v=452"></script>
+<script src="data/nutrition.js?v=452"></script>
+<script src="data/art.js?v=452"></script>
+<script src="data/qr.js?v=452"></script>
+<script src="src/config.js?v=452"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=451"></script>
-<script src="src/app.js?v=451"></script>
+<script src="src/sync.js?v=452"></script>
+<script src="src/app.js?v=452"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

@@ -195,7 +195,11 @@ module.exports = {
       await p.evaluate(() => !document.getElementById('macroMenu').classList.contains('hide') &&
         document.getElementById('macroMore').getAttribute('aria-expanded') === 'true' &&
         [...document.querySelectorAll('#macroMenu [data-mmore]')].map((b) => b.dataset.mmore)
-          .join() === 'plan,meals,foods,you,went,help'));
+          /* Four, not six. "Meals & shares" and "How My Day works" were two
+             more doors into the plan sheet the first entry already opens —
+             three of six landing in one room — and both destinations are
+             accordions that sheet already shows. */
+          .join() === 'plan,foods,you,went'));
     await p.click('.mday-rail');
     await p.waitForTimeout(80);
     t.ok('and a press anywhere else closes it',
@@ -2027,7 +2031,7 @@ module.exports = {
             .replace(/,/g, '').match(/([\d.]+)\s*\/\s*([\d.]+)/);
           return { m: row.dataset.macro, have: +m[1], want: +m[2] };
         }),
-        fillDisabled: document.getElementById('macroFill').disabled,
+        fillMode: document.getElementById('macroFill').dataset.mode,
       };
     });
     /* EVERY meal, not most of them.
@@ -4799,7 +4803,7 @@ module.exports = {
     t.ok('six controls still fit the bar on a phone, with Fill still a word',
       !barFits.wraps && barFits.label && barFits.fill > 60, JSON.stringify(barFits));
 
-    await closed.click('#macroDone');
+    await closed.click('#macroFill');
     await closed.waitForTimeout(500);
     const dayCard = await closed.evaluate(() => {
       const sh = document.querySelector('.ds-sheet');
@@ -4872,24 +4876,28 @@ module.exports = {
     t.ok('and the Done button closes the card',
       await closed.evaluate(() => !document.querySelector('.ds-sheet')));
     await closed.waitForTimeout(300);
+    /* The tick is gone from the bar and the one primary carries it: Fill
+       while there is something to draft, Done once there is not, Reopen once
+       it is closed. Same verb, the slot that was going dead. */
     t.ok('and the day is marked closed on the bar',
       await closed.evaluate(() => {
-        const b = document.getElementById('macroDone');
-        return b.getAttribute('aria-pressed') === 'true' && b.classList.contains('done');
+        const b = document.getElementById('macroFill');
+        return b.dataset.mode === 'open' && /Reopen/.test(b.textContent) &&
+          b.classList.contains('to-done');
       }));
     /* Nothing was taken away by closing it. */
     t.ok('and nothing on the day was removed by saying you were done',
       await closed.evaluate(() => document.querySelectorAll('.mslot').length > 0 &&
         !document.getElementById('macroFill').disabled === false ||
         document.querySelectorAll('.mitem, .mthin').length > 0));
-    await closed.click('#macroDone');
+    await closed.click('#macroFill');
     await closed.waitForTimeout(400);
     t.ok('and pressing it again reopens the day, without a card this time',
       await closed.evaluate(() =>
-        document.getElementById('macroDone').getAttribute('aria-pressed') === 'false' &&
+        document.getElementById('macroFill').dataset.mode !== 'open' &&
         !document.querySelector('.ds-sheet')));
     /* It survives a reload, which is the whole point of it being a record. */
-    await closed.click('#macroDone');
+    await closed.click('#macroFill');
     await closed.waitForTimeout(400);
     await closed.click('.sheet-x');
     await closed.waitForTimeout(200);
@@ -4898,7 +4906,7 @@ module.exports = {
     await closed.waitForTimeout(500);
     t.ok('and a closed day is still closed tomorrow morning',
       await closed.evaluate(() =>
-        document.getElementById('macroDone').getAttribute('aria-pressed') === 'true'));
+        document.getElementById('macroFill').dataset.mode === 'open'));
 
     /* The menu opens the same card for a day you have not closed. */
     await closed.click('#macroMore');
@@ -5210,14 +5218,16 @@ module.exports = {
       drafted.tot.p >= 0.6 * planP, Math.round(drafted.tot.p) + ' of ' + planP);
     t.ok('without blowing the fat budget wide open',
       drafted.tot.f <= planF + 30, Math.round(drafted.tot.f) + ' vs ' + planF);
-    /* Disabled exactly when there is nothing left to draft. Fill stops once a
-       meal's remaining budget is under a hundred calories, so on a tight plan
-       it can honestly leave the last one empty — and then the button is
-       rightly still live. Asserting "always disabled after Fill" made this a
-       coin toss on which meals the draft happened to reach. */
-    t.ok('the button goes quiet exactly when every meal has something',
-      drafted.fillDisabled === drafted.perSlot.every((n) => n >= 1),
-      'disabled=' + drafted.fillDisabled + ' slots=' + drafted.perSlot.join(','));
+    /* It stops SAYING Fill exactly when there is nothing left to draft — and
+       says the next useful thing instead of going dead, which is the whole
+       point of merging the tick into it. Fill stops once a meal's remaining
+       budget is under a hundred calories, so on a tight plan it can honestly
+       leave the last one empty, and then the button is rightly still Fill.
+       Asserting "always done after Fill" made this a coin toss on which
+       meals the draft happened to reach. */
+    t.ok('the button stops offering to fill exactly when every meal has something',
+      (drafted.fillMode === 'done') === drafted.perSlot.every((n) => n >= 1),
+      'mode=' + drafted.fillMode + ' slots=' + drafted.perSlot.join(','));
 
     /* One press has to produce a day you could actually eat to. Four dishes
        sized against their own shares land the day near the target but not on
@@ -5273,31 +5283,31 @@ module.exports = {
         return b2.indexOf('macroAdd') >= 0 && b2.indexOf('macroRebal') >= 0 &&
           document.querySelector('.mday-acts').getBoundingClientRect().height < 70;
       }));
-    /* The two switches for the whole screen — open every meal, set up My
-       Day — sit beside the title, on the far right, at every width. They
-       spent a version down on the bar with the morning's verbs, where
-       "open everything" read as something you do to a meal. */
-    t.ok('open-all and the gear sit on the far right of the title row',
+    /* The gear keeps the title row; opening every meal went down to the bar.
+       It is a thing you do WHILE reading the day, with the thumb already at
+       the bottom of the screen — Blake: "the auto expander button at the very
+       top, I think I want to move to the bottom rail." The gear stays up
+       there because setting the day up is not something you do mid-scroll. */
+    t.ok('the gear keeps the title row and the expander went to the bar',
       await bar.evaluate(() => {
         const head = document.querySelector('.mday-head');
+        const acts = document.querySelector('.mday-acts');
         const all = document.getElementById('macroOpenAll'), gear = document.getElementById('macroMore');
-        const next = document.getElementById('macroNext');
-        if (!head.contains(all) || !head.contains(gear)) return false;
-        const h = head.getBoundingClientRect(), a = all.getBoundingClientRect(), g = gear.getBoundingClientRect();
-        return a.left > next.getBoundingClientRect().right + 40 && g.left >= a.right &&
+        if (!head.contains(gear) || !acts.contains(all)) return false;
+        const h = head.getBoundingClientRect(), g = gear.getBoundingClientRect();
+        return g.left > document.getElementById('macroNext').getBoundingClientRect().right &&
           h.right - g.right < 24;
-      }), await bar.evaluate(() => {
-        const r = (id) => Math.round(document.getElementById(id).getBoundingClientRect().left);
-        return 'next ' + r('macroNext') + ' all ' + r('macroOpenAll') + ' gear ' + r('macroMore') +
-          ' head ' + Math.round(document.querySelector('.mday-head').getBoundingClientRect().right);
-      }));
-    /* And the scanner is drawn, not an emoji: the camera glyph came in the
-       phone's own colours, the one thing on the bar off the palette. */
-    t.ok('the scan button is a drawn icon in the ink colour',
-      await bar.evaluate(() => {
-        const b2 = document.getElementById('macroScan');
-        return !!b2.querySelector('svg.mday-svg') && !/📷/.test(b2.textContent);
-      }));
+      }), await bar.evaluate(() =>
+        'gear in head ' + document.querySelector('.mday-head').contains(document.getElementById('macroMore')) +
+        ' / expander in bar ' + document.querySelector('.mday-acts').contains(document.getElementById('macroOpenAll'))));
+    /* The bar's barcode button has gone — it opened the same sheet the plus
+       opens, one step further in, and that sheet carries a camera in its own
+       search field. Blake: "the plus button and the scanner button are the
+       same thing. In both cases I should be able to open up and scan
+       something right away." So the claim is now about the sheet: one door,
+       and the lens inside it. */
+    t.ok('the bar has no second door to the same sheet',
+      await bar.evaluate(() => !document.getElementById('macroScan')));
 
     /* Opened from the bar, the sheet has to ask which meal — and answer it
        first, with the one you have not finished eating. */
@@ -11238,7 +11248,13 @@ module.exports = {
     t.ok('the day bar counts a food logged with only its calories',
       /700 \/ 1,370 kcal/.test(outDay), outDay.slice(0, 200));
 
-    await outPg.click('[aria-label="I am done for today"]');
+    /* Through the menu, because this day has one meal on it and five empty:
+       the primary still reads Fill there, and pressing it would draft a day
+       rather than close one. "How today went" opens the same card for any
+       day, closed or not, which is what this is about. */
+    await outPg.click('#macroMore');
+    await outPg.waitForTimeout(120);
+    await outPg.click('[data-mmore="went"]');
     await outPg.waitForTimeout(400);
     const outSheet = (await outPg.innerText('#modalRoot')).replace(/\s+/g, ' ');
     t.ok('and the summary does not call that day blank',
