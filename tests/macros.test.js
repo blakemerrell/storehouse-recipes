@@ -4544,6 +4544,53 @@ module.exports = {
       leanPlan.lean > leanPlan.fat, JSON.stringify(leanPlan));
     await floorPg.context().close();
 
+    /* ---- trained today ----------------------------------------------------
+     *
+     * The profile already says how many sessions a week and mBurn spreads
+     * those calories over all seven days, rest days included — so a tick here
+     * must buy NO calories or it is the same session paid for twice. What it
+     * moves is where the carbohydrate lands: carb cycling picks its training
+     * days from an evenly-spread pattern, so saying three and lifting Tue,
+     * Thu, Sat put the high-carb days on Mon, Wed, Fri every week. */
+    const trainPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await trainPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const g = new Date(); g.setDate(g.getDate() + 120);
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({
+        sex: 'm', age: 43, ft: 5, inch: 10, lb: 195, act: 1.375, goal: 'cut1',
+        goalLb: 175, goalBy: key(g), workouts: 3, steps: 8000 }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 120 }));
+    });
+    await trainPg.reload();
+    await trainPg.waitForTimeout(400);
+    await trainPg.click('.tab[data-view="macros"]');
+    await trainPg.waitForTimeout(300);
+    const trainWas = await trainPg.evaluate(() => {
+      const b = document.querySelector('[data-mtrained]');
+      return { kcal: window.__macroLab.targets(),
+        pressed: b ? b.getAttribute('aria-pressed') : 'missing',
+        day: b ? b.dataset.mtrained : null };
+    });
+    t.ok('the morning offers a tick, and starts on whatever the plan assumed',
+      trainWas.pressed === 'true' || trainWas.pressed === 'false', JSON.stringify(trainWas.pressed));
+
+    await trainPg.click('[data-mtrained]');
+    await trainPg.waitForTimeout(300);
+    const trainNow = await trainPg.evaluate(() => ({
+      pressed: document.querySelector('[data-mtrained]').getAttribute('aria-pressed'),
+      targets: window.__macroLab.targets(),
+    }));
+    t.ok('tapping it flips the day and nothing else',
+      trainNow.pressed !== trainWas.pressed &&
+        trainNow.targets.p === trainWas.kcal.p && trainNow.targets.f === trainWas.kcal.f,
+      JSON.stringify({ was: trainWas.pressed, now: trainNow.pressed,
+        p: [trainWas.kcal.p, trainNow.targets.p], f: [trainWas.kcal.f, trainNow.targets.f] }));
+    t.ok('and it is the carbohydrate that moves, never the calories it was already paid',
+      trainNow.targets.c !== trainWas.kcal.c,
+      'carbs ' + trainWas.kcal.c + ' -> ' + trainNow.targets.c);
+    await trainPg.context().close();
+
     /* ---- a stale reading goes stale, it does not get worse ---------------
      *
      * The seven-day average is anchored on the last weigh-in. The plan line

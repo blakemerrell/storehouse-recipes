@@ -2498,6 +2498,33 @@ select { max-width: 280px; }
    takes no room when empty, so a card that is fine does not carry a gap where
    a complaint might one day go. */
 .mw-note:empty { display: none; }
+/* Trained today. A tick beside the weigh-in, on its own line: the header row
+   above it already carries a dot, a name, a fold cue and a number box, and a
+   fifth thing on it clips the name at 320. Quiet by default because it is an
+   offer, not a question being asked of you. */
+.mw-train { padding: 0 2px 2px; }
+.mw-tick {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: none; border: 0; padding: 6px 4px;
+  font: inherit; font-size: 13px; letter-spacing: 0.04em;
+  color: var(--muted); cursor: pointer; min-height: 34px;
+}
+.mw-tick-b {
+  width: 17px; height: 17px; border-radius: 5px;
+  border: 1.5px solid var(--line); background: var(--paper);
+  flex: none; position: relative;
+}
+.mw-tick[aria-pressed="true"] { color: var(--ink); }
+.mw-tick[aria-pressed="true"] .mw-tick-b {
+  border-color: var(--dial-on); background: var(--dial-on);
+}
+.mw-tick[aria-pressed="true"] .mw-tick-b::after {
+  content: ''; position: absolute; left: 5px; top: 1px;
+  width: 4px; height: 9px; border: solid var(--paper);
+  border-width: 0 2px 2px 0; transform: rotate(42deg);
+}
+@media (pointer: coarse) { .mw-tick { min-height: 40px; } }
+
 .mw-note {
   flex: 1 0 100%; text-align: right; font-size: 11px;
   color: var(--dial-over); margin-top: 2px;

@@ -1138,7 +1138,8 @@
   function mClaimAll() {
     var now = Date.now();
     ['t', 'pr', 'sl', 'mf'].forEach(function (k) { MSTAMPS[k] = now; });
-    [['d', MDAYS], ['dn', MDONE], ['sp', MSKIP], ['sn', MSEND], ['w', MWEIGHTS]].forEach(function (pair) {
+    [['d', MDAYS], ['dn', MDONE], ['sp', MSKIP], ['sn', MSEND], ['w', MWEIGHTS],
+      ['tn', MTRAINED]].forEach(function (pair) {
       var part = pair[0];
       var map = (MSTAMPS[part] && typeof MSTAMPS[part] === 'object') ? MSTAMPS[part] : {};
       MSTAMPS[part] = map;
@@ -1192,7 +1193,8 @@
   function mForgetDay() {
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
-      'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroHush'].forEach(function (k) {
+      'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroTrained',
+      'bsc.macroHush'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
@@ -1202,6 +1204,7 @@
     Object.keys(MSKIP).forEach(function (k) { delete MSKIP[k]; });
     Object.keys(MHUSH).forEach(function (k) { delete MHUSH[k]; });
     Object.keys(MSEND).forEach(function (k) { delete MSEND[k]; });
+    Object.keys(MTRAINED).forEach(function (k) { delete MTRAINED[k]; });
   }
 
   function mAccountMark() {
@@ -1223,6 +1226,10 @@
     var done = {};
     Object.keys(MDONE).forEach(function (k) {
       done[k.replace(/-/g, '_')] = { v: mDoneAt(k), at: (MSTAMPS.dn || {})[k] || 0 };
+    });
+    var trained = {};
+    Object.keys(MTRAINED).forEach(function (k) {
+      trained[k.replace(/-/g, '_')] = { v: mTrainedAt(k), at: (MSTAMPS.tn || {})[k] || 0 };
     });
     /* Over the STAMPS, not over MSKIP.
      *
@@ -1282,6 +1289,7 @@
       w: weights,
       d: days,
       dn: done,
+      tn: trained,
       sp: skip,
       sn: send
     };
@@ -1372,6 +1380,18 @@
       MDONE[k] = Number(r.v) || 0;
       MSTAMPS.dn = MSTAMPS.dn || {};
       MSTAMPS.dn[k] = r.at;
+      moved = true;
+    });
+    /* Zero is a real answer here too: it is the morning you ticked and then
+       un-ticked, and a merge that skipped falsy values would let any device
+       still remembering the tick put it back. */
+    Object.keys(md.tn || {}).forEach(function (enc) {
+      var k = enc.replace(/_/g, '-');
+      var r = md.tn[enc];
+      if (!r || r.v === undefined || !(r.at > ((MSTAMPS.tn || {})[k] || 0))) return;
+      MTRAINED[k] = Number(r.v) || 0;
+      MSTAMPS.tn = MSTAMPS.tn || {};
+      MSTAMPS.tn[k] = r.at;
       moved = true;
     });
     Object.keys(md.sp || {}).forEach(function (enc) {
@@ -1897,16 +1917,26 @@
     var train = mTrainDays();
     var T = train.length, R = 7 - T;
     if (!T || !R || !base.c) return base;
-    var hard = train.indexOf(mWkIx(keyDate(k))) >= 0;
+    var hard = mIsTrainingDay(k);
     /* Whatever the training days gain, the rest days give back, so seven of
        these still add up to seven of the plan. */
     var f = hard ? (1 + MCYCLE_SWING) : (1 - MCYCLE_SWING * T / R);
     return { p: base.p, f: base.f, c: Math.max(0, Math.round(base.c * f)) };
   }
 
+  /* Ticked if you ticked it, planned otherwise.
+   *
+     The week's COUNT stays the planned one, which is what mDayTargets
+     divides by — so the rest days give back exactly what the training days
+     take and the week still averages to plan. The tick only moves which days
+     are which. Tick more mornings than you planned for and the week runs a
+     little high on carbohydrate, which is a true consequence of training
+     more than you said you would. */
   function mIsTrainingDay(k) {
     var train = mTrainDays();
-    return train.length > 0 && train.length < 7 && train.indexOf(mWkIx(keyDate(k))) >= 0;
+    if (!train.length || train.length >= 7) return false;
+    if (mTrainedSaid(k)) return mTrainedAt(k) > 0;
+    return train.indexOf(mWkIx(keyDate(k))) >= 0;
   }
 
   /* What is actually in storage. Only the plan sheet's Save has any business
@@ -2302,6 +2332,35 @@
       if (dk < floor || dk > roof) delete m[dk];
     });
   }
+  /* Mornings you trained, as they happened.
+   *
+     The profile already carries how many sessions a week, and mBurn spreads
+     those calories across all seven days — rest days included. So a tick here
+     buys NO calories: it would be the same session paid for twice, which is
+     the fault this whole audit has been pulling out of the app all day. What
+     it buys is WHERE the carbohydrate lands. Carb cycling picks its training
+     days from an evenly-spread pattern, so somebody who says three and lifts
+     Tuesday, Thursday and Saturday gets the high-carb days on Monday,
+     Wednesday and Friday — every week, silently.
+   *
+     Day -> 1, and zero is a real answer meaning "I ticked this and then
+     un-ticked it", the same bargain the closed-day log strikes. */
+  var MTRAINED = (function () {
+    try {
+      var t = JSON.parse(localStorage.getItem('bsc.macroTrained'));
+      if (t && typeof t === 'object' && !Array.isArray(t)) return t;
+    } catch (e) { /* fall through */ }
+    return {};
+  })();
+  function mTrainedAt(k) { return Number(MTRAINED[k]) || 0; }
+  function mTrainedSaid(k) { return MTRAINED[k] !== undefined; }
+  function mSetTrained(k, on) {
+    MTRAINED[k] = on ? 1 : 0;
+    mPruneWindow(MTRAINED);
+    try { localStorage.setItem('bsc.macroTrained', JSON.stringify(MTRAINED)); } catch (e) { /* private */ }
+    mStamp('tn', k);
+  }
+
   function mSetDone(k, on) {
     MDONE[k] = on ? Date.now() : 0;
     mPruneWindow(MDONE);
@@ -3001,6 +3060,20 @@
             'value="' + (v || '') + '"> lb' +
             '<span class="mw-note" id="mWeightNote" role="status"></span></label>') +
       '</div>' +
+      /* Next to the weigh-in, because it is the other thing a morning knows
+         about you, and on its own line because that header row already
+         carries a dot, a name, a fold cue and a number box.
+       *
+         It says nothing when there is no cycling to move: with a flat plan
+         the tick would be a box that changes nothing, which is worse than no
+         box. And it never claims to have earned anything — the calories were
+         counted when the profile was filled in. */
+      (ahead || !mTrainDays().length || mTrainDays().length >= 7 ? ''
+        : '<div class="mw-train no-print">' +
+            '<button class="mw-tick" data-mtrained="' + esc(k) + '" aria-pressed="' +
+              (mIsTrainingDay(k) ? 'true' : 'false') + '">' +
+              '<span class="mw-tick-b" aria-hidden="true"></span>Trained today</button>' +
+          '</div>') +
       /* The plan, one line, on the face — and the same handle the meals wear,
          on the seam rather than in the header: this line is the last thing
          above what folds away, so the mark on the end of it is sitting at the
@@ -12362,7 +12435,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtwk', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -13094,6 +13167,8 @@
     syncState: function () { return S_SYNC_STATE; },
     syncStart: function () { return mSyncStart(); },
     bodyFat: mBodyFat,
+    trained: function (k) { return { said: mTrainedSaid(k), on: mIsTrainingDay(k) }; },
+    setTrained: mSetTrained,
     floorK: mFloorK,
     /* The gauge's band rule, because it only bites in a narrow window and no
        arbitrary day's plates land in it — asked through the DOM the test
@@ -13956,6 +14031,13 @@
       /* The way into the plan, wherever the card is showing it: on the face
          while there is no plan to adjust, behind the press once there is. */
       if (e.target.closest('#macroTargBtn')) { mOpenTargets(); return; }
+      var tr = e.target.closest('[data-mtrained]');
+      if (tr) {
+        var tk = tr.dataset.mtrained;
+        mSetTrained(tk, !mIsTrainingDay(tk));
+        keepingFocus(renderMacros);
+        return;
+      }
       var wf = e.target.closest('[data-mfold]');
       if (!wf) return;
       S.mFold.weigh = !(wf.getAttribute('aria-expanded') === 'false');
