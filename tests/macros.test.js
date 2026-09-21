@@ -4490,6 +4490,60 @@ module.exports = {
       JSON.stringify(priced));
     await priceDayPg.context().close();
 
+    /* ---- the floor, and the one thing under it ---------------------------
+     *
+     * 1,500 for a man was a magazine number. 1,200 is the clinical figure —
+     * roughly where a day stops being able to meet its micronutrients — and
+     * it was 1,500 that stood between Blake and the 1,300-kcal day an RP-style
+     * hard cut asks him for. What keeps a plan sane is the rate cap and the
+     * ceiling on how fast fat can actually be spent, not a flat number. */
+    const floorPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    const floors = await floorPg.evaluate(() => {
+      const man = { sex: 'm', age: 43, ft: 5, inch: 10, lb: 191, act: 1.2,
+        goal: 'cut2', goalLb: 0, goalBy: '', workouts: 0, steps: 0 };
+      return { floor: window.__macroLab.floorK(),
+        man: window.__macroLab.plan(man).kcal,
+        woman: window.__macroLab.plan(Object.assign({}, man, { sex: 'f' })).kcal };
+    });
+    t.ok('the floor is the clinical 1,200, for anybody',
+      floors.floor === 1200, JSON.stringify(floors));
+    t.ok('and a hard cut is allowed under the old 1,500',
+      floors.man < 1500 && floors.man >= 1200, JSON.stringify(floors));
+
+    /* Estimated from what is already asked, and typed over when you know. */
+    const fatEst = await floorPg.evaluate(() => {
+      const man = { sex: 'm', age: 43, ft: 5, inch: 10, lb: 191 };
+      const guess = window.__macroLab.bodyFat(man);
+      const told = window.__macroLab.bodyFat(Object.assign({}, man, { bf: 18 }));
+      return { guess: guess, told: told,
+        none: window.__macroLab.bodyFat({ sex: 'm', age: 0, ft: 0, inch: 0, lb: 0 }) };
+    });
+    t.ok('body fat is estimated from the figures already asked for',
+      fatEst.guess.told === false && fatEst.guess.pct > 15 && fatEst.guess.pct < 40 &&
+        Math.abs(fatEst.guess.lb - 191 * fatEst.guess.pct / 100) < 0.6,
+      JSON.stringify(fatEst.guess));
+    t.ok('and a measured one replaces it rather than arguing with it',
+      fatEst.told.told === true && fatEst.told.pct === 18 &&
+        Math.abs(fatEst.told.lb - 34.4) < 0.2 && fatEst.none === null,
+      JSON.stringify(fatEst));
+
+    /* The ceiling that is about the person. Two bodies at one weight and one
+       date: the leaner one has less fat to spend, so it must be given MORE
+       food, not the same. Differential, because re-deriving the burn beside
+       the app is how a test ends up asserting its own arithmetic. */
+    const leanPlan = await floorPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const g = new Date(); g.setDate(g.getDate() + 60);
+      const by = g.getFullYear() + '-' + p2(g.getMonth() + 1) + '-' + p2(g.getDate());
+      const base = { sex: 'm', age: 43, ft: 5, inch: 10, lb: 191, act: 1.2,
+        goal: 'cut2', goalLb: 165, goalBy: by, workouts: 0, steps: 0 };
+      return { lean: window.__macroLab.plan(Object.assign({}, base, { bf: 8 })).kcal,
+        fat: window.__macroLab.plan(Object.assign({}, base, { bf: 34 })).kcal };
+    });
+    t.ok('a lean body is given more food for the same goal, because it has less fat to spend',
+      leanPlan.lean > leanPlan.fat, JSON.stringify(leanPlan));
+    await floorPg.context().close();
+
     /* ---- the answer does not depend on the order the day was built --------
      *
      * Coordinate descent visits one plate at a time, so the order it walks
@@ -5267,10 +5321,19 @@ module.exports = {
         days[key(new Date())] = { b: [], l: [], d: [], s: [] };
         const g = new Date(); g.setDate(g.getDate() + 120);
         localStorage.setItem('bsc.macroDays', JSON.stringify(days));
-        localStorage.setItem('bsc.macroProfile', JSON.stringify({
-          sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
-          goalLb: 175, goalBy: key(g), workouts: 4, steps: 8000,
-        }));
+        const pr = { sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
+          goalLb: 175, goalBy: key(g), workouts: 4, steps: 8000 };
+        localStorage.setItem('bsc.macroProfile', JSON.stringify(pr));
+        /* The plan this profile actually asks for, written down rather than
+           left to the suite's 180/50/50 placeholder. That placeholder used to
+           be rewritten on read, because 1,370 fell under the old 1,500 floor
+           for a man — so this fixture has always run against the profile's
+           real plan, by accident. With the floor at the clinical 1,200 the
+           placeholder stands, the meal's gaps shrink, and a band that offers
+           one food per OPEN macro correctly offered two. State the plan. */
+        const plan = window.__macroLab.plan(pr);
+        localStorage.setItem('bsc.macroTargets',
+          JSON.stringify({ p: plan.p, f: plan.f, c: plan.c }));
       }, seed || {});
       await pg.reload();
       await pg.waitForTimeout(400);
@@ -8015,14 +8078,28 @@ module.exports = {
         localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
         localStorage.setItem('bsc.macroDays', JSON.stringify(days));
         const goal = new Date(); goal.setDate(goal.getDate() + 126);
-        localStorage.setItem('bsc.macroProfile', JSON.stringify({
-          sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
+        const prL = { sex: 'm', age: 41, ft: 5, inch: 11, lb: 204, act: 1.55, goal: 'cut1',
           goalLb: cfg.noGoal ? 0 : 175, goalBy: cfg.noGoal ? '' : key(goal),
-          workouts: 4, steps: 8000,
-        }));
+          workouts: 4, steps: 8000 };
+        localStorage.setItem('bsc.macroProfile', JSON.stringify(prL));
       }, seed);
       await pg.reload();
       await pg.waitForTimeout(400);
+      /* The plan this profile asks for, taken from the app rather than
+         computed beside it. The profile states 204 lb and thirty mornings of
+         weigh-ins put the body at 201.8, so a plan worked out here from the
+         typed figure is a plan for somebody else — and "taking it leaves the
+         protein alone" then compares two different people's protein.
+       *
+         The suite's 180/50/50 placeholder used to be rewritten on read,
+         because 1,370 fell under the old 1,500 floor for a man. At the
+         clinical 1,200 it stands, so a fixture that wants a coherent plan
+         has to say so. */
+      await pg.evaluate(() => {
+        const plan = window.__macroLab.plan(window.__macroLab.profile());
+        if (plan) localStorage.setItem('bsc.macroTargets',
+          JSON.stringify({ p: plan.p, f: plan.f, c: plan.c }));
+      });
       await pg.click('.tab[data-view="macros"]');
       await pg.waitForTimeout(250);
       return pg;
@@ -8077,18 +8154,28 @@ module.exports = {
       }), behind);
     /* A line that says "eat 1,278" is not advice. Whatever it offers has to
        clear the basal rate and stay within a quarter of the day's burn. */
-    t.ok('and never asks for less than a body should be asked for',
+    /* It used to assert the offer cleared the BASAL RATE, which was this
+       line keeping a floor of its own — and that floor sat ABOVE the plan, so
+       on a day already behind pace the card offered more food than the plan
+       and called it the lowest it goes. Blake's call was that the plan is
+       whatever meets the goal, so the line now lives under the plan's floor:
+       the nutrient floor, then what the fat store can actually supply. */
+    t.ok('and never asks for less than the plan itself is allowed to be',
       await slow.evaluate(() => {
         const b = document.querySelector('[data-mline^="mline:eat"]');
         const want = Number(b.dataset.mline.split(':')[2]);
-        /* The profile as the APP reads it: bodyweight comes off the scale
-           now, and bsc.macroProfile holds only the fallback for a plan made
-           before there was a log. Reading storage here tests a body the
-           fixture may have spent thirty mornings losing. */
-        const pr = window.__macroLab.profile();
-        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
-        const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + 5;
-        return want >= bmr;
+        return want >= window.__macroLab.floorK();
+      }), behind);
+    t.ok('and never offers MORE than the plan while saying it is the least it can',
+      await slow.evaluate(() => {
+        const b = document.querySelector('[data-mline^="mline:eat"]');
+        const want = Number(b.dataset.mline.split(':')[2]);
+        const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+        const plan = 4 * t2.p + 4 * t2.c + 9 * t2.f;
+        /* Only when it is capped does it claim to be a floor. An uncapped
+           number is an answer to the date, and may be anything. */
+        return !/as low as this goes/.test(document.querySelector('.mline').textContent) ||
+          want <= plan;
       }), behind);
     // taking it rewrites the grams, and protein is not what gives way
     const heldP = await slow.evaluate(() => (JSON.parse(
@@ -8099,7 +8186,8 @@ module.exports = {
       await slow.evaluate((wasP) => {
         const b = JSON.parse(localStorage.getItem('bsc.macroTargets'));
         return b.p === wasP;
-      }, heldP), await slow.evaluate(() => localStorage.getItem('bsc.macroTargets')));
+      }, heldP),
+      'was p=' + heldP + ' now ' + await slow.evaluate(() => localStorage.getItem('bsc.macroTargets')));
     await slow.context().close();
 
     /* It used to draw "7 more mornings and this will say whether you are on

@@ -1835,6 +1835,38 @@
      profile, spread evenly from Monday, and then overridden by tapping. The
      override is stored as its own list so a change to workouts-a-week does
      not silently rearrange days somebody has set by hand. */
+  /* Kilocalories a day per pound of fat. Alpert measured a ceiling on how
+     fast the fat store can hand energy over — 290 kJ per kg of fat a day,
+     about 31 kcal a pound — and later corrected it to roughly 22. Past it
+     the shortfall has to come from somewhere that is not fat, which on a
+     cut is the muscle the protein target exists to keep. The lower figure
+     is the one used here: it is his own correction, and a ceiling guessed
+     too high is the only direction that costs anything. */
+  var MFAT_MAX = 22;
+
+  /* How much of you is fat, in pounds.
+   *
+     Typed if you have typed one, because a caliper or a scan beats any
+     formula. Otherwise Deurenberg 1991 off BMI, age and sex, which is the
+     standard estimate from figures already asked for — and which carries a
+     standard error of about 4 points, so it is stated as an estimate and
+     can be typed over. Blake's call: "estimate it and then let me get more
+     precise if I want to." */
+  function mBodyFat(pr) {
+    if (!pr || !pr.lb || !pr.age || !(pr.ft || pr.inch)) return null;
+    var told = Number(pr.bf) || 0;
+    var pct = told;
+    if (!pct) {
+      var m = (pr.ft * 12 + pr.inch) * 0.0254;
+      if (!(m > 0)) return null;
+      var bmi = (pr.lb * 0.45359237) / (m * m);
+      pct = 1.20 * bmi + 0.23 * pr.age - 10.8 * (pr.sex === 'f' ? 0 : 1) - 5.4;
+    }
+    pct = Math.max(3, Math.min(70, pct));
+    return { pct: Math.round(pct * 10) / 10,
+      lb: Math.round(pr.lb * pct) / 100, told: !!told };
+  }
+
   var MCYCLE_SWING = 0.25;         // a training day's carbs, over the average
 
   function mTrainDefault(n) {
@@ -1971,7 +2003,21 @@
      whatever was left, so three percent of the day remained for everything
      else. Protein gives ground now, so the floor can be honest about what a
      cut is and the plate still fills. */
-  function mFloorK(pr) { return pr.sex === 'f' ? 1200 : 1500; }
+  /* The lowest a plan is allowed to be, and the only calorie floor in the
+     literature with anything under it.
+   *
+     1,200 comes from clinical work in the 1960s and 70s: roughly the point
+     below which a day cannot meet its micronutrient needs without
+     supplements. It is a nutrient floor, not a weight-loss target. The
+     1,500 that used to sit here for men has no equivalent behind it — it is
+     a magazine number — and it was the thing standing between Blake and the
+     1,300-kcal day an RP-style hard cut actually asks him for. His call:
+     "the plan I need to meet my plan. Sometimes that will be really low."
+   *
+     What keeps a plan sane is not this. It is the rate cap in mGoalPace —
+     0.5 to 1% of bodyweight a week, which is what Helms, Aragon and
+     Fitschen recommend for holding muscle — and the fat ceiling below. */
+  function mFloorK() { return 1200; }
 
   /* Mifflin–St Jeor for the base burn, an activity multiplier for the day, the
      goal for the swing. Protein by bodyweight and goal; fat at a quarter of
@@ -2162,6 +2208,10 @@
      * its own, never under the basal rate; see mPaceFacts. */
     var floorK = mFloorK(pr);
     var maxOff = Math.max(0, tdee - floorK);
+    /* And no faster than the fat can supply it. This is the cap that is
+       actually about the person rather than about an average. */
+    var fat = mBodyFat(pr);
+    if (fat) maxOff = Math.min(maxOff, fat.lb * MFAT_MAX);
     var maxOn = 0.20 * tdee;                       // gaining, the other way
     var capRate = pr.lb * (lbs >= 0 ? 0.01 : 0.005);
     var capKcal = (lbs >= 0 ? maxOff : maxOn) * 7 / 3500;
@@ -2626,10 +2676,17 @@
        under that one can already sit below this, and then the number here
        is the least the line will ask for, not a cut. When the honest number
        is capped, the date is what moves, and the line says so. */
-    var bmr = mBurn(pr) ? mBurn(pr).bmr : null;
     var rawNeed = burn === null ? null
       : burn - (st.avg7 - pr.goalLb) * 3500 / Math.max(1, plan.daysLeft);
-    var floor = Math.max(bmr || 0, burn === null ? 0 : burn * 0.75);
+    /* The same floor the plan lives under, because two floors meant this line
+       could offer MORE food than the plan while calling itself the lowest it
+       goes — 1,904 against a 1,514 plan, on a day already behind pace. It kept
+       max(basal, three quarters of the burn), which is a defensible rule about
+       health and the wrong rule for a line whose whole job is to say what
+       reaching the goal costs. Nutrient floor, then the fat ceiling. */
+    var fatF = mBodyFat(pr);
+    var floor = mFloorK(pr);
+    if (fatF && burn !== null) floor = Math.max(floor, burn - fatF.lb * MFAT_MAX);
     var capped = rawNeed !== null && rawNeed < floor;
     /* Rounded UP off the floor, never down onto it: a number printed a
        calorie under the basal rate is still a number under the basal rate. */
@@ -7646,8 +7703,12 @@
      to argue about it. */
   function mtPlanLine(plan, pr) {
     if (!plan) return 'Fill in who you are.';
-    var tdee = pr ? mTdee(pr) : null;
-    var bmr = tdee === null ? null : tdee / (pr.act || 1);
+    /* The real basal rate, not tdee/act — which is only the basal rate when
+       the activity dial is what built the tdee, and is not on the told path.
+       This line is the one place the plan says it is under what a body spends
+       lying still, so it has to be under the right number. */
+    var b = pr ? mBurn(pr) : null;
+    var bmr = b ? b.bmr : null;
     if (bmr !== null && plan.kcal < bmr) {
       return 'Below your ' + Math.round(bmr) + ' kcal at rest.';
     }
@@ -8436,6 +8497,7 @@
        the wizard and the one-screen editor are never on the page together,
        so the same id in both is one element either way, and
        mtProfileFromDom reads it the same. */
+    var bfNow = mBodyFat(pr);
     var rowsAbout =
       row('You are', seg('mtsex', pr.sex, [['m', 'Male'], ['f', 'Female']])) +
       row('Age', box('mtAge', pr.age, 'years')) +
@@ -8447,7 +8509,15 @@
       row('Weight today', mScaleLb()
         ? '<span class="mtl-fact">' + mScaleLb() + '</span>' +
           '<span class="mtl-u">lb &middot; from your weigh-ins</span>'
-        : box('mtLb', pr.lb, 'lb'));
+        : box('mtLb', pr.lb, 'lb')) +
+      /* Estimated from the three answers above, and stated as an estimate:
+         the formula carries about four points of error either way, which is
+         the difference between a fair ceiling and a wrong one on a lean
+         frame. Typing a measured one replaces it. */
+      row('Body fat <span class="mtl-opt">(optional)</span>',
+        box('mtBf', pr.bf, '%') +
+        (bfNow && !bfNow.told
+          ? '<span class="mtl-u">about ' + bfNow.pct + '% estimated</span>' : ''));
     /* Three words for the day's activity instead of a five-line dropdown
        that was cut off mid-word on a phone. The workouts asked next carry
        the training; this is only the job. The select every other reader of
@@ -8946,6 +9016,7 @@
     out.ft = n('mtFt', stored.ft);
     out.inch = n('mtIn', stored.inch);
     out.lb = n('mtLb', stored.lb);
+    out.bf = n('mtBf', stored.bf);
     out.act = Number(($('mtAct') || {}).value) || stored.act || 1.55;
     out.goal = goalBtn ? goalBtn.dataset.mtgoal : stored.goal;
     var extBtn = document.querySelector('[data-mtext][aria-pressed="true"]');
@@ -12992,6 +13063,8 @@
        overwrite is only visible if a test can make the second call. */
     syncState: function () { return S_SYNC_STATE; },
     syncStart: function () { return mSyncStart(); },
+    bodyFat: mBodyFat,
+    floorK: mFloorK,
     /* The gauge's band rule, because it only bites in a narrow window and no
        arbitrary day's plates land in it — asked through the DOM the test
        passed with the rule removed. */
