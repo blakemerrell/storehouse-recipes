@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=446">
+<link rel="stylesheet" href="src/style.css?v=448">
 </head>
 <body>
 
@@ -43,15 +43,17 @@
            data-view is untouched because it is a key, not a word. -->
       <button class="tab" role="tab" data-view="browse" aria-selected="true">Recipes</button>
       <button class="tab" role="tab" data-view="plan" aria-selected="false"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
-      <!-- "My Day", the label; "macros", the key. The tab began life named for
-           the numbers and grew into a personal day — routine, portions, the
-           morning weigh-in — sitting beside the household's Plan: the week is
-           ours, the day is mine. data-view stays macros because it is a key,
-           not a word, the same bargain the Recipes tab struck with "browse". -->
-      <button class="tab" role="tab" data-view="macros" aria-selected="false">My Day</button>
       <button class="tab" role="tab" data-view="list" aria-selected="false"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
       <button class="tab" role="tab" data-view="pantry" aria-selected="false">Pantry</button>
       <button class="tab" role="tab" data-view="book" aria-selected="false"><span class="t-long">Print Book</span><span class="t-short">Book</span></button>
+      <!-- "My Day", the label; "macros", the key. The tab began life named for
+           the numbers and grew into a personal day — routine, portions, the
+           morning weigh-in. It sits at the end of the row because it is the
+           one tab that is only ever yours: everything to its left is the
+           household's — the recipes, the week, the list, the pantry, the
+           book. data-view stays macros because it is a key, not a word, the
+           same bargain the Recipes tab struck with "browse". -->
+      <button class="tab" role="tab" data-view="macros" aria-selected="false">My Day</button>
     </div>
     <!-- Shown only when the row genuinely overflows; see syncTabsFade(). A fade
          over the last tab when there is nothing past it is a worse lie than no
@@ -350,14 +352,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=446"></script>
-<script src="data/nutrition.js?v=446"></script>
-<script src="data/art.js?v=446"></script>
-<script src="data/qr.js?v=446"></script>
-<script src="src/config.js?v=446"></script>
+<script src="data/recipes.js?v=448"></script>
+<script src="data/nutrition.js?v=448"></script>
+<script src="data/art.js?v=448"></script>
+<script src="data/qr.js?v=448"></script>
+<script src="src/config.js?v=448"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=446"></script>
-<script src="src/app.js?v=446"></script>
+<script src="src/sync.js?v=448"></script>
+<script src="src/app.js?v=448"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

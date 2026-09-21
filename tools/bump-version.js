@@ -36,6 +36,17 @@ const ROOT = path.join(__dirname, '..');
 const COVERED = [
   'data/recipes.js', 'data/nutrition.js', 'data/art.js', 'data/qr.js',
   'src/app.js', 'src/sync.js', 'src/config.js', 'src/style.css',
+  /* The shell itself. It carries the ?v= rather than wearing one, so it was
+     left out of the list — and that meant a change to the MARKUP moved
+     nothing the version covered, the number stayed put, and the service
+     worker went on serving the copy it already had. Moving a tab is exactly
+     that shape: no script changed, no data changed, and every installed
+     phone would have kept the old row forever.
+   *
+     Stable despite bump() rewriting these two: the rewrite happens before
+     stamp(), so the recorded hash is of the file as it now stands and the
+     next run matches. */
+  'index.html', 'sw.js',
 ];
 
 const STAMP = path.join(ROOT, 'data', 'stamp.json');
