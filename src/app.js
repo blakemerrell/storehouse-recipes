@@ -3991,16 +3991,39 @@
       slots.list.every(function (s) { return (day[s.k] || []).length; });
     var dayDone = mDoneAt(mViewKey()) > 0;
     var future = mViewKey() > todayKey();
-    var mode = noPlan ? 'plan' : dayDone ? 'open' : nothingToFill ? 'done' : 'fill';
-    var SAY = { plan: 'Craft my plan', fill: 'Fill', done: 'Done for today', open: 'Reopen the day' };
+    /* Is there a plate left to tick? Blake: "the done for the day button
+       should be something like Mark all as complete. And once everything is
+       completed I get the options to complete the day." Which is better than
+       what this slot shipped with this morning: Done appeared as soon as
+       every meal had FOOD, so it could be pressed having eaten nothing. Now
+       the two are separate steps and each one is the literal next thing. */
+    /* Two different counts, and conflating them left the sweeper lit with
+       nothing it was willing to take: a LOCKED un-eaten plate can still be
+       ticked, so it counts toward "mark all complete", but the sweeper
+       leaves it alone, so it must not count toward "there is something to
+       sweep". The test caught this by locking one. */
+    var plates = 0, unticked = 0, loose = 0;
+    slots.list.forEach(function (s0) {
+      (day[s0.k] || []).forEach(function (it) {
+        plates++;
+        if (!it.eaten) unticked++;
+        if (!it.eaten && !it.l) loose++;
+      });
+    });
+    var mode = noPlan ? 'plan' : dayDone ? 'open'
+      : !nothingToFill ? 'fill' : unticked ? 'tickall' : 'done';
+    var SAY = { plan: 'Craft my plan', fill: 'Fill', tickall: 'Mark all complete',
+      done: 'Complete the day', open: 'Reopen the day' };
     var TELL = {
       plan: 'Craft my plan — My Day needs one before it can draft anything',
       fill: 'Fill the day',
+      tickall: 'Mark every plate on the day as eaten',
       done: 'I am done for today',
       open: 'Day closed — press to reopen it'
     };
     fillBtn.classList.toggle('to-plan', noPlan);
     fillBtn.classList.toggle('to-done', mode === 'done' || mode === 'open');
+    fillBtn.classList.toggle('to-tick', mode === 'tickall');
     fillBtn.dataset.mode = mode;
     if (fillBtn.textContent !== SAY[mode]) fillBtn.textContent = SAY[mode];
     fillBtn.setAttribute('aria-label', TELL[mode]);
@@ -4023,6 +4046,7 @@
       });
     });
     $('macroRebal').disabled = !freeCount;
+    $('macroSweep').disabled = !loose || future;
 
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
@@ -13886,6 +13910,18 @@
       var mode = $('macroFill').dataset.mode;
       if (mode === 'plan') { mOpenTargets(); return; }
       if (mode === 'fill') { mFillDay(); return; }
+      /* The meal dot one level up: it ticks a whole meal, this ticks the
+         whole day. Recording that you ate it is exactly what it claims to
+         do, so a meal you did not eat wants the skip rather than this. */
+      if (mode === 'tickall') {
+        mEditDay(mViewKey(), function (d2) {
+          Object.keys(d2).forEach(function (sk) {
+            (d2[sk] || []).forEach(function (it) { it.eaten = 1; });
+          });
+        });
+        renderMacros();
+        return;
+      }
       /* Done for the day. A statement, not a change: nothing is deleted,
          food can still be added, and pressing it again takes it back. The
          card comes up on the way IN and not on the way out — closing is the
@@ -13902,6 +13938,26 @@
       renderMacros();
     });
 
+    /* Sweep the day back to what you actually ate.
+     *
+       Keeps every plate you ticked — clearing those would destroy a record
+       rather than a plan, and the morning is usually the part you are not
+       trying to change — and keeps anything you locked, because a lock is
+       you saying this one stays. Everything else goes, so Fill redrafts only
+       the meals it emptied.
+     *
+       It does not ask. Blake's call, and the same bargain the meal dot and
+       the tick beside it already make: this bar acts, it does not negotiate.
+       Worth knowing that there is no undo anywhere in this app, so a mis-tap
+       here costs the un-eaten half of a day. */
+    $('macroSweep').addEventListener('click', function () {
+      mEditDay(mViewKey(), function (d2) {
+        Object.keys(d2).forEach(function (sk) {
+          d2[sk] = (d2[sk] || []).filter(function (it) { return it.eaten || it.l; });
+        });
+      });
+      renderMacros();
+    });
     $('macroRebal').addEventListener('click', mRebalance);
 
     /* The three that are not the morning. Craft is a once-a-season job, Copy

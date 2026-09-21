@@ -4548,6 +4548,52 @@ module.exports = {
       leanPlan.lean > leanPlan.fat, JSON.stringify(leanPlan));
     await floorPg.context().close();
 
+    /* ---- sweeping the day back to what you actually ate -------------------
+     *
+     * Blake: "sometimes I just want to sweep the whole day that hasn't been
+     * marked done. Start fresh." It keeps every plate you ticked — clearing
+     * those destroys a record rather than a plan — and keeps anything you
+     * locked, because a lock is you saying this one stays. His call that it
+     * runs without asking, like the meal dot and the tick beside it. */
+    const sweepPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await sweepPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [{ id: 'f:egg', x: 2, eaten: 1 }],          // eaten: stays
+        l: [{ id: 'f:tuna', x: 1, eaten: 0, l: 1 }],   // locked: stays
+        d: [{ id: 'f:cheddar', x: 1, eaten: 0 },
+          { id: 'f:milk', x: 1, eaten: 0 }],           // loose: goes
+      } }));
+    });
+    await sweepPg.reload();
+    await sweepPg.waitForTimeout(400);
+    await sweepPg.click('.tab[data-view="macros"]');
+    await sweepPg.waitForTimeout(300);
+    const sweptBefore = await sweepPg.evaluate(() => {
+      const day = JSON.parse(localStorage.getItem('bsc.macroDays'))[Object.keys(
+        JSON.parse(localStorage.getItem('bsc.macroDays')))[0]];
+      return { b: day.b.length, l: day.l.length, d: day.d.length,
+        off: document.getElementById('macroSweep').disabled };
+    });
+    t.ok('the sweeper is live while there is something loose to sweep',
+      sweptBefore.off === false, JSON.stringify(sweptBefore));
+    await sweepPg.click('#macroSweep');
+    await sweepPg.waitForTimeout(400);
+    const sweptAfter = await sweepPg.evaluate(() => {
+      const all = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const day = all[Object.keys(all)[0]];
+      return { b: (day.b || []).length, l: (day.l || []).length, d: (day.d || []).length,
+        off: document.getElementById('macroSweep').disabled };
+    });
+    t.ok('it takes the loose plates and leaves what you ate and what you locked',
+      sweptAfter.b === 1 && sweptAfter.l === 1 && sweptAfter.d === 0,
+      JSON.stringify({ before: sweptBefore, after: sweptAfter }));
+    t.ok('and goes quiet once there is nothing loose left',
+      sweptAfter.off === true, JSON.stringify(sweptAfter));
+    await sweepPg.context().close();
+
     /* ---- trained today ----------------------------------------------------
      *
      * The profile already says how many sessions a week and mBurn spreads
@@ -4803,7 +4849,19 @@ module.exports = {
     t.ok('six controls still fit the bar on a phone, with Fill still a word',
       !barFits.wraps && barFits.label && barFits.fill > 60, JSON.stringify(barFits));
 
-    await closed.click('#macroFill');
+    /* Two presses now, and they are two different things. After Fill the day
+       is drafted but nothing is ticked, so the primary offers to mark it all
+       complete; only once every plate is eaten does it offer to close the
+       day. Blake's progression: "the done for the day button should be
+       something like Mark all as complete. And once everything is completed I
+       get the options to complete the day." */
+    await closed.click('#macroFill');            // Mark all complete
+    await closed.waitForTimeout(400);
+    t.ok('a drafted day offers to tick itself off before it offers to close',
+      await closed.evaluate(() => document.getElementById('macroFill').dataset.mode === 'done'),
+      await closed.evaluate(() => document.getElementById('macroFill').dataset.mode + ' / ' +
+        document.getElementById('macroFill').textContent));
+    await closed.click('#macroFill');            // Complete the day
     await closed.waitForTimeout(500);
     const dayCard = await closed.evaluate(() => {
       const sh = document.querySelector('.ds-sheet');
@@ -5226,7 +5284,7 @@ module.exports = {
        Asserting "always done after Fill" made this a coin toss on which
        meals the draft happened to reach. */
     t.ok('the button stops offering to fill exactly when every meal has something',
-      (drafted.fillMode === 'done') === drafted.perSlot.every((n) => n >= 1),
+      (drafted.fillMode !== 'fill') === drafted.perSlot.every((n) => n >= 1),
       'mode=' + drafted.fillMode + ' slots=' + drafted.perSlot.join(','));
 
     /* One press has to produce a day you could actually eat to. Four dishes

@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=452">
+<link rel="stylesheet" href="src/style.css?v=453">
 </head>
 <body>
 
@@ -271,6 +271,20 @@
            scan something right away." One door, and the lens is inside it. -->
       <button class="ghost mday-icon" id="macroOpenAll" aria-pressed="false"
         aria-label="Open every meal" title="Open every meal">&#9776;</button>
+      <!-- Sweep the day back to what you actually ate. Blake: "sometimes I
+           just want to sweep the whole day that hasn't been marked done.
+           Start fresh." It keeps every plate you ticked and every plate you
+           locked, and clears the rest — so Fill redrafts only the meals it
+           emptied and this morning's breakfast is still there. His call that
+           it runs without asking, like the meal dot and the tick beside it.
+           A broom rather than a cross: a cross on this row would read as
+           closing something. -->
+      <button class="ghost mday-icon" id="macroSweep"
+        aria-label="Sweep what you have not eaten"
+        title="Clear every plate you have not ticked — what you ate and what you locked stay"><svg
+        class="mday-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 1.5 8.5 7"/><path
+        d="M4.2 7.3 10 13.1l-2.6 1.8a2 2 0 0 1-2.5-.2l-1.6-1.6a2 2 0 0 1-.2-2.5Z"/><path d="M6.6 9.7 5 11.9"/></svg></button>
       <button class="ghost mday-icon" id="macroCopy"
         aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
     </div>
@@ -357,14 +371,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=452"></script>
-<script src="data/nutrition.js?v=452"></script>
-<script src="data/art.js?v=452"></script>
-<script src="data/qr.js?v=452"></script>
-<script src="src/config.js?v=452"></script>
+<script src="data/recipes.js?v=453"></script>
+<script src="data/nutrition.js?v=453"></script>
+<script src="data/art.js?v=453"></script>
+<script src="data/qr.js?v=453"></script>
+<script src="src/config.js?v=453"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=452"></script>
-<script src="src/app.js?v=452"></script>
+<script src="src/sync.js?v=453"></script>
+<script src="src/app.js?v=453"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.
