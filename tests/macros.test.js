@@ -4983,6 +4983,117 @@ module.exports = {
       'carbs ' + trainWas.kcal.c + ' -> ' + trainNow.targets.c);
     await trainPg.context().close();
 
+    /* ---- the card is named for what it does, and says what it decided ----
+     *
+     * Blake: "weigh in card I think needs to be more plan the day. In order
+     * to do that I need to weigh in, affirm my intention to exercise and get
+     * steps in."
+     *
+     * Two of those three are inputs the card already had, and naming it after
+     * the first of them described a third of the card. What was missing was
+     * the OUTPUT: it took a weight and a tick and handed back nothing, so the
+     * one thing you opened the app to find out was three screens away.
+     *
+     * Steps are deliberately not a third input. They are already in the burn,
+     * you do not know them until bedtime, and a box for them is an invitation
+     * to eat them back — which is the double-count the tick exists to avoid.
+     *
+     * The answer sits on the FACE, not inside the fold. This card folds by
+     * default, and an answer that folds away with it is an answer you have to
+     * go looking for. */
+    const todayPg = await t.fresh({ viewport: { width: 390, height: 900 } });
+    await todayPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const w = {};
+      for (let i = 6; i >= 0; i--) {
+        const dd = new Date(d); dd.setDate(dd.getDate() - i);
+        w[dd.getFullYear() + '-' + p2(dd.getMonth() + 1) + '-' + p2(dd.getDate())] = 205;
+      }
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 61, c: 75 }));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, lb: 205,
+        ft: 5, inch: 10, act: 1.55, goal: 'cut1', goalLb: 0, goalBy: '', workouts: 4,
+        steps: 7000, train: [0, 2, 4, 6] }));
+      localStorage.setItem('bsc.macroTrained', JSON.stringify({ [k]: Date.now() }));
+    });
+    await todayPg.reload();
+    await todayPg.waitForTimeout(400);
+    await todayPg.click('.tab[data-view="macros"]');
+    await todayPg.waitForTimeout(350);
+    /* Shut is the state it opens in, so this is what a morning actually
+       looks like. Everything asserted here has to be true without a tap. */
+    const todayShut = await todayPg.evaluate(() => {
+      const want = window.__macroLab.targets();
+      const kcal = Math.round(4 * want.p + 4 * want.c + 9 * want.f);
+      const row = document.querySelector('.mw-plan');
+      const txt = (row ? row.textContent : '').replace(/[\s,]+/g, '');
+      const handle = document.querySelector('[data-mfold="weigh"]');
+      return { open: handle.getAttribute('aria-expanded'),
+        named: /plan today/i.test(handle.textContent || ''),
+        hasRow: !!row,
+        saysKcal: txt.indexOf(String(kcal)) >= 0,
+        saysP: txt.indexOf(String(want.p) + 'P') >= 0,
+        saysF: txt.indexOf(String(want.f) + 'F') >= 0,
+        saysC: txt.indexOf(String(want.c) + 'C') >= 0,
+        why: !!document.querySelector('.mw-why'),
+        txt: txt, kcal: kcal };
+    });
+    t.ok('the card is called Plan today, not Weigh-in',
+      todayShut.named, JSON.stringify(todayShut));
+    t.ok('and folded shut it still states the day it planned',
+      todayShut.open === 'false' && todayShut.hasRow && todayShut.saysKcal,
+      JSON.stringify(todayShut));
+    t.ok('with all three macros beside the calories',
+      todayShut.saysP && todayShut.saysF && todayShut.saysC, todayShut.txt);
+    /* The tick's justification lives inside the fold: it is the same sentence
+       every training day, and a line read forty times is furniture. */
+    t.ok('the reason carbs moved is not repeated at you every morning',
+      todayShut.why === false, 'the why line was visible while shut');
+    await todayPg.click('[data-mfold="weigh"]');
+    await todayPg.waitForTimeout(300);
+    const todayOpen = await todayPg.evaluate(() => {
+      const el = document.querySelector('.mw-why');
+      const base = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+      const now = window.__macroLab.targets();
+      const s2 = el ? el.textContent.replace(/\s+/g, ' ') : '';
+      return { txt: s2, base: base.c, now: now.c,
+        both: s2.indexOf(String(now.c)) >= 0 && s2.indexOf(String(base.c)) >= 0,
+        week: /week stays the same/i.test(s2) };
+    });
+    /* Naming BOTH numbers is what makes it an explanation rather than an
+       assertion — it has to show the swap, not just the result. */
+    t.ok('opened, it says why today differs and names both numbers',
+      todayOpen.both, JSON.stringify(todayOpen));
+    t.ok('and that the week does not grow because you ticked a box',
+      todayOpen.week, todayOpen.txt);
+    await todayPg.context().close();
+
+    /* ---- the week strip is boxes now --------------------------------------
+     *
+     * Blake, drawing it: "[ ] [ ] [ ] [ ] [ ] [ ] [ ] these a bit more like a
+     * box not a pill shape. still fill up toward a target."
+     *
+     * Measured rather than read off the stylesheet. The width is min() against
+     * the column, which is the whole reason a 36px track is safe at 320px, and
+     * a rule that SAYS 36px does not prove the track fits inside its cell. */
+    const boxPg = await t.fresh({ viewport: { width: 320, height: 800 } });
+    await boxPg.click('.tab[data-view="macros"]');
+    await boxPg.waitForTimeout(300);
+    const boxShape = await boxPg.evaluate(() => {
+      const b = document.querySelector('.mwk-b');
+      const cs = getComputedStyle(b);
+      return { w: b.getBoundingClientRect().width,
+        col: b.closest('.mwk-c').getBoundingClientRect().width,
+        r: parseFloat(cs.borderRadius) };
+    });
+    t.ok('a day on the week strip is a box, not a capsule',
+      boxShape.r <= 6 && boxShape.w >= 24, JSON.stringify(boxShape));
+    t.ok('and at 320px it still fits inside its own column',
+      boxShape.w <= boxShape.col + 0.5, JSON.stringify(boxShape));
+    await boxPg.context().close();
+
     /* ---- a stale reading goes stale, it does not get worse ---------------
      *
      * The seven-day average is anchored on the last weigh-in. The plan line
@@ -8758,8 +8869,13 @@ module.exports = {
     t.ok('and nothing of the line is left in the card above the plate',
       await early.evaluate(() => {
         const card = document.querySelector('.mw, .mweigh') || document.body;
+        /* "Plan today", not "WEIGH" — the card was renamed when it stopped
+           being only an input and started stating the day it planned. The
+           word here is a proxy for "the card is still on screen", so it has
+           to track the card's actual name or it proves nothing. */
         return card.querySelectorAll('[class*="mline"]').length === 0 &&
-          /WEIGH/i.test(card.textContent) && !/more mornings|on pace/i.test(card.textContent);
+          /PLAN TODAY/i.test(card.textContent) &&
+          !/more mornings|on pace/i.test(card.textContent);
       }), await early.evaluate(() =>
         (document.querySelector('.mw, .mweigh') || document.body).textContent.slice(0, 100)));
     await early.context().close();

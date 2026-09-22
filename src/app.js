@@ -3098,8 +3098,13 @@
     return '<div class="mslot-h">' +
         '<button class="mday-dot no-print" data-mdot="weigh"' + (ahead ? ' disabled' : '') +
           ' aria-label="Log this morning&rsquo;s weight"></button>' +
+        /* "Plan today", not "Weigh-in". The card takes two things only you
+           know — what the scale said and whether you are training — and hands
+           back the one thing you opened the app for. Naming it after the
+           first of its two inputs described a third of it. Blake: "weigh in
+           card I think needs to be more plan the day." */
         '<button class="mslot-name" data-mfold="weigh" aria-expanded="' +
-          (shut ? 'false' : 'true') + '">Weigh-in' +
+          (shut ? 'false' : 'true') + '">Plan today' +
           /* The handle lives on this row now, because on a morning you have
              not weighed yet this row IS the card. It used to sit on the
              verdict line below, which only exists once there is a plan and a
@@ -3144,6 +3149,43 @@
               (mIsTrainingDay(k) ? 'true' : 'false') + '">' +
               '<span class="mw-tick-b" aria-hidden="true"></span>Trained today</button>' +
           '</div>') +
+      /* What the two answers above come to. On the face, because the card
+         folds by default and an answer that folds away with it is an answer
+         you have to go looking for. Short enough to sit on one row beside the
+         split at 320px. */
+      (function () {
+        var dt = mDayTargets(k);
+        var kc = kcalOf(dt);
+        if (!kc) return '';
+        return '<div class="mw-plan">' +
+          '<span class="mw-plan-k"><b>' + kc.toLocaleString() + '</b>calories today</span>' +
+          '<span class="mw-plan-m">' +
+            '<i class="mb-p">' + dt.p + '</i>P' +
+            '<i class="mb-f">' + dt.f + '</i>F' +
+            '<i class="mb-c">' + dt.c + '</i>C' +
+          '</span>' +
+        '</div>';
+      })() +
+      /* The tick's whole justification, said once where somebody looking for
+         it will find it. It buys no calories — the sessions were counted when
+         the profile was filled in, and paying for them twice is the fault this
+         tick was built to avoid. What it does buy is carbohydrate moved onto
+         today and off a rest day, and the week ends where it started. Blake,
+         reasonably suspicious: "with the training tick, it does give me more
+         calories. From what I understand it should not." Both are true, and
+         only saying so out loud settles it. */
+      (shut ? '' : (function () {
+        var T = mTrainDays().length;
+        var base = mReadTargets(), dt = mDayTargets(k);
+        if (!T || T >= 7 || !base.c || dt.c === base.c) return '';
+        return '<div class="mw-why">' + (mIsTrainingDay(k)
+          ? 'Carbs are up today because you are training. <b>' + dt.c +
+            ' g</b> today against ' + base.c + ' g on a normal day. Rest days give ' +
+            'them back, so your week stays the same.'
+          : 'Carbs are down today because you are resting. <b>' + dt.c +
+            ' g</b> today against ' + base.c + ' g on a normal day. Training days ' +
+            'spend them.') + '</div>';
+      })()) +
       /* The plan, one line, on the face — and the same handle the meals wear,
          on the seam rather than in the header: this line is the last thing
          above what folds away, so the mark on the end of it is sitting at the

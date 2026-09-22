@@ -2005,9 +2005,15 @@ select { max-width: 280px; }
    the track. */
 .mwk-c { --mwk-h: 44px; position: relative; height: var(--mwk-h); }
 .mwk-b {
-  position: absolute; left: 50%; top: 0; bottom: 0; width: 16px;
+  position: absolute; left: 50%; top: 0; bottom: 0; width: min(36px, 100%);
   transform: translateX(-50%); box-sizing: border-box;
-  border-radius: 999px; background: var(--paper-soft);
+  /* A box, not a capsule. Blake: "these a bit more like a box not a pill
+     shape. still fill up toward a target." A 16px capsule reads as liquid in
+     a tube; at 36px with a squared corner the fill reads as a block of
+     colour, which is what a day's worth of eating actually is. min() rather
+     than a flat 36 because at 320px a column is narrower than that and a
+     track wider than its column would overlap its neighbours. */
+  border-radius: 3px; background: var(--paper-soft);
   border: 1px solid var(--line-soft); overflow: hidden;
 }
 .mwk-b i {
@@ -2507,6 +2513,29 @@ select { max-width: 280px; }
    fifth thing on it clips the name at 320. Quiet by default because it is an
    offer, not a question being asked of you. */
 .mw-train { padding: 0 2px 2px; }
+/* The answer the two questions above it are for: what today comes to, once
+   the scale and the tick have had their say. On the FACE rather than inside
+   the fold, because a card you close should not take its answer with it. */
+.mw-plan {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 7px 3px 8px;
+  border-top: 1px solid var(--line-soft);
+}
+.mw-plan-k { font-size: 13px; color: var(--muted-2); }
+.mw-plan-k b {
+  font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums; margin-right: 3px;
+}
+.mw-plan-m {
+  font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+  display: flex; gap: 9px; flex: none;
+}
+.mw-plan-m i { font-style: normal; font-weight: 650; }
+/* Why today is not the same as yesterday. Inside the fold: it is the same
+   sentence every training day, and a line you have read forty times is
+   furniture. */
+.mw-why { font-size: 12.5px; color: var(--muted-2); padding: 0 3px 8px; }
+.mw-why b { font-weight: 650; color: var(--ink); }
 .mw-tick {
   display: inline-flex; align-items: center; gap: 8px;
   background: none; border: 0; padding: 6px 4px;
