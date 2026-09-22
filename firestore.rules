@@ -51,5 +51,32 @@ service cloud.firestore {
       allow get, create, update, delete: if request.auth != null && request.auth.uid == uid;
       allow list: if false;
     }
+
+    /*
+     * An invite: one person into one household, once, within a week.
+     *
+     * Made only by somebody already on that household's members list, naming
+     * themselves as the maker, unspent. Spent only by flipping `used` to true
+     * and recording who spent it — nothing else about it can change, so an
+     * invite cannot be re-aimed at another household or brought back to life.
+     * The token is the document id and is never listed, so an invite is found
+     * only by holding its link.
+     */
+    match /invites/{token} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.used == false
+        && request.resource.data.house is string
+        && request.resource.data.exp is int
+        && request.auth.uid in get(/databases/$(database)/documents/households/$(request.resource.data.house)).data.members;
+      allow update: if request.auth != null
+        && resource.data.used == false
+        && resource.data.exp > request.time.toMillis()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy'])
+        && request.resource.data.used == true
+        && request.resource.data.usedBy == request.auth.uid;
+      allow list, delete: if false;
+    }
   }
 }

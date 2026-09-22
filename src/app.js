@@ -1540,6 +1540,10 @@
     var theirs = has ? data.house : '';
     var mine = window.Store.house;
     mAcctHouse = has ? theirs : undefined;
+    /* A join, a new pantry or an invite is on its way from this device. The
+       account hears about it once it is real; until then the account's old
+       answer is not a disagreement to act on. */
+    if (mHouseTellNext || mInviteBusy) return;
     if (!has) {
       if (mine) { mHouseTell(mine); return; }
       /* Once. Snapshots keep arriving while the transaction is out, and each
@@ -1567,6 +1571,45 @@
   /* Called on every Store change. A join typed here, or a pantry made here,
      becomes the account's once the server has confirmed it exists — not
      before, or a mistyped code would be written over the real one. */
+  /* ------------------------------------------------------------ invites
+   *
+     A link from somebody's "Invite someone" arrives as ?invite=<token>. It is
+     kept in localStorage straight away, because signing in on a phone leaves
+     the page and comes back, and anything held only in memory would not make
+     the trip. It is spent the first time this device knows who it is. */
+  var mInviteBusy = false;
+  function mInviteGet() {
+    try { return localStorage.getItem('bsc.invite') || ''; } catch (e) { return ''; }
+  }
+  function mInviteSet(tok) {
+    try {
+      if (tok) localStorage.setItem('bsc.invite', tok); else localStorage.removeItem('bsc.invite');
+    } catch (e) { /* private mode: held for this page only */ }
+  }
+  function mInviteTry() {
+    var tok = mInviteGet();
+    if (!tok || mInviteBusy || !mAccount() || !window.Store.redeem) return;
+    mInviteBusy = true;
+    mHouseTellNext = true;
+    window.Store.redeem(tok).then(function () {
+      mInviteSet('');
+      mInviteBusy = false;
+      S.inviteMsg = 'You joined the pantry.';
+      renderAll();
+    }, function (err) {
+      mInviteBusy = false;
+      mHouseTellNext = false;
+      var why = err && err.message;
+      /* A network failure keeps the invite for the next try; a refusal from
+         the invite itself does not, or it would be refused on every load. */
+      if (why === 'spent' || why === 'gone') mInviteSet('');
+      S.inviteMsg = why === 'spent' ? 'That invite has been used or has expired. Ask for a new link.'
+        : why === 'gone' ? 'That invite link is not valid. Ask for a new one.'
+          : 'Could not join the pantry yet. It will try again when there is signal.';
+      renderAll();
+    });
+  }
+
   function mHouseWatch() {
     if (!mHouseTellNext || !mSyncDoc || !mAccount()) return;
     var st = window.Store.status, code = window.Store.house;
@@ -1652,6 +1695,8 @@
         if (S.view === 'macros') renderMacros();
       }
       mSetOwner(uid);
+      if (window.Store.enrol) window.Store.enrol();
+      mInviteTry();
       mSyncDoc = db.collection('users').doc(uid);
       /* includeMetadataChanges for the same reason as the household
          listener in sync.js: the step from a cache answer to a server answer
@@ -13513,10 +13558,30 @@
            write to the list and there is no undoing having handed it out. */
         '<div class="sync-warn">Anyone with the code can see and change the list.</div>';
     } else {
-      body = '<div class="sync-code">' + esc(house) + '</div>' +
+      /* An invite link replaces reading the code out: it lets in one person,
+         once, and is dead in a week. Only for an account — the rules want to
+         know who is handing out the door. */
+      var invite = !mAccount()
+        ? '<p class="sync-note">Sign in above to invite someone with a link.</p>'
+        : S.inviteUrl
+          ? '<div class="sync-row"><input class="txt" id="inviteUrl" readonly value="' + esc(S.inviteUrl) +
+              '" aria-label="Invite link"></div>' +
+            '<div class="sync-row">' +
+              (navigator.share ? '<button class="btn-primary" data-sync="inviteshare">Send</button>' : '') +
+              '<button class="ghost" data-sync="invitecopy">' + (S.inviteCopied ? 'Copied' : 'Copy link') + '</button>' +
+            '</div>' +
+            '<p class="sync-note">Works once, for 7 days.</p>'
+          : '<div class="sync-row"><button class="btn-primary" data-sync="invite"' +
+              (S.inviteMaking ? ' disabled' : '') + '>' +
+              (S.inviteMaking ? 'Making a link\u2026' : 'Invite someone') + '</button></div>';
+      body = invite +
+        '<div class="sync-code">' + esc(house) + '</div>' +
         (window.Store.statusNote ? '<div class="sync-warn">' + esc(window.Store.statusNote) + '</div>' : '') +
         '<div class="sync-row"><button class="ghost" data-sync="leave">Stop sharing here</button></div>';
     }
+    var inviteLine = S.inviteMsg ? '<div class="sync-warn">' + esc(S.inviteMsg) + '</div>'
+      : mInviteGet() && !mAccount()
+        ? '<div class="sync-warn">You have been invited to a pantry. Sign in above to join it.</div>' : '';
 
     /* Two things travel and they are not the same promise: the pantry is
        shared with PEOPLE by handing out a code, and My Day is carried between
@@ -13532,14 +13597,14 @@
         '</div>' +
 
         '<div class="mt-div">Your day</div>' +
-        '<p class="sync-p">Your plan, meals and weigh-ins. Private to you, and the only ' +
-        'part an account carries.</p>' +
+        '<p class="sync-p">Your plan, meals and weigh-ins. Private to you. Signed in, ' +
+        'your pantry comes with you to every device too.</p>' +
         mAccountBlockHTML() +
 
         '<div class="mt-div">Your pantry</div>' +
         '<p class="sync-p">The shopping list, the week&rsquo;s meals and your favorites &mdash; shared ' +
-        'with family, friends, or anyone you give the code to. These live on the code, ' +
-        'not on your account: without one they stay on this device.</p>' +
+        'with whoever you invite. Without an account or a code they stay on this device.</p>' +
+        inviteLine +
         body +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
@@ -14494,6 +14559,16 @@
        email link landing back on this page, which is visible in the URL
        without asking anybody. */
     var linkBack = /[?&](oobCode=|mode=signIn)/.test(location.search);
+    var invited = /[?&]invite=([a-z0-9]{8,64})/.exec(location.search);
+    if (invited) {
+      mInviteSet(invited[1]);
+      try {
+        var q = new URLSearchParams(location.search);
+        q.delete('invite');
+        var rest = q.toString();
+        history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+      } catch (e) { /* older browser: the token stays in the bar */ }
+    }
     var hasAcct = false;
     try { hasAcct = localStorage.getItem('bsc.myAccount') === '1'; } catch (e) { /* private */ }
     if (linkBack && window.Store.completeEmailLink) {
@@ -14504,6 +14579,14 @@
     } else if (hasAcct) {
       mSyncStart();
       if (window.Store.onUser) window.Store.onUser(function () { mSyncStart(); });
+    }
+    /* Somebody sent a link. Signed in, it is spent by mSyncStart above; signed
+       out, the sheet opens on the one thing to do about it. */
+    if (mInviteGet() && !hasAcct) {
+      S.syncOpen = true;
+      if (!S.pendingCode) S.pendingCode = window.Store.newCode();
+      pushSheet({ s: 1 });
+      renderModal();
     }
 
     /* The scale's number, filed under the day being looked at — ‹ lets a
@@ -15581,6 +15664,32 @@
       if (sy) {
         var act = sy.dataset.sync;
         if (act === 'reroll') { S.pendingCode = window.Store.newCode(); }
+        if (act === 'invite') {
+          S.inviteMaking = true;
+          S.inviteMsg = '';
+          window.Store.invite().then(function (url) {
+            S.inviteMaking = false; S.inviteUrl = url; S.inviteCopied = false;
+            renderModal();
+          }, function () {
+            S.inviteMaking = false;
+            S.inviteMsg = 'Could not make a link. Check your signal and try again.';
+            renderModal();
+          });
+        }
+        if (act === 'inviteshare' && S.inviteUrl && navigator.share) {
+          navigator.share({ title: 'Hive & Hearth', text: 'Join my pantry on Hive & Hearth', url: S.inviteUrl })
+            .catch(function () { /* dismissed */ });
+        }
+        if (act === 'invitecopy' && S.inviteUrl) {
+          var done = function () { S.inviteCopied = true; renderModal(); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(S.inviteUrl).then(done, function () {
+              var el = $('inviteUrl'); if (el) { el.select(); }
+            });
+          } else {
+            var el2 = $('inviteUrl'); if (el2) { el2.select(); try { document.execCommand('copy'); done(); } catch (er) { /* selected, at least */ } }
+          }
+        }
         /* Async because the code is checked against the server before it is
            handed over. It resolves with the code actually claimed, which is
            the one on screen unless it turned out to be taken. */
@@ -15598,6 +15707,7 @@
         /* Signed in, stopping here stops it for the account too; otherwise
            the next snapshot would put this device straight back in. */
         if (act === 'leave') {
+          S.inviteUrl = ''; S.inviteMsg = '';
           window.Store.leave();
           mHouseTellNext = false;
           if (mAccount() && mSyncDoc) mHouseTell('');

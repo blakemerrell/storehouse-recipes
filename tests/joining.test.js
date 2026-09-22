@@ -290,8 +290,8 @@ module.exports = {
     await p.waitForTimeout(300);
     const copy = await p.evaluate(() => Array.from(document.querySelectorAll('.sync-p'))
       .map((e) => e.textContent).join(' | '));
-    t.ok('the sheet says an account carries the day and the code carries the pantry',
-      /only part an account carries/i.test(copy) && /live on the code, not on your account/i.test(copy),
+    t.ok('the sheet says an account carries the pantry too, and without one it stays here',
+      /your pantry comes with you/i.test(copy) && /stay on this device/i.test(copy),
       copy.slice(0, 200));
 
     await off.close();

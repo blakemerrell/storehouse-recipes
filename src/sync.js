@@ -100,6 +100,12 @@ window.Store = (function () {
      written down instead, by the one caller entitled to it. */
   var houseMine = false;
   var queued = [];            // writes made before the connection was up
+  /* Who belongs to this household, by account. Recorded on every signed-in
+     visit and gating nothing yet: the rules still let the code in. It is
+     the list the rules will read once they stop doing that, and it has to be
+     complete before then or they lock out somebody who belongs. */
+  var members = [];
+  var enrolling = '';         // the household an enrol write is out for
   var listeners = [];
   var db = null, doc = null, unsub = null, FV = null;
 
@@ -588,6 +594,9 @@ window.Store = (function () {
          cache answer turning into a server answer: "Syncing…" forever. */
       unsub = doc.onSnapshot({ includeMetadataChanges: true }, function (snap) {
         var d = snap.data() || {};
+        members = Array.isArray(d.members)
+          ? d.members.filter(function (m) { return typeof m === 'string'; }) : [];
+        enrol();
         state.favs = Array.isArray(d.favs) ? d.favs.slice() : [];
         var made = adopt(d);
         saveLocal();
@@ -666,8 +675,31 @@ window.Store = (function () {
     state.weeks = weeks;
   }
 
+  /* Put the signed-in person on the household's list, once. Anonymous
+     visitors are not recorded: an anonymous identity lives and dies with one
+     browser, and a list of those is a list of nobody. */
+  function enrol() {
+    var me = api.user();
+    if (!me || !doc || !FV || !house) return;
+    if (members.indexOf(me.uid) >= 0 || enrolling === house) return;
+    enrolling = house;
+    doc.update({ members: FV.arrayUnion(me.uid) })
+      .catch(function () { /* the next snapshot tries again */ })
+      .then(function () { enrolling = ''; });
+  }
+
+  /* Long enough that nobody walks it: 24 characters of 36, drawn from the
+     machine's randomness. Unlike a code it is never read aloud, so it does
+     not have to be easy to say. */
+  function newToken() {
+    var a = '0123456789abcdefghijklmnopqrstuvwxyz', out = '';
+    for (var i = 0; i < 24; i++) out += a.charAt(rnd(a.length));
+    return out;
+  }
+  var INVITE_DAYS = 7;
+
   // ------------------------------------------------------------------ public
-  return {
+  var api = {
     get state() { return state; },
     get status() { return status; },
     get statusNote() { return statusNote; },
@@ -1259,7 +1291,9 @@ window.Store = (function () {
         return db.runTransaction(function (t) {
           return t.get(ref).then(function (snap) {
             if (snap.exists) throw new Error('taken');
-            t.set(ref, localDoc());
+            var me = api.user(), body = localDoc();
+            if (me) body.members = [me.uid];
+            t.set(ref, body);
           });
         }).then(function () { return { code: code, seeded: true }; }, function (err) {
           if (err && err.message === 'taken' && ++tries < 6) return attempt(newCodeStr());
@@ -1303,8 +1337,69 @@ window.Store = (function () {
       house = ''; write(LS.house, '');
       houseMine = false; write(LS.houseNew, '');
       doc = null;
+      members = []; enrolling = '';
       everLive = false; lastSync = 0; pendingMerge = false;
       setStatus('local');
+    },
+
+    get members() { return members.slice(); },
+
+    /* For a caller that has just learned who we are: a sign-in does not make
+       the household document speak, so nothing else would record it. */
+    enrol: function () { enrol(); },
+
+    /* A link that lets one person into this household, once, for a week.
+       Only an account on the household's list can make one — the rules hold
+       that — so it is refused here first rather than failing at the server. */
+    invite: function () {
+      var me = api.user();
+      if (!me) return Promise.reject(new Error('signed-out'));
+      if (!house) return Promise.reject(new Error('no-house'));
+      var token = newToken(), now = Date.now();
+      return ready().then(function () {
+        /* Enrolled first and waited for: the invite rule reads the list, and
+           an invite made in the same second as the enrol would lose the race. */
+        return members.indexOf(me.uid) >= 0 ? null
+          : db.collection('households').doc(house).update({ members: FV.arrayUnion(me.uid) });
+      }).then(function () {
+        return db.collection('invites').doc(token).set({
+          house: house, by: me.uid, made: now,
+          exp: now + INVITE_DAYS * 86400000, used: false
+        });
+      }).then(function () {
+        return location.origin + location.pathname + '?invite=' + token;
+      });
+    },
+
+    /* Spend an invite and join what it points at. In one transaction, so two
+       people tapping the same forwarded link cannot both get in: the second
+       reads it already used. Rejects with 'spent' for a used or expired one
+       and 'gone' for one that never existed, which the sheet says in words. */
+    redeem: function (token) {
+      var me = api.user();
+      if (!me) return Promise.reject(new Error('signed-out'));
+      var code = '';
+      return ready().then(function () {
+        var inv = db.collection('invites').doc(String(token));
+        return db.runTransaction(function (t) {
+          return t.get(inv).then(function (snap) {
+            if (!snap.exists) throw new Error('gone');
+            var d = snap.data() || {};
+            if (d.used || !(d.exp > Date.now()) || typeof d.house !== 'string') throw new Error('spent');
+            code = d.house;
+            var hh = db.collection('households').doc(code);
+            return t.get(hh).then(function (h) {
+              if (!h.exists) throw new Error('gone');
+              t.update(inv, { used: true, usedBy: me.uid });
+              t.update(hh, { members: FV.arrayUnion(me.uid), lastInvite: String(token) });
+            });
+          });
+        });
+      }).then(function () {
+        api.join(code);
+        return code;
+      });
     }
   };
+  return api;
 })();

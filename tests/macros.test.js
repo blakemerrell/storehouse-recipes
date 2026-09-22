@@ -9887,7 +9887,7 @@ module.exports = {
       await a2.evaluate(() => {
         const txt = document.querySelector('.sheet').textContent;
         return /Your day/.test(txt) && /Private to you/.test(txt) &&
-          /Your pantry/.test(txt) && /family, friends/.test(txt) &&
+          /Your pantry/.test(txt) && /whoever you invite/.test(txt) &&
           !document.getElementById('macroDevices');
       }), await a2.textContent('.sheet'));
     // the email fallback is kept for people with no Google account, folded away
