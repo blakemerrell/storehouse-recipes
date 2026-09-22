@@ -3086,7 +3086,25 @@
      * being rare and by being the only line in the app that ever tells you
      * NOT to act on the number above it. A salt jump you cannot see is a
      * salt jump you cut calories over. */
-    var shut = S.mFold.weigh !== false;
+    /* Three states, not two.
+     *
+       ASKING is a morning with nothing on the scale yet: the box and the tick
+       and nothing else. No verdict, no history — a card that has not been
+       given its two numbers has not earned an opinion, and a pace line over
+       an empty box is the nagging this screen was rebuilt to stop.
+     *
+       SHUT is a morning already answered, and it means one row. Blake: "it
+       needs to fully collapse." A card still showing two of its three rows is
+       not shut.
+     *
+       OPEN is a tap, and only a tap. It is the only state that brings the
+       trend, the history and the chart, because those are things you go
+       looking for rather than things a morning owes you. */
+    var answeredW = !!MWEIGHTS[k];
+    var touchedW = S.mFold.weigh !== undefined;
+    var openAll = touchedW && S.mFold.weigh === false;
+    var asking = !touchedW && !answeredW && !mAhead(k);
+    var shut = !openAll && !asking;
     var face = mPlanFace();
     var detail = mPlanDetail();
     if (detail) body = '<div class="mw-stat">' + detail + '</div>' + body;
@@ -3103,20 +3121,51 @@
            back the one thing you opened the app for. Naming it after the
            first of its two inputs described a third of it. Blake: "weigh in
            card I think needs to be more plan the day." */
+        /* aria-expanded is OPEN, not "not shut". The asking state shows the
+           box and the tick and is still closed as far as the fold is
+           concerned — and while it claimed to be expanded, the toggle read
+           it as open and every tap CLOSED the card. Which is also how the
+           only door to the plan sheet became unreachable: the suite's
+           opener taps this handle to reach "Adjust my plan", and the tap was
+           being spent shutting what it meant to open. */
         '<button class="mslot-name" data-mfold="weigh" aria-expanded="' +
-          (shut ? 'false' : 'true') + '">Plan today' +
+          (openAll ? 'true' : 'false') + '">Plan today' +
           /* The handle lives on this row now, because on a morning you have
              not weighed yet this row IS the card. It used to sit on the
              verdict line below, which only exists once there is a plan and a
              week of mornings to say anything about. */
-          (face.has ? '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' : '') +
+          '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
         '</button>' +
         /* The box, and nothing else. It wore the word "Weight" in front of
            it — on a card headed WEIGH-IN, above a line about weight, next to
            a figure in pounds — which pushed the whole thing onto a second
            row to say what the card had already said twice. The label is the
            card; the unit is the only word that carries anything. */
-        (ahead
+        /* Folded, the row carries what the card decided instead of the box
+           that decides it. Blake: "it needs to fully collapse." A card that
+           keeps three rows when shut is not shut, and the two inputs are no
+           use to a morning already answered — but the answer is, all day. */
+        (shut
+          ? (function () {
+              if (!answeredW && !(st && st.n >= 2)) {
+                return '<span class="mw-ask">Weigh in</span>';
+              }
+              /* The AVERAGE, not this morning's number, because the average
+                 is what the plan is actually built on — mScaleLb reads avg7,
+                 and a single morning is mostly water. With too few mornings
+                 to average, the number you typed stands in.
+               *
+                 And not the day's calories or macros: the sticky strip above
+                 carries those, and a card repeating them is a second answer
+                 to a settled question. */
+              var sumN = st && st.n >= 2
+                ? '<b>' + (Math.round(st.avg7 * 10) / 10) + '</b><u> lb avg'
+                : '<b>' + (Math.round(MWEIGHTS[k] * 10) / 10) + '</b><u> lb';
+              return '<span class="mw-sum">' + sumN +
+                (mTrainDays().length && mTrainDays().length < 7 && mIsTrainingDay(k)
+                  ? ' &middot; trained' : '') + '</u></span>';
+            })()
+        : ahead
           ? '<span class="mw-avg mw-later">not yet</span>'
           /* Text, not number, with the decimal keypad asked for separately.
            *
@@ -3143,29 +3192,20 @@
          the tick would be a box that changes nothing, which is worse than no
          box. And it never claims to have earned anything — the calories were
          counted when the profile was filled in. */
-      (ahead || !mTrainDays().length || mTrainDays().length >= 7 ? ''
+      (shut || ahead || !mTrainDays().length || mTrainDays().length >= 7 ? ''
         : '<div class="mw-train no-print">' +
             '<button class="mw-tick" data-mtrained="' + esc(k) + '" aria-pressed="' +
               (mIsTrainingDay(k) ? 'true' : 'false') + '">' +
               '<span class="mw-tick-b" aria-hidden="true"></span>Trained today</button>' +
           '</div>') +
-      /* What the two answers above come to. On the face, because the card
-         folds by default and an answer that folds away with it is an answer
-         you have to go looking for. Short enough to sit on one row beside the
-         split at 320px. */
-      (function () {
-        var dt = mDayTargets(k);
-        var kc = kcalOf(dt);
-        if (!kc) return '';
-        return '<div class="mw-plan">' +
-          '<span class="mw-plan-k"><b>' + kc.toLocaleString() + '</b>calories today</span>' +
-          '<span class="mw-plan-m">' +
-            '<i class="mb-p">' + dt.p + '</i>P' +
-            '<i class="mb-f">' + dt.f + '</i>F' +
-            '<i class="mb-c">' + dt.c + '</i>C' +
-          '</span>' +
-        '</div>';
-      })() +
+      /* The day's numbers are NOT repeated here. They were, for one build:
+         "1,745 calories today, 205 P 61 F 94 C" — which is the sticky strip
+         four inches above it, said again in different words. Blake: "I don't
+         need a duplicate card saying the exact same thing. The sticky header
+         is doing it with the calories and macros."
+       *
+         So this card says only what nothing else does: what the scale read,
+         whether you trained, and why that moved the carbohydrate. */
       /* The tick's whole justification, said once where somebody looking for
          it will find it. It buys no calories — the sessions were counted when
          the profile was filled in, and paying for them twice is the fault this
@@ -3174,7 +3214,7 @@
          reasonably suspicious: "with the training tick, it does give me more
          calories. From what I understand it should not." Both are true, and
          only saying so out loud settles it. */
-      (shut ? '' : (function () {
+      (!openAll ? '' : (function () {
         var T = mTrainDays().length;
         var base = mReadTargets(), dt = mDayTargets(k);
         if (!T || T >= 7 || !base.c || dt.c === base.c) return '';
@@ -3194,9 +3234,23 @@
          With no plan yet the line is the invitation instead, and then it is
          not a handle at all: it carries a button of its own, and a button
          inside a button is not a thing. The name still folds the card. */
+      /* Two verdicts, and only one of them is an opinion.
+       *
+         With a plan (face.has) this line judges your pace, and judging is
+         something you go looking for — OPEN only, never over a morning that
+         has not been weighed.
+       *
+         With NO plan it is not a judgement at all, it is the invitation, and
+         it carries the only door into the plan sheet that is not the gear.
+         Gating it on `open` shut that door on a page nobody had weighed in
+         on, and the suite threw at the first test that tried to walk through
+         it. The comment below this one records the same mistake being made
+         once before. It renders whenever the card is not collapsed. */
       (face.has
-        ? (shut ? '' : '<div class="mw-verdict mw-open">' +
+        ? (!openAll ? ''
+        : '<div class="mw-verdict mw-open">' +
             (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html + '</div>')
+        : shut ? ''
         /* The button here only while there IS a plan to adjust.
          *
            With NO plan there were three "Craft my plan" in one screenful —
@@ -3224,7 +3278,7 @@
           (hasPlan ? ' <button class="ghost mplan-go no-print" id="macroTargBtn">' +
             'Craft my plan</button>' : '') + '</div>') +
       mMorningHTML(k, 'face') +
-      (shut ? '' : '<div class="mw-body">' + mMorningHTML(k, 'body') + body +
+      (!openAll ? '' : '<div class="mw-body">' + mMorningHTML(k, 'body') + body +
         (face.has
           ? '<div class="mw-adj no-print">' +
             '<button class="ghost mplan-go" id="macroTargBtn">Adjust my plan</button></div>'
@@ -4872,6 +4926,19 @@
   var MGAUGE = [['kcal', '\uD83D\uDD25'], ['p', 'P'], ['f', 'F'], ['c', 'C']];
   var MGAUGE_SAY = { kcal: 'calories', p: 'grams of protein', f: 'grams of fat', c: 'grams of carbohydrate' };
 
+  /* A pill that is its own bar. Two rows of them draw this now — the day's
+     folded readout and the picker's "still wants" — and a gradient written
+     out twice is a gradient that drifts. */
+  function mFillPill(cls, tone, pct, body) {
+    return '<span class="' + cls + '" style="background:linear-gradient(90deg,' +
+      tone + ' 0 ' + pct.toFixed(1) + '%,var(--paper-soft) ' + pct.toFixed(1) + '%)">' +
+      body + '</span>';
+  }
+  var MPILL_TONE = { under: 'var(--dial-under-pale)', on: 'var(--dial-on-pale)',
+    over: 'var(--dial-over-pale)', short: 'var(--dial-under-pale)',
+    met: 'var(--dial-on-pale)', quiet: 'var(--mlim-quiet-pale)',
+    near: 'var(--dial-under-pale)', past: 'var(--dial-over-pale)' };
+
   /* The four of them, on the meal's own header row.
    *
      Calories carries a gauge like the other three rather than sitting beside
@@ -6378,14 +6445,9 @@
        same width, which is the point: six fills only compare by eye if the
        boxes match. The open bars keep both numbers. */
     var fillPill = function (cls, tone, pct, body) {
-      return '<span class="mpill ' + cls + '" style="background:linear-gradient(90deg,' +
-        tone + ' 0 ' + pct.toFixed(1) + '%,var(--paper-soft) ' + pct.toFixed(1) + '%)">' +
-        body + '</span>';
+      return mFillPill('mpill ' + cls, tone, pct, body);
     };
-    var TONE = { under: 'var(--dial-under-pale)', on: 'var(--dial-on-pale)',
-      over: 'var(--dial-over-pale)', short: 'var(--dial-under-pale)',
-      met: 'var(--dial-on-pale)', quiet: 'var(--mlim-quiet-pale)',
-      near: 'var(--dial-under-pale)', past: 'var(--dial-over-pale)' };
+    var TONE = MPILL_TONE;
     var pills = ROWS.map(function (row) {
       var m = row[0];
       return fillPill(sign(left[m]), TONE[barState[m]] || TONE.under, barPct[m] || 0,
@@ -7455,12 +7517,35 @@
      went on saying it in an emoji and the app had two spellings again, which
      is the thing that change existed to end. One table, MGAUGE, and nothing
      left to keep in step by hand. */
-  function mGapPill(m, left) {
-    var done = left < 1, lbl = m;
+  /* Kin to the day's pills and now drawn the same way: the NUMBER is the gap
+     and the FILL is the proportion, which is exactly the pair the folded day
+     row settled on.
+   *
+     The stylesheet used to argue the opposite — flat tint here, proportional
+     fill there, "two different questions should not wear identical clothes".
+     The argument was wrong in the same way the folded row's was before it:
+     twenty grams of protein reads the same whether it is the whole meal or
+     the last mouthful of it, and the fill is the only thing that says which.
+     Blake: "make it so that the macro bar at the top of this card works like
+     the other pills when crafting meals." */
+  function mGapPill(m, got, want) {
+    var done = want > 0 && got >= want, lbl = m;
     MGAUGE.forEach(function (g) { if (g[0] === m) lbl = g[1]; });
-    return '<span class="mgp' + (done ? ' met' : '') + '">' +
-      '<span class="mb-' + m + '">' + lbl + '</span><b>' +
-      Math.round(left) + '</b></span>';
+    /* The same band the day bars and the week strip judge by, so one meal
+       cannot be "on" in the sheet and "under" on the card behind it. */
+    var pct = want > 0 ? Math.min(100, 100 * got / want) : 0;
+    var state = !(want > 0) ? 'quiet'
+      : got > want * MKCAL_OVER / 100 ? 'over'
+      : got >= want * 0.9 ? 'on' : 'under';
+    /* Both halves, the way the day's pills say them: what is on the meal, and
+       what the meal is for. Blake: "those three macros clearly show me how
+       much I've selected and what is left. That makes a perfect meal." The
+       gap used to be the only figure, which answered the second half and hid
+       the first — and a lone "20" cannot say whether that is the whole meal
+       or the last mouthful of it. */
+    return mFillPill('mgp' + (done ? ' met' : ''), MPILL_TONE[state], pct,
+      '<span class="mb-' + m + '">' + lbl + '</span>' +
+      '<b>' + Math.round(got) + '</b><u>/' + Math.round(want) + '</u>');
   }
 
   /* What the MEAL this sheet is filling still wants — not the day's remainder.
@@ -7492,12 +7577,12 @@
     if (!want) {
       /* No meal to speak for — the day is the honest fallback, and says so. */
       var dsub = mDayEaten(k);
-      return '<div class="mp-cap">The day still wants</div>' +
+      return '<div class="mp-cap">The day so far</div>' +
         '<div class="mgps">' +
-          mGapPill('kcal', Math.max(0, kcalOf(targets) - dsub.kcal)) +
-          mGapPill('p', Math.max(0, targets.p - dsub.p)) +
-          mGapPill('f', Math.max(0, targets.f - dsub.f)) +
-          mGapPill('c', Math.max(0, targets.c - dsub.c)) +
+          mGapPill('kcal', dsub.kcal, kcalOf(targets)) +
+          mGapPill('p', dsub.p, targets.p) +
+          mGapPill('f', dsub.f, targets.f) +
+          mGapPill('c', dsub.c, targets.c) +
         '</div>';
     }
     var got = mMealHolds(k, sk);
@@ -7505,12 +7590,12 @@
     var closed = ['kcal', 'p', 'f', 'c'].every(function (m) {
       return (want[m] || 0) - (got[m] || 0) <= 0;
     });
-    return '<div class="mp-cap">' + esc(closed ? nm + ' is closed' : nm + ' still wants') + '</div>' +
+    return '<div class="mp-cap">' + esc(closed ? nm + ' is closed' : nm + ' so far') + '</div>' +
       '<div class="mgps">' +
-        mGapPill('kcal', Math.max(0, (want.kcal || 0) - got.kcal)) +
-        mGapPill('p', Math.max(0, (want.p || 0) - got.p)) +
-        mGapPill('f', Math.max(0, (want.f || 0) - got.f)) +
-        mGapPill('c', Math.max(0, (want.c || 0) - got.c)) +
+        mGapPill('kcal', got.kcal, want.kcal || 0) +
+        mGapPill('p', got.p, want.p || 0) +
+        mGapPill('f', got.f, want.f || 0) +
+        mGapPill('c', got.c, want.c || 0) +
       '</div>';
   }
 

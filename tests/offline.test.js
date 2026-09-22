@@ -196,6 +196,57 @@ module.exports = {
       mf ? mf.name : 'not served');
 
     await ctx.setOffline(false);
+
+    /* ---- the app asks for new builds while it is running ------------------
+     *
+     * Everything downstream of the check was already right: sw.js is
+     * registered with updateViaCache 'none' so the browser cannot serve a
+     * stale worker, the worker calls skipWaiting so it takes over at once,
+     * and controllerchange reloads the page once so the new scripts are the
+     * ones on screen.
+     *
+     * What was missing was the asking. reg.update() ran on load and never
+     * again, so a phone with the app left open stayed on whatever build it
+     * started with, through any number of deploys, until it was cold-started.
+     * Blake, after a morning of it: "I'm still not seeing the changes live on
+     * my app and it's been awhile. What's going on."
+     *
+     * Asserted against the registration itself rather than the source text: a
+     * grep for "visibilitychange" would pass on a listener wired to nothing.
+     * The page is hidden and shown, and the check is that update() was
+     * actually called on the live registration. */
+    const upd = await p.evaluate(async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return { reg: false };
+      let calls = 0;
+      const real = reg.update.bind(reg);
+      reg.update = function () { calls++; return real(); };
+      /* A minute has to look like it passed, or the gap guard swallows the
+         call — which is its job, and is why flicking between apps does not
+         turn into a request per flick. */
+      const now = Date.now;
+      Date.now = function () { return now() + 120000; };
+      document.dispatchEvent(new Event('visibilitychange'));
+      await new Promise((r) => setTimeout(r, 120));
+      Date.now = now;
+      return { reg: true, calls: calls, hidden: document.hidden };
+    });
+    t.ok('coming back to the app asks whether there is a new build',
+      upd.reg && upd.calls >= 1, JSON.stringify(upd));
+
+    /* The other half of the same rule: it must not ask on every flick. */
+    const spam = await p.evaluate(async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      let calls = 0;
+      const real = reg.update.bind(reg);
+      reg.update = function () { calls++; return real(); };
+      for (let i = 0; i < 6; i++) document.dispatchEvent(new Event('visibilitychange'));
+      await new Promise((r) => setTimeout(r, 120));
+      return calls;
+    });
+    t.ok('and six flicks in a second are not six requests',
+      spam <= 1, spam + ' calls');
+
     await ctx.close();
   },
 };

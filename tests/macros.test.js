@@ -3696,25 +3696,30 @@ module.exports = {
            load, just which targets the page happened to be carrying. */
         owedP: Math.max(0, Math.round(T.p - tot.p)) };
     });
-    /* Reversed deliberately. It read "Where the day stands · 60 / 203 g" —
-       four bars of standing. Standing is the right question for the strip at
-       the top of My Day and the wrong one in this sheet, where you are
-       shopping: shopping is done against what is MISSING, and the
-       subtraction was being done in Blake's head on every row. */
-    t.ok('the picker says what the day is still OWED, as pills',
+    /* REVERSED A SECOND TIME, and the history is worth keeping.
+     *
+       It first read "Where the day stands · 60 / 203 g" — four bars of
+       standing. That became the remainder, because shopping is done against
+       what is MISSING and the subtraction was otherwise being done in
+       Blake's head on every row. True, and it cost the other half: a lone
+       "20" cannot say whether that is the whole meal still to come or the
+       last mouthful of it.
+     *
+       So both halves now, with the fill carrying the remainder that the
+       middle version printed. Blake: "those three macros clearly show me how
+       much I've selected and what is left. That makes a perfect meal." */
+    t.ok('the picker answers with four pills, not the old bars',
       !!dayPanel && dayPanel.pills.length === 4 && dayPanel.oldBars === 0,
       JSON.stringify(dayPanel && { cap: dayPanel.cap, n: dayPanel.pills.length,
         bars: dayPanel.oldBars }));
 
-    /* And it is a remainder rather than a target — still computed and never a
-       literal, which would pass on an app that had stopped subtracting at
-       all. The quantity changed with the scope: it was the DAY's target less
-       what the day holds, and is now this MEAL's ask less what the meal
-       holds. Read off the meal card rather than recomputed here, because the
-       claim that matters is that the two agree. */
+    /* The claim that matters is that the sheet and the card agree about the
+       same meal. Read off the card rather than recomputed here, for exactly
+       that reason — a literal would pass on an app that had stopped doing
+       the arithmetic at all. */
     const owedNow = await dosePg.evaluate(() => {
       const cap = (document.querySelector('.mp-cap') || {}).textContent || '';
-      const meal = (cap.match(/^(.*?)\s+(?:still wants|is closed)/i) || [, ''])[1].trim();
+      const meal = (cap.match(/^(.*?)\s+(?:so far|is closed)/i) || [, ''])[1].trim();
       const card = [...document.querySelectorAll('.mslot')].find((c) =>
         ((c.querySelector('.mslot-name') || {}).textContent || '').trim()
           .replace(/[^A-Za-z ]/g, '').trim().toLowerCase() === meal.toLowerCase());
@@ -3722,14 +3727,14 @@ module.exports = {
         /^P/.test((e.querySelector('i') || {}).textContent || ''));
       if (!pil) return null;
       const got = Number((pil.querySelector('.mmp-v').textContent.match(/\d+/) || [0])[0]);
-      const want = Number(pil.dataset.want || 0);
-      const shown = [...document.querySelectorAll('.mp-left .mgp')]
+      const sheet = [...document.querySelectorAll('.mp-left .mgp')]
         .filter((e) => /P/.test(e.textContent) && !/\uD83D\uDD25/.test(e.textContent))
-        .map((e) => Number((e.textContent.match(/\d+/g) || [0]).pop()))[0];
-      return { shown: shown, cardLeft: Math.max(0, want - got) };
+        .map((e) => (e.textContent.match(/\d+/g) || []).map(Number))[0];
+      return { shown: sheet && sheet[0], cardGot: got, sheetWant: sheet && sheet[1] };
     });
-    t.ok('and the protein pill is this meal\u2019s ask less what the meal holds',
-      !!owedNow && Math.abs(owedNow.shown - owedNow.cardLeft) <= 1,
+    t.ok('and its protein pill holds what the meal card says the meal holds',
+      !!owedNow && Math.abs(owedNow.shown - owedNow.cardGot) <= 1 &&
+        owedNow.sheetWant > 0,
       JSON.stringify(owedNow));
 
     /* REVERSED. This said "and says so, rather than naming a meal or a share"
@@ -3744,7 +3749,7 @@ module.exports = {
        meal-scoped — the ranking, and a section that says one food that closes
        Snacks — and the pills were the only thing left answering the day. */
     t.ok('and names the meal it is counting, because it counts a meal now',
-      /still wants|is closed/i.test(dayPanel.cap) && /\w/.test(dayPanel.cap),
+      /so far|is closed/i.test(dayPanel.cap) && /\w/.test(dayPanel.cap),
       dayPanel.cap);
 
     /* The flame in the sheet agrees with the flame on the card behind it.
@@ -3763,22 +3768,23 @@ module.exports = {
     const flame = await dosePg.evaluate(() => {
       const pill = [...document.querySelectorAll('.mp-left .mgp')]
         .find((e) => /\uD83D\uDD25/.test(e.textContent));
-      const shown = Number((pill.textContent.match(/\d+/g) || [0]).pop());
-      /* The same figure off the meal card: its calorie pill is got/want, and
-         what the sheet reports is what is left of that. */
+      /* The FIRST number: the pill reads got/want now, and .pop() was taking
+         the target back when the pill carried only the remainder. */
+      const shown = Number((pill.textContent.match(/\d+/g) || [0])[0]);
+      /* The same figure off the meal card. Both are got/want now, so the
+         sheet's first number and the card's are the same number. */
       const cap = (document.querySelector('.mp-cap') || {}).textContent || '';
-      const meal = (cap.match(/^(.*?)\s+(?:still wants|is closed)/i) || [, ''])[1].trim();
+      const meal = (cap.match(/^(.*?)\s+(?:so far|is closed)/i) || [, ''])[1].trim();
       const card = [...document.querySelectorAll('.mslot')].find((c) =>
         ((c.querySelector('.mslot-name') || {}).textContent || '').trim()
           .replace(/[^A-Za-z ]/g, '').trim().toLowerCase() === meal.toLowerCase());
       const t2 = card && card.querySelector('.mmp.kc');
       const got = t2 ? Number((t2.querySelector('.mmp-v').textContent.match(/\d+/) || [0])[0]) : null;
       const want = t2 ? Number(t2.dataset.want || 0) : null;
-      return { shown: shown, meal: meal, got: got, want: want,
-        cardLeft: (got === null ? null : Math.max(0, want - got)) };
+      return { shown: shown, meal: meal, got: got, want: want };
     });
-    t.ok('the flame in the sheet is the same gap the meal card is showing',
-      flame.cardLeft !== null && Math.abs(flame.shown - flame.cardLeft) <= 1,
+    t.ok('the flame in the sheet is the same figure the meal card is showing',
+      flame.got !== null && Math.abs(flame.shown - flame.got) <= 1,
       JSON.stringify(flame));
     await dosePg.context().close();
 
@@ -4983,76 +4989,113 @@ module.exports = {
       'carbs ' + trainWas.kcal.c + ' -> ' + trainNow.targets.c);
     await trainPg.context().close();
 
-    /* ---- the card is named for what it does, and says what it decided ----
+    /* ---- Plan today: it folds all the way, and repeats nothing -----------
      *
-     * Blake: "weigh in card I think needs to be more plan the day. In order
-     * to do that I need to weigh in, affirm my intention to exercise and get
-     * steps in."
+     * Blake: "weigh in card I think needs to be more plan the day." Then,
+     * on the first build of it: "I don't need a duplicate card saying the
+     * exact same thing. The sticky header is doing it with the calories and
+     * macros." Then: "it needs to fully collapse."
      *
-     * Two of those three are inputs the card already had, and naming it after
-     * the first of them described a third of the card. What was missing was
-     * the OUTPUT: it took a weight and a tick and handed back nothing, so the
-     * one thing you opened the app to find out was three screens away.
+     * So the card says ONLY what nothing else on the screen says: what the
+     * scale read, whether you trained, and why that moved the carbohydrate.
+     * The day's calories and the three macros are on the sticky strip four
+     * inches above it and are not repeated here.
      *
-     * Steps are deliberately not a third input. They are already in the burn,
-     * you do not know them until bedtime, and a box for them is an invitation
-     * to eat them back — which is the double-count the tick exists to avoid.
+     * Folded is the default once both questions are answered, and folded
+     * means ONE row — a card still showing two of its three rows is not
+     * shut. On a morning not yet answered it opens itself, because there is
+     * nothing to collapse to and a tap to reach the box is a tap the app
+     * made you spend.
      *
-     * The answer sits on the FACE, not inside the fold. This card folds by
-     * default, and an answer that folds away with it is an answer you have to
-     * go looking for. */
+     * Steps are deliberately never an input. They are already in the burn,
+     * you do not know them until bedtime, and a box for them invites eating
+     * them back — the double-count the training tick exists to avoid. */
     const todayPg = await t.fresh({ viewport: { width: 390, height: 900 } });
-    await todayPg.evaluate(() => {
+    const todaySeed = (withWeight) => (w) => {
       const p2 = (n) => (n < 10 ? '0' : '') + n;
       const d = new Date();
-      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
-      const w = {};
-      for (let i = 6; i >= 0; i--) {
+      const key = (x) => x.getFullYear() + '-' + p2(x.getMonth() + 1) + '-' + p2(x.getDate());
+      const k = key(d), ws = {};
+      /* A week of mornings so the trend lines have something to say, but the
+         LAST one only when the case under test is "already answered". */
+      for (let i = 6; i >= 1; i--) {
         const dd = new Date(d); dd.setDate(dd.getDate() - i);
-        w[dd.getFullYear() + '-' + p2(dd.getMonth() + 1) + '-' + p2(dd.getDate())] = 205;
+        ws[key(dd)] = 205;
       }
-      localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+      if (w) ws[k] = 205;
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
       localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 61, c: 75 }));
       localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, lb: 205,
         ft: 5, inch: 10, act: 1.55, goal: 'cut1', goalLb: 0, goalBy: '', workouts: 4,
-        steps: 7000, train: [0, 2, 4, 6] }));
+        steps: 7000, train: [0, 1, 2, 3, 4, 5, 6].slice(0, 4) }));
       localStorage.setItem('bsc.macroTrained', JSON.stringify({ [k]: Date.now() }));
-    });
-    await todayPg.reload();
-    await todayPg.waitForTimeout(400);
-    await todayPg.click('.tab[data-view="macros"]');
-    await todayPg.waitForTimeout(350);
-    /* Shut is the state it opens in, so this is what a morning actually
-       looks like. Everything asserted here has to be true without a tap. */
-    const todayShut = await todayPg.evaluate(() => {
-      const want = window.__macroLab.targets();
-      const kcal = Math.round(4 * want.p + 4 * want.c + 9 * want.f);
-      const row = document.querySelector('.mw-plan');
-      const txt = (row ? row.textContent : '').replace(/[\s,]+/g, '');
-      const handle = document.querySelector('[data-mfold="weigh"]');
-      return { open: handle.getAttribute('aria-expanded'),
-        named: /plan today/i.test(handle.textContent || ''),
-        hasRow: !!row,
-        saysKcal: txt.indexOf(String(kcal)) >= 0,
-        saysP: txt.indexOf(String(want.p) + 'P') >= 0,
-        saysF: txt.indexOf(String(want.f) + 'F') >= 0,
-        saysC: txt.indexOf(String(want.c) + 'C') >= 0,
-        why: !!document.querySelector('.mw-why'),
-        txt: txt, kcal: kcal };
-    });
+    };
+    const todayLook = async (withWeight) => {
+      await todayPg.evaluate(todaySeed(withWeight), withWeight);
+      await todayPg.reload();
+      await todayPg.waitForTimeout(400);
+      await todayPg.click('.tab[data-view="macros"]');
+      await todayPg.waitForTimeout(350);
+      return todayPg.evaluate(() => {
+        const handle = document.querySelector('[data-mfold="weigh"]');
+        const card = handle.closest('.mslot') || handle.parentElement.parentElement;
+        const want = window.__macroLab.targets();
+        const kcal = Math.round(4 * want.p + 4 * want.c + 9 * want.f);
+        const txt = card.textContent.replace(/[\s,]+/g, '');
+        return {
+          open: handle.getAttribute('aria-expanded'),
+          named: /plan today/i.test(handle.textContent || ''),
+          sum: (document.querySelector('.mw-sum') || {}).textContent || '',
+          ask: !!document.querySelector('.mw-ask'),
+          tick: !!document.querySelector('.mw-train'),
+          why: (document.querySelector('.mw-why') || {}).textContent || '',
+          verdict: !!document.querySelector('.mw-verdict'),
+          body: !!document.querySelector('.mw-body'),
+          box: !!card.querySelector('#mWeight'),
+          repeatsKcal: txt.indexOf(String(kcal)) >= 0,
+          repeatsSplit: /205P|61F|94C/.test(txt),
+          want: want, kcal: kcal, txt: txt.slice(0, 140),
+        };
+      });
+    };
+
+    const todayShut = await todayLook(true);
     t.ok('the card is called Plan today, not Weigh-in',
       todayShut.named, JSON.stringify(todayShut));
-    t.ok('and folded shut it still states the day it planned',
-      todayShut.open === 'false' && todayShut.hasRow && todayShut.saysKcal,
+    t.ok('once the morning is answered it folds itself shut',
+      todayShut.open === 'false', JSON.stringify(todayShut));
+    /* Shut means shut. The first build of this kept the tick and an answer
+       row on the face and called itself folded. */
+    t.ok('and folded means one row — no tick, no reason, no verdict under it',
+      !todayShut.tick && !todayShut.why && !todayShut.verdict,
       JSON.stringify(todayShut));
-    t.ok('with all three macros beside the calories',
-      todayShut.saysP && todayShut.saysF && todayShut.saysC, todayShut.txt);
-    /* The tick's justification lives inside the fold: it is the same sentence
-       every training day, and a line read forty times is furniture. */
-    t.ok('the reason carbs moved is not repeated at you every morning',
-      todayShut.why === false, 'the why line was visible while shut');
+    t.ok('the folded row says what the scale read and whether you trained',
+      /205/.test(todayShut.sum) && /lb/.test(todayShut.sum) &&
+        /train/i.test(todayShut.sum), todayShut.sum);
+    /* The whole point of the second pass: the strip above already carries
+       these, and a card that says them again is a second answer to a
+       settled question. */
+    t.ok('and it never repeats the day’s calories or macros, which the strip carries',
+      !todayShut.repeatsKcal && !todayShut.repeatsSplit, todayShut.txt);
+
+    /* The third state. A morning with nothing on the scale is not folded —
+       the box and the tick are there without a tap — but it is not OPEN
+       either: a card that has not been given its two numbers has not earned
+       an opinion, and a pace verdict over an empty box is the nagging this
+       screen was rebuilt to stop. */
+    const todayNew = await todayLook(false);
+    t.ok('a morning not yet weighed puts the box in reach without a tap',
+      todayNew.box && !todayNew.sum, JSON.stringify(todayNew));
+    t.ok('and claims nothing over it — no verdict, no history',
+      !todayNew.verdict && !todayNew.body, JSON.stringify(todayNew));
+
+    /* ONE tap. This read two while the handle was lying about being expanded
+       — it reported "not shut" as open, so the first tap closed what it meant
+       to open and the second re-opened it, and the pair happened to land in
+       the right place. With the handle telling the truth, two taps is open
+       then shut, and the line under test is not on screen. */
     await todayPg.click('[data-mfold="weigh"]');
-    await todayPg.waitForTimeout(300);
+    await todayPg.waitForTimeout(350);
     const todayOpen = await todayPg.evaluate(() => {
       const el = document.querySelector('.mw-why');
       const base = JSON.parse(localStorage.getItem('bsc.macroTargets'));
@@ -5060,14 +5103,18 @@ module.exports = {
       const s2 = el ? el.textContent.replace(/\s+/g, ' ') : '';
       return { txt: s2, base: base.c, now: now.c,
         both: s2.indexOf(String(now.c)) >= 0 && s2.indexOf(String(base.c)) >= 0,
-        week: /week stays the same/i.test(s2) };
+        week: /week stays the same/i.test(s2),
+        steps: !!document.querySelector('[data-mfold="weigh"]')
+          .closest('.mslot, div').querySelector('input[inputmode="numeric"]') };
     });
-    /* Naming BOTH numbers is what makes it an explanation rather than an
+    /* Naming BOTH numbers is what makes it an explanation and not an
        assertion — it has to show the swap, not just the result. */
-    t.ok('opened, it says why today differs and names both numbers',
+    t.ok('opened, it says why today differs and names both carb figures',
       todayOpen.both, JSON.stringify(todayOpen));
     t.ok('and that the week does not grow because you ticked a box',
       todayOpen.week, todayOpen.txt);
+    t.ok('and there is no steps box on it, at any state',
+      todayOpen.steps === false, JSON.stringify(todayOpen));
     await todayPg.context().close();
 
     /* ---- the week strip is boxes now --------------------------------------
@@ -5093,6 +5140,95 @@ module.exports = {
     t.ok('and at 320px it still fits inside its own column',
       boxShape.w <= boxShape.col + 0.5, JSON.stringify(boxShape));
     await boxPg.context().close();
+
+    /* ---- the add sheet's pills say both halves ---------------------------
+     *
+     * Blake: "whenever I hit the add button and it takes me to making a meal,
+     * those three macros clearly show me how much I've selected and what is
+     * left. That makes a perfect meal."
+     *
+     * They were one figure — the gap — on a flat tint. One figure answers
+     * half the question and hides the other: a lone "20" cannot say whether
+     * that is the whole meal still to come or the last mouthful of it. Now
+     * each pill carries what is ON the meal and what the meal is FOR, with
+     * the fill drawing the proportion between them, which is the pair the
+     * day's own pills settled on.
+     *
+     * Still pills. The shape did not change — only the fill and the figures.
+     *
+     * Asserted at the two ends, which need no number out of the app's own
+     * head: an untouched meal holds none of its ask and must read empty, and
+     * a meal past its ask must read full. */
+    const gapPg = await t.fresh({ viewport: { width: 320, height: 800 } });
+    const gapAt = async (x) => {
+      await gapPg.evaluate((mult) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const r = window.RECIPES.filter((q) => q.macro &&
+          q.book + '-' + q.secNum === '1-4')[0];
+        localStorage.setItem('bsc.macroDays', JSON.stringify(
+          mult ? { [k]: { d: [{ id: r.id, x: mult, eaten: 0 }] } } : { [k]: {} }));
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 61, c: 94 }));
+      }, x);
+      await gapPg.reload();
+      await gapPg.waitForTimeout(400);
+      await gapPg.click('.tab[data-view="macros"]');
+      await gapPg.waitForTimeout(300);
+      await gapPg.click('#macroAdd');
+      await gapPg.waitForTimeout(350);
+      await gapPg.click('[data-mpslot="d"]');
+      await gapPg.waitForTimeout(350);
+      return gapPg.evaluate(() => [...document.querySelectorAll('.mgp')].map((e) => {
+        const st = e.getAttribute('style') || '';
+        const hit = st.match(/0\s+([\d.]+)%/);
+        const cs = getComputedStyle(e);
+        const nums = (e.textContent.match(/\d+/g) || []).map(Number);
+        return { pct: hit ? Number(hit[1]) : null,
+          grad: /linear-gradient/.test(st),
+          met: e.classList.contains('met'),
+          both: /\d+\s*\/\s*\d+/.test(e.textContent),
+          got: nums[0], want: nums[nums.length - 1],
+          radius: parseFloat(cs.borderRadius),
+          clipped: e.scrollWidth > e.clientWidth + 0.5,
+          top: Math.round(e.getBoundingClientRect().top),
+          txt: e.textContent.trim() };
+      }));
+    };
+
+    const gapEmpty = await gapAt(0);
+    t.ok('every pill on the add sheet is still a pill, and is drawn with a fill',
+      gapEmpty.length === 4 && gapEmpty.every((g) => g.grad && g.radius >= 12),
+      JSON.stringify(gapEmpty.map((g) => g.radius + '/' + g.grad)));
+    t.ok('and each says both halves — what is on the meal, and what it is for',
+      gapEmpty.every((g) => g.both && g.want > 0), gapEmpty.map((g) => g.txt).join(' '));
+    t.ok('an untouched meal holds none of its ask, and the fill says so',
+      gapEmpty.every((g) => g.got === 0 && g.pct === 0 && !g.met),
+      JSON.stringify(gapEmpty));
+    /* Four fills only compare by eye if the boxes match. On a flex row with a
+       56px floor the fourth wrapped to its own line at 320 and stretched the
+       width of the sheet, and the calorie pill clipped its own target. */
+    t.ok('the four sit on one row at 320px with nothing clipped',
+      new Set(gapEmpty.map((g) => g.top)).size === 1 &&
+        gapEmpty.every((g) => !g.clipped),
+      JSON.stringify(gapEmpty.map((g) => g.top + (g.clipped ? ' CLIPPED' : ''))));
+
+    /* Six times the dish it was ranked for takes every macro past the ask. */
+    const gapFull = await gapAt(6);
+    t.ok('a meal past its ask reads full on every pill',
+      gapFull.every((g) => g.pct === 100 && g.met && g.got >= g.want),
+      JSON.stringify(gapFull.map((g) => g.txt + ' ' + g.pct + (g.met ? ' met' : ''))));
+
+    /* One helper draws both rows. They were two gradients written out
+       separately, which is how two things that must match stop matching. */
+    await gapPg.click('.sheet-x, [data-close]');
+    await gapPg.waitForTimeout(400);
+    const gapDay = await gapPg.evaluate(() =>
+      [...document.querySelectorAll('.mpill')].map((e) =>
+        /linear-gradient\(90deg/.test(e.getAttribute('style') || '')));
+    t.ok('and the day’s folded pills are drawn by the same hand',
+      gapDay.length > 0 && gapDay.every(Boolean), JSON.stringify(gapDay));
+    await gapPg.context().close();
 
     /* ---- a stale reading goes stale, it does not get worse ---------------
      *

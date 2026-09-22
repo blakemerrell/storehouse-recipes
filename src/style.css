@@ -1314,25 +1314,34 @@ select { max-width: 280px; }
    for exactly the reason the tick existed: a bar at its own maximum cannot
    say how far past the maximum it went. */
 
-/* Still to fill. Kin to the day's own pills — same shape, same letters —
-   but a flat tint rather than a proportional fill, because these say how
-   much is OWED and the day's say how far off it landed. Two different
-   questions should not wear identical clothes. */
-.mgps { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+/* Still to fill. Kin to the day's own pills and now drawn the same way: the
+   number is the gap, the fill is the proportion. This block used to argue for
+   a flat tint — "two different questions should not wear identical clothes" —
+   and the argument was wrong in the same way the folded day row's was before
+   it. Twenty grams of protein reads the same whether it is the whole meal or
+   the last mouthful, and the fill is the only thing that says which. The
+   gradient arrives inline from mFillPill; what is left here is the frame. */
+/* Four, always on one row and always the same width as each other. They wrapped
+   while this was a flex row with a 56px floor: at 320 the fourth dropped to its
+   own line and stretched the full width, and four fills only compare by eye if
+   the boxes match. A grid cannot wrap and cannot stretch one of them. */
+/* Calories take a wider column than the macros, because its figure is a digit
+   longer and carries a glyph in front of it. Equal columns clipped it at 320. */
+.mgps { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 4px; margin-top: 7px; }
 .mgp {
-  flex: 1 1 auto; display: inline-flex; align-items: baseline; gap: 3px;
-  justify-content: center; min-width: 56px;
-  padding: 4px 8px; border-radius: 999px; font-size: 12px;
-  background: oklch(0.945 0.032 55); border: 1px solid var(--dial-under-pale);
-  color: var(--ochre-text); font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: baseline; gap: 2px;
+  justify-content: center; min-width: 0; white-space: nowrap;
+  padding: 4px 5px; border-radius: 999px; font-size: 11.5px;
+  background: var(--paper-soft); border: 1px solid var(--line-soft);
+  color: var(--muted-2); font-variant-numeric: tabular-nums;
 }
 .mgp span { font-size: 10.5px; font-weight: 700; }
 .mgp b { font-weight: 700; }
+/* What the meal is FOR, quieter than what is on it — the same weighting the
+   day's bars give "/ 205 g". */
+.mgp u { text-decoration: none; font-size: 10.5px; color: var(--muted); }
 /* Nothing left to fill is a different state, not a small amount left. */
-.mgp.met {
-  background: oklch(0.935 0.048 145); border-color: var(--dial-on-pale);
-  color: var(--green);
-}
+.mgp.met { border-color: var(--dial-on-pale); color: var(--green); }
 /* A macro read against what the day is still owed: green where this portion
    lands it, warm where it busts it, and nothing at all where it does neither
    — silence is most of the row and is what makes the colour mean something. */
@@ -2513,28 +2522,27 @@ select { max-width: 280px; }
    fifth thing on it clips the name at 320. Quiet by default because it is an
    offer, not a question being asked of you. */
 .mw-train { padding: 0 2px 2px; }
-/* The answer the two questions above it are for: what today comes to, once
-   the scale and the tick have had their say. On the FACE rather than inside
-   the fold, because a card you close should not take its answer with it. */
-.mw-plan {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; padding: 7px 3px 8px;
-  border-top: 1px solid var(--line-soft);
+/* Folded, the row says what the scale read and whether you trained — the two
+   things this card knows that nothing else on the screen does. It does NOT
+   say the day's calories or macros: those are on the sticky strip four inches
+   above, and a card repeating them is a second answer to a settled question. */
+/* No flex gap: the space between the number and its unit is a real space in
+   the text, so what renders and what a reader copies out are the same string. */
+.mw-sum { flex: none; white-space: nowrap; }
+.mw-sum b {
+  font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
-.mw-plan-k { font-size: 13px; color: var(--muted-2); }
-.mw-plan-k b {
-  font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--ink);
-  font-variant-numeric: tabular-nums; margin-right: 3px;
-}
-.mw-plan-m {
-  font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums;
-  display: flex; gap: 9px; flex: none;
-}
-.mw-plan-m i { font-style: normal; font-weight: 650; }
+.mw-sum u { text-decoration: none; font-size: 12px; color: var(--muted); }
+/* The one thing it asks for, on a morning it has not been given. */
+.mw-ask { font-size: 13px; font-weight: 600; color: var(--ochre-text); flex: none; }
 /* Why today is not the same as yesterday. Inside the fold: it is the same
    sentence every training day, and a line you have read forty times is
    furniture. */
-.mw-why { font-size: 12.5px; color: var(--muted-2); padding: 0 3px 8px; }
+.mw-why {
+  font-size: 12.5px; color: var(--muted-2); padding: 8px 3px;
+  border-top: 1px solid var(--line-soft);
+}
 .mw-why b { font-weight: 650; color: var(--ink); }
 .mw-tick {
   display: inline-flex; align-items: center; gap: 8px;
