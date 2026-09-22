@@ -580,7 +580,13 @@ window.Store = (function () {
       });
     }).then(flushQueued).then(function () {
       if (unsub) unsub();
-      unsub = doc.onSnapshot(function (snap) {
+      /* includeMetadataChanges, or the listener never hears the one thing the
+         status is built from. Without it Firestore fires on DATA changes only,
+         so the moment a write is acknowledged — hasPendingWrites going false,
+         nothing else different — passed in silence, and the button sat on
+         "Sending…" until somebody changed something else. Same for the first
+         cache answer turning into a server answer: "Syncing…" forever. */
+      unsub = doc.onSnapshot({ includeMetadataChanges: true }, function (snap) {
         var d = snap.data() || {};
         state.favs = Array.isArray(d.favs) ? d.favs.slice() : [];
         var made = adopt(d);

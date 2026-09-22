@@ -1495,6 +1495,86 @@
   }
 
   var mSyncDoc = null, mSyncOff = null, mSyncTimer = null;
+
+  /* The kitchen travels with the account.
+   *
+     Signing in used to carry My Day and nothing else. Favorites, recipes of
+     your own, the weeks and the pantry live in the household document, which
+     a device reaches only by holding its code — so a second device signed in
+     as you opened on an empty book and looked like a sync that had done
+     nothing. Blake: "when i logged into the app on my PC i expect to see
+     exactly what is on my phone."
+   *
+     So the account keeps the code, as `house` on /users/{uid}. Absent means
+     no device has ever told it one; '' means somebody signed in chose to stop
+     sharing, and is not to be undone by the next device that opens. */
+  var mAcctHouse;               // undefined until the server has said
+  var mHouseAsked = false;      // one question a session, not one a snapshot
+  var mHouseTellNext = false;   // a join or create was asked for here: report it once it is real
+  var mHouseMaking = false;
+
+  function mHouseTell(code) {
+    mAcctHouse = code;
+    if (mSyncDoc) mSyncDoc.set({ house: code }, { merge: true }).catch(function () { /* next snapshot retries */ });
+  }
+
+  /* Whether this device holds anything that would be lost if it stayed on this
+     device. A fresh one does not, and must not make a kitchen for the account
+     just by being opened first — that would be an empty kitchen standing in
+     front of the real one on the phone. */
+  function mHouseWorthKeeping() {
+    var st = window.Store.state;
+    var some = function (o) { return o && Object.keys(o).length > 0; };
+    if (st.favs && st.favs.length) return true;
+    if (some(st.mine) || some(st.edits) || some(st.pantry) || some(st.pantryNew)) return true;
+    return Object.keys(st.weeks || {}).some(function (k) {
+      var plan = st.weeks[k].plan || {};
+      return Object.keys(plan).some(function (d) { return (plan[d] || []).length; });
+    });
+  }
+
+  /* Only ever from a server answer: a cached snapshot that lacks `house`
+     is not an account that lacks one. */
+  function mHouseReconcile(data) {
+    var has = Object.prototype.hasOwnProperty.call(data, 'house') && typeof data.house === 'string';
+    var theirs = has ? data.house : '';
+    var mine = window.Store.house;
+    mAcctHouse = has ? theirs : undefined;
+    if (!has) {
+      if (mine) { mHouseTell(mine); return; }
+      /* Once. Snapshots keep arriving while the transaction is out, and each
+         would otherwise draw a second pantry for the same person. */
+      if (!mHouseMaking && mHouseWorthKeeping()) {
+        mHouseMaking = true;
+        mHouseTellNext = true;
+        window.Store.createHousehold().then(function () { mHouseMaking = false; },
+          function () { mHouseMaking = false; });
+      }
+      return;
+    }
+    if (!theirs || theirs === mine) return;
+    if (!mine) { window.Store.join(theirs); return; }
+    if (mHouseAsked) return;
+    mHouseAsked = true;
+    ask({
+      title: 'Use your account’s pantry?',
+      body: 'This device is sharing ' + mine + '. Your account uses ' + theirs +
+        '. Switching brings what is on this device along with it.',
+      ok: 'Switch this device'
+    }, function (yes) { if (yes) window.Store.join(theirs); });
+  }
+
+  /* Called on every Store change. A join typed here, or a pantry made here,
+     becomes the account's once the server has confirmed it exists — not
+     before, or a mistyped code would be written over the real one. */
+  function mHouseWatch() {
+    if (!mHouseTellNext || !mSyncDoc || !mAccount()) return;
+    var st = window.Store.status, code = window.Store.house;
+    if (!code) { if (st === 'local') mHouseTellNext = false; return; }
+    if (st !== 'synced') return;
+    mHouseTellNext = false;
+    if (code !== mAcctHouse) mHouseTell(code);
+  }
   /* The last attempt to reach the server failed, rather than answering
      "nobody". The two are different facts and the sheet has different
      words for them, but only one of them survived: ready() rejects, the
@@ -1573,7 +1653,10 @@
       }
       mSetOwner(uid);
       mSyncDoc = db.collection('users').doc(uid);
-      mSyncOff = mSyncDoc.onSnapshot(function (snap) {
+      /* includeMetadataChanges for the same reason as the household
+         listener in sync.js: the step from a cache answer to a server answer
+         changes no data, and without it that step is never heard. */
+      mSyncOff = mSyncDoc.onSnapshot({ includeMetadataChanges: true }, function (snap) {
         var data = snap.exists ? (snap.data() || {}) : null;
         /* Only when the server actually answered. A snapshot served from the
            local cache is Firestore handing back what this device already had,
@@ -1582,6 +1665,7 @@
            has always checked; My Day never did, so the two sides of one
            screen gave different answers to the same question. */
         mSyncState(snap.metadata && snap.metadata.fromCache ? 'connecting' : 'on');
+        if (!(snap.metadata && snap.metadata.fromCache)) mHouseReconcile(data || {});
         if (!data || !data.myday) { mSyncPush(true); return; }
         if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
         if (S.syncOpen) renderModal();
@@ -15501,6 +15585,7 @@
            handed over. It resolves with the code actually claimed, which is
            the one on screen unless it turned out to be taken. */
         if (act === 'use') {
+          mHouseTellNext = true;
           window.Store.createHousehold(S.pendingCode).then(function (code) {
             S.pendingCode = code;
             renderModal();
@@ -15508,9 +15593,15 @@
         }
         if (act === 'join') {
           var v = ($('joinCode') || {}).value || '';
-          if (v.trim()) window.Store.join(v);
+          if (v.trim()) { mHouseTellNext = true; window.Store.join(v); }
         }
-        if (act === 'leave') { window.Store.leave(); }
+        /* Signed in, stopping here stops it for the account too; otherwise
+           the next snapshot would put this device straight back in. */
+        if (act === 'leave') {
+          window.Store.leave();
+          mHouseTellNext = false;
+          if (mAccount() && mSyncDoc) mHouseTell('');
+        }
         renderModal();
       }
     });
@@ -15759,6 +15850,6 @@
      belongs here rather than inside whichever read happened to run first. */
   mHealTargets();
   wire();
-  window.Store.init(function () { renderAll(); });
+  window.Store.init(function () { renderAll(); mHouseWatch(); });
   renderAll();
 })();

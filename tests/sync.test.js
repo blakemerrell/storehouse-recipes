@@ -51,6 +51,10 @@ module.exports = {
       if (SDK !== 'https://www.gstatic.com/firebasejs/10.12.2/') {
         for (const f of FILES) await p.addScriptTag({ url: SDK + f });
       }
+      /* The app stopped fetching Firebase at boot — a visitor with no account
+         and no household fetches nothing offsite — so a fresh phone has no
+         `firebase` on the page until something asks for it. Ask. */
+      await p.evaluate(() => window.Store.ready());
       return p;
     };
 
@@ -97,7 +101,7 @@ module.exports = {
       // ---- phone A joins that household -----------------------------------
       const A = await phone();
       await A.evaluate((c) => window.Store.join(c), CODE);
-      t.ok('A connects', await waitFor(A, () => /synced|offline/.test(window.Store.status)),
+      t.ok('A connects', await waitFor(A, () => /synced|waiting/.test(window.Store.status)),
         await A.evaluate(() => window.Store.status + ' ' + window.Store.statusNote));
 
       t.ok('a household from the one-week version is carried over',
@@ -118,7 +122,7 @@ module.exports = {
       // ---- phone B, with nothing of its own --------------------------------
       const B = await phone();
       await B.evaluate((c) => window.Store.join(c), CODE);
-      t.ok('B connects', await waitFor(B, () => /synced|offline/.test(window.Store.status)),
+      t.ok('B connects', await waitFor(B, () => /synced|waiting/.test(window.Store.status)),
         await B.evaluate(() => window.Store.status + ' ' + window.Store.statusNote));
       t.ok('and sees both of A’s weeks',
         await waitFor(B, () => window.Store.weeks().map((w) => w.name).join() === 'This Week,Fast week'),

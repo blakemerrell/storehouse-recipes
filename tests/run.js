@@ -59,7 +59,7 @@ function playwright() {
 
   const files = fs.readdirSync(__dirname)
     .filter((f) => f.endsWith('.test.js'))
-    .filter((f) => f !== 'sync.test.js' || want.length)
+    .filter((f) => !/^sync/.test(f) || want.length)   // the live-network ones
     .filter((f) => !want.length || want.some((w) => f.indexOf(w) >= 0))
     .sort();
 
