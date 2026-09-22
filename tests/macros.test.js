@@ -4749,6 +4749,112 @@ module.exports = {
       standHand.onB === true, JSON.stringify(standHand));
     await standPg.context().close();
 
+    /* ---- one press of Add, however many times the button is pressed ------
+     *
+     * Blake, having added two foods: "I added foods. And it double added
+     * them." The day showed franks, buns, franks, buns — the basket
+     * committed twice, in order.
+     *
+     * close() does not close synchronously. The picker is pushed onto
+     * history, so close() takes its first branch — history.go(-n) and RETURN
+     * — and everything it clears, S.macroPick and the basket included, is
+     * cleared when the popstate lands. On a phone that is long enough for a
+     * second press to find the sheet still up, S.macroPick still set and the
+     * basket still full.
+     *
+     * Two clicks dispatched back to back rather than two Playwright taps:
+     * the point is the window BEFORE the sheet has gone, and a driver that
+     * waits for actionability would never press into it. */
+    const twicePg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await twicePg.click('.tab[data-view="macros"]');
+    await twicePg.waitForTimeout(300);
+    const twiceAdd = async (presses) => {
+      await twicePg.evaluate(() => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        days[k] = {};
+        localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      });
+      await twicePg.reload();
+      await twicePg.waitForTimeout(400);
+      await twicePg.click('.tab[data-view="macros"]');
+      await twicePg.waitForTimeout(300);
+      await twicePg.click('#macroAdd');
+      await twicePg.waitForTimeout(350);
+      await twicePg.click('[data-mpslot="d"]');
+      await twicePg.waitForTimeout(250);
+      /* Two raw foods, found the way a thumb finds them. Foods rather than
+         recipes because the basket is what is under test, not the ranking. */
+      for (const q of ['beef frank', 'bun']) {
+        await twicePg.fill('#mpFind', q);
+        await twicePg.waitForTimeout(400);
+        await twicePg.evaluate(() => {
+          const r = [...document.querySelectorAll('.mpick-row[data-mpick]')]
+            .find((x) => x.dataset.mpick.indexOf('f:') === 0);
+          if (r) r.click();
+        });
+        await twicePg.waitForTimeout(150);
+      }
+      return twicePg.evaluate((n) => {
+        const b = document.querySelector('[data-mpdone]');
+        for (let i = 0; i < n; i++) b.click();
+        const p2 = (x) => (x < 10 ? '0' : '') + x;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const day = JSON.parse(localStorage.getItem('bsc.macroDays'))[k] || {};
+        return (day.d || []).map((it) => String(it.id));
+      }, presses);
+    };
+    const twiceOnce = await twiceAdd(1);
+    t.ok('two foods chosen and added put two plates on the meal',
+      twiceOnce.length === 2 && twiceOnce[0] !== twiceOnce[1], twiceOnce.join(','));
+    const twiceTwice = await twiceAdd(2);
+    t.ok('and pressing Add again before the sheet has gone adds nothing more',
+      twiceTwice.length === 2, twiceTwice.join(','));
+    await twicePg.context().close();
+
+    /* ---- a skipped meal is a meal dealt with -----------------------------
+     *
+     * The primary button asked whether every meal had food on it before it
+     * would stop offering to Fill. A skipped meal never will, so one skip
+     * pinned it to "Fill" for the rest of the day — through every plate
+     * being ticked — and neither "Mark all complete" nor "Complete the day"
+     * could be reached at all. Blake: "when all foods are marked complete,
+     * it's still showing fill. I'd expect to see something else."
+     *
+     * The other half matters as much: a meal that is merely EMPTY is not
+     * dealt with, and the button must still offer to fill it. */
+    const modePg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    const modeRun = async (skip) => {
+      await modePg.evaluate((sk) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const pick = (s) => window.RECIPES.filter((r) => r.macro &&
+          r.book + '-' + r.secNum === s)[0];
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+          b: [{ id: pick('1-1').id, x: 1, eaten: 1 }],
+          l: [{ id: pick('1-3').id, x: 1, eaten: 1 }],
+          d: [{ id: pick('1-4').id, x: 1, eaten: 1 }] } }));
+        if (sk) localStorage.setItem('bsc.macroSkip', JSON.stringify({ [k]: ['s'] }));
+        else localStorage.removeItem('bsc.macroSkip');
+      }, skip);
+      await modePg.reload();
+      await modePg.waitForTimeout(400);
+      await modePg.click('.tab[data-view="macros"]');
+      await modePg.waitForTimeout(300);
+      return modePg.evaluate(() => document.getElementById('macroFill').dataset.mode);
+    };
+    const modeSkip = await modeRun(true);
+    t.ok('with every plate eaten and the fourth meal skipped, the button offers to close the day',
+      modeSkip === 'done', 'mode=' + modeSkip);
+    const modeEmpty = await modeRun(false);
+    t.ok('but a meal merely left empty is still a meal to fill',
+      modeEmpty === 'fill', 'mode=' + modeEmpty);
+    await modePg.context().close();
+
     /* ---- the bar's order --------------------------------------------------
      *
      * Blake's grouping: the whole-day actions, then the view, then out, then

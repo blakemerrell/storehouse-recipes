@@ -3996,8 +3996,15 @@
        waste. */
     var fillBtn = $('macroFill');
     var noPlan = !kcalOf(targets);
-    var nothingToFill = !noPlan &&
-      slots.list.every(function (s) { return (day[s.k] || []).length; });
+    /* A skipped meal counts as dealt with. It asked only whether every meal
+       had food on it, and a skipped meal never will — so one skip pinned the
+       button to "Fill" for the rest of the day, through every plate being
+       ticked, and neither "Mark all complete" nor "Complete the day" could
+       ever be reached. Blake: "when all foods are marked complete, it's still
+       showing fill. I'd expect to see something else." */
+    var nothingToFill = !noPlan && slots.list.every(function (s) {
+      return (day[s.k] || []).length || mSkipped(mViewKey(), s.k);
+    });
     var dayDone = mDoneAt(mViewKey()) > 0;
     var future = mViewKey() > todayKey();
     /* Is there a plate left to tick? Blake: "the done for the day button
@@ -14808,6 +14815,25 @@
       var mcommit = e.target.closest('[data-mpdone]');
       if (mcommit && S.macroPick) {
         var cslot = S.macroPick.slot, basket = S.mpBasket;
+        /* Disarmed before anything else happens, because close() does not
+           close synchronously.
+         *
+           The picker is pushed onto history, so close() takes its first
+           branch — history.go(-n) and RETURN — and everything it clears,
+           S.macroPick and the basket included, is cleared later, when the
+           popstate lands. On a phone that is a hundred milliseconds or more
+           with the sheet still on screen and the button still under a thumb.
+           A second press in that window found S.macroPick still set and the
+           basket still full, and added the whole basket again. Blake, having
+           added two things: "I added foods. And it double added them" — the
+           day showed franks, buns, franks, buns, in that order.
+         *
+           Clearing it here rather than making close() synchronous: the
+           history unwind is what the back gesture depends on, and a press
+           that has already been acted on should be inert whatever the sheet
+           does next. */
+        S.mpBasket = {};
+        if (!Object.keys(basket).length) return;
         S.mTouched = cslot;              // the meal you just filled stays open
         S.mFold[cslot] = false;
         mEditDay(mViewKey(), function (day) {
