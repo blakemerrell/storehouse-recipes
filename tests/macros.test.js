@@ -4683,6 +4683,90 @@ module.exports = {
       sweptAfter.off === true, JSON.stringify(sweptAfter));
     await sweepPg.context().close();
 
+    /* ---- a pin is a standing order, not a licence to reopen a meal --------
+     *
+     * Blake, having swept the day and pressed Fill: "Breakfast was marked
+     * complete and it did it and added more foods."
+     *
+     * Every pass in the drafter steps over a meal carrying a tick — the
+     * best-fit pass, the family plan, the topper and the vegetable side all
+     * ask. The PIN pass never did. It asked only whether the pin was already
+     * on the day and whether the meal was skipped, so a pinned dish swept off
+     * a finished breakfast came straight back on the next Fill. The un-eaten
+     * plate then re-opened the meal, which also handed it to the topper,
+     * because mTopSlot counts a meal with anything un-ticked on it as open.
+     *
+     * The fix must not cost the pin its rank. A pin runs BEFORE the family
+     * plan and before best-fit precisely because it outranks a chosen dish;
+     * what it must not outrank is a tick. So both halves are asserted here:
+     * the pin stays off a ticked meal, and still lands beside a hand-placed
+     * one. */
+    const standPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    const standRun = async (eaten) => {
+      const set = await standPg.evaluate((ate) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        /* Two different breakfast dishes out of the book itself, so the pin
+           and the plate beside it can never be the same recipe — mOnDay would
+           make the whole question moot if they were. */
+        const bs = window.RECIPES.filter((r) => r.macro &&
+          (r.book + '-' + r.secNum === '1-1' || r.book + '-' + r.secNum === '2-1'));
+        const pinned = bs[0], other = bs[1];
+        localStorage.setItem('bsc.macroSlots', JSON.stringify({
+          list: [{ k: 'b', n: 'Breakfast', t: 'b', pins: [{ id: pinned.id, x: 1 }] },
+            { k: 'l', n: 'Lunch', t: 'l' }, { k: 'd', n: 'Dinner', t: 'd' },
+            { k: 's', n: 'Snacks', t: 's' }],
+          names: { b: 'Breakfast', l: 'Lunch', d: 'Dinner', s: 'Snacks' } }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+          b: [{ id: other.id, x: 1, eaten: ate }] } }));
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 38, lb: 198,
+          ft: 6, inch: 1, act: 1.55, goal: 'cut1', goalLb: 0, goalBy: '', workouts: 0,
+          steps: 7000 }));
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 60, c: 190 }));
+        return { pinned: pinned.id, other: other.id };
+      }, eaten);
+      await standPg.reload();
+      await standPg.waitForTimeout(400);
+      await standPg.click('.tab[data-view="macros"]');
+      await standPg.waitForTimeout(300);
+      await standPg.evaluate(() => { document.getElementById('macroFill').dataset.mode = 'fill'; });
+      await standPg.click('#macroFill');
+      await standPg.waitForTimeout(700);
+      return standPg.evaluate((s2) => {
+        const all = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        const day = all[Object.keys(all)[0]] || {};
+        return { onB: (day.b || []).some((it) => it.id === s2.pinned),
+          bCount: (day.b || []).length };
+      }, set);
+    };
+    const standTicked = await standRun(1);
+    t.ok('Fill puts nothing on a breakfast you have already ticked, not even a pin',
+      standTicked.onB === false && standTicked.bCount === 1,
+      JSON.stringify(standTicked));
+    const standHand = await standRun(0);
+    t.ok('but a pin still lands beside a dish you placed by hand',
+      standHand.onB === true, JSON.stringify(standHand));
+    await standPg.context().close();
+
+    /* ---- the bar's order --------------------------------------------------
+     *
+     * Blake's grouping: the whole-day actions, then the view, then out, then
+     * in, with the plus last because the far corner is the easiest square on
+     * this bar for a thumb and it is the one pressed most. His own order put
+     * Sweep third, beside Rebalance; the expander sits between them instead,
+     * because Sweep is the only control in this app with no undo and it
+     * should not be one square from the button a thumb crosses most. */
+    const orderPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await orderPg.click('.tab[data-view="macros"]');
+    await orderPg.waitForTimeout(300);
+    const barOrder = await orderPg.evaluate(() =>
+      [...document.querySelectorAll('.mday-acts button')].map((b) => b.id).join(' '));
+    t.ok('the day bar reads Fill, rebalance, expand, sweep, copy, add',
+      barOrder === 'macroFill macroRebal macroOpenAll macroSweep macroCopy macroAdd',
+      barOrder);
+    await orderPg.context().close();
+
     /* ---- trained today ----------------------------------------------------
      *
      * The profile already says how many sessions a week and mBurn spreads

@@ -1738,9 +1738,18 @@
      breakfast was making Fill step over breakfast altogether, so the day came
      back with a seven-calorie breakfast and every other meal carrying what it
      should have held. */
+  /* A meal you have started recording is over, as far as any machine is
+     concerned. A tick is the strongest statement on this screen and a lock is
+     the second; either one means nothing may be put on that meal. Stated once
+     here because two passes need it and they were not agreeing. */
+  function mSlotClosed(day, k) {
+    return (day[k] || []).some(function (it) { return !!(it.eaten || it.l); });
+  }
+
   function mSlotSpokenFor(day, s) {
     var items = day[s.k] || [];
     if (!items.length) return false;
+    if (mSlotClosed(day, s.k)) return true;
     var pinned = (s.pins || []).map(function (p) { return p.id; });
     return items.some(function (it) {
       /* Eaten or locked means hands off, whatever else is true of it.
@@ -9706,6 +9715,18 @@
       var pinSlots = mReadSlots();
       pinSlots.list.forEach(function (ps) {
         if (mSkipped(mViewKey(), ps.k)) return;        // you said you are not eating it
+        /* Not onto a meal you have already ticked. Every other pass asks this
+           and this one never did, so a pin was the one thing that could land
+           on a finished meal — and landing there re-opened it, which handed
+           the topper a meal it would otherwise have left alone. Blake, after
+           sweeping and filling: "Breakfast was marked complete and it did it
+           and added more foods."
+         *
+           mSlotSpokenFor is deliberately NOT the test here. It also counts a
+           hand-placed dish, and a pin is supposed to outrank one — pins get
+           the first claim of all, which is why this pass runs before the
+           others. What a pin must not outrank is a tick. */
+        if (mSlotClosed(day, ps.k)) return;
         (ps.pins || []).forEach(function (p) {
           var pr = BY_ID[p.id];
           if (!pr || !pr.macro) return;                // no macros, nothing to solve

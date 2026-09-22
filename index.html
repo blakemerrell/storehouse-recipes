@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=457">
+<link rel="stylesheet" href="src/style.css?v=458">
 </head>
 <body>
 
@@ -262,8 +262,6 @@
       <button class="ghost mday-icon" id="macroRebal"
         aria-label="Rebalance the day"
         title="Re-size the un-eaten, un-locked plates to land the day back on target">&#9878;</button>
-      <button class="ghost mday-icon" id="macroAdd"
-        aria-label="Add food to a meal" title="Add food to a meal">&#65291;</button>
       <!-- The barcode button has gone. It opened the same sheet the plus
            opens, one step further in, and that sheet carries a camera in its
            own search field — Blake: "the plus button and the scanner button
@@ -296,6 +294,16 @@
         d="M8.88 7.8 9.1 13.8" stroke-width=".8"/><path d="M10.64 7.8 11.3 13.8" stroke-width=".8"/></svg></button>
       <button class="ghost mday-icon" id="macroCopy"
         aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
+      <!-- Last, because the far corner is the easiest thing on this bar for a
+           thumb to reach and this is the one pressed most. Blake, on the
+           order: "[fill][ballance][sweep][expand][copy][add]". The grouping
+           is his — the whole-day actions, then the view, then out, then in —
+           with one change: the expander sits between Rebalance and Sweep
+           rather than after them. Sweep is the only control in this app with
+           no undo, and his order put it one square from the button a thumb
+           crosses most. -->
+      <button class="ghost mday-icon" id="macroAdd"
+        aria-label="Add food to a meal" title="Add food to a meal">&#65291;</button>
     </div>
   </div>
 </section>
@@ -380,14 +388,14 @@
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=457"></script>
-<script src="data/nutrition.js?v=457"></script>
-<script src="data/art.js?v=457"></script>
-<script src="data/qr.js?v=457"></script>
-<script src="src/config.js?v=457"></script>
+<script src="data/recipes.js?v=458"></script>
+<script src="data/nutrition.js?v=458"></script>
+<script src="data/art.js?v=458"></script>
+<script src="data/qr.js?v=458"></script>
+<script src="src/config.js?v=458"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=457"></script>
-<script src="src/app.js?v=457"></script>
+<script src="src/sync.js?v=458"></script>
+<script src="src/app.js?v=458"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.
