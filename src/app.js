@@ -2056,7 +2056,43 @@
      What keeps a plan sane is not this. It is the rate cap in mGoalPace —
      0.5 to 1% of bodyweight a week, which is what Helms, Aragon and
      Fitschen recommend for holding muscle — and the fat ceiling below. */
-  function mFloorK() { return 1200; }
+  /* The three constants the floor and the planner BOTH stand on. They were
+     literals inside mPlanCalc and the floor knew nothing about them, which is
+     how the floor came to sit below what the planner's own minimums cost. Two
+     definitions of one quantity, and the plan lost the argument. */
+  var MK_CLINICAL = 1200;   // the nutrient floor above
+  var MPROT_FLOOR = 0.8;    // g a pound: the least a cut may ask of protein
+  var MFAT_FLOOR = 0.3;     // g a pound: the floor hormones care about
+  var MCARB_SHARE = 0.15;   // the least of the day left for carbohydrate
+  /* Kilocalories a day per kilogram of fat-free mass. Below roughly thirty,
+     the sports-medicine literature on relative energy deficiency finds the
+     endocrine picture people mean by "it wrecks your hormones": testosterone
+     down in men, cycles disrupted in women, T3 and leptin suppressed, bone
+     and recovery with them. It is a threshold from studies of athletes, most
+     of them women, so it is a population line and not a promise. */
+  var MEA_KCAL_KG = 30;
+
+  function mFloorK(pr) {
+    if (!pr || !(pr.lb > 0)) return MK_CLINICAL;
+    /* What the day's own minimums cost. Protein at its floor and fat at its
+       floor are 5.9 kcal a pound between them, and leaving MCARB_SHARE of the
+       day for carbohydrate makes the whole day that over 0.85. Under this
+       number the planner cannot build the day it just promised: it spends
+       everything on protein and fat and hands back zero carbohydrate. Which
+       it did, for nineteen per cent of profiles. Blake, looking at one of
+       them: "I feel I should have some carbs to eat for the day." */
+    var macro = (4 * MPROT_FLOOR * pr.lb + 9 * MFAT_FLOOR * pr.lb) / (1 - MCARB_SHARE);
+    /* And what the lean mass wants, less what the fat store can hand over —
+       the same Alpert ceiling the pace cap already runs on. This is the term
+       that does the hormone protecting, and its shape is the point: somebody
+       with fat to spend barely feels it, and it tightens on its own as they
+       lean out, which is when it starts to matter. */
+    var ea = 0, fat = mBodyFat(pr);
+    if (fat) {
+      ea = MEA_KCAL_KG * (pr.lb - fat.lb) * 0.45359237 - fat.lb * MFAT_MAX;
+    }
+    return Math.round(Math.max(MK_CLINICAL, macro, ea));
+  }
 
   /* Mifflin–St Jeor for the base burn, an activity multiplier for the day, the
      goal for the swing. Protein by bodyweight and goal; fat at a quarter of
@@ -2280,16 +2316,16 @@
         : perWeek < -0.05 ? 0.90 : 0.85)
       : g.prot;
     var p = Math.round(protPerLb * pr.lb);
-    var f = Math.round(Math.max(0.3 * pr.lb, 0.25 * kcal / 9));
+    var f = Math.round(Math.max(MFAT_FLOOR * pr.lb, 0.25 * kcal / 9));
     /* Protein and fat first, but not to the last calorie. A day left with
        three percent of itself for carbohydrate is a day no dinner in the
        book fits inside, and the picker can only answer it with quarter
        portions. Protein gives ground before the plate does — down to 0.8 g
        a pound, which is still more than a cut needs. */
-    var minC = Math.round(0.15 * kcal / 4);
+    var minC = Math.round(MCARB_SHARE * kcal / 4);
     if ((kcal - 4 * p - 9 * f) / 4 < minC) {
       var room = kcal - 9 * f - 4 * minC;
-      p = Math.max(Math.round(0.8 * pr.lb), Math.round(room / 4));
+      p = Math.max(Math.round(MPROT_FLOOR * pr.lb), Math.round(room / 4));
     }
     var c = Math.max(0, Math.round((kcal - 4 * p - 9 * f) / 4));
     /* Said once, off the grams. A floor can lift the day but not lower the

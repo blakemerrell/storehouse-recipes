@@ -4505,14 +4505,77 @@ module.exports = {
     const floors = await floorPg.evaluate(() => {
       const man = { sex: 'm', age: 43, ft: 5, inch: 10, lb: 191, act: 1.2,
         goal: 'cut2', goalLb: 0, goalBy: '', workouts: 0, steps: 0 };
-      return { floor: window.__macroLab.floorK(),
-        man: window.__macroLab.plan(man).kcal,
-        woman: window.__macroLab.plan(Object.assign({}, man, { sex: 'f' })).kcal };
+      const L = window.__macroLab;
+      const small = Object.assign({}, man, { lb: 130, sex: 'f' });
+      return { flat: L.floorK(small), big: L.floorK(man),
+        man: L.plan(man).kcal,
+        woman: L.plan(Object.assign({}, man, { sex: 'f' })).kcal };
     });
-    t.ok('the floor is the clinical 1,200, for anybody',
-      floors.floor === 1200, JSON.stringify(floors));
-    t.ok('and a hard cut is allowed under the old 1,500',
+    /* The floor is the person's, not a number. 1,200 is the nutrient floor
+       and it still holds for somebody small enough that it binds; for a
+       bigger frame the floor is what THAT body's own minimums cost, which is
+       always more. A flat 1,200 under a 205 lb man is not a floor, it is a
+       day the planner cannot build — see the sweep below. */
+    t.ok('a small frame still floors at the clinical 1,200',
+      floors.flat === 1200, JSON.stringify(floors));
+    t.ok('and a bigger one floors higher, because its own minimums cost more',
+      floors.big > floors.flat, JSON.stringify(floors));
+    t.ok('and a hard cut is still allowed under the old 1,500',
       floors.man < 1500 && floors.man >= 1200, JSON.stringify(floors));
+
+    /* ---- no profile is ever handed a day it cannot eat -------------------
+     *
+     * Blake, on a plan reading C 62 / 0 g: "I feel I should have some carbs
+     * to eat for the day." His day was 205 g of protein and 61 g of fat on
+     * 1,369 kcal, which is all of it, and carbohydrate got what was left.
+     *
+     * The planner has a rule reserving MCARB_SHARE of the day for
+     * carbohydrate and lets protein give ground to 0.8 g/lb to make room.
+     * Fat never gives ground, and once protein is at its floor there is
+     * nothing left to take — so `Math.max(0, ...)` quietly handed back zero.
+     * A sweep of this grid found 6,455 of 34,056 profiles, nineteen per
+     * cent, planned with no carbohydrate at all.
+     *
+     * The floor knows the planner's own minimums now, so a day is never
+     * planned smaller than it costs to build. Swept rather than sampled,
+     * because the hole was in a corner nobody had a fixture for. */
+    const noZero = await floorPg.evaluate(() => {
+      const L = window.__macroLab;
+      let n = 0; const bad = [];
+      for (const goal of ['cut1', 'cut2', 'cut3', 'lean', 'keep'])
+        for (let lb = 110; lb <= 320; lb += 10)
+          for (let age = 20; age <= 70; age += 10)
+            for (const act of [1.2, 1.375, 1.55, 1.725])
+              for (const sex of ['m', 'f'])
+                for (const [ft, inch] of [[5, 2], [5, 8], [6, 1]]) {
+                  const pl = L.plan({ sex, age, lb, ft, inch, act, goal,
+                    goalLb: 0, goalBy: '', workouts: 0, steps: 0 });
+                  if (!pl) continue;
+                  n++;
+                  if (!(pl.c > 0)) bad.push(goal + ' ' + sex + lb + ' age' + age +
+                    ' act' + act + ' -> ' + pl.kcal + ' ' + pl.p + '/' + pl.f + '/' + pl.c);
+                }
+      return { n: n, bad: bad.length, sample: bad.slice(0, 3) };
+    });
+    t.ok('no body on any goal is planned a day with no carbohydrate in it',
+      noZero.n > 3000 && noZero.bad === 0,
+      noZero.bad + ' of ' + noZero.n + ' — ' + noZero.sample.join(' | '));
+
+    /* The term that does the hormone protecting, and the shape is the point.
+       Energy availability is what the lean mass gets once the fat store has
+       handed over what it can, so somebody with fat to spend barely feels
+       it, and it tightens on its own as they lean out — which is when the
+       endocrine picture it is named for starts to matter. Two bodies at one
+       weight: the leaner one has less fat to draw on, so its floor is
+       higher. */
+    const eaShape = await floorPg.evaluate(() => {
+      const L = window.__macroLab;
+      const at = (bf) => L.floorK({ sex: 'm', age: 35, ft: 5, inch: 10, lb: 185,
+        act: 1.55, bf: bf, goal: 'cut1', goalLb: 0, goalBy: '', workouts: 0, steps: 0 });
+      return { lean: at(10), fat: at(30) };
+    });
+    t.ok('at one weight the leaner body floors higher, having less fat to spend',
+      eaShape.lean > eaShape.fat, JSON.stringify(eaShape));
 
     /* Estimated from what is already asked, and typed over when you know. */
     const fatEst = await floorPg.evaluate(() => {
