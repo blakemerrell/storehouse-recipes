@@ -4162,6 +4162,126 @@ module.exports = {
       JSON.stringify(converted));
     await upgrade.context().close();
 
+    /* ---- every part that merges is a part that is saved ------------------
+     *
+     * The merge touched six stores and the line that saved them listed five.
+     * `bsc.macroTrained` was the one left out, so a "trained today" arriving
+     * from the other phone moved that day's carbohydrate — 63 g to 118 — and
+     * then went back on the next reload with nothing said.
+     *
+     * It was four hand-written descriptions of the same list: the payload
+     * builder, the merge, the save, and whichever writer stamped it. One copy
+     * forgot a member, which is what hand-written lists do.
+     *
+     * So this walks the TABLE rather than naming tn: it merges one key into
+     * every keyed part there is and insists each one survives a reload. A
+     * seventh part added tomorrow is covered the day it is added. */
+    const tblPg = await t.fresh({ viewport: { width: 390, height: 800 } });
+    await tblPg.click('.tab[data-view="macros"]');
+    await tblPg.waitForTimeout(300);
+    const tblParts = await tblPg.evaluate(() => {
+      const L = window.__macroLab;
+      /* The parts, off the payload itself, so the test cannot fall behind the
+         app: a keyed part is one whose payload entry is a map of day keys. */
+      const shape = L.payload();
+      const keyed = Object.keys(shape).filter((k) =>
+        shape[k] && typeof shape[k] === 'object' && shape[k].at === undefined);
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const day = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const enc = day.replace(/-/g, '_');
+      /* A value each part will accept and keep: something truthy that is not
+         an empty list and not a null. */
+      /* Each in the shape its own store actually keeps. `sn` carries a LIST
+         of meals the miss was sent to; a bare string there renders and throws,
+         which is how this fixture found out. */
+      const val = { w: 201.4, d: { b: [{ id: 150, x: 1, eaten: 0 }] }, dn: 1234567,
+        tn: 1234567, sp: ['s'], sn: { to: ['l'] } };
+      const doc = {};
+      keyed.forEach((k) => { doc[k] = { [enc]: { v: val[k], at: Date.now() } }; });
+      L.merge(doc);
+      return { keyed: keyed, day: day, missing: keyed.filter((k) => !val[k]) };
+    });
+    t.ok('the merge describes every keyed part in one place',
+      tblParts.keyed.length >= 6 && tblParts.missing.length === 0,
+      JSON.stringify(tblParts));
+    await tblPg.reload();
+    await tblPg.waitForTimeout(400);
+    await tblPg.click('.tab[data-view="macros"]');
+    await tblPg.waitForTimeout(300);
+    const tblKept = await tblPg.evaluate((info) => {
+      const enc = info.day.replace(/-/g, '_');
+      const sent = window.__macroLab.payload();
+      return info.keyed.map((k) => ({ part: k,
+        kept: !!(sent[k] && sent[k][enc] && sent[k][enc].at) }));
+    }, tblParts);
+    t.ok('and every one of them survives the reload that follows',
+      tblKept.every((r) => r.kept),
+      JSON.stringify(tblKept.filter((r) => !r.kept)));
+
+    /* ---- a push carries the change, not the archive -----------------------
+     *
+     * Ticking one plate used to re-upload the whole of My Day: fourteen days
+     * of meals, a year of mornings, every stamp. Eight to twenty kilobytes to
+     * say two hundred bytes' worth. It never cost money — Firestore bills per
+     * document write and those were already debounced — it cost the phone's
+     * data, radio and battery, on every tap.
+     *
+     * Measured against the whole rather than against a number typed here, so
+     * the claim survives the day somebody adds a part. */
+    const tblSizes = await tblPg.evaluate(() => {
+      const L = window.__macroLab;
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const key = (x) => x.getFullYear() + '-' + p2(x.getMonth() + 1) + '-' + p2(x.getDate());
+      /* A year of mornings and a fortnight of meals, which is what the store
+         actually looks like after a season of use. */
+      const W = {};
+      for (let i = 0; i < 365; i++) {
+        const dd = new Date(d); dd.setDate(dd.getDate() - i);
+        W[key(dd)] = 205 - i * 0.02;
+      }
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(W));
+      return { w: W };
+    });
+    await tblPg.reload();
+    await tblPg.waitForTimeout(400);
+    await tblPg.click('.tab[data-view="macros"]');
+    await tblPg.waitForTimeout(300);
+    const tblPartial = await tblPg.evaluate(() => {
+      const L = window.__macroLab;
+      const J = (o) => (o ? JSON.stringify(o).length : 0);
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const day = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      /* One ordinary change, through the door a tap uses. */
+      /* The first push of a session is whole on purpose, so spend it before
+         measuring what an ordinary change costs. */
+      const firstWhole = J(L.takePush()) === J(L.payload());
+      window.Store.addToDay(150, ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][d.getDay()], 1);
+      L.balance();
+      /* What the PUSH would send, not what the partial builder can build. A
+         mutation that made every push whole again left the builder untouched,
+         and a guard asking the builder went on passing. */
+      const part = L.takePush();
+      return { whole: J(L.payload()), partial: J(part), firstWhole: firstWhole,
+        parts: part ? Object.keys(part) : [],
+        days: part && part.d ? Object.keys(part.d) : [],
+        today: day.replace(/-/g, '_') };
+    });
+    t.ok('the first push of a session carries everything',
+      tblPartial.firstWhole, JSON.stringify(tblPartial));
+    t.ok('and after that one change sends one change, not the whole archive',
+      tblPartial.partial > 0 && tblPartial.partial * 10 < tblPartial.whole,
+      tblPartial.partial + ' of ' + tblPartial.whole + ' bytes');
+    t.ok('and it names only the day that moved',
+      tblPartial.days.length === 1 && tblPartial.days[0] === tblPartial.today,
+      JSON.stringify(tblPartial));
+    /* A year of mornings is the bulk of the archive and none of the news. */
+    t.ok('a year of weigh-ins does not ride along with a meal',
+      tblPartial.parts.indexOf('w') < 0, JSON.stringify(tblPartial.parts));
+    await tblPg.context().close();
+
     /* ---- "This device is right" keeps every stamp in its shape -----------
      *
      * The button once wrote one number over the weight map. Every morning

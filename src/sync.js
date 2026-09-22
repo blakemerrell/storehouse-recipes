@@ -848,12 +848,23 @@ window.Store = (function () {
         var auth = window.firebase.auth();
         var u = auth.currentUser;
         if (!u || u.isAnonymous) return Promise.reject(new Error('no-account'));
+        /* The document has to go while this device is still signed in. Once
+           the identity is deleted there is no uid left to authorise the
+           delete, and the data would be stranded on the server after somebody
+           asked for it to be destroyed. So: data first, always.
+         *
+           Which means the failure below happens with the data ALREADY GONE,
+           and the caller has to be told which of the two failures it is.
+           Reporting "could not delete, sign in again first" over a wiped
+           account reads as "nothing happened" — and the one thing that had
+           happened was the irreversible half. */
+        var wiped = false;
         return db.collection('users').doc(u.uid).delete()
-          .then(function () { return onGone ? onGone() : null; })
+          .then(function () { wiped = true; return onGone ? onGone() : null; })
           .then(function () { return u.delete(); })
           .catch(function (err) {
             if (err && err.code === 'auth/requires-recent-login') {
-              throw new Error('recent-login');
+              throw new Error(wiped ? 'recent-login-wiped' : 'recent-login');
             }
             throw err;
           })

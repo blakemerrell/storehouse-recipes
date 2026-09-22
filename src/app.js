@@ -1123,7 +1123,14 @@
          quietly writing into the other's stamps. */
       MSTAMPS[part] = MSTAMPS[part] || {};
       MSTAMPS[part][sub] = now;
-    } else MSTAMPS[part] = now;
+      if (mDirty[part] !== true) {
+        mDirty[part] = mDirty[part] || {};
+        mDirty[part][sub] = 1;
+      }
+    } else {
+      MSTAMPS[part] = now;
+      mDirty[part] = true;
+    }
     try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); } catch (e) { /* private */ }
     mSyncPush();
   }
@@ -1216,83 +1223,185 @@
 
   /* What this device would send. Read fresh each time so it never ships a
      stale copy of something edited in another tab. */
+  /* ---------------------------------------------------------------- the parts
+   *
+   * Every part of My Day that travels, described once.
+   *
+   * It used to be described four times: once in the payload builder, once in
+   * the merge, once in the list of stores to persist, and once more in
+   * whichever writer stamped it. Five near-identical blocks on each side, the
+   * same key-encoding written out six times in each direction, and 210 lines
+   * between them. Adding anything that syncs meant writing that block a
+   * seventh time in two places and hoping the two matched.
+   *
+   * They did not. `tn` — "trained today" — was merged and then left out of the
+   * list of stores to persist, so a tick arriving from the other phone moved
+   * the day's carbohydrate and then vanished on the next reload: 118 g back to
+   * 63 with nothing said. A list that is DATA cannot forget a member; a list
+   * that is four hand-written blocks can, and did.
+   *
+   *   value(k)  what this device says about that key
+   *   stamps    whether the payload also speaks for keys it has a STAMP for
+   *             but no value. That is how a DELETION crosses: an absent key is
+   *             indistinguishable from a key never heard of, so a part that
+   *             can be deleted has to keep speaking about it. (`d` does not,
+   *             and so a forgotten day does not travel — noted, not changed
+   *             here, because this block is a refactor and that is a fix.)
+   *   accept(r) whether a remote entry is sayable at all
+   *   put(k,v)  how a remote value lands
+   *   ls        where it is kept, so the persist step cannot miss one
+   *
+   * The stores are reached through a function because several of them are
+   * assigned by IIFEs further down the file, and a table that captured them
+   * at definition time would capture undefined. */
+  function mSyncKey(k) { return String(k).replace(/-/g, '_'); }
+  function mSyncUnkey(e) { return String(e).replace(/_/g, '-'); }
+
+  var MSYNC_SIMPLE = [
+    ['mf', 'bsc.myFoods'], ['t', 'bsc.macroTargets'],
+    ['pr', 'bsc.macroProfile'], ['sl', 'bsc.macroSlots']
+  ];
+
+  var MSYNC_KEYED = [
+    { part: 'w', ls: 'bsc.macroWeights', stamps: true,
+      store: function () { return MWEIGHTS; },
+      value: function (k) { return MWEIGHTS[k] || 0; },
+      /* Zero is a real answer: it is the morning you cleared. */
+      accept: function (r) { return r.v !== undefined; },
+      put: function (k, v) { if (v > 0) MWEIGHTS[k] = v; else delete MWEIGHTS[k]; } },
+
+    { part: 'd', ls: 'bsc.macroDays', stamps: false,
+      store: function () { return MDAYS; },
+      value: function (k) { return MDAYS[k]; },
+      accept: function (r) { return !!r.v; },
+      put: function (k, v) { MDAYS[k] = v; } },
+
+    { part: 'dn', ls: 'bsc.macroDone', stamps: false,
+      store: function () { return MDONE; },
+      value: function (k) { return mDoneAt(k); },
+      /* Zero means "I reopened this", so a falsy value must still land. */
+      accept: function (r) { return r.v !== undefined; },
+      put: function (k, v) { MDONE[k] = Number(v) || 0; } },
+
+    { part: 'tn', ls: 'bsc.macroTrained', stamps: false,
+      store: function () { return MTRAINED; },
+      value: function (k) { return mTrainedAt(k); },
+      /* And zero here means "I un-ticked it". */
+      accept: function (r) { return r.v !== undefined; },
+      put: function (k, v) { MTRAINED[k] = Number(v) || 0; } },
+
+    { part: 'sp', ls: 'bsc.macroSkip', stamps: true,
+      store: function () { return MSKIP; },
+      value: function (k) { return MSKIP[k] || []; },
+      /* An empty list is a real answer: it means "I un-skipped them all". */
+      accept: function (r) { return Array.isArray(r.v); },
+      put: function (k, v) { if (v.length) MSKIP[k] = v.slice(); else delete MSKIP[k]; } },
+
+    { part: 'sn', ls: 'bsc.macroSend', stamps: true,
+      store: function () { return MSEND; },
+      value: function (k) { return MSEND[k] || null; },
+      /* Null is a real answer: it means "I cleared that day's choice". */
+      accept: function () { return true; },
+      put: function (k, v) {
+        if (v && typeof v === 'object' && !Array.isArray(v)) MSEND[k] = v;
+        else delete MSEND[k];
+      } }
+  ];
+
+  function mLsJson(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
+  }
+
+  /* ------------------------------------------------- what actually goes up
+   *
+   * Everything, once, and then only what moved.
+   *
+   * Every change used to re-serialise and re-upload the whole of My Day:
+   * fourteen days of meals, a year of mornings, every stamp — eight to twenty
+   * kilobytes to record that one plate was ticked, which is two hundred bytes
+   * of news. Firestore bills per document WRITE rather than per byte, and the
+   * writes were already debounced to one per burst, so this never cost money.
+   * It cost the phone: mobile data, radio time and battery, forty to a hundred
+   * times over, on every tap.
+   *
+   * set(merge:true) deep-merges nested maps, so naming one day inside one part
+   * leaves every other day in that part exactly where it was. No field paths,
+   * no update() that fails on a document which does not exist yet.
+   *
+   * mStamp already knows precisely what changed — it is the function that
+   * records it — so the dirty set costs nothing to keep.
+   *
+   * The FIRST push of a session is always whole, because the far end may be
+   * missing things this device has and a partial push cannot say so. And a
+   * failed push goes back to whole: the dirty set is cleared as the write
+   * leaves, so that changes made while it is in flight are not swallowed, and
+   * the only safe thing to do with a write that never landed is to send
+   * everything next time. */
+  var mDirty = {}, mDirtyAll = true;
+
   function mSyncPayload() {
-    var days = {};
-    Object.keys(MDAYS).forEach(function (k) {
-      days[k.replace(/-/g, '_')] = { v: MDAYS[k], at: (MSTAMPS.d || {})[k] || 0 };
+    var raw = mLsJson;
+    var out = {};
+    MSYNC_SIMPLE.forEach(function (row) {
+      out[row[0]] = { v: raw(row[1]), at: MSTAMPS[row[0]] || 0 };
     });
-    /* Per day, like the day log — so closing Monday here and Tuesday there
-       leaves both closed, instead of the newer write erasing the older. */
-    var done = {};
-    Object.keys(MDONE).forEach(function (k) {
-      done[k.replace(/-/g, '_')] = { v: mDoneAt(k), at: (MSTAMPS.dn || {})[k] || 0 };
+    MSYNC_KEYED.forEach(function (row) {
+      var keys = {}, map = {};
+      Object.keys(row.store()).forEach(function (k) { keys[k] = 1; });
+      if (row.stamps) {
+        Object.keys(MSTAMPS[row.part] || {}).forEach(function (k) { keys[k] = 1; });
+      }
+      Object.keys(keys).forEach(function (k) {
+        map[mSyncKey(k)] = { v: row.value(k), at: (MSTAMPS[row.part] || {})[k] || 0 };
+      });
+      out[row.part] = map;
     });
-    var trained = {};
-    Object.keys(MTRAINED).forEach(function (k) {
-      trained[k.replace(/-/g, '_')] = { v: mTrainedAt(k), at: (MSTAMPS.tn || {})[k] || 0 };
+    return out;
+  }
+
+  /* Only what moved since the last push, in the same shape as the whole. Off
+     the same table, so a part cannot be in one builder and not the other. */
+  function mSyncPartial() {
+    var out = {}, any = false;
+    MSYNC_SIMPLE.forEach(function (row) {
+      if (!mDirty[row[0]]) return;
+      out[row[0]] = { v: mLsJson(row[1]), at: MSTAMPS[row[0]] || 0 };
+      any = true;
     });
-    /* Over the STAMPS, not over MSKIP.
-     *
-       Un-skipping the last skipped meal of a day deletes the key — an empty
-       list is not kept — so a payload built from the surviving keys simply
-       stopped mentioning that day. The document is written with merge: true,
-       which means "not mentioned" leaves the other phone's copy of that skip
-       exactly where it was: the meal stayed struck out over there for good,
-       Fill kept walking past it, and the empty-list branch on the merge side
-       — the one whose comment says "it means I un-skipped them all" — could
-       never be reached, because nothing ever sent an empty list.
-     *
-       The stamp is the record that this device said something about that
-       day's skips, which is precisely the set of days worth mentioning.
-       MSKIP is still unioned in so a day carrying skips from before there
-       were stamps is not dropped. */
-    var skip = {}, spDays = {};
-    Object.keys(MSKIP).forEach(function (k) { spDays[k] = 1; });
-    Object.keys(MSTAMPS.sp || {}).forEach(function (k) { spDays[k] = 1; });
-    Object.keys(spDays).forEach(function (k) {
-      skip[k.replace(/-/g, '_')] = { v: MSKIP[k] || [], at: (MSTAMPS.sp || {})[k] || 0 };
+    MSYNC_KEYED.forEach(function (row) {
+      var marks = mDirty[row.part];
+      if (!marks) return;
+      var keys = marks === true ? Object.keys(row.store()) : Object.keys(marks);
+      var map = {};
+      keys.forEach(function (k) {
+        /* A cleared key still goes up, carrying whatever its part calls
+           nothing — a zero weight, an empty skip list, a null send. That is
+           the only way a DELETION crosses: an absent key is indistinguishable
+           from a key the far end never heard of. */
+        map[mSyncKey(k)] = { v: row.value(k), at: (MSTAMPS[row.part] || {})[k] || 0 };
+      });
+      if (Object.keys(map).length) { out[row.part] = map; any = true; }
     });
-    /* Where each day's miss was sent, by the same rules as the skips beside
-       it — stamped per day, so "I put it back to spreading" is something a
-       device can say and not merely fail to mention. Null is the real answer
-       for a day whose choice was cleared; an absent key would be
-       indistinguishable from a day this device never heard of. */
-    var send = {}, snDays = {};
-    Object.keys(MSEND).forEach(function (k) { snDays[k] = 1; });
-    Object.keys(MSTAMPS.sn || {}).forEach(function (k) { snDays[k] = 1; });
-    Object.keys(snDays).forEach(function (k) {
-      send[k.replace(/-/g, '_')] = { v: MSEND[k] || null, at: (MSTAMPS.sn || {})[k] || 0 };
-    });
-    /* One entry per morning, stamped per morning, so that a morning you
-       CLEARED is something this device can say. As one blob it could only be
-       offered whole and newest-wins, and newest-wins on a log loses every
-       entry the newer device happened not to have seen — log Monday on a
-       phone that is offline, log Tuesday on the laptop, and Monday goes.
-       That is why the merge unioned instead, and why a deletion could never
-       cross: an absent key is indistinguishable from a key never heard of.
-       Zero is the value that means "there is no weigh-in for this morning",
-       the same way zero means "I reopened this" in the closed-day log. */
-    var weights = {}, wDays = {};
-    Object.keys(MWEIGHTS).forEach(function (k) { wDays[k] = 1; });
-    Object.keys(MSTAMPS.w || {}).forEach(function (k) { wDays[k] = 1; });
-    Object.keys(wDays).forEach(function (k) {
-      weights[k.replace(/-/g, '_')] = { v: MWEIGHTS[k] || 0, at: (MSTAMPS.w || {})[k] || 0 };
-    });
-    var raw = function (key) {
-      try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
-    };
-    return {
-      mf: { v: raw('bsc.myFoods'), at: MSTAMPS.mf || 0 },
-      t: { v: raw('bsc.macroTargets'), at: MSTAMPS.t || 0 },
-      pr: { v: raw('bsc.macroProfile'), at: MSTAMPS.pr || 0 },
-      sl: { v: raw('bsc.macroSlots'), at: MSTAMPS.sl || 0 },
-      w: weights,
-      d: days,
-      dn: done,
-      tn: trained,
-      sp: skip,
-      sn: send
-    };
+    return any ? out : null;
+  }
+
+  /* What goes up, and the marking of it as gone — one act, because they have
+     to happen together and a caller that could do one without the other is a
+     caller that will.
+   *
+     The CHOICE lives here rather than inline in mSyncPush so a test can ask
+     the real question. A guard that asked the partial BUILDER proved the
+     builder works and nothing about whether anything calls it, which is
+     exactly what a mutation found: every push was made whole again and the
+     guard went on passing.
+   *
+     Cleared as the body is taken, not when the write lands, so a change made
+     while it is in flight is dirty again rather than swallowed. */
+  function mSyncTake() {
+    var body = mDirtyAll ? mSyncPayload() : mSyncPartial();
+    mDirtyAll = false;
+    mDirty = {};
+    return body;
   }
 
   /* Newer wins, part by part. Returns true when anything here changed, so the
@@ -1331,16 +1440,15 @@
        used to be: those payloads genuinely cannot express a deletion, and
        guessing one from an absent key would delete every morning that phone
        has not heard of yet. */
+    /* The old single-stamped shape is still read, because a phone that has
+       not been opened since v288 is still pushing it. Unioned, exactly as it
+       used to be: those payloads genuinely cannot express a deletion, and
+       guessing one from an absent key would delete every morning that phone
+       has not heard of yet. Handled apart from the table because it is not a
+       shape the table describes — it is the shape that came before it. */
     var wRemote = md.w;
-    if (wRemote && wRemote.v && typeof wRemote.at === 'number') {
-      /* Not through take(): take() weighs one number against MSTAMPS[part],
-         and MSTAMPS.w is a map of mornings now, so every comparison against
-         it would be against an object and quietly false. The old payload's
-         one stamp is weighed against each morning's own instead, which is
-         also the closest thing to right — a morning cleared here keeps its
-         deletion unless that phone genuinely spoke later. It cannot say
-         "deleted" at all, so a later push from it does resurrect; there is no
-         fixing that from this side, only outliving it. */
+    var legacyW = wRemote && wRemote.v && typeof wRemote.at === 'number';
+    if (legacyW) {
       MSTAMPS.w = MSTAMPS.w || {};
       Object.keys(wRemote.v).forEach(function (k) {
         if (!(wRemote.at > (MSTAMPS.w[k] || 0))) return;
@@ -1348,82 +1456,38 @@
         MSTAMPS.w[k] = wRemote.at;
         moved = true;
       });
-    } else {
-      Object.keys(wRemote || {}).forEach(function (enc) {
-        var k = enc.replace(/_/g, '-');
-        var r = wRemote[enc];
-        if (!r || r.v === undefined || !(r.at > ((MSTAMPS.w || {})[k] || 0))) return;
-        if (r.v > 0) MWEIGHTS[k] = r.v; else delete MWEIGHTS[k];
-        MSTAMPS.w = MSTAMPS.w || {};
-        MSTAMPS.w[k] = r.at;
+    }
+
+    /* And every keyed part, by the one description of it. Newer wins, per
+       key, and what "newer" and "sayable" mean is the part's own business —
+       see MSYNC_KEYED. This was five hand-written blocks that differed only
+       in which guard they used and which map they wrote, and the one thing
+       they had in common, remembering to persist afterwards, is the thing one
+       of them did not do. */
+    MSYNC_KEYED.forEach(function (row) {
+      if (row.part === 'w' && legacyW) return;
+      var from = md[row.part] || {};
+      Object.keys(from).forEach(function (enc) {
+        var k = mSyncUnkey(enc), r = from[enc];
+        if (!r || !row.accept(r)) return;
+        if (!(r.at > ((MSTAMPS[row.part] || {})[k] || 0))) return;
+        row.put(k, r.v);
+        MSTAMPS[row.part] = MSTAMPS[row.part] || {};
+        MSTAMPS[row.part][k] = r.at;
         moved = true;
       });
-    }
-    Object.keys(md.d || {}).forEach(function (enc) {
-      var k = enc.replace(/_/g, '-');
-      var r = md.d[enc];
-      if (!r || !r.v || !(r.at > ((MSTAMPS.d || {})[k] || 0))) return;
-      MDAYS[k] = r.v;
-      MSTAMPS.d = MSTAMPS.d || {};
-      MSTAMPS.d[k] = r.at;
-      moved = true;
     });
-    /* Which days are closed, per day and newest-wins — the same shape as the
-       log above it. Note `r.v` is NOT required to be truthy here the way it
-       is elsewhere: zero is the value that means "I reopened this", and a
-       merge that skipped falsy values would let a reopen be undone by any
-       device that still remembered the close. */
-    Object.keys(md.dn || {}).forEach(function (enc) {
-      var k = enc.replace(/_/g, '-');
-      var r = md.dn[enc];
-      if (!r || r.v === undefined || !(r.at > ((MSTAMPS.dn || {})[k] || 0))) return;
-      MDONE[k] = Number(r.v) || 0;
-      MSTAMPS.dn = MSTAMPS.dn || {};
-      MSTAMPS.dn[k] = r.at;
-      moved = true;
-    });
-    /* Zero is a real answer here too: it is the morning you ticked and then
-       un-ticked, and a merge that skipped falsy values would let any device
-       still remembering the tick put it back. */
-    Object.keys(md.tn || {}).forEach(function (enc) {
-      var k = enc.replace(/_/g, '-');
-      var r = md.tn[enc];
-      if (!r || r.v === undefined || !(r.at > ((MSTAMPS.tn || {})[k] || 0))) return;
-      MTRAINED[k] = Number(r.v) || 0;
-      MSTAMPS.tn = MSTAMPS.tn || {};
-      MSTAMPS.tn[k] = r.at;
-      moved = true;
-    });
-    Object.keys(md.sp || {}).forEach(function (enc) {
-      var k = enc.replace(/_/g, '-');
-      var r = md.sp[enc];
-      // an empty list is a real answer here — it means "I un-skipped them all"
-      if (!r || !Array.isArray(r.v) || !(r.at > ((MSTAMPS.sp || {})[k] || 0))) return;
-      if (r.v.length) MSKIP[k] = r.v.slice(); else delete MSKIP[k];
-      MSTAMPS.sp = MSTAMPS.sp || {};
-      MSTAMPS.sp[k] = r.at;
-      moved = true;
-    });
-    Object.keys(md.sn || {}).forEach(function (enc) {
-      var k = enc.replace(/_/g, '-');
-      var r = md.sn[enc];
-      if (!r || !(r.at > ((MSTAMPS.sn || {})[k] || 0))) return;
-      // null is a real answer: it means "I cleared that day's choice"
-      if (r.v && typeof r.v === 'object' && !Array.isArray(r.v)) MSEND[k] = r.v;
-      else delete MSEND[k];
-      MSTAMPS.sn = MSTAMPS.sn || {};
-      MSTAMPS.sn[k] = r.at;
-      moved = true;
-    });
+    /* Persisted off the same table that merged them. This was a hand-written
+       list of five setItem calls beside a merge that touched six stores, and
+       the missing one was `bsc.macroTrained`: a training tick from the other
+       phone moved the day's carbohydrate and then went back on the next
+       reload, 118 g to 63 with nothing said. A list that is data cannot
+       forget a member. */
     if (moved) {
       try {
-        localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS));
-        localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE));
-        localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP));
-        localStorage.setItem('bsc.macroSend', JSON.stringify(MSEND));
-        /* Written here now that the weight log is merged per morning above
-           rather than by an apply() that saved as it went. */
-        localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS));
+        MSYNC_KEYED.forEach(function (row) {
+          localStorage.setItem(row.ls, JSON.stringify(row.store()));
+        });
         localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS));
       } catch (e) { /* private mode: this session only */ }
     }
@@ -1511,7 +1575,13 @@
       mSyncDoc = db.collection('users').doc(uid);
       mSyncOff = mSyncDoc.onSnapshot(function (snap) {
         var data = snap.exists ? (snap.data() || {}) : null;
-        mSyncState('on');
+        /* Only when the server actually answered. A snapshot served from the
+           local cache is Firestore handing back what this device already had,
+           and calling that "Synced" told you the other phone had your day
+           when nothing had left the building. The household half of this app
+           has always checked; My Day never did, so the two sides of one
+           screen gave different answers to the same question. */
+        mSyncState(snap.metadata && snap.metadata.fromCache ? 'connecting' : 'on');
         if (!data || !data.myday) { mSyncPush(true); return; }
         if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
         if (S.syncOpen) renderModal();
@@ -1547,11 +1617,22 @@
 
   function mSyncPush(now) {
     if (!mSyncDoc) return;
+    /* `now` is also "and whole". Its three callers are the moments a partial
+       push cannot answer for: the first sight of the document, a document
+       with nothing in it, and a device that has just been handed the day. */
+    if (now) mDirtyAll = true;
     clearTimeout(mSyncTimer);
     mSyncTimer = setTimeout(function () {
-      mSyncDoc.set({ myday: mSyncPayload() }, { merge: true }).then(function () {
+      var body = mSyncTake();
+      if (!body) { mSyncState('on'); return; }
+      mSyncDoc.set({ myday: body }, { merge: true }).then(function () {
         mSyncState('on');
-      }, function () { mSyncState('error'); });
+      }, function () {
+        /* A write that never landed leaves this device unable to say what the
+           far end is missing, so the next one says everything. */
+        mDirtyAll = true;
+        mSyncState('error');
+      });
     }, now ? 0 : 900);
   }
 
@@ -1648,10 +1729,33 @@
       var fresh = mPlanCalc(pr);
       if (fresh && (kcalOf(fresh) > kcalOf(t) || fresh.c > t.c)) {
         t = { p: fresh.p, f: fresh.f, c: fresh.c };
-        mWriteTargets(t);
       }
     }
     return t;
+  }
+
+  /* And the same correction, WRITTEN, which is a different act.
+   *
+     mReadTargets used to do both: it worked the day out, then saved it, then
+     stamped it, and a stamp pushes. So a render could put a request on the
+     network. It healed once and then stopped, so it was never a loop — but a
+     read that writes is a read you cannot reason about, and the next person
+     to call it from somewhere unexpected inherits the surprise.
+   *
+     Called where a decision is actually being made: once at boot, and again
+     whenever the profile changes, which is the only thing that can turn a
+     stored plan into an uneatable one. */
+  function mHealTargets() {
+    var was = null;
+    try { was = JSON.parse(localStorage.getItem('bsc.macroTargets')); } catch (e) { /* none */ }
+    if (!was) return false;
+    var now = mReadTargets();
+    if (!kcalOf(now)) return false;
+    if (Number(was.p) === now.p && Number(was.f) === now.f && Number(was.c) === now.c) {
+      return false;
+    }
+    mWriteTargets(now);
+    return true;
   }
   function mWriteTargets(t) {
     mStamp('t');
@@ -1990,6 +2094,8 @@
     if (lb) pr.lb = lb;
     return pr;
   }
+  /* A profile change is the one thing that can turn a stored plan into a day
+     nobody can eat, so it is the one place besides boot that has to ask. */
   function mWriteProfile(pr) {
     /* A goal remembers the morning it was set and what the scale read then,
        so the plan line has somewhere true to start from. Only a CHANGED goal
@@ -2003,6 +2109,10 @@
     mStamp('pr');
     try { localStorage.setItem('bsc.macroProfile', JSON.stringify(pr)); }
     catch (e) { /* private mode */ }
+    /* A new profile is the one thing that can turn a stored plan into a day
+       nobody can eat — a heavier body raises its own floor. Asked here, where
+       the change is made, rather than inside whichever read ran first. */
+    mHealTargets();
   }
 
   /* The four plans. kcal is the swing off maintenance; prot is grams per pound
@@ -13442,6 +13552,13 @@
        day the other phone never hears has changed — and that half is
        invisible to a test that only exercises the merge. */
     payload: mSyncPayload,
+    /* What the next push would actually send, so a test can weigh it against
+       the whole. */
+    partial: function () { return mSyncPartial(); },
+    /* Exactly what a push takes, and taking it counts — so a test walks the
+       same states a real session does. */
+    takePush: function () { return mSyncTake(); },
+    dirty: function () { return mDirty; },
     /* And "this device is right", because the sheet that carries the button
        only renders signed in, and the bug it once had — a number written
        over the weight map — was invisible until the next weigh-in. */
@@ -15186,8 +15303,16 @@
               /* Firebase will not delete an identity that has not signed in
                  recently. Saying so is the only useful thing to do with it —
                  the alternative is a button that silently does nothing. */
-              S.myErr = (err && err.message === 'recent-login')
-                ? 'Sign out and sign in again first, then delete. Firebase asks for a recent sign-in before it will remove an account.'
+              /* Three outcomes, and two of them used to read the same. The
+                 data goes first and cannot go second — once the identity is
+                 deleted there is no uid left to authorise it — so a refusal
+                 at the identity step leaves everything already destroyed.
+                 Saying "sign in again first, then delete" over that reads as
+                 "nothing happened", which is the opposite of the truth. */
+              S.myErr = (err && err.message === 'recent-login-wiped')
+                ? 'Everything in your account has been deleted. The account itself needs a recent sign-in before Firebase will remove it \u2014 sign out, sign back in, and press delete once more.'
+                : (err && err.message === 'recent-login')
+                ? 'Sign out and sign in again first, then delete. Firebase asks for a recent sign-in before it will remove an account. Nothing has been deleted.'
                 : 'Could not delete the account. Check your signal and try again.';
               renderModal();
             });
@@ -15629,6 +15754,10 @@
 
   // ------------------------------------------------------------------- boot
   renderSections();
+  /* Before the first paint: a stored plan written by an older build can be
+     below this body's floor or have no carbohydrate in it, and the correction
+     belongs here rather than inside whichever read happened to run first. */
+  mHealTargets();
   wire();
   window.Store.init(function () { renderAll(); });
   renderAll();
