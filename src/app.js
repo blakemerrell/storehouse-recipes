@@ -12170,7 +12170,7 @@
             return '<div class="rp-step"><div class="rp-step-n">' + (i + 1) + '</div>' +
               '<div class="rp-step-t">' + xref(esc(t), false) + '</div></div>';
           }).join('') +
-        '</div>' + liftHTML(r, false) + '</div>' +
+        '</div>' + varyHTML(r, false) + liftHTML(r, false) + '</div>' +
       '</div>' +
       '<div class="rp-foot">' +
         '<span>' + esc(macroLine(r)) + '</span>' +
@@ -13308,6 +13308,26 @@
    * So: named, numbered from where the method left off, and separate. Never
    * counted in the macros, never on the shopping list. A recipe that needs its
    * lift to be any good is a recipe that has not been written properly yet. */
+  /* Another way to make it, from what the order already carries. Listed
+     under the method rather than inside a step, because inside a step it
+     read as part of the recipe: Blake, on the sour cream in the waffles,
+     "it was hard for me to see that that was even an option." Above the
+     lift, since it needs no shopping. Never counted — the numbers are the
+     recipe as written. */
+  function varyHTML(r, live) {
+    var V = r.vary;
+    if (!V || !V.length) return '';
+    if (!live) {
+      return '<div class="vary"><span class="vary-h">' + (V.length > 1 ? 'Variations' : 'Variation') +
+        '</span> <span class="vary-p">' + V.map(function (t) { return xref(esc(t), false); }).join(' ') +
+        '</span></div>';
+    }
+    return '<div class="vary">' +
+      '<div class="vary-h">' + (V.length > 1 ? 'Variations' : 'Variation') + '</div>' +
+      V.map(function (t) { return '<div class="vary-i">' + xref(esc(t), true) + '</div>'; }).join('') +
+    '</div>';
+  }
+
   function liftHTML(r, live) {
     var L = r.lift;
     if (!L || !L.steps || !L.steps.length) return '';
@@ -13712,6 +13732,7 @@
           return '<div class="sheet-step"><div class="sheet-step-n">' + (i + 1) + '</div>' +
             '<div class="sheet-step-t">' + stepHTML(t) + '</div></div>';
         }).join('') + '</div>' +
+        varyHTML(r, true) +
         liftHTML(r, true) +
         /* The line that answers "do I have to go out for anything?", asked of
            the pantry rather than of the storehouse order the book was written

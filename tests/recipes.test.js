@@ -906,6 +906,39 @@ module.exports = {
     t.ok('and spares a sauce that names what it is for',
       meat.spared === 0, meat.spared + ' false positives');
 
+    /* Variations: another way to make it from what the order carries, said
+       under the method rather than inside a step, and never counted. Blake,
+       of the sour cream in the waffles: "it was hard for me to see that that
+       was even an option." */
+    const vary = await p.evaluate(() => {
+      const R = window.RECIPES;
+      const withV = R.filter((r) => r.vary && r.vary.length);
+      return {
+        n: withV.length,
+        inStep: withV.filter((r) => r.vary.some((v) => r.steps.some((st) => st.indexOf(v.slice(0, 40)) >= 0))).map((r) => r.no),
+        pick: withV.length ? withV[0].id : null,
+        text: withV.length ? withV[0].vary[0] : '',
+      };
+    });
+    t.ok('the sour-cream swaps are variations, not buried in a step',
+      vary.n >= 10 && vary.inStep.length === 0, JSON.stringify(vary));
+    if (vary.pick !== null) {
+      await p.evaluate((id) => {
+        const b = document.createElement('button'); b.setAttribute('data-open', id);
+        document.getElementById('grid').appendChild(b); b.click();
+      }, vary.pick);
+      await p.waitForTimeout(300);
+      const shown = await p.evaluate(() => {
+        const v = document.querySelector('.sheet .vary');
+        const steps = document.querySelector('.sheet .sheet-steps');
+        return { h: v ? v.querySelector('.vary-h').textContent : '', t: v ? v.textContent : '',
+          after: !!(v && steps && (steps.compareDocumentPosition(v) & Node.DOCUMENT_POSITION_FOLLOWING)) };
+      });
+      t.ok('and the recipe shows them under the method, headed as variations',
+        /^Variations?$/.test(shown.h) && shown.t.indexOf(vary.text.slice(0, 30)) >= 0 && shown.after,
+        JSON.stringify(shown));
+    }
+
     await p.context().close();
   },
 };

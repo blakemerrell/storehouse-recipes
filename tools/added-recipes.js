@@ -802,13 +802,14 @@ module.exports = [
   {
     id: 328, book: 2, secNum: 7, secName: COPYCAT,
     name: 'Pink Sugar Cookies, Served Cold',
+    vary: ['Half a cup of sour cream beaten in with the eggs, with a quarter cup more flour, makes a softer, cake-like cookie.'],
     servings: '16 Servings (1 Cookie)', servN: 16,
     ing: ['1.5 cups butter', '1 cup sugar', '2 eggs', '2 tsp vanilla', '4 cups white flour',
       '2 tsp baking powder', '1 tsp salt', '½ cup butter', '3 cups powdered sugar',
       '3 tbsp milk'],
     steps: [
       'Heat the oven to 350°F.',
-      'Cream the 1.5 cups of butter with the sugar until light. Beat in the eggs and a teaspoon of the vanilla. Half a cup of sour cream beaten in with the eggs, with a quarter cup more flour, makes a softer, cake-like cookie.',
+      'Cream the 1.5 cups of butter with the sugar until light. Beat in the eggs and a teaspoon of the vanilla.',
       'Mix in the flour, baking powder and salt, only until it comes together.',
       'Scoop the dough into sixteen balls and set them well apart on trays. They spread.',
       'Dip the bottom of a drinking glass in sugar and press each ball flat, to about half an inch.',

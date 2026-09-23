@@ -3802,6 +3802,21 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 }
 .lift-step-t { flex: 1 1 auto; min-width: 0; }
 
+/* Variations: the lift's quiet register, without its numbered steps — each
+   one is a single swap, said in a sentence. */
+.vary { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.vary-h { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ochre-text); font-weight: 600; margin-bottom: 6px; }
+.vary-i { position: relative; padding-left: 16px; margin-bottom: 7px;
+  font-size: 13.5px; line-height: 1.58; text-wrap: pretty; }
+.vary-i::before { content: ''; position: absolute; left: 3px; top: 0.62em;
+  width: 6px; height: 6px; border-radius: 50%; border: 1px solid var(--ochre); }
+.rp .vary { margin-top: 6px; padding-top: 4px; font-size: 7.4pt; line-height: 1.34; }
+.rp .vary-h { font-size: 6.2pt; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ochre-text); font-weight: 600; margin: 0; }
+.rp .vary-p { color: oklch(0.44 0.02 65); }
+.rp .vary + .lift { margin-top: 4px; }
+
 /* In the book it is one paragraph, quieter than the method it sits under and
    costing four lines rather than twenty. */
 .rp .lift { margin-top: 6px; padding-top: 4px; font-size: 7.4pt; line-height: 1.34; }

@@ -1237,27 +1237,29 @@ module.exports = [
    * that cuts the sugar. It is on the storehouse order, and plain Greek
    * yogurt does the same job with a third of the calories, so each note
    * names both. The feast and treat sections; the pink cookie he asked
-   * about is an added recipe and carries its note in its own entry. A note
-   * on the mixing step, never a change to the list: the recipe is costed
-   * as written and the swap is the cook's to make. */
-  { id: 180, step: 2,
-    add: 'Sour cream for a quarter cup of the milk makes them softer and taller.' },
-  { id: 188, step: 2,
-    add: 'Sour cream or plain Greek yogurt in place of a quarter cup of the milk makes the topping softer and taller.' },
-  { id: 193, step: 1,
-    add: 'Sour cream or Greek yogurt for a quarter cup of the milk keeps the corn bread moist.' },
-  { id: 194, step: 3,
-    add: 'Half a cup of sour cream in the sauce gives it body and tang.' },
-  { id: 203, step: 2,
-    add: 'Sour cream or Greek yogurt in place of half the milk gives a softer, closer crumb.' },
-  { id: 204, step: 1,
-    add: 'Half a cup of sour cream or Greek yogurt in place of half a cup of that milk makes the cake softer and richer.' },
-  { id: 205, step: 1,
-    add: 'Sour cream or Greek yogurt for half the milk: a closer, softer crumb.' },
-  { id: 217, step: 0,
-    add: 'A quarter cup of sour cream or Greek yogurt in place of a quarter cup of the milk: crisper edges, softer middle.' },
-  { id: 225, step: 0,
-    add: 'Two tablespoons of sour cream or Greek yogurt in the batter make the fritters lighter and more tender.' },
+   * about is an added recipe and carries its own. A VARIATION, listed under
+   * the method rather than written into a step — in the step it read as
+   * part of the recipe and, as Blake found, "it was hard for me to see that
+   * that was even an option" — and never a change to the list: the recipe
+   * is costed as written and the swap is the cook's to make. */
+  { id: 180,
+    vary: ['Sour cream for a quarter cup of the milk makes them softer and taller.'] },
+  { id: 188,
+    vary: ['Sour cream or plain Greek yogurt in place of a quarter cup of the milk makes the topping softer and taller.'] },
+  { id: 193,
+    vary: ['Sour cream or Greek yogurt for a quarter cup of the milk keeps the corn bread moist.'] },
+  { id: 194,
+    vary: ['Half a cup of sour cream in the sauce gives it body and tang.'] },
+  { id: 203,
+    vary: ['Sour cream or Greek yogurt in place of half the milk gives a softer, closer crumb.'] },
+  { id: 204,
+    vary: ['Half a cup of sour cream or Greek yogurt in place of half a cup of that milk makes the cake softer and richer.'] },
+  { id: 205,
+    vary: ['Sour cream or Greek yogurt for half the milk: a closer, softer crumb.'] },
+  { id: 217,
+    vary: ['A quarter cup of sour cream or Greek yogurt in place of a quarter cup of the milk: crisper edges, softer middle.'] },
+  { id: 225,
+    vary: ['Two tablespoons of sour cream or Greek yogurt in the batter make the fritters lighter and more tender.'] },
 
   /* ---- the delight pass ------------------------------------------------
    * Blake: "Ideally it's items from the storehouse that I can use to make a

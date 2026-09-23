@@ -61,6 +61,8 @@ FIXES.forEach((f) => {
               that, because the missing part is a step that was never there.
        ing / name / time / diff  the ingredient list and the label, for when
               the method could not be written without them.
+       vary   another way to make it with what the order carries; listed under
+              the method as Variations, never counted.
        lift   what the recipe becomes with a few things the storehouse does
               not carry: the ingredients, and the optional steps that use
               them. Never counted in the macros, never on the shopping list —
@@ -73,6 +75,13 @@ FIXES.forEach((f) => {
   if (f.diff) r.diff = f.diff;
   if (f.steps) r.steps = f.steps.slice();
   if (f.lift) r.lift = f.lift;
+  /* vary: another way to make it from what the order already carries —
+     sour cream for some of the milk. Not an improvement folded into the
+     method (Blake: "I liked what I already did"), so it is not in a step:
+     the reader could not see it was an option there. Never counted, never
+     on the shopping list, same as a lift. Collected, not replaced, so two
+     fixes can each offer one. */
+  if (f.vary) r.vary = (r.vary || []).concat(f.vary);
   /* extras is what you must buy to cook the recipe at all. Moving an item
      into a lift makes it optional, so it has to come off that list in the
      same breath — or the shopping list still sends you out for something the

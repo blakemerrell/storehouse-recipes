@@ -239,7 +239,7 @@ app labels them as such. They have not been kitchen-tested.
 
 ### Recipes whose method differs from the printed book
 
-134 of the 225 carried-over recipes are cooked differently here than
+133 of the 225 carried-over recipes are cooked differently here than
 the book prints them. The app shows the corrected method and says nothing about
 the change; this table is the whole record of it.
 
@@ -378,7 +378,6 @@ the change; this table is the whole record of it.
 | 275 | Peanut Butter Fudge Squares | `Stir melted butter, peanut butter, and powdered sugar in bowl until smooth.` | `Stir melted butter, peanut butter, and powdered sugar in bowl until smooth. A pinch of salt and half a teaspoon of vanil…` |
 | 276 | Yellow Cake Berry Shortcake | `Slice yellow cake horizontally.` | `Slice yellow cake horizontally. The cake is half of {r:205}, baked and left unfrosted.` |
 | 277 | Hot Fudge Cake Bowls | `Preheat oven to 350°F.` | `Heat the oven to 350°F. Butter a 9x13 dish.` |
-| 278 | Cinnamon Sugar Apple Fritter Bites | `Whisk pancake mix, milk, and diced apple.` | `Whisk pancake mix, milk, and diced apple. Two tablespoons of sour cream or Greek yogurt in the batter make the fritters …` |
 
 ### Coverage
 
