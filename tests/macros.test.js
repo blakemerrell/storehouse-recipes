@@ -12836,5 +12836,129 @@ module.exports = {
       t.ok('ticking one plate of an open meal changes no meal\'s ask', before === after, before + ' → ' + after);
       await bp.context().close();
     }
+
+    /* ---- the audit's third batch, 2026-09-22 ------------------------- */
+    {
+      const cp = await t.fresh();
+      const K = (n) => cp.evaluate((m) => { const d = new Date(); d.setDate(d.getDate() - m);
+        const p2 = (x) => (x < 10 ? '0' : '') + x;
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }, n);
+      const today = await K(0);
+      const put = (o) => cp.evaluate((obj) => { localStorage.clear();
+        Object.keys(obj).forEach((k) => localStorage.setItem(k, JSON.stringify(obj[k]))); }, o);
+
+      // The headline forecasts the day the meals are asking for.
+      await put({ 'bsc.macroTargets': { p: 150, f: 60, c: 215 },
+        'bsc.myFoods': { big: { name: 'Big breakfast', p: 50, f: 40, c: 200 } },
+        'bsc.macroDays': { [today]: { b: [{ id: 'f:my:big', x: 1, eaten: 1 }] } } });
+      await cp.reload();
+      const fc = await cp.evaluate(() => {
+        const a = window.__macroLab.assumed();
+        return { asm: Math.round(a.kcal) };
+      });
+      t.ok('the headline forecasts the day the empty meals are asked for, not their first shares',
+        Math.abs(1360 + fc.asm - 2000) <= 60, JSON.stringify(fc));
+
+      // Weights for pace tests: a month, flat.
+      const month = (lb) => { const w = {}; return cp.evaluate((l) => {
+        const k = (n) => { const d = new Date(); d.setDate(d.getDate() - n); const p2 = (x) => (x < 10 ? '0' : '') + x;
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+        const ww = {}; for (let n = 30; n >= 0; n--) ww[k(n)] = l;
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(ww));
+        return k; }, lb); };
+
+      // A gain goal is capped on the way up, like a cut on the way down.
+      await put({ 'bsc.macroProfile': { sex: 'm', age: 30, ft: 5, inch: 10, lb: 150, act: 1.55,
+        goal: 'gain', goalLb: 165, goalBy: await K(-20), goalSet: await K(30), goalFrom: 150 } });
+      await month(150);
+      await cp.reload();
+      const gain = await cp.evaluate(() => {
+        const pf = window.__macroLab.pace();
+        return pf && { need: pf.need, burn: Math.round(pf.burn), capHigh: pf.capHigh };
+      });
+      t.ok('a gain goal never asks for more than the plan\'s own gain limit',
+        gain && gain.need !== null && gain.need <= gain.burn * 1.2 + 1 && gain.capHigh, JSON.stringify(gain));
+
+      // A goal date gone: the line stops at the goal, and the card says so.
+      await put({ 'bsc.macroTargets': { p: 170, f: 60, c: 180 },
+        'bsc.macroProfile': { sex: 'm', age: 43, ft: 5, inch: 11, lb: 190, act: 1.375,
+        goal: 'cut2', goalLb: 190, goalBy: await K(10), goalSet: await K(60), goalFrom: 200 } });
+      await month(190.1);
+      await cp.reload();
+      const past = await cp.evaluate(() => ({ pace: window.__macroLab.pace(), face: window.__macroLab.face().html }));
+      t.ok('past its date, at its weight, a goal is not "behind" and asks for nothing',
+        past.pace && past.pace.side === 'on' && past.pace.need === null, JSON.stringify(past.pace && past.pace.side));
+      t.ok('and the card says the date has passed rather than asking for one',
+        /the date has passed/.test(past.face) && !/name a weight and a date/.test(past.face), past.face);
+
+      // A preset cut asks no more of the fat store than a dated goal may.
+      await put({ 'bsc.macroProfile': { sex: 'm', age: 43, ft: 5, inch: 11, lb: 200, act: 1.375,
+        goal: 'cut2', goalLb: 0, goalBy: '', bf: 15 } });
+      await cp.reload();
+      const lean = await cp.evaluate(() => {
+        const pr = window.__macroLab.profile(), plan = window.__macroLab.plan(pr);
+        const fat = window.__macroLab.bodyFat(pr), tdee = window.__macroLab.tdee(pr);
+        return { kcal: plan.kcal, tdee: Math.round(tdee), fatLb: fat && fat.lb,
+          floor: window.__macroLab.floorK(pr) };
+      });
+      t.ok('a lean body on a preset cut is not planned deeper than its fat can supply',
+        lean.fatLb && lean.kcal >= lean.tdee - lean.fatLb * 22 - 5,
+        JSON.stringify(lean));
+
+      // The summary sheet agrees with the bars.
+      await put({ 'bsc.macroTargets': { p: 150, f: 60, c: 215 },
+        'bsc.myFoods': { d: { name: 'Day', p: 150, f: 60, c: 242.5 } },
+        'bsc.macroDays': { [today]: { d: [{ id: 'f:my:d', x: 1, eaten: 1 }] } } });
+      await cp.reload();
+      const sum = await cp.evaluate((k) => window.__macroLab.summary(k), today);
+      t.ok('a day at 105.5% reads on target on the summary sheet, as on the bars',
+        /ds-d on/.test(sum) && !/dial-over/.test(sum), (sum.match(/ds-d [a-z]+/) || [''])[0]);
+
+      // Fill does not add to a day already over, and its button moves on.
+      await put({ 'bsc.macroTargets': { p: 180, f: 60, c: 170 },
+        'bsc.myFoods': { m: { name: 'Meals', p: 240, f: 70, c: 120 } },
+        'bsc.macroDays': { [today]: { b: [{ id: 'f:my:m', x: 1, eaten: 1 }] } } });
+      await cp.reload();
+      await cp.click('.tab[data-view="macros"]');
+      await cp.waitForTimeout(300);
+      const over = await cp.evaluate((k) => {
+        window.__macroLab.draft();
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays'))[k];
+        return { added: Object.keys(d).filter((sk) => sk !== 'b' && (d[sk] || []).length),
+          mode: document.getElementById('macroFill').dataset.mode };
+      }, today);
+      t.ok('Fill adds nothing to a day already over its calories', !over.added.length, JSON.stringify(over));
+      t.ok('and the button moves on instead of offering Fill again', over.mode !== 'fill', over.mode);
+      await cp.context().close();
+    }
+
+    /* A screen left open across midnight: a tap acts on the day it shows. */
+    {
+      const ctx = await t.browser.newContext({ viewport: { width: 390, height: 900 }, serviceWorkers: 'block' });
+      await ctx.route(/api\.nal\.usda\.gov/, (r) => r.abort());
+      const mp = await ctx.newPage();
+      mp.on('pageerror', (e) => t.ok('no uncaught error on the page', false, e.message));
+      await mp.clock.install({ time: new Date(2026, 8, 22, 23, 58, 0) });
+      await mp.goto(t.base + 'index.html');
+      await mp.evaluate(() => { localStorage.clear();
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 150, f: 60, c: 215 }));
+        localStorage.setItem('bsc.myFoods', JSON.stringify({ a: { name: 'Late dessert', p: 5, f: 10, c: 40 },
+          b: { name: 'Tomorrow oats', p: 10, f: 5, c: 50 } }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ '2026-09-22': { s: [{ id: 'f:my:a', x: 1, eaten: 0 }] },
+          '2026-09-23': { s: [{ id: 'f:my:b', x: 1, eaten: 0 }] } })); });
+      await mp.reload();
+      await mp.waitForTimeout(500);
+      await mp.click('.tab[data-view="macros"]');
+      await mp.waitForTimeout(400);
+      await mp.evaluate(() => { document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click()); });
+      await mp.waitForTimeout(300);
+      await mp.clock.fastForward('03:00');
+      await mp.evaluate(() => { const b = document.querySelector('[data-meat="s:0"]'); if (b) b.click(); });
+      await mp.waitForTimeout(400);
+      const mid = await mp.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroDays')));
+      t.ok('a tick after midnight lands on the plate it was pressed on, not the new day\'s',
+        mid['2026-09-22'].s[0].eaten === 1 && mid['2026-09-23'].s[0].eaten === 0, JSON.stringify(mid));
+      await ctx.close();
+    }
   },
 };

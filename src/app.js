@@ -1837,7 +1837,13 @@
     var m = k.split('-');
     return new Date(Number(m[0]), Number(m[1]) - 1, Number(m[2]));
   }
-  function mViewKey() { return S.macroDate || todayKey(); }
+  /* The day on screen. With no day chosen it is today — but "today" as of
+     the last time the screen was DRAWN, not as of the tap: a phone left on
+     My Day across midnight still shows yesterday's plates, and a tap on one
+     used to tick or delete the plate in that slot on the NEW day. The next
+     draw moves the screen on; until then, taps go where the eye is. */
+  var mDrawnToday = '';
+  function mViewKey() { return S.macroDate || mDrawnToday || todayKey(); }
 
   /* Today plus thirteen days behind it. Enough to look back over a week and
      change your mind about the one before; not enough to become a diary the
@@ -1871,6 +1877,20 @@
      calories on his 1,910 and 90 on a 1,400 cut. The strip, the day's bars
      and the pills all read this one number, so one verdict is one verdict. */
   var MKCAL_OVER = 106.5;
+
+  /* On, over or under, for one macro of one day — the bars' rule, so that
+     anything else judging a day says what the bars say. Calories are on
+     within MKCAL_OVER of the line either side; the grams within 10 g; past
+     that, over at 106.5% for calories, 110% for protein (the one a cut
+     wants overshot) and 100% for the rest, and under below 90%. */
+  function mVerdict(m, got, target) {
+    if (!(target > 0)) return 'on';
+    var diff = got - target, pct = 100 * got / target;
+    var near = m === 'kcal' ? Math.abs(diff) <= target * ((MKCAL_OVER - 100) / 100)
+      : Math.abs(diff) <= 10;
+    var overAt = m === 'p' ? 110 : m === 'kcal' ? MKCAL_OVER : 100;
+    return near ? 'on' : pct > overAt ? 'over' : pct >= 90 ? 'on' : 'under';
+  }
 
   function mAhead(k) { return k > todayKey(); }
 
@@ -2099,6 +2119,18 @@
      concerned. A tick is the strongest statement on this screen and a lock is
      the second; either one means nothing may be put on that meal. Stated once
      here because two passes need it and they were not agreeing. */
+  /* How much of the day Fill could still put food into. The macros still
+     short, priced, but never more than the calories still short: unused
+     carbohydrate on a day already over used to count as room, so Fill
+     added a 300 kcal crisp to a day 120 over. */
+  function mFillRoom(day, targets) {
+    var had = mTotals(day).all;
+    var short = 4 * Math.max(0, targets.p - had.p) +
+      4 * Math.max(0, targets.c - had.c) +
+      9 * Math.max(0, targets.f - had.f);
+    return Math.min(short, kcalOf(targets) - (had.kcal || 0));
+  }
+
   function mSlotClosed(day, k) {
     return (day[k] || []).some(function (it) { return !!(it.eaten || it.l); });
   }
@@ -2773,6 +2805,16 @@
     /* One engine, two ways in: a date works out the rate it needs, a preset
        names one outright. Both arrive here as pounds a week. */
     var perWeek = pace ? pace.perWeek : g.rate * pr.lb;
+    /* A preset cut asks the same of the fat store that a dated goal is
+       allowed to. mGoalPace caps a deficit at what the fat can supply
+       (MFAT_MAX a pound a day); the presets never asked, so a lean 200 lb
+       man on the hard cut was planned 999 under his burn against a ceiling
+       of 660 — while the same two pounds a week reached through a date came
+       out 340 kcal higher. One ceiling, whichever way in. */
+    if (!pace && perWeek > 0) {
+      var fatP = mBodyFat(pr);
+      if (fatP) perWeek = Math.min(perWeek, fatP.lb * MFAT_MAX * 7 / 3500);
+    }
     var kcal = Math.max(mFloorK(pr), Math.round(tdee - perWeek * 3500 / 7));
     var protPerLb = pace
       ? (perWeek > 0.05 ? (perWeek > pr.lb * 0.009 ? 1.10 : 1.00)
@@ -3107,6 +3149,19 @@
     var plan = mPlanCalc(pr);
     if (!plan) return { has: false, html: 'No plan yet.' };
     var pace = mGoalPace(pr);
+    var dayK = (mTargRec() ? kcalOf(mReadTargets()) : plan.kcal).toLocaleString();
+    /* A goal with a date under a week out, or gone. The plan stops working
+       out a rate then, and the card used to fall back to the no-goal line —
+       "name a weight and a date" — directly above "On pace for 190 lb by
+       Sep 27", which is a weight and a date. */
+    if (!pace && pr.goalLb && pr.goalBy) {
+      var gd = keyDate(pr.goalBy);
+      var left = Math.round((gd - keyDate(todayKey())) / 86400000);
+      return { has: true, html: '<b>' + pr.goalLb + ' lb by ' + M_MONS[gd.getMonth()] + ' ' +
+        gd.getDate() + '</b> &middot; ' +
+        (left < 0 ? 'the date has passed' : left === 0 ? 'today' : left + (left === 1 ? ' day' : ' days') + ' left') +
+        ' &middot; ' + dayK + ' kcal a day' };
+    }
     if (!pace) {
       return { has: true, html: '<b>' + esc(MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1) +
         /* The saved day, which is what the bars score against. The live
@@ -3188,7 +3243,11 @@
     if (to <= from) return null;
     var span = to - from;
     var per = (pr.goalLb - startLb) / span;      // lb a day, negative on a cut
-    return { lb: startLb + per * (now - from), per: per, daysLeft: to - now };
+    /* The line stops at the goal. Carried on past the date it kept falling
+       — a goal of 190 ten days gone was "planning" 186.7, so arriving at 190
+       read as ten days behind and was told to eat less. */
+    var at = Math.min(now, to);
+    return { lb: startLb + per * (at - from), per: per, daysLeft: to - now };
   }
 
   /* The day-to-day jump, and how big a jump is ordinary for this person.
@@ -3268,8 +3327,11 @@
        under that one can already sit below this, and then the number here
        is the least the line will ask for, not a cut. When the honest number
        is capped, the date is what moves, and the line says so. */
-    var rawNeed = burn === null ? null
-      : burn - (st.avg7 - pr.goalLb) * 3500 / Math.max(1, plan.daysLeft);
+    /* Under a week out, or past, there is no rate to ask for: the plan
+       itself stops working one out (mGoalPace), and dividing what is left by
+       one day produced numbers like 2,533 to "land on time" on a date gone. */
+    var rawNeed = burn === null || plan.daysLeft < 7 ? null
+      : burn - (st.avg7 - pr.goalLb) * 3500 / plan.daysLeft;
     /* The same floor the plan lives under, because two floors meant this line
        could offer MORE food than the plan while calling itself the lowest it
        goes — 1,904 against a 1,514 plan, on a day already behind pace. It kept
@@ -3279,11 +3341,23 @@
     var fatF = mBodyFat(pr);
     var floor = mFloorK(pr);
     if (fatF && burn !== null) floor = Math.max(floor, burn - fatF.lb * MFAT_MAX);
-    var capped = rawNeed !== null && rawNeed < floor;
+    /* And the plan's own speed limits, which this line did not know about.
+       mGoalPace will not plan a cut faster than 1% of bodyweight a week, nor
+       a gain faster than half that or a fifth over the burn; this line asked
+       for 1,565 on a plan capped at 1,804 (2.5 lb a week), and on a gain goal
+       with nothing above it at all said "Eat 5,202". Same limits, both ways. */
+    var lbNow = pr.lb > 0 ? pr.lb : 0;
+    var ceil = Infinity;
+    if (burn !== null && lbNow) {
+      if (plan.per < 0) floor = Math.max(floor, burn - lbNow * 0.01 * 3500 / 7);
+      else if (plan.per > 0) ceil = burn + Math.min(lbNow * 0.005 * 3500 / 7, 0.20 * burn);
+    }
+    var capped = rawNeed !== null && (rawNeed < floor || rawNeed > ceil);
+    var capHigh = capped && rawNeed > ceil;
     /* Rounded UP off the floor, never down onto it: a number printed a
        calorie under the basal rate is still a number under the basal rate. */
     var need = rawNeed === null ? null
-      : capped ? Math.ceil(floor) : Math.round(rawNeed);
+      : capHigh ? Math.floor(ceil) : capped ? Math.ceil(floor) : Math.round(rawNeed);
     /* Everything below is read TOWARD the goal, so a gain goal is judged on
        gaining: heavier than the line is behind on a cut and ahead on a
        gain. daysOff already carried the sign through plan.per; side and the
@@ -3300,12 +3374,17 @@
     }
     /* The band around the plan, from the same moving ranges. Inside it there
        is nothing to decide, and saying so is the whole job. */
-    var band = jump ? 2.660 * jump.bar : 3;
+    /* Never narrower than half a pound: a run of identical mornings has a
+       moving range of nothing, and a band of nothing called 0.1 lb off the
+       line "behind" — a scale's last digit is not a verdict. */
+    var band = jump ? Math.max(0.5, 2.660 * jump.bar) : 3;
     var rate = st.dWeek === null ? null : Math.round(st.dWeek * 10) / 10;
     return {
       pr: pr, st: st, plan: plan, meas: meas, burn: burn,
       off: off, band: band, daysOff: daysOff, stale: st.staleDays,
-      need: need, capped: capped, arrive: arrive, rate: rate,
+      need: need, capped: capped, capHigh: capHigh, arrive: arrive, rate: rate,
+      /* Moving the way the goal goes, this week. */
+      toward: closing !== null && closing > 0,
       side: toward > band ? 'behind' : toward < -band ? 'ahead' : 'on'
     };
   }
@@ -3417,6 +3496,7 @@
     if (!pf) return '';
     var off = pf.off, band = pf.band, daysOff = pf.daysOff, burn = pf.burn,
       need = pf.need, capped = pf.capped, arrive = pf.arrive, rate = pf.rate;
+    var mostWord = pf.capHigh ? 'as much as this goes' : 'as low as this goes';
     var rw = rate === null ? '' : mLbWord(rate);
     var rateWord = !rw ? '' : rw === 'holding steady' ? 'Holding steady'
       : rw.charAt(0).toUpperCase() + rw.slice(1) + ' a week';
@@ -3453,7 +3533,7 @@
     if (pf.side === 'behind' && eating) {
       return mLineHTML('calm', '\u25B2',
         '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + Math.abs(daysOff) + ' days behind pace' +
-        (capped ? ' \u2014 as low as this goes, so the date is what moves.' : ' \u2014 this is the number that lands on time.'),
+        (capped ? ' \u2014 ' + mostWord + ', so the date is what moves.' : ' \u2014 this is the number that lands on time.'),
         (arrive ? 'At this rate you arrive ' + arrive + '.' : ''), null);
     }
     if (pf.side === 'ahead' && eating) {
@@ -3471,8 +3551,9 @@
         (arrive ? 'At this rate you arrive ' + arrive + '. ' : '') +
         (need === null ? ''
           : capped
-            ? 'Landing on time would want less than a body should be asked for, so ' +
-              (need.toLocaleString() + ' is as low as this goes \u2014 the date is what moves.')
+            ? (pf.capHigh ? 'Landing on time would want more than a body can put to use, so '
+              : 'Landing on time would want less than a body should be asked for, so ') +
+              (need.toLocaleString() + ' is ' + mostWord + ' \u2014 the date is what moves.')
             : 'Landing on time wants about ' + need.toLocaleString() + ' kcal' + cyc + '.') +
         (cyc ? ' Training days run higher than that and rest days lower.' : ''),
         need ? [['Eat ' + need.toLocaleString(), 'mline:eat:' + need],
@@ -3481,18 +3562,27 @@
     if (pf.side === 'ahead') {
       var room = need;
       if (mHushed(k, 'ahead:' + room)) return '';
+      /* "You could eat" only when it is more than the plan: ahead by position
+         with a measured burn under the formula's, the number that lands on
+         time can be LESS than you are eating, and it was offered as a treat.
+         And "faster than you asked for" only when the scale is moving the
+         way the goal goes — it said so of a gain, on a cut. */
+      var more = room && room > kcalOf(mReadTargets());
       return mLineHTML('ahead', '\u25BC',
         '<b>' + Math.abs(daysOff) + ' days ahead of pace.</b>' +
-        (room ? ' You could eat <b>' + room.toLocaleString() + '</b>' + cyc +
-          ' and still arrive on time.' : ''),
-        rateWord + (rate === null ? '' : ' \u2014 faster than you asked for') + '.' +
+        (room ? (more ? ' You could eat <b>' + room.toLocaleString() + '</b>' + cyc +
+          ' and still arrive on time.'
+          : ' <b>' + room.toLocaleString() + '</b>' + cyc + ' lands on time.') : ''),
+        rateWord + (rate === null || !pf.toward ? '' : ' \u2014 faster than you asked for') + '.' +
         (cyc ? ' Training days run higher than that and rest days lower.' : ''),
         room ? [['Eat ' + room.toLocaleString(), 'mline:eat:' + room],
           ['Keep going', 'mline:none:ahead:' + room]] : null);
     }
     return mLineHTML('calm', '\u2713',
-      '<b>Nothing to change.</b> On pace for ' + pr.goalLb + ' lb by ' +
-      esc(mPretty(pr.goalBy)) + '.',
+      (pf.plan.daysLeft <= 0 ? '<b>At your goal.</b> ' + pr.goalLb + ' lb, due ' +
+        esc(mPretty(pr.goalBy)) + '.'
+        : '<b>Nothing to change.</b> On pace for ' + pr.goalLb + ' lb by ' +
+        esc(mPretty(pr.goalBy)) + '.'),
       (rateWord ? rateWord + ' \u00b7 ' : '') +
       (meas ? 'burn measures ' + meas.tdee.toLocaleString() : 'formula burn ' +
         (burn === null ? '\u2014' : Math.round(burn).toLocaleString())));
@@ -4471,6 +4561,7 @@
   var mRendering = false;
   function renderMacros() {
     if (mRendering) return;
+    mDrawnToday = todayKey();
     mRendering = true;
     try { mRenderDay(); } finally { mRendering = false; }
   }
@@ -4609,9 +4700,15 @@
        ticked, and neither "Mark all complete" nor "Complete the day" could
        ever be reached. Blake: "when all foods are marked complete, it's still
        showing fill. I'd expect to see something else." */
-    var nothingToFill = !noPlan && slots.list.every(function (s) {
-      return (day[s.k] || []).length || mSkipped(mViewKey(), s.k);
-    });
+    /* And a day with no room left has nothing to fill either. An empty
+       snack on a day already over its calories kept the button on "Fill",
+       which then added nothing — pressed three times, it stayed "Fill", and
+       "Mark all complete" could only be reached by skipping the snack. Asked
+       by the same test Fill asks itself. */
+    var nothingToFill = !noPlan && (mFillRoom(day, targets) < 100 ||
+      slots.list.every(function (s) {
+        return (day[s.k] || []).length || mSkipped(mViewKey(), s.k);
+      }));
     var dayDone = mDoneAt(mViewKey()) > 0;
     var future = mViewKey() > todayKey();
     /* Is there a plate left to tick? Blake: "the done for the day button
@@ -5309,6 +5406,16 @@
     slots.list.forEach(function (s) {
       if (!counts(s)) return;
       if ((day[s.k] || []).length) return;
+      /* What the meal's own pill is asking for, not its share of the plan
+         as written. After a breakfast of 1,360 the empty meals are asked for
+         640 between them, and the headline added up their ORIGINAL shares
+         instead — "+916" over the day, painted as under, above three meals
+         whose asks landed it on target. One forecast, the meals' own. */
+      var ask = mMealAsk(s.k, targets, slots);
+      if (ask && ask.now) {
+        ['p', 'f', 'c'].forEach(function (m) { out[m] += ask.now[m] || 0; });
+        return;
+      }
       var fr = mSlotW(s) / sumW;
       ['p', 'f', 'c'].forEach(function (m) { out[m] += targets[m] * fr; });
     });
@@ -6769,20 +6876,11 @@
          the bug it is sitting above: at 3% a day at 102.5% of target counted as
          near and so drew green, while the strip — over at 2% — had already
          called it over. One threshold has to mean one threshold. */
-      var near = m === 'kcal'
-        ? Math.abs(diff) <= target * ((MKCAL_OVER - 100) / 100)
-        : Math.abs(diff) <= 10;
-      /* The week strip calls a day over at 2% past its target and this called
-         it over at 5%, so a day at 1,888 against 1,813 — 104% — was a red
-         square on the strip and a green bar underneath it, on one screen,
-         about one day. Two thresholds answering one question is not a display
-         difference; one of them is telling the reader the wrong thing.
-
-         The strip's is the one that wins, because it is the one with the word
-         under it: a square that says "over" is a verdict, and the bar had
-         better not disagree with a verdict. */
-      var overAt = m === 'p' ? 110 : m === 'kcal' ? MKCAL_OVER : 100;
-      var state = near ? 'on' : pct > overAt ? 'over' : pct >= 90 ? 'on' : 'under';
+      /* The rule lives in mVerdict now, where the summary sheet reads it too.
+         It was written out here once and three other ways elsewhere, and a
+         day at 105.5% was on the bar, "close" on the strip, and a red ring
+         on the sheet — one question, three answers. */
+      var state = mVerdict(m, plan, target);
       barState[m] = state;
       barPct[m] = Math.min(100, pct);
       var wAte = Math.min(100, 100 * ate / target);
@@ -9174,7 +9272,7 @@
     } else if (s.rows[0].got - s.rows[0].want < -20) {
       says = 'Calories landed, but <b>' + Math.abs(s.rows[0].got - s.rows[0].want) +
         ' g short on protein</b>.';
-    } else if (Math.abs(dk) <= s.want * 0.05) {
+    } else if (mVerdict('kcal', s.got, s.want) === 'on' && mVerdict('p', s.rows[0].got, s.rows[0].want) === 'on') {
       says = 'On the day and on the protein. <b>Nothing to fix.</b>';
     } else {
       says = 'Close enough on both.';
@@ -9187,7 +9285,11 @@
     var R = 55, C = 2 * Math.PI * R, R2 = 41, C2 = 2 * Math.PI * R2;
     var pct = s.want ? s.got / s.want : 0;
     var over = Math.max(0, Math.min(1, pct - 1));
-    var ringCol = pct > 1.05 ? 'var(--dial-over)' : pct < 0.9 ? 'var(--ochre)' : 'var(--green)';
+    /* The bars' verdict, not one of its own: this ring went red at 105%
+       over a bar that called the same day on target, under a line that said
+       "Close enough". */
+    var dayV = mVerdict('kcal', s.got, s.want);
+    var ringCol = dayV === 'over' ? 'var(--dial-over)' : dayV === 'under' ? 'var(--ochre)' : 'var(--green)';
     var ring = '<div class="ds-ring"><svg viewBox="0 0 132 132" aria-hidden="true">' +
       '<circle class="t" cx="66" cy="66" r="' + R + '"></circle>' +
       '<circle class="f" cx="66" cy="66" r="' + R + '" stroke="' + ringCol + '" ' +
@@ -9227,7 +9329,7 @@
           '<i style="height:8px"></i></span>';
       }
       return '<span class="ds-wk' + (w.today ? ' today' : '') +
-        (w.kcal > w.want ? ' over' : '') + '" title="' + esc(w.k) + ' — ' +
+        (w.v === 'over' ? ' over' : '') + '" title="' + esc(w.k) + ' — ' +
         w.kcal.toLocaleString() + ' of ' + w.want.toLocaleString() + '">' +
         '<i style="height:' + (100 * w.kcal / top).toFixed(1) + '%"></i></span>';
     }).join('') + '<span class="ds-line" style="top:' +
@@ -9267,7 +9369,7 @@
         (s.any
           ? '<div class="ds-hero">' + ring +
               '<div class="ds-side"><div class="ds-d ' +
-                (Math.abs(dk) <= s.want * 0.05 ? 'on' : dk > 0 ? 'over' : 'under') + '">' +
+                mVerdict('kcal', s.got, s.want) + '">' +
                 (dk > 0 ? '+' : '') + dk + '</div>' +
                 '<div class="ds-sub">calories against target</div>' + pips +
               '</div>' +
@@ -9995,15 +10097,18 @@
     if (f.side === 'behind' && eating) {
       return '<b>\u25B2 ' + Math.abs(f.daysOff) + ' days behind that.</b> Eating ' +
         kcalOf(boxes).toLocaleString() +
-        (f.capped ? ' \u2014 as low as this goes, so the date is what moves.'
+        (f.capped ? ' \u2014 ' + (f.capHigh ? 'as much as this goes' : 'as low as this goes') +
+          ', so the date is what moves.'
           : ' \u2014 the number that lands on time.');
     }
     if (f.side === 'behind') {
       says = '<b>\u25B2 ' + Math.abs(f.daysOff) + ' days behind that.</b>' +
         (f.need === null ? ''
           : f.capped
-            ? ' Landing on time would want less than a body should be asked for, so ' +
-              f.need.toLocaleString() + ' is as low as this goes \u2014 the date is what moves.'
+            ? (f.capHigh ? ' Landing on time would want more than a body can put to use, so '
+              : ' Landing on time would want less than a body should be asked for, so ') +
+              f.need.toLocaleString() + ' is ' + (f.capHigh ? 'as much as this goes' : 'as low as this goes') +
+              ' \u2014 the date is what moves.'
             : ' Eating ' + f.need.toLocaleString() + ' would put you back on it \u2014 ' +
               'or keep going and arrive later.');
     } else {
@@ -10351,11 +10456,7 @@
          at nine at night with everything logged and it should add nothing. So
          that is the question, and it can only be asked from up here, before
          the draft has had a chance to answer it for us. */
-      var had = mTotals(day).all;
-      var room = 4 * Math.max(0, targets.p - had.p) +
-        4 * Math.max(0, targets.c - had.c) +
-        9 * Math.max(0, targets.f - had.f);
-      if (room < 100) return;
+      if (mFillRoom(day, targets) < 100) return;
 
       /* Pins get the first claim of all.
        *
@@ -11434,11 +11535,12 @@
       if (has) {
         kept++;
         sumK += (dt.kcal || 0);
-        hit = Math.abs(dt.p - dT.p) <= Math.max(10, dT.p * 0.08) ? 1 : 0;
+        hit = mVerdict('p', dt.p, dT.p) === 'on' ? 1 : 0;
         if (hit) onP++;
       }
       week.push({ k: dk, kcal: has ? Math.round(dt.kcal || 0) : null,
         want: kcalOf(dT), hit: hit, today: dk === k,
+        v: has ? mVerdict('kcal', dt.kcal || 0, kcalOf(dT)) : null,
         lab: M_WDAYS[dd.getDay()].slice(0, 1) });
     }
 
@@ -13979,6 +14081,10 @@
     targets: function () { return mDayTargets(mViewKey()); },
     dayTargets: mDayTargets,
     measured: mMeasuredTdee,
+    assumed: function () { var k = mViewKey(); return mAssumed(mDay(k), mDayTargets(k), mReadSlots()); },
+    face: mPlanFace,
+    tdee: mTdee,
+    summary: mSummaryHTML,
     ask: function (sk) { return mMealAsk(sk, mDayTargets(mViewKey()), mReadSlots()); },
     slotFor: function (id) { var sl = mSlotForRecipe(BY_ID[id], mReadSlots()); return sl ? sl.k : null; },
     /* The profile as the app reads it — weight from the scale, not the stale
