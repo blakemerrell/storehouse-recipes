@@ -126,6 +126,7 @@ module.exports = [
   { id: 182, step: 0, add: 'Roast until the thickest breast reads 165°F and the juices run clear.' },
   { id: 186, step: 2, add: 'Whole breasts under a blanket of sauce take longer than you expect. Check the thickest one reads 165°F before serving.' },
   { id: 198, step: 1, add: 'A crisp crust is not proof it is cooked. Check the thickest part reads 165°F. Rest it five minutes before cutting.' },
+  { id: 198, step: 2, add: '{r:265} is this gravy, step by step.' },
 
   /* ---- pointers to Made, Not Bought ------------------------------------
    * Barbecue sauce and gravy mix are the two ingredients that block the most
@@ -186,6 +187,10 @@ module.exports = [
   { id: 152, step: 2, add: 'Salsa out with them.' },
   { id: 168, step: 2, add: 'Stir the butter into them while they are hot — that is the difference between a topping and a paste.' },
   { id: 205, step: 1, add: 'Make the mix up with the milk rather than water; it is a box mix either way, and this is the part that stops it tasting like one.' },
+  // the baked cake the trifle and the layered desserts slice up
+  { id: 205, makes: ['cake_baked'] },
+  // No. 267's cake pops want a chocolate cake; the book's baked cake is yellow
+  { id: 214, nomake: ['cake_baked'] },
   { id: 217, step: 0, add: 'Beat the waffle mix, milk and egg together first and let the batter stand a couple of minutes.' },
 
   /* ---- the two recipes that ask for breadcrumbs -------------------------

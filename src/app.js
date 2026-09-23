@@ -13364,7 +13364,7 @@
    * itself. The alternative was fifty hand-written sentences, which is the
    * same paragraph printed fifty times and still silent on the fifty-first.
    *
-   * Not shown inside Made, Not Bought: a tortilla recipe pointing at the
+   * Never a recipe pointing at itself: a tortilla recipe pointing at the
    * tortilla recipe is noise, and so is the gravy telling you where to get
    * gravy. */
   function makerFor(r, ix) {
@@ -13373,8 +13373,13 @@
     if (!M || !it || !it.k) return null;
     var id = M[it.k];
     if (!id || id === r.id) return null;
-    var t = BY_ID[id];
-    return t && t.secName !== r.secName ? t : null;
+    if (r.nomake && r.nomake.indexOf(it.k) >= 0) return null;
+    /* Any section. This refused a maker from the reader's own section, to
+       keep the tortilla recipe from pointing at the tortilla recipe — which
+       the line above already does by id — and it also hid the one link that
+       mattered most on the Copycat Shelf: taco beef to the taco seasoning
+       beside it. */
+    return BY_ID[id] || null;
   }
 
   /* Rendered small and after the line rather than around it, because the

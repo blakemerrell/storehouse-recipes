@@ -181,7 +181,7 @@ module.exports = {
       let linked = 0;
       window.RECIPES.forEach((r) => (r.ingp || []).forEach((it) => {
         if (it && it.k && M[it.k] && M[it.k] !== r.id &&
-            by[M[it.k]].secName !== r.secName) linked++;
+            !(r.nomake && r.nomake.indexOf(it.k) >= 0)) linked++;
       }));
       return { dead, stocked, linked, made: Object.keys(M).length };
     });
@@ -938,6 +938,36 @@ module.exports = {
         /^Variations?$/.test(shown.h) && shown.t.indexOf(vary.text.slice(0, 30)) >= 0 && shown.after,
         JSON.stringify(shown));
     }
+
+    /* A recipe that makes an ingredient is linked from every line that calls
+       for it, whatever section either is in. Blake, on the taco beef with no
+       way to his own seasoning beside it on the same shelf: "I need the link
+       to my taco seasoning recipe to be a part of this recipe." */
+    const links = await p.evaluate(() => {
+      const R = window.RECIPES, M = window.MAKERS;
+      const no = (n) => R.find((r) => r.no === n);
+      return {
+        taco: M.taco_seasoning === no(295).id, bread: M.bread === no(280).id, cake: M.cake_baked === no(258).id,
+        tacoBeef: no(296).id, seasoning: no(295).id, pops: no(267).id,
+      };
+    });
+    t.ok('taco seasoning, bread and baked cake each have their maker',
+      links.taco && links.bread && links.cake, JSON.stringify(links));
+    const openSheet = (id) => p.evaluate((i) => {
+      const b = document.createElement('button'); b.setAttribute('data-open', i);
+      document.getElementById('grid').appendChild(b); b.click();
+    }, id);
+    await openSheet(links.tacoBeef);
+    await p.waitForTimeout(300);
+    const beef = await p.evaluate(() => [...document.querySelectorAll('.sheet .ing-make')].map((b) => b.dataset.open));
+    t.ok('the taco beef links to the taco seasoning beside it on the same shelf',
+      beef.indexOf(String(links.seasoning)) >= 0, JSON.stringify(beef));
+    await p.evaluate(() => { const x = document.querySelector('.sheet-x'); if (x) x.click(); });
+    await p.waitForTimeout(200);
+    await openSheet(links.pops);
+    await p.waitForTimeout(300);
+    const pops = await p.evaluate(() => [...document.querySelectorAll('.sheet .ing-make')].map((b) => b.dataset.open));
+    t.ok('and a chocolate cake is not sent to the yellow one', pops.length === 0, JSON.stringify(pops));
 
     await p.context().close();
   },

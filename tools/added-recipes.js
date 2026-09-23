@@ -113,6 +113,7 @@ module.exports = [
     id: 226, book: 2, secNum: 6, secName: SECTION,
     name: 'Everyday White Bread',
     servings: '24 Slices (2 Loaves)', servN: 24,
+    makes: ['bread'],
     ing: ['5 cups white flour', '1.75 cups warm water', '1 packet yeast', '2 tbsp sugar',
       '3 tbsp non-fat dry milk', '2 tsp salt', '3 tbsp melted butter'],
     steps: [
@@ -423,6 +424,7 @@ module.exports = [
     id: 337, book: 2, secNum: 7, secName: COPYCAT,
     name: 'Taco Seasoning',
     servings: '4 Servings (2 Tablespoons Each)', servN: 4,
+    makes: ['taco_seasoning'],
     ing: ['2 tbsp chili powder', '1 tbsp cumin', '1 tsp paprika', '1 tsp garlic powder',
       '1 tsp onion powder', '1 tsp oregano', '1 tsp salt', '1 tsp cornstarch'],
     steps: [

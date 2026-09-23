@@ -82,6 +82,14 @@ FIXES.forEach((f) => {
      on the shopping list, same as a lift. Collected, not replaced, so two
      fixes can each offer one. */
   if (f.vary) r.vary = (r.vary || []).concat(f.vary);
+  /* makes: for a book recipe that turns out to produce an ingredient other
+     recipes call for — the yellow cake the trifles slice up. Added recipes
+     declare it in their own entry. */
+  if (f.makes) r.makes = (r.makes || []).concat(f.makes);
+  /* nomake: an ingredient this recipe names that the maker does not make —
+     the cake pops want a CHOCOLATE cake, and the book's baked cake is
+     yellow. The line keeps its food key and loses the link. */
+  if (f.nomake) r.nomake = (r.nomake || []).concat(f.nomake);
   /* extras is what you must buy to cook the recipe at all. Moving an item
      into a lift makes it optional, so it has to come off that list in the
      same breath — or the shopping list still sends you out for something the
@@ -396,7 +404,13 @@ if (usedNotCategorised.length) {
  * So each of those recipes declares what it makes, and the ingredient line is
  * what carries the link. One rule, no added prose, and a recipe added later is
  * wired up by naming its food key rather than by remembering every page that
- * might want it. */
+ * might want it.
+ *
+ * Not only Made, Not Bought: any recipe that produces an ingredient declares
+ * it — the taco seasoning the taco beef calls for, the bread thirteen recipes
+ * toast or layer, the cake the trifles cut up. Blake, looking at the taco beef
+ * with no way to his own seasoning: "look for other opportunities to link
+ * things like this." */
 const makers = {};
 out.forEach((r) => (r.makes || []).forEach((k) => {
   if (makers[k]) throw new Error('two recipes claim to make ' + k + ': ' + makers[k] + ' and ' + r.id);
