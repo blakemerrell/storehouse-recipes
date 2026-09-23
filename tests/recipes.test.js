@@ -570,10 +570,13 @@ module.exports = {
              and only the fat, and only its own calories with it. Protein and
              carbohydrate are in the lean and do not go in the bin. */
           const keep = ip.pr === undefined ? 1 : ip.pr;
+          /* `pe` is the share of a dredge or a soak that reaches the plate.
+             `g` is the bowl, so all of it scales, not only the fat. */
+          const eat = (ip.pe === undefined ? 1 : ip.pe) * g / 100;
           const fat = fd.f * keep;
-          t.p += fd.p * g / 100; t.c += fd.c * g / 100;
-          t.f += fat * g / 100;
-          t.kcal += (fd.kcal - (fd.f - fat) * 9) * g / 100;
+          t.p += fd.p * eat; t.c += fd.c * eat;
+          t.f += fat * eat;
+          t.kcal += (fd.kcal - (fd.f - fat) * 9) * eat;
         });
         if (missing) return;
         const n = Number(r.servN) > 0 ? Number(r.servN) : 1;

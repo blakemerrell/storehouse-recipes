@@ -101,7 +101,10 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
     if (r.unmatched) { unmatched.push(r.unmatched); blank(); return; }
     if (r.assumed) assumed.push(line + ' \u2014 ' + r.assumed);
     const food = FOODS[r.key];
-    const k = r.grams / 100;
+    /* `pe`: the share of a dredge or a soak that reaches the plate (parse-lib,
+       EATEN). Every macro scales with it; `g` below stays what you buy. */
+    const pe = r.pe === undefined ? 1 : Math.round(r.pe * 1000) / 1000;
+    const k = r.grams / 100 * pe;
     /* A trimmed line (parse-lib) keeps a fraction of the food's fat, and only
        the fat — the lean keeps every gram of its protein, which is why this
        scales `f` alone rather than the whole row. The calories used to need
@@ -123,6 +126,9 @@ function nutritionFor(ing, servN, extras, parseLine, FOODS, SPICE_NAMES) {
        rediscovered. Absent on every line that was not trimmed, so the common
        case costs nothing. */
     if (r.fx !== undefined && r.fx !== 1) it.pr = r.fx;
+    /* And how much of a dredge or a soak was eaten, so a reader adding the row
+       up from `g` lands on the recipe's figure rather than on the bowl's. */
+    if (pe !== 1) it.pe = pe;
     if (food.split) it.a = SPICE_NAMES[r.alias] || r.alias;
     if (names.some((n) => line.toLowerCase().indexOf(n) >= 0)) it.x = 1;
     /* "(optional)" on the line, meaning it. Two recipes exist so that somebody

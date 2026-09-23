@@ -25,14 +25,20 @@
  *
  * Container sizes follow the storehouse's own order list rather than the
  * supermarket sizes they resemble: peaches and pears come in 29 oz tins, diced
- * tomatoes in 28 oz, canned chicken only in 12.5 oz, tuna only in 5 oz.
+ * tomatoes in 28 oz, canned chicken only in 12.5 oz, tuna only in 5 oz. *
+ * `sold` is the size printed on that container, in ounces, keyed by the same
+ * unit as `g`. `g` is what goes in the pot (drained, for anything packed in
+ * liquid); `sold` is what the cook finds on the shelf. The build writes it
+ * into every recipe line that names a container without a size, and a line
+ * that states exactly this size is counted at `g` — see parse-lib.js — so
+ * saying "1 can (15 oz) black beans" and "1 can black beans" is one amount.
  */
 
 const FOODS = {
   // ---- Dairy & eggs -------------------------------------------------------
   milk:            { eat: 1, kcal: 50,  p: 3.3,  c: 4.8,  f: 2.0, na: 44, fib: 0,  g: { cup: 244, tbsp: 15, tsp: 5 }, note: '2% milk' },
   dry_milk:        { kcal: 358, p: 36,   c: 52,   f: 0.8, na: 535, fib: 0,  g: { cup: 68, tbsp: 4.3 }, label: 'Dry milk powder', note: 'non-fat dry milk powder' },
-  evaporated_milk: { kcal: 134, p: 6.8,  c: 10,   f: 7.6, na: 106, fib: 0,  g: { cup: 252, can: 354 }, label: 'Evaporated milk', note: '12 fl oz' },
+  evaporated_milk: { kcal: 134, p: 6.8,  c: 10,   f: 7.6, na: 106, fib: 0,  g: { cup: 252, can: 354 }, label: 'Evaporated milk', note: '12 fl oz', sold: { can: 12 } },
   cottage_cheese:  { eat: 1, kcal: 84,  p: 11,   c: 4.3,  f: 2.3, na: 330, fib: 0,  g: { cup: 226, tbsp: 14 }, label: 'Cottage cheese', note: '2% cottage cheese' },
   cheddar:         { eat: 1, kcal: 403, p: 23,   c: 3.1,  f: 33, na: 653, fib: 0,   g: { cup: 113, tbsp: 7, oz: 28.35, each: 28 }, label: 'Cheddar cheese', def: { qty: 0.5, unit: 'cup' }, note: 'shredded; "cheddar slice" = 28 g' },
   /* Not on the storehouse order — it is an extra in the two recipes that use
@@ -66,7 +72,7 @@ const FOODS = {
 
   // ---- Meat & fish --------------------------------------------------------
   chicken_breast:  { eat: 1, lever: 1, kcal: 120, p: 22.5, c: 0,    f: 2.6, na: 45, fib: 0,  g: { lb: 453.6, oz: 28.35, cup: 140, each: 174 }, label: 'Chicken breasts', note: 'raw boneless skinless breast' },
-  chicken_canned:  { eat: 1, kcal: 130, p: 23,   c: 0,    f: 3.5, na: 400, fib: 0,  g: { can: 285, oz: 28.35, cup: 140 }, label: 'Canned chicken', note: 'the storehouse stocks one size, 12.5 oz, about 285 g drained' },
+  chicken_canned:  { eat: 1, kcal: 130, p: 23,   c: 0,    f: 3.5, na: 400, fib: 0,  g: { can: 285, oz: 28.35, cup: 140 }, label: 'Canned chicken', note: 'the storehouse stocks one size, 12.5 oz, about 285 g drained', sold: { can: 12.5 } },
   /* 90/10, not the 85/15 this said for a long time. Nothing on a package
      settled it — the recipes did. Eight of Run and Not Be Weary's recipes
      brown ground beef, and against 85/15 their printed figures are out by
@@ -90,14 +96,14 @@ const FOODS = {
   ham:             { eat: 1, kcal: 145, p: 16.6, c: 1.5,  f: 8, na: 1200, fib: 0,    g: { lb: 453.6, oz: 28.35, cup: 140, each: 28, slice: 28 }, label: 'Sliced ham', def: { qty: 1, unit: 'slice' }, note: 'sliced deli ham' },
   pork_sausage:    { kcal: 325, p: 12,   c: 1,    f: 30, na: 750, fib: 0,   g: { lb: 453.6, oz: 28.35, each: 45, link: 45 }, label: 'Pork sausage', def: { qty: 1, unit: 'link' }, note: 'raw pork sausage; 1 link = 45 g' },
   beef_frank:      { eat: 1, kcal: 290, p: 10.6, c: 4,    f: 26, na: 1090, fib: 0, label: 'Beef franks',   g: { lb: 453.6, oz: 28.35, each: 45 } },
-  tuna:            { eat: 1, kcal: 116, p: 26,   c: 0,    f: 0.8, na: 300, fib: 0,  g: { can: 120, oz: 28.35, cup: 154 }, label: 'Canned tuna', note: 'canned in water, 5 oz can drained = 120 g' },
+  tuna:            { eat: 1, kcal: 116, p: 26,   c: 0,    f: 0.8, na: 300, fib: 0,  g: { can: 120, oz: 28.35, cup: 154 }, label: 'Canned tuna', note: 'canned in water, 5 oz can drained = 120 g', sold: { can: 5 } },
 
   // ---- Beans --------------------------------------------------------------
-  black_beans:     { side: true, kcal: 91,  p: 6,    c: 16.6, f: 0.3, na: 250, fib: 6.9,  g: { can: 250, cup: 172 }, label: 'Black beans', note: 'canned, drained' },
-  pinto_beans:     { side: true, kcal: 88,  p: 5.5,  c: 16,   f: 0.8, na: 250, fib: 6, label: 'Pinto beans',  g: { can: 250, cup: 171 } },
-  white_beans:     { kcal: 92,  p: 6.4,  c: 16.5, f: 0.4, na: 250, fib: 6.3,  g: { can: 250, cup: 179 }, label: 'Great Northern beans', note: 'Great Northern, canned' },
+  black_beans:     { side: true, kcal: 91,  p: 6,    c: 16.6, f: 0.3, na: 250, fib: 6.9,  g: { can: 250, cup: 172 }, label: 'Black beans', note: 'canned, drained', sold: { can: 15 } },
+  pinto_beans:     { side: true, kcal: 88,  p: 5.5,  c: 16,   f: 0.8, na: 250, fib: 6, label: 'Pinto beans',  g: { can: 250, cup: 171 }, sold: { can: 15 } },
+  white_beans:     { kcal: 92,  p: 6.4,  c: 16.5, f: 0.4, na: 250, fib: 6.3,  g: { can: 250, cup: 179 }, label: 'Great Northern beans', note: 'Great Northern, canned', sold: { can: 15 } },
   refried_beans:   { kcal: 90,  p: 5.5,  c: 15,   f: 1.2, na: 380, fib: 4.5, label: 'Refried beans',  g: { can: 440, cup: 238 } },
-  pork_and_beans:  { kcal: 94,  p: 4.8,  c: 17.7, f: 0.9, na: 400, fib: 4, label: 'Pork and beans',  g: { can: 440, cup: 253 } },
+  pork_and_beans:  { kcal: 94,  p: 4.8,  c: 17.7, f: 0.9, na: 400, fib: 4, label: 'Pork and beans',  g: { can: 440, cup: 253 }, sold: { can: 15.5 } },
 
   // ---- Grains, flours, mixes ---------------------------------------------
   oats:            { kcal: 379, p: 13.2, c: 67.7, f: 6.5, na: 6, fib: 10.1,  g: { cup: 80, tbsp: 5 }, def: { qty: 1, unit: 'cup' }, note: 'dry rolled oats' },
@@ -106,7 +112,7 @@ const FOODS = {
   rice_dry:        { kcal: 365, p: 7.1,  c: 80,   f: 0.7, na: 5, fib: 1.3, label: 'Rice',  g: { cup: 185 } },
   rice_cooked:     { kcal: 130, p: 2.7,  c: 28,   f: 0.3, na: 1, fib: 0.4, label: 'Cooked rice',  g: { cup: 158 } },
   pancake_mix:     { kcal: 366, p: 9,    c: 73,   f: 4.5, na: 900, fib: 2.5,  g: { cup: 125 }, label: 'Pancake mix', def: { qty: 1, unit: 'cup' }, note: 'dry complete mix; waffle mix treated the same' },
-  pasta:           { kcal: 371, p: 13,   c: 74.7, f: 1.5, na: 6, fib: 3.2,  g: { lb: 453.6, oz: 28.35, cup: 105, pkg: 453.6 }, label: 'Pasta', note: 'dry pasta' },
+  pasta:           { kcal: 371, p: 13,   c: 74.7, f: 1.5, na: 6, fib: 3.2,  g: { lb: 453.6, oz: 28.35, cup: 105, pkg: 453.6 }, label: 'Pasta', note: 'dry pasta', sold: { pkg: 16 } },
   bread:           { kcal: 265, p: 9,    c: 49,   f: 3.2, na: 490, fib: 2.7,  g: { each: 28, cup: 45 }, label: 'Bread', note: '1 slice = 28 g' },
   wheat_bread:     { kcal: 247, p: 13,   c: 41,   f: 3.4, na: 450, fib: 6, label: 'Wheat bread',  g: { each: 28, cup: 45 } },
   tortilla:        { kcal: 306, p: 8.2,  c: 51.4, f: 7.1, na: 620, fib: 3,  g: { each: 45 }, label: 'Tortillas', note: 'flour tortilla, 8 in' },
@@ -123,14 +129,14 @@ const FOODS = {
   mashed_potato:   { kcal: 113, p: 2,    c: 17,   f: 4.2, na: 320, fib: 1.5,  g: { cup: 210 }, label: 'Mashed potatoes', note: 'prepared with milk and butter' },
 
   // ---- Vegetables ---------------------------------------------------------
-  carrot:          { veg: 1, side: true, kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2, na: 69, fib: 2.8, label: 'Carrots',  g: { lb: 453.6, cup: 128, can: 250, each: 61 }, def: { qty: 1, unit: 'each' } },
-  green_beans:     { veg: 1, side: true, kcal: 20,  p: 1.2,  c: 4.1,  f: 0.1, na: 220, fib: 2.6,  g: { can: 240, cup: 125 }, label: 'Green beans', def: { qty: 1, unit: 'can' }, note: 'canned, drained' },
-  corn:            { starch: 1, side: true, kcal: 81,  p: 2.6,  c: 19,   f: 1, na: 220, fib: 2.4,    g: { can: 265, cup: 165 }, note: '14.4 oz tin, drained' },
+  carrot:          { veg: 1, side: true, kcal: 41,  p: 0.9,  c: 9.6,  f: 0.2, na: 69, fib: 2.8, label: 'Carrots',  g: { lb: 453.6, cup: 128, can: 250, each: 61 }, def: { qty: 1, unit: 'each' }, sold: { can: 14.5 } },
+  green_beans:     { veg: 1, side: true, kcal: 20,  p: 1.2,  c: 4.1,  f: 0.1, na: 220, fib: 2.6,  g: { can: 240, cup: 125 }, label: 'Green beans', def: { qty: 1, unit: 'can' }, note: 'canned, drained', sold: { can: 14.5 } },
+  corn:            { starch: 1, side: true, kcal: 81,  p: 2.6,  c: 19,   f: 1, na: 220, fib: 2.4,    g: { can: 265, cup: 165 }, note: '14.4 oz tin, drained', sold: { can: 14.4 } },
   broccoli:        { veg: 1, side: true, kcal: 34,  p: 2.8,  c: 6.6,  f: 0.4, na: 33, fib: 2.6,  g: { lb: 453.6, cup: 91 }, def: { qty: 1, unit: 'lb' } },
   lettuce:         { veg: 1, side: true, kcal: 15,  p: 1.4,  c: 2.9,  f: 0.2, na: 28, fib: 1.3,  g: { cup: 47, each: 600, oz: 28.35 }, def: { qty: 2, unit: 'cup' }, note: '1 head = 600 g' },
   onion:           { veg: 1, side: true, kcal: 40,  p: 1.1,  c: 9.3,  f: 0.1, na: 4, fib: 1.7,  g: { cup: 160, each: 110 }, label: 'Onions', def: { qty: 0.5, unit: 'each' } },
   tomato:          { veg: 1, side: true, kcal: 18,  p: 0.9,  c: 3.9,  f: 0.2, na: 5, fib: 1.2,  g: { cup: 180, each: 123 }, label: 'Tomatoes', def: { qty: 1, unit: 'each' }, note: '1 large = 182 g, handled by the parser' },
-  tomato_canned:   { veg: 1, side: true, kcal: 32,  p: 1.5,  c: 7,    f: 0.2, na: 180, fib: 1.6,  g: { can: 794, cup: 240 }, label: 'Diced tomatoes', note: 'diced tomatoes, 28 oz tin' },
+  tomato_canned:   { veg: 1, side: true, kcal: 32,  p: 1.5,  c: 7,    f: 0.2, na: 180, fib: 1.6,  g: { can: 794, cup: 240 }, label: 'Diced tomatoes', note: 'diced tomatoes, 28 oz tin', sold: { can: 28 } },
   bell_pepper:     { veg: 1, side: true, kcal: 26,  p: 1,    c: 6,    f: 0.3, na: 4, fib: 2.1,  g: { lb: 453.6, cup: 149, each: 119 }, label: 'Bell peppers', def: { qty: 1, unit: 'each' } },
   cucumber:        { veg: 1, side: true, kcal: 15,  p: 0.65, c: 3.6,  f: 0.1, na: 2, fib: 0.5,  g: { cup: 133, each: 300 }, label: 'Cucumbers', def: { qty: 0.5, unit: 'each' } },
   garlic:          { kcal: 149, p: 6.4,  c: 33,   f: 0.5, na: 17, fib: 2.1,  g: { each: 3, tsp: 2.8, tbsp: 8.4 }, def: { qty: 1, unit: 'each' } },
@@ -144,20 +150,20 @@ const FOODS = {
   banana:          { side: true, kcal: 89,  p: 1.1,  c: 22.8, f: 0.3, na: 1, fib: 2.6, label: 'Bananas',  g: { cup: 150, each: 118 } },
   orange:          { side: true, kcal: 47,  p: 0.9,  c: 11.8, f: 0.1, na: 0, fib: 2.4, label: 'Oranges',  g: { cup: 165, each: 140 } },
   grapes:          { side: true, kcal: 69,  p: 0.7,  c: 18,   f: 0.2, na: 2, fib: 0.9,  g: { cup: 151, each: 5 } },
-  peaches_canned:  { side: true, kcal: 54,  p: 0.6,  c: 14,   f: 0.1, na: 6, fib: 1.3,  g: { can: 500, cup: 244 }, label: 'Canned peaches', note: 'storehouse tin is 29 oz, about 500 g drained' },
-  pears_canned:    { side: true, kcal: 60,  p: 0.4,  c: 15.6, f: 0.1, na: 5, fib: 1.7,  g: { can: 500, cup: 244 }, label: 'Canned pears', note: '29 oz tin' },
-  applesauce:      { side: true, kcal: 68,  p: 0.2,  c: 17.5, f: 0.2, na: 2, fib: 1.1,  g: { jar: 751, cup: 244, can: 751 }, note: '26.5 oz' },
+  peaches_canned:  { side: true, kcal: 54,  p: 0.6,  c: 14,   f: 0.1, na: 6, fib: 1.3,  g: { can: 500, cup: 244 }, label: 'Canned peaches', note: 'storehouse tin is 29 oz, about 500 g drained', sold: { can: 29 } },
+  pears_canned:    { side: true, kcal: 60,  p: 0.4,  c: 15.6, f: 0.1, na: 5, fib: 1.7,  g: { can: 500, cup: 244 }, label: 'Canned pears', note: '29 oz tin', sold: { can: 29 } },
+  applesauce:      { side: true, kcal: 68,  p: 0.2,  c: 17.5, f: 0.2, na: 2, fib: 1.1,  g: { jar: 751, cup: 244, can: 751 }, note: '26.5 oz', sold: { jar: 26.5 } },
   raisins:         { eat: 1, kcal: 299, p: 3.1,  c: 79,   f: 0.5, na: 11, fib: 3.7,  g: { cup: 145, tbsp: 9 } },
   fruit_generic:   { side: true, kcal: 60,  p: 0.7,  c: 15,   f: 0.2, na: 2, fib: 2,  g: { cup: 150, each: 140 }, label: 'Fresh fruit', def: { qty: 1, unit: 'cup' }, note: 'unspecified fresh/frozen fruit' },
 
   // ---- Sauces, condiments, sweeteners -------------------------------------
-  salsa:           { kcal: 29,  p: 1.5,  c: 6,    f: 0.2, na: 700, fib: 1.5,  g: { cup: 260, tbsp: 16, jar: 751 }, def: { qty: 0.25, unit: 'cup' }, note: '26.5 oz jar' },
-  tomato_sauce:    { kcal: 24,  p: 1.2,  c: 5.3,  f: 0.2, na: 460, fib: 1.5,  g: { can: 408, cup: 245 }, label: 'Tomato sauce', note: '14.4 oz' },
-  spaghetti_sauce: { kcal: 60,  p: 1.6,  c: 9.6,  f: 1.8, na: 480, fib: 2,  g: { jar: 785, can: 785, cup: 245 }, label: 'Spaghetti sauce', note: '27.7 oz' },
-  tomato_soup:     { kcal: 70,  p: 1.6,  c: 14,   f: 1.2, na: 470, fib: 1.2,  g: { can: 408, cup: 245 }, label: 'Tomato soup', note: '14.4 oz tin' },
-  cream_soup_chx:  { kcal: 90,  p: 2.4,  c: 7.5,  f: 5.6, na: 700, fib: 0.4,  g: { can: 298, cup: 245 }, label: 'Cream of chicken soup', note: 'condensed cream of chicken' },
-  cream_soup_mush: { kcal: 82,  p: 1.6,  c: 6.5,  f: 5.3, na: 700, fib: 0.4,  g: { can: 298, cup: 245 }, label: 'Cream of mushroom soup', note: 'condensed cream of mushroom' },
-  soup_rts:        { kcal: 45,  p: 2.5,  c: 6,    f: 1.2, na: 350, fib: 0.8,  g: { can: 408, cup: 245 }, label: 'Chicken rotini soup', note: 'chicken rotini soup, 14.4 oz tin' },
+  salsa:           { kcal: 29,  p: 1.5,  c: 6,    f: 0.2, na: 700, fib: 1.5,  g: { cup: 260, tbsp: 16, jar: 751 }, def: { qty: 0.25, unit: 'cup' }, note: '26.5 oz jar', sold: { jar: 26.5 } },
+  tomato_sauce:    { kcal: 24,  p: 1.2,  c: 5.3,  f: 0.2, na: 460, fib: 1.5,  g: { can: 408, cup: 245 }, label: 'Tomato sauce', note: '14.4 oz', sold: { can: 14.4 } },
+  spaghetti_sauce: { kcal: 60,  p: 1.6,  c: 9.6,  f: 1.8, na: 480, fib: 2,  g: { jar: 785, can: 785, cup: 245 }, label: 'Spaghetti sauce', note: '27.7 oz', sold: { jar: 27.7, can: 27.7 } },
+  tomato_soup:     { kcal: 70,  p: 1.6,  c: 14,   f: 1.2, na: 470, fib: 1.2,  g: { can: 408, cup: 245 }, label: 'Tomato soup', note: '14.4 oz tin', sold: { can: 14.4 } },
+  cream_soup_chx:  { kcal: 90,  p: 2.4,  c: 7.5,  f: 5.6, na: 700, fib: 0.4,  g: { can: 298, cup: 245 }, label: 'Cream of chicken soup', note: 'condensed cream of chicken', sold: { can: 10.5 } },
+  cream_soup_mush: { kcal: 82,  p: 1.6,  c: 6.5,  f: 5.3, na: 700, fib: 0.4,  g: { can: 298, cup: 245 }, label: 'Cream of mushroom soup', note: 'condensed cream of mushroom', sold: { can: 10.5 } },
+  soup_rts:        { kcal: 45,  p: 2.5,  c: 6,    f: 1.2, na: 350, fib: 0.8,  g: { can: 408, cup: 245 }, label: 'Chicken rotini soup', note: 'chicken rotini soup, 14.4 oz tin', sold: { can: 14.4 } },
   ketchup:         { kcal: 101, p: 1.0,  c: 25,   f: 0.1, na: 907, fib: 0.3,  g: { cup: 240, tbsp: 17 }, def: { qty: 1, unit: 'tbsp' } },
   mustard:         { kcal: 66,  p: 3.7,  c: 5.8,  f: 3.3, na: 1120, fib: 3.3,  g: { cup: 249, tbsp: 15 }, def: { qty: 1, unit: 'tbsp' } },
   mayo:            { lever: 1, kcal: 680, p: 1,    c: 0.6,  f: 75, na: 635, fib: 0,   g: { cup: 220, tbsp: 14 }, def: { qty: 1, unit: 'tbsp' } },
@@ -167,7 +173,7 @@ const FOODS = {
   bbq_sauce:       { kcal: 172, p: 0.8,  c: 40.8, f: 0.6, na: 1027, fib: 0.8, label: 'BBQ sauce',  g: { cup: 280, tbsp: 17 } },
   soy_sauce:       { kcal: 53,  p: 8,    c: 4.9,  f: 0.6, na: 5493, fib: 0.8,  g: { cup: 255, tbsp: 16 }, label: 'Soy sauce', def: { qty: 1, unit: 'tbsp' } },
   hot_sauce:       { kcal: 11,  p: 0.5,  c: 1.8,  f: 0.4, na: 2600, fib: 1,  g: { cup: 240, tbsp: 15 }, label: 'Hot sauce', def: { qty: 1, unit: 'tbsp' } },
-  gravy_mix:       { kcal: 350, p: 8,    c: 68,   f: 4, na: 4000, fib: 1, label: 'Gravy mix',    g: { pkg: 25, tbsp: 8 } },
+  gravy_mix:       { kcal: 350, p: 8,    c: 68,   f: 4, na: 4000, fib: 1, label: 'Gravy mix',    g: { pkg: 25, tbsp: 8 }, sold: { pkg: 0.87 } },
   syrup:           { kcal: 260, p: 0,    c: 65,   f: 0, na: 12, fib: 0,    g: { cup: 315, tbsp: 20 }, def: { qty: 2, unit: 'tbsp' } },
   honey:           { kcal: 304, p: 0.3,  c: 82,   f: 0, na: 4, fib: 0.2,    g: { cup: 339, tbsp: 21 } },
   jam:             { kcal: 278, p: 0.4,  c: 69,   f: 0, na: 32, fib: 1.1, label: 'Jam',    g: { cup: 320, tbsp: 20 } },
@@ -181,19 +187,19 @@ const FOODS = {
   cinnamon_sugar:  { kcal: 380, p: 0.2,  c: 98,   f: 0.1, na: 1, fib: 1,  g: { cup: 200, tbsp: 12.5, tsp: 4.2 }, label: 'Cinnamon sugar', def: { qty: 1, unit: 'tbsp' } },
   cocoa:           { kcal: 228, p: 19.6, c: 58,   f: 13.7, na: 21, fib: 33, g: { cup: 86, tbsp: 5.4, tsp: 1.8 } },
   chocolate_chips: { kcal: 480, p: 4.2,  c: 63,   f: 30, na: 25, fib: 5.9, label: 'Chocolate chips',   g: { cup: 170, tbsp: 10.6 } },
-  cake_mix:        { kcal: 420, p: 4,    c: 80,   f: 9, na: 700, fib: 1.5,    g: { box: 432, cup: 120 }, label: 'Cake mix', note: 'dry mix' },
+  cake_mix:        { kcal: 420, p: 4,    c: 80,   f: 9, na: 700, fib: 1.5,    g: { box: 432, cup: 120 }, label: 'Cake mix', note: 'dry mix', sold: { box: 15.25 } },
   cake_baked:      { kcal: 380, p: 4,    c: 53,   f: 17, na: 400, fib: 1.2,   g: { each: 900, cup: 100 }, label: 'Baked cake', note: 'one baked 9x13 cake = 900 g' },
-  pudding_mix:     { kcal: 370, p: 0,    c: 92,   f: 0.4, na: 900, fib: 0.5,  g: { pkg: 96, cup: 150 }, label: 'Pudding mix', note: 'dry instant pudding mix' },
+  pudding_mix:     { kcal: 370, p: 0,    c: 92,   f: 0.4, na: 900, fib: 0.5,  g: { pkg: 96, cup: 150 }, label: 'Pudding mix', note: 'dry instant pudding mix', sold: { pkg: 3.4 } },
   pudding_made:    { kcal: 111, p: 2,    c: 19,   f: 3, na: 150, fib: 0.3,    g: { each: 140, serving: 140, cup: 240 }, label: 'Prepared pudding', def: { qty: 1, unit: 'serving' }, note: 'prepared pudding, 1 serving = 140 g' },
-  gelatin_flavored:{ kcal: 380, p: 7,    c: 88,   f: 0, na: 400, fib: 0,    g: { pkg: 85, each: 85, packet: 85 }, label: 'Flavored gelatin', def: { qty: 1, unit: 'packet' }, note: 'dry flavored gelatin' },
-  gelatin_plain:   { kcal: 335, p: 85,   c: 0,    f: 0, na: 200, fib: 0,    g: { pkg: 7, each: 7, packet: 7 }, label: 'Unflavored gelatin', def: { qty: 1, unit: 'packet' }, note: 'unflavored gelatin packet' },
-  cocoa_mix:       { kcal: 400, p: 6,    c: 78,   f: 8, na: 600, fib: 3, label: 'Hot cocoa mix', def: { qty: 1, unit: 'packet' },    g: { pkg: 28, each: 28, packet: 28 } },
+  gelatin_flavored:{ kcal: 380, p: 7,    c: 88,   f: 0, na: 400, fib: 0,    g: { pkg: 85, each: 85, packet: 85 }, label: 'Flavored gelatin', def: { qty: 1, unit: 'packet' }, note: 'dry flavored gelatin', sold: { pkg: 3 } },
+  gelatin_plain:   { kcal: 335, p: 85,   c: 0,    f: 0, na: 200, fib: 0,    g: { pkg: 7, each: 7, packet: 7 }, label: 'Unflavored gelatin', def: { qty: 1, unit: 'packet' }, note: 'unflavored gelatin packet', sold: { pkg: 0.25 } },
+  cocoa_mix:       { kcal: 400, p: 6,    c: 78,   f: 8, na: 600, fib: 3, label: 'Hot cocoa mix', def: { qty: 1, unit: 'packet' },    g: { pkg: 28, each: 28, packet: 28 }, sold: { pkg: 1 } },
   baking_powder:   { kcal: 53,  p: 0,    c: 28,   f: 0, na: 10600, fib: 0.2, label: 'Baking powder',    g: { tsp: 4.6, tbsp: 13.8 } },
   baking_soda:     { kcal: 0,   p: 0,    c: 0,    f: 0, na: 27360, fib: 0, label: 'Baking soda',    g: { tsp: 4.6, tbsp: 13.8 } },
   cornstarch:      { kcal: 381, p: 0.3,  c: 91,   f: 0.1, na: 9, fib: 0.9,  g: { cup: 128, tbsp: 8, tsp: 2.7 } },
   cola:            { kcal: 39,  p: 0,    c: 10.6, f: 0, na: 4, fib: 0, label: 'Cola',    g: { cup: 240, oz: 29.6, can: 355 } },
   salsa_verde:     { kcal: 36,  p: 1.1,  c: 6.5,  f: 0.9, na: 700, fib: 1.4, label: 'Salsa verde',  g: { cup: 260, tbsp: 16, jar: 453 } },
-  yeast:           { kcal: 325, p: 40,   c: 41,   f: 7.6, na: 51, fib: 26.9,  g: { pkg: 7, each: 7, packet: 7, tsp: 3, tbsp: 9 }, note: 'active dry yeast, 1 packet = 7 g', def: { qty: 1, unit: 'packet' } },
+  yeast:           { kcal: 325, p: 40,   c: 41,   f: 7.6, na: 51, fib: 26.9,  g: { pkg: 7, each: 7, packet: 7, tsp: 3, tbsp: 9 }, note: 'active dry yeast, 1 packet = 7 g', def: { qty: 1, unit: 'packet' }, sold: { pkg: 0.25 } },
 
   // ---- Supplements & drinks ----------------------------------------------
   whey:            { eat: 1, kcal: 400, p: 80,   c: 8,    f: 5, na: 300, fib: 2,    g: { each: 32, scoop: 32, cup: 120, tbsp: 8 }, label: 'Whey protein', def: { qty: 1, unit: 'scoop' }, note: '1 scoop = 32 g' },

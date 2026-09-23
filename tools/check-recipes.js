@@ -149,7 +149,17 @@ RECIPES.forEach((r) => {
   // Only count a figure as an oven or oil setting when something actually sets
   // it there. A doneness reading ("165°F on a thermometer") is not an oven temp,
   // and testing for that negatively kept letting cases through.
+  /* The bare "at" is the loose one: "Pork is done at 145°F" is a reading
+     taken inside the meat, and was judged as an oven setting. A figure whose
+     own clause talks about doneness, a reading, the inside or a thermometer is
+     a doneness temperature and is skipped; an oven still set out of range is
+     caught, because its clause says none of those things. */
+  const DONENESS = /\b(done|doneness|reads?|reading|inside|internal|thickest|thermometer|centre|center)\b/i;
   const temps = [...text.matchAll(/(?:oven to|bake at|bake it at|roast at|fry at|heat the oil to|preheat to|at)\s*(\d{3})\s*°?\s*f/gi)]
+    .filter((m) => {
+      const clause = text.slice(0, m.index).split(/[.;:—]/).pop() + m[0];
+      return !(/^at\b/i.test(m[0]) && DONENESS.test(clause));
+    })
     .map((m) => +m[1]);
   temps.forEach((tp) => {
     if (tp < 200 || tp > 500) flag(r, 'FAIL', `oven temperature out of range: ${tp}°F`);

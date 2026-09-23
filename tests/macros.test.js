@@ -4124,6 +4124,43 @@ module.exports = {
     t.ok('a newer phone that never saw a morning does not erase it',
       keptW['2026-09-01'] === 190 && keptW['2026-09-03'] === 186, JSON.stringify(keptW));
 
+    /* A value of the wrong shape from another device is ignored, not stored.
+       A string where `sn.to` wants a list used to land in storage and break
+       the next render on every device that took it. */
+    const bad = await scale.evaluate(() => {
+      const before = {
+        t: localStorage.getItem('bsc.macroTargets'),
+        w: localStorage.getItem('bsc.macroWeights'),
+        d: localStorage.getItem('bsc.macroDays'),
+        sn: localStorage.getItem('bsc.macroSend'),
+      };
+      const moved = window.__macroLab.merge({
+        t: { v: { p: '150', f: 60, c: 100 }, at: 9e12 },
+        sl: { v: { list: 'breakfast' }, at: 9e12 },
+        w: { '2026_09_04': { v: '185', at: 9e12 } },
+        d: { '2026_09_04': { v: 'lunch', at: 9e12 },
+          '2026_09_05': { v: { b: 'eggs' }, at: 9e12 } },
+        dn: { '2026_09_04': { v: 'yes', at: 9e12 } },
+        sp: { '2026_09_04': { v: [1, 2], at: 9e12 } },
+        sn: { '2026_09_04': { v: { f: 'd', to: 'l' }, at: 9e12 } },
+      });
+      let threw = '';
+      try { document.querySelector('.tab[data-view="macros"]').click(); } catch (e) { threw = e.message; }
+      return { moved, threw, same: before.t === localStorage.getItem('bsc.macroTargets') &&
+        before.w === localStorage.getItem('bsc.macroWeights') &&
+        before.d === localStorage.getItem('bsc.macroDays') &&
+        before.sn === localStorage.getItem('bsc.macroSend') };
+    });
+    t.ok('values of the wrong shape from another device are ignored, not stored',
+      bad.moved === false && bad.same && !bad.threw, JSON.stringify(bad));
+
+    const good = await scale.evaluate(() => {
+      window.__macroLab.merge({ sn: { '2026_09_04': { v: { f: 'd', to: ['l'] }, at: 9e12 } } });
+      return JSON.parse(localStorage.getItem('bsc.macroSend') || '{}')['2026-09-04'];
+    });
+    t.ok('and the same part in the right shape still lands',
+      good && good.f === 'd' && good.to.join() === 'l', JSON.stringify(good));
+
     /* A phone still on the old build pushes the old single-stamped shape.
        It cannot express a deletion, so it is unioned exactly as before —
        guessing a deletion from an absent key would erase every morning that
@@ -6029,13 +6066,19 @@ module.exports = {
     await q.waitForTimeout(200);
     await q.click('#macroFill');
     await q.waitForTimeout(300);
-    t.ok('refilling touches only the meal that was emptied',
-      await q.evaluate((keep) => {
-        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
-        const day = days[Object.keys(days)[0]];
-        return day.l.length === 1 && Object.keys(keep).every(
-          (k) => (day[k] || []).length && String(day[k][0].id) === keep[k]);
-      }, keepIds));
+    /* Lunch gets a dish again. It may also get a single food on top: the
+       topper finishes the DAY and lands on whichever meal is shortest, which
+       can be the one just refilled. Asserting exactly one item there made
+       this pass or fail on Fill's random pick from the top three. */
+    const refill = await q.evaluate((keep) => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const day = days[Object.keys(days)[0]];
+      const dishes = (day.l || []).filter((it) => String(it.id).indexOf('f:') !== 0);
+      return { ok: dishes.length === 1 && Object.keys(keep).every(
+        (k) => (day[k] || []).length && String(day[k][0].id) === keep[k]),
+        l: (day.l || []).map((it) => String(it.id)), keep };
+    }, keepIds);
+    t.ok('refilling touches only the meal that was emptied', refill.ok, JSON.stringify(refill));
 
     await q.context().close();
 
@@ -12466,6 +12509,75 @@ module.exports = {
       const e0 = await row('b');
       t.ok('but an egg still counts in ones', /^2 whole$/.test(e0.dial) && /\d+ g/.test(e0.chip), JSON.stringify(e0));
       await gp.context().close();
+    }
+
+    /* ---- targets follow the scale, once a week ------------------------
+     *
+     * Blake chose it: the saved grams catch up with the weight weekly, RP
+     * style, and the app says so. A week with nothing on the scale moves
+     * nothing, grams somebody typed are theirs, and Undo gives them back. */
+    {
+      const fp = await t.fresh();
+      const seed = (targ) => fp.evaluate((tg) => {
+        const key = (n) => { const d = new Date(); d.setDate(d.getDate() - n);
+          const p2 = (x) => (x < 10 ? '0' : '') + x;
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+        localStorage.clear();
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+          inch: 11, lb: 205, act: 1.375, goal: 'cut2', goalLb: 0, goalBy: '' }));
+        const w = {};
+        for (let i = 0; i < 7; i++) w[key(i)] = 190;
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+        if (tg) localStorage.setItem('bsc.macroTargets', JSON.stringify(
+          Object.assign({}, tg, tg.set !== undefined ? { set: key(tg.set) } : {})));
+      }, targ);
+      const read = () => fp.evaluate(() => ({
+        rec: JSON.parse(localStorage.getItem('bsc.macroTargets')),
+      }));
+
+      await seed({ p: 205, f: 68, c: 170, set: 9 });
+      await fp.reload();
+      await fp.click('.tab[data-view="macros"]');
+      await fp.waitForTimeout(300);
+      const moved = await read();
+      const r = moved.rec;
+      t.ok('a week on, the saved grams follow the scale',
+        r.p !== 205 && r.auto === 1 && r.moved && r.moved.prev.p === 205 &&
+        r.moved.to === 4 * r.p + 4 * r.c + 9 * r.f, JSON.stringify(r));
+      const notice = await fp.textContent('#macroWeigh');
+      t.ok('and the card says so, with both numbers',
+        /Targets updated for your weight/.test(notice) &&
+        notice.indexOf(Number(r.moved.to).toLocaleString()) >= 0, notice.slice(0, 300));
+
+      await fp.click('[data-mline="mline:moved:undo"]');
+      await fp.waitForTimeout(200);
+      const undone = (await read()).rec;
+      t.ok('Undo puts the old grams back and leaves them alone after',
+        undone.p === 205 && undone.f === 68 && undone.c === 170 && undone.auto === 0 && !undone.moved,
+        JSON.stringify(undone));
+      await fp.reload();
+      await fp.waitForTimeout(300);
+      t.ok('so the next load does not move them again', (await read()).rec.p === 205);
+
+      await seed({ p: 205, f: 68, c: 170, set: 3 });
+      await fp.reload();
+      await fp.waitForTimeout(300);
+      t.ok('inside the week, nothing moves', (await read()).rec.p === 205);
+
+      await seed({ p: 205, f: 68, c: 170, set: 9, auto: 0 });
+      await fp.reload();
+      await fp.waitForTimeout(300);
+      t.ok('grams somebody typed are never moved', (await read()).rec.p === 205);
+
+      await fp.evaluate(() => {
+        localStorage.setItem('bsc.macroWeights', JSON.stringify({ '2020-01-01': 190 }));
+        const tg = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+        delete tg.auto; localStorage.setItem('bsc.macroTargets', JSON.stringify(tg));
+      });
+      await fp.reload();
+      await fp.waitForTimeout(300);
+      t.ok('and a week with nothing on the scale moves nothing', (await read()).rec.p === 205);
+      await fp.context().close();
     }
   },
 };

@@ -86,6 +86,34 @@ FIXES.forEach((f) => {
   applied++;
 });
 
+/* Every tin, jar, box and packet says how big it is.
+
+   "1 can black beans" leaves the cook to guess at the shelf, and a pudding box
+   or a gelatin packet comes in sizes that do not behave alike: a 3 oz box of
+   flavored gelatin and a ¼ oz envelope of plain are both "a packet". The
+   storehouse sells one size of each, and food-db.js records it as `sold` —
+   so the size is written in here from that one table rather than typed into
+   seventy lines by hand, and a recipe added later gets it too.
+
+   A container line whose food has no `sold` size stops the build. The only
+   way to leave one unsized is to not say what it comes in. */
+const { parseLine: sizeParse, FOODS: SIZE_FOODS } = require('./parse-lib.js');
+const CONTAINER = /^((?:\d+(?:\.\d+)?\s*)?[½¼¾⅓⅔⅛]?\s*)(cans?|jars?|pkgs?|packages?|packets?|box(?:es)?)\s+(?!\()/i;
+const unsized = [];
+function ozWords(n) { return n === 0.25 ? '¼' : n === 0.5 ? '½' : String(n); }
+ORIGINAL.concat(ADDED).forEach((r) => {
+  r.ing = r.ing.map((line) => {
+    const m = line.match(CONTAINER);
+    if (!m || /\(\s*[\d¼½¾]+(?:\.\d+)?\s*oz\b/.test(line)) return line;
+    const hit = sizeParse(line);
+    const food = hit && hit.key && SIZE_FOODS[hit.key];
+    const oz = food && food.sold && food.sold[hit.unit];
+    if (!oz) { unsized.push(r.id + ': ' + line); return line; }
+    return m[1] + m[2] + ' (' + ozWords(oz) + ' oz) ' + line.slice(m[0].length);
+  });
+});
+if (unsized.length) throw new Error('container with no sold size in food-db.js:\n  ' + unsized.join('\n  '));
+
 /* Run and Not Be Weary is re-sectioned after the corrections and before
    anything is measured or paginated — its four making-based sections become
    seven meals and moments. See tools/sections.js; it throws rather than guess

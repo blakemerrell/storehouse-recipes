@@ -136,7 +136,7 @@ The outliers, worth a look before this goes to print:
 | 6 | Sweet Vanilla Yogurt & Grape Crunch | 230 | 360 | +57% |
 | 9 | Roast Beef Lettuce Roll-Ups | 200 | 311 | +56% |
 | 65 | Herb Pork Loin & Roasted Carrots | 360 | 555 | +54% |
-| 3 | Quick Canned Chicken & Salsa Bowl | 310 | 471 | +52% |
+| 3 | Quick Canned Chicken & Salsa Bowl | 310 | 455 | +47% |
 | 78 | Zero-Sugar Chocolate Gelatin Fluff | 140 | 77 | -45% |
 | 33 | Strawberry Protein Yogurt Parfait | 340 | 470 | +38% |
 | 28 | Savory Egg & Sausage Breakfast Wrap | 410 | 551 | +34% |
@@ -239,7 +239,7 @@ app labels them as such. They have not been kitchen-tested.
 
 ### Recipes whose method differs from the printed book
 
-132 of the 225 carried-over recipes are cooked differently here than
+134 of the 225 carried-over recipes are cooked differently here than
 the book prints them. The app shows the corrected method and says nothing about
 the change; this table is the whole record of it.
 
@@ -274,14 +274,14 @@ the change; this table is the whole record of it.
 | 94 | Beef & Green Bean Rice Stir-Fry | `Brown ground beef 8 mins, drain fat.` | `Brown the ground beef over medium-high, breaking it up, about 8 minutes, until no pink is left. Drain the fat.` |
 | 96 | Chipotle Chicken & Bean Bowls | `Cook diced chicken with salsa in skillet 10 mins.` | `Cook the diced chicken with the salsa in a skillet over medium heat, about 10 minutes, until the chicken is 165°F and th…` |
 | 97 | Shredded Pork & Veggie Skillet | `Sauté sliced bell peppers, onions, and carrots in skillet 8 mins.` | `Sauté the sliced peppers, onions and carrots over medium-high, about 8 minutes, until the edges have taken colour and th…` |
-| 98 | Beef Stew Meat & Mashed Potato Bowls | `Make instant mashed potatoes.` | `Make up the mashed potatoes from the flakes — about 2 cups of flakes to 2 cups of boiling water and a splash of milk, or…` |
+| 98 | Beef Stew Meat & Mashed Potato Bowls | `Make instant mashed potatoes.` | `Make up the mashed potatoes: bring 2 cups of water to the boil, take it off the heat, add a splash of milk, then stir in…` |
 | 99 | Roasted Chicken Breast & Potato Wedges | `Preheat oven to 400°F.` | `Heat the oven to 400°F.` |
 | 100 | Buffalo Chicken & Rice Prep | `Cook diced chicken in skillet 8 mins; toss with hot sauce and ranch.` | `Cook the diced chicken over medium-high about 8 minutes, until no pink is left and the thickest part reads 165°F. Toss w…` |
 | 114 | Zero-Sugar Chocolate Gelatin Fluff | `Dissolve gelatin packet in 1 cup boiling water.` | `Dissolve the gelatin packet in 1 cup of boiling water, stirring until no grains are left.` |
 | 119 | Protein Pudding Parfait | `Make chocolate pudding.` | `Use a serving of made-up chocolate pudding — a packet whisked with 2 cups of cold milk makes four of them, or {r:202} if…` |
 | 124 | Crio Bru Power Morning Cocktail | `Blend on high for 15 seconds until frothy.` | `Blend on high 15 seconds until frothy — but let the Crio Bru cool for five minutes first, or leave the lid cracked with …` |
 | 129 | Salted Caramel Crio Bru Shake | `Blend hot Crio Bru, whey, brown sugar, and sea salt for 15 seconds.` | `Let the Crio Bru stand five minutes off the boil, then blend it with the whey, brown sugar and salt for 15 seconds. Hot …` |
-| 142 | Slow-Cooker Shredded Salsa Chicken Bowls | `Put chicken and salsa into slow cooker. Cook LOW 4 hours (or HIGH 2.5 hours).` | `Put chicken and salsa into slow cooker. Cook LOW 4 hours (or HIGH 2.5 hours). An onion first: chopped, into the hot fat,…` |
+| 142 | Slow-Cooker Shredded Salsa Chicken Bowls | `Put chicken and salsa into slow cooker. Cook LOW 4 hours (or HIGH 2.5 hours).` | `Put chicken and salsa into slow cooker. Cook LOW 4 hours (or HIGH 2.5 hours). A chopped onion under the chicken is worth…` |
 | 143 | Sheet-Pan Chicken & Roasted Veggie Medley | `Cube chicken, potatoes, broccoli, and peppers. Toss with 1 tbsp oil, salt, pepper.` | `Cube chicken, potatoes, broccoli, and peppers. Toss with 1 tbsp oil, salt, pepper. Cut the chicken into even pieces, abo…` |
 | 144 | Stewing Beef & Root Veggie Slow-Cooker Stew | `Cover and cook LOW 8 hours until beef falls apart.` | `Cover and cook LOW 8 hours until beef falls apart. Brown the beef in a hot pan before it goes into the cooker, dark on e…` |
 | 145 | Lean Beef & Pinto Bean Chili | `Add pinto beans, diced tomatoes, 1 tbsp chili powder, and 1 cup water.` | `Add pinto beans, diced tomatoes, 1 tbsp chili powder, and 1 cup water. This is where the cumin goes: a teaspoon of it wi…` |
@@ -370,11 +370,13 @@ the change; this table is the whole record of it.
 | 265 | Apple Cinnamon Dumplings | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
 | 266 | PB & Jam Thumbprint Treats | `Preheat oven to 350°F.` | `Heat the oven to 350°F.` |
 | 267 | Chocolate Cake Pops | `Mix with 2 tbsp milk until fudgy dough forms.` | `Mix in the cocoa and the milk until it comes together into a fudgy dough that holds a shape when squeezed. Add the milk …` |
+| 269 | Vanilla Cream Fruit Trifle | `Layer in glass bowl: yellow cake cubes, vanilla pudding, diced peaches. Chill 30 mins.` | `Layer in glass bowl: yellow cake cubes, vanilla pudding, diced peaches. Chill 30 mins. The cake is half of {r:205}, bake…` |
 | 270 | Cinnamon Dessert Waffles | `Cook waffles in waffle iron.` | `Cook waffles in waffle iron. Beat the waffle mix, milk and egg together first and let the batter stand a couple of minut…` |
 | 271 | Homemade Chocolate Pudding Pie | `Preheat oven to 375°F. Make pastry crust with flour and butter, bake 15 mins.` | `Heat the oven to 375°F. Rub the cold butter into the flour and a pinch of salt until it looks like coarse crumbs, then s…` |
 | 272 | Sweet Cinnamon Raisin Bread Pudding | `Preheat oven to 350°F.` | `Butter an 8-inch square baking dish and heat the oven to 350°F.` |
 | 273 | Chocolate Covered Banana Pops | `Melt cocoa powder, butter, and sugar into chocolate sauce.` | `Melt the butter in a small pan over low heat, then whisk in the sugar, the cocoa and the milk until it is glossy and pou…` |
 | 275 | Peanut Butter Fudge Squares | `Stir melted butter, peanut butter, and powdered sugar in bowl until smooth.` | `Stir melted butter, peanut butter, and powdered sugar in bowl until smooth. A pinch of salt and half a teaspoon of vanil…` |
+| 276 | Yellow Cake Berry Shortcake | `Slice yellow cake horizontally.` | `Slice yellow cake horizontally. The cake is half of {r:205}, baked and left unfrosted.` |
 | 277 | Hot Fudge Cake Bowls | `Preheat oven to 350°F.` | `Heat the oven to 350°F. Butter a 9x13 dish.` |
 | 278 | Cinnamon Sugar Apple Fritter Bites | `Whisk pancake mix, milk, and diced apple.` | `Whisk pancake mix, milk, and diced apple. Two tablespoons of sour cream or Greek yogurt in the batter make the fritters …` |
 

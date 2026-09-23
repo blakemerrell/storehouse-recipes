@@ -304,8 +304,12 @@
      is what sinks it on a cut, not the filter. */
   var MEAL_SECS = {
     b: ['1-1', '2-1'],
-    l: ['1-3', '2-2'],
-    d: ['1-4', '2-3', '2-4'],
+    /* Batch Prep is nine meal-prep containers — salsa chicken bowls, chili,
+       pasta bakes, burritos — cooked on Sunday and eaten as lunch or dinner
+       all week. It was on neither list, so the one shelf written for the way
+       a cut is actually eaten was never offered at a meal. */
+    l: ['1-3', '2-2', '1-7'],
+    d: ['1-4', '2-3', '2-4', '1-7'],
     /* Not 2-6 and not 2-7. "A treat is a snack" held for churros; it did not
        hold for Worth the Afternoon — bread, cinnamon rolls, braised beef,
        chicken pot pie, 326 kcal a serving — or for the Copycat Shelf, where
@@ -1244,9 +1248,11 @@
    *   stamps    whether the payload also speaks for keys it has a STAMP for
    *             but no value. That is how a DELETION crosses: an absent key is
    *             indistinguishable from a key never heard of, so a part that
-   *             can be deleted has to keep speaking about it. (`d` does not,
-   *             and so a forgotten day does not travel — noted, not changed
-   *             here, because this block is a refactor and that is a fix.)
+   *             can be deleted has to keep speaking about it. `d` does not
+   *             need to: nothing in the interface deletes a day. Emptying one
+   *             leaves the day in place, empty, and that travels; the only
+   *             deletion is the fourteen-day window, which every device
+   *             applies to itself.
    *   accept(r) whether a remote entry is sayable at all
    *   put(k,v)  how a remote value lands
    *   ls        where it is kept, so the persist step cannot miss one
@@ -1255,6 +1261,24 @@
    * assigned by IIFEs further down the file, and a table that captured them
    * at definition time would capture undefined. */
   function mSyncKey(k) { return String(k).replace(/-/g, '_'); }
+
+  /* What a value from another device has to look like before it is let in.
+     The merge used to check only that something was there, so a string where
+     a list belongs landed in storage and broke the next render — on every
+     device, until somebody cleared it. Found when a test fixture put a string
+     in `sn.to`. A value of the wrong shape is ignored, as if it never came:
+     the next push from a device that has it right corrects the record. */
+  function mPlainObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function mNum(v) { return typeof v === 'number' && isFinite(v); }
+  function mStrList(v) {
+    return Array.isArray(v) && v.every(function (x) { return typeof x === 'string'; });
+  }
+  var MSYNC_SHAPE = {
+    mf: mPlainObj,
+    t: function (v) { return mPlainObj(v) && mNum(v.p) && mNum(v.f) && mNum(v.c); },
+    pr: mPlainObj,
+    sl: function (v) { return mPlainObj(v) && Array.isArray(v.list); }
+  };
   function mSyncUnkey(e) { return String(e).replace(/_/g, '-'); }
 
   var MSYNC_SIMPLE = [
@@ -1267,41 +1291,52 @@
       store: function () { return MWEIGHTS; },
       value: function (k) { return MWEIGHTS[k] || 0; },
       /* Zero is a real answer: it is the morning you cleared. */
-      accept: function (r) { return r.v !== undefined; },
+      accept: function (r) { return mNum(r.v) && r.v >= 0; },
       put: function (k, v) { if (v > 0) MWEIGHTS[k] = v; else delete MWEIGHTS[k]; } },
 
     { part: 'd', ls: 'bsc.macroDays', stamps: false,
       store: function () { return MDAYS; },
       value: function (k) { return MDAYS[k]; },
-      accept: function (r) { return !!r.v; },
+      /* A day is meals keyed by slot, each a list of plates. */
+      accept: function (r) {
+        return mPlainObj(r.v) && Object.keys(r.v).every(function (sk) {
+          var m = r.v[sk];
+          return m === null || m === undefined || (Array.isArray(m) && m.every(mPlainObj));
+        });
+      },
       put: function (k, v) { MDAYS[k] = v; } },
 
     { part: 'dn', ls: 'bsc.macroDone', stamps: false,
       store: function () { return MDONE; },
       value: function (k) { return mDoneAt(k); },
       /* Zero means "I reopened this", so a falsy value must still land. */
-      accept: function (r) { return r.v !== undefined; },
+      accept: function (r) { return mNum(r.v); },
       put: function (k, v) { MDONE[k] = Number(v) || 0; } },
 
     { part: 'tn', ls: 'bsc.macroTrained', stamps: false,
       store: function () { return MTRAINED; },
       value: function (k) { return mTrainedAt(k); },
       /* And zero here means "I un-ticked it". */
-      accept: function (r) { return r.v !== undefined; },
+      accept: function (r) { return mNum(r.v); },
       put: function (k, v) { MTRAINED[k] = Number(v) || 0; } },
 
     { part: 'sp', ls: 'bsc.macroSkip', stamps: true,
       store: function () { return MSKIP; },
       value: function (k) { return MSKIP[k] || []; },
       /* An empty list is a real answer: it means "I un-skipped them all". */
-      accept: function (r) { return Array.isArray(r.v); },
+      accept: function (r) { return mStrList(r.v); },
       put: function (k, v) { if (v.length) MSKIP[k] = v.slice(); else delete MSKIP[k]; } },
 
     { part: 'sn', ls: 'bsc.macroSend', stamps: true,
       store: function () { return MSEND; },
       value: function (k) { return MSEND[k] || null; },
       /* Null is a real answer: it means "I cleared that day's choice". */
-      accept: function () { return true; },
+      accept: function (r) {
+        var v = r.v;
+        if (v === null || v === undefined) return true;
+        return mPlainObj(v) && (v.to === undefined || mStrList(v.to)) &&
+          (v.f === undefined || typeof v.f === 'string');
+      },
       put: function (k, v) {
         if (v && typeof v === 'object' && !Array.isArray(v)) MSEND[k] = v;
         else delete MSEND[k];
@@ -1412,6 +1447,7 @@
     var take = function (part, key, apply) {
       var r = md[part];
       if (!r || !r.v || !(r.at > (MSTAMPS[part] || 0))) return;
+      if (MSYNC_SHAPE[part] && !MSYNC_SHAPE[part](r.v)) return;
       apply(r.v);
       MSTAMPS[part] = r.at;
       moved = true;
@@ -1883,13 +1919,76 @@
     if (Number(was.p) === now.p && Number(was.f) === now.f && Number(was.c) === now.c) {
       return false;
     }
-    mWriteTargets(now);
+    /* The grams change; what the record says about itself does not. */
+    mWriteTargets(Object.assign({}, was, { p: now.p, f: now.f, c: now.c }));
     return true;
   }
   function mWriteTargets(t) {
     mStamp('t');
     try { localStorage.setItem('bsc.macroTargets', JSON.stringify(t)); }
     catch (e) { /* private mode: the render reads defaults, nothing breaks */ }
+  }
+
+  /* ------------------------------------------------ targets follow the scale
+   *
+     The plan card worked its calories out from this week's weight; the bars
+     scored the day against the grams saved when Save was last pressed. Ten
+     pounds later those were two different days, on one screen. Blake chose
+     to have the saved targets follow the scale once a week, the way RP
+     adjusts, and to be told when they move.
+   *
+     The record carries three things beside the grams:
+       auto   1 when the grams are the plan's own; 0 when somebody typed their
+              own numbers into the boxes, which are theirs and are left alone.
+              Absent on a record saved before this — treated as the plan's,
+              since the boxes are filled from the plan, and the notice's Undo
+              is there for the one that was not.
+       set    the day the grams were last decided, by anybody.
+       moved  what the last weekly change was, for the notice: from and to in
+              kcal, the day, and the grams before, so Undo can put them back.
+   *
+     Only on a week with a weigh-in in it. With nothing new on the scale the
+     plan cannot have moved, and a "change" worked out from a stale average
+     would only be the formula disagreeing with itself. */
+  var MTARG_WEEK = 7;
+  function mTargRec() {
+    try {
+      var v = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+    } catch (e) { return null; }
+  }
+  function mDaysSince(k) { return Math.round((keyDate(todayKey()) - keyDate(k)) / 86400000); }
+
+  function mFollowScale() {
+    var rec = mTargRec();
+    if (!rec || rec.auto === 0) return false;
+    var set = rec.set || (MSTAMPS.t ? dayKey(new Date(MSTAMPS.t)) : '');
+    if (!set || mDaysSince(set) < MTARG_WEEK) return false;
+    var recent = Object.keys(MWEIGHTS).some(function (k) {
+      return MWEIGHTS[k] > 0 && mDaysSince(k) < MTARG_WEEK;
+    });
+    if (!recent) return false;
+    var fresh = mPlanCalc(mReadProfile());
+    if (!fresh) return false;
+    var cur = mReadTargets();
+    /* A change worth a sentence. Two grams of protein and twenty calories
+       is the formula's rounding, not the body. */
+    if (Math.abs(kcalOf(fresh) - kcalOf(cur)) < 25 && Math.abs(fresh.p - cur.p) < 3) return false;
+    mWriteTargets({ p: fresh.p, f: fresh.f, c: fresh.c, auto: 1, set: todayKey(),
+      moved: { from: kcalOf(cur), to: kcalOf(fresh), on: todayKey(),
+        prev: { p: cur.p, f: cur.f, c: cur.c } } });
+    return true;
+  }
+
+  /* The notice, for three days after a change or until answered. */
+  function mMovedHTML() {
+    var rec = mTargRec();
+    var mv = rec && rec.moved;
+    if (!mv || mv.ok || !mv.on || mDaysSince(mv.on) > 3) return '';
+    return mLineHTML('calm', '\u21bb',
+      '<b>Targets updated for your weight.</b> ' + Number(mv.from).toLocaleString() +
+        ' \u2192 ' + Number(mv.to).toLocaleString() + ' kcal a day.',
+      '', [['OK', 'mline:moved:ok'], ['Undo', 'mline:moved:undo']]);
   }
 
   /* The days live in memory and persist best-effort, so a browser that refuses
@@ -2885,7 +2984,11 @@
     var pace = mGoalPace(pr);
     if (!pace) {
       return { has: true, html: '<b>' + esc(MGOAL_WORDS[pr.goal] || MGOAL_WORDS.cut1) +
-        '</b> &middot; ' + plan.kcal + ' kcal a day &middot; name a weight and a date to track the arrival' };
+        /* The saved day, which is what the bars score against. The live
+           calculation drifts from it between weekly updates, and one card
+           showing two numbers for one day was the thing being fixed. */
+        '</b> &middot; ' + (mTargRec() ? kcalOf(mReadTargets()) : plan.kcal).toLocaleString() +
+        ' kcal a day &middot; name a weight and a date to track the arrival' };
     }
     var st0 = mWeightStats();
     var now0 = st0 ? st0.avg7 : pr.lb;
@@ -3516,6 +3619,7 @@
           (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html +
           (hasPlan ? ' <button class="ghost mplan-go no-print" id="macroTargBtn">' +
             'Craft my plan</button>' : '') + '</div>') +
+      (k === todayKey() ? mMovedHTML() : '') +
       mMorningHTML(k, 'face') +
       (!openAll ? '' : '<div class="mw-body">' + mMorningHTML(k, 'body') + body +
         (face.has
@@ -10299,7 +10403,13 @@
       if (gap < MSIDE_GAP) return added;
       var slot = mSideSlot(day);
       if (!slot) return added;
-      var naRoom = Math.max(0, MNA_CAP - (tot.all.na || 0));
+      /* The topper's ceiling applies here too. A side is also something Fill
+         put on the plate that nobody asked for, and "never a condiment's worth
+         of salt from one addition" is a rule about additions, not toppers. It
+         was the day's remaining room alone, so a double helping of a canned
+         vegetable could bring six hundred milligrams on its own — which the
+         suite's salt guard caught on some draws and not others. */
+      var naRoom = Math.min(MTOP_NA, Math.max(0, MNA_CAP - (tot.all.na || 0)));
       var best = null;
       MFOODS.forEach(function (r) {
         var mac = r.macro || {};
@@ -14609,6 +14719,20 @@
       var b = e.target.closest('[data-mline]');
       if (!b) return;
       var parts = b.dataset.mline.split(':');
+      if (parts[1] === 'moved') {
+        var rec0 = mTargRec();
+        if (!rec0 || !rec0.moved) return;
+        if (parts[2] === 'undo') {
+          /* Back to what was there, and left there: somebody who undid the
+             weekly change has said these grams are theirs. */
+          var pv = rec0.moved.prev || {};
+          mWriteTargets({ p: pv.p, f: pv.f, c: pv.c, auto: 0, set: todayKey() });
+        } else {
+          mWriteTargets(Object.assign({}, rec0, { moved: Object.assign({}, rec0.moved, { ok: 1 }) }));
+        }
+        renderMacros();
+        return;
+      }
       /* Not a class on a node this time: the node is about to be replaced.
          Hiding it was the whole bug. */
       if (parts[1] !== 'eat') {
@@ -14627,7 +14751,7 @@
       var f = Math.max(Math.min(t.f, floorF), Math.round(t.f + (want - now) * 0.25 / 9));
       var c = Math.round((want - 4 * t.p - 9 * f) / 4);
       if (c < 0) { c = 0; f = Math.max(floorF, Math.round((want - 4 * t.p) / 9)); }
-      mWriteTargets({ p: t.p, f: Math.max(0, f), c: Math.max(0, c) });
+      mWriteTargets({ p: t.p, f: Math.max(0, f), c: Math.max(0, c), auto: 1, set: todayKey() });
       renderMacros();
     });
 
@@ -15602,9 +15726,16 @@
             var n = Math.round(Number(el && el.value) || 0);
             return Math.max(0, Math.min(999, n));
           };
-          mWriteTargets({ p: gv('mtP'), f: gv('mtF'), c: gv('mtC') });
+          var saved = { p: gv('mtP'), f: gv('mtF'), c: gv('mtC') };
           // the profile rides along, so next time the sheet already knows you
           mWriteProfile(mtProfileFromDom());
+          /* Whether these are the plan's grams or somebody's own. Within a
+             gram, because the boxes are whole numbers and so is the plan. */
+          var planNow = mPlanCalc(mReadProfile());
+          saved.auto = planNow && Math.abs(planNow.p - saved.p) <= 1 &&
+            Math.abs(planNow.f - saved.f) <= 1 && Math.abs(planNow.c - saved.c) <= 1 ? 1 : 0;
+          saved.set = todayKey();
+          mWriteTargets(saved);
           /* And the meals, as the rows now stand. A nameless row was a
              mistake rather than a meal, and an empty list would be a day
              with nowhere to put food — both fall back rather than save. */
@@ -15959,6 +16090,7 @@
      below this body's floor or have no carbohydrate in it, and the correction
      belongs here rather than inside whichever read happened to run first. */
   mHealTargets();
+  mFollowScale();
   wire();
   window.Store.init(function () { renderAll(); mHouseWatch(); });
   renderAll();

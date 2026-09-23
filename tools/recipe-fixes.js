@@ -478,8 +478,8 @@ module.exports = [
   /* Instant mashed potatoes, four times, with no quantity and no pointer at
      the recipe that replaces them. The packet knows the ratio; the reader
      standing at the counter with a scoop does not. */
-  { id: 62, step: 1, set: 'Make up the instant potatoes — about 2 cups of flakes to 2 cups of boiling water and a splash of milk, or whatever the tub says. Out of flakes? {r:276} does it from the potatoes on the order.' },
-  { id: 72, step: 1, set: 'Make up the mashed potatoes from the flakes — about 2 cups of flakes to 2 cups of boiling water and a splash of milk, or whatever the tub says. Out of flakes? {r:276} does it from the potatoes on the order.' },
+  { id: 62, step: 1, set: 'Make up the instant potatoes: bring 2 cups of water to the boil, take it off the heat, add a splash of milk, then stir in the 2 cups of flakes with a fork until fluffy. Give it a minute to thicken. Out of flakes? {r:276} does it from the potatoes on the order.' },
+  { id: 72, step: 1, set: 'Make up the mashed potatoes: bring 2 cups of water to the boil, take it off the heat, add a splash of milk, then stir in the 2 cups of flakes with a fork until fluffy. Give it a minute to thicken. Out of flakes? {r:276} does it from the potatoes on the order.' },
   { id: 156, step: 1, set: 'Make up the mashed potatoes with the butter and milk, 2 cups of flakes to 2 cups of boiling water. No flakes? {r:276}.' },
   { id: 171, step: 2, add: 'Out of instant potato flakes? {r:276} makes mashed potatoes from the potatoes on the order.' },
 
@@ -1289,7 +1289,7 @@ module.exports = [
   { id: 48, step: 1, add: 'Get the pan hot before the pork goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
   { id: 48, step: 3, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
   { id: 49, step: 0, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
-  { id: 51, step: 0, add: 'Pound the thick end level and salt it while the pan heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
+  { id: 51, step: 0, add: 'Pound the thick end level and salt it while the oven heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
   { id: 51, lift: { with: 'A head of garlic, Cumin and paprika', steps: [
       'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
       'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
@@ -1297,7 +1297,7 @@ module.exports = [
   { id: 52, lift: { with: 'Parmesan', steps: [
       'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
     ] } },
-  { id: 53, step: 0, add: 'An onion first: chopped, into the hot fat, and left until the edges go gold before the rest arrives.' },
+  { id: 53, step: 0, add: 'A chopped onion under the chicken is worth having; it melts into the salsa over the hours.' },
   { id: 53, lift: { with: 'A head of garlic, Cumin and paprika', steps: [
       'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
       'A teaspoon of cumin and one of paprika in with the meat as it cooks. Or the taco seasoning: {r:337}.',
@@ -1360,7 +1360,7 @@ module.exports = [
       'A teaspoon of vinegar stirred in at the end, off the heat. It does not taste of vinegar; it tastes like the pot woke up.',
       'A tablespoon of soy sauce in with the liquid. Nobody tastes soy; they taste more beef.',
     ] } },
-  { id: 73, step: 1, add: 'Pound the thick end level and salt it while the pan heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
+  { id: 73, step: 1, add: 'Pound the thick end level and salt it while the oven heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
   { id: 102, step: 1, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
   { id: 103, step: 0, add: 'Get the pan hot before the pork goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
   { id: 107, step: 1, add: 'Get the pan hot before the sausage goes in, and leave it alone until it lets go of the pan on its own — grey meat is meat that was stirred too soon.' },
@@ -1444,7 +1444,7 @@ module.exports = [
       'Two cloves of garlic, chopped, into the pan for the last minute of cooking — any longer and it burns bitter.',
       'Finish with a teaspoon of vinegar, off the heat. Everything in the pot tastes more like itself.',
     ] } },
-  { id: 169, step: 1, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
+  { id: 169, step: 1, add: 'Pat the strips dry before they go into the egg, and once they are in the hot pan do not move them until the underside is brown.' },
   { id: 170, lift: { with: 'Onion, garlic, mustard, Worcestershire, Parmesan', steps: [
       'A diced onion with the beef, garlic at the end.',
       'A teaspoon of mustard and a splash of Worcestershire with the ketchup. That combination is what makes a cheeseburger taste of a cheeseburger.',
@@ -1534,7 +1534,6 @@ module.exports = [
   { id: 245, lift: { with: 'Parmesan', steps: [
       'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
     ] } },
-  { id: 246, step: 0, add: 'Pat the chicken dry and lay it in a hot pan, and do not move it until the underside is brown. Wet chicken steams; dry chicken browns.' },
   { id: 279, step: 0, add: 'Toast the oats two minutes in the dry pan first, until they smell like biscuits, and then add the liquid. Nutty instead of flat.' },
   { id: 281, step: 4, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
   { id: 283, step: 4, add: 'A spoon of salsa on top, or a tablespoon of cheddar in the last minute: acid, salt and a crust, and neither changes the day much.' },
@@ -1577,7 +1576,7 @@ module.exports = [
   { id: 312, lift: { with: 'A lemon', steps: [
       'The juice of half a lemon over the chicken and the greens at the table. It is the thing the plate was missing.',
     ] } },
-  { id: 313, step: 0, add: 'Pound the thick end level and salt it while the pan heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
+  { id: 313, step: 0, add: 'Salt it while the pot heats, and cut every piece to one size so they cook through together.' },
   { id: 313, lift: { with: 'A head of garlic', steps: [
       'Two cloves of garlic, chopped fine, in after the onion and before the liquid. Thirty seconds is enough; it only needs to smell.',
     ] } },
@@ -1587,7 +1586,7 @@ module.exports = [
   { id: 323, lift: { with: 'Parmesan', steps: [
       'A handful of grated Parmesan over the top for the last five minutes — salt, and a crust that a box never makes.',
     ] } },
-  { id: 329, step: 0, add: 'Pound the thick end level and salt it while the pan heats; rest it five minutes before cutting. Even thickness is what stops the thin end drying out while the thick end catches up.' },
+  { id: 329, step: 0, add: 'Pound the thick end level and salt it while the pan heats. Even thickness is what stops the thin end drying out while the thick end catches up.' },
   { id: 333, lift: { with: 'Soy sauce', steps: [
       'A tablespoon of soy sauce in with the liquid. Nobody tastes soy; they taste more beef.',
     ] } },
@@ -1705,4 +1704,50 @@ module.exports = [
       'Stir the instant potatoes into 3 cups of boiling water, let them stand a minute, and serve the patties and their gravy over them.',
     ] },
   { id: 89, step: 0, set: 'Use a serving of made-up chocolate pudding \u2014 a packet whisked with 2 cups of cold milk makes four of them, or {r:202} if you would rather it was already portioned.' },
+
+  /* ---- what the audit of 2026-09-20 left open --------------------------
+   *
+   * No. 238's rice is priced dry — two cups of it, 370 g — and the method
+   * only ever served it. It now says it is dry and says how to cook it.
+   *
+   * Nos. 269 and 276 are built on half a yellow cake and never said which.
+   * The book bakes one: No. 258, which frosts it; these want it plain.
+   *
+   * The doughnut dough went from "a soft dough" straight to rising. Enriched
+   * dough that is not kneaded rises slack and fries greasy.
+   *
+   * The times. A card's time is how long until you can eat it, which is how
+   * the book already writes the horchata, the fried chicken and the cream pie.
+   * These said only the hands-on part, so an overnight soak read as five
+   * minutes and a 3-hour set as ten. Storage notes ("keeps a week") and
+   * "if you can" waits do not count; a wait the method requires does. */
+  { id: 185, ing: ['2 lb pork roast', '1 jar salsa', '12 tortillas', '1 can black beans', '2 cups dry rice', 'sour cream'] },
+  { id: 185, step: 1, set: 'While the pork crisps, bring 4 cups of water to the boil with a pinch of salt, stir in the rice, cover, and simmer on the lowest heat 18 minutes. Leave it covered off the heat 5 minutes, then fluff it with a fork. Serve with the rice, beans, tortillas, and sour cream.' },
+  { id: 216, step: 1, add: 'The cake is half of {r:205}, baked and left unfrosted.' },
+  { id: 223, step: 0, add: 'The cake is half of {r:205}, baked and left unfrosted.' },
+  { id: 327, step: 2, set: 'Work in the remaining 3 cups of flour to a soft dough, then knead it on a floured counter 5 minutes, until it is smooth and springs back when pressed. Cover and rise 1 to 2 hours, until doubled.' },
+  /* Count what sticks (parse-lib, EATEN): the flour these are turned through
+     is a dredge, and says so. */
+  { id: 169, ing: ['1.5 lbs chicken breasts (cut into strips)', '1 cup flour, for the dredge', '2 eggs', '2 tbsp honey', '2 tbsp mustard', '2 lbs potatoes'] },
+  { id: 198, ing: ['2 lbs chicken breasts', '1 cup flour, for the dredge', '½ cup milk', '4 tbsp butter', '3 cups mashed potatoes'] },
+  { id: 27, time: '8 hrs 5 mins' },
+  { id: 46, time: '8 hrs 4 mins' },
+  { id: 282, time: '6 hrs 5 mins' },
+  { id: 91, time: '30 mins' },
+  { id: 284, time: '4 hrs 15 mins' },
+  { id: 288, time: '3 hrs 50 mins' },
+  { id: 301, time: '6 hrs' },
+  { id: 76, time: '13 mins' },
+  { id: 270, time: '1 hr 5 mins' },
+  { id: 60, time: '40 mins' },
+  { id: 206, time: '1 hr 10 mins' },
+  { id: 207, time: '3 hrs 10 mins' },
+  { id: 208, time: '25 mins' },
+  { id: 216, time: '45 mins' },
+  { id: 218, time: '3 hrs 10 mins' },
+  { id: 221, time: '2 hrs 20 mins' },
+  { id: 266, time: '1 hr 5 mins' },
+  { id: 332, time: '1 hr 5 mins' },
+  { id: 328, time: '1 hr 40 mins' },
+  { id: 328, step: 8, set: 'Spread the frosting on while the cookies are barely warm, so it settles flat, then chill them 1 hour, until cold through. These are served cold.' },
 ];

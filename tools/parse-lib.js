@@ -66,6 +66,41 @@ const VAGUE = { dash: 0.02, pinch: 0.02, splash: 2, handful: 0.5 };
 // preparation words that change what reaches the plate; see the end of parseLine
 const PREP = { trimmed: 0.6 };
 
+/* Count what sticks. Blake's rule, 2026-09-22.
+
+   A dredge is a bowl of flour a piece of chicken is turned through; what it
+   leaves in the bowl goes in the bin. Counted in full, No. 298's fried chicken
+   carried three cups of flour and a tablespoon of salt it never ate — 1,163 of
+   its 1,326 mg of sodium was the salt in the dredge. A soak is the same thing
+   in a liquid: the buttermilk or the pickle juice is poured away.
+
+   A third of a dredge, and whatever is mixed into the flour — salt, spices —
+   goes with it at the same share. An eighth of a soak: what clings when the
+   piece is lifted and dripped. Both are estimates, not measurements: a
+   recipe sets out more coating than it needs so the last piece is covered
+   too, and the bowl is never scraped clean onto the chicken. Rounder and
+   closer to the plate than counting the whole bowl, which is certainly
+   wrong in one direction.
+
+   Written on the ingredient line, where the parser reads — ", for the dredge"
+   or ", for the soak" — so the cook sees which bowl it goes in, and so the
+   same words mean the same share in every recipe, including one written in
+   the app. */
+const EATEN = [
+  { re: /,\s*for the dredge\b/i, part: 1 / 3 },
+  { re: /,\s*for the soak\b/i, part: 0.125 },
+  /* Oil for deep frying is mostly left in the pan. Counting all of it makes a
+     fried dish read like a stick of butter; food takes up roughly an eighth.
+     These two used to shrink the grams instead, which counted the same and
+     sent the shopping list out for half a cup of oil to fill a deep pan. */
+  { key: 'oil', re: /for frying|to fry|for the pan/i, part: 0.12 },
+  /* A pretzel's soda bath is boiled, dipped into for thirty seconds and poured
+     down the sink. What stays is the alkaline film that browns the crust, not
+     two thirds of a cup of bicarbonate: counted in full it read 5,673 mg of
+     sodium a pretzel. */
+  { key: 'baking_soda', re: /for the water|for boiling|for the bath/i, part: 0.02 },
+];
+
 const ALIAS_KEYS = Object.keys(ALIASES).sort((a, b) => b.length - a.length);
 
 /* Returns the food key, and the alias that matched. The alias matters for the
@@ -159,6 +194,15 @@ function parseLine(raw) {
     grams = vagueUnit === 'splash' ? v * (food.g.tbsp || 15)
       : vagueUnit === 'handful' ? v * (food.g.cup || 100)
         : v * (food.g.tsp || 2);
+  } else if (explicit && (unit === 'can' || unit === 'pkg' || unit === 'box' || unit === 'jar') &&
+    explicit.u === 'oz' && food.sold && food.sold[unit] === explicit.n && food.g[unit]) {
+    /* The size the storehouse sells, stated. That container is already in the
+       table by what goes in the pot, so it counts the same as the line that
+       leaves the size off. Worked out from the label instead, the same tin came
+       to two different weights: "1 can (12.5 oz) chicken breast" read 301 g
+       through DRAIN and "1 can chicken" read the table's 285. */
+    used = unit;
+    grams = (qty === null ? 1 : qty) * food.g[unit];
   } else if (explicit && (unit === 'can' || unit === 'pkg' || unit === 'box' || unit === 'jar')) {
     used = unit;
     const per = explicit.u === 'oz' ? 28.35 : explicit.u === 'lb' ? 453.6 : 1;
@@ -201,18 +245,6 @@ function parseLine(raw) {
     used = unit;
   }
 
-  // Oil for deep frying is mostly left in the pan. Counting all of it makes a
-  // fried dish read like a stick of butter; food takes up roughly an eighth.
-  if (key === 'oil' && /for frying|to fry|for the pan/i.test(raw)) grams *= 0.12;
-
-  // The same thing happens to a pretzel's soda bath: it is boiled, dipped into
-  // for thirty seconds and poured down the sink. What stays is the alkaline
-  // film that makes the crust brown and taste of pretzel, not two thirds of a
-  // cup of bicarbonate. Counted in full it read 5,673 mg of sodium a pretzel —
-  // twice a day's worth from one roll, and the highest figure in the book by a
-  // factor of four.
-  if (key === 'baking_soda' && /for the water|for boiling|for the bath/i.test(raw)) grams *= 0.02;
-
   /* "trimmed" on the line: the fat cap and the seams come off before the meat
      is cooked, and the fat that is cut off is never eaten. Only the fat moves —
      the lean, and so the protein, is what was there all along, and the grams
@@ -231,7 +263,16 @@ function parseLine(raw) {
      only part of a recipe the parser reads. */
   const fx = /\btrimmed\b/i.test(raw) ? PREP.trimmed : undefined;
 
-  return { key, grams, alias: hit.alias, unit: used, fx };
+  /* What is bought is not what is eaten, for a coating or a soak. The grams
+     stay the purchase weight — the shopping list sends you out for three cups
+     of flour because the bowl needs three cups in it — and `pe` says how much
+     of it reaches the plate, which is all the macros count. See EATEN. */
+  let pe;
+  for (let i = 0; i < EATEN.length; i++) {
+    if ((!EATEN[i].key || EATEN[i].key === key) && EATEN[i].re.test(raw)) { pe = EATEN[i].part; break; }
+  }
+
+  return { key, grams, alias: hit.alias, unit: used, fx, pe };
 }
 
 /** Convenience wrapper: returns { key, grams } or null if unreadable. */
