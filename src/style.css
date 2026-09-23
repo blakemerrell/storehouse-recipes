@@ -4948,3 +4948,15 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 .tr-prog-f { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
 .tr-acts .btn-primary[disabled] { opacity: 0.45; cursor: default; }
 .tr-axnm { width: 100%; }
+
+/* ---- Train: main lifts ---- */
+/* A ramp set is quieter than a working set; the all-out set is marked in
+   ochre, the colour the app uses for "this one matters". */
+.tr-set.tr-wu .tr-sn { color: var(--muted); font-weight: 500; }
+.tr-set.tr-am .tr-sn { color: var(--ochre-text); }
+.tr-set.tr-am:not(.done) { box-shadow: inset 3px 0 0 var(--ochre); }
+.tr-mainst { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ochre-text); font-weight: 600; }
+.tr-plan li.tr-main .tr-pl-s { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ochre-text); font-weight: 600; }
+.tr-tms { display: flex; flex-direction: column; gap: 6px; }
+.tr-tm { display: grid; grid-template-columns: 1fr 88px auto; align-items: center; gap: 8px; font-size: 14px; }
+.tr-tm .tr-in { width: 100%; }

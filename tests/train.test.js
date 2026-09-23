@@ -76,7 +76,7 @@ module.exports = {
     t.ok('and each pick says why it fits', r0.why >= 1, r0.why);
     await p.click('[data-t="lib"]');
     r0 = await p.evaluate(() => document.querySelectorAll('.tr-prog').length);
-    t.ok('the library shows every program', r0 === 6, r0);
+    t.ok('the library shows every program', r0 === 8, r0);
     await p.click('[data-t="unlib"]');
     await p.click('[data-t="prog"][data-v="grow"]');
     await p.click('[data-t="o-pri"][data-v="side"]');
@@ -1003,6 +1003,112 @@ module.exports = {
     t.ok('with a block running, the other programs are a tap away, and so is the way back', r.picks && r.back, JSON.stringify(r));
     await p.click('[data-t="unbrowse"]');
     t.ok('back to the block', await p.isVisible('[data-t="start"]'));
+    await p.close();
+
+    // ---- strength: waves and powerbuilding ------------------------------------------
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const top = (o) => _.recommend(_.defaultsPr(Object.assign({ qz: 1 }, o)))[0].id;
+      const plain = _.build({ prog: 'waves', dpw: 4, kit: 'gym', lvl: 1 });
+      const back = _.build({ prog: 'waves', dpw: 4, kit: 'gym', lvl: 1, bk: 'f' });
+      return {
+        strength: top({ goal: 'strength', lvl: 1, kit: 'gym', dpw: 4 }),
+        both: top({ goal: 'both', lvl: 2, kit: 'gym', dpw: 4 }),
+        noBar: top({ goal: 'strength', lvl: 1, kit: 'bw', dpw: 4 }),
+        mains: plain.days.map((d) => d.s[0].m + ':' + d.s[0].e).join(),
+        backMains: back.days.map((d) => d.s[0].e).join(),
+        name: plain.n, weeks: _.weeksOf(plain),
+      };
+    });
+    t.ok('getting stronger with a barbell points at strength waves; both at powerbuilding', r.strength === 'waves' && r.both === 'power', r.strength + ' ' + r.both);
+    t.ok('and never at a barbell program without a barbell', r.noBar !== 'waves' && r.noBar !== 'power', r.noBar);
+    t.ok('four days: a squat, bench, deadlift and press day, each led by its lift',
+      r.mains === 'squat:bb-squat,bench:bb-bench,dead:bb-dl,press:bb-ohp' && r.weeks === 4, r.mains + ' ' + r.weeks);
+    t.ok('a back that hates bending gets a squat and a hip-hinge that spare it', !/bb-squat|bb-dl|bb-rdl/.test(r.backMains) && /hip-thrust/.test(r.backMains), r.backMains);
+
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'waves', dpw: 4, kit: 'gym', lvl: 1, wave: 10, tm: { 'bb-squat': 300, 'bb-bench': 200 } });
+      ms.id = 'wv';
+      st.T.ms = { wv: ms }; st.T.act = 'wv'; st.T.wo = {};
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const m = _.state().T.ms.wv;
+      const sq = (w) => _.plan(m, w, 0).x[0].st;
+      const out = { w1: sq(0), w2: sq(1), w3: sq(2), dl: sq(3), acc: _.plan(m, 0, 0).x[1] };
+      // a realization week logged: squat 13 against 10, bench 8 against 10
+      const now = Date.now(), D = 864e5;
+      st.T.wo = {
+        r0: { id: 'r0', st: now - 3 * D, u: 'lb', ms: 'wv', w: 2, d: 0, x: [{ e: 'bb-squat', s: [
+          { w: 185, r: 5, wu: 1 }, { w: 215, r: 3, wu: 1 }, { w: 225, r: 13, am: 1, tr: 10 }] }], fb: {}, sr: {} },
+        r1: { id: 'r1', st: now - 2 * D, u: 'lb', ms: 'wv', w: 2, d: 1, x: [{ e: 'bb-bench', s: [{ w: 150, r: 8, am: 1, tr: 10 }] }], fb: {}, sr: {} },
+      };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      out.next = _.nextTm(_.state().T.ms.wv);
+      out.rv = (_.review().checks.find((c) => c.t === 'Your all-out sets') || {}).b || '';
+      out.hard = (_.review().rows.find((x) => x.k === 'quads') || {}).sets;
+      return out;
+    });
+    t.ok('tens, week one: five sets of ten at sixty per cent of the training max',
+      r.w1.length === 5 && r.w1.every((s) => s.tr === 10 && s.tw === 180 && !s.am), JSON.stringify(r.w1));
+    t.ok('week two: three heavier sets', r.w2.length === 3 && r.w2.every((s) => s.tw === 205 && s.tr === 10), JSON.stringify(r.w2));
+    t.ok('week three: two ramp sets, then one set for as many reps as you can',
+      r.w3.length === 3 && r.w3[0].wu && r.w3[1].wu && r.w3[2].am && r.w3[2].tw === 225 && r.w3[2].tr === 10, JSON.stringify(r.w3));
+    t.ok('then a deload of three light sets', r.dl.length === 3 && r.dl[2].tw === 180, JSON.stringify(r.dl));
+    t.ok('the accessories stay steady at three sets', r.acc.sets === 3, JSON.stringify(r.acc));
+    t.ok('three reps past the target move the squat max up three steps; two short take the bench down two',
+      r.next['bb-squat'] === 315 && r.next['bb-bench'] === 195, JSON.stringify(r.next));
+    t.ok('the review reads the all-out sets back against their targets', /Back Squat: 13 against 10 \(\+3\)/.test(r.rv) && /Barbell Bench Press: 8 against 10/.test(r.rv), r.rv);
+    t.ok('and ramp sets are not counted as hard sets', r.hard === 1, r.hard);
+
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'power', dpw: 4, kit: 'gym', lvl: 1 });
+      ms.id = 'pw';
+      const fb = {}; ms.days[0].s.forEach((s) => { fb[_.lib(s.e).m] = { p: 0, k: 0 }; });
+      st.T.ms = { pw: ms }; st.T.act = 'pw';
+      st.T.wo = { p0: { id: 'p0', st: Date.now() - 5 * 864e5, u: 'lb', ms: 'pw', w: 0, d: 0,
+        x: [{ e: ms.days[0].s[0].e, s: [{ w: 275, r: 6 }, { w: 235, r: 8 }, { w: 235, r: 8 }, { w: 235, r: 8 }] }], fb, sr: {} } };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const m = _.state().T.ms.pw;
+      const p1 = _.plan(m, 1, 0);
+      const acc = (w) => _.plan(m, w, 0).x.slice(1).reduce((n, x) => n + x.sets, 0);
+      return { main: m.days.every((d) => !!d.s[0].m), st: p1.x[0].st, accUp: acc(1) - acc(0), mainSets: p1.x[0].sets };
+    });
+    t.ok('powerbuilding opens every day with a main lift', r.main);
+    t.ok('six reps on the top set: next week it goes up a step, back to four, with three back-offs at 85%',
+      r.st[0].tw === 280 && r.st[0].tr === 4 && r.st.slice(1).every((s) => s.tw === 240 && s.tr === 8) && r.mainSets === 4, JSON.stringify(r.st));
+    t.ok('and a good week climbs the accessories, not the main lift', r.accUp > 0, r.accUp);
+
+    // on the screen: a realization session, saved with its ramp and all-out sets
+    await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'waves', dpw: 4, kit: 'gym', lvl: 1, wave: 10, tm: { 'bb-squat': 300 } });
+      ms.id = 'wv2'; ms.sk = ['0:0', '0:1', '0:2', '0:3', '1:0', '1:1', '1:2', '1:3'];
+      st.T.ms = { wv2: ms }; st.T.act = 'wv2'; st.T.wo = {}; st.T.pr.qz = Date.now();
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => document.querySelector('.tr-card .tr-sub').textContent);
+    t.ok('the block says which wave and which week it is', /10s wave, realization/.test(r), r);
+    await p.click('[data-t="start"]');
+    r = await p.evaluate(() => [...[...document.querySelectorAll('.tr-ex')][0].querySelectorAll('.tr-set:not(.tr-set-h) .tr-sn')].map((e) => e.textContent).join(','));
+    t.ok('ramp sets are lettered and the all-out set is marked', r === 'R,R,1+', r);
+    for (let j = 0; j < 3; j++) {
+      if (j === 2) await p.fill('#trr-0-2', '12');
+      await p.click(`[data-t="tick"][data-x="0"][data-s="${j}"]`);
+    }
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s.map((s) => s.w || '').join());
+    await p.click('[data-t="finish"]');
+    await p.click('#trainRoot [data-t="save"]');
+    await p.waitForTimeout(150);
+    r = await p.evaluate(() => Object.values(window.Train._.state().T.wo)[0].x[0].s);
+    t.ok('each set took its own weight, and the save keeps which were ramps and which was all-out',
+      r.map((s) => s.w).join() === '165,195,225' && r[0].wu && r[1].wu && r[2].am && r[2].tr === 10 && r[2].r === 12, JSON.stringify(r));
     await p.close();
   },
 };
