@@ -4911,3 +4911,40 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 }
 .tr-never { margin-top: 12px; }
 .tr-chip.on { background: var(--paper-soft); }
+
+/* ---- Train: the quiz, the picks, the library ---- */
+/* One question a screen. Answers are whole-width rows, big enough for a
+   thumb, pressed the same ink way the chips are. */
+.tr-qz-h { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.tr-qz-bar { flex: 1; height: 3px; background: var(--line-soft); border-radius: 2px; overflow: hidden; }
+.tr-qz-bar span { display: block; height: 100%; background: var(--ochre); }
+.tr-quiz .tr-title { margin-bottom: 4px; }
+.tr-bigs { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
+.tr-big {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left;
+  border: 1px solid var(--line-firm); border-radius: 6px; background: #fff; color: var(--ink);
+  padding: 11px 14px; font: inherit; cursor: pointer;
+}
+.tr-big:hover { border-color: var(--ochre); }
+.tr-big-n { font-size: 15px; font-weight: 600; }
+.tr-big-s { font-size: 12.5px; color: var(--muted-2); }
+.tr-big[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.tr-big[aria-pressed="true"] .tr-big-s { color: color-mix(in oklab, var(--paper) 78%, var(--ink)); }
+.tr-qz-skip { margin-top: 6px; }
+.tr-quiz .tr-fine { margin: 14px 0 0; }
+
+.tr-prog-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.tr-sty { font-size: 12.5px; color: var(--muted-2); font-style: italic; margin-top: 2px; }
+.tr-badge {
+  flex: none; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700;
+  color: var(--ochre-text); border: 1px solid var(--ochre); border-radius: 99px; padding: 2px 8px; white-space: nowrap;
+}
+.tr-prog .tr-sub b { color: var(--ink); font-weight: 600; }
+.tr-fits { list-style: none; margin: 10px 0 0; padding: 0; font-size: 13px; line-height: 1.45; }
+.tr-fits li { position: relative; padding: 2px 0 2px 18px; color: var(--ink); }
+.tr-fits li::before { content: '\2713'; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+.tr-fits li.no { color: var(--muted-2); }
+.tr-fits li.no::before { content: '\2212'; color: var(--muted); }
+.tr-prog-f { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.tr-acts .btn-primary[disabled] { opacity: 0.45; cursor: default; }
+.tr-axnm { width: 100%; }

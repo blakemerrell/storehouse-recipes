@@ -79,6 +79,24 @@ three ideas in one tab:
   Every line names its source, the sources are listed in full, and it says what it
   cannot see — how close to failure you went, and anything about sleep or food.
 
+It starts with **seven quick questions** — what you train for (muscle, strength, both, keeping
+what you have, losing fat, or just feeling better), how long you have lifted, days and
+minutes, your equipment (a gym, a barbell, dumbbells, or nothing), anything to look after
+(your back, and neck, shoulder, elbow, wrist, hip, knee or ankle), what your days are like
+(a desk, on your feet, physical work) and what you do outside the gym, and an optional age
+range. It does not ask whether you are a man or a woman: both gain muscle at about the same
+relative rate (Roberts 2020), so no program would change. Then it shows **three programs
+picked for you**, each with the rules that put it there and the ones that count against it,
+and a library of all six: *Start here* (full-body basics for beginners, ACSM 2009), *Build
+muscle* (RP-style), *Bring up a body part* (chest, back, shoulders, arms, glutes or legs
+first and hardest, the rest held near maintenance), *Lean & strong* (for a fat-loss phase: a
+lower volume roof, one set at a time, a rep short of failure), *Keep strength*, and *Home &
+bodyweight* (exercises that climb a ladder — incline push-up to archer, negative to pull-up —
+when the top of the rep range comes easily). Each names the style it borrows from; none
+claims to be anybody's program. Your life moves it too, and the draft says how: a sport
+that works the legs hard or a physical job starts those sets lower, past sixty keeping uses
+three sets rather than two, and a beginner at home starts a rung down.
+
 It builds around you, not a template. Say you want to **keep your strength** rather than
 build more and it switches to maintenance: full body two or three days a week, three sets
 of the big movements about two reps short of failure, no climbing volume and no deload —
@@ -90,8 +108,10 @@ arching — and every exercise is tagged for the load it puts through the lower 
 the ones that load it your way are left out (no deadlifts, back squats, bent-over rows or
 crunches for a back that hates bending), the ones that load it a little carry a cue, every
 session opens by asking how your back is, and anything you swap out can go on a never
-list. Say you **golf or walk** and those get one-tap logging and count toward the WHO's
-150 minutes a week in the review.
+list. Joints work the same way. **Anything outside the gym** — golf, walks, a run, soccer,
+basketball, swimming, hiking, or something you name yourself — is one tap to log, marked
+light, moderate or vigorous, and counts toward the WHO's 150 minutes a week in the review,
+a vigorous minute twice.
 
 History lists every workout; Lifts gives each exercise its records and a line of its
 estimated max. Workouts are yours rather than the household's: they save on the device,

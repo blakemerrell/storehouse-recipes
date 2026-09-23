@@ -17,6 +17,25 @@ function sets(w, reps, t0) {
   return reps.map((r, i) => ({ w, r, t: (t0 || 1e12) + i * 150e3 }));
 }
 
+/* Answer the quiz the way a thumb would. `a` names the answers; anything
+   left out is skipped past with Next, or left unpressed. */
+async function answer(p, a) {
+  await p.click(`[data-t="qz"][data-f="goal"][data-v="${a.goal || 'muscle'}"]`);
+  await p.click(`[data-t="qz"][data-f="lvl"][data-v="${a.lvl === undefined ? 1 : a.lvl}"]`);
+  if (a.dpw) await p.click(`[data-t="qz"][data-f="dpw"][data-v="${a.dpw}"]`);
+  if (a.min !== undefined) await p.click(`[data-t="qz"][data-f="min"][data-v="${a.min}"]`);
+  await p.click('[data-t="qzn"]');
+  await p.click(`[data-t="qz"][data-f="kit"][data-v="${a.kit || 'gym'}"]`);
+  for (const b of (a.bk || '')) await p.click(`[data-t="qzm"][data-f="bk"][data-v="${b}"]`);
+  for (const j of (a.jt || '')) await p.click(`[data-t="qzm"][data-f="jt"][data-v="${j}"]`);
+  await p.click('[data-t="qzn"]');
+  if (a.day) await p.click(`[data-t="qz"][data-f="day"][data-v="${a.day}"]`);
+  for (const h of (a.hab || [])) await p.click(`[data-t="qzm"][data-f="hab"][data-v="${h}"]`);
+  await p.click('[data-t="qzn"]');
+  await p.click(`[data-t="qz"][data-f="age"][data-v="${a.age || ''}"]`);
+  await p.waitForTimeout(100);
+}
+
 /* Put a training log in storage and have Train read it. */
 async function seed(p, T) {
   await p.evaluate((T) => {
@@ -31,19 +50,36 @@ module.exports = {
   async run(t) {
     // ---- the tab --------------------------------------------------------
     let p = await t.fresh();
+    let r0;
     const tabs = await p.evaluate(() =>
       [...document.querySelectorAll('.tab')].map((b) => b.dataset.view));
     t.ok('there is a Train tab, beside My Day', tabs.indexOf('train') === tabs.indexOf('macros') + 1, tabs.join());
     await p.click('.tab[data-view="train"]');
     await p.waitForTimeout(100);
-    t.ok('it opens on the block builder', await p.isVisible('[data-t="build"]'));
+    t.ok('it opens on the quiz, with nothing answered for you',
+      await p.isVisible('[data-t="qz"][data-f="goal"]') &&
+      await p.evaluate(() => !document.querySelector('[data-t="qz"][aria-pressed="true"]')));
     await p.reload();
     await p.waitForTimeout(200);
-    t.ok('and is the tab you come back to', await p.isVisible('#view-train [data-t="build"]'));
+    t.ok('and is the tab you come back to', await p.isVisible('#view-train [data-t="qz"][data-f="goal"]'));
 
-    // ---- building a block -----------------------------------------------
-    await p.click('[data-t="g-dpw"][data-v="4"]');
-    await p.click('[data-t="g-pri"][data-v="side"]');
+    // ---- the quiz, the picks, and building a block ----------------------
+    await answer(p, { goal: 'muscle', lvl: 1, dpw: 4, min: 0 });
+    r0 = await p.evaluate(() => ({
+      pr: window.Train._.state().T.pr,
+      picks: [...document.querySelectorAll('.tr-prog [data-t="prog"]')].map((b) => b.dataset.v),
+      why: [...document.querySelectorAll('.tr-prog')][0].querySelectorAll('.tr-fits li').length,
+    }));
+    t.ok('the answers are kept as yours', r0.pr.goal === 'muscle' && r0.pr.lvl === 1 && r0.pr.dpw === 4 && r0.pr.qz > 0, JSON.stringify(r0.pr));
+    t.ok('three picks, the RP-style block first for somebody building muscle a few years in',
+      r0.picks.length === 3 && r0.picks[0] === 'grow', r0.picks.join());
+    t.ok('and each pick says why it fits', r0.why >= 1, r0.why);
+    await p.click('[data-t="lib"]');
+    r0 = await p.evaluate(() => document.querySelectorAll('.tr-prog').length);
+    t.ok('the library shows every program', r0 === 6, r0);
+    await p.click('[data-t="unlib"]');
+    await p.click('[data-t="prog"][data-v="grow"]');
+    await p.click('[data-t="o-pri"][data-v="side"]');
     await p.click('[data-t="build"]');
     await p.waitForTimeout(100);
     let d = await p.evaluate(() => {
@@ -479,6 +515,8 @@ module.exports = {
     // ---- a narrow phone ------------------------------------------------------
     p = await t.fresh({ viewport: { width: 360, height: 740 } });
     await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="qzskip"]');
+    await p.click('.tr-prog [data-t="prog"] >> nth=0');
     await p.click('[data-t="build"]');
     await p.click('[data-t="begin"]');
     await p.click('[data-t="start"]');
@@ -601,14 +639,13 @@ module.exports = {
 
     // ---- the builder, a session, and a round of golf, on the screen -----------
     await p.click('.tab[data-view="train"]');
-    await p.evaluate(() => { localStorage.removeItem('bsc.train'); window.Train._.reload(); window.Train._.state().S.gen = null; });
+    await p.evaluate(() => { localStorage.removeItem('bsc.train'); window.Train._.reload(); window.Train._.state().S.qz = null; });
     await p.click('[data-t="sub"][data-v="history"]');
     await p.click('[data-t="sub"][data-v="block"]');
-    await p.click('[data-t="g-goal"][data-v="keep"]');
-    await p.click('[data-t="g-dpw"][data-v="2"]');
-    await p.click('[data-t="g-min"][data-v="40"]');
-    await p.click('[data-t="g-bk"][data-v="f"]');
-    await p.click('[data-t="g-hab"][data-v="golfw"]');
+    await answer(p, { goal: 'keep', lvl: 2, dpw: 2, min: 40, bk: 'f', hab: ['golfw'] });
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-prog [data-t="prog"]')].map((b) => b.dataset.v));
+    t.ok('keeping strength, two days, forty minutes: the maintenance block comes first', r[0] === 'keep', r.join());
+    await p.click('[data-t="prog"][data-v="keep"]');
     await p.click('[data-t="build"]');
     await p.waitForTimeout(100);
     r = await p.evaluate(() => ({
@@ -627,8 +664,8 @@ module.exports = {
     r = await p.evaluate(() => [...document.querySelectorAll('#trainRoot .tr-pick')]
       .filter((b) => /Romanian Deadlift/.test(b.textContent)).map((b) => b.querySelector('.tr-pk-w') && b.querySelector('.tr-pk-w').textContent));
     await p.click('#trainRoot [data-t="pickm"][data-v="hams"]');
-    r = await p.evaluate(() => [...document.querySelectorAll('#trainRoot .tr-pick')]
-      .filter((b) => /Romanian Deadlift/.test(b.textContent)).map((b) => (b.querySelector('.tr-pk-w') || {}).textContent));
+    r = await p.evaluate(() => [...document.querySelectorAll('#trainRoot .tr-pick[data-e="bb-rdl"], #trainRoot .tr-pick[data-e="db-rdl"]')]
+      .map((b) => (b.querySelector('.tr-pk-w') || {}).textContent));
     t.ok('the picker still offers what your back rules out, and says why', r[0] === 'loads your back', JSON.stringify(r));
     await p.click('#trainRoot [data-t="pickm"][data-v=""]');
     const was = await p.evaluate(() => window.Train._.state().S.draft.days[1].s[0].e);
@@ -686,7 +723,7 @@ module.exports = {
     r = await p.evaluate(() => {
       const rv = window.Train._.review();
       const by = {}; rv.checks.forEach((c) => { by[c.t] = c; });
-      return { cardio: by['Cardio outside the gym'], back: by['Your back'], keep: rv.keep,
+      return { cardio: by['Active minutes outside the gym'], back: by['Your back'], keep: rv.keep,
         eyebrowBand: document.querySelector('.tr-vkey').textContent };
     });
     t.ok('the review counts golf toward the week’s cardio', r.cardio && /4 h/.test(r.cardio.b) && /150/.test(r.cardio.b), r.cardio && r.cardio.b);
@@ -713,7 +750,259 @@ module.exports = {
       return window.Train._.state().T.pr;
     });
     t.ok('a mangled profile is cleaned rather than trusted',
-      r.min === 0 && r.bk === 'f' && r.hab.join() === 'golfw' && r.goal === 'grow', JSON.stringify(r));
+      r.min === 0 && r.bk === 'f' && r.hab.join() === 'golfw' && r.goal === 'muscle', JSON.stringify(r));
+    await p.close();
+
+    // ---- everybody: the picks ----------------------------------------------------
+    /* Round three: not one lifter but anybody — new or years in, a gym or a
+       floor, building or keeping or losing, with a bad knee or a sore
+       shoulder, a desk or a building site, soccer on Sundays. */
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const top = (o) => _.recommend(_.defaultsPr(Object.assign({ qz: 1 }, o)))[0].id;
+      const all = _.recommend(_.defaultsPr({ goal: 'muscle', lvl: 0, kit: 'bw', dpw: 2, min: 30 }));
+      return {
+        novice: top({ goal: 'muscle', lvl: 0, kit: 'gym', dpw: 3 }),
+        keep: top({ goal: 'keep', lvl: 2, kit: 'gym', dpw: 2, min: 40 }),
+        lean: top({ goal: 'lean', lvl: 1, kit: 'gym', dpw: 4 }),
+        home: top({ goal: 'muscle', lvl: 1, kit: 'bw', dpw: 3 }),
+        health: top({ goal: 'health', lvl: 0, kit: 'db', dpw: 2 }),
+        grow: top({ goal: 'muscle', lvl: 2, kit: 'gym', dpw: 5 }),
+        reasons: all.every((x) => x.why.length >= 1),
+        against: all.some((x) => x.why.some((w) => w.bad)),
+      };
+    });
+    t.ok('somebody new to lifting is pointed at the beginner program first', r.novice === 'start', r.novice);
+    t.ok('keeping strength on two days points at the maintenance block', r.keep === 'keep', r.keep);
+    t.ok('losing fat points at the fat-loss block', r.lean === 'lean', r.lean);
+    t.ok('no weights points at home and bodyweight', r.home === 'home', r.home);
+    t.ok('feeling better, new, with dumbbells: the beginner program', r.health === 'start', r.health);
+    t.ok('years in, five days, building muscle: the RP-style block', r.grow === 'grow', r.grow);
+    t.ok('every program gives its reasons, including the ones against it', r.reasons && r.against);
+
+    // ---- every program, every kit ---------------------------------------------------
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const bad = [];
+      Object.keys(_.PROGS).forEach((id) => {
+        const P = _.PROGS[id];
+        (P.kits || Object.keys(_.KITS)).forEach((kit) => {
+          P.dpw.forEach((dpw) => [0, 1, 2].forEach((lvl) => {
+            const ms = _.build({ prog: id, fx: 'arms', dpw, kit, lvl, acc: P.dAcc, min: 0 });
+            const eq = _.KITS[kit].eq;
+            const tag = id + ' ' + kit + ' ' + dpw + 'd L' + lvl;
+            if (ms.days.length !== dpw) bad.push(tag + ': ' + ms.days.length + ' days');
+            ms.days.forEach((d) => {
+              // a bodyweight gym split and an emphasis block's held days run thin, on purpose; never empty
+              if (d.s.length < (kit === 'bw' || id === 'focus' ? 2 : 3)) bad.push(tag + ' ' + d.n + ': ' + d.s.length + ' exercises');
+              if (new Set(d.s.map((s) => s.e)).size !== d.s.length) bad.push(tag + ' ' + d.n + ': repeats');
+              d.s.forEach((s) => {
+                if (eq.indexOf(_.lib(s.e).q) < 0) bad.push(tag + ' ' + s.e + ': not in the kit');
+                if (!(s.n >= 1 && s.n <= 6)) bad.push(tag + ' ' + s.e + ': ' + s.n + ' sets');
+              });
+            });
+          }));
+        });
+      });
+      return bad;
+    });
+    t.ok('every program builds on every kit, day count and level it offers: the right days, only the kit you have, sensible sets',
+      r.length === 0, r.slice(0, 8).join('; '));
+
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const homey = ['pushup-flat', 'inc-pushup', 'pushup', 'archer', 'pullup-neg', 'inv-row', 'bw-squat', 'split-squat', 'bw-bss',
+        'sl-rdl', 'glute-bridge', 'sl-bridge', 'pike-pushup', 'diamond', 'calf-bw'];
+      const bad = [], hurt = [];
+      ['grow', 'focus', 'lean', 'keep', 'start'].forEach((id) => ['gym', 'bar'].forEach((kit) => _.PROGS[id].dpw.forEach((dpw) => {
+        _.build({ prog: id, fx: 'chest', dpw, kit, lvl: 1 }).days.forEach((d) => d.s.forEach((s) => {
+          if (homey.indexOf(s.e) >= 0) bad.push(id + ' ' + kit + dpw + ' ' + s.e);
+        }));
+      })));
+      Object.keys(_.PROGS).forEach((id) => (_.PROGS[id].kits || Object.keys(_.KITS)).forEach((kit) => _.PROGS[id].dpw.forEach((dpw) => {
+        _.build({ prog: id, fx: 'shoulders', dpw, kit, lvl: 1, jt: 'SKW', bk: 'fcx' }).days.forEach((d) => d.s.forEach((s) => {
+          const ex = _.lib(s.e);
+          if (/[SKW]/.test(ex.jt) || /[FCX]/.test(ex.bk)) hurt.push(id + ' ' + kit + dpw + ' ' + s.e);
+        }));
+      })));
+      return { bad, hurt };
+    });
+    t.ok('with weights to load, nobody is handed the bodyweight version of a lift', r.bad.length === 0, r.bad.slice(0, 6).join(', '));
+    t.ok('a protected shoulder, knee, wrist and back keep what loads them hard out of every program on every kit',
+      r.hurt.length === 0, r.hurt.slice(0, 6).join(', '));
+
+    // starting out: steady, three in reserve easing to two, no deload
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 0, acc: 6 });
+      ms.id = 'sb';
+      const fb = {}; ms.days[0].s.forEach((s) => { fb[_.lib(s.e).m] = { p: 0, k: 0 }; });
+      st.T.ms = { sb: ms }; st.T.act = 'sb';
+      st.T.wo = { s0: { id: 's0', st: Date.now() - 5 * 864e5, u: 'lb', ms: 'sb', w: 0, d: 0,
+        x: [{ e: ms.days[0].s[0].e, s: [{ w: 100, r: 8 }] }], fb, sr: {} } };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const m = _.state().T.ms.sb;
+      return {
+        goal: m.goal, weeks: _.weeksOf(m), rir: [0, 1, 2, 3, 4, 5].map((w) => _.rirFor(m, w)).join(),
+        two: m.days.every((d) => d.s.every((s) => s.n === 2)),
+        held: _.plan(m, 1, 0).x.every((x, i) => x.sets === m.days[0].s[i].n),
+        rv: _.review().checks.map((c) => c.t),
+      };
+    });
+    t.ok('starting out: six working weeks, no deload, three in reserve easing to two',
+      r.goal === 'base' && r.weeks === 6 && r.rir === '3,3,3,2,2,2', JSON.stringify(r));
+    t.ok('two sets of everything on three days, and an easy week does not pile more on', r.two && r.held, JSON.stringify(r));
+    t.ok('and the review grades it by what a beginner needs', r.rv.indexOf('Enough to grow on?') >= 0, r.rv.join(' | '));
+
+    // bringing up one part
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'focus', fx: 'chest', dpw: 4, kit: 'gym', lvl: 1, acc: 4 });
+      ms.id = 'fc';
+      const sum = (m) => ms.days.reduce((n, d) => n + d.s.filter((s) => _.lib(s.e).m === m).reduce((a, s) => a + s.n, 0), 0);
+      const first = ms.days.filter((d) => d.s.some((s) => _.lib(s.e).m === 'chest')).every((d) => _.lib(d.s[0].e).m === 'chest');
+      const out = { first, chest: sum('chest'), quads: sum('quads'), fx: ms.fx.join(), name: ms.n };
+      const fb = {}; ms.days[0].s.forEach((s) => { fb[_.lib(s.e).m] = { p: 0, k: 0 }; });
+      st.T.ms = { fc: ms }; st.T.act = 'fc';
+      st.T.wo = { f0: { id: 'f0', st: Date.now() - 5 * 864e5, u: 'lb', ms: 'fc', w: 0, d: 0,
+        x: [{ e: ms.days[0].s[0].e, s: [{ w: 100, r: 8 }] }], fb, sr: {} } };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const m = _.state().T.ms.fc;
+      const day = (w, mus) => _.plan(m, w, 0).x.filter((x) => _.lib(x.e).m === mus).reduce((n, x) => n + x.sets, 0);
+      out.chestUp = day(1, 'chest') - day(0, 'chest');
+      out.backUp = day(1, 'back') - day(0, 'back');
+      return out;
+    });
+    t.ok('a chest focus puts chest first on every day that trains it', r.first, JSON.stringify(r));
+    t.ok('starts it at least four over MEV, and holds the rest near maintenance', r.chest >= 12 && r.quads <= 5, JSON.stringify(r));
+    t.ok('and a good week climbs the focus while the rest holds', r.chestUp === 2 && r.backUp === 0, JSON.stringify(r));
+
+    // losing fat
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'lean', dpw: 4, kit: 'gym', lvl: 1, acc: 4 });
+      ms.id = 'ln';
+      const fb = {}; ms.days[0].s.forEach((s) => { fb[_.lib(s.e).m] = { p: 0, k: 0 }; });
+      st.T.ms = { ln: ms }; st.T.act = 'ln';
+      st.T.wo = { l0: { id: 'l0', st: Date.now() - 5 * 864e5, u: 'lb', ms: 'ln', w: 0, d: 0,
+        x: [{ e: ms.days[0].s[0].e, s: [{ w: 100, r: 8 }] }], fb, sr: {} } };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const m = _.state().T.ms.ln;
+      const day = (w) => _.plan(m, w, 0).x.filter((x) => _.lib(x.e).m === 'chest');
+      return { up: day(1).reduce((n, x) => n + x.sets, 0) - day(0).reduce((n, x) => n + x.sets, 0),
+        why: day(1)[0].why, rir: [0, 1, 2, 3].map((w) => _.rirFor(m, w)).join() };
+    });
+    t.ok('eating less: a plainly good week still adds only one set, and says why', r.up === 1 && /One set at a time/.test(r.why), JSON.stringify(r));
+    t.ok('and sets stop a rep short of failure', r.rir === '3,2,1,1', r.rir);
+
+    // bodyweight: the ladder
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'home', dpw: 3, kit: 'bw', lvl: 0, acc: 4 });
+      ms.id = 'hm';
+      const d0 = ms.days[0].s.map((s) => s.e);
+      st.T.ms = { hm: ms }; st.T.act = 'hm';
+      st.T.wo = { h0: { id: 'h0', st: Date.now() - 5 * 864e5, u: 'lb', ms: 'hm', w: 0, d: 0,
+        x: [{ e: 'inc-pushup', s: [{ w: 0, r: 20 }, { w: 0, r: 20 }, { w: 0, r: 20 }] }], fb: {}, sr: {} } };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const m = _.state().T.ms.hm;
+      const x1 = _.plan(m, 1, 0).x.find((x) => x.up === 'inc-pushup');
+      const xd = _.plan(m, 4, 0).x.map((x) => x.e);
+      return { d0, x1: x1 && x1.e, deload: xd.indexOf('inc-pushup') >= 0, notes: m.nt.join(' ') };
+    });
+    t.ok('new to it, at home: push-ups start on the incline and pull-ups on the negative',
+      r.d0.indexOf('inc-pushup') >= 0 && r.d0.indexOf('pullup-neg') >= 0 && /easier version/.test(r.notes), JSON.stringify(r));
+    t.ok('top the rep range on every set and the next session moves up a rung', r.x1 === 'pushup-flat', JSON.stringify(r));
+    t.ok('but not in a deload week', r.deload, JSON.stringify(r));
+
+    // your life shapes it
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const sum = (ms, list) => ms.days.reduce((n, d) => n + d.s.filter((s) => list.indexOf(_.lib(s.e).m) >= 0).reduce((a, s) => a + s.n, 0), 0);
+      const base = _.build({ prog: 'grow', dpw: 4, kit: 'gym', lvl: 1 });
+      const soccer = _.build({ prog: 'grow', dpw: 4, kit: 'gym', lvl: 1, hab: ['soccer'] });
+      const job = _.build({ prog: 'grow', dpw: 4, kit: 'gym', lvl: 1, day: 'labor' });
+      const old = _.build({ prog: 'keep', dpw: 3, kit: 'gym', age: '60' });
+      const young = _.build({ prog: 'keep', dpw: 3, kit: 'gym', age: 'u40' });
+      return {
+        legs: [sum(base, ['quads', 'hams', 'calves']), sum(soccer, ['quads', 'hams', 'calves'])],
+        back: [sum(base, ['back']), sum(job, ['back'])],
+        said: /soccer already works your legs/.test(soccer.nt.join()) && /physical job/.test(job.nt.join()),
+        old: old.days.every((d) => d.s.every((s) => s.n === 3)), young: young.days.every((d) => d.s.every((s) => s.n === 2)),
+      };
+    });
+    t.ok('soccer on the side starts leg volume lower', r.legs[1] < r.legs[0], JSON.stringify(r.legs));
+    t.ok('a physical job starts back volume lower too', r.back[1] < r.back[0], JSON.stringify(r.back));
+    t.ok('and the draft says so, in words', r.said);
+    t.ok('past sixty, keeping uses three sets where under forty uses two', r.old && r.young);
+
+    // anything outside the gym
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const now = Date.now(), D = 864e5;
+      st.T.ax = {
+        a: { id: 'a', st: now - D, k: 'soccer', min: 60 },
+        b: { id: 'b', st: now - D, k: 'yoga', min: 60 },
+        c: { id: 'c', st: now - D, k: 'other', min: 30, lv: 'm', nm: 'Surfing' },
+        d: { id: 'd', st: now - D, k: 'walk', min: 30, lv: 'v' },
+      };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const wk = _.axWeek(now);
+      return {
+        wk,
+        long: _.merge({ ax: { z4: { v: { id: 'z4', st: now, k: 'other', min: 30, nm: 'x'.repeat(41) }, at: now } } }),
+        lv: _.merge({ ax: { z5: { v: { id: 'z5', st: now, k: 'walk', min: 30, lv: 'extreme' }, at: now } } }),
+      };
+    });
+    t.ok('a vigorous minute counts twice, a light one not at all, and your own mark beats the default',
+      r.wk.min === 180 && r.wk.mv === 210 && r.wk.light === 60, JSON.stringify(r.wk));
+    t.ok('something else can be called what it is', r.wk.by.surfing === 30, JSON.stringify(r.wk.by));
+    t.ok('an over-long name or a made-up effort from another device is refused', !r.long && !r.lv);
+    await p.close();
+
+    // ---- the quiz again, from Settings --------------------------------------------
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await answer(p, { goal: 'lean', lvl: 1, dpw: 3, min: 45, kit: 'db', jt: 'K', day: 'desk', hab: ['walk', 'hike'], age: '40' });
+    r = await p.evaluate(() => ({ pr: window.Train._.state().T.pr,
+      first: document.querySelector('.tr-prog [data-t="prog"]').dataset.v,
+      line: document.querySelector('.tr-card .tr-sub').textContent }));
+    t.ok('a knee, a desk and some hiking are all kept', r.pr.jt === 'K' && r.pr.day === 'desk' && r.pr.hab.join() === 'walk,hike' &&
+      r.pr.kit === 'db' && r.pr.age === '40', JSON.stringify(r.pr));
+    t.ok('and read back in a line above the picks', /looking after knee/.test(r.line) && /hiking/.test(r.line), r.line);
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => document.querySelector('#trainRoot').textContent);
+    t.ok('Settings shows your answers and a way to change them', /About you/.test(r) && /Change my answers/.test(r));
+    await p.click('#trainRoot [data-t="requiz"]');
+    await p.waitForTimeout(100);
+    r = await p.evaluate(() => (document.querySelector('[data-t="qz"][aria-pressed="true"]') || {}).dataset);
+    t.ok('changing them starts from what you said before', r && r.v === 'lean', JSON.stringify(r));
+    for (const step of ['one', 'one', 'next', 'one', 'next', 'next']) {
+      await p.click(step === 'next' ? '[data-t="qzn"]' : '[data-t="qz"][aria-pressed="true"]');
+    }
+    r = await p.evaluate(() => document.querySelector('.tr-quiz').textContent);
+    t.ok('the last question explains why it never asks whether you are a man or a woman', /does not ask whether you are a man or a woman/.test(r), r.slice(0, 120));
+    await p.click('[data-t="qzx"]');
+    r = await p.evaluate(() => !!document.querySelector('.tr-prog'));
+    t.ok('and Cancel goes back to the picks without changing anything', r);
+    await p.click('[data-t="prog"][data-v="home"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('[data-t="o-kit"]')].map((b) => b.dataset.v).join());
+    t.ok('home and bodyweight only offers home kit', r === 'bw,db', r);
+    await p.click('[data-t="build"]');
+    r = await p.evaluate(() => document.querySelector('.tr-card').textContent);
+    t.ok('and a home block says what an exercise needs', /Needs a pull-up bar/.test(r) || /Needs /.test(r), r.slice(0, 200));
+    await p.click('[data-t="begin"]');
+    await p.click('[data-t="browse"]');
+    r = await p.evaluate(() => ({ picks: !!document.querySelector('.tr-prog'), back: !!document.querySelector('[data-t="unbrowse"]') }));
+    t.ok('with a block running, the other programs are a tap away, and so is the way back', r.picks && r.back, JSON.stringify(r));
+    await p.click('[data-t="unbrowse"]');
+    t.ok('back to the block', await p.isVisible('[data-t="start"]'));
     await p.close();
   },
 };
