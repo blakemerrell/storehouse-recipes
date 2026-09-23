@@ -1171,7 +1171,7 @@
      only place that writes all of them at once. */
   function mClaimAll() {
     var now = Date.now();
-    ['t', 'pr', 'sl', 'mf'].forEach(function (k) { MSTAMPS[k] = now; });
+    ['t', 'pr', 'sl', 'mf', 'nv'].forEach(function (k) { MSTAMPS[k] = now; });
     [['d', MDAYS], ['dn', MDONE], ['sp', MSKIP], ['sn', MSEND], ['w', MWEIGHTS],
       ['tn', MTRAINED]].forEach(function (pair) {
       var part = pair[0];
@@ -1228,13 +1228,14 @@
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
       'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroTrained',
-      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT'].forEach(function (k) {
+      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT', 'bsc.macroNever'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
     Object.keys(MWEIGHTS).forEach(function (k) { delete MWEIGHTS[k]; });
     Object.keys(MINTAKE).forEach(function (k) { delete MINTAKE[k]; });
     Object.keys(MDAYT).forEach(function (k) { delete MDAYT[k]; });
+    Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
     Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
     Object.keys(MDONE).forEach(function (k) { delete MDONE[k]; });
     Object.keys(MSKIP).forEach(function (k) { delete MSKIP[k]; });
@@ -1300,6 +1301,7 @@
   }
   var MSYNC_SHAPE = {
     mf: mPlainObj,
+    nv: mPlainObj,
     t: function (v) { return mPlainObj(v) && mNum(v.p) && mNum(v.f) && mNum(v.c); },
     pr: mPlainObj,
     sl: function (v) { return mPlainObj(v) && Array.isArray(v.list); }
@@ -1307,7 +1309,7 @@
   function mSyncUnkey(e) { return String(e).replace(/_/g, '-'); }
 
   var MSYNC_SIMPLE = [
-    ['mf', 'bsc.myFoods'], ['t', 'bsc.macroTargets'],
+    ['mf', 'bsc.myFoods'], ['t', 'bsc.macroTargets'], ['nv', 'bsc.macroNever'],
     ['pr', 'bsc.macroProfile'], ['sl', 'bsc.macroSlots']
   ];
 
@@ -1488,6 +1490,11 @@
     });
     take('sl', 'bsc.macroSlots', function (v) {
       try { localStorage.setItem('bsc.macroSlots', JSON.stringify(v)); } catch (e) { /* private */ }
+    });
+    take('nv', 'bsc.macroNever', function (v) {
+      Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
+      Object.keys(v).forEach(function (k) { MNEVER[k] = v[k]; });
+      try { localStorage.setItem('bsc.macroNever', JSON.stringify(v)); } catch (e) { /* private */ }
     });
     /* Per morning, newest wins, and zero is a real answer — the same three
        rules the closed-day log runs on, and for the same reason. A morning
@@ -2038,6 +2045,29 @@
       '', [['OK', 'mline:moved:ok'], ['Undo', 'mline:moved:undo']]);
   }
 
+  /* What you have said not to suggest. Blake, on the endive Fill kept adding
+     for fibre: the logic is fine, "it's just invisible in the app and a food
+     i might want to stop from suggesting somehow." Keyed id -> the day it was
+     said. Suggestions only: Fill's dishes, its sides and toppers, "Try
+     another", and the picker's lists before you type — searching still finds
+     everything, and anything you add yourself is yours. Synced as part `nv`,
+     so every device leaves it out. */
+  var MNEVER = (function () {
+    try {
+      var v = JSON.parse(localStorage.getItem('bsc.macroNever'));
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+    } catch (e) { /* none yet */ }
+    return {};
+  })();
+  function mNever(id) { return !!MNEVER[String(id)]; }
+  function mSetNever(id, on) {
+    var k = String(id);
+    if (on) MNEVER[k] = todayKey(); else delete MNEVER[k];
+    mStamp('nv');
+    try { localStorage.setItem('bsc.macroNever', JSON.stringify(MNEVER)); }
+    catch (e) { /* this session only */ }
+  }
+
   /* The days live in memory and persist best-effort, so a browser that refuses
      localStorage still gets a working tab for the session. */
   var MDAYS = (function () {
@@ -2131,6 +2161,44 @@
       4 * Math.max(0, targets.c - had.c) +
       9 * Math.max(0, targets.f - had.f);
     return Math.min(short, kcalOf(targets) - (had.kcal || 0));
+  }
+
+  var MWHY = { fib: 'Added for fiber', p: 'Added for protein', f: 'Added for fat', c: 'Added for carbs' };
+  function mWhyChip(it) {
+    if (it.by !== 'f' || !MWHY[it.why]) return '';
+    return '<span class="mwhy mwhy-' + it.why + '">' + MWHY[it.why] + '</span>';
+  }
+
+  /* Take a plate Fill put there off the day and let the same pass choose
+     again — the side pass for a fibre side, the topper for a gap — so what
+     it was covering stays covered. A dish goes back through "Try another". */
+  function mReplacePlate(k, sk, idx) {
+    var it = (mDay(k)[sk] || [])[idx];
+    if (!it) return;
+    var r = BY_ID[it.id];
+    if (!r || !r.food) { mTryAgain(sk); return; }
+    var targets = mDayTargets(k);
+    var near = mNearIds(k);
+    near[it.id] = 1;
+    mEditDay(k, function (day) {
+      (day[sk] || []).splice(idx, 1);
+      if (it.why === 'fib') mSideUp(day, targets, near);
+      else if (it.why) mTopUp(day, targets, near);
+    });
+  }
+
+  function mToast(text, undo) {
+    var el = $('mToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'mToast'; el.className = 'm-toast no-print'; el.setAttribute('role', 'status');
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '<span>' + text + '</span>' +
+      (undo ? '<button type="button" data-mallow="' + esc(String(undo)) + '">Undo</button>' : '');
+    el.hidden = false;
+    clearTimeout(mToast.t);
+    mToast.t = setTimeout(function () { el.hidden = true; }, 6000);
   }
 
   function mSlotClosed(day, k) {
@@ -5021,11 +5089,17 @@
                food: what one of it is, and — for a meal you kept together —
                the parts it was made of. It used to be a dead label, which
                left a five-part salad reading as one word and no way back. */
+            /* The name, and — on a food Fill added — why, beside it: a chip
+               that drops under the name only when the name is long. Blake:
+               the endive logic is fine, "it's just invisible in the app". */
+            '<span class="mitem-nm">' +
             (r.food
               ? '<button class="mitem-name mitem-food" data-mfood="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
+            mWhyChip(it) +
+            '</span>' +
             '<span class="mitem-keep no-print">' +
               /* The pin is the routine: this food on this meal on every new
                  day — the Crio Brü that opens every morning without being
@@ -5052,8 +5126,20 @@
                   '<path d="M8 2.2l1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4L2.2 6.5l4-.6Z" ' +
                     'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>' +
                 '</svg></button>' : '') +
+              /* Everything you might want to DO about a plate that is not the
+                 portion: swap it, or say not to suggest it again. Behind one
+                 quiet mark rather than a third icon on every row. */
+              '<button class="mic mdots" data-mdots="' + tag + '" aria-expanded="' +
+                (S.mDots === tag ? 'true' : 'false') + '" aria-label="More for ' + esc(r.name) + '">' +
+                '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.2" fill="currentColor"/>' +
+                  '<circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor"/></svg>' +
+              '</button>' +
             '</span>' +
           '</div>' +
+          (S.mDots === tag ? '<div class="mitem-pop no-print" role="menu">' +
+            (!it.eaten ? '<button role="menuitem" data-mdo="swap:' + tag + '">Swap for another</button>' : '') +
+            '<button role="menuitem" data-mdo="never:' + tag + '">Don\u2019t suggest ' + esc(r.name) + '</button>' +
+          '</div>' : '') +
           /* What it is in the kitchen, and what it costs you.
            *
              The weight leads, because Blake weighs: "sometimes it's just
@@ -6842,6 +6928,18 @@
           'these when it suggests food &mdash; it does not stop offering anything ' +
           'else. You can change your mind on any food, any time.</div>' +
         inner.blocks +
+        (function () {
+          var ids = Object.keys(MNEVER);
+          if (!ids.length) return '';
+          return '<div class="mt-div">Not suggested</div>' +
+            '<div class="mt-cap">Fill won\u2019t add these. You can still add them yourself by searching.</div>' +
+            ids.map(function (id) {
+              var rr = BY_ID[id] || BY_ID[Number(id)];
+              return '<div class="mnv-row"><span class="mnv-n">' + esc(rr ? rr.name : id) +
+                '<small>since ' + esc(mPretty(MNEVER[id])) + '</small></span>' +
+                '<button class="ghost" data-mallow="' + esc(id) + '">Allow</button></div>';
+            }).join('');
+        })() +
         /* sheet-done, not data-close. The attribute is decorative — it sits
            on the scrim too, so closest() would find it from anywhere inside
            the card and every tap would shut the sheet. The class is the wire.
@@ -7636,7 +7734,10 @@
     var q = mpQ();
     var ranked = planned
       ? mRank(pool, mDay(mViewKey()), targets, slot)
-        .filter(function (e) { return e.score !== null && !skip[e.r.id] && mpMatches(e.r, q); })
+        .filter(function (e) {
+          /* Blocked is a rule about SUGGESTING: a typed word still finds it. */
+          return e.score !== null && !skip[e.r.id] && mpMatches(e.r, q) && (q || !mNever(e.r.id));
+        })
       : (function () {
         /* Foods and dishes alternated, not a prefix of the pool. mMealPool
            puts every recipe before every food, so a plain slice of ten was
@@ -10724,6 +10825,7 @@
           /* What the neighbouring days have not already used — but only while
              that leaves something to choose from. A meal left empty to avoid a
              repeat is a worse answer than the repeat. */
+          inSec = inSec.filter(function (r) { return !mNever(r.id); });
           var fresh = inSec.filter(function (r) { return !near[r.id]; });
           var pool = fresh.length ? fresh : inSec;
           var ranked = mRank(pool, day, targets, s).filter(function (e) { return e.score !== null; });
@@ -10856,6 +10958,7 @@
         var mac = r.macro || {};
         if (r.ext && !mExtOk()) return;     // Fill does not shop
         if (!r.side) return;
+        if (mNever(r.id)) return;
         if (!mFoodMealOK(r, slot)) return;
         if (!(mac.fib > 0) || !(mac.kcal > 0)) return;
         if (mac.fib * 100 / mac.kcal < MSIDE_DENS) return;
@@ -10885,7 +10988,7 @@
         if (!best || sc > best.score) best = { r: r, x: x, score: sc };
       });
       if (!best) return added;
-      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0, by: 'f' });
+      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0, by: 'f', why: 'fib' });
       added++;
     }
     return added;
@@ -10937,6 +11040,7 @@
            tablespoons of it. A topper carries at least a tenth of itself as
            protein or carbohydrate — nuts qualify, oil and butter do not. */
         if (4 * ((mac.p || 0) + (mac.c || 0)) < 0.10 * (mac.kcal || 0)) return;
+        if (mNever(r.id)) return;
         if (mOnDay(day, r.id) || (near && near[r.id])) return;
         var fit = macroFit(r, R, R, D);
         // priced at the portion actually being added, not per hundred grams
@@ -10945,7 +11049,11 @@
         if (!best || sc > best.score) best = { r: r, x: fit.x, score: sc };
       });
       if (!best) return added;
-      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0, by: 'f' });
+      /* Why it is there: the gap it was closing, the largest of the three in
+         calories. Said on the plate ("Added for protein"). */
+      var gapK = { p: 4 * R.p, f: 9 * R.f, c: 4 * R.c };
+      var why = ['p', 'f', 'c'].reduce(function (a, m) { return gapK[m] > gapK[a] ? m : a; }, 'p');
+      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0, by: 'f', why: why });
       added++;
     }
     return added;
@@ -11792,7 +11900,7 @@
          yesterday's dinner — unless it is all that is left to offer. */
       var near = mNearIds(k);
       var pool0 = mMealPool(srec, tries >= MTRY_WIDE - 1).filter(function (r) {
-        return !mOnDay(day, r.id) && dropped.indexOf(r.id) < 0;
+        return !mOnDay(day, r.id) && dropped.indexOf(r.id) < 0 && !mNever(r.id);
       });
       var fresh = pool0.filter(function (r) { return !near[r.id]; });
       var pool = fresh.length ? fresh : pool0;
@@ -13585,7 +13693,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtwk', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mdots', 'data-mdo', 'data-mallow'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -14916,6 +15024,31 @@
           it.x = mStepX(BY_ID[it.id], it.x, sp[2] === 'up' ? 1 : -1);
         });
         keepingFocus(renderMacros);
+        return;
+      }
+      var dots = e.target.closest('[data-mdots]');
+      if (dots) {
+        S.mDots = S.mDots === dots.dataset.mdots ? '' : dots.dataset.mdots;
+        keepingFocus(renderMacros);
+        return;
+      }
+      var mdo = e.target.closest('[data-mdo]');
+      if (mdo) {
+        var dq = mdo.dataset.mdo.split(':');       // action:slot:index
+        var dk = mViewKey(), dsk = dq[1], dix = Number(dq[2]);
+        var dit = (mDay(dk)[dsk] || [])[dix], dr = dit && BY_ID[dit.id];
+        S.mDots = '';
+        if (!dit || !dr) { renderMacros(); return; }
+        if (dq[0] === 'swap') {
+          mReplacePlate(dk, dsk, dix);
+        } else if (dq[0] === 'never') {
+          mSetNever(dr.id, true);
+          /* Off today too when it was only ever a suggestion; kept when you
+             put it there or already ate it — the rule is about suggesting. */
+          if (!dit.eaten && !dit.l && (dit.by === 'f' || dit.by === 'w')) mReplacePlate(dk, dsk, dix);
+          mToast(esc(dr.name) + ' won\u2019t be suggested.', dr.id);
+        }
+        renderMacros();
         return;
       }
       var del = e.target.closest('[data-mdel]');
@@ -16648,6 +16781,16 @@
   /* Before the first paint: a stored plan written by an older build can be
      below this body's floor or have no carbohydrate in it, and the correction
      belongs here rather than inside whichever read happened to run first. */
+  document.addEventListener('click', function (e) {
+    var al = e.target.closest('[data-mallow]');
+    if (!al) return;
+    var aid = al.dataset.mallow;
+    mSetNever(BY_ID[aid] ? aid : (isNaN(Number(aid)) ? aid : Number(aid)), false);
+    var tt = $('mToast');
+    if (tt && tt.contains(al)) tt.hidden = true;
+    if (S.favPick) renderModal();
+    if (S.view === 'macros') renderMacros();
+  });
   mBootTargetsDue = true;
   if (!mSuspectAccount()) mBootTargets();
   wire();
