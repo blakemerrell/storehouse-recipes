@@ -89,7 +89,7 @@
     { k: 'triceps', n: 'Triceps', mev: 6, mrv: 18 },
     { k: 'calves', n: 'Calves', mev: 8, mrv: 20 },
     { k: 'traps', n: 'Traps', mev: 0, mrv: 26 },
-    { k: 'abs', n: 'Abs', mev: 0, mrv: 25 }
+    { k: 'abs', n: 'Core', mev: 0, mrv: 25 }
   ];
   var MUS = {};
   MUSCLES.forEach(function (m) { MUS[m.k] = m; });
@@ -148,9 +148,11 @@
     ['bb-front', 'Front Squat', 'quads', 'c', 'bb', 'squat', 6, 10],
     ['sm-squat', 'Smith Machine Squat', 'quads', 'c', 'sm', 'squat', 8, 12],
     ['leg-press', 'Leg Press', 'quads', 'c', 'mc', 'machine', 8, 15],
+    ['belt-squat', 'Belt Squat', 'quads', 'c', 'mc', 'machine', 8, 12],
     ['db-bss', 'Bulgarian Split Squat', 'quads', 'c', 'db', 'single', 8, 12],
     ['goblet', 'Goblet Squat', 'quads', 'c', 'db', 'squat', 8, 15],
     ['db-lunge', 'Walking Lunge', 'quads', 'c', 'db', 'single', 8, 12],
+    ['db-stepup', 'Dumbbell Step-Up', 'quads', 'c', 'db', 'single', 8, 12],
     ['leg-ext', 'Leg Extension', 'quads', 'i', 'mc', 'ext', 10, 15],
 
     ['bb-rdl', 'Romanian Deadlift', 'hams', 'c', 'bb', 'hinge', 6, 10],
@@ -214,11 +216,48 @@
     ['hang-raise', 'Hanging Leg Raise', 'abs', 'i', 'bw', '', 8, 15],
     ['ab-wheel', 'Ab Wheel Rollout', 'abs', 'i', 'bw', '', 8, 15],
     ['mc-crunch', 'Machine Crunch', 'abs', 'i', 'mc', '', 10, 20],
-    ['crunch', 'Crunch', 'abs', 'i', 'bw', '', 12, 25]
+    ['crunch', 'Crunch', 'abs', 'i', 'bw', '', 12, 25],
+    ['pallof', 'Pallof Press', 'abs', 'i', 'cb', '', 10, 15],
+    ['dead-bug', 'Dead Bug', 'abs', 'i', 'bw', '', 8, 12],
+    ['bird-dog', 'Bird Dog', 'abs', 'i', 'bw', '', 8, 12]
   ];
+
+  /* ------------------------------------------------------------ the back
+   *
+   * What each exercise asks of the lower back, in three ways a back can
+   * object: F loaded bending (the spine rounding, or held rounded, under
+   * weight — bent-over rows, the bottom of a deep squat, deadlifts, crunches),
+   * C compression (weight pressing down through it — a bar on the shoulders,
+   * shoulder pads, heavy dumbbells at your sides), X extension (arching under
+   * load). A capital is a lot of it, a small letter some.
+   *
+   * With "protect my back" on, a capital in any of your triggers keeps that
+   * exercise out of every block; a small letter lets it in but ranks it
+   * below one that asks nothing, and puts a cue on it. Nothing is hidden
+   * from the picker — you can still choose any of them; they say what they
+   * load.
+   *
+   * These are judgements from the movement, not measurements of your spine.
+   * What suits a particular back is for the physio who has examined it; the
+   * avoid list is where their answer goes. */
+  var BACK = {
+    'bb-row': 'Fc', 'cb-row': 'f', 'db-row': 'f', 'db-pullover': 'x',
+    'bb-squat': 'FC', 'bb-front': 'fC', 'sm-squat': 'fc', 'goblet': 'fc', 'hack': 'c',
+    'leg-press': 'f', 'db-bss': 'c', 'db-lunge': 'c', 'db-stepup': 'c',
+    'bb-rdl': 'F', 'db-rdl': 'F', 'bb-sldl': 'F', 'bb-dl': 'FC', 'good-am': 'F',
+    'hip-thrust': 'x', 'mc-thrust': 'x', 'db-thrust': 'x', 'back-ext': 'Fx',
+    'db-rear': 'f', 'bb-ohp': 'Cx', 'calf-stand': 'C',
+    'db-shrug': 'c', 'bb-shrug': 'C', 'cb-shrug': 'c',
+    'cb-crunch': 'F', 'hang-raise': 'F', 'mc-crunch': 'F', 'crunch': 'F', 'ab-wheel': 'X'
+  };
+  var BACK_CUE = {
+    f: 'Stop each rep before your lower back starts to round.',
+    c: 'Brace before every rep, and leave it out on a day your back is cranky.',
+    x: 'Finish with your glutes, not by arching your lower back.'
+  };
   var LIB = {}, LIB_LIST = [];
   LIB_ROWS.forEach(function (r, i) {
-    var ex = { id: r[0], n: r[1], m: r[2], k: r[3], q: r[4], p: r[5], rr: [r[6], r[7]], o: i };
+    var ex = { id: r[0], n: r[1], m: r[2], k: r[3], q: r[4], p: r[5], rr: [r[6], r[7]], o: i, bk: BACK[r[0]] || '' };
     LIB[ex.id] = ex;
     LIB_LIST.push(ex);
   });
@@ -317,6 +356,20 @@
       'The volume landmarks (MEV, MRV) and the feedback-driven set progression. Practitioner guidance, not a trial.'],
     deload24: ['Coleman et al. (2024)', 'Gaining more from doing less? The effects of a one-week deload period during supervised resistance training on muscular adaptations. PeerJ.',
       'A week off mid-program did not change muscle growth. Deloads are about fatigue and joints, not about growing more.'],
+    bickel11: ['Bickel, Cross & Bamman (2011)', 'Exercise dosing to retain resistance training adaptations in young and older adults. Medicine & Science in Sports & Exercise.',
+      'After sixteen weeks of training, one session a week kept strength and size for eight months: younger lifters on a ninth of the sets, older lifters needing about a third to keep their muscle.'],
+    spiering21: ['Spiering et al. (2021)', 'Maintaining physical performance: the minimal dose of exercise needed to preserve endurance and strength over time. Journal of Strength and Conditioning Research.',
+      'Strength and muscle can be kept on as little as one session a week and a set or so per exercise, provided the load stays heavy; older adults need about two sessions.'],
+    iversen21: ['Iversen et al. (2021)', 'No time to lift? Designing time-efficient training programs for strength and hypertrophy: a narrative review. Sports Medicine.',
+      'For short sessions: favour lifts that train several muscles, pair exercises for different muscles, and keep weekly sets modest \u2014 about four hard sets a muscle a week still builds strength.'],
+    who20: ['Bull et al. (2020)', 'World Health Organization 2020 guidelines on physical activity and sedentary behaviour. British Journal of Sports Medicine.',
+      'Adults: 150\u2013300 minutes a week of moderate activity, or 75\u2013150 vigorous, plus muscle strengthening on two or more days.'],
+    compendium11: ['Ainsworth et al. (2011)', 'Compendium of Physical Activities: a second update of codes and MET values. Medicine & Science in Sports & Exercise.',
+      'Golf walking with clubs is about 4\u20135 METs, in a cart about 3.5; 3 to 6 METs counts as moderate.'],
+    hayden21: ['Hayden et al. (2021)', 'Exercise therapy for chronic low back pain. Cochrane Database of Systematic Reviews.',
+      'Exercise probably reduces pain in long-running low back pain compared with no treatment; no one kind of exercise stands out.'],
+    long04: ['Long, Donelson & Fung (2004)', 'Does it matter which exercise? A randomized control trial of exercise for low back pain. Spine.',
+      'People whose back pain eased in one direction of movement did better with exercise matched to it \u2014 the idea behind steering clear of what sets yours off.'],
     epley: ['Epley (1985)', 'Poundage chart. Boyd Epley Workout.',
       'Estimated one-rep max = weight × (1 + reps ÷ 30). Least trustworthy past about twelve reps.']
   };
@@ -332,6 +385,7 @@
    *   ms   blocks, keyed by id
    *   wo   finished workouts, keyed by id
    *   cx   exercises you made yourself, keyed by id
+   *   ax   activity outside the gym — golf, walks — keyed by id
    *
    * The workout in progress is NOT in T. It belongs to the phone in your
    * hand at the gym, not to the account, and syncing half a set to a laptop
@@ -350,18 +404,44 @@
       // the point Singer et al. (2024) found it stops mattering.
       rc: fin(p.rc) && p.rc > 0 ? p.rc : 180,
       ri: fin(p.ri) && p.ri > 0 ? p.ri : 90,
-      snd: p.snd === 0 ? 0 : 1
+      /* Between the two halves of a pair. A minute each way leaves each
+         muscle about two and three-quarter minutes between its own sets,
+         which is the whole trick of pairing. */
+      rp: fin(p.rp) && p.rp > 0 ? p.rp : 60,
+      snd: p.snd === 0 ? 0 : 1,
+      // what you train for: grow the muscle, or keep the strength you have
+      goal: p.goal === 'keep' ? 'keep' : 'grow',
+      // minutes a session may take, warm-up included; 0 is no limit
+      min: [30, 40, 45, 60, 75].indexOf(p.min) >= 0 ? p.min : 0,
+      // what sets your back off, as the letters BACK uses; '' is not protecting it
+      bk: typeof p.bk === 'string' ? p.bk.replace(/[^fcx]/g, '').slice(0, 3) : '',
+      // what you do outside the gym
+      hab: Array.isArray(p.hab) ? p.hab.filter(function (h) { return !!HABITS[h]; }) : [],
+      // exercises you never want suggested again
+      avoid: Array.isArray(p.avoid) ? p.avoid.filter(function (e) { return typeof e === 'string'; }).slice(0, 200) : []
     };
   }
-  function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {} }; }
-  function blankTS() { return { pr: 0, act: 0, ms: {}, wo: {}, cx: {} }; }
+
+  /* Activity outside the gym, and what it counts as. Golf is moderate
+     exercise by the Compendium's numbers either way — about 4–5 METs on foot,
+     3.5 in a cart, where moderate starts at 3 — so both count toward the
+     weekly target minute for minute. */
+  var HABITS = {
+    golfw: { n: 'Golf, walking', btn: 'Golf (walked)', min: 240 },
+    golfc: { n: 'Golf, cart', btn: 'Golf (cart)', min: 240 },
+    walk: { n: 'Walk', btn: 'Walk', min: 30 },
+    other: { n: 'Other cardio', btn: 'Cardio', min: 30 }
+  };
+  function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {}, ax: {} }; }
+  function blankTS() { return { pr: 0, act: 0, ms: {}, wo: {}, cx: {}, ax: {} }; }
+  var PARTS = ['ms', 'wo', 'cx', 'ax'];
 
   function loadT() {
     var t = readLS(LS_T), out = blankT();
     if (plain(t)) {
       out.pr = defaultsPr(t.pr);
       out.act = typeof t.act === 'string' ? t.act : '';
-      ['ms', 'wo', 'cx'].forEach(function (p) {
+      PARTS.forEach(function (p) {
         if (!plain(t[p])) return;
         Object.keys(t[p]).forEach(function (k) {
           if (t[p][k] && SHAPE[p](t[p][k])) out[p][k] = t[p][k];
@@ -375,7 +455,7 @@
     if (!plain(s)) return out;
     out.pr = fin(s.pr) ? s.pr : 0;
     out.act = fin(s.act) ? s.act : 0;
-    ['ms', 'wo', 'cx'].forEach(function (p) { if (plain(s[p])) out[p] = s[p]; });
+    PARTS.forEach(function (p) { if (plain(s[p])) out[p] = s[p]; });
     return out;
   }
 
@@ -403,7 +483,10 @@
         });
       });
     },
-    cx: function (v) { return plain(v) && typeof v.n === 'string' && !!MUS[v.m]; }
+    cx: function (v) { return plain(v) && typeof v.n === 'string' && !!MUS[v.m]; },
+    ax: function (v) {
+      return plain(v) && fin(v.st) && !!HABITS[v.k] && fin(v.min) && v.min > 0 && v.min <= 720;
+    }
   };
 
   var T = loadT();
@@ -461,7 +544,7 @@
       out[p] = { v: T[p], at: TS[p] || 0 };
       any = true;
     });
-    ['ms', 'wo', 'cx'].forEach(function (p) {
+    PARTS.forEach(function (p) {
       var keys = {};
       if (whole || dirty[p] === true) {
         Object.keys(T[p]).forEach(function (k) { keys[k] = 1; });
@@ -510,7 +593,7 @@
     if (plain(tr.act) && fin(tr.act.at) && tr.act.at > (TS.act || 0) && typeof tr.act.v === 'string') {
       T.act = tr.act.v; TS.act = tr.act.at; moved = true;
     }
-    ['ms', 'wo', 'cx'].forEach(function (p) {
+    PARTS.forEach(function (p) {
       var from = plain(tr[p]) ? tr[p] : {};
       Object.keys(from).forEach(function (k) {
         var r = from[k];
@@ -672,16 +755,27 @@
      (2024) found most of the growth in. Heavy barbell and Smith lifts stop
      at one — Refalo et al. (2023) saw nothing gained by the last rep, and
      the last rep of a heavy squat is the one that goes wrong. */
-  function accOf(ms) { return fin(ms.dlw) ? Math.min(ms.acc, ms.dlw) : ms.acc; }
-  function weeksOf(ms) { return accOf(ms) + 1; }
+  function isKeep(ms) { return !!ms && ms.goal === 'keep'; }
+  /* A block to keep strength has no deload week — nothing accumulates at a
+     maintenance dose — so its weeks are all working weeks. */
+  function accOf(ms) {
+    if (isKeep(ms)) return ms.acc;
+    return fin(ms.dlw) ? Math.min(ms.acc, ms.dlw) : ms.acc;
+  }
+  function weeksOf(ms) { return isKeep(ms) ? ms.acc : accOf(ms) + 1; }
+  /* Keeping holds effort steady at about two reps short on the big lifts and
+     one on the small ones: heavy enough that strength has a reason to stay,
+     far enough from failure that it never costs a round of golf. */
   function rirFor(ms, w) {
     var n = accOf(ms);
     if (w >= n) return null;
+    if (isKeep(ms)) return 2;
     if (n <= 1) return 2;
     return Math.round(3 * (1 - w / (n - 1)));
   }
-  function exRir(ex, rir) {
+  function exRir(ex, rir, keep) {
     if (rir === null) return null;
+    if (keep && ex.k !== 'c') return Math.max(0, rir - 1);
     return ex.k === 'c' && (ex.q === 'bb' || ex.q === 'sm') ? Math.max(1, rir) : rir;
   }
   function restFor(ex) { return ex.k === 'c' ? T.pr.rc : T.pr.ri; }
@@ -797,12 +891,32 @@
     else if (sr === 2 && dl > 0) dl = 0;
     if (fb.j === 2 && dl > 0) { dl = 0; stop = 'joints hurt'; }
     if (dl > 0 && regressed(ms, w, d, m)) { dl = 0; stop = 'you were weaker than the week before'; }
-    var head = dl > 0 ? '+' + dl + ' set' + (dl > 1 ? 's' : '') : dl < 0 ? '−' + (-dl) + ' set' : 'Held';
     return {
       d: dl,
-      why: head + ' — ' + (said.length ? said.join(', ') : 'no feedback given, so the standard step') +
-        (stop ? '; held because ' + stop : '') + '.'
+      body: (said.length ? said.join(', ') : 'no feedback given, so the standard step') +
+        (stop ? '; held because ' + stop : '')
     };
+  }
+
+  function whyHead(dl) {
+    return dl > 0 ? '+' + dl + ' set' + (dl > 1 ? 's' : '') : dl < 0 ? '\u2212' + (-dl) + ' set' : 'Held';
+  }
+
+  /* Keeping: the sets stay where they are. Two things move them. A session
+     that was too much, or hurt, takes one away. Strength sliding two weeks
+     running adds one back — at a maintenance dose there is little room
+     below it, and Spiering et al. (2021) put the answer to lost strength in
+     more work or heavier work, not less. */
+  function keepFeedback(ms, w, d, m) {
+    var wo = woFor(ms, w, d);
+    if (!wo) return { d: 0, body: '' };
+    var fb = (wo.fb && wo.fb[m]) || {};
+    if (fb.k === 3) return { d: -1, body: 'last week\u2019s workload was too much' };
+    if (fb.j === 2) return { d: -1, body: T.pr.bk ? 'your back or joints hurt last week' : 'your joints hurt last week' };
+    if (w >= 1 && regressed(ms, w, d, m) && regressed(ms, w - 1, d, m)) {
+      return { d: 1, body: 'strength slipped two weeks running' };
+    }
+    return { d: 0, body: '' };
   }
 
   /* Add or take sets one at a time: added to the exercise with the fewest,
@@ -837,9 +951,10 @@
      the progression is stored: it is a function of what was logged, so
      editing or deleting a workout moves the plan with it. */
   function setsFor(ms, W) {
+    var keep = isKeep(ms);
     var cur = ms.days.map(function (d) { return d.s.map(function (s) { return Math.max(1, s.n); }); });
-    var why = ms.days.map(function (d) { return d.s.map(function () { return 'Week one: RP’s starting volume.'; }); });
-    if (W >= accOf(ms)) {
+    var why = ms.days.map(function (d) { return d.s.map(function () { return keep ? '' : 'Week one: RP\u2019s starting volume.'; }); });
+    if (!keep && W >= accOf(ms)) {
       return {
         sets: cur.map(function (a) { return a.map(function (n) { return Math.max(1, Math.ceil(n / 2)); }); }),
         why: cur.map(function (a) { return a.map(function () {
@@ -856,16 +971,30 @@
         var by = {};
         day.s.forEach(function (s, i) { var m = musOf(s.e); (by[m] = by[m] || []).push(i); });
         Object.keys(by).forEach(function (m) {
-          var f = feedback(ms, w - 1, d, m);
-          var dl = f.d, why2 = f.why;
+          var f = keep ? keepFeedback(ms, w - 1, d, m) : feedback(ms, w - 1, d, m);
+          var dl = f.d, extra = '';
           var roof = MUS[m].mrv;
-          if (dl > 0 && tot[m] + dl > roof) {
+          if (!keep && dl > 0 && tot[m] + dl > roof) {
             dl = Math.max(0, roof - tot[m]);
-            why2 += ' Capped at ' + roof + ' sets a week, RP’s MRV for ' + MUS[m].n.toLowerCase() + '.';
+            extra += ' Capped at ' + roof + ' sets a week, RP\u2019s MRV for ' + MUS[m].n.toLowerCase() + '.';
+          }
+          /* And never past the minutes you said a session could take: a set
+             that would not fit is a set that would not get done. */
+          if (dl > 0 && ms.min) {
+            var fits = dl;
+            while (fits > 0) {
+              var trial = next[d].slice();
+              spread(trial, by[m], fits);
+              if (estDay(day, trial) <= ms.min) break;
+              fits--;
+            }
+            if (fits < dl) extra += ' Held to fit your ' + ms.min + '-minute session.';
+            dl = fits;
           }
           spread(next[d], by[m], dl);
           tot[m] += dl;
-          by[m].forEach(function (i) { wy[d][i] = why2; });
+          var said = f.body ? whyHead(dl) + ' \u2014 ' + f.body + '.' + extra : extra.trim();
+          by[m].forEach(function (i) { wy[d][i] = said; });
         });
       });
       cur = next;
@@ -886,8 +1015,8 @@
       x: day.s.map(function (s, i) {
         var ex = lib(s.e);
         var t = target(ex, ms, w, d, dl);
-        return { e: s.e, sets: sf.sets[d][i], rr: ex.rr, rest: restFor(ex), rir: exRir(ex, rir),
-          tw: t.tw, tr: t.tr, prev: t.prev, why: sf.why[d][i] };
+        return { e: s.e, sets: sf.sets[d][i], rr: ex.rr, rest: restFor(ex), rir: exRir(ex, rir, isKeep(ms)),
+          tw: t.tw, tr: t.tr, prev: t.prev, why: sf.why[d][i], p: s.p || 0 };
       })
     };
   }
@@ -909,10 +1038,44 @@
      pattern asked for if possible, and not one this block already uses if
      there is any other choice. Library order is preference order, so the
      plain version of each lift comes first. */
-  function pickEx(m, k, p, eq, used, seed) {
-    var cand = allEx().filter(function (ex) { return ex.m === m && eq.indexOf(ex.q) >= 0; });
+  /* Whether an exercise is out, for this back and this avoid list. A capital
+     in any of your triggers keeps it out; so does your saying never. */
+  function barred(ex, pf) {
+    if (!pf) return false;
+    if (pf.avoid && pf.avoid.indexOf(ex.id) >= 0) return true;
+    var bk = pf.bk || '';
+    for (var i = 0; i < bk.length; i++) if (ex.bk.indexOf(bk[i].toUpperCase()) >= 0) return true;
+    return false;
+  }
+  /* How much it asks of this back, as a ranking penalty. Some of a trigger
+     costs a lot; any other load costs a little, so that with protection on
+     the version that asks nothing of the back wins a tie — a seated press
+     over a standing one, a chest-supported row over a bent-over one. */
+  function backCost(ex, pf) {
+    var bk = pf && pf.bk;
+    if (!bk || !ex.bk) return 0;
+    var c = 0;
+    for (var i = 0; i < ex.bk.length; i++) {
+      var ch = ex.bk[i], low = ch.toLowerCase();
+      if (bk.indexOf(low) >= 0) c += 20;
+      else c += ch === low ? 3 : 6;
+    }
+    return c;
+  }
+  /* The cue a moderately loading exercise carries for your back, if any. */
+  function backCue(ex) {
+    var bk = T.pr.bk;
+    if (!bk || !ex.bk) return '';
+    for (var i = 0; i < bk.length; i++) if (ex.bk.indexOf(bk[i]) >= 0) return BACK_CUE[bk[i]];
+    return '';
+  }
+
+  function pickEx(m, k, p, eq, used, seed, pf) {
+    var cand = allEx().filter(function (ex) { return ex.m === m && eq.indexOf(ex.q) >= 0 && !barred(ex, pf); });
     if (!cand.length) return null;
-    var score = function (ex) { return (ex.k === k ? 0 : 100) + (p && ex.p !== p ? 10 : 0) + ex.o / 1000; };
+    var score = function (ex) {
+      return (ex.k === k ? 0 : 100) + (p && ex.p !== p ? 10 : 0) + backCost(ex, pf) + ex.o / 1000;
+    };
     cand.sort(function (a, b) { return score(a) - score(b); });
     var fresh = cand.filter(function (ex) { return !used[ex.id]; });
     var pool = fresh.length ? fresh : cand;
@@ -921,45 +1084,164 @@
     return tier[(seed || 0) % tier.length];
   }
 
-  /* A block, from five answers.
+  /* Keeping, not building.
    *
-   * Week one's sets per muscle start at RP's MEV, moved two for experience
-   * and two more for a muscle you want to bring up, then spread across the
-   * slots that muscle has. Never under two per exercise, because one set a
-   * week is not enough for the feedback to mean anything. And never so high
-   * that a set a week would carry it past MRV before the deload. */
+   * Strength that has been built takes far less to keep than it took to
+   * build: in Bickel et al. (2011) one session a week at a fraction of the
+   * sets held it for eight months, and Spiering et al. (2021) put the floor at
+   * about one session and a set or so per exercise — provided the loads stay
+   * heavy. Older lifters need a little more, which is why this is two or
+   * three sessions rather than one.
+   *
+   * So: full body, every big movement each session, three sets (two when
+   * there are three days), sets ending about two reps short of failure, and
+   * no climb in volume and no deload — there is nothing accumulating to
+   * recover from. The muscles are paired so that one rests while the other
+   * works (the "+" joins a slot to the one after it); that is what fits a
+   * whole body into forty minutes without cutting the rest either muscle
+   * gets. Squat, hinge-free hip work, a push and a pull, and a core slot that
+   * trains the trunk to resist movement rather than to bend. */
+  var KEEP_SPLITS = {
+    2: { n: 'Keep strength', days: [
+      ['Strength A', ['quads/c/squat+', 'back/c/horiz', 'chest/c/flat+', 'hams/i/curl', 'front/c/press+', 'abs/i']],
+      ['Strength B', ['glutes/c/thrust+', 'back/c/vert', 'quads/c/single+', 'chest/c/incline', 'side/i+', 'abs/i']]
+    ] },
+    3: { n: 'Keep strength', days: [
+      ['Strength A', ['quads/c/squat+', 'back/c/horiz', 'chest/c/flat+', 'hams/i/curl', 'side/i+', 'abs/i']],
+      ['Strength B', ['glutes/c/thrust+', 'back/c/vert', 'chest/c/incline+', 'quads/i', 'biceps/i+', 'triceps/i']],
+      ['Strength C', ['quads/c/single+', 'back/c/horiz', 'front/c/press+', 'hams/i/curl', 'rear/i+', 'abs/i']]
+    ] }
+  };
+
+  /* ------------------------------------------------------------- the clock
+   *
+   * How long a session takes, estimated rather than promised: three quarters
+   * of a minute a set, the rest the settings give it between straight sets,
+   * the paired rest between the halves of a pair, a minute to move between
+   * exercises, five to warm up. Close enough to plan a lunch hour around. */
+  function estDay(day, sets) {
+    var t = 5, groups = {};
+    var straight = function (sl, n) { return n * 0.75 + Math.max(0, n - 1) * restFor(lib(sl.e)) / 60 + 1; };
+    day.s.forEach(function (sl, i) {
+      var n = sets ? sets[i] : sl.n;
+      if (sl.p) { (groups[sl.p] = groups[sl.p] || []).push({ sl: sl, n: n }); return; }
+      t += straight(sl, n);
+    });
+    Object.keys(groups).forEach(function (g) {
+      var list = groups[g];
+      // a pair that has lost its other half is a straight set again
+      if (list.length < 2) { t += straight(list[0].sl, list[0].n); return; }
+      var tot = list.reduce(function (a, b) { return a + b.n; }, 0);
+      t += tot * 0.75 + Math.max(0, tot - 1) * T.pr.rp / 60 + 1;
+    });
+    return Math.round(t);
+  }
+
+  var REGION = { quads: 'l', hams: 'l', glutes: 'l', calves: 'l', chest: 'u', front: 'u', side: 'u',
+    triceps: 'u', back: 'p', rear: 'p', biceps: 'p', traps: 'p', abs: 'c' };
+
+  /* Make a day fit the minutes you have, in the order that costs least:
+     pair what is not paired yet (a push beside a pull, legs beside arms),
+     then take isolation work to two sets, then the big lifts to two, then
+     drop exercises from the end — the ones for a muscle you did not ask to
+     bring up first — until it fits or three are left. */
+  function fitDay(day, min, pri) {
+    if (!min || estDay(day) <= min) return;
+    var g = day.s.reduce(function (m, sl) { return Math.max(m, sl.p || 0); }, 0);
+    day.s.forEach(function (a, i) {
+      if (a.p) return;
+      for (var j = i + 1; j < day.s.length; j++) {
+        var b = day.s[j];
+        if (b.p || REGION[musOf(a.e)] === REGION[musOf(b.e)]) continue;
+        g++; a.p = g; b.p = g;
+        var moved = day.s.splice(j, 1)[0];
+        day.s.splice(i + 1, 0, moved);
+        break;
+      }
+    });
+    var trim = function (kind) {
+      day.s.forEach(function (sl) {
+        if (estDay(day) > min && lib(sl.e).k === kind && sl.n > 2) sl.n = 2;
+      });
+    };
+    trim('i');
+    trim('c');
+    var guard = 20;
+    while (estDay(day) > min && day.s.length > 3 && guard--) {
+      var at = -1;
+      for (var k = day.s.length - 1; k >= 0 && at < 0; k--) {
+        if ((pri || []).indexOf(musOf(day.s[k].e)) < 0 && lib(day.s[k].e).k === 'i') at = k;
+      }
+      if (at < 0) at = day.s.length - 1;
+      var gone = day.s.splice(at, 1)[0];
+      if (gone.p) day.s.forEach(function (sl) { if (sl.p === gone.p) delete sl.p; });
+    }
+  }
+
+  /* A block, from your answers.
+   *
+   * To grow: week one's sets per muscle start at RP's MEV, moved two for
+   * experience and two more for a muscle you want to bring up, then spread
+   * across the slots that muscle has. Never under two per exercise, because
+   * one set a week is not enough for the feedback to mean anything. And never
+   * so high that a set a week would carry it past MRV before the deload.
+   *
+   * To keep: the splits above, as they stand.
+   *
+   * Either way, then made to fit the minutes you have and kept clear of what
+   * your back has said no to. */
   function build(o) {
-    var split = SPLITS[o.dpw] || SPLITS[4];
+    var keep = o.goal === 'keep';
+    var split = keep ? KEEP_SPLITS[o.dpw >= 3 ? 3 : 2] : SPLITS[o.dpw] || SPLITS[4];
     var eq = (KITS[o.kit] || KITS.gym).eq;
+    var pf = { bk: o.bk || '', avoid: o.avoid || [] };
     var used = {};
     var days = split.days.map(function (row) {
-      var s = [];
+      var s = [], g = 0, open = false;
       row[1].forEach(function (tok) {
-        var t = tok.split('/');
-        var ex = pickEx(t[0], t[1], t[2] || '', eq, used, o.seed || 0);
-        if (!ex) return;
+        var join = tok.charAt(tok.length - 1) === '+';
+        var t = tok.replace(/\+$/, '').split('/');
+        var ex = pickEx(t[0], t[1], t[2] || '', eq, used, o.seed || 0, pf);
+        if (!ex) { open = false; return; }
         used[ex.id] = 1;
-        s.push({ e: ex.id, n: 2 });
+        var sl = { e: ex.id, n: 2 };
+        if (open) { sl.p = g; open = false; }
+        else if (join) { g++; sl.p = g; open = true; }
+        s.push(sl);
+      });
+      // a pair whose other half found no exercise is not a pair
+      s.forEach(function (sl) {
+        if (sl.p && s.filter(function (x) { return x.p === sl.p; }).length < 2) delete sl.p;
       });
       return { n: row[0], s: s };
     });
-    var by = {};
-    days.forEach(function (day) {
-      day.s.forEach(function (s) { var m = musOf(s.e); (by[m] = by[m] || []).push(s); });
-    });
-    var acc = Math.max(2, Math.min(6, o.acc || 4));
-    var lvl = [-2, 0, 2][o.lvl] || 0;
-    Object.keys(by).forEach(function (m) {
-      var mu = MUS[m], list = by[m], n = list.length;
-      var want = mu.mev + lvl + ((o.pri || []).indexOf(m) >= 0 ? 2 : 0);
-      want = Math.min(want, mu.mrv - (acc - 1));
-      want = Math.max(want, n * 2);
-      var base = Math.floor(want / n), extra = want - base * n;
-      list.forEach(function (s, i) { s.n = Math.min(5, base + (i < extra ? 1 : 0)); });
-    });
+    var acc;
+    if (keep) {
+      acc = [4, 6, 8, 10, 12].indexOf(o.acc) >= 0 ? o.acc : 8;
+      days.forEach(function (day) { day.s.forEach(function (sl) { sl.n = o.dpw >= 3 ? 2 : 3; }); });
+    } else {
+      acc = Math.max(2, Math.min(6, o.acc || 4));
+      var by = {};
+      days.forEach(function (day) {
+        day.s.forEach(function (sl) { var m = musOf(sl.e); (by[m] = by[m] || []).push(sl); });
+      });
+      var lvl = [-2, 0, 2][o.lvl] || 0;
+      Object.keys(by).forEach(function (m) {
+        var mu = MUS[m], list = by[m], n = list.length;
+        var want = mu.mev + lvl + ((o.pri || []).indexOf(m) >= 0 ? 2 : 0);
+        want = Math.min(want, mu.mrv - (acc - 1));
+        want = Math.max(want, n * 2);
+        var base = Math.floor(want / n), extra = want - base * n;
+        list.forEach(function (sl, i) { sl.n = Math.min(5, base + (i < extra ? 1 : 0)); });
+      });
+    }
+    var min = [30, 40, 45, 60, 75].indexOf(o.min) >= 0 ? o.min : 0;
+    days.forEach(function (day) { fitDay(day, min, o.pri); });
     return {
-      id: newId(), n: split.n + ' · ' + o.dpw + ' days', at: Date.now(),
-      acc: acc, lvl: o.lvl || 0, kit: o.kit || 'gym', dpw: o.dpw, pri: (o.pri || []).slice(),
+      id: newId(), n: split.n + ' · ' + (keep ? Math.min(3, Math.max(2, o.dpw)) : o.dpw) + ' days' + (min ? ' · ' + min + ' min' : ''),
+      at: Date.now(), goal: keep ? 'keep' : 'grow', min: min,
+      acc: acc, lvl: o.lvl || 0, kit: o.kit || 'gym', dpw: keep ? Math.min(3, Math.max(2, o.dpw)) : o.dpw,
+      pri: keep ? [] : (o.pri || []).slice(),
       seed: o.seed || 0, days: days, sk: []
     };
   }
@@ -1101,10 +1383,15 @@
     var ms = active();
     var inBlock = {};
     if (ms) ms.days.forEach(function (d) { d.s.forEach(function (s) { inBlock[musOf(s.e)] = 1; }); });
+    /* Graded against what you are training for. Keeping is judged by the
+       keeping research, not by the growing research — six sets a week is a
+       failing grade for growth and a comfortable one for maintenance. */
+    var keep = ms ? isKeep(ms) : T.pr.goal === 'keep';
 
     var rows = MUSCLES.filter(function (m) { return mus[m.k] || inBlock[m.k]; }).map(function (m) {
       var r = mus[m.k] || { sets: 0, days: {} };
-      var st = r.sets < 5 ? 'low' : r.sets < 10 ? 'fair' : r.sets <= 20 ? 'good' : 'high';
+      var st = keep ? (r.sets < 3 ? 'low' : 'good')
+        : r.sets < 5 ? 'low' : r.sets < 10 ? 'fair' : r.sets <= 20 ? 'good' : 'high';
       return { k: m.k, n: m.n, sets: r.sets, days: Object.keys(r.days).length, mev: m.mev, mrv: m.mrv, st: st };
     });
 
@@ -1112,7 +1399,9 @@
     if (!wos.length) {
       checks.push({ st: 'info', t: 'Nothing logged in the last seven days',
         b: 'The review reads the last week of finished workouts. Log one and this fills in.', refs: [] });
-      return { rows: rows, checks: checks, n: 0, prog: progress(now), label: win.label };
+      var ac0 = activityCheck(now, 0);
+      if (ac0) checks.push(ac0);
+      return { rows: rows, checks: checks, n: 0, prog: progress(now), label: win.label, keep: keep };
     }
 
     /* A week that is not over cannot be graded as a week. Half of one, with
@@ -1126,7 +1415,18 @@
     var high = rows.filter(function (r) { return r.sets > 20; });
     var none = rows.filter(function (r) { return !r.sets; });
     var inRange = rows.filter(function (r) { return r.sets >= 10 && r.sets <= 20; });
-    checks.push({
+    var thin = rows.filter(function (r) { return r.sets < 3; });
+    if (keep) checks.push({
+      st: young ? 'info' : thin.length ? 'look' : 'good',
+      t: 'Enough to keep it?',
+      b: young
+        ? notYet + ' Keeping strength takes about three hard, heavy sets a muscle a week or more; read this again once a full week is in.'
+        : thin.length
+          ? names(thin) + (thin.length > 1 ? ' are' : ' is') + ' under three hard sets this week. Maintenance takes little, but not nothing: strength held on a fraction of the training that built it, not on none.'
+          : 'Every muscle got three or more hard sets. Strength that has been built held for months on about a third of the training that built it \u2014 less for younger lifters, a little more for older \u2014 as long as the loads stayed heavy.',
+      refs: ['bickel11', 'spiering21', 'iversen21']
+    });
+    else checks.push({
       st: young ? 'info' : low.length || none.length ? 'look' : 'good',
       t: 'Weekly sets per muscle',
       b: young
@@ -1189,9 +1489,11 @@
     checks.push({
       st: 'info',
       t: 'How close to failure',
-      b: 'The block asks for ' + (ms ? 'reps in reserve stepping from 3 to 0' : 'sets ending 0–3 reps short of failure') +
-        '. This app cannot see how close you went — only you can — so it does not grade it. Growth improves the closer a set ends to failure, and the last rep or two add little but fatigue.',
-      refs: ['fail24', 'fail23', 'rir16']
+      b: keep
+        ? 'Keeping asks for about two reps in reserve on the big lifts and one on the small ones. This app cannot see how close you went \u2014 only you can \u2014 so it does not grade it. What keeps strength is the load staying heavy; going to failure adds little but fatigue.'
+        : 'The block asks for ' + (ms ? 'reps in reserve stepping from 3 to 0' : 'sets ending 0\u20133 reps short of failure') +
+        '. This app cannot see how close you went \u2014 only you can \u2014 so it does not grade it. Growth improves the closer a set ends to failure, and the last rep or two add little but fatigue.',
+      refs: keep ? ['spiering21', 'fail23', 'rir16'] : ['fail24', 'fail23', 'rir16']
     });
 
     var sore = {}, joints = [];
@@ -1205,13 +1507,63 @@
         st: 'look',
         t: 'Recovery',
         b: (soreL.length ? 'Still sore going into a session: ' + soreL.map(mname).join(', ') + '. The block holds those sets rather than adding. ' : '') +
-          (joints.length ? 'Joints hurt a lot on ' + uniq(joints).map(mname).join(', ') + ' — worth swapping the exercise before adding anything to it.' : ''),
+          (joints.length ? (T.pr.bk ? 'Back or joints' : 'Joints') + ' hurt a lot on ' + uniq(joints).map(mname).join(', ') + ' \u2014 worth swapping the exercise before adding anything to it.' : ''),
         refs: ['rp21']
       });
     }
 
+    /* Your back, as you reported it at the start of each session. Graded
+       only on what you said; the app has no other way to know. */
+    if (T.pr.bk) {
+      var said = wos.filter(function (wo) { return fin(wo.bk); });
+      var bad = said.filter(function (wo) { return wo.bk === 2; }).length;
+      var tight = said.filter(function (wo) { return wo.bk === 1; }).length;
+      checks.push({
+        st: !said.length ? 'info' : bad ? 'look' : 'good',
+        t: 'Your back',
+        b: !said.length
+          ? 'Each session asks how your back is before you start. Answer it and this keeps the tally.'
+          : (bad ? 'Sore going into ' + bad + ' session' + (bad > 1 ? 's' : '') + ' this week. ' +
+              'If it keeps happening, the pattern matters more than any one day \u2014 worth taking to a physio, along with which exercises came before it. '
+            : tight ? 'Tight on ' + tight + ' of ' + said.length + ', never sore. ' : 'Good going into every session this week. ') +
+            'Exercise helps most backs with long-running trouble; which exercises suit yours is the individual part.',
+        refs: ['hayden21', 'long04']
+      });
+    }
+
+    /* Minutes against what you said you have. */
+    var budget = (ms && ms.min) || T.pr.min;
+    if (budget) {
+      var lens = wos.filter(function (wo) { return wo.en > wo.st; }).map(function (wo) { return (wo.en - wo.st) / 60000; });
+      if (lens.length) {
+        var typ = Math.round(median(lens));
+        checks.push({
+          st: typ > budget * 1.15 ? 'look' : 'good',
+          t: 'Time per session',
+          b: 'Typical session: ' + typ + ' minutes against your ' + budget + '. ' +
+            (typ > budget * 1.15
+              ? 'Running long. Pairing more exercises, or two sets instead of three on the small ones, gives time back with little lost.'
+              : 'Inside it. Paired sets and fewer, harder sets are what make a short session work.'),
+          refs: ['iversen21']
+        });
+      }
+    }
+
+    var ac = activityCheck(now, wos.length);
+    if (ac) checks.push(ac);
+
     var prog = progress(now);
-    if (prog.n) {
+    if (prog.n && keep) {
+      checks.push({
+        st: prog.fall.length ? 'look' : 'good',
+        t: 'Is your strength holding?',
+        b: prog.held + ' of ' + prog.n + ' lifts done at least twice in the last four weeks are holding or up on estimated max. ' +
+          (prog.fall.length
+            ? 'Down two sessions running: ' + prog.fall.map(function (e) { return lib(e).n; }).join(', ') + '. The block adds a set back when that happens; if it keeps sliding, look at sleep and what else the week asked of you first.'
+            : 'Nothing has slid two sessions running, which is what keeping looks like.'),
+        refs: ['spiering21', 'epley']
+      });
+    } else if (prog.n) {
       checks.push({
         st: prog.fall.length ? 'look' : 'good',
         t: 'Are the lifts going up?',
@@ -1227,7 +1579,28 @@
         refs: ['rp21', 'epley', 'deload24']
       });
     }
-    return { rows: rows, checks: checks, n: wos.length, prog: prog, label: win.label };
+    return { rows: rows, checks: checks, n: wos.length, prog: prog, label: win.label, keep: keep };
+  }
+
+  /* Cardio, from what you logged outside the gym, against the WHO's 150 to
+     300 moderate minutes a week — and the two strength days it also asks
+     for, which the workouts supply. Shown once you have said you golf or
+     walk, or have logged either. */
+  function activityCheck(now, lifts) {
+    var wk = axWeek(now);
+    if (!T.pr.hab.length && !wk.min) return null;
+    var parts = Object.keys(wk.by).map(function (k) { return HABITS[k].n.toLowerCase() + ' ' + dur(wk.by[k] * 60000); });
+    return {
+      st: wk.min >= 150 && lifts >= 2 ? 'good' : wk.min ? 'look' : 'info',
+      t: 'Cardio outside the gym',
+      b: (wk.min ? dur(wk.min * 60000) + ' in the last seven days (' + parts.join(', ') + ')' : 'Nothing logged in the last seven days') +
+        ' against the 150 moderate minutes a week the WHO recommends' +
+        (lifts >= 2 ? ', and ' + lifts + ' strength sessions against its two. ' : '. ') +
+        (wk.min >= 150 ? 'Covered.' : wk.min ? (150 - wk.min) + ' minutes short \u2014 a couple of walks would do it.'
+          : 'Log a round or a walk with the buttons on Block and this counts it.') +
+        ' Golf counts, cart or walking: both are moderate by the Compendium\u2019s numbers.',
+      refs: ['who20', 'compendium11']
+    };
   }
 
   /* Estimated max, first session against the latest, for every lift done at
@@ -1245,13 +1618,14 @@
         (per[x.e] = per[x.e] || []).push(v);
       });
     });
-    var out = { n: 0, up: 0, flat: 0, down: 0, fall: [], lifts: [] };
+    var out = { n: 0, up: 0, flat: 0, down: 0, held: 0, fall: [], lifts: [] };
     Object.keys(per).forEach(function (e) {
       var v = per[e];
       if (v.length < 2) return;
       out.n++;
       var ch = v[v.length - 1] / v[0] - 1;
       if (ch > 0.01) out.up++; else if (ch < -0.01) out.down++; else out.flat++;
+      if (ch >= -0.03) out.held++;
       var k = v.length;
       if (k >= 3 && v[k - 1] < v[k - 2] * 0.99 && v[k - 2] < v[k - 3] * 0.99) out.fall.push(e);
       out.lifts.push({ e: e, ch: ch, n: k });
@@ -1307,7 +1681,7 @@
         return ['block', 'history', 'lifts', 'review'].indexOf(v) >= 0 ? v : 'block';
       } catch (e) { return 'block'; }
     })(),
-    gen: { dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] },
+    gen: null,            // the builder's answers; see gen()
     draft: null,          // a block being put together, before it is started
     sheet: null,          // whichever sheet is up
     q: '', qm: '',        // the picker's search and muscle
@@ -1323,7 +1697,7 @@
       id: newId(), st: Date.now(), n: p.n, u: T.pr.u, ms: ms.id, w: w, d: d,
       dl: p.deload ? 1 : 0, rir: p.rir,
       x: p.x.map(function (s) { return liveEx(s.e, s.sets, s); }),
-      sr: {}, fb: {}, rs: null
+      sr: {}, fb: {}, rs: null, keep: isKeep(ms) ? 1 : 0
     };
   }
 
@@ -1338,8 +1712,20 @@
         tw: fin(s.tw) ? s.tw : null, tr: fin(s.tr) ? s.tr : null,
         pw: pv ? pv.w : null, pr: pv ? pv.r : null });
     }
-    return { e: e, rr: ex.rr.slice(), rir: s.rir === undefined ? null : s.rir, rest: restFor(ex), s: sets };
+    return { e: e, rr: ex.rr.slice(), rir: s.rir === undefined ? null : s.rir, rest: restFor(ex), s: sets,
+      p: s.p || 0 };
   }
+
+  /* The other half of a pair, if it is still in the workout. */
+  function partner(i) {
+    var x = LIVE.x[i];
+    if (!x || !x.p) return -1;
+    for (var j = 0; j < LIVE.x.length; j++) if (j !== i && LIVE.x[j].p === x.p) return j;
+    return -1;
+  }
+  /* A1, A2, B1… in the order the pairs appear, so the labels read down the
+     page. Unpaired exercises have none. */
+  function pairLabels() { return slotLabels(LIVE.x); }
 
   function startPlanned(ms, w, d) {
     if (LIVE) return;
@@ -1445,7 +1831,9 @@
     }
     s.w = w; s.r = r; s.t = Date.now();
     var more = LIVE.x.some(function (y) { return y.s.some(function (z) { return !z.t; }); });
-    if (more) startRest(x.rest);
+    /* In a pair, the rest after a set is the short one: the other half goes
+       next, and it is resting this muscle while it works. */
+    if (more) startRest(partner(xi) >= 0 ? T.pr.rp : x.rest);
     saveLive();
     audioPrime();
     draw();
@@ -1559,6 +1947,7 @@
       }).filter(function (x) { return x.s.length; }),
       sr: LIVE.sr || {}, fb: LIVE.fb || {}
     };
+    if (fin(LIVE.bk)) wo.bk = LIVE.bk;
     return clean(wo);
   }
 
@@ -1672,7 +2061,7 @@
   function blockHTML() {
     var ms = active();
     if (S.draft) return draftHTML();
-    if (!ms) return savedHTML() + genHTML();
+    if (!ms) return savedHTML() + actStrip() + genHTML();
     var nx = nextSlot(ms);
     var acc = accOf(ms);
     var html = savedHTML() + '<div class="tr-card">' +
@@ -1689,8 +2078,9 @@
 
     if (nx) {
       var p = plan(ms, nx.w, nx.d);
+      var mins = estDay(ms.days[nx.d], p.x.map(function (x) { return x.sets; }));
       html += '<div class="tr-card tr-next">' +
-        '<div class="tr-eyebrow">Next · week ' + (nx.w + 1) + '</div>' +
+        '<div class="tr-eyebrow">Next \u00b7 week ' + (nx.w + 1) + ' \u00b7 about ' + mins + ' min</div>' +
         '<div class="tr-title">' + esc(p.n) + '</div>' +
         planList(p) +
         '<div class="tr-acts">' +
@@ -1701,9 +2091,10 @@
     } else {
       html += doneHTML(ms);
     }
+    html += actStrip();
     html += '<div class="tr-acts tr-foot">' +
       '<button class="ghost" data-t="empty">Log a workout outside the block</button>' +
-      (nx && nx.w < acc ? '<button class="ghost" data-t="deloadnow">Deload now</button>' : '') +
+      (nx && nx.w < acc && !isKeep(ms) ? '<button class="ghost" data-t="deloadnow">Deload now</button>' : '') +
       '<button class="ghost" data-t="endblock">End this block</button>' +
     '</div>';
     return html;
@@ -1737,16 +2128,46 @@
      exercises read as two decisions. Week one has nothing to explain. */
   function planList(p) {
     var said = {};
-    return '<ol class="tr-plan">' + p.x.map(function (s) {
+    var labels = slotLabels(p.x);
+    return '<ol class="tr-plan">' + p.x.map(function (s, i) {
       var ex = lib(s.e);
       var why = p.w > 0 && !said[ex.m] ? s.why : '';
       said[ex.m] = 1;
-      return '<li><div class="tr-pl-top"><span class="tr-pl-n">' + esc(ex.n) + '</span>' +
+      var cue = backCue(ex);
+      return '<li><div class="tr-pl-top"><span class="tr-pl-n">' +
+          (labels[i] ? '<span class="tr-pair">' + labels[i] + '</span>' : '') + esc(ex.n) + '</span>' +
         '<span class="tr-pl-s">' + s.sets + ' × ' + ex.rr[0] + '–' + ex.rr[1] + '</span></div>' +
         '<div class="tr-pl-meta">' + esc(mname(ex.m)) + ' · ' + esc(targetStr(s, ex)) +
           ' · ' + rirStr(s.rir) + '</div>' +
+        (cue ? '<div class="tr-cue">' + esc(cue) + '</div>' : '') +
         (why ? '<div class="tr-why">' + esc(mname(ex.m) + ': ' + why) + '</div>' : '') + '</li>';
     }).join('') + '</ol>';
+  }
+
+  /* ------------------------------------------------- outside the gym
+   *
+   * Golf and walks, logged in a tap and counted toward the week's cardio.
+   * Shown only once you have said you do them. */
+  function axWeek(now) {
+    now = now || Date.now();
+    var mins = 0, by = {};
+    Object.keys(T.ax).forEach(function (k) {
+      var a = T.ax[k];
+      if (!a || a.st < now - 7 * DAY_MS || a.st > now) return;
+      mins += a.min;
+      by[a.k] = (by[a.k] || 0) + a.min;
+    });
+    return { min: mins, by: by };
+  }
+  function actStrip() {
+    if (!T.pr.hab.length) return '';
+    var wk = axWeek();
+    return '<div class="tr-card tr-actv">' +
+      '<div class="tr-actv-h"><span class="tr-ql">Outside the gym \u00b7 last 7 days</span>' +
+        '<span class="tr-actv-n">' + (wk.min ? dur(wk.min * 60000) : 'nothing yet') + '</span></div>' +
+      '<div class="tr-chips">' + T.pr.hab.map(function (h) {
+        return '<button class="tr-chip" data-t="axnew" data-v="' + h + '">+ ' + esc(HABITS[h].btn) + '</button>';
+      }).join('') + '</div></div>';
   }
 
   function doneHTML(ms) {
@@ -1779,37 +2200,102 @@
   }
 
   var LVL = [[0, 'Under a year'], [1, '1–3 years'], [2, '3+ years']];
-  function genHTML() {
-    var g = S.gen;
-    return '<div class="tr-card">' +
-      '<div class="tr-eyebrow">Build a block</div>' +
-      '<div class="tr-title">A few weeks of training, planned to get harder</div>' +
-      '<div class="tr-note">Pick your days and your kit. It builds a split, starts each muscle near the least volume that reliably grows it, and after every session asks how it felt — which is what decides next week’s sets.</div>' +
-      '<div class="tr-q"><div class="tr-ql">Days a week</div>' +
-        chips('g-dpw', g.dpw, [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']]) +
-        '<div class="tr-hint">' + esc(SPLITS[g.dpw].n) + '</div></div>' +
-      '<div class="tr-q"><div class="tr-ql">What you have</div>' +
-        chips('g-kit', g.kit, Object.keys(KITS).map(function (k) { return [k, KITS[k].n]; })) + '</div>' +
-      '<div class="tr-q"><div class="tr-ql">Lifting for</div>' + chips('g-lvl', g.lvl, LVL) + '</div>' +
-      '<div class="tr-q"><div class="tr-ql">Length</div>' +
-        chips('g-acc', g.acc, [[3, '4 weeks'], [4, '5 weeks'], [5, '6 weeks'], [6, '7 weeks']]) +
-        '<div class="tr-hint">Including a lighter deload week at the end.</div></div>' +
-      '<div class="tr-q"><div class="tr-ql">Bring up <span class="tr-opt">up to three, optional</span></div>' +
-        chips('g-pri', g.pri, MUSCLES.map(function (m) { return [m.k, m.n]; })) + '</div>' +
-      '<div class="tr-acts"><button class="btn-primary" data-t="build">Build my block</button>' +
-        '<button class="ghost" data-t="empty">Just log a workout</button></div>' +
-    '</div>' + howHTML();
+  var TRIG = [['f', 'Bending forward or sitting'], ['c', 'Weight on my spine'], ['x', 'Arching back']];
+
+  /* The builder's answers, started from what you told it last time — your
+     goal, your minutes, your back and your habits are yours, not the
+     block's, and should not have to be said twice. */
+  function gen() {
+    if (!S.gen) {
+      var p = T.pr, keep = p.goal === 'keep';
+      S.gen = { goal: p.goal, dpw: keep ? 2 : 4, kit: 'gym', lvl: 1, acc: keep ? 8 : 4, pri: [],
+        min: p.min, bk: p.bk, hab: p.hab.slice() };
+    }
+    return S.gen;
   }
 
-  function howHTML() {
-    return '<details class="tr-how"><summary>How the block works</summary>' +
-      '<p><b>Sets.</b> Week one starts each muscle near RP’s MEV — the least that reliably grows it. After each session you rate the pump and the workload, and next time you train that muscle you say how well it healed. Those answers add up to next week’s change: usually one more set, two if the muscle is plainly asking for more, none or one fewer if you are not recovering. It never goes past RP’s MRV.</p>' +
-      '<p><b>Why ask about soreness at all?</b> It is a rough signal \u2014 it follows how new an exercise is more than how much it grew \u2014 which is why it is one vote of three, and why getting weaker overrules all of them.</p>' +
-      '<p><b>Effort.</b> Sets end 3 reps short of failure in week one and step down to 0 by the last hard week. Heavy barbell lifts stop at 1.</p>' +
-      '<p><b>Weights.</b> Hit the top of the rep range and the weight goes up by the smallest jump; otherwise aim for one more rep at the same weight.</p>' +
-      '<p><b>Deload.</b> The last week is half the sets at week one’s weights. It is there to let fatigue drain, not to grow — one trial found a week off changed growth not at all.</p>' +
-      '<p class="tr-fine">The landmarks are Renaissance Periodization’s published estimates, not measurements of you. That is what the feedback is for.</p>' +
-    '</details>';
+  function q(label, body, hint) {
+    return '<div class="tr-q"><div class="tr-ql">' + label + '</div>' + body +
+      (hint ? '<div class="tr-hint">' + esc(hint) + '</div>' : '') + '</div>';
+  }
+
+  function genHTML() {
+    var g = gen(), keep = g.goal === 'keep';
+    return '<div class="tr-card">' +
+      '<div class="tr-eyebrow">Build a block</div>' +
+      '<div class="tr-title">' + (keep ? 'Keep the strength you have, in the time you have'
+        : 'A few weeks of training, planned to get harder') + '</div>' +
+      '<div class="tr-note">' + (keep
+        ? 'Full body, heavy enough that strength has a reason to stay, paired so it fits your minutes, and steady from week to week — no climbing volume, no deload.'
+        : 'It builds a split, starts each muscle near the least volume that reliably grows it, and after every session asks how it felt — which is what decides next week’s sets.') + '</div>' +
+      q('Training for', chips('g-goal', g.goal, [['keep', 'Keep my strength'], ['grow', 'Build muscle']]),
+        keep ? 'Maintenance: a fraction of the work it took to build.' : 'RP-style: volume climbs week to week, then a deload.') +
+      q('Days a week', chips('g-dpw', g.dpw, keep ? [[2, '2'], [3, '3']] : [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']]),
+        keep ? (g.dpw >= 3 ? 'Three shorter full-body sessions.' : 'Two full-body sessions.') : SPLITS[g.dpw].n) +
+      q('Time per session', chips('g-min', g.min, [[30, '30 min'], [40, '40 min'], [60, '60 min'], [0, 'No limit']]),
+        g.min ? 'Warm-up included. It pairs exercises and trims sets to fit, and never adds a set that would not.' : '') +
+      q('What you have', chips('g-kit', g.kit, Object.keys(KITS).map(function (k) { return [k, KITS[k].n]; }))) +
+      (keep ? '' : q('Lifting for', chips('g-lvl', g.lvl, LVL))) +
+      q('Length', keep
+        ? chips('g-acc', g.acc, [[6, '6 weeks'], [8, '8 weeks'], [10, '10 weeks']])
+        : chips('g-acc', g.acc, [[3, '4 weeks'], [4, '5 weeks'], [5, '6 weeks'], [6, '7 weeks']]),
+        keep ? 'Then build another with fresh exercises. No deload week at this dose.' : 'Including a lighter deload week at the end.') +
+      q('Protect my back from <span class="tr-opt">optional</span>', chips('g-bk', g.bk.split(''), TRIG),
+        g.bk ? 'Lifts that load your back that way are left out. Ones that load it a little come with a cue.'
+          : 'Leave these off if your back is fine.') +
+      q('Outside the gym <span class="tr-opt">optional</span>',
+        chips('g-hab', g.hab, Object.keys(HABITS).map(function (k) { return [k, HABITS[k].n]; })),
+        g.hab.length ? 'Counted as your cardio in the review; log a round or a walk in one tap.' : '') +
+      (keep ? '' : q('Bring up <span class="tr-opt">up to three, optional</span>',
+        chips('g-pri', g.pri, MUSCLES.map(function (m) { return [m.k, m.n]; })))) +
+      '<div class="tr-acts"><button class="btn-primary" data-t="build">Build my block</button>' +
+        '<button class="ghost" data-t="empty">Just log a workout</button></div>' +
+    '</div>' + howHTML(g);
+  }
+
+  /* How it works, for the block you are about to build: the goal decides
+     most of it, and your back and your golf each add a paragraph. */
+  function howHTML(g) {
+    var keep = g.goal === 'keep';
+    var golf = g.hab.indexOf('golfw') >= 0 || g.hab.indexOf('golfc') >= 0;
+    var out = '<details class="tr-how"><summary>How ' + (keep ? 'keeping' : 'the block') + ' works</summary>';
+    if (keep) {
+      out += '<p><b>Sets.</b> Three per exercise on two days a week, two on three — about six hard sets a muscle a week. Strength that has been built takes far less to keep than it took to build: one study held it for eight months on one session a week and a fraction of the sets. Older lifters need a little more, which is why this is two sessions, not one.</p>' +
+        '<p><b>Effort.</b> About two reps short of failure on the big lifts, one on the small ones. Heavy is the part that keeps strength; failure is not.</p>' +
+        '<p><b>Pairs.</b> One muscle rests while another works — a leg movement beside a row, a press beside a leg curl — with a minute between the halves, which leaves each muscle nearly three minutes between its own sets. That is how a whole body fits in forty minutes.</p>' +
+        '<p><b>Weights.</b> Still double progression: when the top of the rep range comes easily, the weight goes up. Keeping is not standing still.</p>' +
+        '<p><b>When it changes.</b> A session that was too much, or hurt, takes a set away next week. Strength sliding two weeks running puts one back. Otherwise it holds.</p>';
+    } else {
+      out += '<p><b>Sets.</b> Week one starts each muscle near RP’s MEV — the least that reliably grows it. After each session you rate the pump and the workload, and next time you train that muscle you say how well it healed. Those answers add up to next week’s change: usually one more set, two if the muscle is plainly asking for more, none or one fewer if you are not recovering. It never goes past RP’s MRV, or past your minutes.</p>' +
+        '<p><b>Why ask about soreness at all?</b> It is a rough signal — it follows how new an exercise is more than how much it grew — which is why it is one vote of three, and why getting weaker overrules all of them.</p>' +
+        '<p><b>Effort.</b> Sets end 3 reps short of failure in week one and step down to 0 by the last hard week. Heavy barbell lifts stop at 1.</p>' +
+        '<p><b>Weights.</b> Hit the top of the rep range and the weight goes up by the smallest jump; otherwise aim for one more rep at the same weight.</p>' +
+        '<p><b>Deload.</b> The last week is half the sets at week one’s weights. It is there to let fatigue drain, not to grow — one trial found a week off changed growth not at all.</p>';
+    }
+    if (g.bk) {
+      out += '<p><b>Your back.</b> ' + (g.bk.indexOf('f') >= 0
+        ? 'Loaded bending is left out — deadlifts, Romanian deadlifts, good mornings, bent-over rows, back squats and crunches. Hip work comes from hip thrusts and leg curls, rows are chest-supported, and the core slot trains your trunk to resist moving rather than to bend: Pallof presses, dead bugs, bird dogs. '
+        : 'Lifts that load your back the way you said are left out, and the ones that load it a little carry a cue. ') +
+        'Each session starts by asking how your back is, and a bad answer changes what the session asks of you.</p>';
+    }
+    if (golf) {
+      out += '<p><b>Golf.</b> Address is a forward bend and the swing a twist at speed, so golf loads your back too. That is why the core work resists rotation. A heavy leg session the day before a round is worth avoiding — the app does not know your tee times, so that part is yours.</p>';
+    }
+    out += '<p class="tr-fine">' + (keep ? 'The maintenance doses come from studies of groups, not of you — the review watches whether your strength actually holds.'
+      : 'The landmarks are Renaissance Periodization’s published estimates, not measurements of you. That is what the feedback is for.') +
+      (g.bk ? ' Which movements suit your back is a question for a physio who has examined it; anything they rule out goes on your never list in Settings.' : '') + '</p>';
+    return out + '</details>';
+  }
+
+  /* A1, A2, B1… for a list of slots, in the order the pairs appear. A pair
+     that has lost its other half is not labelled. */
+  function slotLabels(list) {
+    var seen = {}, next = 0;
+    return list.map(function (sl) {
+      if (!sl.p || list.filter(function (x) { return x.p === sl.p; }).length < 2) return '';
+      if (!seen[sl.p]) seen[sl.p] = { l: String.fromCharCode(65 + next++), n: 0 };
+      return seen[sl.p].l + (++seen[sl.p].n);
+    });
   }
 
   function draftHTML() {
@@ -1821,13 +2307,19 @@
       '<div class="tr-sub">' + weeksOf(ms) + ' weeks · ' + esc(KITS[ms.kit].n.toLowerCase()) +
         ' · tap an exercise to swap it</div>' +
       ms.days.map(function (day, d) {
-        return '<div class="tr-dday"><div class="tr-dday-h">' + esc(day.n) + '</div>' +
+        var labels = slotLabels(day.s);
+        var mins = estDay(day);
+        return '<div class="tr-dday"><div class="tr-dday-h">' + esc(day.n) +
+            '<span class="tr-mins' + (ms.min && mins > ms.min ? ' over' : '') + '">about ' + mins + ' min</span></div>' +
           day.s.map(function (s, i) {
             var ex = lib(s.e);
+            var cue = backCue(ex);
             return '<div class="tr-drow">' +
+              (labels[i] ? '<span class="tr-pair">' + labels[i] + '</span>' : '') +
               '<button class="tr-dex" data-t="dswap" data-d="' + d + '" data-i="' + i + '">' +
                 '<span class="tr-dex-n">' + esc(ex.n) + '</span>' +
-                '<span class="tr-dex-m">' + esc(mname(ex.m)) + ' · ' + ex.rr[0] + '–' + ex.rr[1] + ' reps</span></button>' +
+                '<span class="tr-dex-m">' + esc(mname(ex.m)) + ' · ' + ex.rr[0] + '–' + ex.rr[1] + ' reps' +
+                  (cue ? ' · <span class="tr-cue-in">' + esc(cue) + '</span>' : '') + '</span></button>' +
               '<span class="tr-step">' +
                 '<button data-t="dset" data-d="' + d + '" data-i="' + i + '" data-v="-1" aria-label="One set fewer">−</button>' +
                 '<span>' + s.n + ' set' + (s.n === 1 ? '' : 's') + '</span>' +
@@ -1839,7 +2331,7 @@
           '<button class="tr-add" data-t="dadd" data-d="' + d + '">+ Add an exercise</button>' +
         '</div>';
       }).join('') +
-      '<div class="tr-vol"><div class="tr-ql">Week one, sets per muscle</div>' +
+      '<div class="tr-vol"><div class="tr-ql">' + (isKeep(ms) ? 'Sets per muscle each week' : 'Week one, sets per muscle') + '</div>' +
         Object.keys(tot).map(function (m) {
           return '<span class="tr-volc">' + esc(mname(m)) + ' <b>' + tot[m] + '</b></span>';
         }).join('') + '</div>' +
@@ -1863,6 +2355,17 @@
       '<button class="btn-primary" data-t="finish">Finish</button>' +
     '</div>';
 
+    /* Your back, asked first, when you have said to protect it. A cranky
+       morning changes what today should be; nerve symptoms change whether
+       today should be at all. */
+    if (T.pr.bk) {
+      html += '<div class="tr-card tr-ask"><div class="tr-fbrow"><span class="tr-fbm">Back today</span>' +
+        chips('bk', fin(L.bk) ? L.bk : '', [[0, 'Good'], [1, 'Tight'], [2, 'Sore']]) + '</div>' +
+        (L.bk === 1 ? '<div class="tr-note">Warm up a little longer, keep the first set of anything for your legs light, and stop any lift that makes it worse.</div>' : '') +
+        (L.bk === 2 ? '<div class="tr-note tr-warn">Skip the lower-body lifts today \u2014 swap or remove them \u2014 and keep to what feels fine. Pain, numbness or tingling running down a leg means stop: that is the nerve, and it is a question for your physio, not for this app.</div>' : '') +
+      '</div>';
+    }
+
     var ask = soreAsk();
     if (ask.length) {
       html += '<div class="tr-card tr-ask"><div class="tr-ql">Since you last trained them, how did they heal?</div>' +
@@ -1872,8 +2375,9 @@
         }).join('') + '</div>';
     }
 
+    var labels = pairLabels();
     L.x.forEach(function (x, i) {
-      html += exCard(x, i);
+      html += exCard(x, i, labels[i]);
       var m = musOf(x.e);
       if (lastOfMuscle(i) && fbReady(m)) html += fbCard(m);
     });
@@ -1884,8 +2388,10 @@
     return html;
   }
 
-  function exCard(x, i) {
+  function exCard(x, i, label) {
     var ex = lib(x.e);
+    var mate = label ? LIVE.x[partner(i)] : null;
+    var cue = backCue(ex);
     var rows = x.s.map(function (s, j) {
       var g = ghost(i, j);
       var ph = g.w !== null ? fmtN(g.w) : '';
@@ -1906,12 +2412,15 @@
       '</div>';
     }).join('');
     var heavy = ex.q === 'bb' || ex.q === 'sm';
-    return '<div class="tr-card tr-ex">' +
+    return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + '">' +
       '<div class="tr-ex-h">' +
+        (label ? '<span class="tr-pair" aria-label="Pair ' + label + '">' + label + '</span>' : '') +
         '<button class="tr-ex-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(ex.n) + '</button>' +
-        '<span class="tr-ex-m">' + esc(mname(ex.m)) + ' · ' + ex.rr[0] + '–' + ex.rr[1] + ' reps' +
-          (x.rir !== null && x.rir !== undefined ? ' · ' + x.rir + ' RIR' : '') +
-          ' · rest ' + clock(x.rest) + '</span>' +
+        '<span class="tr-ex-m">' + esc(mname(ex.m)) + ' \u00b7 ' + ex.rr[0] + '\u2013' + ex.rr[1] + ' reps' +
+          (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + x.rir + ' RIR' : '') +
+          (mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
+            : ' \u00b7 rest ' + clock(x.rest)) + '</span>' +
+        (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
       '</div>' +
       '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>Previous</span><span>' + T.pr.u + '</span><span>Reps</span><span></span></div>' +
       rows +
@@ -1926,25 +2435,37 @@
     '</div>';
   }
 
+  /* Keeping asks two questions, not three: a pump is how RP judges whether a
+     muscle got enough to grow, and growing is not the job. */
   function fbCard(m) {
     var f = LIVE.fb[m] || {};
-    return '<div class="tr-card tr-ask"><div class="tr-ql">' + esc(mname(m)) + ' done — how was it?</div>' +
-      '<div class="tr-fbrow"><span class="tr-fbm">Pump</span>' +
-        chips('fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"') + '</div>' +
+    return '<div class="tr-card tr-ask"><div class="tr-ql">' + esc(mname(m)) + ' done \u2014 how was it?</div>' +
+      (LIVE.keep ? '' : '<div class="tr-fbrow"><span class="tr-fbm">Pump</span>' +
+        chips('fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"') + '</div>') +
       '<div class="tr-fbrow"><span class="tr-fbm">Workload</span>' +
         chips('fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"') + '</div>' +
-      '<div class="tr-fbrow"><span class="tr-fbm">Joints</span>' +
+      '<div class="tr-fbrow"><span class="tr-fbm">' + (T.pr.bk ? 'Back &amp; joints' : 'Joints') + '</span>' +
         chips('fb', fin(f.j) ? f.j : '', JOINT.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="j"') + '</div>' +
     '</div>';
   }
 
   /* ------------------------------------------------------------- history */
   function historyHTML() {
-    var list = ix().list.slice().reverse();
+    var list = ix().list.slice();
+    Object.keys(T.ax).forEach(function (k) { if (T.ax[k]) list.push({ ax: T.ax[k], st: T.ax[k].st }); });
+    list.sort(function (a, b) { return b.st - a.st; });
     if (!list.length) {
       return '<div class="empty">Finished workouts land here. Start one from Block.</div>';
     }
     return '<div class="tr-hist">' + list.map(function (wo) {
+      if (wo.ax) {
+        var a = wo.ax;
+        return '<button class="tr-card tr-hrow tr-hax" data-t="axsheet" data-id="' + esc(a.id) + '">' +
+          '<span class="tr-h-top"><span class="tr-h-n">' + esc(HABITS[a.k].n) + '</span>' +
+            '<span class="tr-h-d">' + when(a.st) + '</span></span>' +
+          '<span class="tr-h-meta">' + dur(a.min * 60000) + ' \u00b7 counts toward your week\u2019s cardio</span>' +
+        '</button>';
+      }
       var prs = prsIn(wo).length;
       return '<button class="tr-card tr-hrow" data-t="wosheet" data-id="' + esc(wo.id) + '">' +
         '<span class="tr-h-top"><span class="tr-h-n">' + esc(wo.n) + '</span>' +
@@ -1988,7 +2509,11 @@
   var WORD = { good: 'On track', look: 'Worth a look', info: 'For information' };
   function reviewHTML() {
     var r = review();
-    var max = Math.max(26, r.rows.reduce(function (m, x) { return Math.max(m, x.sets, x.mrv); }, 0));
+    /* Keeping is drawn on its own scale: a band from three sets up, and no
+       RP landmarks, which are about growing. */
+    var max = r.keep ? Math.max(12, r.rows.reduce(function (m, x) { return Math.max(m, x.sets); }, 0) + 1)
+      : Math.max(26, r.rows.reduce(function (m, x) { return Math.max(m, x.sets, x.mrv); }, 0));
+    var band = r.keep ? [3, max - 3] : [10, 20];
     var pct = function (v) { return (100 * v / max).toFixed(2) + '%'; };
     var html = '<div class="tr-card">' +
       '<div class="tr-eyebrow">' + esc(r.label) + '</div>' +
@@ -1996,16 +2521,17 @@
       '<div class="tr-note">Every line below is a rule with a source. It grades what can be measured from your log and says so when something cannot be.</div>';
     if (r.rows.length) {
       html += '<div class="tr-vbars" role="table" aria-label="Hard sets per muscle this week">' +
-        '<div class="tr-vkey" aria-hidden="true"><span class="tr-vk-band"></span> 10–20 sets, where the evidence is strongest' +
-          '<span class="tr-vk-tick"></span> RP’s MEV and MRV</div>' +
+        '<div class="tr-vkey" aria-hidden="true"><span class="tr-vk-band"></span> ' +
+          (r.keep ? '3 or more hard sets, enough to keep strength' : '10\u201320 sets, where the evidence is strongest' +
+          '<span class="tr-vk-tick"></span> RP\u2019s MEV and MRV') + '</div>' +
         r.rows.map(function (row) {
           return '<div class="tr-vrow" role="row" title="' + esc(row.n + ': ' + row.sets + ' sets on ' + row.days +
             ' day' + (row.days === 1 ? '' : 's') + ' · MEV ' + row.mev + ' · MRV ' + row.mrv) + '">' +
             '<span class="tr-vn" role="rowheader">' + esc(row.n) + '</span>' +
             '<span class="tr-vt" role="cell">' +
-              '<span class="tr-vband" style="left:' + pct(10) + ';width:' + pct(10) + '"></span>' +
-              (row.mev ? '<span class="tr-vtick" style="left:' + pct(row.mev) + '"></span>' : '') +
-              '<span class="tr-vtick" style="left:' + pct(row.mrv) + '"></span>' +
+              '<span class="tr-vband" style="left:' + pct(band[0]) + ';width:' + pct(band[1] - band[0]) + '"></span>' +
+              (!r.keep && row.mev ? '<span class="tr-vtick" style="left:' + pct(row.mev) + '"></span>' : '') +
+              (!r.keep ? '<span class="tr-vtick" style="left:' + pct(row.mrv) + '"></span>' : '') +
               (row.sets ? '<span class="tr-vbar" style="width:' + pct(row.sets) + '"></span>' : '') +
             '</span>' +
             '<span class="tr-vv" role="cell">' + row.sets + '</span>' +
@@ -2061,6 +2587,7 @@
     S.sheet = null;
     S.arm = '';
     S.own = null;
+    S.never = false;
     drawSheet();
   }
 
@@ -2078,6 +2605,8 @@
     else if (sh.k === 'finish') body = finishHTML(sh);
     else if (sh.k === 'plan') body = planSheetHTML(sh);
     else if (sh.k === 'set') body = settingsHTML();
+    else if (sh.k === 'axnew') body = axNewHTML(sh);
+    else if (sh.k === 'ax') body = axSheetHTML(sh);
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Train') + '">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(sh.eyebrow || '') + '</div>' +
@@ -2093,16 +2622,25 @@
       if (q && ex.n.toLowerCase().indexOf(q) < 0 && mname(ex.m).toLowerCase().indexOf(q) < 0) return false;
       return true;
     }).sort(function (a, b) {
-      return MUSCLES.indexOf(MUS[a.m]) - MUSCLES.indexOf(MUS[b.m]) || a.o - b.o;
+      /* What your back has ruled out sinks to the foot of its muscle rather
+         than vanishing: it is still yours to choose, it just says why not. */
+      return MUSCLES.indexOf(MUS[a.m]) - MUSCLES.indexOf(MUS[b.m]) ||
+        (barred(a, T.pr) ? 1 : 0) - (barred(b, T.pr) ? 1 : 0) || a.o - b.o;
     });
     var own = S.own;
+    var old = (sh.mode === 'swap' && LIVE && LIVE.x[sh.x]) ? LIVE.x[sh.x].e
+      : (sh.mode === 'dswap' && S.draft) ? S.draft.days[sh.d].s[sh.i].e : '';
     return '<div class="sheet-name tr-sn2">' + esc(sh.title) + '</div>' +
+      (old ? '<div class="tr-chips tr-never"><button class="tr-chip" data-t="never" aria-pressed="' + !!S.never + '">' +
+        'Never suggest ' + esc(lib(old).n) + ' again</button></div>' : '') +
       '<input class="txt tr-search" id="trPickQ" type="search" placeholder="Search exercises" value="' + esc(S.q) + '" aria-label="Search exercises">' +
       chips('pickm', S.qm, [['', 'All']].concat(MUSCLES.map(function (m) { return [m.k, m.n]; }))) +
       '<div class="tr-picks">' + (list.length ? list.map(function (ex) {
+        var warn = T.pr.avoid.indexOf(ex.id) >= 0 ? 'on your never list'
+          : barred(ex, { bk: T.pr.bk }) ? 'loads your back' : backCue(ex) ? 'some back load' : '';
         return '<button class="tr-pick" data-t="pickex" data-e="' + esc(ex.id) + '">' +
-          '<span class="tr-pk-n">' + esc(ex.n) + '</span>' +
-          '<span class="tr-pk-m">' + esc(mname(ex.m)) + ' · ' + esc(EQUIP[ex.q] || '') + (ex.own ? ' · yours' : '') + '</span></button>';
+          '<span class="tr-pk-n">' + esc(ex.n) + (warn ? ' <span class="tr-pk-w">' + warn + '</span>' : '') + '</span>' +
+          '<span class="tr-pk-m">' + esc(mname(ex.m)) + ' \u00b7 ' + esc(EQUIP[ex.q] || '') + (ex.own ? ' \u00b7 yours' : '') + '</span></button>';
       }).join('') : '<div class="tr-note">Nothing by that name.</div>') + '</div>' +
       (own
         ? '<div class="tr-own"><div class="tr-ql">Make your own</div>' +
@@ -2286,7 +2824,7 @@
     if (LIVE.ms) {
       uniq(wo.x.map(function (x) { return musOf(x.e); })).forEach(function (m) {
         var f = LIVE.fb[m] || {};
-        if (!fin(f.p) || !fin(f.k)) missing.push(m);
+        if ((!LIVE.keep && !fin(f.p)) || !fin(f.k)) missing.push(m);
       });
     }
     if (!wo.x.length) {
@@ -2307,8 +2845,8 @@
       (missing.length ? '<div class="tr-ask"><div class="tr-ql">Before you go — next week’s sets come from these</div>' +
         missing.map(function (m) {
           var f = LIVE.fb[m] || {};
-          return '<div class="tr-fbrow"><span class="tr-fbm">' + esc(mname(m)) + ' pump</span>' +
-              chips('fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"') + '</div>' +
+          return (LIVE.keep ? '' : '<div class="tr-fbrow"><span class="tr-fbm">' + esc(mname(m)) + ' pump</span>' +
+              chips('fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"') + '</div>') +
             '<div class="tr-fbrow"><span class="tr-fbm">' + esc(mname(m)) + ' workload</span>' +
               chips('fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"') + '</div>';
         }).join('') + '</div>' : '') +
@@ -2332,6 +2870,24 @@
       '</div>';
   }
 
+  var AGO = [[0, 'Today'], [1, 'Yesterday'], [2, '2 days ago'], [3, '3 days ago']];
+  function axNewHTML(sh) {
+    var h = HABITS[sh.h];
+    var opts = [15, 30, 45, 60, 90, 120, 180, 240, 300].map(function (m) { return [m, m < 60 ? m + ' min' : dur(m * 60000)]; });
+    return '<div class="sheet-name tr-sn2">' + esc(h.n) + '</div>' +
+      q('How long', chips('axmin', sh.min, opts)) +
+      q('When', chips('axago', sh.ago, AGO)) +
+      '<div class="tr-acts"><button class="btn-primary" data-t="axsave">Log it</button></div>';
+  }
+  function axSheetHTML(sh) {
+    var a = T.ax[sh.id];
+    if (!a) return '<div class="tr-note">That has gone.</div>';
+    return '<div class="sheet-name tr-sn2">' + esc(HABITS[a.k].n) + '</div>' +
+      '<div class="tr-sub">' + when(a.st) + ' \u00b7 ' + dur(a.min * 60000) + '</div>' +
+      '<div class="tr-acts"><button class="ghost danger" data-t="axdel" data-id="' + esc(a.id) + '">' +
+        (S.arm === 'axdel:' + a.id ? 'Tap again to delete' : 'Delete') + '</button></div>';
+  }
+
   function jsonSize() {
     try { return JSON.stringify(payload(true) || {}).length; } catch (e) { return 0; }
   }
@@ -2339,7 +2895,20 @@
   function settingsHTML() {
     var p = T.pr;
     var kb = Math.round(jsonSize() / 1024);
+    /* You first: what the next block is built around, and what the review
+       reads your week against. A block already running keeps what it was
+       built with; these shape the next one. */
     return '<div class="sheet-name tr-sn2">Train settings</div>' +
+      q('Training for', chips('s-goal', p.goal, [['keep', 'Keep my strength'], ['grow', 'Build muscle']])) +
+      q('Time per session', chips('s-min', p.min, [[30, '30 min'], [40, '40 min'], [60, '60 min'], [0, 'No limit']]),
+        'Used for your next block.') +
+      q('Protect my back from', chips('s-bk', p.bk.split(''), TRIG),
+        p.bk ? 'Your next block leaves out lifts that load your back that way.' : 'Off.') +
+      q('Outside the gym', chips('s-hab', p.hab, Object.keys(HABITS).map(function (k) { return [k, HABITS[k].n]; }))) +
+      q('Never suggest', p.avoid.length ? '<div class="tr-chips">' + p.avoid.map(function (e) {
+        return '<button class="tr-chip on" data-t="s-unavoid" data-v="' + esc(e) + '" aria-label="Allow ' + esc(lib(e).n) + ' again">' +
+          esc(lib(e).n) + ' &times;</button>';
+      }).join('') + '</div>' : '<div class="tr-sub">Nothing yet. When you swap an exercise out, you can say never again.</div>') +
       '<div class="tr-q"><div class="tr-ql">Weights in</div>' + chips('s-u', p.u, [['lb', 'Pounds'], ['kg', 'Kilograms']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Bar</div>' +
         chips('s-bar', p.bar, p.u === 'kg' ? [[20, '20 kg'], [15, '15 kg'], [10, '10 kg']] : [[45, '45 lb'], [35, '35 lb'], [25, '25 lb']]) + '</div>' +
@@ -2347,6 +2916,8 @@
         chips('s-rc', p.rc, [[90, '1:30'], [120, '2:00'], [150, '2:30'], [180, '3:00'], [240, '4:00']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Rest on isolation work</div>' +
         chips('s-ri', p.ri, [[60, '1:00'], [75, '1:15'], [90, '1:30'], [120, '2:00']]) + '</div>' +
+      '<div class="tr-q"><div class="tr-ql">Rest between paired sets</div>' +
+        chips('s-rp', p.rp, [[45, '0:45'], [60, '1:00'], [75, '1:15'], [90, '1:30']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">When rest is up</div>' + chips('s-snd', p.snd, [[1, 'Beep and buzz'], [0, 'Buzz only']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
         '<div class="tr-sub">Kept on this device. Sign in under My Day → ⚙ → Sync &amp; sharing and it travels with your account, the same as your day.</div>' +
@@ -2362,6 +2933,12 @@
   }
 
   /* ---------------------------------------------------------------- actions */
+  function toggleIn(list, v) {
+    var out = list.slice(), at = out.indexOf(v);
+    if (at >= 0) out.splice(at, 1); else out.push(v);
+    return out;
+  }
+
   function setSub(v) {
     S.sub = v;
     try { localStorage.setItem(LS_SUB, v); } catch (e) { /* private mode */ }
@@ -2388,6 +2965,15 @@
   function onPick(e) {
     var sh = S.sheet;
     if (!sh) return;
+    /* Never again: onto the list, so no future block suggests it — and out
+       of every day of this one, not just the one it was swapped on. */
+    var gone = sh.mode === 'swap' && LIVE && LIVE.x[sh.x] ? LIVE.x[sh.x].e
+      : sh.mode === 'dswap' && S.draft ? S.draft.days[sh.d].s[sh.i].e : '';
+    if (S.never && gone && gone !== e && T.pr.avoid.indexOf(gone) < 0) {
+      T.pr.avoid = T.pr.avoid.concat(gone);
+      stamp('pr');
+    }
+    var everywhere = !!(S.never && gone);
     if (sh.mode === 'add' && LIVE) {
       LIVE.x.push(liveEx(e, 3));
       saveLive();
@@ -2395,6 +2981,7 @@
       var old = LIVE.x[sh.x];
       var nx = liveEx(e, old.s.length);
       nx.rir = old.rir;
+      nx.p = old.p || 0;
       // what was already done stays done, under the new name
       old.s.forEach(function (s, j) { if (s.t && nx.s[j]) nx.s[j] = s; });
       LIVE.x[sh.x] = nx;
@@ -2403,11 +2990,14 @@
       if (LIVE.ms && T.ms[LIVE.ms]) {
         var ms = clean(T.ms[LIVE.ms]);
         var slot = ms.days[LIVE.d] && ms.days[LIVE.d].s.filter(function (s) { return s.e === old.e; })[0];
-        if (slot) { slot.e = e; editBlock(ms); }
+        if (slot) slot.e = e;
+        if (everywhere) ms.days.forEach(function (d) { d.s.forEach(function (s) { if (s.e === old.e) s.e = e; }); });
+        if (slot || everywhere) editBlock(ms);
       }
       saveLive();
     } else if (sh.mode === 'dswap' && S.draft) {
       S.draft.days[sh.d].s[sh.i].e = e;
+      if (everywhere) S.draft.days.forEach(function (d) { d.s.forEach(function (s) { if (s.e === gone) s.e = e; }); });
     } else if (sh.mode === 'dadd' && S.draft) {
       S.draft.days[sh.d].s.push({ e: e, n: 2 });
     }
@@ -2437,7 +3027,7 @@
         var n = blankT();
         n.pr = defaultsPr(t.pr);
         n.act = typeof t.act === 'string' ? t.act : '';
-        ['ms', 'wo', 'cx'].forEach(function (p) {
+        PARTS.forEach(function (p) {
           Object.keys(t[p] || {}).forEach(function (k) {
             if (/^[a-z0-9]+$/i.test(k) && t[p][k] && SHAPE[p](t[p][k])) n[p][k] = t[p][k];
           });
@@ -2458,7 +3048,7 @@
     var n = S.imp;
     if (!n) return;
     var now = Date.now();
-    ['ms', 'wo', 'cx'].forEach(function (p) {
+    PARTS.forEach(function (p) {
       Object.keys(T[p]).concat(Object.keys(TS[p])).forEach(function (k) { TS[p][k] = now; });
       Object.keys(n[p]).forEach(function (k) { TS[p][k] = now; });
     });
@@ -2494,22 +3084,40 @@
     if (t === 'settings') { S.imp = null; S.impErr = ''; openSheet({ k: 'set', eyebrow: 'Train', title: 'Settings' }); return; }
 
     // the generator
-    if (t === 'g-dpw') { S.gen.dpw = Number(v); draw(); return; }
-    if (t === 'g-kit') { S.gen.kit = v; draw(); return; }
-    if (t === 'g-lvl') { S.gen.lvl = Number(v); draw(); return; }
-    if (t === 'g-acc') { S.gen.acc = Number(v); draw(); return; }
+    var g = gen();
+    if (t === 'g-goal') {
+      g.goal = v === 'keep' ? 'keep' : 'grow';
+      // each goal has its own sensible days and length
+      if (g.goal === 'keep') { g.dpw = Math.min(3, Math.max(2, g.dpw)); g.acc = 8; } else { g.acc = 4; }
+      draw(); return;
+    }
+    if (t === 'g-dpw') { g.dpw = Number(v); draw(); return; }
+    if (t === 'g-min') { g.min = Number(v); draw(); return; }
+    if (t === 'g-kit') { g.kit = v; draw(); return; }
+    if (t === 'g-lvl') { g.lvl = Number(v); draw(); return; }
+    if (t === 'g-acc') { g.acc = Number(v); draw(); return; }
+    if (t === 'g-bk') { g.bk = toggleIn(g.bk.split(''), v).sort().join(''); draw(); return; }
+    if (t === 'g-hab') { g.hab = toggleIn(g.hab, v); draw(); return; }
     if (t === 'g-pri') {
-      var pri = S.gen.pri, at = pri.indexOf(v);
+      var pri = g.pri, at = pri.indexOf(v);
       if (at >= 0) pri.splice(at, 1);
       else { pri.push(v); if (pri.length > 3) pri.shift(); }
       draw(); return;
     }
-    if (t === 'build') { S.gen.seed = 0; S.draft = build(S.gen); draw(); scrollTop(); return; }
+    if (t === 'build') {
+      /* What you said about yourself outlives this block: the next one, the
+         review and the logger's back check all read it from here. */
+      T.pr.goal = g.goal; T.pr.min = g.min; T.pr.bk = g.bk; T.pr.hab = g.hab.slice();
+      stamp('pr');
+      g.seed = 0;
+      S.draft = build(Object.assign({ avoid: T.pr.avoid }, g));
+      draw(); scrollTop(); return;
+    }
     if (t === 'shuffle') {
-      S.gen.seed = (S.gen.seed || 0) + 1;
-      var keep = S.draft;
-      S.draft = build(S.gen);
-      S.draft.id = keep.id;
+      g.seed = (g.seed || 0) + 1;
+      var keepId = S.draft.id;
+      S.draft = build(Object.assign({ avoid: T.pr.avoid }, g));
+      S.draft.id = keepId;
       draw(); return;
     }
     if (t === 'undraft') { S.draft = null; draw(); return; }
@@ -2534,12 +3142,17 @@
     if (t === 'again') {
       ms = active();
       if (ms) {
+        var wasKeep = isKeep(ms);
         S.gen = {
-          dpw: SPLITS[ms.dpw] ? ms.dpw : Math.min(6, Math.max(2, ms.days.length)),
+          goal: wasKeep ? 'keep' : 'grow',
+          dpw: wasKeep ? Math.min(3, Math.max(2, ms.dpw || 2)) : SPLITS[ms.dpw] ? ms.dpw : Math.min(6, Math.max(2, ms.days.length)),
           kit: KITS[ms.kit] ? ms.kit : 'gym',
           lvl: [0, 1, 2].indexOf(ms.lvl) >= 0 ? ms.lvl : 1,
-          acc: Math.min(6, Math.max(3, ms.acc)),
-          pri: (Array.isArray(ms.pri) ? ms.pri : []).filter(function (m) { return MUS[m]; }).slice(0, 3)
+          acc: wasKeep ? ([6, 8, 10].indexOf(ms.acc) >= 0 ? ms.acc : 8) : Math.min(6, Math.max(3, ms.acc)),
+          pri: (Array.isArray(ms.pri) ? ms.pri : []).filter(function (m) { return MUS[m]; }).slice(0, 3),
+          min: T.pr.min, bk: T.pr.bk, hab: T.pr.hab.slice(),
+          // a fresh set of exercises, so the next block is not the last one again
+          seed: (ms.seed || 0) + 1
         };
       }
       T.act = '';
@@ -2627,6 +3240,11 @@
       openSheet({ k: 'plates', w: pw, eyebrow: 'Plate calculator', title: 'Plates' });
       return;
     }
+    if (t === 'bk') {
+      LIVE.bk = LIVE.bk === Number(v) ? undefined : Number(v);
+      if (LIVE.bk === undefined) delete LIVE.bk;
+      saveLive(); draw(); return;
+    }
     if (t === 'sore') {
       var m = el.getAttribute('data-m');
       if (LIVE.sr[m] === Number(v)) delete LIVE.sr[m]; else LIVE.sr[m] = Number(v);
@@ -2662,6 +3280,7 @@
     }
 
     // the picker
+    if (t === 'never') { S.never = !S.never; drawSheet(); return; }
     if (t === 'pickm') { S.qm = v; drawSheet(); return; }
     if (t === 'pickex') { onPick(el.getAttribute('data-e')); return; }
     if (t === 'own') { S.own = { n: S.q, m: S.qm || 'chest', q: 'mc', k: 'i' }; drawSheet(); return; }
@@ -2689,7 +3308,41 @@
       return;
     }
 
+    // outside the gym
+    if (t === 'axnew') {
+      openSheet({ k: 'axnew', h: v, min: HABITS[v].min, ago: 0, eyebrow: 'Outside the gym', title: 'Log ' + HABITS[v].n });
+      return;
+    }
+    if (t === 'axmin' && S.sheet) { S.sheet.min = Number(v); drawSheet(); return; }
+    if (t === 'axago' && S.sheet) { S.sheet.ago = Number(v); drawSheet(); return; }
+    if (t === 'axsave' && S.sheet) {
+      var sh = S.sheet;
+      // noon on the day, so "yesterday" never lands on the wrong side of midnight
+      var day = new Date(); day.setDate(day.getDate() - sh.ago); day.setHours(12, 0, 0, 0);
+      var at2 = sh.ago ? day.getTime() : Date.now();
+      var aid = newId();
+      T.ax[aid] = { id: aid, st: at2, k: sh.h, min: sh.min };
+      stamp('ax', aid);
+      closeSheet();
+      draw(); return;
+    }
+    if (t === 'axsheet') { openSheet({ k: 'ax', id: el.getAttribute('data-id'), eyebrow: 'Outside the gym', title: 'Activity' }); return; }
+    if (t === 'axdel') {
+      var xid = el.getAttribute('data-id');
+      if (S.arm !== 'axdel:' + xid) { S.arm = 'axdel:' + xid; drawSheet(); return; }
+      delete T.ax[xid];
+      stamp('ax', xid);
+      closeSheet();
+      draw(); return;
+    }
+
     // settings
+    if (t === 's-goal') { T.pr.goal = v === 'keep' ? 'keep' : 'grow'; S.gen = null; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-min') { T.pr.min = Number(v); S.gen = null; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-bk') { T.pr.bk = toggleIn(T.pr.bk.split(''), v).sort().join(''); S.gen = null; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-hab') { T.pr.hab = toggleIn(T.pr.hab, v); S.gen = null; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-unavoid') { T.pr.avoid = T.pr.avoid.filter(function (x) { return x !== v; }); stamp('pr'); drawSheet(); return; }
+    if (t === 's-rp') { T.pr.rp = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-u') {
       var was = T.pr.u;
       T.pr.u = v;
@@ -2783,6 +3436,7 @@
       build: build, plan: plan, setsFor: setsFor, feedback: feedback, target: target,
       e1rm: e1rm, plateMath: plateMath, review: review, merge: merge, payload: payload,
       rirFor: rirFor, nextSlot: nextSlot, prsIn: prsIn, lib: lib, SPLITS: SPLITS, MUS: MUS,
+      estDay: estDay, barred: barred, KEEP_SPLITS: KEEP_SPLITS, HABITS: HABITS, weeksOf: weeksOf,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

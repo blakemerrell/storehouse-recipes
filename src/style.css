@@ -4878,3 +4878,36 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
   .tr-live-h .tr-title { font-size: 18px; }
   .tr-grow { grid-template-columns: 44px repeat(var(--n, 4), minmax(0, 1fr)); }
 }
+
+/* ---- Train: pairs, the back, the clock, and life outside the gym ---- */
+/* A1, A2: a small ink tag before the name, so a pair reads as a pair down
+   the page without boxing the two cards together. */
+.tr-pair {
+  display: inline-block; min-width: 24px; padding: 1px 5px; margin-right: 7px;
+  border-radius: 3px; background: var(--ink); color: var(--paper);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-align: center;
+  vertical-align: 2px; font-family: var(--sans);
+}
+.tr-paired { border-left: 3px solid var(--ink); }
+.tr-drow .tr-pair { margin-right: 0; }
+/* The back cue: said in the ochre the app uses for "worth knowing", never
+   the red it saves for "stop". */
+.tr-cue { display: block; font-size: 12px; color: var(--ochre-text); margin-top: 3px; }
+.tr-cue-in { color: var(--ochre-text); }
+.tr-warn { color: oklch(0.46 0.14 30); font-weight: 500; }
+.tr-mins {
+  float: right; font-weight: 400; font-size: 12px; color: var(--muted-2);
+  font-variant-numeric: tabular-nums;
+}
+.tr-mins.over { color: oklch(0.46 0.14 30); font-weight: 600; }
+.tr-actv { padding: 12px 16px; }
+.tr-actv-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.tr-actv-h .tr-ql { margin: 0; }
+.tr-actv-n { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tr-hax { background: var(--paper-soft); }
+.tr-pk-w {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 99px;
+  border: 1px solid var(--ochre); color: var(--ochre-text); font-size: 10.5px; vertical-align: 1px;
+}
+.tr-never { margin-top: 12px; }
+.tr-chip.on { background: var(--paper-soft); }

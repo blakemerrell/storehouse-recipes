@@ -79,6 +79,20 @@ three ideas in one tab:
   Every line names its source, the sources are listed in full, and it says what it
   cannot see — how close to failure you went, and anything about sleep or food.
 
+It builds around you, not a template. Say you want to **keep your strength** rather than
+build more and it switches to maintenance: full body two or three days a week, three sets
+of the big movements about two reps short of failure, no climbing volume and no deload —
+strength that has been built held for months on a fraction of the training that built it
+(Bickel 2011; Spiering 2021). Give it **your minutes** and it pairs exercises for different
+muscles so one rests while the other works, trims sets to fit, and never adds a set that
+would not. Tell it what **sets your back off** — bending forward, weight on the spine,
+arching — and every exercise is tagged for the load it puts through the lower back:
+the ones that load it your way are left out (no deadlifts, back squats, bent-over rows or
+crunches for a back that hates bending), the ones that load it a little carry a cue, every
+session opens by asking how your back is, and anything you swap out can go on a never
+list. Say you **golf or walk** and those get one-tap logging and count toward the WHO's
+150 minutes a week in the review.
+
 History lists every workout; Lifts gives each exercise its records and a line of its
 estimated max. Workouts are yours rather than the household's: they save on the device,
 and travel with your account when you sign in, in the same record as My Day. Settings

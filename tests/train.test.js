@@ -489,5 +489,231 @@ module.exports = {
     }));
     t.ok('the logger fits a 360px phone without sideways scroll', r.overflow <= 0 && r.rows, JSON.stringify(r));
     await p.close();
+
+    // ---- your back, your minutes, your goal ------------------------------------
+    /* Somebody whose disc has been through squats and deadlifts, who bends
+       forward badly, has forty minutes and wants to keep what they have. */
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const kits = ['gym', 'bar', 'db'];
+      const bad = [];
+      kits.forEach((kit) => {
+        [2, 3].forEach((dpw) => {
+          const ms = _.build({ goal: 'keep', dpw, kit, min: 40, bk: 'f', acc: 8 });
+          ms.days.forEach((d) => d.s.forEach((s) => { if (/F/.test(_.lib(s.e).bk)) bad.push('keep ' + kit + dpw + ' ' + s.e); }));
+        });
+        [2, 3, 4, 5, 6].forEach((dpw) => {
+          const ms = _.build({ goal: 'grow', dpw, kit, min: 0, bk: 'f', acc: 4, lvl: 1, pri: [] });
+          ms.days.forEach((d) => d.s.forEach((s) => { if (/F/.test(_.lib(s.e).bk)) bad.push('grow ' + kit + dpw + ' ' + s.e); }));
+        });
+      });
+      const plain = _.build({ goal: 'grow', dpw: 4, kit: 'gym', min: 0, bk: '', acc: 4, lvl: 1, pri: [] });
+      return { bad, plainHasSquat: plain.days.some((d) => d.s.some((s) => s.e === 'bb-squat')) };
+    });
+    t.ok('protecting a back from bending leaves loaded bending out of every split, every kit, either goal',
+      r.bad.length === 0, r.bad.join(', '));
+    t.ok('and it is the protection doing it: without it the back squat is still there', r.plainHasSquat);
+
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const ms = _.build({ goal: 'keep', dpw: 2, kit: 'gym', min: 40, bk: 'f', acc: 8, avoid: ['hack'] });
+      const A = ms.days[0];
+      return {
+        pairs: A.s.map((s) => s.p || 0).join(''),
+        sets: ms.days.every((d) => d.s.every((s) => s.n === 3)),
+        mins: ms.days.map((d) => _.estDay(d)),
+        weeks: _.weeksOf(ms), rir: [0, 3, 7].map((w) => _.rirFor(ms, w)),
+        hack: ms.days.some((d) => d.s.some((s) => s.e === 'hack')),
+        core: ms.days.map((d) => d.s.filter((s) => _.lib(s.e).m === 'abs').map((s) => s.e)).flat(),
+      };
+    });
+    t.ok('keeping strength: three pairs a session', r.pairs === '112233', r.pairs);
+    t.ok('three sets of everything', r.sets);
+    t.ok('and each session fits in forty minutes', r.mins.every((m) => m <= 40), r.mins.join());
+    t.ok('eight working weeks, no deload, about two in reserve throughout',
+      r.weeks === 8 && r.rir.join() === '2,2,2', r.weeks + ' ' + r.rir.join());
+    t.ok('an exercise on the never list is never chosen', !r.hack);
+    t.ok('the core work resists movement rather than bending', r.core.every((e) => ['pallof', 'dead-bug', 'bird-dog'].indexOf(e) >= 0), r.core.join());
+
+    // the keeping progression: steady, a set off for too much, one back for a slide
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const st = _.state();
+      const ms = _.build({ goal: 'keep', dpw: 2, kit: 'gym', min: 40, bk: 'f', acc: 8 });
+      ms.id = 'kp';
+      const now = Date.now(), D = 864e5;
+      const A = ms.days[0].s.map((s) => s.e);
+      const W = (id, w, ago, sq, fb) => ({ id, st: now - ago * D, u: 'lb', ms: 'kp', w, d: 0,
+        x: [{ e: A[0], s: [{ w: sq[0], r: sq[1] }] }], fb: fb || {}, sr: {} });
+      st.T.ms = { kp: ms }; st.T.act = 'kp';
+      st.T.wo = {
+        a0: W('a0', 0, 30, [300, 10]),
+        a1: W('a1', 1, 23, [300, 10], { chest: { k: 3 } }),
+        a2: W('a2', 2, 16, [300, 8]),
+        a3: W('a3', 3, 9, [300, 6]),
+      };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const m = _.state().T.ms.kp;
+      const sets = (w, mus) => _.plan(m, w, 0).x.filter((x) => _.lib(x.e).m === mus).reduce((n, x) => n + x.sets, 0);
+      const pl1 = _.plan(m, 1, 0), pl2 = _.plan(m, 2, 0), pl4 = _.plan(m, 4, 0);
+      return {
+        chest: [sets(1, 'chest'), sets(2, 'chest'), sets(3, 'chest')],
+        quads: [sets(1, 'quads'), sets(3, 'quads'), sets(4, 'quads')],
+        why1: pl1.x.map((x) => x.why).filter(Boolean),
+        why2: pl2.x.find((x) => _.lib(x.e).m === 'chest').why,
+        why4: pl4.x.find((x) => _.lib(x.e).m === 'quads').why,
+      };
+    });
+    t.ok('keeping holds the sets steady with nothing to explain', r.chest[0] === 3 && r.why1.length === 0, JSON.stringify(r));
+    t.ok('a week that was too much takes a set off the next', r.chest[1] === 2 && /too much/.test(r.why2), r.chest.join() + ' ' + r.why2);
+    t.ok('strength sliding two weeks running puts one back', r.quads[2] === r.quads[1] + 1 && /slipped two weeks running/.test(r.why4),
+      r.quads.join() + ' ' + r.why4);
+
+    // growing inside forty minutes: fitted at the start, and held there
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const out = {};
+      [2, 3, 4, 5, 6].forEach((dpw) => {
+        const ms = _.build({ goal: 'grow', dpw, kit: 'gym', min: 40, bk: '', acc: 4, lvl: 1, pri: [] });
+        out[dpw] = ms.days.map((d) => _.estDay(d));
+      });
+      const st = _.state();
+      const ms = _.build({ goal: 'grow', dpw: 4, kit: 'gym', min: 40, bk: '', acc: 4, lvl: 1, pri: [] });
+      ms.id = 'gt';
+      const fb = {}; ms.days[0].s.forEach((s) => { fb[_.lib(s.e).m] = { p: 0, k: 0 }; });
+      st.T.ms = { gt: ms }; st.T.act = 'gt';
+      st.T.wo = { g0: { id: 'g0', st: Date.now() - 5 * 864e5, u: 'lb', ms: 'gt', w: 0, d: 0,
+        x: [{ e: ms.days[0].s[0].e, s: [{ w: 100, r: 8 }] }], fb, sr: {} } };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const m = _.state().T.ms.gt;
+      const p1 = _.plan(m, 1, 0);
+      out.after = _.estDay(m.days[0], p1.x.map((x) => x.sets));
+      out.why = p1.x.map((x) => x.why).join(' | ');
+      return out;
+    });
+    t.ok('growing inside forty minutes: every day of every split is built to fit',
+      [2, 3, 4, 5, 6].every((k) => r[k].every((m) => m <= 40)), JSON.stringify(r));
+    t.ok('and the weekly climb stops at the minutes, and says so',
+      r.after <= 40 && /Held to fit your 40-minute session/.test(r.why), r.after + ' ' + r.why);
+
+    // ---- the builder, a session, and a round of golf, on the screen -----------
+    await p.click('.tab[data-view="train"]');
+    await p.evaluate(() => { localStorage.removeItem('bsc.train'); window.Train._.reload(); window.Train._.state().S.gen = null; });
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('[data-t="sub"][data-v="block"]');
+    await p.click('[data-t="g-goal"][data-v="keep"]');
+    await p.click('[data-t="g-dpw"][data-v="2"]');
+    await p.click('[data-t="g-min"][data-v="40"]');
+    await p.click('[data-t="g-bk"][data-v="f"]');
+    await p.click('[data-t="g-hab"][data-v="golfw"]');
+    await p.click('[data-t="build"]');
+    await p.waitForTimeout(100);
+    r = await p.evaluate(() => ({
+      pr: window.Train._.state().T.pr,
+      mins: [...document.querySelectorAll('.tr-mins')].map((e) => e.textContent),
+      labels: [...document.querySelectorAll('.tr-dday')][0].querySelectorAll('.tr-pair').length,
+    }));
+    t.ok('what you tell the builder is kept as yours', r.pr.goal === 'keep' && r.pr.min === 40 && r.pr.bk === 'f' &&
+      r.pr.hab.join() === 'golfw', JSON.stringify(r.pr));
+    t.ok('and the draft says how long each day takes, and which lifts are paired',
+      r.mins.length === 2 && r.mins.every((m) => /about \d+ min/.test(m)) && r.labels === 6, JSON.stringify(r));
+
+    // swap with never-again: gone from the whole draft, and on the list
+    await p.click('[data-t="dswap"][data-d="1"][data-i="0"]');
+    await p.waitForTimeout(100);
+    r = await p.evaluate(() => [...document.querySelectorAll('#trainRoot .tr-pick')]
+      .filter((b) => /Romanian Deadlift/.test(b.textContent)).map((b) => b.querySelector('.tr-pk-w') && b.querySelector('.tr-pk-w').textContent));
+    await p.click('#trainRoot [data-t="pickm"][data-v="hams"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('#trainRoot .tr-pick')]
+      .filter((b) => /Romanian Deadlift/.test(b.textContent)).map((b) => (b.querySelector('.tr-pk-w') || {}).textContent));
+    t.ok('the picker still offers what your back rules out, and says why', r[0] === 'loads your back', JSON.stringify(r));
+    await p.click('#trainRoot [data-t="pickm"][data-v=""]');
+    const was = await p.evaluate(() => window.Train._.state().S.draft.days[1].s[0].e);
+    await p.click('#trainRoot [data-t="never"]');
+    await p.click('#trainRoot [data-t="pickex"][data-e="mc-thrust"]');
+    await p.waitForTimeout(100);
+    r = await p.evaluate((was) => ({
+      avoid: window.Train._.state().T.pr.avoid,
+      left: window.Train._.state().S.draft.days.some((d) => d.s.some((s) => s.e === was)),
+    }), was);
+    t.ok('never again takes it out of the whole block and onto your never list',
+      r.avoid.indexOf(was) >= 0 && !r.left, JSON.stringify(r) + ' ' + was);
+
+    await p.click('[data-t="begin"]');
+    await p.click('[data-t="start"]');
+    await p.waitForTimeout(100);
+    r = await p.evaluate(() => ({
+      pairs: [...document.querySelectorAll('.tr-ex .tr-pair')].map((e) => e.textContent).join(','),
+      bk: !!document.querySelector('[data-t="bk"]'),
+      pump: !!document.querySelector('[data-t="fb"][data-f="p"]'),
+    }));
+    t.ok('the session shows its pairs as A1, A2, B1…', r.pairs === 'A1,A2,B1,B2,C1,C2', r.pairs);
+    t.ok('and asks how your back is before you start', r.bk);
+    await p.click('[data-t="bk"][data-v="2"]');
+    t.ok('a sore back gets told to skip the leg work, and what nerve symptoms mean',
+      /Skip the lower-body lifts today/.test(await p.evaluate(() => document.querySelector('.tr-warn').textContent)));
+    await p.fill('#trw-0-0', '200');
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => Math.round((window.Train._.state().LIVE.rs.end - Date.now()) / 1000));
+    t.ok('a paired set rests a minute, not three: the other half goes next', r > 55 && r <= 60, r);
+    for (let j = 1; j < 3; j++) await p.click(`[data-t="tick"][data-x="0"][data-s="${j}"]`);
+    r = await p.evaluate(() => ({ pump: !!document.querySelector('[data-t="fb"][data-f="p"]'),
+      work: !!document.querySelector('[data-t="fb"][data-f="k"]'),
+      label: [...document.querySelectorAll('.tr-fbm')].map((e) => e.textContent).join('|') }));
+    t.ok('keeping asks about workload and back, not pump', !r.pump && r.work && /Back &/.test(r.label), JSON.stringify(r));
+    await p.click('[data-t="finish"]');
+    await p.click('#trainRoot [data-t="save"]');
+    await p.waitForTimeout(150);
+    r = await p.evaluate(() => Object.values(window.Train._.state().T.wo)[0].bk);
+    t.ok('the back check is saved with the workout', r === 2, r);
+
+    await p.click('[data-t="axnew"][data-v="golfw"]');
+    await p.click('#trainRoot [data-t="axmin"][data-v="240"]');
+    await p.click('#trainRoot [data-t="axsave"]');
+    await p.waitForTimeout(100);
+    r = await p.evaluate(() => ({ ax: Object.values(window.Train._.state().T.ax),
+      strip: document.querySelector('.tr-actv-n').textContent }));
+    t.ok('a round of golf is one tap and a length', r.ax.length === 1 && r.ax[0].k === 'golfw' && r.ax[0].min === 240, JSON.stringify(r.ax));
+    t.ok('and the block shows the week’s minutes outside the gym', /4 h/.test(r.strip), r.strip);
+    await p.click('[data-t="sub"][data-v="history"]');
+    t.ok('it is in History beside the workouts', await p.isVisible('.tr-hax'));
+    await p.click('[data-t="sub"][data-v="review"]');
+    await p.waitForTimeout(100);
+    r = await p.evaluate(() => {
+      const rv = window.Train._.review();
+      const by = {}; rv.checks.forEach((c) => { by[c.t] = c; });
+      return { cardio: by['Cardio outside the gym'], back: by['Your back'], keep: rv.keep,
+        eyebrowBand: document.querySelector('.tr-vkey').textContent };
+    });
+    t.ok('the review counts golf toward the week’s cardio', r.cardio && /4 h/.test(r.cardio.b) && /150/.test(r.cardio.b), r.cardio && r.cardio.b);
+    t.ok('and reads the back check-ins', r.back && r.back.st === 'look' && /Sore going into 1 session/.test(r.back.b), r.back && r.back.b);
+    t.ok('and grades keeping by the keeping research', r.keep && /enough to keep strength/.test(r.eyebrowBand), r.eyebrowBand);
+
+    // activity syncs like everything else
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      return {
+        ok: _.merge({ ax: { z1: { v: { id: 'z1', st: Date.now(), k: 'walk', min: 30 }, at: Date.now() } } }),
+        bad: _.merge({ ax: { z2: { v: { id: 'z2', st: Date.now(), k: 'skydiving', min: 30 }, at: Date.now() } } }),
+        huge: _.merge({ ax: { z3: { v: { id: 'z3', st: Date.now(), k: 'walk', min: 99999 }, at: Date.now() } } }),
+      };
+    });
+    t.ok('a walk from the other phone is taken; nonsense is not', r.ok && !r.bad && !r.huge, JSON.stringify(r));
+
+    // the profile survives a reload, and bad values are cleaned
+    r = await p.evaluate(() => {
+      const T = JSON.parse(localStorage.getItem('bsc.train'));
+      T.pr = Object.assign(T.pr, { min: 17, bk: 'fz<', hab: ['golfw', 'hang-gliding'], goal: 'x' });
+      localStorage.setItem('bsc.train', JSON.stringify(T));
+      window.Train._.reload();
+      return window.Train._.state().T.pr;
+    });
+    t.ok('a mangled profile is cleaned rather than trusted',
+      r.min === 0 && r.bk === 'f' && r.hab.join() === 'golfw' && r.goal === 'grow', JSON.stringify(r));
+    await p.close();
   },
 };
