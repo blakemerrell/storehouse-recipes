@@ -3412,14 +3412,19 @@
        gain. daysOff already carried the sign through plan.per; side and the
        arrival did not, and told somebody putting weight on that being
        heavier than planned was behind. */
-    var toward = plan.per < 0 ? off : -off;         // positive means behind
+    /* Holding a weight (per 0) has no "ahead": off the line either way is
+       off it. It read a gain of 1.8 lb a week as "0 days ahead of pace". */
+    var toward = plan.per < 0 ? off : plan.per > 0 ? -off : Math.abs(off);   // positive means behind
     var closing = st.dWeek === null ? null : (plan.per < 0 ? -st.dWeek : st.dWeek);
     var arrive = null;
     if (closing !== null && closing > 0.05) {
       var wk = Math.ceil(Math.abs(st.avg7 - pr.goalLb) / closing);
       var ad = new Date();
       ad.setDate(ad.getDate() + wk * 7);
-      arrive = M_MONS[ad.getMonth()] + ' ' + ad.getDate();
+      /* With the year when it is not this one: a slow enough rate put an
+         arrival four years out as "Sep 24", two days from now. */
+      arrive = M_MONS[ad.getMonth()] + ' ' + ad.getDate() +
+        (ad.getFullYear() !== new Date().getFullYear() ? ', ' + ad.getFullYear() : '');
     }
     /* The band around the plan, from the same moving ranges. Inside it there
        is nothing to decide, and saying so is the whole job. */
@@ -3546,6 +3551,13 @@
     var off = pf.off, band = pf.band, daysOff = pf.daysOff, burn = pf.burn,
       need = pf.need, capped = pf.capped, arrive = pf.arrive, rate = pf.rate;
     var mostWord = pf.capHigh ? 'as much as this goes' : 'as low as this goes';
+    /* Days off pace, or — holding a weight, where there is no pace to be
+       days off — pounds off it. */
+    var gapWord = function (dir) {
+      if (pf.plan.per) return Math.abs(daysOff) + ' days ' + (dir === 'behind' ? 'behind' : 'ahead of') + ' pace';
+      var lbOff = Math.round(Math.abs(off) * 10) / 10;
+      return lbOff + ' lb ' + (off > 0 ? 'over' : 'under') + ' your weight';
+    };
     var rw = rate === null ? '' : mLbWord(rate);
     var rateWord = !rw ? '' : rw === 'holding steady' ? 'Holding steady'
       : rw.charAt(0).toUpperCase() + rw.slice(1) + ' a week';
@@ -3581,19 +3593,19 @@
       Math.abs(kcalOf(mReadTargets()) - need) <= 5;
     if (pf.side === 'behind' && eating) {
       return mLineHTML('calm', '\u25B2',
-        '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + Math.abs(daysOff) + ' days behind pace' +
+        '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + gapWord('behind') +
         (capped ? ' \u2014 ' + mostWord + ', so the date is what moves.' : ' \u2014 this is the number that lands on time.'),
         (arrive ? 'At this rate you arrive ' + arrive + '.' : ''), null);
     }
     if (pf.side === 'ahead' && eating) {
       return mLineHTML('calm', '\u25BC',
-        '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + Math.abs(daysOff) + ' days ahead of pace, and still arriving on time.',
+        '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + gapWord('ahead') + ', and still arriving on time.',
         rateWord ? rateWord + '.' : '', null);
     }
     if (pf.side === 'behind') {
       if (mHushed(k, 'act:' + need)) return '';
       return mLineHTML('act', '\u25B2',
-        '<b>' + Math.abs(daysOff) + ' days behind pace.</b>' +
+        '<b>' + gapWord('behind') + '.</b>' +
         (meas ? ' Your burn measures <b>' + meas.tdee.toLocaleString() + '</b>, not the ' +
           Math.round(mBurn(pr) ? mBurn(pr).tdee : meas.tdee).toLocaleString() +
           ' the formula assumed.' : ''),
@@ -3618,7 +3630,7 @@
          way the goal goes — it said so of a gain, on a cut. */
       var more = room && room > kcalOf(mReadTargets());
       return mLineHTML('ahead', '\u25BC',
-        '<b>' + Math.abs(daysOff) + ' days ahead of pace.</b>' +
+        '<b>' + gapWord('ahead') + '.</b>' +
         (room ? (more ? ' You could eat <b>' + room.toLocaleString() + '</b>' + cyc +
           ' and still arrive on time.'
           : ' <b>' + room.toLocaleString() + '</b>' + cyc + ' lands on time.') : ''),
@@ -4555,9 +4567,12 @@
       var tK = kcalOf(mDayTargets(dk));
       var train = mIsTrainingDay(dk);
       var dayObj = MDAYS[dk] ? mDay(dk) : null;
-      var got = dayObj ? Math.round(mTotals(dayObj).all.kcal) : 0;
-      var state = !got || !tK ? '' :
-        got > tK * (MKCAL_OVER / 100) ? ' over' : got >= tK * 0.9 ? ' on' : ' under';
+      var gotRaw = dayObj ? mTotals(dayObj).all.kcal : 0;
+      var got = Math.round(gotRaw);
+      /* The bars' verdict, on the unrounded figure the bars judge: rounding
+         here first put a day at 2,130.25 of 2,000 "over" on the bar and
+         "close" on the strip. Rounded only for what is printed. */
+      var state = !got || !tK ? '' : ' ' + mVerdict('kcal', gotRaw, tK);
       /* A ring is a day in progress; a filled circle is a day that has been
          eaten to the end. The colour is the same verdict either way — under,
          on, or over its target — so the week reads at a glance. */
@@ -4663,7 +4678,11 @@
        at. Only today, and only when the day does not exist yet — history and
        half-built days are never re-seeded, and unpinning tomorrow is done by
        unpinning, not by deleting today's copy. */
-    if (k >= todayK && !MDAYS[k]) {
+    /* `===`, as the comment says: `>=` wrote the routine onto every future
+       day merely browsed to — a write to a day nobody asked to change, sent
+       to the account. Planning a future day still gets its pins, from Fill,
+       which runs the pin pass itself. */
+    if (k === todayK && !MDAYS[k]) {
       var anyPins = false;
       slots.list.forEach(function (s) { if (s.pins && s.pins.length) anyPins = true; });
       if (anyPins) {
@@ -11689,15 +11708,22 @@
          the card — a roast beef breakfast arriving unannounced reads as a
          bug rather than as an answer to what you asked for. */
       var tries = (S.mTry[cursorKey] === undefined ? -1 : S.mTry[cursorKey]) + 1;
-      var pool = mMealPool(srec, tries >= MTRY_WIDE - 1).filter(function (r) {
+      /* The repeat guard Fill uses, so "not that one" does not answer with
+         yesterday's dinner — unless it is all that is left to offer. */
+      var near = mNearIds(k);
+      var pool0 = mMealPool(srec, tries >= MTRY_WIDE - 1).filter(function (r) {
         return !mOnDay(day, r.id) && dropped.indexOf(r.id) < 0;
       });
+      var fresh = pool0.filter(function (r) { return !near[r.id]; });
+      var pool = fresh.length ? fresh : pool0;
 
       var ranked = mRank(pool, day, targets, srec).filter(function (e) { return e.score !== null; });
       if (!ranked.length) return;
       S.mTry[cursorKey] = tries;
       var pick = ranked[tries % ranked.length];
-      day[sk].push({ id: pick.r.id, x: pick.x, eaten: 0 });
+      /* The machine's pick, marked as the machine's: without `by` it read as
+         placed by hand, and Fill never sized it again. */
+      day[sk].push({ id: pick.r.id, x: pick.x, eaten: 0, by: 'f' });
     });
     keepingFocus(renderMacros);
   }
@@ -14176,6 +14202,7 @@
     targets: function () { return mDayTargets(mViewKey()); },
     dayTargets: mDayTargets,
     measured: mMeasuredTdee,
+    tryAgain: mTryAgain,
     assumed: function () { var k = mViewKey(); return mAssumed(mDay(k), mDayTargets(k), mReadSlots()); },
     face: mPlanFace,
     tdee: mTdee,
@@ -15291,7 +15318,14 @@
        looked at again, not yesterday's finished plan. Only when the reader has
        not deliberately navigated somewhere else. */
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden && S.view === 'macros' && !S.macroDate) renderMacros();
+      if (document.hidden) return;
+      /* The weekly follow ran at boot only, and an installed app is resumed
+         far more often than it is started: a phone that never closed it never
+         followed the scale. Asked again on coming back — once the boot-time
+         decision has been made, so a device with an account still waits for
+         it. It moves nothing unless a week has passed. */
+      var followed = !mBootTargetsDue && mFollowScale();
+      if (S.view === 'macros' && (!S.macroDate || followed)) renderMacros();
     });
 
     $('weekBar').addEventListener('click', function (e) {

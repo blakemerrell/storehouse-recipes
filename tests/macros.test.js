@@ -13069,5 +13069,95 @@ module.exports = {
       t.ok('Fill never tops a day up with a food that is nearly all fat', oil === 0, oil + ' plates');
       await dp.context().close();
     }
+
+    /* ---- the audit's small ones, 2026-09-23 -------------------------- */
+    {
+      const ep = await t.fresh();
+      const K = (n) => ep.evaluate((m) => { const d = new Date(); d.setDate(d.getDate() - m);
+        const p2 = (x) => (x < 10 ? '0' : '') + x;
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }, n);
+      const today = await K(0), tomorrow = await K(-1);
+      const put = (o) => ep.evaluate((obj) => { localStorage.clear();
+        Object.keys(obj).forEach((k) => localStorage.setItem(k, JSON.stringify(obj[k]))); }, o);
+
+      /* The strip and the bar agree at the edge. A food's calories are whole,
+         so the fraction comes from the portion: 0.4 of 5,326 is 2,130.4 —
+         over 2,130 (106.5% of 2,000) unrounded, and not once rounded. */
+      await put({ 'bsc.macroTargets': { p: 150, f: 60, c: 215 },
+        'bsc.myFoods': { e: { name: 'Edge', p: 300, f: 150, c: 694 } },
+        'bsc.macroDays': { [today]: { d: [{ id: 'f:my:e', x: 0.4, eaten: 1 }] } } });
+      await ep.reload();
+      await ep.click('.tab[data-view="macros"]');
+      await ep.waitForTimeout(300);
+      const edge = await ep.evaluate((k) => {
+        const b = document.querySelector('.mwk-d[data-mweek="' + k + '"]');
+        return { strip: b ? b.className : '', kcal: 0.4 * window.__macroLab.foods().find((f) => f.id === 'f:my:e').macro.kcal };
+      }, today);
+      t.ok('the week strip and the bar give a day at the edge the same verdict',
+        edge.kcal > 2130 && edge.kcal < 2130.5 && /\bover\b/.test(edge.strip), JSON.stringify(edge));
+
+      // Looking at tomorrow does not write the routine onto it.
+      await put({ 'bsc.macroSlots': { list: [{ k: 'b', n: 'Breakfast', t: 'b', pins: [{ id: 'f:whey', x: 1 }] },
+        { k: 'l', n: 'Lunch', t: 'l' }, { k: 'd', n: 'Dinner', t: 'd' }, { k: 's', n: 'Snacks', t: 's' }], names: {} } });
+      await ep.reload();
+      await ep.click('.tab[data-view="macros"]');
+      await ep.waitForTimeout(300);
+      await ep.click('#macroNext');
+      await ep.waitForTimeout(300);
+      const tmr = await ep.evaluate((k) => (JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'))[k] || null, tomorrow);
+      const tdy = await ep.evaluate((k) => (JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'))[k] || null, today);
+      t.ok('browsing to tomorrow writes nothing onto it; today still gets its pins',
+        tmr === null && tdy && (tdy.b || []).some((it) => it.id === 'f:whey'), JSON.stringify({ tmr, tdy }));
+
+      // "Try another" hands Fill its pick.
+      await put({ 'bsc.macroTargets': { p: 180, f: 60, c: 170 } });
+      await ep.reload();
+      await ep.click('.tab[data-view="macros"]');
+      await ep.waitForTimeout(300);
+      await ep.evaluate(() => window.__macroLab.draft());
+      await ep.reload();
+      await ep.click('.tab[data-view="macros"]');
+      await ep.waitForTimeout(300);
+      await ep.evaluate(() => { document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click()); });
+      await ep.waitForTimeout(200);
+      const wasD = await ep.evaluate((k) => (JSON.parse(localStorage.getItem('bsc.macroDays'))[k].d || []).map((it) => it.id), today);
+      /* What the ↻ Another button calls; the button itself only shows once a
+         meal's actions are opened. */
+      const tryBtn = await ep.evaluate(() => { window.__macroLab.tryAgain('d'); return true; });
+      await ep.waitForTimeout(300);
+      const tried = await ep.evaluate((k) => (JSON.parse(localStorage.getItem('bsc.macroDays'))[k].d || []), today);
+      const swapped = tried.filter((it) => wasD.indexOf(it.id) < 0);
+      t.ok('a dish from "Try another" is Fill\'s to size',
+        !!tryBtn && swapped.length > 0 && swapped.every((it) => it.by === 'f'),
+        JSON.stringify({ button: !!tryBtn, was: wasD, now: tried }));
+
+      // Coming back to the app follows the scale, not only a cold start.
+      /* Weights before the load (they live in memory once loaded); the
+         targets after it, so the boot-time follow has nothing to move and
+         only the resume can. */
+      await put({ 'bsc.macroProfile': { sex: 'm', age: 43, ft: 5, inch: 11, lb: 205, act: 1.375,
+        goal: 'cut2', goalLb: 0, goalBy: '' } });
+      await ep.evaluate(() => {
+        const k = (n) => { const d = new Date(); d.setDate(d.getDate() - n); const p2 = (x) => (x < 10 ? '0' : '') + x;
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+        const w = {}; for (let i = 0; i < 7; i++) w[k(i)] = 190;
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+      });
+      await ep.reload();
+      await ep.evaluate(() => {
+        const k = (n) => { const d = new Date(); d.setDate(d.getDate() - n); const p2 = (x) => (x < 10 ? '0' : '') + x;
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 68, c: 170, set: k(9) }));
+      });
+      await ep.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await ep.waitForTimeout(200);
+      const resumed = await ep.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroTargets')));
+      t.ok('the weekly follow runs when the app is resumed, not only when it starts',
+        resumed.p !== 205 && resumed.moved, JSON.stringify(resumed));
+      await ep.context().close();
+    }
   },
 };

@@ -57,9 +57,12 @@ const TARGETS = { p: 180, f: 50, c: 50 };
      open    : every meal may reach anywhere
    Custom slots (t:'x') are the app's own supported way to say this, so these
    presets are configurations a user could actually set, not test-only hacks. */
+/* The app's MEAL_SECS, copied — keep in step with src/app.js. Snacks
+   lost 2-6 and 2-7 there (treats that are not snacks); nothing offers 1-7
+   (Batch Prep) unasked. `open` below still reaches every section there is. */
 const B = ['1-1', '2-1'], L = ['1-3', '2-2'], D = ['1-4', '2-3', '2-4'];
-const S = ['1-2', '1-5', '1-6', '2-5', '2-6', '2-7', '2-8'];
-const ALL = B.concat(L, D, S);
+const S = ['1-2', '1-5', '1-6', '2-5', '2-8'];
+const ALL = B.concat(L, D, S, ['1-7', '2-6', '2-7', '2-9']);
 const PRESETS = {
   default: null,
   wide: [
