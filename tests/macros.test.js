@@ -1849,7 +1849,7 @@ module.exports = {
     await q.reload();
     await q.waitForTimeout(400);
     t.ok('and losing weight against a gain goal reads behind, not ahead',
-      /days behind/.test(await narr()) && !/ahead/.test(await narr()), await narr());
+      /late|no date yet/.test(await narr()) && !/early/.test(await narr()), await narr());
     await q.evaluate(() => {
       const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
       pr.goalLb = 185; delete pr.goalSet; delete pr.goalFrom;
@@ -1875,7 +1875,7 @@ module.exports = {
     t.ok('once there are mornings, the scale gets an opinion',
       /seven-day average/.test(await narr()) && /needs down [\d.]+ a week/.test(await narr()), await narr());
     t.ok('and it is behind pace, because a pound a week is not two — said on the face',
-      /days behind/.test(await narr()), await narr());
+      /weeks? late|days late|no date yet/.test(await narr()), await narr());
 
     /* ---- a card sent away stays away --------------------------------
      *
@@ -4459,10 +4459,19 @@ module.exports = {
       const el = document.querySelector('.mline');
       return { text: el ? el.textContent : '', side: window.__macroLab.pace().side };
     });
-    t.ok('the face and the morning line give one verdict, the side of the line',
-      lineSaid.side === 'behind' && /days behind/.test(faceSaid) && !/on pace|ahead/.test(faceSaid) &&
-        /days behind/.test(lineSaid.text),
-      'face: ' + faceSaid + ' | line: ' + lineSaid.text.slice(0, 80));
+    /* Since 2026-09-23 both say WHEN, not "behind": the chip on the face and
+       the coach line under it must name the same arrival date. */
+    const D = '([A-Z][a-z]{2} \\d{1,2}(?:, \\d{4})?)';
+    const dateIn = (str) => {
+      if (/no (?:arrival )?date/.test(str)) return 'none';
+      if (/on track|On track/.test(str)) return 'on track';
+      const m = str.match(new RegExp(D + ' · \\d+ (?:days|weeks) (?:late|early)')) ||
+        str.match(new RegExp('Arriving around ' + D));
+      return m ? m[1] : '';
+    };
+    t.ok('the face and the morning line give one estimate, the same date',
+      !!dateIn(faceSaid) && dateIn(faceSaid) === dateIn(lineSaid.text),
+      'face: ' + faceSaid + ' | line: ' + lineSaid.text.slice(0, 120));
     /* The graph carries the plan's own line, so "behind" is something you
        can see: your weight above the dashed one. */
     const planLine = await twoFaces.evaluate(() => {
@@ -5451,7 +5460,7 @@ module.exports = {
       staleOld.stale === 14 && /Last weighed/.test(staleOld.text) && !staleOld.eat,
       JSON.stringify(staleOld).slice(0, 180));
     t.ok('while a reading taken this morning still gives its verdict',
-      staleFresh.stale === 0 && /days behind|on pace|days ahead/.test(staleFresh.text),
+      staleFresh.stale === 0 && /Arriving around|On track|no arrival date/.test(staleFresh.text),
       staleFresh.text.slice(0, 90));
 
     /* ---- the answer does not depend on the order the day was built --------
@@ -9067,7 +9076,7 @@ module.exports = {
       await onPace.evaluate(() => {
         const el = document.querySelector('.mline');
         return !!el && el.classList.contains('calm') &&
-          /on pace\./.test(el.textContent) &&
+          /On track|Arriving around|no arrival date/.test(el.textContent) &&
           !el.querySelector('[data-mline]');          // no decision, so no buttons
       }), await onPace.textContent('.mline'));
     await onPace.context().close();
@@ -9115,7 +9124,7 @@ module.exports = {
     t.ok('behind pace, it offers a number and the option to ignore it',
       await slow.evaluate(() => {
         const el = document.querySelector('.mline');
-        return !!el && el.classList.contains('act') && /days behind/.test(el.textContent) &&
+        return !!el && el.classList.contains('act') && /Arriving around [^,]+(?:, \d{4})?, not |no arrival date/.test(el.textContent) &&
           el.querySelectorAll('[data-mline]').length === 2;
       }), behind);
     /* A line that says "eat 1,278" is not advice. Whatever it offers has to
@@ -11976,11 +11985,11 @@ module.exports = {
     // flat on the scale against a plan that wants a pound a week: planShut
     const planShut = await planPage(0);
     const planMorn = await planShut.evaluate(() => {
-      const el = document.querySelector('.mline.act .mline-t');
+      const el = document.querySelector('.mline');
       return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
     });
-    t.ok('My Day says how many days off pace you are',
-      /\d+ days (behind|ahead)/.test(planMorn), planMorn);
+    t.ok('My Day says when you will arrive, or that there is no date yet',
+      /Arriving around|no arrival date/.test(planMorn), planMorn);
 
     await openPlanShut(planShut);
     const planLedger = () => planShut.evaluate(() => {
@@ -11999,8 +12008,9 @@ module.exports = {
       const el = document.getElementById('mtStatus');
       return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
     });
-    const dayCount = (str) => (str.match(/(\d+) days/) || [])[1];
-    t.ok('and the pace line beneath them is the SAME count My Day gave, not a second one',
+    const dayCount = (str) => /no arrival date/i.test(str) ? 'none'
+      : (str.match(/Arriving around ([A-Z][a-z]{2} \d{1,2}(?:, \d{4})?)/) || [])[1];
+    t.ok('and the pace line beneath them is the SAME estimate My Day gave, not a second one',
       !!dayCount(planSays) && dayCount(planSays) === dayCount(planMorn),
       'sheet: "' + planSays + '" vs day: "' + planMorn + '"');
 
@@ -13170,6 +13180,44 @@ module.exports = {
       t.ok('the weekly follow runs when the app is resumed, not only when it starts',
         resumed.p !== 205 && resumed.moved, JSON.stringify(resumed));
       await ep.context().close();
+    }
+
+    /* ---- the arrival estimate, 2026-09-23 ----------------------------
+     * Blake: "not telling me I'm behind but that my target date estimate has
+     * moved from when to when." Read over three weeks, so a salty weekend
+     * does not erase a trend; and a flat scale gives no date rather than an
+     * invented one. */
+    {
+      const ap2 = await t.fresh();
+      const seedW = (fn) => ap2.evaluate((src) => {
+        const f = new Function('i', 'return ' + src);
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        const w = {};
+        for (let i = 21; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); w[key(d)] = Math.round(f(i) * 10) / 10; }
+        localStorage.clear();
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+        const g = new Date(); g.setDate(g.getDate() + 120);
+        const s0 = new Date(); s0.setDate(s0.getDate() - 21);
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5, inch: 11, lb: 210,
+          act: 1.375, goal: 'cut1', goalLb: 185, goalBy: key(g), goalSet: key(s0), goalFrom: 210 }));
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 65, c: 180 }));
+      }, fn);
+      // a pound a week for three weeks, then two salty mornings
+      await seedW("210 - (21 - i) / 7 + (i <= 1 ? 2.5 : 0)");
+      await ap2.reload();
+      const salty = await ap2.evaluate(() => { const pf = window.__macroLab.pace();
+        return { rate3: pf && pf.rate3, arrive: pf && pf.arrive, dWeek: pf && pf.st.dWeek }; });
+      t.ok('two salty mornings do not erase a three-week trend from the estimate',
+        salty.arrive && salty.rate3 < -0.3, JSON.stringify(salty));
+      await seedW("205 + (i % 2 ? 0.2 : -0.2)");
+      await ap2.reload();
+      await ap2.click('.tab[data-view="macros"]');
+      await ap2.waitForTimeout(300);
+      const flat = await ap2.evaluate(() => (document.querySelector('.mline') || {}).textContent || '');
+      t.ok('a flat scale gives no arrival date rather than inventing one',
+        /no arrival date yet/.test(flat) && !/Arriving around/.test(flat), flat);
+      await ap2.context().close();
     }
   },
 };
