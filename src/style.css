@@ -4735,9 +4735,12 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 
 /* A dot on the tab while a workout is open, so leaving it for My Day or the
    list does not lose it. */
+/* In the corner rather than beside the word: beside it, the dot made the
+   tab twelve pixels wider and pushed itself off a 390px phone. */
+.tab.tr-tab-live { position: relative; }
 .tab.tr-tab-live::after {
-  content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-  background: oklch(0.72 0.16 145); margin-left: 6px; vertical-align: 2px;
+  content: ''; position: absolute; top: 3px; right: 2px;
+  width: 6px; height: 6px; border-radius: 50%; background: oklch(0.72 0.16 145);
 }
 
 /* The rest bar: the header's ink, pinned to the foot, filling left to right

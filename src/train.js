@@ -1650,6 +1650,12 @@
     if (ex.q === 'bw') return 'bodyweight, add weight past ' + ex.rr[1];
     return 'pick a weight for ' + ex.rr[0] + '–' + ex.rr[1];
   }
+  /* The week's effort as a sentence. "About 0 reps in reserve" is a
+     roundabout way to say failure, so the last hard week says failure. */
+  function rirSay(r) {
+    if (r === 0) return 'take working sets to failure, or a rep short on the heavy barbell lifts';
+    return 'finish working sets with about ' + r + ' rep' + (r === 1 ? '' : 's') + ' in reserve';
+  }
   function rirStr(r) { return r === null || r === undefined ? 'deload' : r + ' RIR'; }
 
   /* ------------------------------------------------------ the block screen */
@@ -1675,7 +1681,7 @@
     if (nx) {
       var rir = rirFor(ms, nx.w);
       html += '<div class="tr-sub">Week ' + (nx.w + 1) + ' of ' + weeksOf(ms) + ' · ' +
-        (rir === null ? 'deload week' : 'aim to finish sets with ' + rir + ' rep' + (rir === 1 ? '' : 's') + ' in reserve') + '</div>';
+        (rir === null ? 'deload week' : rirSay(rir)) + '</div>';
     } else {
       html += '<div class="tr-sub">Every session of this block is done.</div>';
     }
@@ -1852,7 +1858,7 @@
         '<div class="tr-title">' + esc(L.n) + ' <span class="tr-clock" id="trElapsed">' +
           clock((Date.now() - L.st) / 1000) + '</span></div>' +
         (ms ? '<div class="tr-sub">' + (L.dl ? 'Light and easy: stop every set well short of failure.'
-          : 'Finish working sets with about ' + L.rir + ' rep' + (L.rir === 1 ? '' : 's') + ' in reserve.') + '</div>' : '') +
+          : rirSay(L.rir).charAt(0).toUpperCase() + rirSay(L.rir).slice(1) + '.') + '</div>' : '') +
       '</div>' +
       '<button class="btn-primary" data-t="finish">Finish</button>' +
     '</div>';
