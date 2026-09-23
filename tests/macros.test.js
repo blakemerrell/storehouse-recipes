@@ -1849,7 +1849,7 @@ module.exports = {
     await q.reload();
     await q.waitForTimeout(400);
     t.ok('and losing weight against a gain goal reads behind, not ahead',
-      /behind pace/.test(await narr()) && !/ahead of pace/.test(await narr()), await narr());
+      /days behind/.test(await narr()) && !/ahead/.test(await narr()), await narr());
     await q.evaluate(() => {
       const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
       pr.goalLb = 185; delete pr.goalSet; delete pr.goalFrom;
@@ -1870,10 +1870,12 @@ module.exports = {
       }
       return q.textContent('.mw-body');
     };
+    /* The numbers are one line under the goal now (2026-09-23): the average,
+       the week, and what the goal needs — said once. */
     t.ok('once there are mornings, the scale gets an opinion',
-      /Averaging /.test(await detail()) && /Needs /.test(await detail()), await detail());
+      /seven-day average/.test(await narr()) && /needs down [\d.]+ a week/.test(await narr()), await narr());
     t.ok('and it is behind pace, because a pound a week is not two — said on the face',
-      /behind pace/.test(await narr()), await narr());
+      /days behind/.test(await narr()), await narr());
 
     /* ---- a card sent away stays away --------------------------------
      *
@@ -1957,7 +1959,7 @@ module.exports = {
     t.ok('pressing Eat writes the number into the plan', Math.abs(took.kcal - askedFor) <= 5,
       took.kcal + ' vs ' + askedFor);
     t.ok('and the card says it is being eaten, instead of asking again',
-      !took.stillAsking && new RegExp('Eating ' + askedFor.toLocaleString()).test(took.text), took.text.slice(0, 120));
+      !took.stillAsking && new RegExp('Your target: ' + askedFor.toLocaleString()).test(took.text), took.text.slice(0, 120));
     /* and put the plan back the way it was, for everything downstream */
     await q.evaluate((tb) => localStorage.setItem('bsc.macroTargets', tb), targetsBefore);
     await q.reload();
@@ -4458,9 +4460,16 @@ module.exports = {
       return { text: el ? el.textContent : '', side: window.__macroLab.pace().side };
     });
     t.ok('the face and the morning line give one verdict, the side of the line',
-      lineSaid.side === 'behind' && /behind pace/.test(faceSaid) && !/on pace|ahead of pace/.test(faceSaid) &&
-        /behind pace/.test(lineSaid.text),
+      lineSaid.side === 'behind' && /days behind/.test(faceSaid) && !/on pace|ahead/.test(faceSaid) &&
+        /days behind/.test(lineSaid.text),
       'face: ' + faceSaid + ' | line: ' + lineSaid.text.slice(0, 80));
+    /* The graph carries the plan's own line, so "behind" is something you
+       can see: your weight above the dashed one. */
+    const planLine = await twoFaces.evaluate(() => {
+      const pl = document.querySelector('.mw-spark .mw-spark-plan');
+      return pl ? pl.getAttribute('points').split(' ').length : 0;
+    });
+    t.ok('the weight graph draws where the plan says you should be', planLine >= 2, String(planLine));
     await twoFaces.context().close();
 
     /* ---- the plan line starts where the goal was set ----------------------
@@ -5254,13 +5263,15 @@ module.exports = {
     await todayPg.click('[data-mfold="weigh"]');
     await todayPg.waitForTimeout(350);
     const todayOpen = await todayPg.evaluate(() => {
-      const el = document.querySelector('.mw-why');
+      const el = document.querySelector('.mw-tick-s');
       const base = JSON.parse(localStorage.getItem('bsc.macroTargets'));
       const now = window.__macroLab.targets();
       const s2 = el ? el.textContent.replace(/\s+/g, ' ') : '';
       return { txt: s2, base: base.c, now: now.c,
         both: s2.indexOf(String(now.c)) >= 0 && s2.indexOf(String(base.c)) >= 0,
-        week: /week stays the same/i.test(s2),
+        /* "on an average day": the tick moves today against the week's own
+           average — it does not add to the week. */
+        week: /on an average day/i.test(s2),
         steps: !!document.querySelector('[data-mfold="weigh"]')
           .closest('.mslot, div').querySelector('input[inputmode="numeric"]') };
     });
@@ -5437,11 +5448,10 @@ module.exports = {
       Math.abs(staleFresh.daysOff - staleOld.daysOff) <= 2,
       'fresh ' + staleFresh.daysOff + ' vs 14 days later ' + staleOld.daysOff);
     t.ok('and a fortnight-old reading says which morning it is reading, and asks for nothing',
-      staleOld.stale === 14 && /Last weighed/.test(staleOld.text) &&
-        /14 mornings since/.test(staleOld.text) && !staleOld.eat,
+      staleOld.stale === 14 && /Last weighed/.test(staleOld.text) && !staleOld.eat,
       JSON.stringify(staleOld).slice(0, 180));
     t.ok('while a reading taken this morning still gives its verdict',
-      staleFresh.stale === 0 && /behind pace|Nothing to change|ahead of pace/.test(staleFresh.text),
+      staleFresh.stale === 0 && /days behind|on pace|days ahead/.test(staleFresh.text),
       staleFresh.text.slice(0, 90));
 
     /* ---- the answer does not depend on the order the day was built --------
@@ -9057,7 +9067,7 @@ module.exports = {
       await onPace.evaluate(() => {
         const el = document.querySelector('.mline');
         return !!el && el.classList.contains('calm') &&
-          /Nothing to change/.test(el.textContent) &&
+          /on pace\./.test(el.textContent) &&
           !el.querySelector('[data-mline]');          // no decision, so no buttons
       }), await onPace.textContent('.mline'));
     await onPace.context().close();
@@ -9105,7 +9115,7 @@ module.exports = {
     t.ok('behind pace, it offers a number and the option to ignore it',
       await slow.evaluate(() => {
         const el = document.querySelector('.mline');
-        return !!el && el.classList.contains('act') && /behind pace/.test(el.textContent) &&
+        return !!el && el.classList.contains('act') && /days behind/.test(el.textContent) &&
           el.querySelectorAll('[data-mline]').length === 2;
       }), behind);
     /* A line that says "eat 1,278" is not advice. Whatever it offers has to
@@ -9130,7 +9140,7 @@ module.exports = {
         const plan = 4 * t2.p + 4 * t2.c + 9 * t2.f;
         /* Only when it is capped does it claim to be a floor. An uncapped
            number is an answer to the date, and may be anything. */
-        return !/as low as this goes/.test(document.querySelector('.mline').textContent) ||
+        return !/as low as it\u2019s safe to go|lowest it\u2019s safe to go/.test(document.querySelector('.mline').textContent) ||
           want <= plan;
       }), behind);
     // taking it rewrites the grams, and protein is not what gives way
@@ -9315,12 +9325,14 @@ module.exports = {
       /190\.6 lb avg/.test(await card()) && !/since/.test(await card()), await card());
     await w.click('#macroWeigh [data-mfold]');
     await w.waitForTimeout(200);
+    /* Said once (2026-09-23). The card used to give the average four times
+       and the week three; the history is the graph's to show. */
     t.ok('the headline is the seven-day average',
-      /seven-day average 190\.6/.test(await card()), await card());
+      /190\.6 lb avg/.test(await card()), await card());
     t.ok('the week is judged average against average',
-      /down 1\.4 lb on the week before/.test(await card()), await card());
-    t.ok('and the whole arc since the first morning is there',
-      /down 3\.8 lb since/.test(await card()), await card());
+      /down 1\.4 lb this week/.test(await card()), await card());
+    t.ok('and the average is said once, not four times',
+      ((await card()).match(/190\.6/g) || []).length === 1, await card());
     t.ok('with a sparkline once there is a line to draw',
       await w.evaluate(() => !!document.querySelector('.mw-spark polyline')));
 
@@ -11968,7 +11980,7 @@ module.exports = {
       return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
     });
     t.ok('My Day says how many days off pace you are',
-      /\d+ days (behind|ahead of) pace/.test(planMorn), planMorn);
+      /\d+ days (behind|ahead)/.test(planMorn), planMorn);
 
     await openPlanShut(planShut);
     const planLedger = () => planShut.evaluate(() => {
