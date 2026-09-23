@@ -3265,10 +3265,11 @@
        behind pace". One question, one answer: where you stand. */
     var pf0 = mPaceFacts(todayKey());
     if (pf0) {
-      var dd0 = Math.abs(pf0.daysOff);
-      var word0 = pf0.side === 'on' || !pf0.plan.per ? (pf0.side === 'on' ? 'on pace' : pf0.side)
-        : dd0 + (dd0 === 1 ? ' day ' : ' days ') + pf0.side;
-      out += ' <span class="mw-chip ' + pf0.side + '">' + word0 + '</span>';
+      /* The estimate, not a verdict: when you'll get there against the date
+         you set. */
+      var word0 = mArriveChip(pf0);
+      var tone0 = /late|no date|off/.test(word0) ? 'behind' : /early/.test(word0) ? 'ahead' : 'on';
+      out += ' <span class="mw-chip ' + tone0 + '">' + word0 + '</span>';
     }
     return { has: true, html: out };
   }
@@ -3372,6 +3373,46 @@
      about one fact — and they already had, on the calorie bar. One place
      computes it; both places read it. Today only, because every figure in it
      is about where you stand NOW. */
+  /* A date, the way a person says it: "Feb 17", with the year when it is
+     not this one — a slow rate once put an arrival four years out as
+     "Sep 24", two days from now. */
+  function mDateWord(d) {
+    /* The year only when the date is far enough off to be ambiguous: "Jan 20"
+       in September means this coming January. */
+    var far = Math.abs(d - new Date()) > 330 * 86400000;
+    return M_MONS[d.getMonth()] + ' ' + d.getDate() + (far ? ', ' + d.getFullYear() : '');
+  }
+
+  /* Pounds a week over the last three weeks: the latest week's mean against
+     the mean of the week two weeks before it, halved. Null without three
+     mornings in each. */
+  function mRate3() {
+    var keys = Object.keys(MWEIGHTS).filter(function (k) { return MWEIGHTS[k] > 0; }).sort();
+    if (!keys.length) return null;
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var lastN = dayN(keys[keys.length - 1]);
+    var a = [], b = [];
+    keys.forEach(function (k) {
+      var back = lastN - dayN(k);
+      if (back < 7) a.push(MWEIGHTS[k]);
+      else if (back >= 14 && back < 21) b.push(MWEIGHTS[k]);
+    });
+    if (a.length < 3 || b.length < 3) return null;
+    var mean = function (x) { return x.reduce(function (s0, v) { return s0 + v; }, 0) / x.length; };
+    return (mean(a) - mean(b)) / 2;
+  }
+
+  /* "Feb 17 · 4 weeks late", "on track", or no date — the estimate as a
+     chip, for the open card. */
+  function mArriveChip(pf) {
+    if (!pf.plan.per) return pf.side === 'on' ? 'on track' : pf.side === 'behind' ? 'off your weight' : 'on track';
+    if (!pf.arriveD) return 'no date yet';
+    var d = pf.lateDays;
+    if (Math.abs(d) <= 6) return 'on track';
+    var span = Math.abs(d) >= 14 ? Math.round(Math.abs(d) / 7) + ' weeks' : Math.abs(d) + ' days';
+    return pf.arrive + ' \u00b7 ' + span + (d > 0 ? ' late' : ' early');
+  }
+
   function mPaceFacts(k, draft) {
     k = k || todayKey();
     /* The saved profile, unless a sheet is holding an unsaved one. The plan
@@ -3452,16 +3493,26 @@
        off it. It read a gain of 1.8 lb a week as "0 days ahead of pace". */
     var toward = plan.per < 0 ? off : plan.per > 0 ? -off : Math.abs(off);   // positive means behind
     var closing = st.dWeek === null ? null : (plan.per < 0 ? -st.dWeek : st.dWeek);
-    var arrive = null;
-    if (closing !== null && closing > 0.05) {
-      var wk = Math.ceil(Math.abs(st.avg7 - pr.goalLb) / closing);
-      var ad = new Date();
-      ad.setDate(ad.getDate() + wk * 7);
-      /* With the year when it is not this one: a slow enough rate put an
-         arrival four years out as "Sep 24", two days from now. */
-      arrive = M_MONS[ad.getMonth()] + ' ' + ad.getDate() +
-        (ad.getFullYear() !== new Date().getFullYear() ? ', ' + ad.getFullYear() : '');
+    /* When you will actually get there, at the rate the scale is moving.
+       Blake: "How about not telling me I'm behind but that my target date
+       estimate has moved from when to when." Read over THREE weeks — this
+       week's average against the one two weeks before — because one week's
+       change is mostly water, and an estimate built on it would move by a
+       month after a salty weekend. Compared against the date you set, which
+       does not move, rather than yesterday's estimate, which would. */
+    var rate3 = mRate3();
+    var close3 = rate3 === null ? closing : (plan.per < 0 ? -rate3 : rate3);
+    var arrive = null, arriveD = null;
+    if (close3 !== null && close3 > 0.05 && pr.goalLb) {
+      var wk = Math.abs(st.avg7 - pr.goalLb) / close3;
+      if (wk <= 260) {
+        arriveD = new Date();
+        arriveD.setDate(arriveD.getDate() + Math.round(wk * 7));
+        arrive = mDateWord(arriveD);
+      }
     }
+    var lateDays = arriveD && pr.goalBy
+      ? Math.round((arriveD - keyDate(pr.goalBy)) / 86400000) : null;
     /* The band around the plan, from the same moving ranges. Inside it there
        is nothing to decide, and saying so is the whole job. */
     /* Never narrower than half a pound: a run of identical mornings has a
@@ -3473,6 +3524,7 @@
       pr: pr, st: st, plan: plan, meas: meas, burn: burn,
       off: off, band: band, daysOff: daysOff, stale: st.staleDays,
       need: need, capped: capped, capHigh: capHigh, arrive: arrive, rate: rate,
+      arriveD: arriveD, lateDays: lateDays, rate3: rate3, goalWord: pr.goalBy ? mDateWord(keyDate(pr.goalBy)) : '',
       /* Moving the way the goal goes, this week. */
       toward: closing !== null && closing > 0,
       side: toward > band ? 'behind' : toward < -band ? 'ahead' : 'on'
@@ -3628,14 +3680,28 @@
           (mIsTrainingDay(k) ? 'a training day' : 'a rest day') + ')</span>' : '';
       return '<b>Your target: ' + fmt(n) + ' a day</b>' + tn;
     };
-    var arriveLine = arrive ? 'At this pace you’ll reach ' + pr.goalLb + ' lb around ' + arrive + '.' : '';
-    var gapSay = function (dir) {
+    /* Where you'll land, not how far behind you are. Blake: "How about not
+       telling me I'm behind but that my target date estimate has moved from
+       when to when." The date you set is the anchor; the estimate is the
+       three-week rate (mRate3). Within a week of the goal, it is on track. */
+    var goalD = pf.goalWord;
+    var est = (function () {
       if (!pf.plan.per) {
         var lbOff = Math.round(Math.abs(off) * 10) / 10;
-        return 'You’re ' + lbOff + ' lb ' + (off > 0 ? 'over' : 'under') + ' your weight';
+        return pf.side === 'on' ? 'You’re holding your weight.'
+          : 'You’re ' + lbOff + ' lb ' + (off > 0 ? 'over' : 'under') + ' your weight.';
       }
-      return 'You’re ' + Math.abs(daysOff) + ' days ' + (dir === 'behind' ? 'behind' : 'ahead');
-    };
+      if (!pf.arriveD) {
+        return (pf.rate3 !== null && Math.abs(pf.rate3) >= 0.15 && !pf.toward
+          ? 'Your weight’s gone ' + (pf.rate3 > 0 ? 'up' : 'down') + ' these three weeks'
+          : 'Your weight’s been flat these three weeks') + ', so there’s no arrival date yet.';
+      }
+      if (pf.lateDays > 6) return 'Arriving around <b>' + arrive + '</b>, not ' + goalD + '.';
+      if (pf.lateDays < -6) return 'Arriving around <b>' + arrive + '</b>, ahead of ' + goalD + '.';
+      return 'On track for <b>' + goalD + '</b>.';
+    })();
+    var late = pf.plan.per && (!pf.arriveD || pf.lateDays > 6);
+    var early = pf.plan.per && pf.arriveD && pf.lateDays < -6;
 
     if (pf.stale > 1) {
       if (mHushed(k, 'stale:' + pf.st.lastKey)) return '';
@@ -3645,62 +3711,54 @@
         'Step on the scale when you can, and the coaching picks up from there.',
         [['Not now', 'mline:none:stale:' + pf.st.lastKey]]);
     }
-    var eating = need !== null && cur > 0 && Math.abs(cur - need) <= 5;
-    if (pf.side === 'behind' && eating) {
-      return mLineHTML('calm', '▲', target(need),
-        gapSay('behind') + (capped
-          ? (pf.capHigh ? ', and this is already as much as your body can put to use.'
-            : ', and this is already as low as it’s safe to go.') +
-            ' Stay with it. ' + (arriveLine || 'The date moves, not the target.')
-          : '. This target gets you back on time — stay with it.'), null);
-    }
-    if (pf.side === 'ahead' && eating) {
-      return mLineHTML('calm', '▼', target(need),
-        gapSay('ahead') + ', and still set to arrive on time. Keep it up.', null);
-    }
-    if (pf.side === 'behind') {
-      if (mHushed(k, 'act:' + need)) return '';
-      var why = meas && mBurn(pr) && Math.abs(meas.tdee - mBurn(pr).tdee) > 100
-        ? 'Your body is burning about ' + fmt(meas.tdee) + ' a day, not the ' +
-          fmt(Math.round(mBurn(pr).tdee)) + ' the formula guessed. ' : '';
-      return mLineHTML('act', '▲',
-        '<b>' + gapSay('behind') + '.</b>' + (cur > 0 ? ' Your target is ' + fmt(cur) + ' a day.' : ''),
-        why + (need === null ? arriveLine
-          : capped
-            ? (pf.capHigh
-              ? 'The most your body can put to use is ' + fmt(need) + '. That won’t fully catch up, so '
-              : 'The lowest it’s safe to go is ' + fmt(need) + '. That won’t fully catch up, so ') +
-              (arrive ? 'expect to arrive around ' + arrive + '.' : 'expect to arrive later.')
-            : (need < cur ? 'Dropping to ' : 'Raising it to ') + fmt(need) + ' a day gets you there on time.'),
-        need ? [['Use ' + fmt(need), 'mline:eat:' + need],
-          [cur > 0 ? 'Keep ' + fmt(cur) : 'Not now', 'mline:none:act:' + need]] : null);
-    }
-    if (pf.side === 'ahead') {
-      var room = need;
-      if (mHushed(k, 'ahead:' + room)) return '';
-      var more = room && room > cur;
-      return mLineHTML('ahead', '▼',
-        '<b>' + gapSay('ahead') + '.</b>' + (cur > 0 ? ' Your target is ' + fmt(cur) + ' a day.' : ''),
-        (pf.toward && rate !== null ? 'You’re losing faster than you planned. ' : '') +
-        (!room ? '' : more
-          ? 'You’ve earned some room: ' + fmt(room) + ' a day still gets you there on time.'
-          : fmt(room) + ' a day keeps you exactly on time.'),
-        room ? [['Use ' + fmt(room), 'mline:eat:' + room],
-          [cur > 0 ? 'Keep ' + fmt(cur) : 'Not now', 'mline:none:ahead:' + room]] : null);
-    }
     if (pf.plan.daysLeft <= 0) {
       return mLineHTML('calm', '✓', '<b>You’re at your goal: ' + pr.goalLb + ' lb.</b>',
         'Set a new goal when you’re ready.', null);
     }
-    /* Inside the band but moving the wrong way this week: said, with nothing
-       to press — one week is not a trend worth a new number. */
-    if (rate !== null && !pf.toward && Math.abs(rate) >= 0.3) {
-      return mLineHTML('calm', '◎', '<b>You’re on pace, but drifting.</b>',
-        rateWord + '. Keep to ' + fmt(cur) + ' a day and it should turn.', null);
+    var eating = need !== null && cur > 0 && Math.abs(cur - need) <= 5;
+    var head = target(eating ? need : cur);
+    /* Taking the number already: say where it lands and leave it there. */
+    if (eating) {
+      return mLineHTML('calm', late ? '▲' : early ? '▼' : '✓', head,
+        est + ' ' + (late && capped
+          ? (pf.capHigh ? 'This is already as much as your body can put to use — stay with it.'
+            : 'This is already as low as it’s safe to go — stay with it.')
+          : late ? 'Stay with it \u2014 this target is set to land on ' + goalD + '.'
+            : early ? 'Keep it up.' : 'Stay with it.'), null);
     }
-    return mLineHTML('calm', '✓', '<b>You’re on pace.</b>',
-      'Keep eating ' + fmt(cur) + ' a day and you’ll reach ' + pr.goalLb + ' lb by ' +
-      esc(mPretty(pr.goalBy)) + '.' + (rateWord ? ' ' + rateWord + '.' : ''), null);
+    /* The offer follows the ESTIMATE, not the position on the plan line, so
+       the words and the button never disagree: a date running late is offered
+       the number that brings it back (less food on a cut, more on a gain),
+       and one running early is offered the room. */
+    var speeds = need !== null && cur > 0 &&
+      (pf.plan.per < 0 ? need < cur - 5 : need > cur + 5);
+    var slows = need !== null && cur > 0 &&
+      (pf.plan.per < 0 ? need > cur + 5 : need < cur - 5);
+    if (late && speeds) {
+      if (mHushed(k, 'act:' + need)) return '';
+      var why = meas && mBurn(pr) && Math.abs(meas.tdee - mBurn(pr).tdee) > 100
+        ? ' Your body is burning about ' + fmt(meas.tdee) + ' a day, not the ' +
+          fmt(Math.round(mBurn(pr).tdee)) + ' the formula guessed.' : '';
+      return mLineHTML('act', '▲', head,
+        est + why + ' ' + (capped
+          ? (pf.capHigh ? 'The most your body can put to use is ' : 'The lowest it’s safe to go is ') +
+            fmt(need) + ' — that brings the date closer, not all the way.'
+          : (need < cur ? 'Dropping to ' : 'Raising it to ') + fmt(need) + ' brings it back to ' + goalD + '.'),
+        [['Use ' + fmt(need), 'mline:eat:' + need],
+          [cur > 0 ? 'Keep ' + fmt(cur) : 'Not now', 'mline:none:act:' + need]]);
+    }
+    if (early && slows) {
+      var room = need;
+      if (mHushed(k, 'ahead:' + room)) return '';
+      var more = room > cur;
+      return mLineHTML('ahead', '▼', head,
+        est + ' ' + (more ? 'You could eat ' + fmt(room) + ' and still make it.'
+          : fmt(room) + ' a day lands you right on ' + goalD + '.'),
+        [['Use ' + fmt(room), 'mline:eat:' + room],
+          [cur > 0 ? 'Keep ' + fmt(cur) : 'Not now', 'mline:none:ahead:' + room]]);
+    }
+    return mLineHTML('calm', late ? '◎' : '✓', head,
+      est + ' Keep eating ' + fmt(cur) + ' a day.', null);
   }
 
   function mLineHTML(kind, icon, text, sub, acts) {
@@ -10204,39 +10262,38 @@
      and what it does say is mPaceFacts, the same arithmetic My Day's morning
      line is drawn from. */
   function mtStatusHTML(pr) {
+    /* The same estimate the morning card gives, in the same words, so the
+       sheet and the card never read two different stories about one goal. */
     var f = mPaceFacts(todayKey(), pr);
-    if (!f || f.side === 'on') return '';
-    /* The boxes are the plan while this sheet is open; storage is one edit
-       old. When they already hold what the line would ask for, the line says
-       so instead of asking — the same rule the morning card follows. */
+    if (!f || !f.plan.per) return '';
     var boxes = $('mtP')
       ? { p: Number($('mtP').value) || 0, f: Number($('mtF').value) || 0, c: Number($('mtC').value) || 0 }
       : mReadTargets();
-    var eating = f.need !== null && kcalOf(boxes) > 0 && Math.abs(kcalOf(boxes) - f.need) <= 5;
-    var says;
-    if (f.side === 'behind' && eating) {
-      return '<b>\u25B2 ' + Math.abs(f.daysOff) + ' days behind that.</b> Eating ' +
-        kcalOf(boxes).toLocaleString() +
-        (f.capped ? ' \u2014 ' + (f.capHigh ? 'as much as this goes' : 'as low as this goes') +
-          ', so the date is what moves.'
-          : ' \u2014 the number that lands on time.');
+    var cur = kcalOf(boxes);
+    var fmt = function (n) { return Number(n).toLocaleString(); };
+    var eating = f.need !== null && cur > 0 && Math.abs(cur - f.need) <= 5;
+    var goalD = f.goalWord;
+    if (!f.arriveD) {
+      return '<b>\u25CE No arrival date yet.</b> Your weight\u2019s been ' +
+        (f.rate3 !== null && Math.abs(f.rate3) >= 0.15 ? (f.rate3 > 0 ? 'going up' : 'going down') : 'flat') +
+        ' these three weeks.';
     }
-    if (f.side === 'behind') {
-      says = '<b>\u25B2 ' + Math.abs(f.daysOff) + ' days behind that.</b>' +
-        (f.need === null ? ''
-          : f.capped
-            ? (f.capHigh ? ' Landing on time would want more than a body can put to use, so '
-              : ' Landing on time would want less than a body should be asked for, so ') +
-              f.need.toLocaleString() + ' is ' + (f.capHigh ? 'as much as this goes' : 'as low as this goes') +
-              ' \u2014 the date is what moves.'
-            : ' Eating ' + f.need.toLocaleString() + ' would put you back on it \u2014 ' +
-              'or keep going and arrive later.');
-    } else {
-      says = '<b>\u25BC ' + Math.abs(f.daysOff) + ' days ahead of that.</b>' +
-        (f.need === null ? '' : ' You could eat ' + f.need.toLocaleString() +
-          ' and still arrive on time.');
+    if (f.lateDays > 6) {
+      var speeds = f.need !== null && cur > 0 && (f.plan.per < 0 ? f.need < cur - 5 : f.need > cur + 5);
+      return '<b>\u25B2 Arriving around ' + f.arrive + ', not ' + goalD + '.</b>' +
+        (eating ? (f.capped ? ' This target is already as ' + (f.capHigh ? 'much as your body can put to use.'
+          : 'low as it\u2019s safe to go.') : ' This target brings it back.')
+          : speeds ? (f.capped ? ' The lowest it\u2019s safe to go is ' + fmt(f.need) + '.'
+            : ' ' + fmt(f.need) + ' a day brings it back to ' + goalD + '.') : '');
     }
-    return says;
+    if (f.lateDays < -6) {
+      var slows = f.need !== null && cur > 0 && (f.plan.per < 0 ? f.need > cur + 5 : f.need < cur - 5);
+      /* Early with nothing to offer is nothing to do: the sheet stays quiet,
+         the way the card's last line speaks only when something needs doing. */
+      return slows ? '<b>\u25BC Arriving around ' + f.arrive + ', ahead of ' + goalD + '.</b>' +
+        ' You could eat ' + fmt(f.need) + ' and still make it.' : '';
+    }
+    return '';
   }
 
   /* What the meals fold says on its handle: how many, and the shares. That
