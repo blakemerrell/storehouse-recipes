@@ -1046,8 +1046,28 @@
      A state nobody is told about is not a state, it is a variable. So the
      assignment and the telling are the same act now, and there is one place
      left to forget rather than nine. */
+  /* The two boot-time decisions about the targets — heal an uneatable plan,
+     follow the scale weekly — WRITE, and a write is stamped now. Run before
+     this device had heard from the account, a laptop last opened three days
+     ago would follow the scale on its own stale copy, stamp it newer than
+     the grams typed on the phone yesterday, and win: the phone's numbers
+     and its "leave mine alone" were overwritten by the device that knew
+     least. So a device with an account decides after the account's first
+     real answer, and one without decides at boot as before. */
+  var mBootTargetsDue = false;
+  function mBootTargets() {
+    if (!mBootTargetsDue) return;
+    mBootTargetsDue = false;
+    var moved = mHealTargets();
+    if (mFollowScale()) moved = true;
+    if (moved && S.view === 'macros') renderMacros();
+  }
+
   function mSyncState(next) {
     S_SYNC_STATE = next;
+    /* Signed out, as far as the server can tell: nobody else's copy is
+       coming, so this device's is the one to decide on. */
+    if (next === 'off' && mAuthKnown) mBootTargets();
     mMarkAccountUI();
     if (S.syncOpen) renderModal();
   }
@@ -1208,7 +1228,7 @@
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
       'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroTrained',
-      'bsc.macroHush'].forEach(function (k) {
+      'bsc.macroHush', 'bsc.macroIntake'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
@@ -1749,9 +1769,11 @@
            has always checked; My Day never did, so the two sides of one
            screen gave different answers to the same question. */
         mSyncState(snap.metadata && snap.metadata.fromCache ? 'connecting' : 'on');
-        if (!(snap.metadata && snap.metadata.fromCache)) mHouseReconcile(data || {});
-        if (!data || !data.myday) { mSyncPush(true); return; }
+        var live = !(snap.metadata && snap.metadata.fromCache);
+        if (live) mHouseReconcile(data || {});
+        if (!data || !data.myday) { if (live) mBootTargets(); mSyncPush(true); return; }
         if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
+        if (live) mBootTargets();
         if (S.syncOpen) renderModal();
       }, function () { mSyncState('error'); });
       mSyncPush(true);
@@ -2530,42 +2552,83 @@
      burn. */
   var MTDEE_MIN_DAYS = 21;
 
-  function mMeasuredTdee() {
-    var wKeys = Object.keys(MWEIGHTS).sort();
-    if (wKeys.length < 8) return null;
-    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
-    var lastN = dayN(wKeys[wKeys.length - 1]);
-    var firstN = dayN(wKeys[0]);
-    var span = lastN - firstN;
-    if (span < MTDEE_MIN_DAYS) return null;
+  /* What each finished day came to, kept long after the day itself.
+   *
+     The measured burn is calories in against weight change, and the two
+     sides were read over different stretches: weight from the first week
+     ever logged — up to a year back — against food from the last fourteen
+     days, because that is all the day log keeps. Somebody who lost twenty
+     pounds in the spring and has held steady since read as burning 3,000 on
+     2,400 a day. So each past day's total is kept here, one number a day
+     for four months, and the burn compares food and weight over the SAME
+     weeks.
+   *
+     Only days behind you: today is not over, and counted as a whole day at
+     breakfast it read as a fast. Only food marked eaten — or everything on a
+     day you closed — because a plan is not a meal. Kept on this device, from
+     the days this device has seen; the days themselves sync, so any device
+     opened at least once a fortnight keeps the whole record. */
+  var MINTAKE_DAYS = 120;
+  var MINTAKE = (function () {
+    try {
+      var v = JSON.parse(localStorage.getItem('bsc.macroIntake'));
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+    } catch (e) { /* none yet */ }
+    return {};
+  })();
 
-    /* A week at each end, and the distance between their middles — which is
-       the span the weight change actually happened over. */
+  function mLogIntake() {
+    var today = todayKey(), moved = false;
+    Object.keys(MDAYS).forEach(function (k) {
+      if (k >= today) return;
+      var tot = mTotals(MDAYS[k]);
+      var kc = mDoneAt(k) ? tot.all.kcal : tot.eaten.kcal;
+      var v = kc > 400 ? Math.round(kc) : 0;
+      if (v && MINTAKE[k] !== v) { MINTAKE[k] = v; moved = true; }
+      if (!v && MINTAKE[k]) { delete MINTAKE[k]; moved = true; }
+    });
+    var cut = new Date(); cut.setDate(cut.getDate() - MINTAKE_DAYS);
+    var cutK = dayKey(cut);
+    Object.keys(MINTAKE).forEach(function (k) { if (k < cutK) { delete MINTAKE[k]; moved = true; } });
+    if (moved) {
+      try { localStorage.setItem('bsc.macroIntake', JSON.stringify(MINTAKE)); }
+      catch (e) { /* this session only */ }
+    }
+  }
+
+  /* The last eight weeks at most: long enough to see through water, short
+     enough to be about the body you have now. */
+  var MTDEE_WINDOW = 56;
+
+  function mMeasuredTdee() {
+    mLogIntake();
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var todayN = dayN(todayKey());
+    var iKeys = Object.keys(MINTAKE).filter(function (k) {
+      return todayN - dayN(k) <= MTDEE_WINDOW;
+    }).sort();
+    if (iKeys.length < 14) return null;
+    var firstN = dayN(iKeys[0]), lastN = dayN(iKeys[iKeys.length - 1]);
+    if (lastN - firstN < MTDEE_MIN_DAYS) return null;
+
+    /* A week at each end OF THE FOOD'S OWN STRETCH, and the distance between
+       their middles — the span the weight change happened over, and the
+       span the food was eaten over, the same span. */
     var head = [], tail = [];
-    wKeys.forEach(function (k) {
-      if (dayN(k) - firstN < 7) head.push(MWEIGHTS[k]);
-      if (lastN - dayN(k) < 7) tail.push(MWEIGHTS[k]);
+    Object.keys(MWEIGHTS).forEach(function (k) {
+      var n = dayN(k), w = MWEIGHTS[k];
+      if (!(w > 0)) return;
+      if (n >= firstN && n - firstN < 7) head.push(w);
+      if (n <= lastN && lastN - n < 7) tail.push(w);
     });
     if (head.length < 3 || tail.length < 3) return null;
     var mean = function (a) {
-      return a.reduce(function (s, x) { return s + x; }, 0) / a.length;
+      return a.reduce(function (s0, x) { return s0 + x; }, 0) / a.length;
     };
-    var midHead = firstN + 3, midTail = lastN - 3;
-    var days = midTail - midHead;
+    var days = (lastN - 3) - (firstN + 3);
     if (days < 14) return null;
 
-    /* Only days you actually put food on count, and every one of them has to
-       be inside the window — an untouched day is a day you did not log, not a
-       day you fasted, and averaging zeros in would invent a deficit. */
-    var kcals = [];
-    Object.keys(MDAYS).forEach(function (k) {
-      var n = dayN(k);
-      if (n < firstN || n > lastN) return;
-      var t = mTotals(MDAYS[k]).all.kcal;
-      if (t > 400) kcals.push(t);
-    });
-    if (kcals.length < 14) return null;
-
+    var kcals = iKeys.map(function (k) { return MINTAKE[k]; });
     var eaten = mean(kcals);
     var dLb = mean(tail) - mean(head);          // positive means gained
     var burn = eaten - (dLb * 3500 / days);
@@ -3190,6 +3253,13 @@
     var atPlan = mPlanWeight(st.lastKey, pr) || plan;
     var off = st.avg7 - atPlan.lb;                // positive means heavier than planned
     var daysOff = plan.per ? Math.round(off / -plan.per) : 0;
+    /* The measured burn whenever there is one, whatever the plan's switch
+       says — deliberately. The switch decides what the PLAN is built on; this
+       line's job is to notice when the plan is not landing, and the only
+       evidence of that is the measurement: behind pace while eating to a
+       formula plan means the formula is wrong for you. It names the burn it
+       used ("burn measures ..."), and Eat N is saved as your own choice, so
+       the weekly follow does not put the formula's number back over it. */
     var burn = meas ? meas.tdee : mTdee(pr);
     /* A floor of this line's own, because a line that says "eat 1,278" is
        not advice — it is arithmetic with nobody reading it. Never under the
@@ -5543,6 +5613,24 @@
 
     var vk = mViewKey(), day = mDay(vk);
     var eaten = mTotals(day).eaten;
+    /* Only what FINISHED meals ate comes off the day before it is shared out.
+       A plate ticked on a meal still open is that meal's own food: it is
+       already in what the meal holds, which is what its ask is compared to.
+       Taken off the day as well, it was counted twice — a dinner sitting
+       exactly on its share went red the moment one of its two plates was
+       ticked, back to green when the other was, and every other meal's ask
+       shrank by a plate that was never theirs. */
+    eaten = { kcal: eaten.kcal, p: eaten.p, f: eaten.f, c: eaten.c };
+    slots.list.forEach(function (s0) {
+      if (mMealDone(s0.k)) return;
+      (day[s0.k] || []).forEach(function (it) {
+        var r0 = BY_ID[it.id];
+        if (!it.eaten || !r0 || !r0.macro) return;
+        ['kcal', 'p', 'f', 'c'].forEach(function (m0) {
+          eaten[m0] -= (r0.macro[m0] || 0) * it.x;
+        });
+      });
+    });
     /* `adjust`, when given, is added to what has been eaten before anything
        is drawn from it. It exists for one caller: the cascade card asks what
        each open meal would be asked for had the meal that just finished
@@ -13890,6 +13978,8 @@
     },
     targets: function () { return mDayTargets(mViewKey()); },
     dayTargets: mDayTargets,
+    measured: mMeasuredTdee,
+    ask: function (sk) { return mMealAsk(sk, mDayTargets(mViewKey()), mReadSlots()); },
     slotFor: function (id) { var sl = mSlotForRecipe(BY_ID[id], mReadSlots()); return sl ? sl.k : null; },
     /* The profile as the app reads it — weight from the scale, not the stale
        copy in storage. Exposed so a test can check the arithmetic against the
@@ -14884,11 +14974,24 @@
       if (!/^\d{1,4}(\.\d{1,2})?$/.test(t)) return { bad: true, lb: 0 };
       var n = Number(t);
       if (!isFinite(n) || n <= 0) return { bad: true, lb: 0 };
-      return { lb: Math.min(1500, n) };
+      if (n > 1500) return { bad: true, big: true, lb: 0 };
+      /* A number that could be a weight but is not likely to be yours.
+         "1905" for 190.5 used to be clamped to 1,500 and stored in silence;
+         the seven-day average went to 377, the plan was healed up by 600 kcal
+         to match, and correcting the morning afterwards did not bring it back
+         down — the heal only ever raises. Far from your own average, or far
+         from any adult's, it is asked about before it is written. */
+      var st = mWeightStats();
+      var ref = st && st.n >= 3 ? st.avg7 : 0;
+      var odd = n < 60 || n > 700 || (ref > 0 && Math.abs(n - ref) > ref * 0.15);
+      return { lb: n, odd: odd, ref: ref };
     }
-    function mWeightSay(bad) {
+    function mWeightSay(bad, odd) {
       var el = $('mWeightNote');
-      if (el) el.textContent = bad ? 'Weights take digits and a point.' : '';
+      if (el) el.textContent = bad === 'big' ? 'More than anyone weighs. A point missing?'
+        : bad ? 'Weights take digits and a point.'
+        : odd ? 'That is ' + odd.lb + ' lb' + (odd.ref ? ', against ' + (Math.round(odd.ref * 10) / 10) +
+          ' lately' : '') + '. Enter to keep it.' : '';
       var box = $('mWeight');
       if (box) box.setAttribute('aria-invalid', bad ? 'true' : 'false');
       mWeightBad = bad;
@@ -14897,16 +15000,32 @@
       if (e.target.id !== 'mWeight') return;
       clearTimeout(mwTimer);
       var key = mViewKey(), got = mWeightOf(e.target.value);
-      mWeightSay(!!got.bad);
-      if (got.bad) return;                       // nothing is written from nonsense
+      mWeightSay(got.big ? 'big' : !!got.bad, got.odd ? got : null);
+      if (got.bad || got.odd) return;            // nothing is written from nonsense, or unasked
       mwTimer = setTimeout(function () { mWriteWeight(key, got.lb); }, 600);
     });
     $('macroWeigh').addEventListener('change', function (e) {
       if (e.target.id !== 'mWeight') return;
       clearTimeout(mwTimer);
       var got = mWeightOf(e.target.value);
-      mWeightSay(!!got.bad);
+      mWeightSay(got.big ? 'big' : !!got.bad, got.odd ? got : null);
       if (got.bad) return;
+      if (got.odd) {
+        var oddKey = mViewKey();
+        ask({
+          title: 'Keep ' + got.lb + ' lb?',
+          body: got.ref ? 'Your average lately is ' + (Math.round(got.ref * 10) / 10) + ' lb.'
+            : 'That is outside what a weight usually is.',
+          ok: 'Keep it'
+        }, function (yes) {
+          if (!yes) return;
+          mWriteWeight(oddKey, got.lb);
+          mWeightSay(false, null);
+          S.mFold.weigh = false;
+          renderMacros();
+        });
+        return;
+      }
       mWriteWeight(mViewKey(), got.lb);
       /* Committing a weight opens the card, once.
        *
@@ -16188,8 +16307,8 @@
   /* Before the first paint: a stored plan written by an older build can be
      below this body's floor or have no carbohydrate in it, and the correction
      belongs here rather than inside whichever read happened to run first. */
-  mHealTargets();
-  mFollowScale();
+  mBootTargetsDue = true;
+  if (!mSuspectAccount()) mBootTargets();
   wire();
   window.Store.init(function () { renderAll(); mHouseWatch(); });
   renderAll();

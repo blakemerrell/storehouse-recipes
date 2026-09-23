@@ -12725,5 +12725,116 @@ module.exports = {
       t.ok('and Fill does not serve Batch Prep containers unasked', offered === 0, offered + ' plates');
       await ap.context().close();
     }
+
+    /* ---- the audit's second four, 2026-09-22 ------------------------ */
+    {
+      const bp = await t.fresh();
+      const key = (n) => bp.evaluate((m) => { const d = new Date(); d.setDate(d.getDate() - m);
+        const p2 = (x) => (x < 10 ? '0' : '') + x;
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }, n);
+      const today = await key(0);
+
+      /* Measured burn: food and weight over the same weeks. Lost 200 -> 180
+         between four and two months ago, flat since, eating 2,400. The old
+         window read weight from the first week ever against the last fortnight
+         of food: "burning about 2,983". */
+      await bp.evaluate(() => {
+        const k = (n) => { const d = new Date(); d.setDate(d.getDate() - n); const p2 = (x) => (x < 10 ? '0' : '') + x;
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+        localStorage.clear();
+        const w = {}, intake = {};
+        for (let n = 120; n >= 60; n--) w[k(n)] = 200 - 20 * (120 - n) / 60;
+        for (let n = 59; n >= 1; n--) w[k(n)] = 180;
+        for (let n = 40; n >= 1; n--) intake[k(n)] = 2400;
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+        localStorage.setItem('bsc.macroIntake', JSON.stringify(intake));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k(0)]: { b: [{ id: 'f:whey', x: 1, eaten: 1 }] } }));
+      });
+      await bp.reload();
+      const meas = await bp.evaluate(() => window.__macroLab.measured());
+      t.ok('measured burn reads food and weight over the same weeks',
+        meas && Math.abs(meas.tdee - 2400) < 60, JSON.stringify(meas));
+      const logged = await bp.evaluate((k) => JSON.parse(localStorage.getItem('bsc.macroIntake'))[k], today);
+      t.ok('and today, not over yet, is not counted as a day', logged === undefined, String(logged));
+
+      /* A mistyped morning is asked about, not stored. */
+      await bp.evaluate(() => {
+        const k = (n) => { const d = new Date(); d.setDate(d.getDate() - n); const p2 = (x) => (x < 10 ? '0' : '') + x;
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+        localStorage.clear();
+        const w = {}; for (let n = 7; n >= 1; n--) w[k(n)] = 190;
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+      });
+      await bp.reload();
+      await bp.click('.tab[data-view="macros"]');
+      await bp.waitForTimeout(300);
+      /* 1905 for 190.5 is past anything a person weighs: refused outright,
+         with a reason. 290 for 190 could be a weight, so it is asked about. */
+      await bp.fill('#mWeight', '1905');
+      await bp.press('#mWeight', 'Tab');
+      await bp.waitForTimeout(300);
+      const big = await bp.evaluate((k) => ({ note: document.getElementById('mWeightNote').textContent,
+        stored: JSON.parse(localStorage.getItem('bsc.macroWeights'))[k] }), today);
+      t.ok('a weight no person has is refused, with the reason', /A point missing/.test(big.note) &&
+        big.stored === undefined, JSON.stringify(big));
+      await bp.fill('#mWeight', '290');
+      await bp.waitForTimeout(800);
+      await bp.press('#mWeight', 'Tab');
+      await bp.waitForTimeout(300);
+      const asked = await bp.evaluate((k) => ({
+        dlg: !!document.querySelector('[data-dlg="ok"]'),
+        stored: JSON.parse(localStorage.getItem('bsc.macroWeights'))[k],
+      }), today);
+      t.ok('a weight far from your average is asked about before it is written',
+        asked.dlg && asked.stored === undefined, JSON.stringify(asked));
+      if (asked.dlg) {
+        await bp.click('button[data-dlg="cancel"]');
+        await bp.waitForTimeout(200);
+      }
+      const still = await bp.evaluate((k) => JSON.parse(localStorage.getItem('bsc.macroWeights'))[k], today);
+      t.ok('and declining it writes nothing', still === undefined, String(still));
+
+      /* A device with an account decides its targets after the account answers. */
+      await bp.context().route('**://www.gstatic.com/**', (r) => r.abort());
+      await bp.evaluate(() => {
+        const k = (n) => { const d = new Date(); d.setDate(d.getDate() - n); const p2 = (x) => (x < 10 ? '0' : '') + x;
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+        localStorage.clear();
+        localStorage.setItem('bsc.myAccount', '1');
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
+          inch: 11, lb: 205, act: 1.375, goal: 'cut2', goalLb: 0, goalBy: '' }));
+        const w = {}; for (let i = 0; i < 7; i++) w[k(i)] = 190;
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 68, c: 170, set: k(9) }));
+      });
+      await bp.reload();
+      await bp.waitForTimeout(1500);
+      const held = await bp.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroTargets')));
+      t.ok('a device with an account does not move its targets before the account has answered',
+        held.p === 205 && !held.moved, JSON.stringify(held));
+
+      /* A plate ticked on an open meal is not counted against the day twice. */
+      await bp.evaluate(() => {
+        const k = (n) => { const d = new Date(); d.setDate(d.getDate() - n); const p2 = (x) => (x < 10 ? '0' : '') + x;
+          return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); };
+        localStorage.clear();
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 150, f: 60, c: 215 }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k(0)]: {
+          d: [{ id: 'f:chicken_breast', x: 2, eaten: 0 }, { id: 'f:tuna', x: 1, eaten: 0 }] } }));
+      });
+      await bp.reload();
+      const asks = () => bp.evaluate(() => ['b', 'l', 'd', 's'].map((sk) => {
+        const a = window.__macroLab.ask(sk); return a ? Math.round(a.now.kcal) : null; }).join(','));
+      const before = await asks();
+      await bp.evaluate((k) => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+        days[k].d[0].eaten = 1;
+        localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      }, today);
+      await bp.reload();
+      const after = await asks();
+      t.ok('ticking one plate of an open meal changes no meal\'s ask', before === after, before + ' → ' + after);
+      await bp.context().close();
+    }
   },
 };

@@ -741,7 +741,13 @@ window.Store = (function () {
       return u ? u.uid : '';
     },
     onUser: function (cb) {
-      ready().then(function () { window.firebase.auth().onAuthStateChanged(function () { cb(); }); });
+      /* Caught: offline, the SDK does not load and ready() rejects. The
+         caller already learns that through its own ready(); left unhandled
+         here it was an uncaught rejection on every offline start of a
+         signed-in device. */
+      ready().then(function () {
+        window.firebase.auth().onAuthStateChanged(function () { cb(); });
+      }, function () { /* no network: nothing to watch yet */ });
     },
 
     /* A popup is the wrong instrument on a phone.
