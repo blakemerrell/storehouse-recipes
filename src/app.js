@@ -229,7 +229,8 @@
            foods already saved on somebody's phone. */
         macro: (function () {
           var fp = Number(f.p) || 0, fc = Number(f.c) || 0, ff2 = Number(f.f) || 0;
-          return { kcal: (fp || fc || ff2) ? kcalOf({ p: fp, c: fc, f: ff2 })
+          return { kcal: (fp || fc || ff2)
+            ? kcalOf({ p: fp, c: fc, f: ff2 }) + (Number(f.kx) > 0 ? Math.round(Number(f.kx)) : 0)
             : Number(f.kcal) || 0,
           p: fp, c: fc, f: ff2,
           na: Number(f.na) || 0, fib: Number(f.fib) || 0 };
@@ -304,12 +305,14 @@
      is what sinks it on a cut, not the filter. */
   var MEAL_SECS = {
     b: ['1-1', '2-1'],
-    /* Batch Prep is nine meal-prep containers — salsa chicken bowls, chili,
-       pasta bakes, burritos — cooked on Sunday and eaten as lunch or dinner
-       all week. It was on neither list, so the one shelf written for the way
-       a cut is actually eaten was never offered at a meal. */
-    l: ['1-3', '2-2', '1-7'],
-    d: ['1-4', '2-3', '2-4', '1-7'],
+    /* Not 1-7. Batch Prep went onto lunch and dinner for one build (v466)
+       and Fill served its containers at two and a half — chili at 1,303 mg
+       from one bowl — so days over the salt ceiling went from 3 in 300 to 53.
+       Meal-prep containers are sized to be eaten as one; the fitter sizes
+       whatever it offers. So it is not offered unasked. Where one lands when
+       you add it yourself is MSEC_HOME below. */
+    l: ['1-3', '2-2'],
+    d: ['1-4', '2-3', '2-4'],
     /* Not 2-6 and not 2-7. "A treat is a snack" held for churros; it did not
        hold for Worth the Afternoon — bread, cinnamon rolls, braised beef,
        chicken pot pie, 326 kcal a serving — or for the Copycat Shelf, where
@@ -1889,7 +1892,7 @@
        protein or fat, which no dinner in the book fits inside. A deliberate
        very-low-carb day typed by hand would be corrected once by this too;
        that is the price of not serving a day nobody can eat. */
-    var starved = 4 * t.c < 0.12 * kcalOf(t);
+    var starved = 4 * t.c < MCARB_EAT * kcalOf(t);
     if (tdee !== null && (kcalOf(t) < mFloorK(pr) || starved)) {
       var fresh = mPlanCalc(pr);
       if (fresh && (kcalOf(fresh) > kcalOf(t) || fresh.c > t.c)) {
@@ -2125,6 +2128,11 @@
     return r.meals.indexOf(t) >= 0;
   }
 
+  /* Sections no meal offers unasked, and the meal a dish from one belongs at
+     when you add it yourself. With no meal claiming Batch Prep, a container
+     added from the book fell through to the snack below. */
+  var MSEC_HOME = { '1-7': 'l' };
+
   function mSlotForRecipe(r, slots) {
     var sec = r.book + '-' + r.secNum, found = null;
     slots.list.forEach(function (s) {
@@ -2132,6 +2140,10 @@
       if (mSlotSecs(s).indexOf(sec) >= 0) found = s;
     });
     if (found) return found;
+    if (MSEC_HOME[sec]) {
+      slots.list.forEach(function (s) { if (!found && s.t === MSEC_HOME[sec]) found = s; });
+      if (found) return found;
+    }
     var last = null;
     slots.list.forEach(function (s) { if (s.t === 's') last = last || s; });
     return last || slots.list[slots.list.length - 1] || null;
@@ -2228,6 +2240,11 @@
       lb: Math.round(pr.lb * pct) / 100, told: !!told };
   }
 
+  /* The least carbohydrate, as a share of a day's calories, that a day can
+     carry and still be eaten from this book. Under it mReadTargets calls a
+     stored plan starved and replaces it, and a cycled rest day may not go
+     there either. The plan aims higher (MCARB_SHARE); this is the edge. */
+  var MCARB_EAT = 0.12;
   var MCYCLE_SWING = 0.25;         // a training day's carbs, over the average
 
   function mTrainDefault(n) {
@@ -2260,8 +2277,22 @@
     if (!T || !R || !base.c) return base;
     var hard = mIsTrainingDay(k);
     /* Whatever the training days gain, the rest days give back, so seven of
-       these still add up to seven of the plan. */
-    var f = hard ? (1 + MCYCLE_SWING) : (1 - MCYCLE_SWING * T / R);
+       these still add up to seven of the plan.
+     *
+       But the rest days pay T/R times the swing, and at six training days
+       that is a hundred and fifty percent: the rest day's carbohydrate went
+       negative, was clamped to nothing, and the day sat under the calorie
+       floor with the week no longer averaging to plan. So the swing is the
+       most the rest day can afford — its carbohydrate kept at the plan's own
+       eatable line (MCARB_EAT) and its calories at the floor — and the training
+       days take the same smaller swing, so the week still adds up. */
+    var pr = mReadProfile();
+    var other = 4 * base.p + 9 * base.f;
+    var restMinC = Math.max(
+      (mFloorK(pr) - other) / 4,
+      MCARB_EAT * other / (4 * (1 - MCARB_EAT)));
+    var swing = Math.min(MCYCLE_SWING, Math.max(0, (1 - restMinC / base.c) * R / T));
+    var f = hard ? (1 + swing) : (1 - swing * T / R);
     return { p: base.p, f: base.f, c: Math.max(0, Math.round(base.c * f)) };
   }
 
@@ -2638,6 +2669,37 @@
     return { days: days, lbs: lbs, perWeek: perWeek, capped: capped,
       kcal: perWeek * 3500 / 7, realWeeks: realWeeks,
       floorK: floorK, wanted: wanted };
+  }
+
+  /* A day of `kcal` shaped like `t`, by the plan's own rules.
+   *
+     The Eat button used to hold protein at its grams, take a quarter of the
+     change from fat and the rest from carbohydrate — and a cut deep enough
+     left carbohydrate under twelve percent, which mReadTargets reads as a
+     day nobody can eat and replaces with the plan on the very next read. So
+     the button did nothing, and offered itself again. The plan's order:
+     carbohydrate keeps the eatable line, protein gives ground to its floor
+     first, fat to its floor last. mFloorK is priced at exactly those
+     floors, so any kcal at or over it has a split. */
+  function mSplitKcal(kcal, t, pr) {
+    var lb = pr && pr.lb > 0 ? pr.lb : 0;
+    var pMin = lb ? Math.round(MPROT_FLOOR * lb) : 0;
+    var fMin = lb ? Math.max(1, Math.round(MFAT_FLOOR * lb)) : 0;
+    var now = kcalOf(t);
+    var p = t.p;
+    var f = Math.max(Math.min(t.f, fMin), Math.round(t.f + (kcal - now) * 0.25 / 9));
+    /* To the eatable line, not the plan's own share: protein is what a cut
+       protects, so it gives only what the day needs to stay eatable. A gram
+       over the line, so rounding cannot land it a hair under. */
+    var minC = Math.ceil(MCARB_EAT * kcal / 4) + 1;
+    if ((kcal - 4 * p - 9 * f) / 4 < minC) {
+      p = Math.max(pMin, Math.floor((kcal - 9 * f - 4 * minC) / 4));
+    }
+    if ((kcal - 4 * p - 9 * f) / 4 < minC) {
+      f = Math.max(fMin, Math.round((kcal - 4 * p - 4 * minC) / 9));
+    }
+    var c = Math.max(0, Math.round((kcal - 4 * p - 9 * f) / 4));
+    return { p: Math.max(0, p), f: Math.max(0, f), c: c };
   }
 
   function mPlanCalc(pr) {
@@ -10388,7 +10450,10 @@
         if (!it.eaten) open = true;
         if (r && r.macro) fib += (r.macro.fib || 0) * it.x;
       });
-      if (!items.length || !open) return;
+      /* Closed by the one definition the other passes use: a tick OR a
+         lock. "Any plate un-eaten" let a side onto a locked dinner, and onto
+         a breakfast with one plate eaten and one still to come. */
+      if (!items.length || !open || mSlotClosed(day, s.k)) return;
       if (!best || fib < best.fib) best = { s: s, fib: fib };
     });
     return best ? best.s : null;
@@ -10462,8 +10527,8 @@
         if (!it.eaten) open = true;
         if (r && r.macro) have += (r.macro.kcal || 0) * it.x;
       });
-      // a meal with nothing on it is Fill's job; one already eaten is closed
-      if (!items.length || !open) return;
+      // a meal with nothing on it is Fill's job; a tick or a lock closes one
+      if (!items.length || !open || mSlotClosed(day, s.k)) return;
       var gap = dayKcal * (mSlotW(s) / sumW) - have;
       if (!best || gap > best.gap) best = { s: s, gap: gap };
     });
@@ -10609,6 +10674,11 @@
     Object.keys(day).forEach(function (sk) { if (order.indexOf(sk) < 0) order.push(sk); });
     var free = [];
     order.forEach(function (sk) {
+      /* Fill leaves a meal you have started alone — the same rule that keeps
+         it from adding to one. A plate it placed beside the one you ticked
+         was being resized while you ate. Rebalance, pressed by hand, still
+         reaches every un-eaten plate. */
+      if (own && mSlotClosed(day, sk)) return;
       (day[sk] || []).forEach(function (it) {
         var r = BY_ID[it.id];
         /* Asked to size only its own work, Fill's own work includes the
@@ -10659,7 +10729,21 @@
         var was = it.x, best = it.x, bestPen = pen();
         /* Per plate, not one ladder for the day: a dish is sized in servings
            and a food in whatever it is counted in. See mLadder. */
-        var rungs = mLadder(BY_ID[it.id], it.x);
+        var rf = BY_ID[it.id];
+        var rungs = mLadder(rf, it.x);
+        /* A single food Fill put there was chosen under two ceilings — the
+           topper's salt (MTOP_NA) and a portion you would serve (MFOOD_G_MAX)
+           — and this solver then walked it up a ladder with no top, pricing
+           salt only against the whole day's cap: tuna chosen at one can came
+           out at two (720 mg), whey at six scoops. The rungs it may try are
+           the ones those ceilings allow; where it already sits stays allowed,
+           so a hand-typed portion is never forced to move. */
+        if (it.by === 'f' && rf && rf.food) {
+          var naX = rf.macro && rf.macro.na > 0 ? MTOP_NA / rf.macro.na : Infinity;
+          var gX = rf.grams ? MFOOD_G_MAX / rf.grams : Infinity;
+          var topX = Math.max(Math.min(naX, gX), 0);
+          rungs = rungs.filter(function (v) { return v <= topX + 1e-9 || v === was; });
+        }
         for (var i = 0; i < rungs.length; i++) {
           it.x = rungs[i];
           var pv = pen();
@@ -10913,8 +10997,16 @@
     var key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') ||
       ('x' + Date.now().toString(36));
     var mine = mReadMyFoods();
+    /* kx: the calories no gram accounts for. mBuildFoods works a food's
+       calories out from its grams whenever it has any, and a part that was
+       only ever a number of calories — "700 at a friend's" — has none, so a
+       kept lunch of that plus a chicken breast came back as the chicken
+       breast: 858 kcal saved, 164 counted. Carried beside the grams so the
+       rebuild can add it back, and only when it is more than rounding. */
+    var kx = mac.kcal - kcalOf({ p: mac.p, f: mac.f, c: mac.c });
     mine[key] = { name: name, unit: 'plate', kcal: mac.kcal, p: mac.p, f: mac.f, c: mac.c,
       na: mac.na, fib: mac.fib, parts: parts };
+    if (kx >= 5) mine[key].kx = kx;
     mWriteMyFoods(mine);
     mBuildFoods();
     return 'f:my:' + key;
@@ -13797,6 +13889,8 @@
       mEditDay(mViewKey(), function (d) { mBalanceDay(d, t); });
     },
     targets: function () { return mDayTargets(mViewKey()); },
+    dayTargets: mDayTargets,
+    slotFor: function (id) { var sl = mSlotForRecipe(BY_ID[id], mReadSlots()); return sl ? sl.k : null; },
     /* The profile as the app reads it — weight from the scale, not the stale
        copy in storage. Exposed so a test can check the arithmetic against the
        number actually used instead of keeping its own copy of the averaging
@@ -14747,11 +14841,11 @@
          it with the calories would give back exactly what the deficit is for.
          Fat keeps its floor. The rest lands on carbohydrate. */
       var pr = mReadProfile();
-      var floorF = pr.lb ? Math.max(1, Math.round(0.3 * pr.lb)) : t.f;
-      var f = Math.max(Math.min(t.f, floorF), Math.round(t.f + (want - now) * 0.25 / 9));
-      var c = Math.round((want - 4 * t.p - 9 * f) / 4);
-      if (c < 0) { c = 0; f = Math.max(floorF, Math.round((want - 4 * t.p) / 9)); }
-      mWriteTargets({ p: t.p, f: Math.max(0, f), c: Math.max(0, c), auto: 1, set: todayKey() });
+      var sp = mSplitKcal(want, t, pr);
+      /* A choice, like grams typed into the boxes: the weekly follow must not
+         put the plan's number back over it a week later and then offer this
+         same button again. The morning line goes on coaching from here. */
+      mWriteTargets({ p: sp.p, f: sp.f, c: sp.c, auto: 0, set: todayKey() });
       renderMacros();
     });
 
@@ -15075,8 +15169,13 @@
         /* The meal becomes the thing it just became: four rows collapse into
            the one they were always describing, at the portion they add up to.
            Leaving the parts behind would double the day. */
+        /* Eaten if every part was. Written as un-eaten regardless, a lunch
+           already finished came back as a plan: off the eaten bar, back in
+           the meal's ask, and first in line for the sweeper. */
         mEditDay(mViewKey(), function (day) {
-          day[sk3] = [{ id: newId, x: 1, eaten: 0 }];
+          var had = (day[sk3] || []).filter(function (it) { return BY_ID[it.id]; });
+          var all = had.length > 0 && had.every(function (it) { return !!it.eaten; });
+          day[sk3] = [{ id: newId, x: 1, eaten: all ? 1 : 0 }];
         });
         S.keepMeal = '';
         close();

@@ -9138,10 +9138,20 @@ module.exports = {
       localStorage.getItem('bsc.macroTargets')) || { p: 180 }).p);
     await slow.click('[data-mline^="mline:eat"]');
     await slow.waitForTimeout(300);
-    t.ok('taking it moves the carbs and leaves the protein alone',
+    /* Protein holds unless holding it would leave a day with less
+       carbohydrate than can be eaten — which the app then replaced with the
+       plan on the next read, so the button did nothing at all (the audit of
+       2026-09-22). It gives only what that line needs, never under 0.8 g a
+       pound, and what is stored is what is read back. */
+    t.ok('taking it holds protein as far as the day stays eatable, and it sticks',
       await slow.evaluate((wasP) => {
         const b = JSON.parse(localStorage.getItem('bsc.macroTargets'));
-        return b.p === wasP;
+        const k = 4 * b.p + 4 * b.c + 9 * b.f;
+        const lb = window.__macroLab.profile().lb;
+        const read = window.__macroLab.targets();
+        const eatable = 4 * b.c >= 0.12 * k;
+        const heldOrFloor = b.p === wasP || (b.p >= Math.round(0.8 * lb) && 4 * (b.c - 1) < 0.12 * k + 8);
+        return eatable && heldOrFloor && read.p === b.p && read.c === b.c && read.f === b.f;
       }, heldP),
       'was p=' + heldP + ' now ' + await slow.evaluate(() => localStorage.getItem('bsc.macroTargets')));
     await slow.context().close();
@@ -12578,6 +12588,142 @@ module.exports = {
       await fp.waitForTimeout(300);
       t.ok('and a week with nothing on the scale moves nothing', (await read()).rec.p === 205);
       await fp.context().close();
+    }
+
+    /* ---- the algorithm audit, 2026-09-22 ------------------------------
+     *
+     * Each of these was reproduced against v466 before it was fixed, and each
+     * asserts the thing the audit found broken. */
+    {
+      const ap = await t.fresh();
+      const today = await ap.evaluate(() => { const d = new Date(); const p2 = (x) => (x < 10 ? '0' : '') + x;
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); });
+      const seedAll = (o) => ap.evaluate((obj) => {
+        localStorage.clear();
+        Object.keys(obj).forEach((k) => localStorage.setItem(k, JSON.stringify(obj[k])));
+      }, o);
+      const draftWith = (seed) => ap.evaluate((sd) => {
+        let a = sd;
+        Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let q = Math.imul(a ^ a >>> 15, 1 | a);
+          q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; };
+        window.__macroLab.draft();
+        return JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      }, seed);
+
+      // Fill does not add to a meal that is locked, or that has a plate ticked.
+      let intruded = [];
+      for (const sd of [1, 2, 3, 4, 5, 6]) {
+        await seedAll({ 'bsc.macroTargets': { p: 180, f: 50, c: 50 }, 'bsc.macroDays': { [today]: {
+          d: [{ id: 'f:chicken_breast', x: 1, eaten: 0, l: 1 }],
+          b: [{ id: 'f:chicken_breast', x: 1, eaten: 1 }, { id: 'f:tuna', x: 1, eaten: 0 }] } } });
+        await ap.reload();
+        const days = await draftWith(sd);
+        const d = days[today];
+        if (d.d.length !== 1 || d.b.length !== 2 || d.b[1].x !== 1) intruded.push(sd + ':' + JSON.stringify({ d: d.d, b: d.b }));
+      }
+      t.ok('Fill adds nothing to a locked meal or one with a plate ticked, and resizes nothing there',
+        !intruded.length, intruded.join(' | '));
+
+      // Anything Fill places as a single food stays under its salt and portion ceilings.
+      let over = [];
+      /* Three meals skipped, so the whole day lands on the snack — the shape
+         that, with no ceiling on the solver's rungs, served chicken at four
+         cups (560 g) in 21 of 30 seeds. */
+      for (const sd of [1, 2, 3, 4, 5, 6, 7, 8]) {
+        await seedAll({ 'bsc.macroTargets': { p: 180, f: 50, c: 50 },
+          'bsc.macroSkip': { [today]: ['b', 'l', 'd'] } });
+        await ap.reload();
+        const days = await draftWith(sd);
+        const bad = await ap.evaluate((d) => {
+          const F = window.__macroLab.foods(), by = {}; F.forEach((f) => { by[f.id] = f; });
+          const out = [];
+          Object.keys(d).forEach((sk) => (d[sk] || []).forEach((it) => {
+            const r = by[it.id];
+            if (!r || it.by !== 'f') return;
+            const na = (r.macro.na || 0) * it.x, g = (r.grams || 0) * it.x;
+            if (na > 400.5 || g > 400.5) out.push(r.name + ' x' + it.x + ' ' + Math.round(na) + 'mg ' + Math.round(g) + 'g');
+          }));
+          return out;
+        }, days[today]);
+        over = over.concat(bad);
+      }
+      t.ok('no single food Fill places carries more than 400 mg of salt or 400 g', !over.length, over.join(', '));
+
+      // Six training days: the rest day keeps the floor and some carbohydrate, and the week averages to plan.
+      await seedAll({ 'bsc.macroProfile': { sex: 'm', age: 43, ft: 5, inch: 11, lb: 205, act: 1.375,
+        goal: 'cut1', goalLb: 0, goalBy: '', workouts: 6 } });
+      await ap.reload();
+      const cyc = await ap.evaluate(() => {
+        const pr = window.__macroLab.profile();
+        const plan = window.__macroLab.plan(pr);
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: plan.p, f: plan.f, c: plan.c }));
+        const out = [];
+        const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+        for (let i = 0; i < 7; i++) {
+          const p2 = (x) => (x < 10 ? '0' : '') + x;
+          const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+          out.push(window.__macroLab.dayTargets(k));
+          d.setDate(d.getDate() + 1);
+        }
+        return { plan, floor: window.__macroLab.floorK(pr), days: out };
+      });
+      const kc = (x) => 4 * x.p + 4 * x.c + 9 * x.f;
+      const low = cyc.days.reduce((m, x) => (kc(x) < kc(m) ? x : m));
+      const week = cyc.days.reduce((a, x) => a + kc(x), 0);
+      t.ok('six training days leave the rest day on the floor, with carbohydrate on it',
+        kc(low) >= cyc.floor - 2 && low.c > 0 && 4 * low.c >= 0.12 * kc(low),
+        JSON.stringify({ low, floor: cyc.floor }));
+      t.ok('and the week still averages to the plan', Math.abs(week - 7 * cyc.plan.kcal) <= 21,
+        week + ' vs ' + 7 * cyc.plan.kcal);
+
+      // Keeping a meal keeps it eaten, and keeps calories no gram accounts for.
+      await seedAll({ 'bsc.macroTargets': { p: 150, f: 60, c: 215 },
+        'bsc.myFoods': { fp: { name: 'Friend plate', kcal: 700, unit: 'plate' } },
+        'bsc.macroDays': { [today]: { l: [{ id: 'f:my:fp', x: 1, eaten: 1 },
+          { id: 'f:chicken_breast', x: 1, eaten: 1 }] } } });
+      await ap.reload();
+      await ap.click('.tab[data-view="macros"]');
+      await ap.waitForTimeout(300);
+      const keepOpen = await ap.$('[data-mkeep="l"]');
+      if (keepOpen) {
+        await keepOpen.click();
+        await ap.waitForTimeout(200);
+        await ap.fill('#mkName', 'Lunch out');
+        await ap.click('[data-mkdo="mine"]');
+        await ap.waitForTimeout(300);
+      }
+      const kept = await ap.evaluate((k) => {
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays'))[k];
+        const f = window.__macroLab.foods().find((x) => x.id === 'f:my:lunch_out');
+        return { l: d.l, kcal: f && f.macro.kcal };
+      }, today);
+      t.ok('keeping a finished meal as one leaves it eaten',
+        kept.l.length === 1 && kept.l[0].eaten === 1, JSON.stringify(kept));
+      t.ok('and counts the calories a calories-only part brought', kept.kcal >= 850, JSON.stringify(kept));
+
+      // Batch Prep is not offered unasked, and one added by hand lands at lunch.
+      const bp = await ap.evaluate(() => {
+        const r = (window.RECIPES || []).find((x) => x.book === 1 && x.secNum === 7);
+        return r ? r.id : null;
+      });
+      t.ok('a Batch Prep dish added by hand lands at lunch, not in a snack',
+        bp !== null && (await ap.evaluate((id) => window.__macroLab.slotFor(id), bp)) === 'l');
+      let offered = 0;
+      for (const sd of [1, 2, 3, 4, 5, 6, 7, 8]) {
+        await seedAll({ 'bsc.macroTargets': { p: 180, f: 60, c: 170 } });
+        await ap.reload();
+        const days = await draftWith(sd);
+        offered += await ap.evaluate((d) => {
+          let n = 0;
+          Object.keys(d).forEach((sk) => (d[sk] || []).forEach((it) => {
+            const r = (window.RECIPES || []).find((x) => x.id === it.id);
+            if (r && r.book === 1 && r.secNum === 7) n++;
+          }));
+          return n;
+        }, days[today]);
+      }
+      t.ok('and Fill does not serve Batch Prep containers unasked', offered === 0, offered + ' plates');
+      await ap.context().close();
     }
   },
 };
