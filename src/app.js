@@ -3152,15 +3152,33 @@
       if (MWEIGHTS[k] < lo) lo = MWEIGHTS[k];
       if (MWEIGHTS[k] > hi) hi = MWEIGHTS[k];
     });
+    /* Where the plan says you should be, on the same scale, dashed. "Behind"
+       was a word; with the line it is something you can see — your weight
+       sitting above it. Only across the days the plan covers. */
+    var pr = mReadProfile(), planPts = [];
+    if (pr.goalLb && pr.goalBy) {
+      keys.forEach(function (k) {
+        var pw = mPlanWeight(k, pr);
+        if (!pw || (pr.goalSet && k < pr.goalSet)) return;
+        planPts.push([k, pw.lb]);
+        if (pw.lb < lo) lo = pw.lb;
+        if (pw.lb > hi) hi = pw.lb;
+      });
+    }
     if (hi - lo < 1) { hi += 0.5; lo -= 0.5; }   // a flat line should look flat, not jagged
     var W = 280, H = 44;
-    var pts = keys.map(function (k) {
+    var xy = function (k, lb) {
       var x = (dayN(k) - x0) / (x1 - x0) * W;
-      var y = 3 + (H - 6) * (1 - (MWEIGHTS[k] - lo) / (hi - lo));
+      var y = 3 + (H - 6) * (1 - (lb - lo) / (hi - lo));
       return x.toFixed(1) + ',' + y.toFixed(1);
-    });
+    };
+    var pts = keys.map(function (k) { return xy(k, MWEIGHTS[k]); });
     return '<svg class="mw-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
-      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+      (planPts.length > 1 ? '<polyline class="mw-spark-plan" points="' +
+        planPts.map(function (q) { return xy(q[0], q[1]); }).join(' ') +
+        '" fill="none" stroke-width="1.2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>' : '') +
+      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>' +
+      (planPts.length > 1 ? '<div class="mw-spark-k"><i class="me"></i>your weight <i class="pl"></i>the plan</div>' : '');
   }
 
   function mLbWord(d) {
@@ -3238,8 +3256,10 @@
        behind pace". One question, one answer: where you stand. */
     var pf0 = mPaceFacts(todayKey());
     if (pf0) {
-      var word0 = { ahead: 'ahead of pace', on: 'on pace', behind: 'behind pace' }[pf0.side];
-      out += ' <span class="mplan-v ' + (pf0.side === 'behind' ? 'off' : 'good') + '">' + word0 + '</span>';
+      var dd0 = Math.abs(pf0.daysOff);
+      var word0 = pf0.side === 'on' || !pf0.plan.per ? (pf0.side === 'on' ? 'on pace' : pf0.side)
+        : dd0 + (dd0 === 1 ? ' day ' : ' days ') + pf0.side;
+      out += ' <span class="mw-chip ' + pf0.side + '">' + word0 + '</span>';
     }
     return { has: true, html: out };
   }
@@ -3248,15 +3268,22 @@
      until the scale has an opinion: one week of mornings is water, not a
      trend, and a line that says so is a line about the app. */
   function mPlanDetail() {
+    /* Every number the card has, said once: where the average is, which way
+       the week went, and what the goal needs. It was four lines, and the
+       average was in all four. */
     var pr = mReadProfile();
-    if (!mPlanCalc(pr)) return '';
-    var pace = mGoalPace(pr);
     var st = mWeightStats();
-    if (!pace || !st || st.dWeek === null) return '';
-    var togo = Math.round((st.avg7 - pr.goalLb) * 10) / 10;
-    var weeks = Math.max(1, Math.round(pace.days / 7));
-    return 'Averaging ' + (Math.round(st.avg7 * 10) / 10) + ' lb, ' + mLbWord(st.dWeek) +
-      ' a week. Needs ' + (Math.round(Math.abs(togo) / weeks * 10) / 10) + '.';
+    if (!st || st.n < 2) return '';
+    var parts = [(Math.round(st.avg7 * 10) / 10) + ' lb seven-day average'];
+    if (st.dWeek !== null) parts.push(mLbWord(st.dWeek) + ' this week');
+    var pace = mPlanCalc(pr) ? mGoalPace(pr) : null;
+    if (pace && st.dWeek !== null) {
+      var togo = st.avg7 - pr.goalLb;
+      var weeks = Math.max(1, pace.days / 7);
+      var need = Math.round(Math.abs(togo) / weeks * 10) / 10;
+      if (need >= 0.1) parts.push('needs ' + (togo > 0 ? 'down ' : 'up ') + need + ' a week');
+    }
+    return parts.join(' &middot; ');
   }
 
 
@@ -3550,14 +3577,6 @@
     if (!pf) return '';
     var off = pf.off, band = pf.band, daysOff = pf.daysOff, burn = pf.burn,
       need = pf.need, capped = pf.capped, arrive = pf.arrive, rate = pf.rate;
-    var mostWord = pf.capHigh ? 'as much as this goes' : 'as low as this goes';
-    /* Days off pace, or — holding a weight, where there is no pace to be
-       days off — pounds off it. */
-    var gapWord = function (dir) {
-      if (pf.plan.per) return Math.abs(daysOff) + ' days ' + (dir === 'behind' ? 'behind' : 'ahead of') + ' pace';
-      var lbOff = Math.round(Math.abs(off) * 10) / 10;
-      return lbOff + ' lb ' + (off > 0 ? 'over' : 'under') + ' your weight';
-    };
     var rw = rate === null ? '' : mLbWord(rate);
     var rateWord = !rw ? '' : rw === 'holding steady' ? 'Holding steady'
       : rw.charAt(0).toUpperCase() + rw.slice(1) + ' a week';
@@ -3580,83 +3599,99 @@
        an empty weigh-in box: "I didn't want to be nagged, but coached and
        informed." A stat, then silence, which is his own rule for the last
        line of a card. */
+    /* Coached, in plain words. Blake, on "Eating 1,667 a day on average. 28
+       days behind pace — this is the number that lands on time": "Am I
+       eating that much? Should I be eating that much? It is unclear to me
+       what it is even talking about." It was his TARGET, said as though it
+       were a report of his eating, with three ideas in one sentence. So
+       every line now opens on the target by that name, then says where you
+       stand, then what to do — to you, the way a coach would: "Build it
+       more like that. Make it personal like you are coaching me." */
+    var cur = kcalOf(mReadTargets());
+    var todayT = kcalOf(mDayTargets(k));
+    var fmt = function (n) { return Number(n).toLocaleString(); };
+    /* With carb cycling the target is a week's average and today reads
+       differently; saying so here stops "1,667" and the bar's "1,745" from
+       looking like two answers. */
+    var target = function (n) {
+      var tn = cyc && Math.abs(todayT - n) > 5
+        ? ' <span class="mline-q">(' + fmt(todayT) + ' today, ' +
+          (mIsTrainingDay(k) ? 'a training day' : 'a rest day') + ')</span>' : '';
+      return '<b>Your target: ' + fmt(n) + ' a day</b>' + tn;
+    };
+    var arriveLine = arrive ? 'At this pace you’ll reach ' + pr.goalLb + ' lb around ' + arrive + '.' : '';
+    var gapSay = function (dir) {
+      if (!pf.plan.per) {
+        var lbOff = Math.round(Math.abs(off) * 10) / 10;
+        return 'You’re ' + lbOff + ' lb ' + (off > 0 ? 'over' : 'under') + ' your weight';
+      }
+      return 'You’re ' + Math.abs(daysOff) + ' days ' + (dir === 'behind' ? 'behind' : 'ahead');
+    };
+
     if (pf.stale > 1) {
       if (mHushed(k, 'stale:' + pf.st.lastKey)) return '';
-      return mLineHTML('wait', '\u25CE',
-        '<b>Last weighed ' + esc(mPretty(pf.st.lastKey)) + ', ' +
-        (Math.round(pf.st.latest * 10) / 10) + ' lb.</b> ' +
-        (pf.stale === 2 ? 'Nothing since.' : pf.stale + ' mornings since.'),
-        'The scale is what this reads; there is nothing to say about a day it has not seen.',
-        [['Leave it', 'mline:none:stale:' + pf.st.lastKey]]);
+      return mLineHTML('wait', '◎',
+        '<b>Last weighed ' + esc(mPretty(pf.st.lastKey)) + ': ' +
+        (Math.round(pf.st.latest * 10) / 10) + ' lb.</b>',
+        'Step on the scale when you can, and the coaching picks up from there.',
+        [['Not now', 'mline:none:stale:' + pf.st.lastKey]]);
     }
-    var eating = need !== null && kcalOf(mReadTargets()) > 0 &&
-      Math.abs(kcalOf(mReadTargets()) - need) <= 5;
+    var eating = need !== null && cur > 0 && Math.abs(cur - need) <= 5;
     if (pf.side === 'behind' && eating) {
-      return mLineHTML('calm', '\u25B2',
-        '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + gapWord('behind') +
-        (capped ? ' \u2014 ' + mostWord + ', so the date is what moves.' : ' \u2014 this is the number that lands on time.'),
-        (arrive ? 'At this rate you arrive ' + arrive + '.' : ''), null);
+      return mLineHTML('calm', '▲', target(need),
+        gapSay('behind') + (capped
+          ? (pf.capHigh ? ', and this is already as much as your body can put to use.'
+            : ', and this is already as low as it’s safe to go.') +
+            ' Stay with it. ' + (arriveLine || 'The date moves, not the target.')
+          : '. This target gets you back on time — stay with it.'), null);
     }
     if (pf.side === 'ahead' && eating) {
-      return mLineHTML('calm', '\u25BC',
-        '<b>Eating ' + need.toLocaleString() + cyc + '.</b> ' + gapWord('ahead') + ', and still arriving on time.',
-        rateWord ? rateWord + '.' : '', null);
+      return mLineHTML('calm', '▼', target(need),
+        gapSay('ahead') + ', and still set to arrive on time. Keep it up.', null);
     }
     if (pf.side === 'behind') {
       if (mHushed(k, 'act:' + need)) return '';
-      return mLineHTML('act', '\u25B2',
-        '<b>' + gapWord('behind') + '.</b>' +
-        (meas ? ' Your burn measures <b>' + meas.tdee.toLocaleString() + '</b>, not the ' +
-          Math.round(mBurn(pr) ? mBurn(pr).tdee : meas.tdee).toLocaleString() +
-          ' the formula assumed.' : ''),
-        (arrive ? 'At this rate you arrive ' + arrive + '. ' : '') +
-        (need === null ? ''
+      var why = meas && mBurn(pr) && Math.abs(meas.tdee - mBurn(pr).tdee) > 100
+        ? 'Your body is burning about ' + fmt(meas.tdee) + ' a day, not the ' +
+          fmt(Math.round(mBurn(pr).tdee)) + ' the formula guessed. ' : '';
+      return mLineHTML('act', '▲',
+        '<b>' + gapSay('behind') + '.</b>' + (cur > 0 ? ' Your target is ' + fmt(cur) + ' a day.' : ''),
+        why + (need === null ? arriveLine
           : capped
-            ? (pf.capHigh ? 'Landing on time would want more than a body can put to use, so '
-              : 'Landing on time would want less than a body should be asked for, so ') +
-              (need.toLocaleString() + ' is ' + mostWord + ' \u2014 the date is what moves.')
-            : 'Landing on time wants about ' + need.toLocaleString() + ' kcal' + cyc + '.') +
-        (cyc ? ' Training days run higher than that and rest days lower.' : ''),
-        need ? [['Eat ' + need.toLocaleString(), 'mline:eat:' + need],
-          ['Leave it', 'mline:none:act:' + need]] : null);
+            ? (pf.capHigh
+              ? 'The most your body can put to use is ' + fmt(need) + '. That won’t fully catch up, so '
+              : 'The lowest it’s safe to go is ' + fmt(need) + '. That won’t fully catch up, so ') +
+              (arrive ? 'expect to arrive around ' + arrive + '.' : 'expect to arrive later.')
+            : (need < cur ? 'Dropping to ' : 'Raising it to ') + fmt(need) + ' a day gets you there on time.'),
+        need ? [['Use ' + fmt(need), 'mline:eat:' + need],
+          [cur > 0 ? 'Keep ' + fmt(cur) : 'Not now', 'mline:none:act:' + need]] : null);
     }
     if (pf.side === 'ahead') {
       var room = need;
       if (mHushed(k, 'ahead:' + room)) return '';
-      /* "You could eat" only when it is more than the plan: ahead by position
-         with a measured burn under the formula's, the number that lands on
-         time can be LESS than you are eating, and it was offered as a treat.
-         And "faster than you asked for" only when the scale is moving the
-         way the goal goes — it said so of a gain, on a cut. */
-      var more = room && room > kcalOf(mReadTargets());
-      return mLineHTML('ahead', '\u25BC',
-        '<b>' + gapWord('ahead') + '.</b>' +
-        (room ? (more ? ' You could eat <b>' + room.toLocaleString() + '</b>' + cyc +
-          ' and still arrive on time.'
-          : ' <b>' + room.toLocaleString() + '</b>' + cyc + ' lands on time.') : ''),
-        rateWord + (rate === null || !pf.toward ? '' : ' \u2014 faster than you asked for') + '.' +
-        (cyc ? ' Training days run higher than that and rest days lower.' : ''),
-        room ? [['Eat ' + room.toLocaleString(), 'mline:eat:' + room],
-          ['Keep going', 'mline:none:ahead:' + room]] : null);
+      var more = room && room > cur;
+      return mLineHTML('ahead', '▼',
+        '<b>' + gapSay('ahead') + '.</b>' + (cur > 0 ? ' Your target is ' + fmt(cur) + ' a day.' : ''),
+        (pf.toward && rate !== null ? 'You’re losing faster than you planned. ' : '') +
+        (!room ? '' : more
+          ? 'You’ve earned some room: ' + fmt(room) + ' a day still gets you there on time.'
+          : fmt(room) + ' a day keeps you exactly on time.'),
+        room ? [['Use ' + fmt(room), 'mline:eat:' + room],
+          [cur > 0 ? 'Keep ' + fmt(cur) : 'Not now', 'mline:none:ahead:' + room]] : null);
     }
-    /* Inside the band is not the same as heading the right way. A week
-       that moved AWAY from the goal by more than the scale's wobble read
-       "Nothing to change" — gaining on a cut, on pace. Said as a fact, with
-       nothing to press: position still says on, and one week is not a trend
-       worth a new number. */
-    if (pf.plan.daysLeft > 0 && rate !== null && !pf.toward && Math.abs(rate) >= 0.3) {
-      return mLineHTML('calm', '\u25CE',
-        '<b>On pace, for now.</b> ' + rateWord + ', away from ' + pr.goalLb + ' lb.',
-        '', null);
+    if (pf.plan.daysLeft <= 0) {
+      return mLineHTML('calm', '✓', '<b>You’re at your goal: ' + pr.goalLb + ' lb.</b>',
+        'Set a new goal when you’re ready.', null);
     }
-    return mLineHTML('calm', '\u2713',
-      (pf.plan.daysLeft <= 0 ? '<b>At your goal.</b> ' + pr.goalLb + ' lb, due ' +
-        esc(mPretty(pr.goalBy)) + '.'
-        : '<b>Nothing to change.</b> On pace for ' + pr.goalLb + ' lb by ' +
-        esc(mPretty(pr.goalBy)) + '.'),
-      (rateWord ? rateWord + ' \u00b7 ' : '') +
-      (meas ? 'burn measures ' + meas.tdee.toLocaleString() : 'formula burn ' +
-        (burn === null ? '\u2014' : Math.round(burn).toLocaleString())));
+    /* Inside the band but moving the wrong way this week: said, with nothing
+       to press — one week is not a trend worth a new number. */
+    if (rate !== null && !pf.toward && Math.abs(rate) >= 0.3) {
+      return mLineHTML('calm', '◎', '<b>You’re on pace, but drifting.</b>',
+        rateWord + '. Keep to ' + fmt(cur) + ' a day and it should turn.', null);
+    }
+    return mLineHTML('calm', '✓', '<b>You’re on pace.</b>',
+      'Keep eating ' + fmt(cur) + ' a day and you’ll reach ' + pr.goalLb + ' lb by ' +
+      esc(mPretty(pr.goalBy)) + '.' + (rateWord ? ' ' + rateWord + '.' : ''), null);
   }
 
   function mLineHTML(kind, icon, text, sub, acts) {
@@ -3680,27 +3715,16 @@
        shows — and whether it shows one. See the note beside the button. */
     var hasPlan = !!kcalOf(mDayTargets(k));
     var body;
+    /* The graph, and nothing else. Beside it there were four lines saying
+       the seven-day average four ways and the weekly change three — "204.5
+       avg", "Averaging 204.5", "seven-day average 204.5", "up 0.2 on the week
+       before" — and the rate the plan expects twice. Blake: "that whole
+       thing can be way more concise and easy to understand. I like the graph
+       though." The numbers are said once, under the goal (mPlanDetail). */
     if (st && st.n >= 2) {
-      var r1 = Math.round(st.latest * 10) / 10 + ' lb on ' + mPretty(st.lastKey) +
-        ' &middot; seven-day average ' + (Math.round(st.avg7 * 10) / 10);
-      var r2 = (st.dWeek === null ? '' : mLbWord(st.dWeek) + ' on the week before &middot; ') +
-        mLbWord(st.dStart) + ' since ' + mPretty(st.firstKey);
-      /* What the plan is aiming for, so the trend has something to be judged
-         against: the gap between the day's burn and the day's targets, read
-         at 3500 kcal to the pound. */
-      var pace = '';
-      var tdee = mTdee(mReadProfile());
-      if (tdee !== null) {
-        var rate = (tdee - kcalOf(mReadTargets())) * 7 / 3500;
-        if (Math.abs(rate) >= 0.2) {
-          pace = '<div class="mw-stat">the plan expects about ' +
-            Math.round(Math.abs(rate) * 10) / 10 + ' lb a week ' + (rate > 0 ? 'off' : 'on') + '</div>';
-        }
-      }
-      body = '<div class="mw-stat">' + r1 + '</div><div class="mw-stat">' + r2 + '</div>' +
-        pace + mSparkSVG();
+      body = mSparkSVG();
     } else {
-      body = '<div class="mw-stat">The seven-day average appears here.</div>';
+      body = '<div class="mw-stat">Weigh in a few mornings and your trend appears here.</div>';
     }
     /* ---- the morning card ----
      * The same card the meals wear, and now the whole morning rather than
@@ -3742,7 +3766,6 @@
     var shut = !openAll && !asking;
     var face = mPlanFace();
     var detail = mPlanDetail();
-    if (detail) body = '<div class="mw-stat">' + detail + '</div>' + body;
     var head = st && st.n >= 2
       ? Math.round(st.avg7 * 10) / 10 + ' lb avg' +
         (st.dWeek === null ? '' : ' &middot; ' + mLbWord(st.dWeek) + ' this week')
@@ -3796,6 +3819,9 @@
               var sumN = st && st.n >= 2
                 ? '<b>' + (Math.round(st.avg7 * 10) / 10) + '</b><u> lb avg'
                 : '<b>' + (Math.round(MWEIGHTS[k] * 10) / 10) + '</b><u> lb';
+              /* No verdict chip here: the coaching line directly under the
+                 closed card already says where you stand, and a chip beside
+                 it pushed the card's name onto two lines at phone width. */
               return '<span class="mw-sum">' + sumN +
                 (mTrainDays().length && mTrainDays().length < 7 && mIsTrainingDay(k)
                   ? ' &middot; trained' : '') + '</u></span>';
@@ -3831,7 +3857,15 @@
         : '<div class="mw-train no-print">' +
             '<button class="mw-tick" data-mtrained="' + esc(k) + '" aria-pressed="' +
               (mIsTrainingDay(k) ? 'true' : 'false') + '">' +
-              '<span class="mw-tick-b" aria-hidden="true"></span>Trained today</button>' +
+              '<span class="mw-tick-l">Trained today' + (function () {
+                /* What the tick did, in one line under it — the paragraph that
+                   explained carb cycling said the same thing in forty words. */
+                var base = mReadTargets(), dt = mDayTargets(k);
+                if (!base.c || dt.c === base.c) return '';
+                return '<span class="mw-tick-s">' + dt.c + ' g carbs today · ' + base.c +
+                  ' on an average day</span>';
+              })() + '</span>' +
+              '<span class="mw-tick-b" aria-hidden="true"></span></button>' +
           '</div>') +
       /* The day's numbers are NOT repeated here. They were, for one build:
          "1,745 calories today, 205 P 61 F 94 C" — which is the sticky strip
@@ -3849,18 +3883,7 @@
          reasonably suspicious: "with the training tick, it does give me more
          calories. From what I understand it should not." Both are true, and
          only saying so out loud settles it. */
-      (!openAll ? '' : (function () {
-        var T = mTrainDays().length;
-        var base = mReadTargets(), dt = mDayTargets(k);
-        if (!T || T >= 7 || !base.c || dt.c === base.c) return '';
-        return '<div class="mw-why">' + (mIsTrainingDay(k)
-          ? 'Carbs are up today because you are training. <b>' + dt.c +
-            ' g</b> today against ' + base.c + ' g on a normal day. Rest days give ' +
-            'them back, so your week stays the same.'
-          : 'Carbs are down today because you are resting. <b>' + dt.c +
-            ' g</b> today against ' + base.c + ' g on a normal day. Training days ' +
-            'spend them.') + '</div>';
-      })()) +
+      '' +
       /* The plan, one line, on the face — and the same handle the meals wear,
          on the seam rather than in the header: this line is the last thing
          above what folds away, so the mark on the end of it is sitting at the
@@ -3883,8 +3906,8 @@
          once before. It renders whenever the card is not collapsed. */
       (face.has
         ? (!openAll ? ''
-        : '<div class="mw-verdict mw-open">' +
-            (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html + '</div>')
+        : '<div class="mw-verdict mw-open">' + face.html +
+            (detail ? '<span class="mw-avg mw-stats">' + detail + '</span>' : '') + '</div>')
         : shut ? ''
         /* The button here only while there IS a plan to adjust.
          *
