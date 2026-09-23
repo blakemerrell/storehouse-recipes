@@ -12960,5 +12960,114 @@ module.exports = {
         mid['2026-09-22'].s[0].eaten === 1 && mid['2026-09-23'].s[0].eaten === 0, JSON.stringify(mid));
       await ctx.close();
     }
+
+    /* ---- the audit's fourth batch, 2026-09-23 ------------------------ */
+    {
+      const dp = await t.fresh();
+      const today = await dp.evaluate(() => { const d = new Date(); const p2 = (x) => (x < 10 ? '0' : '') + x;
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); });
+      const yest = await dp.evaluate(() => { const d = new Date(); d.setDate(d.getDate() - 1); const p2 = (x) => (x < 10 ? '0' : '') + x;
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); });
+      const put = (o) => dp.evaluate((obj) => { localStorage.clear();
+        Object.keys(obj).forEach((k) => localStorage.setItem(k, JSON.stringify(obj[k]))); }, o);
+
+      // The add sheet judges a meal as its card does.
+      await put({ 'bsc.macroTargets': { p: 150, f: 60, c: 215 },
+        'bsc.myFoods': { a: { name: 'Lunch 80', p: 33.6, f: 13.6, c: 48, unit: 'serving' } },
+        'bsc.macroDays': { [today]: { l: [{ id: 'f:my:a', x: 1, eaten: 0 }] } } });
+      await dp.reload();
+      await dp.click('.tab[data-view="macros"]');
+      await dp.waitForTimeout(300);
+      await dp.evaluate(() => { document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click()); });
+      await dp.waitForTimeout(200);
+      const cardSt = await dp.evaluate(() => {
+        const sl = [...document.querySelectorAll('#macroSlots .mslot')].find((x) => /Lunch/.test(x.textContent));
+        return [...sl.querySelectorAll('.mmp')].map((p) => ['u', 'o', 'x'].find((c) => p.classList.contains(c)) || '?');
+      });
+      await dp.evaluate(() => document.querySelector('.mslot-add[data-mslot="l"]').click());
+      await dp.waitForTimeout(300);
+      const sheetSt = await dp.evaluate(() => [...document.querySelectorAll('.mgp')].map((p) => {
+        const st = p.getAttribute('style') || '';
+        return /dial-on/.test(st) ? 'o' : /dial-over/.test(st) ? 'x' : /dial-under/.test(st) ? 'u' : '?';
+      }));
+      t.ok('the add sheet calls a meal what its card calls it', cardSt.join() === sheetSt.join() && cardSt.length === 4,
+        cardSt.join() + ' vs ' + sheetSt.join());
+
+      // A past day keeps the targets it was lived against.
+      await put({ 'bsc.macroTargets': { p: 150, f: 60, c: 215 },
+        'bsc.macroDayT': { [yest]: { p: 150, f: 60, c: 215 } } });
+      await dp.reload();
+      const before = await dp.evaluate((k) => window.__macroLab.dayTargets(k), yest);
+      await dp.evaluate(() => localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 150, f: 60, c: 140 })));
+      await dp.reload();
+      const after = await dp.evaluate((k) => window.__macroLab.dayTargets(k), yest);
+      const todayT = await dp.evaluate((k) => window.__macroLab.dayTargets(k), today);
+      t.ok('changing the plan today does not re-judge yesterday', before.c === 215 && after.c === 215 && todayT.c === 140,
+        JSON.stringify({ before, after, todayT }));
+
+      // One cookie of forty-eight opens the batch, not "0 cup butter".
+      const cookie = await dp.evaluate(() => { const r = window.RECIPES.find((x) => x.servN >= 48); return r && r.id; });
+      await put({ 'bsc.macroDays': { [today]: { s: [{ id: cookie, x: 1, eaten: 0 }] } } });
+      await dp.reload();
+      await dp.click('.tab[data-view="macros"]');
+      await dp.waitForTimeout(300);
+      await dp.evaluate(() => { document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click()); });
+      await dp.waitForTimeout(200);
+      await dp.click('.mitem [data-open="' + cookie + '"]');
+      await dp.waitForTimeout(300);
+      const sheet = await dp.evaluate(() => (document.querySelector('.sheet') || {}).textContent || '');
+      t.ok('one of a big batch opens the batch, with no zero quantities', !/(^|\s)0 (cup|tbsp|tsp|oz|lb)/.test(sheet) &&
+        !/for 2\s*⅜ servings/.test(sheet), (sheet.match(/(^|\s)0 (cup|tbsp|tsp|oz|lb)[^,]{0,20}/) || [''])[0]);
+
+      // Two family dinners both go on the day; a Batch Prep dish finds dinner when lunch is taken.
+      const fam = await dp.evaluate(() => {
+        const R = window.RECIPES;
+        const dinners = R.filter((x) => x.book === 2 && x.secNum === 3 && x.macro).slice(0, 2).map((x) => x.id);
+        const prep = R.find((x) => x.book === 1 && x.secNum === 7 && x.macro).id;
+        return { dinners, prep };
+      });
+      const wd = await dp.evaluate(() => ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]);
+      await dp.evaluate(() => localStorage.clear());
+      await dp.reload();
+      await dp.evaluate(([f, d]) => {
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 60, c: 170 }));
+        f.dinners.forEach((id) => window.Store.addToDay(id, d));
+        window.Store.addToDay(f.prep, d);
+      }, [fam, wd]);
+      await dp.evaluate((k) => {
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        days[k] = { l: [{ id: 'f:chicken_breast', x: 1, eaten: 0 }] };
+        localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      }, today);
+      await dp.reload();
+      const famDay = await dp.evaluate((k) => { window.__macroLab.draft();
+        return JSON.parse(localStorage.getItem('bsc.macroDays'))[k]; }, today);
+      const onDay = (id) => Object.keys(famDay).some((sk) => (famDay[sk] || []).some((it) => it.id === id));
+      t.ok('both family dinners go on the day', fam.dinners.every(onDay), JSON.stringify(famDay.d));
+      t.ok('and the Batch Prep dish finds dinner when lunch is taken', onDay(fam.prep), JSON.stringify(famDay));
+
+      // Oil is never a topper.
+      let oil = 0;
+      for (const sd of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+        await put({ 'bsc.macroTargets': { p: 180, f: 50, c: 50 } });
+        await dp.reload();
+        oil += await dp.evaluate((a0) => {
+          let a = a0;
+          Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let q = Math.imul(a ^ a >>> 15, 1 | a);
+            q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; };
+          window.__macroLab.draft();
+          const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+          const F = {}; window.__macroLab.foods().forEach((f) => { F[f.id] = f; });
+          let n = 0;
+          Object.values(d).forEach((day) => Object.values(day).forEach((list) => (list || []).forEach((it) => {
+            const r = F[it.id]; if (!r || it.by !== 'f') return;
+            const m = r.macro; if (4 * ((m.p || 0) + (m.c || 0)) < 0.10 * (m.kcal || 0)) n++;
+          })));
+          return n;
+        }, sd);
+      }
+      t.ok('Fill never tops a day up with a food that is nearly all fat', oil === 0, oil + ' plates');
+      await dp.context().close();
+    }
   },
 };

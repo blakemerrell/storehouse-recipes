@@ -1228,11 +1228,13 @@
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
       'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroTrained',
-      'bsc.macroHush', 'bsc.macroIntake'].forEach(function (k) {
+      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
     Object.keys(MWEIGHTS).forEach(function (k) { delete MWEIGHTS[k]; });
+    Object.keys(MINTAKE).forEach(function (k) { delete MINTAKE[k]; });
+    Object.keys(MDAYT).forEach(function (k) { delete MDAYT[k]; });
     Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
     Object.keys(MDONE).forEach(function (k) { delete MDONE[k]; });
     Object.keys(MSKIP).forEach(function (k) { delete MSKIP[k]; });
@@ -2185,7 +2187,18 @@
   /* Sections no meal offers unasked, and the meal a dish from one belongs at
      when you add it yourself. With no meal claiming Batch Prep, a container
      added from the book fell through to the snack below. */
-  var MSEC_HOME = { '1-7': 'l' };
+  var MSEC_HOME = { '1-7': ['l', 'd'] };
+
+  /* Every meal a dish could go on, in the order it should be tried: the
+     meals whose sections name it, then its home types. */
+  function mSlotsForRecipe(r, slots) {
+    var sec = r.book + '-' + r.secNum, out = [];
+    slots.list.forEach(function (s) { if (mSlotSecs(s).indexOf(sec) >= 0) out.push(s); });
+    (MSEC_HOME[sec] || []).forEach(function (t) {
+      slots.list.forEach(function (s) { if (s.t === t && out.indexOf(s) < 0) out.push(s); });
+    });
+    return out;
+  }
 
   function mSlotForRecipe(r, slots) {
     var sec = r.book + '-' + r.secNum, found = null;
@@ -2195,7 +2208,9 @@
     });
     if (found) return found;
     if (MSEC_HOME[sec]) {
-      slots.list.forEach(function (s) { if (!found && s.t === MSEC_HOME[sec]) found = s; });
+      MSEC_HOME[sec].forEach(function (t) {
+        slots.list.forEach(function (s) { if (!found && s.t === t) found = s; });
+      });
       if (found) return found;
     }
     var last = null;
@@ -2324,7 +2339,41 @@
 
   /* The targets for one day rather than for every day. With no training days
      — or with all seven — there is nothing to cycle and this is the plan. */
+  /* The targets a past day was lived against.
+   *
+     Targets were never stored per day: every day in the week strip and the
+     summary was judged against TODAY's plan, re-derived. Change carbohydrate
+     today and yesterday — eaten, closed — turned from on target to over,
+     against a number that did not exist yesterday. So what each day was
+     aiming at is written down the first time the day is drawn as today, and
+     kept; a past day reads its own. Local, like the intake log, and kept as
+     long as it is; a day never drawn here falls back to the plan as it is. */
+  var MDAYT = (function () {
+    try {
+      var v = JSON.parse(localStorage.getItem('bsc.macroDayT'));
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+    } catch (e) { /* none yet */ }
+    return {};
+  })();
+  function mSnapTargets() {
+    var k = todayKey(), t = mDayTargetsLive(k), was = MDAYT[k];
+    if (was && was.p === t.p && was.f === t.f && was.c === t.c) return;
+    MDAYT[k] = { p: t.p, f: t.f, c: t.c };
+    var cut = new Date(); cut.setDate(cut.getDate() - MINTAKE_DAYS);
+    var cutK = dayKey(cut);
+    Object.keys(MDAYT).forEach(function (d) { if (d < cutK) delete MDAYT[d]; });
+    try { localStorage.setItem('bsc.macroDayT', JSON.stringify(MDAYT)); }
+    catch (e) { /* this session only */ }
+  }
   function mDayTargets(k) {
+    var snap = k < todayKey() ? MDAYT[k] : null;
+    if (snap && isFinite(snap.p) && isFinite(snap.f) && isFinite(snap.c)) {
+      return { p: snap.p, f: snap.f, c: snap.c };
+    }
+    return mDayTargetsLive(k);
+  }
+
+  function mDayTargetsLive(k) {
     var base = mReadTargets();
     var train = mTrainDays();
     var T = train.length, R = 7 - T;
@@ -3578,6 +3627,16 @@
         room ? [['Eat ' + room.toLocaleString(), 'mline:eat:' + room],
           ['Keep going', 'mline:none:ahead:' + room]] : null);
     }
+    /* Inside the band is not the same as heading the right way. A week
+       that moved AWAY from the goal by more than the scale's wobble read
+       "Nothing to change" — gaining on a cut, on pace. Said as a fact, with
+       nothing to press: position still says on, and one week is not a trend
+       worth a new number. */
+    if (pf.plan.daysLeft > 0 && rate !== null && !pf.toward && Math.abs(rate) >= 0.3) {
+      return mLineHTML('calm', '\u25CE',
+        '<b>On pace, for now.</b> ' + rateWord + ', away from ' + pr.goalLb + ' lb.',
+        '', null);
+    }
     return mLineHTML('calm', '\u2713',
       (pf.plan.daysLeft <= 0 ? '<b>At your goal.</b> ' + pr.goalLb + ' lb, due ' +
         esc(mPretty(pr.goalBy)) + '.'
@@ -4562,6 +4621,7 @@
   function renderMacros() {
     if (mRendering) return;
     mDrawnToday = todayKey();
+    mSnapTargets();
     mRendering = true;
     try { mRenderDay(); } finally { mRendering = false; }
   }
@@ -7790,15 +7850,21 @@
     var targets = mDayTargets(k);
     var busts = false, over = 0;
     if (targets.p || targets.f || targets.c) {
-      var sh = mMealShare(S.macroPick.slot, targets, mReadSlots());
-      if (sh) {
+      /* Against what the meal is ASKING for, by the card's rule — the pills
+         above this bar read the ask and the footer read the plan's first
+         share, so a basket at 491 of a 229 ask was "over" in four pills and
+         silent here, because 491 is under 556 × 1.07. */
+      var ask2 = mMealAsk(S.macroPick.slot, targets, mReadSlots());
+      var sh = ask2 ? (ask2.now || ask2.plan) : null;
+      if (sh && sh.kcal > 0) {
         var held = 0;
         (mDay(k)[S.macroPick.slot] || []).forEach(function (it) {
           var r2 = BY_ID[it.id];
           if (r2 && r2.macro) held += (r2.macro.kcal || 0) * it.x;
         });
         over = Math.round(held + t.kcal - sh.kcal);
-        busts = over > sh.kcal * 0.07;
+        var gz2 = mGauge(held + t.kcal, sh.kcal, kcalOf(targets));
+        busts = !!gz2 && gz2.st === 'x';
       }
     }
     /* The commit button lives here now, beside the number it commits.
@@ -8119,15 +8185,18 @@
      the last mouthful of it, and the fill is the only thing that says which.
      Blake: "make it so that the macro bar at the top of this card works like
      the other pills when crafting meals." */
-  function mGapPill(m, got, want) {
+  function mGapPill(m, got, want, dayT) {
     var done = want > 0 && got >= want, lbl = m;
     MGAUGE.forEach(function (g) { if (g[0] === m) lbl = g[1]; });
-    /* The same band the day bars and the week strip judge by, so one meal
-       cannot be "on" in the sheet and "under" on the card behind it. */
+    /* The meal card's own rule (mGauge), so one meal cannot be "on" on the
+       card and "under" in the sheet opened from it. The comment here used to
+       claim exactly that while the code judged by the day bars' band instead
+       — a lunch at 80% of its share read on, on, on, on on the card and four
+       unders in the sheet. dayT is the day's target for this macro, which the
+       card's band is partly relative to. */
     var pct = want > 0 ? Math.min(100, 100 * got / want) : 0;
-    var state = !(want > 0) ? 'quiet'
-      : got > want * MKCAL_OVER / 100 ? 'over'
-      : got >= want * 0.9 ? 'on' : 'under';
+    var gz = want > 0 ? mGauge(got, want, dayT) : null;
+    var state = !gz ? 'quiet' : { u: 'under', o: 'on', x: 'over' }[gz.st];
     /* Both halves, the way the day's pills say them: what is on the meal, and
        what the meal is for. Blake: "those three macros clearly show me how
        much I've selected and what is left. That makes a perfect meal." The
@@ -8170,10 +8239,10 @@
       var dsub = mDayEaten(k);
       return '<div class="mp-cap">The day so far</div>' +
         '<div class="mgps">' +
-          mGapPill('kcal', dsub.kcal, kcalOf(targets)) +
-          mGapPill('p', dsub.p, targets.p) +
-          mGapPill('f', dsub.f, targets.f) +
-          mGapPill('c', dsub.c, targets.c) +
+          mGapPill('kcal', dsub.kcal, kcalOf(targets), kcalOf(targets)) +
+          mGapPill('p', dsub.p, targets.p, targets.p) +
+          mGapPill('f', dsub.f, targets.f, targets.f) +
+          mGapPill('c', dsub.c, targets.c, targets.c) +
         '</div>';
     }
     var got = mMealHolds(k, sk);
@@ -8183,10 +8252,10 @@
     });
     return '<div class="mp-cap">' + esc(closed ? nm + ' is closed' : nm + ' so far') + '</div>' +
       '<div class="mgps">' +
-        mGapPill('kcal', got.kcal, want.kcal || 0) +
-        mGapPill('p', got.p, want.p || 0) +
-        mGapPill('f', got.f, want.f || 0) +
-        mGapPill('c', got.c, want.c || 0) +
+        mGapPill('kcal', got.kcal, want.kcal || 0, kcalOf(targets)) +
+        mGapPill('p', got.p, want.p || 0, targets.p) +
+        mGapPill('f', got.f, want.f || 0, targets.f) +
+        mGapPill('c', got.c, want.c || 0, targets.c) +
       '</div>';
   }
 
@@ -10406,8 +10475,16 @@
      print in eighths — each one is rounded where it is printed — but the
      factor between them is the true one, and the sheet says the portion
      in servings rather than a fraction that was never quite right. */
+  /* The batch a plate asks the cook for — the plate itself, down to a
+     twelfth of the recipe. Below that is a batch you bake and a plate you
+     eat from it: one cookie of forty-eight scaled to 0.02 printed "0 cup
+     butter", under a heading that (clamped at a twentieth) claimed 2⅜
+     servings for a plate of one. A plate that small opens the recipe as
+     written. At one serving that is only the thirteen recipes that make
+     more than twelve. */
   function mCookScale(x, servN) {
-    return Math.max(0.05, x / (servN || 1));
+    var f = x / (servN || 1);
+    return f < 1 / 12 - 1e-9 ? 1 : f;
   }
 
   /* What the sheet calls its scale. A factor the dial can reach — a half,
@@ -10519,11 +10596,22 @@
         var r = BY_ID[fid];
         if (!r || !r.macro) return;                    // no macros, nothing to solve
         if (mOnDay(day, r.id)) return;                 // already there, by any route
-        var s = mSlotForRecipe(r, wSlots);
-        if (!s) return;
-        if (mSlotSpokenFor(day, s)) return;            // that meal is spoken for
-        if (mSkipped(mViewKey(), s.k)) return;         // you said you are not eating it
-        (day[s.k] = day[s.k] || []).push({ id: r.id, x: 1, eaten: 0, by: 'w' });
+        /* Tried on every meal it could go on, not only the first: with one
+           candidate, a Batch Prep container was dropped because lunch had a
+           plate on it while dinner sat empty. And a meal holding only what
+           this pass just put there is still the family's — two dishes
+           planned for one dinner both go on it, where the second used to be
+           dropped because the first had "spoken for" the meal. */
+        var placed = false;
+        mSlotsForRecipe(r, wSlots).forEach(function (s) {
+          if (placed) return;
+          var items = day[s.k] || [];
+          var ours = items.length && items.every(function (it) { return it.by === 'w' && !it.eaten && !it.l; });
+          if (mSlotSpokenFor(day, s) && !ours) return; // that meal is spoken for
+          if (mSkipped(mViewKey(), s.k)) return;         // you said you are not eating it
+          (day[s.k] = day[s.k] || []).push({ id: r.id, x: 1, eaten: 0, by: 'w' });
+          placed = true;
+        });
       });
 
       mReadSlots().list.forEach(function (s) {
@@ -10736,13 +10824,20 @@
       var slot = mTopSlot(day, targets);
       if (!slot) return added;
       var best = null;
-      var naRoom = Math.min(MTOP_NA, Math.max(0, 2300 - (tot.all.na || 0)));
+      var naRoom = Math.min(MTOP_NA, Math.max(0, MNA_CAP - (tot.all.na || 0)));
       MFOODS.forEach(function (r) {
         var mac = r.macro || {};
         if (r.ext && !mExtOk()) return;     // Fill does not shop
         if (!mFoodMealOK(r, slot)) return;
         if ((mac.kcal || 0) < MTOP_MIN) return;
         if (((mac.p || 0) + (mac.c || 0) + (mac.f || 0)) <= 0) return;
+        /* Something you would eat, not something you cook in. On a very low
+           carbohydrate day the fat gap is the one left, and the best fit for
+           a fat gap is oil: it was a topper on one day in six, and on some
+           the solver then shrank the dish to a quarter to make room for two
+           tablespoons of it. A topper carries at least a tenth of itself as
+           protein or carbohydrate — nuts qualify, oil and butter do not. */
+        if (4 * ((mac.p || 0) + (mac.c || 0)) < 0.10 * (mac.kcal || 0)) return;
         if (mOnDay(day, r.id) || (near && near[r.id])) return;
         var fit = macroFit(r, R, R, D);
         // priced at the portion actually being added, not per hundred grams
