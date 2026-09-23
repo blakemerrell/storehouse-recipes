@@ -87,6 +87,9 @@ window.FIREBASE_CONFIG = { apiKey: "", authDomain: "", projectId: "", storageBuc
 ${read('src/sync.js')}
 </script>
 <script>
+${read('src/train.js')}
+</script>
+<script>
 ${read('src/app.js')}
 </script>
 `;

@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=474">
+<link rel="stylesheet" href="src/style.css?v=475">
 </head>
 <body>
 
@@ -54,6 +54,11 @@
            book. data-view stays macros because it is a key, not a word, the
            same bargain the Recipes tab struck with "browse". -->
       <button class="tab" role="tab" data-view="macros" aria-selected="false">My Day</button>
+      <!-- Beside My Day, because it is the other thing on this row that is
+           only ever yours: a lifting block, the log you keep at the gym, and
+           a review of it against the research. data-view is the key; the
+           screen is drawn by src/train.js. -->
+      <button class="tab" role="tab" data-view="train" aria-selected="false">Train</button>
     </div>
     <!-- Shown only when the row genuinely overflows; see syncTabsFade(). A fade
          over the last tab when there is nothing past it is a worse lie than no
@@ -308,6 +313,20 @@
   </div>
 </section>
 
+<!-- -------------------------------------------------------------- train -->
+<section id="view-train" class="hide">
+  <div class="view tr-view">
+    <div class="view-head">
+      <div class="view-title serif" style="font-size:22px">Train</div>
+      <div class="week-acts no-print" id="trHead"></div>
+    </div>
+    <div id="trBody"></div>
+  </div>
+  <!-- The rest timer, pinned to the foot of the screen. Inside the section so
+       that it leaves with the tab rather than floating over My Day's bar. -->
+  <div class="tr-rest no-print hide" id="trRest"></div>
+</section>
+
 <!-- ------------------------------------------------------- shopping list -->
 <section id="view-list" class="hide">
   <div class="list-view">
@@ -386,16 +405,19 @@
 </section>
 
 <div id="modalRoot"></div>
+<div id="trainRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=474"></script>
-<script src="data/nutrition.js?v=474"></script>
-<script src="data/art.js?v=474"></script>
-<script src="data/qr.js?v=474"></script>
-<script src="src/config.js?v=474"></script>
+<script src="data/recipes.js?v=475"></script>
+<script src="data/nutrition.js?v=475"></script>
+<script src="data/art.js?v=475"></script>
+<script src="data/qr.js?v=475"></script>
+<script src="src/config.js?v=475"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=474"></script>
-<script src="src/app.js?v=474"></script>
+<script src="src/sync.js?v=475"></script>
+<!-- before app.js, which calls into it while it boots -->
+<script src="src/train.js?v=475"></script>
+<script src="src/app.js?v=475"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

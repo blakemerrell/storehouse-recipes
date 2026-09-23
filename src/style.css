@@ -3364,14 +3364,20 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   .tabs {
     order: 3; width: 100%; flex-wrap: nowrap;
     overflow-x: auto; -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; margin: 0 -16px; padding: 0 16px; gap: 3px;
+    scrollbar-width: none; margin: 0 -16px; padding: 0 16px; gap: 2px;
   }
   .tabs::-webkit-scrollbar { display: none; }
   /* 9px, not 10: the sixth tab (Macros) spent most of the room the 2026 trim
      bought back, and a pixel a side across six tabs is the cheapest 24px
      there is. The scroll-plus-fade fallback still catches the narrowest
-     phones, as it always did. */
-  .tabs .tab { flex: 0 0 auto; padding: 7px 9px; }
+     phones, as it always did.
+   *
+     Then 6px, a 2px gap and no tracking: the seventh tab, Train, is fifty
+     pixels, and three pixels a side across seven tabs, a pixel of gap across
+     six and the letter-spacing across forty-odd letters buy almost exactly
+     that back without renaming anybody's tab. The narrowest, List, is still
+     35px wide and 30 tall — past the 24px a target has to clear. */
+  .tabs .tab { flex: 0 0 auto; padding: 7px 6px; letter-spacing: 0; }
   /* Only where it still scrolls. A fade pinned to the right edge of the bar
      says "there is more this way" — the thing the old row never did. It sits
      on the header rather than inside the scroller so it does not scroll away,
@@ -4536,4 +4542,321 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   position: sticky; bottom: 0; z-index: 2;
   padding: 12px 0 4px; margin-top: 18px;
   background: linear-gradient(to bottom, transparent, var(--card) 22%);
+}
+
+/* ================================================================== Train
+   The lifting tab. Built from the pieces the rest of the app already uses —
+   paper cards, hairlines, the ochre eyebrow, the green primary — so that it
+   reads as the same book rather than a second app bolted to the first. The
+   one new shape is the set row, which is a grid because four numbers that
+   have to line up down a column are a table, whatever else they are. */
+.tr-view { max-width: 760px; padding-bottom: 110px; }
+.tr-seg { margin: 0 0 16px; width: 100%; }
+.tr-seg button { flex: 1; }
+
+.tr-card {
+  display: block; width: 100%; text-align: left; font: inherit; color: inherit;
+  background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+  padding: 16px 18px; margin: 0 0 12px;
+}
+button.tr-card { cursor: pointer; }
+button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
+.tr-eyebrow {
+  font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ochre-text); font-weight: 600;
+}
+.tr-title { font-family: var(--serif); font-size: 20px; font-weight: 600; line-height: 1.25; margin-top: 4px; }
+.tr-sub { font-size: 13px; color: var(--muted-2); margin-top: 4px; }
+.tr-note { font-size: 13px; color: var(--muted-2); line-height: 1.5; margin: 10px 0 0; max-width: 64ch; }
+.tr-fine { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.tr-hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.tr-opt { font-weight: 400; color: var(--muted); letter-spacing: 0; text-transform: none; }
+.tr-acts { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+.tr-foot { margin: 8px 0 20px; }
+.tr-lnk {
+  background: none; border: 0; padding: 4px 2px; font: inherit; font-size: 12.5px;
+  color: var(--ochre-text); font-weight: 600; cursor: pointer;
+}
+.tr-lnk:hover { text-decoration: underline; }
+
+/* The questions: a label, then a row of pills. Pressed is ink, the same way
+   the segmented controls say it everywhere else. */
+.tr-q { margin-top: 16px; }
+.tr-ql {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted-2); font-weight: 600; margin-bottom: 7px;
+}
+.tr-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tr-chip {
+  border: 1px solid var(--line-firm); border-radius: 99px; background: #fff;
+  color: var(--ink); font-size: 13px; padding: 7px 13px; line-height: 1.2; cursor: pointer;
+}
+.tr-chip:hover { border-color: var(--ochre); }
+.tr-chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+
+/* ---- the block ---- */
+.tr-grid { margin-top: 14px; display: flex; flex-direction: column; gap: 3px; overflow-x: auto; }
+.tr-grow { display: grid; grid-template-columns: 58px repeat(var(--n, 4), minmax(0, 1fr)); gap: 3px; min-width: 0; }
+.tr-gh {
+  font-size: 10.5px; color: var(--muted-2); font-weight: 600; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px;
+}
+.tr-gw { font-size: 11px; color: var(--muted-2); align-self: center; white-space: nowrap; }
+.tr-gc {
+  min-height: 34px; border: 1px solid var(--line-soft); border-radius: 3px;
+  background: var(--paper-soft); font: inherit; font-size: 11px; color: var(--muted);
+  cursor: pointer; padding: 2px; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tr-gc:hover { border-color: var(--line-firm); }
+.tr-gc.done {
+  background: color-mix(in oklab, var(--green) 12%, var(--card));
+  border-color: color-mix(in oklab, var(--green) 40%, var(--card)); color: var(--green); font-weight: 600;
+}
+.tr-gc.next { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+.tr-gc.skip { text-decoration: line-through; }
+
+.tr-plan { list-style: none; margin: 12px 0 0; padding: 0; }
+.tr-plan li { padding: 9px 0; border-top: 1px solid var(--line-soft); }
+.tr-plan li:first-child { border-top: 0; }
+.tr-pl-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.tr-pl-n { font-weight: 600; font-size: 14px; }
+.tr-pl-s { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tr-pl-meta { font-size: 12.5px; color: var(--muted-2); margin-top: 2px; }
+.tr-why { font-size: 12px; color: var(--muted); margin-top: 3px; font-style: italic; }
+.tr-ups { list-style: none; padding: 0; margin: 10px 0 0; }
+.tr-ups li { display: flex; justify-content: space-between; font-size: 13.5px; padding: 4px 0; }
+.tr-ups .up { color: var(--green); font-weight: 600; }
+.tr-ups .down { color: var(--dial-over); font-weight: 600; }
+.tr-saved {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  background: color-mix(in oklab, var(--green) 10%, var(--card));
+  border: 1px solid color-mix(in oklab, var(--green) 35%, var(--card));
+  border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; font-size: 13.5px;
+}
+
+.tr-how {
+  margin: 4px 0 20px; font-size: 13px; line-height: 1.55; color: var(--muted-2);
+  border-top: 1px solid var(--line); padding-top: 10px;
+}
+.tr-how summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+.tr-how p { margin: 10px 0 0; max-width: 68ch; }
+.tr-how b { color: var(--ink); }
+
+/* ---- the draft ---- */
+.tr-dday { margin-top: 16px; }
+.tr-dday-h { font-weight: 600; font-size: 14px; padding-bottom: 5px; border-bottom: 1.5px solid var(--ink); }
+.tr-drow { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
+.tr-dex {
+  flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0;
+  font: inherit; color: inherit; cursor: pointer;
+}
+.tr-dex-n { display: block; font-size: 14px; }
+.tr-dex:hover .tr-dex-n { text-decoration: underline; }
+.tr-dex-m { display: block; font-size: 12px; color: var(--muted); }
+.tr-step { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tr-step button {
+  width: 28px; height: 28px; border: 1px solid var(--line-firm); border-radius: 3px;
+  background: #fff; font-size: 15px; line-height: 1; color: var(--ink);
+}
+.tr-x { background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; padding: 0 4px; }
+.tr-x:hover { color: var(--ink); }
+.tr-add {
+  margin-top: 6px; background: none; border: 1px dashed var(--line-firm); border-radius: 3px;
+  padding: 6px 10px; font-size: 12.5px; color: var(--muted-2); width: 100%;
+}
+.tr-vol { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.tr-vol .tr-ql { width: 100%; margin-bottom: 0; }
+.tr-volc { font-size: 13px; color: var(--muted-2); }
+.tr-volc b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---- the workout ---- */
+.tr-live-h {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 14px;
+  margin-bottom: 14px;
+}
+.tr-clock { font-family: var(--sans); font-size: 14px; color: var(--muted-2); font-weight: 500; font-variant-numeric: tabular-nums; margin-left: 6px; }
+.tr-back {
+  display: block; width: 100%; text-align: left; margin: 0 0 12px; cursor: pointer;
+  background: var(--ink); color: var(--paper); border: 0; border-radius: 4px;
+  padding: 10px 14px; font: inherit; font-size: 13.5px;
+}
+.tr-back span { font-weight: 600; }
+.tr-ex { padding: 14px 14px 10px; }
+.tr-ex-h { margin-bottom: 8px; }
+.tr-ex-n {
+  background: none; border: 0; padding: 0; font: inherit; font-weight: 600; font-size: 15.5px;
+  color: var(--ink); cursor: pointer; text-align: left;
+}
+.tr-ex-n:hover { text-decoration: underline; }
+.tr-ex-m { display: block; font-size: 12px; color: var(--muted-2); margin-top: 2px; }
+.tr-set {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) 72px 60px 44px;
+  gap: 6px; align-items: center; padding: 4px 0; border-radius: 3px;
+}
+.tr-set-h { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 0 0 2px; }
+.tr-set-h span:nth-child(3), .tr-set-h span:nth-child(4) { text-align: center; }
+.tr-sn { text-align: center; font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
+.tr-prev { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-in {
+  width: 100%; min-width: 0; padding: 8px 6px; font-size: 15px; text-align: center;
+  border: 1px solid var(--line-firm); border-radius: 3px; background: #fff; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.tr-in::placeholder { color: oklch(0.70 0.02 70); }
+.tr-tick {
+  height: 36px; border: 1px solid var(--line-firm); border-radius: 3px; background: #fff;
+  color: var(--muted); font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.tr-set.done { background: color-mix(in oklab, var(--green) 9%, var(--card)); }
+.tr-set.done .tr-tick { background: var(--green); border-color: var(--green); color: var(--card); }
+.tr-set.done .tr-in { border-color: transparent; background: transparent; }
+.tr-set.flash .tr-in { border-color: var(--dial-over); }
+.tr-ex-a { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+
+.tr-ask { background: var(--paper-soft); }
+.tr-fbrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.tr-fbm { font-size: 13px; font-weight: 600; min-width: 84px; }
+.tr-ask .tr-chip { padding: 6px 11px; font-size: 12.5px; }
+
+/* A dot on the tab while a workout is open, so leaving it for My Day or the
+   list does not lose it. */
+.tab.tr-tab-live::after {
+  content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: oklch(0.72 0.16 145); margin-left: 6px; vertical-align: 2px;
+}
+
+/* The rest bar: the header's ink, pinned to the foot, filling left to right
+   as the rest runs out. */
+.tr-rest {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  background: var(--ink); color: oklch(0.95 0.012 85);
+  border-top: 3px solid var(--ochre);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.tr-rest-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: oklch(0.34 0.03 60); transition: width 0.9s linear; pointer-events: none;
+}
+.tr-rest-in {
+  position: relative; max-width: 760px; margin: 0 auto; padding: 12px 22px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.tr-rest-t { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tr-rest-b { display: flex; gap: 6px; }
+.tr-rest-btn {
+  background: transparent; color: inherit; border: 1px solid oklch(0.50 0.03 60);
+  border-radius: 3px; padding: 7px 12px; font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.tr-rest-btn:hover { border-color: var(--ochre); }
+.tr-rest.tr-rest-done { background: var(--green); border-top-color: oklch(0.72 0.16 145); }
+.tr-rest.tr-rest-done .tr-rest-fill { display: none; }
+
+/* ---- history and lifts ---- */
+.tr-hrow, .tr-lrow { display: flex; flex-direction: column; gap: 3px; }
+.tr-h-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.tr-h-n { font-weight: 600; font-size: 15px; }
+.tr-h-d { font-size: 12.5px; color: var(--muted-2); white-space: nowrap; }
+.tr-h-meta { font-size: 12.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.tr-h-x { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
+.tr-pr { color: var(--ochre-text); font-weight: 600; }
+.tr-lrow { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+.tr-l-n { font-weight: 600; font-size: 14.5px; }
+.tr-l-m { font-size: 12.5px; color: var(--muted-2); grid-column: 1; }
+.tr-l-b { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tr-l-bl { display: block; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+
+/* ---- sheets ---- */
+.tr-sheet { max-width: 560px; }
+.tr-sn2 { font-size: 23px; }
+.tr-search { width: 100%; margin: 14px 0 10px; }
+.tr-picks { display: flex; flex-direction: column; margin-top: 12px; max-height: 46vh; overflow-y: auto; border-top: 1px solid var(--line-soft); }
+.tr-pick {
+  display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
+  background: none; border: 0; border-bottom: 1px solid var(--line-soft);
+  padding: 10px 2px; font: inherit; text-align: left; cursor: pointer; color: inherit;
+}
+.tr-pick:hover { background: var(--paper-soft); }
+.tr-pk-n { font-size: 14px; }
+.tr-pk-m { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.tr-own { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.tr-own .txt { width: 100%; }
+.tr-own-r { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.tr-own-r select { flex: 1; min-width: 110px; }
+.tr-recs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.tr-rec { background: var(--paper-soft); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px 10px; }
+.tr-rec-l { display: block; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.tr-rec-v { display: block; font-size: 15px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.tr-chart-h { margin-top: 18px; }
+.tr-chart { margin-top: 4px; }
+.tr-line { stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 1; }
+.tr-dot { fill: var(--ink); stroke: var(--card); stroke-width: 2; }
+.tr-end { fill: var(--ink); font-weight: 600; }
+.tr-sess, .tr-wx-s, .tr-warm { list-style: none; margin: 6px 0 0; padding: 0; }
+.tr-sess li { display: flex; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.tr-ss-d { color: var(--muted-2); min-width: 92px; }
+.tr-ss-s { font-variant-numeric: tabular-nums; }
+.tr-prs { margin-top: 12px; font-size: 13.5px; color: var(--ochre-text); font-weight: 600; line-height: 1.6; }
+.tr-wx { margin-top: 12px; }
+.tr-wx-n { font-size: 14px; color: var(--ink); padding: 0; }
+.tr-wx-s li { font-size: 13px; padding: 2px 0; font-variant-numeric: tabular-nums; }
+.tr-e1 { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.tr-warm li { padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+.tr-plates { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.tr-plate {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; height: 64px; padding: 0 6px; border-radius: 3px;
+  background: var(--ink); color: var(--paper); font-weight: 600; font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+/* Smaller plates, shorter slabs, so the stack reads like a bar end-on. */
+.tr-plate.p35, .tr-plate.p20, .tr-plate.p15 { height: 56px; }
+.tr-plate.p25, .tr-plate.p10 { height: 48px; }
+.tr-plate.p5 { height: 38px; }
+.tr-plate.p2_5, .tr-plate.p1_25 { height: 30px; min-width: 30px; font-size: 11px; }
+.tr-file { cursor: pointer; display: inline-block; }
+
+/* ---- review ---- */
+.tr-vbars { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+.tr-vkey { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.tr-vk-band { display: inline-block; width: 18px; height: 10px; background: color-mix(in oklab, var(--green) 16%, var(--card)); border-radius: 2px; }
+.tr-vk-tick { display: inline-block; width: 1px; height: 12px; background: var(--muted); margin-left: 10px; }
+.tr-vrow { display: grid; grid-template-columns: 92px 1fr 28px; gap: 10px; align-items: center; }
+.tr-vn { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-vt { position: relative; height: 14px; background: var(--paper-soft); border-radius: 2px; }
+.tr-vband { position: absolute; top: 0; bottom: 0; background: color-mix(in oklab, var(--green) 16%, var(--card)); }
+.tr-vtick { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--muted); }
+.tr-vbar {
+  position: absolute; left: 0; top: 3px; height: 8px; background: var(--ink);
+  border-radius: 0 4px 4px 0;
+}
+.tr-vv { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.tr-check { padding: 13px 16px; }
+.tr-ck-h { display: flex; align-items: center; gap: 9px; }
+.tr-ck-i {
+  flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--card);
+  background: var(--muted);
+}
+.tr-good .tr-ck-i { background: var(--green); }
+.tr-look .tr-ck-i { background: var(--ochre-text); }
+.tr-ck-t { font-weight: 600; font-size: 14.5px; flex: 1; }
+.tr-ck-w { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2); white-space: nowrap; }
+.tr-ck-b { font-size: 13.5px; line-height: 1.55; margin-top: 7px; color: var(--ink); }
+.tr-ck-r { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 0 10px; }
+.tr-ref { font-weight: 500; font-size: 12px; }
+.tr-refs dt { font-weight: 600; color: var(--ink); margin-top: 12px; border-radius: 2px; transition: background 0.4s; }
+.tr-refs dt.tr-hl { background: color-mix(in oklab, var(--ochre) 25%, var(--card)); }
+.tr-refs dd { margin: 2px 0 0; }
+
+@media (max-width: 560px) {
+  .tr-view { padding-left: 12px; padding-right: 12px; }
+  .tr-card { padding: 14px; }
+  .tr-ex { padding: 12px 10px 8px; }
+  .tr-set { grid-template-columns: 24px minmax(0, 1fr) 64px 52px 42px; gap: 5px; }
+  .tr-recs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tr-rest-in { padding: 10px 14px; }
+  .tr-rest-btn { padding: 7px 9px; }
+  .tr-vrow { grid-template-columns: 76px 1fr 24px; gap: 8px; }
+  .tr-live-h .tr-title { font-size: 18px; }
+  .tr-grow { grid-template-columns: 44px repeat(var(--n, 4), minmax(0, 1fr)); }
 }

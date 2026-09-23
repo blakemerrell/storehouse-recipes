@@ -51,6 +51,39 @@ the item is on the list; take the recipe out of the week and its tick is forgott
 an item never comes back to a later list already ticked. Ticks belong to their own
 week, so shopping for one does not tick things off in another.
 
+**Train** — a lifting block, the log you keep at the gym, and a review of it. It is
+three ideas in one tab:
+
+- *The block* is Renaissance Periodization's mesocycle. Pick two to six days, your kit
+  (full gym, barbell and dumbbells, or dumbbells only), how long you have lifted and
+  up to three muscles to bring up, and it builds a split — full body, upper/lower,
+  push/pull/legs — that trains every major muscle twice a week. Week one starts each
+  muscle near RP's MEV; after each session you rate the pump and the workload, and at
+  the next session for that muscle you say how it healed. Those answers add up to
+  next week's sets by a written-down rule (`feedback()` in `src/train.js`): usually one
+  more, two if the muscle is asking for it, none or one fewer if you are not
+  recovering, held outright if you are still sore, your joints hurt or you got
+  measurably weaker, and never past RP's MRV. Reps in reserve step 3, 2, 1, 0; the
+  last week is a deload at half the sets. Weights follow double progression: reach the
+  top of the rep range and the next session adds the smallest jump the kit allows.
+- *The logger* is Strong's. Each set shows what you did last time; empty boxes show
+  the target, and ticking a set with them empty takes it. Ticking starts a rest timer
+  (three minutes on compound lifts, ninety seconds on isolation, both changeable)
+  that beeps and buzzes when it runs out and survives the screen locking. There is a
+  warm-up ramp, a plate calculator, swap and add, records as they fall, and the screen
+  stays awake while a workout is open. Finishing a workout ticks "trained today" on My Day.
+- *The review* holds the last seven days against the research, as rules rather than
+  opinions: weekly hard sets per muscle against the 10–20 band, how often each muscle
+  is trained, reps per set against 5–30, rest measured from the gap between ticks,
+  and whether each lift's estimated max is climbing or has slid two sessions running.
+  Every line names its source, the sources are listed in full, and it says what it
+  cannot see — how close to failure you went, and anything about sleep or food.
+
+History lists every workout; Lifts gives each exercise its records and a line of its
+estimated max. Workouts are yours rather than the household's: they save on the device,
+and travel with your account when you sign in, in the same record as My Day. Settings
+has kilograms, bar weight, rest times, and export and restore of the whole log as a file.
+
 **Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 52
 pages, Around the Table is 116, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
 (how to read a recipe, temperatures and doneness, weights and swaps, what the storehouse
@@ -266,6 +299,7 @@ index.html            the app
 src/style.css         all the styling
 src/app.js            browse, plan, list, print
 src/sync.js           saving, and sharing between devices
+src/train.js          the Train tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
 data/recipes.js       generated — all 271 recipes with macros, scores and parsed ingredients
 data/nutrition.js     generated — the food table, parser and score, for the browser
@@ -311,8 +345,9 @@ node tests/run.js sync       # two phones against the live Firestore project
 Needs Playwright and nothing else — the runner serves the repository itself and drives a
 real Chromium, so what is asserted is what the app renders. 83 checks in the default run,
 covering browsing and filters, the weeks, the shopping list's names and quantities,
-writing and editing recipes, every page of the printed book, and opening the whole thing
-with the network switched off. `sync` writes to a throwaway household and deletes it
+writing and editing recipes, every page of the printed book, opening the whole thing
+with the network switched off, and Train — `tests/train.test.js` feeds the block logged
+workouts and checks the sets, weights, records, review and sync that come back. `sync` writes to a throwaway household and deletes it
 afterwards; it never touches a real one.
 
 To check recipes against standard kitchen ratios — hydration and salt in yeasted

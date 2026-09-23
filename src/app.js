@@ -658,7 +658,7 @@
     view: (function () {
       try {
         var v = localStorage.getItem('sh.view');
-        return ['browse', 'plan', 'macros', 'list', 'pantry', 'book'].indexOf(v) >= 0 ? v : 'browse';
+        return ['browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book'].indexOf(v) >= 0 ? v : 'browse';
       } catch (e) { return 'browse'; }
     })(),
     bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
@@ -1241,6 +1241,9 @@
     Object.keys(MHUSH).forEach(function (k) { delete MHUSH[k]; });
     Object.keys(MSEND).forEach(function (k) { delete MSEND[k]; });
     Object.keys(MTRAINED).forEach(function (k) { delete MTRAINED[k]; });
+    /* And the training log, which is kept beside the day in the same record
+       and has to leave with it for exactly the same reason. */
+    if (window.Train) window.Train.forget();
   }
 
   function mAccountMark() {
@@ -1691,6 +1694,7 @@
 
   function mSyncStart() {
     if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
+    if (window.Train) window.Train.attach(null);
     if (!window.Store || !window.Store.configured) {
       mAuthKnown = true;
       mSyncState('off');
@@ -1759,6 +1763,9 @@
       if (window.Store.enrol) window.Store.enrol();
       mInviteTry();
       mSyncDoc = db.collection('users').doc(uid);
+      /* Train keeps its log in the same document, under `train`, and rides
+         this listener rather than opening a second one on the same record. */
+      if (window.Train) window.Train.attach(mSyncDoc);
       /* includeMetadataChanges for the same reason as the household
          listener in sync.js: the step from a cache answer to a server answer
          changes no data, and without it that step is never heard. */
@@ -1773,6 +1780,7 @@
         mSyncState(snap.metadata && snap.metadata.fromCache ? 'connecting' : 'on');
         var live = !(snap.metadata && snap.metadata.fromCache);
         if (live) mHouseReconcile(data || {});
+        if (window.Train) window.Train.remote(data && data.train, live);
         if (!data || !data.myday) { if (live) mBootTargets(); mSyncPush(true); return; }
         if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
         if (live) mBootTargets();
@@ -1797,6 +1805,7 @@
     return window.Store.deleteAccount(function () {
       if (mSyncOff) { mSyncOff(); mSyncOff = null; }
       mSyncDoc = null;
+      if (window.Train) window.Train.attach(null);
       mForgetDay();
       return null;
     }).then(function () {
@@ -14484,7 +14493,7 @@
 
   // ------------------------------------------------------------------ views
   function renderView() {
-    ['browse', 'plan', 'macros', 'list', 'pantry', 'book'].forEach(function (v) {
+    ['browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book'].forEach(function (v) {
       $('view-' + v).classList.toggle('hide', S.view !== v);
     });
     document.querySelectorAll('.tab').forEach(function (b) {
@@ -14493,6 +14502,8 @@
     if (S.view === 'browse') renderBrowse();
     if (S.view === 'plan') renderPlan();
     if (S.view === 'macros') renderMacros();
+    /* Train draws itself — src/train.js — and is only told when to. */
+    if (S.view === 'train' && window.Train) window.Train.render();
     if (S.view === 'list') renderList();
     if (S.view === 'pantry') renderPantry();
     if (S.view === 'book') renderBook();
@@ -16106,7 +16117,7 @@
              this is the button that throws it away. */
           ask({
             title: 'Take the account\u2019s copy?',
-            body: 'My Day on this device is replaced by what your account holds. ' +
+            body: 'My Day and Train on this device are replaced by what your account holds. ' +
               'Anything logged here that has not reached the account is lost.',
             ok: 'Use the account\u2019s copy'
           }, function (yes) {
@@ -16125,7 +16136,7 @@
              it has already received. */
           ask({
             title: 'Sign out of this device?',
-            body: 'My Day is cleared from this device. Your account keeps everything ' +
+            body: 'My Day and Train are cleared from this device. Your account keeps everything ' +
               'it has already received; anything not yet sent is lost.',
             ok: 'Sign out'
           }, function (yes) {
@@ -16559,9 +16570,27 @@
     S.mpBasketOpen = false;
     // a basket left behind would silently refill the next meal you opened
     S.mpBasket = {};
+    /* A Train sheet is an entry in the same history, so the same back
+       gesture and the same × close it. */
+    if (window.Train) window.Train.sheetClosed();
     renderModal();
     restoreOpener();
   }
+
+  /* What src/train.js borrows from here. The history entry a sheet needs so
+     that back closes it, the one confirm dialog the app has, and the "I
+     trained today" tick on My Day, which a finished workout presses for
+     you. Narrow on purpose: Train keeps its own data and draws its own
+     screen; it only needs the things there must be one of. */
+  window.Hive = {
+    ask: ask,
+    openSheet: function () { pushSheet({ tr: 1 }); },
+    closeSheet: function () { close(); },
+    trained: function (k) {
+      mSetTrained(k, true);
+      if (S.view === 'macros') renderMacros();
+    }
+  };
 
   // ------------------------------------------------------------------- boot
   renderSections();
