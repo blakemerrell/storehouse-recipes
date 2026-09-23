@@ -87,12 +87,17 @@ minutes, your equipment (a gym, a barbell, dumbbells, or nothing), anything to l
 range. It does not ask whether you are a man or a woman: both gain muscle at about the same
 relative rate (Roberts 2020), so no program would change. Then it shows **three programs
 picked for you**, each with the rules that put it there and the ones that count against it,
-and a library of all six: *Start here* (full-body basics for beginners, ACSM 2009), *Build
+and a library of all nine: *Start here* (full-body basics for beginners, ACSM 2009), *Build
 muscle* (RP-style), *Bring up a body part* (chest, back, shoulders, arms, glutes or legs
-first and hardest, the rest held near maintenance), *Lean & strong* (for a fat-loss phase: a
-lower volume roof, one set at a time, a rep short of failure), *Keep strength*, and *Home &
-bodyweight* (exercises that climb a ladder — incline push-up to archer, negative to pull-up —
-when the top of the rep range comes easily). Each names the style it borrows from; none
+first and hardest, the rest held near maintenance), *Strength waves* (in the style of the
+Juggernaut Method: a training max per lift, four-week waves of tens, eights, fives and
+threes ending in one all-out set that moves the max), *Powerbuilding* (a heavy top set and
+back-offs, then RP-style accessories), *Strength & conditioning* (in the style of CrossFit:
+a few strength sets, then an AMRAP, EMOM or rounds-for-time circuit with a clock that calls
+the minutes, and the same circuit back next week as the score to beat), *Lean & strong* (for
+a fat-loss phase: a lower volume roof, one set at a time, a rep short of failure), *Keep
+strength*, and *Home & bodyweight* (exercises that climb a ladder — incline push-up to
+archer, negative to pull-up — when the top of the rep range comes easily). Each names the style it borrows from; none
 claims to be anybody's program. Your life moves it too, and the draft says how: a sport
 that works the legs hard or a physical job starts those sets lower, past sixty keeping uses
 three sets rather than two, and a beginner at home starts a rung down.

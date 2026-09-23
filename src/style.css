@@ -4960,3 +4960,15 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 .tr-tms { display: flex; flex-direction: column; gap: 6px; }
 .tr-tm { display: grid; grid-template-columns: 1fr 88px auto; align-items: center; gap: 8px; font-size: 14px; }
 .tr-tm .tr-in { width: 100%; }
+
+/* ---- Train: circuits ---- */
+.tr-mc { border-left: 3px solid var(--ochre); }
+.tr-mcl { margin: 10px 0 0; padding-left: 20px; font-size: 15px; line-height: 1.6; }
+.tr-mcl b { font-variant-numeric: tabular-nums; }
+.tr-mc-clock { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.tr-mc-t { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.tr-mc-now { font-size: 14px; font-weight: 600; color: var(--ochre-text); }
+.tr-mcs { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+.tr-mcin { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-2); font-weight: 600; }
+.tr-mcp { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 13.5px; }
+.tr-mcp .tr-ql { margin-bottom: 3px; }

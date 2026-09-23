@@ -76,7 +76,7 @@ module.exports = {
     t.ok('and each pick says why it fits', r0.why >= 1, r0.why);
     await p.click('[data-t="lib"]');
     r0 = await p.evaluate(() => document.querySelectorAll('.tr-prog').length);
-    t.ok('the library shows every program', r0 === 8, r0);
+    t.ok('the library shows every program', r0 === 9, r0);
     await p.click('[data-t="unlib"]');
     await p.click('[data-t="prog"][data-v="grow"]');
     await p.click('[data-t="o-pri"][data-v="side"]');
@@ -1109,6 +1109,90 @@ module.exports = {
     r = await p.evaluate(() => Object.values(window.Train._.state().T.wo)[0].x[0].s);
     t.ok('each set took its own weight, and the save keeps which were ramps and which was all-out',
       r.map((s) => s.w).join() === '165,195,225' && r[0].wu && r[1].wu && r[2].am && r[2].tr === 10 && r[2].r === 12, JSON.stringify(r));
+    await p.close();
+
+    // ---- conditioning: circuits ------------------------------------------------------
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const top = (o) => _.recommend(_.defaultsPr(Object.assign({ qz: 1 }, o)))[0].id;
+      const bad = [], hurt = [], kinds = [], long = [];
+      Object.keys(_.KITS).forEach((kit) => [2, 3, 4, 5].forEach((dpw) => {
+        const eq = _.KITS[kit].eq;
+        const ms = _.build({ prog: 'cond', dpw, kit, lvl: 1, min: 40 });
+        ms.days.forEach((d, i) => {
+          if (!d.mc || d.mc.mv.length < 2) bad.push(kit + dpw + ' ' + d.n + ': no circuit');
+          else d.mc.mv.forEach((m) => { if (eq.indexOf(_.MOVES[m.id].q) < 0) bad.push(kit + ' ' + m.id); });
+          if (dpw === 3) kinds.push(d.mc.k);
+          if (_.estDay(d) > 40) long.push(kit + dpw + ' ' + d.n + ' ' + _.estDay(d));
+        });
+        _.build({ prog: 'cond', dpw, kit, lvl: 1, jt: 'KAW', bk: 'f' }).days.forEach((d) => d.mc.mv.forEach((m) => {
+          const mv = _.MOVES[m.id];
+          if (/[KAW]/.test(mv.jt || '') || /F/.test(mv.bk || '')) hurt.push(kit + ' ' + m.id);
+        }));
+      }));
+      return {
+        bad, hurt, long, kinds: kinds.slice(0, 3).join(),
+        sitter: top({ goal: 'health', lvl: 1, kit: 'gym', dpw: 3, day: 'desk' }),
+        runner: top({ goal: 'health', lvl: 1, kit: 'gym', dpw: 3, hab: ['run', 'soccer'] }),
+      };
+    });
+    t.ok('every day of a conditioning block ends in a circuit, from movements the kit allows', r.bad.length === 0, r.bad.slice(0, 5).join('; '));
+    t.ok('the format turns over through the week: AMRAP, EMOM, rounds for time', r.kinds === 'amrap,emom,rft', r.kinds);
+    t.ok('a session with its circuit still fits forty minutes', r.long.length === 0, r.long.join('; '));
+    t.ok('protected knees, feet, wrists and back lose the movements that load them hard', r.hurt.length === 0, r.hurt.slice(0, 5).join(', '));
+    t.ok('feeling better from a desk, with no hard cardio: the conditioning block comes first', r.sitter === 'cond', r.sitter);
+    t.ok('but not for somebody who already runs and plays soccer', r.runner !== 'cond', r.runner);
+
+    // the score to beat, and the minutes that count
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'cond', dpw: 3, kit: 'gym', lvl: 1, min: 40 });
+      ms.id = 'cd';
+      const now = Date.now(), D = 864e5;
+      const c = ms.days[0].mc;
+      const W = (id, ago, r, x) => ({ id, st: now - ago * D, u: 'lb', ms: 'cd', w: ago > 7 ? 0 : 1, d: 0, n: 'Day A',
+        x: [{ e: ms.days[0].s[0].e, s: [{ w: 100, r: 8 }] }], fb: {}, sr: {}, mc: Object.assign({}, c, { r, x }) });
+      st.T.ms = { cd: ms }; st.T.act = 'cd'; st.T.ax = {};
+      st.T.wo = { c0: W('c0', 9, 6, 10), c1: W('c1', 2, 7, 3) };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const rv = _.review();
+      const by = {}; rv.checks.forEach((k) => { by[k.t] = k.b; });
+      return { k: c.k, circuits: by['Your circuits'], active: by['Active minutes, circuits included'],
+        last: _.plan(_.state().T.ms.cd, 2, 0).mc.last };
+    });
+    t.ok('this week’s circuit is read against last week’s', r.k === 'amrap' && /7 rounds \+ 3, up from 6 rounds \+ 10/.test(r.circuits || ''), r.circuits);
+    t.ok('and next week’s plan carries the score to beat', r.last && r.last.r === 7, JSON.stringify(r.last));
+    t.ok('circuit minutes count as vigorous activity', /circuits in your workouts 10 min/.test(r.active || '') && /worth 20 moderate minutes/.test(r.active || ''), r.active);
+
+    // on the screen: the clock, the score, the save
+    await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'cond', dpw: 3, kit: 'gym', lvl: 1, min: 40 });
+      ms.id = 'cd2';
+      st.T.ms = { cd2: ms }; st.T.act = 'cd2'; st.T.wo = {}; st.T.pr.qz = Date.now();
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-next .tr-mcp') || {}).textContent || '');
+    t.ok('the next session shows its circuit', /AMRAP 10 min/.test(r), r);
+    await p.click('[data-t="start"]');
+    await p.click('[data-t="mcgo"]');
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.mc.st -= 11 * 60000; });
+    await p.waitForTimeout(1300);
+    r = await p.evaluate(() => ({ en: !!window.Train._.state().LIVE.mc.en, clock: document.getElementById('trMcClock').textContent }));
+    t.ok('an AMRAP stops itself at the time', r.en && r.clock === '0:00', JSON.stringify(r));
+    await p.fill('[data-mc="r"]', '5');
+    await p.fill('[data-mc="x"]', '7');
+    await p.click('[data-t="finish"]');
+    r = await p.evaluate(() => document.querySelector('#trainRoot').textContent);
+    t.ok('finishing says the circuit’s score', /Circuit: 5 rounds \+ 7/.test(r), r.slice(0, 160));
+    await p.click('#trainRoot [data-t="save"]');
+    await p.waitForTimeout(150);
+    r = await p.evaluate(() => Object.values(window.Train._.state().T.wo)[0]);
+    t.ok('a workout that was only a circuit is still saved, with its score', r && r.mc && r.mc.r === 5 && r.mc.x === 7 && r.x.length === 0, JSON.stringify(r && r.mc));
     await p.close();
   },
 };

@@ -490,6 +490,12 @@
       'Periodized training \u2014 loads and reps changing on a plan \u2014 built more one-rep-max strength than the same training done the same way every week.'],
     pb14: ['Schoenfeld et al. (2014)', 'Effects of different volume-equated resistance training loading strategies on muscular adaptations in well-trained men. Journal of Strength and Conditioning Research.',
       'Heavy powerlifting-style sets and moderate bodybuilding-style sets grew muscle about the same; the heavy sets built more strength.'],
+    claudino18: ['Claudino et al. (2018)', 'CrossFit overview: systematic review and meta-analysis. Sports Medicine \u2013 Open.',
+      'CrossFit-style training improved aerobic fitness and body composition in the studies available, most of them short and small.'],
+    milanovic15: ['Milanovi\u0107, Sporis & Weston (2015)', 'Effectiveness of high-intensity interval training (HIT) and continuous endurance training for VO2max improvements: a systematic review and meta-analysis of controlled trials. Sports Medicine.',
+      'Hard intervals raised aerobic fitness at least as much as longer steady cardio, in less time.'],
+    klimek18: ['Klimek et al. (2018)', 'Are injuries more common with CrossFit training than other forms of exercise? Journal of Sport Rehabilitation.',
+      'Injury rates in CrossFit were about those of other strength and fitness training \u2014 not zero, and highest where fatigue and form part company.'],
     epley: ['Epley (1985)', 'Poundage chart. Boyd Epley Workout.',
       'Estimated one-rep max = weight × (1 + reps ÷ 30). Least trustworthy past about twelve reps.']
   };
@@ -925,7 +931,7 @@
   function isKeep(ms) { return !!ms && ms.goal === 'keep'; }
   /* Keeping and starting out are both steady: the sets hold unless a
      session says otherwise. */
-  function steady(ms) { return !!ms && (ms.goal === 'keep' || ms.goal === 'base'); }
+  function steady(ms) { return !!ms && (ms.goal === 'keep' || ms.goal === 'base' || ms.goal === 'cond'); }
   /* A steady block has no deload week — nothing accumulates at that dose —
      so its weeks are all working weeks. */
   function accOf(ms) {
@@ -946,7 +952,7 @@
     if (isKeep(ms)) return 2;
     if (ms.goal === 'base') return w < Math.ceil(n / 2) ? 3 : 2;
     // strength waves: the main lifts go by their percentages; the rest is steady
-    if (ms.goal === 'str') return 2;
+    if (ms.goal === 'str' || ms.goal === 'cond') return 2;
     if (n <= 1) return 2;
     var r = Math.round(3 * (1 - w / (n - 1)));
     return fin(ms.cap) ? Math.max(1, r) : r;
@@ -1199,8 +1205,10 @@
     var sf = setsFor(ms, Math.min(w, accOf(ms)));
     var rir = rirFor(ms, w);
     var day = ms.days[d];
+    var mc = day.mc && mcValid(day.mc) ? clean(day.mc) : null;
+    if (mc) mc.last = lastCircuit(ms.id, d);
     return {
-      w: w, d: d, n: day.n, deload: dl, rir: rir,
+      w: w, d: d, n: day.n, deload: dl, rir: rir, mc: mc,
       x: day.s.map(function (s, i) {
         if (s.m) return mainPlan(ms, s, w, d, dl);
         // a deload is no week to try the harder version
@@ -1547,6 +1555,136 @@
     3: [[7, 3, 0.75], [5, 3, 0.825], [1, 3, 0.90]]
   };
   var NEXT_WAVE = { 10: 8, 8: 5, 5: 3, 3: 10 };
+
+  /* -------------------------------------------------------------- circuits
+   *
+   * The conditioning half of a session, in the style of CrossFit: three
+   * movements, done as many rounds as you can in the time, every minute on
+   * the minute, or a set number of rounds for time. Movements are tagged the
+   * way exercises are — kit, back, joints — so a bad knee loses the jumping
+   * and a disc loses the sit-ups, and each carries the reps a round asks
+   * for somebody a year or two in. */
+  var MOVES = {
+    'air-squat': { n: 'Air squat', q: 'bw', r: 15, t: 'legs', jt: 'k' },
+    'lunge': { n: 'Alternating lunge', q: 'bw', r: 12, t: 'legs', jt: 'k' },
+    'db-swing': { n: 'Dumbbell swing', q: 'db', r: 15, t: 'legs', bk: 'f', jt: 'h' },
+    'db-step': { n: 'Dumbbell step-up (each leg)', q: 'db', r: 8, t: 'legs', jt: 'k' },
+    'glute-br': { n: 'Glute bridge', q: 'bw', r: 15, t: 'legs' },
+    'pushup': { n: 'Push-up', q: 'bw', r: 10, t: 'push', jt: 'sW' },
+    'inc-push': { n: 'Incline push-up', q: 'bw', r: 12, t: 'push', jt: 'w' },
+    'db-push-press': { n: 'Dumbbell push press', q: 'db', r: 10, t: 'push', bk: 'c', jt: 'S' },
+    'db-thruster': { n: 'Dumbbell thruster', q: 'db', r: 10, t: 'push', bk: 'c', jt: 'sk' },
+    'db-row-c': { n: 'Dumbbell row (each arm)', q: 'db', r: 10, t: 'pull', bk: 'f' },
+    'db-snatch': { n: 'Dumbbell snatch (alternating)', q: 'db', r: 12, t: 'pull', bk: 'f', jt: 'Sw' },
+    'ring-row': { n: 'Inverted row', q: 'bw', r: 10, t: 'pull', jt: 'w', gear: 1 },
+    'burpee': { n: 'Burpee', q: 'bw', r: 8, t: 'cardio', bk: 'f', jt: 'Wka' },
+    'jj': { n: 'Jumping jack', q: 'bw', r: 30, t: 'cardio', jt: 'kA' },
+    'mtn': { n: 'Mountain climber (each leg)', q: 'bw', r: 20, t: 'cardio', jt: 'w' },
+    'bear': { n: 'Bear crawl (steps)', q: 'bw', r: 20, t: 'cardio', jt: 'w' },
+    'row-cal': { n: 'Row (calories)', q: 'mc', r: 12, t: 'cardio', bk: 'f' },
+    'bike-cal': { n: 'Bike (calories)', q: 'mc', r: 12, t: 'cardio' },
+    'step-ups': { n: 'Fast step-up (each leg)', q: 'bw', r: 12, t: 'cardio', jt: 'k' },
+    'dead-bug-c': { n: 'Dead bug (each side)', q: 'bw', r: 10, t: 'core' },
+    'situp': { n: 'Sit-up', q: 'bw', r: 15, t: 'core', bk: 'F', jt: 'n' }
+  };
+  var MC_K = { amrap: 'AMRAP', emom: 'EMOM', rft: 'Rounds for time' };
+  var MC_SAY = { amrap: 'as many rounds as you can in', emom: 'every minute on the minute for', rft: 'rounds, as fast as you can, capped at' };
+  function moveEx(id) { var m = MOVES[id]; return { id: id, bk: m.bk || '', jt: m.jt || '' }; }
+
+  /* A circuit for one day of a block. The format turns over with the days
+     (AMRAP, EMOM, rounds for time), the three movements are a leg one, a push
+     or a pull, and a breathing one, and the length follows your minutes.
+     New lifters get fewer reps a round; years in, more. */
+  function circuit(di, o, eq, pf) {
+    var k = ['amrap', 'emom', 'rft'][di % 3];
+    var len = o.min && o.min <= 30 ? 8 : o.min && o.min <= 45 ? 10 : 12;
+    if (o.lvl === 0) len = Math.min(len, 10);
+    var scale = [0.7, 1, 1.25][[0, 1, 2].indexOf(o.lvl) >= 0 ? o.lvl : 1] * (k === 'emom' ? 0.6 : 1);
+    var used = {}, mv = [];
+    [['legs'], di % 2 ? ['pull', 'push'] : ['push', 'pull'], ['cardio']].forEach(function (want) {
+      var cand = Object.keys(MOVES).filter(function (id) {
+        var m = MOVES[id];
+        return want.indexOf(m.t) >= 0 && eq.indexOf(m.q) >= 0 && !used[id] && !barred(moveEx(id), pf);
+      });
+      // a fall-back for a slot nothing fits: something for the trunk
+      if (!cand.length) cand = Object.keys(MOVES).filter(function (id) {
+        return MOVES[id].t === 'core' && !used[id] && !barred(moveEx(id), pf);
+      });
+      if (!cand.length) return;
+      var cost = function (id) {
+        return want.indexOf(MOVES[id].t) * 10 + backCost(moveEx(id), pf) + (MOVES[id].gear ? 4 : 0) +
+          (MOVES[id].q === 'bw' && eq.length > 1 ? 2 : 0) +
+          // somebody new starts on the gentler versions
+          (o.lvl === 0 && (id === 'pushup' || id === 'burpee') ? 3 : 0);
+      };
+      cand.sort(function (a, b) { return cost(a) - cost(b); });
+      // anything close to the best, so the days do not all get the same three
+      var tier = cand.filter(function (id) { return cost(id) <= cost(cand[0]) + 3; });
+      var id = tier[((o.seed || 0) + di) % tier.length];
+      used[id] = 1;
+      mv.push({ id: id, r: Math.max(4, Math.round(MOVES[id].r * scale)) });
+    });
+    var c = { k: k, min: len, mv: mv };
+    if (k === 'rft') { c.rd = [3, 4, 5][[0, 1, 2].indexOf(o.lvl) >= 0 ? o.lvl : 1]; c.cap = len + 4; }
+    return c;
+  }
+  function mcValid(c) {
+    return plain(c) && !!MC_K[c.k] && fin(c.min) && c.min > 0 && c.min <= 60 && Array.isArray(c.mv) &&
+      c.mv.every(function (m) { return plain(m) && !!MOVES[m.id] && fin(m.r); });
+  }
+  function mcMinutes(c) { return c.k === 'rft' ? (fin(c.cap) ? c.cap : c.min) : c.min; }
+  function mcSay(c) {
+    return MC_K[c.k] + ' ' + (c.k === 'rft' ? c.rd + ' rounds, ' + c.cap + '-minute cap' : c.min + ' min') + ': ' +
+      c.mv.map(function (m) { return m.r + ' ' + MOVES[m.id].n.toLowerCase(); }).join(', ');
+  }
+  /* A circuit's score in words, and which of two is better: more rounds,
+     more minutes done, or less time. */
+  function mcScore(s) {
+    if (!s) return '';
+    if (s.k === 'amrap' && fin(s.r)) return s.r + ' round' + (s.r === 1 ? '' : 's') + (s.x ? ' + ' + s.x : '');
+    if (s.k === 'emom' && fin(s.done)) return s.done + ' of ' + s.min + ' minutes';
+    if (s.k === 'rft' && fin(s.sec)) return clock(s.sec) + (fin(s.cap) && s.sec >= s.cap * 60 ? ' (at the cap)' : '');
+    return '';
+  }
+  function mcBetter(a, b) {
+    if (!a || !b || a.k !== b.k) return 0;
+    var v = function (s) { return s.k === 'amrap' ? (s.r || 0) * 1000 + (s.x || 0) : s.k === 'emom' ? s.done || 0 : -(s.sec || 1e9); };
+    return v(a) > v(b) ? 1 : v(a) < v(b) ? -1 : 0;
+  }
+  /* The last time this day's circuit was done, before `before`. */
+  function lastCircuit(msId, d, before) {
+    var list = ix().list;
+    for (var i = list.length - 1; i >= 0; i--) {
+      var w = list[i];
+      if (w.ms === msId && w.d === d && w.mc && mcScore(w.mc) && (!before || w.st < before)) return w.mc;
+    }
+    return null;
+  }
+
+  var COND_SPLITS = {
+    2: { n: 'Strength & conditioning', days: [
+      ['Day A', ['quads/c/squat', 'chest/c/flat', 'back/c/horiz']],
+      ['Day B', ['hams/c/hinge', 'front/c/press', 'back/c/vert']]
+    ] },
+    3: { n: 'Strength & conditioning', days: [
+      ['Day A', ['quads/c/squat', 'chest/c/flat', 'back/c/horiz']],
+      ['Day B', ['hams/c/hinge', 'front/c/press', 'back/c/vert']],
+      ['Day C', ['quads/c/single', 'chest/c/incline', 'back/c/horiz']]
+    ] },
+    4: { n: 'Strength & conditioning', days: [
+      ['Day A', ['quads/c/squat', 'chest/c/flat', 'back/c/horiz']],
+      ['Day B', ['hams/c/hinge', 'front/c/press', 'back/c/vert']],
+      ['Day C', ['quads/c/single', 'chest/c/incline', 'back/c/horiz']],
+      ['Day D', ['glutes/c/thrust', 'chest/c/flat', 'back/c/vert']]
+    ] },
+    5: { n: 'Strength & conditioning', days: [
+      ['Day A', ['quads/c/squat', 'chest/c/flat', 'back/c/horiz']],
+      ['Day B', ['hams/c/hinge', 'front/c/press', 'back/c/vert']],
+      ['Day C', ['quads/c/single', 'chest/c/incline', 'back/c/horiz']],
+      ['Day D', ['glutes/c/thrust', 'chest/c/flat', 'back/c/vert']],
+      ['Day E', ['quads/c/squat', 'front/c/press', 'back/c/horiz']]
+    ] }
+  };
   var PHASE = ['accumulation: more sets, moderate weight', 'intensification: fewer sets, heavier',
     'realization: work up to one set for as many good reps as you can'];
 
@@ -1589,6 +1727,10 @@
       dpw: [3, 4], acc: [3, 4, 5], dAcc: 4, refs: ['pb14', 'rp21'],
       s: 'Each session opens with one heavy top set of a big lift and three lighter back-off sets, then RP-style accessory work that climbs week to week.',
       who: 'Wanting to be both stronger and bigger, a year or more in.' },
+    cond: { n: 'Strength & conditioning', sty: 'In the style of CrossFit', mode: 'cond',
+      dpw: [2, 3, 4, 5], acc: [4, 6, 8], dAcc: 6, refs: ['claudino18', 'milanovic15', 'klimek18'],
+      s: 'A few strength sets, then a short, hard circuit \u2014 as many rounds as you can, every minute on the minute, or rounds for time \u2014 from movements that suit your kit and your joints. Each circuit comes back the next week, so there is a score to beat.',
+      who: 'Wanting fitness as much as muscle: harder breathing, less time.' },
     keep: { n: 'Keep strength', sty: 'A maintenance block', mode: 'keep',
       dpw: [2, 3], acc: [6, 8, 10], dAcc: 8, refs: ['bickel11', 'spiering21', 'iversen21'],
       s: 'Full body, two or three days, a few hard sets of each movement, paired to fit short sessions. The same every week: no climb, no deload.',
@@ -1598,7 +1740,7 @@
       s: 'Full body with what you have at home. When an exercise gets easy it moves you up to a harder version, which is how bodyweight keeps working.',
       who: 'Training at home, with a pair of dumbbells or with nothing.' }
   };
-  var PROG_ORDER = ['start', 'grow', 'focus', 'waves', 'power', 'lean', 'keep', 'home'];
+  var PROG_ORDER = ['start', 'grow', 'focus', 'waves', 'power', 'cond', 'lean', 'keep', 'home'];
   /* The days a program runs on, given the days you have: the nearest it
      offers, never more than you have unless it cannot run on fewer. */
   function fitDpw(P, dpw) {
@@ -1614,6 +1756,8 @@
    * exercises, five to warm up. Close enough to plan a lunch hour around. */
   function estDay(day, sets) {
     var t = 5, groups = {};
+    // a circuit is its own minutes, and two to set it up
+    if (day.mc && mcValid(day.mc)) t += mcMinutes(day.mc) + 2;
     var straight = function (sl, n) { return n * 0.75 + Math.max(0, n - 1) * restFor(lib(sl.e)) / 60 + 1; };
     day.s.forEach(function (sl, i) {
       var n = sets ? sets[i] : sl.n;
@@ -1703,7 +1847,7 @@
   function build(o) {
     var pid = PROGS[o.prog] ? o.prog : o.goal === 'keep' ? 'keep' : 'grow';
     var P = PROGS[pid];
-    var mode = P.mode, keep = mode === 'keep', base = mode === 'base', str = mode === 'str';
+    var mode = P.mode, keep = mode === 'keep', base = mode === 'base', str = mode === 'str', cond = mode === 'cond';
     var wave = WAVES[o.wave] ? Number(o.wave) : 10;
     var dpw = fitDpw(P, [2, 3, 4, 5, 6].indexOf(o.dpw) >= 0 ? o.dpw : 4);
     var fx = pid === 'focus' ? FOCUS[o.fx] || FOCUS.chest : null;
@@ -1714,6 +1858,7 @@
        uses those where the days allow. */
     var homeDays = HOME_SPLITS[dpw] && (pid === 'home' || (atHome(eq) && (pid === 'grow' || pid === 'lean')));
     var split = keep ? KEEP_SPLITS[dpw] : base ? START_SPLITS[dpw] : str ? STR_SPLITS[dpw] : P.pb ? PB_SPLITS[dpw]
+      : cond ? COND_SPLITS[dpw]
       : homeDays ? HOME_SPLITS[dpw] : SPLITS[dpw];
     var pf = { bk: o.bk || '', jt: o.jt || '', avoid: o.avoid || [] };
     var used = {}, downs = [];
@@ -1768,6 +1913,13 @@
       var older = o.age === '60';
       days.forEach(function (day) { day.s.forEach(function (sl) { sl.n = dpw >= 3 && !older ? 2 : 3; }); });
       if (older && dpw >= 3) notes.push('Three sets of everything, not two: past sixty, keeping muscle took about a third of the training that built it, where younger lifters needed a ninth.');
+    } else if (cond) {
+      // steady strength, three sets, and a circuit a day; no deload at this dose
+      acc = [4, 6, 8].indexOf(o.acc) >= 0 ? o.acc : 6;
+      days.forEach(function (day, di) {
+        day.s.forEach(function (sl) { sl.n = 3; });
+        day.mc = circuit(di, o, eq, pf);
+      });
     } else if (str) {
       // one wave: three working weeks and a deload; the accessories steady at three sets
       acc = 3;
@@ -2015,7 +2167,7 @@
        held muscles by the keeping evidence: neither is failing for being
        under ten sets. */
     var base = !!ms && ms.goal === 'base';
-    var str = !!ms && ms.goal === 'str';
+    var str = !!ms && (ms.goal === 'str' || ms.goal === 'cond');
     var fxs = ms && Array.isArray(ms.fx) ? ms.fx : [];
     var held = function (k) { return keep || base || str || (fxs.length > 0 && fxs.indexOf(k) < 0); };
 
@@ -2032,7 +2184,8 @@
         b: 'The review reads the last week of finished workouts. Log one and this fills in.', refs: [] });
       var ac0 = activityCheck(now, 0);
       if (ac0) checks.push(ac0);
-      return { rows: rows, checks: checks, n: 0, prog: progress(now), label: win.label, keep: keep, base: base, str: str };
+      return { rows: rows, checks: checks, n: 0, prog: progress(now), label: win.label, keep: keep, base: base, str: str,
+        cond: !!ms && ms.goal === 'cond' };
     }
 
     /* A week that is not over cannot be graded as a week. Half of one, with
@@ -2057,6 +2210,16 @@
           ? names(thin) + (thin.length > 1 ? ' are' : ' is') + ' under three hard sets this week. A beginner needs little, but it has to be done.'
           : 'Every muscle got three or more hard sets. That is plenty while you are new: the first year grows on a fraction of what a trained lifter needs, which is why the sets are not climbing.',
       refs: ['acsm09', 'vol17']
+    });
+    else if (str && ms.goal === 'cond') checks.push({
+      st: young ? 'info' : thin.length ? 'look' : 'good',
+      t: 'Enough strength beside the circuits?',
+      b: young
+        ? notYet + ' A few steady, heavy sets a muscle a week keep and build strength beside the circuits; read this again once a full week is in.'
+        : thin.length
+          ? names(thin) + (thin.length > 1 ? ' are' : ' is') + ' under three hard sets this week. The circuits build fitness; strength still needs its own heavy sets.'
+          : 'Every muscle got three or more hard sets beside the circuits: the strength half of the week is covered.',
+      refs: ['spiering21', 'claudino18']
     });
     else if (str) checks.push({
       st: young ? 'info' : thin.length ? 'look' : 'good',
@@ -2142,7 +2305,9 @@
     checks.push({
       st: 'info',
       t: 'How close to failure',
-      b: str
+      b: str && ms.goal === 'cond'
+        ? 'The strength sets stop about two reps short of failure; the circuits are hard on purpose, but a rep done badly because you are out of breath is the one to leave out. This app cannot see how close you went, so it does not grade it.'
+        : str
         ? 'The main lifts go by percentages of your training max, with one all-out set a wave; everything else stops about two reps short of failure. This app cannot see how close you went on those \u2014 only you can \u2014 so it does not grade it.'
         : base
         ? 'Starting out asks for three reps in reserve, easing to two. This app cannot see how close you went \u2014 only you can \u2014 so it does not grade it. Near enough to failure to count, far enough to keep your form while the movements are new.'
@@ -2150,7 +2315,7 @@
         ? 'Keeping asks for about two reps in reserve on the big lifts and one on the small ones. This app cannot see how close you went \u2014 only you can \u2014 so it does not grade it. What keeps strength is the load staying heavy; going to failure adds little but fatigue.'
         : 'The block asks for ' + (ms ? 'reps in reserve stepping from 3 to 0' : 'sets ending 0\u20133 reps short of failure') +
         '. This app cannot see how close you went \u2014 only you can \u2014 so it does not grade it. Growth improves the closer a set ends to failure, and the last rep or two add little but fatigue.',
-      refs: str ? ['jm', 'rir16'] : base ? ['acsm09', 'rir16'] : keep ? ['spiering21', 'fail23', 'rir16'] : ['fail24', 'fail23', 'rir16']
+      refs: str && ms.goal === 'cond' ? ['klimek18', 'rir16'] : str ? ['jm', 'rir16'] : base ? ['acsm09', 'rir16'] : keep ? ['spiering21', 'fail23', 'rir16'] : ['fail24', 'fail23', 'rir16']
     });
 
     var sore = {}, joints = [];
@@ -2231,6 +2396,28 @@
       });
     }
 
+    /* Circuits, against the last time the same one was done: the score to
+       beat is the progression. */
+    var mcs = wos.filter(function (wo) { return wo.mc && mcValid(wo.mc) && mcScore(wo.mc); });
+    if (mcs.length) {
+      var cmp = mcs.map(function (wo) {
+        var was = wo.ms ? lastCircuit(wo.ms, wo.d, wo.st) : null;
+        return { n: wo.n, now: wo.mc, was: was, b: mcBetter(wo.mc, was) };
+      });
+      var downs = cmp.filter(function (c) { return c.was && c.b < 0; }).length;
+      checks.push({
+        st: downs > cmp.length / 2 ? 'look' : 'good',
+        t: 'Your circuits',
+        b: cmp.map(function (c) {
+          return c.n + ' ' + MC_K[c.now.k] + ': ' + mcScore(c.now) +
+            (c.was ? (c.b > 0 ? ', up from ' : c.b < 0 ? ', down from ' : ', the same as ') + mcScore(c.was) : ', the first time');
+        }).join('; ') + '. ' +
+          (downs > cmp.length / 2 ? 'Mostly down on last time. A bad week happens; two running usually means the week outside the gym is taking more than usual \u2014 sleep first.'
+            : 'The same circuit comes back each week, so this is the plainest measure of fitness the app has. Hard intervals like these built aerobic fitness at least as well as longer steady cardio in the research.'),
+        refs: ['milanovic15', 'claudino18']
+      });
+    }
+
     var prog = progress(now);
     if (prog.n && keep) {
       checks.push({
@@ -2258,21 +2445,38 @@
         refs: ['rp21', 'epley', 'deload24']
       });
     }
-    return { rows: rows, checks: checks, n: wos.length, prog: prog, label: win.label, keep: keep, base: base, str: str };
+    return { rows: rows, checks: checks, n: wos.length, prog: prog, label: win.label, keep: keep, base: base, str: str,
+      cond: !!ms && ms.goal === 'cond' };
   }
 
   /* Cardio, from what you logged outside the gym, against the WHO's 150 to
      300 moderate minutes a week — and the two strength days it also asks
      for, which the workouts supply. Shown once you have said you golf or
      walk, or have logged either. */
+  /* Minutes of circuit in the workouts of the last seven days: vigorous
+     by any measure, so they count twice toward the WHO's 150 too. */
+  function circuitMinutes(now) {
+    var mins = 0;
+    ix().list.forEach(function (wo) {
+      if (wo.st < now - 7 * DAY_MS || wo.st > now || !wo.mc || !mcValid(wo.mc)) return;
+      var c = wo.mc;
+      mins += c.k === 'rft' ? (fin(c.sec) ? Math.min(c.sec / 60, mcMinutes(c)) : 0) : c.k === 'emom' ? (fin(c.done) ? c.done : 0) : (fin(c.r) ? c.min : 0);
+    });
+    return Math.round(mins);
+  }
   function activityCheck(now, lifts) {
     var wk = axWeek(now);
+    var cm = circuitMinutes(now);
+    if (cm) {
+      wk.min += cm; wk.mv += cm * 2;
+      wk.by['circuits in your workouts'] = cm;
+    }
     if (!T.pr.hab.length && !wk.min) return null;
     var parts = Object.keys(wk.by).map(function (k) { return k + ' ' + dur(wk.by[k] * 60000); });
     var ok = wk.mv >= 150;
     return {
       st: ok ? 'good' : wk.min ? 'look' : 'info',
-      t: 'Active minutes outside the gym',
+      t: cm ? 'Active minutes, circuits included' : 'Active minutes outside the gym',
       b: (wk.min ? dur(wk.min * 60000) + ' in the last seven days (' + parts.join(', ') + '), worth ' + wk.mv + ' moderate minutes'
           : 'Nothing logged in the last seven days') +
         ' against the 150 a week the WHO recommends. A vigorous minute counts as two' +
@@ -2385,7 +2589,8 @@
       sr: {}, fb: {}, rs: null, keep: steady(ms) || ms.goal === 'str' ? 1 : 0,
       ph: ms.goal === 'str' && !p.deload ? 'Main lift by the numbers: ' + PHASE[Math.min(w, 2)] + '. The rest about two reps short of failure.'
         : ms.pb && !p.deload ? 'Top set about two reps short of failure, back-offs lighter; then ' + rirSay(p.rir) + '.' : '',
-      fx: Array.isArray(ms.fx) ? ms.fx.slice() : []
+      fx: Array.isArray(ms.fx) ? ms.fx.slice() : [],
+      mc: p.mc ? Object.assign(clean(p.mc), { st: 0, en: 0, rm: 0, r: '', x: '', done: '', sec: '' }) : null
     };
   }
 
@@ -2633,6 +2838,7 @@
     var el = $('trElapsed');
     if (el) el.textContent = clock((Date.now() - LIVE.st) / 1000);
     drawRest();
+    mcTick();
   }
 
   /* Finishing: what is kept, and what is dropped. A set never ticked was never
@@ -2653,12 +2859,14 @@
       sr: LIVE.sr || {}, fb: LIVE.fb || {}
     };
     if (fin(LIVE.bk)) wo.bk = LIVE.bk;
+    var mc = mcDone(LIVE.mc);
+    if (mc) wo.mc = mc;
     return clean(wo);
   }
 
   function saveWorkout() {
     var wo = finished();
-    if (!wo.x.length) return false;
+    if (!wo.x.length && !wo.mc) return false;
     T.wo[wo.id] = wo;
     stamp('wo', wo.id);
     setLive(null);
@@ -2879,7 +3087,9 @@
           ' · ' + rirStr(s.rir) + '</div>' +
         (cue ? '<div class="tr-cue">' + esc(cue) + '</div>' : '') +
         (why ? '<div class="tr-why">' + esc(mname(ex.m) + ': ' + why) + '</div>' : '') + '</li>';
-    }).join('') + '</ol>';
+    }).join('') + '</ol>' +
+      (p.mc ? '<div class="tr-mcp"><span class="tr-ql">Then the circuit</span><div>' + esc(mcSay(p.mc)) + '</div>' +
+        (p.mc.last ? '<div class="tr-why">Last time: ' + esc(mcScore(p.mc.last)) + '. Beat it.</div>' : '') + '</div>' : '');
   }
 
   /* ------------------------------------------------- outside the gym
@@ -3075,12 +3285,12 @@
    * a model: each reason below is one rule, said back to you, and the ones
    * that count against a program are shown too. */
   var FIT = {
-    muscle: { grow: 10, focus: 7, power: 6, start: 5, home: 5, lean: 3, keep: 2, waves: 2 },
-    strength: { waves: 10, power: 8, grow: 6, start: 6, keep: 5, home: 4, focus: 3, lean: 3 },
-    both: { power: 10, grow: 9, waves: 7, focus: 6, start: 5, home: 5, keep: 4, lean: 3 },
-    keep: { keep: 10, start: 4, home: 4, grow: 3, lean: 3, waves: 3, power: 3, focus: 2 },
-    lean: { lean: 10, keep: 5, start: 5, home: 5, grow: 4, waves: 3, power: 3, focus: 2 },
-    health: { start: 8, keep: 8, home: 6, grow: 4, lean: 4, focus: 1, waves: 1, power: 1 }
+    muscle: { grow: 10, focus: 7, power: 6, start: 5, home: 5, lean: 3, cond: 3, keep: 2, waves: 2 },
+    strength: { waves: 10, power: 8, grow: 6, start: 6, keep: 5, home: 4, focus: 3, lean: 3, cond: 3 },
+    both: { power: 10, grow: 9, waves: 7, focus: 6, start: 5, home: 5, keep: 4, cond: 4, lean: 3 },
+    keep: { keep: 10, cond: 6, start: 4, home: 4, grow: 3, lean: 3, waves: 3, power: 3, focus: 2 },
+    lean: { lean: 10, cond: 8, keep: 5, start: 5, home: 5, grow: 4, waves: 3, power: 3, focus: 2 },
+    health: { cond: 9, start: 8, keep: 8, home: 6, grow: 4, lean: 4, focus: 1, waves: 1, power: 1 }
   };
   var FIT_WHY = {
     'muscle:grow': 'Built for exactly what you asked for: more muscle.',
@@ -3100,7 +3310,10 @@
     'lean:keep': 'A steady dose that keeps your strength while you eat less.',
     'health:start': 'Two or three full-body sessions a week covers the strength half of the health guidelines.',
     'health:keep': 'Short, steady sessions that cover the strength half of the health guidelines.',
-    'health:home': 'Covers the strength half of the health guidelines without a gym.'
+    'health:home': 'Covers the strength half of the health guidelines without a gym.',
+    'health:cond': 'Strength and hard breathing in one short session: both halves of the health guidelines.',
+    'lean:cond': 'Short, hard circuits add to what you burn and keep you strong; the eating still does most of the losing.',
+    'keep:cond': 'Keeps your strength, and adds the fitness side, in short sessions.'
   };
   function recommend(pr) {
     var lvl = pr.lvl, kit = pr.kit, dpw = pr.dpw;
@@ -3147,6 +3360,16 @@
         else if (P.mode === 'grow' && dpw <= 3) add(-1, pr.min + '-minute sessions on ' + dpw + ' days leave the sets little room to climb.', true);
       }
       if (pr.age === '60' && (id === 'start' || id === 'keep')) add(1, 'Lifting heavy stays safe and useful past sixty \u2014 for your bones too.');
+      if (id === 'cond') {
+        var hard = pr.hab.filter(function (h) { return HABITS[h] && HABITS[h].lv === 'v'; });
+        if (hard.length) {
+          add(-2, 'You already get hard cardio from ' + names(hard.map(function (h) { return { n: HABITS[h].n.toLowerCase() }; })) + '; this would pile more on.', true);
+        } else if (pr.day === 'desk' || !pr.hab.length) {
+          add(2, 'No hard cardio in your week yet: the circuits count as vigorous minutes toward the WHO\u2019s 150.');
+        }
+        if (/[KA]/.test(pr.jt)) add(-1, 'Jumping is left out for your ' + (pr.jt.indexOf('K') >= 0 ? 'knees' : 'feet') + ', which narrows the circuits.', true);
+        if (lvl === 0) add(-2, 'Circuits reward knowing the movements; the basics first.', true);
+      }
       if ((id === 'waves' || id === 'power') && /[fc]/.test(pr.bk)) {
         add(id === 'waves' ? -2 : -1, 'With your back, the squat and deadlift give way to lifts that spare it \u2014 fine, but this is built around them.', true);
       }
@@ -3156,8 +3379,9 @@
       } else if (legSport.length && P.mode === 'grow') {
         add(0, 'Starts leg sets lower for your ' + names(legSport.map(function (h) { return { n: HABITS[h].n.toLowerCase() }; })) + '.');
       }
-      return { id: id, sc: sc, why: why, o: order };
-    }).sort(function (a, b) { return b.sc - a.sc || a.o - b.o; });
+      return { id: id, sc: sc, why: why, o: order, fit: FIT[pr.goal][id] || 0 };
+    // a tie goes to the program built for what you asked for
+    }).sort(function (a, b) { return b.sc - a.sc || b.fit - a.fit || a.o - b.o; });
   }
 
   /* What every program here will do for you, said once above them all. */
@@ -3212,7 +3436,7 @@
     return '<div class="tr-card">' +
       '<div class="tr-eyebrow">All programs</div>' +
       '<div class="tr-title">Every program, and who each is for</div>' +
-      '<div class="tr-note">In order of fit, from your answers. Each borrows the style of a well-known way of training; none of them is anybody\u2019s program. Conditioning circuits are being built next.</div>' +
+      '<div class="tr-note">In order of fit, from your answers. Each borrows the style of a well-known way of training; none of them is anybody\u2019s program.</div>' +
       '<div class="tr-acts"><button class="tr-lnk" data-t="unlib">← Back to your picks</button></div>' +
     '</div>' +
     recs.map(function (r, i) { return progCard(r, i === 0 ? 'Best match' : ''); }).join('');
@@ -3236,6 +3460,7 @@
     if (o.prog === 'waves') return o.dpw >= 4 ? 'One main lift a day: squat, bench, deadlift, press.'
       : o.dpw === 3 ? 'Squat, bench and deadlift days; the press as accessory work.' : 'Two main lifts a day.';
     if (o.prog === 'power') return o.dpw >= 4 ? 'Upper / lower, each opening with a main lift.' : 'Full body, each day opening with a main lift.';
+    if (o.prog === 'cond') return 'Three strength lifts, then a circuit, every day.';
     var sn = SPLITS[o.dpw] ? SPLITS[o.dpw].n : '';
     return o.prog === 'focus' && o.fx ? sn + ', with ' + FOCUS[o.fx].n.toLowerCase() + ' first.' : sn + (P ? '' : '');
   }
@@ -3279,6 +3504,11 @@
         '<p><b>The wave.</b> Four weeks. Week one, accumulation: many sets at a moderate share of the max. Week two, intensification: fewer, heavier. Week three, realization: two ramp sets, then one set for as many good reps as you can. Week four, a deload. The waves go tens, eights, fives, threes: more reps and more sets early, heavier and fewer later.</p>' +
         '<p><b>The all-out set.</b> Every rep past its target adds a step to that lift\u2019s max for the next wave \u2014 the smallest jump on a press, twice that on a squat or deadlift \u2014 and every rep short takes one off, five steps at most either way. Stop the set when a rep slows to a grind; the method wants hard, not ugly.</p>' +
         '<p><b>Everything else.</b> Three steady sets of each accessory, about two reps short of failure, to keep the muscle behind the lifts. Changing the load on a plan like this built more strength than doing the same thing every week.</p>';
+    } else if (mode === 'cond') {
+      out += '<p><b>Strength first.</b> A squat or hinge, a press and a pull, three steady sets each about two reps short of failure, moved by double progression. That is the part that keeps and builds strength.</p>' +
+        '<p><b>Then the circuit.</b> Three movements \u2014 a leg one, a push or pull, and one that gets you breathing \u2014 done one of three ways, turning over through the week: as many rounds as you can in the time (AMRAP), every minute on the minute (EMOM), or a set number of rounds for time. The app keeps the clock, calls each minute of an EMOM, and beeps.</p>' +
+        '<p><b>The score to beat.</b> Each day\u2019s circuit comes back the next week, so the progression is plain: a round more, a minute more done, or a faster time. The review reads it back, and the minutes count as vigorous activity toward the WHO\u2019s 150.</p>' +
+        '<p><b>Safety.</b> Injury rates in CrossFit-style training look like other strength and fitness training, and they rise where fatigue and form part company \u2014 so a rep done badly because you are out of breath is the one to leave out. Movements that load what you protect are left out; jumping goes if your knees or feet are on the list.</p>';
     } else if (mode === 'base') {
       out += '<p><b>Sets.</b> Two or three of each exercise, the same every week. A beginner grows and gets stronger on far less than a trained lifter needs, so the time goes into doing each rep well rather than doing more of them.</p>' +
         '<p><b>Effort.</b> Three reps short of failure for the first half, while the movements are new, then two. Close enough to count, far enough to keep the form.</p>' +
@@ -3324,7 +3554,8 @@
         (golf ? 'Golf loads your back too — address is a forward bend and the swing a twist at speed — which is why the core work resists rotation. ' : '') +
         'The app does not know your calendar, so a hard leg session the day before a match or a long hike is yours to move.</p>';
     }
-    out += '<p class="tr-fine">' + (mode === 'str' ? 'The wave\u2019s shape is in the style of the Juggernaut Method; the percentages are this app\u2019s round numbers in that shape, not the book\u2019s tables. The review reads your all-out sets.'
+    out += '<p class="tr-fine">' + (mode === 'cond' ? 'In the style of CrossFit, not CrossFit\u2019s own programming. The research on it is mostly short and small; the review watches your scores rather than trusting it.'
+      : mode === 'str' ? 'The wave\u2019s shape is in the style of the Juggernaut Method; the percentages are this app\u2019s round numbers in that shape, not the book\u2019s tables. The review reads your all-out sets.'
       : mode === 'keep' ? 'The maintenance doses come from studies of groups, not of you — the review watches whether your strength actually holds.'
       : mode === 'base' ? 'Based on the American College of Sports Medicine’s advice for people starting out. The review watches whether your lifts are going up.'
       : 'The landmarks are Renaissance Periodization’s published estimates, not measurements of you. That is what the feedback is for.') +
@@ -3397,6 +3628,7 @@
             '</div>';
           }).join('') +
           '<button class="tr-add" data-t="dadd" data-d="' + d + '">+ Add an exercise</button>' +
+          (day.mc && mcValid(day.mc) ? '<div class="tr-mcp"><span class="tr-ql">Then the circuit</span><div>' + esc(mcSay(day.mc)) + '</div></div>' : '') +
         '</div>';
       }).join('') +
       tmHTML(ms) +
@@ -3455,11 +3687,96 @@
       var m = musOf(x.e);
       if (lastOfMuscle(i) && fbReady(m)) html += fbCard(m);
     });
+    if (L.mc && mcValid(L.mc)) html += mcCard(L.mc);
     html += '<div class="tr-acts tr-foot">' +
       '<button class="ghost" data-t="addex">+ Add an exercise</button>' +
       '<button class="ghost danger" data-t="discard">Discard workout</button>' +
     '</div>';
     return html;
+  }
+
+  /* The circuit: what to do, a clock, and the score. The clock counts down
+     an AMRAP or an EMOM and up for rounds for time; an EMOM calls each
+     minute's movement and beeps as the minute turns. */
+  function mcEl(c) { return c.st ? Math.floor(((c.en || Date.now()) - c.st) / 1000) : 0; }
+  function mcClockText(c) {
+    var el = mcEl(c);
+    return c.k === 'rft' ? clock(el) : clock(Math.max(0, mcMinutes(c) * 60 - el));
+  }
+  function mcNowText(c) {
+    if (c.k !== 'emom' || !c.st || c.en) return '';
+    var mi = Math.floor(mcEl(c) / 60), m = c.mv[mi % c.mv.length];
+    return 'Minute ' + Math.min(mi + 1, c.min) + ' of ' + c.min + ': ' + m.r + ' ' + MOVES[m.id].n.toLowerCase();
+  }
+  function mcCard(c) {
+    var run = c.st && !c.en;
+    var inp = function (f, ph, label, w) {
+      return '<label class="tr-mcin"><span>' + label + '</span><input class="tr-in" data-mc="' + f + '" inputmode="' +
+        (f === 'sec' ? 'text' : 'numeric') + '" autocomplete="off" placeholder="' + esc(ph) + '" value="' + esc(c[f]) + '"' +
+        (w ? ' style="width:' + w + 'px"' : '') + '></label>';
+    };
+    return '<div class="tr-card tr-mc">' +
+      '<div class="tr-eyebrow">Circuit \u00b7 ' + MC_K[c.k] + '</div>' +
+      '<div class="tr-title">' + (c.k === 'rft' ? c.rd + ' rounds for time' : c.min + ' minutes, ' +
+        (c.k === 'amrap' ? 'as many rounds as you can' : 'every minute on the minute')) + '</div>' +
+      '<ol class="tr-mcl">' + c.mv.map(function (m) { return '<li><b>' + m.r + '</b> ' + esc(MOVES[m.id].n) + '</li>'; }).join('') + '</ol>' +
+      '<div class="tr-hint">' + (c.k === 'emom' ? 'Minute one, the first movement; minute two, the second; and round again. Rest whatever is left of each minute.'
+        : c.k === 'rft' ? 'Stop at ' + c.cap + ' minutes wherever you have got to.' : 'Move steadily; a pace you can hold beats a sprint and a stop.') +
+        ' Hard, but every rep a good one.</div>' +
+      (c.last ? '<div class="tr-sub">Last time: ' + esc(mcScore(c.last)) + '</div>' : '') +
+      '<div class="tr-mc-clock"><span id="trMcClock" class="tr-mc-t" role="timer">' + mcClockText(c) + '</span>' +
+        '<span id="trMcNow" class="tr-mc-now">' + esc(mcNowText(c)) + '</span></div>' +
+      '<div class="tr-acts">' + (!c.st ? '<button class="btn-primary" data-t="mcgo">Start the clock</button>'
+        : run ? '<button class="ghost" data-t="mcstop">' + (c.k === 'rft' ? 'Done \u2014 stop the clock' : 'Stop') + '</button>'
+        : '<button class="tr-lnk" data-t="mcreset">Reset the clock</button>') + '</div>' +
+      '<div class="tr-mcs">' + (c.k === 'amrap' ? inp('r', '0', 'Rounds', 64) + inp('x', '0', '+ reps', 64)
+        : c.k === 'emom' ? inp('done', String(c.min), 'Minutes done', 64) : inp('sec', 'mm:ss', 'Time', 84)) + '</div>' +
+    '</div>';
+  }
+  function mcTick() {
+    var c = LIVE && LIVE.mc;
+    if (!c || !c.st || c.en) return;
+    var el = mcEl(c), total = mcMinutes(c) * 60;
+    if (el >= total) {
+      c.en = c.st + total * 1000;
+      if (c.k === 'rft' && !c.sec) c.sec = clock(total);
+      if (c.k === 'emom' && !c.done) c.done = String(c.min);
+      saveLive(); ring(); draw();
+      return;
+    }
+    if (c.k === 'emom') {
+      var mi = Math.floor(el / 60);
+      if (mi > (c.rm || 0)) { c.rm = mi; saveLive(); ring(); }
+    }
+    var ck = $('trMcClock'), nw = $('trMcNow');
+    if (ck) ck.textContent = mcClockText(c);
+    if (nw) nw.textContent = mcNowText(c);
+  }
+  /* "12:34", or "12" meaning minutes. */
+  function parseClock(v) {
+    var s = String(v || '').trim();
+    if (!s) return null;
+    var m = s.match(/^(\d{1,3}):(\d{1,2})$/);
+    if (m) return Number(m[1]) * 60 + Number(m[2]);
+    var n = numIn(s);
+    return n !== null ? Math.round(n * 60) : null;
+  }
+  /* The circuit as it was done, for the log: its shape and its score. */
+  function mcDone(c) {
+    if (!c || !mcValid(c)) return null;
+    var sc = { k: c.k, min: c.min, mv: c.mv.map(function (m) { return { id: m.id, r: m.r }; }) };
+    if (c.k === 'rft') {
+      sc.rd = c.rd; sc.cap = c.cap;
+      var sec = parseClock(c.sec);
+      if (sec !== null && sec > 0) sc.sec = Math.min(sec, 3600);
+    } else if (c.k === 'amrap') {
+      var r = numIn(c.r);
+      if (r !== null && r >= 0) { sc.r = Math.min(999, Math.round(r)); sc.x = Math.max(0, Math.round(numIn(c.x) || 0)); }
+    } else {
+      var dn = numIn(c.done);
+      if (dn !== null && dn >= 0) sc.done = Math.min(c.min, Math.round(dn));
+    }
+    return mcScore(sc) ? sc : null;
   }
 
   function exCard(x, i, label) {
@@ -3557,6 +3874,7 @@
           '<span class="tr-h-d">' + when(wo.st) + '</span></span>' +
         '<span class="tr-h-meta">' + dur((wo.en || wo.st) - wo.st) + ' · ' + setsOf(wo) + ' sets · ' +
           fmtBig(volOf(wo)) + ' ' + T.pr.u + (prs ? ' · <span class="tr-pr">★ ' + prs + ' record' + (prs === 1 ? '' : 's') + '</span>' : '') +
+          (wo.mc && mcScore(wo.mc) ? ' · circuit ' + esc(mcScore(wo.mc)) : '') +
         '</span>' +
         '<span class="tr-h-x">' + wo.x.map(function (x) {
           return esc(x.s.length + ' × ' + lib(x.e).n);
@@ -3609,7 +3927,7 @@
       html += '<div class="tr-vbars" role="table" aria-label="Hard sets per muscle this week">' +
         '<div class="tr-vkey" aria-hidden="true"><span class="tr-vk-band"></span> ' +
           (r.keep ? '3 or more hard sets, enough to keep strength' : r.base ? '3 or more hard sets, plenty while you are new'
-            : r.str ? '3 or more hard sets around the main lifts'
+            : r.str ? (r.cond ? '3 or more hard sets beside the circuits' : '3 or more hard sets around the main lifts')
             : '10\u201320 sets, where the evidence is strongest' +
           '<span class="tr-vk-tick"></span> RP\u2019s MEV and MRV') + '</div>' +
         r.rows.map(function (row) {
@@ -3833,6 +4151,8 @@
       (prs.length ? '<div class="tr-prs">' + prs.map(function (p) {
         return '<div>★ ' + esc(lib(p.e).n) + ' — ' + esc(p.what) + '</div>';
       }).join('') + '</div>' : '') +
+      (wo.mc && mcValid(wo.mc) ? '<div class="tr-wx"><span class="tr-wx-n">Circuit \u00b7 ' + esc(mcScore(wo.mc)) + '</span>' +
+        '<div class="tr-sub">' + esc(mcSay(wo.mc)) + '</div></div>' : '') +
       wo.x.map(function (x) {
         return '<div class="tr-wx"><button class="tr-lnk tr-wx-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(lib(x.e).n) + '</button>' +
           '<ol class="tr-wx-s">' + x.s.map(function (s) {
@@ -3915,7 +4235,7 @@
         if ((!noPump(m) && !fin(f.p)) || !fin(f.k)) missing.push(m);
       });
     }
-    if (!wo.x.length) {
+    if (!wo.x.length && !wo.mc) {
       return '<div class="sheet-name tr-sn2">Nothing ticked yet</div>' +
         '<div class="tr-note">Only ticked sets are saved, and there are none. Keep going, or discard the workout.</div>' +
         '<div class="tr-acts"><button class="btn-primary" data-t="close">Keep going</button>' +
@@ -3930,6 +4250,8 @@
         return '<div>★ ' + esc(lib(p.e).n) + ' — ' + esc(p.what) + '</div>';
       }).join('') + '</div>' : '') +
       (open ? '<div class="tr-note">' + open + ' set' + (open === 1 ? ' was' : 's were') + ' never ticked and will not be saved.</div>' : '') +
+      (LIVE.mc ? '<div class="tr-note">' + (wo.mc ? 'Circuit: ' + esc(mcScore(wo.mc)) + (LIVE.mc.last ? ', against ' + esc(mcScore(LIVE.mc.last)) + ' last time' : '') + '.'
+        : 'The circuit has no score yet \u2014 add it on the circuit card, or it will not be saved.') + '</div>' : '') +
       (missing.length ? '<div class="tr-ask"><div class="tr-ql">Before you go — next week’s sets come from these</div>' +
         missing.map(function (m) {
           var f = LIVE.fb[m] || {};
@@ -4403,6 +4725,19 @@
       return;
     }
     if (t === 'finish') { openSheet({ k: 'finish', eyebrow: 'Finish', title: 'Finish workout' }); return; }
+    if (t === 'mcgo' && LIVE && LIVE.mc) {
+      LIVE.mc.st = Date.now(); LIVE.mc.en = 0; LIVE.mc.rm = 0;
+      LIVE.rs = null;
+      audioPrime(); saveLive(); draw(); return;
+    }
+    if (t === 'mcstop' && LIVE && LIVE.mc && LIVE.mc.st) {
+      var mcx = LIVE.mc;
+      mcx.en = Date.now();
+      if (mcx.k === 'rft') mcx.sec = clock(Math.min(mcMinutes(mcx) * 60, (mcx.en - mcx.st) / 1000));
+      if (mcx.k === 'emom' && !mcx.done) mcx.done = String(Math.min(mcx.min, Math.floor((mcx.en - mcx.st) / 60000)));
+      saveLive(); draw(); return;
+    }
+    if (t === 'mcreset' && LIVE && LIVE.mc) { LIVE.mc.st = 0; LIVE.mc.en = 0; LIVE.mc.rm = 0; saveLive(); draw(); return; }
     if (t === 'save') {
       var wo = saveWorkout();
       closeSheet();
@@ -4531,6 +4866,12 @@
       }
       if (el.id === 'trOwnN' && S.own) { S.own.n = el.value; return; }
       if (el.id === 'trAxNm' && S.sheet && S.sheet.k === 'axnew') { S.sheet.nm = el.value; return; }
+      var mcf = el.getAttribute('data-mc');
+      if (mcf && LIVE && LIVE.mc) {
+        LIVE.mc[mcf] = el.value.replace(/[^0-9:.]/g, '').slice(0, 6);
+        saveLive();
+        return;
+      }
       var tmE = el.getAttribute('data-tm');
       if (tmE && S.draft) {
         var tv = numIn(el.value);
@@ -4596,6 +4937,7 @@
       rirFor: rirFor, nextSlot: nextSlot, prsIn: prsIn, lib: lib, SPLITS: SPLITS, MUS: MUS,
       estDay: estDay, barred: barred, KEEP_SPLITS: KEEP_SPLITS, HABITS: HABITS, weeksOf: weeksOf, nextTm: nextTm,
       recommend: recommend, PROGS: PROGS, FOCUS: FOCUS, KITS: KITS, axWeek: axWeek, defaultsPr: defaultsPr,
+      MOVES: MOVES, mcScore: mcScore,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }
