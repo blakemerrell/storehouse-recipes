@@ -1219,7 +1219,11 @@
           (prog.flat ? ', ' + prog.flat + ' flat' : '') + (prog.down ? ', ' + prog.down + ' down' : '') + '. ' +
           (prog.fall.length
             ? 'Down two sessions running: ' + prog.fall.map(function (e) { return lib(e).n; }).join(', ') + '. With reps in reserve falling each week that is the classic sign of fatigue outrunning recovery — RP would deload rather than push on.'
-            : 'Nothing has slid two sessions in a row, so there is no sign of fatigue outrunning recovery.'),
+            : 'Nothing has slid two sessions in a row, so there is no sign of fatigue outrunning recovery.') +
+          /* The estimate cannot see effort, and inside a block effort rises
+             on purpose. Said, rather than let a climbing line be read as all
+             new muscle. */
+          (ms ? ' Some of any rise inside a block is the reps in reserve coming down rather than new strength \u2014 the first week of one block against the first week of the next is the cleaner comparison.' : ''),
         refs: ['rp21', 'epley', 'deload24']
       });
     }
@@ -1794,6 +1798,7 @@
   function howHTML() {
     return '<details class="tr-how"><summary>How the block works</summary>' +
       '<p><b>Sets.</b> Week one starts each muscle near RP’s MEV — the least that reliably grows it. After each session you rate the pump and the workload, and next time you train that muscle you say how well it healed. Those answers add up to next week’s change: usually one more set, two if the muscle is plainly asking for more, none or one fewer if you are not recovering. It never goes past RP’s MRV.</p>' +
+      '<p><b>Why ask about soreness at all?</b> It is a rough signal \u2014 it follows how new an exercise is more than how much it grew \u2014 which is why it is one vote of three, and why getting weaker overrules all of them.</p>' +
       '<p><b>Effort.</b> Sets end 3 reps short of failure in week one and step down to 0 by the last hard week. Heavy barbell lifts stop at 1.</p>' +
       '<p><b>Weights.</b> Hit the top of the rep range and the weight goes up by the smallest jump; otherwise aim for one more rep at the same weight.</p>' +
       '<p><b>Deload.</b> The last week is half the sets at week one’s weights. It is there to let fatigue drain, not to grow — one trial found a week off changed growth not at all.</p>' +

@@ -403,6 +403,8 @@ module.exports = {
     });
     t.ok('a week in progress does not replace the last whole one', r.label === 'Week 1 of your block', r.label);
     t.ok('and a workout outside the block, done that week, is counted in it', r.n === 5 && r.biceps === 2, JSON.stringify(r));
+    r = await p.evaluate(() => (window.Train._.review().checks.find((c) => /going up/.test(c.t)) || {}).b || '');
+    t.ok('and it says a rise inside a block is partly effort, not all new strength', /reps in reserve coming down/.test(r), r);
     await p.click('.tab[data-view="train"]');
     await p.click('[data-t="sub"][data-v="review"]');
     await p.waitForTimeout(100);
