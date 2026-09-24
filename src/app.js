@@ -16819,6 +16819,12 @@
   /* Before the first paint: a stored plan written by an older build can be
      below this body's floor or have no carbohydrate in it, and the correction
      belongs here rather than inside whichever read happened to run first. */
+  /* A tap anywhere else puts the plate's menu away, as a menu should. */
+  document.addEventListener('click', function (e) {
+    if (!S.mDots || e.target.closest('.mitem-pop, [data-mdots]')) return;
+    S.mDots = '';
+    if (S.view === 'macros') renderMacros();
+  }, true);
   document.addEventListener('click', function (e) {
     var al = e.target.closest('[data-mallow]');
     if (!al) return;
