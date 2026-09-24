@@ -2237,6 +2237,8 @@
     el.innerHTML = '<span>' + text + '</span>' +
       (undo ? '<button type="button" data-mallow="' + esc(String(undo)) + '">Undo</button>' : '');
     el.hidden = false;
+    /* A tap on the message itself (not its Undo) puts it away early. */
+    el.onclick = function (ev) { if (!ev.target.closest('[data-mallow]')) el.hidden = true; };
     clearTimeout(mToast.t);
     mToast.t = setTimeout(function () { el.hidden = true; }, 6000);
   }
