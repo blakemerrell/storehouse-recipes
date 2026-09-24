@@ -5298,3 +5298,5 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
 .tr-set.tr-mm .tr-snb { color: var(--muted-2); font-weight: 700; }
 .tr-set.tr-mm.done .tr-in { text-decoration: line-through; }
 .tr-tag.m { color: var(--muted-2); }
+/* Two rows of pills one under the other never touch. */
+.tr-chips + .tr-chips { margin-top: 8px; }

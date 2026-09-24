@@ -6419,9 +6419,11 @@
       '<div class="tr-q"><div class="tr-ql">Your weight on pull-up and dip days</div>' + chips('s-nobw', p.nobw, [[0, 'Ask when it\u2019s needed'], [1, 'Don\u2019t ask']]) +
         '<div class="tr-hint">Asked only when there\u2019s no weigh-in from the last week to go on. Saved, it\u2019s the day\u2019s weigh-in on Nourish too.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log it']]) +
-        chips('s-eff', p.eff, [['rir', 'Reps in reserve'], ['rpe', 'RPE']]) +
-        '<div class="tr-hint">The same scale from the other end: RPE 10 is nothing left, RPE 8 is two reps in reserve. RPE is what Strong and most powerlifting programs use.</div>' +
-        '<div class="tr-hint">A box beside every set for how many more reps you had in you. Optional on each set; the review holds it against what the plan asked.</div></div>' +
+        '<div class="tr-hint">A box beside every set for how hard it was. Optional on each set; the review holds it against what the plan asked.</div></div>' +
+      /* Its own question, not a second row under the first: it also says
+         how the plan's targets read, logged or not. */
+      '<div class="tr-q"><div class="tr-ql">Effort scale</div>' + chips('s-eff', p.eff, [['rir', 'Reps in reserve'], ['rpe', 'RPE']]) +
+        '<div class="tr-hint">The same scale from the other end: RPE 10 is nothing left, RPE 8 is two reps in reserve. RPE is what Strong and most powerlifting programs use.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
         '<div class="tr-sub">' + (!doc ? '<b>Only on this phone.</b> Sign in under Nourish \u2192 \u2699 \u2192 Sync &amp; sharing and it travels with your account, the same as your day.'
           : SY.err ? '<b>Not saved to your account yet</b> \u2014 it keeps trying. Safe on this phone meanwhile.'
