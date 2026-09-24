@@ -13256,13 +13256,22 @@ module.exports = {
         await openDay(np);
         const tag = side.sk + ':' + side.i;
         const chip = await np.evaluate((tg) => {
-          const btn = document.querySelector('[data-mdots="' + tg + '"]');
-          const row = btn && btn.closest('.mitem');
-          return row ? (row.querySelector('.mwhy') || {}).textContent || '' : 'no row';
+          const c = document.querySelector('[data-mwhy="' + tg + '"]');
+          return c ? c.textContent.trim() : 'no chip';
         }, tag);
         t.ok('with a chip beside its name: "Added for fiber"', chip === 'Added for fiber', chip);
-        await np.click('[data-mdots="' + tag + '"]');
+        /* Blake chose the chip as the button (option 1): it opens a strip
+           inside the plate, in the style of the app's other in-meal cards. */
+        await np.click('[data-mwhy="' + tag + '"]');
         await np.waitForTimeout(150);
+        const strip = await np.evaluate(() => {
+          const st = document.querySelector('.mwhy-strip');
+          return st ? { text: st.textContent, inPlate: !!st.closest('.mitem'),
+            menus: document.querySelectorAll('.mitem-pop, [data-mdots]').length } : null;
+        });
+        t.ok('tapping the chip opens a strip inside the plate that says why, with no floating menu',
+          strip && /Fill added this to reach your fiber/.test(strip.text) && strip.inPlate && strip.menus === 0,
+          JSON.stringify(strip));
         await np.click('[data-mdo="never:' + tag + '"]');
         await np.waitForTimeout(300);
         const after = await np.evaluate(([k, id]) => {
@@ -13304,6 +13313,51 @@ module.exports = {
         const allowed = await np.evaluate((id) => !JSON.parse(localStorage.getItem('bsc.macroNever') || '{}')[String(id)], side.id);
         t.ok('the foods sheet lists it, and Allow gives it back', listed && allowed, JSON.stringify({ listed, allowed }));
       }
+      // A dish Fill chose for an empty meal says so too.
+      await np.evaluate(() => { localStorage.clear();
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 60, c: 170 })); });
+      await np.reload();
+      await seedDraft(3);
+      await np.reload();
+      await np.click('.tab[data-view="macros"]');
+      await np.waitForTimeout(300);
+      await openDay(np);
+      const picks = await np.evaluate(() => [...document.querySelectorAll('.mwhy-pick')].map((c) => c.textContent.trim()));
+      t.ok('a dish Fill picked wears "Fill\u2019s pick"', picks.length > 0 && picks.every((x) => x === 'Fill\u2019s pick'),
+        JSON.stringify(picks));
+
+      /* Sweep on tomorrow. Blake: "I tried to sweep all the foods for
+         tomorrow... It didn't sweep away anything" — the button was off on
+         every future day. It clears tomorrow's plan now, keeping what is
+         locked or pinned. */
+      const tmr = await np.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 1); const p2 = (x) => (x < 10 ? '0' : '') + x;
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); });
+      await np.evaluate((k) => {
+        localStorage.clear();
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 60, c: 170 }));
+        localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [
+          { k: 'b', n: 'Breakfast', t: 'b', pins: [{ id: 'f:whey', x: 1 }] }, { k: 'l', n: 'Lunch', t: 'l' },
+          { k: 'd', n: 'Dinner', t: 'd' }, { k: 's', n: 'Snacks', t: 's' }], names: {} }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+          b: [{ id: 'f:whey', x: 1, eaten: 0 }, { id: 'f:banana', x: 1, eaten: 0, by: 'f' }],
+          l: [{ id: 'f:chicken_breast', x: 1, eaten: 0, l: 1 }, { id: 'f:tuna', x: 1, eaten: 0 }],
+          d: [{ id: 'f:ground_beef', x: 1, eaten: 0, by: 'f' }] } }));
+      }, tmr);
+      await np.reload();
+      await np.click('.tab[data-view="macros"]');
+      await np.waitForTimeout(300);
+      await np.click('#macroNext');
+      await np.waitForTimeout(300);
+      const canSweep = await np.evaluate(() => !document.getElementById('macroSweep').disabled);
+      await np.click('#macroSweep');
+      await np.waitForTimeout(300);
+      const swept = await np.evaluate((k) => {
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays'))[k];
+        return Object.keys(d).reduce((o, sk) => { o[sk] = (d[sk] || []).map((it) => it.id); return o; }, {});
+      }, tmr);
+      t.ok('sweep works on tomorrow, and keeps what is locked or pinned',
+        canSweep && swept.b.join() === 'f:whey' && swept.l.join() === 'f:chicken_breast' && !(swept.d || []).length,
+        JSON.stringify({ canSweep, swept }));
       await np.context().close();
     }
   },
