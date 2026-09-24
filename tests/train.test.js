@@ -2123,5 +2123,101 @@ module.exports = {
     r = await p.evaluate(() => JSON.stringify(window.Train._.defaultsPr({ fm: { a: { e: 'x', m: 'nope' }, b: { e: 'y', m: 'best' }, c: 'junk' } }).fm));
     t.ok('a stored choice that is not one of the four is dropped', r === '{"b":{"e":"y","m":"best"}}', r);
     await p.close();
+    // ---- ready workouts: one session in a tap, outside any block ----------------------
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => { const q = document.querySelector('.tr-qz-skip'); return q ? q.textContent : ''; });
+    t.ok('on the quiz, a ready workout is there beside just logging one', /Pick a ready workout/.test(r) && /Just log a workout/.test(r), r);
+    await p.close();
+    p = await t.fresh();
+    await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'blk'; ms.n = 'My block';
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1, kit: 'gym' }, act: 'blk', ms: { blk: ms }, cx: {}, ax: {}, wo: {
+        a: { id: 'a', st: Date.now() - 3 * 864e5, en: Date.now() - 3 * 864e5 + 36e5, dk: '2026-01-01', n: 'W', u: 'lb', ms: '', w: -1, d: -1, dl: 0,
+          x: [{ e: 'bb-squat', s: [{ w: 225, r: 8 }, { w: 225, r: 8 }] }, { e: 'bb-bench', s: [{ w: 185, r: 8 }] }], sr: {}, fb: {} } } }));
+      localStorage.removeItem('bsc.trainStamps');
+      _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => { const f = document.querySelector('.tr-foot'); return f ? f.textContent : ''; });
+    t.ok('with a block running, it sits beside logging a workout outside the block', /Pick a ready workout/.test(r) && /outside the block/.test(r), r);
+    r = await p.evaluate(() => {
+      const _ = window.Train._, T = _.state().T;
+      const d = _.readyDay('fba', false, 1), e = _.readyDay('fba', false, 0), h = _.readyDay('fba', false, 2), x = _.readyDay('fba', true, 1);
+      const kit = T.pr.kit; T.pr.kit = 'bw'; const bw = _.readyDay('fba', false, 1); T.pr.kit = kit;
+      return { n: d.n, sets: [e, d, h].map((z) => z.s.map((s) => s.n).join('')).join('|'), rir: [e.rir, d.rir, h.rir].join(),
+        squat: d.s[0].e, xp: x.n, xp2: x.s.every((s) => s.n === 2), xpt: _.estDay({ s: x.s }), xpBig: _.lib(x.s[0].e).k,
+        bw: bw.s.length > 0 && bw.s.every((s) => _.lib(s.e).q === 'bw') };
+    });
+    t.ok('a ready day is the blocks’ own, three sets a lift at two in reserve', r.n === 'Full Body A' && /^3+$/.test(r.sets.split('|')[1]) && r.rir === '3,2,1', JSON.stringify(r));
+    t.ok('easy is a set fewer, hard a set more', /^2+$/.test(r.sets.split('|')[0]) && /^4+$/.test(r.sets.split('|')[2]), r.sets);
+    t.ok('it picks the lift you already do for a slot, so the weights are yours', r.squat === 'bb-squat', r.squat);
+    t.ok('the half-hour version: big lifts first, two sets each, and it fits', r.xp === 'Full Body A · 30 min' && r.xp2 && r.xpt <= 30 && r.xpBig === 'c', JSON.stringify(r));
+    t.ok('and it keeps to your kit: bodyweight only means bodyweight lifts', r.bw, JSON.stringify(r));
+    await p.click('.tr-foot [data-t="ready"]');
+    r = await p.evaluate(() => ({ g: [...document.querySelectorAll('.tr-rdg')].map((e) => e.textContent).join('|'),
+      rows: [...document.querySelectorAll('.tr-rdb .tr-rdn')].map((e) => e.textContent).join('|'),
+      mins: [...document.querySelectorAll('.tr-rdb .tr-rdt')].every((e) => /^~\d+ min$/.test(e.textContent)) }));
+    t.ok('the list: full body, upper and lower, push, pull and legs, each with how long it takes',
+      r.g === 'Full body|Upper / lower|Push / pull / legs' && r.rows === 'Full Body A|Full Body B|Full Body C|Upper A|Lower A|Upper B|Lower B|Push|Pull|Legs' && r.mins, JSON.stringify(r));
+    await p.click('.tr-rdb[data-v="fba"]');
+    r = await p.evaluate(() => ({ q: (document.querySelector('.tr-rdq') || {}).textContent || '', go: [...document.querySelectorAll('.tr-rdgo b')].map((e) => e.textContent).join('|'),
+      list: document.querySelectorAll('.tr-rdr.on .tr-rdl li').length }));
+    t.ok('opened, it lists every lift and asks how hard today', r.q === 'How hard today?' && r.go === 'Easy|Normal|Hard' && r.list >= 5, JSON.stringify(r));
+    await p.click('[data-t="rdgo"][data-v="fba"][data-e="1"]');
+    r = await p.evaluate(() => { const L = window.Train._.state().LIVE;
+      return { n: L.n, ms: L.ms, sets: L.x.map((x) => x.s.length).join(''), rir: L.x.every((x) => x.rir === 2), sq: L.x[0].e, tw: L.x[0].s[0].tw, sheet: !!document.querySelector('#trainRoot .sheet') }; });
+    t.ok('Normal starts it at once: three sets a lift, two in reserve, outside the block', r.n === 'Full Body A' && r.ms === '' && /^3+$/.test(r.sets) && r.rir && !r.sheet, JSON.stringify(r));
+    t.ok('with the weight worked out from what you last lifted', r.sq === 'bb-squat' && r.tw === 225, JSON.stringify(r));
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.click('[data-t="tick"][data-x="0"][data-s="1"]');
+    await p.fill('#trw-1-0', '135'); await p.fill('#trr-1-0', '10');
+    await p.click('[data-t="tick"][data-x="1"][data-s="0"]');
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, w = Object.values(T.wo).sort((a, b) => b.st - a.st)[0];
+      return { n: w.n, ms: w.ms, act: T.act, next: JSON.stringify(_.nextSlot(T.ms.blk)) }; });
+    t.ok('it is saved as a workout of its own, and the block is where it was', r.n === 'Full Body A' && r.ms === '' && r.act === 'blk' && r.next === '{"w":0,"d":0}', JSON.stringify(r));
+    // kept as a routine
+    await p.click('.tr-done [data-t="rtsave"]');
+    r = await p.evaluate(() => document.getElementById('trRtN').value);
+    t.ok('any finished workout can be kept as a routine, named as it was', r === 'Full Body A', r);
+    await p.fill('#trRtN', 'Tuesday quickie');
+    await p.click('[data-t="rtdo"]');
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, k = Object.keys(T.rt)[0], rt = T.rt[k];
+      return { n: rt && rt.n, x: rt && rt.x.map((x) => x.n).join(), ok: rt && _.SHAPE.rt(rt), sync: JSON.stringify(_.payload(true).rt || {}), said: document.querySelector('#trainRoot .sheet').textContent }; });
+    t.ok('the routine keeps its lifts in order with the sets you did, and is synced', r.n === 'Tuesday quickie' && r.x === '2,1' && r.ok && /Tuesday quickie/.test(r.sync), JSON.stringify(r));
+    t.ok('and says where to find it', /Your routines/.test(r.said), r.said);
+    await p.click('#trainRoot .sheet [data-t="close"]');
+    await p.click('.tr-foot [data-t="ready"]');
+    r = await p.evaluate(() => { const g = [...document.querySelectorAll('.tr-rdg')].map((e) => e.textContent); const nx = document.querySelector('.tr-rdb[data-v^="nx:"] .tr-rdn');
+      return { g: g.join('|'), nx: nx ? nx.textContent : '', mine: (document.querySelector('.tr-rdb[data-v^="r"] .tr-rdn') || {}).textContent || '' }; });
+    t.ok('next time: Full Body B is next up, after the A you did', /^Next up\|Your routines\|Full body/.test(r.g) && r.nx === 'Full Body B', JSON.stringify(r));
+    t.ok('and your routine is listed', r.mine === 'Tuesday quickie', JSON.stringify(r));
+    await p.click('.tr-rdb[data-v^="r"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-rdr.on .tr-rdgo small')].map((e) => e.textContent.split(' · ')[0]).join('|'));
+    t.ok('a routine’s effort is a set fewer, the sets as saved, or a set more', r === 'a set fewer|sets as saved|a set more', r);
+    // a second routine, deleted with two taps
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, w = Object.values(T.wo).sort((a, b) => b.st - a.st)[0]; return _.saveRoutine(w.id, 'Spare'); });
+    const spare = r;
+    await p.click('.sheet-x');
+    await p.click('.tr-foot [data-t="ready"]');
+    await p.click(`.tr-rdb[data-v="${spare}"]`);
+    await p.click(`[data-t="rtdel"][data-v="${spare}"]`);
+    r = await p.evaluate((k) => !!window.Train._.state().T.rt[k], spare);
+    t.ok('deleting a routine asks for a second tap', r === true);
+    await p.click(`[data-t="rtdel"][data-v="${spare}"]`);
+    r = await p.evaluate((k) => ({ gone: !window.Train._.state().T.rt[k], stamped: window.Train._.state().TS.rt[k] > 0 }), spare);
+    t.ok('and then it is gone, everywhere', r.gone && r.stamped, JSON.stringify(r));
+    await p.click('.tr-rdb[data-v^="r"]');
+    await p.click('.tr-rdr.on [data-t="rdgo"][data-e="2"]');
+    r = await p.evaluate(() => { const L = window.Train._.state().LIVE; return { n: L.n, sets: L.x.map((x) => x.s.length).join(), rir: L.x[0].rir }; });
+    t.ok('Hard on the routine: a set more of each, one in reserve', r.n === 'Tuesday quickie' && r.sets === '3,2' && r.rir === 1, JSON.stringify(r));
+    r = await p.evaluate(() => { const S = window.Train._.SHAPE.rt;
+      return [S({ n: 'x', x: [{ e: 'bb-bench', n: 3 }] }), S({ n: '', x: [{ e: 'a', n: 3 }] }), S({ n: 'x', x: [] }), S({ n: 'x', x: [{ e: 'a', n: 40 }] })].join(); });
+    t.ok('a routine from another device is let in only if it is shaped right', r === 'true,false,false,false', r);
+    await p.close();
   },
 };

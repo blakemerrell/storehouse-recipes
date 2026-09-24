@@ -770,9 +770,9 @@
   };
   var HAB_ORDER = Object.keys(HABITS);
   var LV = { l: 'Light', m: 'Moderate', v: 'Vigorous' };
-  function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {}, ax: {}, nt: {} }; }
-  function blankTS() { return { pr: 0, act: 0, ms: {}, wo: {}, cx: {}, ax: {}, nt: {} }; }
-  var PARTS = ['ms', 'wo', 'cx', 'ax', 'nt'];
+  function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
+  function blankTS() { return { pr: 0, act: 0, ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
+  var PARTS = ['ms', 'wo', 'cx', 'ax', 'nt', 'rt'];
 
   function loadT() {
     var t = readLS(LS_T), out = blankT();
@@ -835,6 +835,13 @@
         (v.t === undefined || (typeof v.t === 'string' && v.t.length <= 200)) &&
         (v.u === undefined || (typeof v.u === 'string' && v.u.length <= 300 && /^https?:\/\//i.test(v.u))) &&
         !!((v.t && v.t.length) || (v.u && v.u.length));
+    },
+    // a routine of your own: a name and its lifts in order, each with its sets
+    rt: function (v) {
+      return plain(v) && typeof v.n === 'string' && v.n.length > 0 && v.n.length <= 60 &&
+        Array.isArray(v.x) && v.x.length > 0 && v.x.length <= 20 && v.x.every(function (x) {
+          return plain(x) && typeof x.e === 'string' && fin(x.n) && x.n >= 1 && x.n <= 10;
+        });
     }
   };
 
@@ -1713,7 +1720,7 @@
     return fresh[0] || list[0] || null;
   }
 
-  function pickEx(m, k, p, eq, used, seed, pf, today) {
+  function pickEx(m, k, p, eq, used, seed, pf, today, known) {
     var cand = allEx().filter(function (ex) { return ex.m === m && eq.indexOf(ex.q) >= 0 && !barred(ex, pf); });
     /* Never the same exercise twice in one day: with nothing else to hand,
        the slot is left out and the one already there carries the sets. */
@@ -1725,7 +1732,9 @@
     var home = atHome(eq), bwOnly = eq.length === 1;
     var score = function (ex) {
       return (ex.k === k ? 0 : 100) + (p && ex.p !== p ? 10 : 0) + backCost(ex, pf) +
-        (home && GEAR[ex.id] ? 5 : 0) + (!bwOnly && HOMEY[ex.id] ? 20 : 0) + ex.o / 1000;
+        (home && GEAR[ex.id] ? 5 : 0) + (!bwOnly && HOMEY[ex.id] ? 20 : 0) + ex.o / 1000 -
+        // a ready workout prefers a lift you already do, so its weights come from your own numbers
+        (known && known[ex.id] ? 8 : 0);
     };
     cand.sort(function (a, b) { return score(a) - score(b); });
     /* Something this block does not use yet, unless the only fresh choices
@@ -3013,6 +3022,148 @@
     };
   }
 
+  /* Ready workouts: one session started in a tap, outside any block. The
+     days are the blocks' own, filled from the same library by the same
+     rules (your kit, your back and joints, the lifts you never want), with
+     the weights worked out from what you last lifted. The 30-minute
+     version keeps the big lifts at two sets each. Nothing here moves a
+     block: a ready workout is saved like one logged by hand. */
+  var READY = [
+    { g: 'Full body', d: [['fba', 3, 0], ['fbb', 3, 1], ['fbc', 3, 2]] },
+    { g: 'Upper / lower', d: [['upa', 4, 0], ['loa', 4, 1], ['upb', 4, 2], ['lob', 4, 3]] },
+    { g: 'Push / pull / legs', d: [['push', 6, 0, 'Push'], ['pull', 6, 1, 'Pull'], ['legs', 6, 2, 'Legs']] }
+  ];
+  var XP = ' \u00b7 30 min';
+  // how hard today: one set fewer or more than usual, and how far short of failure
+  var EFF = [{ n: 'Easy', d: -1, rir: 3 }, { n: 'Normal', d: 0, rir: 2 }, { n: 'Hard', d: 1, rir: 1 }];
+  function readyRow(id) {
+    var r = null;
+    READY.forEach(function (g) { g.d.forEach(function (d) { if (d[0] === id) r = d; }); });
+    return r;
+  }
+  function readyName(row) { return row[3] || SPLITS[row[1]].days[row[2]][0]; }
+  function readyDay(id, xp, ef) {
+    var E = EFF[ef] || EFF[1];
+    if (T.rt[id]) {
+      var rt = T.rt[id];
+      return { n: rt.n, rir: E.rir, s: rt.x.filter(function (x) { return !!lib(x.e); }).map(function (x) {
+        return { e: x.e, n: Math.max(1, Math.min(10, x.n + E.d)) };
+      }) };
+    }
+    var row = readyRow(id);
+    if (!row) return null;
+    var p = T.pr, eq = KITS[KITS[p.kit] ? p.kit : 'gym'].eq;
+    var pf = { bk: p.bk, jt: p.jt, avoid: p.avoid };
+    var used = {}, today = {}, s = [];
+    SPLITS[row[1]].days[row[2]][1].forEach(function (tok) {
+      var t = tok.replace(/\+$/, '').split('/');
+      var ex = pickEx(t[0], t[1], t[2] || '', eq, used, 0, pf, today, ix().best);
+      if (!ex) return;
+      used[ex.id] = 1; today[ex.id] = 1;
+      s.push({ e: ex.id, n: 3 + E.d });
+    });
+    if (xp) {
+      // the big lifts first, two sets each, and as much of the rest as fits the half hour
+      var big = s.filter(function (sl) { return lib(sl.e).k === 'c'; }), small = s.filter(function (sl) { return lib(sl.e).k !== 'c'; });
+      s = big.concat(small).map(function (sl) { return { e: sl.e, n: 2 }; });
+      while (s.length > 2 && estDay({ s: s }) > 30) s.pop();
+    }
+    return { n: readyName(row) + (xp ? XP : ''), rir: E.rir, s: s };
+  }
+  /* The day after the last ready one you did, in its own rotation: Full
+     Body B after A, Lower A after Upper A. Nothing until there is one. */
+  function readyNext() {
+    var last = null;
+    ix().list.forEach(function (w) {
+      if (w.ms) return;
+      var n = String(w.n || '').replace(XP, '');
+      READY.forEach(function (g) {
+        g.d.forEach(function (d, i) { if (readyName(d) === n && (!last || w.st >= last.st)) last = { st: w.st, g: g, i: i }; });
+      });
+    });
+    return last ? last.g.d[(last.i + 1) % last.g.d.length] : null;
+  }
+  function startReady(id, xp, ef) {
+    if (LIVE) return;
+    var day = readyDay(id, xp, ef);
+    if (!day || !day.s.length) return;
+    setLive({ id: newId(), st: Date.now(), n: day.n, u: T.pr.u, ms: '', w: -1, d: -1, dl: 0, rir: day.rir,
+      x: day.s.map(function (sl) { var x = liveEx(sl.e, sl.n); x.rir = day.rir; return x; }),
+      sr: {}, fb: {}, rs: null });
+    S.sub = 'block';
+    closeSheet();
+    draw();
+    wake();
+    scrollTop();
+  }
+  // a finished workout kept as a routine: its lifts in order, each with its working sets
+  function saveRoutine(wid, name) {
+    var wo = T.wo[wid];
+    if (!wo) return null;
+    var x = wo.x.map(function (e) {
+      return { e: e.e, n: Math.max(1, Math.min(10, e.s.filter(function (z) { return !z.wu; }).length || e.s.length)) };
+    }).filter(function (e) { return !!lib(e.e); }).slice(0, 20);
+    var n = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 60) || String(wo.n || 'Routine').slice(0, 60);
+    if (!x.length) return null;
+    var id = 'r' + newId();
+    T.rt[id] = { n: n, x: x, at: Date.now() };
+    stamp('rt', id);
+    return id;
+  }
+
+  function readyHTML(sh) {
+    var xp = !!S.rdx, open = S.rdo || '';
+    var mins = function (day) { return day && day.s.length ? '~' + Math.round(estDay({ s: day.s }) / 5) * 5 + ' min' : ''; };
+    var row = function (id, name, key) {
+      var day = readyDay(id, xp, 1);
+      if (!day || !day.s.length) return '';
+      key = key || id;
+      var on = open === key;
+      var names = day.s.map(function (sl) { return lib(sl.e).n; });
+      var out = '<div class="tr-rdr' + (on ? ' on' : '') + '">' +
+        '<button class="tr-rdb" data-t="rdopen" data-v="' + esc(key) + '" aria-expanded="' + on + '">' +
+          '<span class="tr-rdn">' + esc(name || day.n) + '</span><span class="tr-rdt">' + mins(day) + '</span>' +
+          '<span class="tr-rdm">' + esc(names.slice(0, 3).join(' \u00b7 ') + (names.length > 3 ? ' +' + (names.length - 3) : '')) + '</span></button>';
+      if (on) {
+        out += '<ol class="tr-rdl">' + day.s.map(function (sl) {
+          var ex = lib(sl.e);
+          return '<li>' + esc(ex.n) + ' <span class="tr-rdl-s">' + sl.n + ' \u00d7 ' + ex.rr[0] + '\u2013' + ex.rr[1] + '</span></li>';
+        }).join('') + '</ol>' +
+          '<div class="tr-rdq">How hard today?</div><div class="tr-rde">' + EFF.map(function (E, i) {
+            var d = readyDay(id, xp, i);
+            return '<button class="' + (i === 1 ? 'btn-primary' : 'ghost') + ' tr-rdgo" data-t="rdgo" data-v="' + esc(id) + '" data-e="' + i + '">' +
+              '<b>' + E.n + '</b><small>' + (T.rt[id] ? ['a set fewer', 'sets as saved', 'a set more'][i] : xp ? '2 sets' : d.s[0].n + ' sets') + ' \u00b7 ' + E.rir + ' in reserve \u00b7 ' + mins(d) + '</small></button>';
+          }).join('') + '</div>' +
+          (T.rt[id] ? '<div class="tr-acts"><button class="tr-lnk" data-t="rtdel" data-v="' + esc(id) + '">' +
+            (S.arm === 'rt:' + id ? 'Tap again to delete this routine' : 'Delete routine') + '</button></div>' : '');
+      }
+      return out + '</div>';
+    };
+    var nx = readyNext();
+    var mine = Object.keys(T.rt).map(function (k) { return { id: k, r: T.rt[k] }; })
+      .sort(function (a, b) { return (b.r.at || 0) - (a.r.at || 0); });
+    return '<div class="tr-sub">One session, ready to go. It doesn\u2019t start or move a block, and it\u2019s saved like any other workout.</div>' +
+      (LIVE ? '<div class="tr-warn">A workout is already open. Finish it first.</div>' : '') +
+      '<div class="tr-q">' + chips('rdxp', xp ? 1 : 0, [[0, 'Full session'], [1, '30 minutes']]) + '</div>' +
+      (nx ? '<div class="tr-rdg">Next up</div>' + row(nx[0], '', 'nx:' + nx[0]) : '') +
+      (mine.length ? '<div class="tr-rdg">Your routines</div>' + mine.map(function (m) { return row(m.id, m.r.n); }).join('') : '') +
+      READY.map(function (g) {
+        return '<div class="tr-rdg">' + esc(g.g) + '</div>' + g.d.map(function (d) { return row(d[0]); }).join('');
+      }).join('') +
+      '<div class="tr-hint">Exercises are picked for your equipment and your back and joints, as a block\u2019s are. Weights come from what you last lifted. To keep a workout of your own, open it after you finish and tap Save as routine.</div>';
+  }
+  function rtNewHTML(sh) {
+    var wo = T.wo[sh.id];
+    if (sh.done) {
+      return '<div class="tr-sub">Saved. It\u2019s under Pick a ready workout, in Your routines.</div>' +
+        '<div class="tr-acts"><button class="btn-primary" data-t="close">Done</button></div>';
+    }
+    if (!wo) return '';
+    return '<div class="tr-sub">' + wo.x.length + ' lift' + (wo.x.length === 1 ? '' : 's') + ', in this order, each with the number of sets you did. The weights come from your latest numbers each time.</div>' +
+      '<label class="tr-tml">Name<input class="txt" id="trRtN" maxlength="60" value="' + esc(wo.n || '') + '"></label>' +
+      '<div class="tr-acts"><button class="btn-primary" data-t="rtdo" data-id="' + esc(wo.id) + '">Save routine</button></div>';
+  }
+
   function liveEx(e, n, s) {
     var ex = lib(e);
     s = s || target(ex, null, 0, 0, false);
@@ -3514,6 +3665,7 @@
     }
     html += actStrip();
     html += '<div class="tr-acts tr-foot">' +
+      '<button class="ghost" data-t="ready">Pick a ready workout</button>' +
       '<button class="ghost" data-t="empty">Log a workout outside the block</button>' +
       (nx && nx.w < acc && !steady(ms) ? '<button class="ghost" data-t="deloadnow">Deload now</button>' : '') +
       '<button class="ghost" data-t="browse">Other programs</button>' +
@@ -3795,6 +3947,7 @@
         (!z.fresh ? '<button class="tr-lnk" data-t="qzx">Cancel</button>' : '') +
       '</div>' +
       (z.i === 0 && z.fresh ? '<div class="tr-acts tr-qz-skip"><button class="tr-lnk" data-t="qzskip">Skip the questions</button>' +
+        '<button class="tr-lnk" data-t="ready">Pick a ready workout</button>' +
         '<button class="tr-lnk" data-t="empty">Just log a workout</button></div>' : '') +
     '</div>';
   }
@@ -3972,7 +4125,8 @@
     '</div>' +
     recs.slice(0, 3).map(function (r, i) { return progCard(r, i === 0 ? 'Best match' : ''); }).join('') +
     '<div class="tr-acts tr-foot"><button class="ghost" data-t="lib">See all ' + PROG_ORDER.length + ' programs</button>' +
-      (active() ? '' : '<button class="ghost" data-t="empty">Just log a workout</button>') + '</div>';
+      (active() ? '' : '<button class="ghost" data-t="ready">Pick a ready workout</button>' +
+        '<button class="ghost" data-t="empty">Just log a workout</button>') + '</div>';
   }
 
   function libHTML() {
@@ -4822,6 +4976,8 @@
     else if (sh.k === 'sty') body = styHTML(sh);
     else if (sh.k === 'rest') body = restHTML(sh);
     else if (sh.k === 'done') body = doneHTML2(sh);
+    else if (sh.k === 'ready') body = readyHTML(sh);
+    else if (sh.k === 'rtnew') body = rtNewHTML(sh);
     else if (sh.k === 'strong') body = strongHTML();
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
@@ -5135,6 +5291,7 @@
       }).join('') +
       '<div class="tr-acts"><button class="ghost" data-t="edopen" data-id="' + esc(wo.id) + '">Edit</button>' +
         '<button class="ghost" data-t="wocopy" data-id="' + esc(wo.id) + '">Copy as text</button>' +
+        '<button class="ghost" data-t="rtsave" data-id="' + esc(wo.id) + '">Save as routine</button>' +
         '<button class="ghost danger" data-t="delwo" data-id="' + esc(wo.id) + '">' +
         (armed ? 'Tap again to delete for good' : 'Delete this workout') + '</button></div>';
   }
@@ -5472,7 +5629,8 @@
       }).join('') +
       (wo.nt ? '<div class="tr-wont">' + esc(wo.nt) + '</div>' : '') +
       '<div class="tr-acts"><button class="btn-primary" data-t="close">Done</button>' +
-        '<button class="ghost" data-t="wocopy" data-id="' + esc(wo.id) + '">Copy as text</button></div>' +
+        '<button class="ghost" data-t="wocopy" data-id="' + esc(wo.id) + '">Copy as text</button>' +
+        '<button class="ghost" data-t="rtsave" data-id="' + esc(wo.id) + '">Save as routine</button></div>' +
     '</div>';
   }
 
@@ -6358,6 +6516,26 @@
       return;
     }
     if (t === 'empty') { startEmpty(); return; }
+    // ready workouts: the list, a row opened, the half-hour version, a start
+    if (t === 'ready') { S.rdo = ''; S.arm = ''; openSheet({ k: 'ready', eyebrow: 'Ready workouts', title: 'Pick a ready workout' }); return; }
+    if (t === 'rdopen') { S.rdo = S.rdo === v ? '' : v; S.arm = ''; drawSheet(); return; }
+    if (t === 'rdxp') { S.rdx = Number(v) ? 1 : 0; drawSheet(); return; }
+    if (t === 'rdgo') { startReady(v, !!S.rdx && !T.rt[v], Number(el.getAttribute('data-e'))); return; }
+    if (t === 'rtdel') {
+      if (S.arm !== 'rt:' + v) { S.arm = 'rt:' + v; drawSheet(); return; }
+      S.arm = '';
+      delete T.rt[v];
+      stamp('rt', v);
+      S.rdo = '';
+      drawSheet();
+      return;
+    }
+    if (t === 'rtsave') { openSheet({ k: 'rtnew', id: el.getAttribute('data-id'), eyebrow: 'Routine', title: 'Save as routine' }); return; }
+    if (t === 'rtdo') {
+      var rn = $('trRtN');
+      if (saveRoutine(el.getAttribute('data-id'), rn ? rn.value : '')) { S.sheet.done = 1; drawSheet(); }
+      return;
+    }
     if (t === 'plansheet') {
       ms = active();
       openSheet({ k: 'plan', w: num('data-w'), d: num('data-d'), eyebrow: ms ? ms.n : '', title: 'Session' });
@@ -6890,6 +7068,7 @@
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
       wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor,
+      readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

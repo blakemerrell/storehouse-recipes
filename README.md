@@ -94,6 +94,16 @@ three ideas in one tab:
   or wherever the plan asked for less: the change in volume, or tap for the volume, the reps
   or the best set's estimated max; each lift remembers its choice, and bodyweight lifts show
   their reps. Settings can turn it off.
+- *Ready workouts:* beside "Just log a workout", *Pick a ready workout* lists the blocks' own
+  days (Full Body A/B/C, Upper and Lower A/B, Push, Pull, Legs), filled for your equipment,
+  back and joints, preferring lifts you already do, with the weights from what you last
+  lifted. A *30 minutes* switch keeps the big lifts first at two sets each. Open one and it
+  lists every lift and asks *how hard today*: Easy (a set fewer, 3 in reserve), Normal (3
+  sets, 2 in reserve) or Hard (a set more, 1 in reserve); a tap starts it. *Next up* follows
+  the rotation (Full Body B after A). It is saved like any workout and never starts or
+  moves a block. Any finished workout can be kept with *Save as routine* (its lifts in
+  order with the sets you did); routines sync, appear under *Your routines*, and delete
+  with two taps.
   Saving a workout opens its summary: the time, sets, volume and records, each set that
   beat a record tagged 🥇 (only the day's best set takes each one), and a milestone when
   there is one (the 10th workout, a block finished). A chime and confetti mark every
