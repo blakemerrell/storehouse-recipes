@@ -1132,7 +1132,7 @@
   var IX = null;
   function ix() {
     weighIns();
-    if (IX && IX.rev === REV && IX.wk === WTS.sig) return IX;
+    if (IX && IX.rev === REV && IX.wk === WTS.raw) return IX;
     var list = Object.keys(T.wo).map(function (k) { return T.wo[k]; })
       .filter(function (w) { return w && fin(w.st); })
       .sort(function (a, b) { return a.st - b.st; });
@@ -1174,7 +1174,7 @@
       var a = T.ax[k];
       if (a && a.ms) ez[a.ms + ':' + a.w + ':' + a.d] = a;
     });
-    IX = { rev: REV, wk: WTS.sig, list: list, slot: slot, best: best, prs: prs, ez: ez };
+    IX = { rev: REV, wk: WTS.raw, list: list, slot: slot, best: best, prs: prs, ez: ez };
     return IX;
   }
   function woFor(ms, w, d) { return ix().slot[ms.id + ':' + w + ':' + d] || null; }
@@ -1223,31 +1223,44 @@
   }
 
   /* Pull-ups, chin-ups and dips lift you, so their strength is your weight
-     plus whatever hangs from the belt. The weight is Nourish's morning
-     weigh-in: that day's, or the latest in the fortnight before. Nothing
-     older, so a stale number never moves a record. Without one, these lifts
-     are counted in reps alone, as before. */
+     plus whatever hangs from the belt. The weight comes from Nourish's
+     weigh-ins (see bwInfo). Nothing older than a fortnight, so a stale
+     number never moves a record. Without one, these lifts are counted in
+     reps alone, as before. */
   var BWL = { pullup: 1, chinup: 1, 'pullup-neg': 1, dip: 1 };
-  var WTS = { at: 0, v: {}, sig: '' };
+  // parsed once per change to what Nourish has stored, however often it is asked
+  var WTS = { raw: null, v: {} };
   function weighIns() {
-    if (Date.now() - WTS.at > 2000) {
+    var raw = null;
+    try { raw = localStorage.getItem('bsc.macroWeights'); } catch (e) { raw = null; }
+    if (raw !== WTS.raw) {
       var v = null;
-      try { v = JSON.parse(localStorage.getItem('bsc.macroWeights')); } catch (e) { v = null; }
-      if (!plain(v)) v = {};
-      var ks = Object.keys(v).sort();
-      WTS = { at: Date.now(), v: v, sig: ks.length + ':' + (ks.length ? ks[ks.length - 1] + '=' + v[ks[ks.length - 1]] : '') };
+      try { v = JSON.parse(raw); } catch (e) { v = null; }
+      WTS = { raw: raw, v: plain(v) ? v : {} };
     }
     return WTS.v;
   }
-  function bwOn(dk, u) {
+  /* Your weight on a day, and how sure of it. The week's average when there
+     are three or more weigh-ins in the seven days to it, which is steadier
+     than any one reading; else that day's own weigh-in; else the latest in
+     the fortnight before, which counts but is not trusted: on the day
+     itself Strengthen asks rather than lean on it (bwNeed). */
+  function bwInfo(dk, u) {
     if (typeof dk !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dk)) return null;
-    var d = new Date(dk + 'T12:00:00');
-    d.setDate(d.getDate() - 14);
-    var floor = dayKey(d), w = weighIns(), best = '';
-    Object.keys(w).forEach(function (k) { if (k <= dk && k >= floor && k > best && fin(w[k]) && w[k] > 0) best = k; });
-    if (!best) return null;
-    return u === 'kg' ? Math.round(w[best] / 2.20462 * 10) / 10 : w[best];
+    var back = function (n) { var d = new Date(dk + 'T12:00:00'); d.setDate(d.getDate() - n); return dayKey(d); };
+    var f7 = back(6), f14 = back(14), w = weighIns(), wk = [], last = '';
+    Object.keys(w).forEach(function (k) {
+      if (k > dk || !fin(w[k]) || !(w[k] > 0)) return;
+      if (k >= f7) wk.push(w[k]);
+      if (k >= f14 && k > last) last = k;
+    });
+    var cv = function (lb) { return Math.round((u === 'kg' ? lb / 2.20462 : lb) * 10) / 10; };
+    if (wk.length >= 3) return { v: cv(wk.reduce(function (a, b) { return a + b; }, 0) / wk.length), src: 'avg', n: wk.length };
+    if (fin(w[dk]) && w[dk] > 0) return { v: cv(w[dk]), src: 'day', k: dk };
+    if (last) return { v: cv(w[last]), src: 'old', k: last };
+    return null;
   }
+  function bwOn(dk, u) { var b = bwInfo(dk, u); return b ? b.v : null; }
   // a workout's bodyweight in its own unit: kept when it was saved, else looked up
   function woBw(wo) { return wo && fin(wo.bw) && wo.bw > 0 ? wo.bw : wo ? bwOn(wo.dk, wo.u) : null; }
   // the same, in the unit you lift in, for a lift that lifts you; null for any other
@@ -3549,7 +3562,7 @@
     if (nt) wo.nt = nt;
     var mc = mcDone(LIVE.mc);
     if (mc) wo.mc = mc;
-    if (wo.x.some(function (x) { return BWL[x.e]; })) { var bw = bwOn(wo.dk, wo.u); if (bw) wo.bw = bw; }
+    if (wo.x.some(function (x) { return BWL[x.e]; })) { var bw = fin(LIVE.bw) && LIVE.bw > 0 ? LIVE.bw : bwOn(wo.dk, wo.u); if (bw) wo.bw = bw; }
     return clean(wo);
   }
 
@@ -4418,6 +4431,7 @@
     if (ms && pairLabels().some(Boolean)) html += '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>';
 
     if (T.pr.bk || T.pr.jt) html += bkCard(L);
+    html += bwCard(L);
 
     var ask = soreAsk();
     if (ask.length) {
@@ -4475,6 +4489,63 @@
       (L.bk === 1 ? '<div class="tr-note">' + esc(tight) + '</div>' : '') +
       (L.bk === 2 ? '<div class="tr-note tr-warn">' + esc(sore) + '</div>' : '') +
     '</div>';
+  }
+
+  /* A pull-up day with nothing reliable to go on: no week of weigh-ins to
+     average and none today. Asked once; answered, it is today's weigh-in on
+     Nourish too. Never asked when the lift doesn't need it. */
+  function bwNeed(L) {
+    if (!L || fin(L.bw) || L.bwq || !L.x.some(function (x) { return BWL[x.e]; })) return false;
+    var b = bwInfo(dayKey(new Date(L.st)), L.u || T.pr.u);
+    return !b || b.src === 'old';
+  }
+  function bwCard(L) {
+    var u = L.u || T.pr.u;
+    if (fin(L.bw) && !L.bwo) {
+      return '<div class="tr-card tr-ask tr-bkt">' +
+        '<button class="tr-fbt tr-bkt-b" data-t="bwopen" aria-label="Your weight today: ' + fmtN(L.bw) + ' ' + u + '. Change">' +
+          '<span class="tr-fbt-n">You</span><span class="tr-fbt-s">' + fmtN(L.bw) + ' ' + u + '</span><span class="tr-fbt-e">Change</span></button></div>';
+    }
+    if (!L.bwo && !bwNeed(L)) return '';
+    var b = bwInfo(dayKey(new Date(L.st)), u);
+    var when2 = b && b.k ? shortDate(new Date(b.k + 'T12:00:00').getTime()) : '';
+    var odd = S.bwOdd;
+    return '<div class="tr-card tr-ask tr-bwq">' +
+      '<div class="tr-sq-l">What do you weigh today?</div>' +
+      '<div class="tr-sub">Pull-ups and dips lift you, so their numbers count your weight. ' +
+        (b && b.src === 'old' ? 'Your last weigh-in was ' + fmtN(b.v) + ' ' + u + ' on ' + when2 + '.' : 'There\u2019s no weigh-in from the last two weeks.') + '</div>' +
+      '<div class="tr-bwq-r"><input class="tr-in tr-bwq-in" id="trBwq" inputmode="decimal" autocomplete="off" value="' + (odd ? esc(fmtN(odd.v)) : '') + '"' +
+        ' placeholder="' + (b ? esc(fmtN(b.v)) : '') + '" aria-label="Your weight today, in ' + u + '"><span class="tr-bwq-u">' + u + '</span>' +
+        '<button class="btn-primary" data-t="bwqsave">Save</button></div>' +
+      (odd ? '<div class="tr-note tr-warn">That\u2019s ' + fmtN(odd.v) + ' ' + u + (odd.ref ? ', against ' + fmtN(odd.ref) + ' ' + u + ' lately' : '') +
+        '. <button class="tr-lnk" data-t="bwqkeep">Keep it</button></div>' : '') +
+      '<div class="tr-acts">' +
+        (b && b.src === 'old' ? '<button class="tr-lnk" data-t="bwqold">Use ' + fmtN(b.v) + ' from ' + when2 + '</button>' : '') +
+        '<button class="tr-lnk" data-t="bwqskip">Not now</button></div>' +
+      '<div class="tr-hint">Saved, it\u2019s today\u2019s weigh-in on Nourish as well, on every device you sign in on.</div>' +
+    '</div>';
+  }
+  /* The weight typed at the gym: into Nourish as the day's weigh-in, through
+     Nourish's own guard, and kept for this workout either way. */
+  function bwSave(force) {
+    var L = LIVE, box = $('trBwq');
+    if (!L || !box) return;
+    var v = numIn(box.value), u = L.u || T.pr.u;
+    if (v === null || !(v > 0) || v > (u === 'kg' ? 700 : 1500)) { box.setAttribute('aria-invalid', 'true'); box.focus(); return; }
+    var lb = u === 'kg' ? v * 2.20462 : v;
+    var H = window.Hive, res = H && H.weigh ? H.weigh(dayKey(new Date(L.st)), lb, { force: !!force, was: L.bwn }) : null;
+    if (res && res.odd) {
+      S.bwOdd = { v: v, ref: res.ref ? Math.round((u === 'kg' ? res.ref / 2.20462 : res.ref) * 10) / 10 : 0 };
+      draw();
+      return;
+    }
+    S.bwOdd = null;
+    L.bw = Math.round(v * 10) / 10;
+    if (res && res.ok) L.bwn = res.lb;
+    L.bwq = 'saved';
+    L.bwo = 0;
+    saveLive();
+    draw();
   }
 
   /* The circuit: what to do, a clock, and the score. The clock counts down
@@ -6586,6 +6657,16 @@
       return;
     }
     if (t === 'empty') { startEmpty(); return; }
+    // your weight on a pull-up day
+    if (t === 'bwqsave') { bwSave(false); return; }
+    if (t === 'bwqkeep') { bwSave(true); return; }
+    if (t === 'bwqold' && LIVE) {
+      var bo = bwInfo(dayKey(new Date(LIVE.st)), LIVE.u || T.pr.u);
+      if (bo) { LIVE.bw = bo.v; LIVE.bwq = 'old'; LIVE.bwo = 0; S.bwOdd = null; saveLive(); draw(); }
+      return;
+    }
+    if (t === 'bwqskip' && LIVE) { LIVE.bwq = 'skip'; LIVE.bwo = 0; S.bwOdd = null; saveLive(); draw(); return; }
+    if (t === 'bwopen' && LIVE) { LIVE.bwo = 1; draw(); return; }
     // ready workouts: the list, a row opened, the half-hour version, a start
     if (t === 'ready') { S.rdo = ''; S.arm = ''; openSheet({ k: 'ready', eyebrow: 'Ready workouts', title: 'Pick a ready workout' }); return; }
     if (t === 'rdopen') { S.rdo = S.rdo === v ? '' : v; S.arm = ''; drawSheet(); return; }
@@ -7096,6 +7177,7 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && S.sheet) { closeSheet(); return; }
       var el = e.target;
+      if (e.key === 'Enter' && el && el.id === 'trBwq') { e.preventDefault(); bwSave(false); return; }
       if (e.key === 'Enter' && el && el.getAttribute && el.getAttribute('data-in') === 'r' && LIVE) {
         e.preventDefault();
         el.blur();
@@ -7137,7 +7219,7 @@
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
-      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, e1Of: e1Of, records: records,
+      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }

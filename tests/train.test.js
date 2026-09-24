@@ -2277,5 +2277,82 @@ module.exports = {
     r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-hint') || {}).textContent || '');
     t.ok('and the lift says how to get a strength number', /Log your weight on Nourish/.test(r), r);
     await p.close();
+    // ---- your weight on a pull-up day: asked only when there's no good answer --------------
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, D = 864e5, k = (ago) => { const d = new Date(Date.now() - ago * D); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      const at = (w) => { localStorage.setItem('bsc.macroWeights', JSON.stringify(w)); return _.bwInfo(k(0), 'lb'); };
+      return { avg: at({ [k(1)]: 190, [k(3)]: 191, [k(5)]: 192 }), day: at({ [k(0)]: 188, [k(3)]: 191 }), old: at({ [k(9)]: 190 }), none: at({ [k(20)]: 190 }) };
+    });
+    t.ok('three weigh-ins in the week: their average is your weight, steadier than any one', r.avg.src === 'avg' && r.avg.v === 191, JSON.stringify(r.avg));
+    t.ok('fewer, but one today: today’s', r.day.src === 'day' && r.day.v === 188, JSON.stringify(r.day));
+    t.ok('only an older one: it counts, but is marked as not to be trusted today', r.old.src === 'old' && r.old.v === 190 && r.none === null, JSON.stringify(r));
+    await p.close();
+
+    const bwPage = async (weights) => {
+      const q = await t.fresh();
+      await q.evaluate((w) => {
+        const D = 864e5, k = (ago) => { const d = new Date(Date.now() - ago * D); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+        const o = {}; Object.keys(w).forEach((a) => { o[k(Number(a))] = w[a]; });
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(o));
+      }, weights);
+      await q.reload();
+      await q.waitForTimeout(200);
+      await seed(q, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+      await q.click('.tab[data-view="train"]');
+      await q.click('[data-t="empty"]');
+      await q.click('[data-t="addex"]');
+      await q.click('.tr-pick[data-e="bb-bench"]');
+      return q;
+    };
+    const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    // a week of weigh-ins: never asked
+    p = await bwPage({ 1: 190, 3: 191, 5: 192 });
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    r = await p.evaluate(() => !!document.querySelector('.tr-bwq'));
+    t.ok('with a week of weigh-ins it doesn’t ask', r === false);
+    await p.close();
+    // an older one only: asked, and not before a pull-up is in the workout
+    p = await bwPage({ 9: 190, 10: 191, 11: 189 });
+    r = await p.evaluate(() => !!document.querySelector('.tr-bwq'));
+    t.ok('no question on a day with no pull-ups or dips', r === false);
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-bwq'); return c ? { q: c.querySelector('.tr-sq-l').textContent, sub: c.querySelector('.tr-sub').textContent,
+      old: (c.querySelector('[data-t="bwqold"]') || {}).textContent || '' } : null; });
+    t.ok('add pull-ups with only an older weigh-in, and it asks what you weigh today', r && r.q === 'What do you weigh today?' && /last weigh-in was 190 lb/.test(r.sub) && /^Use 190 from /.test(r.old), JSON.stringify(r));
+    await p.fill('#trBwq', '150');
+    await p.click('[data-t="bwqsave"]');
+    r = await p.evaluate((k) => ({ warn: (document.querySelector('.tr-bwq .tr-warn') || {}).textContent || '', nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k] }), today());
+    t.ok('a weight far from your average is asked about, with Nourish’s own guard, before anything is written', /That’s 150 lb, against 190 lb lately/.test(r.warn) && r.nourish === undefined, JSON.stringify(r));
+    await p.fill('#trBwq', '188.4');
+    await p.press('#trBwq', 'Enter');
+    r = await p.evaluate((k) => ({ live: window.Train._.state().LIVE.bw, nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k],
+      tuck: (document.querySelector('.tr-bkt [data-t="bwopen"]') || {}).textContent || '', card: !!document.querySelector('.tr-bwq') }), today());
+    t.ok('saved, it is today’s weigh-in on Nourish, and this workout’s weight', r.live === 188.4 && r.nourish === 188.4, JSON.stringify(r));
+    t.ok('and the question folds to one line you can change', !r.card && /You188\.4 lbChange/.test(r.tuck), JSON.stringify(r));
+    r = await p.evaluate((k) => { const H = window.Hive; return { again: H.weigh(k, 187), fix: H.weigh(k, 187.2, { was: 188.4 }) }; }, today());
+    t.ok('Nourish never lets it write over a day already weighed, except to correct its own number', r.again.had === 188.4 && r.fix.ok === true, JSON.stringify(r));
+    await p.fill('#trr-1-0', '8');
+    await p.click('[data-t="tick"][data-x="1"][data-s="0"]');
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => Object.values(window.Train._.state().T.wo)[0].bw);
+    t.ok('the workout keeps the weight you gave', r === 188.4, r);
+    await p.close();
+    // Use the older one, or Not now: nothing written to Nourish
+    p = await bwPage({ 9: 190 });
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="dip"]');
+    await p.click('[data-t="bwqold"]');
+    r = await p.evaluate((k) => ({ live: window.Train._.state().LIVE.bw, nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k] }), today());
+    t.ok('using the last weigh-in keeps it for the workout but writes nothing new to Nourish', r.live === 190 && r.nourish === undefined, JSON.stringify(r));
+    await p.click('[data-t="bwopen"]');
+    await p.click('[data-t="bwqskip"]');
+    r = await p.evaluate(() => ({ q: window.Train._.state().LIVE.bwq, card: !!document.querySelector('.tr-bwq') }));
+    t.ok('and Not now puts the question away for this workout', r.q === 'skip' && !r.card, JSON.stringify(r));
+    await p.close();
   },
 };

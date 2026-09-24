@@ -16855,6 +16855,24 @@
     trained: function (k) {
       mSetTrained(k, true);
       if (S.view === 'macros') renderMacros();
+    },
+    /* A weigh-in from Strengthen, which asks for one on a pull-up day with
+       nothing better to go on. The box on Nourish's guard: a weight far from
+       your own average, or from any adult's, comes back to be confirmed
+       rather than written. It never writes over a day already weighed,
+       except to correct the number Strengthen itself put there (o.was). */
+    weigh: function (k, lb, o) {
+      o = o || {};
+      var n = Math.round(Number(lb) * 10) / 10;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(k)) || !isFinite(n) || n <= 0 || n > 1500) return { ok: false, bad: true };
+      if (MWEIGHTS[k] && MWEIGHTS[k] !== o.was) return { ok: false, had: MWEIGHTS[k] };
+      var st = mWeightStats(), ref = st && st.n >= 3 ? st.avg7 : 0;
+      if (!o.force && (n < 60 || n > 700 || (ref > 0 && Math.abs(n - ref) > ref * 0.15))) {
+        return { ok: false, odd: true, ref: Math.round(ref * 10) / 10 };
+      }
+      mWriteWeight(k, n);
+      if (S.view === 'macros') renderMacros();
+      return { ok: true, lb: n };
     }
   };
 

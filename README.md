@@ -105,8 +105,12 @@ three ideas in one tab:
   order with the sets you did); routines sync, appear under *Your routines*, and delete
   with two taps.
 - *Bodyweight lifts:* pull-ups, chin-ups, negatives and dips count you as well as anything
-  added, from Nourish's morning weigh-in that day or in the fortnight before (none older;
-  the day's weight is kept with the workout). Their estimated max, records and lift-page
+  added. Your weight is the week's average when there are three or more weigh-ins in the
+  seven days to the workout, else that day's weigh-in, else the latest in the fortnight
+  before (the day's weight is kept with the workout). Only when a workout has one of these
+  lifts and there's no week to average and no weigh-in today does it ask *What do you weigh
+  today?*: saved, it becomes today's weigh-in on Nourish (through Nourish's own guard, never
+  over a day already weighed) and syncs; *Use* the last weigh-in or *Not now* write nothing. Their estimated max, records and lift-page
   charts use it, with *strength × bodyweight* beside, so a lighter you doing the same reps
   isn't shown as weaker; the badge beside the lift keeps to reps. With no weigh-in, they
   are counted in reps as before.

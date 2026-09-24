@@ -5265,3 +5265,8 @@ span.tr-fm { cursor: default; }
 .tr-rdgo b { font-size: 14.5px; }
 .tr-rdgo small { font-size: 11px; line-height: 1.3; text-align: center; opacity: 0.85; }
 .tr-rdr .tr-acts { margin: 0 12px 10px; }
+
+/* ---- Strengthen: your weight on a pull-up day ---- */
+.tr-bwq-r { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.tr-bwq-in { width: 96px; flex: none; }
+.tr-bwq-u { color: var(--muted); font-size: 14px; margin-right: 4px; }
