@@ -5344,8 +5344,13 @@
     });
     var ms = [];
     if (MILESTONES.indexOf(count) >= 0) ms.push(count === 1 ? 'Your first workout here' : 'Your ' + nth(count) + ' workout');
+    /* The block finished by this workout: the last of it, and not a repeat
+       of a day already done. */
     var blk = wo.ms && T.ms[wo.ms];
-    if (blk && !nextSlot(blk)) ms.push('Block complete: ' + blk.n);
+    var not = blk && list.some(function (w) {
+      return w !== wo && w.ms === wo.ms && (w.st > wo.st || (w.w === wo.w && w.d === wo.d && w.st < wo.st));
+    });
+    if (blk && !not && !nextSlot(blk)) ms.push('Block complete: ' + blk.n);
     return { sets: sets, lines: lines, ms: ms, count: count,
       big: ms.length > 0 || lines.some(function (l) { return l.big; }) };
   }

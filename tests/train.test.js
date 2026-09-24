@@ -1954,6 +1954,32 @@ module.exports = {
     r = await p.evaluate(() => window.Train._.wins(window.Train._.state().T.wo.d).sets);
     t.ok('two sets at the same new heaviest: the one with more reps takes the ribbon, and the other is no best for its reps either',
       r['0:1'] === 'heaviest, best e1RM' && !r['0:0'] && !r['0:2'], JSON.stringify(r));
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'blk'; ms.n = 'Test block';
+      const wo = {}; let k = 0, last = null;
+      const weeks = _.weeksOf(ms), now = Date.now();
+      for (let w = 0; w < weeks; w++) for (let d = 0; d < ms.days.length; d++) {
+        if (ms.days[d].ez) continue;
+        const id = 'b' + (k++), st = now - (200 - k) * 36e5;
+        wo[id] = { id, st, en: st + 36e5, dk: '2026-01-01', n: 'W', u: 'lb', ms: 'blk', w, d, dl: 0, x: [], sr: {}, fb: {} };
+        last = id;
+      }
+      const load = () => {
+        localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1 }, act: 'blk', ms: { blk: ms }, cx: {}, ax: {}, wo }));
+        localStorage.removeItem('bsc.trainStamps');
+        _.reload();
+        return _.state().T;
+      };
+      let T = load();
+      const out = { fin: _.wins(T.wo[last]).ms.join('|'), mid: _.wins(T.wo.b3).ms.join('|'), done: !_.nextSlot(T.ms.blk) };
+      wo.again = Object.assign({}, wo[last], { id: 'again', st: now - 1000, en: now });
+      T = load();
+      out.again = _.wins(T.wo.again).ms.join('|');
+      return out;
+    });
+    t.ok('the workout that finishes a block says so', /Block complete: Test block/.test(r.fin) && !/Block/.test(r.mid), JSON.stringify(r));
+    t.ok('but doing its last day again does not say it twice', !/Block/.test(r.again), JSON.stringify(r));
     await p.close();
 
     p = await t.fresh();
