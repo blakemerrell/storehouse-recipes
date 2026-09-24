@@ -1320,5 +1320,316 @@ module.exports = {
     });
     t.ok('the other half of a pair does not put the first half’s card away', r.pair && r.open, JSON.stringify(r));
     await p.close();
+    // ---- for somebody who lifts every day and logs everything ------------
+    /* A keeping block, two days of pairs, started: the quickest way to a
+       live workout with a block behind it. */
+    async function keepLive(p) {
+      await p.click('.tab[data-view="train"]');
+      await p.click('[data-t="qz"][data-f="goal"][data-v="keep"]');
+      await p.click('[data-t="qz"][data-f="lvl"][data-v="2"]');
+      await p.click('[data-t="qz"][data-f="dpw"][data-v="2"]');
+      await p.click('[data-t="qz"][data-f="min"][data-v="0"]');
+      await p.click('[data-t="qzn"]');
+      await p.click('[data-t="qz"][data-f="kit"][data-v="gym"]');
+      await p.click('[data-t="qzn"]');
+      await p.click('[data-t="qzn"]');
+      await p.click('[data-t="qz"][data-f="age"][data-v=""]');
+      await p.click('[data-t="prog"][data-v="keep"]');
+      await p.click('[data-t="build"]');
+      await p.click('[data-t="begin"]');
+      await p.click('[data-t="start"]');
+      await p.waitForTimeout(100);
+    }
+    const otherOf = (p, xi) => p.evaluate((xi) => {
+      const cur = window.Train._.state().LIVE.x[xi].e;
+      return [...document.querySelectorAll('.tr-pick[data-e]')].map((b) => b.dataset.e).filter((e) => e !== cur)[0];
+    }, xi);
+
+    // a swap is for today unless you say the rest of the block
+    p = await t.fresh();
+    await keepLive(p);
+    await p.click('[data-t="swap"][data-x="0"]');
+    r = await p.evaluate(() => ({
+      chips: [...document.querySelectorAll('[data-t="swsc"]')].map((b) => b.dataset.v + ':' + b.getAttribute('aria-pressed')).join(),
+    }));
+    t.ok('a swap in a block asks how long it is for, and starts at just today', r.chips === 'day:true,block:false', r.chips);
+    let to = await otherOf(p, 0);
+    const before = await p.evaluate(() => { const s = window.Train._.state(); return s.T.ms[s.LIVE.ms].days[s.LIVE.d].s.map((x) => x.e).join(); });
+    await p.click(`.tr-pick[data-e="${to}"]`);
+    r = await p.evaluate(() => { const s = window.Train._.state(); return { now: s.LIVE.x[0].e, plan: s.T.ms[s.LIVE.ms].days[s.LIVE.d].s.map((x) => x.e).join() }; });
+    t.ok('just today changes today and leaves the block as it was', r.now === to && r.plan === before, JSON.stringify(r));
+    await p.click('[data-t="swap"][data-x="1"]');
+    await p.click('[data-t="swsc"][data-v="block"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-swsc .tr-hint') || {}).textContent || '');
+    t.ok('the rest of the block says what it will do', /every week from now on/.test(r), r);
+    to = await otherOf(p, 1);
+    const was1 = await p.evaluate(() => window.Train._.state().LIVE.x[1].e);
+    await p.click(`.tr-pick[data-e="${to}"]`);
+    r = await p.evaluate((was) => { const s = window.Train._.state(); const d = s.T.ms[s.LIVE.ms].days[s.LIVE.d].s.map((x) => x.e); return { has: d.indexOf(s.LIVE.x[1].e) >= 0, gone: d.indexOf(was) < 0 }; }, was1);
+    t.ok('the rest of the block puts the new one in the plan', r.has && r.gone, JSON.stringify(r));
+    // swapped for today, then that one swapped for good: the plan's own exercise is what goes
+    const orig0 = before.split(',')[0];
+    await p.click('[data-t="swap"][data-x="0"]');
+    await p.click('[data-t="swsc"][data-v="block"]');
+    to = await p.evaluate((skip) => {
+      const cur = window.Train._.state().LIVE.x[0].e;
+      return [...document.querySelectorAll('.tr-pick[data-e]')].map((b) => b.dataset.e).filter((e) => e !== cur && e !== skip)[0];
+    }, orig0);
+    await p.click(`.tr-pick[data-e="${to}"]`);
+    r = await p.evaluate(() => { const s = window.Train._.state(); return s.T.ms[s.LIVE.ms].days[s.LIVE.d].s.map((x) => x.e); });
+    t.ok('a second swap, for the rest of the block, replaces what the plan had, not today’s stand-in', r[0] === to && r.indexOf(orig0) < 0, JSON.stringify({ r, orig0, to }));
+
+    // moving an exercise, pairs together
+    r = await p.evaluate(() => {
+      const L = window.Train._.state().LIVE;
+      return { es: L.x.map((x) => x.e), ps: L.x.map((x) => x.p || 0),
+        upOff: document.querySelector('[data-t="mvex"][data-v="-1"][data-x="0"]').disabled };
+    });
+    t.ok('the first exercise cannot move up', r.upOff);
+    const order0 = r;
+    await p.click('[data-t="mvex"][data-v="1"][data-x="0"]');
+    r = await p.evaluate(() => window.Train._.state().LIVE.x.map((x) => x.e));
+    const paired = order0.ps[0] && order0.ps[0] === order0.ps[1];
+    t.ok('moving down swaps it past the next exercise, and a pair moves as one',
+      paired ? r[0] === order0.es[2] && r.indexOf(order0.es[0]) + 1 === r.indexOf(order0.es[1]) : r[1] === order0.es[0], JSON.stringify({ was: order0.es, now: r }));
+    r = await p.evaluate(() => JSON.parse(localStorage.getItem('sh.trainLive')).x.map((x) => x.e));
+    t.ok('and the new order is kept if the page goes away', r[0] !== order0.es[0], r.join());
+
+    // a note that follows the exercise
+    const e0 = await p.evaluate(() => window.Train._.state().LIVE.x[0].e);
+    await p.click(`.tr-ex-a [data-t="note"][data-e="${e0}"]`);
+    await p.fill('#trNoteT', '  Seat 4.   Handles at the second notch. ');
+    await p.click('[data-t="notesave"]');
+    r = await p.evaluate((e) => {
+      const s = window.Train._.state(), k = window.Train._.ntKey(e);
+      return { v: s.T.nt[k], stamped: s.TS.nt[k] > 0, card: (document.querySelector('.tr-ex .tr-exnt') || {}).textContent || '',
+        sync: JSON.stringify(window.Train._.payload(true).nt || {}) };
+    }, e0);
+    t.ok('a note on an exercise is kept, tidied, and stamped to sync',
+      r.v && r.v.e === e0 && r.v.t === 'Seat 4. Handles at the second notch.' && r.stamped && /second notch/.test(r.sync), JSON.stringify(r));
+    t.ok('and shows on its card', /Seat 4/.test(r.card), r.card);
+    r = await p.evaluate(() => {
+      const ids = window.Train._.LIB_LIST.map((x) => window.Train._.ntKey(x.id));
+      return ids.length === new Set(ids).size;
+    });
+    t.ok('no two library exercises share a note key', r);
+
+    // effort, set by set, when asked for
+    await p.click('[data-t="settings"]');
+    await p.click('[data-t="s-rq"][data-v="1"]');
+    await p.click('.sheet-x');
+    r = await p.evaluate(() => document.querySelectorAll('.tr-ex .tr-rqs').length);
+    t.ok('turned on, every set has a reps-in-reserve box', r > 0, r);
+    await p.selectOption('[data-in="q"][data-x="0"][data-s="0"]', '2');
+    const n0 = await p.evaluate(() => window.Train._.state().LIVE.x[0].s.length);
+    for (let j = 0; j < n0; j++) {
+      await p.fill(`#trw-0-${j}`, '100'); await p.fill(`#trr-0-${j}`, '10');
+      await p.click(`[data-t="tick"][data-x="0"][data-s="${j}"]`);
+    }
+    await p.click('[data-t="finish"]');
+    await p.fill('#trWoNt', 'Slept badly. Knee fine.');
+    await p.click('[data-t="save"]');
+    r = await p.evaluate((e) => {
+      const s = window.Train._.state(), w = Object.values(s.T.wo)[0];
+      return { q: w.x[0].s[0].q, q1: w.x[0].s[1] && w.x[0].s[1].q, pq: w.x[0].pq, nt: w.nt, plan: (document.querySelector('.tr-next') || {}).textContent || '' };
+    }, e0);
+    t.ok('a set said to have two in reserve is saved so; one not said stays blank', r.q === 2 && r.q1 === undefined, JSON.stringify(r));
+    t.ok('with what the plan asked beside it', typeof r.pq === 'number', r.pq);
+    t.ok('and the note on the workout is saved with it', r.nt === 'Slept badly. Knee fine.', r.nt);
+    await p.click('[data-t="sub"][data-v="history"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-h-nt') || {}).textContent || '');
+    t.ok('History shows the note', /Slept badly/.test(r), r);
+    await p.close();
+
+    // the review grades effort once it is said
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state(), now = Date.now();
+      const W = (id, ago, x) => ({ id, st: now - ago * 864e5, u: 'lb', ms: '', w: -1, d: -1, x });
+      const q = (qs, pq) => ({ e: 'bb-bench', pq, s: qs.map((v, i) => ({ w: 185, r: 8, q: v, t: now - 2 * 864e5 + i * 200e3 })) });
+      const grade = (x) => {
+        st.T.wo = { a: W('a', 2, x) }; st.T.act = '';
+        localStorage.setItem('bsc.train', JSON.stringify(st.T)); _.reload();
+        return _.review(now).checks.filter((c) => c.t === 'How close to failure')[0];
+      };
+      return { far: grade([q([4, 4, 5, 4, 4, 5])]), near: grade([q([2, 2, 1, 2, 2, 2], 2)]), over: grade([q([0, 0, 0, 0, 0, 0], 2)]),
+        few: grade([q([2, 2], 2)]) };
+    });
+    t.ok('four and five in reserve, with no plan, is further from failure than the growth was', r.far.st === 'look' && /4\.5 reps in reserve/.test(r.far.b), r.far.b);
+    t.ok('about the two asked for is on target', r.near.st === 'good' && /On target/.test(r.near.b), r.near.b);
+    t.ok('none left where two were asked is flagged as closer than planned', r.over.st === 'look' && /Closer to failure than planned/.test(r.over.b), r.over.b);
+    t.ok('two sets is not enough to grade', r.few.st === 'info', r.few.b);
+    await p.close();
+
+    // correcting a saved workout
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {},
+      wo: { old: wo('old', '', -1, -1, 9, [{ e: 'bb-bench', s: sets(180, [8, 8]) }]),
+        fix: wo('fix', '', -1, -1, 2, [{ e: 'bb-bench', s: sets(185, [8, 8]) }, { e: 'db-curl', s: sets(30, [12]) }]) } });
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('[data-t="wosheet"][data-id="fix"]');
+    await p.click('[data-t="edopen"]');
+    r = await p.evaluate(() => document.querySelectorAll('[data-ed="w"]').length);
+    t.ok('Edit opens the workout as boxes, set by set', r === 3, r);
+    await p.fill('[data-ed="w"][data-x="0"][data-s="0"]', '195');
+    await p.click('[data-t="edrm"][data-x="0"][data-s="1"]');
+    await p.click('[data-t="edadd"][data-x="0"]');
+    await p.fill('#trEdNt', 'Typo fixed');
+    await p.click('[data-t="edsave"]');
+    r = await p.evaluate(() => {
+      const s = window.Train._.state(), w = s.T.wo.fix;
+      return { s: w.x[0].s.map((z) => z.w + 'x' + z.r + (z.t ? 't' : '')).join(), ed: w.ed > 0, stamp: s.TS.wo.fix > 0, nt: w.nt,
+        prs: window.Train._.prsIn(w).length, sub: (document.querySelector('.tr-sheet .tr-sub') || {}).textContent || '' };
+    });
+    t.ok('the weight is corrected, the set taken out is gone, the set added copies the last',
+      r.s === '195x8t,195x8', r.s);
+    t.ok('and it is stamped, so the other phone takes the correction', r.ed && r.stamp, JSON.stringify(r));
+    t.ok('the records follow: 195 is now a record over the 180 before', r.prs >= 1, r.prs);
+    t.ok('and it says it was edited', /edited/.test(r.sub) && r.nt === 'Typo fixed', r.sub);
+    await p.click('[data-t="edopen"]');
+    await p.click('[data-t="edrmx"][data-x="1"]');
+    await p.click('[data-t="edrmx"][data-x="0"]');
+    await p.click('[data-t="edsave"]');
+    r = await p.evaluate(() => ({ err: (document.querySelector('.tr-sheet .tr-warn') || {}).textContent || '', left: window.Train._.state().T.wo.fix.x.length }));
+    t.ok('emptying a workout is refused, and says to delete it instead', /delete it/.test(r.err) && r.left === 2, JSON.stringify(r));
+    await p.click('[data-t="edcancel"]');
+    await p.click('[data-t="edopen"]');
+    await p.fill('[data-ed="r"][data-x="1"][data-s="0"]', '');
+    await p.click('[data-t="edaddx"]');
+    await p.click('.tr-pick[data-e="hammer"]');
+    await p.fill('[data-ed="w"][data-x="2"][data-s="0"]', '25');
+    await p.fill('[data-ed="r"][data-x="2"][data-s="0"]', '10');
+    await p.click('[data-t="edsave"]');
+    r = await p.evaluate(() => window.Train._.state().T.wo.fix.x.map((x) => x.e + ':' + x.s.length).join());
+    t.ok('a forgotten exercise can be added, and one left with no reps drops out', r === 'bb-bench:2,hammer:1', r);
+    await p.close();
+
+    // every day: six lifting days and an easy one
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await answer(p, { goal: 'muscle', lvl: 1, dpw: 7, min: 0 });
+    r = await p.evaluate(() => window.Train._.state().T.pr.dpw);
+    t.ok('seven days a week is an answer', r === 7, r);
+    await p.click('[data-t="prog"][data-v="grow"]');
+    r = await p.evaluate(() => ({ o: window.Train._.state().S.opt, on: (document.querySelector('[data-t="o-ez"][aria-pressed="true"]') || {}).dataset }));
+    t.ok('and the program starts at six lifting days with an easy day', r.o.dpw === 6 && r.o.ez === 1 && r.on && r.on.v === '1', JSON.stringify(r.o));
+    await p.click('[data-t="build"]');
+    r = await p.evaluate(() => { const d = window.Train._.state().S.draft; return { n: d.days.length, last: d.days[6], name: d.n, shown: /No lifting/.test(document.querySelector('.tr-dday.tr-ez').textContent) }; });
+    t.ok('the block has the easy day last, asking for no sets', r.n === 7 && r.last.ez === 1 && r.last.s.length === 0 && /\+ easy/.test(r.name) && r.shown, JSON.stringify(r));
+    await p.close();
+
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const ms = _.build({ prog: 'keep', dpw: 2, ez: 1, kit: 'gym', lvl: 1 });
+      ms.at = Date.now(); ms.st = '2026-01-01';
+      return ms;
+    });
+    const msE = r;
+    await seed(p, { pr: { qz: 1, hab: ['golfw'] }, act: msE.id, ms: { [msE.id]: msE }, cx: {}, ax: {},
+      wo: { a: wo('a', msE.id, 0, 0, 2, [{ e: msE.days[0].s[0].e, s: sets(100, [10]) }]),
+        b: wo('b', msE.id, 0, 1, 1, [{ e: msE.days[1].s[0].e, s: sets(100, [10]) }]) } });
+    // opened after the log is in, so it opens on the block rather than the quiz
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => ({ card: (document.querySelector('.tr-next.tr-ez') || {}).textContent || '', start: !!document.querySelector('.tr-next [data-t="start"]') }));
+    t.ok('after the lifting days, next is the easy day, with no workout to start', /Easy day/.test(r.card) && /golf/i.test(r.card) && !r.start, r.card);
+    await p.click('.tr-next [data-t="eznew"]');
+    r = await p.evaluate(() => window.Train._.state().S.sheet);
+    t.ok('logging it starts from your own activity', r.k === 'axnew' && r.h === 'golfw' && r.ez && r.ez.d === 2, JSON.stringify(r));
+    await p.click('[data-t="axk"][data-v="walk"]');
+    await p.click('[data-t="axsave"]');
+    r = await p.evaluate((id) => {
+      const _ = window.Train._, s = _.state(), a = Object.values(s.T.ax)[0], ms = s.T.ms[id];
+      return { a, nx: _.nextSlot(ms), cell: (document.querySelector('.tr-gc[data-w="0"][data-d="2"]') || {}).textContent || '' };
+    }, msE.id);
+    t.ok('the walk is counted as week one’s easy day', r.a.ms === msE.id && r.a.w === 0 && r.a.d === 2 && /✓/.test(r.cell), JSON.stringify(r.a));
+    t.ok('and the next session is week two’s first', r.nx && r.nx.w === 1 && r.nx.d === 0, JSON.stringify(r.nx));
+    r = await p.evaluate(() => window.Train._.review().label);
+    t.ok('the review reads week one as whole without waiting on the easy day', /Week 1/.test(r), r);
+    // an activity already logged today can be the easy day
+    await seed(p, { pr: { qz: 1 }, act: msE.id, ms: { [msE.id]: msE }, cx: {},
+      ax: { z: { id: 'z', st: Date.now(), k: 'swim', min: 30, lv: 'm' } },
+      wo: { a: wo('a', msE.id, 0, 0, 2, [{ e: msE.days[0].s[0].e, s: sets(100, [10]) }]),
+        b: wo('b', msE.id, 0, 1, 1, [{ e: msE.days[1].s[0].e, s: sets(100, [10]) }]) } });
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('[data-t="sub"][data-v="block"]');
+    await p.click('.tr-next [data-t="ezlink"]');
+    r = await p.evaluate(() => window.Train._.state().T.ax.z);
+    t.ok('today’s swim, logged before, can be counted as it', r.ms === msE.id && r.d === 2, JSON.stringify(r));
+    await p.close();
+
+    // from Strong
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    const ts = (ago, h) => { const d = new Date(Date.now() - ago * DAY); d.setHours(h, 0, 0, 0);
+      const z = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(h)}:00:00`; };
+    const dA = ts(20, 7), dB = ts(18, 18);
+    const csv = [
+      'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE',
+      `"${dA}","Push Day","1h 5m","Bench Press (Barbell)","W","95","10","0","0","","Felt good, slept 8h",""`,
+      `"${dA}","Push Day","1h 5m","Bench Press (Barbell)","1","185","8","0","0","","Felt good, slept 8h","8"`,
+      `"${dA}","Push Day","1h 5m","Bench Press (Barbell)","2","185","7","0","0","","Felt good, slept 8h","9"`,
+      `"${dA}","Push Day","1h 5m","Bench Press (Barbell)","Rest Timer","0","0","0","120","","",""`,
+      `"${dA}","Push Day","1h 5m","Triceps Pushdown (Cable - Straight Bar)","1","50","12","0","0","rope, not bar","Felt good, slept 8h",""`,
+      `"${dA}","Push Day","1h 5m","Zottman Curl (Dumbbell)","1","25","10","0","0","","",""`,
+      `"${dA}","Push Day","1h 5m","Plank","1","0","0","0","60","","",""`,
+      `"${dB}","Legs","50m","Squat (Barbell)","1","225","5","0","0","","",""`,
+      `"${dB}","Legs","50m","Squat (Barbell)","2","225","5","0","0","","",""`,
+      `"${dB}","Legs","50m","Running","1","0","0","3.1","1800","","",""`,
+      `"${dB}","Legs","50m","Lying Leg Curl (Machine)","1","90","12","0","0","","",""`,
+    ].join('\r\n');
+    r = await p.evaluate((csv) => {
+      const G = window.Train._.sgParse(csv);
+      const push = G.wos[0];
+      return { n: G.wos.length, skipped: G.skipped, names: G.names.map((n) => n.nm + '=' + (n.e || 'own:' + n.m)).join('|'),
+        bench: push.x[0].s.map((s) => s.w + 'x' + s.r + (s.wu ? 'W' : '') + (s.q !== undefined ? '@' + s.q : '')).join(),
+        dur: push.dur, nt: push.nt.join(' / ') };
+    }, csv);
+    t.ok('a Strong export reads as its workouts, leaving out timed, distance and rest-timer rows', r.n === 2 && r.skipped === 3, JSON.stringify(r));
+    t.ok('warm-ups stay warm-ups, and RPE becomes reps in reserve', r.bench === '95x10W,185x8@2,185x7@1', r.bench);
+    t.ok('Strong’s lifts match the library, and a lift it has not got comes in as yours, its muscle guessed',
+      /Bench Press \(Barbell\)=bb-bench/.test(r.names) && /Triceps Pushdown \(Cable - Straight Bar\)=pushdown/.test(r.names) &&
+      /Squat \(Barbell\)=bb-squat/.test(r.names) && /Lying Leg Curl \(Machine\)=lying-curl/.test(r.names) &&
+      /Zottman Curl \(Dumbbell\)=own:biceps/.test(r.names), r.names);
+    t.ok('the length and the notes come too, the note with its comma intact', r.dur === 65 * 60e3 && /Felt good, slept 8h/.test(r.nt) && /rope, not bar/.test(r.nt), JSON.stringify(r));
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const old = _.sgParse('Date;Workout Name;Exercise Name;Set Order;Weight;Weight Unit;Reps;RPE;Distance;Distance Unit;Seconds;Notes;Workout Notes;Workout Duration\n' +
+        '2019-03-02 09:00:00;Upper;Overhead Press (Barbell);1;40;kg;5;;;;;;;45m\n');
+      return { unit: old.unit, fixed: old.fixedUnit, e: old.names[0].e, bad: _.sgParse('a,b\n1,2').err,
+        m: ['Leg Curl (Machine)', 'Cable Fly Crossover', 'Chest Press (Hammer Strength)', 'Face Pull (Cable)'].map((n) => _.sgMatch(n) || _.sgGuess(n).m).join() };
+    });
+    t.ok('the older, semicolon export with its own unit column reads too', r.unit === 'kg' && r.fixed && r.e === 'bb-ohp', JSON.stringify(r));
+    t.ok('a file that is not Strong’s says so', /does not look like a Strong export/.test(r.bad || ''), r.bad);
+    t.ok('guesses go most particular first: a leg curl is hamstrings, not biceps', r.m === 'hams,chest,chest,face-pull', r.m);
+    await p.click('[data-t="settings"]');
+    await p.setInputFiles('#trStrong', { name: 'strong.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+    await p.waitForTimeout(300);
+    r = await p.evaluate(() => ({ title: (document.querySelector('.tr-sheet .sheet-name') || {}).textContent, go: (document.querySelector('[data-t="sggo"]') || {}).textContent || '',
+      unit: !!document.querySelector('[data-t="sgu"]') }));
+    t.ok('choosing the file shows what came in before anything is kept', r.title === 'From Strong' && /Bring in 2 workouts/.test(r.go) && r.unit, JSON.stringify(r));
+    await p.click('[data-t="sgu"][data-v="kg"]');
+    await p.click('[data-t="sgu"][data-v="lb"]');
+    await p.click('[data-t="sggo"]');
+    r = await p.evaluate(() => {
+      const _ = window.Train._, s = _.state();
+      const wos = Object.values(s.T.wo), own = Object.values(s.T.cx);
+      return { n: wos.length, im: wos.every((w) => w.im === 's'), own: own.map((c) => c.n + ':' + c.m).join(), sub: s.S.sub,
+        banner: (document.querySelector('.tr-sgdone') || {}).textContent || '',
+        stamped: wos.every((w) => s.TS.wo[w.id] > 0),
+        prev: _.target(_.lib('bb-bench'), null, 0, 0, false).prev.map((z) => z.w + 'x' + z.r).join() };
+    });
+    t.ok('bringing it in keeps both workouts, marked as from Strong, and stamped to sync', r.n === 2 && r.im && r.stamped, JSON.stringify(r));
+    t.ok('the lift the library lacked is yours now', r.own === 'Zottman Curl (Dumbbell):biceps', r.own);
+    t.ok('History says what came in', r.sub === 'history' && /Brought in 2 workouts from Strong/.test(r.banner), r.banner);
+    t.ok('and a new block’s first bench session starts from Strong’s numbers', /185x8/.test(r.prev), r.prev);
+    await p.click('[data-t="settings"]');
+    await p.setInputFiles('#trStrong', { name: 'strong.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+    await p.waitForTimeout(300);
+    r = await p.evaluate(() => ({ go: document.querySelector('[data-t="sggo"]'), sub: (document.querySelector('.tr-sheet .tr-sub') || {}).textContent || '' }));
+    t.ok('the same file twice brings in nothing twice', r.go && /Nothing new/.test(await p.textContent('[data-t="sggo"]')) && /here already/.test(r.sub), r.sub);
+    await p.close();
   },
 };

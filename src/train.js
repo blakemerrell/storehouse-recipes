@@ -535,12 +535,15 @@
          which is the whole trick of pairing. */
       rp: fin(p.rp) && p.rp > 0 ? p.rp : 60,
       snd: p.snd === 0 ? 0 : 1,
+      // a reps-in-reserve box on every set, for those who like to say
+      rq: p.rq === 1 ? 1 : 0,
       /* Everything below is you, answered once in the quiz and read by the
          picks, the builder and the review. */
       // what you train for; the first version knew two, and 'grow' was the first
       goal: GOALS[p.goal] ? p.goal : 'muscle',
       lvl: [0, 1, 2].indexOf(p.lvl) >= 0 ? p.lvl : 1,
-      dpw: [2, 3, 4, 5, 6].indexOf(p.dpw) >= 0 ? p.dpw : 3,
+      // seven is six lifting days and an easy one: muscles need a day off even when you do not
+      dpw: [2, 3, 4, 5, 6, 7].indexOf(p.dpw) >= 0 ? p.dpw : 3,
       // minutes a session may take, warm-up included; 0 is no limit
       min: [30, 40, 45, 60, 75].indexOf(p.min) >= 0 ? p.min : 0,
       kit: KITS[p.kit] ? p.kit : 'gym',
@@ -604,9 +607,9 @@
   };
   var HAB_ORDER = Object.keys(HABITS);
   var LV = { l: 'Light', m: 'Moderate', v: 'Vigorous' };
-  function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {}, ax: {} }; }
-  function blankTS() { return { pr: 0, act: 0, ms: {}, wo: {}, cx: {}, ax: {} }; }
-  var PARTS = ['ms', 'wo', 'cx', 'ax'];
+  function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {}, ax: {}, nt: {} }; }
+  function blankTS() { return { pr: 0, act: 0, ms: {}, wo: {}, cx: {}, ax: {}, nt: {} }; }
+  var PARTS = ['ms', 'wo', 'cx', 'ax', 'nt'];
 
   function loadT() {
     var t = readLS(LS_T), out = blankT();
@@ -651,15 +654,19 @@
     wo: function (v) {
       return plain(v) && fin(v.st) && Array.isArray(v.x) && v.x.every(function (x) {
         return plain(x) && typeof x.e === 'string' && Array.isArray(x.s) && x.s.every(function (s) {
-          return plain(s) && fin(s.w) && fin(s.r);
+          return plain(s) && fin(s.w) && fin(s.r) && (s.q === undefined || fin(s.q));
         });
-      });
+      }) && (v.nt === undefined || (typeof v.nt === 'string' && v.nt.length <= 1000));
     },
     cx: function (v) { return plain(v) && typeof v.n === 'string' && !!MUS[v.m]; },
     ax: function (v) {
       return plain(v) && fin(v.st) && !!HABITS[v.k] && fin(v.min) && v.min > 0 && v.min <= 720 &&
-        (v.lv === undefined || !!LV[v.lv]) && (v.nm === undefined || (typeof v.nm === 'string' && v.nm.length <= 40));
-    }
+        (v.lv === undefined || !!LV[v.lv]) && (v.nm === undefined || (typeof v.nm === 'string' && v.nm.length <= 40)) &&
+        // counted as a block's easy day
+        (v.ms === undefined || (typeof v.ms === 'string' && fin(v.w) && fin(v.d)));
+    },
+    // a note that follows an exercise: the seat, the grip, the bench that wobbles
+    nt: function (v) { return plain(v) && typeof v.e === 'string' && typeof v.t === 'string' && v.t.length > 0 && v.t.length <= 200; }
   };
 
   var T = loadT();
@@ -822,6 +829,21 @@
     return { id: id, n: 'Unknown exercise', m: 'chest', k: 'i', q: 'mc', p: '', rr: [8, 12], o: 1e5 };
   }
   function musOf(id) { return lib(id).m; }
+
+  /* A note is kept under the exercise's id with anything but letters and
+     digits taken out, the way every other key here is, and carries the id
+     itself so two that squeeze to the same key cannot be mistaken. */
+  function ntKey(e) { return 'n' + String(e).replace(/[^A-Za-z0-9]/g, ''); }
+  function noteOf(e) {
+    var n = T.nt[ntKey(e)];
+    return n && n.e === e ? n.t : '';
+  }
+  function setNote(e, t) {
+    t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    var k = ntKey(e);
+    if (t) T.nt[k] = { e: e, t: t }; else if (T.nt[k]) delete T.nt[k]; else return;
+    stamp('nt', k);
+  }
   function allEx() {
     return LIB_LIST.concat(Object.keys(T.cx).map(lib));
   }
@@ -869,10 +891,20 @@
       });
       prs[wo.id] = out;
     });
-    IX = { rev: REV, list: list, slot: slot, best: best, prs: prs };
+    var ez = {};
+    Object.keys(T.ax).forEach(function (k) {
+      var a = T.ax[k];
+      if (a && a.ms) ez[a.ms + ':' + a.w + ':' + a.d] = a;
+    });
+    IX = { rev: REV, list: list, slot: slot, best: best, prs: prs, ez: ez };
     return IX;
   }
   function woFor(ms, w, d) { return ix().slot[ms.id + ':' + w + ':' + d] || null; }
+  /* An easy day is done by anything logged outside the gym and counted as
+     it: a walk, a ride, a round of golf. */
+  function isEz(ms, d) { return !!(ms.days[d] && ms.days[d].ez); }
+  function ezFor(ms, w, d) { return isEz(ms, d) ? ix().ez[ms.id + ':' + w + ':' + d] || null : null; }
+  function slotDone(ms, w, d) { return woFor(ms, w, d) || ezFor(ms, w, d); }
   function exIn(wo, e) {
     for (var i = 0; i < wo.x.length; i++) if (wo.x[i].e === e) return wo.x[i];
     return null;
@@ -1330,7 +1362,7 @@
     var sk = Array.isArray(ms.sk) ? ms.sk : [];
     for (var w = 0; w < weeksOf(ms); w++) {
       for (var d = 0; d < ms.days.length; d++) {
-        if (!woFor(ms, w, d) && sk.indexOf(w + ':' + d) < 0) return { w: w, d: d };
+        if (!slotDone(ms, w, d) && sk.indexOf(w + ':' + d) < 0) return { w: w, d: d };
       }
     }
     return null;
@@ -1849,7 +1881,7 @@
     var P = PROGS[pid];
     var mode = P.mode, keep = mode === 'keep', base = mode === 'base', str = mode === 'str', cond = mode === 'cond';
     var wave = WAVES[o.wave] ? Number(o.wave) : 10;
-    var dpw = fitDpw(P, [2, 3, 4, 5, 6].indexOf(o.dpw) >= 0 ? o.dpw : 4);
+    var dpw = fitDpw(P, [2, 3, 4, 5, 6, 7].indexOf(o.dpw) >= 0 ? o.dpw : 4);
     var fx = pid === 'focus' ? FOCUS[o.fx] || FOCUS.chest : null;
     var kit = KITS[o.kit] ? o.kit : 'gym';
     var eq = KITS[kit].eq;
@@ -1991,8 +2023,15 @@
     var min = [30, 40, 45, 60, 75].indexOf(o.min) >= 0 ? o.min : 0;
     days.forEach(function (day) { fitDay(day, min, fx ? fx.m : o.pri); });
     var label = pid === 'grow' && !homeDays ? split.n : fx ? fx.n + ' focus' : str ? P.n + ' \u00b7 ' + wave + 's' : P.n;
+    /* The easy day goes in last, so nothing that shapes the lifting days
+       sees it. It asks for no sets, so the volume and the minutes are the
+       lifting days' alone. */
+    if (o.ez) {
+      days.push({ n: 'Easy day', s: [], ez: 1 });
+      notes.push('One easy day a week: a walk, a ride, a swim or yoga, easy enough to talk through. It keeps you moving while what you trained recovers.');
+    }
     var ms = {
-      id: newId(), n: label + ' · ' + dpw + ' days' + (min ? ' · ' + min + ' min' : ''),
+      id: newId(), n: label + ' · ' + dpw + ' days' + (o.ez ? ' + easy' : '') + (min ? ' · ' + min + ' min' : ''),
       at: Date.now(), goal: mode, prog: pid, min: min,
       acc: acc, lvl: [0, 1, 2].indexOf(o.lvl) >= 0 ? o.lvl : 1, kit: kit, dpw: dpw,
       pri: mode === 'grow' && !fx ? (o.pri || []).slice(0, 3) : [],
@@ -2101,7 +2140,7 @@
       var weeks = Object.keys(starts).map(Number).sort(function (a, b) { return a - b; });
       if (weeks.length) {
         var done = weeks.filter(function (w) {
-          return ms.days.every(function (_, d) { return woFor(ms, w, d) || sk.indexOf(w + ':' + d) >= 0; });
+          return ms.days.every(function (day, d) { return day.ez || woFor(ms, w, d) || sk.indexOf(w + ':' + d) >= 0; });
         });
         var pick = done.length ? done[done.length - 1] : weeks[weeks.length - 1];
         var from = starts[pick];
@@ -2302,21 +2341,59 @@
       refs: ['rest16', 'rest24']
     });
 
-    checks.push({
-      st: 'info',
-      t: 'How close to failure',
-      b: str && ms.goal === 'cond'
-        ? 'The strength sets stop about two reps short of failure; the circuits are hard on purpose, but a rep done badly because you are out of breath is the one to leave out. This app cannot see how close you went, so it does not grade it.'
-        : str
-        ? 'The main lifts go by percentages of your training max, with one all-out set a wave; everything else stops about two reps short of failure. This app cannot see how close you went on those \u2014 only you can \u2014 so it does not grade it.'
-        : base
-        ? 'Starting out asks for three reps in reserve, easing to two. This app cannot see how close you went \u2014 only you can \u2014 so it does not grade it. Near enough to failure to count, far enough to keep your form while the movements are new.'
-        : keep
-        ? 'Keeping asks for about two reps in reserve on the big lifts and one on the small ones. This app cannot see how close you went \u2014 only you can \u2014 so it does not grade it. What keeps strength is the load staying heavy; going to failure adds little but fatigue.'
-        : 'The block asks for ' + (ms ? 'reps in reserve stepping from 3 to 0' : 'sets ending 0\u20133 reps short of failure') +
-        '. This app cannot see how close you went \u2014 only you can \u2014 so it does not grade it. Growth improves the closer a set ends to failure, and the last rep or two add little but fatigue.',
-      refs: str && ms.goal === 'cond' ? ['klimek18', 'rir16'] : str ? ['jm', 'rir16'] : base ? ['acsm09', 'rir16'] : keep ? ['spiering21', 'fail23', 'rir16'] : ['fail24', 'fail23', 'rir16']
+    /* Effort, when you have said it. Held against what the plan asked for
+       the same sets where it asked; outside a block, against the zero to
+       three reps short where the growth research found most of the growth. */
+    var eff = { n: 0, q: 0, dn: 0, dq: 0, pq: 0 };
+    wos.forEach(function (wo) {
+      wo.x.forEach(function (x) {
+        x.s.forEach(function (s) {
+          if (s.wu || s.am || !fin(s.q)) return;
+          var q = Math.min(5, s.q);
+          eff.n++; eff.q += q;
+          if (fin(x.pq)) { eff.dn++; eff.dq += q; eff.pq += x.pq; }
+        });
+      });
     });
+    var cant = T.pr.rq
+      ? 'You have not said how close you went on enough sets to grade it: six will do.'
+      : 'This app cannot see how close you went unless you tell it \u2014 Settings \u2192 Effort on each set \u2014 so it does not grade it.';
+    if (eff.n >= 6) {
+      var mq = eff.q / eff.n;
+      var planned = eff.dn >= 6;
+      var pq = planned ? eff.pq / eff.dn : null, dq = planned ? eff.dq / eff.dn : null;
+      var off = planned ? dq - pq : 0;
+      var say1 = function (v) { return fmtN(Math.round(v * 2) / 2); };
+      checks.push({
+        st: planned ? (Math.abs(off) <= 1 ? 'good' : 'look') : (mq > 3.5 ? 'look' : 'good'),
+        t: 'How close to failure',
+        b: 'You logged about ' + say1(mq) + ' reps in reserve across ' + eff.n + ' sets' +
+          (planned ? ', where the plan asked about ' + say1(pq) + '. ' +
+            (off > 1 ? 'Further from failure than planned: the weights the plan gives next are built on your getting nearer, so if these felt easy, add a rep or the next weight up. Sets that stop four or more short grew noticeably less. '
+              : off < -1 ? 'Closer to failure than planned: the last rep or two buy little growth and cost recovery, which this plan counts on for next week. '
+              : 'On target. ')
+            : '. ' + (mq > 3.5 ? 'Most of the growth in the research came from sets ending zero to three short; further than that grew noticeably less. '
+              : 'Inside the zero to three short where most of the growth in the research was. ')) +
+          'Guesses of reps in reserve get better with practice, and are best near failure.',
+        refs: ['fail24', 'rir16']
+      });
+    } else {
+      checks.push({
+        st: 'info',
+        t: 'How close to failure',
+        b: str && ms.goal === 'cond'
+          ? 'The strength sets stop about two reps short of failure; the circuits are hard on purpose, but a rep done badly because you are out of breath is the one to leave out. ' + cant
+          : str
+          ? 'The main lifts go by percentages of your training max, with one all-out set a wave; everything else stops about two reps short of failure. ' + cant
+          : base
+          ? 'Starting out asks for three reps in reserve, easing to two. ' + cant + ' Near enough to failure to count, far enough to keep your form while the movements are new.'
+          : keep
+          ? 'Keeping asks for about two reps in reserve on the big lifts and one on the small ones. ' + cant + ' What keeps strength is the load staying heavy; going to failure adds little but fatigue.'
+          : 'The block asks for ' + (ms ? 'reps in reserve stepping from 3 to 0' : 'sets ending 0\u20133 reps short of failure') +
+          '. ' + cant + ' Growth improves the closer a set ends to failure, and the last rep or two add little but fatigue.',
+        refs: str && ms.goal === 'cond' ? ['klimek18', 'rir16'] : str ? ['jm', 'rir16'] : base ? ['acsm09', 'rir16'] : keep ? ['spiering21', 'fail23', 'rir16'] : ['fail24', 'fail23', 'rir16']
+      });
+    }
 
     var sore = {}, joints = [];
     wos.forEach(function (wo) {
@@ -2542,11 +2619,13 @@
   }
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // an old year says so: history brought in from another app goes back years
+  function yr(d) { return d.getFullYear() === new Date().getFullYear() ? '' : ' ' + d.getFullYear(); }
   function when(ts) {
     var d = new Date(ts);
-    return DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()];
+    return DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + yr(d);
   }
-  function shortDate(ts) { var d = new Date(ts); return MON[d.getMonth()] + ' ' + d.getDate(); }
+  function shortDate(ts) { var d = new Date(ts); return MON[d.getMonth()] + ' ' + d.getDate() + yr(d); }
 
   function active() {
     var ms = T.act && T.ms[T.act];
@@ -2575,7 +2654,8 @@
     sheet: null,          // whichever sheet is up
     q: '', qm: '',        // the picker's search and muscle
     arm: '',              // a two-tap confirm, armed
-    own: null             // the make-your-own form in the picker
+    own: null,            // the make-your-own form in the picker
+    ed: null              // a saved workout being corrected; see edOpen()
   };
 
   /* ------------------------------------------------------------ the logger */
@@ -2585,7 +2665,10 @@
     return {
       id: newId(), st: Date.now(), n: p.n, u: T.pr.u, ms: ms.id, w: w, d: d,
       dl: p.deload ? 1 : 0, rir: p.rir,
-      x: p.x.map(function (s) { return liveEx(s.e, s.sets, s); }),
+      /* Each keeps the block's own exercise for its slot, which is what a
+         swap for the rest of the block has to find: today's may be a harder
+         version the plan moved you up to, or one swapped in for today. */
+      x: p.x.map(function (s) { var x = liveEx(s.e, s.sets, s); x.sl = s.up || s.e; return x; }),
       sr: {}, fb: {}, rs: null, keep: steady(ms) || ms.goal === 'str' ? 1 : 0,
       ph: ms.goal === 'str' && !p.deload ? 'Main lift by the numbers: ' + PHASE[Math.min(w, 2)] + '. The rest about two reps short of failure.'
         : ms.pb && !p.deload ? 'Top set about two reps short of failure, back-offs lighter; then ' + rirSay(p.rir) + '.' : '',
@@ -2628,6 +2711,29 @@
   /* A1, A2, B1… in the order the pairs appear, so the labels read down the
      page. Unpaired exercises have none. */
   function pairLabels() { return slotLabels(LIVE.x); }
+
+  /* The workout in the order it is moved in: a pair side by side goes as
+     one, so moving it never splits the two halves. */
+  function moveGroups() {
+    var out = [];
+    for (var j = 0; j < LIVE.x.length; j++) {
+      var x = LIVE.x[j], y = LIVE.x[j + 1];
+      if (x.p && y && y.p === x.p) { out.push([j, j + 1]); j++; } else out.push([j]);
+    }
+    return out;
+  }
+  /* The bench is taken, so the rows go first: one place up or down, past
+     the next exercise or pair. */
+  function shiftEx(i, dir) {
+    var gs = moveGroups(), g = -1;
+    gs.forEach(function (grp, k) { if (grp.indexOf(i) >= 0) g = k; });
+    var h = g + dir;
+    if (g < 0 || h < 0 || h >= gs.length) return false;
+    var tmp = gs[g]; gs[g] = gs[h]; gs[h] = tmp;
+    var old = LIVE.x;
+    LIVE.x = [].concat.apply([], gs).map(function (j) { return old[j]; });
+    return true;
+  }
 
   function startPlanned(ms, w, d) {
     if (LIVE) return;
@@ -2848,17 +2954,25 @@
       id: LIVE.id, st: LIVE.st, en: Date.now(), dk: dayKey(new Date(LIVE.st)),
       n: LIVE.n, u: LIVE.u, ms: LIVE.ms || '', w: LIVE.w, d: LIVE.d, dl: LIVE.dl ? 1 : 0,
       x: LIVE.x.map(function (x) {
-        return { e: x.e, s: x.s.filter(function (s) { return s.t; }).map(function (s) {
+        var out = { e: x.e, s: x.s.filter(function (s) { return s.t; }).map(function (s) {
           var o = { w: numIn(s.w) || 0, r: numIn(s.r) || 0, t: s.t };
           // the as-many-as-you-can set keeps its target, which the next wave's max is worked from
           if (s.am) { o.am = 1; if (fin(s.tr)) o.tr = s.tr; }
           if (s.wu) o.wu = 1;
+          // reps in reserve, when you said
+          var q = numIn(s.q);
+          if (q !== null && q >= 0 && q <= 10) o.q = q;
           return o;
         }) };
+        // and what the plan asked, so the review can hold the one against the other
+        if (fin(x.rir)) out.pq = x.rir;
+        return out;
       }).filter(function (x) { return x.s.length; }),
       sr: LIVE.sr || {}, fb: LIVE.fb || {}
     };
     if (fin(LIVE.bk)) wo.bk = LIVE.bk;
+    var nt = String(LIVE.nt || '').trim().slice(0, 1000);
+    if (nt) wo.nt = nt;
     var mc = mcDone(LIVE.mc);
     if (mc) wo.mc = mc;
     return clean(wo);
@@ -2959,6 +3073,7 @@
     return 'finish working sets with about ' + r + ' rep' + (r === 1 ? '' : 's') + ' in reserve';
   }
   function rirStr(r) { return r === null || r === undefined ? 'deload' : r + ' RIR'; }
+  function rqSay(q) { return (q >= 5 ? '5+' : fmtN(q)) + ' RIR'; }
 
   /* ------------------------------------------------------ the block screen */
   /* Said once, where the eye lands after Save, and gone at the next tap. */
@@ -2995,7 +3110,11 @@
     }
     html += weekGrid(ms, nx) + '</div>';
 
-    if (nx) {
+    if (nx && isEz(ms, nx.d)) {
+      html += '<div class="tr-card tr-next tr-ez">' +
+        '<div class="tr-eyebrow">Next \u00b7 week ' + (nx.w + 1) + '</div>' +
+        '<div class="tr-title">Easy day</div>' + ezHTML(ms, nx.w, nx.d) + '</div>';
+    } else if (nx) {
       var p = plan(ms, nx.w, nx.d);
       var mins = estDay(ms.days[nx.d], p.x.map(function (x) { return x.sets; }));
       html += '<div class="tr-card tr-next">' +
@@ -3020,16 +3139,39 @@
     return html;
   }
 
+  /* No lifting, and not nothing: something you could talk through, long
+     enough to count. What you do outside the gym is suggested first. An
+     activity already logged today, not yet counted as anything, can be. */
+  function ezHTML(ms, w, d) {
+    var did = ezFor(ms, w, d);
+    if (did) {
+      return '<div class="tr-sub">Done: ' + esc(axName(did)) + ', ' + dur(did.min * 60000) + ', ' + when(did.st) + '.</div>';
+    }
+    var yours = T.pr.hab.filter(function (h) { return HABITS[h] && h !== 'other' && h !== 'walk'; }).map(function (h) { return HABITS[h].n.toLowerCase(); });
+    var today = dayKey(new Date());
+    var loose = Object.keys(T.ax).map(function (k) { return T.ax[k]; }).filter(function (a) {
+      return a && !a.ms && dayKey(new Date(a.st)) === today;
+    }).sort(function (a, b) { return b.st - a.st; })[0];
+    return '<div class="tr-sub">No lifting. Twenty to forty-five minutes of something easy enough to talk through: ' +
+        (yours.length ? esc(names(yours.slice(0, 2).map(function (n) { return { n: n }; }))) + ', or a walk' : 'a walk, an easy ride or swim, yoga') +
+        '. It keeps you moving while what you trained recovers.</div>' +
+      '<div class="tr-acts">' +
+        (loose ? '<button class="btn-primary" data-t="ezlink" data-id="' + esc(loose.id) + '" data-w="' + w + '" data-d="' + d + '">Count today\u2019s ' + esc(axName(loose).toLowerCase()) + '</button>' : '') +
+        '<button class="' + (loose ? 'ghost' : 'btn-primary') + '" data-t="eznew" data-w="' + w + '" data-d="' + d + '">Log what you did</button>' +
+        '<button class="ghost" data-t="skip" data-w="' + w + '" data-d="' + d + '">Skip it</button>' +
+      '</div>';
+  }
+
   function weekGrid(ms, nx) {
     var sk = Array.isArray(ms.sk) ? ms.sk : [];
     var html = '<div class="tr-grid" role="table" aria-label="Sessions in this block" style="--n:' + ms.days.length + '">' +
       '<div class="tr-grow" role="row"><span class="tr-gh" role="columnheader"></span>' +
-      ms.days.map(function (d) { return '<span class="tr-gh" role="columnheader">' + esc(d.n) + '</span>'; }).join('') + '</div>';
+      ms.days.map(function (d) { return '<span class="tr-gh" role="columnheader">' + esc(d.ez ? 'Easy' : d.n) + '</span>'; }).join('') + '</div>';
     for (var w = 0; w < weeksOf(ms); w++) {
       html += '<div class="tr-grow" role="row"><span class="tr-gw" role="rowheader">' +
         (w >= accOf(ms) ? 'Deload' : 'Wk ' + (w + 1)) + '</span>';
       for (var d = 0; d < ms.days.length; d++) {
-        var wo = woFor(ms, w, d);
+        var wo = slotDone(ms, w, d);
         var isNext = nx && nx.w === w && nx.d === d;
         var skipped = !wo && sk.indexOf(w + ':' + d) >= 0;
         var cls = wo ? 'done' : isNext ? 'next' : skipped ? 'skip' : '';
@@ -3080,12 +3222,14 @@
       said[ex.m] = 1;
       var cue = backCue(ex);
       if (s.up) why = 'Moved up from ' + lib(s.up).n + ': every set reached the top of its range last time.' + (why ? ' ' + why : '');
+      var nt = noteOf(s.e);
       return '<li><div class="tr-pl-top"><span class="tr-pl-n">' +
           (labels[i] ? '<span class="tr-pair">' + labels[i] + '</span>' : '') + esc(ex.n) + '</span>' +
         '<span class="tr-pl-s">' + s.sets + ' × ' + ex.rr[0] + '–' + ex.rr[1] + '</span></div>' +
         '<div class="tr-pl-meta">' + esc(mname(ex.m)) + ' · ' + esc(targetStr(s, ex)) +
           ' · ' + rirStr(s.rir) + '</div>' +
         (cue ? '<div class="tr-cue">' + esc(cue) + '</div>' : '') +
+        (nt ? '<div class="tr-pl-nt"><span class="tr-exnt-l">Note</span> ' + esc(nt) + '</div>' : '') +
         (why ? '<div class="tr-why">' + esc(mname(ex.m) + ': ' + why) + '</div>' : '') + '</li>';
     }).join('') + '</ol>' +
       (ms && labels.some(Boolean) ? '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>' : '') +
@@ -3221,7 +3365,8 @@
         bigOpts('lvl', shown('lvl'), LVL);
     } else if (step === 'time') {
       body = '<div class="tr-title">How much time do you have?</div>' +
-        q('Days a week', chips('qz', a.dpw, [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], ' data-f="dpw"')) +
+        q('Days a week', chips('qz', a.dpw, [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6'], [7, '7']], ' data-f="dpw"'),
+          a.dpw === 7 ? 'Six lifting days and an easy one: a walk, a ride, a swim. The muscles need a day off even when you do not.' : '') +
         q('Minutes a session', chips('qz', a.min, MINS, ' data-f="min"'), 'Warm-up included. Short sessions are paired and trimmed to fit.');
     } else if (step === 'kit') {
       body = '<div class="tr-title">What do you have to train with?</div>' +
@@ -3284,7 +3429,7 @@
 
   /* You, in a line: what the picks were picked from. */
   function youLine(p) {
-    var bits = [GOALS[p.goal].n, LVL_SAY[p.lvl], p.dpw + ' days' + (p.min ? ' × ' + p.min + ' min' : ''),
+    var bits = [GOALS[p.goal].n, LVL_SAY[p.lvl], (p.dpw === 7 ? 'every day, one of them easy' : p.dpw + ' days') + (p.min ? ' × ' + p.min + ' min' : ''),
       KITS[p.kit].n.toLowerCase()];
     var care = (p.bk ? ['back'] : []).concat(p.jt.split('').filter(Boolean).map(function (j) { return JNAME[j].toLowerCase(); }));
     if (care.length) bits.push('looking after ' + names(care.map(function (n) { return { n: n }; })));
@@ -3331,7 +3476,8 @@
     'keep:cond': 'Keeps your strength, and adds the fitness side, in short sessions.'
   };
   function recommend(pr) {
-    var lvl = pr.lvl, kit = pr.kit, dpw = pr.dpw;
+    // the seventh day is the easy one: what a program is fitted to is six
+    var lvl = pr.lvl, kit = pr.kit, dpw = Math.min(6, pr.dpw);
     var home = kit === 'bw' || kit === 'db';
     var legSport = pr.hab.filter(function (h) { return HABITS[h] && HABITS[h].legs === 2; });
     return PROG_ORDER.map(function (id, order) {
@@ -3465,7 +3611,7 @@
     var P = PROGS[id], p = T.pr;
     return { prog: id, dpw: fitDpw(P, p.dpw), min: p.min,
       kit: P.kits ? (P.kits.indexOf(p.kit) >= 0 ? p.kit : P.kits[0]) : p.kit,
-      acc: P.dAcc, pri: [], fx: '', seed: 0, wave: 10 };
+      acc: P.dAcc, pri: [], fx: '', seed: 0, wave: 10, ez: p.dpw === 7 ? 1 : 0 };
   }
   function dayHint(o) {
     var P = PROGS[o.prog];
@@ -3488,6 +3634,9 @@
       (o.prog === 'focus' ? q('Bring up', chips('o-fx', o.fx, Object.keys(FOCUS).map(function (k) { return [k, FOCUS[k].n]; })),
         o.fx ? names(FOCUS[o.fx].m.map(function (m) { return { n: mname(m) }; })) + ' first, and most.' : 'Pick one.') : '') +
       q('Days a week', chips('o-dpw', o.dpw, P.dpw.map(function (d) { return [d, String(d)]; })), dayHint(o)) +
+      q('An easy day', chips('o-ez', o.ez || 0, [[0, 'No'], [1, 'Add one each week']]),
+        o.ez ? 'Day ' + (o.dpw + 1) + ': a walk, a ride, a swim or yoga, easy enough to talk through. Logged in a tap, and a moderate one counts toward your active minutes.'
+          : 'A day with no lifting that still gets you moving. For anyone who likes to do something every day.') +
       q('Time per session', chips('o-min', o.min, MINS), o.min ? 'Warm-up included. Exercises are paired and sets trimmed to fit.' : '') +
       q('Where', chips('o-kit', o.kit, kits.map(function (k) { return [k, KITS[k].n]; }))) +
       (P.mode === 'str' ? q('Wave', chips('o-wave', o.wave, [[10, 'Tens'], [8, 'Eights'], [5, 'Fives'], [3, 'Threes']]),
@@ -3628,6 +3777,10 @@
         return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') +
       (ms.days.some(function (d) { return slotLabels(d.s).some(Boolean); }) ? '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>' : '') +
       ms.days.map(function (day, d) {
+        if (day.ez) {
+          return '<div class="tr-dday tr-ez"><div class="tr-dday-h">Easy day</div>' +
+            '<div class="tr-sub">No lifting: a walk, a ride, a swim or yoga, logged under Outside the gym.</div></div>';
+        }
         var labels = slotLabels(day.s);
         var mins = estDay(day);
         return '<div class="tr-dday"><div class="tr-dday-h">' + esc(day.n) +
@@ -3709,8 +3862,11 @@
     }
 
     var labels = pairLabels();
+    var gs = moveGroups();
     L.x.forEach(function (x, i) {
-      html += exCard(x, i, labels[i]);
+      var g = -1;
+      gs.forEach(function (grp, k) { if (grp.indexOf(i) >= 0) g = k; });
+      html += exCard(x, i, labels[i], gs.length > 1 ? { up: g > 0, dn: g < gs.length - 1 } : null);
       var m = musOf(x.e);
       if (lastOfMuscle(i) && fbReady(m)) html += fbCard(m);
     });
@@ -3806,8 +3962,10 @@
     return mcScore(sc) ? sc : null;
   }
 
-  function exCard(x, i, label) {
+  function exCard(x, i, label, mv) {
     var ex = lib(x.e);
+    var rq = !!T.pr.rq;
+    var note = noteOf(x.e);
     var mate = label ? LIVE.x[partner(i)] : null;
     var cue = backCue(ex);
     var num = 0;
@@ -3828,12 +3986,18 @@
         '<input class="tr-in" id="trr-' + i + '-' + j + '" data-in="r" data-x="' + i + '" data-s="' + j + '" ' +
           'inputmode="numeric" autocomplete="off" placeholder="' + esc(rph) + '" value="' + esc(s.r) + '" ' +
           'aria-label="Set ' + (j + 1) + ' reps">' +
+        (rq ? rqSel(s.q, 'data-in="q" data-x="' + i + '" data-s="' + j + '"', 'Set ' + (j + 1) + ' reps in reserve') : '') +
         '<button class="tr-tick" data-t="tick" data-x="' + i + '" data-s="' + j + '" aria-pressed="' + !!s.t + '" ' +
           'aria-label="' + (s.t ? 'Undo set ' : 'Done with set ') + (j + 1) + '">✓</button>' +
       '</div>';
     }).join('');
     var heavy = ex.q === 'bb' || ex.q === 'sm';
-    return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + '">' +
+    return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '">' +
+      (mv ? '<span class="tr-mv">' +
+        '<button class="tr-mvb" data-t="mvex" data-v="-1" data-x="' + i + '"' + (mv.up ? '' : ' disabled') +
+          ' aria-label="Move ' + esc(ex.n) + (label ? ' and its pair' : '') + ' up">\u2191</button>' +
+        '<button class="tr-mvb" data-t="mvex" data-v="1" data-x="' + i + '"' + (mv.dn ? '' : ' disabled') +
+          ' aria-label="Move ' + esc(ex.n) + (label ? ' and its pair' : '') + ' down">\u2193</button></span>' : '') +
       '<div class="tr-ex-h">' +
         (label ? '<span class="tr-pair" aria-label="Pair ' + label + '">' + label + '</span>' : '') +
         '<button class="tr-ex-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(ex.n) + '</button>' +
@@ -3845,8 +4009,11 @@
         (x.s.some(function (s) { return s.am; }) ? '<span class="tr-cue">Last set: as many good reps as you can \u2014 stop when one slows to a grind. It sets your next wave\u2019s weights.</span>' : '') +
         (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">R is a ramp set on the way up: done, not counted.</span>' : '') +
         (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
+        (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
+          '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
-      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>Previous</span><span>' + T.pr.u + '</span><span>Reps</span><span></span></div>' +
+      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>Previous</span><span>' + T.pr.u + '</span><span>Reps</span>' +
+        (rq ? '<span title="Reps in reserve">RIR</span>' : '') + '<span></span></div>' +
       rows +
       '<div class="tr-ex-a">' +
         '<button class="tr-lnk" data-t="addset" data-x="' + i + '">+ Set</button>' +
@@ -3854,9 +4021,20 @@
         (ex.k === 'c' && ex.q !== 'bw' ? '<button class="tr-lnk" data-t="warm" data-x="' + i + '">Warm-up</button>' : '') +
         (heavy ? '<button class="tr-lnk" data-t="plates" data-x="' + i + '">Plates</button>' : '') +
         '<button class="tr-lnk" data-t="swap" data-x="' + i + '">Swap</button>' +
+        (note ? '' : '<button class="tr-lnk" data-t="note" data-e="' + esc(x.e) + '">Note</button>') +
         '<button class="tr-lnk" data-t="rmex" data-x="' + i + '">Remove</button>' +
       '</div>' +
     '</div>';
+  }
+
+  /* Reps in reserve for one set: blank until you say. Five means five or
+     more — past that, nobody can tell. */
+  function rqSel(cur, attrs, label) {
+    var c = cur === '' || cur === null || cur === undefined ? '' : String(cur);
+    return '<select class="tr-in tr-rqs" ' + attrs + ' aria-label="' + esc(label) + '">' +
+      [['', '\u2013'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5+']].map(function (o) {
+        return '<option value="' + o[0] + '"' + (c === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+      }).join('') + '</select>';
   }
 
   /* Keeping asks two questions, not three: a pump is how RP judges whether a
@@ -3934,7 +4112,9 @@
     if (!list.length) {
       return '<div class="empty">Finished workouts land here. Start one from Block.</div>';
     }
-    return '<div class="tr-hist">' + list.map(function (wo) {
+    return (S.sgDone ? '<div class="tr-card tr-ask tr-sgdone">Brought in ' + S.sgDone + ' workout' + (S.sgDone === 1 ? '' : 's') +
+        ' from Strong. Their records and charts are under Lifts, and a new block starts from their weights.</div>' : '') +
+      '<div class="tr-hist">' + list.map(function (wo) {
       if (wo.ax) {
         var a = wo.ax;
         return '<button class="tr-card tr-hrow tr-hax" data-t="axsheet" data-id="' + esc(a.id) + '">' +
@@ -3955,6 +4135,7 @@
         '<span class="tr-h-x">' + wo.x.map(function (x) {
           return esc(x.s.length + ' × ' + lib(x.e).n);
         }).join('<br>') + '</span>' +
+        (wo.nt ? '<span class="tr-h-nt">' + esc(wo.nt.length > 90 ? wo.nt.slice(0, 88) + '\u2026' : wo.nt) + '</span>' : '') +
       '</button>';
     }).join('') + '</div>';
   }
@@ -4066,6 +4247,8 @@
   }
   function sheetClosed() {
     if (!S.sheet) return;
+    if (S.sheet.k === 'wo') S.ed = null;
+    if (S.sheet.k === 'strong') S.sg = null;
     S.sheet = null;
     S.arm = '';
     S.own = null;
@@ -4089,6 +4272,8 @@
     else if (sh.k === 'set') body = settingsHTML();
     else if (sh.k === 'axnew') body = axNewHTML(sh);
     else if (sh.k === 'ax') body = axSheetHTML(sh);
+    else if (sh.k === 'note') body = noteHTML(sh);
+    else if (sh.k === 'strong') body = strongHTML();
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(sh.eyebrow || '') + '</div>' +
@@ -4112,7 +4297,15 @@
     var own = S.own;
     var old = (sh.mode === 'swap' && LIVE && LIVE.x[sh.x]) ? LIVE.x[sh.x].e
       : (sh.mode === 'dswap' && S.draft) ? S.draft.days[sh.d].s[sh.i].e : '';
+    /* In a block, a swap asks how long it is for. The machine being taken is
+       today; not getting on with the exercise is the rest of the block. */
+    var scoped = sh.mode === 'swap' && LIVE && LIVE.ms && T.ms[LIVE.ms];
     return '<div class="sheet-name tr-sn2">' + esc(sh.title) + '</div>' +
+      (scoped ? '<div class="tr-q tr-swsc"><div class="tr-ql">For</div>' +
+        chips('swsc', S.never ? 'block' : sh.sc, [['day', 'Just today'], ['block', 'Rest of the block']]) +
+        '<div class="tr-hint">' + (S.never ? 'Never again takes it out of every day of this block, and every block after.'
+          : sh.sc === 'block' ? 'This session has the new one in its place every week from now on.'
+          : 'Today only. Next time the plan has ' + esc(lib(old).n) + ' again.') + '</div></div>' : '') +
       (old ? '<div class="tr-chips tr-never"><button class="tr-chip" data-t="never" aria-pressed="' + !!S.never + '">' +
         'Never suggest ' + esc(lib(old).n) + ' again</button></div>' : '') +
       '<input class="txt tr-search" id="trPickQ" type="search" placeholder="Search exercises" value="' + esc(S.q) + '" aria-label="Search exercises">' +
@@ -4159,9 +4352,12 @@
     var series = ss.map(function (s) {
       return { t: s.wo.st, v: byReps ? Math.max.apply(null, s.x.s.map(function (z) { return z.r; })) : bestE1(s.x.s, s.wo.u) };
     });
+    var note = noteOf(e);
     var html = '<div class="sheet-name tr-sn2">' + esc(ex.n) + '</div>' +
       '<div class="tr-sub">' + esc(mname(ex.m)) + ' · ' + esc(EQUIP[ex.q] || '') + ' · ' +
-        ex.rr[0] + '–' + ex.rr[1] + ' reps</div>';
+        ex.rr[0] + '–' + ex.rr[1] + ' reps</div>' +
+      '<button class="tr-exnt tr-exnt-s" data-t="note" data-e="' + esc(e) + '">' +
+        (note ? '<span class="tr-exnt-l">Note</span> ' + esc(note) : '<span class="tr-exnt-l">+ Note</span> for next time: the seat, the grip') + '</button>';
     if (!ss.length) return html + '<div class="tr-note">Not logged yet. Records and a chart appear after the first session.</div>';
     html += '<div class="tr-recs">' +
       rec('Best e1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '—') +
@@ -4174,7 +4370,7 @@
       : '<div class="tr-note">Two sessions and this draws.</div>';
     html += '<div class="tr-ql tr-chart-h">Sessions</div><ol class="tr-sess">' + ss.slice().reverse().slice(0, 20).map(function (s) {
       return '<li><span class="tr-ss-d">' + when(s.wo.st) + '</span><span class="tr-ss-s">' + s.x.s.map(function (z) {
-        return (conv(z.w, s.wo.u) > 0 ? fmtN(conv(z.w, s.wo.u)) + ' × ' : '') + z.r;
+        return (conv(z.w, s.wo.u) > 0 ? fmtN(conv(z.w, s.wo.u)) + ' × ' : '') + z.r + (fin(z.q) ? ' @' + (z.q >= 5 ? '5+' : fmtN(z.q)) : '');
       }).join(', ') + '</span></li>';
     }).join('') + '</ol>';
     return html;
@@ -4219,26 +4415,119 @@
   function woSheetHTML(sh) {
     var wo = T.wo[sh.id];
     if (!wo) return '<div class="tr-note">That workout has gone.</div>';
+    if (S.ed && S.ed.id === wo.id) return edHTML(wo);
     var prs = prsIn(wo);
     var armed = S.arm === 'del:' + wo.id;
     return '<div class="sheet-name tr-sn2">' + esc(wo.n) + '</div>' +
-      '<div class="tr-sub">' + when(wo.st) + ' · ' + dur((wo.en || wo.st) - wo.st) + ' · ' + setsOf(wo) + ' sets · ' +
-        fmtBig(volOf(wo)) + ' ' + T.pr.u + '</div>' +
+      '<div class="tr-sub">' + when(wo.st) + (wo.en > wo.st ? ' · ' + dur(wo.en - wo.st) : '') + ' · ' + setsOf(wo) + ' sets · ' +
+        fmtBig(volOf(wo)) + ' ' + T.pr.u + (wo.im === 's' ? ' · from Strong' : '') + (wo.ed ? ' · edited' : '') + '</div>' +
       (prs.length ? '<div class="tr-prs">' + prs.map(function (p) {
         return '<div>★ ' + esc(lib(p.e).n) + ' — ' + esc(p.what) + '</div>';
       }).join('') + '</div>' : '') +
       (wo.mc && mcValid(wo.mc) ? '<div class="tr-wx"><span class="tr-wx-n">Circuit \u00b7 ' + esc(mcScore(wo.mc)) + '</span>' +
         '<div class="tr-sub">' + esc(mcSay(wo.mc)) + '</div></div>' : '') +
+      (wo.nt ? '<div class="tr-wont">' + esc(wo.nt) + '</div>' : '') +
       wo.x.map(function (x) {
         return '<div class="tr-wx"><button class="tr-lnk tr-wx-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(lib(x.e).n) + '</button>' +
           '<ol class="tr-wx-s">' + x.s.map(function (s) {
             var w = conv(s.w, wo.u);
-            return '<li>' + (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' × ' : '') + s.r +
+            return '<li>' + (s.wu ? '<span class="tr-e1">ramp</span> ' : '') + (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' × ' : '') + s.r +
+              (fin(s.q) ? ' <span class="tr-e1">' + rqSay(s.q) + '</span>' : '') +
               (e1rm(w, s.r) > 0 ? ' <span class="tr-e1">e1RM ' + Math.round(e1rm(w, s.r)) + '</span>' : '') + '</li>';
           }).join('') + '</ol></div>';
       }).join('') +
-      '<div class="tr-acts"><button class="ghost danger" data-t="delwo" data-id="' + esc(wo.id) + '">' +
+      '<div class="tr-acts"><button class="ghost" data-t="edopen" data-id="' + esc(wo.id) + '">Edit</button>' +
+        '<button class="ghost danger" data-t="delwo" data-id="' + esc(wo.id) + '">' +
         (armed ? 'Tap again to delete for good' : 'Delete this workout') + '</button></div>';
+  }
+
+  /* ---------------------------------------------------- correcting a workout
+   *
+   * A typo in a saved set is a wrong record, a wrong chart and next week's
+   * weights worked from the wrong number, so a saved workout can be put
+   * right: weights, reps, sets in or out, an exercise forgotten, the note.
+   * Edited in the unit you read in now; everything else about each set —
+   * when it was ticked, a ramp, an all-out set — rides along untouched. */
+  function edOpen(wo) {
+    S.ed = {
+      id: wo.id, err: '', nt: wo.nt || '',
+      x: wo.x.map(function (x) {
+        return { e: x.e, pq: x.pq, s: x.s.map(function (s) {
+          return { w: fmtN(conv(s.w, wo.u)), r: String(s.r), q: fin(s.q) ? String(Math.min(5, s.q)) : '', o: s };
+        }) };
+      })
+    };
+  }
+  function edHTML(wo) {
+    var E = S.ed;
+    var rq = !!T.pr.rq || wo.x.some(function (x) { return x.s.some(function (s) { return fin(s.q); }); });
+    return '<div class="sheet-name tr-sn2">Edit ' + esc(wo.n) + '</div>' +
+      '<div class="tr-sub">' + when(wo.st) + ' · in ' + T.pr.u + '. Records, charts and next week\u2019s weights follow what you save.</div>' +
+      E.x.map(function (x, i) {
+        var ex = lib(x.e);
+        return '<div class="tr-wx tr-edx' + (rq ? ' tr-rq' : '') + '">' +
+          '<div class="tr-edx-h"><span class="tr-wx-n">' + esc(ex.n) + '</span>' +
+            '<button class="tr-lnk" data-t="edrmx" data-x="' + i + '">Remove</button></div>' +
+          '<div class="tr-set tr-set-h tr-eds" aria-hidden="true"><span>Set</span><span>' + T.pr.u + '</span><span>Reps</span>' +
+            (rq ? '<span>RIR</span>' : '') + '<span></span></div>' +
+          x.s.map(function (s, j) {
+            return '<div class="tr-set tr-eds">' +
+              '<span class="tr-sn">' + (s.o && s.o.wu ? 'R' : j + 1) + '</span>' +
+              '<input class="tr-in" data-ed="w" data-x="' + i + '" data-s="' + j + '" inputmode="decimal" autocomplete="off" value="' + esc(s.w) + '" ' +
+                'aria-label="' + esc(ex.n) + ' set ' + (j + 1) + ' weight in ' + T.pr.u + '">' +
+              '<input class="tr-in" data-ed="r" data-x="' + i + '" data-s="' + j + '" inputmode="numeric" autocomplete="off" value="' + esc(s.r) + '" ' +
+                'aria-label="' + esc(ex.n) + ' set ' + (j + 1) + ' reps">' +
+              (rq ? rqSel(s.q, 'data-ed="q" data-x="' + i + '" data-s="' + j + '"', ex.n + ' set ' + (j + 1) + ' reps in reserve') : '') +
+              '<button class="tr-tick tr-edrm" data-t="edrm" data-x="' + i + '" data-s="' + j + '" aria-label="Remove ' + esc(ex.n) + ' set ' + (j + 1) + '">&times;</button>' +
+            '</div>';
+          }).join('') +
+          '<div class="tr-ex-a"><button class="tr-lnk" data-t="edadd" data-x="' + i + '">+ Set</button></div>' +
+        '</div>';
+      }).join('') +
+      '<div class="tr-acts"><button class="ghost" data-t="edaddx">+ Add an exercise</button></div>' +
+      '<div class="tr-q"><div class="tr-ql">Notes <span class="tr-opt">optional</span></div>' +
+        '<textarea class="txt tr-nt" id="trEdNt" maxlength="1000" rows="2" aria-label="Notes on this workout">' + esc(E.nt) + '</textarea></div>' +
+      (E.err ? '<div class="tr-note tr-warn">' + esc(E.err) + '</div>' : '') +
+      '<div class="tr-acts"><button class="btn-primary" data-t="edsave">Save changes</button>' +
+        '<button class="ghost" data-t="edcancel">Cancel</button></div>';
+  }
+  /* Saved in the unit you read in now. A set with no reps is not a set, so
+     it goes; one with reps it could not read says so rather than guessing. */
+  function edSave() {
+    var E = S.ed, wo = E && T.wo[E.id];
+    if (!wo) { S.ed = null; return false; }
+    var bad = '';
+    var x = E.x.map(function (x) {
+      var out = { e: x.e, s: [] };
+      if (fin(x.pq)) out.pq = x.pq;
+      x.s.forEach(function (s) {
+        if (String(s.r).trim() === '' || numIn(s.r) === 0) return;
+        var w = String(s.w).trim() === '' ? 0 : numIn(s.w), r = numIn(s.r);
+        if (w === null || r === null || w < 0 || w > 5000 || r < 0 || r > 1000) { bad = bad || lib(x.e).n; return; }
+        var o = { w: w, r: Math.round(r) };
+        if (s.o) {
+          if (fin(s.o.t)) o.t = s.o.t;
+          if (s.o.am) { o.am = 1; if (fin(s.o.tr)) o.tr = s.o.tr; }
+          if (s.o.wu) o.wu = 1;
+        }
+        var q = numIn(s.q);
+        if (q !== null && q >= 0 && q <= 10) o.q = q;
+        out.s.push(o);
+      });
+      return out;
+    }).filter(function (x) { return x.s.length; });
+    if (bad) { E.err = 'A set of ' + bad + ' has a number that could not be read. Fix it or take it out.'; return false; }
+    if (!x.length && !wo.mc) { E.err = 'Nothing would be left. To get rid of the whole workout, cancel and delete it.'; return false; }
+    var nw = clean(wo);
+    nw.u = T.pr.u;
+    nw.x = x;
+    var nt = String(E.nt || '').trim().slice(0, 1000);
+    if (nt) nw.nt = nt; else delete nw.nt;
+    nw.ed = Date.now();
+    T.wo[wo.id] = clean(nw);
+    stamp('wo', wo.id);
+    S.ed = null;
+    return true;
   }
 
   /* Plates for one side of the bar, heaviest first. Whatever cannot be made
@@ -4334,6 +4623,9 @@
           return (noPump(m) ? '' : segQ(esc(mname(m)) + ' pump', 'fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"')) +
             segQ(esc(mname(m)) + ' workload', 'fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"');
         }).join('') + '</div>' : '') +
+      '<div class="tr-q"><div class="tr-ql">Notes <span class="tr-opt">optional</span></div>' +
+        '<textarea class="txt tr-nt" id="trWoNt" maxlength="1000" rows="2" aria-label="Notes on this workout" ' +
+          'placeholder="Slept badly. Left knee fine today.">' + esc(LIVE.nt || '') + '</textarea></div>' +
       '<div class="tr-note">Saving marks ' + (wo.dk === dayKey(new Date()) ? 'today' : 'that day') + ' as a training day in Nourish.</div>' +
       '<div class="tr-acts"><button class="btn-primary" data-t="save">Save workout</button>' +
         '<button class="ghost" data-t="close">Keep going</button></div>';
@@ -4342,6 +4634,10 @@
   function planSheetHTML(sh) {
     var ms = active();
     if (!ms || !ms.days[sh.d]) return '';
+    if (isEz(ms, sh.d)) {
+      return '<div class="sheet-name tr-sn2">Easy day</div>' +
+        '<div class="tr-sub">Week ' + (sh.w + 1) + '</div>' + ezHTML(ms, sh.w, sh.d);
+    }
     var p = plan(ms, sh.w, sh.d);
     var wo = woFor(ms, sh.w, sh.d);
     return '<div class="sheet-name tr-sn2">' + esc(p.n) + '</div>' +
@@ -4373,8 +4669,19 @@
     if (!a) return '<div class="tr-note">That has gone.</div>';
     return '<div class="sheet-name tr-sn2">' + esc(axName(a)) + '</div>' +
       '<div class="tr-sub">' + when(a.st) + ' · ' + dur(a.min * 60000) + ' · ' + LV[axLv(a)].toLowerCase() + '</div>' +
+      (a.ms && T.ms[a.ms] ? '<div class="tr-note">Counted as the easy day in week ' + (a.w + 1) + ' of ' + esc(T.ms[a.ms].n) + '.</div>' : '') +
       '<div class="tr-acts"><button class="ghost danger" data-t="axdel" data-id="' + esc(a.id) + '">' +
         (S.arm === 'axdel:' + a.id ? 'Tap again to delete' : 'Delete') + '</button></div>';
+  }
+
+  function noteHTML(sh) {
+    var ex = lib(sh.e);
+    return '<div class="sheet-name tr-sn2">' + esc(ex.n) + '</div>' +
+      '<div class="tr-sub">A note that comes up every time ' + esc(ex.n) + ' does: the seat, the grip, the bench that wobbles.</div>' +
+      '<textarea class="txt tr-nt" id="trNoteT" maxlength="200" rows="3" aria-label="Note on ' + esc(ex.n) + '" ' +
+        'placeholder="Seat 4. Handles at the second notch.">' + esc(noteOf(sh.e)) + '</textarea>' +
+      '<div class="tr-acts"><button class="btn-primary" data-t="notesave" data-e="' + esc(sh.e) + '">Save note</button>' +
+        (noteOf(sh.e) ? '<button class="ghost danger" data-t="notedel" data-e="' + esc(sh.e) + '">Remove it</button>' : '') + '</div>';
   }
 
   function jsonSize() {
@@ -4405,12 +4712,16 @@
       '<div class="tr-q"><div class="tr-ql">Rest between paired sets</div>' +
         chips('s-rp', p.rp, [[45, '0:45'], [60, '1:00'], [75, '1:15'], [90, '1:30']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">When rest is up</div>' + chips('s-snd', p.snd, [[1, 'Beep and buzz'], [0, 'Buzz only']]) + '</div>' +
+      '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log reps in reserve']]) +
+        '<div class="tr-hint">A box beside every set for how many more reps you had in you. Optional on each set; the review holds it against what the plan asked.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
         '<div class="tr-sub">Kept on this device. Sign in under Nourish → ⚙ → Sync &amp; sharing and it travels with your account, the same as your day.</div>' +
         '<div class="tr-sub">' + Object.keys(T.wo).length + ' workouts · about ' + kb + ' KB' +
           (kb > 600 ? ' — getting close to the 1 MB an account record can hold. Export a copy, then delete old workouts.' : '') + '</div>' +
         '<div class="tr-acts"><button class="ghost" data-t="export">Export a copy</button>' +
-          '<label class="ghost tr-file">Restore from a copy<input type="file" id="trImport" accept="application/json,.json" hidden></label></div>' +
+          '<label class="ghost tr-file">Restore from a copy<input type="file" id="trImport" accept="application/json,.json" hidden></label>' +
+          '<label class="ghost tr-file">Bring in from Strong<input type="file" id="trStrong" accept=".csv,text/csv" hidden></label></div>' +
+        '<div class="tr-hint">From Strong: Settings \u2192 Export data, then choose the file here. Your workouts come in as history \u2014 records, charts, and the weights a new block starts from.</div>' +
         (S.imp ? '<div class="tr-note">That file holds ' + Object.keys(S.imp.wo).length + ' workouts and ' +
           Object.keys(S.imp.ms).length + ' blocks. Restoring replaces everything in Strengthen on this device and in your account.</div>' +
           '<div class="tr-acts"><button class="btn-primary danger" data-t="impgo">Replace with the copy</button></div>' : '') +
@@ -4476,16 +4787,18 @@
       var nx = liveEx(e, old.s.length);
       nx.rir = old.rir;
       nx.p = old.p || 0;
+      if (old.sl) nx.sl = old.sl;
       // what was already done stays done, under the new name
       old.s.forEach(function (s, j) { if (s.t && nx.s[j]) nx.s[j] = s; });
       LIVE.x[sh.x] = nx;
-      /* In a block, a swap is a swap for the rest of the block: the reason
-         to swap is almost always the exercise, not the day. */
-      if (LIVE.ms && T.ms[LIVE.ms]) {
+      /* Today only, unless you said the rest of the block — or never again,
+         which is every day of it. */
+      if (LIVE.ms && T.ms[LIVE.ms] && (sh.sc === 'block' || everywhere)) {
         var ms = clean(T.ms[LIVE.ms]);
-        var slot = ms.days[LIVE.d] && ms.days[LIVE.d].s.filter(function (s) { return s.e === old.e; })[0];
+        var was = old.sl || old.e;
+        var slot = ms.days[LIVE.d] && ms.days[LIVE.d].s.filter(function (s) { return s.e === was; })[0];
         if (slot) slot.e = e;
-        if (everywhere) ms.days.forEach(function (d) { d.s.forEach(function (s) { if (s.e === old.e) s.e = e; }); });
+        if (everywhere) ms.days.forEach(function (d) { d.s.forEach(function (s) { if (s.e === was || s.e === old.e) s.e = e; }); });
         if (slot || everywhere) editBlock(ms);
       }
       saveLive();
@@ -4494,6 +4807,14 @@
       if (everywhere) S.draft.days.forEach(function (d) { d.s.forEach(function (s) { if (s.e === gone) s.e = e; }); });
     } else if (sh.mode === 'dadd' && S.draft) {
       S.draft.days[sh.d].s.push({ e: e, n: 2 });
+    } else if (sh.mode === 'smap' && S.sg && S.sg.names && S.sg.names[sh.i]) {
+      S.sg.names[sh.i].e = e;
+      openSheet({ k: 'strong', eyebrow: 'Bring in', title: 'From Strong' });
+      return;
+    } else if (sh.mode === 'eadd' && S.ed && T.wo[S.ed.id]) {
+      S.ed.x.push({ e: e, s: [{ w: '', r: '', q: '', o: null }] });
+      openSheet({ k: 'wo', id: S.ed.id, eyebrow: 'Workout', title: 'Workout' });
+      return;
     }
     closeSheet();
     draw();
@@ -4556,6 +4877,351 @@
     draw();
   }
 
+
+  /* ------------------------------------------------------- from Strong
+   *
+   * Strong's export is a CSV with one row per set: the date and name of the
+   * workout, the exercise, the set's order, weight, reps, and optionally its
+   * RPE and a note. Two layouts are about: an older one with a Weight Unit
+   * column, and a newer one without, where the weights are in whatever unit
+   * the app was set to. Columns are found by name, so either reads.
+   *
+   * What comes in is history: records, charts, and the numbers a new block
+   * starts from. It does not rebuild Strong's routines. A set timed or run
+   * rather than lifted (a plank, a jog) has no reps to count and is left out.
+   *
+   * Each exercise is matched to the library where the name says the same
+   * lift on the same kit, and otherwise comes in as your own, with its
+   * muscle guessed from the name and shown to be checked. */
+  function csvRows(text) {
+    text = String(text || '').replace(/^﻿/, '');
+    var first = text.split(/\r?\n/, 1)[0] || '';
+    var semi = (first.match(/;/g) || []).length, comma = (first.match(/,/g) || []).length;
+    var sep = semi > comma ? ';' : ',';
+    var rows = [], row = [], cell = '', q = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+        else cell += c;
+      } else if (c === '"') q = true;
+      else if (c === sep) { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); cell = '';
+        if (row.length > 1 || row[0] !== '') rows.push(row);
+        row = [];
+      } else cell += c;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+
+  // "2023-05-14 08:12:33", or "5/14/2023 8:12 AM"; the local clock either way
+  function sgDate(s) {
+    s = String(s || '').trim();
+    var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0)).getTime();
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?/);
+    if (m) {
+      var h = +(m[4] || 12);
+      if (m[7] && /p/i.test(m[7]) && h < 12) h += 12;
+      if (m[7] && /a/i.test(m[7]) && h === 12) h = 0;
+      return new Date(+m[3], +m[1] - 1, +m[2], h, +(m[5] || 0), +(m[6] || 0)).getTime();
+    }
+    var t = Date.parse(s);
+    return fin(t) ? t : null;
+  }
+  // "1h 5m", "45m", "01:05:00", or plain seconds
+  function sgDur(s) {
+    s = String(s || '').trim();
+    if (!s) return 0;
+    var m = s.match(/^(\d+):(\d{2})(?::(\d{2}))?$/);
+    if (m) return m[3] !== undefined ? (+m[1] * 3600 + +m[2] * 60 + +m[3]) * 1000 : (+m[1] * 60 + +m[2]) * 60000 / 60;
+    var h = s.match(/(\d+)\s*h/), mi = s.match(/(\d+)\s*m(?!s)/), se = s.match(/(\d+)\s*s/);
+    if (h || mi || se) return ((h ? +h[1] * 3600 : 0) + (mi ? +mi[1] * 60 : 0) + (se ? +se[1] : 0)) * 1000;
+    var n = Number(s);
+    return fin(n) && n > 0 ? n * 1000 : 0;
+  }
+  function sgNum(s) {
+    var n = parseFloat(String(s == null ? '' : s).replace(',', '.'));
+    return fin(n) ? n : null;
+  }
+
+  /* Strong's own names for the lifts the library has, as their words fall
+     once case, brackets and punctuation are gone. Only the same lift on the
+     same kit: a Pendlay row is not a bent-over row, and an assisted pull-up
+     is logged as the help, not the load, so neither is matched. */
+  var SG_MAP = {
+    'bench press barbell': 'bb-bench', 'bench press dumbbell': 'db-bench', 'chest press machine': 'mc-press',
+    'incline bench press barbell': 'bb-incline', 'incline bench press dumbbell': 'db-incline',
+    'incline bench press smith machine': 'sm-incline', 'chest dip': 'dip', 'dip': 'dip', 'push up': 'pushup-flat',
+    'incline push up': 'inc-pushup', 'cable crossover': 'cb-fly', 'chest fly cable': 'cb-fly', 'chest fly dumbbell': 'db-fly',
+    'chest fly machine': 'pec-deck', 'pec deck machine': 'pec-deck', 'pec deck': 'pec-deck',
+    'lat pulldown cable': 'lat-pd', 'lat pulldown machine': 'lat-pd', 'lat pulldown wide grip cable': 'lat-pd', 'lat pulldown': 'lat-pd',
+    'lat pulldown close grip cable': 'lat-pd-n', 'pull up': 'pullup', 'chin up': 'chinup',
+    'bent over row barbell': 'bb-row', 'seated row cable': 'cb-row', 'seated cable row': 'cb-row', 'seated row machine': 'mc-row',
+    'bent over one arm row dumbbell': 'db-row', 'one arm row dumbbell': 'db-row', 'chest supported row dumbbell': 'db-cs-row',
+    'pullover dumbbell': 'db-pullover', 'straight arm pulldown cable': 'cb-straight', 'inverted row': 'inv-row',
+    'squat barbell': 'bb-squat', 'back squat barbell': 'bb-squat', 'front squat barbell': 'bb-front', 'hack squat': 'hack',
+    'hack squat machine': 'hack', 'squat smith machine': 'sm-squat', 'leg press': 'leg-press', 'leg press machine': 'leg-press',
+    'goblet squat kettlebell': 'goblet', 'goblet squat dumbbell': 'goblet', 'goblet squat': 'goblet',
+    'bulgarian split squat': 'db-bss', 'bulgarian split squat dumbbell': 'db-bss', 'lunge dumbbell': 'db-lunge',
+    'walking lunge dumbbell': 'db-lunge', 'step up': 'db-stepup', 'step up dumbbell': 'db-stepup', 'belt squat machine': 'belt-squat',
+    'leg extension machine': 'leg-ext', 'leg extension': 'leg-ext', 'air squat': 'bw-squat', 'squat bodyweight': 'bw-squat',
+    'romanian deadlift barbell': 'bb-rdl', 'romanian deadlift dumbbell': 'db-rdl', 'stiff leg deadlift barbell': 'bb-sldl',
+    'deadlift barbell': 'bb-dl', 'good morning barbell': 'good-am', 'lying leg curl machine': 'lying-curl',
+    'seated leg curl machine': 'seated-curl', 'nordic hamstring curl': 'nordic',
+    'hip thrust barbell': 'hip-thrust', 'hip thrust machine': 'mc-thrust', 'hip thrust dumbbell': 'db-thrust', 'glute bridge': 'glute-bridge',
+    'back extension': 'back-ext', 'hyperextension': 'back-ext', 'hip abductor machine': 'abduct', 'glute kickback cable': 'cb-kick',
+    'lateral raise dumbbell': 'db-lat', 'lateral raise cable': 'cb-lat', 'lateral raise machine': 'mc-lat', 'upright row cable': 'cb-upright',
+    'reverse fly machine': 'rev-deck', 'rear delt fly machine': 'rev-deck', 'reverse fly dumbbell': 'db-rear', 'reverse fly cable': 'cb-rear',
+    'face pull cable': 'face-pull', 'face pull': 'face-pull',
+    'overhead press barbell': 'bb-ohp', 'strict military press barbell': 'bb-ohp', 'shoulder press dumbbell': 'db-ohp',
+    'seated overhead press dumbbell': 'db-ohp', 'overhead press dumbbell': 'db-ohp', 'shoulder press machine': 'mc-ohp',
+    'front raise dumbbell': 'db-front', 'pike push up': 'pike-pushup',
+    'bicep curl barbell': 'bb-curl', 'biceps curl barbell': 'bb-curl', 'ez bar curl': 'ez-curl', 'bicep curl ez bar': 'ez-curl',
+    'bicep curl dumbbell': 'db-curl', 'biceps curl dumbbell': 'db-curl', 'incline curl dumbbell': 'inc-curl',
+    'hammer curl dumbbell': 'hammer', 'bicep curl cable': 'cb-curl', 'biceps curl cable': 'cb-curl', 'preacher curl machine': 'preacher',
+    'triceps pushdown': 'pushdown', 'triceps pushdown cable straight bar': 'pushdown', 'triceps pushdown cable': 'pushdown',
+    'tricep pushdown cable': 'pushdown', 'triceps pushdown cable rope': 'pushdown', 'overhead triceps extension cable': 'cb-oh-ext',
+    'triceps extension cable': 'cb-oh-ext', 'skullcrusher barbell': 'skull', 'skullcrusher ez bar': 'skull',
+    'triceps extension dumbbell': 'db-oh-ext', 'overhead triceps extension dumbbell': 'db-oh-ext', 'triceps extension machine': 'mc-tri',
+    'bench press close grip barbell': 'cgbp', 'close grip bench press barbell': 'cgbp', 'bench dip': 'bench-dip', 'diamond push up': 'diamond',
+    'standing calf raise machine': 'calf-stand', 'calf raise machine': 'calf-stand', 'seated calf raise machine': 'calf-seat',
+    'seated calf raise plate loaded': 'calf-seat', 'calf press on leg press': 'calf-lp', 'calf press machine': 'calf-lp',
+    'standing calf raise dumbbell': 'calf-db', 'shrug dumbbell': 'db-shrug', 'shrug barbell': 'bb-shrug', 'shrug cable': 'cb-shrug',
+    'cable crunch': 'cb-crunch', 'crunch cable': 'cb-crunch', 'hanging leg raise': 'hang-raise', 'ab wheel': 'ab-wheel',
+    'crunch machine': 'mc-crunch', 'crunch': 'crunch', 'pallof press cable': 'pallof', 'dead bug': 'dead-bug', 'bird dog': 'bird-dog'
+  };
+  function sgKey(n) {
+    return String(n || '').toLowerCase().replace(/\btricep\b/g, 'triceps').replace(/[^a-z0-9]+/g, ' ').trim()
+      .replace(/\bpush ups?\b/g, 'push up').replace(/\bpull ups?\b/g, 'pull up').replace(/\bchin ups?\b/g, 'chin up')
+      .replace(/\bstep ups?\b/g, 'step up').replace(/\bskull ?crushers?\b/g, 'skullcrusher');
+  }
+  function sgMatch(n) {
+    var k = sgKey(n);
+    if (SG_MAP[k] && LIB[SG_MAP[k]]) return SG_MAP[k];
+    // the library's own name, word for word
+    for (var i = 0; i < LIB_LIST.length; i++) if (sgKey(LIB_LIST[i].n) === k) return LIB_LIST[i].id;
+    return '';
+  }
+  /* A guess at what a lift you made up trains, most particular first, so a
+     leg curl is not taken for a biceps curl. Shown to be checked. */
+  var SG_MUS = [
+    [/leg curl|hamstring|romanian|\brdl\b|good morning|stiff leg/, 'hams'], [/leg extension|squat|leg press|lunge|step up|sissy/, 'quads'],
+    [/calf/, 'calves'], [/hip thrust|glute|bridge|abduct|kickback/, 'glutes'], [/reverse fly|rear delt|face pull/, 'rear'],
+    [/lateral raise|upright row/, 'side'], [/overhead press|shoulder press|military|arnold|front raise|push press|landmine press/, 'front'],
+    [/shrug/, 'traps'], [/crunch|plank|leg raise|sit up|ab wheel|oblique|twist|hollow|v up|toes to bar/, 'abs'],
+    [/triceps|skullcrusher|pushdown|close grip|kickback|jm press/, 'triceps'], [/curl/, 'biceps'],
+    [/deadlift|back extension|hyperextension/, 'hams'], [/row|pulldown|pull up|chin up|pullover|lat\b|pull down/, 'back'],
+    [/bench|chest|fly|pec|push up|dip|press/, 'chest']
+  ];
+  function sgGuess(n) {
+    var k = sgKey(n), m = 'chest', i;
+    for (i = 0; i < SG_MUS.length; i++) if (SG_MUS[i][0].test(k)) { m = SG_MUS[i][1]; break; }
+    var q = /smith/.test(k) ? 'sm' : /barbell|ez bar|trap bar/.test(k) ? 'bb' : /dumbbell|kettlebell/.test(k) ? 'db'
+      : /cable|band/.test(k) ? 'cb' : /machine|plate loaded|lever/.test(k) ? 'mc' : /bodyweight|assisted|weighted|push up|pull up|chin up|dip/.test(k) ? 'bw' : 'mc';
+    var c = /press|squat|deadlift|row|pull|chin|dip|lunge|thrust|clean|snatch|step up|push up/.test(k) && !/leg curl|pushdown|triceps/.test(k) ? 'c' : 'i';
+    return { m: m, q: q, k: c };
+  }
+
+  /* The file, read into workouts and the exercises they use. Nothing is
+     stored yet: the sheet shows what came in and what it matched first. */
+  function sgParse(text) {
+    var rows = csvRows(text);
+    if (rows.length < 2) return { err: 'That file is empty.' };
+    var head = rows[0].map(function (h) { return String(h).trim().toLowerCase(); });
+    var col = function () {
+      for (var i = 0; i < arguments.length; i++) { var at = head.indexOf(arguments[i]); if (at >= 0) return at; }
+      return -1;
+    };
+    var C = { date: col('date'), name: col('workout name'), dur: col('duration', 'workout duration'), ex: col('exercise name'),
+      ord: col('set order'), w: col('weight'), wu: col('weight unit'), r: col('reps'), rpe: col('rpe'),
+      nt: col('notes'), wnt: col('workout notes') };
+    if (C.date < 0 || C.ex < 0 || C.r < 0 || C.w < 0) {
+      return { err: 'That does not look like a Strong export: it needs Date, Exercise Name, Weight and Reps columns. In Strong: Settings → Export data.' };
+    }
+    var byKey = {}, order = [], names = {}, nOrder = [], units = {}, skipped = 0;
+    rows.slice(1).forEach(function (r) {
+      var get = function (i) { return i >= 0 && i < r.length ? String(r[i]).trim() : ''; };
+      var st = sgDate(get(C.date)), exn = get(C.ex).slice(0, 80);
+      if (!fin(st) || !exn) return;
+      var so = get(C.ord).toUpperCase();
+      var reps = sgNum(get(C.r)), w = sgNum(get(C.w));
+      // a timed or distance set, a rest-timer row, or a set never done
+      if (!(reps > 0) || (so && !/^\d+$/.test(so) && ['W', 'D', 'F'].indexOf(so) < 0)) { skipped++; return; }
+      var key = get(C.date) + '|' + get(C.name);
+      var wo = byKey[key];
+      if (!wo) {
+        wo = byKey[key] = { key: key, st: st, n: get(C.name).slice(0, 60) || 'Workout', dur: sgDur(get(C.dur)), x: [], xi: {}, nt: [] };
+        order.push(wo);
+      }
+      var wnt = get(C.wnt);
+      if (wnt && wo.nt.indexOf(wnt) < 0) wo.nt.unshift(wnt);
+      var ent = get(C.nt);
+      if (ent && wo.nt.indexOf(exn + ': ' + ent) < 0) wo.nt.push(exn + ': ' + ent);
+      if (C.wu >= 0) { var u = get(C.wu).toLowerCase(); if (u) units[/kg/.test(u) ? 'kg' : 'lb'] = 1; }
+      var x = wo.xi[exn];
+      if (!x) { x = wo.xi[exn] = { nm: exn, s: [] }; wo.x.push(x); }
+      var set = { w: w !== null && w > 0 ? Math.round(w * 100) / 100 : 0, r: Math.round(reps) };
+      if (so === 'W') set.wu = 1;
+      var rpe = sgNum(get(C.rpe));
+      if (rpe !== null && rpe >= 5 && rpe <= 10) set.q = Math.max(0, Math.min(5, Math.round(10 - rpe)));
+      x.s.push(set);
+      if (!names[exn]) { names[exn] = { nm: exn, n: 0 }; nOrder.push(exn); }
+      names[exn].n++;
+    });
+    if (!order.length) return { err: 'No lifting sets in that file: every row was timed, a distance, or empty.' };
+    order.sort(function (a, b) { return a.st - b.st; });
+    order.forEach(function (w) { delete w.xi; });
+    var list = nOrder.map(function (nm) {
+      var g = sgGuess(nm);
+      return { nm: nm, n: names[nm].n, e: sgMatch(nm), m: g.m, q: g.q, k: g.k };
+    }).sort(function (a, b) { return (a.e ? 1 : 0) - (b.e ? 1 : 0) || b.n - a.n; });
+    var uk = Object.keys(units);
+    return { wos: order, names: list, unit: uk.length === 1 ? uk[0] : T.pr.u, fixedUnit: uk.length === 1, skipped: skipped, range: 0 };
+  }
+
+  // letters and digits, the same every time the same workout comes in
+  function sgId(w) {
+    var h = 2166136261;
+    for (var i = 0; i < w.key.length; i++) { h ^= w.key.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return 'sg' + w.st.toString(36) + h.toString(36).slice(0, 4);
+  }
+  var SG_RANGES = [[0, 'Everything'], [24, 'Last 2 years'], [12, 'Last year'], [6, 'Last 6 months']];
+  // what a Strengthen record can hold, leaving Nourish the rest of the account's 1 MB
+  var SG_ROOM = 600 * 1024;
+  function sgPick(G, months) {
+    var from = months ? Date.now() - months * 30.44 * DAY_MS : 0;
+    // here already: brought in before, or logged here at the same minute
+    var at = {};
+    Object.keys(T.wo).forEach(function (k) { if (T.wo[k] && fin(T.wo[k].st)) at[Math.round(T.wo[k].st / 60000)] = 1; });
+    return G.wos.filter(function (w) { return w.st >= from && !T.wo[sgId(w)] && !at[Math.round(w.st / 60000)]; });
+  }
+  function sgWo(G, w, ids) {
+    var x = [], at = {};
+    w.x.forEach(function (sx) {
+      var e = ids[sx.nm];
+      if (!e) return;
+      // two of Strong's exercises matched to one of ours become one
+      if (at[e] !== undefined) { x[at[e]].s = x[at[e]].s.concat(sx.s); return; }
+      at[e] = x.length;
+      x.push({ e: e, s: sx.s.map(function (s) { return clean(s); }) });
+    });
+    var wo = { id: sgId(w), st: w.st, dk: dayKey(new Date(w.st)), n: w.n, u: G.unit, x: x, im: 's' };
+    if (w.dur > 0 && w.dur < DAY_MS) wo.en = w.st + w.dur;
+    var nt = w.nt.join('\n').slice(0, 1000);
+    if (nt) wo.nt = nt;
+    return wo;
+  }
+  function sgSize(G, months) {
+    var ids = {};
+    G.names.forEach(function (n) { ids[n.nm] = n.e || 'cx0000000000000'; });
+    return sgPick(G, months).reduce(function (a, w) { return a + JSON.stringify(sgWo(G, w, ids)).length + 40; }, 0);
+  }
+  /* The biggest range that fits, chosen for you; smaller ones to pick. */
+  function sgFit(G) {
+    var now = jsonSize();
+    G.size = {};
+    SG_RANGES.forEach(function (r) { G.size[r[0]] = sgSize(G, r[0]); });
+    for (var i = 0; i < SG_RANGES.length; i++) if (now + G.size[SG_RANGES[i][0]] <= SG_ROOM) return SG_RANGES[i][0];
+    return SG_RANGES[SG_RANGES.length - 1][0];
+  }
+
+  function readStrong(file) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var G = sgParse(fr.result);
+      if (!G.err) G.range = sgFit(G);
+      S.sg = G;
+      openSheet({ k: 'strong', eyebrow: 'Bring in', title: 'From Strong' });
+    };
+    fr.readAsText(file);
+  }
+
+  function strongHTML() {
+    var G = S.sg;
+    if (!G) return '';
+    if (G.err) return '<div class="sheet-name tr-sn2">From Strong</div><div class="tr-note">' + esc(G.err) + '</div>';
+    var pick = sgPick(G, G.range);
+    var had = G.wos.length - sgPick(G, 0).length;
+    var now = jsonSize(), add = G.size[G.range] || 0;
+    var over = now + add > SG_ROOM;
+    var matched = G.names.filter(function (n) { return n.e; }).length;
+    return '<div class="sheet-name tr-sn2">From Strong</div>' +
+      '<div class="tr-sub">' + G.wos.length + ' workouts, ' + when(G.wos[0].st) + ' to ' + when(G.wos[G.wos.length - 1].st) +
+        (had ? '. ' + had + ' of them ' + (had === 1 ? 'is' : 'are') + ' here already and ' + (had === 1 ? 'is' : 'are') + ' left alone' : '') +
+        (G.skipped ? '. ' + G.skipped + ' timed or distance set' + (G.skipped === 1 ? '' : 's') + ' left out' : '') + '.</div>' +
+      (G.fixedUnit ? '' : q('Weights in this file are in', chips('sgu', G.unit, [['lb', 'Pounds'], ['kg', 'Kilograms']]),
+        'Strong exports in whatever unit it was set to.')) +
+      '<div class="tr-q"><div class="tr-ql">How far back</div>' +
+        chips('sgr', G.range, SG_RANGES.map(function (r) { return [r[0], r[1] + ' (' + sgPick(G, r[0]).length + ')']; })) +
+        '<div class="tr-hint' + (over ? ' tr-warn' : '') + '">' + esc(over
+          ? 'That would take your training record to about ' + Math.round((now + add) / 1024) + ' KB. An account holds 1 MB, shared with Nourish; pick a shorter range.'
+          : (add < 1024 ? 'Under 1 KB' : 'About ' + Math.round(add / 1024) + ' KB') + ', which fits beside Nourish in your account.') + '</div></div>' +
+      '<div class="tr-q"><div class="tr-ql">Exercises</div>' +
+        '<div class="tr-hint">' + matched + ' of ' + G.names.length + ' matched to the library. The rest come in as your own: check what each one trains, or match it yourself.</div>' +
+        '<div class="tr-sgl">' + G.names.map(function (n, i) {
+          return '<div class="tr-sgr"><div class="tr-sgr-n">' + esc(n.nm) + ' <span class="tr-sgr-c">' + n.n + ' set' + (n.n === 1 ? '' : 's') + '</span></div>' +
+            (n.e ? '<div class="tr-sgr-t">\u2192 ' + esc(lib(n.e).n) + '</div>' +
+                '<div class="tr-sgr-a"><button class="tr-lnk" data-t="sgmap" data-i="' + i + '">Change</button>' +
+                '<button class="tr-lnk" data-t="sgown" data-i="' + i + '">Keep as its own</button></div>'
+              : '<div class="tr-sgr-t">\u2192 your own, trains <select class="tr-sgm" data-sgm="' + i + '" aria-label="What ' + esc(n.nm) + ' trains">' +
+                  MUSCLES.map(function (m) { return '<option value="' + m.k + '"' + (n.m === m.k ? ' selected' : '') + '>' + esc(m.n) + '</option>'; }).join('') +
+                '</select></div>' +
+                '<div class="tr-sgr-a"><button class="tr-lnk" data-t="sgmap" data-i="' + i + '">Match to the library</button></div>') +
+          '</div>';
+        }).join('') + '</div></div>' +
+      '<div class="tr-acts"><button class="btn-primary" data-t="sggo"' + (pick.length ? '' : ' disabled') + '>' +
+        (pick.length ? 'Bring in ' + pick.length + ' workout' + (pick.length === 1 ? '' : 's') : 'Nothing new to bring in') + '</button>' +
+        '<button class="ghost" data-t="close">Cancel</button></div>';
+  }
+
+  /* Stamped all at once: a stamp a workout would write the whole record to
+     this phone once per workout, and a few hundred of them is a stall. */
+  function stampMany(part, keys) {
+    var now = Date.now();
+    keys.forEach(function (k) {
+      TS[part][k] = now;
+      if (dirty[part] !== true) { dirty[part] = dirty[part] || {}; dirty[part][k] = 1; }
+    });
+    saveT();
+    push();
+  }
+
+  function sgGo() {
+    var G = S.sg;
+    if (!G || G.err) return 0;
+    var ids = {}, made = [], used = {};
+    var pick = sgPick(G, G.range);
+    pick.forEach(function (w) { w.x.forEach(function (x) { used[x.nm] = 1; }); });
+    // your own: the one already made from an earlier import, else a new one
+    var byName = {};
+    Object.keys(T.cx).forEach(function (id) { byName[String(T.cx[id].n).toLowerCase()] = id; });
+    G.names.forEach(function (n) {
+      if (n.e) { ids[n.nm] = n.e; return; }
+      if (!used[n.nm]) return;
+      var have = byName[n.nm.toLowerCase()];
+      if (have) { ids[n.nm] = have; return; }
+      var id = 'cx' + newId() + made.length;
+      T.cx[id] = { n: n.nm.slice(0, 60), m: MUS[n.m] ? n.m : 'chest', q: EQUIP[n.q] ? n.q : 'mc', k: n.k === 'c' ? 'c' : 'i' };
+      byName[n.nm.toLowerCase()] = id;
+      ids[n.nm] = id;
+      made.push(id);
+    });
+    var put = [];
+    pick.forEach(function (w) {
+      var wo = sgWo(G, w, ids);
+      if (!wo.x.length || !SHAPE.wo(wo)) return;
+      T.wo[wo.id] = clean(wo);
+      put.push(wo.id);
+    });
+    if (made.length) stampMany('cx', made);
+    if (put.length) stampMany('wo', put);
+    return put.length;
+  }
+
   function act(el) {
     var t = el.getAttribute('data-t');
     var v = el.getAttribute('data-v');
@@ -4563,6 +5229,7 @@
     var ms;
 
     if (t !== 'save') S.justSaved = '';
+    if (t !== 'sggo') S.sgDone = 0;
     if (t === 'close') { closeSheet(); return; }
     if (t === 'sub') { setSub(v); return; }
     if (t === 'ref') {
@@ -4644,6 +5311,7 @@
     if (t === 'prog') { S.opt = optFor(v); draw(); scrollTop(); return; }
     var o = S.opt;
     if (o && t === 'o-dpw') { o.dpw = Number(v); draw(); return; }
+    if (o && t === 'o-ez') { o.ez = Number(v) ? 1 : 0; draw(); return; }
     if (o && t === 'o-min') { o.min = Number(v); draw(); return; }
     if (o && t === 'o-kit') { o.kit = v; draw(); return; }
     if (o && t === 'o-acc') { o.acc = Number(v); draw(); return; }
@@ -4698,7 +5366,8 @@
         var P = PROGS[pid];
         S.opt = {
           prog: pid,
-          dpw: P.dpw.indexOf(ms.dpw) >= 0 ? ms.dpw : fitDpw(P, ms.days.length),
+          dpw: P.dpw.indexOf(ms.dpw) >= 0 ? ms.dpw : fitDpw(P, ms.days.filter(function (d) { return !d.ez; }).length),
+          ez: ms.days.some(function (d) { return d.ez; }) ? 1 : 0,
           min: T.pr.min,
           kit: KITS[ms.kit] ? ms.kit : 'gym',
           acc: P.acc.indexOf(ms.acc) >= 0 ? ms.acc : P.dAcc,
@@ -4731,6 +5400,7 @@
       return;
     }
     if (t === 'skip') {
+      if (S.sheet) closeSheet();
       ms = clean(active());
       ms.sk = (ms.sk || []).concat(num('data-w') + ':' + num('data-d'));
       editBlock(ms);
@@ -4780,10 +5450,14 @@
       saveLive(); draw(); return;
     }
     if (t === 'rmex') { LIVE.x.splice(num('data-x'), 1); saveLive(); draw(); return; }
+    if (t === 'mvex' && LIVE) {
+      if (shiftEx(num('data-x'), Number(v))) { saveLive(); draw(); }
+      return;
+    }
     if (t === 'swap') {
       var cx = lib(LIVE.x[num('data-x')].e);
       S.q = ''; S.qm = cx.m;
-      openSheet({ k: 'pick', mode: 'swap', x: num('data-x'), eyebrow: 'Swap', title: 'Swap ' + cx.n });
+      openSheet({ k: 'pick', mode: 'swap', x: num('data-x'), sc: 'day', eyebrow: 'Swap', title: 'Swap ' + cx.n });
       return;
     }
     if (t === 'addex') { S.q = ''; S.qm = ''; openSheet({ k: 'pick', mode: 'add', eyebrow: 'Add', title: 'Add an exercise' }); return; }
@@ -4864,6 +5538,12 @@
 
     // the picker
     if (t === 'never') { S.never = !S.never; drawSheet(); return; }
+    if (t === 'swsc' && S.sheet && S.sheet.mode === 'swap') {
+      // choosing a length says never again was not meant
+      S.sheet.sc = v === 'block' ? 'block' : 'day';
+      S.never = false;
+      drawSheet(); return;
+    }
     if (t === 'pickm') { S.qm = v; drawSheet(); return; }
     if (t === 'pickex') { onPick(el.getAttribute('data-e')); return; }
     if (t === 'own') { S.own = { n: S.q, m: S.qm || 'chest', q: 'mc', k: 'i' }; drawSheet(); return; }
@@ -4878,9 +5558,40 @@
       return;
     }
 
+    // notes
+    if (t === 'note') { openSheet({ k: 'note', e: el.getAttribute('data-e'), eyebrow: 'Note', title: 'Note' }); return; }
+    if (t === 'notesave' || t === 'notedel') {
+      var ne = el.getAttribute('data-e'), ta = $('trNoteT');
+      setNote(ne, t === 'notesave' && ta ? ta.value : '');
+      closeSheet();
+      draw(); return;
+    }
+
     // the records
     if (t === 'exsheet') { openSheet({ k: 'ex', e: el.getAttribute('data-e'), eyebrow: 'Lift', title: lib(el.getAttribute('data-e')).n }); return; }
     if (t === 'wosheet') { openSheet({ k: 'wo', id: el.getAttribute('data-id'), eyebrow: 'Workout', title: 'Workout' }); return; }
+    if (t === 'edopen') {
+      var ew = T.wo[el.getAttribute('data-id')];
+      if (ew) { edOpen(ew); drawSheet(); }
+      return;
+    }
+    if (S.ed && t === 'edcancel') { S.ed = null; drawSheet(); return; }
+    if (S.ed && t === 'edsave') {
+      if (edSave()) draw();
+      drawSheet(); return;
+    }
+    if (S.ed && t === 'edrm') { S.ed.x[num('data-x')].s.splice(num('data-s'), 1); drawSheet(); return; }
+    if (S.ed && t === 'edrmx') { S.ed.x.splice(num('data-x'), 1); drawSheet(); return; }
+    if (S.ed && t === 'edadd') {
+      var ex0 = S.ed.x[num('data-x')], l0 = ex0.s[ex0.s.length - 1];
+      ex0.s.push({ w: l0 ? l0.w : '', r: l0 ? l0.r : '', q: '', o: null });
+      drawSheet(); return;
+    }
+    if (S.ed && t === 'edaddx') {
+      S.q = ''; S.qm = '';
+      openSheet({ k: 'pick', mode: 'eadd', eyebrow: 'Add', title: 'Add to this workout' });
+      return;
+    }
     if (t === 'delwo') {
       var wid = el.getAttribute('data-id');
       if (S.arm !== 'del:' + wid) { S.arm = 'del:' + wid; drawSheet(); return; }
@@ -4914,8 +5625,26 @@
       T.ax[aid] = { id: aid, st: at2, k: sh.h, min: sh.min, lv: LV[sh.lv] ? sh.lv : HABITS[sh.h].lv };
       var nm = sh.h === 'other' ? String(sh.nm || '').trim().slice(0, 40) : '';
       if (nm) T.ax[aid].nm = nm;
+      if (sh.ez && T.ms[sh.ez.ms]) { T.ax[aid].ms = sh.ez.ms; T.ax[aid].w = sh.ez.w; T.ax[aid].d = sh.ez.d; }
       stamp('ax', aid);
       closeSheet();
+      draw(); return;
+    }
+    if (t === 'eznew') {
+      ms = active();
+      if (!ms || !isEz(ms, num('data-d'))) return;
+      var h0 = T.pr.hab.filter(function (h) { return HABITS[h] && h !== 'other'; })[0] || 'walk';
+      openSheet({ k: 'axnew', h: h0, pick: true, lv: HABITS[h0].lv, min: Math.min(HABITS[h0].min, 60), ago: 0, nm: '',
+        ez: { ms: ms.id, w: num('data-w'), d: num('data-d') }, eyebrow: 'Easy day', title: 'Log your easy day' });
+      return;
+    }
+    if (t === 'ezlink') {
+      ms = active();
+      var la = T.ax[el.getAttribute('data-id')];
+      if (!ms || !la || !isEz(ms, num('data-d'))) return;
+      la.ms = ms.id; la.w = num('data-w'); la.d = num('data-d');
+      stamp('ax', la.id);
+      if (S.sheet) closeSheet();
       draw(); return;
     }
     if (t === 'axsheet') { openSheet({ k: 'ax', id: el.getAttribute('data-id'), eyebrow: 'Outside the gym', title: 'Activity' }); return; }
@@ -4941,7 +5670,25 @@
     if (t === 's-rc') { T.pr.rc = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-ri') { T.pr.ri = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-snd') { T.pr.snd = Number(v); stamp('pr'); drawSheet(); return; }
+    if (t === 's-rq') { T.pr.rq = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 'export') { exportCopy(); return; }
+    if (S.sg && t === 'sgu') { S.sg.unit = v === 'kg' ? 'kg' : 'lb'; drawSheet(); return; }
+    if (S.sg && t === 'sgr') { S.sg.range = Number(v) || 0; drawSheet(); return; }
+    if (S.sg && t === 'sgown') { S.sg.names[num('data-i')].e = ''; drawSheet(); return; }
+    if (S.sg && t === 'sgmap') {
+      var sn = S.sg.names[num('data-i')];
+      S.q = ''; S.qm = sn.e ? lib(sn.e).m : sn.m;
+      openSheet({ k: 'pick', mode: 'smap', i: num('data-i'), eyebrow: 'Match', title: 'Match ' + sn.nm });
+      return;
+    }
+    if (S.sg && t === 'sggo') {
+      var got = sgGo();
+      closeSheet();
+      S.sgDone = got;
+      setSub('history');
+      scrollTop();
+      return;
+    }
     if (t === 'impgo') { applyImport(); return; }
   }
 
@@ -4969,6 +5716,15 @@
         return;
       }
       if (el.id === 'trOwnN' && S.own) { S.own.n = el.value; return; }
+      if (el.id === 'trWoNt' && LIVE) { LIVE.nt = el.value.slice(0, 1000); saveLive(); return; }
+      if (el.id === 'trEdNt' && S.ed) { S.ed.nt = el.value.slice(0, 1000); return; }
+      var edf = el.getAttribute('data-ed');
+      if (edf && S.ed) {
+        var ex1 = S.ed.x[Number(el.getAttribute('data-x'))];
+        var st1 = ex1 && ex1.s[Number(el.getAttribute('data-s'))];
+        if (st1) st1[edf] = el.value.replace(/[^0-9.,]/g, '').slice(0, 7);
+        return;
+      }
       if (el.id === 'trAxNm' && S.sheet && S.sheet.k === 'axnew') { S.sheet.nm = el.value; return; }
       var mcf = el.getAttribute('data-mc');
       if (mcf && LIVE && LIVE.mc) {
@@ -4995,6 +5751,11 @@
     document.addEventListener('change', function (e) {
       var el = e.target;
       if (el && el.id === 'trImport' && el.files && el.files[0]) readImport(el.files[0]);
+      if (el && el.id === 'trStrong' && el.files && el.files[0]) { readStrong(el.files[0]); el.value = ''; }
+      var sgm = el && el.getAttribute && el.getAttribute('data-sgm');
+      if (sgm !== null && sgm !== undefined && S.sg && S.sg.names && S.sg.names[Number(sgm)] && MUS[el.value]) {
+        S.sg.names[Number(sgm)].m = el.value;
+      }
       if (el && S.own && (el.id === 'trOwnM' || el.id === 'trOwnQ' || el.id === 'trOwnK')) {
         S.own[{ trOwnM: 'm', trOwnQ: 'q', trOwnK: 'k' }[el.id]] = el.value;
       }
@@ -5041,7 +5802,8 @@
       rirFor: rirFor, nextSlot: nextSlot, prsIn: prsIn, lib: lib, SPLITS: SPLITS, MUS: MUS,
       estDay: estDay, barred: barred, KEEP_SPLITS: KEEP_SPLITS, HABITS: HABITS, weeksOf: weeksOf, nextTm: nextTm,
       recommend: recommend, PROGS: PROGS, FOCUS: FOCUS, KITS: KITS, axWeek: axWeek, defaultsPr: defaultsPr,
-      MOVES: MOVES, mcScore: mcScore,
+      MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
+      LIB_LIST: LIB_LIST, slotDone: slotDone,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

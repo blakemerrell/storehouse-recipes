@@ -71,13 +71,20 @@ three ideas in one tab:
   (three minutes on compound lifts, ninety seconds on isolation, both changeable)
   that beeps and buzzes when it runs out and survives the screen locking. There is a
   warm-up ramp, a plate calculator, swap and add, records as they fall, and the screen
-  stays awake while a workout is open. Finishing a workout ticks "trained today" on Nourish.
+  stays awake while a workout is open. A swap in a block is *just today* (the machine is
+  taken) or *the rest of the block*; exercises move up and down, a pair as one; a note on
+  an exercise ("seat 4") comes up every time it does, and a workout takes a note at Finish.
+  Turn it on and every set has a reps-in-reserve box, which the review then grades against
+  what the plan asked. A saved workout can be edited — weights, reps, sets in or out, an
+  exercise forgotten — and records, charts and next week's weights follow the correction.
+  Finishing a workout ticks "trained today" on Nourish.
 - *The review* holds the last seven days against the research, as rules rather than
   opinions: weekly hard sets per muscle against the 10–20 band, how often each muscle
   is trained, reps per set against 5–30, rest measured from the gap between ticks,
   and whether each lift's estimated max is climbing or has slid two sessions running.
   Every line names its source, the sources are listed in full, and it says what it
-  cannot see — how close to failure you went, and anything about sleep or food.
+  cannot see — how close to failure you went, unless you log it, and anything about
+  sleep or food.
 
 It starts with **seven quick questions** — what you train for (muscle, strength, both, keeping
 what you have, losing fat, or just feeling better), how long you have lifted, days and
@@ -116,12 +123,18 @@ session opens by asking how your back is, and anything you swap out can go on a 
 list. Joints work the same way. **Anything outside the gym** — golf, walks, a run, soccer,
 basketball, swimming, hiking, or something you name yourself — is one tap to log, marked
 light, moderate or vigorous, and counts toward the WHO's 150 minutes a week in the review,
-a vigorous minute twice.
+a vigorous minute twice. **Every day?** Seven days a week is six lifting days and an *easy
+day*: a walk, a ride, a swim or your golf, logged in a tap and counted as that day of the
+block.
 
 History lists every workout; Lifts gives each exercise its records and a line of its
 estimated max. Workouts are yours rather than the household's: they save on the device,
 and travel with your account when you sign in, in the same record as Nourish. Settings
-has kilograms, bar weight, rest times, and export and restore of the whole log as a file.
+has kilograms, bar weight, rest times, export and restore of the whole log as a file, and
+**Bring in from Strong**: Strong's CSV export comes in as history — each lift matched to the
+library where it is the same lift on the same kit, the rest brought in as your own with
+their muscle guessed for you to check, warm-ups kept as warm-ups, RPE turned into reps in
+reserve, and as much as fits beside Nourish in the account's 1 MB.
 
 **The printed book** (opened with *Print the book* on Recipes; it used to be a tab) — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 52
 pages, Around the Table is 116, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter

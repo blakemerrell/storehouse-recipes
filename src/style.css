@@ -5053,3 +5053,56 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 .tr-fbt-n { font-weight: 600; font-size: 13.5px; white-space: nowrap; }
 .tr-fbt-s { flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted-2); }
 .tr-fbt-e { font-size: 12.5px; font-weight: 600; color: var(--ochre-text); }
+
+/* ---- Strengthen: moving, notes, effort, correcting, the easy day ---- */
+/* Up and down, top right of the card: the bench is taken, the rows go first. */
+.tr-ex { position: relative; }
+.tr-mv { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+.tr-mv ~ .tr-ex-h { padding-right: 72px; }
+.tr-mvb {
+  width: 30px; height: 30px; border: 1px solid var(--line-firm); border-radius: 3px; background: #fff;
+  color: var(--ink); font-size: 15px; line-height: 1; cursor: pointer; padding: 0;
+}
+.tr-mvb:disabled { color: var(--line-firm); cursor: default; }
+/* A note that follows an exercise, and the note on a workout. */
+.tr-exnt {
+  display: block; margin-top: 5px; padding: 5px 8px; width: 100%; text-align: left; cursor: pointer;
+  background: var(--paper-soft); border: 0; border-radius: 3px; font: inherit; font-size: 12.5px; color: var(--ink); line-height: 1.4;
+}
+.tr-exnt-s { margin: 10px 0 2px; }
+.tr-exnt-l { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--ochre-text); }
+.tr-pl-nt { font-size: 12px; margin-top: 3px; color: var(--ink); }
+.tr-nt { display: block; width: 100%; min-width: 0; margin-top: 10px; resize: vertical; font: inherit; font-size: 14px; line-height: 1.4; }
+.tr-q .tr-nt { margin-top: 0; }
+.tr-wont { margin-top: 10px; padding: 8px 10px; background: var(--paper-soft); border-radius: 3px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
+.tr-h-nt { display: block; font-size: 12.5px; color: var(--ink); margin-top: 4px; font-style: italic; }
+/* Reps in reserve: a narrow sixth column, only when asked for. */
+.tr-rq .tr-set { grid-template-columns: 30px minmax(0, 1fr) 72px 60px 50px 44px; }
+.tr-rqs { padding: 8px 2px; appearance: none; -webkit-appearance: none; text-align-last: center; }
+.tr-rq .tr-set-h span:nth-child(5) { text-align: center; }
+/* The editor: no Previous column, and a cross where the tick was. */
+.tr-edx-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.tr-set.tr-eds { grid-template-columns: 30px 72px 60px 40px; justify-content: start; }
+.tr-rq .tr-set.tr-eds { grid-template-columns: 30px 72px 60px 50px 40px; }
+.tr-set-h.tr-eds span:nth-child(2), .tr-set-h.tr-eds span:nth-child(3), .tr-set-h.tr-eds span:nth-child(4) { text-align: center; }
+.tr-edrm { font-size: 18px; font-weight: 500; }
+/* The swap's length. */
+.tr-swsc { margin-top: 4px; }
+/* The easy day. */
+.tr-ez .tr-sub { margin-top: 4px; line-height: 1.5; }
+.tr-dday.tr-ez .tr-sub { font-size: 12.5px; }
+@media (max-width: 560px) {
+  .tr-rq .tr-set { grid-template-columns: 24px minmax(0, 1fr) 60px 48px 44px 40px; gap: 4px; }
+  .tr-set.tr-eds { grid-template-columns: 26px 68px 56px 40px; }
+  .tr-rq .tr-set.tr-eds { grid-template-columns: 26px 68px 56px 48px 40px; }
+  .tr-mv { top: 8px; right: 8px; }
+}
+/* Bringing in from Strong: each exercise, what it became, and a way to change it. */
+.tr-sgl { border-top: 1px solid var(--line); margin-top: 8px; }
+.tr-sgr { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.tr-sgr-n { font-weight: 600; font-size: 13.5px; }
+.tr-sgr-c { font-weight: 400; font-size: 12px; color: var(--muted); }
+.tr-sgr-t { font-size: 13px; color: var(--muted-2); margin-top: 2px; }
+.tr-sgr-a { display: flex; gap: 14px; flex-wrap: wrap; }
+.tr-sgm { font: inherit; font-size: 13px; padding: 3px 6px; min-width: 0; }
+.tr-sgdone { margin-bottom: 12px; font-size: 13.5px; line-height: 1.5; }
