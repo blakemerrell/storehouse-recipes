@@ -652,6 +652,8 @@
          which is the whole trick of pairing. */
       rp: fin(p.rp) && p.rp > 0 ? p.rp : 60,
       snd: p.snd === 0 ? 0 : 1,
+      // the chime and confetti when a workout is saved
+      yay: p.yay === 0 ? 0 : 1,
       // a reps-in-reserve box on every set, for those who like to say
       rq: p.rq === 1 ? 1 : 0,
       // the plates for each side drawn beside a barbell set: in every set, while typing, or not at all
@@ -4352,30 +4354,28 @@
     for (var j = 0; j < x.s.length; j++) if (!x.s[j].t) return j;
     return -1;
   }
-  // the left-hand cell of a barbell set, drawn in every set: plates over last time
+  // last time's set, as the Previous column shows it
+  function prevText(s) { return fin(s.pw) && fin(s.pr) ? fmtN(s.pw) + ' \u00d7 ' + s.pr : '\u2014'; }
+  /* The left-hand cell of a barbell set: the plates, with last time under
+     them. No dash when there is neither, so the plates have the room. */
   function plCell(xi, si) {
     var x = LIVE.x[xi], s = x.s[si], sw = setWeight(xi, si);
     var prev = fin(s.pw) && fin(s.pr) ? fmtN(s.pw) + ' \u00d7 ' + s.pr : '';
     var stk = stackHTML(sw.w, barFor(x.e), sw.dim);
-    if (!stk) return prev || '\u2014';
+    if (!stk) return prev;
     return stk + (prev ? '<span class="tr-prev-s">last ' + prev + '</span>' : '');
   }
-  // the strip under a set, drawn while its weight is being typed and for the next set
-  function plStrip(xi, si) {
-    var x = LIVE.x[xi], sw = setWeight(xi, si), bar = barFor(x.e);
-    var stk = stackHTML(sw.w, bar, sw.dim, 8);
-    return '<span class="tr-plrow-l">Per side</span>' + (stk || '<span class="tr-stk-e">type a weight</span>') +
-      '<button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '">' + esc(barLabel(x.e)) + '</button>';
-  }
+  /* While typing, the same cell shows last time until its weight has the
+     cursor, or it is the next set to do; then the plates. */
+  function plShown(c) { return !c.classList.contains('tr-plt') || c.classList.contains('on'); }
   /* Typing a weight moves the plates at once, and the greyed weight of the
      sets after it, without redrawing the box being typed in. */
   function plRefresh(xi) {
     var x = LIVE && LIVE.x[xi];
     if (!x || !onBar(lib(x.e))) return;
     x.s.forEach(function (s, j) {
-      var c = $('trpl-' + xi + '-' + j), r = $('trplr-' + xi + '-' + j), w = $('trw-' + xi + '-' + j);
-      if (c) c.innerHTML = plCell(xi, j);
-      if (r) r.innerHTML = plStrip(xi, j);
+      var c = $('trpl-' + xi + '-' + j), w = $('trw-' + xi + '-' + j);
+      if (c) c.innerHTML = plShown(c) ? plCell(xi, j) : prevText(s);
       if (w && document.activeElement !== w) { var g = ghost(xi, j); w.placeholder = g.w !== null ? fmtN(g.w) : ''; }
     });
   }
@@ -4393,14 +4393,15 @@
       var g = ghost(i, j);
       var ph = g.w !== null ? fmtN(g.w) : '';
       var rph = g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
-      var prev = fin(s.pw) && fin(s.pr) ? fmtN(s.pw) + ' × ' + s.pr : '—';
+      var prev = prevText(s), on = pl === 'type' && j === nx;
       var flash = S.flash === i + ':' + j;
       // warm-ups, drop sets and failure sets are lettered, working sets numbered, the all-out set marked
       var lab = setLab(s, function () { return ++num; });
       return '<div class="tr-set' + (s.t ? ' done' : '') + (flash ? ' flash' : '') + (s.am ? ' tr-am' : '') + (s.wu ? ' tr-wu' : '') +
           (s.ty === 'd' ? ' tr-dd' : s.ty === 'f' ? ' tr-ff' : '') + '">' +
         '<button class="tr-sn tr-snb" data-t="sty" data-x="' + i + '" data-s="' + j + '" aria-label="' + esc(setSay(s) + ', set ' + (j + 1) + '. Change what kind of set it is') + '">' + lab + '</button>' +
-        (pl === 'row' ? '<span class="tr-prev tr-prev-pl" id="trpl-' + i + '-' + j + '">' + plCell(i, j) + '</span>'
+        (pl !== 'off' ? '<span class="tr-prev tr-prev-pl' + (pl === 'type' ? ' tr-plt' : '') + (on ? ' on' : '') + '" id="trpl-' + i + '-' + j + '"' + (on ? ' data-next="1"' : '') + '>' +
+            (pl === 'row' || on ? plCell(i, j) : prev) + '</span>'
           : '<span class="tr-prev">' + prev + '</span>') +
         '<input class="tr-in" id="trw-' + i + '-' + j + '" data-in="w" data-x="' + i + '" data-s="' + j + '" ' +
           'inputmode="decimal" autocomplete="off" placeholder="' + esc(ph) + '" value="' + esc(s.w) + '" ' +
@@ -4412,8 +4413,6 @@
         '<button class="tr-tick" data-t="tick" data-x="' + i + '" data-s="' + j + '" aria-pressed="' + !!s.t + '" ' +
           'aria-label="' + (s.t ? 'Undo set ' : 'Done with set ') + (j + 1) + '">✓</button>' +
       '</div>' +
-      (pl === 'type' ? '<div class="tr-plrow' + (j === nx ? ' on' : '') + '" id="trplr-' + i + '-' + j + '"' + (j === nx ? ' data-next="1"' : '') + '>' +
-        plStrip(i, j) + '</div>' : '') +
       /* The rest that follows this set, between it and the next, the way
          Strong draws it: a minute after a warm-up, none before a drop set,
          the pair's rest in a pair. Tap it to change the lift's rest. */
@@ -4444,7 +4443,7 @@
         (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
-      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>' + (pl === 'row' ? 'Per side' : 'Previous') + '</span><span>' + T.pr.u + '</span><span>Reps</span>' +
+      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>Previous</span><span>' + T.pr.u + '</span><span>Reps</span>' +
         (rq ? '<span title="Reps in reserve">RIR</span>' : '') + '<span></span></div>' +
       rows +
       '<div class="tr-ex-a">' +
@@ -4733,6 +4732,7 @@
     else if (sh.k === 'times') body = startHTML();
     else if (sh.k === 'sty') body = styHTML(sh);
     else if (sh.k === 'rest') body = restHTML(sh);
+    else if (sh.k === 'done') body = doneHTML2(sh);
     else if (sh.k === 'strong') body = strongHTML();
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
@@ -5286,6 +5286,173 @@
       '<div class="tr-acts"><button class="btn-primary" data-t="livetimeset">Save</button></div>';
   }
 
+  /* What a workout won. Records as the log already counts them (heavier,
+     a better estimated max, more reps with nothing on the bar), each set
+     that did it, and a new best at a rep count: the heaviest you have
+     lifted for that many reps, where you had lifted that many before. And
+     the milestones: the 10th workout, the 50th, a block finished. */
+  var MILESTONES = [1, 10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000];
+  function nth(n) {
+    var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+  function wins(wo) {
+    var list = ix().list, count = list.filter(function (w) { return w.st <= wo.st; }).length;
+    var sets = {}, lines = [];
+    wo.x.forEach(function (x, xi) {
+      var had = records(x.e, wo.st);
+      var pastAt = function (n) {
+        var best = 0;
+        list.forEach(function (w) {
+          if (w.st >= wo.st) return;
+          var px = exIn(w, x.e);
+          if (px) px.s.forEach(function (z) { if (!z.wu && z.r >= n) best = Math.max(best, conv(z.w, w.u)); });
+        });
+        return best;
+      };
+      /* Only the day's best set takes each record: two sets past the old
+         best are one record, not two. */
+      var work = [], top = { w: 0, e: 0, r: 0, wr: 0 }, got = {};
+      x.s.forEach(function (s, si) { if (!s.wu) work.push({ i: si, w: conv(s.w, wo.u), r: s.r }); });
+      work.forEach(function (z) {
+        top.w = Math.max(top.w, z.w);
+        top.e = Math.max(top.e, e1rm(z.w, z.r));
+        if (!(z.w > 0)) top.r = Math.max(top.r, z.r);
+      });
+      // the heaviest set with the most reps at that weight
+      work.forEach(function (z) { if (z.w === top.w) top.wr = Math.max(top.wr, z.r); });
+      var first = function (k, yes) { if (!yes || got[k]) return false; got[k] = 1; return true; };
+      // a set another set that day matched or beat on both weight and reps
+      var covered = function (si, w, r) {
+        return work.some(function (z) { return z.i !== si && z.w >= w && z.r >= r && (z.w > w || z.r > r || z.i < si); });
+      };
+      var said = [];
+      x.s.forEach(function (s, si) {
+        if (s.wu) return;
+        var w = conv(s.w, wo.u), e = e1rm(w, s.r), what = [];
+        if (first('w', had.w > 0 && w > had.w && w === top.w && s.r === top.wr)) what.push('heaviest');
+        if (first('e', had.e1 > 0 && e > had.e1 + 0.01 && e === top.e)) what.push('best e1RM');
+        if (first('r', !(w > 0) && !(had.w > 0) && had.r > 0 && s.r > had.r && s.r === top.r)) what.push('most reps');
+        var at = w > 0 ? pastAt(s.r) : 0;
+        if (!what.length && at > 0 && w > at && !covered(si, w, s.r)) what.push('best for ' + s.r + ' reps');
+        if (what.length) {
+          sets[xi + ':' + si] = what.join(', ');
+          what.forEach(function (t) { if (said.indexOf(t) < 0) said.push(t); });
+        }
+      });
+      if (said.length) lines.push({ e: x.e, what: said.join(', '), big: said.some(function (t) { return t === 'heaviest' || t === 'best e1RM' || t === 'most reps'; }) });
+    });
+    var ms = [];
+    if (MILESTONES.indexOf(count) >= 0) ms.push(count === 1 ? 'Your first workout here' : 'Your ' + nth(count) + ' workout');
+    var blk = wo.ms && T.ms[wo.ms];
+    if (blk && !nextSlot(blk)) ms.push('Block complete: ' + blk.n);
+    return { sets: sets, lines: lines, ms: ms, count: count,
+      big: ms.length > 0 || lines.some(function (l) { return l.big; }) };
+  }
+  function doneHTML2(sh) {
+    var wo = T.wo[sh.id];
+    if (!wo) return '';
+    var won = wins(wo);
+    var head = won.ms.length ? won.ms[0] + '!'
+      : won.lines.length ? (won.lines.length === 1 ? 'A new record!' : won.lines.length + ' new records!')
+      : 'Workout ' + won.count + ' done';
+    return '<div class="tr-done">' +
+      '<div class="tr-done-h">' + esc(head) + '</div>' +
+      '<div class="tr-sub">' + esc(wo.n) + ' \u00b7 ' + when(wo.st) + ' \u00b7 ' + (wo.en > wo.st ? hmSpan(wo.st, wo.en) : hm(wo.st)) + '</div>' +
+      (won.ms.length > 1 ? '<div class="tr-done-ms">' + won.ms.slice(1).map(function (m) { return '\ud83c\udfc5 ' + esc(m); }).join('<br>') + '</div>' : '') +
+      '<div class="tr-recs">' +
+        rec('Time', wo.en > wo.st ? dur(wo.en - wo.st) : '\u2014') + rec('Sets', setsOf(wo)) +
+        rec('Volume', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', won.lines.length) +
+      '</div>' +
+      (won.lines.length ? '<div class="tr-done-r">' + won.lines.map(function (l) {
+        return '<div><span class="tr-medal" aria-hidden="true">\ud83e\udd47</span> <b>' + esc(lib(l.e).n) + '</b> \u2014 ' + esc(l.what) + '</div>';
+      }).join('') + '</div>' : '') +
+      wo.x.map(function (x, xi) {
+        var num = 0;
+        return '<div class="tr-wx"><span class="tr-wx-n">' + esc(lib(x.e).n) + '</span><ol class="tr-wx-s">' + x.s.map(function (s, si) {
+          var w = conv(s.w, wo.u), win = won.sets[xi + ':' + si];
+          return '<li' + (win ? ' class="tr-won"' : '') + '><span class="tr-hs-l">' + setLab(s, function () { return ++num; }) + '</span>' +
+            (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' \u00d7 ' : '') + s.r +
+            (win ? ' <span class="tr-ribbon" title="' + esc(win) + '">\ud83e\udd47 ' + esc(win) + '</span>' : '') + '</li>';
+        }).join('') + '</ol></div>';
+      }).join('') +
+      (wo.nt ? '<div class="tr-wont">' + esc(wo.nt) + '</div>' : '') +
+      '<div class="tr-acts"><button class="btn-primary" data-t="close">Done</button>' +
+        '<button class="ghost" data-t="wocopy" data-id="' + esc(wo.id) + '">Copy as text</button></div>' +
+    '</div>';
+  }
+
+  /* Confetti across the whole screen for a couple of seconds, more of it
+     for a record or a milestone, none for anyone who has asked their phone
+     for less motion. Drawn on a canvas that takes no taps and removes
+     itself. */
+  var CONFETTI = ['#2f6fe0', '#2e9e57', '#e8c440', '#d8452f', '#b86a2e', '#f2efe6'];
+  function confetti(big) {
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    } catch (e) { /* old browser: go ahead */ }
+    var old = document.getElementById('trConfetti');
+    if (old) old.remove();
+    var c = document.createElement('canvas');
+    c.id = 'trConfetti';
+    c.className = 'tr-confetti';
+    c.setAttribute('aria-hidden', 'true');
+    var W = window.innerWidth, H = window.innerHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = W * dpr; c.height = H * dpr;
+    document.body.appendChild(c);
+    var ctx = c.getContext && c.getContext('2d');
+    if (!ctx) { c.remove(); return false; }
+    ctx.scale(dpr, dpr);
+    var n = big ? 170 : 80, bits = [];
+    for (var i = 0; i < n; i++) {
+      bits.push({ x: W * (0.2 + Math.random() * 0.6), y: H * 0.35 + Math.random() * 40,
+        vx: (Math.random() - 0.5) * (big ? 13 : 9), vy: -(Math.random() * (big ? 14 : 10) + 4),
+        s: 5 + Math.random() * 6, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, c: CONFETTI[i % CONFETTI.length] });
+    }
+    var t0 = Date.now(), life = big ? 2800 : 2000;
+    var step = function () {
+      var el = Date.now() - t0;
+      if (el > life || !c.parentNode) { if (c.parentNode) c.remove(); return; }
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalAlpha = Math.max(0, 1 - Math.max(0, el - life * 0.6) / (life * 0.4));
+      bits.forEach(function (b) {
+        b.vy += 0.35; b.vx *= 0.99; b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.r); ctx.fillStyle = b.c;
+        ctx.fillRect(-b.s / 2, -b.s / 4, b.s, b.s / 2); ctx.restore();
+      });
+      (window.requestAnimationFrame || function (f) { setTimeout(f, 16); })(step);
+    };
+    step();
+    return true;
+  }
+  /* A chime rising up a chord, and a fuller one for a record: the tap on
+     Save is what lets the phone play it. A phone on silent may keep it
+     quiet, which no web page can change. */
+  function chime(big) {
+    try { if (navigator.vibrate) navigator.vibrate(big ? [60, 50, 60, 50, 160] : [80, 60, 80]); } catch (e) { /* no buzz here */ }
+    if (!AC) return false;
+    try {
+      var notes = big ? [523.25, 659.25, 783.99, 1046.5, 1318.5] : [523.25, 659.25, 783.99];
+      notes.forEach(function (f, i) {
+        var o = AC.createOscillator(), g = AC.createGain(), t0 = AC.currentTime + i * 0.11;
+        o.type = 'triangle';
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + (i === notes.length - 1 ? 0.9 : 0.35));
+        o.connect(g); g.connect(AC.destination);
+        o.start(t0); o.stop(t0 + 1);
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+  function celebrate(big) {
+    S.cele = { big: !!big, at: Date.now(), confetti: false, chime: false };
+    if (!T.pr.yay) return;
+    S.cele.confetti = confetti(big);
+    S.cele.chime = chime(big);
+  }
+
   function planSheetHTML(sh) {
     var ms = active();
     if (!ms || !ms.days[sh.d]) return '';
@@ -5399,7 +5566,7 @@
       '<div class="tr-q"><div class="tr-ql">Plates on the bar</div>' +
         chips('s-pl', p.pl, [['row', 'In every set'], ['type', 'While typing'], ['off', 'Off']]) +
         '<div class="tr-hint">' + (p.pl === 'row' ? 'Each barbell set shows what goes on each side, where Previous was; last time\u2019s numbers sit under it.'
-          : p.pl === 'type' ? 'The plates show under a set while you type its weight, and under the next set to do.'
+          : p.pl === 'type' ? 'A barbell set shows its plates, where Previous was, while you type its weight, and in the next set to do; the rest show last time.'
           : 'The plate calculator is still under Plates on each barbell lift.') + '</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Rest on compound lifts</div>' +
         chips('s-rc', p.rc, [[90, '1:30'], [120, '2:00'], [150, '2:30'], [180, '3:00'], [240, '4:00']]) + '</div>' +
@@ -5408,6 +5575,7 @@
       '<div class="tr-q"><div class="tr-ql">Rest between paired sets</div>' +
         chips('s-rp', p.rp, [[45, '0:45'], [60, '1:00'], [75, '1:15'], [90, '1:30']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">When rest is up</div>' + chips('s-snd', p.snd, [[1, 'Beep and buzz'], [0, 'Buzz only']]) + '</div>' +
+      '<div class="tr-q"><div class="tr-ql">When you finish</div>' + chips('s-yay', p.yay, [[1, 'Chime and confetti'], [0, 'Just the summary']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log reps in reserve']]) +
         '<div class="tr-hint">A box beside every set for how many more reps you had in you. Optional on each set; the review holds it against what the plan asked.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
@@ -6253,10 +6421,17 @@
     }
     if (t === 'mcreset' && LIVE && LIVE.mc) { LIVE.mc.st = 0; LIVE.mc.en = 0; LIVE.mc.rm = 0; saveLive(); draw(); return; }
     if (t === 'save') {
+      audioPrime();
       var wo = saveWorkout();
-      closeSheet();
-      if (wo) S.justSaved = wo.id;
+      if (!wo) { closeSheet(); draw(); return; }
+      S.justSaved = wo.id;
       draw();
+      /* The summary takes the Finish sheet's place, so the back gesture
+         closes it the same way, and the chime and the confetti go off with
+         it. */
+      var won = wins(wo);
+      openSheet({ k: 'done', id: wo.id, eyebrow: 'Workout complete', title: 'Workout complete' });
+      celebrate(won.big);
       return;
     }
     if (t === 'discard' || t === 'discardnow') {
@@ -6436,6 +6611,7 @@
     if (t === 's-rc') { T.pr.rc = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-ri') { T.pr.ri = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-snd') { T.pr.snd = Number(v); stamp('pr'); drawSheet(); return; }
+    if (t === 's-yay') { T.pr.yay = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); return; }
     if (t === 's-rq') { T.pr.rq = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 'export') { exportCopy(); return; }
     if (S.sg && t === 'sgu') { S.sg.unit = v === 'kg' ? 'kg' : 'lb'; drawSheet(); return; }
@@ -6517,23 +6693,30 @@
       saveLive();
       if (f === 'w') plRefresh(Number(el.getAttribute('data-x')));
     });
-    /* While typing: the strip under the set whose weight has the cursor,
-       and under the next set to do, which is up anyway. */
+    /* While typing: the plates in the row of the set whose weight has the
+       cursor, and of the next set to do, which is up anyway. */
     document.addEventListener('focusin', function (e) {
       var el = e.target;
       if (!el || !el.getAttribute || el.getAttribute('data-in') !== 'w') return;
-      var r = $('trplr-' + el.getAttribute('data-x') + '-' + el.getAttribute('data-s'));
-      if (r) r.classList.add('on');
+      var xi = Number(el.getAttribute('data-x')), si = Number(el.getAttribute('data-s'));
+      var c = $('trpl-' + xi + '-' + si);
+      if (!c || !LIVE || !LIVE.x[xi] || plShown(c)) return;
+      c.classList.add('on');
+      c.innerHTML = plCell(xi, si);
     });
     document.addEventListener('focusout', function (e) {
       var el = e.target;
       if (!el || !el.getAttribute || el.getAttribute('data-in') !== 'w') return;
-      var r = $('trplr-' + el.getAttribute('data-x') + '-' + el.getAttribute('data-s'));
-      /* Not at once: the strip folding up moves everything under it, and
-         the tap that took the cursor away would land on whatever slid into
-         its place. After the tap has done its work, it folds. */
-      if (r && !r.getAttribute('data-next')) {
-        setTimeout(function () { if (document.activeElement !== el) r.classList.remove('on'); }, 350);
+      var xi = Number(el.getAttribute('data-x')), si = Number(el.getAttribute('data-s'));
+      var c = $('trpl-' + xi + '-' + si);
+      /* Not at once: the tap that took the cursor away lands first, then
+         the cell goes back to last time. */
+      if (c && c.classList.contains('tr-plt') && !c.getAttribute('data-next')) {
+        setTimeout(function () {
+          if (document.activeElement === el || !c.isConnected || !LIVE || !LIVE.x[xi] || !LIVE.x[xi].s[si]) return;
+          c.classList.remove('on');
+          c.innerHTML = prevText(LIVE.x[xi].s[si]);
+        }, 350);
       }
     });
     document.addEventListener('change', function (e) {
@@ -6594,6 +6777,7 @@
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
+      wins: wins, nth: nth,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

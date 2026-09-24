@@ -245,6 +245,7 @@ module.exports = {
     t.ok('My Day’s “trained today” is ticked for you', d.trained === 1, d.trained);
     t.ok('the block moves on to the next session', d.next === '1');
     t.ok('and says it saved', d.saved);
+    await p.click('.tr-done [data-t="close"]');
     await p.click('[data-t="sub"][data-v="history"]');
     t.ok('the workout is in History', await p.isVisible('.tr-hrow'));
     await p.close();
@@ -707,6 +708,7 @@ module.exports = {
     await p.click('[data-t="finish"]');
     await p.click('#trainRoot [data-t="save"]');
     await p.waitForTimeout(150);
+    await p.click('.tr-done [data-t="close"]');
     r = await p.evaluate(() => Object.values(window.Train._.state().T.wo)[0].bk);
     t.ok('the back check is saved with the workout', r === 2, r);
 
@@ -1430,6 +1432,7 @@ module.exports = {
     await p.click('[data-t="finish"]');
     await p.fill('#trWoNt', 'Slept badly. Knee fine.');
     await p.click('[data-t="save"]');
+    await p.click('.tr-done [data-t="close"]');
     r = await p.evaluate((e) => {
       const s = window.Train._.state(), w = Object.values(s.T.wo)[0];
       return { q: w.x[0].s[0].q, q1: w.x[0].s[1] && w.x[0].s[1].q, pq: w.x[0].pq, nt: w.nt, plan: (document.querySelector('.tr-next') || {}).textContent || '' };
@@ -1689,7 +1692,7 @@ module.exports = {
     }));
     t.ok('typing a weight draws its plates in the set, at once', r.now === '45, 25, 5 a side', r.now);
     t.ok('and the sets after it, faint until they are typed', r.dim && r.next === '45, 25, 5 a side', JSON.stringify(r));
-    t.ok('where Previous was', /Per side/.test(r.head), r.head);
+    t.ok('where Previous was, under the same heading, with no “Per side” taking room', /Previous/.test(r.head) && !/Per side/i.test(r.head), r.head);
     await p.click('[data-t="barpick"][data-e="bb-bench"]');
     r = await p.evaluate(() => [...document.querySelectorAll('.tr-barr')].map((b) => b.textContent).join('|'));
     t.ok('the bars are named, the way Strong lists them', r === 'Olympic bar45 lb|Short bar33 lb|EZ bar15 lb|Hex bar75 lb|Smith machine20 lb|No bar0 lb', r);
@@ -1712,17 +1715,25 @@ module.exports = {
     await p.click('[data-t="settings"]');
     await p.click('[data-t="s-pl"][data-v="type"]');
     await p.click('.sheet-x');
-    r = await p.evaluate(() => ({ cells: document.querySelectorAll('.tr-prev-pl').length, on: [...document.querySelectorAll('.tr-plrow.on')].map((e) => e.id).join() }));
-    t.ok('while typing: no plates in the rows, a strip under the next set to do', r.cells === 0 && r.on === 'trplr-0-0,trplr-1-0', JSON.stringify(r));
+    r = await p.evaluate(() => ({ strip: document.querySelectorAll('.tr-plrow').length,
+      on: [...document.querySelectorAll('.tr-prev-pl.on')].map((e) => e.id).join(),
+      stk: [...document.querySelectorAll('.tr-prev-pl')].filter((e) => e.querySelector('.tr-stk')).map((e) => e.id).join(),
+      rest: document.getElementById('trpl-0-2').textContent, curl: document.getElementById('trpl-1-0').textContent }));
+    t.ok('while typing: the plates sit in the row of the next set to do, where Previous was, not in a strip under it',
+      r.strip === 0 && r.on === 'trpl-0-0,trpl-1-0' && r.stk === 'trpl-0-0', JSON.stringify(r));
+    t.ok('a next set with no weight yet and no last time is left blank, not dashed', r.curl === '', JSON.stringify(r));
+    t.ok('the other sets show last time', r.rest === '—', JSON.stringify(r));
     await p.focus('#trw-0-2');
     await p.fill('#trw-0-2', '173');
-    r = await p.evaluate(() => ({ on: document.getElementById('trplr-0-2').classList.contains('on'), stk: document.querySelector('#trplr-0-2 .tr-stk').getAttribute('aria-label') }));
-    t.ok('and under the set whose weight is being typed', r.on && r.stk === '45, 25 a side', JSON.stringify(r));
+    r = await p.evaluate(() => ({ on: document.getElementById('trpl-0-2').classList.contains('on'), stk: document.querySelector('#trpl-0-2 .tr-stk').getAttribute('aria-label'),
+      txt: document.getElementById('trpl-0-2').textContent }));
+    t.ok('and in the row of the set whose weight is being typed', r.on && r.stk === '45, 25 a side', JSON.stringify(r));
+    t.ok('with no dash beside them when there is no last time', !/—/.test(r.txt), r.txt);
     await p.focus('#trr-0-2');
-    // it folds a moment later, once the tap that moved the cursor has landed
-    r = await p.waitForFunction(() => !document.getElementById('trplr-0-2').classList.contains('on'), null, { timeout: 3000 })
+    // it goes back a moment later, once the tap that moved the cursor has landed
+    r = await p.waitForFunction(() => !document.getElementById('trpl-0-2').classList.contains('on') && !document.querySelector('#trpl-0-2 .tr-stk'), null, { timeout: 3000 })
       .then(() => false, () => true);
-    t.ok('which goes when the cursor leaves it', !r);
+    t.ok('which goes back to last time when the cursor leaves it', !r);
     await p.click('[data-t="settings"]');
     await p.click('[data-t="s-pl"][data-v="off"]');
     await p.click('.sheet-x');
@@ -1773,6 +1784,7 @@ module.exports = {
     t.ok('and Nourish’s copy of the day names it with its times', /^Workout: Workout, \d{1,2}:\d{2}.*\(35 min\), 1 set$/.test(r), r);
 
     // times on a saved workout
+    await p.click('.tr-done [data-t="close"]');
     await p.click('[data-t="sub"][data-v="history"]');
     await p.click('[data-t="wosheet"]');
     await p.click('[data-t="edopen"]');
@@ -1835,6 +1847,7 @@ module.exports = {
     await p.click('[data-t="tick"][data-x="0"][data-s="3"]');
     await p.click('[data-t="finish"]');
     await p.click('[data-t="save"]');
+    await p.click('.tr-done [data-t="close"]');
     r = await p.evaluate(() => { const w = Object.values(window.Train._.state().T.wo).sort((a, b) => b.st - a.st)[0];
       return { kinds: w.x[0].s.map((s) => (s.wu ? 'W' : s.ty || 'n')).join(), prs: window.Train._.prsIn(w).map((x) => x.what).join() }; });
     t.ok('the kinds are saved with the sets', r.kinds === 'W,n,n,d', r.kinds);
@@ -1923,6 +1936,95 @@ module.exports = {
       return G.wos[0].x[0].s.map((s) => s.ty || 'n').join();
     });
     t.ok('Strong’s drop and failure sets come in as drop and failure sets', r === 'n,d,f', r);
+    await p.close();
+    // ---- finishing: the summary, and a celebration ------------------------------
+    p = await t.fresh();
+    r = await p.evaluate(() => [1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111, 112].map(window.Train._.nth).join());
+    t.ok('ordinals read right, 11th to 13th included', r === '1st,2nd,3rd,4th,11th,12th,13th,21st,22nd,101st,111th,112th', r);
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a: wo('a', '', -1, -1, 9, [{ e: 'bb-bench', s: [{ w: 225, r: 3 }] }]),
+      b: wo('b', '', -1, -1, 6, [{ e: 'bb-bench', s: [{ w: 185, r: 8 }] }]),
+      c: wo('c', '', -1, -1, 1, [{ e: 'bb-bench', s: [{ w: 45, r: 10, wu: 1 }, { w: 188, r: 8 }, { w: 190, r: 8 }] }]),
+      d: wo('d', '', -1, -1, 0.5, [{ e: 'bb-bench', s: [{ w: 235, r: 3 }, { w: 240, r: 3 }, { w: 240, r: 2 }] }]) } });
+    r = await p.evaluate(() => { const _ = window.Train._, w = _.wins(_.state().T.wo.c); return { sets: w.sets, lines: w.lines, big: w.big, ms: w.ms }; });
+    t.ok('a set heavier than any before at that many reps is a best for that many reps, and ribboned',
+      r.sets['0:2'] === 'best for 8 reps' && !r.sets['0:0'] && r.lines.length === 1, JSON.stringify(r));
+    t.ok('only the day’s best set takes it: a second set past the old best is not a second record', !r.sets['0:1'], JSON.stringify(r.sets));
+    t.ok('but it is a small win, not a record: no big celebration for it', r.big === false && r.ms.length === 0, JSON.stringify(r));
+    r = await p.evaluate(() => window.Train._.wins(window.Train._.state().T.wo.d).sets);
+    t.ok('two sets at the same new heaviest: the one with more reps takes the ribbon, and the other is no best for its reps either',
+      r['0:1'] === 'heaviest, best e1RM' && !r['0:0'] && !r['0:2'], JSON.stringify(r));
+    await p.close();
+
+    p = await t.fresh();
+    await p.emulateMedia({ reducedMotion: 'no-preference' });
+    const nine = {};
+    for (let i = 0; i < 9; i++) nine['h' + i] = wo('h' + i, '', -1, -1, 20 - i, [{ e: 'bb-bench', s: [{ w: 185, r: 8 }] }]);
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: nine });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.fill('#trw-0-0', '195'); await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.fill('#trw-0-1', '185'); await p.fill('#trr-0-1', '5');
+    await p.click('[data-t="tick"][data-x="0"][data-s="1"]');
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => ({ h: document.querySelector('.tr-done-h').textContent,
+      recs: (document.querySelector('.tr-done-r') || {}).textContent || '',
+      rib: [...document.querySelectorAll('.tr-done li.tr-won .tr-ribbon')].map((e) => e.textContent).join('|'),
+      plain: document.querySelectorAll('.tr-done li:not(.tr-won)').length,
+      stats: [...document.querySelectorAll('.tr-done .tr-rec')].map((e) => e.textContent).join('|'),
+      saved: Object.keys(window.Train._.state().T.wo).length, live: !!window.Train._.state().LIVE }));
+    t.ok('Save opens a summary: saved first, the sheet after', r.saved === 10 && !r.live, JSON.stringify(r));
+    t.ok('headed by the milestone when there is one', r.h === 'Your 10th workout!', r.h);
+    t.ok('with the time, the sets, the volume and how many records', /Sets\s*2/.test(r.stats) && /Records\s*1/.test(r.stats) && /Volume/.test(r.stats), r.stats);
+    t.ok('the record named with a medal, and its set tagged with a ribbon; the other set left plain',
+      /🥇/.test(r.recs) && /Barbell Bench Press/.test(r.recs) && /heaviest/.test(r.recs) && /🥇 heaviest/.test(r.rib) && r.plain === 1, JSON.stringify(r));
+    r = await p.evaluate(() => { const c = window.Train._.state().S.cele, cv = document.getElementById('trConfetti');
+      return { c, cv: !!cv, pe: cv ? getComputedStyle(cv).pointerEvents : '', pos: cv ? getComputedStyle(cv).position : '' }; });
+    t.ok('a record gets the big celebration: confetti and a chime', r.c.big && r.c.confetti === true && r.c.chime === true, JSON.stringify(r.c));
+    t.ok('the confetti covers the screen and takes no taps', r.cv && r.pe === 'none' && r.pos === 'fixed', JSON.stringify(r));
+    await p.click('.tr-done [data-t="close"]');
+    r = await p.evaluate(() => ({ sheet: !!document.querySelector('#trainRoot .sheet'), saved: !!document.querySelector('.tr-saved') }));
+    t.ok('Done closes it, back to the page with the saved workout on it', !r.sheet && r.saved, JSON.stringify(r));
+    await p.waitForFunction(() => !document.getElementById('trConfetti'), null, { timeout: 5000 });
+    t.ok('and the confetti clears itself away', true);
+    await p.close();
+
+    // every workout gets a little one; asking the phone for less motion means none
+    p = await t.fresh();
+    await p.emulateMedia({ reducedMotion: 'reduce' });
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a: wo('a', '', -1, -1, 3, [{ e: 'bb-bench', s: [{ w: 225, r: 8 }] }]), b: wo('b', '', -1, -1, 2, [{ e: 'bb-bench', s: [{ w: 225, r: 8 }] }]) } });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.fill('#trw-0-0', '135'); await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => ({ h: document.querySelector('.tr-done-h').textContent, c: window.Train._.state().S.cele,
+      cv: !!document.getElementById('trConfetti'), ribs: document.querySelectorAll('.tr-done .tr-ribbon').length }));
+    t.ok('a workout with no record is still marked: its number, and no ribbons', r.h === 'Workout 3 done' && r.ribs === 0, JSON.stringify(r));
+    t.ok('a small celebration, and with less motion asked for, the chime but no confetti', r.c.big === false && r.c.confetti === false && !r.cv && r.c.chime === true, JSON.stringify(r));
+    await p.click('.tr-done [data-t="close"]');
+    // turned off in Options: just the summary
+    await p.evaluate(() => { window.Train._.state().T.pr.yay = 0; });
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.fill('#trw-0-0', '315'); await p.fill('#trr-0-0', '3');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => ({ h: document.querySelector('.tr-done-h').textContent, c: window.Train._.state().S.cele }));
+    t.ok('with the celebration turned off there is the summary and nothing else', /record/.test(r.h) && r.c.confetti === false && r.c.chime === false, JSON.stringify(r));
     await p.close();
   },
 };

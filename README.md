@@ -82,14 +82,19 @@ three ideas in one tab:
   too, and a saved workout's date and times can be edited, so it exports at the hour it
   happened. A saved workout copies as text (the date, the times, every set), and Nourish's
   copy of the day names the day's workouts with their times. Barbell and Smith lifts draw
-  the plates for each side — in every set, or under a set while you type its weight — on a
-  bar each lift remembers (an EZ bar, a Smith machine). The back check asks "How's your
+  the plates for each side where Previous is — in every set, or only in the set you are
+  typing and the next one to do — on a bar each lift remembers (an EZ bar, a Smith machine). The back check asks "How's your
   back today?" and folds away once answered. Tap a set's number to make it a warm-up (W),
   a drop set (D) or a set to failure (F): warm-ups are never records or targets and rest a
   minute, a drop set follows with no rest, a failure set counts as nothing in reserve. Bars
   are named (Olympic 45, Short 33, EZ 15, Hex 75, Smith, none, or your own) and the plates
   are drawn in competition colours. Each lift can keep its own rest, drawn between its sets.
-  Finishing a workout ticks "trained today" on Nourish.
+  Saving a workout opens its summary: the time, sets, volume and records, each set that
+  beat a record tagged 🥇 (only the day's best set takes each one), and a milestone when
+  there is one (the 10th workout, a block finished). A chime and confetti mark every
+  workout, more of both for a record; none of the confetti for a phone set to reduce
+  motion, and Options can turn both off. Finishing a workout ticks "trained today" on
+  Nourish.
 - *The review* holds the last seven days against the research, as rules rather than
   opinions: weekly hard sets per muscle against the 10–20 band, how often each muscle
   is trained, reps per set against 5–30, rest measured from the gap between ticks,
