@@ -885,6 +885,9 @@
    * phone's stamps could no longer save it. Listening first means the whole
    * push carries the newer copy of everything. */
   var doc = null, dirty = {}, dirtyAll = true, pushTimer = null, heard = false;
+  /* Whether the last save to the account landed. A write that fails used to
+     fail in silence; now it says so, keeps trying, and says when it lands. */
+  var SY = { ok: 0, err: 0, tries: 0 };
 
   function attach(d) {
     doc = d || null;
@@ -931,10 +934,18 @@
       if (!doc) return;
       var body = take();
       if (!body) return;
-      doc.set({ train: body }, { merge: true }).catch(function () {
+      doc.set({ train: body }, { merge: true }).then(function () {
+        var was = SY.err;
+        SY.ok = Date.now(); SY.err = 0; SY.tries = 0;
+        if (was) drawIfShowing();
+      }, function () {
         // a write that never landed leaves no way to say what the far end
         // is missing, so the next one says everything
         dirtyAll = true;
+        SY.err = Date.now(); SY.tries++;
+        drawIfShowing();
+        // and it tries again, backing off to five minutes
+        setTimeout(function () { push(true); }, Math.min(300, 15 * Math.pow(2, SY.tries - 1)) * 1000);
       });
     }, now ? 0 : 900);
   }
@@ -1573,9 +1584,16 @@
             if (fits < dl) extra += ' Held to fit your ' + ms.min + '-minute session.';
             dl = fits;
           }
+          /* What was actually added, not what was asked for: no exercise
+             goes past six sets in a session or under one, so a muscle with
+             one exercise a day stops climbing there, and says so. */
+          var had = by[m].reduce(function (a, i) { return a + next[d][i]; }, 0);
           spread(next[d], by[m], dl);
-          tot[m] += dl;
-          var said = f.body ? whyHead(dl) + ' \u2014 ' + f.body + '.' + extra : extra.trim();
+          var got = by[m].reduce(function (a, i) { return a + next[d][i]; }, 0) - had;
+          if (dl > 0 && got < dl) extra += ' Held at six sets an exercise, the most one exercise gets in a session.';
+          if (dl < 0 && got > dl) extra += ' Already down to one set an exercise.';
+          tot[m] += got;
+          var said = f.body ? whyHead(got) + ' \u2014 ' + f.body + '.' + extra : extra.trim();
           by[m].forEach(function (i) { wy[d][i] = said; });
         });
       });
@@ -3030,9 +3048,10 @@
     var ms = T.act && T.ms[T.act];
     return ms || null;
   }
+  // working sets only: a ramp of warm-ups is not the work, and the lift charts leave them out too
   function volOf(wo) {
     var v = 0;
-    wo.x.forEach(function (x) { x.s.forEach(function (s) { v += conv(s.w, wo.u) * s.r; }); });
+    wo.x.forEach(function (x) { x.s.forEach(function (s) { if (!s.wu) v += Math.max(0, conv(s.w, wo.u)) * s.r; }); });
     return v;
   }
   function setsOf(wo) { return wo.x.reduce(function (n, x) { return n + x.s.length; }, 0); }
@@ -3362,8 +3381,12 @@
     }
     /* A main lift's sets each have their own weight — a ramp, a top set and
        back-offs — so its plan beats carrying the last set's weight forward. */
-    var w = x.fix && fin(s.tw) ? s.tw : cw !== null ? cw : fin(s.tw) ? s.tw : fin(s.pw) ? s.pw : ex.q === 'bw' ? 0 : null;
-    var r = fin(s.tr) ? s.tr : cr !== null ? cr : fin(s.pr) ? s.pr : null;
+    var w = (x.fix || s.wu) && fin(s.tw) ? s.tw : cw !== null ? cw : fin(s.tw) ? s.tw : fin(s.pw) ? s.pw : ex.q === 'bw' ? 0 : null;
+    /* Reps as weight does: once a set is done today, the next one expects
+       what you just did, rather than a target you already fell short of or
+       beat; a main lift's sets keep their own. A tick on an empty box then
+       logs something you did. */
+    var r = (x.fix || s.wu) && fin(s.tr) ? s.tr : cr !== null ? cr : fin(s.tr) ? s.tr : fin(s.pr) ? s.pr : null;
     return { w: w, r: r };
   }
 
@@ -3607,6 +3630,10 @@
     if (tab) tab.classList.toggle('tr-tab-live', !!LIVE);
   }
 
+  function agoSay(t) {
+    var m = Math.round((Date.now() - t) / 60000);
+    return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : 'at ' + hm(t);
+  }
   function draw() {
     var root = $('trBody');
     if (!root) return;
@@ -3615,6 +3642,10 @@
       head.innerHTML = '<button class="ghost" data-t="settings">Settings</button>';
     }
     var html = segHTML();
+    if (SY.err && doc) {
+      html += '<div class="tr-note tr-warn tr-syncerr" role="status">Not saved to your account yet \u2014 it keeps trying. ' +
+        'Everything is safe on this phone meanwhile.</div>';
+    }
     if (LIVE && S.sub !== 'block') {
       html += '<button class="tr-back" data-t="sub" data-v="block">Workout in progress · <span>' +
         esc(LIVE.n) + '</span> — back to it</button>';
@@ -3864,6 +3895,28 @@
       '</button></div></div>';
   }
 
+  /* What comes next, in the block's own terms. A strength wave hands on
+     new training maxes from its as-many-as-you-can sets; a block that
+     climbs starts the next one back low; a steady one simply goes again. */
+  function doneNext(ms) {
+    if (ms.goal === 'str' || ms.pb) {
+      var nt = nextTm(ms), rows = Object.keys(nt).map(function (e) {
+        var was = tmOf(ms, e), am = null;
+        ix().list.forEach(function (wo) {
+          if (wo.ms !== ms.id) return;
+          var x = exIn(wo, e);
+          if (x) x.s.forEach(function (q) { if (q.am && fin(q.tr)) am = { w: conv(q.w, wo.u), r: q.r, tr: q.tr }; });
+        });
+        return '<li><span>' + esc(lib(e).n) + (am ? ' <span class="tr-e1">' + fmtN(am.w) + ' \u00d7 ' + am.r + ' (aimed ' + am.tr + '+)</span>' : '') + '</span>' +
+          '<span class="' + (nt[e] > (was || 0) ? 'up' : nt[e] < (was || 0) ? 'down' : '') + '">' + (was ? fmtN(was) + ' \u2192 ' : '') + fmtN(nt[e]) + ' ' + T.pr.u + '</span></li>';
+      });
+      return rows.length ? '<div class="tr-ql tr-chart-h">Training max for the next ' + (ms.goal === 'str' ? 'wave' : 'block') + '</div><ul class="tr-ups">' + rows.join('') + '</ul>' +
+        '<div class="tr-note">Each moves with how many reps your last all-out set beat its target by, or fell short. The next block starts from these.</div>' : '';
+    }
+    if (steady(ms)) return '<div class="tr-note">Done. The next one can be the same again, or a step up.</div>';
+    return '<div class="tr-note">The next block starts back near the minimum and climbs again. RP\u2019s reasoning: volume you needed at the end of this one is more than you need at the start of the next, once the deload has let the fatigue go.</div>';
+  }
+
   function doneHTML(ms) {
     var wos = ix().list.filter(function (w) { return w.ms === ms.id; });
     var prs = 0;
@@ -3888,7 +3941,7 @@
         return '<li><span>' + esc(lib(l.e).n) + '</span><span class="' + (l.ch > 0 ? 'up' : 'down') + '">' +
           (l.ch > 0 ? '+' : '−') + Math.abs(Math.round(l.ch * 100)) + '% e1RM</span></li>';
       }).join('') + '</ul>' : '') +
-      '<div class="tr-note">The next block starts back near the minimum and climbs again. RP’s reasoning: volume you needed at the end of this one is more than you need at the start of the next, once the deload has let the fatigue go.</div>' +
+      doneNext(ms) +
       '<div class="tr-acts"><button class="btn-primary" data-t="again">Build the next block</button></div>' +
     '</div>';
   }
@@ -4148,9 +4201,15 @@
     return out;
   }
 
+  // counting the deload week where a program has one: a strength wave is three weeks and a deload, four
   function weeksSay(P) {
-    var w = P.acc.map(function (a) { return P.mode === 'grow' ? a + 1 : a; });
-    return w[0] + '–' + w[w.length - 1] + ' weeks';
+    var w = P.acc.map(function (a) { return P.mode === 'grow' || P.mode === 'str' ? a + 1 : a; });
+    return w[0] === w[w.length - 1] ? w[0] + ' weeks' : w[0] + '–' + w[w.length - 1] + ' weeks';
+  }
+  // what a program needs: a barbell for the waves and powerbuilding, the floor for home
+  function kitSay(P) {
+    if (!P.kits) return 'any kit';
+    return P.kits.indexOf('gym') >= 0 || P.kits.indexOf('bar') >= 0 ? 'needs a barbell' : 'home kit';
   }
   function progCard(r, badge) {
     var P = PROGS[r.id];
@@ -4164,7 +4223,7 @@
         return '<li' + (w.bad ? ' class="no"' : '') + '>' + esc(w.t) + '</li>';
       }).join('') + '</ul>' : '') +
       '<div class="tr-prog-f"><span class="tr-fine">' + days + ' · ' + weeksSay(P) + ' · ' +
-        (P.kits ? 'home kit' : 'any kit') + '</span>' +
+        kitSay(P) + '</span>' +
         '<button class="btn-primary" data-t="prog" data-v="' + r.id + '">Set it up</button></div>' +
     '</div>';
   }
@@ -4796,6 +4855,7 @@
         (x.s.some(function (s) { return s.am; }) ? '<span class="tr-cue">Last set: as many good reps as you can \u2014 stop when one slows to a grind. It sets your next wave\u2019s weights.</span>' : '') +
         (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">W is a warm-up: done, not counted, and a short rest after it.</span>' : '') +
         (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
+        (x.swn ? '<span class="tr-ex-m">' + esc(x.swn) + '</span>' : '') +
         (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
@@ -4809,7 +4869,8 @@
         (heavy ? '<button class="tr-lnk" data-t="plates" data-x="' + i + '">Plates</button>' : '') +
         '<button class="tr-lnk" data-t="swap" data-x="' + i + '">Swap</button>' +
         (note ? '' : '<button class="tr-lnk" data-t="note" data-e="' + esc(x.e) + '">Note</button>') +
-        '<button class="tr-lnk" data-t="rmex" data-x="' + i + '">Remove</button>' +
+        '<button class="tr-lnk' + (S.arm === 'rm:' + i ? ' tr-lnk-arm' : '') + '" data-t="rmex" data-x="' + i + '">' +
+          (S.arm === 'rm:' + i ? 'Tap again: remove it and its ' + x.s.filter(function (z) { return z.t; }).length + ' done set' + (x.s.filter(function (z) { return z.t; }).length === 1 ? '' : 's') : 'Remove') + '</button>' +
       '</div>' +
     '</div>';
   }
@@ -5530,6 +5591,8 @@
     if (tb) { E.err = tb; return false; }
     if (!x.length && !wo.mc) { E.err = 'Nothing would be left. To get rid of the whole workout, cancel and delete it.'; return false; }
     var nw = clean(wo);
+    // the sets come back in your unit now, and the day's bodyweight with them
+    if (fin(wo.bw) && wo.u !== T.pr.u) nw.bw = conv(wo.bw, wo.u);
     nw.u = T.pr.u;
     nw.x = x;
     nw.st = st;
@@ -5577,31 +5640,62 @@
   /* A warm-up that rehearses the lift without tiring it: half the working
      weight for eight, then fewer reps as it climbs. None of these count as
      sets; they are not logged. */
-  function warmHTML(sh) {
-    var x = LIVE && LIVE.x[sh.x];
-    if (!x) return '';
-    var ex = lib(x.e);
-    var s0 = x.s[0] || {};
-    var w = numIn(s0.w);
-    if (w === null) w = fin(s0.tw) ? s0.tw : fin(s0.pw) ? s0.pw : null;
-    if (!(w > 0)) return '<div class="sheet-name tr-sn2">Warm-up</div><div class="tr-note">Put a weight in the first set and the ramp works itself out from it.</div>';
-    var step = inc(ex);
-    var bb = onBar(ex), bar = barFor(x.e);
+  /* A warm-up ramp to the heaviest working set, not to the first set (which
+     on a main lift's day is itself a ramp set). Heavier and fewer reps the
+     closer it gets, more steps before a heavy triple than before a set of
+     twelve, and no empty-bar set before a pull from the floor. */
+  function warmRows(x) {
+    var ex = lib(x.e), w = 0, reps = 0;
+    x.s.forEach(function (z) {
+      if (z.wu) return;
+      var v = numIn(z.w);
+      if (v === null) v = fin(z.tw) ? z.tw : fin(z.pw) ? z.pw : null;
+      if (v > w) { w = v; reps = numIn(z.r) || z.tr || z.pr || 0; }
+    });
+    if (!(w > 0)) return { w: 0, rows: [] };
+    var step = inc(ex), bb = onBar(ex), bar = barFor(x.e);
+    var plan = reps && reps <= 5 ? [[0.4, 5], [0.55, 3], [0.7, 2], [0.8, 1], [0.9, 1]]
+      : reps && reps <= 8 ? [[0.45, 5], [0.6, 3], [0.75, 2], [0.85, 1]] : [[0.5, 8], [0.7, 4], [0.85, 2]];
     var rows = [];
-    if (bb && bar > 0 && bar < w * 0.5) rows.push([bar, 10]);
-    [[0.5, 8], [0.7, 4], [0.85, 2]].forEach(function (r) {
+    if (bb && bar > 0 && bar < w * 0.4 && ex.p !== 'hinge') rows.push([bar, 10]);
+    plan.forEach(function (r) {
       var v = roundTo(w * r[0], step);
       if (bb && v < bar) return;
+      if (v >= w) return;
       if (rows.length && v <= rows[rows.length - 1][0]) return;
       rows.push([v, r[1]]);
     });
+    return { w: w, rows: rows };
+  }
+  function warmHTML(sh) {
+    var x = LIVE && LIVE.x[sh.x];
+    if (!x) return '';
+    var ex = lib(x.e), R = warmRows(x);
+    if (!(R.w > 0)) return '<div class="sheet-name tr-sn2">Warm-up</div><div class="tr-note">Put a weight in a working set and the ramp works itself out from it.</div>';
+    var bb = onBar(ex), bar = barFor(x.e);
+    var has = x.s.some(function (z) { return z.wu && !z.t; });
     return '<div class="sheet-name tr-sn2">Warm-up for ' + esc(ex.n) + '</div>' +
-      '<div class="tr-sub">Working weight ' + fmtN(w) + ' ' + T.pr.u + '. These are not logged.</div>' +
-      '<ol class="tr-warm">' + rows.map(function (r) {
+      '<div class="tr-sub">Up to your heaviest working set, ' + fmtN(R.w) + ' ' + T.pr.u + '.</div>' +
+      '<ol class="tr-warm">' + R.rows.map(function (r) {
         var pm = bb ? plateMath(r[0], bar, T.pr.u) : null;
         return '<li><b>' + fmtN(r[0]) + ' ' + T.pr.u + ' × ' + r[1] + '</b>' +
           (pm ? '<span class="tr-sub"> ' + (pm.plates.length ? pm.plates.map(fmtP).join(' + ') + ' a side' : 'the bar') + '</span>' : '') + '</li>';
-      }).join('') + '</ol>';
+      }).join('') + '</ol>' +
+      (R.rows.length ? '<div class="tr-acts"><button class="btn-primary" data-t="warmadd" data-x="' + sh.x + '">' +
+        (has ? 'Replace my warm-up sets with these' : 'Add these as warm-up sets') + '</button></div>' +
+        '<div class="tr-hint">Added, they are W sets: logged, never records, a minute\u2019s rest after each.</div>' : '');
+  }
+  // the ramp into the workout as W sets, ahead of the working sets; any not yet done are replaced
+  function warmAdd(xi) {
+    var x = LIVE && LIVE.x[xi];
+    if (!x) return;
+    var R = warmRows(x);
+    if (!R.rows.length) return;
+    var keep = x.s.filter(function (z) { return !z.wu || z.t; });
+    var ws = R.rows.map(function (r) { return { w: '', r: '', t: 0, tw: r[0], tr: r[1], pw: null, pr: null, wu: 1 }; });
+    var doneW = keep.filter(function (z) { return z.wu; });
+    x.s = doneW.concat(ws, keep.filter(function (z) { return !z.wu; }));
+    remapPrev(x);
   }
 
   function finishHTML() {
@@ -5745,8 +5839,13 @@
     var wo = T.wo[sh.id];
     if (!wo) return '';
     var won = wins(wo);
+    /* Records are what History stars and Finish counts: the heaviest, the
+       best estimated max, the most reps. A best for a number of reps is
+       ribboned too, but said as what it is rather than counted as one. */
+    var recN = won.lines.filter(function (l) { return l.big; }).length, repN = won.lines.length - recN;
     var head = won.ms.length ? won.ms[0] + '!'
-      : won.lines.length ? (won.lines.length === 1 ? 'A new record!' : won.lines.length + ' new records!')
+      : recN ? (recN === 1 ? 'A new record!' : recN + ' new records!')
+      : repN ? (repN === 1 ? 'A best for its reps!' : repN + ' bests for their reps!')
       : 'Workout ' + won.count + ' done';
     return '<div class="tr-done">' +
       '<div class="tr-done-h">' + esc(head) + '</div>' +
@@ -5754,7 +5853,7 @@
       (won.ms.length > 1 ? '<div class="tr-done-ms">' + won.ms.slice(1).map(function (m) { return '\ud83c\udfc5 ' + esc(m); }).join('<br>') + '</div>' : '') +
       '<div class="tr-recs">' +
         rec('Time', wo.en > wo.st ? dur(wo.en - wo.st) : '\u2014') + rec('Sets', setsOf(wo)) +
-        rec('Volume', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', won.lines.length) +
+        rec('Volume', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', recN + (repN ? ' <small>+' + repN + ' rep best' + (repN === 1 ? '' : 's') + '</small>' : '')) +
       '</div>' +
       (won.lines.length ? '<div class="tr-done-r">' + won.lines.map(function (l) {
         return '<div><span class="tr-medal" aria-hidden="true">\ud83e\udd47</span> <b>' + esc(lib(l.e).n) + '</b> \u2014 ' + esc(l.what) + '</div>';
@@ -5976,7 +6075,9 @@
       '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log reps in reserve']]) +
         '<div class="tr-hint">A box beside every set for how many more reps you had in you. Optional on each set; the review holds it against what the plan asked.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
-        '<div class="tr-sub">Kept on this device. Sign in under Nourish → ⚙ → Sync &amp; sharing and it travels with your account, the same as your day.</div>' +
+        '<div class="tr-sub">' + (!doc ? '<b>Only on this phone.</b> Sign in under Nourish \u2192 \u2699 \u2192 Sync &amp; sharing and it travels with your account, the same as your day.'
+          : SY.err ? '<b>Not saved to your account yet</b> \u2014 it keeps trying. Safe on this phone meanwhile.'
+          : SY.ok ? 'Saved to your account ' + agoSay(SY.ok) + ', and kept on this phone.' : 'Kept on this phone and in your account.') + '</div>' +
         '<div class="tr-sub">' + Object.keys(T.wo).length + ' workouts · about ' + kb + ' KB' +
           (kb > 600 ? ' — getting close to the 1 MB an account record can hold. Export a copy, then delete old workouts.' : '') + '</div>' +
         '<div class="tr-acts"><button class="ghost" data-t="export">Export a copy</button>' +
@@ -6049,6 +6150,28 @@
       nx.rir = old.rir;
       nx.p = old.p || 0;
       if (old.sl) nx.sl = old.sl;
+      /* A main lift keeps its day: the ramp, the working sets and the
+         all-out one, at the new lift's own training max where there is one.
+         The wave's max for the old lift then stays where it is, and it says
+         so rather than leaving three blank sets. */
+      if (old.fix) {
+        var bms = LIVE.ms && T.ms[LIVE.ms], tA = bms ? tmOf(bms, old.sl || old.e) : null, tB = bms ? tmOf(bms, e) : null;
+        var ratio = tA && tB ? tB / tA : null;
+        nx.fix = 1;
+        if (old.main) nx.main = old.main;
+        if (tB) nx.tm = tB;
+        nx.s.forEach(function (z, j) {
+          var o = old.s[j];
+          if (!o) return;
+          z.tr = o.tr;
+          z.tw = ratio && fin(o.tw) ? roundTo(o.tw * ratio, inc(lib(e))) : null;
+          if (o.wu) z.wu = 1;
+          if (o.am) z.am = 1;
+        });
+        remapPrev(nx);
+        nx.swn = 'Swapped in for ' + lib(old.sl || old.e).n + ' today' + (ratio ? ', at its own training max' : ': pick weights by feel, by the same reps') +
+          '. ' + lib(old.sl || old.e).n + '\u2019s training max stays as it is for the next wave.';
+      }
       // what was already done stays done, under the new name
       old.s.forEach(function (s, j) { if (s.t && nx.s[j]) nx.s[j] = s; });
       LIVE.x[sh.x] = nx;
@@ -6322,10 +6445,13 @@
       if (wnt && wo.nt.indexOf(wnt) < 0) wo.nt.unshift(wnt);
       var ent = get(C.nt);
       if (ent && wo.nt.indexOf(exn + ': ' + ent) < 0) wo.nt.push(exn + ': ' + ent);
-      if (C.wu >= 0) { var u = get(C.wu).toLowerCase(); if (u) units[/kg/.test(u) ? 'kg' : 'lb'] = 1; }
+      var ru = C.wu >= 0 ? get(C.wu).toLowerCase() : '';
+      ru = ru ? (/kg/.test(ru) ? 'kg' : 'lb') : '';
+      if (ru) units[ru] = 1;
       var x = wo.xi[exn];
       if (!x) { x = wo.xi[exn] = { nm: exn, s: [] }; wo.x.push(x); }
       var set = { w: w !== null && w > 0 ? Math.round(w * 100) / 100 : 0, r: Math.round(reps) };
+      if (ru) set.su = ru;
       if (so === 'W') set.wu = 1;
       else if (so === 'D') set.ty = 'd';
       else if (so === 'F') set.ty = 'f';
@@ -6342,8 +6468,19 @@
       var g = sgGuess(nm);
       return { nm: nm, n: names[nm].n, e: sgMatch(nm), m: g.m, q: g.q, k: g.k };
     }).sort(function (a, b) { return (a.e ? 1 : 0) - (b.e ? 1 : 0) || b.n - a.n; });
-    var uk = Object.keys(units);
-    return { wos: order, names: list, unit: uk.length === 1 ? uk[0] : T.pr.u, fixedUnit: uk.length === 1, skipped: skipped, range: 0 };
+    /* Each row says its own unit in newer exports, and a history can change
+       unit halfway (132.5 kg is not 132.5 lb). A file in one unit comes in
+       as that unit; a mixed one is brought to yours, set by set. */
+    var uk = Object.keys(units), unit = uk.length === 1 ? uk[0] : T.pr.u;
+    order.forEach(function (w) {
+      w.x.forEach(function (x) {
+        x.s.forEach(function (s) {
+          if (s.su && s.su !== unit && s.w > 0) s.w = Math.round((s.su === 'kg' ? s.w * 2.20462 : s.w / 2.20462) * 2) / 2;
+          delete s.su;
+        });
+      });
+    });
+    return { wos: order, names: list, unit: unit, fixedUnit: uk.length >= 1, mixed: uk.length > 1, skipped: skipped, range: 0 };
   }
 
   // letters and digits, the same every time the same workout comes in
@@ -6756,7 +6893,14 @@
       remapPrev(xd);
       saveLive(); draw(); return;
     }
-    if (t === 'rmex') { LIVE.x.splice(num('data-x'), 1); saveLive(); draw(); return; }
+    /* An exercise with sets already done asks twice: one stray tap under the
+       sets used to take them all with it. */
+    if (t === 'rmex') {
+      var rx = num('data-x'), rdone = LIVE.x[rx] && LIVE.x[rx].s.some(function (z) { return z.t; });
+      if (rdone && S.arm !== 'rm:' + rx) { S.arm = 'rm:' + rx; draw(); return; }
+      S.arm = '';
+      LIVE.x.splice(rx, 1); saveLive(); draw(); return;
+    }
     if (t === 'mvex' && LIVE) {
       if (shiftEx(num('data-x'), Number(v))) { saveLive(); draw(); }
       return;
@@ -6769,6 +6913,7 @@
     }
     if (t === 'addex') { S.q = ''; S.qm = ''; openSheet({ k: 'pick', mode: 'add', eyebrow: 'Add', title: 'Add an exercise' }); return; }
     if (t === 'warm') { openSheet({ k: 'warm', x: num('data-x'), eyebrow: 'Warm-up', title: 'Warm-up' }); return; }
+    if (t === 'warmadd') { warmAdd(num('data-x')); saveLive(); closeSheet(); draw(); return; }
     if (t === 'plates') {
       var px = LIVE.x[num('data-x')];
       var open = px.s.filter(function (s) { return !s.t; })[0] || px.s[0];
@@ -7220,6 +7365,7 @@
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
       wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
+      weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }

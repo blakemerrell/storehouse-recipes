@@ -104,6 +104,11 @@ three ideas in one tab:
   moves a block. Any finished workout can be kept with *Save as routine* (its lifts in
   order with the sets you did); routines sync, appear under *Your routines*, and delete
   with two taps.
+- *Warm-ups and safety nets:* the warm-up sheet ramps to the heaviest working set (more,
+  smaller steps before heavy triples; no empty-bar set before a pull from the floor) and
+  can add the ramp to the log as W sets. Removing a lift that has done sets asks twice.
+  Settings says whether your training is only on this phone or saved to your account, and
+  a save that fails is shown and retried rather than dropped silently.
 - *Bodyweight lifts:* pull-ups, chin-ups, negatives and dips count you as well as anything
   added. Your weight is the week's average when there are three or more weigh-ins in the
   seven days to the workout, else that day's weigh-in, else the latest in the fortnight
