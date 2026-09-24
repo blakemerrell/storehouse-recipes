@@ -4972,7 +4972,7 @@
     var SAY = { plan: 'Craft my plan', fill: 'Fill', tickall: 'Mark all complete',
       done: 'Complete the day', open: 'Reopen the day' };
     var TELL = {
-      plan: 'Craft my plan — My Day needs one before it can draft anything',
+      plan: 'Craft my plan — Nourish needs one before it can draft anything',
       fill: 'Fill the day',
       tickall: 'Mark every plate on the day as eaten',
       done: 'I am done for today',
@@ -6933,7 +6933,7 @@
           '<div class="sheet-eyebrow">What do you actually eat?</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="mt-cap">Tap anything you eat regularly. My Day leans toward ' +
+        '<div class="mt-cap">Tap anything you eat regularly. Nourish leans toward ' +
           'these when it suggests food &mdash; it does not stop offering anything ' +
           'else. You can change your mind on any food, any time.</div>' +
         inner.blocks +
@@ -7056,7 +7056,7 @@
          innerHTML, and a missing key there writes the word "undefined"
          across the card. */
       return { foot: '<div class="macro-none">' +
-        '<b>This is your day.</b> Set a goal — lose, hold or gain — and My Day ' +
+        '<b>This is your day.</b> Set a goal — lose, hold or gain — and Nourish ' +
         'works out what to eat, drafts a day from the recipes you like, and ' +
         'keeps count as you tick things off.</div>', limits: '', pills: '' };
     }
@@ -9830,7 +9830,7 @@
        Searching and logging an outside food is never gated. Looking one up is
        how you decide to go and buy it. */
     var qPrefs =
-      row('Should My Day only suggest storehouse food?',
+      row('Should Nourish only suggest storehouse food?',
         seg('mtext', pr.extFill ? '1' : '0', [['0', 'Yes'], ['1', 'No']]));
 
     /* The boxes are the plan's one rendering: they follow the profile, take a
@@ -9916,7 +9916,7 @@
        paragraph on the daily screen behind a ?, which is a paragraph in front
        of somebody who has read it forty times. */
     var helpHTML =
-      '<details class="sync-fold mt-help" id="mtHelp"><summary>How My Day works</summary>' +
+      '<details class="sync-fold mt-help" id="mtHelp"><summary>How Nourish works</summary>' +
         /* Four lines. It was nine, three of them headed by a glyph, and
            Blake called the sheet messy; the four that are left are the four
            verbs the tab has, and the rest is learned by looking. */
@@ -10005,7 +10005,7 @@
              use it, which was Blake's instinct before it was a step: "as I
              use it I dial it in as they show up as suggestions". */
           step(5, 'What do you actually eat?',
-            '<div class="mt-cap">Tap anything you eat regularly. My Day leans ' +
+            '<div class="mt-cap">Tap anything you eat regularly. Nourish leans ' +
               'toward these when it suggests food &mdash; it never stops offering ' +
               'anything else, and you can change your mind on any food later.</div>' +
             mFavPickBodyHTML(), '') +
@@ -11271,7 +11271,7 @@
     var day = mDay(k);
     var slots = mReadSlots();
     var d = keyDate(k);
-    var out = ['My Day \u2014 ' + M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' +
+    var out = ['Nourish \u2014 ' + M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' +
       d.getDate() + ' ' + d.getFullYear()];
     if (MWEIGHTS[k]) out.push('Weight: ' + MWEIGHTS[k] + ' lb');
     out.push('');
@@ -14684,8 +14684,11 @@
     ['browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book'].forEach(function (v) {
       $('view-' + v).classList.toggle('hide', S.view !== v);
     });
+    /* The book has no tab of its own any more; it opens from Recipes, so
+       Recipes is the tab that stays lit while it is up. */
+    var lit = S.view === 'book' ? 'browse' : S.view;
     document.querySelectorAll('.tab').forEach(function (b) {
-      b.setAttribute('aria-selected', String(b.dataset.view === S.view));
+      b.setAttribute('aria-selected', String(b.dataset.view === lit));
     });
     if (S.view === 'browse') renderBrowse();
     if (S.view === 'plan') renderPlan();
@@ -14699,7 +14702,7 @@
     syncStrip();
   }
 
-  /* The five tabs fit a 390px phone now, so the fade would be a lie there. It
+  /* The six tabs fit a 360px phone, so the fade would be a lie there. It
      appears only where the row is actually wider than its box — the narrowest
      phones — and only until you have scrolled to the end of it. */
   function syncTabsFade() {
@@ -14764,6 +14767,12 @@
         try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
         renderView();
       });
+    });
+    $('bookBtn').addEventListener('click', function () {
+      S.view = 'book';
+      try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
+      renderView();
+      window.scrollTo(0, 0);
     });
 
     $('bookSeg').addEventListener('click', function (e) {
@@ -16330,7 +16339,7 @@
              this is the button that throws it away. */
           ask({
             title: 'Take the account\u2019s copy?',
-            body: 'My Day and Train on this device are replaced by what your account holds. ' +
+            body: 'Nourish and Strengthen on this device are replaced by what your account holds. ' +
               'Anything logged here that has not reached the account is lost.',
             ok: 'Use the account\u2019s copy'
           }, function (yes) {
@@ -16349,7 +16358,7 @@
              it has already received. */
           ask({
             title: 'Sign out of this device?',
-            body: 'My Day and Train are cleared from this device. Your account keeps everything ' +
+            body: 'Nourish and Strengthen are cleared from this device. Your account keeps everything ' +
               'it has already received; anything not yet sent is lost.',
             ok: 'Sign out'
           }, function (yes) {

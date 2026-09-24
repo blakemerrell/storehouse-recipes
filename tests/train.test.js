@@ -26,6 +26,7 @@ async function answer(p, a) {
   if (a.min !== undefined) await p.click(`[data-t="qz"][data-f="min"][data-v="${a.min}"]`);
   await p.click('[data-t="qzn"]');
   await p.click(`[data-t="qz"][data-f="kit"][data-v="${a.kit || 'gym'}"]`);
+  if (a.bk) await p.click('[data-t="qzback"]');
   for (const b of (a.bk || '')) await p.click(`[data-t="qzm"][data-f="bk"][data-v="${b}"]`);
   for (const j of (a.jt || '')) await p.click(`[data-t="qzm"][data-f="jt"][data-v="${j}"]`);
   await p.click('[data-t="qzn"]');
@@ -1193,6 +1194,131 @@ module.exports = {
     await p.waitForTimeout(150);
     r = await p.evaluate(() => Object.values(window.Train._.state().T.wo)[0]);
     t.ok('a workout that was only a circuit is still saved, with its score', r && r.mc && r.mc.r === 5 && r.mc.x === 7 && r.x.length === 0, JSON.stringify(r && r.mc));
+    await p.close();
+
+    // ---- the tab row: the household's, a rule, and yours --------------------------
+    p = await t.fresh({ viewport: { width: 360, height: 740 } });
+    r = await p.evaluate(() => {
+      const t = document.querySelector('.tabs'), box = t.getBoundingClientRect();
+      const tabs = [...t.querySelectorAll('.tab')];
+      const sep = t.querySelector('.tab-sep');
+      return {
+        labels: tabs.map((b) => b.innerText.trim()).join('|'),
+        off: tabs.filter((b) => b.getBoundingClientRect().right > box.right + 1).length,
+        sepBefore: !!sep && sep.nextElementSibling === t.querySelector('.tab[data-view="macros"]'),
+        noBookTab: !t.querySelector('.tab[data-view="book"]'),
+      };
+    });
+    t.ok('the tabs are Recipes, Plan, List, Pantry, then Nourish and Strengthen', r.labels === 'Recipes|Plan|List|Pantry|Nourish|Strengthen', r.labels);
+    t.ok('with a rule before yours, and every one on a 360px screen', r.sepBefore && r.off === 0, JSON.stringify(r));
+    t.ok('and the book is no longer a tab', r.noBookTab);
+    await p.click('#bookBtn');
+    await p.waitForTimeout(300);
+    r = await p.evaluate(() => ({ book: !document.getElementById('view-book').classList.contains('hide'),
+      lit: document.querySelector('.tab[aria-selected="true"]').dataset.view }));
+    t.ok('it opens from Recipes, and Recipes stays lit while it is up', r.book && r.lit === 'browse', JSON.stringify(r));
+    await p.close();
+
+    // ---- feedback: tidy, and out of the way once answered or passed ---------------
+    p = await t.fresh();
+    await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ prog: 'grow', dpw: 4, kit: 'gym', lvl: 1, acc: 4 });
+      ms.id = 'fbk';
+      st.T.ms = { fbk: ms }; st.T.act = 'fbk'; st.T.wo = {}; st.T.pr.qz = Date.now();
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="start"]');
+    const tickAll = async (xi) => {
+      const n = await p.evaluate((xi) => window.Train._.state().LIVE.x[xi].s.length, xi);
+      for (let j = 0; j < n; j++) {
+        await p.fill(`#trw-${xi}-${j}`, '100'); await p.fill(`#trr-${xi}-${j}`, '10');
+        await p.click(`[data-t="tick"][data-x="${xi}"][data-s="${j}"]`);
+      }
+    };
+    // the first exercise whose muscle appears only once today
+    const solo = await p.evaluate(() => {
+      const L = window.Train._.state().LIVE, lib = window.Train._.lib;
+      return L.x.findIndex((x) => L.x.filter((y) => lib(y.e).m === lib(x.e).m).length === 1);
+    });
+    const m = await p.evaluate((i) => window.Train._.lib(window.Train._.state().LIVE.x[i].e).m, solo);
+    await tickAll(solo);
+    r = await p.evaluate((m) => ({
+      open: !!document.querySelector(`.tr-fbc [data-t="fb"][data-m="${m}"]`),
+      even: [...document.querySelectorAll(`.tr-fbc .tr-sqb[data-m="${m}"][data-f="k"]`)].map((b) => Math.round(b.getBoundingClientRect().width)),
+    }), m);
+    t.ok('the feedback card asks with rows of equal buttons', r.open && r.even.length === 4 && new Set(r.even).size === 1, JSON.stringify(r));
+    await p.click(`[data-t="fb"][data-m="${m}"][data-f="p"][data-v="1"]`);
+    await p.click(`[data-t="fb"][data-m="${m}"][data-f="k"][data-v="1"]`);
+    await p.click(`[data-t="fb"][data-m="${m}"][data-f="j"][data-v="0"]`);
+    r = await p.evaluate((m) => ({ card: !!document.querySelector(`.tr-fbc [data-m="${m}"]`),
+      line: (document.querySelector(`.tr-fbt[data-m="${m}"]`) || {}).textContent || '' }), m);
+    t.ok('answered, it tucks into a line saying what you said', !r.card && /moderate pump/.test(r.line) && /workload about right/.test(r.line), r.line);
+    await p.click(`.tr-fbt[data-m="${m}"]`);
+    r = await p.evaluate((m) => !!document.querySelector(`.tr-fbc [data-m="${m}"]`), m);
+    t.ok('and a tap opens it again', r);
+    await p.click(`[data-t="fb"][data-m="${m}"][data-f="k"][data-v="2"]`);
+    r = await p.evaluate((m) => ({ tucked: !!document.querySelector(`.tr-fbt[data-m="${m}"]`), k: window.Train._.state().LIVE.fb[m].k }), m);
+    t.ok('changing an answer puts it away again', r.tucked && r.k === 2, JSON.stringify(r));
+    // an unanswered card tucks once you move on
+    const other = await p.evaluate((m) => {
+      const L = window.Train._.state().LIVE, lib = window.Train._.lib;
+      const a = L.x.findIndex((x) => lib(x.e).m !== m && L.x.filter((y) => lib(y.e).m === lib(x.e).m).length === 1);
+      return a;
+    }, m);
+    const m2 = await p.evaluate((i) => window.Train._.lib(window.Train._.state().LIVE.x[i].e).m, other);
+    await tickAll(other);
+    r = await p.evaluate((m2) => !!document.querySelector(`.tr-fbc [data-m="${m2}"]`), m2);
+    t.ok('an unanswered card is up while you rest', r);
+    const third = await p.evaluate((ms) => {
+      const L = window.Train._.state().LIVE, lib = window.Train._.lib;
+      return L.x.findIndex((x) => ms.indexOf(lib(x.e).m) < 0);
+    }, [m, m2]);
+    await p.fill(`#trw-${third}-0`, '50'); await p.fill(`#trr-${third}-0`, '10');
+    await p.click(`[data-t="tick"][data-x="${third}"][data-s="0"]`);
+    r = await p.evaluate((m2) => ((document.querySelector(`.tr-fbt[data-m="${m2}"]`) || {}).textContent || ''), m2);
+    t.ok('and tucks itself away once you tick a set of something else', /not rated yet/.test(r), r);
+    await p.close();
+
+    // ---- pairs are explained; the back is one choice among the rest --------------
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="qz"][data-f="goal"][data-v="keep"]');
+    await p.click('[data-t="qz"][data-f="lvl"][data-v="2"]');
+    await p.click('[data-t="qz"][data-f="dpw"][data-v="2"]');
+    await p.click('[data-t="qz"][data-f="min"][data-v="40"]');
+    await p.click('[data-t="qzn"]');
+    await p.click('[data-t="qz"][data-f="kit"][data-v="gym"]');
+    r = await p.evaluate(() => ({ back: !!document.querySelector('[data-t="qzback"]'), triggers: !!document.querySelector('[data-f="bk"]') }));
+    t.ok('the back is a choice beside the joints, with no back question until it is picked', r.back && !r.triggers, JSON.stringify(r));
+    await p.click('[data-t="qzback"]');
+    r = await p.evaluate(() => ({ triggers: document.querySelectorAll('[data-f="bk"]').length, unsure: !!document.querySelector('[data-t="qzbku"]') }));
+    t.ok('picking it asks what sets it off, with a not-sure', r.triggers === 3 && r.unsure, JSON.stringify(r));
+    await p.click('[data-t="qzn"]');
+    r = await p.evaluate(() => window.Train._.state().S.qz.a.bk);
+    t.ok('left unanswered, it plays safe and guards all three', r === 'fcx', r);
+    await p.click('[data-t="qzn"]');
+    await p.click('[data-t="qz"][data-f="age"][data-v=""]');
+    await p.click('[data-t="prog"][data-v="keep"]');
+    await p.click('[data-t="build"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-pairwhy') || {}).textContent || '');
+    t.ok('and a block with pairs says what A1 and A2 mean, and why', /A1 and A2 are a pair/.test(r) && /on purpose/.test(r), r);
+    await p.click('[data-t="begin"]');
+    await p.click('[data-t="start"]');
+    for (const xi of [0, 1]) {
+      const n = await p.evaluate((xi) => window.Train._.state().LIVE.x[xi].s.length, xi);
+      for (let j = 0; j < n; j++) {
+        await p.fill(`#trw-${xi}-${j}`, '100'); await p.fill(`#trr-${xi}-${j}`, '8');
+        await p.click(`[data-t="tick"][data-x="${xi}"][data-s="${j}"]`);
+      }
+    }
+    r = await p.evaluate(() => {
+      const L = window.Train._.state().LIVE, m = window.Train._.lib(L.x[0].e).m;
+      return { pair: L.x[0].p && L.x[0].p === L.x[1].p, open: !!document.querySelector(`.tr-fbc [data-m="${m}"]`) };
+    });
+    t.ok('the other half of a pair does not put the first half’s card away', r.pair && r.open, JSON.stringify(r));
     await p.close();
   },
 };

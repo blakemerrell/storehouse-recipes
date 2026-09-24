@@ -114,8 +114,15 @@ button { cursor: pointer; }
    together on the right, which is how it has always looked. On a phone the
    sync button stays up with the brand and the tabs take the whole row below —
    the button was the reason two of the five tabs were off the side. */
-.tabs { display: flex; gap: 6px; align-items: center; order: 2; margin-left: auto; }
+.tabs { display: flex; gap: 6px; align-items: center; order: 2; margin-left: auto; flex: 1 1 auto; }
 .t-short { display: none; }
+/* Between the household's tabs and yours: a hairline, and everything after
+   it pushed to the far end of the row. Where the row is full, the auto
+   margin is nothing and the rule simply sits between Pantry and Nourish. */
+.tab-sep {
+  flex: 0 0 auto; width: 1px; height: 18px; margin: 0 8px 0 auto;
+  background: oklch(0.55 0.03 70);
+}
 .tab {
   background: transparent; color: oklch(0.80 0.03 80); border: none; border-radius: 3px;
   padding: 7px 14px; font-size: 12.5px; font-weight: 500; letter-spacing: 0.02em;
@@ -3393,6 +3400,7 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
      that back without renaming anybody's tab. The narrowest, List, is still
      35px wide and 30 tall — past the 24px a target has to clear. */
   .tabs .tab { flex: 0 0 auto; padding: 7px 6px; letter-spacing: 0; }
+  .tab-sep { margin-right: 6px; }
   /* Only where it still scrolls. A fade pinned to the right edge of the bar
      says "there is more this way" — the thing the old row never did. It sits
      on the header rather than inside the scroller so it does not scroll away,
@@ -5016,3 +5024,32 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 @media (pointer: coarse) {
   .mitem-r1 { padding-right: 106px; }
 }
+
+/* Six tabs and a rule on the narrowest common phones. Two pixels less a side
+   buys 360px back its last 19; List, the narrowest tab, is still 30px wide,
+   past the 24px a target has to clear. Below that the row scrolls, with the
+   fade to say so. */
+@media (max-width: 380px) {
+  .tabs .tab { padding: 7px 4px; }
+  .tab-sep { margin-right: 4px; }
+}
+
+/* ---- Train: questions as rows of equal buttons ---- */
+.tr-sq { margin-top: 12px; }
+.tr-sq:first-child { margin-top: 0; }
+.tr-sq-l { font-size: 13px; font-weight: 600; margin-bottom: 6px; min-width: 0; }
+.tr-sq-g { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 6px; }
+.tr-sqb {
+  min-height: 40px; padding: 8px 6px; border: 1px solid var(--line-firm); border-radius: 8px;
+  background: #fff; color: var(--ink); font: inherit; font-size: 13.5px; line-height: 1.2; cursor: pointer;
+}
+.tr-sqb:hover { border-color: var(--ochre); }
+.tr-sqb[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+@media (max-width: 520px) { .tr-sq-g.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tr-fbc-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.tr-fbc-h .tr-ql { margin: 0; }
+/* the card, tucked: one line of what you said, and a way back in */
+.tr-fbt { display: flex; align-items: baseline; gap: 10px; padding: 11px 14px; cursor: pointer; }
+.tr-fbt-n { font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+.tr-fbt-s { flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted-2); }
+.tr-fbt-e { font-size: 12.5px; font-weight: 600; color: var(--ochre-text); }

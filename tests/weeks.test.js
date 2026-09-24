@@ -245,7 +245,7 @@ module.exports = {
     t.ok('every tab is on the screen without scrolling for it',
       tabs.offscreen.length === 0, 'off the edge: ' + tabs.offscreen.join(', '));
     t.ok('under a short name each, on a phone',
-      tabs.labels.join('|') === 'Recipes|Plan|List|Pantry|Book|My Day|Train', tabs.labels.join(' '));
+      tabs.labels.join('|') === 'Recipes|Plan|List|Pantry|Nourish|Strengthen', tabs.labels.join(' '));
     t.ok('with the sync button up on the brand line, out of their way', tabs.syncAbove);
 
     /* It used to say "Local", which is a state and not an invitation, and
@@ -306,9 +306,9 @@ module.exports = {
     const wide = await p.evaluate(() =>
       [...document.querySelectorAll('.tab')].map((b) => b.innerText.trim()));
     t.ok('and the full names return on a wider screen',
-      // Macros has no long form — it is already the shortest honest word for
-      // it — and neither does Train
-      wide.join('|') === 'Recipes|Meal Plan|Shopping List|Pantry|Print Book|My Day|Train', wide.join(' '));
+      // Nourish and Strengthen have no short forms — the book left the row
+      // to make room for them
+      wide.join('|') === 'Recipes|Meal Plan|Shopping List|Pantry|Nourish|Strengthen', wide.join(' '));
 
     /* ---- text somebody typed is text, not markup -------------------------
      *

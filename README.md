@@ -51,7 +51,7 @@ the item is on the list; take the recipe out of the week and its tick is forgott
 an item never comes back to a later list already ticked. Ticks belong to their own
 week, so shopping for one does not tick things off in another.
 
-**Train** — a lifting block, the log you keep at the gym, and a review of it. It is
+**Strengthen** (the tab was called Train) — a lifting block, the log you keep at the gym, and a review of it. It is
 three ideas in one tab:
 
 - *The block* is Renaissance Periodization's mesocycle. Pick two to six days, your kit
@@ -71,7 +71,7 @@ three ideas in one tab:
   (three minutes on compound lifts, ninety seconds on isolation, both changeable)
   that beeps and buzzes when it runs out and survives the screen locking. There is a
   warm-up ramp, a plate calculator, swap and add, records as they fall, and the screen
-  stays awake while a workout is open. Finishing a workout ticks "trained today" on My Day.
+  stays awake while a workout is open. Finishing a workout ticks "trained today" on Nourish.
 - *The review* holds the last seven days against the research, as rules rather than
   opinions: weekly hard sets per muscle against the 10–20 band, how often each muscle
   is trained, reps per set against 5–30, rest measured from the gap between ticks,
@@ -120,10 +120,10 @@ a vigorous minute twice.
 
 History lists every workout; Lifts gives each exercise its records and a line of its
 estimated max. Workouts are yours rather than the household's: they save on the device,
-and travel with your account when you sign in, in the same record as My Day. Settings
+and travel with your account when you sign in, in the same record as Nourish. Settings
 has kilograms, bar weight, rest times, and export and restore of the whole log as a file.
 
-**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 52
+**The printed book** (opened with *Print the book* on Recipes; it used to be a tab) — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 52
 pages, Around the Table is 116, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
 (how to read a recipe, temperatures and doneness, weights and swaps, what the storehouse
 carries) and its own contents, then is numbered from page one. Front matter carries no
@@ -338,7 +338,7 @@ index.html            the app
 src/style.css         all the styling
 src/app.js            browse, plan, list, print
 src/sync.js           saving, and sharing between devices
-src/train.js          the Train tab: the block, the logger, records and the review
+src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
 data/recipes.js       generated — all 271 recipes with macros, scores and parsed ingredients
 data/nutrition.js     generated — the food table, parser and score, for the browser

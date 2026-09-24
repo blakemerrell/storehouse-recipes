@@ -2932,7 +2932,7 @@
 
   function segHTML() {
     var tabs = [['block', LIVE ? 'Workout' : 'Block'], ['history', 'History'], ['lifts', 'Lifts'], ['review', 'Review']];
-    return '<div class="seg tr-seg" role="group" aria-label="Train">' + tabs.map(function (t) {
+    return '<div class="seg tr-seg" role="group" aria-label="Strengthen">' + tabs.map(function (t) {
       return '<button data-t="sub" data-v="' + t[0] + '" aria-pressed="' + (S.sub === t[0]) + '">' + t[1] + '</button>';
     }).join('') + '</div>';
   }
@@ -3001,7 +3001,7 @@
       html += '<div class="tr-card tr-next">' +
         '<div class="tr-eyebrow">Next \u00b7 week ' + (nx.w + 1) + ' \u00b7 about ' + mins + ' min</div>' +
         '<div class="tr-title">' + esc(p.n) + '</div>' +
-        planList(p) +
+        planList(p, ms) +
         '<div class="tr-acts">' +
           '<button class="btn-primary" data-t="start" data-w="' + nx.w + '" data-d="' + nx.d + '">Start workout</button>' +
           '<button class="ghost" data-t="skip" data-w="' + nx.w + '" data-d="' + nx.d + '">Skip this one</button>' +
@@ -3063,7 +3063,7 @@
     }).join(', then ');
   }
 
-  function planList(p) {
+  function planList(p, ms) {
     var said = {};
     var labels = slotLabels(p.x);
     return '<ol class="tr-plan">' + p.x.map(function (s, i) {
@@ -3088,6 +3088,7 @@
         (cue ? '<div class="tr-cue">' + esc(cue) + '</div>' : '') +
         (why ? '<div class="tr-why">' + esc(mname(ex.m) + ': ' + why) + '</div>' : '') + '</li>';
     }).join('') + '</ol>' +
+      (ms && labels.some(Boolean) ? '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>' : '') +
       (p.mc ? '<div class="tr-mcp"><span class="tr-ql">Then the circuit</span><div>' + esc(mcSay(p.mc)) + '</div>' +
         (p.mc.last ? '<div class="tr-why">Last time: ' + esc(mcScore(p.mc.last)) + '. Beat it.</div>' : '') + '</div>' : '');
   }
@@ -3187,7 +3188,8 @@
   function quiz() {
     if (!S.qz) {
       var p = T.pr;
-      S.qz = { i: 0, fresh: !p.qz, set: {}, a: { goal: p.goal, lvl: p.lvl, dpw: p.dpw, min: p.min, kit: p.kit,
+      S.qz = { i: 0, fresh: !p.qz, set: {}, back: !!p.bk, bku: p.bk === 'fcx',
+        a: { goal: p.goal, lvl: p.lvl, dpw: p.dpw, min: p.min, kit: p.kit,
         bk: p.bk, jt: p.jt, day: p.day, hab: p.hab.slice(), age: p.age } };
     }
     return S.qz;
@@ -3225,10 +3227,22 @@
       body = '<div class="tr-title">What do you have to train with?</div>' +
         bigOpts('kit', shown('kit'), Object.keys(KITS).map(function (k) { return [k, KITS[k].n, KIT_S[k]]; }));
     } else if (step === 'pain') {
+      /* The back is one choice among the rest. Only the back asks a second
+         question, because backs differ in which movement upsets them —
+         bending, weight on the spine, or arching — and the answer decides
+         which lifts go. */
+      var chip = function (t, v, lab, on, f) {
+        return '<button class="tr-chip" data-t="' + t + '"' + (v ? ' data-v="' + v + '"' : '') + (f ? ' data-f="' + f + '"' : '') +
+          ' aria-pressed="' + !!on + '">' + esc(lab) + '</button>';
+      };
       body = '<div class="tr-title">Anything to look after?</div>' +
-        '<div class="tr-note">Pick what gives you trouble, or nothing. Lifts that load it hard are left out, and lifts that load it a little come with a cue. This is not a diagnosis — anything a physio has ruled out goes on your never list later.</div>' +
-        q('Your back: what sets it off', chips('qzm', a.bk.split(''), TRIG, ' data-f="bk"')) +
-        q('Joints', chips('qzm', a.jt.split(''), JOINTS, ' data-f="jt"'));
+        '<div class="tr-note">Pick what gives you trouble, or nothing. Lifts that load it hard are left out, and lifts that load it a little come with a cue. This is not a diagnosis \u2014 anything a physio has ruled out goes on your never list later.</div>' +
+        q('What gives you trouble', '<div class="tr-chips" role="group">' + chip('qzback', '', 'Back', z.back) +
+          JOINTS.map(function (j) { return chip('qzm', j[0], j[1], a.jt.indexOf(j[0]) >= 0, 'jt'); }).join('') + '</div>') +
+        (z.back ? q('Your back: what sets it off?', '<div class="tr-chips" role="group">' +
+          TRIG.map(function (tr) { return chip('qzm', tr[0], tr[1], !z.bku && a.bk.indexOf(tr[0]) >= 0, 'bk'); }).join('') +
+          chip('qzbku', '', 'Not sure', z.bku) + '</div>',
+          'Not sure plays it safe: the heavy spine-loaders of all three kinds are left out and the lighter ones come with a cue. You can narrow it later by changing your answers.') : '');
     } else if (step === 'life') {
       body = '<div class="tr-title">What are your days like?</div>' +
         bigOpts('day', a.day || null, Object.keys(DAYS).map(function (k) { return [k, DAYS[k][0], DAYS[k][1]]; })) +
@@ -3259,6 +3273,7 @@
 
   function quizDone() {
     var a = S.qz.a;
+    if (S.qz.back && !a.bk) a.bk = 'fcx';
     T.pr = defaultsPr(Object.assign({}, T.pr, clean(a), { qz: Date.now() }));
     stamp('pr');
     S.qz = null; S.lib = false; S.opt = null;
@@ -3306,7 +3321,7 @@
     'both:grow': 'Builds muscle, and strength comes up with it.',
     'both:focus': 'Muscle and strength, with one area brought up.',
     'keep:keep': 'Built for keeping what you have, in less time.',
-    'lean:lean': 'Built for losing fat while keeping your muscle. My Day’s targets do the losing; this does the keeping.',
+    'lean:lean': 'Built for losing fat while keeping your muscle. Nourish’s targets do the losing; this does the keeping.',
     'lean:keep': 'A steady dose that keeps your strength while you eat less.',
     'health:start': 'Two or three full-body sessions a week covers the strength half of the health guidelines.',
     'health:keep': 'Short, steady sessions that cover the strength half of the health guidelines.',
@@ -3528,7 +3543,7 @@
           ' goes first in every session that trains it — what comes first gets the most out of you — gets an extra exercise on those days, starts four sets higher and climbs on the feedback. Everything else is held near RP’s maintenance volume, about three-fifths of MEV, and only moves if a session was too much. A block or two like this, then back to an even split.</p>';
       }
       if (P.cap) {
-        out += '<p><b>While you eat less.</b> Losing weight is the kitchen’s job — My Day’s targets do it. The training’s job is to give your body a reason to keep its muscle: loads stay heavy, sets end a rep short of failure, and the weekly climb is one set at a time to a roof about a third below RP’s MRV, because recovery is slower on less food. In the research, lifting in a deficit still built strength; muscle gains shrank as the deficit grew.</p>';
+        out += '<p><b>While you eat less.</b> Losing weight is the kitchen’s job — Nourish’s targets do it. The training’s job is to give your body a reason to keep its muscle: loads stay heavy, sets end a rep short of failure, and the weekly climb is one set at a time to a roof about a third below RP’s MRV, because recovery is slower on less food. In the research, lifting in a deficit still built strength; muscle gains shrank as the deficit grew.</p>';
       }
       if (o.prog === 'home') {
         out += '<p><b>No plates to add.</b> Bodyweight gets harder by becoming a harder exercise. Reach the top of the rep range on every set and the next session moves you up a rung — incline push-up to push-up to deficit push-up to archer, negative pull-up to pull-up, bodyweight squat to split squat to Bulgarian. Too big a jump is a swap away from the rung below. Push-ups made harder this way built chest muscle much as the bench press did, and in the research load matters little to growth when sets go close to failure.</p>' +
@@ -3561,6 +3576,16 @@
       : 'The landmarks are Renaissance Periodization’s published estimates, not measurements of you. That is what the feedback is for.') +
       (T.pr.bk || T.pr.jt ? ' Which movements suit your body is a question for a physio who has examined it; anything they rule out goes on your never list in Settings.' : '') + '</p>';
     return out + '</details>';
+  }
+
+  /* What A1 and A2 mean, and why this block has them where it does — the
+     letters appear only on the exercises that were paired, and without a
+     word about it that looked like chance. */
+  function pairWhy(ms) {
+    return 'A1 and A2 are a pair: a set of one, ' + clock(T.pr.rp) + ' rest, a set of the other, and back. ' +
+      (isKeep(ms) ? 'Keeping pairs everything on purpose, so one muscle rests while the other works.'
+        : ms && ms.min ? 'Paired only as far as it takes to fit your ' + ms.min + ' minutes; the rest are done set after set.'
+        : 'Paired so one muscle rests while the other works.');
   }
 
   /* A1, A2, B1… for a list of slots, in the order the pairs appear. A pair
@@ -3601,6 +3626,7 @@
         ' · tap an exercise to swap it</div>' +
       (Array.isArray(ms.nt) && ms.nt.length ? '<ul class="tr-fits">' + ms.nt.map(function (n) {
         return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') +
+      (ms.days.some(function (d) { return slotLabels(d.s).some(Boolean); }) ? '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>' : '') +
       ms.days.map(function (day, d) {
         var labels = slotLabels(day.s);
         var mins = estDay(day);
@@ -3659,11 +3685,13 @@
     /* Your back, asked first, when you have said to protect it. A cranky
        morning changes what today should be; nerve symptoms change whether
        today should be at all. */
+    if (ms && pairLabels().some(Boolean)) html += '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>';
+
     if (T.pr.bk || T.pr.jt) {
       var jts = names(T.pr.jt.split('').filter(Boolean).map(function (j) { return { n: JNAME[j].toLowerCase() }; }));
-      html += '<div class="tr-card tr-ask"><div class="tr-fbrow"><span class="tr-fbm">' +
-          (T.pr.bk ? (T.pr.jt ? 'Back &amp; joints today' : 'Back today') : 'Joints today') + '</span>' +
-        chips('bk', fin(L.bk) ? L.bk : '', [[0, 'Good'], [1, 'Tight'], [2, 'Sore']]) + '</div>' +
+      html += '<div class="tr-card tr-ask">' +
+        segQ(T.pr.bk ? (T.pr.jt ? 'Back &amp; joints today' : 'Back today') : 'Joints today',
+          'bk', fin(L.bk) ? L.bk : '', [[0, 'Good'], [1, 'Tight'], [2, 'Sore']], '') +
         (L.bk === 1 ? '<div class="tr-note">Warm up a little longer, keep the first set of anything that loads ' +
           (T.pr.bk ? 'your back' + (T.pr.jt ? ' or your ' + esc(jts) : '') : 'your ' + esc(jts)) + ' light, and stop any lift that makes it worse.</div>' : '') +
         (L.bk === 2 ? '<div class="tr-note tr-warn">' + (T.pr.bk
@@ -3676,8 +3704,7 @@
     if (ask.length) {
       html += '<div class="tr-card tr-ask"><div class="tr-ql">Since you last trained them, how did they heal?</div>' +
         ask.map(function (m) {
-          return '<div class="tr-fbrow"><span class="tr-fbm">' + esc(mname(m)) + '</span>' +
-            chips('sore', fin(L.sr[m]) ? L.sr[m] : '', SORE.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '"') + '</div>';
+          return segQ(esc(mname(m)), 'sore', fin(L.sr[m]) ? L.sr[m] : '', SORE.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '"');
         }).join('') + '</div>';
     }
 
@@ -3838,15 +3865,64 @@
   function noPump(m) {
     return !!LIVE.keep || (Array.isArray(LIVE.fx) && LIVE.fx.length > 0 && LIVE.fx.indexOf(m) < 0);
   }
+  /* One question, its label above and its answers as a row of equal
+     buttons below — beside the label, a long answer wrapped under it and
+     knocked the row out of line. Four answers go two by two on a phone. */
+  function segQ(label, t, cur, opts, extra) {
+    return '<div class="tr-sq"><div class="tr-sq-l tr-fbm">' + label + '</div>' +
+      '<div class="tr-sq-g' + (opts.length === 4 ? ' four' : '') + '" style="--n:' + opts.length + '" role="group">' +
+      opts.map(function (o) {
+        return '<button class="tr-sqb" data-t="' + t + '" data-v="' + esc(o[0]) + '"' + (extra || '') +
+          ' aria-pressed="' + (cur !== '' && String(cur) === String(o[0])) + '">' + esc(o[1]) + '</button>';
+      }).join('') + '</div></div>';
+  }
+
+  /* Every question this muscle is asked, answered. */
+  function fbDone(m) {
+    var f = LIVE.fb[m] || {};
+    return (noPump(m) || fin(f.p)) && fin(f.k) && fin(f.j);
+  }
+  /* Whether a set of something else has been ticked since this muscle's
+     last one: you have moved on, and the card should get out of the way.
+     The other half of a pair does not count — its last set is the rest
+     you answer the card in. */
+  function movedOn(m) {
+    var last = 0, later = false, pairs = {};
+    LIVE.x.forEach(function (x) {
+      if (musOf(x.e) !== m) return;
+      if (x.p) pairs[x.p] = 1;
+      x.s.forEach(function (s) { if (s.t > last) last = s.t; });
+    });
+    LIVE.x.forEach(function (x) {
+      if (musOf(x.e) === m || (x.p && pairs[x.p])) return;
+      x.s.forEach(function (s) { if (s.t > last) later = true; });
+    });
+    return later;
+  }
+  var JOINT_W = ['fine', 'a little sore', 'hurting'];
+  /* The card, or once it is answered — or you have moved on to something
+     else, or put it away — a line saying what you said, which opens it again
+     with a tap. Anything left unanswered is asked again at Finish. */
   function fbCard(m) {
     var f = LIVE.fb[m] || {};
-    return '<div class="tr-card tr-ask"><div class="tr-ql">' + esc(mname(m)) + ' done \u2014 how was it?</div>' +
-      (noPump(m) ? '' : '<div class="tr-fbrow"><span class="tr-fbm">Pump</span>' +
-        chips('fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"') + '</div>') +
-      '<div class="tr-fbrow"><span class="tr-fbm">Workload</span>' +
-        chips('fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"') + '</div>' +
-      '<div class="tr-fbrow"><span class="tr-fbm">' + (T.pr.bk ? 'Back &amp; joints' : 'Joints') + '</span>' +
-        chips('fb', fin(f.j) ? f.j : '', JOINT.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="j"') + '</div>' +
+    var open = LIVE.fbo && LIVE.fbo[m];
+    var hid = LIVE.fbh && LIVE.fbh[m];
+    var jl = T.pr.bk ? 'Back &amp; joints' : 'Joints';
+    if (!open && (hid || fbDone(m) || movedOn(m))) {
+      var said = [];
+      if (!noPump(m) && fin(f.p)) said.push(PUMP_W[f.p]);
+      if (fin(f.k)) said.push(WORK_W[f.k]);
+      if (fin(f.j)) said.push((T.pr.bk ? 'back & joints ' : 'joints ') + JOINT_W[f.j]);
+      return '<button class="tr-card tr-ask tr-fbt" data-t="fbopen" data-m="' + m + '">' +
+        '<span class="tr-fbt-n">' + esc(mname(m)) + '</span>' +
+        '<span class="tr-fbt-s">' + esc(said.length ? said.join(' \u00b7 ') : 'not rated yet \u2014 tap to rate, or it is asked at Finish') + '</span>' +
+        '<span class="tr-fbt-e">' + (said.length ? 'Edit' : 'Rate') + '</span></button>';
+    }
+    return '<div class="tr-card tr-ask tr-fbc"><div class="tr-fbc-h"><span class="tr-ql">' + esc(mname(m)) + ' done \u2014 how was it?</span>' +
+        '<button class="tr-lnk" data-t="fbhide" data-m="' + m + '">Hide</button></div>' +
+      (noPump(m) ? '' : segQ('Pump', 'fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"')) +
+      segQ('Workload', 'fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"') +
+      segQ(jl, 'fb', fin(f.j) ? f.j : '', JOINT.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="j"') +
     '</div>';
   }
 
@@ -4014,7 +4090,7 @@
     else if (sh.k === 'axnew') body = axNewHTML(sh);
     else if (sh.k === 'ax') body = axSheetHTML(sh);
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
-      '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Train') + '">' +
+      '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(sh.eyebrow || '') + '</div>' +
           '<button class="sheet-x" data-t="close" aria-label="Close">&times;</button></div>' +
         body +
@@ -4255,12 +4331,10 @@
       (missing.length ? '<div class="tr-ask"><div class="tr-ql">Before you go — next week’s sets come from these</div>' +
         missing.map(function (m) {
           var f = LIVE.fb[m] || {};
-          return (noPump(m) ? '' : '<div class="tr-fbrow"><span class="tr-fbm">' + esc(mname(m)) + ' pump</span>' +
-              chips('fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"') + '</div>') +
-            '<div class="tr-fbrow"><span class="tr-fbm">' + esc(mname(m)) + ' workload</span>' +
-              chips('fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"') + '</div>';
+          return (noPump(m) ? '' : segQ(esc(mname(m)) + ' pump', 'fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"')) +
+            segQ(esc(mname(m)) + ' workload', 'fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"');
         }).join('') + '</div>' : '') +
-      '<div class="tr-note">Saving marks ' + (wo.dk === dayKey(new Date()) ? 'today' : 'that day') + ' as a training day in My Day.</div>' +
+      '<div class="tr-note">Saving marks ' + (wo.dk === dayKey(new Date()) ? 'today' : 'that day') + ' as a training day in Nourish.</div>' +
       '<div class="tr-acts"><button class="btn-primary" data-t="save">Save workout</button>' +
         '<button class="ghost" data-t="close">Keep going</button></div>';
   }
@@ -4273,7 +4347,7 @@
     return '<div class="sheet-name tr-sn2">' + esc(p.n) + '</div>' +
       '<div class="tr-sub">' + (p.deload ? 'Deload week' : 'Week ' + (sh.w + 1) + ' · ' + p.rir + ' RIR') +
         (wo ? ' · done ' + when(wo.st) : '') + '</div>' +
-      planList(p) +
+      planList(p, ms) +
       '<div class="tr-acts">' +
         (wo ? '<button class="ghost" data-t="wosheet" data-id="' + esc(wo.id) + '">See what you did</button>' : '') +
         (!LIVE ? '<button class="btn-primary" data-t="start" data-w="' + sh.w + '" data-d="' + sh.d + '">' + (wo ? 'Do it again' : 'Start this one') + '</button>' : '') +
@@ -4313,7 +4387,7 @@
     /* You first: what the next block is built around, and what the review
        reads your week against. A block already running keeps what it was
        built with; these shape the next one. */
-    return '<div class="sheet-name tr-sn2">Train settings</div>' +
+    return '<div class="sheet-name tr-sn2">Strengthen settings</div>' +
       q('About you', '<div class="tr-sub">' + esc(p.qz ? youLine(p) : 'Not answered yet.') + '</div>' +
         '<div class="tr-acts"><button class="ghost" data-t="requiz">' + (p.qz ? 'Change my answers' : 'Answer the questions') + '</button></div>',
         'Your goal, time, kit, what to look after and what you do outside the gym. The picks, your next block and the review all read these.') +
@@ -4332,13 +4406,13 @@
         chips('s-rp', p.rp, [[45, '0:45'], [60, '1:00'], [75, '1:15'], [90, '1:30']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">When rest is up</div>' + chips('s-snd', p.snd, [[1, 'Beep and buzz'], [0, 'Buzz only']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
-        '<div class="tr-sub">Kept on this device. Sign in under My Day → ⚙ → Sync &amp; sharing and it travels with your account, the same as your day.</div>' +
+        '<div class="tr-sub">Kept on this device. Sign in under Nourish → ⚙ → Sync &amp; sharing and it travels with your account, the same as your day.</div>' +
         '<div class="tr-sub">' + Object.keys(T.wo).length + ' workouts · about ' + kb + ' KB' +
           (kb > 600 ? ' — getting close to the 1 MB an account record can hold. Export a copy, then delete old workouts.' : '') + '</div>' +
         '<div class="tr-acts"><button class="ghost" data-t="export">Export a copy</button>' +
           '<label class="ghost tr-file">Restore from a copy<input type="file" id="trImport" accept="application/json,.json" hidden></label></div>' +
         (S.imp ? '<div class="tr-note">That file holds ' + Object.keys(S.imp.wo).length + ' workouts and ' +
-          Object.keys(S.imp.ms).length + ' blocks. Restoring replaces everything in Train on this device and in your account.</div>' +
+          Object.keys(S.imp.ms).length + ' blocks. Restoring replaces everything in Strengthen on this device and in your account.</div>' +
           '<div class="tr-acts"><button class="btn-primary danger" data-t="impgo">Replace with the copy</button></div>' : '') +
         (S.impErr ? '<div class="tr-note">' + esc(S.impErr) + '</div>' : '') +
       '</div>';
@@ -4454,7 +4528,7 @@
         });
         S.imp = n;
       } catch (e) {
-        S.impErr = 'That file is not a copy exported from Train.';
+        S.impErr = 'That file is not a copy exported from Strengthen (or Train, as it was).';
       }
       drawSheet();
     };
@@ -4501,14 +4575,28 @@
       }
       return;
     }
-    if (t === 'settings') { S.imp = null; S.impErr = ''; openSheet({ k: 'set', eyebrow: 'Train', title: 'Settings' }); return; }
+    if (t === 'settings') { S.imp = null; S.impErr = ''; openSheet({ k: 'set', eyebrow: 'Strengthen', title: 'Settings' }); return; }
 
     // the quiz
+    if (t === 'qzback') {
+      var zb0 = quiz();
+      zb0.back = !zb0.back;
+      if (!zb0.back) { zb0.a.bk = ''; zb0.bku = false; }
+      draw(); return;
+    }
+    if (t === 'qzbku') {
+      var zu = quiz();
+      zu.bku = !zu.bku;
+      zu.a.bk = zu.bku ? 'fcx' : '';
+      draw(); return;
+    }
     if (t === 'qz' || t === 'qzm') {
       var z = quiz(), f = el.getAttribute('data-f');
       if (t === 'qzm') {
         if (f === 'hab') z.a.hab = toggleIn(z.a.hab, v);
         else {
+          // picking a trigger replaces "not sure"
+          if (f === 'bk' && z.bku) { z.bku = false; z.a.bk = ''; }
           var order = f === 'jt' ? 'NSEWHKA' : 'fcx';
           z.a[f] = toggleIn(z.a[f].split(''), v).sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); }).join('');
         }
@@ -4527,6 +4615,8 @@
     }
     if (t === 'qzn') {
       var zn = quiz();
+      // Back ticked and nothing said about it: not sure, so play it safe
+      if (QSTEPS[zn.i] === 'pain' && zn.back && !zn.a.bk) { zn.a.bk = 'fcx'; zn.bku = true; }
       if (zn.i >= QSTEPS.length - 1) { quizDone(); return; }
       zn.i++; draw(); scrollTop(); return;
     }
@@ -4720,9 +4810,23 @@
       var fm = el.getAttribute('data-m'), ff = el.getAttribute('data-f');
       var f = LIVE.fb[fm] = LIVE.fb[fm] || {};
       if (f[ff] === Number(v)) delete f[ff]; else f[ff] = Number(v);
+      // reopened to change an answer: tucked again once every question has one
+      if (LIVE.fbo && LIVE.fbo[fm] && fbDone(fm)) delete LIVE.fbo[fm];
       saveLive();
       if (S.sheet && S.sheet.k === 'finish') drawSheet(); else draw();
       return;
+    }
+    if (t === 'fbopen' && LIVE) {
+      var om = el.getAttribute('data-m');
+      LIVE.fbo = LIVE.fbo || {}; LIVE.fbo[om] = 1;
+      if (LIVE.fbh) delete LIVE.fbh[om];
+      saveLive(); draw(); return;
+    }
+    if (t === 'fbhide' && LIVE) {
+      var hm = el.getAttribute('data-m');
+      LIVE.fbh = LIVE.fbh || {}; LIVE.fbh[hm] = 1;
+      if (LIVE.fbo) delete LIVE.fbo[hm];
+      saveLive(); draw(); return;
     }
     if (t === 'finish') { openSheet({ k: 'finish', eyebrow: 'Finish', title: 'Finish workout' }); return; }
     if (t === 'mcgo' && LIVE && LIVE.mc) {
