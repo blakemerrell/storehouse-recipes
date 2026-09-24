@@ -118,8 +118,8 @@ three ideas in one tab:
   ever picked for a program on its own. Effort can be logged as reps in reserve (the
   default) or as RPE by half steps (Settings → Effort on each set); it is stored as
   reps in reserve either way (RPE 8 = 2). *Export as a spreadsheet* writes every set as a
-  CSV in Strong's columns (plus RPE, RIR, set type and your weight), which *Bring in from
-  Strong* reads back.
+  CSV in Strong's columns (plus RPE, RIR, set type and your weight), which *Import from
+  another app* reads back.
 - *A lifetime of workouts:* signed in, workouts are kept in the account one record per
   calendar year (`users/{uid}/train/2026`), each far inside Firestore's 1 MB a record,
   so the history has no ceiling; everything else stays in the one record. It needs the
@@ -215,10 +215,20 @@ set, volume) and Records (the heaviest you have lifted for 1 to 12 reps beside w
 best estimated max says, and the records as they fell). Workouts are yours rather than the household's: they save on the device,
 and travel with your account when you sign in, in the same record as Nourish. Settings
 has kilograms, bar weight, rest times, export and restore of the whole log as a file, and
-**Bring in from Strong**: Strong's CSV export comes in as history — each lift matched to the
-library where it is the same lift on the same kit, the rest brought in as your own with
-their muscle guessed for you to check, warm-ups kept as warm-ups, RPE turned into reps in
-reserve, and as much as fits beside Nourish in the account's 1 MB.
+**Import from another app**: Strong, Hevy, Fitbod and FitNotes exports are recognised by
+their columns; any other app's CSV, a spreadsheet saved as CSV, or rows copied out of
+Excel, Google Sheets or Numbers and pasted (*Paste from a spreadsheet*) go through *Match
+the columns* — each thing a set needs (date, exercise, reps; weight, unit, number of sets,
+workout name, set type, RPE or RIR, notes if there) beside the column it guessed, the
+first workouts shown read that way, and the matching remembered for the next file with the
+same headings. Dates are read however they are written (ISO, 24 Sep 2024, Sep 24 2024,
+24.09.2024, a spreadsheet's day number), with day-first or month-first worked out from the
+file or asked; lb or kg from a unit column or the heading; a row with a sets column is
+that many sets. Everything comes in as history — each lift matched to the library where it
+is the same lift on the same kit (plain names like "Bench Press" too), the rest brought in
+as your own with their muscle guessed for you to check, warm-ups, drop sets and failure
+sets kept, RPE by half steps turned into reps in reserve — and is shown before anything is
+kept. The file is read on the phone; nothing is sent anywhere.
 
 **The printed book** (opened with *Print the book* on Recipes; it used to be a tab) — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 52
 pages, Around the Table is 116, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter

@@ -653,6 +653,8 @@
    * at home helps nobody. It is written on every keystroke, so a phone that
    * locks, dies or reloads mid-session comes back to the same set. */
   var LS_T = 'bsc.train', LS_TS = 'bsc.trainStamps', LS_LIVE = 'sh.trainLive', LS_SUB = 'sh.trainSub';
+  // how you matched the columns of a file no app of ours wrote, by its headings
+  var LS_IMAP = 'sh.importMap';
 
   function defaultsPr(p) {
     p = plain(p) ? p : {};
@@ -5258,7 +5260,7 @@
       return '<div class="empty">Finished workouts land here. Start one from Block.</div>';
     }
     return (S.sgDone ? '<div class="tr-card tr-ask tr-sgdone">Brought in ' + S.sgDone + ' workout' + (S.sgDone === 1 ? '' : 's') +
-        ' from Strong. Their records and charts are under Lifts, and a new block starts from their weights.</div>' : '') +
+        ' from ' + esc(S.sgFrom || 'your file') + '. Their records and charts are under Lifts, and a new block starts from their weights.</div>' : '') +
       '<div class="tr-hist">' + list.map(function (wo) {
       if (wo.ax) {
         var a = wo.ax;
@@ -5394,6 +5396,7 @@
     if (!S.sheet) return;
     if (S.sheet.k === 'wo') S.ed = null;
     if (S.sheet.k === 'strong') S.sg = null;
+    if (S.sheet.k === 'immap' || S.sheet.k === 'impaste') S.imap = null;
     S.sheet = null;
     S.arm = '';
     S.own = null;
@@ -5426,6 +5429,8 @@
     else if (sh.k === 'ready') body = readyHTML(sh);
     else if (sh.k === 'rtnew') body = rtNewHTML(sh);
     else if (sh.k === 'strong') body = strongHTML();
+    else if (sh.k === 'immap') body = imMapHTML();
+    else if (sh.k === 'impaste') body = imPasteHTML();
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(sh.eyebrow || '') + '</div>' +
@@ -6439,8 +6444,10 @@
         '<div class="tr-acts"><button class="ghost" data-t="export">Export a copy</button>' +
           '<button class="ghost" data-t="exportcsv">Export as a spreadsheet</button>' +
           '<label class="ghost tr-file">Restore from a copy<input type="file" id="trImport" accept="application/json,.json" hidden></label>' +
-          '<label class="ghost tr-file">Bring in from Strong<input type="file" id="trStrong" accept=".csv,text/csv" hidden></label></div>' +
-        '<div class="tr-hint">From Strong: Settings \u2192 Export data, then choose the file here. Your workouts come in as history \u2014 records, charts, and the weights a new block starts from.</div>' +
+          '<label class="ghost tr-file">Import from another app<input type="file" id="trStrong" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden></label>' +
+          '<button class="ghost" data-t="impaste">Paste from a spreadsheet</button></div>' +
+        '<div class="tr-hint">Strong, Hevy, Fitbod and FitNotes exports are recognised as they are. Any other app\u2019s export, or a spreadsheet saved as CSV, you match column by column, once. ' +
+          'Your workouts come in as history \u2014 records, charts, and the weights a new block starts from.</div>' +
         (S.imp ? '<div class="tr-note">That file holds ' + Object.keys(S.imp.wo).length + ' workouts and ' +
           Object.keys(S.imp.ms).length + ' blocks. Restoring replaces everything in Strengthen on this device and in your account.</div>' +
           '<div class="tr-acts"><button class="btn-primary danger" data-t="impgo">Replace with the copy</button></div>' : '') +
@@ -6550,7 +6557,7 @@
       S.draft.days[sh.d].s.push({ e: e, n: 2 });
     } else if (sh.mode === 'smap' && S.sg && S.sg.names && S.sg.names[sh.i]) {
       S.sg.names[sh.i].e = e;
-      openSheet({ k: 'strong', eyebrow: 'Bring in', title: 'From Strong' });
+      openSheet({ k: 'strong', eyebrow: 'Import', title: 'From ' + (S.sg.app || 'your file') });
       return;
     } else if (sh.mode === 'eadd' && S.ed && T.wo[S.ed.id]) {
       S.ed.x.push({ e: e, s: [{ w: '', r: '', q: '', o: null }] });
@@ -6684,8 +6691,9 @@
   function csvRows(text) {
     text = String(text || '').replace(/^﻿/, '');
     var first = text.split(/\r?\n/, 1)[0] || '';
-    var semi = (first.match(/;/g) || []).length, comma = (first.match(/,/g) || []).length;
-    var sep = semi > comma ? ';' : ',';
+    var semi = (first.match(/;/g) || []).length, comma = (first.match(/,/g) || []).length, tab = (first.match(/\t/g) || []).length;
+    // rows pasted from a spreadsheet are tab-separated
+    var sep = tab > comma && tab > semi ? '\t' : semi > comma ? ';' : ',';
     var rows = [], row = [], cell = '', q = false;
     for (var i = 0; i < text.length; i++) {
       var c = text[i];
@@ -6705,21 +6713,6 @@
     return rows;
   }
 
-  // "2023-05-14 08:12:33", or "5/14/2023 8:12 AM"; the local clock either way
-  function sgDate(s) {
-    s = String(s || '').trim();
-    var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-    if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0)).getTime();
-    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?/);
-    if (m) {
-      var h = +(m[4] || 12);
-      if (m[7] && /p/i.test(m[7]) && h < 12) h += 12;
-      if (m[7] && /a/i.test(m[7]) && h === 12) h = 0;
-      return new Date(+m[3], +m[1] - 1, +m[2], h, +(m[5] || 0), +(m[6] || 0)).getTime();
-    }
-    var t = Date.parse(s);
-    return fin(t) ? t : null;
-  }
   // "1h 5m", "45m", "01:05:00", or plain seconds
   function sgDur(s) {
     s = String(s || '').trim();
@@ -6742,6 +6735,17 @@
      dip is logged as the help, not the load, and comes in as the assisted
      lift, where the weight means exactly that. */
   var SG_MAP = {
+    // FitNotes, Fitbod and hand-kept spreadsheets say the lift without the kit
+    'flat barbell bench press': 'bb-bench', 'barbell bench press': 'bb-bench', 'bench press': 'bb-bench',
+    'barbell squat': 'bb-squat', 'back squat': 'bb-squat', 'squat': 'bb-squat', 'deadlift': 'bb-dl', 'conventional deadlift': 'bb-dl',
+    'overhead press': 'bb-ohp', 'military press': 'bb-ohp', 'barbell row': 'bb-row', 'bent over row': 'bb-row',
+    'pull ups': 'pullup', 'pullups': 'pullup', 'chin ups': 'chinup', 'dips': 'dip',
+    'romanian deadlift': 'bb-rdl', 'incline barbell bench press': 'bb-incline', 'incline bench press': 'bb-incline',
+    'dumbbell bench press': 'db-bench', 'flat dumbbell bench press': 'db-bench', 'incline dumbbell bench press': 'db-incline',
+    'dumbbell lateral raise': 'db-lat', 'lateral raise': 'db-lat', 'dumbbell curl': 'db-curl',
+    'barbell curl': 'bb-curl', 'hip thrust': 'hip-thrust', 'barbell hip thrust': 'hip-thrust', 
+    'lying leg curl': 'lying-curl', 'seated leg curl': 'seated-curl', 'standing calf raise': 'calf-stand', 'seated calf raise': 'calf-seat',
+    'sumo deadlift': 'sumo-dl', 'hex bar deadlift': 'trap-dl', 'assisted pull up': 'as-pullup', 'assisted dip': 'as-dip',
     'bench press barbell': 'bb-bench', 'bench press dumbbell': 'db-bench', 'chest press machine': 'mc-press',
     'incline bench press barbell': 'bb-incline', 'incline bench press dumbbell': 'db-incline',
     'incline bench press smith machine': 'sm-incline', 'chest dip': 'dip', 'dip': 'dip', 'push up': 'pushup-flat',
@@ -6818,59 +6822,160 @@
 
   /* The file, read into workouts and the exercises they use. Nothing is
      stored yet: the sheet shows what came in and what it matched first. */
-  function sgParse(text) {
-    var rows = csvRows(text);
-    if (rows.length < 2) return { err: 'That file is empty.' };
-    var head = rows[0].map(function (h) { return String(h).trim().toLowerCase(); });
-    var col = function () {
-      for (var i = 0; i < arguments.length; i++) { var at = head.indexOf(arguments[i]); if (at >= 0) return at; }
-      return -1;
-    };
-    var C = { date: col('date'), name: col('workout name'), dur: col('duration', 'workout duration'), ex: col('exercise name'),
-      ord: col('set order'), w: col('weight'), wu: col('weight unit'), r: col('reps'), rpe: col('rpe'),
-      nt: col('notes'), wnt: col('workout notes') };
-    if (C.date < 0 || C.ex < 0 || C.r < 0 || C.w < 0) {
-      return { err: 'That does not look like a Strong export: it needs Date, Exercise Name, Weight and Reps columns. In Strong: Settings → Export data.' };
+  /* ------------------------------------------------ from another app
+   *
+   * One import for any app's export, or any spreadsheet. The apps whose
+   * exports are known are recognised by their columns; anything else with a
+   * header row is matched by you, column by column, and remembered for the
+   * next file with the same columns. Rows copied straight out of a
+   * spreadsheet and pasted come in the same way (they are tab-separated).
+   *
+   * Every row is one set, except in a file with a column for the number of
+   * sets, where a row is that many sets alike. What comes in is always shown
+   * before anything is kept. */
+  var IM_ROLES = [
+    ['date', 'Date', 1], ['ex', 'Exercise', 1], ['r', 'Reps', 1], ['w', 'Weight', 0], ['wu', 'Weight unit', 0],
+    ['n', 'Number of sets', 0], ['name', 'Workout name', 0], ['ty', 'Set type', 0], ['rpe', 'RPE', 0], ['rir', 'RIR', 0],
+    ['nt', 'Notes', 0], ['dur', 'Duration', 0]
+  ];
+  // the words a column heading uses for each, most particular first
+  var IM_SYN = {
+    date: [/^date$/, /^start_?time$/, /^workout date$/, /^day$/, /^date ?time$/, /^timestamp$/, /date/],
+    ex: [/^exercise(_| )?(name|title)?$/, /^movement$/, /^lift$/, /^exercise/, /^name$/],
+    r: [/^reps?$/, /^repetitions$/, /^reps? ?(done|completed)?$/, /reps/],
+    w: [/^weight$/, /^weight[_ ]?\(?(lbs?|kgs?)\)?$/, /^load\b/, /^(lbs?|kgs?)$/, /weight/],
+    wu: [/^weight ?unit$/, /^unit$/, /^units$/],
+    n: [/^sets$/, /^number of sets$/, /^# ?sets$/],
+    name: [/^workout( name)?$/, /^title$/, /^routine$/, /^session$/, /^workout_?name$/],
+    ty: [/^set[_ ]?type$/, /^is_?warm_?up$/, /^type$/, /^set order$/],
+    rpe: [/^rpe$/],
+    rir: [/^rir$/, /^reps in reserve$/],
+    nt: [/^notes?$/, /^comments?$/, /^exercise_?notes$/, /^set notes$/],
+    dur: [/^duration$/, /^workout duration$/, /^duration_?seconds$/]
+  };
+  function imGuess(head) {
+    var used = {}, C = {};
+    IM_ROLES.forEach(function (ro) {
+      var list = IM_SYN[ro[0]] || [];
+      C[ro[0]] = -1;
+      for (var a = 0; a < list.length && C[ro[0]] < 0; a++) {
+        for (var i = 0; i < head.length; i++) if (!used[i] && list[a].test(head[i])) { C[ro[0]] = i; used[i] = 1; break; }
+      }
+    });
+    return C;
+  }
+  // lb or kg from a column heading: "weight_kg", "Weight (lbs)", "Weight(kg)"
+  function imHeadUnit(h) { return /kg/.test(h) ? 'kg' : /lb/.test(h) ? 'lb' : ''; }
+
+  /* The apps whose exports are known, by the columns only they have. Each
+     says which column is which, where that is not just the heading's word. */
+  function imDetect(head) {
+    var has = function (h) { return head.indexOf(h) >= 0; };
+    var at = function () { for (var i = 0; i < arguments.length; i++) { var k = head.indexOf(arguments[i]); if (k >= 0) return k; } return -1; };
+    var C;
+    if (has('exercise name') && (has('set order') || has('workout name')) && has('reps') && has('weight')) {
+      return { app: has('rir') && has('set type') ? 'Strengthen' : 'Strong', C: { date: at('date'), name: at('workout name'), dur: at('duration', 'workout duration'), ex: at('exercise name'),
+        ord: at('set order'), w: at('weight'), wu: at('weight unit'), r: at('reps'), rpe: at('rpe'), nt: at('notes'), wnt: at('workout notes') } };
     }
-    var byKey = {}, order = [], names = {}, nOrder = [], units = {}, skipped = 0;
+    if (has('exercise_title') && has('start_time') && has('reps')) {
+      var hw = at('weight_lbs', 'weight_kg', 'weight');
+      return { app: 'Hevy', unit: hw >= 0 ? imHeadUnit(head[hw]) : '', C: { date: at('start_time'), end: at('end_time'), name: at('title'),
+        ex: at('exercise_title'), ty: at('set_type'), w: hw, r: at('reps'), rpe: at('rpe'), nt: at('exercise_notes'), wnt: at('description') } };
+    }
+    if (has('iswarmup') || (has('exercise') && has('weight(kg)'))) {
+      return { app: 'Fitbod', unit: 'kg', utc: true, C: { date: at('date'), ex: at('exercise'), ty: at('iswarmup'), w: at('weight(kg)', 'weight'),
+        r: at('reps'), nt: at('note') } };
+    }
+    if (has('category') && has('exercise') && (has('weight (kgs)') || has('weight (lbs)')) && has('reps')) {
+      var fw = at('weight (kgs)', 'weight (lbs)');
+      return { app: 'FitNotes', unit: imHeadUnit(head[fw]), C: { date: at('date'), ex: at('exercise'), w: fw, r: at('reps'), nt: at('comment') } };
+    }
+    return null;
+  }
+
+  /* Day and month the right way round, from the file itself: a first number
+     over twelve means day first, a second one means month first. Neither
+     is asked. */
+  function imOrder(vals) {
+    var dmy = false, mdy = false;
+    vals.forEach(function (v) {
+      var m = String(v || '').trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+      if (!m) return;
+      if (+m[1] > 12) dmy = true;
+      if (+m[2] > 12) mdy = true;
+    });
+    return dmy && !mdy ? 'dmy' : mdy && !dmy ? 'mdy' : dmy && mdy ? 'bad' : '';
+  }
+
+  function sgParse(text, map) {
+    var rows = csvRows(text);
+    if (rows.length < 2) return { err: 'That file is empty, or has only one line.' };
+    var raw = rows[0].map(function (h) { return String(h).trim(); });
+    var head = raw.map(function (h) { return h.toLowerCase(); });
+    var sig = head.join('|');
+    var D = map ? { app: map.app || 'your file', unit: map.unit || '', C: map.C, order: map.order || '' } : imDetect(head);
+    if (!D) {
+      /* Not an app this knows: the columns to match, guessed, or as you
+         matched them the last time a file had these same headings. */
+      var mem = readLS(LS_IMAP) || {};
+      var guess = mem[sig] && mem[sig].C ? mem[sig].C : imGuess(head);
+      var dcol = guess.date;
+      return { need: 'map', head: raw, sig: sig, C: guess, text: text, n: rows.length - 1,
+        order: dcol >= 0 ? imOrder(rows.slice(1, 400).map(function (r) { return r[dcol]; })) : '',
+        unit: (mem[sig] && mem[sig].unit) || (guess.w >= 0 ? imHeadUnit(head[guess.w]) : '') };
+    }
+    var C = D.C;
+    if (!(C.date >= 0) || !(C.ex >= 0) || !(C.r >= 0)) {
+      return { err: 'It needs a date, an exercise and the reps for each set. Choose which columns those are.', need: 'map', head: raw, sig: sig, C: C, text: text, n: rows.length - 1 };
+    }
+    var order = D.order || imOrder(rows.slice(1, 400).map(function (r) { return r[C.date]; }));
+    var byKey = {}, wosIn = [], names = {}, nOrder = [], units = {}, skipped = 0;
     rows.slice(1).forEach(function (r) {
       var get = function (i) { return i >= 0 && i < r.length ? String(r[i]).trim() : ''; };
-      var st = sgDate(get(C.date)), exn = get(C.ex).slice(0, 80);
-      if (!fin(st) || !exn) return;
-      var so = get(C.ord).toUpperCase();
-      var reps = sgNum(get(C.r)), w = sgNum(get(C.w));
+      var dcell = get(C.date), st = imDate(dcell, order, D.utc), exn = get(C.ex).slice(0, 80);
+      if (!fin(st) || !exn) { skipped++; return; }
+      // Strong's set order says the kind of set; anything else says it in words
+      var so = get(C.ord).toUpperCase(), tyw = get(C.ty).toLowerCase();
+      var reps = sgNum(get(C.r)), wtxt = get(C.w), w = /^(bw|body ?weight)$/i.test(wtxt) ? 0 : sgNum(wtxt.replace(/^\+/, ''));
       // a timed or distance set, a rest-timer row, or a set never done
       if (!(reps > 0) || (so && !/^\d+$/.test(so) && ['W', 'D', 'F'].indexOf(so) < 0)) { skipped++; return; }
-      var key = get(C.date) + '|' + get(C.name);
+      var wname = get(C.name);
+      var key = C.name >= 0 || /\d:\d/.test(dcell) ? dcell + '|' + wname : dayKey(new Date(st)) + '|' + wname;
       var wo = byKey[key];
       if (!wo) {
-        wo = byKey[key] = { key: key, st: st, n: get(C.name).slice(0, 60) || 'Workout', dur: sgDur(get(C.dur)), x: [], xi: {}, nt: [] };
-        order.push(wo);
+        var dur = sgDur(get(C.dur));
+        if (!dur && C.end >= 0) { var en = imDate(get(C.end), order, D.utc); if (fin(en) && en > st) dur = en - st; }
+        wo = byKey[key] = { key: key, st: st, n: wname.slice(0, 60) || 'Workout', dur: dur, x: [], xi: {}, nt: [] };
+        wosIn.push(wo);
       }
       var wnt = get(C.wnt);
       if (wnt && wo.nt.indexOf(wnt) < 0) wo.nt.unshift(wnt);
       var ent = get(C.nt);
       if (ent && wo.nt.indexOf(exn + ': ' + ent) < 0) wo.nt.push(exn + ': ' + ent);
       var ru = C.wu >= 0 ? get(C.wu).toLowerCase() : '';
-      ru = ru ? (/kg/.test(ru) ? 'kg' : 'lb') : '';
+      ru = ru ? (/kg|kilo/.test(ru) ? 'kg' : 'lb') : /kg/i.test(wtxt) ? 'kg' : /lb/i.test(wtxt) ? 'lb' : D.unit || '';
       if (ru) units[ru] = 1;
       var x = wo.xi[exn];
       if (!x) { x = wo.xi[exn] = { nm: exn, s: [] }; wo.x.push(x); }
       var set = { w: w !== null && w > 0 ? Math.round(w * 100) / 100 : 0, r: Math.round(reps) };
       if (ru) set.su = ru;
-      if (so === 'W') set.wu = 1;
-      else if (so === 'D') set.ty = 'd';
-      else if (so === 'F') set.ty = 'f';
-      var rpe = sgNum(get(C.rpe));
+      if (so === 'W' || /warm|^true$|^1$|^yes$/.test(tyw)) set.wu = 1;
+      else if (so === 'D' || /drop/.test(tyw)) set.ty = 'd';
+      else if (so === 'F' || /fail/.test(tyw)) set.ty = 'f';
       // RPE by its half steps, as Strong logs it: 8.5 is one and a half in reserve
+      var rpe = sgNum(get(C.rpe)), rir = sgNum(get(C.rir));
       if (rpe !== null && rpe >= 5 && rpe <= 10) set.q = Math.max(0, Math.min(5, Math.round((10 - rpe) * 2) / 2));
-      x.s.push(set);
+      else if (rir !== null && rir >= 0 && rir <= 10) set.q = Math.min(5, Math.round(rir * 2) / 2);
+      // a row that is several sets alike
+      var many = Math.max(1, Math.min(20, Math.round(sgNum(get(C.n)) || 1)));
+      for (var k = 0; k < many; k++) x.s.push(k ? clean(set) : set);
       if (!names[exn]) { names[exn] = { nm: exn, n: 0 }; nOrder.push(exn); }
-      names[exn].n++;
+      names[exn].n += many;
     });
-    if (!order.length) return { err: 'No lifting sets in that file: every row was timed, a distance, or empty.' };
-    order.sort(function (a, b) { return a.st - b.st; });
-    order.forEach(function (w) { delete w.xi; });
+    if (!wosIn.length) return { err: 'No lifting sets in that file: every row was timed, a distance, empty, or had no date.' };
+    var order2 = wosIn;
+    order2.sort(function (a, b) { return a.st - b.st; });
+    order2.forEach(function (w) { delete w.xi; });
     var list = nOrder.map(function (nm) {
       var g = sgGuess(nm);
       return { nm: nm, n: names[nm].n, e: sgMatch(nm), m: g.m, q: g.q, k: g.k };
@@ -6879,7 +6984,7 @@
        unit halfway (132.5 kg is not 132.5 lb). A file in one unit comes in
        as that unit; a mixed one is brought to yours, set by set. */
     var uk = Object.keys(units), unit = uk.length === 1 ? uk[0] : T.pr.u;
-    order.forEach(function (w) {
+    order2.forEach(function (w) {
       w.x.forEach(function (x) {
         x.s.forEach(function (s) {
           if (s.su && s.su !== unit && s.w > 0) s.w = Math.round((s.su === 'kg' ? s.w * 2.20462 : s.w / 2.20462) * 2) / 2;
@@ -6887,8 +6992,65 @@
         });
       });
     });
-    return { wos: order, names: list, unit: unit, fixedUnit: uk.length >= 1, mixed: uk.length > 1, skipped: skipped, range: 0 };
+    return { wos: order2, names: list, unit: unit, fixedUnit: uk.length >= 1, mixed: uk.length > 1, skipped: skipped, range: 0,
+      app: D.app, order: order === 'bad' ? '' : order };
   }
+
+  /* A date as any of these apps or a spreadsheet writes it:
+       2024-09-24 18:30:00 (+0000 as Fitbod adds)   24 Sep 2024, 18:30 (Hevy)
+       9/24/2024 6:30 PM or 24/09/2024 by the file's order    Sep 24, 2024
+       24.09.2024    and a spreadsheet's day number (45559). */
+  // month by its first three letters (MON is the names, for showing)
+  var MON_IX = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  function imDate(s, order, utc) {
+    s = String(s || '').trim();
+    if (!s) return null;
+    var hm = function (h, mi, se, ap) {
+      h = +(h || 12);
+      if (ap && /p/i.test(ap) && h < 12) h += 12;
+      if (ap && /a/i.test(ap) && h === 12) h = 0;
+      return [h, +(mi || 0), +(se || 0)];
+    };
+    var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?\s*(Z|[+-]\d{2}:?\d{2})?)?/);
+    if (m) {
+      var z = m[7];
+      if (z) {
+        var off = z === 'Z' ? 0 : (z[0] === '-' ? -1 : 1) * (+z.slice(1, 3) * 60 + +z.slice(-2));
+        return Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0)) - off * 60000;
+      }
+      return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0)).getTime();
+    }
+    m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?/);
+    if (m) {
+      var y = +m[3] < 100 ? 2000 + +m[3] : +m[3], t = hm(m[4], m[5], m[6], m[7]);
+      var dmy = order === 'dmy' || (order !== 'mdy' && s.indexOf('.') > 0);
+      var mo = dmy ? +m[2] : +m[1], d = dmy ? +m[1] : +m[2];
+      if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+      return new Date(y, mo - 1, d, t[0], t[1], t[2]).getTime();
+    }
+    // 24 Sep 2024, 18:30
+    m = s.match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?,?\s+(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?/);
+    if (m && MON_IX[m[2].toLowerCase()] !== undefined) {
+      var t1 = hm(m[4], m[5], m[6], m[7]);
+      return new Date(+m[3], MON_IX[m[2].toLowerCase()], +m[1], t1[0], t1[1], t1[2]).getTime();
+    }
+    // Sep 24, 2024 6:30 PM
+    m = s.match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?/);
+    if (m && MON_IX[m[1].toLowerCase()] !== undefined) {
+      var t2 = hm(m[4], m[5], m[6], m[7]);
+      return new Date(+m[3], MON_IX[m[1].toLowerCase()], +m[2], t2[0], t2[1], t2[2]).getTime();
+    }
+    // a spreadsheet's own day count, from 1900
+    if (/^\d{5}(\.\d+)?$/.test(s) && +s > 20000 && +s < 80000) {
+      var base = new Date(1899, 11, 30).getTime(), days = Math.floor(+s), frac = +s - days;
+      var dd = new Date(base + days * DAY_MS);
+      return new Date(dd.getFullYear(), dd.getMonth(), dd.getDate(), frac ? 0 : 12, 0, 0).getTime() + Math.round(frac * DAY_MS);
+    }
+    var tt = Date.parse(s);
+    return fin(tt) ? tt : null;
+  }
+  // the old name, still what a Strong file's dates go through
+  function sgDate(s) { return imDate(s, 'mdy'); }
 
   // letters and digits, the same every time the same workout comes in
   function sgId(w) {
@@ -6943,30 +7105,88 @@
 
   function readStrong(file) {
     var fr = new FileReader();
-    fr.onload = function () {
-      var G = sgParse(fr.result);
-      if (!G.err) G.range = sgFit(G);
-      S.sg = G;
-      openSheet({ k: 'strong', eyebrow: 'Bring in', title: 'From Strong' });
-    };
+    fr.onload = function () { imRead(fr.result); };
     fr.readAsText(file);
+  }
+  // a file or pasted rows: straight to what came in, or first to matching its columns
+  function imRead(text) {
+    var G = sgParse(text);
+    if (G.need === 'map') {
+      S.imap = G;
+      openSheet({ k: 'immap', eyebrow: 'Import', title: 'Match the columns' });
+      return;
+    }
+    if (!G.err) G.range = sgFit(G);
+    S.sg = G;
+    openSheet({ k: 'strong', eyebrow: 'Import', title: G.app ? 'From ' + G.app : 'Import' });
+  }
+
+  function imPasteHTML() {
+    return '<div class="sheet-name tr-sn2">Paste from a spreadsheet</div>' +
+      '<div class="tr-sub">In Excel, Google Sheets or Numbers, select the rows with the heading row at the top, copy, and paste here. One row a set, or a row with a column for how many sets.</div>' +
+      '<textarea class="txt tr-paste" id="trPaste" rows="8" placeholder="Date\tExercise\tWeight\tReps\n2024-09-24\tBench Press\t185\t8"></textarea>' +
+      (S.imErr ? '<div class="tr-note tr-warn">' + esc(S.imErr) + '</div>' : '') +
+      '<div class="tr-acts"><button class="btn-primary" data-t="impread">Read it</button><button class="ghost" data-t="close">Cancel</button></div>';
+  }
+
+  /* Matching the columns of a file no app of ours wrote: each thing a set
+     needs beside the heading it guessed, and the first rows read that way,
+     so a wrong guess shows before anything comes in. */
+  function imMapHTML() {
+    var M = S.imap;
+    if (!M) return '';
+    var opts = function (cur) {
+      return '<option value="-1"' + (cur < 0 ? ' selected' : '') + '>\u2014 none \u2014</option>' + M.head.map(function (h, i) {
+        return '<option value="' + i + '"' + (cur === i ? ' selected' : '') + '>' + esc(h || 'Column ' + (i + 1)) + '</option>';
+      }).join('');
+    };
+    var ok = M.C.date >= 0 && M.C.ex >= 0 && M.C.r >= 0;
+    var G = ok ? sgParse(M.text, { C: M.C, order: M.order === 'bad' ? '' : M.order, unit: M.unit, app: 'your file' }) : null;
+    var peek = G && !G.err ? G.wos.slice(0, 3).map(function (w) {
+      return '<li>' + esc(when(w.st)) + ' \u00b7 ' + w.x.map(function (x) {
+        var z = x.s[0];
+        return esc(x.nm) + ' ' + x.s.length + ' \u00d7 ' + z.r + (z.w > 0 ? ' @ ' + fmtN(z.w) : '');
+      }).join(', ') + '</li>';
+    }).join('') : '';
+    var dates = M.C.date >= 0 && /\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}/.test(String((csvRows(M.text)[1] || [])[M.C.date] || ''));
+    return '<div class="sheet-name tr-sn2">Match the columns</div>' +
+      '<div class="tr-sub">' + (M.err ? esc(M.err) : 'This file isn\u2019t from an app we know, so say which column is which. Only the date, the exercise and the reps are needed.') +
+        ' ' + M.n + ' row' + (M.n === 1 ? '' : 's') + '.</div>' +
+      /* The six most files have, then the rest folded away, open when one of
+         them was matched. */
+      (function () {
+        var row = function (ro) {
+          return '<label class="tr-imr"><span>' + ro[1] + (ro[2] ? ' <b>*</b>' : '') + '</span>' +
+            '<select class="tr-in" data-imc="' + ro[0] + '" aria-label="Which column is ' + esc(ro[1]) + '">' + opts(M.C[ro[0]] === undefined ? -1 : M.C[ro[0]]) + '</select></label>';
+        };
+        var more = IM_ROLES.slice(6), open = more.some(function (ro) { return M.C[ro[0]] >= 0; }) || S.imMore;
+        return '<div class="tr-imap">' + IM_ROLES.slice(0, 6).map(row).join('') + '</div>' +
+          '<details class="tr-immore" id="trImMore"' + (open ? ' open' : '') + '><summary>More columns, if the file has them</summary>' +
+            '<div class="tr-imap">' + more.map(row).join('') + '</div></details>';
+      }()) +
+      (dates ? '<div class="tr-q"><div class="tr-ql">Dates are written</div>' + chips('imord', M.order === 'dmy' ? 'dmy' : 'mdy', [['mdy', 'Month first (9/24)'], ['dmy', 'Day first (24/9)']]) +
+        (M.order === 'dmy' || M.order === 'mdy' ? '<div class="tr-hint">Worked out from the file.</div>' : '') + '</div>' : '') +
+      (G && G.err ? '<div class="tr-note tr-warn">' + esc(G.err) + '</div>' : '') +
+      (peek ? '<div class="tr-ql tr-chart-h">Read this way, the first workouts are</div><ul class="tr-fits">' + peek + '</ul>' : '') +
+      '<div class="tr-acts"><button class="btn-primary" data-t="imok"' + (ok && G && !G.err ? '' : ' disabled') + '>Next</button>' +
+        '<button class="ghost" data-t="close">Cancel</button></div>';
   }
 
   function strongHTML() {
     var G = S.sg;
     if (!G) return '';
-    if (G.err) return '<div class="sheet-name tr-sn2">From Strong</div><div class="tr-note">' + esc(G.err) + '</div>';
+    if (G.err) return '<div class="sheet-name tr-sn2">Import</div><div class="tr-note">' + esc(G.err) + '</div>';
     var pick = sgPick(G, G.range);
     var had = G.wos.length - sgPick(G, 0).length;
     var add = G.size[G.range] || 0;
     var over = fitSay(sgList(G, G.range));
     var matched = G.names.filter(function (n) { return n.e; }).length;
-    return '<div class="sheet-name tr-sn2">From Strong</div>' +
+    return '<div class="sheet-name tr-sn2">From ' + esc(G.app || 'your file') + '</div>' +
       '<div class="tr-sub">' + G.wos.length + ' workouts, ' + when(G.wos[0].st) + ' to ' + when(G.wos[G.wos.length - 1].st) +
         (had ? '. ' + had + ' of them ' + (had === 1 ? 'is' : 'are') + ' here already and ' + (had === 1 ? 'is' : 'are') + ' left alone' : '') +
         (G.skipped ? '. ' + G.skipped + ' timed or distance set' + (G.skipped === 1 ? '' : 's') + ' left out' : '') + '.</div>' +
       (G.fixedUnit ? '' : q('Weights in this file are in', chips('sgu', G.unit, [['lb', 'Pounds'], ['kg', 'Kilograms']]),
-        'Strong exports in whatever unit it was set to.')) +
+        'The file doesn\u2019t say, so which it was set to.')) +
       '<div class="tr-q"><div class="tr-ql">How far back</div>' +
         chips('sgr', G.range, SG_RANGES.map(function (r) { return [r[0], r[1] + ' (' + sgPick(G, r[0]).length + ')']; })) +
         '<div class="tr-hint' + (over ? ' tr-warn' : '') + '">' + esc(over ||
@@ -7637,10 +7857,37 @@
       openSheet({ k: 'pick', mode: 'smap', i: num('data-i'), eyebrow: 'Match', title: 'Match ' + sn.nm });
       return;
     }
+    if (t === 'impaste') { S.imErr = ''; openSheet({ k: 'impaste', eyebrow: 'Import', title: 'Paste' }); return; }
+    if (t === 'impread') {
+      var pt = ($('trPaste') || {}).value || '';
+      if (!pt.trim()) { S.imErr = 'Nothing pasted yet.'; drawSheet(); return; }
+      S.imErr = '';
+      imRead(pt);
+      return;
+    }
+    if (t === 'imord' && S.imap) { S.imap.order = v === 'dmy' ? 'dmy' : 'mdy'; drawSheet(); return; }
+    if (t === 'imok' && S.imap) {
+      var M = S.imap;
+      var G2 = sgParse(M.text, { C: M.C, order: M.order === 'bad' ? '' : M.order, unit: M.unit, app: 'your file' });
+      if (G2.err) { M.err = G2.err; drawSheet(); return; }
+      // the same headings next time are matched the same way
+      var mem = readLS(LS_IMAP) || {};
+      mem[M.sig] = { C: M.C, unit: M.unit || '' };
+      var keys = Object.keys(mem);
+      if (keys.length > 20) delete mem[keys[0]];
+      writeLS(LS_IMAP, mem);
+      G2.range = sgFit(G2);
+      S.imap = null;
+      S.sg = G2;
+      openSheet({ k: 'strong', eyebrow: 'Import', title: 'From your file' });
+      return;
+    }
     if (S.sg && t === 'sggo') {
+      var from = S.sg.app || 'your file';
       var got = sgGo();
       closeSheet();
       S.sgDone = got;
+      S.sgFrom = from;
       setSub('history');
       scrollTop();
       return;
@@ -7744,6 +7991,18 @@
       var el = e.target;
       if (el && el.id === 'trImport' && el.files && el.files[0]) readImport(el.files[0]);
       if (el && el.id === 'trStrong' && el.files && el.files[0]) { readStrong(el.files[0]); el.value = ''; }
+      var imc = el && el.getAttribute && el.getAttribute('data-imc');
+      if (imc && S.imap) {
+        var ci = Number(el.value);
+        // one column does one job: taking it for this clears it from another
+        Object.keys(S.imap.C).forEach(function (k) { if (k !== imc && S.imap.C[k] === ci && ci >= 0) S.imap.C[k] = -1; });
+        S.imap.C[imc] = ci;
+        if (imc === 'w' && ci >= 0 && !S.imap.unit) S.imap.unit = imHeadUnit(S.imap.head[ci].toLowerCase());
+        S.imMore = !!($('trImMore') && $('trImMore').open);
+        if (imc === 'date' && ci >= 0) S.imap.order = imOrder(csvRows(S.imap.text).slice(1, 400).map(function (r) { return r[ci]; }));
+        drawSheet();
+        return;
+      }
       var sgm = el && el.getAttribute && el.getAttribute('data-sgm');
       if (sgm !== null && sgm !== undefined && S.sg && S.sg.names && S.sg.names[Number(sgm)] && MUS[el.value]) {
         S.sg.names[Number(sgm)].m = el.value;
@@ -7803,7 +8062,7 @@
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
-      dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
+      dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }
