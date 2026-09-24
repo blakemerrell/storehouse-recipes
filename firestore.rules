@@ -53,6 +53,23 @@ service cloud.firestore {
     }
 
     /*
+     * Strengthen's workouts, one record per calendar year under your own
+     * (users/{uid}/train/2026). A single record holds a megabyte, and a year
+     * of training is about a third of one, so one record for everything
+     * filled in about three years. By year, there is no ceiling.
+     *
+     * Guarded exactly as your own record is: by whose it is. list is on here,
+     * where the one above has it off, because the app reads your years as a
+     * set and deleting your account has to find every one of them — and a
+     * list under /users/{uid}/train can only ever be of your own uid's, since
+     * the uid in the path has to be yours. It grants no way to list anybody
+     * else's, or the users collection itself.
+     */
+    match /users/{uid}/train/{year} {
+      allow get, list, create, update, delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    /*
      * An invite: one person into one household, once, within a week.
      *
      * Made only by somebody already on that household's members list, naming

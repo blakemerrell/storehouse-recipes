@@ -109,6 +109,16 @@ three ideas in one tab:
   can add the ramp to the log as W sets. Removing a lift that has done sets asks twice.
   Settings says whether your training is only on this phone or saved to your account, and
   a save that fails is shown and retried rather than dropped silently.
+- *A lifetime of workouts:* signed in, workouts are kept in the account one record per
+  calendar year (`users/{uid}/train/2026`), each far inside Firestore's 1 MB a record,
+  so the history has no ceiling; everything else stays in the one record. It needs the
+  `users/{uid}/train/{year}` rule in `firestore.rules` published (SETUP.md, step 4).
+  Until it is, the app keeps everything in the one record as before and Settings says
+  so; once it is, it copies each workout to its year and only then takes it out of the
+  one record. A session's first push sends only workouts newer than their year holds.
+  Deleting the account deletes every year's record first. Imports (Strong, or a
+  restored copy) that would overfill a record, or the phone, are refused with the
+  reason, and a phone whose storage is full says so instead of dropping changes.
 - *New to lifting:* answering *New, or under a year* (or tapping *I'm new — choose for me*
   on the first question) gets one program, Start here, with the rest a tap away, and
   exercises that are easy to learn first: machines, dumbbells and a pulldown before

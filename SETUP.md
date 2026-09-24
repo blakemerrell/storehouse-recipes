@@ -45,9 +45,41 @@ service cloud.firestore {
       allow get, create, update: if request.auth != null;
       allow list, delete: if false;
     }
+    match /users/{uid} {
+      allow get, create, update, delete: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+    }
+    match /users/{uid}/train/{year} {
+      allow get, list, create, update, delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /invites/{token} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.used == false
+        && request.resource.data.house is string
+        && request.resource.data.exp is int
+        && request.auth.uid in get(/databases/$(database)/documents/households/$(request.resource.data.house)).data.members;
+      allow update: if request.auth != null
+        && resource.data.used == false
+        && resource.data.exp > request.time.toMillis()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy'])
+        && request.resource.data.used == true
+        && request.resource.data.usedBy == request.auth.uid;
+      allow list, delete: if false;
+    }
   }
 }
 ```
+
+> **Already set up, and adding Strengthen's yearly records?** Your rules have
+> everything above except the three lines starting `match /users/{uid}/train/{year}`.
+> Paste the whole block above over what is there (it is the same as
+> `firestore.rules` in this repository, without the comments) and press
+> **Publish**. Until you do, Strengthen keeps every workout in your one account
+> record, as before — which fills at about 1 MB, roughly three years of training —
+> and Settings says so. After, the next time the app opens it copies your workouts
+> into one record per year, and only then takes them out of the old record.
 
 The split matters. `read` is two permissions wearing one name — `get`, which
 fetches the one household whose code you typed, and `list`, which queries the

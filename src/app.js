@@ -1781,7 +1781,10 @@
       mSyncDoc = db.collection('users').doc(uid);
       /* Train keeps its log in the same document, under `train`, and rides
          this listener rather than opening a second one on the same record. */
-      if (window.Train) window.Train.attach(mSyncDoc);
+      /* Its workouts go a year to a record under this one (see attach in
+         train.js), and moving them out of this record needs Firestore's
+         delete marker, which only the loaded SDK has. */
+      if (window.Train) window.Train.attach(mSyncDoc, window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue);
       /* includeMetadataChanges for the same reason as the household
          listener in sync.js: the step from a cache answer to a server answer
          changes no data, and without it that step is never heard. */

@@ -902,8 +902,16 @@ window.Store = (function () {
            Reporting "could not delete, sign in again first" over a wiped
            account reads as "nothing happened" — and the one thing that had
            happened was the irreversible half. */
-        var wiped = false;
-        return db.collection('users').doc(u.uid).delete()
+        var wiped = false, mine = db.collection('users').doc(u.uid);
+        /* Strengthen's workouts live a year to a record under this one, and
+           deleting a record in Firestore leaves the records under it where
+           they are. So those go first, every one of them, then this. A
+           refusal to list them means the rule that lets them exist was never
+           published, so there are none. */
+        return mine.collection('train').get()
+          .then(function (qs) { return Promise.all(qs.docs.map(function (d) { return d.ref.delete(); })); },
+            function (err) { if (err && err.code === 'permission-denied') return null; throw err; })
+          .then(function () { return mine.delete(); })
           .then(function () { wiped = true; return onGone ? onGone() : null; })
           .then(function () { return u.delete(); })
           .catch(function (err) {

@@ -2599,5 +2599,135 @@ module.exports = {
     r = await p.evaluate(() => (document.querySelector('[data-t="s-nobw"][aria-pressed="true"]') || {}).textContent || '');
     t.ok('and Settings shows it, to switch back', r === 'Don’t ask', r);
     await p.close();
+
+    // ---- a lifetime of workouts: a record a year in the account -------------------------
+    /* A stand-in for the account: the one record, the records under it, and
+       Firestore's delete marker. `deny` is the database before the rule for
+       the yearly records is published. */
+    const fakeAcct = () => {
+      window.__acct = { main: {}, yrs: {}, writes: [], deny: false };
+      const A = window.__acct, DEL = { __del: 1 };
+      const put = (to, from) => { Object.keys(from).forEach((k) => {
+        const v = from[k];
+        if (v === DEL) delete to[k];
+        else if (v && typeof v === 'object' && !Array.isArray(v) && to[k] && typeof to[k] === 'object') put(to[k], v);
+        else to[k] = JSON.parse(JSON.stringify(v, (kk, vv) => (vv === DEL ? undefined : vv)));
+      }); };
+      const cut = (o) => JSON.parse(JSON.stringify(o, (k, v) => (v === DEL ? '(deleted)' : v)));
+      const snap = () => ({ metadata: { fromCache: false }, forEach: (fn) => Object.keys(A.yrs).forEach((y) => fn({ id: y, data: () => JSON.parse(JSON.stringify(A.yrs[y])) })) });
+      A.doc = {
+        set: (d) => { A.writes.push(['main', cut(d)]); put(A.main, d); return Promise.resolve(); },
+        collection: () => ({
+          doc: (y) => ({ set: (d) => { if (A.deny) return Promise.reject({ code: 'permission-denied' }); A.writes.push([y, cut(d)]); A.yrs[y] = A.yrs[y] || {}; put(A.yrs[y], d); return Promise.resolve(); } }),
+          onSnapshot: (o, next, err) => { setTimeout(() => (A.deny ? err({ code: 'permission-denied' }) : next(snap())), 10); return () => {}; },
+        }),
+      };
+      A.fv = { delete: () => DEL };
+    };
+    const acctSeed = async (q, deny) => {
+      await q.evaluate(({ fake, deny }) => {
+        eval('(' + fake + ')')();
+        window.__acct.deny = deny;
+        const now = Date.now(), at = (y, m) => new Date(y, m, 10, 18).getTime();
+        const mk = (id, st) => ({ id, st, en: st + 3600e3, dk: '', n: 'W', u: 'lb', ms: '', w: 0, d: 0, dl: 0, sr: {}, fb: {}, x: [{ e: 'bb-bench', s: [{ w: 135, r: 8, t: st + 60e3 }] }] });
+        const wo = { a24: mk('a24', at(2024, 3)), b25: mk('b25', at(2025, 5)), c26: mk('c26', now - 864e5) };
+        const ts = { a24: 1000, b25: 2000, c26: 3000 };
+        localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, nt: {}, rt: {}, wo }));
+        localStorage.setItem('bsc.trainStamps', JSON.stringify({ pr: 1, act: 1, ms: {}, wo: ts, cx: {}, ax: {}, nt: {}, rt: {} }));
+        window.Train._.reload();
+        // the one record, as an older version of the app left it
+        const tr = { wo: {} };
+        Object.keys(wo).forEach((k) => { tr.wo[k] = { v: wo[k], at: ts[k] }; });
+        window.__acct.main = { train: JSON.parse(JSON.stringify(tr)) };
+        window.Train.attach(window.__acct.doc, window.__acct.fv);
+        window.Train.remote(tr, true);
+      }, { fake: fakeAcct.toString(), deny });
+      await q.waitForTimeout(1300);
+    };
+    // before the rule is published: all in the one record, as it always was
+    p = await t.fresh();
+    await acctSeed(p, true);
+    r = await p.evaluate(() => { const A = window.__acct, Y = window.Train._.yr();
+      return { on: Y.on, yrs: Object.keys(A.yrs), main: Object.keys(A.main.train.wo).sort().join(), err: window.Train._.state().S && 0 }; });
+    t.ok('with the yearly rule not yet published, the workouts stay in the one record and nothing fails', r.on === false && !r.yrs.length && r.main === 'a24,b25,c26', JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
+    t.ok('and Settings says what one database rule would change', /of the 1 MB record your account keeps them in/.test(r) && /SETUP\.md, step 4/.test(r) && !/Not saved/.test(r), r.slice(r.indexOf('Your training data'), r.indexOf('Your training data') + 300));
+    await p.close();
+
+    // published: every workout goes to its year, and only then leaves the one record
+    p = await t.fresh();
+    await acctSeed(p, false);
+    r = await p.evaluate(() => { const A = window.__acct, Y = window.Train._.yr(), order = A.writes.map((w) => w[0]);
+      return { on: Y.on, yrs: Object.keys(A.yrs).sort().join(), y24: Object.keys((A.yrs['2024'] || {}).wo || {}).join(), y26: Object.keys((A.yrs[String(new Date(Date.now() - 864e5).getFullYear())] || {}).wo || {}).join(),
+        main: Object.keys((A.main.train || {}).wo || {}).join(), order: order.join(), lastMain: order.lastIndexOf('main'), firstYear: Math.min(...['2024', '2025'].map((y) => order.indexOf(y))) }; });
+    t.ok('published: each workout is copied into its year’s record', r.on === true && /2024/.test(r.yrs) && /2025/.test(r.yrs) && r.y24 === 'a24' && /c26/.test(r.y26), JSON.stringify(r));
+    t.ok('and only after that is it taken out of the one record, which ends up holding none', r.main === '' && r.firstYear >= 0 && r.lastMain > r.firstYear, JSON.stringify(r));
+    // a new session: nothing that the years already hold is sent again
+    r = await p.evaluate(async () => { const A = window.__acct; A.writes = [];
+      window.Train.attach(A.doc, A.fv); window.Train.remote(A.main.train, true);
+      await new Promise((res) => setTimeout(res, 1300));
+      return A.writes.filter((w) => w[0] !== 'main' && Object.keys(w[1].wo || {}).length).length; });
+    t.ok('the next time the app opens, workouts the years already hold are not sent again', r === 0, r);
+    // deleting a workout deletes it from its year's record
+    r = await p.evaluate(async () => { const A = window.__acct; window.Train._.dropWo('a24');
+      await new Promise((res) => setTimeout(res, 1300));
+      return { y: A.yrs['2024'].wo.a24, main: ((A.main.train || {}).wo || {}).a24 }; });
+    t.ok('a deleted workout is deleted in its own year’s record', r.y && r.y.v === null && !r.main, JSON.stringify(r));
+    // a phone on the old version puts workouts back in the one record: moved again, never lost
+    r = await p.evaluate(async () => { const A = window.__acct, T = window.Train._.state().T;
+      const b = JSON.parse(JSON.stringify(T.wo.b25)); b.n = 'Edited on the old phone';
+      const tr = { wo: { b25: { v: b, at: 9999999999999 } } };
+      A.main.train.wo = tr.wo; window.Train.remote(JSON.parse(JSON.stringify(tr)), true);
+      await new Promise((res) => setTimeout(res, 1300));
+      return { here: T.wo.b25.n, y: A.yrs['2025'].wo.b25.v.n, main: Object.keys(A.main.train.wo).join() }; });
+    t.ok('an edit an older version put in the one record wins, moves to its year, and leaves the one record', r.here === 'Edited on the old phone' && r.y === r.here && r.main === '', JSON.stringify(r));
+    r = await p.evaluate(async () => { const A = window.__acct, T = window.Train._.state().T;
+      const tr = { wo: { c26: { v: null, at: 9999999999999 } } };
+      A.main.train.wo = JSON.parse(JSON.stringify(tr.wo)); window.Train.remote(tr, true);
+      await new Promise((res) => setTimeout(res, 1300));
+      const y = String(new Date(Date.now() - 864e5).getFullYear());
+      return { here: !!T.wo.c26, y: A.yrs[y].wo.c26 }; });
+    t.ok('and a workout an older version deleted is deleted in its year’s record too', !r.here && r.y && r.y.v === null, JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
+    t.ok('Settings says they are kept a year to a record, with no limit', /kept a year to a record in your account \(2024, 2025/.test(r) && /no limit on how far back/.test(r), r.slice(r.indexOf('Your training data'), r.indexOf('Your training data') + 300));
+    // sizes: a year's record holds about three years of normal training
+    r = await p.evaluate(() => { const _ = window.Train._, mk = (i, y) => ({ id: 'z' + y + 'n' + i, st: new Date(y, 0, 1).getTime() + i * 36e5, u: 'lb', x: Array.from({ length: 6 }, () => ({ e: 'bb-bench', s: Array.from({ length: 4 }, () => ({ w: 185.5, r: 8, t: 1e12, q: 2 })) })) });
+      const year = (y, n) => Array.from({ length: n }, (_, i) => mk(i, y));
+      return { ok: _.fitSay(year(2019, 250).concat(year(2020, 250))), big: _.fitSay(year(2018, 800)) }; });
+    t.ok('by year: a year of 250 workouts fits, and more than a record can hold in one year is refused, naming it', r.ok === '' && /More workouts in 2018/.test(r.big), JSON.stringify(r));
+    await p.close();
+
+    // in the one record: a big import is refused before anything is written
+    p = await t.fresh();
+    await acctSeed(p, true);
+    r = await p.evaluate(() => { const _ = window.Train._, mk = (i) => ({ id: 'z' + i, st: Date.now() - i * 864e5, u: 'lb', x: Array.from({ length: 6 }, () => ({ e: 'bb-bench', s: Array.from({ length: 4 }, () => ({ w: 185.5, r: 8, t: 1e12, q: 2 })) })) });
+      return _.fitSay(Array.from({ length: 600 }, (x, i) => mk(i))); });
+    t.ok('in the one record, an import that would pass its limit is refused and says what would lift it', /one record of 1 MB/.test(r) && /SETUP\.md, step 4/.test(r), r);
+    await p.close();
+
+    // this phone's storage full: said, not swallowed
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.evaluate(() => { const real = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k, v) { if (k === 'bsc.train') { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; } return real.call(this, k, v); }; });
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.fill('#trw-0-0', '95');
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.x[0].s = L.x[0].s.filter((s) => s.t); });
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    await p.click('.tr-done [data-t="close"]');
+    r = await p.evaluate(() => ({ full: window.Train._.lsFull(), say: (document.querySelector('.tr-lsfull') || {}).textContent || '' }));
+    t.ok('when the phone’s storage is full it says so, and what to do', r.full === true && /storage for the app is full/.test(r.say) && /Export a copy/.test(r.say), JSON.stringify(r));
+    await p.close();
   },
 };

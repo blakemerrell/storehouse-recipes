@@ -42,11 +42,18 @@
   function readLS(k) {
     try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; }
   }
+  /* When the training log itself cannot be written, the phone's storage is
+     full (or refused): said on screen rather than lost in silence. */
+  var LSFULL = false;
   function writeLS(k, v) {
     try {
       if (v === null || v === undefined) localStorage.removeItem(k);
       else localStorage.setItem(k, JSON.stringify(v));
-    } catch (e) { /* private mode: this session only */ }
+      if (k === 'bsc.train') LSFULL = false;
+    } catch (e) {
+      /* private mode: this session only */
+      if (k === 'bsc.train') LSFULL = true;
+    }
   }
   /* Firestore refuses a write carrying `undefined` anywhere in it, and takes
      the whole write down with it, while localStorage quietly drops the key —
@@ -893,11 +900,80 @@
      fail in silence; now it says so, keeps trying, and says when it lands. */
   var SY = { ok: 0, err: 0, tries: 0 };
 
-  function attach(d) {
+  /* A record a year.
+   *
+   * An account record holds a megabyte, and a year of four workouts a week is
+   * about 300 KB of them, so one record for everything filled in about three
+   * years. Workouts now live beside it, one record per calendar year
+   * (users/{uid}/train/2026), each far inside its megabyte; everything else
+   * stays in the one record.
+   *
+   * It needs the rule in firestore.rules that lets you reach them. Until
+   * that is published the listener below is refused, and everything carries
+   * on in the one record exactly as it did. Once it is, the workouts still in
+   * the one record are copied to their years first and only taken out of it
+   * once the copy has landed — nothing is ever in neither place.
+   *
+   * on:    null not yet known, true by year, false all in the one record
+   * seen:  the stamp each workout has in its year's record, from the
+   *        listener: a session's first full push sends only what is newer
+   *        here, not ten years of workouts every time the app opens
+   * main:  the workouts the one record still holds
+   * gone:  the year of a workout deleted this session, so the deletion goes
+   *        to the record that holds it */
+  var YR = { on: null, heard: false, off: null, seen: {}, main: [], gone: {}, purge: {}, fv: null, kb: {} };
+
+  function attach(d, fv) {
     doc = d || null;
     heard = false;
     dirtyAll = true;
     clearTimeout(pushTimer);
+    if (YR.off) { try { YR.off(); } catch (e) { /* already gone */ } }
+    YR.off = null; YR.on = null; YR.heard = false; YR.seen = {}; YR.main = []; YR.purge = {}; YR.kb = {};
+    YR.fv = fv || null;
+    if (!doc || typeof doc.collection !== 'function') return;
+    try {
+      YR.off = doc.collection('train').onSnapshot({ includeMetadataChanges: true }, function (qs) {
+        var moved = false, kb = {};
+        qs.forEach(function (ds) {
+          var d2 = ds.data() || {};
+          if (plain(d2.wo)) {
+            Object.keys(d2.wo).forEach(function (k) { var r = d2.wo[k]; if (plain(r) && fin(r.at)) YR.seen[k] = Math.max(YR.seen[k] || 0, r.at); });
+            try { kb[ds.id] = Math.round(JSON.stringify(d2).length / 1024); } catch (e) { /* no size */ }
+          }
+          if (merge({ wo: d2.wo })) moved = true;
+        });
+        YR.kb = kb;
+        var live = !(qs.metadata && qs.metadata.fromCache);
+        if (live && !YR.heard) {
+          YR.heard = true; YR.on = true;
+          purgeMark();
+          dirtyAll = true;
+          push(true);
+        }
+        if (moved) drawIfShowing();
+      }, function () {
+        // refused: the rule is not published yet, so the one record it is
+        YR.on = false; YR.heard = true; YR.off = null;
+        push(true);
+        drawIfShowing();
+      });
+    } catch (e) {
+      YR.on = false; YR.heard = true;
+    }
+  }
+  function yearOf(wo) { return wo && fin(wo.st) ? String(new Date(wo.st).getFullYear()) : ''; }
+  // the year's record a workout (or its deletion) belongs in, or '' for the one record
+  function woYear(k) { return T.wo[k] ? yearOf(T.wo[k]) : YR.gone[k] || ''; }
+  /* Workouts the one record still holds, that this phone has: marked to go
+     to their years, and out of the one record once they are there. */
+  function purgeMark() {
+    if (YR.on !== true) return;
+    YR.main.forEach(function (k) {
+      if (!woYear(k)) return;
+      YR.purge[k] = 1;
+      if (dirty.wo !== true) { dirty.wo = dirty.wo || {}; dirty.wo[k] = 1; }
+    });
   }
 
   function payload(whole) {
@@ -917,6 +993,11 @@
       }
       var map = {};
       Object.keys(keys).forEach(function (k) {
+        /* By year, a full push sends a workout only when this phone's copy is
+           newer than the one its year holds — or it is one the one record
+           still has, on its way to its year. */
+        if (p === 'wo' && YR.on === true && (whole || dirty.wo === true) && !(dirty.wo && dirty.wo !== true && dirty.wo[k]) &&
+          !YR.purge[k] && woYear(k) && (TS.wo[k] || 0) <= (YR.seen[k] || 0)) return;
         map[k] = { v: T[p][k] || null, at: TS[p][k] || 0 };
       });
       if (Object.keys(map).length) { out[p] = map; any = true; }
@@ -932,13 +1013,39 @@
   }
 
   function push(now) {
-    if (!doc || !heard) return;
+    // where the workouts go is not known until the years have answered
+    if (!doc || !heard || (typeof doc.collection === 'function' && !YR.heard)) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(function () {
       if (!doc) return;
       var body = take();
       if (!body) return;
-      doc.set({ train: body }, { merge: true }).then(function () {
+      var writes = [], purge = [], d0 = doc;
+      if (YR.on === true && body.wo) {
+        var byY = {}, keep = {};
+        Object.keys(body.wo).forEach(function (k) {
+          var y = woYear(k);
+          if (y) { (byY[y] = byY[y] || {})[k] = body.wo[k]; if (YR.purge[k]) purge.push(k); } else keep[k] = body.wo[k];
+        });
+        Object.keys(byY).forEach(function (y) {
+          writes.push(d0.collection('train').doc(y).set({ wo: byY[y] }, { merge: true }).then(function () {
+            Object.keys(byY[y]).forEach(function (k) { YR.seen[k] = Math.max(YR.seen[k] || 0, byY[y][k].at); });
+          }));
+        });
+        if (Object.keys(keep).length) body.wo = keep; else delete body.wo;
+      }
+      if (Object.keys(body).length) writes.push(d0.set({ train: body }, { merge: true }));
+      Promise.all(writes).then(function () {
+        /* Landed in their years: now, and only now, out of the one record. */
+        var fv = YR.fv;
+        if (!purge.length || !fv || typeof fv.delete !== 'function' || d0 !== doc) return null;
+        var del = {};
+        purge.forEach(function (k) { del[k] = fv.delete(); });
+        return d0.set({ train: { wo: del } }, { merge: true }).then(function () {
+          purge.forEach(function (k) { delete YR.purge[k]; });
+          YR.main = YR.main.filter(function (k) { return purge.indexOf(k) < 0; });
+        });
+      }).then(function () {
         var was = SY.err;
         SY.ok = Date.now(); SY.err = 0; SY.tries = 0;
         if (was) drawIfShowing();
@@ -955,7 +1062,7 @@
   }
 
   /* Newest wins, piece by piece. True when anything here changed. */
-  function merge(tr) {
+  function merge(tr, main) {
     if (!plain(tr)) return false;
     var moved = false;
     if (plain(tr.pr) && fin(tr.pr.at) && tr.pr.at > (TS.pr || 0) && plain(tr.pr.v)) {
@@ -970,6 +1077,12 @@
         var r = from[k];
         if (!plain(r) || !fin(r.at) || !(r.at > (TS[p][k] || 0))) return;
         if (r.v !== null && !SHAPE[p](r.v)) return;
+        /* A workout deleted by a phone still on the one record: the deletion
+           goes on to its year, so what was deleted does not stay there. */
+        if (r.v === null && main && p === 'wo' && T.wo[k] && YR.on === true) {
+          YR.gone[k] = yearOf(T.wo[k]);
+          if (dirty.wo !== true) { dirty.wo = dirty.wo || {}; dirty.wo[k] = 1; }
+        }
         if (r.v === null) delete T[p][k]; else T[p][k] = r.v;
         TS[p][k] = r.at;
         moved = true;
@@ -982,7 +1095,12 @@
   /* What the account says, handed over by app.js's listener. `live` is
      false for an answer served from this device's own cache. */
   function remote(tr, live) {
-    var moved = tr ? merge(tr) : false;
+    var moved = tr ? merge(tr, true) : false;
+    if (live) {
+      YR.main = tr && plain(tr.wo) ? Object.keys(tr.wo).filter(function (k) { return plain(tr.wo[k]) && tr.wo[k].v !== null; }) : [];
+      if (YR.on === true && YR.main.some(function (k) { return !YR.purge[k] && woYear(k); })) purgeMark();
+      if (YR.on === true && dirty.wo) push();
+    }
     if (live && !heard && doc) {
       heard = true;
       dirtyAll = true;
@@ -998,6 +1116,7 @@
   function forget() {
     T = blankT();
     TS = blankTS();
+    YR.gone = {}; YR.purge = {};
     dirty = {};
     dirtyAll = true;
     clearTimeout(pushTimer);
@@ -3673,6 +3792,10 @@
       html += '<div class="tr-note tr-warn tr-syncerr" role="status">Not saved to your account yet \u2014 it keeps trying. ' +
         'Everything is safe on this phone meanwhile.</div>';
     }
+    if (LSFULL) {
+      html += '<div class="tr-note tr-warn tr-lsfull" role="status">This phone\u2019s storage for the app is full, so the newest changes aren\u2019t kept on it' +
+        (doc && !SY.err ? ' \u2014 they\u2019re in your account.' : '. Export a copy from Settings before closing the app.') + '</div>';
+    }
     if (LIVE && S.sub !== 'block') {
       html += '<button class="tr-back" data-t="sub" data-v="block">Workout in progress · <span>' +
         esc(LIVE.n) + '</span> — back to it</button>';
@@ -6159,6 +6282,34 @@
     try { return JSON.stringify(payload(true) || {}).length; } catch (e) { return 0; }
   }
 
+  /* Whether these workouts fit, and if not, why — '' when they do.
+   *
+   * Three limits. This phone keeps everything, and a browser gives a site
+   * about 5 MB, shared with Nourish and the recipes, so workouts get 3.5 MB
+   * of it: ten years or more at four sessions a week. In the account, by
+   * year, a year's record holds a megabyte, three years' worth at that
+   * rate. And until the rule for the yearly records is published, all of it
+   * shares the one record with Nourish, as it always has. */
+  var REC_ROOM = 900 * 1024, PHONE_ROOM = 3584 * 1024;
+  function woBytes(w) { return JSON.stringify(w).length + 60; }
+  function fitSay(list, replace) {
+    var all = (replace ? [] : Object.keys(T.wo).map(function (k) { return T.wo[k]; })).concat(list);
+    var tot = all.reduce(function (a, w) { return a + woBytes(w); }, 0);
+    if (tot > PHONE_ROOM) return 'That\u2019s more than this phone can keep for the app (about ' + (Math.round(tot / 104858) / 10) + ' MB of workouts). Pick a shorter range.';
+    if (!doc) return '';
+    if (YR.on === true) {
+      var by = {};
+      all.forEach(function (w) { var y = yearOf(w); by[y] = (by[y] || 0) + woBytes(w); });
+      var over = Object.keys(by).filter(function (y) { return by[y] > REC_ROOM; }).sort();
+      return over.length ? 'More workouts in ' + over.join(' and ') + ' than a year\u2019s record in your account can hold (about 1 MB). Pick a shorter range.' : '';
+    }
+    var rest = Math.max(0, jsonSize() - Object.keys(T.wo).reduce(function (a, k) { return a + woBytes(T.wo[k]); }, 0));
+    if (rest + tot <= SG_ROOM) return '';
+    return 'That would take your training record to about ' + Math.round((rest + tot) / 1024) + ' KB, and your account keeps it in one record of 1 MB, shared with Nourish. ' +
+      (YR.on === null ? 'Try again once your account has answered, or pick a shorter range.'
+        : 'Publishing one database rule lifts that (SETUP.md, step 4); until then, pick a shorter range.');
+  }
+
   function settingsHTML() {
     var p = T.pr;
     var kb = Math.round(jsonSize() / 1024);
@@ -6202,8 +6353,14 @@
         '<div class="tr-sub">' + (!doc ? '<b>Only on this phone.</b> Sign in under Nourish \u2192 \u2699 \u2192 Sync &amp; sharing and it travels with your account, the same as your day.'
           : SY.err ? '<b>Not saved to your account yet</b> \u2014 it keeps trying. Safe on this phone meanwhile.'
           : SY.ok ? 'Saved to your account ' + agoSay(SY.ok) + ', and kept on this phone.' : 'Kept on this phone and in your account.') + '</div>' +
-        '<div class="tr-sub">' + Object.keys(T.wo).length + ' workouts · about ' + kb + ' KB' +
-          (kb > 600 ? ' — getting close to the 1 MB an account record can hold. Export a copy, then delete old workouts.' : '') + '</div>' +
+        '<div class="tr-sub">' + Object.keys(T.wo).length + ' workouts' + (!doc ? ' \u00b7 about ' + kb + ' KB'
+          : YR.on === true ? ', kept a year to a record in your account' + (Object.keys(YR.kb).length ? ' (' + Object.keys(YR.kb).sort().join(', ') + ')' : '') +
+            ', so there\u2019s no limit on how far back it goes.'
+          : ' \u00b7 about ' + kb + ' KB of the 1 MB record your account keeps them in' +
+            (YR.on === false ? '. One database rule (SETUP.md, step 4) keeps them a year to a record instead, with no limit.' : '.')) +
+          '</div>' +
+        (LSFULL ? '<div class="tr-sub tr-warn">This phone\u2019s storage for the app is full, so the newest changes are not kept on it' +
+          (doc ? ' \u2014 they are in your account.' : '. Sign in to keep them in an account, or export a copy.') + '</div>' : '') +
         '<div class="tr-acts"><button class="ghost" data-t="export">Export a copy</button>' +
           '<label class="ghost tr-file">Restore from a copy<input type="file" id="trImport" accept="application/json,.json" hidden></label>' +
           '<label class="ghost tr-file">Bring in from Strong<input type="file" id="trStrong" accept=".csv,text/csv" hidden></label></div>' +
@@ -6371,6 +6528,9 @@
     var n = S.imp;
     if (!n) return;
     var now = Date.now();
+    var big = fitSay(Object.keys(n.wo).map(function (k) { return n.wo[k]; }), true);
+    if (big) { S.impErr = big; S.imp = null; drawSheet(); return; }
+    Object.keys(T.wo).forEach(function (k) { if (!n.wo[k]) YR.gone[k] = yearOf(T.wo[k]); });
     PARTS.forEach(function (p) {
       Object.keys(T[p]).concat(Object.keys(TS[p])).forEach(function (k) { TS[p][k] = now; });
       Object.keys(n[p]).forEach(function (k) { TS[p][k] = now; });
@@ -6639,6 +6799,12 @@
     if (nt) wo.nt = nt;
     return wo;
   }
+  // what would come in, as workouts, for the size of it
+  function sgList(G, months) {
+    var ids = {};
+    G.names.forEach(function (n) { ids[n.nm] = n.e || 'cx0000000000000'; });
+    return sgPick(G, months).map(function (w) { return sgWo(G, w, ids); });
+  }
   function sgSize(G, months) {
     var ids = {};
     G.names.forEach(function (n) { ids[n.nm] = n.e || 'cx0000000000000'; });
@@ -6646,10 +6812,9 @@
   }
   /* The biggest range that fits, chosen for you; smaller ones to pick. */
   function sgFit(G) {
-    var now = jsonSize();
     G.size = {};
     SG_RANGES.forEach(function (r) { G.size[r[0]] = sgSize(G, r[0]); });
-    for (var i = 0; i < SG_RANGES.length; i++) if (now + G.size[SG_RANGES[i][0]] <= SG_ROOM) return SG_RANGES[i][0];
+    for (var i = 0; i < SG_RANGES.length; i++) if (!fitSay(sgList(G, SG_RANGES[i][0]))) return SG_RANGES[i][0];
     return SG_RANGES[SG_RANGES.length - 1][0];
   }
 
@@ -6670,8 +6835,8 @@
     if (G.err) return '<div class="sheet-name tr-sn2">From Strong</div><div class="tr-note">' + esc(G.err) + '</div>';
     var pick = sgPick(G, G.range);
     var had = G.wos.length - sgPick(G, 0).length;
-    var now = jsonSize(), add = G.size[G.range] || 0;
-    var over = now + add > SG_ROOM;
+    var add = G.size[G.range] || 0;
+    var over = fitSay(sgList(G, G.range));
     var matched = G.names.filter(function (n) { return n.e; }).length;
     return '<div class="sheet-name tr-sn2">From Strong</div>' +
       '<div class="tr-sub">' + G.wos.length + ' workouts, ' + when(G.wos[0].st) + ' to ' + when(G.wos[G.wos.length - 1].st) +
@@ -6681,9 +6846,9 @@
         'Strong exports in whatever unit it was set to.')) +
       '<div class="tr-q"><div class="tr-ql">How far back</div>' +
         chips('sgr', G.range, SG_RANGES.map(function (r) { return [r[0], r[1] + ' (' + sgPick(G, r[0]).length + ')']; })) +
-        '<div class="tr-hint' + (over ? ' tr-warn' : '') + '">' + esc(over
-          ? 'That would take your training record to about ' + Math.round((now + add) / 1024) + ' KB. An account holds 1 MB, shared with Nourish; pick a shorter range.'
-          : (add < 1024 ? 'Under 1 KB' : 'About ' + Math.round(add / 1024) + ' KB') + ', which fits beside Nourish in your account.') + '</div></div>' +
+        '<div class="tr-hint' + (over ? ' tr-warn' : '') + '">' + esc(over ||
+          (add < 1024 ? 'Under 1 KB' : 'About ' + Math.round(add / 1024) + ' KB') +
+          (!doc ? ', kept on this phone.' : YR.on === true ? ', kept a year to a record in your account.' : ', which fits beside Nourish in your account.')) + '</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Exercises</div>' +
         '<div class="tr-hint">' + matched + ' of ' + G.names.length + ' matched to the library. The rest come in as your own: check what each one trains, or match it yourself.</div>' +
         '<div class="tr-sgl">' + G.names.map(function (n, i) {
@@ -6697,9 +6862,16 @@
                 '<div class="tr-sgr-a"><button class="tr-lnk" data-t="sgmap" data-i="' + i + '">Match to the library</button></div>') +
           '</div>';
         }).join('') + '</div></div>' +
-      '<div class="tr-acts"><button class="btn-primary" data-t="sggo"' + (pick.length ? '' : ' disabled') + '>' +
+      '<div class="tr-acts"><button class="btn-primary" data-t="sggo"' + (pick.length && !over ? '' : ' disabled') + '>' +
         (pick.length ? 'Bring in ' + pick.length + ' workout' + (pick.length === 1 ? '' : 's') : 'Nothing new to bring in') + '</button>' +
         '<button class="ghost" data-t="close">Cancel</button></div>';
+  }
+
+  /* A workout deleted: gone here, and gone from its year's record too. */
+  function dropWo(id) {
+    if (T.wo[id]) YR.gone[id] = yearOf(T.wo[id]);
+    delete T.wo[id];
+    stamp('wo', id);
   }
 
   /* Stamped all at once: a stamp a workout would write the whole record to
@@ -6716,7 +6888,7 @@
 
   function sgGo() {
     var G = S.sg;
-    if (!G || G.err) return 0;
+    if (!G || G.err || fitSay(sgList(G, G.range))) return 0;
     var ids = {}, made = [], used = {};
     var pick = sgPick(G, G.range);
     pick.forEach(function (w) { w.x.forEach(function (x) { used[x.nm] = 1; }); });
@@ -7251,8 +7423,7 @@
     if (t === 'delwo') {
       var wid = el.getAttribute('data-id');
       if (S.arm !== 'del:' + wid) { S.arm = 'del:' + wid; drawSheet(); return; }
-      delete T.wo[wid];
-      stamp('wo', wid);
+      dropWo(wid);
       closeSheet();
       draw();
       return;
@@ -7507,6 +7678,7 @@
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
+      dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }
