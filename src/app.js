@@ -1171,7 +1171,7 @@
      only place that writes all of them at once. */
   function mClaimAll() {
     var now = Date.now();
-    ['t', 'pr', 'sl', 'mf', 'nv'].forEach(function (k) { MSTAMPS[k] = now; });
+    ['t', 'pr', 'sl', 'mf', 'nv', 'bg'].forEach(function (k) { MSTAMPS[k] = now; });
     [['d', MDAYS], ['dn', MDONE], ['sp', MSKIP], ['sn', MSEND], ['w', MWEIGHTS],
       ['tn', MTRAINED]].forEach(function (pair) {
       var part = pair[0];
@@ -1228,7 +1228,7 @@
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
       'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroTrained',
-      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT', 'bsc.macroNever'].forEach(function (k) {
+      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT', 'bsc.macroNever', 'bsc.macroBatchG'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
@@ -1236,6 +1236,7 @@
     Object.keys(MINTAKE).forEach(function (k) { delete MINTAKE[k]; });
     Object.keys(MDAYT).forEach(function (k) { delete MDAYT[k]; });
     Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
+    Object.keys(MBATCHG).forEach(function (k) { delete MBATCHG[k]; });
     Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
     Object.keys(MDONE).forEach(function (k) { delete MDONE[k]; });
     Object.keys(MSKIP).forEach(function (k) { delete MSKIP[k]; });
@@ -1305,6 +1306,7 @@
   var MSYNC_SHAPE = {
     mf: mPlainObj,
     nv: mPlainObj,
+    bg: mPlainObj,
     t: function (v) { return mPlainObj(v) && mNum(v.p) && mNum(v.f) && mNum(v.c); },
     pr: mPlainObj,
     sl: function (v) { return mPlainObj(v) && Array.isArray(v.list); }
@@ -1312,7 +1314,7 @@
   function mSyncUnkey(e) { return String(e).replace(/_/g, '-'); }
 
   var MSYNC_SIMPLE = [
-    ['mf', 'bsc.myFoods'], ['t', 'bsc.macroTargets'], ['nv', 'bsc.macroNever'],
+    ['mf', 'bsc.myFoods'], ['t', 'bsc.macroTargets'], ['nv', 'bsc.macroNever'], ['bg', 'bsc.macroBatchG'],
     ['pr', 'bsc.macroProfile'], ['sl', 'bsc.macroSlots']
   ];
 
@@ -1493,6 +1495,13 @@
     });
     take('sl', 'bsc.macroSlots', function (v) {
       try { localStorage.setItem('bsc.macroSlots', JSON.stringify(v)); } catch (e) { /* private */ }
+    });
+    take('bg', 'bsc.macroBatchG', function (v) {
+      Object.keys(MBATCHG).forEach(function (k) { delete MBATCHG[k]; });
+      Object.keys(v).forEach(function (k) {
+        if (v[k] && v[k].s > 0) MBATCHG[k] = { s: Number(v[k].s), on: String(v[k].on || '') };
+      });
+      try { localStorage.setItem('bsc.macroBatchG', JSON.stringify(MBATCHG)); } catch (e) { /* private */ }
     });
     take('nv', 'bsc.macroNever', function (v) {
       Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
@@ -2069,6 +2078,41 @@
     return {};
   })();
   function mNever(id) { return !!MNEVER[String(id)]; }
+
+  /* What one serving of a recipe weighs, finished. Blake, on the Cafe Rio
+     pork: the plate said half a serving and he had to open the recipe, switch
+     it to grams and do the division on his phone's calculator. The weight
+     that matters is the COOKED one, which only the cook can know — pork
+     loses about a third in the pot — so the plate shows an estimate from the
+     raw ingredients, marked "~", until the batch is weighed once. Then it is
+     exact for the way he makes it. Keyed recipe id -> { s: grams a serving,
+     on: day }. Synced as part `bg`. */
+  var MBATCHG = (function () {
+    try {
+      var v = JSON.parse(localStorage.getItem('bsc.macroBatchG'));
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+    } catch (e) { /* none yet */ }
+    return {};
+  })();
+  function mSetBatchG(id, perServing) {
+    var k = String(id);
+    if (perServing > 0) MBATCHG[k] = { s: Math.round(perServing * 10) / 10, on: todayKey() };
+    else delete MBATCHG[k];
+    mStamp('bg');
+    try { localStorage.setItem('bsc.macroBatchG', JSON.stringify(MBATCHG)); }
+    catch (e) { /* this session only */ }
+  }
+  /* { g: grams a serving, est: true when it is the ingredient estimate }, or
+     null when there is nothing to go on. The estimate counts what the recipe
+     says is eaten of each line (the dredge's third, the frying oil's share). */
+  function mServeG(r) {
+    if (!r || r.food) return null;
+    var w = MBATCHG[String(r.id)];
+    if (w && w.s > 0) return { g: w.s, est: false };
+    var tot = 0;
+    (r.ingp || []).forEach(function (x) { tot += (Number(x.g) || 0) * (x.pe > 0 ? x.pe : 1); });
+    return tot > 0 ? { g: tot / (r.servN || 1), est: true } : null;
+  }
   function mSetNever(id, on) {
     var k = String(id);
     if (on) MNEVER[k] = todayKey(); else delete MNEVER[k];
@@ -2196,6 +2240,26 @@
   }
   /* The strip the chip opens, inside the plate, in the green-edged style of
      the app's other in-meal cards. */
+  function mBatchStrip(r, it, tag) {
+    if (S.mBatchOpen !== tag) return '';
+    var sg = mServeG(r);
+    if (!sg) return '';
+    var n = r.servN || 1;
+    var fmt = function (g) { return Math.round(g).toLocaleString(); };
+    return '<div class="mwhy-strip mbatch-strip no-print">' +
+      (sg.est
+        ? '<p>About ' + fmt(sg.g) + ' g a serving, from the raw ingredients. Weigh the finished ' +
+          (n > 1 ? 'batch' : 'dish') + ' once and this becomes exact.</p>' +
+          '<span class="mbatch-in"><label>Whole batch <input type="text" inputmode="decimal" id="mBatchIn" ' +
+            'maxlength="6" autocomplete="off" aria-label="Finished batch weight in grams"> g</label>' +
+            '<span class="mbatch-n">makes ' + n + '</span>' +
+            '<button class="btn-primary" data-mbsave="' + tag + '">Save</button></span>'
+        : '<p>Your batch: ' + fmt(sg.g * n) + ' g for ' + n + (n === 1 ? ' serving' : ' servings') +
+          ', so ' + fmt(sg.g) + ' g each.</p>' +
+          '<span class="mwhy-acts"><button class="ghost" data-mbforget="' + tag + '">Weigh again</button></span>') +
+    '</div>';
+  }
+
   function mWhyStrip(it, tag) {
     var w = mWhyOf(it);
     if (!w || S.mWhyOpen !== tag) return '';
@@ -5176,6 +5240,7 @@
             '</span>' +
           '</div>' +
           mWhyStrip(it, tag) +
+          mBatchStrip(r, it, tag) +
           /* What it is in the kitchen, and what it costs you.
            *
              The weight leads, because Blake weighs: "sometimes it's just
@@ -5192,7 +5257,16 @@
              strip it opens sitting above, under the name. */
           '<div class="mitem-r2">' +
             mWhyChip(it, tag) +
-            (port.detail ? '<span class="mitem-uom">' + esc(port.detail) + '</span>' : '') +
+            (function () {
+              /* A recipe's plate says what it weighs: the thing you put on
+                 the scale. A tap weighs the batch or says how it was got. */
+              var sg = mServeG(r);
+              if (!sg) return port.detail ? '<span class="mitem-uom">' + esc(port.detail) + '</span>' : '';
+              return '<button class="mitem-uom mitem-bw' + (sg.est ? ' est' : '') + '" data-mbatch="' + tag +
+                '" aria-expanded="' + (S.mBatchOpen === tag ? 'true' : 'false') + '" aria-label="' +
+                (sg.est ? 'About ' : '') + Math.round(sg.g * it.x) + ' grams on this plate">' +
+                (sg.est ? '~' : '') + Math.round(sg.g * it.x) + ' g</button>';
+            })() +
             '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
             mSaltChip(r, it.x) +
           '</div>' +
@@ -13738,7 +13812,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtwk', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mwhy', 'data-mdo', 'data-mallow'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -15080,6 +15154,31 @@
           it.x = mStepX(BY_ID[it.id], it.x, sp[2] === 'up' ? 1 : -1);
         });
         keepingFocus(renderMacros);
+        return;
+      }
+      var bw = e.target.closest('[data-mbatch]');
+      if (bw) {
+        S.mBatchOpen = S.mBatchOpen === bw.dataset.mbatch ? '' : bw.dataset.mbatch;
+        renderMacros();
+        if (S.mBatchOpen) { var bi = $('mBatchIn'); if (bi) bi.focus(); }
+        return;
+      }
+      var bsv = e.target.closest('[data-mbsave], [data-mbforget]');
+      if (bsv) {
+        var bq = (bsv.dataset.mbsave || bsv.dataset.mbforget).split(':');
+        var bit = (mDay(mViewKey())[bq[0]] || [])[Number(bq[1])];
+        var brr = bit && BY_ID[bit.id];
+        if (!brr) return;
+        if (bsv.dataset.mbforget) {
+          mSetBatchG(brr.id, 0);             // back to the estimate, box open for a new weight
+          renderMacros();
+          var bi2 = $('mBatchIn'); if (bi2) bi2.focus();
+          return;
+        }
+        var bv = Number(String(($('mBatchIn') || {}).value || '').replace(/,/g, '').trim());
+        if (!(bv > 0) || bv > 50000) { var bi3 = $('mBatchIn'); if (bi3) bi3.focus(); return; }
+        mSetBatchG(brr.id, bv / (brr.servN || 1));
+        renderMacros();
         return;
       }
       var why = e.target.closest('[data-mwhy]');

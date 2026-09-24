@@ -13367,6 +13367,38 @@ module.exports = {
       t.ok('sweep works on tomorrow, and keeps what is locked or pinned',
         canSweep && swept.b.join() === 'f:whey' && swept.l.join() === 'f:chicken_breast' && !(swept.d || []).length,
         JSON.stringify({ canSweep, swept }));
+
+      /* A recipe plate says what it weighs. Blake, on the Cafe Rio pork: half
+         a serving meant opening the recipe, switching to grams and dividing
+         on a calculator. An estimate from the raw ingredients until the
+         batch is weighed once; then exact, remembered, synced. */
+      const pork = await np.evaluate(() => window.RECIPES.find((r) => /Barbacoa, Cafe Rio/.test(r.name)));
+      await np.evaluate(([k, id]) => {
+        localStorage.clear();
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 60, c: 170 }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { l: [{ id, x: 0.5, eaten: 0 }] } }));
+      }, [today, pork.id]);
+      await np.reload();
+      await np.click('.tab[data-view="macros"]');
+      await np.waitForTimeout(300);
+      await openDay(np);
+      const est = await np.evaluate(() => { const b = document.querySelector('[data-mbatch="l:0"]');
+        return b ? { t: b.textContent.trim(), est: b.classList.contains('est') } : null; });
+      const rawHalf = Math.round(pork.ingp.reduce((a, x) => a + x.g * (x.pe > 0 ? x.pe : 1), 0) / pork.servN * 0.5);
+      t.ok('a recipe plate shows its weight, marked as an estimate until weighed',
+        est && est.est && est.t === '~' + rawHalf + ' g', JSON.stringify({ est, rawHalf }));
+      await np.click('[data-mbatch="l:0"]');
+      await np.waitForTimeout(200);
+      await np.fill('#mBatchIn', '1800');
+      await np.click('[data-mbsave="l:0"]');
+      await np.waitForTimeout(250);
+      const weighed = await np.evaluate((id) => { const b = document.querySelector('[data-mbatch="l:0"]');
+        return { t: b && b.textContent.trim(), est: b && b.classList.contains('est'),
+          stored: JSON.parse(localStorage.getItem('bsc.macroBatchG') || '{}')[String(id)],
+          sent: !!(window.__macroLab.payload().bg || {}).v }; }, pork.id);
+      t.ok('weighing the batch once makes it exact: 1,800 g for 10 is 90 g on a half-serving plate',
+        weighed.t === '90 g' && !weighed.est && weighed.stored && weighed.stored.s === 180 && weighed.sent,
+        JSON.stringify(weighed));
       await np.context().close();
     }
   },
