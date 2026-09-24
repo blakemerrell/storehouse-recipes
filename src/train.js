@@ -6860,7 +6860,8 @@
       else if (so === 'D') set.ty = 'd';
       else if (so === 'F') set.ty = 'f';
       var rpe = sgNum(get(C.rpe));
-      if (rpe !== null && rpe >= 5 && rpe <= 10) set.q = Math.max(0, Math.min(5, Math.round(10 - rpe)));
+      // RPE by its half steps, as Strong logs it: 8.5 is one and a half in reserve
+      if (rpe !== null && rpe >= 5 && rpe <= 10) set.q = Math.max(0, Math.min(5, Math.round((10 - rpe) * 2) / 2));
       x.s.push(set);
       if (!names[exn]) { names[exn] = { nm: exn, n: 0 }; nOrder.push(exn); }
       names[exn].n++;

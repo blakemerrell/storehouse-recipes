@@ -2829,6 +2829,9 @@ module.exports = {
     t.ok('a row a set: warm-up W, RPE and RIR both, and the workout note quoted', r.n === 5 && /\|1\|225\|lbs\|5\|/.test(r.row2) && /\|8\|2\|Working set\|/.test(r.row2) && /Felt good, "legs" day/.test(r.row2), JSON.stringify(r));
     t.ok('a missed attempt says so', /Missed attempt/.test(r.miss) && /\|245\|lbs\|0\|/.test(r.miss), r.miss);
     t.ok('and Bring in from Strong reads it back, lifts matched by name (the missed attempt left out, as Strong would)', r.back === '1:Back Squat=2,Assisted Pull-Up=1' && r.match.split(',').sort().join() === 'as-pullup,bb-squat', JSON.stringify(r));
+    r = await p.evaluate(() => { const G = window.Train._.sgParse('Date,Workout Name,Exercise Name,Set Order,Weight,Reps,RPE\n2026-01-05 18:00:00,Pull,Deadlift (Barbell),1,405,3,8.5\n');
+      return G.wos[0].x[0].s[0].q; });
+    t.ok('an RPE of 8.5 comes in as one and a half in reserve, not rounded', r === 1.5, r);
     await p.close();
   },
 };
