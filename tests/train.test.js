@@ -1602,11 +1602,11 @@ module.exports = {
       const _ = window.Train._;
       const old = _.sgParse('Date;Workout Name;Exercise Name;Set Order;Weight;Weight Unit;Reps;RPE;Distance;Distance Unit;Seconds;Notes;Workout Notes;Workout Duration\n' +
         '2019-03-02 09:00:00;Upper;Overhead Press (Barbell);1;40;kg;5;;;;;;;45m\n');
-      return { unit: old.unit, fixed: old.fixedUnit, e: old.names[0].e, bad: _.sgParse('a,b\n1,2').err,
+      return { unit: old.unit, fixed: old.fixedUnit, e: old.names[0].e, bad: _.sgParse('a,b\n1,2').need,
         m: ['Leg Curl (Machine)', 'Cable Fly Crossover', 'Chest Press (Hammer Strength)', 'Face Pull (Cable)'].map((n) => _.sgMatch(n) || _.sgGuess(n).m).join() };
     });
     t.ok('the older, semicolon export with its own unit column reads too', r.unit === 'kg' && r.fixed && r.e === 'bb-ohp', JSON.stringify(r));
-    t.ok('a file that is not Strong’s says so', /does not look like a Strong export/.test(r.bad || ''), r.bad);
+    t.ok('a file from no app it knows asks you to match its columns', r.bad === 'map', r.bad);
     t.ok('guesses go most particular first: a leg curl is hamstrings, not biceps', r.m === 'hams,chest,chest,face-pull', r.m);
     await p.click('[data-t="settings"]');
     await p.setInputFiles('#trStrong', { name: 'strong.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
@@ -2832,6 +2832,63 @@ module.exports = {
     r = await p.evaluate(() => { const G = window.Train._.sgParse('Date,Workout Name,Exercise Name,Set Order,Weight,Reps,RPE\n2026-01-05 18:00:00,Pull,Deadlift (Barbell),1,405,3,8.5\n');
       return G.wos[0].x[0].s[0].q; });
     t.ok('an RPE of 8.5 comes in as one and a half in reserve, not rounded', r === 1.5, r);
+    await p.close();
+
+    // ---- import from any app, or any spreadsheet ------------------------------------------
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, sum = (G) => G.err || G.need || (G.app + ' ' + G.unit + (G.fixedUnit ? '!' : '?') + ' ' + G.wos.map((w) => new Date(w.st).toString().slice(4, 21) + ' ' +
+        Math.round((w.dur || 0) / 60000) + 'm ' + w.x.map((x) => x.nm + '=' + x.s.map((z) => z.w + 'x' + z.r + (z.wu ? 'W' : z.ty || '') + (z.q !== undefined ? '@' + z.q : '')).join('/')).join(' ')).join(' | '));
+      const hevy = _.sgParse('"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_lbs","reps","distance_miles","duration_seconds","rpe"\n' +
+        '"Push","24 Sep 2024, 18:30","24 Sep 2024, 19:35","Good one","Bench Press (Barbell)",,"",0,"warmup",95,10,,,\n' +
+        '"Push","24 Sep 2024, 18:30","24 Sep 2024, 19:35","Good one","Bench Press (Barbell)",,"",1,"normal",185,8,,,8.5\n' +
+        '"Push","24 Sep 2024, 18:30","24 Sep 2024, 19:35","Good one","Bench Press (Barbell)",,"",2,"failure",185,6,,,\n' +
+        '"Push","24 Sep 2024, 18:30","24 Sep 2024, 19:35","Good one","Plank",,"",0,"normal",,,,60,\n');
+      const fitbod = _.sgParse('Date,Exercise,Reps,Weight(kg),Duration(s),Distance(m),Incline,Resistance,isWarmup,Note,multiplier\n' +
+        '2024-09-24 18:30:00 +0000,Barbell Bench Press,10,40,0,0,0,0,true,,1\n2024-09-24 18:30:00 +0000,Barbell Bench Press,8,80,0,0,0,0,false,,1\n');
+      const fitnotes = _.sgParse('Date,Exercise,Category,Weight (lbs),Reps,Distance,Distance Unit,Time,Comment\n' +
+        '2024-09-24,Flat Barbell Bench Press,Chest,185.0,8,,,,\n2024-09-24,Flat Barbell Bench Press,Chest,185.0,7,,,,\n2024-09-25,Barbell Squat,Legs,225.0,5,,,,\n');
+      return { hevy: sum(hevy), hevyE: hevy.names.map((n) => n.e).join(), fitbod: sum(fitbod), fitbodE: fitbod.names.map((n) => n.e).join(), fitbodT: fitbod.wos[0].st === Date.UTC(2024, 8, 24, 18, 30),
+        fitnotes: sum(fitnotes), fitnotesE: fitnotes.names.map((n) => n.e).sort().join() };
+    });
+    t.ok('Hevy: recognised, its warm-ups and failure sets kept, the length from start to end, RPE 8.5 as 1.5, a timed plank left out',
+      /^Hevy lb! Sep 24 2024 18:30 65m Bench Press \(Barbell\)=95x10W\/185x8@1\.5\/185x6f$/.test(r.hevy) && r.hevyE === 'bb-bench', JSON.stringify(r));
+    t.ok('Fitbod: recognised, in kg, its UTC time read as UTC, warm-ups kept', /^Fitbod kg! .* Barbell Bench Press=40x10W\/80x8$/.test(r.fitbod) && r.fitbodE === 'bb-bench' && r.fitbodT, JSON.stringify(r));
+    t.ok('FitNotes: recognised, one workout a day, plain lift names matched', /^FitNotes lb! /.test(r.fitnotes) && r.fitnotes.split(' | ').length === 2 && r.fitnotesE === 'bb-bench,bb-squat', JSON.stringify(r));
+    r = await p.evaluate(() => { const _ = window.Train._, d = (s, o) => { const t = _.imDate(s, o); return t ? new Date(t).toString().slice(4, 21) : null; };
+      return [d('45559'), d('Sep 24, 2024 6:30 PM'), d('24.09.2024'), d('03/04/2024', 'dmy'), d('03/04/2024', 'mdy'), d('9/24/24 7:05 am')].join('|'); });
+    t.ok('dates as spreadsheets and apps write them: a day number, “Sep 24, 2024 6:30 PM”, 24.09.2024, either order, two-digit years',
+      r === 'Sep 24 2024 12:00|Sep 24 2024 18:30|Sep 24 2024 12:00|Apr 03 2024 12:00|Mar 04 2024 12:00|Sep 24 2024 07:05', r);
+    await p.close();
+
+    // any other spreadsheet: pasted, its columns matched once, remembered
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => ({ lab: [...document.querySelectorAll('.tr-sheet .tr-file, .tr-sheet [data-t="impaste"]')].map((e) => e.textContent.trim()).join('|') }));
+    t.ok('Settings has one import for any app, and a paste', /Import from another app/.test(r.lab) && /Paste from a spreadsheet/.test(r.lab), r.lab);
+    await p.click('[data-t="impaste"]');
+    await p.fill('#trPaste', 'Day\tLift\tSets\tReps\tLoad (kg)\n24/09/2024\tBench Press\t3\t10\t60\n25/09/2024\tSquat\t5\t5\t100\n');
+    await p.click('[data-t="impread"]');
+    r = await p.evaluate(() => { const sh = document.querySelector('.tr-sheet');
+      const sel = {}; sh.querySelectorAll('[data-imc]').forEach((s) => { sel[s.getAttribute('data-imc')] = s.options[s.selectedIndex].textContent; });
+      return { title: sh.querySelector('.sheet-name').textContent, sel, peek: (sh.querySelector('.tr-fits') || {}).textContent || '',
+        next: !sh.querySelector('[data-t="imok"]').disabled, order: !!sh.querySelector('[data-t="imord"]') }; });
+    t.ok('a spreadsheet from no app it knows asks which column is which, with its guesses in place',
+      r.title === 'Match the columns' && r.sel.date === 'Day' && r.sel.ex === 'Lift' && r.sel.n === 'Sets' && r.sel.r === 'Reps' && r.sel.w === 'Load (kg)', JSON.stringify(r));
+    t.ok('the first workouts are shown read that way, day first worked out from “24/09”', /24 Sep 2024 · Bench Press 3 × 10 @ 60/.test(r.peek) && /Squat 5 × 5 @ 100/.test(r.peek) && r.next, JSON.stringify(r));
+    await p.click('[data-t="imok"]');
+    r = await p.evaluate(() => ({ title: (document.querySelector('.tr-sheet .sheet-name') || {}).textContent, go: (document.querySelector('[data-t="sggo"]') || {}).textContent || '',
+      mem: Object.keys(JSON.parse(localStorage.getItem('sh.importMap') || '{}')).length }));
+    t.ok('Next shows what would come in, and the matching is remembered for the same headings', r.title === 'From your file' && /Bring in 2 workouts/.test(r.go) && r.mem === 1, JSON.stringify(r));
+    await p.click('[data-t="sggo"]');
+    r = await p.evaluate(() => { const T = window.Train._.state().T, ws = Object.values(T.wo).sort((a, b) => a.st - b.st);
+      return { n: ws.length, u: ws.map((w) => w.u).join(), sets: ws.map((w) => w.x.map((x) => x.e + ':' + x.s.map((z) => z.w + 'x' + z.r).join('/')).join()).join(' | '),
+        banner: (document.querySelector('.tr-sgdone') || {}).textContent || '' }; });
+    t.ok('in they come: a row that says 3 sets is three sets, in kg as the heading said',
+      r.n === 2 && r.u === 'kg,kg' && r.sets === 'bb-bench:60x10/60x10/60x10 | bb-squat:100x5/100x5/100x5/100x5/100x5', JSON.stringify(r));
+    t.ok('and History says where they came from', /Brought in 2 workouts from your file/.test(r.banner), r.banner);
     await p.close();
   },
 };
