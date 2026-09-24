@@ -13286,6 +13286,15 @@ module.exports = {
         t.ok('"Don’t suggest" takes it off, remembers it, and says so',
           after.gone && after.never && /won’t be suggested/.test(after.toast), JSON.stringify(after));
         t.ok('and something else covers the fibre in its place', after.replaced, JSON.stringify(after));
+        /* And the message goes away. It was set hidden on time and stayed on
+           screen, because its own display:flex beat the attribute — Blake:
+           "The undo pop-up won't go away." Judged by what is DRAWN. */
+        await np.waitForTimeout(6300);
+        const toastGone = await np.evaluate(() => {
+          const el = document.getElementById('mToast');
+          return !el || getComputedStyle(el).display === 'none';
+        });
+        t.ok('the message goes away on its own', toastGone);
         // never again, whatever the draw
         let back = 0;
         for (const sd of [1, 2, 3, 4, 5, 6, 7, 8]) {

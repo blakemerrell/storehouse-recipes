@@ -4587,11 +4587,15 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mwhy-acts .ghost { font-size: 13px; padding: 5px 11px; }
 .m-toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 60;
+  bottom: calc(118px + env(safe-area-inset-bottom, 0px)); z-index: 60;
   display: flex; align-items: baseline; gap: 12px; max-width: calc(100% - 32px);
   background: var(--ink); color: var(--paper); border-radius: 6px; padding: 10px 14px;
   font-size: 14px; box-shadow: 0 8px 22px -10px oklch(0.2 0.02 60 / 0.5);
 }
+/* `hidden` has to win over the display above: without this the attribute
+   was set on time and the message stayed on screen forever (Blake: "The
+   undo pop-up won't go away"). */
+.m-toast[hidden] { display: none; }
 .m-toast button { background: none; border: 0; color: var(--paper); font: inherit; font-weight: 650;
   text-decoration: underline; cursor: pointer; padding: 0; }
 .mnv-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line-soft, var(--line)); }
