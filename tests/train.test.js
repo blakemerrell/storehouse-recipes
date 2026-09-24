@@ -1815,7 +1815,7 @@ module.exports = {
     t.ok('last time’s warm-up does not push every Previous down a row', r === '185x10,185x8,185x8,185x8', r);
     await p.click('[data-t="sty"][data-x="0"][data-s="0"]');
     r = await p.evaluate(() => [...document.querySelectorAll('[data-t="styset"]')].map((b) => b.textContent).join('|'));
-    t.ok('tapping a set’s number asks what kind of set it is', r === 'Working set|Warm-up|Drop set|To failure', r);
+    t.ok('tapping a set’s number asks what kind of set it is', r === 'Working set|Warm-up|Drop set|To failure|Missed', r);
     await p.click('[data-t="styset"][data-v="w"]');
     r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s.map((s) => (s.pw === null ? '-' : s.pw + 'x' + s.pr)).join());
     t.ok('marked a warm-up, a set is paired with last time’s warm-up, and the working sets with last time’s working sets', r === '45x14,185x10,185x8,185x8', r);
@@ -2276,6 +2276,562 @@ module.exports = {
     await p.click('[data-t="extab"][data-v="records"]');
     r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-hint') || {}).textContent || '');
     t.ok('and the lift says how to get a strength number', /Log your weight on Nourish/.test(r), r);
+    await p.close();
+    // ---- your weight on a pull-up day: asked only when there's no good answer --------------
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, D = 864e5, k = (ago) => { const d = new Date(Date.now() - ago * D); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      const at = (w) => { localStorage.setItem('bsc.macroWeights', JSON.stringify(w)); return _.bwInfo(k(0), 'lb'); };
+      return { avg: at({ [k(1)]: 190, [k(3)]: 191, [k(5)]: 192 }), day: at({ [k(0)]: 188, [k(3)]: 191 }), old: at({ [k(9)]: 190 }), none: at({ [k(20)]: 190 }) };
+    });
+    t.ok('three weigh-ins in the week: their average is your weight, steadier than any one', r.avg.src === 'avg' && r.avg.v === 191, JSON.stringify(r.avg));
+    t.ok('fewer, but one today: today’s', r.day.src === 'day' && r.day.v === 188, JSON.stringify(r.day));
+    t.ok('only an older one: it counts, but is marked as not to be trusted today', r.old.src === 'old' && r.old.v === 190 && r.none === null, JSON.stringify(r));
+    await p.close();
+
+    const bwPage = async (weights) => {
+      const q = await t.fresh();
+      await q.evaluate((w) => {
+        const D = 864e5, k = (ago) => { const d = new Date(Date.now() - ago * D); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+        const o = {}; Object.keys(w).forEach((a) => { o[k(Number(a))] = w[a]; });
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(o));
+      }, weights);
+      await q.reload();
+      await q.waitForTimeout(200);
+      await seed(q, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+      await q.click('.tab[data-view="train"]');
+      await q.click('[data-t="empty"]');
+      await q.click('[data-t="addex"]');
+      await q.click('.tr-pick[data-e="bb-bench"]');
+      return q;
+    };
+    const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    // a week of weigh-ins: never asked
+    p = await bwPage({ 1: 190, 3: 191, 5: 192 });
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    r = await p.evaluate(() => !!document.querySelector('.tr-bwq'));
+    t.ok('with a week of weigh-ins it doesn’t ask', r === false);
+    await p.close();
+    // an older one only: asked, and not before a pull-up is in the workout
+    p = await bwPage({ 9: 190, 10: 191, 11: 189 });
+    r = await p.evaluate(() => !!document.querySelector('.tr-bwq'));
+    t.ok('no question on a day with no pull-ups or dips', r === false);
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-bwq'); return c ? { q: c.querySelector('.tr-sq-l').textContent, sub: c.querySelector('.tr-sub').textContent,
+      old: (c.querySelector('[data-t="bwqold"]') || {}).textContent || '' } : null; });
+    t.ok('add pull-ups with only an older weigh-in, and it asks what you weigh today', r && r.q === 'What do you weigh today?' && /last weigh-in was 190 lb/.test(r.sub) && /^Use 190 from /.test(r.old), JSON.stringify(r));
+    await p.fill('#trBwq', '150');
+    await p.click('[data-t="bwqsave"]');
+    r = await p.evaluate((k) => ({ warn: (document.querySelector('.tr-bwq .tr-warn') || {}).textContent || '', nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k] }), today());
+    t.ok('a weight far from your average is asked about, with Nourish’s own guard, before anything is written', /That’s 150 lb, against 190 lb lately/.test(r.warn) && r.nourish === undefined, JSON.stringify(r));
+    await p.fill('#trBwq', '188.4');
+    await p.press('#trBwq', 'Enter');
+    r = await p.evaluate((k) => ({ live: window.Train._.state().LIVE.bw, nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k],
+      tuck: (document.querySelector('.tr-bkt [data-t="bwopen"]') || {}).textContent || '', card: !!document.querySelector('.tr-bwq') }), today());
+    t.ok('saved, it is today’s weigh-in on Nourish, and this workout’s weight', r.live === 188.4 && r.nourish === 188.4, JSON.stringify(r));
+    t.ok('and the question folds to one line you can change', !r.card && /You188\.4 lbChange/.test(r.tuck), JSON.stringify(r));
+    r = await p.evaluate((k) => { const H = window.Hive; return { again: H.weigh(k, 187), fix: H.weigh(k, 187.2, { was: 188.4 }) }; }, today());
+    t.ok('Nourish never lets it write over a day already weighed, except to correct its own number', r.again.had === 188.4 && r.fix.ok === true, JSON.stringify(r));
+    await p.fill('#trr-1-0', '8');
+    await p.click('[data-t="tick"][data-x="1"][data-s="0"]');
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => Object.values(window.Train._.state().T.wo)[0].bw);
+    t.ok('the workout keeps the weight you gave', r === 188.4, r);
+    await p.close();
+    // Use the older one, or Not now: nothing written to Nourish
+    p = await bwPage({ 9: 190 });
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="dip"]');
+    await p.click('[data-t="bwqold"]');
+    r = await p.evaluate((k) => ({ live: window.Train._.state().LIVE.bw, nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k] }), today());
+    t.ok('using the last weigh-in keeps it for the workout but writes nothing new to Nourish', r.live === 190 && r.nourish === undefined, JSON.stringify(r));
+    await p.click('[data-t="bwopen"]');
+    await p.click('[data-t="bwqskip"]');
+    r = await p.evaluate(() => ({ q: window.Train._.state().LIVE.bwq, card: !!document.querySelector('.tr-bwq') }));
+    t.ok('and Not now puts the question away for this workout', r.q === 'skip' && !r.card, JSON.stringify(r));
+    await p.close();
+    // ---- fixes from the two reviews ------------------------------------------------------
+    p = await t.fresh();
+    // the RP climb says what it actually added
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'blk';
+      ms.days[0].s.forEach((s) => { if (_.lib(s.e).m === 'chest') s.n = 6; });
+      const W = (id, d, extra) => Object.assign({ id, st: Date.now() - (20 - d) * 864e5, en: Date.now() - (20 - d) * 864e5 + 36e5, dk: '2026-01-01', n: 'W', u: 'lb', ms: 'blk', w: 0, d, dl: 0, x: [], sr: {}, fb: {} }, extra || {});
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1 }, act: 'blk', ms: { blk: ms }, cx: {}, ax: {},
+        wo: { a0: W('a0', 0, { fb: { chest: { p: 0, k: 0 } } }), b0: W('b0', 1), c0: W('c0', 2, { sr: { chest: 0 } }), d0: W('d0', 3) } }));
+      localStorage.removeItem('bsc.trainStamps');
+      _.reload();
+      const m = _.state().T.ms.blk, p1 = _.plan(m, 1, 0), p0 = _.plan(m, 0, 0);
+      const chest = (pl) => pl.x.filter((x) => _.lib(x.e).m === 'chest');
+      return { before: chest(p0).map((x) => x.sets).join(), after: chest(p1).map((x) => x.sets).join(), why: chest(p1)[0].why };
+    });
+    t.ok('at six sets an exercise the climb stops, and the reason says so instead of claiming +2', r.before === '6,6' && r.after === '6,6' && /^Held — .*Held at six sets an exercise/.test(r.why), JSON.stringify(r));
+    // program cards
+    r = await p.evaluate(() => { const _ = window.Train._; return [_.weeksSay(_.PROGS.waves), _.kitSay(_.PROGS.waves), _.kitSay(_.PROGS.power), _.kitSay(_.PROGS.home), _.weeksSay(_.PROGS.grow)].join('|'); });
+    t.ok('the strength waves card says four weeks and a barbell, not “3–3 weeks · home kit”', r === '4 weeks|needs a barbell|needs a barbell|home kit|4–7 weeks', r);
+    // Strong: each row its own unit
+    r = await p.evaluate(() => {
+      const _ = window.Train._; _.state().T.pr.u = 'lb';
+      const G = _.sgParse('Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds,Notes,Workout Notes,RPE\n' +
+        '"2020-01-01 07:30:00","A","45m","Squat (Barbell)","1","132.5","kg","5","0","0","","",""\n' +
+        '"2024-01-01 07:30:00","B","45m","Squat (Barbell)","1","315","lbs","5","0","0","","",""\n');
+      return { u: G.unit, fixed: G.fixedUnit, w: G.wos.map((w) => w.x[0].s[0].w).join(), su: G.wos[0].x[0].s[0].su };
+    });
+    t.ok('a Strong history that changed unit comes in right: 132.5 kg is 292 lb, not 132.5', r.u === 'lb' && r.fixed && r.w === '292,315' && r.su === undefined, JSON.stringify(r));
+    // editing after a change of unit keeps the bodyweight right
+    await seed(p, { pr: { qz: 1, u: 'lb' }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a: wo('a', '', -1, -1, 2, [{ e: 'pullup', s: [{ w: 0, r: 8 }] }], { bw: 200 }) } });
+    await p.click('.tab[data-view="train"]');
+    await p.evaluate(() => { window.Train._.state().T.pr.u = 'kg'; });
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('.tr-hrow[data-t="wosheet"]');
+    await p.click('[data-t="edopen"]');
+    await p.click('[data-t="edsave"]');
+    r = await p.evaluate(() => { const _ = window.Train._, w = _.state().T.wo.a; return { u: w.u, bw: w.bw, e1: Math.round(_.records('pullup').e1) }; });
+    t.ok('a pull-up workout edited after switching to kg keeps you at 90.5 kg, not 200', r.u === 'kg' && r.bw === 90.5 && r.e1 === Math.round(90.5 * (1 + 8 / 30)), JSON.stringify(r));
+    await p.close();
+
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      h: wo('h', '', -1, -1, 5, [{ e: 'bb-bench', s: [{ w: 400, r: 2 }, { w: 315, r: 8 }] }]) } });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    // reps follow today's sets
+    await p.fill('#trw-0-0', '320'); await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => document.getElementById('trr-0-1').placeholder);
+    t.ok('after 320 × 8, the next set expects 8, not the target it just beat', r === '8', r);
+    // remove asks twice once a set is done
+    await p.click('[data-t="rmex"][data-x="0"]');
+    r = await p.evaluate(() => ({ n: window.Train._.state().LIVE.x.length, say: document.querySelector('[data-t="rmex"][data-x="0"]').textContent }));
+    t.ok('Remove on a lift with done sets asks again, saying what goes', r.n === 1 && /Tap again: remove it and its 1 done set/.test(r.say), JSON.stringify(r));
+    r = await p.evaluate(() => { const b = document.querySelector('.tr-set:not(.tr-set-h) .tr-tick').getBoundingClientRect(); return Math.round(b.height); });
+    t.ok('the tick is thumb-sized: 44 px tall', r >= 44, r);
+    // warm-ups: to the heaviest working set, and into the log
+    await p.fill('#trw-0-1', '315'); await p.fill('#trr-0-1', '3');
+    await p.click('[data-t="warm"][data-x="0"]');
+    r = await p.evaluate(() => ({ sub: document.querySelector('.tr-sheet .tr-sub').textContent, rows: [...document.querySelectorAll('.tr-warm li b')].map((e) => e.textContent).join('|') }));
+    t.ok('the ramp is worked up to the heaviest working set (done or planned), with more steps before heavy work', /heaviest working set, 400 lb/.test(r.sub) && r.rows.split('|').length >= 5 && !/400 lb ×/.test(r.rows), JSON.stringify(r));
+    await p.click('[data-t="warmadd"]');
+    r = await p.evaluate(() => { const x = window.Train._.state().LIVE.x[0]; return { kinds: x.s.map((s) => (s.wu ? 'W' : s.t ? 'done' : 'n')).join(), ph: document.getElementById('trw-0-1').placeholder, tw: x.s[1].tw }; });
+    t.ok('and “Add these as warm-up sets” puts them in the log ahead of the working sets, each showing its own weight',
+      /^W,W,W,W/.test(r.kinds) && /done/.test(r.kinds) && r.ph === String(r.tw), JSON.stringify(r));
+    // records agree, and warm-ups aren't volume
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.x[0].s = L.x[0].s.filter((s) => s.t || s.wu); L.x[0].s.forEach((s) => { if (s.wu) { s.w = String(s.tw); s.r = String(s.tr); s.t = Date.now(); } }); });
+    await p.evaluate(() => window.Train._.reload && 0);
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, w = Object.values(T.wo).sort((a, b) => b.st - a.st)[0];
+      return { h: document.querySelector('.tr-done-h').textContent, recs: [...document.querySelectorAll('.tr-done .tr-rec')].map((e) => e.textContent).join('|'),
+        prs: _.prsIn(w).length, vol: _.volOf(w) }; });
+    t.ok('a best for its reps is said as that, and not counted as a record the history won’t star',
+      r.h === 'A best for its reps!' && /Records0 \+1 rep best/.test(r.recs) && r.prs === 0, JSON.stringify(r));
+    t.ok('and the volume is the working sets only', r.vol === 320 * 8 && /Volume2,560 lb/.test(r.recs), JSON.stringify(r));
+    await p.close();
+
+    // a wave's end shows the new training maxes; a main lift swapped keeps its day
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ prog: 'waves', dpw: 4, kit: 'gym', lvl: 2, wave: 10 });
+      ms.id = 'wv'; ms.n = 'Waves'; ms.tm = {}; ms.tu = 'lb';
+      ms.days.forEach((d) => d.s.forEach((s) => { if (s.m) ms.tm[s.e] = 300; }));
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1 }, act: 'wv', ms: { wv: ms }, cx: {}, ax: {}, wo: {} }));
+      localStorage.removeItem('bsc.trainStamps');
+      _.reload();
+      const m = _.state().T.ms.wv, main = m.days[0].s.find((s) => s.m);
+      return { html: _.doneNext(m), main: main.e };
+    });
+    t.ok('the end of a wave shows each lift’s training max for the next one, not RP’s text', /Training max for the next wave/.test(r.html) && !/RP/.test(r.html), r.html.slice(0, 200));
+    await p.click('.tab[data-view="train"]');
+    await p.evaluate(() => { const b = document.querySelector('[data-t="start"]') || document.querySelector('[data-t="startnext"]'); if (b) b.click(); });
+    r = await p.evaluate(() => { const L = window.Train._.state().LIVE; return L ? { fix: !!L.x[0].fix, am: L.x[0].s.some((s) => s.am), tr: L.x[0].s.map((s) => s.tr).join(), e: L.x[0].e } : null; });
+    const mainBefore = r;
+    if (r && r.fix) {
+      const alt = await p.evaluate(() => { const _ = window.Train._, L = _.state().LIVE, ex = _.lib(L.x[0].e);
+        return _.LIB_LIST.filter((x) => x.m === ex.m && x.k === 'c' && x.id !== ex.id && x.q === 'bb')[0].id; });
+      await p.click('[data-t="swap"][data-x="0"]');
+      await p.evaluate((e) => { const b = document.querySelector('.tr-pick[data-e="' + e + '"]'); if (b) b.click(); }, alt);
+      r = await p.evaluate(() => { const x = window.Train._.state().LIVE.x[0]; return { e: x.e, fix: !!x.fix, am: x.s.some((s) => s.am), tr: x.s.map((s) => s.tr).join(), swn: x.swn || '' }; });
+      t.ok('swapping the main lift keeps its sets and targets (and any all-out set), and says the old lift’s max stays put',
+        r.fix && r.am === mainBefore.am && r.tr === mainBefore.tr && /training max stays as it is/.test(r.swn), JSON.stringify({ mainBefore, after: r }));
+    } else t.ok('a planned wave session starts with its main lift first', false, JSON.stringify(r));
+    await p.close();
+
+    // saving to the account: a failure is shown, not swallowed
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => { window.Train._.state().T; return (document.querySelector('[data-t="settings"]') ? 1 : 0); });
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
+    t.ok('signed out, Settings says the training is only on this phone', /Only on this phone/.test(r), r.slice(0, 80));
+    await p.click('.sheet-x');
+    await p.evaluate(async () => {
+      window.Train.attach({ set: () => Promise.reject(new Error('offline')) });
+      window.Train.remote({}, true);
+      await new Promise((res) => setTimeout(res, 50));
+    });
+    r = await p.evaluate(() => (document.querySelector('.tr-syncerr') || {}).textContent || '');
+    t.ok('a save to the account that fails says so, and that the phone still has it', /Not saved to your account yet/.test(r) && /safe on this phone/.test(r), r);
+    await p.evaluate(() => window.Train.attach(null));
+    await p.close();
+
+    // ---- someone new to lifting: easier lifts, plain words, and help at the first set ----
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ids = (ms) => ms.days.map((d) => d.s.map((s) => s.e)).flat();
+      return { nb: ids(_.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 0 })), mid: ids(_.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 1 })),
+        home: ids(_.build({ prog: 'start', dpw: 3, kit: 'db', lvl: 0 })) };
+    });
+    const hard = ['pullup', 'chinup', 'bb-row', 'db-bss', 'belt-squat', 'hip-thrust', 'pallof', 'bb-incline', 'bb-ohp', 'hang-raise'];
+    t.ok('new to lifting in a gym: machines, dumbbells and a pulldown, none of the hard-to-learn lifts',
+      r.nb.indexOf('lat-pd') >= 0 && r.nb.indexOf('db-rdl') >= 0 && r.nb.indexOf('mc-press') >= 0 && !r.nb.some((e) => hard.indexOf(e) >= 0), r.nb.join());
+    t.ok('a year or more in: the barbell lifts, as before', r.mid.indexOf('bb-squat') >= 0 && r.mid.indexOf('bb-bench') >= 0, r.mid.join());
+    t.ok('at home with dumbbells, still the two-footed versions first', r.home.indexOf('db-bss') < 0 && r.home.indexOf('goblet') >= 0, r.home.join());
+    await p.close();
+
+    // the quiz: "I'm new — choose for me" goes straight to the one program to start with
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="qznew"]');
+    r = await p.evaluate(() => ({ lvl: window.Train._.state().T.pr.lvl, cards: document.querySelectorAll('.tr-prog').length,
+      first: (document.querySelector('.tr-prog .tr-title, .tr-prog h3, .tr-prog') || {}).textContent || '',
+      lib: (document.querySelector('[data-t="lib"]') || {}).textContent || '' }));
+    t.ok('“I’m new — choose for me” sets you as new and shows only Start here, the others a tap away',
+      r.lvl === 0 && r.cards === 1 && /Start here/.test(r.first) && r.lib === 'See other programs', JSON.stringify(r).slice(0, 300));
+    await p.close();
+
+    // the first workout, new to lifting
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, lvl: 0 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-ex'); return {
+      how1: (document.querySelector('.tr-how1') || {}).textContent || '', first: (c.querySelector('.tr-first:not(.tr-safe)') || {}).textContent || '',
+      safe: (c.querySelector('.tr-safe') || {}).textContent || '', howto: !!c.querySelector('[data-t="exhow"]'),
+      head: [...c.querySelectorAll('.tr-set-h span')].map((e) => e.textContent).join('|'), meta: c.querySelector('.tr-ex-m').textContent }; });
+    t.ok('a card says how a workout goes, once', /How a workout goes/.test(r.how1) && /Tap ✓/.test(r.how1), r.how1.slice(0, 80));
+    t.ok('a lift never done says how to find a weight, starting with the bar', /First time on this one\?/.test(r.first) && /just the bar/.test(r.first), r.first);
+    t.ok('the bench says to set the safety bars first', /Safety first\..*safety bars/.test(r.safe), r.safe);
+    t.ok('and has a How to do it link in view', r.howto);
+    t.ok('the columns and the line under the name are in plain words', /Last time/.test(r.head) && /\d+ sets? of 6–10 reps/.test(r.meta) && /Chest/.test(r.meta), JSON.stringify(r));
+    await p.click('[data-t="exhow"]');
+    r = await p.evaluate(() => { const sh = document.querySelector('.tr-sheet') || document.body, a = [...sh.querySelectorAll('a.tr-howlink')].pop();
+      return { tab: (sh.querySelector('.tr-extab [aria-pressed="true"]') || {}).textContent || '', safe: !!sh.querySelector('.tr-safe'),
+        href: a ? a.getAttribute('href') : '', rel: a ? a.getAttribute('rel') : '' }; });
+    t.ok('How to do it opens the lift on About, with the safety note and a video search', r.tab === 'About' && r.safe &&
+      /^https:\/\/www\.youtube\.com\/results\?search_query=Barbell%20Bench%20Press/.test(r.href) && /noopener/.test(r.rel), JSON.stringify(r));
+    await p.click('.sheet-x');
+    // ticked with nothing to go on: said in words, under the set
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-need') || {}).textContent || '');
+    t.ok('a tick with no weight to use says what to type', r === 'Type the weight you used (0 if none), then tick.', r);
+    await p.fill('#trw-0-0', '45');
+    r = await p.evaluate(() => !!document.querySelector('.tr-need'));
+    t.ok('and goes as soon as you type', r === false);
+    await p.fill('#trr-0-0', '10');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-ex'); return { first: !!c.querySelector('.tr-first'), how: !!c.querySelector('[data-t="exhow"]') }; });
+    t.ok('once a set is done the before-you-start notes go; How to do it stays for someone new', !r.first && r.how, JSON.stringify(r));
+    await p.click('[data-t="hwok"]');
+    r = await p.evaluate(() => ({ card: !!document.querySelector('.tr-how1'), hw: window.Train._.state().T.pr.hw }));
+    t.ok('Got it puts the how-it-goes card away for good', !r.card && r.hw === 1, JSON.stringify(r));
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.x[0].s = L.x[0].s.filter((s) => s.t); });
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => (document.querySelector('.tr-done') || {}).textContent || '');
+    t.ok('the first workout’s summary says personal bests start today, and calls volume Total lifted',
+      /Personal bests start today/.test(r) && /Total lifted/.test(r) && !/Volume/.test(r), r.slice(0, 200));
+    await p.close();
+
+    // the weight asked for comes with its reason, for someone new; not for anyone else
+    for (const lvl of [0, 1]) {
+      p = await t.fresh();
+      await seed(p, { pr: { qz: 1, lvl }, act: '', ms: {}, cx: {}, ax: {}, wo: { h1: wo('h1', '', 0, 0, 3, [{ e: 'bb-bench', s: sets(135, [10, 10, 10]) }]) } });
+      await p.click('.tab[data-view="train"]');
+      await p.click('[data-t="empty"]');
+      await p.click('[data-t="addex"]');
+      await p.click('.tr-pick[data-e="bb-bench"]');
+      r = await p.evaluate(() => { const c = document.querySelector('.tr-ex'); return { txt: c.querySelector('.tr-ex-h').textContent, first: !!c.querySelector('.tr-first'),
+        how: !!c.querySelector('[data-t="exhow"]'), head: c.querySelector('.tr-set-h').textContent }; });
+      if (lvl === 0) t.ok('new to lifting: “Up 5 lb: you reached the top of the range last time”', /Up 5 lb: you reached the top of the range last time/.test(r.txt), r.txt);
+      else t.ok('otherwise no reason line, no first-time notes on a lift you have done, and Previous', !/Up 5 lb/.test(r.txt) && !r.first && !r.how && /Previous/.test(r.head), JSON.stringify(r));
+      await p.close();
+    }
+
+    // trained today already, the next session works the same muscles: said, not enforced
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 1 });
+      ms.id = 'st'; ms.n = 'Start here';
+      const pl = _.plan(ms, 0, 0);
+      const now = Date.now(), done = { id: 'td', st: now - 3600e3, en: now - 60e3, dk: '', n: 'Lunch', u: 'lb', ms: '', w: 0, d: 0, dl: 0, sr: {}, fb: {},
+        x: pl.x.slice(0, 3).map((x) => ({ e: x.e, s: [{ w: 100, r: 8, t: now - 1800e3 }] })) };
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1 }, act: 'st', ms: { st: ms }, cx: {}, ax: {}, wo: { td: done } }));
+      localStorage.removeItem('bsc.trainStamps');
+      _.reload();
+      return _.restNote(pl);
+    });
+    t.ok('trained today already: the Next card says the same muscles are better tomorrow', /better tomorrow/.test(r), r);
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-next') || {}).textContent || '');
+    t.ok('shown on the block’s Next card, with Start still there', /better tomorrow/.test(r) && /Start workout/.test(r), r.slice(0, 120));
+    await p.close();
+
+    // your weight: Don't ask again, and the switch for it in Settings
+    p = await bwPage({ 9: 190 });
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    await p.click('[data-t="bwqnever"]');
+    r = await p.evaluate(() => ({ card: !!document.querySelector('.tr-bwq'), nobw: window.Train._.state().T.pr.nobw }));
+    t.ok('Don’t ask again puts the weigh-in question away for good', !r.card && r.nobw === 1, JSON.stringify(r));
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('[data-t="s-nobw"][aria-pressed="true"]') || {}).textContent || '');
+    t.ok('and Settings shows it, to switch back', r === 'Don’t ask', r);
+    await p.close();
+
+    // ---- a lifetime of workouts: a record a year in the account -------------------------
+    /* A stand-in for the account: the one record, the records under it, and
+       Firestore's delete marker. `deny` is the database before the rule for
+       the yearly records is published. */
+    const fakeAcct = () => {
+      window.__acct = { main: {}, yrs: {}, writes: [], deny: false };
+      const A = window.__acct, DEL = { __del: 1 };
+      const put = (to, from) => { Object.keys(from).forEach((k) => {
+        const v = from[k];
+        if (v === DEL) delete to[k];
+        else if (v && typeof v === 'object' && !Array.isArray(v) && to[k] && typeof to[k] === 'object') put(to[k], v);
+        else to[k] = JSON.parse(JSON.stringify(v, (kk, vv) => (vv === DEL ? undefined : vv)));
+      }); };
+      const cut = (o) => JSON.parse(JSON.stringify(o, (k, v) => (v === DEL ? '(deleted)' : v)));
+      const snap = () => ({ metadata: { fromCache: false }, forEach: (fn) => Object.keys(A.yrs).forEach((y) => fn({ id: y, data: () => JSON.parse(JSON.stringify(A.yrs[y])) })) });
+      A.doc = {
+        set: (d) => { A.writes.push(['main', cut(d)]); put(A.main, d); return Promise.resolve(); },
+        collection: () => ({
+          doc: (y) => ({ set: (d) => { if (A.deny) return Promise.reject({ code: 'permission-denied' }); A.writes.push([y, cut(d)]); A.yrs[y] = A.yrs[y] || {}; put(A.yrs[y], d); return Promise.resolve(); } }),
+          onSnapshot: (o, next, err) => { setTimeout(() => (A.deny ? err({ code: 'permission-denied' }) : next(snap())), 10); return () => {}; },
+        }),
+      };
+      A.fv = { delete: () => DEL };
+    };
+    const acctSeed = async (q, deny) => {
+      await q.evaluate(({ fake, deny }) => {
+        eval('(' + fake + ')')();
+        window.__acct.deny = deny;
+        const now = Date.now(), at = (y, m) => new Date(y, m, 10, 18).getTime();
+        const mk = (id, st) => ({ id, st, en: st + 3600e3, dk: '', n: 'W', u: 'lb', ms: '', w: 0, d: 0, dl: 0, sr: {}, fb: {}, x: [{ e: 'bb-bench', s: [{ w: 135, r: 8, t: st + 60e3 }] }] });
+        const wo = { a24: mk('a24', at(2024, 3)), b25: mk('b25', at(2025, 5)), c26: mk('c26', now - 864e5) };
+        const ts = { a24: 1000, b25: 2000, c26: 3000 };
+        localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, nt: {}, rt: {}, wo }));
+        localStorage.setItem('bsc.trainStamps', JSON.stringify({ pr: 1, act: 1, ms: {}, wo: ts, cx: {}, ax: {}, nt: {}, rt: {} }));
+        window.Train._.reload();
+        // the one record, as an older version of the app left it
+        const tr = { wo: {} };
+        Object.keys(wo).forEach((k) => { tr.wo[k] = { v: wo[k], at: ts[k] }; });
+        window.__acct.main = { train: JSON.parse(JSON.stringify(tr)) };
+        window.Train.attach(window.__acct.doc, window.__acct.fv);
+        window.Train.remote(tr, true);
+      }, { fake: fakeAcct.toString(), deny });
+      await q.waitForTimeout(1300);
+    };
+    // before the rule is published: all in the one record, as it always was
+    p = await t.fresh();
+    await acctSeed(p, true);
+    r = await p.evaluate(() => { const A = window.__acct, Y = window.Train._.yr();
+      return { on: Y.on, yrs: Object.keys(A.yrs), main: Object.keys(A.main.train.wo).sort().join(), err: window.Train._.state().S && 0 }; });
+    t.ok('with the yearly rule not yet published, the workouts stay in the one record and nothing fails', r.on === false && !r.yrs.length && r.main === 'a24,b25,c26', JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
+    t.ok('and Settings says what one database rule would change', /of the 1 MB record your account keeps them in/.test(r) && /SETUP\.md, step 4/.test(r) && !/Not saved/.test(r), r.slice(r.indexOf('Your training data'), r.indexOf('Your training data') + 300));
+    await p.close();
+
+    // published: every workout goes to its year, and only then leaves the one record
+    p = await t.fresh();
+    await acctSeed(p, false);
+    r = await p.evaluate(() => { const A = window.__acct, Y = window.Train._.yr(), order = A.writes.map((w) => w[0]);
+      return { on: Y.on, yrs: Object.keys(A.yrs).sort().join(), y24: Object.keys((A.yrs['2024'] || {}).wo || {}).join(), y26: Object.keys((A.yrs[String(new Date(Date.now() - 864e5).getFullYear())] || {}).wo || {}).join(),
+        main: Object.keys((A.main.train || {}).wo || {}).join(), order: order.join(), lastMain: order.lastIndexOf('main'), firstYear: Math.min(...['2024', '2025'].map((y) => order.indexOf(y))) }; });
+    t.ok('published: each workout is copied into its year’s record', r.on === true && /2024/.test(r.yrs) && /2025/.test(r.yrs) && r.y24 === 'a24' && /c26/.test(r.y26), JSON.stringify(r));
+    t.ok('and only after that is it taken out of the one record, which ends up holding none', r.main === '' && r.firstYear >= 0 && r.lastMain > r.firstYear, JSON.stringify(r));
+    // a new session: nothing that the years already hold is sent again
+    r = await p.evaluate(async () => { const A = window.__acct; A.writes = [];
+      window.Train.attach(A.doc, A.fv); window.Train.remote(A.main.train, true);
+      await new Promise((res) => setTimeout(res, 1300));
+      return A.writes.filter((w) => w[0] !== 'main' && Object.keys(w[1].wo || {}).length).length; });
+    t.ok('the next time the app opens, workouts the years already hold are not sent again', r === 0, r);
+    // deleting a workout deletes it from its year's record
+    r = await p.evaluate(async () => { const A = window.__acct; window.Train._.dropWo('a24');
+      await new Promise((res) => setTimeout(res, 1300));
+      return { y: A.yrs['2024'].wo.a24, main: ((A.main.train || {}).wo || {}).a24 }; });
+    t.ok('a deleted workout is deleted in its own year’s record', r.y && r.y.v === null && !r.main, JSON.stringify(r));
+    // a phone on the old version puts workouts back in the one record: moved again, never lost
+    r = await p.evaluate(async () => { const A = window.__acct, T = window.Train._.state().T;
+      const b = JSON.parse(JSON.stringify(T.wo.b25)); b.n = 'Edited on the old phone';
+      const tr = { wo: { b25: { v: b, at: 9999999999999 } } };
+      A.main.train.wo = tr.wo; window.Train.remote(JSON.parse(JSON.stringify(tr)), true);
+      await new Promise((res) => setTimeout(res, 1300));
+      return { here: T.wo.b25.n, y: A.yrs['2025'].wo.b25.v.n, main: Object.keys(A.main.train.wo).join() }; });
+    t.ok('an edit an older version put in the one record wins, moves to its year, and leaves the one record', r.here === 'Edited on the old phone' && r.y === r.here && r.main === '', JSON.stringify(r));
+    r = await p.evaluate(async () => { const A = window.__acct, T = window.Train._.state().T;
+      const tr = { wo: { c26: { v: null, at: 9999999999999 } } };
+      A.main.train.wo = JSON.parse(JSON.stringify(tr.wo)); window.Train.remote(tr, true);
+      await new Promise((res) => setTimeout(res, 1300));
+      const y = String(new Date(Date.now() - 864e5).getFullYear());
+      return { here: !!T.wo.c26, y: A.yrs[y].wo.c26 }; });
+    t.ok('and a workout an older version deleted is deleted in its year’s record too', !r.here && r.y && r.y.v === null, JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
+    t.ok('Settings says they are kept a year to a record, with no limit', /kept a year to a record in your account \(2024, 2025/.test(r) && /no limit on how far back/.test(r), r.slice(r.indexOf('Your training data'), r.indexOf('Your training data') + 300));
+    // sizes: a year's record holds about three years of normal training
+    r = await p.evaluate(() => { const _ = window.Train._, mk = (i, y) => ({ id: 'z' + y + 'n' + i, st: new Date(y, 0, 1).getTime() + i * 36e5, u: 'lb', x: Array.from({ length: 6 }, () => ({ e: 'bb-bench', s: Array.from({ length: 4 }, () => ({ w: 185.5, r: 8, t: 1e12, q: 2 })) })) });
+      const year = (y, n) => Array.from({ length: n }, (_, i) => mk(i, y));
+      return { ok: _.fitSay(year(2019, 250).concat(year(2020, 250))), big: _.fitSay(year(2018, 800)) }; });
+    t.ok('by year: a year of 250 workouts fits, and more than a record can hold in one year is refused, naming it', r.ok === '' && /More workouts in 2018/.test(r.big), JSON.stringify(r));
+    await p.close();
+
+    // in the one record: a big import is refused before anything is written
+    p = await t.fresh();
+    await acctSeed(p, true);
+    r = await p.evaluate(() => { const _ = window.Train._, mk = (i) => ({ id: 'z' + i, st: Date.now() - i * 864e5, u: 'lb', x: Array.from({ length: 6 }, () => ({ e: 'bb-bench', s: Array.from({ length: 4 }, () => ({ w: 185.5, r: 8, t: 1e12, q: 2 })) })) });
+      return _.fitSay(Array.from({ length: 600 }, (x, i) => mk(i))); });
+    t.ok('in the one record, an import that would pass its limit is refused and says what would lift it', /one record of 1 MB/.test(r) && /SETUP\.md, step 4/.test(r), r);
+    await p.close();
+
+    // this phone's storage full: said, not swallowed
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.evaluate(() => { const real = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k, v) { if (k === 'bsc.train') { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; } return real.call(this, k, v); }; });
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.fill('#trw-0-0', '95');
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.x[0].s = L.x[0].s.filter((s) => s.t); });
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    await p.click('.tr-done [data-t="close"]');
+    r = await p.evaluate(() => ({ full: window.Train._.lsFull(), say: (document.querySelector('.tr-lsfull') || {}).textContent || '' }));
+    t.ok('when the phone’s storage is full it says so, and what to do', r.full === true && /storage for the app is full/.test(r.say) && /Export a copy/.test(r.say), JSON.stringify(r));
+    await p.close();
+
+    // ---- for the serious lifter: misses, assisted lifts, two deadlifts, RPE, a spreadsheet ----
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ids = [];
+      ['start', 'grow', 'keep', 'waves', 'power'].forEach((prog) => [0, 1, 2].forEach((lvl) => ['gym', 'bar', 'db'].forEach((kit) => [0, 1, 2, 3].forEach((seed) => {
+        try { const ms = _.build({ prog, dpw: 4, kit, lvl, seed }); ms.days.forEach((d) => d.s.forEach((x) => ids.push(x.e))); } catch (e) { /* not for this kit */ }
+      }))));
+      return { n: ids.length, bad: ids.filter((e) => ['sumo-dl', 'trap-dl', 'as-pullup', 'as-dip'].indexOf(e) >= 0),
+        lib: ['sumo-dl', 'trap-dl', 'as-pullup', 'as-dip'].map((e) => _.lib(e).n).join('|'), bar: _.barFor('trap-dl') };
+    });
+    t.ok('sumo and trap-bar deadlifts and the assisted pull-up and dip are in the library', r.lib === 'Sumo Deadlift|Trap-Bar Deadlift|Assisted Pull-Up|Assisted Dip', r.lib);
+    t.ok('and never chosen for a program on their own', r.n > 500 && !r.bad.length, JSON.stringify({ n: r.n, bad: r.bad.slice(0, 5) }));
+    t.ok('the trap bar starts as the hex bar', r.bar === 75, r.bar);
+    await p.close();
+
+    // a missed attempt: kept, never counted
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      m1: wo('m1', '', 0, 0, 8, [{ e: 'bb-bench', s: sets(225, [5, 5, 5]) }]),
+      m2: wo('m2', '', 0, 0, 4, [{ e: 'bb-bench', s: [{ w: 225, r: 5, t: 1e12 }, { w: 315, r: 0, t: 1e12 + 1, ty: 'm' }] }]),
+    } });
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, rec = _.records('bb-bench');
+      return { kept: T.wo.m2 && T.wo.m2.x[0].s.length, w: rec.w, e1: Math.round(rec.e1), vol: _.volOf(T.wo.m2), prs: _.prsIn(T.wo.m2).length,
+        tw: _.target(_.lib('bb-bench'), null, 0, 0, false).tw, prev: _.target(_.lib('bb-bench'), null, 0, 0, false).prev.length }; });
+    t.ok('a missed 315 is kept with the workout', r.kept === 2, JSON.stringify(r));
+    t.ok('and is not a record, not volume, and not what next time is worked from', r.w === 225 && r.e1 === 263 && r.vol === 1125 && r.prs === 0 && r.tw === 225 && r.prev === 1, JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.click('[data-t="sty"][data-x="0"][data-s="1"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet') || document.body).textContent);
+    t.ok('Missed is one of the kinds of set, and says what it means', /Missed/.test(r) && /never a record, never counted/.test(r), r.slice(0, 120));
+    await p.click('[data-t="styset"][data-v="m"]');
+    await p.fill('#trw-0-1', '315');
+    await p.click('[data-t="tick"][data-x="0"][data-s="1"]');
+    r = await p.evaluate(() => { const s = window.Train._.state().LIVE.x[0].s[1]; return { t: !!s.t, r: s.r, w: s.w, lab: document.querySelector('.tr-set.tr-mm .tr-snb').textContent }; });
+    t.ok('ticked with no reps, a missed attempt is done at 0 reps, marked M', r.t && r.r === 0 && r.w === 315 && r.lab === 'M', JSON.stringify(r));
+    r = await p.evaluate(() => { const _ = window.Train._; return _.ghost(0, 2); });
+    t.ok('and the set after it follows the plan, not the miss', r.r > 0 && r.w !== 315, JSON.stringify(r));
+    await p.close();
+
+    // assisted: you, less the help; less help is the step forward
+    p = await t.fresh();
+    await p.evaluate(() => {
+      const D = 864e5, k = (ago) => { const d = new Date(Date.now() - ago * D); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      const w = {}; [1, 2, 3, 5, 6, 8, 9, 10].forEach((a) => { w[k(a)] = 200; });
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+    });
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a1: wo('a1', '', 0, 0, 7, [{ e: 'as-pullup', s: sets(60, [10, 9, 8]) }], { bw: 200 }),
+      a2: wo('a2', '', 0, 0, 2, [{ e: 'as-pullup', s: sets(50, [12, 12, 12]) }], { bw: 200 }),
+    } });
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, rec = _.records('as-pullup'), tg = _.target(_.lib('as-pullup'), null, 0, 0, false);
+      return { e1: Math.round(rec.e1), w: rec.w, vol: _.volOf(T.wo.a2), tw: tg.tw, tr: tg.tr, won: _.wins(T.wo.a2).lines.map((l) => l.what).join('|') }; });
+    t.ok('an assisted pull-up counts you less the help: 200 lb, 50 lb of help, 12 reps', r.e1 === Math.round(150 * (1 + 12 / 30)), JSON.stringify(r));
+    t.ok('the help is never a heaviest or a volume', r.w === 0 && r.vol === 0 && !/heaviest/.test(r.won), JSON.stringify(r));
+    t.ok('top of the range on every set: next time asks for less help', r.tw === 45 && r.tr === 10, JSON.stringify(r));
+    await p.close();
+
+    // RPE, if you would rather
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, rq: 1, eff: 'rpe' }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-squat"]');
+    r = await p.evaluate(() => ({ head: document.querySelector('.tr-ex .tr-set-h').textContent,
+      opts: [...document.querySelectorAll('.tr-rqs')[0].options].map((o) => o.textContent).join(',') }));
+    t.ok('with RPE chosen, each set asks RPE by half steps', /RPE/.test(r.head) && r.opts === '–,10,9.5,9,8.5,8,7.5,7,6,≤5', JSON.stringify(r));
+    await p.selectOption('.tr-rqs >> nth=0', '0.5');
+    await p.fill('#trw-0-0', '275');
+    await p.fill('#trr-0-0', '3');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.x[0].s = L.x[0].s.filter((s) => s.t); });
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => { const T = window.Train._.state().T, w = Object.values(T.wo)[0]; return { q: w.x[0].s[0].q }; });
+    t.ok('RPE 9.5 is kept as half a rep in reserve, the one scale underneath', r.q === 0.5, JSON.stringify(r));
+    await p.click('.tr-done [data-t="close"]');
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('[data-t="s-eff"][aria-pressed="true"]') || {}).textContent || '');
+    t.ok('and Settings has the switch', r === 'RPE', r);
+    await p.close();
+
+    // a spreadsheet of every set, that Strong's importer (and this one) reads back
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      c1: wo('c1', '', 0, 0, 3, [{ e: 'bb-squat', s: [{ w: 135, r: 5, t: 1e12, wu: 1 }, { w: 225, r: 5, t: 1e12 + 1, q: 2 }, { w: 245, r: 0, t: 1e12 + 2, ty: 'm' }] },
+        { e: 'as-pullup', s: sets(40, [8]) }], { nt: 'Felt good, "legs" day' }),
+    } });
+    r = await p.evaluate(() => { const _ = window.Train._, csv = _.woCsv(), rows = _.csvRows(csv), G = _.sgParse(csv);
+      return { head: rows[0].slice(0, 12).join(','), n: rows.length, row2: rows[2].join('|'), miss: rows[3].join('|'),
+        back: G.err || G.wos.length + ':' + G.wos[0].x.map((x) => x.nm + '=' + x.s.length).join(','), match: G.names.map((n) => n.e).join(',') }; });
+    t.ok('the spreadsheet has Strong’s columns, with the unit on every row', r.head === 'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds,Notes,Workout Notes', r.head);
+    t.ok('a row a set: warm-up W, RPE and RIR both, and the workout note quoted', r.n === 5 && /\|1\|225\|lbs\|5\|/.test(r.row2) && /\|8\|2\|Working set\|/.test(r.row2) && /Felt good, "legs" day/.test(r.row2), JSON.stringify(r));
+    t.ok('a missed attempt says so', /Missed attempt/.test(r.miss) && /\|245\|lbs\|0\|/.test(r.miss), r.miss);
+    t.ok('and Bring in from Strong reads it back, lifts matched by name (the missed attempt left out, as Strong would)', r.back === '1:Back Squat=2,Assisted Pull-Up=1' && r.match.split(',').sort().join() === 'as-pullup,bb-squat', JSON.stringify(r));
+    r = await p.evaluate(() => { const G = window.Train._.sgParse('Date,Workout Name,Exercise Name,Set Order,Weight,Reps,RPE\n2026-01-05 18:00:00,Pull,Deadlift (Barbell),1,405,3,8.5\n');
+      return G.wos[0].x[0].s[0].q; });
+    t.ok('an RPE of 8.5 comes in as one and a half in reserve, not rounded', r === 1.5, r);
     await p.close();
   },
 };

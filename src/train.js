@@ -42,11 +42,18 @@
   function readLS(k) {
     try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; }
   }
+  /* When the training log itself cannot be written, the phone's storage is
+     full (or refused): said on screen rather than lost in silence. */
+  var LSFULL = false;
   function writeLS(k, v) {
     try {
       if (v === null || v === undefined) localStorage.removeItem(k);
       else localStorage.setItem(k, JSON.stringify(v));
-    } catch (e) { /* private mode: this session only */ }
+      if (k === 'bsc.train') LSFULL = false;
+    } catch (e) {
+      /* private mode: this session only */
+      if (k === 'bsc.train') LSFULL = true;
+    }
   }
   /* Firestore refuses a write carrying `undefined` anywhere in it, and takes
      the whole write down with it, while localStorage quietly drops the key —
@@ -235,7 +242,14 @@
     ['crunch', 'Crunch', 'abs', 'i', 'bw', '', 12, 25],
     ['pallof', 'Pallof Press', 'abs', 'i', 'cb', '', 10, 15],
     ['dead-bug', 'Dead Bug', 'abs', 'i', 'bw', '', 8, 12],
-    ['bird-dog', 'Bird Dog', 'abs', 'i', 'bw', '', 8, 12]
+    ['bird-dog', 'Bird Dog', 'abs', 'i', 'bw', '', 8, 12],
+    /* Added later, and never picked for a program on their own (NOPICK):
+       there to add, swap to, or bring in from Strong. The weight on an
+       assisted lift is the machine's help, not a load. */
+    ['sumo-dl', 'Sumo Deadlift', 'hams', 'c', 'bb', 'hinge', 5, 8],
+    ['trap-dl', 'Trap-Bar Deadlift', 'hams', 'c', 'bb', 'hinge', 5, 10],
+    ['as-pullup', 'Assisted Pull-Up', 'back', 'c', 'mc', 'vert', 6, 12],
+    ['as-dip', 'Assisted Dip', 'chest', 'c', 'mc', 'dip', 6, 12]
   ];
 
   /* ------------------------------------------------------------ the back
@@ -260,7 +274,7 @@
     'bb-row': 'Fc', 'cb-row': 'f', 'db-row': 'f', 'db-pullover': 'x',
     'bb-squat': 'FC', 'bb-front': 'fC', 'sm-squat': 'fc', 'goblet': 'fc', 'hack': 'c',
     'leg-press': 'f', 'db-bss': 'c', 'db-lunge': 'c', 'db-stepup': 'c',
-    'bb-rdl': 'F', 'db-rdl': 'F', 'bb-sldl': 'F', 'bb-dl': 'FC', 'good-am': 'F',
+    'bb-rdl': 'F', 'db-rdl': 'F', 'bb-sldl': 'F', 'bb-dl': 'FC', 'sumo-dl': 'FC', 'trap-dl': 'fC', 'good-am': 'F',
     'hip-thrust': 'x', 'mc-thrust': 'x', 'db-thrust': 'x', 'back-ext': 'Fx',
     'db-rear': 'f', 'bb-ohp': 'Cx', 'calf-stand': 'C',
     'db-shrug': 'c', 'bb-shrug': 'C', 'cb-shrug': 'c',
@@ -284,14 +298,14 @@
    * gym lifts load them much, so they mostly carry cues. */
   var JT = {
     'bb-bench': 'Sw', 'db-bench': 's', 'mc-press': 's', 'bb-incline': 'Sw', 'db-incline': 's', 'sm-incline': 's',
-    'dip': 'SEw', 'pushup-flat': 'sW', 'inc-pushup': 'w', 'pushup': 'sW', 'archer': 'SW',
+    'dip': 'SEw', 'as-dip': 'Sew', 'pushup-flat': 'sW', 'inc-pushup': 'w', 'pushup': 'sW', 'archer': 'SW',
     'cb-fly': 's', 'pec-deck': 's', 'db-fly': 'S',
-    'lat-pd': 's', 'pullup': 'se', 'lat-pd-n': 's', 'chinup': 'sew', 'pullup-neg': 'se', 'inv-row': 'w',
+    'lat-pd': 's', 'as-pullup': 's', 'pullup': 'se', 'lat-pd-n': 's', 'chinup': 'sew', 'pullup-neg': 'se', 'inv-row': 'w',
     'bb-row': 'w', 'db-pullover': 'S',
     'bb-squat': 'KhSwn', 'hack': 'K', 'bb-front': 'KW', 'sm-squat': 'K', 'leg-press': 'kh', 'belt-squat': 'k',
     'db-bss': 'Kh', 'goblet': 'k', 'db-lunge': 'Ka', 'db-stepup': 'k', 'leg-ext': 'k',
     'bw-squat': 'k', 'split-squat': 'k', 'bw-bss': 'Kh',
-    'bb-rdl': 'h', 'db-rdl': 'h', 'bb-sldl': 'h', 'bb-dl': 'hw', 'good-am': 'hs', 'nordic': 'k', 'slide-curl': 'k', 'sl-rdl': 'ha',
+    'bb-rdl': 'h', 'db-rdl': 'h', 'bb-sldl': 'h', 'bb-dl': 'hw', 'sumo-dl': 'hkw', 'trap-dl': 'hkw', 'good-am': 'hs', 'nordic': 'k', 'slide-curl': 'k', 'sl-rdl': 'ha',
     'hip-thrust': 'h', 'mc-thrust': 'h', 'db-thrust': 'h', 'back-ext': 'h', 'abduct': 'h', 'cb-kick': 'h',
     'glute-bridge': '', 'sl-bridge': 'h',
     'db-lat': 's', 'cb-lat': 's', 'mc-lat': 's', 'cb-upright': 'SW',
@@ -406,6 +420,10 @@
     'db-rdl': ['Dumbbells in front of your thighs, knees soft.', 'Hinge at the hips, sliding them down your legs until your hamstrings stretch, back flat.', 'Stand by driving your hips forward.'],
     'bb-sldl': ['Bar at your thighs, knees only slightly bent.', 'Hinge forward with legs nearly straight and back flat, as far as your hamstrings allow.', 'Stand by squeezing your glutes.'],
     'bb-dl': ['Bar over the middle of your feet, grip just outside your legs, shins touching the bar.', 'Brace with a flat back and push the floor away until you stand tall.', 'Lower by pushing your hips back, the bar close to your legs.'],
+    'sumo-dl': ['Feet wide, toes turned out, the bar over the middle of your feet; grip inside your knees.', 'Push your knees out over your toes, chest up, and brace.', 'Spread the floor apart as you stand, the bar close; lower the same way.'],
+    'trap-dl': ['Stand in the middle of the bar, handles at your sides.', 'Sit down and back until you can grip the handles, chest up, back flat, and brace.', 'Stand tall by pushing the floor away; lower under control.'],
+    'as-pullup': ['Set the help: more weight on the stack is more help. Kneel or stand on the pad.', 'Hands a little wider than your shoulders; pull your chest toward the bar, elbows down.', 'Lower all the way under control. Less help over time is the progress.'],
+    'as-dip': ['Set the help: more weight on the stack is more help. Kneel or stand on the pad.', 'Lean slightly forward and lower until your upper arms are about level with the floor.', 'Press back up without shrugging. Less help over time is the progress.'],
     'good-am': ['Bar across your upper back, knees soft.', 'Push your hips back and hinge until your torso is near level or your hamstrings stop you, back flat.', 'Drive your hips forward to stand. Start light.'],
     'lying-curl': ['Lie face down, pad just above your heels, knees just off the bench.', 'Curl your heels toward your glutes, hips pressed down.', 'Lower slowly to straight legs.'],
     'seated-curl': ['Pad above your heels, thigh pad snug, knees lined up with the pivot.', 'Curl your heels down and back under the seat.', 'Return slowly to straight legs.'],
@@ -656,6 +674,11 @@
       yay: p.yay === 0 ? 0 : 1,
       // a reps-in-reserve box on every set, for those who like to say
       rq: p.rq === 1 ? 1 : 0,
+      /* The effort scale shown and typed: reps in reserve, or RPE the way
+         Strong and most powerlifting programs write it. The same scale from
+         the other end (RPE 8 is two in reserve), so what is stored is always
+         reps in reserve and the review reads it either way. */
+      eff: p.eff === 'rpe' ? 'rpe' : 'rir',
       // the plates for each side drawn beside a barbell set: in every set, while typing, or not at all
       pl: ['row', 'type', 'off'].indexOf(p.pl) >= 0 ? p.pl : 'row',
       // a bar of its own for a lift that is not on the usual one: an EZ bar, a Smith machine
@@ -665,6 +688,10 @@
       // the badge beside each lift's name, and which measure each lift shows in it
       fmo: p.fmo === 0 ? 0 : 1,
       fm: cleanFm(p.fm),
+      // the card on how a workout goes, shown to someone new until put away
+      hw: p.hw === 1 ? 1 : 0,
+      // never ask your weight on a pull-up day
+      nobw: p.nobw === 1 ? 1 : 0,
       /* Everything below is you, answered once in the quiz and read by the
          picks, the builder and the review. */
       // what you train for; the first version knew two, and 'grow' was the first
@@ -818,7 +845,7 @@
       return plain(v) && fin(v.st) && Array.isArray(v.x) && v.x.every(function (x) {
         return plain(x) && typeof x.e === 'string' && Array.isArray(x.s) && x.s.every(function (s) {
           return plain(s) && fin(s.w) && fin(s.r) && (s.q === undefined || fin(s.q)) &&
-            (s.ty === undefined || s.ty === 'd' || s.ty === 'f');
+            (s.ty === undefined || s.ty === 'd' || s.ty === 'f' || s.ty === 'm');
         });
       }) && (v.nt === undefined || (typeof v.nt === 'string' && v.nt.length <= 1000));
     },
@@ -885,12 +912,84 @@
    * phone's stamps could no longer save it. Listening first means the whole
    * push carries the newer copy of everything. */
   var doc = null, dirty = {}, dirtyAll = true, pushTimer = null, heard = false;
+  /* Whether the last save to the account landed. A write that fails used to
+     fail in silence; now it says so, keeps trying, and says when it lands. */
+  var SY = { ok: 0, err: 0, tries: 0 };
 
-  function attach(d) {
+  /* A record a year.
+   *
+   * An account record holds a megabyte, and a year of four workouts a week is
+   * about 300 KB of them, so one record for everything filled in about three
+   * years. Workouts now live beside it, one record per calendar year
+   * (users/{uid}/train/2026), each far inside its megabyte; everything else
+   * stays in the one record.
+   *
+   * It needs the rule in firestore.rules that lets you reach them. Until
+   * that is published the listener below is refused, and everything carries
+   * on in the one record exactly as it did. Once it is, the workouts still in
+   * the one record are copied to their years first and only taken out of it
+   * once the copy has landed — nothing is ever in neither place.
+   *
+   * on:    null not yet known, true by year, false all in the one record
+   * seen:  the stamp each workout has in its year's record, from the
+   *        listener: a session's first full push sends only what is newer
+   *        here, not ten years of workouts every time the app opens
+   * main:  the workouts the one record still holds
+   * gone:  the year of a workout deleted this session, so the deletion goes
+   *        to the record that holds it */
+  var YR = { on: null, heard: false, off: null, seen: {}, main: [], gone: {}, purge: {}, fv: null, kb: {} };
+
+  function attach(d, fv) {
     doc = d || null;
     heard = false;
     dirtyAll = true;
     clearTimeout(pushTimer);
+    if (YR.off) { try { YR.off(); } catch (e) { /* already gone */ } }
+    YR.off = null; YR.on = null; YR.heard = false; YR.seen = {}; YR.main = []; YR.purge = {}; YR.kb = {};
+    YR.fv = fv || null;
+    if (!doc || typeof doc.collection !== 'function') return;
+    try {
+      YR.off = doc.collection('train').onSnapshot({ includeMetadataChanges: true }, function (qs) {
+        var moved = false, kb = {};
+        qs.forEach(function (ds) {
+          var d2 = ds.data() || {};
+          if (plain(d2.wo)) {
+            Object.keys(d2.wo).forEach(function (k) { var r = d2.wo[k]; if (plain(r) && fin(r.at)) YR.seen[k] = Math.max(YR.seen[k] || 0, r.at); });
+            try { kb[ds.id] = Math.round(JSON.stringify(d2).length / 1024); } catch (e) { /* no size */ }
+          }
+          if (merge({ wo: d2.wo })) moved = true;
+        });
+        YR.kb = kb;
+        var live = !(qs.metadata && qs.metadata.fromCache);
+        if (live && !YR.heard) {
+          YR.heard = true; YR.on = true;
+          purgeMark();
+          dirtyAll = true;
+          push(true);
+        }
+        if (moved) drawIfShowing();
+      }, function () {
+        // refused: the rule is not published yet, so the one record it is
+        YR.on = false; YR.heard = true; YR.off = null;
+        push(true);
+        drawIfShowing();
+      });
+    } catch (e) {
+      YR.on = false; YR.heard = true;
+    }
+  }
+  function yearOf(wo) { return wo && fin(wo.st) ? String(new Date(wo.st).getFullYear()) : ''; }
+  // the year's record a workout (or its deletion) belongs in, or '' for the one record
+  function woYear(k) { return T.wo[k] ? yearOf(T.wo[k]) : YR.gone[k] || ''; }
+  /* Workouts the one record still holds, that this phone has: marked to go
+     to their years, and out of the one record once they are there. */
+  function purgeMark() {
+    if (YR.on !== true) return;
+    YR.main.forEach(function (k) {
+      if (!woYear(k)) return;
+      YR.purge[k] = 1;
+      if (dirty.wo !== true) { dirty.wo = dirty.wo || {}; dirty.wo[k] = 1; }
+    });
   }
 
   function payload(whole) {
@@ -910,6 +1009,11 @@
       }
       var map = {};
       Object.keys(keys).forEach(function (k) {
+        /* By year, a full push sends a workout only when this phone's copy is
+           newer than the one its year holds — or it is one the one record
+           still has, on its way to its year. */
+        if (p === 'wo' && YR.on === true && (whole || dirty.wo === true) && !(dirty.wo && dirty.wo !== true && dirty.wo[k]) &&
+          !YR.purge[k] && woYear(k) && (TS.wo[k] || 0) <= (YR.seen[k] || 0)) return;
         map[k] = { v: T[p][k] || null, at: TS[p][k] || 0 };
       });
       if (Object.keys(map).length) { out[p] = map; any = true; }
@@ -925,22 +1029,56 @@
   }
 
   function push(now) {
-    if (!doc || !heard) return;
+    // where the workouts go is not known until the years have answered
+    if (!doc || !heard || (typeof doc.collection === 'function' && !YR.heard)) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(function () {
       if (!doc) return;
       var body = take();
       if (!body) return;
-      doc.set({ train: body }, { merge: true }).catch(function () {
+      var writes = [], purge = [], d0 = doc;
+      if (YR.on === true && body.wo) {
+        var byY = {}, keep = {};
+        Object.keys(body.wo).forEach(function (k) {
+          var y = woYear(k);
+          if (y) { (byY[y] = byY[y] || {})[k] = body.wo[k]; if (YR.purge[k]) purge.push(k); } else keep[k] = body.wo[k];
+        });
+        Object.keys(byY).forEach(function (y) {
+          writes.push(d0.collection('train').doc(y).set({ wo: byY[y] }, { merge: true }).then(function () {
+            Object.keys(byY[y]).forEach(function (k) { YR.seen[k] = Math.max(YR.seen[k] || 0, byY[y][k].at); });
+          }));
+        });
+        if (Object.keys(keep).length) body.wo = keep; else delete body.wo;
+      }
+      if (Object.keys(body).length) writes.push(d0.set({ train: body }, { merge: true }));
+      Promise.all(writes).then(function () {
+        /* Landed in their years: now, and only now, out of the one record. */
+        var fv = YR.fv;
+        if (!purge.length || !fv || typeof fv.delete !== 'function' || d0 !== doc) return null;
+        var del = {};
+        purge.forEach(function (k) { del[k] = fv.delete(); });
+        return d0.set({ train: { wo: del } }, { merge: true }).then(function () {
+          purge.forEach(function (k) { delete YR.purge[k]; });
+          YR.main = YR.main.filter(function (k) { return purge.indexOf(k) < 0; });
+        });
+      }).then(function () {
+        var was = SY.err;
+        SY.ok = Date.now(); SY.err = 0; SY.tries = 0;
+        if (was) drawIfShowing();
+      }, function () {
         // a write that never landed leaves no way to say what the far end
         // is missing, so the next one says everything
         dirtyAll = true;
+        SY.err = Date.now(); SY.tries++;
+        drawIfShowing();
+        // and it tries again, backing off to five minutes
+        setTimeout(function () { push(true); }, Math.min(300, 15 * Math.pow(2, SY.tries - 1)) * 1000);
       });
     }, now ? 0 : 900);
   }
 
   /* Newest wins, piece by piece. True when anything here changed. */
-  function merge(tr) {
+  function merge(tr, main) {
     if (!plain(tr)) return false;
     var moved = false;
     if (plain(tr.pr) && fin(tr.pr.at) && tr.pr.at > (TS.pr || 0) && plain(tr.pr.v)) {
@@ -955,6 +1093,12 @@
         var r = from[k];
         if (!plain(r) || !fin(r.at) || !(r.at > (TS[p][k] || 0))) return;
         if (r.v !== null && !SHAPE[p](r.v)) return;
+        /* A workout deleted by a phone still on the one record: the deletion
+           goes on to its year, so what was deleted does not stay there. */
+        if (r.v === null && main && p === 'wo' && T.wo[k] && YR.on === true) {
+          YR.gone[k] = yearOf(T.wo[k]);
+          if (dirty.wo !== true) { dirty.wo = dirty.wo || {}; dirty.wo[k] = 1; }
+        }
         if (r.v === null) delete T[p][k]; else T[p][k] = r.v;
         TS[p][k] = r.at;
         moved = true;
@@ -967,7 +1111,12 @@
   /* What the account says, handed over by app.js's listener. `live` is
      false for an answer served from this device's own cache. */
   function remote(tr, live) {
-    var moved = tr ? merge(tr) : false;
+    var moved = tr ? merge(tr, true) : false;
+    if (live) {
+      YR.main = tr && plain(tr.wo) ? Object.keys(tr.wo).filter(function (k) { return plain(tr.wo[k]) && tr.wo[k].v !== null; }) : [];
+      if (YR.on === true && YR.main.some(function (k) { return !YR.purge[k] && woYear(k); })) purgeMark();
+      if (YR.on === true && dirty.wo) push();
+    }
     if (live && !heard && doc) {
       heard = true;
       dirtyAll = true;
@@ -983,6 +1132,7 @@
   function forget() {
     T = blankT();
     TS = blankTS();
+    YR.gone = {}; YR.purge = {};
     dirty = {};
     dirtyAll = true;
     clearTimeout(pushTimer);
@@ -1051,6 +1201,7 @@
     var ex = lib(e);
     if (/\bez\b/i.test(ex.n)) return barW('ez');
     if (ex.q === 'sm') return barW('smith');
+    if (e === 'trap-dl') return barW('hex');
     return T.pr.bar;
   }
   // "Olympic bar 45 lb", "Smith bar 20 lb", "bar 50 lb" for one of your own, "no bar"
@@ -1132,7 +1283,7 @@
   var IX = null;
   function ix() {
     weighIns();
-    if (IX && IX.rev === REV && IX.wk === WTS.sig) return IX;
+    if (IX && IX.rev === REV && IX.wk === WTS.raw) return IX;
     var list = Object.keys(T.wo).map(function (k) { return T.wo[k]; })
       .filter(function (w) { return w && fin(w.st); })
       .sort(function (a, b) { return a.st - b.st; });
@@ -1153,16 +1304,16 @@
         var had = before[x.e];
         var now = best[x.e] || { e1: 0, w: 0, r: 0, vol: 0 };
         // a warm-up is never a record: 45 × 14 is not your most reps on the bench
-        var work = x.s.filter(function (s) { return !s.wu; });
+        var work = x.s.filter(counts);
         var hit = had ? beats(had, work, wo.u, x.e, woBw(wo)) : '';
         var bw = bwFor(x.e, wo);
         work.forEach(function (s) {
           var w = conv(s.w, wo.u);
           now.e1 = Math.max(now.e1, e1Of(x.e, w, s.r, bw));
-          now.w = Math.max(now.w, w);
+          // the help on an assisted lift is not a weight lifted: no heaviest, no best set
+          if (!ASST[x.e]) { now.w = Math.max(now.w, w); now.vol = Math.max(now.vol, w * s.r); }
           // reps with the machine helping are not your most reps
           if (!(w < 0)) now.r = Math.max(now.r, s.r);
-          now.vol = Math.max(now.vol, w * s.r);
         });
         best[x.e] = now;
         if (hit) out.push({ e: x.e, what: hit });
@@ -1174,7 +1325,7 @@
       var a = T.ax[k];
       if (a && a.ms) ez[a.ms + ':' + a.w + ':' + a.d] = a;
     });
-    IX = { rev: REV, wk: WTS.sig, list: list, slot: slot, best: best, prs: prs, ez: ez };
+    IX = { rev: REV, wk: WTS.raw, list: list, slot: slot, best: best, prs: prs, ez: ez };
     return IX;
   }
   function woFor(ms, w, d) { return ix().slot[ms.id + ':' + w + ':' + d] || null; }
@@ -1223,44 +1374,76 @@
   }
 
   /* Pull-ups, chin-ups and dips lift you, so their strength is your weight
-     plus whatever hangs from the belt. The weight is Nourish's morning
-     weigh-in: that day's, or the latest in the fortnight before. Nothing
-     older, so a stale number never moves a record. Without one, these lifts
-     are counted in reps alone, as before. */
+     plus whatever hangs from the belt. The weight comes from Nourish's
+     weigh-ins (see bwInfo). Nothing older than a fortnight, so a stale
+     number never moves a record. Without one, these lifts are counted in
+     reps alone, as before. */
   var BWL = { pullup: 1, chinup: 1, 'pullup-neg': 1, dip: 1 };
-  var WTS = { at: 0, v: {}, sig: '' };
+  /* The assisted machine versions: the weight typed is the help, so less of
+     it is progress, and your weight counts too — you, less the help. */
+  var ASST = { 'as-pullup': 1, 'as-dip': 1 };
+  // lifts that need your weight to mean anything
+  function usesBw(e) { return !!(BWL[e] || ASST[e]); }
+  // parsed once per change to what Nourish has stored, however often it is asked
+  var WTS = { raw: null, v: {} };
   function weighIns() {
-    if (Date.now() - WTS.at > 2000) {
+    var raw = null;
+    try { raw = localStorage.getItem('bsc.macroWeights'); } catch (e) { raw = null; }
+    if (raw !== WTS.raw) {
       var v = null;
-      try { v = JSON.parse(localStorage.getItem('bsc.macroWeights')); } catch (e) { v = null; }
-      if (!plain(v)) v = {};
-      var ks = Object.keys(v).sort();
-      WTS = { at: Date.now(), v: v, sig: ks.length + ':' + (ks.length ? ks[ks.length - 1] + '=' + v[ks[ks.length - 1]] : '') };
+      try { v = JSON.parse(raw); } catch (e) { v = null; }
+      WTS = { raw: raw, v: plain(v) ? v : {} };
     }
     return WTS.v;
   }
-  function bwOn(dk, u) {
+  /* Your weight on a day, and how sure of it. The week's average when there
+     are three or more weigh-ins in the seven days to it, which is steadier
+     than any one reading; else that day's own weigh-in; else the latest in
+     the fortnight before, which counts but is not trusted: on the day
+     itself Strengthen asks rather than lean on it (bwNeed). */
+  function bwInfo(dk, u) {
     if (typeof dk !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dk)) return null;
-    var d = new Date(dk + 'T12:00:00');
-    d.setDate(d.getDate() - 14);
-    var floor = dayKey(d), w = weighIns(), best = '';
-    Object.keys(w).forEach(function (k) { if (k <= dk && k >= floor && k > best && fin(w[k]) && w[k] > 0) best = k; });
-    if (!best) return null;
-    return u === 'kg' ? Math.round(w[best] / 2.20462 * 10) / 10 : w[best];
+    var back = function (n) { var d = new Date(dk + 'T12:00:00'); d.setDate(d.getDate() - n); return dayKey(d); };
+    var f7 = back(6), f14 = back(14), w = weighIns(), wk = [], last = '';
+    Object.keys(w).forEach(function (k) {
+      if (k > dk || !fin(w[k]) || !(w[k] > 0)) return;
+      if (k >= f7) wk.push(w[k]);
+      if (k >= f14 && k > last) last = k;
+    });
+    var cv = function (lb) { return Math.round((u === 'kg' ? lb / 2.20462 : lb) * 10) / 10; };
+    if (wk.length >= 3) return { v: cv(wk.reduce(function (a, b) { return a + b; }, 0) / wk.length), src: 'avg', n: wk.length };
+    if (fin(w[dk]) && w[dk] > 0) return { v: cv(w[dk]), src: 'day', k: dk };
+    if (last) return { v: cv(w[last]), src: 'old', k: last };
+    return null;
   }
+  function bwOn(dk, u) { var b = bwInfo(dk, u); return b ? b.v : null; }
   // a workout's bodyweight in its own unit: kept when it was saved, else looked up
   function woBw(wo) { return wo && fin(wo.bw) && wo.bw > 0 ? wo.bw : wo ? bwOn(wo.dk, wo.u) : null; }
   // the same, in the unit you lift in, for a lift that lifts you; null for any other
-  function bwFor(e, wo) { if (!BWL[e]) return null; var b = woBw(wo); return fin(b) ? conv(b, wo.u) : null; }
+  function bwFor(e, wo) { if (!usesBw(e)) return null; var b = woBw(wo); return fin(b) ? conv(b, wo.u) : null; }
   // a set's estimated max, counting your weight on the lifts that lift you
   function e1Of(e, w, r, bw) {
+    // with the machine's help: you, less the help
+    if (ASST[e]) return fin(bw) && bw > 0 ? e1rm(Math.max(0, bw - (fin(w) ? w : 0)), r) : 0;
     if (!BWL[e]) return e1rm(w, r);
     return fin(bw) && bw > 0 ? e1rm(bw + (fin(w) ? w : 0), r) : 0;
   }
+  /* A set that counts: not a warm-up on the way up, and not an attempt that
+     was missed. Records, volume, targets and the review read only these. */
+  function counts(s) { return !!s && !s.wu && s.ty !== 'm'; }
   function bestE1(sets, u) {
     var b = 0;
     sets.forEach(function (s) { var v = e1rm(conv(s.w, u), s.r); if (v > b) b = v; });
     return b;
+  }
+  // the best set on an assisted lift: the least help, then the most reps
+  function leastHelp(sets, u) {
+    var t = null;
+    sets.forEach(function (s) {
+      var w = conv(s.w, u);
+      if (!t || w < t.w || (w === t.w && s.r > t.r)) t = { w: w, r: s.r };
+    });
+    return t;
   }
   function topSet(sets, u) {
     var t = null;
@@ -1365,10 +1548,11 @@
     }
     if (!src) src = lastPerf(ex.id);
     if (!src) return { tw: null, tr: null, prev: [] };
-    var prev = src.s.map(function (s) { return { w: conv(s.w, src.u), r: s.r, wu: s.wu ? 1 : 0 }; });
+    var prev = src.s.filter(function (s) { return s.ty !== 'm'; }).map(function (s) { return { w: conv(s.w, src.u), r: s.r, wu: s.wu ? 1 : 0 }; });
     // next time's weight is worked from the working sets, never the warm-ups
-    var work = src.s.filter(function (s) { return !s.wu; });
-    var top = topSet(work.length ? work : src.s, src.u);
+    var work = src.s.filter(counts);
+    if (!work.length && !prev.length) return { tw: null, tr: null, prev: [] };
+    var top = (ASST[ex.id] ? leastHelp : topSet)(work.length ? work : src.s.filter(function (s) { return s.ty !== 'm'; }), src.u);
     var step = inc(ex);
     if (dl) {
       /* Half the sets, and the weights of week one — RP's deload is less of
@@ -1376,12 +1560,14 @@
          drains. */
       var first = ms && woFor(ms, 0, d);
       var fx = first && exIn(first, ex.id);
-      var ft = fx && fx.s.length ? topSet(fx.s, first.u) : null;
+      var ft = fx && fx.s.filter(counts).length ? (ASST[ex.id] ? leastHelp : topSet)(fx.s.filter(counts), first.u) : null;
       var fw = ft ? ft.w : top.w * 0.9;
       return { tw: fw > 0 ? roundTo(fw, step) : top.w, tr: ex.rr[0], prev: prev };
     }
     if (ex.q === 'bw' && !(top.w > 0)) return { tw: 0, tr: top.r + 1, prev: prev };
     if (top.r >= ex.rr[1]) {
+      // on an assisted lift the step is less help
+      if (ASST[ex.id]) return { tw: Math.max(0, roundTo(top.w - step, step)), tr: Math.max(ex.rr[0], top.r - 2), prev: prev };
       return { tw: roundTo(top.w + step, step), tr: Math.max(ex.rr[0], top.r - 2), prev: prev };
     }
     return { tw: top.w, tr: Math.min(ex.rr[1], top.r + 1), prev: prev };
@@ -1560,9 +1746,16 @@
             if (fits < dl) extra += ' Held to fit your ' + ms.min + '-minute session.';
             dl = fits;
           }
+          /* What was actually added, not what was asked for: no exercise
+             goes past six sets in a session or under one, so a muscle with
+             one exercise a day stops climbing there, and says so. */
+          var had = by[m].reduce(function (a, i) { return a + next[d][i]; }, 0);
           spread(next[d], by[m], dl);
-          tot[m] += dl;
-          var said = f.body ? whyHead(dl) + ' \u2014 ' + f.body + '.' + extra : extra.trim();
+          var got = by[m].reduce(function (a, i) { return a + next[d][i]; }, 0) - had;
+          if (dl > 0 && got < dl) extra += ' Held at six sets an exercise, the most one exercise gets in a session.';
+          if (dl < 0 && got > dl) extra += ' Already down to one set an exercise.';
+          tot[m] += got;
+          var said = f.body ? whyHead(got) + ' \u2014 ' + f.body + '.' + extra : extra.trim();
           by[m].forEach(function (i) { wy[d][i] = said; });
         });
       });
@@ -1616,7 +1809,7 @@
     ix().list.forEach(function (wo) {
       if (wo.st < from || wo.dl) return;
       var x = exIn(wo, e);
-      if (x) best = Math.max(best, bestE1(x.s.filter(function (q) { return !q.wu; }), wo.u));
+      if (x) best = Math.max(best, bestE1(x.s.filter(counts), wo.u));
     });
     return best;
   }
@@ -1759,8 +1952,23 @@
     return fresh[0] || list[0] || null;
   }
 
+  /* Starting out: what is easy to learn and hard to get wrong ranks first —
+     a machine or a pair of dumbbells before a barbell, two feet before one,
+     a pulldown before a pull-up. The harder versions are a Swap away, and
+     where they are all there is, they are still picked. */
+  var EASY = { 'leg-press': 1, 'goblet': 1, 'mc-press': 1, 'lat-pd': 1, 'cb-row': 1, 'mc-row': 1, 'db-rdl': 1,
+    'glute-bridge': 1, 'mc-thrust': 1, 'mc-ohp': 1, 'db-stepup': 1, 'dead-bug': 1, 'seated-curl': 1 };
+  var HARD = { 'belt-squat': 1, 'db-bss': 1, 'bw-bss': 1, 'sl-rdl': 1, 'pullup-neg': 1, 'pullup': 1, 'chinup': 1, 'dip': 1,
+    'hip-thrust': 1, 'pallof': 1, 'bb-dl': 1, 'good-am': 1, 'bb-sldl': 1, 'nordic': 1, 'hang-raise': 1, 'ab-wheel': 1,
+    'archer': 1, 'bb-front': 1, 'bb-row': 1, 'bb-ohp': 1, 'bb-incline': 1, 'skull': 1 };
+  function newbieCost(ex, pf) {
+    return pf && pf.lvl === 0 ? (EASY[ex.id] ? -4 : HARD[ex.id] ? 6 : 0) : 0;
+  }
+
+  // in the library to add or swap to, never chosen for you
+  var NOPICK = { 'sumo-dl': 1, 'trap-dl': 1, 'as-pullup': 1, 'as-dip': 1 };
   function pickEx(m, k, p, eq, used, seed, pf, today, known) {
-    var cand = allEx().filter(function (ex) { return ex.m === m && eq.indexOf(ex.q) >= 0 && !barred(ex, pf); });
+    var cand = allEx().filter(function (ex) { return ex.m === m && eq.indexOf(ex.q) >= 0 && !barred(ex, pf) && !NOPICK[ex.id]; });
     /* Never the same exercise twice in one day: with nothing else to hand,
        the slot is left out and the one already there carries the sets. */
     if (today) cand = cand.filter(function (ex) { return !today[ex.id]; });
@@ -1770,7 +1978,7 @@
        the loadable one. */
     var home = atHome(eq), bwOnly = eq.length === 1;
     var score = function (ex) {
-      return (ex.k === k ? 0 : 100) + (p && ex.p !== p ? 10 : 0) + backCost(ex, pf) +
+      return (ex.k === k ? 0 : 100) + (p && ex.p !== p ? 10 : 0) + backCost(ex, pf) + newbieCost(ex, pf) +
         (home && GEAR[ex.id] ? 5 : 0) + (!bwOnly && HOMEY[ex.id] ? 20 : 0) + ex.o / 1000 -
         // a ready workout prefers a lift you already do, so its weights come from your own numbers
         (known && known[ex.id] ? 8 : 0);
@@ -2236,7 +2444,7 @@
     var split = keep ? KEEP_SPLITS[dpw] : base ? START_SPLITS[dpw] : str ? STR_SPLITS[dpw] : P.pb ? PB_SPLITS[dpw]
       : cond ? COND_SPLITS[dpw]
       : homeDays ? HOME_SPLITS[dpw] : SPLITS[dpw];
-    var pf = { bk: o.bk || '', jt: o.jt || '', avoid: o.avoid || [] };
+    var pf = { bk: o.bk || '', jt: o.jt || '', avoid: o.avoid || [], lvl: o.lvl };
     var used = {}, downs = [];
     var isFx = function (tok) { return !!fx && fx.m.indexOf(tok.split('/')[0]) >= 0; };
     var days = split.days.map(function (row, di) {
@@ -2416,12 +2624,11 @@
       if (!x) return;
       var bw = bwFor(e, wo);
       x.s.forEach(function (s) {
-        if (s.wu) return;
+        if (!counts(s)) return;
         var w = conv(s.w, wo.u);
         best.e1 = Math.max(best.e1, e1Of(e, w, s.r, bw));
-        best.w = Math.max(best.w, w);
+        if (!ASST[e]) { best.w = Math.max(best.w, w); best.vol = Math.max(best.vol, w * s.r); }
         if (!(w < 0)) best.r = Math.max(best.r, s.r);
-        best.vol = Math.max(best.vol, w * s.r);
       });
     });
     return best;
@@ -2433,11 +2640,12 @@
   function beats(had, sets, u, e, bwRaw) {
     if (!(had.e1 > 0 || had.r > 0)) return '';
     var hit = { e1: false, w: false, r: false };
-    var bw = BWL[e] && fin(bwRaw) ? conv(bwRaw, u) : null;
+    var bw = usesBw(e) && fin(bwRaw) ? conv(bwRaw, u) : null;
     sets.forEach(function (s) {
+      if (!counts(s)) return;
       var w = conv(fin(s.w) ? s.w : 0, u), r = fin(s.r) ? s.r : 0;
       if (had.e1 > 0 && e1Of(e, w, r, bw) > had.e1 + 0.01) hit.e1 = true;
-      if (had.w > 0 && w > had.w) hit.w = true;
+      if (!ASST[e] && had.w > 0 && w > had.w) hit.w = true;
       if (w === 0 && !(had.w > 0) && r > had.r) hit.r = true;
     });
     return [hit.w ? 'heaviest' : '', hit.e1 ? 'best e1RM' : '', hit.r ? 'most reps' : '']
@@ -2450,7 +2658,7 @@
     if (known && T.wo[wo.id] === wo) return known;
     var out = [];
     wo.x.forEach(function (x) {
-      var hit = beats(records(x.e, wo.st), x.s.filter(function (s) { return !s.wu; }), wo.u, x.e, woBw(wo));
+      var hit = beats(records(x.e, wo.st), x.s.filter(counts), wo.u, x.e, woBw(wo));
       if (hit) out.push({ e: x.e, what: hit });
     });
     return out;
@@ -2522,11 +2730,11 @@
         var ex = lib(x.e), m = ex.m;
         var r = mus[m] = mus[m] || { sets: 0, days: {} };
         // ramp sets on the way up to a heavy one are warm-ups, not hard sets
-        var work = x.s.filter(function (s) { return !s.wu; });
+        var work = x.s.filter(counts);
         r.sets += work.length;
         if (work.length) r.days[wo.dk || dayKey(new Date(wo.st))] = 1;
         x.s.forEach(function (s, i) {
-          if (s.wu) return;
+          if (!counts(s)) return;
           reps.n++;
           if (s.r < 5 || s.r > 30) reps.out++;
           if (i > 0 && fin(s.t) && fin(x.s[i - 1].t) && s.t && x.s[i - 1].t) {
@@ -2556,10 +2764,15 @@
     var str = !!ms && (ms.goal === 'str' || ms.goal === 'cond');
     var fxs = ms && Array.isArray(ms.fx) ? ms.fx : [];
     var held = function (k) { return keep || base || str || (fxs.length > 0 && fxs.indexOf(k) < 0); };
+    /* What a steady plan itself asks of each muscle a week: doing all of it
+       is never "under" anything, even where it is two sets. */
+    var planned = {};
+    if (ms && steady(ms)) ms.days.forEach(function (d) { d.s.forEach(function (s) { var m = musOf(s.e); planned[m] = (planned[m] || 0) + s.n; }); });
+    var floor = function (k) { return Math.min(3, planned[k] || 3); };
 
     var rows = MUSCLES.filter(function (m) { return mus[m.k] || inBlock[m.k]; }).map(function (m) {
       var r = mus[m.k] || { sets: 0, days: {} };
-      var st = held(m.k) ? (r.sets < 3 ? 'low' : 'good')
+      var st = held(m.k) ? (r.sets < floor(m.k) ? 'low' : 'good')
         : r.sets < 5 ? 'low' : r.sets < 10 ? 'fair' : r.sets <= 20 ? 'good' : 'high';
       return { k: m.k, n: m.n, sets: r.sets, days: Object.keys(r.days).length, mev: m.mev, mrv: m.mrv, st: st };
     });
@@ -2586,7 +2799,7 @@
     var high = graded.filter(function (r) { return r.sets > 20; });
     var none = graded.filter(function (r) { return !r.sets; });
     var inRange = graded.filter(function (r) { return r.sets >= 10 && r.sets <= 20; });
-    var thin = rows.filter(function (r) { return r.sets < 3; });
+    var thin = rows.filter(function (r) { return r.sets < floor(r.k); });
     if (base) checks.push({
       st: young ? 'info' : thin.length ? 'look' : 'good',
       t: 'Enough to grow on?',
@@ -2696,7 +2909,7 @@
       wo.x.forEach(function (x) {
         x.s.forEach(function (s) {
           var qv = fin(s.q) ? s.q : s.ty === 'f' ? 0 : null;
-          if (s.wu || s.am || qv === null) return;
+          if (!counts(s) || s.am || qv === null) return;
           var q = Math.min(5, qv);
           eff.n++; eff.q += q;
           if (fin(x.pq)) { eff.dn++; eff.dq += q; eff.pq += x.pq; }
@@ -2953,6 +3166,9 @@
   }
   function uniq(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
   function mname(k) { return MUS[k] ? MUS[k].n : k; }
+  var PLAIN = { quads: 'Front of thighs', hams: 'Back of thighs', side: 'Shoulders', rear: 'Back of shoulders',
+    front: 'Front of shoulders', traps: 'Upper back' };
+  function mnameP(k) { return T.pr.lvl === 0 && PLAIN[k] ? PLAIN[k] : mname(k); }
   function names(rows) {
     var n = rows.map(function (r) { return r.n; });
     return n.length < 3 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1];
@@ -3017,9 +3233,10 @@
     var ms = T.act && T.ms[T.act];
     return ms || null;
   }
+  // working sets only: a ramp of warm-ups is not the work, and the lift charts leave them out too
   function volOf(wo) {
     var v = 0;
-    wo.x.forEach(function (x) { x.s.forEach(function (s) { v += conv(s.w, wo.u) * s.r; }); });
+    wo.x.forEach(function (x) { if (!ASST[x.e]) x.s.forEach(function (s) { if (counts(s)) v += Math.max(0, conv(s.w, wo.u)) * s.r; }); });
     return v;
   }
   function setsOf(wo) { return wo.x.reduce(function (n, x) { return n + x.s.length; }, 0); }
@@ -3094,7 +3311,7 @@
     var row = readyRow(id);
     if (!row) return null;
     var p = T.pr, eq = KITS[KITS[p.kit] ? p.kit : 'gym'].eq;
-    var pf = { bk: p.bk, jt: p.jt, avoid: p.avoid };
+    var pf = { bk: p.bk, jt: p.jt, avoid: p.avoid, lvl: p.lvl };
     var used = {}, today = {}, s = [];
     SPLITS[row[1]].days[row[2]][1].forEach(function (tok) {
       var t = tok.replace(/\+$/, '').split('/');
@@ -3142,7 +3359,7 @@
     var wo = T.wo[wid];
     if (!wo) return null;
     var x = wo.x.map(function (e) {
-      return { e: e.e, n: Math.max(1, Math.min(10, e.s.filter(function (z) { return !z.wu; }).length || e.s.length)) };
+      return { e: e.e, n: Math.max(1, Math.min(10, e.s.filter(counts).length || e.s.length)) };
     }).filter(function (e) { return !!lib(e.e); }).slice(0, 20);
     var n = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 60) || String(wo.n || 'Routine').slice(0, 60);
     if (!x.length) return null;
@@ -3343,14 +3560,20 @@
     for (var j = si - 1; j >= 0; j--) {
       var e = x.s[j];
       if (!!e.wu !== !!s.wu) continue;
+      // a missed attempt is not what the next set follows
+      if (e.ty === 'm' && s.ty !== 'm') continue;
       if (cw === null) cw = numIn(e.w);
       if (cr === null) cr = numIn(e.r);
       if (cw !== null && cr !== null) break;
     }
     /* A main lift's sets each have their own weight — a ramp, a top set and
        back-offs — so its plan beats carrying the last set's weight forward. */
-    var w = x.fix && fin(s.tw) ? s.tw : cw !== null ? cw : fin(s.tw) ? s.tw : fin(s.pw) ? s.pw : ex.q === 'bw' ? 0 : null;
-    var r = fin(s.tr) ? s.tr : cr !== null ? cr : fin(s.pr) ? s.pr : null;
+    var w = (x.fix || s.wu) && fin(s.tw) ? s.tw : cw !== null ? cw : fin(s.tw) ? s.tw : fin(s.pw) ? s.pw : ex.q === 'bw' ? 0 : null;
+    /* Reps as weight does: once a set is done today, the next one expects
+       what you just did, rather than a target you already fell short of or
+       beat; a main lift's sets keep their own. A tick on an empty box then
+       logs something you did. */
+    var r = (x.fix || s.wu) && fin(s.tr) ? s.tr : cr !== null ? cr : fin(s.tr) ? s.tr : fin(s.pr) ? s.pr : null;
     return { w: w, r: r };
   }
 
@@ -3367,17 +3590,20 @@
     var x = LIVE.x[xi], s = x && x.s[si];
     if (!s) return;
     if (s.t) { s.t = 0; saveLive(); draw(); return; }
-    var w = numIn(s.w), r = numIn(s.r), g = ghost(xi, si);
+    var w = numIn(s.w), r = numIn(s.r), g = ghost(xi, si), miss = s.ty === 'm';
     if (w === null) w = g.w;
-    if (r === null) r = g.r;
-    if (w === null || r === null || r <= 0) {
+    // a missed attempt is the reps you got, which is none unless you say
+    if (r === null) r = miss ? 0 : g.r;
+    if (w === null || r === null || r < 0 || (r <= 0 && !miss)) {
       S.flash = xi + ':' + si;
+      S.need = { k: xi + ':' + si, w: w === null };
       draw();
       var el = $((w === null ? 'trw-' : 'trr-') + xi + '-' + si);
       if (el) el.focus();
       return;
     }
     s.w = w; s.r = r; s.t = Date.now();
+    S.need = null;
     var more = LIVE.x.some(function (y) { return y.s.some(function (z) { return !z.t; }); });
     /* In a pair, the rest after a set is the short one: the other half goes
        next, and it is resting this muscle while it works. After a warm-up a
@@ -3532,7 +3758,7 @@
           // the as-many-as-you-can set keeps its target, which the next wave's max is worked from
           if (s.am) { o.am = 1; if (fin(s.tr)) o.tr = s.tr; }
           if (s.wu) o.wu = 1;
-          if (s.ty === 'd' || s.ty === 'f') o.ty = s.ty;
+          if (s.ty === 'd' || s.ty === 'f' || s.ty === 'm') o.ty = s.ty;
           // reps in reserve, when you said
           var q = numIn(s.q);
           if (q !== null && q >= 0 && q <= 10) o.q = q;
@@ -3549,7 +3775,7 @@
     if (nt) wo.nt = nt;
     var mc = mcDone(LIVE.mc);
     if (mc) wo.mc = mc;
-    if (wo.x.some(function (x) { return BWL[x.e]; })) { var bw = bwOn(wo.dk, wo.u); if (bw) wo.bw = bw; }
+    if (wo.x.some(function (x) { return usesBw(x.e); })) { var bw = fin(LIVE.bw) && LIVE.bw > 0 ? LIVE.bw : bwOn(wo.dk, wo.u); if (bw) wo.bw = bw; }
     return clean(wo);
   }
 
@@ -3594,6 +3820,10 @@
     if (tab) tab.classList.toggle('tr-tab-live', !!LIVE);
   }
 
+  function agoSay(t) {
+    var m = Math.round((Date.now() - t) / 60000);
+    return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : 'at ' + hm(t);
+  }
   function draw() {
     var root = $('trBody');
     if (!root) return;
@@ -3602,6 +3832,14 @@
       head.innerHTML = '<button class="ghost" data-t="settings">Settings</button>';
     }
     var html = segHTML();
+    if (SY.err && doc) {
+      html += '<div class="tr-note tr-warn tr-syncerr" role="status">Not saved to your account yet \u2014 it keeps trying. ' +
+        'Everything is safe on this phone meanwhile.</div>';
+    }
+    if (LSFULL) {
+      html += '<div class="tr-note tr-warn tr-lsfull" role="status">This phone\u2019s storage for the app is full, so the newest changes aren\u2019t kept on it' +
+        (doc && !SY.err ? ' \u2014 they\u2019re in your account.' : '. Export a copy from Settings before closing the app.') + '</div>';
+    }
     if (LIVE && S.sub !== 'block') {
       html += '<button class="tr-back" data-t="sub" data-v="block">Workout in progress · <span>' +
         esc(LIVE.n) + '</span> — back to it</button>';
@@ -3644,11 +3882,19 @@
   /* The week's effort as a sentence. "About 0 reps in reserve" is a
      roundabout way to say failure, so the last hard week says failure. */
   function rirSay(r) {
+    if (T.pr.lvl === 0) return r === 0 ? 'go until you can\u2019t do another good rep'
+      : 'stop each set when you could still do about ' + r + ' more good rep' + (r === 1 ? '' : 's');
+    if (rpeOn()) return r === 0 ? 'take working sets to RPE 10, or 9 on the heavy barbell lifts'
+      : 'finish working sets at about RPE ' + fmtN(10 - r) + ', ' + r + ' rep' + (r === 1 ? '' : 's') + ' in reserve';
     if (r === 0) return 'take working sets to failure, or a rep short on the heavy barbell lifts';
     return 'finish working sets with about ' + r + ' rep' + (r === 1 ? '' : 's') + ' in reserve';
   }
-  function rirStr(r) { return r === null || r === undefined ? 'deload' : r + ' RIR'; }
-  function rqSay(q) { return (q >= 5 ? '5+' : fmtN(q)) + ' RIR'; }
+  function rpeOn() { return T.pr.eff === 'rpe'; }
+  // a plan's reps in reserve, on your scale
+  function effSay(r) { return rpeOn() ? 'RPE ' + fmtN(10 - r) : r + ' RIR'; }
+  function rirStr(r) { return r === null || r === undefined ? 'deload' : effSay(r); }
+  // a set's effort as logged, on your scale
+  function rqSay(q) { return rpeOn() ? 'RPE ' + (q >= 5 ? '\u22645' : fmtN(10 - q)) : (q >= 5 ? '5+' : fmtN(q)) + ' RIR'; }
 
   /* ------------------------------------------------------ the block screen */
   /* Said once, where the eye lands after Save, and gone at the next tap. */
@@ -3660,6 +3906,19 @@
       (prs ? ' \u00b7 <span class="tr-pr">\u2605 ' + prs + ' record' + (prs === 1 ? '' : 's') + '</span>' : '') + '</span>' +
       '<span class="tr-saved-a"><button class="tr-lnk" data-t="wocopy" data-id="' + esc(wo.id) + '">Copy</button>' +
       '<button class="tr-lnk" data-t="wosheet" data-id="' + esc(wo.id) + '">See it</button></span></div>';
+  }
+
+  /* Trained today already, and the next session works the same muscles
+     again: they grow in the rest between, so it is the better for waiting
+     a day. Said, not enforced. */
+  function restNote(p) {
+    var tk = dayKey(new Date()), hit = {}, n = 0;
+    ix().list.forEach(function (wo) {
+      if (dayKey(new Date(wo.st)) !== tk) return;
+      wo.x.forEach(function (x) { if (x.s.some(counts)) hit[musOf(x.e)] = 1; });
+    });
+    p.x.forEach(function (x) { var m = musOf(x.e); if (hit[m] && MUS[m] && MUS[m].mev > 0) { hit[m] = 0; n++; } });
+    return n >= 2 ? '<div class="tr-note">You\u2019ve trained these muscles today already. They grow while they rest, so this one is better tomorrow.</div>' : '';
   }
 
   function blockHTML() {
@@ -3696,7 +3955,7 @@
       html += '<div class="tr-card tr-next">' +
         '<div class="tr-eyebrow">Next \u00b7 week ' + (nx.w + 1) + ' \u00b7 about ' + mins + ' min</div>' +
         '<div class="tr-title">' + esc(p.n) + '</div>' +
-        planList(p, ms) +
+        planList(p, ms) + restNote(p) +
         '<div class="tr-acts">' +
           '<button class="btn-primary" data-t="start" data-w="' + nx.w + '" data-d="' + nx.d + '">Start workout</button>' +
           '<button class="ghost" data-t="skip" data-w="' + nx.w + '" data-d="' + nx.d + '">Skip this one</button>' +
@@ -3851,6 +4110,28 @@
       '</button></div></div>';
   }
 
+  /* What comes next, in the block's own terms. A strength wave hands on
+     new training maxes from its as-many-as-you-can sets; a block that
+     climbs starts the next one back low; a steady one simply goes again. */
+  function doneNext(ms) {
+    if (ms.goal === 'str' || ms.pb) {
+      var nt = nextTm(ms), rows = Object.keys(nt).map(function (e) {
+        var was = tmOf(ms, e), am = null;
+        ix().list.forEach(function (wo) {
+          if (wo.ms !== ms.id) return;
+          var x = exIn(wo, e);
+          if (x) x.s.forEach(function (q) { if (q.am && fin(q.tr)) am = { w: conv(q.w, wo.u), r: q.r, tr: q.tr }; });
+        });
+        return '<li><span>' + esc(lib(e).n) + (am ? ' <span class="tr-e1">' + fmtN(am.w) + ' \u00d7 ' + am.r + ' (aimed ' + am.tr + '+)</span>' : '') + '</span>' +
+          '<span class="' + (nt[e] > (was || 0) ? 'up' : nt[e] < (was || 0) ? 'down' : '') + '">' + (was ? fmtN(was) + ' \u2192 ' : '') + fmtN(nt[e]) + ' ' + T.pr.u + '</span></li>';
+      });
+      return rows.length ? '<div class="tr-ql tr-chart-h">Training max for the next ' + (ms.goal === 'str' ? 'wave' : 'block') + '</div><ul class="tr-ups">' + rows.join('') + '</ul>' +
+        '<div class="tr-note">Each moves with how many reps your last all-out set beat its target by, or fell short. The next block starts from these.</div>' : '';
+    }
+    if (steady(ms)) return '<div class="tr-note">Done. The next one can be the same again, or a step up.</div>';
+    return '<div class="tr-note">The next block starts back near the minimum and climbs again. RP\u2019s reasoning: volume you needed at the end of this one is more than you need at the start of the next, once the deload has let the fatigue go.</div>';
+  }
+
   function doneHTML(ms) {
     var wos = ix().list.filter(function (w) { return w.ms === ms.id; });
     var prs = 0;
@@ -3875,7 +4156,7 @@
         return '<li><span>' + esc(lib(l.e).n) + '</span><span class="' + (l.ch > 0 ? 'up' : 'down') + '">' +
           (l.ch > 0 ? '+' : '−') + Math.abs(Math.round(l.ch * 100)) + '% e1RM</span></li>';
       }).join('') + '</ul>' : '') +
-      '<div class="tr-note">The next block starts back near the minimum and climbs again. RP’s reasoning: volume you needed at the end of this one is more than you need at the start of the next, once the deload has let the fatigue go.</div>' +
+      doneNext(ms) +
       '<div class="tr-acts"><button class="btn-primary" data-t="again">Build the next block</button></div>' +
     '</div>';
   }
@@ -3944,7 +4225,7 @@
       body = '<div class="tr-title">How much time do you have?</div>' +
         q('Days a week', chips('qz', a.dpw, [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6'], [7, '7']], ' data-f="dpw"'),
           a.dpw === 7 ? 'Six lifting days and an easy one: a walk, a ride, a swim. The muscles need a day off even when you do not.' : '') +
-        q('Minutes a session', chips('qz', a.min, MINS, ' data-f="min"'), 'Warm-up included. Short sessions are paired and trimmed to fit.');
+        q('Minutes a session', chips('qz', a.min, MINS, ' data-f="min"'), 'Warm-up included. A shorter session is made to fit.');
     } else if (step === 'kit') {
       body = '<div class="tr-title">What do you have to train with?</div>' +
         bigOpts('kit', shown('kit'), Object.keys(KITS).map(function (k) { return [k, KITS[k].n, KIT_S[k]]; }));
@@ -3988,7 +4269,8 @@
         (z.i > 0 ? '<button class="ghost" data-t="qzb">Back</button>' : '') +
         (!z.fresh ? '<button class="tr-lnk" data-t="qzx">Cancel</button>' : '') +
       '</div>' +
-      (z.i === 0 && z.fresh ? '<div class="tr-acts tr-qz-skip"><button class="tr-lnk" data-t="qzskip">Skip the questions</button>' +
+      (z.i === 0 && z.fresh ? '<div class="tr-acts tr-qz-skip"><button class="tr-lnk" data-t="qznew">I\u2019m new \u2014 choose for me</button>' +
+        '<button class="tr-lnk" data-t="qzskip">Skip the questions</button>' +
         '<button class="tr-lnk" data-t="ready">Pick a ready workout</button>' +
         '<button class="tr-lnk" data-t="empty">Just log a workout</button></div>' : '') +
     '</div>';
@@ -4135,9 +4417,15 @@
     return out;
   }
 
+  // counting the deload week where a program has one: a strength wave is three weeks and a deload, four
   function weeksSay(P) {
-    var w = P.acc.map(function (a) { return P.mode === 'grow' ? a + 1 : a; });
-    return w[0] + '–' + w[w.length - 1] + ' weeks';
+    var w = P.acc.map(function (a) { return P.mode === 'grow' || P.mode === 'str' ? a + 1 : a; });
+    return w[0] === w[w.length - 1] ? w[0] + ' weeks' : w[0] + '–' + w[w.length - 1] + ' weeks';
+  }
+  // what a program needs: a barbell for the waves and powerbuilding, the floor for home
+  function kitSay(P) {
+    if (!P.kits) return 'any kit';
+    return P.kits.indexOf('gym') >= 0 || P.kits.indexOf('bar') >= 0 ? 'needs a barbell' : 'home kit';
   }
   function progCard(r, badge) {
     var P = PROGS[r.id];
@@ -4151,7 +4439,7 @@
         return '<li' + (w.bad ? ' class="no"' : '') + '>' + esc(w.t) + '</li>';
       }).join('') + '</ul>' : '') +
       '<div class="tr-prog-f"><span class="tr-fine">' + days + ' · ' + weeksSay(P) + ' · ' +
-        (P.kits ? 'home kit' : 'any kit') + '</span>' +
+        kitSay(P) + '</span>' +
         '<button class="btn-primary" data-t="prog" data-v="' + r.id + '">Set it up</button></div>' +
     '</div>';
   }
@@ -4165,8 +4453,10 @@
       notes.map(function (n) { return '<div class="tr-note">' + esc(n) + '</div>'; }).join('') +
       '<div class="tr-acts"><button class="tr-lnk" data-t="requiz">Change my answers</button></div>' +
     '</div>' +
-    recs.slice(0, 3).map(function (r, i) { return progCard(r, i === 0 ? 'Best match' : ''); }).join('') +
-    '<div class="tr-acts tr-foot"><button class="ghost" data-t="lib">See all ' + PROG_ORDER.length + ' programs</button>' +
+    /* New to lifting, the choice is made: one program, and the rest a tap
+       away for anyone who wants to look. */
+    recs.slice(0, p.lvl === 0 && recs[0] && recs[0].id === 'start' ? 1 : 3).map(function (r, i) { return progCard(r, i === 0 ? 'Best match' : ''); }).join('') +
+    '<div class="tr-acts tr-foot"><button class="ghost" data-t="lib">' + (p.lvl === 0 ? 'See other programs' : 'See all ' + PROG_ORDER.length + ' programs') + '</button>' +
       (active() ? '' : '<button class="ghost" data-t="ready">Pick a ready workout</button>' +
         '<button class="ghost" data-t="empty">Just log a workout</button>') + '</div>';
   }
@@ -4417,7 +4707,9 @@
        today should be at all. */
     if (ms && pairLabels().some(Boolean)) html += '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>';
 
+    if (T.pr.lvl === 0 && !T.pr.hw) html += howCard();
     if (T.pr.bk || T.pr.jt) html += bkCard(L);
+    html += bwCard(L);
 
     var ask = soreAsk();
     if (ask.length) {
@@ -4441,6 +4733,20 @@
     html += '<div class="tr-acts tr-foot"><button class="ghost" data-t="addex">+ Add an exercise</button>' +
       '<button class="ghost danger" data-t="discard">Discard workout</button></div>';
     return html;
+  }
+
+  /* The first workout, for someone who has never logged one: how it goes,
+     once, until put away. */
+  function howCard() {
+    return '<div class="tr-card tr-how1"><div class="tr-sq-l">How a workout goes</div>' +
+      '<ol class="tr-howto">' +
+        '<li>Do one set of the first lift: that many reps, then put it down.</li>' +
+        '<li>Tap \u2713. The grey numbers are filled in for you; type over them if you did something different.</li>' +
+        '<li>Rest until the timer ends, then the next set. When a lift\u2019s sets are all ticked, move to the next lift.</li>' +
+        '<li>Not sure how a lift is done? Tap its name. Machine taken, or it hurts? Swap.</li>' +
+        '<li>Done with all of it? Finish, at the bottom.</li>' +
+      '</ol>' +
+      '<div class="tr-acts"><button class="ghost" data-t="hwok">Got it</button></div></div>';
   }
 
   /* Your back (and joints), asked as a question before the first set. Once
@@ -4475,6 +4781,64 @@
       (L.bk === 1 ? '<div class="tr-note">' + esc(tight) + '</div>' : '') +
       (L.bk === 2 ? '<div class="tr-note tr-warn">' + esc(sore) + '</div>' : '') +
     '</div>';
+  }
+
+  /* A pull-up day with nothing reliable to go on: no week of weigh-ins to
+     average and none today. Asked once; answered, it is today's weigh-in on
+     Nourish too. Never asked when the lift doesn't need it. */
+  function bwNeed(L) {
+    if (!L || fin(L.bw) || L.bwq || T.pr.nobw || !L.x.some(function (x) { return usesBw(x.e); })) return false;
+    var b = bwInfo(dayKey(new Date(L.st)), L.u || T.pr.u);
+    return !b || b.src === 'old';
+  }
+  function bwCard(L) {
+    var u = L.u || T.pr.u;
+    if (fin(L.bw) && !L.bwo) {
+      return '<div class="tr-card tr-ask tr-bkt">' +
+        '<button class="tr-fbt tr-bkt-b" data-t="bwopen" aria-label="Your weight today: ' + fmtN(L.bw) + ' ' + u + '. Change">' +
+          '<span class="tr-fbt-n">You</span><span class="tr-fbt-s">' + fmtN(L.bw) + ' ' + u + '</span><span class="tr-fbt-e">Change</span></button></div>';
+    }
+    if (!L.bwo && !bwNeed(L)) return '';
+    var b = bwInfo(dayKey(new Date(L.st)), u);
+    var when2 = b && b.k ? shortDate(new Date(b.k + 'T12:00:00').getTime()) : '';
+    var odd = S.bwOdd;
+    return '<div class="tr-card tr-ask tr-bwq">' +
+      '<div class="tr-sq-l">What do you weigh today?</div>' +
+      '<div class="tr-sub">Pull-ups and dips lift you, so their numbers count your weight. ' +
+        (b && b.src === 'old' ? 'Your last weigh-in was ' + fmtN(b.v) + ' ' + u + ' on ' + when2 + '.' : 'There\u2019s no weigh-in from the last two weeks.') + '</div>' +
+      '<div class="tr-bwq-r"><input class="tr-in tr-bwq-in" id="trBwq" inputmode="decimal" autocomplete="off" value="' + (odd ? esc(fmtN(odd.v)) : '') + '"' +
+        ' placeholder="' + (b ? esc(fmtN(b.v)) : '') + '" aria-label="Your weight today, in ' + u + '"><span class="tr-bwq-u">' + u + '</span>' +
+        '<button class="btn-primary" data-t="bwqsave">Save</button></div>' +
+      (odd ? '<div class="tr-note tr-warn">That\u2019s ' + fmtN(odd.v) + ' ' + u + (odd.ref ? ', against ' + fmtN(odd.ref) + ' ' + u + ' lately' : '') +
+        '. <button class="tr-lnk" data-t="bwqkeep">Keep it</button></div>' : '') +
+      '<div class="tr-acts">' +
+        (b && b.src === 'old' ? '<button class="tr-lnk" data-t="bwqold">Use ' + fmtN(b.v) + ' from ' + when2 + '</button>' : '') +
+        '<button class="tr-lnk" data-t="bwqskip">Not now</button>' +
+        '<button class="tr-lnk" data-t="bwqnever">Don\u2019t ask again</button></div>' +
+      '<div class="tr-hint">Saved, it\u2019s today\u2019s weigh-in on Nourish as well, on every device you sign in on.</div>' +
+    '</div>';
+  }
+  /* The weight typed at the gym: into Nourish as the day's weigh-in, through
+     Nourish's own guard, and kept for this workout either way. */
+  function bwSave(force) {
+    var L = LIVE, box = $('trBwq');
+    if (!L || !box) return;
+    var v = numIn(box.value), u = L.u || T.pr.u;
+    if (v === null || !(v > 0) || v > (u === 'kg' ? 700 : 1500)) { box.setAttribute('aria-invalid', 'true'); box.focus(); return; }
+    var lb = u === 'kg' ? v * 2.20462 : v;
+    var H = window.Hive, res = H && H.weigh ? H.weigh(dayKey(new Date(L.st)), lb, { force: !!force, was: L.bwn }) : null;
+    if (res && res.odd) {
+      S.bwOdd = { v: v, ref: res.ref ? Math.round((u === 'kg' ? res.ref / 2.20462 : res.ref) * 10) / 10 : 0 };
+      draw();
+      return;
+    }
+    S.bwOdd = null;
+    L.bw = Math.round(v * 10) / 10;
+    if (res && res.ok) L.bwn = res.lb;
+    L.bwq = 'saved';
+    L.bwo = 0;
+    saveLive();
+    draw();
   }
 
   /* The circuit: what to do, a clock, and the score. The clock counts down
@@ -4596,7 +4960,7 @@
   function focusOf(xi) {
     var x = LIVE && LIVE.x[xi];
     if (!x) return null;
-    var done = x.s.filter(function (s) { return s.t && !s.wu; });
+    var done = x.s.filter(function (s) { return s.t && counts(s); });
     if (!done.length) return null;
     var hasT = function (s) { return fin(s.tw) && fin(s.tr); };
     var hasP = function (s) { return fin(s.pw) && fin(s.pr); };
@@ -4613,7 +4977,7 @@
       n++;
     });
     if (!n) return null;
-    return { plan: plan, bw: !!BWL[x.e] || (!(cur.vol > 0) && !(was.vol > 0)), cur: cur, was: was };
+    return { plan: plan, bw: usesBw(x.e) || (!(cur.vol > 0) && !(was.vol > 0)), cur: cur, was: was };
   }
   var FM_SAY = { vc: 'volume change', vol: 'total volume', reps: 'total reps', best: 'best set' };
   function fmHTML(xi) {
@@ -4676,13 +5040,13 @@
     var rows = x.s.map(function (s, j) {
       var g = ghost(i, j);
       var ph = g.w !== null ? fmtN(g.w) : '';
-      var rph = g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
+      var rph = s.ty === 'm' ? '0' : g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
       var prev = prevText(s), on = pl === 'type' && j === nx;
       var flash = S.flash === i + ':' + j;
       // warm-ups, drop sets and failure sets are lettered, working sets numbered, the all-out set marked
       var lab = setLab(s, function () { return ++num; });
       return '<div class="tr-set' + (s.t ? ' done' : '') + (flash ? ' flash' : '') + (s.am ? ' tr-am' : '') + (s.wu ? ' tr-wu' : '') +
-          (s.ty === 'd' ? ' tr-dd' : s.ty === 'f' ? ' tr-ff' : '') + '">' +
+          (s.ty === 'd' ? ' tr-dd' : s.ty === 'f' ? ' tr-ff' : s.ty === 'm' ? ' tr-mm' : '') + '">' +
         '<button class="tr-sn tr-snb" data-t="sty" data-x="' + i + '" data-s="' + j + '" aria-label="' + esc(setSay(s) + ', set ' + (j + 1) + '. Change what kind of set it is') + '">' + lab + '</button>' +
         (pl !== 'off' ? '<span class="tr-prev tr-prev-pl' + (pl === 'type' ? ' tr-plt' : '') + (on ? ' on' : '') + '" id="trpl-' + i + '-' + j + '"' + (on ? ' data-next="1"' : '') + '>' +
             (pl === 'row' || on ? plCell(i, j) : prev) + '</span>'
@@ -4697,6 +5061,8 @@
         '<button class="tr-tick" data-t="tick" data-x="' + i + '" data-s="' + j + '" aria-pressed="' + !!s.t + '" ' +
           'aria-label="' + (s.t ? 'Undo set ' : 'Done with set ') + (j + 1) + '">✓</button>' +
       '</div>' +
+      (S.need && S.need.k === i + ':' + j ? '<div class="tr-need" id="trneed" role="alert">' +
+        (S.need.w ? 'Type the weight you used (0 if none), then tick.' : 'Type how many reps you did, then tick.') + '</div>' : '') +
       /* The rest that follows this set, between it and the next, the way
          Strong draws it: a minute after a warm-up, none before a drop set,
          the pair's rest in a pair. Tap it to change the lift's rest. */
@@ -4705,6 +5071,11 @@
         (x.s[j + 1].ty === 'd' ? 'no rest' : clock(restAfter(i, j))) + '</button></div>' : '');
     }).join('');
     var heavy = ex.q === 'bb' || ex.q === 'sm';
+    // nothing ticked yet on this lift: the notes for before the first set
+    var fresh = !x.s.some(function (s) { return s.t; });
+    // someone new: plain words where the numbers need them
+    var nb = T.pr.lvl === 0, nWork = x.s.filter(counts).length;
+    var wy = whyW(x);
     return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '">' +
       (mv ? '<span class="tr-mv">' +
         '<button class="tr-mvb" data-t="mvex" data-v="-1" data-x="' + i + '"' + (mv.up ? '' : ' disabled') +
@@ -4715,8 +5086,9 @@
         (label ? '<span class="tr-pair" aria-label="Pair ' + label + '">' + label + '</span>' : '') +
         '<button class="tr-ex-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(ex.n) + '</button>' +
         '<span class="tr-fmw" id="trfm-' + i + '">' + fmHTML(i) + '</span>' +
-        '<span class="tr-ex-m">' + esc(mname(ex.m)) + ' \u00b7 ' + (x.fix ? 'main lift, set by set' : ex.rr[0] + '\u2013' + ex.rr[1] + ' reps') +
-          (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + x.rir + ' RIR' : '') +
+        '<span class="tr-ex-m">' + esc(mnameP(ex.m)) + ' \u00b7 ' + (x.fix ? 'main lift, set by set'
+            : (nb ? nWork + ' set' + (nWork === 1 ? '' : 's') + ' of ' : '') + ex.rr[0] + '\u2013' + ex.rr[1] + ' reps') +
+          (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + (nb ? (x.rir ? 'stop with ' + x.rir + ' rep' + (x.rir === 1 ? '' : 's') + ' to spare' : 'to your last good rep') : effSay(x.rir)) : '') +
           (mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
             : ' \u00b7 <button class="tr-lnk tr-barl" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest ' + clock(x.rest) + ' for ' + esc(ex.n) + '. Change">rest ' + clock(x.rest) + '</button>') +
           (fin(x.tm) ? ' \u00b7 training max ' + fmtN(x.tm) + ' ' + T.pr.u : '') +
@@ -4725,11 +5097,17 @@
         (x.s.some(function (s) { return s.am; }) ? '<span class="tr-cue">Last set: as many good reps as you can \u2014 stop when one slows to a grind. It sets your next wave\u2019s weights.</span>' : '') +
         (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">W is a warm-up: done, not counted, and a short rest after it.</span>' : '') +
         (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
+        (x.swn ? '<span class="tr-ex-m">' + esc(x.swn) + '</span>' : '') +
+        (ASST[x.e] ? '<span class="tr-ex-m">Type the machine\u2019s help as the weight: less help is progress.</span>' : '') +
+        (wy && fresh ? '<span class="tr-ex-m">' + esc(wy) + '</span>' : '') +
+        (fresh && (T.pr.lvl === 0 || newLift(x.e)) && SAFETY[x.e] ? '<div class="tr-first tr-safe"><b>Safety first.</b> ' + esc(SAFETY[x.e]) + '</div>' : '') +
+        firstTime(x) +
+        (T.pr.lvl === 0 || newLift(x.e) ? '<button class="tr-lnk tr-howbtn" data-t="exhow" data-e="' + esc(x.e) + '">How to do it</button>' : '') +
         (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
-      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>Previous</span><span>' + T.pr.u + '</span><span>Reps</span>' +
-        (rq ? '<span title="Reps in reserve">RIR</span>' : '') + '<span></span></div>' +
+      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>' + (nb ? 'Last time' : 'Previous') + '</span><span>' + T.pr.u + '</span><span>Reps</span>' +
+        (rq ? (rpeOn() ? '<span title="Rate of perceived exertion">RPE</span>' : '<span title="Reps in reserve">RIR</span>') : '') + '<span></span></div>' +
       rows +
       '<div class="tr-ex-a">' +
         '<button class="tr-lnk" data-t="addset" data-x="' + i + '">+ Set</button>' +
@@ -4738,22 +5116,38 @@
         (heavy ? '<button class="tr-lnk" data-t="plates" data-x="' + i + '">Plates</button>' : '') +
         '<button class="tr-lnk" data-t="swap" data-x="' + i + '">Swap</button>' +
         (note ? '' : '<button class="tr-lnk" data-t="note" data-e="' + esc(x.e) + '">Note</button>') +
-        '<button class="tr-lnk" data-t="rmex" data-x="' + i + '">Remove</button>' +
+        '<button class="tr-lnk' + (S.arm === 'rm:' + i ? ' tr-lnk-arm' : '') + '" data-t="rmex" data-x="' + i + '">' +
+          (S.arm === 'rm:' + i ? 'Tap again: remove it and its ' + x.s.filter(function (z) { return z.t; }).length + ' done set' + (x.s.filter(function (z) { return z.t; }).length === 1 ? '' : 's') : 'Remove') + '</button>' +
       '</div>' +
     '</div>';
   }
 
+  /* Starting out, the weight asked for comes with its reason: a number
+     that changes with no word of why reads as the app guessing. */
+  function whyW(x) {
+    if (T.pr.lvl !== 0 || x.fix || !LIVE) return '';
+    var s = x.s.filter(function (z) { return !z.wu; })[0];
+    if (!s || !fin(s.tw) || !fin(s.pw)) return '';
+    if (LIVE.dl) return 'Lighter this week on purpose: an easy week lets your body catch up.';
+    var d = s.tw - s.pw;
+    if (ASST[x.e] && d < 0) return fmtN(-d) + ' ' + T.pr.u + ' less help: you reached the top of the range last time.';
+    if (d > 0 && !ASST[x.e]) return 'Up ' + fmtN(d) + ' ' + T.pr.u + ': you reached the top of the range last time, so it\u2019s time for more weight.';
+    if (d === 0 && fin(s.tr) && fin(s.pr) && s.tr > s.pr) return 'Same weight as last time: aim for ' + s.tr + ' reps, one more than before.';
+    return '';
+  }
+
   /* What kind of set, in a letter and in words. */
   function setLab(s, n) {
-    return s.wu ? 'W' : s.ty === 'd' ? 'D' : s.ty === 'f' ? 'F' : String(n()) + (s.am ? '+' : '');
+    return s.wu ? 'W' : s.ty === 'd' ? 'D' : s.ty === 'f' ? 'F' : s.ty === 'm' ? 'M' : String(n()) + (s.am ? '+' : '');
   }
   function setTag(s) {
-    return s.wu ? '<span class="tr-tag w">W</span>' : s.ty === 'd' ? '<span class="tr-tag d">D</span>' : s.ty === 'f' ? '<span class="tr-tag f">F</span>' : '';
+    return s.wu ? '<span class="tr-tag w">W</span>' : s.ty === 'd' ? '<span class="tr-tag d">D</span>' : s.ty === 'f' ? '<span class="tr-tag f">F</span>' :
+      s.ty === 'm' ? '<span class="tr-tag m">M</span>' : '';
   }
   function setSay(s) {
-    return s.wu ? 'Warm-up' : s.ty === 'd' ? 'Drop set' : s.ty === 'f' ? 'To failure' : s.am ? 'As many good reps as you can' : 'Working set';
+    return s.wu ? 'Warm-up' : s.ty === 'd' ? 'Drop set' : s.ty === 'f' ? 'To failure' : s.ty === 'm' ? 'Missed' : s.am ? 'As many good reps as you can' : 'Working set';
   }
-  var STY = [['', 'Working set'], ['w', 'Warm-up'], ['d', 'Drop set'], ['f', 'To failure']];
+  var STY = [['', 'Working set'], ['w', 'Warm-up'], ['d', 'Drop set'], ['f', 'To failure'], ['m', 'Missed']];
   function styHTML(sh) {
     var x = LIVE && LIVE.x[sh.x], s = x && x.s[sh.s];
     if (!s) return '';
@@ -4763,16 +5157,24 @@
       '<ul class="tr-fits tr-styl">' +
         '<li><b>Warm-up</b>: lighter, on the way up. Not a hard set, never a record, and a minute\u2019s rest after it.</li>' +
         '<li><b>Drop set</b>: straight after the set before it, lighter, no rest between.</li>' +
-        '<li><b>To failure</b>: the last rep you could do. Counted as a hard set with nothing in reserve.</li></ul>' +
+        '<li><b>To failure</b>: the last rep you could do. Counted as a hard set with nothing in reserve.</li>' +
+        '<li><b>Missed</b>: an attempt that didn\u2019t go up. The weight is kept, with the reps you got (0 if none); never a record, never counted, never a target.</li></ul>' +
       (x.s.length > 1 ? '<div class="tr-acts"><button class="ghost danger" data-t="styrm">Remove this set</button></div>' : '');
   }
 
   /* Reps in reserve for one set: blank until you say. Five means five or
      more — past that, nobody can tell. */
+  var RQ_RIR = [['', '\u2013'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5+']];
+  // RPE by its usual half steps; the value kept is still reps in reserve
+  var RQ_RPE = [['', '\u2013'], ['0', '10'], ['0.5', '9.5'], ['1', '9'], ['1.5', '8.5'], ['2', '8'], ['2.5', '7.5'], ['3', '7'], ['4', '6'], ['5', '\u22645']];
   function rqSel(cur, attrs, label) {
     var c = cur === '' || cur === null || cur === undefined ? '' : String(cur);
+    var opts = (rpeOn() ? RQ_RPE : RQ_RIR).slice();
+    // a value logged on the other scale is kept, and shown as itself
+    if (c && !opts.some(function (o) { return o[0] === c; }) && fin(Number(c))) opts.push([c, rpeOn() ? fmtN(10 - Number(c)) : fmtN(Number(c))]);
+    if (rpeOn()) label = label.replace('reps in reserve', 'RPE');
     return '<select class="tr-in tr-rqs" ' + attrs + ' aria-label="' + esc(label) + '">' +
-      [['', '\u2013'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5+']].map(function (o) {
+      opts.map(function (o) {
         return '<option value="' + o[0] + '"' + (c === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
       }).join('') + '</select>';
   }
@@ -4818,6 +5220,8 @@
     return later;
   }
   var JOINT_W = ['fine', 'a little sore', 'hurting'];
+  // "A lot" is not a rating to file away: it is a reason to stop
+  var HURT_NOTE = '<div class="tr-note tr-warn">Stop anything that hurts for today \u2014 Swap it or Remove it. Sharp pain, swelling, or pain still there tomorrow is one for a doctor or physiotherapist, not for this app.</div>';
   /* The card, or once it is answered — or you have moved on to something
      else, or put it away — a line saying what you said, which opens it again
      with a tap. Anything left unanswered is asked again at Finish. */
@@ -4834,13 +5238,14 @@
       return '<button class="tr-card tr-ask tr-fbt" data-t="fbopen" data-m="' + m + '">' +
         '<span class="tr-fbt-n">' + esc(mname(m)) + '</span>' +
         '<span class="tr-fbt-s">' + esc(said.length ? said.join(' \u00b7 ') : 'not rated yet \u2014 tap to rate, or it is asked at Finish') + '</span>' +
-        '<span class="tr-fbt-e">' + (said.length ? 'Edit' : 'Rate') + '</span></button>';
+        '<span class="tr-fbt-e">' + (said.length ? 'Edit' : 'Rate') + '</span></button>' + (f.j === 2 ? HURT_NOTE : '');
     }
     return '<div class="tr-card tr-ask tr-fbc"><div class="tr-fbc-h"><span class="tr-ql">' + esc(mname(m)) + ' done \u2014 how was it?</span>' +
         '<button class="tr-lnk" data-t="fbhide" data-m="' + m + '">Hide</button></div>' +
       (noPump(m) ? '' : segQ('Pump', 'fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"')) +
       segQ('Workload', 'fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"') +
       segQ(jl, 'fb', fin(f.j) ? f.j : '', JOINT.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="j"') +
+      (f.j === 2 ? HURT_NOTE : '') +
     '</div>';
   }
 
@@ -5109,6 +5514,35 @@
     if (tab === 'charts') return html + exCharts(e, ss);
     return html + exRecords(e, ss);
   }
+  /* Before the first heavy set of a barbell press or squat: the thing that
+     saves you when a rep fails. */
+  var SAFETY = {
+    'bb-bench': 'Set the safety bars (or pins) just below your chest, or ask someone to spot you. Start with the empty bar.',
+    'bb-incline': 'Set the safety bars just below your chest, or ask someone to spot you. Start with the empty bar.',
+    'bb-close': 'Set the safety bars just below your chest, or ask someone to spot you. Start with the empty bar.',
+    'bb-squat': 'Squat inside the rack with the safety bars just below the bottom of your squat. Start with the empty bar.',
+    'bb-front': 'Squat inside the rack with the safety bars just below the bottom of your squat. Start with the empty bar.',
+    'sm-squat': 'Set the Smith machine\u2019s stops just below the bottom of your squat.',
+    'sm-bench': 'Set the Smith machine\u2019s stops just below your chest.',
+    'sm-incline': 'Set the Smith machine\u2019s stops just below your chest.'
+  };
+  // never logged: no record of any kind, weighted or bodyweight
+  function newLift(e) {
+    var r = records(e);
+    return !(r.e1 > 0 || r.r > 0);
+  }
+  // the first time on a lift: how to find a weight, rather than an empty box
+  function firstTime(x) {
+    var ex = lib(x.e);
+    if (ex.q === 'bw' || usesBw(x.e)) return '';
+    if (x.s.some(function (s) { return s.t || fin(s.tw) || fin(s.pw); })) return '';
+    if (!newLift(x.e)) return '';
+    var how = ex.q === 'mc' || ex.q === 'cb' ? ' On a machine, start on the second or third plate of the stack. Machine taken? Tap Swap for another.'
+      : onBar(ex) ? ' With a barbell, start with just the bar.' : ex.q === 'db' ? ' With dumbbells, start with a light pair.' : '';
+    return '<div class="tr-first"><b>First time on this one?</b> Start light: pick a weight you think you could lift about 15 times, and do ' +
+      ex.rr[1] + ' reps with it. Easy? Go up a little on the next set. Too hard? Go lighter.' + how + '</div>';
+  }
+
   function exAbout(e, ex) {
     var steps = HOWTO[e], m = MEDIA[e], link = linkOf(e), note = noteOf(e), cue = backCue(ex);
     return (m ? (m.kind === 'video'
@@ -5117,7 +5551,10 @@
         (m.credit ? '<div class="tr-sub">' + esc(m.credit) + '</div>' : '') : '') +
       (steps ? '<ol class="tr-howto">' + steps.map(function (st) { return '<li>' + esc(st) + '</li>'; }).join('') + '</ol>'
         : '<div class="tr-note">' + (ex.own ? 'One of your own, so no steps are written for it. ' : '') + 'A how-to link on its note shows here.</div>') +
-      (link ? '<a class="tr-howlink" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">Watch how it\u2019s done \u2197</a>' : '') +
+      (SAFETY[e] ? '<div class="tr-first tr-safe"><b>Safety first.</b> ' + esc(SAFETY[e]) + '</div>' : '') +
+      (link ? '<a class="tr-howlink" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">Watch how it\u2019s done \u2197</a>'
+        : '<a class="tr-howlink" href="https://www.youtube.com/results?search_query=' + encodeURIComponent(ex.n + ' how to') +
+          '" target="_blank" rel="noopener noreferrer">Find a video on YouTube \u2197</a>') +
       '<dl class="tr-dl">' +
         '<dt>Trains</dt><dd>' + esc(mname(ex.m)) + '</dd>' +
         '<dt>Kit</dt><dd>' + esc(EQUIP[ex.q] || '') + ' \u00b7 ' + (ex.k === 'c' ? 'compound' : 'isolation') + '</dd>' +
@@ -5136,17 +5573,18 @@
       return '<div class="tr-hs"><div class="tr-hs-h"><span class="tr-hs-n">' + esc(s.wo.n) + '</span>' +
           '<span class="tr-hs-d">' + when(s.wo.st) + ' \u00b7 ' + hm(s.wo.st) + (bw ? ' \u00b7 you ' + fmtN(bw) + ' ' + T.pr.u : '') + '</span></div>' +
         '<table class="tr-hs-t"><tbody>' + s.x.s.map(function (z) {
-          var w = conv(z.w, s.wo.u), e1 = z.wu ? 0 : e1Of(e, w, z.r, bw);
+          var w = conv(z.w, s.wo.u), e1 = !counts(z) ? 0 : e1Of(e, w, z.r, bw);
           return '<tr' + (z.wu ? ' class="w"' : '') + '><td class="tr-hs-l">' + setLab(z, function () { return ++num; }) + '</td>' +
-            '<td>' + (w > 0 ? (BWL[e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + ' \u00d7 ' : '') + z.r + (fin(z.q) ? ' <span class="tr-e1">' + rqSay(z.q) + '</span>' : '') + '</td>' +
+            '<td>' + (w > 0 ? (BWL[e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + (ASST[e] ? ' help' : '') + ' \u00d7 ' : '') + z.r + (fin(z.q) ? ' <span class="tr-e1">' + rqSay(z.q) + '</span>' : '') + '</td>' +
             '<td class="tr-hs-e">' + (e1 > 0 ? Math.round(e1) : '') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
     }).join('') + '<div class="tr-hint">The last number is the estimated one-rep max for that set (Epley). Warm-ups have none.' +
-      (BWL[e] ? ' On this lift it counts you as well as anything added, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.' : '') + '</div>';
+      (BWL[e] ? ' On this lift it counts you as well as anything added, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.'
+        : ASST[e] ? ' On this lift it counts you, less the machine\u2019s help, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.' : '') + '</div>';
   }
   function exCharts(e, ss) {
     var r = records(e), byReps = !(r.e1 > 0);
-    var work = function (s) { return s.x.s.filter(function (z) { return !z.wu; }); };
+    var work = function (s) { return s.x.s.filter(counts); };
     var pts = function (f) {
       return ss.map(function (s) { var ws = work(s); var v = ws.length ? f(ws, s.wo.u, s) : null; return v > 0 ? { t: s.wo.st, v: v } : null; }).filter(Boolean);
     };
@@ -5156,11 +5594,15 @@
       return '<div class="tr-ql tr-chart-h">' + title + '</div>' +
         (series.length >= 2 ? chartSVG(series, reps) : '<div class="tr-note">Two sessions and this draws.</div>');
     };
-    if (BWL[e] && !byReps) {
+    if (usesBw(e) && !byReps) {
       return one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
-        one('Estimated one-rep max, you + added', pts(best), false) +
+        one(ASST[e] ? 'Estimated one-rep max, you less the help' : 'Estimated one-rep max, you + added', pts(best), false) +
         one('Strength \u00d7 bodyweight', pts(function (ws, u, s) { var bw = bwFor(e, s.wo); return bw ? Math.round(best(ws, u, s) / bw * 100) / 100 : 0; }), false) +
         '<div class="tr-hint">Strength \u00d7 bodyweight holds still when your weight falls and your reps don\u2019t, which the estimated max alone can\u2019t.</div>';
+    }
+    if (ASST[e]) {
+      return one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
+        one('Least help (' + T.pr.u + ')', pts(function (ws, u) { return Math.min.apply(null, ws.map(function (z) { return conv(z.w, u); })) || 0.001; }), false);
     }
     return byReps
       ? one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
@@ -5178,7 +5620,7 @@
       var best = null;
       ss.forEach(function (s) {
         s.x.s.forEach(function (z) {
-          if (z.wu || z.r < n) return;
+          if (!counts(z) || z.r < n) return;
           var w = conv(z.w, s.wo.u);
           if (w > 0 && (!best || w > best.w)) best = { w: w, r: z.r, st: s.wo.st };
         });
@@ -5189,19 +5631,21 @@
   }
   function exRecords(e, ss) {
     var r = records(e), byReps = !(r.e1 > 0);
-    if (BWL[e]) {
-      var rel = 0;
+    if (usesBw(e)) {
+      var rel = 0, help = null;
       ss.forEach(function (s) {
         var bw = bwFor(e, s.wo);
-        if (bw) s.x.s.forEach(function (z) { if (!z.wu) rel = Math.max(rel, e1Of(e, conv(z.w, s.wo.u), z.r, bw) / bw); });
+        if (bw) s.x.s.forEach(function (z) { if (counts(z)) rel = Math.max(rel, e1Of(e, conv(z.w, s.wo.u), z.r, bw) / bw); });
+        s.x.s.forEach(function (z) { if (counts(z)) { var hw = conv(z.w, s.wo.u); if (help === null || hw < help) help = hw; } });
       });
       return '<div class="tr-recs">' +
         rec('Estimated 1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
         rec('\u00d7 bodyweight', rel > 0 ? (Math.round(rel * 100) / 100).toFixed(2) : '\u2014') +
-        rec('Most added', r.w > 0 ? '+' + fmtN(r.w) + ' ' + T.pr.u : '\u2014') +
+        (ASST[e] ? rec('Least help', help !== null ? fmtN(help) + ' ' + T.pr.u : '\u2014')
+          : rec('Most added', r.w > 0 ? '+' + fmtN(r.w) + ' ' + T.pr.u : '\u2014')) +
         rec('Most reps', r.r || '\u2014') +
       '</div>' +
-      (r.e1 > 0 ? '<div class="tr-hint">Counting you, from your weigh-in in Nourish, plus anything added.</div>'
+      (r.e1 > 0 ? '<div class="tr-hint">' + (ASST[e] ? 'Counting you, from your weigh-in in Nourish, less the machine\u2019s help.' : 'Counting you, from your weigh-in in Nourish, plus anything added.') + '</div>'
         : '<div class="tr-hint">Log your weight on Nourish and this lift gets a strength number too: you plus anything added.</div>') +
       exFell(e);
     }
@@ -5282,7 +5726,7 @@
     wo.x.forEach(function (x) {
       out.push(lib(x.e).n + ': ' + x.s.map(function (s) {
         var w = conv(s.w, wo.u);
-        return (w > 0 ? fmtN(w) + ' ' + u + ' \u00d7 ' : '') + s.r + (s.wu ? ' (warm-up)' : s.ty === 'd' ? ' (drop set)' : s.ty === 'f' ? ' (to failure)' : '') +
+        return (w > 0 ? fmtN(w) + ' ' + u + ' \u00d7 ' : '') + s.r + (s.wu ? ' (warm-up)' : s.ty === 'd' ? ' (drop set)' : s.ty === 'f' ? ' (to failure)' : s.ty === 'm' ? ' (missed)' : '') +
           (fin(s.q) ? ' @' + rqSay(s.q) : '');
       }).join(', '));
     });
@@ -5352,8 +5796,8 @@
       wo.x.map(function (x) {
         return '<div class="tr-wx"><button class="tr-lnk tr-wx-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(lib(x.e).n) + '</button>' +
           '<ol class="tr-wx-s">' + x.s.map(function (s) {
-            var w = conv(s.w, wo.u), e1 = s.wu ? 0 : e1Of(x.e, w, s.r, bwFor(x.e, wo));
-            return '<li>' + setTag(s) + (w > 0 ? (BWL[x.e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + ' × ' : '') + s.r +
+            var w = conv(s.w, wo.u), e1 = !counts(s) ? 0 : e1Of(x.e, w, s.r, bwFor(x.e, wo));
+            return '<li>' + setTag(s) + (w > 0 ? (BWL[x.e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + (ASST[x.e] ? ' help' : '') + ' × ' : '') + s.r +
               (fin(s.q) ? ' <span class="tr-e1">' + rqSay(s.q) + '</span>' : '') +
               (e1 > 0 ? ' <span class="tr-e1">e1RM ' + Math.round(e1) + '</span>' : '') + '</li>';
           }).join('') + '</ol></div>';
@@ -5394,10 +5838,10 @@
           '<div class="tr-edx-h"><span class="tr-wx-n">' + esc(ex.n) + '</span>' +
             '<button class="tr-lnk" data-t="edrmx" data-x="' + i + '">Remove</button></div>' +
           '<div class="tr-set tr-set-h tr-eds" aria-hidden="true"><span>Set</span><span>' + T.pr.u + '</span><span>Reps</span>' +
-            (rq ? '<span>RIR</span>' : '') + '<span></span></div>' +
+            (rq ? '<span>' + (rpeOn() ? 'RPE' : 'RIR') + '</span>' : '') + '<span></span></div>' +
           x.s.map(function (s, j) {
-            var sk = { wu: s.ty === 'w', ty: s.ty === 'd' || s.ty === 'f' ? s.ty : undefined };
-            return '<div class="tr-set tr-eds' + (sk.wu ? ' tr-wu' : sk.ty === 'd' ? ' tr-dd' : sk.ty === 'f' ? ' tr-ff' : '') + '">' +
+            var sk = { wu: s.ty === 'w', ty: s.ty === 'd' || s.ty === 'f' || s.ty === 'm' ? s.ty : undefined };
+            return '<div class="tr-set tr-eds' + (sk.wu ? ' tr-wu' : sk.ty === 'd' ? ' tr-dd' : sk.ty === 'f' ? ' tr-ff' : sk.ty === 'm' ? ' tr-mm' : '') + '">' +
               '<button class="tr-sn tr-snb" data-t="edsty" data-x="' + i + '" data-s="' + j + '" aria-label="' + esc(setSay(sk)) + '. Tap to change">' +
                 setLab(sk, function () { return j + 1; }) + '</button>' +
               '<input class="tr-in" data-ed="w" data-x="' + i + '" data-s="' + j + '" inputmode="decimal" autocomplete="off" value="' + esc(s.w) + '" ' +
@@ -5432,7 +5876,9 @@
       var out = { e: x.e, s: [] };
       if (fin(x.pq)) out.pq = x.pq;
       x.s.forEach(function (s) {
-        if (String(s.r).trim() === '' || numIn(s.r) === 0) return;
+        // a missed attempt keeps its weight with no reps; any other empty set goes
+        if (s.ty !== 'm' && (String(s.r).trim() === '' || numIn(s.r) === 0)) return;
+        if (s.ty === 'm' && String(s.r).trim() === '') s.r = '0';
         var w = String(s.w).trim() === '' ? 0 : numIn(s.w), r = numIn(s.r);
         if (w === null || r === null || w < 0 || w > 5000 || r < 0 || r > 1000) { bad = bad || lib(x.e).n; return; }
         var o = { w: w, r: Math.round(r) };
@@ -5441,7 +5887,7 @@
           if (s.o.am) { o.am = 1; if (fin(s.o.tr)) o.tr = s.o.tr; }
         }
         if (s.ty === 'w') o.wu = 1;
-        else if (s.ty === 'd' || s.ty === 'f') o.ty = s.ty;
+        else if (s.ty === 'd' || s.ty === 'f' || s.ty === 'm') o.ty = s.ty;
         var q = numIn(s.q);
         if (q !== null && q >= 0 && q <= 10) o.q = q;
         out.s.push(o);
@@ -5459,6 +5905,8 @@
     if (tb) { E.err = tb; return false; }
     if (!x.length && !wo.mc) { E.err = 'Nothing would be left. To get rid of the whole workout, cancel and delete it.'; return false; }
     var nw = clean(wo);
+    // the sets come back in your unit now, and the day's bodyweight with them
+    if (fin(wo.bw) && wo.u !== T.pr.u) nw.bw = conv(wo.bw, wo.u);
     nw.u = T.pr.u;
     nw.x = x;
     nw.st = st;
@@ -5506,31 +5954,62 @@
   /* A warm-up that rehearses the lift without tiring it: half the working
      weight for eight, then fewer reps as it climbs. None of these count as
      sets; they are not logged. */
-  function warmHTML(sh) {
-    var x = LIVE && LIVE.x[sh.x];
-    if (!x) return '';
-    var ex = lib(x.e);
-    var s0 = x.s[0] || {};
-    var w = numIn(s0.w);
-    if (w === null) w = fin(s0.tw) ? s0.tw : fin(s0.pw) ? s0.pw : null;
-    if (!(w > 0)) return '<div class="sheet-name tr-sn2">Warm-up</div><div class="tr-note">Put a weight in the first set and the ramp works itself out from it.</div>';
-    var step = inc(ex);
-    var bb = onBar(ex), bar = barFor(x.e);
+  /* A warm-up ramp to the heaviest working set, not to the first set (which
+     on a main lift's day is itself a ramp set). Heavier and fewer reps the
+     closer it gets, more steps before a heavy triple than before a set of
+     twelve, and no empty-bar set before a pull from the floor. */
+  function warmRows(x) {
+    var ex = lib(x.e), w = 0, reps = 0;
+    x.s.forEach(function (z) {
+      if (z.wu) return;
+      var v = numIn(z.w);
+      if (v === null) v = fin(z.tw) ? z.tw : fin(z.pw) ? z.pw : null;
+      if (v > w) { w = v; reps = numIn(z.r) || z.tr || z.pr || 0; }
+    });
+    if (!(w > 0)) return { w: 0, rows: [] };
+    var step = inc(ex), bb = onBar(ex), bar = barFor(x.e);
+    var plan = reps && reps <= 5 ? [[0.4, 5], [0.55, 3], [0.7, 2], [0.8, 1], [0.9, 1]]
+      : reps && reps <= 8 ? [[0.45, 5], [0.6, 3], [0.75, 2], [0.85, 1]] : [[0.5, 8], [0.7, 4], [0.85, 2]];
     var rows = [];
-    if (bb && bar > 0 && bar < w * 0.5) rows.push([bar, 10]);
-    [[0.5, 8], [0.7, 4], [0.85, 2]].forEach(function (r) {
+    if (bb && bar > 0 && bar < w * 0.4 && ex.p !== 'hinge') rows.push([bar, 10]);
+    plan.forEach(function (r) {
       var v = roundTo(w * r[0], step);
       if (bb && v < bar) return;
+      if (v >= w) return;
       if (rows.length && v <= rows[rows.length - 1][0]) return;
       rows.push([v, r[1]]);
     });
+    return { w: w, rows: rows };
+  }
+  function warmHTML(sh) {
+    var x = LIVE && LIVE.x[sh.x];
+    if (!x) return '';
+    var ex = lib(x.e), R = warmRows(x);
+    if (!(R.w > 0)) return '<div class="sheet-name tr-sn2">Warm-up</div><div class="tr-note">Put a weight in a working set and the ramp works itself out from it.</div>';
+    var bb = onBar(ex), bar = barFor(x.e);
+    var has = x.s.some(function (z) { return z.wu && !z.t; });
     return '<div class="sheet-name tr-sn2">Warm-up for ' + esc(ex.n) + '</div>' +
-      '<div class="tr-sub">Working weight ' + fmtN(w) + ' ' + T.pr.u + '. These are not logged.</div>' +
-      '<ol class="tr-warm">' + rows.map(function (r) {
+      '<div class="tr-sub">Up to your heaviest working set, ' + fmtN(R.w) + ' ' + T.pr.u + '.</div>' +
+      '<ol class="tr-warm">' + R.rows.map(function (r) {
         var pm = bb ? plateMath(r[0], bar, T.pr.u) : null;
         return '<li><b>' + fmtN(r[0]) + ' ' + T.pr.u + ' × ' + r[1] + '</b>' +
           (pm ? '<span class="tr-sub"> ' + (pm.plates.length ? pm.plates.map(fmtP).join(' + ') + ' a side' : 'the bar') + '</span>' : '') + '</li>';
-      }).join('') + '</ol>';
+      }).join('') + '</ol>' +
+      (R.rows.length ? '<div class="tr-acts"><button class="btn-primary" data-t="warmadd" data-x="' + sh.x + '">' +
+        (has ? 'Replace my warm-up sets with these' : 'Add these as warm-up sets') + '</button></div>' +
+        '<div class="tr-hint">Added, they are W sets: logged, never records, a minute\u2019s rest after each.</div>' : '');
+  }
+  // the ramp into the workout as W sets, ahead of the working sets; any not yet done are replaced
+  function warmAdd(xi) {
+    var x = LIVE && LIVE.x[xi];
+    if (!x) return;
+    var R = warmRows(x);
+    if (!R.rows.length) return;
+    var keep = x.s.filter(function (z) { return !z.wu || z.t; });
+    var ws = R.rows.map(function (r) { return { w: '', r: '', t: 0, tw: r[0], tr: r[1], pw: null, pr: null, wu: 1 }; });
+    var doneW = keep.filter(function (z) { return z.wu; });
+    x.s = doneW.concat(ws, keep.filter(function (z) { return !z.wu; }));
+    remapPrev(x);
   }
 
   function finishHTML() {
@@ -5621,14 +6100,14 @@
         list.forEach(function (w) {
           if (w.st >= wo.st) return;
           var px = exIn(w, x.e);
-          if (px) px.s.forEach(function (z) { if (!z.wu && z.r >= n) best = Math.max(best, conv(z.w, w.u)); });
+          if (px) px.s.forEach(function (z) { if (counts(z) && z.r >= n) best = Math.max(best, conv(z.w, w.u)); });
         });
         return best;
       };
       /* Only the day's best set takes each record: two sets past the old
          best are one record, not two. */
       var work = [], top = { w: 0, e: 0, r: 0, wr: 0 }, got = {};
-      x.s.forEach(function (s, si) { if (!s.wu) work.push({ i: si, w: conv(s.w, wo.u), r: s.r }); });
+      x.s.forEach(function (s, si) { if (counts(s)) work.push({ i: si, w: conv(s.w, wo.u), r: s.r }); });
       var bwx = bwFor(x.e, wo);
       work.forEach(function (z) {
         top.w = Math.max(top.w, z.w);
@@ -5644,12 +6123,13 @@
       };
       var said = [];
       x.s.forEach(function (s, si) {
-        if (s.wu) return;
+        if (!counts(s)) return;
         var w = conv(s.w, wo.u), e = e1Of(x.e, w, s.r, bwx), what = [];
         if (first('w', had.w > 0 && w > had.w && w === top.w && s.r === top.wr)) what.push('heaviest');
         if (first('e', had.e1 > 0 && e > had.e1 + 0.01 && e === top.e)) what.push('best e1RM');
         if (first('r', w === 0 && !(had.w > 0) && had.r > 0 && s.r > had.r && s.r === top.r)) what.push('most reps');
-        var at = w > 0 ? pastAt(s.r) : 0;
+        // more help is never a best
+        var at = w > 0 && !ASST[x.e] ? pastAt(s.r) : 0;
         if (!what.length && at > 0 && w > at && !covered(si, w, s.r)) what.push('best for ' + s.r + ' reps');
         if (what.length) {
           sets[xi + ':' + si] = what.join(', ');
@@ -5674,16 +6154,22 @@
     var wo = T.wo[sh.id];
     if (!wo) return '';
     var won = wins(wo);
+    /* Records are what History stars and Finish counts: the heaviest, the
+       best estimated max, the most reps. A best for a number of reps is
+       ribboned too, but said as what it is rather than counted as one. */
+    var recN = won.lines.filter(function (l) { return l.big; }).length, repN = won.lines.length - recN;
     var head = won.ms.length ? won.ms[0] + '!'
-      : won.lines.length ? (won.lines.length === 1 ? 'A new record!' : won.lines.length + ' new records!')
+      : recN ? (recN === 1 ? 'A new record!' : recN + ' new records!')
+      : repN ? (repN === 1 ? 'A best for its reps!' : repN + ' bests for their reps!')
       : 'Workout ' + won.count + ' done';
     return '<div class="tr-done">' +
       '<div class="tr-done-h">' + esc(head) + '</div>' +
       '<div class="tr-sub">' + esc(wo.n) + ' \u00b7 ' + when(wo.st) + ' \u00b7 ' + (wo.en > wo.st ? hmSpan(wo.st, wo.en) : hm(wo.st)) + '</div>' +
+      (won.count === 1 ? '<div class="tr-note">Personal bests start today. Beat any of these numbers next time and it earns a \ud83e\udd47.</div>' : '') +
       (won.ms.length > 1 ? '<div class="tr-done-ms">' + won.ms.slice(1).map(function (m) { return '\ud83c\udfc5 ' + esc(m); }).join('<br>') + '</div>' : '') +
       '<div class="tr-recs">' +
         rec('Time', wo.en > wo.st ? dur(wo.en - wo.st) : '\u2014') + rec('Sets', setsOf(wo)) +
-        rec('Volume', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', won.lines.length) +
+        rec(T.pr.lvl === 0 ? 'Total lifted' : 'Volume', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', recN + (repN ? ' <small>+' + repN + ' rep best' + (repN === 1 ? '' : 's') + '</small>' : '')) +
       '</div>' +
       (won.lines.length ? '<div class="tr-done-r">' + won.lines.map(function (l) {
         return '<div><span class="tr-medal" aria-hidden="true">\ud83e\udd47</span> <b>' + esc(lib(l.e).n) + '</b> \u2014 ' + esc(l.what) + '</div>';
@@ -5693,7 +6179,7 @@
         return '<div class="tr-wx"><span class="tr-wx-n">' + esc(lib(x.e).n) + '</span><ol class="tr-wx-s">' + x.s.map(function (s, si) {
           var w = conv(s.w, wo.u), win = won.sets[xi + ':' + si];
           return '<li' + (win ? ' class="tr-won"' : '') + '><span class="tr-hs-l">' + setLab(s, function () { return ++num; }) + '</span>' +
-            (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' \u00d7 ' : '') + s.r +
+            (w > 0 ? fmtN(w) + ' ' + T.pr.u + (ASST[x.e] ? ' help' : '') + ' \u00d7 ' : '') + s.r +
             (win ? ' <span class="tr-ribbon" title="' + esc(win) + '">\ud83e\udd47 ' + esc(win) + '</span>' : '') + '</li>';
         }).join('') + '</ol></div>';
       }).join('') +
@@ -5785,7 +6271,7 @@
     var p = plan(ms, sh.w, sh.d);
     var wo = woFor(ms, sh.w, sh.d);
     return '<div class="sheet-name tr-sn2">' + esc(p.n) + '</div>' +
-      '<div class="tr-sub">' + (p.deload ? 'Deload week' : 'Week ' + (sh.w + 1) + ' · ' + p.rir + ' RIR') +
+      '<div class="tr-sub">' + (p.deload ? 'Deload week' : 'Week ' + (sh.w + 1) + ' · ' + effSay(p.rir)) +
         (wo ? ' · done ' + when(wo.st) : '') + '</div>' +
       planList(p, ms) +
       '<div class="tr-acts">' +
@@ -5867,6 +6353,34 @@
     try { return JSON.stringify(payload(true) || {}).length; } catch (e) { return 0; }
   }
 
+  /* Whether these workouts fit, and if not, why — '' when they do.
+   *
+   * Three limits. This phone keeps everything, and a browser gives a site
+   * about 5 MB, shared with Nourish and the recipes, so workouts get 3.5 MB
+   * of it: ten years or more at four sessions a week. In the account, by
+   * year, a year's record holds a megabyte, three years' worth at that
+   * rate. And until the rule for the yearly records is published, all of it
+   * shares the one record with Nourish, as it always has. */
+  var REC_ROOM = 900 * 1024, PHONE_ROOM = 3584 * 1024;
+  function woBytes(w) { return JSON.stringify(w).length + 60; }
+  function fitSay(list, replace) {
+    var all = (replace ? [] : Object.keys(T.wo).map(function (k) { return T.wo[k]; })).concat(list);
+    var tot = all.reduce(function (a, w) { return a + woBytes(w); }, 0);
+    if (tot > PHONE_ROOM) return 'That\u2019s more than this phone can keep for the app (about ' + (Math.round(tot / 104858) / 10) + ' MB of workouts). Pick a shorter range.';
+    if (!doc) return '';
+    if (YR.on === true) {
+      var by = {};
+      all.forEach(function (w) { var y = yearOf(w); by[y] = (by[y] || 0) + woBytes(w); });
+      var over = Object.keys(by).filter(function (y) { return by[y] > REC_ROOM; }).sort();
+      return over.length ? 'More workouts in ' + over.join(' and ') + ' than a year\u2019s record in your account can hold (about 1 MB). Pick a shorter range.' : '';
+    }
+    var rest = Math.max(0, jsonSize() - Object.keys(T.wo).reduce(function (a, k) { return a + woBytes(T.wo[k]); }, 0));
+    if (rest + tot <= SG_ROOM) return '';
+    return 'That would take your training record to about ' + Math.round((rest + tot) / 1024) + ' KB, and your account keeps it in one record of 1 MB, shared with Nourish. ' +
+      (YR.on === null ? 'Try again once your account has answered, or pick a shorter range.'
+        : 'Publishing one database rule lifts that (SETUP.md, step 4); until then, pick a shorter range.');
+  }
+
   function settingsHTML() {
     var p = T.pr;
     var kb = Math.round(jsonSize() / 1024);
@@ -5902,13 +6416,28 @@
         chips('s-rp', p.rp, [[45, '0:45'], [60, '1:00'], [75, '1:15'], [90, '1:30']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">When rest is up</div>' + chips('s-snd', p.snd, [[1, 'Beep and buzz'], [0, 'Buzz only']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">When you finish</div>' + chips('s-yay', p.yay, [[1, 'Chime and confetti'], [0, 'Just the summary']]) + '</div>' +
-      '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log reps in reserve']]) +
-        '<div class="tr-hint">A box beside every set for how many more reps you had in you. Optional on each set; the review holds it against what the plan asked.</div></div>' +
+      '<div class="tr-q"><div class="tr-ql">Your weight on pull-up and dip days</div>' + chips('s-nobw', p.nobw, [[0, 'Ask when it\u2019s needed'], [1, 'Don\u2019t ask']]) +
+        '<div class="tr-hint">Asked only when there\u2019s no weigh-in from the last week to go on. Saved, it\u2019s the day\u2019s weigh-in on Nourish too.</div></div>' +
+      '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log it']]) +
+        '<div class="tr-hint">A box beside every set for how hard it was. Optional on each set; the review holds it against what the plan asked.</div></div>' +
+      /* Its own question, not a second row under the first: it also says
+         how the plan's targets read, logged or not. */
+      '<div class="tr-q"><div class="tr-ql">Effort scale</div>' + chips('s-eff', p.eff, [['rir', 'Reps in reserve'], ['rpe', 'RPE']]) +
+        '<div class="tr-hint">The same scale from the other end: RPE 10 is nothing left, RPE 8 is two reps in reserve. RPE is what Strong and most powerlifting programs use.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
-        '<div class="tr-sub">Kept on this device. Sign in under Nourish → ⚙ → Sync &amp; sharing and it travels with your account, the same as your day.</div>' +
-        '<div class="tr-sub">' + Object.keys(T.wo).length + ' workouts · about ' + kb + ' KB' +
-          (kb > 600 ? ' — getting close to the 1 MB an account record can hold. Export a copy, then delete old workouts.' : '') + '</div>' +
+        '<div class="tr-sub">' + (!doc ? '<b>Only on this phone.</b> Sign in under Nourish \u2192 \u2699 \u2192 Sync &amp; sharing and it travels with your account, the same as your day.'
+          : SY.err ? '<b>Not saved to your account yet</b> \u2014 it keeps trying. Safe on this phone meanwhile.'
+          : SY.ok ? 'Saved to your account ' + agoSay(SY.ok) + ', and kept on this phone.' : 'Kept on this phone and in your account.') + '</div>' +
+        '<div class="tr-sub">' + Object.keys(T.wo).length + ' workouts' + (!doc ? ' \u00b7 about ' + kb + ' KB'
+          : YR.on === true ? ', kept a year to a record in your account' + (Object.keys(YR.kb).length ? ' (' + Object.keys(YR.kb).sort().join(', ') + ')' : '') +
+            ', so there\u2019s no limit on how far back it goes.'
+          : ' \u00b7 about ' + kb + ' KB of the 1 MB record your account keeps them in' +
+            (YR.on === false ? '. One database rule (SETUP.md, step 4) keeps them a year to a record instead, with no limit.' : '.')) +
+          '</div>' +
+        (LSFULL ? '<div class="tr-sub tr-warn">This phone\u2019s storage for the app is full, so the newest changes are not kept on it' +
+          (doc ? ' \u2014 they are in your account.' : '. Sign in to keep them in an account, or export a copy.') + '</div>' : '') +
         '<div class="tr-acts"><button class="ghost" data-t="export">Export a copy</button>' +
+          '<button class="ghost" data-t="exportcsv">Export as a spreadsheet</button>' +
           '<label class="ghost tr-file">Restore from a copy<input type="file" id="trImport" accept="application/json,.json" hidden></label>' +
           '<label class="ghost tr-file">Bring in from Strong<input type="file" id="trStrong" accept=".csv,text/csv" hidden></label></div>' +
         '<div class="tr-hint">From Strong: Settings \u2192 Export data, then choose the file here. Your workouts come in as history \u2014 records, charts, and the weights a new block starts from.</div>' +
@@ -5978,6 +6507,28 @@
       nx.rir = old.rir;
       nx.p = old.p || 0;
       if (old.sl) nx.sl = old.sl;
+      /* A main lift keeps its day: the ramp, the working sets and the
+         all-out one, at the new lift's own training max where there is one.
+         The wave's max for the old lift then stays where it is, and it says
+         so rather than leaving three blank sets. */
+      if (old.fix) {
+        var bms = LIVE.ms && T.ms[LIVE.ms], tA = bms ? tmOf(bms, old.sl || old.e) : null, tB = bms ? tmOf(bms, e) : null;
+        var ratio = tA && tB ? tB / tA : null;
+        nx.fix = 1;
+        if (old.main) nx.main = old.main;
+        if (tB) nx.tm = tB;
+        nx.s.forEach(function (z, j) {
+          var o = old.s[j];
+          if (!o) return;
+          z.tr = o.tr;
+          z.tw = ratio && fin(o.tw) ? roundTo(o.tw * ratio, inc(lib(e))) : null;
+          if (o.wu) z.wu = 1;
+          if (o.am) z.am = 1;
+        });
+        remapPrev(nx);
+        nx.swn = 'Swapped in for ' + lib(old.sl || old.e).n + ' today' + (ratio ? ', at its own training max' : ': pick weights by feel, by the same reps') +
+          '. ' + lib(old.sl || old.e).n + '\u2019s training max stays as it is for the next wave.';
+      }
       // what was already done stays done, under the new name
       old.s.forEach(function (s, j) { if (s.t && nx.s[j]) nx.s[j] = s; });
       LIVE.x[sh.x] = nx;
@@ -6010,15 +6561,59 @@
     draw();
   }
 
-  function exportCopy() {
-    var blob = new Blob([JSON.stringify({ app: 'hive-train', v: 1, at: Date.now(), train: T }, null, 1)],
-      { type: 'application/json' });
+  function saveFile(name, type, text) {
+    var blob = new Blob([text], { type: type });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'train-' + dayKey(new Date()) + '.json';
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function exportCopy() {
+    saveFile('train-' + dayKey(new Date()) + '.json', 'application/json',
+      JSON.stringify({ app: 'hive-train', v: 1, at: Date.now(), train: T }, null, 1));
+  }
+
+  /* Every set as a spreadsheet, in Strong's columns and order, so a
+     spreadsheet or another app reads it — and "Bring in from Strong" here
+     reads it back. RIR, the kind of set and your weight ride along at the
+     end, where anything that knows only Strong's columns passes them by. */
+  function csvCell(v) {
+    var t = v === null || v === undefined ? '' : String(v);
+    // text that would start a formula in a spreadsheet stays text
+    if (/^[=+\-@]/.test(t) && !/^-?\d/.test(t)) t = "'" + t;
+    return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function csvNum(v) { return fin(v) ? String(Math.round(v * 100) / 100) : ''; }
+  function csvDate(t) {
+    var d = new Date(t), two = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds());
+  }
+  function csvDur(ms) {
+    var m = Math.round(ms / 60000);
+    return m > 0 ? (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm' : '';
+  }
+  function woCsv() {
+    var rows = [['Date', 'Workout Name', 'Duration', 'Exercise Name', 'Set Order', 'Weight', 'Weight Unit', 'Reps', 'Distance', 'Seconds',
+      'Notes', 'Workout Notes', 'RPE', 'RIR', 'Set Type', 'Bodyweight']];
+    ix().list.forEach(function (wo) {
+      var bw = woBw(wo);
+      wo.x.forEach(function (x) {
+        var n = 0, name = lib(x.e).n;
+        x.s.forEach(function (st) {
+          var ord = st.wu ? 'W' : st.ty === 'd' ? 'D' : st.ty === 'f' ? 'F' : String(++n);
+          rows.push([csvDate(wo.st), wo.n || 'Workout', wo.en > wo.st ? csvDur(wo.en - wo.st) : '', name, ord,
+            csvNum(st.w), wo.u === 'kg' ? 'kg' : 'lbs', csvNum(st.r), '', '',
+            st.ty === 'm' ? 'Missed attempt' : ASST[x.e] ? 'Weight is the machine\u2019s help' : '', wo.nt || '',
+            fin(st.q) ? csvNum(10 - st.q) : '', fin(st.q) ? csvNum(st.q) : '', setSay(st), usesBw(x.e) && fin(bw) ? csvNum(bw) : '']);
+        });
+      });
+    });
+    return '\ufeff' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n') + '\r\n';
+  }
+  function exportCsv() {
+    saveFile('strengthen-' + dayKey(new Date()) + '.csv', 'text/csv;charset=utf-8', woCsv());
   }
 
   function readImport(file) {
@@ -6053,6 +6648,9 @@
     var n = S.imp;
     if (!n) return;
     var now = Date.now();
+    var big = fitSay(Object.keys(n.wo).map(function (k) { return n.wo[k]; }), true);
+    if (big) { S.impErr = big; S.imp = null; drawSheet(); return; }
+    Object.keys(T.wo).forEach(function (k) { if (!n.wo[k]) YR.gone[k] = yearOf(T.wo[k]); });
     PARTS.forEach(function (p) {
       Object.keys(T[p]).concat(Object.keys(TS[p])).forEach(function (k) { TS[p][k] = now; });
       Object.keys(n[p]).forEach(function (k) { TS[p][k] = now; });
@@ -6140,8 +6738,9 @@
 
   /* Strong's own names for the lifts the library has, as their words fall
      once case, brackets and punctuation are gone. Only the same lift on the
-     same kit: a Pendlay row is not a bent-over row, and an assisted pull-up
-     is logged as the help, not the load, so neither is matched. */
+     same kit: a Pendlay row is not a bent-over row. An assisted pull-up or
+     dip is logged as the help, not the load, and comes in as the assisted
+     lift, where the weight means exactly that. */
   var SG_MAP = {
     'bench press barbell': 'bb-bench', 'bench press dumbbell': 'db-bench', 'chest press machine': 'mc-press',
     'incline bench press barbell': 'bb-incline', 'incline bench press dumbbell': 'db-incline',
@@ -6160,7 +6759,8 @@
     'walking lunge dumbbell': 'db-lunge', 'step up': 'db-stepup', 'step up dumbbell': 'db-stepup', 'belt squat machine': 'belt-squat',
     'leg extension machine': 'leg-ext', 'leg extension': 'leg-ext', 'air squat': 'bw-squat', 'squat bodyweight': 'bw-squat',
     'romanian deadlift barbell': 'bb-rdl', 'romanian deadlift dumbbell': 'db-rdl', 'stiff leg deadlift barbell': 'bb-sldl',
-    'deadlift barbell': 'bb-dl', 'good morning barbell': 'good-am', 'lying leg curl machine': 'lying-curl',
+    'deadlift barbell': 'bb-dl', 'sumo deadlift barbell': 'sumo-dl', 'deadlift trap bar': 'trap-dl', 'trap bar deadlift': 'trap-dl',
+    'pull up assisted': 'as-pullup', 'chest dip assisted': 'as-dip', 'dip assisted': 'as-dip', 'good morning barbell': 'good-am', 'lying leg curl machine': 'lying-curl',
     'seated leg curl machine': 'seated-curl', 'nordic hamstring curl': 'nordic',
     'hip thrust barbell': 'hip-thrust', 'hip thrust machine': 'mc-thrust', 'hip thrust dumbbell': 'db-thrust', 'glute bridge': 'glute-bridge',
     'back extension': 'back-ext', 'hyperextension': 'back-ext', 'hip abductor machine': 'abduct', 'glute kickback cable': 'cb-kick',
@@ -6251,15 +6851,19 @@
       if (wnt && wo.nt.indexOf(wnt) < 0) wo.nt.unshift(wnt);
       var ent = get(C.nt);
       if (ent && wo.nt.indexOf(exn + ': ' + ent) < 0) wo.nt.push(exn + ': ' + ent);
-      if (C.wu >= 0) { var u = get(C.wu).toLowerCase(); if (u) units[/kg/.test(u) ? 'kg' : 'lb'] = 1; }
+      var ru = C.wu >= 0 ? get(C.wu).toLowerCase() : '';
+      ru = ru ? (/kg/.test(ru) ? 'kg' : 'lb') : '';
+      if (ru) units[ru] = 1;
       var x = wo.xi[exn];
       if (!x) { x = wo.xi[exn] = { nm: exn, s: [] }; wo.x.push(x); }
       var set = { w: w !== null && w > 0 ? Math.round(w * 100) / 100 : 0, r: Math.round(reps) };
+      if (ru) set.su = ru;
       if (so === 'W') set.wu = 1;
       else if (so === 'D') set.ty = 'd';
       else if (so === 'F') set.ty = 'f';
       var rpe = sgNum(get(C.rpe));
-      if (rpe !== null && rpe >= 5 && rpe <= 10) set.q = Math.max(0, Math.min(5, Math.round(10 - rpe)));
+      // RPE by its half steps, as Strong logs it: 8.5 is one and a half in reserve
+      if (rpe !== null && rpe >= 5 && rpe <= 10) set.q = Math.max(0, Math.min(5, Math.round((10 - rpe) * 2) / 2));
       x.s.push(set);
       if (!names[exn]) { names[exn] = { nm: exn, n: 0 }; nOrder.push(exn); }
       names[exn].n++;
@@ -6271,8 +6875,19 @@
       var g = sgGuess(nm);
       return { nm: nm, n: names[nm].n, e: sgMatch(nm), m: g.m, q: g.q, k: g.k };
     }).sort(function (a, b) { return (a.e ? 1 : 0) - (b.e ? 1 : 0) || b.n - a.n; });
-    var uk = Object.keys(units);
-    return { wos: order, names: list, unit: uk.length === 1 ? uk[0] : T.pr.u, fixedUnit: uk.length === 1, skipped: skipped, range: 0 };
+    /* Each row says its own unit in newer exports, and a history can change
+       unit halfway (132.5 kg is not 132.5 lb). A file in one unit comes in
+       as that unit; a mixed one is brought to yours, set by set. */
+    var uk = Object.keys(units), unit = uk.length === 1 ? uk[0] : T.pr.u;
+    order.forEach(function (w) {
+      w.x.forEach(function (x) {
+        x.s.forEach(function (s) {
+          if (s.su && s.su !== unit && s.w > 0) s.w = Math.round((s.su === 'kg' ? s.w * 2.20462 : s.w / 2.20462) * 2) / 2;
+          delete s.su;
+        });
+      });
+    });
+    return { wos: order, names: list, unit: unit, fixedUnit: uk.length >= 1, mixed: uk.length > 1, skipped: skipped, range: 0 };
   }
 
   // letters and digits, the same every time the same workout comes in
@@ -6307,6 +6922,12 @@
     if (nt) wo.nt = nt;
     return wo;
   }
+  // what would come in, as workouts, for the size of it
+  function sgList(G, months) {
+    var ids = {};
+    G.names.forEach(function (n) { ids[n.nm] = n.e || 'cx0000000000000'; });
+    return sgPick(G, months).map(function (w) { return sgWo(G, w, ids); });
+  }
   function sgSize(G, months) {
     var ids = {};
     G.names.forEach(function (n) { ids[n.nm] = n.e || 'cx0000000000000'; });
@@ -6314,10 +6935,9 @@
   }
   /* The biggest range that fits, chosen for you; smaller ones to pick. */
   function sgFit(G) {
-    var now = jsonSize();
     G.size = {};
     SG_RANGES.forEach(function (r) { G.size[r[0]] = sgSize(G, r[0]); });
-    for (var i = 0; i < SG_RANGES.length; i++) if (now + G.size[SG_RANGES[i][0]] <= SG_ROOM) return SG_RANGES[i][0];
+    for (var i = 0; i < SG_RANGES.length; i++) if (!fitSay(sgList(G, SG_RANGES[i][0]))) return SG_RANGES[i][0];
     return SG_RANGES[SG_RANGES.length - 1][0];
   }
 
@@ -6338,8 +6958,8 @@
     if (G.err) return '<div class="sheet-name tr-sn2">From Strong</div><div class="tr-note">' + esc(G.err) + '</div>';
     var pick = sgPick(G, G.range);
     var had = G.wos.length - sgPick(G, 0).length;
-    var now = jsonSize(), add = G.size[G.range] || 0;
-    var over = now + add > SG_ROOM;
+    var add = G.size[G.range] || 0;
+    var over = fitSay(sgList(G, G.range));
     var matched = G.names.filter(function (n) { return n.e; }).length;
     return '<div class="sheet-name tr-sn2">From Strong</div>' +
       '<div class="tr-sub">' + G.wos.length + ' workouts, ' + when(G.wos[0].st) + ' to ' + when(G.wos[G.wos.length - 1].st) +
@@ -6349,9 +6969,9 @@
         'Strong exports in whatever unit it was set to.')) +
       '<div class="tr-q"><div class="tr-ql">How far back</div>' +
         chips('sgr', G.range, SG_RANGES.map(function (r) { return [r[0], r[1] + ' (' + sgPick(G, r[0]).length + ')']; })) +
-        '<div class="tr-hint' + (over ? ' tr-warn' : '') + '">' + esc(over
-          ? 'That would take your training record to about ' + Math.round((now + add) / 1024) + ' KB. An account holds 1 MB, shared with Nourish; pick a shorter range.'
-          : (add < 1024 ? 'Under 1 KB' : 'About ' + Math.round(add / 1024) + ' KB') + ', which fits beside Nourish in your account.') + '</div></div>' +
+        '<div class="tr-hint' + (over ? ' tr-warn' : '') + '">' + esc(over ||
+          (add < 1024 ? 'Under 1 KB' : 'About ' + Math.round(add / 1024) + ' KB') +
+          (!doc ? ', kept on this phone.' : YR.on === true ? ', kept a year to a record in your account.' : ', which fits beside Nourish in your account.')) + '</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Exercises</div>' +
         '<div class="tr-hint">' + matched + ' of ' + G.names.length + ' matched to the library. The rest come in as your own: check what each one trains, or match it yourself.</div>' +
         '<div class="tr-sgl">' + G.names.map(function (n, i) {
@@ -6365,9 +6985,16 @@
                 '<div class="tr-sgr-a"><button class="tr-lnk" data-t="sgmap" data-i="' + i + '">Match to the library</button></div>') +
           '</div>';
         }).join('') + '</div></div>' +
-      '<div class="tr-acts"><button class="btn-primary" data-t="sggo"' + (pick.length ? '' : ' disabled') + '>' +
+      '<div class="tr-acts"><button class="btn-primary" data-t="sggo"' + (pick.length && !over ? '' : ' disabled') + '>' +
         (pick.length ? 'Bring in ' + pick.length + ' workout' + (pick.length === 1 ? '' : 's') : 'Nothing new to bring in') + '</button>' +
         '<button class="ghost" data-t="close">Cancel</button></div>';
+  }
+
+  /* A workout deleted: gone here, and gone from its year's record too. */
+  function dropWo(id) {
+    if (T.wo[id]) YR.gone[id] = yearOf(T.wo[id]);
+    delete T.wo[id];
+    stamp('wo', id);
   }
 
   /* Stamped all at once: a stamp a workout would write the whole record to
@@ -6384,7 +7011,7 @@
 
   function sgGo() {
     var G = S.sg;
-    if (!G || G.err) return 0;
+    if (!G || G.err || fitSay(sgList(G, G.range))) return 0;
     var ids = {}, made = [], used = {};
     var pick = sgPick(G, G.range);
     pick.forEach(function (w) { w.x.forEach(function (x) { used[x.nm] = 1; }); });
@@ -6481,6 +7108,12 @@
     }
     if (t === 'qzb') { var zb = quiz(); zb.i = Math.max(0, zb.i - 1); draw(); scrollTop(); return; }
     if (t === 'qzx') { S.qz = null; draw(); return; }
+    if (t === 'qznew') {
+      T.pr = defaultsPr(Object.assign({}, T.pr, { lvl: 0, qz: Date.now() }));
+      stamp('pr');
+      S.qz = null; S.lib = false; S.opt = null;
+      draw(); scrollTop(); return;
+    }
     if (t === 'qzskip') {
       T.pr.qz = Date.now();
       stamp('pr');
@@ -6586,6 +7219,18 @@
       return;
     }
     if (t === 'empty') { startEmpty(); return; }
+    // your weight on a pull-up day
+    if (t === 'bwqsave') { bwSave(false); return; }
+    if (t === 'bwqkeep') { bwSave(true); return; }
+    if (t === 'bwqold' && LIVE) {
+      var bo = bwInfo(dayKey(new Date(LIVE.st)), LIVE.u || T.pr.u);
+      if (bo) { LIVE.bw = bo.v; LIVE.bwq = 'old'; LIVE.bwo = 0; S.bwOdd = null; saveLive(); draw(); }
+      return;
+    }
+    if (t === 'bwqskip' && LIVE) { LIVE.bwq = 'skip'; LIVE.bwo = 0; S.bwOdd = null; saveLive(); draw(); return; }
+    if (t === 'bwopen' && LIVE) { LIVE.bwo = 1; draw(); return; }
+    if (t === 'bwqnever' && LIVE) { T.pr.nobw = 1; stamp('pr'); LIVE.bwq = 'skip'; LIVE.bwo = 0; S.bwOdd = null; saveLive(); draw(); return; }
+    if (t === 'hwok') { T.pr.hw = 1; stamp('pr'); draw(); return; }
     // ready workouts: the list, a row opened, the half-hour version, a start
     if (t === 'ready') { S.rdo = ''; S.arm = ''; openSheet({ k: 'ready', eyebrow: 'Ready workouts', title: 'Pick a ready workout' }); return; }
     if (t === 'rdopen') { S.rdo = S.rdo === v ? '' : v; S.arm = ''; drawSheet(); return; }
@@ -6651,7 +7296,7 @@
       if (t === 'styrm') { if (sx.s.length > 1) sx.s.splice(S.sheet.s, 1); }
       else {
         if (v === 'w') ss.wu = 1; else delete ss.wu;
-        if (v === 'd' || v === 'f') ss.ty = v; else delete ss.ty;
+        if (v === 'd' || v === 'f' || v === 'm') ss.ty = v; else delete ss.ty;
       }
       remapPrev(sx);
       saveLive(); closeSheet(); draw(); return;
@@ -6675,7 +7320,14 @@
       remapPrev(xd);
       saveLive(); draw(); return;
     }
-    if (t === 'rmex') { LIVE.x.splice(num('data-x'), 1); saveLive(); draw(); return; }
+    /* An exercise with sets already done asks twice: one stray tap under the
+       sets used to take them all with it. */
+    if (t === 'rmex') {
+      var rx = num('data-x'), rdone = LIVE.x[rx] && LIVE.x[rx].s.some(function (z) { return z.t; });
+      if (rdone && S.arm !== 'rm:' + rx) { S.arm = 'rm:' + rx; draw(); return; }
+      S.arm = '';
+      LIVE.x.splice(rx, 1); saveLive(); draw(); return;
+    }
     if (t === 'mvex' && LIVE) {
       if (shiftEx(num('data-x'), Number(v))) { saveLive(); draw(); }
       return;
@@ -6688,6 +7340,7 @@
     }
     if (t === 'addex') { S.q = ''; S.qm = ''; openSheet({ k: 'pick', mode: 'add', eyebrow: 'Add', title: 'Add an exercise' }); return; }
     if (t === 'warm') { openSheet({ k: 'warm', x: num('data-x'), eyebrow: 'Warm-up', title: 'Warm-up' }); return; }
+    if (t === 'warmadd') { warmAdd(num('data-x')); saveLive(); closeSheet(); draw(); return; }
     if (t === 'plates') {
       var px = LIVE.x[num('data-x')];
       var open = px.s.filter(function (s) { return !s.t; })[0] || px.s[0];
@@ -6861,6 +7514,7 @@
 
     // the records
     if (t === 'exsheet') { openSheet({ k: 'ex', e: el.getAttribute('data-e'), eyebrow: 'Lift', title: lib(el.getAttribute('data-e')).n }); return; }
+    if (t === 'exhow') { openSheet({ k: 'ex', e: el.getAttribute('data-e'), eyebrow: 'Lift', title: lib(el.getAttribute('data-e')).n, tab: 'about' }); return; }
     if (t === 'wosheet') { openSheet({ k: 'wo', id: el.getAttribute('data-id'), eyebrow: 'Workout', title: 'Workout' }); return; }
     if (t === 'edopen') {
       var ew = T.wo[el.getAttribute('data-id')];
@@ -6874,7 +7528,7 @@
     }
     if (S.ed && t === 'edsty') {
       var es = S.ed.x[num('data-x')].s[num('data-s')];
-      es.ty = { '': 'w', w: 'd', d: 'f', f: '' }[es.ty || ''];
+      es.ty = { '': 'w', w: 'd', d: 'f', f: 'm', m: '' }[es.ty || ''];
       drawSheet(); return;
     }
     if (S.ed && t === 'edrm') { S.ed.x[num('data-x')].s.splice(num('data-s'), 1); drawSheet(); return; }
@@ -6892,8 +7546,7 @@
     if (t === 'delwo') {
       var wid = el.getAttribute('data-id');
       if (S.arm !== 'del:' + wid) { S.arm = 'del:' + wid; drawSheet(); return; }
-      delete T.wo[wid];
-      stamp('wo', wid);
+      dropWo(wid);
       closeSheet();
       draw();
       return;
@@ -6971,7 +7624,10 @@
     if (t === 's-snd') { T.pr.snd = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-yay') { T.pr.yay = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); return; }
     if (t === 's-rq') { T.pr.rq = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-eff') { T.pr.eff = v === 'rpe' ? 'rpe' : 'rir'; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-nobw') { T.pr.nobw = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 'export') { exportCopy(); return; }
+    if (t === 'exportcsv') { exportCsv(); return; }
     if (S.sg && t === 'sgu') { S.sg.unit = v === 'kg' ? 'kg' : 'lb'; drawSheet(); return; }
     if (S.sg && t === 'sgr') { S.sg.range = Number(v) || 0; drawSheet(); return; }
     if (S.sg && t === 'sgown') { S.sg.names[num('data-i')].e = ''; drawSheet(); return; }
@@ -7049,6 +7705,11 @@
       if (!s) return;
       s[f] = el.value.replace(/[^0-9.,]/g, '').slice(0, 7);
       saveLive();
+      if (S.need && S.need.k === el.getAttribute('data-x') + ':' + el.getAttribute('data-s')) {
+        S.need = null;
+        var nd = $('trneed');
+        if (nd) nd.parentNode.removeChild(nd);
+      }
       if (f === 'w') plRefresh(Number(el.getAttribute('data-x')));
       // a set already done and corrected moves the badge beside its lift
       if (s.t) fmRefresh();
@@ -7096,6 +7757,7 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && S.sheet) { closeSheet(); return; }
       var el = e.target;
+      if (e.key === 'Enter' && el && el.id === 'trBwq') { e.preventDefault(); bwSave(false); return; }
       if (e.key === 'Enter' && el && el.getAttribute && el.getAttribute('data-in') === 'r' && LIVE) {
         e.preventDefault();
         el.blur();
@@ -7137,8 +7799,11 @@
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
-      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, e1Of: e1Of, records: records,
+      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
+      weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
+      whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
+      dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

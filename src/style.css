@@ -4727,7 +4727,7 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 }
 .tr-in::placeholder { color: oklch(0.70 0.02 70); }
 .tr-tick {
-  height: 36px; border: 1px solid var(--line-firm); border-radius: 3px; background: #fff;
+  height: 44px; border: 1px solid var(--line-firm); border-radius: 3px; background: #fff;
   color: var(--muted); font-size: 16px; font-weight: 700; cursor: pointer;
 }
 .tr-set.done { background: color-mix(in oklab, var(--green) 9%, var(--card)); }
@@ -5161,7 +5161,7 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 }
 
 /* ---- Strengthen: what kind of set ---- */
-.tr-snb { background: none; border: 0; padding: 6px 0; font: inherit; font-weight: 600; font-size: 13px; color: var(--ink); cursor: pointer; border-radius: 3px; }
+.tr-snb { background: none; border: 0; padding: 6px 0; min-height: 44px; font: inherit; font-weight: 600; font-size: 13px; color: var(--ink); cursor: pointer; border-radius: 3px; }
 .tr-snb:hover { background: var(--paper-soft); }
 .tr-set.tr-wu .tr-snb { color: oklch(0.62 0.15 60); font-weight: 700; }
 .tr-set.tr-dd .tr-snb { color: oklch(0.50 0.12 250); font-weight: 700; }
@@ -5275,3 +5275,28 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
   border: 1px solid var(--line-firm); border-radius: 5px; padding: 5px 8px; background: var(--paper); color: var(--ink); }
 .mbatch-n { font-size: 12.5px; color: var(--muted); }
 .mbatch-in .btn-primary { margin-left: auto; padding: 6px 14px; font-size: 13px; }
+
+/* ---- Strengthen: your weight on a pull-up day ---- */
+.tr-bwq-r { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.tr-bwq-in { width: 96px; flex: none; }
+.tr-bwq-u { color: var(--muted); font-size: 14px; margin-right: 4px; }
+
+/* Thumb-sized: the tick, the set's number, and the links under a lift (44 px, the size a fingertip needs) */
+.tr-set:not(.tr-set-h) .tr-in { min-height: 44px; }
+.tr-ex-a .tr-lnk { min-height: 36px; padding: 6px 4px; }
+.tr-lnk-arm { color: oklch(0.50 0.16 30); }
+
+/* ---- Strengthen: for someone new — before the first set, and a box left empty ---- */
+.tr-first { display: block; font-size: 13px; line-height: 1.5; color: var(--ink); background: var(--paper-soft);
+  border-left: 3px solid var(--ochre); border-radius: 4px; padding: 7px 10px; margin: 8px 0 10px; max-width: 64ch; }
+.tr-first b { font-weight: 600; }
+.tr-first.tr-safe { border-left-color: oklch(0.55 0.14 30); }
+.tr-howbtn { display: inline-block; font-size: 13px; margin-top: 6px; min-height: 32px; }
+.tr-need { font-size: 13px; font-weight: 500; color: oklch(0.46 0.14 30); padding: 2px 0 8px 36px; line-height: 1.4; }
+
+/* ---- Strengthen: a missed attempt — its weight kept, struck through, never counted ---- */
+.tr-set.tr-mm .tr-snb { color: var(--muted-2); font-weight: 700; }
+.tr-set.tr-mm.done .tr-in { text-decoration: line-through; }
+.tr-tag.m { color: var(--muted-2); }
+/* Two rows of pills one under the other never touch. */
+.tr-chips + .tr-chips { margin-top: 8px; }

@@ -104,9 +104,51 @@ three ideas in one tab:
   moves a block. Any finished workout can be kept with *Save as routine* (its lifts in
   order with the sets you did); routines sync, appear under *Your routines*, and delete
   with two taps.
+- *Warm-ups and safety nets:* the warm-up sheet ramps to the heaviest working set (more,
+  smaller steps before heavy triples; no empty-bar set before a pull from the floor) and
+  can add the ramp to the log as W sets. Removing a lift that has done sets asks twice.
+  Settings says whether your training is only on this phone or saved to your account, and
+  a save that fails is shown and retried rather than dropped silently.
+- *For the serious lifter:* a set can be marked *Missed* (M) — an attempt that didn't go
+  up: its weight is kept with the reps you got (0 if none), shown in history, and never a
+  record, volume, target or hard set. *Assisted Pull-Up* and *Assisted Dip* take the
+  machine's help as the weight: your strength is you less the help (from your weigh-ins),
+  less help is the progression, and help is never a heaviest or volume. *Sumo* and
+  *Trap-Bar Deadlift* are in the library (trap bar on the hex bar); none of the four is
+  ever picked for a program on its own. Effort can be logged as reps in reserve (the
+  default) or as RPE by half steps (Settings → Effort on each set); it is stored as
+  reps in reserve either way (RPE 8 = 2). *Export as a spreadsheet* writes every set as a
+  CSV in Strong's columns (plus RPE, RIR, set type and your weight), which *Bring in from
+  Strong* reads back.
+- *A lifetime of workouts:* signed in, workouts are kept in the account one record per
+  calendar year (`users/{uid}/train/2026`), each far inside Firestore's 1 MB a record,
+  so the history has no ceiling; everything else stays in the one record. It needs the
+  `users/{uid}/train/{year}` rule in `firestore.rules` published (SETUP.md, step 4).
+  Until it is, the app keeps everything in the one record as before and Settings says
+  so; once it is, it copies each workout to its year and only then takes it out of the
+  one record. A session's first push sends only workouts newer than their year holds.
+  Deleting the account deletes every year's record first. Imports (Strong, or a
+  restored copy) that would overfill a record, or the phone, are refused with the
+  reason, and a phone whose storage is full says so instead of dropping changes.
+- *New to lifting:* answering *New, or under a year* (or tapping *I'm new — choose for me*
+  on the first question) gets one program, Start here, with the rest a tap away, and
+  exercises that are easy to learn first: machines, dumbbells and a pulldown before
+  barbells and pull-ups, two feet before one. The first workout opens with a short card
+  on how a workout goes. A lift never done says how to find a starting weight, a barbell
+  bench or squat says to set the safety bars first, and *How to do it* opens the lift's
+  steps, with a YouTube search when there's no link of your own. The words are plain
+  (*stop with 2 reps to spare*, *Last time*, *Front of thighs*, *Total lifted*), a changed
+  weight says why, a tick with nothing to go on says what to type, and the Next card
+  says when today's muscles are better rested a day. The review wants three sets a muscle
+  only where the plan does, and a joint rated *hurting* says to stop and see someone.
 - *Bodyweight lifts:* pull-ups, chin-ups, negatives and dips count you as well as anything
-  added, from Nourish's morning weigh-in that day or in the fortnight before (none older;
-  the day's weight is kept with the workout). Their estimated max, records and lift-page
+  added. Your weight is the week's average when there are three or more weigh-ins in the
+  seven days to the workout, else that day's weigh-in, else the latest in the fortnight
+  before (the day's weight is kept with the workout). Only when a workout has one of these
+  lifts and there's no week to average and no weigh-in today does it ask *What do you weigh
+  today?*: saved, it becomes today's weigh-in on Nourish (through Nourish's own guard, never
+  over a day already weighed) and syncs; *Use* the last weigh-in or *Not now* write nothing,
+  and *Don't ask again* (or Settings) stops the question. Their estimated max, records and lift-page
   charts use it, with *strength × bodyweight* beside, so a lighter you doing the same reps
   isn't shown as weaker; the badge beside the lift keeps to reps. With no weigh-in, they
   are counted in reps as before.
