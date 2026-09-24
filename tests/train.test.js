@@ -2482,5 +2482,122 @@ module.exports = {
     t.ok('a save to the account that fails says so, and that the phone still has it', /Not saved to your account yet/.test(r) && /safe on this phone/.test(r), r);
     await p.evaluate(() => window.Train.attach(null));
     await p.close();
+
+    // ---- someone new to lifting: easier lifts, plain words, and help at the first set ----
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ids = (ms) => ms.days.map((d) => d.s.map((s) => s.e)).flat();
+      return { nb: ids(_.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 0 })), mid: ids(_.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 1 })),
+        home: ids(_.build({ prog: 'start', dpw: 3, kit: 'db', lvl: 0 })) };
+    });
+    const hard = ['pullup', 'chinup', 'bb-row', 'db-bss', 'belt-squat', 'hip-thrust', 'pallof', 'bb-incline', 'bb-ohp', 'hang-raise'];
+    t.ok('new to lifting in a gym: machines, dumbbells and a pulldown, none of the hard-to-learn lifts',
+      r.nb.indexOf('lat-pd') >= 0 && r.nb.indexOf('db-rdl') >= 0 && r.nb.indexOf('mc-press') >= 0 && !r.nb.some((e) => hard.indexOf(e) >= 0), r.nb.join());
+    t.ok('a year or more in: the barbell lifts, as before', r.mid.indexOf('bb-squat') >= 0 && r.mid.indexOf('bb-bench') >= 0, r.mid.join());
+    t.ok('at home with dumbbells, still the two-footed versions first', r.home.indexOf('db-bss') < 0 && r.home.indexOf('goblet') >= 0, r.home.join());
+    await p.close();
+
+    // the quiz: "I'm new — choose for me" goes straight to the one program to start with
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="qznew"]');
+    r = await p.evaluate(() => ({ lvl: window.Train._.state().T.pr.lvl, cards: document.querySelectorAll('.tr-prog').length,
+      first: (document.querySelector('.tr-prog .tr-title, .tr-prog h3, .tr-prog') || {}).textContent || '',
+      lib: (document.querySelector('[data-t="lib"]') || {}).textContent || '' }));
+    t.ok('“I’m new — choose for me” sets you as new and shows only Start here, the others a tap away',
+      r.lvl === 0 && r.cards === 1 && /Start here/.test(r.first) && r.lib === 'See other programs', JSON.stringify(r).slice(0, 300));
+    await p.close();
+
+    // the first workout, new to lifting
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, lvl: 0 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-ex'); return {
+      how1: (document.querySelector('.tr-how1') || {}).textContent || '', first: (c.querySelector('.tr-first:not(.tr-safe)') || {}).textContent || '',
+      safe: (c.querySelector('.tr-safe') || {}).textContent || '', howto: !!c.querySelector('[data-t="exhow"]'),
+      head: [...c.querySelectorAll('.tr-set-h span')].map((e) => e.textContent).join('|'), meta: c.querySelector('.tr-ex-m').textContent }; });
+    t.ok('a card says how a workout goes, once', /How a workout goes/.test(r.how1) && /Tap ✓/.test(r.how1), r.how1.slice(0, 80));
+    t.ok('a lift never done says how to find a weight, starting with the bar', /First time on this one\?/.test(r.first) && /just the bar/.test(r.first), r.first);
+    t.ok('the bench says to set the safety bars first', /Safety first\..*safety bars/.test(r.safe), r.safe);
+    t.ok('and has a How to do it link in view', r.howto);
+    t.ok('the columns and the line under the name are in plain words', /Last time/.test(r.head) && /\d+ sets? of 6–10 reps/.test(r.meta) && /Chest/.test(r.meta), JSON.stringify(r));
+    await p.click('[data-t="exhow"]');
+    r = await p.evaluate(() => { const sh = document.querySelector('.tr-sheet') || document.body, a = [...sh.querySelectorAll('a.tr-howlink')].pop();
+      return { tab: (sh.querySelector('.tr-extab [aria-pressed="true"]') || {}).textContent || '', safe: !!sh.querySelector('.tr-safe'),
+        href: a ? a.getAttribute('href') : '', rel: a ? a.getAttribute('rel') : '' }; });
+    t.ok('How to do it opens the lift on About, with the safety note and a video search', r.tab === 'About' && r.safe &&
+      /^https:\/\/www\.youtube\.com\/results\?search_query=Barbell%20Bench%20Press/.test(r.href) && /noopener/.test(r.rel), JSON.stringify(r));
+    await p.click('.sheet-x');
+    // ticked with nothing to go on: said in words, under the set
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-need') || {}).textContent || '');
+    t.ok('a tick with no weight to use says what to type', r === 'Type the weight you used (0 if none), then tick.', r);
+    await p.fill('#trw-0-0', '45');
+    r = await p.evaluate(() => !!document.querySelector('.tr-need'));
+    t.ok('and goes as soon as you type', r === false);
+    await p.fill('#trr-0-0', '10');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-ex'); return { first: !!c.querySelector('.tr-first'), how: !!c.querySelector('[data-t="exhow"]') }; });
+    t.ok('once a set is done the before-you-start notes go; How to do it stays for someone new', !r.first && r.how, JSON.stringify(r));
+    await p.click('[data-t="hwok"]');
+    r = await p.evaluate(() => ({ card: !!document.querySelector('.tr-how1'), hw: window.Train._.state().T.pr.hw }));
+    t.ok('Got it puts the how-it-goes card away for good', !r.card && r.hw === 1, JSON.stringify(r));
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.x[0].s = L.x[0].s.filter((s) => s.t); });
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => (document.querySelector('.tr-done') || {}).textContent || '');
+    t.ok('the first workout’s summary says personal bests start today, and calls volume Total lifted',
+      /Personal bests start today/.test(r) && /Total lifted/.test(r) && !/Volume/.test(r), r.slice(0, 200));
+    await p.close();
+
+    // the weight asked for comes with its reason, for someone new; not for anyone else
+    for (const lvl of [0, 1]) {
+      p = await t.fresh();
+      await seed(p, { pr: { qz: 1, lvl }, act: '', ms: {}, cx: {}, ax: {}, wo: { h1: wo('h1', '', 0, 0, 3, [{ e: 'bb-bench', s: sets(135, [10, 10, 10]) }]) } });
+      await p.click('.tab[data-view="train"]');
+      await p.click('[data-t="empty"]');
+      await p.click('[data-t="addex"]');
+      await p.click('.tr-pick[data-e="bb-bench"]');
+      r = await p.evaluate(() => { const c = document.querySelector('.tr-ex'); return { txt: c.querySelector('.tr-ex-h').textContent, first: !!c.querySelector('.tr-first'),
+        how: !!c.querySelector('[data-t="exhow"]'), head: c.querySelector('.tr-set-h').textContent }; });
+      if (lvl === 0) t.ok('new to lifting: “Up 5 lb: you reached the top of the range last time”', /Up 5 lb: you reached the top of the range last time/.test(r.txt), r.txt);
+      else t.ok('otherwise no reason line, no first-time notes on a lift you have done, and Previous', !/Up 5 lb/.test(r.txt) && !r.first && !r.how && /Previous/.test(r.head), JSON.stringify(r));
+      await p.close();
+    }
+
+    // trained today already, the next session works the same muscles: said, not enforced
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 1 });
+      ms.id = 'st'; ms.n = 'Start here';
+      const pl = _.plan(ms, 0, 0);
+      const now = Date.now(), done = { id: 'td', st: now - 3600e3, en: now - 60e3, dk: '', n: 'Lunch', u: 'lb', ms: '', w: 0, d: 0, dl: 0, sr: {}, fb: {},
+        x: pl.x.slice(0, 3).map((x) => ({ e: x.e, s: [{ w: 100, r: 8, t: now - 1800e3 }] })) };
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1 }, act: 'st', ms: { st: ms }, cx: {}, ax: {}, wo: { td: done } }));
+      localStorage.removeItem('bsc.trainStamps');
+      _.reload();
+      return _.restNote(pl);
+    });
+    t.ok('trained today already: the Next card says the same muscles are better tomorrow', /better tomorrow/.test(r), r);
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-next') || {}).textContent || '');
+    t.ok('shown on the block’s Next card, with Start still there', /better tomorrow/.test(r) && /Start workout/.test(r), r.slice(0, 120));
+    await p.close();
+
+    // your weight: Don't ask again, and the switch for it in Settings
+    p = await bwPage({ 9: 190 });
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    await p.click('[data-t="bwqnever"]');
+    r = await p.evaluate(() => ({ card: !!document.querySelector('.tr-bwq'), nobw: window.Train._.state().T.pr.nobw }));
+    t.ok('Don’t ask again puts the weigh-in question away for good', !r.card && r.nobw === 1, JSON.stringify(r));
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('[data-t="s-nobw"][aria-pressed="true"]') || {}).textContent || '');
+    t.ok('and Settings shows it, to switch back', r === 'Don’t ask', r);
+    await p.close();
   },
 };

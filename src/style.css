@@ -5285,3 +5285,11 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
 .tr-set:not(.tr-set-h) .tr-in { min-height: 44px; }
 .tr-ex-a .tr-lnk { min-height: 36px; padding: 6px 4px; }
 .tr-lnk-arm { color: oklch(0.50 0.16 30); }
+
+/* ---- Strengthen: for someone new — before the first set, and a box left empty ---- */
+.tr-first { display: block; font-size: 13px; line-height: 1.5; color: var(--ink); background: var(--paper-soft);
+  border-left: 3px solid var(--ochre); border-radius: 4px; padding: 7px 10px; margin: 8px 0 10px; max-width: 64ch; }
+.tr-first b { font-weight: 600; }
+.tr-first.tr-safe { border-left-color: oklch(0.55 0.14 30); }
+.tr-howbtn { display: inline-block; font-size: 13px; margin-top: 6px; min-height: 32px; }
+.tr-need { font-size: 13px; font-weight: 500; color: oklch(0.46 0.14 30); padding: 2px 0 8px 36px; line-height: 1.4; }

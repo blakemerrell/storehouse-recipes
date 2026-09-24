@@ -109,13 +109,25 @@ three ideas in one tab:
   can add the ramp to the log as W sets. Removing a lift that has done sets asks twice.
   Settings says whether your training is only on this phone or saved to your account, and
   a save that fails is shown and retried rather than dropped silently.
+- *New to lifting:* answering *New, or under a year* (or tapping *I'm new — choose for me*
+  on the first question) gets one program, Start here, with the rest a tap away, and
+  exercises that are easy to learn first: machines, dumbbells and a pulldown before
+  barbells and pull-ups, two feet before one. The first workout opens with a short card
+  on how a workout goes. A lift never done says how to find a starting weight, a barbell
+  bench or squat says to set the safety bars first, and *How to do it* opens the lift's
+  steps, with a YouTube search when there's no link of your own. The words are plain
+  (*stop with 2 reps to spare*, *Last time*, *Front of thighs*, *Total lifted*), a changed
+  weight says why, a tick with nothing to go on says what to type, and the Next card
+  says when today's muscles are better rested a day. The review wants three sets a muscle
+  only where the plan does, and a joint rated *hurting* says to stop and see someone.
 - *Bodyweight lifts:* pull-ups, chin-ups, negatives and dips count you as well as anything
   added. Your weight is the week's average when there are three or more weigh-ins in the
   seven days to the workout, else that day's weigh-in, else the latest in the fortnight
   before (the day's weight is kept with the workout). Only when a workout has one of these
   lifts and there's no week to average and no weigh-in today does it ask *What do you weigh
   today?*: saved, it becomes today's weigh-in on Nourish (through Nourish's own guard, never
-  over a day already weighed) and syncs; *Use* the last weigh-in or *Not now* write nothing. Their estimated max, records and lift-page
+  over a day already weighed) and syncs; *Use* the last weigh-in or *Not now* write nothing,
+  and *Don't ask again* (or Settings) stops the question. Their estimated max, records and lift-page
   charts use it, with *strength × bodyweight* beside, so a lighter you doing the same reps
   isn't shown as weaker; the badge beside the lift keeps to reps. With no weigh-in, they
   are counted in reps as before.
