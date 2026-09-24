@@ -35,7 +35,7 @@ const ROOT = path.join(__dirname, '..');
    changed engraving under an unchanged name is a picture, not a page count. */
 const COVERED = [
   'data/recipes.js', 'data/nutrition.js', 'data/art.js', 'data/qr.js',
-  'src/app.js', 'src/sync.js', 'src/config.js', 'src/style.css',
+  'src/app.js', 'src/sync.js', 'src/train.js', 'src/config.js', 'src/style.css',
   /* The shell itself. It carries the ?v= rather than wearing one, so it was
      left out of the list — and that meant a change to the MARKUP moved
      nothing the version covered, the number stayed put, and the service

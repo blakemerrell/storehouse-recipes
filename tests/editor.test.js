@@ -123,7 +123,7 @@ module.exports = {
     t.ok('your recipe survives a reload',
       (await p.evaluate(() => Object.keys(window.Store.state.mine).length)) === 1);
 
-    await p.click('.tab[data-view="book"]');
+    await p.click('.tab[data-view="browse"]'); await p.click('#bookBtn');
     await p.click('[data-print="3"]');
     await p.waitForTimeout(1500);
     const own = await p.evaluate(() => ({

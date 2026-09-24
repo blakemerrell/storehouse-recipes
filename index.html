@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=482">
+<link rel="stylesheet" href="src/style.css?v=490">
 </head>
 <body>
 
@@ -45,15 +45,23 @@
       <button class="tab" role="tab" data-view="plan" aria-selected="false"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
       <button class="tab" role="tab" data-view="list" aria-selected="false"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
       <button class="tab" role="tab" data-view="pantry" aria-selected="false">Pantry</button>
-      <button class="tab" role="tab" data-view="book" aria-selected="false"><span class="t-long">Print Book</span><span class="t-short">Book</span></button>
-      <!-- "My Day", the label; "macros", the key. The tab began life named for
-           the numbers and grew into a personal day — routine, portions, the
-           morning weigh-in. It sits at the end of the row because it is the
-           one tab that is only ever yours: everything to its left is the
-           household's — the recipes, the week, the list, the pantry, the
-           book. data-view stays macros because it is a key, not a word, the
-           same bargain the Recipes tab struck with "browse". -->
-      <button class="tab" role="tab" data-view="macros" aria-selected="false">My Day</button>
+      <!-- The household's tabs end here, and yours begin: a rule between them,
+           and the two of yours pushed to the right-hand end of the row. The
+           book is no longer a tab — it is a thing you do with the recipes, so
+           it opens from a button on Recipes, and Recipes stays lit while it is
+           up (see renderView). Its tab was the room these two names needed. -->
+      <span class="tab-sep" aria-hidden="true"></span>
+      <!-- "Nourish", the label; "macros", the key. The tab began life named
+           for the numbers, grew into a personal day — routine, portions, the
+           morning weigh-in — and was renamed for what it is for. data-view
+           stays macros because it is a key, not a word, the same bargain the
+           Recipes tab struck with "browse". -->
+      <button class="tab" role="tab" data-view="macros" aria-selected="false">Nourish</button>
+      <!-- Beside Nourish, the other thing on this row that is only ever
+           yours: a training block, the log you keep at the gym, and a review
+           of it against the research. data-view is the key; the screen is
+           drawn by src/train.js. -->
+      <button class="tab" role="tab" data-view="train" aria-selected="false">Strengthen</button>
     </div>
     <!-- Shown only when the row genuinely overflows; see syncTabsFade(). A fade
          over the last tab when there is nothing past it is a worse lie than no
@@ -127,6 +135,8 @@
       </select>
       <button class="favbtn" id="favBtn" aria-pressed="false">&#9733; Favorites <span id="favCount"></span></button>
       <button class="favbtn" id="newRecipe" title="Write a recipe of your own">&#9998; Write a recipe</button>
+      <!-- The books, to print or download. This used to be a tab of its own. -->
+      <button class="favbtn" id="bookBtn" title="The recipe books, to print or download">&#128214; Print the book</button>
       <!-- Only while the bar is unfolded from the strip above; CSS keeps it
            away the rest of the time, when there is nothing to close. -->
       <button class="favbtn filters-done" id="filtersDone">Done</button>
@@ -172,7 +182,7 @@
          controls in the open, because tuning is the point of the screen. -->
     <div class="mday-stick no-print">
       <div class="mday-head">
-        <div class="view-title serif mday-title">My Day</div>
+        <div class="view-title serif mday-title">Nourish</div>
         <button class="ghost" id="macroPrev" aria-label="Previous day">&lsaquo;</button>
         <select id="macroDaySel" aria-label="Day"></select>
         <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
@@ -182,7 +192,7 @@
              Blake: "the auto expander button at the very top, I think I want
              to move to the bottom rail." -->
         <button class="ghost mday-icon mday-more" id="macroMore" aria-haspopup="true"
-          aria-expanded="false" aria-label="Set up My Day">&#9881;</button>
+          aria-expanded="false" aria-label="Set up Nourish">&#9881;</button>
         <div class="mday-menu hide" id="macroMenu" role="menu">
           <!-- One entry for the plan sheet, not three. "Craft my plan",
                "Meals & shares" and "How My Day works" all opened the SAME
@@ -308,6 +318,20 @@
   </div>
 </section>
 
+<!-- -------------------------------------------------------------- train -->
+<section id="view-train" class="hide">
+  <div class="view tr-view">
+    <div class="view-head">
+      <div class="view-title serif" style="font-size:22px">Strengthen</div>
+      <div class="week-acts no-print" id="trHead"></div>
+    </div>
+    <div id="trBody"></div>
+  </div>
+  <!-- The rest timer, pinned to the foot of the screen. Inside the section so
+       that it leaves with the tab rather than floating over My Day's bar. -->
+  <div class="tr-rest no-print hide" id="trRest"></div>
+</section>
+
 <!-- ------------------------------------------------------- shopping list -->
 <section id="view-list" class="hide">
   <div class="list-view">
@@ -386,16 +410,19 @@
 </section>
 
 <div id="modalRoot"></div>
+<div id="trainRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=482"></script>
-<script src="data/nutrition.js?v=482"></script>
-<script src="data/art.js?v=482"></script>
-<script src="data/qr.js?v=482"></script>
-<script src="src/config.js?v=482"></script>
+<script src="data/recipes.js?v=490"></script>
+<script src="data/nutrition.js?v=490"></script>
+<script src="data/art.js?v=490"></script>
+<script src="data/qr.js?v=490"></script>
+<script src="src/config.js?v=490"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=482"></script>
-<script src="src/app.js?v=482"></script>
+<script src="src/sync.js?v=490"></script>
+<!-- before app.js, which calls into it while it boots -->
+<script src="src/train.js?v=490"></script>
+<script src="src/app.js?v=490"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

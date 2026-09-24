@@ -8,7 +8,7 @@ module.exports = {
   name: 'The printed book',
   async run(t) {
     const p = await t.fresh();
-    await p.click('.tab[data-view="book"]');
+    await p.click('.tab[data-view="browse"]'); await p.click('#bookBtn');
     await p.waitForTimeout(4000);
 
     const b = await p.evaluate(() => {
@@ -61,14 +61,14 @@ module.exports = {
     });
     await p.setViewportSize({ width: 390, height: 844 });
     await p.click('.tab[data-view="browse"]'); await p.waitForTimeout(400);
-    await p.click('.tab[data-view="book"]'); await p.waitForTimeout(4500);
+    await p.click('.tab[data-view="browse"]'); await p.click('#bookBtn'); await p.waitForTimeout(4500);
     const repacked = await p.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length);
     t.ok('and the same number when the book is rendered a second time on a phone',
       repacked === b.pages, repacked + ' vs ' + b.pages + ' first time');
     await p.setViewportSize({ width: 1100, height: 900 });
     await p.waitForTimeout(400);
     await p.click('.tab[data-view="browse"]'); await p.waitForTimeout(300);
-    await p.click('.tab[data-view="book"]'); await p.waitForTimeout(4500);
+    await p.click('.tab[data-view="browse"]'); await p.click('#bookBtn'); await p.waitForTimeout(4500);
     t.ok('and the bar says the same number', b.note.indexOf(b.pages + ' pages') >= 0, b.note);
     t.ok('nothing spills off a page', b.spills.length === 0, b.spills.slice(0, 4).join(' | '));
 

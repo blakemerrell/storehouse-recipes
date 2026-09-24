@@ -51,7 +51,128 @@ the item is on the list; take the recipe out of the week and its tick is forgott
 an item never comes back to a later list already ticked. Ticks belong to their own
 week, so shopping for one does not tick things off in another.
 
-**Print Book** — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 52
+**Strengthen** (the tab was called Train) — a lifting block, the log you keep at the gym, and a review of it. It is
+three ideas in one tab:
+
+- *The block* is Renaissance Periodization's mesocycle. Pick two to six days, your kit
+  (full gym, barbell and dumbbells, or dumbbells only), how long you have lifted and
+  up to three muscles to bring up, and it builds a split — full body, upper/lower,
+  push/pull/legs — that trains every major muscle twice a week. Week one starts each
+  muscle near RP's MEV; after each session you rate the pump and the workload, and at
+  the next session for that muscle you say how it healed. Those answers add up to
+  next week's sets by a written-down rule (`feedback()` in `src/train.js`): usually one
+  more, two if the muscle is asking for it, none or one fewer if you are not
+  recovering, held outright if you are still sore, your joints hurt or you got
+  measurably weaker, and never past RP's MRV. Reps in reserve step 3, 2, 1, 0; the
+  last week is a deload at half the sets. Weights follow double progression: reach the
+  top of the rep range and the next session adds the smallest jump the kit allows.
+- *The logger* is Strong's. Each set shows what you did last time; empty boxes show
+  the target, and ticking a set with them empty takes it. Ticking starts a rest timer
+  (three minutes on compound lifts, ninety seconds on isolation, both changeable)
+  that beeps and buzzes when it runs out and survives the screen locking. There is a
+  warm-up ramp, a plate calculator, swap and add, records as they fall, and the screen
+  stays awake while a workout is open. A swap in a block is *just today* (the machine is
+  taken) or *the rest of the block*; exercises move up and down, a pair as one; a note on
+  an exercise ("seat 4") comes up every time it does, and a workout takes a note at Finish.
+  Turn it on and every set has a reps-in-reserve box, which the review then grades against
+  what the plan asked. A saved workout can be edited — weights, reps, sets in or out, an
+  exercise forgotten — and records, charts and next week's weights follow the correction.
+  The foot of the screen holds when you started (tap to change it), the running time and
+  Finish, with the rest timer on top of it while you rest; Finish lets you set the end time
+  too, and a saved workout's date and times can be edited, so it exports at the hour it
+  happened. A saved workout copies as text (the date, the times, every set), and Nourish's
+  copy of the day names the day's workouts with their times. Barbell and Smith lifts draw
+  the plates for each side where Previous is — in every set, or only in the set you are
+  typing and the next one to do — on a bar each lift remembers (an EZ bar, a Smith machine). The back check asks "How's your
+  back today?" and folds away once answered. Tap a set's number to make it a warm-up (W),
+  a drop set (D) or a set to failure (F): warm-ups are never records or targets and rest a
+  minute, a drop set follows with no rest, a failure set counts as nothing in reserve. Bars
+  are named (Olympic 45, Short 33, EZ 15, Hex 75, Smith, none, or your own) and the plates
+  are drawn in competition colours. Each lift can keep its own rest, drawn between its sets.
+  Once a working set is done, a badge beside the lift says how today compares, set for set
+  with the same sets last time (never -100% before you start), or with the plan in a deload
+  or wherever the plan asked for less: the change in volume, or tap for the volume, the reps
+  or the best set's estimated max; each lift remembers its choice, and bodyweight lifts show
+  their reps. Settings can turn it off.
+- *Ready workouts:* beside "Just log a workout", *Pick a ready workout* lists the blocks' own
+  days (Full Body A/B/C, Upper and Lower A/B, Push, Pull, Legs), filled for your equipment,
+  back and joints, preferring lifts you already do, with the weights from what you last
+  lifted. A *30 minutes* switch keeps the big lifts first at two sets each. Open one and it
+  lists every lift and asks *how hard today*: Easy (a set fewer, 3 in reserve), Normal (3
+  sets, 2 in reserve) or Hard (a set more, 1 in reserve); a tap starts it. *Next up* follows
+  the rotation (Full Body B after A). It is saved like any workout and never starts or
+  moves a block. Any finished workout can be kept with *Save as routine* (its lifts in
+  order with the sets you did); routines sync, appear under *Your routines*, and delete
+  with two taps.
+  Saving a workout opens its summary: the time, sets, volume and records, each set that
+  beat a record tagged 🥇 (only the day's best set takes each one), and a milestone when
+  there is one (the 10th workout, a block finished). A chime and confetti mark every
+  workout, more of both for a record; none of the confetti for a phone set to reduce
+  motion, and Options can turn both off. Finishing a workout ticks "trained today" on
+  Nourish.
+- *The review* holds the last seven days against the research, as rules rather than
+  opinions: weekly hard sets per muscle against the 10–20 band, how often each muscle
+  is trained, reps per set against 5–30, rest measured from the gap between ticks,
+  and whether each lift's estimated max is climbing or has slid two sessions running.
+  Every line names its source, the sources are listed in full, and it says what it
+  cannot see — how close to failure you went, unless you log it, and anything about
+  sleep or food.
+
+It starts with **seven quick questions** — what you train for (muscle, strength, both, keeping
+what you have, losing fat, or just feeling better), how long you have lifted, days and
+minutes, your equipment (a gym, a barbell, dumbbells, or nothing), anything to look after
+(your back, and neck, shoulder, elbow, wrist, hip, knee or ankle), what your days are like
+(a desk, on your feet, physical work) and what you do outside the gym, and an optional age
+range. It does not ask whether you are a man or a woman: both gain muscle at about the same
+relative rate (Roberts 2020), so no program would change. Then it shows **three programs
+picked for you**, each with the rules that put it there and the ones that count against it,
+and a library of all nine: *Start here* (full-body basics for beginners, ACSM 2009), *Build
+muscle* (RP-style), *Bring up a body part* (chest, back, shoulders, arms, glutes or legs
+first and hardest, the rest held near maintenance), *Strength waves* (in the style of the
+Juggernaut Method: a training max per lift, four-week waves of tens, eights, fives and
+threes ending in one all-out set that moves the max), *Powerbuilding* (a heavy top set and
+back-offs, then RP-style accessories), *Strength & conditioning* (in the style of CrossFit:
+a few strength sets, then an AMRAP, EMOM or rounds-for-time circuit with a clock that calls
+the minutes, and the same circuit back next week as the score to beat), *Lean & strong* (for
+a fat-loss phase: a lower volume roof, one set at a time, a rep short of failure), *Keep
+strength*, and *Home & bodyweight* (exercises that climb a ladder — incline push-up to
+archer, negative to pull-up — when the top of the rep range comes easily). Each names the style it borrows from; none
+claims to be anybody's program. Your life moves it too, and the draft says how: a sport
+that works the legs hard or a physical job starts those sets lower, past sixty keeping uses
+three sets rather than two, and a beginner at home starts a rung down.
+
+It builds around you, not a template. Say you want to **keep your strength** rather than
+build more and it switches to maintenance: full body two or three days a week, three sets
+of the big movements about two reps short of failure, no climbing volume and no deload —
+strength that has been built held for months on a fraction of the training that built it
+(Bickel 2011; Spiering 2021). Give it **your minutes** and it pairs exercises for different
+muscles so one rests while the other works, trims sets to fit, and never adds a set that
+would not. Tell it what **sets your back off** — bending forward, weight on the spine,
+arching — and every exercise is tagged for the load it puts through the lower back:
+the ones that load it your way are left out (no deadlifts, back squats, bent-over rows or
+crunches for a back that hates bending), the ones that load it a little carry a cue, every
+session opens by asking how your back is, and anything you swap out can go on a never
+list. Joints work the same way. **Anything outside the gym** — golf, walks, a run, soccer,
+basketball, swimming, hiking, or something you name yourself — is one tap to log, marked
+light, moderate or vigorous, and counts toward the WHO's 150 minutes a week in the review,
+a vigorous minute twice. **Every day?** Seven days a week is six lifting days and an *easy
+day*: a walk, a ride, a swim or your golf, logged in a tap and counted as that day of the
+block.
+
+History lists every workout with its time of day. Each lift has its own page, laid out as
+Strong's is: About (three short how-to steps for every lift in the library, what it trains,
+its bar and rest, a how-to link of your own, and a slot for a picture or clip), History
+(every session with an estimated max for each working set), Charts (estimated max, heaviest
+set, volume) and Records (the heaviest you have lifted for 1 to 12 reps beside what your
+best estimated max says, and the records as they fell). Workouts are yours rather than the household's: they save on the device,
+and travel with your account when you sign in, in the same record as Nourish. Settings
+has kilograms, bar weight, rest times, export and restore of the whole log as a file, and
+**Bring in from Strong**: Strong's CSV export comes in as history — each lift matched to the
+library where it is the same lift on the same kit, the rest brought in as your own with
+their muscle guessed for you to check, warm-ups kept as warm-ups, RPE turned into reps in
+reserve, and as much as fits beside Nourish in the account's 1 MB.
+
+**The printed book** (opened with *Print the book* on Recipes; it used to be a tab) — half-letter (5.5 × 8.5 in), printed as **two volumes**: Run and Not Be Weary is 52
 pages, Around the Table is 116, and *Ours* joins them once it has anything in it. Each volume opens with a cover, four pages of front matter
 (how to read a recipe, temperatures and doneness, weights and swaps, what the storehouse
 carries) and its own contents, then is numbered from page one. Front matter carries no
@@ -266,6 +387,7 @@ index.html            the app
 src/style.css         all the styling
 src/app.js            browse, plan, list, print
 src/sync.js           saving, and sharing between devices
+src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
 data/recipes.js       generated — all 271 recipes with macros, scores and parsed ingredients
 data/nutrition.js     generated — the food table, parser and score, for the browser
@@ -311,8 +433,9 @@ node tests/run.js sync       # two phones against the live Firestore project
 Needs Playwright and nothing else — the runner serves the repository itself and drives a
 real Chromium, so what is asserted is what the app renders. 83 checks in the default run,
 covering browsing and filters, the weeks, the shopping list's names and quantities,
-writing and editing recipes, every page of the printed book, and opening the whole thing
-with the network switched off. `sync` writes to a throwaway household and deletes it
+writing and editing recipes, every page of the printed book, opening the whole thing
+with the network switched off, and Train — `tests/train.test.js` feeds the block logged
+workouts and checks the sets, weights, records, review and sync that come back. `sync` writes to a throwaway household and deletes it
 afterwards; it never touches a real one.
 
 To check recipes against standard kitchen ratios — hydration and salt in yeasted

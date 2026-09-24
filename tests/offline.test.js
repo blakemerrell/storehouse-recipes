@@ -165,7 +165,7 @@ module.exports = {
     t.ok('a fresh tab opens offline too',
       await p2.evaluate(() => document.querySelectorAll('.card').length === window.RECIPES.length),
       await p2.evaluate(() => document.querySelectorAll('.card').length + ' of ' + window.RECIPES.length));
-    await p2.click('.tab[data-view="book"]');
+    await p2.click('.tab[data-view="browse"]'); await p2.click('#bookBtn');
     await p2.waitForTimeout(3500);
     t.ok('and the whole book still prints',
       (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) > 150);

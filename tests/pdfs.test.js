@@ -24,7 +24,7 @@ module.exports = {
     const { PDFDocument } = lib;
 
     const p = await t.fresh();
-    await p.click('.tab[data-view="book"]');
+    await p.click('.tab[data-view="browse"]'); await p.click('#bookBtn');
 
     const settle = async () => {
       let last = -1, still = 0;
