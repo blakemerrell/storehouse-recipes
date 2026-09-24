@@ -109,6 +109,17 @@ three ideas in one tab:
   can add the ramp to the log as W sets. Removing a lift that has done sets asks twice.
   Settings says whether your training is only on this phone or saved to your account, and
   a save that fails is shown and retried rather than dropped silently.
+- *A gym and home:* Settings → *Where you train* → *A gym and home* sets up home's bar (any
+  weight you type) and its plates, counted in pairs (55 down to 2.5 lb, 25 down to 1.25 kg;
+  it starts from a common home set to change to yours), and says the most you can load
+  there. A workout then shows *Where: Gym / Home*, starting where you were last. At home
+  each row's plates are what yours make on your bar (found by search, so 20 + 20 when a 25
+  first would leave 15), a weight that can't be made says what's short, and the weight a
+  set suggests from the plan or last time is one you can load — up to the next when it was
+  meant to rise, else the nearest — with a line saying so ("At home: 195 lb, the nearest
+  your plates make (the plan says 190)"). A weight you type stands. The gym keeps every
+  plate and each lift's own bar; the default bar can be any weight too. A workout done at
+  home is marked so.
 - *For the serious lifter:* a set can be marked *Missed* (M) — an attempt that didn't go
   up: its weight is kept with the reps you got (0 if none), shown in history, and never a
   record, volume, target or hard set. *Assisted Pull-Up* and *Assisted Dip* take the

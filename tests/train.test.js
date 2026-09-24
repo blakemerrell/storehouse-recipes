@@ -2890,5 +2890,64 @@ module.exports = {
       r.n === 2 && r.u === 'kg,kg' && r.sets === 'bb-bench:60x10/60x10/60x10 | bb-squat:100x5/100x5/100x5/100x5/100x5', JSON.stringify(r));
     t.ok('and History says where they came from', /Brought in 2 workouts from your file/.test(r.banner), r.banner);
     await p.close();
+
+    // ---- a gym and home: your plates, your bar, weights you can load ----------------------
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, gy: { on: 1, u: 'lb', bar: 35, pl: { 45: 2, 10: 2, 5: 1 } } }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    r = await p.evaluate(() => { const _ = window.Train._, pm = (w, b, inv) => { const m = _.plateMath(w, b, 'lb', inv); return m.plates.join('+') + (m.left ? ' short ' + m.left : ''); };
+      return { a: pm(225, 45, { 45: 2 }), b: pm(125, 45, { 25: 1, 20: 2 }), c: pm(315, 45, { 45: 2, 10: 1 }), std: pm(190, 45, null),
+        up: _.snapHome(190, true), near: _.snapHome(190, false), max: _.homeLoads().slice(-1)[0] }; });
+    t.ok('your plates: two 45s a side make 225; 20 + 20 when a 25 first would leave 15 no pair of yours makes; and what they can’t reach is said',
+      r.a === '45+45' && r.b === '20+20' && r.c === '45+45+10 short 35' && r.std === '45+25+2.5', JSON.stringify(r));
+    t.ok('at home a rising weight goes up to the next you can load, a held one to the nearest; the most you can load is known',
+      r.up === 215 && r.near === 175 && r.max === 35 + 2 * (90 + 20 + 5), JSON.stringify(r));
+    await p.close();
+
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, pl: 'row', gy: { on: 1, u: 'lb', bar: 45, pl: { 45: 1, 25: 1, 10: 1, 5: 1 }, last: 'gym' } }, act: '', ms: {}, cx: {}, ax: {},
+      wo: { h1: wo('h1', '', 0, 0, 3, [{ e: 'bb-bench', s: sets(185, [10, 10, 10]) }]) } });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    const benchAt = () => p.evaluate(() => { const c = document.querySelector('.tr-ex');
+      return { where: (document.querySelector('[data-t="gyat"][aria-pressed="true"]') || {}).textContent || '', ph: document.querySelector('#trw-0-0').placeholder,
+        note: (c.querySelector('.tr-homenote') || {}).textContent || '', bar: (c.querySelector('[data-t="barpick"]') || {}).textContent || '',
+        pl: (document.querySelector('#trpl-0-0 .tr-stk') || {}).getAttribute ? document.querySelector('#trpl-0-0 .tr-stk').getAttribute('aria-label') : '' }; });
+    r = await benchAt();
+    t.ok('with a gym and home set up, a workout says which, starting where you were last; at the gym, the plan’s 190', r.where === 'Gym' && r.ph === '190' && !r.note, JSON.stringify(r));
+    await p.click('[data-t="gyat"][data-v="home"]');
+    r = await benchAt();
+    t.ok('at home: the next weight your plates make, 195, and it says why', r.where === 'Home' && r.ph === '195' && /At home: 195 lb, the nearest your plates make \(the plan says 190\)/.test(r.note), JSON.stringify(r));
+    t.ok('the row shows home’s plates on home’s bar', /45, 25, 5 a side/.test(r.pl) && /home bar 45 lb/.test(r.bar), JSON.stringify(r));
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.fill('#trr-0-0', '8');
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s[0].w);
+    t.ok('ticked, the set is the weight you could load', r === 195, r);
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.x[0].s = L.x[0].s.filter((s) => s.t); });
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => { const T = window.Train._.state().T; return { g: Object.values(T.wo).filter((w) => w.id !== 'h1')[0].g, last: T.pr.gy.last }; });
+    t.ok('the workout keeps that it was at home, and the next starts there', r.g === 'home' && r.last === 'home', JSON.stringify(r));
+    await p.close();
+
+    // setting it up
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="settings"]');
+    await p.click('[data-t="s-gyon"][data-v="1"]');
+    await p.click('[data-t="gypl"][data-v="45"][data-d="1"]');
+    await p.click('[data-t="gypl"][data-v="2.5"][data-d="-1"]');
+    await p.fill('#trGyBar', '35');
+    await p.click('[data-t="gybar"]');
+    await p.fill('#trBarDef', '44');
+    await p.click('[data-t="s-barown"]');
+    r = await p.evaluate(() => { const pr = window.Train._.state().T.pr; return { on: pr.gy.on, pl: JSON.stringify(pr.gy.pl), bar: pr.gy.bar, def: pr.bar,
+      say: (document.querySelector('.tr-sheet') || {}).textContent.match(/The most you can load at home: [\d.]+ lb/) }; });
+    t.ok('Settings sets up home: plates in pairs, a bar you type, and a default bar of any weight', r.on === 1 && r.pl === '{"5":2,"10":2,"25":1,"45":3}' && r.bar === 35 && r.def === 44 &&
+      r.say && r.say[0] === 'The most you can load at home: ' + (35 + 2 * (135 + 25 + 20 + 10)) + ' lb', JSON.stringify(r));
+    await p.close();
   },
 };
