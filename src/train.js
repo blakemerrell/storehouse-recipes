@@ -1131,7 +1131,8 @@
      draw. */
   var IX = null;
   function ix() {
-    if (IX && IX.rev === REV) return IX;
+    weighIns();
+    if (IX && IX.rev === REV && IX.wk === WTS.sig) return IX;
     var list = Object.keys(T.wo).map(function (k) { return T.wo[k]; })
       .filter(function (w) { return w && fin(w.st); })
       .sort(function (a, b) { return a.st - b.st; });
@@ -1153,12 +1154,14 @@
         var now = best[x.e] || { e1: 0, w: 0, r: 0, vol: 0 };
         // a warm-up is never a record: 45 × 14 is not your most reps on the bench
         var work = x.s.filter(function (s) { return !s.wu; });
-        var hit = had ? beats(had, work, wo.u) : '';
+        var hit = had ? beats(had, work, wo.u, x.e, woBw(wo)) : '';
+        var bw = bwFor(x.e, wo);
         work.forEach(function (s) {
           var w = conv(s.w, wo.u);
-          now.e1 = Math.max(now.e1, e1rm(w, s.r));
+          now.e1 = Math.max(now.e1, e1Of(x.e, w, s.r, bw));
           now.w = Math.max(now.w, w);
-          now.r = Math.max(now.r, s.r);
+          // reps with the machine helping are not your most reps
+          if (!(w < 0)) now.r = Math.max(now.r, s.r);
           now.vol = Math.max(now.vol, w * s.r);
         });
         best[x.e] = now;
@@ -1171,7 +1174,7 @@
       var a = T.ax[k];
       if (a && a.ms) ez[a.ms + ':' + a.w + ':' + a.d] = a;
     });
-    IX = { rev: REV, list: list, slot: slot, best: best, prs: prs, ez: ez };
+    IX = { rev: REV, wk: WTS.sig, list: list, slot: slot, best: best, prs: prs, ez: ez };
     return IX;
   }
   function woFor(ms, w, d) { return ix().slot[ms.id + ':' + w + ':' + d] || null; }
@@ -1217,6 +1220,42 @@
   function e1rm(w, r) {
     if (!fin(w) || !fin(r) || w <= 0 || r <= 0) return 0;
     return r === 1 ? w : w * (1 + r / 30);
+  }
+
+  /* Pull-ups, chin-ups and dips lift you, so their strength is your weight
+     plus whatever hangs from the belt. The weight is Nourish's morning
+     weigh-in: that day's, or the latest in the fortnight before. Nothing
+     older, so a stale number never moves a record. Without one, these lifts
+     are counted in reps alone, as before. */
+  var BWL = { pullup: 1, chinup: 1, 'pullup-neg': 1, dip: 1 };
+  var WTS = { at: 0, v: {}, sig: '' };
+  function weighIns() {
+    if (Date.now() - WTS.at > 2000) {
+      var v = null;
+      try { v = JSON.parse(localStorage.getItem('bsc.macroWeights')); } catch (e) { v = null; }
+      if (!plain(v)) v = {};
+      var ks = Object.keys(v).sort();
+      WTS = { at: Date.now(), v: v, sig: ks.length + ':' + (ks.length ? ks[ks.length - 1] + '=' + v[ks[ks.length - 1]] : '') };
+    }
+    return WTS.v;
+  }
+  function bwOn(dk, u) {
+    if (typeof dk !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dk)) return null;
+    var d = new Date(dk + 'T12:00:00');
+    d.setDate(d.getDate() - 14);
+    var floor = dayKey(d), w = weighIns(), best = '';
+    Object.keys(w).forEach(function (k) { if (k <= dk && k >= floor && k > best && fin(w[k]) && w[k] > 0) best = k; });
+    if (!best) return null;
+    return u === 'kg' ? Math.round(w[best] / 2.20462 * 10) / 10 : w[best];
+  }
+  // a workout's bodyweight in its own unit: kept when it was saved, else looked up
+  function woBw(wo) { return wo && fin(wo.bw) && wo.bw > 0 ? wo.bw : wo ? bwOn(wo.dk, wo.u) : null; }
+  // the same, in the unit you lift in, for a lift that lifts you; null for any other
+  function bwFor(e, wo) { if (!BWL[e]) return null; var b = woBw(wo); return fin(b) ? conv(b, wo.u) : null; }
+  // a set's estimated max, counting your weight on the lifts that lift you
+  function e1Of(e, w, r, bw) {
+    if (!BWL[e]) return e1rm(w, r);
+    return fin(bw) && bw > 0 ? e1rm(bw + (fin(w) ? w : 0), r) : 0;
   }
   function bestE1(sets, u) {
     var b = 0;
@@ -2375,12 +2414,13 @@
       if (wo.st >= upto) return;
       var x = exIn(wo, e);
       if (!x) return;
+      var bw = bwFor(e, wo);
       x.s.forEach(function (s) {
         if (s.wu) return;
         var w = conv(s.w, wo.u);
-        best.e1 = Math.max(best.e1, e1rm(w, s.r));
+        best.e1 = Math.max(best.e1, e1Of(e, w, s.r, bw));
         best.w = Math.max(best.w, w);
-        best.r = Math.max(best.r, s.r);
+        if (!(w < 0)) best.r = Math.max(best.r, s.r);
         best.vol = Math.max(best.vol, w * s.r);
       });
     });
@@ -2390,14 +2430,15 @@
   /* Which records these sets break, in words, or '' for none. Reps count as
      a record only on a bodyweight lift with nothing added — ten reps with
      half the weight is not a better set. */
-  function beats(had, sets, u) {
+  function beats(had, sets, u, e, bwRaw) {
     if (!(had.e1 > 0 || had.r > 0)) return '';
     var hit = { e1: false, w: false, r: false };
+    var bw = BWL[e] && fin(bwRaw) ? conv(bwRaw, u) : null;
     sets.forEach(function (s) {
       var w = conv(fin(s.w) ? s.w : 0, u), r = fin(s.r) ? s.r : 0;
-      if (had.e1 > 0 && e1rm(w, r) > had.e1 + 0.01) hit.e1 = true;
+      if (had.e1 > 0 && e1Of(e, w, r, bw) > had.e1 + 0.01) hit.e1 = true;
       if (had.w > 0 && w > had.w) hit.w = true;
-      if (!(w > 0) && !(had.w > 0) && r > had.r) hit.r = true;
+      if (w === 0 && !(had.w > 0) && r > had.r) hit.r = true;
     });
     return [hit.w ? 'heaviest' : '', hit.e1 ? 'best e1RM' : '', hit.r ? 'most reps' : '']
       .filter(Boolean).join(', ');
@@ -2409,7 +2450,7 @@
     if (known && T.wo[wo.id] === wo) return known;
     var out = [];
     wo.x.forEach(function (x) {
-      var hit = beats(records(x.e, wo.st), x.s.filter(function (s) { return !s.wu; }), wo.u);
+      var hit = beats(records(x.e, wo.st), x.s.filter(function (s) { return !s.wu; }), wo.u, x.e, woBw(wo));
       if (hit) out.push({ e: x.e, what: hit });
     });
     return out;
@@ -3508,6 +3549,7 @@
     if (nt) wo.nt = nt;
     var mc = mcDone(LIVE.mc);
     if (mc) wo.mc = mc;
+    if (wo.x.some(function (x) { return BWL[x.e]; })) { var bw = bwOn(wo.dk, wo.u); if (bw) wo.bw = bw; }
     return clean(wo);
   }
 
@@ -4571,7 +4613,7 @@
       n++;
     });
     if (!n) return null;
-    return { plan: plan, bw: !(cur.vol > 0) && !(was.vol > 0), cur: cur, was: was };
+    return { plan: plan, bw: !!BWL[x.e] || (!(cur.vol > 0) && !(was.vol > 0)), cur: cur, was: was };
   }
   var FM_SAY = { vc: 'volume change', vol: 'total volume', reps: 'total reps', best: 'best set' };
   function fmHTML(xi) {
@@ -5090,27 +5132,36 @@
   }
   function exHistory(e, ss) {
     return ss.slice().reverse().slice(0, 30).map(function (s) {
-      var num = 0;
+      var num = 0, bw = bwFor(e, s.wo);
       return '<div class="tr-hs"><div class="tr-hs-h"><span class="tr-hs-n">' + esc(s.wo.n) + '</span>' +
-          '<span class="tr-hs-d">' + when(s.wo.st) + ' \u00b7 ' + hm(s.wo.st) + '</span></div>' +
+          '<span class="tr-hs-d">' + when(s.wo.st) + ' \u00b7 ' + hm(s.wo.st) + (bw ? ' \u00b7 you ' + fmtN(bw) + ' ' + T.pr.u : '') + '</span></div>' +
         '<table class="tr-hs-t"><tbody>' + s.x.s.map(function (z) {
-          var w = conv(z.w, s.wo.u), e1 = z.wu ? 0 : e1rm(w, z.r);
+          var w = conv(z.w, s.wo.u), e1 = z.wu ? 0 : e1Of(e, w, z.r, bw);
           return '<tr' + (z.wu ? ' class="w"' : '') + '><td class="tr-hs-l">' + setLab(z, function () { return ++num; }) + '</td>' +
-            '<td>' + (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' \u00d7 ' : '') + z.r + (fin(z.q) ? ' <span class="tr-e1">' + rqSay(z.q) + '</span>' : '') + '</td>' +
+            '<td>' + (w > 0 ? (BWL[e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + ' \u00d7 ' : '') + z.r + (fin(z.q) ? ' <span class="tr-e1">' + rqSay(z.q) + '</span>' : '') + '</td>' +
             '<td class="tr-hs-e">' + (e1 > 0 ? Math.round(e1) : '') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
-    }).join('') + '<div class="tr-hint">The last number is the estimated one-rep max for that set (Epley). Warm-ups have none.</div>';
+    }).join('') + '<div class="tr-hint">The last number is the estimated one-rep max for that set (Epley). Warm-ups have none.' +
+      (BWL[e] ? ' On this lift it counts you as well as anything added, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.' : '') + '</div>';
   }
   function exCharts(e, ss) {
     var r = records(e), byReps = !(r.e1 > 0);
     var work = function (s) { return s.x.s.filter(function (z) { return !z.wu; }); };
     var pts = function (f) {
-      return ss.map(function (s) { var ws = work(s); return ws.length ? { t: s.wo.st, v: f(ws, s.wo.u) } : null; }).filter(Boolean);
+      return ss.map(function (s) { var ws = work(s); var v = ws.length ? f(ws, s.wo.u, s) : null; return v > 0 ? { t: s.wo.st, v: v } : null; }).filter(Boolean);
     };
+    // the best estimated max of a session, you included on the lifts that lift you
+    var best = function (ws, u, s) { var bw = bwFor(e, s.wo); return Math.max.apply(null, ws.map(function (z) { return e1Of(e, conv(z.w, u), z.r, bw); })); };
     var one = function (title, series, reps) {
       return '<div class="tr-ql tr-chart-h">' + title + '</div>' +
         (series.length >= 2 ? chartSVG(series, reps) : '<div class="tr-note">Two sessions and this draws.</div>');
     };
+    if (BWL[e] && !byReps) {
+      return one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
+        one('Estimated one-rep max, you + added', pts(best), false) +
+        one('Strength \u00d7 bodyweight', pts(function (ws, u, s) { var bw = bwFor(e, s.wo); return bw ? Math.round(best(ws, u, s) / bw * 100) / 100 : 0; }), false) +
+        '<div class="tr-hint">Strength \u00d7 bodyweight holds still when your weight falls and your reps don\u2019t, which the estimated max alone can\u2019t.</div>';
+    }
     return byReps
       ? one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
         one('Total reps', pts(function (ws) { return ws.reduce(function (a, z) { return a + z.r; }, 0); }), true)
@@ -5138,6 +5189,22 @@
   }
   function exRecords(e, ss) {
     var r = records(e), byReps = !(r.e1 > 0);
+    if (BWL[e]) {
+      var rel = 0;
+      ss.forEach(function (s) {
+        var bw = bwFor(e, s.wo);
+        if (bw) s.x.s.forEach(function (z) { if (!z.wu) rel = Math.max(rel, e1Of(e, conv(z.w, s.wo.u), z.r, bw) / bw); });
+      });
+      return '<div class="tr-recs">' +
+        rec('Estimated 1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
+        rec('\u00d7 bodyweight', rel > 0 ? (Math.round(rel * 100) / 100).toFixed(2) : '\u2014') +
+        rec('Most added', r.w > 0 ? '+' + fmtN(r.w) + ' ' + T.pr.u : '\u2014') +
+        rec('Most reps', r.r || '\u2014') +
+      '</div>' +
+      (r.e1 > 0 ? '<div class="tr-hint">Counting you, from your weigh-in in Nourish, plus anything added.</div>'
+        : '<div class="tr-hint">Log your weight on Nourish and this lift gets a strength number too: you plus anything added.</div>') +
+      exFell(e);
+    }
     var html = '<div class="tr-recs">' +
       rec('Estimated 1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
       rec('Heaviest', r.w > 0 ? fmtN(r.w) + ' ' + T.pr.u : '\u2014') +
@@ -5155,16 +5222,18 @@
         }).join('') + '</tbody></table>' +
         '<div class="tr-hint">Best: the heaviest you have lifted for at least that many reps. Estimated: what your best estimated max says you could, by Epley, which drifts past about ten reps.</div>';
     }
+    return html + exFell(e);
+  }
+  function exFell(e) {
     var hist = [];
     ix().list.forEach(function (wo) {
       (ix().prs[wo.id] || []).forEach(function (pr) { if (pr.e === e) hist.push({ st: wo.st, what: pr.what }); });
     });
-    html += '<div class="tr-ql tr-chart-h">Records as they fell</div>' + (hist.length
+    return '<div class="tr-ql tr-chart-h">Records as they fell</div>' + (hist.length
       ? '<ol class="tr-sess">' + hist.reverse().slice(0, 20).map(function (h) {
           return '<li><span class="tr-ss-d">' + when(h.st) + '</span><span class="tr-ss-s">\u2605 ' + esc(h.what) + '</span></li>';
         }).join('') + '</ol>'
       : '<div class="tr-note">None yet: the first session of a lift is where records start from.</div>');
-    return html;
   }
   function rec(l, v) { return '<div class="tr-rec"><span class="tr-rec-l">' + l + '</span><span class="tr-rec-v">' + v + '</span></div>'; }
 
@@ -5283,10 +5352,10 @@
       wo.x.map(function (x) {
         return '<div class="tr-wx"><button class="tr-lnk tr-wx-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(lib(x.e).n) + '</button>' +
           '<ol class="tr-wx-s">' + x.s.map(function (s) {
-            var w = conv(s.w, wo.u);
-            return '<li>' + setTag(s) + (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' × ' : '') + s.r +
+            var w = conv(s.w, wo.u), e1 = s.wu ? 0 : e1Of(x.e, w, s.r, bwFor(x.e, wo));
+            return '<li>' + setTag(s) + (w > 0 ? (BWL[x.e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + ' × ' : '') + s.r +
               (fin(s.q) ? ' <span class="tr-e1">' + rqSay(s.q) + '</span>' : '') +
-              (e1rm(w, s.r) > 0 ? ' <span class="tr-e1">e1RM ' + Math.round(e1rm(w, s.r)) + '</span>' : '') + '</li>';
+              (e1 > 0 ? ' <span class="tr-e1">e1RM ' + Math.round(e1) + '</span>' : '') + '</li>';
           }).join('') + '</ol></div>';
       }).join('') +
       '<div class="tr-acts"><button class="ghost" data-t="edopen" data-id="' + esc(wo.id) + '">Edit</button>' +
@@ -5560,10 +5629,11 @@
          best are one record, not two. */
       var work = [], top = { w: 0, e: 0, r: 0, wr: 0 }, got = {};
       x.s.forEach(function (s, si) { if (!s.wu) work.push({ i: si, w: conv(s.w, wo.u), r: s.r }); });
+      var bwx = bwFor(x.e, wo);
       work.forEach(function (z) {
         top.w = Math.max(top.w, z.w);
-        top.e = Math.max(top.e, e1rm(z.w, z.r));
-        if (!(z.w > 0)) top.r = Math.max(top.r, z.r);
+        top.e = Math.max(top.e, e1Of(x.e, z.w, z.r, bwx));
+        if (z.w === 0) top.r = Math.max(top.r, z.r);
       });
       // the heaviest set with the most reps at that weight
       work.forEach(function (z) { if (z.w === top.w) top.wr = Math.max(top.wr, z.r); });
@@ -5575,10 +5645,10 @@
       var said = [];
       x.s.forEach(function (s, si) {
         if (s.wu) return;
-        var w = conv(s.w, wo.u), e = e1rm(w, s.r), what = [];
+        var w = conv(s.w, wo.u), e = e1Of(x.e, w, s.r, bwx), what = [];
         if (first('w', had.w > 0 && w > had.w && w === top.w && s.r === top.wr)) what.push('heaviest');
         if (first('e', had.e1 > 0 && e > had.e1 + 0.01 && e === top.e)) what.push('best e1RM');
-        if (first('r', !(w > 0) && !(had.w > 0) && had.r > 0 && s.r > had.r && s.r === top.r)) what.push('most reps');
+        if (first('r', w === 0 && !(had.w > 0) && had.r > 0 && s.r > had.r && s.r === top.r)) what.push('most reps');
         var at = w > 0 ? pastAt(s.r) : 0;
         if (!what.length && at > 0 && w > at && !covered(si, w, s.r)) what.push('best for ' + s.r + ' reps');
         if (what.length) {
@@ -7067,7 +7137,7 @@
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
-      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor,
+      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, e1Of: e1Of, records: records,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
