@@ -2163,10 +2163,41 @@
     return Math.min(short, kcalOf(targets) - (had.kcal || 0));
   }
 
-  var MWHY = { fib: 'Added for fiber', p: 'Added for protein', f: 'Added for fat', c: 'Added for carbs' };
-  function mWhyChip(it) {
-    if (it.by !== 'f' || !MWHY[it.why]) return '';
-    return '<span class="mwhy mwhy-' + it.why + '">' + MWHY[it.why] + '</span>';
+  /* Why Fill put it there, as the button that asks about it. The chip is
+     the question's own place: Blake picked this over a ⋯ menu ("so out of
+     place in the app") and over the plate's sheet. A dish Fill chose for an
+     empty meal is "Fill's pick"; a food it added says what it was for. */
+  var MWHY = { fib: 'Added for fiber', p: 'Added for protein', f: 'Added for fat', c: 'Added for carbs',
+    pick: 'Fill\u2019s pick' };
+  var MWHY_SAY = { fib: 'to reach your fiber', p: 'to close your protein', f: 'to close your fat',
+    c: 'to close your carbs', pick: 'for this meal' };
+  function mWhyOf(it) {
+    if (it.by !== 'f') return '';
+    if (MWHY[it.why]) return it.why;
+    var r = BY_ID[it.id];
+    return r && !r.food ? 'pick' : '';
+  }
+  function mWhyChip(it, tag) {
+    var w = mWhyOf(it);
+    if (!w) return '';
+    return '<button class="mwhy mwhy-' + w + ' no-print" data-mwhy="' + tag + '" aria-expanded="' +
+      (S.mWhyOpen === tag ? 'true' : 'false') + '">' + MWHY[w] +
+      '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.5"/></svg></button>';
+  }
+  /* The strip the chip opens, inside the plate, in the green-edged style of
+     the app's other in-meal cards. */
+  function mWhyStrip(it, tag) {
+    var w = mWhyOf(it);
+    if (!w || S.mWhyOpen !== tag) return '';
+    var r = BY_ID[it.id];
+    return '<div class="mwhy-strip no-print">' +
+      '<p>' + (w === 'pick' ? 'Fill picked this ' : 'Fill added this ') + MWHY_SAY[w] + '.' +
+        (it.eaten ? '' : ' It stays unless you change it.') + '</p>' +
+      '<span class="mwhy-acts">' +
+        (it.eaten ? '' : '<button class="ghost" data-mdo="swap:' + tag + '">Swap</button>') +
+        '<button class="ghost" data-mdo="never:' + tag + '">Don\u2019t suggest</button>' +
+      '</span></div>';
   }
 
   /* Take a plate Fill put there off the day and let the same pass choose
@@ -4952,10 +4983,12 @@
        sweep". The test caught this by locking one. */
     var plates = 0, unticked = 0, loose = 0;
     slots.list.forEach(function (s0) {
+      var pinned0 = (s0.pins || []).map(function (pn) { return String(pn.id); });
       (day[s0.k] || []).forEach(function (it) {
         plates++;
         if (!it.eaten) unticked++;
-        if (!it.eaten && !it.l) loose++;
+        // what the sweep would take: not eaten, not locked, not pinned
+        if (!it.eaten && !it.l && pinned0.indexOf(String(it.id)) < 0) loose++;
       });
     });
     var mode = noPlan ? 'plan' : dayDone ? 'open'
@@ -4994,7 +5027,11 @@
       });
     });
     $('macroRebal').disabled = !freeCount;
-    $('macroSweep').disabled = !loose || future;
+    /* Any day, tomorrow included. Blake swept tomorrow's plan to start it
+       again and nothing happened: the button was switched off on every
+       future day, with nothing to say why — and planning a day ahead is
+       exactly when you want to clear it. */
+    $('macroSweep').disabled = !loose;
 
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
@@ -5098,7 +5135,7 @@
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
-            mWhyChip(it) +
+            mWhyChip(it, tag) +
             '</span>' +
             '<span class="mitem-keep no-print">' +
               /* The pin is the routine: this food on this meal on every new
@@ -5126,20 +5163,9 @@
                   '<path d="M8 2.2l1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4L2.2 6.5l4-.6Z" ' +
                     'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>' +
                 '</svg></button>' : '') +
-              /* Everything you might want to DO about a plate that is not the
-                 portion: swap it, or say not to suggest it again. Behind one
-                 quiet mark rather than a third icon on every row. */
-              '<button class="mic mdots" data-mdots="' + tag + '" aria-expanded="' +
-                (S.mDots === tag ? 'true' : 'false') + '" aria-label="More for ' + esc(r.name) + '">' +
-                '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.2" fill="currentColor"/>' +
-                  '<circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor"/></svg>' +
-              '</button>' +
             '</span>' +
           '</div>' +
-          (S.mDots === tag ? '<div class="mitem-pop no-print" role="menu">' +
-            (!it.eaten ? '<button role="menuitem" data-mdo="swap:' + tag + '">Swap for another</button>' : '') +
-            '<button role="menuitem" data-mdo="never:' + tag + '">Don\u2019t suggest ' + esc(r.name) + '</button>' +
-          '</div>' : '') +
+          mWhyStrip(it, tag) +
           /* What it is in the kitchen, and what it costs you.
            *
              The weight leads, because Blake weighs: "sometimes it's just
@@ -13693,7 +13719,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtwk', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mdots', 'data-mdo', 'data-mallow'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mwhy', 'data-mdo', 'data-mallow'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -15026,9 +15052,9 @@
         keepingFocus(renderMacros);
         return;
       }
-      var dots = e.target.closest('[data-mdots]');
-      if (dots) {
-        S.mDots = S.mDots === dots.dataset.mdots ? '' : dots.dataset.mdots;
+      var why = e.target.closest('[data-mwhy]');
+      if (why) {
+        S.mWhyOpen = S.mWhyOpen === why.dataset.mwhy ? '' : why.dataset.mwhy;
         keepingFocus(renderMacros);
         return;
       }
@@ -15037,7 +15063,7 @@
         var dq = mdo.dataset.mdo.split(':');       // action:slot:index
         var dk = mViewKey(), dsk = dq[1], dix = Number(dq[2]);
         var dit = (mDay(dk)[dsk] || [])[dix], dr = dit && BY_ID[dit.id];
-        S.mDots = '';
+        S.mWhyOpen = '';
         if (!dit || !dr) { renderMacros(); return; }
         if (dq[0] === 'swap') {
           mReplacePlate(dk, dsk, dix);
@@ -15205,9 +15231,17 @@
        Worth knowing that there is no undo anywhere in this app, so a mis-tap
        here costs the un-eaten half of a day. */
     $('macroSweep').addEventListener('click', function () {
+      /* Pinned plates stay too: a pin is your routine for that meal, and
+         Blake expected the sweep to leave "locked or pinned items". */
+      var pinsOf = {};
+      mReadSlots().list.forEach(function (sl) {
+        pinsOf[sl.k] = (sl.pins || []).map(function (pn) { return String(pn.id); });
+      });
       mEditDay(mViewKey(), function (d2) {
         Object.keys(d2).forEach(function (sk) {
-          d2[sk] = (d2[sk] || []).filter(function (it) { return it.eaten || it.l; });
+          d2[sk] = (d2[sk] || []).filter(function (it) {
+            return it.eaten || it.l || (pinsOf[sk] || []).indexOf(String(it.id)) >= 0;
+          });
         });
       });
       renderMacros();
@@ -16781,12 +16815,6 @@
   /* Before the first paint: a stored plan written by an older build can be
      below this body's floor or have no carbohydrate in it, and the correction
      belongs here rather than inside whichever read happened to run first. */
-  /* A tap anywhere else puts the plate's menu away, as a menu should. */
-  document.addEventListener('click', function (e) {
-    if (!S.mDots || e.target.closest('.mitem-pop, [data-mdots]')) return;
-    S.mDots = '';
-    if (S.view === 'macros') renderMacros();
-  }, true);
   document.addEventListener('click', function (e) {
     var al = e.target.closest('[data-mallow]');
     if (!al) return;

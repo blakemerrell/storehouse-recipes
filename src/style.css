@@ -4562,31 +4562,29 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mitem-nm { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; }
 .mitem-r1 .mitem-nm .mitem-name { flex: 0 1 auto; }
 .mwhy {
-  display: inline-flex; align-items: center; font-family: var(--sans); font-size: 11px;
-  font-weight: 600; letter-spacing: 0.01em; padding: 1px 8px; border-radius: 99px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; font-family: var(--sans); font-size: 11px;
+  font-weight: 600; letter-spacing: 0.01em; padding: 2px 9px; border-radius: 99px; white-space: nowrap;
+  border: 0; cursor: pointer;
   color: oklch(0.42 0.06 240); background: oklch(0.93 0.02 240);
 }
 .mwhy.mwhy-p { color: var(--ochre-text); background: oklch(0.93 0.035 60); }
 .mwhy.mwhy-f { color: oklch(0.45 0.08 85); background: oklch(0.94 0.04 90); }
 .mwhy.mwhy-c { color: oklch(0.42 0.07 150); background: oklch(0.93 0.03 150); }
-.mitem-r1 { padding-right: 90px; }
-/* A menu hanging off the ⋯, right-aligned under it and floating OVER the
-   plate. Blake, on the first build — which set it in the plate's own flow,
-   between the name and the figures: "Looks horrible when it pops up." */
-.mitem { position: relative; }
-.mitem-pop {
-  position: absolute; top: 34px; right: 4px; z-index: 6;
-  width: max-content; min-width: 190px; max-width: calc(100% - 12px);
-  background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
-  box-shadow: 0 10px 24px -10px oklch(0.2 0.02 60 / 0.45); overflow: hidden;
-  font-family: var(--sans, inherit);
+.mwhy.mwhy-pick { color: var(--ochre-text); background: oklch(0.93 0.035 60); }
+.mwhy svg { width: 9px; height: 9px; transition: transform .15s; }
+.mwhy[aria-expanded="true"] svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .mwhy svg { transition: none; } }
+/* The strip a chip opens, inside the plate: the .mline card's green edge and
+   wash, at the plate's own inset. */
+.mwhy-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  margin: 7px 0 2px 36px; padding: 8px 10px;
+  border: 1px solid var(--line-soft); border-left: 3px solid var(--green); border-radius: 6px;
+  background: color-mix(in oklab, var(--green) 6%, var(--card, var(--paper)));
 }
-.mitem-pop button {
-  display: block; width: 100%; text-align: left; background: none; border: 0;
-  font: inherit; font-size: 13.5px; color: var(--ink); padding: 10px 14px; cursor: pointer;
-}
-.mitem-pop button + button { border-top: 1px solid var(--line-soft, var(--line)); }
-.mitem-pop button:hover { background: var(--paper-soft); }
+.mwhy-strip p { margin: 0; flex: 1 1 150px; font-size: 13px; line-height: 1.4; color: var(--ink); }
+.mwhy-acts { display: flex; gap: 6px; }
+.mwhy-acts .ghost { font-size: 13px; padding: 5px 11px; }
 .m-toast {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 60;
@@ -4599,6 +4597,3 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mnv-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line-soft, var(--line)); }
 .mnv-n { flex: 1; }
 .mnv-n small { display: block; font-size: 12px; color: var(--muted); }
-@media (pointer: coarse) {
-  .mitem-r1 { padding-right: 106px; }
-}
