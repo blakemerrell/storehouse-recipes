@@ -662,6 +662,9 @@
       bars: cleanBars(p.bars),
       // a rest of its own for a lift: longer on the squat, shorter on the curls
       rests: cleanRests(p.rests),
+      // the badge beside each lift's name, and which measure each lift shows in it
+      fmo: p.fmo === 0 ? 0 : 1,
+      fm: cleanFm(p.fm),
       /* Everything below is you, answered once in the quiz and read by the
          picks, the builder and the review. */
       // what you train for; the first version knew two, and 'grow' was the first
@@ -708,6 +711,17 @@
     Object.keys(b).slice(0, 200).forEach(function (k) {
       var v = b[k];
       if (plain(v) && typeof v.e === 'string' && fin(v.s) && v.s >= 15 && v.s <= 600) out[k] = { e: v.e, s: v.s };
+    });
+    return out;
+  }
+
+  var FM = ['vc', 'vol', 'reps', 'best'];
+  function cleanFm(b) {
+    var out = {};
+    if (!plain(b)) return out;
+    Object.keys(b).slice(0, 200).forEach(function (k) {
+      var v = b[k];
+      if (plain(v) && typeof v.e === 'string' && FM.indexOf(v.m) > 0) out[k] = { e: v.e, m: v.m };
     });
     return out;
   }
@@ -1265,6 +1279,15 @@
     stamp('pr');
     // the workout open now takes it at once
     if (LIVE) LIVE.x.forEach(function (x) { if (x.e === e) x.rest = restFor(lib(e)); });
+  }
+
+  // which measure a lift's badge shows: the change in volume unless you chose another
+  function fmFor(e) { var f = T.pr.fm && T.pr.fm[ntKey(e)]; return f && f.e === e ? f.m : 'vc'; }
+  function setFm(e, m) {
+    var k = ntKey(e), fm = Object.assign({}, T.pr.fm);
+    if (m === 'vc') delete fm[k]; else fm[k] = { e: e, m: m };
+    T.pr.fm = fm;
+    stamp('pr');
   }
 
   /* The last time this exercise was done properly: not in a deload, where
@@ -4368,6 +4391,71 @@
   /* While typing, the same cell shows last time until its weight has the
      cursor, or it is the next set to do; then the plates. */
   function plShown(c) { return !c.classList.contains('tr-plt') || c.classList.contains('on'); }
+  /* How today is going against last time, for the badge beside a lift's
+     name. Only the working sets done so far count, each held against the
+     set it is paired with, so it never reads -100% before the first set.
+     Where the plan asked for less than last time on purpose (a deload, a
+     lighter wave, a weight brought down), today is held against the plan
+     instead, so doing what the plan says never shows as falling behind. */
+  function focusOf(xi) {
+    var x = LIVE && LIVE.x[xi];
+    if (!x) return null;
+    var done = x.s.filter(function (s) { return s.t && !s.wu; });
+    if (!done.length) return null;
+    var hasT = function (s) { return fin(s.tw) && fin(s.tr); };
+    var hasP = function (s) { return fin(s.pw) && fin(s.pr); };
+    var lower = !!LIVE.dl || done.some(function (s) { return hasT(s) && hasP(s) && s.tw * s.tr < s.pw * s.pr; });
+    var cur = { vol: 0, reps: 0, best: 0 }, was = { vol: 0, reps: 0, best: 0 }, n = 0, plan = false;
+    done.forEach(function (s) {
+      var bw, br;
+      if (hasT(s) && (lower || !hasP(s))) { bw = s.tw; br = s.tr; plan = true; }
+      else if (hasP(s)) { bw = s.pw; br = s.pr; }
+      else return;
+      var w = numIn(s.w) || 0, r = numIn(s.r) || 0;
+      cur.vol += w * r; cur.reps += r; cur.best = Math.max(cur.best, e1rm(w, r));
+      was.vol += bw * br; was.reps += br; was.best = Math.max(was.best, e1rm(bw, br));
+      n++;
+    });
+    if (!n) return null;
+    return { plan: plan, bw: !(cur.vol > 0) && !(was.vol > 0), cur: cur, was: was };
+  }
+  var FM_SAY = { vc: 'volume change', vol: 'total volume', reps: 'total reps', best: 'best set' };
+  function fmHTML(xi) {
+    var f = T.pr.fmo ? focusOf(xi) : null;
+    if (!f) return '';
+    var x = LIVE.x[xi], m = f.bw ? 'reps' : fmFor(x.e), u = T.pr.u, d, txt, say;
+    var arrow = function (v, s) { return v > 0 ? '\u25b2' + s : v < 0 ? '\u25bc' + s : '='; };
+    if (m === 'vc') {
+      if (!(f.was.vol > 0)) return '';
+      d = Math.round((f.cur.vol / f.was.vol - 1) * 100);
+      txt = d ? arrow(d, Math.abs(d) + '%') : 'level';
+      say = 'Volume ' + (d > 0 ? d + '% up' : d < 0 ? -d + '% down' : 'level');
+    } else if (m === 'vol') {
+      d = Math.round(f.cur.vol - f.was.vol);
+      txt = fmtBig(f.cur.vol) + ' ' + u + ' ' + arrow(d, fmtBig(Math.abs(d)));
+      say = 'Volume ' + fmtBig(f.cur.vol) + ' ' + u + ', ' + (d > 0 ? fmtBig(d) + ' more' : d < 0 ? fmtBig(-d) + ' less' : 'the same');
+    } else if (m === 'reps') {
+      d = f.cur.reps - f.was.reps;
+      txt = f.cur.reps + ' reps ' + arrow(d, Math.abs(d));
+      say = f.cur.reps + ' reps, ' + (d > 0 ? d + ' more' : d < 0 ? -d + ' fewer' : 'the same');
+    } else {
+      d = Math.round(f.cur.best) - Math.round(f.was.best);
+      txt = 'e1RM ' + fmtN(Math.round(f.cur.best)) + ' ' + arrow(d, Math.abs(d));
+      say = 'Best set, estimated max ' + fmtN(Math.round(f.cur.best)) + ' ' + u + ', ' + (d > 0 ? d + ' up' : d < 0 ? -d + ' down' : 'the same');
+    }
+    var cls = 'tr-fm ' + (d > 0 ? 'up' : d < 0 ? 'dn' : 'eq');
+    var vs = ' <small>vs ' + (f.plan ? 'plan' : 'last') + '</small>';
+    say += ' against ' + (f.plan ? 'the plan' : 'last time');
+    // a bodyweight lift has only its reps to show, so there is nothing to tap through
+    if (f.bw) return '<span class="' + cls + '" role="img" aria-label="' + esc(say) + '">' + esc(txt) + vs + '</span>';
+    var next = FM[(FM.indexOf(m) + 1) % FM.length];
+    return '<button class="' + cls + '" data-t="fmcyc" data-x="' + xi + '" aria-label="' + esc(say + '. Show ' + FM_SAY[next] + ' instead') + '">' + esc(txt) + vs + '</button>';
+  }
+  function fmRefresh() {
+    if (!LIVE) return;
+    LIVE.x.forEach(function (x, i) { var c = $('trfm-' + i); if (c) c.innerHTML = fmHTML(i); });
+  }
+
   /* Typing a weight moves the plates at once, and the greyed weight of the
      sets after it, without redrawing the box being typed in. */
   function plRefresh(xi) {
@@ -4430,6 +4518,7 @@
       '<div class="tr-ex-h">' +
         (label ? '<span class="tr-pair" aria-label="Pair ' + label + '">' + label + '</span>' : '') +
         '<button class="tr-ex-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(ex.n) + '</button>' +
+        '<span class="tr-fmw" id="trfm-' + i + '">' + fmHTML(i) + '</span>' +
         '<span class="tr-ex-m">' + esc(mname(ex.m)) + ' \u00b7 ' + (x.fix ? 'main lift, set by set' : ex.rr[0] + '\u2013' + ex.rr[1] + ' reps') +
           (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + x.rir + ' RIR' : '') +
           (mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
@@ -5568,6 +5657,10 @@
       '<div class="tr-q"><div class="tr-ql">Default bar</div>' +
         chips('s-bar', p.bar, p.u === 'kg' ? [[20, 'Olympic 20 kg'], [15, 'Short 15 kg'], [10, '10 kg']] : [[45, 'Olympic 45 lb'], [35, '35 lb'], [33, 'Short 33 lb'], [25, '25 lb']]) +
         '<div class="tr-hint">A lift on another bar \u2014 an EZ bar, a Smith machine \u2014 keeps its own: tap \u201cbar\u201d beside it in a workout.</div></div>' +
+      '<div class="tr-q"><div class="tr-ql">Beside each lift</div>' +
+        chips('s-fmo', p.fmo, [[1, 'How today compares'], [0, 'Nothing']]) +
+        '<div class="tr-hint">' + (p.fmo ? 'Once a working set is done, a badge beside the lift says how today compares with last time, set for set, or with the plan in a lighter week. Tap it for volume, reps or your best set; each lift remembers its choice.'
+          : 'No badge beside the lifts.') + '</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Plates on the bar</div>' +
         chips('s-pl', p.pl, [['row', 'In every set'], ['type', 'While typing'], ['off', 'Off']]) +
         '<div class="tr-hint">' + (p.pl === 'row' ? 'Each barbell set shows what goes on each side, where Previous was; last time\u2019s numbers sit under it.'
@@ -6481,6 +6574,17 @@
       closeSheet(); draw(); return;
     }
 
+    // the badge beside a lift: the next measure, kept for that lift
+    if (t === 'fmcyc') {
+      var fx = LIVE && LIVE.x[Number(el.getAttribute('data-x'))];
+      if (!fx) return;
+      setFm(fx.e, FM[(FM.indexOf(fmFor(fx.e)) + 1) % FM.length]);
+      fmRefresh();
+      var fb = document.querySelector('#trfm-' + el.getAttribute('data-x') + ' button');
+      if (fb) fb.focus();
+      return;
+    }
+
     // the bar a lift is on
     if (t === 'barpick') { openSheet({ k: 'bar', e: el.getAttribute('data-e'), eyebrow: 'Bar', title: 'Bar' }); return; }
     if (t === 'barset' || t === 'barother') {
@@ -6612,6 +6716,7 @@
       stamp('pr'); drawSheet(); draw(); return;
     }
     if (t === 's-bar') { T.pr.bar = Number(v); stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-fmo') { T.pr.fmo = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-pl') { T.pr.pl = ['row', 'type', 'off'].indexOf(v) >= 0 ? v : 'row'; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-rc') { T.pr.rc = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-ri') { T.pr.ri = Number(v); stamp('pr'); drawSheet(); return; }
@@ -6697,6 +6802,8 @@
       s[f] = el.value.replace(/[^0-9.,]/g, '').slice(0, 7);
       saveLive();
       if (f === 'w') plRefresh(Number(el.getAttribute('data-x')));
+      // a set already done and corrected moves the badge beside its lift
+      if (s.t) fmRefresh();
     });
     /* While typing: the plates in the row of the set whose weight has the
        cursor, and of the next set to do, which is up anyway. */
@@ -6782,7 +6889,7 @@
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
-      wins: wins, nth: nth,
+      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

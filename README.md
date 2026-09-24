@@ -89,6 +89,11 @@ three ideas in one tab:
   minute, a drop set follows with no rest, a failure set counts as nothing in reserve. Bars
   are named (Olympic 45, Short 33, EZ 15, Hex 75, Smith, none, or your own) and the plates
   are drawn in competition colours. Each lift can keep its own rest, drawn between its sets.
+  Once a working set is done, a badge beside the lift says how today compares, set for set
+  with the same sets last time (never -100% before you start), or with the plan in a deload
+  or wherever the plan asked for less: the change in volume, or tap for the volume, the reps
+  or the best set's estimated max; each lift remembers its choice, and bodyweight lifts show
+  their reps. Settings can turn it off.
   Saving a workout opens its summary: the time, sets, volume and records, each set that
   beat a record tagged 🥇 (only the day's best set takes each one), and a milestone when
   there is one (the 10th workout, a block finished). A chime and confetti mark every

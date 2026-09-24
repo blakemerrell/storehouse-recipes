@@ -2052,5 +2052,76 @@ module.exports = {
     r = await p.evaluate(() => ({ h: document.querySelector('.tr-done-h').textContent, c: window.Train._.state().S.cele }));
     t.ok('with the celebration turned off there is the summary and nothing else', /record/.test(r.h) && r.c.confetti === false && r.c.chime === false, JSON.stringify(r));
     await p.close();
+    // ---- the badge beside each lift: how today compares ------------------------------
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a: wo('a', '', -1, -1, 3, [{ e: 'bb-bench', s: [{ w: 45, r: 14, wu: 1 }, { w: 185, r: 8 }, { w: 185, r: 8 }, { w: 185, r: 8 }] },
+        { e: 'pullup', s: [{ w: 0, r: 8 }, { w: 0, r: 8 }] }]) } });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    const fmAt = () => p.evaluate(() => { const c = document.getElementById('trfm-0'), b = c && c.firstElementChild;
+      return { txt: c ? c.textContent : null, cls: b ? b.className : '', tag: b ? b.tagName : '' }; });
+    r = await fmAt();
+    t.ok('before a working set is done there is no badge: no -100% at the start', r.txt === '', JSON.stringify(r));
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s.map((s) => (s.wu ? 'W' : 'n') + (s.pw === null ? '' : s.pw + 'x' + s.pr)).join());
+    const wi = r.split(',').findIndex((z) => z[0] === 'n');
+    await p.fill(`#trw-0-${wi}`, '195'); await p.fill(`#trr-0-${wi}`, '8');
+    await p.click(`[data-t="tick"][data-x="0"][data-s="${wi}"]`);
+    r = await fmAt();
+    t.ok('after the first working set: volume against the same set last time, 195 × 8 on 185 × 8 is 5% up',
+      r.txt === '▲5% vs last' && /up/.test(r.cls) && r.tag === 'BUTTON', JSON.stringify(r));
+    await p.click('#trfm-0 [data-t="fmcyc"]');
+    r = await p.evaluate(() => ({ txt: document.getElementById('trfm-0').textContent, kept: window.Train._.state().T.pr.fm.nbbbench,
+      sync: JSON.stringify(window.Train._.payload(true).pr || {}) }));
+    t.ok('tap it for the volume itself', r.txt === '1,560 lb ▲80 vs last', r.txt);
+    t.ok('and the lift remembers the choice, synced with your settings', r.kept && r.kept.e === 'bb-bench' && r.kept.m === 'vol' && /"fm"/.test(r.sync), JSON.stringify(r.kept));
+    await p.click('#trfm-0 [data-t="fmcyc"]');
+    r = await fmAt();
+    t.ok('then the reps, level with last time', r.txt === '8 reps = vs last' && /eq/.test(r.cls), JSON.stringify(r));
+    await p.click('#trfm-0 [data-t="fmcyc"]');
+    r = await fmAt();
+    t.ok('then the best set, as an estimated max', r.txt === 'e1RM 247 ▲13 vs last', JSON.stringify(r));
+    await p.click('#trfm-0 [data-t="fmcyc"]');
+    r = await p.evaluate(() => ({ txt: document.getElementById('trfm-0').textContent, kept: window.Train._.state().T.pr.fm.nbbbench }));
+    t.ok('and round to the change in volume, which is the default and not stored', r.txt === '▲5% vs last' && !r.kept, JSON.stringify(r));
+    await p.fill(`#trw-0-${wi + 1}`, '175'); await p.fill(`#trr-0-${wi + 1}`, '8');
+    await p.click(`[data-t="tick"][data-x="0"][data-s="${wi + 1}"]`);
+    r = await fmAt();
+    t.ok('set for set: 195 then 175 against 185 twice is level', r.txt === 'level vs last' && /eq/.test(r.cls), JSON.stringify(r));
+    await p.fill(`#trw-0-${wi + 1}`, '165');
+    r = await fmAt();
+    t.ok('correcting a done set moves the badge at once', r.txt === '▼3% vs last' && /dn/.test(r.cls), JSON.stringify(r));
+    // the plan, where it asks for less on purpose
+    r = await p.evaluate((wi) => {
+      const _ = window.Train._, L = _.state().LIVE, a = L.x[0].s[wi], b = L.x[0].s[wi + 1];
+      a.tw = 135; a.tr = 8; b.tw = 135; b.tr = 8; L.dl = 1;
+      const dl = _.focusOf(0);
+      L.dl = 0;
+      const cut = _.focusOf(0);
+      a.tw = 205; b.tw = 205;
+      const up = _.focusOf(0);
+      return { dl: dl.plan && dl.was.vol === 2160, cut: cut.plan && cut.was.vol === 2160, up: !up.plan && up.was.vol === 2960 };
+    }, wi);
+    t.ok('in a deload the plan is what today is held against, not last time', r.dl, JSON.stringify(r));
+    t.ok('and so wherever the plan asked for less than last time', r.cut, JSON.stringify(r));
+    t.ok('but a plan asking for more is still held against last time', r.up, JSON.stringify(r));
+    // bodyweight: the reps, and nothing to tap through
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    await p.fill('#trr-1-0', '10');
+    await p.click('[data-t="tick"][data-x="1"][data-s="0"]');
+    r = await p.evaluate(() => { const c = document.getElementById('trfm-1'), b = c && c.firstElementChild; return { txt: c ? c.textContent : '', tag: b ? b.tagName : '' }; });
+    t.ok('a bodyweight lift shows its reps, with nothing to tap through', r.txt === '10 reps ▲2 vs last' && r.tag === 'SPAN', JSON.stringify(r));
+    // off
+    await p.click('[data-t="settings"]');
+    await p.click('[data-t="s-fmo"][data-v="0"]');
+    await p.click('.sheet-x');
+    r = await p.evaluate(() => document.querySelectorAll('.tr-fm').length);
+    t.ok('and Settings can turn the badge off', r === 0, r);
+    r = await p.evaluate(() => JSON.stringify(window.Train._.defaultsPr({ fm: { a: { e: 'x', m: 'nope' }, b: { e: 'y', m: 'best' }, c: 'junk' } }).fm));
+    t.ok('a stored choice that is not one of the four is dropped', r === '{"b":{"e":"y","m":"best"}}', r);
+    await p.close();
   },
 };
