@@ -5135,7 +5135,6 @@
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
-            mWhyChip(it, tag) +
             '</span>' +
             '<span class="mitem-keep no-print">' +
               /* The pin is the routine: this food on this meal on every new
@@ -5176,7 +5175,12 @@
              The salt is a sibling of the figures, not inside them: the four
              numbers keep their own nowrap so they drop to a second line
              whole rather than breaking across two. */
+          /* The "why" chip leads the figures' row rather than sharing the
+             name's: Blake, seeing names wrap around it, "add that new Fill's
+             pick pill or added for fiber pill to the row below it" — with the
+             strip it opens sitting above, under the name. */
           '<div class="mitem-r2">' +
+            mWhyChip(it, tag) +
             (port.detail ? '<span class="mitem-uom">' + esc(port.detail) + '</span>' : '') +
             '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
             mSaltChip(r, it.x) +
