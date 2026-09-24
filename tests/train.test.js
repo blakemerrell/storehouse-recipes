@@ -1717,8 +1717,9 @@ module.exports = {
     r = await p.evaluate(() => ({ on: document.getElementById('trplr-0-2').classList.contains('on'), stk: document.querySelector('#trplr-0-2 .tr-stk').getAttribute('aria-label') }));
     t.ok('and under the set whose weight is being typed', r.on && r.stk === '45, 25 a side', JSON.stringify(r));
     await p.focus('#trr-0-2');
-    await p.waitForTimeout(450);
-    r = await p.evaluate(() => document.getElementById('trplr-0-2').classList.contains('on'));
+    // it folds a moment later, once the tap that moved the cursor has landed
+    r = await p.waitForFunction(() => !document.getElementById('trplr-0-2').classList.contains('on'), null, { timeout: 3000 })
+      .then(() => false, () => true);
     t.ok('which goes when the cursor leaves it', !r);
     await p.click('[data-t="settings"]');
     await p.click('[data-t="s-pl"][data-v="off"]');
