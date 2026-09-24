@@ -357,6 +357,123 @@
     LIB_LIST.push(ex);
   });
 
+  /* How to do each lift: three short steps, the cues a coach gives on the
+     floor. Written for the library here, not a substitute for being shown,
+     and nothing in them overrides the back and joint cues. */
+  var HOWTO = {
+    'bb-bench': ['Lie with your eyes under the bar, feet flat, shoulder blades pinched back and down.', 'Grip a little wider than your shoulders and lower the bar to the middle of your chest, elbows angled about 45–70° from your sides.', 'Press up and slightly back toward your face, shoulders staying pinned.'],
+    'db-bench': ['Sit with the dumbbells on your thighs, lie back and bring them up over your chest.', 'Lower them to the sides of your chest, elbows angled down, until you feel a stretch.', 'Press up and slightly in, without knocking them together.'],
+    'mc-press': ['Set the seat so the handles line up with the middle of your chest.', 'Shoulder blades back against the pad; press until your arms are nearly straight.', 'Come back slowly into a stretch without letting the stack rest.'],
+    'bb-incline': ['Set the bench to 30–45° and unrack with your shoulder blades pinched back.', 'Lower the bar to your upper chest, just under the collarbones.', 'Press up over your shoulders, hips staying on the bench.'],
+    'db-incline': ['Bench at 30–45°, dumbbells over your upper chest.', 'Lower to the sides of your upper chest until you feel the stretch.', 'Press back up, shoulder blades down and back.'],
+    'sm-incline': ['Set the bench at 30–45° under the Smith bar so it meets your upper chest.', 'Unhook and lower under control to just above the chest.', 'Press up; rehook by turning your wrists at the top.'],
+    'dip': ['Support yourself on straight arms between the bars, shoulders down.', 'Lean slightly forward and lower until your upper arms are about level with the bars, or as far as your shoulders are happy.', 'Press back up to straight arms.'],
+    'pushup-flat': ['Hands under your shoulders, body straight from head to heels.', 'Lower your chest to a fist above the floor, elbows about 45° from your sides.', 'Press away to straight arms without your hips sagging.'],
+    'inc-pushup': ['Hands on a bench, counter or wall, body straight.', 'Lower your chest to the edge, elbows angled back.', 'Press away. The lower the surface, the harder it is; move down as it gets easy.'],
+    'pushup': ['Hands on two blocks, books or handles, so your chest can drop below them.', 'Lower slowly past hand height into a deep stretch, body straight.', 'Press back up.'],
+    'archer': ['Hands wide, fingers turned out.', 'Lower toward one hand while the other arm straightens out to the side.', 'Press back to the middle and alternate sides.'],
+    'cb-fly': ['Set the pulleys at shoulder height or above and step forward, elbows slightly bent.', 'Open your arms wide until your chest stretches, keeping the elbow bend fixed.', 'Bring the handles together in front of your chest and squeeze.'],
+    'pec-deck': ['Seat so the handles are at chest height, back against the pad.', 'With a slight elbow bend, bring the handles together in front of you.', 'Open slowly until you feel a stretch across the chest.'],
+    'db-fly': ['Lie on a flat bench, dumbbells over your chest, palms facing, elbows slightly bent.', 'Open your arms in a wide arc until you feel a stretch, elbow bend fixed.', 'Hug them back up over your chest.'],
+    'lat-pd': ['Thighs under the pads, grip a little wider than your shoulders.', 'Pull the bar to your upper chest, elbows driving down and back, leaning back only a little.', 'Let it rise until your arms are straight and your shoulders lift.'],
+    'pullup': ['Hang with your hands just outside shoulder width, palms away.', 'Pull your chest toward the bar, elbows driving down to your sides.', 'Lower all the way to straight arms.'],
+    'lat-pd-n': ['Use a close, neutral-grip handle, thighs under the pads.', 'Pull the handle to your upper chest, elbows close to your body.', 'Return to straight arms with control.'],
+    'chinup': ['Hang with your palms facing you, hands shoulder width.', 'Pull until your chin clears the bar, elbows down in front of you.', 'Lower to straight arms.'],
+    'pullup-neg': ['Step or jump to the top, chin over the bar.', 'Lower yourself as slowly as you can, three to five seconds, to straight arms.', 'Step back up and repeat. This is the road to a full pull-up.'],
+    'inv-row': ['Lie under a bar or rings at about waist height, heels down, body straight.', 'Pull your chest to the bar, squeezing your shoulder blades together.', 'Lower to straight arms. Walk your feet in to make it easier.'],
+    'bb-row': ['Hinge forward to about 45°, back flat, bar hanging at arm’s length.', 'Row the bar to your lower ribs, elbows going back.', 'Lower under control without letting your back round.'],
+    'mc-row': ['Chest against the pad, arms straight to the handles.', 'Row back, elbows past your sides, squeezing your shoulder blades.', 'Return slowly to a full stretch.'],
+    'cb-row': ['Sit tall with a slight knee bend, arms straight to the handle.', 'Row the handle to your stomach, elbows close, chest up.', 'Reach forward with your arms, not your lower back.'],
+    'db-row': ['One hand and knee on a bench, back flat, the dumbbell hanging.', 'Row it toward your hip, elbow close to your side.', 'Lower into a full stretch.'],
+    'db-cs-row': ['Lie face down on an incline bench, dumbbells hanging.', 'Row them up, elbows back, shoulder blades squeezing.', 'Lower to straight arms. The bench takes your lower back out of it.'],
+    'db-pullover': ['Lie on a bench holding one dumbbell over your chest with both hands.', 'With a slight elbow bend, lower it back over your head until your lats stretch.', 'Pull it back over your chest.'],
+    'cb-straight': ['Face a high pulley, bar or rope at arm’s length, a slight hinge at the hips.', 'With arms nearly straight, sweep the handle down to your thighs.', 'Let it rise until your arms are overhead.'],
+    'bb-squat': ['Bar across your upper back, feet about shoulder width, toes a little out.', 'Brace, then sit down between your heels, knees over your toes, as deep as your back stays neutral.', 'Drive up through the whole foot.'],
+    'hack': ['Back and shoulders against the pads, feet shoulder width on the platform.', 'Lower until your thighs are at least level, knees over your toes.', 'Press up without snapping your knees straight.'],
+    'bb-front': ['Bar resting on the front of your shoulders, elbows high.', 'Sit straight down, torso upright, as deep as you can.', 'Drive up keeping your elbows high.'],
+    'sm-squat': ['Bar across your upper back, feet a little in front of the bar.', 'Unhook and squat to at least level.', 'Drive up and rehook at the top.'],
+    'leg-press': ['Back flat on the pad, feet shoulder width in the middle of the platform.', 'Lower until your knees come toward your chest, without your lower back curling off the pad.', 'Press up without locking your knees.'],
+    'belt-squat': ['Clip the belt around your hips, stand on the platform and hold the rails.', 'Squat down between your feet, torso upright.', 'Stand back up. Your spine carries none of the weight.'],
+    'db-bss': ['Rear foot on a bench behind you, front foot far enough ahead that the knee stays over it.', 'Holding the dumbbells, lower straight down until the back knee nearly touches the floor.', 'Push up through the front foot. All sets on one leg, then the other.'],
+    'goblet': ['Hold a dumbbell or kettlebell at your chest, elbows down.', 'Squat down between your knees, torso tall.', 'Stand up through your heels.'],
+    'db-lunge': ['Dumbbells at your sides; step forward into a long stride.', 'Lower until the back knee nearly touches the floor.', 'Push through the front foot into the next step.'],
+    'db-stepup': ['Dumbbells at your sides, one foot on a knee-high box or bench.', 'Drive through that foot to stand on the box, without pushing off the back foot.', 'Step down with control. All reps on one leg, then the other.'],
+    'bw-squat': ['Feet shoulder width, arms out in front for balance.', 'Sit as deep as you can with your heels on the floor.', 'Stand up. Go slower to make it harder.'],
+    'split-squat': ['Stand in a long split stance, back heel up.', 'Lower straight down until the back knee nearly touches the floor.', 'Push back up. All reps on one side, then the other.'],
+    'bw-bss': ['Rear foot on a bench or couch behind you.', 'Lower until the back knee nearly touches the floor.', 'Push up through the front foot.'],
+    'leg-ext': ['Pad just above your ankles, knees lined up with the machine’s pivot.', 'Straighten your legs fully and squeeze.', 'Lower slowly.'],
+    'bb-rdl': ['Stand with the bar at your thighs, knees soft.', 'Push your hips back, sliding the bar down your legs with a flat back, until your hamstrings stretch.', 'Drive your hips forward to stand.'],
+    'db-rdl': ['Dumbbells in front of your thighs, knees soft.', 'Hinge at the hips, sliding them down your legs until your hamstrings stretch, back flat.', 'Stand by driving your hips forward.'],
+    'bb-sldl': ['Bar at your thighs, knees only slightly bent.', 'Hinge forward with legs nearly straight and back flat, as far as your hamstrings allow.', 'Stand by squeezing your glutes.'],
+    'bb-dl': ['Bar over the middle of your feet, grip just outside your legs, shins touching the bar.', 'Brace with a flat back and push the floor away until you stand tall.', 'Lower by pushing your hips back, the bar close to your legs.'],
+    'good-am': ['Bar across your upper back, knees soft.', 'Push your hips back and hinge until your torso is near level or your hamstrings stop you, back flat.', 'Drive your hips forward to stand. Start light.'],
+    'lying-curl': ['Lie face down, pad just above your heels, knees just off the bench.', 'Curl your heels toward your glutes, hips pressed down.', 'Lower slowly to straight legs.'],
+    'seated-curl': ['Pad above your heels, thigh pad snug, knees lined up with the pivot.', 'Curl your heels down and back under the seat.', 'Return slowly to straight legs.'],
+    'slide-curl': ['Lie on your back, heels on towels on a smooth floor, hips up.', 'Slide your heels toward your glutes, keeping your hips high.', 'Slide them back out slowly.'],
+    'nordic': ['Kneel with your ankles anchored under something solid.', 'Keeping a straight line from knees to head, lower forward as slowly as you can, catching yourself with your hands.', 'Push off lightly and pull back up with your hamstrings.'],
+    'ball-curl': ['Lie on your back, heels on a stability ball, hips lifted.', 'Roll the ball toward you by bending your knees, hips high.', 'Roll it back out slowly.'],
+    'sl-rdl': ['Stand on one leg, knee soft.', 'Hinge forward, the free leg reaching back, until the standing hamstring stretches, hips square.', 'Stand back up. Hold something for balance if you need to.'],
+    'hip-thrust': ['Upper back on a bench, a padded bar across your hips, feet flat.', 'Drive through your heels until your thighs are level, chin tucked.', 'Lower with control.'],
+    'mc-thrust': ['Pad across your hips, upper back against the pad, feet flat.', 'Drive your hips up until your thighs are level and squeeze.', 'Lower with control.'],
+    'db-thrust': ['Upper back on a bench, a dumbbell held on your hips.', 'Drive your hips up until your thighs are level.', 'Lower with control.'],
+    'back-ext': ['Hips on the pad, ankles locked in, body straight.', 'Lower by hinging at the hips, back flat.', 'Rise by squeezing your glutes until your body is straight, and no further.'],
+    'abduct': ['Sit tall with the pads on the outsides of your knees.', 'Push your knees apart as far as they go.', 'Return slowly.'],
+    'cb-kick': ['Cuff on one ankle, facing the low pulley, holding the frame.', 'Kick the leg straight back, squeezing the glute, without arching your back.', 'Return slowly. All reps on one leg, then the other.'],
+    'glute-bridge': ['Lie on your back, knees bent, feet flat near your hips.', 'Drive through your heels until your body is straight from knees to shoulders.', 'Lower with control.'],
+    'sl-bridge': ['Lie on your back, one foot flat, the other leg lifted.', 'Drive through the planted heel until your hips are level.', 'Lower slowly. All reps on one side, then the other.'],
+    'db-lat': ['Dumbbells at your sides, a slight bend in your elbows.', 'Raise them out to the side to shoulder height, elbows leading.', 'Lower slowly.'],
+    'cb-lat': ['Stand side-on to a low pulley, the handle in your far hand.', 'Raise the arm out to the side to shoulder height.', 'Lower slowly. All reps on one side, then the other.'],
+    'mc-lat': ['Seat so your shoulders line up with the pivot, pads on your upper arms.', 'Raise your arms out to shoulder height.', 'Lower slowly.'],
+    'cb-upright': ['Stand at a low pulley with a straight bar or rope.', 'Pull it up along your body to chest height, elbows leading out to the side.', 'Lower slowly. Stop lower if your shoulders pinch.'],
+    'rev-deck': ['Face the pad, handles at shoulder height, arms straight.', 'Sweep your arms back and out until they line up with your body.', 'Return slowly.'],
+    'face-pull': ['Rope on a pulley at about face height.', 'Pull toward your face, splitting the rope, elbows high, hands ending beside your ears.', 'Return slowly.'],
+    'db-rear': ['Hinge forward with a flat back, or lie chest-down on an incline bench, dumbbells hanging.', 'Raise them out to the side with arms slightly bent, squeezing the backs of your shoulders.', 'Lower slowly.'],
+    'cb-rear': ['Stand between two pulleys at shoulder height with the cables crossed: left hand holds the right cable.', 'Pull your arms back and out until they line up with your body.', 'Return slowly.'],
+    'prone-y': ['Lie face down on an incline bench or the floor, arms overhead in a Y, thumbs up.', 'Lift your arms with the muscles between your shoulder blades.', 'Lower slowly. Tiny weights, or none.'],
+    'bb-ohp': ['Bar at your collarbones, grip just outside your shoulders, glutes tight.', 'Press straight up, moving your head back out of the way, then under the bar at the top.', 'Lower to your collarbones.'],
+    'db-ohp': ['Sit tall on an upright bench, dumbbells at shoulder height.', 'Press them overhead until your arms are straight.', 'Lower to your shoulders.'],
+    'mc-ohp': ['Seat so the handles start at shoulder height.', 'Press overhead to nearly straight arms.', 'Lower slowly.'],
+    'db-front': ['Dumbbells in front of your thighs.', 'Raise them in front of you to shoulder height, arms nearly straight.', 'Lower slowly.'],
+    'pike-pushup': ['Hands and feet on the floor, hips high in an upside-down V.', 'Bend your elbows to lower the top of your head toward the floor between your hands.', 'Press back up. Feet on a box makes it harder.'],
+    'bb-curl': ['Bar at your thighs, palms forward, elbows at your sides.', 'Curl it to your shoulders without swinging.', 'Lower all the way.'],
+    'ez-curl': ['Hold the angled grips of an EZ bar, elbows at your sides.', 'Curl to your shoulders without swinging.', 'Lower all the way.'],
+    'db-curl': ['Dumbbells at your sides, palms forward.', 'Curl them up with your elbows staying at your sides.', 'Lower all the way.'],
+    'inc-curl': ['Sit back on a bench set at about 45°, arms hanging behind your body.', 'Curl the dumbbells up without your elbows moving forward.', 'Lower into a full stretch.'],
+    'hammer': ['Dumbbells at your sides, palms facing in.', 'Curl them up, palms still facing in.', 'Lower all the way.'],
+    'cb-curl': ['Face a low pulley with a bar or rope.', 'Curl it up with your elbows at your sides.', 'Lower all the way.'],
+    'preacher': ['Seat so your armpits rest at the top of the pad, arms down it.', 'Curl the handles up.', 'Lower slowly to nearly straight arms.'],
+    'pushdown': ['Face a high pulley, elbows pinned to your sides.', 'Push the bar or rope down until your arms are straight.', 'Let it rise until your forearms pass level.'],
+    'cb-oh-ext': ['Face away from a pulley, rope behind your head, elbows by your ears.', 'Straighten your arms forward and up.', 'Bend back into a deep stretch.'],
+    'skull': ['Lie on a bench holding an EZ bar over your chest.', 'Bend at the elbows to lower it toward your forehead or just behind your head, upper arms still.', 'Straighten your arms.'],
+    'db-oh-ext': ['Sit tall holding one dumbbell overhead with both hands.', 'Lower it behind your head, elbows pointing up.', 'Straighten your arms.'],
+    'mc-tri': ['Seat so your elbows line up with the pivot.', 'Push the handles until your arms are straight.', 'Return slowly.'],
+    'cgbp': ['Lie as for a bench press, hands about shoulder width.', 'Lower the bar to your lower chest, elbows close to your sides.', 'Press up.'],
+    'bench-dip': ['Hands on the edge of a bench behind you, legs out in front.', 'Bend your elbows to lower your hips, elbows pointing back rather than out.', 'Press back up. Stop short if your shoulders complain.'],
+    'diamond': ['Push-up position with your hands together under your chest, thumbs and forefingers touching.', 'Lower your chest toward your hands, elbows close.', 'Press back up.'],
+    'calf-stand': ['Shoulders under the pads, balls of your feet on the edge of the step.', 'Lower your heels into a deep stretch and pause.', 'Rise as high as you can.'],
+    'calf-seat': ['Knees under the pad, balls of your feet on the edge.', 'Lower your heels into a deep stretch.', 'Rise as high as you can.'],
+    'calf-lp': ['On the leg press, balls of your feet on the bottom edge of the platform, legs nearly straight.', 'Let your toes come back toward you into a stretch.', 'Push the platform away with your toes.'],
+    'calf-db': ['Stand on one foot on a step, a dumbbell in that hand, the other hand holding on.', 'Lower your heel into a deep stretch.', 'Rise as high as you can. All reps on one side, then the other.'],
+    'calf-bw': ['Stand on one foot on a step, holding on for balance.', 'Lower your heel into a deep stretch.', 'Rise as high as you can.'],
+    'db-shrug': ['Dumbbells at your sides.', 'Shrug straight up toward your ears and pause.', 'Lower slowly.'],
+    'bb-shrug': ['Bar in front of your thighs.', 'Shrug straight up and pause.', 'Lower slowly.'],
+    'cb-shrug': ['Stand at a low pulley with a bar or handles.', 'Shrug straight up and pause.', 'Lower slowly.'],
+    'cb-crunch': ['Kneel facing a high pulley, rope held beside your head.', 'Curl your ribs toward your hips, rounding your back.', 'Uncurl slowly; your hips stay still.'],
+    'hang-raise': ['Hang from a bar.', 'Raise your knees, or straight legs, as high as you can, curling your pelvis up.', 'Lower without swinging.'],
+    'ab-wheel': ['Kneel holding the wheel under your shoulders.', 'Roll forward as far as you can without your lower back sagging.', 'Pull back with your abs.'],
+    'mc-crunch': ['Sit and take the handles, feet secured.', 'Curl forward, bringing your ribs toward your hips.', 'Return slowly.'],
+    'crunch': ['Lie on your back, knees bent, hands by your head.', 'Curl your shoulders off the floor toward your hips.', 'Lower slowly, without pulling on your neck.'],
+    'pallof': ['Stand side-on to a pulley at chest height, handle at your chest.', 'Press it straight out and hold, not letting it turn you.', 'Bring it back. All reps on one side, then the other.'],
+    'dead-bug': ['Lie on your back, arms up, knees bent over your hips, lower back pressed down.', 'Slowly lower one arm and the opposite leg toward the floor.', 'Return and switch sides; your lower back stays down.'],
+    'bird-dog': ['On hands and knees, back flat.', 'Reach one arm forward and the opposite leg back until level, and hold a moment.', 'Return and switch sides without rocking.']
+  };
+
+  /* A picture or a clip of the lift, when there is one: nothing yet. Put a
+     file at art/lifts/<id>.webp (or .mp4) and name it here, and the lift's
+     page shows it above the steps. Your own how-to link, set on the lift's
+     note, shows whether or not there is one. */
+  var MEDIA = {};
+
   var EQUIP = { bb: 'Barbell', db: 'Dumbbell', mc: 'Machine', cb: 'Cable', sm: 'Smith machine', bw: 'Bodyweight' };
 
   /* What you have to train with. The generator only draws from these. */
@@ -541,6 +658,8 @@
       pl: ['row', 'type', 'off'].indexOf(p.pl) >= 0 ? p.pl : 'row',
       // a bar of its own for a lift that is not on the usual one: an EZ bar, a Smith machine
       bars: cleanBars(p.bars),
+      // a rest of its own for a lift: longer on the squat, shorter on the curls
+      rests: cleanRests(p.rests),
       /* Everything below is you, answered once in the quiz and read by the
          picks, the builder and the review. */
       // what you train for; the first version knew two, and 'grow' was the first
@@ -577,6 +696,16 @@
       if (plain(v) && typeof v.e === 'string' && fin(v.w) && v.w >= 0 && v.w <= 100 && (v.u === 'lb' || v.u === 'kg')) {
         out[k] = { e: v.e, w: v.w, u: v.u };
       }
+    });
+    return out;
+  }
+
+  function cleanRests(b) {
+    var out = {};
+    if (!plain(b)) return out;
+    Object.keys(b).slice(0, 200).forEach(function (k) {
+      var v = b[k];
+      if (plain(v) && typeof v.e === 'string' && fin(v.s) && v.s >= 15 && v.s <= 600) out[k] = { e: v.e, s: v.s };
     });
     return out;
   }
@@ -672,7 +801,8 @@
     wo: function (v) {
       return plain(v) && fin(v.st) && Array.isArray(v.x) && v.x.every(function (x) {
         return plain(x) && typeof x.e === 'string' && Array.isArray(x.s) && x.s.every(function (s) {
-          return plain(s) && fin(s.w) && fin(s.r) && (s.q === undefined || fin(s.q));
+          return plain(s) && fin(s.w) && fin(s.r) && (s.q === undefined || fin(s.q)) &&
+            (s.ty === undefined || s.ty === 'd' || s.ty === 'f');
         });
       }) && (v.nt === undefined || (typeof v.nt === 'string' && v.nt.length <= 1000));
     },
@@ -684,7 +814,12 @@
         (v.ms === undefined || (typeof v.ms === 'string' && fin(v.w) && fin(v.d)));
     },
     // a note that follows an exercise: the seat, the grip, the bench that wobbles
-    nt: function (v) { return plain(v) && typeof v.e === 'string' && typeof v.t === 'string' && v.t.length > 0 && v.t.length <= 200; }
+    nt: function (v) {
+      return plain(v) && typeof v.e === 'string' &&
+        (v.t === undefined || (typeof v.t === 'string' && v.t.length <= 200)) &&
+        (v.u === undefined || (typeof v.u === 'string' && v.u.length <= 300 && /^https?:\/\//i.test(v.u))) &&
+        !!((v.t && v.t.length) || (v.u && v.u.length));
+    }
   };
 
   var T = loadT();
@@ -854,19 +989,60 @@
   function ntKey(e) { return 'n' + String(e).replace(/[^A-Za-z0-9]/g, ''); }
   function noteOf(e) {
     var n = T.nt[ntKey(e)];
-    return n && n.e === e ? n.t : '';
+    return n && n.e === e ? n.t || '' : '';
+  }
+  // a link to how it is done: a video you trust, your coach's clip
+  function linkOf(e) {
+    var n = T.nt[ntKey(e)];
+    return n && n.e === e ? n.u || '' : '';
+  }
+  // what a pasted link becomes: https:// added to a bare address, anything else refused
+  function cleanLink(u) {
+    u = String(u || '').trim();
+    if (!u) return '';
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u.replace(/^\/+/, '');
+    return /^https?:\/\/[^\s<>"']+$/i.test(u) && u.length <= 300 ? u : null;
   }
   /* The bar a lift is loaded on: yours if you set one, else an EZ bar for
      the EZ-bar lifts, a Smith machine's for the Smith lifts (they run
      about 15 to 25 lb, some counterweighted to nothing, so it is shown to
      be checked), else the default bar in Settings. */
+  /* The bars a gym has, by name, the way Strong lists them. An EZ bar is
+     lighter than most people guess (15 lb); a Smith machine's bar is
+     anybody's guess, which is why it is always shown beside the lift. */
+  var BARS = [
+    { k: 'oly', n: 'Olympic bar', lb: 45, kg: 20 },
+    { k: 'short', n: 'Short bar', lb: 33, kg: 15 },
+    { k: 'ez', n: 'EZ bar', lb: 15, kg: 7 },
+    { k: 'hex', n: 'Hex bar', lb: 75, kg: 34 },
+    { k: 'smith', n: 'Smith machine', lb: 20, kg: 10 },
+    { k: 'none', n: 'No bar', lb: 0, kg: 0 }
+  ];
+  function barW(k) {
+    for (var i = 0; i < BARS.length; i++) if (BARS[i].k === k) return T.pr.u === 'kg' ? BARS[i].kg : BARS[i].lb;
+    return T.pr.bar;
+  }
   function barFor(e) {
     var b = T.pr.bars[ntKey(e)];
     if (b && b.e === e) return conv(b.w, b.u);
-    var ex = lib(e), kg = T.pr.u === 'kg';
-    if (/\bez\b/i.test(ex.n)) return kg ? 10 : 25;
-    if (ex.q === 'sm') return kg ? 10 : 20;
+    var ex = lib(e);
+    if (/\bez\b/i.test(ex.n)) return barW('ez');
+    if (ex.q === 'sm') return barW('smith');
     return T.pr.bar;
+  }
+  // "Olympic bar 45 lb", "Smith bar 20 lb", "bar 50 lb" for one of your own, "no bar"
+  function barLabel(e) {
+    var n = barName(e), w = fmtN(barFor(e)) + ' ' + T.pr.u;
+    if (n === 'No bar') return 'no bar';
+    if (n === 'Bar') return 'bar ' + w;
+    return (n === 'Smith machine' ? 'Smith bar' : n) + ' ' + w;
+  }
+  // "Olympic bar", or plainly "Bar" for a weight no named bar has
+  function barName(e) {
+    var w = barFor(e), ex = lib(e);
+    if (ex.q === 'sm' && w === barW('smith')) return 'Smith machine';
+    for (var i = 0; i < BARS.length; i++) if ((T.pr.u === 'kg' ? BARS[i].kg : BARS[i].lb) === w) return BARS[i].n;
+    return 'Bar';
   }
   function barSet(e) { var b = T.pr.bars[ntKey(e)]; return !!(b && b.e === e); }
   function setBar(e, w) {
@@ -885,6 +1061,8 @@
      count, so a heavy deadlift still fits the box. */
   var PL_H = { lb: { 45: 1, 35: 0.88, 25: 0.76, 10: 0.62, 5: 0.54, 2.5: 0.46 },
     kg: { 25: 1, 20: 1, 15: 0.9, 10: 0.78, 5: 0.62, 2.5: 0.54, 1.25: 0.46 } };
+  // "pl-lb-45": the colour class for a plate, by its weight in the unit you lift in
+  function plCls(p) { return 'pl-' + T.pr.u + '-' + String(p).replace('.', '_'); }
   function stackHTML(w, bar, dim, room) {
     if (w === null || !(w > 0)) return '';
     var u = T.pr.u, pm = plateMath(w, bar, u);
@@ -899,7 +1077,7 @@
     return '<span class="tr-stk' + (dim ? ' dim' : '') + '" role="img" aria-label="' + esc(say) + '">' +
       '<i class="tr-stk-bar"></i>' +
       (ps.length ? groups.map(function (g) {
-        return '<b class="tr-stk-p" style="--h:' + ((PL_H[u] || {})[g.p] || 0.5) + '">' + fmtP(g.p) +
+        return '<b class="tr-stk-p ' + plCls(g.p) + '" style="--h:' + ((PL_H[u] || {})[g.p] || 0.5) + '">' + fmtP(g.p) +
           (g.n > 1 ? '<small>\u00d7' + g.n + '</small>' : '') + '</b>';
       }).join('') : '<span class="tr-stk-e">bar only</span>') +
       '<i class="tr-stk-end"></i>' +
@@ -907,10 +1085,13 @@
     '</span>';
   }
 
-  function setNote(e, t) {
+  function setNote(e, t, u) {
     t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 200);
-    var k = ntKey(e);
-    if (t) T.nt[k] = { e: e, t: t }; else if (T.nt[k]) delete T.nt[k]; else return;
+    u = u === undefined ? linkOf(e) : u || '';
+    var k = ntKey(e), v = { e: e };
+    if (t) v.t = t;
+    if (u) v.u = u;
+    if (t || u) T.nt[k] = v; else if (T.nt[k]) delete T.nt[k]; else return;
     stamp('nt', k);
   }
   function allEx() {
@@ -947,8 +1128,10 @@
       wo.x.forEach(function (x) {
         var had = before[x.e];
         var now = best[x.e] || { e1: 0, w: 0, r: 0, vol: 0 };
-        var hit = had ? beats(had, x.s, wo.u) : '';
-        x.s.forEach(function (s) {
+        // a warm-up is never a record: 45 × 14 is not your most reps on the bench
+        var work = x.s.filter(function (s) { return !s.wu; });
+        var hit = had ? beats(had, work, wo.u) : '';
+        work.forEach(function (s) {
           var w = conv(s.w, wo.u);
           now.e1 = Math.max(now.e1, e1rm(w, s.r));
           now.w = Math.max(now.w, w);
@@ -1065,7 +1248,22 @@
     if (keep && ex.k !== 'c') return Math.max(0, rir - 1);
     return ex.k === 'c' && (ex.q === 'bb' || ex.q === 'sm') ? Math.max(1, rir) : rir;
   }
-  function restFor(ex) { return ex.k === 'c' ? T.pr.rc : T.pr.ri; }
+  /* A lift's own rest if you set one, else the compound or the isolation
+     rest from Settings. */
+  function restFor(ex) {
+    var r = T.pr.rests && T.pr.rests[ntKey(ex.id)];
+    if (r && r.e === ex.id) return r.s;
+    return ex.k === 'c' ? T.pr.rc : T.pr.ri;
+  }
+  function restSet(e) { var r = T.pr.rests[ntKey(e)]; return !!(r && r.e === e); }
+  function setRest(e, s) {
+    var k = ntKey(e), rests = Object.assign({}, T.pr.rests);
+    if (s === null) delete rests[k]; else rests[k] = { e: e, s: s };
+    T.pr.rests = rests;
+    stamp('pr');
+    // the workout open now takes it at once
+    if (LIVE) LIVE.x.forEach(function (x) { if (x.e === e) x.rest = restFor(lib(e)); });
+  }
 
   /* The last time this exercise was done properly: not in a deload, where
      the weights are light on purpose and would drag next week's down. */
@@ -1096,8 +1294,10 @@
     }
     if (!src) src = lastPerf(ex.id);
     if (!src) return { tw: null, tr: null, prev: [] };
-    var prev = src.s.map(function (s) { return { w: conv(s.w, src.u), r: s.r }; });
-    var top = topSet(src.s, src.u);
+    var prev = src.s.map(function (s) { return { w: conv(s.w, src.u), r: s.r, wu: s.wu ? 1 : 0 }; });
+    // next time's weight is worked from the working sets, never the warm-ups
+    var work = src.s.filter(function (s) { return !s.wu; });
+    var top = topSet(work.length ? work : src.s, src.u);
     var step = inc(ex);
     if (dl) {
       /* Half the sets, and the weights of week one — RP's deload is less of
@@ -2142,6 +2342,7 @@
       var x = exIn(wo, e);
       if (!x) return;
       x.s.forEach(function (s) {
+        if (s.wu) return;
         var w = conv(s.w, wo.u);
         best.e1 = Math.max(best.e1, e1rm(w, s.r));
         best.w = Math.max(best.w, w);
@@ -2174,7 +2375,7 @@
     if (known && T.wo[wo.id] === wo) return known;
     var out = [];
     wo.x.forEach(function (x) {
-      var hit = beats(records(x.e, wo.st), x.s, wo.u);
+      var hit = beats(records(x.e, wo.st), x.s.filter(function (s) { return !s.wu; }), wo.u);
       if (hit) out.push({ e: x.e, what: hit });
     });
     return out;
@@ -2419,8 +2620,9 @@
     wos.forEach(function (wo) {
       wo.x.forEach(function (x) {
         x.s.forEach(function (s) {
-          if (s.wu || s.am || !fin(s.q)) return;
-          var q = Math.min(5, s.q);
+          var qv = fin(s.q) ? s.q : s.ty === 'f' ? 0 : null;
+          if (s.wu || s.am || qv === null) return;
+          var q = Math.min(5, qv);
           eff.n++; eff.q += q;
           if (fin(x.pq)) { eff.dn++; eff.dq += q; eff.pq += x.pq; }
         });
@@ -2794,9 +2996,14 @@
     /* A main lift is written set by set; everything else is the same target
        for every set. */
     var per = Array.isArray(s.st) ? s.st : null;
+    /* Last time's warm-ups beside this time's, working sets beside working
+       sets, so a warm-up at the top of last session does not push every
+       Previous down a row. */
+    var prevW = prev.filter(function (v) { return v.wu; }), prevN = prev.filter(function (v) { return !v.wu; });
+    var iw = 0, iN = 0;
     for (var i = 0; i < (per ? per.length : Math.max(1, n)); i++) {
-      var pv = prev[i] || prev[prev.length - 1] || null;
       var q = per ? per[i] : s;
+      var pv = per && q.wu ? prevW[iw++] || null : prevN[iN++] || prevN[prevN.length - 1] || null;
       var set = { w: '', r: '', t: 0,
         tw: fin(q.tw) ? q.tw : null, tr: fin(q.tr) ? q.tr : null,
         pw: pv ? pv.w : null, pr: pv ? pv.r : null };
@@ -2806,6 +3013,8 @@
     }
     var out = { e: e, rr: ex.rr.slice(), rir: s.rir === undefined ? null : s.rir, rest: s.rest || restFor(ex), s: sets,
       p: s.p || 0 };
+    // last time's sets, kept so Previous can be paired again when a set changes kind
+    if (prev.length) out.pv = prev.map(function (v) { return { w: v.w, r: v.r, wu: v.wu ? 1 : 0 }; });
     if (per) { out.fix = 1; if (fin(s.tm)) out.tm = s.tm; if (s.main) out.main = s.main; }
     return out;
   }
@@ -2916,6 +3125,7 @@
     var cw = null, cr = null;
     for (var j = si - 1; j >= 0; j--) {
       var e = x.s[j];
+      if (!!e.wu !== !!s.wu) continue;
       if (cw === null) cw = numIn(e.w);
       if (cr === null) cr = numIn(e.r);
       if (cw !== null && cr !== null) break;
@@ -2953,11 +3163,35 @@
     s.w = w; s.r = r; s.t = Date.now();
     var more = LIVE.x.some(function (y) { return y.s.some(function (z) { return !z.t; }); });
     /* In a pair, the rest after a set is the short one: the other half goes
-       next, and it is resting this muscle while it works. */
-    if (more) startRest(partner(xi) >= 0 ? T.pr.rp : x.rest);
+       next, and it is resting this muscle while it works. After a warm-up a
+       minute is plenty; before a drop set there is none, which is the point
+       of one. */
+    var nextS = x.s[si + 1];
+    if (more && nextS && nextS.ty === 'd' && !nextS.t) LIVE.rs = null;
+    else if (more) startRest(restAfter(xi, si));
     saveLive();
     audioPrime();
     draw();
+  }
+
+  /* Previous, paired again: last time's warm-ups beside this time's
+     warm-ups, working sets beside working sets, after a set changes kind or
+     one is added or taken away. */
+  function remapPrev(x) {
+    if (!Array.isArray(x.pv) || !x.pv.length) return;
+    var pw = x.pv.filter(function (v) { return v.wu; }), pn = x.pv.filter(function (v) { return !v.wu; });
+    var iw = 0, iN = 0;
+    x.s.forEach(function (s) {
+      var v = s.wu ? pw[iw++] || null : pn[iN++] || pn[pn.length - 1] || null;
+      s.pw = v ? v.w : null;
+      s.pr = v ? v.r : null;
+    });
+  }
+
+  function restAfter(xi, si) {
+    var x = LIVE.x[xi], s = x.s[si];
+    if (partner(xi) >= 0) return T.pr.rp;
+    return s && s.wu ? Math.min(60, x.rest) : x.rest;
   }
 
   /* ------------------------------------------------------------ rest timer
@@ -3081,6 +3315,7 @@
           // the as-many-as-you-can set keeps its target, which the next wave's max is worked from
           if (s.am) { o.am = 1; if (fin(s.tr)) o.tr = s.tr; }
           if (s.wu) o.wu = 1;
+          if (s.ty === 'd' || s.ty === 'f') o.ty = s.ty;
           // reps in reserve, when you said
           var q = numIn(s.q);
           if (q !== null && q >= 0 && q <= 10) o.q = q;
@@ -4130,7 +4365,7 @@
     var x = LIVE.x[xi], sw = setWeight(xi, si), bar = barFor(x.e);
     var stk = stackHTML(sw.w, bar, sw.dim, 8);
     return '<span class="tr-plrow-l">Per side</span>' + (stk || '<span class="tr-stk-e">type a weight</span>') +
-      '<button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '">bar ' + fmtN(bar) + ' ' + T.pr.u + '</button>';
+      '<button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '">' + esc(barLabel(x.e)) + '</button>';
   }
   /* Typing a weight moves the plates at once, and the greyed weight of the
      sets after it, without redrawing the box being typed in. */
@@ -4160,10 +4395,11 @@
       var rph = g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
       var prev = fin(s.pw) && fin(s.pr) ? fmtN(s.pw) + ' × ' + s.pr : '—';
       var flash = S.flash === i + ':' + j;
-      // ramp sets are lettered, working sets numbered, the all-out set marked
-      var lab = s.wu ? 'R' : String(++num) + (s.am ? '+' : '');
-      return '<div class="tr-set' + (s.t ? ' done' : '') + (flash ? ' flash' : '') + (s.am ? ' tr-am' : '') + (s.wu ? ' tr-wu' : '') + '">' +
-        '<span class="tr-sn" title="' + (s.wu ? 'Ramp set' : s.am ? 'As many good reps as you can' : 'Set ' + num) + '">' + lab + '</span>' +
+      // warm-ups, drop sets and failure sets are lettered, working sets numbered, the all-out set marked
+      var lab = setLab(s, function () { return ++num; });
+      return '<div class="tr-set' + (s.t ? ' done' : '') + (flash ? ' flash' : '') + (s.am ? ' tr-am' : '') + (s.wu ? ' tr-wu' : '') +
+          (s.ty === 'd' ? ' tr-dd' : s.ty === 'f' ? ' tr-ff' : '') + '">' +
+        '<button class="tr-sn tr-snb" data-t="sty" data-x="' + i + '" data-s="' + j + '" aria-label="' + esc(setSay(s) + ', set ' + (j + 1) + '. Change what kind of set it is') + '">' + lab + '</button>' +
         (pl === 'row' ? '<span class="tr-prev tr-prev-pl" id="trpl-' + i + '-' + j + '">' + plCell(i, j) + '</span>'
           : '<span class="tr-prev">' + prev + '</span>') +
         '<input class="tr-in" id="trw-' + i + '-' + j + '" data-in="w" data-x="' + i + '" data-s="' + j + '" ' +
@@ -4177,7 +4413,13 @@
           'aria-label="' + (s.t ? 'Undo set ' : 'Done with set ') + (j + 1) + '">✓</button>' +
       '</div>' +
       (pl === 'type' ? '<div class="tr-plrow' + (j === nx ? ' on' : '') + '" id="trplr-' + i + '-' + j + '"' + (j === nx ? ' data-next="1"' : '') + '>' +
-        plStrip(i, j) + '</div>' : '');
+        plStrip(i, j) + '</div>' : '') +
+      /* The rest that follows this set, between it and the next, the way
+         Strong draws it: a minute after a warm-up, none before a drop set,
+         the pair's rest in a pair. Tap it to change the lift's rest. */
+      (j < x.s.length - 1 ? '<div class="tr-rdiv"><button class="tr-rdiv-b" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest after this set: ' +
+        (x.s[j + 1].ty === 'd' ? 'none, a drop set follows' : clock(restAfter(i, j))) + '. Change the rest for ' + esc(ex.n) + '">' +
+        (x.s[j + 1].ty === 'd' ? 'no rest' : clock(restAfter(i, j))) + '</button></div>' : '');
     }).join('');
     var heavy = ex.q === 'bb' || ex.q === 'sm';
     return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '">' +
@@ -4192,12 +4434,12 @@
         '<span class="tr-ex-m">' + esc(mname(ex.m)) + ' \u00b7 ' + (x.fix ? 'main lift, set by set' : ex.rr[0] + '\u2013' + ex.rr[1] + ' reps') +
           (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + x.rir + ' RIR' : '') +
           (mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
-            : ' \u00b7 rest ' + clock(x.rest)) +
+            : ' \u00b7 <button class="tr-lnk tr-barl" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest ' + clock(x.rest) + ' for ' + esc(ex.n) + '. Change">rest ' + clock(x.rest) + '</button>') +
           (fin(x.tm) ? ' \u00b7 training max ' + fmtN(x.tm) + ' ' + T.pr.u : '') +
-          (onBar(ex) ? ' \u00b7 <button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '" aria-label="Bar for ' + esc(ex.n) + ': ' +
-            fmtN(barFor(x.e)) + ' ' + T.pr.u + '. Change">bar ' + fmtN(barFor(x.e)) + ' ' + T.pr.u + '</button>' : '') + '</span>' +
+          (onBar(ex) ? ' \u00b7 <button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '" aria-label="' + esc(barName(x.e)) + ' for ' + esc(ex.n) + ': ' +
+            fmtN(barFor(x.e)) + ' ' + T.pr.u + '. Change">' + esc(barLabel(x.e)) + '</button>' : '') + '</span>' +
         (x.s.some(function (s) { return s.am; }) ? '<span class="tr-cue">Last set: as many good reps as you can \u2014 stop when one slows to a grind. It sets your next wave\u2019s weights.</span>' : '') +
-        (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">R is a ramp set on the way up: done, not counted.</span>' : '') +
+        (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">W is a warm-up: done, not counted, and a short rest after it.</span>' : '') +
         (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
         (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
@@ -4215,6 +4457,30 @@
         '<button class="tr-lnk" data-t="rmex" data-x="' + i + '">Remove</button>' +
       '</div>' +
     '</div>';
+  }
+
+  /* What kind of set, in a letter and in words. */
+  function setLab(s, n) {
+    return s.wu ? 'W' : s.ty === 'd' ? 'D' : s.ty === 'f' ? 'F' : String(n()) + (s.am ? '+' : '');
+  }
+  function setTag(s) {
+    return s.wu ? '<span class="tr-tag w">W</span>' : s.ty === 'd' ? '<span class="tr-tag d">D</span>' : s.ty === 'f' ? '<span class="tr-tag f">F</span>' : '';
+  }
+  function setSay(s) {
+    return s.wu ? 'Warm-up' : s.ty === 'd' ? 'Drop set' : s.ty === 'f' ? 'To failure' : s.am ? 'As many good reps as you can' : 'Working set';
+  }
+  var STY = [['', 'Working set'], ['w', 'Warm-up'], ['d', 'Drop set'], ['f', 'To failure']];
+  function styHTML(sh) {
+    var x = LIVE && LIVE.x[sh.x], s = x && x.s[sh.s];
+    if (!s) return '';
+    var cur = s.wu ? 'w' : s.ty || '';
+    return '<div class="sheet-name tr-sn2">Set ' + (sh.s + 1) + ' of ' + esc(lib(x.e).n) + '</div>' +
+      '<div class="tr-q">' + chips('styset', cur, STY) + '</div>' +
+      '<ul class="tr-fits tr-styl">' +
+        '<li><b>Warm-up</b>: lighter, on the way up. Not a hard set, never a record, and a minute\u2019s rest after it.</li>' +
+        '<li><b>Drop set</b>: straight after the set before it, lighter, no rest between.</li>' +
+        '<li><b>To failure</b>: the last rep you could do. Counted as a hard set with nothing in reserve.</li></ul>' +
+      (x.s.length > 1 ? '<div class="tr-acts"><button class="ghost danger" data-t="styrm">Remove this set</button></div>' : '');
   }
 
   /* Reps in reserve for one set: blank until you say. Five means five or
@@ -4317,7 +4583,7 @@
       var prs = prsIn(wo).length;
       return '<button class="tr-card tr-hrow" data-t="wosheet" data-id="' + esc(wo.id) + '">' +
         '<span class="tr-h-top"><span class="tr-h-n">' + esc(wo.n) + '</span>' +
-          '<span class="tr-h-d">' + when(wo.st) + '</span></span>' +
+          '<span class="tr-h-d">' + when(wo.st) + ' \u00b7 ' + hm(wo.st) + '</span></span>' +
         '<span class="tr-h-meta">' + dur((wo.en || wo.st) - wo.st) + ' · ' + setsOf(wo) + ' sets · ' +
           fmtBig(volOf(wo)) + ' ' + T.pr.u + (prs ? ' · <span class="tr-pr">★ ' + prs + ' record' + (prs === 1 ? '' : 's') + '</span>' : '') +
           (wo.mc && mcScore(wo.mc) ? ' · circuit ' + esc(mcScore(wo.mc)) : '') +
@@ -4465,6 +4731,8 @@
     else if (sh.k === 'note') body = noteHTML(sh);
     else if (sh.k === 'bar') body = barHTML(sh);
     else if (sh.k === 'times') body = startHTML();
+    else if (sh.k === 'sty') body = styHTML(sh);
+    else if (sh.k === 'rest') body = restHTML(sh);
     else if (sh.k === 'strong') body = strongHTML();
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
@@ -4536,35 +4804,121 @@
     return out;
   }
 
+  /* A lift's own page, the way Strong lays one out: how it is done, every
+     session of it, its lines over time, and its records. It opens on
+     History once there is some, on About before. */
+  var EXTABS = [['about', 'About'], ['history', 'History'], ['charts', 'Charts'], ['records', 'Records']];
   function exSheetHTML(sh) {
     var e = sh.e, ex = lib(e);
     var ss = sessionsOf(e);
-    var r = records(e);
-    var byReps = !(r.e1 > 0);
-    var series = ss.map(function (s) {
-      return { t: s.wo.st, v: byReps ? Math.max.apply(null, s.x.s.map(function (z) { return z.r; })) : bestE1(s.x.s, s.wo.u) };
-    });
-    var note = noteOf(e);
+    var tab = sh.tab || (ss.length ? 'history' : 'about');
     var html = '<div class="sheet-name tr-sn2">' + esc(ex.n) + '</div>' +
-      '<div class="tr-sub">' + esc(mname(ex.m)) + ' · ' + esc(EQUIP[ex.q] || '') + ' · ' +
-        ex.rr[0] + '–' + ex.rr[1] + ' reps</div>' +
+      '<div class="seg tr-seg tr-extab" role="group" aria-label="' + esc(ex.n) + '">' + EXTABS.map(function (t) {
+        return '<button data-t="extab" data-v="' + t[0] + '" aria-pressed="' + (tab === t[0]) + '">' + t[1] + '</button>';
+      }).join('') + '</div>';
+    if (tab === 'about') return html + exAbout(e, ex);
+    if (!ss.length) return html + '<div class="tr-note">Not logged yet. Its history, charts and records fill in after the first session.</div>';
+    if (tab === 'history') return html + exHistory(e, ss);
+    if (tab === 'charts') return html + exCharts(e, ss);
+    return html + exRecords(e, ss);
+  }
+  function exAbout(e, ex) {
+    var steps = HOWTO[e], m = MEDIA[e], link = linkOf(e), note = noteOf(e), cue = backCue(ex);
+    return (m ? (m.kind === 'video'
+        ? '<video class="tr-media" src="' + esc(m.src) + '" muted loop playsinline autoplay aria-label="' + esc(ex.n) + '"></video>'
+        : '<img class="tr-media" src="' + esc(m.src) + '" alt="' + esc(ex.n) + '">') +
+        (m.credit ? '<div class="tr-sub">' + esc(m.credit) + '</div>' : '') : '') +
+      (steps ? '<ol class="tr-howto">' + steps.map(function (st) { return '<li>' + esc(st) + '</li>'; }).join('') + '</ol>'
+        : '<div class="tr-note">' + (ex.own ? 'One of your own, so no steps are written for it. ' : '') + 'A how-to link on its note shows here.</div>') +
+      (link ? '<a class="tr-howlink" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">Watch how it\u2019s done \u2197</a>' : '') +
+      '<dl class="tr-dl">' +
+        '<dt>Trains</dt><dd>' + esc(mname(ex.m)) + '</dd>' +
+        '<dt>Kit</dt><dd>' + esc(EQUIP[ex.q] || '') + ' \u00b7 ' + (ex.k === 'c' ? 'compound' : 'isolation') + '</dd>' +
+        '<dt>Reps</dt><dd>' + ex.rr[0] + '\u2013' + ex.rr[1] + '</dd>' +
+        (onBar(ex) ? '<dt>Bar</dt><dd><button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(e) + '">' + esc(barLabel(e)) + '</button></dd>' : '') +
+        '<dt>Rest</dt><dd><button class="tr-lnk tr-barl" data-t="restpick" data-e="' + esc(e) + '">' + clock(restFor(ex)) + '</button></dd>' +
+        (cue ? '<dt>Your back</dt><dd>' + esc(cue) + '</dd>' : '') +
+      '</dl>' +
       '<button class="tr-exnt tr-exnt-s" data-t="note" data-e="' + esc(e) + '">' +
-        (note ? '<span class="tr-exnt-l">Note</span> ' + esc(note) : '<span class="tr-exnt-l">+ Note</span> for next time: the seat, the grip') + '</button>';
-    if (!ss.length) return html + '<div class="tr-note">Not logged yet. Records and a chart appear after the first session.</div>';
-    html += '<div class="tr-recs">' +
-      rec('Best e1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '—') +
-      rec('Heaviest', r.w > 0 ? fmtN(r.w) + ' ' + T.pr.u : '—') +
-      rec('Most reps', r.r) +
-      rec('Best set', r.vol > 0 ? fmtBig(r.vol) + ' ' + T.pr.u : '—') +
+        (note ? '<span class="tr-exnt-l">Note</span> ' + esc(note) : '<span class="tr-exnt-l">+ Note</span> for next time: the seat, the grip' + (link ? '' : ', a how-to link')) + '</button>' +
+      (steps ? '<div class="tr-hint">Short cues, not a substitute for being shown. Anything that hurts is a question for a physio or a coach.</div>' : '');
+  }
+  function exHistory(e, ss) {
+    return ss.slice().reverse().slice(0, 30).map(function (s) {
+      var num = 0;
+      return '<div class="tr-hs"><div class="tr-hs-h"><span class="tr-hs-n">' + esc(s.wo.n) + '</span>' +
+          '<span class="tr-hs-d">' + when(s.wo.st) + ' \u00b7 ' + hm(s.wo.st) + '</span></div>' +
+        '<table class="tr-hs-t"><tbody>' + s.x.s.map(function (z) {
+          var w = conv(z.w, s.wo.u), e1 = z.wu ? 0 : e1rm(w, z.r);
+          return '<tr' + (z.wu ? ' class="w"' : '') + '><td class="tr-hs-l">' + setLab(z, function () { return ++num; }) + '</td>' +
+            '<td>' + (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' \u00d7 ' : '') + z.r + (fin(z.q) ? ' <span class="tr-e1">' + rqSay(z.q) + '</span>' : '') + '</td>' +
+            '<td class="tr-hs-e">' + (e1 > 0 ? Math.round(e1) : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }).join('') + '<div class="tr-hint">The last number is the estimated one-rep max for that set (Epley). Warm-ups have none.</div>';
+  }
+  function exCharts(e, ss) {
+    var r = records(e), byReps = !(r.e1 > 0);
+    var work = function (s) { return s.x.s.filter(function (z) { return !z.wu; }); };
+    var pts = function (f) {
+      return ss.map(function (s) { var ws = work(s); return ws.length ? { t: s.wo.st, v: f(ws, s.wo.u) } : null; }).filter(Boolean);
+    };
+    var one = function (title, series, reps) {
+      return '<div class="tr-ql tr-chart-h">' + title + '</div>' +
+        (series.length >= 2 ? chartSVG(series, reps) : '<div class="tr-note">Two sessions and this draws.</div>');
+    };
+    return byReps
+      ? one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
+        one('Total reps', pts(function (ws) { return ws.reduce(function (a, z) { return a + z.r; }, 0); }), true)
+      : one('Estimated one-rep max', pts(function (ws, u) { return bestE1(ws, u); }), false) +
+        one('Heaviest set', pts(function (ws, u) { return Math.max.apply(null, ws.map(function (z) { return conv(z.w, u); })); }), false) +
+        one('Volume, working sets (' + T.pr.u + ')', pts(function (ws, u) { return ws.reduce(function (a, z) { return a + conv(z.w, u) * z.r; }, 0); }), false);
+  }
+  /* The heaviest you have lifted for at least N reps, for each N, and what
+     your best estimated max says you could: the table to pick today's
+     weight from. */
+  function repMaxes(ss) {
+    var out = [];
+    for (var n = 1; n <= 12; n++) {
+      var best = null;
+      ss.forEach(function (s) {
+        s.x.s.forEach(function (z) {
+          if (z.wu || z.r < n) return;
+          var w = conv(z.w, s.wo.u);
+          if (w > 0 && (!best || w > best.w)) best = { w: w, r: z.r, st: s.wo.st };
+        });
+      });
+      if (best) out.push({ n: n, b: best });
+    }
+    return out;
+  }
+  function exRecords(e, ss) {
+    var r = records(e), byReps = !(r.e1 > 0);
+    var html = '<div class="tr-recs">' +
+      rec('Estimated 1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
+      rec('Heaviest', r.w > 0 ? fmtN(r.w) + ' ' + T.pr.u : '\u2014') +
+      rec('Best set', r.vol > 0 ? fmtBig(r.vol) + ' ' + T.pr.u : '\u2014') +
+      rec('Most reps', r.r || '\u2014') +
     '</div>';
-    html += '<div class="tr-ql tr-chart-h">' + (byReps ? 'Best set, in reps' : 'Estimated one-rep max') + ' · per session</div>';
-    html += series.length >= 2 ? chartSVG(series, byReps)
-      : '<div class="tr-note">Two sessions and this draws.</div>';
-    html += '<div class="tr-ql tr-chart-h">Sessions</div><ol class="tr-sess">' + ss.slice().reverse().slice(0, 20).map(function (s) {
-      return '<li><span class="tr-ss-d">' + when(s.wo.st) + '</span><span class="tr-ss-s">' + s.x.s.map(function (z) {
-        return (conv(z.w, s.wo.u) > 0 ? fmtN(conv(z.w, s.wo.u)) + ' × ' : '') + z.r + (fin(z.q) ? ' @' + (z.q >= 5 ? '5+' : fmtN(z.q)) : '');
-      }).join(', ') + '</span></li>';
-    }).join('') + '</ol>';
+    if (!byReps) {
+      var rm = repMaxes(ss);
+      html += '<div class="tr-ql tr-chart-h">Best for each number of reps</div>' +
+        '<table class="tr-rmx"><thead><tr><th>Reps</th><th>Best</th><th>Estimated</th></tr></thead><tbody>' +
+        rm.map(function (row) {
+          var est = row.n === 1 ? r.e1 : r.e1 / (1 + row.n / 30);
+          return '<tr><td>' + row.n + '</td><td>' + fmtN(row.b.w) + ' ' + T.pr.u + ' <span class="tr-e1">\u00d7' + row.b.r + '</span>' +
+            '<span class="tr-rmx-d">' + shortDate(row.b.st) + '</span></td><td>' + fmtN(Math.round(est)) + ' ' + T.pr.u + '</td></tr>';
+        }).join('') + '</tbody></table>' +
+        '<div class="tr-hint">Best: the heaviest you have lifted for at least that many reps. Estimated: what your best estimated max says you could, by Epley, which drifts past about ten reps.</div>';
+    }
+    var hist = [];
+    ix().list.forEach(function (wo) {
+      (ix().prs[wo.id] || []).forEach(function (pr) { if (pr.e === e) hist.push({ st: wo.st, what: pr.what }); });
+    });
+    html += '<div class="tr-ql tr-chart-h">Records as they fell</div>' + (hist.length
+      ? '<ol class="tr-sess">' + hist.reverse().slice(0, 20).map(function (h) {
+          return '<li><span class="tr-ss-d">' + when(h.st) + '</span><span class="tr-ss-s">\u2605 ' + esc(h.what) + '</span></li>';
+        }).join('') + '</ol>'
+      : '<div class="tr-note">None yet: the first session of a lift is where records start from.</div>');
     return html;
   }
   function rec(l, v) { return '<div class="tr-rec"><span class="tr-rec-l">' + l + '</span><span class="tr-rec-v">' + v + '</span></div>'; }
@@ -4614,7 +4968,8 @@
     wo.x.forEach(function (x) {
       out.push(lib(x.e).n + ': ' + x.s.map(function (s) {
         var w = conv(s.w, wo.u);
-        return (w > 0 ? fmtN(w) + ' ' + u + ' \u00d7 ' : '') + s.r + (s.wu ? ' (warm-up)' : '') + (fin(s.q) ? ' @' + rqSay(s.q) : '');
+        return (w > 0 ? fmtN(w) + ' ' + u + ' \u00d7 ' : '') + s.r + (s.wu ? ' (warm-up)' : s.ty === 'd' ? ' (drop set)' : s.ty === 'f' ? ' (to failure)' : '') +
+          (fin(s.q) ? ' @' + rqSay(s.q) : '');
       }).join(', '));
     });
     if (wo.mc && mcValid(wo.mc) && mcScore(wo.mc)) out.push('Circuit: ' + mcSay(wo.mc) + ' \u2014 ' + mcScore(wo.mc));
@@ -4684,7 +5039,7 @@
         return '<div class="tr-wx"><button class="tr-lnk tr-wx-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(lib(x.e).n) + '</button>' +
           '<ol class="tr-wx-s">' + x.s.map(function (s) {
             var w = conv(s.w, wo.u);
-            return '<li>' + (s.wu ? '<span class="tr-e1">ramp</span> ' : '') + (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' × ' : '') + s.r +
+            return '<li>' + setTag(s) + (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' × ' : '') + s.r +
               (fin(s.q) ? ' <span class="tr-e1">' + rqSay(s.q) + '</span>' : '') +
               (e1rm(w, s.r) > 0 ? ' <span class="tr-e1">e1RM ' + Math.round(e1rm(w, s.r)) + '</span>' : '') + '</li>';
           }).join('') + '</ol></div>';
@@ -4707,7 +5062,8 @@
       id: wo.id, err: '', nt: wo.nt || '', t0: dtVal(wo.st), t1: fin(wo.en) && wo.en > wo.st ? dtVal(wo.en) : '',
       x: wo.x.map(function (x) {
         return { e: x.e, pq: x.pq, s: x.s.map(function (s) {
-          return { w: fmtN(conv(s.w, wo.u)), r: String(s.r), q: fin(s.q) ? String(Math.min(5, s.q)) : '', o: s };
+          return { w: fmtN(conv(s.w, wo.u)), r: String(s.r), q: fin(s.q) ? String(Math.min(5, s.q)) : '', o: s,
+            ty: s.wu ? 'w' : s.ty || '' };
         }) };
       })
     };
@@ -4725,8 +5081,10 @@
           '<div class="tr-set tr-set-h tr-eds" aria-hidden="true"><span>Set</span><span>' + T.pr.u + '</span><span>Reps</span>' +
             (rq ? '<span>RIR</span>' : '') + '<span></span></div>' +
           x.s.map(function (s, j) {
-            return '<div class="tr-set tr-eds">' +
-              '<span class="tr-sn">' + (s.o && s.o.wu ? 'R' : j + 1) + '</span>' +
+            var sk = { wu: s.ty === 'w', ty: s.ty === 'd' || s.ty === 'f' ? s.ty : undefined };
+            return '<div class="tr-set tr-eds' + (sk.wu ? ' tr-wu' : sk.ty === 'd' ? ' tr-dd' : sk.ty === 'f' ? ' tr-ff' : '') + '">' +
+              '<button class="tr-sn tr-snb" data-t="edsty" data-x="' + i + '" data-s="' + j + '" aria-label="' + esc(setSay(sk)) + '. Tap to change">' +
+                setLab(sk, function () { return j + 1; }) + '</button>' +
               '<input class="tr-in" data-ed="w" data-x="' + i + '" data-s="' + j + '" inputmode="decimal" autocomplete="off" value="' + esc(s.w) + '" ' +
                 'aria-label="' + esc(ex.n) + ' set ' + (j + 1) + ' weight in ' + T.pr.u + '">' +
               '<input class="tr-in" data-ed="r" data-x="' + i + '" data-s="' + j + '" inputmode="numeric" autocomplete="off" value="' + esc(s.r) + '" ' +
@@ -4766,8 +5124,9 @@
         if (s.o) {
           if (fin(s.o.t)) o.t = s.o.t;
           if (s.o.am) { o.am = 1; if (fin(s.o.tr)) o.tr = s.o.tr; }
-          if (s.o.wu) o.wu = 1;
         }
+        if (s.ty === 'w') o.wu = 1;
+        else if (s.ty === 'd' || s.ty === 'f') o.ty = s.ty;
         var q = numIn(s.q);
         if (q !== null && q >= 0 && q <= 10) o.q = q;
         out.s.push(o);
@@ -4775,7 +5134,12 @@
       return out;
     }).filter(function (x) { return x.s.length; });
     if (bad) { E.err = 'A set of ' + bad + ' has a number that could not be read. Fix it or take it out.'; return false; }
-    var st = dtParse(E.t0), en = E.t1 ? dtParse(E.t1) : null;
+    /* Times left as they were keep their seconds: the boxes only hold
+       minutes, and a short workout read back through them would end in the
+       minute it started. */
+    var t0was = dtVal(wo.st), t1was = fin(wo.en) && wo.en > wo.st ? dtVal(wo.en) : '';
+    var st = E.t0 === t0was ? wo.st : dtParse(E.t0);
+    var en = E.t1 === t1was ? (t1was ? wo.en : null) : E.t1 ? dtParse(E.t1) : null;
     var tb = timesBad(st, en);
     if (tb) { E.err = tb; return false; }
     if (!x.length && !wo.mc) { E.err = 'Nothing would be left. To get rid of the whole workout, cancel and delete it.'; return false; }
@@ -4819,7 +5183,7 @@
       (pm === null ? '<div class="tr-note">Type the total weight.</div>'
         : pm.under ? '<div class="tr-note">That is less than the bar.</div>'
           : '<div class="tr-plates">' + (pm.plates.length ? pm.plates.map(function (p) {
-            return '<span class="tr-plate p' + String(p).replace('.', '_') + '">' + fmtP(p) + '</span>';
+            return '<span class="tr-plate p' + String(p).replace('.', '_') + ' ' + plCls(p) + '">' + fmtP(p) + '</span>';
           }).join('') : '<span class="tr-note">Just the bar.</span>') + '</div>' +
             '<div class="tr-sub">Each side' + (pm.left > 0 ? ' — ' + fmtP(pm.left * 2) + ' ' + T.pr.u + ' short with standard plates' : '') + '.</div>');
   }
@@ -4966,15 +5330,28 @@
   }
 
   function barChoices(e) {
-    var cur = barFor(e);
-    var opts = T.pr.u === 'kg' ? [20, 15, 10, 7.5, 5, 0] : [45, 35, 25, 20, 15, 0];
-    return chips('barset', cur, opts.map(function (w) { return [w, w ? fmtN(w) + ' ' + T.pr.u : 'No bar']; }), ' data-e="' + esc(e) + '"');
+    var cur = barFor(e), u = T.pr.u;
+    return '<div class="tr-bars" role="group">' + BARS.map(function (b) {
+      var w = u === 'kg' ? b.kg : b.lb;
+      return '<button class="tr-barr" data-t="barset" data-v="' + w + '" data-e="' + esc(e) + '" aria-pressed="' + (cur === w) + '">' +
+        '<span class="tr-barr-n">' + esc(b.n) + '</span><span class="tr-barr-w">' + fmtN(w) + ' ' + u + '</span></button>';
+    }).join('') + '</div>';
   }
+  var REST_OPTS = [30, 45, 60, 75, 90, 120, 150, 180, 240, 300];
+  function restHTML(sh) {
+    var ex = lib(sh.e), cur = restFor(ex), dflt = ex.k === 'c' ? T.pr.rc : T.pr.ri;
+    return '<div class="sheet-name tr-sn2">Rest for ' + esc(ex.n) + '</div>' +
+      '<div class="tr-sub">After each set of it, from now on. The default for ' + (ex.k === 'c' ? 'compound lifts' : 'isolation work') + ' is ' + clock(dflt) +
+        ' (Settings). A warm-up rests a minute at most; paired sets use the pair\u2019s rest, ' + clock(T.pr.rp) + '.</div>' +
+      '<div class="tr-q">' + chips('restset', cur, REST_OPTS.map(function (s) { return [s, clock(s)]; }), ' data-e="' + esc(sh.e) + '"') + '</div>' +
+      (restSet(sh.e) ? '<div class="tr-acts"><button class="ghost" data-t="restset" data-v="def" data-e="' + esc(sh.e) + '">Back to the default, ' + clock(dflt) + '</button></div>' : '');
+  }
+
   function barHTML(sh) {
     var ex = lib(sh.e);
     return '<div class="sheet-name tr-sn2">Bar for ' + esc(ex.n) + '</div>' +
       '<div class="tr-sub">The plates are worked out from it. Remembered for ' + esc(ex.n) +
-        '; every other barbell lift stays on its own, or on the default bar in Settings (' + fmtN(T.pr.bar) + ' ' + T.pr.u + ').</div>' +
+        '; every other barbell lift keeps its own, or the default bar in Settings (' + fmtN(T.pr.bar) + ' ' + T.pr.u + '). Weigh yours if you can: bars differ.</div>' +
       '<div class="tr-q">' + barChoices(sh.e) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Something else</div><div class="tr-own-r">' +
         '<input class="txt tr-barw" id="trBarW" inputmode="decimal" autocomplete="off" placeholder="' + fmtN(barFor(sh.e)) + '" aria-label="Bar weight in ' + T.pr.u + '">' +
@@ -4989,8 +5366,12 @@
       '<div class="tr-sub">A note that comes up every time ' + esc(ex.n) + ' does: the seat, the grip, the bench that wobbles.</div>' +
       '<textarea class="txt tr-nt" id="trNoteT" maxlength="200" rows="3" aria-label="Note on ' + esc(ex.n) + '" ' +
         'placeholder="Seat 4. Handles at the second notch.">' + esc(noteOf(sh.e)) + '</textarea>' +
-      '<div class="tr-acts"><button class="btn-primary" data-t="notesave" data-e="' + esc(sh.e) + '">Save note</button>' +
-        (noteOf(sh.e) ? '<button class="ghost danger" data-t="notedel" data-e="' + esc(sh.e) + '">Remove it</button>' : '') + '</div>';
+      '<div class="tr-q"><div class="tr-ql">How-to link <span class="tr-opt">optional</span></div>' +
+        '<input class="txt tr-nt" id="trNoteU" type="url" inputmode="url" autocomplete="off" maxlength="300" placeholder="A video you trust, your coach\u2019s clip" ' +
+          'value="' + esc(linkOf(sh.e)) + '" aria-label="How-to link for ' + esc(ex.n) + '">' +
+        (S.noteErr ? '<div class="tr-note tr-warn">' + esc(S.noteErr) + '</div>' : '') + '</div>' +
+      '<div class="tr-acts"><button class="btn-primary" data-t="notesave" data-e="' + esc(sh.e) + '">Save</button>' +
+        (noteOf(sh.e) || linkOf(sh.e) ? '<button class="ghost danger" data-t="notedel" data-e="' + esc(sh.e) + '">Remove both</button>' : '') + '</div>';
   }
 
   function jsonSize() {
@@ -5013,7 +5394,7 @@
       }).join('') + '</div>' : '<div class="tr-sub">Nothing yet. When you swap an exercise out, you can say never again.</div>') +
       '<div class="tr-q"><div class="tr-ql">Weights in</div>' + chips('s-u', p.u, [['lb', 'Pounds'], ['kg', 'Kilograms']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Default bar</div>' +
-        chips('s-bar', p.bar, p.u === 'kg' ? [[20, '20 kg'], [15, '15 kg'], [10, '10 kg']] : [[45, '45 lb'], [35, '35 lb'], [25, '25 lb']]) +
+        chips('s-bar', p.bar, p.u === 'kg' ? [[20, 'Olympic 20 kg'], [15, 'Short 15 kg'], [10, '10 kg']] : [[45, 'Olympic 45 lb'], [35, '35 lb'], [33, 'Short 33 lb'], [25, '25 lb']]) +
         '<div class="tr-hint">A lift on another bar \u2014 an EZ bar, a Smith machine \u2014 keeps its own: tap \u201cbar\u201d beside it in a workout.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Plates on the bar</div>' +
         chips('s-pl', p.pl, [['row', 'In every set'], ['type', 'While typing'], ['off', 'Off']]) +
@@ -5381,6 +5762,8 @@
       if (!x) { x = wo.xi[exn] = { nm: exn, s: [] }; wo.x.push(x); }
       var set = { w: w !== null && w > 0 ? Math.round(w * 100) / 100 : 0, r: Math.round(reps) };
       if (so === 'W') set.wu = 1;
+      else if (so === 'D') set.ty = 'd';
+      else if (so === 'F') set.ty = 'f';
       var rpe = sgNum(get(C.rpe));
       if (rpe !== null && rpe >= 5 && rpe <= 10) set.q = Math.max(0, Math.min(5, Math.round(10 - rpe)));
       x.s.push(set);
@@ -5747,6 +6130,18 @@
 
     // the logger
     if (t === 'tick') { tick(num('data-x'), num('data-s')); return; }
+    if (t === 'sty' && LIVE) { openSheet({ k: 'sty', x: num('data-x'), s: num('data-s'), eyebrow: 'Set', title: 'Set' }); return; }
+    if ((t === 'styset' || t === 'styrm') && LIVE && S.sheet && S.sheet.k === 'sty') {
+      var sx = LIVE.x[S.sheet.x], ss = sx && sx.s[S.sheet.s];
+      if (!ss) { closeSheet(); return; }
+      if (t === 'styrm') { if (sx.s.length > 1) sx.s.splice(S.sheet.s, 1); }
+      else {
+        if (v === 'w') ss.wu = 1; else delete ss.wu;
+        if (v === 'd' || v === 'f') ss.ty = v; else delete ss.ty;
+      }
+      remapPrev(sx);
+      saveLive(); closeSheet(); draw(); return;
+    }
     if (t === 'rest') {
       if (!LIVE || !LIVE.rs) return;
       if (v === 'skip') LIVE.rs = null;
@@ -5757,11 +6152,13 @@
       var xa = LIVE.x[num('data-x')];
       var ls = xa.s[xa.s.length - 1] || {};
       xa.s.push({ w: '', r: '', t: 0, tw: ls.tw, tr: ls.tr, pw: ls.pw, pr: ls.pr });
+      remapPrev(xa);
       saveLive(); draw(); return;
     }
     if (t === 'dropset') {
       var xd = LIVE.x[num('data-x')];
       for (var k = xd.s.length - 1; k >= 0; k--) { if (!xd.s[k].t) { xd.s.splice(k, 1); break; } }
+      remapPrev(xd);
       saveLive(); draw(); return;
     }
     if (t === 'rmex') { LIVE.x.splice(num('data-x'), 1); saveLive(); draw(); return; }
@@ -5897,6 +6294,13 @@
       return;
     }
 
+    // the rest a lift takes
+    if (t === 'restpick') { openSheet({ k: 'rest', e: el.getAttribute('data-e'), eyebrow: 'Rest', title: 'Rest' }); return; }
+    if (t === 'restset') {
+      setRest(el.getAttribute('data-e'), v === 'def' ? null : Number(v));
+      closeSheet(); draw(); return;
+    }
+
     // the bar a lift is on
     if (t === 'barpick') { openSheet({ k: 'bar', e: el.getAttribute('data-e'), eyebrow: 'Bar', title: 'Bar' }); return; }
     if (t === 'barset' || t === 'barother') {
@@ -5910,13 +6314,18 @@
     }
 
     // notes
-    if (t === 'note') { openSheet({ k: 'note', e: el.getAttribute('data-e'), eyebrow: 'Note', title: 'Note' }); return; }
+    if (t === 'note') { S.noteErr = ''; openSheet({ k: 'note', e: el.getAttribute('data-e'), eyebrow: 'Note', title: 'Note' }); return; }
     if (t === 'notesave' || t === 'notedel') {
-      var ne = el.getAttribute('data-e'), ta = $('trNoteT');
-      setNote(ne, t === 'notesave' && ta ? ta.value : '');
+      var ne = el.getAttribute('data-e'), ta = $('trNoteT'), tu = $('trNoteU');
+      var lk = t === 'notesave' ? cleanLink(tu ? tu.value : '') : '';
+      if (lk === null) { S.noteErr = 'That link could not be read: it should start with https://'; drawSheet(); return; }
+      S.noteErr = '';
+      setNote(ne, t === 'notesave' && ta ? ta.value : '', lk);
       closeSheet();
       draw(); return;
     }
+
+    if (t === 'extab' && S.sheet && S.sheet.k === 'ex') { S.sheet.tab = v; drawSheet(); return; }
 
     // the records
     if (t === 'exsheet') { openSheet({ k: 'ex', e: el.getAttribute('data-e'), eyebrow: 'Lift', title: lib(el.getAttribute('data-e')).n }); return; }
@@ -5929,6 +6338,11 @@
     if (S.ed && t === 'edcancel') { S.ed = null; drawSheet(); return; }
     if (S.ed && t === 'edsave') {
       if (edSave()) draw();
+      drawSheet(); return;
+    }
+    if (S.ed && t === 'edsty') {
+      var es = S.ed.x[num('data-x')].s[num('data-s')];
+      es.ty = { '': 'w', w: 'd', d: 'f', f: '' }[es.ty || ''];
       drawSheet(); return;
     }
     if (S.ed && t === 'edrm') { S.ed.x[num('data-x')].s.splice(num('data-s'), 1); drawSheet(); return; }
@@ -6179,7 +6593,7 @@
       recommend: recommend, PROGS: PROGS, FOCUS: FOCUS, KITS: KITS, axWeek: axWeek, defaultsPr: defaultsPr,
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
-      woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan,
+      woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

@@ -1,5 +1,5 @@
 {
-  "v": 485,
+  "v": 486,
   "files": {
     "data/recipes.js": "2d40da60faa0b954",
     "data/nutrition.js": "1fa8632bf77d529b",
@@ -7,10 +7,10 @@
     "data/qr.js": "ad816e709c904c25",
     "src/app.js": "44c215c8780d494f",
     "src/sync.js": "1e811f364a80d048",
-    "src/train.js": "154d2b12a5dc9080",
+    "src/train.js": "202c13ccd7cc55d8",
     "src/config.js": "aa98e88f0eef54e6",
-    "src/style.css": "b866d62574ddb6e5",
-    "index.html": "6d405c2a5563a276",
-    "sw.js": "b0d38a0d257e3394"
+    "src/style.css": "327d18fd2a8bbc48",
+    "index.html": "e5ab4bf4d4462468",
+    "sw.js": "9745a29490bf7152"
   }
 }

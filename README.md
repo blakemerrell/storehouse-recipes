@@ -84,7 +84,11 @@ three ideas in one tab:
   copy of the day names the day's workouts with their times. Barbell and Smith lifts draw
   the plates for each side — in every set, or under a set while you type its weight — on a
   bar each lift remembers (an EZ bar, a Smith machine). The back check asks "How's your
-  back today?" and folds away once answered.
+  back today?" and folds away once answered. Tap a set's number to make it a warm-up (W),
+  a drop set (D) or a set to failure (F): warm-ups are never records or targets and rest a
+  minute, a drop set follows with no rest, a failure set counts as nothing in reserve. Bars
+  are named (Olympic 45, Short 33, EZ 15, Hex 75, Smith, none, or your own) and the plates
+  are drawn in competition colours. Each lift can keep its own rest, drawn between its sets.
   Finishing a workout ticks "trained today" on Nourish.
 - *The review* holds the last seven days against the research, as rules rather than
   opinions: weekly hard sets per muscle against the 10–20 band, how often each muscle
@@ -135,8 +139,12 @@ a vigorous minute twice. **Every day?** Seven days a week is six lifting days an
 day*: a walk, a ride, a swim or your golf, logged in a tap and counted as that day of the
 block.
 
-History lists every workout; Lifts gives each exercise its records and a line of its
-estimated max. Workouts are yours rather than the household's: they save on the device,
+History lists every workout with its time of day. Each lift has its own page, laid out as
+Strong's is: About (three short how-to steps for every lift in the library, what it trains,
+its bar and rest, a how-to link of your own, and a slot for a picture or clip), History
+(every session with an estimated max for each working set), Charts (estimated max, heaviest
+set, volume) and Records (the heaviest you have lifted for 1 to 12 reps beside what your
+best estimated max says, and the records as they fell). Workouts are yours rather than the household's: they save on the device,
 and travel with your account when you sign in, in the same record as Nourish. Settings
 has kilograms, bar weight, rest times, export and restore of the whole log as a file, and
 **Bring in from Strong**: Strong's CSV export comes in as history — each lift matched to the

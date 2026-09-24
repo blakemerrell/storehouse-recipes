@@ -1099,7 +1099,7 @@ module.exports = {
     t.ok('the block says which wave and which week it is', /10s wave, realization/.test(r), r);
     await p.click('[data-t="start"]');
     r = await p.evaluate(() => [...[...document.querySelectorAll('.tr-ex')][0].querySelectorAll('.tr-set:not(.tr-set-h) .tr-sn')].map((e) => e.textContent).join(','));
-    t.ok('ramp sets are lettered and the all-out set is marked', r === 'R,R,1+', r);
+    t.ok('ramp sets are lettered W, as warm-ups, and the all-out set is marked', r === 'W,W,1+', r);
     for (let j = 0; j < 3; j++) {
       if (j === 2) await p.fill('#trr-0-2', '12');
       await p.click(`[data-t="tick"][data-x="0"][data-s="${j}"]`);
@@ -1677,7 +1677,7 @@ module.exports = {
     t.ok('a weight the plates cannot make says what is left, rather than rounding it away', /1\.25 lb a side that the plates cannot make/.test(r.odd), r.odd);
     t.ok('less than the bar says so; the bar alone says so', /under the bar/.test(r.under) && /just the bar/.test(r.bar), r.under + ' / ' + r.bar);
     t.ok('six 45s fold to one plate with a count', /45×6/.test(r.heavy), r.heavy);
-    t.ok('an EZ bar and a Smith machine start on their own bars', r.bars === '45,25,20', r.bars);
+    t.ok('an EZ bar (15 lb, as Strong has it) and a Smith machine start on their own bars', r.bars === '45,15,20', r.bars);
     t.ok('a plate of 1.25 reads 1.25, not 1.3', r.kg === '1.25 a side', r.kg);
     await p.fill('#trw-0-0', '195');
     r = await p.evaluate(() => ({
@@ -1691,11 +1691,13 @@ module.exports = {
     t.ok('and the sets after it, faint until they are typed', r.dim && r.next === '45, 25, 5 a side', JSON.stringify(r));
     t.ok('where Previous was', /Per side/.test(r.head), r.head);
     await p.click('[data-t="barpick"][data-e="bb-bench"]');
-    await p.click('[data-t="barset"][data-v="25"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-barr')].map((b) => b.textContent).join('|'));
+    t.ok('the bars are named, the way Strong lists them', r === 'Olympic bar45 lb|Short bar33 lb|EZ bar15 lb|Hex bar75 lb|Smith machine20 lb|No bar0 lb', r);
+    await p.click('[data-t="barset"][data-v="75"]');
     r = await p.evaluate(() => ({ stk: document.querySelector('#trpl-0-0 .tr-stk').getAttribute('aria-label'), kept: window.Train._.state().T.pr.bars,
       label: (document.querySelector('[data-t="barpick"][data-e="bb-bench"]') || {}).textContent }));
-    t.ok('a lift can be put on another bar, and its plates follow', r.stk === '45, 35, 5 a side' && r.label === 'bar 25 lb', JSON.stringify(r));
-    t.ok('and the bar is remembered for that lift, and synced with your settings', r.kept.nbbbench && r.kept.nbbbench.e === 'bb-bench' && r.kept.nbbbench.w === 25, JSON.stringify(r.kept));
+    t.ok('a lift can be put on another bar, and its plates follow', r.stk === '45, 10, 5 a side' && r.label === 'Hex bar 75 lb', JSON.stringify(r));
+    t.ok('and the bar is remembered for that lift, and synced with your settings', r.kept.nbbbench && r.kept.nbbbench.e === 'bb-bench' && r.kept.nbbbench.w === 75, JSON.stringify(r.kept));
     await p.click('[data-t="barpick"][data-e="bb-bench"]');
     await p.fill('#trBarW', '33');
     await p.click('[data-t="barother"]');
@@ -1787,6 +1789,140 @@ module.exports = {
     r = await p.evaluate((t0) => { const w = Object.values(window.Train._.state().T.wo)[0]; const y = new Date(Date.now() - 26 * 3600e3);
       return { st: window.Train._.dtVal(w.st) === t0, mins: Math.round((w.en - w.st) / 60e3), dk: w.dk, want: y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0') }; }, t0);
     t.ok('moved to yesterday, it is filed under yesterday', r.st && r.mins === 60 && r.dk === r.want, JSON.stringify(r));
+    await p.close();
+    // ---- from Strong: set types, named bars in colour, rest per lift, a lift's own page ----
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {},
+      wo: { a: wo('a', '', -1, -1, 3, [{ e: 'bb-bench', s: [{ w: 45, r: 14, wu: 1 }, { w: 185, r: 10 }, { w: 185, r: 8 }] }]) } });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.click('[data-t="addset"][data-x="0"]');
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s.map((s) => s.pw + 'x' + s.pr).join());
+    t.ok('last time’s warm-up does not push every Previous down a row', r === '185x10,185x8,185x8,185x8', r);
+    await p.click('[data-t="sty"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('[data-t="styset"]')].map((b) => b.textContent).join('|'));
+    t.ok('tapping a set’s number asks what kind of set it is', r === 'Working set|Warm-up|Drop set|To failure', r);
+    await p.click('[data-t="styset"][data-v="w"]');
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s.map((s) => (s.pw === null ? '-' : s.pw + 'x' + s.pr)).join());
+    t.ok('marked a warm-up, a set is paired with last time’s warm-up, and the working sets with last time’s working sets', r === '45x14,185x10,185x8,185x8', r);
+    await p.click('[data-t="sty"][data-x="0"][data-s="3"]');
+    await p.click('[data-t="styset"][data-v="d"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-ex .tr-set:not(.tr-set-h) .tr-sn')].map((e) => e.textContent).join(','));
+    t.ok('a warm-up is lettered W, a drop set D, and the working sets numbered past them', r === 'W,1,2,D', r);
+    await p.fill('#trw-0-0', '95'); await p.fill('#trr-0-0', '10');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => ({ ghost: document.getElementById('trw-0-1').placeholder, rest: window.Train._.state().LIVE.rs.dur }));
+    t.ok('a warm-up’s weight is not carried into the working sets', r.ghost !== '95', r.ghost);
+    t.ok('and it is followed by a minute’s rest, not the full three', r.rest === 60, r.rest);
+    await p.fill('#trw-0-1', '185'); await p.fill('#trr-0-1', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="1"]');
+    await p.fill('#trw-0-2', '185'); await p.fill('#trr-0-2', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="2"]');
+    r = await p.evaluate(() => window.Train._.state().LIVE.rs);
+    t.ok('and no rest before a drop set', r === null, JSON.stringify(r));
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-rdiv-b')].map((b) => b.textContent).join(','));
+    t.ok('the rest between sets is drawn between them', r === '1:00,3:00,no rest', r);
+    await p.click('.tr-ex-m [data-t="restpick"]');
+    await p.click('[data-t="restset"][data-v="120"]');
+    r = await p.evaluate(() => ({ live: window.Train._.state().LIVE.x[0].rest, kept: window.Train._.state().T.pr.rests.nbbbench,
+      div: [...document.querySelectorAll('.tr-rdiv-b')].map((b) => b.textContent).join(',') }));
+    t.ok('a lift’s rest can be its own, and it is remembered', r.live === 120 && r.kept && r.kept.s === 120 && r.div === '1:00,2:00,no rest', JSON.stringify(r));
+    r = await p.evaluate(() => [...document.querySelectorAll('#trpl-0-1 .tr-stk-p')].map((b) => b.className).join('|'));
+    t.ok('plates are coloured the way competition plates are: a 45 blue, a 25 green', /pl-lb-45/.test(r) && /pl-lb-25/.test(r), r);
+    await p.fill('#trw-0-3', '135'); await p.fill('#trr-0-3', '6');
+    await p.click('[data-t="tick"][data-x="0"][data-s="3"]');
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    r = await p.evaluate(() => { const w = Object.values(window.Train._.state().T.wo).sort((a, b) => b.st - a.st)[0];
+      return { kinds: w.x[0].s.map((s) => (s.wu ? 'W' : s.ty || 'n')).join(), prs: window.Train._.prsIn(w).map((x) => x.what).join() }; });
+    t.ok('the kinds are saved with the sets', r.kinds === 'W,n,n,d', r.kinds);
+    // the editor cycles the kind
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('.tr-hrow[data-t="wosheet"]');
+    await p.click('[data-t="edopen"]');
+    await p.click('[data-t="edsty"][data-x="0"][data-s="3"]');
+    await p.click('[data-t="edsave"]');
+    r = await p.evaluate(() => { const w = Object.values(window.Train._.state().T.wo).sort((a, b) => b.st - a.st)[0]; return w.x[0].s[3].ty; });
+    t.ok('and can be changed after, in the editor', r === 'f', r);
+    r = await p.evaluate(() => (document.querySelector('.tr-hrow .tr-h-d') || {}).textContent || '');
+    t.ok('History gives each workout its time of day', /\d{1,2}:\d{2} [AP]M/.test(r), r);
+    await p.close();
+
+    // a warm-up is never a record; a failure set had nothing in reserve
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state(), now = Date.now();
+      st.T.wo = {
+        a: { id: 'a', st: now - 9 * 864e5, u: 'lb', x: [{ e: 'bb-bench', s: [{ w: 185, r: 10 }] }] },
+        b: { id: 'b', st: now - 2 * 864e5, u: 'lb', x: [{ e: 'bb-bench', s: [{ w: 45, r: 20, wu: 1 }, { w: 185, r: 9 }] }] },
+        c: { id: 'c', st: now - 1 * 864e5, u: 'lb', x: [{ e: 'bb-bench', pq: 2, s: [0, 1, 2, 3, 4, 5].map(() => ({ w: 150, r: 12, ty: 'f' })) }] },
+      };
+      st.T.act = '';
+      localStorage.setItem('bsc.train', JSON.stringify(st.T)); _.reload();
+      const fail = _.review(now).checks.filter((c) => c.t === 'How close to failure')[0];
+      return { prs: _.prsIn(_.state().T.wo.b).length, fail: fail.st + ':' + fail.b.slice(0, 60) };
+    });
+    t.ok('a warm-up of 45 × 20 is not a most-reps record', r.prs === 0, r.prs);
+    t.ok('failure sets count as nothing in reserve, and six of them where two were asked is flagged', /^look:You logged about 0 reps in reserve/.test(r.fail), r.fail);
+    await p.close();
+
+    // a lift's own page
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a: wo('a', '', -1, -1, 400, [{ e: 'bb-bench', s: [{ w: 205, r: 7 }] }]),
+      b: wo('b', '', -1, -1, 300, [{ e: 'bb-bench', s: [{ w: 195, r: 9 }] }]),
+      c: wo('c', '', -1, -1, 200, [{ e: 'bb-bench', s: [{ w: 255, r: 1 }] }]),
+      d: wo('d', '', -1, -1, 3, [{ e: 'bb-bench', s: [{ w: 45, r: 14, wu: 1 }, { w: 185, r: 12 }, { w: 185, r: 10 }] }]) } });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="lifts"]');
+    await p.evaluate(() => { const b = document.querySelector('[data-t="exsheet"][data-e="bb-bench"]'); if (b) b.click(); });
+    r = await p.evaluate(() => ({ tabs: [...document.querySelectorAll('[data-t="extab"]')].map((b) => b.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')).join(','),
+      rows: document.querySelectorAll('.tr-hs').length, head: (document.querySelector('.tr-hs-d') || {}).textContent || '',
+      e1: [...document.querySelectorAll('.tr-hs')][0].querySelectorAll('.tr-hs-e')[1].textContent }));
+    t.ok('a lift opens on its own page, About, History, Charts, Records, on History once it has some', r.tabs === 'About,History*,Charts,Records', r.tabs);
+    t.ok('History lists every session with its time of day and an estimated max for each working set',
+      r.rows === 4 && /\d{1,2}:\d{2} [AP]M/.test(r.head) && r.e1 === '259', JSON.stringify(r));
+    await p.click('[data-t="extab"][data-v="records"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-rmx tbody tr')].map((tr) => tr.children[0].textContent + ':' + tr.children[1].childNodes[0].textContent.trim()).join(' '));
+    t.ok('Records: the heaviest for at least each number of reps, as Strong lays it out',
+      r === '1:255 lb 2:205 lb 3:205 lb 4:205 lb 5:205 lb 6:205 lb 7:205 lb 8:195 lb 9:195 lb 10:185 lb 11:185 lb 12:185 lb', r);
+    r = await p.evaluate(() => document.querySelectorAll('.tr-sess li').length);
+    t.ok('and the records as they fell', r >= 2, r);
+    await p.click('[data-t="extab"][data-v="charts"]');
+    r = await p.evaluate(() => document.querySelectorAll('.tr-sheet svg.tr-chart').length);
+    t.ok('Charts: estimated max, heaviest set and volume', r === 3, r);
+    await p.click('[data-t="extab"][data-v="about"]');
+    r = await p.evaluate(() => ({ steps: document.querySelectorAll('.tr-howto li').length, dl: (document.querySelector('.tr-dl') || {}).textContent || '' }));
+    t.ok('About: how to do it in three steps, what it trains, the bar and the rest', r.steps === 3 && /Chest/.test(r.dl) && /Olympic bar 45 lb/.test(r.dl) && /3:00/.test(r.dl), JSON.stringify(r));
+    r = await p.evaluate(() => window.Train._.LIB_LIST.filter((x) => !(window.Train._.HOWTO[x.id] || []).length).map((x) => x.id).join());
+    t.ok('every lift in the library has its steps written', r === '', r);
+    await p.click('.tr-sheet [data-t="note"]');
+    await p.fill('#trNoteU', 'javascript:alert(1)');
+    await p.click('[data-t="notesave"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-warn') || {}).textContent || '');
+    t.ok('a how-to link that is not a web address is refused', /could not be read/.test(r), r);
+    await p.fill('#trNoteU', 'youtube.com/watch?v=abc');
+    await p.click('[data-t="notesave"]');
+    r = await p.evaluate(() => ({ nt: window.Train._.state().T.nt.nbbbench, sync: JSON.stringify(window.Train._.payload(true).nt || {}) }));
+    t.ok('a link without a note is kept, made https, and synced', r.nt && r.nt.u === 'https://youtube.com/watch?v=abc' && !r.nt.t && /youtube/.test(r.sync), JSON.stringify(r));
+    await p.evaluate(() => { const b = document.querySelector('[data-t="exsheet"][data-e="bb-bench"]'); if (b) b.click(); });
+    await p.click('[data-t="extab"][data-v="about"]');
+    r = await p.evaluate(() => { const a = document.querySelector('.tr-howlink'); return a ? a.getAttribute('href') + '|' + a.getAttribute('rel') + '|' + a.getAttribute('target') : ''; });
+    t.ok('and shows on the lift’s page, opening safely in a new tab', r === 'https://youtube.com/watch?v=abc|noopener noreferrer|_blank', r);
+    await p.close();
+
+    // Strong's drop and failure sets come in as such
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const G = window.Train._.sgParse('Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE\n' +
+        '"2026-08-01 07:30:00","Push","45m","Bench Press (Barbell)","1","185","8","0","0","","",""\n' +
+        '"2026-08-01 07:30:00","Push","45m","Bench Press (Barbell)","D","135","10","0","0","","",""\n' +
+        '"2026-08-01 07:30:00","Push","45m","Bench Press (Barbell)","F","135","6","0","0","","",""\n');
+      return G.wos[0].x[0].s.map((s) => s.ty || 'n').join();
+    });
+    t.ok('Strong’s drop and failure sets come in as drop and failure sets', r === 'n,d,f', r);
     await p.close();
   },
 };
