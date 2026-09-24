@@ -537,6 +537,10 @@
       snd: p.snd === 0 ? 0 : 1,
       // a reps-in-reserve box on every set, for those who like to say
       rq: p.rq === 1 ? 1 : 0,
+      // the plates for each side drawn beside a barbell set: in every set, while typing, or not at all
+      pl: ['row', 'type', 'off'].indexOf(p.pl) >= 0 ? p.pl : 'row',
+      // a bar of its own for a lift that is not on the usual one: an EZ bar, a Smith machine
+      bars: cleanBars(p.bars),
       /* Everything below is you, answered once in the quiz and read by the
          picks, the builder and the review. */
       // what you train for; the first version knew two, and 'grow' was the first
@@ -561,6 +565,20 @@
       // when the quiz was last answered; 0 is never
       qz: fin(p.qz) ? p.qz : 0
     };
+  }
+
+  /* Kept like the notes are: under the exercise's id squeezed to letters
+     and digits, carrying the id itself, and the unit it was set in. */
+  function cleanBars(b) {
+    var out = {};
+    if (!plain(b)) return out;
+    Object.keys(b).slice(0, 200).forEach(function (k) {
+      var v = b[k];
+      if (plain(v) && typeof v.e === 'string' && fin(v.w) && v.w >= 0 && v.w <= 100 && (v.u === 'lb' || v.u === 'kg')) {
+        out[k] = { e: v.e, w: v.w, u: v.u };
+      }
+    });
+    return out;
   }
 
   var GOALS = {
@@ -838,6 +856,57 @@
     var n = T.nt[ntKey(e)];
     return n && n.e === e ? n.t : '';
   }
+  /* The bar a lift is loaded on: yours if you set one, else an EZ bar for
+     the EZ-bar lifts, a Smith machine's for the Smith lifts (they run
+     about 15 to 25 lb, some counterweighted to nothing, so it is shown to
+     be checked), else the default bar in Settings. */
+  function barFor(e) {
+    var b = T.pr.bars[ntKey(e)];
+    if (b && b.e === e) return conv(b.w, b.u);
+    var ex = lib(e), kg = T.pr.u === 'kg';
+    if (/\bez\b/i.test(ex.n)) return kg ? 10 : 25;
+    if (ex.q === 'sm') return kg ? 10 : 20;
+    return T.pr.bar;
+  }
+  function barSet(e) { var b = T.pr.bars[ntKey(e)]; return !!(b && b.e === e); }
+  function setBar(e, w) {
+    var k = ntKey(e), bars = Object.assign({}, T.pr.bars);
+    if (w === null) delete bars[k]; else bars[k] = { e: e, w: w, u: T.pr.u };
+    T.pr.bars = bars;
+    stamp('pr');
+  }
+  // lifts loaded with plates on a bar; a plate-loaded machine's sled weight is anybody's guess
+  function onBar(ex) { return ex.q === 'bb' || ex.q === 'sm'; }
+
+  /* What goes on each side, drawn end-on the way the bar looks from the
+     rack: the sleeve, then the plates biggest first, taller the bigger. A
+     weight that the plates cannot make says what is left over rather than
+     rounding it away. Five or more plates of a kind fold to one with a
+     count, so a heavy deadlift still fits the box. */
+  var PL_H = { lb: { 45: 1, 35: 0.88, 25: 0.76, 10: 0.62, 5: 0.54, 2.5: 0.46 },
+    kg: { 25: 1, 20: 1, 15: 0.9, 10: 0.78, 5: 0.62, 2.5: 0.54, 1.25: 0.46 } };
+  function stackHTML(w, bar, dim, room) {
+    if (w === null || !(w > 0)) return '';
+    var u = T.pr.u, pm = plateMath(w, bar, u);
+    if (pm.under) return '<span class="tr-stk tr-stk-x">under the bar</span>';
+    var ps = pm.plates, groups = [];
+    ps.forEach(function (x) {
+      var g = groups[groups.length - 1];
+      if (ps.length > (room || 4) && g && g.p === x) g.n++; else groups.push({ p: x, n: 1 });
+    });
+    var say = (ps.length ? ps.map(fmtP).join(', ') + ' a side' : 'just the bar') +
+      (pm.left > 0 ? ', ' + fmtP(pm.left) + ' ' + u + ' a side that the plates cannot make' : '');
+    return '<span class="tr-stk' + (dim ? ' dim' : '') + '" role="img" aria-label="' + esc(say) + '">' +
+      '<i class="tr-stk-bar"></i>' +
+      (ps.length ? groups.map(function (g) {
+        return '<b class="tr-stk-p" style="--h:' + ((PL_H[u] || {})[g.p] || 0.5) + '">' + fmtP(g.p) +
+          (g.n > 1 ? '<small>\u00d7' + g.n + '</small>' : '') + '</b>';
+      }).join('') : '<span class="tr-stk-e">bar only</span>') +
+      '<i class="tr-stk-end"></i>' +
+      (pm.left > 0 ? '<span class="tr-stk-left">+' + fmtP(pm.left) + '?</span>' : '') +
+    '</span>';
+  }
+
   function setNote(e, t) {
     t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 200);
     var k = ntKey(e);
@@ -932,6 +1001,8 @@
     return String(r % 1 ? r.toFixed(1) : r);
   }
   function fmtBig(v) { return Math.round(v).toLocaleString('en-US'); }
+  // a plate is 1.25, not 1.3: to the hundredth, which is as fine as plates go
+  function fmtP(v) { return fin(v) ? String(Math.round(v * 100) / 100) : ''; }
 
   /* Epley. Reps only, not reps plus what you had left: the app does not see
      how close you went, and an estimate built on a guess about effort is two
@@ -2613,6 +2684,44 @@
     s = Math.max(0, Math.round(s));
     return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
   }
+  // "7:05 AM"
+  function hm(ts) {
+    var d = new Date(ts), h = d.getHours(), m = d.getMinutes();
+    return ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m + ' ' + (h < 12 ? 'AM' : 'PM');
+  }
+  // "7:05–8:02 AM", or "11:40 AM–12:35 PM" when it crosses noon
+  function hmSpan(a, b) {
+    var x = hm(a), y = hm(b);
+    return x.slice(-2) === y.slice(-2) ? x.slice(0, -3) + '\u2013' + y : x + '\u2013' + y;
+  }
+  /* What a date-and-time box holds: the local clock, never UTC, the same
+     rule dayKey keeps. */
+  function dtVal(ts) {
+    var d = new Date(ts), h = d.getHours(), m = d.getMinutes();
+    return dayKey(d) + 'T' + (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  }
+  function dtParse(v) {
+    var m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() : null;
+  }
+  /* A start and an end that can be believed: in order, not in the future,
+     and no longer than a day. Says what is wrong, or ''. */
+  function timesBad(st, en) {
+    if (!fin(st)) return 'That start time could not be read.';
+    if (en !== null && !fin(en)) return 'That end time could not be read.';
+    if (st > Date.now() + 60000) return 'The start is in the future.';
+    if (en !== null && en > Date.now() + 60000) return 'The end is in the future.';
+    if (en !== null && en <= st) return 'The end has to come after the start.';
+    if (en !== null && en - st > DAY_MS) return 'That is longer than a day.';
+    return '';
+  }
+  // a workout's running time: past an hour, the hours say so (2:22:31, not 142:31)
+  function elapsed(s) {
+    s = Math.max(0, Math.floor(s));
+    if (s < 3600) return clock(s);
+    var m = Math.floor(s / 60) % 60;
+    return Math.floor(s / 3600) + ':' + (m < 10 ? '0' : '') + m + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
+  }
   function dur(ms) {
     var m = Math.max(1, Math.round(ms / 60000));
     return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 < 10 ? '0' : '') + (m % 60);
@@ -2863,27 +2972,42 @@
     if (!LIVE || !LIVE.rs) return null;
     return Math.ceil((LIVE.rs.end - Date.now()) / 1000);
   }
+  /* The foot of the screen, all through a workout: when you started and how
+     long it has been, which opens to change the start, and Finish, always
+     one reach away. While you rest, the rest sits on top of it, filling
+     left to right as it runs out. */
   function drawRest() {
     var bar = $('trRest');
     if (!bar) return;
-    var left = restLeft();
-    if (left === null || left < -8) {
+    if (!LIVE) {
       if (!bar.classList.contains('hide')) { bar.classList.add('hide'); bar.innerHTML = ''; }
       return;
     }
-    var done = left <= 0;
-    var pct = done ? 100 : Math.max(0, Math.min(100, 100 * (1 - left / LIVE.rs.dur)));
+    var left = restLeft();
+    var resting = left !== null && left >= -8;
+    var done = resting && left <= 0;
+    var html = '';
+    if (resting) {
+      var pct = done ? 100 : Math.max(0, Math.min(100, 100 * (1 - left / LIVE.rs.dur)));
+      html += '<div class="tr-rest-row' + (done ? ' tr-rest-done' : '') + '">' +
+        '<div class="tr-rest-fill" style="width:' + pct.toFixed(1) + '%"></div>' +
+        '<div class="tr-rest-in">' +
+          '<span class="tr-rest-t" role="timer" aria-live="off">' + (done ? 'Rest\u2019s up' : 'Rest ' + clock(left)) + '</span>' +
+          '<span class="tr-rest-b">' +
+            (done ? '' : '<button class="tr-rest-btn" data-t="rest" data-v="-15" aria-label="Fifteen seconds less">\u221215</button>' +
+              '<button class="tr-rest-btn" data-t="rest" data-v="15" aria-label="Fifteen seconds more">+15</button>') +
+            '<button class="tr-rest-btn" data-t="rest" data-v="skip">' + (done ? 'Close' : 'Skip') + '</button>' +
+          '</span>' +
+        '</div></div>';
+    }
+    html += '<div class="tr-rest-in tr-wbar">' +
+      '<button class="tr-wbar-t" data-t="times" aria-label="Started ' + hm(LIVE.st) + '. Change the start time">' +
+        '<span class="tr-wbar-l">Started ' + hm(LIVE.st) + '</span>' +
+        '<span class="tr-wbar-c" id="trElapsed">' + elapsed((Date.now() - LIVE.st) / 1000) + '</span></button>' +
+      '<button class="btn-primary tr-wbar-f" data-t="finish">Finish</button>' +
+    '</div>';
     bar.classList.remove('hide');
-    bar.classList.toggle('tr-rest-done', done);
-    var html = '<div class="tr-rest-fill" style="width:' + pct.toFixed(1) + '%"></div>' +
-      '<div class="tr-rest-in">' +
-        '<span class="tr-rest-t" role="timer" aria-live="off">' + (done ? 'Rest’s up' : 'Rest ' + clock(left)) + '</span>' +
-        '<span class="tr-rest-b">' +
-          (done ? '' : '<button class="tr-rest-btn" data-t="rest" data-v="-15" aria-label="Fifteen seconds less">−15</button>' +
-            '<button class="tr-rest-btn" data-t="rest" data-v="15" aria-label="Fifteen seconds more">+15</button>') +
-          '<button class="tr-rest-btn" data-t="rest" data-v="skip">' + (done ? 'Close' : 'Skip') + '</button>' +
-        '</span>' +
-      '</div>';
+    bar.classList.toggle('tr-resting', resting);
     if (bar.innerHTML !== html) bar.innerHTML = html;
     if (done && !LIVE.rs.rung) {
       LIVE.rs.rung = 1;
@@ -2941,8 +3065,6 @@
   }
   function onTick() {
     if (!LIVE) { ticking(); return; }
-    var el = $('trElapsed');
-    if (el) el.textContent = clock((Date.now() - LIVE.st) / 1000);
     drawRest();
     mcTick();
   }
@@ -2951,7 +3073,7 @@
      done, as far as the log is concerned. */
   function finished() {
     var wo = {
-      id: LIVE.id, st: LIVE.st, en: Date.now(), dk: dayKey(new Date(LIVE.st)),
+      id: LIVE.id, st: LIVE.st, en: fin(LIVE.fe) ? LIVE.fe : Date.now(), dk: dayKey(new Date(LIVE.st)),
       n: LIVE.n, u: LIVE.u, ms: LIVE.ms || '', w: LIVE.w, d: LIVE.d, dl: LIVE.dl ? 1 : 0,
       x: LIVE.x.map(function (x) {
         var out = { e: x.e, s: x.s.filter(function (s) { return s.t; }).map(function (s) {
@@ -3083,7 +3205,8 @@
     var prs = prsIn(wo).length;
     return '<div class="tr-saved" role="status"><span>Saved \u00b7 ' + esc(wo.n) + ' \u00b7 ' + setsOf(wo) + ' sets' +
       (prs ? ' \u00b7 <span class="tr-pr">\u2605 ' + prs + ' record' + (prs === 1 ? '' : 's') + '</span>' : '') + '</span>' +
-      '<button class="tr-lnk" data-t="wosheet" data-id="' + esc(wo.id) + '">See it</button></div>';
+      '<span class="tr-saved-a"><button class="tr-lnk" data-t="wocopy" data-id="' + esc(wo.id) + '">Copy</button>' +
+      '<button class="tr-lnk" data-t="wosheet" data-id="' + esc(wo.id) + '">See it</button></span></div>';
   }
 
   function blockHTML() {
@@ -3827,12 +3950,10 @@
     var ms = L.ms ? T.ms[L.ms] : null;
     var html = '<div class="tr-live-h">' +
       '<div><div class="tr-eyebrow">' + (ms ? (L.dl ? 'Deload' : 'Week ' + (L.w + 1)) + ' · ' + esc(ms.n) : 'Workout') + '</div>' +
-        '<div class="tr-title">' + esc(L.n) + ' <span class="tr-clock" id="trElapsed">' +
-          clock((Date.now() - L.st) / 1000) + '</span></div>' +
+        '<div class="tr-title">' + esc(L.n) + '</div>' +
         (ms ? '<div class="tr-sub">' + (L.dl ? 'Light and easy: stop every set well short of failure.'
           : L.ph ? esc(L.ph) : rirSay(L.rir).charAt(0).toUpperCase() + rirSay(L.rir).slice(1) + '.') + '</div>' : '') +
       '</div>' +
-      '<button class="btn-primary" data-t="finish">Finish</button>' +
     '</div>';
 
     /* Your back, asked first, when you have said to protect it. A cranky
@@ -3840,18 +3961,7 @@
        today should be at all. */
     if (ms && pairLabels().some(Boolean)) html += '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>';
 
-    if (T.pr.bk || T.pr.jt) {
-      var jts = names(T.pr.jt.split('').filter(Boolean).map(function (j) { return { n: JNAME[j].toLowerCase() }; }));
-      html += '<div class="tr-card tr-ask">' +
-        segQ(T.pr.bk ? (T.pr.jt ? 'Back &amp; joints today' : 'Back today') : 'Joints today',
-          'bk', fin(L.bk) ? L.bk : '', [[0, 'Good'], [1, 'Tight'], [2, 'Sore']], '') +
-        (L.bk === 1 ? '<div class="tr-note">Warm up a little longer, keep the first set of anything that loads ' +
-          (T.pr.bk ? 'your back' + (T.pr.jt ? ' or your ' + esc(jts) : '') : 'your ' + esc(jts)) + ' light, and stop any lift that makes it worse.</div>' : '') +
-        (L.bk === 2 ? '<div class="tr-note tr-warn">' + (T.pr.bk
-          ? 'Skip the lower-body lifts today \u2014 swap or remove them \u2014 and keep to what feels fine. Pain, numbness or tingling running down a leg means stop: that is the nerve, and it is a question for your physio, not for this app.'
-          : 'Skip or swap anything that loads your ' + esc(jts) + ' today, and keep to what feels fine. Sharp pain, swelling, or pain that is still there the next day is a question for a physio or doctor, not for this app.') + '</div>' : '') +
-      '</div>';
-    }
+    if (T.pr.bk || T.pr.jt) html += bkCard(L);
 
     var ask = soreAsk();
     if (ask.length) {
@@ -3871,11 +3981,44 @@
       if (lastOfMuscle(i) && fbReady(m)) html += fbCard(m);
     });
     if (L.mc && mcValid(L.mc)) html += mcCard(L.mc);
-    html += '<div class="tr-acts tr-foot">' +
-      '<button class="ghost" data-t="addex">+ Add an exercise</button>' +
-      '<button class="ghost danger" data-t="discard">Discard workout</button>' +
-    '</div>';
+    // Finish is in the footer, one reach away from every card
+    html += '<div class="tr-acts tr-foot"><button class="ghost" data-t="addex">+ Add an exercise</button>' +
+      '<button class="ghost danger" data-t="discard">Discard workout</button></div>';
     return html;
+  }
+
+  /* Your back (and joints), asked as a question before the first set. Once
+     answered it folds to a line, the way the feedback cards do, and a tap
+     opens it again. Sore keeps its warning in view: that is the part that
+     matters. */
+  var BK_SAY = ['good', 'a bit tight', 'sore'];
+  function bkCard(L) {
+    var jl = T.pr.jt.split('').filter(Boolean).map(function (j) { return { n: JNAME[j].toLowerCase() }; });
+    var jts = names(jl);
+    var ask = T.pr.bk ? (T.pr.jt ? 'How are your back and joints today?' : 'How\u2019s your back today?')
+      : jl.length > 1 ? 'How are your ' + jts + ' today?' : 'How\u2019s your ' + jts + ' today?';
+    var what = T.pr.bk ? (T.pr.jt ? 'Back & joints' : 'Back') : jl.length > 1 ? 'Joints' : JNAME[T.pr.jt[0]];
+    var loads = T.pr.bk ? 'your back' + (T.pr.jt ? ' or your ' + jts : '') : 'your ' + jts;
+    var tight = 'Warm up a little longer, keep the first set of anything that loads ' + loads + ' light, and stop any lift that makes it worse.';
+    var sore = T.pr.bk
+      ? 'Skip the lower-body lifts today \u2014 swap or remove them \u2014 and keep to what feels fine. Pain, numbness or tingling running down a leg means stop: that is the nerve, and it is a question for your physio, not for this app.'
+      : 'Skip or swap anything that loads your ' + jts + ' today, and keep to what feels fine. Sharp pain, swelling, or pain that is still there the next day is a question for a physio or doctor, not for this app.';
+    var has = fin(L.bk);
+    if (has && !L.bko) {
+      var word = L.bk === 1 && !T.pr.bk ? 'a bit stiff' : BK_SAY[L.bk];
+      return '<div class="tr-card tr-ask tr-bkt">' +
+        '<button class="tr-fbt tr-bkt-b" data-t="bkopen" aria-label="' + esc(what) + ': ' + word + '. Change">' +
+          '<span class="tr-fbt-n">' + esc(what) + '</span><span class="tr-fbt-s">' + word + '</span>' +
+          '<span class="tr-fbt-e">Change</span></button>' +
+        (L.bk === 1 ? '<div class="tr-note tr-bkt-n">' + esc(tight) + '</div>' : '') +
+        (L.bk === 2 ? '<div class="tr-note tr-warn tr-bkt-n">' + esc(sore) + '</div>' : '') +
+      '</div>';
+    }
+    return '<div class="tr-card tr-ask">' +
+      segQ(esc(ask), 'bk', has ? L.bk : '', [[0, 'Good'], [1, T.pr.bk ? 'A bit tight' : 'A bit stiff'], [2, 'Sore']], '') +
+      (L.bk === 1 ? '<div class="tr-note">' + esc(tight) + '</div>' : '') +
+      (L.bk === 2 ? '<div class="tr-note tr-warn">' + esc(sore) + '</div>' : '') +
+    '</div>';
   }
 
   /* The circuit: what to do, a clock, and the score. The clock counts down
@@ -3962,9 +4105,51 @@
     return mcScore(sc) ? sc : null;
   }
 
+  /* The weight a set is at: what you typed, else what the box is showing
+     greyed. Which of the two, so the plates can be drawn faint for a guess. */
+  function setWeight(xi, si) {
+    var s = LIVE.x[xi].s[si], typed = numIn(s.w);
+    if (typed !== null) return { w: typed, dim: false };
+    var g = ghost(xi, si);
+    return { w: g.w, dim: true };
+  }
+  function nextSet(x) {
+    for (var j = 0; j < x.s.length; j++) if (!x.s[j].t) return j;
+    return -1;
+  }
+  // the left-hand cell of a barbell set, drawn in every set: plates over last time
+  function plCell(xi, si) {
+    var x = LIVE.x[xi], s = x.s[si], sw = setWeight(xi, si);
+    var prev = fin(s.pw) && fin(s.pr) ? fmtN(s.pw) + ' \u00d7 ' + s.pr : '';
+    var stk = stackHTML(sw.w, barFor(x.e), sw.dim);
+    if (!stk) return prev || '\u2014';
+    return stk + (prev ? '<span class="tr-prev-s">last ' + prev + '</span>' : '');
+  }
+  // the strip under a set, drawn while its weight is being typed and for the next set
+  function plStrip(xi, si) {
+    var x = LIVE.x[xi], sw = setWeight(xi, si), bar = barFor(x.e);
+    var stk = stackHTML(sw.w, bar, sw.dim, 8);
+    return '<span class="tr-plrow-l">Per side</span>' + (stk || '<span class="tr-stk-e">type a weight</span>') +
+      '<button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '">bar ' + fmtN(bar) + ' ' + T.pr.u + '</button>';
+  }
+  /* Typing a weight moves the plates at once, and the greyed weight of the
+     sets after it, without redrawing the box being typed in. */
+  function plRefresh(xi) {
+    var x = LIVE && LIVE.x[xi];
+    if (!x || !onBar(lib(x.e))) return;
+    x.s.forEach(function (s, j) {
+      var c = $('trpl-' + xi + '-' + j), r = $('trplr-' + xi + '-' + j), w = $('trw-' + xi + '-' + j);
+      if (c) c.innerHTML = plCell(xi, j);
+      if (r) r.innerHTML = plStrip(xi, j);
+      if (w && document.activeElement !== w) { var g = ghost(xi, j); w.placeholder = g.w !== null ? fmtN(g.w) : ''; }
+    });
+  }
+
   function exCard(x, i, label, mv) {
     var ex = lib(x.e);
     var rq = !!T.pr.rq;
+    var pl = onBar(ex) ? T.pr.pl : 'off';
+    var nx = nextSet(x);
     var note = noteOf(x.e);
     var mate = label ? LIVE.x[partner(i)] : null;
     var cue = backCue(ex);
@@ -3979,7 +4164,8 @@
       var lab = s.wu ? 'R' : String(++num) + (s.am ? '+' : '');
       return '<div class="tr-set' + (s.t ? ' done' : '') + (flash ? ' flash' : '') + (s.am ? ' tr-am' : '') + (s.wu ? ' tr-wu' : '') + '">' +
         '<span class="tr-sn" title="' + (s.wu ? 'Ramp set' : s.am ? 'As many good reps as you can' : 'Set ' + num) + '">' + lab + '</span>' +
-        '<span class="tr-prev">' + prev + '</span>' +
+        (pl === 'row' ? '<span class="tr-prev tr-prev-pl" id="trpl-' + i + '-' + j + '">' + plCell(i, j) + '</span>'
+          : '<span class="tr-prev">' + prev + '</span>') +
         '<input class="tr-in" id="trw-' + i + '-' + j + '" data-in="w" data-x="' + i + '" data-s="' + j + '" ' +
           'inputmode="decimal" autocomplete="off" placeholder="' + esc(ph) + '" value="' + esc(s.w) + '" ' +
           'aria-label="Set ' + (j + 1) + ' weight in ' + T.pr.u + '">' +
@@ -3989,7 +4175,9 @@
         (rq ? rqSel(s.q, 'data-in="q" data-x="' + i + '" data-s="' + j + '"', 'Set ' + (j + 1) + ' reps in reserve') : '') +
         '<button class="tr-tick" data-t="tick" data-x="' + i + '" data-s="' + j + '" aria-pressed="' + !!s.t + '" ' +
           'aria-label="' + (s.t ? 'Undo set ' : 'Done with set ') + (j + 1) + '">✓</button>' +
-      '</div>';
+      '</div>' +
+      (pl === 'type' ? '<div class="tr-plrow' + (j === nx ? ' on' : '') + '" id="trplr-' + i + '-' + j + '"' + (j === nx ? ' data-next="1"' : '') + '>' +
+        plStrip(i, j) + '</div>' : '');
     }).join('');
     var heavy = ex.q === 'bb' || ex.q === 'sm';
     return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '">' +
@@ -4005,14 +4193,16 @@
           (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + x.rir + ' RIR' : '') +
           (mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
             : ' \u00b7 rest ' + clock(x.rest)) +
-          (fin(x.tm) ? ' \u00b7 training max ' + fmtN(x.tm) + ' ' + T.pr.u : '') + '</span>' +
+          (fin(x.tm) ? ' \u00b7 training max ' + fmtN(x.tm) + ' ' + T.pr.u : '') +
+          (onBar(ex) ? ' \u00b7 <button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '" aria-label="Bar for ' + esc(ex.n) + ': ' +
+            fmtN(barFor(x.e)) + ' ' + T.pr.u + '. Change">bar ' + fmtN(barFor(x.e)) + ' ' + T.pr.u + '</button>' : '') + '</span>' +
         (x.s.some(function (s) { return s.am; }) ? '<span class="tr-cue">Last set: as many good reps as you can \u2014 stop when one slows to a grind. It sets your next wave\u2019s weights.</span>' : '') +
         (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">R is a ramp set on the way up: done, not counted.</span>' : '') +
         (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
         (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
-      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>Previous</span><span>' + T.pr.u + '</span><span>Reps</span>' +
+      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>' + (pl === 'row' ? 'Per side' : 'Previous') + '</span><span>' + T.pr.u + '</span><span>Reps</span>' +
         (rq ? '<span title="Reps in reserve">RIR</span>' : '') + '<span></span></div>' +
       rows +
       '<div class="tr-ex-a">' +
@@ -4273,6 +4463,8 @@
     else if (sh.k === 'axnew') body = axNewHTML(sh);
     else if (sh.k === 'ax') body = axSheetHTML(sh);
     else if (sh.k === 'note') body = noteHTML(sh);
+    else if (sh.k === 'bar') body = barHTML(sh);
+    else if (sh.k === 'times') body = startHTML();
     else if (sh.k === 'strong') body = strongHTML();
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
@@ -4412,6 +4604,67 @@
         Math.round(series[0].v) + ' to ' + Math.round(last.v)) + '">' + out.join('') + '</svg>';
   }
 
+  /* The workout in plain text, the way Nourish copies a day: the date, the
+     times, then each lift set by set, then the totals. Warm-ups are marked,
+     so they are not read as working sets. */
+  function woText(wo) {
+    var d = new Date(wo.st), u = T.pr.u;
+    var out = ['Strengthen \u2014 ' + DOW[d.getDay()] + ', ' + MON[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear(),
+      wo.n + ' \u00b7 ' + (wo.en > wo.st ? hmSpan(wo.st, wo.en) + ' (' + dur(wo.en - wo.st) + ')' : hm(wo.st)), ''];
+    wo.x.forEach(function (x) {
+      out.push(lib(x.e).n + ': ' + x.s.map(function (s) {
+        var w = conv(s.w, wo.u);
+        return (w > 0 ? fmtN(w) + ' ' + u + ' \u00d7 ' : '') + s.r + (s.wu ? ' (warm-up)' : '') + (fin(s.q) ? ' @' + rqSay(s.q) : '');
+      }).join(', '));
+    });
+    if (wo.mc && mcValid(wo.mc) && mcScore(wo.mc)) out.push('Circuit: ' + mcSay(wo.mc) + ' \u2014 ' + mcScore(wo.mc));
+    out.push('');
+    out.push(setsOf(wo) + (setsOf(wo) === 1 ? ' set' : ' sets') + ' \u00b7 ' + fmtBig(volOf(wo)) + ' ' + u);
+    if (wo.nt) out.push('Note: ' + wo.nt);
+    return out.join('\n');
+  }
+  /* For Nourish's day: each workout and activity that day, one line each,
+     with the time it started where the time is known. */
+  function dayText(k) {
+    var lines = [];
+    ix().list.forEach(function (wo) {
+      if ((wo.dk || dayKey(new Date(wo.st))) !== k) return;
+      lines.push('Workout: ' + wo.n + ', ' + (wo.en > wo.st ? hmSpan(wo.st, wo.en) + ' (' + dur(wo.en - wo.st) + ')' : hm(wo.st)) +
+        ', ' + setsOf(wo) + (setsOf(wo) === 1 ? ' set' : ' sets'));
+    });
+    Object.keys(T.ax).map(function (key) { return T.ax[key]; }).filter(function (a) {
+      return a && dayKey(new Date(a.st)) === k;
+    }).sort(function (a, b) { return a.st - b.st; }).forEach(function (a) {
+      lines.push('Activity: ' + axName(a) + ', ' + dur(a.min * 60000) + ', ' + LV[axLv(a)].toLowerCase());
+    });
+    return lines;
+  }
+  /* The same clipboard dance Nourish does: the async API where it is
+     allowed, a selected box where it is not. The button says how it went. */
+  function copyText(text, btn) {
+    var was = btn ? btn.textContent : '';
+    var said = function (ok) {
+      if (!btn) return;
+      btn.textContent = ok ? 'Copied' : 'Press and hold to copy';
+      setTimeout(function () { btn.textContent = was; }, 2200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { said(true); }, function () { said(false); });
+      return;
+    }
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    said(ok);
+  }
+
   function woSheetHTML(sh) {
     var wo = T.wo[sh.id];
     if (!wo) return '<div class="tr-note">That workout has gone.</div>';
@@ -4419,7 +4672,7 @@
     var prs = prsIn(wo);
     var armed = S.arm === 'del:' + wo.id;
     return '<div class="sheet-name tr-sn2">' + esc(wo.n) + '</div>' +
-      '<div class="tr-sub">' + when(wo.st) + (wo.en > wo.st ? ' · ' + dur(wo.en - wo.st) : '') + ' · ' + setsOf(wo) + ' sets · ' +
+      '<div class="tr-sub">' + when(wo.st) + ' · ' + (wo.en > wo.st ? hmSpan(wo.st, wo.en) + ' · ' + dur(wo.en - wo.st) : hm(wo.st)) + ' · ' + setsOf(wo) + ' sets · ' +
         fmtBig(volOf(wo)) + ' ' + T.pr.u + (wo.im === 's' ? ' · from Strong' : '') + (wo.ed ? ' · edited' : '') + '</div>' +
       (prs.length ? '<div class="tr-prs">' + prs.map(function (p) {
         return '<div>★ ' + esc(lib(p.e).n) + ' — ' + esc(p.what) + '</div>';
@@ -4437,6 +4690,7 @@
           }).join('') + '</ol></div>';
       }).join('') +
       '<div class="tr-acts"><button class="ghost" data-t="edopen" data-id="' + esc(wo.id) + '">Edit</button>' +
+        '<button class="ghost" data-t="wocopy" data-id="' + esc(wo.id) + '">Copy as text</button>' +
         '<button class="ghost danger" data-t="delwo" data-id="' + esc(wo.id) + '">' +
         (armed ? 'Tap again to delete for good' : 'Delete this workout') + '</button></div>';
   }
@@ -4450,7 +4704,7 @@
    * when it was ticked, a ramp, an all-out set — rides along untouched. */
   function edOpen(wo) {
     S.ed = {
-      id: wo.id, err: '', nt: wo.nt || '',
+      id: wo.id, err: '', nt: wo.nt || '', t0: dtVal(wo.st), t1: fin(wo.en) && wo.en > wo.st ? dtVal(wo.en) : '',
       x: wo.x.map(function (x) {
         return { e: x.e, pq: x.pq, s: x.s.map(function (s) {
           return { w: fmtN(conv(s.w, wo.u)), r: String(s.r), q: fin(s.q) ? String(Math.min(5, s.q)) : '', o: s };
@@ -4485,6 +4739,10 @@
         '</div>';
       }).join('') +
       '<div class="tr-acts"><button class="ghost" data-t="edaddx">+ Add an exercise</button></div>' +
+      '<div class="tr-q"><div class="tr-ql">When</div><div class="tr-times">' +
+        '<label class="tr-tml"><span>Started</span><input class="txt" type="datetime-local" id="trEdT0" value="' + esc(E.t0) + '"></label>' +
+        '<label class="tr-tml"><span>Ended</span><input class="txt" type="datetime-local" id="trEdT1" value="' + esc(E.t1) + '"></label>' +
+      '</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Notes <span class="tr-opt">optional</span></div>' +
         '<textarea class="txt tr-nt" id="trEdNt" maxlength="1000" rows="2" aria-label="Notes on this workout">' + esc(E.nt) + '</textarea></div>' +
       (E.err ? '<div class="tr-note tr-warn">' + esc(E.err) + '</div>' : '') +
@@ -4517,10 +4775,16 @@
       return out;
     }).filter(function (x) { return x.s.length; });
     if (bad) { E.err = 'A set of ' + bad + ' has a number that could not be read. Fix it or take it out.'; return false; }
+    var st = dtParse(E.t0), en = E.t1 ? dtParse(E.t1) : null;
+    var tb = timesBad(st, en);
+    if (tb) { E.err = tb; return false; }
     if (!x.length && !wo.mc) { E.err = 'Nothing would be left. To get rid of the whole workout, cancel and delete it.'; return false; }
     var nw = clean(wo);
     nw.u = T.pr.u;
     nw.x = x;
+    nw.st = st;
+    nw.dk = dayKey(new Date(st));
+    if (en !== null) nw.en = en; else delete nw.en;
     var nt = String(E.nt || '').trim().slice(0, 1000);
     if (nt) nw.nt = nt; else delete nw.nt;
     nw.ed = Date.now();
@@ -4546,16 +4810,18 @@
 
   function platesHTML(sh) {
     var w = numIn(sh.w);
-    var pm = w === null ? null : plateMath(w, T.pr.bar, T.pr.u);
-    return '<div class="sheet-name tr-sn2">Plates</div>' +
+    var bar = sh.e ? barFor(sh.e) : T.pr.bar;
+    var pm = w === null ? null : plateMath(w, bar, T.pr.u);
+    return '<div class="sheet-name tr-sn2">Plates' + (sh.e ? ' for ' + esc(lib(sh.e).n) : '') + '</div>' +
       '<div class="tr-own-r"><input class="txt" id="trPlateW" inputmode="decimal" value="' + esc(w === null ? '' : fmtN(w)) + '" aria-label="Total weight">' +
-        '<span class="tr-sub">' + T.pr.u + ' on a ' + fmtN(T.pr.bar) + ' ' + T.pr.u + ' bar</span></div>' +
+        '<span class="tr-sub">' + T.pr.u + ' on a ' + fmtN(bar) + ' ' + T.pr.u + ' bar</span></div>' +
+      (sh.e ? '<div class="tr-q"><div class="tr-ql">Bar</div>' + barChoices(sh.e) + '</div>' : '') +
       (pm === null ? '<div class="tr-note">Type the total weight.</div>'
         : pm.under ? '<div class="tr-note">That is less than the bar.</div>'
           : '<div class="tr-plates">' + (pm.plates.length ? pm.plates.map(function (p) {
-            return '<span class="tr-plate p' + String(p).replace('.', '_') + '">' + fmtN(p) + '</span>';
+            return '<span class="tr-plate p' + String(p).replace('.', '_') + '">' + fmtP(p) + '</span>';
           }).join('') : '<span class="tr-note">Just the bar.</span>') + '</div>' +
-            '<div class="tr-sub">Each side' + (pm.left > 0 ? ' — ' + fmtN(pm.left * 2) + ' ' + T.pr.u + ' short with standard plates' : '') + '.</div>');
+            '<div class="tr-sub">Each side' + (pm.left > 0 ? ' — ' + fmtP(pm.left * 2) + ' ' + T.pr.u + ' short with standard plates' : '') + '.</div>');
   }
 
   /* A warm-up that rehearses the lift without tiring it: half the working
@@ -4570,21 +4836,21 @@
     if (w === null) w = fin(s0.tw) ? s0.tw : fin(s0.pw) ? s0.pw : null;
     if (!(w > 0)) return '<div class="sheet-name tr-sn2">Warm-up</div><div class="tr-note">Put a weight in the first set and the ramp works itself out from it.</div>';
     var step = inc(ex);
-    var bb = ex.q === 'bb' || ex.q === 'sm';
+    var bb = onBar(ex), bar = barFor(x.e);
     var rows = [];
-    if (bb && T.pr.bar < w * 0.5) rows.push([T.pr.bar, 10]);
+    if (bb && bar > 0 && bar < w * 0.5) rows.push([bar, 10]);
     [[0.5, 8], [0.7, 4], [0.85, 2]].forEach(function (r) {
       var v = roundTo(w * r[0], step);
-      if (bb && v < T.pr.bar) return;
+      if (bb && v < bar) return;
       if (rows.length && v <= rows[rows.length - 1][0]) return;
       rows.push([v, r[1]]);
     });
     return '<div class="sheet-name tr-sn2">Warm-up for ' + esc(ex.n) + '</div>' +
       '<div class="tr-sub">Working weight ' + fmtN(w) + ' ' + T.pr.u + '. These are not logged.</div>' +
       '<ol class="tr-warm">' + rows.map(function (r) {
-        var pm = bb ? plateMath(r[0], T.pr.bar, T.pr.u) : null;
+        var pm = bb ? plateMath(r[0], bar, T.pr.u) : null;
         return '<li><b>' + fmtN(r[0]) + ' ' + T.pr.u + ' × ' + r[1] + '</b>' +
-          (pm ? '<span class="tr-sub"> ' + (pm.plates.length ? pm.plates.map(fmtN).join(' + ') + ' a side' : 'the bar') + '</span>' : '') + '</li>';
+          (pm ? '<span class="tr-sub"> ' + (pm.plates.length ? pm.plates.map(fmtP).join(' + ') + ' a side' : 'the bar') + '</span>' : '') + '</li>';
       }).join('') + '</ol>';
   }
 
@@ -4606,9 +4872,13 @@
         '<div class="tr-acts"><button class="btn-primary" data-t="close">Keep going</button>' +
           '<button class="ghost danger" data-t="discardnow">' + (S.arm === 'discard' ? 'Tap again to discard' : 'Discard it') + '</button></div>';
     }
+    var sh = S.sheet || {};
     return '<div class="sheet-name tr-sn2">' + esc(LIVE.n) + '</div>' +
+      '<div class="tr-when">' + when(wo.st) + ' \u00b7 ' + hmSpan(wo.st, wo.en) +
+        (sh.tm ? '' : ' <button class="tr-lnk" data-t="fintimes">Change times</button>') + '</div>' +
+      (sh.tm ? timesHTML(wo.st, wo.en, 'fin') : '') +
       '<div class="tr-recs">' +
-        rec('Time', dur(Date.now() - LIVE.st)) + rec('Sets', setsOf(wo)) +
+        rec('Time', dur(wo.en - wo.st)) + rec('Sets', setsOf(wo)) +
         rec('Volume', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', prs.length) +
       '</div>' +
       (prs.length ? '<div class="tr-prs">' + prs.map(function (p) {
@@ -4629,6 +4899,27 @@
       '<div class="tr-note">Saving marks ' + (wo.dk === dayKey(new Date()) ? 'today' : 'that day') + ' as a training day in Nourish.</div>' +
       '<div class="tr-acts"><button class="btn-primary" data-t="save">Save workout</button>' +
         '<button class="ghost" data-t="close">Keep going</button></div>';
+  }
+
+  /* Start and end as date-and-time boxes, for putting a workout at the time
+     of day it happened: a Finish pressed at the car, a start pressed at the
+     second set. What Google Health is told is what these say. */
+  function timesHTML(st, en, k) {
+    var err = S.tmErr || '';
+    return '<div class="tr-times">' +
+      '<label class="tr-tml"><span>Started</span><input class="txt" type="datetime-local" id="trT0-' + k + '" value="' + dtVal(st) + '"></label>' +
+      (en !== undefined ? '<label class="tr-tml"><span>Ended</span><input class="txt" type="datetime-local" id="trT1-' + k + '" value="' +
+        (fin(en) ? dtVal(en) : '') + '"></label>' : '') +
+      (err ? '<div class="tr-note tr-warn">' + esc(err) + '</div>' : '') +
+      (k === 'fin' ? '<div class="tr-acts"><button class="ghost" data-t="fintimeset">Use these times</button></div>' : '') +
+    '</div>';
+  }
+  function startHTML() {
+    if (!LIVE) return '';
+    return '<div class="sheet-name tr-sn2">When you started</div>' +
+      '<div class="tr-sub">Started ' + hm(LIVE.st) + ', ' + dur(Date.now() - LIVE.st) + ' ago. Set it to when you really began, and the workout is logged at that time of day.</div>' +
+      timesHTML(LIVE.st, undefined, 'live') +
+      '<div class="tr-acts"><button class="btn-primary" data-t="livetimeset">Save</button></div>';
   }
 
   function planSheetHTML(sh) {
@@ -4674,6 +4965,24 @@
         (S.arm === 'axdel:' + a.id ? 'Tap again to delete' : 'Delete') + '</button></div>';
   }
 
+  function barChoices(e) {
+    var cur = barFor(e);
+    var opts = T.pr.u === 'kg' ? [20, 15, 10, 7.5, 5, 0] : [45, 35, 25, 20, 15, 0];
+    return chips('barset', cur, opts.map(function (w) { return [w, w ? fmtN(w) + ' ' + T.pr.u : 'No bar']; }), ' data-e="' + esc(e) + '"');
+  }
+  function barHTML(sh) {
+    var ex = lib(sh.e);
+    return '<div class="sheet-name tr-sn2">Bar for ' + esc(ex.n) + '</div>' +
+      '<div class="tr-sub">The plates are worked out from it. Remembered for ' + esc(ex.n) +
+        '; every other barbell lift stays on its own, or on the default bar in Settings (' + fmtN(T.pr.bar) + ' ' + T.pr.u + ').</div>' +
+      '<div class="tr-q">' + barChoices(sh.e) + '</div>' +
+      '<div class="tr-q"><div class="tr-ql">Something else</div><div class="tr-own-r">' +
+        '<input class="txt tr-barw" id="trBarW" inputmode="decimal" autocomplete="off" placeholder="' + fmtN(barFor(sh.e)) + '" aria-label="Bar weight in ' + T.pr.u + '">' +
+        '<span class="tr-sub">' + T.pr.u + '</span>' +
+        '<button class="ghost" data-t="barother" data-e="' + esc(sh.e) + '">Use it</button></div></div>' +
+      (barSet(sh.e) ? '<div class="tr-acts"><button class="ghost" data-t="barset" data-v="def" data-e="' + esc(sh.e) + '">Back to the usual bar</button></div>' : '');
+  }
+
   function noteHTML(sh) {
     var ex = lib(sh.e);
     return '<div class="sheet-name tr-sn2">' + esc(ex.n) + '</div>' +
@@ -4703,8 +5012,14 @@
           esc(lib(e).n) + ' &times;</button>';
       }).join('') + '</div>' : '<div class="tr-sub">Nothing yet. When you swap an exercise out, you can say never again.</div>') +
       '<div class="tr-q"><div class="tr-ql">Weights in</div>' + chips('s-u', p.u, [['lb', 'Pounds'], ['kg', 'Kilograms']]) + '</div>' +
-      '<div class="tr-q"><div class="tr-ql">Bar</div>' +
-        chips('s-bar', p.bar, p.u === 'kg' ? [[20, '20 kg'], [15, '15 kg'], [10, '10 kg']] : [[45, '45 lb'], [35, '35 lb'], [25, '25 lb']]) + '</div>' +
+      '<div class="tr-q"><div class="tr-ql">Default bar</div>' +
+        chips('s-bar', p.bar, p.u === 'kg' ? [[20, '20 kg'], [15, '15 kg'], [10, '10 kg']] : [[45, '45 lb'], [35, '35 lb'], [25, '25 lb']]) +
+        '<div class="tr-hint">A lift on another bar \u2014 an EZ bar, a Smith machine \u2014 keeps its own: tap \u201cbar\u201d beside it in a workout.</div></div>' +
+      '<div class="tr-q"><div class="tr-ql">Plates on the bar</div>' +
+        chips('s-pl', p.pl, [['row', 'In every set'], ['type', 'While typing'], ['off', 'Off']]) +
+        '<div class="tr-hint">' + (p.pl === 'row' ? 'Each barbell set shows what goes on each side, where Previous was; last time\u2019s numbers sit under it.'
+          : p.pl === 'type' ? 'The plates show under a set while you type its weight, and under the next set to do.'
+          : 'The plate calculator is still under Plates on each barbell lift.') + '</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Rest on compound lifts</div>' +
         chips('s-rc', p.rc, [[90, '1:30'], [120, '2:00'], [150, '2:30'], [180, '3:00'], [240, '4:00']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Rest on isolation work</div>' +
@@ -5467,14 +5782,17 @@
       var open = px.s.filter(function (s) { return !s.t; })[0] || px.s[0];
       var pw = numIn(open.w);
       if (pw === null) pw = fin(open.tw) ? open.tw : fin(open.pw) ? open.pw : null;
-      openSheet({ k: 'plates', w: pw, eyebrow: 'Plate calculator', title: 'Plates' });
+      openSheet({ k: 'plates', w: pw, e: px.e, eyebrow: 'Plate calculator', title: 'Plates' });
       return;
     }
     if (t === 'bk') {
       LIVE.bk = LIVE.bk === Number(v) ? undefined : Number(v);
       if (LIVE.bk === undefined) delete LIVE.bk;
+      // answered, it folds away
+      delete LIVE.bko;
       saveLive(); draw(); return;
     }
+    if (t === 'bkopen' && LIVE) { LIVE.bko = 1; saveLive(); draw(); return; }
     if (t === 'sore') {
       var m = el.getAttribute('data-m');
       if (LIVE.sr[m] === Number(v)) delete LIVE.sr[m]; else LIVE.sr[m] = Number(v);
@@ -5502,7 +5820,28 @@
       if (LIVE.fbo) delete LIVE.fbo[hm];
       saveLive(); draw(); return;
     }
-    if (t === 'finish') { openSheet({ k: 'finish', eyebrow: 'Finish', title: 'Finish workout' }); return; }
+    if (t === 'finish') { S.tmErr = ''; openSheet({ k: 'finish', eyebrow: 'Finish', title: 'Finish workout' }); return; }
+    if (t === 'times' && LIVE) { S.tmErr = ''; openSheet({ k: 'times', eyebrow: 'Workout', title: 'Start time' }); return; }
+    if (t === 'fintimes' && S.sheet) { S.sheet.tm = 1; S.tmErr = ''; drawSheet(); return; }
+    if ((t === 'livetimeset' || t === 'fintimeset') && LIVE) {
+      var k0 = t === 'livetimeset' ? 'live' : 'fin';
+      var i0 = $('trT0-' + k0), i1 = $('trT1-' + k0);
+      var st0 = dtParse(i0 && i0.value), en0 = i1 ? dtParse(i1.value) : null;
+      if (i1 && !i1.value) en0 = null;
+      S.tmErr = timesBad(st0, en0);
+      if (!S.tmErr && k0 === 'live' && Date.now() - st0 > DAY_MS) S.tmErr = 'That is more than a day ago.';
+      if (S.tmErr) { drawSheet(); return; }
+      LIVE.st = st0;
+      if (k0 === 'fin') { if (en0 !== null) LIVE.fe = en0; else delete LIVE.fe; S.sheet.tm = 0; }
+      saveLive();
+      if (k0 === 'live') closeSheet(); else drawSheet();
+      draw(); return;
+    }
+    if (t === 'wocopy') {
+      var cw = T.wo[el.getAttribute('data-id')];
+      if (cw) copyText(woText(cw), el);
+      return;
+    }
     if (t === 'mcgo' && LIVE && LIVE.mc) {
       LIVE.mc.st = Date.now(); LIVE.mc.en = 0; LIVE.mc.rm = 0;
       LIVE.rs = null;
@@ -5556,6 +5895,18 @@
       S.own = null;
       onPick(id);
       return;
+    }
+
+    // the bar a lift is on
+    if (t === 'barpick') { openSheet({ k: 'bar', e: el.getAttribute('data-e'), eyebrow: 'Bar', title: 'Bar' }); return; }
+    if (t === 'barset' || t === 'barother') {
+      var be = el.getAttribute('data-e'), bw;
+      if (t === 'barother') { bw = numIn(($('trBarW') || {}).value); if (bw === null || bw < 0 || bw > 100) { var bi = $('trBarW'); if (bi) bi.focus(); return; } }
+      else bw = v === 'def' ? null : Number(v);
+      setBar(be, bw);
+      // from the plate calculator it stays open, to see the plates change
+      if (S.sheet && S.sheet.k === 'plates') drawSheet(); else closeSheet();
+      draw(); return;
     }
 
     // notes
@@ -5666,7 +6017,8 @@
       if (v !== was) T.pr.bar = v === 'kg' ? 20 : 45;
       stamp('pr'); drawSheet(); draw(); return;
     }
-    if (t === 's-bar') { T.pr.bar = Number(v); stamp('pr'); drawSheet(); return; }
+    if (t === 's-bar') { T.pr.bar = Number(v); stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-pl') { T.pr.pl = ['row', 'type', 'off'].indexOf(v) >= 0 ? v : 'row'; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-rc') { T.pr.rc = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-ri') { T.pr.ri = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-snd') { T.pr.snd = Number(v); stamp('pr'); drawSheet(); return; }
@@ -5718,6 +6070,8 @@
       if (el.id === 'trOwnN' && S.own) { S.own.n = el.value; return; }
       if (el.id === 'trWoNt' && LIVE) { LIVE.nt = el.value.slice(0, 1000); saveLive(); return; }
       if (el.id === 'trEdNt' && S.ed) { S.ed.nt = el.value.slice(0, 1000); return; }
+      if (el.id === 'trEdT0' && S.ed) { S.ed.t0 = el.value; return; }
+      if (el.id === 'trEdT1' && S.ed) { S.ed.t1 = el.value; return; }
       var edf = el.getAttribute('data-ed');
       if (edf && S.ed) {
         var ex1 = S.ed.x[Number(el.getAttribute('data-x'))];
@@ -5747,6 +6101,26 @@
       if (!s) return;
       s[f] = el.value.replace(/[^0-9.,]/g, '').slice(0, 7);
       saveLive();
+      if (f === 'w') plRefresh(Number(el.getAttribute('data-x')));
+    });
+    /* While typing: the strip under the set whose weight has the cursor,
+       and under the next set to do, which is up anyway. */
+    document.addEventListener('focusin', function (e) {
+      var el = e.target;
+      if (!el || !el.getAttribute || el.getAttribute('data-in') !== 'w') return;
+      var r = $('trplr-' + el.getAttribute('data-x') + '-' + el.getAttribute('data-s'));
+      if (r) r.classList.add('on');
+    });
+    document.addEventListener('focusout', function (e) {
+      var el = e.target;
+      if (!el || !el.getAttribute || el.getAttribute('data-in') !== 'w') return;
+      var r = $('trplr-' + el.getAttribute('data-x') + '-' + el.getAttribute('data-s'));
+      /* Not at once: the strip folding up moves everything under it, and
+         the tap that took the cursor away would land on whatever slid into
+         its place. After the tap has done its work, it folds. */
+      if (r && !r.getAttribute('data-next')) {
+        setTimeout(function () { if (document.activeElement !== el) r.classList.remove('on'); }, 350);
+      }
     });
     document.addEventListener('change', function (e) {
       var el = e.target;
@@ -5790,6 +6164,7 @@
 
   window.Train = {
     render: render,
+    dayText: dayText,
     attach: attach,
     remote: remote,
     forget: forget,
@@ -5803,7 +6178,8 @@
       estDay: estDay, barred: barred, KEEP_SPLITS: KEEP_SPLITS, HABITS: HABITS, weeksOf: weeksOf, nextTm: nextTm,
       recommend: recommend, PROGS: PROGS, FOCUS: FOCUS, KITS: KITS, axWeek: axWeek, defaultsPr: defaultsPr,
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
-      LIB_LIST: LIB_LIST, slotDone: slotDone,
+      LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
+      woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan,
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

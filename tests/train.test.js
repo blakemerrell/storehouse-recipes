@@ -181,7 +181,8 @@ module.exports = {
     d = await p.evaluate(() => { const r = window.Train._.state().LIVE.rs; return Math.round((r.end - Date.now()) / 1000); });
     t.ok('the rest can be stretched', d > 180 && d <= 196, d);
     await p.click('[data-t="rest"][data-v="skip"]');
-    t.ok('or skipped', await p.evaluate(() => document.getElementById('trRest').classList.contains('hide')));
+    d = await p.evaluate(() => ({ rest: !!document.querySelector('#trRest .tr-rest-t'), finish: !!document.querySelector('#trRest:not(.hide) [data-t="finish"]') }));
+    t.ok('or skipped, leaving the workout’s own bar with Finish', !d.rest && d.finish, JSON.stringify(d));
 
     // a set with nothing to take: a first-ever exercise, no target, no history
     await p.click('[data-t="addex"]');
@@ -1630,6 +1631,161 @@ module.exports = {
     await p.waitForTimeout(300);
     r = await p.evaluate(() => ({ go: document.querySelector('[data-t="sggo"]'), sub: (document.querySelector('.tr-sheet .tr-sub') || {}).textContent || '' }));
     t.ok('the same file twice brings in nothing twice', r.go && /Nothing new/.test(await p.textContent('[data-t="sggo"]')) && /here already/.test(r.sub), r.sub);
+    await p.close();
+    // ---- the foot of the workout, the back as a question, times, plates ----
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="qzskip"]');
+    await seed(p, { pr: { qz: 1, bk: 'f', rq: 0 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('[data-t="sub"][data-v="block"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="ez-curl"]');
+    r = await p.evaluate(() => ({
+      head: !!document.querySelector('.tr-live-h [data-t="finish"]'),
+      foot: !!document.querySelector('#trRest:not(.hide) .tr-wbar [data-t="finish"]'),
+      started: (document.querySelector('.tr-wbar-l') || {}).textContent || '',
+      list: !!document.querySelector('#trBody [data-t="finish"]'),
+    }));
+    t.ok('Finish lives in the footer, one reach from every card, and nowhere else', !r.head && !r.list && r.foot, JSON.stringify(r));
+    t.ok('beside when you started', /^Started \d{1,2}:\d{2} [AP]M$/.test(r.started), r.started);
+    r = await p.evaluate(() => [window.Train._.elapsed(8551), window.Train._.elapsed(59), window.Train._.elapsed(3600)].join('|'));
+    t.ok('past an hour the clock says hours: 2:22:31, not 142:31', r === '2:22:31|0:59|1:00:00', r);
+
+    // the back, asked, then folded
+    r = await p.evaluate(() => (document.querySelector('.tr-ask .tr-sq-l') || {}).textContent || '');
+    t.ok('the back check is a question', r === 'How’s your back today?', r);
+    await p.click('[data-t="bk"][data-v="0"]');
+    r = await p.evaluate(() => ({ line: (document.querySelector('.tr-bkt') || {}).textContent || '', q: !!document.querySelector('[data-t="bk"]') }));
+    t.ok('answered, it folds to one line with a way back', /Back/.test(r.line) && /good/.test(r.line) && /Change/.test(r.line) && !r.q, JSON.stringify(r));
+    await p.click('[data-t="bkopen"]');
+    await p.click('[data-t="bk"][data-v="2"]');
+    r = await p.evaluate(() => ({ line: (document.querySelector('.tr-bkt .tr-fbt-s') || {}).textContent || '', warn: (document.querySelector('.tr-bkt .tr-warn') || {}).textContent || '' }));
+    t.ok('sore folds too, but keeps its warning in view', r.line === 'sore' && /Skip the lower-body lifts today/.test(r.warn), JSON.stringify(r));
+
+    // plates, in every set
+    r = await p.evaluate(() => {
+      const _ = window.Train._, a = (w, b) => { const d = document.createElement('div'); d.innerHTML = _.stackHTML(w, b); const s = d.querySelector('.tr-stk'); return s ? s.getAttribute('aria-label') || s.textContent : ''; };
+      return { std: a(195, 45), odd: a(137.5, 45), under: a(30, 45), bar: a(45, 45), heavy: (() => { const d = document.createElement('div'); d.innerHTML = _.stackHTML(585, 45); return d.textContent; })(),
+        bars: ['bb-bench', 'ez-curl', 'sm-incline'].map((e) => _.barFor(e)).join(),
+        kg: (() => { const T = _.state().T, was = T.pr.u; T.pr.u = 'kg'; const d = document.createElement('div'); d.innerHTML = _.stackHTML(22.5, 20); T.pr.u = was; return d.querySelector('.tr-stk').getAttribute('aria-label'); })() };
+    });
+    t.ok('the plates a side: 195 on a 45 bar is 45, 25 and 5', r.std === '45, 25, 5 a side', r.std);
+    t.ok('a weight the plates cannot make says what is left, rather than rounding it away', /1\.25 lb a side that the plates cannot make/.test(r.odd), r.odd);
+    t.ok('less than the bar says so; the bar alone says so', /under the bar/.test(r.under) && /just the bar/.test(r.bar), r.under + ' / ' + r.bar);
+    t.ok('six 45s fold to one plate with a count', /45×6/.test(r.heavy), r.heavy);
+    t.ok('an EZ bar and a Smith machine start on their own bars', r.bars === '45,25,20', r.bars);
+    t.ok('a plate of 1.25 reads 1.25, not 1.3', r.kg === '1.25 a side', r.kg);
+    await p.fill('#trw-0-0', '195');
+    r = await p.evaluate(() => ({
+      now: document.querySelector('#trpl-0-0 .tr-stk').getAttribute('aria-label'),
+      dim: document.querySelector('#trpl-0-1 .tr-stk').classList.contains('dim'),
+      next: document.querySelector('#trpl-0-1 .tr-stk').getAttribute('aria-label'),
+      head: document.querySelectorAll('.tr-ex')[0].querySelector('.tr-set-h').textContent,
+      curl: !!document.querySelector('#trpl-1-0'),
+    }));
+    t.ok('typing a weight draws its plates in the set, at once', r.now === '45, 25, 5 a side', r.now);
+    t.ok('and the sets after it, faint until they are typed', r.dim && r.next === '45, 25, 5 a side', JSON.stringify(r));
+    t.ok('where Previous was', /Per side/.test(r.head), r.head);
+    await p.click('[data-t="barpick"][data-e="bb-bench"]');
+    await p.click('[data-t="barset"][data-v="25"]');
+    r = await p.evaluate(() => ({ stk: document.querySelector('#trpl-0-0 .tr-stk').getAttribute('aria-label'), kept: window.Train._.state().T.pr.bars,
+      label: (document.querySelector('[data-t="barpick"][data-e="bb-bench"]') || {}).textContent }));
+    t.ok('a lift can be put on another bar, and its plates follow', r.stk === '45, 35, 5 a side' && r.label === 'bar 25 lb', JSON.stringify(r));
+    t.ok('and the bar is remembered for that lift, and synced with your settings', r.kept.nbbbench && r.kept.nbbbench.e === 'bb-bench' && r.kept.nbbbench.w === 25, JSON.stringify(r.kept));
+    await p.click('[data-t="barpick"][data-e="bb-bench"]');
+    await p.fill('#trBarW', '33');
+    await p.click('[data-t="barother"]');
+    r = await p.evaluate(() => window.Train._.barFor('bb-bench'));
+    t.ok('any bar weight can be typed', r === 33, r);
+    await p.click('[data-t="plates"][data-x="0"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-own-r .tr-sub') || {}).textContent || '');
+    t.ok('the plate calculator uses the lift’s own bar', /on a 33 lb bar/.test(r), r);
+    await p.click('.sheet-x');
+
+    // plates while typing
+    await p.click('[data-t="settings"]');
+    await p.click('[data-t="s-pl"][data-v="type"]');
+    await p.click('.sheet-x');
+    r = await p.evaluate(() => ({ cells: document.querySelectorAll('.tr-prev-pl').length, on: [...document.querySelectorAll('.tr-plrow.on')].map((e) => e.id).join() }));
+    t.ok('while typing: no plates in the rows, a strip under the next set to do', r.cells === 0 && r.on === 'trplr-0-0,trplr-1-0', JSON.stringify(r));
+    await p.focus('#trw-0-2');
+    await p.fill('#trw-0-2', '173');
+    r = await p.evaluate(() => ({ on: document.getElementById('trplr-0-2').classList.contains('on'), stk: document.querySelector('#trplr-0-2 .tr-stk').getAttribute('aria-label') }));
+    t.ok('and under the set whose weight is being typed', r.on && r.stk === '45, 25 a side', JSON.stringify(r));
+    await p.focus('#trr-0-2');
+    await p.waitForTimeout(450);
+    r = await p.evaluate(() => document.getElementById('trplr-0-2').classList.contains('on'));
+    t.ok('which goes when the cursor leaves it', !r);
+    await p.click('[data-t="settings"]');
+    await p.click('[data-t="s-pl"][data-v="off"]');
+    await p.click('.sheet-x');
+    r = await p.evaluate(() => document.querySelectorAll('.tr-stk').length);
+    t.ok('and off is off', r === 0, r);
+
+    // the start time, changed
+    await p.click('[data-t="times"]');
+    const early = await p.evaluate(() => window.Train._.dtVal(Date.now() - 45 * 60e3));
+    await p.fill('#trT0-live', early);
+    await p.click('[data-t="livetimeset"]');
+    r = await p.evaluate((v) => ({ st: window.Train._.dtVal(window.Train._.state().LIVE.st), clock: (document.getElementById('trElapsed') || {}).textContent }), early);
+    t.ok('the start can be moved back to when you really began', r.st === early && /^4[45]:/.test(r.clock), JSON.stringify(r));
+    await p.click('[data-t="times"]');
+    await p.fill('#trT0-live', await p.evaluate(() => window.Train._.dtVal(Date.now() + 3 * 3600e3)));
+    await p.click('[data-t="livetimeset"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-warn') || {}).textContent || '');
+    t.ok('but not into the future', /in the future/.test(r), r);
+    await p.click('.sheet-x');
+
+    // the end, set at Finish
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="fintimes"]');
+    const end = await p.evaluate(() => window.Train._.dtVal(Date.now() - 10 * 60e3));
+    await p.fill('#trT1-fin', end);
+    await p.click('[data-t="fintimeset"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-when') || {}).textContent || '');
+    t.ok('Finish shows when it was, and the end can be set to when you stopped', /\d{1,2}:\d{2}/.test(r) && /–/.test(r), r);
+    await p.click('[data-t="save"]');
+    r = await p.evaluate((end) => { const w = Object.values(window.Train._.state().T.wo)[0]; return { en: window.Train._.dtVal(w.en), mins: Math.round((w.en - w.st) / 60e3) }; }, end);
+    t.ok('and the workout is saved with those times', r.en === end && r.mins === 35, JSON.stringify(r));
+
+    // copy it, and it goes into Nourish's day too
+    r = await p.evaluate(() => {
+      let got = null;
+      navigator.clipboard.writeText = (x) => { got = x; return Promise.resolve(); };
+      document.querySelector('.tr-saved [data-t="wocopy"]').click();
+      return got;
+    });
+    t.ok('a saved workout copies as text: the date, the times, every set',
+      /^Strengthen — \w{3}, \w{3} \d+ \d{4}/.test(r || '') && /Workout · \d{1,2}:\d{2}.*\(35 min\)/.test(r || '') && /Barbell Bench Press: 195 lb × 8/.test(r || '') && /1 set ·/.test(r || ''), r);
+    r = await p.evaluate(() => {
+      const d = new Date(), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      return window.Train.dayText(k).join('\n');
+    });
+    t.ok('and Nourish’s copy of the day names it with its times', /^Workout: Workout, \d{1,2}:\d{2}.*\(35 min\), 1 set$/.test(r), r);
+
+    // times on a saved workout
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('[data-t="wosheet"]');
+    await p.click('[data-t="edopen"]');
+    const t0 = await p.evaluate(() => window.Train._.dtVal(Date.now() - 26 * 3600e3));
+    const t1 = await p.evaluate(() => window.Train._.dtVal(Date.now() - 25 * 3600e3));
+    await p.fill('#trEdT0', t1);
+    await p.fill('#trEdT1', t0);
+    await p.click('[data-t="edsave"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-warn') || {}).textContent || '');
+    t.ok('a saved workout’s times can be edited, and an end before the start is refused', /after the start/.test(r), r);
+    await p.fill('#trEdT0', t0);
+    await p.fill('#trEdT1', t1);
+    await p.click('[data-t="edsave"]');
+    r = await p.evaluate((t0) => { const w = Object.values(window.Train._.state().T.wo)[0]; const y = new Date(Date.now() - 26 * 3600e3);
+      return { st: window.Train._.dtVal(w.st) === t0, mins: Math.round((w.en - w.st) / 60e3), dk: w.dk, want: y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0') }; }, t0);
+    t.ok('moved to yesterday, it is filed under yesterday', r.st && r.mins === 60 && r.dk === r.want, JSON.stringify(r));
     await p.close();
   },
 };

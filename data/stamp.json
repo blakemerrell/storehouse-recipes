@@ -1,16 +1,16 @@
 {
-  "v": 483,
+  "v": 484,
   "files": {
     "data/recipes.js": "2d40da60faa0b954",
     "data/nutrition.js": "1fa8632bf77d529b",
     "data/art.js": "6400869a8b1c044a",
     "data/qr.js": "ad816e709c904c25",
-    "src/app.js": "6822df4e57e0dcf2",
+    "src/app.js": "5adbc3af46a238d8",
     "src/sync.js": "1e811f364a80d048",
-    "src/train.js": "905829f858d00ca2",
+    "src/train.js": "154d2b12a5dc9080",
     "src/config.js": "aa98e88f0eef54e6",
-    "src/style.css": "ae826151d4ef3d98",
-    "index.html": "7c8aca1b859e76c6",
-    "sw.js": "c7dfa412bb3273c8"
+    "src/style.css": "887f576a8be31dd2",
+    "index.html": "7b0ee9fe0390f951",
+    "sw.js": "3f015d59192fe737"
   }
 }

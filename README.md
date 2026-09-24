@@ -77,6 +77,14 @@ three ideas in one tab:
   Turn it on and every set has a reps-in-reserve box, which the review then grades against
   what the plan asked. A saved workout can be edited — weights, reps, sets in or out, an
   exercise forgotten — and records, charts and next week's weights follow the correction.
+  The foot of the screen holds when you started (tap to change it), the running time and
+  Finish, with the rest timer on top of it while you rest; Finish lets you set the end time
+  too, and a saved workout's date and times can be edited, so it exports at the hour it
+  happened. A saved workout copies as text (the date, the times, every set), and Nourish's
+  copy of the day names the day's workouts with their times. Barbell and Smith lifts draw
+  the plates for each side — in every set, or under a set while you type its weight — on a
+  bar each lift remembers (an EZ bar, a Smith machine). The back check asks "How's your
+  back today?" and folds away once answered.
   Finishing a workout ticks "trained today" on Nourish.
 - *The review* holds the last seven days against the research, as rules rather than
   opinions: weekly hard sets per muscle against the 10–20 band, how often each muscle

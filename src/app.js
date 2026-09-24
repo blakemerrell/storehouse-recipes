@@ -11313,6 +11313,10 @@
     out.push('Total: ' + Math.round(tot.all.kcal) + ' kcal, ' + Math.round(tot.all.p) +
       'g protein, ' + Math.round(tot.all.f) + 'g fat, ' + Math.round(tot.all.c) + 'g carbs');
     out.push('Target: ' + kcalOf(t) + ' kcal, ' + t.p + 'g protein, ' + t.f + 'g fat, ' + t.c + 'g carbs');
+    /* And the day's training, with the times, so a workout goes into the
+       other app at the hour it happened. Only when there was some. */
+    var tr = window.Train && window.Train.dayText ? window.Train.dayText(k) : [];
+    if (tr && tr.length) { out.push(''); out = out.concat(tr); }
     return out.join('\n');
   }
 
