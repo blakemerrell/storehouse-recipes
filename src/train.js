@@ -242,7 +242,14 @@
     ['crunch', 'Crunch', 'abs', 'i', 'bw', '', 12, 25],
     ['pallof', 'Pallof Press', 'abs', 'i', 'cb', '', 10, 15],
     ['dead-bug', 'Dead Bug', 'abs', 'i', 'bw', '', 8, 12],
-    ['bird-dog', 'Bird Dog', 'abs', 'i', 'bw', '', 8, 12]
+    ['bird-dog', 'Bird Dog', 'abs', 'i', 'bw', '', 8, 12],
+    /* Added later, and never picked for a program on their own (NOPICK):
+       there to add, swap to, or bring in from Strong. The weight on an
+       assisted lift is the machine's help, not a load. */
+    ['sumo-dl', 'Sumo Deadlift', 'hams', 'c', 'bb', 'hinge', 5, 8],
+    ['trap-dl', 'Trap-Bar Deadlift', 'hams', 'c', 'bb', 'hinge', 5, 10],
+    ['as-pullup', 'Assisted Pull-Up', 'back', 'c', 'mc', 'vert', 6, 12],
+    ['as-dip', 'Assisted Dip', 'chest', 'c', 'mc', 'dip', 6, 12]
   ];
 
   /* ------------------------------------------------------------ the back
@@ -267,7 +274,7 @@
     'bb-row': 'Fc', 'cb-row': 'f', 'db-row': 'f', 'db-pullover': 'x',
     'bb-squat': 'FC', 'bb-front': 'fC', 'sm-squat': 'fc', 'goblet': 'fc', 'hack': 'c',
     'leg-press': 'f', 'db-bss': 'c', 'db-lunge': 'c', 'db-stepup': 'c',
-    'bb-rdl': 'F', 'db-rdl': 'F', 'bb-sldl': 'F', 'bb-dl': 'FC', 'good-am': 'F',
+    'bb-rdl': 'F', 'db-rdl': 'F', 'bb-sldl': 'F', 'bb-dl': 'FC', 'sumo-dl': 'FC', 'trap-dl': 'fC', 'good-am': 'F',
     'hip-thrust': 'x', 'mc-thrust': 'x', 'db-thrust': 'x', 'back-ext': 'Fx',
     'db-rear': 'f', 'bb-ohp': 'Cx', 'calf-stand': 'C',
     'db-shrug': 'c', 'bb-shrug': 'C', 'cb-shrug': 'c',
@@ -291,14 +298,14 @@
    * gym lifts load them much, so they mostly carry cues. */
   var JT = {
     'bb-bench': 'Sw', 'db-bench': 's', 'mc-press': 's', 'bb-incline': 'Sw', 'db-incline': 's', 'sm-incline': 's',
-    'dip': 'SEw', 'pushup-flat': 'sW', 'inc-pushup': 'w', 'pushup': 'sW', 'archer': 'SW',
+    'dip': 'SEw', 'as-dip': 'Sew', 'pushup-flat': 'sW', 'inc-pushup': 'w', 'pushup': 'sW', 'archer': 'SW',
     'cb-fly': 's', 'pec-deck': 's', 'db-fly': 'S',
-    'lat-pd': 's', 'pullup': 'se', 'lat-pd-n': 's', 'chinup': 'sew', 'pullup-neg': 'se', 'inv-row': 'w',
+    'lat-pd': 's', 'as-pullup': 's', 'pullup': 'se', 'lat-pd-n': 's', 'chinup': 'sew', 'pullup-neg': 'se', 'inv-row': 'w',
     'bb-row': 'w', 'db-pullover': 'S',
     'bb-squat': 'KhSwn', 'hack': 'K', 'bb-front': 'KW', 'sm-squat': 'K', 'leg-press': 'kh', 'belt-squat': 'k',
     'db-bss': 'Kh', 'goblet': 'k', 'db-lunge': 'Ka', 'db-stepup': 'k', 'leg-ext': 'k',
     'bw-squat': 'k', 'split-squat': 'k', 'bw-bss': 'Kh',
-    'bb-rdl': 'h', 'db-rdl': 'h', 'bb-sldl': 'h', 'bb-dl': 'hw', 'good-am': 'hs', 'nordic': 'k', 'slide-curl': 'k', 'sl-rdl': 'ha',
+    'bb-rdl': 'h', 'db-rdl': 'h', 'bb-sldl': 'h', 'bb-dl': 'hw', 'sumo-dl': 'hkw', 'trap-dl': 'hkw', 'good-am': 'hs', 'nordic': 'k', 'slide-curl': 'k', 'sl-rdl': 'ha',
     'hip-thrust': 'h', 'mc-thrust': 'h', 'db-thrust': 'h', 'back-ext': 'h', 'abduct': 'h', 'cb-kick': 'h',
     'glute-bridge': '', 'sl-bridge': 'h',
     'db-lat': 's', 'cb-lat': 's', 'mc-lat': 's', 'cb-upright': 'SW',
@@ -413,6 +420,10 @@
     'db-rdl': ['Dumbbells in front of your thighs, knees soft.', 'Hinge at the hips, sliding them down your legs until your hamstrings stretch, back flat.', 'Stand by driving your hips forward.'],
     'bb-sldl': ['Bar at your thighs, knees only slightly bent.', 'Hinge forward with legs nearly straight and back flat, as far as your hamstrings allow.', 'Stand by squeezing your glutes.'],
     'bb-dl': ['Bar over the middle of your feet, grip just outside your legs, shins touching the bar.', 'Brace with a flat back and push the floor away until you stand tall.', 'Lower by pushing your hips back, the bar close to your legs.'],
+    'sumo-dl': ['Feet wide, toes turned out, the bar over the middle of your feet; grip inside your knees.', 'Push your knees out over your toes, chest up, and brace.', 'Spread the floor apart as you stand, the bar close; lower the same way.'],
+    'trap-dl': ['Stand in the middle of the bar, handles at your sides.', 'Sit down and back until you can grip the handles, chest up, back flat, and brace.', 'Stand tall by pushing the floor away; lower under control.'],
+    'as-pullup': ['Set the help: more weight on the stack is more help. Kneel or stand on the pad.', 'Hands a little wider than your shoulders; pull your chest toward the bar, elbows down.', 'Lower all the way under control. Less help over time is the progress.'],
+    'as-dip': ['Set the help: more weight on the stack is more help. Kneel or stand on the pad.', 'Lean slightly forward and lower until your upper arms are about level with the floor.', 'Press back up without shrugging. Less help over time is the progress.'],
     'good-am': ['Bar across your upper back, knees soft.', 'Push your hips back and hinge until your torso is near level or your hamstrings stop you, back flat.', 'Drive your hips forward to stand. Start light.'],
     'lying-curl': ['Lie face down, pad just above your heels, knees just off the bench.', 'Curl your heels toward your glutes, hips pressed down.', 'Lower slowly to straight legs.'],
     'seated-curl': ['Pad above your heels, thigh pad snug, knees lined up with the pivot.', 'Curl your heels down and back under the seat.', 'Return slowly to straight legs.'],
@@ -663,6 +674,11 @@
       yay: p.yay === 0 ? 0 : 1,
       // a reps-in-reserve box on every set, for those who like to say
       rq: p.rq === 1 ? 1 : 0,
+      /* The effort scale shown and typed: reps in reserve, or RPE the way
+         Strong and most powerlifting programs write it. The same scale from
+         the other end (RPE 8 is two in reserve), so what is stored is always
+         reps in reserve and the review reads it either way. */
+      eff: p.eff === 'rpe' ? 'rpe' : 'rir',
       // the plates for each side drawn beside a barbell set: in every set, while typing, or not at all
       pl: ['row', 'type', 'off'].indexOf(p.pl) >= 0 ? p.pl : 'row',
       // a bar of its own for a lift that is not on the usual one: an EZ bar, a Smith machine
@@ -829,7 +845,7 @@
       return plain(v) && fin(v.st) && Array.isArray(v.x) && v.x.every(function (x) {
         return plain(x) && typeof x.e === 'string' && Array.isArray(x.s) && x.s.every(function (s) {
           return plain(s) && fin(s.w) && fin(s.r) && (s.q === undefined || fin(s.q)) &&
-            (s.ty === undefined || s.ty === 'd' || s.ty === 'f');
+            (s.ty === undefined || s.ty === 'd' || s.ty === 'f' || s.ty === 'm');
         });
       }) && (v.nt === undefined || (typeof v.nt === 'string' && v.nt.length <= 1000));
     },
@@ -1185,6 +1201,7 @@
     var ex = lib(e);
     if (/\bez\b/i.test(ex.n)) return barW('ez');
     if (ex.q === 'sm') return barW('smith');
+    if (e === 'trap-dl') return barW('hex');
     return T.pr.bar;
   }
   // "Olympic bar 45 lb", "Smith bar 20 lb", "bar 50 lb" for one of your own, "no bar"
@@ -1287,16 +1304,16 @@
         var had = before[x.e];
         var now = best[x.e] || { e1: 0, w: 0, r: 0, vol: 0 };
         // a warm-up is never a record: 45 × 14 is not your most reps on the bench
-        var work = x.s.filter(function (s) { return !s.wu; });
+        var work = x.s.filter(counts);
         var hit = had ? beats(had, work, wo.u, x.e, woBw(wo)) : '';
         var bw = bwFor(x.e, wo);
         work.forEach(function (s) {
           var w = conv(s.w, wo.u);
           now.e1 = Math.max(now.e1, e1Of(x.e, w, s.r, bw));
-          now.w = Math.max(now.w, w);
+          // the help on an assisted lift is not a weight lifted: no heaviest, no best set
+          if (!ASST[x.e]) { now.w = Math.max(now.w, w); now.vol = Math.max(now.vol, w * s.r); }
           // reps with the machine helping are not your most reps
           if (!(w < 0)) now.r = Math.max(now.r, s.r);
-          now.vol = Math.max(now.vol, w * s.r);
         });
         best[x.e] = now;
         if (hit) out.push({ e: x.e, what: hit });
@@ -1362,6 +1379,11 @@
      number never moves a record. Without one, these lifts are counted in
      reps alone, as before. */
   var BWL = { pullup: 1, chinup: 1, 'pullup-neg': 1, dip: 1 };
+  /* The assisted machine versions: the weight typed is the help, so less of
+     it is progress, and your weight counts too — you, less the help. */
+  var ASST = { 'as-pullup': 1, 'as-dip': 1 };
+  // lifts that need your weight to mean anything
+  function usesBw(e) { return !!(BWL[e] || ASST[e]); }
   // parsed once per change to what Nourish has stored, however often it is asked
   var WTS = { raw: null, v: {} };
   function weighIns() {
@@ -1398,16 +1420,30 @@
   // a workout's bodyweight in its own unit: kept when it was saved, else looked up
   function woBw(wo) { return wo && fin(wo.bw) && wo.bw > 0 ? wo.bw : wo ? bwOn(wo.dk, wo.u) : null; }
   // the same, in the unit you lift in, for a lift that lifts you; null for any other
-  function bwFor(e, wo) { if (!BWL[e]) return null; var b = woBw(wo); return fin(b) ? conv(b, wo.u) : null; }
+  function bwFor(e, wo) { if (!usesBw(e)) return null; var b = woBw(wo); return fin(b) ? conv(b, wo.u) : null; }
   // a set's estimated max, counting your weight on the lifts that lift you
   function e1Of(e, w, r, bw) {
+    // with the machine's help: you, less the help
+    if (ASST[e]) return fin(bw) && bw > 0 ? e1rm(Math.max(0, bw - (fin(w) ? w : 0)), r) : 0;
     if (!BWL[e]) return e1rm(w, r);
     return fin(bw) && bw > 0 ? e1rm(bw + (fin(w) ? w : 0), r) : 0;
   }
+  /* A set that counts: not a warm-up on the way up, and not an attempt that
+     was missed. Records, volume, targets and the review read only these. */
+  function counts(s) { return !!s && !s.wu && s.ty !== 'm'; }
   function bestE1(sets, u) {
     var b = 0;
     sets.forEach(function (s) { var v = e1rm(conv(s.w, u), s.r); if (v > b) b = v; });
     return b;
+  }
+  // the best set on an assisted lift: the least help, then the most reps
+  function leastHelp(sets, u) {
+    var t = null;
+    sets.forEach(function (s) {
+      var w = conv(s.w, u);
+      if (!t || w < t.w || (w === t.w && s.r > t.r)) t = { w: w, r: s.r };
+    });
+    return t;
   }
   function topSet(sets, u) {
     var t = null;
@@ -1512,10 +1548,11 @@
     }
     if (!src) src = lastPerf(ex.id);
     if (!src) return { tw: null, tr: null, prev: [] };
-    var prev = src.s.map(function (s) { return { w: conv(s.w, src.u), r: s.r, wu: s.wu ? 1 : 0 }; });
+    var prev = src.s.filter(function (s) { return s.ty !== 'm'; }).map(function (s) { return { w: conv(s.w, src.u), r: s.r, wu: s.wu ? 1 : 0 }; });
     // next time's weight is worked from the working sets, never the warm-ups
-    var work = src.s.filter(function (s) { return !s.wu; });
-    var top = topSet(work.length ? work : src.s, src.u);
+    var work = src.s.filter(counts);
+    if (!work.length && !prev.length) return { tw: null, tr: null, prev: [] };
+    var top = (ASST[ex.id] ? leastHelp : topSet)(work.length ? work : src.s.filter(function (s) { return s.ty !== 'm'; }), src.u);
     var step = inc(ex);
     if (dl) {
       /* Half the sets, and the weights of week one — RP's deload is less of
@@ -1523,12 +1560,14 @@
          drains. */
       var first = ms && woFor(ms, 0, d);
       var fx = first && exIn(first, ex.id);
-      var ft = fx && fx.s.length ? topSet(fx.s, first.u) : null;
+      var ft = fx && fx.s.filter(counts).length ? (ASST[ex.id] ? leastHelp : topSet)(fx.s.filter(counts), first.u) : null;
       var fw = ft ? ft.w : top.w * 0.9;
       return { tw: fw > 0 ? roundTo(fw, step) : top.w, tr: ex.rr[0], prev: prev };
     }
     if (ex.q === 'bw' && !(top.w > 0)) return { tw: 0, tr: top.r + 1, prev: prev };
     if (top.r >= ex.rr[1]) {
+      // on an assisted lift the step is less help
+      if (ASST[ex.id]) return { tw: Math.max(0, roundTo(top.w - step, step)), tr: Math.max(ex.rr[0], top.r - 2), prev: prev };
       return { tw: roundTo(top.w + step, step), tr: Math.max(ex.rr[0], top.r - 2), prev: prev };
     }
     return { tw: top.w, tr: Math.min(ex.rr[1], top.r + 1), prev: prev };
@@ -1770,7 +1809,7 @@
     ix().list.forEach(function (wo) {
       if (wo.st < from || wo.dl) return;
       var x = exIn(wo, e);
-      if (x) best = Math.max(best, bestE1(x.s.filter(function (q) { return !q.wu; }), wo.u));
+      if (x) best = Math.max(best, bestE1(x.s.filter(counts), wo.u));
     });
     return best;
   }
@@ -1926,8 +1965,10 @@
     return pf && pf.lvl === 0 ? (EASY[ex.id] ? -4 : HARD[ex.id] ? 6 : 0) : 0;
   }
 
+  // in the library to add or swap to, never chosen for you
+  var NOPICK = { 'sumo-dl': 1, 'trap-dl': 1, 'as-pullup': 1, 'as-dip': 1 };
   function pickEx(m, k, p, eq, used, seed, pf, today, known) {
-    var cand = allEx().filter(function (ex) { return ex.m === m && eq.indexOf(ex.q) >= 0 && !barred(ex, pf); });
+    var cand = allEx().filter(function (ex) { return ex.m === m && eq.indexOf(ex.q) >= 0 && !barred(ex, pf) && !NOPICK[ex.id]; });
     /* Never the same exercise twice in one day: with nothing else to hand,
        the slot is left out and the one already there carries the sets. */
     if (today) cand = cand.filter(function (ex) { return !today[ex.id]; });
@@ -2583,12 +2624,11 @@
       if (!x) return;
       var bw = bwFor(e, wo);
       x.s.forEach(function (s) {
-        if (s.wu) return;
+        if (!counts(s)) return;
         var w = conv(s.w, wo.u);
         best.e1 = Math.max(best.e1, e1Of(e, w, s.r, bw));
-        best.w = Math.max(best.w, w);
+        if (!ASST[e]) { best.w = Math.max(best.w, w); best.vol = Math.max(best.vol, w * s.r); }
         if (!(w < 0)) best.r = Math.max(best.r, s.r);
-        best.vol = Math.max(best.vol, w * s.r);
       });
     });
     return best;
@@ -2600,11 +2640,12 @@
   function beats(had, sets, u, e, bwRaw) {
     if (!(had.e1 > 0 || had.r > 0)) return '';
     var hit = { e1: false, w: false, r: false };
-    var bw = BWL[e] && fin(bwRaw) ? conv(bwRaw, u) : null;
+    var bw = usesBw(e) && fin(bwRaw) ? conv(bwRaw, u) : null;
     sets.forEach(function (s) {
+      if (!counts(s)) return;
       var w = conv(fin(s.w) ? s.w : 0, u), r = fin(s.r) ? s.r : 0;
       if (had.e1 > 0 && e1Of(e, w, r, bw) > had.e1 + 0.01) hit.e1 = true;
-      if (had.w > 0 && w > had.w) hit.w = true;
+      if (!ASST[e] && had.w > 0 && w > had.w) hit.w = true;
       if (w === 0 && !(had.w > 0) && r > had.r) hit.r = true;
     });
     return [hit.w ? 'heaviest' : '', hit.e1 ? 'best e1RM' : '', hit.r ? 'most reps' : '']
@@ -2617,7 +2658,7 @@
     if (known && T.wo[wo.id] === wo) return known;
     var out = [];
     wo.x.forEach(function (x) {
-      var hit = beats(records(x.e, wo.st), x.s.filter(function (s) { return !s.wu; }), wo.u, x.e, woBw(wo));
+      var hit = beats(records(x.e, wo.st), x.s.filter(counts), wo.u, x.e, woBw(wo));
       if (hit) out.push({ e: x.e, what: hit });
     });
     return out;
@@ -2689,11 +2730,11 @@
         var ex = lib(x.e), m = ex.m;
         var r = mus[m] = mus[m] || { sets: 0, days: {} };
         // ramp sets on the way up to a heavy one are warm-ups, not hard sets
-        var work = x.s.filter(function (s) { return !s.wu; });
+        var work = x.s.filter(counts);
         r.sets += work.length;
         if (work.length) r.days[wo.dk || dayKey(new Date(wo.st))] = 1;
         x.s.forEach(function (s, i) {
-          if (s.wu) return;
+          if (!counts(s)) return;
           reps.n++;
           if (s.r < 5 || s.r > 30) reps.out++;
           if (i > 0 && fin(s.t) && fin(x.s[i - 1].t) && s.t && x.s[i - 1].t) {
@@ -2868,7 +2909,7 @@
       wo.x.forEach(function (x) {
         x.s.forEach(function (s) {
           var qv = fin(s.q) ? s.q : s.ty === 'f' ? 0 : null;
-          if (s.wu || s.am || qv === null) return;
+          if (!counts(s) || s.am || qv === null) return;
           var q = Math.min(5, qv);
           eff.n++; eff.q += q;
           if (fin(x.pq)) { eff.dn++; eff.dq += q; eff.pq += x.pq; }
@@ -3195,7 +3236,7 @@
   // working sets only: a ramp of warm-ups is not the work, and the lift charts leave them out too
   function volOf(wo) {
     var v = 0;
-    wo.x.forEach(function (x) { x.s.forEach(function (s) { if (!s.wu) v += Math.max(0, conv(s.w, wo.u)) * s.r; }); });
+    wo.x.forEach(function (x) { if (!ASST[x.e]) x.s.forEach(function (s) { if (counts(s)) v += Math.max(0, conv(s.w, wo.u)) * s.r; }); });
     return v;
   }
   function setsOf(wo) { return wo.x.reduce(function (n, x) { return n + x.s.length; }, 0); }
@@ -3318,7 +3359,7 @@
     var wo = T.wo[wid];
     if (!wo) return null;
     var x = wo.x.map(function (e) {
-      return { e: e.e, n: Math.max(1, Math.min(10, e.s.filter(function (z) { return !z.wu; }).length || e.s.length)) };
+      return { e: e.e, n: Math.max(1, Math.min(10, e.s.filter(counts).length || e.s.length)) };
     }).filter(function (e) { return !!lib(e.e); }).slice(0, 20);
     var n = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 60) || String(wo.n || 'Routine').slice(0, 60);
     if (!x.length) return null;
@@ -3519,6 +3560,8 @@
     for (var j = si - 1; j >= 0; j--) {
       var e = x.s[j];
       if (!!e.wu !== !!s.wu) continue;
+      // a missed attempt is not what the next set follows
+      if (e.ty === 'm' && s.ty !== 'm') continue;
       if (cw === null) cw = numIn(e.w);
       if (cr === null) cr = numIn(e.r);
       if (cw !== null && cr !== null) break;
@@ -3547,10 +3590,11 @@
     var x = LIVE.x[xi], s = x && x.s[si];
     if (!s) return;
     if (s.t) { s.t = 0; saveLive(); draw(); return; }
-    var w = numIn(s.w), r = numIn(s.r), g = ghost(xi, si);
+    var w = numIn(s.w), r = numIn(s.r), g = ghost(xi, si), miss = s.ty === 'm';
     if (w === null) w = g.w;
-    if (r === null) r = g.r;
-    if (w === null || r === null || r <= 0) {
+    // a missed attempt is the reps you got, which is none unless you say
+    if (r === null) r = miss ? 0 : g.r;
+    if (w === null || r === null || r < 0 || (r <= 0 && !miss)) {
       S.flash = xi + ':' + si;
       S.need = { k: xi + ':' + si, w: w === null };
       draw();
@@ -3714,7 +3758,7 @@
           // the as-many-as-you-can set keeps its target, which the next wave's max is worked from
           if (s.am) { o.am = 1; if (fin(s.tr)) o.tr = s.tr; }
           if (s.wu) o.wu = 1;
-          if (s.ty === 'd' || s.ty === 'f') o.ty = s.ty;
+          if (s.ty === 'd' || s.ty === 'f' || s.ty === 'm') o.ty = s.ty;
           // reps in reserve, when you said
           var q = numIn(s.q);
           if (q !== null && q >= 0 && q <= 10) o.q = q;
@@ -3731,7 +3775,7 @@
     if (nt) wo.nt = nt;
     var mc = mcDone(LIVE.mc);
     if (mc) wo.mc = mc;
-    if (wo.x.some(function (x) { return BWL[x.e]; })) { var bw = fin(LIVE.bw) && LIVE.bw > 0 ? LIVE.bw : bwOn(wo.dk, wo.u); if (bw) wo.bw = bw; }
+    if (wo.x.some(function (x) { return usesBw(x.e); })) { var bw = fin(LIVE.bw) && LIVE.bw > 0 ? LIVE.bw : bwOn(wo.dk, wo.u); if (bw) wo.bw = bw; }
     return clean(wo);
   }
 
@@ -3840,11 +3884,17 @@
   function rirSay(r) {
     if (T.pr.lvl === 0) return r === 0 ? 'go until you can\u2019t do another good rep'
       : 'stop each set when you could still do about ' + r + ' more good rep' + (r === 1 ? '' : 's');
+    if (rpeOn()) return r === 0 ? 'take working sets to RPE 10, or 9 on the heavy barbell lifts'
+      : 'finish working sets at about RPE ' + fmtN(10 - r) + ', ' + r + ' rep' + (r === 1 ? '' : 's') + ' in reserve';
     if (r === 0) return 'take working sets to failure, or a rep short on the heavy barbell lifts';
     return 'finish working sets with about ' + r + ' rep' + (r === 1 ? '' : 's') + ' in reserve';
   }
-  function rirStr(r) { return r === null || r === undefined ? 'deload' : r + ' RIR'; }
-  function rqSay(q) { return (q >= 5 ? '5+' : fmtN(q)) + ' RIR'; }
+  function rpeOn() { return T.pr.eff === 'rpe'; }
+  // a plan's reps in reserve, on your scale
+  function effSay(r) { return rpeOn() ? 'RPE ' + fmtN(10 - r) : r + ' RIR'; }
+  function rirStr(r) { return r === null || r === undefined ? 'deload' : effSay(r); }
+  // a set's effort as logged, on your scale
+  function rqSay(q) { return rpeOn() ? 'RPE ' + (q >= 5 ? '\u22645' : fmtN(10 - q)) : (q >= 5 ? '5+' : fmtN(q)) + ' RIR'; }
 
   /* ------------------------------------------------------ the block screen */
   /* Said once, where the eye lands after Save, and gone at the next tap. */
@@ -3865,7 +3915,7 @@
     var tk = dayKey(new Date()), hit = {}, n = 0;
     ix().list.forEach(function (wo) {
       if (dayKey(new Date(wo.st)) !== tk) return;
-      wo.x.forEach(function (x) { if (x.s.some(function (z) { return !z.wu; })) hit[musOf(x.e)] = 1; });
+      wo.x.forEach(function (x) { if (x.s.some(counts)) hit[musOf(x.e)] = 1; });
     });
     p.x.forEach(function (x) { var m = musOf(x.e); if (hit[m] && MUS[m] && MUS[m].mev > 0) { hit[m] = 0; n++; } });
     return n >= 2 ? '<div class="tr-note">You\u2019ve trained these muscles today already. They grow while they rest, so this one is better tomorrow.</div>' : '';
@@ -4737,7 +4787,7 @@
      average and none today. Asked once; answered, it is today's weigh-in on
      Nourish too. Never asked when the lift doesn't need it. */
   function bwNeed(L) {
-    if (!L || fin(L.bw) || L.bwq || T.pr.nobw || !L.x.some(function (x) { return BWL[x.e]; })) return false;
+    if (!L || fin(L.bw) || L.bwq || T.pr.nobw || !L.x.some(function (x) { return usesBw(x.e); })) return false;
     var b = bwInfo(dayKey(new Date(L.st)), L.u || T.pr.u);
     return !b || b.src === 'old';
   }
@@ -4910,7 +4960,7 @@
   function focusOf(xi) {
     var x = LIVE && LIVE.x[xi];
     if (!x) return null;
-    var done = x.s.filter(function (s) { return s.t && !s.wu; });
+    var done = x.s.filter(function (s) { return s.t && counts(s); });
     if (!done.length) return null;
     var hasT = function (s) { return fin(s.tw) && fin(s.tr); };
     var hasP = function (s) { return fin(s.pw) && fin(s.pr); };
@@ -4927,7 +4977,7 @@
       n++;
     });
     if (!n) return null;
-    return { plan: plan, bw: !!BWL[x.e] || (!(cur.vol > 0) && !(was.vol > 0)), cur: cur, was: was };
+    return { plan: plan, bw: usesBw(x.e) || (!(cur.vol > 0) && !(was.vol > 0)), cur: cur, was: was };
   }
   var FM_SAY = { vc: 'volume change', vol: 'total volume', reps: 'total reps', best: 'best set' };
   function fmHTML(xi) {
@@ -4990,13 +5040,13 @@
     var rows = x.s.map(function (s, j) {
       var g = ghost(i, j);
       var ph = g.w !== null ? fmtN(g.w) : '';
-      var rph = g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
+      var rph = s.ty === 'm' ? '0' : g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
       var prev = prevText(s), on = pl === 'type' && j === nx;
       var flash = S.flash === i + ':' + j;
       // warm-ups, drop sets and failure sets are lettered, working sets numbered, the all-out set marked
       var lab = setLab(s, function () { return ++num; });
       return '<div class="tr-set' + (s.t ? ' done' : '') + (flash ? ' flash' : '') + (s.am ? ' tr-am' : '') + (s.wu ? ' tr-wu' : '') +
-          (s.ty === 'd' ? ' tr-dd' : s.ty === 'f' ? ' tr-ff' : '') + '">' +
+          (s.ty === 'd' ? ' tr-dd' : s.ty === 'f' ? ' tr-ff' : s.ty === 'm' ? ' tr-mm' : '') + '">' +
         '<button class="tr-sn tr-snb" data-t="sty" data-x="' + i + '" data-s="' + j + '" aria-label="' + esc(setSay(s) + ', set ' + (j + 1) + '. Change what kind of set it is') + '">' + lab + '</button>' +
         (pl !== 'off' ? '<span class="tr-prev tr-prev-pl' + (pl === 'type' ? ' tr-plt' : '') + (on ? ' on' : '') + '" id="trpl-' + i + '-' + j + '"' + (on ? ' data-next="1"' : '') + '>' +
             (pl === 'row' || on ? plCell(i, j) : prev) + '</span>'
@@ -5024,7 +5074,7 @@
     // nothing ticked yet on this lift: the notes for before the first set
     var fresh = !x.s.some(function (s) { return s.t; });
     // someone new: plain words where the numbers need them
-    var nb = T.pr.lvl === 0, nWork = x.s.filter(function (s) { return !s.wu; }).length;
+    var nb = T.pr.lvl === 0, nWork = x.s.filter(counts).length;
     var wy = whyW(x);
     return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '">' +
       (mv ? '<span class="tr-mv">' +
@@ -5038,7 +5088,7 @@
         '<span class="tr-fmw" id="trfm-' + i + '">' + fmHTML(i) + '</span>' +
         '<span class="tr-ex-m">' + esc(mnameP(ex.m)) + ' \u00b7 ' + (x.fix ? 'main lift, set by set'
             : (nb ? nWork + ' set' + (nWork === 1 ? '' : 's') + ' of ' : '') + ex.rr[0] + '\u2013' + ex.rr[1] + ' reps') +
-          (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + (nb ? (x.rir ? 'stop with ' + x.rir + ' rep' + (x.rir === 1 ? '' : 's') + ' to spare' : 'to your last good rep') : x.rir + ' RIR') : '') +
+          (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + (nb ? (x.rir ? 'stop with ' + x.rir + ' rep' + (x.rir === 1 ? '' : 's') + ' to spare' : 'to your last good rep') : effSay(x.rir)) : '') +
           (mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
             : ' \u00b7 <button class="tr-lnk tr-barl" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest ' + clock(x.rest) + ' for ' + esc(ex.n) + '. Change">rest ' + clock(x.rest) + '</button>') +
           (fin(x.tm) ? ' \u00b7 training max ' + fmtN(x.tm) + ' ' + T.pr.u : '') +
@@ -5048,6 +5098,7 @@
         (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">W is a warm-up: done, not counted, and a short rest after it.</span>' : '') +
         (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
         (x.swn ? '<span class="tr-ex-m">' + esc(x.swn) + '</span>' : '') +
+        (ASST[x.e] ? '<span class="tr-ex-m">Type the machine\u2019s help as the weight: less help is progress.</span>' : '') +
         (wy && fresh ? '<span class="tr-ex-m">' + esc(wy) + '</span>' : '') +
         (fresh && (T.pr.lvl === 0 || newLift(x.e)) && SAFETY[x.e] ? '<div class="tr-first tr-safe"><b>Safety first.</b> ' + esc(SAFETY[x.e]) + '</div>' : '') +
         firstTime(x) +
@@ -5056,7 +5107,7 @@
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
       '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>' + (nb ? 'Last time' : 'Previous') + '</span><span>' + T.pr.u + '</span><span>Reps</span>' +
-        (rq ? '<span title="Reps in reserve">RIR</span>' : '') + '<span></span></div>' +
+        (rq ? (rpeOn() ? '<span title="Rate of perceived exertion">RPE</span>' : '<span title="Reps in reserve">RIR</span>') : '') + '<span></span></div>' +
       rows +
       '<div class="tr-ex-a">' +
         '<button class="tr-lnk" data-t="addset" data-x="' + i + '">+ Set</button>' +
@@ -5079,22 +5130,24 @@
     if (!s || !fin(s.tw) || !fin(s.pw)) return '';
     if (LIVE.dl) return 'Lighter this week on purpose: an easy week lets your body catch up.';
     var d = s.tw - s.pw;
-    if (d > 0) return 'Up ' + fmtN(d) + ' ' + T.pr.u + ': you reached the top of the range last time, so it\u2019s time for more weight.';
+    if (ASST[x.e] && d < 0) return fmtN(-d) + ' ' + T.pr.u + ' less help: you reached the top of the range last time.';
+    if (d > 0 && !ASST[x.e]) return 'Up ' + fmtN(d) + ' ' + T.pr.u + ': you reached the top of the range last time, so it\u2019s time for more weight.';
     if (d === 0 && fin(s.tr) && fin(s.pr) && s.tr > s.pr) return 'Same weight as last time: aim for ' + s.tr + ' reps, one more than before.';
     return '';
   }
 
   /* What kind of set, in a letter and in words. */
   function setLab(s, n) {
-    return s.wu ? 'W' : s.ty === 'd' ? 'D' : s.ty === 'f' ? 'F' : String(n()) + (s.am ? '+' : '');
+    return s.wu ? 'W' : s.ty === 'd' ? 'D' : s.ty === 'f' ? 'F' : s.ty === 'm' ? 'M' : String(n()) + (s.am ? '+' : '');
   }
   function setTag(s) {
-    return s.wu ? '<span class="tr-tag w">W</span>' : s.ty === 'd' ? '<span class="tr-tag d">D</span>' : s.ty === 'f' ? '<span class="tr-tag f">F</span>' : '';
+    return s.wu ? '<span class="tr-tag w">W</span>' : s.ty === 'd' ? '<span class="tr-tag d">D</span>' : s.ty === 'f' ? '<span class="tr-tag f">F</span>' :
+      s.ty === 'm' ? '<span class="tr-tag m">M</span>' : '';
   }
   function setSay(s) {
-    return s.wu ? 'Warm-up' : s.ty === 'd' ? 'Drop set' : s.ty === 'f' ? 'To failure' : s.am ? 'As many good reps as you can' : 'Working set';
+    return s.wu ? 'Warm-up' : s.ty === 'd' ? 'Drop set' : s.ty === 'f' ? 'To failure' : s.ty === 'm' ? 'Missed' : s.am ? 'As many good reps as you can' : 'Working set';
   }
-  var STY = [['', 'Working set'], ['w', 'Warm-up'], ['d', 'Drop set'], ['f', 'To failure']];
+  var STY = [['', 'Working set'], ['w', 'Warm-up'], ['d', 'Drop set'], ['f', 'To failure'], ['m', 'Missed']];
   function styHTML(sh) {
     var x = LIVE && LIVE.x[sh.x], s = x && x.s[sh.s];
     if (!s) return '';
@@ -5104,16 +5157,24 @@
       '<ul class="tr-fits tr-styl">' +
         '<li><b>Warm-up</b>: lighter, on the way up. Not a hard set, never a record, and a minute\u2019s rest after it.</li>' +
         '<li><b>Drop set</b>: straight after the set before it, lighter, no rest between.</li>' +
-        '<li><b>To failure</b>: the last rep you could do. Counted as a hard set with nothing in reserve.</li></ul>' +
+        '<li><b>To failure</b>: the last rep you could do. Counted as a hard set with nothing in reserve.</li>' +
+        '<li><b>Missed</b>: an attempt that didn\u2019t go up. The weight is kept, with the reps you got (0 if none); never a record, never counted, never a target.</li></ul>' +
       (x.s.length > 1 ? '<div class="tr-acts"><button class="ghost danger" data-t="styrm">Remove this set</button></div>' : '');
   }
 
   /* Reps in reserve for one set: blank until you say. Five means five or
      more — past that, nobody can tell. */
+  var RQ_RIR = [['', '\u2013'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5+']];
+  // RPE by its usual half steps; the value kept is still reps in reserve
+  var RQ_RPE = [['', '\u2013'], ['0', '10'], ['0.5', '9.5'], ['1', '9'], ['1.5', '8.5'], ['2', '8'], ['2.5', '7.5'], ['3', '7'], ['4', '6'], ['5', '\u22645']];
   function rqSel(cur, attrs, label) {
     var c = cur === '' || cur === null || cur === undefined ? '' : String(cur);
+    var opts = (rpeOn() ? RQ_RPE : RQ_RIR).slice();
+    // a value logged on the other scale is kept, and shown as itself
+    if (c && !opts.some(function (o) { return o[0] === c; }) && fin(Number(c))) opts.push([c, rpeOn() ? fmtN(10 - Number(c)) : fmtN(Number(c))]);
+    if (rpeOn()) label = label.replace('reps in reserve', 'RPE');
     return '<select class="tr-in tr-rqs" ' + attrs + ' aria-label="' + esc(label) + '">' +
-      [['', '\u2013'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5+']].map(function (o) {
+      opts.map(function (o) {
         return '<option value="' + o[0] + '"' + (c === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
       }).join('') + '</select>';
   }
@@ -5473,7 +5534,7 @@
   // the first time on a lift: how to find a weight, rather than an empty box
   function firstTime(x) {
     var ex = lib(x.e);
-    if (ex.q === 'bw' || BWL[x.e]) return '';
+    if (ex.q === 'bw' || usesBw(x.e)) return '';
     if (x.s.some(function (s) { return s.t || fin(s.tw) || fin(s.pw); })) return '';
     if (!newLift(x.e)) return '';
     var how = ex.q === 'mc' || ex.q === 'cb' ? ' On a machine, start on the second or third plate of the stack. Machine taken? Tap Swap for another.'
@@ -5512,17 +5573,18 @@
       return '<div class="tr-hs"><div class="tr-hs-h"><span class="tr-hs-n">' + esc(s.wo.n) + '</span>' +
           '<span class="tr-hs-d">' + when(s.wo.st) + ' \u00b7 ' + hm(s.wo.st) + (bw ? ' \u00b7 you ' + fmtN(bw) + ' ' + T.pr.u : '') + '</span></div>' +
         '<table class="tr-hs-t"><tbody>' + s.x.s.map(function (z) {
-          var w = conv(z.w, s.wo.u), e1 = z.wu ? 0 : e1Of(e, w, z.r, bw);
+          var w = conv(z.w, s.wo.u), e1 = !counts(z) ? 0 : e1Of(e, w, z.r, bw);
           return '<tr' + (z.wu ? ' class="w"' : '') + '><td class="tr-hs-l">' + setLab(z, function () { return ++num; }) + '</td>' +
-            '<td>' + (w > 0 ? (BWL[e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + ' \u00d7 ' : '') + z.r + (fin(z.q) ? ' <span class="tr-e1">' + rqSay(z.q) + '</span>' : '') + '</td>' +
+            '<td>' + (w > 0 ? (BWL[e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + (ASST[e] ? ' help' : '') + ' \u00d7 ' : '') + z.r + (fin(z.q) ? ' <span class="tr-e1">' + rqSay(z.q) + '</span>' : '') + '</td>' +
             '<td class="tr-hs-e">' + (e1 > 0 ? Math.round(e1) : '') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
     }).join('') + '<div class="tr-hint">The last number is the estimated one-rep max for that set (Epley). Warm-ups have none.' +
-      (BWL[e] ? ' On this lift it counts you as well as anything added, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.' : '') + '</div>';
+      (BWL[e] ? ' On this lift it counts you as well as anything added, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.'
+        : ASST[e] ? ' On this lift it counts you, less the machine\u2019s help, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.' : '') + '</div>';
   }
   function exCharts(e, ss) {
     var r = records(e), byReps = !(r.e1 > 0);
-    var work = function (s) { return s.x.s.filter(function (z) { return !z.wu; }); };
+    var work = function (s) { return s.x.s.filter(counts); };
     var pts = function (f) {
       return ss.map(function (s) { var ws = work(s); var v = ws.length ? f(ws, s.wo.u, s) : null; return v > 0 ? { t: s.wo.st, v: v } : null; }).filter(Boolean);
     };
@@ -5532,11 +5594,15 @@
       return '<div class="tr-ql tr-chart-h">' + title + '</div>' +
         (series.length >= 2 ? chartSVG(series, reps) : '<div class="tr-note">Two sessions and this draws.</div>');
     };
-    if (BWL[e] && !byReps) {
+    if (usesBw(e) && !byReps) {
       return one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
-        one('Estimated one-rep max, you + added', pts(best), false) +
+        one(ASST[e] ? 'Estimated one-rep max, you less the help' : 'Estimated one-rep max, you + added', pts(best), false) +
         one('Strength \u00d7 bodyweight', pts(function (ws, u, s) { var bw = bwFor(e, s.wo); return bw ? Math.round(best(ws, u, s) / bw * 100) / 100 : 0; }), false) +
         '<div class="tr-hint">Strength \u00d7 bodyweight holds still when your weight falls and your reps don\u2019t, which the estimated max alone can\u2019t.</div>';
+    }
+    if (ASST[e]) {
+      return one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
+        one('Least help (' + T.pr.u + ')', pts(function (ws, u) { return Math.min.apply(null, ws.map(function (z) { return conv(z.w, u); })) || 0.001; }), false);
     }
     return byReps
       ? one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
@@ -5554,7 +5620,7 @@
       var best = null;
       ss.forEach(function (s) {
         s.x.s.forEach(function (z) {
-          if (z.wu || z.r < n) return;
+          if (!counts(z) || z.r < n) return;
           var w = conv(z.w, s.wo.u);
           if (w > 0 && (!best || w > best.w)) best = { w: w, r: z.r, st: s.wo.st };
         });
@@ -5565,19 +5631,21 @@
   }
   function exRecords(e, ss) {
     var r = records(e), byReps = !(r.e1 > 0);
-    if (BWL[e]) {
-      var rel = 0;
+    if (usesBw(e)) {
+      var rel = 0, help = null;
       ss.forEach(function (s) {
         var bw = bwFor(e, s.wo);
-        if (bw) s.x.s.forEach(function (z) { if (!z.wu) rel = Math.max(rel, e1Of(e, conv(z.w, s.wo.u), z.r, bw) / bw); });
+        if (bw) s.x.s.forEach(function (z) { if (counts(z)) rel = Math.max(rel, e1Of(e, conv(z.w, s.wo.u), z.r, bw) / bw); });
+        s.x.s.forEach(function (z) { if (counts(z)) { var hw = conv(z.w, s.wo.u); if (help === null || hw < help) help = hw; } });
       });
       return '<div class="tr-recs">' +
         rec('Estimated 1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
         rec('\u00d7 bodyweight', rel > 0 ? (Math.round(rel * 100) / 100).toFixed(2) : '\u2014') +
-        rec('Most added', r.w > 0 ? '+' + fmtN(r.w) + ' ' + T.pr.u : '\u2014') +
+        (ASST[e] ? rec('Least help', help !== null ? fmtN(help) + ' ' + T.pr.u : '\u2014')
+          : rec('Most added', r.w > 0 ? '+' + fmtN(r.w) + ' ' + T.pr.u : '\u2014')) +
         rec('Most reps', r.r || '\u2014') +
       '</div>' +
-      (r.e1 > 0 ? '<div class="tr-hint">Counting you, from your weigh-in in Nourish, plus anything added.</div>'
+      (r.e1 > 0 ? '<div class="tr-hint">' + (ASST[e] ? 'Counting you, from your weigh-in in Nourish, less the machine\u2019s help.' : 'Counting you, from your weigh-in in Nourish, plus anything added.') + '</div>'
         : '<div class="tr-hint">Log your weight on Nourish and this lift gets a strength number too: you plus anything added.</div>') +
       exFell(e);
     }
@@ -5658,7 +5726,7 @@
     wo.x.forEach(function (x) {
       out.push(lib(x.e).n + ': ' + x.s.map(function (s) {
         var w = conv(s.w, wo.u);
-        return (w > 0 ? fmtN(w) + ' ' + u + ' \u00d7 ' : '') + s.r + (s.wu ? ' (warm-up)' : s.ty === 'd' ? ' (drop set)' : s.ty === 'f' ? ' (to failure)' : '') +
+        return (w > 0 ? fmtN(w) + ' ' + u + ' \u00d7 ' : '') + s.r + (s.wu ? ' (warm-up)' : s.ty === 'd' ? ' (drop set)' : s.ty === 'f' ? ' (to failure)' : s.ty === 'm' ? ' (missed)' : '') +
           (fin(s.q) ? ' @' + rqSay(s.q) : '');
       }).join(', '));
     });
@@ -5728,8 +5796,8 @@
       wo.x.map(function (x) {
         return '<div class="tr-wx"><button class="tr-lnk tr-wx-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(lib(x.e).n) + '</button>' +
           '<ol class="tr-wx-s">' + x.s.map(function (s) {
-            var w = conv(s.w, wo.u), e1 = s.wu ? 0 : e1Of(x.e, w, s.r, bwFor(x.e, wo));
-            return '<li>' + setTag(s) + (w > 0 ? (BWL[x.e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + ' × ' : '') + s.r +
+            var w = conv(s.w, wo.u), e1 = !counts(s) ? 0 : e1Of(x.e, w, s.r, bwFor(x.e, wo));
+            return '<li>' + setTag(s) + (w > 0 ? (BWL[x.e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + (ASST[x.e] ? ' help' : '') + ' × ' : '') + s.r +
               (fin(s.q) ? ' <span class="tr-e1">' + rqSay(s.q) + '</span>' : '') +
               (e1 > 0 ? ' <span class="tr-e1">e1RM ' + Math.round(e1) + '</span>' : '') + '</li>';
           }).join('') + '</ol></div>';
@@ -5770,10 +5838,10 @@
           '<div class="tr-edx-h"><span class="tr-wx-n">' + esc(ex.n) + '</span>' +
             '<button class="tr-lnk" data-t="edrmx" data-x="' + i + '">Remove</button></div>' +
           '<div class="tr-set tr-set-h tr-eds" aria-hidden="true"><span>Set</span><span>' + T.pr.u + '</span><span>Reps</span>' +
-            (rq ? '<span>RIR</span>' : '') + '<span></span></div>' +
+            (rq ? '<span>' + (rpeOn() ? 'RPE' : 'RIR') + '</span>' : '') + '<span></span></div>' +
           x.s.map(function (s, j) {
-            var sk = { wu: s.ty === 'w', ty: s.ty === 'd' || s.ty === 'f' ? s.ty : undefined };
-            return '<div class="tr-set tr-eds' + (sk.wu ? ' tr-wu' : sk.ty === 'd' ? ' tr-dd' : sk.ty === 'f' ? ' tr-ff' : '') + '">' +
+            var sk = { wu: s.ty === 'w', ty: s.ty === 'd' || s.ty === 'f' || s.ty === 'm' ? s.ty : undefined };
+            return '<div class="tr-set tr-eds' + (sk.wu ? ' tr-wu' : sk.ty === 'd' ? ' tr-dd' : sk.ty === 'f' ? ' tr-ff' : sk.ty === 'm' ? ' tr-mm' : '') + '">' +
               '<button class="tr-sn tr-snb" data-t="edsty" data-x="' + i + '" data-s="' + j + '" aria-label="' + esc(setSay(sk)) + '. Tap to change">' +
                 setLab(sk, function () { return j + 1; }) + '</button>' +
               '<input class="tr-in" data-ed="w" data-x="' + i + '" data-s="' + j + '" inputmode="decimal" autocomplete="off" value="' + esc(s.w) + '" ' +
@@ -5808,7 +5876,9 @@
       var out = { e: x.e, s: [] };
       if (fin(x.pq)) out.pq = x.pq;
       x.s.forEach(function (s) {
-        if (String(s.r).trim() === '' || numIn(s.r) === 0) return;
+        // a missed attempt keeps its weight with no reps; any other empty set goes
+        if (s.ty !== 'm' && (String(s.r).trim() === '' || numIn(s.r) === 0)) return;
+        if (s.ty === 'm' && String(s.r).trim() === '') s.r = '0';
         var w = String(s.w).trim() === '' ? 0 : numIn(s.w), r = numIn(s.r);
         if (w === null || r === null || w < 0 || w > 5000 || r < 0 || r > 1000) { bad = bad || lib(x.e).n; return; }
         var o = { w: w, r: Math.round(r) };
@@ -5817,7 +5887,7 @@
           if (s.o.am) { o.am = 1; if (fin(s.o.tr)) o.tr = s.o.tr; }
         }
         if (s.ty === 'w') o.wu = 1;
-        else if (s.ty === 'd' || s.ty === 'f') o.ty = s.ty;
+        else if (s.ty === 'd' || s.ty === 'f' || s.ty === 'm') o.ty = s.ty;
         var q = numIn(s.q);
         if (q !== null && q >= 0 && q <= 10) o.q = q;
         out.s.push(o);
@@ -6030,14 +6100,14 @@
         list.forEach(function (w) {
           if (w.st >= wo.st) return;
           var px = exIn(w, x.e);
-          if (px) px.s.forEach(function (z) { if (!z.wu && z.r >= n) best = Math.max(best, conv(z.w, w.u)); });
+          if (px) px.s.forEach(function (z) { if (counts(z) && z.r >= n) best = Math.max(best, conv(z.w, w.u)); });
         });
         return best;
       };
       /* Only the day's best set takes each record: two sets past the old
          best are one record, not two. */
       var work = [], top = { w: 0, e: 0, r: 0, wr: 0 }, got = {};
-      x.s.forEach(function (s, si) { if (!s.wu) work.push({ i: si, w: conv(s.w, wo.u), r: s.r }); });
+      x.s.forEach(function (s, si) { if (counts(s)) work.push({ i: si, w: conv(s.w, wo.u), r: s.r }); });
       var bwx = bwFor(x.e, wo);
       work.forEach(function (z) {
         top.w = Math.max(top.w, z.w);
@@ -6053,12 +6123,13 @@
       };
       var said = [];
       x.s.forEach(function (s, si) {
-        if (s.wu) return;
+        if (!counts(s)) return;
         var w = conv(s.w, wo.u), e = e1Of(x.e, w, s.r, bwx), what = [];
         if (first('w', had.w > 0 && w > had.w && w === top.w && s.r === top.wr)) what.push('heaviest');
         if (first('e', had.e1 > 0 && e > had.e1 + 0.01 && e === top.e)) what.push('best e1RM');
         if (first('r', w === 0 && !(had.w > 0) && had.r > 0 && s.r > had.r && s.r === top.r)) what.push('most reps');
-        var at = w > 0 ? pastAt(s.r) : 0;
+        // more help is never a best
+        var at = w > 0 && !ASST[x.e] ? pastAt(s.r) : 0;
         if (!what.length && at > 0 && w > at && !covered(si, w, s.r)) what.push('best for ' + s.r + ' reps');
         if (what.length) {
           sets[xi + ':' + si] = what.join(', ');
@@ -6108,7 +6179,7 @@
         return '<div class="tr-wx"><span class="tr-wx-n">' + esc(lib(x.e).n) + '</span><ol class="tr-wx-s">' + x.s.map(function (s, si) {
           var w = conv(s.w, wo.u), win = won.sets[xi + ':' + si];
           return '<li' + (win ? ' class="tr-won"' : '') + '><span class="tr-hs-l">' + setLab(s, function () { return ++num; }) + '</span>' +
-            (w > 0 ? fmtN(w) + ' ' + T.pr.u + ' \u00d7 ' : '') + s.r +
+            (w > 0 ? fmtN(w) + ' ' + T.pr.u + (ASST[x.e] ? ' help' : '') + ' \u00d7 ' : '') + s.r +
             (win ? ' <span class="tr-ribbon" title="' + esc(win) + '">\ud83e\udd47 ' + esc(win) + '</span>' : '') + '</li>';
         }).join('') + '</ol></div>';
       }).join('') +
@@ -6200,7 +6271,7 @@
     var p = plan(ms, sh.w, sh.d);
     var wo = woFor(ms, sh.w, sh.d);
     return '<div class="sheet-name tr-sn2">' + esc(p.n) + '</div>' +
-      '<div class="tr-sub">' + (p.deload ? 'Deload week' : 'Week ' + (sh.w + 1) + ' · ' + p.rir + ' RIR') +
+      '<div class="tr-sub">' + (p.deload ? 'Deload week' : 'Week ' + (sh.w + 1) + ' · ' + effSay(p.rir)) +
         (wo ? ' · done ' + when(wo.st) : '') + '</div>' +
       planList(p, ms) +
       '<div class="tr-acts">' +
@@ -6347,7 +6418,9 @@
       '<div class="tr-q"><div class="tr-ql">When you finish</div>' + chips('s-yay', p.yay, [[1, 'Chime and confetti'], [0, 'Just the summary']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Your weight on pull-up and dip days</div>' + chips('s-nobw', p.nobw, [[0, 'Ask when it\u2019s needed'], [1, 'Don\u2019t ask']]) +
         '<div class="tr-hint">Asked only when there\u2019s no weigh-in from the last week to go on. Saved, it\u2019s the day\u2019s weigh-in on Nourish too.</div></div>' +
-      '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log reps in reserve']]) +
+      '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log it']]) +
+        chips('s-eff', p.eff, [['rir', 'Reps in reserve'], ['rpe', 'RPE']]) +
+        '<div class="tr-hint">The same scale from the other end: RPE 10 is nothing left, RPE 8 is two reps in reserve. RPE is what Strong and most powerlifting programs use.</div>' +
         '<div class="tr-hint">A box beside every set for how many more reps you had in you. Optional on each set; the review holds it against what the plan asked.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
         '<div class="tr-sub">' + (!doc ? '<b>Only on this phone.</b> Sign in under Nourish \u2192 \u2699 \u2192 Sync &amp; sharing and it travels with your account, the same as your day.'
@@ -6362,6 +6435,7 @@
         (LSFULL ? '<div class="tr-sub tr-warn">This phone\u2019s storage for the app is full, so the newest changes are not kept on it' +
           (doc ? ' \u2014 they are in your account.' : '. Sign in to keep them in an account, or export a copy.') + '</div>' : '') +
         '<div class="tr-acts"><button class="ghost" data-t="export">Export a copy</button>' +
+          '<button class="ghost" data-t="exportcsv">Export as a spreadsheet</button>' +
           '<label class="ghost tr-file">Restore from a copy<input type="file" id="trImport" accept="application/json,.json" hidden></label>' +
           '<label class="ghost tr-file">Bring in from Strong<input type="file" id="trStrong" accept=".csv,text/csv" hidden></label></div>' +
         '<div class="tr-hint">From Strong: Settings \u2192 Export data, then choose the file here. Your workouts come in as history \u2014 records, charts, and the weights a new block starts from.</div>' +
@@ -6485,15 +6559,59 @@
     draw();
   }
 
-  function exportCopy() {
-    var blob = new Blob([JSON.stringify({ app: 'hive-train', v: 1, at: Date.now(), train: T }, null, 1)],
-      { type: 'application/json' });
+  function saveFile(name, type, text) {
+    var blob = new Blob([text], { type: type });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'train-' + dayKey(new Date()) + '.json';
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function exportCopy() {
+    saveFile('train-' + dayKey(new Date()) + '.json', 'application/json',
+      JSON.stringify({ app: 'hive-train', v: 1, at: Date.now(), train: T }, null, 1));
+  }
+
+  /* Every set as a spreadsheet, in Strong's columns and order, so a
+     spreadsheet or another app reads it — and "Bring in from Strong" here
+     reads it back. RIR, the kind of set and your weight ride along at the
+     end, where anything that knows only Strong's columns passes them by. */
+  function csvCell(v) {
+    var t = v === null || v === undefined ? '' : String(v);
+    // text that would start a formula in a spreadsheet stays text
+    if (/^[=+\-@]/.test(t) && !/^-?\d/.test(t)) t = "'" + t;
+    return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function csvNum(v) { return fin(v) ? String(Math.round(v * 100) / 100) : ''; }
+  function csvDate(t) {
+    var d = new Date(t), two = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds());
+  }
+  function csvDur(ms) {
+    var m = Math.round(ms / 60000);
+    return m > 0 ? (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm' : '';
+  }
+  function woCsv() {
+    var rows = [['Date', 'Workout Name', 'Duration', 'Exercise Name', 'Set Order', 'Weight', 'Weight Unit', 'Reps', 'Distance', 'Seconds',
+      'Notes', 'Workout Notes', 'RPE', 'RIR', 'Set Type', 'Bodyweight']];
+    ix().list.forEach(function (wo) {
+      var bw = woBw(wo);
+      wo.x.forEach(function (x) {
+        var n = 0, name = lib(x.e).n;
+        x.s.forEach(function (st) {
+          var ord = st.wu ? 'W' : st.ty === 'd' ? 'D' : st.ty === 'f' ? 'F' : String(++n);
+          rows.push([csvDate(wo.st), wo.n || 'Workout', wo.en > wo.st ? csvDur(wo.en - wo.st) : '', name, ord,
+            csvNum(st.w), wo.u === 'kg' ? 'kg' : 'lbs', csvNum(st.r), '', '',
+            st.ty === 'm' ? 'Missed attempt' : ASST[x.e] ? 'Weight is the machine\u2019s help' : '', wo.nt || '',
+            fin(st.q) ? csvNum(10 - st.q) : '', fin(st.q) ? csvNum(st.q) : '', setSay(st), usesBw(x.e) && fin(bw) ? csvNum(bw) : '']);
+        });
+      });
+    });
+    return '\ufeff' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n') + '\r\n';
+  }
+  function exportCsv() {
+    saveFile('strengthen-' + dayKey(new Date()) + '.csv', 'text/csv;charset=utf-8', woCsv());
   }
 
   function readImport(file) {
@@ -6618,8 +6736,9 @@
 
   /* Strong's own names for the lifts the library has, as their words fall
      once case, brackets and punctuation are gone. Only the same lift on the
-     same kit: a Pendlay row is not a bent-over row, and an assisted pull-up
-     is logged as the help, not the load, so neither is matched. */
+     same kit: a Pendlay row is not a bent-over row. An assisted pull-up or
+     dip is logged as the help, not the load, and comes in as the assisted
+     lift, where the weight means exactly that. */
   var SG_MAP = {
     'bench press barbell': 'bb-bench', 'bench press dumbbell': 'db-bench', 'chest press machine': 'mc-press',
     'incline bench press barbell': 'bb-incline', 'incline bench press dumbbell': 'db-incline',
@@ -6638,7 +6757,8 @@
     'walking lunge dumbbell': 'db-lunge', 'step up': 'db-stepup', 'step up dumbbell': 'db-stepup', 'belt squat machine': 'belt-squat',
     'leg extension machine': 'leg-ext', 'leg extension': 'leg-ext', 'air squat': 'bw-squat', 'squat bodyweight': 'bw-squat',
     'romanian deadlift barbell': 'bb-rdl', 'romanian deadlift dumbbell': 'db-rdl', 'stiff leg deadlift barbell': 'bb-sldl',
-    'deadlift barbell': 'bb-dl', 'good morning barbell': 'good-am', 'lying leg curl machine': 'lying-curl',
+    'deadlift barbell': 'bb-dl', 'sumo deadlift barbell': 'sumo-dl', 'deadlift trap bar': 'trap-dl', 'trap bar deadlift': 'trap-dl',
+    'pull up assisted': 'as-pullup', 'chest dip assisted': 'as-dip', 'dip assisted': 'as-dip', 'good morning barbell': 'good-am', 'lying leg curl machine': 'lying-curl',
     'seated leg curl machine': 'seated-curl', 'nordic hamstring curl': 'nordic',
     'hip thrust barbell': 'hip-thrust', 'hip thrust machine': 'mc-thrust', 'hip thrust dumbbell': 'db-thrust', 'glute bridge': 'glute-bridge',
     'back extension': 'back-ext', 'hyperextension': 'back-ext', 'hip abductor machine': 'abduct', 'glute kickback cable': 'cb-kick',
@@ -7173,7 +7293,7 @@
       if (t === 'styrm') { if (sx.s.length > 1) sx.s.splice(S.sheet.s, 1); }
       else {
         if (v === 'w') ss.wu = 1; else delete ss.wu;
-        if (v === 'd' || v === 'f') ss.ty = v; else delete ss.ty;
+        if (v === 'd' || v === 'f' || v === 'm') ss.ty = v; else delete ss.ty;
       }
       remapPrev(sx);
       saveLive(); closeSheet(); draw(); return;
@@ -7405,7 +7525,7 @@
     }
     if (S.ed && t === 'edsty') {
       var es = S.ed.x[num('data-x')].s[num('data-s')];
-      es.ty = { '': 'w', w: 'd', d: 'f', f: '' }[es.ty || ''];
+      es.ty = { '': 'w', w: 'd', d: 'f', f: 'm', m: '' }[es.ty || ''];
       drawSheet(); return;
     }
     if (S.ed && t === 'edrm') { S.ed.x[num('data-x')].s.splice(num('data-s'), 1); drawSheet(); return; }
@@ -7501,8 +7621,10 @@
     if (t === 's-snd') { T.pr.snd = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-yay') { T.pr.yay = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); return; }
     if (t === 's-rq') { T.pr.rq = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-eff') { T.pr.eff = v === 'rpe' ? 'rpe' : 'rir'; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-nobw') { T.pr.nobw = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 'export') { exportCopy(); return; }
+    if (t === 'exportcsv') { exportCsv(); return; }
     if (S.sg && t === 'sgu') { S.sg.unit = v === 'kg' ? 'kg' : 'lb'; drawSheet(); return; }
     if (S.sg && t === 'sgr') { S.sg.range = Number(v) || 0; drawSheet(); return; }
     if (S.sg && t === 'sgown') { S.sg.names[num('data-i')].e = ''; drawSheet(); return; }
@@ -7678,7 +7800,7 @@
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
-      dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
+      dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }

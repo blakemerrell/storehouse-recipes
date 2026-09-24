@@ -1815,7 +1815,7 @@ module.exports = {
     t.ok('last time’s warm-up does not push every Previous down a row', r === '185x10,185x8,185x8,185x8', r);
     await p.click('[data-t="sty"][data-x="0"][data-s="0"]');
     r = await p.evaluate(() => [...document.querySelectorAll('[data-t="styset"]')].map((b) => b.textContent).join('|'));
-    t.ok('tapping a set’s number asks what kind of set it is', r === 'Working set|Warm-up|Drop set|To failure', r);
+    t.ok('tapping a set’s number asks what kind of set it is', r === 'Working set|Warm-up|Drop set|To failure|Missed', r);
     await p.click('[data-t="styset"][data-v="w"]');
     r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s.map((s) => (s.pw === null ? '-' : s.pw + 'x' + s.pr)).join());
     t.ok('marked a warm-up, a set is paired with last time’s warm-up, and the working sets with last time’s working sets', r === '45x14,185x10,185x8,185x8', r);
@@ -2728,6 +2728,107 @@ module.exports = {
     await p.click('.tr-done [data-t="close"]');
     r = await p.evaluate(() => ({ full: window.Train._.lsFull(), say: (document.querySelector('.tr-lsfull') || {}).textContent || '' }));
     t.ok('when the phone’s storage is full it says so, and what to do', r.full === true && /storage for the app is full/.test(r.say) && /Export a copy/.test(r.say), JSON.stringify(r));
+    await p.close();
+
+    // ---- for the serious lifter: misses, assisted lifts, two deadlifts, RPE, a spreadsheet ----
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ids = [];
+      ['start', 'grow', 'keep', 'waves', 'power'].forEach((prog) => [0, 1, 2].forEach((lvl) => ['gym', 'bar', 'db'].forEach((kit) => [0, 1, 2, 3].forEach((seed) => {
+        try { const ms = _.build({ prog, dpw: 4, kit, lvl, seed }); ms.days.forEach((d) => d.s.forEach((x) => ids.push(x.e))); } catch (e) { /* not for this kit */ }
+      }))));
+      return { n: ids.length, bad: ids.filter((e) => ['sumo-dl', 'trap-dl', 'as-pullup', 'as-dip'].indexOf(e) >= 0),
+        lib: ['sumo-dl', 'trap-dl', 'as-pullup', 'as-dip'].map((e) => _.lib(e).n).join('|'), bar: _.barFor('trap-dl') };
+    });
+    t.ok('sumo and trap-bar deadlifts and the assisted pull-up and dip are in the library', r.lib === 'Sumo Deadlift|Trap-Bar Deadlift|Assisted Pull-Up|Assisted Dip', r.lib);
+    t.ok('and never chosen for a program on their own', r.n > 500 && !r.bad.length, JSON.stringify({ n: r.n, bad: r.bad.slice(0, 5) }));
+    t.ok('the trap bar starts as the hex bar', r.bar === 75, r.bar);
+    await p.close();
+
+    // a missed attempt: kept, never counted
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      m1: wo('m1', '', 0, 0, 8, [{ e: 'bb-bench', s: sets(225, [5, 5, 5]) }]),
+      m2: wo('m2', '', 0, 0, 4, [{ e: 'bb-bench', s: [{ w: 225, r: 5, t: 1e12 }, { w: 315, r: 0, t: 1e12 + 1, ty: 'm' }] }]),
+    } });
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, rec = _.records('bb-bench');
+      return { kept: T.wo.m2 && T.wo.m2.x[0].s.length, w: rec.w, e1: Math.round(rec.e1), vol: _.volOf(T.wo.m2), prs: _.prsIn(T.wo.m2).length,
+        tw: _.target(_.lib('bb-bench'), null, 0, 0, false).tw, prev: _.target(_.lib('bb-bench'), null, 0, 0, false).prev.length }; });
+    t.ok('a missed 315 is kept with the workout', r.kept === 2, JSON.stringify(r));
+    t.ok('and is not a record, not volume, and not what next time is worked from', r.w === 225 && r.e1 === 263 && r.vol === 1125 && r.prs === 0 && r.tw === 225 && r.prev === 1, JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    await p.click('[data-t="sty"][data-x="0"][data-s="1"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet') || document.body).textContent);
+    t.ok('Missed is one of the kinds of set, and says what it means', /Missed/.test(r) && /never a record, never counted/.test(r), r.slice(0, 120));
+    await p.click('[data-t="styset"][data-v="m"]');
+    await p.fill('#trw-0-1', '315');
+    await p.click('[data-t="tick"][data-x="0"][data-s="1"]');
+    r = await p.evaluate(() => { const s = window.Train._.state().LIVE.x[0].s[1]; return { t: !!s.t, r: s.r, w: s.w, lab: document.querySelector('.tr-set.tr-mm .tr-snb').textContent }; });
+    t.ok('ticked with no reps, a missed attempt is done at 0 reps, marked M', r.t && r.r === 0 && r.w === 315 && r.lab === 'M', JSON.stringify(r));
+    r = await p.evaluate(() => { const _ = window.Train._; return _.ghost(0, 2); });
+    t.ok('and the set after it follows the plan, not the miss', r.r > 0 && r.w !== 315, JSON.stringify(r));
+    await p.close();
+
+    // assisted: you, less the help; less help is the step forward
+    p = await t.fresh();
+    await p.evaluate(() => {
+      const D = 864e5, k = (ago) => { const d = new Date(Date.now() - ago * D); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      const w = {}; [1, 2, 3, 5, 6, 8, 9, 10].forEach((a) => { w[k(a)] = 200; });
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(w));
+    });
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a1: wo('a1', '', 0, 0, 7, [{ e: 'as-pullup', s: sets(60, [10, 9, 8]) }], { bw: 200 }),
+      a2: wo('a2', '', 0, 0, 2, [{ e: 'as-pullup', s: sets(50, [12, 12, 12]) }], { bw: 200 }),
+    } });
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, rec = _.records('as-pullup'), tg = _.target(_.lib('as-pullup'), null, 0, 0, false);
+      return { e1: Math.round(rec.e1), w: rec.w, vol: _.volOf(T.wo.a2), tw: tg.tw, tr: tg.tr, won: _.wins(T.wo.a2).lines.map((l) => l.what).join('|') }; });
+    t.ok('an assisted pull-up counts you less the help: 200 lb, 50 lb of help, 12 reps', r.e1 === Math.round(150 * (1 + 12 / 30)), JSON.stringify(r));
+    t.ok('the help is never a heaviest or a volume', r.w === 0 && r.vol === 0 && !/heaviest/.test(r.won), JSON.stringify(r));
+    t.ok('top of the range on every set: next time asks for less help', r.tw === 45 && r.tr === 10, JSON.stringify(r));
+    await p.close();
+
+    // RPE, if you would rather
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, rq: 1, eff: 'rpe' }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-squat"]');
+    r = await p.evaluate(() => ({ head: document.querySelector('.tr-ex .tr-set-h').textContent,
+      opts: [...document.querySelectorAll('.tr-rqs')[0].options].map((o) => o.textContent).join(',') }));
+    t.ok('with RPE chosen, each set asks RPE by half steps', /RPE/.test(r.head) && r.opts === '–,10,9.5,9,8.5,8,7.5,7,6,≤5', JSON.stringify(r));
+    await p.selectOption('.tr-rqs >> nth=0', '0.5');
+    await p.fill('#trw-0-0', '275');
+    await p.fill('#trr-0-0', '3');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; L.x[0].s = L.x[0].s.filter((s) => s.t); });
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => { const T = window.Train._.state().T, w = Object.values(T.wo)[0]; return { q: w.x[0].s[0].q }; });
+    t.ok('RPE 9.5 is kept as half a rep in reserve, the one scale underneath', r.q === 0.5, JSON.stringify(r));
+    await p.click('.tr-done [data-t="close"]');
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('[data-t="s-eff"][aria-pressed="true"]') || {}).textContent || '');
+    t.ok('and Settings has the switch', r === 'RPE', r);
+    await p.close();
+
+    // a spreadsheet of every set, that Strong's importer (and this one) reads back
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      c1: wo('c1', '', 0, 0, 3, [{ e: 'bb-squat', s: [{ w: 135, r: 5, t: 1e12, wu: 1 }, { w: 225, r: 5, t: 1e12 + 1, q: 2 }, { w: 245, r: 0, t: 1e12 + 2, ty: 'm' }] },
+        { e: 'as-pullup', s: sets(40, [8]) }], { nt: 'Felt good, "legs" day' }),
+    } });
+    r = await p.evaluate(() => { const _ = window.Train._, csv = _.woCsv(), rows = _.csvRows(csv), G = _.sgParse(csv);
+      return { head: rows[0].slice(0, 12).join(','), n: rows.length, row2: rows[2].join('|'), miss: rows[3].join('|'),
+        back: G.err || G.wos.length + ':' + G.wos[0].x.map((x) => x.nm + '=' + x.s.length).join(','), match: G.names.map((n) => n.e).join(',') }; });
+    t.ok('the spreadsheet has Strong’s columns, with the unit on every row', r.head === 'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds,Notes,Workout Notes', r.head);
+    t.ok('a row a set: warm-up W, RPE and RIR both, and the workout note quoted', r.n === 5 && /\|1\|225\|lbs\|5\|/.test(r.row2) && /\|8\|2\|Working set\|/.test(r.row2) && /Felt good, "legs" day/.test(r.row2), JSON.stringify(r));
+    t.ok('a missed attempt says so', /Missed attempt/.test(r.miss) && /\|245\|lbs\|0\|/.test(r.miss), r.miss);
+    t.ok('and Bring in from Strong reads it back, lifts matched by name (the missed attempt left out, as Strong would)', r.back === '1:Back Squat=2,Assisted Pull-Up=1' && r.match.split(',').sort().join() === 'as-pullup,bb-squat', JSON.stringify(r));
     await p.close();
   },
 };

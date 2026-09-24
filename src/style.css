@@ -5293,3 +5293,8 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
 .tr-first.tr-safe { border-left-color: oklch(0.55 0.14 30); }
 .tr-howbtn { display: inline-block; font-size: 13px; margin-top: 6px; min-height: 32px; }
 .tr-need { font-size: 13px; font-weight: 500; color: oklch(0.46 0.14 30); padding: 2px 0 8px 36px; line-height: 1.4; }
+
+/* ---- Strengthen: a missed attempt — its weight kept, struck through, never counted ---- */
+.tr-set.tr-mm .tr-snb { color: var(--muted-2); font-weight: 700; }
+.tr-set.tr-mm.done .tr-in { text-decoration: line-through; }
+.tr-tag.m { color: var(--muted-2); }

@@ -109,6 +109,17 @@ three ideas in one tab:
   can add the ramp to the log as W sets. Removing a lift that has done sets asks twice.
   Settings says whether your training is only on this phone or saved to your account, and
   a save that fails is shown and retried rather than dropped silently.
+- *For the serious lifter:* a set can be marked *Missed* (M) — an attempt that didn't go
+  up: its weight is kept with the reps you got (0 if none), shown in history, and never a
+  record, volume, target or hard set. *Assisted Pull-Up* and *Assisted Dip* take the
+  machine's help as the weight: your strength is you less the help (from your weigh-ins),
+  less help is the progression, and help is never a heaviest or volume. *Sumo* and
+  *Trap-Bar Deadlift* are in the library (trap bar on the hex bar); none of the four is
+  ever picked for a program on its own. Effort can be logged as reps in reserve (the
+  default) or as RPE by half steps (Settings → Effort on each set); it is stored as
+  reps in reserve either way (RPE 8 = 2). *Export as a spreadsheet* writes every set as a
+  CSV in Strong's columns (plus RPE, RIR, set type and your weight), which *Bring in from
+  Strong* reads back.
 - *A lifetime of workouts:* signed in, workouts are kept in the account one record per
   calendar year (`users/{uid}/train/2026`), each far inside Firestore's 1 MB a record,
   so the history has no ceiling; everything else stays in the one record. It needs the
