@@ -4570,14 +4570,20 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mwhy.mwhy-f { color: oklch(0.45 0.08 85); background: oklch(0.94 0.04 90); }
 .mwhy.mwhy-c { color: oklch(0.42 0.07 150); background: oklch(0.93 0.03 150); }
 .mitem-r1 { padding-right: 90px; }
+/* A menu hanging off the ⋯, right-aligned under it and floating OVER the
+   plate. Blake, on the first build — which set it in the plate's own flow,
+   between the name and the figures: "Looks horrible when it pops up." */
+.mitem { position: relative; }
 .mitem-pop {
-  margin: 4px 0 2px 40px; width: max-content; max-width: calc(100% - 40px);
-  background: var(--card, var(--paper)); border: 1px solid var(--line); border-radius: 6px;
-  box-shadow: 0 6px 18px -8px oklch(0.2 0.02 60 / 0.35); overflow: hidden;
+  position: absolute; top: 34px; right: 4px; z-index: 6;
+  width: max-content; min-width: 190px; max-width: calc(100% - 12px);
+  background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 10px 24px -10px oklch(0.2 0.02 60 / 0.45); overflow: hidden;
+  font-family: var(--sans, inherit);
 }
 .mitem-pop button {
   display: block; width: 100%; text-align: left; background: none; border: 0;
-  font: inherit; font-size: 14px; color: var(--ink); padding: 9px 14px; cursor: pointer;
+  font: inherit; font-size: 13.5px; color: var(--ink); padding: 10px 14px; cursor: pointer;
 }
 .mitem-pop button + button { border-top: 1px solid var(--line-soft, var(--line)); }
 .mitem-pop button:hover { background: var(--paper-soft); }
