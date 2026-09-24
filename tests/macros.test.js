@@ -13219,5 +13219,92 @@ module.exports = {
         /no arrival date yet/.test(flat) && !/Arriving around/.test(flat), flat);
       await ap2.context().close();
     }
+
+    /* ---- why Fill added it, and "Don't suggest", 2026-09-23 -----------
+     * Blake, on the endive: the logic is fine, "it's just invisible in the
+     * app and a food i might want to stop from suggesting somehow." */
+    {
+      const np = await t.fresh();
+      const today = await np.evaluate(() => { const d = new Date(); const p2 = (x) => (x < 10 ? '0' : '') + x;
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); });
+      const seedDraft = (sd) => np.evaluate((a0) => {
+        let a = a0;
+        Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let q = Math.imul(a ^ a >>> 15, 1 | a);
+          q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; };
+        window.__macroLab.draft();
+      }, sd);
+      let side = null, seedUsed = 0;
+      for (const sd of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        await np.evaluate(() => { localStorage.clear();
+          localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 })); });
+        await np.reload();
+        await seedDraft(sd);
+        side = await np.evaluate((k) => {
+          const d = JSON.parse(localStorage.getItem('bsc.macroDays'))[k];
+          for (const sk of Object.keys(d)) for (let i = 0; i < d[sk].length; i++) {
+            if (d[sk][i].why === 'fib') return { sk, i, id: d[sk][i].id };
+          }
+          return null;
+        }, today);
+        if (side) { seedUsed = sd; break; }
+      }
+      t.ok('a side Fill adds for fibre says so on the plate', !!side, String(seedUsed));
+      if (side) {
+        await np.reload();
+        await np.click('.tab[data-view="macros"]');
+        await np.waitForTimeout(300);
+        await openDay(np);
+        const tag = side.sk + ':' + side.i;
+        const chip = await np.evaluate((tg) => {
+          const btn = document.querySelector('[data-mdots="' + tg + '"]');
+          const row = btn && btn.closest('.mitem');
+          return row ? (row.querySelector('.mwhy') || {}).textContent || '' : 'no row';
+        }, tag);
+        t.ok('with a chip beside its name: "Added for fiber"', chip === 'Added for fiber', chip);
+        await np.click('[data-mdots="' + tag + '"]');
+        await np.waitForTimeout(150);
+        await np.click('[data-mdo="never:' + tag + '"]');
+        await np.waitForTimeout(300);
+        const after = await np.evaluate(([k, id]) => {
+          const d = JSON.parse(localStorage.getItem('bsc.macroDays'))[k];
+          const ids = Object.values(d).flat().map((it) => String(it.id));
+          const never = JSON.parse(localStorage.getItem('bsc.macroNever') || '{}');
+          const toast = document.getElementById('mToast');
+          return { gone: ids.indexOf(String(id)) < 0, never: !!never[String(id)],
+            replaced: Object.values(d).flat().some((it) => it.why === 'fib'),
+            toast: toast && !toast.hidden ? toast.textContent : '' };
+        }, [today, side.id]);
+        t.ok('"Don’t suggest" takes it off, remembers it, and says so',
+          after.gone && after.never && /won’t be suggested/.test(after.toast), JSON.stringify(after));
+        t.ok('and something else covers the fibre in its place', after.replaced, JSON.stringify(after));
+        // never again, whatever the draw
+        let back = 0;
+        for (const sd of [1, 2, 3, 4, 5, 6, 7, 8]) {
+          await np.evaluate((id) => { const nv = localStorage.getItem('bsc.macroNever');
+            localStorage.clear(); localStorage.setItem('bsc.macroNever', nv);
+            localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 })); }, side.id);
+          await np.reload();
+          await seedDraft(sd);
+          back += await np.evaluate(([k, id]) => Object.values(JSON.parse(localStorage.getItem('bsc.macroDays'))[k])
+            .flat().filter((it) => String(it.id) === String(id)).length, [today, side.id]);
+        }
+        t.ok('Fill never suggests it again', back === 0, back + ' times');
+        const sent = await np.evaluate((id) => { const pl = window.__macroLab.payload(); return !!(pl.nv && pl.nv.v && pl.nv.v[String(id)]); }, side.id);
+        t.ok('and the list travels to your other devices', sent);
+        // Allow, from the foods sheet
+        await np.click('.tab[data-view="macros"]');
+        await np.waitForTimeout(300);
+        await np.click('#macroMore');
+        await np.waitForTimeout(150);
+        await np.click('[data-mmore="foods"]');
+        await np.waitForTimeout(300);
+        const listed = await np.evaluate(() => !!document.querySelector('.mnv-row [data-mallow]'));
+        await np.click('.mnv-row [data-mallow]');
+        await np.waitForTimeout(200);
+        const allowed = await np.evaluate((id) => !JSON.parse(localStorage.getItem('bsc.macroNever') || '{}')[String(id)], side.id);
+        t.ok('the foods sheet lists it, and Allow gives it back', listed && allowed, JSON.stringify({ listed, allowed }));
+      }
+      await np.context().close();
+    }
   },
 };
