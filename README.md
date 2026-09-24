@@ -104,6 +104,12 @@ three ideas in one tab:
   moves a block. Any finished workout can be kept with *Save as routine* (its lifts in
   order with the sets you did); routines sync, appear under *Your routines*, and delete
   with two taps.
+- *Bodyweight lifts:* pull-ups, chin-ups, negatives and dips count you as well as anything
+  added, from Nourish's morning weigh-in that day or in the fortnight before (none older;
+  the day's weight is kept with the workout). Their estimated max, records and lift-page
+  charts use it, with *strength × bodyweight* beside, so a lighter you doing the same reps
+  isn't shown as weaker; the badge beside the lift keeps to reps. With no weigh-in, they
+  are counted in reps as before.
   Saving a workout opens its summary: the time, sets, volume and records, each set that
   beat a record tagged 🥇 (only the day's best set takes each one), and a milestone when
   there is one (the 10th workout, a block finished). A chime and confetti mark every

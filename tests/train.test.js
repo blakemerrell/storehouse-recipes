@@ -2219,5 +2219,63 @@ module.exports = {
       return [S({ n: 'x', x: [{ e: 'bb-bench', n: 3 }] }), S({ n: '', x: [{ e: 'a', n: 3 }] }), S({ n: 'x', x: [] }), S({ n: 'x', x: [{ e: 'a', n: 40 }] })].join(); });
     t.ok('a routine from another device is let in only if it is shaped right', r === 'true,false,false,false', r);
     await p.close();
+    // ---- pull-ups, chin-ups and dips count you ---------------------------------------------
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._, D = 864e5, k = (ago) => { const d = new Date(Date.now() - ago * D); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      localStorage.setItem('bsc.macroWeights', JSON.stringify({ [k(4)]: 190, [k(20)]: 200 }));
+      return { today: _.bwOn(k(0), 'lb'), kg: _.bwOn(k(0), 'kg'), old: _.bwOn(k(18), 'lb'), stale: _.bwOn(k(40), 'lb'), gap: _.bwOn(k(30), 'lb'),
+        pu: _.e1Of('pullup', 25, 6, 190), none: _.e1Of('pullup', 0, 10, null), bench: _.e1Of('bb-bench', 185, 8, 190) === _.e1rm(185, 8) };
+    });
+    t.ok('your weight is the latest weigh-in on or before the day, in the unit you lift in', r.today === 190 && r.kg === 86.2 && r.old === 200, JSON.stringify(r));
+    t.ok('and none from more than a fortnight before, rather than a stale guess', r.stale === null && r.gap === null, JSON.stringify(r));
+    t.ok('a pull-up counts you plus the belt: 190 + 25 for 6 is an estimated 258', Math.round(r.pu) === 258 && r.none === 0 && r.bench, JSON.stringify(r));
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a: wo('a', '', -1, -1, 10, [{ e: 'pullup', s: [{ w: 0, r: 8 }, { w: 0, r: 7 }] }], { bw: 200 }),
+      b: wo('b', '', -1, -1, 3, [{ e: 'pullup', s: [{ w: 0, r: 8 }, { w: 0, r: 8 }] }]) } });
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T; return { a: _.prsIn(T.wo.a).length, b: _.prsIn(T.wo.b).map((x) => x.what).join(), rec: Math.round(_.records('pullup').e1) }; });
+    t.ok('ten pounds lighter for the same reps is no record, and nothing is taken away', r.b === '' && r.rec === Math.round(200 * (1 + 8 / 30)), JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    await p.fill('#trw-0-0', '15'); await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => (document.getElementById('trfm-0') || {}).textContent || '');
+    t.ok('the badge keeps to reps on these lifts, belt or no belt', r === '8 reps = vs last', r);
+    await p.click('[data-t="finish"]');
+    await p.click('[data-t="save"]');
+    await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => { const w = Object.values(window.Train._.state().T.wo).sort((a, b) => b.st - a.st)[0];
+      return { bw: w.bw, recs: (document.querySelector('.tr-done-r') || {}).textContent || '' }; });
+    t.ok('the day’s weight is kept with the workout', r.bw === 190, JSON.stringify(r));
+    t.ok('and 190 + 15 for 8 beats 200 for 8: a best estimated max, with its medal', /Pull-Up/.test(r.recs) && /best e1RM/.test(r.recs), r.recs);
+    await p.click('.tr-done [data-t="close"]');
+    await p.click('[data-t="sub"][data-v="lifts"]');
+    await p.evaluate(() => { const b = document.querySelector('[data-t="exsheet"][data-e="pullup"]'); if (b) b.click(); });
+    r = await p.evaluate(() => ({ head: [...document.querySelectorAll('.tr-hs-d')].map((e) => e.textContent).join('|'),
+      sets: [...document.querySelectorAll('.tr-hs-t td:nth-child(2)')].map((e) => e.textContent).join('|') }));
+    t.ok('the lift’s history says what you weighed, and the belt as added', /you 190 lb/.test(r.head) && /you 200 lb/.test(r.head) && /\+15 lb × 8/.test(r.sets), JSON.stringify(r));
+    await p.click('[data-t="extab"][data-v="charts"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-chart-h')].map((e) => e.textContent).join('|'));
+    t.ok('charts: reps, the estimated max with you in it, and strength × bodyweight', r === 'Best set, in reps|Estimated one-rep max, you + added|Strength × bodyweight', r);
+    await p.click('[data-t="extab"][data-v="records"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-rec')].map((e) => e.textContent).join('|'));
+    t.ok('records: estimated max, × bodyweight, most added and most reps', /Estimated 1RM260 lb/.test(r) && /× bodyweight1\.37/.test(r) && /Most added\+15 lb/.test(r) && /Most reps8/.test(r), r);
+    await p.close();
+
+    // no weigh-ins: reps, as before
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a: wo('a', '', -1, -1, 10, [{ e: 'dip', s: [{ w: 0, r: 10 }] }]), b: wo('b', '', -1, -1, 3, [{ e: 'dip', s: [{ w: 0, r: 12 }] }]) } });
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T; return { rec: _.records('dip').e1, b: _.prsIn(T.wo.b).map((x) => x.what).join() }; });
+    t.ok('without a weigh-in a dip is counted in reps, and more reps is still a record', r.rec === 0 && r.b === 'most reps', JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="lifts"]');
+    await p.evaluate(() => { const b = document.querySelector('[data-t="exsheet"][data-e="dip"]'); if (b) b.click(); });
+    await p.click('[data-t="extab"][data-v="records"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-hint') || {}).textContent || '');
+    t.ok('and the lift says how to get a strength number', /Log your weight on Nourish/.test(r), r);
+    await p.close();
   },
 };
