@@ -5309,3 +5309,18 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
 .tr-paste { width: 100%; box-sizing: border-box; font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 10px; min-height: 140px; }
 .tr-immore { margin: 8px 0 4px; }
 .tr-immore summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--ochre-text); min-height: 36px; display: flex; align-items: center; }
+
+/* ---- Strengthen: a gym and home — where a workout is, home's bar and plates ---- */
+.pl-lb-55 { background: oklch(0.56 0.19 27) !important; color: #fff !important; }
+.pl-lb-15 { background: oklch(0.84 0.15 92) !important; color: oklch(0.25 0.03 80) !important; }
+.tr-where { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
+.tr-where .tr-ql { margin: 0; }
+.tr-gyh { margin-top: 14px; }
+.tr-barown { margin-top: 8px; }
+.tr-gypl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; margin-top: 6px; }
+.tr-gyr { display: grid; grid-template-columns: minmax(0, 1fr) 40px 26px 40px; align-items: center; gap: 4px; font-size: 14px; }
+.tr-gyr.none span { color: var(--muted); }
+.tr-gyr b { text-align: center; font-variant-numeric: tabular-nums; }
+.tr-gyb { min-height: 40px; border: 1px solid var(--line-firm); border-radius: 6px; background: var(--card); font: inherit; font-size: 18px; cursor: pointer; color: var(--ink); }
+.tr-gyb:disabled { opacity: 0.35; cursor: default; }
+.tr-homenote { color: var(--ochre-text); }

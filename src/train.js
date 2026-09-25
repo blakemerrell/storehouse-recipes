@@ -690,6 +690,8 @@
       // the badge beside each lift's name, and which measure each lift shows in it
       fmo: p.fmo === 0 ? 0 : 1,
       fm: cleanFm(p.fm),
+      // a gym and home: the plates and bar you have at home, and where you were last
+      gy: cleanGy(p.gy),
       // the card on how a workout goes, shown to someone new until put away
       hw: p.hw === 1 ? 1 : 0,
       // never ask your weight on a pull-up day
@@ -1230,6 +1232,60 @@
   // lifts loaded with plates on a bar; a plate-loaded machine's sled weight is anybody's guess
   function onBar(ex) { return ex.q === 'bb' || ex.q === 'sm'; }
 
+  /* Home and the gym.
+   *
+   * The gym has every plate there is, as many as you like, and each lift's
+   * own bar. Home has the plates you own, counted in pairs, and one bar you
+   * weighed. At home the plates in each row are what yours can make, and the
+   * weight a set suggests is the nearest one you can load — up to the next
+   * one when it was meant to go up, so a missing 2.5 never keeps you at the
+   * same weight for ever. */
+  var PL_SIZES = { lb: [55, 45, 35, 25, 15, 10, 5, 2.5], kg: [25, 20, 15, 10, 5, 2.5, 1.25] };
+  var PL_HOME = { lb: { 45: 2, 25: 1, 10: 2, 5: 2, 2.5: 1 }, kg: { 20: 2, 10: 2, 5: 2, 2.5: 2, 1.25: 1 } };
+  function cleanGy(g) {
+    g = plain(g) ? g : {};
+    var pl = {};
+    if (plain(g.pl)) Object.keys(g.pl).forEach(function (k) {
+      var n = g.pl[k];
+      if (fin(+k) && +k > 0 && +k <= 100 && fin(n) && n >= 0 && n <= 10) pl[k] = Math.round(n);
+    });
+    return { on: g.on === 1 ? 1 : 0, bar: fin(g.bar) && g.bar >= 0 && g.bar <= 100 ? g.bar : null, pl: pl,
+      u: g.u === 'kg' ? 'kg' : 'lb', last: g.last === 'home' ? 'home' : 'gym' };
+  }
+  // this workout is at home, with home set up in the unit you lift in
+  function homeNow() { var g = T.pr.gy; return !!(g && g.on && g.u === T.pr.u && LIVE && LIVE.g === 'home'); }
+  function homeBar() { var g = T.pr.gy; return fin(g.bar) ? g.bar : T.pr.bar; }
+  // the bar for a lift where you are: at home, yours
+  function barAt(e) { return homeNow() && onBar(lib(e)) ? homeBar() : barFor(e); }
+  function barLabelAt(e) { return homeNow() && onBar(lib(e)) ? 'home bar ' + fmtN(homeBar()) + ' ' + T.pr.u : barLabel(e); }
+  function homeInv() { return homeNow() ? T.pr.gy.pl : null; }
+  /* Every total the home plates can make on the home bar, lightest first,
+     worked in quarters so 1.25 kg adds up exactly. */
+  var LOADS = { k: '', v: [] };
+  function homeLoads() {
+    var g = T.pr.gy, key = JSON.stringify(g.pl) + '|' + homeBar();
+    if (LOADS.k === key) return LOADS.v;
+    var sums = { 0: 1 };
+    Object.keys(g.pl).forEach(function (k) {
+      var q = Math.round(+k * 4), n = g.pl[k], next = {};
+      Object.keys(sums).forEach(function (a) { for (var i = 0; i <= n; i++) next[+a + i * q] = 1; });
+      sums = next;
+    });
+    var bar = homeBar();
+    LOADS = { k: key, v: Object.keys(sums).map(function (a) { return bar + 2 * (+a / 4); }).sort(function (a, b) { return a - b; }) };
+    return LOADS.v;
+  }
+  /* The nearest weight you can load at home: up to the next one when the
+     weight is meant to rise, else the closest, the lighter on a tie. */
+  function snapHome(w, up) {
+    var v = homeLoads();
+    if (!v.length || !fin(w)) return w;
+    if (up) { for (var i = 0; i < v.length; i++) if (v[i] >= w - 1e-9) return v[i]; return v[v.length - 1]; }
+    var best = v[0];
+    v.forEach(function (x) { if (Math.abs(x - w) < Math.abs(best - w) - 1e-9) best = x; });
+    return best;
+  }
+
   /* What goes on each side, drawn end-on the way the bar looks from the
      rack: the sleeve, then the plates biggest first, taller the bigger. A
      weight that the plates cannot make says what is left over rather than
@@ -1241,7 +1297,7 @@
   function plCls(p) { return 'pl-' + T.pr.u + '-' + String(p).replace('.', '_'); }
   function stackHTML(w, bar, dim, room) {
     if (w === null || !(w > 0)) return '';
-    var u = T.pr.u, pm = plateMath(w, bar, u);
+    var u = T.pr.u, pm = plateMath(w, bar, u, homeInv());
     if (pm.under) return '<span class="tr-stk tr-stk-x">under the bar</span>';
     var ps = pm.plates, groups = [];
     ps.forEach(function (x) {
@@ -3571,6 +3627,10 @@
     /* A main lift's sets each have their own weight — a ramp, a top set and
        back-offs — so its plan beats carrying the last set's weight forward. */
     var w = (x.fix || s.wu) && fin(s.tw) ? s.tw : cw !== null ? cw : fin(s.tw) ? s.tw : fin(s.pw) ? s.pw : ex.q === 'bw' ? 0 : null;
+    // at home, a weight from the plan or last time is one your plates can make; one typed today stands
+    if (w !== null && w > 0 && onBar(ex) && homeNow() && !(cw !== null && w === cw && !(x.fix || s.wu))) {
+      w = snapHome(w, fin(s.tw) && w === s.tw && fin(s.pw) && s.tw > s.pw);
+    }
     /* Reps as weight does: once a set is done today, the next one expects
        what you just did, rather than a target you already fell short of or
        beat; a main lift's sets keep their own. A tick on an empty box then
@@ -3773,6 +3833,7 @@
       sr: LIVE.sr || {}, fb: LIVE.fb || {}
     };
     if (fin(LIVE.bk)) wo.bk = LIVE.bk;
+    if (LIVE.g === 'home' && T.pr.gy.on) wo.g = 'home';
     var nt = String(LIVE.nt || '').trim().slice(0, 1000);
     if (nt) wo.nt = nt;
     var mc = mcDone(LIVE.mc);
@@ -4709,6 +4770,10 @@
        today should be at all. */
     if (ms && pairLabels().some(Boolean)) html += '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>';
 
+    if (T.pr.gy.on && T.pr.gy.u === T.pr.u) {
+      if (L.g !== 'home' && L.g !== 'gym') { L.g = T.pr.gy.last; saveLive(); }
+      html += '<div class="tr-where"><span class="tr-ql">Where</span>' + chips('gyat', L.g, [['gym', 'Gym'], ['home', 'Home']]) + '</div>';
+    }
     if (T.pr.lvl === 0 && !T.pr.hw) html += howCard();
     if (T.pr.bk || T.pr.jt) html += bkCard(L);
     html += bwCard(L);
@@ -4946,7 +5011,7 @@
   function plCell(xi, si) {
     var x = LIVE.x[xi], s = x.s[si], sw = setWeight(xi, si);
     var prev = fin(s.pw) && fin(s.pr) ? fmtN(s.pw) + ' \u00d7 ' + s.pr : '';
-    var stk = stackHTML(sw.w, barFor(x.e), sw.dim);
+    var stk = stackHTML(sw.w, barAt(x.e), sw.dim);
     if (!stk) return prev;
     return stk + (prev ? '<span class="tr-prev-s">last ' + prev + '</span>' : '');
   }
@@ -5095,12 +5160,13 @@
             : ' \u00b7 <button class="tr-lnk tr-barl" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest ' + clock(x.rest) + ' for ' + esc(ex.n) + '. Change">rest ' + clock(x.rest) + '</button>') +
           (fin(x.tm) ? ' \u00b7 training max ' + fmtN(x.tm) + ' ' + T.pr.u : '') +
           (onBar(ex) ? ' \u00b7 <button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '" aria-label="' + esc(barName(x.e)) + ' for ' + esc(ex.n) + ': ' +
-            fmtN(barFor(x.e)) + ' ' + T.pr.u + '. Change">' + esc(barLabel(x.e)) + '</button>' : '') + '</span>' +
+            fmtN(barAt(x.e)) + ' ' + T.pr.u + '. Change">' + esc(barLabelAt(x.e)) + '</button>' : '') + '</span>' +
         (x.s.some(function (s) { return s.am; }) ? '<span class="tr-cue">Last set: as many good reps as you can \u2014 stop when one slows to a grind. It sets your next wave\u2019s weights.</span>' : '') +
         (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">W is a warm-up: done, not counted, and a short rest after it.</span>' : '') +
         (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
         (x.swn ? '<span class="tr-ex-m">' + esc(x.swn) + '</span>' : '') +
         (ASST[x.e] ? '<span class="tr-ex-m">Type the machine\u2019s help as the weight: less help is progress.</span>' : '') +
+        homeNote(x, i) +
         (wy && fresh ? '<span class="tr-ex-m">' + esc(wy) + '</span>' : '') +
         (fresh && (T.pr.lvl === 0 || newLift(x.e)) && SAFETY[x.e] ? '<div class="tr-first tr-safe"><b>Safety first.</b> ' + esc(SAFETY[x.e]) + '</div>' : '') +
         firstTime(x) +
@@ -5135,6 +5201,21 @@
     if (ASST[x.e] && d < 0) return fmtN(-d) + ' ' + T.pr.u + ' less help: you reached the top of the range last time.';
     if (d > 0 && !ASST[x.e]) return 'Up ' + fmtN(d) + ' ' + T.pr.u + ': you reached the top of the range last time, so it\u2019s time for more weight.';
     if (d === 0 && fin(s.tr) && fin(s.pr) && s.tr > s.pr) return 'Same weight as last time: aim for ' + s.tr + ' reps, one more than before.';
+    return '';
+  }
+
+  // at home, a suggested weight your plates cannot make, and what it became
+  function homeNote(x, i) {
+    if (!homeNow() || !onBar(lib(x.e))) return '';
+    for (var j = 0; j < x.s.length; j++) {
+      var s = x.s[j];
+      if (s.t || s.wu || String(s.w).trim() !== '') continue;
+      var want = fin(s.tw) ? s.tw : fin(s.pw) ? s.pw : null, got = ghost(i, j).w;
+      if (want === null || !fin(got) || Math.abs(got - want) < 1e-9) return '';
+      return '<span class="tr-ex-m tr-homenote">At home: ' + fmtN(got) + ' ' + T.pr.u + ', the nearest your plates make' +
+        (fin(s.tw) ? ' (the plan says ' + fmtN(want) + ')' : ' (last time ' + fmtN(want) + ')') +
+        (got >= homeMax() - 1e-9 && got < want ? '. That\u2019s the most you can load at home.' : '.') + '</span>';
+    }
     return '';
   }
 
@@ -5928,11 +6009,12 @@
 
   /* Plates for one side of the bar, heaviest first. Whatever cannot be made
      from the plates there are is said, rather than rounded away. */
-  function plateMath(total, bar, unit) {
+  function plateMath(total, bar, unit, inv) {
     var set = unit === 'kg' ? [25, 20, 15, 10, 5, 2.5, 1.25] : [45, 35, 25, 10, 5, 2.5];
     var side = (total - bar) / 2;
     var out = [];
     if (!(side > 0)) return { plates: out, left: 0, under: total < bar };
+    if (inv) return plateHave(side, inv);
     var left = side;
     set.forEach(function (p) {
       while (left >= p - 1e-9) { out.push(p); left = Math.round((left - p) * 1000) / 1000; }
@@ -5940,20 +6022,46 @@
     return { plates: out, left: left, under: false };
   }
 
+  /* One side from the plates you have: exactly if they can, in the fewest
+     plates, the big ones first; else as close under as they come, and what
+     is left said. A search, not the greedy pass, because 20 + 20 makes 40
+     where a 25 first leaves 15 no pair of yours can make. */
+  function plateHave(side, inv) {
+    var sizes = Object.keys(inv).map(Number).filter(function (k) { return inv[k] > 0; }).sort(function (a, b) { return b - a; });
+    var best = null, used = [], nodes = 0;
+    (function go(i, left) {
+      if (++nodes > 50000 || (best && best.left === 0)) return;
+      if (i === sizes.length || left < 1e-9) {
+        var l = Math.round(left * 1000) / 1000;
+        if (!best || l < best.left - 1e-9 || (Math.abs(l - best.left) < 1e-9 && used.length < best.plates.length)) best = { plates: used.slice(), left: l };
+        return;
+      }
+      var p = sizes[i], mx = Math.min(inv[p], Math.floor((left + 1e-9) / p));
+      for (var k = mx; k >= 0; k--) {
+        for (var a = 0; a < k; a++) used.push(p);
+        go(i + 1, Math.round((left - k * p) * 1000) / 1000);
+        used.length -= k;
+      }
+    }(0, side));
+    best = best || { plates: [], left: side };
+    return { plates: best.plates, left: best.left, under: false, short: best.left > 0, have: 1 };
+  }
+
   function platesHTML(sh) {
     var w = numIn(sh.w);
-    var bar = sh.e ? barFor(sh.e) : T.pr.bar;
-    var pm = w === null ? null : plateMath(w, bar, T.pr.u);
+    var bar = sh.e ? barAt(sh.e) : homeNow() ? homeBar() : T.pr.bar;
+    var pm = w === null ? null : plateMath(w, bar, T.pr.u, homeInv());
     return '<div class="sheet-name tr-sn2">Plates' + (sh.e ? ' for ' + esc(lib(sh.e).n) : '') + '</div>' +
       '<div class="tr-own-r"><input class="txt" id="trPlateW" inputmode="decimal" value="' + esc(w === null ? '' : fmtN(w)) + '" aria-label="Total weight">' +
         '<span class="tr-sub">' + T.pr.u + ' on a ' + fmtN(bar) + ' ' + T.pr.u + ' bar</span></div>' +
-      (sh.e ? '<div class="tr-q"><div class="tr-ql">Bar</div>' + barChoices(sh.e) + '</div>' : '') +
+      (sh.e && !homeNow() ? '<div class="tr-q"><div class="tr-ql">Bar</div>' + barChoices(sh.e) + '</div>' : '') +
+      (homeNow() ? '<div class="tr-hint">At home: your bar and your plates, from Settings.</div>' : '') +
       (pm === null ? '<div class="tr-note">Type the total weight.</div>'
         : pm.under ? '<div class="tr-note">That is less than the bar.</div>'
           : '<div class="tr-plates">' + (pm.plates.length ? pm.plates.map(function (p) {
             return '<span class="tr-plate p' + String(p).replace('.', '_') + ' ' + plCls(p) + '">' + fmtP(p) + '</span>';
           }).join('') : '<span class="tr-note">Just the bar.</span>') + '</div>' +
-            '<div class="tr-sub">Each side' + (pm.left > 0 ? ' — ' + fmtP(pm.left * 2) + ' ' + T.pr.u + ' short with standard plates' : '') + '.</div>');
+            '<div class="tr-sub">Each side' + (pm.left > 0 ? ' — ' + fmtP(pm.left * 2) + ' ' + T.pr.u + ' short with ' + (pm.have ? 'the plates you have at home' : 'standard plates') : '') + '.</div>');
   }
 
   /* A warm-up that rehearses the lift without tiring it: half the working
@@ -5972,7 +6080,7 @@
       if (v > w) { w = v; reps = numIn(z.r) || z.tr || z.pr || 0; }
     });
     if (!(w > 0)) return { w: 0, rows: [] };
-    var step = inc(ex), bb = onBar(ex), bar = barFor(x.e);
+    var step = inc(ex), bb = onBar(ex), bar = barAt(x.e);
     var plan = reps && reps <= 5 ? [[0.4, 5], [0.55, 3], [0.7, 2], [0.8, 1], [0.9, 1]]
       : reps && reps <= 8 ? [[0.45, 5], [0.6, 3], [0.75, 2], [0.85, 1]] : [[0.5, 8], [0.7, 4], [0.85, 2]];
     var rows = [];
@@ -5991,12 +6099,12 @@
     if (!x) return '';
     var ex = lib(x.e), R = warmRows(x);
     if (!(R.w > 0)) return '<div class="sheet-name tr-sn2">Warm-up</div><div class="tr-note">Put a weight in a working set and the ramp works itself out from it.</div>';
-    var bb = onBar(ex), bar = barFor(x.e);
+    var bb = onBar(ex), bar = barAt(x.e);
     var has = x.s.some(function (z) { return z.wu && !z.t; });
     return '<div class="sheet-name tr-sn2">Warm-up for ' + esc(ex.n) + '</div>' +
       '<div class="tr-sub">Up to your heaviest working set, ' + fmtN(R.w) + ' ' + T.pr.u + '.</div>' +
       '<ol class="tr-warm">' + R.rows.map(function (r) {
-        var pm = bb ? plateMath(r[0], bar, T.pr.u) : null;
+        var pm = bb ? plateMath(r[0], bar, T.pr.u, homeInv()) : null;
         return '<li><b>' + fmtN(r[0]) + ' ' + T.pr.u + ' × ' + r[1] + '</b>' +
           (pm ? '<span class="tr-sub"> ' + (pm.plates.length ? pm.plates.map(fmtP).join(' + ') + ' a side' : 'the bar') + '</span>' : '') + '</li>';
       }).join('') + '</ol>' +
@@ -6386,6 +6494,27 @@
         : 'Publishing one database rule lifts that (SETUP.md, step 4); until then, pick a shorter range.');
   }
 
+  /* Where you train: one gym, or a gym and home, with home's bar and its
+     plates counted in pairs. */
+  function gySetHTML(p) {
+    var g = p.gy, u = p.u;
+    var body = !g.on ? '<div class="tr-hint">Train somewhere with other plates too \u2014 at home, say? Set them up here, and a workout says which it is.</div>'
+      : g.u !== u ? '<div class="tr-note">Your home plates are set in ' + g.u + '. <button class="tr-lnk" data-t="gyreset">Set them in ' + u + '</button></div>'
+      : '<div class="tr-ql tr-gyh">Home bar</div>' +
+        '<div class="tr-own-r"><input class="txt tr-barw" id="trGyBar" inputmode="decimal" autocomplete="off" value="' + esc(fmtN(homeBar())) + '" aria-label="Home bar weight in ' + u + '">' +
+          '<span class="tr-sub">' + u + '</span><button class="ghost" data-t="gybar">Use it</button></div>' +
+        '<div class="tr-ql tr-gyh">Home plates, in pairs</div><div class="tr-gypl">' + PL_SIZES[u].map(function (sz) {
+          var n = g.pl[String(sz)] || 0;
+          return '<div class="tr-gyr' + (n ? '' : ' none') + '"><span>' + fmtP(sz) + ' ' + u + '</span>' +
+            '<button class="tr-gyb" data-t="gypl" data-v="' + sz + '" data-d="-1"' + (n ? '' : ' disabled') + ' aria-label="One pair fewer of ' + fmtP(sz) + '">\u2212</button>' +
+            '<b aria-label="' + n + ' pairs">' + n + '</b>' +
+            '<button class="tr-gyb" data-t="gypl" data-v="' + sz + '" data-d="1"' + (n >= 10 ? ' disabled' : '') + ' aria-label="One pair more of ' + fmtP(sz) + '">+</button></div>';
+        }).join('') + '</div>' +
+        '<div class="tr-hint">The most you can load at home: ' + fmtN(homeMax()) + ' ' + u + '. At the top of a workout, tap Home or Gym. At home, each row\u2019s plates and the weights it suggests are what these make; the gym has every plate and each lift\u2019s own bar.</div>';
+    return '<div class="tr-q"><div class="tr-ql">Where you train</div>' + chips('s-gyon', g.on, [[0, 'One gym'], [1, 'A gym and home']]) + body + '</div>';
+  }
+  function homeMax() { var v = homeLoads(); return v.length ? v[v.length - 1] : homeBar(); }
+
   function settingsHTML() {
     var p = T.pr;
     var kb = Math.round(jsonSize() / 1024);
@@ -6403,7 +6532,10 @@
       '<div class="tr-q"><div class="tr-ql">Weights in</div>' + chips('s-u', p.u, [['lb', 'Pounds'], ['kg', 'Kilograms']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Default bar</div>' +
         chips('s-bar', p.bar, p.u === 'kg' ? [[20, 'Olympic 20 kg'], [15, 'Short 15 kg'], [10, '10 kg']] : [[45, 'Olympic 45 lb'], [35, '35 lb'], [33, 'Short 33 lb'], [25, '25 lb']]) +
+        '<div class="tr-own-r tr-barown"><input class="txt tr-barw" id="trBarDef" inputmode="decimal" autocomplete="off" placeholder="' + fmtN(p.bar) + '" aria-label="Default bar weight in ' + p.u + '">' +
+          '<span class="tr-sub">' + p.u + '</span><button class="ghost" data-t="s-barown">Use this weight</button></div>' +
         '<div class="tr-hint">A lift on another bar \u2014 an EZ bar, a Smith machine \u2014 keeps its own: tap \u201cbar\u201d beside it in a workout.</div></div>' +
+      gySetHTML(p) +
       '<div class="tr-q"><div class="tr-ql">Beside each lift</div>' +
         chips('s-fmo', p.fmo, [[1, 'How today compares'], [0, 'Nothing']]) +
         '<div class="tr-hint">' + (p.fmo ? 'Once a working set is done, a badge beside the lift says how today compares with last time, set for set, or with the plan in a lighter week. Tap it for volume, reps or your best set; each lift remembers its choice.'
@@ -7837,6 +7969,34 @@
       stamp('pr'); drawSheet(); draw(); return;
     }
     if (t === 's-bar') { T.pr.bar = Number(v); stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-barown') {
+      var bd = numIn(($('trBarDef') || {}).value);
+      if (bd === null || bd < 0 || bd > 100) { var bdi = $('trBarDef'); if (bdi) bdi.focus(); return; }
+      T.pr.bar = bd; stamp('pr'); drawSheet(); draw(); return;
+    }
+    if (t === 's-gyon') {
+      var gy = T.pr.gy;
+      gy.on = Number(v) ? 1 : 0;
+      // first time: a common home set to start from, in your unit, to change to yours
+      if (gy.on && (!Object.keys(gy.pl).length || gy.u !== T.pr.u)) { gy.pl = Object.assign({}, PL_HOME[T.pr.u]); gy.u = T.pr.u; gy.bar = null; }
+      stamp('pr'); drawSheet(); draw(); return;
+    }
+    if (t === 'gyreset') { T.pr.gy.pl = Object.assign({}, PL_HOME[T.pr.u]); T.pr.gy.u = T.pr.u; T.pr.gy.bar = null; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 'gypl') {
+      var pk = String(Number(v)), pn = (T.pr.gy.pl[pk] || 0) + (Number(el.getAttribute('data-d')) > 0 ? 1 : -1);
+      if (pn <= 0) delete T.pr.gy.pl[pk]; else T.pr.gy.pl[pk] = Math.min(10, pn);
+      stamp('pr'); drawSheet(); draw(); return;
+    }
+    if (t === 'gybar') {
+      var gb = numIn(($('trGyBar') || {}).value);
+      if (gb === null || gb < 0 || gb > 100) { var gbi = $('trGyBar'); if (gbi) gbi.focus(); return; }
+      T.pr.gy.bar = gb; stamp('pr'); drawSheet(); draw(); return;
+    }
+    if (t === 'gyat' && LIVE) {
+      LIVE.g = v === 'home' ? 'home' : 'gym';
+      T.pr.gy.last = LIVE.g; stamp('pr');
+      saveLive(); draw(); return;
+    }
     if (t === 's-fmo') { T.pr.fmo = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-pl') { T.pr.pl = ['row', 'type', 'off'].indexOf(v) >= 0 ? v : 'row'; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-rc') { T.pr.rc = Number(v); stamp('pr'); drawSheet(); return; }
@@ -8062,7 +8222,7 @@
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
-      dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
+      dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
     }
