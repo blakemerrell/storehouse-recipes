@@ -9124,7 +9124,7 @@ module.exports = {
     t.ok('behind pace, it offers a number and the option to ignore it',
       await slow.evaluate(() => {
         const el = document.querySelector('.mline');
-        return !!el && el.classList.contains('act') && /Arriving around [^,]+(?:, \d{4})?, not |no arrival date/.test(el.textContent) &&
+        return !!el && el.classList.contains('act') && /Arriving around [^,]+(?:, \d{4})?, not |no arrival date|Too slow yet to give a date/.test(el.textContent) &&
           el.querySelectorAll('[data-mline]').length === 2;
       }), behind);
     /* A line that says "eat 1,278" is not advice. Whatever it offers has to
@@ -9330,8 +9330,10 @@ module.exports = {
     /* Folded, the card is the number you type and the average — the whole job
        most mornings. The trend and the sparkline are behind the same press
        the meals use. */
-    t.ok('folded, the card carries the average and nothing else',
-      /190\.6 lb avg/.test(await card()) && !/since/.test(await card()), await card());
+    /* This morning's number once you have weighed (2026-09-25) — Blake read
+       the average there as the app disagreeing with his scale. */
+    t.ok('folded, the card carries this morning\u2019s weight and nothing else',
+      /190 lb/.test(await card()) && !/lb avg/.test(await card()) && !/since/.test(await card()), await card());
     await w.click('#macroWeigh [data-mfold]');
     await w.waitForTimeout(200);
     /* Said once (2026-09-23). The card used to give the average four times
@@ -13217,7 +13219,71 @@ module.exports = {
       const flat = await ap2.evaluate(() => (document.querySelector('.mline') || {}).textContent || '');
       t.ok('a flat scale gives no arrival date rather than inventing one',
         /no arrival date yet/.test(flat) && !/Arriving around/.test(flat), flat);
+      /* Blake, 2026-09-25: "That I'll meet my goal by 2029??" Down a fifth of
+         a pound a week on a plan that needs well over one, the arithmetic
+         said Sep 2029. Too slow to date: the card gives the rate. */
+      await seedW("210 - (21 - i) * 0.2 / 7");
+      await ap2.reload();
+      await ap2.click('.tab[data-view="macros"]');
+      await ap2.waitForTimeout(300);
+      await ap2.click('#macroWeigh [data-mfold]');
+      await ap2.waitForTimeout(200);
+      const slow = await ap2.evaluate(() => ({
+        pf: window.__macroLab.pace(),
+        chip: [...document.querySelectorAll('.mw-chip')].map((e) => e.textContent).join('|'),
+        line: (document.querySelector('.mline') || {}).textContent || '',
+        card: (document.querySelector('#macroWeigh') || {}).textContent || '' }));
+      t.ok('a crawl gives the rate, not a date years out',
+        !slow.pf.arriveD && slow.pf.slow === 0.2 && /down 0\.2 lb a week/.test(slow.chip) &&
+        !/20[2-9]\d|weeks late/.test(slow.card + slow.line), JSON.stringify({ chip: slow.chip, slow: slow.pf.slow, line: slow.line }));
+      t.ok('and the chip wears the behind colour',
+        await ap2.evaluate(() => !!document.querySelector('.mw-chip.behind')));
       await ap2.context().close();
+    }
+
+    /* ---- Trained today follows Strengthen, 2026-09-25 ------------------
+     * Blake: "For Trained today can I sync that with strengthen". A workout
+     * saved in Strengthen ticks the day; his own tick, either way, wins. */
+    {
+      const sp = await t.fresh();
+      const k = await sp.evaluate(() => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const d = new Date(), key = (x) => x.getFullYear() + '-' + p2(x.getMonth() + 1) + '-' + p2(x.getDate());
+        const k0 = key(d), ws = {};
+        for (let i = 6; i >= 1; i--) { const dd = new Date(d); dd.setDate(dd.getDate() - i); ws[key(dd)] = 205; }
+        localStorage.clear();
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 61, c: 75 }));
+        /* No planned training today, so only Strengthen can tick it. */
+        const off = [0, 1, 2, 3, 4, 5, 6].filter((x) => x !== (d.getDay() + 6) % 7 && x !== d.getDay()).slice(0, 3);
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, lb: 205,
+          ft: 5, inch: 10, act: 1.55, goal: 'cut1', goalLb: 0, goalBy: '', workouts: 3, steps: 7000, train: off }));
+        return k0;
+      });
+      await sp.reload();
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      const before = await sp.evaluate((k0) => window.__macroLab.trained(k0).on, k);
+      await sp.evaluate(() => {
+        localStorage.setItem('bsc.train', JSON.stringify({ wo: { w1: { id: 'w1', n: 'Upper A', st: Date.now() - 3600000,
+          en: Date.now() - 600000, x: [{ e: 'bench', s: [{ w: 135, r: 8 }] }] } } }));
+        window.Train._.reload();
+      });
+      await sp.click('.tab[data-view="plan"]');
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      const after = await sp.evaluate((k0) => ({ on: window.__macroLab.trained(k0).on,
+        row: (document.querySelector('.mw-train') || {}).textContent || '' }), k);
+      t.ok('a workout saved in Strengthen ticks Trained today',
+        !before && after.on && /Upper A, from Strengthen/.test(after.row) && /g carbs today/.test(after.row),
+        JSON.stringify({ before, after }));
+      await sp.click('[data-mtrained]');
+      await sp.waitForTimeout(200);
+      const undone = await sp.evaluate((k0) => ({ on: window.__macroLab.trained(k0).on,
+        row: (document.querySelector('.mw-train') || {}).textContent || '' }), k);
+      t.ok('and un-ticking it yourself wins over Strengthen',
+        !undone.on && !/from Strengthen/.test(undone.row), JSON.stringify(undone));
+      await sp.context().close();
     }
 
     /* ---- why Fill added it, and "Don't suggest", 2026-09-23 -----------

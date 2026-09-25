@@ -2588,6 +2588,9 @@
     var train = mTrainDays();
     if (!train.length || train.length >= 7) return false;
     if (mTrainedSaid(k)) return mTrainedAt(k) > 0;
+    /* A workout saved in Strengthen that day is a yes. Blake: "can I sync
+       that with strengthen". Your own tick, either way, still wins. */
+    if (mStrengthOn(k).length) return true;
     return train.indexOf(mWkIx(keyDate(k))) >= 0;
   }
 
@@ -3130,6 +3133,9 @@
   })();
   function mTrainedAt(k) { return Number(MTRAINED[k]) || 0; }
   function mTrainedSaid(k) { return MTRAINED[k] !== undefined; }
+  function mStrengthOn(k) {
+    try { return window.Train && window.Train.trainedOn ? window.Train.trainedOn(k) || [] : []; } catch (e) { return []; }
+  }
   function mSetTrained(k, on) {
     MTRAINED[k] = on ? 1 : 0;
     mPruneWindow(MTRAINED);
@@ -3436,7 +3442,7 @@
       /* The estimate, not a verdict: when you'll get there against the date
          you set. */
       var word0 = mArriveChip(pf0);
-      var tone0 = /late|no date|off/.test(word0) ? 'behind' : /early/.test(word0) ? 'ahead' : 'on';
+      var tone0 = /late|no date|off|a week/.test(word0) ? 'behind' : /early/.test(word0) ? 'ahead' : 'on';
       out += ' <span class="mw-chip ' + tone0 + '">' + word0 + '</span>';
     }
     return { has: true, html: out };
@@ -3574,7 +3580,7 @@
      chip, for the open card. */
   function mArriveChip(pf) {
     if (!pf.plan.per) return pf.side === 'on' ? 'on track' : pf.side === 'behind' ? 'off your weight' : 'on track';
-    if (!pf.arriveD) return 'no date yet';
+    if (!pf.arriveD) return pf.slow ? (pf.plan.per < 0 ? 'down ' : 'up ') + pf.slow + ' lb a week' : 'no date yet';
     var d = pf.lateDays;
     if (Math.abs(d) <= 6) return 'on track';
     var span = Math.abs(d) >= 14 ? Math.round(Math.abs(d) / 7) + ' weeks' : Math.abs(d) + ' days';
@@ -3681,6 +3687,15 @@
     }
     var lateDays = arriveD && pr.goalBy
       ? Math.round((arriveD - keyDate(pr.goalBy)) / 86400000) : null;
+    /* Too slow to date. Down 0.2 lb a week on a plan that needs 1.8 put the
+       arrival at "Sep 11, 2029 · 138 weeks late" — true arithmetic on three
+       weeks of mostly water, and no use to anyone. Over a year late, or
+       five years out, the card gives the rate instead of a date. */
+    var slow = null;
+    if (close3 !== null && close3 > 0.05 && pr.goalLb && (!arriveD || lateDays > 365)) {
+      slow = Math.round(close3 * 10) / 10 || 0.1;
+      arrive = arriveD = lateDays = null;
+    }
     /* The band around the plan, from the same moving ranges. Inside it there
        is nothing to decide, and saying so is the whole job. */
     /* Never narrower than half a pound: a run of identical mornings has a
@@ -3692,7 +3707,7 @@
       pr: pr, st: st, plan: plan, meas: meas, burn: burn,
       off: off, band: band, daysOff: daysOff, stale: st.staleDays,
       need: need, capped: capped, capHigh: capHigh, arrive: arrive, rate: rate,
-      arriveD: arriveD, lateDays: lateDays, rate3: rate3, goalWord: pr.goalBy ? mDateWord(keyDate(pr.goalBy)) : '',
+      arriveD: arriveD, lateDays: lateDays, rate3: rate3, slow: slow, goalWord: pr.goalBy ? mDateWord(keyDate(pr.goalBy)) : '',
       /* Moving the way the goal goes, this week. */
       toward: closing !== null && closing > 0,
       side: toward > band ? 'behind' : toward < -band ? 'ahead' : 'on'
@@ -3858,6 +3873,10 @@
         var lbOff = Math.round(Math.abs(off) * 10) / 10;
         return pf.side === 'on' ? 'You’re holding your weight.'
           : 'You’re ' + lbOff + ' lb ' + (off > 0 ? 'over' : 'under') + ' your weight.';
+      }
+      if (!pf.arriveD && pf.slow) {
+        return 'You’re ' + (pf.plan.per < 0 ? 'down' : 'up') + ' about ' + pf.slow +
+          ' lb a week these three weeks. Too slow yet to give a date.';
       }
       if (!pf.arriveD) {
         return (pf.rate3 !== null && Math.abs(pf.rate3) >= 0.15 && !pf.toward
@@ -4051,7 +4070,13 @@
                  And not the day's calories or macros: the sticky strip above
                  carries those, and a card repeating them is a second answer
                  to a settled question. */
-              var sumN = st && st.n >= 2
+              /* This morning's number when you weighed, because that is the
+                 number you just typed — Blake read the average there as the
+                 app disagreeing with his scale. The average is on the open
+                 card. */
+              var sumN = answeredW
+                ? '<b>' + (Math.round(MWEIGHTS[k] * 10) / 10) + '</b><u> lb'
+                : st && st.n >= 2
                 ? '<b>' + (Math.round(st.avg7 * 10) / 10) + '</b><u> lb avg'
                 : '<b>' + (Math.round(MWEIGHTS[k] * 10) / 10) + '</b><u> lb';
               /* No verdict chip here: the coaching line directly under the
@@ -4096,8 +4121,10 @@
                 /* What the tick did, in one line under it — the paragraph that
                    explained carb cycling said the same thing in forty words. */
                 var base = mReadTargets(), dt = mDayTargets(k);
-                if (!base.c || dt.c === base.c) return '';
-                return '<span class="mw-tick-s">' + dt.c + ' g carbs today · ' + base.c +
+                var sw = !mTrainedSaid(k) ? mStrengthOn(k) : [];
+                var from = sw.length ? '<span class="mw-tick-s">' + esc(sw.join(', ')) + ', from Strengthen</span>' : '';
+                if (!base.c || dt.c === base.c) return from;
+                return from + '<span class="mw-tick-s">' + dt.c + ' g carbs today · ' + base.c +
                   ' on an average day</span>';
               })() + '</span>' +
               '<span class="mw-tick-b" aria-hidden="true"></span></button>' +
@@ -10483,6 +10510,10 @@
     var fmt = function (n) { return Number(n).toLocaleString(); };
     var eating = f.need !== null && cur > 0 && Math.abs(cur - f.need) <= 5;
     var goalD = f.goalWord;
+    if (!f.arriveD && f.slow) {
+      return '<b>\u25CE No arrival date yet.</b> You\u2019re ' + (f.plan.per < 0 ? 'down' : 'up') +
+        ' about ' + f.slow + ' lb a week these three weeks, too slow to date.';
+    }
     if (!f.arriveD) {
       return '<b>\u25CE No arrival date yet.</b> Your weight\u2019s been ' +
         (f.rate3 !== null && Math.abs(f.rate3) >= 0.15 ? (f.rate3 > 0 ? 'going up' : 'going down') : 'flat') +

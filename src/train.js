@@ -8277,6 +8277,12 @@
   window.Train = {
     render: render,
     dayText: dayText,
+    /* The workouts saved on a day, by name — Nourish ticks "Trained today"
+       off this, so a session logged here moves the day's carbohydrate there. */
+    trainedOn: function (k) {
+      return ix().list.filter(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === k; })
+        .map(function (wo) { return wo.n || 'Workout'; });
+    },
     attach: attach,
     remote: remote,
     forget: forget,
