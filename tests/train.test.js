@@ -1310,6 +1310,8 @@ module.exports = {
     t.ok('and a block with pairs says what A1 and A2 mean, and why', /A1 and A2 are a pair/.test(r) && /on purpose/.test(r), r);
     await p.click('[data-t="begin"]');
     await p.click('[data-t="start"]');
+    r = await p.evaluate(() => !!document.querySelector('.tr-pairwhy'));
+    t.ok('and so does the block’s first workout', r);
     for (const xi of [0, 1]) {
       const n = await p.evaluate((xi) => window.Train._.state().LIVE.x[xi].s.length, xi);
       for (let j = 0; j < n; j++) {
@@ -1322,6 +1324,17 @@ module.exports = {
       return { pair: L.x[0].p && L.x[0].p === L.x[1].p, open: !!document.querySelector(`.tr-fbc [data-m="${m}"]`) };
     });
     t.ok('the other half of a pair does not put the first half’s card away', r.pair && r.open, JSON.stringify(r));
+    await p.evaluate(() => {
+      const _ = window.Train._, T = JSON.parse(localStorage.getItem('bsc.train')), L = _.state().LIVE, st = L.st - 2 * 864e5;
+      T.wo.prev = { id: 'prev', st, en: st + 36e5, dk: '2026-01-01', n: 'W', u: 'lb', ms: L.ms, w: 0, d: 0, dl: 0, sr: {}, fb: {},
+        x: [{ e: L.x[0].e, s: [{ w: 100, r: 8, t: st + 60e3 }] }] };
+      localStorage.setItem('bsc.train', JSON.stringify(T));
+      _.reload();
+    });
+    await p.click('.tab[data-view="macros"]');
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => ({ why: !!document.querySelector('.tr-pairwhy'), live: !!document.querySelector('.tr-live-h') }));
+    t.ok('after the first workout the pairs go unexplained: known by then', r.live && !r.why, JSON.stringify(r));
     await p.close();
     // ---- for somebody who lifts every day and logs everything ------------
     /* A keeping block, two days of pairs, started: the quickest way to a
@@ -1382,11 +1395,15 @@ module.exports = {
     r = await p.evaluate(() => { const s = window.Train._.state(); return s.T.ms[s.LIVE.ms].days[s.LIVE.d].s.map((x) => x.e); });
     t.ok('a second swap, for the rest of the block, replaces what the plan had, not today’s stand-in', r[0] === to && r.indexOf(orig0) < 0, JSON.stringify({ r, orig0, to }));
 
+    // under a lift, every option in view; up and down in its corner
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-ex')[0].querySelectorAll('.tr-ex-a button')].map((b) => b.dataset.t));
+    t.ok('under a lift: + Set, Swap, a note and Remove, in view', ['addset', 'swap', 'note', 'rmex'].every((k) => r.indexOf(k) >= 0), r.join());
+
     // moving an exercise, pairs together
     r = await p.evaluate(() => {
       const L = window.Train._.state().LIVE;
       return { es: L.x.map((x) => x.e), ps: L.x.map((x) => x.p || 0),
-        upOff: document.querySelector('[data-t="mvex"][data-v="-1"][data-x="0"]').disabled };
+        upOff: document.querySelector('.tr-ex .tr-mv [data-t="mvex"][data-v="-1"][data-x="0"]').disabled };
     });
     t.ok('the first exercise cannot move up', r.upOff);
     const order0 = r;
@@ -1664,10 +1681,10 @@ module.exports = {
     await p.click('[data-t="bk"][data-v="0"]');
     r = await p.evaluate(() => ({ line: (document.querySelector('.tr-bkt') || {}).textContent || '', q: !!document.querySelector('[data-t="bk"]') }));
     t.ok('answered, it folds to one line with a way back', /Back/.test(r.line) && /good/.test(r.line) && /Change/.test(r.line) && !r.q, JSON.stringify(r));
-    await p.click('[data-t="bkopen"]');
+    await p.click('[data-t="stopen"]');
     await p.click('[data-t="bk"][data-v="2"]');
     r = await p.evaluate(() => ({ line: (document.querySelector('.tr-bkt .tr-fbt-s') || {}).textContent || '', warn: (document.querySelector('.tr-bkt .tr-warn') || {}).textContent || '' }));
-    t.ok('sore folds too, but keeps its warning in view', r.line === 'sore' && /Skip the lower-body lifts today/.test(r.warn), JSON.stringify(r));
+    t.ok('sore folds too, but keeps its warning in view', r.line === 'Back sore' && /Skip the lower-body lifts today/.test(r.warn), JSON.stringify(r));
 
     // plates, in every set
     r = await p.evaluate(() => {
@@ -1685,18 +1702,27 @@ module.exports = {
     await p.fill('#trw-0-0', '195');
     r = await p.evaluate(() => ({
       now: document.querySelector('#trpl-0-0 .tr-stk').getAttribute('aria-label'),
-      dim: document.querySelector('#trpl-0-1 .tr-stk').classList.contains('dim'),
-      next: document.querySelector('#trpl-0-1 .tr-stk').getAttribute('aria-label'),
+      same: !!document.querySelector('#trpl-0-1 .tr-stk'),
       head: document.querySelectorAll('.tr-ex')[0].querySelector('.tr-set-h').textContent,
       curl: !!document.querySelector('#trpl-1-0'),
     }));
     t.ok('typing a weight draws its plates in the set, at once', r.now === '45, 25, 5 a side', r.now);
-    t.ok('and the sets after it, faint until they are typed', r.dim && r.next === '45, 25, 5 a side', JSON.stringify(r));
+    t.ok('a set after it at the same weight does not draw the same plates again', !r.same, JSON.stringify(r));
     t.ok('where Previous was, under the same heading, with no “Per side” taking room', /Previous/.test(r.head) && !/Per side/i.test(r.head), r.head);
-    await p.click('[data-t="barpick"][data-e="bb-bench"]');
+    await p.fill('#trw-0-2', '205');
+    r = await p.evaluate(() => ({ chg: (document.querySelector('#trpl-0-2 .tr-stk') || { getAttribute: () => '' }).getAttribute('aria-label'),
+      same: !!document.querySelector('#trpl-0-1 .tr-stk') }));
+    t.ok('where the loading changes, the plates are drawn again', r.chg === '45, 35 a side' && !r.same, JSON.stringify(r));
+    await p.fill('#trw-0-2', '');
+    // the bar: said on the card only when it is not the usual one
+    r = await p.evaluate(() => ({ bench: !!document.querySelector('.tr-ex [data-t="barpick"][data-e="bb-bench"]'),
+      curl: (document.querySelector('.tr-ex [data-t="barpick"][data-e="ez-curl"]') || {}).textContent || '' }));
+    t.ok('the usual bar is not spelled out on every barbell lift; a different one is', !r.bench && r.curl === 'EZ bar 15 lb', JSON.stringify(r));
+    await p.click('[data-t="plates"][data-x="0"]');
     r = await p.evaluate(() => [...document.querySelectorAll('.tr-barr')].map((b) => b.textContent).join('|'));
     t.ok('the bars are named, the way Strong lists them', r === 'Olympic bar45 lb|Short bar33 lb|EZ bar15 lb|Hex bar75 lb|Smith machine20 lb|No bar0 lb', r);
     await p.click('[data-t="barset"][data-v="75"]');
+    await p.click('.sheet-x');
     r = await p.evaluate(() => ({ stk: document.querySelector('#trpl-0-0 .tr-stk').getAttribute('aria-label'), kept: window.Train._.state().T.pr.bars,
       label: (document.querySelector('[data-t="barpick"][data-e="bb-bench"]') || {}).textContent }));
     t.ok('a lift can be put on another bar, and its plates follow', r.stk === '45, 10, 5 a side' && r.label === 'Hex bar 75 lb', JSON.stringify(r));
@@ -1835,12 +1861,12 @@ module.exports = {
     r = await p.evaluate(() => window.Train._.state().LIVE.rs);
     t.ok('and no rest before a drop set', r === null, JSON.stringify(r));
     r = await p.evaluate(() => [...document.querySelectorAll('.tr-rdiv-b')].map((b) => b.textContent).join(','));
-    t.ok('the rest between sets is drawn between them', r === '1:00,3:00,no rest', r);
+    t.ok('the rest between sets is drawn where it is not the lift’s own: a minute after a warm-up, none before a drop set', r === '1:00,no rest', r);
     await p.click('.tr-ex-m [data-t="restpick"]');
     await p.click('[data-t="restset"][data-v="120"]');
     r = await p.evaluate(() => ({ live: window.Train._.state().LIVE.x[0].rest, kept: window.Train._.state().T.pr.rests.nbbbench,
-      div: [...document.querySelectorAll('.tr-rdiv-b')].map((b) => b.textContent).join(',') }));
-    t.ok('a lift’s rest can be its own, and it is remembered', r.live === 120 && r.kept && r.kept.s === 120 && r.div === '1:00,2:00,no rest', JSON.stringify(r));
+      div: [...document.querySelectorAll('.tr-rdiv-b')].map((b) => b.textContent).join(','), meta: document.querySelector('.tr-ex-m').textContent }));
+    t.ok('a lift’s rest can be its own, and it is remembered', r.live === 120 && r.kept && r.kept.s === 120 && r.div === '1:00,no rest' && /rest 2:00/.test(r.meta), JSON.stringify(r));
     r = await p.evaluate(() => [...document.querySelectorAll('#trpl-0-1 .tr-stk-p')].map((b) => b.className).join('|'));
     t.ok('plates are coloured the way competition plates are: a 45 blue, a 25 green', /pl-lb-45/.test(r) && /pl-lb-25/.test(r), r);
     await p.fill('#trw-0-3', '135'); await p.fill('#trr-0-3', '6');
@@ -2114,6 +2140,8 @@ module.exports = {
     await p.click('[data-t="tick"][data-x="1"][data-s="0"]');
     r = await p.evaluate(() => { const c = document.getElementById('trfm-1'), b = c && c.firstElementChild; return { txt: c ? c.textContent : '', tag: b ? b.tagName : '' }; });
     t.ok('a bodyweight lift shows its reps, with nothing to tap through', r.txt === '10 reps ▲2 vs last' && r.tag === 'SPAN', JSON.stringify(r));
+    r = await p.evaluate(() => { const c = [...document.querySelectorAll('.tr-ex')][1].querySelectorAll('.tr-set:not(.tr-set-h) .tr-prev')[1]; return c ? c.textContent : ''; });
+    t.ok('and last time’s bodyweight set reads BW, not 0', /^BW × \d+$/.test(r), r);
     // off
     await p.click('[data-t="settings"]');
     await p.click('[data-t="s-fmo"][data-v="0"]');
@@ -2319,9 +2347,12 @@ module.exports = {
     t.ok('no question on a day with no pull-ups or dips', r === false);
     await p.click('[data-t="addex"]');
     await p.click('.tr-pick[data-e="pullup"]');
-    r = await p.evaluate(() => { const c = document.querySelector('.tr-bwq'); return c ? { q: c.querySelector('.tr-sq-l').textContent, sub: c.querySelector('.tr-sub').textContent,
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-bwq'); return c ? { q: c.querySelector('.tr-sq-l').textContent, sub: !!c.querySelector('.tr-sub'),
       old: (c.querySelector('[data-t="bwqold"]') || {}).textContent || '' } : null; });
-    t.ok('add pull-ups with only an older weigh-in, and it asks what you weigh today', r && r.q === 'What do you weigh today?' && /last weigh-in was 190 lb/.test(r.sub) && /^Use 190 from /.test(r.old), JSON.stringify(r));
+    t.ok('add pull-ups with only an older weigh-in, and it asks what you weigh today', r && r.q === 'What do you weigh today?' && !r.sub && /^Use 190 from /.test(r.old), JSON.stringify(r));
+    await p.click('[data-t="bwqwhy"]');
+    r = await p.evaluate(() => ({ sub: (document.querySelector('.tr-bwq .tr-sub') || {}).textContent || '', never: !!document.querySelector('.tr-bwq [data-t="bwqnever"]') }));
+    t.ok('and Why? says why, with the way to stop it asking', /last weigh-in was 190 lb/.test(r.sub) && r.never, JSON.stringify(r));
     await p.fill('#trBwq', '150');
     await p.click('[data-t="bwqsave"]');
     r = await p.evaluate((k) => ({ warn: (document.querySelector('.tr-bwq .tr-warn') || {}).textContent || '', nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k] }), today());
@@ -2329,9 +2360,9 @@ module.exports = {
     await p.fill('#trBwq', '188.4');
     await p.press('#trBwq', 'Enter');
     r = await p.evaluate((k) => ({ live: window.Train._.state().LIVE.bw, nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k],
-      tuck: (document.querySelector('.tr-bkt [data-t="bwopen"]') || {}).textContent || '', card: !!document.querySelector('.tr-bwq') }), today());
+      tuck: (document.querySelector('.tr-start [data-t="stopen"]') || {}).textContent || '', card: !!document.querySelector('.tr-bwq') }), today());
     t.ok('saved, it is today’s weigh-in on Nourish, and this workout’s weight', r.live === 188.4 && r.nourish === 188.4, JSON.stringify(r));
-    t.ok('and the question folds to one line you can change', !r.card && /You188\.4 lbChange/.test(r.tuck), JSON.stringify(r));
+    t.ok('and the question folds to one line you can change', !r.card && /You 188\.4 lbChange$/.test(r.tuck), JSON.stringify(r));
     r = await p.evaluate((k) => { const H = window.Hive; return { again: H.weigh(k, 187), fix: H.weigh(k, 187.2, { was: 188.4 }) }; }, today());
     t.ok('Nourish never lets it write over a day already weighed, except to correct its own number', r.again.had === 188.4 && r.fix.ok === true, JSON.stringify(r));
     await p.fill('#trr-1-0', '8');
@@ -2349,6 +2380,9 @@ module.exports = {
     await p.click('[data-t="bwqold"]');
     r = await p.evaluate((k) => ({ live: window.Train._.state().LIVE.bw, nourish: (JSON.parse(localStorage.getItem('bsc.macroWeights')) || {})[k] }), today());
     t.ok('using the last weigh-in keeps it for the workout but writes nothing new to Nourish', r.live === 190 && r.nourish === undefined, JSON.stringify(r));
+    await p.click('[data-t="stopen"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-bwq-done') || {}).textContent || '');
+    t.ok('opened again, it says the weight it is using, with a way to change it', /^Your weight today: 190 lb Change$/.test(r), r);
     await p.click('[data-t="bwopen"]');
     await p.click('[data-t="bwqskip"]');
     r = await p.evaluate(() => ({ q: window.Train._.state().LIVE.bwq, card: !!document.querySelector('.tr-bwq') }));
@@ -2520,8 +2554,12 @@ module.exports = {
       safe: (c.querySelector('.tr-safe') || {}).textContent || '', howto: !!c.querySelector('[data-t="exhow"]'),
       head: [...c.querySelectorAll('.tr-set-h span')].map((e) => e.textContent).join('|'), meta: c.querySelector('.tr-ex-m').textContent }; });
     t.ok('a card says how a workout goes, once', /How a workout goes/.test(r.how1) && /Tap ✓/.test(r.how1), r.how1.slice(0, 80));
-    t.ok('a lift never done says how to find a weight, starting with the bar', /First time on this one\?/.test(r.first) && /just the bar/.test(r.first), r.first);
-    t.ok('the bench says to set the safety bars first', /Safety first\..*safety bars/.test(r.safe), r.safe);
+    t.ok('the bench, never done, has one note before the first set: the safety bars', !r.first && /Safety first\..*safety bars/.test(r.safe), JSON.stringify(r));
+    const rNb = r;
+    r = await p.evaluate(() => { const _ = window.Train._, f = (e) => { const d = document.createElement('div'); d.innerHTML = _.firstTime({ e, s: [{ w: '', r: '', t: 0 }] }); return d.textContent; };
+      return { mc: f('lat-pd'), bar: f('ez-curl') }; });
+    t.ok('any other lift never done says, in a line, how to find a weight', /^First time\? Start on the 2nd or 3rd plate of the stack/.test(r.mc) && r.bar === 'First time? Start with just the bar.', JSON.stringify(r));
+    r = rNb;
     t.ok('and has a How to do it link in view', r.howto);
     t.ok('the columns and the line under the name are in plain words', /Last time/.test(r.head) && /\d+ sets? of 6–10 reps/.test(r.meta) && /Chest/.test(r.meta), JSON.stringify(r));
     await p.click('[data-t="exhow"]');
@@ -2564,7 +2602,7 @@ module.exports = {
       await p.click('.tr-pick[data-e="bb-bench"]');
       r = await p.evaluate(() => { const c = document.querySelector('.tr-ex'); return { txt: c.querySelector('.tr-ex-h').textContent, first: !!c.querySelector('.tr-first'),
         how: !!c.querySelector('[data-t="exhow"]'), head: c.querySelector('.tr-set-h').textContent }; });
-      if (lvl === 0) t.ok('new to lifting: “Up 5 lb: you reached the top of the range last time”', /Up 5 lb: you reached the top of the range last time/.test(r.txt), r.txt);
+      if (lvl === 0) t.ok('new to lifting: “Up 5 lb — you hit the top of the range last time.”', /Up 5 lb — you hit the top of the range last time\./.test(r.txt), r.txt);
       else t.ok('otherwise no reason line, no first-time notes on a lift you have done, and Previous', !/Up 5 lb/.test(r.txt) && !r.first && !r.how && /Previous/.test(r.head), JSON.stringify(r));
       await p.close();
     }
@@ -2588,10 +2626,67 @@ module.exports = {
     t.ok('shown on the block’s Next card, with Start still there', /better tomorrow/.test(r) && /Start workout/.test(r), r.slice(0, 120));
     await p.close();
 
+    // ---- before you start: the back, and how each muscle healed, in one card that folds ----
+    p = await t.fresh();
+    {
+      const b = await p.evaluate(() => { const ms = window.Train._.build({ dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] }); ms.id = 'blk'; return ms; });
+      const all = [...new Set(b.days.map((d) => d.s.map((z) => z.e)).flat())];
+      await seed(p, { pr: { qz: 1, u: 'lb', bk: 'fcx' }, act: 'blk', ms: { blk: b }, cx: {}, ax: {}, wo: {
+        a0: wo('a0', 'blk', 0, 3, 3, all.map((e) => ({ e, s: sets(100, [10, 10]) }))) } });
+    }
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="start"]');
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-start'); return c ? { qs: [...c.querySelectorAll('.tr-sq-l')].map((e) => e.textContent), rows: c.querySelectorAll('.tr-sore-r').length,
+      btn: Math.round(c.querySelector('.tr-sore-r .tr-sqb').getBoundingClientRect().height), cards: document.querySelectorAll('.tr-ask').length } : null; });
+    t.ok('before you start: the back, and how each muscle healed, asked in one card',
+      r && r.qs[0] === 'How’s your back today?' && r.qs[1] === 'Since you last trained them, how did they heal?' && r.rows >= 2 && r.cards === 1, JSON.stringify(r));
+    t.ok('a row a muscle, each answer a thumb tall', r && r.btn >= 44, JSON.stringify(r));
+    await p.click('[data-t="bk"][data-v="0"]');
+    r = await p.evaluate(() => ({ open: !!document.querySelector('.tr-start [data-t="sore"]'), fold: !!document.querySelector('.tr-start [data-t="stopen"]') }));
+    t.ok('it stays open until every question has an answer: the healing sets next week, and is not asked again at Finish', r.open && !r.fold, JSON.stringify(r));
+    const sm = await p.evaluate(() => [...new Set([...document.querySelectorAll('.tr-start [data-t="sore"]')].map((b) => b.dataset.m))]);
+    for (const m of sm) await p.click(`.tr-start [data-t="sore"][data-m="${m}"][data-v="1"]`);
+    r = await p.evaluate(() => ({ line: (document.querySelector('.tr-start .tr-fbt-s') || {}).textContent || '', sr: window.Train._.state().LIVE.sr }));
+    t.ok('answered, it folds to one line of what you said', r.line === 'Back good · all healed in time' && sm.every((m) => r.sr[m] === 1), JSON.stringify(r));
+    await p.click('[data-t="stopen"]');
+    r = await p.evaluate(() => ({ done: !!document.querySelector('[data-t="stdone"]'), pressed: document.querySelectorAll('.tr-start [data-t="sore"][aria-pressed="true"]').length }));
+    t.ok('Change opens it with your answers in, and a Done', r.done && r.pressed === sm.length, JSON.stringify(r));
+    await p.click('[data-t="stdone"]');
+    r = await p.evaluate(() => !!document.querySelector('.tr-start [data-t="stopen"]'));
+    t.ok('Done folds it again', r);
+    await p.click('[data-t="stopen"]');
+    await p.click(`.tr-start [data-t="sore"][data-m="${sm[0]}"][data-v="2"]`);
+    r = await p.evaluate(() => (document.querySelector('.tr-start .tr-fbt-s') || {}).textContent || '');
+    t.ok('so does changing an answer, and the line names each muscle when they differ', /still sore/.test(r) && /healed in time/.test(r), r);
+    await p.close();
+
+    // the badge against last time: off for someone new unless they turn it on; a workout called Workout isn't said twice
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, lvl: 0, hw: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: { h1: wo('h1', '', 0, 0, 3, [{ e: 'bb-bench', s: sets(135, [10, 10, 10]) }]) } });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    r = await p.evaluate(() => ({ eb: !!document.querySelector('.tr-live-h .tr-eyebrow'), title: document.querySelector('.tr-live-h .tr-title').textContent }));
+    t.ok('an empty workout is titled Workout once, with no eyebrow saying Workout above it', !r.eb && r.title === 'Workout', JSON.stringify(r));
+    await p.fill('#trw-0-0', '140'); await p.fill('#trr-0-0', '10');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => (document.getElementById('trfm-0') || {}).textContent || '');
+    t.ok('new to lifting, no percentage against last time beside the name', r === '', r);
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => (document.querySelector('[data-t="s-fmo"][aria-pressed="true"]') || {}).textContent || '');
+    t.ok('and Settings shows it off', r === 'Nothing', r);
+    await p.click('[data-t="s-fmo"][data-v="1"]');
+    await p.click('.sheet-x');
+    r = await p.evaluate(() => ({ fm: (document.getElementById('trfm-0') || {}).textContent || '', fmo: window.Train._.state().T.pr.fmo }));
+    t.ok('switched on, it shows, and stays on', r.fm !== '' && r.fmo === 2, JSON.stringify(r));
+    await p.close();
+
     // your weight: Don't ask again, and the switch for it in Settings
     p = await bwPage({ 9: 190 });
     await p.click('[data-t="addex"]');
     await p.click('.tr-pick[data-e="pullup"]');
+    await p.click('[data-t="bwqwhy"]');
     await p.click('[data-t="bwqnever"]');
     r = await p.evaluate(() => ({ card: !!document.querySelector('.tr-bwq'), nobw: window.Train._.state().T.pr.nobw }));
     t.ok('Don’t ask again puts the weigh-in question away for good', !r.card && r.nobw === 1, JSON.stringify(r));
@@ -2919,7 +3014,7 @@ module.exports = {
     await p.click('[data-t="gyat"][data-v="home"]');
     r = await benchAt();
     t.ok('at home: the next weight your plates make, 195, and it says why', r.where === 'Home' && r.ph === '195' && /At home: 195 lb, the nearest your plates make \(the plan says 190\)/.test(r.note), JSON.stringify(r));
-    t.ok('the row shows home’s plates on home’s bar', /45, 25, 5 a side/.test(r.pl) && /home bar 45 lb/.test(r.bar), JSON.stringify(r));
+    t.ok('the row shows home’s plates; a home bar that weighs what the usual one does goes unsaid', /45, 25, 5 a side/.test(r.pl) && !r.bar, JSON.stringify(r));
     await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
     await p.fill('#trr-0-0', '8');
     r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s[0].w);

@@ -5280,6 +5280,20 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
 .tr-bwq-r { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
 .tr-bwq-in { width: 96px; flex: none; }
 .tr-bwq-u { color: var(--muted); font-size: 14px; margin-right: 4px; }
+.tr-bwq-done { font-size: 13.5px; }
+.tr-bwq-a { margin-top: 4px; gap: 4px 16px; }
+.tr-bwq-a .tr-lnk { min-height: 36px; }
+
+/* ---- Strengthen: before you start — the back, your weight, how each muscle healed ---- */
+.tr-start:not(.tr-bkt) > * + * { margin-top: 16px; }
+.tr-start:not(.tr-bkt) > .tr-note { margin-top: 8px; }
+/* a row a muscle: its name, then the three answers, each a thumb wide */
+.tr-sore-r {
+  display: grid; grid-template-columns: minmax(64px, 0.9fr) repeat(3, minmax(0, 1fr));
+  gap: 6px; align-items: center; margin-top: 6px;
+}
+.tr-sore-n { font-size: 13px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.tr-sore-r .tr-sqb { min-height: 44px; padding: 6px 4px; font-size: 13px; }
 
 /* Thumb-sized: the tick, the set's number, and the links under a lift (44 px, the size a fingertip needs) */
 .tr-set:not(.tr-set-h) .tr-in { min-height: 44px; }
@@ -5291,7 +5305,6 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
   border-left: 3px solid var(--ochre); border-radius: 4px; padding: 7px 10px; margin: 8px 0 10px; max-width: 64ch; }
 .tr-first b { font-weight: 600; }
 .tr-first.tr-safe { border-left-color: oklch(0.55 0.14 30); }
-.tr-howbtn { display: inline-block; font-size: 13px; margin-top: 6px; min-height: 32px; }
 .tr-need { font-size: 13px; font-weight: 500; color: oklch(0.46 0.14 30); padding: 2px 0 8px 36px; line-height: 1.4; }
 
 /* ---- Strengthen: a missed attempt — its weight kept, struck through, never counted ---- */
