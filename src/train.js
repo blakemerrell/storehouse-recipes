@@ -718,7 +718,11 @@
       // exercises you never want suggested again
       avoid: Array.isArray(p.avoid) ? p.avoid.filter(function (e) { return typeof e === 'string'; }).slice(0, 200) : [],
       // when the quiz was last answered; 0 is never
-      qz: fin(p.qz) ? p.qz : 0
+      qz: fin(p.qz) ? p.qz : 0,
+      /* The weekdays you lift, Monday 0 to Sunday 6. Nourish plans each day's
+         carbohydrate from them; empty until picked, and then Nourish's own
+         days stand in. */
+      ld: Array.isArray(p.ld) ? p.ld.filter(function (d, i, a) { return d === (d | 0) && d >= 0 && d <= 6 && a.indexOf(d) === i; }).sort() : []
     };
   }
 
@@ -4009,7 +4013,7 @@
     } else {
       html += '<div class="tr-sub">Every session of this block is done.</div>';
     }
-    html += weekGrid(ms, nx) + '</div>';
+    html += ldHTML() + weekGrid(ms, nx) + '</div>';
 
     if (nx && isEz(ms, nx.d)) {
       html += '<div class="tr-card tr-next tr-ez">' +
@@ -4062,6 +4066,25 @@
         '<button class="' + (loose ? 'ghost' : 'btn-primary') + '" data-t="eznew" data-w="' + w + '" data-d="' + d + '">Log what you did</button>' +
         '<button class="ghost" data-t="skip" data-w="' + w + '" data-d="' + d + '">Skip it</button>' +
       '</div>';
+  }
+
+  /* The weekdays you lift. Nourish plans the carbohydrate a day ahead from
+     these; go on another day, or skip one, and the workout (or a tap there)
+     says so. Until you pick, the days Nourish already had are shown. */
+  var LD_W = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  var LD_N = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  function ldDays() {
+    if (T.pr.ld.length) return T.pr.ld;
+    var h = hive();
+    try { return h && h.trainDays ? h.trainDays() || [] : []; } catch (e) { return []; }
+  }
+  function ldHTML() {
+    var on = ldDays();
+    return '<div class="tr-ld" role="group" aria-label="Lifting days">' + LD_W.map(function (w, i) {
+      return '<button class="tr-ldb" data-t="ld" data-v="' + i + '" aria-pressed="' + (on.indexOf(i) >= 0) +
+        '" aria-label="' + LD_N[i] + '">' + w + '</button>';
+    }).join('') + '</div>' +
+      '<div class="tr-sub">Lifting days. Nourish plans your carbs around these.</div>';
   }
 
   function weekGrid(ms, nx) {
@@ -7554,6 +7577,15 @@
     if (t === 'lib') { S.lib = true; draw(); scrollTop(); return; }
     if (t === 'unlib') { S.lib = false; draw(); scrollTop(); return; }
     if (t === 'browse') { S.browse = true; S.lib = false; draw(); scrollTop(); return; }
+    if (t === 'ld') {
+      var ld = ldDays().slice(), di = Number(v), at = ld.indexOf(di);
+      if (at >= 0) ld.splice(at, 1); else ld.push(di);
+      T.pr.ld = ld.sort();
+      stamp('pr');
+      var hl = hive();
+      if (hl && hl.daysMoved) { try { hl.daysMoved(); } catch (e) { /* My Day is not up */ } }
+      draw(); return;
+    }
     if (t === 'unbrowse') { S.browse = false; S.lib = false; S.opt = null; draw(); scrollTop(); return; }
     if (t === 'prog') { S.opt = optFor(v); draw(); scrollTop(); return; }
     var o = S.opt;
@@ -8282,6 +8314,20 @@
     trainedOn: function (k) {
       return ix().list.filter(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === k; })
         .map(function (wo) { return wo.n || 'Workout'; });
+    },
+    /* The same, with what Nourish's row says about a finished one. */
+    sessionsOn: function (k) {
+      return ix().list.filter(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === k; })
+        .map(function (wo) { return { n: wo.n || 'Workout', st: wo.st, en: wo.en || 0, sets: setsOf(wo) }; });
+    },
+    /* Your lifting weekdays while a block is running and you have picked
+       them; null otherwise, and Nourish keeps its own. */
+    liftDays: function () { return active() && T.pr.ld.length ? T.pr.ld.slice() : null; },
+    /* The name of the block's next session, for "Upper B today". */
+    nextName: function () {
+      var ms = active(), nx = ms && nextSlot(ms);
+      if (!nx || isEz(ms, nx.d)) return '';
+      return ms.days[nx.d].n || '';
     },
     attach: attach,
     remote: remote,
