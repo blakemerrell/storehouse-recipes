@@ -3202,7 +3202,7 @@
     } else if (hard) {
       var nm = '';
       try { nm = window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm = ''; }
-      ic = '<span class="mw-tr-ic lift" aria-hidden="true">\u25B2</span>';
+      ic = '<span class="mw-tr-ic lift" aria-hidden="true"><svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0L11 10H0z" fill="currentColor"/></svg></span>';
       t1 = (nm ? esc(nm) + ' today' : 'Lifting today');
       t2 = carbs + (base.c && base.c !== dt.c ? ' \u00b7 ' + base.c + ' on an average day' : '');
       btn = '<button class="mw-tr-b" data-mtrained="' + esc(k) + '" aria-pressed="true">Rest today</button>';
