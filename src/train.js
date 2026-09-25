@@ -688,7 +688,7 @@
       // a rest of its own for a lift: longer on the squat, shorter on the curls
       rests: cleanRests(p.rests),
       // the badge beside each lift's name, and which measure each lift shows in it
-      fmo: p.fmo === 0 ? 0 : 1,
+      fmo: p.fmo === 0 ? 0 : p.fmo === 2 ? 2 : 1,
       fm: cleanFm(p.fm),
       // a gym and home: the plates and bar you have at home, and where you were last
       gy: cleanGy(p.gy),
@@ -2329,6 +2329,9 @@
   };
   var PHASE = ['accumulation: more sets, moderate weight', 'intensification: fewer sets, heavier',
     'realization: work up to one set for as many good reps as you can'];
+  // the same weeks, said plainly, under the day's name
+  var PHASE_SAY = ['More sets at a moderate weight on the main lift', 'Fewer sets, heavier, on the main lift',
+    'On the main lift, work up to one set of as many good reps as you can'];
 
   /* ---------------------------------------------------------- the programs
    *
@@ -3331,7 +3334,7 @@
          version the plan moved you up to, or one swapped in for today. */
       x: p.x.map(function (s) { var x = liveEx(s.e, s.sets, s); x.sl = s.up || s.e; return x; }),
       sr: {}, fb: {}, rs: null, keep: steady(ms) || ms.goal === 'str' ? 1 : 0,
-      ph: ms.goal === 'str' && !p.deload ? 'Main lift by the numbers: ' + PHASE[Math.min(w, 2)] + '. The rest about two reps short of failure.'
+      ph: ms.goal === 'str' && !p.deload ? PHASE_SAY[Math.min(w, 2)] + '; the rest about 2 reps short of failure.'
         : ms.pb && !p.deload ? 'Top set about two reps short of failure, back-offs lighter; then ' + rirSay(p.rir) + '.' : '',
       fx: Array.isArray(ms.fx) ? ms.fx.slice() : [],
       mc: p.mc ? Object.assign(clean(p.mc), { st: 0, en: 0, rm: 0, r: '', x: '', done: '', sec: '' }) : null
@@ -4758,33 +4761,26 @@
     var L = LIVE;
     var ms = L.ms ? T.ms[L.ms] : null;
     var html = '<div class="tr-live-h">' +
-      '<div><div class="tr-eyebrow">' + (ms ? (L.dl ? 'Deload' : 'Week ' + (L.w + 1)) + ' · ' + esc(ms.n) : 'Workout') + '</div>' +
+      // a workout called Workout needs no eyebrow saying so
+      '<div>' + (ms || L.n !== 'Workout' ? '<div class="tr-eyebrow">' + (ms ? (L.dl ? 'Deload' : 'Week ' + (L.w + 1)) + ' · ' + esc(ms.n) : 'Workout') + '</div>' : '') +
         '<div class="tr-title">' + esc(L.n) + '</div>' +
         (ms ? '<div class="tr-sub">' + (L.dl ? 'Light and easy: stop every set well short of failure.'
           : L.ph ? esc(L.ph) : rirSay(L.rir).charAt(0).toUpperCase() + rirSay(L.rir).slice(1) + '.') + '</div>' : '') +
       '</div>' +
     '</div>';
 
-    /* Your back, asked first, when you have said to protect it. A cranky
-       morning changes what today should be; nerve symptoms change whether
-       today should be at all. */
-    if (ms && pairLabels().some(Boolean)) html += '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>';
+    /* What A1 and A2 mean, on the block's first workout: by the second it
+       is known, and a paragraph above the first lift every time is in the way. */
+    if (ms && pairLabels().some(Boolean) && !ix().list.some(function (w) { return w.ms === ms.id; })) {
+      html += '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>';
+    }
 
     if (T.pr.gy.on && T.pr.gy.u === T.pr.u) {
       if (L.g !== 'home' && L.g !== 'gym') { L.g = T.pr.gy.last; saveLive(); }
       html += '<div class="tr-where"><span class="tr-ql">Where</span>' + chips('gyat', L.g, [['gym', 'Gym'], ['home', 'Home']]) + '</div>';
     }
     if (T.pr.lvl === 0 && !T.pr.hw) html += howCard();
-    if (T.pr.bk || T.pr.jt) html += bkCard(L);
-    html += bwCard(L);
-
-    var ask = soreAsk();
-    if (ask.length) {
-      html += '<div class="tr-card tr-ask"><div class="tr-ql">Since you last trained them, how did they heal?</div>' +
-        ask.map(function (m) {
-          return segQ(esc(mname(m)), 'sore', fin(L.sr[m]) ? L.sr[m] : '', SORE.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '"');
-        }).join('') + '</div>';
-    }
+    html += startCard(L);
 
     var labels = pairLabels();
     var gs = moveGroups();
@@ -4807,7 +4803,7 @@
   function howCard() {
     return '<div class="tr-card tr-how1"><div class="tr-sq-l">How a workout goes</div>' +
       '<ol class="tr-howto">' +
-        '<li>Do one set of the first lift: that many reps, then put it down.</li>' +
+        '<li>Do one set of the first lift: that many reps, then put it down. New to a lift? Start light, a weight you could lift about 15 times; easy, go up a little next set.</li>' +
         '<li>Tap \u2713. The grey numbers are filled in for you; type over them if you did something different.</li>' +
         '<li>Rest until the timer ends, then the next set. When a lift\u2019s sets are all ticked, move to the next lift.</li>' +
         '<li>Not sure how a lift is done? Tap its name. Machine taken, or it hurts? Swap.</li>' +
@@ -4816,12 +4812,62 @@
       '<div class="tr-acts"><button class="ghost" data-t="hwok">Got it</button></div></div>';
   }
 
-  /* Your back (and joints), asked as a question before the first set. Once
-     answered it folds to a line, the way the feedback cards do, and a tap
-     opens it again. Sore keeps its warning in view: that is the part that
-     matters. */
+  /* Before you start: the back (and joints), your weight on a pull-up day
+     and how the muscles healed since last time, asked together in one card
+     and folded to a line once every one has an answer. It stays open until
+     then: the healing answers set next week's sets, and are not asked again
+     at Finish. A sore back keeps its warning in view when folded. */
+  var SORE_S = ['Early', 'In time', 'Sore'];
+  var SORE_SAY = ['healed early', 'healed in time', 'still sore'];
+  function startParts(L) {
+    return { back: !!(T.pr.bk || T.pr.jt), bw: bwNeed(L) || fin(L.bw) || !!L.bwo, ask: soreAsk() };
+  }
+  function startDone(L, P) {
+    P = P || startParts(L);
+    return (!P.back || fin(L.bk)) && (!P.bw || fin(L.bw) || !!L.bwq) && P.ask.every(function (m) { return fin(L.sr[m]); });
+  }
+  function startCard(L) {
+    var P = startParts(L);
+    if (!P.back && !P.bw && !P.ask.length) return '';
+    var u = L.u || T.pr.u;
+    if (startDone(L, P) && !L.sto) {
+      var bits = [];
+      if (P.back) bits.push(bkSay(L));
+      if (fin(L.bw)) bits.push('you ' + fmtN(L.bw) + ' ' + u);
+      if (P.ask.length) {
+        var vs = P.ask.map(function (m) { return L.sr[m]; });
+        bits.push(vs.every(function (v) { return v === vs[0]; }) ? (P.ask.length > 1 ? 'all ' : mname(P.ask[0]).toLowerCase() + ' ') + SORE_SAY[vs[0]]
+          : P.ask.map(function (m) { return mname(m).toLowerCase() + ' ' + SORE_SAY[L.sr[m]]; }).join(', '));
+      }
+      var say = bits.join(' \u00b7 ');
+      say = say.charAt(0).toUpperCase() + say.slice(1);
+      return '<div class="tr-card tr-ask tr-bkt tr-start">' +
+        '<button class="tr-fbt tr-bkt-b" data-t="stopen" aria-label="Before you start: ' + esc(say) + '. Change">' +
+          '<span class="tr-fbt-n">Before you start</span><span class="tr-fbt-s">' + esc(say) + '</span>' +
+          '<span class="tr-fbt-e">Change</span></button>' +
+        (P.back ? bkNote(L, true) : '') +
+      '</div>';
+    }
+    return '<div class="tr-card tr-ask tr-start">' +
+      (P.back ? bkQ(L) : '') +
+      (P.bw ? bwPart(L, u) : '') +
+      (P.ask.length ? '<div class="tr-sore"><div class="tr-sq-l tr-fbm">Since you last trained them, how did they heal?</div>' +
+        P.ask.map(function (m) {
+          var cur = fin(L.sr[m]) ? L.sr[m] : -1;
+          return '<div class="tr-sore-r" role="group" aria-label="' + esc(mname(m)) + '"><span class="tr-sore-n">' + esc(mname(m)) + '</span>' +
+            SORE_S.map(function (t, i) {
+              return '<button class="tr-sqb" data-t="sore" data-m="' + m + '" data-v="' + i + '" aria-pressed="' + (cur === i) + '" aria-label="' + esc(mname(m) + ': ' + SORE[i]) + '">' + t + '</button>';
+            }).join('') + '</div>';
+        }).join('') + '</div>' : '') +
+      (L.sto && startDone(L, P) ? '<div class="tr-acts tr-bwq-a"><button class="tr-lnk" data-t="stdone">Done</button></div>' : '') +
+    '</div>';
+  }
+  // answered: tucked away again once everything before you start has an answer
+  function startTuck(L) { if (startDone(L)) delete L.sto; }
+
   var BK_SAY = ['good', 'a bit tight', 'sore'];
-  function bkCard(L) {
+  // the back and joints: what is asked, what each answer means
+  function bkInfo(L) {
     var jl = T.pr.jt.split('').filter(Boolean).map(function (j) { return { n: JNAME[j].toLowerCase() }; });
     var jts = names(jl);
     var ask = T.pr.bk ? (T.pr.jt ? 'How are your back and joints today?' : 'How\u2019s your back today?')
@@ -4833,22 +4879,20 @@
       ? 'Skip the lower-body lifts today \u2014 swap or remove them \u2014 and keep to what feels fine. Pain, numbness or tingling running down a leg means stop: that is the nerve, and it is a question for your physio, not for this app.'
       : 'Skip or swap anything that loads your ' + jts + ' today, and keep to what feels fine. Sharp pain, swelling, or pain that is still there the next day is a question for a physio or doctor, not for this app.';
     var has = fin(L.bk);
-    if (has && !L.bko) {
-      var word = L.bk === 1 && !T.pr.bk ? 'a bit stiff' : BK_SAY[L.bk];
-      return '<div class="tr-card tr-ask tr-bkt">' +
-        '<button class="tr-fbt tr-bkt-b" data-t="bkopen" aria-label="' + esc(what) + ': ' + word + '. Change">' +
-          '<span class="tr-fbt-n">' + esc(what) + '</span><span class="tr-fbt-s">' + word + '</span>' +
-          '<span class="tr-fbt-e">Change</span></button>' +
-        (L.bk === 1 ? '<div class="tr-note tr-bkt-n">' + esc(tight) + '</div>' : '') +
-        (L.bk === 2 ? '<div class="tr-note tr-warn tr-bkt-n">' + esc(sore) + '</div>' : '') +
-      '</div>';
-    }
-    return '<div class="tr-card tr-ask">' +
-      segQ(esc(ask), 'bk', has ? L.bk : '', [[0, 'Good'], [1, T.pr.bk ? 'A bit tight' : 'A bit stiff'], [2, 'Sore']], '') +
-      (L.bk === 1 ? '<div class="tr-note">' + esc(tight) + '</div>' : '') +
-      (L.bk === 2 ? '<div class="tr-note tr-warn">' + esc(sore) + '</div>' : '') +
-    '</div>';
+    return { ask: ask, what: what, tight: tight, sore: sore, has: has,
+      word: has ? (L.bk === 1 && !T.pr.bk ? 'a bit stiff' : BK_SAY[L.bk]) : '' };
   }
+  function bkQ(L) {
+    var b = bkInfo(L);
+    return segQ(esc(b.ask), 'bk', b.has ? L.bk : '', [[0, 'Good'], [1, T.pr.bk ? 'A bit tight' : 'A bit stiff'], [2, 'Sore']], '') + bkNote(L, false);
+  }
+  function bkNote(L, folded) {
+    var b = bkInfo(L), cls = folded ? ' tr-bkt-n' : '';
+    return (L.bk === 1 ? '<div class="tr-note' + cls + '">' + esc(b.tight) + '</div>' : '') +
+      (L.bk === 2 ? '<div class="tr-note tr-warn' + cls + '">' + esc(b.sore) + '</div>' : '');
+  }
+  // "back good", "knees a bit stiff"
+  function bkSay(L) { var b = bkInfo(L); return b.what.toLowerCase() + ' ' + b.word; }
 
   /* A pull-up day with nothing reliable to go on: no week of weigh-ins to
      average and none today. Asked once; answered, it is today's weigh-in on
@@ -4858,31 +4902,30 @@
     var b = bwInfo(dayKey(new Date(L.st)), L.u || T.pr.u);
     return !b || b.src === 'old';
   }
-  function bwCard(L) {
-    var u = L.u || T.pr.u;
+  function bwPart(L, u) {
     if (fin(L.bw) && !L.bwo) {
-      return '<div class="tr-card tr-ask tr-bkt">' +
-        '<button class="tr-fbt tr-bkt-b" data-t="bwopen" aria-label="Your weight today: ' + fmtN(L.bw) + ' ' + u + '. Change">' +
-          '<span class="tr-fbt-n">You</span><span class="tr-fbt-s">' + fmtN(L.bw) + ' ' + u + '</span><span class="tr-fbt-e">Change</span></button></div>';
+      return '<div class="tr-bwq-done">Your weight today: <b>' + fmtN(L.bw) + ' ' + u + '</b> ' +
+        '<button class="tr-lnk" data-t="bwopen">Change</button></div>';
     }
     if (!L.bwo && !bwNeed(L)) return '';
     var b = bwInfo(dayKey(new Date(L.st)), u);
     var when2 = b && b.k ? shortDate(new Date(b.k + 'T12:00:00').getTime()) : '';
     var odd = S.bwOdd;
-    return '<div class="tr-card tr-ask tr-bwq">' +
-      '<div class="tr-sq-l">What do you weigh today?</div>' +
-      '<div class="tr-sub">Pull-ups and dips lift you, so their numbers count your weight. ' +
-        (b && b.src === 'old' ? 'Your last weigh-in was ' + fmtN(b.v) + ' ' + u + ' on ' + when2 + '.' : 'There\u2019s no weigh-in from the last two weeks.') + '</div>' +
+    return '<div class="tr-bwq">' +
+      '<div class="tr-sq-l tr-fbm">What do you weigh today?</div>' +
       '<div class="tr-bwq-r"><input class="tr-in tr-bwq-in" id="trBwq" inputmode="decimal" autocomplete="off" value="' + (odd ? esc(fmtN(odd.v)) : '') + '"' +
         ' placeholder="' + (b ? esc(fmtN(b.v)) : '') + '" aria-label="Your weight today, in ' + u + '"><span class="tr-bwq-u">' + u + '</span>' +
         '<button class="btn-primary" data-t="bwqsave">Save</button></div>' +
       (odd ? '<div class="tr-note tr-warn">That\u2019s ' + fmtN(odd.v) + ' ' + u + (odd.ref ? ', against ' + fmtN(odd.ref) + ' ' + u + ' lately' : '') +
         '. <button class="tr-lnk" data-t="bwqkeep">Keep it</button></div>' : '') +
-      '<div class="tr-acts">' +
+      '<div class="tr-acts tr-bwq-a">' +
         (b && b.src === 'old' ? '<button class="tr-lnk" data-t="bwqold">Use ' + fmtN(b.v) + ' from ' + when2 + '</button>' : '') +
         '<button class="tr-lnk" data-t="bwqskip">Not now</button>' +
-        '<button class="tr-lnk" data-t="bwqnever">Don\u2019t ask again</button></div>' +
-      '<div class="tr-hint">Saved, it\u2019s today\u2019s weigh-in on Nourish as well, on every device you sign in on.</div>' +
+        '<button class="tr-lnk" data-t="bwqwhy" aria-expanded="' + !!S.bwWhy + '">Why?</button></div>' +
+      (S.bwWhy ? '<div class="tr-sub">Pull-ups and dips lift you, so their numbers count your weight. ' +
+          (b && b.src === 'old' ? 'Your last weigh-in was ' + fmtN(b.v) + ' ' + u + ' on ' + when2 + '.' : 'There\u2019s no weigh-in from the last two weeks.') +
+          ' Saved, it\u2019s today\u2019s weigh-in on Nourish as well, on every device you sign in on.</div>' +
+        '<div class="tr-acts tr-bwq-a"><button class="tr-lnk" data-t="bwqnever">Don\u2019t ask again</button></div>' : '') +
     '</div>';
   }
   /* The weight typed at the gym: into Nourish as the day's weigh-in, through
@@ -4904,6 +4947,7 @@
     if (res && res.ok) L.bwn = res.lb;
     L.bwq = 'saved';
     L.bwo = 0;
+    startTuck(L);
     saveLive();
     draw();
   }
@@ -5004,8 +5048,11 @@
     for (var j = 0; j < x.s.length; j++) if (!x.s[j].t) return j;
     return -1;
   }
-  // last time's set, as the Previous column shows it
-  function prevText(s) { return fin(s.pw) && fin(s.pr) ? fmtN(s.pw) + ' \u00d7 ' + s.pr : '\u2014'; }
+  // last time's set, as the Previous column shows it: BW for a bodyweight lift with nothing added
+  function prevText(s, e) {
+    if (!fin(s.pw) || !fin(s.pr)) return '\u2014';
+    return (s.pw === 0 && e && (usesBw(e) || lib(e).q === 'bw') ? 'BW' : fmtN(s.pw)) + ' \u00d7 ' + s.pr;
+  }
   /* The left-hand cell of a barbell set: the plates, with last time under
      them. No dash when there is neither, so the plates have the room. */
   function plCell(xi, si) {
@@ -5014,6 +5061,14 @@
     var stk = stackHTML(sw.w, barAt(x.e), sw.dim);
     if (!stk) return prev;
     return stk + (prev ? '<span class="tr-prev-s">last ' + prev + '</span>' : '');
+  }
+  /* In every set, the plates where the loading changes and on the next set
+     to do; four rows of the same 45, 25, 2.5 said nothing the first did. */
+  function plRow(xi, si) {
+    var x = LIVE.x[xi];
+    if (si === 0 || si === nextSet(x)) return true;
+    var a = setWeight(xi, si), b = setWeight(xi, si - 1);
+    return !(a.w === b.w || (a.w === null && b.w === null));
   }
   /* While typing, the same cell shows last time until its weight has the
      cursor, or it is the next set to do; then the plates. */
@@ -5047,8 +5102,10 @@
     return { plan: plan, bw: usesBw(x.e) || (!(cur.vol > 0) && !(was.vol > 0)), cur: cur, was: was };
   }
   var FM_SAY = { vc: 'volume change', vol: 'total volume', reps: 'total reps', best: 'best set' };
+  // the badge: on unless switched off; for someone new, off unless switched on (2)
+  function fmOn() { return T.pr.fmo === 2 || (T.pr.fmo === 1 && T.pr.lvl !== 0); }
   function fmHTML(xi) {
-    var f = T.pr.fmo ? focusOf(xi) : null;
+    var f = fmOn() ? focusOf(xi) : null;
     if (!f) return '';
     var x = LIVE.x[xi], m = f.bw ? 'reps' : fmFor(x.e), u = T.pr.u, d, txt, say;
     var arrow = function (v, s) { return v > 0 ? '\u25b2' + s : v < 0 ? '\u25bc' + s : '='; };
@@ -5090,7 +5147,7 @@
     if (!x || !onBar(lib(x.e))) return;
     x.s.forEach(function (s, j) {
       var c = $('trpl-' + xi + '-' + j), w = $('trw-' + xi + '-' + j);
-      if (c) c.innerHTML = plShown(c) ? plCell(xi, j) : prevText(s);
+      if (c) c.innerHTML = (c.classList.contains('tr-plt') ? plShown(c) : plRow(xi, j)) ? plCell(xi, j) : prevText(s, x.e);
       if (w && document.activeElement !== w) { var g = ghost(xi, j); w.placeholder = g.w !== null ? fmtN(g.w) : ''; }
     });
   }
@@ -5108,7 +5165,9 @@
       var g = ghost(i, j);
       var ph = g.w !== null ? fmtN(g.w) : '';
       var rph = s.ty === 'm' ? '0' : g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
-      var prev = prevText(s), on = pl === 'type' && j === nx;
+      var prev = prevText(s, x.e), on = pl === 'type' && j === nx;
+      // in every set: the plates where the loading changes, and on the next set to do; last time elsewhere
+      var stack = pl === 'row' ? plRow(i, j) : on;
       var flash = S.flash === i + ':' + j;
       // warm-ups, drop sets and failure sets are lettered, working sets numbered, the all-out set marked
       var lab = setLab(s, function () { return ++num; });
@@ -5116,7 +5175,7 @@
           (s.ty === 'd' ? ' tr-dd' : s.ty === 'f' ? ' tr-ff' : s.ty === 'm' ? ' tr-mm' : '') + '">' +
         '<button class="tr-sn tr-snb" data-t="sty" data-x="' + i + '" data-s="' + j + '" aria-label="' + esc(setSay(s) + ', set ' + (j + 1) + '. Change what kind of set it is') + '">' + lab + '</button>' +
         (pl !== 'off' ? '<span class="tr-prev tr-prev-pl' + (pl === 'type' ? ' tr-plt' : '') + (on ? ' on' : '') + '" id="trpl-' + i + '-' + j + '"' + (on ? ' data-next="1"' : '') + '>' +
-            (pl === 'row' || on ? plCell(i, j) : prev) + '</span>'
+            (stack ? plCell(i, j) : prev) + '</span>'
           : '<span class="tr-prev">' + prev + '</span>') +
         '<input class="tr-in" id="trw-' + i + '-' + j + '" data-in="w" data-x="' + i + '" data-s="' + j + '" ' +
           'inputmode="decimal" autocomplete="off" placeholder="' + esc(ph) + '" value="' + esc(s.w) + '" ' +
@@ -5131,18 +5190,26 @@
       (S.need && S.need.k === i + ':' + j ? '<div class="tr-need" id="trneed" role="alert">' +
         (S.need.w ? 'Type the weight you used (0 if none), then tick.' : 'Type how many reps you did, then tick.') + '</div>' : '') +
       /* The rest that follows this set, between it and the next, the way
-         Strong draws it: a minute after a warm-up, none before a drop set,
-         the pair's rest in a pair. Tap it to change the lift's rest. */
-      (j < x.s.length - 1 ? '<div class="tr-rdiv"><button class="tr-rdiv-b" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest after this set: ' +
+         Strong draws it — only where it is not the lift's own rest, which the
+         line under the name already says: a minute after a warm-up, none
+         before a drop set. A pair says its rest once, under the name. Tap it
+         to change the lift's rest. */
+      (j < x.s.length - 1 && (x.s[j + 1].ty === 'd' || (!mate && restAfter(i, j) !== x.rest)) ? '<div class="tr-rdiv"><button class="tr-rdiv-b" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest after this set: ' +
         (x.s[j + 1].ty === 'd' ? 'none, a drop set follows' : clock(restAfter(i, j))) + '. Change the rest for ' + esc(ex.n) + '">' +
         (x.s[j + 1].ty === 'd' ? 'no rest' : clock(restAfter(i, j))) + '</button></div>' : '');
     }).join('');
-    var heavy = ex.q === 'bb' || ex.q === 'sm';
     // nothing ticked yet on this lift: the notes for before the first set
     var fresh = !x.s.some(function (s) { return s.t; });
     // someone new: plain words where the numbers need them
     var nb = T.pr.lvl === 0, nWork = x.s.filter(counts).length;
     var wy = whyW(x);
+    var ms = LIVE.ms ? T.ms[LIVE.ms] : null;
+    // the reps in reserve when they are not the day's, which the header says
+    var rirHere = x.rir !== null && x.rir !== undefined && !(ms && x.rir === LIVE.rir);
+    // the bar when it is not the usual one
+    var barHere = onBar(ex) && (barSet(x.e) || barAt(x.e) !== T.pr.bar);
+    var first = fresh && (nb || newLift(x.e));
+    var armed = S.arm === 'rm:' + i, nDone = x.s.filter(function (z) { return z.t; }).length;
     return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '">' +
       (mv ? '<span class="tr-mv">' +
         '<button class="tr-mvb" data-t="mvex" data-v="-1" data-x="' + i + '"' + (mv.up ? '' : ' disabled') +
@@ -5151,16 +5218,18 @@
           ' aria-label="Move ' + esc(ex.n) + (label ? ' and its pair' : '') + ' down">\u2193</button></span>' : '') +
       '<div class="tr-ex-h">' +
         (label ? '<span class="tr-pair" aria-label="Pair ' + label + '">' + label + '</span>' : '') +
-        '<button class="tr-ex-n" data-t="exsheet" data-e="' + esc(x.e) + '">' + esc(ex.n) + '</button>' +
+        // new to lifting, the name opens how it is done
+        '<button class="tr-ex-n" data-t="' + (nb ? 'exhow' : 'exsheet') + '" data-e="' + esc(x.e) + '">' + esc(ex.n) + '</button>' +
         '<span class="tr-fmw" id="trfm-' + i + '">' + fmHTML(i) + '</span>' +
         '<span class="tr-ex-m">' + esc(mnameP(ex.m)) + ' \u00b7 ' + (x.fix ? 'main lift, set by set'
             : (nb ? nWork + ' set' + (nWork === 1 ? '' : 's') + ' of ' : '') + ex.rr[0] + '\u2013' + ex.rr[1] + ' reps') +
-          (x.rir !== null && x.rir !== undefined ? ' \u00b7 ' + (nb ? (x.rir ? 'stop with ' + x.rir + ' rep' + (x.rir === 1 ? '' : 's') + ' to spare' : 'to your last good rep') : effSay(x.rir)) : '') +
+          (rirHere ? ' \u00b7 ' + (nb ? (x.rir ? 'stop with ' + x.rir + ' rep' + (x.rir === 1 ? '' : 's') + ' to spare' : 'to your last good rep') : effSay(x.rir)) : '') +
           (mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
             : ' \u00b7 <button class="tr-lnk tr-barl" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest ' + clock(x.rest) + ' for ' + esc(ex.n) + '. Change">rest ' + clock(x.rest) + '</button>') +
           (fin(x.tm) ? ' \u00b7 training max ' + fmtN(x.tm) + ' ' + T.pr.u : '') +
-          (onBar(ex) ? ' \u00b7 <button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '" aria-label="' + esc(barName(x.e)) + ' for ' + esc(ex.n) + ': ' +
-            fmtN(barAt(x.e)) + ' ' + T.pr.u + '. Change">' + esc(barLabelAt(x.e)) + '</button>' : '') + '</span>' +
+          (barHere ? ' \u00b7 <button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '" aria-label="' + esc(barName(x.e)) + ' for ' + esc(ex.n) + ': ' +
+            fmtN(barAt(x.e)) + ' ' + T.pr.u + '. Change">' + esc(barLabelAt(x.e)) + '</button>' : '') +
+          (nb || newLift(x.e) ? ' \u00b7 <button class="tr-lnk tr-barl" data-t="exhow" data-e="' + esc(x.e) + '">how to</button>' : '') + '</span>' +
         (x.s.some(function (s) { return s.am; }) ? '<span class="tr-cue">Last set: as many good reps as you can \u2014 stop when one slows to a grind. It sets your next wave\u2019s weights.</span>' : '') +
         (x.s.some(function (s) { return s.wu; }) ? '<span class="tr-ex-m">W is a warm-up: done, not counted, and a short rest after it.</span>' : '') +
         (cue ? '<span class="tr-cue">' + esc(cue) + '</span>' : '') +
@@ -5168,9 +5237,8 @@
         (ASST[x.e] ? '<span class="tr-ex-m">Type the machine\u2019s help as the weight: less help is progress.</span>' : '') +
         homeNote(x, i) +
         (wy && fresh ? '<span class="tr-ex-m">' + esc(wy) + '</span>' : '') +
-        (fresh && (T.pr.lvl === 0 || newLift(x.e)) && SAFETY[x.e] ? '<div class="tr-first tr-safe"><b>Safety first.</b> ' + esc(SAFETY[x.e]) + '</div>' : '') +
+        (first && SAFETY[x.e] ? '<div class="tr-first tr-safe"><b>Safety first.</b> ' + esc(SAFETY[x.e]) + '</div>' : '') +
         firstTime(x) +
-        (T.pr.lvl === 0 || newLift(x.e) ? '<button class="tr-lnk tr-howbtn" data-t="exhow" data-e="' + esc(x.e) + '">How to do it</button>' : '') +
         (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
@@ -5179,13 +5247,13 @@
       rows +
       '<div class="tr-ex-a">' +
         '<button class="tr-lnk" data-t="addset" data-x="' + i + '">+ Set</button>' +
-        (x.s.length > 1 ? '<button class="tr-lnk" data-t="dropset" data-x="' + i + '">− Set</button>' : '') +
+        (x.s.length > 1 ? '<button class="tr-lnk" data-t="dropset" data-x="' + i + '">\u2212 Set</button>' : '') +
         (ex.k === 'c' && ex.q !== 'bw' ? '<button class="tr-lnk" data-t="warm" data-x="' + i + '">Warm-up</button>' : '') +
-        (heavy ? '<button class="tr-lnk" data-t="plates" data-x="' + i + '">Plates</button>' : '') +
+        (ex.q === 'bb' || ex.q === 'sm' ? '<button class="tr-lnk" data-t="plates" data-x="' + i + '">Plates</button>' : '') +
         '<button class="tr-lnk" data-t="swap" data-x="' + i + '">Swap</button>' +
         (note ? '' : '<button class="tr-lnk" data-t="note" data-e="' + esc(x.e) + '">Note</button>') +
-        '<button class="tr-lnk' + (S.arm === 'rm:' + i ? ' tr-lnk-arm' : '') + '" data-t="rmex" data-x="' + i + '">' +
-          (S.arm === 'rm:' + i ? 'Tap again: remove it and its ' + x.s.filter(function (z) { return z.t; }).length + ' done set' + (x.s.filter(function (z) { return z.t; }).length === 1 ? '' : 's') : 'Remove') + '</button>' +
+        '<button class="tr-lnk' + (armed ? ' tr-lnk-arm' : '') + '" data-t="rmex" data-x="' + i + '">' +
+          (armed ? 'Tap again: remove it and its ' + nDone + ' done set' + (nDone === 1 ? '' : 's') : 'Remove') + '</button>' +
       '</div>' +
     '</div>';
   }
@@ -5198,9 +5266,9 @@
     if (!s || !fin(s.tw) || !fin(s.pw)) return '';
     if (LIVE.dl) return 'Lighter this week on purpose: an easy week lets your body catch up.';
     var d = s.tw - s.pw;
-    if (ASST[x.e] && d < 0) return fmtN(-d) + ' ' + T.pr.u + ' less help: you reached the top of the range last time.';
-    if (d > 0 && !ASST[x.e]) return 'Up ' + fmtN(d) + ' ' + T.pr.u + ': you reached the top of the range last time, so it\u2019s time for more weight.';
-    if (d === 0 && fin(s.tr) && fin(s.pr) && s.tr > s.pr) return 'Same weight as last time: aim for ' + s.tr + ' reps, one more than before.';
+    if (ASST[x.e] && d < 0) return fmtN(-d) + ' ' + T.pr.u + ' less help \u2014 you hit the top of the range last time.';
+    if (d > 0 && !ASST[x.e]) return 'Up ' + fmtN(d) + ' ' + T.pr.u + ' \u2014 you hit the top of the range last time.';
+    if (d === 0 && fin(s.tr) && fin(s.pr) && s.tr > s.pr) return 'Same weight \u2014 aim for ' + s.tr + ' reps, one more than last time.';
     return '';
   }
 
@@ -5320,7 +5388,7 @@
       if (fin(f.j)) said.push((T.pr.bk ? 'back & joints ' : 'joints ') + JOINT_W[f.j]);
       return '<button class="tr-card tr-ask tr-fbt" data-t="fbopen" data-m="' + m + '">' +
         '<span class="tr-fbt-n">' + esc(mname(m)) + '</span>' +
-        '<span class="tr-fbt-s">' + esc(said.length ? said.join(' \u00b7 ') : 'not rated yet \u2014 tap to rate, or it is asked at Finish') + '</span>' +
+        '<span class="tr-fbt-s">' + esc(said.length ? said.join(' \u00b7 ') : 'not rated yet') + '</span>' +
         '<span class="tr-fbt-e">' + (said.length ? 'Edit' : 'Rate') + '</span></button>' + (f.j === 2 ? HURT_NOTE : '');
     }
     return '<div class="tr-card tr-ask tr-fbc"><div class="tr-fbc-h"><span class="tr-ql">' + esc(mname(m)) + ' done \u2014 how was it?</span>' +
@@ -5618,15 +5686,17 @@
     return !(r.e1 > 0 || r.r > 0);
   }
   // the first time on a lift: how to find a weight, rather than an empty box
+  /* One line, and only the part that is this lift's own; how to find a
+     starting weight is said once, in the how-a-workout-goes card. A lift
+     with a safety note says it there, empty bar and all. */
   function firstTime(x) {
     var ex = lib(x.e);
-    if (ex.q === 'bw' || usesBw(x.e)) return '';
+    if (ex.q === 'bw' || usesBw(x.e) || SAFETY[x.e]) return '';
     if (x.s.some(function (s) { return s.t || fin(s.tw) || fin(s.pw); })) return '';
     if (!newLift(x.e)) return '';
-    var how = ex.q === 'mc' || ex.q === 'cb' ? ' On a machine, start on the second or third plate of the stack. Machine taken? Tap Swap for another.'
-      : onBar(ex) ? ' With a barbell, start with just the bar.' : ex.q === 'db' ? ' With dumbbells, start with a light pair.' : '';
-    return '<div class="tr-first"><b>First time on this one?</b> Start light: pick a weight you think you could lift about 15 times, and do ' +
-      ex.rr[1] + ' reps with it. Easy? Go up a little on the next set. Too hard? Go lighter.' + how + '</div>';
+    var how = ex.q === 'mc' || ex.q === 'cb' ? 'Start on the 2nd or 3rd plate of the stack. Machine taken? Swap.'
+      : onBar(ex) ? 'Start with just the bar.' : ex.q === 'db' ? 'Start with a light pair.' : 'Start light.';
+    return '<div class="tr-first"><b>First time?</b> ' + how + '</div>';
   }
 
   function exAbout(e, ex) {
@@ -6537,8 +6607,8 @@
         '<div class="tr-hint">A lift on another bar \u2014 an EZ bar, a Smith machine \u2014 keeps its own: tap \u201cbar\u201d beside it in a workout.</div></div>' +
       gySetHTML(p) +
       '<div class="tr-q"><div class="tr-ql">Beside each lift</div>' +
-        chips('s-fmo', p.fmo, [[1, 'How today compares'], [0, 'Nothing']]) +
-        '<div class="tr-hint">' + (p.fmo ? 'Once a working set is done, a badge beside the lift says how today compares with last time, set for set, or with the plan in a lighter week. Tap it for volume, reps or your best set; each lift remembers its choice.'
+        chips('s-fmo', fmOn() ? 1 : 0, [[1, 'How today compares'], [0, 'Nothing']]) +
+        '<div class="tr-hint">' + (fmOn() ? 'Once a working set is done, a badge beside the lift says how today compares with last time, set for set, or with the plan in a lighter week. Tap it for volume, reps or your best set; each lift remembers its choice.'
           : 'No badge beside the lifts.') + '</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Plates on the bar</div>' +
         chips('s-pl', p.pl, [['row', 'In every set'], ['type', 'While typing'], ['off', 'Off']]) +
@@ -7576,12 +7646,15 @@
     if (t === 'bwqkeep') { bwSave(true); return; }
     if (t === 'bwqold' && LIVE) {
       var bo = bwInfo(dayKey(new Date(LIVE.st)), LIVE.u || T.pr.u);
-      if (bo) { LIVE.bw = bo.v; LIVE.bwq = 'old'; LIVE.bwo = 0; S.bwOdd = null; saveLive(); draw(); }
+      if (bo) { LIVE.bw = bo.v; LIVE.bwq = 'old'; LIVE.bwo = 0; S.bwOdd = null; startTuck(LIVE); saveLive(); draw(); }
       return;
     }
-    if (t === 'bwqskip' && LIVE) { LIVE.bwq = 'skip'; LIVE.bwo = 0; S.bwOdd = null; saveLive(); draw(); return; }
-    if (t === 'bwopen' && LIVE) { LIVE.bwo = 1; draw(); return; }
-    if (t === 'bwqnever' && LIVE) { T.pr.nobw = 1; stamp('pr'); LIVE.bwq = 'skip'; LIVE.bwo = 0; S.bwOdd = null; saveLive(); draw(); return; }
+    if (t === 'bwqskip' && LIVE) { LIVE.bwq = 'skip'; LIVE.bwo = 0; S.bwOdd = null; startTuck(LIVE); saveLive(); draw(); return; }
+    if (t === 'bwopen' && LIVE) { LIVE.bwo = 1; LIVE.sto = 1; saveLive(); draw(); return; }
+    if (t === 'bwqwhy') { S.bwWhy = !S.bwWhy; draw(); return; }
+    if (t === 'bwqnever' && LIVE) { T.pr.nobw = 1; stamp('pr'); LIVE.bwq = 'skip'; LIVE.bwo = 0; S.bwOdd = null; startTuck(LIVE); saveLive(); draw(); return; }
+    if (t === 'stopen' && LIVE) { LIVE.sto = 1; saveLive(); draw(); return; }
+    if (t === 'stdone' && LIVE) { delete LIVE.sto; LIVE.bwo = 0; saveLive(); draw(); return; }
     if (t === 'hwok') { T.pr.hw = 1; stamp('pr'); draw(); return; }
     // ready workouts: the list, a row opened, the half-hour version, a start
     if (t === 'ready') { S.rdo = ''; S.arm = ''; openSheet({ k: 'ready', eyebrow: 'Ready workouts', title: 'Pick a ready workout' }); return; }
@@ -7704,14 +7777,15 @@
     if (t === 'bk') {
       LIVE.bk = LIVE.bk === Number(v) ? undefined : Number(v);
       if (LIVE.bk === undefined) delete LIVE.bk;
-      // answered, it folds away
-      delete LIVE.bko;
+      // answered, with everything else before you start, it folds away
+      startTuck(LIVE);
       saveLive(); draw(); return;
     }
-    if (t === 'bkopen' && LIVE) { LIVE.bko = 1; saveLive(); draw(); return; }
+    if (t === 'bkopen' && LIVE) { LIVE.sto = 1; saveLive(); draw(); return; }
     if (t === 'sore') {
       var m = el.getAttribute('data-m');
       if (LIVE.sr[m] === Number(v)) delete LIVE.sr[m]; else LIVE.sr[m] = Number(v);
+      startTuck(LIVE);
       saveLive(); draw(); return;
     }
     if (t === 'fb') {
@@ -7997,7 +8071,7 @@
       T.pr.gy.last = LIVE.g; stamp('pr');
       saveLive(); draw(); return;
     }
-    if (t === 's-fmo') { T.pr.fmo = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-fmo') { T.pr.fmo = Number(v) ? (T.pr.lvl === 0 ? 2 : 1) : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-pl') { T.pr.pl = ['row', 'type', 'off'].indexOf(v) >= 0 ? v : 'row'; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-rc') { T.pr.rc = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-ri') { T.pr.ri = Number(v); stamp('pr'); drawSheet(); return; }
@@ -8143,7 +8217,7 @@
         setTimeout(function () {
           if (document.activeElement === el || !c.isConnected || !LIVE || !LIVE.x[xi] || !LIVE.x[xi].s[si]) return;
           c.classList.remove('on');
-          c.innerHTML = prevText(LIVE.x[xi].s[si]);
+          c.innerHTML = prevText(LIVE.x[xi].s[si], LIVE.x[xi].e);
         }, 350);
       }
     });
