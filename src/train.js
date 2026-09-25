@@ -4078,13 +4078,20 @@
     var h = hive();
     try { return h && h.trainDays ? h.trainDays() || [] : []; } catch (e) { return []; }
   }
+  function setLd(days, fromNourish) {
+    T.pr.ld = defaultsPr({ ld: days }).ld;
+    stamp('pr');
+    var hl = hive();
+    if (!fromNourish && hl && hl.daysMoved) { try { hl.daysMoved(); } catch (e) { /* My Day is not up */ } }
+    if (fromNourish) drawIfShowing();
+  }
   function ldHTML() {
     var on = ldDays();
     return '<div class="tr-ld" role="group" aria-label="Lifting days">' + LD_W.map(function (w, i) {
       return '<button class="tr-ldb" data-t="ld" data-v="' + i + '" aria-pressed="' + (on.indexOf(i) >= 0) +
         '" aria-label="' + LD_N[i] + '">' + w + '</button>';
     }).join('') + '</div>' +
-      '<div class="tr-sub">Lifting days. Nourish plans your carbs around these.</div>';
+      '<div class="tr-sub">Lifting days, the same ones Nourish plans your carbs around.</div>';
   }
 
   function weekGrid(ms, nx) {
@@ -7580,10 +7587,7 @@
     if (t === 'ld') {
       var ld = ldDays().slice(), di = Number(v), at = ld.indexOf(di);
       if (at >= 0) ld.splice(at, 1); else ld.push(di);
-      T.pr.ld = ld.sort();
-      stamp('pr');
-      var hl = hive();
-      if (hl && hl.daysMoved) { try { hl.daysMoved(); } catch (e) { /* My Day is not up */ } }
+      setLd(ld, false);
       draw(); return;
     }
     if (t === 'unbrowse') { S.browse = false; S.lib = false; S.opt = null; draw(); scrollTop(); return; }
@@ -8322,7 +8326,9 @@
     },
     /* Your lifting weekdays while a block is running and you have picked
        them; null otherwise, and Nourish keeps its own. */
-    liftDays: function () { return active() && T.pr.ld.length ? T.pr.ld.slice() : null; },
+    liftDays: function () { return T.pr.ld.length ? T.pr.ld.slice() : null; },
+    /* Nourish's picker writes the same list; one store, two doors. */
+    setLiftDays: function (days) { setLd(days, true); },
     /* The name of the block's next session, for "Upper B today". */
     nextName: function () {
       var ms = active(), nx = ms && nextSlot(ms);

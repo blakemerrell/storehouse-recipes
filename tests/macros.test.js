@@ -476,7 +476,8 @@ module.exports = {
       })(), (await wkTarget()).join(','));
     await openPlan(p);
     await p.waitForTimeout(200);
-    await p.fill('#mtWorkouts', '4');
+    // four lifting days, picked (the count is how many there are)
+    for (const d of [0, 2, 4, 5]) await p.click('[data-mtrain="' + d + '"]');
     await p.click('[data-mtarg="save"]');
     await p.waitForTimeout(350);
     const cyc = await p.evaluate(() => ({
@@ -514,9 +515,8 @@ module.exports = {
     await p.waitForTimeout(200);
     await p.click('[data-mtrain="1"]');
     await p.waitForTimeout(250);
-    t.ok('tapping a day sets it, and the list is kept as its own',
-      await p.evaluate(() =>
-        JSON.parse(localStorage.getItem('bsc.macroProfile')).train.indexOf(1) >= 0));
+    t.ok('tapping a day sets it, in the one list Strengthen shares',
+      await p.evaluate(() => (window.Train.liftDays() || []).indexOf(1) >= 0));
     await p.click('[data-mtrain="1"]');
     await p.waitForTimeout(200);
     await p.click('.sheet-x');
@@ -568,6 +568,9 @@ module.exports = {
       await p.evaluate(() => {
         localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
           inch: 11, lb: 205, act: 1.375, goal: 'cut2' }));
+        /* No lifting days either: the ones picked above are the one shared
+           list now, and would count as sessions in this burn. */
+        localStorage.removeItem('bsc.train');
         return true;
       }));
     await p.reload();
@@ -3125,7 +3128,7 @@ module.exports = {
     await wiz.click('[data-mtw="next"]');
     await wiz.waitForTimeout(300);
     await wiz.fill('#mtSteps', '8000');
-    await wiz.fill('#mtWorkouts', '3');
+    for (const d of [0, 2, 5]) await wiz.click('[data-mtrain="' + d + '"]');
     await wiz.waitForTimeout(350);
     t.ok('and step two breaks the same figure out, not a different one',
       await wiz.evaluate(() => {
@@ -13335,29 +13338,45 @@ module.exports = {
       t.ok('a saved workout is the confirmation: done, with no button left to press',
         /Upper A · done/.test(done.row) && /2 sets/.test(done.row) && !done.btn && done.today > 75, JSON.stringify(done));
 
-      // the plan sheet says where the days come from
+      // one list: the plan sheet edits the same days the block shows
       await seedBlock(two);
       await sp.click('#macroMore');
       await sp.waitForTimeout(150);
       await sp.click('[data-mmore="plan"]');
       await sp.waitForTimeout(300);
-      const sheet = await sp.evaluate(() => ({ txt: (document.querySelector('.mt-ld') || {}).textContent || '',
-        from: !!document.querySelector('[data-mgotrain]'), picker: !!document.querySelector('#mtTrain') }));
-      const W = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      t.ok('the plan sheet shows the block\u2019s days, not a second picker',
-        sheet.txt === two.map((i) => W[i]).join('') && sheet.from && !sheet.picker, JSON.stringify(sheet));
       await sp.evaluate(() => {
         if (document.getElementById('mtEditor').classList.contains('hide')) document.querySelector('[data-mtedit]').click();
       });
       await sp.waitForTimeout(150);
-      await sp.click('[data-mgotrain]');
-      await sp.waitForTimeout(300);
-      t.ok('and Change in Strengthen takes you to the block',
-        await sp.evaluate(() => !!document.querySelector('.tr-ld') && !document.querySelector('#mtTrain')));
-      await sp.click('.tr-ldb[aria-pressed="false"]');
+      const on = () => sp.evaluate(() => [...document.querySelectorAll('#mtTrain [aria-pressed="true"]')].map((b) => Number(b.dataset.mtrain)));
+      t.ok('the plan sheet shows the block\u2019s days, with no count to keep in step',
+        JSON.stringify(await on()) === JSON.stringify(two) && !(await sp.$('[data-mtwk]')) &&
+          /2 a week/.test(await sp.textContent('#mtTrainN')), JSON.stringify(await on()));
+      const add = [0, 1, 2, 3, 4, 5, 6].find((i) => two.indexOf(i) < 0);
+      await sp.click('[data-mtrain="' + add + '"]');
       await sp.waitForTimeout(200);
-      t.ok('a day picked there is Nourish\u2019s at once',
-        await sp.evaluate((n) => window.Train.liftDays().length === n, two.length + 1));
+      const both = await sp.evaluate(() => ({ ld: window.Train.liftDays(),
+        wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts,
+        n: document.getElementById('mtTrainN').textContent }));
+      t.ok('a day picked in Nourish is Strengthen\u2019s, and the count follows',
+        both.ld && both.ld.length === 3 && both.ld.indexOf(add) >= 0 && both.wk === 3 && /3 a week/.test(both.n),
+        JSON.stringify(both));
+      await sp.keyboard.press('Escape');
+      await sp.click('.tab[data-view="train"]');
+      await sp.waitForTimeout(300);
+      const blk = await sp.evaluate(() => [...document.querySelectorAll('.tr-ldb[aria-pressed="true"]')].map((b) => Number(b.dataset.v)));
+      t.ok('and the block card shows the very same days', JSON.stringify(blk) === JSON.stringify(both.ld), JSON.stringify(blk));
+      await sp.click('.tr-ldb[data-v="' + add + '"]');
+      await sp.waitForTimeout(200);
+      const back = await sp.evaluate(() => ({ ld: window.Train.liftDays(),
+        wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts }));
+      t.ok('and taking it off there takes it off Nourish too',
+        JSON.stringify(back.ld) === JSON.stringify(two) && back.wk === 2, JSON.stringify(back));
+
+      // no block at all: the same one list still holds
+      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); window.Train._.reload(); });
+      t.ok('with no block running, the days picked are still the days',
+        await sp.evaluate((two) => JSON.stringify(window.Train.liftDays()) === JSON.stringify(two), two));
       await sp.context().close();
     }
 

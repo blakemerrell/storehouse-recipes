@@ -2506,17 +2506,14 @@
      getDay() starts on Sunday. */
   function mWkIx(d) { return (d.getDay() + 6) % 7; }
 
-  /* The block's lifting days when Strengthen has them — one schedule, kept
-     there — and Nourish's own otherwise. */
+  /* The lifting days: one list, kept in Strengthen and carried by the
+     account. Until anything is picked there, the days the profile implies. */
   function mTrainDays() {
     try {
       var ld = window.Train && window.Train.liftDays ? window.Train.liftDays() : null;
       if (ld && ld.length) return ld.filter(function (n) { return n >= 0 && n <= 6; });
     } catch (e) { /* Strengthen is not up */ }
     return mTrainDaysOwn();
-  }
-  function mFromBlock() {
-    try { return !!(window.Train && window.Train.liftDays && window.Train.liftDays()); } catch (e) { return false; }
   }
   function mTrainDaysOwn() {
     var pr = mReadProfile();
@@ -9720,6 +9717,21 @@
     '</div>';
   }
 
+  function mTrainNSay(n) {
+    return (n ? n + ' a week' : 'None picked') + ' \u00b7 the same days as Strengthen';
+  }
+  /* The one place the lifting days are written: Strengthen's store, which
+     the account carries, or the profile when Strengthen is not loaded. */
+  function mSetTrainDays(days) {
+    days = days.slice().sort(function (a, b) { return a - b; });
+    var pr = mReadProfile();
+    try {
+      if (window.Train && window.Train.setLiftDays) { window.Train.setLiftDays(days); }
+      else pr.train = days;
+    } catch (e) { pr.train = days; }
+    pr.workouts = days.length;
+    mWriteProfile(pr);
+  }
   function mTrainRowHTML() {
     var on = mTrainDays();
     var L = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -9982,22 +9994,18 @@
       '<select id="mtAct" class="hide" aria-hidden="true" tabindex="-1">' + acts.map(function (a) {
         return '<option value="' + a[0] + '"' + (mtActNear(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
       }).join('') + '</select>' +
-      row('Workouts a week', '<span class="mt-stepper">' +
-        '<button type="button" data-mtwk="-1" aria-label="One fewer">&minus;</button>' +
-        box('mtWorkouts', pr.workouts, '') +
-        '<button type="button" data-mtwk="1" aria-label="One more">+</button></span>') +
+      /* One list of lifting days, the same one Strengthen's block shows, and
+         the sessions a week are simply how many of them there are. Blake: "why
+         do i have to play matching games. why not centralize the selection?"
+         There used to be a count here and a set of days under it, and a third
+         copy on the block. */
+      row('Lifting days', mTrainRowHTML() +
+        '<input type="hidden" id="mtWorkouts" value="' + (mTrainDays().length || Number(pr.workouts) || 0) + '">' +
+        '<span class="mt-ld-s" id="mtTrainN">' + mTrainNSay(mTrainDays().length) + '</span>') +
       row('Steps a day <span class="mtl-opt">(optional)</span>',
         '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
         'inputmode="numeric" value="' + (pr.steps || '') + '">');
-    /* Which days those workouts fall on. Spread from the number above until
-       you say otherwise, and then held as a list of its own so changing the
-       number does not rearrange days set by hand. */
-    var rowDays = mFromBlock()
-      ? row('Lifting days', '<span class="mt-ld">' + mTrainDays().map(function (i) {
-          return '<i>' + M_WDAY[i] + '</i>'; }).join('') + '</span>' +
-        '<span class="mt-ld-s">From your Strengthen block \u00b7 ' +
-        '<button type="button" class="mt-ld-go" data-mgotrain="1">Change in Strengthen</button></span>')
-      : row('Which days?', mTrainRowHTML());
+    var rowDays = '';
     var fold = function (title, inner, open) {
       return '<details class="mt-fold"' + (open ? ' open' : '') + '><summary>' + title + '</summary>' + inner + '</details>';
     };
@@ -10179,7 +10187,7 @@
       };
       /* The wizard's shape: one screen at a time, the settings that are not
          questions folded behind a tap. */
-      var wMove = rowsMove + (mFromBlock() ? rowDays : fold('Pick the training days', rowDays));
+      var wMove = rowsMove;
       var wGoal = goalPicksHTML + fold('Reach a weight by a date', goalPaceHTML);
       return shell(
         /* Drawn from the step count rather than written out. Four pips were
@@ -13928,8 +13936,8 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
-    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtwk', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
+    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -16412,37 +16420,20 @@
         return;
       }
 
-      if (e.target.closest('[data-mgotrain]')) {
-        close();
-        var tb = document.querySelector('.tab[data-view="train"]');
-        if (tb) tb.click();
-        return;
-      }
       var trn = e.target.closest('[data-mtrain]');
       if (trn && S.macroTargOpen) {
         var ti = Number(trn.dataset.mtrain);
         var days = mTrainDays(), at = days.indexOf(ti);
         if (at >= 0) days.splice(at, 1); else days.push(ti);
-        var prT = mReadProfile();
-        prT.train = days.sort(function (a, b) { return a - b; });
-        mWriteProfile(prT);
+        mSetTrainDays(days);
         trn.setAttribute('aria-pressed', at >= 0 ? 'false' : 'true');
+        if ($('mtWorkouts')) $('mtWorkouts').value = days.length;
+        if ($('mtTrainN')) $('mtTrainN').textContent = mTrainNSay(days.length);
         mtRefreshPlan();
         if (S.view === 'macros') renderMacros();
         return;
       }
 
-      /* The workouts stepper: one fewer, one more, and the box tells the
-         plan the way typing into it would. */
-      var wk = e.target.closest('[data-mtwk]');
-      if (wk && S.macroTargOpen) {
-        var wi = $('mtWorkouts');
-        if (wi) {
-          wi.value = Math.max(0, Math.min(14, (Number(wi.value) || 0) + Number(wk.dataset.mtwk)));
-          wi.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        return;
-      }
 
       var mseg = e.target.closest('[data-mtsex], [data-mtgoal], [data-mtext], [data-mtact]');
       if (mseg && S.macroTargOpen) {
@@ -17080,7 +17071,11 @@
     },
     /* Nourish's own days, for Strengthen to start its picker from. */
     trainDays: function () { return mTrainDaysOwn(); },
-    daysMoved: function () { if (S.view === 'macros') renderMacros(); },
+    daysMoved: function () {
+      var pr = mReadProfile(), n = mTrainDays().length;
+      if (Number(pr.workouts) !== n) { pr.workouts = n; mWriteProfile(pr); }
+      if (S.view === 'macros') renderMacros();
+    },
     /* A weigh-in from Strengthen, which asks for one on a pull-up day with
        nothing better to go on. The box on Nourish's guard: a weight far from
        your own average, or from any adult's, comes back to be confirmed
