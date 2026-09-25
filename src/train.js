@@ -4013,7 +4013,7 @@
     } else {
       html += '<div class="tr-sub">Every session of this block is done.</div>';
     }
-    html += ldHTML() + weekGrid(ms, nx) + '</div>';
+    html += weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
 
     if (nx && isEz(ms, nx.d)) {
       html += '<div class="tr-card tr-next tr-ez">' +
@@ -4085,20 +4085,79 @@
     if (!fromNourish && hl && hl.daysMoved) { try { hl.daysMoved(); } catch (e) { /* My Day is not up */ } }
     if (fromNourish) drawIfShowing();
   }
-  function ldHTML() {
-    var on = ldDays();
-    return '<div class="tr-ld" role="group" aria-label="Lifting days">' + LD_W.map(function (w, i) {
-      return '<button class="tr-ldb" data-t="ld" data-v="' + i + '" aria-pressed="' + (on.indexOf(i) >= 0) +
-        '" aria-label="' + LD_N[i] + '">' + w + '</button>';
-    }).join('') + '</div>' +
-      '<div class="tr-sub">Lifting days, the same ones Nourish plans your carbs around.</div>';
+  /* The block's days, said on the grid itself. Blake: "What is the diff
+     between the block grid and the circle days? Feels redundant." It was:
+     the circles said which weekdays, the grid which sessions, and nothing
+     tied the two — four circles on a five-session block quietly disagreed.
+     So the lifting sessions take your days in order (Upper the first, Legs
+     the last), each column heading says its day, and the days are changed
+     in one place that asks for exactly as many as the block has sessions. */
+  function liftCols(ms) {
+    var out = [];
+    ms.days.forEach(function (d, i) { if (!d.ez) out.push(i); });
+    return out;
   }
+  /* The weekday each lifting session is planned for, and — this week, from
+     the next one on — the day it will actually land now: a skip slides the
+     rest along to the next lifting days, into next week if it has to. */
+  function colDays(ms, nx) {
+    var cols = liftCols(ms), ld = ldDays().slice().sort(), out = {};
+    if (ld.length !== cols.length) return out;
+    cols.forEach(function (d, i) { out[d] = { wd: ld[i], moved: false }; });
+    if (!nx || isEz(ms, nx.d)) return out;
+    var now = new Date(), ti = (now.getDay() + 6) % 7, today = dayKey(now);
+    var did = ix().list.some(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === today; });
+    var o = did ? 1 : 0;
+    for (var c = cols.indexOf(nx.d); c >= 0 && c < cols.length; c++) {
+      while (o < 21 && ld.indexOf((ti + o) % 7) < 0) o++;
+      var wd = (ti + o) % 7;
+      out[cols[c]] = { wd: wd, moved: wd !== ld[c] };
+      o++;
+    }
+    return out;
+  }
+  function ldHTML(ms, nx) {
+    var n = liftCols(ms).length, cd = colDays(ms, nx), picked = ldDays().length === n;
+    var moved = Object.keys(cd).some(function (k) { return cd[k].moved; });
+    var html = '<div class="tr-ldrow"><span class="tr-ldsay' + (picked ? '' : ' ask') + '">' +
+      (!picked ? 'Pick ' + n + ' lifting days so Nourish can plan your carbs'
+        : moved ? 'This week, moved to your next lifting days'
+        : 'Nourish plans your carbs on these days') + '</span>' +
+      (S.ldOpen ? '' : '<button class="tr-ldgo" data-t="ldopen">Change days</button>') + '</div>';
+    if (!S.ldOpen) return html;
+    var dr = S.ldDraft || [], sd = dr.slice().sort(), ok = sd.length === n;
+    var cols = liftCols(ms);
+    return html + '<div class="tr-ldpanel">' +
+      '<div class="tr-ldq">Which ' + n + ' days do you lift?</div>' +
+      '<div class="tr-sub">One for each session, in order: ' + esc(ms.days[cols[0]].n) + ' on the first, ' +
+        esc(ms.days[cols[cols.length - 1]].n) + ' on the last.</div>' +
+      '<div class="tr-ld" role="group" aria-label="Lifting days">' + LD_W.map(function (w, i) {
+        return '<button class="tr-ldb" data-t="ldpick" data-v="' + i + '" aria-pressed="' + (dr.indexOf(i) >= 0) +
+          '" aria-label="' + LD_N[i] + '">' + w + '</button>';
+      }).join('') + '</div>' +
+      '<div class="tr-ldmap">' + cols.map(function (d, i) {
+        return '<span>' + esc(ms.days[d].n) + '</span><span>' + (sd[i] !== undefined ? LD_S[sd[i]] : '—') + '</span>';
+      }).join('') + '</div>' +
+      '<div class="tr-ldn ' + (ok ? 'ok' : '') + '">' + (ok ? n + ' of ' + n + ', one for each session'
+        : sd.length + ' of ' + n + ' · ' + (sd.length < n ? 'pick ' + (n - sd.length) + ' more' : 'take ' + (sd.length - n) + ' off')) + '</div>' +
+      '<div class="tr-acts"><button class="btn-primary" data-t="ldsave"' + (ok ? '' : ' disabled') + '>Save days</button>' +
+        '<button class="ghost" data-t="ldcancel">Cancel</button></div>' +
+    '</div>';
+  }
+  var LD_S = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   function weekGrid(ms, nx) {
     var sk = Array.isArray(ms.sk) ? ms.sk : [];
     var html = '<div class="tr-grid" role="table" aria-label="Sessions in this block" style="--n:' + ms.days.length + '">' +
       '<div class="tr-grow" role="row"><span class="tr-gh" role="columnheader"></span>' +
-      ms.days.map(function (d) { return '<span class="tr-gh" role="columnheader">' + esc(d.ez ? 'Easy' : d.n) + '</span>'; }).join('') + '</div>';
+      (function () {
+        var cd = colDays(ms, nx);
+        return ms.days.map(function (d, i) {
+          var c = cd[i];
+          return '<span class="tr-gh" role="columnheader">' + esc(d.ez ? 'Easy' : d.n) +
+            (c ? '<i class="tr-ghd' + (c.moved ? ' moved' : '') + '">' + LD_S[c.wd] + '</i>' : '') + '</span>';
+        }).join('');
+      })() + '</div>';
     for (var w = 0; w < weeksOf(ms); w++) {
       html += '<div class="tr-grow" role="row"><span class="tr-gw" role="rowheader">' +
         (w >= accOf(ms) ? 'Deload' : 'Wk ' + (w + 1)) + '</span>';
@@ -7584,10 +7643,18 @@
     if (t === 'lib') { S.lib = true; draw(); scrollTop(); return; }
     if (t === 'unlib') { S.lib = false; draw(); scrollTop(); return; }
     if (t === 'browse') { S.browse = true; S.lib = false; draw(); scrollTop(); return; }
-    if (t === 'ld') {
-      var ld = ldDays().slice(), di = Number(v), at = ld.indexOf(di);
-      if (at >= 0) ld.splice(at, 1); else ld.push(di);
-      setLd(ld, false);
+    if (t === 'ldopen') { S.ldOpen = true; S.ldDraft = ldDays().slice(); draw(); return; }
+    if (t === 'ldcancel') { S.ldOpen = false; S.ldDraft = null; draw(); return; }
+    if (t === 'ldpick') {
+      var dr = (S.ldDraft || []).slice(), di = Number(v), at = dr.indexOf(di);
+      if (at >= 0) dr.splice(at, 1); else dr.push(di);
+      S.ldDraft = dr; draw(); return;
+    }
+    if (t === 'ldsave') {
+      var bm = active();
+      if (!bm || !S.ldDraft || S.ldDraft.length !== liftCols(bm).length) return;
+      setLd(S.ldDraft, false);
+      S.ldOpen = false; S.ldDraft = null;
       draw(); return;
     }
     if (t === 'unbrowse') { S.browse = false; S.lib = false; S.opt = null; draw(); scrollTop(); return; }
@@ -8329,6 +8396,11 @@
     liftDays: function () { return T.pr.ld.length ? T.pr.ld.slice() : null; },
     /* Nourish's picker writes the same list; one store, two doors. */
     setLiftDays: function (days) { setLd(days, true); },
+    /* How many lifting sessions the running block has; 0 without one. While
+       there is one, its days are changed here, where the count is enforced. */
+    blockSessions: function () { var ms = active(); return ms ? liftCols(ms).length : 0; },
+    /* Nourish's "Change days": open the picker on the block card. */
+    openDays: function () { S.ldOpen = true; S.ldDraft = ldDays().slice(); S.browse = false; },
     /* The name of the block's next session, for "Upper B today". */
     nextName: function () {
       var ms = active(), nx = ms && nextSlot(ms);

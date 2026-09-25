@@ -13338,45 +13338,100 @@ module.exports = {
       t.ok('a saved workout is the confirmation: done, with no button left to press',
         /Upper A · done/.test(done.row) && /2 sets/.test(done.row) && !done.btn && done.today > 75, JSON.stringify(done));
 
-      // one list: the plan sheet edits the same days the block shows
+      // the grid's days slide: nothing done yet, so the first session lands on
+      // your next lifting day from today, and the next one after it
       await seedBlock(two);
-      await sp.click('#macroMore');
-      await sp.waitForTimeout(150);
-      await sp.click('[data-mmore="plan"]');
-      await sp.waitForTimeout(300);
-      await sp.evaluate(() => {
-        if (document.getElementById('mtEditor').classList.contains('hide')) document.querySelector('[data-mtedit]').click();
-      });
-      await sp.waitForTimeout(150);
-      const on = () => sp.evaluate(() => [...document.querySelectorAll('#mtTrain [aria-pressed="true"]')].map((b) => Number(b.dataset.mtrain)));
-      t.ok('the plan sheet shows the block\u2019s days, with no count to keep in step',
-        JSON.stringify(await on()) === JSON.stringify(two) && !(await sp.$('[data-mtwk]')) &&
-          /2 a week/.test(await sp.textContent('#mtTrainN')), JSON.stringify(await on()));
-      const add = [0, 1, 2, 3, 4, 5, 6].find((i) => two.indexOf(i) < 0);
-      await sp.click('[data-mtrain="' + add + '"]');
-      await sp.waitForTimeout(200);
-      const both = await sp.evaluate(() => ({ ld: window.Train.liftDays(),
-        wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts,
-        n: document.getElementById('mtTrainN').textContent }));
-      t.ok('a day picked in Nourish is Strengthen\u2019s, and the count follows',
-        both.ld && both.ld.length === 3 && both.ld.indexOf(add) >= 0 && both.wk === 3 && /3 a week/.test(both.n),
-        JSON.stringify(both));
-      await sp.keyboard.press('Escape');
       await sp.click('.tab[data-view="train"]');
       await sp.waitForTimeout(300);
-      const blk = await sp.evaluate(() => [...document.querySelectorAll('.tr-ldb[aria-pressed="true"]')].map((b) => Number(b.dataset.v)));
-      t.ok('and the block card shows the very same days', JSON.stringify(blk) === JSON.stringify(both.ld), JSON.stringify(blk));
-      await sp.click('.tr-ldb[data-v="' + add + '"]');
+      const heads = await sp.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => ({ d: e.textContent, g: e.classList.contains('moved') })));
+      {
+        const W0 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const seq = [];
+        for (let o = 0; seq.length < 2 && o < 14; o++) if (two.indexOf((todayIx + o) % 7) >= 0) seq.push((todayIx + o) % 7);
+        const exp = seq.map((wd, i) => ({ d: W0[wd], g: wd !== two[i] }));
+        t.ok('each session’s day is where it will land, and green when that is not its usual day',
+          JSON.stringify(heads) === JSON.stringify(exp), JSON.stringify({ heads, exp }));
+      }
+      // skip the first session: the second slides to your next lifting day
+      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.ms.b1.sk = ['0:0'];
+        localStorage.setItem('bsc.train', JSON.stringify(T)); });
+      await sp.reload();
+      await sp.click('.tab[data-view="train"]');
+      await sp.waitForTimeout(300);
+      const slid = await sp.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => ({ d: e.textContent, g: e.classList.contains('moved') })));
+      {
+        const W0 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        let lands = -1;
+        for (let o = 0; lands < 0 && o < 14; o++) if (two.indexOf((todayIx + o) % 7) >= 0) lands = (todayIx + o) % 7;
+        const exp = [{ d: W0[two[0]], g: false }, { d: W0[lands], g: lands !== two[1] }];
+        t.ok('a skipped session moves the next one along, marked when it is off its usual day',
+          JSON.stringify(slid) === JSON.stringify(exp), JSON.stringify({ slid, exp }));
+      }
+      await sp.click('.tab[data-view="macros"]');
       await sp.waitForTimeout(200);
-      const back = await sp.evaluate(() => ({ ld: window.Train.liftDays(),
-        wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts }));
-      t.ok('and taking it off there takes it off Nourish too',
-        JSON.stringify(back.ld) === JSON.stringify(two) && back.wk === 2, JSON.stringify(back));
 
-      // no block at all: the same one list still holds
-      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); window.Train._.reload(); });
-      t.ok('with no block running, the days picked are still the days',
-        await sp.evaluate((two) => JSON.stringify(window.Train.liftDays()) === JSON.stringify(two), two));
+      // one list, one place to change it while a block runs
+      await seedBlock(two);                       // two sessions, two days
+      const W = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const openSheet = async () => {
+        await sp.click('#macroMore');
+        await sp.waitForTimeout(150);
+        await sp.click('[data-mmore="plan"]');
+        await sp.waitForTimeout(300);
+        await sp.evaluate(() => {
+          if (document.getElementById('mtEditor').classList.contains('hide')) document.querySelector('[data-mtedit]').click();
+        });
+        await sp.waitForTimeout(150);
+      };
+      await openSheet();
+      const sh = await sp.evaluate(() => ({ chips: (document.querySelector('.mt-ld') || {}).textContent || '',
+        go: !!document.querySelector('[data-mgotrain]'), picker: !!document.querySelector('#mtTrain'),
+        stepper: !!document.querySelector('[data-mtwk]') }));
+      t.ok('with a block, Nourish shows its days and one way to change them, no second picker',
+        sh.chips === two.map((i) => W[i]).join('') && sh.go && !sh.picker && !sh.stepper, JSON.stringify(sh));
+      await sp.click('[data-mgotrain]');
+      await sp.waitForTimeout(350);
+      const blk = await sp.evaluate(() => ({ panel: !!document.querySelector('.tr-ldpanel'),
+        on: [...document.querySelectorAll('.tr-ldpanel .tr-ldb[aria-pressed="true"]')].map((b) => Number(b.dataset.v)),
+        heads: [...document.querySelectorAll('.tr-ghd')].length, circlesOutside: !!document.querySelector('.tr-card > .tr-ld') }));
+      t.ok('Change days lands on the block with the picker open on the same days',
+        blk.panel && JSON.stringify(blk.on) === JSON.stringify(two) && !blk.circlesOutside, JSON.stringify(blk));
+      t.ok('and each session’s column says its day', blk.heads === 2, JSON.stringify(blk));
+      const add = [0, 1, 2, 3, 4, 5, 6].find((i) => two.indexOf(i) < 0);
+      await sp.click('.tr-ldpanel .tr-ldb[data-v="' + add + '"]');
+      await sp.waitForTimeout(150);
+      const over = await sp.evaluate(() => ({ dis: document.querySelector('[data-t="ldsave"]').disabled,
+        n: document.querySelector('.tr-ldn').textContent }));
+      t.ok('a day more than the block has sessions cannot be saved', over.dis && /3 of 2/.test(over.n), JSON.stringify(over));
+      await sp.click('.tr-ldpanel .tr-ldb[data-v="' + two[1] + '"]');
+      await sp.waitForTimeout(150);
+      await sp.click('[data-t="ldsave"]');
+      await sp.waitForTimeout(250);
+      const want = [two[0], add].sort();
+      const saved = await sp.evaluate(() => ({ ld: window.Train.liftDays(),
+        wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts, panel: !!document.querySelector('.tr-ldpanel') }));
+      t.ok('saved there, the days are Nourish’s and the count follows',
+        JSON.stringify(saved.ld) === JSON.stringify(want) && saved.wk === 2 && !saved.panel, JSON.stringify(saved));
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      await openSheet();
+      t.ok('and Nourish shows the new days', (await sp.textContent('.mt-ld')) === want.map((i) => W[i]).join(''),
+        await sp.textContent('.mt-ld'));
+      await sp.keyboard.press('Escape');
+
+      // no block: Nourish's own picker edits the same one list
+      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); });
+      await sp.reload();
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      await openSheet();
+      const free = [0, 1, 2, 3, 4, 5, 6].find((i) => want.indexOf(i) < 0);
+      await sp.click('[data-mtrain="' + free + '"]');
+      await sp.waitForTimeout(200);
+      const nb = await sp.evaluate(() => ({ ld: window.Train.liftDays(), n: document.getElementById('mtTrainN').textContent,
+        wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts }));
+      t.ok('with no block running, Nourish picks the days itself, in the same list',
+        nb.ld && nb.ld.length === 3 && nb.ld.indexOf(free) >= 0 && nb.wk === 3 && /3 a week/.test(nb.n), JSON.stringify(nb));
       await sp.context().close();
     }
 

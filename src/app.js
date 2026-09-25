@@ -9718,7 +9718,11 @@
   }
 
   function mTrainNSay(n) {
-    return (n ? n + ' a week' : 'None picked') + ' \u00b7 the same days as Strengthen';
+    var b = mBlockN();
+    return (n ? n + ' a week' : 'None picked') + (b ? ' \u00b7 one for each session of your block' : ' \u00b7 the same days as Strengthen');
+  }
+  function mBlockN() {
+    try { return window.Train && window.Train.blockSessions ? window.Train.blockSessions() : 0; } catch (e) { return 0; }
   }
   /* The one place the lifting days are written: Strengthen's store, which
      the account carries, or the profile when Strengthen is not loaded. */
@@ -9999,7 +10003,12 @@
          do i have to play matching games. why not centralize the selection?"
          There used to be a count here and a set of days under it, and a third
          copy on the block. */
-      row('Lifting days', mTrainRowHTML() +
+      row('Lifting days', (mBlockN()
+          /* A block running: its days are set on the block, where the count
+             is held to its sessions. Shown here, changed there, one tap. */
+          ? '<span class="mt-ld">' + mTrainDays().map(function (i) { return '<i>' + M_WDAY[i] + '</i>'; }).join('') + '</span>' +
+            '<button type="button" class="mt-ld-go" data-mgotrain="1">Change days</button>'
+          : mTrainRowHTML()) +
         '<input type="hidden" id="mtWorkouts" value="' + (mTrainDays().length || Number(pr.workouts) || 0) + '">' +
         '<span class="mt-ld-s" id="mtTrainN">' + mTrainNSay(mTrainDays().length) + '</span>') +
       row('Steps a day <span class="mtl-opt">(optional)</span>',
@@ -13937,7 +13946,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -16420,6 +16429,13 @@
         return;
       }
 
+      if (e.target.closest('[data-mgotrain]')) {
+        close();
+        try { if (window.Train && window.Train.openDays) window.Train.openDays(); } catch (e2) { /* Strengthen is not up */ }
+        var tb = document.querySelector('.tab[data-view="train"]');
+        if (tb) tb.click();
+        return;
+      }
       var trn = e.target.closest('[data-mtrain]');
       if (trn && S.macroTargOpen) {
         var ti = Number(trn.dataset.mtrain);
