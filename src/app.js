@@ -3196,13 +3196,13 @@
     var ic, t1, t2, btn = '';
     if (done.length) {
       var w0 = done[0], mins = w0.en > w0.st ? Math.round((w0.en - w0.st) / 60000) : 0;
-      ic = '<span class="mw-tr-ic done" aria-hidden="true">\u2713</span>';
+      ic = '<span class="mw-tr-ic is-done" aria-hidden="true">\u2713</span>';
       t1 = esc(done.map(function (w) { return w.n; }).join(', ')) + ' \u00b7 done ' + hm(w0.st);
       t2 = carbs + ' \u00b7 ' + w0.sets + (w0.sets === 1 ? ' set' : ' sets') + (mins ? ', ' + mins + ' min' : '');
     } else if (hard) {
       var nm = '';
       try { nm = window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm = ''; }
-      ic = '<span class="mw-tr-ic lift" aria-hidden="true"><svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0L11 10H0z" fill="currentColor"/></svg></span>';
+      ic = '<span class="mw-tr-ic is-lift" aria-hidden="true"><svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0L11 10H0z" fill="currentColor"/></svg></span>';
       t1 = (nm ? esc(nm) + ' today' : 'Lifting today');
       t2 = carbs + (base.c && base.c !== dt.c ? ' \u00b7 ' + base.c + ' on an average day' : '');
       btn = '<button class="mw-tr-b" data-mtrained="' + esc(k) + '" aria-pressed="true">Rest today</button>';
@@ -3212,7 +3212,7 @@
       for (var n = 1; n <= 7 && !nxt; n++) if (days.indexOf((ix0 + n) % 7) >= 0) nxt = M_WDAY[(ix0 + n) % 7];
       var nm2 = '';
       try { nm2 = window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm2 = ''; }
-      ic = '<span class="mw-tr-ic rest" aria-hidden="true">\u2013</span>';
+      ic = '<span class="mw-tr-ic is-rest" aria-hidden="true">\u2013</span>';
       t1 = 'Rest day';
       t2 = carbs + (nxt ? ' \u00b7 ' + (nm2 ? esc(nm2) : 'next lift') + ' ' + (n === 2 ? 'tomorrow' : nxt) : '');
       btn = '<button class="mw-tr-b go" data-mtrained="' + esc(k) + '" aria-pressed="false">Lifting today</button>';
