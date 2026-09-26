@@ -2430,10 +2430,17 @@
       if ((day[sk] || []).length && mSkipped(k, sk)) mSetSkip(k, sk, false);
     });
     /* Only the past falls out of the window. A plan for Thursday is not a
-       stale record, and pruning by one bound would have eaten it. */
-    var floor = mEarliestKey(), roof = mLatestKey();
+       stale record, and pruning by one bound would have eaten it.
+     *
+       And nothing falls off the far end. It used to — past a week ahead was
+       pruned too — but the only way to have a day out there is for the
+       phone's clock to have gone back, and then the "future" days are the
+       real ones: set the date back ten days and the next plate logged erased
+       everything eaten since. Nothing on screen can reach past a week ahead,
+       so a day out there costs nothing to keep. */
+    var floor = mEarliestKey();
     Object.keys(MDAYS).forEach(function (dk) {
-      if (dk < floor || dk > roof) delete MDAYS[dk];
+      if (dk < floor) delete MDAYS[dk];
     });
     try { localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS)); }
     catch (e) { /* in-memory only for this session */ }
@@ -3180,7 +3187,10 @@
      plates — and the review card's seven days behind read mDay(). So nothing
      on screen can want a flag from outside the window, and a flag kept past it
      is an orphan: a note that Tuesday was closed, for a Tuesday whose plates
-     were pruned a fortnight ago, riding in the sync payload forever.
+     were pruned a fortnight ago, riding in the sync payload forever. Only
+     behind: the day log keeps days past a week ahead now (a clock set back
+     makes the real ones look like that — see mEditDay), and their flags stay
+     with them.
 
      The per-key stamps in MSTAMPS are deliberately NOT pruned alongside. The
      stamp is what tells mMergeRemote it has already seen that day, and the
@@ -3188,9 +3198,9 @@
      write. Drop the stamp and the copy still sitting in Firestore looks new
      again on the next read, and the pruned flag walks straight back in. */
   function mPruneWindow(m) {
-    var floor = mEarliestKey(), roof = mLatestKey();
+    var floor = mEarliestKey();
     Object.keys(m).forEach(function (dk) {
-      if (dk < floor || dk > roof) delete m[dk];
+      if (dk < floor) delete m[dk];
     });
   }
   /* Mornings you trained, as they happened.

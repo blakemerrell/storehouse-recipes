@@ -136,6 +136,31 @@ async function revealPlanFields(pg) {
     await pg.waitForTimeout(200);
   }
 
+  /* A dish onto the nth meal of the day, the way a thumb adds one: every meal
+     opened so each has its add, that meal's add, the list, the first recipe,
+     done. addOn above only ever reaches the first meal. */
+  async function addTo(pg, nth) {
+    await pg.evaluate(() => {
+      document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click());
+    });
+    await pg.waitForTimeout(200);
+    await pg.evaluate((n) => {
+      const a = document.querySelectorAll('.mslot-add')[n];
+      a.scrollIntoView({ block: 'center' });
+      a.click();
+    }, nth);
+    await pg.waitForTimeout(250);
+    await pickerList(pg);
+    await pickRecipe(pg);
+    await pg.click('[data-mpdone]');
+    await pg.waitForTimeout(250);
+  }
+
+  /* What storage holds for one day of the log, or null. */
+  function storedDay(pg, k) {
+    return pg.evaluate((d) => (JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'))[d] || null, k);
+  }
+
 module.exports = {
   name: 'Macros',
   async run(t) {
@@ -13775,6 +13800,32 @@ module.exports = {
         weighed.t === '90 g' && !weighed.est && weighed.stored && weighed.stored.s === 180 && weighed.sent,
         JSON.stringify(weighed));
       await np.context().close();
+    }
+
+    /* ---- the phone's clock set back, 2026-09-26 -------------------------
+     * The day log used to be pruned at both ends, a fortnight behind and a
+     * week ahead. The only way to have a day more than a week ahead is for
+     * the clock to have gone back, and then those days are the real ones:
+     * the offline tracer set the date back ten days, logged one plate, and
+     * everything eaten since was gone. */
+    {
+      const cb = await t.fresh({ viewport: { width: 390, height: 844 } });
+      await cb.clock.install({ time: new Date(2026, 9, 10, 9, 0, 0) });
+      await cb.reload();
+      await cb.click('.tab[data-view="macros"]');
+      await cb.waitForTimeout(250);
+      await addTo(cb, 0);
+      const real = await storedDay(cb, '2026-10-10');
+      await cb.clock.setSystemTime(new Date(2026, 8, 30, 9, 0, 0));
+      await cb.reload();
+      await cb.click('.tab[data-view="macros"]');
+      await cb.waitForTimeout(250);
+      await addTo(cb, 1);
+      const all = await cb.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'));
+      t.ok('with the phone’s date set ten days back, the next plate logged keeps the real days',
+        !!real && JSON.stringify(all['2026-10-10']) === JSON.stringify(real) && !!all['2026-09-30'],
+        JSON.stringify(Object.keys(all)));
+      await cb.close();
     }
   },
 };
