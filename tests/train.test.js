@@ -235,14 +235,14 @@ module.exports = {
       return {
         n: Object.keys(st.T.wo).length, live: !!st.LIVE,
         sets: w.x.reduce((n, x) => n + x.s.length, 0), slot: w.w + ':' + w.d,
-        trained: (JSON.parse(localStorage.getItem('bsc.macroTrained') || '{}'))[today],
+        trained: window.__macroLab.trained(today).on,
         saved: !!document.querySelector('.tr-saved'),
         next: document.querySelector('.tr-gc.next') && document.querySelector('.tr-gc.next').dataset.d,
       };
     });
     t.ok('saving keeps only the ticked sets', d.n === 1 && !d.live && d.sets === 2, JSON.stringify(d));
     t.ok('filed under its week and day', d.slot === '0:0');
-    t.ok('My Day’s “trained today” is ticked for you', d.trained === 1, d.trained);
+    t.ok('My Day counts today as a training day, off the workout itself', d.trained === true, d.trained);
     t.ok('the block moves on to the next session', d.next === '1');
     t.ok('and says it saved', d.saved);
     await p.click('.tr-done [data-t="close"]');

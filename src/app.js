@@ -1822,9 +1822,21 @@
         mSyncState(snap.metadata && snap.metadata.fromCache ? 'connecting' : 'on');
         var live = !(snap.metadata && snap.metadata.fromCache);
         if (live) mHouseReconcile(data || {});
+        /* Strengthen's half moves Nourish too — the lifting days, and the
+           workouts that make a day a training day — and nothing redrew for
+           it: a session logged on the other phone left this one's day on its
+           rest-day carbs until something else happened to draw. */
+        var trWas = mTrainSig();
         if (window.Train) window.Train.remote(data && data.train, live);
-        if (!data || !data.myday) { if (live) mBootTargets(); mSyncPush(true); return; }
-        if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
+        var trMoved = mTrainSig() !== trWas;
+        if (trMoved) mCreditWeek();
+        if (!data || !data.myday) {
+          if (live) mBootTargets();
+          mSyncPush(true);
+          if (trMoved && S.view === 'macros') renderMacros();
+          return;
+        }
+        if ((mMergeRemote(data.myday) || trMoved) && S.view === 'macros') renderMacros();
         if (live) mBootTargets();
         if (S.syncOpen) renderModal();
       }, function () { mSyncState('error'); });
@@ -2575,6 +2587,47 @@
     Object.keys(MDAYT).forEach(function (d) { if (d < cutK) delete MDAYT[d]; });
     mPut('bsc.macroDayT', MDAYT);
   }
+  /* A workout landing on a day, written into what the day was aiming at.
+   *
+     The snapshot is taken when Nourish draws today, and a workout saved in
+     Strengthen draws nothing here — so an evening session logged with
+     Strengthen on screen left the day on its morning rest-day number for
+     good, and whether a day counted as trained came down to which tab had
+     been showing. Today is snapped again; a day already behind you (a
+     session saved after midnight, or its date edited back) is raised to its
+     training-day number if it was drawn lower. Only raised: a planned day
+     drawn as a training day and then skipped keeps what it was shown, which
+     is what stops the week paying its carbs out twice. */
+  function mCreditDay(k) {
+    var today = todayKey();
+    if (k === today) { mSnapTargets(); return; }
+    var was = MDAYT[k];
+    if (!(k < today) || !was || !mIsTrainingDay(k)) return;
+    var t = mDayTargetsLive(k);
+    if (!(t.c > was.c) || t.p !== was.p || t.f !== was.f) return;
+    MDAYT[k] = { p: t.p, f: t.f, c: t.c };
+    mPut('bsc.macroDayT', MDAYT);
+  }
+  /* The same for every day the window still draws, when Strengthen's log has
+     arrived from somewhere else and any of them may have been trained. */
+  function mCreditWeek() {
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      mCreditDay(dayKey(d));
+    }
+  }
+  /* What Nourish reads from Strengthen, in one string, so a change to it
+     can be noticed: the lifting days, the block, and which of the last
+     fortnight's days have a workout on them. */
+  function mTrainSig() {
+    if (!window.Train) return '';
+    var out = [mTrainDays(), mBlockN(), mFirstLogged()];
+    for (var i = 0; i < 14; i++) {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      out.push(mStrengthOn(dayKey(d)).length);
+    }
+    return JSON.stringify(out);
+  }
   function mDayTargets(k) {
     var snap = k < todayKey() ? MDAYT[k] : null;
     if (snap && isFinite(snap.p) && isFinite(snap.f) && isFinite(snap.c)) {
@@ -2592,11 +2645,28 @@
      Sunday each get about 12 more. Walked from Monday so every day, looked at
      any morning, gets the same share it was given on its own; a day's own
      change lands only on the days after it, never on itself. Days still to
-     come count as planned. */
+     come count as planned.
+   *
+     Owed, never owing. An extra day used to be paid back too, out of the
+     days after it, and that turned training more than planned into eating
+     less than planned: a newcomer's first workout on an unplanned Saturday
+     took Sunday from 217 g to 100, and two sessions on Thursday and Friday
+     cut the weekend to 178 each. A day trained over the plan now runs the
+     week a little high, which is what training more than you said you would
+     costs. What it owes is still counted — an extra Tuesday and a skipped
+     Wednesday are one moved session, and nothing is handed out for the
+     Wednesday — it is only never taken out of a later day. */
   function mDayTargetsLive(k) {
     var base = mReadTargets();
     var cy = mCycleOf(base);
     if (!cy) return base;
+    /* With no days planned there is nothing to skip, so nothing is ever owed:
+       the day is the plan, or a training day's lift over it. Asked only of a
+       day with a workout or a tick on it, which is most people's none. */
+    if (!cy.T) {
+      if (!mTrainedSaid(k) && !mStrengthOn(k).length) return base;
+      return { p: base.p, f: base.f, c: mCycleC(base, cy, mIsTrainingDay(k)) };
+    }
     var own = mCycleC(base, cy, mIsTrainingDay(k));
     var kd = keyDate(k), ws = new Date(kd);
     ws.setDate(ws.getDate() - mWkIx(kd));
@@ -2606,10 +2676,9 @@
       var dk = dayKey(d);
       var planned = cy.train.indexOf(i) >= 0;
       var hard = mIsTrainingDay(dk);
-      var share = Math.round(owed / (7 - i));
+      var share = Math.round(Math.max(0, owed) / (7 - i));
       var c0 = mCycleC(base, cy, hard);
       var c1 = Math.min(cy.hiC, Math.max(cy.loC, c0 + share));
-      if (share < 0 && c0 < cy.loC) c1 = c0;
       if (dk === k) { adj = c1 - c0; break; }
       /* What the day was actually given, against what the plan meant it to
          have. A past day that was drawn is read from its snapshot: a planned
@@ -2634,7 +2703,17 @@
   function mCycleOf(base) {
     var train = mTrainDays();
     var T = train.length, R = 7 - T;
-    if (!T || !R || !base.c) return null;
+    if (!R || !base.c) return null;
+    /* No lifting days planned is not "no training": a block can be running
+       before its days are picked, and Strengthen promises "Saving marks today
+       as a training day in Nourish". With nothing planned there is nothing
+       for a rest day to give back, so every day is the plan and a day you
+       train takes the lift a planned one would, on top. No floor to hold:
+       nothing is ever taken off a day here. */
+    if (!T) {
+      return { train: train, T: 0, R: 7, swing: MCYCLE_SWING, loC: 0,
+        hiC: Math.round(base.c * (1 + 2 * MCYCLE_SWING)) };
+    }
     /* Whatever the training days gain, the rest days give back, so seven of
        these still add up to seven of the plan.
      *
@@ -2667,10 +2746,18 @@
      more than you said you would. */
   function mIsTrainingDay(k) {
     var train = mTrainDays();
-    if (!train.length || train.length >= 7) return false;
+    if (train.length >= 7) return false;
     var planned = train.indexOf(mWkIx(keyDate(k))) >= 0;
-    /* Not synced, the tick is how Nourish hears; unticked, the plan. */
-    if (!mSynced()) return mTrainedSaid(k) ? mTrainedAt(k) > 0 : planned;
+    /* Not synced, the tick is how Nourish hears; unticked, a workout
+       Strengthen has on the day, read from Strengthen when asked; otherwise
+       the plan. The workout used to be copied in as a tick when it was saved,
+       and the copy stayed when the workout was deleted or moved to another
+       day, and was written even with sync switched off. Off, it is not read. */
+    if (!mSynced()) {
+      if (mTrainedSaid(k)) return mTrainedAt(k) > 0;
+      if (mReadProfileRaw().syncTrain !== false && mStrengthOn(k).length) return true;
+      return planned;
+    }
     /* Synced, Strengthen is the whole answer — there is nothing on Nourish
        to press. Blake: "If sync with strength is on I don't want to see the
        toggle in Nourish." A workout logged that day is a yes. */
@@ -4237,7 +4324,7 @@
                  closed card already says where you stand, and a chip beside
                  it pushed the card's name onto two lines at phone width. */
               return '<span class="mw-sum">' + sumN +
-                (mTrainDays().length && mTrainDays().length < 7 && mIsTrainingDay(k)
+                (mTrainDays().length < 7 && mIsTrainingDay(k)
                   ? ' &middot; trained' : '') + '</u></span>';
             })()
         : ahead
@@ -4266,8 +4353,13 @@
          It says nothing when there is no cycling to move: with a flat plan
          the tick would be a box that changes nothing, which is worse than no
          box. And it never claims to have earned anything — the calories were
-         counted when the profile was filled in. */
-      (shut || ahead || !mTrainDays().length || mTrainDays().length >= 7 ? ''
+         counted when the profile was filled in.
+       *
+         With no lifting days picked it says something only about a day that
+         was trained anyway — a workout in Strengthen, or a tick already
+         given — because that is the one day the carbohydrate moves. */
+      (shut || ahead || mTrainDays().length >= 7 ||
+        (!mTrainDays().length && !mIsTrainingDay(k) && (mSynced() || !mTrainedSaid(k))) ? ''
         : mTrainRow(k)) +
       /* The day's numbers are NOT repeated here. They were, for one build:
          "1,745 calories today, 205 P 61 F 94 C" — which is the sticky strip
@@ -9803,6 +9895,28 @@
     pr.train = days;
     pr.workouts = days.length;
     mWriteProfile(pr);
+    mDaysChanged();
+  }
+  /* The plan's own grams are worked out from how many sessions a week you
+     lift — mBurn counts them — so a change of lifting days is a change of
+     plan. It was not treated as one: days picked in Strengthen after the plan
+     was made moved the profile's count and nothing else, and the plan went on
+     being the one made for no training at all. Blake's newcomer, Maintain,
+     three days picked second: 2,219 kcal and 234 g carbs every day, where the
+     same three days picked first gave 2,379 and 334 on a lifting day. The
+     plan sheet said "3 sessions a week" over numbers made for none.
+   *
+     Only the plan's own grams (auto). Numbers somebody typed into the boxes
+     are theirs, and the days change which of their days are lifting days
+     without touching what they typed. */
+  function mDaysChanged() {
+    var rec = mTargRec();
+    if (!rec || rec.auto === 0) return false;
+    var fresh = mPlanCalc(mReadProfile());
+    if (!fresh) return false;
+    if (Number(rec.p) === fresh.p && Number(rec.f) === fresh.f && Number(rec.c) === fresh.c) return false;
+    mWriteTargets(Object.assign({}, rec, { p: fresh.p, f: fresh.f, c: fresh.c }));
+    return true;
   }
   function mTrainRowHTML() {
     var on = mTrainDays();
@@ -17172,16 +17286,24 @@
     openSheet: function () { pushSheet({ tr: 1 }); },
     closeSheet: function () { close(); },
     trained: function (k) {
-      mSetTrained(k, true);
+      mCreditDay(k);
       if (S.view === 'macros') renderMacros();
     },
     /* Nourish's own days, for Strengthen to start its picker from. */
     trainDays: function () { return mTrainDaysOwn(); },
     daysMoved: function () {
-      var pr = mReadProfile(), days = mTrainDays();
+      /* Strengthen's list as Strengthen now has it. This read mTrainDays(),
+         which falls back to the profile's copy when Strengthen's list is
+         empty — so days cleared there were read back from the profile and
+         written straight into it again. None picked is an answer. */
+      var ld = null;
+      try { ld = window.Train && window.Train.liftDays ? window.Train.liftDays() : null; } catch (e) { /* Strengthen is not up */ }
+      var pr = mReadProfile();
+      var days = (ld || []).filter(function (n) { return n >= 0 && n <= 6; });
       if (Number(pr.workouts) !== days.length || JSON.stringify(pr.train) !== JSON.stringify(days)) {
         pr.workouts = days.length; pr.train = days; mWriteProfile(pr);
       }
+      mDaysChanged();
       if (S.view === 'macros') renderMacros();
     },
     /* A weigh-in from Strengthen, which asks for one on a pull-up day with
