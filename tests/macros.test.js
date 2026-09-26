@@ -14127,5 +14127,124 @@ module.exports = {
       await tb.close();
       await ta.close();
     }
+
+    /* ---- a signed-in phone opened with no signal, 2026-09-26 -----------
+     * It asked the account once, failed, and never asked again until the
+     * app was killed: nothing logged in the basement went up, Strengthen
+     * never attached, and meanwhile the menu said "Not signed in" over a big
+     * Sign in with Google.
+     *
+     * The account here is a stand-in. The Firebase SDK is answered from this
+     * process for www.gstatic.com while "online" and refused while not, and
+     * its "server" is a plain object — nothing reaches the real project. Its
+     * own context, because an offline start is meant to fail requests, and
+     * t.fresh fails a test for any thrown error. */
+    {
+      const SDK = `(function(){
+        if (window.firebase) return;
+        var user = { uid: 'u1', isAnonymous: false, email: 'me@test.example', displayName: 'Me' };
+        var authObj = { currentUser: user,
+          getRedirectResult: function(){ return Promise.resolve(null); },
+          onAuthStateChanged: function(cb){ setTimeout(function(){ cb(authObj.currentUser); }, 0); return function(){}; },
+          signInAnonymously: function(){ return Promise.resolve({ user: user }); } };
+        var subs = [];
+        function snapOf(path, d){ return { id: path.split('/').pop(), exists: d !== null && d !== undefined,
+          data: function(){ return d ? JSON.parse(JSON.stringify(d)) : undefined; }, metadata: { fromCache: false, hasPendingWrites: false } }; }
+        function deliver(){ subs.slice().forEach(function(s){ s(); }); }
+        function docRef(path){ return { id: path.split('/').pop(), path: path,
+          collection: function(n){ return colRef(path + '/' + n); },
+          set: function(d, o){ return window.__srvSet(path, JSON.parse(JSON.stringify(d)), !!(o && o.merge)).then(deliver); },
+          update: function(d){ return window.__srvSet(path, JSON.parse(JSON.stringify(d)), true).then(deliver); },
+          get: function(){ return window.__srvGet(path).then(function(d){ return snapOf(path, d); }); },
+          onSnapshot: function(o, next){ if (typeof o === 'function') next = o;
+            var on = true; var fire = function(){ if (!on) return; window.__srvGet(path).then(function(d){ if (on) next(snapOf(path, d)); }); };
+            subs.push(fire); setTimeout(fire, 20); return function(){ on = false; }; } }; }
+        function colRef(path){ return { doc: function(id){ return docRef(path + '/' + id); },
+          onSnapshot: function(o, next){ if (typeof o === 'function') next = o;
+            var on = true; var fire = function(){ if (!on) return; window.__srvList(path).then(function(list){ if (!on) return;
+              next({ metadata: { fromCache: false }, forEach: function(fn){ list.forEach(function(r){ fn(snapOf(r.path, r.data)); }); } }); }); };
+            subs.push(fire); setTimeout(fire, 20); return function(){ on = false; }; } }; }
+        var db = { collection: function(n){ return colRef(n); }, enablePersistence: function(){ return Promise.resolve(); } };
+        var fs = function(){ return db; };
+        fs.FieldValue = { delete: function(){ return null; }, arrayUnion: function(){ return [].slice.call(arguments); } };
+        var auth = function(){ return authObj; };
+        auth.GoogleAuthProvider = function(){};
+        window.firebase = { apps: [], initializeApp: function(){ window.firebase.apps.push({}); }, firestore: fs, auth: auth };
+      })();`;
+      const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+      const deep = (to, from) => { Object.keys(from).forEach((k) => { const v = from[k];
+        if (isObj(v) && isObj(to[k])) deep(to[k], v); else to[k] = isObj(v) ? deep({}, v) : v; }); return to; };
+      const SRV = { online: false, db: {}, waiters: [] };
+      const whenOnline = () => (SRV.online ? Promise.resolve() : new Promise((r) => SRV.waiters.push(r)));
+      const oc = await t.browser.newContext({ viewport: { width: 390, height: 844 } });
+      await oc.exposeBinding('__srvSet', async (src, path, data, merge) => {
+        await whenOnline();
+        SRV.db[path] = merge ? deep(SRV.db[path] || {}, data) : deep({}, data);
+        return true;
+      });
+      await oc.exposeBinding('__srvGet', async (src, path) => { await whenOnline(); return SRV.db[path] === undefined ? null : SRV.db[path]; });
+      await oc.exposeBinding('__srvList', async (src, path) => {
+        await whenOnline();
+        return Object.keys(SRV.db).filter((k) => k.indexOf(path + '/') === 0 && k.slice(path.length + 1).indexOf('/') < 0)
+          .map((k) => ({ path: k, data: SRV.db[k] }));
+      });
+      await oc.route(/www\.gstatic\.com\/firebasejs/, (r) => (SRV.online
+        ? r.fulfill({ status: 200, contentType: 'text/javascript', body: /firebase-app-compat/.test(r.request().url()) ? SDK : '' })
+        : r.abort()));
+      await oc.route(/accounts\.google\.com|api\.nal\.usda\.gov/, (r) => r.abort());
+      const op = await oc.newPage();
+      const errs = [];
+      op.on('pageerror', (e) => { if (!/gis is not defined/.test(e.message)) errs.push(e.message); });
+      await op.goto(t.base + 'index.html');
+      await op.evaluate(() => {
+        localStorage.clear();
+        localStorage.setItem('bsc.myAccount', '1');
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 200 }));
+      });
+      await op.reload();
+      await op.click('.tab[data-view="macros"]');
+      await op.waitForTimeout(1500);
+      const off = await op.evaluate(() => ({ who: document.getElementById('macroWho').textContent,
+        state: window.Hive.syncState ? window.Hive.syncState() : 'none' }));
+      t.ok('signed in with no signal, the menu says so rather than "Not signed in"',
+        /Signed in/.test(off.who) && /reach the server/.test(off.who), JSON.stringify(off));
+      t.ok('and Strengthen can ask: offline, not signed out', off.state === 'offline', off.state);
+      await op.click('#syncBtn');
+      await op.waitForTimeout(300);
+      const sheet = await op.evaluate(() => ({ text: document.getElementById('modalRoot').innerText,
+        google: !!document.querySelector('#myGoogleFallback') }));
+      t.ok('the sheet says signed in and out of reach, and offers no sign-in',
+        /can.t reach the server/.test(sheet.text) && !sheet.google, sheet.text.replace(/\s+/g, ' ').slice(0, 400));
+      await op.keyboard.press('Escape');
+      await op.waitForTimeout(200);
+      await weighIn(op, '183.4');
+      const today = await todayOn(op);
+      const wk = today.replace(/-/g, '_');
+      /* The other phone, meanwhile, logged a workout this morning. */
+      const st = await op.evaluate(() => { const d = new Date(); d.setHours(7, 0, 0, 0); return d.getTime(); });
+      SRV.db['users/u1'] = { train: { wo: { other1: { at: Date.now(), v: { id: 'other1', n: 'Upper A', st: st, en: st + 2400000,
+        dk: today, x: [{ e: 'db-bench', s: [{ w: 60, r: 8, t: st + 60000 }] }] } } } } };
+      const before = await op.evaluate(() => !!document.querySelector('.mw-train'));
+      // signal back, with the app left open
+      SRV.online = true;
+      SRV.waiters.splice(0).forEach((f) => f());
+      await op.evaluate(() => window.dispatchEvent(new Event('online')));
+      const up = () => { const u = SRV.db['users/u1'] || {};
+        return !!(u.myday && u.myday.w && u.myday.w[wk]) && !!(u.train && u.train.pr); };
+      for (let i = 0; i < 40 && !up(); i++) await op.waitForTimeout(200);
+      await op.waitForTimeout(500);
+      const on = await op.evaluate(() => ({ who: document.getElementById('macroWho').textContent,
+        state: window.Hive.syncState ? window.Hive.syncState() : 'none',
+        row: (document.querySelector('.mw-train') || {}).textContent || '', wos: Object.keys(window.Train._.state().T.wo).length }));
+      const u = SRV.db['users/u1'] || {};
+      t.ok('signal back with the app open: the weigh-in made offline reaches the account, no reload',
+        !!(u.myday && u.myday.w && u.myday.w[wk] && u.myday.w[wk].v === 183.4), JSON.stringify(u.myday && u.myday.w));
+      t.ok('and Strengthen syncs too', !!(u.train && u.train.pr), JSON.stringify(Object.keys(u.train || {})));
+      t.ok('the menu names the account again', on.who === 'me@test.example' && on.state === 'on', JSON.stringify(on));
+      t.ok('the other phone’s workout arrives once, and Nourish redraws today as a training day',
+        !before && on.wos === 1 && /Trained today|done/.test(on.row), JSON.stringify(on));
+      t.ok('with nothing thrown on the way', errs.length === 0, errs.join(' | '));
+      await oc.close();
+    }
   },
 };

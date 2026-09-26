@@ -1104,11 +1104,17 @@
     var el = $('macroWho');
     if (el) {
       var who = mAccount();
+      /* Unreachable is not signed out. A signed-in phone opened with no
+         signal was told "Not signed in", and the sheet under it offered a
+         big Sign in with Google — the one thing it did not need. */
       var says = who ? (who.email || who.name || 'Signed in')
+        : mSyncAway() ? 'Signed in \u00b7 can\u2019t reach the server'
         : (mAuthKnown ? 'Not signed in' : '');
       if (el.textContent !== says) el.textContent = says;
     }
   }
+  /* Signed in as far as this device knows, and the server out of reach. */
+  function mSyncAway() { return !mAccount() && mSyncUnreachable && mSuspectAccount(); }
 
   /* Every write My Day makes to this phone's storage, through one door.
    *
@@ -1788,6 +1794,39 @@
      it. "Cannot reach the server" could never reach the screen it was
      written for; a dead network read as a fresh invitation to sign in. */
   var mSyncUnreachable = false;
+  var mSyncAsking = false;
+
+  /* Signal back, or the app back in front of you: try again.
+   *
+     A signed-in phone opened with no signal asked once, failed, and then
+     never asked again. mAuthKnown was true after that first answer, and
+     every later mSyncStart — the Sync button, a sheet — read it as "we
+     already know nobody is signed in". The household half of sync.js
+     retried on 'online'; My Day and Strengthen did not, so nothing logged in
+     the basement reached the account until the app was killed and reopened.
+     Only the unreachable case retries; a device that got an answer has one. */
+  function mSyncRetry() {
+    if (mSyncAsking || !mSyncUnreachable || !mSuspectAccount()) return;
+    mSyncStart();
+  }
+  window.addEventListener('online', mSyncRetry);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) return;
+    mSyncRetry();
+    if (mFoldTimer) mFoldNow();
+  });
+
+  /* Hearing about sign-in and sign-out from the SDK, once it can be heard.
+     Asked at boot, it gave up silently with no signal, and nothing asked
+     again once there was one. */
+  var mUserWatch = false;
+  function mWatchUser() {
+    if (mUserWatch || !window.Store.onUser) return;
+    mUserWatch = true;
+    Promise.resolve(window.Store.onUser(function () { mSyncStart(); })).then(function (ok) {
+      if (ok === false) mUserWatch = false;
+    });
+  }
 
   function mSyncStart() {
     if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
@@ -1800,9 +1839,14 @@
     if (!mAccount()) {
       /* Nobody is signed in as far as this page can see — but if the device
          remembers an account, the SDK may simply not have loaded yet, and
-         saying "signed out" now would be a guess. Ask, then answer. */
-      if (mSuspectAccount() && !mAuthKnown) {
+         saying "signed out" now would be a guess. Ask, then answer. And ask
+         again after an attempt that could not reach anybody: that answer
+         was "no signal", not "nobody". */
+      if (mSuspectAccount() && (!mAuthKnown || mSyncUnreachable)) {
+        if (mSyncAsking) return;
+        mSyncAsking = true;
         window.Store.ready().then(function () {
+          mSyncAsking = false;
           mAuthKnown = true;
           /* The device's answer, corrected by the real one.
            *
@@ -1816,12 +1860,14 @@
              sign-in that did not take. Now the truth wins on every load. */
           mAccountMark();
           mSyncUnreachable = false;                 // the server answered
+          mWatchUser();
           if (mAccount()) mSyncStart();
           /* The device said it had an account and the server says otherwise.
              That is the drift this whole re-affirmation exists to catch, so
              it has to reach the gear and not just the sheet. */
           else mSyncState('off');
         }, function () {
+          mSyncAsking = false;
           mAuthKnown = true;
           mSyncUnreachable = true;
           mSyncState('error');
@@ -9376,11 +9422,16 @@
   function mAccountBlockHTML() {
     var who = mAccount();
     var waiting = !who && !mAuthKnown && mSuspectAccount();
+    var away = mSyncAway();
     var word = { off: 'On this device only', connecting: 'Connecting\u2026',
       on: 'Synced', error: 'Cannot reach the server' }[S_SYNC_STATE];
     var body;
     if (waiting) {
       body = '<p class="sync-p">Finding your account&hellip;</p>';
+    } else if (away) {
+      body = '<p class="sync-p">Signed in, but this phone can&rsquo;t reach the server. ' +
+        'What you log is kept here and goes to your account when there&rsquo;s signal.</p>' +
+        '<div class="sync-row"><button class="ghost" data-mysync="retry">Try again</button></div>';
     } else if (!window.Store.configured) {
       body = '<p class="sync-p">No server behind this copy.</p>';
     } else if (who) {
@@ -9454,7 +9505,7 @@
          "on this device only" directly above the pantry card saying exactly
          the same words about a different thing, which reads as one status
          stuttering rather than two facts. The button already says the state. */
-      (who || waiting
+      (who || waiting || away
         ? '<div class="sync-status"><span class="dot' +
           (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
             : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>'
@@ -15893,7 +15944,7 @@
       }, function () { mSyncStart(); });
     } else if (hasAcct) {
       mSyncStart();
-      if (window.Store.onUser) window.Store.onUser(function () { mSyncStart(); });
+      mWatchUser();
     }
     /* Somebody sent a link. Signed in, it is spent by mSyncStart above; signed
        out, the sheet opens on the one thing to do about it. */
@@ -16228,7 +16279,7 @@
       rememberOpener();
       S.syncOpen = true;
       S.myErr = '';
-      if (!mAuthKnown && mSuspectAccount()) mSyncStart();
+      if ((!mAuthKnown || mSyncUnreachable) && mSuspectAccount()) mSyncStart();
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       pushSheet({ s: 1 });
@@ -16806,6 +16857,7 @@
             : 'That did not go through. Try again, or use the other way in.';
           renderModal();
         };
+        if (act2 === 'retry') { mSyncStart(); renderModal(); return; }
         if (act2 === 'google') {
           /* On the redirect path this page is about to be replaced, and the
              flag that decides whether the next load reaches for Firebase at
@@ -17351,6 +17403,23 @@
     ask: ask,
     openSheet: function () { pushSheet({ tr: 1 }); },
     closeSheet: function () { close(); },
+    /* Where the account stands, for Strengthen's own line about it. With no
+       document to write to it could only say "Only on this phone. Sign in
+       under Nourish", which a signed-in phone with no signal is not:
+         'on'          attached to the account
+         'connecting'  an account is remembered and its answer is pending
+         'offline'     an account is remembered and the server is out of reach
+         'signedout'   nobody is signed in on this device */
+    syncState: function () {
+      if (mAccount() && mSyncDoc) return S_SYNC_STATE === 'error' ? 'offline' : 'on';
+      if (mSyncAway()) return 'offline';
+      if (mSuspectAccount() && (!mAuthKnown || mAccount())) return 'connecting';
+      return 'signedout';
+    },
+    /* A workout saved. Nothing is copied: whether a day was trained is read
+       from Strengthen's own log when Nourish asks (mIsTrainingDay), so a
+       workout deleted or moved to another day takes its training day with
+       it. What is written is the day's target, whichever tab is showing. */
     trained: function (k) {
       mCreditDay(k);
       if (S.view === 'macros') renderMacros();
