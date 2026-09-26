@@ -144,10 +144,13 @@ module.exports = {
     await p.evaluate(() => window.Store.addToDay(12, 'wed'));
     await p.waitForTimeout(300);
 
-    // the network goes away
+    // the network goes away: the page's and the service worker's alike
     await ctx.setOffline(true);
+    if (t.down) t.down(true);
     await p.goto(t.base + 'index.html');
     await p.waitForTimeout(1500);
+    const reach = await p.evaluate(() => fetch('tests/run.js?x=' + Date.now()).then((r) => r.status, () => 'refused'));
+    t.ok('and it really is offline: nothing reaches the server, the worker\u2019s own requests included', reach === 'refused', String(reach));
     const alive = await p.evaluate(() => ({
       cards: document.querySelectorAll('.card').length,
       font: document.fonts.check('700 20px "Source Serif 4"'),
@@ -196,6 +199,7 @@ module.exports = {
       mf ? mf.name : 'not served');
 
     await ctx.setOffline(false);
+    if (t.down) t.down(false);
 
     /* ---- the app asks for new builds while it is running ------------------
      *

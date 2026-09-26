@@ -21,22 +21,22 @@
 
 /* Bump this when the shell changes. The old cache is deleted on activate, which
    is what gets a phone that is holding a previous build onto the current one. */
-var CACHE = 'storehouse-v515';
+var CACHE = 'storehouse-v516';
 
 /* The app itself. If any one of these does not arrive, the install fails and
    the phone keeps the worker and the cache it already had. */
 var CORE = [
   './',
   './index.html',
-  './src/style.css?v=515',
-  './src/config.js?v=515',
-  './src/sync.js?v=515',
-  './src/train.js?v=515',
-  './src/app.js?v=515',
-  './data/recipes.js?v=515',
-  './data/nutrition.js?v=515',
-  './data/art.js?v=515',
-  './data/qr.js?v=515',
+  './src/style.css?v=516',
+  './src/config.js?v=516',
+  './src/sync.js?v=516',
+  './src/train.js?v=516',
+  './src/app.js?v=516',
+  './data/recipes.js?v=516',
+  './data/nutrition.js?v=516',
+  './data/art.js?v=516',
+  './data/qr.js?v=516',
   './manifest.webmanifest'
 ];
 
@@ -95,7 +95,7 @@ self.addEventListener('install', function (e) {
            through the browser's own HTTP cache. So a new service worker could
            seed its brand-new cache with files up to ten minutes old, and then
            serve them cache-first for as long as that cache lived. The
-           versioned URLs were never at risk — ?v=515 is a URL the HTTP cache
+           versioned URLs were never at risk — ?v=516 is a URL the HTTP cache
            has never seen — but data/recipes.js carried no version, so the one
            file that changes every time recipes are added was the one file that
            could arrive stale and stay that way. Both halves are fixed: the
@@ -158,39 +158,68 @@ self.addEventListener('fetch', function (e) {
        still pointing at the previous ?v= of the scripts, and the app would go
        on looking unchanged for no reason anyone could see. The server answers
        304 when nothing moved, so this costs a round trip, not a download. */
-    e.respondWith(
-      fetch(req, { cache: 'no-cache' })
-        .then(function (res) {
-          /* Only a real answer from this origin gets kept. Anything that came
-             back was being written over the cached page before — so a hotel
-             wifi login screen, which is a perfectly successful 200 for a
-             document that is not this one, or a 502 from a bad deploy, became
-             the copy the phone opened with no signal from then on. A page that
-             will not load is recoverable; a page that loads and is wrong is
-             the one somebody stands in a basement arguing with. */
-          if (res && res.ok && res.type === 'basic') {
-            var copy = res.clone();
-            caches.open(CACHE).then(function (c) { c.put(req, copy); });
-          }
-          return res;
-        })
-        .catch(function () {
-          return caches.match(req).then(function (hit) {
-            /* The shell answers for the app's own address and nothing else.
-               It used to answer for any same-origin path, so a mistyped or
-               dead URL came back as a working-looking cookbook rather than as
-               a page that could not be found. */
-            if (hit) return hit;
-            var root = new URL('./', self.location).pathname;
-            if (url.pathname === root || url.pathname === root + 'index.html') {
-              return caches.match('./index.html');
-            }
-            return new Response('Not available offline.', {
-              status: 404, headers: { 'content-type': 'text/plain' }
-            });
-          });
-        })
-    );
+    /* The copy kept for no signal: this page's own, or for the app's
+       address, the shell. */
+    var kept = function () {
+      return caches.match(req).then(function (hit) {
+        /* The shell answers for the app's own address and nothing else.
+           It used to answer for any same-origin path, so a mistyped or
+           dead URL came back as a working-looking cookbook rather than as
+           a page that could not be found. */
+        if (hit) return hit;
+        var root = new URL('./', self.location).pathname;
+        if (url.pathname === root || url.pathname === root + 'index.html') return caches.match('./index.html');
+        return null;
+      });
+    };
+    var net = fetch(req, { cache: 'no-cache' }).then(function (res) {
+      /* Only a real answer from this origin gets kept. Anything that came
+         back was being written over the cached page before — so a hotel
+         wifi login screen, which is a perfectly successful 200 for a
+         document that is not this one, or a 502 from a bad deploy, became
+         the copy the phone opened with no signal from then on. A page that
+         will not load is recoverable; a page that loads and is wrong is
+         the one somebody stands in a basement arguing with.
+       *
+         And only a page whose scripts are this worker's own. A deploy met
+         on one bar of signal brought the new index.html but not the new
+         scripts it points at; kept here over the last page, it left a
+         phone with no signal holding a page whose scripts were in no
+         cache: a blank, dead shell until the signal came back. The new
+         page is kept by the new worker, which caches it with its scripts
+         or not at all. */
+      if (res && res.ok && res.type === 'basic') {
+        var copy = res.clone(), probe = res.clone();
+        probe.text().then(function (html) {
+          var v = html.match(/[?&]v=(\d+)/);
+          if (v && 'storehouse-v' + v[1] !== CACHE) return;
+          return caches.open(CACHE).then(function (c) { return c.put(req, copy); });
+        }).catch(function () { /* kept next time */ });
+      }
+      return res;
+    });
+    e.respondWith(new Promise(function (resolve) {
+      var done = false;
+      var give = function (r) { if (!done && r) { done = true; resolve(r); } };
+      var none = function () {
+        return new Response('Not available offline.', { status: 404, headers: { 'content-type': 'text/plain' } });
+      };
+      /* A network that neither answers nor fails — a captive portal, one bar
+         in a basement — held a white screen until it gave up, twenty seconds
+         on, and then showed its error page. After four seconds the last page
+         that worked is shown instead; a deploy still lands, the next time
+         the worker checks. */
+      var slow = setTimeout(function () { kept().then(give); }, 4000);
+      net.then(function (res) {
+        clearTimeout(slow);
+        // a server error is not the page either, when there is one to show
+        if (res.status >= 500) return kept().then(function (hit) { give(hit || res); });
+        give(res);
+      }, function () {
+        clearTimeout(slow);
+        kept().then(function (hit) { give(hit || none()); });
+      });
+    }));
     return;
   }
 

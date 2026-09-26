@@ -44,16 +44,24 @@
   }
   /* When the training log itself cannot be written, the phone's storage is
      full (or refused): said on screen rather than lost in silence. */
-  var LSFULL = false;
+  /* The workout in progress counts too: a tick that cannot be written is a
+     set that is gone if the app is closed, and it was going in silence. */
+  var LSFULL = false, LSBAD = {};
   function writeLS(k, v) {
+    var ok = true;
     try {
       if (v === null || v === undefined) localStorage.removeItem(k);
       else localStorage.setItem(k, JSON.stringify(v));
-      if (k === 'bsc.train') LSFULL = false;
     } catch (e) {
       /* private mode: this session only */
-      if (k === 'bsc.train') LSFULL = true;
+      ok = false;
     }
+    if (k !== 'bsc.train' && k !== 'sh.trainLive') return;
+    /* A workout saved while the log could not be written kept its live copy
+       on the phone (saveWorkout); once the log is written, that copy is spent. */
+    if (ok && k === 'bsc.train' && LSBAD[k] && !LIVE) { try { localStorage.removeItem('sh.trainLive'); } catch (e2) { /* as it was */ } }
+    LSBAD[k] = !ok;
+    LSFULL = !!(LSBAD['bsc.train'] || LSBAD['sh.trainLive']);
   }
   /* Firestore refuses a write carrying `undefined` anywhere in it, and takes
      the whole write down with it, while localStorage quietly drops the key —
@@ -282,7 +290,7 @@
     'db-rear': 'f', 'bb-ohp': 'Cx', 'calf-stand': 'C',
     'db-shrug': 'c', 'bb-shrug': 'C', 'cb-shrug': 'c',
     'cb-crunch': 'F', 'hang-raise': 'F', 'mc-crunch': 'F', 'crunch': 'F', 'ab-wheel': 'X',
-    'sl-rdl': 'f', 'bw-squat': '', 'split-squat': '', 'prone-y': 'x'
+    'sl-rdl': 'F', 'bw-squat': '', 'split-squat': '', 'prone-y': 'x'
   };
 
   /* ------------------------------------------------------------ the joints
@@ -812,7 +820,9 @@
   var HAB_ORDER = Object.keys(HABITS);
   var LV = { l: 'Light', m: 'Moderate', v: 'Vigorous' };
   function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
-  function blankTS() { return { pr: 0, act: 0, ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
+  /* prk: when each setting was last changed, setting by setting. pr stays the
+     newest of them, which is all a build from before this reads. */
+  function blankTS() { return { pr: 0, prk: {}, act: 0, ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
   var PARTS = ['ms', 'wo', 'cx', 'ax', 'nt', 'rt'];
 
   function loadT() {
@@ -833,6 +843,8 @@
     var s = readLS(LS_TS), out = blankTS();
     if (!plain(s)) return out;
     out.pr = fin(s.pr) ? s.pr : 0;
+    // stamps kept by a build from before settings had their own: made from pr when needed (prOwn)
+    out.prk = plain(s.prk) ? s.prk : null;
     out.act = fin(s.act) ? s.act : 0;
     PARTS.forEach(function (p) { if (plain(s[p])) out[p] = s[p]; });
     return out;
@@ -888,7 +900,34 @@
 
   var T = loadT();
   var TS = loadTS();
+  var PRSEEN = prSeen();
   var REV = 0;                           // bumped on every change; the index below keys on it
+
+  /* Settings travel setting by setting. They used to go as one piece, newest
+     wins, so a phone that had only ever had the defaults (a tablet where
+     somebody tapped "I'm new" before signing in) carried its empty back
+     protection, lifting days and answers over everything the account had.
+     Now a setting only this device's defaults hold was never chosen here,
+     has no stamp, and the account's own wins. */
+  function prSeen() {
+    var o = {};
+    Object.keys(T.pr).forEach(function (k) { o[k] = JSON.stringify(T.pr[k]); });
+    return o;
+  }
+  // an older build's single stamp, standing for every setting it holds
+  function prOwn() {
+    if (TS.prk) return;
+    TS.prk = {};
+    if (TS.pr) Object.keys(T.pr).forEach(function (k) { TS.prk[k] = TS.pr; });
+  }
+  function prStamp(now) {
+    prOwn();
+    var was = PRSEEN || {};
+    Object.keys(T.pr).concat(Object.keys(was)).forEach(function (k) {
+      if (JSON.stringify(T.pr[k]) !== was[k]) TS.prk[k] = now;
+    });
+    PRSEEN = prSeen();
+  }
 
   function saveT() {
     REV++;
@@ -902,6 +941,7 @@
     var now = Date.now();
     if (key === undefined) {
       TS[part] = now;
+      if (part === 'pr') prStamp(now);
       dirty[part] = true;
     } else {
       TS[part][key] = now;
@@ -1011,6 +1051,7 @@
     ['pr', 'act'].forEach(function (p) {
       if (!whole && !dirty[p]) return;
       out[p] = { v: T[p], at: TS[p] || 0 };
+      if (p === 'pr') { prOwn(); out.pr.k = TS.prk; }
       any = true;
     });
     PARTS.forEach(function (p) {
@@ -1095,8 +1136,26 @@
   function merge(tr, main) {
     if (!plain(tr)) return false;
     var moved = false;
-    if (plain(tr.pr) && fin(tr.pr.at) && tr.pr.at > (TS.pr || 0) && plain(tr.pr.v)) {
-      T.pr = defaultsPr(tr.pr.v); TS.pr = tr.pr.at; moved = true;
+    if (plain(tr.pr) && fin(tr.pr.at) && plain(tr.pr.v)) {
+      /* Setting by setting, each newer than this device's own. From a build
+         without them, every setting it sent is as new as its one stamp. */
+      prOwn();
+      var ink = plain(tr.pr.k) ? tr.pr.k : null, nv = clean(T.pr), took = false;
+      var keys = ink ? Object.keys(ink) : Object.keys(tr.pr.v).concat(Object.keys(nv).filter(function (k) { return tr.pr.v[k] === undefined; }));
+      keys.forEach(function (k) {
+        var at = ink ? ink[k] : tr.pr.at;
+        // a setting's name, never an object's own machinery (__proto__)
+        if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(k) || !fin(at) || !(at > (TS.prk[k] || 0))) return;
+        if (tr.pr.v[k] === undefined) delete nv[k]; else nv[k] = tr.pr.v[k];
+        TS.prk[k] = at;
+        took = true;
+      });
+      if (took) {
+        T.pr = defaultsPr(nv);
+        TS.pr = Math.max(TS.pr || 0, tr.pr.at);
+        PRSEEN = prSeen();
+        moved = true;
+      }
     }
     if (plain(tr.act) && fin(tr.act.at) && tr.act.at > (TS.act || 0) && typeof tr.act.v === 'string') {
       T.act = tr.act.v; TS.act = tr.act.at; moved = true;
@@ -1146,6 +1205,7 @@
   function forget() {
     T = blankT();
     TS = blankTS();
+    PRSEEN = prSeen();
     YR.gone = {}; YR.purge = {};
     dirty = {};
     dirtyAll = true;
@@ -1373,7 +1433,8 @@
         var now = best[x.e] || { e1: 0, w: 0, r: 0, vol: 0 };
         // a warm-up is never a record: 45 × 14 is not your most reps on the bench
         var work = x.s.filter(counts);
-        var hit = had ? beats(had, work, wo.u, x.e, woBw(wo)) : '';
+        // bodyweight only for a lift that counts it: looking it up reads every weigh-in, and this runs for every lift of every workout
+        var hit = had ? beats(had, work, wo.u, x.e, usesBw(x.e) ? woBw(wo) : null) : '';
         var bw = bwFor(x.e, wo);
         work.forEach(function (s) {
           var w = conv(s.w, wo.u);
@@ -2016,6 +2077,15 @@
 
   function pickMain(key, eq, pf, used) {
     var list = MAINS[key].list.map(lib).filter(function (ex) { return eq.indexOf(ex.q) >= 0 && !barred(ex, pf); });
+    /* The main lift is the one a program loads heaviest, so with your back
+       protected the version that asks least of it goes first, whatever its
+       place in the list: a Smith squat loads a back that is protected from
+       bending and from weight on the spine, and was chosen over a belt
+       squat that loads neither. With nothing protected every cost is nought
+       and the list keeps its order. */
+    var at = {};
+    list.forEach(function (ex, i) { at[ex.id] = i; });
+    list.sort(function (a, b) { return backCost(a, pf) - backCost(b, pf) || at[a.id] - at[b.id]; });
     var fresh = list.filter(function (ex) { return !used[ex.id]; });
     return fresh[0] || list[0] || null;
   }
@@ -3732,35 +3802,50 @@
     var bar = $('trRest');
     if (!bar) return;
     if (!LIVE) {
-      if (!bar.classList.contains('hide')) { bar.classList.add('hide'); bar.innerHTML = ''; }
+      if (!bar.classList.contains('hide')) { bar.classList.add('hide'); bar.innerHTML = ''; bar.removeAttribute('data-shape'); }
       return;
     }
     var left = restLeft();
     var resting = left !== null && left >= -8;
     var done = resting && left <= 0;
-    var html = '';
-    if (resting) {
-      var pct = done ? 100 : Math.max(0, Math.min(100, 100 * (1 - left / LIVE.rs.dur)));
-      html += '<div class="tr-rest-row' + (done ? ' tr-rest-done' : '') + '">' +
-        '<div class="tr-rest-fill" style="width:' + pct.toFixed(1) + '%"></div>' +
-        '<div class="tr-rest-in">' +
-          '<span class="tr-rest-t" role="timer" aria-live="off">' + (done ? 'Rest\u2019s up' : 'Rest ' + clock(left)) + '</span>' +
-          '<span class="tr-rest-b">' +
-            (done ? '' : '<button class="tr-rest-btn" data-t="rest" data-v="-15" aria-label="Fifteen seconds less">\u221215</button>' +
-              '<button class="tr-rest-btn" data-t="rest" data-v="15" aria-label="Fifteen seconds more">+15</button>') +
-            '<button class="tr-rest-btn" data-t="rest" data-v="skip">' + (done ? 'Close' : 'Skip') + '</button>' +
-          '</span>' +
-        '</div></div>';
-    }
-    html += '<div class="tr-rest-in tr-wbar">' +
-      '<button class="tr-wbar-t" data-t="times" aria-label="Started ' + hm(LIVE.st) + '. Change the start time">' +
-        '<span class="tr-wbar-l">Started ' + hm(LIVE.st) + '</span>' +
-        '<span class="tr-wbar-c" id="trElapsed">' + elapsed((Date.now() - LIVE.st) / 1000) + '</span></button>' +
-      '<button class="btn-primary tr-wbar-f" data-t="finish">Finish</button>' +
-    '</div>';
+    var pct = resting ? (done ? 100 : Math.max(0, Math.min(100, 100 * (1 - left / LIVE.rs.dur)))) : 0;
+    var say = done ? 'Rest\u2019s up' : resting ? 'Rest ' + clock(left) : '';
+    var ela = elapsed((Date.now() - LIVE.st) / 1000);
     bar.classList.remove('hide');
     bar.classList.toggle('tr-resting', resting);
-    if (bar.innerHTML !== html) bar.innerHTML = html;
+    /* Built once for each state, and after that only the numbers move. It
+       used to be rebuilt every second, since the clock is in it, and a thumb
+       coming down on +15, Skip or Finish just as the second turned landed on
+       a button that was no longer there: the tap did nothing. */
+    var shape = (done ? 'd' : resting ? 'r' : 'n') + LIVE.st;
+    if (bar.getAttribute('data-shape') === shape) {
+      var f = bar.querySelector('.tr-rest-fill'), tx = bar.querySelector('.tr-rest-t'), el = bar.querySelector('#trElapsed');
+      if (f) f.style.width = pct.toFixed(1) + '%';
+      if (tx && tx.textContent !== say) tx.textContent = say;
+      if (el && el.textContent !== ela) el.textContent = ela;
+    } else {
+      var html = '';
+      if (resting) {
+        html += '<div class="tr-rest-row' + (done ? ' tr-rest-done' : '') + '">' +
+          '<div class="tr-rest-fill" style="width:' + pct.toFixed(1) + '%"></div>' +
+          '<div class="tr-rest-in">' +
+            '<span class="tr-rest-t" role="timer" aria-live="off">' + say + '</span>' +
+            '<span class="tr-rest-b">' +
+              (done ? '' : '<button class="tr-rest-btn" data-t="rest" data-v="-15" aria-label="Fifteen seconds less">\u221215</button>' +
+                '<button class="tr-rest-btn" data-t="rest" data-v="15" aria-label="Fifteen seconds more">+15</button>') +
+              '<button class="tr-rest-btn" data-t="rest" data-v="skip">' + (done ? 'Close' : 'Skip') + '</button>' +
+            '</span>' +
+          '</div></div>';
+      }
+      html += '<div class="tr-rest-in tr-wbar">' +
+        '<button class="tr-wbar-t" data-t="times" aria-label="Started ' + hm(LIVE.st) + '. Change the start time">' +
+          '<span class="tr-wbar-l">Started ' + hm(LIVE.st) + '</span>' +
+          '<span class="tr-wbar-c" id="trElapsed">' + ela + '</span></button>' +
+        '<button class="btn-primary tr-wbar-f" data-t="finish">Finish</button>' +
+      '</div>';
+      bar.innerHTML = html;
+      bar.setAttribute('data-shape', shape);
+    }
     if (done && !LIVE.rs.rung) {
       LIVE.rs.rung = 1;
       saveLive();
@@ -3860,7 +3945,12 @@
     if (!wo.x.length && !wo.mc) return false;
     T.wo[wo.id] = wo;
     stamp('wo', wo.id);
-    setLive(null);
+    /* With the phone's storage full the log was not written, and the live
+       copy is the only one of this workout the phone still has: it stays,
+       so reopening the app brings the workout back to save again rather
+       than nothing. */
+    if (LSBAD['bsc.train']) LIVE = null;
+    else setLive(null);
     stopWake();
     /* And My Day hears about it. Its "trained today" tick moves where the
        day's carbohydrate lands, and it used to be a thing you had to
@@ -5631,10 +5721,28 @@
      Waiting for the popstate to come back round before clearing it left a
      frame of the old sheet over whatever the button had just started. */
   function closeSheet() {
+    if (backToParent()) return;
     var h = hive();
     var had = !!S.sheet;
     sheetClosed();
     if (had && h && h.closeSheet) h.closeSheet();
+  }
+  /* A picker opened from inside another sheet — matching a lift from an
+     import, adding one to a saved workout — goes back to that sheet when
+     closed. It used to close everything, and the import you were halfway
+     through matching was gone with it. The history entry is the one the
+     first sheet pushed, still standing. */
+  function backToParent() {
+    var sh = S.sheet;
+    if (!sh || sh.k !== 'pick') return false;
+    if (sh.mode === 'smap' && S.sg) S.sheet = { k: 'strong', eyebrow: 'Import', title: 'From ' + (S.sg.app || 'your file') };
+    else if (sh.mode === 'eadd' && S.ed && T.wo[S.ed.id]) S.sheet = { k: 'wo', id: S.ed.id, eyebrow: 'Workout', title: 'Workout' };
+    else return false;
+    S.arm = '';
+    S.own = null;
+    S.never = false;
+    drawSheet();
+    return true;
   }
   function sheetClosed() {
     if (!S.sheet) return;
@@ -5685,9 +5793,21 @@
 
   function pickHTML(sh) {
     var q = S.q.toLowerCase().trim();
+    var old = (sh.mode === 'swap' && LIVE && LIVE.x[sh.x]) ? LIVE.x[sh.x].e
+      : (sh.mode === 'dswap' && S.draft) ? S.draft.days[sh.d].s[sh.i].e : '';
+    /* Word by word, each by its start, as well as the whole phrase: "hip
+       abductor" finds the Hip Abduction Machine, "db curls" nothing less
+       than "curl" would. */
+    var qw = q.split(/[^a-z0-9]+/).filter(Boolean).map(function (w) { return w.slice(0, Math.max(3, w.length - 2)); });
+    var words = function (ex) {
+      var h = (ex.n + ' ' + mname(ex.m)).toLowerCase().split(/[^a-z0-9]+/);
+      return qw.every(function (w) { return h.some(function (x) { return x.indexOf(w) === 0; }); });
+    };
     var list = allEx().filter(function (ex) {
+      // a swap is for something else
+      if (old && ex.id === old) return false;
       if (S.qm && ex.m !== S.qm) return false;
-      if (q && ex.n.toLowerCase().indexOf(q) < 0 && mname(ex.m).toLowerCase().indexOf(q) < 0) return false;
+      if (q && ex.n.toLowerCase().indexOf(q) < 0 && mname(ex.m).toLowerCase().indexOf(q) < 0 && !(qw.length && words(ex))) return false;
       return true;
     }).sort(function (a, b) {
       /* What your back has ruled out sinks to the foot of its muscle rather
@@ -5696,8 +5816,6 @@
         (barred(a, T.pr) ? 1 : 0) - (barred(b, T.pr) ? 1 : 0) || a.o - b.o;
     });
     var own = S.own;
-    var old = (sh.mode === 'swap' && LIVE && LIVE.x[sh.x]) ? LIVE.x[sh.x].e
-      : (sh.mode === 'dswap' && S.draft) ? S.draft.days[sh.d].s[sh.i].e : '';
     /* In a block, a swap asks how long it is for. The machine being taken is
        today; not getting on with the exercise is the rest of the block. */
     var scoped = sh.mode === 'swap' && LIVE && LIVE.ms && T.ms[LIVE.ms];
@@ -6441,6 +6559,8 @@
       : repN ? (repN === 1 ? 'A best for its reps!' : repN + ' bests for their reps!')
       : 'Workout ' + won.count + ' done';
     return '<div class="tr-done">' +
+      (LSBAD['bsc.train'] && S.justSaved === wo.id ? '<div class="tr-note tr-warn tr-lsfull" role="alert">This phone\u2019s storage for the app is full, so this workout isn\u2019t saved on it' +
+        (doc && !SY.err ? ' \u2014 it\u2019s in your account.' : '. It comes back as the workout in progress when you reopen the app; export a copy from Settings or free some space first.') + '</div>' : '') +
       '<div class="tr-done-h">' + esc(head) + '</div>' +
       '<div class="tr-sub">' + esc(wo.n) + ' \u00b7 ' + when(wo.st) + ' \u00b7 ' + (wo.en > wo.st ? hmSpan(wo.st, wo.en) : hm(wo.st)) + '</div>' +
       (won.count === 1 ? '<div class="tr-note">Personal bests start today. Beat any of these numbers next time and it earns a \ud83e\udd47.</div>' : '') +
@@ -6961,6 +7081,9 @@
     });
     TS.pr = now; TS.act = now;
     T = n;
+    TS.prk = {};
+    Object.keys(T.pr).forEach(function (k) { TS.prk[k] = now; });
+    PRSEEN = prSeen();
     S.imp = null;
     dirtyAll = true;
     saveT();
@@ -7021,8 +7144,12 @@
     var n = Number(s);
     return fin(n) && n > 0 ? n * 1000 : 0;
   }
+  /* 1,000 is a thousand (a leg press), 72,5 is seventy-two and a half (a
+     comma for the point, as much of Europe writes it). */
   function sgNum(s) {
-    var n = parseFloat(String(s == null ? '' : s).replace(',', '.'));
+    var t = String(s == null ? '' : s).trim();
+    t = /^[-+]?\d{1,3}(,\d{3})+(\.\d+)?\b/.test(t) ? t.replace(/,/g, '') : t.replace(',', '.');
+    var n = parseFloat(t);
     return fin(n) ? n : null;
   }
 
@@ -7089,14 +7216,27 @@
   };
   function sgKey(n) {
     return String(n || '').toLowerCase().replace(/\btricep\b/g, 'triceps').replace(/[^a-z0-9]+/g, ' ').trim()
+      .replace(/\bdb\b/g, 'dumbbell').replace(/\bbb\b/g, 'barbell').replace(/\bkb\b/g, 'kettlebell')
+      .replace(/\bohp\b/g, 'overhead press').replace(/\brdl\b/g, 'romanian deadlift')
       .replace(/\bpush ups?\b/g, 'push up').replace(/\bpull ups?\b/g, 'pull up').replace(/\bchin ups?\b/g, 'chin up')
       .replace(/\bstep ups?\b/g, 'step up').replace(/\bskull ?crushers?\b/g, 'skullcrusher');
   }
   function sgMatch(n) {
-    var k = sgKey(n);
-    if (SG_MAP[k] && LIB[SG_MAP[k]]) return SG_MAP[k];
-    // the library's own name, word for word
-    for (var i = 0; i < LIB_LIST.length; i++) if (sgKey(LIB_LIST[i].n) === k) return LIB_LIST[i].id;
+    var k = sgKey(n), tries = [k];
+    /* "Pull Up (Weighted)", "Weighted Dips": the lift itself, the weight
+       column being what was added to you. */
+    var unw = k.replace(/\bweighted\b/g, ' ').replace(/\s+/g, ' ').trim();
+    if (unw && unw !== k) tries.push(unw);
+    // "Squats", "Dumbbell Curls": one of them (never triceps or biceps)
+    tries.slice().forEach(function (t) {
+      var one = t.replace(/\b(?!(?:tri|bi)ceps\b)([a-z]{2,}[^s\s])s\b/g, '$1');
+      if (one !== t) tries.push(one);
+    });
+    for (var j = 0; j < tries.length; j++) {
+      if (SG_MAP[tries[j]] && LIB[SG_MAP[tries[j]]]) return SG_MAP[tries[j]];
+      // the library's own name, word for word
+      for (var i = 0; i < LIB_LIST.length; i++) if (sgKey(LIB_LIST[i].n) === tries[j]) return LIB_LIST[i].id;
+    }
     return '';
   }
   /* A guess at what a lift you made up trains, most particular first, so a
@@ -7174,7 +7314,9 @@
     var C;
     if (has('exercise name') && (has('set order') || has('workout name')) && has('reps') && has('weight')) {
       return { app: has('rir') && has('set type') ? 'Strengthen' : 'Strong', C: { date: at('date'), name: at('workout name'), dur: at('duration', 'workout duration'), ex: at('exercise name'),
-        ord: at('set order'), w: at('weight'), wu: at('weight unit'), r: at('reps'), rpe: at('rpe'), nt: at('notes'), wnt: at('workout notes') } };
+        ord: at('set order'), w: at('weight'), wu: at('weight unit'), r: at('reps'), rpe: at('rpe'), nt: at('notes'), wnt: at('workout notes'),
+        // Strengthen's own export: the bodyweight a pull-up's best was worked from
+        bw: at('bodyweight') } };
     }
     if (has('exercise_title') && has('start_time') && has('reps')) {
       var hw = at('weight_lbs', 'weight_kg', 'weight');
@@ -7228,35 +7370,55 @@
       return { err: 'It needs a date, an exercise and the reps for each set. Choose which columns those are.', need: 'map', head: raw, sig: sig, C: C, text: text, n: rows.length - 1 };
     }
     var order = D.order || imOrder(rows.slice(1, 400).map(function (r) { return r[C.date]; }));
-    var byKey = {}, wosIn = [], names = {}, nOrder = [], units = {}, skipped = 0;
+    var byKey = {}, wosIn = [], names = {}, nOrder = [], units = {}, skipped = 0, bare = 0, sess = {};
     rows.slice(1).forEach(function (r) {
       var get = function (i) { return i >= 0 && i < r.length ? String(r[i]).trim() : ''; };
       var dcell = get(C.date), st = imDate(dcell, order, D.utc), exn = get(C.ex).slice(0, 80);
       if (!fin(st) || !exn) { skipped++; return; }
       // Strong's set order says the kind of set; anything else says it in words
       var so = get(C.ord).toUpperCase(), tyw = get(C.ty).toLowerCase();
-      var reps = sgNum(get(C.r)), wtxt = get(C.w), w = /^(bw|body ?weight)$/i.test(wtxt) ? 0 : sgNum(wtxt.replace(/^\+/, ''));
+      /* BW is the body alone, BW+25 or +25 is 25 added; a minus is how many
+         write the help on an assisted lift, kept to be read once the lift is
+         known (anywhere else it is no weight at all). */
+      var reps = sgNum(get(C.r)), wtxt = get(C.w), bwx = wtxt.replace(/^(bw|body ?weight)\s*(?=\+|$)/i, '');
+      var w = bwx === '' ? 0 : sgNum(bwx.replace(/^\+/, ''));
       // a timed or distance set, a rest-timer row, or a set never done
       if (!(reps > 0) || (so && !/^\d+$/.test(so) && ['W', 'D', 'F'].indexOf(so) < 0)) { skipped++; return; }
-      var wname = get(C.name);
-      var key = C.name >= 0 || /\d:\d/.test(dcell) ? dcell + '|' + wname : dayKey(new Date(st)) + '|' + wname;
+      var wname = get(C.name), key;
+      if (C.name >= 0) key = dcell + '|' + wname;
+      else {
+        /* No column says which workout a row is in: the sets of one day are one
+           workout, even when every row carries its own time (a form, a watch),
+           and a gap of three hours starts another. */
+        var dk0 = dayKey(new Date(st)), b = sess[dk0] || (sess[dk0] = { n: 0, t: st });
+        if (st - b.t > 3 * 3600000) b.n++;
+        b.t = Math.max(b.t, st);
+        key = dk0 + (b.n ? '#' + b.n : '') + '|' + wname;
+      }
       var wo = byKey[key];
       if (!wo) {
         var dur = sgDur(get(C.dur));
         if (!dur && C.end >= 0) { var en = imDate(get(C.end), order, D.utc); if (fin(en) && en > st) dur = en - st; }
         wo = byKey[key] = { key: key, st: st, n: wname.slice(0, 60) || 'Workout', dur: dur, x: [], xi: {}, nt: [] };
         wosIn.push(wo);
-      }
+      } else if (C.name < 0 && st < wo.st) wo.st = st;
       var wnt = get(C.wnt);
       if (wnt && wo.nt.indexOf(wnt) < 0) wo.nt.unshift(wnt);
       var ent = get(C.nt);
+      // what Strengthen's own export writes on a set is not a note anybody wrote
+      if (/^(missed attempt|weight is the machine.s help)$/i.test(ent)) ent = '';
       if (ent && wo.nt.indexOf(exn + ': ' + ent) < 0) wo.nt.push(exn + ': ' + ent);
       var ru = C.wu >= 0 ? get(C.wu).toLowerCase() : '';
       ru = ru ? (/kg|kilo/.test(ru) ? 'kg' : 'lb') : /kg/i.test(wtxt) ? 'kg' : /lb/i.test(wtxt) ? 'lb' : D.unit || '';
+      var bwc = sgNum(get(C.bw));
+      if (bwc > 0 && !wo.bw) { wo.bw = bwc; if (ru) wo.bwu = ru; }
       if (ru) units[ru] = 1;
+      // a weight with nothing to say its unit: the file's own unit, asked if not known
+      else if (w) bare++;
       var x = wo.xi[exn];
       if (!x) { x = wo.xi[exn] = { nm: exn, s: [] }; wo.x.push(x); }
-      var set = { w: w !== null && w > 0 ? Math.round(w * 100) / 100 : 0, r: Math.round(reps) };
+      var set = { w: w !== null && w !== 0 ? Math.round(Math.abs(w) * 100) / 100 : 0, r: Math.round(reps) };
+      if (w < 0) set.ng = 1;
       if (ru) set.su = ru;
       if (so === 'W' || /warm|^true$|^1$|^yes$/.test(tyw)) set.wu = 1;
       else if (so === 'D' || /drop/.test(tyw)) set.ty = 'd';
@@ -7282,16 +7444,17 @@
     /* Each row says its own unit in newer exports, and a history can change
        unit halfway (132.5 kg is not 132.5 lb). A file in one unit comes in
        as that unit; a mixed one is brought to yours, set by set. */
-    var uk = Object.keys(units), unit = uk.length === 1 ? uk[0] : T.pr.u;
-    order2.forEach(function (w) {
-      w.x.forEach(function (x) {
-        x.s.forEach(function (s) {
-          if (s.su && s.su !== unit && s.w > 0) s.w = Math.round((s.su === 'kg' ? s.w * 2.20462 : s.w / 2.20462) * 2) / 2;
-          delete s.su;
-        });
+    /* One weight written "60kg" in a sheet of bare numbers says nothing about
+       the rest: with any weight that has no unit, the file's unit is asked,
+       and the ones that said theirs are brought to it when it comes in. */
+    var uk = Object.keys(units), fixed = uk.length >= 1 && !bare;
+    var unit = fixed && uk.length === 1 ? uk[0] : fixed ? T.pr.u : D.unit || T.pr.u;
+    if (fixed) {
+      order2.forEach(function (w) {
+        w.x.forEach(function (x) { x.s.forEach(function (s) { sgUnit(s, unit); }); });
       });
-    });
-    return { wos: order2, names: list, unit: unit, fixedUnit: uk.length >= 1, mixed: uk.length > 1, skipped: skipped, range: 0,
+    }
+    return { wos: order2, names: list, unit: unit, fixedUnit: fixed, mixed: uk.length > 1, skipped: skipped, range: 0,
       app: D.app, order: order === 'bad' ? '' : order };
   }
 
@@ -7345,8 +7508,16 @@
       var dd = new Date(base + days * DAY_MS);
       return new Date(dd.getFullYear(), dd.getMonth(), dd.getDate(), frac ? 0 : 12, 0, 0).getTime() + Math.round(frac * DAY_MS);
     }
+    /* Anything else the browser can read, but only with a year in it: "15-Jan"
+       or "3/15" would otherwise come in as 2001, silently. */
+    if (!/\b(19|20)\d{2}\b/.test(s)) return null;
     var tt = Date.parse(s);
-    return fin(tt) ? tt : null;
+    return fin(tt) && new Date(tt).getFullYear() >= 1990 ? tt : null;
+  }
+  function sgUnit(s, unit) {
+    if (s.su && s.su !== unit && s.w > 0) s.w = Math.round((s.su === 'kg' ? s.w * 2.20462 : s.w / 2.20462) * 2) / 2;
+    delete s.su;
+    return s;
   }
   // the old name, still what a Strong file's dates go through
   function sgDate(s) { return imDate(s, 'mdy'); }
@@ -7362,10 +7533,17 @@
   var SG_ROOM = 600 * 1024;
   function sgPick(G, months) {
     var from = months ? Date.now() - months * 30.44 * DAY_MS : 0;
-    // here already: brought in before, or logged here at the same minute
-    var at = {};
-    Object.keys(T.wo).forEach(function (k) { if (T.wo[k] && fin(T.wo[k].st)) at[Math.round(T.wo[k].st / 60000)] = 1; });
-    return G.wos.filter(function (w) { return w.st >= from && !T.wo[sgId(w)] && !at[Math.round(w.st / 60000)]; });
+    /* Here already: brought in before, or the same session from another app.
+       Two apps stamp one session a minute or two apart (Strong keeps the
+       seconds, Hevy drops them), so anything within five minutes is it. */
+    var at = {}, NEAR = 5;
+    Object.keys(T.wo).forEach(function (k) { if (T.wo[k] && fin(T.wo[k].st)) at[Math.floor(T.wo[k].st / 60000)] = 1; });
+    var near = function (st) {
+      var m = Math.floor(st / 60000);
+      for (var d = -NEAR; d <= NEAR; d++) if (at[m + d]) return true;
+      return false;
+    };
+    return G.wos.filter(function (w) { return w.st >= from && !T.wo[sgId(w)] && !near(w.st); });
   }
   function sgWo(G, w, ids) {
     var x = [], at = {};
@@ -7373,11 +7551,18 @@
       var e = ids[sx.nm];
       if (!e) return;
       // two of Strong's exercises matched to one of ours become one
-      if (at[e] !== undefined) { x[at[e]].s = x[at[e]].s.concat(sx.s); return; }
+      var ss = sx.s.map(function (s) {
+        var c = sgUnit(clean(s), G.unit);
+        // a minus is the help on an assisted lift; on anything else it is no weight
+        if (c.ng) { if (!ASST[e]) c.w = 0; delete c.ng; }
+        return c;
+      });
+      if (at[e] !== undefined) { x[at[e]].s = x[at[e]].s.concat(ss); return; }
       at[e] = x.length;
-      x.push({ e: e, s: sx.s.map(function (s) { return clean(s); }) });
+      x.push({ e: e, s: ss });
     });
     var wo = { id: sgId(w), st: w.st, dk: dayKey(new Date(w.st)), n: w.n, u: G.unit, x: x, im: 's' };
+    if (w.bw > 0) wo.bw = w.bwu && w.bwu !== G.unit ? Math.round((w.bwu === 'kg' ? w.bw * 2.20462 : w.bw / 2.20462) * 10) / 10 : w.bw;
     if (w.dur > 0 && w.dur < DAY_MS) wo.en = w.st + w.dur;
     var nt = w.nt.join('\n').slice(0, 1000);
     if (nt) wo.nt = nt;
@@ -7964,10 +8149,10 @@
       draw();
       /* The summary takes the Finish sheet's place, so the back gesture
          closes it the same way, and the chime and the confetti go off with
-         it. */
+         it. Not over a save that did not land on the phone. */
       var won = wins(wo);
       openSheet({ k: 'done', id: wo.id, eyebrow: 'Workout complete', title: 'Workout complete' });
-      celebrate(won.big);
+      if (!LSFULL) celebrate(won.big);
       return;
     }
     if (t === 'discard' || t === 'discardnow') {
@@ -8432,7 +8617,7 @@
       rirFor: rirFor, nextSlot: nextSlot, prsIn: prsIn, lib: lib, SPLITS: SPLITS, MUS: MUS,
       estDay: estDay, barred: barred, KEEP_SPLITS: KEEP_SPLITS, HABITS: HABITS, weeksOf: weeksOf, nextTm: nextTm,
       recommend: recommend, PROGS: PROGS, FOCUS: FOCUS, KITS: KITS, axWeek: axWeek, defaultsPr: defaultsPr,
-      MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, csvRows: csvRows, ntKey: ntKey,
+      MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, sgList: sgList, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
       wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
@@ -8441,7 +8626,7 @@
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
-      reload: function () { T = loadT(); TS = loadTS(); LIVE = readLS(LS_LIVE); REV++; }
+      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; }
     }
   };
 })();
