@@ -2553,6 +2553,12 @@ module.exports = {
     r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
     t.ok('signed out, Settings says the training is only on this phone', /Only on this phone/.test(r), r.slice(0, 80));
     await p.click('.sheet-x');
+    r = await p.evaluate(() => { const was = window.Hive.syncState; window.Hive.syncState = () => 'offline';
+      document.querySelector('[data-t="settings"]').click();
+      const say = (document.querySelector('.tr-sheet') || {}).textContent || '';
+      window.Hive.syncState = was; return say; });
+    t.ok('signed in with no signal, it says so instead of asking to sign in', /Signed in, can’t reach the server/.test(r) && !/Only on this phone/.test(r), r.slice(0, 120));
+    await p.click('.sheet-x');
     await p.evaluate(async () => {
       window.Train.attach({ set: () => Promise.reject(new Error('offline')) });
       window.Train.remote({}, true);
