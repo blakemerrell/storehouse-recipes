@@ -2563,13 +2563,15 @@ select { max-width: 280px; }
 .mw-tr-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .mw-tr-1 { font-size: 14px; font-weight: 600; color: var(--ink); }
 .mw-tr-2 { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.mw-tr-b {
-  flex: none;
-  font: inherit; font-size: 12.5px; white-space: nowrap; cursor: pointer;
-  border: 1px solid var(--line-firm); border-radius: 99px; background: none;
-  color: var(--ink); padding: 6px 12px; min-height: 32px;
+.mw-seg {
+  flex: none; display: inline-flex; border: 1px solid var(--line-firm); border-radius: 99px; padding: 2px;
+  background: var(--paper);
 }
-.mw-tr-b.go { border-color: var(--ochre); color: var(--ochre-text); font-weight: 600; }
+.mw-seg-b {
+  font: inherit; font-size: 13px; border: 0; background: none; color: var(--muted);
+  border-radius: 99px; padding: 6px 13px; min-height: 32px; cursor: pointer;
+}
+.mw-seg-b.on { background: var(--ink); color: var(--paper); font-weight: 650; cursor: default; }
 /* How many lifting days, and that they are Strengthen's too. */
 .mt-ld { display: flex; gap: 4px; flex-wrap: wrap; }
 .mt-ld i {

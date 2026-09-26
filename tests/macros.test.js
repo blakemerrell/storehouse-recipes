@@ -5143,18 +5143,17 @@ module.exports = {
     await trainPg.click('.tab[data-view="macros"]');
     await trainPg.waitForTimeout(300);
     const trainWas = await trainPg.evaluate(() => {
-      const b = document.querySelector('[data-mtrained]');
+      const b = document.querySelector('.mw-seg-b.on');
       return { kcal: window.__macroLab.targets(),
-        pressed: b ? b.getAttribute('aria-pressed') : 'missing',
-        day: b ? b.dataset.mtrained : null };
+        pressed: b ? b.dataset.mto : 'missing' };
     });
     t.ok('the morning offers a tick, and starts on whatever the plan assumed',
-      trainWas.pressed === 'true' || trainWas.pressed === 'false', JSON.stringify(trainWas.pressed));
+      trainWas.pressed === '1' || trainWas.pressed === '0', JSON.stringify(trainWas.pressed));
 
-    await trainPg.click('[data-mtrained]');
+    await trainPg.click('[data-mtrained][aria-pressed="false"]');
     await trainPg.waitForTimeout(300);
     const trainNow = await trainPg.evaluate(() => ({
-      pressed: document.querySelector('[data-mtrained]').getAttribute('aria-pressed'),
+      pressed: document.querySelector('.mw-seg-b.on').dataset.mto,
       targets: window.__macroLab.targets(),
     }));
     t.ok('tapping it flips the day and nothing else',
@@ -13279,7 +13278,7 @@ module.exports = {
         for (let i = 0; i < 7; i++) { const x = new Date(d); x.setDate(x.getDate() - wk + i); week.push(window.__macroLab.dayTargets(key(x)).c); }
         return { wk, week, sum: week.reduce((a, b) => a + b, 0), today: week[wk],
           row: (document.querySelector('.mw-train') || {}).textContent || '',
-          btn: (document.querySelector('.mw-train [data-mtrained]') || {}).textContent || '' };
+          btn: (document.querySelector('.mw-train .mw-seg-b.on') || {}).textContent || '' };
       });
       const wd = new Date().getDay(), todayIx = (wd + 6) % 7;
       const two = [0, 1, 2, 3, 4, 5, 6].filter((i) => i !== todayIx).slice(0, 2);
@@ -13288,16 +13287,16 @@ module.exports = {
       await seedBlock([todayIx].concat(two).sort());
       const lift = await look();
       t.ok('the block’s lifting day is Nourish’s lifting day, named by its next session',
-        /Upper A today/.test(lift.row) && /Rest today/.test(lift.btn) && lift.today > 75, JSON.stringify(lift));
+        /Upper A today/.test(lift.row) && lift.btn === 'Lift' && lift.today > 75, JSON.stringify(lift));
       t.ok('and the planned week still averages to the plan',
         Math.abs(lift.sum - 7 * 75) <= 3, JSON.stringify(lift.week));
 
       // skipped
-      await sp.click('.mw-train [data-mtrained]');
+      await sp.click('.mw-train [data-mto="0"]');
       await sp.waitForTimeout(250);
       const skip = await look();
-      t.ok('Rest today drops today’s carbs and offers the way back',
-        /Rest day/.test(skip.row) && /Lifting today/.test(skip.btn) && skip.today < 75, JSON.stringify(skip));
+      t.ok('Rest drops today’s carbs, and the switch shows Rest as the one on',
+        /Rest day/.test(skip.row) && skip.btn === 'Rest' && skip.today < 75, JSON.stringify(skip));
       if (todayIx < 6) {
         t.ok('and the days left in the week make up what it did not use',
           Math.abs(skip.sum - lift.sum) <= 3 && skip.week.slice(todayIx + 1).some((c, i) => c > lift.week[todayIx + 1 + i]),
@@ -13306,14 +13305,18 @@ module.exports = {
       t.ok('and the days before it are not touched',
         skip.week.slice(0, todayIx).join() === lift.week.slice(0, todayIx).join(), JSON.stringify({ was: lift.week, now: skip.week }));
 
+      await sp.click('.mw-train [data-mto="0"]');
+      await sp.waitForTimeout(200);
+      t.ok('and pressing the side already on changes nothing', (await look()).btn === 'Rest');
+
       // an extra day: today is not in the block
       await seedBlock(two);
       const rest = await look();
-      await sp.click('.mw-train [data-mtrained]');
+      await sp.click('.mw-train [data-mto="1"]');
       await sp.waitForTimeout(250);
       const extra = await look();
       t.ok('on a day off, Lifting today puts the carbs on it',
-        /Rest day/.test(rest.row) && /Lifting today|Upper A today/.test(extra.row) && extra.today > rest.today,
+        rest.btn === 'Rest' && extra.btn === 'Lift' && /Upper A today/.test(extra.row) && extra.today > rest.today,
         JSON.stringify({ rest: rest.row, extra: extra.row }));
       if (todayIx < 6) {
         t.ok('and borrows them from the rest of the week, not from nowhere',

@@ -3202,7 +3202,7 @@
       ic = '<span class="mw-tr-ic is-lift" aria-hidden="true"><svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0L11 10H0z" fill="currentColor"/></svg></span>';
       t1 = (nm ? esc(nm) + ' today' : 'Lifting today');
       t2 = carbs + (base.c && base.c !== dt.c ? ' \u00b7 ' + base.c + ' on an average day' : '');
-      btn = '<button class="mw-tr-b" data-mtrained="' + esc(k) + '" aria-pressed="true">Rest today</button>';
+      btn = mTrainSwitch(k, true);
     } else {
       /* Where the next session lands: the next of your days after this one. */
       var days = mTrainDays(), ix0 = mWkIx(keyDate(k)), nxt = '';
@@ -3212,11 +3212,23 @@
       ic = '<span class="mw-tr-ic is-rest" aria-hidden="true">\u2013</span>';
       t1 = 'Rest day';
       t2 = carbs + (nxt ? ' \u00b7 ' + (nm2 ? esc(nm2) : 'next lift') + ' ' + (n === 2 ? 'tomorrow' : nxt) : '');
-      btn = '<button class="mw-tr-b go" data-mtrained="' + esc(k) + '" aria-pressed="false">Lifting today</button>';
+      btn = mTrainSwitch(k, false);
     }
     return '<div class="mw-train no-print">' + ic +
       '<span class="mw-tr-t"><span class="mw-tr-1">' + t1 + '</span><span class="mw-tr-2">' + t2 + '</span></span>' +
       btn + '</div>';
+  }
+  /* Lift | Rest, with today's answer filled in. Blake: "I can't tell if the
+     rest today or lifting today is toggled on or off." A button named for
+     what it would do next reads as the state it is in; a switch showing
+     both sides, one lit, does not. */
+  function mTrainSwitch(k, hard) {
+    var side = function (on, label, v) {
+      return '<button type="button" class="mw-seg-b' + (on ? ' on' : '') + '" data-mtrained="' + esc(k) +
+        '" data-mto="' + v + '" aria-pressed="' + on + '">' + label + '</button>';
+    };
+    return '<span class="mw-seg" role="group" aria-label="Today is a">' +
+      side(hard, 'Lift', 1) + side(!hard, 'Rest', 0) + '</span>';
   }
   function mSessionsOn(k) {
     try { return window.Train && window.Train.sessionsOn ? window.Train.sessionsOn(k) || [] : []; } catch (e) { return []; }
@@ -15710,7 +15722,11 @@
       var tr = e.target.closest('[data-mtrained]');
       if (tr) {
         var tk = tr.dataset.mtrained;
-        mSetTrained(tk, !mIsTrainingDay(tk));
+        /* The switch says which side it wants; pressing the side already
+           lit changes nothing. */
+        var want = tr.dataset.mto !== undefined ? tr.dataset.mto === '1' : !mIsTrainingDay(tk);
+        if (want === mIsTrainingDay(tk)) return;
+        mSetTrained(tk, want);
         keepingFocus(renderMacros);
         return;
       }
