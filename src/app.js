@@ -2636,7 +2636,25 @@
     /* A workout saved in Strengthen that day is a yes. Blake: "can I sync
        that with strengthen". Your own tick, either way, still wins. */
     if (mStrengthOn(k).length) return true;
-    return train.indexOf(mWkIx(keyDate(k))) >= 0;
+    var planned = train.indexOf(mWkIx(keyDate(k))) >= 0;
+    /* Synced with Strengthen, a planned day that ended with nothing logged
+       was a rest day, and the rest of the week makes up for it — nothing to
+       press. Blake: "with sync on I would just go there and load my actual
+       workout." Only from the first workout Strengthen has on record, so the
+       weeks before you logged anything there are not all counted as skips. */
+    if (planned && k < todayKey() && mSynced()) {
+      var first = mFirstLogged();
+      if (first && k >= first) return false;
+    }
+    return planned;
+  }
+  /* Synced: a block is running in Strengthen, or days have been picked
+     there. Either way Strengthen is where the workout is logged. */
+  function mSynced() {
+    try { return !!(window.Train && ((window.Train.liftDays && window.Train.liftDays()) || mBlockN() > 0)); } catch (e) { return false; }
+  }
+  function mFirstLogged() {
+    try { return window.Train && window.Train.firstLogged ? window.Train.firstLogged() : ''; } catch (e) { return ''; }
   }
 
   /* What is actually in storage. Only the plan sheet's Save has any business
@@ -3202,7 +3220,7 @@
       ic = '<span class="mw-tr-ic is-lift" aria-hidden="true"><svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0L11 10H0z" fill="currentColor"/></svg></span>';
       t1 = (nm ? esc(nm) + ' today' : 'Lifting today');
       t2 = carbs + (base.c && base.c !== dt.c ? ' \u00b7 ' + base.c + ' on an average day' : '');
-      btn = mTrainSwitch(k, true);
+      btn = mTrainCtl(k, true);
     } else {
       /* Where the next session lands: the next of your days after this one. */
       var days = mTrainDays(), ix0 = mWkIx(keyDate(k)), nxt = '';
@@ -3212,7 +3230,8 @@
       ic = '<span class="mw-tr-ic is-rest" aria-hidden="true">\u2013</span>';
       t1 = 'Rest day';
       t2 = carbs + (nxt ? ' \u00b7 ' + (nm2 ? esc(nm2) : 'next lift') + ' ' + (n === 2 ? 'tomorrow' : nxt) : '');
-      btn = mTrainSwitch(k, false);
+      if (said && mSynced()) t1 = 'Rest day \u00b7 skipping';
+      btn = mTrainCtl(k, false);
     }
     return '<div class="mw-train no-print">' + ic +
       '<span class="mw-tr-t"><span class="mw-tr-1">' + t1 + '</span><span class="mw-tr-2">' + t2 + '</span></span>' +
@@ -3222,6 +3241,21 @@
      rest today or lifting today is toggled on or off." A button named for
      what it would do next reads as the state it is in; a switch showing
      both sides, one lit, does not. */
+  /* Synced with Strengthen there is nothing to switch: the plan says lift,
+     the logged workout says done, and a day that ends with nothing logged
+     is counted as rest. What is left is one optional word for the morning
+     you already know — "Skipping today?" — and the way back from it. Not
+     synced, the switch is the only way Nourish hears what you did. */
+  function mTrainCtl(k, hard) {
+    if (!mSynced()) return mTrainSwitch(k, hard);
+    if (k !== todayKey()) return '';
+    var said = mTrainedSaid(k);
+    if (hard) return '<button type="button" class="mw-tr-link" data-mtrained="' + esc(k) + '" data-mto="0">Skipping today?</button>';
+    if (said && mTrainedAt(k) === 0 && mTrainDays().indexOf(mWkIx(keyDate(k))) >= 0) {
+      return '<button type="button" class="mw-tr-link" data-mtrained="' + esc(k) + '" data-mto="1">Lifting after all</button>';
+    }
+    return '';
+  }
   function mTrainSwitch(k, hard) {
     var side = function (on, label, v) {
       return '<button type="button" class="mw-seg-b' + (on ? ' on' : '') + '" data-mtrained="' + esc(k) +

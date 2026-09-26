@@ -8402,6 +8402,11 @@
     /* Your lifting weekdays while a block is running and you have picked
        them; null otherwise, and Nourish keeps its own. */
     liftDays: function () { return T.pr.ld.length ? T.pr.ld.slice() : null; },
+    /* The day of the first workout on record, '' with none. */
+    firstLogged: function () {
+      var l = ix().list;
+      return l.length ? (l[0].dk || dayKey(new Date(l[0].st))) : '';
+    },
     /* Nourish's picker writes the same list; one store, two doors. */
     setLiftDays: function (days) { setLd(days, true); },
     /* How many lifting sessions the running block has; 0 without one. While
