@@ -14706,6 +14706,8 @@
     },
     targets: function () { return mDayTargets(mViewKey()); },
     dayTargets: mDayTargets,
+    // the week's carb cycle, floor and all, so a test reads the floor the app uses
+    cycle: function () { return mCycleOf(mReadTargets()); },
     measured: mMeasuredTdee,
     tryAgain: mTryAgain,
     assumed: function () { var k = mViewKey(); return mAssumed(mDay(k), mDayTargets(k), mReadSlots()); },

@@ -249,7 +249,10 @@
     ['sumo-dl', 'Sumo Deadlift', 'hams', 'c', 'bb', 'hinge', 5, 8],
     ['trap-dl', 'Trap-Bar Deadlift', 'hams', 'c', 'bb', 'hinge', 5, 10],
     ['as-pullup', 'Assisted Pull-Up', 'back', 'c', 'mc', 'vert', 6, 12],
-    ['as-dip', 'Assisted Dip', 'chest', 'c', 'mc', 'dip', 6, 12]
+    ['as-dip', 'Assisted Dip', 'chest', 'c', 'mc', 'dip', 6, 12],
+    ['seated-lp', 'Seated Leg Press', 'quads', 'c', 'mc', 'machine', 8, 15],
+    ['mc-kick', 'Glute Kickback Machine', 'glutes', 'i', 'mc', 'iso', 12, 20],
+    ['sm-thrust', 'Smith Machine Hip Thrust', 'glutes', 'c', 'sm', 'thrust', 8, 12]
   ];
 
   /* ------------------------------------------------------------ the back
@@ -275,7 +278,7 @@
     'bb-squat': 'FC', 'bb-front': 'fC', 'sm-squat': 'fc', 'goblet': 'fc', 'hack': 'c',
     'leg-press': 'f', 'db-bss': 'c', 'db-lunge': 'c', 'db-stepup': 'c',
     'bb-rdl': 'F', 'db-rdl': 'F', 'bb-sldl': 'F', 'bb-dl': 'FC', 'sumo-dl': 'FC', 'trap-dl': 'fC', 'good-am': 'F',
-    'hip-thrust': 'x', 'mc-thrust': 'x', 'db-thrust': 'x', 'back-ext': 'Fx',
+    'hip-thrust': 'x', 'mc-thrust': 'x', 'db-thrust': 'x', 'sm-thrust': 'x', 'back-ext': 'Fx', 'mc-kick': 'x', 'seated-lp': 'f',
     'db-rear': 'f', 'bb-ohp': 'Cx', 'calf-stand': 'C',
     'db-shrug': 'c', 'bb-shrug': 'C', 'cb-shrug': 'c',
     'cb-crunch': 'F', 'hang-raise': 'F', 'mc-crunch': 'F', 'crunch': 'F', 'ab-wheel': 'X',
@@ -302,11 +305,11 @@
     'cb-fly': 's', 'pec-deck': 's', 'db-fly': 'S',
     'lat-pd': 's', 'as-pullup': 's', 'pullup': 'se', 'lat-pd-n': 's', 'chinup': 'sew', 'pullup-neg': 'se', 'inv-row': 'w',
     'bb-row': 'w', 'db-pullover': 'S',
-    'bb-squat': 'KhSwn', 'hack': 'K', 'bb-front': 'KW', 'sm-squat': 'K', 'leg-press': 'kh', 'belt-squat': 'k',
+    'bb-squat': 'KhSwn', 'hack': 'K', 'bb-front': 'KW', 'sm-squat': 'K', 'leg-press': 'kh', 'seated-lp': 'kh', 'belt-squat': 'k',
     'db-bss': 'Kh', 'goblet': 'k', 'db-lunge': 'Ka', 'db-stepup': 'k', 'leg-ext': 'k',
     'bw-squat': 'k', 'split-squat': 'k', 'bw-bss': 'Kh',
     'bb-rdl': 'h', 'db-rdl': 'h', 'bb-sldl': 'h', 'bb-dl': 'hw', 'sumo-dl': 'hkw', 'trap-dl': 'hkw', 'good-am': 'hs', 'nordic': 'k', 'slide-curl': 'k', 'sl-rdl': 'ha',
-    'hip-thrust': 'h', 'mc-thrust': 'h', 'db-thrust': 'h', 'back-ext': 'h', 'abduct': 'h', 'cb-kick': 'h',
+    'hip-thrust': 'h', 'mc-thrust': 'h', 'db-thrust': 'h', 'sm-thrust': 'h', 'back-ext': 'h', 'abduct': 'h', 'cb-kick': 'h', 'mc-kick': 'h',
     'glute-bridge': '', 'sl-bridge': 'h',
     'db-lat': 's', 'cb-lat': 's', 'mc-lat': 's', 'cb-upright': 'SW',
     'bb-ohp': 'SWn', 'db-ohp': 'S', 'mc-ohp': 'S', 'db-front': 's', 'pike-pushup': 'SWn',
@@ -407,6 +410,7 @@
     'bb-front': ['Bar resting on the front of your shoulders, elbows high.', 'Sit straight down, torso upright, as deep as you can.', 'Drive up keeping your elbows high.'],
     'sm-squat': ['Bar across your upper back, feet a little in front of the bar.', 'Unhook and squat to at least level.', 'Drive up and rehook at the top.'],
     'leg-press': ['Back flat on the pad, feet shoulder width in the middle of the platform.', 'Lower until your knees come toward your chest, without your lower back curling off the pad.', 'Press up without locking your knees.'],
+    'seated-lp': ['Sit with your back and hips against the pad, feet shoulder width in the middle of the platform.', 'Press until your legs are nearly straight, without locking your knees.', 'Come back until your knees are near your chest, stopping before your lower back curls off the pad.'],
     'belt-squat': ['Clip the belt around your hips, stand on the platform and hold the rails.', 'Squat down between your feet, torso upright.', 'Stand back up. Your spine carries none of the weight.'],
     'db-bss': ['Rear foot on a bench behind you, front foot far enough ahead that the knee stays over it.', 'Holding the dumbbells, lower straight down until the back knee nearly touches the floor.', 'Push up through the front foot. All sets on one leg, then the other.'],
     'goblet': ['Hold a dumbbell or kettlebell at your chest, elbows down.', 'Squat down between your knees, torso tall.', 'Stand up through your heels.'],
@@ -437,6 +441,8 @@
     'back-ext': ['Hips on the pad, ankles locked in, body straight.', 'Lower by hinging at the hips, back flat.', 'Rise by squeezing your glutes until your body is straight, and no further.'],
     'abduct': ['Sit tall with the pads on the outsides of your knees.', 'Push your knees apart as far as they go.', 'Return slowly.'],
     'cb-kick': ['Cuff on one ankle, facing the low pulley, holding the frame.', 'Kick the leg straight back, squeezing the glute, without arching your back.', 'Return slowly. All reps on one leg, then the other.'],
+    'mc-kick': ['Chest on the pad, hands on the handles, one foot on the platform or the pad behind your knee.', 'Push the leg back by squeezing your glute until your thigh is in line with your body, ribs down, no arch.', 'Return slowly without letting the stack rest. All reps on one leg, then the other.'],
+    'sm-thrust': ['Set the stops just above the floor. Upper back on a bench beside the bar, the bar padded across your hips, feet flat.', 'Unhook and drive through your heels until your thighs are level, chin tucked, ribs down.', 'Lower until your hips nearly touch the floor; rehook at the top.'],
     'glute-bridge': ['Lie on your back, knees bent, feet flat near your hips.', 'Drive through your heels until your body is straight from knees to shoulders.', 'Lower with control.'],
     'sl-bridge': ['Lie on your back, one foot flat, the other leg lifted.', 'Drive through the planted heel until your hips are level.', 'Lower slowly. All reps on one side, then the other.'],
     'db-lat': ['Dumbbells at your sides, a slight bend in your elbows.', 'Raise them out to the side to shoulder height, elbows leading.', 'Lower slowly.'],
@@ -2028,7 +2034,7 @@
   }
 
   // in the library to add or swap to, never chosen for you
-  var NOPICK = { 'sumo-dl': 1, 'trap-dl': 1, 'as-pullup': 1, 'as-dip': 1 };
+  var NOPICK = { 'sumo-dl': 1, 'trap-dl': 1, 'as-pullup': 1, 'as-dip': 1, 'seated-lp': 1, 'mc-kick': 1, 'sm-thrust': 1 };
   function pickEx(m, k, p, eq, used, seed, pf, today, known) {
     var cand = allEx().filter(function (ex) { return ex.m === m && eq.indexOf(ex.q) >= 0 && !barred(ex, pf) && !NOPICK[ex.id]; });
     /* Never the same exercise twice in one day: with nothing else to hand,
@@ -7059,6 +7065,8 @@
     'seated leg curl machine': 'seated-curl', 'nordic hamstring curl': 'nordic',
     'hip thrust barbell': 'hip-thrust', 'hip thrust machine': 'mc-thrust', 'hip thrust dumbbell': 'db-thrust', 'glute bridge': 'glute-bridge',
     'back extension': 'back-ext', 'hyperextension': 'back-ext', 'hip abductor machine': 'abduct', 'glute kickback cable': 'cb-kick',
+    'glute kickback machine': 'mc-kick', 'hip thrust smith machine': 'sm-thrust',
+    'seated leg press machine': 'seated-lp', 'seated leg press': 'seated-lp', 'leg press horizontal machine': 'seated-lp',
     'lateral raise dumbbell': 'db-lat', 'lateral raise cable': 'cb-lat', 'lateral raise machine': 'mc-lat', 'upright row cable': 'cb-upright',
     'reverse fly machine': 'rev-deck', 'rear delt fly machine': 'rev-deck', 'reverse fly dumbbell': 'db-rear', 'reverse fly cable': 'cb-rear',
     'face pull cable': 'face-pull', 'face pull': 'face-pull',

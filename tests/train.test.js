@@ -1937,6 +1937,17 @@ module.exports = {
     t.ok('About: how to do it in three steps, what it trains, the bar and the rest', r.steps === 3 && /Chest/.test(r.dl) && /Olympic bar 45 lb/.test(r.dl) && /3:00/.test(r.dl), JSON.stringify(r));
     r = await p.evaluate(() => window.Train._.LIB_LIST.filter((x) => !(window.Train._.HOWTO[x.id] || []).length).map((x) => x.id).join());
     t.ok('every lift in the library has its steps written', r === '', r);
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ids = ['seated-lp', 'mc-kick', 'sm-thrust'];
+      const all = [1, 2, 3, 4, 5, 6].map((dpw) => _.build({ dpw, kit: 'gym', lvl: 1 })).map((ms) => ms.days.map((d) => d.s.map((z) => z.e)).flat()).flat();
+      return { names: ids.map((e) => _.lib(e).n + '/' + _.lib(e).m).join(), bar: _.barFor('sm-thrust'),
+        im: ['Seated Leg Press (Machine)', 'Glute Kickback (Machine)', 'Hip Thrust (Smith Machine)'].map((n) => _.sgMatch(n)).join(),
+        picked: ids.filter((e) => all.indexOf(e) >= 0) };
+    });
+    t.ok('a seated leg press, a glute kickback machine and a Smith machine hip thrust are in the library',
+      r.names === 'Seated Leg Press/quads,Glute Kickback Machine/glutes,Smith Machine Hip Thrust/glutes' && r.bar === 20, JSON.stringify(r));
+    t.ok('they come in from Strong by name, and are added by you rather than picked for a program',
+      r.im === 'seated-lp,mc-kick,sm-thrust' && r.picked.length === 0, JSON.stringify(r));
     await p.click('.tr-sheet [data-t="note"]');
     await p.fill('#trNoteU', 'javascript:alert(1)');
     await p.click('[data-t="notesave"]');
