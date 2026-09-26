@@ -137,8 +137,7 @@
     return {};
   }
   function mWriteMyFoods(v) {
-    try { localStorage.setItem('bsc.myFoods', JSON.stringify(v)); }
-    catch (e) { /* private mode: this session only */ }
+    mPut('bsc.myFoods', v);
     mStamp('mf');
   }
 
@@ -1105,10 +1104,42 @@
     var el = $('macroWho');
     if (el) {
       var who = mAccount();
+      /* Unreachable is not signed out. A signed-in phone opened with no
+         signal was told "Not signed in", and the sheet under it offered a
+         big Sign in with Google — the one thing it did not need. */
       var says = who ? (who.email || who.name || 'Signed in')
+        : mSyncAway() ? 'Signed in \u00b7 can\u2019t reach the server'
         : (mAuthKnown ? 'Not signed in' : '');
       if (el.textContent !== says) el.textContent = says;
     }
+  }
+  /* Signed in as far as this device knows, and the server out of reach. */
+  function mSyncAway() { return !mAccount() && mSyncUnreachable && mSuspectAccount(); }
+
+  /* Every write My Day makes to this phone's storage, through one door.
+   *
+     Each writer used to catch its own failure and say nothing — "in-memory
+     only for this session" — which is true of private mode and a lie on a
+     phone whose storage is full: the weigh-in and the breakfast sat on the
+     screen looking kept, nothing was written, and both were gone the next
+     time the app opened, with not a word. Strengthen already says so when it
+     happens; this is the same promise here. The first failure says it at
+     once, wherever you are, and the day card keeps saying it while any store
+     is still failing. A store that writes again is taken off the list. */
+  var MLS_BAD = {};
+  function mPut(key, v) {
+    var ok = true;
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { ok = false; }
+    var was = mLsFull();
+    if (ok) delete MLS_BAD[key]; else MLS_BAD[key] = 1;
+    if (!ok && !was) mToast(esc(mLsFullSay()));
+    return ok;
+  }
+  function mLsFull() { return Object.keys(MLS_BAD).length > 0; }
+  function mLsFullSay() {
+    return 'This phone’s storage for the app is full, so the newest changes aren’t kept on it' +
+      (mAccount() && S_SYNC_STATE !== 'error' ? ' — they go to your account while there’s signal.'
+        : '. Free some space, or sign in so they’re kept in an account.');
   }
 
   var MSTAMPS = (function () {
@@ -1158,7 +1189,7 @@
       MSTAMPS[part] = now;
       mDirty[part] = true;
     }
-    try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); } catch (e) { /* private */ }
+    mPut('bsc.myStamps', MSTAMPS);
     mSyncPush();
   }
 
@@ -1179,7 +1210,7 @@
       MSTAMPS[part] = map;
       Object.keys(map).concat(Object.keys(pair[1])).forEach(function (k) { map[k] = now; });
     });
-    try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); } catch (e) { /* private mode */ }
+    mPut('bsc.myStamps', MSTAMPS);
   }
 
   /* This used to be a private code, which was the right shape for one person
@@ -1274,7 +1305,8 @@
    * 63 with nothing said. A list that is DATA cannot forget a member; a list
    * that is four hand-written blocks can, and did.
    *
-   *   value(k)  what this device says about that key
+   *   value(k)  what this device says about that key — or, handed a map as
+   *             read from storage, what that map says about it
    *   stamps    whether the payload also speaks for keys it has a STAMP for
    *             but no value. That is how a DELETION crosses: an absent key is
    *             indistinguishable from a key never heard of, so a part that
@@ -1321,14 +1353,14 @@
   var MSYNC_KEYED = [
     { part: 'w', ls: 'bsc.macroWeights', stamps: true,
       store: function () { return MWEIGHTS; },
-      value: function (k) { return MWEIGHTS[k] || 0; },
+      value: function (k, m) { return (m || MWEIGHTS)[k] || 0; },
       /* Zero is a real answer: it is the morning you cleared. */
       accept: function (r) { return mNum(r.v) && r.v >= 0; },
       put: function (k, v) { if (v > 0) MWEIGHTS[k] = v; else delete MWEIGHTS[k]; } },
 
     { part: 'd', ls: 'bsc.macroDays', stamps: false,
       store: function () { return MDAYS; },
-      value: function (k) { return MDAYS[k]; },
+      value: function (k, m) { return (m || MDAYS)[k]; },
       /* A day is meals keyed by slot, each a list of plates. */
       accept: function (r) {
         return mPlainObj(r.v) && Object.keys(r.v).every(function (sk) {
@@ -1340,28 +1372,28 @@
 
     { part: 'dn', ls: 'bsc.macroDone', stamps: false,
       store: function () { return MDONE; },
-      value: function (k) { return mDoneAt(k); },
+      value: function (k, m) { return m ? Number(m[k]) || 0 : mDoneAt(k); },
       /* Zero means "I reopened this", so a falsy value must still land. */
       accept: function (r) { return mNum(r.v); },
       put: function (k, v) { MDONE[k] = Number(v) || 0; } },
 
     { part: 'tn', ls: 'bsc.macroTrained', stamps: false,
       store: function () { return MTRAINED; },
-      value: function (k) { return mTrainedAt(k); },
+      value: function (k, m) { return m ? Number(m[k]) || 0 : mTrainedAt(k); },
       /* And zero here means "I un-ticked it". */
       accept: function (r) { return mNum(r.v); },
       put: function (k, v) { MTRAINED[k] = Number(v) || 0; } },
 
     { part: 'sp', ls: 'bsc.macroSkip', stamps: true,
       store: function () { return MSKIP; },
-      value: function (k) { return MSKIP[k] || []; },
+      value: function (k, m) { return (m || MSKIP)[k] || []; },
       /* An empty list is a real answer: it means "I un-skipped them all". */
       accept: function (r) { return mStrList(r.v); },
       put: function (k, v) { if (v.length) MSKIP[k] = v.slice(); else delete MSKIP[k]; } },
 
     { part: 'sn', ls: 'bsc.macroSend', stamps: true,
       store: function () { return MSEND; },
-      value: function (k) { return MSEND[k] || null; },
+      value: function (k, m) { return (m || MSEND)[k] || null; },
       /* Null is a real answer: it means "I cleared that day's choice". */
       accept: function (r) {
         var v = r.v;
@@ -1485,28 +1517,28 @@
       moved = true;
     };
     take('mf', 'bsc.myFoods', function (v) {
-      try { localStorage.setItem('bsc.myFoods', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.myFoods', v);
     });
     take('t', 'bsc.macroTargets', function (v) {
-      try { localStorage.setItem('bsc.macroTargets', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.macroTargets', v);
     });
     take('pr', 'bsc.macroProfile', function (v) {
-      try { localStorage.setItem('bsc.macroProfile', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.macroProfile', v);
     });
     take('sl', 'bsc.macroSlots', function (v) {
-      try { localStorage.setItem('bsc.macroSlots', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.macroSlots', v);
     });
     take('bg', 'bsc.macroBatchG', function (v) {
       Object.keys(MBATCHG).forEach(function (k) { delete MBATCHG[k]; });
       Object.keys(v).forEach(function (k) {
         if (v[k] && v[k].s > 0) MBATCHG[k] = { s: Number(v[k].s), on: String(v[k].on || '') };
       });
-      try { localStorage.setItem('bsc.macroBatchG', JSON.stringify(MBATCHG)); } catch (e) { /* private */ }
+      mPut('bsc.macroBatchG', MBATCHG);
     });
     take('nv', 'bsc.macroNever', function (v) {
       Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
       Object.keys(v).forEach(function (k) { MNEVER[k] = v[k]; });
-      try { localStorage.setItem('bsc.macroNever', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.macroNever', v);
     });
     /* Per morning, newest wins, and zero is a real answer — the same three
        rules the closed-day log runs on, and for the same reason. A morning
@@ -1563,16 +1595,71 @@
        phone moved the day's carbohydrate and then went back on the next
        reload, 118 g to 63 with nothing said. A list that is data cannot
        forget a member. */
-    if (moved) {
-      try {
-        MSYNC_KEYED.forEach(function (row) {
-          localStorage.setItem(row.ls, JSON.stringify(row.store()));
-        });
-        localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS));
-      } catch (e) { /* private mode: this session only */ }
+    /* The stamps only once every store has landed: a stamp kept for a day
+       that was not would tell the next load it already has what the account
+       is still holding for it. */
+    if (moved && MSYNC_KEYED.every(function (row) { return mPut(row.ls, row.store()); })) {
+      mPut('bsc.myStamps', MSTAMPS);
     }
     return moved;
   }
+
+  /* ------------------------------------------- two copies on one phone
+   *
+     Two tabs, or the home-screen app and a browser tab, are two copies of My
+     Day, and each wrote the whole of what it held on every change. Breakfast
+     logged in one and lunch in the other left the day holding lunch: the
+     second copy had never heard of the breakfast, and its whole day went
+     over the top of it. Blake's call: merge, so nothing is lost and nothing
+     needs pressing.
+   *
+     It is the account's merge, not a second rule. Everything the other copy
+     wrote is in storage with its stamps, which is exactly the shape the
+     account hands mMergeRemote — newest wins, part by part and day by day —
+     so what storage holds is read as if it had come from another device.
+     The storage event fires only in the OTHER copies, which are the ones
+     that need to hear; it is let settle for a moment, because one change is
+     several writes (the value, then its stamp). A write here first takes in
+     anything still waiting, so a copy that was asleep does not write its
+     stale day over a fresh one before the event has been heard. */
+  function mFoldStored() {
+    var st = mLsJson('bsc.myStamps');
+    if (!mPlainObj(st)) return false;
+    var md = {};
+    MSYNC_SIMPLE.forEach(function (row) {
+      if (mNum(st[row[0]])) md[row[0]] = { v: mLsJson(row[1]), at: st[row[0]] };
+    });
+    MSYNC_KEYED.forEach(function (row) {
+      var m = mLsJson(row.ls), sm = st[row.part];
+      if (!mPlainObj(sm)) return;
+      if (!mPlainObj(m)) m = {};
+      var keys = {}, map = {};
+      Object.keys(m).forEach(function (k) { keys[k] = 1; });
+      if (row.stamps) Object.keys(sm).forEach(function (k) { keys[k] = 1; });
+      Object.keys(keys).forEach(function (k) {
+        if (mNum(sm[k])) map[mSyncKey(k)] = { v: row.value(k, m), at: sm[k] };
+      });
+      md[row.part] = map;
+    });
+    return mMergeRemote(md);
+  }
+  var mFoldTimer = null;
+  function mFoldNow() {
+    clearTimeout(mFoldTimer);
+    mFoldTimer = null;
+    if (mFoldStored() && S.view === 'macros') renderMacros();
+  }
+  function mFoldDue() {
+    if (!mFoldTimer) return;
+    clearTimeout(mFoldTimer);
+    mFoldTimer = null;
+    mFoldStored();
+  }
+  window.addEventListener('storage', function (e) {
+    if (!e || !e.key || !/^bsc\.(macro|my)/.test(e.key)) return;
+    clearTimeout(mFoldTimer);
+    mFoldTimer = setTimeout(mFoldNow, 60);
+  });
 
   var mSyncDoc = null, mSyncOff = null, mSyncTimer = null;
 
@@ -1707,6 +1794,39 @@
      it. "Cannot reach the server" could never reach the screen it was
      written for; a dead network read as a fresh invitation to sign in. */
   var mSyncUnreachable = false;
+  var mSyncAsking = false;
+
+  /* Signal back, or the app back in front of you: try again.
+   *
+     A signed-in phone opened with no signal asked once, failed, and then
+     never asked again. mAuthKnown was true after that first answer, and
+     every later mSyncStart — the Sync button, a sheet — read it as "we
+     already know nobody is signed in". The household half of sync.js
+     retried on 'online'; My Day and Strengthen did not, so nothing logged in
+     the basement reached the account until the app was killed and reopened.
+     Only the unreachable case retries; a device that got an answer has one. */
+  function mSyncRetry() {
+    if (mSyncAsking || !mSyncUnreachable || !mSuspectAccount()) return;
+    mSyncStart();
+  }
+  window.addEventListener('online', mSyncRetry);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) return;
+    mSyncRetry();
+    if (mFoldTimer) mFoldNow();
+  });
+
+  /* Hearing about sign-in and sign-out from the SDK, once it can be heard.
+     Asked at boot, it gave up silently with no signal, and nothing asked
+     again once there was one. */
+  var mUserWatch = false;
+  function mWatchUser() {
+    if (mUserWatch || !window.Store.onUser) return;
+    mUserWatch = true;
+    Promise.resolve(window.Store.onUser(function () { mSyncStart(); })).then(function (ok) {
+      if (ok === false) mUserWatch = false;
+    });
+  }
 
   function mSyncStart() {
     if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
@@ -1719,9 +1839,14 @@
     if (!mAccount()) {
       /* Nobody is signed in as far as this page can see — but if the device
          remembers an account, the SDK may simply not have loaded yet, and
-         saying "signed out" now would be a guess. Ask, then answer. */
-      if (mSuspectAccount() && !mAuthKnown) {
+         saying "signed out" now would be a guess. Ask, then answer. And ask
+         again after an attempt that could not reach anybody: that answer
+         was "no signal", not "nobody". */
+      if (mSuspectAccount() && (!mAuthKnown || mSyncUnreachable)) {
+        if (mSyncAsking) return;
+        mSyncAsking = true;
         window.Store.ready().then(function () {
+          mSyncAsking = false;
           mAuthKnown = true;
           /* The device's answer, corrected by the real one.
            *
@@ -1735,12 +1860,14 @@
              sign-in that did not take. Now the truth wins on every load. */
           mAccountMark();
           mSyncUnreachable = false;                 // the server answered
+          mWatchUser();
           if (mAccount()) mSyncStart();
           /* The device said it had an account and the server says otherwise.
              That is the drift this whole re-affirmation exists to catch, so
              it has to reach the gear and not just the sheet. */
           else mSyncState('off');
         }, function () {
+          mSyncAsking = false;
           mAuthKnown = true;
           mSyncUnreachable = true;
           mSyncState('error');
@@ -1799,9 +1926,21 @@
         mSyncState(snap.metadata && snap.metadata.fromCache ? 'connecting' : 'on');
         var live = !(snap.metadata && snap.metadata.fromCache);
         if (live) mHouseReconcile(data || {});
+        /* Strengthen's half moves Nourish too — the lifting days, and the
+           workouts that make a day a training day — and nothing redrew for
+           it: a session logged on the other phone left this one's day on its
+           rest-day carbs until something else happened to draw. */
+        var trWas = mTrainSig();
         if (window.Train) window.Train.remote(data && data.train, live);
-        if (!data || !data.myday) { if (live) mBootTargets(); mSyncPush(true); return; }
-        if (mMergeRemote(data.myday) && S.view === 'macros') renderMacros();
+        var trMoved = mTrainSig() !== trWas;
+        if (trMoved) mCreditWeek();
+        if (!data || !data.myday) {
+          if (live) mBootTargets();
+          mSyncPush(true);
+          if (trMoved && S.view === 'macros') renderMacros();
+          return;
+        }
+        if ((mMergeRemote(data.myday) || trMoved) && S.view === 'macros') renderMacros();
         if (live) mBootTargets();
         if (S.syncOpen) renderModal();
       }, function () { mSyncState('error'); });
@@ -2000,8 +2139,7 @@
   }
   function mWriteTargets(t) {
     mStamp('t');
-    try { localStorage.setItem('bsc.macroTargets', JSON.stringify(t)); }
-    catch (e) { /* private mode: the render reads defaults, nothing breaks */ }
+    mPut('bsc.macroTargets', t);
   }
 
   /* ------------------------------------------------ targets follow the scale
@@ -2098,12 +2236,12 @@
     return {};
   })();
   function mSetBatchG(id, perServing) {
+    mFoldDue();
     var k = String(id);
     if (perServing > 0) MBATCHG[k] = { s: Math.round(perServing * 10) / 10, on: todayKey() };
     else delete MBATCHG[k];
     mStamp('bg');
-    try { localStorage.setItem('bsc.macroBatchG', JSON.stringify(MBATCHG)); }
-    catch (e) { /* this session only */ }
+    mPut('bsc.macroBatchG', MBATCHG);
   }
   /* { g: grams a serving, est: true when it is the ingredient estimate }, or
      null when there is nothing to go on. The estimate counts what the recipe
@@ -2117,11 +2255,11 @@
     return tot > 0 ? { g: tot / (r.servN || 1), est: true } : null;
   }
   function mSetNever(id, on) {
+    mFoldDue();
     var k = String(id);
     if (on) MNEVER[k] = todayKey(); else delete MNEVER[k];
     mStamp('nv');
-    try { localStorage.setItem('bsc.macroNever', JSON.stringify(MNEVER)); }
-    catch (e) { /* this session only */ }
+    mPut('bsc.macroNever', MNEVER);
   }
 
   /* The days live in memory and persist best-effort, so a browser that refuses
@@ -2151,8 +2289,7 @@
   }
   function mWriteSlots(s) {
     mStamp('sl');
-    try { localStorage.setItem('bsc.macroSlots', JSON.stringify(s)); }
-    catch (e) { /* private mode */ }
+    mPut('bsc.macroSlots', s);
   }
 
   /* Every section there is, in book order, straight off the live data — the
@@ -2401,6 +2538,7 @@
   }
 
   function mEditDay(k, fn) {
+    mFoldDue();                           // the other copy's change first: see mFoldStored
     var day = MDAYS[k] || (MDAYS[k] = {});
     fn(day);
     /* Food on a meal un-skips it.
@@ -2430,13 +2568,19 @@
       if ((day[sk] || []).length && mSkipped(k, sk)) mSetSkip(k, sk, false);
     });
     /* Only the past falls out of the window. A plan for Thursday is not a
-       stale record, and pruning by one bound would have eaten it. */
-    var floor = mEarliestKey(), roof = mLatestKey();
+       stale record, and pruning by one bound would have eaten it.
+     *
+       And nothing falls off the far end. It used to — past a week ahead was
+       pruned too — but the only way to have a day out there is for the
+       phone's clock to have gone back, and then the "future" days are the
+       real ones: set the date back ten days and the next plate logged erased
+       everything eaten since. Nothing on screen can reach past a week ahead,
+       so a day out there costs nothing to keep. */
+    var floor = mEarliestKey();
     Object.keys(MDAYS).forEach(function (dk) {
-      if (dk < floor || dk > roof) delete MDAYS[dk];
+      if (dk < floor) delete MDAYS[dk];
     });
-    try { localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS)); }
-    catch (e) { /* in-memory only for this session */ }
+    mPut('bsc.macroDays', MDAYS);
     mStamp('d', k);
   }
 
@@ -2548,8 +2692,48 @@
     var cut = new Date(); cut.setDate(cut.getDate() - MINTAKE_DAYS);
     var cutK = dayKey(cut);
     Object.keys(MDAYT).forEach(function (d) { if (d < cutK) delete MDAYT[d]; });
-    try { localStorage.setItem('bsc.macroDayT', JSON.stringify(MDAYT)); }
-    catch (e) { /* this session only */ }
+    mPut('bsc.macroDayT', MDAYT);
+  }
+  /* A workout landing on a day, written into what the day was aiming at.
+   *
+     The snapshot is taken when Nourish draws today, and a workout saved in
+     Strengthen draws nothing here — so an evening session logged with
+     Strengthen on screen left the day on its morning rest-day number for
+     good, and whether a day counted as trained came down to which tab had
+     been showing. Today is snapped again; a day already behind you (a
+     session saved after midnight, or its date edited back) is raised to its
+     training-day number if it was drawn lower. Only raised: a planned day
+     drawn as a training day and then skipped keeps what it was shown, which
+     is what stops the week paying its carbs out twice. */
+  function mCreditDay(k) {
+    var today = todayKey();
+    if (k === today) { mSnapTargets(); return; }
+    var was = MDAYT[k];
+    if (!(k < today) || !was || !mIsTrainingDay(k)) return;
+    var t = mDayTargetsLive(k);
+    if (!(t.c > was.c) || t.p !== was.p || t.f !== was.f) return;
+    MDAYT[k] = { p: t.p, f: t.f, c: t.c };
+    mPut('bsc.macroDayT', MDAYT);
+  }
+  /* The same for every day the window still draws, when Strengthen's log has
+     arrived from somewhere else and any of them may have been trained. */
+  function mCreditWeek() {
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      mCreditDay(dayKey(d));
+    }
+  }
+  /* What Nourish reads from Strengthen, in one string, so a change to it
+     can be noticed: the lifting days, the block, and which of the last
+     fortnight's days have a workout on them. */
+  function mTrainSig() {
+    if (!window.Train) return '';
+    var out = [mTrainDays(), mBlockN(), mFirstLogged()];
+    for (var i = 0; i < 14; i++) {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      out.push(mStrengthOn(dayKey(d)).length);
+    }
+    return JSON.stringify(out);
   }
   function mDayTargets(k) {
     var snap = k < todayKey() ? MDAYT[k] : null;
@@ -2568,11 +2752,28 @@
      Sunday each get about 12 more. Walked from Monday so every day, looked at
      any morning, gets the same share it was given on its own; a day's own
      change lands only on the days after it, never on itself. Days still to
-     come count as planned. */
+     come count as planned.
+   *
+     Owed, never owing. An extra day used to be paid back too, out of the
+     days after it, and that turned training more than planned into eating
+     less than planned: a newcomer's first workout on an unplanned Saturday
+     took Sunday from 217 g to 100, and two sessions on Thursday and Friday
+     cut the weekend to 178 each. A day trained over the plan now runs the
+     week a little high, which is what training more than you said you would
+     costs. What it owes is still counted — an extra Tuesday and a skipped
+     Wednesday are one moved session, and nothing is handed out for the
+     Wednesday — it is only never taken out of a later day. */
   function mDayTargetsLive(k) {
     var base = mReadTargets();
     var cy = mCycleOf(base);
     if (!cy) return base;
+    /* With no days planned there is nothing to skip, so nothing is ever owed:
+       the day is the plan, or a training day's lift over it. Asked only of a
+       day with a workout or a tick on it, which is most people's none. */
+    if (!cy.T) {
+      if (!mTrainedSaid(k) && !mStrengthOn(k).length) return base;
+      return { p: base.p, f: base.f, c: mCycleC(base, cy, mIsTrainingDay(k)) };
+    }
     var own = mCycleC(base, cy, mIsTrainingDay(k));
     var kd = keyDate(k), ws = new Date(kd);
     ws.setDate(ws.getDate() - mWkIx(kd));
@@ -2582,10 +2783,9 @@
       var dk = dayKey(d);
       var planned = cy.train.indexOf(i) >= 0;
       var hard = mIsTrainingDay(dk);
-      var share = Math.round(owed / (7 - i));
+      var share = Math.round(Math.max(0, owed) / (7 - i));
       var c0 = mCycleC(base, cy, hard);
       var c1 = Math.min(cy.hiC, Math.max(cy.loC, c0 + share));
-      if (share < 0 && c0 < cy.loC) c1 = c0;
       if (dk === k) { adj = c1 - c0; break; }
       /* What the day was actually given, against what the plan meant it to
          have. A past day that was drawn is read from its snapshot: a planned
@@ -2610,7 +2810,17 @@
   function mCycleOf(base) {
     var train = mTrainDays();
     var T = train.length, R = 7 - T;
-    if (!T || !R || !base.c) return null;
+    if (!R || !base.c) return null;
+    /* No lifting days planned is not "no training": a block can be running
+       before its days are picked, and Strengthen promises "Saving marks today
+       as a training day in Nourish". With nothing planned there is nothing
+       for a rest day to give back, so every day is the plan and a day you
+       train takes the lift a planned one would, on top. No floor to hold:
+       nothing is ever taken off a day here. */
+    if (!T) {
+      return { train: train, T: 0, R: 7, swing: MCYCLE_SWING, loC: 0,
+        hiC: Math.round(base.c * (1 + 2 * MCYCLE_SWING)) };
+    }
     /* Whatever the training days gain, the rest days give back, so seven of
        these still add up to seven of the plan.
      *
@@ -2643,10 +2853,18 @@
      more than you said you would. */
   function mIsTrainingDay(k) {
     var train = mTrainDays();
-    if (!train.length || train.length >= 7) return false;
+    if (train.length >= 7) return false;
     var planned = train.indexOf(mWkIx(keyDate(k))) >= 0;
-    /* Not synced, the tick is how Nourish hears; unticked, the plan. */
-    if (!mSynced()) return mTrainedSaid(k) ? mTrainedAt(k) > 0 : planned;
+    /* Not synced, the tick is how Nourish hears; unticked, a workout
+       Strengthen has on the day, read from Strengthen when asked; otherwise
+       the plan. The workout used to be copied in as a tick when it was saved,
+       and the copy stayed when the workout was deleted or moved to another
+       day, and was written even with sync switched off. Off, it is not read. */
+    if (!mSynced()) {
+      if (mTrainedSaid(k)) return mTrainedAt(k) > 0;
+      if (mReadProfileRaw().syncTrain !== false && mStrengthOn(k).length) return true;
+      return planned;
+    }
     /* Synced, Strengthen is the whole answer — there is nothing on Nourish
        to press. Blake: "If sync with strength is on I don't want to see the
        toggle in Nourish." A workout logged that day is a yes. */
@@ -2731,8 +2949,7 @@
     }
     if (!pr.goalLb || !pr.goalBy) { delete pr.goalSet; delete pr.goalFrom; }
     mStamp('pr');
-    try { localStorage.setItem('bsc.macroProfile', JSON.stringify(pr)); }
-    catch (e) { /* private mode */ }
+    mPut('bsc.macroProfile', pr);
     /* A new profile is the one thing that can turn a stored plan into a day
        nobody can eat — a heavier body raises its own floor. Asked here, where
        the change is made, rather than inside whichever read ran first. */
@@ -2934,8 +3151,7 @@
     var cutK = dayKey(cut);
     Object.keys(MINTAKE).forEach(function (k) { if (k < cutK) { delete MINTAKE[k]; moved = true; } });
     if (moved) {
-      try { localStorage.setItem('bsc.macroIntake', JSON.stringify(MINTAKE)); }
-      catch (e) { /* this session only */ }
+      mPut('bsc.macroIntake', MINTAKE);
     }
   }
 
@@ -3180,7 +3396,10 @@
      plates — and the review card's seven days behind read mDay(). So nothing
      on screen can want a flag from outside the window, and a flag kept past it
      is an orphan: a note that Tuesday was closed, for a Tuesday whose plates
-     were pruned a fortnight ago, riding in the sync payload forever.
+     were pruned a fortnight ago, riding in the sync payload forever. Only
+     behind: the day log keeps days past a week ahead now (a clock set back
+     makes the real ones look like that — see mEditDay), and their flags stay
+     with them.
 
      The per-key stamps in MSTAMPS are deliberately NOT pruned alongside. The
      stamp is what tells mMergeRemote it has already seen that day, and the
@@ -3188,9 +3407,9 @@
      write. Drop the stamp and the copy still sitting in Firestore looks new
      again on the next read, and the pruned flag walks straight back in. */
   function mPruneWindow(m) {
-    var floor = mEarliestKey(), roof = mLatestKey();
+    var floor = mEarliestKey();
     Object.keys(m).forEach(function (dk) {
-      if (dk < floor || dk > roof) delete m[dk];
+      if (dk < floor) delete m[dk];
     });
   }
   /* Mornings you trained, as they happened.
@@ -3268,16 +3487,18 @@
     try { return window.Train && window.Train.trainedOn ? window.Train.trainedOn(k) || [] : []; } catch (e) { return []; }
   }
   function mSetTrained(k, on) {
+    mFoldDue();
     MTRAINED[k] = on ? 1 : 0;
     mPruneWindow(MTRAINED);
-    try { localStorage.setItem('bsc.macroTrained', JSON.stringify(MTRAINED)); } catch (e) { /* private */ }
+    mPut('bsc.macroTrained', MTRAINED);
     mStamp('tn', k);
   }
 
   function mSetDone(k, on) {
+    mFoldDue();
     MDONE[k] = on ? Date.now() : 0;
     mPruneWindow(MDONE);
-    try { localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE)); } catch (e) { /* private */ }
+    mPut('bsc.macroDone', MDONE);
     mStamp('dn', k);
   }
 
@@ -3332,10 +3553,10 @@
   function mSetHush(k, sig) {
     MHUSH[k] = sig;
     mPruneWindow(MHUSH);        // the day log's window, like the skips
-    try { localStorage.setItem('bsc.macroHush', JSON.stringify(MHUSH)); }
-    catch (e) { /* private mode */ }
+    mPut('bsc.macroHush', MHUSH);
   }
   function mSetSkip(k, sk, on) {
+    mFoldDue();
     var a = (MSKIP[k] || []).filter(function (x) { return x !== sk; });
     if (on) a.push(sk);
     if (a.length) MSKIP[k] = a; else delete MSKIP[k];
@@ -3345,7 +3566,7 @@
        has fallen out of the fortnight would go on announcing an empty skip
        list for that day forever. */
     if (MSTAMPS.sp) mPruneWindow(MSTAMPS.sp);
-    try { localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP)); } catch (e) { /* private */ }
+    mPut('bsc.macroSkip', MSKIP);
     mStamp('sp', k);
   }
 
@@ -3385,6 +3606,7 @@
     return { f: v.f || '', to: (v.to || []).slice(), off: !!v.off, ack: !!v.ack };
   }
   function mSetSend(k, v) {
+    mFoldDue();
     /* `f` — which meal the question is about — is what keeps the row, and it
        is set for every card there is, so an answer of any kind survives:
        a set of meals, a None, or a fold. `|| v.ack` was here for a commit
@@ -3395,7 +3617,7 @@
     else delete MSEND[k];
     mPruneWindow(MSEND);
     if (MSTAMPS.sn) mPruneWindow(MSTAMPS.sn);
-    try { localStorage.setItem('bsc.macroSend', JSON.stringify(MSEND)); } catch (e) { /* private */ }
+    mPut('bsc.macroSend', MSEND);
     mStamp('sn', k);
   }
 
@@ -3408,6 +3630,7 @@
   })();
 
   function mWriteWeight(k, lb) {
+    mFoldDue();
     if (lb) MWEIGHTS[k] = Math.round(lb * 10) / 10;
     else delete MWEIGHTS[k];              // clearing the box un-logs the day
     var d = new Date();
@@ -3421,8 +3644,7 @@
     if (MSTAMPS.w) {
       Object.keys(MSTAMPS.w).forEach(function (wk) { if (wk < floor) delete MSTAMPS.w[wk]; });
     }
-    try { localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS)); }
-    catch (e) { /* in-memory only for this session */ }
+    mPut('bsc.macroWeights', MWEIGHTS);
     /* Per morning, so that clearing this one is a thing the payload can say
        without claiming anything about any other. */
     mStamp('w', k);
@@ -4214,7 +4436,7 @@
                  closed card already says where you stand, and a chip beside
                  it pushed the card's name onto two lines at phone width. */
               return '<span class="mw-sum">' + sumN +
-                (mTrainDays().length && mTrainDays().length < 7 && mIsTrainingDay(k)
+                (mTrainDays().length < 7 && mIsTrainingDay(k)
                   ? ' &middot; trained' : '') + '</u></span>';
             })()
         : ahead
@@ -4243,8 +4465,13 @@
          It says nothing when there is no cycling to move: with a flat plan
          the tick would be a box that changes nothing, which is worse than no
          box. And it never claims to have earned anything — the calories were
-         counted when the profile was filled in. */
-      (shut || ahead || !mTrainDays().length || mTrainDays().length >= 7 ? ''
+         counted when the profile was filled in.
+       *
+         With no lifting days picked it says something only about a day that
+         was trained anyway — a workout in Strengthen, or a tick already
+         given — because that is the one day the carbohydrate moves. */
+      (shut || ahead || mTrainDays().length >= 7 ||
+        (!mTrainDays().length && !mIsTrainingDay(k) && (mSynced() || !mTrainedSaid(k))) ? ''
         : mTrainRow(k)) +
       /* The day's numbers are NOT repeated here. They were, for one build:
          "1,745 calories today, 205 P 61 F 94 C" — which is the sticky strip
@@ -4314,6 +4541,7 @@
           (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html +
           (hasPlan ? ' <button class="ghost mplan-go no-print" id="macroTargBtn">' +
             'Craft my plan</button>' : '') + '</div>') +
+      (mLsFull() ? mLineHTML('act', '!', '<b>Not saved on this phone.</b>', esc(mLsFullSay())) : '') +
       (k === todayKey() ? mMovedHTML() : '') +
       mMorningHTML(k, 'face') +
       (!openAll ? '' : '<div class="mw-body">' + mMorningHTML(k, 'body') + body +
@@ -9194,11 +9422,16 @@
   function mAccountBlockHTML() {
     var who = mAccount();
     var waiting = !who && !mAuthKnown && mSuspectAccount();
+    var away = mSyncAway();
     var word = { off: 'On this device only', connecting: 'Connecting\u2026',
       on: 'Synced', error: 'Cannot reach the server' }[S_SYNC_STATE];
     var body;
     if (waiting) {
       body = '<p class="sync-p">Finding your account&hellip;</p>';
+    } else if (away) {
+      body = '<p class="sync-p">Signed in, but this phone can&rsquo;t reach the server. ' +
+        'What you log is kept here and goes to your account when there&rsquo;s signal.</p>' +
+        '<div class="sync-row"><button class="ghost" data-mysync="retry">Try again</button></div>';
     } else if (!window.Store.configured) {
       body = '<p class="sync-p">No server behind this copy.</p>';
     } else if (who) {
@@ -9272,7 +9505,7 @@
          "on this device only" directly above the pantry card saying exactly
          the same words about a different thing, which reads as one status
          stuttering rather than two facts. The button already says the state. */
-      (who || waiting
+      (who || waiting || away
         ? '<div class="sync-status"><span class="dot' +
           (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
             : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>'
@@ -9779,6 +10012,28 @@
     pr.train = days;
     pr.workouts = days.length;
     mWriteProfile(pr);
+    mDaysChanged();
+  }
+  /* The plan's own grams are worked out from how many sessions a week you
+     lift — mBurn counts them — so a change of lifting days is a change of
+     plan. It was not treated as one: days picked in Strengthen after the plan
+     was made moved the profile's count and nothing else, and the plan went on
+     being the one made for no training at all. Blake's newcomer, Maintain,
+     three days picked second: 2,219 kcal and 234 g carbs every day, where the
+     same three days picked first gave 2,379 and 334 on a lifting day. The
+     plan sheet said "3 sessions a week" over numbers made for none.
+   *
+     Only the plan's own grams (auto). Numbers somebody typed into the boxes
+     are theirs, and the days change which of their days are lifting days
+     without touching what they typed. */
+  function mDaysChanged() {
+    var rec = mTargRec();
+    if (!rec || rec.auto === 0) return false;
+    var fresh = mPlanCalc(mReadProfile());
+    if (!fresh) return false;
+    if (Number(rec.p) === fresh.p && Number(rec.f) === fresh.f && Number(rec.c) === fresh.c) return false;
+    mWriteTargets(Object.assign({}, rec, { p: fresh.p, f: fresh.f, c: fresh.c }));
+    return true;
   }
   function mTrainRowHTML() {
     var on = mTrainDays();
@@ -15689,7 +15944,7 @@
       }, function () { mSyncStart(); });
     } else if (hasAcct) {
       mSyncStart();
-      if (window.Store.onUser) window.Store.onUser(function () { mSyncStart(); });
+      mWatchUser();
     }
     /* Somebody sent a link. Signed in, it is spent by mSyncStart above; signed
        out, the sheet opens on the one thing to do about it. */
@@ -16024,7 +16279,7 @@
       rememberOpener();
       S.syncOpen = true;
       S.myErr = '';
-      if (!mAuthKnown && mSuspectAccount()) mSyncStart();
+      if ((!mAuthKnown || mSyncUnreachable) && mSuspectAccount()) mSyncStart();
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       pushSheet({ s: 1 });
@@ -16602,6 +16857,7 @@
             : 'That did not go through. Try again, or use the other way in.';
           renderModal();
         };
+        if (act2 === 'retry') { mSyncStart(); renderModal(); return; }
         if (act2 === 'google') {
           /* On the redirect path this page is about to be replaced, and the
              flag that decides whether the next load reaches for Firebase at
@@ -17147,17 +17403,42 @@
     ask: ask,
     openSheet: function () { pushSheet({ tr: 1 }); },
     closeSheet: function () { close(); },
+    /* Where the account stands, for Strengthen's own line about it. With no
+       document to write to it could only say "Only on this phone. Sign in
+       under Nourish", which a signed-in phone with no signal is not:
+         'on'          attached to the account
+         'connecting'  an account is remembered and its answer is pending
+         'offline'     an account is remembered and the server is out of reach
+         'signedout'   nobody is signed in on this device */
+    syncState: function () {
+      if (mAccount() && mSyncDoc) return S_SYNC_STATE === 'error' ? 'offline' : 'on';
+      if (mSyncAway()) return 'offline';
+      if (mSuspectAccount() && (!mAuthKnown || mAccount())) return 'connecting';
+      return 'signedout';
+    },
+    /* A workout saved. Nothing is copied: whether a day was trained is read
+       from Strengthen's own log when Nourish asks (mIsTrainingDay), so a
+       workout deleted or moved to another day takes its training day with
+       it. What is written is the day's target, whichever tab is showing. */
     trained: function (k) {
-      mSetTrained(k, true);
+      mCreditDay(k);
       if (S.view === 'macros') renderMacros();
     },
     /* Nourish's own days, for Strengthen to start its picker from. */
     trainDays: function () { return mTrainDaysOwn(); },
     daysMoved: function () {
-      var pr = mReadProfile(), days = mTrainDays();
+      /* Strengthen's list as Strengthen now has it. This read mTrainDays(),
+         which falls back to the profile's copy when Strengthen's list is
+         empty — so days cleared there were read back from the profile and
+         written straight into it again. None picked is an answer. */
+      var ld = null;
+      try { ld = window.Train && window.Train.liftDays ? window.Train.liftDays() : null; } catch (e) { /* Strengthen is not up */ }
+      var pr = mReadProfile();
+      var days = (ld || []).filter(function (n) { return n >= 0 && n <= 6; });
       if (Number(pr.workouts) !== days.length || JSON.stringify(pr.train) !== JSON.stringify(days)) {
         pr.workouts = days.length; pr.train = days; mWriteProfile(pr);
       }
+      mDaysChanged();
       if (S.view === 'macros') renderMacros();
     },
     /* A weigh-in from Strengthen, which asks for one on a pull-up day with

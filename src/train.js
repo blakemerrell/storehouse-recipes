@@ -4007,6 +4007,10 @@
     if (tab) tab.classList.toggle('tr-tab-live', !!LIVE);
   }
 
+  function syncSay() {
+    var h = hive();
+    try { return h && h.syncState ? h.syncState() : ''; } catch (e) { return ''; }
+  }
   function agoSay(t) {
     var m = Math.round((Date.now() - t) / 60000);
     return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : 'at ' + hm(t);
@@ -6905,7 +6909,10 @@
       '<div class="tr-q"><div class="tr-ql">Effort scale</div>' + chips('s-eff', p.eff, [['rir', 'Reps to spare'], ['rpe', 'RPE']]) +
         '<div class="tr-hint">The same scale from the other end: RPE 10 is nothing left, RPE 8 is two reps to spare. RPE is what Strong and most powerlifting programs use.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
-        '<div class="tr-sub">' + (!doc ? '<b>Only on this phone.</b> Sign in under Nourish \u2192 \u2699 \u2192 Sync &amp; sharing and it travels with your account, the same as your day.'
+        /* Signed in with no signal is not signed out: Nourish knows which, and
+           telling somebody to sign in who already has was the wrong door. */
+        '<div class="tr-sub">' + (!doc && syncSay() === 'offline' ? '<b>Signed in, can\u2019t reach the server.</b> Kept on this phone meanwhile; it goes to your account when there\u2019s signal.'
+          : !doc ? '<b>Only on this phone.</b> Sign in under Nourish \u2192 \u2699 \u2192 Sync &amp; sharing and it travels with your account, the same as your day.'
           : SY.err ? '<b>Not saved to your account yet</b> \u2014 it keeps trying. Safe on this phone meanwhile.'
           : SY.ok ? 'Saved to your account ' + agoSay(SY.ok) + ', and kept on this phone.' : 'Kept on this phone and in your account.') + '</div>' +
         '<div class="tr-sub">' + Object.keys(T.wo).length + ' workouts' + (!doc ? ' \u00b7 about ' + kb + ' KB'

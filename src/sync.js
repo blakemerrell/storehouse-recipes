@@ -744,10 +744,12 @@ window.Store = (function () {
       /* Caught: offline, the SDK does not load and ready() rejects. The
          caller already learns that through its own ready(); left unhandled
          here it was an uncaught rejection on every offline start of a
-         signed-in device. */
-      ready().then(function () {
+         signed-in device. It says whether it is watching, so a caller whose
+         first try found no signal knows to ask again once there is some. */
+      return ready().then(function () {
         window.firebase.auth().onAuthStateChanged(function () { cb(); });
-      }, function () { /* no network: nothing to watch yet */ });
+        return true;
+      }, function () { return false; /* no network: nothing to watch yet */ });
     },
 
     /* A popup is the wrong instrument on a phone.
