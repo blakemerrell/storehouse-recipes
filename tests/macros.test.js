@@ -13295,7 +13295,7 @@ module.exports = {
       await seedBlock([todayIx].concat(two).sort());
       const lift = await look();
       t.ok('the block’s lifting day is Nourish’s lifting day, named by its next session',
-        /Upper A today/.test(lift.row) && lift.btn === 'Skipping today?' && !lift.sw && lift.today > 75, JSON.stringify(lift));
+        /Upper A today/.test(lift.row) && lift.btn === 'Lift' && lift.sw && lift.today > 75, JSON.stringify(lift));
       t.ok('and the planned week still averages to the plan',
         Math.abs(lift.sum - 7 * 75) <= 3, JSON.stringify(lift.week));
 
@@ -13303,8 +13303,8 @@ module.exports = {
       await sp.click('.mw-train [data-mto="0"]');
       await sp.waitForTimeout(250);
       const skip = await look();
-      t.ok('Skipping today? drops today’s carbs, and offers the way back',
-        /Rest day · skipping/.test(skip.row) && skip.btn === 'Lifting after all' && skip.today < 75, JSON.stringify(skip));
+      t.ok('Rest on the switch drops today’s carbs, and says you are skipping',
+        /Rest day · skipping/.test(skip.row) && skip.btn === 'Rest' && skip.today < 75, JSON.stringify(skip));
       t.ok('and the days left in the week make up what it did not use',
         Math.abs(skip.sum - lift.sum) <= 3 && skip.week.slice(todayIx + 1).some((c, i) => c > lift.week[todayIx + 1 + i]),
         JSON.stringify({ was: lift.week, now: skip.week }));
@@ -13313,12 +13313,12 @@ module.exports = {
 
       await sp.click('.mw-train [data-mto="1"]');
       await sp.waitForTimeout(200);
-      t.ok('and Lifting after all puts it back', (await look()).today === lift.today);
+      t.ok('and Lift puts it back', (await look()).today === lift.today);
 
       // synced, a day off asks nothing: log the workout if you go
       await seedBlock(two);
       const off = await look();
-      t.ok('synced, a day off has nothing to press', /Rest day/.test(off.row) && !off.btn && !off.sw, JSON.stringify(off));
+      t.ok('synced, a day off starts on Rest', /Rest day/.test(off.row) && off.btn === 'Rest', JSON.stringify(off));
 
       // synced, a planned day that ended with nothing logged was a rest day
       if (todayIx >= 1) {
@@ -13347,7 +13347,7 @@ module.exports = {
 
       // a block running with no days picked there is still synced
       await seedBlock([], two);
-      t.ok('a running block is synced even before days are picked there', !(await look()).sw);
+      t.ok('a running block is synced even before days are picked there', /Upper A/.test((await look()).row));
 
       // not synced (no block, no days in Strengthen): the switch is how Nourish hears
       await seedBlock([], two);
@@ -13383,6 +13383,31 @@ module.exports = {
       const done = await look();
       t.ok('a saved workout is the confirmation: done, with no button left to press',
         /Upper A · done/.test(done.row) && /2 sets/.test(done.row) && !done.btn && done.today > 75, JSON.stringify(done));
+
+      // Sync with Strengthen off: the log no longer decides the day
+      await sp.evaluate(() => { const pr = JSON.parse(localStorage.getItem('bsc.macroProfile')); pr.syncTrain = false;
+        localStorage.setItem('bsc.macroProfile', JSON.stringify(pr)); });
+      await sp.reload();
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      { const f4 = await sp.$('[data-mfold="weigh"][aria-expanded="false"]'); if (f4) { await f4.click(); await sp.waitForTimeout(200); } }
+      const unsynced = await look();
+      t.ok('with sync off, a logged workout does not decide the day; the switch does',
+        !/done/.test(unsynced.row) && /Rest day/.test(unsynced.row) && unsynced.btn === 'Rest', JSON.stringify(unsynced));
+      await sp.click('#macroMore');
+      await sp.waitForTimeout(150);
+      await sp.click('[data-mmore="plan"]');
+      await sp.waitForTimeout(300);
+      await sp.evaluate(() => {
+        if (document.getElementById('mtEditor').classList.contains('hide')) document.querySelector('[data-mtedit]').click();
+      });
+      await sp.waitForTimeout(150);
+      await sp.click('[data-mtsync="1"]');
+      await sp.waitForTimeout(250);
+      await sp.keyboard.press('Escape');
+      await sp.waitForTimeout(250);
+      t.ok('and turning Sync with Strengthen on in the plan brings it back',
+        /Upper A · done/.test((await look()).row), (await look()).row);
 
       // the grid's days slide: nothing done yet, so the first session lands on
       // your next lifting day from today, and the next one after it
