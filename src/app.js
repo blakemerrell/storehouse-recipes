@@ -2635,7 +2635,7 @@
     if (mTrainedSaid(k)) return mTrainedAt(k) > 0;
     /* A workout saved in Strengthen that day is a yes. Blake: "can I sync
        that with strengthen". Your own tick, either way, still wins. */
-    if (mStrengthOn(k).length) return true;
+    if (mSynced() && mStrengthOn(k).length) return true;
     var planned = train.indexOf(mWkIx(keyDate(k))) >= 0;
     /* Synced with Strengthen, a planned day that ended with nothing logged
        was a rest day, and the rest of the week makes up for it — nothing to
@@ -2651,6 +2651,11 @@
   /* Synced: a block is running in Strengthen, or days have been picked
      there. Either way Strengthen is where the workout is logged. */
   function mSynced() {
+    if (mReadProfile().syncTrain === false) return false;
+    return mCanSync();
+  }
+  /* Whether there is anything in Strengthen to sync with. */
+  function mCanSync() {
     try { return !!(window.Train && ((window.Train.liftDays && window.Train.liftDays()) || mBlockN() > 0)); } catch (e) { return false; }
   }
   function mFirstLogged() {
@@ -3202,7 +3207,8 @@
   function mTrainRow(k) {
     var hard = mIsTrainingDay(k), dt = mDayTargets(k), base = mReadTargets();
     var said = mTrainedSaid(k);
-    var done = hard && !(said && !mStrengthOn(k).length) ? mSessionsOn(k) : [];
+    var sync = mSynced();
+    var done = sync && hard && !(said && !mStrengthOn(k).length) ? mSessionsOn(k) : [];
     var hm = function (ts) {
       var d = new Date(ts), h = d.getHours(), m = d.getMinutes();
       return (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' am' : ' pm');
@@ -3216,7 +3222,7 @@
       t2 = carbs + ' \u00b7 ' + w0.sets + (w0.sets === 1 ? ' set' : ' sets') + (mins ? ', ' + mins + ' min' : '');
     } else if (hard) {
       var nm = '';
-      try { nm = window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm = ''; }
+      try { nm = sync && window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm = ''; }
       ic = '<span class="mw-tr-ic is-lift" aria-hidden="true"><svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0L11 10H0z" fill="currentColor"/></svg></span>';
       t1 = (nm ? esc(nm) + ' today' : 'Lifting today');
       t2 = carbs + (base.c && base.c !== dt.c ? ' \u00b7 ' + base.c + ' on an average day' : '');
@@ -3226,7 +3232,7 @@
       var days = mTrainDays(), ix0 = mWkIx(keyDate(k)), nxt = '';
       for (var n = 1; n <= 7 && !nxt; n++) if (days.indexOf((ix0 + n) % 7) >= 0) nxt = M_WDAY[(ix0 + n) % 7];
       var nm2 = '';
-      try { nm2 = window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm2 = ''; }
+      try { nm2 = sync && window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm2 = ''; }
       ic = '<span class="mw-tr-ic is-rest" aria-hidden="true">\u2013</span>';
       t1 = 'Rest day';
       t2 = carbs + (nxt ? ' \u00b7 ' + (nm2 ? esc(nm2) : 'next lift') + ' ' + (n === 2 ? 'tomorrow' : nxt) : '');
@@ -3241,20 +3247,19 @@
      rest today or lifting today is toggled on or off." A button named for
      what it would do next reads as the state it is in; a switch showing
      both sides, one lit, does not. */
-  /* Synced with Strengthen there is nothing to switch: the plan says lift,
-     the logged workout says done, and a day that ends with nothing logged
-     is counted as rest. What is left is one optional word for the morning
-     you already know — "Skipping today?" — and the way back from it. Not
-     synced, the switch is the only way Nourish hears what you did. */
+  /* Synced with Strengthen the switch starts where the plan and the log
+     put it: planned days on Lift, a logged workout done, a planned day that
+     ended with nothing logged counted as rest. Pressing it is only for the
+     morning you already know otherwise. Not synced, it is the only way
+     Nourish hears what you did. */
   function mTrainCtl(k, hard) {
-    if (!mSynced()) return mTrainSwitch(k, hard);
-    if (k !== todayKey()) return '';
-    var said = mTrainedSaid(k);
-    if (hard) return '<button type="button" class="mw-tr-link" data-mtrained="' + esc(k) + '" data-mto="0">Skipping today?</button>';
-    if (said && mTrainedAt(k) === 0 && mTrainDays().indexOf(mWkIx(keyDate(k))) >= 0) {
-      return '<button type="button" class="mw-tr-link" data-mtrained="' + esc(k) + '" data-mto="1">Lifting after all</button>';
-    }
-    return '';
+    /* Synced, the switch sets itself from the block and the log, and a
+       day already over is Strengthen's to say — only today can be changed
+       by hand. Blake: "The switch is better... if sync is turned on then
+       Nourish should know my plan and from my history in Strength know when
+       and what I did." */
+    if (mSynced() && k !== todayKey()) return '';
+    return mTrainSwitch(k, hard);
   }
   function mTrainSwitch(k, hard) {
     var side = function (on, label, v) {
@@ -10049,6 +10054,13 @@
          do i have to play matching games. why not centralize the selection?"
          There used to be a count here and a set of days under it, and a third
          copy on the block. */
+      (mCanSync() ? row('Sync with Strengthen',
+        '<span class="seg mt-seg" role="group">' + [[1, 'On'], [0, 'Off']].map(function (o) {
+          var on = (pr.syncTrain === false ? 0 : 1) === o[0];
+          return '<button type="button" data-mtsync="' + o[0] + '" aria-pressed="' + on + '">' + o[1] + '</button>';
+        }).join('') + '</span>' +
+        '<span class="mt-ld-s">' + (pr.syncTrain === false ? 'You set each day yourself'
+          : 'Your plan and logged workouts set each day') + '</span>') : '') +
       row('Lifting days', (mBlockN()
           /* A block running: its days are set on the block, where the count
              is held to its sessions. Shown here, changed there, one tap. */
@@ -13992,7 +14004,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -16484,6 +16496,19 @@
         try { if (window.Train && window.Train.openDays) window.Train.openDays(); } catch (e2) { /* Strengthen is not up */ }
         var tb = document.querySelector('.tab[data-view="train"]');
         if (tb) tb.click();
+        return;
+      }
+      var tsy = e.target.closest('[data-mtsync]');
+      if (tsy && S.macroTargOpen) {
+        var prS = mReadProfile();
+        prS.syncTrain = tsy.dataset.mtsync === '1';
+        mWriteProfile(prS);
+        Array.prototype.forEach.call(tsy.parentElement.querySelectorAll('[data-mtsync]'), function (b) {
+          b.setAttribute('aria-pressed', String(b === tsy));
+        });
+        var cap = tsy.parentElement.nextElementSibling;
+        if (cap) cap.textContent = prS.syncTrain ? 'Your plan and logged workouts set each day' : 'You set each day yourself';
+        if (S.view === 'macros') renderMacros();
         return;
       }
       var trn = e.target.closest('[data-mtrain]');
