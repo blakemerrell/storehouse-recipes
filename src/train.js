@@ -598,7 +598,7 @@
     rest24: ['Singer et al. (2024)', 'Give it a rest: a Bayesian meta-analysis on the effect of inter-set rest interval duration on muscle hypertrophy. Frontiers in Sports and Active Living.',
       'Resting longer than about 60 seconds is slightly better for growth; past 90 seconds it hardly matters.'],
     rir16: ['Helms et al. (2016)', 'Application of the repetitions in reserve-based rating of perceived exertion scale for resistance training. Strength and Conditioning Journal.',
-      'Reps in reserve: how many more you could have done. Lifters guess it well near failure and badly far from it.'],
+      'Reps to spare ("reps in reserve" in the research): how many more you could have done. Lifters guess it well near failure and badly far from it.'],
     rp21: ['Israetel, Hoffmann & Smith (2021)', 'Scientific Principles of Hypertrophy Training. Renaissance Periodization.',
       'The volume landmarks (MEV, MRV) and the feedback-driven set progression. Practitioner guidance, not a trial.'],
     deload24: ['Coleman et al. (2024)', 'Gaining more from doing less? The effects of a one-week deload period during supervised resistance training on muscular adaptations. PeerJ.',
@@ -1513,6 +1513,9 @@
   var ASST = { 'as-pullup': 1, 'as-dip': 1 };
   // lifts that need your weight to mean anything
   function usesBw(e) { return !!(BWL[e] || ASST[e]); }
+  /* Your body is the weight: the box is for what is added to it, and empty
+     (or 0) is the body alone, said as BW rather than a grey 0 lb. */
+  function onBody(e) { return !ASST[e] && (!!BWL[e] || lib(e).q === 'bw'); }
   // parsed once per change to what Nourish has stored, however often it is asked
   var WTS = { raw: null, v: {} };
   function weighIns() {
@@ -2789,7 +2792,7 @@
       if (!ASST[e] && had.w > 0 && w > had.w) hit.w = true;
       if (w === 0 && !(had.w > 0) && r > had.r) hit.r = true;
     });
-    return [hit.w ? 'heaviest' : '', hit.e1 ? 'best e1RM' : '', hit.r ? 'most reps' : '']
+    return [hit.w ? 'heaviest' : '', hit.e1 ? 'best est. max' : '', hit.r ? 'most reps' : '']
       .filter(Boolean).join(', ');
   }
 
@@ -3069,14 +3072,14 @@
       checks.push({
         st: planned ? (Math.abs(off) <= 1 ? 'good' : 'look') : (mq > 3.5 ? 'look' : 'good'),
         t: 'How close to failure',
-        b: 'You logged about ' + say1(mq) + ' reps in reserve across ' + eff.n + ' sets' +
+        b: 'You logged about ' + say1(mq) + ' reps to spare across ' + eff.n + ' sets' +
           (planned ? ', where the plan asked about ' + say1(pq) + '. ' +
             (off > 1 ? 'Further from failure than planned: the weights the plan gives next are built on your getting nearer, so if these felt easy, add a rep or the next weight up. Sets that stop four or more short grew noticeably less. '
               : off < -1 ? 'Closer to failure than planned: the last rep or two buy little growth and cost recovery, which this plan counts on for next week. '
               : 'On target. ')
             : '. ' + (mq > 3.5 ? 'Most of the growth in the research came from sets ending zero to three short; further than that grew noticeably less. '
               : 'Inside the zero to three short where most of the growth in the research was. ')) +
-          'Guesses of reps in reserve get better with practice, and are best near failure.',
+          'Guesses of reps to spare get better with practice, and are best near failure.',
         refs: ['fail24', 'rir16']
       });
     } else {
@@ -3088,10 +3091,10 @@
           : str
           ? 'The main lifts go by percentages of your training max, with one all-out set a wave; everything else stops about two reps short of failure. ' + cant
           : base
-          ? 'Starting out asks for three reps in reserve, easing to two. ' + cant + ' Near enough to failure to count, far enough to keep your form while the movements are new.'
+          ? 'Starting out asks for three reps to spare, easing to two. ' + cant + ' Near enough to failure to count, far enough to keep your form while the movements are new.'
           : keep
-          ? 'Keeping asks for about two reps in reserve on the big lifts and one on the small ones. ' + cant + ' What keeps strength is the load staying heavy; going to failure adds little but fatigue.'
-          : 'The block asks for ' + (ms ? 'reps in reserve stepping from 3 to 0' : 'sets ending 0\u20133 reps short of failure') +
+          ? 'Keeping asks for about two reps to spare on the big lifts and one on the small ones. ' + cant + ' What keeps strength is the load staying heavy; going to failure adds little but fatigue.'
+          : 'The block asks for ' + (ms ? 'reps to spare stepping from 3 to 0' : 'sets ending 0\u20133 reps short of failure') +
           '. ' + cant + ' Growth improves the closer a set ends to failure, and the last rep or two add little but fatigue.',
         refs: str && ms.goal === 'cond' ? ['klimek18', 'rir16'] : str ? ['jm', 'rir16'] : base ? ['acsm09', 'rir16'] : keep ? ['spiering21', 'fail23', 'rir16'] : ['fail24', 'fail23', 'rir16']
       });
@@ -3215,12 +3218,12 @@
         b: prog.up + ' of ' + prog.n + ' lifts done at least twice in the last four weeks are up on estimated max' +
           (prog.flat ? ', ' + prog.flat + ' flat' : '') + (prog.down ? ', ' + prog.down + ' down' : '') + '. ' +
           (prog.fall.length
-            ? 'Down two sessions running: ' + prog.fall.map(function (e) { return lib(e).n; }).join(', ') + '. With reps in reserve falling each week that is the classic sign of fatigue outrunning recovery — RP would deload rather than push on.'
+            ? 'Down two sessions running: ' + prog.fall.map(function (e) { return lib(e).n; }).join(', ') + '. With reps to spare falling each week that is the classic sign of fatigue outrunning recovery — RP would deload rather than push on.'
             : 'Nothing has slid two sessions in a row, so there is no sign of fatigue outrunning recovery.') +
           /* The estimate cannot see effort, and inside a block effort rises
              on purpose. Said, rather than let a climbing line be read as all
              new muscle. */
-          (ms ? ' Some of any rise inside a block is the reps in reserve coming down rather than new strength \u2014 the first week of one block against the first week of the next is the cleaner comparison.' : ''),
+          (ms ? ' Some of any rise inside a block is the reps to spare coming down rather than new strength \u2014 the first week of one block against the first week of the next is the cleaner comparison.' : ''),
         refs: ['rp21', 'epley', 'deload24']
       });
     }
@@ -3531,7 +3534,7 @@
           '<div class="tr-rdq">How hard today?</div><div class="tr-rde">' + EFF.map(function (E, i) {
             var d = readyDay(id, xp, i);
             return '<button class="' + (i === 1 ? 'btn-primary' : 'ghost') + ' tr-rdgo" data-t="rdgo" data-v="' + esc(id) + '" data-e="' + i + '">' +
-              '<b>' + E.n + '</b><small>' + (T.rt[id] ? ['a set fewer', 'sets as saved', 'a set more'][i] : xp ? '2 sets' : d.s[0].n + ' sets') + ' \u00b7 ' + E.rir + ' in reserve \u00b7 ' + mins(d) + '</small></button>';
+              '<b>' + E.n + '</b><small>' + (T.rt[id] ? ['a set fewer', 'sets as saved', 'a set more'][i] : xp ? '2 sets' : d.s[0].n + ' sets') + ' \u00b7 ' + E.rir + ' to spare \u00b7 ' + mins(d) + '</small></button>';
           }).join('') + '</div>' +
           (T.rt[id] ? '<div class="tr-acts"><button class="tr-lnk" data-t="rtdel" data-v="' + esc(id) + '">' +
             (S.arm === 'rt:' + id ? 'Tap again to delete this routine' : 'Delete routine') + '</button></div>' : '');
@@ -3731,11 +3734,29 @@
      target, or last time's — the way Strong does. Most sets are done as
      planned, and typing 185 and 8 forty times a week is the chore that makes
      people stop logging. */
-  function tick(xi, si) {
+  /* A weight far from last time's: 900 typed for 90, 18.5 for 185. Well
+     past double or under half, and more than a plate's worth either way, so
+     an honest jump on a light lift is not questioned. */
+  function farOff(w, ref, u) {
+    return w > 0 && ref > 0 && (w > ref * 2.5 || w < ref * 0.4) && Math.abs(w - ref) >= (u === 'kg' ? 10 : 20);
+  }
+  function tick(xi, si, sure) {
     var x = LIVE.x[xi], s = x && x.s[si];
     if (!s) return;
     if (s.t) { s.t = 0; saveLive(); draw(); return; }
     var w = numIn(s.w), r = numIn(s.r), g = ghost(xi, si), miss = s.ty === 'm';
+    if (w === null && g.w === null && onBody(x.e)) w = 0;
+    /* A slipped finger, ticked, was a record, confetti and next week's
+       target all at once. Asked on the tick, the one moment it is cheap to
+       fix: Cancel goes back to the box. */
+    var ref = fin(s.pw) && s.pw > 0 ? s.pw : fin(g.w) && g.w > 0 ? g.w : null, u = LIVE.u || T.pr.u;
+    if (!sure && w !== null && ref !== null && farOff(w, ref, u)) {
+      var hq = hive(), fix = function () { var el = $('trw-' + xi + '-' + si); if (el) { el.focus(); if (el.select) el.select(); } };
+      var q = { title: fmtP(w) + ' ' + u + '?', ok: 'Keep ' + fmtP(w) + ' ' + u,
+        body: 'Last time was ' + fmtP(ref) + ' ' + u + ' \u2014 this is ' + (w > ref ? Math.round(w / ref) + ' times that' : 'far less') + '. Keep it, or cancel and fix it.' };
+      if (hq && hq.ask) { hq.ask(q, function (yes) { if (yes) tick(xi, si, true); else fix(); }); return; }
+      if (!window.confirm(q.title + ' ' + q.body)) { fix(); return; }
+    }
     if (w === null) w = g.w;
     // a missed attempt is the reps you got, which is none unless you say
     if (r === null) r = miss ? 0 : g.r;
@@ -4006,6 +4027,10 @@
       html += '<div class="tr-note tr-warn tr-lsfull" role="status">This phone\u2019s storage for the app is full, so the newest changes aren\u2019t kept on it' +
         (doc && !SY.err ? ' \u2014 they\u2019re in your account.' : '. Export a copy from Settings before closing the app.') + '</div>';
     }
+    if (S.undoSk && Date.now() < S.undoSk.until && !LIVE) {
+      // Nourish's own undo strip, held above the tabs: Skip is well down the page
+      html += '<div class="m-toast no-print tr-undo" role="status"><span>Skipped ' + esc(S.undoSk.n) + '</span><button data-t="unskip">Undo</button></div>';
+    }
     if (LIVE && S.sub !== 'block') {
       html += '<button class="tr-back" data-t="sub" data-v="block">Workout in progress · <span>' +
         esc(LIVE.n) + '</span> — back to it</button>';
@@ -4051,16 +4076,18 @@
     if (T.pr.lvl === 0) return r === 0 ? 'go until you can\u2019t do another good rep'
       : 'stop each set when you could still do about ' + r + ' more good rep' + (r === 1 ? '' : 's');
     if (rpeOn()) return r === 0 ? 'take working sets to RPE 10, or 9 on the heavy barbell lifts'
-      : 'finish working sets at about RPE ' + fmtN(10 - r) + ', ' + r + ' rep' + (r === 1 ? '' : 's') + ' in reserve';
+      : 'finish working sets at about RPE ' + fmtN(10 - r) + ', ' + r + ' rep' + (r === 1 ? '' : 's') + ' to spare';
     if (r === 0) return 'take working sets to failure, or a rep short on the heavy barbell lifts';
-    return 'finish working sets with about ' + r + ' rep' + (r === 1 ? '' : 's') + ' in reserve';
+    return 'finish working sets with about ' + r + ' rep' + (r === 1 ? '' : 's') + ' to spare';
   }
   function rpeOn() { return T.pr.eff === 'rpe'; }
   // a plan's reps in reserve, on your scale
-  function effSay(r) { return rpeOn() ? 'RPE ' + fmtN(10 - r) : r + ' RIR'; }
+  /* In words: "3 RIR" meant nothing to somebody new, and the logger itself
+     already said "stop with 2 reps to spare". RPE stays for those who chose it. */
+  function effSay(r) { return rpeOn() ? 'RPE ' + fmtN(10 - r) : r + ' rep' + (r === 1 ? '' : 's') + ' to spare'; }
   function rirStr(r) { return r === null || r === undefined ? 'deload' : effSay(r); }
   // a set's effort as logged, on your scale
-  function rqSay(q) { return rpeOn() ? 'RPE ' + (q >= 5 ? '\u22645' : fmtN(10 - q)) : (q >= 5 ? '5+' : fmtN(q)) + ' RIR'; }
+  function rqSay(q) { return rpeOn() ? 'RPE ' + (q >= 5 ? '\u22645' : fmtN(10 - q)) : (q >= 5 ? '5+' : fmtN(q)) + ' to spare'; }
 
   /* ------------------------------------------------------ the block screen */
   /* Said once, where the eye lands after Save, and gone at the next tap. */
@@ -4405,7 +4432,7 @@
       '<div class="tr-title">' + wos.length + ' sessions · ' + prs + ' record' + (prs === 1 ? '' : 's') + '</div>' +
       (ups.length ? '<ul class="tr-ups">' + ups.map(function (l) {
         return '<li><span>' + esc(lib(l.e).n) + '</span><span class="' + (l.ch > 0 ? 'up' : 'down') + '">' +
-          (l.ch > 0 ? '+' : '−') + Math.abs(Math.round(l.ch * 100)) + '% e1RM</span></li>';
+          (l.ch > 0 ? '+' : '−') + Math.abs(Math.round(l.ch * 100)) + '% est. max</span></li>';
       }).join('') + '</ul>' : '') +
       doneNext(ms) +
       '<div class="tr-acts"><button class="btn-primary" data-t="again">Build the next block</button></div>' +
@@ -5298,18 +5325,18 @@
       if (!(f.was.vol > 0)) return '';
       d = Math.round((f.cur.vol / f.was.vol - 1) * 100);
       txt = d ? arrow(d, Math.abs(d) + '%') : 'level';
-      say = 'Volume ' + (d > 0 ? d + '% up' : d < 0 ? -d + '% down' : 'level');
+      say = 'Total lifted ' + (d > 0 ? d + '% up' : d < 0 ? -d + '% down' : 'level');
     } else if (m === 'vol') {
       d = Math.round(f.cur.vol - f.was.vol);
       txt = fmtBig(f.cur.vol) + ' ' + u + ' ' + arrow(d, fmtBig(Math.abs(d)));
-      say = 'Volume ' + fmtBig(f.cur.vol) + ' ' + u + ', ' + (d > 0 ? fmtBig(d) + ' more' : d < 0 ? fmtBig(-d) + ' less' : 'the same');
+      say = 'Total lifted ' + fmtBig(f.cur.vol) + ' ' + u + ', ' + (d > 0 ? fmtBig(d) + ' more' : d < 0 ? fmtBig(-d) + ' less' : 'the same');
     } else if (m === 'reps') {
       d = f.cur.reps - f.was.reps;
       txt = f.cur.reps + ' reps ' + arrow(d, Math.abs(d));
       say = f.cur.reps + ' reps, ' + (d > 0 ? d + ' more' : d < 0 ? -d + ' fewer' : 'the same');
     } else {
       d = Math.round(f.cur.best) - Math.round(f.was.best);
-      txt = 'e1RM ' + fmtN(Math.round(f.cur.best)) + ' ' + arrow(d, Math.abs(d));
+      txt = 'Est. max ' + fmtN(Math.round(f.cur.best)) + ' ' + arrow(d, Math.abs(d));
       say = 'Best set, estimated max ' + fmtN(Math.round(f.cur.best)) + ' ' + u + ', ' + (d > 0 ? d + ' up' : d < 0 ? -d + ' down' : 'the same');
     }
     var cls = 'tr-fm ' + (d > 0 ? 'up' : d < 0 ? 'dn' : 'eq');
@@ -5345,10 +5372,10 @@
     var note = noteOf(x.e);
     var mate = label ? LIVE.x[partner(i)] : null;
     var cue = backCue(ex);
-    var num = 0;
+    var num = 0, bodyOn = onBody(x.e);
     var rows = x.s.map(function (s, j) {
       var g = ghost(i, j);
-      var ph = g.w !== null ? fmtN(g.w) : '';
+      var ph = bodyOn && !(g.w > 0) ? 'BW' : g.w !== null ? fmtN(g.w) : '';
       var rph = s.ty === 'm' ? '0' : g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
       var prev = prevText(s, x.e), on = pl === 'type' && j === nx;
       // in every set: the plates where the loading changes, and on the next set to do; last time elsewhere
@@ -5364,11 +5391,11 @@
           : '<span class="tr-prev">' + prev + '</span>') +
         '<input class="tr-in" id="trw-' + i + '-' + j + '" data-in="w" data-x="' + i + '" data-s="' + j + '" ' +
           'inputmode="decimal" autocomplete="off" placeholder="' + esc(ph) + '" value="' + esc(s.w) + '" ' +
-          'aria-label="Set ' + (j + 1) + ' weight in ' + T.pr.u + '">' +
+          'aria-label="Set ' + (j + 1) + (bodyOn ? ' weight added, in ' + T.pr.u + '; empty for your body alone' : ' weight in ' + T.pr.u) + '">' +
         '<input class="tr-in" id="trr-' + i + '-' + j + '" data-in="r" data-x="' + i + '" data-s="' + j + '" ' +
           'inputmode="numeric" autocomplete="off" placeholder="' + esc(rph) + '" value="' + esc(s.r) + '" ' +
           'aria-label="Set ' + (j + 1) + ' reps">' +
-        (rq ? rqSel(s.q, 'data-in="q" data-x="' + i + '" data-s="' + j + '"', 'Set ' + (j + 1) + ' reps in reserve') : '') +
+        (rq ? rqSel(s.q, 'data-in="q" data-x="' + i + '" data-s="' + j + '"', 'Set ' + (j + 1) + ' reps to spare') : '') +
         '<button class="tr-tick" data-t="tick" data-x="' + i + '" data-s="' + j + '" aria-pressed="' + !!s.t + '" ' +
           'aria-label="' + (s.t ? 'Undo set ' : 'Done with set ') + (j + 1) + '">✓</button>' +
       '</div>' +
@@ -5427,8 +5454,8 @@
         (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
-      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>' + (nb ? 'Last time' : 'Previous') + '</span><span>' + T.pr.u + '</span><span>Reps</span>' +
-        (rq ? (rpeOn() ? '<span title="Rate of perceived exertion">RPE</span>' : '<span title="Reps in reserve">RIR</span>') : '') + '<span></span></div>' +
+      '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>' + (nb ? 'Last time' : 'Previous') + '</span><span>' + (bodyOn ? '+' : '') + T.pr.u + '</span><span>Reps</span>' +
+        (rq ? (rpeOn() ? '<span title="Rate of perceived exertion">RPE</span>' : '<span title="Reps to spare: how many more you could have done">Spare</span>') : '') + '<span></span></div>' +
       rows +
       '<div class="tr-ex-a">' +
         '<button class="tr-lnk" data-t="addset" data-x="' + i + '">+ Set</button>' +
@@ -5453,7 +5480,7 @@
     var d = s.tw - s.pw;
     if (ASST[x.e] && d < 0) return fmtN(-d) + ' ' + T.pr.u + ' less help \u2014 you hit the top of the range last time.';
     if (d > 0 && !ASST[x.e]) return 'Up ' + fmtN(d) + ' ' + T.pr.u + ' \u2014 you hit the top of the range last time.';
-    if (d === 0 && fin(s.tr) && fin(s.pr) && s.tr > s.pr) return 'Same weight \u2014 aim for ' + s.tr + ' reps, one more than last time.';
+    if (d === 0 && fin(s.tr) && fin(s.pr) && s.tr > s.pr) return (s.tw > 0 ? 'Same weight \u2014 aim' : 'Aim') + ' for ' + s.tr + ' reps, one more than last time.';
     return '';
   }
 
@@ -5508,7 +5535,7 @@
     var opts = (rpeOn() ? RQ_RPE : RQ_RIR).slice();
     // a value logged on the other scale is kept, and shown as itself
     if (c && !opts.some(function (o) { return o[0] === c; }) && fin(Number(c))) opts.push([c, rpeOn() ? fmtN(10 - Number(c)) : fmtN(Number(c))]);
-    if (rpeOn()) label = label.replace('reps in reserve', 'RPE');
+    if (rpeOn()) label = label.replace('reps to spare', 'RPE');
     return '<select class="tr-in tr-rqs" ' + attrs + ' aria-label="' + esc(label) + '">' +
       opts.map(function (o) {
         return '<option value="' + o[0] + '"' + (c === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
@@ -5640,7 +5667,7 @@
         '<span class="tr-l-n">' + esc(ex.n) + '</span>' +
         '<span class="tr-l-m">' + esc(mname(ex.m)) + ' · ' + per[e].n + ' session' + (per[e].n === 1 ? '' : 's') +
           ' · last ' + shortDate(per[e].last) + '</span>' +
-        '<span class="tr-l-b"><span class="tr-l-bl">' + (r.e1 > 0 ? 'best e1RM' : 'best') + '</span>' + best + '</span>' +
+        '<span class="tr-l-b"><span class="tr-l-bl">' + (r.e1 > 0 ? 'best est. max' : 'best') + '</span>' + best + '</span>' +
       '</button>';
     }).join('') + '</div>';
   }
@@ -5698,7 +5725,7 @@
         return '<dt id="tr-ref-' + k + '">' + esc(REFS[k][0]) + '</dt>' +
           '<dd><i>' + esc(REFS[k][1]) + '</i><br>' + esc(REFS[k][2]) + '</dd>';
       }).join('') + '</dl>' +
-      '<p class="tr-fine">What this cannot do: it counts direct sets only, the way the landmarks are written; it cannot see reps in reserve; and it knows nothing about your sleep, food or stress, which move recovery more than any of this. The research gives ranges and trends across groups of people, not a prescription for one.</p>' +
+      '<p class="tr-fine">What this cannot do: it counts direct sets only, the way the landmarks are written; it cannot see reps to spare; and it knows nothing about your sleep, food or stress, which move recovery more than any of this. The research gives ranges and trends across groups of people, not a prescription for one.</p>' +
     '</details>';
     return html;
   }
@@ -5978,7 +6005,7 @@
         one('Total reps', pts(function (ws) { return ws.reduce(function (a, z) { return a + z.r; }, 0); }), true)
       : one('Estimated one-rep max', pts(function (ws, u) { return bestE1(ws, u); }), false) +
         one('Heaviest set', pts(function (ws, u) { return Math.max.apply(null, ws.map(function (z) { return conv(z.w, u); })); }), false) +
-        one('Volume, working sets (' + T.pr.u + ')', pts(function (ws, u) { return ws.reduce(function (a, z) { return a + conv(z.w, u) * z.r; }, 0); }), false);
+        one('Total lifted, working sets (' + T.pr.u + ')', pts(function (ws, u) { return ws.reduce(function (a, z) { return a + conv(z.w, u) * z.r; }, 0); }), false);
   }
   /* The heaviest you have lifted for at least N reps, for each N, and what
      your best estimated max says you could: the table to pick today's
@@ -6168,7 +6195,7 @@
             var w = conv(s.w, wo.u), e1 = !counts(s) ? 0 : e1Of(x.e, w, s.r, bwFor(x.e, wo));
             return '<li>' + setTag(s) + (w > 0 ? (BWL[x.e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + (ASST[x.e] ? ' help' : '') + ' × ' : '') + s.r +
               (fin(s.q) ? ' <span class="tr-e1">' + rqSay(s.q) + '</span>' : '') +
-              (e1 > 0 ? ' <span class="tr-e1">e1RM ' + Math.round(e1) + '</span>' : '') + '</li>';
+              (e1 > 0 ? ' <span class="tr-e1">est. max ' + Math.round(e1) + '</span>' : '') + '</li>';
           }).join('') + '</ol></div>';
       }).join('') +
       '<div class="tr-acts"><button class="ghost" data-t="edopen" data-id="' + esc(wo.id) + '">Edit</button>' +
@@ -6207,7 +6234,7 @@
           '<div class="tr-edx-h"><span class="tr-wx-n">' + esc(ex.n) + '</span>' +
             '<button class="tr-lnk" data-t="edrmx" data-x="' + i + '">Remove</button></div>' +
           '<div class="tr-set tr-set-h tr-eds" aria-hidden="true"><span>Set</span><span>' + T.pr.u + '</span><span>Reps</span>' +
-            (rq ? '<span>' + (rpeOn() ? 'RPE' : 'RIR') + '</span>' : '') + '<span></span></div>' +
+            (rq ? '<span>' + (rpeOn() ? 'RPE' : 'Spare') + '</span>' : '') + '<span></span></div>' +
           x.s.map(function (s, j) {
             var sk = { wu: s.ty === 'w', ty: s.ty === 'd' || s.ty === 'f' || s.ty === 'm' ? s.ty : undefined };
             return '<div class="tr-set tr-eds' + (sk.wu ? ' tr-wu' : sk.ty === 'd' ? ' tr-dd' : sk.ty === 'f' ? ' tr-ff' : sk.ty === 'm' ? ' tr-mm' : '') + '">' +
@@ -6217,7 +6244,7 @@
                 'aria-label="' + esc(ex.n) + ' set ' + (j + 1) + ' weight in ' + T.pr.u + '">' +
               '<input class="tr-in" data-ed="r" data-x="' + i + '" data-s="' + j + '" inputmode="numeric" autocomplete="off" value="' + esc(s.r) + '" ' +
                 'aria-label="' + esc(ex.n) + ' set ' + (j + 1) + ' reps">' +
-              (rq ? rqSel(s.q, 'data-ed="q" data-x="' + i + '" data-s="' + j + '"', ex.n + ' set ' + (j + 1) + ' reps in reserve') : '') +
+              (rq ? rqSel(s.q, 'data-ed="q" data-x="' + i + '" data-s="' + j + '"', ex.n + ' set ' + (j + 1) + ' reps to spare') : '') +
               '<button class="tr-tick tr-edrm" data-t="edrm" data-x="' + i + '" data-s="' + j + '" aria-label="Remove ' + esc(ex.n) + ' set ' + (j + 1) + '">&times;</button>' +
             '</div>';
           }).join('') +
@@ -6408,10 +6435,36 @@
     remapPrev(x);
   }
 
+  /* Sets with a number typed in and never ticked. They were dropped with the
+     empty ones, and the how-to's grey numbers make a new lifter think typing
+     is logging. Finish offers them instead: ticked as they would have been
+     on the set itself, the grey number filling whichever box was left. */
+  function typedOpen() {
+    var out = [];
+    LIVE.x.forEach(function (x, xi) {
+      x.s.forEach(function (s, si) {
+        if (s.t || (numIn(s.w) === null && numIn(s.r) === null)) return;
+        var g = ghost(xi, si), miss = s.ty === 'm', w = numIn(s.w), r = numIn(s.r);
+        if (w === null) w = g.w === null && onBody(x.e) ? 0 : g.w;
+        if (r === null) r = miss ? 0 : g.r;
+        if (w === null || r === null || r < 0 || (r <= 0 && !miss)) return;
+        out.push({ xi: xi, si: si, w: w, r: r });
+      });
+    });
+    return out;
+  }
+  function tickTyped() {
+    var now = Date.now();
+    typedOpen().forEach(function (o) { var s = LIVE.x[o.xi].s[o.si]; s.w = o.w; s.r = o.r; s.t = now; });
+    saveLive();
+  }
   function finishHTML() {
     if (!LIVE) return '';
     var wo = finished();
     var open = LIVE.x.reduce(function (n, x) { return n + x.s.filter(function (s) { return !s.t; }).length; }, 0);
+    var typed = typedOpen().length, empty = open - typed;
+    var typedSay = typed ? '<div class="tr-note tr-warn tr-typed">' + typed + ' set' + (typed === 1 ? ' has' : 's have') + ' numbers typed in but ' +
+      (typed === 1 ? 'wasn\u2019t' : 'weren\u2019t') + ' ticked.</div>' : '';
     var prs = prsIn(wo);
     var missing = [];
     if (LIVE.ms) {
@@ -6422,8 +6475,9 @@
     }
     if (!wo.x.length && !wo.mc) {
       return '<div class="sheet-name tr-sn2">Nothing ticked yet</div>' +
-        '<div class="tr-note">Only ticked sets are saved, and there are none. Keep going, or discard the workout.</div>' +
-        '<div class="tr-acts"><button class="btn-primary" data-t="close">Keep going</button>' +
+        (typed ? typedSay + '<div class="tr-acts"><button class="btn-primary" data-t="ticktyped">Tick ' + (typed === 1 ? 'it' : 'them') + ' and save</button></div>'
+          : '<div class="tr-note">Only ticked sets are saved, and there are none. Keep going, or discard the workout.</div>') +
+        '<div class="tr-acts"><button class="' + (typed ? 'ghost' : 'btn-primary') + '" data-t="close">Keep going</button>' +
           '<button class="ghost danger" data-t="discardnow">' + (S.arm === 'discard' ? 'Tap again to discard' : 'Discard it') + '</button></div>';
     }
     var sh = S.sheet || {};
@@ -6433,12 +6487,13 @@
       (sh.tm ? timesHTML(wo.st, wo.en, 'fin') : '') +
       '<div class="tr-recs">' +
         rec('Time', dur(wo.en - wo.st)) + rec('Sets', setsOf(wo)) +
-        rec('Volume', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', prs.length) +
+        rec('Total lifted', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', prs.length) +
       '</div>' +
       (prs.length ? '<div class="tr-prs">' + prs.map(function (p) {
         return '<div>★ ' + esc(lib(p.e).n) + ' — ' + esc(p.what) + '</div>';
       }).join('') + '</div>' : '') +
-      (open ? '<div class="tr-note">' + open + ' set' + (open === 1 ? ' was' : 's were') + ' never ticked and will not be saved.</div>' : '') +
+      typedSay +
+      (empty ? '<div class="tr-note">' + empty + (typed ? ' empty' : '') + ' set' + (empty === 1 ? ' was' : 's were') + ' never ticked and will not be saved.</div>' : '') +
       (LIVE.mc ? '<div class="tr-note">' + (wo.mc ? 'Circuit: ' + esc(mcScore(wo.mc)) + (LIVE.mc.last ? ', against ' + esc(mcScore(LIVE.mc.last)) + ' last time' : '') + '.'
         : 'The circuit has no score yet \u2014 add it on the circuit card, or it will not be saved.') + '</div>' : '') +
       (missing.length ? '<div class="tr-ask"><div class="tr-ql">Before you go — next week’s sets come from these</div>' +
@@ -6451,8 +6506,11 @@
         '<textarea class="txt tr-nt" id="trWoNt" maxlength="1000" rows="2" aria-label="Notes on this workout" ' +
           'placeholder="Slept badly. Left knee fine today.">' + esc(LIVE.nt || '') + '</textarea></div>' +
       '<div class="tr-note">Saving marks ' + (wo.dk === dayKey(new Date()) ? 'today' : 'that day') + ' as a training day in Nourish.</div>' +
-      '<div class="tr-acts"><button class="btn-primary" data-t="save">Save workout</button>' +
-        '<button class="ghost" data-t="close">Keep going</button></div>';
+      (typed ? '<div class="tr-acts"><button class="btn-primary" data-t="ticktyped">Tick ' + (typed === 1 ? 'it' : 'them') + ' and save</button>' +
+          '<button class="ghost" data-t="save">Save without ' + (typed === 1 ? 'it' : 'them') + '</button></div>' +
+          '<div class="tr-acts"><button class="ghost" data-t="close">Keep going</button></div>'
+        : '<div class="tr-acts"><button class="btn-primary" data-t="save">Save workout</button>' +
+          '<button class="ghost" data-t="close">Keep going</button></div>');
   }
 
   /* Start and end as date-and-time boxes, for putting a workout at the time
@@ -6522,7 +6580,7 @@
         if (!counts(s)) return;
         var w = conv(s.w, wo.u), e = e1Of(x.e, w, s.r, bwx), what = [];
         if (first('w', had.w > 0 && w > had.w && w === top.w && s.r === top.wr)) what.push('heaviest');
-        if (first('e', had.e1 > 0 && e > had.e1 + 0.01 && e === top.e)) what.push('best e1RM');
+        if (first('e', had.e1 > 0 && e > had.e1 + 0.01 && e === top.e)) what.push('best est. max');
         if (first('r', w === 0 && !(had.w > 0) && had.r > 0 && s.r > had.r && s.r === top.r)) what.push('most reps');
         // more help is never a best
         var at = w > 0 && !ASST[x.e] ? pastAt(s.r) : 0;
@@ -6532,7 +6590,7 @@
           what.forEach(function (t) { if (said.indexOf(t) < 0) said.push(t); });
         }
       });
-      if (said.length) lines.push({ e: x.e, what: said.join(', '), big: said.some(function (t) { return t === 'heaviest' || t === 'best e1RM' || t === 'most reps'; }) });
+      if (said.length) lines.push({ e: x.e, what: said.join(', '), big: said.some(function (t) { return t === 'heaviest' || t === 'best est. max' || t === 'most reps'; }) });
     });
     var ms = [];
     if (MILESTONES.indexOf(count) >= 0) ms.push(count === 1 ? 'Your first workout here' : 'Your ' + nth(count) + ' workout');
@@ -6567,7 +6625,7 @@
       (won.ms.length > 1 ? '<div class="tr-done-ms">' + won.ms.slice(1).map(function (m) { return '\ud83c\udfc5 ' + esc(m); }).join('<br>') + '</div>' : '') +
       '<div class="tr-recs">' +
         rec('Time', wo.en > wo.st ? dur(wo.en - wo.st) : '\u2014') + rec('Sets', setsOf(wo)) +
-        rec(T.pr.lvl === 0 ? 'Total lifted' : 'Volume', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', recN + (repN ? ' <small>+' + repN + ' rep best' + (repN === 1 ? '' : 's') + '</small>' : '')) +
+        rec('Total lifted', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', recN + (repN ? ' <small>+' + repN + ' rep best' + (repN === 1 ? '' : 's') + '</small>' : '')) +
       '</div>' +
       (won.lines.length ? '<div class="tr-done-r">' + won.lines.map(function (l) {
         return '<div><span class="tr-medal" aria-hidden="true">\ud83e\udd47</span> <b>' + esc(lib(l.e).n) + '</b> \u2014 ' + esc(l.what) + '</div>';
@@ -6844,8 +6902,8 @@
         '<div class="tr-hint">A box beside every set for how hard it was. Optional on each set; the review holds it against what the plan asked.</div></div>' +
       /* Its own question, not a second row under the first: it also says
          how the plan's targets read, logged or not. */
-      '<div class="tr-q"><div class="tr-ql">Effort scale</div>' + chips('s-eff', p.eff, [['rir', 'Reps in reserve'], ['rpe', 'RPE']]) +
-        '<div class="tr-hint">The same scale from the other end: RPE 10 is nothing left, RPE 8 is two reps in reserve. RPE is what Strong and most powerlifting programs use.</div></div>' +
+      '<div class="tr-q"><div class="tr-ql">Effort scale</div>' + chips('s-eff', p.eff, [['rir', 'Reps to spare'], ['rpe', 'RPE']]) +
+        '<div class="tr-hint">The same scale from the other end: RPE 10 is nothing left, RPE 8 is two reps to spare. RPE is what Strong and most powerlifting programs use.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Your training data</div>' +
         '<div class="tr-sub">' + (!doc ? '<b>Only on this phone.</b> Sign in under Nourish \u2192 \u2699 \u2192 Sync &amp; sharing and it travels with your account, the same as your day.'
           : SY.err ? '<b>Not saved to your account yet</b> \u2014 it keeps trying. Safe on this phone meanwhile.'
@@ -7980,8 +8038,25 @@
     if (t === 'skip') {
       if (S.sheet) closeSheet();
       ms = clean(active());
-      ms.sk = (ms.sk || []).concat(num('data-w') + ':' + num('data-d'));
+      var skv = num('data-w') + ':' + num('data-d');
+      ms.sk = (ms.sk || []).concat(skv);
       editBlock(ms);
+      /* One tap beside Start, and the block had moved on with no way back but
+         knowing to open the grid. Done at once, with Undo for a few seconds. */
+      var skn = { ms: ms.id, v: skv, n: (ms.days[num('data-d')] || {}).n || 'the session', until: Date.now() + 8000 };
+      S.undoSk = skn;
+      setTimeout(function () { if (S.undoSk === skn) { S.undoSk = null; drawIfShowing(); } }, 8100);
+      draw(); return;
+    }
+    if (t === 'unskip') {
+      var us = S.undoSk;
+      S.undoSk = null;
+      ms = active();
+      if (us && ms && ms.id === us.ms && (ms.sk || []).indexOf(us.v) >= 0) {
+        ms = clean(ms);
+        ms.sk.splice(ms.sk.indexOf(us.v), 1);
+        editBlock(ms);
+      }
       draw(); return;
     }
     if (t === 'deloadnow' || t === 'endblock') {
@@ -8141,6 +8216,7 @@
       saveLive(); draw(); return;
     }
     if (t === 'mcreset' && LIVE && LIVE.mc) { LIVE.mc.st = 0; LIVE.mc.en = 0; LIVE.mc.rm = 0; saveLive(); draw(); return; }
+    if (t === 'ticktyped' && LIVE) { tickTyped(); t = 'save'; }
     if (t === 'save') {
       audioPrime();
       var wo = saveWorkout();
@@ -8425,8 +8501,55 @@
     if (t === 'impgo') { applyImport(); return; }
   }
 
+  /* The app open twice on one phone — two tabs, or the home-screen app and
+     a tab — each wrote its whole log over the other's: a workout saved in
+     one was gone the moment the other saved anything, even a rest time.
+     Each now hears the other's saves and takes them in the way it takes the
+     account's, newest wins key by key, so what it writes next holds both.
+     The workout in progress follows too: started in one, it is the one in
+     progress in the other. */
+  function fromStore(t, ts) {
+    var tr = {};
+    if (!plain(t) || !plain(ts)) return null;
+    if (plain(t.pr)) tr.pr = { v: t.pr, at: fin(ts.pr) ? ts.pr : 0, k: plain(ts.prk) ? ts.prk : undefined };
+    if (typeof t.act === 'string') tr.act = { v: t.act, at: fin(ts.act) ? ts.act : 0 };
+    PARTS.forEach(function (p) {
+      var m = {}, tp = plain(t[p]) ? t[p] : {}, sp = plain(ts[p]) ? ts[p] : {};
+      Object.keys(tp).concat(Object.keys(sp)).forEach(function (k) {
+        if (fin(sp[k])) m[k] = { v: tp[k] || null, at: sp[k] };
+      });
+      tr[p] = m;
+    });
+    return tr;
+  }
+  function otherTab(e) {
+    if (!e || (e.storageArea && e.storageArea !== window.localStorage)) return;
+    if (e.key === LS_TS) {
+      var tr = fromStore(readLS(LS_T), readLS(LS_TS));
+      if (tr && merge(tr, false)) drawIfShowing();
+      return;
+    }
+    if (e.key === LS_LIVE) {
+      var nl = null, ol = null;
+      try { nl = e.newValue ? JSON.parse(e.newValue) : null; ol = e.oldValue ? JSON.parse(e.oldValue) : null; } catch (x) { return; }
+      if (nl && (!LIVE || LIVE.id === nl.id)) LIVE = nl;
+      else if (!nl && LIVE && ol && ol.id === LIVE.id) { LIVE = null; stopWake(); }
+      else return;
+      REV++;
+      drawIfShowing();
+    }
+  }
+
   /* ------------------------------------------------------------------ wiring */
   function wire() {
+    window.addEventListener('storage', otherTab);
+    /* The chime at the end of a rest needs a sound woken by a tap, and the
+       tap was only ever the tick. Reopened mid-rest (killed, or reloaded for
+       an update), nothing had woken it, and the rest ran out in silence.
+       Any touch at all during a workout wakes it now: a scroll, a box. */
+    document.addEventListener('pointerdown', function () {
+      if (LIVE && (!AC || AC.state === 'suspended')) audioPrime();
+    }, true);
     document.addEventListener('click', function (e) {
       var el = e.target.closest && e.target.closest('[data-t]');
       if (!el) return;
@@ -8594,6 +8717,10 @@
     },
     /* Nourish's picker writes the same list; one store, two doors. */
     setLiftDays: function (days) { setLd(days, true); },
+    /* Mid-way through something only this screen holds: a block being built,
+       the questions, a saved workout being corrected. index.html holds an
+       update's reload until it is not. */
+    busy: function () { return !!(S.draft || S.qz || S.ed || S.sheet); },
     /* How many lifting sessions the running block has; 0 without one. While
        there is one, its days are changed here, where the count is enforced. */
     blockSessions: function () { var ms = active(); return ms ? liftCols(ms).length : 0; },

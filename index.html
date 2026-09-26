@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=516">
+<link rel="stylesheet" href="src/style.css?v=517">
 </head>
 <body>
 
@@ -413,16 +413,16 @@
 <div id="trainRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=516"></script>
-<script src="data/nutrition.js?v=516"></script>
-<script src="data/art.js?v=516"></script>
-<script src="data/qr.js?v=516"></script>
-<script src="src/config.js?v=516"></script>
+<script src="data/recipes.js?v=517"></script>
+<script src="data/nutrition.js?v=517"></script>
+<script src="data/art.js?v=517"></script>
+<script src="data/qr.js?v=517"></script>
+<script src="src/config.js?v=517"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=516"></script>
+<script src="src/sync.js?v=517"></script>
 <!-- before app.js, which calls into it while it boots -->
-<script src="src/train.js?v=516"></script>
-<script src="src/app.js?v=516"></script>
+<script src="src/train.js?v=517"></script>
+<script src="src/app.js?v=517"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.
@@ -441,12 +441,24 @@ if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (!hadWorker || reloading) return;
     reloading = true;
-    /* Not while somebody is halfway through writing a recipe. The new worker
-       is already in charge either way; this reload only swaps the scripts on
+    /* Not while somebody is halfway through anything. The new worker is
+       already in charge either way; this reload only swaps the scripts on
        screen, and it can wait for the length of an edit rather than throwing
-       one away with no warning and no draft. */
+       one away with no warning and no draft. It was only the recipe editor;
+       a past workout being corrected, a dish in the Nourish basket, a block
+       being built or a number half typed went too. Any open sheet or dialog,
+       a box with the cursor in it, or Strengthen saying it is mid-way, and
+       the reload waits for the next plain screen. */
+    var busy = function () {
+      if (window.__editing) return true;
+      var a = document.activeElement;
+      if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return true;
+      if (document.querySelector('#modalRoot .sheet, #trainRoot .sheet, #dialogRoot .dlg')) return true;
+      try { if (window.Train && window.Train.busy && window.Train.busy()) return true; } catch (e) { /* not up */ }
+      return false;
+    };
     (function go() {
-      if (window.__editing) { setTimeout(go, 2000); return; }
+      if (busy()) { setTimeout(go, 2000); return; }
       location.reload();
     })();
   });
