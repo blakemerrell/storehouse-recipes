@@ -5143,17 +5143,17 @@ module.exports = {
     await trainPg.click('.tab[data-view="macros"]');
     await trainPg.waitForTimeout(300);
     const trainWas = await trainPg.evaluate(() => {
-      const b = document.querySelector('.mw-seg-b.on');
+      const b = document.querySelector('[data-mtrained]');
       return { kcal: window.__macroLab.targets(),
-        pressed: b ? b.dataset.mto : 'missing' };
+        pressed: b ? b.getAttribute('aria-pressed') : 'missing' };
     });
     t.ok('the morning offers a tick, and starts on whatever the plan assumed',
-      trainWas.pressed === '1' || trainWas.pressed === '0', JSON.stringify(trainWas.pressed));
+      trainWas.pressed === 'true' || trainWas.pressed === 'false', JSON.stringify(trainWas.pressed));
 
-    await trainPg.click('[data-mtrained][aria-pressed="false"]');
+    await trainPg.click('[data-mtrained]');
     await trainPg.waitForTimeout(300);
     const trainNow = await trainPg.evaluate(() => ({
-      pressed: document.querySelector('.mw-seg-b.on').dataset.mto,
+      pressed: document.querySelector('[data-mtrained]').getAttribute('aria-pressed'),
       targets: window.__macroLab.targets(),
     }));
     t.ok('tapping it flips the day and nothing else',
@@ -5274,7 +5274,7 @@ module.exports = {
     await todayPg.click('[data-mfold="weigh"]');
     await todayPg.waitForTimeout(350);
     const todayOpen = await todayPg.evaluate(() => {
-      const el = document.querySelector('.mw-tr-2');
+      const el = document.querySelector('.mw-tick-s');
       const base = JSON.parse(localStorage.getItem('bsc.macroTargets'));
       const now = window.__macroLab.targets();
       const s2 = el ? el.textContent.replace(/\s+/g, ' ') : '';
@@ -13285,40 +13285,36 @@ module.exports = {
         for (let i = 0; i < 7; i++) { const x = new Date(d); x.setDate(x.getDate() - wk + i); week.push(window.__macroLab.dayTargets(key(x)).c); }
         return { wk, week, sum: week.reduce((a, b) => a + b, 0), today: week[wk],
           row: (document.querySelector('.mw-train') || {}).textContent || '',
-          btn: (document.querySelector('.mw-train .mw-seg-b.on, .mw-train .mw-tr-link') || {}).textContent || '',
-          sw: !!document.querySelector('.mw-train .mw-seg') };
+          btn: (document.querySelector('.mw-train button') || {}).textContent || '',
+          tick: (document.querySelector('.mw-train .mw-tick') || { getAttribute: () => '' }).getAttribute('aria-pressed') };
       });
       const wd = NOW.getDay(), todayIx = (wd + 6) % 7;
       const two = [0, 1, 2, 3, 4, 5, 6].filter((i) => i !== todayIx).slice(0, 2);
 
-      // today is a lifting day in the block
+      // synced: today is a training day in the block, and there is nothing to press
       await seedBlock([todayIx].concat(two).sort());
       const lift = await look();
-      t.ok('the block’s lifting day is Nourish’s lifting day, named by its next session',
-        /Upper A today/.test(lift.row) && lift.btn === 'Lift' && lift.sw && lift.today > 75, JSON.stringify(lift));
+      t.ok('synced, the block’s training day is Nourish’s, named by its next session, with no toggle',
+        /Upper A today/.test(lift.row) && !lift.btn && !/[Ll]ift/.test(lift.row.replace('Upper A', '')) && lift.today > 75, JSON.stringify(lift));
       t.ok('and the planned week still averages to the plan',
         Math.abs(lift.sum - 7 * 75) <= 3, JSON.stringify(lift.week));
 
-      // skipped
-      await sp.click('.mw-train [data-mto="0"]');
-      await sp.waitForTimeout(250);
-      const skip = await look();
-      t.ok('Rest on the switch drops today’s carbs, and says you are skipping',
-        /Rest day · skipping/.test(skip.row) && skip.btn === 'Rest' && skip.today < 75, JSON.stringify(skip));
-      t.ok('and the days left in the week make up what it did not use',
-        Math.abs(skip.sum - lift.sum) <= 3 && skip.week.slice(todayIx + 1).some((c, i) => c > lift.week[todayIx + 1 + i]),
-        JSON.stringify({ was: lift.week, now: skip.week }));
-      t.ok('and the days before it are not touched',
-        skip.week.slice(0, todayIx).join() === lift.week.slice(0, todayIx).join(), JSON.stringify({ was: lift.week, now: skip.week }));
-
-      await sp.click('.mw-train [data-mto="1"]');
-      await sp.waitForTimeout(200);
-      t.ok('and Lift puts it back', (await look()).today === lift.today);
-
-      // synced, a day off asks nothing: log the workout if you go
+      // synced, a day off: nothing to press either
       await seedBlock(two);
       const off = await look();
-      t.ok('synced, a day off starts on Rest', /Rest day/.test(off.row) && off.btn === 'Rest', JSON.stringify(off));
+      t.ok('synced, a day off says Rest day and asks nothing', /Rest day/.test(off.row) && !off.btn, JSON.stringify(off));
+
+      // synced, a tick left over from before sync is not a hidden override
+      await sp.evaluate(() => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n, d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        localStorage.setItem('bsc.macroTrained', JSON.stringify({ [k]: 1 }));
+      });
+      await sp.reload();
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      { const f5 = await sp.$('[data-mfold="weigh"][aria-expanded="false"]'); if (f5) { await f5.click(); await sp.waitForTimeout(200); } }
+      t.ok('and an old tick cannot quietly override what Strengthen says', /Rest day/.test((await look()).row), (await look()).row);
 
       // synced, a planned day that ended with nothing logged was a rest day
       if (todayIx >= 1) {
@@ -13335,7 +13331,7 @@ module.exports = {
         await sp.click('.tab[data-view="macros"]');
         await sp.waitForTimeout(250);
         const after = await look();
-        t.ok('synced, yesterday’s lift with nothing logged counts as rest, and today picks up the carbs',
+        t.ok('synced, yesterday’s session with nothing logged counts as rest, and the carbs move on',
           after.week[yIx] < before.week[yIx] || after.today > before.today || (todayIx < 6 && after.week.slice(todayIx).some((c, i) => c > before.week[todayIx + i])),
           JSON.stringify({ before: before.week, after: after.week }));
         await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.wo = {}; localStorage.setItem('bsc.train', JSON.stringify(T)); });
@@ -13347,24 +13343,48 @@ module.exports = {
 
       // a block running with no days picked there is still synced
       await seedBlock([], two);
-      t.ok('a running block is synced even before days are picked there', /Upper A/.test((await look()).row));
+      t.ok('a running block is synced even before days are picked there', /Upper A|Rest day/.test((await look()).row) && !(await look()).btn);
 
-      // not synced (no block, no days in Strengthen): the switch is how Nourish hears
-      await seedBlock([], two);
-      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); });
-      await sp.reload();
-      await sp.click('.tab[data-view="macros"]');
+      // not synced (no block, no days in Strengthen): the checkbox, as before
+      const unsync = async (own) => {
+        await seedBlock([], own);
+        await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); });
+        await sp.reload();
+        await sp.click('.tab[data-view="macros"]');
+        await sp.waitForTimeout(250);
+        const f3 = await sp.$('[data-mfold="weigh"][aria-expanded="false"]'); if (f3) { await f3.click(); await sp.waitForTimeout(200); }
+      };
+      await unsync([todayIx].concat(two).sort());
+      const on = await look();
+      t.ok('not synced, it is the Trained today checkbox, ticked on a planned day',
+        /Trained today/.test(on.row) && on.tick === 'true' && on.today > 75, JSON.stringify(on));
+      await sp.click('.mw-train .mw-tick');
       await sp.waitForTimeout(250);
-      { const f3 = await sp.$('[data-mfold="weigh"][aria-expanded="false"]'); if (f3) { await f3.click(); await sp.waitForTimeout(200); } }
+      const skip = await look();
+      t.ok('unticking it drops today’s carbs', skip.tick === 'false' && skip.today < 75, JSON.stringify(skip));
+      if (todayIx < 6) {
+        t.ok('and the days left in the week make up what it did not use',
+          Math.abs(skip.sum - on.sum) <= 3 && skip.week.slice(todayIx + 1).some((c, i) => c > on.week[todayIx + 1 + i]),
+          JSON.stringify({ was: on.week, now: skip.week }));
+      }
+      t.ok('and the days before it are not touched',
+        skip.week.slice(0, todayIx).join() === on.week.slice(0, todayIx).join(), JSON.stringify({ was: on.week, now: skip.week }));
+
+      await unsync(two);
       const rest = await look();
-      await sp.click('.mw-train [data-mto="1"]');
+      await sp.click('.mw-train .mw-tick');
       await sp.waitForTimeout(250);
       const extra = await look();
-      t.ok('on a day off, Lifting today puts the carbs on it',
-        rest.btn === 'Rest' && extra.btn === 'Lift' && /Lifting today/.test(extra.row) && extra.today > rest.today,
-        JSON.stringify({ rest: rest.row, extra: extra.row }));
-      t.ok('and borrows them from the rest of the week, not from nowhere',
-        Math.abs(extra.sum - rest.sum) <= 3, JSON.stringify({ was: rest.week, now: extra.week }));
+      t.ok('on a day off, ticking it puts the carbs on it',
+        rest.tick === 'false' && extra.tick === 'true' && extra.today > rest.today, JSON.stringify({ rest: rest.row, extra: extra.row }));
+      if (todayIx < 6) {
+        /* Borrowed from the days after, as far as they can give: a rest day
+           is not taken under its own floor, so with one day left the week
+           can land a little over. */
+        t.ok('and borrows them from the rest of the week, not from nowhere',
+          extra.week.slice(todayIx + 1).every((c, i) => c < rest.week[todayIx + 1 + i]) &&
+            (todayIx >= 5 || Math.abs(extra.sum - rest.sum) <= 3), JSON.stringify({ was: rest.week, now: extra.week }));
+      }
 
       // a workout saved in Strengthen, on a day off
       await seedBlock(two);
@@ -13392,8 +13412,8 @@ module.exports = {
       await sp.waitForTimeout(250);
       { const f4 = await sp.$('[data-mfold="weigh"][aria-expanded="false"]'); if (f4) { await f4.click(); await sp.waitForTimeout(200); } }
       const unsynced = await look();
-      t.ok('with sync off, a logged workout does not decide the day; the switch does',
-        !/done/.test(unsynced.row) && /Rest day/.test(unsynced.row) && unsynced.btn === 'Rest', JSON.stringify(unsynced));
+      t.ok('with sync off, a logged workout does not decide the day; the checkbox does',
+        !/done/.test(unsynced.row) && /Trained today/.test(unsynced.row) && unsynced.tick === 'false', JSON.stringify(unsynced));
       await sp.click('#macroMore');
       await sp.waitForTimeout(150);
       await sp.click('[data-mmore="plan"]');
@@ -13506,17 +13526,11 @@ module.exports = {
 
       /* A Saturday: an extra day has only Sunday to borrow from, and Sunday
          stops at its own floor rather than go under it, so the week comes
-         out a few grams over instead of Sunday going hungry. Not synced, so
-         the switch is there to say so, as above. */
+         out a few grams over instead of Sunday going hungry. */
       await sp.clock.setSystemTime(new Date(2026, 8, 26, 9, 0, 0));
-      await seedBlock([], [0, 1]);
-      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); });
-      await sp.reload();
-      await sp.click('.tab[data-view="macros"]');
-      await sp.waitForTimeout(250);
-      { const f4 = await sp.$('[data-mfold="weigh"][aria-expanded="false"]'); if (f4) { await f4.click(); await sp.waitForTimeout(200); } }
+      await unsync([0, 1]);
       const satRest = await look();
-      await sp.click('.mw-train [data-mto="1"]');
+      await sp.click('.mw-train .mw-tick');
       await sp.waitForTimeout(250);
       const satLift = await look();
       const loC = await sp.evaluate(() => window.__macroLab.cycle().loC);

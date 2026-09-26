@@ -2563,19 +2563,31 @@ select { max-width: 280px; }
 .mw-tr-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .mw-tr-1 { font-size: 14px; font-weight: 600; color: var(--ink); }
 .mw-tr-2 { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.mw-tr-link {
-  flex: none; background: none; border: 0; padding: 6px 0; font: inherit; font-size: 13px;
-  font-weight: 600; color: var(--ochre-text); cursor: pointer; white-space: nowrap;
+.mw-tick {
+  display: flex; width: 100%; justify-content: space-between; text-align: left;
+  align-items: center; gap: 12px;
+  background: none; border: 0; padding: 8px 4px;
+  font: inherit; font-size: 13px; letter-spacing: 0.04em;
+  color: var(--muted); cursor: pointer; min-height: 34px;
 }
-.mw-seg {
-  flex: none; display: inline-flex; border: 1px solid var(--line-firm); border-radius: 99px; padding: 2px;
-  background: var(--paper);
+.mw-tick-l { display: flex; flex-direction: column; gap: 1px; color: var(--ink); letter-spacing: 0; font-size: 14px; }
+.mw-tick-s { font-size: 12px; color: var(--muted); letter-spacing: 0; }
+.mw-tick-b {
+  width: 22px; height: 22px; border-radius: 5px;
+  border: 1.5px solid var(--line); background: var(--paper);
+  flex: none; position: relative;
 }
-.mw-seg-b {
-  font: inherit; font-size: 13px; border: 0; background: none; color: var(--muted);
-  border-radius: 99px; padding: 6px 13px; min-height: 32px; cursor: pointer;
+.mw-tick[aria-pressed="true"] { color: var(--ink); }
+.mw-tick[aria-pressed="true"] .mw-tick-b {
+  border-color: var(--dial-on); background: var(--dial-on);
 }
-.mw-seg-b.on { background: var(--ink); color: var(--paper); font-weight: 650; cursor: default; }
+.mw-tick[aria-pressed="true"] .mw-tick-b::after {
+  content: ''; position: absolute; left: 7px; top: 2px;
+  width: 5px; height: 11px; border: solid var(--paper);
+  border-width: 0 2px 2px 0; transform: rotate(42deg);
+}
+@media (pointer: coarse) { .mw-tick { min-height: 40px; } }
+
 /* How many lifting days, and that they are Strengthen's too. */
 .mt-ld { display: flex; gap: 4px; flex-wrap: wrap; }
 .mt-ld i {

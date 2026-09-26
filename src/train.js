@@ -4126,18 +4126,18 @@
     var n = liftCols(ms).length, cd = colDays(ms, nx), picked = ldDays().length === n;
     var moved = Object.keys(cd).some(function (k) { return cd[k].moved; });
     var html = '<div class="tr-ldrow"><span class="tr-ldsay' + (picked ? '' : ' ask') + '">' +
-      (!picked ? 'Pick ' + n + ' lifting days so Nourish can plan your carbs'
-        : moved ? 'This week, moved to your next lifting days'
+      (!picked ? 'Pick ' + n + ' training days so Nourish can plan your carbs'
+        : moved ? 'This week, moved to your next training days'
         : 'Nourish plans your carbs on these days') + '</span>' +
       (S.ldOpen ? '' : '<button class="tr-ldgo" data-t="ldopen">Change days</button>') + '</div>';
     if (!S.ldOpen) return html;
     var dr = S.ldDraft || [], sd = dr.slice().sort(), ok = sd.length === n;
     var cols = liftCols(ms);
     return html + '<div class="tr-ldpanel">' +
-      '<div class="tr-ldq">Which ' + n + ' days do you lift?</div>' +
+      '<div class="tr-ldq">Which ' + n + ' days do you train?</div>' +
       '<div class="tr-sub">One for each session, in order: ' + esc(ms.days[cols[0]].n) + ' on the first, ' +
         esc(ms.days[cols[cols.length - 1]].n) + ' on the last.</div>' +
-      '<div class="tr-ld" role="group" aria-label="Lifting days">' + LD_W.map(function (w, i) {
+      '<div class="tr-ld" role="group" aria-label="Training days">' + LD_W.map(function (w, i) {
         return '<button class="tr-ldb" data-t="ldpick" data-v="' + i + '" aria-pressed="' + (dr.indexOf(i) >= 0) +
           '" aria-label="' + LD_N[i] + '">' + w + '</button>';
       }).join('') + '</div>' +
