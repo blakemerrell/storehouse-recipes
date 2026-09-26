@@ -13249,7 +13249,14 @@ module.exports = {
      * skip a day sometimes." The block's lifting days drive Nourish; a skip or
      * an extra day moves today, and the rest of the week makes it up. */
     {
+      /* On a fixed Wednesday, not whatever day the suite runs: what these
+         check is how the days left in the week make up for today, and how
+         many days are left changes with the day. A Saturday, with only Sunday
+         left, has its own check at the end. */
+      const NOW = new Date(2026, 8, 23, 9, 0, 0);
       const sp = await t.fresh();
+      await sp.clock.install({ time: NOW });
+      await sp.reload();
       const seedBlock = async (ld) => {
         await sp.evaluate((ld) => {
           const p2 = (n) => (n < 10 ? '0' : '') + n;
@@ -13280,7 +13287,7 @@ module.exports = {
           row: (document.querySelector('.mw-train') || {}).textContent || '',
           btn: (document.querySelector('.mw-train .mw-seg-b.on') || {}).textContent || '' };
       });
-      const wd = new Date().getDay(), todayIx = (wd + 6) % 7;
+      const wd = NOW.getDay(), todayIx = (wd + 6) % 7;
       const two = [0, 1, 2, 3, 4, 5, 6].filter((i) => i !== todayIx).slice(0, 2);
 
       // today is a lifting day in the block
@@ -13297,11 +13304,9 @@ module.exports = {
       const skip = await look();
       t.ok('Rest drops today’s carbs, and the switch shows Rest as the one on',
         /Rest day/.test(skip.row) && skip.btn === 'Rest' && skip.today < 75, JSON.stringify(skip));
-      if (todayIx < 6) {
-        t.ok('and the days left in the week make up what it did not use',
-          Math.abs(skip.sum - lift.sum) <= 3 && skip.week.slice(todayIx + 1).some((c, i) => c > lift.week[todayIx + 1 + i]),
-          JSON.stringify({ was: lift.week, now: skip.week }));
-      }
+      t.ok('and the days left in the week make up what it did not use',
+        Math.abs(skip.sum - lift.sum) <= 3 && skip.week.slice(todayIx + 1).some((c, i) => c > lift.week[todayIx + 1 + i]),
+        JSON.stringify({ was: lift.week, now: skip.week }));
       t.ok('and the days before it are not touched',
         skip.week.slice(0, todayIx).join() === lift.week.slice(0, todayIx).join(), JSON.stringify({ was: lift.week, now: skip.week }));
 
@@ -13318,10 +13323,8 @@ module.exports = {
       t.ok('on a day off, Lifting today puts the carbs on it',
         rest.btn === 'Rest' && extra.btn === 'Lift' && /Upper A today/.test(extra.row) && extra.today > rest.today,
         JSON.stringify({ rest: rest.row, extra: extra.row }));
-      if (todayIx < 6) {
-        t.ok('and borrows them from the rest of the week, not from nowhere',
-          Math.abs(extra.sum - rest.sum) <= 3, JSON.stringify({ was: rest.week, now: extra.week }));
-      }
+      t.ok('and borrows them from the rest of the week, not from nowhere',
+        Math.abs(extra.sum - rest.sum) <= 3, JSON.stringify({ was: rest.week, now: extra.week }));
 
       // a workout saved in Strengthen, on a day off
       await seedBlock(two);
@@ -13435,6 +13438,23 @@ module.exports = {
         wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts }));
       t.ok('with no block running, Nourish picks the days itself, in the same list',
         nb.ld && nb.ld.length === 3 && nb.ld.indexOf(free) >= 0 && nb.wk === 3 && /3 a week/.test(nb.n), JSON.stringify(nb));
+
+      /* A Saturday: an extra day has only Sunday to borrow from, and Sunday
+         stops at its own floor rather than go under it, so the week comes
+         out a few grams over instead of Sunday going hungry. */
+      await sp.clock.setSystemTime(new Date(2026, 8, 26, 9, 0, 0));
+      await seedBlock([0, 1]);
+      const satRest = await look();
+      await sp.click('.mw-train [data-mto="1"]');
+      await sp.waitForTimeout(250);
+      const satLift = await look();
+      const loC = await sp.evaluate(() => window.__macroLab.cycle().loC);
+      t.ok('on a Saturday, an extra day still gets its carbs, and Monday to Friday are not touched',
+        satRest.wk === 5 && satLift.today > satRest.today && satLift.week.slice(0, 5).join() === satRest.week.slice(0, 5).join(),
+        JSON.stringify({ was: satRest.week, now: satLift.week }));
+      t.ok('and Sunday gives back what it can, down to its floor and no further',
+        satLift.week[6] < satRest.week[6] && satLift.week[6] >= loC && (satLift.week[6] === loC || Math.abs(satLift.sum - satRest.sum) <= 3),
+        JSON.stringify({ was: satRest.week, now: satLift.week, floor: loC }));
       await sp.context().close();
     }
 
