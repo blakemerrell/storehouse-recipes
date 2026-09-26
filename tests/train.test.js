@@ -360,7 +360,7 @@ module.exports = {
       z9: wo('z9', '', -1, -1, 1, [{ e: bench, s: sets(195, [8]) }]),
     }) }));
     r = await p.evaluate(() => window.Train._.prsIn(window.Train._.state().T.wo.z9));
-    t.ok('a heavier set is, and says which record', r.length === 1 && /heaviest/.test(r[0].what) && /best e1RM/.test(r[0].what), JSON.stringify(r));
+    t.ok('a heavier set is, and says which record', r.length === 1 && /heaviest/.test(r[0].what) && /best est\. max/.test(r[0].what), JSON.stringify(r));
     r = await p.evaluate(() => window.Train._.prsIn({ id: 'open', st: Date.now(), u: 'lb',
       x: [{ e: 'pullup', s: [{ w: 0, r: 12 }] }, { e: 'hammer', s: [{ w: 30, r: 12 }] }] }));
     t.ok('nor is it in a workout still open — bodyweight lifts included', r.length === 0, JSON.stringify(r));
@@ -443,7 +443,7 @@ module.exports = {
     t.ok('a week in progress does not replace the last whole one', r.label === 'Week 1 of your block', r.label);
     t.ok('and a workout outside the block, done that week, is counted in it', r.n === 5 && r.biceps === 2, JSON.stringify(r));
     r = await p.evaluate(() => (window.Train._.review().checks.find((c) => /going up/.test(c.t)) || {}).b || '');
-    t.ok('and it says a rise inside a block is partly effort, not all new strength', /reps in reserve coming down/.test(r), r);
+    t.ok('and it says a rise inside a block is partly effort, not all new strength', /reps to spare coming down/.test(r), r);
     await p.click('.tab[data-view="train"]');
     await p.click('[data-t="sub"][data-v="review"]');
     await p.waitForTimeout(100);
@@ -1511,7 +1511,7 @@ module.exports = {
       return { far: grade([q([4, 4, 5, 4, 4, 5])]), near: grade([q([2, 2, 1, 2, 2, 2], 2)]), over: grade([q([0, 0, 0, 0, 0, 0], 2)]),
         few: grade([q([2, 2], 2)]) };
     });
-    t.ok('four and five in reserve, with no plan, is further from failure than the growth was', r.far.st === 'look' && /4\.5 reps in reserve/.test(r.far.b), r.far.b);
+    t.ok('four and five in reserve, with no plan, is further from failure than the growth was', r.far.st === 'look' && /4\.5 reps to spare/.test(r.far.b), r.far.b);
     t.ok('about the two asked for is on target', r.near.st === 'good' && /On target/.test(r.near.b), r.near.b);
     t.ok('none left where two were asked is flagged as closer than planned', r.over.st === 'look' && /Closer to failure than planned/.test(r.over.b), r.over.b);
     t.ok('two sets is not enough to grade', r.few.st === 'info', r.few.b);
@@ -1939,7 +1939,7 @@ module.exports = {
       return { prs: _.prsIn(_.state().T.wo.b).length, fail: fail.st + ':' + fail.b.slice(0, 60) };
     });
     t.ok('a warm-up of 45 × 20 is not a most-reps record', r.prs === 0, r.prs);
-    t.ok('failure sets count as nothing in reserve, and six of them where two were asked is flagged', /^look:You logged about 0 reps in reserve/.test(r.fail), r.fail);
+    t.ok('failure sets count as nothing in reserve, and six of them where two were asked is flagged', /^look:You logged about 0 reps to spare/.test(r.fail), r.fail);
     await p.close();
 
     // a lift's own page
@@ -2025,7 +2025,7 @@ module.exports = {
     t.ok('but it is a small win, not a record: no big celebration for it', r.big === false && r.ms.length === 0, JSON.stringify(r));
     r = await p.evaluate(() => window.Train._.wins(window.Train._.state().T.wo.d).sets);
     t.ok('two sets at the same new heaviest: the one with more reps takes the ribbon, and the other is no best for its reps either',
-      r['0:1'] === 'heaviest, best e1RM' && !r['0:0'] && !r['0:2'], JSON.stringify(r));
+      r['0:1'] === 'heaviest, best est. max' && !r['0:0'] && !r['0:2'], JSON.stringify(r));
     r = await p.evaluate(() => {
       const _ = window.Train._, ms = _.build({ dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] });
       ms.id = 'blk'; ms.n = 'Test block';
@@ -2078,7 +2078,7 @@ module.exports = {
       saved: Object.keys(window.Train._.state().T.wo).length, live: !!window.Train._.state().LIVE }));
     t.ok('Save opens a summary: saved first, the sheet after', r.saved === 10 && !r.live, JSON.stringify(r));
     t.ok('headed by the milestone when there is one', r.h === 'Your 10th workout!', r.h);
-    t.ok('with the time, the sets, the volume and how many records', /Sets\s*2/.test(r.stats) && /Records\s*1/.test(r.stats) && /Volume/.test(r.stats), r.stats);
+    t.ok('with the time, the sets, the volume and how many records', /Sets\s*2/.test(r.stats) && /Records\s*1/.test(r.stats) && /Total lifted/.test(r.stats), r.stats);
     t.ok('the record named with a medal, and its set tagged with a ribbon; the other set left plain',
       /🥇/.test(r.recs) && /Barbell Bench Press/.test(r.recs) && /heaviest/.test(r.recs) && /🥇 heaviest/.test(r.rib) && r.plain === 1, JSON.stringify(r));
     r = await p.evaluate(() => { const c = window.Train._.state().S.cele, cv = document.getElementById('trConfetti');
@@ -2154,7 +2154,7 @@ module.exports = {
     t.ok('then the reps, level with last time', r.txt === '8 reps = vs last' && /eq/.test(r.cls), JSON.stringify(r));
     await p.click('#trfm-0 [data-t="fmcyc"]');
     r = await fmAt();
-    t.ok('then the best set, as an estimated max', r.txt === 'e1RM 247 ▲13 vs last', JSON.stringify(r));
+    t.ok('then the best set, as an estimated max', r.txt === 'Est. max 247 ▲13 vs last', JSON.stringify(r));
     await p.click('#trfm-0 [data-t="fmcyc"]');
     r = await p.evaluate(() => ({ txt: document.getElementById('trfm-0').textContent, kept: window.Train._.state().T.pr.fm.nbbbench }));
     t.ok('and round to the change in volume, which is the default and not stored', r.txt === '▲5% vs last' && !r.kept, JSON.stringify(r));
@@ -2323,7 +2323,7 @@ module.exports = {
     r = await p.evaluate(() => { const w = Object.values(window.Train._.state().T.wo).sort((a, b) => b.st - a.st)[0];
       return { bw: w.bw, recs: (document.querySelector('.tr-done-r') || {}).textContent || '' }; });
     t.ok('the day’s weight is kept with the workout', r.bw === 190, JSON.stringify(r));
-    t.ok('and 190 + 15 for 8 beats 200 for 8: a best estimated max, with its medal', /Pull-Up/.test(r.recs) && /best e1RM/.test(r.recs), r.recs);
+    t.ok('and 190 + 15 for 8 beats 200 for 8: a best estimated max, with its medal', /Pull-Up/.test(r.recs) && /best est\. max/.test(r.recs), r.recs);
     await p.click('.tr-done [data-t="close"]');
     await p.click('[data-t="sub"][data-v="lifts"]');
     await p.evaluate(() => { const b = document.querySelector('[data-t="exsheet"][data-e="pullup"]'); if (b) b.click(); });
@@ -2514,7 +2514,7 @@ module.exports = {
         prs: _.prsIn(w).length, vol: _.volOf(w) }; });
     t.ok('a best for its reps is said as that, and not counted as a record the history won’t star',
       r.h === 'A best for its reps!' && /Records0 \+1 rep best/.test(r.recs) && r.prs === 0, JSON.stringify(r));
-    t.ok('and the volume is the working sets only', r.vol === 320 * 8 && /Volume2,560 lb/.test(r.recs), JSON.stringify(r));
+    t.ok('and the volume is the working sets only', r.vol === 320 * 8 && /Total lifted2,560 lb/.test(r.recs), JSON.stringify(r));
     await p.close();
 
     // a wave's end shows the new training maxes; a main lift swapped keeps its day
@@ -2888,6 +2888,122 @@ module.exports = {
     r = await p.evaluate(() => ({ same: !!window.__b && window.__b === document.querySelector('.tr-rest-btn[data-v="15"]') && window.__f === document.querySelector('[data-t="finish"]'),
       moved: document.querySelector('.tr-rest-t').textContent !== window.__t }));
     t.ok('the rest bar’s buttons stay the same buttons while its clock counts down', r.same && r.moved, JSON.stringify(r));
+    await p.close();
+
+    // sets typed and never ticked are offered at Finish, not dropped with the empty ones
+    p = await t.fresh();
+    await keepLive(p);
+    await p.fill('#trw-0-0', '95');
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.fill('#trw-0-1', '95');
+    await p.fill('#trr-0-1', '7');
+    await p.click('[data-t="finish"]');
+    r = await p.evaluate(() => ({ say: (document.querySelector('.tr-typed') || {}).textContent || '', btn: (document.querySelector('[data-t="ticktyped"]') || {}).textContent || '',
+      empty: [...document.querySelectorAll('.tr-sheet .tr-note')].map((n) => n.textContent).join('|') }));
+    t.ok('Finish says which sets have numbers but no tick, apart from the empty ones', /1 set has numbers typed in but wasn’t ticked/.test(r.say) && r.btn === 'Tick it and save' && /empty sets? w/.test(r.empty), JSON.stringify(r));
+    await p.click('[data-t="ticktyped"]');
+    r = await p.evaluate(() => { const ws = Object.values(window.Train._.state().T.wo); return ws.length + ':' + ws[0].x[0].s.map((z) => z.w + 'x' + z.r).join('/'); });
+    t.ok('and Tick it and save keeps it, as it was typed', r === '1:95x8/95x7', r);
+    await p.close();
+
+    // a weight ten times last time's is asked about on the tick
+    p = await t.fresh();
+    await keepLive(p);
+    await p.fill('#trw-0-0', '95');
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.fill('#trw-0-1', '100');
+    await p.fill('#trr-0-1', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="1"]');
+    r = await p.evaluate(() => ({ dlg: !!document.querySelector('#dialogRoot .dlg'), t: !!window.Train._.state().LIVE.x[0].s[1].t }));
+    t.ok('an ordinary step up is not questioned', !r.dlg && r.t, JSON.stringify(r));
+    await p.fill('#trw-0-2', '1000');
+    await p.fill('#trr-0-2', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="2"]');
+    r = await p.evaluate(() => ({ dlg: (document.querySelector('#dialogRoot .dlg') || {}).textContent || '', t: !!window.Train._.state().LIVE.x[0].s[2].t }));
+    t.ok('1000 after 100 asks before it is ticked', /1000 lb\?/.test(r.dlg) && /Last time was 100 lb/.test(r.dlg) && /10 times/.test(r.dlg) && !r.t, JSON.stringify(r));
+    await p.click('#dialogRoot [data-dlg="cancel"]');
+    r = await p.evaluate(() => ({ t: !!window.Train._.state().LIVE.x[0].s[2].t, focus: document.activeElement && document.activeElement.id }));
+    t.ok('Cancel leaves it unticked, with the weight box ready to fix', !r.t && r.focus === 'trw-0-2', JSON.stringify(r));
+    await p.click('[data-t="tick"][data-x="0"][data-s="2"]');
+    await p.click('#dialogRoot [data-dlg="ok"]');
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s[2]);
+    t.ok('and Keep ticks it as typed', !!r.t && r.w === 1000, JSON.stringify(r));
+    await p.close();
+
+    // a bodyweight lift: the box is what is added, and empty is the body alone
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="pullup"]');
+    r = await p.evaluate(() => ({ head: [...document.querySelectorAll('.tr-set-h span')].map((x) => x.textContent).join('|'), ph: document.querySelector('#trw-0-0').placeholder }));
+    t.ok('on a pull-up the column says +lb and an empty box says BW', /\|\+lb\|/.test(r.head) && r.ph === 'BW', JSON.stringify(r));
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].s[0]);
+    t.ok('and reps alone tick it, as the body alone', !!r.t && r.w === 0 && r.r === 8, JSON.stringify(r));
+    await p.close();
+
+    // Skip, with Undo for a few seconds
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="qz"][data-f="goal"][data-v="keep"]');
+    await p.click('[data-t="qz"][data-f="lvl"][data-v="2"]');
+    await p.click('[data-t="qz"][data-f="dpw"][data-v="2"]');
+    await p.click('[data-t="qz"][data-f="min"][data-v="0"]');
+    await p.click('[data-t="qzn"]');
+    await p.click('[data-t="qz"][data-f="kit"][data-v="gym"]');
+    await p.click('[data-t="qzn"]');
+    await p.click('[data-t="qzn"]');
+    await p.click('[data-t="qz"][data-f="age"][data-v=""]');
+    await p.click('[data-t="prog"][data-v="keep"]');
+    await p.click('[data-t="build"]');
+    await p.click('[data-t="begin"]');
+    r = await p.evaluate(() => ({ busy: window.Train.busy() }));
+    t.ok('Strengthen says it is not mid-way through anything on a plain screen', r.busy === false, JSON.stringify(r));
+    await p.click('[data-t="skip"]');
+    r = await p.evaluate(() => { const s = window.Train._.state(); return { sk: (s.T.ms[s.T.act].sk || []).join(), undo: (document.querySelector('.tr-undo') || {}).textContent || '' }; });
+    t.ok('Skip skips at once and offers Undo', r.sk === '0:0' && /^Skipped .*Undo$/.test(r.undo), JSON.stringify(r));
+    await p.click('[data-t="unskip"]');
+    r = await p.evaluate(() => { const s = window.Train._.state(); return { sk: (s.T.ms[s.T.act].sk || []).join(), undo: !!document.querySelector('.tr-undo') }; });
+    t.ok('and Undo puts the session back', r.sk === '' && !r.undo, JSON.stringify(r));
+    await p.click('[data-t="settings"]');
+    r = await p.evaluate(() => window.Train.busy());
+    t.ok('with a sheet open it is, and an update waits', r === true, String(r));
+    await p.close();
+
+    // reopened mid-rest, any touch wakes the chime's sound
+    p = await t.fresh();
+    await keepLive(p);
+    await p.fill('#trw-0-0', '95');
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.reload();
+    await p.waitForTimeout(300);
+    r = await p.evaluate(() => { let n = 0; const C = window.AudioContext; window.AudioContext = function () { n++; return new C(); };
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); return { n, live: !!window.Train._.state().LIVE }; });
+    t.ok('reopened in the middle of a rest, the first touch wakes the sound for the chime', r.live && r.n === 1, JSON.stringify(r));
+    await p.close();
+
+    // the app open twice: each takes in the other's saves instead of writing over them
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    const p2 = await p.context().newPage();
+    await p2.goto(t.base + 'index.html');
+    await p2.waitForTimeout(300);
+    const woA = wo('a1', '', 0, 0, 2, [{ e: 'bb-bench', s: sets(135, [8, 8]) }]), woB = wo('b1', '', 0, 0, 1, [{ e: 'bb-squat', s: sets(95, [10]) }]);
+    await p.evaluate((w) => window.Train._.merge({ wo: { a1: { v: w, at: Date.now() } } }), woA);
+    await p2.waitForTimeout(300);
+    await p2.evaluate((w) => window.Train._.merge({ wo: { b1: { v: w, at: Date.now() } } }), woB);
+    await p.waitForTimeout(300);
+    r = await Promise.all([p, p2].map((q) => q.evaluate(() => Object.keys(window.Train._.state().T.wo).sort().join()))).then((a) => ({
+      one: a[0], two: a[1] }));
+    const stored = await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('bsc.train')).wo).sort().join());
+    t.ok('a workout saved in one copy of the app survives a save in the other', r.one === 'a1,b1' && r.two === 'a1,b1' && stored === 'a1,b1', JSON.stringify({ r, stored }));
+    await p2.close();
     await p.close();
 
     // the main lift, with a back protected: the one that loads it least
