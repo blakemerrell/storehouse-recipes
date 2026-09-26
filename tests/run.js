@@ -25,8 +25,15 @@ const TYPES = {
   '.woff2': 'font/woff2', '.png': 'image/png', '.svg': 'image/svg+xml',
 };
 
+/* Down: every connection refused, as a phone with no signal has it.
+   Playwright's setOffline stops the page's own requests but not the service
+   worker's, so a test that went "offline" with it alone was still being
+   served from here, and passed whatever the worker did. */
+let DOWN = false;
+
 function serve() {
   const srv = http.createServer((req, res) => {
+    if (DOWN) { req.socket.destroy(); return; }
     let p = decodeURIComponent(req.url.split('?')[0]);
     if (p.endsWith('/')) p += 'index.html';
     const file = path.join(ROOT, path.normalize(p).replace(/^(\.\.[/\\])+/, ''));
@@ -81,9 +88,11 @@ function playwright() {
   for (const f of files) {
     const suite = require(path.join(__dirname, f));
     const results = [];
+    DOWN = false;
     const t = {
       base: URL_BASE,
       browser,
+      down(v) { DOWN = !!v; },
       ok(name, cond, detail) {
         results.push({ name, cond: !!cond, detail });
         if (cond) pass++; else { fail++; failures.push(suite.name + ' — ' + name); }

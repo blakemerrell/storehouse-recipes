@@ -453,6 +453,30 @@ module.exports = {
     t.ok('a citation opens the source list without leaving the page', d.open && !d.hash, JSON.stringify(d));
     await p.close();
 
+    /* Settings meet setting by setting. A tablet where somebody tapped "I'm
+       new" before signing in has only ever had the defaults: they must not
+       go over the back protection and lifting days the account holds. */
+    p = await t.fresh();
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="qznew"]');
+    r = await p.evaluate(() => {
+      const _ = window.Train._, T = () => _.state().T, phone = JSON.parse(JSON.stringify(T().pr));
+      Object.assign(phone, { bk: 'fc', ld: [0, 2, 4], lvl: 2, rc: 150 });
+      const out = {};
+      // the account, as a build from before wrote it: one stamp, older than the tap
+      out.took = _.merge({ pr: { v: phone, at: Date.now() - 864e5 } });
+      out.pr = [T().pr.bk, T().pr.ld.join(''), T().pr.lvl, T().pr.rc].join();
+      const k = _.payload(true).pr.k;
+      out.k = !!(k && k.bk && k.lvl && k.lvl > k.bk);
+      // a newer change to one setting from the other phone takes that setting alone
+      out.one = _.merge({ pr: { v: Object.assign({}, phone, { rc: 240, bk: '' }), at: Date.now() + 1000, k: { rc: Date.now() + 1000, bk: 1 } } });
+      out.pr2 = [T().pr.bk, T().pr.rc].join();
+      return out; });
+    t.ok('a device with only the defaults takes the account\u2019s back, days and rest, and keeps what it chose itself', r.took && r.pr === 'fc,024,0,150', JSON.stringify(r));
+    t.ok('each setting goes out with its own stamp', r.k, JSON.stringify(r));
+    t.ok('a newer change to one setting moves that one; an older stamp on another does not', r.one && r.pr2 === 'fc,240', JSON.stringify(r));
+    await p.close();
+
     // ---- sync ----------------------------------------------------------------
     p = await t.fresh();
     r = await p.evaluate(async () => {
@@ -1369,6 +1393,17 @@ module.exports = {
       chips: [...document.querySelectorAll('[data-t="swsc"]')].map((b) => b.dataset.v + ':' + b.getAttribute('aria-pressed')).join(),
     }));
     t.ok('a swap in a block asks how long it is for, and starts at just today', r.chips === 'day:true,block:false', r.chips);
+    r = await p.evaluate(() => { const cur = window.Train._.state().LIVE.x[0].e;
+      return { self: !!document.querySelector(`.tr-pick[data-e="${cur}"]`), n: document.querySelectorAll('.tr-pick[data-e]').length }; });
+    t.ok('the list to swap to leaves out the lift being swapped', !r.self && r.n > 0, JSON.stringify(r));
+    await p.click('[data-t="pickm"][data-v=""]');
+    await p.fill('#trPickQ', 'hip abductor');
+    await p.waitForTimeout(50);
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-pick[data-e]')].map((b) => b.dataset.e).join());
+    t.ok('a search goes word by word: "hip abductor" finds the Hip Abduction Machine', r.split(',').indexOf('abduct') >= 0, r);
+    await p.fill('#trPickQ', '');
+    await p.evaluate(() => { const c = window.Train._.state().LIVE.x[0].e; document.querySelector(`[data-t="pickm"][data-v="${window.Train._.lib(c).m}"]`).click(); });
+    await p.waitForTimeout(50);
     let to = await otherOf(p, 0);
     const before = await p.evaluate(() => { const s = window.Train._.state(); return s.T.ms[s.LIVE.ms].days[s.LIVE.d].s.map((x) => x.e).join(); });
     await p.click(`.tr-pick[data-e="${to}"]`);
@@ -2819,7 +2854,7 @@ module.exports = {
     p = await t.fresh();
     await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
     await p.click('.tab[data-view="train"]');
-    await p.evaluate(() => { const real = Storage.prototype.setItem;
+    await p.evaluate(() => { const real = Storage.prototype.setItem; window.__realSet = real;
       Storage.prototype.setItem = function (k, v) { if (k === 'bsc.train') { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; } return real.call(this, k, v); }; });
     await p.click('[data-t="empty"]');
     await p.click('[data-t="addex"]');
@@ -2831,9 +2866,37 @@ module.exports = {
     await p.click('[data-t="finish"]');
     await p.click('[data-t="save"]');
     await p.waitForSelector('.tr-done');
+    r = await p.evaluate(() => ({ warn: (document.querySelector('.tr-done .tr-lsfull') || {}).textContent || '', live: !!localStorage.getItem('sh.trainLive') }));
+    t.ok('a save that could not be written says so on the summary, and the workout’s live copy stays on the phone', /isn’t saved on it/.test(r.warn) && r.live, JSON.stringify(r));
     await p.click('.tr-done [data-t="close"]');
-    r = await p.evaluate(() => ({ full: window.Train._.lsFull(), say: (document.querySelector('.tr-lsfull') || {}).textContent || '' }));
-    t.ok('when the phone’s storage is full it says so, and what to do', r.full === true && /storage for the app is full/.test(r.say) && /Export a copy/.test(r.say), JSON.stringify(r));
+    r = await p.evaluate(() => ({ full: window.Train._.lsFull(), say: (document.querySelector('.tr-lsfull') || {}).textContent || '', live: !!window.Train._.state().LIVE }));
+    t.ok('when the phone’s storage is full it says so, and what to do', r.full === true && /storage for the app is full/.test(r.say) && /Export a copy/.test(r.say) && !r.live, JSON.stringify(r));
+    r = await p.evaluate(() => { Storage.prototype.setItem = window.__realSet;
+      window.Train._.merge({ act: { v: '', at: Date.now() } });
+      return { full: window.Train._.lsFull(), live: localStorage.getItem('sh.trainLive'), n: Object.keys(JSON.parse(localStorage.getItem('bsc.train')).wo).length }; });
+    t.ok('once the log can be written again, the workout is in it and the spare live copy is gone', r.full === false && r.live === null && r.n === 1, JSON.stringify(r));
+    await p.close();
+
+    // the rest bar keeps its buttons while the clock runs, so a tap on the turn of a second lands
+    p = await t.fresh();
+    await keepLive(p);
+    await p.fill('#trw-0-0', '95');
+    await p.fill('#trr-0-0', '8');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    await p.evaluate(() => { window.__b = document.querySelector('.tr-rest-btn[data-v="15"]'); window.__f = document.querySelector('[data-t="finish"]'); window.__t = document.querySelector('.tr-rest-t').textContent; });
+    await p.waitForTimeout(2200);
+    r = await p.evaluate(() => ({ same: !!window.__b && window.__b === document.querySelector('.tr-rest-btn[data-v="15"]') && window.__f === document.querySelector('[data-t="finish"]'),
+      moved: document.querySelector('.tr-rest-t').textContent !== window.__t }));
+    t.ok('the rest bar’s buttons stay the same buttons while its clock counts down', r.same && r.moved, JSON.stringify(r));
+    await p.close();
+
+    // the main lift, with a back protected: the one that loads it least
+    p = await t.fresh();
+    r = await p.evaluate(() => { const _ = window.Train._, m = (o) => _.build(Object.assign({ prog: 'waves', dpw: 3, kit: 'gym', lvl: 1 }, o)).days[0].s[0].e;
+      const start = _.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 0, bk: 'fc' }).days.map((d) => d.s.map((x) => x.e).join()).join(' | ');
+      return { plain: m({}), fc: m({ bk: 'fc' }), c: m({ bk: 'c' }), start }; });
+    t.ok('with the back protected from bending and weight on the spine, the squat day opens with a belt squat, not a Smith squat', r.plain === 'bb-squat' && r.fc === 'belt-squat' && r.c !== 'sm-squat', JSON.stringify(r));
+    t.ok('and a new lifter protecting bending gets no Romanian deadlift of any kind, as the block says', !/rdl/.test(r.start), r.start);
     await p.close();
 
     // ---- for the serious lifter: misses, assisted lifts, two deadlifts, RPE, a spreadsheet ----
@@ -2930,11 +2993,16 @@ module.exports = {
     } });
     r = await p.evaluate(() => { const _ = window.Train._, csv = _.woCsv(), rows = _.csvRows(csv), G = _.sgParse(csv);
       return { head: rows[0].slice(0, 12).join(','), n: rows.length, row2: rows[2].join('|'), miss: rows[3].join('|'),
-        back: G.err || G.wos.length + ':' + G.wos[0].x.map((x) => x.nm + '=' + x.s.length).join(','), match: G.names.map((n) => n.e).join(',') }; });
+        back: G.err || G.wos.length + ':' + G.wos[0].x.map((x) => x.nm + '=' + x.s.length).join(','), match: G.names.map((n) => n.e).join(','),
+        nt: G.wos[0].nt.join('|'),
+        bw: _.sgList(_.sgParse('Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds,Notes,Workout Notes,RPE,RIR,Set Type,Bodyweight\n' +
+          '2024-09-24 18:00:00,Pull,,Pull-Up,1,0,lbs,8,,,,,,,Working set,182.4\n'), 0)[0].bw }; });
     t.ok('the spreadsheet has Strong’s columns, with the unit on every row', r.head === 'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds,Notes,Workout Notes', r.head);
     t.ok('a row a set: warm-up W, RPE and RIR both, and the workout note quoted', r.n === 5 && /\|1\|225\|lbs\|5\|/.test(r.row2) && /\|8\|2\|Working set\|/.test(r.row2) && /Felt good, "legs" day/.test(r.row2), JSON.stringify(r));
     t.ok('a missed attempt says so', /Missed attempt/.test(r.miss) && /\|245\|lbs\|0\|/.test(r.miss), r.miss);
     t.ok('and Bring in from Strong reads it back, lifts matched by name (the missed attempt left out, as Strong would)', r.back === '1:Back Squat=2,Assisted Pull-Up=1' && r.match.split(',').sort().join() === 'as-pullup,bb-squat', JSON.stringify(r));
+    t.ok('what the export writes on a set (the machine\u2019s help, a missed attempt) is not brought back as a note', /Felt good/.test(r.nt) && !/machine|Missed/.test(r.nt), r.nt);
+    t.ok('and its Bodyweight column comes back with the workout, for a pull-up\u2019s best', r.bw === 182.4, JSON.stringify(r.bw));
     r = await p.evaluate(() => { const G = window.Train._.sgParse('Date,Workout Name,Exercise Name,Set Order,Weight,Reps,RPE\n2026-01-05 18:00:00,Pull,Deadlift (Barbell),1,405,3,8.5\n');
       return G.wos[0].x[0].s[0].q; });
     t.ok('an RPE of 8.5 comes in as one and a half in reserve, not rounded', r === 1.5, r);
@@ -2965,6 +3033,37 @@ module.exports = {
       return [d('45559'), d('Sep 24, 2024 6:30 PM'), d('24.09.2024'), d('03/04/2024', 'dmy'), d('03/04/2024', 'mdy'), d('9/24/24 7:05 am')].join('|'); });
     t.ok('dates as spreadsheets and apps write them: a day number, “Sep 24, 2024 6:30 PM”, 24.09.2024, either order, two-digit years',
       r === 'Sep 24 2024 12:00|Sep 24 2024 18:30|Sep 24 2024 12:00|Apr 03 2024 12:00|Mar 04 2024 12:00|Sep 24 2024 07:05', r);
+    r = await p.evaluate(() => { const _ = window.Train._, d = (s) => _.imDate(s, 'mdy'), M = { C: { date: 0, ex: 1, w: 2, r: 3 } };
+      // one weight that says kg, in a sheet of bare numbers: the rest are not kg
+      const mix = _.sgParse('Date,Exercise,Weight,Reps\n2024-09-24,Bench Press,185,8\n2024-09-24,Bench Press,60kg,8\n', M);
+      mix.unit = 'lb';
+      // BW, BW+25, +25, a minus on an assisted lift and on anything else, and 1,000
+      const wt = _.sgParse('Date,Exercise,Weight,Reps\n2024-09-24,Pull Up,BW,8\n2024-09-24,Pull Up,BW+25,6\n2024-09-24,Pull Up,+10,6\n' +
+        '2024-09-24,Assisted Pull Up,-40,8\n2024-09-24,Bench Press,-5,8\n2024-09-24,Leg Press,"1,000",10\n', M);
+      // a time on every row, no workout name: one workout a day, a new one after three hours
+      const stamp = _.sgParse('Date,Exercise,Weight,Reps\n2024-09-24 18:00,Bench Press,185,8\n2024-09-24 18:04,Bench Press,185,7\n' +
+        '2024-09-24 18:12,Squat,225,5\n2024-09-25 07:00,Squat,225,5\n2024-09-25 19:30,Bench Press,190,5\n', M);
+      const set = (G) => _.sgList(G, 0).map((w) => w.x.map((x) => x.e + ':' + x.s.map((z) => z.w + 'x' + z.r).join('/')).join()).join(' | ');
+      return { mix: mix.fixedUnit + ' ' + set(mix), wt: set(wt), n: stamp.wos.length, sets: stamp.wos.map((w) => w.x.reduce((a, x) => a + x.s.length, 0)).join(),
+        yr: [d('15-Jan'), d('3/15'), d('Jan 15'), d('Jan 15 2024') ? 'y' : 'n'].join() }; });
+    t.ok('a file of bare weights with one "60kg" is asked its unit, and the 60 kg comes in as 132.5 lb', r.mix === 'false bb-bench:185x8/132.5x8', r.mix);
+    t.ok('BW is the body, BW+25 and +10 are added, the help on an assisted lift is kept, a minus elsewhere is no weight, "1,000" is a thousand',
+      /^pullup:0x8\/25x6\/10x6,as-pullup:40x8,bb-bench:0x8,leg-press:1000x10$/.test(r.wt), r.wt);
+    t.ok('a time on every row is still one workout a day, and a second session three hours later is its own', r.n === 3 && r.sets === '3,1,1', JSON.stringify(r));
+    t.ok('a date with no year is not read as 2001', r.yr === ',,,y', r.yr);
+    r = await p.evaluate(() => ['Pull Up (Weighted)', 'Chest Dip (Weighted)', 'Weighted Dips', 'Squats', 'OHP', 'DB Curls', 'RDL', 'Triceps Pushdown'].map((n) => window.Train._.sgMatch(n)).join());
+    t.ok('names as people write them: (Weighted), plurals, OHP, DB and RDL', r.split(',').slice(0, 7).join() === 'pullup,dip,dip,bb-squat,bb-ohp,db-curl,bb-rdl' && r.split(',')[7] !== '', r);
+    await p.close();
+
+    // the same session from another app, a minute or two apart, is not brought in twice
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      h1: wo('h1', '', 0, 0, 3, [{ e: 'bb-bench', s: sets(185, [8]) }]) } });
+    r = await p.evaluate(() => { const _ = window.Train._, st = _.state().T.wo.h1.st, dt = (ms) => { const d = new Date(st + ms), p2 = (n) => String(n).padStart(2, '0');
+        return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); };
+      const G = _.sgParse('Date,Workout Name,Exercise Name,Set Order,Weight,Reps\n' + dt(90000) + ',Push,Bench Press (Barbell),1,185,8\n' + dt(3 * 3600000) + ',Legs,Squat (Barbell),1,225,5\n');
+      return _.sgList(G, 0).map((w) => w.n).join(); });
+    t.ok('the same session from another app, a minute and a half apart, is not brought in twice', r === 'Legs', r);
     await p.close();
 
     // any other spreadsheet: pasted, its columns matched once, remembered
@@ -2988,6 +3087,10 @@ module.exports = {
     r = await p.evaluate(() => ({ title: (document.querySelector('.tr-sheet .sheet-name') || {}).textContent, go: (document.querySelector('[data-t="sggo"]') || {}).textContent || '',
       mem: Object.keys(JSON.parse(localStorage.getItem('sh.importMap') || '{}')).length }));
     t.ok('Next shows what would come in, and the matching is remembered for the same headings', r.title === 'From your file' && /Bring in 2 workouts/.test(r.go) && r.mem === 1, JSON.stringify(r));
+    await p.click('[data-t="sgmap"][data-i="0"]');
+    await p.click('#trainRoot .sheet-x');
+    r = await p.evaluate(() => ({ title: (document.querySelector('.tr-sheet .sheet-name') || {}).textContent, go: !!document.querySelector('[data-t="sggo"]') }));
+    t.ok('closing the lift picker goes back to the import, not out of it', r.title === 'From your file' && r.go, JSON.stringify(r));
     await p.click('[data-t="sggo"]');
     r = await p.evaluate(() => { const T = window.Train._.state().T, ws = Object.values(T.wo).sort((a, b) => a.st - b.st);
       return { n: ws.length, u: ws.map((w) => w.u).join(), sets: ws.map((w) => w.x.map((x) => x.e + ':' + x.s.map((z) => z.w + 'x' + z.r).join('/')).join()).join(' | '),
