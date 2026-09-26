@@ -2632,11 +2632,13 @@
   function mIsTrainingDay(k) {
     var train = mTrainDays();
     if (!train.length || train.length >= 7) return false;
-    if (mTrainedSaid(k)) return mTrainedAt(k) > 0;
-    /* A workout saved in Strengthen that day is a yes. Blake: "can I sync
-       that with strengthen". Your own tick, either way, still wins. */
-    if (mSynced() && mStrengthOn(k).length) return true;
     var planned = train.indexOf(mWkIx(keyDate(k))) >= 0;
+    /* Not synced, the tick is how Nourish hears; unticked, the plan. */
+    if (!mSynced()) return mTrainedSaid(k) ? mTrainedAt(k) > 0 : planned;
+    /* Synced, Strengthen is the whole answer — there is nothing on Nourish
+       to press. Blake: "If sync with strength is on I don't want to see the
+       toggle in Nourish." A workout logged that day is a yes. */
+    if (mStrengthOn(k).length) return true;
     /* Synced with Strengthen, a planned day that ended with nothing logged
        was a rest day, and the rest of the week makes up for it — nothing to
        press. Blake: "with sync on I would just go there and load my actual
@@ -3206,68 +3208,46 @@
      also might ad hoc go to the gym, or skip a day sometimes." */
   function mTrainRow(k) {
     var hard = mIsTrainingDay(k), dt = mDayTargets(k), base = mReadTargets();
-    var said = mTrainedSaid(k);
-    var sync = mSynced();
-    var done = sync && hard && !(said && !mStrengthOn(k).length) ? mSessionsOn(k) : [];
+    var carbs = dt.c + ' g carbs';
+    /* Not synced: the checkbox, as it was, and what the tick did in one
+       line under it. */
+    if (!mSynced()) {
+      return '<div class="mw-train no-print">' +
+        '<button class="mw-tick" data-mtrained="' + esc(k) + '" aria-pressed="' + hard + '">' +
+          '<span class="mw-tick-l">Trained today' +
+            (base.c && dt.c !== base.c ? '<span class="mw-tick-s">' + dt.c + ' g carbs today · ' + base.c +
+              ' on an average day</span>' : '') + '</span>' +
+          '<span class="mw-tick-b" aria-hidden="true"></span></button></div>';
+    }
+    /* Synced: what Strengthen says, and nothing to press. "Training", not
+       "lifting" — the session is whatever the block says it is. */
+    var done = hard ? mSessionsOn(k) : [];
     var hm = function (ts) {
       var d = new Date(ts), h = d.getHours(), m = d.getMinutes();
       return (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' am' : ' pm');
     };
-    var carbs = dt.c + ' g carbs';
-    var ic, t1, t2, btn = '';
+    var nm = '';
+    try { nm = window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm = ''; }
+    var ic, t1, t2;
     if (done.length) {
       var w0 = done[0], mins = w0.en > w0.st ? Math.round((w0.en - w0.st) / 60000) : 0;
-      ic = '<span class="mw-tr-ic is-done" aria-hidden="true">\u2713</span>';
-      t1 = esc(done.map(function (w) { return w.n; }).join(', ')) + ' \u00b7 done ' + hm(w0.st);
-      t2 = carbs + ' \u00b7 ' + w0.sets + (w0.sets === 1 ? ' set' : ' sets') + (mins ? ', ' + mins + ' min' : '');
+      ic = '<span class="mw-tr-ic is-done" aria-hidden="true">✓</span>';
+      t1 = esc(done.map(function (w) { return w.n; }).join(', ')) + ' · done ' + hm(w0.st);
+      t2 = carbs + ' · ' + w0.sets + (w0.sets === 1 ? ' set' : ' sets') + (mins ? ', ' + mins + ' min' : '');
     } else if (hard) {
-      var nm = '';
-      try { nm = sync && window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm = ''; }
       ic = '<span class="mw-tr-ic is-lift" aria-hidden="true"><svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0L11 10H0z" fill="currentColor"/></svg></span>';
-      t1 = (nm ? esc(nm) + ' today' : 'Lifting today');
-      t2 = carbs + (base.c && base.c !== dt.c ? ' \u00b7 ' + base.c + ' on an average day' : '');
-      btn = mTrainCtl(k, true);
+      t1 = k === todayKey() ? (nm ? esc(nm) + ' today' : 'Training day') : 'Training day';
+      t2 = carbs + (base.c && base.c !== dt.c ? ' · ' + base.c + ' on an average day' : '');
     } else {
       /* Where the next session lands: the next of your days after this one. */
-      var days = mTrainDays(), ix0 = mWkIx(keyDate(k)), nxt = '';
-      for (var n = 1; n <= 7 && !nxt; n++) if (days.indexOf((ix0 + n) % 7) >= 0) nxt = M_WDAY[(ix0 + n) % 7];
-      var nm2 = '';
-      try { nm2 = sync && window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm2 = ''; }
-      ic = '<span class="mw-tr-ic is-rest" aria-hidden="true">\u2013</span>';
+      var days = mTrainDays(), ix0 = mWkIx(keyDate(k)), nxt = '', gap = 0;
+      for (var n = 1; n <= 7 && !nxt; n++) if (days.indexOf((ix0 + n) % 7) >= 0) { nxt = M_WDAY[(ix0 + n) % 7]; gap = n; }
+      ic = '<span class="mw-tr-ic is-rest" aria-hidden="true">–</span>';
       t1 = 'Rest day';
-      t2 = carbs + (nxt ? ' \u00b7 ' + (nm2 ? esc(nm2) : 'next lift') + ' ' + (n === 2 ? 'tomorrow' : nxt) : '');
-      if (said && mSynced()) t1 = 'Rest day \u00b7 skipping';
-      btn = mTrainCtl(k, false);
+      t2 = carbs + (nxt && k === todayKey() ? ' · ' + (nm ? esc(nm) : 'next session') + ' ' + (gap === 1 ? 'tomorrow' : nxt) : '');
     }
     return '<div class="mw-train no-print">' + ic +
-      '<span class="mw-tr-t"><span class="mw-tr-1">' + t1 + '</span><span class="mw-tr-2">' + t2 + '</span></span>' +
-      btn + '</div>';
-  }
-  /* Lift | Rest, with today's answer filled in. Blake: "I can't tell if the
-     rest today or lifting today is toggled on or off." A button named for
-     what it would do next reads as the state it is in; a switch showing
-     both sides, one lit, does not. */
-  /* Synced with Strengthen the switch starts where the plan and the log
-     put it: planned days on Lift, a logged workout done, a planned day that
-     ended with nothing logged counted as rest. Pressing it is only for the
-     morning you already know otherwise. Not synced, it is the only way
-     Nourish hears what you did. */
-  function mTrainCtl(k, hard) {
-    /* Synced, the switch sets itself from the block and the log, and a
-       day already over is Strengthen's to say — only today can be changed
-       by hand. Blake: "The switch is better... if sync is turned on then
-       Nourish should know my plan and from my history in Strength know when
-       and what I did." */
-    if (mSynced() && k !== todayKey()) return '';
-    return mTrainSwitch(k, hard);
-  }
-  function mTrainSwitch(k, hard) {
-    var side = function (on, label, v) {
-      return '<button type="button" class="mw-seg-b' + (on ? ' on' : '') + '" data-mtrained="' + esc(k) +
-        '" data-mto="' + v + '" aria-pressed="' + on + '">' + label + '</button>';
-    };
-    return '<span class="mw-seg" role="group" aria-label="Today is a">' +
-      side(hard, 'Lift', 1) + side(!hard, 'Rest', 0) + '</span>';
+      '<span class="mw-tr-t"><span class="mw-tr-1">' + t1 + '</span><span class="mw-tr-2">' + t2 + '</span></span></div>';
   }
   function mSessionsOn(k) {
     try { return window.Train && window.Train.sessionsOn ? window.Train.sessionsOn(k) || [] : []; } catch (e) { return []; }
@@ -10061,7 +10041,7 @@
         }).join('') + '</span>' +
         '<span class="mt-ld-s">' + (pr.syncTrain === false ? 'You set each day yourself'
           : 'Your plan and logged workouts set each day') + '</span>', true) : '') +
-      row('Lifting days', (mBlockN()
+      row('Training days', (mBlockN()
           /* A block running: its days are set on the block, where the count
              is held to its sessions. Shown here, changed there, one tap. */
           ? '<span class="mt-ld">' + mTrainDays().map(function (i) { return '<i>' + M_WDAY[i] + '</i>'; }).join('') + '</span>' +
@@ -15768,11 +15748,7 @@
       var tr = e.target.closest('[data-mtrained]');
       if (tr) {
         var tk = tr.dataset.mtrained;
-        /* The switch says which side it wants; pressing the side already
-           lit changes nothing. */
-        var want = tr.dataset.mto !== undefined ? tr.dataset.mto === '1' : !mIsTrainingDay(tk);
-        if (want === mIsTrainingDay(tk)) return;
-        mSetTrained(tk, want);
+        mSetTrained(tk, !mIsTrainingDay(tk));
         keepingFocus(renderMacros);
         return;
       }
