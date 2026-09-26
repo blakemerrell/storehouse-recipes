@@ -10060,7 +10060,7 @@
           return '<button type="button" data-mtsync="' + o[0] + '" aria-pressed="' + on + '">' + o[1] + '</button>';
         }).join('') + '</span>' +
         '<span class="mt-ld-s">' + (pr.syncTrain === false ? 'You set each day yourself'
-          : 'Your plan and logged workouts set each day') + '</span>') : '') +
+          : 'Your plan and logged workouts set each day') + '</span>', true) : '') +
       row('Lifting days', (mBlockN()
           /* A block running: its days are set on the block, where the count
              is held to its sessions. Shown here, changed there, one tap. */
@@ -10068,7 +10068,7 @@
             '<button type="button" class="mt-ld-go" data-mgotrain="1">Change days</button>'
           : mTrainRowHTML()) +
         '<input type="hidden" id="mtWorkouts" value="' + (mTrainDays().length || Number(pr.workouts) || 0) + '">' +
-        '<span class="mt-ld-s" id="mtTrainN">' + mTrainNSay(mTrainDays().length) + '</span>') +
+        '<span class="mt-ld-s" id="mtTrainN">' + mTrainNSay(mTrainDays().length) + '</span>', true) +
       row('Steps a day <span class="mtl-opt">(optional)</span>',
         '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
         'inputmode="numeric" value="' + (pr.steps || '') + '">');
