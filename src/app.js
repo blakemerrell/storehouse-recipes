@@ -2506,7 +2506,16 @@
      getDay() starts on Sunday. */
   function mWkIx(d) { return (d.getDay() + 6) % 7; }
 
+  /* The lifting days: one list, kept in Strengthen and carried by the
+     account. Until anything is picked there, the days the profile implies. */
   function mTrainDays() {
+    try {
+      var ld = window.Train && window.Train.liftDays ? window.Train.liftDays() : null;
+      if (ld && ld.length) return ld.filter(function (n) { return n >= 0 && n <= 6; });
+    } catch (e) { /* Strengthen is not up */ }
+    return mTrainDaysOwn();
+  }
+  function mTrainDaysOwn() {
     var pr = mReadProfile();
     if (pr.train && Object.prototype.toString.call(pr.train) === '[object Array]') {
       return pr.train.filter(function (n) { return n >= 0 && n <= 6; });
@@ -2550,12 +2559,46 @@
     return mDayTargetsLive(k);
   }
 
+  /* The day's carbohydrate, with the week kept whole.
+   *
+     Blake: "the plan might be planned but I also might ad hoc go to the gym,
+     or skip a day sometimes." A day that went differently from the plan —
+     skipped, or an extra one — leaves the week owing or owed, and the days
+     after it make it up in even shares: skip Thursday's 90 and Friday to
+     Sunday each get about 12 more. Walked from Monday so every day, looked at
+     any morning, gets the same share it was given on its own; a day's own
+     change lands only on the days after it, never on itself. Days still to
+     come count as planned. */
   function mDayTargetsLive(k) {
     var base = mReadTargets();
+    var cy = mCycleOf(base);
+    if (!cy) return base;
+    var own = mCycleC(base, cy, mIsTrainingDay(k));
+    var kd = keyDate(k), ws = new Date(kd);
+    ws.setDate(ws.getDate() - mWkIx(kd));
+    var today = todayKey(), owed = 0, adj = 0;
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(ws); d.setDate(d.getDate() + i);
+      var dk = dayKey(d);
+      var planned = cy.train.indexOf(i) >= 0;
+      var hard = mIsTrainingDay(dk);
+      var share = Math.round(owed / (7 - i));
+      var c0 = mCycleC(base, cy, hard);
+      var c1 = Math.min(cy.hiC, Math.max(cy.loC, c0 + share));
+      if (share < 0 && c0 < cy.loC) c1 = c0;
+      owed -= c1 - c0;
+      if (dk === k) { adj = c1 - c0; break; }
+      if (dk <= today && hard !== planned) owed += mCycleC(base, cy, planned) - c0;
+    }
+    return { p: base.p, f: base.f, c: Math.max(0, own + adj) };
+  }
+  function mCycleC(base, cy, hard) {
+    return Math.max(0, Math.round(base.c * (hard ? 1 + cy.swing : 1 - cy.swing * cy.T / cy.R)));
+  }
+  function mCycleOf(base) {
     var train = mTrainDays();
     var T = train.length, R = 7 - T;
-    if (!T || !R || !base.c) return base;
-    var hard = mIsTrainingDay(k);
+    if (!T || !R || !base.c) return null;
     /* Whatever the training days gain, the rest days give back, so seven of
        these still add up to seven of the plan.
      *
@@ -2572,8 +2615,10 @@
       (mFloorK(pr) - other) / 4,
       MCARB_EAT * other / (4 * (1 - MCARB_EAT)));
     var swing = Math.min(MCYCLE_SWING, Math.max(0, (1 - restMinC / base.c) * R / T));
-    var f = hard ? (1 + swing) : (1 - swing * T / R);
-    return { p: base.p, f: base.f, c: Math.max(0, Math.round(base.c * f)) };
+    /* What making up the week may do to one day: never under the rest day's
+       own edge, never more than twice a training day's lift. */
+    return { train: train, T: T, R: R, swing: swing, loC: Math.ceil(restMinC),
+      hiC: Math.round(base.c * (1 + 2 * MCYCLE_SWING)) };
   }
 
   /* Ticked if you ticked it, planned otherwise.
@@ -2588,6 +2633,9 @@
     var train = mTrainDays();
     if (!train.length || train.length >= 7) return false;
     if (mTrainedSaid(k)) return mTrainedAt(k) > 0;
+    /* A workout saved in Strengthen that day is a yes. Blake: "can I sync
+       that with strengthen". Your own tick, either way, still wins. */
+    if (mStrengthOn(k).length) return true;
     return train.indexOf(mWkIx(keyDate(k))) >= 0;
   }
 
@@ -3130,6 +3178,64 @@
   })();
   function mTrainedAt(k) { return Number(MTRAINED[k]) || 0; }
   function mTrainedSaid(k) { return MTRAINED[k] !== undefined; }
+  /* Today's training, in one row: what's planned, done, or a rest day, and
+     the one tap that changes it. Blake: "the plan might be planned but I
+     also might ad hoc go to the gym, or skip a day sometimes." */
+  function mTrainRow(k) {
+    var hard = mIsTrainingDay(k), dt = mDayTargets(k), base = mReadTargets();
+    var said = mTrainedSaid(k);
+    var done = hard && !(said && !mStrengthOn(k).length) ? mSessionsOn(k) : [];
+    var hm = function (ts) {
+      var d = new Date(ts), h = d.getHours(), m = d.getMinutes();
+      return (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' am' : ' pm');
+    };
+    var carbs = dt.c + ' g carbs';
+    var ic, t1, t2, btn = '';
+    if (done.length) {
+      var w0 = done[0], mins = w0.en > w0.st ? Math.round((w0.en - w0.st) / 60000) : 0;
+      ic = '<span class="mw-tr-ic is-done" aria-hidden="true">\u2713</span>';
+      t1 = esc(done.map(function (w) { return w.n; }).join(', ')) + ' \u00b7 done ' + hm(w0.st);
+      t2 = carbs + ' \u00b7 ' + w0.sets + (w0.sets === 1 ? ' set' : ' sets') + (mins ? ', ' + mins + ' min' : '');
+    } else if (hard) {
+      var nm = '';
+      try { nm = window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm = ''; }
+      ic = '<span class="mw-tr-ic is-lift" aria-hidden="true"><svg width="11" height="10" viewBox="0 0 11 10"><path d="M5.5 0L11 10H0z" fill="currentColor"/></svg></span>';
+      t1 = (nm ? esc(nm) + ' today' : 'Lifting today');
+      t2 = carbs + (base.c && base.c !== dt.c ? ' \u00b7 ' + base.c + ' on an average day' : '');
+      btn = mTrainSwitch(k, true);
+    } else {
+      /* Where the next session lands: the next of your days after this one. */
+      var days = mTrainDays(), ix0 = mWkIx(keyDate(k)), nxt = '';
+      for (var n = 1; n <= 7 && !nxt; n++) if (days.indexOf((ix0 + n) % 7) >= 0) nxt = M_WDAY[(ix0 + n) % 7];
+      var nm2 = '';
+      try { nm2 = window.Train && window.Train.nextName ? window.Train.nextName() : ''; } catch (e) { nm2 = ''; }
+      ic = '<span class="mw-tr-ic is-rest" aria-hidden="true">\u2013</span>';
+      t1 = 'Rest day';
+      t2 = carbs + (nxt ? ' \u00b7 ' + (nm2 ? esc(nm2) : 'next lift') + ' ' + (n === 2 ? 'tomorrow' : nxt) : '');
+      btn = mTrainSwitch(k, false);
+    }
+    return '<div class="mw-train no-print">' + ic +
+      '<span class="mw-tr-t"><span class="mw-tr-1">' + t1 + '</span><span class="mw-tr-2">' + t2 + '</span></span>' +
+      btn + '</div>';
+  }
+  /* Lift | Rest, with today's answer filled in. Blake: "I can't tell if the
+     rest today or lifting today is toggled on or off." A button named for
+     what it would do next reads as the state it is in; a switch showing
+     both sides, one lit, does not. */
+  function mTrainSwitch(k, hard) {
+    var side = function (on, label, v) {
+      return '<button type="button" class="mw-seg-b' + (on ? ' on' : '') + '" data-mtrained="' + esc(k) +
+        '" data-mto="' + v + '" aria-pressed="' + on + '">' + label + '</button>';
+    };
+    return '<span class="mw-seg" role="group" aria-label="Today is a">' +
+      side(hard, 'Lift', 1) + side(!hard, 'Rest', 0) + '</span>';
+  }
+  function mSessionsOn(k) {
+    try { return window.Train && window.Train.sessionsOn ? window.Train.sessionsOn(k) || [] : []; } catch (e) { return []; }
+  }
+  function mStrengthOn(k) {
+    try { return window.Train && window.Train.trainedOn ? window.Train.trainedOn(k) || [] : []; } catch (e) { return []; }
+  }
   function mSetTrained(k, on) {
     MTRAINED[k] = on ? 1 : 0;
     mPruneWindow(MTRAINED);
@@ -3436,7 +3542,7 @@
       /* The estimate, not a verdict: when you'll get there against the date
          you set. */
       var word0 = mArriveChip(pf0);
-      var tone0 = /late|no date|off/.test(word0) ? 'behind' : /early/.test(word0) ? 'ahead' : 'on';
+      var tone0 = /late|no date|off|a week/.test(word0) ? 'behind' : /early/.test(word0) ? 'ahead' : 'on';
       out += ' <span class="mw-chip ' + tone0 + '">' + word0 + '</span>';
     }
     return { has: true, html: out };
@@ -3574,7 +3680,7 @@
      chip, for the open card. */
   function mArriveChip(pf) {
     if (!pf.plan.per) return pf.side === 'on' ? 'on track' : pf.side === 'behind' ? 'off your weight' : 'on track';
-    if (!pf.arriveD) return 'no date yet';
+    if (!pf.arriveD) return pf.slow ? (pf.plan.per < 0 ? 'down ' : 'up ') + pf.slow + ' lb a week' : 'no date yet';
     var d = pf.lateDays;
     if (Math.abs(d) <= 6) return 'on track';
     var span = Math.abs(d) >= 14 ? Math.round(Math.abs(d) / 7) + ' weeks' : Math.abs(d) + ' days';
@@ -3681,6 +3787,15 @@
     }
     var lateDays = arriveD && pr.goalBy
       ? Math.round((arriveD - keyDate(pr.goalBy)) / 86400000) : null;
+    /* Too slow to date. Down 0.2 lb a week on a plan that needs 1.8 put the
+       arrival at "Sep 11, 2029 · 138 weeks late" — true arithmetic on three
+       weeks of mostly water, and no use to anyone. Over a year late, or
+       five years out, the card gives the rate instead of a date. */
+    var slow = null;
+    if (close3 !== null && close3 > 0.05 && pr.goalLb && (!arriveD || lateDays > 365)) {
+      slow = Math.round(close3 * 10) / 10 || 0.1;
+      arrive = arriveD = lateDays = null;
+    }
     /* The band around the plan, from the same moving ranges. Inside it there
        is nothing to decide, and saying so is the whole job. */
     /* Never narrower than half a pound: a run of identical mornings has a
@@ -3692,7 +3807,7 @@
       pr: pr, st: st, plan: plan, meas: meas, burn: burn,
       off: off, band: band, daysOff: daysOff, stale: st.staleDays,
       need: need, capped: capped, capHigh: capHigh, arrive: arrive, rate: rate,
-      arriveD: arriveD, lateDays: lateDays, rate3: rate3, goalWord: pr.goalBy ? mDateWord(keyDate(pr.goalBy)) : '',
+      arriveD: arriveD, lateDays: lateDays, rate3: rate3, slow: slow, goalWord: pr.goalBy ? mDateWord(keyDate(pr.goalBy)) : '',
       /* Moving the way the goal goes, this week. */
       toward: closing !== null && closing > 0,
       side: toward > band ? 'behind' : toward < -band ? 'ahead' : 'on'
@@ -3858,6 +3973,10 @@
         var lbOff = Math.round(Math.abs(off) * 10) / 10;
         return pf.side === 'on' ? 'You’re holding your weight.'
           : 'You’re ' + lbOff + ' lb ' + (off > 0 ? 'over' : 'under') + ' your weight.';
+      }
+      if (!pf.arriveD && pf.slow) {
+        return 'You’re ' + (pf.plan.per < 0 ? 'down' : 'up') + ' about ' + pf.slow +
+          ' lb a week these three weeks. Too slow yet to give a date.';
       }
       if (!pf.arriveD) {
         return (pf.rate3 !== null && Math.abs(pf.rate3) >= 0.15 && !pf.toward
@@ -4051,7 +4170,13 @@
                  And not the day's calories or macros: the sticky strip above
                  carries those, and a card repeating them is a second answer
                  to a settled question. */
-              var sumN = st && st.n >= 2
+              /* This morning's number when you weighed, because that is the
+                 number you just typed — Blake read the average there as the
+                 app disagreeing with his scale. The average is on the open
+                 card. */
+              var sumN = answeredW
+                ? '<b>' + (Math.round(MWEIGHTS[k] * 10) / 10) + '</b><u> lb'
+                : st && st.n >= 2
                 ? '<b>' + (Math.round(st.avg7 * 10) / 10) + '</b><u> lb avg'
                 : '<b>' + (Math.round(MWEIGHTS[k] * 10) / 10) + '</b><u> lb';
               /* No verdict chip here: the coaching line directly under the
@@ -4089,19 +4214,7 @@
          box. And it never claims to have earned anything — the calories were
          counted when the profile was filled in. */
       (shut || ahead || !mTrainDays().length || mTrainDays().length >= 7 ? ''
-        : '<div class="mw-train no-print">' +
-            '<button class="mw-tick" data-mtrained="' + esc(k) + '" aria-pressed="' +
-              (mIsTrainingDay(k) ? 'true' : 'false') + '">' +
-              '<span class="mw-tick-l">Trained today' + (function () {
-                /* What the tick did, in one line under it — the paragraph that
-                   explained carb cycling said the same thing in forty words. */
-                var base = mReadTargets(), dt = mDayTargets(k);
-                if (!base.c || dt.c === base.c) return '';
-                return '<span class="mw-tick-s">' + dt.c + ' g carbs today · ' + base.c +
-                  ' on an average day</span>';
-              })() + '</span>' +
-              '<span class="mw-tick-b" aria-hidden="true"></span></button>' +
-          '</div>') +
+        : mTrainRow(k)) +
       /* The day's numbers are NOT repeated here. They were, for one build:
          "1,745 calories today, 205 P 61 F 94 C" — which is the sticky strip
          four inches above it, said again in different words. Blake: "I don't
@@ -4467,6 +4580,7 @@
   }
 
   var M_WDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var M_WDAY = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];   // Monday first, as mWkIx counts
   var M_MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   /* One line of an item's arithmetic: "~415 kcal · 43P · 6F · 42C". The tilde
@@ -9615,6 +9729,25 @@
     '</div>';
   }
 
+  function mTrainNSay(n) {
+    var b = mBlockN();
+    return (n ? n + ' a week' : 'None picked') + (b ? ' \u00b7 one for each session of your block' : ' \u00b7 the same days as Strengthen');
+  }
+  function mBlockN() {
+    try { return window.Train && window.Train.blockSessions ? window.Train.blockSessions() : 0; } catch (e) { return 0; }
+  }
+  /* The one place the lifting days are written: Strengthen's store, which
+     the account carries, or the profile when Strengthen is not loaded. */
+  function mSetTrainDays(days) {
+    days = days.slice().sort(function (a, b) { return a - b; });
+    var pr = mReadProfile();
+    try {
+      if (window.Train && window.Train.setLiftDays) { window.Train.setLiftDays(days); }
+      else pr.train = days;
+    } catch (e) { pr.train = days; }
+    pr.workouts = days.length;
+    mWriteProfile(pr);
+  }
   function mTrainRowHTML() {
     var on = mTrainDays();
     var L = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -9877,17 +10010,23 @@
       '<select id="mtAct" class="hide" aria-hidden="true" tabindex="-1">' + acts.map(function (a) {
         return '<option value="' + a[0] + '"' + (mtActNear(pr.act) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>';
       }).join('') + '</select>' +
-      row('Workouts a week', '<span class="mt-stepper">' +
-        '<button type="button" data-mtwk="-1" aria-label="One fewer">&minus;</button>' +
-        box('mtWorkouts', pr.workouts, '') +
-        '<button type="button" data-mtwk="1" aria-label="One more">+</button></span>') +
+      /* One list of lifting days, the same one Strengthen's block shows, and
+         the sessions a week are simply how many of them there are. Blake: "why
+         do i have to play matching games. why not centralize the selection?"
+         There used to be a count here and a set of days under it, and a third
+         copy on the block. */
+      row('Lifting days', (mBlockN()
+          /* A block running: its days are set on the block, where the count
+             is held to its sessions. Shown here, changed there, one tap. */
+          ? '<span class="mt-ld">' + mTrainDays().map(function (i) { return '<i>' + M_WDAY[i] + '</i>'; }).join('') + '</span>' +
+            '<button type="button" class="mt-ld-go" data-mgotrain="1">Change days</button>'
+          : mTrainRowHTML()) +
+        '<input type="hidden" id="mtWorkouts" value="' + (mTrainDays().length || Number(pr.workouts) || 0) + '">' +
+        '<span class="mt-ld-s" id="mtTrainN">' + mTrainNSay(mTrainDays().length) + '</span>') +
       row('Steps a day <span class="mtl-opt">(optional)</span>',
         '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
         'inputmode="numeric" value="' + (pr.steps || '') + '">');
-    /* Which days those workouts fall on. Spread from the number above until
-       you say otherwise, and then held as a list of its own so changing the
-       number does not rearrange days set by hand. */
-    var rowDays = row('Which days?', mTrainRowHTML());
+    var rowDays = '';
     var fold = function (title, inner, open) {
       return '<details class="mt-fold"' + (open ? ' open' : '') + '><summary>' + title + '</summary>' + inner + '</details>';
     };
@@ -10069,7 +10208,7 @@
       };
       /* The wizard's shape: one screen at a time, the settings that are not
          questions folded behind a tap. */
-      var wMove = rowsMove + fold('Pick the training days', rowDays);
+      var wMove = rowsMove;
       var wGoal = goalPicksHTML + fold('Reach a weight by a date', goalPaceHTML);
       return shell(
         /* Drawn from the step count rather than written out. Four pips were
@@ -10483,6 +10622,10 @@
     var fmt = function (n) { return Number(n).toLocaleString(); };
     var eating = f.need !== null && cur > 0 && Math.abs(cur - f.need) <= 5;
     var goalD = f.goalWord;
+    if (!f.arriveD && f.slow) {
+      return '<b>\u25CE No arrival date yet.</b> You\u2019re ' + (f.plan.per < 0 ? 'down' : 'up') +
+        ' about ' + f.slow + ' lb a week these three weeks, too slow to date.';
+    }
     if (!f.arriveD) {
       return '<b>\u25CE No arrival date yet.</b> Your weight\u2019s been ' +
         (f.rate3 !== null && Math.abs(f.rate3) >= 0.15 ? (f.rate3 > 0 ? 'going up' : 'going down') : 'flat') +
@@ -13814,8 +13957,8 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
-    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtwk', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
+    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -15579,7 +15722,11 @@
       var tr = e.target.closest('[data-mtrained]');
       if (tr) {
         var tk = tr.dataset.mtrained;
-        mSetTrained(tk, !mIsTrainingDay(tk));
+        /* The switch says which side it wants; pressing the side already
+           lit changes nothing. */
+        var want = tr.dataset.mto !== undefined ? tr.dataset.mto === '1' : !mIsTrainingDay(tk);
+        if (want === mIsTrainingDay(tk)) return;
+        mSetTrained(tk, want);
         keepingFocus(renderMacros);
         return;
       }
@@ -16298,31 +16445,27 @@
         return;
       }
 
+      if (e.target.closest('[data-mgotrain]')) {
+        close();
+        try { if (window.Train && window.Train.openDays) window.Train.openDays(); } catch (e2) { /* Strengthen is not up */ }
+        var tb = document.querySelector('.tab[data-view="train"]');
+        if (tb) tb.click();
+        return;
+      }
       var trn = e.target.closest('[data-mtrain]');
       if (trn && S.macroTargOpen) {
         var ti = Number(trn.dataset.mtrain);
         var days = mTrainDays(), at = days.indexOf(ti);
         if (at >= 0) days.splice(at, 1); else days.push(ti);
-        var prT = mReadProfile();
-        prT.train = days.sort(function (a, b) { return a - b; });
-        mWriteProfile(prT);
+        mSetTrainDays(days);
         trn.setAttribute('aria-pressed', at >= 0 ? 'false' : 'true');
+        if ($('mtWorkouts')) $('mtWorkouts').value = days.length;
+        if ($('mtTrainN')) $('mtTrainN').textContent = mTrainNSay(days.length);
         mtRefreshPlan();
         if (S.view === 'macros') renderMacros();
         return;
       }
 
-      /* The workouts stepper: one fewer, one more, and the box tells the
-         plan the way typing into it would. */
-      var wk = e.target.closest('[data-mtwk]');
-      if (wk && S.macroTargOpen) {
-        var wi = $('mtWorkouts');
-        if (wi) {
-          wi.value = Math.max(0, Math.min(14, (Number(wi.value) || 0) + Number(wk.dataset.mtwk)));
-          wi.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        return;
-      }
 
       var mseg = e.target.closest('[data-mtsex], [data-mtgoal], [data-mtext], [data-mtact]');
       if (mseg && S.macroTargOpen) {
@@ -16956,6 +17099,13 @@
     closeSheet: function () { close(); },
     trained: function (k) {
       mSetTrained(k, true);
+      if (S.view === 'macros') renderMacros();
+    },
+    /* Nourish's own days, for Strengthen to start its picker from. */
+    trainDays: function () { return mTrainDaysOwn(); },
+    daysMoved: function () {
+      var pr = mReadProfile(), n = mTrainDays().length;
+      if (Number(pr.workouts) !== n) { pr.workouts = n; mWriteProfile(pr); }
       if (S.view === 'macros') renderMacros();
     },
     /* A weigh-in from Strengthen, which asks for one on a pull-up day with

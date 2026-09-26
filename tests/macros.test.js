@@ -476,7 +476,8 @@ module.exports = {
       })(), (await wkTarget()).join(','));
     await openPlan(p);
     await p.waitForTimeout(200);
-    await p.fill('#mtWorkouts', '4');
+    // four lifting days, picked (the count is how many there are)
+    for (const d of [0, 2, 4, 5]) await p.click('[data-mtrain="' + d + '"]');
     await p.click('[data-mtarg="save"]');
     await p.waitForTimeout(350);
     const cyc = await p.evaluate(() => ({
@@ -514,9 +515,8 @@ module.exports = {
     await p.waitForTimeout(200);
     await p.click('[data-mtrain="1"]');
     await p.waitForTimeout(250);
-    t.ok('tapping a day sets it, and the list is kept as its own',
-      await p.evaluate(() =>
-        JSON.parse(localStorage.getItem('bsc.macroProfile')).train.indexOf(1) >= 0));
+    t.ok('tapping a day sets it, in the one list Strengthen shares',
+      await p.evaluate(() => (window.Train.liftDays() || []).indexOf(1) >= 0));
     await p.click('[data-mtrain="1"]');
     await p.waitForTimeout(200);
     await p.click('.sheet-x');
@@ -568,6 +568,9 @@ module.exports = {
       await p.evaluate(() => {
         localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5,
           inch: 11, lb: 205, act: 1.375, goal: 'cut2' }));
+        /* No lifting days either: the ones picked above are the one shared
+           list now, and would count as sessions in this burn. */
+        localStorage.removeItem('bsc.train');
         return true;
       }));
     await p.reload();
@@ -3125,7 +3128,7 @@ module.exports = {
     await wiz.click('[data-mtw="next"]');
     await wiz.waitForTimeout(300);
     await wiz.fill('#mtSteps', '8000');
-    await wiz.fill('#mtWorkouts', '3');
+    for (const d of [0, 2, 5]) await wiz.click('[data-mtrain="' + d + '"]');
     await wiz.waitForTimeout(350);
     t.ok('and step two breaks the same figure out, not a different one',
       await wiz.evaluate(() => {
@@ -5140,18 +5143,17 @@ module.exports = {
     await trainPg.click('.tab[data-view="macros"]');
     await trainPg.waitForTimeout(300);
     const trainWas = await trainPg.evaluate(() => {
-      const b = document.querySelector('[data-mtrained]');
+      const b = document.querySelector('.mw-seg-b.on');
       return { kcal: window.__macroLab.targets(),
-        pressed: b ? b.getAttribute('aria-pressed') : 'missing',
-        day: b ? b.dataset.mtrained : null };
+        pressed: b ? b.dataset.mto : 'missing' };
     });
     t.ok('the morning offers a tick, and starts on whatever the plan assumed',
-      trainWas.pressed === 'true' || trainWas.pressed === 'false', JSON.stringify(trainWas.pressed));
+      trainWas.pressed === '1' || trainWas.pressed === '0', JSON.stringify(trainWas.pressed));
 
-    await trainPg.click('[data-mtrained]');
+    await trainPg.click('[data-mtrained][aria-pressed="false"]');
     await trainPg.waitForTimeout(300);
     const trainNow = await trainPg.evaluate(() => ({
-      pressed: document.querySelector('[data-mtrained]').getAttribute('aria-pressed'),
+      pressed: document.querySelector('.mw-seg-b.on').dataset.mto,
       targets: window.__macroLab.targets(),
     }));
     t.ok('tapping it flips the day and nothing else',
@@ -5272,7 +5274,7 @@ module.exports = {
     await todayPg.click('[data-mfold="weigh"]');
     await todayPg.waitForTimeout(350);
     const todayOpen = await todayPg.evaluate(() => {
-      const el = document.querySelector('.mw-tick-s');
+      const el = document.querySelector('.mw-tr-2');
       const base = JSON.parse(localStorage.getItem('bsc.macroTargets'));
       const now = window.__macroLab.targets();
       const s2 = el ? el.textContent.replace(/\s+/g, ' ') : '';
@@ -9124,7 +9126,7 @@ module.exports = {
     t.ok('behind pace, it offers a number and the option to ignore it',
       await slow.evaluate(() => {
         const el = document.querySelector('.mline');
-        return !!el && el.classList.contains('act') && /Arriving around [^,]+(?:, \d{4})?, not |no arrival date/.test(el.textContent) &&
+        return !!el && el.classList.contains('act') && /Arriving around [^,]+(?:, \d{4})?, not |no arrival date|Too slow yet to give a date/.test(el.textContent) &&
           el.querySelectorAll('[data-mline]').length === 2;
       }), behind);
     /* A line that says "eat 1,278" is not advice. Whatever it offers has to
@@ -9330,8 +9332,10 @@ module.exports = {
     /* Folded, the card is the number you type and the average — the whole job
        most mornings. The trend and the sparkline are behind the same press
        the meals use. */
-    t.ok('folded, the card carries the average and nothing else',
-      /190\.6 lb avg/.test(await card()) && !/since/.test(await card()), await card());
+    /* This morning's number once you have weighed (2026-09-25) — Blake read
+       the average there as the app disagreeing with his scale. */
+    t.ok('folded, the card carries this morning\u2019s weight and nothing else',
+      /190 lb/.test(await card()) && !/lb avg/.test(await card()) && !/since/.test(await card()), await card());
     await w.click('#macroWeigh [data-mfold]');
     await w.waitForTimeout(200);
     /* Said once (2026-09-23). The card used to give the average four times
@@ -13217,7 +13221,221 @@ module.exports = {
       const flat = await ap2.evaluate(() => (document.querySelector('.mline') || {}).textContent || '');
       t.ok('a flat scale gives no arrival date rather than inventing one',
         /no arrival date yet/.test(flat) && !/Arriving around/.test(flat), flat);
+      /* Blake, 2026-09-25: "That I'll meet my goal by 2029??" Down a fifth of
+         a pound a week on a plan that needs well over one, the arithmetic
+         said Sep 2029. Too slow to date: the card gives the rate. */
+      await seedW("210 - (21 - i) * 0.2 / 7");
+      await ap2.reload();
+      await ap2.click('.tab[data-view="macros"]');
+      await ap2.waitForTimeout(300);
+      await ap2.click('#macroWeigh [data-mfold]');
+      await ap2.waitForTimeout(200);
+      const slow = await ap2.evaluate(() => ({
+        pf: window.__macroLab.pace(),
+        chip: [...document.querySelectorAll('.mw-chip')].map((e) => e.textContent).join('|'),
+        line: (document.querySelector('.mline') || {}).textContent || '',
+        card: (document.querySelector('#macroWeigh') || {}).textContent || '' }));
+      t.ok('a crawl gives the rate, not a date years out',
+        !slow.pf.arriveD && slow.pf.slow === 0.2 && /down 0\.2 lb a week/.test(slow.chip) &&
+        !/20[2-9]\d|weeks late/.test(slow.card + slow.line), JSON.stringify({ chip: slow.chip, slow: slow.pf.slow, line: slow.line }));
+      t.ok('and the chip wears the behind colour',
+        await ap2.evaluate(() => !!document.querySelector('.mw-chip.behind')));
       await ap2.context().close();
+    }
+
+    /* ---- the block plans the carbs, what you do wins, 2026-09-25 -------
+     * Blake: "I have a block setup now and it should pipe to Nourish", and
+     * "the plan might be planned but I also might ad hoc go to the gym, or
+     * skip a day sometimes." The block's lifting days drive Nourish; a skip or
+     * an extra day moves today, and the rest of the week makes it up. */
+    {
+      const sp = await t.fresh();
+      const seedBlock = async (ld) => {
+        await sp.evaluate((ld) => {
+          const p2 = (n) => (n < 10 ? '0' : '') + n;
+          const d = new Date(), key = (x) => x.getFullYear() + '-' + p2(x.getMonth() + 1) + '-' + p2(x.getDate());
+          const ws = {};
+          for (let i = 6; i >= 1; i--) { const dd = new Date(d); dd.setDate(dd.getDate() - i); ws[key(dd)] = 205; }
+          localStorage.clear();
+          localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+          localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 205, f: 61, c: 75 }));
+          /* Nourish's own days: none of them today, so only the block can say so. */
+          localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, lb: 205,
+            ft: 5, inch: 10, act: 1.55, goal: 'cut1', goalLb: 0, goalBy: '', workouts: 3, steps: 7000, train: [] }));
+          localStorage.setItem('bsc.train', JSON.stringify({ act: 'b1', pr: { ld: ld, qz: 1 }, ms: { b1: { n: 'Upper / Lower', acc: 4,
+            days: [{ n: 'Upper A', s: [{ e: 'db-bench', n: 3 }] }, { n: 'Lower A', s: [{ e: 'goblet', n: 3 }] }] } } }));
+        }, ld);
+        await sp.reload();
+        await sp.click('.tab[data-view="macros"]');
+        await sp.waitForTimeout(250);
+        const f = await sp.$('[data-mfold="weigh"][aria-expanded="false"]');
+        if (f) { await f.click(); await sp.waitForTimeout(200); }
+      };
+      const look = () => sp.evaluate(() => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const key = (x) => x.getFullYear() + '-' + p2(x.getMonth() + 1) + '-' + p2(x.getDate());
+        const d = new Date(), wk = (d.getDay() + 6) % 7, week = [];
+        for (let i = 0; i < 7; i++) { const x = new Date(d); x.setDate(x.getDate() - wk + i); week.push(window.__macroLab.dayTargets(key(x)).c); }
+        return { wk, week, sum: week.reduce((a, b) => a + b, 0), today: week[wk],
+          row: (document.querySelector('.mw-train') || {}).textContent || '',
+          btn: (document.querySelector('.mw-train .mw-seg-b.on') || {}).textContent || '' };
+      });
+      const wd = new Date().getDay(), todayIx = (wd + 6) % 7;
+      const two = [0, 1, 2, 3, 4, 5, 6].filter((i) => i !== todayIx).slice(0, 2);
+
+      // today is a lifting day in the block
+      await seedBlock([todayIx].concat(two).sort());
+      const lift = await look();
+      t.ok('the block’s lifting day is Nourish’s lifting day, named by its next session',
+        /Upper A today/.test(lift.row) && lift.btn === 'Lift' && lift.today > 75, JSON.stringify(lift));
+      t.ok('and the planned week still averages to the plan',
+        Math.abs(lift.sum - 7 * 75) <= 3, JSON.stringify(lift.week));
+
+      // skipped
+      await sp.click('.mw-train [data-mto="0"]');
+      await sp.waitForTimeout(250);
+      const skip = await look();
+      t.ok('Rest drops today’s carbs, and the switch shows Rest as the one on',
+        /Rest day/.test(skip.row) && skip.btn === 'Rest' && skip.today < 75, JSON.stringify(skip));
+      if (todayIx < 6) {
+        t.ok('and the days left in the week make up what it did not use',
+          Math.abs(skip.sum - lift.sum) <= 3 && skip.week.slice(todayIx + 1).some((c, i) => c > lift.week[todayIx + 1 + i]),
+          JSON.stringify({ was: lift.week, now: skip.week }));
+      }
+      t.ok('and the days before it are not touched',
+        skip.week.slice(0, todayIx).join() === lift.week.slice(0, todayIx).join(), JSON.stringify({ was: lift.week, now: skip.week }));
+
+      await sp.click('.mw-train [data-mto="0"]');
+      await sp.waitForTimeout(200);
+      t.ok('and pressing the side already on changes nothing', (await look()).btn === 'Rest');
+
+      // an extra day: today is not in the block
+      await seedBlock(two);
+      const rest = await look();
+      await sp.click('.mw-train [data-mto="1"]');
+      await sp.waitForTimeout(250);
+      const extra = await look();
+      t.ok('on a day off, Lifting today puts the carbs on it',
+        rest.btn === 'Rest' && extra.btn === 'Lift' && /Upper A today/.test(extra.row) && extra.today > rest.today,
+        JSON.stringify({ rest: rest.row, extra: extra.row }));
+      if (todayIx < 6) {
+        t.ok('and borrows them from the rest of the week, not from nowhere',
+          Math.abs(extra.sum - rest.sum) <= 3, JSON.stringify({ was: rest.week, now: extra.week }));
+      }
+
+      // a workout saved in Strengthen, on a day off
+      await seedBlock(two);
+      await sp.evaluate(() => {
+        const T = JSON.parse(localStorage.getItem('bsc.train'));
+        T.wo = { w1: { id: 'w1', n: 'Upper A', st: Date.now() - 3600000, en: Date.now() - 600000,
+          x: [{ e: 'db-bench', s: [{ w: 60, r: 8 }, { w: 60, r: 8 }] }] } };
+        localStorage.setItem('bsc.train', JSON.stringify(T));
+        window.Train._.reload();
+      });
+      await sp.click('.tab[data-view="plan"]');
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      const f2 = await sp.$('[data-mfold="weigh"][aria-expanded="false"]');
+      if (f2) { await f2.click(); await sp.waitForTimeout(200); }
+      const done = await look();
+      t.ok('a saved workout is the confirmation: done, with no button left to press',
+        /Upper A · done/.test(done.row) && /2 sets/.test(done.row) && !done.btn && done.today > 75, JSON.stringify(done));
+
+      // the grid's days slide: nothing done yet, so the first session lands on
+      // your next lifting day from today, and the next one after it
+      await seedBlock(two);
+      await sp.click('.tab[data-view="train"]');
+      await sp.waitForTimeout(300);
+      const heads = await sp.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => ({ d: e.textContent, g: e.classList.contains('moved') })));
+      {
+        const W0 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const seq = [];
+        for (let o = 0; seq.length < 2 && o < 14; o++) if (two.indexOf((todayIx + o) % 7) >= 0) seq.push((todayIx + o) % 7);
+        const exp = seq.map((wd, i) => ({ d: W0[wd], g: wd !== two[i] }));
+        t.ok('each session’s day is where it will land, and green when that is not its usual day',
+          JSON.stringify(heads) === JSON.stringify(exp), JSON.stringify({ heads, exp }));
+      }
+      // skip the first session: the second slides to your next lifting day
+      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.ms.b1.sk = ['0:0'];
+        localStorage.setItem('bsc.train', JSON.stringify(T)); });
+      await sp.reload();
+      await sp.click('.tab[data-view="train"]');
+      await sp.waitForTimeout(300);
+      const slid = await sp.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => ({ d: e.textContent, g: e.classList.contains('moved') })));
+      {
+        const W0 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        let lands = -1;
+        for (let o = 0; lands < 0 && o < 14; o++) if (two.indexOf((todayIx + o) % 7) >= 0) lands = (todayIx + o) % 7;
+        const exp = [{ d: W0[two[0]], g: false }, { d: W0[lands], g: lands !== two[1] }];
+        t.ok('a skipped session moves the next one along, marked when it is off its usual day',
+          JSON.stringify(slid) === JSON.stringify(exp), JSON.stringify({ slid, exp }));
+      }
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(200);
+
+      // one list, one place to change it while a block runs
+      await seedBlock(two);                       // two sessions, two days
+      const W = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const openSheet = async () => {
+        await sp.click('#macroMore');
+        await sp.waitForTimeout(150);
+        await sp.click('[data-mmore="plan"]');
+        await sp.waitForTimeout(300);
+        await sp.evaluate(() => {
+          if (document.getElementById('mtEditor').classList.contains('hide')) document.querySelector('[data-mtedit]').click();
+        });
+        await sp.waitForTimeout(150);
+      };
+      await openSheet();
+      const sh = await sp.evaluate(() => ({ chips: (document.querySelector('.mt-ld') || {}).textContent || '',
+        go: !!document.querySelector('[data-mgotrain]'), picker: !!document.querySelector('#mtTrain'),
+        stepper: !!document.querySelector('[data-mtwk]') }));
+      t.ok('with a block, Nourish shows its days and one way to change them, no second picker',
+        sh.chips === two.map((i) => W[i]).join('') && sh.go && !sh.picker && !sh.stepper, JSON.stringify(sh));
+      await sp.click('[data-mgotrain]');
+      await sp.waitForTimeout(350);
+      const blk = await sp.evaluate(() => ({ panel: !!document.querySelector('.tr-ldpanel'),
+        on: [...document.querySelectorAll('.tr-ldpanel .tr-ldb[aria-pressed="true"]')].map((b) => Number(b.dataset.v)),
+        heads: [...document.querySelectorAll('.tr-ghd')].length, circlesOutside: !!document.querySelector('.tr-card > .tr-ld') }));
+      t.ok('Change days lands on the block with the picker open on the same days',
+        blk.panel && JSON.stringify(blk.on) === JSON.stringify(two) && !blk.circlesOutside, JSON.stringify(blk));
+      t.ok('and each session’s column says its day', blk.heads === 2, JSON.stringify(blk));
+      const add = [0, 1, 2, 3, 4, 5, 6].find((i) => two.indexOf(i) < 0);
+      await sp.click('.tr-ldpanel .tr-ldb[data-v="' + add + '"]');
+      await sp.waitForTimeout(150);
+      const over = await sp.evaluate(() => ({ dis: document.querySelector('[data-t="ldsave"]').disabled,
+        n: document.querySelector('.tr-ldn').textContent }));
+      t.ok('a day more than the block has sessions cannot be saved', over.dis && /3 of 2/.test(over.n), JSON.stringify(over));
+      await sp.click('.tr-ldpanel .tr-ldb[data-v="' + two[1] + '"]');
+      await sp.waitForTimeout(150);
+      await sp.click('[data-t="ldsave"]');
+      await sp.waitForTimeout(250);
+      const want = [two[0], add].sort();
+      const saved = await sp.evaluate(() => ({ ld: window.Train.liftDays(),
+        wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts, panel: !!document.querySelector('.tr-ldpanel') }));
+      t.ok('saved there, the days are Nourish’s and the count follows',
+        JSON.stringify(saved.ld) === JSON.stringify(want) && saved.wk === 2 && !saved.panel, JSON.stringify(saved));
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      await openSheet();
+      t.ok('and Nourish shows the new days', (await sp.textContent('.mt-ld')) === want.map((i) => W[i]).join(''),
+        await sp.textContent('.mt-ld'));
+      await sp.keyboard.press('Escape');
+
+      // no block: Nourish's own picker edits the same one list
+      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); });
+      await sp.reload();
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      await openSheet();
+      const free = [0, 1, 2, 3, 4, 5, 6].find((i) => want.indexOf(i) < 0);
+      await sp.click('[data-mtrain="' + free + '"]');
+      await sp.waitForTimeout(200);
+      const nb = await sp.evaluate(() => ({ ld: window.Train.liftDays(), n: document.getElementById('mtTrainN').textContent,
+        wk: JSON.parse(localStorage.getItem('bsc.macroProfile')).workouts }));
+      t.ok('with no block running, Nourish picks the days itself, in the same list',
+        nb.ld && nb.ld.length === 3 && nb.ld.indexOf(free) >= 0 && nb.wk === 3 && /3 a week/.test(nb.n), JSON.stringify(nb));
+      await sp.context().close();
     }
 
     /* ---- why Fill added it, and "Don't suggest", 2026-09-23 -----------
