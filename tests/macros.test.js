@@ -161,6 +161,13 @@ async function revealPlanFields(pg) {
     return pg.evaluate((d) => (JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'))[d] || null, k);
   }
 
+  /* A weigh-in typed and committed, the way Enter does it. */
+  async function weighIn(pg, txt) {
+    await pg.fill('#mWeight', txt);
+    await pg.press('#mWeight', 'Enter');
+    await pg.waitForTimeout(250);
+  }
+
 module.exports = {
   name: 'Macros',
   async run(t) {
@@ -4428,8 +4435,10 @@ module.exports = {
     t.ok('sign out, pull and delete each ask before emptying this device',
       wipes.every((w) => /asked$/.test(w)), wipes.join(' '));
     const wipeList = sources.slice(sources.indexOf('function mForgetDay()'), sources.indexOf('function mForgetDay()') + 900);
-    const storedKeys = Array.from(new Set((sources.match(/setItem\('bsc\.(macro\w+|myFoods|myStamps|myOwner)'/g) || [])
-      .map((m) => m.replace(/^setItem\('/, '').replace(/'$/, ''))));
+    /* Every write of a My Day store goes through mPut now, which says so when
+       the phone is full; a few still call setItem. Both are writes. */
+    const storedKeys = Array.from(new Set((sources.match(/(?:setItem|mPut)\('bsc\.(macro\w+|myFoods|myStamps|myOwner)'/g) || [])
+      .map((m) => m.replace(/^(?:setItem|mPut)\('/, '').replace(/'$/, ''))));
     const leftOff = storedKeys.filter((k) => wipeList.indexOf("'" + k + "'") < 0);
     t.ok('and the wipe names every My Day key the app writes',
       storedKeys.length >= 10 && leftOff.length === 0, leftOff.join(' ') || storedKeys.length + ' keys');
@@ -13826,6 +13835,38 @@ module.exports = {
         !!real && JSON.stringify(all['2026-10-10']) === JSON.stringify(real) && !!all['2026-09-30'],
         JSON.stringify(Object.keys(all)));
       await cb.close();
+    }
+
+    /* ---- storage full: said, not swallowed, 2026-09-26 ------------------
+     * Every writer on this side caught its own failure and said nothing, so
+     * on a full phone the weigh-in and the breakfast looked logged and were
+     * gone after reopening. Strengthen says so when it happens; so does this
+     * now, at once and on the day card. */
+    {
+      const sf = await t.fresh({ viewport: { width: 390, height: 844 } });
+      await sf.click('.tab[data-view="macros"]');
+      await sf.waitForTimeout(250);
+      const quiet = await sf.evaluate(() => /storage for the app is full/.test(document.body.innerText));
+      await sf.evaluate(() => {
+        let lo = 0, hi = 12e6;
+        while (hi - lo > 16) {
+          const mid = (lo + hi) >> 1;
+          try { localStorage.setItem('junk', 'x'.repeat(mid)); lo = mid; } catch (e) { hi = mid; }
+        }
+        localStorage.setItem('junk', 'x'.repeat(Math.max(0, lo - 8)));
+      });
+      await weighIn(sf, '183.0');
+      const full = await sf.evaluate(() => ({ toast: (document.getElementById('mToast') || {}).textContent || '',
+        card: document.getElementById('macroWeigh').innerText, stored: localStorage.getItem('bsc.macroWeights') }));
+      t.ok('a weigh-in the phone cannot keep says so at once', !quiet && /storage for the app is full/.test(full.toast) &&
+        !full.stored, JSON.stringify(full).slice(0, 300));
+      t.ok('and the day card goes on saying it', /Not saved on this phone/.test(full.card) &&
+        /storage for the app is full/.test(full.card), full.card.slice(0, 300));
+      await addTo(sf, 0);
+      t.ok('a breakfast logged after it still hears it',
+        await sf.evaluate(() => /storage for the app is full/.test(document.getElementById('macroWeigh').innerText)));
+      await sf.evaluate(() => localStorage.removeItem('junk'));
+      await sf.close();
     }
   },
 };

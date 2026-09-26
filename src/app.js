@@ -137,8 +137,7 @@
     return {};
   }
   function mWriteMyFoods(v) {
-    try { localStorage.setItem('bsc.myFoods', JSON.stringify(v)); }
-    catch (e) { /* private mode: this session only */ }
+    mPut('bsc.myFoods', v);
     mStamp('mf');
   }
 
@@ -1111,6 +1110,32 @@
     }
   }
 
+  /* Every write My Day makes to this phone's storage, through one door.
+   *
+     Each writer used to catch its own failure and say nothing — "in-memory
+     only for this session" — which is true of private mode and a lie on a
+     phone whose storage is full: the weigh-in and the breakfast sat on the
+     screen looking kept, nothing was written, and both were gone the next
+     time the app opened, with not a word. Strengthen already says so when it
+     happens; this is the same promise here. The first failure says it at
+     once, wherever you are, and the day card keeps saying it while any store
+     is still failing. A store that writes again is taken off the list. */
+  var MLS_BAD = {};
+  function mPut(key, v) {
+    var ok = true;
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { ok = false; }
+    var was = mLsFull();
+    if (ok) delete MLS_BAD[key]; else MLS_BAD[key] = 1;
+    if (!ok && !was) mToast(esc(mLsFullSay()));
+    return ok;
+  }
+  function mLsFull() { return Object.keys(MLS_BAD).length > 0; }
+  function mLsFullSay() {
+    return 'This phone’s storage for the app is full, so the newest changes aren’t kept on it' +
+      (mAccount() && S_SYNC_STATE !== 'error' ? ' — they go to your account while there’s signal.'
+        : '. Free some space, or sign in so they’re kept in an account.');
+  }
+
   var MSTAMPS = (function () {
     var st;
     try { st = JSON.parse(localStorage.getItem('bsc.myStamps')) || {}; }
@@ -1158,7 +1183,7 @@
       MSTAMPS[part] = now;
       mDirty[part] = true;
     }
-    try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); } catch (e) { /* private */ }
+    mPut('bsc.myStamps', MSTAMPS);
     mSyncPush();
   }
 
@@ -1179,7 +1204,7 @@
       MSTAMPS[part] = map;
       Object.keys(map).concat(Object.keys(pair[1])).forEach(function (k) { map[k] = now; });
     });
-    try { localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS)); } catch (e) { /* private mode */ }
+    mPut('bsc.myStamps', MSTAMPS);
   }
 
   /* This used to be a private code, which was the right shape for one person
@@ -1485,28 +1510,28 @@
       moved = true;
     };
     take('mf', 'bsc.myFoods', function (v) {
-      try { localStorage.setItem('bsc.myFoods', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.myFoods', v);
     });
     take('t', 'bsc.macroTargets', function (v) {
-      try { localStorage.setItem('bsc.macroTargets', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.macroTargets', v);
     });
     take('pr', 'bsc.macroProfile', function (v) {
-      try { localStorage.setItem('bsc.macroProfile', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.macroProfile', v);
     });
     take('sl', 'bsc.macroSlots', function (v) {
-      try { localStorage.setItem('bsc.macroSlots', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.macroSlots', v);
     });
     take('bg', 'bsc.macroBatchG', function (v) {
       Object.keys(MBATCHG).forEach(function (k) { delete MBATCHG[k]; });
       Object.keys(v).forEach(function (k) {
         if (v[k] && v[k].s > 0) MBATCHG[k] = { s: Number(v[k].s), on: String(v[k].on || '') };
       });
-      try { localStorage.setItem('bsc.macroBatchG', JSON.stringify(MBATCHG)); } catch (e) { /* private */ }
+      mPut('bsc.macroBatchG', MBATCHG);
     });
     take('nv', 'bsc.macroNever', function (v) {
       Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
       Object.keys(v).forEach(function (k) { MNEVER[k] = v[k]; });
-      try { localStorage.setItem('bsc.macroNever', JSON.stringify(v)); } catch (e) { /* private */ }
+      mPut('bsc.macroNever', v);
     });
     /* Per morning, newest wins, and zero is a real answer — the same three
        rules the closed-day log runs on, and for the same reason. A morning
@@ -1563,13 +1588,11 @@
        phone moved the day's carbohydrate and then went back on the next
        reload, 118 g to 63 with nothing said. A list that is data cannot
        forget a member. */
-    if (moved) {
-      try {
-        MSYNC_KEYED.forEach(function (row) {
-          localStorage.setItem(row.ls, JSON.stringify(row.store()));
-        });
-        localStorage.setItem('bsc.myStamps', JSON.stringify(MSTAMPS));
-      } catch (e) { /* private mode: this session only */ }
+    /* The stamps only once every store has landed: a stamp kept for a day
+       that was not would tell the next load it already has what the account
+       is still holding for it. */
+    if (moved && MSYNC_KEYED.every(function (row) { return mPut(row.ls, row.store()); })) {
+      mPut('bsc.myStamps', MSTAMPS);
     }
     return moved;
   }
@@ -2000,8 +2023,7 @@
   }
   function mWriteTargets(t) {
     mStamp('t');
-    try { localStorage.setItem('bsc.macroTargets', JSON.stringify(t)); }
-    catch (e) { /* private mode: the render reads defaults, nothing breaks */ }
+    mPut('bsc.macroTargets', t);
   }
 
   /* ------------------------------------------------ targets follow the scale
@@ -2102,8 +2124,7 @@
     if (perServing > 0) MBATCHG[k] = { s: Math.round(perServing * 10) / 10, on: todayKey() };
     else delete MBATCHG[k];
     mStamp('bg');
-    try { localStorage.setItem('bsc.macroBatchG', JSON.stringify(MBATCHG)); }
-    catch (e) { /* this session only */ }
+    mPut('bsc.macroBatchG', MBATCHG);
   }
   /* { g: grams a serving, est: true when it is the ingredient estimate }, or
      null when there is nothing to go on. The estimate counts what the recipe
@@ -2120,8 +2141,7 @@
     var k = String(id);
     if (on) MNEVER[k] = todayKey(); else delete MNEVER[k];
     mStamp('nv');
-    try { localStorage.setItem('bsc.macroNever', JSON.stringify(MNEVER)); }
-    catch (e) { /* this session only */ }
+    mPut('bsc.macroNever', MNEVER);
   }
 
   /* The days live in memory and persist best-effort, so a browser that refuses
@@ -2151,8 +2171,7 @@
   }
   function mWriteSlots(s) {
     mStamp('sl');
-    try { localStorage.setItem('bsc.macroSlots', JSON.stringify(s)); }
-    catch (e) { /* private mode */ }
+    mPut('bsc.macroSlots', s);
   }
 
   /* Every section there is, in book order, straight off the live data — the
@@ -2442,8 +2461,7 @@
     Object.keys(MDAYS).forEach(function (dk) {
       if (dk < floor) delete MDAYS[dk];
     });
-    try { localStorage.setItem('bsc.macroDays', JSON.stringify(MDAYS)); }
-    catch (e) { /* in-memory only for this session */ }
+    mPut('bsc.macroDays', MDAYS);
     mStamp('d', k);
   }
 
@@ -2555,8 +2573,7 @@
     var cut = new Date(); cut.setDate(cut.getDate() - MINTAKE_DAYS);
     var cutK = dayKey(cut);
     Object.keys(MDAYT).forEach(function (d) { if (d < cutK) delete MDAYT[d]; });
-    try { localStorage.setItem('bsc.macroDayT', JSON.stringify(MDAYT)); }
-    catch (e) { /* this session only */ }
+    mPut('bsc.macroDayT', MDAYT);
   }
   function mDayTargets(k) {
     var snap = k < todayKey() ? MDAYT[k] : null;
@@ -2738,8 +2755,7 @@
     }
     if (!pr.goalLb || !pr.goalBy) { delete pr.goalSet; delete pr.goalFrom; }
     mStamp('pr');
-    try { localStorage.setItem('bsc.macroProfile', JSON.stringify(pr)); }
-    catch (e) { /* private mode */ }
+    mPut('bsc.macroProfile', pr);
     /* A new profile is the one thing that can turn a stored plan into a day
        nobody can eat — a heavier body raises its own floor. Asked here, where
        the change is made, rather than inside whichever read ran first. */
@@ -2941,8 +2957,7 @@
     var cutK = dayKey(cut);
     Object.keys(MINTAKE).forEach(function (k) { if (k < cutK) { delete MINTAKE[k]; moved = true; } });
     if (moved) {
-      try { localStorage.setItem('bsc.macroIntake', JSON.stringify(MINTAKE)); }
-      catch (e) { /* this session only */ }
+      mPut('bsc.macroIntake', MINTAKE);
     }
   }
 
@@ -3280,14 +3295,14 @@
   function mSetTrained(k, on) {
     MTRAINED[k] = on ? 1 : 0;
     mPruneWindow(MTRAINED);
-    try { localStorage.setItem('bsc.macroTrained', JSON.stringify(MTRAINED)); } catch (e) { /* private */ }
+    mPut('bsc.macroTrained', MTRAINED);
     mStamp('tn', k);
   }
 
   function mSetDone(k, on) {
     MDONE[k] = on ? Date.now() : 0;
     mPruneWindow(MDONE);
-    try { localStorage.setItem('bsc.macroDone', JSON.stringify(MDONE)); } catch (e) { /* private */ }
+    mPut('bsc.macroDone', MDONE);
     mStamp('dn', k);
   }
 
@@ -3342,8 +3357,7 @@
   function mSetHush(k, sig) {
     MHUSH[k] = sig;
     mPruneWindow(MHUSH);        // the day log's window, like the skips
-    try { localStorage.setItem('bsc.macroHush', JSON.stringify(MHUSH)); }
-    catch (e) { /* private mode */ }
+    mPut('bsc.macroHush', MHUSH);
   }
   function mSetSkip(k, sk, on) {
     var a = (MSKIP[k] || []).filter(function (x) { return x !== sk; });
@@ -3355,7 +3369,7 @@
        has fallen out of the fortnight would go on announcing an empty skip
        list for that day forever. */
     if (MSTAMPS.sp) mPruneWindow(MSTAMPS.sp);
-    try { localStorage.setItem('bsc.macroSkip', JSON.stringify(MSKIP)); } catch (e) { /* private */ }
+    mPut('bsc.macroSkip', MSKIP);
     mStamp('sp', k);
   }
 
@@ -3405,7 +3419,7 @@
     else delete MSEND[k];
     mPruneWindow(MSEND);
     if (MSTAMPS.sn) mPruneWindow(MSTAMPS.sn);
-    try { localStorage.setItem('bsc.macroSend', JSON.stringify(MSEND)); } catch (e) { /* private */ }
+    mPut('bsc.macroSend', MSEND);
     mStamp('sn', k);
   }
 
@@ -3431,8 +3445,7 @@
     if (MSTAMPS.w) {
       Object.keys(MSTAMPS.w).forEach(function (wk) { if (wk < floor) delete MSTAMPS.w[wk]; });
     }
-    try { localStorage.setItem('bsc.macroWeights', JSON.stringify(MWEIGHTS)); }
-    catch (e) { /* in-memory only for this session */ }
+    mPut('bsc.macroWeights', MWEIGHTS);
     /* Per morning, so that clearing this one is a thing the payload can say
        without claiming anything about any other. */
     mStamp('w', k);
@@ -4324,6 +4337,7 @@
           (head ? '<span class="mw-avg">' + head + '</span>' : '') + face.html +
           (hasPlan ? ' <button class="ghost mplan-go no-print" id="macroTargBtn">' +
             'Craft my plan</button>' : '') + '</div>') +
+      (mLsFull() ? mLineHTML('act', '!', '<b>Not saved on this phone.</b>', esc(mLsFullSay())) : '') +
       (k === todayKey() ? mMovedHTML() : '') +
       mMorningHTML(k, 'face') +
       (!openAll ? '' : '<div class="mw-body">' + mMorningHTML(k, 'body') + body +
