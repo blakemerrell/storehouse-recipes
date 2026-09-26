@@ -168,6 +168,14 @@ async function revealPlanFields(pg) {
     await pg.waitForTimeout(250);
   }
 
+  /* The page's own today, which is not the runner's when a test pins it. */
+  function todayOn(pg) {
+    return pg.evaluate(() => {
+      const d = new Date(), q = (n) => (n < 10 ? '0' : '') + n;
+      return d.getFullYear() + '-' + q(d.getMonth() + 1) + '-' + q(d.getDate());
+    });
+  }
+
 module.exports = {
   name: 'Macros',
   async run(t) {
@@ -14078,6 +14086,46 @@ module.exports = {
       t.ok('with sync with Strengthen off, a saved workout leaves the day to the tick', !off5,
         JSON.stringify({ off5, tn: await lp.evaluate(() => localStorage.getItem('bsc.macroTrained')) }));
       await lp.close();
+    }
+
+    /* ---- two copies of the app on one phone, 2026-09-26 -----------------
+     * Two tabs, or the home-screen app and a tab: each wrote the whole of
+     * what it held, so breakfast logged in one and lunch in the other left
+     * the day with lunch. Blake chose merging over a "reload" prompt: each
+     * copy takes in the other's saves as they happen, by the same newest-wins
+     * rule the account uses. */
+    {
+      const ta = await t.fresh({ viewport: { width: 390, height: 844 } });
+      const tb = await ta.context().newPage();
+      await tb.goto(t.base + 'index.html');
+      await tb.waitForTimeout(300);
+      await ta.click('.tab[data-view="macros"]'); await ta.waitForTimeout(250);
+      await tb.click('.tab[data-view="macros"]'); await tb.waitForTimeout(250);
+      const today = await todayOn(ta);
+      await addTo(ta, 0);                                   // breakfast, in one
+      await tb.waitForTimeout(300);
+      await addTo(tb, 1);                                   // lunch, in the other, opened before it
+      await ta.waitForTimeout(300);
+      const day = await storedDay(ta, today);
+      const meals = day ? Object.keys(day).filter((k) => (day[k] || []).length) : [];
+      t.ok('breakfast logged in one copy and lunch in the other: the day keeps both', meals.length === 2, JSON.stringify(day));
+      // what the first copy would send its account, read from its memory
+      const held = await ta.evaluate((k) => { const e = window.__macroLab.payload().d[k.replace(/-/g, '_')];
+        return e && e.v ? Object.keys(e.v).filter((sk) => (e.v[sk] || []).length).length : 0; }, today);
+      t.ok('and the first copy holds the lunch without being reloaded', held === 2, held);
+      await weighIn(ta, '183.0');
+      await tb.waitForTimeout(300);
+      await tb.click('#macroPrev'); await tb.waitForTimeout(250);
+      await weighIn(tb, '184.0');
+      await ta.waitForTimeout(300);
+      const ws = await ta.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroWeights') || '{}'));
+      t.ok('a weigh-in in each keeps both mornings', Object.keys(ws).length === 2 && ws[today] === 183, JSON.stringify(ws));
+      await ta.reload(); await ta.waitForTimeout(250);
+      const again = await storedDay(ta, today);
+      t.ok('and a reload finds both meals', !!again && Object.keys(again).filter((k) => (again[k] || []).length).length === 2,
+        JSON.stringify(again));
+      await tb.close();
+      await ta.close();
     }
   },
 };

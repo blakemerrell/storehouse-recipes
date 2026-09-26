@@ -1299,7 +1299,8 @@
    * 63 with nothing said. A list that is DATA cannot forget a member; a list
    * that is four hand-written blocks can, and did.
    *
-   *   value(k)  what this device says about that key
+   *   value(k)  what this device says about that key — or, handed a map as
+   *             read from storage, what that map says about it
    *   stamps    whether the payload also speaks for keys it has a STAMP for
    *             but no value. That is how a DELETION crosses: an absent key is
    *             indistinguishable from a key never heard of, so a part that
@@ -1346,14 +1347,14 @@
   var MSYNC_KEYED = [
     { part: 'w', ls: 'bsc.macroWeights', stamps: true,
       store: function () { return MWEIGHTS; },
-      value: function (k) { return MWEIGHTS[k] || 0; },
+      value: function (k, m) { return (m || MWEIGHTS)[k] || 0; },
       /* Zero is a real answer: it is the morning you cleared. */
       accept: function (r) { return mNum(r.v) && r.v >= 0; },
       put: function (k, v) { if (v > 0) MWEIGHTS[k] = v; else delete MWEIGHTS[k]; } },
 
     { part: 'd', ls: 'bsc.macroDays', stamps: false,
       store: function () { return MDAYS; },
-      value: function (k) { return MDAYS[k]; },
+      value: function (k, m) { return (m || MDAYS)[k]; },
       /* A day is meals keyed by slot, each a list of plates. */
       accept: function (r) {
         return mPlainObj(r.v) && Object.keys(r.v).every(function (sk) {
@@ -1365,28 +1366,28 @@
 
     { part: 'dn', ls: 'bsc.macroDone', stamps: false,
       store: function () { return MDONE; },
-      value: function (k) { return mDoneAt(k); },
+      value: function (k, m) { return m ? Number(m[k]) || 0 : mDoneAt(k); },
       /* Zero means "I reopened this", so a falsy value must still land. */
       accept: function (r) { return mNum(r.v); },
       put: function (k, v) { MDONE[k] = Number(v) || 0; } },
 
     { part: 'tn', ls: 'bsc.macroTrained', stamps: false,
       store: function () { return MTRAINED; },
-      value: function (k) { return mTrainedAt(k); },
+      value: function (k, m) { return m ? Number(m[k]) || 0 : mTrainedAt(k); },
       /* And zero here means "I un-ticked it". */
       accept: function (r) { return mNum(r.v); },
       put: function (k, v) { MTRAINED[k] = Number(v) || 0; } },
 
     { part: 'sp', ls: 'bsc.macroSkip', stamps: true,
       store: function () { return MSKIP; },
-      value: function (k) { return MSKIP[k] || []; },
+      value: function (k, m) { return (m || MSKIP)[k] || []; },
       /* An empty list is a real answer: it means "I un-skipped them all". */
       accept: function (r) { return mStrList(r.v); },
       put: function (k, v) { if (v.length) MSKIP[k] = v.slice(); else delete MSKIP[k]; } },
 
     { part: 'sn', ls: 'bsc.macroSend', stamps: true,
       store: function () { return MSEND; },
-      value: function (k) { return MSEND[k] || null; },
+      value: function (k, m) { return (m || MSEND)[k] || null; },
       /* Null is a real answer: it means "I cleared that day's choice". */
       accept: function (r) {
         var v = r.v;
@@ -1596,6 +1597,63 @@
     }
     return moved;
   }
+
+  /* ------------------------------------------- two copies on one phone
+   *
+     Two tabs, or the home-screen app and a browser tab, are two copies of My
+     Day, and each wrote the whole of what it held on every change. Breakfast
+     logged in one and lunch in the other left the day holding lunch: the
+     second copy had never heard of the breakfast, and its whole day went
+     over the top of it. Blake's call: merge, so nothing is lost and nothing
+     needs pressing.
+   *
+     It is the account's merge, not a second rule. Everything the other copy
+     wrote is in storage with its stamps, which is exactly the shape the
+     account hands mMergeRemote — newest wins, part by part and day by day —
+     so what storage holds is read as if it had come from another device.
+     The storage event fires only in the OTHER copies, which are the ones
+     that need to hear; it is let settle for a moment, because one change is
+     several writes (the value, then its stamp). A write here first takes in
+     anything still waiting, so a copy that was asleep does not write its
+     stale day over a fresh one before the event has been heard. */
+  function mFoldStored() {
+    var st = mLsJson('bsc.myStamps');
+    if (!mPlainObj(st)) return false;
+    var md = {};
+    MSYNC_SIMPLE.forEach(function (row) {
+      if (mNum(st[row[0]])) md[row[0]] = { v: mLsJson(row[1]), at: st[row[0]] };
+    });
+    MSYNC_KEYED.forEach(function (row) {
+      var m = mLsJson(row.ls), sm = st[row.part];
+      if (!mPlainObj(sm)) return;
+      if (!mPlainObj(m)) m = {};
+      var keys = {}, map = {};
+      Object.keys(m).forEach(function (k) { keys[k] = 1; });
+      if (row.stamps) Object.keys(sm).forEach(function (k) { keys[k] = 1; });
+      Object.keys(keys).forEach(function (k) {
+        if (mNum(sm[k])) map[mSyncKey(k)] = { v: row.value(k, m), at: sm[k] };
+      });
+      md[row.part] = map;
+    });
+    return mMergeRemote(md);
+  }
+  var mFoldTimer = null;
+  function mFoldNow() {
+    clearTimeout(mFoldTimer);
+    mFoldTimer = null;
+    if (mFoldStored() && S.view === 'macros') renderMacros();
+  }
+  function mFoldDue() {
+    if (!mFoldTimer) return;
+    clearTimeout(mFoldTimer);
+    mFoldTimer = null;
+    mFoldStored();
+  }
+  window.addEventListener('storage', function (e) {
+    if (!e || !e.key || !/^bsc\.(macro|my)/.test(e.key)) return;
+    clearTimeout(mFoldTimer);
+    mFoldTimer = setTimeout(mFoldNow, 60);
+  });
 
   var mSyncDoc = null, mSyncOff = null, mSyncTimer = null;
 
@@ -2132,6 +2190,7 @@
     return {};
   })();
   function mSetBatchG(id, perServing) {
+    mFoldDue();
     var k = String(id);
     if (perServing > 0) MBATCHG[k] = { s: Math.round(perServing * 10) / 10, on: todayKey() };
     else delete MBATCHG[k];
@@ -2150,6 +2209,7 @@
     return tot > 0 ? { g: tot / (r.servN || 1), est: true } : null;
   }
   function mSetNever(id, on) {
+    mFoldDue();
     var k = String(id);
     if (on) MNEVER[k] = todayKey(); else delete MNEVER[k];
     mStamp('nv');
@@ -2432,6 +2492,7 @@
   }
 
   function mEditDay(k, fn) {
+    mFoldDue();                           // the other copy's change first: see mFoldStored
     var day = MDAYS[k] || (MDAYS[k] = {});
     fn(day);
     /* Food on a meal un-skips it.
@@ -3380,6 +3441,7 @@
     try { return window.Train && window.Train.trainedOn ? window.Train.trainedOn(k) || [] : []; } catch (e) { return []; }
   }
   function mSetTrained(k, on) {
+    mFoldDue();
     MTRAINED[k] = on ? 1 : 0;
     mPruneWindow(MTRAINED);
     mPut('bsc.macroTrained', MTRAINED);
@@ -3387,6 +3449,7 @@
   }
 
   function mSetDone(k, on) {
+    mFoldDue();
     MDONE[k] = on ? Date.now() : 0;
     mPruneWindow(MDONE);
     mPut('bsc.macroDone', MDONE);
@@ -3447,6 +3510,7 @@
     mPut('bsc.macroHush', MHUSH);
   }
   function mSetSkip(k, sk, on) {
+    mFoldDue();
     var a = (MSKIP[k] || []).filter(function (x) { return x !== sk; });
     if (on) a.push(sk);
     if (a.length) MSKIP[k] = a; else delete MSKIP[k];
@@ -3496,6 +3560,7 @@
     return { f: v.f || '', to: (v.to || []).slice(), off: !!v.off, ack: !!v.ack };
   }
   function mSetSend(k, v) {
+    mFoldDue();
     /* `f` — which meal the question is about — is what keeps the row, and it
        is set for every card there is, so an answer of any kind survives:
        a set of meals, a None, or a fold. `|| v.ack` was here for a commit
@@ -3519,6 +3584,7 @@
   })();
 
   function mWriteWeight(k, lb) {
+    mFoldDue();
     if (lb) MWEIGHTS[k] = Math.round(lb * 10) / 10;
     else delete MWEIGHTS[k];              // clearing the box un-logs the day
     var d = new Date();
