@@ -2586,9 +2586,21 @@
       var c0 = mCycleC(base, cy, hard);
       var c1 = Math.min(cy.hiC, Math.max(cy.loC, c0 + share));
       if (share < 0 && c0 < cy.loC) c1 = c0;
-      owed -= c1 - c0;
       if (dk === k) { adj = c1 - c0; break; }
-      if (dk <= today && hard !== planned) owed += mCycleC(base, cy, planned) - c0;
+      /* What the day was actually given, against what the plan meant it to
+         have. A past day that was drawn is read from its snapshot: a planned
+         training day shown as one all day and eaten to, then counted as rest
+         because nothing was logged, owes the week nothing — it had its carbs.
+         Reading its status instead handed them out twice (549 g on a 525 g
+         week). A snapshot from a different plan (the weekly follow moved the
+         protein or fat) is not comparable, so then the status stands in. */
+      var given = c1;
+      if (dk < today) {
+        var sn = MDAYT[dk];
+        if (sn && isFinite(sn.c) && sn.p === base.p && sn.f === base.f) given = sn.c;
+      }
+      var meant = mCycleC(base, cy, dk <= today ? planned : hard);
+      owed += meant - given;
     }
     return { p: base.p, f: base.f, c: Math.max(0, own + adj) };
   }
@@ -9760,10 +9772,11 @@
   function mSetTrainDays(days) {
     days = days.slice().sort(function (a, b) { return a - b; });
     var pr = mReadProfile();
-    try {
-      if (window.Train && window.Train.setLiftDays) { window.Train.setLiftDays(days); }
-      else pr.train = days;
-    } catch (e) { pr.train = days; }
+    try { if (window.Train && window.Train.setLiftDays) window.Train.setLiftDays(days); } catch (e) { /* Strengthen is not up */ }
+    /* The profile's copy too, even with Strengthen holding the list: it is
+       what stands in once the list is empty, and a stale one brought back
+       every day you had just cleared. */
+    pr.train = days;
     pr.workouts = days.length;
     mWriteProfile(pr);
   }
@@ -17141,8 +17154,10 @@
     /* Nourish's own days, for Strengthen to start its picker from. */
     trainDays: function () { return mTrainDaysOwn(); },
     daysMoved: function () {
-      var pr = mReadProfile(), n = mTrainDays().length;
-      if (Number(pr.workouts) !== n) { pr.workouts = n; mWriteProfile(pr); }
+      var pr = mReadProfile(), days = mTrainDays();
+      if (Number(pr.workouts) !== days.length || JSON.stringify(pr.train) !== JSON.stringify(days)) {
+        pr.workouts = days.length; pr.train = days; mWriteProfile(pr);
+      }
       if (S.view === 'macros') renderMacros();
     },
     /* A weigh-in from Strengthen, which asks for one on a pull-up day with

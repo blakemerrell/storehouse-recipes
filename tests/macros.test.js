@@ -13341,9 +13341,61 @@ module.exports = {
         t.ok('but not before Strengthen has any workout on record', JSON.stringify((await look()).week) === JSON.stringify(before.week));
       }
 
-      // a block running with no days picked there is still synced
+      // a planned day eaten as a training day, nothing logged: it owes the week nothing
+      if (todayIx >= 1) {
+        const yIx = todayIx - 1;
+        await seedBlock([yIx, todayIx]);
+        const plain = await look();
+        await sp.evaluate(([yIx, c]) => {
+          const p2 = (n) => (n < 10 ? '0' : '') + n, y = new Date(); y.setDate(y.getDate() - 1);
+          const yk = y.getFullYear() + '-' + p2(y.getMonth() + 1) + '-' + p2(y.getDate());
+          localStorage.setItem('bsc.macroDayT', JSON.stringify({ [yk]: { p: 205, f: 61, c: c } }));
+          const T = JSON.parse(localStorage.getItem('bsc.train'));
+          const st = Date.now() - 9 * 86400000;
+          T.wo = { w0: { id: 'w0', n: 'Upper A', st: st, en: st + 1800000, x: [{ e: 'db-bench', s: [{ w: 60, r: 8 }] }] } };
+          localStorage.setItem('bsc.train', JSON.stringify(T));
+        }, [yIx, plain.week[yIx]]);
+        await sp.reload();
+        await sp.click('.tab[data-view="macros"]');
+        await sp.waitForTimeout(250);
+        const eaten = await look();
+        t.ok('a skipped day that was shown and eaten as a training day is not paid out again',
+          JSON.stringify(eaten.week.slice(todayIx)) === JSON.stringify(plain.week.slice(todayIx)) && Math.abs(eaten.sum - 7 * 75) <= 3,
+          JSON.stringify({ plain: plain.week, eaten: eaten.week }));
+      }
+
+      // a block running with no days picked there is still synced      // a block running with no days picked there is still synced
       await seedBlock([], two);
       t.ok('a running block is synced even before days are picked there', /Upper A|Rest day/.test((await look()).row) && !(await look()).btn);
+
+      // clearing every day sticks
+      const openPl = async () => {
+        await sp.click('#macroMore');
+        await sp.waitForTimeout(150);
+        await sp.click('[data-mmore="plan"]');
+        await sp.waitForTimeout(300);
+        await sp.evaluate(() => {
+          if (document.getElementById('mtEditor').classList.contains('hide')) document.querySelector('[data-mtedit]').click();
+        });
+        await sp.waitForTimeout(150);
+      };
+      await seedBlock([], [0, 3]);
+      await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); });
+      await sp.reload();
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      await openPl();
+      await sp.click('[data-mtrain="0"]');
+      await sp.waitForTimeout(150);
+      await sp.click('[data-mtrain="3"]');
+      await sp.waitForTimeout(150);
+      await sp.reload();
+      await sp.click('.tab[data-view="macros"]');
+      await sp.waitForTimeout(250);
+      await openPl();
+      t.ok('untick every training day and they stay unticked after a reload',
+        await sp.evaluate(() => document.querySelectorAll('#mtTrain [aria-pressed="true"]').length === 0));
+      await sp.keyboard.press('Escape');
 
       // not synced (no block, no days in Strengthen): the checkbox, as before
       const unsync = async (own) => {
