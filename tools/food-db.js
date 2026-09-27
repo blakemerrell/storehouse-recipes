@@ -400,6 +400,24 @@ const FOODS = {
   /* ---- a grain. No flags, like the oats and rice above it: dry weight, and
      not a thing you eat as it comes. */
   barley:       { ext: 1, starch: 1, zone: 'carbohydrate', kcal: 352, p: 9.9, c: 77.7, f: 1.2, na: 9, fib: 15.6, g: { cup: 200, lb: 453.6, oz: 28.35 }, def: { qty: 0.25, unit: 'cup' }, label: 'Pearl barley', note: 'dry, as the recipes would state it' },
+
+  /* ---- the Mexican shelf, 2026-09-26. Two raw ingredients the storehouse
+     does not carry, then five things the Copycat Shelf makes and other
+     recipes spoon in, each per 100 g as it comes out of the pan.
+     The made ones are worked from their own recipe's totals over a cooked
+     weight: sweet pork = 4,340 kcal over ~1,320 g (3 lb of shoulder to about
+     950 g, the cola, sugar and salsa reduced by half); cilantro lime rice =
+     2 cups dry to ~1,130 g cooked; tomatillo ranch = ~465 g as blended.
+     Guacamole, pico and the sauce are the sum of what goes in. */
+  flank_steak:  { kcal: 165, p: 21.2, c: 0, f: 8.2, na: 55, fib: 0, g: { lb: 453.6, oz: 28.35 }, label: 'Flank steak', note: 'raw, trimmed; skirt or sirloin are close' },
+  corn_tortilla: { kcal: 218, p: 5.7, c: 44.6, f: 2.9, na: 45, fib: 6.3, g: { each: 26 }, label: 'Corn tortillas', note: '6 in, 26 g' },
+  carne_asada:  { kcal: 228, p: 29.4, c: 0.5, f: 12.3, na: 190, fib: 0.1, g: { lb: 453.6, oz: 28.35, cup: 140 }, label: 'Carne asada', note: 'homemade; the Carne Asada recipe, grilled and sliced: its totals over ~650 g cooked from 2 lb raw' },
+  sweet_pork:   { kcal: 329, p: 18.2, c: 19.7, f: 19.7, na: 558, fib: 0.3, g: { lb: 453.6, oz: 28.35, cup: 140 }, label: 'Sweet pork', note: 'homemade; the Sweet Pork Barbacoa recipe, shredded in its sauce' },
+  cilantro_lime_rice: { kcal: 132, p: 2.1, c: 26.2, f: 2.1, na: 430, fib: 0.4, g: { cup: 190 }, label: 'Cilantro lime rice', note: 'homemade; the Cilantro Lime Rice recipe, cooked' },
+  tomatillo_ranch: { kcal: 240, p: 2.6, c: 5.2, f: 23.2, na: 717, fib: 0.5, g: { cup: 240, tbsp: 15 }, label: 'Tomatillo ranch', note: 'homemade; the Creamy Tomatillo Ranch recipe' },
+  guacamole:    { kcal: 150, p: 1.9, c: 8.6, f: 13.3, na: 290, fib: 6.1, g: { cup: 230, tbsp: 15 }, label: 'Guacamole', note: 'homemade; avocado, lime, onion, cilantro, jalapeño, salt' },
+  pico_de_gallo: { kcal: 21, p: 0.8, c: 4.6, f: 0.2, na: 240, fib: 1.2, g: { cup: 160, tbsp: 10 }, label: 'Pico de gallo', note: 'homemade; tomato, onion, jalapeño, cilantro, lime, salt' },
+  enchilada_sauce: { kcal: 59, p: 1.3, c: 7.2, f: 3.6, na: 380, fib: 2, g: { cup: 245, tbsp: 15 }, label: 'Red enchilada sauce', note: 'homemade; tomato sauce, water, chili powder, a roux, simmered to about 800 g' },
 };
 
 /*
@@ -558,6 +576,16 @@ const ALIASES = {
   'ground cumin': 'cumin', 'oregano': 'oregano', 'thyme': 'thyme',
   'lollipop sticks': 'free', 'wooden sticks': 'free',
   'cinnamon': 'cinnamon',
+  // the Mexican shelf, 2026-09-26
+  'flank steak': 'flank_steak', 'skirt steak': 'flank_steak',
+  'corn tortillas': 'corn_tortilla', 'corn tortilla': 'corn_tortilla',
+  'carne asada': 'carne_asada', 'sweet pork': 'sweet_pork', 'sweet pork barbacoa': 'sweet_pork',
+  'cilantro lime rice': 'cilantro_lime_rice', 'tomatillo ranch': 'tomatillo_ranch',
+  'tomatillo ranch dressing': 'tomatillo_ranch',
+  'guacamole': 'guacamole', 'pico de gallo': 'pico_de_gallo', 'pico': 'pico_de_gallo',
+  'enchilada sauce': 'enchilada_sauce', 'red enchilada sauce': 'enchilada_sauce',
+  'avocado': 'avocado', 'avocados': 'avocado', 'jalapeño': 'jalapeno', 'jalapeños': 'jalapeno',
+  'jalapeno': 'jalapeno', 'jalapenos': 'jalapeno',
 };
 
 /*

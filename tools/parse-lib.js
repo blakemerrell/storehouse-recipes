@@ -89,6 +89,9 @@ const PREP = { trimmed: 0.6 };
 const EATEN = [
   { re: /,\s*for the dredge\b/i, part: 1 / 3 },
   { re: /,\s*for the soak\b/i, part: 0.125 },
+  /* A marinade is a soak by another name: the steak is lifted out, dripped
+     and patted dry, and the bag goes in the bin. */
+  { re: /,\s*for the marinade\b/i, part: 0.125 },
   /* Oil for deep frying is mostly left in the pan. Counting all of it makes a
      fried dish read like a stick of butter; food takes up roughly an eighth.
      These two used to shrink the grams instead, which counted the same and

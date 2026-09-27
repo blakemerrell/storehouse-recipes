@@ -204,7 +204,8 @@ function stampPageCounts(made) {
   await page.evaluate(() => localStorage.clear());   // print the books, not somebody's week
   await page.reload();
   await page.evaluate(() => document.fonts.ready);
-  await page.click('.tab[data-view="book"]');
+  // the book left the tab row (c57d39a); it opens from Recipes now
+  await page.click('#bookBtn');
 
   const made = {};
   for (const key of jobs) {

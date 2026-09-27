@@ -387,6 +387,10 @@ module.exports = {
            reason, and a reason holds for the next one too. */
         if (r.secName === 'Made, Not Bought') return;
         if (madeFor.has(r.id)) return;
+        /* A recipe that declares what it makes is named for that output, the
+           same reason as the two above: "Guacamole" is made of avocados, and
+           a guacamole recipe listing guacamole would be the mistake. */
+        if (r.makes && r.makes.length) return;
         const body = (r.ing.join(' ') + ' ' + r.steps.join(' ') + ' ' +
           (r.extras || '')).toLowerCase();
         const words = r.name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);

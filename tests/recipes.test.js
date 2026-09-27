@@ -944,11 +944,12 @@ module.exports = {
        way to his own seasoning beside it on the same shelf: "I need the link
        to my taco seasoning recipe to be a part of this recipe." */
     const links = await p.evaluate(() => {
-      const R = window.RECIPES, M = window.MAKERS;
-      const no = (n) => R.find((r) => r.no === n);
+      /* By id, which never changes. These used to be found by printed number,
+         and every recipe added ahead of them in the book moved the number. */
+      const M = window.MAKERS;
       return {
-        taco: M.taco_seasoning === no(295).id, bread: M.bread === no(280).id, cake: M.cake_baked === no(258).id,
-        tacoBeef: no(296).id, seasoning: no(295).id, pops: no(267).id,
+        taco: M.taco_seasoning === 337, bread: M.bread === 226, cake: M.cake_baked === 205,
+        tacoBeef: 338, seasoning: 337, pops: 214,
       };
     });
     t.ok('taco seasoning, bread and baked cake each have their maker',
