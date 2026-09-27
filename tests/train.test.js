@@ -3048,6 +3048,41 @@ module.exports = {
     t.ok('the last station of a round, two minutes before the next', r === 120, String(r));
     await p.close();
 
+    // the best swaps: the same movement, the nearest kit, your back, what you know
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, kit: 'gym' }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    r = await p.evaluate(() => { const _ = window.Train._, st = _.state(), ids = (e, today, o) => { Object.assign(st.T.pr, o || {}); return _.swapBest(e, today || {}).map((b) => b.ex.id).join(); };
+      const chest = ids('mc-press'), why = _.swapBest('mc-press', {})[0].why;
+      const row = ids('mc-row', {}, { bk: '' }), rowBack = ids('mc-row', {}, { bk: 'fc' }), notToday = ids('mc-press', { 'db-bench': 1 }, { bk: '' });
+      st.T.pr.avoid = ['db-bench']; const never = ids('mc-press'); st.T.pr.avoid = [];
+      return { chest, why, row, rowBack, notToday, never }; });
+    t.ok('a taken machine chest press: dumbbell bench first, the same movement, before a bar to load', r.chest.split(',')[0] === 'db-bench' && r.chest.split(',')[1] === 'bb-bench' && /^same movement · dumbbell · new to you$/.test(r.why), JSON.stringify(r));
+    t.ok('a row for a row: a cable row for a taken machine row; with a protected back, the chest-supported one first and never the barbell',
+      r.row.split(',')[0] === 'cb-row' && !/bb-row/.test(r.rowBack) && r.rowBack.split(',')[0] === 'db-cs-row', JSON.stringify(r));
+    t.ok('never one already in today, or on your never list', !/db-bench/.test(r.notToday) && !/db-bench/.test(r.never), JSON.stringify(r));
+    await p.close();
+    p = await t.fresh();
+    await keepLive(p);
+    r = await p.evaluate(() => window.Train._.state().LIVE.x.map((x) => x.e).join());
+    await p.click('[data-t="swap"][data-x="0"]');
+    r = await p.evaluate(() => ({ best: [...document.querySelectorAll('.tr-best .tr-pick')].map((b) => b.dataset.e + ':' + b.querySelector('.tr-pk-m').textContent),
+      head: [...document.querySelectorAll('.tr-bestw .tr-rdg')].map((e) => e.textContent).join('|') }));
+    t.ok('the swap sheet opens with three best swaps, each saying why', r.best.length === 3 && r.best.every((b) => /·/.test(b)) && /^Best swaps\|Everything for /.test(r.head), JSON.stringify(r));
+    await p.click('[data-t="pickm"][data-v=""]');
+    await p.fill('#trPickQ', 'curl');
+    await p.waitForTimeout(50);
+    r = await p.evaluate(() => ({ best: !!document.querySelector('.tr-bestw'), lists: document.querySelectorAll('.tr-picks:not(.tr-best)').length }));
+    t.ok('searching hides them, and the list is not doubled', !r.best && r.lists === 1, JSON.stringify(r));
+    await p.fill('#trPickQ', '');
+    await p.waitForTimeout(50);
+    r = await p.evaluate(() => ({ best: !!document.querySelector('.tr-bestw'), lists: document.querySelectorAll('.tr-picks:not(.tr-best)').length }));
+    t.ok('and a cleared search brings them back', r.best && r.lists === 1, JSON.stringify(r));
+    const pick = await p.evaluate(() => document.querySelector('.tr-best .tr-pick').dataset.e);
+    await p.click('.tr-best .tr-pick');
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].e);
+    t.ok('and one tap swaps it in', r === pick, r + ' vs ' + pick);
+    await p.close();
+
     // the main lift, with a back protected: the one that loads it least
     p = await t.fresh();
     r = await p.evaluate(() => { const _ = window.Train._, m = (o) => _.build(Object.assign({ prog: 'waves', dpw: 3, kit: 'gym', lvl: 1 }, o)).days[0].s[0].e;

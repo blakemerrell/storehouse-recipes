@@ -5917,6 +5917,45 @@
       '</div></div>';
   }
 
+  /* The best swaps for a lift, three of them, each with why. The list below
+     them is the library's order, which put a barbell bench first when the
+     machine chest press was taken: right muscle, wrong answer. These are
+     ranked the way a coach would think it through — the same movement
+     first, so the session still trains what it was built to; then the same
+     kind of kit, since a taken machine is best replaced by another machine
+     or a cable rather than a bar to load; what it asks of a back or joint
+     you are protecting; one you already know, so its weight comes from
+     your own numbers; easy to learn, starting out. Never one already in
+     today's session, on your never list, or ruled out for your back. */
+  var FAMILY = { mc: 'm', cb: 'm', sm: 'm', bb: 'f', db: 'f', bw: 'b' };
+  /* How far one kind of kit is from another, for a swap: the same, then its
+     family (a cable for a machine, dumbbells for a barbell); from a machine,
+     a pair of dumbbells before a bar to load; your body alone last, when
+     there is anything to load. */
+  function kitGap(from, to, eq) {
+    if (from === to) return 0;
+    if (FAMILY[from] === FAMILY[to]) return 4;
+    if (to === 'bw') return eq.length > 1 ? 12 : 4;
+    if (FAMILY[from] === 'm') return to === 'db' ? 6 : 10;
+    return 10;
+  }
+  function swapBest(old, today) {
+    var o = lib(old), pf = T.pr, known = ix().best;
+    var eq = KITS[KITS[pf.kit] ? pf.kit : 'gym'].eq;
+    var score = function (ex) {
+      return (o.p && ex.p === o.p ? 0 : 30) + (ex.k === o.k ? 0 : 20) + kitGap(o.q, ex.q, eq) +
+        backCost(ex, pf) + newbieCost(ex, pf) - (known[ex.id] ? 8 : 0) + ex.o / 1000;
+    };
+    return allEx().filter(function (ex) {
+      return ex.id !== old && ex.m === o.m && eq.indexOf(ex.q) >= 0 && !today[ex.id] &&
+        pf.avoid.indexOf(ex.id) < 0 && !barred(ex, pf);
+    }).sort(function (a, b) { return score(a) - score(b); }).slice(0, 3).map(function (ex) {
+      var why = [o.p && ex.p === o.p ? 'same movement' : ex.k === o.k ? 'same kind of lift' : 'same muscle', (EQUIP[ex.q] || '').toLowerCase()];
+      if (pf.bk) why.push(backCue(ex) ? 'some back load' : 'no back load');
+      why.push(known[ex.id] ? 'you\u2019ve done it' : 'new to you');
+      return { ex: ex, why: why.filter(Boolean).join(' \u00b7 ') };
+    });
+  }
   function pickHTML(sh) {
     var q = S.q.toLowerCase().trim();
     var old = (sh.mode === 'swap' && LIVE && LIVE.x[sh.x]) ? LIVE.x[sh.x].e
@@ -5942,6 +5981,10 @@
         (barred(a, T.pr) ? 1 : 0) - (barred(b, T.pr) ? 1 : 0) || a.o - b.o;
     });
     var own = S.own;
+    var today = {};
+    if (sh.mode === 'swap' && LIVE) LIVE.x.forEach(function (x) { today[x.e] = 1; });
+    if (sh.mode === 'dswap' && S.draft) S.draft.days[sh.d].s.forEach(function (x) { today[x.e] = 1; });
+    var best = old && !q ? swapBest(old, today) : [];
     /* In a block, a swap asks how long it is for. The machine being taken is
        today; not getting on with the exercise is the rest of the block. */
     var scoped = sh.mode === 'swap' && LIVE && LIVE.ms && T.ms[LIVE.ms];
@@ -5953,6 +5996,10 @@
           : 'Today only. Next time the plan has ' + esc(lib(old).n) + ' again.') + '</div></div>' : '') +
       (old ? '<div class="tr-chips tr-never"><button class="tr-chip" data-t="never" aria-pressed="' + !!S.never + '">' +
         'Never suggest ' + esc(lib(old).n) + ' again</button></div>' : '') +
+      (best.length ? '<div class="tr-bestw"><div class="tr-rdg">Best swaps</div><div class="tr-picks tr-best">' + best.map(function (b) {
+        return '<button class="tr-pick tr-pick-best" data-t="pickex" data-e="' + esc(b.ex.id) + '">' +
+          '<span class="tr-pk-n">' + esc(b.ex.n) + '</span><span class="tr-pk-m">' + esc(b.why) + '</span></button>';
+      }).join('') + '</div><div class="tr-rdg">Everything for ' + esc(mname(lib(old).m).toLowerCase()) + '</div></div>' : '') +
       '<input class="txt tr-search" id="trPickQ" type="search" placeholder="Search exercises" value="' + esc(S.q) + '" aria-label="Search exercises">' +
       chips('pickm', S.qm, [['', 'All']].concat(MUSCLES.map(function (m) { return [m.k, m.n]; }))) +
       '<div class="tr-picks">' + (list.length ? list.map(function (ex) {
@@ -8789,8 +8836,13 @@
     if (!root || !S.sheet || S.sheet.k !== 'pick') return;
     var tmp = document.createElement('div');
     tmp.innerHTML = pickHTML(S.sheet);
-    var fresh = tmp.querySelector('.tr-picks'), old = root.querySelector('.tr-picks');
+    var fresh = tmp.querySelector('.tr-picks:not(.tr-best)'), old = root.querySelector('.tr-picks:not(.tr-best)');
     if (fresh && old) old.replaceWith(fresh);
+    // the best swaps are for the list as it opens: gone while you search, back when the box is cleared
+    var fb = tmp.querySelector('.tr-bestw'), ob = root.querySelector('.tr-bestw'), inp = $('trPickQ');
+    if (ob && fb) ob.replaceWith(fb);
+    else if (ob) ob.remove();
+    else if (fb && inp && inp.parentNode) inp.parentNode.insertBefore(fb, inp);
   }
 
   wire();
@@ -8851,7 +8903,7 @@
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
       wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
-      readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
+      readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE, swapBest: swapBest,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
