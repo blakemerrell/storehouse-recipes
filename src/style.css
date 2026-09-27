@@ -4262,10 +4262,10 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 /* Bin and lock, tight together, so proximity says they are one group and the
    portion beside them is another. */
 /* Bin and lock, edge to edge, so proximity says they are one group and the
-   portion beside them is another. gap: 0 is doing all of that work — a box
-   around the pair was tried and drawn back out: it groups them, and it also
-   turns two quiet glyphs into a keypad, which is the complaint this row was
-   rebuilt to answer. */
+   portion beside them is another. A box around the pair was tried once and
+   drawn back out as "a keypad", when nothing else on the row wore one; they
+   are boxed again now that everything beside them is (see "the plate's bin
+   and lock, boxed" at the end of this file). */
 .mitem-verbs { flex: none; display: flex; align-items: center; gap: 0; }
 /* Smaller controls, closer together, and the portion takes what that frees.
  *
@@ -5792,11 +5792,6 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .mslot-act.add .mday-ic { stroke-width: 2; }
 .mc-notei { display: flex; justify-content: flex-end; margin-top: 4px; }
 .mc-notei .m-info { margin: 0; }
-/* The bin and the lock are a pair: each a thumb's reach, with their
-   drawings leaning together so the pair reads as one group beside the
-   portion. */
-.mitem-verbs .mic:first-child svg { margin: 0 3px 0 auto; }
-.mitem-verbs .mic + .mic svg { margin: 0 auto 0 3px; }
 
 /* ---- Nourish: charts to read on a phone ----
    Type at the size it says (the viewBox is about a phone's width), the
@@ -5862,3 +5857,22 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 }
 .mslot-act > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .mslot-act.add { font-size: 13px; font-weight: 600; }
+
+/* ---- Nourish: the plate's bin and lock, boxed ----
+   Blake, once a meal's verbs became boxes with words (2026-09-27): "Garbage
+   and lock icon look out of place now." They were the last two bare glyphs
+   on a strip where the portion, its two keys and the tick are all boxes.
+   Drawn now the way the minus and plus keys are: one joined pair, the edge
+   they share saying they belong together. Pin and star stay glyphs, up on
+   the name row beside the name. */
+.mitem-verbs .mic {
+  display: grid; place-items: center;
+  border: 1px solid var(--line-firm); background: var(--card); border-radius: 4px;
+}
+.mitem-verbs .mic:first-child:not(:last-child) { border-radius: 4px 0 0 4px; }
+.mitem-verbs .mic + .mic { margin-left: -1px; border-radius: 0 4px 4px 0; }
+.mitem-verbs .mic:hover { background: var(--paper-soft); }
+/* A lock that is on says so with its edge as well as its ink. */
+.mitem-verbs .mic[aria-pressed="true"] {
+  position: relative; border: 1px solid var(--ochre); background: var(--card); color: var(--ochre-text);
+}

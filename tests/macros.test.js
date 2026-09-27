@@ -6945,12 +6945,14 @@ module.exports = {
          break instead. */
       if (Math.abs(dial.getBoundingClientRect().top -
         acts.getBoundingClientRect().top) > 2) return { wrapped: true };
-      const g = [...acts.querySelectorAll('.mic svg')].map((e) => e.getBoundingClientRect());
+      /* Measured on the boxes since the pair became boxes (2026-09-27): the
+         edge the eye sees is the button's now, not the drawing inside it. */
+      const g = [...acts.querySelectorAll('.mic')].map((e) => e.getBoundingClientRect());
       if (g.length < 2) return null;
       const within = Math.round(g[1].left - g[0].right);
       /* The air AFTER the group, since the group leads the strip now. */
       const between = Math.round(dial.getBoundingClientRect().left - g[1].right);
-      return { within, between, glyph: Math.round(g[0].width) };
+      return { within, between, box: Math.round(g[0].width) };
     });
     /* Two verbs must sit closer together than one of them is a TARGET wide —
        they are neighbours, not a scattered row.
@@ -7705,7 +7707,8 @@ module.exports = {
         return parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0 ||
           (c.backgroundColor !== 'rgba(0, 0, 0, 0)' && c.backgroundColor !== 'transparent');
       };
-      const verbs = [...document.querySelectorAll('.mitem-r1 .mic, .mitem-r3 .mic')];
+      const verbs = [...document.querySelectorAll('.mitem-r1 .mic')];
+      const pair = [...document.querySelectorAll('.mitem-r3 .mitem-verbs .mic')];
       const amt = document.querySelector('.mitem-r3 .mitem-amt');
       const keys = [...document.querySelectorAll('.mitem-r3 .mstep-keys button')];
       const first = document.querySelector('.mitem-r3 .mic');
@@ -7714,6 +7717,8 @@ module.exports = {
       return {
         verbsBoxed: verbs.filter(boxy).map((e) => e.className).slice(0, 4),
         verbsN: verbs.length,
+        pairN: pair.length,
+        pairBoxed: pair.length > 0 && pair.every(boxy),
         amtBoxed: !!amt && boxy(amt),
         keysBoxed: keys.length > 0 && keys.every(boxy),
         /* the verbs at one end, the tick at the other */
@@ -7724,11 +7729,18 @@ module.exports = {
     });
     /* Blake, on an earlier version of this row: "buttons are too big. And not
        spread out well and are out of balance with the rest of the text on the
-       card." The VERBS keep that answer — bin, lock, pin, star are glyphs
-       with generous invisible margins, the same thing to a thumb and a
-       quieter thing to an eye. */
-    t.ok('the verbs are glyphs, not boxes',
-      chrome.verbsN >= 3 && chrome.verbsBoxed.length === 0, JSON.stringify(chrome));
+       card." The name row keeps that answer — pin and star are glyphs with
+       generous invisible margins, the same thing to a thumb and a quieter
+       thing to an eye. */
+    t.ok('the name row\u2019s verbs are glyphs, not boxes',
+      chrome.verbsN >= 2 && chrome.verbsBoxed.length === 0, JSON.stringify(chrome));
+    /* The bin and the lock do not, since 2026-09-27. Blake, once each meal's
+       verbs had become boxes with words: "Garbage and lock icon look out of
+       place now" — the last two bare glyphs on a strip where the portion, its
+       keys and the tick are all boxes. He chose them boxed, as a joined pair
+       drawn the way the keys are. */
+    t.ok('while the bin and lock are a boxed pair, like the keys beside them',
+      chrome.pairN >= 1 && chrome.pairBoxed, JSON.stringify(chrome));
     /* ...and the PORTION is boxed, on his newer one: "Outline the serving
        size in a box as well. With +/- on the right side of it." It is the
        control you operate rather than a verb you press once, and boxing it is
