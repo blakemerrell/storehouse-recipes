@@ -212,6 +212,12 @@
           <button role="menuitem" data-mmore="went">How today went</button>
         </div>
       </div>
+      <!-- Any day the log keeps, by date: "Earlier day…" at the foot of the
+           day box opens this, and the phone's own calendar where it has one. -->
+      <div class="mday-pick hide">
+        <label>Go to <input type="date" id="macroDayPick"></label>
+        <button class="ghost" id="macroDayPickX" type="button">Cancel</button>
+      </div>
       <!-- Everything that folds away, in one box that can be clipped. The
            clip has to sit here rather than on the card, because the gear's
            menu hangs out of the card's bottom edge and would be cut in half

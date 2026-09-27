@@ -677,7 +677,7 @@
     macroDate: null, macroPick: null, macroTargOpen: false, newFood: null, mpQuery: '',
     /* A food opened from its plate: {id, x}. Foods have no recipe sheet, so
        this is the sheet that answers "what is one of it, and what went in". */
-    foodOpen: null,
+    foodOpen: null, mCopyFrom: null,
     myJoin: '', mySent: false, myErr: '', myNote: '',
     mpSec: 'meal', mpSort: 'fit',
     /* Which of the three ways in the picker is showing. It opens on 'home',
@@ -688,7 +688,7 @@
     /* Which meals you have pressed open or shut, against the default of
        folding one you have eaten. Ephemeral: a new day starts fresh. */
     mFold: {}, mFoldFor: '', mTouched: '', mtOpen: '',
-    chartOpen: false, chartWhich: 'weight', keepMeal: '',
+    chartOpen: false, chartWhich: 'weight', mcRange: 'all', keepMeal: '',
     /* What the picker has been told to add, before it is told to stop. A meal
        assembled from parts — a scoop of whey, a splash of half and half, a
        spoon of honey — used to cost one full trip through this sheet per
@@ -2150,13 +2150,18 @@
   var mDrawnToday = '';
   function mViewKey() { return S.macroDate || mDrawnToday || todayKey(); }
 
-  /* Today plus thirteen days behind it. Enough to look back over a week and
-     change your mind about the one before; not enough to become a diary the
-     browser has to carry forever. YYYY-MM-DD sorts as it dates, so the prune
+  /* Today and about four months behind it: the same stretch the intake log
+     and each day's own targets are kept for (MINTAKE_DAYS), so a past day
+     opened here is still judged against what it was aiming at. It was a
+     fortnight, which was enough to change your mind about last week and not
+     enough to find the dinner you had in August; Blake: "Copy from another
+     day on each meal, and a date picker beyond two weeks." Still not a diary
+     the browser carries forever. YYYY-MM-DD sorts as it dates, so the prune
      is one string comparison. */
+  var MDAY_KEEP = 120;
   function mEarliestKey() {
     var d = new Date();
-    d.setDate(d.getDate() - 13);
+    d.setDate(d.getDate() - (MDAY_KEEP - 1));
     return dayKey(d);
   }
 
@@ -5664,6 +5669,16 @@
     try { mRenderDay(); } finally { mRendering = false; }
   }
 
+  function mDayPick(open) {
+    var row = $('macroDayPick').closest('.mday-pick');
+    row.classList.toggle('hide', !open);
+    if (!open) return;
+    var inp = $('macroDayPick');
+    inp.value = mViewKey();
+    inp.focus();
+    try { if (inp.showPicker) inp.showPicker(); } catch (e) { /* the box itself is the way in */ }
+  }
+
   function mRenderDay() {
     var todayK = todayKey();
     var k = mViewKey();
@@ -5686,7 +5701,15 @@
       opts.push('<option value="' + ok + '"' + (ok === k ? ' selected' : '') + '>' +
         (word ? word + ' &middot; ' + M_MONS[od.getMonth()] + ' ' + od.getDate() : mLongDate(ok)) + '</option>');
     }
+    /* A day further back than the list, reached by the date box or the
+       arrows, is named at the foot so the box still says where you are; and
+       the last entry opens the date box, for any day the log keeps. */
+    var listFrom = new Date(); listFrom.setDate(listFrom.getDate() - 13);
+    if (k < dayKey(listFrom)) opts.push('<option value="' + k + '" selected>' + mLongDate(k) + '</option>');
+    opts.push('<option value="pick">Earlier day\u2026</option>');
     $('macroDaySel').innerHTML = opts.join('');
+    var dp = $('macroDayPick');
+    if (dp) { dp.min = mEarliestKey(); dp.max = mLatestKey(); }
     $('macroPrev').disabled = k <= mEarliestKey();
     $('macroNext').disabled = k >= mLatestKey();
     $('macroWeek').innerHTML = mWeekHTML(k, todayK);
@@ -5977,7 +6000,7 @@
             '<span class="mitem-nm">' +
             (r.food
               ? '<button class="mitem-name mitem-food" data-mfood="' + esc(String(r.id)) +
-                '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
+                '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
             '</span>' +
@@ -6151,6 +6174,8 @@
          the hand that ticked it — and took away the untick. S.mFold holds
          only what you have pressed, so it never has to be cleaned up. */
       var folded = !!(items.length && S.mFold[sk]);
+      var addBtn = '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
+        'aria-label="Add food to ' + esc(name) + '">' + mIcon('plus') + 'Add</button>';
       /* Said once, used by whichever of the two headers this meal draws. */
       var pillsSay = mMealPillsSay(sub, mMealAsk(sk, targets, slots), targets);
 
@@ -6347,7 +6372,7 @@
                    its own; it only has to be the same shape. */
                 (r2.food
                   ? '<button class="mthin-n mitem-food" data-mfood="' + esc(String(r2.id)) +
-                    '" data-mx="' + it.x + '">' + esc(r2.name) + '</button>'
+                    '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">' + esc(r2.name) + '</button>'
                   : '<button class="mthin-n" data-open="' + esc(String(r2.id)) +
                     '" data-mx="' + it.x + '">' + esc(r2.name) + '</button>') +
                 /* The same portion words the open plate uses — "1 cup ·
@@ -6445,16 +6470,20 @@
                    No leading plus. Four buttons need the width: measured, the
                    row fits at 390 with 19px to spare and wraps below 375,
                    which is the same bargain .mslot-acts already strikes. */
+                /* Still .mslot-add: it is still the meal's add button, which
+                   is what that name has always meant. With a word beside the
+                   plus now, like every other verb here, and on a fed meal it
+                   comes third, so the row it pushes to the right edge is the
+                   first: the verbs wrap to two rows, not three. */
+                (items.length ? addBtn : '') +
                 (items.length >= 2
                   ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" ' +
                     'title="Merge these plates into one food you can reuse">' +
                     mIcon('keep') + 'Keep as one</button>' : '') +
-                /* Still .mslot-add: it is still the meal's add button, which
-                   is what that name has always meant. Only where it sits
-                   changed. */
-                /* A word beside the plus, like every other verb here. */
-                '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
-                  'aria-label="Add food to ' + esc(name) + '">' + mIcon('plus') + 'Add</button>' +
+                /* The same meal on another day, whole, in one tap. */
+                '<button class="mslot-act mslot-from" data-mfrom="' + esc(sk) + '" ' +
+                  'title="Copy this meal from another day">' + mIcon('fromday') + 'Copy from\u2026</button>' +
+                (items.length ? '' : addBtn) +
                 '</div>'
               : '') +
             /* INSIDE the fold, and last. It was outside the card on the
@@ -7521,9 +7550,11 @@
          which flags thirty points and means none of them. Weight is the chart
          you came to look at; Off plan is the one that signals. */
       return {
-        v: vals, keys: keys, lim: null, plan: okPlan ? plan : null, dp: 1,
-        note: okPlan ? 'The dashed line is the plan. The gap between them is the whole story.'
-          : 'Name a weight and a date under the gear and the plan draws alongside.'
+        v: vals, keys: keys, lim: null, plan: okPlan ? plan : null, dp: 1, trend: mcTrend(keys),
+        say: function (v) { return v.toFixed(1) + ' lb'; },
+        note: 'The line is your seven-day average, the one the plan reads; the dots are the mornings. ' +
+          (okPlan ? 'The dashed line is the plan. The gap between them is the whole story.'
+            : 'Name a weight and a date under the gear and the plan draws alongside.')
       };
     }
     if (which === 'off') {
@@ -7538,6 +7569,7 @@
           : 'This one needs a goal weight and a date, under the gear.' };
       }
       return { v: res, keys: keys, lim: mcLimits(res, keys), zero: true, dp: 1,
+        say: function (v) { return Math.abs(v).toFixed(1) + ' lb ' + (v > 0 ? 'above' : v < 0 ? 'below' : 'on') + ' the plan'; },
         note: 'Zero is on pace. Above the line is losing slower than you meant to.' };
     }
     if (which === 'jump') {
@@ -7572,6 +7604,7 @@
         return mr[i] > bar && at2 > 0 && mSodiumOn(keys[at2 - 1]) >= high;
       });
       return { v: mr, keys: mkeys, salt: salt, dp: 1,
+        say: function (v) { return v.toFixed(1) + ' lb overnight'; },
         lim: { cl: bar, bar: bar, unpl: 3.268 * bar, lnpl: 0 },
         note: 'Overnight change. Ochre points follow a day well above your own usual salt.' };
     }
@@ -7583,53 +7616,134 @@
       rkeys.push(keys[i]);
     }
     return { v: rate, keys: rkeys, lim: mcLimits(rate, rkeys), zero: true, dp: 1,
+      say: function (v) { return (v > 0 ? '+' : v < 0 ? '\u2212' : '') + Math.abs(v).toFixed(1) + ' lb on the week before'; },
       note: 'A week against the week before it. A working cut sits below zero.' };
   }
 
+  /* The seven-day average at every morning: the mornings in the seven days
+     up to and including it, the same window mWeightStats reads for the plan,
+     taken at each morning rather than only at the last. It is the line the
+     weight chart draws, because a single morning is water and salt. */
+  function mcTrend(keys) {
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    return keys.map(function (k, i) {
+      var n = dayN(k), sum = 0, c = 0;
+      for (var j = i; j >= 0 && n - dayN(keys[j]) < 7; j--) { sum += MWEIGHTS[keys[j]]; c++; }
+      return Math.round(sum / c * 100) / 100;
+    });
+  }
+
+  /* The last month, three, six, or everything, counted back from today: a
+     year of mornings on one line flattens this month's loss to nothing. The
+     limits stay the ones the whole series set, so a range cannot move them. */
+  var MC_RANGES = [['1m', '1M', 31], ['3m', '3M', 92], ['6m', '6M', 183], ['all', 'All', 0]];
+  function mcInRange(sr, rng) {
+    var days = 0;
+    MC_RANGES.forEach(function (r) { if (r[0] === rng) days = r[2]; });
+    if (!days || sr.need) return sr;
+    var from = new Date(); from.setDate(from.getDate() - days);
+    var fromK = dayKey(from), keep = [];
+    sr.keys.forEach(function (k, i) { if (k >= fromK) keep.push(i); });
+    var pick = function (a) { return a ? keep.map(function (i) { return a[i]; }) : a; };
+    var out = {};
+    Object.keys(sr).forEach(function (f) { out[f] = sr[f]; });
+    out.v = pick(sr.v); out.keys = pick(sr.keys); out.plan = pick(sr.plan);
+    out.trend = pick(sr.trend); out.salt = pick(sr.salt);
+    return out;
+  }
+
+  /* Round numbers for an axis: a step of 1, 2, 2.5 or 5 of some power of
+     ten, about n of them across the range — "208, 210, 212", never
+     "207.6, 211.7, 215.8". */
+  function mcNiceTicks(lo, hi, n) {
+    var span = hi - lo || 1, raw = span / (n || 4);
+    var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), f = raw / mag;
+    var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+    var out = [];
+    for (var v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) {
+      out.push(Math.round(v * 1000) / 1000);
+    }
+    return out;
+  }
+
+  /* Drawn to be read on a phone: spaced by date, so a week off the scale
+     looks like a week; the axis on round numbers; a viewBox about a phone's
+     width, so its type is the size it says; and a finger on it (or a drag
+     along it) reads the morning under it out above the chart, with a ring on
+     the point. The weight chart draws the seven-day average as its line and
+     each morning as a faint dot; the others draw their own values. */
   function mcChartSVG(sr) {
-    var W = 600, H = 190, PL = 40, PR = 8, PT = 10, PB = 20;
-    var lo = Infinity, hi = -Infinity;
-    var see = function (v) { if (v < lo) lo = v; if (v > hi) hi = v; };
-    sr.v.forEach(see);
-    if (sr.lim) { see(sr.lim.unpl); see(sr.lim.lnpl); }
-    if (sr.plan) sr.plan.forEach(see);
-    if (sr.zero) see(0);
-    if (hi - lo < 0.5) { hi += 0.5; lo -= 0.5; }
-    var pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
-    var px = function (i) { return PL + i * (W - PL - PR) / Math.max(1, sr.v.length - 1); };
+    var W = 350, H = 200, PL = 42, PR = 10, PT = 12, PB = 26;
+    var all = sr.v.slice();
+    if (sr.trend) all = all.concat(sr.trend);
+    if (sr.plan) all = all.concat(sr.plan);
+    if (sr.lim) { all.push(sr.lim.unpl); all.push(sr.lim.lnpl); }
+    if (sr.zero) all.push(0);
+    var tk = mcNiceTicks(Math.min.apply(null, all), Math.max.apply(null, all), 4);
+    if (tk.length < 2) tk = [tk[0] - 1, tk[0] + 1];
+    var lo = tk[0], hi = tk[tk.length - 1], step = tk[1] - tk[0];
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var t0 = dayN(sr.keys[0]), t1 = dayN(sr.keys[sr.keys.length - 1]);
+    var px = function (i) {
+      var t = dayN(sr.keys[i]);
+      return t1 > t0 ? PL + (t - t0) / (t1 - t0) * (W - PL - PR) : (PL + W - PR) / 2;
+    };
     var py = function (v) { return PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo)); };
+    var tick = function (v) { return step < 1 ? v.toFixed(1) : String(Math.round(v)); };
     var out = [];
     var rule = function (v, cls) {
       out.push('<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + py(v).toFixed(1) +
         '" y2="' + py(v).toFixed(1) + '" class="' + cls + '"/>');
     };
-    [lo + (hi - lo) * 0.1, (lo + hi) / 2, hi - (hi - lo) * 0.1].forEach(function (v) {
+    tk.forEach(function (v) {
       rule(v, 'mc-grid');
-      out.push('<text x="' + (PL - 6) + '" y="' + (py(v) + 3.5).toFixed(1) +
-        '" text-anchor="end" class="mc-ax">' + v.toFixed(sr.dp) + '</text>');
+      out.push('<text x="' + (PL - 6) + '" y="' + (py(v) + 4).toFixed(1) +
+        '" text-anchor="end" class="mc-ax">' + tick(v) + '</text>');
     });
     if (sr.zero) rule(0, 'mc-zero');
     if (sr.lim) { rule(sr.lim.unpl, 'mc-lim'); rule(sr.lim.lnpl, 'mc-lim'); rule(sr.lim.cl, 'mc-cl'); }
-    if (sr.plan) {
-      out.push('<polyline class="mc-plan" points="' + sr.plan.map(function (v, i) {
+    var line = function (vals, cls) {
+      out.push('<polyline class="' + cls + '" points="' + vals.map(function (v, i) {
         return px(i).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ') + '"/>');
-    }
-    out.push('<polyline class="mc-line" points="' + sr.v.map(function (v, i) {
-      return px(i).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ') + '"/>');
+    };
+    if (sr.plan) line(sr.plan, 'mc-plan');
+    line(sr.trend || sr.v, sr.trend ? 'mc-line mc-trend' : 'mc-line');
+    var say = function (i) {
+      return mPretty(sr.keys[i]) + ' · ' + (sr.say ? sr.say(sr.v[i]) : sr.v[i].toFixed(sr.dp)) +
+        (sr.trend ? ' · average ' + sr.trend[i].toFixed(1) : '');
+    };
     sr.v.forEach(function (v, i) {
       var out2 = sr.lim && (v > sr.lim.unpl || v < sr.lim.lnpl);
       var sa = sr.salt && sr.salt[i];
       out.push('<circle cx="' + px(i).toFixed(1) + '" cy="' + py(v).toFixed(1) + '" r="' +
-        (out2 || sa ? 3.4 : 2) + '" class="' +
-        (sa ? 'mc-salt' : out2 ? 'mc-sig' : 'mc-dot') + '"><title>' +
-        esc(mPretty(sr.keys[i])) + ' \u00b7 ' + v.toFixed(sr.dp) + '</title></circle>');
+        (out2 || sa ? 3.6 : sr.trend ? 2.4 : 2.2) + '" class="' +
+        (sa ? 'mc-salt' : out2 ? 'mc-sig' : sr.trend ? 'mc-day' : 'mc-dot') + '"><title>' +
+        esc(mPretty(sr.keys[i])) + ' · ' + v.toFixed(sr.dp) + '</title></circle>');
     });
+    out.push('<circle class="mc-hl" r="6.5" cx="-20" cy="-20"/>');
     [0, sr.v.length - 1].forEach(function (i) {
-      out.push('<text x="' + px(i).toFixed(1) + '" y="' + (H - 5) + '" text-anchor="' +
+      if (i === 0 && sr.v.length === 1) return;
+      out.push('<text x="' + px(i).toFixed(1) + '" y="' + (H - 7) + '" text-anchor="' +
         (i ? 'end' : 'start') + '" class="mc-ax">' + esc(mPretty(sr.keys[i])) + '</text>');
     });
-    return '<svg class="mc-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
-      esc(sr.note) + '">' + out.join('') + '</svg>';
+    var pts = sr.v.map(function (v, i) {
+      return [Math.round(px(i) * 10) / 10, Math.round(py(v) * 10) / 10, say(i)];
+    });
+    return '<div class="mc-read" aria-live="polite">Latest: ' + esc(say(sr.v.length - 1)) + '</div>' +
+      '<svg class="mc-svg" viewBox="0 0 ' + W + ' ' + H + '" data-pts="' + esc(JSON.stringify(pts)) +
+      '" role="img" aria-label="' + esc(sr.note) + '">' + out.join('') + '</svg>';
+  }
+  // the finger on a chart: the morning nearest it, read out and ringed
+  function mcRead(svg, clientX) {
+    var pts;
+    try { pts = JSON.parse(svg.getAttribute('data-pts') || '[]'); } catch (e) { return; }
+    if (!pts.length) return;
+    var r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+    var x = (clientX - r.left) / r.width * vb.width, near = pts[0];
+    pts.forEach(function (q) { if (Math.abs(q[0] - x) < Math.abs(near[0] - x)) near = q; });
+    var hl = svg.querySelector('.mc-hl'), rd = svg.parentNode.querySelector('.mc-read');
+    if (hl) { hl.setAttribute('cx', near[0]); hl.setAttribute('cy', near[1]); }
+    if (rd && rd.textContent !== near[2]) rd.textContent = near[2];
   }
 
   /* Naming it, and choosing who gets it. Asked rather than assumed, because
@@ -7857,6 +7971,137 @@
       '</div></div>';
   }
 
+
+  /* ---- a meal from another day
+   *
+     Repeat a meal fast: the same meal on a day behind you, whole, in one
+     tap. Blake: "'Copy from another day' on each meal, and a date picker
+     beyond two weeks." The list is the latest days that had food on this
+     meal; the date box reaches any day the log keeps. Each plate comes at
+     the amount it was, and whether it arrives eaten is the rule every add
+     follows (mAddsEaten): a meal whose time has come is eaten, a later one
+     planned. */
+  function mCopyItems(fromK, sk) {
+    return ((MDAYS[fromK] || {})[sk] || []).filter(function (it) {
+      return BY_ID[it.id] && Number(it.x) > 0;
+    });
+  }
+  function mSlotName(sk) {
+    var slots = mReadSlots(), n = slots.names[sk] || 'Meal';
+    slots.list.forEach(function (sl) { if (sl.k === sk) n = sl.n; });
+    return n;
+  }
+  function mCopyCardHTML(fromK, sk) {
+    var items = mCopyItems(fromK, sk), kc = 0;
+    items.forEach(function (it) { kc += ((BY_ID[it.id].macro || {}).kcal || 0) * it.x; });
+    return '<div class="mcf-day">' +
+      '<div class="mcf-h"><span class="mcf-d">' + esc(mLongDate(fromK)) + '</span>' +
+        (items.length ? '<span class="mcf-k">' + Math.round(kc).toLocaleString() + ' kcal</span>' : '') + '</div>' +
+      (items.length
+        ? '<ul class="mcf-items">' + items.map(function (it) {
+            var r = BY_ID[it.id];
+            return '<li><span class="mcf-n">' + esc(r.name) + '</span>' +
+              '<span class="mcf-x">' + esc(mPortionText(r, it.x)) + '</span></li>';
+          }).join('') + '</ul>' +
+          '<button class="ghost mcf-go" data-mcopy="' + fromK + '">' + mIcon('plus') +
+            (items.length === 1 ? 'Add it' : 'Add all ' + items.length) + '</button>'
+        : '<div class="mslot-empty">Nothing on ' + esc(mSlotName(sk)) + ' that day.</div>') +
+    '</div>';
+  }
+  function mCopyFromHTML() {
+    var o = S.mCopyFrom || {}, k = mViewKey(), sk = o.slot, name = mSlotName(sk);
+    var today = todayKey(), recent = [];
+    Object.keys(MDAYS).sort().reverse().forEach(function (dk) {
+      if (dk === k || dk > today || recent.length >= 7) return;
+      if (mCopyItems(dk, sk).length) recent.push(dk);
+    });
+    var picked = o.day && o.day !== k ? o.day : '';
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet mt-sheet mcf-sheet" role="dialog" aria-modal="true" aria-label="' +
+        esc(name) + ' from another day">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">To ' + esc(name) + ' &middot; ' + esc(mPretty(k)) + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="mfs-name">' + esc(name) + ' from another day</div>' +
+        '<label class="mcf-pick">Any day <input type="date" id="mcfDate" min="' + mEarliestKey() +
+          '" max="' + mLatestKey() + '" value="' + picked + '"></label>' +
+        (picked ? mCopyCardHTML(picked, sk) : '') +
+        (recent.length
+          ? '<div class="mt-div">Lately</div>' + recent.filter(function (dk) { return dk !== picked; })
+              .map(function (dk) { return mCopyCardHTML(dk, sk); }).join('')
+          : picked ? '' : '<div class="mslot-empty">Nothing on ' + esc(name) + ' in the days behind you yet.</div>') +
+      '</div></div>';
+  }
+
+  /* ---- the food sheet: an amount, and Add
+   *
+     Blake: "An amount/unit box and an Add button on the food detail screen,
+     plus fibre/sodium and any other nutrients the table has." The amount
+     starts where every add starts (what you logged last time, else one of
+     it) and can be said in any unit the table weighs the food in; the Add
+     goes to the meal the plate was on, or to the meal you choose. */
+  function mFsUnits(r) {
+    if (!r.food || !r.grams) return [{ u: mDialUnit(r), g: 0 }];
+    var key = String(r.id).slice(2), N = window.Nutrition;
+    var f = N && N.FOODS && N.FOODS[key];
+    var own = { u: r.unit === 'each' ? 'whole' : String(r.unit), g: r.grams };
+    var out = mByGram(r) ? [{ u: 'g', g: 1 }, own] : [own, { u: 'g', g: 1 }];
+    if (r.unit === 'g') out = [{ u: 'g', g: 1 }];
+    Object.keys((f && f.g) || {}).forEach(function (u) {
+      var w = u === 'each' ? 'whole' : u;
+      if (!(f.g[u] > 0) || out.some(function (o) { return o.u === w; })) return;
+      out.push({ u: w, g: f.g[u] });
+    });
+    return out;
+  }
+  function mFsX(r, amt, unit) {
+    var n = Number(amt);
+    if (!isFinite(n) || n <= 0) return null;
+    var x = unit && unit.g && r.grams ? n * unit.g / r.grams : n;
+    return Math.round(x * 10000) / 10000;
+  }
+  function mFsAmt(r, x, unit) {
+    var n = unit && unit.g && r.grams ? x * r.grams / unit.g : x;
+    return unit && unit.u === 'g' ? Math.round(n) : Math.round(n * 100) / 100;
+  }
+  var MNUTR = [['kcal', 'Calories', ''], ['p', 'Protein', 'g'], ['f', 'Fat', 'g'], ['c', 'Carbs', 'g'],
+    ['fib', 'Fibre', 'g'], ['na', 'Sodium', 'mg']];
+  function mFsNutrHTML(r, x) {
+    var mac = r.macro || {}, known = {};
+    var row = function (lab, v, u) {
+      return '<div class="mfs-nr"><span>' + esc(lab) + '</span><b>' + v + (u ? ' ' + u : '') + '</b></div>';
+    };
+    var out = MNUTR.map(function (n) {
+      known[n[0]] = 1;
+      var v = (Number(mac[n[0]]) || 0) * x;
+      // whole grams, as the plate's own line says them; fibre to a tenth
+      return row(n[1], n[0] === 'fib' ? String(Math.round(v * 10) / 10) : Math.round(v).toLocaleString(), n[2]);
+    });
+    // anything else the table carries for it, named as the table names it
+    Object.keys(mac).forEach(function (k2) {
+      if (known[k2] || typeof mac[k2] !== 'number') return;
+      out.push(row(k2, String(Math.round(mac[k2] * x * 10) / 10), ''));
+    });
+    return out.join('');
+  }
+  function mFsState(r) {
+    var o = S.foodOpen, units = mFsUnits(r);
+    var ui = Math.min(units.length - 1, Math.max(0, Number(o.u) || 0));
+    var amt = o.amt !== undefined ? o.amt : mFsAmt(r, mpLastXs()[r.id] || 1, units[ui]);
+    return { units: units, ui: ui, amt: amt, x: mFsX(r, amt, units[ui]) };
+  }
+  // the numbers under the box, as it is typed in
+  function mFsRefresh() {
+    var o = S.foodOpen, r = o && BY_ID[o.id], box = $('mfsAmt');
+    if (!r || !box) return;
+    o.amt = box.value;
+    o.u = Number(($('mfsUnit') || {}).value) || 0;
+    var st = mFsState(r), now = $('mfsNow'), go = $('mfsAdd');
+    if (now) now.innerHTML = st.x ? mFsNutrHTML(r, st.x) : '<div class="mslot-empty">Type how much.</div>';
+    if (go) go.disabled = !st.x;
+  }
+
   function mFoodSheetHTML() {
     var o = S.foodOpen || {}, r = BY_ID[o.id];
     if (!r) return '';
@@ -7887,26 +8132,52 @@
         '<div class="mfs-name">' + esc(r.name) + '</div>' +
         '<div class="mfs-one">One of it: ' + esc(mPortionText(r, 1)) + '</div>' +
         (partRows ? '<div class="mt-div">What went in</div><div class="mfs-parts">' + partRows + '</div>' : '') +
-        '<div class="mt-div">On your plate: ' + esc(mPortionText(r, x)) + '</div>' +
-        '<div class="mk-tot">' + mMacLine(r, x) + '</div>' +
-        '<div class="mfs-micro">' +
-          '<span>&#127806; ' + (Math.round((mac.fib || 0) * x * 10) / 10) + ' g fibre</span>' +
-          '<span>&#129474; ' + Math.round((mac.na || 0) * x).toLocaleString() + ' mg sodium</span>' +
-        '</div>' +
+        (o.onPlate === false ? '' :
+          '<div class="mt-div">On your plate: ' + esc(mPortionText(r, x)) + '</div>' +
+          '<div class="mk-tot">' + mMacLine(r, x) + '</div>' +
+          '<div class="mfs-micro">' +
+            '<span>&#127806; ' + (Math.round((mac.fib || 0) * x * 10) / 10) + ' g fibre</span>' +
+            '<span>&#129474; ' + Math.round((mac.na || 0) * x).toLocaleString() + ' mg sodium</span>' +
+          '</div>') +
+        mFsAddHTML(r) +
       '</div></div>';
+  }
+  function mFsAddHTML(r) {
+    var o = S.foodOpen, st = mFsState(r);
+    var slots = mReadSlots().list;
+    // the plate's own meal when it is still on the plan; otherwise, choose
+    var own = !!o.slot && slots.some(function (sl) { return sl.k === o.slot; });
+    var sk = own ? o.slot : (o.pick || (mNextMeal() || {}).k || '');
+    return '<div class="mt-div">Add ' + (own ? 'more to ' + esc(mSlotName(o.slot)) : 'to a meal') + '</div>' +
+      (own ? '' : '<div class="mp-meals mfs-meals">' + slots.map(function (sl) {
+        return '<button data-mfsmeal="' + esc(sl.k) + '" aria-pressed="' + (sl.k === sk) + '">' + esc(sl.n) + '</button>';
+      }).join('') + '</div>') +
+      '<div class="mfs-amt">' +
+        '<input id="mfsAmt" type="text" inputmode="decimal" autocomplete="off" aria-label="Amount" value="' +
+          esc(String(st.amt)) + '">' +
+        (st.units.length > 1
+          ? '<select id="mfsUnit" aria-label="Unit">' + st.units.map(function (u, i) {
+              return '<option value="' + i + '"' + (i === st.ui ? ' selected' : '') + '>' + esc(u.u) + '</option>';
+            }).join('') + '</select>'
+          : '<span class="mfs-u">' + esc(st.units[0].u) + '</span>') +
+        '<button class="btn-primary" id="mfsAdd" data-mfsadd="' + esc(sk) + '"' + (st.x ? '' : ' disabled') + '>' +
+          'Add to ' + esc(mSlotName(sk)) + '</button>' +
+      '</div>' +
+      '<div class="mfs-nutr" id="mfsNow">' + (st.x ? mFsNutrHTML(r, st.x) : '<div class="mslot-empty">Type how much.</div>') + '</div>';
   }
 
   function macroChartHTML() {
-    var sr = mcSeries(S.chartWhich);
-    var body = sr.need
-      ? '<div class="mslot-empty">' + esc(sr.need) + '</div>'
-      : mcChartSVG(sr) +
-        /* What the chart is and how to read it never changes, so it waits
-           behind an i rather than sitting under every chart. */
-        '<div class="mc-notei">' + mInfoBtn('mc-' + S.chartWhich, 'What this chart shows') + '</div>' +
-        mInfoText('mc-' + S.chartWhich, esc(sr.note) +
-          (sr.lim ? ' Limits ' + sr.lim.lnpl.toFixed(1) + ' to ' + sr.lim.unpl.toFixed(1) +
-            ', from the first three weeks: a point outside them is a change rather than a Tuesday.' : ''), 'mc-note');
+    var full = mcSeries(S.chartWhich);
+    var rng = S.mcRange || 'all';
+    var sr = mcInRange(full, rng);
+    var body = full.need
+      ? '<div class="mslot-empty">' + esc(full.need) + '</div>'
+      : sr.v.length < 2
+        ? '<div class="mslot-empty">Fewer than two mornings in this range. Pick a longer one.</div>'
+        : mcChartSVG(sr);
+    var why = full.need ? '' : esc(full.note) +
+      (full.lim ? ' Limits ' + full.lim.lnpl.toFixed(1) + ' to ' + full.lim.unpl.toFixed(1) +
+        ', from the first three weeks: a point outside them is a change rather than a Tuesday.' : '');
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mc-sheet" role="dialog" aria-modal="true" aria-label="The numbers over time">' +
         '<div class="sheet-top">' +
@@ -7917,6 +8188,10 @@
           return '<button data-mchart="' + t[0] + '" aria-pressed="' +
             (S.chartWhich === t[0] ? 'true' : 'false') + '">' + t[1] + '</button>';
         }).join('') + '</div>' +
+        (full.need ? '' : '<div class="mc-rng">' + MC_RANGES.map(function (r) {
+          return '<button data-mcrng="' + r[0] + '" aria-pressed="' + (rng === r[0]) + '">' + r[1] + '</button>';
+        }).join('') + mInfoBtn('mc-' + S.chartWhich, 'What this chart shows') + '</div>' +
+          mInfoText('mc-' + S.chartWhich, why, 'mc-note')) +
         body +
       '</div></div>';
   }
@@ -8875,18 +9150,29 @@
     mGapFresh();
     var seen = shown || {}, out = [];
     var keys = Object.keys(MDAYS).sort().reverse();
+    var take = function (it) {
+      if (seen[it.id] || out.length >= 6) return;
+      var r = BY_ID[it.id];
+      if (!r) return;
+      if (!mpMatches(r, mpQ())) return;
+      seen[it.id] = 1;
+      out.push({ r: r, x: it.x });
+    };
+    /* This meal first. Adding to dinner, it is what you had at dinner
+       on the days behind you, newest first, and only then anything else you
+       ate lately. Blake: "Recents per meal (dinner shows dinner foods)". The
+       day being built is left out of that pass: what is on this meal already
+       is in the bar at the foot of the sheet. */
+    var slot = S.macroPick && S.macroPick.slot, viewK = mViewKey(), today = todayKey();
+    if (slot) {
+      keys.forEach(function (k) {
+        if (k === viewK || k > today) return;
+        ((MDAYS[k] || {})[slot] || []).forEach(take);
+      });
+    }
     keys.forEach(function (k) {
       var day = MDAYS[k] || {};
-      Object.keys(day).forEach(function (sk) {
-        (day[sk] || []).forEach(function (it) {
-          if (seen[it.id] || out.length >= 6) return;
-          var r = BY_ID[it.id];
-          if (!r) return;
-          if (!mpMatches(r, mpQ())) return;
-          seen[it.id] = 1;
-          out.push({ r: r, x: it.x });
-        });
-      });
+      Object.keys(day).forEach(function (sk) { (day[sk] || []).forEach(take); });
     });
     if (!out.length) return '';
     return '<div class="mt-div">Recent</div>' + out.map(function (e) {
@@ -14872,7 +15158,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -14996,6 +15282,13 @@
 
     if (S.favPick) {
       root.innerHTML = mFavPickHTML();
+      document.body.style.overflow = 'hidden';
+      if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
+
+    if (S.mCopyFrom) {
+      root.innerHTML = mCopyFromHTML();
       document.body.style.overflow = 'hidden';
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
       return;
@@ -15954,6 +16247,17 @@
 
   // ----------------------------------------------------------------- events
   function wire() {
+    /* A finger on a Nourish chart, or dragged along it, reads out the
+       morning under it; the page still scrolls up and down under it. */
+    var mcDown = null;
+    document.addEventListener('pointerdown', function (e) {
+      var svg = e.target && e.target.closest && e.target.closest('svg.mc-svg[data-pts]');
+      mcDown = svg || null;
+      if (svg) mcRead(svg, e.clientX);
+    });
+    document.addEventListener('pointermove', function (e) { if (mcDown) mcRead(mcDown, e.clientX); });
+    document.addEventListener('pointerup', function () { mcDown = null; });
+    document.addEventListener('pointercancel', function () { mcDown = null; });
     document.querySelectorAll('.tab').forEach(function (b) {
       b.addEventListener('click', function () {
         S.view = b.dataset.view;
@@ -16185,10 +16489,19 @@
       /* A food's name opens the food, the way a recipe's name opens the
          recipe. For a kept meal that is the only place its parts can be
          seen again: the plate shows one line for the whole thing. */
+      var mfr = e.target.closest('[data-mfrom]');
+      if (mfr) {
+        rememberOpener();
+        S.mCopyFrom = { slot: mfr.dataset.mfrom, day: '' };
+        pushSheet({ m: 1 });
+        renderModal();
+        return;
+      }
+
       var fd = e.target.closest('[data-mfood]');
       if (fd) {
         rememberOpener();
-        S.foodOpen = { id: fd.dataset.mfood, x: Number(fd.dataset.mx) || 1 };
+        S.foodOpen = { id: fd.dataset.mfood, x: Number(fd.dataset.mx) || 1, slot: fd.dataset.mfslot || '' };
         pushSheet({ m: 1 });
         renderModal();
         return;
@@ -16392,9 +16705,24 @@
     $('macroPrev').addEventListener('click', function () { mNavDay(-1); });
     $('macroNext').addEventListener('click', function () { mNavDay(1); });
     $('macroDaySel').addEventListener('change', function () {
+      if (this.value === 'pick') {
+        this.value = mViewKey();
+        mDayPick(true);
+        return;
+      }
       S.macroDate = this.value === todayKey() ? null : this.value;
       keepingFocus(renderMacros);
     });
+    /* Any day the log keeps, by date. The box opens its own calendar where
+       the phone has one; typed or picked, a day inside the window goes. */
+    $('macroDayPick').addEventListener('change', function () {
+      var v = this.value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v < mEarliestKey() || v > mLatestKey()) return;
+      mDayPick(false);
+      S.macroDate = v === todayKey() ? null : v;
+      renderMacros();
+    });
+    $('macroDayPickX').addEventListener('click', function () { mDayPick(false); });
     /* One button, two jobs, and which one it is doing is written on its face.
        With no plan there is nothing to fill and the press opens the sheet
        that makes one — see the note where the label is set. */
@@ -16998,6 +17326,46 @@
         return;
       }
 
+      var fsm = e.target.closest('[data-mfsmeal]');
+      if (fsm && S.foodOpen) {
+        mFsRefresh();
+        S.foodOpen.pick = fsm.dataset.mfsmeal;
+        renderModal();
+        return;
+      }
+      var fsa = e.target.closest('[data-mfsadd]');
+      if (fsa && S.foodOpen) {
+        mFsRefresh();
+        var fr = BY_ID[S.foodOpen.id], fx = fr && mFsState(fr).x, fsk = fsa.dataset.mfsadd, fk = mViewKey();
+        if (!fr || !fx || !fsk) return;
+        var fate = mAddsEaten(fk, fsk);
+        mEditDay(fk, function (d5) {
+          (d5[fsk] = d5[fsk] || []).push({ id: fr.id, x: fx, eaten: fate });
+        });
+        mToast(esc(fr.name) + ' added to ' + esc(mSlotName(fsk)) + '.');
+        close();
+        renderMacros();
+        return;
+      }
+      var mcp = e.target.closest('[data-mcopy]');
+      if (mcp && S.mCopyFrom) {
+        var toK = mViewKey(), csk = S.mCopyFrom.slot, fromK = mcp.dataset.mcopy;
+        var its = mCopyItems(fromK, csk);
+        if (its.length) {
+          var cate = mAddsEaten(toK, csk);
+          mEditDay(toK, function (d6) {
+            d6[csk] = (d6[csk] || []).concat(its.map(function (it) {
+              return { id: it.id, x: it.x, eaten: cate };
+            }));
+          });
+          mToast(its.length + (its.length === 1 ? ' plate' : ' plates') + ' from ' + esc(mLongDate(fromK)) +
+            ' added to ' + esc(mSlotName(csk)) + '.');
+        }
+        close();
+        renderMacros();
+        return;
+      }
+
       var mkd = e.target.closest('[data-mkdo]');
       if (mkd && S.keepMeal) {
         var nm3 = String((($('mkName') || {}).value) || '').trim();
@@ -17025,6 +17393,12 @@
       var mch = e.target.closest('[data-mchart]');
       if (mch && S.chartOpen) {
         S.chartWhich = mch.dataset.mchart;
+        renderModal();
+        return;
+      }
+      var mcr = e.target.closest('[data-mcrng]');
+      if (mcr && S.chartOpen) {
+        S.mcRange = mcr.dataset.mcrng;
         renderModal();
         return;
       }
@@ -17819,6 +18193,7 @@
 
     // the nutrition preview follows the ingredients as they are typed
     $('modalRoot').addEventListener('input', function (e) {
+      if (S.foodOpen && e.target.id === 'mfsAmt') mFsRefresh();
       if (S.editId && (e.target.id === 'edIng' || e.target.id === 'edServings' ||
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
       if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
@@ -17879,6 +18254,23 @@
     });
 
     $('modalRoot').addEventListener('change', function (e) {
+      if (S.mCopyFrom && e.target.id === 'mcfDate') {
+        var cv = e.target.value;
+        S.mCopyFrom.day = /^\d{4}-\d{2}-\d{2}$/.test(cv) ? cv : '';
+        renderModal();
+        return;
+      }
+      if (S.foodOpen && e.target.id === 'mfsUnit') {
+        // the same amount of food, said in the new unit
+        var ur = BY_ID[S.foodOpen.id];
+        if (ur) {
+          var was = mFsState(ur), ni = Number(e.target.value) || 0;
+          S.foodOpen.u = ni;
+          S.foodOpen.amt = was.x ? mFsAmt(ur, was.x, was.units[ni]) : S.foodOpen.amt;
+          renderModal();
+        }
+        return;
+      }
       if (S.macroTargOpen && (e.target.id === 'mtAct' || e.target.id === 'mtGoalBy')) mtRefreshPlan();
       // the picker's two lenses redraw only the list, like the search box
       if (S.macroPick && e.target.id === 'mpSec') {
@@ -17931,7 +18323,7 @@
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
       if (e.key === 'Escape' && S.filtPop) { filtersPop(false); return; }
       if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen || S.newFood ||
-        S.keepMeal || S.chartOpen || S.foodOpen)) close();
+        S.keepMeal || S.chartOpen || S.foodOpen || S.mCopyFrom)) close();
     });
   }
 
@@ -18032,6 +18424,7 @@
     S.chartOpen = false;
     S.keepMeal = '';
     S.foodOpen = null;
+    S.mCopyFrom = null;
     S.macroTargOpen = false;
     /* And the food grid. It was added without this line and the sheet became
        a room with no door: × and the backdrop both call close(), close() left

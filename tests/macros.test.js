@@ -233,9 +233,10 @@ module.exports = {
     t.ok('the day selector starts on Today and holds the whole fortnight',
       await p.evaluate(() => {
         const s = document.getElementById('macroDaySel');
-        // a fortnight behind and a week ahead: you can plan Thursday on Tuesday
-        return /^Today ·/.test(s.options[s.selectedIndex].text) && s.options.length === 21 &&
-          /^Tomorrow ·/.test(s.options[s.selectedIndex - 1].text);
+        // a fortnight behind and a week ahead: you can plan Thursday on Tuesday;
+        // and last, "Earlier day…" for any day the log keeps (2026-09-27)
+        return /^Today ·/.test(s.options[s.selectedIndex].text) && s.options.length === 22 &&
+          /^Tomorrow ·/.test(s.options[s.selectedIndex - 1].text) && s.options[21].value === 'pick';
       }));
 
     // the two morning verbs are the bar; everything else folded behind the ⋯
@@ -9009,7 +9010,8 @@ module.exports = {
       await chartPage.click('[data-mchart="' + which + '"]');
       await chartPage.waitForTimeout(200);
       return chartPage.evaluate(() => ({
-        pts: document.querySelectorAll('.mc-svg circle').length,
+        // the points, not the ring a finger puts on one (2026-09-27)
+        pts: document.querySelectorAll('.mc-svg circle:not(.mc-hl)').length,
         flagged: document.querySelectorAll('.mc-sig').length,
         salt: document.querySelectorAll('.mc-salt').length,
         plan: !!document.querySelector('.mc-plan'),
@@ -9100,7 +9102,7 @@ module.exports = {
     await gapPage.click('[data-mchart="weight"]');
     await gapPage.waitForTimeout(200);
     t.ok('while the weight chart still plots every morning there was one',
-      await gapPage.evaluate(() => document.querySelectorAll('.mc-svg circle').length) === 36);
+      await gapPage.evaluate(() => document.querySelectorAll('.mc-svg circle:not(.mc-hl)').length) === 36);
     await gapPage.context().close();
 
     await chartPage.goBack();
@@ -10508,10 +10510,14 @@ module.exports = {
     /* Measured off the real boxes and the real gap, not off a guess at how
        wide nine characters are — the first version of this used a character
        count and passed with the bug still in, which the mutation caught. */
+    /* The plus by its name rather than by being last: on a fed meal it
+       comes third since "Copy from…" joined the row (2026-09-27), so that
+       it ends the FIRST row and the verbs wrap to two rows, not three. */
     t.ok('and the plus is the only one that pushes, to the right edge',
       !!actsRow &&
         actsRow.kids[1].x - (actsRow.kids[0].x + actsRow.kids[0].w) <= actsRow.gap + 1 &&
-        actsRow.kids[actsRow.kids.length - 1].right <= actsRow.pad + 1,
+        actsRow.kids.filter((k) => k.t === 'Add').length === 1 &&
+        actsRow.kids.find((k) => k.t === 'Add').right <= actsRow.pad + 1,
       JSON.stringify(actsRow));
 
     /* ---- the slack from a finished meal goes to the meals ahead ----------
@@ -10738,8 +10744,10 @@ module.exports = {
         skipInHeader: !!card.querySelector('.mslot-h [data-mskip]'),
       };
     });
+    /* Skip, "From another day" and Add (2026-09-27: a meal again, in one
+       tap, is what an empty meal most wants). */
     t.ok('an empty meal offers Skip, not two verbs it cannot use',
-      !!emptyVerbs && emptyVerbs.verbs.length === 2 &&
+      !!emptyVerbs && emptyVerbs.verbs.length === 3 &&
         /skip/i.test(emptyVerbs.verbs[0].t) && !emptyVerbs.verbs[0].off &&
         !emptyVerbs.verbs.some((v) => /another|balance/i.test(v.t)),
       JSON.stringify(emptyVerbs));
@@ -10876,6 +10884,11 @@ module.exports = {
       !!door && door.tag === 'BUTTON' && door.id !== '', JSON.stringify(door));
     /* Recipes open the recipe sheet; a food you entered opens the food sheet.
        Whichever this row is, pressing it has to leave the day behind. */
+    /* In the middle of the screen first: the bar is two rows since its
+       tools took their words (2026-09-27), and at 375x720 with the readout
+       open the first shut row sat under it. */
+    await fold.evaluate(() => document.querySelector('.mslot-thin .mthin-n').scrollIntoView({ block: 'center' }));
+    await fold.waitForTimeout(250);
     await fold.click('.mslot-thin .mthin-n');
     await fold.waitForTimeout(300);
     t.ok('and pressing it opens what it names, without opening the meal first',
@@ -15087,6 +15100,249 @@ module.exports = {
       t.ok('and so is what a chart means', note.shut && note.i, JSON.stringify(note));
       await pg.goBack();
       await pg.waitForTimeout(300);
+      await ctx.close();
+    }
+
+    /* ---- insight: charts to read, meals again, a food by the amount ------
+     * Blake's decisions, 2026-09-27: "Readable round-number axes, weight
+     * trend line over faint daily dots, 1M/3M/6M/All ranges, tap/drag for
+     * values"; "Recents per meal (dinner shows dinner foods), 'Copy from
+     * another day' on each meal, and a date picker beyond two weeks"; and
+     * "an amount/unit box and an Add button on the food detail screen, plus
+     * fibre/sodium and any other nutrients the table has". The same fixed
+     * Wednesday at half past one. */
+    {
+      const ctx = await t.browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+      await ctx.route(/api\.nal\.usda\.gov/, (r) => r.abort());
+      const pg = await ctx.newPage();
+      pg.on('pageerror', (e) => t.ok('no uncaught error on the page', false, e.message));
+      await pg.clock.install({ time: new Date(2026, 8, 30, 13, 30, 0) });
+      await pg.goto(t.base + 'index.html');
+      const WED = '2026-09-30', MON = '2026-09-28', FAR = '2026-08-21', OLD = '2026-05-01';
+      const days = {
+        [OLD]: { d: [{ id: 'f:potato', x: 1, eaten: 1 }] },
+        [FAR]: { d: [{ id: 'f:chicken_breast', x: 1.5, eaten: 1 }, { id: 'f:broccoli', x: 2, eaten: 1 }] },
+        [MON]: { b: [{ id: 'f:oats', x: 1, eaten: 1 }, { id: 'f:egg', x: 2, eaten: 1 }],
+          d: [{ id: 'f:salmon', x: 1, eaten: 1 }, { id: 'f:rice_cooked', x: 1, eaten: 1 }] },
+        '2026-09-29': { b: [{ id: 'f:banana', x: 1, eaten: 1 }, { id: 'f:greek_yogurt', x: 1, eaten: 1 }, { id: 'f:almonds', x: 1, eaten: 1 }] },
+        [WED]: { b: [{ id: 'f:egg', x: 3, eaten: 1 }] },
+      };
+      await pg.evaluate((days) => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n;
+        const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        localStorage.clear();
+        localStorage.setItem('bsc.hintDone', '1');
+        /* Five months of mornings, a pound or so of noise around a steady
+           loss, and a few missed. */
+        const ws = {};
+        for (let i = 150; i >= 0; i--) {
+          if (i % 11 === 3) continue;
+          const d = new Date(); d.setDate(d.getDate() - i);
+          ws[key(d)] = Math.round((224 - 15 * (150 - i) / 150 + Math.sin(i * 1.7) * 1.2) * 10) / 10;
+        }
+        localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+        const goal = new Date(); goal.setDate(goal.getDate() + 120);
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 44, ft: 5, inch: 10, lb: 212, act: 1.2,
+          goal: 'cut1', goalLb: 195, goalBy: key(goal), workouts: 3, steps: 6000, train: [0, 2, 4] }));
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 200, f: 64, c: 180 }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+      }, days);
+      await pg.reload();
+      await pg.waitForTimeout(300);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(300);
+      const stored = (k) => pg.evaluate((k) => (JSON.parse(localStorage.getItem('bsc.macroDays') || '{}')[k]) || null, k);
+
+      /* ---- the weight chart ------------------------------------------- */
+      await pg.click('[data-mchartopen]');
+      await pg.waitForTimeout(300);
+      const chart = () => pg.evaluate(() => {
+        const svg = document.querySelector('.mc-svg');
+        if (!svg) return null;
+        const vb = svg.viewBox.baseVal, w = svg.getBoundingClientRect().width;
+        const ticks = [...svg.querySelectorAll('text.mc-ax')].map((x) => x.textContent).filter((x) => /^-?[\d.]+$/.test(x)).map(Number);
+        const fs = parseFloat(getComputedStyle(svg.querySelector('text.mc-ax')).fontSize);
+        return { days: svg.querySelectorAll('circle.mc-day').length, dots: svg.querySelectorAll('circle:not(.mc-hl)').length,
+          line: (svg.querySelector('polyline.mc-line').getAttribute('points') || '').split(' ').length,
+          ticks, px: fs * w / vb.width, read: (document.querySelector('.mc-read') || {}).textContent || '',
+          rng: [...document.querySelectorAll('[data-mcrng]')].map((b) => b.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')).join(' ') };
+      });
+      const all = await chart();
+      const step = all.ticks.length > 1 ? all.ticks[1] - all.ticks[0] : 0;
+      t.ok('the weight chart draws the seven-day average as its line over a faint dot for every morning',
+        all.days > 120 && all.line === all.days && all.dots === all.days, JSON.stringify(all).slice(0, 200));
+      t.ok('on a round-number axis: ' + all.ticks.join(', '),
+        all.ticks.length >= 3 && [1, 2, 2.5, 5, 10].indexOf(step) >= 0 &&
+        all.ticks.every((v) => Math.abs(v / step - Math.round(v / step)) < 1e-6), JSON.stringify(all.ticks));
+      t.ok('with its labels at least 12 px on the phone (' + all.px.toFixed(1) + ')', all.px >= 12, String(all.px));
+      t.ok('and 1M, 3M, 6M and All above it, All to begin with', all.rng === '1M 3M 6M All*', all.rng);
+      t.ok('the line above the chart reads the latest morning and its average',
+        /^Latest: Sep 30 · [\d.]+ lb · average [\d.]+$/.test(all.read), all.read);
+      await pg.click('[data-mcrng="1m"]');
+      await pg.waitForTimeout(200);
+      const m1 = await chart();
+      t.ok('a month is a month of mornings', m1.days >= 25 && m1.days <= 31 && m1.rng === '1M* 3M 6M All', JSON.stringify(m1).slice(0, 160));
+      /* A finger on the chart reads out the morning under it, with a ring
+         on the point; dragged, the reading follows. */
+      const box = await pg.evaluate(() => { const r = document.querySelector('.mc-svg').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+      await pg.mouse.move(box.x + box.w * 0.3, box.y + box.h / 2);
+      await pg.mouse.down();
+      const r1 = await pg.evaluate(() => ({ t: document.querySelector('.mc-read').textContent,
+        cx: Number(document.querySelector('.mc-hl').getAttribute('cx')) }));
+      await pg.mouse.move(box.x + box.w * 0.8, box.y + box.h / 2, { steps: 4 });
+      const r2 = await pg.evaluate(() => ({ t: document.querySelector('.mc-read').textContent,
+        cx: Number(document.querySelector('.mc-hl').getAttribute('cx')) }));
+      await pg.mouse.up();
+      t.ok('a finger on the chart reads the morning under it, ringed: "' + r1.t + '"',
+        /^(Aug|Sep) \d+ · [\d.]+ lb · average [\d.]+$/.test(r1.t) && r1.cx > 0, JSON.stringify(r1));
+      t.ok('and dragging along it follows the finger: "' + r2.t + '"', r2.t !== r1.t && r2.cx > r1.cx, JSON.stringify(r2));
+      /* The other three charts read the same way. */
+      for (const which of ['off', 'jump', 'rate']) {
+        await pg.click('[data-mchart="' + which + '"]');
+        await pg.waitForTimeout(200);
+        await pg.click('[data-mcrng="all"]');
+        await pg.waitForTimeout(200);
+        const c = await chart();
+        const st2 = c && c.ticks.length > 1 ? Math.round((c.ticks[1] - c.ticks[0]) * 1000) / 1000 : 0;
+        const b2 = await pg.evaluate(() => { const r = document.querySelector('.mc-svg').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+        await pg.mouse.click(b2.x + b2.w * 0.5, b2.y + b2.h / 2);
+        const rd = await pg.evaluate(() => document.querySelector('.mc-read').textContent);
+        t.ok('the ' + which + ' chart too: round ticks, readable labels, a reading under the finger ("' + rd + '")',
+          !!c && c.px >= 12 && c.ticks.length >= 3 && /^(0\.1|0\.2|0\.25|0\.5|1|2|2\.5|5)$/.test(String(st2)) &&
+          /^(Apr|May|Jun|Jul|Aug|Sep) \d+ · .+ lb/.test(rd), JSON.stringify({ c, st2, rd }).slice(0, 240));
+      }
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+
+      /* ---- this meal's recents first ---------------------------------- */
+      const recent = () => pg.evaluate(() => {
+        const out = []; let on = false;
+        [...document.querySelectorAll('#mpList > *')].forEach((el) => {
+          if (el.classList.contains('mt-div')) { on = /^Recent/.test(el.textContent); return; }
+          const b = on && el.querySelector('.mpick-row[data-mpick]');
+          if (b) out.push(b.dataset.mpick);
+        });
+        return out;
+      });
+      const openAdd = async (sk) => {
+        await pg.evaluate((sk) => {
+          const b = document.querySelector('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
+          if (b) b.click();
+        }, sk);
+        await pg.waitForTimeout(150);
+        await pg.evaluate((sk) => { const a = document.querySelector('[data-mslot="' + sk + '"]'); a.scrollIntoView({ block: 'center' }); a.click(); }, sk);
+        await pg.waitForTimeout(400);
+      };
+      await openAdd('d');
+      const dinnerRecent = await recent();
+      t.ok('adding to dinner, the recent list opens on what you had at dinner: salmon and rice first',
+        dinnerRecent[0] === 'f:salmon' && dinnerRecent[1] === 'f:rice_cooked', dinnerRecent.join(' '));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+      await openAdd('b');
+      const bRecent = await recent();
+      t.ok('and adding to breakfast, on what you had at breakfast',
+        ['f:banana', 'f:greek_yogurt', 'f:almonds'].every((id, i) => bRecent[i] === id), bRecent.join(' '));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+
+      /* ---- a meal from another day, and further back than a fortnight --- */
+      await pg.evaluate(() => {
+        const b = document.querySelector('#macroSlots [data-mfold="d"][aria-expanded="false"]');
+        if (b) b.click();
+      });
+      await pg.waitForTimeout(150);
+      await pg.evaluate(() => { const b = document.querySelector('[data-mfrom="d"]'); b.scrollIntoView({ block: 'center' }); b.click(); });
+      await pg.waitForTimeout(400);
+      const sheet = await pg.evaluate(() => ({
+        days: [...document.querySelectorAll('.mcf-day .mcf-d')].map((x) => x.textContent),
+        box: !!document.getElementById('mcfDate'), min: (document.getElementById('mcfDate') || {}).min }));
+      t.ok('each meal has "From another day": the latest days it had food, newest first, and a date box',
+        sheet.days[0] === 'Mon, Sep 28' && sheet.days.indexOf('Fri, Aug 21') > 0 && sheet.box, JSON.stringify(sheet));
+      t.ok('and the date box reaches back four months, not two weeks', sheet.min === '2026-06-03', sheet.min);
+      await pg.fill('#mcfDate', FAR);
+      await pg.dispatchEvent('#mcfDate', 'change');
+      await pg.waitForTimeout(300);
+      const farCard = await pg.evaluate(() => { const c = document.querySelector('.mcf-day'); return c ? c.innerText.replace(/\s+/g, ' ') : ''; });
+      t.ok('a day picked in the box shows that day’s dinner', /Fri, Aug 21/.test(farCard) && /Chicken/i.test(farCard) && /Add all 2/.test(farCard), farCard);
+      await pg.click('.mcf-day [data-mcopy="' + FAR + '"]');
+      await pg.waitForTimeout(400);
+      const dWed = await stored(WED);
+      t.ok('one tap puts it on this dinner at the amounts it was, planned, since dinner is still to come',
+        !!dWed && JSON.stringify((dWed.d || []).map((it) => [it.id, it.x, it.eaten])) === JSON.stringify([['f:chicken_breast', 1.5, 0], ['f:broccoli', 2, 0]]),
+        JSON.stringify(dWed));
+      t.ok('and the day it came from is still there after the write: a month back is kept now',
+        !!(await stored(FAR)) && !(await stored(OLD)), JSON.stringify([await stored(FAR), await stored(OLD)]));
+      /* Breakfast's time has come, so what lands on it is eaten. */
+      await pg.evaluate(() => {
+        const b = document.querySelector('#macroSlots [data-mfold="b"][aria-expanded="false"]');
+        if (b) b.click();
+      });
+      await pg.waitForTimeout(200);
+      await pg.evaluate(() => { const b = document.querySelector('[data-mfrom="b"]'); b.scrollIntoView({ block: 'center' }); b.click(); });
+      await pg.waitForTimeout(300);
+      await pg.click('[data-mcopy="' + MON + '"]');
+      await pg.waitForTimeout(400);
+      const after = (await stored(WED)).b || [];
+      t.ok('copied to a meal whose time has come, it arrives eaten',
+        JSON.stringify(after.map((it) => [it.id, it.x, it.eaten])) ===
+          JSON.stringify([['f:egg', 3, 1], ['f:oats', 1, 1], ['f:egg', 2, 1]]), JSON.stringify(after));
+
+      /* The day box: the fortnight, then any day by date. */
+      const selOpts = await pg.evaluate(() => [...document.getElementById('macroDaySel').options].map((o) => o.value));
+      t.ok('the day box keeps its three weeks and ends on "Earlier day…"',
+        selOpts.length === 22 && selOpts[selOpts.length - 1] === 'pick', selOpts.slice(-3).join(' '));
+      await pg.selectOption('#macroDaySel', 'pick');
+      await pg.waitForTimeout(200);
+      const pickOpen = await pg.evaluate(() => !document.querySelector('.mday-pick').classList.contains('hide'));
+      await pg.fill('#macroDayPick', FAR);
+      await pg.dispatchEvent('#macroDayPick', 'change');
+      await pg.waitForTimeout(400);
+      const onFar = await pg.evaluate(() => ({ sel: document.getElementById('macroDaySel').value,
+        text: document.getElementById('macroDaySel').selectedOptions[0].text,
+        shut: document.querySelector('.mday-pick').classList.contains('hide'),
+        plates: [...document.querySelectorAll('#macroSlots .mthin-n, #macroSlots .mitem-name')].map((x) => x.textContent) }));
+      t.ok('"Earlier day…" opens a date box, and a date six weeks back goes there',
+        pickOpen && onFar.sel === FAR && onFar.text === 'Fri, Aug 21' && onFar.shut && onFar.plates.some((x) => /Chicken/i.test(x)),
+        JSON.stringify(onFar));
+      await pg.click('#macroPrev');
+      await pg.waitForTimeout(300);
+      t.ok('and the arrow walks on back from there', await pg.evaluate(() => document.getElementById('macroDaySel').value) === '2026-08-20');
+      await pg.selectOption('#macroDaySel', WED);
+      await pg.waitForTimeout(300);
+
+      /* ---- the food sheet: an amount, its units, Add, every nutrient ---- */
+      await pg.evaluate(() => {
+        const b = document.querySelector('#macroSlots [data-mfold="b"][aria-expanded="false"]');
+        if (b) b.click();
+      });
+      await pg.waitForTimeout(150);
+      await pg.evaluate(() => { const a = document.querySelector('#macroSlots [data-mfood="f:egg"]'); a.scrollIntoView({ block: 'center' }); a.click(); });
+      await pg.waitForTimeout(400);
+      const fs1 = await pg.evaluate(() => ({
+        amt: document.getElementById('mfsAmt').value,
+        units: [...(document.getElementById('mfsUnit') || { options: [] }).options].map((o) => o.text),
+        add: (document.getElementById('mfsAdd') || {}).textContent,
+        nutr: [...document.querySelectorAll('.mfs-nr span')].map((x) => x.textContent) }));
+      t.ok('the food sheet has an amount box, starting at what you had last time (3 whole), with its units',
+        fs1.amt === '3' && fs1.units[0] === 'whole' && fs1.units.indexOf('g') > 0 && fs1.units.indexOf('cup') > 0, JSON.stringify(fs1));
+      t.ok('and lists calories, protein, fat, carbs, fibre and sodium for that amount',
+        fs1.nutr.join() === 'Calories,Protein,Fat,Carbs,Fibre,Sodium', fs1.nutr.join());
+      t.ok('and an Add button for the meal it was opened from', fs1.add === 'Add to Breakfast', fs1.add);
+      await pg.selectOption('#mfsUnit', { label: 'g' });
+      await pg.waitForTimeout(250);
+      t.ok('the same eggs said in grams: 150', await pg.evaluate(() => document.getElementById('mfsAmt').value) === '150');
+      await pg.fill('#mfsAmt', '100');
+      await pg.waitForTimeout(150);
+      const kc = await pg.evaluate(() => document.querySelector('.mfs-nr b').textContent);
+      t.ok('typing an amount moves the numbers under it (100 g of egg: ' + kc + ' kcal)', /^1[34]\d$/.test(kc), kc);
+      await pg.click('#mfsAdd');
+      await pg.waitForTimeout(400);
+      const bAfter = (await stored(WED)).b || [];
+      const added = bAfter[bAfter.length - 1];
+      t.ok('Add puts it on breakfast at that amount, eaten, since breakfast has been',
+        bAfter.length === 4 && added.id === 'f:egg' && Math.abs(added.x - 2) < 0.001 && added.eaten === 1,
+        JSON.stringify(bAfter));
       await ctx.close();
     }
   },

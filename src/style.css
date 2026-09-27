@@ -5797,3 +5797,52 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
    portion. */
 .mitem-verbs .mic:first-child svg { margin: 0 3px 0 auto; }
 .mitem-verbs .mic + .mic svg { margin: 0 auto 0 3px; }
+
+/* ---- Nourish: charts to read on a phone ----
+   Type at the size it says (the viewBox is about a phone's width), the
+   seven-day average as the line over faint mornings, a ring where the
+   finger is, and the reading above the chart. */
+.mc-rng { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 6px; }
+.mc-rng button:not(.m-info) {
+  min-height: 44px; min-width: 48px; padding: 6px 12px; border-radius: 5px; font-family: var(--sans);
+  font-size: 14px; background: var(--paper-soft); border: 1px solid var(--line-soft); color: var(--muted-2);
+}
+.mc-rng button[aria-pressed="true"]:not(.m-info) { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 600; }
+.mc-rng .m-info { margin: 0 0 0 auto; }
+.mc-read { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; min-height: 22px; margin: 8px 0 4px; color: var(--ink); }
+.mc-svg { touch-action: pan-y; cursor: crosshair; max-width: 560px; }
+.mc-ax { font-size: 12.5px; fill: var(--muted-2); font-family: var(--sans); font-variant-numeric: tabular-nums; }
+.mc-day { fill: var(--muted); opacity: 0.45; }
+.mc-hl { fill: none; stroke: var(--ochre-text); stroke-width: 2.5; }
+.mc-sheet .mc-trend { stroke-width: 2.4; opacity: 0.95; }
+
+/* ---- Nourish: a meal again, a day further back, a food by the amount ---- */
+.mday-pick { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 14px; color: var(--muted-2); }
+.mday-pick label { display: flex; align-items: center; gap: 8px; }
+.mday-pick input { min-height: 44px; font-size: 16px; padding: 6px 8px; border: 1px solid var(--line-firm);
+  border-radius: 4px; background: var(--card); color: var(--ink); }
+.mcf-pick { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; font-size: 14px; color: var(--muted-2); }
+.mcf-pick input { min-height: 44px; font-size: 16px; padding: 6px 8px; border: 1px solid var(--line-firm);
+  border-radius: 4px; background: var(--card); color: var(--ink); }
+.mcf-day { border: 1px solid var(--line-soft); border-radius: 6px; padding: 10px 12px; margin-top: 10px; background: var(--card); }
+.mcf-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mcf-d { font-weight: 600; font-size: 15px; }
+.mcf-k { font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.mcf-items { list-style: none; margin: 6px 0 8px; padding: 0; }
+.mcf-items li { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 3px 0; }
+.mcf-n { font-family: var(--serif); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcf-x { flex: none; color: var(--muted-2); font-size: 13px; }
+.mcf-go { width: 100%; gap: 6px; color: var(--ink); border-color: var(--line-firm); font-weight: 600; }
+.mcf-go .mday-ic { width: 18px; height: 18px; stroke-width: 2; }
+.mfs-amt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.mfs-amt input { width: 92px; min-height: 44px; font-size: 18px; text-align: right; padding: 6px 10px;
+  border: 1px solid var(--line-firm); border-radius: 4px; background: var(--card); color: var(--ink); }
+.mfs-amt select { min-height: 44px; font-size: 16px; }
+.mfs-u { font-size: 15px; color: var(--muted-2); }
+.mfs-amt .btn-primary { margin-left: auto; min-height: 48px; font-size: 15px; }
+.mfs-nutr { margin-top: 10px; border-top: 1px solid var(--line-soft); }
+.mfs-nr { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line-soft);
+  font-size: 15px; font-variant-numeric: tabular-nums; }
+.mfs-nr span { color: var(--muted-2); }
+.mfs-meals { margin-top: 8px; }
+.mfs-micro { font-size: 13px; }
