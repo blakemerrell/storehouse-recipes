@@ -5860,6 +5860,15 @@ module.exports = {
       const c = getComputedStyle(document.querySelector('.mstep-x'));
       return { size: c.fontSize, weight: c.fontWeight };
     });
+    /* Scrolled to the middle first, as a thumb would. At the top of an
+       800-tall page this tick sits under the sticky bottom bar, and the
+       plate controls' 120px scroll margin, meant to stop them above it, is
+       cut short by the meal card (overflow: hidden makes it a scroll
+       container, which clips the margin at its own edge). The click used to
+       land on the bar's very top pixel and get through; with the meal verbs
+       at a plate key's size (2026-09-27) the card ends 24px sooner and it
+       stalled on the bar for thirty seconds. */
+    await wake.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
     await wake.click('.mitem [data-meat]');
     await wake.waitForTimeout(400);
     t.ok('a locked portion offers a way back in',
@@ -5994,6 +6003,9 @@ module.exports = {
     t.ok('an uneaten plate can still be resized', stepWas.live && !stepWas.grey,
       JSON.stringify(stepWas));
 
+    /* In the middle first, as a thumb would: see the same tick's note in
+       "One tap on a spent portion", above. */
+    await spent.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
     await spent.click('.mitem [data-meat]');
     await spent.waitForTimeout(400);
     const stepNow = await spent.evaluate(() => {
@@ -6041,6 +6053,9 @@ module.exports = {
         return was === now;
       }));
 
+    /* In the middle first, as a thumb would: see the same tick's note in
+       "One tap on a spent portion", above. */
+    await spent.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
     await spent.click('.mitem [data-meat]');
     await spent.waitForTimeout(400);
     t.ok('unticking hands the stepper back',
@@ -10839,7 +10854,8 @@ module.exports = {
     t.ok('an empty meal offers Skip, not two verbs it cannot use',
       !!emptyVerbs && emptyVerbs.verbs.length === 3 &&
         /skip/i.test(emptyVerbs.verbs[0].t) && !emptyVerbs.verbs[0].off &&
-        !emptyVerbs.verbs.some((v) => /another|balance/i.test(v.t)),
+        /* at the START of a name: Repeat's is "... from another day" */
+        !emptyVerbs.verbs.some((v) => /^(another|balance)/i.test(v.t)),
       JSON.stringify(emptyVerbs));
     t.ok('and skip is no longer a glyph in the header',
       !!emptyVerbs && !emptyVerbs.skipInHeader, JSON.stringify(emptyVerbs));
