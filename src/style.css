@@ -4776,6 +4776,9 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 .tr-set.flash .tr-in { border-color: var(--dial-over); }
 .tr-ex-a { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 
+/* A circuit brings the next machine's card into view after each set; it
+   lands below the top bar and the Workout / History row, not under them. */
+.tr-ex { scroll-margin-top: calc(var(--topbar-h, 60px) + 64px); }
 .tr-ask { background: var(--paper-soft); }
 .tr-fbrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
 .tr-fbm { font-size: 13px; font-weight: 600; min-width: 84px; }
