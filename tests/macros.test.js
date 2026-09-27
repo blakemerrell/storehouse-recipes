@@ -1230,15 +1230,11 @@ module.exports = {
     t.ok('planned protein is the recipe times the suggested portion',
       (await shown()) === (await expectP(picked.x)),
       (await shown()) + ' shown, ' + (await expectP(picked.x)) + ' expected at ×' + picked.x);
-    /* Added to a meal whose time has come, a plate arrives eaten — Blake:
-       "Added to a current or past meal = eaten at once". Breakfast is open
-       from midnight, so at any hour this one is already eaten; a tap on its
-       tick makes it a plan again, which is where the rest of this walk wants
-       it. */
-    t.ok('added to breakfast, the plate arrives eaten',
-      await p.evaluate(() => !!document.querySelector('.mitem.eaten')));
-    await p.click('[data-meat="b:0"]');
-    await p.waitForTimeout(150);
+    /* An added plate arrives planned, whatever the hour — Blake, 2026-09-27:
+       "Why when I add a dish does it mark it as eaten?... I want to tick it
+       complete." The tick is the only way a plate becomes eaten. */
+    t.ok('added to breakfast, the plate arrives planned, not eaten',
+      await p.evaluate(() => !!document.querySelector('.mitem') && !document.querySelector('.mitem.eaten')));
 
     // ---- the stepper moves a quarter serving at a time and the totals follow
     await p.click('[data-mstep="b:0:up"]');
@@ -14627,22 +14623,30 @@ module.exports = {
       });
       t.ok('and the level travels between devices with the rest of the profile', merged === 'vhigh', merged);
 
-      /* ---- logged = eaten, by meal time ----------------------------------
-       * Blake: "Added to a current or past meal = eaten at once; later meals
-       * and Fill drafts stay planned until ticked." */
+      /* ---- added = planned, whatever the hour -----------------------------
+       * First Blake: "Added to a current or past meal = eaten at once". Then,
+       * after living with it (2026-09-27): "Why when I add a dish does it
+       * mark it as eaten?... I want to tick it complete." So every add is a
+       * plan, on any day and at any hour; the tick makes it eaten. The meal
+       * opening times still stand — the day's verdict waits on them. */
       await seed({});
       const opens = await pg.evaluate(() => window.__macroLab.opens());
       t.ok('breakfast is open from midnight, lunch from eleven, dinner from five, and a trailing snack all day',
         JSON.stringify(opens) === JSON.stringify([{ k: 'b', at: 0 }, { k: 'l', at: 660 }, { k: 'd', at: 1020 }, { k: 's', at: 0 }]),
         JSON.stringify(opens));
       await addFood('b', 'banana', 'f:banana');
-      t.ok('at half past one, food added to breakfast arrives eaten', ((await stored(WED)).b || [])[0].eaten === 1,
+      t.ok('at half past one, food added to breakfast arrives planned', ((await stored(WED)).b || [])[0].eaten === 0,
         JSON.stringify(await stored(WED)));
       await addFood('l', 'banana', 'f:banana');
-      t.ok('and to lunch, the meal you are on', ((await stored(WED)).l || [])[0].eaten === 1, JSON.stringify(await stored(WED)));
+      t.ok('and to lunch, the meal you are on, planned too', ((await stored(WED)).l || [])[0].eaten === 0, JSON.stringify(await stored(WED)));
       await addFood('d', 'banana', 'f:banana');
       t.ok('but dinner, still to come, stays a plan', ((await stored(WED)).d || [])[0].eaten === 0, JSON.stringify(await stored(WED)));
-      /* The look: eaten in ink beside its tick, planned lighter, nothing struck. */
+      /* The look: eaten in ink beside its tick, planned lighter, nothing struck.
+         Breakfast and lunch ticked by hand, the way they become eaten now. */
+      await pg.evaluate(() => { const c = document.querySelector('[data-meat="b:0"]'); if (c && !c.checked) c.click(); });
+      await pg.waitForTimeout(200);
+      await pg.evaluate(() => { const c = document.querySelector('[data-meat="l:0"]'); if (c && !c.checked) c.click(); });
+      await pg.waitForTimeout(200);
       const look = await pg.evaluate(() => {
         const toRgb = (s) => {
           const m = s.match(/oklch\(([\d.]+)%? ([\d.]+) ([\d.]+)/);
@@ -14726,7 +14730,7 @@ module.exports = {
       await pg.selectOption('#macroDaySel', TUE);
       await pg.waitForTimeout(300);
       await addFood('d', 'banana', 'f:banana');
-      t.ok('on yesterday, even dinner arrives eaten', ((await stored(TUE)).d || [])[0].eaten === 1, JSON.stringify(await stored(TUE)));
+      t.ok('on yesterday, dinner arrives planned too', ((await stored(TUE)).d || [])[0].eaten === 0, JSON.stringify(await stored(TUE)));
       await pg.selectOption('#macroDaySel', THU);
       await pg.waitForTimeout(300);
       await addFood('b', 'banana', 'f:banana');
@@ -14738,7 +14742,7 @@ module.exports = {
       const early = await pg.evaluate((k) => [window.__macroLab.addsEaten(k, 'l'), window.__macroLab.addsEaten(k, 'd')], WED);
       await at(2026, 8, 30, 17, 5);
       const late = await pg.evaluate((k) => [window.__macroLab.addsEaten(k, 'l'), window.__macroLab.addsEaten(k, 'd')], WED);
-      t.ok('lunch counts as eaten from eleven and dinner from five', early.join() === '0,0' && late.join() === '1,1',
+      t.ok('and the hour never makes an add eaten', early.join() === '0,0' && late.join() === '0,0',
         JSON.stringify({ early, late }));
       await at(2026, 8, 30, 13, 30);
 
@@ -15405,7 +15409,7 @@ module.exports = {
         JSON.stringify(dWed));
       t.ok('and the day it came from is still there after the write: a month back is kept now',
         !!(await stored(FAR)) && !(await stored(OLD)), JSON.stringify([await stored(FAR), await stored(OLD)]));
-      /* Breakfast's time has come, so what lands on it is eaten. */
+      /* Copied to a meal whose time has come, what lands on it is still a plan. */
       await pg.evaluate(() => {
         const b = document.querySelector('#macroSlots [data-mfold="b"][aria-expanded="false"]');
         if (b) b.click();
@@ -15416,9 +15420,9 @@ module.exports = {
       await pg.click('[data-mcopy="' + MON + '"]');
       await pg.waitForTimeout(400);
       const after = (await stored(WED)).b || [];
-      t.ok('copied to a meal whose time has come, it arrives eaten',
-        JSON.stringify(after.map((it) => [it.id, it.x, it.eaten])) ===
-          JSON.stringify([['f:egg', 3, 1], ['f:oats', 1, 1], ['f:egg', 2, 1]]), JSON.stringify(after));
+      t.ok('copied to a meal whose time has come, it arrives planned',
+        after.length === 3 && after.filter((it) => it.id === 'f:oats').every((it) => it.eaten === 0) &&
+          after[after.length - 1].eaten === 0, JSON.stringify(after));
 
       /* The day box: the fortnight, then any day by date. */
       const selOpts = await pg.evaluate(() => [...document.getElementById('macroDaySel').options].map((o) => o.value));
@@ -15472,8 +15476,8 @@ module.exports = {
       await pg.waitForTimeout(400);
       const bAfter = (await stored(WED)).b || [];
       const added = bAfter[bAfter.length - 1];
-      t.ok('Add puts it on breakfast at that amount, eaten, since breakfast has been',
-        bAfter.length === 4 && added.id === 'f:egg' && Math.abs(added.x - 2) < 0.001 && added.eaten === 1,
+      t.ok('Add puts it on breakfast at that amount, planned until ticked',
+        bAfter.length === 4 && added.id === 'f:egg' && Math.abs(added.x - 2) < 0.001 && added.eaten === 0,
         JSON.stringify(bAfter));
       await ctx.close();
     }

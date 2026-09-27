@@ -2256,7 +2256,15 @@
      has come is the one you are logging, and one still to come is the one you
      are planning. Fill and the pins do not come through here: they are the
      app's suggestions, never a statement that you ate. */
+  /* Reversed 2026-09-27. Blake, after a week of it: "Why when I add a dish
+     does it mark it as eaten?... I want to tick it complete." A plate added
+     at lunchtime to plan lunch read as already eaten. So nothing arrives
+     eaten: every add is planned, on any day, until you tick it — the tick,
+     or Mark all complete, is the only way food becomes eaten. The rule
+     below is kept behind M_ADDS_EATEN in case the old one is wanted back. */
+  var M_ADDS_EATEN = false;
   function mAddsEaten(k, sk) {
+    if (!M_ADDS_EATEN) return 0;
     var today = todayKey();
     if (k < today) return 1;
     if (k > today) return 0;
