@@ -5893,3 +5893,27 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .mitem-verbs .mic[aria-pressed="true"] {
   position: relative; border: 1px solid var(--ochre); background: var(--card); color: var(--ochre-text);
 }
+
+/* ---- Compact, 2026-09-27. Blake: "a bit too tall... the versions prior I
+   could see more information at a glance on one view and now it's all
+   spread out... remove the vertical spacing so it's a little more compact
+   but yet functional." The type and the buttons stay as they are; what goes
+   is air — card padding, gaps, the bar's two rows. Written as one block at
+   the end so it wins without rewriting the rules above it, and so it can be
+   read, or undone, in one place. Buttons keep their 44px thumb size; only the space around them goes. */
+.mday-acts { margin-top: 10px; gap: 5px; padding: 5px 0 calc(5px + env(safe-area-inset-bottom, 0px)); }
+.mday-acts .mday-tool { padding: 2px; gap: 0; line-height: 1.05; }
+.mday-acts .mday-tool .mday-ic { width: 16px; height: 16px; }
+.mday-acts #macroFill, .mday-acts #macroAdd { padding: 6px 12px; }
+.mitem-r3 { margin-top: 3px; padding-top: 4px; }
+.mslot-items { padding-bottom: 3px; }
+.mweek { margin-top: 6px; }
+.mday-rail { margin-top: 8px; gap: 6px; }
+.mslot-h { padding-top: 5px; padding-bottom: 3px; }
+.mitem { margin-bottom: 3px; padding-top: 4px; padding-bottom: 4px; }
+.mitem-r2 { margin-top: 1px; }
+.mslot-acts { padding-top: 4px; padding-bottom: 6px; }
+.mw-train { padding-top: 4px; padding-bottom: 4px; }
+/* The first screen: 44px of paper stood between the tabs and the day. */
+#view-macros > .view { padding-top: 8px; }
+#view-macros .mday-stick { padding-top: 4px; }
