@@ -6834,6 +6834,47 @@ module.exports = {
       targets44.n >= 4 && targets44.small.length === 0,
       JSON.stringify(targets44));
 
+    /* One line, and the tick clear of the + key. With the strip at 44 and
+       the dial allowed to shrink below what it holds (min-width: 0), a 360
+       phone drew the tick over the last 15px of +, and a thumb on the edge
+       of + ticked the plate eaten (2026-09-27). Blake: "Just make those
+       buttons smaller. So the serving box has more room". Asserted at 320,
+       the tightest the strip has to fit, on every plate, the long yield noun
+       included. */
+    const strip320 = await tinyPhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r3')].map((r) => {
+      const R = (e) => e.getBoundingClientRect();
+      const keys = r.querySelectorAll('.mstep-keys button');
+      const plus = keys[keys.length - 1], ate = r.querySelector('.mitem-ate'), bin = r.querySelector('.mic');
+      if (!plus || !ate || !bin) return { missing: true };
+      const sameLine = Math.abs(R(ate).top - R(bin).top) < 3;
+      return { sameLine, clear: !sameLine || R(ate).left >= R(plus).right,
+        gap: Math.round(R(ate).left - R(plus).right), amt: Math.round(R(r.querySelector('.mitem-amt')).width) };
+    }));
+    t.ok('a plate\u2019s strip fits one line at 320, the tick clear of the + key',
+      strip320.length >= 2 && strip320.every((x) => !x.missing && x.sameLine && x.clear),
+      JSON.stringify(strip320));
+
+    /* And the meal's own verbs, drawn without their words below 350. Five
+       share the row, and at 320 a fifth of it is narrower than "Another":
+       the words came out as "Anot..." and "Bala...". Blake (2026-09-27):
+       "Just show icons." Each still has a name a screen reader can say. */
+    const verbs320 = await tinyPhone.evaluate(() => {
+      const row = document.querySelector('#macroSlots .mslot-acts');
+      if (!row) return null;
+      const bs = [...row.querySelectorAll('button')];
+      return {
+        n: bs.length,
+        rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+        worded: bs.filter((b) => { const w = b.querySelector('span'); return w && w.getBoundingClientRect().width > 0; }).length,
+        drawn: bs.filter((b) => { const g = b.querySelector('svg'); return g && g.getBoundingClientRect().width > 0; }).length,
+        unnamed: bs.filter((b) => !/\w/.test(b.getAttribute('aria-label') || '')).map((b) => b.className),
+      };
+    });
+    t.ok('at 320 a meal\u2019s verbs are drawings on one row, each named aloud',
+      !!verbs320 && verbs320.n >= 4 && verbs320.rows === 1 && verbs320.worded === 0 &&
+        verbs320.drawn === verbs320.n && verbs320.unnamed.length === 0,
+      JSON.stringify(verbs320));
+
     /* ...and the glyph inside it is the size it is meant to be.
      *
        Blake asked for smaller icons and the commit that delivered them
@@ -6945,12 +6986,14 @@ module.exports = {
          break instead. */
       if (Math.abs(dial.getBoundingClientRect().top -
         acts.getBoundingClientRect().top) > 2) return { wrapped: true };
-      const g = [...acts.querySelectorAll('.mic svg')].map((e) => e.getBoundingClientRect());
+      /* Measured on the boxes since the pair became boxes (2026-09-27): the
+         edge the eye sees is the button's now, not the drawing inside it. */
+      const g = [...acts.querySelectorAll('.mic')].map((e) => e.getBoundingClientRect());
       if (g.length < 2) return null;
       const within = Math.round(g[1].left - g[0].right);
       /* The air AFTER the group, since the group leads the strip now. */
       const between = Math.round(dial.getBoundingClientRect().left - g[1].right);
-      return { within, between, glyph: Math.round(g[0].width) };
+      return { within, between, box: Math.round(g[0].width) };
     });
     /* Two verbs must sit closer together than one of them is a TARGET wide —
        they are neighbours, not a scattered row.
@@ -7705,7 +7748,8 @@ module.exports = {
         return parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0 ||
           (c.backgroundColor !== 'rgba(0, 0, 0, 0)' && c.backgroundColor !== 'transparent');
       };
-      const verbs = [...document.querySelectorAll('.mitem-r1 .mic, .mitem-r3 .mic')];
+      const verbs = [...document.querySelectorAll('.mitem-r1 .mic')];
+      const pair = [...document.querySelectorAll('.mitem-r3 .mitem-verbs .mic')];
       const amt = document.querySelector('.mitem-r3 .mitem-amt');
       const keys = [...document.querySelectorAll('.mitem-r3 .mstep-keys button')];
       const first = document.querySelector('.mitem-r3 .mic');
@@ -7714,6 +7758,8 @@ module.exports = {
       return {
         verbsBoxed: verbs.filter(boxy).map((e) => e.className).slice(0, 4),
         verbsN: verbs.length,
+        pairN: pair.length,
+        pairBoxed: pair.length > 0 && pair.every(boxy),
         amtBoxed: !!amt && boxy(amt),
         keysBoxed: keys.length > 0 && keys.every(boxy),
         /* the verbs at one end, the tick at the other */
@@ -7724,11 +7770,18 @@ module.exports = {
     });
     /* Blake, on an earlier version of this row: "buttons are too big. And not
        spread out well and are out of balance with the rest of the text on the
-       card." The VERBS keep that answer — bin, lock, pin, star are glyphs
-       with generous invisible margins, the same thing to a thumb and a
-       quieter thing to an eye. */
-    t.ok('the verbs are glyphs, not boxes',
-      chrome.verbsN >= 3 && chrome.verbsBoxed.length === 0, JSON.stringify(chrome));
+       card." The name row keeps that answer — pin and star are glyphs with
+       generous invisible margins, the same thing to a thumb and a quieter
+       thing to an eye. */
+    t.ok('the name row\u2019s verbs are glyphs, not boxes',
+      chrome.verbsN >= 2 && chrome.verbsBoxed.length === 0, JSON.stringify(chrome));
+    /* The bin and the lock do not, since 2026-09-27. Blake, once each meal's
+       verbs had become boxes with words: "Garbage and lock icon look out of
+       place now" — the last two bare glyphs on a strip where the portion, its
+       keys and the tick are all boxes. He chose them boxed, as a joined pair
+       drawn the way the keys are. */
+    t.ok('while the bin and lock are a boxed pair, like the keys beside them',
+      chrome.pairN >= 1 && chrome.pairBoxed, JSON.stringify(chrome));
     /* ...and the PORTION is boxed, on his newer one: "Outline the serving
        size in a box as well. With +/- on the right side of it." It is the
        control you operate rather than a verb you press once, and boxing it is
@@ -10510,15 +10563,39 @@ module.exports = {
     /* Measured off the real boxes and the real gap, not off a guess at how
        wide nine characters are — the first version of this used a character
        count and passed with the bug still in, which the mutation caught. */
-    /* The plus by its name rather than by being last: on a fed meal it
-       comes third since "Copy from…" joined the row (2026-09-27), so that
-       it ends the FIRST row and the verbs wrap to two rows, not three. */
+    /* The plus by its name rather than by position. It spent a day third,
+       ending the first of two rows, and is last again now the verbs share
+       one row (2026-09-27). */
     t.ok('and the plus is the only one that pushes, to the right edge',
       !!actsRow &&
         actsRow.kids[1].x - (actsRow.kids[0].x + actsRow.kids[0].w) <= actsRow.gap + 1 &&
         actsRow.kids.filter((k) => k.t === 'Add').length === 1 &&
         actsRow.kids.find((k) => k.t === 'Add').right <= actsRow.pad + 1,
       JSON.stringify(actsRow));
+
+    /* All of a meal's verbs on one row, every word whole, on the narrowest
+       phone in common use. Blake (2026-09-27): "get all the buttons on the
+       food tag into a single row." Five verbs share 360px; the first word
+       tried for keeping the plates, "Combine", was 3px too wide for its
+       fifth and read "Combin\u2026". Measured on the words' own boxes, since
+       an ellipsis is exactly what a button's width would never show. */
+    await fold.setViewportSize({ width: 360, height: 720 });
+    await fold.waitForTimeout(150);
+    const narrow = await fold.evaluate(() => [...document.querySelectorAll('.mslot-acts')].map((row) => {
+      const bs = [...row.querySelectorAll('button')];
+      return {
+        n: bs.length,
+        rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+        cut: bs.filter((b) => { const w = b.querySelector('span'); return !w || w.scrollWidth > w.clientWidth + 1; })
+          .map((b) => b.textContent.trim()),
+      };
+    }));
+    t.ok('a meal\u2019s verbs sit on one row at 360px, no word cut short',
+      narrow.length > 0 && narrow.some((r) => r.n >= 4) &&
+        narrow.every((r) => r.rows === 1 && r.cut.length === 0),
+      JSON.stringify(narrow));
+    await fold.setViewportSize({ width: 375, height: 720 });
+    await fold.waitForTimeout(150);
 
     /* ---- the slack from a finished meal goes to the meals ahead ----------
      * A meal's denominator was a fixed slice of the day by weight: eat a
@@ -14865,6 +14942,12 @@ module.exports = {
         root.querySelectorAll('button, input:not([type=hidden]), select, summary').forEach((e) => {
           const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
           if (!r.width || !r.height || cs.visibility === 'hidden' || e.closest('[aria-hidden="true"], .hide, [hidden]')) return;
+          /* The strip under each plate (bin, lock, portion, keys, tick) is
+             34 on a phone, by Blake's call (2026-09-27): "Just make those
+             buttons smaller. So the serving box has more room". Its own
+             floor is asserted at 320 on a touch phone, near the top of this
+             file. */
+          if (e.closest('.mitem-r3')) return;
           const af = getComputedStyle(e, '::after');
           const ext = af.content !== 'none' && af.position === 'absolute';
           const short = Math.min(Math.max(r.width, ext ? parseFloat(af.width) || 0 : 0),
@@ -14876,7 +14959,7 @@ module.exports = {
       await pg.click('#macroOpenAll');
       await pg.waitForTimeout(300);
       const daySmall = await small('#view-macros');
-      t.ok('every control on the day is a thumb wide, the plates’ controls too', daySmall.length === 0, daySmall.join(' | '));
+      t.ok('every control on the day is a thumb wide, the plate strip apart', daySmall.length === 0, daySmall.join(' | '));
 
       /* No type under 13 px on the day, the drawn score in the leaf apart. */
       const tiny = (scope) => pg.evaluate((scope) => {

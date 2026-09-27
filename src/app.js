@@ -4046,7 +4046,11 @@
     another: '<path d="M15.8 11.5A6 6 0 1 1 14.2 5.7M15.6 2.8v3.4h-3.4"/>',
     skip: '<circle cx="10" cy="10" r="6.5"/><path d="M5.4 14.6 14.6 5.4"/>',
     plus: '<path d="M10 4v12M4 10h12"/>',
-    keep: '<rect x="2.5" y="5" width="5.5" height="10" rx="1"/><rect x="12" y="5" width="5.5" height="10" rx="1"/><path d="M8 10h4"/>',
+    /* Two links of a chain: these plates, kept together. Blake picked it, and
+       Save for its word, after the word Keep alone left him asking what the
+       button did. */
+    keep: '<g transform="rotate(-45 10 10)"><rect x="1" y="7.25" width="10.5" height="5.5" rx="2.75"/>' +
+      '<rect x="8.5" y="7.25" width="10.5" height="5.5" rx="2.75"/></g>',
     fromday: '<rect x="3" y="4.5" width="14" height="12.5" rx="1.5"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4M7.5 12.8h5M10.5 10.6l2.2 2.2-2.2 2.2"/>'
   };
   function mIcon(name) {
@@ -6175,7 +6179,7 @@
          only what you have pressed, so it never has to be cleaned up. */
       var folded = !!(items.length && S.mFold[sk]);
       var addBtn = '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
-        'aria-label="Add food to ' + esc(name) + '">' + mIcon('plus') + 'Add</button>';
+        'aria-label="Add food to ' + esc(name) + '">' + mIcon('plus') + '<span>Add</span></button>';
       /* Said once, used by whichever of the two headers this meal draws. */
       var pillsSay = mMealPillsSay(sub, mMealAsk(sk, targets, slots), targets);
 
@@ -6445,16 +6449,20 @@
                    you delete the food. */
                 (items.length
                   ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
+                      /* Named aloud as well as in ink: on a phone under 350
+                         wide the meal's verbs are drawn without their words. */
+                      ' aria-label="Another suggestion for ' + esc(name) + '"' +
                       ' title="Another suggestion \u2014 walks down the best-fit list">' +
-                      mIcon('another') + 'Another</button>' +
+                      mIcon('another') + '<span>Another</span></button>' +
                     '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
                       (items.length >= 2 ? '' : ' disabled') +
+                      ' aria-label="Balance the portions on ' + esc(name) + '"' +
                       ' title="Solve these portions against this meal\u2019s macros">' +
-                      mIcon('scales') + 'Balance</button>'
+                      mIcon('scales') + '<span>Balance</span></button>'
                   : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" ' +
                       'aria-label="Skip ' + esc(name) + ' today" ' +
                       'title="Not eating this today \u2014 its share goes to the other meals">' +
-                      mIcon('skip') + 'Skip</button>') +
+                      mIcon('skip') + '<span>Skip</span></button>') +
                 /* Keeping several plates as one thing is a verb, and this is
                    where this meal's verbs live.
                  *
@@ -6465,25 +6473,27 @@
                    rebuilt around says it plainly: the block is THIS FOOD, this
                    row is THIS MEAL, the cascade line is THE DAY. A slab
                    floating between the plates and the verbs belonged to
-                   neither. It is still only drawn where it can act.
-                 *
-                   No leading plus. Four buttons need the width: measured, the
-                   row fits at 390 with 19px to spare and wraps below 375,
-                   which is the same bargain .mslot-acts already strikes. */
-                /* Still .mslot-add: it is still the meal's add button, which
-                   is what that name has always meant. With a word beside the
-                   plus now, like every other verb here, and on a fed meal it
-                   comes third, so the row it pushes to the right edge is the
-                   first: the verbs wrap to two rows, not three. */
-                (items.length ? addBtn : '') +
+                   neither. It is still only drawn where it can act. */
+                /* One row, always. Blake: "get all the buttons on the food
+                   tag into a single row." Each verb is its drawing over a
+                   short word, the way the bottom bar draws them, and they
+                   share the width equally, so five fit a 360 phone. The
+                   short words carry the long ones in their labels: "Save"
+                   is save these plates as one food you can reuse (Blake's
+                   word, 2026-09-27: "Keep" left him asking, and "Combine"
+                   was 3px too wide at 360), "Repeat" is this meal copied
+                   from another day. Add is last, at the right edge, where
+                   the thumb already goes. */
                 (items.length >= 2
                   ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" ' +
-                    'title="Merge these plates into one food you can reuse">' +
-                    mIcon('keep') + 'Keep as one</button>' : '') +
+                    'aria-label="Save these plates as one food you can reuse" ' +
+                    'title="Save these plates as one food you can reuse">' +
+                    mIcon('keep') + '<span>Save</span></button>' : '') +
                 /* The same meal on another day, whole, in one tap. */
                 '<button class="mslot-act mslot-from" data-mfrom="' + esc(sk) + '" ' +
-                  'title="Copy this meal from another day">' + mIcon('fromday') + 'Copy from\u2026</button>' +
-                (items.length ? '' : addBtn) +
+                  'aria-label="Repeat ' + esc(name) + ' from another day" ' +
+                  'title="Copy this meal from another day">' + mIcon('fromday') + '<span>Repeat</span></button>' +
+                addBtn +
                 '</div>'
               : '') +
             /* INSIDE the fold, and last. It was outside the card on the
@@ -7761,9 +7771,10 @@
     var slots = mReadSlots(), nm = slots.names[sk] || 'Meal';
     slots.list.forEach(function (sl) { if (sl.k === sk) nm = sl.n; });
     return '<div class="scrim no-print" data-close="1">' +
-      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Keep this meal">' +
+      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Save this meal">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">Keep ' + esc(nm.toLowerCase()) + '</div>' +
+          /* Named for the button that opens it. */
+          '<div class="sheet-eyebrow">Save ' + esc(nm.toLowerCase()) + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="mtl-row"><span class="mtl-lab">Call it</span>' +

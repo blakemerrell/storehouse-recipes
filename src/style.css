@@ -4262,10 +4262,10 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 /* Bin and lock, tight together, so proximity says they are one group and the
    portion beside them is another. */
 /* Bin and lock, edge to edge, so proximity says they are one group and the
-   portion beside them is another. gap: 0 is doing all of that work — a box
-   around the pair was tried and drawn back out: it groups them, and it also
-   turns two quiet glyphs into a keypad, which is the complaint this row was
-   rebuilt to answer. */
+   portion beside them is another. A box around the pair was tried once and
+   drawn back out as "a keypad", when nothing else on the row wore one; they
+   are boxed again now that everything beside them is (see "the plate's bin
+   and lock, boxed" at the end of this file). */
 .mitem-verbs { flex: none; display: flex; align-items: center; gap: 0; }
 /* Smaller controls, closer together, and the portion takes what that frees.
  *
@@ -4352,8 +4352,12 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mitem-typing .mstep-in { width: 3.2em; min-width: 0; }
 /* The dial is a plain row now: the box carries its own outline and the two
    keys carry theirs, so the container has nothing left to draw. */
+/* min-width: auto, never 0. At 0 the dial could be squeezed narrower than
+   its own portion and keys, which then spilled out of it: on a 360 phone
+   the tick sat on the last 15px of the + key, and a thumb on the edge of +
+   ticked the plate eaten. At auto a row with no room wraps instead. */
 .mitem-r3 .mstep {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 5px;
+  flex: 1 1 auto; min-width: auto; display: flex; align-items: center; gap: 5px;
   border: 0; background: none; border-radius: 0; padding: 0; max-width: none;
 }
 .mstep-keys { flex: none; display: flex; }
@@ -4424,7 +4428,9 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    the ONE place the plate's touch sizes are written — twice now a second copy
    of these rules has survived a rewrite, sat later in the file, and won on
    source order, shipping a commit that changed nothing on a phone. If a size
-   for this row appears anywhere below, it is that bug again.
+   for this row appears anywhere below, it is that bug again. (A third time,
+   2026-09-27: a sweep to 44px set the strip's sizes far below this and was
+   taken back out. The name row's pin and star did keep their 44 there.)
  *
    Blake's call on the sizes: "Smaller buttons. A but less space between
    buttons. Wider serving box." 34 is under the 44 the rest of the app holds
@@ -5702,14 +5708,16 @@ button.tr-ck-h {
 .mslot-act { height: auto; min-height: 44px; font-size: 14px; }
 .mslot-act.add { min-width: 44px; }
 .mslot-unskip { min-height: 44px; }
-.mitem-r1 .mic, .mitem-r3 .mic { width: 44px; height: 44px; }
-.mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 18px; height: 18px; margin: 0 auto; }
+.mitem-r1 .mic { width: 44px; height: 44px; }
+.mitem-r1 .mic svg { width: 18px; height: 18px; margin: 0 auto; }
 .mitem-r1 { min-height: 44px; }
 .mitem-name { min-height: 44px; }
-.mitem-r3 .mstep .mitem-amt { min-height: 44px; min-width: 76px; }
-.mitem-r3 .mstep-keys button { width: 44px; height: 44px; font-size: 19px; }
-.mitem-ate { width: 44px; height: 44px; }
-.mitem-ate::after { font-size: 19px; }
+/* Not the plate's strip. Its bin, lock, keys, portion and tick went to 44
+   here too, and on a 360 phone the tick was then drawn over the + key.
+   Blake (2026-09-27): "Just make those buttons smaller. So the serving box
+   has more room ... smaller like they were before." They are sized in the
+   one place the strip's sizes live, "Everything above is the mouse", and
+   nowhere else. */
 button.mitem-uom.mitem-bw, .mt-swap, .mt-ld-go, .fp-more, .mline-a button { position: relative; }
 button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
   content: ''; position: absolute; left: -4px; right: -4px; top: 50%; height: 44px; margin-top: -22px;
@@ -5792,11 +5800,6 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .mslot-act.add .mday-ic { stroke-width: 2; }
 .mc-notei { display: flex; justify-content: flex-end; margin-top: 4px; }
 .mc-notei .m-info { margin: 0; }
-/* The bin and the lock are a pair: each a thumb's reach, with their
-   drawings leaning together so the pair reads as one group beside the
-   portion. */
-.mitem-verbs .mic:first-child svg { margin: 0 3px 0 auto; }
-.mitem-verbs .mic + .mic svg { margin: 0 auto 0 3px; }
 
 /* ---- Nourish: charts to read on a phone ----
    Type at the size it says (the viewBox is about a phone's width), the
@@ -5846,3 +5849,48 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .mfs-nr span { color: var(--muted-2); }
 .mfs-meals { margin-top: 8px; }
 .mfs-micro { font-size: 13px; }
+
+/* ---- Nourish: a meal's verbs on one row ----
+   Blake: "get all the buttons on the food tag into a single row." Each verb
+   is its drawing over a short word, the way the bottom bar draws its tools,
+   and they share the row equally: up to five on a 360 phone and never a
+   second row, which on a fed meal had pushed "Copy from" under the rest. */
+.mslot-acts {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  gap: 4px; align-items: stretch; padding-left: 8px; padding-right: 8px;
+}
+.mslot-act, .mslot-act.add {
+  flex-direction: column; gap: 3px; width: auto; min-width: 0; min-height: 54px; margin: 0;
+  padding: 6px 0 5px; font-size: 13px; line-height: 1.15;
+}
+.mslot-act > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.mslot-act.add { font-size: 13px; font-weight: 600; }
+
+/* ---- Nourish: the plate's bin and lock, boxed ----
+   Blake, once a meal's verbs became boxes with words (2026-09-27): "Garbage
+   and lock icon look out of place now." They were the last two bare glyphs
+   on a strip where the portion, its two keys and the tick are all boxes.
+   Drawn now the way the minus and plus keys are: one joined pair, the edge
+   they share saying they belong together. Pin and star stay glyphs, up on
+   the name row beside the name. */
+.mitem-verbs .mic {
+  display: grid; place-items: center;
+  border: 1px solid var(--line-firm); background: var(--card); border-radius: 4px;
+}
+.mitem-verbs .mic:first-child:not(:last-child) { border-radius: 4px 0 0 4px; }
+.mitem-verbs .mic + .mic { margin-left: -1px; border-radius: 0 4px 4px 0; }
+.mitem-verbs .mic:hover { background: var(--paper-soft); }
+/* A lock that is on says so with its edge as well as its ink. */
+.mitem-verbs .mic[aria-pressed="true"] {
+  position: relative; border: 1px solid var(--ochre); background: var(--card); color: var(--ochre-text);
+}
+
+/* ---- Nourish: a meal's verbs as drawings alone, under 350 ----
+   Five verbs share the row, and below 350 a fifth of it is narrower than
+   "Another", so the words came out as "Anot..." and "Bala...". Blake
+   (2026-09-27): "Just show icons." Every meal on the day at once, so one
+   screen never mixes the two, and each button still says its name aloud. */
+@media (max-width: 349px) {
+  .mslot-act, .mslot-act.add { min-height: 44px; padding: 0; }
+  .mslot-act > span { display: none; }
+}
