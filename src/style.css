@@ -5850,28 +5850,30 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .mfs-meals { margin-top: 8px; }
 .mfs-micro { font-size: 13px; }
 
-/* ---- Nourish: a meal's verbs on one row ----
-   Blake: "get all the buttons on the food tag into a single row." Each verb
-   is its drawing over a short word, the way the bottom bar draws its tools,
-   up to five on a 360 phone and never a second row, which on a fed meal had
-   pushed "Copy from" under the rest.
- *
-   Five columns on every meal, whatever it holds, so a verb is one size all
-   down the day. Shared equally instead, an empty meal's three were a third
-   of the row each, and Blake: "The skip, repeat, add, buttons are way to
-   big." Add takes the last column, at the right edge, as on a fed meal; the
-   others fill from the left. */
+/* ---- Nourish: a meal's verbs, drawings in the plate's boxes ----
+   Blake: "get all the buttons on the food tag into a single row." They were
+   an icon over a word, a fifth of the row each, and then: "The buttons are
+   still to big to me. Just use icons and the box size that is in the
+   meal/food card uses." So each verb is its drawing alone, in the box the
+   plate's strip draws its keys in (30, and 34 on a phone), packed from the
+   left, with Add alone at the right edge, where a plate keeps its tick. The
+   word each one had lives on in its spoken name and in a mouse's tooltip.
+   The row's sides line up with the plate strip's above it. */
 .mslot-acts {
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 4px; align-items: stretch; padding-left: 8px; padding-right: 8px;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  padding-left: 9px; padding-right: 9px;
 }
-.mslot-acts > .mslot-act.add { grid-column: 5; }
 .mslot-act, .mslot-act.add {
-  flex-direction: column; gap: 3px; width: auto; min-width: 0; min-height: 54px; margin: 0;
-  padding: 6px 0 5px; font-size: 13px; line-height: 1.15;
+  flex: none; display: grid; place-items: center;
+  width: 30px; height: 30px; min-width: 0; min-height: 0; margin: 0; padding: 0;
+  border: 1px solid var(--line-firm); border-radius: 4px; background: var(--card);
 }
-.mslot-act > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.mslot-act.add { font-size: 13px; font-weight: 600; }
+.mslot-act .mday-ic { width: 16px; height: 16px; }
+.mslot-act.add { margin-left: auto; }
+@media (pointer: coarse) {
+  .mslot-act, .mslot-act.add { width: 34px; height: 34px; }
+  .mslot-act .mday-ic { width: 18px; height: 18px; }
+}
 
 /* ---- Nourish: the plate's bin and lock, boxed ----
    Blake, once a meal's verbs became boxes with words (2026-09-27): "Garbage
@@ -5890,14 +5892,4 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 /* A lock that is on says so with its edge as well as its ink. */
 .mitem-verbs .mic[aria-pressed="true"] {
   position: relative; border: 1px solid var(--ochre); background: var(--card); color: var(--ochre-text);
-}
-
-/* ---- Nourish: a meal's verbs as drawings alone, under 350 ----
-   Five verbs share the row, and below 350 a fifth of it is narrower than
-   "Another", so the words came out as "Anot..." and "Bala...". Blake
-   (2026-09-27): "Just show icons." Every meal on the day at once, so one
-   screen never mixes the two, and each button still says its name aloud. */
-@media (max-width: 349px) {
-  .mslot-act, .mslot-act.add { min-height: 44px; padding: 0; }
-  .mslot-act > span { display: none; }
 }
