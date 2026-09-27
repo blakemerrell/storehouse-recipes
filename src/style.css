@@ -5853,12 +5853,19 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 /* ---- Nourish: a meal's verbs on one row ----
    Blake: "get all the buttons on the food tag into a single row." Each verb
    is its drawing over a short word, the way the bottom bar draws its tools,
-   and they share the row equally: up to five on a 360 phone and never a
-   second row, which on a fed meal had pushed "Copy from" under the rest. */
+   up to five on a 360 phone and never a second row, which on a fed meal had
+   pushed "Copy from" under the rest.
+ *
+   Five columns on every meal, whatever it holds, so a verb is one size all
+   down the day. Shared equally instead, an empty meal's three were a third
+   of the row each, and Blake: "The skip, repeat, add, buttons are way to
+   big." Add takes the last column, at the right edge, as on a fed meal; the
+   others fill from the left. */
 .mslot-acts {
-  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px; align-items: stretch; padding-left: 8px; padding-right: 8px;
 }
+.mslot-acts > .mslot-act.add { grid-column: 5; }
 .mslot-act, .mslot-act.add {
   flex-direction: column; gap: 3px; width: auto; min-width: 0; min-height: 54px; margin: 0;
   padding: 6px 0 5px; font-size: 13px; line-height: 1.15;
