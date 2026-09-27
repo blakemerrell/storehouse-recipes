@@ -5,12 +5,12 @@
     "data/nutrition.js": "0e9da7cbf4b6a15c",
     "data/art.js": "6400869a8b1c044a",
     "data/qr.js": "ad816e709c904c25",
-    "src/app.js": "d366d7d553d3a645",
+    "src/app.js": "dc66b2051074090f",
     "src/sync.js": "ca1c93cabec35a13",
     "src/train.js": "4b3e1ec9c2531dbc",
     "src/config.js": "aa98e88f0eef54e6",
-    "src/style.css": "e9f613c830f06d28",
-    "index.html": "575f9e6718c9dd60",
+    "src/style.css": "1a3811ca1a502ef4",
+    "index.html": "67540161fe4d1647",
     "sw.js": "2bc90e135fd5fe62"
   }
 }
