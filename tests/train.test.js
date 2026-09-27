@@ -2234,7 +2234,7 @@ module.exports = {
       rows: [...document.querySelectorAll('.tr-rdb .tr-rdn')].map((e) => e.textContent).join('|'),
       mins: [...document.querySelectorAll('.tr-rdb .tr-rdt')].every((e) => /^~\d+ min$/.test(e.textContent)) }));
     t.ok('the list: full body, upper and lower, push, pull and legs, each with how long it takes',
-      r.g === 'Full body|Upper / lower|Push / pull / legs' && r.rows === 'Full Body A|Full Body B|Full Body C|Upper A|Lower A|Upper B|Lower B|Push|Pull|Legs' && r.mins, JSON.stringify(r));
+      r.g === 'Full body|Upper / lower|Push / pull / legs|Machines only' && r.rows === 'Full Body A|Full Body B|Full Body C|Upper A|Lower A|Upper B|Lower B|Push|Pull|Legs|Machine circuit' && r.mins, JSON.stringify(r));
     await p.click('.tr-rdb[data-v="fba"]');
     r = await p.evaluate(() => ({ q: (document.querySelector('.tr-rdq') || {}).textContent || '', go: [...document.querySelectorAll('.tr-rdgo b')].map((e) => e.textContent).join('|'),
       list: document.querySelectorAll('.tr-rdr.on .tr-rdl li').length }));
@@ -3010,6 +3010,77 @@ module.exports = {
     const stored = await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('bsc.train')).wo).sort().join());
     t.ok('a workout saved in one copy of the app survives a save in the other', r.one === 'a1,b1' && r.two === 'a1,b1' && stored === 'a1,b1', JSON.stringify({ r, stored }));
     await p2.close();
+    await p.close();
+
+    // the machine circuit: eight machines, upper and lower taking turns, pushes and pulls even
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, kit: 'gym' }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    r = await p.evaluate(() => { const _ = window.Train._, st = _.state(), d = (o, xp, ef) => { Object.assign(st.T.pr, o); return _.readyDay('circ', xp, ef); };
+      const plain = d({ bk: '', jt: '' }, false, 1), back = d({ bk: 'fc' }, false, 1), half = d({ bk: '' }, true, 1), easy = d({}, false, 0), home = d({ kit: 'db' }, false, 1);
+      st.T.pr.kit = 'gym';
+      return { plain: plain.s.map((x) => x.e).join(), rounds: plain.s[0].n, back: back.s.map((x) => x.e).join(), half: half.s[0].n + ':' + half.n, easy: easy.s[0].n,
+        home: home, all: plain.s.every((x) => ['mc', 'cb'].indexOf(_.lib(x.e).q) >= 0), mins: Math.round(_.estDay(plain)), halfMins: Math.round(_.estDay(half)) }; });
+    t.ok('the circuit: chest press, leg press, row, leg extension, shoulder press, leg curl, pulldown, hip abduction — every one a machine',
+      r.plain === 'mc-press,leg-press,mc-row,leg-ext,mc-ohp,seated-curl,lat-pd,abduct' && r.all && r.rounds === 3, JSON.stringify(r));
+    t.ok('with a back protected from bending and weight on the spine, the belt squat stands in for the leg press', r.back.split(',')[1] === 'belt-squat' && r.back.split(',')[2] === 'mc-row', r.back);
+    t.ok('the half hour is two rounds, easy two, and at home with dumbbells there is no machine circuit',
+      r.half === '2:Machine circuit · 30 min' && r.easy === 2 && r.home === null && r.mins >= 40 && r.mins <= 45 && r.halfMins <= 30, JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('.tr-foot [data-t="ready"]').catch(() => {});
+    await p.evaluate(() => { if (!document.querySelector('.tr-rdb[data-v="circ"]')) document.querySelector('[data-t="ready"]').click(); });
+    await p.click('.tr-rdb[data-v="circ"]');
+    r = await p.evaluate(() => ({ go: [...document.querySelectorAll('.tr-rdr.on .tr-rdgo small')].map((e) => e.textContent).join('|'), hint: (document.querySelector('.tr-rdr.on .tr-hint') || {}).textContent || '' }));
+    t.ok('opened, it says rounds, and how it goes', /^2 rounds.*\|3 rounds.*\|4 rounds/.test(r.go) && /One set at each machine/.test(r.hint), JSON.stringify(r));
+    await p.click('.tr-rdr.on [data-t="rdgo"][data-e="1"]');
+    r = await p.evaluate(() => { const L = window.Train._.state().LIVE;
+      return { n: L.n, cc: !!L.cc && L.x.every((x) => x.cc), labels: [...document.querySelectorAll('.tr-ex .tr-pair')].map((e) => e.textContent).join(),
+        say: (document.querySelector('.tr-ex .tr-ex-m') || {}).textContent || '', sub: (document.querySelector('.tr-live-h .tr-sub') || {}).textContent || '' }; });
+    t.ok('started, the stations are C1 to C8, each saying what comes next', r.n === 'Machine circuit' && r.cc && r.labels === 'C1,C2,C3,C4,C5,C6,C7,C8' &&
+      /then Leg Press, 0:40 to get there/.test(r.say) && /then round again/.test(r.sub), JSON.stringify(r));
+    await p.fill('#trw-0-0', '100'); await p.fill('#trr-0-0', '12');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => window.Train._.state().LIVE.rs.dur);
+    t.ok('a set done, forty seconds to reach the next machine', r === 40, String(r));
+    await p.evaluate(() => { const L = window.Train._.state().LIVE; for (let i = 1; i < 7; i++) { L.x[i].s[0].w = 50; L.x[i].s[0].r = 12; L.x[i].s[0].t = Date.now(); } });
+    await p.fill('#trw-7-0', '80'); await p.fill('#trr-7-0', '15');
+    await p.click('[data-t="tick"][data-x="7"][data-s="0"]');
+    r = await p.evaluate(() => window.Train._.state().LIVE.rs.dur);
+    t.ok('the last station of a round, two minutes before the next', r === 120, String(r));
+    await p.close();
+
+    // the best swaps: the same movement, the nearest kit, your back, what you know
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, kit: 'gym' }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    r = await p.evaluate(() => { const _ = window.Train._, st = _.state(), ids = (e, today, o) => { Object.assign(st.T.pr, o || {}); return _.swapBest(e, today || {}).map((b) => b.ex.id).join(); };
+      const chest = ids('mc-press'), why = _.swapBest('mc-press', {})[0].why;
+      const row = ids('mc-row', {}, { bk: '' }), rowBack = ids('mc-row', {}, { bk: 'fc' }), notToday = ids('mc-press', { 'db-bench': 1 }, { bk: '' });
+      st.T.pr.avoid = ['db-bench']; const never = ids('mc-press'); st.T.pr.avoid = [];
+      return { chest, why, row, rowBack, notToday, never }; });
+    t.ok('a taken machine chest press: dumbbell bench first, the same movement, before a bar to load', r.chest.split(',')[0] === 'db-bench' && r.chest.split(',')[1] === 'bb-bench' && /^same movement · dumbbell · new to you$/.test(r.why), JSON.stringify(r));
+    t.ok('a row for a row: a cable row for a taken machine row; with a protected back, the chest-supported one first and never the barbell',
+      r.row.split(',')[0] === 'cb-row' && !/bb-row/.test(r.rowBack) && r.rowBack.split(',')[0] === 'db-cs-row', JSON.stringify(r));
+    t.ok('never one already in today, or on your never list', !/db-bench/.test(r.notToday) && !/db-bench/.test(r.never), JSON.stringify(r));
+    await p.close();
+    p = await t.fresh();
+    await keepLive(p);
+    r = await p.evaluate(() => window.Train._.state().LIVE.x.map((x) => x.e).join());
+    await p.click('[data-t="swap"][data-x="0"]');
+    r = await p.evaluate(() => ({ best: [...document.querySelectorAll('.tr-best .tr-pick')].map((b) => b.dataset.e + ':' + b.querySelector('.tr-pk-m').textContent),
+      head: [...document.querySelectorAll('.tr-bestw .tr-rdg')].map((e) => e.textContent).join('|') }));
+    t.ok('the swap sheet opens with three best swaps, each saying why', r.best.length === 3 && r.best.every((b) => /·/.test(b)) && /^Best swaps\|Everything for /.test(r.head), JSON.stringify(r));
+    await p.click('[data-t="pickm"][data-v=""]');
+    await p.fill('#trPickQ', 'curl');
+    await p.waitForTimeout(50);
+    r = await p.evaluate(() => ({ best: !!document.querySelector('.tr-bestw'), lists: document.querySelectorAll('.tr-picks:not(.tr-best)').length }));
+    t.ok('searching hides them, and the list is not doubled', !r.best && r.lists === 1, JSON.stringify(r));
+    await p.fill('#trPickQ', '');
+    await p.waitForTimeout(50);
+    r = await p.evaluate(() => ({ best: !!document.querySelector('.tr-bestw'), lists: document.querySelectorAll('.tr-picks:not(.tr-best)').length }));
+    t.ok('and a cleared search brings them back', r.best && r.lists === 1, JSON.stringify(r));
+    const pick = await p.evaluate(() => document.querySelector('.tr-best .tr-pick').dataset.e);
+    await p.click('.tr-best .tr-pick');
+    r = await p.evaluate(() => window.Train._.state().LIVE.x[0].e);
+    t.ok('and one tap swaps it in', r === pick, r + ' vs ' + pick);
     await p.close();
 
     // the main lift, with a back protected: the one that loads it least

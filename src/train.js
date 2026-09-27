@@ -2483,6 +2483,7 @@
    * the paired rest between the halves of a pair, a minute to move between
    * exercises, five to warm up. Close enough to plan a lunch hour around. */
   function estDay(day, sets) {
+    if (day.cc) return circuitMin(day);
     var t = 5, groups = {};
     // a circuit is its own minutes, and two to set it up
     if (day.mc && mcValid(day.mc)) t += mcMinutes(day.mc) + 2;
@@ -3433,8 +3434,59 @@
   var READY = [
     { g: 'Full body', d: [['fba', 3, 0], ['fbb', 3, 1], ['fbc', 3, 2]] },
     { g: 'Upper / lower', d: [['upa', 4, 0], ['loa', 4, 1], ['upb', 4, 2], ['lob', 4, 3]] },
-    { g: 'Push / pull / legs', d: [['push', 6, 0, 'Push'], ['pull', 6, 1, 'Pull'], ['legs', 6, 2, 'Legs']] }
+    { g: 'Push / pull / legs', d: [['push', 6, 0, 'Push'], ['pull', 6, 1, 'Pull'], ['legs', 6, 2, 'Legs']] },
+    { g: 'Machines only', d: [['circ', 0, 0, 'Machine circuit']] }
   ];
+
+  /* The machine circuit: one set at each station, in order, then round
+     again — the peripheral-heart-action idea, upper and lower body taking
+     turns so each muscle rests while the next works, and the heart rate
+     never quite comes down. Circuits of short rest build muscle when each
+     set is taken near failure (Alcaraz et al. 2011 saw strength and muscle
+     match a traditional rest-between-sets plan, in less time), and they
+     carry a little conditioning with them.
+   *
+     Eight stations, pushes and pulls even — a chest press and a shoulder
+     press against a row and a pulldown, which a circuit of presses alone
+     is not — the pushes apart, the legs between, and the glutes a squat
+     machine never reaches last. Every one a machine: nothing on the
+     spine, nothing to balance, and the pin moved in a second. Each
+     station is the first of its list your back and never list allow, the
+     one that asks least of a protected back first, as a block's main lift
+     is chosen.
+   *
+     Forty seconds to reach the next machine and set it, two minutes after
+     each round: short enough to keep it a circuit, long enough that the
+     weights stay honest. Three rounds is about forty-five minutes; two, as
+     the half hour, about thirty. */
+  var CIRCUIT = [
+    ['chest', ['mc-press', 'pec-deck']],
+    ['quads', ['leg-press', 'belt-squat', 'hack']],
+    ['back', ['mc-row', 'cb-row']],
+    ['quads', ['leg-ext']],
+    ['front', ['mc-ohp']],
+    ['hams', ['seated-curl', 'lying-curl']],
+    ['back', ['lat-pd']],
+    ['glutes', ['abduct', 'mc-kick']]
+  ];
+  var CC_SR = 40, CC_RR = 120;
+  function circuitDay(xp, ef) {
+    var E = EFF[ef] || EFF[1], p = T.pr;
+    if (KITS[KITS[p.kit] ? p.kit : 'gym'].eq.indexOf('mc') < 0) return null;
+    var pf = { bk: p.bk, jt: p.jt, avoid: p.avoid, lvl: p.lvl }, s = [];
+    CIRCUIT.forEach(function (st) {
+      var at = {}, c = st[1].filter(function (id) { return LIB[id] && !barred(LIB[id], pf); }).map(function (id, i) { at[id] = i; return LIB[id]; });
+      c.sort(function (a, b) { return backCost(a, pf) - backCost(b, pf) || at[a.id] - at[b.id]; });
+      c = c.filter(function (ex) { return !s.some(function (sl) { return sl.e === ex.id; }); });
+      if (c.length) s.push({ e: c[0].id, n: xp ? 2 : Math.max(2, 3 + E.d) });
+    });
+    return s.length ? { n: 'Machine circuit' + (xp ? XP : ''), rir: E.rir, s: s, cc: 1 } : null;
+  }
+  // a round is every station once: its set, then the walk to the next
+  function circuitMin(day) {
+    var r = day.s.length ? day.s[0].n : 0;
+    return 5 + (r * day.s.length * (45 + CC_SR) + Math.max(0, r - 1) * CC_RR) / 60;
+  }
   var XP = ' \u00b7 30 min';
   // how hard today: one set fewer or more than usual, and how far short of failure
   var EFF = [{ n: 'Easy', d: -1, rir: 3 }, { n: 'Normal', d: 0, rir: 2 }, { n: 'Hard', d: 1, rir: 1 }];
@@ -3445,6 +3497,7 @@
   }
   function readyName(row) { return row[3] || SPLITS[row[1]].days[row[2]][0]; }
   function readyDay(id, xp, ef) {
+    if (id === 'circ') return circuitDay(xp, ef);
     var E = EFF[ef] || EFF[1];
     if (T.rt[id]) {
       var rt = T.rt[id];
@@ -3490,8 +3543,8 @@
     var day = readyDay(id, xp, ef);
     if (!day || !day.s.length) return;
     setLive({ id: newId(), st: Date.now(), n: day.n, u: T.pr.u, ms: '', w: -1, d: -1, dl: 0, rir: day.rir,
-      x: day.s.map(function (sl) { var x = liveEx(sl.e, sl.n); x.rir = day.rir; return x; }),
-      sr: {}, fb: {}, rs: null });
+      x: day.s.map(function (sl) { var x = liveEx(sl.e, sl.n); x.rir = day.rir; if (day.cc) x.cc = 1; return x; }),
+      sr: {}, fb: {}, rs: null, cc: day.cc ? { sr: CC_SR, rr: CC_RR } : null });
     S.sub = 'block';
     closeSheet();
     draw();
@@ -3515,7 +3568,7 @@
 
   function readyHTML(sh) {
     var xp = !!S.rdx, open = S.rdo || '';
-    var mins = function (day) { return day && day.s.length ? '~' + Math.round(estDay({ s: day.s }) / 5) * 5 + ' min' : ''; };
+    var mins = function (day) { return day && day.s.length ? '~' + Math.round(estDay(day.cc ? day : { s: day.s }) / 5) * 5 + ' min' : ''; };
     var row = function (id, name, key) {
       var day = readyDay(id, xp, 1);
       if (!day || !day.s.length) return '';
@@ -3529,13 +3582,15 @@
       if (on) {
         out += '<ol class="tr-rdl">' + day.s.map(function (sl) {
           var ex = lib(sl.e);
-          return '<li>' + esc(ex.n) + ' <span class="tr-rdl-s">' + sl.n + ' \u00d7 ' + ex.rr[0] + '\u2013' + ex.rr[1] + '</span></li>';
+          return '<li>' + esc(ex.n) + ' <span class="tr-rdl-s">' + (day.cc ? '' : sl.n + ' \u00d7 ') + ex.rr[0] + '\u2013' + ex.rr[1] + (day.cc ? ' reps' : '') + '</span></li>';
         }).join('') + '</ol>' +
           '<div class="tr-rdq">How hard today?</div><div class="tr-rde">' + EFF.map(function (E, i) {
             var d = readyDay(id, xp, i);
             return '<button class="' + (i === 1 ? 'btn-primary' : 'ghost') + ' tr-rdgo" data-t="rdgo" data-v="' + esc(id) + '" data-e="' + i + '">' +
-              '<b>' + E.n + '</b><small>' + (T.rt[id] ? ['a set fewer', 'sets as saved', 'a set more'][i] : xp ? '2 sets' : d.s[0].n + ' sets') + ' \u00b7 ' + E.rir + ' to spare \u00b7 ' + mins(d) + '</small></button>';
+              '<b>' + E.n + '</b><small>' + (T.rt[id] ? ['a set fewer', 'sets as saved', 'a set more'][i] : d.cc ? d.s[0].n + ' rounds' : xp ? '2 sets' : d.s[0].n + ' sets') + ' \u00b7 ' + E.rir + ' to spare \u00b7 ' + mins(d) + '</small></button>';
           }).join('') + '</div>' +
+          (day.cc ? '<div class="tr-hint">One set at each machine, in this order, then round again: ' + clock(CC_SR) + ' to move to the next, ' + clock(CC_RR) +
+            ' after each round. Five to ten easy minutes on a bike or the stair climber afterwards, if you like, is the cardio.</div>' : '') +
           (T.rt[id] ? '<div class="tr-acts"><button class="tr-lnk" data-t="rtdel" data-v="' + esc(id) + '">' +
             (S.arm === 'rt:' + id ? 'Tap again to delete this routine' : 'Delete routine') + '</button></div>' : '');
       }
@@ -3606,7 +3661,18 @@
   }
   /* A1, A2, B1… in the order the pairs appear, so the labels read down the
      page. Unpaired exercises have none. */
-  function pairLabels() { return slotLabels(LIVE.x); }
+  // a station's place in the round: what follows it, and how long to get there
+  function ccSay(i) {
+    var st = stations(), k = st.indexOf(i);
+    if (k < 0) return '';
+    return k === st.length - 1 ? ' \u00b7 then ' + clock(LIVE.cc.rr) + ' before the next round'
+      : ' \u00b7 then ' + esc(lib(LIVE.x[st[k + 1]].e).n) + ', ' + clock(LIVE.cc.sr) + ' to get there';
+  }
+  function pairLabels() {
+    var st = stations(), out = slotLabels(LIVE.x);
+    st.forEach(function (i, k) { out[i] = 'C' + (k + 1); });
+    return out;
+  }
 
   /* The workout in the order it is moved in: a pair side by side goes as
      one, so moving it never splits the two halves. */
@@ -3781,6 +3847,11 @@
     saveLive();
     audioPrime();
     draw();
+    /* In a circuit the next set is a machine further down the page, or the
+       first one again: brought into view, so the walk to it starts with
+       the phone already showing it. */
+    var cn = x.cc ? ccNext() : null, cel = cn ? $('trw-' + cn.x + '-' + cn.s) : null, card = cel && cel.closest ? cel.closest('.tr-ex') : null;
+    if (card && card.scrollIntoView) { try { card.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { card.scrollIntoView(); } }
   }
 
   /* Previous, paired again: last time's warm-ups beside this time's
@@ -3797,8 +3868,28 @@
     });
   }
 
+  // the stations of a circuit, in the order they are done
+  function stations() {
+    var out = [];
+    if (LIVE && LIVE.cc) LIVE.x.forEach(function (x, i) { if (x.cc) out.push(i); });
+    return out;
+  }
+  /* The next set a circuit asks for: round by round, station by station,
+     the first not yet ticked. */
+  function ccNext() {
+    var st = stations(), most = 0;
+    st.forEach(function (i) { most = Math.max(most, LIVE.x[i].s.length); });
+    for (var r = 0; r < most; r++) {
+      for (var k = 0; k < st.length; k++) {
+        var z = LIVE.x[st[k]].s[r];
+        if (z && !z.t) return { x: st[k], s: r };
+      }
+    }
+    return null;
+  }
   function restAfter(xi, si) {
     var x = LIVE.x[xi], s = x.s[si];
+    if (LIVE.cc && x.cc) { var st = stations(); return xi === st[st.length - 1] ? LIVE.cc.rr : LIVE.cc.sr; }
     if (partner(xi) >= 0) return T.pr.rp;
     return s && s.wu ? Math.min(60, x.rest) : x.rest;
   }
@@ -4981,7 +5072,9 @@
       '<div>' + (ms || L.n !== 'Workout' ? '<div class="tr-eyebrow">' + (ms ? (L.dl ? 'Deload' : 'Week ' + (L.w + 1)) + ' · ' + esc(ms.n) : 'Workout') + '</div>' : '') +
         '<div class="tr-title">' + esc(L.n) + '</div>' +
         (ms ? '<div class="tr-sub">' + (L.dl ? 'Light and easy: stop every set well short of failure.'
-          : L.ph ? esc(L.ph) : rirSay(L.rir).charAt(0).toUpperCase() + rirSay(L.rir).slice(1) + '.') + '</div>' : '') +
+          : L.ph ? esc(L.ph) : rirSay(L.rir).charAt(0).toUpperCase() + rirSay(L.rir).slice(1) + '.') + '</div>'
+          : L.cc ? '<div class="tr-sub">One set at each machine, C1 to C' + stations().length + ', then round again. ' +
+            clock(L.cc.sr) + ' to move on, ' + clock(L.cc.rr) + ' after each round; each set stopped about ' + (L.rir || 2) + ' reps short of failure.</div>' : '') +
       '</div>' +
     '</div>';
 
@@ -5410,7 +5503,8 @@
          line under the name already says: a minute after a warm-up, none
          before a drop set. A pair says its rest once, under the name. Tap it
          to change the lift's rest. */
-      (j < x.s.length - 1 && (x.s[j + 1].ty === 'd' || (!mate && restAfter(i, j) !== x.rest)) ? '<div class="tr-rdiv"><button class="tr-rdiv-b" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest after this set: ' +
+      // a circuit's next set on this machine is a round away: its rests are said under the name
+      (j < x.s.length - 1 && !x.cc && (x.s[j + 1].ty === 'd' || (!mate && restAfter(i, j) !== x.rest)) ? '<div class="tr-rdiv"><button class="tr-rdiv-b" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest after this set: ' +
         (x.s[j + 1].ty === 'd' ? 'none, a drop set follows' : clock(restAfter(i, j))) + '. Change the rest for ' + esc(ex.n) + '">' +
         (x.s[j + 1].ty === 'd' ? 'no rest' : clock(restAfter(i, j))) + '</button></div>' : '');
     }).join('');
@@ -5429,18 +5523,19 @@
     return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '">' +
       (mv ? '<span class="tr-mv">' +
         '<button class="tr-mvb" data-t="mvex" data-v="-1" data-x="' + i + '"' + (mv.up ? '' : ' disabled') +
-          ' aria-label="Move ' + esc(ex.n) + (label ? ' and its pair' : '') + ' up">\u2191</button>' +
+          ' aria-label="Move ' + esc(ex.n) + (label && !x.cc ? ' and its pair' : '') + ' up">\u2191</button>' +
         '<button class="tr-mvb" data-t="mvex" data-v="1" data-x="' + i + '"' + (mv.dn ? '' : ' disabled') +
-          ' aria-label="Move ' + esc(ex.n) + (label ? ' and its pair' : '') + ' down">\u2193</button></span>' : '') +
+          ' aria-label="Move ' + esc(ex.n) + (label && !x.cc ? ' and its pair' : '') + ' down">\u2193</button></span>' : '') +
       '<div class="tr-ex-h">' +
-        (label ? '<span class="tr-pair" aria-label="Pair ' + label + '">' + label + '</span>' : '') +
+        (label ? '<span class="tr-pair" aria-label="' + (x.cc ? 'Station ' : 'Pair ') + label + '">' + label + '</span>' : '') +
         // new to lifting, the name opens how it is done
         '<button class="tr-ex-n" data-t="' + (nb ? 'exhow' : 'exsheet') + '" data-e="' + esc(x.e) + '">' + esc(ex.n) + '</button>' +
         '<span class="tr-fmw" id="trfm-' + i + '">' + fmHTML(i) + '</span>' +
         '<span class="tr-ex-m">' + esc(mnameP(ex.m)) + ' \u00b7 ' + (x.fix ? 'main lift, set by set'
             : (nb ? nWork + ' set' + (nWork === 1 ? '' : 's') + ' of ' : '') + ex.rr[0] + '\u2013' + ex.rr[1] + ' reps') +
           (rirHere ? ' \u00b7 ' + (nb ? (x.rir ? 'stop with ' + x.rir + ' rep' + (x.rir === 1 ? '' : 's') + ' to spare' : 'to your last good rep') : effSay(x.rir)) : '') +
-          (mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
+          (x.cc && LIVE.cc ? ccSay(i)
+            : mate ? ' \u00b7 alternate with ' + esc(lib(mate.e).n) + ', ' + clock(T.pr.rp) + ' between'
             : ' \u00b7 <button class="tr-lnk tr-barl" data-t="restpick" data-e="' + esc(x.e) + '" aria-label="Rest ' + clock(x.rest) + ' for ' + esc(ex.n) + '. Change">rest ' + clock(x.rest) + '</button>') +
           (fin(x.tm) ? ' \u00b7 training max ' + fmtN(x.tm) + ' ' + T.pr.u : '') +
           (barHere ? ' \u00b7 <button class="tr-lnk tr-barl" data-t="barpick" data-e="' + esc(x.e) + '" aria-label="' + esc(barName(x.e)) + ' for ' + esc(ex.n) + ': ' +
@@ -5822,6 +5917,45 @@
       '</div></div>';
   }
 
+  /* The best swaps for a lift, three of them, each with why. The list below
+     them is the library's order, which put a barbell bench first when the
+     machine chest press was taken: right muscle, wrong answer. These are
+     ranked the way a coach would think it through — the same movement
+     first, so the session still trains what it was built to; then the same
+     kind of kit, since a taken machine is best replaced by another machine
+     or a cable rather than a bar to load; what it asks of a back or joint
+     you are protecting; one you already know, so its weight comes from
+     your own numbers; easy to learn, starting out. Never one already in
+     today's session, on your never list, or ruled out for your back. */
+  var FAMILY = { mc: 'm', cb: 'm', sm: 'm', bb: 'f', db: 'f', bw: 'b' };
+  /* How far one kind of kit is from another, for a swap: the same, then its
+     family (a cable for a machine, dumbbells for a barbell); from a machine,
+     a pair of dumbbells before a bar to load; your body alone last, when
+     there is anything to load. */
+  function kitGap(from, to, eq) {
+    if (from === to) return 0;
+    if (FAMILY[from] === FAMILY[to]) return 4;
+    if (to === 'bw') return eq.length > 1 ? 12 : 4;
+    if (FAMILY[from] === 'm') return to === 'db' ? 6 : 10;
+    return 10;
+  }
+  function swapBest(old, today) {
+    var o = lib(old), pf = T.pr, known = ix().best;
+    var eq = KITS[KITS[pf.kit] ? pf.kit : 'gym'].eq;
+    var score = function (ex) {
+      return (o.p && ex.p === o.p ? 0 : 30) + (ex.k === o.k ? 0 : 20) + kitGap(o.q, ex.q, eq) +
+        backCost(ex, pf) + newbieCost(ex, pf) - (known[ex.id] ? 8 : 0) + ex.o / 1000;
+    };
+    return allEx().filter(function (ex) {
+      return ex.id !== old && ex.m === o.m && eq.indexOf(ex.q) >= 0 && !today[ex.id] &&
+        pf.avoid.indexOf(ex.id) < 0 && !barred(ex, pf);
+    }).sort(function (a, b) { return score(a) - score(b); }).slice(0, 3).map(function (ex) {
+      var why = [o.p && ex.p === o.p ? 'same movement' : ex.k === o.k ? 'same kind of lift' : 'same muscle', (EQUIP[ex.q] || '').toLowerCase()];
+      if (pf.bk) why.push(backCue(ex) ? 'some back load' : 'no back load');
+      why.push(known[ex.id] ? 'you\u2019ve done it' : 'new to you');
+      return { ex: ex, why: why.filter(Boolean).join(' \u00b7 ') };
+    });
+  }
   function pickHTML(sh) {
     var q = S.q.toLowerCase().trim();
     var old = (sh.mode === 'swap' && LIVE && LIVE.x[sh.x]) ? LIVE.x[sh.x].e
@@ -5847,6 +5981,10 @@
         (barred(a, T.pr) ? 1 : 0) - (barred(b, T.pr) ? 1 : 0) || a.o - b.o;
     });
     var own = S.own;
+    var today = {};
+    if (sh.mode === 'swap' && LIVE) LIVE.x.forEach(function (x) { today[x.e] = 1; });
+    if (sh.mode === 'dswap' && S.draft) S.draft.days[sh.d].s.forEach(function (x) { today[x.e] = 1; });
+    var best = old && !q ? swapBest(old, today) : [];
     /* In a block, a swap asks how long it is for. The machine being taken is
        today; not getting on with the exercise is the rest of the block. */
     var scoped = sh.mode === 'swap' && LIVE && LIVE.ms && T.ms[LIVE.ms];
@@ -5858,6 +5996,10 @@
           : 'Today only. Next time the plan has ' + esc(lib(old).n) + ' again.') + '</div></div>' : '') +
       (old ? '<div class="tr-chips tr-never"><button class="tr-chip" data-t="never" aria-pressed="' + !!S.never + '">' +
         'Never suggest ' + esc(lib(old).n) + ' again</button></div>' : '') +
+      (best.length ? '<div class="tr-bestw"><div class="tr-rdg">Best swaps</div><div class="tr-picks tr-best">' + best.map(function (b) {
+        return '<button class="tr-pick tr-pick-best" data-t="pickex" data-e="' + esc(b.ex.id) + '">' +
+          '<span class="tr-pk-n">' + esc(b.ex.n) + '</span><span class="tr-pk-m">' + esc(b.why) + '</span></button>';
+      }).join('') + '</div><div class="tr-rdg">Everything for ' + esc(mname(lib(old).m).toLowerCase()) + '</div></div>' : '') +
       '<input class="txt tr-search" id="trPickQ" type="search" placeholder="Search exercises" value="' + esc(S.q) + '" aria-label="Search exercises">' +
       chips('pickm', S.qm, [['', 'All']].concat(MUSCLES.map(function (m) { return [m.k, m.n]; }))) +
       '<div class="tr-picks">' + (list.length ? list.map(function (ex) {
@@ -8694,8 +8836,13 @@
     if (!root || !S.sheet || S.sheet.k !== 'pick') return;
     var tmp = document.createElement('div');
     tmp.innerHTML = pickHTML(S.sheet);
-    var fresh = tmp.querySelector('.tr-picks'), old = root.querySelector('.tr-picks');
+    var fresh = tmp.querySelector('.tr-picks:not(.tr-best)'), old = root.querySelector('.tr-picks:not(.tr-best)');
     if (fresh && old) old.replaceWith(fresh);
+    // the best swaps are for the list as it opens: gone while you search, back when the box is cleared
+    var fb = tmp.querySelector('.tr-bestw'), ob = root.querySelector('.tr-bestw'), inp = $('trPickQ');
+    if (ob && fb) ob.replaceWith(fb);
+    else if (ob) ob.remove();
+    else if (fb && inp && inp.parentNode) inp.parentNode.insertBefore(fb, inp);
   }
 
   wire();
@@ -8756,7 +8903,7 @@
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
       wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
-      readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE,
+      readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE, swapBest: swapBest,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
