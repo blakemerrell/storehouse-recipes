@@ -12839,7 +12839,9 @@
        they are not in the pantry at all — defaulting those to missing put salt
        and vanilla on the shopping list under "to pick up", which is both wrong
        and exactly what the old flag never did. */
-    return window.Store.pantryHas(key, d ? d.s : true);
+    /* A dried spice defaults to kept (d.sp): not on the order, but not a
+       shopping trip either. Your own pantry still overrides it. */
+    return window.Store.pantryHas(key, d ? (d.s || !!d.sp) : true);
   }
 
   /* Would you have to go out for this one parsed ingredient?
@@ -13880,10 +13882,10 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 304 },
-    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 296 },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 308 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 300 },
     1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 116, booklet: true },
-    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 188, booklet: true }
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 192, booklet: true }
   };
 
   /* The shelf, in the order somebody chooses from it: the whole thing first,

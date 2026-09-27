@@ -98,7 +98,7 @@ const ASSIGN = {
 const SERVINGS = {
   51: '4 Servings (1 Rice Bowl Each)',
   52: '4 Servings (1 Plate Each)',
-  55: '4 Stuffed Pepper Halves',
+  55: '4 Servings (2 Pepper Halves Each)',
   57: '4 Servings (1 Rice Bowl Each)',
   61: '4 Servings (1 Plate Each)',
   62: '4 Servings (1 Bowl Each)',

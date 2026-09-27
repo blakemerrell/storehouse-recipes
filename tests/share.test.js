@@ -105,7 +105,7 @@ module.exports = {
           return;
         }
         const d = P[i.k];
-        if (d ? d.s : true) return;
+        if (d ? (d.s || d.sp) : true) return;
         if (out.indexOf(d ? d.l : i.k) < 0) out.push(d ? d.l : i.k);
       });
       return { no: s.no, needs: out };

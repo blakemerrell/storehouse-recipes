@@ -39,7 +39,8 @@ module.exports = {
     const split = await p.evaluate(() => {
       const P = window.PANTRY, shelves = {};
       let on = 0, off = 0;
-      Object.keys(P).forEach((k) => { shelves[P[k].c] = 1; if (P[k].s) on++; else off++; });
+      // a dried spice is kept by default too (Blake: spices don't count)
+      Object.keys(P).forEach((k) => { shelves[P[k].c] = 1; if (P[k].s || P[k].sp) on++; else off++; });
       return { shelves: Object.keys(shelves).length, on, off };
     });
     t.ok('it opens on the storehouse order, every shelf of it',
@@ -86,7 +87,7 @@ module.exports = {
        Written as 99 it measured the size of the order rather than the thing it
        is about, which is that removing one item removes exactly one. */
     const onList = await p.evaluate(() =>
-      Object.keys(window.PANTRY).filter((k) => window.PANTRY[k].s).length);
+      Object.keys(window.PANTRY).filter((k) => window.PANTRY[k].s || window.PANTRY[k].sp).length);
     t.ok('taking something off is counted',
       new RegExp('\\b' + (onList - 1) + ' items\\b').test(await p.textContent('#pantryNote')),
       await p.textContent('#pantryNote') + '  (expected ' + (onList - 1) + ')');
@@ -125,7 +126,7 @@ module.exports = {
      * Any single example can be true while the rule is broken. */
     const disagree = await p.evaluate(() => {
       const P = window.PANTRY || {};
-      const kept = (k) => { const d = P[k]; return window.Store.pantryHas(k, d ? d.s : true); };
+      const kept = (k) => { const d = P[k]; return window.Store.pantryHas(k, d ? (d.s || !!d.sp) : true); };
       const needs = (it) => {
         if (!it || !it.k) return false;
         if (it.k === 'free') return !!it.x;
@@ -176,10 +177,26 @@ module.exports = {
     });
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
 
-    t.ok('a seasoning the storehouse does not carry is marked on its own line',
-      grounded.opened && grounded.paprikaMarked, JSON.stringify(grounded));
-    t.ok('and named at the foot, while the salt beside it stays plain',
-      /paprika/i.test(grounded.foot) && grounded.saltPlain, JSON.stringify(grounded));
+    /* Blake, 2026-09-26: dried spices don't count — paprika is not a trip to
+       the shop. So No. 017's paprika is assumed on hand: plain on the line and
+       not named at the foot. What still has to be bought is held down by the
+       lime in No. 310 below, so the rule cannot be switched off unnoticed. */
+    t.ok('a dried spice is assumed on hand: not marked on its line',
+      grounded.opened && !grounded.paprikaMarked, JSON.stringify(grounded));
+    t.ok('and not named at the foot, and the salt beside it stays plain',
+      !/paprika/i.test(grounded.foot) && grounded.saltPlain, JSON.stringify(grounded));
+    await p.evaluate(() => { const el = document.querySelector('[data-open="310"]');
+      if (el) el.click(); else { const b = document.createElement('button'); b.setAttribute('data-open', 310);
+        document.getElementById('grid').appendChild(b); b.click(); } });
+    await p.waitForTimeout(400);
+    const lime = await p.evaluate(() => {
+      const rows = [...document.querySelectorAll('.sheet-ing div')];
+      const l = rows.find((d) => /\blime\b/i.test(d.textContent));
+      return { marked: !!(l && l.classList.contains('ing-buy')), foot: (document.querySelector('.sheet-extras') || {}).textContent || '' };
+    });
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    t.ok('but a fresh lime the storehouse does not carry is still marked and named',
+      lime.marked && /lime/i.test(lime.foot), JSON.stringify(lime));
 
     // and so does the shopping list
     await p.evaluate(() => window.Store.addToDay(1, 'mon'));

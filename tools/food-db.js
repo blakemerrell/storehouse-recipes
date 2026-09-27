@@ -418,6 +418,11 @@ const FOODS = {
   guacamole:    { kcal: 150, p: 1.9, c: 8.6, f: 13.3, na: 290, fib: 6.1, g: { cup: 230, tbsp: 15 }, label: 'Guacamole', note: 'homemade; avocado, lime, onion, cilantro, jalapeño, salt' },
   pico_de_gallo: { kcal: 21, p: 0.8, c: 4.6, f: 0.2, na: 240, fib: 1.2, g: { cup: 160, tbsp: 10 }, label: 'Pico de gallo', note: 'homemade; tomato, onion, jalapeño, cilantro, lime, salt' },
   enchilada_sauce: { kcal: 59, p: 1.3, c: 7.2, f: 3.6, na: 380, fib: 2, g: { cup: 245, tbsp: 15 }, label: 'Red enchilada sauce', note: 'homemade; tomato sauce, water, chili powder, a roux, simmered to about 800 g' },
+  /* ---- five small things the 2026-09-26 recipe audit needed. */
+  cream_of_tartar: { kcal: 258, p: 0, c: 61.5, f: 0, na: 52, fib: 0.2, g: { tsp: 3, tbsp: 9 }, label: 'Cream of tartar' },
+  italian_seasoning: { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 1, tbsp: 3 }, label: 'Italian seasoning', note: 'dried herbs; counted as nothing, like the other dried herbs' },
+  worcestershire: { kcal: 78, p: 0, c: 19.5, f: 0, na: 980, fib: 0, g: { tsp: 5.7, tbsp: 17, cup: 275 }, label: 'Worcestershire sauce' },
+  pickles:      { kcal: 12, p: 0.5, c: 2.4, f: 0.3, na: 875, fib: 1, g: { each: 7, cup: 143 }, label: 'Dill pickles', note: 'dill pickle slices; 1 slice = 7 g' },
 };
 
 /*
@@ -576,6 +581,11 @@ const ALIASES = {
   'ground cumin': 'cumin', 'oregano': 'oregano', 'thyme': 'thyme',
   'lollipop sticks': 'free', 'wooden sticks': 'free',
   'cinnamon': 'cinnamon',
+  // the recipe audit, 2026-09-26
+  'cream of tartar': 'cream_of_tartar', 'italian seasoning': 'italian_seasoning',
+  'worcestershire sauce': 'worcestershire', 'worcestershire': 'worcestershire',
+  'dill pickle slices': 'pickles', 'pickle slices': 'pickles', 'dill pickles': 'pickles',
+  'red food colouring': 'free', 'food colouring': 'free', 'red food coloring': 'free', 'food coloring': 'free',
   // the Mexican shelf, 2026-09-26
   'flank steak': 'flank_steak', 'skirt steak': 'flank_steak',
   'corn tortillas': 'corn_tortilla', 'corn tortilla': 'corn_tortilla',
