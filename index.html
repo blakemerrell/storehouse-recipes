@@ -250,70 +250,50 @@
       <div id="macroSlots"></div>
     </div>
 
-    <!-- The morning's two verbs, against the bottom edge wherever you have
-         scrolled to. They used to sit under six meals, which put the two
-         controls pressed most often furthest from the thumb. Everything
-         else is a once-a-day or once-a-season job and folds behind the
-         third button. -->
+    <!-- Everything you do TO the day, against the bottom edge wherever you
+         have scrolled to, and every one of it in sight. Two rows: the four
+         tools, each an icon with its word under it, and under them the two
+         verbs pressed most, full size where the thumb is. The squares used to
+         be bare glyphs, five of them no one could name before pressing, and
+         the plus that opens the food sheet was the smallest thing on the bar;
+         Blake: "Nourish gets a big '+ Add food' and labelled icons", all of
+         them visible rather than behind a menu.
+
+         The tools keep his order — the whole day, the view, then out — with
+         the expander between Rebalance and Sweep, because Sweep is the one
+         control in the app with no undo. One drawn set, a 20px box and a
+         1.5 stroke in currentColor, so they read as a family. -->
     <div class="mday-acts no-print">
-      <!-- Everything you do TO today, in reach of one thumb. Fill keeps its
-           words because it is the one you press without looking; the rest are
-           squares, because five labels do not fit across a phone and an icon
-           you press daily learns its own meaning within a week. -->
-      <!-- One primary, saying the next thing the day needs. It used to be
-           Fill beside a tick, and Fill went DEAD once every meal had
-           something on it — the biggest, brightest control on the screen,
-           disabled, for most of the day. Blake: "when all the foods are check
-           marked I get to see a complete button for a day instead of a fill,
-           because fill at that point doesn't make sense anymore." So the one
-           button walks: Craft my plan, then Fill, then Done for today, then
-           Reopen. -->
-      <button class="btn-primary" id="macroFill">Fill</button>
-      <button class="ghost mday-icon" id="macroRebal"
-        aria-label="Rebalance the day"
-        title="Re-size the un-eaten, un-locked plates to land the day back on target">&#9878;</button>
-      <!-- The barcode button has gone. It opened the same sheet the plus
-           opens, one step further in, and that sheet carries a camera in its
-           own search field — Blake: "the plus button and the scanner button
-           are the same thing. In both cases I should be able to open up and
-           scan something right away." One door, and the lens is inside it. -->
-      <button class="ghost mday-icon" id="macroOpenAll" aria-pressed="false"
-        aria-label="Open every meal" title="Open every meal">&#9776;</button>
-      <!-- Sweep the day back to what you actually ate. Blake: "sometimes I
-           just want to sweep the whole day that hasn't been marked done.
-           Start fresh." It keeps every plate you ticked and every plate you
-           locked, and clears the rest — so Fill redrafts only the meals it
-           emptied and this morning's breakfast is still there. His call that
-           it runs without asking, like the meal dot and the tick beside it.
-           A broom rather than a cross: a cross on this row would read as
-           closing something. Drawn upright with one bristle line, because at
-           16px the first attempt — a tilted head with a stick — was a blob,
-           and the variants without the handle read as a dustpan. Five
-           bristles at 0.75 rather than one at the outline's 1.3: they splay
-           with the flare, and being LIGHTER than the outline is what makes
-           them read as bristles rather than as the head being divided into
-           boxes. Rendered at 16px on a 3x screen and looked at, twice,
-           because an icon is a thing you look at. -->
-      <button class="ghost mday-icon" id="macroSweep"
-        aria-label="Sweep what you have not eaten"
+      <button class="ghost mday-tool" id="macroRebal"
+        title="Re-size the un-eaten, un-locked plates to land the day back on target"><svg
+        class="mday-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v14M6.5 17h7M4 5.5h12M4 5.5 1.8 11a2.2 2.2 0 0 0 4.4 0zM16 5.5 13.8 11a2.2 2.2 0 0 0 4.4 0z"/></svg><span
+        class="mday-w">Rebalance</span></button>
+      <!-- Open the whole day, or shut it: whichever the day is not already.
+           Its word says which, and the drawing turns with it. -->
+      <button class="ghost mday-tool" id="macroOpenAll" title="Open every meal"><svg
+        class="mday-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 7.5 10 3.5l4 4M6 12.5l4 4 4-4"/></svg><span
+        class="mday-w">Open all</span></button>
+      <!-- Sweep the day back to what you actually ate: every plate ticked,
+           locked or pinned stays. A broom, upright with its bristles lighter
+           than its outline, so at this size it reads as bristles and not as a
+           head divided into boxes. -->
+      <button class="ghost mday-tool" id="macroSweep"
         title="Clear every plate you have not ticked — what you ate and what you locked stay"><svg
-        class="mday-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"
-        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.4V5.6"/><path
-        d="M3.6 5.6h8.8l1.1 8.2H2.5z"/><path d="M3.9 7.8h8.3" stroke-width=".8"/><path
-        d="M5.36 7.8 4.7 13.8" stroke-width=".8"/><path d="M7.12 7.8 6.9 13.8" stroke-width=".8"/><path
-        d="M8.88 7.8 9.1 13.8" stroke-width=".8"/><path d="M10.64 7.8 11.3 13.8" stroke-width=".8"/></svg></button>
-      <button class="ghost mday-icon" id="macroCopy"
-        aria-label="Copy the day as text" title="Copy the day as text">&#9112;</button>
-      <!-- Last, because the far corner is the easiest thing on this bar for a
-           thumb to reach and this is the one pressed most. Blake, on the
-           order: "[fill][ballance][sweep][expand][copy][add]". The grouping
-           is his — the whole-day actions, then the view, then out, then in —
-           with one change: the expander sits between Rebalance and Sweep
-           rather than after them. Sweep is the only control in this app with
-           no undo, and his order put it one square from the button a thumb
-           crosses most. -->
-      <button class="ghost mday-icon" id="macroAdd"
-        aria-label="Add food to a meal" title="Add food to a meal">&#65291;</button>
+        class="mday-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.8v5.2M4.5 7h11l1.4 10.2H3.1z"/><path
+        class="thin" d="M4.9 9.8h10.2M6.7 9.8l-.8 7.4M8.9 9.8l-.3 7.4M11.1 9.8l.3 7.4M13.3 9.8l.8 7.4"/></svg><span
+        class="mday-w">Sweep</span></button>
+      <button class="ghost mday-tool" id="macroCopy" title="Copy the day as text"><svg
+        class="mday-ic" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="6.5" width="10" height="11" rx="1.5"/><path
+        d="M13 6.5V4a1.5 1.5 0 0 0-1.5-1.5h-7A1.5 1.5 0 0 0 3 4v9a1.5 1.5 0 0 0 1.5 1.5H7"/></svg><span
+        class="mday-w">Copy day</span></button>
+      <!-- One primary, saying the next thing the day needs: Craft my plan,
+           then Fill, then Mark all complete, then Complete the day, then
+           Reopen. It used to go dead once every meal had food on it. -->
+      <button class="btn-primary" id="macroFill">Fill</button>
+      <!-- The door to the food sheet, the thing pressed most, in the far
+           corner where the thumb already is. -->
+      <button class="btn-primary mday-add" id="macroAdd" title="Add food to a meal"><svg
+        class="mday-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>Add food</button>
     </div>
   </div>
 </section>

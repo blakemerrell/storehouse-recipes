@@ -1394,7 +1394,8 @@
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
       'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroTrained',
-      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT', 'bsc.macroNever', 'bsc.macroBatchG'].forEach(function (k) {
+      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT', 'bsc.macroNever', 'bsc.macroBatchG',
+      'bsc.macroCoachSeen'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
@@ -4031,6 +4032,25 @@
     var d = keyDate(k);
     return M_MONS[d.getMonth()] + ' ' + d.getDate();
   }
+  /* The long form, "Mon, Sep 28", as Strengthen writes it. */
+  /* One drawn set for every verb on the tab — the bottom bar's tools and
+     each meal's own — so they read as one family: a 20px box, a 1.5 stroke,
+     in the colour of the word beside it. */
+  var MICONS = {
+    scales: '<path d="M10 3v14M6.5 17h7M4 5.5h12M4 5.5 1.8 11a2.2 2.2 0 0 0 4.4 0zM16 5.5 13.8 11a2.2 2.2 0 0 0 4.4 0z"/>',
+    another: '<path d="M15.8 11.5A6 6 0 1 1 14.2 5.7M15.6 2.8v3.4h-3.4"/>',
+    skip: '<circle cx="10" cy="10" r="6.5"/><path d="M5.4 14.6 14.6 5.4"/>',
+    plus: '<path d="M10 4v12M4 10h12"/>',
+    keep: '<rect x="2.5" y="5" width="5.5" height="10" rx="1"/><rect x="12" y="5" width="5.5" height="10" rx="1"/><path d="M8 10h4"/>',
+    fromday: '<rect x="3" y="4.5" width="14" height="12.5" rx="1.5"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4M7.5 12.8h5M10.5 10.6l2.2 2.2-2.2 2.2"/>'
+  };
+  function mIcon(name) {
+    return '<svg class="mday-ic" viewBox="0 0 20 20" aria-hidden="true">' + MICONS[name] + '</svg>';
+  }
+  function mLongDate(k) {
+    var d = keyDate(k);
+    return M_WDAYS[d.getDay()].slice(0, 3) + ', ' + M_MONS[d.getMonth()] + ' ' + d.getDate();
+  }
 
   /* The plan, in two lines, where a button used to sit.
    *
@@ -4429,7 +4449,8 @@
           big
             ? 'Bigger than your usual ' + (Math.round(jump.url * 10) / 10) +
               ' lb overnight \u2014 and the salt accounts for it. The seven-day average is what to watch.'
-            : 'Inside your usual overnight range of ' + (Math.round(jump.url * 10) / 10) + ' lb.');
+            : 'Inside your usual overnight range of ' + (Math.round(jump.url * 10) / 10) + ' lb.',
+          null, 'salt');
       }
     }
     /* Past the salt line there is nothing the fold wants: everything below is
@@ -4458,13 +4479,15 @@
       if (!meas) return '';
       var ate = meas.eaten, gap = meas.tdee - ate;
       var lbWk = Math.round(gap * 7 / 3500 * 10) / 10;
+      // said again only when the direction it reads changes
+      if (mCoachQuiet(k, 'burn:' + (lbWk > 0.2 ? 'off' : lbWk < -0.2 ? 'on' : 'keep'))) return '';
       return mLineHTML(Math.abs(lbWk) < 0.2 ? 'wait' : 'calm', '\u25CE',
         '<b>You are burning about ' + meas.tdee.toLocaleString() + ' a day</b> and eating ' +
         ate.toLocaleString() + '.',
         lbWk > 0.2 ? 'That is ' + lbWk + ' lb a week off, measured over ' + meas.days + ' days.'
           : lbWk < -0.2 ? 'That is ' + Math.abs(lbWk) + ' lb a week on, measured over ' +
             meas.days + ' days.'
-            : 'Which is maintenance, measured over ' + meas.days + ' days.');
+            : 'Which is maintenance, measured over ' + meas.days + ' days.', null, 'coach');
     }
 
     /* Not enough history to say anything, so it says nothing.
@@ -4556,20 +4579,29 @@
         'Step on the scale when you can, and the coaching picks up from there.',
         [['Not now', 'mline:none:stale:' + pf.st.lastKey]]);
     }
+    /* The steady lines — at your goal, or on a target that is working — are
+       news once: the day they first say it. After that they are said again
+       only when the target or the verdict moves. The lines that ask for a
+       decision are not these; they ask until answered. */
+    var pace = late ? 'late' : early ? 'early' : 'on';
     if (pf.plan.daysLeft <= 0) {
+      if (mCoachQuiet(k, 'goal:' + pr.goalLb)) return '';
       return mLineHTML('calm', '✓', '<b>You’re at your goal: ' + pr.goalLb + ' lb.</b>',
-        'Set a new goal when you’re ready.', null);
+        'Set a new goal when you’re ready.', null, 'coach');
     }
     var eating = need !== null && cur > 0 && Math.abs(cur - need) <= 5;
     var head = target(eating ? need : cur);
     /* Taking the number already: say where it lands and leave it there. */
     if (eating) {
+      /* The number it lands on drifts a few calories a day as the weeks
+         move; to the nearest fifty is what counts as it having changed. */
+      if (mCoachQuiet(k, 'eat:' + Math.round(need / 50) * 50 + ':' + pace)) return '';
       return mLineHTML('calm', late ? '▲' : early ? '▼' : '✓', head,
         est + ' ' + (late && capped
           ? (pf.capHigh ? 'This is already as much as your body can put to use — stay with it.'
             : 'This is already as low as it’s safe to go — stay with it.')
           : late ? 'Stay with it \u2014 this target is set to land on ' + goalD + '.'
-            : early ? 'Keep it up.' : 'Stay with it.'), null);
+            : early ? 'Keep it up.' : 'Stay with it.'), null, 'coach');
     }
     /* The offer follows the ESTIMATE, not the position on the plan line, so
        the words and the button never disagree: a date running late is offered
@@ -4602,22 +4634,62 @@
         [['Use ' + fmt(room), 'mline:eat:' + room],
           [cur > 0 ? 'Keep ' + fmt(cur) : 'Not now', 'mline:none:ahead:' + room]]);
     }
+    if (mCoachQuiet(k, 'calm:' + cur + ':' + pace)) return '';
     return mLineHTML('calm', late ? '◎' : '✓', head,
-      est + ' Keep eating ' + fmt(cur) + ' a day.', null);
+      est + ' Keep eating ' + fmt(cur) + ' a day.', null, 'coach');
   }
 
-  function mLineHTML(kind, icon, text, sub, acts) {
+  /* `why`, when given, keys a line whose reason is folded behind "why?":
+     the line says what happened, and the explanation opens in place. */
+  function mLineHTML(kind, icon, text, sub, acts, why) {
     return '<div class="mline ' + kind + '" role="status">' +
       '<span class="mline-i" aria-hidden="true">' + icon + '</span>' +
       '<span class="mline-b">' +
-        '<span class="mline-t">' + text + '</span>' +
-        (sub ? '<span class="mline-s">' + sub + '</span>' : '') +
+        '<span class="mline-t">' + text + (sub && why ? ' ' + mWhyBtn(why) : '') + '</span>' +
+        (sub ? (why ? mInfoText(why, sub, 'mline-s') : '<span class="mline-s">' + sub + '</span>') : '') +
         (acts ? '<span class="mline-a no-print">' + acts.map(function (a, i) {
           return '<button class="' + (i ? 'ghost' : 'btn-primary') + '" data-mline="' +
             esc(a[1]) + '">' + esc(a[0]) + '</button>';
         }).join('') + '</span>' : '') +
       '</span>' +
     '</div>';
+  }
+
+
+  /* ---- quiet by default
+   *
+     Help that never changes is behind an i, and a reason is behind "why?":
+     both open in place, and stay open for the rest of the visit. They are
+     toggled where they stand rather than by a redraw, so opening one never
+     moves the sheet under the finger. Blake: "notes only when something
+     changed, as one short line with 'why?' to expand; settings help behind
+     \u24d8". */
+  var MINFO = {};
+  function mInfoBtn(key, label) {
+    var open = !!MINFO[key];
+    return '<button type="button" class="m-info" data-minfo="' + esc(key) + '" aria-controls="mi-' + esc(key) +
+      '" aria-expanded="' + open + '" aria-label="' + esc(label || 'What this means') + '">' +
+      '<span aria-hidden="true">i</span></button>';
+  }
+  function mWhyBtn(key) {
+    return '<button type="button" class="m-why" data-minfo="' + esc(key) + '" aria-controls="mi-' + esc(key) +
+      '" aria-expanded="' + !!MINFO[key] + '">why?</button>';
+  }
+  function mInfoText(key, html, cls) {
+    return '<span class="m-info-t ' + (cls || '') + '" id="mi-' + esc(key) + '"' +
+      (MINFO[key] ? '' : ' hidden') + '>' + html + '</span>';
+  }
+  /* A note that says the same thing it said on an earlier day says nothing
+     new: it is shown on the day it first says it, and again only once what
+     it says has changed. Remembered on this phone only — it is about what
+     this screen has shown, not about the plan. */
+  function mCoachQuiet(k, sig) {
+    var seen = mLsJson('bsc.macroCoachSeen') || {};
+    if (seen.sig === sig && seen.k && seen.k < k) return true;
+    if (seen.sig !== sig) {
+      try { localStorage.setItem('bsc.macroCoachSeen', JSON.stringify({ sig: sig, k: k })); } catch (e) { /* private mode */ }
+    }
+    return false;
   }
 
   function macroWeighHTML(k) {
@@ -5607,10 +5679,12 @@
       var od = new Date();
       od.setDate(od.getDate() + step);
       var ok = dayKey(od);
+      /* Month first, the one form the app writes a date in: "Mon, Sep 28",
+         or the word for it when there is one. */
       var word = step === 0 ? 'Today' : step === -1 ? 'Yesterday'
-        : step === 1 ? 'Tomorrow' : M_WDAYS[od.getDay()];
+        : step === 1 ? 'Tomorrow' : '';
       opts.push('<option value="' + ok + '"' + (ok === k ? ' selected' : '') + '>' +
-        word + ' &middot; ' + M_MONS[od.getMonth()] + ' ' + od.getDate() + '</option>');
+        (word ? word + ' &middot; ' + M_MONS[od.getMonth()] + ' ' + od.getDate() : mLongDate(ok)) + '</option>');
     }
     $('macroDaySel').innerHTML = opts.join('');
     $('macroPrev').disabled = k <= mEarliestKey();
@@ -6347,15 +6421,15 @@
                 (items.length
                   ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
                       ' title="Another suggestion \u2014 walks down the best-fit list">' +
-                      '&#8635; Another</button>' +
+                      mIcon('another') + 'Another</button>' +
                     '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
                       (items.length >= 2 ? '' : ' disabled') +
                       ' title="Solve these portions against this meal\u2019s macros">' +
-                      '&#9878; Balance</button>'
+                      mIcon('scales') + 'Balance</button>'
                   : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" ' +
                       'aria-label="Skip ' + esc(name) + ' today" ' +
                       'title="Not eating this today \u2014 its share goes to the other meals">' +
-                      '&#8856; Skip</button>') +
+                      mIcon('skip') + 'Skip</button>') +
                 /* Keeping several plates as one thing is a verb, and this is
                    where this meal's verbs live.
                  *
@@ -6374,12 +6448,13 @@
                 (items.length >= 2
                   ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" ' +
                     'title="Merge these plates into one food you can reuse">' +
-                    'Keep as one</button>' : '') +
+                    mIcon('keep') + 'Keep as one</button>' : '') +
                 /* Still .mslot-add: it is still the meal's add button, which
                    is what that name has always meant. Only where it sits
                    changed. */
+                /* A word beside the plus, like every other verb here. */
                 '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
-                  'aria-label="Add food to ' + esc(name) + '">&#43;</button>' +
+                  'aria-label="Add food to ' + esc(name) + '">' + mIcon('plus') + 'Add</button>' +
                 '</div>'
               : '') +
             /* INSIDE the fold, and last. It was outside the card on the
@@ -6403,9 +6478,16 @@
     $('macroSlots').innerHTML = html;
 
     var shut = mAnyShut();
-    $('macroOpenAll').setAttribute('aria-pressed', shut ? 'false' : 'true');
-    $('macroOpenAll').setAttribute('aria-label', shut ? 'Open every meal' : 'Close every meal');
-    $('macroOpenAll').innerHTML = shut ? '&#9776;' : '&#9783;';
+    /* The word says what the next press does, and the chevrons point the
+       way the cards will go: apart to open, together to shut. */
+    var oa = $('macroOpenAll'), oaw = shut ? 'Open all' : 'Close all';
+    if (oa.getAttribute('data-w') !== oaw) {
+      oa.setAttribute('data-w', oaw);
+      oa.title = shut ? 'Open every meal' : 'Close every meal';
+      oa.querySelector('.mday-w').textContent = oaw;
+      oa.querySelector('path').setAttribute('d', shut ? 'M6 7.5 10 3.5l4 4M6 12.5l4 4 4-4'
+        : 'M6 3.5l4 4 4-4M6 16.5l4-4 4 4');
+    }
 
     var readout = macroFootHTML(day, targets, slots);
     $('macroFoot').innerHTML = readout.foot;
@@ -7158,9 +7240,16 @@
       '</button>';
     }).join('');
 
+    /* Why a big miss can outlast the other meals is the same sentence every
+       time, so it waits behind "why?" under the line it explains. */
+    var capWhy = 'A meal never ' +
+      (over ? 'drops below a third of its share' : 'grows past twice its share') +
+      ', so there is a limit to what ' + (over ? 'an overshoot' : 'a surplus') +
+      ' can be made to disappear into.';
     return shell(
       '<span class="mcasc-t">' + head + '</span>' +
-      '<span class="mcasc-s">' + said + '</span>' +
+      '<span class="mcasc-s">' + said + ' ' + mWhyBtn('casc') + '</span>' +
+      mInfoText('casc', capWhy, 'mcasc-note') +
       '<div class="mcasc-pick no-print">' +
         '<div class="mcasc-ph">' +
           '<span>' + (over ? 'Take it from' : 'Give it to') + '</span>' +
@@ -7169,10 +7258,6 @@
             '<button data-msend="none" aria-pressed="' + (off ? 'true' : 'false') + '">None</button>' +
           '</span>' +
         '</div>' + pick +
-        '<div class="mcasc-note">A meal never ' +
-          (over ? 'drops below a third of its share' : 'grows past twice its share') +
-          ', so there is a limit to what ' + (over ? 'an overshoot' : 'a surplus') +
-          ' can be made to disappear into.</div>' +
         '<div class="mcasc-done">' +
           '<button class="btn-primary" data-msend="ack">Done</button>' +
         '</div>' +
@@ -7578,13 +7663,13 @@
         '<div class="mk-tot">' + Math.round(mac.kcal) + ' kcal &middot; ' +
           Math.round(mac.p) + 'P &middot; ' + Math.round(mac.f) + 'F &middot; ' +
           Math.round(mac.c) + 'C</div>' +
-        '<div class="mt-div">Where it goes</div>' +
+        '<div class="mt-div m-divi">Where it goes' + mInfoBtn('keep', 'Ours or yours') + '</div>' +
+        mInfoText('keep', 'Ours is a recipe everyone with the pantry code can see. ' +
+          'The other stays in your account.', 'mt-cap') +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-mkdo="share">Add to Ours</button>' +
           '<button class="ghost" data-mkdo="mine">Keep it to myself</button>' +
         '</div>' +
-        '<div class="mt-cap">Ours is a recipe everyone with the pantry code can see. ' +
-          'The other stays in your account.</div>' +
         '<div class="mt-cap" id="mkNote"></div>' +
       '</div></div>';
   }
@@ -7742,18 +7827,18 @@
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="What you eat">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">What do you actually eat?</div>' +
+          '<div class="sheet-eyebrow m-eyei">What do you actually eat?' + mInfoBtn('fp', 'How this list is used') + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="mt-cap">Tap anything you eat regularly. Nourish leans toward ' +
+        mInfoText('fp', 'Tap anything you eat regularly. Nourish leans toward ' +
           'these when it suggests food &mdash; it does not stop offering anything ' +
-          'else. You can change your mind on any food, any time.</div>' +
+          'else. You can change your mind on any food, any time.', 'mt-cap') +
         inner.blocks +
         (function () {
           var ids = Object.keys(MNEVER);
           if (!ids.length) return '';
-          return '<div class="mt-div">Not suggested</div>' +
-            '<div class="mt-cap">Fill won\u2019t add these. You can still add them yourself by searching.</div>' +
+          return '<div class="mt-div m-divi">Not suggested' + mInfoBtn('never', 'What this means') + '</div>' +
+            mInfoText('never', 'Fill won\u2019t add these. You can still add them yourself by searching.', 'mt-cap') +
             ids.map(function (id) {
               var rr = BY_ID[id] || BY_ID[Number(id)];
               return '<div class="mnv-row"><span class="mnv-n">' + esc(rr ? rr.name : id) +
@@ -7815,10 +7900,13 @@
     var sr = mcSeries(S.chartWhich);
     var body = sr.need
       ? '<div class="mslot-empty">' + esc(sr.need) + '</div>'
-      : mcChartSVG(sr) + '<div class="mc-note">' + esc(sr.note) + '</div>' +
-        (sr.lim ? '<div class="mc-note">Limits ' + sr.lim.lnpl.toFixed(1) + ' to ' +
-          sr.lim.unpl.toFixed(1) + ', from the first three weeks. ' +
-          'A point outside them is a change rather than a Tuesday.</div>' : '');
+      : mcChartSVG(sr) +
+        /* What the chart is and how to read it never changes, so it waits
+           behind an i rather than sitting under every chart. */
+        '<div class="mc-notei">' + mInfoBtn('mc-' + S.chartWhich, 'What this chart shows') + '</div>' +
+        mInfoText('mc-' + S.chartWhich, esc(sr.note) +
+          (sr.lim ? ' Limits ' + sr.lim.lnpl.toFixed(1) + ' to ' + sr.lim.unpl.toFixed(1) +
+            ', from the first three weeks: a point outside them is a change rather than a Tuesday.' : ''), 'mc-note');
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mc-sheet" role="dialog" aria-modal="true" aria-label="The numbers over time">' +
         '<div class="sheet-top">' +
@@ -10526,8 +10614,7 @@
      come to different conclusions about what you ate. */
   function mSummaryHTML(k) {
     var s = mDaySummary(k);
-    var d = keyDate(k);
-    var title = M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' + d.getDate();
+    var title = mLongDate(k);
     var dk = s.got - s.want;
 
     /* One clause about the thing that actually went wrong, in the order a
@@ -10931,7 +11018,8 @@
     };
     var mealsFor = function (open) {
       return '<div id="mtMealsWrap" class="mt-editor' + (open ? '' : ' hide') + '">' +
-        '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
+        '<div class="mt-div m-divi">Kind and share' + mInfoBtn('meals', 'What kind and share mean') + '</div>' +
+        mInfoText('meals', 'The kind steers the picker; the share is each meal&rsquo;s slice of the day.', 'mt-cap') +
         '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
         '<div class="mtm-total" id="mtmTotal"></div>' +
         '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +
@@ -12343,8 +12431,7 @@
     var day = mDay(k);
     var slots = mReadSlots();
     var d = keyDate(k);
-    var out = ['Nourish \u2014 ' + M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' +
-      d.getDate() + ' ' + d.getFullYear()];
+    var out = ['Nourish \u2014 ' + mLongDate(k) + ' ' + d.getFullYear()];
     if (MWEIGHTS[k]) out.push('Weight: ' + MWEIGHTS[k] + ' lb');
     out.push('');
     var named = [];
@@ -12403,11 +12490,14 @@
        with is \u2398 — so one press turned an icon into a three-word label
        that wrapped onto three lines and climbed out of the bottom bar, and
        stayed that way for good. */
-    var wasHTML = btn.getAttribute('data-icon') || btn.innerHTML;
-    if (!btn.getAttribute('data-icon')) btn.setAttribute('data-icon', wasHTML);
+    /* Only the word under the icon changes, and back: the drawing stays
+       where it is so the bar does not jump. */
+    var w = btn.querySelector('.mday-w') || btn;
+    var was = btn.getAttribute('data-was') || w.textContent;
+    if (!btn.getAttribute('data-was')) btn.setAttribute('data-was', was);
     var said = function (ok) {
-      btn.textContent = ok ? 'Copied' : 'Press and hold';
-      setTimeout(function () { btn.innerHTML = btn.getAttribute('data-icon'); }, 2200);
+      w.textContent = ok ? 'Copied' : 'Press and hold';
+      setTimeout(function () { w.textContent = btn.getAttribute('data-was'); }, 2200);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { said(true); }, function () { said(false); });
@@ -14782,7 +14872,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -14836,6 +14926,10 @@
        away a recipe somebody is in the middle of typing. */
     window.__editing = !!S.editId;
     var root = $('modalRoot');
+    /* Nourish's sheets carry its sizes — a thumb's worth for every control,
+       13 pixels at the least for type — without restyling every other tab's
+       sheets, which share this root. */
+    root.classList.toggle('m-sheets', S.view === 'macros');
 
     // a re-render triggered by a sync update should not scroll the sheet back
     // to the top, lose a half-typed code, or reroll the suggested one
@@ -18035,6 +18129,19 @@
   /* Before the first paint: a stored plan written by an older build can be
      below this body's floor or have no carbohydrate in it, and the correction
      belongs here rather than inside whichever read happened to run first. */
+  /* An i or a "why?" opens its words in place and closes them again, with
+     no redraw, so nothing moves but the words. */
+  document.addEventListener('click', function (e) {
+    var ib = e.target.closest && e.target.closest('[data-minfo]');
+    if (!ib) return;
+    var key = ib.dataset.minfo, open = !MINFO[key];
+    MINFO[key] = open;
+    document.querySelectorAll('[data-minfo="' + key + '"]').forEach(function (b) {
+      b.setAttribute('aria-expanded', String(open));
+    });
+    var tx = document.getElementById('mi-' + key);
+    if (tx) tx.hidden = !open;
+  });
   document.addEventListener('click', function (e) {
     var al = e.target.closest('[data-mallow]');
     if (!al) return;

@@ -626,7 +626,7 @@ select { max-width: 280px; }
      were drawing the same three verbs two different ways. */
   flex: 0 1 auto; height: 29px; padding: 0 11px;
   background: none; border: 1px solid var(--line-soft); border-radius: 3px;
-  font-family: var(--sans); font-size: 12.5px; color: var(--muted-2);
+  font-family: var(--sans); font-size: 13px; color: var(--muted-2);
   cursor: pointer; white-space: nowrap;
 }
 .mslot-act:disabled { opacity: 0.4; cursor: default; }
@@ -642,7 +642,7 @@ select { max-width: 280px; }
    the part you plan against and one calorie figure never said it. */
 .mslot-name {
   background: none; border: 0; padding: 0; font-family: var(--sans); text-align: left;
-  font-size: 11.5px; letter-spacing: 0.11em; text-transform: uppercase;
+  font-size: 13px; letter-spacing: 0.11em; text-transform: uppercase;
   font-weight: 600; color: oklch(0.40 0.03 65);
   display: inline-flex; align-items: center;
 }
@@ -661,7 +661,7 @@ select { max-width: 280px; }
    It is still a span inside the strip's own button — the whole strip stays
    the target, and a button inside a button is not a thing. */
 .mfold-cue {
-  margin-left: auto; flex: none; font-size: 12px; line-height: 1;
+  margin-left: auto; flex: none; font-size: 13px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   width: 24px; height: 24px; border-radius: 50%;
   background: var(--paper-soft); color: var(--muted);
@@ -681,17 +681,17 @@ select { max-width: 280px; }
 [aria-expanded="true"] > .mfold-cue,
 [aria-expanded="true"] > .mslot-tail > .mfold-cue { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .mfold-cue { transition: none; } }
-.msub-k { flex: none; font-size: 11.5px; }
+.msub-k { flex: none; font-size: 13px; }
 /* Only ever drawn for a macro that is off, so it takes its own width and
    carries no fill: three fills compare by eye only if the boxes match, and
    here there may be one box or three. Colour does the work. */
 .msub-c {
   flex: none; display: inline-flex; align-items: baseline; gap: 2px;
-  padding: 1px 6px; border-radius: 999px; font-size: 10.5px;
+  padding: 1px 6px; border-radius: 999px; font-size: 13px;
   background: var(--paper-soft); border: 1px solid var(--line-soft);
   font-variant-numeric: tabular-nums;
 }
-.msub-c i { font-size: 9.5px; margin-right: 0; }
+.msub-c i { font-size: 13px; margin-right: 0; }
 .msub-c b { font-weight: 600; }
 .msub-c.over {
   border-color: color-mix(in oklab, var(--dial-over) 45%, var(--line-soft));
@@ -705,11 +705,11 @@ select { max-width: 280px; }
    distance rather than a subtraction. */
 .msub-bars { padding: 6px 0 2px; }
 .mp-cap {
-  font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
   color: var(--muted); margin-bottom: 1px;
 }
 .msub-br { display: grid; grid-template-columns: 13px 1fr auto; gap: 8px; align-items: center; margin: 5px 0; }
-.msub-bk { font-size: 10px; font-weight: 700; font-style: normal; }
+.msub-bk { font-size: 13px; font-weight: 700; font-style: normal; }
 .msub-bt { position: relative; height: 8px; border-radius: 4px; background: var(--line-soft); }
 .msub-bb { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--dial-on); }
 .msub-bb.over { background: var(--dial-over); }
@@ -723,7 +723,7 @@ select { max-width: 280px; }
 }
 .msub-bm { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: 0.5; }
 .msub-bv {
-  font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .msub-bv b { color: var(--ink); font-weight: 600; }
 /* The one line in a meal card sits under the HEADER, not under the numbers.
@@ -773,7 +773,7 @@ select { max-width: 280px; }
    several meals are scanned at once was the screen with no quality on it at
    all. It costs nothing: the rows already began at a left margin. Aligned on
    the centre rather than the baseline, because a leaf has no baseline. */
-.mthin { display: flex; gap: 8px; align-items: center; padding: 3px 0; font-size: 12px; }
+.mthin { display: flex; gap: 8px; align-items: center; padding: 3px 0; font-size: 13px; }
 /* smaller than the 20px an open plate wears, so a shut meal stays a list
    rather than becoming a second stack of cards */
 .mthin .leaf-sm { width: 17px; height: 20px; }
@@ -797,11 +797,11 @@ select { max-width: 280px; }
    eaten yet as the one that looked real. --muted is 5.5:1 on the card. */
 .mthin:not(.eaten) .mthin-n { color: var(--muted); }
 .mthin-ok {
-  flex: none; width: 14px; text-align: center; font-size: 12px; line-height: 1;
+  flex: none; width: 14px; text-align: center; font-size: 13px; line-height: 1;
   color: var(--green); font-weight: 700;
 }
-.mthin-x { font-size: 10.5px; color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
-.mslot-empty { font-size: 12px; color: oklch(0.68 0.02 70); font-style: italic; }
+.mthin-x { font-size: 13px; color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
+.mslot-empty { font-size: 13px; color: oklch(0.68 0.02 70); font-style: italic; }
 /* A plate is two rows, each with its controls on the right. Row one is the
    plate and its portion — the dial you reach for most, beside the name. Row
    two is the paperwork: what it costs, and the three buttons that manage it,
@@ -873,11 +873,11 @@ select { max-width: 280px; }
    nowrap, so a narrow phone drops the whole figure to the next line rather
    than breaking it across two. */
 .mitem-mac {
-  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+  font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
   padding-left: 2px; white-space: nowrap;
 }
 /* the macro letters carry identity everywhere they appear, never status */
-.mitem-mac i, .mp-fit i, .mk-tot i, .mfs-pm i { font-style: normal; font-weight: 700; font-size: 10px; }
+.mitem-mac i, .mp-fit i, .mk-tot i, .mfs-pm i { font-style: normal; font-weight: 700; font-size: 13px; }
 
 /* .mrow2 went with the same rebuild as .mitem-r1; .mitem-r2 is the row. */
 /* The amount, and the lock that holds it. One bar, because "how much" and
@@ -967,8 +967,8 @@ select { max-width: 280px; }
   font-family: var(--serif); font-size: 14px; color: var(--muted);
   text-decoration: line-through; flex: 0 0 auto;
 }
-.mslot-skip-w { flex: 1 1 auto; min-width: 0; font-size: 11px; color: var(--muted); }
-.mslot-unskip { flex: 0 0 auto; font-size: 12px; padding: 4px 10px; }
+.mslot-skip-w { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--muted); }
+.mslot-unskip { flex: 0 0 auto; font-size: 13px; padding: 4px 10px; }
 /* Skip was a bare ⊘ in the header and needed the extra size to read as a
    glyph. It is a word in the acts row now and takes .mslot-act's type like
    its neighbours; left here it would have set one button in a larger size
@@ -1001,7 +1001,7 @@ select { max-width: 280px; }
   font-variant-numeric: tabular-nums;
 }
 .ds-ring-m i {
-  font-style: normal; font-size: 9.5px; letter-spacing: 0.09em;
+  font-style: normal; font-size: 13px; letter-spacing: 0.09em;
   text-transform: uppercase; color: var(--muted);
 }
 .ds-side { flex: 1 1 auto; min-width: 0; }
@@ -1013,7 +1013,7 @@ select { max-width: 280px; }
 .ds-d.on { color: var(--green); }
 /* what is left of a day still being eaten: a count, not a verdict */
 .ds-d.togo { color: var(--ink); }
-.ds-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.ds-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .ds-pips { display: flex; gap: 4px; margin-top: 12px; }
 /* Same rule as the bars above: a day never written down is a gap in the
    record, not a day the protein was missed on, so it is an outline and not a
@@ -1029,7 +1029,7 @@ select { max-width: 280px; }
 
 .ds-macros { display: flex; flex-direction: column; gap: 11px; margin-bottom: 4px; }
 .ds-m { display: grid; grid-template-columns: 15px 1fr auto; gap: 9px; align-items: center; }
-.ds-mk { font-size: 11px; font-weight: 700; }
+.ds-mk { font-size: 13px; font-weight: 700; }
 .ds-mk.p { color: var(--bar-p); } .ds-mk.f { color: var(--bar-f); } .ds-mk.c { color: var(--bar-c); }
 .ds-mt { position: relative; height: 9px; border-radius: 5px; background: var(--line-soft); }
 .ds-mb { position: absolute; inset: 0 auto 0 0; border-radius: 5px; }
@@ -1037,12 +1037,12 @@ select { max-width: 280px; }
 .ds-mb.c { background: var(--bar-c); } .ds-mb.bust { background: var(--dial-over); }
 /* where the target sits, so how far past is a distance and not a subtraction */
 .ds-mk-t { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: 0.5; }
-.ds-mv { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ds-mv { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ds-mv b { color: var(--ink); font-weight: 600; }
 
 .ds-blk { border-top: 1px solid var(--line-soft); padding-top: 15px; margin-top: 18px; }
 .ds-h {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--muted); margin-bottom: 11px;
 }
 .ds-week { position: relative; display: flex; align-items: flex-end; gap: 6px; height: 60px; }
@@ -1059,26 +1059,26 @@ select { max-width: 280px; }
 .ds-wk.none i { background: none; border: 1px dashed var(--line); border-bottom: 0; }
 .ds-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--ink); opacity: 0.35; }
 .ds-line span {
-  position: absolute; right: 0; top: -12px; font-size: 8.5px; color: var(--muted);
+  position: absolute; right: 0; top: -12px; font-size: 13px; color: var(--muted);
   background: var(--card); padding: 0 3px;
 }
 .ds-days { display: flex; gap: 6px; margin-top: 5px; }
-.ds-days span { flex: 1 1 0; text-align: center; font-size: 9px; color: var(--muted); }
+.ds-days span { flex: 1 1 0; text-align: center; font-size: 13px; color: var(--muted); }
 .ds-days span.today { color: var(--ochre-text); font-weight: 700; }
 
 .ds-split { display: flex; height: 26px; border-radius: 5px; overflow: hidden; gap: 2px; }
 .ds-split span {
   display: flex; align-items: center; justify-content: center; min-width: 0;
-  font-size: 9.5px; font-weight: 600; color: oklch(0.99 0.004 85);
+  font-size: 13px; font-weight: 600; color: oklch(0.99 0.004 85);
 }
 .ds-splitl {
   display: flex; justify-content: space-between; gap: 10px; margin-top: 7px;
-  font-size: 10.5px; color: var(--muted);
+  font-size: 13px; color: var(--muted);
 }
 .ds-splitl b { color: var(--ink); font-weight: 600; }
 
 .ds-facts { display: flex; flex-direction: column; gap: 9px; }
-.ds-fact { display: flex; gap: 9px; align-items: baseline; font-size: 12.5px; color: var(--muted); }
+.ds-fact { display: flex; gap: 9px; align-items: baseline; font-size: 13px; color: var(--muted); }
 .ds-fact b { color: var(--ink); font-weight: 600; }
 .ds-fact em {
   flex: 0 0 auto; font-style: normal; font-family: var(--serif); font-size: 17px;
@@ -1107,7 +1107,7 @@ select { max-width: 280px; }
   border-radius: 0; padding: 0 1px;
 }
 .mstep .mstep-in:focus { outline: none; border-bottom-color: var(--ochre-text); }
-.mstep .mstep-typing i { font-style: normal; font-size: 11px; color: var(--muted); }
+.mstep .mstep-typing i { font-style: normal; font-size: 13px; color: var(--muted); }
 
 .mstep .mstep-wake {
   background: none; border: 0; font-family: inherit; cursor: pointer;
@@ -1180,7 +1180,7 @@ select { max-width: 280px; }
    dashboard sheet's, so the next nudge to one silently moves the other. The
    only genuinely identical pair is the target mark, .ds-mk-t and .msub-bm, and
    two lines are cheaper read twice than chased across two components. */
-.macro-kcal { font-size: 12.5px; color: var(--muted-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.macro-kcal { font-size: 13px; color: var(--muted-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
 
 /* the picker sheet */
 .mp-controls { display: flex; gap: 9px; margin: 14px 0 12px; flex-wrap: wrap; }
@@ -1206,32 +1206,32 @@ select { max-width: 280px; }
 .mslot-keep:hover:not(:disabled) { border-color: var(--ochre); }
 .mk-parts { margin: 12px 0 0; border-top: 1px solid var(--line-soft); }
 .mk-p { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0;
-  border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
+  border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 .mk-p span:first-child { font-family: var(--serif); }
 .mk-p span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
-.mk-tot { margin-top: 8px; font-size: 12px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.mk-tot { margin-top: 8px; font-size: 13px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 /* A food, opened from its name on the plate. For a kept meal this is the
    only place its parts can be seen again — the plate shows one line for the
    whole thing — so the parts get the room a recipe's ingredients would. */
 .mfs-name { font-family: var(--serif); font-size: 20px; line-height: 1.2; margin-top: 6px; }
-.mfs-one { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.mfs-one { font-size: 13px; color: var(--muted); margin-top: 3px; }
 .mfs-parts { border-top: 1px solid var(--line-soft); }
 .mfs-p {
   display: grid; grid-template-columns: 1fr auto; gap: 1px 10px; padding: 7px 0;
-  border-bottom: 1px solid var(--line-soft); font-size: 12.5px; align-items: baseline;
+  border-bottom: 1px solid var(--line-soft); font-size: 13px; align-items: baseline;
 }
 /* the "On your plate" divider that follows draws its own rule, so the last
    part gives up its line rather than doubling it */
 .mfs-p:last-child { border-bottom: 0; }
 .mfs-pn { font-family: var(--serif); }
 .mfs-px { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mfs-pm { grid-column: 1 / -1; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.mfs-micro { display: flex; gap: 14px; margin-top: 6px; font-size: 11.5px; color: var(--muted);
+.mfs-pm { grid-column: 1 / -1; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mfs-micro { display: flex; gap: 14px; margin-top: 6px; font-size: 13px; color: var(--muted);
   font-variant-numeric: tabular-nums; }
 .mp-meals { display: flex; gap: 5px; margin: 12px 0 2px; overflow-x: auto; scrollbar-width: none; }
 .mp-meals::-webkit-scrollbar { display: none; }
 .mp-meals button {
-  font-size: 11.5px; padding: 6px 11px; border-radius: 5px; white-space: nowrap;
+  font-size: 13px; padding: 6px 11px; border-radius: 5px; white-space: nowrap;
   background: var(--paper-soft); border: 1px solid var(--line-soft); color: var(--muted);
   font-family: var(--sans);
 }
@@ -1259,7 +1259,7 @@ select { max-width: 280px; }
 }
 .mp-shelves::-webkit-scrollbar { display: none; }
 .mp-shelf {
-  flex: none; font-family: var(--sans); font-size: 11.5px; padding: 6px 11px;
+  flex: none; font-family: var(--sans); font-size: 13px; padding: 6px 11px;
   border-radius: 999px; white-space: nowrap; cursor: pointer;
   background: var(--paper-soft); border: 1px solid var(--line-soft); color: var(--muted-2);
 }
@@ -1283,7 +1283,7 @@ select { max-width: 280px; }
 }
 .mp-cam svg { width: 19px; height: 19px; }
 .mp-back {
-  background: none; border: 0; font-family: var(--sans); font-size: 12.5px;
+  background: none; border: 0; font-family: var(--sans); font-size: 13px;
   color: var(--ochre-text); padding: 6px 0; cursor: pointer; font-weight: 600;
 }
 /* The lens rides the band divider. `mt-div` is uppercase small caps for a
@@ -1291,7 +1291,7 @@ select { max-width: 280px; }
 .mt-div-x { display: flex; align-items: center; gap: 8px; }
 .mp-lens { margin-left: auto; display: flex; gap: 5px; text-transform: none; letter-spacing: 0; }
 .mp-lens select {
-  font-family: var(--sans); font-size: 11px; padding: 3px 4px; max-width: 116px;
+  font-family: var(--sans); font-size: 13px; padding: 3px 4px; max-width: 116px;
   border: 1px solid var(--line-soft); border-radius: 4px;
   background: var(--paper-soft); color: var(--muted-2);
 }
@@ -1305,7 +1305,7 @@ select { max-width: 280px; }
 .mp-ways.big .mp-way { padding: 18px 4px; }
 .mp-way-i { width: 17px; height: 17px; }
 .mp-ways.big .mp-way-i { width: 23px; height: 23px; }
-.mp-way-t { font-size: 11px; font-weight: 600; }
+.mp-way-t { font-size: 13px; font-weight: 600; }
 .mp-way:hover { border-color: var(--ochre); }
 .mp-way.on { border-color: var(--ochre); box-shadow: inset 0 0 0 1px var(--ochre); color: var(--ink); }
 /* what this meal still has room for, said once at the top */
@@ -1320,7 +1320,7 @@ select { max-width: 280px; }
    opinion — one border, and the rows inside it. */
 /* Small and quiet: it is a state, not a control. The control is on the open
    plate; this only says the state survived the fold. */
-.mthin-l { font-size: 10px; opacity: 0.75; }
+.mthin-l { font-size: 13px; opacity: 0.75; }
 /* ---- the meal's four gauges -------------------------------------------
    Four of them have to fit on a 390 px row beside a name and three buttons,
    so the figure sits ABOVE its track rather than beside it. Calories carries
@@ -1351,15 +1351,15 @@ select { max-width: 280px; }
 .mgp {
   display: inline-flex; align-items: baseline; gap: 2px;
   justify-content: center; min-width: 0; white-space: nowrap;
-  padding: 4px 5px; border-radius: 999px; font-size: 11.5px;
+  padding: 4px 5px; border-radius: 999px; font-size: 13px;
   background: var(--paper-soft); border: 1px solid var(--line-soft);
   color: var(--muted-2); font-variant-numeric: tabular-nums;
 }
-.mgp span { font-size: 10.5px; font-weight: 700; }
+.mgp span { font-size: 13px; font-weight: 700; }
 .mgp b { font-weight: 700; }
 /* What the meal is FOR, quieter than what is on it — the same weighting the
    day's bars give "/ 205 g". */
-.mgp u { text-decoration: none; font-size: 10.5px; color: var(--muted); }
+.mgp u { text-decoration: none; font-size: 13px; color: var(--muted); }
 /* Nothing left to fill is a different state, not a small amount left. */
 .mgp.met { border-color: var(--dial-on-pale); color: var(--green); }
 /* A macro read against what the day is still owed: green where this portion
@@ -1370,7 +1370,7 @@ select { max-width: 280px; }
 /* The one badge nothing else can earn. Small, inline with the name, and
    green because landing everything at once is the good outcome. */
 .mp-closes {
-  display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+  display: inline-block; font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; vertical-align: 1px;
   background: oklch(0.935 0.048 145); color: var(--green);
   border-radius: 999px; padding: 1px 6px;
@@ -1400,21 +1400,22 @@ select { max-width: 280px; }
    made a row of meals read as an instrument panel, and it was the same claim
    the plate's chips were making before they came off. */
 .mmps { display: flex; gap: 7px; flex: 0 1 auto; min-width: 0; align-items: flex-end; }
+.mslot-head .mmps { gap: 5px; }
 .mmp {
   flex: none; display: inline-flex; flex-direction: column; align-items: flex-end;
   gap: 3px; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.mmp-n { display: flex; align-items: baseline; gap: 2px; font-size: 12px; }
+.mmp-n { display: flex; align-items: baseline; gap: 2px; font-size: 13px; }
 .mmp-v { font-weight: 600; color: var(--ink); }
 /* The letter is identity and never status — the same rule, and the same
    mb-* classes, the plate's cost line and the day's bars already follow. It
    was a flat grey here, which made P mean one thing on the plate and another
    six pixels above it. */
-.mmp i { font-style: normal; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; }
+.mmp i { font-style: normal; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; }
 /* The flame is not a letter and cannot be set like one: at 9px beside a 12px
    figure it is a smudge, which is the same note the day bar has carried about
    it for as long as it has been there. */
-.mmp .mb-kcal { font-size: 11px; letter-spacing: 0; }
+.mmp .mb-kcal { font-size: 13px; letter-spacing: 0; }
 .mmp-tr {
   display: block; width: 30px; height: 3px; border-radius: 999px;
   background: var(--line-soft); overflow: hidden;
@@ -1482,17 +1483,17 @@ select { max-width: 280px; }
   background: color-mix(in oklab, var(--green) 6%, var(--card)); overflow: hidden;
 }
 .mp-basket-h {
-  font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
+  font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
   color: var(--green); padding: 7px 9px 3px;
 }
 .mpb-row { display: flex; align-items: center; gap: 8px; padding: 5px 9px 7px; }
 .mpb-b { flex: 1 1 auto; min-width: 0; }
 .mpb-n { font-family: var(--serif); font-size: 13px; display: block;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mpb-m { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.mpb-m i { font-style: normal; font-weight: 700; font-size: 9.5px; }
+.mpb-m { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mpb-m i { font-style: normal; font-weight: 700; font-size: 13px; }
 .mpb-x { display: flex; align-items: center; gap: 2px; flex: none; }
-.mpb-x > span { font-size: 11px; color: var(--muted-2); min-width: 28px; text-align: center;
+.mpb-x > span { font-size: 13px; color: var(--muted-2); min-width: 28px; text-align: center;
   font-variant-numeric: tabular-nums; }
 .mpb-x button {
   width: 26px; height: 26px; border: 1px solid var(--line-soft); border-radius: 3px;
@@ -1506,14 +1507,14 @@ select { max-width: 280px; }
    drawn on the span, so the button around it can take a thumb's reach on a
    touch screen without the pill growing to match. */
 .mp-fitx {
-  flex: none; white-space: nowrap; font-size: 11px; line-height: 1;
+  flex: none; white-space: nowrap; font-size: 13px; line-height: 1;
   font-variant-numeric: tabular-nums; color: var(--green);
   background: none; border: 0; padding: 0; display: inline-flex; align-items: center;
 }
 .mp-side .mp-fitx { width: auto; height: auto; border: 0; background: none; margin-right: 2px; }
 .mp-fitx > span {
   display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 999px;
-  font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums;
+  font-size: 13px; line-height: 1; font-variant-numeric: tabular-nums;
   background: var(--card); border: 1px solid color-mix(in oklab, var(--green) 45%, var(--line));
   color: var(--green);
 }
@@ -1593,7 +1594,7 @@ select { max-width: 280px; }
    grows a row as you pick things is a footer that moves the commit button. */
 .mp-foot-b { flex: 1 1 auto; min-width: 0; }
 .mp-foot-n {
-  display: block; font-size: 10.5px; color: var(--muted); margin-top: 1px;
+  display: block; font-size: 13px; color: var(--muted); margin-top: 1px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mp-foot-n:empty { display: none; }
@@ -1608,14 +1609,14 @@ select { max-width: 280px; }
 .mp-done {
   background: var(--green); color: var(--paper); border: 0; border-radius: 4px;
   margin-left: auto;
-  padding: 7px 12px; font-family: var(--sans); font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  padding: 7px 12px; font-family: var(--sans); font-size: 13px; font-weight: 600; white-space: nowrap;
 }
-.mp-foot-l { font-size: 11.5px; color: var(--muted); }
-.mp-foot-m { font-size: 12px; color: var(--ink); }
+.mp-foot-l { font-size: 13px; color: var(--muted); }
+.mp-foot-m { font-size: 13px; color: var(--ink); }
 .mp-foot.busts { background: color-mix(in oklab, var(--dial-over) 12%, var(--card)); }
 .mp-foot.busts .mp-foot-l { color: var(--dial-over); font-weight: 600; }
 .mp-fit {
-  flex: none; font-size: 11px; color: var(--muted);
+  flex: none; font-size: 13px; color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1663,7 +1664,7 @@ select { max-width: 280px; }
   font-variant-numeric: tabular-nums;
 }
 .mt-tile i {
-  font-style: normal; font-size: 9px; letter-spacing: 0.1em;
+  font-style: normal; font-size: 13px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--muted);
 }
 .mt-whotext { display: block; min-width: 0; }
@@ -1700,7 +1701,7 @@ select { max-width: 280px; }
   display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px;
   margin-top: 14px; padding: 10px 12px; text-align: left;
   background: var(--card); border: 1px solid var(--line-soft); border-radius: 4px;
-  font-size: 12.5px; color: var(--muted-2);
+  font-size: 13px; color: var(--muted-2);
 }
 .mt-who:hover { border-color: var(--ochre); }
 .mt-editw { color: var(--ochre-text); font-weight: 600; flex: none; }
@@ -1721,7 +1722,7 @@ select { max-width: 280px; }
 .mtl-row.stack .mtl-val { justify-content: flex-start; flex-wrap: wrap; }
 .mtl-row.stack select { width: 100%; }
 .mtl-val { display: flex; align-items: baseline; gap: 5px; justify-content: flex-end; min-width: 0; }
-.mtl-u { font-size: 11px; color: var(--muted); }
+.mtl-u { font-size: 13px; color: var(--muted); }
 /* A row that states a number rather than asking for one. Sized and aligned
    like the boxes beside it so the column of values still reads as a column;
    no border, because a border is what says "type here". */
@@ -1741,11 +1742,11 @@ select { max-width: 280px; }
 }
 .scan-say {
   position: absolute; left: 0; right: 0; bottom: 8px; text-align: center;
-  font-size: 11.5px; color: oklch(0.95 0.01 85); text-shadow: 0 1px 3px oklch(0 0 0 / 0.7);
+  font-size: 13px; color: oklch(0.95 0.01 85); text-shadow: 0 1px 3px oklch(0 0 0 / 0.7);
 }
 .scan-x { position: absolute; top: 8px; right: 8px; background: var(--card); }
 .mp-src {
-  display: inline-block; margin-left: 6px; font-size: 9.5px; letter-spacing: 0.06em;
+  display: inline-block; margin-left: 6px; font-size: 13px; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--muted); opacity: 0.8;
 }
 .mt-sheet .mtl-val select { max-width: 190px; text-align: right; text-align-last: right; }
@@ -1759,7 +1760,7 @@ select { max-width: 280px; }
 .mtw-pip.on { background: var(--ochre); opacity: 1; }
 .mtw-pip.done { background: var(--green); opacity: 1; }
 .mtw-no {
-  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--ochre-text); font-weight: 600;
 }
 .mtw-h {
@@ -1783,7 +1784,7 @@ select { max-width: 280px; }
   text-align: right; font-variant-numeric: tabular-nums;
 }
 .mtw-part i { font-style: normal; color: var(--muted); }
-.mtw-for { font-size: 12.5px; color: var(--ink-soft); margin: 0; max-width: 44ch; }
+.mtw-for { font-size: 13px; color: var(--ink-soft); margin: 0; max-width: 44ch; }
 .mtw-nav { display: flex; gap: 8px; margin-top: 18px; }
 .mtw-nav .btn-primary { flex: 1; }
 /* The wizard's folds: a setting that is not a question sits behind one line
@@ -1830,7 +1831,7 @@ select { max-width: 280px; }
   border-radius: 5px; padding: 11px 12px; color: var(--ink);
 }
 .mt-pick b { display: block; font-size: 14.5px; font-weight: 600; }
-.mt-pick span { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+.mt-pick span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
 .mt-pick[aria-pressed="true"] {
   border-color: var(--green); border-width: 1.5px; background: var(--card);
 }
@@ -1845,27 +1846,27 @@ select { max-width: 280px; }
    is a button to put them back in charge */
 .mtl-seg.spent .seg { opacity: 0.4; }
 .mtl-seg .seg button:disabled { cursor: default; }
-.mt-byfeel { display: none; margin-top: 0; padding: 9px 11px; font-size: 12.5px; }
+.mt-byfeel { display: none; margin-top: 0; padding: 9px 11px; font-size: 13px; }
 .mtl-seg.spent .mt-byfeel { display: inline-block; }
 .mtl-seg .seg { width: 100%; }
 .mtl-seg .seg button { flex: 1; }
 
 /* one short caption per section, tops; silent when it has nothing to say */
-.mt-cap { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.mt-cap { font-size: 13px; color: var(--muted); margin-top: 8px; }
 .mt-cap:empty { display: none; }
 .mt-warn { display: block; margin-top: 5px; color: oklch(0.50 0.13 45); }
 /* what your day costs, where the plan lands, and what one more lever buys */
 .mco { margin-top: 10px; border-top: 1px solid var(--line-soft); padding-top: 9px; }
 .mco-row {
   display: flex; gap: 12px; align-items: baseline; padding: 4px 0;
-  font-size: 12.5px; color: var(--muted-2); line-height: 1.45;
+  font-size: 13px; color: var(--muted-2); line-height: 1.45;
 }
 /* Label left, fact right, in the ledger's own voice — the uppercase tags
    were the loudest thing on a sheet that is meant to be read quietly. */
-.mco-k { flex: 0 0 112px; font-size: 12.5px; color: var(--muted); }
+.mco-k { flex: 0 0 112px; font-size: 13px; color: var(--muted); }
 .mco-v { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
 .mco-v b { color: var(--ink); font-weight: 600; }
-.mco-use { padding: 2px 10px; font-size: 11px; margin-left: 6px; border-color: var(--ochre); }
+.mco-use { padding: 2px 10px; font-size: 13px; margin-left: 6px; border-color: var(--ochre); }
 .mco-note { display: block; color: var(--muted); font-style: italic; padding-top: 7px; }
 .mt-sheet input[type="date"] {
   font-family: var(--serif); font-size: 15px; width: auto; min-width: 130px;
@@ -1907,9 +1908,9 @@ select { max-width: 280px; }
 .mtm-row .mtm-name {
   flex: 5 1 40px; min-width: 40px; width: auto; padding: 7px 8px; font-size: 14px;
 }
-.mtm-row .mtm-type { flex: 4 1 60px; min-width: 0; max-width: none; font-size: 12px; }
+.mtm-row .mtm-type { flex: 4 1 60px; min-width: 0; max-width: none; font-size: 13px; }
 .mtm-del { flex: none; font-size: 17px; }
-.mtm-share-l { display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--muted-2); flex: none; }
+.mtm-share-l { display: flex; align-items: center; gap: 2px; font-size: 13px; color: var(--muted-2); flex: none; }
 .mtm-row .mtm-share {
   width: 34px; min-width: 34px; padding: 7px 4px; font-size: 13px; text-align: right;
   border: 1px solid var(--line-firm); border-radius: 3px; background: var(--paper-soft);
@@ -1917,7 +1918,7 @@ select { max-width: 280px; }
 }
 /* the spinner arrows cost more width than the number they spin */
 /* the running sum of the shares, and which way it leans */
-.mtm-total { margin-top: 12px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.mtm-total { margin-top: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .mtm-total b { font-family: var(--serif); font-size: 15px; }
 .mtm-total.ok { color: var(--green); }
 .mtm-total.off { color: oklch(0.50 0.13 45); }
@@ -1928,21 +1929,21 @@ select { max-width: 280px; }
 /* the custom-sections checklist, unfolded under its meal row */
 .mtm-secs {
   flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 4px 12px;
-  padding: 8px 0 4px 40px; font-size: 12px; color: var(--muted-2);
+  padding: 8px 0 4px 40px; font-size: 13px; color: var(--muted-2);
 }
 .mtm-secs-b {
-  flex: 0 0 100%; margin-top: 4px; font-size: 10px; letter-spacing: 0.12em;
+  flex: 0 0 100%; margin-top: 4px; font-size: 13px; letter-spacing: 0.12em;
   text-transform: uppercase; font-weight: 600; color: var(--muted);
 }
 .mtm-sec { display: flex; align-items: center; gap: 5px; }
 .mtm-sec input { accent-color: var(--green); }
 .mtm-secs { align-items: flex-start; }
-.mtm-secdone { margin-top: 6px; margin-left: auto; padding: 4px 16px; font-size: 11.5px; }
+.mtm-secdone { margin-top: 6px; margin-left: auto; padding: 4px 16px; font-size: 13px; }
 /* what the meal draws from, once the choosing is over */
 .mtm-secsum {
   display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 10px;
   margin-top: 5px; padding: 4px 0 4px 40px; text-align: left;
-  background: none; border: none; font-size: 11.5px; color: var(--muted);
+  background: none; border: none; font-size: 13px; color: var(--muted);
 }
 .mtm-secsum-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mtm-secsum-e { flex: none; color: var(--ochre-text); font-weight: 600; }
@@ -1965,15 +1966,15 @@ select { max-width: 280px; }
 }
 /* the picker's two lenses share the select dress of the day bar */
 .mp-controls select {
-  padding: 7px 9px; font-size: 12.5px; min-width: 0; max-width: 48%;
+  padding: 7px 9px; font-size: 13px; min-width: 0; max-width: 48%;
   border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
   background: var(--card); color: var(--muted-2);
 }
-.mt-seg button { font-size: 12px; }
+.mt-seg button { font-size: 13px; }
 /* the divider between "worked out for you" and "typed in yourself" */
 .mt-div {
   margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line);
-  font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
   font-weight: 600; color: var(--muted);
 }
 /* ---- My Day: the chart rides along, the steps are the morning ----
@@ -1994,7 +1995,7 @@ select { max-width: 280px; }
 .mday-title { flex: none; font-size: 20px; margin-right: 2px; }
 .mday-head .ghost { flex: none; white-space: nowrap; padding: 5px 8px; }
 .mday-head select {
-  flex: 1 1 40px; min-width: 0; max-width: 190px; padding: 5px 6px; font-size: 12.5px;
+  flex: 1 1 40px; min-width: 0; max-width: 190px; padding: 5px 6px; font-size: 13px;
   border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
   background: var(--card); color: var(--muted-2);
 }
@@ -2036,10 +2037,10 @@ select { max-width: 280px; }
 }
 .mwk-d:disabled { opacity: 0.4; cursor: default; }
 .mwk-w {
-  font-size: 9px; letter-spacing: 0.06em; color: var(--muted); text-align: center;
+  font-size: 13px; letter-spacing: 0.06em; color: var(--muted); text-align: center;
 }
 .mwk-n {
-  font-size: 12px; text-align: center; color: var(--muted-2);
+  font-size: 13px; text-align: center; color: var(--muted-2);
   font-variant-numeric: tabular-nums; line-height: 1;
 }
 .mwk-n b { font-weight: inherit; }
@@ -2094,7 +2095,7 @@ select { max-width: 280px; }
    span on the other six holds the row's height steady so the strip does not
    jump a line when the day you are on changes verdict. */
 .mwk-s {
-  font-size: 9px; line-height: 1; text-align: center; color: var(--muted);
+  font-size: 13px; line-height: 1; text-align: center; color: var(--muted);
   font-weight: 600; min-height: 9px;
 }
 /* Which day you are on: an ink edge on the track and a bold date, the one
@@ -2117,7 +2118,7 @@ select { max-width: 280px; }
 /* the seven training-day toggles in the plan sheet */
 .mt-help { margin-top: 16px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
 .mt-steps { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 12px;
-  font-size: 12px; align-items: baseline; }
+  font-size: 13px; align-items: baseline; }
 .mt-steps dt { font-weight: 600; color: var(--ink); white-space: nowrap; }
 .mt-steps dd { margin: 0; color: var(--muted); }
 /* the two beside the title: open the day, or set it up */
@@ -2134,17 +2135,17 @@ select { max-width: 280px; }
 .mt-burn { display: grid; gap: 3px; }
 .mt-burn-c {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-  font-size: 12.5px; color: var(--muted);
+  font-size: 13px; color: var(--muted);
 }
 .mt-swap {
   background: none; border: 0; padding: 0; flex: none; text-align: right;
-  font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ochre-text);
+  font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ochre-text);
 }
 .mtrain { display: flex; gap: 4px; }
 .mtrain button {
   width: 30px; height: 30px; border-radius: 50%; background: var(--card);
   border: 1px solid var(--line-firm); color: var(--muted); font-family: var(--sans);
-  font-size: 11.5px;
+  font-size: 13px;
 }
 .mtrain button[aria-pressed="true"] {
   background: var(--ochre); border-color: var(--ochre); color: var(--paper); font-weight: 600;
@@ -2165,7 +2166,7 @@ select { max-width: 280px; }
 .mc-sheet { max-width: 640px; }
 .mc-tabs { display: flex; gap: 4px; margin: 12px 0 10px; flex-wrap: wrap; }
 .mc-tabs button {
-  font-size: 11.5px; padding: 6px 11px; border-radius: 5px; background: var(--paper-soft);
+  font-size: 13px; padding: 6px 11px; border-radius: 5px; background: var(--paper-soft);
   border: 1px solid var(--line-soft); color: var(--muted); font-family: var(--sans);
 }
 .mc-tabs button[aria-pressed="true"] {
@@ -2182,7 +2183,7 @@ select { max-width: 280px; }
 .mc-sig { fill: var(--dial-over); }
 .mc-salt { fill: var(--ochre); }
 .mc-ax { font-size: 9px; fill: var(--muted); font-family: var(--sans); }
-.mc-note { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+.mc-note { font-size: 13px; color: var(--muted); margin-top: 8px; }
 /* glyph, bar, what is on it, what is left — four columns, one row per line
    of the budget. The delta used to be a fifth line under the bars. */
 /* Back to 17px and a 9px gap: the column holds one letter or one glyph, and
@@ -2199,7 +2200,7 @@ select { max-width: 280px; }
    At one size they compete, and "1,633 / 1,745" becomes a fraction to be
    worked out rather than a number to be read. */
 .mhead .mb-num {
-  font-size: 12px; color: var(--muted-2); min-width: 0; text-align: left;
+  font-size: 13px; color: var(--muted-2); min-width: 0; text-align: left;
   line-height: 1; white-space: nowrap;
 }
 .mhead .mb-num b {
@@ -2223,12 +2224,12 @@ select { max-width: 280px; }
    and a smaller figure than the headline, because a third of a phone is what
    each one has. */
 .mbrow .mb-w { padding: 0 8px; gap: 4px; }
-.mbrow .mb-num { font-size: 11px; color: var(--muted-2); line-height: 1; }
+.mbrow .mb-num { font-size: 13px; color: var(--muted-2); line-height: 1; }
 .mbrow .mb-num b { font-size: 13px; font-weight: 700; color: var(--ink); }
 .mb-t { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
-.mb-k { font-size: 11px; font-weight: 700; text-align: center; line-height: 1; white-space: nowrap; }
+.mb-k { font-size: 13px; font-weight: 700; text-align: center; line-height: 1; white-space: nowrap; }
 /* the flame is an emoji, and an emoji at letter size is a smudge */
-.mb-k.mb-kcal { font-size: 12.5px; }
+.mb-k.mb-kcal { font-size: 13px; }
 /* the letters are identity, never status — status is the bar beside them */
 .mb-kcal { color: var(--bar-kcal); } .mb-p { color: var(--bar-p); }
 .mb-f { color: var(--bar-f); } .mb-c { color: var(--bar-c); }
@@ -2275,7 +2276,7 @@ select { max-width: 280px; }
     color-mix(in oklab, var(--muted) 36%, transparent) 0 3px, transparent 3px 6px);
 }
 .mb-num {
-  font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+  font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
   white-space: nowrap; text-align: right;
 }
 .mb-num b { color: var(--ink); font-weight: 600; }
@@ -2305,14 +2306,14 @@ select { max-width: 280px; }
 .mlimits:not(:empty) {
   margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--line-soft);
 }
-.mlim { display: flex; align-items: baseline; gap: 6px; font-size: 11px; }
-.mlim-g { flex: 0 0 auto; font-size: 11px; }
+.mlim { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.mlim-g { flex: 0 0 auto; font-size: 13px; }
 .mlim-t { color: var(--muted); font-variant-numeric: tabular-nums; text-wrap: pretty; }
 .mlim-t b { font-weight: 600; }
 .mlim.short .mlim-t b, .mlim.near .mlim-t b { color: var(--dial-under); }
 .mlim.past .mlim-t b { color: var(--dial-over); }
 .mlim.past .mlim-t { color: var(--dial-over); }
-.mm { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11.5px;
+.mm { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px;
   display: inline-flex; align-items: baseline; gap: 3px; }
 .mm b { font-weight: 600; color: var(--ink); }
 .mm.low b { color: var(--dial-under); }
@@ -2377,7 +2378,7 @@ select { max-width: 280px; }
 .mpill {
   flex: none; display: inline-flex; align-items: baseline; gap: 2px;
   justify-content: center; min-width: 54px;
-  padding: 2px 5px; border-radius: 999px; font-size: 11px;
+  padding: 2px 5px; border-radius: 999px; font-size: 13px;
   background: var(--paper-soft); border: 1px solid var(--line-soft);
   color: var(--muted); font-variant-numeric: tabular-nums;
 }
@@ -2398,13 +2399,16 @@ select { max-width: 280px; }
   content: ''; position: absolute; left: -6px; top: 3px; bottom: 3px; width: 1px;
   background: var(--line-firm);
 }
-.mpill span { font-size: 10px; font-weight: 700; }
-.mpill .mb-kcal { font-size: 10.5px; }
+.mpill span { font-size: 13px; font-weight: 700; }
+.mpill .mb-kcal { font-size: 13px; }
 .mpill b { font-weight: 600; color: var(--ink); }
 .mpill.pos b { color: var(--dial-over); }
 .mpill.nil b { color: var(--dial-on); }
 .mpill.neg b { color: var(--muted-2); }
-.mpill-m { font-size: 10.5px; min-width: 50px; }
+.mpill-m { font-size: 13px; min-width: 50px; }
+/* 13px type in the same 343px at 375: the air inside each pill gives way,
+   the numbers do not. */
+.mpill { padding: 2px 3px; }
 .mpill-m.short b, .mpill-m.near b { color: var(--dial-under); }
 .mpill-m.past b { color: var(--dial-over); }
 /* a plate carrying a third of the day's salt on its own */
@@ -2458,48 +2462,63 @@ select { max-width: 280px; }
   display: flex; align-items: flex-start; gap: 12px;
   margin-top: 12px; padding: 10px 12px;
   background: var(--card); border: 1px solid var(--line-soft); border-radius: 4px;
-  font-size: 12.5px; color: var(--muted-2); line-height: 1.5;
+  font-size: 13px; color: var(--muted-2); line-height: 1.5;
 }
 .mplan-t { flex: 1 1 auto; min-width: 0; }
 .mplan-t b { font-family: var(--serif); font-size: 14px; color: var(--ink); font-weight: 600; }
-.mplan-go { flex: none; padding: 4px 11px; font-size: 11.5px; }
+.mplan-go { flex: none; padding: 4px 11px; font-size: 13px; }
 .mplan-v.good { color: var(--dial-on); font-weight: 600; }
 .mplan-v.off { color: var(--dial-over); font-weight: 600; }
 /* nothing to report yet, so the invitation carries the weight */
 .mplan-none { align-items: center; }
 .mplan-none .mplan-go { border-color: var(--ochre); color: var(--ink); }
 
-/* The two morning verbs, held against the bottom edge. They sit at the end
-   of the view, so the bar rides down with the page and parks on the last
-   screenful — which is where the day ends anyway. The fade underneath keeps
-   a plate from appearing to run into the buttons. */
+/* Everything you do to the day, held against the bottom edge. It sits at
+   the end of the view, so the bar rides down with the page and parks on the
+   last screenful. The fade underneath keeps a plate from appearing to run
+   into the buttons. Two rows on a grid: the four tools, an icon over its
+   word, and under them the two verbs pressed most, full size. */
 .mday-acts {
-  display: flex; gap: 8px; margin-top: 18px; align-items: center;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;
+  margin-top: 18px; align-items: stretch;
   position: sticky; bottom: 0; z-index: 3;
-  padding: 9px 0 calc(9px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to top, var(--paper) 72%, transparent);
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, var(--paper) 86%, transparent);
+  /* The fade and the gaps are paint, not a wall: a tap there reaches the
+     plate under it. */
+  pointer-events: none;
 }
-.mday-acts #macroFill { flex: 1 1 auto; min-width: 0; }
-/* Squares, sized by the thumb rather than by their label. */
-.mday-acts .mday-icon {
-  flex: 0 0 auto; width: 44px; padding-left: 0; padding-right: 0;
-  font-size: 15px; line-height: 1;
+.mday-acts > * { pointer-events: auto; }
+/* A plate's control scrolled to — a focused box, a tick reached by the
+   keyboard — stops above the bar rather than behind it. On the controls,
+   not on the page: the bar's own buttons must not scroll the day. */
+#macroSlots :is(button, input, select), #macroWeigh :is(button, input) { scroll-margin-bottom: 120px; }
+.mday-acts .mday-tool {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  min-height: 44px; min-width: 0; padding: 3px 2px; font-size: 13px; line-height: 1.1;
+  font-weight: 600; color: var(--ink); background: var(--card);
 }
-/* Closed. The tick fills rather than the box lighting up — this is a state
-   the day is in, not a control waiting to be pressed. */
-.mday-acts #macroDone.done {
-  background: color-mix(in oklab, var(--green) 16%, var(--card));
-  border-color: color-mix(in oklab, var(--green) 45%, var(--line));
-  color: var(--green);
+.mday-acts .mday-tool .mday-ic { width: 18px; height: 18px; }
+.mday-acts .mday-tool:disabled { color: var(--muted); }
+.mday-w { display: block; white-space: nowrap; }
+.mday-ic {
+  width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5;
+  stroke-linecap: round; stroke-linejoin: round;
 }
-/* Six controls on one bar is what was asked for, and at 390px Fill keeps
-   about a hundred pixels, which is enough for the word. Below that the
-   squares give ground first — a narrower tick is still a tick, whereas a
-   clipped "Fill" is nothing. */
-@media (max-width: 380px) {
-  .mday-acts { gap: 6px; }
-  .mday-acts .mday-icon { width: 38px; }
+.mday-ic .thin { stroke-width: 0.9; }
+.mday-acts #macroFill, .mday-acts #macroAdd {
+  grid-column: span 2; min-height: 48px; min-width: 0; padding: 8px 12px;
+  font-size: 16px; font-weight: 650; line-height: 1.2; white-space: normal;
+  overflow-wrap: normal; word-break: normal; hyphens: none;
 }
+/* The door to the food sheet: the biggest thing on the bar, in ink, with
+   its plus drawn in the same set as the tools. */
+.mday-acts #macroAdd {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  background: var(--ink); color: var(--paper);
+}
+.mday-acts #macroAdd:hover { background: oklch(0.32 0.03 60); }
+.mday-acts #macroAdd .mday-ic { width: 20px; height: 20px; stroke-width: 2.2; }
 .mday-more { flex: 0 0 auto; padding-left: 12px; padding-right: 12px; position: relative; }
 /* The mark that says the day is not reaching the account it belongs to.
    Only ever drawn for a device that has one — see mSyncTrouble — so a visitor
@@ -2514,7 +2533,7 @@ select { max-width: 280px; }
 /* Who the account belongs to, under the item that opens it. A second line
    rather than a second item: it is not a thing to press, it is the answer. */
 .mmenu-who {
-  display: block; font-size: 11px; color: var(--muted); margin-top: 2px;
+  display: block; font-size: 13px; color: var(--muted); margin-top: 2px;
   max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mmenu-who:empty { display: none; }
@@ -2556,7 +2575,7 @@ select { max-width: 280px; }
    sitting in. The average moved down to the line that already reads like
    prose; the header keeps the name and the one thing you came here to do. */
 .mday-weigh .mslot-h { padding-bottom: 6px; }
-.mw-avg { font-size: 11px; color: var(--muted); }
+.mw-avg { font-size: 13px; color: var(--muted); }
 /* Said beside the box it is about, and only while it is about something. It
    takes no room when empty, so a card that is fine does not carry a gap where
    a complaint might one day go. */
@@ -2576,19 +2595,19 @@ select { max-width: 280px; }
   font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-.mw-sum u { text-decoration: none; font-size: 12px; color: var(--muted); }
+.mw-sum u { text-decoration: none; font-size: 13px; color: var(--muted); }
 /* The day's training, on a line of its own under the weight: "Lifting day ·
    130 g carbs" beside the weight on one line clipped the card's name at a
    phone's width. */
 .mw-sum { text-align: right; }
-.mw-sum-t { display: block; font-size: 11.5px; line-height: 1.2; color: var(--muted-2); margin-top: 1px; }
+.mw-sum-t { display: block; font-size: 13px; line-height: 1.2; color: var(--muted-2); margin-top: 1px; }
 /* The one thing it asks for, on a morning it has not been given. */
 .mw-ask { font-size: 13px; font-weight: 600; color: var(--ochre-text); flex: none; }
 /* Why today is not the same as yesterday. Inside the fold: it is the same
    sentence every training day, and a line you have read forty times is
    furniture. */
 .mw-why {
-  font-size: 12.5px; color: var(--muted-2); padding: 8px 3px;
+  font-size: 13px; color: var(--muted-2); padding: 8px 3px;
   border-top: 1px solid var(--line-soft);
 }
 .mw-why b { font-weight: 650; color: var(--ink); }
@@ -2597,7 +2616,7 @@ select { max-width: 280px; }
 .mw-tr-ic {
   flex: none;
   width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 12px; font-weight: 700; line-height: 1; padding: 0; margin: 0;
+  font-size: 13px; font-weight: 700; line-height: 1; padding: 0; margin: 0;
 }
 .mw-tr-ic.is-lift { background: color-mix(in oklch, var(--ochre) 16%, var(--paper)); color: var(--ochre-text); }
 .mw-tr-ic.is-done { background: var(--dial-on); color: var(--paper); }
@@ -2613,7 +2632,7 @@ select { max-width: 280px; }
   color: var(--muted); cursor: pointer; min-height: 34px;
 }
 .mw-tick-l { display: flex; flex-direction: column; gap: 1px; color: var(--ink); letter-spacing: 0; font-size: 14px; }
-.mw-tick-s { font-size: 12px; color: var(--muted); letter-spacing: 0; }
+.mw-tick-s { font-size: 13px; color: var(--muted); letter-spacing: 0; }
 .mw-tick-b {
   width: 22px; height: 22px; border-radius: 5px;
   border: 1.5px solid var(--line); background: var(--paper);
@@ -2633,14 +2652,14 @@ select { max-width: 280px; }
 /* How many lifting days, and that they are Strengthen's too. */
 .mt-ld { display: flex; gap: 4px; flex-wrap: wrap; }
 .mt-ld i {
-  font-style: normal; font-size: 12px; font-weight: 650; padding: 3px 9px; border-radius: 99px;
+  font-style: normal; font-size: 13px; font-weight: 650; padding: 3px 9px; border-radius: 99px;
   background: color-mix(in oklch, var(--ochre) 16%, var(--paper)); color: var(--ochre-text);
 }
 .mt-ld-go { display: block; flex-basis: 100%; text-align: left; background: none; border: 0; padding: 0; margin-top: 6px; font: inherit; font-size: 13px; font-weight: 650; color: var(--ochre-text); cursor: pointer; }
-.mt-ld-s { display: block; flex-basis: 100%; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.mt-ld-s { display: block; flex-basis: 100%; font-size: 13px; color: var(--muted); margin-top: 4px; }
 
 .mw-note {
-  flex: 1 0 100%; text-align: right; font-size: 11px;
+  flex: 1 0 100%; text-align: right; font-size: 13px;
   color: var(--dial-over); margin-top: 2px;
 }
 #mWeight[aria-invalid="true"] { border-bottom-color: var(--dial-over); }
@@ -2664,9 +2683,9 @@ select { max-width: 280px; }
 .mline-i { font-size: 15px; line-height: 1.25; flex: none; }
 .mline-b { flex: 1 1 auto; min-width: 0; }
 .mline-t { font-family: var(--serif); font-size: 14px; line-height: 1.4; display: block; }
-.mline-s { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.mline-s { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
 .mline-a { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
-.mline-a button { padding: 6px 11px; font-size: 11.5px; border-radius: 4px; }
+.mline-a button { padding: 6px 11px; font-size: 13px; border-radius: 4px; }
 /* A day being planned rather than lived: everything that records what
    happened goes quiet, everything that decides what will happen stays. */
 .mday-ahead .mday-dot { opacity: 0.3; }
@@ -2678,23 +2697,23 @@ select { max-width: 280px; }
 .mday-weigh .mt-lab { margin-left: auto; }
 .mday-weigh .mw-row { margin-bottom: 6px; }
 .mw-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.mw-stat { font-size: 12.5px; color: var(--muted-2); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.mw-stat { font-size: 13px; color: var(--muted-2); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .mw-spark { display: block; width: 100%; height: 44px; margin-top: 10px; color: var(--ochre-text); }
 .mw-spark-plan { stroke: var(--muted); }
-.mw-spark-k { display: flex; gap: 14px; align-items: center; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.mw-spark-k { display: flex; gap: 14px; align-items: center; font-size: 13px; color: var(--muted); margin-top: 4px; }
 .mw-spark-k i { display: inline-block; width: 16px; height: 0; margin-right: 5px; vertical-align: middle; }
 .mw-spark-k i.me { border-top: 2px solid var(--ochre-text); }
 .mw-spark-k i.pl { border-top: 1.5px dashed var(--muted); }
 /* Where you stand, as a word you can see from across the room. */
-.mw-chip { display: inline-block; font-size: 11.5px; font-weight: 650; padding: 1px 8px;
+.mw-chip { display: inline-block; font-size: 13px; font-weight: 650; padding: 1px 8px;
   border-radius: 99px; white-space: nowrap; vertical-align: 1px; margin-left: 6px; }
 .mw-chip.behind { background: var(--dial-under-pale); color: var(--ink); }
 .mw-chip.on, .mw-chip.ahead { background: var(--dial-on-pale); color: var(--ink); }
-.mw-stats { display: block; margin-top: 3px; font-size: 12.5px; color: var(--muted-2); }
+.mw-stats { display: block; margin-top: 3px; font-size: 13px; color: var(--muted-2); }
 .mline-q { font-weight: 400; color: var(--muted); }
 .ghost {
   background: none; border: 1px solid oklch(0.82 0.03 75); border-radius: 3px;
-  padding: 6px 12px; font-size: 12px; color: var(--muted-2);
+  padding: 6px 12px; font-size: 13px; color: var(--muted-2);
 }
 .ghost:hover { border-color: var(--ochre); color: var(--ink); }
 
@@ -3924,7 +3943,7 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
    than a second card, because a number and what the number means were never
    two subjects. */
 .mw-verdict {
-  padding: 2px 10px 7px; font-size: 12.5px; color: var(--muted-2); line-height: 1.4;
+  padding: 2px 10px 7px; font-size: 13px; color: var(--muted-2); line-height: 1.4;
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px;
   width: 100%; text-align: left; background: none; border: 0;
   font-family: var(--sans); cursor: pointer;
@@ -3955,7 +3974,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    to press. */
 .sync-alt {
   display: block; width: 100%; margin-top: 8px; padding: 6px;
-  background: none; border: 0; font-family: var(--sans); font-size: 12px;
+  background: none; border: 0; font-family: var(--sans); font-size: 13px;
   color: var(--muted); text-decoration: underline; text-underline-offset: 2px;
 }
 .sync-alt:hover { color: var(--ink); }
@@ -3978,8 +3997,8 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mcasc-i { font-size: 13px; line-height: 1.25; color: var(--ochre-text); flex: 0 0 auto; }
 .mcasc.over .mcasc-i { color: var(--dial-over); }
 .mcasc-b { flex: 1 1 auto; min-width: 0; }
-.mcasc-t { display: block; font-size: 11.5px; font-weight: 600; line-height: 1.4; }
-.mcasc-s { display: block; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.mcasc-t { display: block; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.mcasc-s { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
 /* ---- the chooser ----------------------------------------------------
    A list you pick several meals from, drawn as one. It was a row of ghost
    buttons reading "Borrow from Dinner", each toggling when pressed a second
@@ -3991,12 +4010,12 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   gap: 10px; margin-bottom: 5px;
 }
 .mcasc-ph > span:first-child {
-  font-size: 9px; letter-spacing: 0.13em; text-transform: uppercase;
+  font-size: 13px; letter-spacing: 0.13em; text-transform: uppercase;
   color: var(--muted); font-weight: 700;
 }
 .mcasc-pa { display: flex; gap: 4px; flex: none; }
 .mcasc-pa button {
-  font-family: var(--sans); font-size: 10.5px; font-weight: 600; cursor: pointer;
+  font-family: var(--sans); font-size: 13px; font-weight: 600; cursor: pointer;
   padding: 3px 8px; border-radius: 3px; min-height: 24px;
   background: none; border: 1px solid var(--line-firm); color: var(--muted-2);
 }
@@ -4015,32 +4034,32 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   border: 1.5px solid var(--line-firm); display: grid; place-items: center;
   /* Ghosted like the plate's tick, and for the same reason — one checkbox
      idiom in the app, not one per surface. */
-  font-size: 10px; color: var(--line-firm);
+  font-size: 13px; color: var(--line-firm);
 }
 .mcasc-row[aria-checked="true"] .mcasc-box {
   background: var(--dial-on); border-color: var(--dial-on); color: var(--paper-soft);
 }
 .mcasc-nm {
-  flex: 1 1 auto; min-width: 0; font-size: 11.5px;
+  flex: 1 1 auto; min-width: 0; font-size: 13px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* Why ticking one more does not always place more. */
 .mcasc-cap {
-  display: block; font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  display: block; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
   font-weight: 700; color: var(--ochre-text); margin-top: 1px;
 }
 /* The price of this row, on the row that charges it. */
-.mcasc-was { flex: none; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mcasc-was { flex: none; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .mcasc-was i { font-style: normal; font-weight: 600; color: var(--ink); }
 .mcasc-d {
-  flex: none; min-width: 40px; text-align: right; font-size: 11px; font-weight: 600;
+  flex: none; min-width: 40px; text-align: right; font-size: 13px; font-weight: 600;
   font-variant-numeric: tabular-nums; color: var(--dial-over);
 }
 .mcasc:not(.over) .mcasc-d { color: var(--dial-on); }
 .mcasc-row[aria-checked="false"] .mcasc-d { color: var(--line-firm); }
-.mcasc-note { margin-top: 7px; font-size: 10px; color: var(--muted); line-height: 1.45; }
+.mcasc-note { margin-top: 7px; font-size: 13px; color: var(--muted); line-height: 1.45; }
 .mcasc-done { display: flex; margin-top: 8px; }
-.mcasc-done button { flex: 1 1 auto; font-size: 11.5px; min-height: 30px; }
+.mcasc-done button { flex: 1 1 auto; font-size: 13px; min-height: 30px; }
 
 /* ---- answered, and out of the way ----------------------------------
    The day was already right before any of this was read, so once it has been
@@ -4056,7 +4075,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mcasc-cue {
   flex: none; width: 22px; height: 22px; border-radius: 50%;
   background: var(--card); color: var(--muted);
-  display: grid; place-items: center; font-size: 11px; line-height: 1;
+  display: grid; place-items: center; font-size: 13px; line-height: 1;
 }
 .mcasc-fold:hover .mcasc-cue { color: var(--ink); }
 /* A meal asked for as much or as little as a meal can be. The kcal pill is
@@ -4108,6 +4127,9 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    the common case, so the occasional big meal is uniform too. */
 .mmp { min-width: 34px; }
 .mmp.kc { min-width: 56px; }
+/* ...and at 13px letters, "164P" is 36: the floor moves with the type. */
+.mmp { min-width: 37px; }
+.mmp.kc { min-width: 58px; }
 /* Two pixels over, at 390, is the difference between one row and two: the
    header spends 15 (dot) + 18 (three 6px gaps) + 78 (BREAKFAST) + 227 (pills)
    = 338 of the 336 it has. The gap gives it back — 4px still separates a dot
@@ -4227,7 +4249,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 /* What it weighs, first, because Blake weighs. A cup of oats is a range and
    40 g of oats is 40 g. */
 .mitem-uom {
-  flex: none; font-size: 10.5px; font-weight: 600; color: var(--muted-2);
+  flex: none; font-size: 13px; font-weight: 600; color: var(--muted-2);
   padding: 1px 6px; border-radius: 3px;
   background: var(--card); border: 1px solid var(--line-soft);
 }
@@ -4287,7 +4309,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   display: grid; grid-template-columns: minmax(0, 1fr);
   align-content: center; justify-items: center; gap: 3px;
   border: 1px solid var(--line-firm); border-radius: 4px; background: var(--card);
-  font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink);
+  font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink);
   /* Wraps at spaces, and breaks a word ONLY when the word cannot fit a line
      of its own. `anywhere` was the first try and it broke "1 serving" into
      "1 / serv / ing" — three lines of nonsense where two honest ones fit,
@@ -4326,7 +4348,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
   border-color: var(--ochre); color: var(--ochre-text);
 }
 .mitem-r3 .mstep .mitem-amt.mstep-wake { text-align: center; }
-.mitem-typing i { font-style: normal; font-size: 10.5px; color: var(--muted); font-weight: 400; }
+.mitem-typing i { font-style: normal; font-size: 13px; color: var(--muted); font-weight: 400; }
 .mitem-typing .mstep-in { width: 3.2em; min-width: 0; }
 /* The dial is a plain row now: the box carries its own outline and the two
    keys carry theirs, so the container has nothing left to draw. */
@@ -4382,7 +4404,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mitem-r1 .mic, .mitem-r3 .mic {
   flex: none; width: 28px; height: 28px; padding: 0; line-height: 1;
   border: 0; border-radius: 5px; background: none;
-  color: var(--muted-2); font-size: 12px;
+  color: var(--muted-2); font-size: 13px;
 }
 .mitem-r1 .mic:hover, .mitem-r3 .mic:hover { background: none; color: var(--ink); }
 .mitem-r1 .mic[aria-pressed="true"], .mitem-r3 .mic[aria-pressed="true"] {
@@ -4453,7 +4475,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    the plate costs you — and on the same line, because that is the line an eye
    is already on when it asks "how much is that". */
 .mitem-g {
-  font-size: 10.5px; color: var(--muted); white-space: nowrap;
+  font-size: 13px; color: var(--muted); white-space: nowrap;
   /* Air, not a middot. The cost line separates its own four cells with
      middots, so joining this on with another would read as a fifth macro —
      and "105C · 3390 g" invites the eye to run the two numbers together. It
@@ -4468,7 +4490,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    two stray vertical pipes around the words. See mSaltChip. */
 .msalt {
   display: inline-flex; align-items: center; gap: 3px;
-  font-size: 10px; font-weight: 600; color: var(--dial-over); white-space: nowrap;
+  font-size: 13px; font-weight: 600; color: var(--dial-over); white-space: nowrap;
 }
 .msalt svg { width: 10px; height: 10px; flex: none; display: block; }
 
@@ -4574,11 +4596,11 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    beside it, so the handle takes the whole width. */
 .mp-foot-on .mp-foot-t { flex: 1 1 auto; }
 .mpb-por {
-  flex: 0 0 auto; font-size: 11px; color: var(--muted);
+  flex: 0 0 auto; font-size: 13px; color: var(--muted);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .mpb-more {
-  font-size: 11px; color: var(--muted); padding: 0 9px 7px;
+  font-size: 13px; color: var(--muted); padding: 0 9px 7px;
 }
 .mp-basket-on {
   border-color: var(--line-firm); background: var(--paper-soft);
@@ -4591,7 +4613,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .fp-shelf { margin: 18px 0 0; }
 .fp-shelf-h {
   display: flex; align-items: center; gap: 7px;
-  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
   font-weight: 600; color: var(--muted-2); padding-bottom: 7px;
   border-bottom: 1px solid var(--line-soft); margin-bottom: 9px;
 }
@@ -4614,13 +4636,13 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    edge says "you can have this, it just is not on the order". */
 .fp-chip.ext { border-style: dashed; }
 .fp-more {
-  border: 0; background: none; color: var(--ochre-text); font-size: 12.5px;
+  border: 0; background: none; color: var(--ochre-text); font-size: 13px;
   font-weight: 600; padding: 7px 6px; text-decoration: underline;
 }
 .fp-note {
   border: 1px solid var(--line-firm); border-radius: 5px;
   background: var(--paper-soft); padding: 9px 11px; margin: 12px 0 0;
-  font-size: 12.5px; color: var(--muted-2);
+  font-size: 13px; color: var(--muted-2);
 }
 
 /* The wizard's nav, pinned. Four short forms did not need it; a step that is
@@ -5086,7 +5108,7 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 .mitem-nm { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; }
 .mitem-r1 .mitem-nm .mitem-name { flex: 0 1 auto; }
 .mwhy {
-  display: inline-flex; align-items: center; gap: 4px; font-family: var(--sans); font-size: 11px;
+  display: inline-flex; align-items: center; gap: 4px; font-family: var(--sans); font-size: 13px;
   font-weight: 600; letter-spacing: 0.01em; padding: 2px 9px; border-radius: 99px; white-space: nowrap;
   border: 0; cursor: pointer;
   color: oklch(0.42 0.06 240); background: oklch(0.93 0.02 240);
@@ -5124,7 +5146,7 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
   text-decoration: underline; cursor: pointer; padding: 0; }
 .mnv-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line-soft, var(--line)); }
 .mnv-n { flex: 1; }
-.mnv-n small { display: block; font-size: 12px; color: var(--muted); }
+.mnv-n small { display: block; font-size: 13px; color: var(--muted); }
 
 /* Six tabs and a rule on the narrowest common phones. Two pixels less a side
    buys 360px back its last 19; List, the narrowest tab, is still 30px wide,
@@ -5367,7 +5389,7 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
 .mbatch-in label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .mbatch-in input { width: 84px; font: inherit; font-size: 16px; text-align: right;
   border: 1px solid var(--line-firm); border-radius: 5px; padding: 5px 8px; background: var(--paper); color: var(--ink); }
-.mbatch-n { font-size: 12.5px; color: var(--muted); }
+.mbatch-n { font-size: 13px; color: var(--muted); }
 .mbatch-in .btn-primary { margin-left: auto; padding: 6px 14px; font-size: 13px; }
 
 /* ---- Strengthen: your weight on a pull-up day ---- */
@@ -5625,3 +5647,153 @@ button.tr-ck-h {
 .tr-hl { fill: none; stroke: var(--ochre-text); stroke-width: 2.5; }
 .tr-sqb { min-height: 44px; }
 .tr-gymax { margin-top: 10px; }
+
+/* ---- Nourish: every control a thumb wide ----
+   44 pixels each way, Apple's and Google's floor for a finger, on every
+   device and not only on a coarse pointer: the review measured most of the
+   tab at 28 to 38 on a phone. Buttons in a row grow to it; a link inside a
+   line of text keeps the line as it is and reaches further than it looks.
+   Scoped to the tab and to the sheets it opens (#modalRoot wears m-sheets
+   while Nourish is showing), so the other tabs keep their own sizes. */
+:where(#view-macros, #modalRoot.m-sheets) :is(.ghost, .btn-primary) {
+  min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+:where(#view-macros, #modalRoot.m-sheets) :is(select, .txt, input[type="text"], input[type="number"],
+  input[type="date"], input[type="email"], input:not([type])) {
+  min-height: 44px; font-size: 16px;
+}
+:where(#view-macros, #modalRoot.m-sheets) :is(button, select, summary, label) {
+  overflow-wrap: normal; word-break: normal; hyphens: none;
+}
+#modalRoot.m-sheets .sheet-eyebrow { font-size: 13px; }
+#modalRoot.m-sheets .sheet-x {
+  min-width: 44px; min-height: 44px; padding: 11px; margin: -11px -11px -11px 0;
+}
+#modalRoot.m-sheets .seg button { min-height: 44px; font-size: 14px; }
+#modalRoot.m-sheets .sync-fold > summary, #modalRoot.m-sheets .mt-help > summary {
+  min-height: 44px; display: flex; align-items: center; gap: 5px; font-size: 14px;
+}
+#modalRoot.m-sheets .sync-status, #modalRoot.m-sheets .sync-build,
+#modalRoot.m-sheets .sync-disclaim, #modalRoot.m-sheets .mtl-u { font-size: 13px; }
+/* The day's head: arrows, the day and the gear, all a thumb tall. */
+.mday-head .ghost, .mday-head select { min-height: 44px; }
+.mday-head #macroPrev, .mday-head #macroNext {
+  width: 34px; min-width: 34px; padding: 0; font-size: 20px; position: relative;
+}
+.mday-head #macroPrev::after, .mday-head #macroNext::after {
+  content: ''; position: absolute; top: 0; left: -5px; width: 44px; height: 44px;
+}
+.mday-head #macroMore { width: 44px; padding: 0; font-size: 18px; }
+.mday-head select { font-size: 14px; padding: 5px 4px; }
+.mday-menu button { min-height: 48px; font-size: 15px; }
+/* The dot marks the whole meal eaten: its nine-pixel face stays where it
+   was, and the button around it is a thumb's reach. */
+.mday-dot { width: 44px; height: 44px; margin: -9px -9px -9px -13px; }
+.mslot-head, .mday-weigh > .mslot-h > .mslot-name { min-height: 44px; }
+/* Fed or blank, a meal's head is one height: the blank one has no door to
+   stretch it, so the row holds it. */
+.mslot > .mslot-h { min-height: 44px; }
+/* A shut meal is still a list of doors: each row a thumb tall. */
+.mthin { min-height: 44px; padding: 0; }
+.mthin-n { align-self: stretch; }
+/* The meal's verbs and the plate's controls. */
+.mslot-acts { flex-wrap: wrap; row-gap: 8px; }
+.mslot-act { height: auto; min-height: 44px; font-size: 14px; }
+.mslot-act.add { min-width: 44px; }
+.mslot-unskip { min-height: 44px; }
+.mitem-r1 .mic, .mitem-r3 .mic { width: 44px; height: 44px; }
+.mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 18px; height: 18px; margin: 0 auto; }
+.mitem-r1 { min-height: 44px; }
+.mitem-name { min-height: 44px; }
+.mitem-r3 .mstep .mitem-amt { min-height: 44px; min-width: 76px; }
+.mitem-r3 .mstep-keys button { width: 44px; height: 44px; font-size: 19px; }
+.mitem-ate { width: 44px; height: 44px; }
+.mitem-ate::after { font-size: 19px; }
+button.mitem-uom.mitem-bw, .mt-swap, .mt-ld-go, .fp-more, .mline-a button { position: relative; }
+button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
+  content: ''; position: absolute; left: -4px; right: -4px; top: 50%; height: 44px; margin-top: -22px;
+}
+.mplan-go, .mline-a button { min-height: 44px; }
+#mWeight { min-height: 44px; font-size: 18px; }
+/* The picker. */
+#modalRoot.m-sheets .mp-shelf { min-height: 44px; min-width: 44px; padding: 8px 13px; }
+#modalRoot.m-sheets .mp-shelf.emo { padding: 8px 0; width: 44px; }
+#modalRoot.m-sheets .mp-shelf.emo.counted { width: auto; padding: 8px 9px; }
+#modalRoot.m-sheets .mp-shn { font-size: 13px; }
+#modalRoot.m-sheets .mp-find .txt, #mpFind { min-height: 44px; }
+#modalRoot.m-sheets .mp-cam { width: 44px; height: 44px; }
+#modalRoot.m-sheets .mp-lens select, #mpSec, #mpSort { min-height: 44px; padding: 6px 4px; font-size: 13px; }
+/* The star as the plate draws it, a glyph with a thumb's reach around it;
+   a 28px box grown to 44 would crowd the fitting chip beside it. */
+#modalRoot.m-sheets .mp-side .mp-star {
+  width: 44px; height: 44px; padding: 0; margin: -8px -4px -8px 0; border: 0; background: none;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 19px;
+}
+#modalRoot.m-sheets .mp-fitx { min-height: 44px; min-width: 44px; margin-top: -8px; margin-bottom: -8px; }
+#modalRoot.m-sheets .mpick-new, #modalRoot.m-sheets .mp-done, #modalRoot.m-sheets .mp-foot-t { min-height: 44px; }
+#modalRoot.m-sheets .mpb-x button { width: 44px; height: 44px; font-size: 18px; }
+#modalRoot.m-sheets .mp-meals button { min-height: 44px; font-size: 14px; }
+/* The plan sheet, the foods you eat, the charts, the meals. */
+#modalRoot.m-sheets .mtrain button { width: 44px; height: 44px; font-size: 14px; }
+#modalRoot.m-sheets .mtm-move { min-width: 44px; }
+#modalRoot.m-sheets .mtm-del { min-width: 44px; min-height: 44px; font-size: 20px; }
+#modalRoot.m-sheets .mtm-row .mtm-share { min-height: 44px; width: 40px; font-size: 16px; }
+#modalRoot.m-sheets .mtm-row .mtm-name { font-size: 16px; }
+#modalRoot.m-sheets .mtm-row .mtm-type { font-size: 13px; }
+#modalRoot.m-sheets .fp-chip { min-height: 44px; font-size: 14px; }
+#modalRoot.m-sheets .fp-more { min-height: 44px; font-size: 14px; }
+#modalRoot.m-sheets .mc-tabs button { min-height: 44px; font-size: 14px; padding: 6px 13px; }
+#modalRoot.m-sheets .mt-pick { min-height: 44px; }
+/* Reading text: 15 pixels where it is read as a paragraph, 14 for the
+   line under a heading or a field. */
+#modalRoot.m-sheets .mt-steps { font-size: 15px; }
+#modalRoot.m-sheets .mc-note, #modalRoot.m-sheets .m-info-t { font-size: 15px; line-height: 1.5; }
+#modalRoot.m-sheets .mt-cap { font-size: 14px; }
+/* The numbers filled in for you: dark enough to read at arm's length
+   (about 5:1), and warm, so they still read as suggestions beside what you
+   typed in ink. */
+:where(#view-macros, #modalRoot.m-sheets) :is(input, textarea)::placeholder { color: oklch(0.54 0.07 60); opacity: 1; }
+#modalRoot.m-sheets .sync-warn { font-size: 13px; }
+:where(#view-macros, #modalRoot.m-sheets) :is(.ghost, .btn-primary) { min-width: 44px; }
+.mitem-nm .mitem-name { min-width: 44px; }
+#modalRoot.m-sheets .mtm-row .mtm-share { width: 44px; min-width: 44px; }
+
+/* ---- Nourish: quiet by default ----
+   Help that never changes behind an i, a reason behind "why?": each opens
+   its words in place. */
+.m-info {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  width: 44px; height: 44px; margin: -12px -8px -12px 0; padding: 0;
+  background: none; border: 0; cursor: pointer; color: var(--ochre-text);
+  letter-spacing: 0; text-transform: none;
+}
+.m-info span {
+  display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+  border: 1.5px solid currentColor; border-radius: 50%; font: italic 700 13px/1 var(--serif);
+}
+.m-info[aria-expanded="true"] span { background: var(--ochre-text); color: var(--card); border-color: var(--ochre-text); }
+.m-info-t { display: block; font-size: 15px; line-height: 1.5; color: var(--muted-2); margin-top: 6px; }
+.m-info-t[hidden] { display: none; }
+.m-why {
+  position: relative; background: none; border: 0; padding: 0 2px; margin: 0; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ochre-text);
+  text-decoration: underline; text-underline-offset: 2px; white-space: nowrap;
+}
+.m-why::after { content: ''; position: absolute; left: -8px; right: -8px; top: 50%; height: 44px; margin-top: -22px; }
+.m-why[aria-expanded="true"] { text-decoration: none; }
+.m-divi { display: flex; align-items: center; gap: 6px; }
+.m-eyei { display: flex; align-items: center; gap: 4px; }
+.mline-t .m-why { font-family: var(--sans); }
+/* A meal's verbs: the drawn icon beside its word. */
+.mslot-act { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.mslot-act .mday-ic { width: 18px; height: 18px; }
+.mslot-act.add { width: auto; padding: 0 13px; font-size: 14px; font-weight: 600; }
+.mslot-act.add .mday-ic { stroke-width: 2; }
+.mc-notei { display: flex; justify-content: flex-end; margin-top: 4px; }
+.mc-notei .m-info { margin: 0; }
+/* The bin and the lock are a pair: each a thumb's reach, with their
+   drawings leaning together so the pair reads as one group beside the
+   portion. */
+.mitem-verbs .mic:first-child svg { margin: 0 3px 0 auto; }
+.mitem-verbs .mic + .mic svg { margin: 0 auto 0 3px; }

@@ -5189,8 +5189,10 @@ module.exports = {
     await orderPg.waitForTimeout(300);
     const barOrder = await orderPg.evaluate(() =>
       [...document.querySelectorAll('.mday-acts button')].map((b) => b.id).join(' '));
-    t.ok('the day bar reads Fill, rebalance, expand, sweep, copy, add',
-      barOrder === 'macroFill macroRebal macroOpenAll macroSweep macroCopy macroAdd',
+    /* Two rows since the tools took words (2026-09-27): the four tools in
+       his order, then the two verbs pressed most, Add in the far corner. */
+    t.ok('the day bar reads rebalance, expand, sweep, copy, then Fill and add',
+      barOrder === 'macroRebal macroOpenAll macroSweep macroCopy macroFill macroAdd',
       barOrder);
     await orderPg.context().close();
 
@@ -6181,13 +6183,18 @@ module.exports = {
     const bar = await t.fresh();
     await bar.click('.tab[data-view="macros"]');
     await bar.waitForTimeout(200);
-    t.ok('everything you do to today is one row of the bar',
+    /* Two rows since the tools took their words (2026-09-27): the four
+       tools, then Fill and Add food. Still one bar, and it still leaves the
+       day most of the screen. */
+    t.ok('everything you do to today is in the bar, in two rows',
       await bar.evaluate(() => {
         const b2 = [...document.querySelectorAll('.mday-acts button')]
           .filter((x) => !x.classList.contains('hide')).map((x) => x.id);
-        return b2.indexOf('macroAdd') >= 0 && b2.indexOf('macroRebal') >= 0 &&
-          document.querySelector('.mday-acts').getBoundingClientRect().height < 70;
-      }));
+        const rows = new Set([...document.querySelectorAll('.mday-acts button')]
+          .map((x) => Math.round(x.getBoundingClientRect().top)));
+        return b2.indexOf('macroAdd') >= 0 && b2.indexOf('macroRebal') >= 0 && rows.size === 2 &&
+          document.querySelector('.mday-acts').getBoundingClientRect().height < 120;
+      }), await bar.evaluate(() => Math.round(document.querySelector('.mday-acts').getBoundingClientRect().height) + 'px'));
     /* The gear keeps the title row; opening every meal went down to the bar.
        It is a thing you do WHILE reading the day, with the thumb already at
        the bottom of the screen — Blake: "the auto expander button at the very
@@ -10441,6 +10448,8 @@ module.exports = {
         h.getBoundingClientRect().height <= 64 &&
         [...h.querySelectorAll('button')].every((b) =>
           b.classList.contains('mslot-head') || b.classList.contains('mslot-name') ||
+          /* the dot is a thumb's reach around a nine-pixel face, by design */
+          b.classList.contains('mday-dot') ||
           b.getBoundingClientRect().height <= 36))),
       await fold.evaluate(() => [...document.querySelectorAll('.mslot-h')]
         .map((h) => 'row ' + Math.round(h.getBoundingClientRect().height) + ' [' +
@@ -10919,10 +10928,13 @@ module.exports = {
        controls two different ways. A literal floor would have failed by one
        pixel and told us nothing; what the rule actually is, now, is "the same
        button in both places", and that is a claim that cannot drift. */
-    t.ok('the card\u2019s verbs are the same button the bottom bar draws',
+    /* The bar's tools are an icon over a word now and the card's verbs an
+       icon beside one, so they are no longer the same box; what they share
+       is the height a thumb needs (Blake, 2026-09-27: "≥44 px tap targets
+       everywhere"). */
+    t.ok('the card\u2019s verbs and the bar\u2019s tools are both a thumb tall',
       reach.coarse && reach.add && reach.retry && reach.bar &&
-        reach.add.h === reach.bar.h && reach.retry.h === reach.bar.h &&
-        reach.add.w === reach.bar.w,
+        reach.add.h >= 44 && reach.retry.h >= 44 && reach.bar.h >= 44 && reach.add.w >= 44,
       JSON.stringify(reach));
     /* The head is the handle and stays a thumb's worth, whatever the verbs
        below it do — it is the control you press most and the one nobody could
@@ -14786,6 +14798,295 @@ module.exports = {
       const liftBox = await pg.evaluate(() => { const r = document.querySelector('.mwk-lift').getBoundingClientRect(); return [r.width, r.height]; });
       t.ok('the week strip marks Monday, Wednesday and Friday with a dumbbell, and says "lifting day" to a listener',
         marks.join() === 'La,--,La,--,La,--,--' && liftBox[0] >= 10, JSON.stringify({ marks, liftBox }));
+      await ctx.close();
+    }
+
+    /* ---- look and feel: sizes, the bar's words, quiet by default ---------
+     * Blake's decisions for the tab, 2026-09-27: "≥44 px tap targets
+     * everywhere (arrows stay in the corner), minimum 13 px text / 15 px
+     * body, and darker tinted pre-filled numbers"; "Nourish gets a big
+     * '+ Add food' and labelled icons"; "notes only when something changed,
+     * as one short line with 'why?' to expand; settings help behind ⓘ"; and
+     * one date form, month first, with button words that never break. On a
+     * fixed clock, a Wednesday at half past one, as the daily loop is. */
+    {
+      const ctx = await t.browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+      await ctx.route(/api\.nal\.usda\.gov/, (r) => r.abort());
+      const pg = await ctx.newPage();
+      pg.on('pageerror', (e) => t.ok('no uncaught error on the page', false, e.message));
+      await pg.clock.install({ time: new Date(2026, 8, 30, 13, 30, 0) });
+      await pg.goto(t.base + 'index.html');
+      const WED = '2026-09-30', MON = '2026-09-28';
+      const seed = async (o) => {
+        await pg.evaluate((o) => {
+          const p2 = (n) => (n < 10 ? '0' : '') + n;
+          const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+          localStorage.clear();
+          localStorage.setItem('bsc.hintDone', '1');
+          const ws = {};
+          for (let i = 0; i <= 6; i++) { const d = new Date(); d.setDate(d.getDate() - i); ws[key(d)] = 212; }
+          localStorage.setItem('bsc.macroWeights', JSON.stringify(o.ws || ws));
+          localStorage.setItem('bsc.macroProfile', JSON.stringify(Object.assign({ sex: 'm', age: 44, ft: 5, inch: 10,
+            lb: 212, act: 1.2, goal: 'cut1', goalLb: 0, goalBy: '', workouts: 3, steps: 6000, train: [0, 2, 4] }, o.pr || {})));
+          localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 212, f: 64, c: 77, auto: 1, set: key(new Date()) }));
+          if (o.days) localStorage.setItem('bsc.macroDays', JSON.stringify(o.days));
+        }, o || {});
+        await pg.reload();
+        await pg.waitForTimeout(300);
+        await pg.click('.tab[data-view="macros"]');
+        await pg.waitForTimeout(300);
+      };
+      const lived = {
+        [MON]: { b: [{ id: 'f:egg', x: 2, eaten: 1 }], l: [{ id: 'f:banana', x: 1, eaten: 1 }],
+          d: [{ id: 'f:chicken_breast', x: 1, eaten: 1 }, { id: 'f:broccoli', x: 1, eaten: 1 }], s: [{ id: 'f:almonds', x: 1, eaten: 1 }] },
+        [WED]: { b: [{ id: 'f:egg', x: 2, eaten: 1 }, { id: 'f:banana', x: 1, eaten: 1 }], l: [{ id: 'f:greek_yogurt', x: 1, eaten: 0 }] },
+      };
+      await seed({ days: lived });
+
+      /* Every control a thumb wide: its short side at least 44, or — for a
+         word inside a line of text — a reach that is, drawn with ::after so
+         the words do not move. */
+      const small = (scope) => pg.evaluate((scope) => {
+        const root = document.querySelector(scope);
+        const out = [];
+        root.querySelectorAll('button, input:not([type=hidden]), select, summary').forEach((e) => {
+          const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+          if (!r.width || !r.height || cs.visibility === 'hidden' || e.closest('[aria-hidden="true"], .hide, [hidden]')) return;
+          const af = getComputedStyle(e, '::after');
+          const ext = af.content !== 'none' && af.position === 'absolute';
+          const short = Math.min(Math.max(r.width, ext ? parseFloat(af.width) || 0 : 0),
+            Math.max(r.height, ext ? parseFloat(af.height) || 0 : 0));
+          if (short < 43.5) out.push((e.id || e.className || e.tagName) + ' ' + Math.round(r.width) + 'x' + Math.round(r.height));
+        });
+        return out;
+      }, scope);
+      await pg.click('#macroOpenAll');
+      await pg.waitForTimeout(300);
+      const daySmall = await small('#view-macros');
+      t.ok('every control on the day is a thumb wide, the plates’ controls too', daySmall.length === 0, daySmall.join(' | '));
+
+      /* No type under 13 px on the day, the drawn score in the leaf apart. */
+      const tiny = (scope) => pg.evaluate((scope) => {
+        const out = [];
+        const w = document.createTreeWalker(document.querySelector(scope), NodeFilter.SHOW_TEXT);
+        let n;
+        while ((n = w.nextNode())) {
+          const e = n.parentElement;
+          if (!n.textContent.trim() || !e || e.closest('svg, .leaf-n, .leaf-sr, .vis-hidden, [aria-hidden="true"], .hide, [hidden]')) continue;
+          const r = e.getBoundingClientRect();
+          if (!r.width) continue;
+          const fs = parseFloat(getComputedStyle(e).fontSize);
+          if (fs < 12.95) out.push(fs + 'px "' + n.textContent.trim().slice(0, 20) + '"');
+        }
+        return out;
+      }, scope);
+      const dayTiny = await tiny('#view-macros');
+      t.ok('no type on the day is under 13 px', dayTiny.length === 0, dayTiny.slice(0, 8).join(' | '));
+
+      /* The bar: four tools, each its drawing and its word, and Add food the
+         big one in the far corner. */
+      const bar = await pg.evaluate(() => {
+        const tools = [...document.querySelectorAll('.mday-acts .mday-tool')].map((b) => ({
+          w: (b.querySelector('.mday-w') || {}).textContent, svg: !!b.querySelector('svg.mday-ic'),
+          stroke: b.querySelector('svg') ? getComputedStyle(b.querySelector('svg')).stroke : '' }));
+        const add = document.getElementById('macroAdd').getBoundingClientRect();
+        const fill = document.getElementById('macroFill').getBoundingClientRect();
+        const others = [...document.querySelectorAll('.mday-acts .mday-tool')].map((b) => b.getBoundingClientRect());
+        return { tools, addText: document.getElementById('macroAdd').textContent.trim(),
+          addH: add.height, addW: add.width, fillW: fill.width,
+          biggest: others.every((o) => o.width * o.height < add.width * add.height),
+          corner: add.right >= fill.right && add.bottom >= Math.max(...others.map((o) => o.bottom)) };
+      });
+      t.ok('the bar’s tools each carry their word under a drawn icon: Rebalance, Close all, Sweep, Copy day',
+        bar.tools.map((x) => x.w).join() === 'Rebalance,Close all,Sweep,Copy day' && bar.tools.every((x) => x.svg && x.stroke !== 'none'),
+        JSON.stringify(bar.tools));
+      t.ok('and "+ Add food" is the big one, labelled, in the far corner',
+        bar.addText === 'Add food' && bar.addH >= 48 && bar.biggest && bar.corner && bar.addW >= bar.fillW - 1, JSON.stringify(bar));
+      await pg.click('#macroOpenAll');
+      await pg.waitForTimeout(250);
+      t.ok('and the expander says what it will do next: Open all once the day is shut',
+        await pg.evaluate(() => document.querySelector('#macroOpenAll .mday-w').textContent === 'Open all'));
+      const verbs = await pg.evaluate(() => [...document.querySelectorAll('.mslot-acts button')].map((b) =>
+        !!b.querySelector('svg.mday-ic') + ':' + b.textContent.replace(/\s+/g, ' ').trim()));
+      t.ok('a meal’s verbs are drawn icons with words, the plus included ("Add")',
+        verbs.length > 0 && verbs.every((v) => /^true:\S/.test(v)) && verbs.some((v) => v === 'true:Add'), verbs.join(' | '));
+
+      /* Copy says it copied, and the drawing stays put. */
+      const copied = await pg.evaluate(() => {
+        navigator.clipboard.writeText = () => Promise.resolve();
+        const b = document.getElementById('macroCopy');
+        b.click();
+        return new Promise((ok) => setTimeout(() => ok({ w: b.querySelector('.mday-w').textContent, svg: !!b.querySelector('svg') }), 50));
+      });
+      t.ok('Copy day says Copied under its icon, and keeps the icon', copied.w === 'Copied' && copied.svg, JSON.stringify(copied));
+
+      /* The numbers filled in for you: warm, and about 5:1 on the box. */
+      await pg.evaluate(() => { const a = document.querySelector('[data-mslot="d"]'); a.scrollIntoView({ block: 'center' }); a.click(); });
+      await pg.waitForTimeout(400);
+      const ph = await pg.evaluate(() => {
+        const inp = document.getElementById('mpFind');
+        const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+        const cx = cv.getContext('2d', { willReadFrequently: true });
+        const rgb = (c) => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1); return [...cx.getImageData(0, 0, 1, 1).data].slice(0, 3); };
+        const lum = (c) => { const v = rgb(c).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        const ps = getComputedStyle(inp, '::placeholder');
+        const a = lum(ps.color), b = lum(getComputedStyle(inp).backgroundColor);
+        const c = rgb(ps.color);
+        return { ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05), warm: c[0] > c[2], op: ps.opacity };
+      });
+      t.ok('pre-filled words in a box read at 4.5:1 or better, warm, at full opacity',
+        ph.ratio >= 4.5 && ph.warm && ph.op === '1', JSON.stringify(ph));
+      const pickSmall = await small('#modalRoot');
+      t.ok('and every control on the food sheet is a thumb wide, the × and the stars too', pickSmall.length === 0, pickSmall.join(' | '));
+      const pickTiny = await tiny('#modalRoot');
+      t.ok('with no type under 13 px', pickTiny.length === 0, pickTiny.slice(0, 8).join(' | '));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+
+      /* One date form, month first; and button words that never break, down
+         to a 320-wide phone. */
+      const opts = await pg.evaluate(() => [...document.getElementById('macroDaySel').options].map((o) => o.text));
+      t.ok('the day box says "Mon, Sep 28", month first, and "Today · Sep 30"',
+        opts.indexOf('Mon, Sep 28') >= 0 && opts.indexOf('Today · Sep 30') >= 0 &&
+        opts.every((o) => !/\b\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/.test(o)), opts.join(' | '));
+      await pg.setViewportSize({ width: 320, height: 700 });
+      await pg.selectOption('#macroDaySel', MON);
+      await pg.waitForTimeout(400);
+      const broken = await pg.evaluate(() => {
+        const out = [];
+        document.querySelectorAll('#view-macros button').forEach((b) => {
+          if (!b.getBoundingClientRect().width || b.closest('.hide, [aria-hidden="true"]')) return;
+          const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT);
+          let n;
+          while ((n = w.nextNode())) {
+            const re = /\S+/g; let m;
+            while ((m = re.exec(n.textContent))) {
+              const rg = document.createRange(); rg.setStart(n, m.index); rg.setEnd(n, m.index + m[0].length);
+              const lines = new Set([...rg.getClientRects()].map((q) => Math.round(q.top)));
+              if (lines.size > 1) out.push(m[0]);
+            }
+          }
+        });
+        return { out, fill: document.getElementById('macroFill').textContent };
+      });
+      t.ok('no button breaks a word, "' + broken.fill + '" included, at 320 wide', broken.out.length === 0 &&
+        /Complete the day|Mark all complete/.test(broken.fill), JSON.stringify(broken));
+      await pg.setViewportSize({ width: 390, height: 844 });
+      await pg.click('#macroMore');
+      await pg.click('[data-mmore="went"]');
+      await pg.waitForTimeout(400);
+      const wentT = await pg.evaluate(() => (document.querySelector('.ds-sheet .sheet-name, .ds-sheet h2, .ds-t') || document.querySelector('.ds-sheet')).textContent);
+      t.ok('and the day card is titled month first: "Mon, Sep 28"', /Mon, Sep 28/.test(wentT) && !/Monday/.test(wentT), wentT.slice(0, 80));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+
+      /* Settings help behind an i: the paragraph is there, shut, and the i
+         opens it where it stands. */
+      await pg.click('#macroMore');
+      await pg.click('[data-mmore="foods"]');
+      await pg.waitForTimeout(400);
+      const fpShut = await pg.evaluate(() => { const t2 = document.getElementById('mi-fp'); return !!t2 && t2.hidden && !/Tap anything you eat/.test(document.querySelector('.sheet').innerText); });
+      await pg.click('[data-minfo="fp"]');
+      await pg.waitForTimeout(100);
+      const fpOpen = await pg.evaluate(() => ({ shown: /Tap anything you eat/.test(document.querySelector('.sheet').innerText),
+        exp: document.querySelector('[data-minfo="fp"]').getAttribute('aria-expanded') }));
+      t.ok('the foods sheet keeps its paragraph behind an i, and the i opens it in place', fpShut && fpOpen.shown && fpOpen.exp === 'true',
+        JSON.stringify({ fpShut, fpOpen }));
+      await pg.click('.sheet-x');
+      await pg.waitForTimeout(300);
+      await pg.click('#macroMore');
+      await pg.click('[data-mmore="plan"]');
+      await pg.waitForTimeout(400);
+      await pg.click('[data-mtmfold]');
+      await pg.waitForTimeout(250);
+      const mealsCap = await pg.evaluate(() => ({ shut: !/The kind steers the picker/.test(document.querySelector('.sheet').innerText),
+        i: !!document.querySelector('[data-minfo="meals"]') }));
+      await pg.click('[data-minfo="meals"]');
+      await pg.waitForTimeout(100);
+      t.ok('and so does the plan’s meals editor',
+        mealsCap.shut && mealsCap.i && await pg.evaluate(() => /The kind steers the picker/.test(document.querySelector('.sheet').innerText)),
+        JSON.stringify(mealsCap));
+      const planSmall = await small('#modalRoot');
+      t.ok('and every control on the plan sheet is a thumb wide', planSmall.length === 0, planSmall.join(' | '));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+
+      /* A steady note is news once. On pace, the morning card says the
+         target in one line with "why?" for the rest; the next morning, with
+         nothing changed, it says nothing; a changed target or verdict brings
+         it back. */
+      const coachSeed = async () => {
+        await pg.evaluate(() => {
+          const p2 = (n) => (n < 10 ? '0' : '') + n;
+          const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+          localStorage.clear();
+          localStorage.setItem('bsc.hintDone', '1');
+          const ws = {}, jit = [0, 0.3, -0.2, 0.4, -0.3, 0.1, -0.1, 0.2, -0.4, 0.3];
+          for (let i = 29; i >= 0; i--) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            ws[key(d)] = Math.round((204 - (1.5 / 7) * (29 - i) + jit[i % 10] * 0.9) * 10) / 10;
+          }
+          localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+          const goal = new Date(); goal.setDate(goal.getDate() + 126);
+          localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 41, ft: 5, inch: 11, lb: 204,
+            act: 1.55, goal: 'cut1', goalLb: 175, goalBy: key(goal), workouts: 4, steps: 8000 }));
+        });
+        await pg.reload();
+        await pg.waitForTimeout(300);
+        await pg.evaluate(() => {
+          const plan = window.__macroLab.plan(window.__macroLab.profile());
+          if (plan) localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: plan.p, f: plan.f, c: plan.c }));
+        });
+        await pg.reload();
+        await pg.waitForTimeout(300);
+        await pg.click('.tab[data-view="macros"]');
+        await pg.waitForTimeout(300);
+      };
+      const coach = () => pg.evaluate(() => {
+        const el = document.querySelector('#macroWeigh .mline.calm');
+        if (!el) return null;
+        const sub = el.querySelector('.mline-s');
+        return { t: el.querySelector('.mline-t').innerText, why: !!el.querySelector('.m-why'),
+          subShown: !!sub && !sub.hidden && sub.getClientRects().length > 0 };
+      });
+      await coachSeed();
+      const c1 = await coach();
+      t.ok('a steady morning note is one line, its reason behind "why?"',
+        !!c1 && c1.why && !c1.subShown && /Your target/.test(c1.t), JSON.stringify(c1));
+      await pg.click('#macroWeigh .m-why');
+      await pg.waitForTimeout(100);
+      const c1b = await coach();
+      t.ok('and "why?" opens the reason in place', !!c1b && c1b.subShown, JSON.stringify(c1b));
+      await pg.clock.setSystemTime(new Date(2026, 9, 1, 8, 0, 0));
+      await pg.reload();
+      await pg.waitForTimeout(300);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(300);
+      const c2 = await coach();
+      t.ok('the next morning, nothing having changed, it says nothing', c2 === null, JSON.stringify(c2));
+      await pg.evaluate(() => {
+        const s0 = JSON.parse(localStorage.getItem('bsc.macroCoachSeen'));
+        s0.sig = 'calm:1:late';
+        localStorage.setItem('bsc.macroCoachSeen', JSON.stringify(s0));
+      });
+      await pg.reload();
+      await pg.waitForTimeout(300);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(300);
+      const c3 = await coach();
+      t.ok('and once what it says has changed, it says it again', !!c3 && /Your target/.test(c3.t), JSON.stringify(c3));
+      await pg.clock.setSystemTime(new Date(2026, 8, 30, 13, 30, 0));
+
+      /* The chart's how-to-read-it is behind an i too. */
+      await pg.click('[data-mchartopen]');
+      await pg.waitForTimeout(300);
+      const note = await pg.evaluate(() => {
+        const t2 = document.getElementById('mi-mc-weight');
+        return { shut: !!t2 && t2.hidden, i: !!document.querySelector('[data-minfo="mc-weight"]') };
+      });
+      t.ok('and so is what a chart means', note.shut && note.i, JSON.stringify(note));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
       await ctx.close();
     }
   },
