@@ -92,6 +92,11 @@ const EATEN = [
   /* A marinade is a soak by another name: the steak is lifted out, dripped
      and patted dry, and the bag goes in the bin. */
   { re: /,\s*for the marinade\b/i, part: 0.125 },
+  /* Rice blended into water and strained through a cloth: the starch that
+     goes through the sieve is drunk, the grit in the cloth is thrown away.
+     About half, as an estimate — horchata counted with the whole cup of rice
+     read a third high on its calories. */
+  { key: 'rice_dry', re: /,\s*blended and strained\b/i, part: 0.5 },
   /* Oil for deep frying is mostly left in the pan. Counting all of it makes a
      fried dish read like a stick of butter; food takes up roughly an eighth.
      These two used to shrink the grams instead, which counted the same and

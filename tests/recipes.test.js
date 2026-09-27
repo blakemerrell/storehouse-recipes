@@ -970,6 +970,16 @@ module.exports = {
     const pops = await p.evaluate(() => [...document.querySelectorAll('.sheet .ing-make')].map((b) => b.dataset.open));
     t.ok('and a chocolate cake is not sent to the yellow one', pops.length === 0, JSON.stringify(pops));
 
+    /* Horchata strains its rice out through a cloth: half of it is counted,
+       and the whole cup is still what you buy. */
+    const hor = await p.evaluate(() => {
+      const r = window.RECIPES.find((x) => x.id === 336);
+      const it = r.ingp.find((i) => i.k === 'rice_dry');
+      return { pe: it && it.pe, g: it && it.g };
+    });
+    t.ok('rice blended and strained is counted at half, bought in full',
+      hor.pe === 0.5 && hor.g === 185, JSON.stringify(hor));
+
     await p.context().close();
   },
 };

@@ -389,7 +389,7 @@ module.exports = [
     id: 336, book: 2, secNum: 7, secName: COPYCAT,
     name: 'Horchata, Cafe Rio Style',
     servings: '8 Servings (1 Pitcher)', servN: 8,
-    ing: ['1 cup rice', '2 tsp cinnamon', '4 cups hot water', '2 cups cold water',
+    ing: ['1 cup rice, blended and strained', '2 tsp cinnamon', '4 cups hot water', '2 cups cold water',
       '0.5 cup sugar', '0.5 cup evaporated milk', '1 tsp vanilla', '1 pinch salt'],
     steps: [
       'Rinse the rice until the water runs mostly clear. Put it in a bowl with the cinnamon and the 4 cups of hot water, cover, and leave it at least 4 hours or overnight in the fridge. Hot water pulls more out of the rice than cold.',

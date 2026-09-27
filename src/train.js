@@ -4335,6 +4335,9 @@
     return out;
   }
   function ldHTML(ms, nx) {
+    /* A block of nothing but easy days has no sessions to give days to, and
+       the picker below would ask for zero of them and name ms.days[undefined]. */
+    if (!liftCols(ms).length) return '';
     var n = liftCols(ms).length, cd = colDays(ms, nx), picked = ldDays().length === n;
     var moved = Object.keys(cd).some(function (k) { return cd[k].moved; });
     var html = '<div class="tr-ldrow"><span class="tr-ldsay' + (picked ? '' : ' ask') + '">' +

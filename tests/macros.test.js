@@ -13605,6 +13605,33 @@ module.exports = {
         await sp.textContent('.mt-ld'));
       await sp.keyboard.press('Escape');
 
+      /* Only claim one day for each session when that is true: three days
+         picked for a two-session block says so, and how to fix it. */
+      await seedBlock([0, 2, 4]);
+      await openSheet();
+      t.ok('a day count that does not match the block says so, not "one for each session"',
+        /your block has 2 sessions, so pick 2/.test(await sp.textContent('#mtTrainN')), await sp.textContent('#mtTrainN'));
+      await sp.keyboard.press('Escape');
+      await seedBlock([0, 2]);
+      await openSheet();
+      t.ok('and a matching count reads as one for each session',
+        /one for each session of your block/.test(await sp.textContent('#mtTrainN')), await sp.textContent('#mtTrainN'));
+      await sp.keyboard.press('Escape');
+
+      /* A block of nothing but easy days has no sessions to give days to. */
+      const errs = [];
+      sp.on('pageerror', (e) => errs.push(e.message));
+      await sp.evaluate(() => {
+        const T = JSON.parse(localStorage.getItem('bsc.train'));
+        T.ms.b1.days = [{ n: 'Easy', ez: 1, s: [] }];
+        localStorage.setItem('bsc.train', JSON.stringify(T));
+      });
+      await sp.reload();
+      await sp.click('.tab[data-view="train"]');
+      await sp.waitForTimeout(400);
+      t.ok('a block of only easy days draws without the days picker and without an error',
+        errs.length === 0 && !(await sp.$('.tr-ldgo')) && !(await sp.$('.tr-ldpanel')), JSON.stringify(errs));
+
       // no block: Nourish's own picker edits the same one list
       await sp.evaluate(() => { const T = JSON.parse(localStorage.getItem('bsc.train')); T.act = ''; localStorage.setItem('bsc.train', JSON.stringify(T)); });
       await sp.reload();

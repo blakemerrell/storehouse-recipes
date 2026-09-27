@@ -9995,6 +9995,13 @@
 
   function mTrainNSay(n) {
     var b = mBlockN();
+    /* Only claim "one for each session" when it is true. A new block with
+       more or fewer sessions than the days already picked says so, and says
+       where to fix it. */
+    if (b && n !== b) {
+      return (n ? n + ' a week' : 'None picked') + ' \u00b7 your block has ' + b +
+        (b === 1 ? ' session' : ' sessions') + ', so pick ' + b;
+    }
     return (n ? n + ' a week' : 'None picked') + (b ? ' \u00b7 one for each session of your block' : ' \u00b7 the same days as Strengthen');
   }
   function mBlockN() {
