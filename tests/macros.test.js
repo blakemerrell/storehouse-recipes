@@ -5860,6 +5860,15 @@ module.exports = {
       const c = getComputedStyle(document.querySelector('.mstep-x'));
       return { size: c.fontSize, weight: c.fontWeight };
     });
+    /* Scrolled to the middle first, as a thumb would. At the top of an
+       800-tall page this tick sits under the sticky bottom bar, and the
+       plate controls' 120px scroll margin, meant to stop them above it, is
+       cut short by the meal card (overflow: hidden makes it a scroll
+       container, which clips the margin at its own edge). The click used to
+       land on the bar's very top pixel and get through; with the meal verbs
+       at a plate key's size (2026-09-27) the card ends 24px sooner and it
+       stalled on the bar for thirty seconds. */
+    await wake.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
     await wake.click('.mitem [data-meat]');
     await wake.waitForTimeout(400);
     t.ok('a locked portion offers a way back in',
@@ -5994,6 +6003,9 @@ module.exports = {
     t.ok('an uneaten plate can still be resized', stepWas.live && !stepWas.grey,
       JSON.stringify(stepWas));
 
+    /* In the middle first, as a thumb would: see the same tick's note in
+       "One tap on a spent portion", above. */
+    await spent.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
     await spent.click('.mitem [data-meat]');
     await spent.waitForTimeout(400);
     const stepNow = await spent.evaluate(() => {
@@ -6041,6 +6053,9 @@ module.exports = {
         return was === now;
       }));
 
+    /* In the middle first, as a thumb would: see the same tick's note in
+       "One tap on a spent portion", above. */
+    await spent.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
     await spent.click('.mitem [data-meat]');
     await spent.waitForTimeout(400);
     t.ok('unticking hands the stepper back',
@@ -6854,10 +6869,10 @@ module.exports = {
       strip320.length >= 2 && strip320.every((x) => !x.missing && x.sameLine && x.clear),
       JSON.stringify(strip320));
 
-    /* And the meal's own verbs, drawn without their words below 350. Five
-       share the row, and at 320 a fifth of it is narrower than "Another":
-       the words came out as "Anot..." and "Bala...". Blake (2026-09-27):
-       "Just show icons." Each still has a name a screen reader can say. */
+    /* And the meal's own verbs, drawn without words. At 320 a fifth of the
+       row was narrower than "Another", which came out as "Anot..."; Blake
+       (2026-09-27): "Just show icons", and then icons everywhere, in a plate
+       key's box. Each still has a name a screen reader can say. */
     const verbs320 = await tinyPhone.evaluate(() => {
       const row = document.querySelector('#macroSlots .mslot-acts');
       if (!row) return null;
@@ -10551,7 +10566,8 @@ module.exports = {
       const rb = row.getBoundingClientRect();
       const k = [...row.children].map((c) => {
         const r = c.getBoundingClientRect();
-        return { t: c.textContent.replace(/\s+/g, ' ').trim(),
+        return { t: c.getAttribute('aria-label') || c.textContent.replace(/\s+/g, ' ').trim(),
+          add: c.classList.contains('add'),
           x: Math.round(r.x - rb.x), w: Math.round(r.width),
           right: Math.round(rb.right - r.right) };
       });
@@ -10563,36 +10579,42 @@ module.exports = {
     /* Measured off the real boxes and the real gap, not off a guess at how
        wide nine characters are — the first version of this used a character
        count and passed with the bug still in, which the mutation caught. */
-    /* The plus by its name rather than by position. It spent a day third,
-       ending the first of two rows, and is last again now the verbs share
-       one row (2026-09-27). */
+    /* The plus by what it is rather than by position or word: it spent a
+       day third, ending the first of two rows, and has had no word since the
+       verbs became drawings alone (2026-09-27). */
     t.ok('and the plus is the only one that pushes, to the right edge',
       !!actsRow &&
         actsRow.kids[1].x - (actsRow.kids[0].x + actsRow.kids[0].w) <= actsRow.gap + 1 &&
-        actsRow.kids.filter((k) => k.t === 'Add').length === 1 &&
-        actsRow.kids.find((k) => k.t === 'Add').right <= actsRow.pad + 1,
+        actsRow.kids.filter((k) => k.add).length === 1 &&
+        actsRow.kids.find((k) => k.add).right <= actsRow.pad + 1,
       JSON.stringify(actsRow));
 
-    /* All of a meal's verbs on one row, every word whole, on the narrowest
-       phone in common use. Blake (2026-09-27): "get all the buttons on the
-       food tag into a single row." Five verbs share 360px; the first word
-       tried for keeping the plates, "Combine", was 3px too wide for its
-       fifth and read "Combin\u2026". Measured on the words' own boxes, since
-       an ellipsis is exactly what a button's width would never show. */
+    /* All of a meal's verbs on one row, on the narrowest phone in common
+       use, each its drawing alone in a plate key's box. Blake (2026-09-27):
+       "get all the buttons on the food tag into a single row", and then,
+       after they had been an icon over a word a fifth of the row wide: "Just
+       use icons and the box size that is in the meal/food card uses." Each
+       still has a name a screen reader can say. */
     await fold.setViewportSize({ width: 360, height: 720 });
     await fold.waitForTimeout(150);
-    const narrow = await fold.evaluate(() => [...document.querySelectorAll('.mslot-acts')].map((row) => {
-      const bs = [...row.querySelectorAll('button')];
-      return {
-        n: bs.length,
-        rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
-        cut: bs.filter((b) => { const w = b.querySelector('span'); return !w || w.scrollWidth > w.clientWidth + 1; })
-          .map((b) => b.textContent.trim()),
-      };
-    }));
-    t.ok('a meal\u2019s verbs sit on one row at 360px, no word cut short',
+    const narrow = await fold.evaluate(() => {
+      const key = document.querySelector('#macroSlots .mitem-r3 .mstep-keys button');
+      const kb = key ? key.getBoundingClientRect() : null;
+      return [...document.querySelectorAll('.mslot-acts')].map((row) => {
+        const bs = [...row.querySelectorAll('button')];
+        return {
+          n: bs.length,
+          rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+          worded: bs.filter((b) => b.textContent.trim()).length,
+          unnamed: bs.filter((b) => !/\w/.test(b.getAttribute('aria-label') || '') || !b.querySelector('svg')).length,
+          offKey: kb ? bs.filter((b) => { const r = b.getBoundingClientRect();
+            return Math.abs(r.width - kb.width) > 1 || Math.abs(r.height - kb.height) > 1; }).length : -1,
+        };
+      });
+    });
+    t.ok('a meal\u2019s verbs are drawings on one row at 360px, each a plate key\u2019s size and named',
       narrow.length > 0 && narrow.some((r) => r.n >= 4) &&
-        narrow.every((r) => r.rows === 1 && r.cut.length === 0),
+        narrow.every((r) => r.rows === 1 && r.worded === 0 && r.unnamed === 0 && r.offKey === 0),
       JSON.stringify(narrow));
     await fold.setViewportSize({ width: 375, height: 720 });
     await fold.waitForTimeout(150);
@@ -10817,13 +10839,12 @@ module.exports = {
       const row = card.querySelector('.mslot-acts');
       const rb = row ? row.getBoundingClientRect() : null, cs = row ? getComputedStyle(row) : null;
       return {
+        /* By spoken name: the verbs are drawings alone. */
         verbs: row ? [...row.querySelectorAll('button')].map((b) => ({
-          t: b.textContent.replace(/\s+/g, ' ').trim(), off: b.disabled,
-          w: Math.round(b.getBoundingClientRect().width),
+          t: b.getAttribute('aria-label') || '', off: b.disabled, add: b.classList.contains('add'),
+          w: Math.round(b.getBoundingClientRect().width), h: Math.round(b.getBoundingClientRect().height),
           right: Math.round(rb.right - b.getBoundingClientRect().right) })) : null,
-        /* a fifth of the row, less its padding and the four gaps */
-        fifth: row ? Math.round((rb.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) -
-          4 * (parseFloat(cs.columnGap) || 0)) / 5) : 0,
+        rowW: row ? Math.round(rb.width) : 0,
         pad: row ? parseFloat(cs.paddingRight) : 0,
         skipInHeader: !!card.querySelector('.mslot-h [data-mskip]'),
       };
@@ -10833,17 +10854,19 @@ module.exports = {
     t.ok('an empty meal offers Skip, not two verbs it cannot use',
       !!emptyVerbs && emptyVerbs.verbs.length === 3 &&
         /skip/i.test(emptyVerbs.verbs[0].t) && !emptyVerbs.verbs[0].off &&
-        !emptyVerbs.verbs.some((v) => /another|balance/i.test(v.t)),
+        /* at the START of a name: Repeat's is "... from another day" */
+        !emptyVerbs.verbs.some((v) => /^(another|balance)/i.test(v.t)),
       JSON.stringify(emptyVerbs));
     t.ok('and skip is no longer a glyph in the header',
       !!emptyVerbs && !emptyVerbs.skipInHeader, JSON.stringify(emptyVerbs));
-    /* Each the size of a fed meal's five, not a third of the row. Shared
-       equally, the three were slabs; Blake (2026-09-27): "The skip, repeat,
-       add, buttons are way to big." Add at the right edge, as on every
-       meal. */
-    t.ok('and each is a fifth of the row, like a fed meal\u2019s, with Add at the right',
-      !!emptyVerbs && emptyVerbs.verbs.every((v) => Math.abs(v.w - emptyVerbs.fifth) <= 1) &&
-        emptyVerbs.verbs[emptyVerbs.verbs.length - 1].t === 'Add' &&
+    /* Small square keys, not slabs. Shared equally, the three were a third
+       of the row each; Blake (2026-09-27): "The skip, repeat, add, buttons
+       are way to big", and then "Just use icons and the box size that is in
+       the meal/food card uses." One size, a plate key's (at most 36 on any
+       pointer), with Add alone at the right edge, as on every meal. */
+    t.ok('and each is a small square key, with Add alone at the right',
+      !!emptyVerbs && emptyVerbs.verbs.every((v) => v.w === emptyVerbs.verbs[0].w && v.h === v.w && v.w <= 36) &&
+        emptyVerbs.verbs[emptyVerbs.verbs.length - 1].add &&
         emptyVerbs.verbs[emptyVerbs.verbs.length - 1].right <= emptyVerbs.pad + 1,
       JSON.stringify(emptyVerbs));
     await emptyPg.context().close();
@@ -11023,6 +11046,8 @@ module.exports = {
       };
       return { coarse: matchMedia('(pointer: coarse)').matches,
         add: box('.mslot-add'), retry: box('.mslot-try'), seam: box('.mslot-head'),
+        /* a plate's own key, which the card's verbs are drawn the size of */
+        key: box('#macroSlots .mitem-r3 .mstep-keys button'),
         /* The bar's own button, measured rather than written down. */
         bar: box('.mday-acts button:not(#macroFill)') };
     });
@@ -11034,13 +11059,16 @@ module.exports = {
        controls two different ways. A literal floor would have failed by one
        pixel and told us nothing; what the rule actually is, now, is "the same
        button in both places", and that is a claim that cannot drift. */
-    /* The bar's tools are an icon over a word now and the card's verbs an
-       icon beside one, so they are no longer the same box; what they share
-       is the height a thumb needs (Blake, 2026-09-27: "≥44 px tap targets
-       everywhere"). */
-    t.ok('the card\u2019s verbs and the bar\u2019s tools are both a thumb tall',
-      reach.coarse && reach.add && reach.retry && reach.bar &&
-        reach.add.h >= 44 && reach.retry.h >= 44 && reach.bar.h >= 44 && reach.add.w >= 44,
+    /* Against a PLATE KEY now, on a finger. The bar's tools are an icon over
+       a word and a thumb tall (Blake, 2026-09-27: "\u226544 px tap targets
+       everywhere"); the card's verbs were too, until Blake: "The buttons are
+       still to big to me. Just use icons and the box size that is in the
+       meal/food card uses." So what they must match is the plate's key
+       beside them, measured, and the bar keeps its 44. */
+    t.ok('the card\u2019s verbs are a plate key\u2019s size on a finger, the bar\u2019s tools a thumb tall',
+      reach.coarse && reach.add && reach.retry && reach.bar && reach.key &&
+        Math.abs(reach.add.h - reach.key.h) <= 1 && Math.abs(reach.add.w - reach.key.w) <= 1 &&
+        Math.abs(reach.retry.h - reach.key.h) <= 1 && reach.key.h >= 34 && reach.bar.h >= 44,
       JSON.stringify(reach));
     /* The head is the handle and stays a thumb's worth, whatever the verbs
        below it do — it is the control you press most and the one nobody could
@@ -14962,8 +14990,10 @@ module.exports = {
              34 on a phone, by Blake's call (2026-09-27): "Just make those
              buttons smaller. So the serving box has more room". Its own
              floor is asserted at 320 on a touch phone, near the top of this
-             file. */
-          if (e.closest('.mitem-r3')) return;
+             file. The meal's own verbs are that size too, by his call the
+             same day: "Just use icons and the box size that is in the
+             meal/food card uses." */
+          if (e.closest('.mitem-r3, .mslot-acts')) return;
           const af = getComputedStyle(e, '::after');
           const ext = af.content !== 'none' && af.position === 'absolute';
           const short = Math.min(Math.max(r.width, ext ? parseFloat(af.width) || 0 : 0),
@@ -15018,10 +15048,13 @@ module.exports = {
       await pg.waitForTimeout(250);
       t.ok('and the expander says what it will do next: Open all once the day is shut',
         await pg.evaluate(() => document.querySelector('#macroOpenAll .mday-w').textContent === 'Open all'));
+      /* Drawn icons, each named aloud. They had a word under the drawing
+         too until Blake (2026-09-27): "Just use icons and the box size that
+         is in the meal/food card uses." */
       const verbs = await pg.evaluate(() => [...document.querySelectorAll('.mslot-acts button')].map((b) =>
-        !!b.querySelector('svg.mday-ic') + ':' + b.textContent.replace(/\s+/g, ' ').trim()));
-      t.ok('a meal’s verbs are drawn icons with words, the plus included ("Add")',
-        verbs.length > 0 && verbs.every((v) => /^true:\S/.test(v)) && verbs.some((v) => v === 'true:Add'), verbs.join(' | '));
+        !!b.querySelector('svg.mday-ic') + ':' + (b.getAttribute('aria-label') || '')));
+      t.ok('a meal’s verbs are drawn icons, each named aloud, the plus included',
+        verbs.length > 0 && verbs.every((v) => /^true:\S/.test(v)) && verbs.some((v) => /^true:Add food/.test(v)), verbs.join(' | '));
 
       /* Copy says it copied, and the drawing stays put. */
       const copied = await pg.evaluate(() => {
