@@ -6854,6 +6854,27 @@ module.exports = {
       strip320.length >= 2 && strip320.every((x) => !x.missing && x.sameLine && x.clear),
       JSON.stringify(strip320));
 
+    /* And the meal's own verbs, drawn without their words below 350. Five
+       share the row, and at 320 a fifth of it is narrower than "Another":
+       the words came out as "Anot..." and "Bala...". Blake (2026-09-27):
+       "Just show icons." Each still has a name a screen reader can say. */
+    const verbs320 = await tinyPhone.evaluate(() => {
+      const row = document.querySelector('#macroSlots .mslot-acts');
+      if (!row) return null;
+      const bs = [...row.querySelectorAll('button')];
+      return {
+        n: bs.length,
+        rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+        worded: bs.filter((b) => { const w = b.querySelector('span'); return w && w.getBoundingClientRect().width > 0; }).length,
+        drawn: bs.filter((b) => { const g = b.querySelector('svg'); return g && g.getBoundingClientRect().width > 0; }).length,
+        unnamed: bs.filter((b) => !/\w/.test(b.getAttribute('aria-label') || '')).map((b) => b.className),
+      };
+    });
+    t.ok('at 320 a meal\u2019s verbs are drawings on one row, each named aloud',
+      !!verbs320 && verbs320.n >= 4 && verbs320.rows === 1 && verbs320.worded === 0 &&
+        verbs320.drawn === verbs320.n && verbs320.unnamed.length === 0,
+      JSON.stringify(verbs320));
+
     /* ...and the glyph inside it is the size it is meant to be.
      *
        Blake asked for smaller icons and the commit that delivered them

@@ -5884,3 +5884,13 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .mitem-verbs .mic[aria-pressed="true"] {
   position: relative; border: 1px solid var(--ochre); background: var(--card); color: var(--ochre-text);
 }
+
+/* ---- Nourish: a meal's verbs as drawings alone, under 350 ----
+   Five verbs share the row, and below 350 a fifth of it is narrower than
+   "Another", so the words came out as "Anot..." and "Bala...". Blake
+   (2026-09-27): "Just show icons." Every meal on the day at once, so one
+   screen never mixes the two, and each button still says its name aloud. */
+@media (max-width: 349px) {
+  .mslot-act, .mslot-act.add { min-height: 44px; padding: 0; }
+  .mslot-act > span { display: none; }
+}

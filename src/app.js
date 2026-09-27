@@ -6449,10 +6449,14 @@
                    you delete the food. */
                 (items.length
                   ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
+                      /* Named aloud as well as in ink: on a phone under 350
+                         wide the meal's verbs are drawn without their words. */
+                      ' aria-label="Another suggestion for ' + esc(name) + '"' +
                       ' title="Another suggestion \u2014 walks down the best-fit list">' +
                       mIcon('another') + '<span>Another</span></button>' +
                     '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
                       (items.length >= 2 ? '' : ' disabled') +
+                      ' aria-label="Balance the portions on ' + esc(name) + '"' +
                       ' title="Solve these portions against this meal\u2019s macros">' +
                       mIcon('scales') + '<span>Balance</span></button>'
                   : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" ' +
