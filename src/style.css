@@ -5932,3 +5932,8 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
    sense to have a different color header for the meals vs their tray?" It
    does: the head is the thing you tap to fold, the tray is what it holds. */
 .mday-stop > .mslot-h { background: color-mix(in oklch, var(--paper) 55%, var(--card)); }
+/* The meal's own verbs wear its head's shade. Blake: "the buttons that are
+   for the whole meal, not just the food, color those like the header." So a
+   glance sorts them: cream acts on the meal, white acts on one food. */
+.mslot-act, .mslot-act.add { background: color-mix(in oklch, var(--paper) 55%, var(--card)); }
+.mslot-act:not(:disabled):active { background: var(--paper); }
