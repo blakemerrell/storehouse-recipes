@@ -4352,8 +4352,12 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mitem-typing .mstep-in { width: 3.2em; min-width: 0; }
 /* The dial is a plain row now: the box carries its own outline and the two
    keys carry theirs, so the container has nothing left to draw. */
+/* min-width: auto, never 0. At 0 the dial could be squeezed narrower than
+   its own portion and keys, which then spilled out of it: on a 360 phone
+   the tick sat on the last 15px of the + key, and a thumb on the edge of +
+   ticked the plate eaten. At auto a row with no room wraps instead. */
 .mitem-r3 .mstep {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 5px;
+  flex: 1 1 auto; min-width: auto; display: flex; align-items: center; gap: 5px;
   border: 0; background: none; border-radius: 0; padding: 0; max-width: none;
 }
 .mstep-keys { flex: none; display: flex; }
@@ -4424,7 +4428,9 @@ button.mw-verdict:hover { background: var(--paper-soft); }
    the ONE place the plate's touch sizes are written — twice now a second copy
    of these rules has survived a rewrite, sat later in the file, and won on
    source order, shipping a commit that changed nothing on a phone. If a size
-   for this row appears anywhere below, it is that bug again.
+   for this row appears anywhere below, it is that bug again. (A third time,
+   2026-09-27: a sweep to 44px set the strip's sizes far below this and was
+   taken back out. The name row's pin and star did keep their 44 there.)
  *
    Blake's call on the sizes: "Smaller buttons. A but less space between
    buttons. Wider serving box." 34 is under the 44 the rest of the app holds
@@ -5702,14 +5708,16 @@ button.tr-ck-h {
 .mslot-act { height: auto; min-height: 44px; font-size: 14px; }
 .mslot-act.add { min-width: 44px; }
 .mslot-unskip { min-height: 44px; }
-.mitem-r1 .mic, .mitem-r3 .mic { width: 44px; height: 44px; }
-.mitem-r1 .mic svg, .mitem-r3 .mic svg { width: 18px; height: 18px; margin: 0 auto; }
+.mitem-r1 .mic { width: 44px; height: 44px; }
+.mitem-r1 .mic svg { width: 18px; height: 18px; margin: 0 auto; }
 .mitem-r1 { min-height: 44px; }
 .mitem-name { min-height: 44px; }
-.mitem-r3 .mstep .mitem-amt { min-height: 44px; min-width: 76px; }
-.mitem-r3 .mstep-keys button { width: 44px; height: 44px; font-size: 19px; }
-.mitem-ate { width: 44px; height: 44px; }
-.mitem-ate::after { font-size: 19px; }
+/* Not the plate's strip. Its bin, lock, keys, portion and tick went to 44
+   here too, and on a 360 phone the tick was then drawn over the + key.
+   Blake (2026-09-27): "Just make those buttons smaller. So the serving box
+   has more room ... smaller like they were before." They are sized in the
+   one place the strip's sizes live, "Everything above is the mouse", and
+   nowhere else. */
 button.mitem-uom.mitem-bw, .mt-swap, .mt-ld-go, .fp-more, .mline-a button { position: relative; }
 button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
   content: ''; position: absolute; left: -4px; right: -4px; top: 50%; height: 44px; margin-top: -22px;

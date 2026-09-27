@@ -6834,6 +6834,26 @@ module.exports = {
       targets44.n >= 4 && targets44.small.length === 0,
       JSON.stringify(targets44));
 
+    /* One line, and the tick clear of the + key. With the strip at 44 and
+       the dial allowed to shrink below what it holds (min-width: 0), a 360
+       phone drew the tick over the last 15px of +, and a thumb on the edge
+       of + ticked the plate eaten (2026-09-27). Blake: "Just make those
+       buttons smaller. So the serving box has more room". Asserted at 320,
+       the tightest the strip has to fit, on every plate, the long yield noun
+       included. */
+    const strip320 = await tinyPhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r3')].map((r) => {
+      const R = (e) => e.getBoundingClientRect();
+      const keys = r.querySelectorAll('.mstep-keys button');
+      const plus = keys[keys.length - 1], ate = r.querySelector('.mitem-ate'), bin = r.querySelector('.mic');
+      if (!plus || !ate || !bin) return { missing: true };
+      const sameLine = Math.abs(R(ate).top - R(bin).top) < 3;
+      return { sameLine, clear: !sameLine || R(ate).left >= R(plus).right,
+        gap: Math.round(R(ate).left - R(plus).right), amt: Math.round(R(r.querySelector('.mitem-amt')).width) };
+    }));
+    t.ok('a plate\u2019s strip fits one line at 320, the tick clear of the + key',
+      strip320.length >= 2 && strip320.every((x) => !x.missing && x.sameLine && x.clear),
+      JSON.stringify(strip320));
+
     /* ...and the glyph inside it is the size it is meant to be.
      *
        Blake asked for smaller icons and the commit that delivered them
@@ -14901,6 +14921,12 @@ module.exports = {
         root.querySelectorAll('button, input:not([type=hidden]), select, summary').forEach((e) => {
           const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
           if (!r.width || !r.height || cs.visibility === 'hidden' || e.closest('[aria-hidden="true"], .hide, [hidden]')) return;
+          /* The strip under each plate (bin, lock, portion, keys, tick) is
+             34 on a phone, by Blake's call (2026-09-27): "Just make those
+             buttons smaller. So the serving box has more room". Its own
+             floor is asserted at 320 on a touch phone, near the top of this
+             file. */
+          if (e.closest('.mitem-r3')) return;
           const af = getComputedStyle(e, '::after');
           const ext = af.content !== 'none' && af.position === 'absolute';
           const short = Math.min(Math.max(r.width, ext ? parseFloat(af.width) || 0 : 0),
@@ -14912,7 +14938,7 @@ module.exports = {
       await pg.click('#macroOpenAll');
       await pg.waitForTimeout(300);
       const daySmall = await small('#view-macros');
-      t.ok('every control on the day is a thumb wide, the plates’ controls too', daySmall.length === 0, daySmall.join(' | '));
+      t.ok('every control on the day is a thumb wide, the plate strip apart', daySmall.length === 0, daySmall.join(' | '));
 
       /* No type under 13 px on the day, the drawn score in the leaf apart. */
       const tiny = (scope) => pg.evaluate((scope) => {
