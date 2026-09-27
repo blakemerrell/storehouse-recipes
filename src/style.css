@@ -5917,3 +5917,18 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 /* The first screen: 44px of paper stood between the tabs and the day. */
 #view-macros > .view { padding-top: 8px; }
 #view-macros .mday-stick { padding-top: 4px; }
+/* A shut meal's list, closer. Blake: "The space between foods already
+   complete is too much." Each row is 32px to the eye; the name's reach is
+   still 44 — an invisible band hung off the row (the button clips its own
+   overflow, so the band belongs to the row), overlapping its neighbours by
+   six pixels, which a finger cannot tell. */
+.mthin { min-height: 32px; position: relative; }
+.mthin-n::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px;
+  transform: translateY(-50%);
+}
+.mslot-thin { padding-top: 3px; padding-bottom: 4px; }
+/* The meal's head and its tray, told apart by a shade. Blake: "does it make
+   sense to have a different color header for the meals vs their tray?" It
+   does: the head is the thing you tap to fold, the tray is what it holds. */
+.mday-stop > .mslot-h { background: color-mix(in oklch, var(--paper) 55%, var(--card)); }
