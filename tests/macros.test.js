@@ -10815,9 +10815,16 @@ module.exports = {
         .find((c) => !c.querySelector('.mitem') && !c.querySelector('.mthin'));
       if (!card) return null;
       const row = card.querySelector('.mslot-acts');
+      const rb = row ? row.getBoundingClientRect() : null, cs = row ? getComputedStyle(row) : null;
       return {
         verbs: row ? [...row.querySelectorAll('button')].map((b) => ({
-          t: b.textContent.replace(/\s+/g, ' ').trim(), off: b.disabled })) : null,
+          t: b.textContent.replace(/\s+/g, ' ').trim(), off: b.disabled,
+          w: Math.round(b.getBoundingClientRect().width),
+          right: Math.round(rb.right - b.getBoundingClientRect().right) })) : null,
+        /* a fifth of the row, less its padding and the four gaps */
+        fifth: row ? Math.round((rb.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) -
+          4 * (parseFloat(cs.columnGap) || 0)) / 5) : 0,
+        pad: row ? parseFloat(cs.paddingRight) : 0,
         skipInHeader: !!card.querySelector('.mslot-h [data-mskip]'),
       };
     });
@@ -10830,6 +10837,15 @@ module.exports = {
       JSON.stringify(emptyVerbs));
     t.ok('and skip is no longer a glyph in the header',
       !!emptyVerbs && !emptyVerbs.skipInHeader, JSON.stringify(emptyVerbs));
+    /* Each the size of a fed meal's five, not a third of the row. Shared
+       equally, the three were slabs; Blake (2026-09-27): "The skip, repeat,
+       add, buttons are way to big." Add at the right edge, as on every
+       meal. */
+    t.ok('and each is a fifth of the row, like a fed meal\u2019s, with Add at the right',
+      !!emptyVerbs && emptyVerbs.verbs.every((v) => Math.abs(v.w - emptyVerbs.fifth) <= 1) &&
+        emptyVerbs.verbs[emptyVerbs.verbs.length - 1].t === 'Add' &&
+        emptyVerbs.verbs[emptyVerbs.verbs.length - 1].right <= emptyVerbs.pad + 1,
+      JSON.stringify(emptyVerbs));
     await emptyPg.context().close();
 
     /* One meal open at a time — the other half of the mockup's sentence. Six
