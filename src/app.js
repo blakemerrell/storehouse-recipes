@@ -15681,7 +15681,10 @@
   function renderShareHint() {
     var el = $('shareHint');
     if (!el) return;
-    var show = window.Store.configured && !window.Store.house && !hintDismissed();
+    /* Only where the household is: Nourish and Strengthen are yours alone,
+       and on a phone the banner was 130 pixels above your own day. */
+    var show = window.Store.configured && !window.Store.house && !hintDismissed() &&
+      S.view !== 'macros' && S.view !== 'train';
     el.classList.toggle('hide', !show);
   }
 
@@ -15793,6 +15796,7 @@
     if (S.view === 'list') renderList();
     if (S.view === 'pantry') renderPantry();
     if (S.view === 'book') renderBook();
+    renderShareHint();
     syncShrunk();
     syncStrip();
   }

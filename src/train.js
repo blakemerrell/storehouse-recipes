@@ -2976,6 +2976,18 @@
     var low = graded.filter(function (r) { return r.sets > 0 && r.sets < 5; });
     var high = graded.filter(function (r) { return r.sets > 20; });
     var none = graded.filter(function (r) { return !r.sets; });
+    /* What the plan itself asks for this week is not a warning: a block
+       that starts a muscle at four sets and builds from there is doing so on
+       purpose, and "worth a look" over a choice you can't act on is noise.
+       It is said, quietly, in the check's reasons instead. */
+    var chose = [];
+    if (ms && !keep && !base && !str && win.pick !== undefined) {
+      var planT = totals(ms, setsFor(ms, Math.min(win.pick, accOf(ms))).sets);
+      var onPurpose = function (r) { return (planT[r.k] || 0) < 5; };
+      chose = low.concat(none).filter(onPurpose);
+      low = low.filter(function (r) { return !onPurpose(r); });
+      none = none.filter(function (r) { return !onPurpose(r); });
+    }
     var inRange = graded.filter(function (r) { return r.sets >= 10 && r.sets <= 20; });
     var thin = rows.filter(function (r) { return r.sets < floor(r.k); });
     if (base) checks.push({
@@ -3028,8 +3040,10 @@
         (none.length ? names(none) + ' had no direct sets this week. ' : '') +
         (high.length ? names(high) + (high.length > 1 ? ' are' : ' is') + ' over twenty — it can still pay, at a shrinking rate, if you are recovering. ' : '') +
         (!low.length && !none.length && !high.length && !inRange.length ? 'Every muscle is between five and ten: enough to grow, and more would likely grow more. ' : '') +
-        (fxs.length ? 'The rest are held at a keeping dose on purpose, while ' + names(fxs.map(function (k) { return { n: mname(k).toLowerCase() }; })) + ' take' + (fxs.length > 1 ? '' : 's') + ' the extra work. ' : ''),
-      refs: ['vol17', 'vol24', 'rp21']
+        (fxs.length ? 'The rest are held at a keeping dose on purpose, while ' + names(fxs.map(function (k) { return { n: mname(k).toLowerCase() }; })) + ' take' + (fxs.length > 1 ? '' : 's') + ' the extra work. ' : '') +
+        (chose.length ? names(chose) + (chose.length > 1 ? ' are' : ' is') + ' under five this week because the plan starts ' + (chose.length > 1 ? 'them' : 'it') + ' there and builds. ' : ''),
+      refs: ['vol17', 'vol24', 'rp21'],
+      fix: young ? null : setFix(ms, low.concat(none))
     });
 
     var once = rows.filter(function (r) { return r.days === 1 && r.sets >= 6; });
@@ -3076,7 +3090,8 @@
           (shortC ? 'Under a minute between sets on ' + rushedN(true) + ' costs a little growth — longer rest let people do more on the next set. ' : '') +
           (shortI ? 'Under 45 seconds on ' + rushedN(false) + ' is shorter than most studies tested. ' : '') +
           (!shortC && !shortI ? 'Long enough that the next set is not being cut short.' : ''),
-      refs: ['rest16', 'rest24']
+      refs: ['rest16', 'rest24'],
+      fix: rushed.length ? { t: 'restpick', a: ' data-e="' + esc(rushed[0]) + '"', say: 'Longer rest for ' + lib(rushed[0]).n } : null
     });
 
     /* Effort, when you have said it. Held against what the plan asked for
@@ -3184,7 +3199,8 @@
             (typ > budget * 1.15
               ? 'Running long. Pairing more exercises, or two sets instead of three on the small ones, gives time back with little lost.'
               : 'Inside it. Paired sets and fewer, harder sets are what make a short session work.'),
-          refs: ['iversen21']
+          refs: ['iversen21'],
+          fix: typ > budget * 1.15 ? longFix(ms) : null
         });
       }
     }
@@ -3258,11 +3274,47 @@
              on purpose. Said, rather than let a climbing line be read as all
              new muscle. */
           (ms ? ' Some of any rise inside a block is the reps to spare coming down rather than new strength \u2014 the first week of one block against the first week of the next is the cleaner comparison.' : ''),
-        refs: ['rp21', 'epley', 'deload24']
+        refs: ['rp21', 'epley', 'deload24'],
+        fix: prog.fall.length && ms && !steady(ms) && nextSlot(ms) && nextSlot(ms).w < accOf(ms) ? { t: 'deloadnow', a: '', say: 'Deload now' } : null
       });
     }
     return { rows: rows, checks: checks, n: wos.length, prog: prog, label: win.label, keep: keep, base: base, str: str,
       cond: !!ms && ms.goal === 'cond' };
+  }
+
+  /* The one thing to do about muscles short of sets: one more set, for the
+     rest of the block, on the day that has the fewest of that muscle, on an
+     exercise already there. The first such muscle only: one tap, one
+     change, and the review reads it again next week. */
+  function setFix(ms, rows) {
+    if (!ms) return null;
+    for (var k = 0; k < rows.length; k++) {
+      var m = rows[k].k, pick = null;
+      ms.days.forEach(function (day, d) {
+        if (day.ez) return;
+        var tot = 0, slot = -1;
+        day.s.forEach(function (sl, i) { if (musOf(sl.e) === m && !sl.m) { tot += sl.n; if (slot < 0 || sl.n < day.s[slot].n) slot = i; } });
+        if (slot >= 0 && day.s[slot].n < 6 && (!pick || tot < pick.tot)) pick = { d: d, i: slot, tot: tot };
+      });
+      if (pick) {
+        return { t: 'fixset', a: ' data-d="' + pick.d + '" data-i="' + pick.i + '"',
+          say: 'Add a set of ' + lib(ms.days[pick.d].s[pick.i].e).n + ' to ' + dayName(ms.days[pick.d]) };
+      }
+    }
+    return null;
+  }
+
+  // the day that runs longest next week, opened to trim: a set off, a pair, a swap
+  function longFix(ms) {
+    var nx = ms && nextSlot(ms);
+    if (!nx) return null;
+    var sf = setsFor(ms, Math.min(nx.w, accOf(ms))), top = null;
+    ms.days.forEach(function (day, d) {
+      if (day.ez) return;
+      var m = estDay(day, sf.sets[d]);
+      if (!top || m > top.m) top = { d: d, m: m };
+    });
+    return top ? { t: 'plansheet', a: ' data-w="' + nx.w + '" data-d="' + top.d + '"', say: 'See ' + dayName(ms.days[top.d]) + ', the longest' } : null;
   }
 
   /* Cardio, from what you logged outside the gym, against the WHO's 150 to
@@ -3401,9 +3453,13 @@
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   // an old year says so: history brought in from another app goes back years
   function yr(d) { return d.getFullYear() === new Date().getFullYear() ? '' : ' ' + d.getFullYear(); }
+  /* One way of writing a date, month first as the grid and the lists have
+     it: "Mon, Sep 28" where the weekday helps, "Sep 28" where it doesn't.
+     The long form used to put the day first, so one screen said "28 Sep"
+     and the next "Sep 28". */
   function when(ts) {
     var d = new Date(ts);
-    return DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + yr(d);
+    return DOW[d.getDay()] + ', ' + MON[d.getMonth()] + ' ' + d.getDate() + yr(d);
   }
   function shortDate(ts) { var d = new Date(ts); return MON[d.getMonth()] + ' ' + d.getDate() + yr(d); }
 
@@ -4368,7 +4424,7 @@
     if (!wo) return '';
     var prs = prsIn(wo).length;
     return '<div class="tr-saved" role="status"><span>Saved \u00b7 ' + esc(wo.n) + ' \u00b7 ' + setsOf(wo) + ' sets' +
-      (prs ? ' \u00b7 <span class="tr-pr">\u2605 ' + prs + ' record' + (prs === 1 ? '' : 's') + '</span>' : '') + '</span>' +
+      (prs ? ' \u00b7 <span class="tr-pr">\ud83e\udd47 ' + prs + ' record' + (prs === 1 ? '' : 's') + '</span>' : '') + '</span>' +
       '<span class="tr-saved-a"><button class="tr-lnk" data-t="wocopy" data-id="' + esc(wo.id) + '">Copy</button>' +
       '<button class="tr-lnk" data-t="wosheet" data-id="' + esc(wo.id) + '">See it</button></span></div>';
   }
@@ -4414,7 +4470,7 @@
       (nx && nx.w < acc && !steady(ms) ? moreRow('deloadnow', 'Deload now', 'A light week before the planned one') : '') +
       moreRow('browse', 'Other programs', 'Look at the rest without ending this one') +
     '</div>' +
-    '<div class="tr-acts tr-foot tr-end"><button class="ghost danger" data-t="endblock">End this block</button></div>';
+    '<div class="tr-acts tr-foot tr-endblk"><button class="ghost danger" data-t="endblock">End this block</button></div>';
     return html;
   }
   function moreRow(t, n, sub) {
@@ -4640,7 +4696,8 @@
         var cd = colDays(ms, nx);
         return ms.days.map(function (d, i) {
           var c = cd[i];
-          return '<span class="tr-gh" role="columnheader">' + esc(d.ez ? 'Easy' : dayName(d)) +
+          // "day" is the one word a narrow column can spare
+          return '<span class="tr-gh" role="columnheader">' + esc(d.ez ? 'Easy' : dayName(d).replace(/ day$/, '')) +
             (c ? '<i class="tr-ghd' + (c.moved ? ' moved' : '') + '">' + LD_S[c.wd] + '</i>' : '') + '</span>';
         }).join('');
       })() + '</div>';
@@ -4698,7 +4755,14 @@
       var why = p.w > 0 && !said[ex.m] ? s.why : '';
       said[ex.m] = 1;
       var cue = backCue(ex);
-      if (s.up) why = 'Moved up from ' + lib(s.up).n + ': every set reached the top of its range last time.' + (why ? ' ' + why : '');
+      /* Quiet unless something changed: a muscle held where it was says
+         nothing, and a change says itself in a few words, with the reason
+         behind "why?". It used to be "Held \u2014 healed just in time,
+         moderate pump\u2026" under every exercise, every week. */
+      var head = why ? why.split(' \u2014 ')[0] : '';
+      var short = s.up ? 'Moved up from ' + lib(s.up).n : /^[+\u2212]\d/.test(head) ? mname(ex.m) + ': ' + head : '';
+      if (s.up) why = 'Every set reached the top of its range last time.' + (why ? ' ' + why : '');
+      var wkey = p.w + ':' + p.d + ':' + i, wopen = S.whyOpen === wkey;
       var nt = noteOf(s.e);
       return '<li><div class="tr-pl-top"><span class="tr-pl-n">' +
           (labels[i] ? '<span class="tr-pair">' + labels[i] + '</span>' : '') + esc(ex.n) + '</span>' +
@@ -4707,7 +4771,8 @@
           ' · ' + rirStr(s.rir) + '</div>' +
         (cue ? '<div class="tr-cue">' + esc(cue) + '</div>' : '') +
         (nt ? '<div class="tr-pl-nt"><span class="tr-exnt-l">Note</span> ' + esc(nt) + '</div>' : '') +
-        (why ? '<div class="tr-why">' + esc(mname(ex.m) + ': ' + why) + '</div>' : '') + '</li>';
+        (short ? '<div class="tr-why">' + esc(short) + ' <button class="tr-lnk tr-whyb" data-t="whyopen" data-v="' + wkey + '" aria-expanded="' + wopen + '">why?</button>' +
+          (wopen ? '<div class="tr-why-l">' + esc(why) + '</div>' : '') + '</div>' : '') + '</li>';
     }).join('') + '</ol>' +
       (ms && labels.some(Boolean) ? '<div class="tr-hint tr-pairwhy">' + esc(pairWhy(ms)) + '</div>' : '') +
       (p.mc ? '<div class="tr-mcp"><span class="tr-ql">Then the circuit</span><div>' + esc(mcSay(p.mc)) + '</div>' +
@@ -5337,7 +5402,7 @@
     var ms = L.ms ? T.ms[L.ms] : null;
     var html = '<div class="tr-live-h">' +
       // a workout called Workout needs no eyebrow saying so
-      '<div>' + (ms || L.n !== 'Workout' ? '<div class="tr-eyebrow">' + (ms ? (L.dl ? 'Deload' : 'Week ' + (L.w + 1)) + ' · ' + esc(ms.n) : 'Workout') + '</div>' : '') +
+      '<div>' + (ms || L.n !== 'Workout' ? '<div class="tr-eyebrow">' + (ms ? (L.dl ? 'Deload' : 'Week ' + (L.w + 1)) + ' \u00b7 ' + esc(ms.n.split(' \u00b7 ')[0]) : 'Workout') + '</div>' : '') +
         '<div class="tr-title">' + esc(L.n) + '</div>' +
         (ms ? '<div class="tr-sub">' + (L.dl ? 'Light and easy: stop every set well short of failure.'
           : L.ph ? esc(L.ph) : rirSay(L.rir).charAt(0).toUpperCase() + rirSay(L.rir).slice(1) + '.') + '</div>'
@@ -6046,7 +6111,7 @@
         '<span class="tr-h-top"><span class="tr-h-n">' + esc(wo.n) + '</span>' +
           '<span class="tr-h-d">' + when(wo.st) + ' \u00b7 ' + hm(wo.st) + '</span></span>' +
         '<span class="tr-h-meta">' + dur((wo.en || wo.st) - wo.st) + ' · ' + setsOf(wo) + ' sets · ' +
-          fmtBig(volOf(wo)) + ' ' + T.pr.u + (prs ? ' · <span class="tr-pr">★ ' + prs + ' record' + (prs === 1 ? '' : 's') + '</span>' : '') +
+          fmtBig(volOf(wo)) + ' ' + T.pr.u + (prs ? ' \u00b7 <span class="tr-pr">\ud83e\udd47 ' + prs + ' record' + (prs === 1 ? '' : 's') + '</span>' : '') +
           (wo.mc && mcScore(wo.mc) ? ' · circuit ' + esc(mcScore(wo.mc)) : '') +
         '</span>' +
         '<span class="tr-h-x">' + wo.x.map(function (x) {
@@ -6068,27 +6133,89 @@
   }
 
   /* --------------------------------------------------------------- lifts */
+  /* Every lift you have logged, found the way the picker finds one: word
+     by word, or by muscle. Each says where it is heading: a small line of
+     its best set, session by session, and how far it has come in four
+     weeks, which is the question a list of lifts is opened to answer. */
   function liftsHTML() {
+    var per = liftPer();
+    var keys = Object.keys(per);
+    if (!keys.length) return emptyHTML('No lifts yet', 'Every lift you log gets its own page here: records, and a line of your estimated max over time.', goBtn());
+    var mus = uniq(keys.map(function (e) { return lib(e).m; }));
+    return '<div class="tr-lfind">' +
+        '<input class="txt tr-search" id="trLiftQ" type="search" placeholder="Search your lifts" value="' + esc(S.lq || '') + '" aria-label="Search your lifts">' +
+        (mus.length > 1 ? chips('liftm', S.lm || '', [['', 'All']].concat(MUSCLES.filter(function (m) { return mus.indexOf(m.k) >= 0; }).map(function (m) { return [m.k, m.n]; }))) : '') +
+      '</div>' + liftList(per);
+  }
+  function liftPer() {
     var per = {};
     ix().list.forEach(function (wo) {
       wo.x.forEach(function (x) {
-        var p = per[x.e] = per[x.e] || { n: 0, last: 0 };
+        var p = per[x.e] = per[x.e] || { n: 0, last: 0, pts: [] };
         p.n++;
         p.last = wo.st;
+        var work = x.s.filter(counts);
+        if (!work.length) return;
+        // reps where the weight is you, or a machine's help; the estimated max where it is a load
+        var v = usesBw(x.e) || ASST[x.e] ? Math.max.apply(null, work.map(function (z) { return z.r; })) : bestE1(work, wo.u);
+        if (v > 0) p.pts.push([wo.st, v]);
       });
     });
-    var keys = Object.keys(per).sort(function (a, b) { return per[b].last - per[a].last; });
-    if (!keys.length) return emptyHTML('No lifts yet', 'Every lift you log gets its own page here: records, and a line of your estimated max over time.', goBtn());
-    return '<div class="tr-lifts">' + keys.map(function (e) {
-      var ex = lib(e), r = records(e);
+    return per;
+  }
+  function liftList(per) {
+    var qw = String(S.lq || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    var keys = Object.keys(per).filter(function (e) {
+      var ex = lib(e);
+      if (S.lm && ex.m !== S.lm) return false;
+      var h = (ex.n + ' ' + mname(ex.m)).toLowerCase().split(/[^a-z0-9]+/);
+      return qw.every(function (w) { return h.some(function (x) { return x.indexOf(w) === 0; }); });
+    }).sort(function (a, b) { return per[b].last - per[a].last; });
+    if (!keys.length) return '<div class="tr-lifts-l"><div class="tr-note">No lift of yours matches. The whole library is under + Add an exercise in a workout.</div></div>';
+    return '<div class="tr-lifts tr-lifts-l">' + keys.map(function (e) {
+      var ex = lib(e), r = records(e), p = per[e], reps = usesBw(e) || ASST[e];
       var best = r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : r.r + ' reps';
+      var ch = trend4(p.pts);
       return '<button class="tr-card tr-lrow" data-t="exsheet" data-e="' + esc(e) + '">' +
         '<span class="tr-l-n">' + esc(ex.n) + '</span>' +
-        '<span class="tr-l-m">' + esc(mname(ex.m)) + ' · ' + per[e].n + ' session' + (per[e].n === 1 ? '' : 's') +
-          ' · last ' + shortDate(per[e].last) + '</span>' +
+        '<span class="tr-l-m">' + esc(mname(ex.m)) + ' \u00b7 ' + p.n + ' session' + (p.n === 1 ? '' : 's') +
+          ' \u00b7 last ' + shortDate(p.last) + '</span>' +
         '<span class="tr-l-b"><span class="tr-l-bl">' + (r.e1 > 0 ? 'best est. max' : 'best') + '</span>' + best + '</span>' +
+        (p.pts.length > 1 ? '<span class="tr-l-t">' + spark(p.pts.slice(-12)) +
+          (ch === null ? '' : '<span class="tr-l-c ' + (ch > 0.005 ? 'up' : ch < -0.005 ? 'dn' : 'eq') + '">' +
+            (Math.abs(ch) < 0.005 ? 'level' : (ch > 0 ? '+' : '\u2212') + Math.abs(Math.round(ch * 100)) + '%') +
+            ' in 4 weeks' + (reps ? ', reps' : '') + '</span>') + '</span>' : '') +
       '</button>';
     }).join('') + '</div>';
+  }
+  /* The latest session against the last one at least four weeks before it;
+     with nothing that old, against the first, once there are two weeks to
+     go on. Null when there is nothing fair to compare. */
+  function trend4(pts) {
+    if (pts.length < 2) return null;
+    var last = pts[pts.length - 1], ref = null;
+    for (var i = pts.length - 2; i >= 0; i--) if (last[0] - pts[i][0] >= 28 * DAY_MS) { ref = pts[i]; break; }
+    if (!ref && last[0] - pts[0][0] >= 14 * DAY_MS) ref = pts[0];
+    return ref && ref[1] > 0 ? last[1] / ref[1] - 1 : null;
+  }
+  function spark(pts) {
+    var W = 84, H = 26, lo = Infinity, hi = -Infinity;
+    pts.forEach(function (q) { lo = Math.min(lo, q[1]); hi = Math.max(hi, q[1]); });
+    var span = hi - lo || 1;
+    var d = pts.map(function (q, i) {
+      var x = pts.length === 1 ? W / 2 : 2 + i * (W - 4) / (pts.length - 1);
+      var y = H - 3 - (q[1] - lo) / span * (H - 6);
+      return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }).join('');
+    return '<svg class="tr-spark" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" aria-hidden="true" focusable="false">' +
+      '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  }
+  function redrawLifts() {
+    var box = document.querySelector('#trBody .tr-lifts-l');
+    if (!box) return;
+    var tmp = document.createElement('div');
+    tmp.innerHTML = liftList(liftPer());
+    box.replaceWith(tmp.firstChild);
   }
 
   /* -------------------------------------------------------------- review */
@@ -6103,7 +6230,9 @@
       : Math.max(26, r.rows.reduce(function (m, x) { return Math.max(m, x.sets, x.mrv); }, 0));
     var band = small ? [3, max - 3] : [10, 20];
     var pct = function (v) { return (100 * v / max).toFixed(2) + '%'; };
-    var html = '<div class="tr-card">' +
+    var done = S.flash2 ? '<div class="tr-note tr-flash2" role="status">' + esc(S.flash2) + '</div>' : '';
+    S.flash2 = '';
+    var html = done + '<div class="tr-card">' +
       '<div class="tr-eyebrow">' + esc(r.label) + '</div>' +
       '<div class="tr-title">' + r.n + ' workout' + (r.n === 1 ? '' : 's') + ', held against the research</div>' +
       '<div class="tr-note">Every line below is a rule with a source. It grades what can be measured from your log and says so when something cannot be.</div>' +
@@ -6131,14 +6260,23 @@
         }).join('') + '</div>';
     }
     html += '</div>';
+    /* Each check is a headline, and opens to its reasoning and sources on a
+       tap: read top to bottom, the paragraphs were a page of prose for what
+       is mostly "on track". */
+    var ckOpen = S.ck || {};
     html += r.checks.map(function (c) {
-      return '<div class="tr-card tr-check tr-' + c.st + '">' +
-        '<div class="tr-ck-h"><span class="tr-ck-i" aria-hidden="true">' + ICON[c.st] + '</span>' +
-          '<span class="tr-ck-t">' + esc(c.t) + '</span><span class="tr-ck-w">' + WORD[c.st] + '</span></div>' +
-        '<div class="tr-ck-b">' + esc(c.b) + '</div>' +
-        (c.refs.length ? '<div class="tr-ck-r">' + c.refs.map(function (k) {
-          return '<button class="tr-lnk tr-ref" data-t="ref" data-v="' + k + '">' + esc(REFS[k][0]) + '</button>';
-        }).join(' · ') + '</div>' : '') +
+      var open = !!ckOpen[c.t];
+      return '<div class="tr-card tr-check tr-' + c.st + (open ? ' open' : '') + '">' +
+        '<button class="tr-ck-h" data-t="ckopen" data-v="' + esc(c.t) + '" aria-expanded="' + open + '">' +
+          '<span class="tr-ck-i" aria-hidden="true">' + ICON[c.st] + '</span>' +
+          '<span class="tr-ck-t">' + esc(c.t) + '</span><span class="tr-ck-w">' + WORD[c.st] + '</span>' +
+          '<span class="tr-ck-c" aria-hidden="true">' + (open ? '\u2212' : '+') + '</span></button>' +
+        // what to do about it, in view without opening the reasons
+        (c.fix && c.st === 'look' ? '<div class="tr-ck-fix"><button class="ghost" data-t="' + c.fix.t + '"' + c.fix.a + '>' + esc(c.fix.say) + '</button></div>' : '') +
+        (open ? '<div class="tr-ck-b">' + esc(c.b) + '</div>' +
+          (c.refs.length ? '<div class="tr-ck-r">' + c.refs.map(function (k) {
+            return '<button class="tr-lnk tr-ref" data-t="ref" data-v="' + k + '">' + esc(REFS[k][0]) + '</button>';
+          }).join(' \u00b7 ') + '</div>' : '') : '') +
       '</div>';
     }).join('');
     html += '<details class="tr-how" id="trRefs"><summary>Where the numbers come from</summary>' +
@@ -6373,7 +6511,14 @@
     if (tab === 'about') return html + exAbout(e, ex);
     if (!ss.length) return html + '<div class="tr-note">Not logged yet. Its history, charts and records fill in after the first session.</div>';
     if (tab === 'history') return html + exHistory(e, ss);
-    if (tab === 'charts') return html + exCharts(e, ss);
+    if (tab === 'charts') {
+      /* The last month, three, six, or everything: a lifetime of sessions
+         on one line flattens this month's climb to nothing. */
+      var rng = S.crng || 'all', cut = { '1m': 31, '3m': 92, '6m': 183 }[rng];
+      var inR = cut ? ss.filter(function (x) { return x.wo.st >= Date.now() - cut * DAY_MS; }) : ss;
+      return html + '<div class="tr-crng">' + chips('crng', rng, [['1m', '1M'], ['3m', '3M'], ['6m', '6M'], ['all', 'All']]) + '</div>' +
+        (inR.length >= 2 ? exCharts(e, inR) : '<div class="tr-note">Fewer than two sessions in this range. Pick a longer one.</div>');
+    }
     return html + exRecords(e, ss);
   }
   /* Before the first heavy set of a barbell press or squat: the thing that
@@ -6436,7 +6581,8 @@
       var num = 0, bw = bwFor(e, s.wo);
       return '<div class="tr-hs"><div class="tr-hs-h"><span class="tr-hs-n">' + esc(s.wo.n) + '</span>' +
           '<span class="tr-hs-d">' + when(s.wo.st) + ' \u00b7 ' + hm(s.wo.st) + (bw ? ' \u00b7 you ' + fmtN(bw) + ' ' + T.pr.u : '') + '</span></div>' +
-        '<table class="tr-hs-t"><tbody>' + s.x.s.map(function (z) {
+        // the last column was a bare number: it says what it is now
+        '<table class="tr-hs-t"><thead><tr><th></th><th>Weight \u00d7 reps</th><th>Est. max</th></tr></thead><tbody>' + s.x.s.map(function (z) {
           var w = conv(z.w, s.wo.u), e1 = !counts(z) ? 0 : e1Of(e, w, z.r, bw);
           return '<tr' + (z.wu ? ' class="w"' : '') + '><td class="tr-hs-l">' + setLab(z, function () { return ++num; }) + '</td>' +
             '<td>' + (w > 0 ? (BWL[e] ? '+' : '') + fmtN(w) + ' ' + T.pr.u + (ASST[e] ? ' help' : '') + ' \u00d7 ' : '') + z.r + (fin(z.q) ? ' <span class="tr-e1">' + rqSay(z.q) + '</span>' : '') + '</td>' +
@@ -6454,19 +6600,19 @@
     };
     // the best estimated max of a session, you included on the lifts that lift you
     var best = function (ws, u, s) { var bw = bwFor(e, s.wo); return Math.max.apply(null, ws.map(function (z) { return e1Of(e, conv(z.w, u), z.r, bw); })); };
-    var one = function (title, series, reps) {
+    var one = function (title, series, reps, low, unit) {
       return '<div class="tr-ql tr-chart-h">' + title + '</div>' +
-        (series.length >= 2 ? chartSVG(series, reps) : '<div class="tr-note">Two sessions and this draws.</div>');
+        (series.length >= 2 ? chartSVG(series, reps, low, unit) : '<div class="tr-note">Two sessions and this draws.</div>');
     };
     if (usesBw(e) && !byReps) {
       return one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
         one(ASST[e] ? 'Estimated one-rep max, you less the help' : 'Estimated one-rep max, you + added', pts(best), false) +
-        one('Strength \u00d7 bodyweight', pts(function (ws, u, s) { var bw = bwFor(e, s.wo); return bw ? Math.round(best(ws, u, s) / bw * 100) / 100 : 0; }), false) +
+        one('Strength \u00d7 bodyweight', pts(function (ws, u, s) { var bw = bwFor(e, s.wo); return bw ? Math.round(best(ws, u, s) / bw * 100) / 100 : 0; }), false, false, '\u00d7') +
         '<div class="tr-hint">Strength \u00d7 bodyweight holds still when your weight falls and your reps don\u2019t, which the estimated max alone can\u2019t.</div>';
     }
     if (ASST[e]) {
       return one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
-        one('Least help (' + T.pr.u + ')', pts(function (ws, u) { return Math.min.apply(null, ws.map(function (z) { return conv(z.w, u); })) || 0.001; }), false);
+        one('Least help (' + T.pr.u + ')', pts(function (ws, u) { return Math.min.apply(null, ws.map(function (z) { return conv(z.w, u); })) || 0.001; }), false, true);
     }
     return byReps
       ? one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
@@ -6503,7 +6649,7 @@
         s.x.s.forEach(function (z) { if (counts(z)) { var hw = conv(z.w, s.wo.u); if (help === null || hw < help) help = hw; } });
       });
       return '<div class="tr-recs">' +
-        rec('Estimated 1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
+        rec('Est. max', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
         rec('\u00d7 bodyweight', rel > 0 ? (Math.round(rel * 100) / 100).toFixed(2) : '\u2014') +
         (ASST[e] ? rec('Least help', help !== null ? fmtN(help) + ' ' + T.pr.u : '\u2014')
           : rec('Most added', r.w > 0 ? '+' + fmtN(r.w) + ' ' + T.pr.u : '\u2014')) +
@@ -6514,15 +6660,16 @@
       exFell(e);
     }
     var html = '<div class="tr-recs">' +
-      rec('Estimated 1RM', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
+      rec('Est. max', r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : '\u2014') +
       rec('Heaviest', r.w > 0 ? fmtN(r.w) + ' ' + T.pr.u : '\u2014') +
-      rec('Best set', r.vol > 0 ? fmtBig(r.vol) + ' ' + T.pr.u : '\u2014') +
+      // weight times reps: "best set 1,400 lb" read as a 1,400 lb lift
+      rec('Best set volume', r.vol > 0 ? fmtBig(r.vol) + ' ' + T.pr.u : '\u2014') +
       rec('Most reps', r.r || '\u2014') +
     '</div>';
     if (!byReps) {
       var rm = repMaxes(ss);
       html += '<div class="tr-ql tr-chart-h">Best for each number of reps</div>' +
-        '<table class="tr-rmx"><thead><tr><th>Reps</th><th>Best</th><th>Estimated</th></tr></thead><tbody>' +
+        '<table class="tr-rmx"><thead><tr><th>Reps</th><th>Best</th><th>Est. for that many</th></tr></thead><tbody>' +
         rm.map(function (row) {
           var est = row.n === 1 ? r.e1 : r.e1 / (1 + row.n / 30);
           return '<tr><td>' + row.n + '</td><td>' + fmtN(row.b.w) + ' ' + T.pr.u + ' <span class="tr-e1">\u00d7' + row.b.r + '</span>' +
@@ -6539,7 +6686,7 @@
     });
     return '<div class="tr-ql tr-chart-h">Records as they fell</div>' + (hist.length
       ? '<ol class="tr-sess">' + hist.reverse().slice(0, 20).map(function (h) {
-          return '<li><span class="tr-ss-d">' + when(h.st) + '</span><span class="tr-ss-s">\u2605 ' + esc(h.what) + '</span></li>';
+          return '<li><span class="tr-ss-d">' + when(h.st) + '</span><span class="tr-ss-s">\ud83e\udd47 ' + esc(h.what) + '</span></li>';
         }).join('') + '</ol>'
       : '<div class="tr-note">None yet: the first session of a lift is where records start from.</div>');
   }
@@ -6548,36 +6695,70 @@
   /* One line, one colour, the same drawing as My Day's weight chart so the two
      read as one app: ink line, hairline grid, three rounded ticks, the first
      and last dates under it, a title on every point for the value. */
-  function chartSVG(series, byReps) {
-    var W = 600, H = 190, PL = 44, PR = 10, PT = 12, PB = 22;
-    var vals = series.map(function (s) { return s.v; });
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-    if (hi - lo < 1) { hi += 1; lo -= 1; }
-    var pad = (hi - lo) * 0.12; lo = Math.max(0, lo - pad); hi += pad;
-    var px = function (i) { return PL + i * (W - PL - PR) / Math.max(1, series.length - 1); };
-    var py = function (v) { return PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo)); };
+  /* A lift's line over time, drawn to be read on a phone: spaced by date,
+     not by session, so a month off looks like a month; the axis on round
+     numbers; every record a gold dot; and a finger on the line (or a drag
+     along it) reads out the session under it. The viewBox is about a
+     phone's width, so its type is about the size it says. */
+  function niceTicks(lo, hi, n) {
+    var span = hi - lo || 1, raw = span / (n || 4);
+    var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), f = raw / mag;
+    var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
     var out = [];
-    [lo + (hi - lo) * 0.1, (lo + hi) / 2, hi - (hi - lo) * 0.1].forEach(function (v) {
+    for (var v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) out.push(Math.round(v * 1000) / 1000);
+    return out;
+  }
+  function chartSVG(series, byReps, low, unit) {
+    var W = 360, H = 180, PL = 46, PR = 12, PT = 14, PB = 24;
+    var vals = series.map(function (q) { return q.v; });
+    var tk = niceTicks(Math.min.apply(null, vals), Math.max.apply(null, vals), 4);
+    if (tk.length < 2) tk = [tk[0] - 1, tk[0] + 1];
+    var lo = tk[0], hi = tk[tk.length - 1];
+    var t0 = series[0].t, t1 = series[series.length - 1].t;
+    var px = function (t) { return t1 > t0 ? PL + (t - t0) / (t1 - t0) * (W - PL - PR) : (PL + W - PR) / 2; };
+    var py = function (v) { return PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo)); };
+    var u = unit !== undefined ? unit : byReps ? ' reps' : ' ' + T.pr.u;
+    // a ratio to two places; pounds, kilos and reps as whole numbers
+    var say = function (q) { return shortDate(q.t) + ' \u00b7 ' + (u === '\u00d7' ? (Math.round(q.v * 100) / 100).toFixed(2) : fmtBig(q.v)) + u; };
+    var tick = function (v) { return v >= 10000 ? Math.round(v / 100) / 10 + 'k' : v >= 1000 ? fmtBig(v) : String(Math.round(v * 100) / 100); };
+    var out = [];
+    tk.forEach(function (v) {
       out.push('<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + py(v).toFixed(1) + '" y2="' + py(v).toFixed(1) + '" class="mc-grid"/>');
-      out.push('<text x="' + (PL - 6) + '" y="' + (py(v) + 3.5).toFixed(1) + '" text-anchor="end" class="mc-ax">' + Math.round(v) + '</text>');
+      out.push('<text x="' + (PL - 6) + '" y="' + (py(v) + 4).toFixed(1) + '" text-anchor="end" class="tr-ax">' + tick(v) + '</text>');
     });
-    out.push('<polyline class="mc-line tr-line" points="' + series.map(function (s, i) {
-      return px(i).toFixed(1) + ',' + py(s.v).toFixed(1);
+    out.push('<polyline class="mc-line tr-line" points="' + series.map(function (q) {
+      return px(q.t).toFixed(1) + ',' + py(q.v).toFixed(1);
     }).join(' ') + '"/>');
-    series.forEach(function (s, i) {
-      out.push('<circle cx="' + px(i).toFixed(1) + '" cy="' + py(s.v).toFixed(1) + '" r="4" class="tr-dot"><title>' +
-        esc(when(s.t)) + ' · ' + (byReps ? s.v + ' reps' : Math.round(s.v) + ' ' + T.pr.u) + '</title></circle>');
+    // a record is a session that beat every one before it
+    var best = null;
+    series.forEach(function (q, i) {
+      var rec = i > 0 && (low ? q.v < best : q.v > best);
+      if (best === null || (low ? q.v < best : q.v > best)) best = q.v;
+      out.push('<circle cx="' + px(q.t).toFixed(1) + '" cy="' + py(q.v).toFixed(1) + '" r="' + (rec ? 5 : 3.5) + '" class="tr-dot' + (rec ? ' pr' : '') + '"/>');
     });
-    var last = series[series.length - 1];
-    out.push('<text x="' + (px(series.length - 1) - 8).toFixed(1) + '" y="' + (py(last.v) - 9).toFixed(1) +
-      '" text-anchor="end" class="mc-ax tr-end">' + (byReps ? last.v : Math.round(last.v)) + '</text>');
+    out.push('<circle class="tr-hl" r="7" cx="-20" cy="-20"/>');
     [0, series.length - 1].forEach(function (i) {
-      out.push('<text x="' + px(i).toFixed(1) + '" y="' + (H - 5) + '" text-anchor="' + (i ? 'end' : 'start') +
-        '" class="mc-ax">' + esc(shortDate(series[i].t)) + '</text>');
+      out.push('<text x="' + px(series[i].t).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="' + (i ? 'end' : 'start') +
+        '" class="tr-ax">' + esc(shortDate(series[i].t)) + '</text>');
     });
-    return '<svg class="mc-svg tr-chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
+    var pts = series.map(function (q) { return [Math.round(px(q.t) * 10) / 10, Math.round(py(q.v) * 10) / 10, say(q)]; });
+    var last = series[series.length - 1];
+    return '<div class="tr-chartw"><div class="tr-chart-read" aria-live="polite">Latest: ' + esc(say(last)) + '</div>' +
+      '<svg class="mc-svg tr-chart" viewBox="0 0 ' + W + ' ' + H + '" data-pts="' + esc(JSON.stringify(pts)) + '" role="img" aria-label="' +
       esc((byReps ? 'Best reps' : 'Estimated one-rep max') + ' over ' + series.length + ' sessions, from ' +
-        Math.round(series[0].v) + ' to ' + Math.round(last.v)) + '">' + out.join('') + '</svg>';
+        Math.round(series[0].v) + ' to ' + Math.round(last.v)) + '">' + out.join('') + '</svg></div>';
+  }
+  // the finger on a chart: the session nearest it, read out and ringed
+  function chartRead(svg, clientX) {
+    var pts;
+    try { pts = JSON.parse(svg.getAttribute('data-pts') || '[]'); } catch (e) { return; }
+    if (!pts.length) return;
+    var r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+    var x = (clientX - r.left) / r.width * vb.width, near = pts[0];
+    pts.forEach(function (q) { if (Math.abs(q[0] - x) < Math.abs(near[0] - x)) near = q; });
+    var hl = svg.querySelector('.tr-hl'), rd = svg.parentNode.querySelector('.tr-chart-read');
+    if (hl) { hl.setAttribute('cx', near[0]); hl.setAttribute('cy', near[1]); }
+    if (rd && rd.textContent !== near[2]) rd.textContent = near[2];
   }
 
   /* The workout in plain text, the way Nourish copies a day: the date, the
@@ -6652,7 +6833,7 @@
       '<div class="tr-sub">' + when(wo.st) + ' · ' + (wo.en > wo.st ? hmSpan(wo.st, wo.en) + ' · ' + dur(wo.en - wo.st) : hm(wo.st)) + ' · ' + setsOf(wo) + ' sets · ' +
         fmtBig(volOf(wo)) + ' ' + T.pr.u + (wo.im === 's' ? ' · from Strong' : '') + (wo.ed ? ' · edited' : '') + '</div>' +
       (prs.length ? '<div class="tr-prs">' + prs.map(function (p) {
-        return '<div>★ ' + esc(lib(p.e).n) + ' — ' + esc(p.what) + '</div>';
+        return '<div>\ud83e\udd47 ' + esc(lib(p.e).n) + ' \u2014 ' + esc(p.what) + '</div>';
       }).join('') + '</div>' : '') +
       (wo.mc && mcValid(wo.mc) ? '<div class="tr-wx"><span class="tr-wx-n">Circuit \u00b7 ' + esc(mcScore(wo.mc)) + '</span>' +
         '<div class="tr-sub">' + esc(mcSay(wo.mc)) + '</div></div>' : '') +
@@ -6958,7 +7139,7 @@
         rec('Total lifted', fmtBig(volOf(wo)) + ' ' + T.pr.u) + rec('Records', prs.length) +
       '</div>' +
       (prs.length ? '<div class="tr-prs">' + prs.map(function (p) {
-        return '<div>★ ' + esc(lib(p.e).n) + ' — ' + esc(p.what) + '</div>';
+        return '<div>\ud83e\udd47 ' + esc(lib(p.e).n) + ' \u2014 ' + esc(p.what) + '</div>';
       }).join('') + '</div>' : '') +
       typedSay +
       (empty ? '<div class="tr-note">' + empty + (typed ? ' empty' : '') + ' set' + (empty === 1 ? ' was' : 's were') + ' never ticked and will not be saved.</div>' : '') +
@@ -7333,7 +7514,7 @@
     /* You first: what the next block is built around, and what the review
        reads your week against. A block already running keeps what it was
        built with; these shape the next one. */
-    return '<div class="sheet-name tr-sn2">Strengthen settings</div>' +
+    return '<div class="sheet-name tr-sn2">Strengthen settings</div><div class="tr-settings">' + infoTips(
       q('About you', '<div class="tr-sub">' + esc(p.qz ? youLine(p) : 'Not answered yet.') + '</div>' +
         '<div class="tr-acts"><button class="ghost" data-t="requiz">' + (p.qz ? 'Change my answers' : 'Answer the questions') + '</button></div>',
         'Your goal, time, kit, what to look after and what you do outside the gym. The picks, your next block and the review all read these.') +
@@ -7399,7 +7580,19 @@
           Object.keys(S.imp.ms).length + ' blocks. Restoring replaces everything in Strengthen on this device and in your account.</div>' +
           '<div class="tr-acts"><button class="btn-primary danger" data-t="impgo">Replace with the copy</button></div>' : '') +
         (S.impErr ? '<div class="tr-note">' + esc(S.impErr) + '</div>' : '') +
-      '</div>';
+      '</div>') + '</div>';
+  }
+  /* Settings say what each one does behind an i, not in a paragraph under
+     every row: the screen was a page of reading to change a rest time.
+     Tapped, the i opens its paragraph in place; tapped again, it goes. */
+  function infoTips(html) {
+    var n = 0;
+    return html.replace(/<div class="tr-hint">([\s\S]*?)<\/div>/g, function (all, txt) {
+      var k = 's' + (n++), open = S.info === k;
+      return '<button class="tr-info" data-t="info" data-v="' + k + '" aria-expanded="' + open + '" aria-label="' +
+        (open ? 'Hide' : 'What this does') + '"><span aria-hidden="true">i</span></button>' +
+        (open ? '<div class="tr-hint tr-info-t">' + txt + '</div>' : '');
+    });
   }
 
   /* ---------------------------------------------------------------- actions */
@@ -8372,6 +8565,19 @@
     if (t === 'browse') { S.browse = true; S.lib = false; draw(); scrollTop(); return; }
     if (t === 'ldopen') { S.ldOpen = true; S.ldDraft = ldDays().slice(); draw(); return; }
     if (t === 'gridopen') { S.gridOpen = !S.gridOpen; draw(); return; }
+    if (t === 'info') { S.info = S.info === v ? '' : v; drawSheet(); return; }
+    if (t === 'whyopen') { S.whyOpen = S.whyOpen === v ? '' : v; if (S.sheet) drawSheet(); else draw(); return; }
+    if (t === 'ckopen') { S.ck = S.ck || {}; S.ck[v] = !S.ck[v]; draw(); return; }
+    if (t === 'fixset') {
+      var fms = active(), fd = num('data-d'), fi = num('data-i');
+      var fsl = fms && fms.days[fd] && fms.days[fd].s[fi];
+      if (!fsl || fsl.n >= 6) return;
+      var fc = clean(fms);
+      fc.days[fd].s[fi].n = fsl.n + 1;
+      editBlock(fc);
+      S.flash2 = 'Added: ' + lib(fsl.e).n + ' has ' + (fsl.n + 1) + ' sets on ' + dayName(fc.days[fd]) + ' for the rest of the block.';
+      draw(); return;
+    }
     if (t === 'planopen') { S.planOpen = !S.planOpen; draw(); return; }
     if (t === 'ldcancel') { S.ldOpen = false; S.ldDraft = null; draw(); return; }
     if (t === 'ldpick') {
@@ -8736,6 +8942,8 @@
       drawSheet(); return;
     }
     if (t === 'pickm') { S.qm = v; drawSheet(); return; }
+    if (t === 'liftm') { S.lm = v; draw(); return; }
+    if (t === 'crng') { S.crng = v; drawSheet(); return; }
     if (t === 'pickex') { onPick(el.getAttribute('data-e')); return; }
     if (t === 'own') { S.own = { n: S.q, m: S.qm || 'chest', q: 'mc', k: 'i' }; drawSheet(); return; }
     if (t === 'ownsave') {
@@ -9025,6 +9233,15 @@
 
   /* ------------------------------------------------------------------ wiring */
   function wire() {
+    var chartDown = null;
+    document.addEventListener('pointerdown', function (e) {
+      var svg = e.target && e.target.closest && e.target.closest('svg.tr-chart[data-pts]');
+      chartDown = svg || null;
+      if (svg) chartRead(svg, e.clientX);
+    });
+    document.addEventListener('pointermove', function (e) { if (chartDown) chartRead(chartDown, e.clientX); });
+    document.addEventListener('pointerup', function () { chartDown = null; });
+    document.addEventListener('pointercancel', function () { chartDown = null; });
     window.addEventListener('storage', otherTab);
     /* The chime at the end of a rest needs a sound woken by a tap, and the
        tap was only ever the tick. Reopened mid-rest (killed, or reloaded for
@@ -9046,6 +9263,7 @@
       var el = e.target;
       if (!el || !el.getAttribute) return;
       if (el.id === 'trPickQ') { S.q = el.value; redrawPicks(); return; }
+      if (el.id === 'trLiftQ') { S.lq = el.value; redrawLifts(); return; }
       if (el.id === 'trPlateW' && S.sheet && S.sheet.k === 'plates') {
         S.sheet.w = el.value;
         var pos = el.selectionStart;
@@ -9228,6 +9446,7 @@
        pure parts, which take data and give data. */
     _: {
       soreAsk: soreAsk, srNow: srNow, fbAll: fbAll, repsMoved: repsMoved, uniq: uniq, draw: draw, dayName: dayName, dueIn: dueIn, focusOn: focusOn,
+      niceTicks: niceTicks, trend4: trend4, planList: planList, setFix: setFix,
       build: build, plan: plan, setsFor: setsFor, feedback: feedback, target: target,
       e1rm: e1rm, plateMath: plateMath, review: review, merge: merge, payload: payload,
       rirFor: rirFor, nextSlot: nextSlot, prsIn: prsIn, lib: lib, SPLITS: SPLITS, MUS: MUS,

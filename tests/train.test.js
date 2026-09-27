@@ -2370,7 +2370,7 @@ module.exports = {
     t.ok('charts: reps, the estimated max with you in it, and strength × bodyweight', r === 'Best set, in reps|Estimated one-rep max, you + added|Strength × bodyweight', r);
     await p.click('[data-t="extab"][data-v="records"]');
     r = await p.evaluate(() => [...document.querySelectorAll('.tr-rec')].map((e) => e.textContent).join('|'));
-    t.ok('records: estimated max, × bodyweight, most added and most reps', /Estimated 1RM260 lb/.test(r) && /× bodyweight1\.37/.test(r) && /Most added\+15 lb/.test(r) && /Most reps8/.test(r), r);
+    t.ok('records: estimated max, × bodyweight, most added and most reps', /Est\. max260 lb/.test(r) && /× bodyweight1\.37/.test(r) && /Most added\+15 lb/.test(r) && /Most reps8/.test(r), r);
     await p.close();
 
     // no weigh-ins: reps, as before
@@ -3424,6 +3424,72 @@ module.exports = {
       say: (document.querySelector('.tr-sheet') || {}).textContent.match(/The most you can load at home: [\d.]+ lb/) }; });
     t.ok('Settings sets up home: plates in pairs, a bar you type, and a default bar of any weight', r.on === 1 && r.pl === '{"5":2,"10":2,"25":1,"45":3}' && r.bar === 35 && r.def === 44 &&
       r.say && r.say[0] === 'The most you can load at home: ' + (35 + 2 * (135 + 25 + 20 + 10)) + ' lb', JSON.stringify(r));
+    await p.close();
+
+    // ---- quiet by default: help behind an i, Review as headlines, notes only for a change ----
+    p = await t.fresh();
+    {
+      const b = await p.evaluate(() => { const ms = window.Train._.build({ dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] }); ms.id = 'qb'; return ms; });
+      const x0 = b.days[0].s.map((z) => ({ e: z.e, s: sets(100, [10, 10, 10]) }));
+      await seed(p, { pr: { qz: 1, u: 'lb' }, act: 'qb', ms: { qb: b }, cx: {}, ax: {}, wo: {
+        a: wo('a', 'qb', 0, 0, 9, x0), b1: wo('b1', 'qb', 0, 1, 8, b.days[1].s.map((z) => ({ e: z.e, s: sets(100, [10, 10]) }))),
+        c: wo('c', 'qb', 0, 2, 7, b.days[2].s.map((z) => ({ e: z.e, s: sets(100, [10, 10]) }))) } });
+    }
+    await p.click('.tab[data-view="train"]');
+    await openSettings(p);
+    r = await p.evaluate(() => ({ hints: document.querySelectorAll('#trainRoot .tr-settings .tr-hint').length, is: document.querySelectorAll('#trainRoot .tr-info').length }));
+    t.ok('settings: what each one does is behind an i, not a paragraph under every row', r.hints === 0 && r.is >= 5, JSON.stringify(r));
+    await p.click('#trainRoot .tr-info >> nth=1');
+    r = await p.evaluate(() => ({ hints: document.querySelectorAll('#trainRoot .tr-settings .tr-hint').length, open: document.querySelectorAll('#trainRoot .tr-info[aria-expanded="true"]').length }));
+    t.ok('and the i opens its paragraph in place', r.hints === 1 && r.open === 1, JSON.stringify(r));
+    await p.click('.sheet-x');
+    await p.click('[data-t="sub"][data-v="review"]');
+    r = await p.evaluate(() => ({ cards: document.querySelectorAll('.tr-check').length, bodies: document.querySelectorAll('.tr-check .tr-ck-b').length }));
+    t.ok('Review: each check a one-line headline', r.cards >= 3 && r.bodies === 0, JSON.stringify(r));
+    await p.click('.tr-check [data-t="ckopen"] >> nth=0');
+    r = await p.evaluate(() => document.querySelectorAll('.tr-check .tr-ck-b').length);
+    t.ok('which opens to its reasons on a tap', r === 1, r);
+    r = await p.evaluate(() => {
+      const _ = window.Train._, ms = _.state().T.ms.qb, pl = _.plan(ms, 1, 0);
+      return { whys: pl.x.map((x) => x.why || ''), html: (() => { const d = document.createElement('div'); d.innerHTML = _.planList(pl, ms); return d.textContent; })() };
+    });
+    t.ok('a plan says nothing for a muscle held where it was, and a change in a few words with a why?',
+      !/Held —/.test(r.html) && (!r.whys.some((w) => /^\+\d/.test(w)) || /why\?/.test(r.html)), r.html.slice(0, 200));
+    await p.close();
+
+    // ---- Lifts: search, muscle, and where each is heading ----
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1, u: 'lb' }, act: '', ms: {}, cx: {}, ax: {}, wo: {
+      a: wo('a', '', -1, -1, 40, [{ e: 'bb-bench', s: sets(185, [5, 5]) }, { e: 'leg-ext', s: sets(100, [12]) }]),
+      b: wo('b', '', -1, -1, 35, [{ e: 'bb-bench', s: sets(195, [5, 5]) }, { e: 'lat-pd', s: sets(140, [10]) }]),
+      c: wo('c', '', -1, -1, 2, [{ e: 'bb-bench', s: sets(205, [5, 5]) }, { e: 'leg-ext', s: sets(110, [12]) }]) } });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="lifts"]');
+    r = await p.evaluate(() => ({ n: document.querySelectorAll('.tr-lrow').length, spark: !!document.querySelector('.tr-lrow[data-e="bb-bench"] .tr-spark'),
+      ch: (document.querySelector('.tr-lrow[data-e="bb-bench"] .tr-l-c') || {}).textContent || '' }));
+    t.ok('each lift carries a small line of its sessions and its change over four weeks', r.n === 3 && r.spark && /^\+\d+% in 4 weeks$/.test(r.ch), JSON.stringify(r));
+    await p.fill('#trLiftQ', 'ext leg');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-lrow')].map((b) => b.dataset.e).join());
+    t.ok('the search goes word by word, any order', r === 'leg-ext', r);
+    t.ok('and the box keeps the cursor while you type', await p.evaluate(() => document.activeElement && document.activeElement.id === 'trLiftQ'));
+    await p.fill('#trLiftQ', '');
+    await p.click('[data-t="liftm"][data-v="back"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-lrow')].map((b) => b.dataset.e).join());
+    t.ok('and a muscle narrows it', r === 'lat-pd', r);
+    r = await p.evaluate(() => { const _ = window.Train._; return { tk: _.niceTicks(153, 169, 4).join(), tr: Math.round(_.trend4([[0, 100], [10 * 864e5, 104], [30 * 864e5, 110]]) * 100) }; });
+    t.ok('charts sit on round numbers, and four weeks is held against the session four weeks before', r.tk === '150,155,160,165,170' && r.tr === 10, JSON.stringify(r));
+    await p.click('[data-t="liftm"][data-v=""]');
+    await p.click('.tr-lrow[data-e="bb-bench"]');
+    await p.click('[data-t="extab"][data-v="charts"]');
+    r = await p.evaluate(() => ({ read: (document.querySelector('.tr-chart-read') || {}).textContent || '', prs: document.querySelectorAll('svg.tr-chart .tr-dot.pr').length }));
+    t.ok('a chart reads out its latest session, and its records are marked', /^Latest: /.test(r.read) && r.prs >= 2, JSON.stringify(r));
+    const bx = await p.evaluate(() => { const b = document.querySelector('svg.tr-chart').getBoundingClientRect(); return { x: b.left + 3, y: b.top + b.height / 2 }; });
+    await p.mouse.click(bx.x, bx.y);
+    r = await p.evaluate(() => (document.querySelector('.tr-chart-read') || {}).textContent || '');
+    t.ok('and a finger on it reads out the session under it', !/^Latest/.test(r) && / · /.test(r), r);
+    await p.click('[data-t="crng"][data-v="1m"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-note') || {}).textContent || '');
+    t.ok('a range with fewer than two sessions says so', /Fewer than two sessions/.test(r), r);
     await p.close();
   },
 };
