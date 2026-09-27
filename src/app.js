@@ -13582,8 +13582,10 @@
   function syncStick() {
     var tb = document.querySelector('.topbar');
     if (!tb) return;
-    document.documentElement.style.setProperty(
-      '--topbar-h', Math.round(tb.getBoundingClientRect().height) + 'px');
+    /* Hidden, as it is while a workout runs full screen, it measures
+       nothing, and nothing is what every view would then pin to. */
+    var h = Math.round(tb.getBoundingClientRect().height);
+    if (h) document.documentElement.style.setProperty('--topbar-h', h + 'px');
   }
 
   /* ---- The search row on Recipes ----

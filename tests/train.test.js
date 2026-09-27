@@ -13,6 +13,12 @@ function wo(id, ms, w, d, daysAgo, x, extra) {
   return Object.assign({ id, st, en: st + 3600e3, dk: '2026-01-01', n: 'W', u: 'lb',
     ms: ms || '', w, d, dl: 0, x, sr: {}, fb: {} }, extra || {});
 }
+/* Settings sit in Strengthen's header, which steps aside while a workout
+   is full screen: the chevron makes it small first. */
+async function openSettings(p) {
+  if (await p.$('#trTop:not(.hide) [data-t="minim"]')) await p.click('#trTop [data-t="minim"]');
+  await openSettings(p);
+}
 function sets(w, reps, t0) {
   return reps.map((r, i) => ({ w, r, t: (t0 || 1e12) + i * 150e3 }));
 }
@@ -113,6 +119,15 @@ module.exports = {
 
     await p.click('[data-t="begin"]');
     await p.waitForTimeout(100);
+    // today's session comes first; the block's weeks are folded to a line until opened
+    d = await p.evaluate(() => ({
+      first: (document.querySelector('#trBody .tr-card') || {}).className || '',
+      start: !!document.querySelector('.tr-next [data-t="start"]'),
+      grid: document.querySelectorAll('.tr-gc').length,
+      strip: (document.querySelector('.tr-wk-n') || {}).textContent || '',
+    }));
+    t.ok('the screen opens on today\u2019s session, Start first, the weeks folded', /tr-next/.test(d.first) && d.start && d.grid === 0 && /^Week 1 of 5/.test(d.strip), JSON.stringify(d));
+    await p.click('[data-t="gridopen"]');
     d = await p.evaluate(() => ({
       act: !!window.Train._.state().T.act,
       cells: document.querySelectorAll('.tr-gc').length,
@@ -181,8 +196,9 @@ module.exports = {
     d = await p.evaluate(() => { const r = window.Train._.state().LIVE.rs; return Math.round((r.end - Date.now()) / 1000); });
     t.ok('the rest can be stretched', d > 180 && d <= 196, d);
     await p.click('[data-t="rest"][data-v="skip"]');
-    d = await p.evaluate(() => ({ rest: !!document.querySelector('#trRest .tr-rest-t'), finish: !!document.querySelector('#trRest:not(.hide) [data-t="finish"]') }));
-    t.ok('or skipped, leaving the workout’s own bar with Finish', !d.rest && d.finish, JSON.stringify(d));
+    d = await p.evaluate(() => ({ rest: !!document.querySelector('#trRest .tr-rest-t'), foot: !document.getElementById('trRest').classList.contains('hide'),
+      finish: !!document.querySelector('#trTop:not(.hide) [data-t="finish"]') }));
+    t.ok('or skipped: full screen, the foot goes with the rest, and Finish stays in the bar up top', !d.rest && !d.foot && d.finish, JSON.stringify(d));
 
     // a set with nothing to take: a first-ever exercise, no target, no history
     await p.click('[data-t="addex"]');
@@ -237,13 +253,14 @@ module.exports = {
         sets: w.x.reduce((n, x) => n + x.s.length, 0), slot: w.w + ':' + w.d,
         trained: window.__macroLab.trained(today).on,
         saved: !!document.querySelector('.tr-saved'),
-        next: document.querySelector('.tr-gc.next') && document.querySelector('.tr-gc.next').dataset.d,
+        // today's card is the next session now
+        next: document.querySelector('.tr-next [data-t="start"]') && document.querySelector('.tr-next [data-t="start"]').dataset.d,
       };
     });
     t.ok('saving keeps only the ticked sets', d.n === 1 && !d.live && d.sets === 2, JSON.stringify(d));
     t.ok('filed under its week and day', d.slot === '0:0');
     t.ok('My Day counts today as a training day, off the workout itself', d.trained === true, d.trained);
-    t.ok('the block moves on to the next session', d.next === '1');
+    t.ok('the block moves on to the next session', d.next === '1', JSON.stringify(d));
     t.ok('and says it saved', d.saved);
     await p.click('.tr-done [data-t="close"]');
     await p.click('[data-t="sub"][data-v="history"]');
@@ -516,7 +533,7 @@ module.exports = {
     /* The same, with a real change made on the screen while the server has
        not answered yet: it waits, and then goes out inside the whole push. */
     await p.click('.tab[data-view="train"]');
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     await p.evaluate(() => {
       window.__calls = [];
       window.Train.attach({ set: (b) => { window.__calls.push(JSON.parse(JSON.stringify(b))); return Promise.resolve(); } });
@@ -1004,7 +1021,7 @@ module.exports = {
     t.ok('a knee, a desk and some hiking are all kept', r.pr.jt === 'K' && r.pr.day === 'desk' && r.pr.hab.join() === 'walk,hike' &&
       r.pr.kit === 'db' && r.pr.age === '40', JSON.stringify(r.pr));
     t.ok('and read back in a line above the picks', /looking after knee/.test(r.line) && /hiking/.test(r.line), r.line);
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => document.querySelector('#trainRoot').textContent);
     t.ok('Settings shows your answers and a way to change them', /About you/.test(r) && /Change my answers/.test(r));
     await p.click('#trainRoot [data-t="requiz"]');
@@ -1121,7 +1138,8 @@ module.exports = {
       _.reload();
     });
     await p.click('.tab[data-view="train"]');
-    r = await p.evaluate(() => document.querySelector('.tr-card .tr-sub').textContent);
+    if (!(await p.$('.tr-blk'))) await p.click('[data-t="gridopen"]');
+    r = await p.evaluate(() => document.querySelector('.tr-blk .tr-sub').textContent);
     t.ok('the block says which wave and which week it is', /10s wave, realization/.test(r), r);
     await p.click('[data-t="start"]');
     r = await p.evaluate(() => [...[...document.querySelectorAll('.tr-ex')][0].querySelectorAll('.tr-set:not(.tr-set-h) .tr-sn')].map((e) => e.textContent).join(','));
@@ -1355,6 +1373,8 @@ module.exports = {
       localStorage.setItem('bsc.train', JSON.stringify(T));
       _.reload();
     });
+    // full screen hides the app's tabs: the workout is made small to leave it
+    await p.click('[data-t="minim"]');
     await p.click('.tab[data-view="macros"]');
     await p.click('.tab[data-view="train"]');
     r = await p.evaluate(() => ({ why: !!document.querySelector('.tr-pairwhy'), live: !!document.querySelector('.tr-live-h') }));
@@ -1431,8 +1451,8 @@ module.exports = {
     t.ok('a second swap, for the rest of the block, replaces what the plan had, not today’s stand-in', r[0] === to && r.indexOf(orig0) < 0, JSON.stringify({ r, orig0, to }));
 
     // under a lift, every option in view; up and down in its corner
-    r = await p.evaluate(() => [...document.querySelectorAll('.tr-ex')[0].querySelectorAll('.tr-ex-a button')].map((b) => b.dataset.t));
-    t.ok('under a lift: + Set, Swap, a note and Remove, in view', ['addset', 'swap', 'note', 'rmex'].every((k) => r.indexOf(k) >= 0), r.join());
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-ex')[0].querySelectorAll('.tr-addset, .tr-ex-a button')].map((b) => b.dataset.t));
+    t.ok('under a lift: + Add set, Swap, a note and Remove, in view', ['addset', 'swap', 'note', 'rmex'].every((k) => r.indexOf(k) >= 0), r.join());
 
     // moving an exercise, pairs together
     r = await p.evaluate(() => {
@@ -1469,8 +1489,8 @@ module.exports = {
     });
     t.ok('no two library exercises share a note key', r);
 
-    // effort, set by set, when asked for
-    await p.click('[data-t="settings"]');
+    // effort, set by set, when asked for: settings are behind the chevron while a workout is full screen
+    await openSettings(p);
     await p.click('[data-t="s-rq"][data-v="1"]');
     await p.click('.sheet-x');
     r = await p.evaluate(() => document.querySelectorAll('.tr-ex .tr-rqs').length);
@@ -1595,6 +1615,7 @@ module.exports = {
     t.ok('logging it starts from your own activity', r.k === 'axnew' && r.h === 'golfw' && r.ez && r.ez.d === 2, JSON.stringify(r));
     await p.click('[data-t="axk"][data-v="walk"]');
     await p.click('[data-t="axsave"]');
+    await p.evaluate(() => { const b = document.querySelector('[data-t="gridopen"][aria-expanded="false"]'); if (b) b.click(); });
     r = await p.evaluate((id) => {
       const _ = window.Train._, s = _.state(), a = Object.values(s.T.ax)[0], ms = s.T.ms[id];
       return { a, nx: _.nextSlot(ms), cell: (document.querySelector('.tr-gc[data-w="0"][data-d="2"]') || {}).textContent || '' };
@@ -1660,7 +1681,7 @@ module.exports = {
     t.ok('the older, semicolon export with its own unit column reads too', r.unit === 'kg' && r.fixed && r.e === 'bb-ohp', JSON.stringify(r));
     t.ok('a file from no app it knows asks you to match its columns', r.bad === 'map', r.bad);
     t.ok('guesses go most particular first: a leg curl is hamstrings, not biceps', r.m === 'hams,chest,chest,face-pull', r.m);
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     await p.setInputFiles('#trStrong', { name: 'strong.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
     await p.waitForTimeout(300);
     r = await p.evaluate(() => ({ title: (document.querySelector('.tr-sheet .sheet-name') || {}).textContent, go: (document.querySelector('[data-t="sggo"]') || {}).textContent || '',
@@ -1681,7 +1702,7 @@ module.exports = {
     t.ok('the lift the library lacked is yours now', r.own === 'Zottman Curl (Dumbbell):biceps', r.own);
     t.ok('History says what came in', r.sub === 'history' && /Brought in 2 workouts from Strong/.test(r.banner), r.banner);
     t.ok('and a new block’s first bench session starts from Strong’s numbers', /185x8/.test(r.prev), r.prev);
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     await p.setInputFiles('#trStrong', { name: 'strong.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
     await p.waitForTimeout(300);
     r = await p.evaluate(() => ({ go: document.querySelector('[data-t="sggo"]'), sub: (document.querySelector('.tr-sheet .tr-sub') || {}).textContent || '' }));
@@ -1701,12 +1722,26 @@ module.exports = {
     await p.click('.tr-pick[data-e="ez-curl"]');
     r = await p.evaluate(() => ({
       head: !!document.querySelector('.tr-live-h [data-t="finish"]'),
+      top: !!document.querySelector('#trTop:not(.hide) [data-t="finish"]'),
+      foot: !document.getElementById('trRest').classList.contains('hide'),
+      started: (document.querySelector('#trTop .tr-top-t') || { getAttribute: () => '' }).getAttribute('aria-label') || '',
+      list: !!document.querySelector('#trBody [data-t="finish"]'),
+      chrome: ['.topbar', '#view-train .view-head', '.tr-seg'].map((q) => { const e = document.querySelector(q); return !!e && e.getBoundingClientRect().height > 0; }),
+    }));
+    t.ok('full screen: the app header, Strengthen\u2019s title and its tabs step aside', r.chrome.every((v) => !v), JSON.stringify(r));
+    t.ok('Finish lives in the bar up top, one reach from every card, and nowhere else; no foot while not resting', !r.head && !r.list && r.top && !r.foot, JSON.stringify(r));
+    t.ok('beside the clock, which says when you started', /started \d{1,2}:\d{2} [AP]M/.test(r.started), r.started);
+    await p.click('#trTop [data-t="minim"]');
+    r = await p.evaluate(() => ({
+      header: document.querySelector('.topbar').getBoundingClientRect().height > 0,
       foot: !!document.querySelector('#trRest:not(.hide) .tr-wbar [data-t="finish"]'),
       started: (document.querySelector('.tr-wbar-l') || {}).textContent || '',
-      list: !!document.querySelector('#trBody [data-t="finish"]'),
+      top: !document.getElementById('trTop').classList.contains('hide'),
     }));
-    t.ok('Finish lives in the footer, one reach from every card, and nowhere else', !r.head && !r.list && r.foot, JSON.stringify(r));
-    t.ok('beside when you started', /^Started \d{1,2}:\d{2} [AP]M$/.test(r.started), r.started);
+    t.ok('made small, the app comes back, with the workout\u2019s bar and Finish at the foot', r.header && r.foot && !r.top && /^Started \d{1,2}:\d{2} [AP]M$/.test(r.started), JSON.stringify(r));
+    await p.click('[data-t="focus"]');
+    r = await p.evaluate(() => !!document.querySelector('#trTop:not(.hide) [data-t="finish"]'));
+    t.ok('and Full screen takes it back', r);
     r = await p.evaluate(() => [window.Train._.elapsed(8551), window.Train._.elapsed(59), window.Train._.elapsed(3600)].join('|'));
     t.ok('past an hour the clock says hours: 2:22:31, not 142:31', r === '2:22:31|0:59|1:00:00', r);
 
@@ -1773,7 +1808,7 @@ module.exports = {
     await p.click('.sheet-x');
 
     // plates while typing
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     await p.click('[data-t="s-pl"][data-v="type"]');
     await p.click('.sheet-x');
     r = await p.evaluate(() => ({ strip: document.querySelectorAll('.tr-plrow').length,
@@ -1795,7 +1830,7 @@ module.exports = {
     r = await p.waitForFunction(() => !document.getElementById('trpl-0-2').classList.contains('on') && !document.querySelector('#trpl-0-2 .tr-stk'), null, { timeout: 3000 })
       .then(() => false, () => true);
     t.ok('which goes back to last time when the cursor leaves it', !r);
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     await p.click('[data-t="s-pl"][data-v="off"]');
     await p.click('.sheet-x');
     r = await p.evaluate(() => document.querySelectorAll('.tr-stk').length);
@@ -2189,7 +2224,7 @@ module.exports = {
     r = await p.evaluate(() => { const c = [...document.querySelectorAll('.tr-ex')][1].querySelectorAll('.tr-set:not(.tr-set-h) .tr-prev')[1]; return c ? c.textContent : ''; });
     t.ok('and last time’s bodyweight set reads BW, not 0', /^BW × \d+$/.test(r), r);
     // off
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     await p.click('[data-t="s-fmo"][data-v="0"]');
     await p.click('.sheet-x');
     r = await p.evaluate(() => document.querySelectorAll('.tr-fm').length);
@@ -2549,7 +2584,7 @@ module.exports = {
     p = await t.fresh();
     await p.click('.tab[data-view="train"]');
     r = await p.evaluate(() => { window.Train._.state().T; return (document.querySelector('[data-t="settings"]') ? 1 : 0); });
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
     t.ok('signed out, Settings says the training is only on this phone', /Only on this phone/.test(r), r.slice(0, 80));
     await p.click('.sheet-x');
@@ -2678,7 +2713,7 @@ module.exports = {
     t.ok('shown on the block’s Next card, with Start still there', /better tomorrow/.test(r) && /Start workout/.test(r), r.slice(0, 120));
     await p.close();
 
-    // ---- before you start: the back, and how each muscle healed, in one card that folds ----
+    // ---- before you start: the back alone; each muscle's healing at its own first exercise ----
     p = await t.fresh();
     {
       const b = await p.evaluate(() => { const ms = window.Train._.build({ dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] }); ms.id = 'blk'; return ms; });
@@ -2688,28 +2723,67 @@ module.exports = {
     }
     await p.click('.tab[data-view="train"]');
     await p.click('[data-t="start"]');
-    r = await p.evaluate(() => { const c = document.querySelector('.tr-start'); return c ? { qs: [...c.querySelectorAll('.tr-sq-l')].map((e) => e.textContent), rows: c.querySelectorAll('.tr-sore-r').length,
-      btn: Math.round(c.querySelector('.tr-sore-r .tr-sqb').getBoundingClientRect().height), cards: document.querySelectorAll('.tr-ask').length } : null; });
-    t.ok('before you start: the back, and how each muscle healed, asked in one card',
-      r && r.qs[0] === 'How’s your back today?' && r.qs[1] === 'Since you last trained them, how did they heal?' && r.rows >= 2 && r.cards === 1, JSON.stringify(r));
-    t.ok('a row a muscle, each answer a thumb tall', r && r.btn >= 44, JSON.stringify(r));
+    r = await p.evaluate(() => { const c = document.querySelector('.tr-start'); return c ? { qs: [...c.querySelectorAll('.tr-sq-l')].map((e) => e.textContent), sore: c.querySelectorAll('[data-t="sore"]').length,
+      heal: [...document.querySelectorAll('.tr-ex .tr-heal-q')].length, btn: Math.round(document.querySelector('.tr-heal-q .tr-sqb').getBoundingClientRect().height),
+      muscles: window.Train._.soreAsk().length } : null; });
+    t.ok('before you start: only the back is asked up front, not a wall of every muscle', r && r.qs.length === 1 && r.qs[0] === 'How’s your back today?' && r.sore === 0, JSON.stringify(r));
+    t.ok('how each muscle healed is asked at its own first exercise, a thumb tall', r && r.muscles >= 2 && r.heal === r.muscles && r.btn >= 44, JSON.stringify(r));
     await p.click('[data-t="bk"][data-v="0"]');
-    r = await p.evaluate(() => ({ open: !!document.querySelector('.tr-start [data-t="sore"]'), fold: !!document.querySelector('.tr-start [data-t="stopen"]') }));
-    t.ok('it stays open until every question has an answer: the healing sets next week, and is not asked again at Finish', r.open && !r.fold, JSON.stringify(r));
-    const sm = await p.evaluate(() => [...new Set([...document.querySelectorAll('.tr-start [data-t="sore"]')].map((b) => b.dataset.m))]);
-    for (const m of sm) await p.click(`.tr-start [data-t="sore"][data-m="${m}"][data-v="1"]`);
-    r = await p.evaluate(() => ({ line: (document.querySelector('.tr-start .tr-fbt-s') || {}).textContent || '', sr: window.Train._.state().LIVE.sr }));
-    t.ok('answered, it folds to one line of what you said', r.line === 'Back good · all healed in time' && sm.every((m) => r.sr[m] === 1), JSON.stringify(r));
-    await p.click('[data-t="stopen"]');
-    r = await p.evaluate(() => ({ done: !!document.querySelector('[data-t="stdone"]'), pressed: document.querySelectorAll('.tr-start [data-t="sore"][aria-pressed="true"]').length }));
-    t.ok('Change opens it with your answers in, and a Done', r.done && r.pressed === sm.length, JSON.stringify(r));
-    await p.click('[data-t="stdone"]');
-    r = await p.evaluate(() => !!document.querySelector('.tr-start [data-t="stopen"]'));
-    t.ok('Done folds it again', r);
-    await p.click('[data-t="stopen"]');
-    await p.click(`.tr-start [data-t="sore"][data-m="${sm[0]}"][data-v="2"]`);
     r = await p.evaluate(() => (document.querySelector('.tr-start .tr-fbt-s') || {}).textContent || '');
-    t.ok('so does changing an answer, and the line names each muscle when they differ', /still sore/.test(r) && /healed in time/.test(r), r);
+    t.ok('the back answered, the card folds to a line', r === 'Back good', r);
+    const sm = await p.evaluate(() => [...new Set([...document.querySelectorAll('.tr-heal-q [data-t="sore"]')].map((b) => b.dataset.m))]);
+    await p.click(`[data-t="sore"][data-m="${sm[0]}"][data-v="1"]`);
+    r = await p.evaluate((m) => ({ line: (document.querySelector(`.tr-heal[data-m="${m}"]`) || {}).textContent || '', sr: window.Train._.state().LIVE.sr[m] }), sm[0]);
+    t.ok('answered, a muscle’s question folds to a line of what you said', /healed just in time/.test(r.line) && !/as last time/.test(r.line) && r.sr === 1, JSON.stringify(r));
+    await p.click(`.tr-heal[data-m="${sm[0]}"]`);
+    await p.click(`[data-t="sore"][data-m="${sm[0]}"][data-v="2"]`);
+    r = await p.evaluate((m) => (document.querySelector(`.tr-heal[data-m="${m}"]`) || {}).textContent || '', sm[0]);
+    t.ok('the line opens to change it', /still sore/.test(r), r);
+    for (const m of sm.slice(1)) await p.click(`[data-t="sore"][data-m="${m}"][data-v="0"]`);
+    // the first lift done, as asked, and its feedback given: the whole session, saved
+    await p.evaluate(() => {
+      const _ = window.Train._, L = _.state().LIVE;
+      L.x.forEach((x) => x.s.forEach((s) => { s.w = String(s.tw || 100); s.r = String(s.tr || 10); s.t = Date.now(); }));
+      _.uniq(L.x.map((x) => _.lib(x.e).m)).forEach((m) => { L.fb[m] = { p: 1, k: 1, j: 0 }; });
+    });
+    await p.click('[data-t="finish"]');
+    await p.click('#trainRoot [data-t="save"]');
+    await p.waitForTimeout(150);
+    r = await p.evaluate((m) => { const w = Object.values(window.Train._.state().T.wo).sort((a, b) => b.st - a.st)[0]; return { sr: w.sr[m], n: Object.keys(w.sr).length }; }, sm[0]);
+    t.ok('what you said is kept with the workout', r.sr === 2 && r.n === sm.length, JSON.stringify(r));
+
+    // the next session: last time's answers stand, said as that, and nothing is asked
+    await p.evaluate(() => {
+      const _ = window.Train._, T = JSON.parse(localStorage.getItem('bsc.train'));
+      Object.values(T.wo).forEach((w) => { w.st -= 2 * 864e5; w.en -= 2 * 864e5; });
+      localStorage.setItem('bsc.train', JSON.stringify(T));
+      _.reload();
+    });
+    await p.click('.tr-done [data-t="close"]').catch(() => {});
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="start"]');
+    r = await p.evaluate((m0) => ({ q: [...document.querySelectorAll('.tr-heal-q [data-t="sore"]')].map((b) => b.dataset.m).filter((m, i, a) => a.indexOf(m) === i),
+      lines: [...document.querySelectorAll('.tr-heal')].map((e) => e.textContent), m0 }), sm[0]);
+    t.ok('next time, each muscle’s healing starts as last time said, in a line, and is not asked',
+      r.lines.length === sm.length - 1 && r.lines.every((l) => /recovered early · as last time/.test(l)), JSON.stringify(r));
+    t.ok('but one that was still sore is never assumed to be still: that one is asked again', r.q.length === 1 && r.q[0] === sm[0], JSON.stringify(r));
+    const fm = await p.evaluate(() => { const _ = window.Train._; return _.lib(_.state().LIVE.x[0].e).m; });
+    // every set of that muscle done as planned: its card is a line of last time's answers, nothing asked
+    await p.evaluate((m) => {
+      const _ = window.Train._, L = _.state().LIVE;
+      L.x.forEach((x) => { if (_.lib(x.e).m === m) x.s.forEach((s) => { s.w = String(s.tw || s.pw || 100); s.r = String(s.tr || s.pr || 10); s.t = Date.now(); }); });
+      _.draw();
+    }, fm);
+    r = await p.evaluate((m) => ({ card: !!document.querySelector(`.tr-fbc [data-m="${m}"]`), line: (document.querySelector(`.tr-fbt[data-m="${m}"]`) || {}).textContent || '' }), fm);
+    t.ok('pump, workload and joints start as last time too, in one line', !r.card && /moderate pump/.test(r.line) && /as last time/.test(r.line), JSON.stringify(r));
+    // the same sets, but three reps short of what the weight should give: last time is no guide
+    await p.evaluate((m) => {
+      const _ = window.Train._, L = _.state().LIVE;
+      L.x.forEach((x) => { if (_.lib(x.e).m === m) x.s.forEach((s) => { const ref = Number(s.r); s.r = String(Math.max(1, ref - 3)); }); });
+      _.draw();
+    }, fm);
+    r = await p.evaluate((m) => ({ moved: window.Train._.repsMoved(m), card: !!document.querySelector(`.tr-fbc [data-m="${m}"][data-f="k"]`), pressed: document.querySelectorAll(`.tr-fbc [data-m="${m}"][aria-pressed="true"]`).length }), fm);
+    t.ok('reps clearly off: the answers are asked afresh, none pre-set', r.moved && r.card && r.pressed === 0, JSON.stringify(r));
     await p.close();
 
     // the badge against last time: off for someone new unless they turn it on; a workout called Workout isn't said twice
@@ -2725,7 +2799,7 @@ module.exports = {
     await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
     r = await p.evaluate(() => (document.getElementById('trfm-0') || {}).textContent || '');
     t.ok('new to lifting, no percentage against last time beside the name', r === '', r);
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => (document.querySelector('[data-t="s-fmo"][aria-pressed="true"]') || {}).textContent || '');
     t.ok('and Settings shows it off', r === 'Nothing', r);
     await p.click('[data-t="s-fmo"][data-v="1"]');
@@ -2742,7 +2816,7 @@ module.exports = {
     await p.click('[data-t="bwqnever"]');
     r = await p.evaluate(() => ({ card: !!document.querySelector('.tr-bwq'), nobw: window.Train._.state().T.pr.nobw }));
     t.ok('Don’t ask again puts the weigh-in question away for good', !r.card && r.nobw === 1, JSON.stringify(r));
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => (document.querySelector('[data-t="s-nobw"][aria-pressed="true"]') || {}).textContent || '');
     t.ok('and Settings shows it, to switch back', r === 'Don’t ask', r);
     await p.close();
@@ -2798,7 +2872,7 @@ module.exports = {
       return { on: Y.on, yrs: Object.keys(A.yrs), main: Object.keys(A.main.train.wo).sort().join(), err: window.Train._.state().S && 0 }; });
     t.ok('with the yearly rule not yet published, the workouts stay in the one record and nothing fails', r.on === false && !r.yrs.length && r.main === 'a24,b25,c26', JSON.stringify(r));
     await p.click('.tab[data-view="train"]');
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
     t.ok('and Settings says what one database rule would change', /of the 1 MB record your account keeps them in/.test(r) && /SETUP\.md, step 4/.test(r) && !/Not saved/.test(r), r.slice(r.indexOf('Your training data'), r.indexOf('Your training data') + 300));
     await p.close();
@@ -2838,7 +2912,7 @@ module.exports = {
       return { here: !!T.wo.c26, y: A.yrs[y].wo.c26 }; });
     t.ok('and a workout an older version deleted is deleted in its year’s record too', !r.here && r.y && r.y.v === null, JSON.stringify(r));
     await p.click('.tab[data-view="train"]');
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => (document.querySelector('.tr-sheet') || {}).textContent || '');
     t.ok('Settings says they are kept a year to a record, with no limit', /kept a year to a record in your account \(2024, 2025/.test(r) && /no limit on how far back/.test(r), r.slice(r.indexOf('Your training data'), r.indexOf('Your training data') + 300));
     // sizes: a year's record holds about three years of normal training
@@ -2976,7 +3050,7 @@ module.exports = {
     await p.click('[data-t="unskip"]');
     r = await p.evaluate(() => { const s = window.Train._.state(); return { sk: (s.T.ms[s.T.act].sk || []).join(), undo: !!document.querySelector('.tr-undo') }; });
     t.ok('and Undo puts the session back', r.sk === '' && !r.undo, JSON.stringify(r));
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => window.Train.busy());
     t.ok('with a sheet open it is, and an update waits', r === true, String(r));
     await p.close();
@@ -3173,7 +3247,7 @@ module.exports = {
     r = await p.evaluate(() => { const T = window.Train._.state().T, w = Object.values(T.wo)[0]; return { q: w.x[0].s[0].q }; });
     t.ok('RPE 9.5 is kept as half a rep in reserve, the one scale underneath', r.q === 0.5, JSON.stringify(r));
     await p.click('.tr-done [data-t="close"]');
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => (document.querySelector('[data-t="s-eff"][aria-pressed="true"]') || {}).textContent || '');
     t.ok('and Settings has the switch', r === 'RPE', r);
     await p.close();
@@ -3263,7 +3337,7 @@ module.exports = {
     p = await t.fresh();
     await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
     await p.click('.tab[data-view="train"]');
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     r = await p.evaluate(() => ({ lab: [...document.querySelectorAll('.tr-sheet .tr-file, .tr-sheet [data-t="impaste"]')].map((e) => e.textContent.trim()).join('|') }));
     t.ok('Settings has one import for any app, and a paste', /Import from another app/.test(r.lab) && /Paste from a spreadsheet/.test(r.lab), r.lab);
     await p.click('[data-t="impaste"]');
@@ -3338,7 +3412,7 @@ module.exports = {
     p = await t.fresh();
     await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
     await p.click('.tab[data-view="train"]');
-    await p.click('[data-t="settings"]');
+    await openSettings(p);
     await p.click('[data-t="s-gyon"][data-v="1"]');
     await p.click('[data-t="gypl"][data-v="45"][data-d="1"]');
     await p.click('[data-t="gypl"][data-v="2.5"][data-d="-1"]');

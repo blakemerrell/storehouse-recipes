@@ -5384,3 +5384,117 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
 .tr-gyb { min-height: 40px; border: 1px solid var(--line-firm); border-radius: 6px; background: var(--card); font: inherit; font-size: 18px; cursor: pointer; color: var(--ink); }
 .tr-gyb:disabled { opacity: 0.35; cursor: default; }
 .tr-homenote { color: var(--ochre-text); }
+
+/* ---- Strengthen: a workout, full screen ----
+   While a workout runs, the app's header, the share hint, Strengthen's title
+   and its tabs step aside, and a slim bar across the top keeps the name,
+   the clock and Finish. Where :has() is not understood the header simply
+   stays, which is how it was. */
+body:has(#view-train.tr-focus:not(.hide)) .topbar,
+body:has(#view-train.tr-focus:not(.hide)) #shareHint { display: none; }
+#view-train.tr-focus .view-head,
+#view-train.tr-focus .tr-seg,
+#view-train.tr-focus .tr-live-h .tr-title { display: none; }
+#view-train.tr-focus .tr-view { padding-top: 12px; padding-bottom: 120px; }
+#view-train.tr-focus .tr-ex { scroll-margin-top: 72px; }
+.tr-top {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--ink); color: oklch(0.95 0.012 85);
+  border-bottom: 3px solid var(--ochre);
+  padding-top: env(safe-area-inset-top, 0);
+}
+.tr-top-in { max-width: 760px; margin: 0 auto; padding: 4px 12px; display: flex; align-items: center; gap: 6px; }
+.tr-top-min {
+  flex: 0 0 auto; width: 44px; height: 44px; margin-left: -8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 0; border-radius: 4px; color: inherit; cursor: pointer;
+}
+.tr-top-min:hover, .tr-top-min:focus-visible { background: oklch(0.34 0.03 60); }
+.tr-top-t {
+  flex: 1 1 auto; min-width: 0; min-height: 44px;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+  background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.tr-top-n { font-weight: 600; font-size: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-top-c { font-size: 13px; font-variant-numeric: tabular-nums; color: oklch(0.82 0.02 80); }
+.tr-top-f { flex: 0 0 auto; min-height: 44px; padding: 10px 22px; font-size: 15px; }
+/* Made small, the workout's foot offers the way back to full screen. */
+.tr-wbar-r { display: inline-flex; align-items: center; gap: 8px; }
+.tr-wbar-x {
+  display: inline-flex; align-items: center; gap: 3px; min-height: 44px; padding: 0 10px 0 6px;
+  background: none; color: inherit; border: 1px solid oklch(0.50 0.03 60); border-radius: 3px;
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.tr-wbar-x:hover { border-color: var(--ochre); }
+
+/* ---- Strengthen: today first, the block folded, the other ways in ---- */
+.tr-tlifts { font-size: 14px; line-height: 1.45; margin-top: 8px; }
+.tr-go { display: block; width: 100%; min-height: 52px; margin-top: 14px; font-size: 16px; }
+.tr-next-a { margin-top: 6px; justify-content: space-between; }
+.tr-next-a .tr-lnk { min-height: 44px; padding: 0 2px; font-size: 14px; }
+.tr-lnk-q { color: var(--muted-2); font-weight: 500; }
+.tr-anyway { min-height: 44px; padding: 8px 16px; font-size: 14px; }
+.tr-restday .tr-acts .tr-lnk { min-height: 44px; font-size: 14px; }
+.tr-wk { padding: 0; }
+.tr-wk-b {
+  display: flex; width: 100%; min-height: 60px; align-items: center; justify-content: space-between; gap: 12px;
+  background: none; border: 0; padding: 12px 18px; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.tr-wk-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tr-wk-n { font-weight: 600; font-size: 15px; }
+.tr-wk-s { font-size: 13px; color: var(--muted-2); }
+.tr-wk-e { font-size: 13px; font-weight: 600; color: var(--ochre-text); white-space: nowrap; }
+.tr-wk .tr-ldrow { margin: 0; padding: 0 18px 14px; }
+.tr-wk .tr-ldpanel { margin: 0 18px; padding-bottom: 14px; }
+.tr-blk-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.tr-blk-h .tr-lnk { min-height: 44px; font-size: 13px; }
+.tr-more { margin: 18px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.tr-more > .tr-ql { padding: 12px 16px 2px; }
+.tr-mrow {
+  display: flex; width: 100%; min-height: 56px; align-items: center; justify-content: space-between; gap: 12px;
+  background: none; border: 0; border-top: 1px solid var(--line-soft); padding: 10px 16px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.tr-more > .tr-ql + .tr-mrow { border-top: 0; }
+.tr-mrow:hover { background: #fff; }
+.tr-mrow-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tr-mrow-n { font-size: 15px; font-weight: 500; }
+.tr-mrow-s { font-size: 13px; color: var(--muted-2); }
+.tr-mrow-c { font-size: 24px; line-height: 1; color: var(--muted); }
+.tr-end { margin-top: 24px; }
+.tr-end .ghost.danger { min-height: 44px; padding: 8px 16px; font-size: 14px; }
+
+/* ---- Strengthen: a lift's buttons, and how it healed ---- */
+.tr-addset {
+  display: block; width: 100%; min-height: 46px; margin-top: 8px;
+  background: #fff; border: 1px solid var(--line-firm); border-radius: 4px;
+  font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer;
+}
+.tr-addset:hover { border-color: var(--ochre); }
+.tr-ex .tr-ex-a { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin-top: 8px; }
+.tr-ea {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 0 8px;
+  background: none; border: 1px solid var(--line); border-radius: 4px;
+  font: inherit; font-size: 13px; font-weight: 500; color: var(--muted-2); cursor: pointer;
+}
+.tr-ea svg { flex: 0 0 auto; }
+.tr-ea:hover { border-color: var(--ochre); color: var(--ink); }
+.tr-ea-rm { color: oklch(0.46 0.14 30); border-color: oklch(0.80 0.07 30); }
+.tr-ea-rm:hover { color: oklch(0.40 0.15 30); border-color: oklch(0.62 0.12 30); background: oklch(0.97 0.02 30); }
+.tr-ea.tr-lnk-arm { grid-column: 1 / -1; background: oklch(0.46 0.14 30); border-color: oklch(0.46 0.14 30); color: #fff; }
+.tr-heal {
+  display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 8px 0 4px; padding: 8px 12px; background: var(--paper); border: 1px solid var(--line-soft); border-radius: 4px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.tr-heal-s { font-size: 13.5px; }
+.tr-heal-p { color: var(--muted-2); }
+.tr-heal-e { font-size: 13px; font-weight: 600; color: var(--ochre-text); white-space: nowrap; }
+.tr-heal-q { margin: 4px 0 8px; }
+.tr-heal-q .tr-sq { margin-top: 8px; }
+/* Empty screens: what will be here, and the one way to get there. */
+.tr-empty .tr-sub { font-size: 14px; line-height: 1.5; }
+.tr-empty .tr-acts { margin-top: 16px; }
+.tr-empty-go, .tr-empty-2 { min-height: 44px; padding: 10px 18px; font-size: 14px; display: inline-flex; align-items: center; }
+.tr-addex { margin: 4px 0 0; }
+.tr-lnk-rm { color: oklch(0.46 0.14 30); min-height: 44px; font-size: 13.5px; }

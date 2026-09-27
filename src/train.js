@@ -1402,7 +1402,11 @@
 
   var LIVE = readLS(LS_LIVE);
   if (!plain(LIVE) || !Array.isArray(LIVE.x)) LIVE = null;
-  function setLive(v) { LIVE = v; writeLS(LS_LIVE, v); }
+  function setLive(v) {
+    // a new workout opens full screen, whatever the last one was left at
+    if (v && (!LIVE || LIVE.id !== v.id)) S.minim = 0;
+    LIVE = v; writeLS(LS_LIVE, v);
+  }
   function saveLive() { writeLS(LS_LIVE, LIVE); }
 
   /* The workouts, sorted and indexed once per change rather than walked on
@@ -1907,7 +1911,7 @@
     var mc = day.mc && mcValid(day.mc) ? clean(day.mc) : null;
     if (mc) mc.last = lastCircuit(ms.id, d);
     return {
-      w: w, d: d, n: day.n, deload: dl, rir: rir, mc: mc,
+      w: w, d: d, n: dayName(day), deload: dl, rir: rir, mc: mc,
       x: day.s.map(function (s, i) {
         if (s.m) return mainPlan(ms, s, w, d, dl);
         // a deload is no week to try the harder version
@@ -2232,6 +2236,35 @@
     dead: { n: 'Deadlift', lower: 1, list: ['bb-dl', 'bb-rdl', 'hip-thrust', 'mc-thrust', 'db-rdl', 'db-thrust'] },
     press: { n: 'Overhead press', list: ['bb-ohp', 'db-ohp', 'mc-ohp', 'bb-incline', 'db-incline'] }
   };
+  /* A day is named for its main lift, and the lift is whichever one your kit
+     and your back allowed: a "Squat day" that opens with a belt squat, or a
+     "Deadlift day" with no deadlift in it, promised a lift the block had
+     already left out. So the name follows the lift actually there, worked
+     out as it is drawn, which also renames blocks built before this and
+     follows a main lift swapped for the rest of the block. */
+  var MAIN_W = { squat: 'Squat', bench: 'Bench', dead: 'Deadlift', press: 'Press' };
+  var MAIN_SHORT = {
+    'bb-squat': 'Squat', 'bb-front': 'Front squat', 'sm-squat': 'Smith squat', 'hack': 'Hack squat', 'belt-squat': 'Belt squat',
+    'leg-press': 'Leg press', 'goblet': 'Goblet squat', 'db-bss': 'Split squat',
+    'bb-bench': 'Bench', 'db-bench': 'Dumbbell bench', 'mc-press': 'Chest press', 'bb-incline': 'Incline bench',
+    'db-incline': 'Dumbbell incline', 'sm-incline': 'Smith incline',
+    'bb-dl': 'Deadlift', 'bb-rdl': 'Romanian deadlift', 'db-rdl': 'Romanian deadlift', 'hip-thrust': 'Hip thrust',
+    'mc-thrust': 'Hip thrust', 'db-thrust': 'Hip thrust',
+    'bb-ohp': 'Press', 'db-ohp': 'Dumbbell press', 'mc-ohp': 'Machine press'
+  };
+  function dayName(day) {
+    var n = String(day && day.n || '');
+    (day && Array.isArray(day.s) ? day.s : []).forEach(function (s) {
+      var word = s && MAIN_W[s.m];
+      if (!word) return;
+      var short = MAIN_SHORT[s.e] || lib(s.e).n;
+      if (short === word) return;
+      n = n.replace(new RegExp('\\b' + word + '\\b', 'i'), function (hit) {
+        return hit.charAt(0) === word.charAt(0) ? short : short.toLowerCase();
+      });
+    });
+    return n;
+  }
 
   /* A slot beginning * is a main lift. Strength waves put one or two a
      day at the front and keep the accessory work after them steady;
@@ -3758,6 +3791,87 @@
     for (var j = LIVE.x.length - 1; j >= 0; j--) if (musOf(LIVE.x[j].e) === m) return j === i;
     return false;
   }
+  function firstOfMuscle(i) {
+    var m = musOf(LIVE.x[i].e);
+    for (var j = 0; j < LIVE.x.length; j++) if (musOf(LIVE.x[j].e) === m) return j === i;
+    return false;
+  }
+
+  /* Same as last time. The questions were a wall: every muscle's healing
+     before the first set, then pump, workload and joints for each muscle as
+     it finished, some twenty-five taps on top of the sets. Most sessions
+     the answers are last session's answers, so they start there, said in a
+     line with a way to change them, and are asked outright only when there
+     is reason to think they have changed:
+       - nothing said before, for that muscle;
+       - last time was a warning (still sore, too much, joints that hurt a
+         lot), which is never assumed to have carried over, good or bad;
+       - today's reps have clearly moved: two or more a set, on average,
+         off what the weight was expected to give. Then last time is no
+         guide to how it healed or how hard it was. */
+  function lastSaid(m) {
+    var list = ix().list, sr = null, fb = null;
+    for (var i = list.length - 1; i >= 0 && (sr === null || fb === null); i--) {
+      var w = list[i];
+      if (LIVE && w.st >= LIVE.st) continue;
+      // a month back is not "last time": what you said then is no guide to now
+      if (LIVE && LIVE.st - w.st > 28 * DAY_MS) break;
+      if (sr === null && w.sr && fin(w.sr[m])) sr = w.sr[m];
+      var f = w.fb && w.fb[m];
+      if (fb === null && f && (fin(f.p) || fin(f.k) || fin(f.j))) fb = f;
+    }
+    return { sr: sr, fb: fb };
+  }
+  function repsMoved(m) {
+    if (!LIVE) return false;
+    var sum = 0, n = 0;
+    LIVE.x.forEach(function (x) {
+      if (musOf(x.e) !== m) return;
+      x.s.forEach(function (s) {
+        // an all-out set is meant to beat its target, and a drop set or a miss has none
+        if (!s.t || s.wu || s.am || s.ty === 'd' || s.ty === 'm') return;
+        var w = numIn(s.w), r = numIn(s.r), ref = null;
+        if (w === null || r === null) return;
+        if (fin(s.tw) && fin(s.tr) && Math.abs(w - s.tw) < 1e-9) ref = s.tr;
+        else if (fin(s.pw) && fin(s.pr) && Math.abs(w - s.pw) < 1e-9) ref = s.pr;
+        if (ref === null) return;
+        sum += r - ref; n++;
+      });
+    });
+    return n >= 2 && Math.abs(sum / n) >= 2;
+  }
+  // how the muscle healed, as last time said it, where that still stands
+  function preSr(m) {
+    if (repsMoved(m)) return null;
+    var v = lastSaid(m).sr;
+    return v === 0 || v === 1 ? v : null;
+  }
+  // the healing answer in force: yours today, else last time's
+  function srNow(m) {
+    if (fin(LIVE.sr[m])) return { v: LIVE.sr[m], pre: false };
+    var v = preSr(m);
+    return v === null ? null : { v: v, pre: true };
+  }
+  function healNeed(m) { return soreAsk().indexOf(m) >= 0 && !srNow(m); }
+  function preFb(m) {
+    var o = {};
+    if (repsMoved(m)) return o;
+    var l = lastSaid(m).fb || {};
+    if (fin(l.p) && !noPump(m)) o.p = l.p;
+    if (fin(l.k) && l.k !== 3) o.k = l.k;
+    if (fin(l.j) && l.j !== 2) o.j = l.j;
+    return o;
+  }
+  /* The feedback in force for a muscle, and which of it is last time's. */
+  function fbAll(m) {
+    var f = LIVE.fb[m] || {}, pre = preFb(m), o = {}, from = {};
+    ['p', 'k', 'j'].forEach(function (k) {
+      if (k === 'p' && noPump(m)) return;
+      if (fin(f[k])) o[k] = f[k];
+      else if (fin(pre[k])) { o[k] = pre[k]; from[k] = 1; }
+    });
+    return { v: o, pre: from };
+  }
 
   /* What an empty box means, which is what it shows greyed and what a tick
      takes. The weight follows what you actually lifted earlier in this
@@ -3906,32 +4020,69 @@
     if (!LIVE || !LIVE.rs) return null;
     return Math.ceil((LIVE.rs.end - Date.now()) / 1000);
   }
+  /* Full screen while a workout runs, the way Strong and Hevy do it: the
+     app's header, Strengthen's title and its tabs step aside, and the sets
+     get the phone. A slim bar across the top keeps the name, the clock and
+     Finish; the chevron makes the workout small again, for the rest of the
+     app, and going back to the workout makes it big. */
+  function focusOn() { return !!LIVE && S.sub === 'block' && !S.minim; }
+  var CHEV_DN = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var CHEV_UP = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function drawTop() {
+    var top = $('trTop');
+    if (!top) return;
+    if (!focusOn()) {
+      if (!top.classList.contains('hide')) { top.classList.add('hide'); top.innerHTML = ''; top.removeAttribute('data-shape'); }
+      return;
+    }
+    var ela = elapsed((Date.now() - LIVE.st) / 1000);
+    var shape = LIVE.st + '|' + LIVE.n;
+    top.classList.remove('hide');
+    // as below: built once, and after that only the clock moves under the thumb
+    if (top.getAttribute('data-shape') === shape) {
+      var el = top.querySelector('#trElapsed');
+      if (el && el.textContent !== ela) el.textContent = ela;
+      return;
+    }
+    top.innerHTML = '<div class="tr-top-in">' +
+      '<button class="tr-top-min" data-t="minim" aria-label="Make the workout small, to use the rest of the app">' + CHEV_DN + '</button>' +
+      '<button class="tr-top-t" data-t="times" aria-label="' + esc(LIVE.n) + ', started ' + hm(LIVE.st) + '. Change the start time">' +
+        '<span class="tr-top-n">' + esc(LIVE.n) + '</span>' +
+        '<span class="tr-top-c" id="trElapsed" role="timer" aria-live="off">' + ela + '</span></button>' +
+      '<button class="btn-primary tr-top-f" data-t="finish">Finish</button>' +
+    '</div>';
+    top.setAttribute('data-shape', shape);
+  }
   /* The foot of the screen, all through a workout: when you started and how
      long it has been, which opens to change the start, and Finish, always
      one reach away. While you rest, the rest sits on top of it, filling
-     left to right as it runs out. */
+     left to right as it runs out. Full screen, the top bar has the clock
+     and Finish, so the foot is the rest alone, and only while you rest. */
   function drawRest() {
     var bar = $('trRest');
     if (!bar) return;
+    drawTop();
     if (!LIVE) {
       if (!bar.classList.contains('hide')) { bar.classList.add('hide'); bar.innerHTML = ''; bar.removeAttribute('data-shape'); }
       return;
     }
+    var focus = focusOn();
     var left = restLeft();
     var resting = left !== null && left >= -8;
     var done = resting && left <= 0;
     var pct = resting ? (done ? 100 : Math.max(0, Math.min(100, 100 * (1 - left / LIVE.rs.dur)))) : 0;
     var say = done ? 'Rest\u2019s up' : resting ? 'Rest ' + clock(left) : '';
     var ela = elapsed((Date.now() - LIVE.st) / 1000);
-    bar.classList.remove('hide');
+    var show = !focus || resting;
+    bar.classList.toggle('hide', !show);
     bar.classList.toggle('tr-resting', resting);
     /* Built once for each state, and after that only the numbers move. It
        used to be rebuilt every second, since the clock is in it, and a thumb
        coming down on +15, Skip or Finish just as the second turned landed on
        a button that was no longer there: the tap did nothing. */
-    var shape = (done ? 'd' : resting ? 'r' : 'n') + LIVE.st;
+    var shape = (focus ? 'f' : '') + (done ? 'd' : resting ? 'r' : 'n') + LIVE.st;
     if (bar.getAttribute('data-shape') === shape) {
-      var f = bar.querySelector('.tr-rest-fill'), tx = bar.querySelector('.tr-rest-t'), el = bar.querySelector('#trElapsed');
+      var f = bar.querySelector('.tr-rest-fill'), tx = bar.querySelector('.tr-rest-t'), el = focus ? null : bar.querySelector('#trElapsed');
       if (f) f.style.width = pct.toFixed(1) + '%';
       if (tx && tx.textContent !== say) tx.textContent = say;
       if (el && el.textContent !== ela) el.textContent = ela;
@@ -3949,12 +4100,16 @@
             '</span>' +
           '</div></div>';
       }
-      html += '<div class="tr-rest-in tr-wbar">' +
-        '<button class="tr-wbar-t" data-t="times" aria-label="Started ' + hm(LIVE.st) + '. Change the start time">' +
-          '<span class="tr-wbar-l">Started ' + hm(LIVE.st) + '</span>' +
-          '<span class="tr-wbar-c" id="trElapsed">' + ela + '</span></button>' +
-        '<button class="btn-primary tr-wbar-f" data-t="finish">Finish</button>' +
-      '</div>';
+      if (!focus) {
+        html += '<div class="tr-rest-in tr-wbar">' +
+          '<button class="tr-wbar-t" data-t="times" aria-label="Started ' + hm(LIVE.st) + '. Change the start time">' +
+            '<span class="tr-wbar-l">Started ' + hm(LIVE.st) + '</span>' +
+            '<span class="tr-wbar-c" id="trElapsed">' + ela + '</span></button>' +
+          '<span class="tr-wbar-r">' +
+            '<button class="tr-wbar-x" data-t="focus" aria-label="Back to the workout, full screen">' + CHEV_UP + '<span>Full screen</span></button>' +
+            '<button class="btn-primary tr-wbar-f" data-t="finish">Finish</button></span>' +
+        '</div>';
+      }
       bar.innerHTML = html;
       bar.setAttribute('data-shape', shape);
     }
@@ -4040,7 +4195,7 @@
         if (fin(x.rir)) out.pq = x.rir;
         return out;
       }).filter(function (x) { return x.s.length; }),
-      sr: LIVE.sr || {}, fb: LIVE.fb || {}
+      sr: srKept(), fb: fbKept()
     };
     if (fin(LIVE.bk)) wo.bk = LIVE.bk;
     if (LIVE.g === 'home' && T.pr.gy.on) wo.g = 'home';
@@ -4050,6 +4205,26 @@
     if (mc) wo.mc = mc;
     if (wo.x.some(function (x) { return usesBw(x.e); })) { var bw = fin(LIVE.bw) && LIVE.bw > 0 ? LIVE.bw : bwOn(wo.dk, wo.u); if (bw) wo.bw = bw; }
     return clean(wo);
+  }
+
+  /* What is kept of the questions: your answers, and where you let last
+     time's stand, those. They move next week's sets the same either way. */
+  function srKept() {
+    var o = {};
+    Object.keys(LIVE.sr || {}).forEach(function (m) { if (fin(LIVE.sr[m])) o[m] = LIVE.sr[m]; });
+    if (LIVE.ms) soreAsk().forEach(function (m) { var n = srNow(m); if (n && !fin(o[m])) o[m] = n.v; });
+    return o;
+  }
+  function fbKept() {
+    var o = {};
+    Object.keys(LIVE.fb || {}).forEach(function (m) { if (LIVE.fb[m]) o[m] = Object.assign({}, LIVE.fb[m]); });
+    if (LIVE.ms) {
+      uniq(LIVE.x.filter(function (x) { return x.s.some(function (s) { return s.t; }); }).map(function (x) { return musOf(x.e); })).forEach(function (m) {
+        var v = fbAll(m).v;
+        if (Object.keys(v).length) o[m] = Object.assign(o[m] || {}, v);
+      });
+    }
+    return o;
   }
 
   function saveWorkout() {
@@ -4109,6 +4284,8 @@
   function draw() {
     var root = $('trBody');
     if (!root) return;
+    var view = $('view-train');
+    if (view) view.classList.toggle('tr-focus', focusOn());
     var head = $('trHead');
     if (head) {
       head.innerHTML = '<button class="ghost" data-t="settings">Settings</button>';
@@ -4221,46 +4398,134 @@
     }
     var nx = nextSlot(ms);
     var acc = accOf(ms);
-    var html = savedHTML() + '<div class="tr-card">' +
-      '<div class="tr-eyebrow">Your block</div>' +
+    /* Today first. The week's grid used to open the screen, and Start sat a
+       screen and a half below it; a lifter opening this at the gym wants the
+       session, so the session comes first, and the block folds to a line
+       that opens on a tap. */
+    var html = savedHTML() + todayHTML(ms, nx) + blockCard(ms, nx);
+    html += actStrip();
+    /* One thing to do on this screen, and it is Start. The other ways in are
+       a quiet list below it, and ending the block, which can't be taken
+       back, stands apart in red. */
+    html += '<div class="tr-more" role="group" aria-label="Other ways to train">' +
+      '<div class="tr-ql">Other ways to train</div>' +
+      moreRow('ready', 'Pick a ready workout', 'Full body, upper and lower, machines only') +
+      moreRow('empty', 'Log a workout outside the block', 'Start empty and add what you do') +
+      (nx && nx.w < acc && !steady(ms) ? moreRow('deloadnow', 'Deload now', 'A light week before the planned one') : '') +
+      moreRow('browse', 'Other programs', 'Look at the rest without ending this one') +
+    '</div>' +
+    '<div class="tr-acts tr-foot tr-end"><button class="ghost danger" data-t="endblock">End this block</button></div>';
+    return html;
+  }
+  function moreRow(t, n, sub) {
+    return '<button class="tr-mrow" data-t="' + t + '"><span class="tr-mrow-t"><span class="tr-mrow-n">' + esc(n) + '</span>' +
+      (sub ? '<span class="tr-mrow-s">' + esc(sub) + '</span>' : '') + '</span><span class="tr-mrow-c" aria-hidden="true">\u203a</span></button>';
+  }
+
+  /* How many days until the next session is due, going by the days you lift:
+     0 is today. The same reckoning as the grid's day labels: the next
+     session takes the first lifting day from today on, or from tomorrow once
+     you have trained today. Null until the days are picked, when any day
+     could be one. */
+  function dueIn(ms, nx) {
+    var cols = liftCols(ms), ld = ldDays().slice().sort();
+    if (!nx || isEz(ms, nx.d) || !cols.length || ld.length !== cols.length) return null;
+    var now = new Date(), ti = (now.getDay() + 6) % 7, today = dayKey(now);
+    var o = trainedOn(today) ? 1 : 0;
+    while (o < 21 && ld.indexOf((ti + o) % 7) < 0) o++;
+    return o;
+  }
+  function trainedOn(dk) {
+    return ix().list.some(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === dk; });
+  }
+  function dueSay(o) {
+    if (o === 1) return 'tomorrow';
+    var d = new Date(Date.now() + o * DAY_MS);
+    return (o >= 7 ? 'next ' : '') + LD_N[(d.getDay() + 6) % 7];
+  }
+
+  /* The session to do next, as today's card: what it is, one line of its
+     lifts, and a Start you can't miss. On a rest day it says so, and when
+     the next one is, with a quiet way to start it anyway. The full plan,
+     weights and reasons, is a tap away. */
+  function todayHTML(ms, nx) {
+    if (!nx) return doneHTML(ms);
+    var wk = 'Week ' + (nx.w + 1) + ' of ' + weeksOf(ms);
+    if (isEz(ms, nx.d)) {
+      return '<div class="tr-card tr-next tr-ez">' +
+        '<div class="tr-eyebrow">Next \u00b7 ' + wk + '</div>' +
+        '<div class="tr-title">Easy day</div>' + ezHTML(ms, nx.w, nx.d) + '</div>';
+    }
+    var p = plan(ms, nx.w, nx.d);
+    var mins = estDay(ms.days[nx.d], p.x.map(function (x) { return x.sets; }));
+    var due = dueIn(ms, nx);
+    var rest = due !== null && due > 0;
+    var did = rest && trainedOn(dayKey(new Date()));
+    var lifts = p.x.map(function (x) { return lib(x.e).n; });
+    var planBtn = '<button class="tr-lnk" data-t="planopen" aria-expanded="' + !!S.planOpen + '">' + (S.planOpen ? 'Hide the plan' : 'See the plan') + '</button>';
+    var skip = '<button class="tr-lnk tr-lnk-q" data-t="skip" data-w="' + nx.w + '" data-d="' + nx.d + '">Skip this one</button>';
+    var start = '<button class="' + (rest ? 'ghost tr-anyway' : 'btn-primary tr-go') + '" data-t="start" data-w="' + nx.w + '" data-d="' + nx.d + '">' +
+      (rest ? 'Start it anyway' : 'Start workout') + '</button>';
+    if (rest) {
+      return '<div class="tr-card tr-next tr-restday">' +
+        '<div class="tr-eyebrow">Today \u00b7 ' + wk + '</div>' +
+        '<div class="tr-title">' + (did ? 'Done for today \u2713' : 'Rest day') + '</div>' +
+        '<div class="tr-sub">Next: <b>' + esc(p.n) + '</b> ' + esc(dueSay(due)) + ' \u00b7 about ' + mins + ' min</div>' +
+        '<div class="tr-tlifts">' + esc(lifts.join(' \u00b7 ')) + '</div>' +
+        mcLine(p) +
+        (did ? '' : '<div class="tr-sub">Muscles grow in the rest between sessions.</div>') +
+        '<div class="tr-acts">' + start + planBtn + '</div>' +
+        (S.planOpen ? planList(p, ms) : '') +
+      '</div>';
+    }
+    return '<div class="tr-card tr-next">' +
+      '<div class="tr-eyebrow">' + (due === 0 ? 'Today' : 'Next') + ' \u00b7 ' + wk + ' \u00b7 about ' + mins + ' min</div>' +
+      '<div class="tr-title">' + esc(p.n) + '</div>' +
+      '<div class="tr-tlifts">' + esc(lifts.join(' \u00b7 ')) + '</div>' +
+      mcLine(p) +
+      restNote(p) +
+      start +
+      '<div class="tr-acts tr-next-a">' + planBtn + skip + '</div>' +
+      (S.planOpen ? planList(p, ms) : '') +
+    '</div>';
+  }
+
+  // a day with a circuit after the lifts says so, since it changes what the session is
+  function mcLine(p) {
+    return p.mc ? '<div class="tr-mcp"><span class="tr-ql">Then the circuit</span><div>' + esc(mcSay(p.mc)) + '</div></div>' : '';
+  }
+
+  /* The block, folded to a line: which week, and how this one is going.
+     Open, it is the grid of every session and the days you lift. The ask
+     for those days stays in view folded, since Nourish plans the carbs
+     from them. */
+  function blockCard(ms, nx) {
+    var rir = nx ? rirFor(ms, nx.w) : null;
+    var wk = nx ? 'Week ' + (nx.w + 1) + ' of ' + weeksOf(ms) : 'All done';
+    var cols = liftCols(ms), picked = ldDays().length === cols.length;
+    if (!S.gridOpen) {
+      var doneN = 0;
+      if (nx) cols.forEach(function (d) { if (slotDone(ms, nx.w, d)) doneN++; });
+      return '<div class="tr-card tr-wk">' +
+        '<button class="tr-wk-b" data-t="gridopen" aria-expanded="false">' +
+          '<span class="tr-wk-t"><span class="tr-eyebrow">Your block</span>' +
+          '<span class="tr-wk-n">' + wk + (nx && cols.length ? ' \u00b7 ' + doneN + ' of ' + cols.length + ' done' : '') + '</span>' +
+          '<span class="tr-wk-s">' + esc(ms.n) + '</span></span>' +
+          '<span class="tr-wk-e">Show the weeks</span></button>' +
+        (!picked || S.ldOpen ? ldHTML(ms, nx) : '') +
+      '</div>';
+    }
+    var html = '<div class="tr-card tr-blk">' +
+      '<div class="tr-blk-h"><div class="tr-eyebrow">Your block</div>' +
+        '<button class="tr-lnk" data-t="gridopen" aria-expanded="true">Hide the weeks</button></div>' +
       '<div class="tr-title">' + esc(ms.n) + '</div>';
     if (nx) {
-      var rir = rirFor(ms, nx.w);
-      html += '<div class="tr-sub">Week ' + (nx.w + 1) + ' of ' + weeksOf(ms) + ' · ' +
+      html += '<div class="tr-sub">' + wk + ' \u00b7 ' +
         (rir === null ? 'deload week' : ms.goal === 'str' ? (ms.wave || 10) + 's wave, ' + PHASE[Math.min(nx.w, 2)] : rirSay(rir)) + '</div>';
     } else {
       html += '<div class="tr-sub">Every session of this block is done.</div>';
     }
-    html += weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
-
-    if (nx && isEz(ms, nx.d)) {
-      html += '<div class="tr-card tr-next tr-ez">' +
-        '<div class="tr-eyebrow">Next \u00b7 week ' + (nx.w + 1) + '</div>' +
-        '<div class="tr-title">Easy day</div>' + ezHTML(ms, nx.w, nx.d) + '</div>';
-    } else if (nx) {
-      var p = plan(ms, nx.w, nx.d);
-      var mins = estDay(ms.days[nx.d], p.x.map(function (x) { return x.sets; }));
-      html += '<div class="tr-card tr-next">' +
-        '<div class="tr-eyebrow">Next \u00b7 week ' + (nx.w + 1) + ' \u00b7 about ' + mins + ' min</div>' +
-        '<div class="tr-title">' + esc(p.n) + '</div>' +
-        planList(p, ms) + restNote(p) +
-        '<div class="tr-acts">' +
-          '<button class="btn-primary" data-t="start" data-w="' + nx.w + '" data-d="' + nx.d + '">Start workout</button>' +
-          '<button class="ghost" data-t="skip" data-w="' + nx.w + '" data-d="' + nx.d + '">Skip this one</button>' +
-        '</div>' +
-      '</div>';
-    } else {
-      html += doneHTML(ms);
-    }
-    html += actStrip();
-    html += '<div class="tr-acts tr-foot">' +
-      '<button class="ghost" data-t="ready">Pick a ready workout</button>' +
-      '<button class="ghost" data-t="empty">Log a workout outside the block</button>' +
-      (nx && nx.w < acc && !steady(ms) ? '<button class="ghost" data-t="deloadnow">Deload now</button>' : '') +
-      '<button class="ghost" data-t="browse">Other programs</button>' +
-      '<button class="ghost" data-t="endblock">End this block</button>' +
-    '</div>';
-    return html;
+    return html + weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
   }
 
   /* No lifting, and not nothing: something you could talk through, long
@@ -4350,14 +4615,14 @@
     var cols = liftCols(ms);
     return html + '<div class="tr-ldpanel">' +
       '<div class="tr-ldq">Which ' + n + ' days do you train?</div>' +
-      '<div class="tr-sub">One for each session, in order: ' + esc(ms.days[cols[0]].n) + ' on the first, ' +
-        esc(ms.days[cols[cols.length - 1]].n) + ' on the last.</div>' +
+      '<div class="tr-sub">One for each session, in order: ' + esc(dayName(ms.days[cols[0]])) + ' on the first, ' +
+        esc(dayName(ms.days[cols[cols.length - 1]])) + ' on the last.</div>' +
       '<div class="tr-ld" role="group" aria-label="Training days">' + LD_W.map(function (w, i) {
         return '<button class="tr-ldb" data-t="ldpick" data-v="' + i + '" aria-pressed="' + (dr.indexOf(i) >= 0) +
           '" aria-label="' + LD_N[i] + '">' + w + '</button>';
       }).join('') + '</div>' +
       '<div class="tr-ldmap">' + cols.map(function (d, i) {
-        return '<span>' + esc(ms.days[d].n) + '</span><span>' + (sd[i] !== undefined ? LD_S[sd[i]] : '—') + '</span>';
+        return '<span>' + esc(dayName(ms.days[d])) + '</span><span>' + (sd[i] !== undefined ? LD_S[sd[i]] : '—') + '</span>';
       }).join('') + '</div>' +
       '<div class="tr-ldn ' + (ok ? 'ok' : '') + '">' + (ok ? n + ' of ' + n + ', one for each session'
         : sd.length + ' of ' + n + ' · ' + (sd.length < n ? 'pick ' + (n - sd.length) + ' more' : 'take ' + (sd.length - n) + ' off')) + '</div>' +
@@ -4375,7 +4640,7 @@
         var cd = colDays(ms, nx);
         return ms.days.map(function (d, i) {
           var c = cd[i];
-          return '<span class="tr-gh" role="columnheader">' + esc(d.ez ? 'Easy' : d.n) +
+          return '<span class="tr-gh" role="columnheader">' + esc(d.ez ? 'Easy' : dayName(d)) +
             (c ? '<i class="tr-ghd' + (c.moved ? ' moved' : '') + '">' + LD_S[c.wd] + '</i>' : '') + '</span>';
         }).join('');
       })() + '</div>';
@@ -4389,7 +4654,7 @@
         var cls = wo ? 'done' : isNext ? 'next' : skipped ? 'skip' : '';
         var lab = wo ? shortDate(wo.st) : isNext ? 'Next' : skipped ? 'Skipped' : '';
         html += '<button class="tr-gc ' + cls + '" role="cell" data-t="plansheet" data-w="' + w + '" data-d="' + d + '" ' +
-          'aria-label="Week ' + (w + 1) + ', ' + esc(ms.days[d].n) + (lab ? ': ' + lab : '') + '">' +
+          'aria-label="Week ' + (w + 1) + ', ' + esc(dayName(ms.days[d])) + (lab ? ': ' + lab : '') + '">' +
           (wo ? '✓ ' : '') + esc(lab) + '</button>';
       }
       html += '</div>';
@@ -5028,7 +5293,7 @@
         }
         var labels = slotLabels(day.s);
         var mins = estDay(day);
-        return '<div class="tr-dday"><div class="tr-dday-h">' + esc(day.n) +
+        return '<div class="tr-dday"><div class="tr-dday-h">' + esc(dayName(day)) +
             '<span class="tr-mins' + (ms.min && mins > ms.min ? ' over' : '') + '">about ' + mins + ' min</span></div>' +
           day.s.map(function (s, i) {
             var ex = lib(s.e);
@@ -5104,9 +5369,17 @@
       if (lastOfMuscle(i) && fbReady(m)) html += fbCard(m);
     });
     if (L.mc && mcValid(L.mc)) html += mcCard(L.mc);
-    // Finish is in the footer, one reach away from every card
-    html += '<div class="tr-acts tr-foot"><button class="ghost" data-t="addex">+ Add an exercise</button>' +
-      '<button class="ghost danger" data-t="discard">Discard workout</button></div>';
+    /* An empty workout has one thing to do, and it is the big button;
+       throwing it away is there, and small. Finish is in the bar, one reach
+       away from every card. */
+    if (!L.x.length && !(L.mc && mcValid(L.mc))) {
+      html += '<div class="tr-card tr-empty"><div class="tr-title">Nothing in it yet</div>' +
+        '<div class="tr-sub">Add the first exercise: search the library by name, or pick by muscle.</div>' +
+        '<button class="btn-primary tr-go" data-t="addex">+ Add an exercise</button></div>';
+    } else {
+      html += '<button class="tr-addset tr-addex" data-t="addex">+ Add an exercise</button>';
+    }
+    html += '<div class="tr-acts tr-foot"><button class="tr-lnk tr-lnk-rm" data-t="discard">Discard workout</button></div>';
     return html;
   }
 
@@ -5124,33 +5397,25 @@
       '<div class="tr-acts"><button class="ghost" data-t="hwok">Got it</button></div></div>';
   }
 
-  /* Before you start: the back (and joints), your weight on a pull-up day
-     and how the muscles healed since last time, asked together in one card
-     and folded to a line once every one has an answer. It stays open until
-     then: the healing answers set next week's sets, and are not asked again
-     at Finish. A sore back keeps its warning in view when folded. */
-  var SORE_S = ['Early', 'In time', 'Sore'];
-  var SORE_SAY = ['healed early', 'healed in time', 'still sore'];
+  /* Before you start: the back (and joints) and your weight on a pull-up
+     day, asked together in one card and folded to a line once each has an
+     answer. A sore back keeps its warning in view when folded. How each
+     muscle healed is asked at its own first exercise; see healHTML(). */
   function startParts(L) {
-    return { back: !!(T.pr.bk || T.pr.jt), bw: bwNeed(L) || fin(L.bw) || !!L.bwo, ask: soreAsk() };
+    return { back: !!(T.pr.bk || T.pr.jt), bw: bwNeed(L) || fin(L.bw) || !!L.bwo };
   }
   function startDone(L, P) {
     P = P || startParts(L);
-    return (!P.back || fin(L.bk)) && (!P.bw || fin(L.bw) || !!L.bwq) && P.ask.every(function (m) { return fin(L.sr[m]); });
+    return (!P.back || fin(L.bk)) && (!P.bw || fin(L.bw) || !!L.bwq);
   }
   function startCard(L) {
     var P = startParts(L);
-    if (!P.back && !P.bw && !P.ask.length) return '';
+    if (!P.back && !P.bw) return '';
     var u = L.u || T.pr.u;
     if (startDone(L, P) && !L.sto) {
       var bits = [];
       if (P.back) bits.push(bkSay(L));
       if (fin(L.bw)) bits.push('you ' + fmtN(L.bw) + ' ' + u);
-      if (P.ask.length) {
-        var vs = P.ask.map(function (m) { return L.sr[m]; });
-        bits.push(vs.every(function (v) { return v === vs[0]; }) ? (P.ask.length > 1 ? 'all ' : mname(P.ask[0]).toLowerCase() + ' ') + SORE_SAY[vs[0]]
-          : P.ask.map(function (m) { return mname(m).toLowerCase() + ' ' + SORE_SAY[L.sr[m]]; }).join(', '));
-      }
       var say = bits.join(' \u00b7 ');
       say = say.charAt(0).toUpperCase() + say.slice(1);
       return '<div class="tr-card tr-ask tr-bkt tr-start">' +
@@ -5163,14 +5428,6 @@
     return '<div class="tr-card tr-ask tr-start">' +
       (P.back ? bkQ(L) : '') +
       (P.bw ? bwPart(L, u) : '') +
-      (P.ask.length ? '<div class="tr-sore"><div class="tr-sq-l tr-fbm">Since you last trained them, how did they heal?</div>' +
-        P.ask.map(function (m) {
-          var cur = fin(L.sr[m]) ? L.sr[m] : -1;
-          return '<div class="tr-sore-r" role="group" aria-label="' + esc(mname(m)) + '"><span class="tr-sore-n">' + esc(mname(m)) + '</span>' +
-            SORE_S.map(function (t, i) {
-              return '<button class="tr-sqb" data-t="sore" data-m="' + m + '" data-v="' + i + '" aria-pressed="' + (cur === i) + '" aria-label="' + esc(mname(m) + ': ' + SORE[i]) + '">' + t + '</button>';
-            }).join('') + '</div>';
-        }).join('') + '</div>' : '') +
       (L.sto && startDone(L, P) ? '<div class="tr-acts tr-bwq-a"><button class="tr-lnk" data-t="stdone">Done</button></div>' : '') +
     '</div>';
   }
@@ -5556,20 +5813,63 @@
         (note ? '<button class="tr-exnt" data-t="note" data-e="' + esc(x.e) + '" aria-label="Your note on ' + esc(ex.n) + ': ' + esc(note) + '. Edit">' +
           '<span class="tr-exnt-l">Note</span> ' + esc(note) + '</button>' : '') +
       '</div>' +
+      healHTML(i) +
       '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>' + (nb ? 'Last time' : 'Previous') + '</span><span>' + (bodyOn ? '+' : '') + T.pr.u + '</span><span>Reps</span>' +
         (rq ? (rpeOn() ? '<span title="Rate of perceived exertion">RPE</span>' : '<span title="Reps to spare: how many more you could have done">Spare</span>') : '') + '<span></span></div>' +
       rows +
+      /* The thing done most on this card, one more set, is the big button;
+         the rest are small, each with its picture and its word, and Remove,
+         the one that takes something away, is red. */
+      '<button class="tr-addset" data-t="addset" data-x="' + i + '">+ Add set</button>' +
       '<div class="tr-ex-a">' +
-        '<button class="tr-lnk" data-t="addset" data-x="' + i + '">+ Set</button>' +
-        (x.s.length > 1 ? '<button class="tr-lnk" data-t="dropset" data-x="' + i + '">\u2212 Set</button>' : '') +
-        (ex.k === 'c' && ex.q !== 'bw' ? '<button class="tr-lnk" data-t="warm" data-x="' + i + '">Warm-up</button>' : '') +
-        (ex.q === 'bb' || ex.q === 'sm' ? '<button class="tr-lnk" data-t="plates" data-x="' + i + '">Plates</button>' : '') +
-        '<button class="tr-lnk" data-t="swap" data-x="' + i + '">Swap</button>' +
-        (note ? '' : '<button class="tr-lnk" data-t="note" data-e="' + esc(x.e) + '">Note</button>') +
-        '<button class="tr-lnk' + (armed ? ' tr-lnk-arm' : '') + '" data-t="rmex" data-x="' + i + '">' +
-          (armed ? 'Tap again: remove it and its ' + nDone + ' done set' + (nDone === 1 ? '' : 's') : 'Remove') + '</button>' +
+        (x.s.length > 1 ? eaBtn('dropset', 'minus', 'Set', ' data-x="' + i + '"', 'Take off the last set') : '') +
+        (ex.k === 'c' && ex.q !== 'bw' ? eaBtn('warm', 'warm', 'Warm-up', ' data-x="' + i + '"', 'Add warm-up sets') : '') +
+        (ex.q === 'bb' || ex.q === 'sm' ? eaBtn('plates', 'plates', 'Plates', ' data-x="' + i + '"', 'What plates to load') : '') +
+        eaBtn('swap', 'swap', 'Swap', ' data-x="' + i + '"', 'Swap ' + ex.n + ' for another exercise') +
+        (note ? '' : eaBtn('note', 'note', 'Note', ' data-e="' + esc(x.e) + '"', 'Add a note to ' + ex.n)) +
+        '<button class="tr-ea tr-ea-rm' + (armed ? ' tr-lnk-arm' : '') + '" data-t="rmex" data-x="' + i + '">' + EA_ICO.rm +
+          '<span>' + (armed ? 'Tap again: remove it and its ' + nDone + ' done set' + (nDone === 1 ? '' : 's') : 'Remove') + '</span></button>' +
       '</div>' +
     '</div>';
+  }
+
+  /* How a muscle healed since you last trained it, asked at its first
+     exercise rather than all together before the first set: a line when
+     last time's answer stands, the three answers when it doesn't, or when
+     the line is tapped. */
+  function healHTML(i) {
+    var m = musOf(LIVE.x[i].e);
+    if (!firstOfMuscle(i) || soreAsk().indexOf(m) < 0) return '';
+    var now = srNow(m), open = LIVE.sro && LIVE.sro[m];
+    if (now && !open) {
+      var say = mname(m) + ' ' + SORE_W[now.v];
+      return '<button class="tr-heal" data-t="healopen" data-m="' + m + '" aria-label="' + esc(say + (now.pre ? ', as last time' : '') + '. Change') + '">' +
+        '<span class="tr-heal-s">' + esc(say) + (now.pre ? '<span class="tr-heal-p"> \u00b7 as last time</span>' : '') + '</span>' +
+        '<span class="tr-heal-e">Change</span></button>';
+    }
+    return healQ(m, now ? now.v : -1);
+  }
+  function healQ(m, cur) {
+    return '<div class="tr-heal-q">' + segQ(esc(mname(m)) + ' since last time' + (repsMoved(m) && !fin(LIVE.sr[m]) ? ' \u2014 your reps are well off today' : ''),
+      'sore', cur < 0 ? '' : cur, SORE.map(function (t, k) { return [k, t]; }), ' data-m="' + m + '"') + '</div>';
+  }
+
+  /* One set of small pictures for the card's buttons, drawn in the text's
+     own colour, so they read at any size and in either theme. */
+  function eaSvg(d) {
+    return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="' + d +
+      '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+  var EA_ICO = {
+    minus: eaSvg('M5 12h14'),
+    warm: eaSvg('M12 3c.8 3.2 4.5 4.6 4.5 9a4.5 4.5 0 0 1-9 0c0-2.2 1.1-3.6 2.3-4.6.1 1.8.9 3 2.2 3.1C12 8 11.2 6 12 3z'),
+    plates: eaSvg('M12 4a8 8 0 1 0 0 16 8 8 0 1 0 0-16zM12 10a2 2 0 1 0 0 4 2 2 0 1 0 0-4z'),
+    swap: eaSvg('M7 7h12l-3.5-3.5M17 17H5l3.5 3.5'),
+    note: eaSvg('M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3zM14.5 7.5l2 2'),
+    rm: eaSvg('M4 7h16M10 7V4.5h4V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6')
+  };
+  function eaBtn(t, ico, word, attrs, label) {
+    return '<button class="tr-ea" data-t="' + t + '"' + attrs + ' aria-label="' + esc(label) + '">' + EA_ICO[ico] + '<span>' + esc(word) + '</span></button>';
   }
 
   /* Starting out, the weight asked for comes with its reason: a number
@@ -5664,8 +5964,8 @@
 
   /* Every question this muscle is asked, answered. */
   function fbDone(m) {
-    var f = LIVE.fb[m] || {};
-    return (noPump(m) || fin(f.p)) && fin(f.k) && fin(f.j);
+    var f = fbAll(m).v;
+    return (noPump(m) || fin(f.p)) && fin(f.k) && fin(f.j) && !healNeed(m);
   }
   /* Whether a set of something else has been ticked since this muscle's
      last one: you have moved on, and the card should get out of the way.
@@ -5691,7 +5991,7 @@
      else, or put it away — a line saying what you said, which opens it again
      with a tap. Anything left unanswered is asked again at Finish. */
   function fbCard(m) {
-    var f = LIVE.fb[m] || {};
+    var all = fbAll(m), f = all.v;
     var open = LIVE.fbo && LIVE.fbo[m];
     var hid = LIVE.fbh && LIVE.fbh[m];
     var jl = T.pr.bk ? 'Back &amp; joints' : 'Joints';
@@ -5700,13 +6000,17 @@
       if (!noPump(m) && fin(f.p)) said.push(PUMP_W[f.p]);
       if (fin(f.k)) said.push(WORK_W[f.k]);
       if (fin(f.j)) said.push((T.pr.bk ? 'back & joints ' : 'joints ') + JOINT_W[f.j]);
+      // last time's answers, standing: said as that, so a line nobody tapped doesn't read as one somebody did
+      var pre = Object.keys(all.pre).length > 0;
       return '<button class="tr-card tr-ask tr-fbt" data-t="fbopen" data-m="' + m + '">' +
         '<span class="tr-fbt-n">' + esc(mname(m)) + '</span>' +
-        '<span class="tr-fbt-s">' + esc(said.length ? said.join(' \u00b7 ') : 'not rated yet') + '</span>' +
-        '<span class="tr-fbt-e">' + (said.length ? 'Edit' : 'Rate') + '</span></button>' + (f.j === 2 ? HURT_NOTE : '');
+        '<span class="tr-fbt-s">' + esc(said.length ? said.join(' \u00b7 ') + (pre ? ' \u00b7 as last time' : '') : 'not rated yet') + '</span>' +
+        '<span class="tr-fbt-e">' + (said.length ? (pre ? 'Change' : 'Edit') : 'Rate') + '</span></button>' + (f.j === 2 ? HURT_NOTE : '');
     }
     return '<div class="tr-card tr-ask tr-fbc"><div class="tr-fbc-h"><span class="tr-ql">' + esc(mname(m)) + ' done \u2014 how was it?</span>' +
         '<button class="tr-lnk" data-t="fbhide" data-m="' + m + '">Hide</button></div>' +
+      // the healing, when it still has no answer: the reps moved, or it was never said
+      (healNeed(m) ? segQ('Since last time', 'sore', '', SORE.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '"') : '') +
       (noPump(m) ? '' : segQ('Pump', 'fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"')) +
       segQ('Workload', 'fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"') +
       segQ(jl, 'fb', fin(f.j) ? f.j : '', JOINT.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="j"') +
@@ -5719,8 +6023,11 @@
     var list = ix().list.slice();
     Object.keys(T.ax).forEach(function (k) { if (T.ax[k]) list.push({ ax: T.ax[k], st: T.ax[k].st }); });
     list.sort(function (a, b) { return b.st - a.st; });
+    /* Empty, a screen says what will be here and gives the one way to get
+       there: a workout, or the history you already have in another app. */
     if (!list.length) {
-      return '<div class="empty">Finished workouts land here. Start one from Block.</div>';
+      return emptyHTML('No workouts yet', 'Finished workouts land here, newest first, with their records.',
+        goBtn() + '<label class="ghost tr-file tr-empty-2">Import from another app<input type="file" id="trStrong2" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden></label>');
     }
     return (S.sgDone ? '<div class="tr-card tr-ask tr-sgdone">Brought in ' + S.sgDone + ' workout' + (S.sgDone === 1 ? '' : 's') +
         ' from ' + esc(S.sgFrom || 'your file') + '. Their records and charts are under Lifts, and a new block starts from their weights.</div>' : '') +
@@ -5750,6 +6057,16 @@
     }).join('') + '</div>';
   }
 
+  function emptyHTML(t, say, acts) {
+    return '<div class="tr-card tr-empty"><div class="tr-title">' + esc(t) + '</div><div class="tr-sub">' + esc(say) + '</div>' +
+      '<div class="tr-acts">' + acts + '</div></div>';
+  }
+  // the way back to training from an empty screen, named for where it goes
+  function goBtn() {
+    return '<button class="btn-primary tr-empty-go" data-t="sub" data-v="block">' +
+      (LIVE ? 'Back to your workout' : active() ? 'Go to today\u2019s session' : 'Find a workout') + '</button>';
+  }
+
   /* --------------------------------------------------------------- lifts */
   function liftsHTML() {
     var per = {};
@@ -5761,7 +6078,7 @@
       });
     });
     var keys = Object.keys(per).sort(function (a, b) { return per[b].last - per[a].last; });
-    if (!keys.length) return '<div class="empty">Every lift you log gets its own page here: records, and a line of your estimated max over time.</div>';
+    if (!keys.length) return emptyHTML('No lifts yet', 'Every lift you log gets its own page here: records, and a line of your estimated max over time.', goBtn());
     return '<div class="tr-lifts">' + keys.map(function (e) {
       var ex = lib(e), r = records(e);
       var best = r.e1 > 0 ? fmtN(Math.round(r.e1)) + ' ' + T.pr.u : r.r + ' reps';
@@ -5789,7 +6106,9 @@
     var html = '<div class="tr-card">' +
       '<div class="tr-eyebrow">' + esc(r.label) + '</div>' +
       '<div class="tr-title">' + r.n + ' workout' + (r.n === 1 ? '' : 's') + ', held against the research</div>' +
-      '<div class="tr-note">Every line below is a rule with a source. It grades what can be measured from your log and says so when something cannot be.</div>';
+      '<div class="tr-note">Every line below is a rule with a source. It grades what can be measured from your log and says so when something cannot be.</div>' +
+      // a week with nothing in it has nothing to grade, and one way to fix that
+      (r.n ? '' : '<div class="tr-acts">' + goBtn() + '</div>');
     if (r.rows.length) {
       html += '<div class="tr-vbars" role="table" aria-label="Hard sets per muscle this week">' +
         '<div class="tr-vkey" aria-hidden="true"><span class="tr-vk-band"></span> ' +
@@ -6618,8 +6937,8 @@
     var missing = [];
     if (LIVE.ms) {
       uniq(wo.x.map(function (x) { return musOf(x.e); })).forEach(function (m) {
-        var f = LIVE.fb[m] || {};
-        if ((!noPump(m) && !fin(f.p)) || !fin(f.k)) missing.push(m);
+        var f = fbAll(m).v;
+        if ((!noPump(m) && !fin(f.p)) || !fin(f.k) || healNeed(m)) missing.push(m);
       });
     }
     if (!wo.x.length && !wo.mc) {
@@ -6647,8 +6966,9 @@
         : 'The circuit has no score yet \u2014 add it on the circuit card, or it will not be saved.') + '</div>' : '') +
       (missing.length ? '<div class="tr-ask"><div class="tr-ql">Before you go — next week’s sets come from these</div>' +
         missing.map(function (m) {
-          var f = LIVE.fb[m] || {};
-          return (noPump(m) ? '' : segQ(esc(mname(m)) + ' pump', 'fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"')) +
+          var f = fbAll(m).v;
+          return (healNeed(m) ? segQ(esc(mname(m)) + ' since last time', 'sore', '', SORE.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '"') : '') +
+            (noPump(m) ? '' : segQ(esc(mname(m)) + ' pump', 'fb', fin(f.p) ? f.p : '', PUMP.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="p"')) +
             segQ(esc(mname(m)) + ' workload', 'fb', fin(f.k) ? f.k : '', WORK.map(function (t, i) { return [i, t]; }), ' data-m="' + m + '" data-f="k"');
         }).join('') + '</div>' : '') +
       '<div class="tr-q"><div class="tr-ql">Notes <span class="tr-opt">optional</span></div>' +
@@ -7091,6 +7411,8 @@
 
   function setSub(v) {
     S.sub = v;
+    // back to the workout is back to it full screen
+    if (v === 'block') S.minim = 0;
     try { localStorage.setItem(LS_SUB, v); } catch (e) { /* private mode */ }
     draw();
   }
@@ -7965,6 +8287,8 @@
     if (t !== 'sggo') S.sgDone = 0;
     if (t === 'close') { closeSheet(); return; }
     if (t === 'sub') { setSub(v); return; }
+    if (t === 'minim') { S.minim = 1; draw(); return; }
+    if (t === 'focus') { setSub('block'); scrollTop(); return; }
     if (t === 'ref') {
       var box = $('trRefs'), dt = $('tr-ref-' + v);
       if (box) box.open = true;
@@ -8047,6 +8371,8 @@
     if (t === 'unlib') { S.lib = false; draw(); scrollTop(); return; }
     if (t === 'browse') { S.browse = true; S.lib = false; draw(); scrollTop(); return; }
     if (t === 'ldopen') { S.ldOpen = true; S.ldDraft = ldDays().slice(); draw(); return; }
+    if (t === 'gridopen') { S.gridOpen = !S.gridOpen; draw(); return; }
+    if (t === 'planopen') { S.planOpen = !S.planOpen; draw(); return; }
     if (t === 'ldcancel') { S.ldOpen = false; S.ldDraft = null; draw(); return; }
     if (t === 'ldpick') {
       var dr = (S.ldDraft || []).slice(), di = Number(v), at = dr.indexOf(di);
@@ -8308,7 +8634,8 @@
     if (t === 'sore') {
       var m = el.getAttribute('data-m');
       if (LIVE.sr[m] === Number(v)) delete LIVE.sr[m]; else LIVE.sr[m] = Number(v);
-      startTuck(LIVE);
+      if (LIVE.sro && fin(LIVE.sr[m])) delete LIVE.sro[m];
+      if (LIVE.fbo && LIVE.fbo[m] && fbDone(m)) delete LIVE.fbo[m];
       saveLive(); draw(); return;
     }
     if (t === 'fb') {
@@ -8320,6 +8647,10 @@
       saveLive();
       if (S.sheet && S.sheet.k === 'finish') drawSheet(); else draw();
       return;
+    }
+    if (t === 'healopen' && LIVE) {
+      LIVE.sro = LIVE.sro || {}; LIVE.sro[el.getAttribute('data-m')] = 1;
+      saveLive(); draw(); return;
     }
     if (t === 'fbopen' && LIVE) {
       var om = el.getAttribute('data-m');
@@ -8795,7 +9126,7 @@
     document.addEventListener('change', function (e) {
       var el = e.target;
       if (el && el.id === 'trImport' && el.files && el.files[0]) readImport(el.files[0]);
-      if (el && el.id === 'trStrong' && el.files && el.files[0]) { readStrong(el.files[0]); el.value = ''; }
+      if (el && (el.id === 'trStrong' || el.id === 'trStrong2') && el.files && el.files[0]) { readStrong(el.files[0]); el.value = ''; }
       var imc = el && el.getAttribute && el.getAttribute('data-imc');
       if (imc && S.imap) {
         var ci = Number(el.value);
@@ -8887,7 +9218,7 @@
     nextName: function () {
       var ms = active(), nx = ms && nextSlot(ms);
       if (!nx || isEz(ms, nx.d)) return '';
-      return ms.days[nx.d].n || '';
+      return dayName(ms.days[nx.d]) || '';
     },
     attach: attach,
     remote: remote,
@@ -8896,6 +9227,7 @@
     /* For the tests, and for anyone reading the numbers off a console: the
        pure parts, which take data and give data. */
     _: {
+      soreAsk: soreAsk, srNow: srNow, fbAll: fbAll, repsMoved: repsMoved, uniq: uniq, draw: draw, dayName: dayName, dueIn: dueIn, focusOn: focusOn,
       build: build, plan: plan, setsFor: setsFor, feedback: feedback, target: target,
       e1rm: e1rm, plateMath: plateMath, review: review, merge: merge, payload: payload,
       rirFor: rirFor, nextSlot: nextSlot, prsIn: prsIn, lib: lib, SPLITS: SPLITS, MUS: MUS,
