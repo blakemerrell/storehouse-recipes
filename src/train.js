@@ -9433,7 +9433,8 @@
        there is one, its days are changed here, where the count is enforced. */
     blockSessions: function () { var ms = active(); return ms ? liftCols(ms).length : 0; },
     /* Nourish's "Change days": open the picker on the block card. */
-    openDays: function () { S.ldOpen = true; S.ldDraft = ldDays().slice(); S.browse = false; },
+    // with the weeks open, so each session's column shows the day it moves to
+    openDays: function () { S.ldOpen = true; S.gridOpen = true; S.ldDraft = ldDays().slice(); S.browse = false; },
     /* The name of the block's next session, for "Upper B today". */
     nextName: function () {
       var ms = active(), nx = ms && nextSlot(ms);
