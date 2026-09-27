@@ -3450,10 +3450,10 @@ module.exports = {
     }
     await p.click('.tab[data-view="train"]');
     await openSettings(p);
-    r = await p.evaluate(() => ({ hints: document.querySelectorAll('#trainRoot .tr-settings .tr-hint').length, is: document.querySelectorAll('#trainRoot .tr-info').length }));
+    r = await p.evaluate(() => ({ hints: document.querySelectorAll('#trainRoot .tr-settings .tr-hint').length, is: document.querySelectorAll('#trainRoot .tr-ibtn').length }));
     t.ok('settings: what each one does is behind an i, not a paragraph under every row', r.hints === 0 && r.is >= 5, JSON.stringify(r));
-    await p.click('#trainRoot .tr-info >> nth=1');
-    r = await p.evaluate(() => ({ hints: document.querySelectorAll('#trainRoot .tr-settings .tr-hint').length, open: document.querySelectorAll('#trainRoot .tr-info[aria-expanded="true"]').length }));
+    await p.click('#trainRoot .tr-ibtn >> nth=1');
+    r = await p.evaluate(() => ({ hints: document.querySelectorAll('#trainRoot .tr-settings .tr-hint').length, open: document.querySelectorAll('#trainRoot .tr-ibtn[aria-expanded="true"]').length }));
     t.ok('and the i opens its paragraph in place', r.hints === 1 && r.open === 1, JSON.stringify(r));
     await p.click('.sheet-x');
     await p.click('[data-t="sub"][data-v="review"]');
@@ -3468,6 +3468,58 @@ module.exports = {
     });
     t.ok('a plan says nothing for a muscle held where it was, and a change in a few words with a why?',
       !/Held —/.test(r.html) && (!r.whys.some((w) => /^\+\d/.test(w)) || /why\?/.test(r.html)), r.html.slice(0, 200));
+    await p.close();
+
+    // ---- what the second look found ----
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      return {
+        // one pass: a lift's new name is never renamed again by the next
+        name: _.dayName({ n: 'Deadlift & press', s: [{ m: 'dead', e: 'leg-press' }, { m: 'press', e: 'db-ohp' }] }),
+        plain: _.dayName({ n: 'Squat day', s: [{ m: 'squat', e: 'bb-squat' }] }),
+      };
+    });
+    t.ok('day names are rewritten in one pass', r.name === 'Leg press & dumbbell press' && r.plain === 'Squat day', JSON.stringify(r));
+    await p.close();
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await seed(p, { pr: { qz: 1, u: 'lb' }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="review"]');
+    r = await p.evaluate(() => ({ over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      card: (document.querySelector('.tr-check.tr-info') || { getBoundingClientRect: () => ({ width: 0 }) }).getBoundingClientRect().width }));
+    t.ok('an empty Review is a card across the page, not a stray box that scrolls it sideways', r.over <= 0 && r.card > 300, JSON.stringify(r));
+    await p.close();
+    // a Review fix is one set, once: the log it is read from still says short until the next week
+    p = await t.fresh();
+    {
+      const b = await p.evaluate(() => { const ms = window.Train._.build({ dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] }); ms.id = 'fx'; return ms; });
+      const wos = {};
+      [0, 1, 2, 3].forEach((d) => { wos['w' + d] = wo('w' + d, 'fx', 0, d, 10 - d, b.days[d].s.map((z) => ({ e: z.e, s: sets(100, [10]) }))); });
+      await seed(p, { pr: { qz: 1, u: 'lb' }, act: 'fx', ms: { fx: b }, cx: {}, ax: {}, wo: wos });
+    }
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="review"]');
+    const fx1 = await p.evaluate(() => { const b = document.querySelector('[data-t="fixset"]'); return b ? { d: b.dataset.d, i: b.dataset.i, say: b.textContent } : null; });
+    if (fx1) {
+      const n0 = await p.evaluate((f) => window.Train._.state().T.ms.fx.days[f.d].s[f.i].n, fx1);
+      await p.click('[data-t="fixset"]');
+      r = await p.evaluate((f) => ({ n: window.Train._.state().T.ms.fx.days[f.d].s[f.i].n, again: !!document.querySelector('[data-t="fixset"][data-d="' + f.d + '"][data-i="' + f.i + '"]'),
+        say: (document.querySelector('.tr-flash2') || {}).textContent || '' }), fx1);
+      t.ok('a Review fix adds one set, says so, and is not offered again for the same week', r.n === n0 + 1 && !r.again && /Added a set/.test(r.say), JSON.stringify(Object.assign(r, { n0, fx1 })));
+    } else {
+      t.ok('a week one set short of five offers a fix', false, 'no fix button');
+    }
+    // last time's answers, untouched, move the sets by the standard step at most
+    r = await p.evaluate(() => {
+      const _ = window.Train._, T = _.state().T, ms = T.ms.fx, w0 = T.wo.w0, m = _.lib(ms.days[0].s[0].e).m;
+      w0.fb = { [m]: { p: 0, k: 0, j: 0 } }; w0.sr = {};
+      const free = _.feedback(ms, 0, 0, m).d;
+      w0.fbp = { [m]: 1 };
+      const pre = _.feedback(ms, 0, 0, m).d;
+      return { free, pre };
+    });
+    t.ok('answers carried over untouched add at most the standard set a week', r.free === 2 && r.pre === 1, JSON.stringify(r));
     await p.close();
 
     // ---- Lifts: search, muscle, and where each is heading ----

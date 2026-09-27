@@ -1766,6 +1766,8 @@
     if (fin(fb.p) && PUMP_V[fb.p] !== undefined) { score += PUMP_V[fb.p]; said.push(PUMP_W[fb.p]); }
     if (fin(fb.k) && WORK_V[fb.k] !== undefined) { score += WORK_V[fb.k]; said.push(WORK_W[fb.k]); }
     var dl = score >= 2 ? 2 : score >= 0 ? 1 : score === -1 ? 0 : -1;
+    // carried over from the time before, untouched: the standard step at most
+    if (dl > 1 && wo.fbp && wo.fbp[m]) dl = 1;
     var stop = '';
     if (fb.k === 3) dl = -1;
     else if (sr === 2 && dl > 0) dl = 0;
@@ -2253,17 +2255,17 @@
     'bb-ohp': 'Press', 'db-ohp': 'Dumbbell press', 'mc-ohp': 'Machine press'
   };
   function dayName(day) {
-    var n = String(day && day.n || '');
+    var to = {};
     (day && Array.isArray(day.s) ? day.s : []).forEach(function (s) {
       var word = s && MAIN_W[s.m];
-      if (!word) return;
-      var short = MAIN_SHORT[s.e] || lib(s.e).n;
-      if (short === word) return;
-      n = n.replace(new RegExp('\\b' + word + '\\b', 'i'), function (hit) {
-        return hit.charAt(0) === word.charAt(0) ? short : short.toLowerCase();
-      });
+      if (word && !to[word]) to[word] = MAIN_SHORT[s.e] || lib(s.e).n;
     });
-    return n;
+    // one pass over the name as written, so one lift's new name is never renamed by the next
+    return String(day && day.n || '').replace(/\b(squat|bench|deadlift|press)\b/gi, function (hit) {
+      var word = hit.charAt(0).toUpperCase() + hit.slice(1).toLowerCase(), short = to[word];
+      if (!short || short === word) return hit;
+      return hit.charAt(0) === word.charAt(0) ? short : short.toLowerCase();
+    });
   }
 
   /* A slot beginning * is a main lift. Strength waves put one or two a
@@ -2983,7 +2985,8 @@
     var chose = [];
     if (ms && !keep && !base && !str && win.pick !== undefined) {
       var planT = totals(ms, setsFor(ms, Math.min(win.pick, accOf(ms))).sets);
-      var onPurpose = function (r) { return (planT[r.k] || 0) < 5; };
+      // on purpose: the plan has it, under five, and you did what it asked
+      var onPurpose = function (r) { return planT[r.k] > 0 && planT[r.k] < 5 && r.sets >= planT[r.k]; };
       chose = low.concat(none).filter(onPurpose);
       low = low.filter(function (r) { return !onPurpose(r); });
       none = none.filter(function (r) { return !onPurpose(r); });
@@ -3043,7 +3046,7 @@
         (fxs.length ? 'The rest are held at a keeping dose on purpose, while ' + names(fxs.map(function (k) { return { n: mname(k).toLowerCase() }; })) + ' take' + (fxs.length > 1 ? '' : 's') + ' the extra work. ' : '') +
         (chose.length ? names(chose) + (chose.length > 1 ? ' are' : ' is') + ' under five this week because the plan starts ' + (chose.length > 1 ? 'them' : 'it') + ' there and builds. ' : ''),
       refs: ['vol17', 'vol24', 'rp21'],
-      fix: young ? null : setFix(ms, low.concat(none))
+      fix: young ? null : setFix(ms, low.concat(none), win.pick)
     });
 
     var once = rows.filter(function (r) { return r.days === 1 && r.sets >= 6; });
@@ -3286,10 +3289,13 @@
      rest of the block, on the day that has the fewest of that muscle, on an
      exercise already there. The first such muscle only: one tap, one
      change, and the review reads it again next week. */
-  function setFix(ms, rows) {
+  function setFix(ms, rows, wk) {
     if (!ms) return null;
+    var done = Array.isArray(ms.fixd) ? ms.fixd : [];
     for (var k = 0; k < rows.length; k++) {
       var m = rows[k].k, pick = null;
+      // the review is read from the log, so it would offer the same set again after it was added
+      if (done.indexOf(wk + ':' + m) >= 0) continue;
       ms.days.forEach(function (day, d) {
         if (day.ez) return;
         var tot = 0, slot = -1;
@@ -3297,7 +3303,7 @@
         if (slot >= 0 && day.s[slot].n < 6 && (!pick || tot < pick.tot)) pick = { d: d, i: slot, tot: tot };
       });
       if (pick) {
-        return { t: 'fixset', a: ' data-d="' + pick.d + '" data-i="' + pick.i + '"',
+        return { t: 'fixset', a: ' data-d="' + pick.d + '" data-i="' + pick.i + '" data-k="' + esc(wk + ':' + m) + '"',
           say: 'Add a set of ' + lib(ms.days[pick.d].s[pick.i].e).n + ' to ' + dayName(ms.days[pick.d]) };
       }
     }
@@ -4251,7 +4257,7 @@
         if (fin(x.rir)) out.pq = x.rir;
         return out;
       }).filter(function (x) { return x.s.length; }),
-      sr: srKept(), fb: fbKept()
+      sr: srKept(), fb: fbKept(), fbp: fbPre()
     };
     if (fin(LIVE.bk)) wo.bk = LIVE.bk;
     if (LIVE.g === 'home' && T.pr.gy.on) wo.g = 'home';
@@ -4268,8 +4274,24 @@
   function srKept() {
     var o = {};
     Object.keys(LIVE.sr || {}).forEach(function (m) { if (fin(LIVE.sr[m])) o[m] = LIVE.sr[m]; });
-    if (LIVE.ms) soreAsk().forEach(function (m) { var n = srNow(m); if (n && !fin(o[m])) o[m] = n.v; });
+    if (LIVE.ms) soreAsk().forEach(function (m) { var n = srNow(m); if (n && !fin(o[m]) && trainedNow(m)) o[m] = n.v; });
     return o;
+  }
+  function trainedNow(m) {
+    return LIVE.x.some(function (x) { return musOf(x.e) === m && x.s.some(function (s) { return s.t; }); });
+  }
+  /* The muscles whose answers were all last time's: nothing said today. Read
+     back by feedback(), which lets them move the sets by the standard step
+     and no more, so answers nobody gave never add sets faster than no
+     answer would. */
+  function fbPre() {
+    var o = {}, n = 0;
+    if (!LIVE.ms) return undefined;
+    Object.keys(fbKept()).forEach(function (m) {
+      var f = LIVE.fb[m] || {};
+      if (!fin(f.p) && !fin(f.k) && !fin(f.j) && !fin(LIVE.sr[m])) { o[m] = 1; n++; }
+    });
+    return n ? o : undefined;
   }
   function fbKept() {
     var o = {};
@@ -4528,7 +4550,7 @@
         '<div class="tr-title">' + (did ? 'Done for today \u2713' : 'Rest day') + '</div>' +
         '<div class="tr-sub">Next: <b>' + esc(p.n) + '</b> ' + esc(dueSay(due)) + ' \u00b7 about ' + mins + ' min</div>' +
         '<div class="tr-tlifts">' + esc(lifts.join(' \u00b7 ')) + '</div>' +
-        mcLine(p) +
+        (S.planOpen ? '' : mcLine(p)) +
         (did ? '' : '<div class="tr-sub">Muscles grow in the rest between sessions.</div>') +
         '<div class="tr-acts">' + start + planBtn + '</div>' +
         (S.planOpen ? planList(p, ms) : '') +
@@ -4538,7 +4560,7 @@
       '<div class="tr-eyebrow">' + (due === 0 ? 'Today' : 'Next') + ' \u00b7 ' + wk + ' \u00b7 about ' + mins + ' min</div>' +
       '<div class="tr-title">' + esc(p.n) + '</div>' +
       '<div class="tr-tlifts">' + esc(lifts.join(' \u00b7 ')) + '</div>' +
-      mcLine(p) +
+      (S.planOpen ? '' : mcLine(p)) +
       restNote(p) +
       start +
       '<div class="tr-acts tr-next-a">' + planBtn + skip + '</div>' +
@@ -4709,7 +4731,8 @@
         var isNext = nx && nx.w === w && nx.d === d;
         var skipped = !wo && sk.indexOf(w + ':' + d) >= 0;
         var cls = wo ? 'done' : isNext ? 'next' : skipped ? 'skip' : '';
-        var lab = wo ? shortDate(wo.st) : isNext ? 'Next' : skipped ? 'Skipped' : '';
+        // five or more columns on a phone have room for the day of the month, not the month too
+        var lab = wo ? (ms.days.length >= 5 ? String(new Date(wo.st).getDate()) : shortDate(wo.st)) : isNext ? 'Next' : skipped ? 'Skipped' : '';
         html += '<button class="tr-gc ' + cls + '" role="cell" data-t="plansheet" data-w="' + w + '" data-d="' + d + '" ' +
           'aria-label="Week ' + (w + 1) + ', ' + esc(dayName(ms.days[d])) + (lab ? ': ' + lab : '') + '">' +
           (wo ? '✓ ' : '') + esc(lab) + '</button>';
@@ -6517,7 +6540,9 @@
       var rng = S.crng || 'all', cut = { '1m': 31, '3m': 92, '6m': 183 }[rng];
       var inR = cut ? ss.filter(function (x) { return x.wo.st >= Date.now() - cut * DAY_MS; }) : ss;
       return html + '<div class="tr-crng">' + chips('crng', rng, [['1m', '1M'], ['3m', '3M'], ['6m', '6M'], ['all', 'All']]) + '</div>' +
-        (inR.length >= 2 ? exCharts(e, inR) : '<div class="tr-note">Fewer than two sessions in this range. Pick a longer one.</div>');
+        (ss.length < 2 ? '<div class="tr-note">Two sessions and these draw.</div>'
+          : inR.length >= 2 ? exCharts(e, ss, cut ? Date.now() - cut * DAY_MS : 0)
+          : '<div class="tr-note">Fewer than two sessions in this range. Pick a longer one.</div>');
     }
     return html + exRecords(e, ss);
   }
@@ -6592,7 +6617,10 @@
       (BWL[e] ? ' On this lift it counts you as well as anything added, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.'
         : ASST[e] ? ' On this lift it counts you, less the machine\u2019s help, from your weigh-in in Nourish that day or in the two weeks before; without one, reps only.' : '') + '</div>';
   }
-  function exCharts(e, ss) {
+  /* The lines from `from` on; the whole log still decides what was a
+     record, so a month of sessions under an old best shows none. */
+  function exCharts(e, ss, from) {
+    from = from || 0;
     var r = records(e), byReps = !(r.e1 > 0);
     var work = function (s) { return s.x.s.filter(counts); };
     var pts = function (f) {
@@ -6601,8 +6629,10 @@
     // the best estimated max of a session, you included on the lifts that lift you
     var best = function (ws, u, s) { var bw = bwFor(e, s.wo); return Math.max.apply(null, ws.map(function (z) { return e1Of(e, conv(z.w, u), z.r, bw); })); };
     var one = function (title, series, reps, low, unit) {
+      var shown = series.filter(function (q) { return q.t >= from; }), before = null;
+      series.forEach(function (q) { if (q.t < from && (before === null || (low ? q.v < before : q.v > before))) before = q.v; });
       return '<div class="tr-ql tr-chart-h">' + title + '</div>' +
-        (series.length >= 2 ? chartSVG(series, reps, low, unit) : '<div class="tr-note">Two sessions and this draws.</div>');
+        (shown.length >= 2 ? chartSVG(shown, reps, low, unit, before) : '<div class="tr-note">Two sessions in this range and this draws.</div>');
     };
     if (usesBw(e) && !byReps) {
       return one('Best set, in reps', pts(function (ws) { return Math.max.apply(null, ws.map(function (z) { return z.r; })); }), true) +
@@ -6708,7 +6738,7 @@
     for (var v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) out.push(Math.round(v * 1000) / 1000);
     return out;
   }
-  function chartSVG(series, byReps, low, unit) {
+  function chartSVG(series, byReps, low, unit, before) {
     var W = 360, H = 180, PL = 46, PR = 12, PT = 14, PB = 24;
     var vals = series.map(function (q) { return q.v; });
     var tk = niceTicks(Math.min.apply(null, vals), Math.max.apply(null, vals), 4);
@@ -6729,10 +6759,10 @@
     out.push('<polyline class="mc-line tr-line" points="' + series.map(function (q) {
       return px(q.t).toFixed(1) + ',' + py(q.v).toFixed(1);
     }).join(' ') + '"/>');
-    // a record is a session that beat every one before it
-    var best = null;
+    // a record is a session that beat every one before it, in the range or not
+    var best = before === undefined ? null : before;
     series.forEach(function (q, i) {
-      var rec = i > 0 && (low ? q.v < best : q.v > best);
+      var rec = best !== null && (i > 0 || before !== null) && (low ? q.v < best : q.v > best);
       if (best === null || (low ? q.v < best : q.v > best)) best = q.v;
       out.push('<circle cx="' + px(q.t).toFixed(1) + '" cy="' + py(q.v).toFixed(1) + '" r="' + (rec ? 5 : 3.5) + '" class="tr-dot' + (rec ? ' pr' : '') + '"/>');
     });
@@ -7591,7 +7621,7 @@
     var n = 0;
     return html.replace(/<div class="tr-hint">([\s\S]*?)<\/div>/g, function (all, txt) {
       var k = 's' + (n++), open = S.info === k;
-      return '<button class="tr-info" data-t="info" data-v="' + k + '" aria-expanded="' + open + '" aria-label="' +
+      return '<button class="tr-ibtn" data-t="info" data-v="' + k + '" aria-expanded="' + open + '" aria-label="' +
         (open ? 'Hide' : 'What this does') + '"><span aria-hidden="true">i</span></button>' +
         (open ? '<div class="tr-hint tr-info-t">' + txt + '</div>' : '');
     });
@@ -8576,8 +8606,11 @@
       if (!fsl || fsl.n >= 6) return;
       var fc = clean(fms);
       fc.days[fd].s[fi].n = fsl.n + 1;
+      fc.fixd = (Array.isArray(fc.fixd) ? fc.fixd : []).concat(el.getAttribute('data-k') || '').slice(-40);
       editBlock(fc);
-      S.flash2 = 'Added: ' + lib(fsl.e).n + ' has ' + (fsl.n + 1) + ' sets on ' + dayName(fc.days[fd]) + ' for the rest of the block.';
+      // said as next week's plan has it, which is what the change is for
+      var fnx = nextSlot(fc), fsets = fnx ? plan(fc, fnx.w, fd).x[fi].sets : fsl.n + 1;
+      S.flash2 = 'Added a set: ' + lib(fsl.e).n + ' on ' + dayName(fc.days[fd]) + ' is ' + fsets + ' sets next time, and one more than it would have been for the rest of the block.';
       draw(); return;
     }
     if (t === 'planopen') { S.planOpen = !S.planOpen; draw(); return; }
