@@ -17,7 +17,7 @@ function wo(id, ms, w, d, daysAgo, x, extra) {
    is full screen: the chevron makes it small first. */
 async function openSettings(p) {
   if (await p.$('#trTop:not(.hide) [data-t="minim"]')) await p.click('#trTop [data-t="minim"]');
-  await openSettings(p);
+  await p.click('[data-t="settings"]');
 }
 function sets(w, reps, t0) {
   return reps.map((r, i) => ({ w, r, t: (t0 || 1e12) + i * 150e3 }));
@@ -464,6 +464,9 @@ module.exports = {
     await p.click('.tab[data-view="train"]');
     await p.click('[data-t="sub"][data-v="review"]');
     await p.waitForTimeout(100);
+    // the checks are headlines; their sources are inside, a tap away
+    await p.click('.tr-check:has([data-t="ckopen"]) [data-t="ckopen"] >> nth=0');
+    if (!(await p.$('.tr-ref'))) await p.evaluate(() => { const st = window.Train._.state(); st.S.ck = {}; window.Train._.review().checks.forEach((c) => { st.S.ck[c.t] = true; }); window.Train._.draw(); });
     await p.click('.tr-ref >> nth=0');
     await p.waitForTimeout(100);
     d = await p.evaluate(() => ({ open: document.getElementById('trRefs').open, hash: location.hash }));
@@ -2249,7 +2252,7 @@ module.exports = {
       _.reload();
     });
     await p.click('.tab[data-view="train"]');
-    r = await p.evaluate(() => { const f = document.querySelector('.tr-foot'); return f ? f.textContent : ''; });
+    r = await p.evaluate(() => { const f = document.querySelector('.tr-more'); return f ? f.textContent : ''; });
     t.ok('with a block running, it sits beside logging a workout outside the block', /Pick a ready workout/.test(r) && /outside the block/.test(r), r);
     r = await p.evaluate(() => {
       const _ = window.Train._, T = _.state().T;
@@ -2264,7 +2267,7 @@ module.exports = {
     t.ok('it picks the lift you already do for a slot, so the weights are yours', r.squat === 'bb-squat', r.squat);
     t.ok('the half-hour version: big lifts first, two sets each, and it fits', r.xp === 'Full Body A · 30 min' && r.xp2 && r.xpt <= 30 && r.xpBig === 'c', JSON.stringify(r));
     t.ok('and it keeps to your kit: bodyweight only means bodyweight lifts', r.bw, JSON.stringify(r));
-    await p.click('.tr-foot [data-t="ready"]');
+    await p.click('.tr-more [data-t="ready"]');
     r = await p.evaluate(() => ({ g: [...document.querySelectorAll('.tr-rdg')].map((e) => e.textContent).join('|'),
       rows: [...document.querySelectorAll('.tr-rdb .tr-rdn')].map((e) => e.textContent).join('|'),
       mins: [...document.querySelectorAll('.tr-rdb .tr-rdt')].every((e) => /^~\d+ min$/.test(e.textContent)) }));
@@ -2300,7 +2303,7 @@ module.exports = {
     t.ok('the routine keeps its lifts in order with the sets you did, and is synced', r.n === 'Tuesday quickie' && r.x === '2,1' && r.ok && /Tuesday quickie/.test(r.sync), JSON.stringify(r));
     t.ok('and says where to find it', /Your routines/.test(r.said), r.said);
     await p.click('#trainRoot .sheet [data-t="close"]');
-    await p.click('.tr-foot [data-t="ready"]');
+    await p.click('.tr-more [data-t="ready"]');
     r = await p.evaluate(() => { const g = [...document.querySelectorAll('.tr-rdg')].map((e) => e.textContent); const nx = document.querySelector('.tr-rdb[data-v^="nx:"] .tr-rdn');
       return { g: g.join('|'), nx: nx ? nx.textContent : '', mine: (document.querySelector('.tr-rdb[data-v^="r"] .tr-rdn') || {}).textContent || '' }; });
     t.ok('next time: Full Body B is next up, after the A you did', /^Next up\|Your routines\|Full body/.test(r.g) && r.nx === 'Full Body B', JSON.stringify(r));
@@ -2312,7 +2315,7 @@ module.exports = {
     r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T, w = Object.values(T.wo).sort((a, b) => b.st - a.st)[0]; return _.saveRoutine(w.id, 'Spare'); });
     const spare = r;
     await p.click('.sheet-x');
-    await p.click('.tr-foot [data-t="ready"]');
+    await p.click('.tr-more [data-t="ready"]');
     await p.click(`.tr-rdb[data-v="${spare}"]`);
     await p.click(`[data-t="rtdel"][data-v="${spare}"]`);
     r = await p.evaluate((k) => !!window.Train._.state().T.rt[k], spare);
@@ -2753,12 +2756,21 @@ module.exports = {
     t.ok('what you said is kept with the workout', r.sr === 2 && r.n === sm.length, JSON.stringify(r));
 
     // the next session: last time's answers stand, said as that, and nothing is asked
-    await p.evaluate(() => {
-      const _ = window.Train._, T = JSON.parse(localStorage.getItem('bsc.train'));
-      Object.values(T.wo).forEach((w) => { w.st -= 2 * 864e5; w.en -= 2 * 864e5; });
+    /* The next session trains other muscles, so last time's answers for
+       them are put in the log as a session of theirs would have left them:
+       all healed early, one still sore. */
+    const nm = await p.evaluate(() => {
+      const _ = window.Train._, T = JSON.parse(localStorage.getItem('bsc.train')), ms = T.ms.blk;
+      const nx = _.nextSlot(ms), mus = _.uniq(_.plan(ms, nx.w, nx.d).x.map((x) => _.lib(x.e).m));
+      const w = Object.values(T.wo).sort((a, b) => b.st - a.st)[0];
+      Object.values(T.wo).forEach((o) => { o.st -= 2 * 864e5; o.en -= 2 * 864e5; });
+      mus.forEach((m, i) => { w.sr[m] = i === 0 ? 2 : 0; w.fb[m] = { p: 1, k: 1, j: 0 }; });
+      w.x = w.x.concat(mus.map((m) => ({ e: _.plan(ms, nx.w, nx.d).x.find((x) => _.lib(x.e).m === m).e, s: [{ w: 100, r: 10, t: w.st + 60e3 }] })));
       localStorage.setItem('bsc.train', JSON.stringify(T));
       _.reload();
+      return mus;
     });
+    sm.length = 0; nm.forEach((m) => sm.push(m));
     await p.click('.tr-done [data-t="close"]').catch(() => {});
     await p.click('.tab[data-view="train"]');
     await p.click('[data-t="start"]');
@@ -2767,7 +2779,8 @@ module.exports = {
     t.ok('next time, each muscle’s healing starts as last time said, in a line, and is not asked',
       r.lines.length === sm.length - 1 && r.lines.every((l) => /recovered early · as last time/.test(l)), JSON.stringify(r));
     t.ok('but one that was still sore is never assumed to be still: that one is asked again', r.q.length === 1 && r.q[0] === sm[0], JSON.stringify(r));
-    const fm = await p.evaluate(() => { const _ = window.Train._; return _.lib(_.state().LIVE.x[0].e).m; });
+    // one that healed early last time, so nothing about it is asked
+    const fm = sm[1];
     // every set of that muscle done as planned: its card is a line of last time's answers, nothing asked
     await p.evaluate((m) => {
       const _ = window.Train._, L = _.state().LIVE;
@@ -3100,7 +3113,7 @@ module.exports = {
     t.ok('the half hour is two rounds, easy two, and at home with dumbbells there is no machine circuit',
       r.half === '2:Machine circuit · 30 min' && r.easy === 2 && r.home === null && r.mins >= 40 && r.mins <= 45 && r.halfMins <= 30, JSON.stringify(r));
     await p.click('.tab[data-view="train"]');
-    await p.click('.tr-foot [data-t="ready"]').catch(() => {});
+    await p.click('.tr-more [data-t="ready"]').catch(() => {});
     await p.evaluate(() => { if (!document.querySelector('.tr-rdb[data-v="circ"]')) document.querySelector('[data-t="ready"]').click(); });
     await p.click('.tr-rdb[data-v="circ"]');
     r = await p.evaluate(() => ({ go: [...document.querySelectorAll('.tr-rdr.on .tr-rdgo small')].map((e) => e.textContent).join('|'), hint: (document.querySelector('.tr-rdr.on .tr-hint') || {}).textContent || '' }));
@@ -3349,7 +3362,7 @@ module.exports = {
         next: !sh.querySelector('[data-t="imok"]').disabled, order: !!sh.querySelector('[data-t="imord"]') }; });
     t.ok('a spreadsheet from no app it knows asks which column is which, with its guesses in place',
       r.title === 'Match the columns' && r.sel.date === 'Day' && r.sel.ex === 'Lift' && r.sel.n === 'Sets' && r.sel.r === 'Reps' && r.sel.w === 'Load (kg)', JSON.stringify(r));
-    t.ok('the first workouts are shown read that way, day first worked out from “24/09”', /24 Sep 2024 · Bench Press 3 × 10 @ 60/.test(r.peek) && /Squat 5 × 5 @ 100/.test(r.peek) && r.next, JSON.stringify(r));
+    t.ok('the first workouts are shown read that way, day first worked out from “24/09”', /Sep 24 2024 · Bench Press 3 × 10 @ 60/.test(r.peek) && /Squat 5 × 5 @ 100/.test(r.peek) && r.next, JSON.stringify(r));
     await p.click('[data-t="imok"]');
     r = await p.evaluate(() => ({ title: (document.querySelector('.tr-sheet .sheet-name') || {}).textContent, go: (document.querySelector('[data-t="sggo"]') || {}).textContent || '',
       mem: Object.keys(JSON.parse(localStorage.getItem('sh.importMap') || '{}')).length }));

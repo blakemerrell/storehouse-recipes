@@ -7503,7 +7503,9 @@
             '<b aria-label="' + n + ' pairs">' + n + '</b>' +
             '<button class="tr-gyb" data-t="gypl" data-v="' + sz + '" data-d="1"' + (n >= 10 ? ' disabled' : '') + ' aria-label="One pair more of ' + fmtP(sz) + '">+</button></div>';
         }).join('') + '</div>' +
-        '<div class="tr-hint">The most you can load at home: ' + fmtN(homeMax()) + ' ' + u + '. At the top of a workout, tap Home or Gym. At home, each row\u2019s plates and the weights it suggests are what these make; the gym has every plate and each lift\u2019s own bar.</div>';
+        // a fact about your plates, in view; how Home and Gym work is help, behind the i
+        '<div class="tr-sub tr-gymax">The most you can load at home: ' + fmtN(homeMax()) + ' ' + u + '.</div>' +
+        '<div class="tr-hint">At the top of a workout, tap Home or Gym. At home, each row\u2019s plates and the weights it suggests are what these make; the gym has every plate and each lift\u2019s own bar.</div>';
     return '<div class="tr-q"><div class="tr-ql">Where you train</div>' + chips('s-gyon', g.on, [[0, 'One gym'], [1, 'A gym and home']]) + body + '</div>';
   }
   function homeMax() { var v = homeLoads(); return v.length ? v[v.length - 1] : homeBar(); }

@@ -5621,3 +5621,5 @@ button.tr-ck-h {
 .tr-ax { font-size: 12px; fill: var(--muted-2); font-family: var(--sans); font-variant-numeric: tabular-nums; }
 .tr-dot.pr { fill: oklch(0.72 0.14 80); stroke: var(--ink); stroke-width: 1.2; }
 .tr-hl { fill: none; stroke: var(--ochre-text); stroke-width: 2.5; }
+.tr-sqb { min-height: 44px; }
+.tr-gymax { margin-top: 10px; }
