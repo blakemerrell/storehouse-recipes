@@ -110,6 +110,23 @@ async function revealPlanFields(pg) {
     await pg.click('.mslot-add');
   }
 
+  /* A plate added to a meal whose time has come arrives eaten, and an eaten
+     plate's stepper is quiet. Tests that go on to dial, balance or retry what
+     they have just added want it as a plan, whatever hour the suite happens
+     to run at — so they untick it, the way a thumb would. One at a time,
+     because each tick redraws the day under the next. */
+  async function asPlanned(pg, sk) {
+    for (let i = 0; i < 20; i++) {
+      const hit = await pg.evaluate((sk2) => {
+        const c = [...document.querySelectorAll('[data-meat^="' + sk2 + ':"]')].find((x) => x.checked);
+        if (c) c.click();
+        return !!c;
+      }, sk);
+      if (!hit) break;
+      await pg.waitForTimeout(120);
+    }
+  }
+
   async function openBasket(pg) {
     const t2 = await pg.$('[data-mpbasket]');
     if (!t2) return;
@@ -1212,6 +1229,15 @@ module.exports = {
     t.ok('planned protein is the recipe times the suggested portion',
       (await shown()) === (await expectP(picked.x)),
       (await shown()) + ' shown, ' + (await expectP(picked.x)) + ' expected at ×' + picked.x);
+    /* Added to a meal whose time has come, a plate arrives eaten — Blake:
+       "Added to a current or past meal = eaten at once". Breakfast is open
+       from midnight, so at any hour this one is already eaten; a tap on its
+       tick makes it a plan again, which is where the rest of this walk wants
+       it. */
+    t.ok('added to breakfast, the plate arrives eaten',
+      await p.evaluate(() => !!document.querySelector('.mitem.eaten')));
+    await p.click('[data-meat="b:0"]');
+    await p.waitForTimeout(150);
 
     // ---- the stepper moves a quarter serving at a time and the totals follow
     await p.click('[data-mstep="b:0:up"]');
@@ -1312,8 +1338,10 @@ module.exports = {
     t.ok('eating every plate marks the day done on the week strip',
       await p.evaluate(() => {
         const d = document.querySelector('.mwk-d.now');
+        /* 'open' is today with dinner still to come: every plate eaten is not
+           the day closed, so it says what is left rather than a verdict. */
         return d.classList.contains('done') &&
-          ['under', 'on', 'over'].some((s) => d.classList.contains(s)) &&
+          ['under', 'on', 'over', 'open'].some((s) => d.classList.contains(s)) &&
           /all done/.test(d.getAttribute('aria-label'));
       }), await p.evaluate(() => document.querySelector('.mwk-d.now').outerHTML));
     const ringAfter = await paintOf();
@@ -1638,7 +1666,11 @@ module.exports = {
     const tdee = bmr * prof.act;
     const perWeek = 0.01 * prof.lb;                          // hard cut = 1%/wk
     const kcal = Math.max(1500, Math.round(tdee - perWeek * 3500 / 7));
-    let planP = Math.round(1.10 * prof.lb);
+    /* Protein is a gram a pound of the reference weight at the default
+       level — today's weight here, with no goal weight and no body fat typed
+       — whatever the pace; and it gives ground to 0.8 g a pound of the same
+       reference when the carbohydrate is squeezed. */
+    let planP = Math.round(1.0 * prof.lb);
     const planF = Math.round(Math.max(0.3 * prof.lb, 0.25 * kcal / 9));
     const minC = Math.round(0.15 * kcal / 4);
     if ((kcal - 4 * planP - 9 * planF) / 4 < minC) {
@@ -6233,6 +6265,7 @@ module.exports = {
       }
     };
     await openDinner();
+    await asPlanned(bar, 'd');
     t.ok('a meal of parts offers to be balanced and to be kept',
       await bar.evaluate(() => !!document.querySelector('[data-mbal="d"]') &&
         !!document.querySelector('[data-mkeep="d"]')));
@@ -7146,7 +7179,8 @@ module.exports = {
         const out = []; let el = d.nextElementSibling;
         while (el && !el.classList.contains('mt-div')) {
           const b = el.querySelector('[data-mpick]');
-          if (b) out.push({ id: b.dataset.mpick, x: Number(b.dataset.mpx) });
+          const c = el.querySelector('[data-mpfit]');
+          if (b) out.push({ id: b.dataset.mpick, x: Number(b.dataset.mpx), fit: c ? Number(c.dataset.mpx) : null });
           el = el.nextElementSibling;
         }
         return out;
@@ -7170,12 +7204,18 @@ module.exports = {
       JSON.stringify({ couldClash: couldClash, recent: fits.recent.length,
         dupes: fits.dupes }));
 
-    /* The portions are solved, not defaulted — the whole point is that the
-       row arrives at the size that fills the gap. */
-    t.ok('and every row arrives at a portion the fit worked out',
+    /* The portions are still solved — but offered beside the row, not as it.
+       Blake: "Default to what you had last time (else 1 serving); 'fits the
+       meal' becomes a one-tap chip beside it." So the row arrives at what you
+       have, and the chip at what the fit engine worked out. */
+    const fitRank = await fitsPg.evaluate(() => {
+      const o = {}; window.__macroLab.rank('b', 60).forEach((e) => { o[String(e.id)] = e.x; }); return o;
+    });
+    t.ok('and every row arrives at what you have, with the fitted portion on a chip beside it',
       fits.fits.length > 0 && fits.fits.every((e) => e.x > 0) &&
-      fits.fits.some((e) => e.x !== 1),
-      JSON.stringify(fits.fits.map((e) => e.x)));
+      fits.fits.some((e) => e.fit && e.fit !== e.x) &&
+      fits.fits.every((e) => e.fit === null || Math.abs(e.fit - fitRank[e.id]) < 1e-6),
+      JSON.stringify(fits.fits.map((e) => [e.x, e.fit, fitRank[e.id]])));
 
     /* And it really is ranked, not merely listed: the bench scores the same
        pool and the band must agree with its order. */
@@ -9598,6 +9638,7 @@ module.exports = {
     await pickRecipe(z);
     await z.click('[data-mpdone]');
     await z.waitForTimeout(300);
+    await asPlanned(z, 'b');
     for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
     // how far the day is off its protein, signed, straight from its row
@@ -13998,9 +14039,13 @@ module.exports = {
           JSON.stringify({ first: firstWeek, later: laterWeek }));
         t.ok(goal + ': with the three sessions in the profile', pr.workouts === 3 && JSON.stringify(pr.train) === '[0,2,4]',
           JSON.stringify(pr));
+        /* 210 P since protein became a gram a pound of the reference weight
+           at the default level (it was 0.85 on Maintain, and 179 P 267 C
+           here, 334 and 217 either side). Same calories; the 31 g moved from
+           carbohydrate to protein, and the week still cycles around it. */
         if (goal === 'keep') {
-          t.ok('Maintain, days picked second: 179 P 66 F 267 C, 334 on a lifting day and 217 on a rest day, not 234 every day',
-            later.p === 179 && later.f === 66 && later.c === 267 && laterWeek[0] === 334 && laterWeek[1] === 217,
+          t.ok('Maintain, days picked second: 210 P 66 F 236 C, 295 on a lifting day and 192 on a rest day, not the flat day every day',
+            later.p === 210 && later.f === 66 && later.c === 236 && laterWeek[0] === 295 && laterWeek[1] === 192,
             JSON.stringify({ later, laterWeek }));
         }
       }
@@ -14037,7 +14082,9 @@ module.exports = {
       /* A newcomer on a Saturday: Mon/Wed/Fri, a Maintain plan, and the
          first workout ever logged, that Saturday. The days before it were
          counted as trained, so the Saturday was a fourth session in a week of
-         three and Sunday paid for it: 100 g instead of a rest day's 217. */
+         three and Sunday paid for it: 100 g instead of a rest day's 217 (192
+         now: the protein rule moved 31 g of this plan from carbohydrate to
+         protein, and the rest day moved with it). */
       const pr3 = Object.assign({}, newUser, { workouts: 3, train: [0, 2, 4] });
       const plan3 = await lp.evaluate((pr) => window.__macroLab.plan(pr), pr3);
       const t3 = { p: plan3.p, f: plan3.f, c: plan3.c, auto: 1, set: '2026-09-26' };
@@ -14048,13 +14095,13 @@ module.exports = {
       await seed({ pr: pr3, t: t3, ld: [0, 2, 4], wo: { w1: wo('w1', new Date(2026, 8, 26), 8) } });
       await toTab('macros');
       const sat1 = await week();
-      t.ok('the first workout, on an unplanned Saturday, leaves Sunday a rest day’s 217 g',
-        sat0[6] === 217 && sat1[6] === 217 && sat1[5] > sat0[5], JSON.stringify({ before: sat0, after: sat1 }));
+      t.ok('the first workout, on an unplanned Saturday, leaves Sunday a rest day’s 192 g',
+        sat0[6] === 192 && sat1[6] === 192 && sat1[5] > sat0[5], JSON.stringify({ before: sat0, after: sat1 }));
       await seed({ pr: pr3, t: t3, ld: [0, 2, 4], wo: { w1: wo('w1', new Date(2026, 8, 24)), w2: wo('w2', new Date(2026, 8, 25)) } });
       await toTab('macros');
       const thfr = await week();
-      t.ok('workouts first logged on Thursday and Friday leave the weekend its 217, not 178',
-        thfr[5] === 217 && thfr[6] === 217, JSON.stringify(thfr));
+      t.ok('workouts first logged on Thursday and Friday leave the weekend its 192, not less',
+        thfr[5] === 192 && thfr[6] === 192, JSON.stringify(thfr));
 
       /* A workout saved with Strengthen on screen, on a day off. */
       await lp.clock.setSystemTime(new Date(2026, 8, 30, 7, 0, 0));        // a Wednesday
@@ -14272,6 +14319,471 @@ module.exports = {
         !before && on.wos === 1 && /Trained today|done/.test(on.row), JSON.stringify(on));
       t.ok('with nothing thrown on the way', errs.length === 0, errs.join(' | '));
       await oc.close();
+    }
+
+    /* ---- the daily loop ---------------------------------------------------
+     * Protein that leaves room for carbs, food logged as eaten by the hour of
+     * its meal, one search for foods and recipes, the basket's − and +, "to
+     * go" until the day is over, and portions that start at what you had last
+     * time. All on a fixed clock — a Wednesday at half past one, with Monday,
+     * Wednesday and Friday for lifting — because half of it is about what
+     * time it is, and a suite that passes at breakfast and fails after dinner
+     * is testing the hour it was run at. */
+    {
+      const ctx = await t.browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+      await ctx.route(/api\.nal\.usda\.gov/, (r) => r.abort());
+      const pg = await ctx.newPage();
+      pg.on('pageerror', (e) => t.ok('no uncaught error on the page', false, e.message));
+      await pg.clock.install({ time: new Date(2026, 8, 30, 13, 30, 0) });
+      await pg.goto(t.base + 'index.html');
+      const WED = '2026-09-30', TUE = '2026-09-29', THU = '2026-10-01';
+      const base = { sex: 'm', age: 44, ft: 5, inch: 10, lb: 212, act: 1.2, goal: 'cut1', goalLb: 0, goalBy: '',
+        workouts: 3, steps: 6000, train: [0, 2, 4] };
+      /* A week of mornings at 212 up to and including today, so the plan card
+         is folded and the scale agrees with the profile. */
+      const seed = async (o) => {
+        await pg.evaluate(([o, base]) => {
+          const p2 = (n) => (n < 10 ? '0' : '') + n;
+          const key = (d) => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+          localStorage.clear();
+          localStorage.setItem('bsc.hintDone', '1');
+          const ws = {};
+          for (let i = 0; i <= 6; i++) { const d = new Date(); d.setDate(d.getDate() - i); ws[key(d)] = 212; }
+          localStorage.setItem('bsc.macroWeights', JSON.stringify(ws));
+          localStorage.setItem('bsc.macroProfile', JSON.stringify(Object.assign({}, base, o.pr || {})));
+          localStorage.setItem('bsc.macroTargets', JSON.stringify(o.t || { p: 212, f: 64, c: 77, auto: 1, set: key(new Date()) }));
+          if (o.days) localStorage.setItem('bsc.macroDays', JSON.stringify(o.days));
+          if (o.favs) localStorage.setItem('bsc.favs', JSON.stringify(o.favs));
+          if (o.done) localStorage.setItem('bsc.macroDone', JSON.stringify(o.done));
+          if (o.train) localStorage.setItem('bsc.train', JSON.stringify(o.train));
+          if (o.myFoods) localStorage.setItem('bsc.myFoods', JSON.stringify(o.myFoods));
+        }, [o || {}, base]);
+        await pg.reload();
+        await pg.waitForTimeout(300);
+        await pg.click('.tab[data-view="macros"]');
+        await pg.waitForTimeout(300);
+      };
+      const at = async (y, mo, d, h, mi) => {
+        await pg.clock.setSystemTime(new Date(y, mo, d, h, mi || 0, 0));
+      };
+      const stored = (k) => pg.evaluate((k) => (JSON.parse(localStorage.getItem('bsc.macroDays') || '{}')[k]) || {}, k);
+      /* The meal opened (one is open at a time), then its own + — the way a
+         thumb reaches it. */
+      const openMeal = async (sk) => {
+        await pg.evaluate((sk) => {
+          const b = document.querySelector('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
+          if (b) b.click();
+        }, sk);
+        await pg.waitForTimeout(150);
+        await pg.evaluate((sk) => {
+          const a = document.querySelector('[data-mslot="' + sk + '"]');
+          a.scrollIntoView({ block: 'center' });
+          a.click();
+        }, sk);
+        await pg.waitForTimeout(400);
+      };
+      const search = async (q) => {
+        await pg.fill('#mpFind', q);
+        await pg.waitForTimeout(400);
+      };
+      const rows = () => pg.evaluate(() => [...document.querySelectorAll('#mpList .mpick-row[data-mpick]')]
+        .map((r) => ({ id: r.dataset.mpick, x: Number(r.dataset.mpx), name: r.querySelector('.mp-name').textContent.replace('★', '').trim() })));
+      const foodsBand = () => pg.evaluate(() => {
+        const out = []; let on = false;
+        [...document.querySelectorAll('#mpList > *')].forEach((el) => {
+          if (el.classList.contains('mt-div')) { on = /^Foods/.test(el.textContent); return; }
+          const b = on && el.querySelector('.mpick-row[data-mpick]');
+          if (b) out.push(b.dataset.mpick);
+        });
+        return out;
+      });
+      const addFood = async (sk, q, id) => {
+        await openMeal(sk);
+        await search(q);
+        await pg.click('#mpList .mpick-row[data-mpick="' + id + '"]');
+        await pg.waitForTimeout(150);
+        await pg.click('[data-mpdone]');
+        await pg.waitForTimeout(500);
+      };
+
+      /* ---- protein ---------------------------------------------------------
+       * Blake: "Default ~1 g per lb of goal weight (or of lean mass if body
+       * fat is known), never more than 1 g/lb of total weight; plus a 'Protein
+       * level' choice on the plan step (Moderate / High / Very high)." */
+      await seed({});
+      const prot = (pr) => pg.evaluate((pr) => window.__macroLab.protein(pr), pr);
+      const plan = (pr) => pg.evaluate((pr) => window.__macroLab.plan(pr), pr);
+      const P = {};
+      for (const goalLb of [0, 185]) {
+        for (const level of ['mod', 'high', 'vhigh']) P[goalLb + level] = (await prot(Object.assign({}, base, { goalLb, prot: level }))).g;
+      }
+      t.ok('212 lb with no goal weight: 170, 212 and 233 g of protein at Moderate, High and Very high',
+        P['0mod'] === 170 && P['0high'] === 212 && P['0vhigh'] === 233, JSON.stringify(P));
+      t.ok('aiming at 185 lb: 148, 185 and 222 g — counted against the goal, not today',
+        P['185mod'] === 148 && P['185high'] === 185 && P['185vhigh'] === 222, JSON.stringify(P));
+      const never = await prot(base);
+      t.ok('a profile that never chose a level is on High', never.level === 'high' && never.g === 212, JSON.stringify(never));
+      const lean = await prot(Object.assign({}, base, { bf: 25, goalLb: 185 }));
+      t.ok('a typed body fat counts protein against the lean mass, ahead of the goal weight',
+        lean.g === 159 && Math.round(lean.ref) === 159, JSON.stringify(lean));
+      const guess = await prot(Object.assign({}, base, { bf: 0 }));
+      t.ok('and an estimated body fat does not: a guess is not "known"', guess.g === 212, JSON.stringify(guess));
+      const light = { sex: 'f', age: 35, ft: 5, inch: 4, lb: 120, act: 1.375, goal: 'gain', goalLb: 130, goalBy: '', workouts: 3, steps: 8000 };
+      const lh = await prot(light);
+      const lv = await prot(Object.assign({}, light, { prot: 'vhigh' }));
+      const lm = await prot(Object.assign({}, light, { prot: 'mod' }));
+      t.ok('a light person aiming up is never asked for more than a gram a pound of what she weighs (1.1 on Very high)',
+        lh.g === 120 && lv.g === 132 && lm.g === 104, JSON.stringify([lh.g, lv.g, lm.g]));
+      const pNo = await plan(base), pGoal = await plan(Object.assign({}, base, { goalLb: 185 }));
+      t.ok('a goal weight hands the protein it saves to carbohydrate, at the same calories',
+        pNo.p === 212 && pGoal.p === 185 && pGoal.kcal === pNo.kcal && pGoal.c === pNo.c + 27, JSON.stringify({ pNo, pGoal }));
+      let squeezeOk = true; const squeezed = [];
+      for (const extra of [{ goal: 'cut2', prot: 'vhigh' }, { goal: 'cut2', prot: 'mod', goalLb: 185 },
+        { goal: 'cut2', prot: 'high', goalLb: 150 }, { goal: 'cut2', prot: 'vhigh', lb: 150, sex: 'f', ft: 5, inch: 3 }]) {
+        const pr = Object.assign({}, base, extra);
+        const pl = await plan(pr), pt = await prot(pr);
+        squeezed.push([pl.p, pt.g, pt.floor, Math.round(pt.ref)]);
+        if (!(pl.p <= pt.g && pl.p >= pt.floor && pl.p >= 0.7 * pt.ref)) squeezeOk = false;
+      }
+      t.ok('a squeezed cut eases protein, but never under 0.8 g a pound of its reference', squeezeOk, JSON.stringify(squeezed));
+
+      /* The level on the plan step, stored with the profile like the rest of it. */
+      await pg.click('#macroMore');
+      await pg.waitForTimeout(150);
+      await pg.click('[data-mmore="plan"]');
+      await pg.waitForTimeout(400);
+      const lvl = await pg.evaluate(() => ({
+        btns: [...document.querySelectorAll('[data-mtprot]')].map((b) => b.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
+        why: (document.getElementById('mtProtWhy') || {}).textContent || '',
+        save: !!document.querySelector('#mtSave:not(.hide)'),
+      }));
+      t.ok('the plan sheet offers Moderate, High and Very high, High chosen',
+        lvl.btns.join() === 'Moderate,High*,Very high', JSON.stringify(lvl));
+      t.ok('and says what the grams are counted against', /1 g a pound of your weight \(212 lb\)/.test(lvl.why), lvl.why);
+      await pg.click('[data-mtprot="mod"]');
+      await pg.waitForTimeout(250);
+      const modNow = await pg.evaluate(() => ({ p: document.getElementById('mtTileP').textContent,
+        save: !!document.querySelector('#mtSave:not(.hide)') }));
+      t.ok('Moderate moves the protein tile, and brings Save with it', modNow.p === '170' && modNow.save && !lvl.save, JSON.stringify({ lvl, modNow }));
+      await pg.click('[data-mtarg="save"]');
+      await pg.waitForTimeout(400);
+      const kept = await pg.evaluate(() => ({ pr: JSON.parse(localStorage.getItem('bsc.macroProfile')).prot,
+        t: JSON.parse(localStorage.getItem('bsc.macroTargets')).p }));
+      t.ok('and Save keeps the level in the profile and the grams in the plan', kept.pr === 'mod' && kept.t === 170, JSON.stringify(kept));
+      const merged = await pg.evaluate(() => {
+        const pr = JSON.parse(localStorage.getItem('bsc.macroProfile'));
+        pr.prot = 'vhigh';
+        window.__macroLab.merge({ pr: { v: pr, at: Date.now() + 60000 } });
+        return window.__macroLab.profile().prot;
+      });
+      t.ok('and the level travels between devices with the rest of the profile', merged === 'vhigh', merged);
+
+      /* ---- logged = eaten, by meal time ----------------------------------
+       * Blake: "Added to a current or past meal = eaten at once; later meals
+       * and Fill drafts stay planned until ticked." */
+      await seed({});
+      const opens = await pg.evaluate(() => window.__macroLab.opens());
+      t.ok('breakfast is open from midnight, lunch from eleven, dinner from five, and a trailing snack all day',
+        JSON.stringify(opens) === JSON.stringify([{ k: 'b', at: 0 }, { k: 'l', at: 660 }, { k: 'd', at: 1020 }, { k: 's', at: 0 }]),
+        JSON.stringify(opens));
+      await addFood('b', 'banana', 'f:banana');
+      t.ok('at half past one, food added to breakfast arrives eaten', ((await stored(WED)).b || [])[0].eaten === 1,
+        JSON.stringify(await stored(WED)));
+      await addFood('l', 'banana', 'f:banana');
+      t.ok('and to lunch, the meal you are on', ((await stored(WED)).l || [])[0].eaten === 1, JSON.stringify(await stored(WED)));
+      await addFood('d', 'banana', 'f:banana');
+      t.ok('but dinner, still to come, stays a plan', ((await stored(WED)).d || [])[0].eaten === 0, JSON.stringify(await stored(WED)));
+      /* The look: eaten in ink beside its tick, planned lighter, nothing struck. */
+      const look = await pg.evaluate(() => {
+        const toRgb = (s) => {
+          const m = s.match(/oklch\(([\d.]+)%? ([\d.]+) ([\d.]+)/);
+          if (m) {
+            let L = Number(m[1]); if (L > 1) L /= 100;
+            const C = Number(m[2]), h = Number(m[3]) * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+            const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, mm = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3,
+              ss = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+            const lin = [4.0767416621 * l - 3.3077115913 * mm + 0.2309699292 * ss, -1.2684380046 * l + 2.6097574011 * mm - 0.3413193965 * ss,
+              -0.0041960863 * l - 0.7034186147 * mm + 1.7076147010 * ss];
+            return lin.map((v) => Math.max(0, Math.min(1, v)));
+          }
+          const n = (s.match(/[\d.]+/g) || []).slice(0, 3).map((v) => Number(v) / 255);
+          return n.map((c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+        };
+        const lum = (s) => { const c = toRgb(s); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+        const bgOf = (el) => {
+          for (let e = el; e; e = e.parentElement) {
+            const b = getComputedStyle(e).backgroundColor;
+            if (b && !/rgba\(0, 0, 0, 0\)|transparent/.test(b)) return b;
+          }
+          return 'rgb(255, 255, 255)';
+        };
+        const ratio = (el) => {
+          const a = lum(getComputedStyle(el).color), b = lum(bgOf(el));
+          return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        };
+        const ate = document.querySelector('.mitem.eaten .mitem-name');
+        const plan = document.querySelector('.mitem:not(.eaten) .mitem-name');
+        return {
+          ateLine: ate && getComputedStyle(ate).textDecorationLine,
+          ateTick: !!document.querySelector('.mitem.eaten .mitem-ate:checked'),
+          ateRatio: ate && ratio(ate), planRatio: plan && ratio(plan),
+        };
+      });
+      t.ok('an eaten plate is ink beside its tick, with no line through it',
+        look.ateLine === 'none' && look.ateTick && look.ateRatio > 10, JSON.stringify(look));
+      t.ok('and a planned one is lighter, still at 4.5:1 or better',
+        look.planRatio >= 4.5 && look.planRatio < look.ateRatio - 2, JSON.stringify(look));
+      /* Folded, the same: a tick in ink, never a strike. */
+      await pg.reload();
+      await pg.waitForTimeout(300);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(300);
+      const thin = await pg.evaluate(() => {
+        const ate = document.querySelector('.mthin.eaten');
+        const plan = document.querySelector('.mthin:not(.eaten)');
+        return {
+          ateTick: ate && ate.querySelector('.mthin-ok').textContent,
+          ateLine: ate && getComputedStyle(ate.querySelector('.mthin-n')).textDecorationLine,
+          planTick: plan && plan.querySelector('.mthin-ok').textContent,
+          planColor: plan && getComputedStyle(plan.querySelector('.mthin-n')).color,
+          ateColor: ate && getComputedStyle(ate.querySelector('.mthin-n')).color,
+        };
+      });
+      t.ok('a folded meal marks eaten food with a ✓ and no strike, and planned food with neither',
+        thin.ateTick === '✓' && thin.ateLine === 'none' && thin.planTick === 'planned' && thin.planColor !== thin.ateColor,
+        JSON.stringify(thin));
+      /* The tick still toggles, both ways. */
+      await openMeal('d');
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+      const tick = () => pg.evaluate(() => document.querySelector('[data-meat="d:0"]').click());
+      await tick();
+      await pg.waitForTimeout(200);
+      const on = ((await stored(WED)).d || [])[0].eaten;
+      await tick();
+      await pg.waitForTimeout(200);
+      const off = ((await stored(WED)).d || [])[0].eaten;
+      t.ok('and a tap still marks a plate eaten, and back', on === 1 && off === 0, on + ' then ' + off);
+      /* Fill is the app suggesting, never you saying you ate. */
+      await pg.evaluate(() => { document.getElementById('macroSweep').click(); });
+      await pg.waitForTimeout(200);
+      await pg.click('#macroFill');
+      await pg.waitForTimeout(800);
+      const drafted = await stored(WED);
+      const drafts = [].concat(...Object.keys(drafted).map((sk) => (drafted[sk] || []).filter((it) => it.by === 'f')));
+      t.ok('Fill drafts stay planned, even on meals whose time has come',
+        drafts.length > 0 && drafts.every((it) => it.eaten === 0), JSON.stringify(drafted));
+      /* A day behind you is all eaten; a day ahead is all plan. */
+      await pg.selectOption('#macroDaySel', TUE);
+      await pg.waitForTimeout(300);
+      await addFood('d', 'banana', 'f:banana');
+      t.ok('on yesterday, even dinner arrives eaten', ((await stored(TUE)).d || [])[0].eaten === 1, JSON.stringify(await stored(TUE)));
+      await pg.selectOption('#macroDaySel', THU);
+      await pg.waitForTimeout(300);
+      await addFood('b', 'banana', 'f:banana');
+      t.ok('and on tomorrow, even breakfast is a plan', ((await stored(THU)).b || [])[0].eaten === 0, JSON.stringify(await stored(THU)));
+      await pg.selectOption('#macroDaySel', WED);
+      await pg.waitForTimeout(300);
+      /* At quarter to eleven lunch has not started; at five past, it has. */
+      await at(2026, 8, 30, 10, 45);
+      const early = await pg.evaluate((k) => [window.__macroLab.addsEaten(k, 'l'), window.__macroLab.addsEaten(k, 'd')], WED);
+      await at(2026, 8, 30, 17, 5);
+      const late = await pg.evaluate((k) => [window.__macroLab.addsEaten(k, 'l'), window.__macroLab.addsEaten(k, 'd')], WED);
+      t.ok('lunch counts as eaten from eleven and dinner from five', early.join() === '0,0' && late.join() === '1,1',
+        JSON.stringify({ early, late }));
+      await at(2026, 8, 30, 13, 30);
+
+      /* ---- one search ------------------------------------------------------
+       * Blake: "Any word order; ★ and recent foods ranked first, then exact,
+       * then word-starts; common variants (oatmeal/oats, yoghurt/yogurt) and
+       * one-letter typos still match. Recipes search the same way." */
+      await seed({ favs: ['f:egg'] });
+      await openMeal('d');
+      const oatMash = await pg.evaluate(() => (window.RECIPES.find((r) => /vanilla/i.test(r.name) && /\boat/i.test(r.name)) || {}).name);
+      await search('vanilla oat');
+      t.ok('"vanilla oat" finds ' + oatMash + ', whose name has the two words apart',
+        !!oatMash && (await rows()).some((r) => r.name === oatMash), JSON.stringify((await rows()).slice(0, 6)));
+      await search('oat vanilla');
+      t.ok('in either order', (await rows()).some((r) => r.name === oatMash));
+      await search('egg');
+      const eggs = await foodsBand();
+      t.ok('"egg" puts the starred Eggs first, above Eggplant',
+        eggs[0] === 'f:egg' && eggs.indexOf('f:eggplant') > 0, JSON.stringify(eggs));
+      await search('yoghurt');
+      t.ok('"yoghurt" finds yogurt', (await rows()).some((r) => /yogurt/i.test(r.name)), JSON.stringify((await rows()).slice(0, 4)));
+      await search('chiken');
+      t.ok('"chiken", one letter short, still finds chicken', (await rows()).some((r) => /chicken/i.test(r.name)),
+        JSON.stringify((await rows()).slice(0, 4)));
+      await search('rice');
+      const rice = await foodsBand();
+      const riceName = ((await rows()).find((r) => r.id === rice[0]) || {}).name;
+      t.ok('and a real match outranks a one-letter guess', riceName === 'Rice', JSON.stringify({ rice, riceName }));
+      await search('chk');
+      t.ok('but a three-letter word is not guessed at', (await rows()).every((r) => !/chicken/i.test(r.name)),
+        JSON.stringify((await rows()).slice(0, 4)));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+      /* The Recipes tab asks the same matcher. */
+      await pg.click('.tab[data-view="browse"]');
+      await pg.waitForTimeout(300);
+      await pg.fill('#search', 'oats');
+      await pg.waitForTimeout(400);
+      const oats = await pg.evaluate(() => [...document.querySelectorAll('.card-name')].map((n) => n.textContent));
+      t.ok('"oats" on the Recipes tab finds the oatmeal', oats.some((n) => /oatmeal/i.test(n)), oats.slice(0, 8).join(' | '));
+      await pg.fill('#search', 'oat vanilla');
+      await pg.waitForTimeout(400);
+      const ov = await pg.evaluate(() => [...document.querySelectorAll('.card-name')].map((n) => n.textContent));
+      t.ok('and any word order there too, the named dish first', ov[0] === oatMash, ov.slice(0, 4).join(' | '));
+      await pg.fill('#search', '');
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(300);
+
+      /* ---- the basket's − and + on a food ---------------------------------
+       * "f:egg" has a colon of its own, and the step's id was cut at the
+       * first one. */
+      await openMeal('d');
+      await search('egg');
+      await pg.click('#mpList .mpick-row[data-mpick="f:egg"]');
+      await pg.waitForTimeout(150);
+      await pg.click('[data-mpbasket]');
+      await pg.waitForTimeout(200);
+      const eggX = () => pg.evaluate(() => {
+        const r = [...document.querySelectorAll('.mp-basket .mpb-row')].find((x) => x.querySelector('[data-mbstep^="f:egg:"]'));
+        return r ? r.querySelector('.mpb-x > span').textContent : '';
+      });
+      const x0 = await eggX();
+      await pg.click('[data-mbstep="f:egg:1"]');
+      await pg.waitForTimeout(150);
+      const x1 = await eggX();
+      await pg.click('[data-mbstep="f:egg:-1"]');
+      await pg.click('[data-mbstep="f:egg:-1"]');
+      await pg.waitForTimeout(150);
+      const x2 = await eggX();
+      t.ok('+ and − change a single food’s amount in the basket', x0 === '×1' && x1 === '×2' && x2 === '×1' && x0 !== x1,
+        [x0, x1, x2].join(' → '));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+
+      /* ---- portions start at last time ------------------------------------
+       * Blake: "Default to what you had last time (else 1 serving); 'fits the
+       * meal' becomes a one-tap chip beside it." */
+      await seed({ favs: ['f:egg'], days: { [TUE]: { b: [{ id: 'f:egg', x: 6, eaten: 1 }] } } });
+      await openMeal('d');
+      await search('egg');
+      const eggRow = (await rows()).find((r) => r.id === 'f:egg');
+      const chip = await pg.evaluate(() => {
+        const c = document.querySelector('#mpList [data-mpfit="f:egg"]');
+        return c ? { x: Number(c.dataset.mpx), text: c.textContent } : null;
+      });
+      t.ok('a food you had yesterday is offered at what you had: six eggs', eggRow && eggRow.x === 6, JSON.stringify(eggRow));
+      t.ok('with what fits the meal on a chip beside it', !!chip && chip.x > 0 && chip.x !== 6 && /^Fits: /.test(chip.text),
+        JSON.stringify(chip));
+      await search('banana');
+      const ban = (await rows()).find((r) => r.id === 'f:banana');
+      t.ok('and one never logged is offered at one', ban && ban.x === 1, JSON.stringify(ban));
+      await search('egg');
+      await pg.click('#mpList [data-mpfit="f:egg"]');
+      await pg.waitForTimeout(150);
+      await pg.click('[data-mpdone]');
+      await pg.waitForTimeout(500);
+      const fitted = ((await stored(WED)).d || []).find((it) => it.id === 'f:egg');
+      t.ok('one tap on the chip adds the amount that fits', fitted && Math.abs(fitted.x - chip.x) < 1e-6,
+        JSON.stringify({ fitted, chip }));
+      await openMeal('s');
+      await search('egg');
+      await pg.click('#mpList .mpick-row[data-mpick="f:egg"]');
+      await pg.waitForTimeout(150);
+      await pg.click('[data-mpbasket]');
+      await pg.waitForTimeout(200);
+      /* Moved off whatever it arrived at first, so the chip has something to
+         put right whatever the fit came to. */
+      for (let i = 0; i < 4; i++) { await pg.click('[data-mbstep="f:egg:1"]'); await pg.waitForTimeout(80); }
+      const bChip = await pg.evaluate(() => {
+        const c = document.querySelector('.mp-basket [data-mpfit="f:egg"]');
+        return c ? Number(c.dataset.mpx) : null;
+      });
+      if (bChip) {
+        await pg.click('.mp-basket [data-mpfit="f:egg"]');
+        await pg.waitForTimeout(150);
+      }
+      await pg.click('[data-mpdone]');
+      await pg.waitForTimeout(500);
+      const snack = ((await stored(WED)).s || []).find((it) => it.id === 'f:egg');
+      t.ok('and in the basket the chip moves what you picked to what fits', bChip > 0 && snack && Math.abs(snack.x - bChip) < 1e-6,
+        JSON.stringify({ bChip, snack }));
+
+      /* ---- to go, until the day is over ----------------------------------
+       * Blake: "No verdict on today until it's closed or dinner time has
+       * passed; 'Lifting day · 96 g carbs' before training, 'Trained ✓ 5:40
+       * pm' after; 'Rest day' label; a readable lifting mark on the week
+       * strip." */
+      const halfDay = { [WED]: { b: [{ id: 'f:egg', x: 3, eaten: 1 }], l: [{ id: 'f:banana', x: 2, eaten: 1 }] } };
+      await seed({ days: halfDay });
+      const strip = () => pg.evaluate(() => {
+        const d = document.querySelector('.mwk-d.now');
+        return { cls: d.className, word: d.querySelector('.mwk-s').textContent.trim() };
+      });
+      const s1 = await strip();
+      const want = await pg.evaluate(() => { const T = window.__macroLab.targets(); return Math.round(4 * T.p + 4 * T.c + 9 * T.f); });
+      const got = await pg.evaluate(() => Math.round(window.__macroLab.read().tot.kcal));
+      t.ok('at half past one, today says what is left, not "under"',
+        s1.word === (want - got) + ' to go' && !/\bunder\b/.test(s1.cls), JSON.stringify({ s1, want, got }));
+      await pg.click('#macroMore');
+      await pg.waitForTimeout(150);
+      await pg.click('[data-mmore="went"]');
+      await pg.waitForTimeout(400);
+      const went = await pg.evaluate(() => document.querySelector('.ds-sheet').innerText.replace(/\s+/g, ' '));
+      t.ok('and the day card counts down rather than judging',
+        /How the day is going/i.test(went) && /kcal to go/.test(went) && /g protein to go/.test(went) &&
+        !/short on protein|Calories landed/.test(went), went.slice(0, 200));
+      await pg.goBack();
+      await pg.waitForTimeout(300);
+      await at(2026, 8, 30, 21, 10);
+      await pg.reload();
+      await pg.waitForTimeout(300);
+      await pg.click('.tab[data-view="macros"]');
+      await pg.waitForTimeout(300);
+      const s2 = await strip();
+      t.ok('once dinner time has passed, the verdict comes back', s2.word === 'under' && /\bunder\b/.test(s2.cls), JSON.stringify(s2));
+      await at(2026, 8, 30, 13, 30);
+      await seed({ days: halfDay, done: { [WED]: Date.now() } });
+      const s3 = await strip();
+      t.ok('and a day you have closed is judged whatever the hour', s3.word === 'under', JSON.stringify(s3));
+      await seed({ days: { [WED]: { b: [{ id: 'f:egg', x: 40, eaten: 1 }] } } });
+      const s4 = await strip();
+      t.ok('but over is over at any hour, because that is already a fact', s4.word === 'over', JSON.stringify(s4));
+      await seed({ days: Object.assign({ [TUE]: { b: [{ id: 'f:egg', x: 3, eaten: 1 }] } }, halfDay) });
+      await pg.selectOption('#macroDaySel', TUE);
+      await pg.waitForTimeout(300);
+      const s5 = await strip();
+      t.ok('and a day behind you keeps its verdict', s5.word === 'under', JSON.stringify(s5));
+
+      /* The folded card's word on training. */
+      const trainSeed = (wo) => ({ act: 'b1', pr: { ld: [0, 2, 4], qz: 1 }, wo: wo || {},
+        ms: { b1: { n: 'Full body', acc: 4, days: [{ n: 'Full Body A', s: [{ e: 'db-bench', n: 3 }] },
+          { n: 'Full Body B', s: [{ e: 'goblet', n: 3 }] }, { n: 'Full Body C', s: [{ e: 'db-row', n: 3 }] }] } } });
+      await seed({ days: halfDay, train: trainSeed() });
+      const sumT = () => pg.evaluate(() => ((document.querySelector('.mw-sum-t') || {}).textContent || '').replace(/\s+/g, ' '));
+      const carbs = await pg.evaluate((k) => window.__macroLab.dayTargets(k).c, WED);
+      const before = await sumT();
+      t.ok('a lifting day not yet trained says so, with its carbs: "Lifting day · ' + carbs + ' g carbs"',
+        before === 'Lifting day · ' + carbs + ' g carbs', before);
+      const st = new Date(2026, 8, 30, 17, 40).getTime();
+      await at(2026, 8, 30, 21, 0);
+      await seed({ days: halfDay, train: trainSeed({ w1: { id: 'w1', n: 'Full Body A', st, en: st + 2400000, dk: WED,
+        x: [{ e: 'db-bench', s: [{ w: 60, r: 8, t: st + 60000 }] }] } }) });
+      const after = await sumT();
+      t.ok('and once the workout is logged: "Trained ✓ 5:40 pm"', after === 'Trained ✓ 5:40 pm', after);
+      await at(2026, 9, 1, 9, 0);
+      await seed({ train: trainSeed() });
+      const rest = await sumT();
+      t.ok('a day off says "Rest day"', rest === 'Rest day', rest);
+      const marks = await pg.evaluate(() => [...document.querySelectorAll('.mwk-d')].map((d) =>
+        (d.querySelector('.mwk-lift') ? 'L' : '-') + (/lifting day/.test(d.getAttribute('aria-label')) ? 'a' : '-')));
+      const liftBox = await pg.evaluate(() => { const r = document.querySelector('.mwk-lift').getBoundingClientRect(); return [r.width, r.height]; });
+      t.ok('the week strip marks Monday, Wednesday and Friday with a dumbbell, and says "lifting day" to a listener',
+        marks.join() === 'La,--,La,--,La,--,--' && liftBox[0] >= 10, JSON.stringify({ marks, liftBox }));
+      await ctx.close();
     }
   },
 };

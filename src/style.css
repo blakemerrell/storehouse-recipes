@@ -792,7 +792,14 @@ select { max-width: 280px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mthin-n:hover { color: var(--ochre-text); text-decoration: underline; text-underline-offset: 2px; }
-.mthin.eaten .mthin-n { color: var(--muted); text-decoration: line-through; }
+/* Planned is the lighter one now, and eaten is ink with a tick. The rule
+   through an eaten name read as deleted, and left the plate you had not
+   eaten yet as the one that looked real. --muted is 5.5:1 on the card. */
+.mthin:not(.eaten) .mthin-n { color: var(--muted); }
+.mthin-ok {
+  flex: none; width: 14px; text-align: center; font-size: 12px; line-height: 1;
+  color: var(--green); font-weight: 700;
+}
 .mthin-x { font-size: 10.5px; color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
 .mslot-empty { font-size: 12px; color: oklch(0.68 0.02 70); font-style: italic; }
 /* A plate is two rows, each with its controls on the right. Row one is the
@@ -849,8 +856,12 @@ select { max-width: 280px; }
    The shopping list keeps its line-through; a list of things to buy and a
    record of things you ate are not the same claim.
  *
-   What is left: the tick, loud, and the name stepped back to muted. */
-.mitem.eaten .mitem-name { color: oklch(0.68 0.02 70); }
+   And the name was stepped back to a grey of 2.9:1 — so the eaten plate, the
+   record, was the faint one and the plan was in ink. Turned round: eaten is
+   ink beside its green tick, and a plate still to come is the lighter one, at
+   --muted, which is 5.5:1 on the card and still reads. Blake: "Eaten shows a
+   ✓ in normal text, planned looks lighter; no strike-through." */
+.mitem:not(.eaten) .mitem-name { color: var(--muted); }
 /* .mitem-chips and .mchip are gone. The tag row they dressed was deleted a
    rebuild ago and the chips with it; the last one standing was the salt
    warning, which is .msalt now — a word in the warning colour rather than a
@@ -1000,6 +1011,8 @@ select { max-width: 280px; }
 }
 .ds-d.over { color: var(--dial-over); } .ds-d.under { color: var(--ochre-text); }
 .ds-d.on { color: var(--green); }
+/* what is left of a day still being eaten: a count, not a verdict */
+.ds-d.togo { color: var(--ink); }
 .ds-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .ds-pips { display: flex; gap: 4px; margin-top: 12px; }
 /* Same rule as the bars above: a day never written down is a gap in the
@@ -1488,6 +1501,25 @@ select { max-width: 280px; }
 .mpb-out { border-color: transparent !important; color: var(--muted) !important; }
 .mp-side { display: flex; align-items: center; gap: 2px; padding-right: 2px; flex: none;
   border-bottom: 1px solid var(--line-soft); }
+/* The amount that fits the meal, beside the one a tap on the row adds (what
+   you had last time). A pill rather than a key, so it reads as an offer —
+   drawn on the span, so the button around it can take a thumb's reach on a
+   touch screen without the pill growing to match. */
+.mp-fitx {
+  flex: none; white-space: nowrap; font-size: 11px; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--green);
+  background: none; border: 0; padding: 0; display: inline-flex; align-items: center;
+}
+.mp-side .mp-fitx { width: auto; height: auto; border: 0; background: none; margin-right: 2px; }
+.mp-fitx > span {
+  display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 999px;
+  font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums;
+  background: var(--card); border: 1px solid color-mix(in oklab, var(--green) 45%, var(--line));
+  color: var(--green);
+}
+.mp-fitx[aria-pressed="true"] > span { background: var(--green); border-color: var(--green); color: var(--paper); }
+.mpb-fit { display: flex; margin-top: 5px; }
+.mpb-fit > span { height: 24px; }
 .mp-star { background: none; border: 0; padding: 4px 6px; font-size: 15px; color: var(--line-firm); }
 .mp-star[aria-pressed="true"] { color: var(--ochre); }
 .mp-side button {
@@ -2075,8 +2107,13 @@ select { max-width: 280px; }
 .mwk-d.now.under .mwk-s { color: var(--wk-lo); }
 .mwk-d.now.on .mwk-s { color: var(--dial-on); }
 .mwk-d.now.over .mwk-s { color: var(--dial-over); }
-/* a training day earns more carbohydrate, and says so */
-.mwk-d.train .mwk-w::after { content: '\00b7'; margin-left: 2px; color: var(--ochre); }
+/* A lifting day earns more carbohydrate, and says so with a dumbbell beside
+   its letter rather than a full stop after it — the dot was the size of the
+   comma it looked like. Ochre-text, which is 6:1 on the paper. */
+.mwk-w { display: flex; align-items: center; justify-content: center; gap: 2px; }
+.mwk-lift { width: 12px; height: 7px; flex: none; color: var(--ochre-text); }
+/* Today still being eaten: what is left, in no verdict's colour. */
+.mwk-d.now.open .mwk-s { color: var(--muted-2); font-weight: 600; white-space: nowrap; }
 /* the seven training-day toggles in the plan sheet */
 .mt-help { margin-top: 16px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
 .mt-steps { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 12px;
@@ -2540,6 +2577,11 @@ select { max-width: 280px; }
   font-variant-numeric: tabular-nums;
 }
 .mw-sum u { text-decoration: none; font-size: 12px; color: var(--muted); }
+/* The day's training, on a line of its own under the weight: "Lifting day ·
+   130 g carbs" beside the weight on one line clipped the card's name at a
+   phone's width. */
+.mw-sum { text-align: right; }
+.mw-sum-t { display: block; font-size: 11.5px; line-height: 1.2; color: var(--muted-2); margin-top: 1px; }
 /* The one thing it asks for, on a morning it has not been given. */
 .mw-ask { font-size: 13px; font-weight: 600; color: var(--ochre-text); flex: none; }
 /* Why today is not the same as yesterday. Inside the fold: it is the same
@@ -3776,6 +3818,8 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
     min-width: 44px; min-height: 44px; padding: 0; margin: -10px -6px;
     display: inline-flex; align-items: center; justify-content: center;
   }
+  /* the fitting-amount chip: the reach grows, the pill does not */
+  .mp-fitx { min-height: 44px; min-width: 44px; margin-top: -8px; margin-bottom: -8px; }
   .mpick-new { min-height: 44px; }
   /* no hover to reveal with, and a target you can actually hit */
   .pitem { padding: 8px 2px; font-size: 15.5px; }
