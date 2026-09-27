@@ -6175,7 +6175,7 @@
          only what you have pressed, so it never has to be cleaned up. */
       var folded = !!(items.length && S.mFold[sk]);
       var addBtn = '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
-        'aria-label="Add food to ' + esc(name) + '">' + mIcon('plus') + 'Add</button>';
+        'aria-label="Add food to ' + esc(name) + '">' + mIcon('plus') + '<span>Add</span></button>';
       /* Said once, used by whichever of the two headers this meal draws. */
       var pillsSay = mMealPillsSay(sub, mMealAsk(sk, targets, slots), targets);
 
@@ -6446,15 +6446,15 @@
                 (items.length
                   ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
                       ' title="Another suggestion \u2014 walks down the best-fit list">' +
-                      mIcon('another') + 'Another</button>' +
+                      mIcon('another') + '<span>Another</span></button>' +
                     '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
                       (items.length >= 2 ? '' : ' disabled') +
                       ' title="Solve these portions against this meal\u2019s macros">' +
-                      mIcon('scales') + 'Balance</button>'
+                      mIcon('scales') + '<span>Balance</span></button>'
                   : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" ' +
                       'aria-label="Skip ' + esc(name) + ' today" ' +
                       'title="Not eating this today \u2014 its share goes to the other meals">' +
-                      mIcon('skip') + 'Skip</button>') +
+                      mIcon('skip') + '<span>Skip</span></button>') +
                 /* Keeping several plates as one thing is a verb, and this is
                    where this meal's verbs live.
                  *
@@ -6465,25 +6465,26 @@
                    rebuilt around says it plainly: the block is THIS FOOD, this
                    row is THIS MEAL, the cascade line is THE DAY. A slab
                    floating between the plates and the verbs belonged to
-                   neither. It is still only drawn where it can act.
-                 *
-                   No leading plus. Four buttons need the width: measured, the
-                   row fits at 390 with 19px to spare and wraps below 375,
-                   which is the same bargain .mslot-acts already strikes. */
-                /* Still .mslot-add: it is still the meal's add button, which
-                   is what that name has always meant. With a word beside the
-                   plus now, like every other verb here, and on a fed meal it
-                   comes third, so the row it pushes to the right edge is the
-                   first: the verbs wrap to two rows, not three. */
-                (items.length ? addBtn : '') +
+                   neither. It is still only drawn where it can act. */
+                /* One row, always. Blake: "get all the buttons on the food
+                   tag into a single row." Each verb is its drawing over a
+                   short word, the way the bottom bar draws them, and they
+                   share the width equally, so five fit a 360 phone. The
+                   short words carry the long ones in their labels: "Keep"
+                   is keep these plates as one food (the sheet it opens says
+                   "Keep breakfast"; "Combine" was 3px too wide at 360),
+                   "Repeat" is this meal copied from another day. Add is
+                   last, at the right edge, where the thumb already goes. */
                 (items.length >= 2
                   ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" ' +
-                    'title="Merge these plates into one food you can reuse">' +
-                    mIcon('keep') + 'Keep as one</button>' : '') +
+                    'aria-label="Keep these plates as one food you can reuse" ' +
+                    'title="Keep these plates as one food you can reuse">' +
+                    mIcon('keep') + '<span>Keep</span></button>' : '') +
                 /* The same meal on another day, whole, in one tap. */
                 '<button class="mslot-act mslot-from" data-mfrom="' + esc(sk) + '" ' +
-                  'title="Copy this meal from another day">' + mIcon('fromday') + 'Copy from\u2026</button>' +
-                (items.length ? '' : addBtn) +
+                  'aria-label="Repeat ' + esc(name) + ' from another day" ' +
+                  'title="Copy this meal from another day">' + mIcon('fromday') + '<span>Repeat</span></button>' +
+                addBtn +
                 '</div>'
               : '') +
             /* INSIDE the fold, and last. It was outside the card on the

@@ -10510,15 +10510,39 @@ module.exports = {
     /* Measured off the real boxes and the real gap, not off a guess at how
        wide nine characters are — the first version of this used a character
        count and passed with the bug still in, which the mutation caught. */
-    /* The plus by its name rather than by being last: on a fed meal it
-       comes third since "Copy from…" joined the row (2026-09-27), so that
-       it ends the FIRST row and the verbs wrap to two rows, not three. */
+    /* The plus by its name rather than by position. It spent a day third,
+       ending the first of two rows, and is last again now the verbs share
+       one row (2026-09-27). */
     t.ok('and the plus is the only one that pushes, to the right edge',
       !!actsRow &&
         actsRow.kids[1].x - (actsRow.kids[0].x + actsRow.kids[0].w) <= actsRow.gap + 1 &&
         actsRow.kids.filter((k) => k.t === 'Add').length === 1 &&
         actsRow.kids.find((k) => k.t === 'Add').right <= actsRow.pad + 1,
       JSON.stringify(actsRow));
+
+    /* All of a meal's verbs on one row, every word whole, on the narrowest
+       phone in common use. Blake (2026-09-27): "get all the buttons on the
+       food tag into a single row." Five verbs share 360px; the first word
+       tried for keeping the plates, "Combine", was 3px too wide for its
+       fifth and read "Combin\u2026". Measured on the words' own boxes, since
+       an ellipsis is exactly what a button's width would never show. */
+    await fold.setViewportSize({ width: 360, height: 720 });
+    await fold.waitForTimeout(150);
+    const narrow = await fold.evaluate(() => [...document.querySelectorAll('.mslot-acts')].map((row) => {
+      const bs = [...row.querySelectorAll('button')];
+      return {
+        n: bs.length,
+        rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+        cut: bs.filter((b) => { const w = b.querySelector('span'); return !w || w.scrollWidth > w.clientWidth + 1; })
+          .map((b) => b.textContent.trim()),
+      };
+    }));
+    t.ok('a meal\u2019s verbs sit on one row at 360px, no word cut short',
+      narrow.length > 0 && narrow.some((r) => r.n >= 4) &&
+        narrow.every((r) => r.rows === 1 && r.cut.length === 0),
+      JSON.stringify(narrow));
+    await fold.setViewportSize({ width: 375, height: 720 });
+    await fold.waitForTimeout(150);
 
     /* ---- the slack from a finished meal goes to the meals ahead ----------
      * A meal's denominator was a fixed slice of the day by weight: eat a
