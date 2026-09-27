@@ -677,7 +677,7 @@
     macroDate: null, macroPick: null, macroTargOpen: false, newFood: null, mpQuery: '',
     /* A food opened from its plate: {id, x}. Foods have no recipe sheet, so
        this is the sheet that answers "what is one of it, and what went in". */
-    foodOpen: null,
+    foodOpen: null, mCopyFrom: null,
     myJoin: '', mySent: false, myErr: '', myNote: '',
     mpSec: 'meal', mpSort: 'fit',
     /* Which of the three ways in the picker is showing. It opens on 'home',
@@ -688,7 +688,7 @@
     /* Which meals you have pressed open or shut, against the default of
        folding one you have eaten. Ephemeral: a new day starts fresh. */
     mFold: {}, mFoldFor: '', mTouched: '', mtOpen: '',
-    chartOpen: false, chartWhich: 'weight', keepMeal: '',
+    chartOpen: false, chartWhich: 'weight', mcRange: 'all', keepMeal: '',
     /* What the picker has been told to add, before it is told to stop. A meal
        assembled from parts — a scoop of whey, a splash of half and half, a
        spoon of honey — used to cost one full trip through this sheet per
@@ -743,15 +743,147 @@
      with the ones actually wanted. Section is still worth matching, because
      "chocolate" ought to find the chocolate section, but it is the weakest
      reason to appear and belongs at the bottom rather than in the middle. */
+  /* Within a name match there are grades now (see searchScore), so a name
+     returns between 3 and 4 — the better the match, the nearer 4 — and the
+     three reasons keep their order and their meaning: `=== 1` is still
+     “only its section”. The ingredient and section grades read the name's
+     words too, so “chicken rice” finds the chicken bowl with rice in it,
+     and neither of them forgives a typo: a misspelling matched against
+     forty ingredient lines finds something in nearly every recipe. */
   function matchRank(r, qs) {
-    if (r.name.toLowerCase().indexOf(qs) >= 0) return 3;
-    if (r.ing.join(' ').toLowerCase().indexOf(qs) >= 0) return 2;
-    if (r.secName.toLowerCase().indexOf(qs) >= 0) return 1;
+    var s = searchScore(r.name, qs);
+    if (s >= 0) return 4 - s / 400;
+    if (searchScore(r.name + ' ' + r.ing.join(' '), qs, true) >= 0) return 2;
+    if (searchScore(r.name + ' ' + r.secName, qs, true) >= 0) return 1;
     return 0;
+  }
+
+  /* ------------------------------------------------------------ one search
+   *
+     Both searches used to be one indexOf of the whole phrase: “vanilla oat”
+     found nothing — no name has those nine characters in a row — and “egg”
+     put Eggplant above the Eggs you had starred: both contain it, and
+     nothing said which was the one you meant. Blake: “Any word order;
+     ★ and recent foods ranked first, then exact, then word-starts; common
+     variants (oatmeal/oats, yoghurt/yogurt) and one-letter typos still match.
+     Recipes search the same way.”
+   *
+     So a query is words, and every word has to find a word in the name. It
+     can find it whole, or as the start of one (“oa” in oats), or inside one
+     (“berr” in strawberries, which the old match found and this must not
+     lose), or — for a word of four letters or more — one letter off. Words
+     are compared in two forms: as typed, so the prefix of a word being typed
+     still matches, and folded, so a plural, a British spelling or a variant
+     name meets its twin. The grade is the weakest word's: one typo makes the
+     whole hit a typo hit. */
+  var SEARCH_VARIANT = {
+    yoghurt: 'yogurt', yoghurts: 'yogurt', grey: 'gray', greys: 'gray',
+    chilli: 'chili', chillies: 'chili', chile: 'chili', chiles: 'chili',
+    oatmeal: 'oat', oatmeals: 'oat', donut: 'doughnut', donuts: 'doughnut',
+    catsup: 'ketchup', courgette: 'zucchini', courgettes: 'zucchini',
+    aubergine: 'eggplant', aubergines: 'eggplant', garbanzo: 'chickpea',
+    garbanzos: 'chickpea', capsicum: 'pepper', capsicums: 'pepper'
+  };
+
+  /* Lower case, accents off, apostrophes out — “Hershey's” is one word, and
+     jalapeño is the word people type as jalapeno. */
+  function searchFold(s) {
+    s = String(s || '').toLowerCase();
+    if (s.normalize) s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return s.replace(/[\u0027\u2019]/g, '');
+  }
+
+  /* A plural and its singular, folded to one stem: eggs and egg, berries and
+     berry, tomatoes and tomato, peaches and peach, cookies and cookie. Not a
+     stemmer, and it does not need to be one: both sides go through it, so it
+     only has to be consistent, never grammatical. */
+  function searchCanon(w) {
+    w = SEARCH_VARIANT[w] || w;
+    if (w.length >= 4) {
+      if (/ies$/.test(w)) w = w.slice(0, -3) + 'i';
+      else if (/(s|x|z|o|ch|sh)es$/.test(w)) w = w.slice(0, -2);
+      else if (/[^su]s$/.test(w) && !/is$/.test(w)) w = w.slice(0, -1);
+    }
+    if (w.length >= 3) {
+      if (/y$/.test(w)) w = w.slice(0, -1) + 'i';
+      else if (/e$/.test(w)) w = w.slice(0, -1);
+    }
+    return w;
+  }
+
+  /* A name's words, worked out once per name and kept: the picker asks on
+     every keystroke over the whole food table and the whole book, and the
+     names do not change between keystrokes. Keyed by the text itself, so a
+     renamed food of your own simply becomes a new entry. */
+  var SEARCH_WORDS = {};
+  function searchWords(text) {
+    var k = String(text || '');
+    var got = SEARCH_WORDS[k];
+    if (got) return got;
+    got = searchFold(k).split(/[^a-z0-9]+/).filter(Boolean).map(function (w) {
+      return { w: w, c: searchCanon(w) };
+    });
+    SEARCH_WORDS[k] = got;
+    return got;
+  }
+
+  /* One letter off, and no further: a letter wrong, added, dropped, or two
+     neighbours swapped — the four slips a thumb makes. */
+  function searchNear(a, b) {
+    var la = a.length, lb = b.length;
+    if (Math.abs(la - lb) > 1 || a === b) return a === b;
+    var i = 0;
+    while (i < la && i < lb && a.charAt(i) === b.charAt(i)) i++;
+    if (la === lb) {
+      if (a.slice(i + 1) === b.slice(i + 1)) return true;                  // changed
+      return a.charAt(i) === b.charAt(i + 1) && a.charAt(i + 1) === b.charAt(i) &&
+        a.slice(i + 2) === b.slice(i + 2);                                  // swapped
+    }
+    return la > lb ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+  }
+
+  /* How well `text` answers the query `q`: -1 for not at all, else a score
+     where lower is better and the hundreds say the grade —
+       0  the whole name, word for word in any order (“oats egg” for Egg oats)
+       1  every word at the start of a name word
+       2  some word found inside a name word
+       3  some word one letter off
+     and below that, words only begun (tens) and name words left over (units),
+     so “egg” puts Egg whites — a whole word and one to spare — before
+     Eggplant, which only begins with it. `strict` refuses the typo grade, for
+     text too long to guess against. */
+  function searchScore(text, q, strict) {
+    var qw = searchWords(q);
+    if (!qw.length) return -1;
+    var nw = searchWords(text);
+    var worst = 0, begun = 0, used = {};
+    for (var i = 0; i < qw.length; i++) {
+      var best = 9, at = -1;
+      for (var j = 0; j < nw.length && best > 0; j++) {
+        var a = qw[i], b = nw[j], g = 9;
+        if (a.c === b.c || a.w === b.w) g = 0;
+        else if (b.w.indexOf(a.w) === 0 || b.c.indexOf(a.c) === 0) g = 1;
+        else if (a.w.length >= 3 && b.w.indexOf(a.w) > 0) g = 2;
+        else if (!strict && a.w.length >= 4 && (searchNear(a.c, b.c) || searchNear(a.w, b.w))) g = 3;
+        if (g < best) { best = g; at = j; }
+      }
+      if (best === 9) return -1;
+      used[at] = 1;
+      if (best === 1) begun++;
+      if (best > worst) worst = best;
+    }
+    var spare = nw.length - Object.keys(used).length;
+    /* The whole name, not merely whole words: “egg” is Eggs exactly and
+       Egg whites only partly, and the starred Eggs must not tie with it. */
+    var tier = worst === 0 ? (spare ? 1 : 0) : worst;
+    return tier * 100 + Math.min(9, begun) * 10 + Math.min(9, spare);
   }
 
   function filtered() {
     var qs = S.qy.trim().toLowerCase();
+    /* Each recipe's grade worked out once, not twice per comparison — the
+       sort below asks for it n log n times. */
+    var rank = {};
     return RECIPES.filter(function (r) {
       if (S.bookF !== 'all' && r.book !== S.bookF) return false;
       if (S.secF !== 'all' && (r.book + '-' + r.secNum + '-' + r.secName) !== S.secF) return false;
@@ -759,14 +891,17 @@
       if (S.pantryF === 'base' && missingFor(r).length) return false;
       if (S.pantryF === 'extras' && !missingFor(r).length) return false;
       if (S.favOnly && !window.Store.isFav(r.id)) return false;
-      if (qs && !matchRank(r, qs)) return false;
+      if (qs && !(rank[r.id] = matchRank(r, qs))) return false;
       return true;
     }).sort(function (a, b) {
       /* While searching, how well a recipe matches outranks book order — but
          not a sort the reader chose on purpose. Asking for "most protein" and
          getting relevance instead would be the app overruling them. */
       if (qs) {
-        var d = matchRank(b, qs) - matchRank(a, qs);
+        /* A chosen order still sorts inside each reason — name, ingredient,
+           section — as it always did; only the finer grade within a name
+           match steps aside for it. Ceil, because a name is (3, 4]. */
+        var d = SORTS[S.sort] ? Math.ceil(rank[b.id]) - Math.ceil(rank[a.id]) : rank[b.id] - rank[a.id];
         if (d) return d;
       }
       return SORTS[S.sort] ? SORTS[S.sort](a, b) : 0;
@@ -1259,7 +1394,8 @@
     ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
       'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
       'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroTrained',
-      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT', 'bsc.macroNever', 'bsc.macroBatchG'].forEach(function (k) {
+      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT', 'bsc.macroNever', 'bsc.macroBatchG',
+      'bsc.macroCoachSeen'].forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
     });
     Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
@@ -2014,13 +2150,18 @@
   var mDrawnToday = '';
   function mViewKey() { return S.macroDate || mDrawnToday || todayKey(); }
 
-  /* Today plus thirteen days behind it. Enough to look back over a week and
-     change your mind about the one before; not enough to become a diary the
-     browser has to carry forever. YYYY-MM-DD sorts as it dates, so the prune
+  /* Today and about four months behind it: the same stretch the intake log
+     and each day's own targets are kept for (MINTAKE_DAYS), so a past day
+     opened here is still judged against what it was aiming at. It was a
+     fortnight, which was enough to change your mind about last week and not
+     enough to find the dinner you had in August; Blake: "Copy from another
+     day on each meal, and a date picker beyond two weeks." Still not a diary
+     the browser carries forever. YYYY-MM-DD sorts as it dates, so the prune
      is one string comparison. */
+  var MDAY_KEEP = 120;
   function mEarliestKey() {
     var d = new Date();
-    d.setDate(d.getDate() - 13);
+    d.setDate(d.getDate() - (MDAY_KEEP - 1));
     return dayKey(d);
   }
 
@@ -2062,6 +2203,94 @@
   }
 
   function mAhead(k) { return k > todayKey(); }
+
+  /* ------------------------------------------------------- when a meal is
+   *
+     Meals have never had times: a meal is a name, a kind and a share, and the
+     order you put them in. But "is this meal happening yet" is a question the
+     day has to answer twice now — whether food added to it was eaten, and
+     whether today is far enough along to be judged — and both want a clock.
+     So each kind carries the hour its meal opens, and a meal of no fixed kind
+     takes its time from where it sits between the ones that have one.
+   *
+     A little early rather than late, because at a meal's own hour the usual
+     act is logging it, not planning it: a breakfast added at half six is
+     breakfast, and a lunch added at quarter past eleven is almost always lunch
+     being eaten. Either way a wrong guess is one tap on the tick to put
+     right. */
+  var MMEAL_OPENS = { b: 5 * 60, l: 11 * 60, d: 17 * 60 };
+
+  /* Minutes after midnight that the meal at `i` in `list` opens.
+   *
+     The day's first meal is open from midnight, whatever it is called: the
+     day has started. A snack or a meal of your own opens halfway between the
+     timed meals either side of it — an afternoon snack between lunch and
+     dinner is a two o'clock thing. One with no timed meal after it is the
+     day's catch-all, which is what the default Snacks at the foot of the list
+     is: open all day, because a snack logged at three was eaten at three. */
+  function mSlotOpens(list, i) {
+    if (!list || !list[i] || i === 0) return 0;
+    var own = MMEAL_OPENS[list[i].t];
+    if (own !== undefined) return own;
+    var before = null, after = null, j;
+    for (j = i - 1; j >= 0 && before === null; j--) {
+      if (MMEAL_OPENS[list[j].t] !== undefined) before = MMEAL_OPENS[list[j].t];
+    }
+    for (j = i + 1; j < list.length && after === null; j++) {
+      if (MMEAL_OPENS[list[j].t] !== undefined) after = MMEAL_OPENS[list[j].t];
+    }
+    if (before === null || after === null) return 0;
+    return Math.round((before + after) / 2);
+  }
+
+  function mNowMins() {
+    var d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  }
+
+  /* Whether food added to meal `sk` of day `k` goes on as eaten.
+   *
+     Blake: "Added to a current or past meal = eaten at once; later meals and
+     Fill drafts stay planned until ticked." A day behind you is all eaten —
+     nobody plans yesterday. A day ahead is all plan. Today, a meal whose time
+     has come is the one you are logging, and one still to come is the one you
+     are planning. Fill and the pins do not come through here: they are the
+     app's suggestions, never a statement that you ate. */
+  function mAddsEaten(k, sk) {
+    var today = todayKey();
+    if (k < today) return 1;
+    if (k > today) return 0;
+    var list = mReadSlots().list, at = -1;
+    list.forEach(function (s, i) { if (s.k === sk) at = i; });
+    if (at < 0) return 1;
+    return mNowMins() >= mSlotOpens(list, at) ? 1 : 0;
+  }
+
+  /* When today is far enough along to be judged: once dinner's time has come
+     and gone — three hours after the last timed meal opens, which is eight in
+     the evening on the default day, and eight too when no meal has a time. */
+  function mDaySettled() {
+    var list = mReadSlots().list, last = null;
+    list.forEach(function (s) {
+      var t = MMEAL_OPENS[s.t];
+      if (t !== undefined && (last === null || t > last)) last = t;
+    });
+    return mNowMins() >= (last === null ? 20 * 60 : last + 3 * 60);
+  }
+
+  /* Whether a day may be given a verdict — under, close, short on protein.
+     A day behind you, yes. Today only once you have closed it or dinner is
+     over: at half past one it said "under" and "131 g short on protein" about
+     a day with dinner still to come, which is not a verdict but a count of
+     what is left. Over stays over whenever it happens — that one is already
+     a fact. Blake: "No verdict on today until it's closed or dinner time has
+     passed." */
+  function mDayJudged(k) {
+    var today = todayKey();
+    if (k < today) return true;
+    if (k > today) return false;
+    return mDoneAt(k) > 0 || mDaySettled();
+  }
 
   function mReadTargets() {
     var t = null;
@@ -2956,10 +3185,10 @@
     mHealTargets();
   }
 
-  /* The four plans. kcal is the swing off maintenance; prot is grams per pound
-     of bodyweight. The cuts carry more protein than maintenance because a
-     deficit is when muscle is easiest to lose and protein is what argues for
-     keeping it. */
+  /* The four plans. The swing off maintenance is all a plan says now: the
+     protein each one carried (1.1 g a pound on the hard cut, down to 0.85 on
+     maintenance) went to mProtGrams, which asks about the body you are
+     building rather than the pace you are going at. */
   /* The four, as Renaissance Periodization frames them: a cut is a RATE, not
      a percentage off the day's burn.
    *
@@ -2975,11 +3204,70 @@
      weight coming off stops being mostly fat. Lean gain is slower still.
      rate is bodyweight fraction per week; positive takes weight off. */
   var MGOALS = {
-    cut2: { rate: 0.0100, prot: 1.10 },
-    cut1: { rate: 0.0075, prot: 1.00 },
-    keep: { rate: 0.0000, prot: 0.85 },
-    gain: { rate: -0.0025, prot: 0.90 }
+    cut2: { rate: 0.0100 },
+    cut1: { rate: 0.0075 },
+    keep: { rate: 0.0000 },
+    gain: { rate: -0.0025 }
   };
+
+  /* Protein, by the pound of the body you are building rather than the one
+     you are carrying.
+   *
+     It was 1.0 to 1.1 g a pound of TOTAL weight, which on a big frame spends
+     the day before the plate gets to it: a 212 lb lifter was asked for 212 g,
+     which left 96 g of carbohydrate on a lifting day and a dinner budgeted at
+     none. The pound that matters is the muscle's. So the reference is the
+     lean mass when a body fat has been typed, the goal weight when one is set,
+     and today's weight only when there is nothing better to go on — a formula's
+     estimate of body fat is not "known", and a protein target built on a
+     four-point guess would be wrong in the way nobody could see.
+   *
+     Blake's call: "Default ~1 g per lb of goal weight (or of lean mass if body
+     fat is known), never more than 1 g/lb of total weight; plus a 'Protein
+     level' choice on the plan step." High is the default; `cap` is the most
+     each level may ask per pound of what you weigh today. */
+  var MPROT_LEVELS = {
+    mod: { per: 0.8, cap: 1.0 },
+    high: { per: 1.0, cap: 1.0 },
+    vhigh: { per: 1.2, cap: 1.1 }
+  };
+  var MPROT_WORDS = [['mod', 'Moderate'], ['high', 'High'], ['vhigh', 'Very high']];
+
+  // a profile that never chose has chosen High
+  function mProtLevel(pr) {
+    return pr && MPROT_LEVELS[pr.prot] ? pr.prot : 'high';
+  }
+
+  /* The pounds protein is counted against. A goal under half of today's
+     weight is a typing slip — 18 for 185 — and would have planned 18 g, so
+     it is read as half; a goal that high is a years-long plan anyway. */
+  function mProtRefLb(pr) {
+    var lb = Number(pr && pr.lb) || 0;
+    var bf = Number(pr && pr.bf) || 0;
+    if (bf > 0 && bf < 70) return lb * (1 - bf / 100);
+    var goal = Number(pr && pr.goalLb) || 0;
+    if (goal > 0) return Math.max(goal, lb * 0.5);
+    return lb;
+  }
+
+  function mProtGrams(pr) {
+    var L = MPROT_LEVELS[mProtLevel(pr)];
+    var lb = Number(pr && pr.lb) || 0;
+    return Math.round(Math.min(L.per * mProtRefLb(pr), L.cap * lb));
+  }
+
+  /* How far protein may give ground when a cut is squeezed for carbohydrate:
+     0.8 g a pound, as it always was, but a pound of the SAME reference the
+     target is counted in. Left on total weight it sat above the Moderate
+     level for anybody with a goal — 170 g under a 148 g choice for the 212 lb
+     lifter aiming at 185 — and would have quietly overruled it. Never more
+     than the target itself, so the floor can only ever hold protein, not
+     raise it. mFloorK still prices the calorie floor at 0.8 g a pound of what
+     you weigh: a floor priced higher than the planner needs is only cautious,
+     and moving it would have moved every hard cut's calories with it. */
+  function mProtFloorG(pr) {
+    return Math.min(mProtGrams(pr), Math.round(MPROT_FLOOR * mProtRefLb(pr)));
+  }
 
   /* The floor under every plan this app will write. It is an absolute
      number, not a fraction of anything: a quarter off a big man's day is a
@@ -3305,7 +3593,7 @@
      floors, so any kcal at or over it has a split. */
   function mSplitKcal(kcal, t, pr) {
     var lb = pr && pr.lb > 0 ? pr.lb : 0;
-    var pMin = lb ? Math.round(MPROT_FLOOR * lb) : 0;
+    var pMin = lb ? mProtFloorG(pr) : 0;
     var fMin = lb ? Math.max(1, Math.round(MFAT_FLOOR * lb)) : 0;
     var now = kcalOf(t);
     var p = t.p;
@@ -3343,21 +3631,17 @@
       if (fatP) perWeek = Math.min(perWeek, fatP.lb * MFAT_MAX * 7 / 3500);
     }
     var kcal = Math.max(mFloorK(pr), Math.round(tdee - perWeek * 3500 / 7));
-    var protPerLb = pace
-      ? (perWeek > 0.05 ? (perWeek > pr.lb * 0.009 ? 1.10 : 1.00)
-        : perWeek < -0.05 ? 0.90 : 0.85)
-      : g.prot;
-    var p = Math.round(protPerLb * pr.lb);
+    var p = mProtGrams(pr);
     var f = Math.round(Math.max(MFAT_FLOOR * pr.lb, 0.25 * kcal / 9));
     /* Protein and fat first, but not to the last calorie. A day left with
        three percent of itself for carbohydrate is a day no dinner in the
        book fits inside, and the picker can only answer it with quarter
        portions. Protein gives ground before the plate does — down to 0.8 g
-       a pound, which is still more than a cut needs. */
+       a pound of its reference, which is still more than a cut needs. */
     var minC = Math.round(MCARB_SHARE * kcal / 4);
     if ((kcal - 4 * p - 9 * f) / 4 < minC) {
       var room = kcal - 9 * f - 4 * minC;
-      p = Math.max(Math.round(MPROT_FLOOR * pr.lb), Math.round(room / 4));
+      p = Math.max(mProtFloorG(pr), Math.round(room / 4));
     }
     var c = Math.max(0, Math.round((kcal - 4 * p - 9 * f) / 4));
     /* Said once, off the grams. A floor can lift the day but not lower the
@@ -3479,6 +3763,33 @@
     }
     return '<div class="mw-train no-print">' + ic +
       '<span class="mw-tr-t"><span class="mw-tr-1">' + t1 + '</span><span class="mw-tr-2">' + t2 + '</span></span></div>';
+  }
+  /* The folded card's word on training, which said "trained" the moment a
+     lifting day began — before anybody had been near a bar. Blake: "'Lifting
+     day · 96 g carbs' before training, 'Trained ✓ 5:40 pm' after; 'Rest day'
+     label." Before is a plan and says what the plan gives you; after is a
+     fact and says when. The time is the one Strengthen logged; a tick given
+     here by hand has none to give. Nothing at all when there is no week to
+     cycle — no lifting days picked, or all seven — unless a session was
+     logged anyway, because then it did happen. */
+  function mTrainWord(k) {
+    var raw = mReadProfileRaw();
+    var sess = raw.syncTrain === false ? [] : mSessionsOn(k);
+    /* The same order of say-so mIsTrainingDay keeps: synced, Strengthen's log
+       is the whole answer; not synced, a tick given here outranks it. */
+    var did = mSynced() || !mTrainedSaid(k) ? sess.length > 0 : mTrainedAt(k) > 0;
+    if (did) {
+      var at = '';
+      if (sess.length && sess[0].st) {
+        var d = new Date(sess[0].st), h = d.getHours(), m = d.getMinutes();
+        at = ' ' + (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' am' : ' pm');
+      }
+      return 'Trained &#10003;' + at;
+    }
+    var n = mTrainDays().length;
+    if (!n || n >= 7) return '';
+    if (mIsTrainingDay(k)) return 'Lifting day &middot; ' + mDayTargets(k).c + ' g carbs';
+    return 'Rest day';
   }
   function mSessionsOn(k) {
     try { return window.Train && window.Train.sessionsOn ? window.Train.sessionsOn(k) || [] : []; } catch (e) { return []; }
@@ -3725,6 +4036,25 @@
   function mPretty(k) {
     var d = keyDate(k);
     return M_MONS[d.getMonth()] + ' ' + d.getDate();
+  }
+  /* The long form, "Mon, Sep 28", as Strengthen writes it. */
+  /* One drawn set for every verb on the tab — the bottom bar's tools and
+     each meal's own — so they read as one family: a 20px box, a 1.5 stroke,
+     in the colour of the word beside it. */
+  var MICONS = {
+    scales: '<path d="M10 3v14M6.5 17h7M4 5.5h12M4 5.5 1.8 11a2.2 2.2 0 0 0 4.4 0zM16 5.5 13.8 11a2.2 2.2 0 0 0 4.4 0z"/>',
+    another: '<path d="M15.8 11.5A6 6 0 1 1 14.2 5.7M15.6 2.8v3.4h-3.4"/>',
+    skip: '<circle cx="10" cy="10" r="6.5"/><path d="M5.4 14.6 14.6 5.4"/>',
+    plus: '<path d="M10 4v12M4 10h12"/>',
+    keep: '<rect x="2.5" y="5" width="5.5" height="10" rx="1"/><rect x="12" y="5" width="5.5" height="10" rx="1"/><path d="M8 10h4"/>',
+    fromday: '<rect x="3" y="4.5" width="14" height="12.5" rx="1.5"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4M7.5 12.8h5M10.5 10.6l2.2 2.2-2.2 2.2"/>'
+  };
+  function mIcon(name) {
+    return '<svg class="mday-ic" viewBox="0 0 20 20" aria-hidden="true">' + MICONS[name] + '</svg>';
+  }
+  function mLongDate(k) {
+    var d = keyDate(k);
+    return M_WDAYS[d.getDay()].slice(0, 3) + ', ' + M_MONS[d.getMonth()] + ' ' + d.getDate();
   }
 
   /* The plan, in two lines, where a button used to sit.
@@ -4124,7 +4454,8 @@
           big
             ? 'Bigger than your usual ' + (Math.round(jump.url * 10) / 10) +
               ' lb overnight \u2014 and the salt accounts for it. The seven-day average is what to watch.'
-            : 'Inside your usual overnight range of ' + (Math.round(jump.url * 10) / 10) + ' lb.');
+            : 'Inside your usual overnight range of ' + (Math.round(jump.url * 10) / 10) + ' lb.',
+          null, 'salt');
       }
     }
     /* Past the salt line there is nothing the fold wants: everything below is
@@ -4153,13 +4484,15 @@
       if (!meas) return '';
       var ate = meas.eaten, gap = meas.tdee - ate;
       var lbWk = Math.round(gap * 7 / 3500 * 10) / 10;
+      // said again only when the direction it reads changes
+      if (mCoachQuiet(k, 'burn:' + (lbWk > 0.2 ? 'off' : lbWk < -0.2 ? 'on' : 'keep'))) return '';
       return mLineHTML(Math.abs(lbWk) < 0.2 ? 'wait' : 'calm', '\u25CE',
         '<b>You are burning about ' + meas.tdee.toLocaleString() + ' a day</b> and eating ' +
         ate.toLocaleString() + '.',
         lbWk > 0.2 ? 'That is ' + lbWk + ' lb a week off, measured over ' + meas.days + ' days.'
           : lbWk < -0.2 ? 'That is ' + Math.abs(lbWk) + ' lb a week on, measured over ' +
             meas.days + ' days.'
-            : 'Which is maintenance, measured over ' + meas.days + ' days.');
+            : 'Which is maintenance, measured over ' + meas.days + ' days.', null, 'coach');
     }
 
     /* Not enough history to say anything, so it says nothing.
@@ -4251,20 +4584,29 @@
         'Step on the scale when you can, and the coaching picks up from there.',
         [['Not now', 'mline:none:stale:' + pf.st.lastKey]]);
     }
+    /* The steady lines — at your goal, or on a target that is working — are
+       news once: the day they first say it. After that they are said again
+       only when the target or the verdict moves. The lines that ask for a
+       decision are not these; they ask until answered. */
+    var pace = late ? 'late' : early ? 'early' : 'on';
     if (pf.plan.daysLeft <= 0) {
+      if (mCoachQuiet(k, 'goal:' + pr.goalLb)) return '';
       return mLineHTML('calm', '✓', '<b>You’re at your goal: ' + pr.goalLb + ' lb.</b>',
-        'Set a new goal when you’re ready.', null);
+        'Set a new goal when you’re ready.', null, 'coach');
     }
     var eating = need !== null && cur > 0 && Math.abs(cur - need) <= 5;
     var head = target(eating ? need : cur);
     /* Taking the number already: say where it lands and leave it there. */
     if (eating) {
+      /* The number it lands on drifts a few calories a day as the weeks
+         move; to the nearest fifty is what counts as it having changed. */
+      if (mCoachQuiet(k, 'eat:' + Math.round(need / 50) * 50 + ':' + pace)) return '';
       return mLineHTML('calm', late ? '▲' : early ? '▼' : '✓', head,
         est + ' ' + (late && capped
           ? (pf.capHigh ? 'This is already as much as your body can put to use — stay with it.'
             : 'This is already as low as it’s safe to go — stay with it.')
           : late ? 'Stay with it \u2014 this target is set to land on ' + goalD + '.'
-            : early ? 'Keep it up.' : 'Stay with it.'), null);
+            : early ? 'Keep it up.' : 'Stay with it.'), null, 'coach');
     }
     /* The offer follows the ESTIMATE, not the position on the plan line, so
        the words and the button never disagree: a date running late is offered
@@ -4297,22 +4639,62 @@
         [['Use ' + fmt(room), 'mline:eat:' + room],
           [cur > 0 ? 'Keep ' + fmt(cur) : 'Not now', 'mline:none:ahead:' + room]]);
     }
+    if (mCoachQuiet(k, 'calm:' + cur + ':' + pace)) return '';
     return mLineHTML('calm', late ? '◎' : '✓', head,
-      est + ' Keep eating ' + fmt(cur) + ' a day.', null);
+      est + ' Keep eating ' + fmt(cur) + ' a day.', null, 'coach');
   }
 
-  function mLineHTML(kind, icon, text, sub, acts) {
+  /* `why`, when given, keys a line whose reason is folded behind "why?":
+     the line says what happened, and the explanation opens in place. */
+  function mLineHTML(kind, icon, text, sub, acts, why) {
     return '<div class="mline ' + kind + '" role="status">' +
       '<span class="mline-i" aria-hidden="true">' + icon + '</span>' +
       '<span class="mline-b">' +
-        '<span class="mline-t">' + text + '</span>' +
-        (sub ? '<span class="mline-s">' + sub + '</span>' : '') +
+        '<span class="mline-t">' + text + (sub && why ? ' ' + mWhyBtn(why) : '') + '</span>' +
+        (sub ? (why ? mInfoText(why, sub, 'mline-s') : '<span class="mline-s">' + sub + '</span>') : '') +
         (acts ? '<span class="mline-a no-print">' + acts.map(function (a, i) {
           return '<button class="' + (i ? 'ghost' : 'btn-primary') + '" data-mline="' +
             esc(a[1]) + '">' + esc(a[0]) + '</button>';
         }).join('') + '</span>' : '') +
       '</span>' +
     '</div>';
+  }
+
+
+  /* ---- quiet by default
+   *
+     Help that never changes is behind an i, and a reason is behind "why?":
+     both open in place, and stay open for the rest of the visit. They are
+     toggled where they stand rather than by a redraw, so opening one never
+     moves the sheet under the finger. Blake: "notes only when something
+     changed, as one short line with 'why?' to expand; settings help behind
+     \u24d8". */
+  var MINFO = {};
+  function mInfoBtn(key, label) {
+    var open = !!MINFO[key];
+    return '<button type="button" class="m-info" data-minfo="' + esc(key) + '" aria-controls="mi-' + esc(key) +
+      '" aria-expanded="' + open + '" aria-label="' + esc(label || 'What this means') + '">' +
+      '<span aria-hidden="true">i</span></button>';
+  }
+  function mWhyBtn(key) {
+    return '<button type="button" class="m-why" data-minfo="' + esc(key) + '" aria-controls="mi-' + esc(key) +
+      '" aria-expanded="' + !!MINFO[key] + '">why?</button>';
+  }
+  function mInfoText(key, html, cls) {
+    return '<span class="m-info-t ' + (cls || '') + '" id="mi-' + esc(key) + '"' +
+      (MINFO[key] ? '' : ' hidden') + '>' + html + '</span>';
+  }
+  /* A note that says the same thing it said on an earlier day says nothing
+     new: it is shown on the day it first says it, and again only once what
+     it says has changed. Remembered on this phone only — it is about what
+     this screen has shown, not about the plan. */
+  function mCoachQuiet(k, sig) {
+    var seen = mLsJson('bsc.macroCoachSeen') || {};
+    if (seen.sig === sig && seen.k && seen.k < k) return true;
+    if (seen.sig !== sig) {
+      try { localStorage.setItem('bsc.macroCoachSeen', JSON.stringify({ sig: sig, k: k })); } catch (e) { /* private mode */ }
+    }
+    return false;
   }
 
   function macroWeighHTML(k) {
@@ -4435,9 +4817,9 @@
               /* No verdict chip here: the coaching line directly under the
                  closed card already says where you stand, and a chip beside
                  it pushed the card's name onto two lines at phone width. */
-              return '<span class="mw-sum">' + sumN +
-                (mTrainDays().length < 7 && mIsTrainingDay(k)
-                  ? ' &middot; trained' : '') + '</u></span>';
+              var tw = mTrainWord(k);
+              return '<span class="mw-sum">' + sumN + '</u>' +
+                (tw ? '<span class="mw-sum-t">' + tw + '</span>' : '') + '</span>';
             })()
         : ahead
           ? '<span class="mw-avg mw-later">not yet</span>'
@@ -5209,6 +5591,12 @@
          on, or over its target — so the week reads at a glance. */
       var done = dayObj ? mDayDone(dayObj) : false;
       var word = dk === k && state ? MWK_SAY[state.slice(1)] : '';
+      /* A day still being eaten says what is left rather than how it went,
+         and its colour steps aside with the word. */
+      if (word && state !== ' over' && got < tK && !mDayJudged(dk)) {
+        word = (tK - got) + ' to go';
+        state = ' open';
+      }
       /* How FAR off, inside the square that already says which side of the
          line it fell on.
        *
@@ -5242,9 +5630,18 @@
         (ahead || tooOld ? ' disabled' : '') +
         ' data-mweek="' + dk + '" aria-pressed="' + (dk === k ? 'true' : 'false') + '"' +
         ' aria-label="' + M_WDAYS[d.getDay()] + ' ' + M_MONS[d.getMonth()] + ' ' + d.getDate() +
-        (train ? ', training day' : '') + ', ' + tK + ' calorie target' +
+        (train ? ', lifting day' : '') + ', ' + tK + ' calorie target' +
         (got ? ', ' + got + (done ? ' eaten, all done' : ' on the day') : '') + '">' +
-        '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) + '</span>' +
+        /* A lifting day wears a small dumbbell beside its letter. It was a
+           middle dot the size of a full stop, in ochre, which nobody could be
+           expected to decode; the button's label says "lifting day" for
+           anyone listening, and the title says it to a pointer. */
+        '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) +
+          (train ? '<svg class="mwk-lift" viewBox="0 0 14 8" aria-hidden="true">' +
+            '<title>Lifting day</title>' +
+            '<path d="M1 2.5v3M3.2 1v6M10.8 1v6M13 2.5v3M3.2 4h7.6" fill="none" ' +
+              'stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' : '') +
+        '</span>' +
         /* The track and the target line are on every day, food or not, so
            the seven lines read as one line across the week. */
         '<span class="mwk-c" aria-hidden="true">' +
@@ -5272,6 +5669,16 @@
     try { mRenderDay(); } finally { mRendering = false; }
   }
 
+  function mDayPick(open) {
+    var row = $('macroDayPick').closest('.mday-pick');
+    row.classList.toggle('hide', !open);
+    if (!open) return;
+    var inp = $('macroDayPick');
+    inp.value = mViewKey();
+    inp.focus();
+    try { if (inp.showPicker) inp.showPicker(); } catch (e) { /* the box itself is the way in */ }
+  }
+
   function mRenderDay() {
     var todayK = todayKey();
     var k = mViewKey();
@@ -5287,12 +5694,22 @@
       var od = new Date();
       od.setDate(od.getDate() + step);
       var ok = dayKey(od);
+      /* Month first, the one form the app writes a date in: "Mon, Sep 28",
+         or the word for it when there is one. */
       var word = step === 0 ? 'Today' : step === -1 ? 'Yesterday'
-        : step === 1 ? 'Tomorrow' : M_WDAYS[od.getDay()];
+        : step === 1 ? 'Tomorrow' : '';
       opts.push('<option value="' + ok + '"' + (ok === k ? ' selected' : '') + '>' +
-        word + ' &middot; ' + M_MONS[od.getMonth()] + ' ' + od.getDate() + '</option>');
+        (word ? word + ' &middot; ' + M_MONS[od.getMonth()] + ' ' + od.getDate() : mLongDate(ok)) + '</option>');
     }
+    /* A day further back than the list, reached by the date box or the
+       arrows, is named at the foot so the box still says where you are; and
+       the last entry opens the date box, for any day the log keeps. */
+    var listFrom = new Date(); listFrom.setDate(listFrom.getDate() - 13);
+    if (k < dayKey(listFrom)) opts.push('<option value="' + k + '" selected>' + mLongDate(k) + '</option>');
+    opts.push('<option value="pick">Earlier day\u2026</option>');
     $('macroDaySel').innerHTML = opts.join('');
+    var dp = $('macroDayPick');
+    if (dp) { dp.min = mEarliestKey(); dp.max = mLatestKey(); }
     $('macroPrev').disabled = k <= mEarliestKey();
     $('macroNext').disabled = k >= mLatestKey();
     $('macroWeek').innerHTML = mWeekHTML(k, todayK);
@@ -5583,7 +6000,7 @@
             '<span class="mitem-nm">' +
             (r.food
               ? '<button class="mitem-name mitem-food" data-mfood="' + esc(String(r.id)) +
-                '" data-mx="' + it.x + '">' + esc(r.name) + '</button>'
+                '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">' + esc(r.name) + '</button>'
               : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
                 '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
             '</span>' +
@@ -5757,6 +6174,8 @@
          the hand that ticked it — and took away the untick. S.mFold holds
          only what you have pressed, so it never has to be cleaned up. */
       var folded = !!(items.length && S.mFold[sk]);
+      var addBtn = '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
+        'aria-label="Add food to ' + esc(name) + '">' + mIcon('plus') + 'Add</button>';
       /* Said once, used by whichever of the two headers this meal draws. */
       var pillsSay = mMealPillsSay(sub, mMealAsk(sk, targets, slots), targets);
 
@@ -5953,7 +6372,7 @@
                    its own; it only has to be the same shape. */
                 (r2.food
                   ? '<button class="mthin-n mitem-food" data-mfood="' + esc(String(r2.id)) +
-                    '" data-mx="' + it.x + '">' + esc(r2.name) + '</button>'
+                    '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">' + esc(r2.name) + '</button>'
                   : '<button class="mthin-n" data-open="' + esc(String(r2.id)) +
                     '" data-mx="' + it.x + '">' + esc(r2.name) + '</button>') +
                 /* The same portion words the open plate uses — "1 cup ·
@@ -5973,7 +6392,17 @@
                 '<span class="mthin-x">' + esc(mPortionText(r2, it.x)) +
                   (it.l ? ' <span class="mthin-l" role="img" aria-label="held through Rebalance"'
                     + ' title="Held through Rebalance">&#128274;</span>' : '') +
-                '</span></div>';
+                '</span>' +
+                /* Eaten is a tick in the tick's own column, and the name in
+                   ink. It was a rule through the name, which reads as
+                   deleted — and the plan was the one in ink, so the food you
+                   had not eaten yet looked more real than the food you had.
+                   Blake: "Eaten shows a ✓ in normal text, planned looks
+                   lighter; no strike-through." */
+                (it.eaten
+                  ? '<span class="mthin-ok" role="img" aria-label="eaten">&#10003;</span>'
+                  : '<span class="mthin-ok is-plan"><span class="vis-hidden">planned</span></span>') +
+                '</div>';
             }).join('') + '</div>'
           : '<div class="mslot-items">' +
             /* Open is where the ± buttons are, so it is where the whole
@@ -6017,15 +6446,15 @@
                 (items.length
                   ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
                       ' title="Another suggestion \u2014 walks down the best-fit list">' +
-                      '&#8635; Another</button>' +
+                      mIcon('another') + 'Another</button>' +
                     '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
                       (items.length >= 2 ? '' : ' disabled') +
                       ' title="Solve these portions against this meal\u2019s macros">' +
-                      '&#9878; Balance</button>'
+                      mIcon('scales') + 'Balance</button>'
                   : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" ' +
                       'aria-label="Skip ' + esc(name) + ' today" ' +
                       'title="Not eating this today \u2014 its share goes to the other meals">' +
-                      '&#8856; Skip</button>') +
+                      mIcon('skip') + 'Skip</button>') +
                 /* Keeping several plates as one thing is a verb, and this is
                    where this meal's verbs live.
                  *
@@ -6041,15 +6470,20 @@
                    No leading plus. Four buttons need the width: measured, the
                    row fits at 390 with 19px to spare and wraps below 375,
                    which is the same bargain .mslot-acts already strikes. */
+                /* Still .mslot-add: it is still the meal's add button, which
+                   is what that name has always meant. With a word beside the
+                   plus now, like every other verb here, and on a fed meal it
+                   comes third, so the row it pushes to the right edge is the
+                   first: the verbs wrap to two rows, not three. */
+                (items.length ? addBtn : '') +
                 (items.length >= 2
                   ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" ' +
                     'title="Merge these plates into one food you can reuse">' +
-                    'Keep as one</button>' : '') +
-                /* Still .mslot-add: it is still the meal's add button, which
-                   is what that name has always meant. Only where it sits
-                   changed. */
-                '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
-                  'aria-label="Add food to ' + esc(name) + '">&#43;</button>' +
+                    mIcon('keep') + 'Keep as one</button>' : '') +
+                /* The same meal on another day, whole, in one tap. */
+                '<button class="mslot-act mslot-from" data-mfrom="' + esc(sk) + '" ' +
+                  'title="Copy this meal from another day">' + mIcon('fromday') + 'Copy from\u2026</button>' +
+                (items.length ? '' : addBtn) +
                 '</div>'
               : '') +
             /* INSIDE the fold, and last. It was outside the card on the
@@ -6073,9 +6507,16 @@
     $('macroSlots').innerHTML = html;
 
     var shut = mAnyShut();
-    $('macroOpenAll').setAttribute('aria-pressed', shut ? 'false' : 'true');
-    $('macroOpenAll').setAttribute('aria-label', shut ? 'Open every meal' : 'Close every meal');
-    $('macroOpenAll').innerHTML = shut ? '&#9776;' : '&#9783;';
+    /* The word says what the next press does, and the chevrons point the
+       way the cards will go: apart to open, together to shut. */
+    var oa = $('macroOpenAll'), oaw = shut ? 'Open all' : 'Close all';
+    if (oa.getAttribute('data-w') !== oaw) {
+      oa.setAttribute('data-w', oaw);
+      oa.title = shut ? 'Open every meal' : 'Close every meal';
+      oa.querySelector('.mday-w').textContent = oaw;
+      oa.querySelector('path').setAttribute('d', shut ? 'M6 7.5 10 3.5l4 4M6 12.5l4 4 4-4'
+        : 'M6 3.5l4 4 4-4M6 16.5l4-4 4 4');
+    }
 
     var readout = macroFootHTML(day, targets, slots);
     $('macroFoot').innerHTML = readout.foot;
@@ -6828,9 +7269,16 @@
       '</button>';
     }).join('');
 
+    /* Why a big miss can outlast the other meals is the same sentence every
+       time, so it waits behind "why?" under the line it explains. */
+    var capWhy = 'A meal never ' +
+      (over ? 'drops below a third of its share' : 'grows past twice its share') +
+      ', so there is a limit to what ' + (over ? 'an overshoot' : 'a surplus') +
+      ' can be made to disappear into.';
     return shell(
       '<span class="mcasc-t">' + head + '</span>' +
-      '<span class="mcasc-s">' + said + '</span>' +
+      '<span class="mcasc-s">' + said + ' ' + mWhyBtn('casc') + '</span>' +
+      mInfoText('casc', capWhy, 'mcasc-note') +
       '<div class="mcasc-pick no-print">' +
         '<div class="mcasc-ph">' +
           '<span>' + (over ? 'Take it from' : 'Give it to') + '</span>' +
@@ -6839,10 +7287,6 @@
             '<button data-msend="none" aria-pressed="' + (off ? 'true' : 'false') + '">None</button>' +
           '</span>' +
         '</div>' + pick +
-        '<div class="mcasc-note">A meal never ' +
-          (over ? 'drops below a third of its share' : 'grows past twice its share') +
-          ', so there is a limit to what ' + (over ? 'an overshoot' : 'a surplus') +
-          ' can be made to disappear into.</div>' +
         '<div class="mcasc-done">' +
           '<button class="btn-primary" data-msend="ack">Done</button>' +
         '</div>' +
@@ -7106,9 +7550,11 @@
          which flags thirty points and means none of them. Weight is the chart
          you came to look at; Off plan is the one that signals. */
       return {
-        v: vals, keys: keys, lim: null, plan: okPlan ? plan : null, dp: 1,
-        note: okPlan ? 'The dashed line is the plan. The gap between them is the whole story.'
-          : 'Name a weight and a date under the gear and the plan draws alongside.'
+        v: vals, keys: keys, lim: null, plan: okPlan ? plan : null, dp: 1, trend: mcTrend(keys),
+        say: function (v) { return v.toFixed(1) + ' lb'; },
+        note: 'The line is your seven-day average, the one the plan reads; the dots are the mornings. ' +
+          (okPlan ? 'The dashed line is the plan. The gap between them is the whole story.'
+            : 'Name a weight and a date under the gear and the plan draws alongside.')
       };
     }
     if (which === 'off') {
@@ -7123,6 +7569,7 @@
           : 'This one needs a goal weight and a date, under the gear.' };
       }
       return { v: res, keys: keys, lim: mcLimits(res, keys), zero: true, dp: 1,
+        say: function (v) { return Math.abs(v).toFixed(1) + ' lb ' + (v > 0 ? 'above' : v < 0 ? 'below' : 'on') + ' the plan'; },
         note: 'Zero is on pace. Above the line is losing slower than you meant to.' };
     }
     if (which === 'jump') {
@@ -7157,6 +7604,7 @@
         return mr[i] > bar && at2 > 0 && mSodiumOn(keys[at2 - 1]) >= high;
       });
       return { v: mr, keys: mkeys, salt: salt, dp: 1,
+        say: function (v) { return v.toFixed(1) + ' lb overnight'; },
         lim: { cl: bar, bar: bar, unpl: 3.268 * bar, lnpl: 0 },
         note: 'Overnight change. Ochre points follow a day well above your own usual salt.' };
     }
@@ -7168,53 +7616,134 @@
       rkeys.push(keys[i]);
     }
     return { v: rate, keys: rkeys, lim: mcLimits(rate, rkeys), zero: true, dp: 1,
+      say: function (v) { return (v > 0 ? '+' : v < 0 ? '\u2212' : '') + Math.abs(v).toFixed(1) + ' lb on the week before'; },
       note: 'A week against the week before it. A working cut sits below zero.' };
   }
 
+  /* The seven-day average at every morning: the mornings in the seven days
+     up to and including it, the same window mWeightStats reads for the plan,
+     taken at each morning rather than only at the last. It is the line the
+     weight chart draws, because a single morning is water and salt. */
+  function mcTrend(keys) {
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    return keys.map(function (k, i) {
+      var n = dayN(k), sum = 0, c = 0;
+      for (var j = i; j >= 0 && n - dayN(keys[j]) < 7; j--) { sum += MWEIGHTS[keys[j]]; c++; }
+      return Math.round(sum / c * 100) / 100;
+    });
+  }
+
+  /* The last month, three, six, or everything, counted back from today: a
+     year of mornings on one line flattens this month's loss to nothing. The
+     limits stay the ones the whole series set, so a range cannot move them. */
+  var MC_RANGES = [['1m', '1M', 31], ['3m', '3M', 92], ['6m', '6M', 183], ['all', 'All', 0]];
+  function mcInRange(sr, rng) {
+    var days = 0;
+    MC_RANGES.forEach(function (r) { if (r[0] === rng) days = r[2]; });
+    if (!days || sr.need) return sr;
+    var from = new Date(); from.setDate(from.getDate() - days);
+    var fromK = dayKey(from), keep = [];
+    sr.keys.forEach(function (k, i) { if (k >= fromK) keep.push(i); });
+    var pick = function (a) { return a ? keep.map(function (i) { return a[i]; }) : a; };
+    var out = {};
+    Object.keys(sr).forEach(function (f) { out[f] = sr[f]; });
+    out.v = pick(sr.v); out.keys = pick(sr.keys); out.plan = pick(sr.plan);
+    out.trend = pick(sr.trend); out.salt = pick(sr.salt);
+    return out;
+  }
+
+  /* Round numbers for an axis: a step of 1, 2, 2.5 or 5 of some power of
+     ten, about n of them across the range — "208, 210, 212", never
+     "207.6, 211.7, 215.8". */
+  function mcNiceTicks(lo, hi, n) {
+    var span = hi - lo || 1, raw = span / (n || 4);
+    var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), f = raw / mag;
+    var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+    var out = [];
+    for (var v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) {
+      out.push(Math.round(v * 1000) / 1000);
+    }
+    return out;
+  }
+
+  /* Drawn to be read on a phone: spaced by date, so a week off the scale
+     looks like a week; the axis on round numbers; a viewBox about a phone's
+     width, so its type is the size it says; and a finger on it (or a drag
+     along it) reads the morning under it out above the chart, with a ring on
+     the point. The weight chart draws the seven-day average as its line and
+     each morning as a faint dot; the others draw their own values. */
   function mcChartSVG(sr) {
-    var W = 600, H = 190, PL = 40, PR = 8, PT = 10, PB = 20;
-    var lo = Infinity, hi = -Infinity;
-    var see = function (v) { if (v < lo) lo = v; if (v > hi) hi = v; };
-    sr.v.forEach(see);
-    if (sr.lim) { see(sr.lim.unpl); see(sr.lim.lnpl); }
-    if (sr.plan) sr.plan.forEach(see);
-    if (sr.zero) see(0);
-    if (hi - lo < 0.5) { hi += 0.5; lo -= 0.5; }
-    var pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
-    var px = function (i) { return PL + i * (W - PL - PR) / Math.max(1, sr.v.length - 1); };
+    var W = 350, H = 200, PL = 42, PR = 10, PT = 12, PB = 26;
+    var all = sr.v.slice();
+    if (sr.trend) all = all.concat(sr.trend);
+    if (sr.plan) all = all.concat(sr.plan);
+    if (sr.lim) { all.push(sr.lim.unpl); all.push(sr.lim.lnpl); }
+    if (sr.zero) all.push(0);
+    var tk = mcNiceTicks(Math.min.apply(null, all), Math.max.apply(null, all), 4);
+    if (tk.length < 2) tk = [tk[0] - 1, tk[0] + 1];
+    var lo = tk[0], hi = tk[tk.length - 1], step = tk[1] - tk[0];
+    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var t0 = dayN(sr.keys[0]), t1 = dayN(sr.keys[sr.keys.length - 1]);
+    var px = function (i) {
+      var t = dayN(sr.keys[i]);
+      return t1 > t0 ? PL + (t - t0) / (t1 - t0) * (W - PL - PR) : (PL + W - PR) / 2;
+    };
     var py = function (v) { return PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo)); };
+    var tick = function (v) { return step < 1 ? v.toFixed(1) : String(Math.round(v)); };
     var out = [];
     var rule = function (v, cls) {
       out.push('<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + py(v).toFixed(1) +
         '" y2="' + py(v).toFixed(1) + '" class="' + cls + '"/>');
     };
-    [lo + (hi - lo) * 0.1, (lo + hi) / 2, hi - (hi - lo) * 0.1].forEach(function (v) {
+    tk.forEach(function (v) {
       rule(v, 'mc-grid');
-      out.push('<text x="' + (PL - 6) + '" y="' + (py(v) + 3.5).toFixed(1) +
-        '" text-anchor="end" class="mc-ax">' + v.toFixed(sr.dp) + '</text>');
+      out.push('<text x="' + (PL - 6) + '" y="' + (py(v) + 4).toFixed(1) +
+        '" text-anchor="end" class="mc-ax">' + tick(v) + '</text>');
     });
     if (sr.zero) rule(0, 'mc-zero');
     if (sr.lim) { rule(sr.lim.unpl, 'mc-lim'); rule(sr.lim.lnpl, 'mc-lim'); rule(sr.lim.cl, 'mc-cl'); }
-    if (sr.plan) {
-      out.push('<polyline class="mc-plan" points="' + sr.plan.map(function (v, i) {
+    var line = function (vals, cls) {
+      out.push('<polyline class="' + cls + '" points="' + vals.map(function (v, i) {
         return px(i).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ') + '"/>');
-    }
-    out.push('<polyline class="mc-line" points="' + sr.v.map(function (v, i) {
-      return px(i).toFixed(1) + ',' + py(v).toFixed(1); }).join(' ') + '"/>');
+    };
+    if (sr.plan) line(sr.plan, 'mc-plan');
+    line(sr.trend || sr.v, sr.trend ? 'mc-line mc-trend' : 'mc-line');
+    var say = function (i) {
+      return mPretty(sr.keys[i]) + ' · ' + (sr.say ? sr.say(sr.v[i]) : sr.v[i].toFixed(sr.dp)) +
+        (sr.trend ? ' · average ' + sr.trend[i].toFixed(1) : '');
+    };
     sr.v.forEach(function (v, i) {
       var out2 = sr.lim && (v > sr.lim.unpl || v < sr.lim.lnpl);
       var sa = sr.salt && sr.salt[i];
       out.push('<circle cx="' + px(i).toFixed(1) + '" cy="' + py(v).toFixed(1) + '" r="' +
-        (out2 || sa ? 3.4 : 2) + '" class="' +
-        (sa ? 'mc-salt' : out2 ? 'mc-sig' : 'mc-dot') + '"><title>' +
-        esc(mPretty(sr.keys[i])) + ' \u00b7 ' + v.toFixed(sr.dp) + '</title></circle>');
+        (out2 || sa ? 3.6 : sr.trend ? 2.4 : 2.2) + '" class="' +
+        (sa ? 'mc-salt' : out2 ? 'mc-sig' : sr.trend ? 'mc-day' : 'mc-dot') + '"><title>' +
+        esc(mPretty(sr.keys[i])) + ' · ' + v.toFixed(sr.dp) + '</title></circle>');
     });
+    out.push('<circle class="mc-hl" r="6.5" cx="-20" cy="-20"/>');
     [0, sr.v.length - 1].forEach(function (i) {
-      out.push('<text x="' + px(i).toFixed(1) + '" y="' + (H - 5) + '" text-anchor="' +
+      if (i === 0 && sr.v.length === 1) return;
+      out.push('<text x="' + px(i).toFixed(1) + '" y="' + (H - 7) + '" text-anchor="' +
         (i ? 'end' : 'start') + '" class="mc-ax">' + esc(mPretty(sr.keys[i])) + '</text>');
     });
-    return '<svg class="mc-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' +
-      esc(sr.note) + '">' + out.join('') + '</svg>';
+    var pts = sr.v.map(function (v, i) {
+      return [Math.round(px(i) * 10) / 10, Math.round(py(v) * 10) / 10, say(i)];
+    });
+    return '<div class="mc-read" aria-live="polite">Latest: ' + esc(say(sr.v.length - 1)) + '</div>' +
+      '<svg class="mc-svg" viewBox="0 0 ' + W + ' ' + H + '" data-pts="' + esc(JSON.stringify(pts)) +
+      '" role="img" aria-label="' + esc(sr.note) + '">' + out.join('') + '</svg>';
+  }
+  // the finger on a chart: the morning nearest it, read out and ringed
+  function mcRead(svg, clientX) {
+    var pts;
+    try { pts = JSON.parse(svg.getAttribute('data-pts') || '[]'); } catch (e) { return; }
+    if (!pts.length) return;
+    var r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+    var x = (clientX - r.left) / r.width * vb.width, near = pts[0];
+    pts.forEach(function (q) { if (Math.abs(q[0] - x) < Math.abs(near[0] - x)) near = q; });
+    var hl = svg.querySelector('.mc-hl'), rd = svg.parentNode.querySelector('.mc-read');
+    if (hl) { hl.setAttribute('cx', near[0]); hl.setAttribute('cy', near[1]); }
+    if (rd && rd.textContent !== near[2]) rd.textContent = near[2];
   }
 
   /* Naming it, and choosing who gets it. Asked rather than assumed, because
@@ -7248,13 +7777,13 @@
         '<div class="mk-tot">' + Math.round(mac.kcal) + ' kcal &middot; ' +
           Math.round(mac.p) + 'P &middot; ' + Math.round(mac.f) + 'F &middot; ' +
           Math.round(mac.c) + 'C</div>' +
-        '<div class="mt-div">Where it goes</div>' +
+        '<div class="mt-div m-divi">Where it goes' + mInfoBtn('keep', 'Ours or yours') + '</div>' +
+        mInfoText('keep', 'Ours is a recipe everyone with the pantry code can see. ' +
+          'The other stays in your account.', 'mt-cap') +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-mkdo="share">Add to Ours</button>' +
           '<button class="ghost" data-mkdo="mine">Keep it to myself</button>' +
         '</div>' +
-        '<div class="mt-cap">Ours is a recipe everyone with the pantry code can see. ' +
-          'The other stays in your account.</div>' +
         '<div class="mt-cap" id="mkNote"></div>' +
       '</div></div>';
   }
@@ -7412,18 +7941,18 @@
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="What you eat">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">What do you actually eat?</div>' +
+          '<div class="sheet-eyebrow m-eyei">What do you actually eat?' + mInfoBtn('fp', 'How this list is used') + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="mt-cap">Tap anything you eat regularly. Nourish leans toward ' +
+        mInfoText('fp', 'Tap anything you eat regularly. Nourish leans toward ' +
           'these when it suggests food &mdash; it does not stop offering anything ' +
-          'else. You can change your mind on any food, any time.</div>' +
+          'else. You can change your mind on any food, any time.', 'mt-cap') +
         inner.blocks +
         (function () {
           var ids = Object.keys(MNEVER);
           if (!ids.length) return '';
-          return '<div class="mt-div">Not suggested</div>' +
-            '<div class="mt-cap">Fill won\u2019t add these. You can still add them yourself by searching.</div>' +
+          return '<div class="mt-div m-divi">Not suggested' + mInfoBtn('never', 'What this means') + '</div>' +
+            mInfoText('never', 'Fill won\u2019t add these. You can still add them yourself by searching.', 'mt-cap') +
             ids.map(function (id) {
               var rr = BY_ID[id] || BY_ID[Number(id)];
               return '<div class="mnv-row"><span class="mnv-n">' + esc(rr ? rr.name : id) +
@@ -7440,6 +7969,137 @@
           (total ? 'Done &middot; ' + total + ' chosen' : 'Skip for now') +
         '</button></div>' +
       '</div></div>';
+  }
+
+
+  /* ---- a meal from another day
+   *
+     Repeat a meal fast: the same meal on a day behind you, whole, in one
+     tap. Blake: "'Copy from another day' on each meal, and a date picker
+     beyond two weeks." The list is the latest days that had food on this
+     meal; the date box reaches any day the log keeps. Each plate comes at
+     the amount it was, and whether it arrives eaten is the rule every add
+     follows (mAddsEaten): a meal whose time has come is eaten, a later one
+     planned. */
+  function mCopyItems(fromK, sk) {
+    return ((MDAYS[fromK] || {})[sk] || []).filter(function (it) {
+      return BY_ID[it.id] && Number(it.x) > 0;
+    });
+  }
+  function mSlotName(sk) {
+    var slots = mReadSlots(), n = slots.names[sk] || 'Meal';
+    slots.list.forEach(function (sl) { if (sl.k === sk) n = sl.n; });
+    return n;
+  }
+  function mCopyCardHTML(fromK, sk) {
+    var items = mCopyItems(fromK, sk), kc = 0;
+    items.forEach(function (it) { kc += ((BY_ID[it.id].macro || {}).kcal || 0) * it.x; });
+    return '<div class="mcf-day">' +
+      '<div class="mcf-h"><span class="mcf-d">' + esc(mLongDate(fromK)) + '</span>' +
+        (items.length ? '<span class="mcf-k">' + Math.round(kc).toLocaleString() + ' kcal</span>' : '') + '</div>' +
+      (items.length
+        ? '<ul class="mcf-items">' + items.map(function (it) {
+            var r = BY_ID[it.id];
+            return '<li><span class="mcf-n">' + esc(r.name) + '</span>' +
+              '<span class="mcf-x">' + esc(mPortionText(r, it.x)) + '</span></li>';
+          }).join('') + '</ul>' +
+          '<button class="ghost mcf-go" data-mcopy="' + fromK + '">' + mIcon('plus') +
+            (items.length === 1 ? 'Add it' : 'Add all ' + items.length) + '</button>'
+        : '<div class="mslot-empty">Nothing on ' + esc(mSlotName(sk)) + ' that day.</div>') +
+    '</div>';
+  }
+  function mCopyFromHTML() {
+    var o = S.mCopyFrom || {}, k = mViewKey(), sk = o.slot, name = mSlotName(sk);
+    var today = todayKey(), recent = [];
+    Object.keys(MDAYS).sort().reverse().forEach(function (dk) {
+      if (dk === k || dk > today || recent.length >= 7) return;
+      if (mCopyItems(dk, sk).length) recent.push(dk);
+    });
+    var picked = o.day && o.day !== k ? o.day : '';
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet mt-sheet mcf-sheet" role="dialog" aria-modal="true" aria-label="' +
+        esc(name) + ' from another day">' +
+        '<div class="sheet-top">' +
+          '<div class="sheet-eyebrow">To ' + esc(name) + ' &middot; ' + esc(mPretty(k)) + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="mfs-name">' + esc(name) + ' from another day</div>' +
+        '<label class="mcf-pick">Any day <input type="date" id="mcfDate" min="' + mEarliestKey() +
+          '" max="' + mLatestKey() + '" value="' + picked + '"></label>' +
+        (picked ? mCopyCardHTML(picked, sk) : '') +
+        (recent.length
+          ? '<div class="mt-div">Lately</div>' + recent.filter(function (dk) { return dk !== picked; })
+              .map(function (dk) { return mCopyCardHTML(dk, sk); }).join('')
+          : picked ? '' : '<div class="mslot-empty">Nothing on ' + esc(name) + ' in the days behind you yet.</div>') +
+      '</div></div>';
+  }
+
+  /* ---- the food sheet: an amount, and Add
+   *
+     Blake: "An amount/unit box and an Add button on the food detail screen,
+     plus fibre/sodium and any other nutrients the table has." The amount
+     starts where every add starts (what you logged last time, else one of
+     it) and can be said in any unit the table weighs the food in; the Add
+     goes to the meal the plate was on, or to the meal you choose. */
+  function mFsUnits(r) {
+    if (!r.food || !r.grams) return [{ u: mDialUnit(r), g: 0 }];
+    var key = String(r.id).slice(2), N = window.Nutrition;
+    var f = N && N.FOODS && N.FOODS[key];
+    var own = { u: r.unit === 'each' ? 'whole' : String(r.unit), g: r.grams };
+    var out = mByGram(r) ? [{ u: 'g', g: 1 }, own] : [own, { u: 'g', g: 1 }];
+    if (r.unit === 'g') out = [{ u: 'g', g: 1 }];
+    Object.keys((f && f.g) || {}).forEach(function (u) {
+      var w = u === 'each' ? 'whole' : u;
+      if (!(f.g[u] > 0) || out.some(function (o) { return o.u === w; })) return;
+      out.push({ u: w, g: f.g[u] });
+    });
+    return out;
+  }
+  function mFsX(r, amt, unit) {
+    var n = Number(amt);
+    if (!isFinite(n) || n <= 0) return null;
+    var x = unit && unit.g && r.grams ? n * unit.g / r.grams : n;
+    return Math.round(x * 10000) / 10000;
+  }
+  function mFsAmt(r, x, unit) {
+    var n = unit && unit.g && r.grams ? x * r.grams / unit.g : x;
+    return unit && unit.u === 'g' ? Math.round(n) : Math.round(n * 100) / 100;
+  }
+  var MNUTR = [['kcal', 'Calories', ''], ['p', 'Protein', 'g'], ['f', 'Fat', 'g'], ['c', 'Carbs', 'g'],
+    ['fib', 'Fibre', 'g'], ['na', 'Sodium', 'mg']];
+  function mFsNutrHTML(r, x) {
+    var mac = r.macro || {}, known = {};
+    var row = function (lab, v, u) {
+      return '<div class="mfs-nr"><span>' + esc(lab) + '</span><b>' + v + (u ? ' ' + u : '') + '</b></div>';
+    };
+    var out = MNUTR.map(function (n) {
+      known[n[0]] = 1;
+      var v = (Number(mac[n[0]]) || 0) * x;
+      // whole grams, as the plate's own line says them; fibre to a tenth
+      return row(n[1], n[0] === 'fib' ? String(Math.round(v * 10) / 10) : Math.round(v).toLocaleString(), n[2]);
+    });
+    // anything else the table carries for it, named as the table names it
+    Object.keys(mac).forEach(function (k2) {
+      if (known[k2] || typeof mac[k2] !== 'number') return;
+      out.push(row(k2, String(Math.round(mac[k2] * x * 10) / 10), ''));
+    });
+    return out.join('');
+  }
+  function mFsState(r) {
+    var o = S.foodOpen, units = mFsUnits(r);
+    var ui = Math.min(units.length - 1, Math.max(0, Number(o.u) || 0));
+    var amt = o.amt !== undefined ? o.amt : mFsAmt(r, mpLastXs()[r.id] || 1, units[ui]);
+    return { units: units, ui: ui, amt: amt, x: mFsX(r, amt, units[ui]) };
+  }
+  // the numbers under the box, as it is typed in
+  function mFsRefresh() {
+    var o = S.foodOpen, r = o && BY_ID[o.id], box = $('mfsAmt');
+    if (!r || !box) return;
+    o.amt = box.value;
+    o.u = Number(($('mfsUnit') || {}).value) || 0;
+    var st = mFsState(r), now = $('mfsNow'), go = $('mfsAdd');
+    if (now) now.innerHTML = st.x ? mFsNutrHTML(r, st.x) : '<div class="mslot-empty">Type how much.</div>';
+    if (go) go.disabled = !st.x;
   }
 
   function mFoodSheetHTML() {
@@ -7472,23 +8132,52 @@
         '<div class="mfs-name">' + esc(r.name) + '</div>' +
         '<div class="mfs-one">One of it: ' + esc(mPortionText(r, 1)) + '</div>' +
         (partRows ? '<div class="mt-div">What went in</div><div class="mfs-parts">' + partRows + '</div>' : '') +
-        '<div class="mt-div">On your plate: ' + esc(mPortionText(r, x)) + '</div>' +
-        '<div class="mk-tot">' + mMacLine(r, x) + '</div>' +
-        '<div class="mfs-micro">' +
-          '<span>&#127806; ' + (Math.round((mac.fib || 0) * x * 10) / 10) + ' g fibre</span>' +
-          '<span>&#129474; ' + Math.round((mac.na || 0) * x).toLocaleString() + ' mg sodium</span>' +
-        '</div>' +
+        (o.onPlate === false ? '' :
+          '<div class="mt-div">On your plate: ' + esc(mPortionText(r, x)) + '</div>' +
+          '<div class="mk-tot">' + mMacLine(r, x) + '</div>' +
+          '<div class="mfs-micro">' +
+            '<span>&#127806; ' + (Math.round((mac.fib || 0) * x * 10) / 10) + ' g fibre</span>' +
+            '<span>&#129474; ' + Math.round((mac.na || 0) * x).toLocaleString() + ' mg sodium</span>' +
+          '</div>') +
+        mFsAddHTML(r) +
       '</div></div>';
+  }
+  function mFsAddHTML(r) {
+    var o = S.foodOpen, st = mFsState(r);
+    var slots = mReadSlots().list;
+    // the plate's own meal when it is still on the plan; otherwise, choose
+    var own = !!o.slot && slots.some(function (sl) { return sl.k === o.slot; });
+    var sk = own ? o.slot : (o.pick || (mNextMeal() || {}).k || '');
+    return '<div class="mt-div">Add ' + (own ? 'more to ' + esc(mSlotName(o.slot)) : 'to a meal') + '</div>' +
+      (own ? '' : '<div class="mp-meals mfs-meals">' + slots.map(function (sl) {
+        return '<button data-mfsmeal="' + esc(sl.k) + '" aria-pressed="' + (sl.k === sk) + '">' + esc(sl.n) + '</button>';
+      }).join('') + '</div>') +
+      '<div class="mfs-amt">' +
+        '<input id="mfsAmt" type="text" inputmode="decimal" autocomplete="off" aria-label="Amount" value="' +
+          esc(String(st.amt)) + '">' +
+        (st.units.length > 1
+          ? '<select id="mfsUnit" aria-label="Unit">' + st.units.map(function (u, i) {
+              return '<option value="' + i + '"' + (i === st.ui ? ' selected' : '') + '>' + esc(u.u) + '</option>';
+            }).join('') + '</select>'
+          : '<span class="mfs-u">' + esc(st.units[0].u) + '</span>') +
+        '<button class="btn-primary" id="mfsAdd" data-mfsadd="' + esc(sk) + '"' + (st.x ? '' : ' disabled') + '>' +
+          'Add to ' + esc(mSlotName(sk)) + '</button>' +
+      '</div>' +
+      '<div class="mfs-nutr" id="mfsNow">' + (st.x ? mFsNutrHTML(r, st.x) : '<div class="mslot-empty">Type how much.</div>') + '</div>';
   }
 
   function macroChartHTML() {
-    var sr = mcSeries(S.chartWhich);
-    var body = sr.need
-      ? '<div class="mslot-empty">' + esc(sr.need) + '</div>'
-      : mcChartSVG(sr) + '<div class="mc-note">' + esc(sr.note) + '</div>' +
-        (sr.lim ? '<div class="mc-note">Limits ' + sr.lim.lnpl.toFixed(1) + ' to ' +
-          sr.lim.unpl.toFixed(1) + ', from the first three weeks. ' +
-          'A point outside them is a change rather than a Tuesday.</div>' : '');
+    var full = mcSeries(S.chartWhich);
+    var rng = S.mcRange || 'all';
+    var sr = mcInRange(full, rng);
+    var body = full.need
+      ? '<div class="mslot-empty">' + esc(full.need) + '</div>'
+      : sr.v.length < 2
+        ? '<div class="mslot-empty">Fewer than two mornings in this range. Pick a longer one.</div>'
+        : mcChartSVG(sr);
+    var why = full.need ? '' : esc(full.note) +
+      (full.lim ? ' Limits ' + full.lim.lnpl.toFixed(1) + ' to ' + full.lim.unpl.toFixed(1) +
+        ', from the first three weeks: a point outside them is a change rather than a Tuesday.' : '');
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mc-sheet" role="dialog" aria-modal="true" aria-label="The numbers over time">' +
         '<div class="sheet-top">' +
@@ -7499,6 +8188,10 @@
           return '<button data-mchart="' + t[0] + '" aria-pressed="' +
             (S.chartWhich === t[0] ? 'true' : 'false') + '">' + t[1] + '</button>';
         }).join('') + '</div>' +
+        (full.need ? '' : '<div class="mc-rng">' + MC_RANGES.map(function (r) {
+          return '<button data-mcrng="' + r[0] + '" aria-pressed="' + (rng === r[0]) + '">' + r[1] + '</button>';
+        }).join('') + mInfoBtn('mc-' + S.chartWhich, 'What this chart shows') + '</div>' +
+          mInfoText('mc-' + S.chartWhich, why, 'mc-note')) +
         body +
       '</div></div>';
   }
@@ -7855,9 +8548,20 @@
      list all offer the same thing — a dish at a portion — so they offer it
      in the same shape, and the shape knows whether it is already in the
      basket. */
-  function mpRowHTML(r, x, fitText) {
+  /* `x` is what a tap on the row adds — what you had last time, or one
+     serving — and `fitX`, when there is one, is what would fit this meal,
+     offered beside it as a chip rather than as the row's own amount.
+   *
+     The row used to carry the fit, which is the solver's answer to "what
+     would land this meal" and not what anybody eats: a tap logged 1⅜ eggs
+     or 140 g of oats because that is where the arithmetic came out, and the
+     portion you actually have every morning had to be dialled back in by
+     hand every morning. Blake: "Default to what you had last time (else 1
+     serving); 'fits the meal' becomes a one-tap chip beside it." */
+  function mpRowHTML(r, x, fitText, fitX) {
     var inB = S.mpBasket[r.id] !== undefined;
     var inB2 = mIsFav(r);
+    var own = x;
     if (inB) x = S.mpBasket[r.id];
     var fit = fitText !== undefined && fitText !== null ? fitText
       : '&times;' + fmtNum(x) + (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' +
@@ -7882,13 +8586,67 @@
       /* The star is a control here, not a badge. Finding a thing once and
          having to find it again tomorrow is the whole reason to keep one. */
       '<span class="mp-side no-print">' +
-
+        mpFitChip(r, fitX, own) +
         (!mCanFav(r) ? '' :
           '<button class="mp-star" data-mpfav="' + esc(String(r.id)) + '" aria-pressed="' +
             (inB2 ? 'true' : 'false') + '" aria-label="' +
             (inB2 ? 'Remove from favorites' : 'Keep as a favorite') + '">&#9733;</button>') +
       '</span>' +
     '</div>';
+  }
+
+  /* The fitting amount as a chip. Nothing when it would say the same as the
+     row, or when there is no plan to fit against. Pressed while the basket
+     holds exactly that amount, and pressing it then takes it back out — the
+     same bargain the row's own tap makes. */
+  function mpFitChip(r, fitX, own) {
+    if (!(fitX > 0) || Math.abs(fitX - (Number(own) || 0)) < 1e-6) return '';
+    var inB = S.mpBasket[r.id] !== undefined && Math.abs(S.mpBasket[r.id] - fitX) < 1e-6;
+    var said = mFitWords(r, fitX);
+    return '<button class="mp-fitx" data-mpfit="' + esc(String(r.id)) + '" data-mpx="' + fitX +
+      '" aria-pressed="' + (inB ? 'true' : 'false') + '" aria-label="' +
+      (inB ? 'Take out the amount that fits, ' : 'Add the amount that fits this meal, ') +
+      esc(mPortion(r, fitX).head) + '"><span>Fits: ' + esc(said) + '</span></button>';
+  }
+
+  /* The chip's amount, as short as it can be said: grams for what is
+     weighed, and otherwise the same ×-count the row beside it uses — "Fits:
+     2 ½ servings" pushed the dish's name onto three lines at a phone's
+     width, for a word the row already says. */
+  function mFitWords(r, x) {
+    return mByGram(r) || mUnitWord(r) === 'g' ? mPortion(r, x).head : '\u00d7' + fmtNum(x).replace(' ', '');
+  }
+
+  /* What you logged last time, food by food, and what you reach for — one
+     walk of the day log per list rather than one per row. Newest day first,
+     and only days you have lived: a plan for Thursday is not "last time". */
+  var MP_LASTX = {};
+  function mpLastXs() {
+    var out = {}, today = todayKey();
+    Object.keys(MDAYS).sort().reverse().forEach(function (k) {
+      if (k > today) return;
+      var day = MDAYS[k] || {};
+      Object.keys(day).forEach(function (sk) {
+        (day[sk] || []).forEach(function (it) {
+          if (out[it.id] === undefined && it.x > 0) out[it.id] = it.x;
+        });
+      });
+    });
+    return out;
+  }
+  function mDefaultX(r) {
+    var v = r ? MP_LASTX[r.id] : 0;
+    return v > 0 ? v : 1;
+  }
+
+  /* The portion that would fit the meal the sheet is filling, by the same
+     solver the Fits best band ranks with. Null with no plan to fit against. */
+  function mpFitX(r) {
+    if (!S.macroPick || !r) return null;
+    var k = mViewKey(), slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    var e = mRank([r], mDay(k), mDayTargets(k), slot || { k: S.macroPick.slot, w: S.macroPick.w })[0];
+    return e && e.score !== null ? e.x : null;
   }
 
   /* What you ate lately, newest first, one row each. The everyday case is a
@@ -8063,7 +8821,47 @@
     if (!r) return false;
     if (!mpShelfOK(r)) return false;
     if (!qs) return true;
-    return r.food ? r.name.toLowerCase().indexOf(qs) >= 0 : !!matchRank(r, qs);
+    return r.food ? searchScore(r.name, qs) >= 0 : !!matchRank(r, qs);
+  }
+
+  /* What you already reach for: starred, or on a plate in the last fortnight.
+     Worked out once per list, not per row — see mpHomeBodyHTML. */
+  var MP_KNOWN = {};
+  function mpKnownIds() {
+    var out = {}, today = todayKey();
+    var from = new Date(); from.setDate(from.getDate() - 14);
+    var fromK = dayKey(from);
+    Object.keys(MDAYS).forEach(function (k) {
+      if (k > today || k < fromK) return;
+      var day = MDAYS[k] || {};
+      Object.keys(day).forEach(function (sk) {
+        (day[sk] || []).forEach(function (it) { out[it.id] = 1; });
+      });
+    });
+    return out;
+  }
+
+  /* Where a typed word puts a row, lower first; -1 when it does not match.
+   *
+     Blake's order: "★ and recent foods ranked first, then exact, then
+     word-starts" — then the rest, then the guesses. The guesses stay last
+     even when starred: a typo hit is the app wondering what you meant, and a
+     favourite it wondered its way to must not sit above the thing you
+     actually typed. A recipe that only mentions the word in its ingredients
+     or its section comes after every name. `coarse` drops the fine grades
+     inside each band, for a list that has its own order (fit) to keep. */
+  function mpHitRank(r, q, coarse) {
+    var s = searchScore(r.name, q);
+    if (s < 0) {
+      if (r.food) return -1;
+      var m = matchRank(r, q);
+      return m === 2 ? 1500 : m === 1 ? 1600 : -1;
+    }
+    var typo = s >= 300, known = !!(MP_KNOWN[r.id] || mIsFav(r));
+    if (coarse) s = Math.floor(s / 100) * 100;
+    /* Three groups — what you reach for, everything else, the guesses — and
+       inside the guesses your own come first too. */
+    return (typo ? 1000 : known ? 0 : 500) + (typo && !known ? 100 : 0) + s;
   }
 
   /* The thing you actually named, before anything that merely mentions it.
@@ -8078,17 +8876,21 @@
   function mpNamedHTML(shown) {
     var q = mpQ();
     if (!q || !S.macroPick) return '';
-    var rows = [];
-    MFOODS.forEach(function (r) {
-      if (rows.length >= 6 || shown[r.id]) return;
-      if (!mpShelfOK(r)) return;
-      if (r.name.toLowerCase().indexOf(q) < 0) return;
-      rows.push(r);
+    /* Every food the words find, ranked, and then the best six — not the
+       first six in table order, which is how Eggplant came above the Eggs
+       you had starred. */
+    var hits = [];
+    MFOODS.forEach(function (r, i) {
+      if (shown[r.id] || !mpShelfOK(r)) return;
+      var rk = mpHitRank(r, q);
+      if (rk >= 0) hits.push({ r: r, rk: rk, i: i });
     });
+    hits.sort(function (a, b) { return a.rk - b.rk || a.i - b.i; });
+    var rows = hits.slice(0, 6).map(function (h) { return h.r; });
     if (!rows.length) return '';
     rows.forEach(function (r) { shown[r.id] = 1; });
     return '<div class="mt-div">Foods</div>' + rows.map(function (r) {
-      return mpRowHTML(r, 1);
+      return mpRowHTML(r, mDefaultX(r), undefined, mpFitX(r));
     }).join('');
   }
 
@@ -8139,17 +8941,23 @@
     /* The thing you named before the dishes that merely mention it: ranked
        purely on fit, a spoon of honey loses to a dozen recipes listing honey
        among their ingredients and the row you typed the word for never
-       appears. Same rule the look-up box has always used. */
-    var hits = [], rest = [];
-    ranked.forEach(function (e) { (e.r.food ? hits : rest).push(e); });
-    var rows = hits.concat(rest).slice(0, 12);
+       appears. So the search's own order goes first, in its broad grades,
+       then foods before dishes as the look-up box always had it, and fit
+       only after that — which is still the order most of a grade is in. */
+    var rows = ranked.map(function (e, i) {
+      return { e: e, rk: mpHitRank(e.r, q, true), f: e.r.food ? 0 : 1, i: i };
+    }).sort(function (a, b) {
+      return a.rk - b.rk || a.f - b.f || a.i - b.i;
+    }).map(function (h) { return h.e; }).slice(0, 12);
     if (!rows.length) return '';
     rows.forEach(function (e) { shown[e.r.id] = 1; });
     return '<div class="mt-div">Everything else</div>' + rows.map(function (e) {
-      var r = e.r, xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : e.x;
-      return mpRowHTML(r, e.x,
+      var r = e.r, x0 = mDefaultX(r);
+      var xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : x0;
+      return mpRowHTML(r, x0,
         '<span class="mp-src">' + (r.food ? 'Yours' : 'Recipe') + '</span> &times;' + fmtNum(xx) +
-        (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx, true));
+        (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx, true),
+        e.score !== null && e.score !== undefined ? e.x : null);
     }).join('');
   }
 
@@ -8327,7 +9135,10 @@
     return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' : 'On the shelf') +
       mpLensHTML() + '</div>' +
       ranked.map(function (e) {
-      return mpRowHTML(e.r, e.x);
+      /* Ranked by how well it fits, offered at what you have — the fit
+         itself is the chip beside it. */
+      return mpRowHTML(e.r, mDefaultX(e.r), undefined,
+        e.score !== null && e.score !== undefined ? e.x : null);
     }).join('');
   }
 
@@ -8339,22 +9150,33 @@
     mGapFresh();
     var seen = shown || {}, out = [];
     var keys = Object.keys(MDAYS).sort().reverse();
+    var take = function (it) {
+      if (seen[it.id] || out.length >= 6) return;
+      var r = BY_ID[it.id];
+      if (!r) return;
+      if (!mpMatches(r, mpQ())) return;
+      seen[it.id] = 1;
+      out.push({ r: r, x: it.x });
+    };
+    /* This meal first. Adding to dinner, it is what you had at dinner
+       on the days behind you, newest first, and only then anything else you
+       ate lately. Blake: "Recents per meal (dinner shows dinner foods)". The
+       day being built is left out of that pass: what is on this meal already
+       is in the bar at the foot of the sheet. */
+    var slot = S.macroPick && S.macroPick.slot, viewK = mViewKey(), today = todayKey();
+    if (slot) {
+      keys.forEach(function (k) {
+        if (k === viewK || k > today) return;
+        ((MDAYS[k] || {})[slot] || []).forEach(take);
+      });
+    }
     keys.forEach(function (k) {
       var day = MDAYS[k] || {};
-      Object.keys(day).forEach(function (sk) {
-        (day[sk] || []).forEach(function (it) {
-          if (seen[it.id] || out.length >= 6) return;
-          var r = BY_ID[it.id];
-          if (!r) return;
-          if (!mpMatches(r, mpQ())) return;
-          seen[it.id] = 1;
-          out.push({ r: r, x: it.x });
-        });
-      });
+      Object.keys(day).forEach(function (sk) { (day[sk] || []).forEach(take); });
     });
     if (!out.length) return '';
     return '<div class="mt-div">Recent</div>' + out.map(function (e) {
-      return mpRowHTML(e.r, e.x);
+      return mpRowHTML(e.r, MP_LASTX[e.r.id] || e.x, undefined, mpFitX(e.r));
     }).join('');
   }
 
@@ -8427,10 +9249,19 @@
         var r = BY_ID[idOf(k)];
         if (!r) return '';
         var x = S.mpBasket[k];
+        /* The fitting amount beside what is in the basket, while they
+           differ: picked at what you had last time, one tap to what the meal
+           has room for. */
+        var fx = mpFitX(r);
+        var fitB = fx > 0 && Math.abs(fx - x) > 1e-6
+          ? '<button class="mp-fitx mpb-fit no-print" data-mpfit="' + esc(String(r.id)) +
+            '" data-mpx="' + fx + '" aria-pressed="false" aria-label="Change to the amount that fits this meal, ' +
+            esc(mPortion(r, fx).head) + '"><span>Fits: ' + esc(mFitWords(r, fx)) + '</span></button>'
+          : '';
         return '<div class="mpb-row">' +
           '<span class="mpb-b">' +
             '<span class="mpb-n">' + esc(r.name) + '</span>' +
-            '<span class="mpb-m">' + mMacLine(r, x) + '</span>' +
+            '<span class="mpb-m">' + mMacLine(r, x) + '</span>' + fitB +
           '</span>' +
           '<span class="mpb-x no-print">' +
             '<button data-mbstep="' + esc(String(r.id)) + ':-1" aria-label="Smaller">&minus;</button>' +
@@ -9140,10 +9971,11 @@
     var r = mNumberHit(kind.v);
     if (!r) return '';
     var e = mRank([r], day, targets, pick)[0];
+    var x0 = mDefaultX(r);
     return '<div class="mt-div">Recipe no. ' + esc(String(kind.v)) + '</div>' +
-      mpRowHTML(r, e ? e.x : 1, e && e.score === null ? 'no data'
-        : '&times;' + fmtNum(e ? e.x : 1) + ' &middot; ' + mMacLine(r, e ? e.x : 1, true) +
-          mSaltNote(r, e ? e.x : 1));
+      mpRowHTML(r, x0, e && e.score === null ? 'no data'
+        : '&times;' + fmtNum(x0) + ' &middot; ' + mMacLine(r, x0, true) + mSaltNote(r, x0),
+        e && e.score !== null ? e.x : null);
   }
 
   /* One box, one list. Your own foods and the book's recipes together, each
@@ -9317,6 +10149,8 @@
        The alternative was suppressing the closers on an untouched meal, and
        it was worse: it deleted a three-tap way to land the macros exactly, on
        the one screen where somebody eating to a number wants it most. */
+    MP_KNOWN = mpKnownIds();
+    MP_LASTX = mpLastXs();
     var named = mpNamedHTML(shown);
     var pins = mpPinsHTML(shown);
     var recent = mpRecentHTML(shown);
@@ -10066,16 +10900,28 @@
      come to different conclusions about what you ate. */
   function mSummaryHTML(k) {
     var s = mDaySummary(k);
-    var d = keyDate(k);
-    var title = M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' + d.getDate();
+    var title = mLongDate(k);
     var dk = s.got - s.want;
 
     /* One clause about the thing that actually went wrong, in the order a
        person notices it: did you eat the day, then did you get the protein. */
     var says;
-    if (!s.any) {
+    /* Today with dinner still to come is not a day that went anywhere yet:
+       what is left is the news, and only over — already true, whatever comes
+       next — keeps its warning. See mDayJudged. */
+    var open = !mDayJudged(k);
+    var pLeft = s.rows[0].want - s.rows[0].got;
+    var toGo = open && s.any && mVerdict('kcal', s.got, s.want) !== 'over' && s.got < s.want;
+    if (open && !s.any) {
+      says = 'Nothing written down yet.';
+    } else if (toGo) {
+      says = '<b>' + (s.want - s.got).toLocaleString() + ' kcal to go</b>' +
+        (pLeft > 0 ? ' and <b>' + pLeft + ' g protein to go</b>.' : ', with the protein already in.');
+    } else if (open && pLeft > 20 && dk > s.want * 0.12) {
+      says = 'Over by <b>' + Math.abs(dk) + '</b> already, with <b>' + pLeft + ' g protein to go</b>.';
+    } else if (!s.any) {
       says = 'Nothing was written down on this day.';
-    } else if (s.thin) {
+    } else if (s.thin && !open) {
       says = 'Only <b>' + s.got.toLocaleString() + '</b> written down. Either a very light day ' +
         'or one that stopped being logged — this cannot tell those apart, and does not guess.';
     } else if (dk > s.want * 0.12 && s.rows[0].got - s.rows[0].want < -20) {
@@ -10085,8 +10931,9 @@
     } else if (dk > s.want * 0.12) {
       says = '<b>' + Math.abs(dk) + ' over</b>, with the protein where it should be.';
     } else if (s.rows[0].got - s.rows[0].want < -20) {
-      says = 'Calories landed, but <b>' + Math.abs(s.rows[0].got - s.rows[0].want) +
-        ' g short on protein</b>.';
+      says = open ? 'The calories are in, with <b>' + pLeft + ' g protein to go</b>.'
+        : 'Calories landed, but <b>' + Math.abs(s.rows[0].got - s.rows[0].want) +
+          ' g short on protein</b>.';
     } else if (mVerdict('kcal', s.got, s.want) === 'on' && mVerdict('p', s.rows[0].got, s.rows[0].want) === 'on') {
       says = 'On the day and on the protein. <b>Nothing to fix.</b>';
     } else {
@@ -10117,7 +10964,8 @@
 
     /* Protein, day by day. The week's fact, sitting inside the day. */
     var pips = '<div class="ds-pips">' + s.week.map(function (w) {
-      var c = w.hit === null ? '' : w.hit ? (w.today ? ' today' : ' hit') : ' miss';
+      /* Nor is today's protein a miss while there is a dinner to come. */
+      var c = w.hit === null ? '' : w.hit ? (w.today ? ' today' : ' hit') : (w.today && open ? '' : ' miss');
       return '<span class="ds-pip' + c + '"></span>';
     }).join('') + '</div><div class="ds-sub">protein, day by day</div>';
 
@@ -10176,17 +11024,20 @@
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet ds-sheet" role="dialog" aria-modal="true" aria-label="How the day went">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">How the day went</div>' +
+          '<div class="sheet-eyebrow">' + (open ? 'How the day is going' : 'How the day went') + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="ds-day">' + esc(title) + '</div>' +
         '<p class="ds-says">' + says + '</p>' +
         (s.any
           ? '<div class="ds-hero">' + ring +
-              '<div class="ds-side"><div class="ds-d ' +
-                mVerdict('kcal', s.got, s.want) + '">' +
-                (dk > 0 ? '+' : '') + dk + '</div>' +
-                '<div class="ds-sub">calories against target</div>' + pips +
+              (toGo
+                ? '<div class="ds-side"><div class="ds-d togo">' + (s.want - s.got).toLocaleString() + '</div>' +
+                  '<div class="ds-sub">calories to go</div>' + pips
+                : '<div class="ds-side"><div class="ds-d ' +
+                  mVerdict('kcal', s.got, s.want) + '">' +
+                  (dk > 0 ? '+' : '') + dk + '</div>' +
+                  '<div class="ds-sub">calories against target</div>' + pips) +
               '</div>' +
             '</div>' +
             '<div class="ds-macros">' + bars + '</div>' +
@@ -10382,6 +11233,18 @@
       row('Should Nourish only suggest storehouse food?',
         seg('mtext', pr.extFill ? '1' : '0', [['0', 'Yes'], ['1', 'No']]));
 
+    /* How much protein, as three words rather than a number to type. It sits
+       under the tiles it moves, on the answer rather than in the editor,
+       because it is the one question here whose answer you can see change:
+       press Very high and the carbohydrate tile gives the grams back. The
+       line under it says what the grams are counted against, since "1 g a
+       pound" of a goal weight and of today's weight are different days. */
+    var rowProt =
+      '<div class="mt-prot">' +
+        row('Protein level', seg('mtprot', mProtLevel(pr), MPROT_WORDS), true) +
+        '<div class="mt-cap" id="mtProtWhy">' + mtProtSay(pr) + '</div>' +
+      '</div>';
+
     /* The boxes are the plan's one rendering: they follow the profile, take a
        hand edit, and Save keeps whatever they say. */
     var qGrams =
@@ -10441,7 +11304,8 @@
     };
     var mealsFor = function (open) {
       return '<div id="mtMealsWrap" class="mt-editor' + (open ? '' : ' hide') + '">' +
-        '<div class="mt-cap">The kind steers the picker; the share is each meal&rsquo;s slice of the day.</div>' +
+        '<div class="mt-div m-divi">Kind and share' + mInfoBtn('meals', 'What kind and share mean') + '</div>' +
+        mInfoText('meals', 'The kind steers the picker; the share is each meal&rsquo;s slice of the day.', 'mt-cap') +
         '<div id="mtMeals">' + mReadSlots().list.map(mtMealRow).join('') + '</div>' +
         '<div class="mtm-total" id="mtmTotal"></div>' +
         '<div class="sync-row"><button class="ghost" data-mtmeal="add">+ Add a meal</button></div>' +
@@ -10540,7 +11404,7 @@
              Save: it writes the plan and lands on the day. The storehouse
              toggle lives in the editor, under the gear. */
           step(4, 'Your plan',
-            answerHTML + mealHeadFor(false) + mealsFor(false) +
+            answerHTML + rowProt + mealHeadFor(false) + mealsFor(false) +
             '<details class="mt-fold" id="mtAdjust"><summary>Adjust the numbers</summary>' + qGrams + '</details>' +
             '<div class="mt-save" id="mtSave">' +
               '<button class="mtw-link" data-mtarg="save">I&rsquo;m ready &mdash; start now, pick foods later</button>' +
@@ -10578,7 +11442,7 @@
        One screen. Changing your step count should not be four taps through
        questions you answered months ago. */
     return shell(
-      answerHTML +
+      answerHTML + rowProt +
       '<div class="mt-facts' + (mtFactsHTML(pr) ? '' : ' hide') + '" id="mtFacts">' +
         mtFactsHTML(pr) + '</div>' +
       '<div class="mt-status' + (mtStatusHTML(pr) ? '' : ' hide') + '" id="mtStatus" role="status">' +
@@ -10809,6 +11673,8 @@
     out.goal = goalBtn ? goalBtn.dataset.mtgoal : stored.goal;
     var extBtn = document.querySelector('[data-mtext][aria-pressed="true"]');
     out.extFill = extBtn ? extBtn.dataset.mtext === '1' : !!stored.extFill;
+    var protBtn = document.querySelector('[data-mtprot][aria-pressed="true"]');
+    out.prot = protBtn ? protBtn.dataset.mtprot : mProtLevel(stored);
     out.goalLb = n('mtGoalLb', stored.goalLb);
     out.goalBy = $('mtGoalBy') ? ($('mtGoalBy').value || '') : (stored.goalBy || '');
     out.workouts = n('mtWorkouts', stored.workouts);
@@ -10822,6 +11688,28 @@
      applied. Two commit buttons on one sheet is a trap; now the plan writes
      straight into the boxes as the profile changes, and Save keeps whatever
      the boxes say, hand-typed or worked out. */
+  /* What the protein grams are counted against, in one line under the
+     level. Says so when the level's own ceiling held it, and when the plan
+     eased it to keep a squeezed cut's carbohydrate — the tile above is the
+     plan's figure, and a caption quoting a different one would be two
+     answers on one screen. */
+  function mtProtSay(pr) {
+    if (!pr || !(Number(pr.lb) > 0)) return '';
+    var L = MPROT_LEVELS[mProtLevel(pr)];
+    var ref = mProtRefLb(pr);
+    var what = Number(pr.bf) > 0 ? 'lean mass' : Number(pr.goalLb) > 0 ? 'goal weight' : 'weight';
+    var g = mProtGrams(pr);
+    var plan = mPlanCalc(pr);
+    /* No gram figure of its own: the tile above says it, and a stored plan
+       made at last week's weight would have the two disagreeing by a gram. */
+    var said = String(L.per) + ' g a pound of your ' + what + ' (' + Math.round(ref) + ' lb)';
+    if (L.per * ref > L.cap * pr.lb + 0.5) {
+      said += ', held to ' + String(L.cap) + ' g a pound of what you weigh';
+    }
+    if (plan && plan.p < g) said += '; eased to ' + plan.p + ' g to leave room for carbs';
+    return said + '.';
+  }
+
   /* The one line your profile collapses to once it computes. */
   function mtWhoLine(pr) {
     if (!mPlanCalc(pr)) return 'Tell me about you';
@@ -11131,7 +12019,10 @@
     var sv = $('mtSave');
     if (!sv) return;
     var open = function (id) { var e = $(id); return e && !e.classList.contains('hide'); };
-    sv.classList.toggle('hide', !(open('mtEditor') || open('mtMealsWrap')));
+    /* The protein level sits on the answer, outside both folds, so a press
+       there has to bring Save with it or the choice could not be kept. */
+    var moved = !!document.querySelector('.mt-prot[data-moved]');
+    sv.classList.toggle('hide', !(open('mtEditor') || open('mtMealsWrap') || moved));
   }
 
   /* `holdBoxes` is for the one profile control that lives OUTSIDE the editor
@@ -11167,6 +12058,8 @@
     if (gn) gn.innerHTML = mGoalNote(prNow);
     var co = $('mtCoach');
     if (co) co.innerHTML = mCoachHTML(prNow);
+    var pw = $('mtProtWhy');
+    if (pw) pw.innerHTML = mtProtSay(prNow);
     /* The wizard's two answers are computed from the same profile as the rest
        and go stale the same way, so they are refreshed with it. */
     var s1 = $('mtwSaid1');
@@ -11824,8 +12717,7 @@
     var day = mDay(k);
     var slots = mReadSlots();
     var d = keyDate(k);
-    var out = ['Nourish \u2014 ' + M_WDAYS[d.getDay()] + ', ' + M_MONS[d.getMonth()] + ' ' +
-      d.getDate() + ' ' + d.getFullYear()];
+    var out = ['Nourish \u2014 ' + mLongDate(k) + ' ' + d.getFullYear()];
     if (MWEIGHTS[k]) out.push('Weight: ' + MWEIGHTS[k] + ' lb');
     out.push('');
     var named = [];
@@ -11884,11 +12776,14 @@
        with is \u2398 — so one press turned an icon into a three-word label
        that wrapped onto three lines and climbed out of the bottom bar, and
        stayed that way for good. */
-    var wasHTML = btn.getAttribute('data-icon') || btn.innerHTML;
-    if (!btn.getAttribute('data-icon')) btn.setAttribute('data-icon', wasHTML);
+    /* Only the word under the icon changes, and back: the drawing stays
+       where it is so the bar does not jump. */
+    var w = btn.querySelector('.mday-w') || btn;
+    var was = btn.getAttribute('data-was') || w.textContent;
+    if (!btn.getAttribute('data-was')) btn.setAttribute('data-was', was);
     var said = function (ok) {
-      btn.textContent = ok ? 'Copied' : 'Press and hold';
-      setTimeout(function () { btn.innerHTML = btn.getAttribute('data-icon'); }, 2200);
+      w.textContent = ok ? 'Copied' : 'Press and hold';
+      setTimeout(function () { w.textContent = btn.getAttribute('data-was'); }, 2200);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { said(true); }, function () { said(false); });
@@ -13582,8 +14477,10 @@
   function syncStick() {
     var tb = document.querySelector('.topbar');
     if (!tb) return;
-    document.documentElement.style.setProperty(
-      '--topbar-h', Math.round(tb.getBoundingClientRect().height) + 'px');
+    /* Hidden, as it is while a workout runs full screen, it measures
+       nothing, and nothing is what every view would then pin to. */
+    var h = Math.round(tb.getBoundingClientRect().height);
+    if (h) document.documentElement.style.setProperty('--topbar-h', h + 'px');
   }
 
   /* ---- The search row on Recipes ----
@@ -14260,8 +15157,8 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
-    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget'];
+    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -14315,6 +15212,10 @@
        away a recipe somebody is in the middle of typing. */
     window.__editing = !!S.editId;
     var root = $('modalRoot');
+    /* Nourish's sheets carry its sizes — a thumb's worth for every control,
+       13 pixels at the least for type — without restyling every other tab's
+       sheets, which share this root. */
+    root.classList.toggle('m-sheets', S.view === 'macros');
 
     // a re-render triggered by a sync update should not scroll the sheet back
     // to the top, lose a half-typed code, or reroll the suggested one
@@ -14381,6 +15282,13 @@
 
     if (S.favPick) {
       root.innerHTML = mFavPickHTML();
+      document.body.style.overflow = 'hidden';
+      if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
+
+    if (S.mCopyFrom) {
+      root.innerHTML = mCopyFromHTML();
       document.body.style.overflow = 'hidden';
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
       return;
@@ -15032,6 +15940,19 @@
     syncState: function () { return S_SYNC_STATE; },
     syncStart: function () { return mSyncStart(); },
     bodyFat: mBodyFat,
+    /* Protein as the plan counts it: the grams, the pounds they are counted
+       against, how far a squeezed cut may take them, and the level chosen. */
+    protein: function (pr) {
+      return { g: mProtGrams(pr), ref: mProtRefLb(pr), floor: mProtFloorG(pr), level: mProtLevel(pr) };
+    },
+    /* When each meal opens, in minutes after midnight, and what an add to
+       one would be — so the clock rule can be asked about without a picker. */
+    opens: function () {
+      var list = mReadSlots().list;
+      return list.map(function (sl, i) { return { k: sl.k, at: mSlotOpens(list, i) }; });
+    },
+    addsEaten: mAddsEaten,
+    judged: mDayJudged,
     trained: function (k) { return { said: mTrainedSaid(k), on: mIsTrainingDay(k) }; },
     setTrained: mSetTrained,
     floorK: mFloorK,
@@ -15147,7 +16068,10 @@
   function renderShareHint() {
     var el = $('shareHint');
     if (!el) return;
-    var show = window.Store.configured && !window.Store.house && !hintDismissed();
+    /* Only where the household is: Nourish and Strengthen are yours alone,
+       and on a phone the banner was 130 pixels above your own day. */
+    var show = window.Store.configured && !window.Store.house && !hintDismissed() &&
+      S.view !== 'macros' && S.view !== 'train';
     el.classList.toggle('hide', !show);
   }
 
@@ -15259,6 +16183,7 @@
     if (S.view === 'list') renderList();
     if (S.view === 'pantry') renderPantry();
     if (S.view === 'book') renderBook();
+    renderShareHint();
     syncShrunk();
     syncStrip();
   }
@@ -15322,6 +16247,17 @@
 
   // ----------------------------------------------------------------- events
   function wire() {
+    /* A finger on a Nourish chart, or dragged along it, reads out the
+       morning under it; the page still scrolls up and down under it. */
+    var mcDown = null;
+    document.addEventListener('pointerdown', function (e) {
+      var svg = e.target && e.target.closest && e.target.closest('svg.mc-svg[data-pts]');
+      mcDown = svg || null;
+      if (svg) mcRead(svg, e.clientX);
+    });
+    document.addEventListener('pointermove', function (e) { if (mcDown) mcRead(mcDown, e.clientX); });
+    document.addEventListener('pointerup', function () { mcDown = null; });
+    document.addEventListener('pointercancel', function () { mcDown = null; });
     document.querySelectorAll('.tab').forEach(function (b) {
       b.addEventListener('click', function () {
         S.view = b.dataset.view;
@@ -15553,10 +16489,19 @@
       /* A food's name opens the food, the way a recipe's name opens the
          recipe. For a kept meal that is the only place its parts can be
          seen again: the plate shows one line for the whole thing. */
+      var mfr = e.target.closest('[data-mfrom]');
+      if (mfr) {
+        rememberOpener();
+        S.mCopyFrom = { slot: mfr.dataset.mfrom, day: '' };
+        pushSheet({ m: 1 });
+        renderModal();
+        return;
+      }
+
       var fd = e.target.closest('[data-mfood]');
       if (fd) {
         rememberOpener();
-        S.foodOpen = { id: fd.dataset.mfood, x: Number(fd.dataset.mx) || 1 };
+        S.foodOpen = { id: fd.dataset.mfood, x: Number(fd.dataset.mx) || 1, slot: fd.dataset.mfslot || '' };
         pushSheet({ m: 1 });
         renderModal();
         return;
@@ -15760,9 +16705,24 @@
     $('macroPrev').addEventListener('click', function () { mNavDay(-1); });
     $('macroNext').addEventListener('click', function () { mNavDay(1); });
     $('macroDaySel').addEventListener('change', function () {
+      if (this.value === 'pick') {
+        this.value = mViewKey();
+        mDayPick(true);
+        return;
+      }
       S.macroDate = this.value === todayKey() ? null : this.value;
       keepingFocus(renderMacros);
     });
+    /* Any day the log keeps, by date. The box opens its own calendar where
+       the phone has one; typed or picked, a day inside the window goes. */
+    $('macroDayPick').addEventListener('change', function () {
+      var v = this.value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v < mEarliestKey() || v > mLatestKey()) return;
+      mDayPick(false);
+      S.macroDate = v === todayKey() ? null : v;
+      renderMacros();
+    });
+    $('macroDayPickX').addEventListener('click', function () { mDayPick(false); });
     /* One button, two jobs, and which one it is doing is written on its face.
        With no plan there is nothing to fill and the press opens the sheet
        that makes one — see the note where the label is set. */
@@ -16366,6 +17326,46 @@
         return;
       }
 
+      var fsm = e.target.closest('[data-mfsmeal]');
+      if (fsm && S.foodOpen) {
+        mFsRefresh();
+        S.foodOpen.pick = fsm.dataset.mfsmeal;
+        renderModal();
+        return;
+      }
+      var fsa = e.target.closest('[data-mfsadd]');
+      if (fsa && S.foodOpen) {
+        mFsRefresh();
+        var fr = BY_ID[S.foodOpen.id], fx = fr && mFsState(fr).x, fsk = fsa.dataset.mfsadd, fk = mViewKey();
+        if (!fr || !fx || !fsk) return;
+        var fate = mAddsEaten(fk, fsk);
+        mEditDay(fk, function (d5) {
+          (d5[fsk] = d5[fsk] || []).push({ id: fr.id, x: fx, eaten: fate });
+        });
+        mToast(esc(fr.name) + ' added to ' + esc(mSlotName(fsk)) + '.');
+        close();
+        renderMacros();
+        return;
+      }
+      var mcp = e.target.closest('[data-mcopy]');
+      if (mcp && S.mCopyFrom) {
+        var toK = mViewKey(), csk = S.mCopyFrom.slot, fromK = mcp.dataset.mcopy;
+        var its = mCopyItems(fromK, csk);
+        if (its.length) {
+          var cate = mAddsEaten(toK, csk);
+          mEditDay(toK, function (d6) {
+            d6[csk] = (d6[csk] || []).concat(its.map(function (it) {
+              return { id: it.id, x: it.x, eaten: cate };
+            }));
+          });
+          mToast(its.length + (its.length === 1 ? ' plate' : ' plates') + ' from ' + esc(mLongDate(fromK)) +
+            ' added to ' + esc(mSlotName(csk)) + '.');
+        }
+        close();
+        renderMacros();
+        return;
+      }
+
       var mkd = e.target.closest('[data-mkdo]');
       if (mkd && S.keepMeal) {
         var nm3 = String((($('mkName') || {}).value) || '').trim();
@@ -16393,6 +17393,12 @@
       var mch = e.target.closest('[data-mchart]');
       if (mch && S.chartOpen) {
         S.chartWhich = mch.dataset.mchart;
+        renderModal();
+        return;
+      }
+      var mcr = e.target.closest('[data-mcrng]');
+      if (mcr && S.chartOpen) {
+        S.mcRange = mcr.dataset.mcrng;
         renderModal();
         return;
       }
@@ -16639,8 +17645,9 @@
           return;
         }
         var nslot = S.newFood.slot;
+        var nate = mAddsEaten(mViewKey(), nslot);
         mEditDay(mViewKey(), function (day) {
-          (day[nslot] = day[nslot] || []).push({ id: 'f:my:' + fkey, x: 1, eaten: 0 });
+          (day[nslot] = day[nslot] || []).push({ id: 'f:my:' + fkey, x: 1, eaten: nate });
         });
         S.newFood = null;
         close();
@@ -16657,6 +17664,17 @@
       var mpo = e.target.closest('[data-mpout]');
       if (mpo && S.macroPick) {
         delete S.mpBasket[idOf(mpo.dataset.mpout)];
+        renderModal();
+        return;
+      }
+
+      /* The fitting amount, in one tap: into the basket at that portion, or
+         the basket's portion moved to it. Pressed again, back out. */
+      var mpfx = e.target.closest('[data-mpfit]');
+      if (mpfx && S.macroPick) {
+        var fid = idOf(mpfx.dataset.mpfit), fxv = Number(mpfx.dataset.mpx) || 1;
+        if (S.mpBasket[fid] !== undefined && Math.abs(S.mpBasket[fid] - fxv) < 1e-6) delete S.mpBasket[fid];
+        else S.mpBasket[fid] = fxv;
         renderModal();
         return;
       }
@@ -16680,10 +17698,13 @@
 
       var mbs = e.target.closest('[data-mbstep]');
       if (mbs && S.macroPick) {
-        var bp = mbs.dataset.mbstep.split(':');
-        var bid = idOf(bp[0]);
+        /* Cut at the LAST colon. A food's id carries colons of its own —
+           "f:egg", "f:my:tamale" — so splitting on every one read the id as
+           "f" and the direction as "egg", and − and + did nothing to a food. */
+        var bsv = mbs.dataset.mbstep, bcut = bsv.lastIndexOf(':');
+        var bid = idOf(bsv.slice(0, bcut));
         if (S.mpBasket[bid] !== undefined) {
-          S.mpBasket[bid] = mStepX(BY_ID[bid], S.mpBasket[bid], Number(bp[1]));
+          S.mpBasket[bid] = mStepX(BY_ID[bid], S.mpBasket[bid], Number(bsv.slice(bcut + 1)));
           renderModal();
         }
         return;
@@ -16713,10 +17734,12 @@
         if (!Object.keys(basket).length) return;
         S.mTouched = cslot;              // the meal you just filled stays open
         S.mFold[cslot] = false;
+        /* Eaten or planned by when the meal is — see mAddsEaten. */
+        var ate = mAddsEaten(mViewKey(), cslot);
         mEditDay(mViewKey(), function (day) {
           var list = (day[cslot] = day[cslot] || []);
           Object.keys(basket).forEach(function (k) {
-            list.push({ id: idOf(k), x: basket[k], eaten: 0 });
+            list.push({ id: idOf(k), x: basket[k], eaten: ate });
           });
         });
         mScanStop();
@@ -16781,14 +17804,14 @@
       }
 
 
-      var mseg = e.target.closest('[data-mtsex], [data-mtgoal], [data-mtext], [data-mtact]');
+      var mseg = e.target.closest('[data-mtsex], [data-mtgoal], [data-mtext], [data-mtact], [data-mtprot]');
       if (mseg && S.macroTargOpen) {
         /* Which segment this is, asked of the element instead of guessed from
            a pair. The ternary that used to sit here had to grow a branch for
            every segment added, and the failure when one is missed is silent:
            the press lands, the wrong row's buttons are queried, and nothing
            moves. */
-        var segAttr = ['mtsex', 'mtgoal', 'mtext', 'mtact'].filter(function (a) {
+        var segAttr = ['mtsex', 'mtgoal', 'mtext', 'mtact', 'mtprot'].filter(function (a) {
           return mseg.dataset[a] !== undefined;
         })[0];
         Array.prototype.forEach.call(mseg.parentElement.querySelectorAll('button[data-' +
@@ -16798,6 +17821,11 @@
         // the three activity words write the select the profile is read from
         if (segAttr === 'mtact' && $('mtAct')) $('mtAct').value = mseg.dataset.mtact;
         mtRefreshPlan();
+        if (segAttr === 'mtprot') {
+          var protRow = mseg.closest('.mt-prot');
+          if (protRow) protRow.setAttribute('data-moved', '1');
+          mtSyncSave();
+        }
         return;
       }
 
@@ -17165,6 +18193,7 @@
 
     // the nutrition preview follows the ingredients as they are typed
     $('modalRoot').addEventListener('input', function (e) {
+      if (S.foodOpen && e.target.id === 'mfsAmt') mFsRefresh();
       if (S.editId && (e.target.id === 'edIng' || e.target.id === 'edServings' ||
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
       if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
@@ -17225,6 +18254,23 @@
     });
 
     $('modalRoot').addEventListener('change', function (e) {
+      if (S.mCopyFrom && e.target.id === 'mcfDate') {
+        var cv = e.target.value;
+        S.mCopyFrom.day = /^\d{4}-\d{2}-\d{2}$/.test(cv) ? cv : '';
+        renderModal();
+        return;
+      }
+      if (S.foodOpen && e.target.id === 'mfsUnit') {
+        // the same amount of food, said in the new unit
+        var ur = BY_ID[S.foodOpen.id];
+        if (ur) {
+          var was = mFsState(ur), ni = Number(e.target.value) || 0;
+          S.foodOpen.u = ni;
+          S.foodOpen.amt = was.x ? mFsAmt(ur, was.x, was.units[ni]) : S.foodOpen.amt;
+          renderModal();
+        }
+        return;
+      }
       if (S.macroTargOpen && (e.target.id === 'mtAct' || e.target.id === 'mtGoalBy')) mtRefreshPlan();
       // the picker's two lenses redraw only the list, like the search box
       if (S.macroPick && e.target.id === 'mpSec') {
@@ -17277,7 +18323,7 @@
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
       if (e.key === 'Escape' && S.filtPop) { filtersPop(false); return; }
       if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen || S.newFood ||
-        S.keepMeal || S.chartOpen || S.foodOpen)) close();
+        S.keepMeal || S.chartOpen || S.foodOpen || S.mCopyFrom)) close();
     });
   }
 
@@ -17378,6 +18424,7 @@
     S.chartOpen = false;
     S.keepMeal = '';
     S.foodOpen = null;
+    S.mCopyFrom = null;
     S.macroTargOpen = false;
     /* And the food grid. It was added without this line and the sheet became
        a room with no door: × and the backdrop both call close(), close() left
@@ -17475,6 +18522,19 @@
   /* Before the first paint: a stored plan written by an older build can be
      below this body's floor or have no carbohydrate in it, and the correction
      belongs here rather than inside whichever read happened to run first. */
+  /* An i or a "why?" opens its words in place and closes them again, with
+     no redraw, so nothing moves but the words. */
+  document.addEventListener('click', function (e) {
+    var ib = e.target.closest && e.target.closest('[data-minfo]');
+    if (!ib) return;
+    var key = ib.dataset.minfo, open = !MINFO[key];
+    MINFO[key] = open;
+    document.querySelectorAll('[data-minfo="' + key + '"]').forEach(function (b) {
+      b.setAttribute('aria-expanded', String(open));
+    });
+    var tx = document.getElementById('mi-' + key);
+    if (tx) tx.hidden = !open;
+  });
   document.addEventListener('click', function (e) {
     var al = e.target.closest('[data-mallow]');
     if (!al) return;
