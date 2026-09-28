@@ -3942,14 +3942,20 @@
      the plan knows what week it is. */
   function ghost(xi, si) {
     var x = LIVE.x[xi], s = x.s[si], ex = lib(x.e);
-    var cw = null, cr = null;
+    var cw = null, cr = null, crw = null;
     for (var j = si - 1; j >= 0; j--) {
       var e = x.s[j];
       if (!!e.wu !== !!s.wu) continue;
       // a missed attempt is not what the next set follows
       if (e.ty === 'm' && s.ty !== 'm') continue;
       if (cw === null) cw = numIn(e.w);
-      if (cr === null) cr = numIn(e.r);
+      /* The reps carried forward keep the weight they were done at, which
+         need not be the weight carried: reps typed on set 1 and a weight
+         typed on set 2 are two different sets' news. */
+      if (cr === null) {
+        cr = numIn(e.r);
+        if (cr !== null) { crw = numIn(e.w); if (crw === null) crw = ghost(xi, j).w; }
+      }
       if (cw !== null && cr !== null) break;
     }
     /* A main lift's sets each have their own weight — a ramp, a top set and
@@ -3962,9 +3968,67 @@
     /* Reps as weight does: once a set is done today, the next one expects
        what you just did, rather than a target you already fell short of or
        beat; a main lift's sets keep their own. A tick on an empty box then
-       logs something you did. */
-    var r = (x.fix || s.wu) && fin(s.tr) ? s.tr : cr !== null ? cr : fin(s.tr) ? s.tr : fin(s.pr) ? s.pr : null;
-    return { w: w, r: r };
+       logs something you did. rw is the weight those reps were for. */
+    var r = null, rw = null;
+    if ((x.fix || s.wu) && fin(s.tr)) { r = s.tr; rw = s.tw; }
+    else if (cr !== null) { r = cr; rw = crw; }
+    else if (fin(s.tr)) { r = s.tr; rw = s.tw; }
+    else if (fin(s.pr)) { r = s.pr; rw = s.pw; }
+    /* ...and at a weight of your own, the reps that weight is worth. Blake
+       (2026-09-28): "When doing a workout and I enter a weight, will the
+       suggested reps update to the estimated reps for me to do?" They did
+       not: 185 x 8 planned, 205 typed, and the box still said 8. */
+    var at = numIn(s.w);
+    if (at === null) at = w;
+    var est = r !== null && fin(rw) && fin(at) && Math.abs(at - rw) > 1e-9 ? estReps(x, si, at) : null;
+    if (est !== null) r = est;
+    return { w: w, r: r, est: est !== null };
+  }
+
+  /* The reps a weight you chose is worth, at the effort the plan asks for.
+   *
+     An estimated max (Epley, as the Est. max column) from the best evidence
+     there is: this lift's latest set done today, which knows how today is
+     going, else the set's own plan, else last time's. Each is read at the
+     reps to spare it was done or planned with: the ones you logged, 0 for an
+     all-out set, else the plan's. Then the reps that leave the plan's reps to
+     spare at the new weight, rounded down, since a rep short is a set that
+     still counts and a rep over is a set to failure the plan did not ask for.
+   *
+     Only where the plan asks for reps to spare. A strength block's main lift
+     is written as a weight, its reps are the prescription, and a deload asks
+     for none. Not for warm-ups, drop sets or misses, which have no such
+     target, nor for a lift your body is part of without your weight to
+     count. Only within a band of the evidence (60% to 150% of its weight),
+     where Epley is still a fair guess, so a half-typed 2 on the way to 205
+     leaves the plan's reps alone. */
+  function estReps(x, si, at) {
+    var s = x.s[si], k = fin(x.rir) ? x.rir : null;
+    if (k === null || !(at > 0) || s.wu || s.ty === 'd' || s.ty === 'm') return null;
+    var bw = null;
+    if (usesBw(x.e)) {
+      bw = fin(LIVE.bw) && LIVE.bw > 0 ? LIVE.bw : bwOn(dayKey(new Date(LIVE.st)), LIVE.u || T.pr.u);
+      if (!(bw > 0)) return null;
+    } else if (onBody(x.e)) return null;
+    // the load that set moved: you plus the belt, you less the machine's help
+    var load = function (v) { return bw === null ? v : ASST[x.e] ? bw - v : bw + v; };
+    var ref = null;
+    for (var j = x.s.length - 1; j >= 0 && !ref; j--) {
+      var e = x.s[j];
+      if (j === si || !e.t || !counts(e) || e.ty === 'd') continue;
+      var ew = numIn(e.w), er = numIn(e.r), eq = numIn(e.q);
+      if (ew === null || !(er > 0)) continue;
+      ref = { w: ew, r: er + (eq !== null ? eq : e.am ? 0 : k) };
+    }
+    if (!ref && fin(s.tw) && fin(s.tr) && s.tr > 0) ref = { w: s.tw, r: s.tr + (s.am ? 0 : k) };
+    if (!ref && fin(s.pw) && fin(s.pr) && s.pr > 0) ref = { w: s.pw, r: s.pr + k };
+    if (!ref || !(load(ref.w) > 0) || !(load(at) > 0)) return null;
+    var ratio = load(at) / load(ref.w);
+    if (ratio < 0.6 || ratio > 1.5) return null;
+    var max = e1rm(load(ref.w), ref.r);
+    var left = s.am ? 0 : k;
+    var reps = Math.floor(30 * (max / load(at) - 1) - left + 1e-9);
+    return Math.max(1, Math.min(30, reps));
   }
 
   function numIn(v) {
@@ -5797,16 +5861,54 @@
     LIVE.x.forEach(function (x, i) { var c = $('trfm-' + i); if (c) c.innerHTML = fmHTML(i); });
   }
 
-  /* Typing a weight moves the plates at once, and the greyed weight of the
-     sets after it, without redrawing the box being typed in. */
+  /* Typing a weight moves the plates at once, the greyed weight of the sets
+     after it, and the greyed reps of every set whose weight is now yours,
+     without redrawing the box being typed in. */
   function plRefresh(xi) {
     var x = LIVE && LIVE.x[xi];
-    if (!x || !onBar(lib(x.e))) return;
+    if (!x) return;
+    var bar = onBar(lib(x.e)), lf = lowFirst(xi);
     x.s.forEach(function (s, j) {
-      var c = $('trpl-' + xi + '-' + j), w = $('trw-' + xi + '-' + j);
-      if (c) c.innerHTML = (c.classList.contains('tr-plt') ? plShown(c) : plRow(xi, j)) ? plCell(xi, j) : prevText(s, x.e);
-      if (w && document.activeElement !== w) { var g = ghost(xi, j); w.placeholder = g.w !== null ? fmtN(g.w) : ''; }
+      var c = $('trpl-' + xi + '-' + j), w = $('trw-' + xi + '-' + j), r = $('trr-' + xi + '-' + j), lo = $('trlo-' + xi + '-' + j);
+      var g = ghost(xi, j);
+      if (bar && c) c.innerHTML = (c.classList.contains('tr-plt') ? plShown(c) : plRow(xi, j)) ? plCell(xi, j) : prevText(s, x.e);
+      if (bar && w && document.activeElement !== w) w.placeholder = g.w !== null ? fmtN(g.w) : '';
+      if (r && document.activeElement !== r) r.placeholder = repsPh(x, s, g);
+      if (lo) lo.textContent = j === lf.j ? lf.t : '';
     });
+  }
+  /* The note once, under the first set it applies to: the same sentence
+     under every set of a lift said nothing the first had not. */
+  function lowFirst(xi) {
+    var x = LIVE.x[xi];
+    for (var j = 0; j < x.s.length; j++) {
+      var t = lowNote(x, x.s[j], ghost(xi, j));
+      if (t) return { j: j, t: t };
+    }
+    return { j: -1, t: '' };
+  }
+  // what an empty reps box shows: the plan's, the last set's, or the estimate at your weight
+  function repsPh(x, s, g) {
+    var rr = lib(x.e).rr;
+    return s.ty === 'm' ? '0' : g.r !== null ? String(g.r) + (s.am ? '+' : '') : rr[0] + '\u2013' + rr[1];
+  }
+  /* A weight heavy enough to leave a set under five reps, said under the set
+     while there is still time to change it. Blake (2026-09-28): "build both
+     as long as the app is being truly helpful as I progress toward a goal."
+     So only where the goal is growth, which is where the plan asks for reps
+     to spare; not where the plan itself wrote under five, as a top set may;
+     and not once the set is done. The claim is the one this app's Review
+     makes of the whole week (Schoenfeld et al. 2017): between 5 and 30 reps
+     load barely matters to growth, outside it the evidence is thinner. */
+  function lowNote(x, s, g) {
+    if (!fin(x.rir) || s.t || s.wu || s.am || s.ty === 'd' || s.ty === 'm') return '';
+    var plan = fin(s.tr) ? s.tr : fin(s.pr) ? s.pr : null;
+    if (plan === null || plan < 5) return '';
+    var r = numIn(s.r);
+    if (r === null) r = g.r;
+    if (r === null || r >= 5) return '';
+    return (numIn(s.r) === null ? 'About ' + r + ' rep' + (r === 1 ? '' : 's') + ' at this weight: under 5' : 'Under 5 reps') +
+      ', below the 5\u201330 range the growth research backs. A little lighter is the surer bet.';
   }
 
   function exCard(x, i, label, mv) {
@@ -5817,11 +5919,11 @@
     var note = noteOf(x.e);
     var mate = label ? LIVE.x[partner(i)] : null;
     var cue = backCue(ex);
-    var num = 0, bodyOn = onBody(x.e);
+    var num = 0, bodyOn = onBody(x.e), lf = lowFirst(i);
     var rows = x.s.map(function (s, j) {
       var g = ghost(i, j);
       var ph = bodyOn && !(g.w > 0) ? 'BW' : g.w !== null ? fmtN(g.w) : '';
-      var rph = s.ty === 'm' ? '0' : g.r !== null ? String(g.r) + (s.am ? '+' : '') : ex.rr[0] + '–' + ex.rr[1];
+      var rph = repsPh(x, s, g);
       var prev = prevText(s, x.e), on = pl === 'type' && j === nx;
       // in every set: the plates where the loading changes, and on the next set to do; last time elsewhere
       var stack = pl === 'row' ? plRow(i, j) : on;
@@ -5846,6 +5948,8 @@
       '</div>' +
       (S.need && S.need.k === i + ':' + j ? '<div class="tr-need" id="trneed" role="alert">' +
         (S.need.w ? 'Type the weight you used (0 if none), then tick.' : 'Type how many reps you did, then tick.') + '</div>' : '') +
+      // always drawn, empty unless a weight leaves the set under five reps; typing fills it
+      '<div class="tr-lo" id="trlo-' + i + '-' + j + '" aria-live="polite">' + (j === lf.j ? esc(lf.t) : '') + '</div>' +
       /* The rest that follows this set, between it and the next, the way
          Strong draws it — only where it is not the lift's own rest, which the
          line under the name already says: a minute after a warm-up, none
@@ -9346,7 +9450,8 @@
         var nd = $('trneed');
         if (nd) nd.parentNode.removeChild(nd);
       }
-      if (f === 'w') plRefresh(Number(el.getAttribute('data-x')));
+      // a weight moves the plates and the reps it is worth; reps move the next set's, and the note
+      if (f === 'w' || f === 'r' || f === 'q') plRefresh(Number(el.getAttribute('data-x')));
       // a set already done and corrected moves the badge beside its lift
       if (s.t) fmRefresh();
     });

@@ -2555,6 +2555,73 @@ module.exports = {
     t.ok('and the volume is the working sets only', r.vol === 320 * 8 && /Total lifted2,560 lb/.test(r.recs), JSON.stringify(r));
     await p.close();
 
+    /* ---- the reps a weight of your own is worth --------------------------
+     * Blake (2026-09-28): "When doing a workout and I enter a weight, will
+     * the suggested reps update to the estimated reps for me to do?" They
+     * did not: 185 x 8 planned, 205 typed, the box still said 8. Now an
+     * estimated max (Epley) from the plan's own set, read at its reps to
+     * spare, gives the reps that keep the same reps to spare at your weight,
+     * rounded down. Asserted against the arithmetic, not a copied number. */
+    p = await t.fresh();
+    await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="empty"]');
+    await p.click('[data-t="addex"]');
+    await p.click('.tr-pick[data-e="bb-bench"]');
+    // a plan's lift: 185 x 8 with 2 to spare, three sets
+    await p.evaluate(() => {
+      const _ = window.Train._, x = _.state().LIVE.x[0];
+      x.rir = 2;
+      x.s = [0, 1, 2].map(() => ({ w: '', r: '', t: 0, tw: 185, tr: 8, pw: 185, pr: 8 }));
+      _.draw();
+    });
+    const est = (w, k, rw, rr) => Math.floor(30 * (rw * (1 + (rr + k) / 30) / w - 1) - k + 1e-9);
+    const rph = () => p.evaluate(() => [0, 1, 2].map((j) => document.getElementById('trr-0-' + j).placeholder).join());
+    const lo = () => p.evaluate(() => [0, 1, 2].map((j) => document.getElementById('trlo-0-' + j).textContent).join('|'));
+    r = await rph();
+    t.ok('at the plan’s weight, the reps are the plan’s', r === '8,8,8', r);
+    await p.fill('#trw-0-0', '205');
+    r = { ph: await rph(), lo: await lo(), want: est(205, 2, 185, 8) };
+    t.ok('typing a heavier weight turns the reps into what that weight is worth at the same reps to spare, on this set and the ones after',
+      r.want === 4 && r.ph === '4,4,4', JSON.stringify(r));
+    t.ok('and a weight that leaves a set under five reps says so once, under the first such set, with the lighter way out',
+      /^About 4 reps at this weight: under 5, below the 5–30 range/.test(r.lo.split('|')[0]) && /lighter/.test(r.lo) &&
+        r.lo.split('|').filter(Boolean).length === 1, JSON.stringify(r));
+    await p.fill('#trw-0-0', '165');
+    r = { ph: await rph(), lo: await lo(), want: est(165, 2, 185, 8) };
+    t.ok('a lighter one is worth more reps, and says nothing', r.ph === r.want + ',' + r.want + ',' + r.want && r.want > 8 && r.lo === '||', JSON.stringify(r));
+    await p.fill('#trw-0-0', '2');
+    r = await rph();
+    t.ok('a half-typed weight on its way to 205 leaves the plan’s reps alone', r === '8,8,8', r);
+    await p.fill('#trw-0-0', '185');
+    r = await rph();
+    t.ok('and back at the plan’s weight, the plan’s reps again', r === '8,8,8', r);
+    // ticked with the reps box empty, the set takes the estimate it showed
+    await p.fill('#trw-0-0', '205');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => { const s = window.Train._.state().LIVE.x[0].s[0]; return { w: s.w, r: s.r, t: !!s.t }; });
+    t.ok('an empty reps box ticked at 205 logs the 4 it showed', r.w === 205 && r.r === 4 && r.t, JSON.stringify(r));
+    /* Once a set is done today, the next estimate reads that set: 205 x 4
+       with 2 to spare, not the plan's 185 x 8. Today knows how today is going. */
+    await p.fill('#trw-0-1', '185');
+    r = { ph: await rph(), want: est(185, 2, 205, 4) };
+    t.ok('and the next set’s estimate reads the set just done, not the plan', r.ph.split(',')[1] === String(r.want) && r.want !== 8, JSON.stringify(r));
+    // reps to spare you logged count for more than the plan's guess of them
+    await p.evaluate(() => { const _ = window.Train._, x = _.state().LIVE.x[0]; x.s[0].q = '0'; _.draw(); });
+    r = { ph: await rph(), want: est(185, 2, 205, 4 - 2) };
+    t.ok('a set logged with 0 to spare reads as the harder set it was', r.ph.split(',')[1] === String(r.want), JSON.stringify(r));
+    // where the plan asks for no reps to spare, the reps are the prescription
+    await p.evaluate(() => {
+      const _ = window.Train._, x = _.state().LIVE.x[0];
+      x.rir = null;
+      x.s = [0, 1].map(() => ({ w: '', r: '', t: 0, tw: 185, tr: 5, pw: 185, pr: 5 }));
+      _.draw();
+    });
+    await p.fill('#trw-0-0', '205');
+    r = await p.evaluate(() => ({ ph: document.getElementById('trr-0-0').placeholder, lo: document.getElementById('trlo-0-0').textContent }));
+    t.ok('a strength block’s main lift keeps its prescribed reps at any weight, and no under-five note', r.ph === '5' && r.lo === '', JSON.stringify(r));
+    await p.close();
+
     // a wave's end shows the new training maxes; a main lift swapped keeps its day
     p = await t.fresh();
     r = await p.evaluate(() => {
