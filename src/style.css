@@ -5924,8 +5924,12 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
    six pixels, which a finger cannot tell. */
 .mthin { min-height: 32px; position: relative; }
 .mthin-n::after {
-  content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px;
-  transform: translateY(-50%);
+  /* Downward only. Centred, the band overlapped the row above by six pixels
+     and the later row painted over it, so a tap on the foot of one food
+     opened the next. Hung from the row's top, each row's band is covered by
+     the next row's from its first pixel: every row owns exactly its own
+     strip, and the last one gets the extra reach below. */
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 44px;
 }
 .mslot-thin { padding-top: 3px; padding-bottom: 4px; }
 /* The meal's head and its tray, told apart by a shade. Blake: "does it make
@@ -5987,3 +5991,9 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .mpills { opacity: clamp(0, calc((var(--fold, 0) - 0.6) * 2.5), 1); }
 /* The week strip carries no words, so the line they stood on goes too. */
 .mwk-s { display: none; }
+
+/* clip, not hidden: `overflow: hidden` makes the meal card a scroll
+   container, which clips the 120px scroll-margin its controls carry, so a
+   tick scrolled to landed under the bottom bar. `clip` keeps the rounded
+   corners without being one. */
+.mday-stop { overflow: clip; }

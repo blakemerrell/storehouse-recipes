@@ -13859,6 +13859,38 @@ module.exports = {
       await sp.context().close();
     }
 
+    /* ---- a shut meal's rows each own their own strip, 2026-09-28 ---------
+     * The eaten-food rows are 32px with a 44px reach. Centred, the reach
+     * overlapped the row above and a tap on the foot of one food opened the
+     * next. */
+    {
+      const tp = await t.fresh();
+      await tp.evaluate(() => {
+        const p2 = (n) => (n < 10 ? '0' : '') + n, d = new Date();
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        localStorage.clear();
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 206, f: 61, c: 57 }));
+        localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, lb: 205, ft: 5, inch: 10, act: 1.55, goal: 'cut1' }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [{ id: 'f:egg', x: 3, eaten: 1 }, { id: 'f:banana', x: 1, eaten: 1 }, { id: 'f:oats', x: 1, eaten: 1 }] } }));
+      });
+      await tp.reload();
+      await tp.click('.tab[data-view="macros"]');
+      await tp.waitForTimeout(400);
+      const oa = await tp.$('#macroOpenAll');
+      if (oa && /Close/i.test(await oa.textContent())) { await oa.click(); await tp.waitForTimeout(300); }
+      const hits = await tp.evaluate(() => {
+        const rows = [...document.querySelectorAll('.mthin')];
+        return rows.slice(0, 2).map((r, i) => {
+          const b = r.getBoundingClientRect();
+          const at = (y) => rows.indexOf((document.elementFromPoint(b.left + 60, y) || document.body).closest('.mthin'));
+          return [at(b.top + 2), at(b.bottom - 2)].every((x) => x === i);
+        });
+      });
+      t.ok('a tap anywhere on a shut meal’s food row opens that food, not the next one',
+        hits.length === 2 && hits.every(Boolean), JSON.stringify(hits));
+      await tp.context().close();
+    }
+
     /* ---- why Fill added it, and "Don't suggest", 2026-09-23 -----------
      * Blake, on the endive: the logic is fine, "it's just invisible in the
      * app and a food i might want to stop from suggesting somehow." */
@@ -14779,8 +14811,11 @@ module.exports = {
       const rice = await foodsBand();
       const riceName = ((await rows()).find((r) => r.id === rice[0]) || {}).name;
       t.ok('and a real match outranks a one-letter guess', riceName === 'Rice', JSON.stringify({ rice, riceName }));
-      await search('chk');
-      t.ok('but a three-letter word is not guessed at', (await rows()).every((r) => !/chicken/i.test(r.name)),
+      /* "rce" is one letter off "rice", so only the four-letter rule keeps it
+         from being guessed at; "chk" could never match chicken by any rule,
+         and passed with the rule deleted. */
+      await search('rce');
+      t.ok('but a three-letter word is not guessed at', (await rows()).every((r) => !/^rice$/i.test(r.name)),
         JSON.stringify((await rows()).slice(0, 4)));
       await pg.goBack();
       await pg.waitForTimeout(300);
