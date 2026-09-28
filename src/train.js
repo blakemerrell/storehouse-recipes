@@ -9572,7 +9572,13 @@
     blockSessions: function () { var ms = active(); return ms ? liftCols(ms).length : 0; },
     /* Nourish's "Change days": open the picker on the block card. */
     // with the weeks open, so each session's column shows the day it moves to
-    openDays: function () { S.ldOpen = true; S.gridOpen = true; S.ldDraft = ldDays().slice(); S.browse = false; },
+    /* Onto the Block screen whatever Strengthen was last left on — from
+       History or Lifts the picker was drawn on a screen nobody was shown —
+       and with a workout running, minimised so the picker is what you see. */
+    openDays: function () {
+      S.ldOpen = true; S.gridOpen = true; S.ldDraft = ldDays().slice(); S.browse = false;
+      S.sub = 'block'; if (LIVE) S.minim = 1;
+    },
     /* The name of the block's next session, for "Upper B today". */
     nextName: function () {
       var ms = active(), nx = ms && nextSlot(ms);

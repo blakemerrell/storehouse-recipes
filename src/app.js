@@ -5558,14 +5558,9 @@
      cooking rather than while eating. Deleted rather than left standing: a
      function nothing calls is a claim that something does. */
 
-  /* The day you are on says its verdict in a word, and no other day does.
-     A key under the strip — a swatch each for under, on and over — is a
-     thing you read once and then have to keep re-reading, because three
-     tints of one family do not stay learned. One word under the one square
-     you already had a reason to look at teaches the whole strip instead:
-     you see "close" under a pale green square, and the other six are
-     legible from then on, with no legend anywhere on the card. */
-  var MWK_SAY = { under: 'under', on: 'close', over: 'over' };
+  /* The strip carries no words (Blake, 2026-09-27: "It's visual for a
+     reason"): each day's verdict is its colour, and the button's label says
+     it to a listener. */
 
   /* The week you are in, seven blocks wide: each day's letter, its date, and
      the colour of how it went. The dropdown could only be read one option at
