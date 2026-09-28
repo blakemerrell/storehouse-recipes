@@ -5937,3 +5937,11 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
    glance sorts them: cream acts on the meal, white acts on one food. */
 .mslot-act, .mslot-act.add { background: color-mix(in oklch, var(--paper) 55%, var(--card)); }
 .mslot-act:not(:disabled):active { background: var(--paper); }
+/* B, Blake's pick (2026-09-27): the meal's own row is a cream band like its
+   head, so the card is bracketed — the meal top and bottom, its foods in the
+   white between. The buttons keep the cream and their borders carry them. */
+.mday-stop .mslot-acts {
+  background: color-mix(in oklch, var(--paper) 55%, var(--card));
+  border-top: 1px solid var(--line-soft);
+  margin: 0 -10px -3px; padding-left: 10px; padding-right: 10px;
+}
