@@ -11900,9 +11900,13 @@ module.exports = {
       const f = document.getElementById('macroFold');
       return f.scrollHeight - document.getElementById('macroPills').offsetHeight;
     }) });
-    t.ok('half-way down the card is half shut, with both readouts on screen',
+    /* The halves take turns now rather than crossing (2026-09-27): with the
+       ring the open header is dense, and the pills fading in over it at the
+       same time was a smudge in Blake's screenshot. Half-way, the open half
+       is still going and the pills have not started. */
+    t.ok('half-way down the card is half shut, the open readout fading and the pills not yet in',
       half.p > 0.3 && half.p < 0.7 && !half.shrunk &&
-        half.bars > 0.2 && half.bars < 0.8 && half.pills > 0.2 && half.pills < 0.8 &&
+        half.bars > 0 && half.bars < 0.6 && half.pills === 0 &&
         half.card > shrunkH && half.card < stickH,
       JSON.stringify({ p: +half.p.toFixed(2), card: Math.round(half.card),
         bars: +half.bars.toFixed(2), pills: +half.pills.toFixed(2) }));
@@ -14883,8 +14887,11 @@ module.exports = {
       const s1 = await strip();
       const want = await pg.evaluate(() => { const T = window.__macroLab.targets(); return Math.round(4 * T.p + 4 * T.c + 9 * T.f); });
       const got = await pg.evaluate(() => Math.round(window.__macroLab.read().tot.kcal));
-      t.ok('at half past one, today says what is left, not "under"',
-        s1.word === (want - got) + ' to go' && !/\bunder\b/.test(s1.cls), JSON.stringify({ s1, want, got }));
+      /* Blake, 2026-09-27: "The 27 to go text under the bar at the top. It
+         can go away." The ring says what is left; the strip says nothing
+         until the day is judged, and never "under" before then. */
+      t.ok('at half past one, today carries no word under it, and is not called "under"',
+        s1.word === '' && !/\bunder\b/.test(s1.cls), JSON.stringify({ s1, want, got }));
       await pg.click('#macroMore');
       await pg.waitForTimeout(150);
       await pg.click('[data-mmore="went"]');
@@ -14901,19 +14908,21 @@ module.exports = {
       await pg.click('.tab[data-view="macros"]');
       await pg.waitForTimeout(300);
       const s2 = await strip();
-      t.ok('once dinner time has passed, the verdict comes back', s2.word === 'under' && /\bunder\b/.test(s2.cls), JSON.stringify(s2));
+      /* No words under the strip at all (Blake: "It's visual for a reason"),
+         so the verdict comes back as the day's colour, not a word. */
+      t.ok('once dinner time has passed, the verdict comes back, as colour and no word', s2.word === '' && /\bunder\b/.test(s2.cls), JSON.stringify(s2));
       await at(2026, 8, 30, 13, 30);
       await seed({ days: halfDay, done: { [WED]: Date.now() } });
       const s3 = await strip();
-      t.ok('and a day you have closed is judged whatever the hour', s3.word === 'under', JSON.stringify(s3));
+      t.ok('and a day you have closed is judged whatever the hour', s3.word === '' && /\bunder\b/.test(s3.cls), JSON.stringify(s3));
       await seed({ days: { [WED]: { b: [{ id: 'f:egg', x: 40, eaten: 1 }] } } });
       const s4 = await strip();
-      t.ok('but over is over at any hour, because that is already a fact', s4.word === 'over', JSON.stringify(s4));
+      t.ok('but over is over at any hour, because that is already a fact', s4.word === '' && /\bover\b/.test(s4.cls), JSON.stringify(s4));
       await seed({ days: Object.assign({ [TUE]: { b: [{ id: 'f:egg', x: 3, eaten: 1 }] } }, halfDay) });
       await pg.selectOption('#macroDaySel', TUE);
       await pg.waitForTimeout(300);
       const s5 = await strip();
-      t.ok('and a day behind you keeps its verdict', s5.word === 'under', JSON.stringify(s5));
+      t.ok('and a day behind you keeps its verdict, as colour', s5.word === '' && /\bunder\b/.test(s5.cls), JSON.stringify(s5));
 
       /* The folded card's word on training. */
       const trainSeed = (wo) => ({ act: 'b1', pr: { ld: [0, 2, 4], qz: 1 }, wo: wo || {},
@@ -14940,6 +14949,10 @@ module.exports = {
       const liftBox = await pg.evaluate(() => { const r = document.querySelector('.mwk-lift').getBoundingClientRect(); return [r.width, r.height]; });
       t.ok('the week strip marks Monday, Wednesday and Friday with a dumbbell, and says "lifting day" to a listener',
         marks.join() === 'La,--,La,--,La,--,--' && liftBox[0] >= 10, JSON.stringify({ marks, liftBox }));
+      t.ok('and the dumbbell sits inside the day\u2019s box, at its foot, not beside the letter',
+        await pg.evaluate(() => { const l = document.querySelector('.mwk-lift'); const b = l && l.closest('.mwk-b');
+          if (!b || l.closest('.mwk-w')) return false; const r = l.getBoundingClientRect(), br = b.getBoundingClientRect();
+          return r.bottom <= br.bottom && r.top > br.top + br.height / 2; }));
       await ctx.close();
     }
 

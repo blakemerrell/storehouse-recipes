@@ -5602,11 +5602,17 @@
          eaten to the end. The colour is the same verdict either way — under,
          on, or over its target — so the week reads at a glance. */
       var done = dayObj ? mDayDone(dayObj) : false;
-      var word = dk === k && state ? MWK_SAY[state.slice(1)] : '';
+      /* No words under the week at all. Blake: "Didn't need the words close
+         or over or whatever either under that week chart. It's visual for a
+         reason." The bar's fill and colour are the verdict; the label still
+         says it to a listener. */
+      var word = '';
       /* A day still being eaten says what is left rather than how it went,
          and its colour steps aside with the word. */
-      if (word && state !== ' over' && got < tK && !mDayJudged(dk)) {
-        word = (tK - got) + ' to go';
+      /* No word while it is still being eaten. Blake: "The 27 to go text
+         under the bar at the top. It can go away." The ring above already
+         says what is left; the strip only speaks once the day is judged. */
+      if (dk === k && state && state !== ' over' && got < tK && !mDayJudged(dk)) {
         state = ' open';
       }
       /* How FAR off, inside the square that already says which side of the
@@ -5648,16 +5654,18 @@
            middle dot the size of a full stop, in ochre, which nobody could be
            expected to decode; the button's label says "lifting day" for
            anyone listening, and the title says it to a pointer. */
-        '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) +
-          (train ? '<svg class="mwk-lift" viewBox="0 0 14 8" aria-hidden="true">' +
-            '<title>Lifting day</title>' +
-            '<path d="M1 2.5v3M3.2 1v6M10.8 1v6M13 2.5v3M3.2 4h7.6" fill="none" ' +
-              'stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' : '') +
-        '</span>' +
+        '<span class="mwk-w">' + M_WDAYS[d.getDay()].slice(0, 1) + '</span>' +
         /* The track and the target line are on every day, food or not, so
-           the seven lines read as one line across the week. */
+           the seven lines read as one line across the week. A lifting day's
+           dumbbell sits inside the box at its foot, over the fill (Blake's
+           pick B, 2026-09-27), not beside the letter. */
         '<span class="mwk-c" aria-hidden="true">' +
-          '<span class="mwk-b">' + spark + '</span><span class="mwk-g"></span>' +
+          '<span class="mwk-b">' + spark +
+            (train ? '<svg class="mwk-lift" viewBox="0 0 14 8" aria-hidden="true">' +
+              '<title>Lifting day</title>' +
+              '<path d="M1 2.5v3M3.2 1v6M10.8 1v6M13 2.5v3M3.2 4h7.6" fill="none" ' +
+                'stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' : '') +
+          '</span><span class="mwk-g"></span>' +
         '</span>' +
         '<span class="mwk-n"><b>' + d.getDate() + '</b></span>' +
         '<span class="mwk-s">' + (word || '&nbsp;') + '</span>' +

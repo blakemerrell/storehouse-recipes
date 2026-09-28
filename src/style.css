@@ -5971,3 +5971,19 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .mring-d { font-size: 13px; font-weight: 700; color: var(--muted-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .mring-d.over { color: var(--dial-over); }
 .mdash .mbars3 { flex: 1; min-width: 0; grid-template-columns: 1fr; gap: 7px; margin-top: 0; }
+/* The lifting mark inside the day's box, at its foot over the fill; a thin
+   paper halo keeps it legible on green or blue. */
+.mwk-b .mwk-lift {
+  position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); z-index: 1;
+  width: 16px; height: 9px; filter: drop-shadow(0 0 1px var(--paper)) drop-shadow(0 0 1px var(--paper));
+}
+/* The fold's two halves take turns instead of crossing. With the ring, the
+   open header is dense enough that the folded pills fading in over it at the
+   same time read as a smudge (Blake's screenshot, 2026-09-27). The open half
+   is gone by 60% of the fold; the pills arrive over the last 40%. */
+.mday-fold .mweek, .mday-fold .mbars, .mday-fold .mlimits, .mday-fold .macro-none {
+  opacity: clamp(0, calc(1 - var(--fold, 0) * 1.7), 1);
+}
+.mpills { opacity: clamp(0, calc((var(--fold, 0) - 0.6) * 2.5), 1); }
+/* The week strip carries no words, so the line they stood on goes too. */
+.mwk-s { display: none; }
