@@ -8160,15 +8160,17 @@ module.exports = {
           /* nothing spills out of the pill */
           spills: ink && track
             ? ink.getBoundingClientRect().right > track.getBoundingClientRect().right + 1 : null,
-          h: track ? Math.round(track.getBoundingClientRect().height) : null
+          h: Math.round((track || el).getBoundingClientRect().height)
         };
       });
       return out;
     }, pilPaper);
-    const pilAll = Object.keys(pilRead).map((m) => pilRead[m]);
+    /* Calories are a ring now (Blake, 2026-09-27, mockup A); the pills are
+       the three macros, stacked beside it. */
+    const pilAll = ['p', 'f', 'c'].map((m) => pilRead[m]);
 
-    t.ok('all four bars are pills with the figures inside them, twice over',
-      pilAll.length === 4 && pilAll.every((b) => b.inkWords && b.papWords &&
+    t.ok('the three macro bars are pills with the figures inside them, twice over',
+      pilAll.length === 3 && pilAll.every((b) => b.inkWords && b.papWords &&
         b.inkWords === b.papWords && /\d/.test(b.inkWords)),
       JSON.stringify(pilAll.map((b) => b.inkWords)));
 
@@ -8206,10 +8208,12 @@ module.exports = {
       pilAll.every((b) => b.hatch === false),
       JSON.stringify(pilAll.map((b) => b.state + ':' + b.hatch)));
 
-    t.ok('nothing spills out of a pill, and the headline is the tallest',
+    t.ok('nothing spills out of a pill, and the calorie ring is the tallest thing beside them',
       pilAll.every((b) => b.spills === false) &&
       pilRead.kcal.h > pilRead.p.h && pilRead.p.h === pilRead.c.h,
-      JSON.stringify(pilAll.map((b) => b.h)));
+      JSON.stringify(['p', 'f', 'c', 'kcal'].map((m) => m + ':' + pilRead[m].h)));
+    t.ok('and the ring keeps the pill\u2019s two bands, eaten and planned',
+      pilRead.kcal.bands === 2 && pilRead.kcal.hatch === false, JSON.stringify(pilRead.kcal));
     await pil.context().close();
 
     /* ---- how far off, not merely which side ----------------------------

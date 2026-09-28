@@ -8397,11 +8397,43 @@
       /* One shape for all four now: the pill IS the row. The headline is the
          same pill at display size, which is what keeps calories the headline
          without making them a different kind of object. */
+      /* Calories as a ring, the macros stacked beside it. Blake, choosing A
+         from the mockup: "I like the macro pills the way they are right now.
+         Just stack them on the side of the ring." The ring fills to the
+         target in the same two bands the pill had — eaten solid, planned
+         pale — and what goes past the target runs on as a thin second lap
+         through the middle of the band, ending in a dot, so a day over is
+         still read as a full ring plus how far past it went. */
+      if (m === 'kcal') {
+        var R = 50, CIRC = 2 * Math.PI * R;
+        var over = Math.max(0, Math.min(1, plan / target - 1));
+        var arcOf = function (cls, from, len, w) {
+          /* Always drawn, empty or not: the two bands are the ring's parts,
+             and an empty day is a ring with nothing on it yet. */
+          return '<circle class="' + cls + '" cx="58" cy="58" r="' + R + '" fill="none" stroke-width="' + w +
+            '" stroke-dasharray="' + (len * CIRC / 100).toFixed(1) + ' ' + CIRC.toFixed(1) +
+            '" stroke-dashoffset="' + (-from * CIRC / 100).toFixed(1) + '" transform="rotate(-90 58 58)"/>';
+        };
+        var endA = over * 2 * Math.PI;
+        var ring = '<svg class="mring" viewBox="0 0 116 116" aria-hidden="true">' +
+          '<circle class="mring-track" cx="58" cy="58" r="' + R + '" fill="none" stroke-width="11"/>' +
+          arcOf('mb-ate', 0, wAte, 11) + arcOf('mb-plan', wAte, wPlan, 11) +
+          (over > 0 ? arcOf('mring-over', 0, over * 100, 3.5) +
+            '<circle class="mring-dot" cx="' + (58 + R * Math.sin(endA)).toFixed(1) + '" cy="' +
+            (58 - R * Math.cos(endA)).toFixed(1) + '" r="4"/>' : '') +
+          '</svg>';
+        var gap = full - tK;
+        var said = gap > 0 ? '<span class="mring-d over">' + gap.toLocaleString() + ' over</span>'
+          : '<span class="mring-d">' + (-gap).toLocaleString() + ' left</span>';
+        barHTML[m] = open + ring + '<span class="mring-c">' + num + said + '</span>' +
+          '<span class="vis-hidden">' + row[2] + '</span>' + delta + '</div>';
+        return;
+      }
       barHTML[m] = open + track +
         '<span class="vis-hidden">' + row[2] + '</span>' + delta + '</div>';
     });
-    var bars = barHTML.kcal + '<div class="mbars3">' +
-      barHTML.p + barHTML.f + barHTML.c + '</div>';
+    var bars = '<div class="mdash">' + barHTML.kcal + '<div class="mbars3">' +
+      barHTML.p + barHTML.f + barHTML.c + '</div></div>';
 
     /* A floor and a ceiling, not two more budgets — which is why they are a
        line rather than two more bars. Fibre is what makes a cut survivable
