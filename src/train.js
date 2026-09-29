@@ -3514,7 +3514,11 @@
     var w = nw && nw.w, lb = nw && nw.lb;
     var loss = w && w.now > 0 && w.was > 0 && w.n >= 3 && w.m >= 3 ? (w.was - w.now) / w.was : null;
     var plan = nw && fin(nw.plan) ? nw.plan : null;
-    var cut = !!c.ph && c.ph.r >= 0.0025;
+    /* How far under maintenance, from the same seven days the rows above
+       show, so the reads and the numbers agree; Nourish's two-week reading
+       when too few of the seven are logged to say. */
+    var under = nw && nw.days >= 4 && fin(nw.kcal) && nw.maint > 0 ? Math.round((nw.maint - nw.kcal) / 10) * 10 : c.ph ? c.ph.k : null;
+    var cut = under !== null && lb > 0 ? under * 7 / 3500 / lb >= 0.0025 : !!c.ph && c.ph.r >= 0.0025;
     var p = c.prog, slip = p.lifts.filter(function (l) { return l.ch < -0.03; }).map(function (l) { return lib(l.e).n; });
     var falling = p.n >= 2 && (p.fall.length > 0 || (p.down > p.up && p.down >= 2));
     if (loss !== null && loss >= 0.01 && (plan === null || loss > plan + 0.0025)) {
@@ -3531,7 +3535,7 @@
       // what the block is already doing about it, when there is a block that climbs
       var blk = phMatters(active());
       look.push(cut
-        ? 'Strength slipping on ' + who + ' while you eat about ' + fmtBig(c.ph.k) + ' kcal a day under maintenance. A slower cut, toward half a percent a week, protects it' +
+        ? 'Strength slipping on ' + who + ' while you eat about ' + fmtBig(under) + ' kcal a day under maintenance. A slower cut, toward half a percent a week, protects it' +
           (blk ? '; the block already climbs less.' : '.')
         : 'Strength slipping on ' + who + ' at maintenance or above: usually sleep, stress or more sets than you recover from.' +
           (blk ? ' The block holds sets where you were weaker.' : ''));
@@ -3545,7 +3549,7 @@
     look.slice(0, 2).forEach(function (b) { out.push({ st: 'look', b: b }); });
     if (!out.length) {
       out.push({ st: 'good', b: cut && p.n >= 2 && p.held === p.n
-        ? 'Strength held on every lift measured while you eat about ' + fmtBig(c.ph.k) + ' kcal a day under maintenance: the cut is costing fat, not muscle.'
+        ? 'Strength held on every lift measured while you eat about ' + fmtBig(under) + ' kcal a day under maintenance: the cut is costing fat, not muscle.'
         : p.up >= 2 && p.up > p.down ? 'Strength up on ' + p.up + ' of ' + p.n + ' lifts over four weeks. Nothing here needs changing.'
         : 'Nothing here needs changing.' });
     }

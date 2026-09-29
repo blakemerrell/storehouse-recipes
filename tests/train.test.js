@@ -471,7 +471,7 @@ module.exports = {
        Nourish's half is stood in for first, so each read is exact. */
     const c = await t.fresh();
     await seed(c, { pr: { u: 'lb', qz: 1, lvl: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
-    const NW = { from: '', to: '', lb: 195, w: { now: 196, n: 7, was: 197, m: 7 }, days: 7, kcal: 1900, target: 2000,
+    const NW = { from: '', to: '', lb: 195, w: { now: 196, n: 7, was: 197, m: 7 }, days: 7, kcal: 2450, target: 2400,
       p: 185, tp: 190, hit: 6, pDays: 7, maint: 2500, measured: true, plan: 0.0075 };
     const CUT = { kcal: 600, rate: 0.008, src: 'ate', days: 12 };
     const reads = (nw, ph, lifts) => c.evaluate(([nw, ph, lifts]) => {
@@ -497,7 +497,7 @@ module.exports = {
     t.ok('two weigh-ins in a week are not enough to call a rate', r.length === 1 && r[0].st === 'good', JSON.stringify(r));
     r = await reads(W({ hit: 3, pDays: 6 }), null);
     t.ok('protein under 90% of target on 3 of 6 days', r[0].b === 'Protein under 90% of target on 3 of 6 days.', JSON.stringify(r));
-    r = await reads(W({ hit: 3, pDays: 6 }), CUT);
+    r = await reads(W({ hit: 3, pDays: 6, kcal: 1900 }), CUT);
     t.ok('and on a cut it says why it matters', /on a cut it is what keeps the muscle the lifting asks for\.$/.test(r[0].b), JSON.stringify(r));
     r = await reads(W({ days: 3 }), null);
     t.ok('three days logged: the calories are only part of the picture', /^Only 3 of 7 days logged/.test(r[0].b), JSON.stringify(r));
@@ -506,17 +506,20 @@ module.exports = {
     r = await reads(W({ w: { now: 195, n: 7, was: 200, m: 7 }, hit: 2, pDays: 6 }), CUT, []);
     t.ok('two reads at most, the most pressing first', r.length === 2 && /^Down/.test(r[0].b) && /^Protein/.test(r[1].b), JSON.stringify(r));
     const falling = [[20, 'bb-bench', 225, 8], [13, 'bb-bench', 220, 7], [6, 'bb-bench', 215, 7], [3, 'bb-row', 185, 8], [10, 'bb-row', 185, 8]];
-    r = await reads(W({}), CUT, falling);
-    t.ok('strength slipping on a cut, with no block running: a slower cut protects it',
+    r = await reads(W({ kcal: 1900 }), null, falling);
+    t.ok('strength slipping while eating 600 under the week’s maintenance, with no block running: a slower cut protects it',
       r[0].b === 'Strength slipping on Barbell Bench Press while you eat about 600 kcal a day under maintenance. A slower cut, toward half a percent a week, protects it.', JSON.stringify(r));
     r = await reads(W({}), null, falling);
     t.ok('and at maintenance, the usual suspects', /^Strength slipping on Barbell Bench Press at maintenance or above: usually sleep, stress or more sets than you recover from\.$/.test(r[0].b), JSON.stringify(r));
     const held = [[20, 'bb-bench', 215, 8], [6, 'bb-bench', 215, 8], [13, 'bb-row', 185, 8], [3, 'bb-row', 190, 8]];
-    r = await reads(W({}), CUT, held);
+    r = await reads(W({ kcal: 1900 }), null, held);
     t.ok('strength held on every lift on a cut is said as the win it is',
       r.length === 1 && r[0].st === 'good' && /^Strength held on every lift measured while you eat about 600 kcal a day under maintenance: the cut is costing fat, not muscle\.$/.test(r[0].b), JSON.stringify(r));
-    r = await reads(W({}), null, held);
-    t.ok('and a week with nothing to do says so', r.length === 1 && r[0].b === 'Nothing here needs changing.', JSON.stringify(r));
+    r = await reads(W({ days: 3, kcal: 1500 }), CUT, falling);
+    t.ok('with three days logged, how far under is Nourish’s two-week reading instead',
+      /^Strength slipping on Barbell Bench Press while you eat about 600 kcal/.test(r[0].b) && /^Only 3 of 7 days logged/.test(r[1].b), JSON.stringify(r));
+    r = await reads(W({}), CUT, held);
+    t.ok('and a week with nothing to do says so, whatever the two-week reading, when the week itself was at maintenance', r.length === 1 && r[0].b === 'Nothing here needs changing.', JSON.stringify(r));
 
     // opened from the Review, and from Nourish's morning card; the one leads to the other
     await c.click('.tab[data-view="train"]');
