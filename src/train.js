@@ -3504,83 +3504,89 @@
     return c;
   }
   function pctSay(v) { return fmtN(Math.round(Math.abs(v) * 1000) / 10) + '%'; }
-  /* The reads, most pressing first, two at most. Each is a rule a coach
-     would state: past about 1% a week more of what comes off is muscle;
-     a lean gain is about a quarter of a percent; protein is what the
-     lifting protects muscle with on a cut. A week with nothing wrong says
-     so, or says what went right. */
+  /* The reads, most pressing first, two at most: a few words saying what,
+     and a few saying what to do. Each is a rule a coach would state: past
+     about 1% a week more of what comes off is muscle; a lean gain is about
+     a quarter of a percent; protein is what the lifting protects muscle
+     with on a cut. A week with nothing wrong says what went right. */
   function chkReads(c) {
     var nw = c.nw, look = [], out = [];
     var w = nw && nw.w, lb = nw && nw.lb;
     var loss = w && w.now > 0 && w.was > 0 && w.n >= 3 && w.m >= 3 ? (w.was - w.now) / w.was : null;
     var plan = nw && fin(nw.plan) ? nw.plan : null;
-    /* How far under maintenance, from the same seven days the rows above
-       show, so the reads and the numbers agree; Nourish's two-week reading
-       when too few of the seven are logged to say. */
+    /* How far under maintenance, from the same seven days the rows show,
+       so the reads and the numbers agree; Nourish's two-week reading when
+       too few of the seven are logged to say. */
     var under = nw && nw.days >= 4 && fin(nw.kcal) && nw.maint > 0 ? Math.round((nw.maint - nw.kcal) / 10) * 10 : c.ph ? c.ph.k : null;
     var cut = under !== null && lb > 0 ? under * 7 / 3500 / lb >= 0.0025 : !!c.ph && c.ph.r >= 0.0025;
     var p = c.prog, slip = p.lifts.filter(function (l) { return l.ch < -0.03; }).map(function (l) { return lib(l.e).n; });
     var falling = p.n >= 2 && (p.fall.length > 0 || (p.down > p.up && p.down >= 2));
     if (loss !== null && loss >= 0.01 && (plan === null || loss > plan + 0.0025)) {
       var more = lb ? Math.round((loss - Math.max(plan || 0, 0.0075)) * lb * 3500 / 7 / 50) * 50 : 0;
-      look.push('Down ' + pctSay(loss) + ' of your weight on the week before' + (plan !== null && plan > 0 ? ', faster than the ' + pctSay(plan) + ' planned' : '') +
-        '. Past about 1% a week, more of what comes off is muscle' +
-        (more >= 50 ? '; if next week says the same, about ' + fmtBig(more) + ' kcal a day more would slow it.' : '.'));
+      look.push({ h: 'Losing fast: ▼' + pctSay(loss) + ' this week',
+        d: (more >= 50 ? 'About ' + fmtBig(more) + ' kcal a day more if it holds' : 'Past 1% a week, some is muscle') });
     }
     if (loss !== null && loss <= -0.005 && (plan === null || plan > -0.005)) {
-      look.push('Up ' + pctSay(loss) + ' on the week before, faster than a lean gain of about a quarter of a percent a week: if it holds, more of it is fat.');
+      look.push({ h: 'Gaining fast: ▲' + pctSay(loss) + ' this week', d: 'Past a lean gain; likely fat if it holds' });
     }
     if (falling) {
-      var who = slip.length ? names(slip.slice(0, 3).map(function (n) { return { n: n }; })) : 'most of your lifts';
-      // what the block is already doing about it, when there is a block that climbs
-      var blk = phMatters(active());
-      look.push(cut
-        ? 'Strength slipping on ' + who + ' while you eat about ' + fmtBig(under) + ' kcal a day under maintenance. A slower cut, toward half a percent a week, protects it' +
-          (blk ? '; the block already climbs less.' : '.')
-        : 'Strength slipping on ' + who + ' at maintenance or above: usually sleep, stress or more sets than you recover from.' +
-          (blk ? ' The block holds sets where you were weaker.' : ''));
+      var who = slip.length ? slip.slice(0, 2).join(', ') : 'Lifts';
+      look.push(cut ? { h: who + ' slipping on a cut', d: 'Slow the cut toward 0.5% a week' }
+        : { h: who + ' slipping', d: 'Check sleep, stress and sets' });
     }
     if (nw && nw.pDays >= 4 && nw.pDays - nw.hit >= 2) {
-      look.push('Protein under 90% of target on ' + (nw.pDays - nw.hit) + ' of ' + nw.pDays + ' days' +
-        (cut ? ': on a cut it is what keeps the muscle the lifting asks for.' : '.'));
+      look.push({ h: 'Protein short ' + (nw.pDays - nw.hit) + ' of ' + nw.pDays + ' days', d: cut ? 'It keeps the muscle on a cut' : 'Aim for 90% or more' });
     }
-    if (!c.n) look.push('No workouts logged these seven days.');
-    if (nw && nw.days > 0 && nw.days < 4) look.push('Only ' + nw.days + ' of 7 days logged, so the calories above are part of the picture.');
-    look.slice(0, 2).forEach(function (b) { out.push({ st: 'look', b: b }); });
+    if (!c.n) look.push({ h: 'No workouts this week', d: '' });
+    if (nw && nw.days > 0 && nw.days < 4) look.push({ h: 'Only ' + nw.days + ' of 7 days logged', d: 'Calories are a partial picture' });
+    look.slice(0, 2).forEach(function (r) { out.push({ st: 'look', h: r.h, d: r.d }); });
     if (!out.length) {
-      out.push({ st: 'good', b: cut && p.n >= 2 && p.held === p.n
-        ? 'Strength held on every lift measured while you eat about ' + fmtBig(under) + ' kcal a day under maintenance: the cut is costing fat, not muscle.'
-        : p.up >= 2 && p.up > p.down ? 'Strength up on ' + p.up + ' of ' + p.n + ' lifts over four weeks. Nothing here needs changing.'
-        : 'Nothing here needs changing.' });
+      out.push(cut && p.n >= 2 && p.held === p.n ? { st: 'good', h: 'Strength held on a cut', d: 'The cut is costing fat, not muscle' }
+        : p.up >= 2 && p.up > p.down ? { st: 'good', h: 'Strength up on ' + p.up + ' of ' + p.n + ' lifts', d: 'Keep going' }
+        : { st: 'good', h: 'On track', d: 'Nothing to change' });
     }
     return out;
   }
-  function checkinHTML() {
-    var c = checkin(), nw = c.nw, w = nw && nw.w;
+  /* The week, at the top of the Review: numbers and pictures, few words.
+     Nourish's This week lands here too. */
+  function weekCard() {
+    var c = checkin(), nw = c.nw, w = nw && nw.w, p = c.prog;
     var md = function (k) { var d = new Date(k + 'T12:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
-    var row = function (t, b) { return '<dt>' + t + '</dt><dd>' + b + '</dd>'; };
-    var weight = !w || !(w.now > 0) ? 'No weigh-ins these seven days'
-      : fmtN(w.now) + ' lb average' + (w.n < 3 ? ' (' + w.n + ' weigh-in' + (w.n === 1 ? '' : 's') + ')' : '') +
-        (w.was > 0 ? ' · ' + (w.now <= w.was ? 'down ' : 'up ') + fmtN(Math.abs(w.now - w.was)) + ' lb (' + pctSay((w.now - w.was) / w.was) + ') on the week before' : '') +
-        (fin(nw.plan) && Math.abs(nw.plan) >= 0.001 ? ' · plan ' + (nw.plan > 0 ? 'down ' : 'up ') + pctSay(nw.plan) + ' a week' : '');
-    var cal = !nw || !nw.days ? 'No days logged these seven days'
-      : fmtBig(nw.kcal) + ' a day on ' + nw.days + ' of 7 days logged' +
-        (nw.target ? ' · target ' + fmtBig(nw.target) : '') +
-        (nw.maint ? ' · maintenance about ' + fmtBig(Math.round(nw.maint / 10) * 10) + (nw.measured ? ', measured from your logs' : ', estimated') : '');
-    var prot = nw && nw.pDays ? 'At target ' + nw.hit + ' of ' + nw.pDays + ' days · ' + nw.p + ' g a day of ' + nw.tp : '';
-    var p = c.prog;
-    return '<div class="sheet-name tr-sn2">The week</div>' +
-      '<div class="tr-sub">' + esc(md(c.from)) + '–' + esc(md(c.to)) + ', from Nourish and Strengthen together</div>' +
-      '<dl class="tr-dl tr-chk">' +
-        row('Weight', esc(weight)) + row('Calories', esc(cal)) + (prot ? row('Protein', esc(prot)) : '') +
-        row('Training', c.n + ' session' + (c.n === 1 ? '' : 's') + ' · ' + c.sets + ' hard set' + (c.sets === 1 ? '' : 's')) +
-        row('Strength', p.n ? esc('Over four weeks: ' + p.up + ' up, ' + p.flat + ' level, ' + p.down + ' down, of ' + p.n + ' lifts done twice or more')
-          : 'Not enough repeat sessions yet to say') +
-      '</dl>' +
-      '<ul class="tr-chk-r">' + c.reads.map(function (r) {
-        return '<li class="tr-chk-' + r.st + '">' + esc(r.b) + '</li>';
-      }).join('') + '</ul>' +
-      '<div class="tr-acts"><button class="ghost" data-t="chkrev">Full training review</button></div>';
+    var row = function (k, t, v, x) {
+      return '<div class="tr-wkr tr-wkr-' + k + '"><span class="tr-wkl">' + t + '</span><span class="tr-wkv">' + v + '</span>' +
+        (x ? '<span class="tr-wkx">' + x + '</span>' : '') + '</div>';
+    };
+    var html = '<div class="tr-card tr-week" aria-label="This week">' +
+      '<div class="tr-eyebrow">This week · ' + esc(md(c.from)) + '–' + esc(md(c.to)) + '</div>';
+    // weight: the week's average, the change, and whether it is the pace planned
+    if (w && w.now > 0) {
+      var d = w.was > 0 ? w.now - w.was : null, pl = nw && fin(nw.plan) ? nw.plan : null;
+      var ok = d === null || pl === null ? '' : Math.abs(-d / w.was - pl) <= 0.0025 ? ' tr-ok' : ' tr-off';
+      html += row('w', 'Weight', '<b>' + fmtN(w.now) + '</b> lb',
+        (d === null ? '' : '<span class="tr-wka' + ok + '">' + (d <= 0 ? '▼' : '▲') + fmtN(Math.abs(d)) + '</span>') +
+        (pl !== null && Math.abs(pl) >= 0.001 ? '<span class="tr-wkm">plan ' + (pl > 0 ? '▼' : '▲') + pctSay(pl) + '/wk</span>' : ''));
+    } else html += row('w', 'Weight', '<span class="tr-wkm">no weigh-ins</span>', '');
+    // food: a bar of eaten against the day's target, and maintenance beside it
+    if (nw && nw.days) {
+      var tg = nw.target || 0, frac = tg ? Math.min(1, nw.kcal / tg) : 0, near = tg && Math.abs(nw.kcal / tg - 1) <= 0.1;
+      html += row('f', 'Food', '<b>' + fmtBig(nw.kcal) + '</b> kcal',
+        (tg ? '<span class="tr-wkbar' + (near ? ' tr-ok' : ' tr-off') + '" role="img" aria-label="' + fmtBig(nw.kcal) + ' of ' + fmtBig(tg) + ' target">' +
+          '<i style="width:' + Math.round(frac * 100) + '%"></i></span><span class="tr-wkm">of ' + fmtBig(tg) + '</span>' : ''));
+    } else html += row('f', 'Food', '<span class="tr-wkm">nothing logged</span>', '');
+    // protein: a dot a day, filled where it reached 90% of target
+    if (nw && nw.pDays) {
+      var dots = (Array.isArray(nw.pd) ? nw.pd : []).map(function (h) { return '<i class="' + (h ? 'on' : '') + '"></i>'; }).join('');
+      html += row('p', 'Protein', '<b>' + nw.hit + '</b> of ' + nw.pDays + ' days',
+        (dots ? '<span class="tr-wkdots" role="img" aria-label="' + nw.hit + ' of ' + nw.pDays + ' days at target">' + dots + '</span>' : '') +
+        '<span class="tr-wkm">' + nw.p + ' g avg</span>');
+    }
+    html += row('t', 'Training', '<b>' + c.n + '</b> session' + (c.n === 1 ? '' : 's'), '<span class="tr-wkm">' + c.sets + ' hard sets</span>');
+    html += row('s', 'Lifts', p.n ? '<span class="tr-up">▲' + p.up + '</span> <span class="tr-lv">●' + p.flat + '</span> <span class="tr-dn">▼' + p.down + '</span>'
+      : '<span class="tr-wkm">not enough yet</span>', p.n ? '<span class="tr-wkm">4 weeks</span>' : '');
+    html += '<ul class="tr-chk-r">' + c.reads.map(function (r) {
+      return '<li class="tr-chk-' + r.st + '"><b>' + esc(r.h) + '</b>' + (r.d ? '<span>' + esc(r.d) + '</span>' : '') + '</li>';
+    }).join('') + '</ul></div>';
+    return html;
   }
 
   function median(a) {
@@ -6550,14 +6556,12 @@
     var pct = function (v) { return (100 * v / max).toFixed(2) + '%'; };
     var done = S.flash2 ? '<div class="tr-note tr-flash2" role="status">' + esc(S.flash2) + '</div>' : '';
     S.flash2 = '';
-    var html = done + '<div class="tr-card">' +
+    var html = done + weekCard() + '<div class="tr-card">' +
       '<div class="tr-eyebrow">' + esc(r.label) + '</div>' +
       '<div class="tr-title">' + r.n + ' workout' + (r.n === 1 ? '' : 's') + ', held against the research</div>' +
       '<div class="tr-note">Every line below is a rule with a source. It grades what can be measured from your log and says so when something cannot be.</div>' +
       // a week with nothing in it has nothing to grade, and one way to fix that
-      '<div class="tr-acts">' + (r.n ? '' : goBtn()) +
-        // the same check-in Nourish's morning card opens: the scale and the food beside this
-        '<button class="ghost" data-t="chk">This week, with Nourish</button></div>';
+      (r.n ? '' : '<div class="tr-acts">' + goBtn() + '</div>');
     if (r.rows.length) {
       html += '<div class="tr-vbars" role="table" aria-label="Hard sets per muscle this week">' +
         '<div class="tr-vkey" aria-hidden="true"><span class="tr-vk-band"></span> ' +
@@ -6696,7 +6700,6 @@
     else if (sh.k === 'strong') body = strongHTML();
     else if (sh.k === 'immap') body = imMapHTML();
     else if (sh.k === 'impaste') body = imPasteHTML();
-    else if (sh.k === 'chk') body = checkinHTML();
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(sh.eyebrow || '') + '</div>' +
@@ -7955,9 +7958,10 @@
     return out;
   }
 
-  function openCheckin() { openSheet({ k: 'chk', eyebrow: 'Weekly check-in', title: 'The week' }); }
-  /* The Review, from wherever the check-in was opened: Nourish's tab is
-     left for Strengthen's as its own tab button would leave it. */
+  // Nourish's This week: the Review, whose top is the week
+  function openCheckin() { if (S.sheet) closeSheet(); showReview(); }
+  /* The Review, from Nourish's tab as Strengthen's own tab button would
+     leave it, at its top. */
   function showReview() {
     var v = $('view-train'), tab = document.querySelector('.tab[data-view="train"]');
     setSub('review');
@@ -9083,9 +9087,6 @@
     if (t === 'ready') { S.rdo = ''; S.arm = ''; openSheet({ k: 'ready', eyebrow: 'Ready workouts', title: 'Pick a ready workout' }); return; }
     if (t === 'rdopen') { S.rdo = S.rdo === v ? '' : v; S.arm = ''; drawSheet(); if (S.rdo) sheetShow(document.querySelector('#trainRoot .tr-rdr.on')); return; }
     if (t === 'rdxp') { S.rdx = Number(v) ? 1 : 0; drawSheet(); return; }
-    // the week, both tabs: opened here from the Review, and from Nourish through openCheckin
-    if (t === 'chk') { openCheckin(); return; }
-    if (t === 'chkrev') { closeSheet(); showReview(); return; }
     if (t === 'rdgo') { startReady(v, !!S.rdx && !T.rt[v], Number(el.getAttribute('data-e'))); return; }
     if (t === 'rtdel') {
       if (S.arm !== 'rt:' + v) { S.arm = 'rt:' + v; drawSheet(); return; }
