@@ -5526,6 +5526,11 @@ body:has(#view-train.tr-focus:not(.hide)) #shareHint { display: none; }
 .tr-wk-e { font-size: 13px; font-weight: 600; color: var(--ochre-text); white-space: nowrap; }
 .tr-wk .tr-ldrow { margin: 0; padding: 0 18px 14px; }
 .tr-wk .tr-ldpanel { margin: 0 18px; padding-bottom: 14px; }
+/* Following Nourish's calories: what the week read, what it does, and a way out.
+   Inside the folded card it sits under the week's own line; open, under the sub. */
+.tr-ph { font-size: 13px; line-height: 1.45; color: var(--muted); max-width: 62ch; margin: 4px 0 10px; }
+.tr-wk .tr-ph { margin: -4px 18px 14px; }
+.tr-ph .tr-lnk { font-size: 13px; padding: 6px 2px; }
 .tr-blk-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .tr-blk-h .tr-lnk { min-height: 44px; font-size: 13px; }
 .tr-more { margin: 18px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }

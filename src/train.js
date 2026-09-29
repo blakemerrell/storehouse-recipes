@@ -710,6 +710,8 @@
       hw: p.hw === 1 ? 1 : 0,
       // never ask your weight on a pull-up day
       nobw: p.nobw === 1 ? 1 : 0,
+      // a block's weekly climb follows how far under maintenance Nourish says you eat
+      nph: p.nph === 0 ? 0 : 1,
       /* Everything below is you, answered once in the quiz and read by the
          picks, the builder and the review. */
       // what you train for; the first version knew two, and 'grow' was the first
@@ -1622,7 +1624,8 @@
     if (ms.goal === 'str' || ms.goal === 'cond') return 2;
     if (n <= 1) return 2;
     var r = Math.round(3 * (1 - w / (n - 1)));
-    return fin(ms.cap) ? Math.max(1, r) : r;
+    var c = capAt(ms, w);
+    return c && c <= 0.7 ? Math.max(1, r) : r;
   }
   function exRir(ex, rir, keep) {
     if (rir === null) return null;
@@ -1828,6 +1831,89 @@
     return t;
   }
 
+  /* ---------------------------------------------------------- eating less
+   *
+   * Recovery is slower on less food, so how far a week's sets may climb
+   * follows how far under maintenance Nourish says you are eating. RP puts
+   * a slow cut at about half a percent of bodyweight a week and a hard one
+   * at a percent; in the research, lean mass kept up on a small deficit and
+   * stopped growing at about 500 kcal a day (Murphy & Koehler 2022).
+   *
+   *     under a quarter of a percent a week   the usual ceiling, RP's MRV
+   *     a quarter to a half                   85 per cent of it
+   *     a half or more                        70 per cent, one set at a
+   *                                           time, and a rep short of
+   *                                           failure: Lean & strong's rules
+   *
+   * Each week keeps the reading it began with, taken as its first session
+   * starts, so the plan does not move under a week already under way and
+   * every device reads the week the same. A week not yet begun reads
+   * Nourish as it is now. */
+  var PH_CUTS = [[0.005, 0.7], [0.0025, 0.85]];
+  function phaseCap(rate) {
+    for (var i = 0; i < PH_CUTS.length; i++) if (rate >= PH_CUTS[i][0]) return PH_CUTS[i][1];
+    return 1;
+  }
+  // read once a moment, however many weeks the plan walks through
+  var phLive = { t: 0, v: null };
+  function phaseNow() {
+    if (Date.now() - phLive.t < 1500) return phLive.v;
+    var h = hive(), v = null;
+    try { v = h && h.phase ? h.phase() : null; } catch (e) { v = null; }
+    v = v && fin(v.kcal) && fin(v.rate) ? { k: Math.round(v.kcal), r: v.rate, s: v.src === 'ate' ? 'ate' : 'plan', c: phaseCap(v.rate) } : null;
+    phLive = { t: Date.now(), v: v };
+    return v;
+  }
+  function phOk(p) { return plain(p) && fin(p.k) && fin(p.r) && fin(p.c) && p.c > 0 && p.c <= 1; }
+  // a steady block or a strength block holds its sets, so there is no climb to follow
+  function phMatters(ms) { return !!ms && !steady(ms) && ms.goal !== 'str'; }
+  function phBegun(ms, w) { return ms.days.some(function (d, i) { return !!woFor(ms, w, i); }); }
+  /* The reading week W goes by: the one it kept, or Nourish now for a week
+     not yet begun. A week begun with none kept is from before this, and is
+     left as it was. Off in Settings, or undone for the week, is none. */
+  function phaseAt(ms, w) {
+    if (!T.pr.nph || !phMatters(ms)) return null;
+    var kept = plain(ms.ph) ? ms.ph[w] : null;
+    if (kept) return phOk(kept) && !kept.off ? kept : null;
+    return phBegun(ms, w) ? null : phaseNow();
+  }
+  // the ceiling for week W as a share of MRV, 0 for none: the program's own, lowered by what you eat
+  function capOwn(ms) { return fin(ms.cap) && ms.cap > 0 && ms.cap < 1 ? ms.cap : 1; }
+  function capAt(ms, w) {
+    var ph = phaseAt(ms, w), c = Math.min(capOwn(ms), ph ? ph.c : 1);
+    return c < 1 ? c : 0;
+  }
+  // the week's reading, kept as its first session starts
+  function phaseKeep(ms, w) {
+    if (!T.pr.nph || !phMatters(ms) || w >= accOf(ms)) return;
+    if ((plain(ms.ph) && ms.ph[w]) || phBegun(ms, w)) return;
+    var p = phaseNow();
+    if (!p) return;
+    ms.ph = plain(ms.ph) ? ms.ph : {};
+    ms.ph[w] = { k: p.k, r: p.r, s: p.s, c: p.c };
+    stamp('ms', ms.id);
+  }
+  function phaseSay(p) {
+    return (p.s === 'ate' ? 'You\u2019ve eaten about ' : 'Nourish has you eating about ') + fmtN(Math.abs(p.k)) + ' kcal a day under maintenance' +
+      (p.s === 'ate' ? ' these two weeks' : '') + ' (' + fmtN(Math.round(p.r * 1000) / 10) + '% of your weight a week), so ' +
+      (p.c <= 0.7 ? 'sets climb one at a time, to 70% of the usual ceiling, and stop a rep short of failure.'
+        : 'sets climb to 85% of the usual ceiling.');
+  }
+  /* Said where the week is, only when it changes something, with a way
+     out for the week and back in. */
+  function phaseLine(ms, nx) {
+    if (!nx || !T.pr.nph || !phMatters(ms) || nx.w >= accOf(ms)) return '';
+    var kept = plain(ms.ph) ? ms.ph[nx.w] : null;
+    if (kept && kept.off && phOk(kept) && kept.c < capOwn(ms)) {
+      return '<div class="tr-ph">Not following Nourish\u2019s calories this week. ' +
+        '<button class="tr-lnk" data-t="phon" data-w="' + nx.w + '">Follow them again</button></div>';
+    }
+    var p = phaseAt(ms, nx.w);
+    if (!p || p.c >= capOwn(ms)) return '';
+    return '<div class="tr-ph">' + esc(phaseSay(p)) +
+      ' <button class="tr-lnk" data-t="phoff" data-w="' + nx.w + '">Undo for this week</button></div>';
+  }
+
   /* Every slot's sets for week W, walked forward from week one so that each
      week is last week plus what last week's feedback said. Nothing about
      the progression is stored: it is a function of what was logged, so
@@ -1836,7 +1922,7 @@
     var keep = steady(ms);
     var str = ms.goal === 'str';
     var fx = Array.isArray(ms.fx) && ms.fx.length ? ms.fx : null;
-    var cap = fin(ms.cap) && ms.cap > 0 && ms.cap < 1 ? ms.cap : 0;
+    var own = capOwn(ms);
     var cur = ms.days.map(function (d) { return d.s.map(function (s) { return Math.max(1, s.n); }); });
     var why = ms.days.map(function (d) { return d.s.map(function () { return keep ? '' : 'Week one: RP\u2019s starting volume.'; }); });
     if (!keep && W >= accOf(ms)) {
@@ -1849,6 +1935,8 @@
     }
     for (var w = 1; w <= W; w++) {
       var tot = totals(ms, cur);
+      // this week's ceiling, and whether eating less is what lowered it
+      var cap = capAt(ms, w), ph = phaseAt(ms, w), phLow = !!ph && ph.c < own;
       var next = cur.map(function (a) { return a.slice(); });
       var wy = cur.map(function (a) { return a.map(function () { return ''; }); });
       /* eslint-disable no-loop-func */
@@ -1862,14 +1950,15 @@
           var f = held ? keepFeedback(ms, w - 1, d, m) : feedback(ms, w - 1, d, m);
           var dl = f.d, extra = '';
           var roof = cap ? Math.round(MUS[m].mrv * cap) : MUS[m].mrv;
-          if (!held && cap && dl > 1) {
+          if (!held && cap && cap <= 0.7 && dl > 1) {
             dl = 1;
             extra += ' One set at a time while you are eating less.';
           }
           if (!held && dl > 0 && tot[m] + dl > roof) {
             dl = Math.max(0, roof - tot[m]);
-            extra += cap ? ' Capped at ' + roof + ' sets a week \u2014 below RP\u2019s MRV, because recovery is slower while you eat less.'
-              : ' Capped at ' + roof + ' sets a week, RP\u2019s MRV for ' + MUS[m].n.toLowerCase() + '.';
+            extra += !cap ? ' Capped at ' + roof + ' sets a week, RP\u2019s MRV for ' + MUS[m].n.toLowerCase() + '.'
+              : phLow ? ' Capped at ' + roof + ' sets a week \u2014 below RP\u2019s MRV while you eat about ' + fmtN(ph.k) + ' kcal a day under maintenance.'
+              : ' Capped at ' + roof + ' sets a week \u2014 below RP\u2019s MRV, because recovery is slower while you eat less.';
           }
           /* And never past the minutes you said a session could take: a set
              that would not fit is a set that would not get done. */
@@ -3794,6 +3883,7 @@
 
   function startPlanned(ms, w, d) {
     if (LIVE) return;
+    phaseKeep(ms, w);
     setLive(liveFromPlan(ms, w, d));
     S.sub = 'block';
     draw();
@@ -4654,6 +4744,7 @@
           '<span class="tr-wk-n">' + wk + (nx && cols.length ? ' \u00b7 ' + doneN + ' of ' + cols.length + ' done' : '') + '</span>' +
           '<span class="tr-wk-s">' + esc(ms.n) + '</span></span>' +
           '<span class="tr-wk-e">Show the weeks</span></button>' +
+        phaseLine(ms, nx) +
         (!picked || S.ldOpen ? ldHTML(ms, nx) : '') +
       '</div>';
     }
@@ -4667,7 +4758,7 @@
     } else {
       html += '<div class="tr-sub">Every session of this block is done.</div>';
     }
-    return html + weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
+    return html + phaseLine(ms, nx) + weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
   }
 
   /* No lifting, and not nothing: something you could talk through, long
@@ -7701,6 +7792,8 @@
       '<div class="tr-q"><div class="tr-ql">When you finish</div>' + chips('s-yay', p.yay, [[1, 'Chime and confetti'], [0, 'Just the summary']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Your weight on pull-up and dip days</div>' + chips('s-nobw', p.nobw, [[0, 'Ask when it\u2019s needed'], [1, 'Don\u2019t ask']]) +
         '<div class="tr-hint">Asked only when there\u2019s no weigh-in from the last week to go on. Saved, it\u2019s the day\u2019s weigh-in on Nourish too.</div></div>' +
+      '<div class="tr-q"><div class="tr-ql">Weekly sets and your calories</div>' + chips('s-nph', p.nph, [[1, 'Follow Nourish'], [0, 'Ignore']]) +
+        '<div class="tr-hint">Eating well under maintenance slows recovery, so a block\u2019s weekly sets climb less: to 85% of the usual ceiling a quarter to a half percent of your weight a week under, 70% and one set at a time past that. Read from what Nourish says you eat, and kept for each week as it starts.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log it']]) +
         '<div class="tr-hint">A box beside every set for how hard it was. Optional on each set; the review holds it against what the plan asked.</div></div>' +
       /* Its own question, not a second row under the first: it also says
@@ -8838,6 +8931,26 @@
       startPlanned(ms, num('data-w'), num('data-d'));
       return;
     }
+    /* A week out of following Nourish's calories, and back in. Undone
+       before the week has begun, it keeps what Nourish says now, so that
+       following again restores this, not whatever is read by then. */
+    if (t === 'phoff' || t === 'phon') {
+      ms = active();
+      var phw = num('data-w');
+      if (!ms || !fin(phw) || phw < 0 || phw >= accOf(ms)) return;
+      ms.ph = plain(ms.ph) ? ms.ph : {};
+      var phk = phOk(ms.ph[phw]) ? ms.ph[phw] : null;
+      if (!phk) {
+        var phn = phaseNow();
+        if (!phn) return;
+        phk = { k: phn.k, r: phn.r, s: phn.s, c: phn.c };
+      }
+      if (t === 'phoff') phk.off = 1; else delete phk.off;
+      ms.ph[phw] = phk;
+      stamp('ms', ms.id);
+      draw();
+      return;
+    }
     if (t === 'empty') { startEmpty(); return; }
     // your weight on a pull-up day
     if (t === 'bwqsave') { bwSave(false); return; }
@@ -9303,6 +9416,7 @@
     if (t === 's-rq') { T.pr.rq = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-eff') { T.pr.eff = v === 'rpe' ? 'rpe' : 'rir'; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-nobw') { T.pr.nobw = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-nph') { T.pr.nph = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 'export') { exportCopy(); return; }
     if (t === 'exportcsv') { exportCsv(); return; }
     if (S.sg && t === 'sgu') { S.sg.unit = v === 'kg' ? 'kg' : 'lb'; drawSheet(); return; }
@@ -9628,9 +9742,10 @@
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE, swapBest: swapBest,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
+      phaseNow: phaseNow, phaseAt: phaseAt, capAt: capAt, phaseCap: phaseCap, phaseLine: phaseLine, phaseReset: function () { phLive.t = 0; },
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
-      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; }
+      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; phLive.t = 0; }
     }
   };
 })();

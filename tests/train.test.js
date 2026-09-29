@@ -366,6 +366,106 @@ module.exports = {
     t.ok('the deload is half of week one’s sets, with no reps-in-reserve target', r.dl && r.rir === null && r.half, JSON.stringify(r));
     t.ok('at week one’s weights', r.bench === 185, r.bench);
 
+    // ---- eating less: the weekly climb follows Nourish's calories ----------
+    /* Nourish's own reading is stood in for here, so each tier is exact; the
+       reading itself is checked against Nourish's logs further down. Week one
+       was logged before any reading was kept, so it is left as it was. */
+    const phaseSays = (p, v) => p.evaluate((v) => { window.Hive.phase = () => v; window.Train._.phaseReset(); }, v);
+    await seed(p, T0);
+    const phaseRead = () => p.evaluate(() => {
+      const _ = window.Train._, ms = _.state().T.ms.blk, lib = _.lib, pl = _.plan(ms, 1, 0);
+      return { chest: pl.x.filter((x) => lib(x.e).m === 'chest').reduce((n, x) => n + x.sets, 0), why: pl.x[0].why,
+        cap: _.capAt(ms, 1), rir3: _.rirFor(ms, 3), w0: _.phaseAt(ms, 0) };
+    });
+    await phaseSays(p, { kcal: 600, rate: 0.008, src: 'ate', days: 12 });
+    r = await phaseRead();
+    t.ok('cutting about 0.8% a week: the ceiling is 70% of MRV and sets climb one at a time, not two',
+      r.cap === 0.7 && r.chest === prog.chest0 + 1 && /One set at a time while you are eating less/.test(r.why), JSON.stringify(r));
+    t.ok('and the last hard week stops a rep short of failure', r.rir3 === 1, String(r.rir3));
+    t.ok('a week logged before any reading was kept is left as it was', r.w0 === null, JSON.stringify(r.w0));
+    await phaseSays(p, { kcal: 250, rate: 0.003, src: 'plan', days: 0 });
+    r = await phaseRead();
+    t.ok('a light deficit, 0.3% a week: 85% of the ceiling, and the +2 the feedback earned stands',
+      r.cap === 0.85 && r.chest === prog.chest0 + 2 && r.rir3 === 0, JSON.stringify(r));
+    await phaseSays(p, { kcal: 80, rate: 0.001, src: 'ate', days: 14 });
+    r = await phaseRead();
+    t.ok('near maintenance or gaining: the usual ceiling', r.cap === 0 && r.chest === prog.chest0 + 2 && r.rir3 === 0, JSON.stringify(r));
+    await phaseSays(p, { kcal: 600, rate: 0.008, src: 'ate', days: 12 });
+    r = await p.evaluate(() => { const _ = window.Train._, st = _.state(); st.T.pr.nph = 0; const c = _.capAt(st.T.ms.blk, 1); st.T.pr.nph = 1; return c; });
+    t.ok('Ignore, in Settings: the usual ceiling whatever Nourish says', r === 0, String(r));
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const sf = { id: 'capx', acc: 4, days: [
+        { n: 'A', s: [{ e: 'bb-bench', n: 5 }, { e: 'cb-fly', n: 5 }] },
+        { n: 'B', s: [{ e: 'db-incline', n: 5 }, { e: 'pec-deck', n: 6 }] }] };
+      st.T.ms.capx = sf;
+      const now = Date.now();
+      st.T.wo.y0 = { id: 'y0', st: now - 10 * 864e5, u: 'lb', ms: 'capx', w: 0, d: 0, x: [{ e: 'bb-bench', s: [{ w: 100, r: 8 }] }], fb: { chest: { p: 0, k: 0 } }, sr: {} };
+      st.T.wo.y1 = { id: 'y1', st: now - 9 * 864e5, u: 'lb', ms: 'capx', w: 0, d: 1, x: [{ e: 'db-incline', s: [{ w: 50, r: 8 }] }], fb: {}, sr: { chest: 0 } };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      window.Hive.phase = () => ({ kcal: 600, rate: 0.008, src: 'ate', days: 12 });
+      const out = _.setsFor(_.state().T.ms.capx, 1);
+      return { a: out.sets[0].concat(out.sets[1]), why: out.why[0][0] };
+    });
+    t.ok('at the ceiling on a cut, the reason names the calories: 21 chest sets stay 21, 70% of 22 being 15',
+      r.a.reduce((n, x) => n + x, 0) === 21 && /Capped at 15 sets a week — below RP’s MRV while you eat about 600 kcal a day under maintenance/.test(r.why), JSON.stringify(r));
+
+    // said on the block card, undone for the week and followed again
+    await seed(p, T0);
+    await phaseSays(p, { kcal: 600, rate: 0.008, src: 'ate', days: 12 });
+    await p.click('.tab[data-view="train"]');
+    r = await p.evaluate(() => (document.querySelector('.tr-wk .tr-ph') || {}).textContent || '');
+    t.ok('the block card says what it read and what it does',
+      /You’ve eaten about 600 kcal a day under maintenance these two weeks \(0\.8% of your weight a week\), so sets climb one at a time, to 70% of the usual ceiling/.test(r) && /Undo for this week/.test(r), r);
+    await p.click('.tr-wk [data-t="phoff"]');
+    r = await p.evaluate(() => { const _ = window.Train._, st = _.state(), ms = st.T.ms.blk;
+      return { off: ms.ph && ms.ph[1] && ms.ph[1].off, cap: _.capAt(ms, 1), stamped: st.TS.ms.blk > 0, say: (document.querySelector('.tr-wk .tr-ph') || {}).textContent || '' }; });
+    t.ok('undone: this week goes back to the usual ceiling, kept and synced', r.off === 1 && r.cap === 0 && r.stamped, JSON.stringify(r));
+    t.ok('and it says so, with a way back', /Not following Nourish’s calories this week/.test(r.say) && /Follow them again/.test(r.say), r.say);
+    await p.click('.tr-wk [data-t="phon"]');
+    r = await p.evaluate(() => { const _ = window.Train._, ms = _.state().T.ms.blk; return { off: ms.ph[1].off, cap: _.capAt(ms, 1) }; });
+    t.ok('followed again: 70% once more', r.off === undefined && r.cap === 0.7, JSON.stringify(r));
+
+    // a week keeps the reading it began with
+    await seed(p, T0);
+    await phaseSays(p, { kcal: 600, rate: 0.008, src: 'ate', days: 12 });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="start"]');
+    await phaseSays(p, { kcal: 50, rate: 0.0006, src: 'ate', days: 14 });
+    r = await p.evaluate(() => { const _ = window.Train._, ms = _.state().T.ms.blk;
+      return { kept: ms.ph && ms.ph[1], cap1: _.capAt(ms, 1), cap2: _.capAt(ms, 2), live: _.state().LIVE && _.state().LIVE.w }; });
+    t.ok('starting the week’s first session keeps what Nourish said then',
+      r.live === 1 && r.kept && r.kept.c === 0.7 && r.kept.k === 600 && r.kept.s === 'ate', JSON.stringify(r));
+    t.ok('so a change in what you eat moves next week, not the week under way', r.cap1 === 0.7 && r.cap2 === 0, JSON.stringify(r));
+    // back to no workout open, and no reading, for what follows
+    await p.evaluate(() => { localStorage.removeItem('sh.trainLive'); window.Hive.phase = () => null; window.Train._.reload(); window.Train._.draw(); });
+    await seed(p, T0);
+
+    // Nourish's reading: what you ate against a burn measured from the same logs, or the plan's target
+    const q = await t.fresh();
+    await q.evaluate(() => {
+      const key = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      const intake = {}, weights = {};
+      for (let n = 1; n <= 28; n++) { intake[key(n)] = 2000; weights[key(n)] = Math.round((200 + (n - 1) / 7) * 10) / 10; }
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 40, ft: 5, inch: 10, lb: 200, act: 1.55, goal: 'cut1', goalLb: 0, goalBy: '', workouts: 0, steps: 0 }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 170 }));
+      localStorage.setItem('bsc.macroIntake', JSON.stringify(intake));
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(weights));
+    });
+    const hiveAfterReload = async () => { await q.reload(); await q.waitForFunction(() => window.Hive && window.Hive.phase); return q.evaluate(() => window.Hive.phase()); };
+    r = await hiveAfterReload();
+    t.ok('four weeks at 2,000 kcal while losing a pound a week: about 500 under a burn of about 2,500, from what was eaten',
+      r && r.src === 'ate' && r.kcal >= 470 && r.kcal <= 530 && r.rate >= 0.0045 && r.rate <= 0.0055 && r.days >= 7, JSON.stringify(r));
+    await q.evaluate(() => localStorage.setItem('bsc.macroIntake', '{}'));
+    r = await hiveAfterReload();
+    t.ok('with no eating logged, the target you eat to against the burn Nourish plans by',
+      r && r.src === 'plan' && r.kcal > 300 && Math.abs(r.rate - r.kcal * 7 / 3500 / 200) < 0.0005, JSON.stringify(r));
+    await q.evaluate(() => { ['bsc.macroProfile', 'bsc.macroTargets', 'bsc.macroWeights'].forEach((k) => localStorage.removeItem(k)); });
+    r = await hiveAfterReload();
+    t.ok('and nothing at all with no plan and no logs, so a block climbs as it always has', r === null, JSON.stringify(r));
+    await q.close();
+
     // ---- records ---------------------------------------------------------
     r = await p.evaluate(() => {
       const _ = window.Train._, T = _.state().T;

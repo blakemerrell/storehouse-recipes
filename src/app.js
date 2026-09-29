@@ -18536,6 +18536,30 @@
     },
     /* Nourish's own days, for Strengthen to start its picker from. */
     trainDays: function () { return mTrainDaysOwn(); },
+    /* How far under maintenance you are eating, for Strengthen's weekly
+       climb: calories a day, and what that comes to a week as a share of
+       what you weigh (positive is losing).
+     *
+       What you actually ate these two weeks, once seven of them are logged
+       and your burn has been measured from the same logs: a snack never
+       written down then counts on both sides and cancels. Until then, the
+       target you are eating to, against the burn Nourish plans by. Null
+       with neither. */
+    phase: function () {
+      var pr = mReadProfile();
+      var tdee = mTdee(pr);
+      if (!(pr.lb > 0) || tdee === null) return null;
+      var meas = mMeasuredTdee();
+      var from = new Date(); from.setDate(from.getDate() - 14);
+      var fromK = dayKey(from), today = todayKey();
+      var ks = Object.keys(MINTAKE).filter(function (k) { return k >= fromK && k < today && MINTAKE[k] > 0; });
+      var ate = meas && ks.length >= 7 ? ks.reduce(function (s0, k) { return s0 + MINTAKE[k]; }, 0) / ks.length : null;
+      var target = kcalOf(mReadTargets());
+      if (ate === null && !target) return null;
+      var under = Math.round(ate !== null ? meas.tdee - ate : tdee - target);
+      return { kcal: under, rate: Math.round(under * 7 / 3500 / pr.lb * 10000) / 10000,
+        src: ate !== null ? 'ate' : 'plan', days: ks.length };
+    },
     daysMoved: function () {
       /* Strengthen's list as Strengthen now has it. This read mTrainDays(),
          which falls back to the profile's copy when Strengthen's list is
