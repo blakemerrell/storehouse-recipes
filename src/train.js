@@ -6469,11 +6469,18 @@
     drawSheet();
   }
 
+  /* The same sheet drawn again keeps its place. Every tap inside a sheet
+     draws it afresh, and the scroller went with the old one: opening the
+     machine circuit at the foot of the ready list, or a setting at the foot
+     of Settings, threw you back to the top with what you had opened out of
+     sight below. A sheet newly opened still starts at its top. */
+  var drawnSheet = null;
   function drawSheet() {
     var root = $('trainRoot');
     if (!root) return;
     var sh = S.sheet;
-    if (!sh) { if (root.innerHTML) root.innerHTML = ''; return; }
+    if (!sh) { if (root.innerHTML) root.innerHTML = ''; drawnSheet = null; return; }
+    var prev = root.querySelector('.scrim'), keep = prev && sh === drawnSheet ? prev.scrollTop : 0;
     var body = '';
     if (sh.k === 'pick') body = pickHTML(sh);
     else if (sh.k === 'ex') body = exSheetHTML(sh);
@@ -6502,6 +6509,16 @@
           '<button class="sheet-x" data-t="close" aria-label="Close">&times;</button></div>' +
         body +
       '</div></div>';
+    drawnSheet = sh;
+    if (keep) root.querySelector('.scrim').scrollTop = keep;
+  }
+  /* Something opened near the foot of a sheet grows out of sight below it:
+     bring it up until its end shows, but never past its own top. */
+  function sheetShow(el) {
+    var sc = el && el.closest ? el.closest('.scrim') : null;
+    if (!sc) return;
+    var r = el.getBoundingClientRect(), over = r.bottom - sc.clientHeight + 16;
+    if (over > 0) sc.scrollTop += Math.max(0, Math.min(over, r.top - 16));
   }
 
   /* The best swaps for a lift, three of them, each with why. The list below
@@ -8839,7 +8856,7 @@
     if (t === 'hwok') { T.pr.hw = 1; stamp('pr'); draw(); return; }
     // ready workouts: the list, a row opened, the half-hour version, a start
     if (t === 'ready') { S.rdo = ''; S.arm = ''; openSheet({ k: 'ready', eyebrow: 'Ready workouts', title: 'Pick a ready workout' }); return; }
-    if (t === 'rdopen') { S.rdo = S.rdo === v ? '' : v; S.arm = ''; drawSheet(); return; }
+    if (t === 'rdopen') { S.rdo = S.rdo === v ? '' : v; S.arm = ''; drawSheet(); if (S.rdo) sheetShow(document.querySelector('#trainRoot .tr-rdr.on')); return; }
     if (t === 'rdxp') { S.rdx = Number(v) ? 1 : 0; drawSheet(); return; }
     if (t === 'rdgo') { startReady(v, !!S.rdx && !T.rt[v], Number(el.getAttribute('data-e'))); return; }
     if (t === 'rtdel') {

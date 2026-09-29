@@ -3202,6 +3202,32 @@ module.exports = {
     t.ok('the last station of a round, two minutes before the next', r === 120, String(r));
     await p.close();
 
+    /* A sheet keeps its place when a tap inside it draws it again. The
+       machine circuit sits at the foot of the ready list: opening it threw
+       the list back to the top, with the circuit out of sight below. */
+    p = await t.fresh({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
+    await seed(p, { pr: { qz: 1, kit: 'gym', lvl: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    await p.click('.tab[data-view="train"]');
+    await p.evaluate(() => document.querySelector('[data-t="ready"]').click());
+    await p.waitForSelector('.tr-rdb[data-v="circ"]');
+    const low = await p.evaluate(() => { const sc = document.querySelector('#trainRoot .scrim'); sc.scrollTop = sc.scrollHeight; return sc.scrollTop; });
+    await p.evaluate(() => document.querySelector('.tr-rdb[data-v="circ"]').click());
+    r = await p.evaluate(() => { const sc = document.querySelector('#trainRoot .scrim'), b = document.querySelector('.tr-rdr.on').getBoundingClientRect();
+      return { top: sc.scrollTop, rowTop: Math.round(b.top), rowBottom: Math.round(b.bottom), h: sc.clientHeight }; });
+    t.ok('opening the machine circuit at the foot of the list keeps the list where it was, and brings the circuit up into view',
+      low > 100 && r.top >= low && r.rowTop >= 0 && r.rowBottom <= r.h, JSON.stringify({ low, r }));
+    await p.evaluate(() => document.querySelector('#trainRoot .sheet-x').click());
+    await p.evaluate(() => document.querySelector('[data-t="ready"]').click());
+    r = await p.evaluate(() => document.querySelector('#trainRoot .scrim').scrollTop);
+    t.ok('a sheet opened afresh still starts at its top', r === 0, String(r));
+    await p.evaluate(() => document.querySelector('#trainRoot .sheet-x').click());
+    await openSettings(p);
+    const deep = await p.evaluate(() => { const sc = document.querySelector('#trainRoot .scrim'); sc.scrollTop = sc.scrollHeight; return sc.scrollTop; });
+    await p.evaluate(() => document.querySelector('[data-t="s-yay"][aria-pressed="false"]').click());
+    r = await p.evaluate(() => document.querySelector('#trainRoot .scrim').scrollTop);
+    t.ok('and a setting changed at the foot of Settings leaves you there', deep > 100 && Math.abs(r - deep) < 40, JSON.stringify({ deep, r }));
+    await p.close();
+
     // the best swaps: the same movement, the nearest kit, your back, what you know
     p = await t.fresh();
     await seed(p, { pr: { qz: 1, kit: 'gym' }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
