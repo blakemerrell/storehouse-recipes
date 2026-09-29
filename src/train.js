@@ -1275,6 +1275,7 @@
     var b = T.pr.bars[ntKey(e)];
     if (b && b.e === e) return conv(b.w, b.u);
     var ex = lib(e);
+    if (SLED[e]) return 0;
     if (/\bez\b/i.test(ex.n)) return barW('ez');
     if (ex.q === 'sm') return barW('smith');
     if (e === 'trap-dl') return barW('hex');
@@ -1282,6 +1283,7 @@
   }
   // "Olympic bar 45 lb", "Smith bar 20 lb", "bar 50 lb" for one of your own, "no bar"
   function barLabel(e) {
+    if (SLED[e] && !barSet(e)) return 'plates only';
     var n = barName(e), w = fmtN(barFor(e)) + ' ' + T.pr.u;
     if (n === 'No bar') return 'no bar';
     if (n === 'Bar') return 'bar ' + w;
@@ -1301,8 +1303,14 @@
     T.pr.bars = bars;
     stamp('pr');
   }
-  // lifts loaded with plates on a bar; a plate-loaded machine's sled weight is anybody's guess
-  function onBar(ex) { return ex.q === 'bb' || ex.q === 'sm'; }
+  /* Plate-loaded machines: plates on the horns of a sled, and the sled not
+     counted. Blake logs the plates only, as most lifters do, since a sled's
+     own weight is anybody's guess from one gym to the next; so the plates
+     are drawn and worked out as for a bar that weighs nothing. A sled
+     weight of your own can still be set, like a bar of your own. */
+  var SLED = { hack: 1, 'leg-press': 1, 'belt-squat': 1 };
+  // lifts loaded with plates: on a bar, or on a sled
+  function onBar(ex) { return ex.q === 'bb' || ex.q === 'sm' || !!SLED[ex.id]; }
 
   /* Home and the gym.
    *
@@ -1328,8 +1336,8 @@
   function homeNow() { var g = T.pr.gy; return !!(g && g.on && g.u === T.pr.u && LIVE && LIVE.g === 'home'); }
   function homeBar() { var g = T.pr.gy; return fin(g.bar) ? g.bar : T.pr.bar; }
   // the bar for a lift where you are: at home, yours
-  function barAt(e) { return homeNow() && onBar(lib(e)) ? homeBar() : barFor(e); }
-  function barLabelAt(e) { return homeNow() && onBar(lib(e)) ? 'home bar ' + fmtN(homeBar()) + ' ' + T.pr.u : barLabel(e); }
+  function barAt(e) { return homeNow() && onBar(lib(e)) && !SLED[e] ? homeBar() : barFor(e); }
+  function barLabelAt(e) { return homeNow() && onBar(lib(e)) && !SLED[e] ? 'home bar ' + fmtN(homeBar()) + ' ' + T.pr.u : barLabel(e); }
   function homeInv() { return homeNow() ? T.pr.gy.pl : null; }
   /* Every total the home plates can make on the home bar, lightest first,
      worked in quarters so 1.25 kg adds up exactly. */
@@ -3987,6 +3995,112 @@
     return true;
   }
 
+  /* ---------------------------------------------------------- reordering
+   *
+   * Hold the handle and every card folds to its name; drag it to where it
+   * goes and let go. A pair moves as one, as the arrows did. Moving the
+   * finger before the hold is up starts it too: the handle is only ever a
+   * handle. The page scrolls when the finger nears its top or bottom. */
+  var DRAG = null;
+  function dragCards() {
+    var by = {};
+    Array.prototype.forEach.call(document.querySelectorAll('#view-train .tr-ex[data-xi]'), function (el) {
+      by[el.getAttribute('data-xi')] = el;
+    });
+    return DRAG.gs.map(function (grp) { return grp.map(function (j) { return by[j]; }).filter(Boolean); });
+  }
+  function dragStart(grip, ev) {
+    var i = Number(grip.getAttribute('data-x'));
+    if (!LIVE || !fin(i) || DRAG) return;
+    var gs = moveGroups(), g = -1;
+    gs.forEach(function (grp, k) { if (grp.indexOf(i) >= 0) g = k; });
+    if (g < 0 || gs.length < 2) return;
+    DRAG = { id: ev.pointerId, g: g, gs: gs, y0: ev.clientY, y: ev.clientY, on: false, t: 0, k: g, raf: 0 };
+    try { grip.setPointerCapture(ev.pointerId); } catch (e) { /* an old browser: the document still hears the moves */ }
+    DRAG.t = setTimeout(dragFold, 220);
+  }
+  function dragFold() {
+    if (!DRAG || DRAG.on) return;
+    var view = $('view-train'), els = dragCards();
+    var mine = els[DRAG.g] && els[DRAG.g][0];
+    if (!view || !mine) { DRAG = null; return; }
+    var off = DRAG.y0 - mine.getBoundingClientRect().top;
+    DRAG.on = true;
+    view.classList.add('tr-reo');
+    // the held card stays under the finger while the rest fold away
+    window.scrollBy(0, mine.getBoundingClientRect().top - (DRAG.y - off));
+    DRAG.rows = els.map(function (grp) {
+      var a = grp[0].getBoundingClientRect(), z = grp[grp.length - 1].getBoundingClientRect();
+      return { top: a.top + window.scrollY, h: z.bottom - a.top };
+    });
+    DRAG.gap = DRAG.rows.length > 1 ? Math.max(0, DRAG.rows[1].top - DRAG.rows[0].top - DRAG.rows[0].h) : 6;
+    /* Where the page could not scroll far enough, the held card is not yet
+       under the finger: it jumps there, and follows from there. */
+    DRAG.base = (DRAG.y - off) - mine.getBoundingClientRect().top;
+    DRAG.yf = DRAG.y; DRAG.sy = window.scrollY;
+    els[DRAG.g].forEach(function (el) { el.classList.add('tr-held'); });
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) { /* no buzz to be had */ }
+    dragLay();
+  }
+  // where the held card is, where it would land, and everything else out of its way
+  function dragLay() {
+    if (!DRAG || !DRAG.on) return;
+    var els = dragCards(), R = DRAG.rows, g = DRAG.g;
+    var dy = DRAG.base + DRAG.y - DRAG.yf + (window.scrollY - DRAG.sy);
+    var mid = R[g].top + dy + R[g].h / 2, k = 0;
+    R.forEach(function (r, j) { if (j !== g && r.top + r.h / 2 < mid) k++; });
+    DRAG.k = k;
+    var step = R[g].h + DRAG.gap;
+    els.forEach(function (grp, j) {
+      var shift = j === g ? dy : j > g && j <= k ? -step : j < g && j >= k ? step : 0;
+      grp.forEach(function (el) { el.style.transform = shift ? 'translateY(' + shift + 'px)' : ''; });
+    });
+  }
+  function dragScroll() {
+    if (!DRAG || !DRAG.on) { if (DRAG) DRAG.raf = 0; return; }
+    var edge = 72, v = DRAG.y < edge ? -(edge - DRAG.y) / 4 : DRAG.y > window.innerHeight - edge ? (DRAG.y - window.innerHeight + edge) / 4 : 0;
+    if (v) { window.scrollBy(0, v); dragLay(); DRAG.raf = requestAnimationFrame(dragScroll); } else DRAG.raf = 0;
+  }
+  function dragMove(ev) {
+    if (!DRAG || ev.pointerId !== DRAG.id) return;
+    DRAG.y = ev.clientY;
+    if (!DRAG.on && Math.abs(DRAG.y - DRAG.y0) > 6) { clearTimeout(DRAG.t); dragFold(); }
+    if (!DRAG || !DRAG.on) return;
+    ev.preventDefault();
+    dragLay();
+    if (!DRAG.raf) DRAG.raf = requestAnimationFrame(dragScroll);
+  }
+  function dragEnd(ev, cancel) {
+    if (!DRAG || (ev && ev.pointerId !== DRAG.id)) return;
+    clearTimeout(DRAG.t);
+    var d = DRAG, moved = null;
+    DRAG = null;
+    if (!d.on) return;
+    var view = $('view-train');
+    if (view) view.classList.remove('tr-reo');
+    if (!cancel && d.k !== d.g && LIVE) {
+      var gs = d.gs.slice(), grp = gs.splice(d.g, 1)[0];
+      gs.splice(d.k, 0, grp);
+      var old = LIVE.x;
+      LIVE.x = [].concat.apply([], gs).map(function (j) { return old[j]; });
+      moved = [].concat.apply([], gs.slice(0, d.k)).length;
+      saveLive();
+    }
+    draw();
+    var el = document.querySelector('#view-train .tr-ex[data-xi="' + (moved === null ? d.gs[d.g][0] : moved) + '"]');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+  }
+  // the arrow keys on a handle: a place at a time, the handle kept in hand
+  function gripKey(grip, key) {
+    var i = Number(grip.getAttribute('data-x'));
+    var it = LIVE && LIVE.x[i];
+    if (!it || !shiftEx(i, key === 'ArrowUp' ? -1 : 1)) return;
+    saveLive();
+    draw();
+    var g2 = document.querySelector('#view-train .tr-ex[data-xi="' + LIVE.x.indexOf(it) + '"] .tr-grip');
+    if (g2) g2.focus();
+  }
+
   function startPlanned(ms, w, d) {
     if (LIVE) return;
     phaseKeep(ms, w);
@@ -4620,6 +4734,7 @@
     return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : 'at ' + hm(t);
   }
   function draw() {
+    if (DRAG && DRAG.on) return;
     var root = $('trBody');
     if (!root) return;
     var view = $('view-train');
@@ -6169,12 +6284,11 @@
     var barHere = onBar(ex) && (barSet(x.e) || barAt(x.e) !== T.pr.bar);
     var first = fresh && (nb || newLift(x.e));
     var armed = S.arm === 'rm:' + i, nDone = x.s.filter(function (z) { return z.t; }).length;
-    return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '">' +
-      (mv ? '<span class="tr-mv">' +
-        '<button class="tr-mvb" data-t="mvex" data-v="-1" data-x="' + i + '"' + (mv.up ? '' : ' disabled') +
-          ' aria-label="Move ' + esc(ex.n) + (label && !x.cc ? ' and its pair' : '') + ' up">\u2191</button>' +
-        '<button class="tr-mvb" data-t="mvex" data-v="1" data-x="' + i + '"' + (mv.dn ? '' : ' disabled') +
-          ' aria-label="Move ' + esc(ex.n) + (label && !x.cc ? ' and its pair' : '') + ' down">\u2193</button></span>' : '') +
+    return '<div class="tr-card tr-ex' + (label ? ' tr-paired' : '') + (rq ? ' tr-rq' : '') + '" data-xi="' + i + '">' +
+      /* Hold it and every card folds to its name, to be dragged where it
+         goes, the way Strong does it; the arrow keys move it a place. */
+      (mv ? '<button class="tr-grip" data-x="' + i + '" aria-label="Move ' + esc(ex.n) + (label && !x.cc ? ' and its pair' : '') +
+        ': hold and drag, or use the arrow keys">' + EA_ICO.grip + '</button>' : '') +
       '<div class="tr-ex-h">' +
         (label ? '<span class="tr-pair" aria-label="' + (x.cc ? 'Station ' : 'Pair ') + label + '">' + label + '</span>' : '') +
         // new to lifting, the name opens how it is done
@@ -6206,14 +6320,14 @@
       '<div class="tr-set tr-set-h" aria-hidden="true"><span>Set</span><span>' + (nb ? 'Last time' : 'Previous') + '</span><span>' + (bodyOn ? '+' : '') + T.pr.u + '</span><span>Reps</span>' +
         (rq ? (rpeOn() ? '<span title="Rate of perceived exertion">RPE</span>' : '<span title="Reps to spare: how many more you could have done">Spare</span>') : '') + '<span></span></div>' +
       rows +
-      /* The thing done most on this card, one more set, is the big button;
-         the rest are small, each with its picture and its word, and Remove,
-         the one that takes something away, is red. */
-      '<button class="tr-addset" data-t="addset" data-x="' + i + '">+ Add set</button>' +
+      /* One row, each with its picture and its word: another set first and
+         dark, as the thing done most, and Remove, the one that takes
+         something away, last and red. */
       '<div class="tr-ex-a">' +
+        '<button class="tr-ea tr-ea-add" data-t="addset" data-x="' + i + '" aria-label="Add a set of ' + esc(ex.n) + '">' + EA_ICO.plus + '<span>Set</span></button>' +
         (x.s.length > 1 ? eaBtn('dropset', 'minus', 'Set', ' data-x="' + i + '"', 'Take off the last set') : '') +
         (ex.k === 'c' && ex.q !== 'bw' ? eaBtn('warm', 'warm', 'Warm-up', ' data-x="' + i + '"', 'Add warm-up sets') : '') +
-        (ex.q === 'bb' || ex.q === 'sm' ? eaBtn('plates', 'plates', 'Plates', ' data-x="' + i + '"', 'What plates to load') : '') +
+        (onBar(ex) ? eaBtn('plates', 'plates', 'Plates', ' data-x="' + i + '"', 'What plates to load') : '') +
         eaBtn('swap', 'swap', 'Swap', ' data-x="' + i + '"', 'Swap ' + ex.n + ' for another exercise') +
         (note ? '' : eaBtn('note', 'note', 'Note', ' data-e="' + esc(x.e) + '"', 'Add a note to ' + ex.n)) +
         '<button class="tr-ea tr-ea-rm' + (armed ? ' tr-lnk-arm' : '') + '" data-t="rmex" data-x="' + i + '">' + EA_ICO.rm +
@@ -6250,6 +6364,8 @@
       '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   }
   var EA_ICO = {
+    plus: eaSvg('M12 5v14M5 12h14'),
+    grip: eaSvg('M5 8h14M5 12h14M5 16h14'),
     minus: eaSvg('M5 12h14'),
     warm: eaSvg('M12 3c.8 3.2 4.5 4.6 4.5 9a4.5 4.5 0 0 1-9 0c0-2.2 1.1-3.6 2.3-4.6.1 1.8.9 3 2.2 3.1C12 8 11.2 6 12 3z'),
     plates: eaSvg('M12 4a8 8 0 1 0 0 16 8 8 0 1 0 0-16zM12 10a2 2 0 1 0 0 4 2 2 0 1 0 0-4z'),
@@ -6890,7 +7006,8 @@
     if (ex.q === 'bw' || usesBw(x.e) || SAFETY[x.e]) return '';
     if (x.s.some(function (s) { return s.t || fin(s.tw) || fin(s.pw); })) return '';
     if (!newLift(x.e)) return '';
-    var how = ex.q === 'mc' || ex.q === 'cb' ? 'Start on the 2nd or 3rd plate of the stack. Machine taken? Swap.'
+    var how = SLED[ex.id] ? 'Start with the empty sled, or a plate a side. Machine taken? Swap.'
+      : ex.q === 'mc' || ex.q === 'cb' ? 'Start on the 2nd or 3rd plate of the stack. Machine taken? Swap.'
       : onBar(ex) ? 'Start with just the bar.' : ex.q === 'db' ? 'Start with a light pair.' : 'Start light.';
     return '<div class="tr-first"><b>First time?</b> ' + how + '</div>';
   }
@@ -7413,7 +7530,7 @@
       '<ol class="tr-warm">' + R.rows.map(function (r) {
         var pm = bb ? plateMath(r[0], bar, T.pr.u, homeInv()) : null;
         return '<li><b>' + fmtN(r[0]) + ' ' + T.pr.u + ' × ' + r[1] + '</b>' +
-          (pm ? '<span class="tr-sub"> ' + (pm.plates.length ? pm.plates.map(fmtP).join(' + ') + ' a side' : 'the bar') + '</span>' : '') + '</li>';
+          (pm ? '<span class="tr-sub"> ' + (pm.plates.length ? pm.plates.map(fmtP).join(' + ') + ' a side' : SLED[x.e] ? 'the empty sled' : 'the bar') + '</span>' : '') + '</li>';
       }).join('') + '</ol>' +
       (R.rows.length ? '<div class="tr-acts"><button class="btn-primary" data-t="warmadd" data-x="' + sh.x + '">' +
         (has ? 'Replace my warm-up sets with these' : 'Add these as warm-up sets') + '</button></div>' +
@@ -9197,10 +9314,6 @@
       S.arm = '';
       LIVE.x.splice(rx, 1); saveLive(); draw(); return;
     }
-    if (t === 'mvex' && LIVE) {
-      if (shiftEx(num('data-x'), Number(v))) { saveLive(); draw(); }
-      return;
-    }
     if (t === 'swap') {
       var cx = lib(LIVE.x[num('data-x')].e);
       S.q = ''; S.qm = cx.m;
@@ -9632,6 +9745,16 @@
     document.addEventListener('pointermove', function (e) { if (chartDown) chartRead(chartDown, e.clientX); });
     document.addEventListener('pointerup', function () { chartDown = null; });
     document.addEventListener('pointercancel', function () { chartDown = null; });
+    // a lift's handle: hold and drag it to where it goes
+    document.addEventListener('pointerdown', function (e) {
+      var grip = e.target && e.target.closest && e.target.closest('#view-train .tr-grip');
+      if (!grip || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      e.preventDefault();
+      dragStart(grip, e);
+    });
+    document.addEventListener('pointermove', dragMove, { passive: false });
+    document.addEventListener('pointerup', function (e) { dragEnd(e, false); });
+    document.addEventListener('pointercancel', function (e) { dragEnd(e, true); });
     window.addEventListener('storage', otherTab);
     /* The chime at the end of a rest needs a sound woken by a tap, and the
        tap was only ever the tick. Reopened mid-rest (killed, or reloaded for
@@ -9761,6 +9884,11 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && S.sheet) { closeSheet(); return; }
       var el = e.target;
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && el && el.classList && el.classList.contains('tr-grip')) {
+        e.preventDefault();
+        gripKey(el, e.key);
+        return;
+      }
       if (e.key === 'Enter' && el && el.id === 'trBwq') { e.preventDefault(); bwSave(false); return; }
       if (e.key === 'Enter' && el && el.getAttribute && el.getAttribute('data-in') === 'r' && LIVE) {
         e.preventDefault();
@@ -9854,7 +9982,7 @@
       estDay: estDay, barred: barred, KEEP_SPLITS: KEEP_SPLITS, HABITS: HABITS, weeksOf: weeksOf, nextTm: nextTm,
       recommend: recommend, PROGS: PROGS, FOCUS: FOCUS, KITS: KITS, axWeek: axWeek, defaultsPr: defaultsPr,
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, sgList: sgList, csvRows: csvRows, ntKey: ntKey,
-      LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, stackHTML: stackHTML, elapsed: elapsed,
+      LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, barLabel: barLabel, onBar: onBar, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
       wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,

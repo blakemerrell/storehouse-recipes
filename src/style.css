@@ -5184,15 +5184,22 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 .tr-fbt-e { font-size: 13px; font-weight: 600; color: var(--ochre-text); }
 
 /* ---- Strengthen: moving, notes, effort, correcting, the easy day ---- */
-/* Up and down, top right of the card: the bench is taken, the rows go first. */
+/* The handle, top right of the card: the bench is taken, the rows go first.
+   Held, every card folds to its name and the held one follows the finger. */
 .tr-ex { position: relative; }
-.tr-mv { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
-.tr-mv ~ .tr-ex-h { padding-right: 72px; }
-.tr-mvb {
-  width: 30px; height: 30px; border: 1px solid var(--line-firm); border-radius: 3px; background: #fff;
-  color: var(--ink); font-size: 15px; line-height: 1; cursor: pointer; padding: 0;
+.tr-grip {
+  position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; display: grid; place-items: center;
+  padding: 0; background: none; border: 0; border-radius: 4px; color: var(--muted-2); cursor: grab;
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
-.tr-mvb:disabled { color: var(--line-firm); cursor: default; }
+.tr-grip:hover, .tr-grip:focus-visible { color: var(--ink); background: var(--paper-soft); }
+.tr-grip ~ .tr-ex-h { padding-right: 44px; }
+#view-train.tr-reo #trBody > :not(.tr-ex) { display: none !important; }
+#view-train.tr-reo .tr-ex > :not(.tr-ex-h):not(.tr-grip) { display: none !important; }
+#view-train.tr-reo .tr-ex .tr-ex-h > :not(.tr-ex-n):not(.tr-pair) { display: none !important; }
+#view-train.tr-reo .tr-ex { padding-top: 12px; padding-bottom: 12px; transition: transform 0.15s ease; }
+#view-train.tr-reo .tr-ex .tr-grip { top: 50%; transform: translateY(-50%); color: var(--ink); cursor: grabbing; }
+#view-train.tr-reo .tr-ex.tr-held { transition: none; z-index: 5; border-color: var(--ochre); box-shadow: 0 10px 26px oklch(0.26 0.02 60 / 0.25); }
 /* A note that follows an exercise, and the note on a workout. */
 .tr-exnt {
   display: block; margin-top: 5px; padding: 5px 8px; width: 100%; text-align: left; cursor: pointer;
@@ -5224,7 +5231,6 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
   .tr-rq .tr-set { grid-template-columns: 24px minmax(0, 1fr) 60px 48px 44px 40px; gap: 4px; }
   .tr-set.tr-eds { grid-template-columns: 26px 68px 56px 40px; }
   .tr-rq .tr-set.tr-eds { grid-template-columns: 26px 68px 56px 48px 40px; }
-  .tr-mv { top: 8px; right: 8px; }
 }
 /* Bringing in from Strong: each exercise, what it became, and a way to change it. */
 .tr-sgl { border-top: 1px solid var(--line); margin-top: 8px; }
@@ -5582,7 +5588,17 @@ body:has(#view-train.tr-focus:not(.hide)) #shareHint { display: none; }
   font: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer;
 }
 .tr-addset:hover { border-color: var(--ochre); }
-.tr-ex .tr-ex-a { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin-top: 8px; }
+.tr-ex .tr-ex-a { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+/* One row: each button its picture over its word, sharing the row equally. */
+.tr-ex-a .tr-ea { flex: 1 1 0; min-width: 0; min-height: 52px; padding: 4px 0; flex-direction: column; gap: 3px; }
+.tr-ex-a .tr-ea span { font-size: 10.5px; line-height: 1; white-space: nowrap; }
+.tr-ea.tr-ea-add { background: var(--ink); border-color: var(--ink); color: var(--card); font-weight: 600; }
+.tr-ea.tr-ea-add:hover { color: var(--card); border-color: var(--ink); opacity: 0.9; }
+/* Under 360 px the words go, and the pictures keep the row. */
+@media (max-width: 359px) {
+  .tr-ex-a .tr-ea:not(.tr-lnk-arm) span { display: none; }
+  .tr-ex-a .tr-ea { min-height: 44px; }
+}
 .tr-ea {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 0 8px;
   background: none; border: 1px solid var(--line); border-radius: 4px;
@@ -5592,7 +5608,8 @@ body:has(#view-train.tr-focus:not(.hide)) #shareHint { display: none; }
 .tr-ea:hover { border-color: var(--ochre); color: var(--ink); }
 .tr-ea-rm { color: oklch(0.46 0.14 30); border-color: oklch(0.80 0.07 30); }
 .tr-ea-rm:hover { color: oklch(0.40 0.15 30); border-color: oklch(0.62 0.12 30); background: oklch(0.97 0.02 30); }
-.tr-ea.tr-lnk-arm { grid-column: 1 / -1; background: oklch(0.46 0.14 30); border-color: oklch(0.46 0.14 30); color: #fff; }
+.tr-ea.tr-lnk-arm { flex: 1 0 100%; flex-direction: row; background: oklch(0.46 0.14 30); border-color: oklch(0.46 0.14 30); color: #fff; }
+.tr-ex-a .tr-ea.tr-lnk-arm span { font-size: 13px; white-space: normal; }
 .tr-heal {
   display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 10px;
   margin: 8px 0 4px; padding: 8px 12px; background: var(--paper); border: 1px solid var(--line-soft); border-radius: 4px;
@@ -5651,8 +5668,6 @@ button.tr-ck-h {
 /* A week of day circles on one row at 360 px: up to 44 across, as the row allows. */
 .tr-ld { display: grid; grid-template-columns: repeat(7, minmax(0, 44px)); gap: 4px; }
 .tr-ldb { width: 100%; height: 44px; aspect-ratio: auto; border-radius: 22px; }
-.tr-mvb { width: 44px; height: 44px; font-size: 18px; }
-.tr-mv ~ .tr-ex-h { padding-right: 96px; }
 .tr-gc { min-height: 44px; }
 .tr-rest-btn { min-height: 44px; min-width: 52px; }
 /* Links that stand on their own in a row of actions are a thumb tall. The
