@@ -710,6 +710,8 @@
       hw: p.hw === 1 ? 1 : 0,
       // never ask your weight on a pull-up day
       nobw: p.nobw === 1 ? 1 : 0,
+      // a block's weekly climb follows how far under maintenance Nourish says you eat
+      nph: p.nph === 0 ? 0 : 1,
       /* Everything below is you, answered once in the quiz and read by the
          picks, the builder and the review. */
       // what you train for; the first version knew two, and 'grow' was the first
@@ -1622,7 +1624,8 @@
     if (ms.goal === 'str' || ms.goal === 'cond') return 2;
     if (n <= 1) return 2;
     var r = Math.round(3 * (1 - w / (n - 1)));
-    return fin(ms.cap) ? Math.max(1, r) : r;
+    var c = capAt(ms, w);
+    return c && c <= 0.7 ? Math.max(1, r) : r;
   }
   function exRir(ex, rir, keep) {
     if (rir === null) return null;
@@ -1828,6 +1831,89 @@
     return t;
   }
 
+  /* ---------------------------------------------------------- eating less
+   *
+   * Recovery is slower on less food, so how far a week's sets may climb
+   * follows how far under maintenance Nourish says you are eating. RP puts
+   * a slow cut at about half a percent of bodyweight a week and a hard one
+   * at a percent; in the research, lean mass kept up on a small deficit and
+   * stopped growing at about 500 kcal a day (Murphy & Koehler 2022).
+   *
+   *     under a quarter of a percent a week   the usual ceiling, RP's MRV
+   *     a quarter to a half                   85 per cent of it
+   *     a half or more                        70 per cent, one set at a
+   *                                           time, and a rep short of
+   *                                           failure: Lean & strong's rules
+   *
+   * Each week keeps the reading it began with, taken as its first session
+   * starts, so the plan does not move under a week already under way and
+   * every device reads the week the same. A week not yet begun reads
+   * Nourish as it is now. */
+  var PH_CUTS = [[0.005, 0.7], [0.0025, 0.85]];
+  function phaseCap(rate) {
+    for (var i = 0; i < PH_CUTS.length; i++) if (rate >= PH_CUTS[i][0]) return PH_CUTS[i][1];
+    return 1;
+  }
+  // read once a moment, however many weeks the plan walks through
+  var phLive = { t: 0, v: null };
+  function phaseNow() {
+    if (Date.now() - phLive.t < 1500) return phLive.v;
+    var h = hive(), v = null;
+    try { v = h && h.phase ? h.phase() : null; } catch (e) { v = null; }
+    v = v && fin(v.kcal) && fin(v.rate) ? { k: Math.round(v.kcal), r: v.rate, s: v.src === 'ate' ? 'ate' : 'plan', c: phaseCap(v.rate) } : null;
+    phLive = { t: Date.now(), v: v };
+    return v;
+  }
+  function phOk(p) { return plain(p) && fin(p.k) && fin(p.r) && fin(p.c) && p.c > 0 && p.c <= 1; }
+  // a steady block or a strength block holds its sets, so there is no climb to follow
+  function phMatters(ms) { return !!ms && !steady(ms) && ms.goal !== 'str'; }
+  function phBegun(ms, w) { return ms.days.some(function (d, i) { return !!woFor(ms, w, i); }); }
+  /* The reading week W goes by: the one it kept, or Nourish now for a week
+     not yet begun. A week begun with none kept is from before this, and is
+     left as it was. Off in Settings, or undone for the week, is none. */
+  function phaseAt(ms, w) {
+    if (!T.pr.nph || !phMatters(ms)) return null;
+    var kept = plain(ms.ph) ? ms.ph[w] : null;
+    if (kept) return phOk(kept) && !kept.off ? kept : null;
+    return phBegun(ms, w) ? null : phaseNow();
+  }
+  // the ceiling for week W as a share of MRV, 0 for none: the program's own, lowered by what you eat
+  function capOwn(ms) { return fin(ms.cap) && ms.cap > 0 && ms.cap < 1 ? ms.cap : 1; }
+  function capAt(ms, w) {
+    var ph = phaseAt(ms, w), c = Math.min(capOwn(ms), ph ? ph.c : 1);
+    return c < 1 ? c : 0;
+  }
+  // the week's reading, kept as its first session starts
+  function phaseKeep(ms, w) {
+    if (!T.pr.nph || !phMatters(ms) || w >= accOf(ms)) return;
+    if ((plain(ms.ph) && ms.ph[w]) || phBegun(ms, w)) return;
+    var p = phaseNow();
+    if (!p) return;
+    ms.ph = plain(ms.ph) ? ms.ph : {};
+    ms.ph[w] = { k: p.k, r: p.r, s: p.s, c: p.c };
+    stamp('ms', ms.id);
+  }
+  function phaseSay(p) {
+    return (p.s === 'ate' ? 'You\u2019ve eaten about ' : 'Nourish has you eating about ') + fmtBig(Math.abs(p.k)) + ' kcal a day under maintenance' +
+      (p.s === 'ate' ? ' these two weeks' : '') + ' (' + fmtN(Math.round(p.r * 1000) / 10) + '% of your weight a week), so ' +
+      (p.c <= 0.7 ? 'sets climb one at a time, to 70% of the usual ceiling, and stop a rep short of failure.'
+        : 'sets climb to 85% of the usual ceiling.');
+  }
+  /* Said where the week is, only when it changes something, with a way
+     out for the week and back in. */
+  function phaseLine(ms, nx) {
+    if (!nx || !T.pr.nph || !phMatters(ms) || nx.w >= accOf(ms)) return '';
+    var kept = plain(ms.ph) ? ms.ph[nx.w] : null;
+    if (kept && kept.off && phOk(kept) && kept.c < capOwn(ms)) {
+      return '<div class="tr-ph">Not following Nourish\u2019s calories this week. ' +
+        '<button class="tr-lnk" data-t="phon" data-w="' + nx.w + '">Follow them again</button></div>';
+    }
+    var p = phaseAt(ms, nx.w);
+    if (!p || p.c >= capOwn(ms)) return '';
+    return '<div class="tr-ph">' + esc(phaseSay(p)) +
+      ' <button class="tr-lnk" data-t="phoff" data-w="' + nx.w + '">Undo for this week</button></div>';
+  }
+
   /* Every slot's sets for week W, walked forward from week one so that each
      week is last week plus what last week's feedback said. Nothing about
      the progression is stored: it is a function of what was logged, so
@@ -1836,7 +1922,7 @@
     var keep = steady(ms);
     var str = ms.goal === 'str';
     var fx = Array.isArray(ms.fx) && ms.fx.length ? ms.fx : null;
-    var cap = fin(ms.cap) && ms.cap > 0 && ms.cap < 1 ? ms.cap : 0;
+    var own = capOwn(ms);
     var cur = ms.days.map(function (d) { return d.s.map(function (s) { return Math.max(1, s.n); }); });
     var why = ms.days.map(function (d) { return d.s.map(function () { return keep ? '' : 'Week one: RP\u2019s starting volume.'; }); });
     if (!keep && W >= accOf(ms)) {
@@ -1849,6 +1935,8 @@
     }
     for (var w = 1; w <= W; w++) {
       var tot = totals(ms, cur);
+      // this week's ceiling, and whether eating less is what lowered it
+      var cap = capAt(ms, w), ph = phaseAt(ms, w), phLow = !!ph && ph.c < own;
       var next = cur.map(function (a) { return a.slice(); });
       var wy = cur.map(function (a) { return a.map(function () { return ''; }); });
       /* eslint-disable no-loop-func */
@@ -1862,14 +1950,15 @@
           var f = held ? keepFeedback(ms, w - 1, d, m) : feedback(ms, w - 1, d, m);
           var dl = f.d, extra = '';
           var roof = cap ? Math.round(MUS[m].mrv * cap) : MUS[m].mrv;
-          if (!held && cap && dl > 1) {
+          if (!held && cap && cap <= 0.7 && dl > 1) {
             dl = 1;
             extra += ' One set at a time while you are eating less.';
           }
           if (!held && dl > 0 && tot[m] + dl > roof) {
             dl = Math.max(0, roof - tot[m]);
-            extra += cap ? ' Capped at ' + roof + ' sets a week \u2014 below RP\u2019s MRV, because recovery is slower while you eat less.'
-              : ' Capped at ' + roof + ' sets a week, RP\u2019s MRV for ' + MUS[m].n.toLowerCase() + '.';
+            extra += !cap ? ' Capped at ' + roof + ' sets a week, RP\u2019s MRV for ' + MUS[m].n.toLowerCase() + '.'
+              : phLow ? ' Capped at ' + roof + ' sets a week \u2014 below RP\u2019s MRV while you eat about ' + fmtBig(ph.k) + ' kcal a day under maintenance.'
+              : ' Capped at ' + roof + ' sets a week \u2014 below RP\u2019s MRV, because recovery is slower while you eat less.';
           }
           /* And never past the minutes you said a session could take: a set
              that would not fit is a set that would not get done. */
@@ -3394,6 +3483,106 @@
     return out;
   }
 
+  /* ------------------------------------------------------ the week, both tabs
+   *
+   * One screen, opened from Nourish's morning card and from the Review: the
+   * scale, the food and the training of the last seven days side by side,
+   * and at most two things worth doing about them. Nourish reads its own
+   * half (Hive.week); the training is read here, over the same seven days. */
+  function checkin(now) {
+    now = now || Date.now();
+    var h = hive(), nw = null;
+    try { nw = h && h.week ? h.week() : null; } catch (e) { nw = null; }
+    var keyAgo = function (n) { var d = new Date(now); d.setDate(d.getDate() - n); return dayKey(d); };
+    var from = keyAgo(7), to = keyAgo(1);
+    var wos = ix().list.filter(function (wo) { var k = wo.dk || dayKey(new Date(wo.st)); return k >= from && k <= to; });
+    var sets = wos.reduce(function (n, wo) {
+      return n + wo.x.reduce(function (a, x) { return a + x.s.filter(counts).length; }, 0);
+    }, 0);
+    var c = { from: from, to: to, nw: nw, n: wos.length, sets: sets, prog: progress(now), ph: phaseNow() };
+    c.reads = chkReads(c);
+    return c;
+  }
+  function pctSay(v) { return fmtN(Math.round(Math.abs(v) * 1000) / 10) + '%'; }
+  /* The reads, most pressing first, two at most. Each is a rule a coach
+     would state: past about 1% a week more of what comes off is muscle;
+     a lean gain is about a quarter of a percent; protein is what the
+     lifting protects muscle with on a cut. A week with nothing wrong says
+     so, or says what went right. */
+  function chkReads(c) {
+    var nw = c.nw, look = [], out = [];
+    var w = nw && nw.w, lb = nw && nw.lb;
+    var loss = w && w.now > 0 && w.was > 0 && w.n >= 3 && w.m >= 3 ? (w.was - w.now) / w.was : null;
+    var plan = nw && fin(nw.plan) ? nw.plan : null;
+    /* How far under maintenance, from the same seven days the rows above
+       show, so the reads and the numbers agree; Nourish's two-week reading
+       when too few of the seven are logged to say. */
+    var under = nw && nw.days >= 4 && fin(nw.kcal) && nw.maint > 0 ? Math.round((nw.maint - nw.kcal) / 10) * 10 : c.ph ? c.ph.k : null;
+    var cut = under !== null && lb > 0 ? under * 7 / 3500 / lb >= 0.0025 : !!c.ph && c.ph.r >= 0.0025;
+    var p = c.prog, slip = p.lifts.filter(function (l) { return l.ch < -0.03; }).map(function (l) { return lib(l.e).n; });
+    var falling = p.n >= 2 && (p.fall.length > 0 || (p.down > p.up && p.down >= 2));
+    if (loss !== null && loss >= 0.01 && (plan === null || loss > plan + 0.0025)) {
+      var more = lb ? Math.round((loss - Math.max(plan || 0, 0.0075)) * lb * 3500 / 7 / 50) * 50 : 0;
+      look.push('Down ' + pctSay(loss) + ' of your weight on the week before' + (plan !== null && plan > 0 ? ', faster than the ' + pctSay(plan) + ' planned' : '') +
+        '. Past about 1% a week, more of what comes off is muscle' +
+        (more >= 50 ? '; if next week says the same, about ' + fmtBig(more) + ' kcal a day more would slow it.' : '.'));
+    }
+    if (loss !== null && loss <= -0.005 && (plan === null || plan > -0.005)) {
+      look.push('Up ' + pctSay(loss) + ' on the week before, faster than a lean gain of about a quarter of a percent a week: if it holds, more of it is fat.');
+    }
+    if (falling) {
+      var who = slip.length ? names(slip.slice(0, 3).map(function (n) { return { n: n }; })) : 'most of your lifts';
+      // what the block is already doing about it, when there is a block that climbs
+      var blk = phMatters(active());
+      look.push(cut
+        ? 'Strength slipping on ' + who + ' while you eat about ' + fmtBig(under) + ' kcal a day under maintenance. A slower cut, toward half a percent a week, protects it' +
+          (blk ? '; the block already climbs less.' : '.')
+        : 'Strength slipping on ' + who + ' at maintenance or above: usually sleep, stress or more sets than you recover from.' +
+          (blk ? ' The block holds sets where you were weaker.' : ''));
+    }
+    if (nw && nw.pDays >= 4 && nw.pDays - nw.hit >= 2) {
+      look.push('Protein under 90% of target on ' + (nw.pDays - nw.hit) + ' of ' + nw.pDays + ' days' +
+        (cut ? ': on a cut it is what keeps the muscle the lifting asks for.' : '.'));
+    }
+    if (!c.n) look.push('No workouts logged these seven days.');
+    if (nw && nw.days > 0 && nw.days < 4) look.push('Only ' + nw.days + ' of 7 days logged, so the calories above are part of the picture.');
+    look.slice(0, 2).forEach(function (b) { out.push({ st: 'look', b: b }); });
+    if (!out.length) {
+      out.push({ st: 'good', b: cut && p.n >= 2 && p.held === p.n
+        ? 'Strength held on every lift measured while you eat about ' + fmtBig(under) + ' kcal a day under maintenance: the cut is costing fat, not muscle.'
+        : p.up >= 2 && p.up > p.down ? 'Strength up on ' + p.up + ' of ' + p.n + ' lifts over four weeks. Nothing here needs changing.'
+        : 'Nothing here needs changing.' });
+    }
+    return out;
+  }
+  function checkinHTML() {
+    var c = checkin(), nw = c.nw, w = nw && nw.w;
+    var md = function (k) { var d = new Date(k + 'T12:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+    var row = function (t, b) { return '<dt>' + t + '</dt><dd>' + b + '</dd>'; };
+    var weight = !w || !(w.now > 0) ? 'No weigh-ins these seven days'
+      : fmtN(w.now) + ' lb average' + (w.n < 3 ? ' (' + w.n + ' weigh-in' + (w.n === 1 ? '' : 's') + ')' : '') +
+        (w.was > 0 ? ' · ' + (w.now <= w.was ? 'down ' : 'up ') + fmtN(Math.abs(w.now - w.was)) + ' lb (' + pctSay((w.now - w.was) / w.was) + ') on the week before' : '') +
+        (fin(nw.plan) && Math.abs(nw.plan) >= 0.001 ? ' · plan ' + (nw.plan > 0 ? 'down ' : 'up ') + pctSay(nw.plan) + ' a week' : '');
+    var cal = !nw || !nw.days ? 'No days logged these seven days'
+      : fmtBig(nw.kcal) + ' a day on ' + nw.days + ' of 7 days logged' +
+        (nw.target ? ' · target ' + fmtBig(nw.target) : '') +
+        (nw.maint ? ' · maintenance about ' + fmtBig(Math.round(nw.maint / 10) * 10) + (nw.measured ? ', measured from your logs' : ', estimated') : '');
+    var prot = nw && nw.pDays ? 'At target ' + nw.hit + ' of ' + nw.pDays + ' days · ' + nw.p + ' g a day of ' + nw.tp : '';
+    var p = c.prog;
+    return '<div class="sheet-name tr-sn2">The week</div>' +
+      '<div class="tr-sub">' + esc(md(c.from)) + '–' + esc(md(c.to)) + ', from Nourish and Strengthen together</div>' +
+      '<dl class="tr-dl tr-chk">' +
+        row('Weight', esc(weight)) + row('Calories', esc(cal)) + (prot ? row('Protein', esc(prot)) : '') +
+        row('Training', c.n + ' session' + (c.n === 1 ? '' : 's') + ' · ' + c.sets + ' hard set' + (c.sets === 1 ? '' : 's')) +
+        row('Strength', p.n ? esc('Over four weeks: ' + p.up + ' up, ' + p.flat + ' level, ' + p.down + ' down, of ' + p.n + ' lifts done twice or more')
+          : 'Not enough repeat sessions yet to say') +
+      '</dl>' +
+      '<ul class="tr-chk-r">' + c.reads.map(function (r) {
+        return '<li class="tr-chk-' + r.st + '">' + esc(r.b) + '</li>';
+      }).join('') + '</ul>' +
+      '<div class="tr-acts"><button class="ghost" data-t="chkrev">Full training review</button></div>';
+  }
+
   function median(a) {
     if (!a.length) return 0;
     var s = a.slice().sort(function (x, y) { return x - y; });
@@ -3794,6 +3983,7 @@
 
   function startPlanned(ms, w, d) {
     if (LIVE) return;
+    phaseKeep(ms, w);
     setLive(liveFromPlan(ms, w, d));
     S.sub = 'block';
     draw();
@@ -4654,6 +4844,7 @@
           '<span class="tr-wk-n">' + wk + (nx && cols.length ? ' \u00b7 ' + doneN + ' of ' + cols.length + ' done' : '') + '</span>' +
           '<span class="tr-wk-s">' + esc(ms.n) + '</span></span>' +
           '<span class="tr-wk-e">Show the weeks</span></button>' +
+        phaseLine(ms, nx) +
         (!picked || S.ldOpen ? ldHTML(ms, nx) : '') +
       '</div>';
     }
@@ -4667,7 +4858,7 @@
     } else {
       html += '<div class="tr-sub">Every session of this block is done.</div>';
     }
-    return html + weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
+    return html + phaseLine(ms, nx) + weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
   }
 
   /* No lifting, and not nothing: something you could talk through, long
@@ -6364,7 +6555,9 @@
       '<div class="tr-title">' + r.n + ' workout' + (r.n === 1 ? '' : 's') + ', held against the research</div>' +
       '<div class="tr-note">Every line below is a rule with a source. It grades what can be measured from your log and says so when something cannot be.</div>' +
       // a week with nothing in it has nothing to grade, and one way to fix that
-      (r.n ? '' : '<div class="tr-acts">' + goBtn() + '</div>');
+      '<div class="tr-acts">' + (r.n ? '' : goBtn()) +
+        // the same check-in Nourish's morning card opens: the scale and the food beside this
+        '<button class="ghost" data-t="chk">This week, with Nourish</button></div>';
     if (r.rows.length) {
       html += '<div class="tr-vbars" role="table" aria-label="Hard sets per muscle this week">' +
         '<div class="tr-vkey" aria-hidden="true"><span class="tr-vk-band"></span> ' +
@@ -6503,6 +6696,7 @@
     else if (sh.k === 'strong') body = strongHTML();
     else if (sh.k === 'immap') body = imMapHTML();
     else if (sh.k === 'impaste') body = imPasteHTML();
+    else if (sh.k === 'chk') body = checkinHTML();
     root.innerHTML = '<div class="scrim no-print" data-t="close">' +
       '<div class="sheet tr-sheet" role="dialog" aria-modal="true" aria-label="' + esc(sh.title || 'Strengthen') + '">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(sh.eyebrow || '') + '</div>' +
@@ -7701,6 +7895,8 @@
       '<div class="tr-q"><div class="tr-ql">When you finish</div>' + chips('s-yay', p.yay, [[1, 'Chime and confetti'], [0, 'Just the summary']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Your weight on pull-up and dip days</div>' + chips('s-nobw', p.nobw, [[0, 'Ask when it\u2019s needed'], [1, 'Don\u2019t ask']]) +
         '<div class="tr-hint">Asked only when there\u2019s no weigh-in from the last week to go on. Saved, it\u2019s the day\u2019s weigh-in on Nourish too.</div></div>' +
+      '<div class="tr-q"><div class="tr-ql">Weekly sets and your calories</div>' + chips('s-nph', p.nph, [[1, 'Follow Nourish'], [0, 'Ignore']]) +
+        '<div class="tr-hint">Eating well under maintenance slows recovery, so a block\u2019s weekly sets climb less: to 85% of the usual ceiling a quarter to a half percent of your weight a week under, 70% and one set at a time past that. Read from what Nourish says you eat, and kept for each week as it starts.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">Effort on each set</div>' + chips('s-rq', p.rq, [[0, 'Don\u2019t ask'], [1, 'Log it']]) +
         '<div class="tr-hint">A box beside every set for how hard it was. Optional on each set; the review holds it against what the plan asked.</div></div>' +
       /* Its own question, not a second row under the first: it also says
@@ -7759,6 +7955,15 @@
     return out;
   }
 
+  function openCheckin() { openSheet({ k: 'chk', eyebrow: 'Weekly check-in', title: 'The week' }); }
+  /* The Review, from wherever the check-in was opened: Nourish's tab is
+     left for Strengthen's as its own tab button would leave it. */
+  function showReview() {
+    var v = $('view-train'), tab = document.querySelector('.tab[data-view="train"]');
+    setSub('review');
+    if (v && v.classList.contains('hide') && tab) tab.click();
+    scrollTop();
+  }
   function setSub(v) {
     S.sub = v;
     // back to the workout is back to it full screen
@@ -8838,6 +9043,26 @@
       startPlanned(ms, num('data-w'), num('data-d'));
       return;
     }
+    /* A week out of following Nourish's calories, and back in. Undone
+       before the week has begun, it keeps what Nourish says now, so that
+       following again restores this, not whatever is read by then. */
+    if (t === 'phoff' || t === 'phon') {
+      ms = active();
+      var phw = num('data-w');
+      if (!ms || !fin(phw) || phw < 0 || phw >= accOf(ms)) return;
+      ms.ph = plain(ms.ph) ? ms.ph : {};
+      var phk = phOk(ms.ph[phw]) ? ms.ph[phw] : null;
+      if (!phk) {
+        var phn = phaseNow();
+        if (!phn) return;
+        phk = { k: phn.k, r: phn.r, s: phn.s, c: phn.c };
+      }
+      if (t === 'phoff') phk.off = 1; else delete phk.off;
+      ms.ph[phw] = phk;
+      stamp('ms', ms.id);
+      draw();
+      return;
+    }
     if (t === 'empty') { startEmpty(); return; }
     // your weight on a pull-up day
     if (t === 'bwqsave') { bwSave(false); return; }
@@ -8858,6 +9083,9 @@
     if (t === 'ready') { S.rdo = ''; S.arm = ''; openSheet({ k: 'ready', eyebrow: 'Ready workouts', title: 'Pick a ready workout' }); return; }
     if (t === 'rdopen') { S.rdo = S.rdo === v ? '' : v; S.arm = ''; drawSheet(); if (S.rdo) sheetShow(document.querySelector('#trainRoot .tr-rdr.on')); return; }
     if (t === 'rdxp') { S.rdx = Number(v) ? 1 : 0; drawSheet(); return; }
+    // the week, both tabs: opened here from the Review, and from Nourish through openCheckin
+    if (t === 'chk') { openCheckin(); return; }
+    if (t === 'chkrev') { closeSheet(); showReview(); return; }
     if (t === 'rdgo') { startReady(v, !!S.rdx && !T.rt[v], Number(el.getAttribute('data-e'))); return; }
     if (t === 'rtdel') {
       if (S.arm !== 'rt:' + v) { S.arm = 'rt:' + v; drawSheet(); return; }
@@ -9303,6 +9531,7 @@
     if (t === 's-rq') { T.pr.rq = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-eff') { T.pr.eff = v === 'rpe' ? 'rpe' : 'rir'; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-nobw') { T.pr.nobw = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
+    if (t === 's-nph') { T.pr.nph = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 'export') { exportCopy(); return; }
     if (t === 'exportcsv') { exportCsv(); return; }
     if (S.sg && t === 'sgu') { S.sg.unit = v === 'kg' ? 'kg' : 'lb'; drawSheet(); return; }
@@ -9562,6 +9791,8 @@
 
   window.Train = {
     render: render,
+    // the weekly check-in, for Nourish's morning card
+    openCheckin: openCheckin,
     dayText: dayText,
     /* The workouts saved on a day, by name — Nourish ticks "Trained today"
        off this, so a session logged here moves the day's carbohydrate there. */
@@ -9628,9 +9859,10 @@
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE, swapBest: swapBest,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
+      checkin: checkin, chkReads: chkReads, phaseNow: phaseNow, phaseAt: phaseAt, capAt: capAt, phaseCap: phaseCap, phaseLine: phaseLine, phaseReset: function () { phLive.t = 0; },
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
-      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; }
+      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; phLive.t = 0; }
     }
   };
 })();

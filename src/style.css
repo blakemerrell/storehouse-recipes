@@ -3958,7 +3958,7 @@ button.mw-verdict:hover { background: var(--paper-soft); }
 .mw-verdict b { color: var(--ink); font-weight: 600; }
 .mw-verdict .mplan-go { flex: none; }
 /* the way into the plan, at the foot of what it produced */
-.mw-adj { display: flex; justify-content: flex-end; margin-top: 9px; }
+.mw-adj { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
 /* The morning line sits inside the card now, so it drops the card of its own
    it used to wear and keeps only the colour that says which kind it is. */
 .mday-weigh .mline { margin: 0; border-radius: 0; border-left-width: 3px; border-right: 0;
@@ -5328,6 +5328,13 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 .tr-dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 6px 0 12px; font-size: 13.5px; }
 .tr-dl dt { color: var(--muted-2); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; padding-top: 2px; }
 .tr-dl dd { margin: 0; }
+/* The week, both tabs: five rows of numbers, then at most two reads, each
+   marked by whether it asks for something (ochre) or says all is well (green). */
+.tr-chk { font-size: 14px; line-height: 1.45; }
+.tr-chk-r { list-style: none; margin: 4px 0 12px; padding: 0; display: grid; gap: 8px; }
+.tr-chk-r li { position: relative; padding: 8px 10px 8px 14px; border-radius: 4px; background: var(--paper-soft); font-size: 14px; line-height: 1.45; }
+.tr-chk-r li::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--ochre-text); }
+.tr-chk-r li.tr-chk-good::before { background: var(--green); }
 .tr-hs { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
 .tr-hs-h { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .tr-hs-n { font-weight: 600; font-size: 14px; }
@@ -5526,6 +5533,11 @@ body:has(#view-train.tr-focus:not(.hide)) #shareHint { display: none; }
 .tr-wk-e { font-size: 13px; font-weight: 600; color: var(--ochre-text); white-space: nowrap; }
 .tr-wk .tr-ldrow { margin: 0; padding: 0 18px 14px; }
 .tr-wk .tr-ldpanel { margin: 0 18px; padding-bottom: 14px; }
+/* Following Nourish's calories: what the week read, what it does, and a way out.
+   Inside the folded card it sits under the week's own line; open, under the sub. */
+.tr-ph { font-size: 13px; line-height: 1.45; color: var(--muted); max-width: 62ch; margin: 4px 0 10px; }
+.tr-wk .tr-ph { margin: -4px 18px 14px; }
+.tr-ph .tr-lnk { font-size: 13px; padding: 6px 2px; }
 .tr-blk-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .tr-blk-h .tr-lnk { min-height: 44px; font-size: 13px; }
 .tr-more { margin: 18px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
