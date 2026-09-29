@@ -5428,6 +5428,11 @@ button.mitem-uom.mitem-bw.est { border-style: dashed; color: var(--muted-2); }
 .tr-first b { font-weight: 600; }
 .tr-first.tr-safe { border-left-color: oklch(0.55 0.14 30); }
 .tr-need { font-size: 13px; font-weight: 500; color: oklch(0.46 0.14 30); padding: 2px 0 8px 36px; line-height: 1.4; }
+/* A weight that leaves a set under five reps: said under the set, in the
+   plan's own ink rather than the error's, since it is advice and not a
+   mistake. Drawn for every set and shown only when it has something to say. */
+.tr-lo { font-size: 13px; color: var(--ochre-text); padding: 2px 0 8px 36px; line-height: 1.4; max-width: 60ch; }
+.tr-lo:empty { display: none; }
 
 /* ---- Strengthen: a missed attempt — its weight kept, struck through, never counted ---- */
 .tr-set.tr-mm .tr-snb { color: var(--muted-2); font-weight: 700; }
