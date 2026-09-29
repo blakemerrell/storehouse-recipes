@@ -1152,18 +1152,48 @@
     Pork: { k: ['pork_roast', 'pork_sausage', 'ham', 'sweet_pork'], n: /pork|\bham\b|sausage|carnitas|bacon/i },
     Fish: { k: ['tuna', 'salmon'], n: /tuna|salmon|fish|shrimp/i },
     Beans: { k: ['black_beans', 'pinto_beans', 'white_beans', 'kidney_beans', 'refried_beans'], n: /\bbeans?\b(?! & )/i },
-    Mushrooms: { k: ['cream_soup_mush', 'mushrooms'], n: /mushroom/i }
+    Mushrooms: { k: ['cream_soup_mush', 'mushrooms'], n: /mushroom/i },
+    Dairy: { k: ['cheddar', 'milk', 'sour_cream', 'cottage_cheese', 'butter', 'evaporated_milk', 'cream_soup_chx', 'cream_soup_mush', 'mozzarella', 'parmesan', 'cream_cheese'], n: /chees|creamy|alfredo/i }
   };
+  /* What a dinner is built on: its heaviest meat. A dinner with no meat in
+     it at all is Meatless, beans and tuna included. */
+  var PW_PROT = ['Chicken', 'Beef', 'Pork', 'Meatless'];
+  function pwProt(r) {
+    var m = pwMain(r);
+    if (!m) return 'Meatless';
+    if (/chicken/.test(m)) return 'Chicken';
+    if (/pork|ham|sausage/.test(m)) return 'Pork';
+    return 'Beef';
+  }
+  /* The kind of night, from the section of the book a dinner sits in. */
+  var PW_KIND = [['Weeknight', '2-3', 'Weeknight comfort'], ['Sunday', '2-4', 'Sunday feast'],
+    ['Copycat', '2-7', 'Copycat'], ['Everyday', '1-4', 'Everyday']];
+  function pwKind(r) {
+    var at = r.book + '-' + r.secNum;
+    return (PW_KIND.filter(function (k) { return k[1] === at; })[0] || [''])[0];
+  }
+  var PW_WEEKEND = ['sat', 'sun'];
+  var PW_DAYS = DAYS.map(function (d) { return d[0]; });
   function pwAnswers() {
     var a = null;
     try { a = JSON.parse(localStorage.getItem(PW_KEY)); } catch (e) { a = null; }
     a = a && typeof a === 'object' ? a : {};
+    var list = function (v, ok) { return Array.isArray(v) ? v.filter(ok) : []; };
+    /* Answers saved before the nights were days said how many; that many
+       from Monday is what they meant. */
+    var days = Array.isArray(a.days) ? list(a.days, function (d) { return PW_DAYS.indexOf(d) >= 0; })
+      : PW_DAYS.slice(0, [3, 4, 5, 7].indexOf(a.n) >= 0 ? a.n : 5);
     return {
-      n: [3, 4, 5, 7].indexOf(a.n) >= 0 ? a.n : 5,
+      days: days,
       ppl: [2, 3, 4, 6, 8].indexOf(a.ppl) >= 0 ? a.ppl : 4,
       bud: a.bud >= 20 && a.bud <= 150 ? a.bud : 50,
-      t: [20, 45, 0].indexOf(a.t) >= 0 ? a.t : 45,
-      avoid: Array.isArray(a.avoid) ? a.avoid.filter(function (x) { return PW_AVOID[x]; }) : [],
+      t: [20, 30, 45, 0].indexOf(a.t) >= 0 ? a.t : 45,
+      prot: list(a.prot, function (x) { return PW_PROT.indexOf(x) >= 0; }),
+      kind: list(a.kind, function (x) { return PW_KIND.some(function (k) { return k[0] === x; }); }),
+      fit: a.fit === true,
+      avoid: list(a.avoid, function (x) { return PW_AVOID[x]; }),
+      ing: list(a.ing, function (x) { return typeof x === 'string' && !!(window.PANTRY || {})[x]; }),
+      rec: [0, 2, 4].indexOf(a.rec) >= 0 ? a.rec : 0,
       shelf: a.shelf !== false
     };
   }
@@ -1177,7 +1207,8 @@
     if (PW_SECS.indexOf(r.book + '-' + r.secNum) >= 0) return true;
     return r.book === 2 && r.secNum === 7 && !(r.makes || []).length && !!r.macro && r.macro.kcal >= 350;
   }
-  function pwAvoids(r, avoid) {
+  function pwAvoids(r, avoid, ing) {
+    if ((ing || []).length && (r.ingp || []).some(function (it) { return ing.indexOf(it.k) >= 0; })) return true;
     return avoid.some(function (w) {
       var rule = PW_AVOID[w];
       return rule.n.test(r.name) || (r.ingp || []).some(function (it) { return rule.k.indexOf(it.k) >= 0; });
@@ -1212,17 +1243,56 @@
     });
     return best;
   }
-  function pwPool(a) {
+  /* A dinner's share of a day on the Nourish plan, per serving: a third of
+     the calories at most, and at least a third of the protein. Nothing set
+     in Nourish, and a plain 600 calories and 35 g. */
+  function pwFitCaps() {
+    var t = mReadTargets(), kc = t.p * 4 + t.c * 4 + t.f * 9;
+    if (!kc) return { kc: 600, p: 35 };
+    return { kc: Math.round(kc / 3 / 25) * 25, p: Math.round(t.p / 3 / 5) * 5 };
+  }
+  /* What was eaten or planned in the last few weeks: the dated Nourish days,
+     and what this sheet has put on nights before. */
+  var PW_HIST = 'sh.pwHist';
+  function pwHist() {
+    try { var h = JSON.parse(localStorage.getItem(PW_HIST)); return h && typeof h === 'object' ? h : {}; }
+    catch (e) { return {}; }
+  }
+  function pwRecent(weeks) {
+    var out = {};
+    if (!weeks) return out;
+    var cut = new Date(); cut.setDate(cut.getDate() - weeks * 7);
+    var cutK = dayKey(cut), h = pwHist();
+    Object.keys(h).forEach(function (id) { if (h[id] >= cutK) out[id] = 1; });
+    Object.keys(MDAYS).forEach(function (k) {
+      if (k < cutK) return;
+      var day = MDAYS[k] || {};
+      Object.keys(day).forEach(function (sk) {
+        if (Array.isArray(day[sk])) day[sk].forEach(function (it) { if (it && it.id !== undefined) out[String(it.id)] = 1; });
+      });
+    });
+    return out;
+  }
+  /* weekend lifts the weeknight time limit; skip leaves one question out,
+     so a chip can say how many dinners it would let in. */
+  function pwPool(a, weekend, skip) {
+    var fit = a.fit ? pwFitCaps() : null, recent = pwRecent(a.rec);
     return (window.RECIPES || []).filter(function (r) {
-      return pwIsDinner(r) && (!a.t || pwMins(r) <= a.t) && !pwAvoids(r, a.avoid);
+      if (!pwIsDinner(r)) return false;
+      if (!weekend && a.t && pwMins(r) > a.t) return false;
+      if (skip !== 'prot' && a.prot.length && a.prot.indexOf(pwProt(r)) < 0) return false;
+      if (skip !== 'kind' && a.kind.length && a.kind.indexOf(pwKind(r)) < 0) return false;
+      if (fit && r.macro && (r.macro.kcal > fit.kc || r.macro.p < fit.p)) return false;
+      if (recent[String(r.id)]) return false;
+      return !pwAvoids(r, a.avoid, a.ing);
     });
   }
   /* One more dinner for a week that already has `picks`: cheap, sharing
      what the week already buys, not the same meat three nights running, and
      a little chance so two runs are two weeks. Anything that would carry the
      week past the budget is passed over while something else fits. */
-  function pwNext(a, picks, not) {
-    var pool = pwPool(a).filter(function (r) {
+  function pwNext(a, picks, not, day) {
+    var pool = pwPool(a, PW_WEEKEND.indexOf(day) >= 0).filter(function (r) {
       return not.indexOf(r.id) < 0 && !picks.some(function (e) { return e.r.id === r.id; });
     });
     if (!pool.length) return null;
@@ -1237,7 +1307,7 @@
       (r.ingp || []).forEach(function (it) { if (have[it.k]) shared++; });
       var m = pwMain(r), same = m ? (mains[m] || 0) : 0;
       return { r: r, x: x, inc: inc,
-        fits: base + inc <= a.bud * (picks.length + 1) / a.n + 0.01,
+        fits: base + inc <= a.bud * (picks.length + 1) / Math.max(1, a.days.length) + 0.01,
         score: inc - shared * 0.8 + same * same * 3 + Math.random() * 2.5 };
     });
     var ok = scored.filter(function (c) { return c.fits; });
@@ -1245,30 +1315,30 @@
     from.sort(function (p, q) { return p.score - q.score; });
     return { r: from[0].r, x: from[0].x };
   }
-  /* The nights still without a dinner, Monday first. */
-  function pwNights(n) {
-    var free = DAYS.filter(function (d) {
-      return !window.Store.day(d[0]).some(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); });
-    }).map(function (d) { return d[0]; });
-    return free.slice(0, n);
+  /* The nights asked for that have no dinner yet, Monday first. */
+  function pwNights(days) {
+    return PW_DAYS.filter(function (d) {
+      return (!days || days.indexOf(d) >= 0) &&
+        !window.Store.day(d).some(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); });
+    });
   }
   function pwPick() {
-    var a = S.pw.a, picks = [], nights = pwNights(a.n);
+    var a = S.pw.a, picks = [], nights = pwNights(a.days);
     for (var i = 0; i < nights.length; i++) {
-      var nx = pwNext(a, picks, []);
-      if (!nx) break;
-      picks.push({ r: nx.r, x: nx.x, day: nights[i] });
+      var nx = pwNext(a, picks, [], nights[i]);
+      if (nx) picks.push({ r: nx.r, x: nx.x, day: nights[i] });
     }
     S.pw.picks = picks;
     S.pw.seen = {};
   }
   function pwSwap(i) {
-    var a = S.pw.a, others = S.pw.picks.filter(function (e, j) { return j !== i; });
+    var a = S.pw.a, day = S.pw.picks[i].day;
+    var others = S.pw.picks.filter(function (e, j) { return j !== i; });
     var seen = S.pw.seen[i] = S.pw.seen[i] || [];
     seen.push(S.pw.picks[i].r.id);
-    var nx = pwNext(a, others, seen);
-    if (!nx) { S.pw.seen[i] = []; nx = pwNext(a, others, [S.pw.picks[i].r.id]); }
-    if (nx) S.pw.picks[i] = { r: nx.r, x: nx.x, day: S.pw.picks[i].day };
+    var nx = pwNext(a, others, seen, day);
+    if (!nx) { S.pw.seen[i] = []; nx = pwNext(a, others, [S.pw.picks[i].r.id], day); }
+    if (nx) S.pw.picks[i] = { r: nx.r, x: nx.x, day: day };
   }
   function pwMoney(v) { return v < 0.5 ? '$0' : '$' + (v < 10 ? v.toFixed(2) : Math.round(v)); }
   /* The headline figure. Nothing to buy is said as that, not as $0.00. */
@@ -1276,11 +1346,77 @@
     return v < 0.5 ? '<b>Nothing to buy</b> <span>it\u2019s all on your shelf</span>'
       : '<b>about ' + pwMoney(v) + '</b> <span>to buy</span>';
   }
-  function pwChips(q, opts, cur) {
+  /* A third item on an option is how many dinners it holds, said small. */
+  function pwChips(q, opts, cur, cls) {
     return '<div class="pw-chips" role="group">' + opts.map(function (o) {
       var on = Array.isArray(cur) ? cur.indexOf(o[0]) >= 0 : cur === o[0];
-      return '<button class="pw-chip" data-pwq="' + q + '" data-pwv="' + esc(String(o[0])) + '" aria-pressed="' + on + '">' + o[1] + '</button>';
+      return '<button class="pw-chip' + (cls ? ' ' + cls : '') + '" data-pwq="' + q + '" data-pwv="' + esc(String(o[0])) + '" aria-pressed="' + on + '">' + o[1] +
+        (o[2] !== undefined ? ' <i>' + o[2] + '</i>' : '') + '</button>';
     }).join('') + '</div>';
+  }
+  function pwIngName(k) { var d = (window.PANTRY || {})[k]; return d && d.l ? d.l : String(k).replace(/_/g, ' '); }
+  /* Every ingredient any dinner uses, for the leave-out search. */
+  function pwIngKeys() {
+    var seen = {};
+    (window.RECIPES || []).forEach(function (r) {
+      if (pwIsDinner(r)) (r.ingp || []).forEach(function (it) { if (it.k && it.k !== 'water' && it.k !== 'free' && it.k !== 'salt') seen[it.k] = (seen[it.k] || 0) + 1; });
+    });
+    return seen;
+  }
+  function pwSugHTML(q) {
+    var a = S.pw.a, all = pwIngKeys();
+    q = String(q || '').trim().toLowerCase();
+    if (!q) return '';
+    return Object.keys(all).filter(function (k) {
+      return a.ing.indexOf(k) < 0 && pwIngName(k).toLowerCase().indexOf(q) >= 0;
+    }).sort(function (x, y) { return all[y] - all[x]; }).slice(0, 6).map(function (k) {
+      return '<button class="pw-chip" data-pwing="' + esc(k) + '">' + esc(pwIngName(k)) + ' <i>' + all[k] + '</i></button>';
+    }).join('');
+  }
+  /* The count the bar shows: dinners that fit every answer on a weeknight
+     (a weekend-only week is held to no time limit), against the nights
+     still to fill. */
+  function pwCount(a) {
+    var wk = a.days.some(function (d) { return PW_WEEKEND.indexOf(d) < 0; });
+    return { n: pwPool(a, !wk).length, need: pwNights(a.days).length };
+  }
+  function pwStep1(a, dots) {
+    var cnt = pwCount(a), fit = pwFitCaps();
+    var byProt = {}, byKind = {};
+    pwPool(a, false, 'prot').forEach(function (r) { var k = pwProt(r); byProt[k] = (byProt[k] || 0) + 1; });
+    pwPool(a, false, 'kind').forEach(function (r) { var k = pwKind(r); byKind[k] = (byKind[k] || 0) + 1; });
+    var low = cnt.n < cnt.need * 2, none = cnt.n < cnt.need || !cnt.need;
+    return '<h2 class="pw-h">What kind of week?</h2>' + dots +
+      '<div class="pw-q"><div class="pw-ql">Which nights</div>' +
+        pwChips('days', DAYS.map(function (d) { return [d[0], d[2]]; }), a.days, 'pw-dayc') + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">How many are eating?</div>' + pwChips('ppl', [[2, '2'], [3, '3'], [4, '4'], [6, '6'], [8, '8+']], a.ppl) + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">Spend no more than</div><div class="pw-money">' +
+        '<input type="range" id="pwBud" min="20" max="150" step="5" value="' + a.bud + '" aria-label="Budget in dollars">' +
+        '<b id="pwBudV">$' + a.bud + '</b></div></div>' +
+      '<div class="pw-q"><div class="pw-ql">Protein <small>any you pick</small></div>' +
+        pwChips('prot', PW_PROT.map(function (k) { return [k, k, byProt[k] || 0]; }), a.prot) + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">Kind of night <small>any you pick</small></div>' +
+        pwChips('kind', PW_KIND.map(function (k) { return [k[0], k[2], byKind[k[0]] || 0]; }), a.kind) + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">Time on a weeknight <small>Sat and Sun can take longer</small></div>' +
+        pwChips('t', [[20, '20 min'], [30, '30 min'], [45, '45 min'], [0, 'Anything']], a.t) + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">Fits my Nourish plan</div>' +
+        pwChips('fit', [['0', 'Don’t mind'], ['1', 'Up to ' + fit.kc + ' cal · ' + fit.p + ' g+ protein']], a.fit ? '1' : '0') + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">Leave out</div>' +
+        pwChips('avoid', Object.keys(PW_AVOID).map(function (k) { return [k, k]; }), a.avoid, 'pw-x') +
+        (a.ing.length ? '<div class="pw-chips pw-ings">' + a.ing.map(function (k) {
+          return '<button class="pw-chip pw-x" aria-pressed="true" data-pwingx="' + esc(k) + '" aria-label="Stop leaving out ' + esc(pwIngName(k)) + '">' + esc(pwIngName(k)) + ' ✕</button>';
+        }).join('') + '</div>' : '') +
+        '<input class="pw-find" id="pwIng" type="search" placeholder="Any ingredient: onion, cheddar…" autocomplete="off" aria-label="Leave out an ingredient">' +
+        '<div class="pw-chips pw-sug" id="pwSug"></div></div>' +
+      '<div class="pw-q"><div class="pw-ql">Variety</div>' +
+        pwChips('rec', [[0, 'Repeats are fine'], [2, 'Nothing from the last 2 weeks'], [4, 'Last 4 weeks']], a.rec) + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">Use what’s already on the shelf?</div>' +
+        pwChips('shelf', [['1', 'Yes, count it as free'], ['0', 'No, buy everything']], a.shelf ? '1' : '0') + '</div>' +
+      '<div class="pw-bar"><div class="pw-cnt' + (low ? ' low' : '') + '" role="status"><b>' + cnt.n + '</b> ' +
+        (cnt.n === 1 ? 'dinner fits' : 'dinners fit') + '<span>' +
+        (!cnt.need ? (a.days.length ? 'those nights already have dinners' : 'pick a night') :
+          cnt.n < cnt.need ? 'need ' + cnt.need + ', loosen a filter' : low ? 'not many to choose from' : 'for ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights')) +
+        '</span></div><button class="pw-go" data-pwgo="2"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>';
   }
   function pwHTML() {
     var P = S.pw, a = P.a, step = P.step;
@@ -1288,26 +1424,16 @@
       return '<span' + (i <= step ? ' class="on"' : '') + '></span>'; }).join('') + '</div>';
     var body;
     if (step === 1) {
-      body = '<h2 class="pw-h">A few questions, then your week</h2>' + dots +
-        '<div class="pw-q"><div class="pw-ql">How many dinners?</div>' + pwChips('n', [[3, '3'], [4, '4'], [5, '5'], [7, '7']], a.n) + '</div>' +
-        '<div class="pw-q"><div class="pw-ql">How many are eating?</div>' + pwChips('ppl', [[2, '2'], [3, '3'], [4, '4'], [6, '6'], [8, '8+']], a.ppl) + '</div>' +
-        '<div class="pw-q"><div class="pw-ql">Spend no more than</div><div class="pw-money">' +
-          '<input type="range" id="pwBud" min="20" max="150" step="5" value="' + a.bud + '" aria-label="Budget in dollars">' +
-          '<b id="pwBudV">$' + a.bud + '</b></div></div>' +
-        '<div class="pw-q"><div class="pw-ql">Time on a weeknight</div>' + pwChips('t', [[20, '20 min'], [45, '45 min'], [0, 'Anything']], a.t) + '</div>' +
-        '<div class="pw-q"><div class="pw-ql">Leave out</div>' + pwChips('avoid', Object.keys(PW_AVOID).map(function (k) { return [k, k]; }), a.avoid) + '</div>' +
-        '<div class="pw-q"><div class="pw-ql">Use what’s already on the shelf?</div>' +
-          pwChips('shelf', [['1', 'Yes, count it as free'], ['0', 'No, buy everything']], a.shelf ? '1' : '0') + '</div>' +
-        '<button class="pw-go" data-pwgo="2">Pick my dinners</button>';
+      body = pwStep1(a, dots);
     } else if (step === 2) {
       var tot = pwCost(P.picks, a.shelf), all = pwCost(P.picks, false);
-      var short = P.picks.length < a.n;
+      var want = pwNights(a.days).length, short = P.picks.length < a.days.length;
       body = '<h2 class="pw-h">Your ' + P.picks.length + (P.picks.length === 1 ? ' dinner' : ' dinners') + '</h2>' + dots +
         (P.picks.length ? '<div class="pw-sum' + (tot > a.bud ? ' over' : '') + '"><div>' + pwTotalHTML(tot) + '</div>' +
           '<span>' + (a.shelf && all - tot >= 1 ? pwMoney(all) + ' without your shelf · ' : '') +
           (tot <= a.bud ? 'under $' + a.bud : 'over $' + a.bud) + '</span></div>' : '') +
-        (short ? '<p class="pw-note">' + (pwNights(7).length < a.n ? 'Only ' + P.picks.length + ' nights this week have no dinner yet.'
-          : 'Only ' + P.picks.length + ' dinners fit those answers.') + '</p>' : '') +
+        (short ? '<p class="pw-note">' + (P.picks.length < want ? 'Only ' + P.picks.length + (P.picks.length === 1 ? ' dinner fits' : ' dinners fit') + ' those answers.'
+          : (a.days.length - want) + ' of those nights already ' + (a.days.length - want === 1 ? 'has a dinner.' : 'have dinners.')) + '</p>' : '') +
         P.picks.map(function (e, i) {
           var dn = DAYS.filter(function (d) { return d[0] === e.day; })[0];
           return '<div class="pw-meal"><div class="pw-day">' + (dn ? dn[2].toUpperCase() : '') + '</div>' +
@@ -1356,7 +1482,7 @@
   }
   /* For the tests: the rules without the sheet, so a picker with chance in it
      can be run forty times and held to what it promises every time. */
-  window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids };
+  window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids, prot: pwProt, kind: pwKind, fit: pwFitCaps, answers: pwAnswers };
   function pwOpen() {
     S.pw = { step: 1, a: pwAnswers(), picks: [], seen: {} };
     S.pwOpen = true;
@@ -1368,13 +1494,25 @@
     var q = e.target.closest('[data-pwq]');
     if (q) {
       var a = S.pw.a, k = q.dataset.pwq, v = q.dataset.pwv;
-      if (k === 'avoid') {
-        var at = a.avoid.indexOf(v);
-        if (at >= 0) a.avoid.splice(at, 1); else a.avoid.push(v);
+      if (k === 'avoid' || k === 'prot' || k === 'kind' || k === 'days') {
+        var at = a[k].indexOf(v);
+        if (at >= 0) a[k].splice(at, 1); else a[k].push(v);
+        if (k === 'days') a.days.sort(function (x, y) { return PW_DAYS.indexOf(x) - PW_DAYS.indexOf(y); });
       } else if (k === 'shelf') a.shelf = v === '1';
+      else if (k === 'fit') a.fit = v === '1';
       else a[k] = Number(v);
       pwSave(a);
       renderModal();
+      return;
+    }
+    var ig = e.target.closest('[data-pwing]') || e.target.closest('[data-pwingx]');
+    if (ig) {
+      var ia = S.pw.a, ik = ig.dataset.pwing || ig.dataset.pwingx, ii = ia.ing.indexOf(ik);
+      if (ig.dataset.pwing && ii < 0) ia.ing.push(ik);
+      if (ig.dataset.pwingx && ii >= 0) ia.ing.splice(ii, 1);
+      pwSave(ia);
+      renderModal();
+      if (ig.dataset.pwing && $('pwIng')) $('pwIng').focus();
       return;
     }
     var g = e.target.closest('[data-pwgo]');
@@ -1392,7 +1530,9 @@
     var op = e.target.closest('[data-pwopen]');
     if (op) { openRecipe(idOf(op.dataset.pwopen)); return; }
     if (e.target.closest('[data-pwadd]')) {
-      S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x); });
+      var h = pwHist(), today = todayKey();
+      S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x); h[String(p.r.id)] = today; });
+      try { localStorage.setItem(PW_HIST, JSON.stringify(h)); } catch (err) { /* private */ }
       close();
       if (S.view === 'plan') renderPlan();
     }
@@ -15478,7 +15618,7 @@
    * [data-check="milk"] before the render and after it.
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
-    'data-pwq', 'data-pwgo', 'data-pwswap', 'data-pwopen', 'data-pwadd',
+    'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
@@ -18531,6 +18671,10 @@
         S.pw.a.bud = Number(e.target.value) || 50;
         pwSave(S.pw.a);
         var bv = $('pwBudV'); if (bv) bv.textContent = '$' + S.pw.a.bud;
+        return;
+      }
+      if (e.target.id === 'pwIng' && S.pwOpen) {
+        var sg = $('pwSug'); if (sg) sg.innerHTML = pwSugHTML(e.target.value);
         return;
       }
       if (S.foodOpen && e.target.id === 'mfsAmt') mFsRefresh();

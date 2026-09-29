@@ -15,7 +15,7 @@ module.exports = {
 
     /* Tuesday already has a dinner; the answers are remembered from last time. */
     const tueId = await p.evaluate(() => {
-      localStorage.setItem('sh.pw', JSON.stringify({ n: 5, ppl: 4, bud: 60, t: 45, avoid: ['Pork'], shelf: false }));
+      localStorage.setItem('sh.pw', JSON.stringify({ days: ['mon', 'tue', 'wed', 'thu', 'fri'], ppl: 4, bud: 60, t: 45, avoid: ['Pork'], shelf: false }));
       const r = window.RECIPES.find((x) => x.book === 2 && x.secNum === 3);
       window.Store.addToDay(r.id, 'tue', 1);
       return r.id;
@@ -27,12 +27,36 @@ module.exports = {
 
     const q = await p.evaluate(() => {
       const on = (q) => [...document.querySelectorAll('[data-pwq="' + q + '"][aria-pressed="true"]')].map((b) => b.dataset.pwv);
-      return { n: on('n'), ppl: on('ppl'), t: on('t'), avoid: on('avoid'), shelf: on('shelf'),
+      return { days: on('days'), ppl: on('ppl'), t: on('t'), avoid: on('avoid'), shelf: on('shelf'),
         bud: (document.getElementById('pwBudV') || {}).textContent };
     });
     t.ok('Plan my week opens on the questions, with last time’s answers',
-      q.n.join() === '5' && q.ppl.join() === '4' && q.t.join() === '45' && q.avoid.join() === 'Pork' &&
+      q.days.join() === 'mon,tue,wed,thu,fri' && q.ppl.join() === '4' && q.t.join() === '45' && q.avoid.join() === 'Pork' &&
         q.shelf.join() === '0' && q.bud === '$60', JSON.stringify(q));
+
+    /* The screen: the count follows the answers, a typed ingredient comes
+       off, and too few to fill the nights holds the button back. */
+    const cnt = () => p.evaluate(() => Number(document.querySelector('.pw-cnt b').textContent));
+    const n0 = await cnt();
+    await p.fill('#pwIng', 'onio');
+    await p.waitForTimeout(150);
+    await p.click('#pwSug [data-pwing]');
+    await p.waitForTimeout(200);
+    const n1 = await cnt();
+    const chip = await p.evaluate(() => (document.querySelector('[data-pwingx]') || {}).dataset || {});
+    await p.click('[data-pwq="prot"][data-pwv="Meatless"]');
+    await p.click('[data-pwq="t"][data-pwv="20"]');
+    await p.waitForTimeout(200);
+    const tight = await p.evaluate(() => ({ n: Number(document.querySelector('.pw-cnt b').textContent),
+      dis: document.querySelector('.pw-bar .pw-go').disabled, say: document.querySelector('.pw-cnt span').textContent }));
+    t.ok('the count drops as an ingredient is left out, and too few holds the button back',
+      n1 < n0 && chip.pwingx === 'onion' && tight.n < 4 && tight.dis && /loosen/.test(tight.say),
+      JSON.stringify({ n0, n1, chip, tight }));
+    await p.click('[data-pwingx="onion"]');
+    await p.click('[data-pwq="prot"][data-pwv="Meatless"]');
+    await p.click('[data-pwq="t"][data-pwv="45"]');
+    await p.waitForTimeout(200);
+    t.ok('and undoing them brings the same count back', await cnt() === n0);
 
     await p.click('[data-pwgo="2"]');
     await p.waitForTimeout(300);
@@ -65,8 +89,8 @@ module.exports = {
       });
       return { bad, usd, sum: (document.querySelector('.pw-sum') || {}).textContent || '' };
     }, [picks, DINNER]);
-    t.ok('five dinners, on the five nights that had none, Tuesday left alone',
-      picks.length === 5 && picks.map((x) => x.day).join() === 'MON,WED,THU,FRI,SAT', JSON.stringify(picks));
+    t.ok('a dinner on each night asked for that had none, Tuesday left alone',
+      picks.length === 4 && picks.map((x) => x.day).join() === 'MON,WED,THU,FRI', JSON.stringify(picks));
     t.ok('every one is a dinner, fits 45 minutes, and leaves out pork',
       check.bad.length === 0, check.bad.join('; '));
     t.ok('none repeats', new Set(picks.map((x) => x.id)).size === picks.length, JSON.stringify(picks));
@@ -99,7 +123,7 @@ module.exports = {
        each held to every rule. */
     const many = await p.evaluate(() => {
       const W = window.__pw, bad = [];
-      const a = { n: 5, ppl: 4, bud: 45, t: 45, avoid: ['Pork', 'Beans'], shelf: false };
+      const a = { days: ['mon', 'tue', 'wed', 'thu', 'fri'], ppl: 4, bud: 45, t: 45, prot: [], kind: [], fit: false, avoid: ['Pork', 'Beans'], ing: [], rec: 0, shelf: false };
       const cheapest5 = W.pool(a).map((r) => W.cost([{ r, x: Math.max(1, Math.round((4 / (Number(r.servN) || 4)) * 2) / 2) }], false))
         .sort((x, y) => x - y).slice(0, 5).reduce((n, v) => n + v, 0);
       /* A budget with little room over the cheapest possible week, so it is
@@ -119,12 +143,38 @@ module.exports = {
     t.ok('forty runs: never a repeat, never a leave-out, never over a budget that five dinners can meet',
       many.bad.length === 0, JSON.stringify(many).slice(0, 300));
 
+    const f = await p.evaluate(() => {
+      const W = window.__pw, bad = [];
+      const base = { days: ['mon'], ppl: 4, bud: 150, t: 0, prot: [], kind: [], fit: false, avoid: [], ing: [], rec: 0, shelf: true };
+      const all = W.pool(base, false).length;
+      const chick = W.pool(Object.assign({}, base, { prot: ['Chicken'] }), false);
+      if (!chick.length || chick.some((r) => W.prot(r) !== 'Chicken')) bad.push('protein');
+      const sun = W.pool(Object.assign({}, base, { kind: ['Sunday'] }), false);
+      if (!sun.length || sun.some((r) => r.book + '-' + r.secNum !== '2-4')) bad.push('kind');
+      const onion = W.pool(Object.assign({}, base, { ing: ['onion'] }), false);
+      if (!(onion.length < all) || onion.some((r) => r.ingp.some((i) => i.k === 'onion'))) bad.push('ingredient');
+      const cap = W.fit();
+      const fit = W.pool(Object.assign({}, base, { fit: true }), false);
+      if (!(fit.length < all) || fit.some((r) => r.macro.kcal > cap.kc || r.macro.p < cap.p)) bad.push('fit');
+      const quick = Object.assign({}, base, { t: 20 });
+      if (!(W.pool(quick, false).length < W.pool(quick, true).length)) bad.push('the weekend lifts the time limit');
+      localStorage.setItem('sh.pwHist', JSON.stringify({ [String(chick[0].id)]: new Date().toISOString().slice(0, 10) }));
+      if (W.pool(Object.assign({}, base, { rec: 2 }), false).some((r) => r.id === chick[0].id)) bad.push('recent');
+      if (!W.pool(base, false).some((r) => r.id === chick[0].id)) bad.push('repeats are fine lets it back');
+      localStorage.removeItem('sh.pwHist');
+      localStorage.setItem('sh.pw', JSON.stringify({ n: 3 }));
+      if (W.answers().days.join() !== 'mon,tue,wed') bad.push('old answers: ' + W.answers().days.join());
+      return { bad, all };
+    });
+    t.ok('each filter keeps only what it says: protein, kind of night, an ingredient, Nourish, time, recent',
+      f.bad.length === 0, JSON.stringify(f));
+
     await p.click('[data-pwadd]');
     await p.waitForTimeout(400);
     const plan = await p.evaluate(() => ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
       .map((d) => window.Store.day(d).map((e) => String(e.id)).join('+')));
     t.ok('Add puts each dinner on its night and leaves Tuesday’s as it was',
-      plan[0] === after[0].id && plan[1] === String(tueId) && plan[2] === after[1].id && plan[5] === after[4].id && plan[6] === '',
+      plan[0] === after[0].id && plan[1] === String(tueId) && plan[2] === after[1].id && plan[4] === after[3].id && plan[5] === '' && plan[6] === '',
       JSON.stringify(plan));
     t.ok('and the sheet closes onto the week', await p.evaluate(() => !document.querySelector('.pw-sheet')));
     t.ok('with no error on the page', errs.length === 0, errs.join(' | '));
