@@ -16597,7 +16597,7 @@
         renderView();
       });
     });
-    $('planMyWeek').addEventListener('click', pwOpen);
+    if ($('planMyWeek')) $('planMyWeek').addEventListener('click', pwOpen);
     $('bookBtn').addEventListener('click', function () {
       S.view = 'book';
       try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
