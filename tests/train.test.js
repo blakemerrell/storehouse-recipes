@@ -487,58 +487,64 @@ module.exports = {
       return _.checkin().reads;
     }, [nw, ph, lifts]);
     const W = (o) => Object.assign({}, NW, o);
+    const say = (x) => x.h + (x.d ? ' | ' + x.d : '');
     r = await reads(W({ w: { now: 195, n: 7, was: 200, m: 7 } }), CUT);
-    t.ok('losing 2.5% in a week on a 0.75% plan: said, with the calories that would slow it',
-      r[0].st === 'look' && /^Down 2\.5% of your weight on the week before, faster than the 0\.8% planned\. Past about 1% a week, more of what comes off is muscle; if next week says the same, about 1,700 kcal a day more would slow it\.$/.test(r[0].b), JSON.stringify(r));
+    t.ok('losing 2.5% in a week on a 0.75% plan: a few words, and the calories that would slow it',
+      r[0].st === 'look' && say(r[0]) === 'Losing fast: ▼2.5% this week | About 1,700 kcal a day more if it holds', JSON.stringify(r));
     r = await reads(W({ w: { now: 202, n: 7, was: 200, m: 7 }, plan: -0.0025 }), null);
-    t.ok('gaining 1% in a week on a lean gain: faster than about a quarter of a percent, so more of it is fat',
-      /^Up 1% on the week before, faster than a lean gain/.test(r[0].b), JSON.stringify(r));
+    t.ok('gaining 1% in a week on a lean gain', say(r[0]) === 'Gaining fast: ▲1% this week | Past a lean gain; likely fat if it holds', JSON.stringify(r));
     r = await reads(W({ w: { now: 196, n: 2, was: 200, m: 7 } }), null);
     t.ok('two weigh-ins in a week are not enough to call a rate', r.length === 1 && r[0].st === 'good', JSON.stringify(r));
     r = await reads(W({ hit: 3, pDays: 6 }), null);
-    t.ok('protein under 90% of target on 3 of 6 days', r[0].b === 'Protein under 90% of target on 3 of 6 days.', JSON.stringify(r));
+    t.ok('protein short on 3 of 6 days', say(r[0]) === 'Protein short 3 of 6 days | Aim for 90% or more', JSON.stringify(r));
     r = await reads(W({ hit: 3, pDays: 6, kcal: 1900 }), CUT);
-    t.ok('and on a cut it says why it matters', /on a cut it is what keeps the muscle the lifting asks for\.$/.test(r[0].b), JSON.stringify(r));
+    t.ok('and on a cut it says why it matters', say(r[0]) === 'Protein short 3 of 6 days | It keeps the muscle on a cut', JSON.stringify(r));
     r = await reads(W({ days: 3 }), null);
-    t.ok('three days logged: the calories are only part of the picture', /^Only 3 of 7 days logged/.test(r[0].b), JSON.stringify(r));
+    t.ok('three days logged: the calories are only part of the picture', say(r[0]) === 'Only 3 of 7 days logged | Calories are a partial picture', JSON.stringify(r));
     r = await reads(W({}), null, []);
-    t.ok('no workouts in the seven days says so', r[0].b === 'No workouts logged these seven days.', JSON.stringify(r));
+    t.ok('no workouts in the seven days says so', say(r[0]) === 'No workouts this week', JSON.stringify(r));
     r = await reads(W({ w: { now: 195, n: 7, was: 200, m: 7 }, hit: 2, pDays: 6 }), CUT, []);
-    t.ok('two reads at most, the most pressing first', r.length === 2 && /^Down/.test(r[0].b) && /^Protein/.test(r[1].b), JSON.stringify(r));
+    t.ok('two reads at most, the most pressing first', r.length === 2 && /^Losing fast/.test(r[0].h) && /^Protein short/.test(r[1].h), JSON.stringify(r));
     const falling = [[20, 'bb-bench', 225, 8], [13, 'bb-bench', 220, 7], [6, 'bb-bench', 215, 7], [3, 'bb-row', 185, 8], [10, 'bb-row', 185, 8]];
     r = await reads(W({ kcal: 1900 }), null, falling);
-    t.ok('strength slipping while eating 600 under the week’s maintenance, with no block running: a slower cut protects it',
-      r[0].b === 'Strength slipping on Barbell Bench Press while you eat about 600 kcal a day under maintenance. A slower cut, toward half a percent a week, protects it.', JSON.stringify(r));
+    t.ok('the bench slipping while eating 600 under the week’s maintenance: slow the cut',
+      say(r[0]) === 'Barbell Bench Press slipping on a cut | Slow the cut toward 0.5% a week', JSON.stringify(r));
     r = await reads(W({}), null, falling);
-    t.ok('and at maintenance, the usual suspects', /^Strength slipping on Barbell Bench Press at maintenance or above: usually sleep, stress or more sets than you recover from\.$/.test(r[0].b), JSON.stringify(r));
+    t.ok('and at maintenance, the usual suspects', say(r[0]) === 'Barbell Bench Press slipping | Check sleep, stress and sets', JSON.stringify(r));
     const held = [[20, 'bb-bench', 215, 8], [6, 'bb-bench', 215, 8], [13, 'bb-row', 185, 8], [3, 'bb-row', 190, 8]];
     r = await reads(W({ kcal: 1900 }), null, held);
     t.ok('strength held on every lift on a cut is said as the win it is',
-      r.length === 1 && r[0].st === 'good' && /^Strength held on every lift measured while you eat about 600 kcal a day under maintenance: the cut is costing fat, not muscle\.$/.test(r[0].b), JSON.stringify(r));
+      r.length === 1 && r[0].st === 'good' && say(r[0]) === 'Strength held on a cut | The cut is costing fat, not muscle', JSON.stringify(r));
     r = await reads(W({ days: 3, kcal: 1500 }), CUT, falling);
-    t.ok('with three days logged, how far under is Nourish’s two-week reading instead',
-      /^Strength slipping on Barbell Bench Press while you eat about 600 kcal/.test(r[0].b) && /^Only 3 of 7 days logged/.test(r[1].b), JSON.stringify(r));
+    t.ok('with three days logged, whether it is a cut is Nourish’s two-week reading instead',
+      /slipping on a cut$/.test(r[0].h) && /^Only 3 of 7 days logged/.test(r[1].h), JSON.stringify(r));
     r = await reads(W({}), CUT, held);
-    t.ok('and a week with nothing to do says so, whatever the two-week reading, when the week itself was at maintenance', r.length === 1 && r[0].b === 'Nothing here needs changing.', JSON.stringify(r));
+    t.ok('and a week with nothing to do says so, when the week itself was at maintenance', r.length === 1 && say(r[0]) === 'On track | Nothing to change', JSON.stringify(r));
 
-    // opened from the Review, and from Nourish's morning card; the one leads to the other
+    // at the top of the Review, a row each with a picture; Nourish's This week lands there
+    await reads(W({ kcal: 1900, pd: [1, 1, 0, 1, 1, 1, 1], hit: 6, pDays: 7, w: { now: 199, n: 7, was: 200, m: 7 } }), null, held);
     await c.click('.tab[data-view="train"]');
     await c.click('[data-t="sub"][data-v="review"]');
-    await c.click('[data-t="chk"]');
-    r = await c.evaluate(() => ({ dt: [...document.querySelectorAll('#trainRoot .tr-chk dt')].map((e) => e.textContent).join(),
-      reads: document.querySelectorAll('#trainRoot .tr-chk-r li').length }));
-    t.ok('the Review opens the week: weight, calories, protein, training and strength, then the reads',
-      r.dt === 'Weight,Calories,Protein,Training,Strength' && r.reads === 1, JSON.stringify(r));
-    await c.click('#trainRoot .sheet-x');
+    r = await c.evaluate(() => {
+      const card = document.querySelector('#view-train .tr-card.tr-week');
+      const first = document.querySelector('#view-train .tr-card');
+      return { top: card === first, rows: [...(card ? card.querySelectorAll('.tr-wkl') : [])].map((e) => e.textContent).join(),
+        dots: card ? [...card.querySelectorAll('.tr-wkdots i')].map((i) => (i.classList.contains('on') ? 1 : 0)).join('') : '',
+        bar: card ? (card.querySelector('.tr-wkbar i') || {}).style.width : '', arrow: card ? (card.querySelector('.tr-wka') || {}).textContent : '',
+        lifts: card ? card.querySelector('.tr-wkr-s .tr-wkv').textContent : '', reads: card ? card.querySelectorAll('.tr-chk-r li').length : 0,
+        words: card ? card.textContent.length : 0 };
+    });
+    t.ok('the week opens the Review: weight, food, protein, training and lifts, then a note',
+      r.top && r.rows === 'Weight,Food,Protein,Training,Lifts' && r.reads === 1, JSON.stringify(r));
+    t.ok('drawn, not written: a dot a protein day, food as a bar against the target, an arrow on the scale, lifts up, level and down',
+      r.dots === '1101111' && r.bar === '79%' && r.arrow === '▼1' && /^▲1 ●1 ▼0$/.test(r.lifts), JSON.stringify(r));
+    t.ok('and in few words', r.words < 260, String(r.words));
     await c.click('.tab[data-view="macros"]');
     await c.evaluate(() => { const b = document.querySelector('[data-mfold="weigh"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); });
     await c.click('#macroWeekBtn');
-    r = await c.evaluate(() => !!document.querySelector('#trainRoot .tr-chk'));
-    t.ok('Nourish’s morning card opens the same week', r);
-    await c.click('#trainRoot [data-t="chkrev"]');
     r = await c.evaluate(() => ({ shown: !document.getElementById('view-train').classList.contains('hide'), sub: window.Train._.state().S.sub,
-      sheet: !!document.querySelector('#trainRoot .sheet') }));
-    t.ok('and Full training review takes you to Strengthen’s Review', r.shown && r.sub === 'review' && !r.sheet, JSON.stringify(r));
+      card: !!document.querySelector('#view-train .tr-week'), sheet: !!document.querySelector('#trainRoot .sheet') }));
+    t.ok('Nourish’s This week goes to the same place: the week at the top of Strengthen’s Review', r.shown && r.sub === 'review' && r.card && !r.sheet, JSON.stringify(r));
     await c.close();
 
     // Nourish's half, read from its own logs
@@ -568,7 +574,7 @@ module.exports = {
     t.ok('Nourish’s week: this week’s average weight against last week’s',
       r && r.w.now === 199 && r.w.was === 201 && r.w.n === 7 && r.w.m === 7, JSON.stringify(r && r.w));
     t.ok('two days eaten, 1,750 a day, against the target', r.days === 2 && Math.abs(r.kcal - 1750) <= 2 && r.target === 1980, JSON.stringify(r));
-    t.ok('protein at target on one of the two', r.pDays === 2 && r.hit === 1 && r.tp === 190, JSON.stringify(r));
+    t.ok('protein at target on one of the two, a day each, oldest first', r.pDays === 2 && r.hit === 1 && r.tp === 190 && r.pd.join() === '0,1', JSON.stringify(r));
     await nq.close();
 
     // ---- records ---------------------------------------------------------

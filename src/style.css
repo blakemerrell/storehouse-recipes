@@ -5328,13 +5328,32 @@ button.tr-card:hover { border-color: var(--line-firm); background: #fff; }
 .tr-dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 6px 0 12px; font-size: 13.5px; }
 .tr-dl dt { color: var(--muted-2); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; padding-top: 2px; }
 .tr-dl dd { margin: 0; }
-/* The week, both tabs: five rows of numbers, then at most two reads, each
-   marked by whether it asks for something (ochre) or says all is well (green). */
-.tr-chk { font-size: 14px; line-height: 1.45; }
-.tr-chk-r { list-style: none; margin: 4px 0 12px; padding: 0; display: grid; gap: 8px; }
-.tr-chk-r li { position: relative; padding: 8px 10px 8px 14px; border-radius: 4px; background: var(--paper-soft); font-size: 14px; line-height: 1.45; }
+.tr-chk-r { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.tr-chk-r li { position: relative; padding: 8px 10px 8px 14px; border-radius: 4px; background: var(--paper-soft); line-height: 1.4; }
 .tr-chk-r li::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--ochre-text); }
 .tr-chk-r li.tr-chk-good::before { background: var(--green); }
+.tr-chk-r li b { display: block; font-size: 14.5px; }
+.tr-chk-r li span { display: block; color: var(--muted); font-size: 13px; margin-top: 1px; }
+/* The week at the top of the Review: a row each, the number first and a
+   picture beside it, then at most two notes of a few words each. */
+.tr-week .tr-eyebrow { margin-bottom: 4px; }
+.tr-wkr { display: grid; grid-template-columns: 70px auto 1fr; align-items: center; gap: 4px 10px; padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 14px; }
+.tr-week .tr-eyebrow + .tr-wkr { border-top: 0; }
+.tr-wkl { color: var(--muted-2); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+.tr-wkv { white-space: nowrap; }
+.tr-wkv b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.tr-wkx { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
+.tr-wkm { color: var(--muted-2); font-size: 12.5px; white-space: nowrap; }
+.tr-wka { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tr-wka.tr-ok, .tr-up { color: var(--green); font-weight: 700; }
+.tr-wka.tr-off, .tr-dn { color: var(--ochre-text); font-weight: 700; }
+.tr-lv { color: var(--muted-2); font-weight: 700; }
+.tr-wkbar { display: inline-block; width: 64px; height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
+.tr-wkbar i { display: block; height: 100%; background: var(--ochre); }
+.tr-wkbar.tr-ok i { background: var(--green); }
+.tr-wkdots { display: inline-flex; gap: 4px; }
+.tr-wkdots i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--ochre-text); box-sizing: border-box; }
+.tr-wkdots i.on { background: var(--green); border-color: var(--green); }
 .tr-hs { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
 .tr-hs-h { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .tr-hs-n { font-weight: 600; font-size: 14px; }

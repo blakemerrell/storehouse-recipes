@@ -18586,7 +18586,7 @@
         return { n: v.length, avg: v.length ? Math.round(v.reduce(function (s0, x) { return s0 + x; }, 0) / v.length * 10) / 10 : null };
       };
       var now = avgOf(wk), was = avgOf(pw);
-      var f = { days: 0, kcal: 0, tk: 0, tn: 0, p: 0, tp: 0, hit: 0, pDays: 0 };
+      var f = { days: 0, kcal: 0, tk: 0, tn: 0, p: 0, tp: 0, hit: 0, pDays: 0, pd: [] };
       mLogIntake();
       wk.forEach(function (k) {
         var kc = MINTAKE[k];
@@ -18599,6 +18599,7 @@
           var tot = mTotals(day), got = (mDoneAt(k) ? tot.all : tot.eaten).p;
           f.pDays++; f.p += got; f.tp += t.p;
           if (got >= 0.9 * t.p) f.hit++;
+          f.pd.push(got >= 0.9 * t.p ? 1 : 0);
         }
       });
       if (!now.n && !was.n && !f.days) return null;
@@ -18609,7 +18610,8 @@
         days: f.days, kcal: f.days ? Math.round(f.kcal / f.days) : null,
         target: f.tn ? Math.round(f.tk / f.tn) : base || null,
         p: f.pDays ? Math.round(f.p / f.pDays) : null, tp: f.pDays ? Math.round(f.tp / f.pDays) : null,
-        hit: f.hit, pDays: f.pDays,
+        // a day each, oldest first: 1 where protein reached nine-tenths of target
+        hit: f.hit, pDays: f.pDays, pd: f.pd,
         maint: meas ? meas.tdee : tdee !== null ? Math.round(tdee) : null, measured: !!meas,
         // the pace the plan is built for, as a share of your weight a week; positive is losing
         plan: tdee !== null && base && pr.lb > 0 ? Math.round((tdee - base) * 7 / 3500 / pr.lb * 10000) / 10000 : null
