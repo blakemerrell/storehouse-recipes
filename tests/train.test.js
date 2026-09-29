@@ -3548,6 +3548,23 @@ module.exports = {
     await p.click('#trainRoot .tr-ibtn >> nth=1');
     r = await p.evaluate(() => ({ hints: document.querySelectorAll('#trainRoot .tr-settings .tr-hint').length, open: document.querySelectorAll('#trainRoot .tr-ibtn[aria-expanded="true"]').length }));
     t.ok('and the i opens its paragraph in place', r.hints === 1 && r.open === 1, JSON.stringify(r));
+    /* An open i stays on its own paragraph when the sheet redraws with a
+       hint added or taken away above it (review, 2026-09-28): keyed by
+       order, it jumped to a different one. */
+    await p.click('#trainRoot .tr-ibtn[aria-expanded="true"]');
+    await p.click('#trainRoot .tr-ibtn >> nth=-1');
+    const lastTip = await p.evaluate(() => (document.querySelector('#trainRoot .tr-info-t') || {}).textContent || '');
+    for (const v of ['1', '0']) {
+      await p.evaluate((v) => { const b = document.querySelector('#trainRoot [data-t="s-gyon"][data-v="' + v + '"]'); if (b) b.click(); }, v);
+      await p.waitForTimeout(150);
+    }
+    await p.evaluate(() => { const b = document.querySelector('#trainRoot [data-t="s-gyon"][data-v="1"]'); if (b) b.click(); });
+    await p.waitForTimeout(150);
+    const stillTip = await p.evaluate(() => (document.querySelector('#trainRoot .tr-info-t') || {}).textContent || '');
+    t.ok('and an open i keeps its own paragraph when a hint above it comes or goes',
+      !!lastTip && stillTip === lastTip, JSON.stringify({ lastTip: lastTip.slice(0, 50), stillTip: stillTip.slice(0, 50) }));
+    await p.evaluate(() => { const b = document.querySelector('#trainRoot [data-t="s-gyon"][data-v="0"]'); if (b) b.click(); });
+    await p.waitForTimeout(150);
     await p.click('.sheet-x');
     await p.click('[data-t="sub"][data-v="review"]');
     r = await p.evaluate(() => ({ cards: document.querySelectorAll('.tr-check').length, bodies: document.querySelectorAll('.tr-check .tr-ck-b').length }));

@@ -7738,10 +7738,14 @@
   /* Settings say what each one does behind an i, not in a paragraph under
      every row: the screen was a page of reading to change a rest time.
      Tapped, the i opens its paragraph in place; tapped again, it goes. */
+  /* Each i is keyed by the words it opens, not by where it sits: keyed by
+     order, a redraw that added or dropped a hint above (One gym / A gym and
+     home) left the open one pointing at a different paragraph. */
   function infoTips(html) {
-    var n = 0;
     return html.replace(/<div class="tr-hint">([\s\S]*?)<\/div>/g, function (all, txt) {
-      var k = 's' + (n++), open = S.info === k;
+      var plain = txt.replace(/<[^>]*>/g, ''), h = 0;
+      for (var i = 0; i < plain.length; i++) h = (h * 31 + plain.charCodeAt(i)) | 0;
+      var k = 's' + (h >>> 0).toString(36), open = S.info === k;
       return '<button class="tr-ibtn" data-t="info" data-v="' + k + '" aria-expanded="' + open + '" aria-label="' +
         (open ? 'Hide' : 'What this does') + '"><span aria-hidden="true">i</span></button>' +
         (open ? '<div class="tr-hint tr-info-t">' + txt + '</div>' : '');
@@ -9595,6 +9599,7 @@
     openDays: function () {
       S.ldOpen = true; S.gridOpen = true; S.ldDraft = ldDays().slice(); S.browse = false;
       S.sub = 'block'; if (LIVE) S.minim = 1;
+      try { localStorage.setItem(LS_SUB, 'block'); } catch (e) { /* private mode */ }
     },
     /* The name of the block's next session, for "Upper B today". */
     nextName: function () {

@@ -8425,10 +8425,12 @@
             '<circle class="mring-dot" cx="' + (58 + R * Math.sin(endA)).toFixed(1) + '" cy="' +
             (58 - R * Math.cos(endA)).toFixed(1) + '" r="4"/>' : '') +
           '</svg>';
-        var gap = full - tK;
-        var said = gap > 0 ? '<span class="mring-d over">' + gap.toLocaleString() + ' over</span>'
-          : '<span class="mring-d">' + (-gap).toLocaleString() + ' left</span>';
-        barHTML[m] = open + ring + '<span class="mring-c">' + num + said + '</span>' +
+        /* Just the figure and its target in the middle — no "left" or
+           "over". Worked out from what is on the day, it disagreed with the
+           folded pill, which counts an empty meal at its share: "969 left"
+           over a pill saying 0 (review, 2026-09-28). The ring's arc and its
+           second lap already say which side of the target the day is. */
+        barHTML[m] = open + ring + '<span class="mring-c">' + num + '</span>' +
           '<span class="vis-hidden">' + row[2] + '</span>' + delta + '</div>';
         return;
       }
