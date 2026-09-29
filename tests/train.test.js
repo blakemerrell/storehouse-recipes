@@ -1664,25 +1664,70 @@ module.exports = {
     r = await p.evaluate(() => { const s = window.Train._.state(); return s.T.ms[s.LIVE.ms].days[s.LIVE.d].s.map((x) => x.e); });
     t.ok('a second swap, for the rest of the block, replaces what the plan had, not today’s stand-in', r[0] === to && r.indexOf(orig0) < 0, JSON.stringify({ r, orig0, to }));
 
-    // under a lift, every option in view; up and down in its corner
-    r = await p.evaluate(() => [...document.querySelectorAll('.tr-ex')[0].querySelectorAll('.tr-addset, .tr-ex-a button')].map((b) => b.dataset.t));
-    t.ok('under a lift: + Add set, Swap, a note and Remove, in view', ['addset', 'swap', 'note', 'rmex'].every((k) => r.indexOf(k) >= 0), r.join());
-
-    // moving an exercise, pairs together
+    // under a lift, every option in one row, with its word; a handle in its corner
     r = await p.evaluate(() => {
-      const L = window.Train._.state().LIVE;
-      return { es: L.x.map((x) => x.e), ps: L.x.map((x) => x.p || 0),
-        upOff: document.querySelector('.tr-ex .tr-mv [data-t="mvex"][data-v="-1"][data-x="0"]').disabled };
+      const c = document.querySelectorAll('.tr-ex')[0], bs = [...c.querySelectorAll('.tr-ex-a button')];
+      return { ts: bs.map((b) => b.dataset.t), rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+        words: bs.every((b) => { const w = b.querySelector('span'); return !!w && !!w.textContent.trim() && getComputedStyle(w).display !== 'none'; }),
+        first: bs[0] && bs[0].dataset.t, grip: !!c.querySelector('.tr-grip'), old: !!c.querySelector('.tr-mv, .tr-ex > .tr-addset') };
     });
-    t.ok('the first exercise cannot move up', r.upOff);
+    t.ok('under a lift: Set, Swap, a note and Remove, in view', ['addset', 'swap', 'note', 'rmex'].every((k) => r.ts.indexOf(k) >= 0), r.ts.join());
+    t.ok('all of them on one row, each with its word, adding a set first', r.rows === 1 && r.words && r.first === 'addset', JSON.stringify(r));
+    t.ok('a handle to move it, and no arrows or a second add-set row left behind', r.grip && !r.old, JSON.stringify(r));
+    await p.setViewportSize({ width: 320, height: 700 });
+    r = await p.evaluate(() => {
+      const bs = [...document.querySelectorAll('.tr-ex')[0].querySelectorAll('.tr-ex-a button')];
+      return { rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size, w: Math.min(...bs.map((b) => b.getBoundingClientRect().width)),
+        words: bs.some((b) => { const w = b.querySelector('span'); return w && getComputedStyle(w).display !== 'none'; }) };
+    });
+    t.ok('on the narrowest phone the row holds, as icons alone', r.rows === 1 && !r.words && r.w >= 30, JSON.stringify(r));
+    await p.setViewportSize({ width: 1100, height: 900 });
+
+    // moving an exercise, pairs together: the arrow keys on the handle
+    r = await p.evaluate(() => { const L = window.Train._.state().LIVE; return { es: L.x.map((x) => x.e), ps: L.x.map((x) => x.p || 0) }; });
     const order0 = r;
-    await p.click('[data-t="mvex"][data-v="1"][data-x="0"]');
+    await p.focus('.tr-ex[data-xi="0"] .tr-grip');
+    await p.keyboard.press('ArrowUp');
     r = await p.evaluate(() => window.Train._.state().LIVE.x.map((x) => x.e));
+    t.ok('the first exercise cannot move up', r.join() === order0.es.join(), r.join());
+    await p.keyboard.press('ArrowDown');
+    r = await p.evaluate(() => ({ es: window.Train._.state().LIVE.x.map((x) => x.e),
+      focus: document.activeElement && document.activeElement.classList.contains('tr-grip') ? +document.activeElement.dataset.x : -1 }));
     const paired = order0.ps[0] && order0.ps[0] === order0.ps[1];
     t.ok('moving down swaps it past the next exercise, and a pair moves as one',
-      paired ? r[0] === order0.es[2] && r.indexOf(order0.es[0]) + 1 === r.indexOf(order0.es[1]) : r[1] === order0.es[0], JSON.stringify({ was: order0.es, now: r }));
+      paired ? r.es[0] === order0.es[2] && r.es.indexOf(order0.es[0]) + 1 === r.es.indexOf(order0.es[1]) : r.es[1] === order0.es[0], JSON.stringify({ was: order0.es, now: r.es }));
+    t.ok('and the handle stays in hand, on the card it moved', r.focus >= 0 && r.es[r.focus] === order0.es[0], JSON.stringify(r));
     r = await p.evaluate(() => JSON.parse(localStorage.getItem('sh.trainLive')).x.map((x) => x.e));
     t.ok('and the new order is kept if the page goes away', r[0] !== order0.es[0], r.join());
+
+    // hold the handle: every card folds to its name, and it is dragged where it goes
+    const drag = await p.evaluate(() => {
+      const L = window.Train._.state().LIVE, es = L.x.map((x) => x.e);
+      const last = document.querySelectorAll('.tr-ex[data-xi]'), g = document.querySelector('.tr-ex[data-xi="' + (L.x.length - 1) + '"] .tr-grip');
+      g.scrollIntoView({ block: 'center' });
+      const a = g.getBoundingClientRect();
+      return { es, n: last.length, x: a.left + a.width / 2, y: a.top + a.height / 2 };
+    });
+    await p.mouse.move(drag.x, drag.y);
+    await p.mouse.down();
+    // a hold with no movement at all: FAST=1 cuts short waits, so wait for the fold itself
+    await p.waitForFunction(() => document.getElementById('view-train').classList.contains('tr-reo'), null, { timeout: 2000 }).catch(() => {});
+    r = await p.evaluate(() => {
+      const v = document.getElementById('view-train'), cs = [...document.querySelectorAll('.tr-ex')];
+      return { on: v.classList.contains('tr-reo'), held: document.querySelectorAll('.tr-ex.tr-held').length,
+        tall: Math.max(...cs.map((c) => c.getBoundingClientRect().height)), sets: cs.some((c) => c.querySelector('.tr-set') && c.querySelector('.tr-set').offsetParent) };
+    });
+    t.ok('held, the cards fold to one row each with the held one lifted', r.on && r.held >= 1 && r.tall < 90 && !r.sets, JSON.stringify(r));
+    const top = await p.evaluate(() => { const c = document.querySelector('.tr-ex[data-xi="0"]').getBoundingClientRect(); return c.top + 4; });
+    await p.mouse.move(drag.x, Math.max(80, top), { steps: 12 });
+    await p.waitForTimeout(120);
+    await p.mouse.up();
+    r = await p.evaluate(() => ({ es: window.Train._.state().LIVE.x.map((x) => x.e), on: document.getElementById('view-train').classList.contains('tr-reo'),
+      kept: JSON.parse(localStorage.getItem('sh.trainLive')).x.map((x) => x.e) }));
+    const lastE = drag.es[drag.es.length - 1];
+    t.ok('let go at the top, the last exercise is first, and the cards open again', r.es[0] === lastE || r.es[1] === lastE, JSON.stringify({ was: drag.es, now: r.es }));
+    t.ok('the list unfolds and the new order is kept', !r.on && r.kept.join() === r.es.join(), JSON.stringify(r));
+    t.ok('nothing is lost or doubled by a drag', r.es.slice().sort().join() === drag.es.slice().sort().join(), r.es.join());
 
     // a note that follows the exercise
     const e0 = await p.evaluate(() => window.Train._.state().LIVE.x[0].e);
@@ -1983,6 +2028,35 @@ module.exports = {
     t.ok('six 45s fold to one plate with a count', /45×6/.test(r.heavy), r.heavy);
     t.ok('an EZ bar (15 lb, as Strong has it) and a Smith machine start on their own bars', r.bars === '45,15,20', r.bars);
     t.ok('a plate of 1.25 reads 1.25, not 1.3', r.kg === '1.25 a side', r.kg);
+    // plate-loaded machines: the plates drawn, the sled not counted
+    r = await p.evaluate(() => {
+      const _ = window.Train._, sl = ['hack', 'leg-press', 'belt-squat'], d = document.createElement('div');
+      d.innerHTML = _.stackHTML(180, _.barFor('hack'));
+      return { on: sl.every((e) => _.onBar(_.lib(e))), bar: sl.map((e) => _.barFor(e)).join(), say: sl.map((e) => _.barLabel(e)).join('|'),
+        stk: (d.querySelector('.tr-stk') || { getAttribute: () => '' }).getAttribute('aria-label'),
+        pin: _.onBar(_.lib('leg-ext')), smith: _.barFor('sm-squat') };
+    });
+    t.ok('a hack squat, leg press and belt squat take plates', r.on && !r.pin, JSON.stringify(r));
+    t.ok('the sled counts as nothing, and says so: plates only', r.bar === '0,0,0' && r.say === 'plates only|plates only|plates only', JSON.stringify(r));
+    t.ok('so 180 on a hack squat is two 45s a side', r.stk === '45, 45 a side', r.stk);
+    t.ok('a Smith machine squat still starts on its own bar', r.smith === 20, r.smith);
+    {
+      // and on the card itself, where they had gone missing
+      const q = await t.fresh();
+      await q.click('.tab[data-view="train"]');
+      await q.click('[data-t="qzskip"]');
+      await seed(q, { pr: { qz: 1, bk: 'f', rq: 0 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+      await q.click('[data-t="sub"][data-v="history"]');
+      await q.click('[data-t="sub"][data-v="block"]');
+      await q.click('[data-t="empty"]');
+      await q.click('[data-t="addex"]');
+      await q.click('.tr-pick[data-e="hack"]');
+      await q.fill('#trw-0-0', '180');
+      r = await q.evaluate(() => ({ stk: (document.querySelector('#trpl-0-0 .tr-stk') || { getAttribute: () => '' }).getAttribute('aria-label'),
+        btn: !!document.querySelector('.tr-ex [data-t="plates"][data-x="0"]'), bar: (document.querySelector('.tr-ex [data-t="barpick"][data-e="hack"]') || {}).textContent || '' }));
+      t.ok('a hack squat card draws its plates, has the plate calculator, and says plates only', r.stk === '45, 45 a side' && r.btn && r.bar === 'plates only', JSON.stringify(r));
+      await q.close();
+    }
     await p.fill('#trw-0-0', '195');
     r = await p.evaluate(() => ({
       now: document.querySelector('#trpl-0-0 .tr-stk').getAttribute('aria-label'),
