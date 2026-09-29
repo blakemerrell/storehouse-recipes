@@ -466,6 +466,108 @@ module.exports = {
     t.ok('and nothing at all with no plan and no logs, so a block climbs as it always has', r === null, JSON.stringify(r));
     await q.close();
 
+    // ---- the week, both tabs -------------------------------------------------
+    /* One check-in, opened from Nourish's morning card and from the Review.
+       Nourish's half is stood in for first, so each read is exact. */
+    const c = await t.fresh();
+    await seed(c, { pr: { u: 'lb', qz: 1, lvl: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
+    const NW = { from: '', to: '', lb: 195, w: { now: 196, n: 7, was: 197, m: 7 }, days: 7, kcal: 1900, target: 2000,
+      p: 185, tp: 190, hit: 6, pDays: 7, maint: 2500, measured: true, plan: 0.0075 };
+    const CUT = { kcal: 600, rate: 0.008, src: 'ate', days: 12 };
+    const reads = (nw, ph, lifts) => c.evaluate(([nw, ph, lifts]) => {
+      const _ = window.Train._, now = Date.now(), wo = {};
+      (lifts || [[2, 'bb-bench', 200, 8]]).forEach(([ago, e, w, r], i) => {
+        wo['k' + i] = { id: 'k' + i, st: now - ago * 864e5, en: now - ago * 864e5 + 3600e3, u: 'lb', ms: '', w: -1, d: -1, n: 'W',
+          x: [{ e, s: [{ w, r, t: 1 }, { w, r, t: 1 }] }], sr: {}, fb: {} };
+      });
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo }));
+      localStorage.removeItem('bsc.trainStamps');
+      _.reload();
+      window.Hive.week = () => nw; window.Hive.phase = () => ph; _.phaseReset();
+      return _.checkin().reads;
+    }, [nw, ph, lifts]);
+    const W = (o) => Object.assign({}, NW, o);
+    r = await reads(W({ w: { now: 195, n: 7, was: 200, m: 7 } }), CUT);
+    t.ok('losing 2.5% in a week on a 0.75% plan: said, with the calories that would slow it',
+      r[0].st === 'look' && /^Down 2\.5% of your weight on the week before, faster than the 0\.8% planned\. Past about 1% a week, more of what comes off is muscle; if next week says the same, about 1,700 kcal a day more would slow it\.$/.test(r[0].b), JSON.stringify(r));
+    r = await reads(W({ w: { now: 202, n: 7, was: 200, m: 7 }, plan: -0.0025 }), null);
+    t.ok('gaining 1% in a week on a lean gain: faster than about a quarter of a percent, so more of it is fat',
+      /^Up 1% on the week before, faster than a lean gain/.test(r[0].b), JSON.stringify(r));
+    r = await reads(W({ w: { now: 196, n: 2, was: 200, m: 7 } }), null);
+    t.ok('two weigh-ins in a week are not enough to call a rate', r.length === 1 && r[0].st === 'good', JSON.stringify(r));
+    r = await reads(W({ hit: 3, pDays: 6 }), null);
+    t.ok('protein under 90% of target on 3 of 6 days', r[0].b === 'Protein under 90% of target on 3 of 6 days.', JSON.stringify(r));
+    r = await reads(W({ hit: 3, pDays: 6 }), CUT);
+    t.ok('and on a cut it says why it matters', /on a cut it is what keeps the muscle the lifting asks for\.$/.test(r[0].b), JSON.stringify(r));
+    r = await reads(W({ days: 3 }), null);
+    t.ok('three days logged: the calories are only part of the picture', /^Only 3 of 7 days logged/.test(r[0].b), JSON.stringify(r));
+    r = await reads(W({}), null, []);
+    t.ok('no workouts in the seven days says so', r[0].b === 'No workouts logged these seven days.', JSON.stringify(r));
+    r = await reads(W({ w: { now: 195, n: 7, was: 200, m: 7 }, hit: 2, pDays: 6 }), CUT, []);
+    t.ok('two reads at most, the most pressing first', r.length === 2 && /^Down/.test(r[0].b) && /^Protein/.test(r[1].b), JSON.stringify(r));
+    const falling = [[20, 'bb-bench', 225, 8], [13, 'bb-bench', 220, 7], [6, 'bb-bench', 215, 7], [3, 'bb-row', 185, 8], [10, 'bb-row', 185, 8]];
+    r = await reads(W({}), CUT, falling);
+    t.ok('strength slipping on a cut, with no block running: a slower cut protects it',
+      r[0].b === 'Strength slipping on Barbell Bench Press while you eat about 600 kcal a day under maintenance. A slower cut, toward half a percent a week, protects it.', JSON.stringify(r));
+    r = await reads(W({}), null, falling);
+    t.ok('and at maintenance, the usual suspects', /^Strength slipping on Barbell Bench Press at maintenance or above: usually sleep, stress or more sets than you recover from\.$/.test(r[0].b), JSON.stringify(r));
+    const held = [[20, 'bb-bench', 215, 8], [6, 'bb-bench', 215, 8], [13, 'bb-row', 185, 8], [3, 'bb-row', 190, 8]];
+    r = await reads(W({}), CUT, held);
+    t.ok('strength held on every lift on a cut is said as the win it is',
+      r.length === 1 && r[0].st === 'good' && /^Strength held on every lift measured while you eat about 600 kcal a day under maintenance: the cut is costing fat, not muscle\.$/.test(r[0].b), JSON.stringify(r));
+    r = await reads(W({}), null, held);
+    t.ok('and a week with nothing to do says so', r.length === 1 && r[0].b === 'Nothing here needs changing.', JSON.stringify(r));
+
+    // opened from the Review, and from Nourish's morning card; the one leads to the other
+    await c.click('.tab[data-view="train"]');
+    await c.click('[data-t="sub"][data-v="review"]');
+    await c.click('[data-t="chk"]');
+    r = await c.evaluate(() => ({ dt: [...document.querySelectorAll('#trainRoot .tr-chk dt')].map((e) => e.textContent).join(),
+      reads: document.querySelectorAll('#trainRoot .tr-chk-r li').length }));
+    t.ok('the Review opens the week: weight, calories, protein, training and strength, then the reads',
+      r.dt === 'Weight,Calories,Protein,Training,Strength' && r.reads === 1, JSON.stringify(r));
+    await c.click('#trainRoot .sheet-x');
+    await c.click('.tab[data-view="macros"]');
+    await c.evaluate(() => { const b = document.querySelector('[data-mfold="weigh"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); });
+    await c.click('#macroWeekBtn');
+    r = await c.evaluate(() => !!document.querySelector('#trainRoot .tr-chk'));
+    t.ok('Nourish’s morning card opens the same week', r);
+    await c.click('#trainRoot [data-t="chkrev"]');
+    r = await c.evaluate(() => ({ shown: !document.getElementById('view-train').classList.contains('hide'), sub: window.Train._.state().S.sub,
+      sheet: !!document.querySelector('#trainRoot .sheet') }));
+    t.ok('and Full training review takes you to Strengthen’s Review', r.shown && r.sub === 'review' && !r.sheet, JSON.stringify(r));
+    await c.close();
+
+    // Nourish's half, read from its own logs
+    const nq = await t.fresh();
+    const dayAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    await nq.evaluate(([k1]) => {
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 170 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k1]: { d: [{ id: 'f:cooked_beef', x: 40, eaten: 1 }] } }));
+    }, [dayAgo(1)]);
+    await nq.reload();
+    await nq.waitForFunction(() => window.Hive && window.Hive.week);
+    // a day under 400 kcal is not counted as logged, so the portion is measured from a big one
+    const kcalPerX = await nq.evaluate(() => window.Hive.week().kcal / 40);
+    await nq.evaluate(([K, keys]) => {
+      const weights = {};
+      keys.forEach((k, i) => { weights[k] = i < 7 ? 199 : 201; });
+      localStorage.setItem('bsc.macroWeights', JSON.stringify(weights));
+      // 2,500 kcal of beef is about 260 g of protein; 1,000 kcal of it about 104 g, under 90% of 190
+      localStorage.setItem('bsc.macroDays', JSON.stringify({
+        [keys[0]]: { d: [{ id: 'f:cooked_beef', x: 2500 / K, eaten: 1 }] },
+        [keys[1]]: { d: [{ id: 'f:cooked_beef', x: 1000 / K, eaten: 1 }] } }));
+      localStorage.removeItem('bsc.macroIntake');
+    }, [kcalPerX, Array.from({ length: 14 }, (x, i) => dayAgo(i + 1))]);
+    await nq.reload();
+    await nq.waitForFunction(() => window.Hive && window.Hive.week);
+    r = await nq.evaluate(() => window.Hive.week());
+    t.ok('Nourish’s week: this week’s average weight against last week’s',
+      r && r.w.now === 199 && r.w.was === 201 && r.w.n === 7 && r.w.m === 7, JSON.stringify(r && r.w));
+    t.ok('two days eaten, 1,750 a day, against the target', r.days === 2 && Math.abs(r.kcal - 1750) <= 2 && r.target === 1980, JSON.stringify(r));
+    t.ok('protein at target on one of the two', r.pDays === 2 && r.hit === 1 && r.tp === 190, JSON.stringify(r));
+    await nq.close();
+
     // ---- records ---------------------------------------------------------
     r = await p.evaluate(() => {
       const _ = window.Train._, T = _.state().T;

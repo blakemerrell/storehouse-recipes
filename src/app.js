@@ -4709,6 +4709,9 @@
     return false;
   }
 
+  // whether Strengthen is up to open the weekly check-in it draws
+  function mWeekOn() { return !!(window.Train && window.Train.openCheckin); }
+
   function macroWeighHTML(k) {
     var v = MWEIGHTS[k];
     var st = mWeightStats();
@@ -4939,9 +4942,12 @@
       (k === todayKey() ? mMovedHTML() : '') +
       mMorningHTML(k, 'face') +
       (!openAll ? '' : '<div class="mw-body">' + mMorningHTML(k, 'body') + body +
-        (face.has
+        /* The week, beside the plan: the same check-in Strengthen's Review
+           opens, the scale and the food and the training side by side. */
+        (face.has || mWeekOn()
           ? '<div class="mw-adj no-print">' +
-            '<button class="ghost mplan-go" id="macroTargBtn">Adjust my plan</button></div>'
+            (face.has ? '<button class="ghost mplan-go" id="macroTargBtn">Adjust my plan</button>' : '') +
+            (mWeekOn() ? '<button class="ghost mplan-go" id="macroWeekBtn">This week</button>' : '') + '</div>'
           : '') +
       '</div>');
   }
@@ -17038,6 +17044,7 @@
       /* The way into the plan, wherever the card is showing it: on the face
          while there is no plan to adjust, behind the press once there is. */
       if (e.target.closest('#macroTargBtn')) { mOpenTargets(); return; }
+      if (e.target.closest('#macroWeekBtn')) { if (mWeekOn()) window.Train.openCheckin(); return; }
       var tr = e.target.closest('[data-mtrained]');
       if (tr) {
         var tk = tr.dataset.mtrained;
@@ -18559,6 +18566,54 @@
       var under = Math.round(ate !== null ? meas.tdee - ate : tdee - target);
       return { kcal: under, rate: Math.round(under * 7 / 3500 / pr.lb * 10000) / 10000,
         src: ate !== null ? 'ate' : 'plan', days: ks.length };
+    },
+    /* The last seven days as Nourish saw them, for the weekly check-in both
+       tabs open: the seven before today, since today is not over.
+     *
+       Weight is the week's average against the week before's, a morning on
+       its own being mostly water. Calories are what was eaten on the days
+       logged, the same count the measured burn is built on, against each
+       day's own target. Protein is hit at nine-tenths of the day's target.
+       Maintenance is the burn measured from your logs when there is one,
+       the estimate otherwise, and says which. Null with nothing at all. */
+    week: function () {
+      var keyAgo = function (n) { var d = new Date(); d.setDate(d.getDate() - n); return dayKey(d); };
+      var wk = [], pw = [], i;
+      for (i = 7; i >= 1; i--) wk.push(keyAgo(i));
+      for (i = 14; i >= 8; i--) pw.push(keyAgo(i));
+      var avgOf = function (ks) {
+        var v = ks.map(function (k) { return MWEIGHTS[k]; }).filter(function (x) { return x > 0; });
+        return { n: v.length, avg: v.length ? Math.round(v.reduce(function (s0, x) { return s0 + x; }, 0) / v.length * 10) / 10 : null };
+      };
+      var now = avgOf(wk), was = avgOf(pw);
+      var f = { days: 0, kcal: 0, tk: 0, tn: 0, p: 0, tp: 0, hit: 0, pDays: 0 };
+      mLogIntake();
+      wk.forEach(function (k) {
+        var kc = MINTAKE[k];
+        if (!(kc > 0)) return;
+        var t = mDayTargets(k), tk = kcalOf(t);
+        f.days++; f.kcal += kc;
+        if (tk > 0) { f.tk += tk; f.tn++; }
+        var day = MDAYS[k];
+        if (day && t.p > 0) {
+          var tot = mTotals(day), got = (mDoneAt(k) ? tot.all : tot.eaten).p;
+          f.pDays++; f.p += got; f.tp += t.p;
+          if (got >= 0.9 * t.p) f.hit++;
+        }
+      });
+      if (!now.n && !was.n && !f.days) return null;
+      var pr = mReadProfile(), meas = mMeasuredTdee(), tdee = mTdee(pr), base = kcalOf(mReadTargets());
+      return {
+        from: wk[0], to: wk[6], lb: pr.lb > 0 ? pr.lb : null,
+        w: { now: now.avg, n: now.n, was: was.avg, m: was.n },
+        days: f.days, kcal: f.days ? Math.round(f.kcal / f.days) : null,
+        target: f.tn ? Math.round(f.tk / f.tn) : base || null,
+        p: f.pDays ? Math.round(f.p / f.pDays) : null, tp: f.pDays ? Math.round(f.tp / f.pDays) : null,
+        hit: f.hit, pDays: f.pDays,
+        maint: meas ? meas.tdee : tdee !== null ? Math.round(tdee) : null, measured: !!meas,
+        // the pace the plan is built for, as a share of your weight a week; positive is losing
+        plan: tdee !== null && base && pr.lb > 0 ? Math.round((tdee - base) * 7 / 3500 / pr.lb * 10000) / 10000 : null
+      };
     },
     daysMoved: function () {
       /* Strengthen's list as Strengthen now has it. This read mTrainDays(),
