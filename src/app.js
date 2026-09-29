@@ -1137,6 +1137,267 @@
     }).join('');
   }
 
+  // ------------------------------------------------------------ plan my week
+  /* A few questions, then the week's dinners and what they cost. Chantel,
+     trying Tapcook: answer some questions and get a list of meals to make
+     for the week; Blake: "Let's just stick to what we have in app." So the
+     prices are the book's own estimates (tools/prices.js, per 100 g) and the
+     shelf counts as free. The answers are this device's, remembered; what
+     the sheet puts on the week goes through the Store like any other add,
+     so it lands on every phone in the household. */
+  var PW_SECS = ['1-4', '2-3', '2-4'];
+  var PW_KEY = 'sh.pw';
+  var PW_AVOID = {
+    Spicy: { k: ['hot_sauce', 'jalapeno'], n: /spicy|buffalo|jalape|chipotle|sriracha|hot sauce/i },
+    Pork: { k: ['pork_roast', 'pork_sausage', 'ham', 'sweet_pork'], n: /pork|\bham\b|sausage|carnitas|bacon/i },
+    Fish: { k: ['tuna', 'salmon'], n: /tuna|salmon|fish|shrimp/i },
+    Beans: { k: ['black_beans', 'pinto_beans', 'white_beans', 'kidney_beans', 'refried_beans'], n: /\bbeans?\b(?! & )/i },
+    Mushrooms: { k: ['cream_soup_mush', 'mushrooms'], n: /mushroom/i }
+  };
+  function pwAnswers() {
+    var a = null;
+    try { a = JSON.parse(localStorage.getItem(PW_KEY)); } catch (e) { a = null; }
+    a = a && typeof a === 'object' ? a : {};
+    return {
+      n: [3, 4, 5, 7].indexOf(a.n) >= 0 ? a.n : 5,
+      ppl: [2, 3, 4, 6, 8].indexOf(a.ppl) >= 0 ? a.ppl : 4,
+      bud: a.bud >= 20 && a.bud <= 150 ? a.bud : 50,
+      t: [20, 45, 0].indexOf(a.t) >= 0 ? a.t : 45,
+      avoid: Array.isArray(a.avoid) ? a.avoid.filter(function (x) { return PW_AVOID[x]; }) : [],
+      shelf: a.shelf !== false
+    };
+  }
+  function pwSave(a) { try { localStorage.setItem(PW_KEY, JSON.stringify(a)); } catch (e) { /* private */ } }
+  function pwMins(r) {
+    var t = String(r.time || ''), h = t.match(/(\d+(?:\.\d+)?)\s*hr/), m = t.match(/(\d+)\s*min/);
+    var v = (h ? Number(h[1]) * 60 : 0) + (m ? Number(m[1]) : 0);
+    return v || 60;
+  }
+  function pwIsDinner(r) {
+    if (PW_SECS.indexOf(r.book + '-' + r.secNum) >= 0) return true;
+    return r.book === 2 && r.secNum === 7 && !(r.makes || []).length && !!r.macro && r.macro.kcal >= 350;
+  }
+  function pwAvoids(r, avoid) {
+    return avoid.some(function (w) {
+      var rule = PW_AVOID[w];
+      return rule.n.test(r.name) || (r.ingp || []).some(function (it) { return rule.k.indexOf(it.k) >= 0; });
+    });
+  }
+  function pwX(r, ppl) {
+    var n = Number(r.servN) || 4;
+    return Math.max(1, Math.round((ppl / n) * 2) / 2);
+  }
+  /* What a set of recipes costs to buy: grams of every line, times its
+     price, skipping what is on the shelf when the shelf counts. */
+  function pwPrice(k) { var d = (window.PANTRY || {})[k]; return d && d.usd !== undefined ? d.usd : null; }
+  function pwBuys(it, shelf) {
+    if (!it || !it.k || it.k === 'water' || it.k === 'free' || it.o) return false;
+    return shelf ? itemNeedsBuying(it) : true;
+  }
+  function pwCost(entries, shelf) {
+    var usd = 0;
+    entries.forEach(function (e) {
+      (e.r.ingp || []).forEach(function (it) {
+        var p = pwBuys(it, shelf) ? pwPrice(it.k) : null;
+        if (p) usd += it.g * e.x * p / 100;
+      });
+    });
+    return usd;
+  }
+  function pwMain(r) {
+    var best = '', g = 0;
+    (r.ingp || []).forEach(function (it) {
+      var c = ((window.PANTRY || {})[it.k] || {}).c;
+      if (c === 'Meat' && it.g > g) { g = it.g; best = it.k; }
+    });
+    return best;
+  }
+  function pwPool(a) {
+    return (window.RECIPES || []).filter(function (r) {
+      return pwIsDinner(r) && (!a.t || pwMins(r) <= a.t) && !pwAvoids(r, a.avoid);
+    });
+  }
+  /* One more dinner for a week that already has `picks`: cheap, sharing
+     what the week already buys, not the same meat three nights running, and
+     a little chance so two runs are two weeks. Anything that would carry the
+     week past the budget is passed over while something else fits. */
+  function pwNext(a, picks, not) {
+    var pool = pwPool(a).filter(function (r) {
+      return not.indexOf(r.id) < 0 && !picks.some(function (e) { return e.r.id === r.id; });
+    });
+    if (!pool.length) return null;
+    var have = {}, mains = {};
+    picks.forEach(function (e) {
+      (e.r.ingp || []).forEach(function (it) { if (pwBuys(it, a.shelf) && pwPrice(it.k)) have[it.k] = 1; });
+      var m = pwMain(e.r); if (m) mains[m] = (mains[m] || 0) + 1;
+    });
+    var base = pwCost(picks, a.shelf);
+    var scored = pool.map(function (r) {
+      var x = pwX(r, a.ppl), inc = pwCost([{ r: r, x: x }], a.shelf), shared = 0;
+      (r.ingp || []).forEach(function (it) { if (have[it.k]) shared++; });
+      var m = pwMain(r), same = m ? (mains[m] || 0) : 0;
+      return { r: r, x: x, inc: inc,
+        fits: base + inc <= a.bud * (picks.length + 1) / a.n + 0.01,
+        score: inc - shared * 0.8 + same * same * 3 + Math.random() * 2.5 };
+    });
+    var ok = scored.filter(function (c) { return c.fits; });
+    var from = ok.length ? ok : scored.slice().sort(function (p, q) { return p.inc - q.inc; }).slice(0, 5);
+    from.sort(function (p, q) { return p.score - q.score; });
+    return { r: from[0].r, x: from[0].x };
+  }
+  /* The nights still without a dinner, Monday first. */
+  function pwNights(n) {
+    var free = DAYS.filter(function (d) {
+      return !window.Store.day(d[0]).some(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); });
+    }).map(function (d) { return d[0]; });
+    return free.slice(0, n);
+  }
+  function pwPick() {
+    var a = S.pw.a, picks = [], nights = pwNights(a.n);
+    for (var i = 0; i < nights.length; i++) {
+      var nx = pwNext(a, picks, []);
+      if (!nx) break;
+      picks.push({ r: nx.r, x: nx.x, day: nights[i] });
+    }
+    S.pw.picks = picks;
+    S.pw.seen = {};
+  }
+  function pwSwap(i) {
+    var a = S.pw.a, others = S.pw.picks.filter(function (e, j) { return j !== i; });
+    var seen = S.pw.seen[i] = S.pw.seen[i] || [];
+    seen.push(S.pw.picks[i].r.id);
+    var nx = pwNext(a, others, seen);
+    if (!nx) { S.pw.seen[i] = []; nx = pwNext(a, others, [S.pw.picks[i].r.id]); }
+    if (nx) S.pw.picks[i] = { r: nx.r, x: nx.x, day: S.pw.picks[i].day };
+  }
+  function pwMoney(v) { return v < 0.5 ? '$0' : '$' + (v < 10 ? v.toFixed(2) : Math.round(v)); }
+  /* The headline figure. Nothing to buy is said as that, not as $0.00. */
+  function pwTotalHTML(v) {
+    return v < 0.5 ? '<b>Nothing to buy</b> <span>it\u2019s all on your shelf</span>'
+      : '<b>about ' + pwMoney(v) + '</b> <span>to buy</span>';
+  }
+  function pwChips(q, opts, cur) {
+    return '<div class="pw-chips" role="group">' + opts.map(function (o) {
+      var on = Array.isArray(cur) ? cur.indexOf(o[0]) >= 0 : cur === o[0];
+      return '<button class="pw-chip" data-pwq="' + q + '" data-pwv="' + esc(String(o[0])) + '" aria-pressed="' + on + '">' + o[1] + '</button>';
+    }).join('') + '</div>';
+  }
+  function pwHTML() {
+    var P = S.pw, a = P.a, step = P.step;
+    var dots = '<div class="pw-steps" aria-hidden="true">' + [1, 2, 3].map(function (i) {
+      return '<span' + (i <= step ? ' class="on"' : '') + '></span>'; }).join('') + '</div>';
+    var body;
+    if (step === 1) {
+      body = '<h2 class="pw-h">A few questions, then your week</h2>' + dots +
+        '<div class="pw-q"><div class="pw-ql">How many dinners?</div>' + pwChips('n', [[3, '3'], [4, '4'], [5, '5'], [7, '7']], a.n) + '</div>' +
+        '<div class="pw-q"><div class="pw-ql">How many are eating?</div>' + pwChips('ppl', [[2, '2'], [3, '3'], [4, '4'], [6, '6'], [8, '8+']], a.ppl) + '</div>' +
+        '<div class="pw-q"><div class="pw-ql">Spend no more than</div><div class="pw-money">' +
+          '<input type="range" id="pwBud" min="20" max="150" step="5" value="' + a.bud + '" aria-label="Budget in dollars">' +
+          '<b id="pwBudV">$' + a.bud + '</b></div></div>' +
+        '<div class="pw-q"><div class="pw-ql">Time on a weeknight</div>' + pwChips('t', [[20, '20 min'], [45, '45 min'], [0, 'Anything']], a.t) + '</div>' +
+        '<div class="pw-q"><div class="pw-ql">Leave out</div>' + pwChips('avoid', Object.keys(PW_AVOID).map(function (k) { return [k, k]; }), a.avoid) + '</div>' +
+        '<div class="pw-q"><div class="pw-ql">Use what’s already on the shelf?</div>' +
+          pwChips('shelf', [['1', 'Yes, count it as free'], ['0', 'No, buy everything']], a.shelf ? '1' : '0') + '</div>' +
+        '<button class="pw-go" data-pwgo="2">Pick my dinners</button>';
+    } else if (step === 2) {
+      var tot = pwCost(P.picks, a.shelf), all = pwCost(P.picks, false);
+      var short = P.picks.length < a.n;
+      body = '<h2 class="pw-h">Your ' + P.picks.length + (P.picks.length === 1 ? ' dinner' : ' dinners') + '</h2>' + dots +
+        (P.picks.length ? '<div class="pw-sum' + (tot > a.bud ? ' over' : '') + '"><div>' + pwTotalHTML(tot) + '</div>' +
+          '<span>' + (a.shelf && all - tot >= 1 ? pwMoney(all) + ' without your shelf · ' : '') +
+          (tot <= a.bud ? 'under $' + a.bud : 'over $' + a.bud) + '</span></div>' : '') +
+        (short ? '<p class="pw-note">' + (pwNights(7).length < a.n ? 'Only ' + P.picks.length + ' nights this week have no dinner yet.'
+          : 'Only ' + P.picks.length + ' dinners fit those answers.') + '</p>' : '') +
+        P.picks.map(function (e, i) {
+          var dn = DAYS.filter(function (d) { return d[0] === e.day; })[0];
+          return '<div class="pw-meal"><div class="pw-day">' + (dn ? dn[2].toUpperCase() : '') + '</div>' +
+            '<div class="pw-mt"><button class="pw-mn" data-pwopen="' + esc(String(e.r.id)) + '">' + esc(e.r.name) + '</button>' +
+            '<div class="pw-mm">' + esc(e.r.time || '') + ' · ' + (e.x === 1 ? 'the recipe as written' : '×' + fmtNum(e.x)) +
+              ' · about ' + pwMoney(pwCost([e], a.shelf)) + '</div></div>' +
+            '<button class="pw-swap" data-pwswap="' + i + '" aria-label="Pick another instead of ' + esc(e.r.name) + '">↻</button></div>';
+        }).join('') +
+        '<div class="pw-row"><button class="pw-back" data-pwgo="1">Back</button>' +
+          (P.picks.length ? '<button class="pw-go" data-pwgo="3">See the shopping list</button>' : '') + '</div>';
+    } else {
+      var built = buildList(P.picks.map(function (e) { return { r: e.r, x: e.x }; }));
+      var total = 0;
+      /* What you have to go out for first; what is on the shelf after it.
+         Buying everything, there is no shelf to set apart: one list. */
+      var gs = built.groups;
+      if (!a.shelf) {
+        gs = [{ title: 'To buy', items: [].concat.apply([], gs.map(function (g) { return g.items; }))
+          .map(function (b) { return Object.assign({}, b, { extra: true }); })
+          .sort(function (x1, x2) { return x1.label.localeCompare(x2.label); }) }];
+      }
+      var groups = gs.slice().sort(function (g1, g2) {
+        return (g1.items[0] && g1.items[0].extra ? 0 : 1) - (g2.items[0] && g2.items[0].extra ? 0 : 1);
+      }).map(function (g) {
+        return '<div class="pw-grp">' + esc(g.title) + '</div>' + g.items.map(function (b) {
+          var p = pwPrice(b.key), buy = !a.shelf || b.extra;
+          var c = p && buy ? b.g * p / 100 : 0;
+          total += c;
+          return '<div class="pw-li' + (buy ? '' : ' have') + '"><span class="pw-n">' + esc(b.label) +
+            (b.qty ? '<span class="pw-for">' + esc(b.qty) + '</span>' : '') + '</span>' +
+            '<span class="pw-p">' + (buy ? (p ? pwMoney(c) : '—') : '$0') + '</span></div>';
+        }).join('');
+      }).join('');
+      body = '<h2 class="pw-h">Your shopping list</h2>' + dots +
+        '<div class="pw-sum"><div>' + pwTotalHTML(total) + '</div><span>' +
+          P.picks.length + ' dinners · ' + a.ppl + ' people</span></div>' + groups +
+        '<div class="pw-row"><button class="pw-back" data-pwgo="2">Back</button>' +
+          '<button class="pw-go" data-pwadd="1">Add to this week’s plan</button></div>' +
+        '<p class="pw-note">Typical prices kept in the app, not live ones. The shelf counts as free.</p>';
+    }
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet pw-sheet" role="dialog" aria-modal="true" aria-label="Plan my week">' +
+        '<div class="sheet-top"><div class="sheet-eyebrow">Plan my week</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button></div>' +
+        '<div class="pw-body">' + body + '</div></div></div>';
+  }
+  /* For the tests: the rules without the sheet, so a picker with chance in it
+     can be run forty times and held to what it promises every time. */
+  window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids };
+  function pwOpen() {
+    S.pw = { step: 1, a: pwAnswers(), picks: [], seen: {} };
+    S.pwOpen = true;
+    pushSheet({ pw: 1 });
+    renderModal();
+  }
+  document.addEventListener('click', function (e) {
+    if (!S.pwOpen || !e.target.closest) return;
+    var q = e.target.closest('[data-pwq]');
+    if (q) {
+      var a = S.pw.a, k = q.dataset.pwq, v = q.dataset.pwv;
+      if (k === 'avoid') {
+        var at = a.avoid.indexOf(v);
+        if (at >= 0) a.avoid.splice(at, 1); else a.avoid.push(v);
+      } else if (k === 'shelf') a.shelf = v === '1';
+      else a[k] = Number(v);
+      pwSave(a);
+      renderModal();
+      return;
+    }
+    var g = e.target.closest('[data-pwgo]');
+    if (g) {
+      var to = Number(g.dataset.pwgo);
+      if (to === 2 && S.pw.step === 1) pwPick();
+      S.pw.step = to;
+      renderModal();
+      var sc = document.querySelector('#modalRoot .scrim');
+      if (sc) sc.scrollTop = 0;
+      return;
+    }
+    var sw = e.target.closest('[data-pwswap]');
+    if (sw) { pwSwap(Number(sw.dataset.pwswap)); renderModal(); return; }
+    var op = e.target.closest('[data-pwopen]');
+    if (op) { openRecipe(idOf(op.dataset.pwopen)); return; }
+    if (e.target.closest('[data-pwadd]')) {
+      S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x); });
+      close();
+      if (S.view === 'plan') renderPlan();
+    }
+  });
+
   // ----------------------------------------------------------------- macros
   /* An RP-Diet-style day, kept as simple as the idea: targets in grams, four
      meals, tick off what you eat. The picker below suggests a portion of each
@@ -13453,8 +13714,11 @@
      is what lets one line cover a diced apple and a sliced one. Which food a
      line is, and how much of it, were worked out at build time — see
      tools/build-data.js — so the browser only has to add up. */
-  function buildList() {
-    var entries = planEntries();
+  /* The week's shopping list — or, given entries, the list for those: Plan
+     My Week builds its list with this same function, so the two can never
+     disagree about what a week needs. */
+  function buildList(given) {
+    var entries = given || planEntries();
     var bucket = {};
     entries.forEach(function (e) {
       (e.r.ingp || []).forEach(function (it) {
@@ -15214,6 +15478,7 @@
    * [data-check="milk"] before the render and after it.
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
+    'data-pwq', 'data-pwgo', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
@@ -15304,6 +15569,13 @@
       return;
     }
 
+    /* A recipe opened from the picks draws over them; back comes back. */
+    if (S.pwOpen && !S.openId) {
+      root.innerHTML = pwHTML();
+      document.body.style.overflow = 'hidden';
+      if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
     if (S.syncOpen) {
       root.innerHTML = syncHTML();
       document.body.style.overflow = 'hidden';
@@ -16325,6 +16597,7 @@
         renderView();
       });
     });
+    $('planMyWeek').addEventListener('click', pwOpen);
     $('bookBtn').addEventListener('click', function () {
       S.view = 'book';
       try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
@@ -18254,6 +18527,12 @@
 
     // the nutrition preview follows the ingredients as they are typed
     $('modalRoot').addEventListener('input', function (e) {
+      if (e.target.id === 'pwBud' && S.pwOpen) {
+        S.pw.a.bud = Number(e.target.value) || 50;
+        pwSave(S.pw.a);
+        var bv = $('pwBudV'); if (bv) bv.textContent = '$' + S.pw.a.bud;
+        return;
+      }
       if (S.foodOpen && e.target.id === 'mfsAmt') mFsRefresh();
       if (S.editId && (e.target.id === 'edIng' || e.target.id === 'edServings' ||
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
@@ -18473,6 +18752,7 @@
     }
     S.openId = null;
     S.syncOpen = false;
+    S.pwOpen = false;
     S.mDoneOpen = '';
     /* The editor too. Without these the × and the backdrop looked broken:
        renderModal saw S.editId still set, drew the editor again, and the only

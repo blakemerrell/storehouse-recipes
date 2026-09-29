@@ -6033,3 +6033,53 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
    tick scrolled to landed under the bottom bar. `clip` keeps the rounded
    corners without being one. */
 .mday-stop { overflow: clip; }
+
+/* ---- Plan my week (2026-09-28) ------------------------------------------ */
+.pw-sheet { max-width: 480px; }
+.pw-body { padding: 4px 16px 18px; }
+.pw-h { font-family: var(--serif); font-size: 22px; margin: 4px 0 10px; text-wrap: balance; }
+.pw-steps { display: flex; gap: 6px; margin: 0 0 14px; }
+.pw-steps span { flex: 1; height: 4px; border-radius: 9px; background: var(--line); }
+.pw-steps span.on { background: var(--ochre); }
+.pw-q { border: 1px solid var(--line); border-radius: 8px; background: var(--card); padding: 12px; margin-bottom: 10px; }
+.pw-ql { font-weight: 650; font-size: 14.5px; margin-bottom: 8px; }
+.pw-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.pw-chip {
+  border: 1px solid var(--line-firm); background: var(--card); color: var(--ink); border-radius: 99px;
+  font: inherit; font-size: 14px; padding: 0 14px; min-height: 44px; cursor: pointer;
+}
+.pw-chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+.pw-money { display: flex; align-items: center; gap: 10px; }
+.pw-money input { flex: 1; min-height: 44px; accent-color: var(--ochre); }
+.pw-money b { font-family: var(--serif); font-size: 22px; min-width: 60px; text-align: right; }
+.pw-go {
+  flex: 1; width: 100%; min-height: 48px; border: 0; border-radius: 6px; background: var(--ink); color: var(--paper);
+  font: inherit; font-size: 16px; font-weight: 650; cursor: pointer; margin-top: 4px;
+}
+.pw-back {
+  min-height: 48px; padding: 0 16px; border: 1px solid var(--line-firm); border-radius: 6px; background: transparent;
+  font: inherit; font-size: 15px; color: var(--ink); cursor: pointer;
+}
+.pw-row { display: flex; gap: 8px; margin-top: 12px; }
+.pw-row .pw-go { margin: 0; }
+.pw-sum {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  background: color-mix(in oklch, var(--dial-on) 14%, var(--card)); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
+}
+.pw-sum.over { background: color-mix(in oklch, var(--dial-over) 14%, var(--card)); }
+.pw-sum b { font-family: var(--serif); font-size: 21px; }
+.pw-sum span { font-size: 13px; color: var(--muted-2); }
+.pw-meal { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--card); padding: 8px 10px; margin-bottom: 7px; }
+.pw-day { width: 36px; flex: none; text-align: center; font-size: 13px; font-weight: 700; color: var(--muted-2); letter-spacing: 0.06em; }
+.pw-mt { flex: 1; min-width: 0; }
+.pw-mn { display: block; background: none; border: 0; padding: 0; text-align: left; font-family: var(--serif); font-size: 16px; color: var(--ink); cursor: pointer; min-height: 30px; }
+.pw-mm { font-size: 13px; color: var(--muted); }
+.pw-swap { flex: none; width: 44px; height: 44px; border: 1px solid var(--line-firm); border-radius: 6px; background: var(--card); font-size: 18px; color: var(--ink); cursor: pointer; }
+.pw-grp { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 14px 0 4px; }
+.pw-li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--line-soft); font-size: 14.5px; }
+.pw-n { flex: 1; min-width: 0; }
+.pw-for { display: block; font-size: 13px; color: var(--muted); }
+.pw-p { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.pw-li.have { color: var(--muted); }
+.pw-li.have .pw-p { font-weight: 400; }
+.pw-note { font-size: 13px; color: var(--muted-2); margin: 10px 0 0; }
