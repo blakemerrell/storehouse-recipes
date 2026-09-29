@@ -6125,3 +6125,28 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .pw-cnt b { font-family: var(--serif); font-size: 22px; font-variant-numeric: tabular-nums; }
 .pw-cnt span { display: block; font-size: 13px; color: var(--muted); }
 .pw-cnt.low b { color: var(--dial-over); }
+
+/* Walmart cart: Walmart's own blue on the one button that leaves the app,
+   so it reads as going somewhere else; everything under it stays ours. */
+.wm { margin: 0 0 14px; }
+.wm-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 50px; padding: 0 16px;
+  border-radius: 99px; background: #0053E2; color: #fff; font-weight: 650; font-size: 15.5px; text-decoration: none;
+}
+.wm-btn .wm-spark { width: 18px; height: 18px; flex: none; color: #FFC220; }
+.wm-sub { font-size: 13px; color: var(--muted); text-align: center; margin: 6px 0 0; line-height: 1.45; }
+.wm-sub a { color: inherit; }
+.wm-all { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--ink); }
+.wm-all input { width: 20px; height: 20px; accent-color: var(--ochre); }
+.wm-fix { margin-top: 4px; font-size: 14px; }
+.wm-fix summary { min-height: 44px; display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: pointer; }
+.wm-fix p { font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+.wm-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.wm-rt { min-width: 0; }
+.wm-rt b { display: block; font-weight: 600; }
+.wm-rt span { display: block; font-size: 12.5px; color: var(--muted); }
+.wm-look { display: inline-flex; align-items: center; min-height: 44px; color: var(--ochre); font-weight: 600; text-decoration: none; }
+.wm-id {
+  grid-column: 1 / -1; min-height: 44px; padding: 0 10px; border: 1px solid var(--line-firm); border-radius: 6px;
+  background: var(--paper); color: var(--ink); font: inherit; font-size: 16px;
+}

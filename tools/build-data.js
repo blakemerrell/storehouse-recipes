@@ -384,6 +384,15 @@ const PRICES = require('./prices.js');
   const unknown = Object.keys(PRICES).filter((k) => !FOODS[k]);
   if (unknown.length) throw new Error('prices.js names foods the table does not have: ' + unknown.join(', '));
 }
+const WALMART = require('./walmart.js');
+{
+  const unknown = Object.keys(WALMART).filter((k) => k !== 'AS' && !FOODS[k])
+    .concat(Object.keys(WALMART.AS).filter((k) => !FOODS[k] || !FOODS[WALMART.AS[k][0]]));
+  if (unknown.length) throw new Error('walmart.js names foods the table does not have: ' + unknown.join(', '));
+  const bad = Object.keys(WALMART).filter((k) => k !== 'AS' &&
+    !(/^\d{5,12}$/.test(WALMART[k][0]) && WALMART[k][1] > 0 && WALMART[k][2]));
+  if (bad.length) throw new Error('walmart.js entries need [item number, grams, name]: ' + bad.join(', '));
+}
 const DRIED_SPICE = { paprika: 1, garlic_powder: 1, onion_powder: 1, cumin: 1, oregano: 1, thyme: 1,
   basil: 1, ginger: 1, mustard_powder: 1, chili_powder: 1, white_pepper: 1, celery_salt: 1,
   italian_seasoning: 1 };
@@ -409,7 +418,16 @@ Object.keys(CATS).sort().forEach((k) => {
   /* A typical price, dollars per 100 g (tools/prices.js), for Plan My Week's
      budget and total. Absent means not counted. */
   if (PRICES[k] !== undefined) pantry[k].usd = PRICES[k];
+  /* The Walmart pack it is bought as (tools/walmart.js), and for a food the
+     book makes, what it is bought as instead. */
+  if (WALMART[k] && k !== 'AS') pantry[k].wm = WALMART[k];
+  if (WALMART.AS[k]) pantry[k].wa = WALMART.AS[k];
 });
+{
+  const lost = Object.keys(WALMART).filter((k) => k !== 'AS' && !pantry[k])
+    .concat(Object.keys(WALMART.AS).filter((k) => !pantry[k]));
+  if (lost.length) throw new Error('walmart.js foods with no pantry entry, so their pack would be dropped: ' + lost.join(', '));
+}
 const usedNotCategorised = Object.keys(anyExtra).filter((k) => !CATS[k]);
 if (usedNotCategorised.length) {
   throw new Error('foods with no shelf in pantry-cats.js: ' + usedNotCategorised.join(', '));

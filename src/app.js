@@ -1467,9 +1467,11 @@
             '<span class="pw-p">' + (buy ? (p ? pwMoney(c) : '—') : '$0') + '</span></div>';
         }).join('');
       }).join('');
+      var toBuy = [].concat.apply([], built.groups.map(function (g) { return g.items; }))
+        .filter(function (b) { return !a.shelf || b.extra; });
       body = '<h2 class="pw-h">Your shopping list</h2>' + dots +
         '<div class="pw-sum"><div>' + pwTotalHTML(total) + '</div><span>' +
-          P.picks.length + ' dinners · ' + a.ppl + ' people</span></div>' + groups +
+          P.picks.length + ' dinners · ' + a.ppl + ' people</span></div>' + wmHTML(toBuy) + groups +
         '<div class="pw-row"><button class="pw-back" data-pwgo="2">Back</button>' +
           '<button class="pw-go" data-pwadd="1">Add to this week’s plan</button></div>' +
         '<p class="pw-note">Typical prices kept in the app, not live ones. The shelf counts as free.</p>';
@@ -1537,6 +1539,110 @@
       if (S.view === 'plan') renderPlan();
     }
   });
+
+  // ------------------------------------------------------------ walmart cart
+  /* The shopping list, sent to Walmart. Blake: "When I am no longer using
+     the storehouse I'll need to buy the items." Walmart has no open API for a
+     cart, but it has a link that opens one already filled:
+     walmart.com/sc/cart/addToCart?items=ID_QTY,ID_QTY — the one MacroRx used.
+     Each food carries the pack it is bought as (tools/walmart.js); the packs
+     are the grams over the grams in one, rounded up. A food with no pack gets
+     a grocery search, and an item number pasted here is this device's and
+     wins over the book's. */
+  var WM_KEY = 'sh.wm', WM_ALL = 'sh.wmAll';
+  function wmOwn() {
+    try { var o = JSON.parse(localStorage.getItem(WM_KEY)); return o && typeof o === 'object' ? o : {}; }
+    catch (e) { return {}; }
+  }
+  function wmSetOwn(k, id) {
+    var o = wmOwn();
+    if (id) o[k] = id; else delete o[k];
+    try { localStorage.setItem(WM_KEY, JSON.stringify(o)); } catch (e) { /* private */ }
+  }
+  /* An item number from what was pasted: the number itself, or a product
+     address, which ends in it (walmart.com/ip/name/10447842?...). */
+  function wmParseId(v) {
+    v = String(v || '').trim();
+    var m = v.match(/\/ip\/(?:[^\/?#]*\/)?(\d{5,12})/) || v.match(/^(\d{5,12})$/);
+    return m ? m[1] : '';
+  }
+  function wmSearchURL(q) {
+    return 'https://www.walmart.com/search?q=' + encodeURIComponent(String(q).replace(/\(.*?\)/g, '').trim()) + '&cat_id=976759';
+  }
+  /* items: [{ key, label, g }] as the list builds them. */
+  function wmLines(items) {
+    var P = window.PANTRY || {}, own = wmOwn(), by = {}, order = [];
+    items.forEach(function (b) {
+      var k = b.key, g = b.g || 0, d = P[k];
+      if (d && d.wa) { g *= d.wa[1]; k = d.wa[0]; d = P[k]; }
+      if (!by[k]) {
+        var wm = d && d.wm;
+        by[k] = { key: k, label: (d && d.l) || b.label, g: 0, id: own[k] || (wm ? wm[0] : ''),
+          pack: wm ? wm[1] : 0, name: own[k] ? '' : (wm ? wm[2] : ''), own: !!own[k] };
+        order.push(k);
+      }
+      by[k].g += g;
+    });
+    var cart = [], find = [];
+    order.forEach(function (k) {
+      var l = by[k];
+      l.qty = l.pack && !l.own ? Math.min(12, Math.max(1, Math.ceil(l.g / l.pack - 0.1))) : 1;
+      (l.id ? cart : find).push(l);
+    });
+    return { cart: cart, find: find };
+  }
+  function wmCartURL(cart) {
+    return 'https://www.walmart.com/sc/cart/addToCart?items=' +
+      cart.map(function (l) { return l.id + '_' + l.qty; }).join(',');
+  }
+  var WM_MARK = '<svg class="wm-spark" viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor">' +
+    [0, 60, 120, 180, 240, 300].map(function (a) {
+      return '<rect x="10.8" y="1.5" width="2.4" height="7.5" rx="1.2" transform="rotate(' + a + ' 12 12)"/>';
+    }).join('') + '</g></svg>';
+  /* The block: one button for everything matched, a search for what is not,
+     and under a fold, the product each line goes in as, to change. */
+  function wmHTML(items, allToggle) {
+    var L = wmLines(items);
+    var tog = (allToggle ? '<label class="wm-all"><input type="checkbox" data-wmall="1"' + (wmAll() ? ' checked' : '') + '> Include what’s on the shelf</label>' : '');
+    if (!L.cart.length && !L.find.length) return tog ? '<div class="wm">' + tog + '</div>' : '';
+    var n = L.cart.reduce(function (t, l) { return t + l.qty; }, 0);
+    var row = function (l) {
+      return '<div class="wm-row"><div class="wm-rt"><b>' + esc(l.label) + '</b>' +
+        '<span>' + (l.id ? (l.qty > 1 ? l.qty + ' × ' : '') + esc(l.name || 'item ' + l.id) : 'not matched yet') + '</span></div>' +
+        '<a class="wm-look" href="' + esc(wmSearchURL(l.label)) + '" target="_blank" rel="noopener">Find ↗</a>' +
+        '<input class="wm-id" data-wmid="' + esc(l.key) + '" inputmode="numeric" placeholder="Item # or link" value="' + (l.own ? esc(l.id) : '') + '" aria-label="Walmart item number for ' + esc(l.label) + '">' +
+      '</div>';
+    };
+    return '<div class="wm">' +
+      (L.cart.length ? '<a class="wm-btn" href="' + esc(wmCartURL(L.cart)) + '" target="_blank" rel="noopener">' + WM_MARK +
+        'Add ' + L.cart.length + (L.cart.length === 1 ? ' item' : ' items') + ' to Walmart cart</a>' : '') +
+      '<div class="wm-sub">' + (L.cart.length ? 'Opens Walmart with ' + (n === L.cart.length ? 'them' : n + ' packs') + ' in your cart. ' : '') +
+        (L.find.length ? L.find.length + ' to find yourself: ' + L.find.map(function (l) {
+          return '<a href="' + esc(wmSearchURL(l.label)) + '" target="_blank" rel="noopener">' + esc(l.label) + '</a>';
+        }).join(', ') : '') + '</div>' +
+      tog +
+      '<details class="wm-fix"><summary>Check the products \u203a</summary>' +
+        '<p>Paste an item number, or the product’s walmart.com link, to use a different product.</p>' +
+        L.find.concat(L.cart).map(row).join('') + '</details>' +
+    '</div>';
+  }
+  function wmAll() { try { return localStorage.getItem(WM_ALL) === '1'; } catch (e) { return false; } }
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || !t.dataset) return;
+    if (t.dataset.wmid !== undefined) {
+      var id = wmParseId(t.value);
+      if (t.value.trim() && !id) { t.setCustomValidity('That is not a Walmart item number or product link'); t.reportValidity(); return; }
+      t.setCustomValidity('');
+      wmSetOwn(t.dataset.wmid, id);
+    } else if (t.dataset.wmall) {
+      try { localStorage.setItem(WM_ALL, t.checked ? '1' : '0'); } catch (err) { /* private */ }
+    } else return;
+    var open = !!(t.closest && t.closest('details[open]'));
+    if (S.pwOpen) renderModal(); else if (S.view === 'list') renderList();
+    if (open) { var dd = document.querySelectorAll('.wm-fix'); for (var i = 0; i < dd.length; i++) dd[i].open = true; }
+  });
+  window.__wm = { lines: wmLines, url: wmCartURL, parse: wmParseId };
 
   // ----------------------------------------------------------------- macros
   /* An RP-Diet-style day, kept as simple as the idea: targets in grams, four
@@ -13931,6 +14037,11 @@
       ? total + ' items · ' + built.recipeCount + (built.recipeCount === 1 ? ' recipe' : ' recipes')
       : '';
     $('listEmpty').classList.toggle('hide', total !== 0);
+    /* To Walmart: what is left to get — not ticked, and off the shelf only
+       when the shelf is asked to come too. */
+    var all = wmAll();
+    $('listWm').innerHTML = total ? wmHTML([].concat.apply([], built.groups.map(function (g) { return g.items; }))
+      .filter(function (b) { return (all || b.extra) && !window.Store.isChecked(b.key); }), true) : '';
     $('listBody').innerHTML = built.groups.map(function (g) {
       return '<div class="list-group">' +
         '<div class="list-group-title">' + esc(g.title) + '</div>' +
@@ -15618,7 +15729,7 @@
    * [data-check="milk"] before the render and after it.
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
-    'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-pwswap', 'data-pwopen', 'data-pwadd',
+    'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid', 'data-wmall', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
