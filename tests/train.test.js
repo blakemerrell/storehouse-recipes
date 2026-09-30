@@ -3599,6 +3599,78 @@ module.exports = {
     t.ok('and the set after it follows the plan, not the miss', r.r > 0 && r.w !== 315, JSON.stringify(r));
     await p.close();
 
+    // ---- the weight follows the effort you logged ----
+    p = await t.fresh();
+    r = await p.evaluate(() => {
+      const _ = window.Train._;
+      const at = (q, pq, reps) => {
+        const T = { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} };
+        const x = { e: 'bb-bench', s: (reps || [8, 8, 8]).map((r, i) => Object.assign({ w: 200, r, t: 1e12 + i }, q === null ? {} : { q })) };
+        if (pq !== null) x.pq = pq;
+        T.wo.a = { id: 'a', st: Date.now() - 3 * 864e5, en: Date.now() - 3 * 864e5 + 36e5, dk: '2026-01-01', n: 'W', u: 'lb', ms: '', w: 0, d: 0, dl: 0, x: [x], sr: {}, fb: {} };
+        localStorage.setItem('bsc.train', JSON.stringify(T));
+        _.reload();
+        const t = _.target(_.lib('bb-bench'), null, 0, 0, false);
+        return { w: t.tw, r: t.tr, ef: t.ef || null };
+      };
+      return { none: at(null, 2), near: at(3, 2), easy: at(4, 2), hard: at(0, 2), cap: at(5, 0), unplanned: at(4, null), top: at(0, 2, [10, 10, 10]),
+        low: at(0, 2, [5, 5, 5]), topEasy: at(5, 2, [10, 10, 10]), unplannedHard: at(0, null, [10, 10, 10]) };
+    });
+    t.ok('no effort logged: the usual double progression, 200 then 200 × 9', r.none.w === 200 && r.none.r === 9 && !r.none.ef, JSON.stringify(r.none));
+    t.ok('one rep off the plan is inside the guess, and changes nothing', r.near.w === 200 && r.near.r === 9 && !r.near.ef, JSON.stringify(r.near));
+    t.ok('4 to spare where 2 was asked: up past the usual step, with why', r.easy.w === 205 && r.easy.r === 9 && r.easy.ef && r.easy.ef.q === 4 && r.easy.ef.a === 2 && r.easy.ef.w0 === 200, JSON.stringify(r.easy));
+    t.ok('none to spare where 2 was asked: the same weight and reps again, not one more', r.hard.w === 200 && r.hard.r === 8 && r.hard.ef && r.hard.ef.r0 === 9, JSON.stringify(r.hard));
+    t.ok('five or more to spare where none was asked: up a tenth, 220', r.cap.w === 220 && r.cap.ef, JSON.stringify(r.cap));
+    t.ok('and never more than a tenth over last time, even from the top of the range', r.topEasy.w === 220 && r.topEasy.r === 8, JSON.stringify(r.topEasy));
+    t.ok('reps short of the range at none to spare: down to what the bottom of the range is worth', r.low.w === 185 && r.low.r === 6 && r.low.ef, JSON.stringify(r.low));
+    t.ok('with no plan, two to spare is the ask', r.unplanned.w === 205 && r.unplanned.ef && r.unplanned.ef.a === 2, JSON.stringify(r.unplanned));
+    t.ok('but with no plan, sets to failure never hold the weight back: the top of the range still goes up', r.unplannedHard.w === 205 && !r.unplannedHard.ef, JSON.stringify(r.unplannedHard));
+    t.ok('the top of the range at none to spare: the same again, not the next weight', r.top.w === 200 && r.top.r === 10 && r.top.ef && r.top.ef.w0 === 205, JSON.stringify(r.top));
+
+    // in a block: said on the card, and put back with a tap
+    r = await p.evaluate(() => {
+      const _ = window.Train._, st = _.state();
+      const ms = _.build({ goal: 'grow', dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'ef';
+      // bench first, and only once
+      const d0 = ms.days[0].s, k = d0.findIndex((z) => z.e === 'bb-bench');
+      if (k > 0) d0.splice(k, 1);
+      d0[0].e = 'bb-bench';
+      const fb = (d) => { const o = {}; ms.days[d].s.forEach((s) => { o[_.lib(s.e).m] = { p: 0, k: 0 }; }); return o; };
+      const day = (d, x) => ({ id: 'e' + d, st: Date.now() - (6 - d) * 864e5, en: Date.now() - (6 - d) * 864e5 + 36e5, dk: '2026-01-0' + (d + 1), n: 'W', u: 'lb',
+        ms: 'ef', w: 0, d, dl: 0, x, fb: fb(d), sr: {} });
+      st.T.ms = { ef: ms }; st.T.act = 'ef'; st.T.pr.rq = 1;
+      st.T.wo = {
+        e0: day(0, [{ e: 'bb-bench', pq: 3, s: [8, 8, 8].map((r, i) => ({ w: 200, r, q: 5, t: 1e12 + i })) }]),
+        e1: day(1, [{ e: ms.days[1].s[0].e, s: [{ w: 50, r: 10, t: 1e12 }] }]),
+        e2: day(2, [{ e: ms.days[2].s[0].e, s: [{ w: 50, r: 10, t: 1e12 }] }]),
+      };
+      localStorage.setItem('bsc.train', JSON.stringify(st.T));
+      _.reload();
+      const x = _.plan(_.state().T.ms.ef, 1, 0).x[0];
+      return { e: x.e, tw: x.tw, tr: x.tr, rir: x.rir, ef: x.ef };
+    });
+    t.ok('the plan works next week from last week’s effort: 5+ to spare at 200 × 8 where 3 was asked', r.e === 'bb-bench' && r.tw === 210 && r.tr === 9 && r.ef && r.ef.a === 3, JSON.stringify(r));
+    await p.click('.tab[data-view="train"]');
+    await p.click('.tr-next [data-t="start"]');
+    r = await p.evaluate(() => ({ note: (document.querySelector('.tr-ex .tr-efn') || {}).textContent || '', w: document.getElementById('trw-0-0').placeholder,
+      rr: document.getElementById('trr-0-0').placeholder, wk: window.Train._.state().LIVE.w, n: document.querySelectorAll('.tr-efn').length }));
+    t.ok('the card says by how much and why, in a line', r.wk === 1 && r.n === 1 && /^Up 10 lb: last time was 5\+ to spare, the plan asked 3 to spare\./.test(r.note) && r.w === '210' && r.rr === '9', JSON.stringify(r));
+    await p.click('.tr-efn [data-t="efset"]');
+    r = await p.evaluate(() => ({ note: (document.querySelector('.tr-ex .tr-efn') || {}).textContent || '', w: document.getElementById('trw-0-0').placeholder,
+      w2: document.getElementById('trw-0-1').placeholder, rr: document.getElementById('trr-0-0').placeholder }));
+    t.ok('Undo puts every set back to the usual step, and says so', /Usual step: 200 lb × 9/.test(r.note) && r.w === '200' && r.w2 === '200' && r.rr === '9', JSON.stringify(r));
+    await p.click('.tr-efn [data-t="efset"]');
+    r = await p.evaluate(() => ({ w: document.getElementById('trw-0-0').placeholder, kept: JSON.parse(localStorage.getItem('sh.trainLive')).x[0].ef.on }));
+    t.ok('and one more tap takes your effort’s weight again, kept if the page goes away', r.w === '210' && r.kept === 1, JSON.stringify(r));
+    await p.fill('#trw-0-0', '210');
+    await p.fill('#trr-0-0', '9');
+    await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
+    r = await p.evaluate(() => ({ note: [...document.querySelectorAll('.tr-ex .tr-efn')].map((e) => e.closest('.tr-ex').dataset.xi + ':' + e.textContent),
+      done: window.Train._.state().LIVE.x[0].s[0].t > 0 }));
+    t.ok('once a set is done the line steps aside, and no other card has one', r.done && !r.note.length, JSON.stringify(r));
+    await p.close();
+
     // assisted: you, less the help; less help is the step forward
     p = await t.fresh();
     await p.evaluate(() => {
