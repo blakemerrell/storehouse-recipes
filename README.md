@@ -265,10 +265,15 @@ without looking sparse. Three sections — the long-recipe ones — open with a 
 because a 71-point heading and a 639-point recipe will not share a 666-point page and
 a heading alone at the top of a blank one looks like a mistake.
 
-Two of the 271 recipes are taller on their own than a page's text area, and there is
-nowhere to move them to. Those two pages are set about three percent smaller so that
-they fit, rather than having the bottom of the page quietly cut off — which is what a
-printed page, being a fixed 7.5 inches with the overflow hidden, does otherwise.
+A few recipes are taller on their own than a page's text area — thirteen of the 350
+since the food-safety audit lengthened their methods — and there is nowhere to move
+them to. Side by side, a recipe is as tall as its method, and on these the ingredient
+column beside it ends a third of the way down. So a recipe alone on a page that does
+not fit is set with its method running on under the ingredients once they end, which
+fits every one of the thirteen at full size. Only if that is still not enough is the
+page set slightly smaller, rather than having the bottom of it quietly cut off — which
+is what a printed page, being a fixed 7.5 inches with the overflow hidden, does
+otherwise.
 
 Every page is checked by `tests/print.test.js`: nothing spills, nothing is stranded, and
 nothing runs past the bottom of the paper.
@@ -295,7 +300,10 @@ node tools/print-books.js 1        # just Run and Not Be Weary
 
 That writes two files per volume into `print/`, which **are committed** — the app links
 to them. `tests/pdfs.test.js` fails if they fall behind the recipes, so a stale book
-cannot quietly reach a printer:
+cannot quietly reach a printer. A book that has not changed is not written again: the
+PDFs carry a fixed date (the first of January of the edition year) rather than the
+minute they were rendered, so the same book is the same bytes, and a run that changes
+one volume adds one volume to the repository's history rather than all seven files.
 
 - **`Run-and-Not-Be-Weary.pdf`** — reading order, half-letter. This is the one to give a
   print shop; they impose it themselves.

@@ -47,15 +47,28 @@ function sharpLib() {
   try { return require('sharp'); } catch (e) { return null; }
 }
 
-function build() {
+/*
+ * opts.only   the print-set keys whose PDF changed on this run; only their
+ *             covers are remade (and the combined one, if either volume's
+ *             was). Left out, as when this is run by hand, all of them are.
+ *
+ * A cover is written only when its bytes change: the service worker keeps the
+ * covers with the engravings, in a cache named for all of those files, so one
+ * rewritten for nothing is every phone downloading all of them again.
+ */
+async function build(opts) {
   const sharp = sharpLib();
   if (!sharp) { console.log('  sharp is not installed — cover thumbnails not rebuilt'); return; }
+  const { keep } = require('./pdf-file.js');
+  const only = opts && opts.only;
+  const want = (key) => !only || only.indexOf(key) >= 0;
 
   fs.mkdirSync(OUT, { recursive: true });
   const made = [];
-  Object.keys(COVERS).forEach((key) => {
+  const put = (name, buf) => { if (keep(path.join(OUT, name), buf)) made.push(name + ' ' + Math.round(buf.length / 1024) + ' KB'); };
+  for (const key of Object.keys(COVERS)) {
     const pdf = path.join(PDFS, COVERS[key]);
-    if (!fs.existsSync(pdf)) return;                 // that book was not rendered
+    if (!fs.existsSync(pdf) || !want(key)) continue;   // that book was not rendered, or did not change
 
     const stem = path.join(OUT, 'tmp-' + key);
     try {
@@ -63,52 +76,39 @@ function build() {
         { stdio: 'pipe' });
     } catch (e) {
       console.log('  pdftoppm failed for ' + COVERS[key] + ' — is poppler-utils installed?');
-      return;
+      continue;
     }
     const raw = fs.readdirSync(OUT).filter((f) => f.indexOf('tmp-' + key + '-') === 0)[0];
-    if (!raw) { console.log('  no page came out of ' + COVERS[key]); return; }
+    if (!raw) { console.log('  no page came out of ' + COVERS[key]); continue; }
 
-    const dest = path.join(OUT, key + '.webp');
-    return sharp(path.join(OUT, raw))
-      .resize({ width: W })
-      .webp({ quality: 82 })
-      .toFile(dest)
-      .then(() => {
-        fs.unlinkSync(path.join(OUT, raw));
-        made.push(key + '.webp ' + Math.round(fs.statSync(dest).size / 1024) + ' KB');
-      });
-  });
+    put(key + '.webp', await sharp(path.join(OUT, raw)).resize({ width: W }).webp({ quality: 82 }).toBuffer());
+    fs.unlinkSync(path.join(OUT, raw));
+  }
 
-  return Promise.resolve().then(() => {
-    // the resizes above are promises; give them a tick and report what landed
-    return new Promise((ok) => setTimeout(ok, 1500));
-  }).then(() => {
-    /* The combined edition: both volumes, one behind the other. Drawn rather
-       than lifted, for the reason in COVERS above. */
-    const v1 = path.join(OUT, '1.webp'), v2 = path.join(OUT, '2.webp');
-    if (!fs.existsSync(v1) || !fs.existsSync(v2)) return;
+  /* The combined edition: both volumes, one behind the other. Drawn rather
+     than lifted, for the reason in COVERS above. */
+  const v1 = path.join(OUT, '1.webp'), v2 = path.join(OUT, '2.webp');
+  if (fs.existsSync(v1) && fs.existsSync(v2) &&
+      (want('1') || want('2') || !fs.existsSync(path.join(OUT, 'all.webp')))) {
     const back = Math.round(W * 0.80), lift = Math.round(W * 0.075);
-    return Promise.all([
-      sharp(v2).resize({ width: back })
-        .extend({ top: 1, bottom: 1, left: 1, right: 1,
-                  background: { r: 150, g: 130, b: 100, alpha: 1 } }).toBuffer(),
-      sharp(v1).resize({ width: back })
-        .extend({ top: 1, bottom: 1, left: 1, right: 1,
-                  background: { r: 150, g: 130, b: 100, alpha: 1 } }).toBuffer(),
-    ]).then(([b, f]) => sharp(b).metadata().then((m) => sharp({
+    const frame = (f) => sharp(f).resize({ width: back })
+      .extend({ top: 1, bottom: 1, left: 1, right: 1,
+                background: { r: 150, g: 130, b: 100, alpha: 1 } }).toBuffer();
+    const b = await frame(v2), f = await frame(v1);
+    const m = await sharp(b).metadata();
+    put('all.webp', await sharp({
       create: { width: W, height: m.height + lift + 2, channels: 4,
                 background: { r: 0, g: 0, b: 0, alpha: 0 } },
     }).composite([{ input: b, left: W - back - 2, top: 0 },
                   { input: f, left: 0, top: lift }])
-      .webp({ quality: 82 }).toFile(path.join(OUT, 'all.webp'))));
-  }).then(() => {
-    fs.readdirSync(OUT).filter((f) => f.indexOf('tmp-') === 0)
-      .forEach((f) => { try { fs.unlinkSync(path.join(OUT, f)); } catch (e) { /* gone */ } });
-    const have = fs.readdirSync(OUT).filter((f) => /\.webp$/.test(f));
-    console.log('cover thumbnails: ' + have.join(', '));
-  });
+      .webp({ quality: 82 }).toBuffer());
+  }
+
+  fs.readdirSync(OUT).filter((f) => f.indexOf('tmp-') === 0)
+    .forEach((f) => { try { fs.unlinkSync(path.join(OUT, f)); } catch (e) { /* gone */ } });
+  console.log('cover thumbnails: ' + (made.length ? made.join(', ') : 'unchanged'));
 }
 
 module.exports = { build, COVERS, OUT };
 
-if (require.main === module) build();
+if (require.main === module) build().catch((e) => { console.error(e.message); process.exit(1); });

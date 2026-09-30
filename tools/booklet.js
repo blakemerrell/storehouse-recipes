@@ -22,6 +22,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { fixDocDates, keep } = require('./pdf-file.js');
 
 function pdflib() {
   try { return require('pdf-lib'); } catch (e) { /* below */ }
@@ -62,8 +63,11 @@ async function impose(inFile, outFile) {
     put(back, 'right', n - 2 * s - 1);
   }
 
-  fs.writeFileSync(outFile, await out.save());
-  return { sheets: n / 4, pages: n };
+  /* Dated like the books, and not written when nothing changed — see
+     tools/pdf-file.js for the thirty-five megabytes that saves. */
+  fixDocDates(out);
+  const written = keep(outFile, Buffer.from(await out.save()));
+  return { sheets: n / 4, pages: n, written };
 }
 
 module.exports = { impose };
