@@ -13502,8 +13502,14 @@
          else it now sits beside. */
       mBalanceDay(day, targets, true);
 
-      var moved = mSideUp(day, targets, near);
-      if (mTopUp(day, targets, near) || moved) mBalanceDay(day, targets, true);
+      /* The side first, and the day settled around it, THEN the question of
+         what is missing. Asked the other way round, the topper judged a day
+         that was about to change: the vegetables add their carbohydrate, the
+         balance takes it back out of the dishes, and the protein went with it
+         — 164 g when the topper looked, 147 once the plates were settled,
+         with nothing left to notice. */
+      if (mSideUp(day, targets, near)) mBalanceDay(day, targets, true);
+      if (mTopUp(day, targets, near)) mBalanceDay(day, targets, true);
     });
   }
 
@@ -13529,6 +13535,17 @@
      five times is not a meal plan, and adding food to a breakfast already
      eaten would be the app claiming he ate it. */
   var MTOP_GAP = 120;         // a gap smaller than this is not worth a topper
+  /* A day can land on its calories and still leave the protein behind. The
+     gap above is counted in calories, and when the dishes brought their fat
+     and carbohydrate but not enough protein there are no calories left to
+     count: one drafted day in twenty came in under 88% of its protein — the
+     worst at 73% — with the calorie line sitting right on target, and the
+     topper never asked. So a protein shortfall this deep earns a topper on
+     its own. The fit then picks it against the protein alone, which is lean
+     food (cottage cheese, chicken, egg whites, whey), and the balance that
+     follows trims Fill's own plates to make the calories room for it. */
+  var MTOP_P_SHORT = 0.10;    // protein this far under the day's target
+  var MTOP_P_DENSE = 0.30;    // share of its calories a protein topper carries as protein
   var MTOP_MIN = 40;          // a serving under this is a seasoning, not a topper
   var MTOP_MAX = 2;
   /* A topper has to be food, and the fit score alone cannot tell the
@@ -13652,11 +13669,12 @@
     return added;
   }
 
-  function mTopSlot(day, targets) {
-    var list = mReadSlots().list, sumW = 0, best = null;
+  /* Every meal a topper could go on, the emptiest first. */
+  function mTopSlots(day, targets) {
+    var list = mReadSlots().list, sumW = 0, cand = [];
     var dayKcal = 4 * targets.p + 4 * targets.c + 9 * targets.f;
     list.forEach(function (s) { sumW += mSlotW(s); });
-    if (!sumW) return null;
+    if (!sumW) return [];
     list.forEach(function (s) {
       var items = day[s.k] || [], open = false, have = 0;
       items.forEach(function (it) {
@@ -13666,10 +13684,12 @@
       });
       // a meal with nothing on it is Fill's job; a tick or a lock closes one
       if (!items.length || !open || mSlotClosed(day, s.k)) return;
-      var gap = dayKcal * (mSlotW(s) / sumW) - have;
-      if (!best || gap > best.gap) best = { s: s, gap: gap };
+      cand.push({ s: s, gap: dayKcal * (mSlotW(s) / sumW) - have });
     });
-    return best ? best.s : null;
+    // a stable sort: equal gaps keep the meals' own order, as before
+    return cand.map(function (o, i) { o.i = i; return o; })
+      .sort(function (a, b) { return b.gap - a.gap || a.i - b.i; })
+      .map(function (o) { return o.s; });
   }
 
   function mTopUp(day, targets, near) {
@@ -13680,11 +13700,31 @@
         R[m] = Math.max(0, targets[m] - tot.all[m]);
         D[m] = Math.max(1, targets[m]);
       });
-      if (4 * R.p + 4 * R.c + 9 * R.f < MTOP_GAP) return added;
-      var slot = mTopSlot(day, targets);
-      if (!slot) return added;
-      var best = null;
+      var pShort = R.p >= MTOP_P_SHORT * D.p;
+      if (4 * R.p + 4 * R.c + 9 * R.f < MTOP_GAP && !pShort) return added;
+      /* Why it is there: the gap it was closing, the largest of the three in
+         calories. Said on the plate ("Added for protein"). */
+      var gapK = { p: 4 * R.p, f: 9 * R.f, c: 4 * R.c };
+      var why = ['p', 'f', 'c'].reduce(function (a, m) { return gapK[m] > gapK[a] ? m : a; }, 'p');
+      var slots = mTopSlots(day, targets), slot = null, best = null;
       var naRoom = Math.min(MTOP_NA, Math.max(0, MNA_CAP - (tot.all.na || 0)));
+      /* The emptiest meal first, and the next when that one has nothing
+         that answers: a breakfast whose protein foods are all on the day
+         already should not stop a protein topper from landing on lunch. */
+      for (var si = 0; si < slots.length && !best; si++) {
+        slot = slots[si];
+        best = mTopPick(day, slot, R, D, near, naRoom, why);
+      }
+      if (!best) return added;
+      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0, by: 'f', why: why });
+      added++;
+    }
+    return added;
+  }
+
+  /* The best single food for one meal's topper, or null. */
+  function mTopPick(day, slot, R, D, near, naRoom, why) {
+      var best = null;
       MFOODS.forEach(function (r) {
         var mac = r.macro || {};
         if (r.ext && !mExtOk()) return;     // Fill does not shop
@@ -13698,6 +13738,13 @@
            tablespoons of it. A topper carries at least a tenth of itself as
            protein or carbohydrate — nuts qualify, oil and butter do not. */
         if (4 * ((mac.p || 0) + (mac.c || 0)) < 0.10 * (mac.kcal || 0)) return;
+        /* Added for protein means it brings protein. With only protein left
+           to close and the carbohydrate and fat already spent, the fit could
+           find nothing that helped and took the least harm instead — half a
+           spoon of sugar, an orange — and labelled it "Added for protein". A
+           third of its calories as protein, at least: cottage cheese, yogurt,
+           egg whites, whey and chicken clear it, fruit and sugar do not. */
+        if (why === 'p' && 4 * (mac.p || 0) < MTOP_P_DENSE * (mac.kcal || 0)) return;
         if (mNever(r.id)) return;
         if (mOnDay(day, r.id) || (near && near[r.id])) return;
         var fit = macroFit(r, R, R, D);
@@ -13706,15 +13753,7 @@
         var sc = fit.score + mSaltFibre(r, fit.x);
         if (!best || sc > best.score) best = { r: r, x: fit.x, score: sc };
       });
-      if (!best) return added;
-      /* Why it is there: the gap it was closing, the largest of the three in
-         calories. Said on the plate ("Added for protein"). */
-      var gapK = { p: 4 * R.p, f: 9 * R.f, c: 4 * R.c };
-      var why = ['p', 'f', 'c'].reduce(function (a, m) { return gapK[m] > gapK[a] ? m : a; }, 'p');
-      (day[slot.k] = day[slot.k] || []).push({ id: best.r.id, x: best.x, eaten: 0, by: 'f', why: why });
-      added++;
-    }
-    return added;
+      return best;
   }
 
   /* Re-size the plates still in play so the day lands back on target. Keeps
@@ -17397,7 +17436,7 @@
           items: (day[s.k] || []).map(function (it) {
             var r = BY_ID[it.id];
             var m = (r && r.macro) || {};
-            return { id: it.id, x: it.x, name: r ? r.name : '(gone)',
+            return { id: it.id, x: it.x, why: it.why || '', name: r ? r.name : '(gone)',
               sec: r ? r.book + '-' + r.secNum : '',
               kcal: m.kcal || 0, p: m.p || 0, f: m.f || 0, c: m.c || 0,
               na: m.na || 0, fib: m.fib || 0 };
