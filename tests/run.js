@@ -117,6 +117,17 @@ function playwright() {
            is still only ever asked for by a press — the tests that exercise it
            mean to reach it. */
         await ctx.route(/api\.nal\.usda\.gov/, (route) => route.abort());
+        /* Google's sign-in script, answered here too. The real one reached
+           through a sandbox that blocks the hosts it loads next throws "gis
+           is not defined" from Google's own code, and the page-error hook
+           below turns that into two failures that say nothing about this
+           app. The stand-in draws a button the way theirs does, so the
+           sheet's "Google drew it" path is the one tested, every run, and
+           the request still goes to accounts.google.com, which is what the
+           "reaches Google, and nowhere else" assertion is about. */
+        await ctx.route(/accounts\.google\.com\/gsi\//, (route) => route.fulfill({ status: 200, contentType: 'text/javascript',
+          body: 'window.google=window.google||{};google.accounts={id:{initialize:function(){},prompt:function(){},cancel:function(){},' +
+            'disableAutoSelect:function(){},renderButton:function(el){if(el)el.innerHTML=\'<div role="button">Sign in with Google</div>\';}}};' }));
         const page = await ctx.newPage();
         /* FAST=1 trades the suite's padding for a settle.
          *

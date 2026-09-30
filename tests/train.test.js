@@ -2197,8 +2197,10 @@ module.exports = {
     });
     t.ok('a saved workout copies as text: the date, the times, every set',
       /^Strengthen — \w{3}, \w{3} \d+ \d{4}/.test(r || '') && /Workout · \d{1,2}:\d{2}.*\(35 min\)/.test(r || '') && /Barbell Bench Press: 195 lb × 8/.test(r || '') && /1 set ·/.test(r || ''), r);
+    // the workout's own day: moved 45 minutes back just after midnight, that is yesterday
     r = await p.evaluate(() => {
-      const d = new Date(), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      const w = Object.values(window.Train._.state().T.wo)[0], d = new Date(w.st);
+      const k = w.dk || d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       return window.Train.dayText(k).join('\n');
     });
     t.ok('and Nourish’s copy of the day names it with its times', /^Workout: Workout, \d{1,2}:\d{2}.*\(35 min\), 1 set$/.test(r), r);
@@ -3091,8 +3093,11 @@ module.exports = {
       const _ = window.Train._, ms = _.build({ prog: 'start', dpw: 3, kit: 'gym', lvl: 1 });
       ms.id = 'st'; ms.n = 'Start here';
       const pl = _.plan(ms, 0, 0);
-      const now = Date.now(), done = { id: 'td', st: now - 3600e3, en: now - 60e3, dk: '', n: 'Lunch', u: 'lb', ms: '', w: 0, d: 0, dl: 0, sr: {}, fb: {},
-        x: pl.x.slice(0, 3).map((x) => ({ e: x.e, s: [{ w: 100, r: 8, t: now - 1800e3 }] })) };
+      /* An hour ago, but never before today's midnight: run just after
+         midnight, an hour ago was yesterday, and "trained today" was false. */
+      const now = Date.now(), sod = new Date().setHours(0, 0, 0, 0), st0 = Math.max(now - 3600e3, sod + 1000);
+      const done = { id: 'td', st: st0, en: Math.max(st0 + 1000, now - 60e3), dk: '', n: 'Lunch', u: 'lb', ms: '', w: 0, d: 0, dl: 0, sr: {}, fb: {},
+        x: pl.x.slice(0, 3).map((x) => ({ e: x.e, s: [{ w: 100, r: 8, t: Math.max(st0 + 500, now - 1800e3) }] })) };
       localStorage.setItem('bsc.train', JSON.stringify({ pr: { qz: 1 }, act: 'st', ms: { st: ms }, cx: {}, ax: {}, wo: { td: done } }));
       localStorage.removeItem('bsc.trainStamps');
       _.reload();

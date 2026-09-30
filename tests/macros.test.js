@@ -4298,11 +4298,10 @@ module.exports = {
     await tblPg.waitForTimeout(300);
     const tblParts = await tblPg.evaluate(() => {
       const L = window.__macroLab;
-      /* The parts, off the payload itself, so the test cannot fall behind the
-         app: a keyed part is one whose payload entry is a map of day keys. */
-      const shape = L.payload();
-      const keyed = Object.keys(shape).filter((k) =>
-        shape[k] && typeof shape[k] === 'object' && shape[k].at === undefined);
+      /* The parts, off the app's own table, so the test cannot fall behind
+         the app. (The payload used to list them all; it now leaves out a part
+         with nothing stamped in it, which on a fresh page is every one.) */
+      const keyed = L.keyedParts();
       const p2 = (n) => (n < 10 ? '0' : '') + n;
       const d = new Date();
       const day = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
@@ -4381,16 +4380,20 @@ module.exports = {
          mutation that made every push whole again left the builder untouched,
          and a guard asking the builder went on passing. */
       const part = L.takePush();
-      return { whole: J(L.payload()), partial: J(part), firstWhole: firstWhole,
+      return { whole: J(L.payload()), partial: J(part), firstWhole: firstWhole, wholeParts: Object.keys(L.payload()).length,
         parts: part ? Object.keys(part) : [],
         days: part && part.d ? Object.keys(part.d) : [],
         today: day.replace(/-/g, '_') };
     });
     t.ok('the first push of a session carries everything',
       tblPartial.firstWhole, JSON.stringify(tblPartial));
+    /* Not a tenth of the bytes any more: the whole used to be padded with a
+       null for every part nothing was stamped in, and now carries only what
+       this device has. Fewer parts than the whole, and fewer bytes, is the
+       claim; the two below say which. */
     t.ok('and after that one change sends one change, not the whole archive',
-      tblPartial.partial > 0 && tblPartial.partial * 10 < tblPartial.whole,
-      tblPartial.partial + ' of ' + tblPartial.whole + ' bytes');
+      tblPartial.partial > 0 && tblPartial.partial < tblPartial.whole && tblPartial.parts.length < tblPartial.wholeParts,
+      tblPartial.partial + ' of ' + tblPartial.whole + ' bytes, ' + tblPartial.parts.length + ' of ' + tblPartial.wholeParts + ' parts');
     t.ok('and it names only the day that moved',
       tblPartial.days.length === 1 && tblPartial.days[0] === tblPartial.today,
       JSON.stringify(tblPartial));
@@ -13975,8 +13978,9 @@ module.exports = {
         // never again, whatever the draw
         let back = 0;
         for (const sd of [1, 2, 3, 4, 5, 6, 7, 8]) {
-          await np.evaluate((id) => { const nv = localStorage.getItem('bsc.macroNever');
-            localStorage.clear(); localStorage.setItem('bsc.macroNever', nv);
+          // the list and its stamp: an unstamped part never goes up, as it could never win anywhere
+          await np.evaluate((id) => { const nv = localStorage.getItem('bsc.macroNever'), st = localStorage.getItem('bsc.myStamps');
+            localStorage.clear(); localStorage.setItem('bsc.macroNever', nv); if (st) localStorage.setItem('bsc.myStamps', st);
             localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 180, f: 50, c: 50 })); }, side.id);
           await np.reload();
           await seedDraft(sd);
@@ -14510,6 +14514,49 @@ module.exports = {
         !before && on.wos === 1 && /Trained today|done/.test(on.row), JSON.stringify(on));
       t.ok('with nothing thrown on the way', errs.length === 0, errs.join(' | '));
       await oc.close();
+
+      /* A new phone signing in to an account that already has a day: it
+         used to send everything it had before reading the account, and what
+         it had was nothing, stamped zero, written straight over the
+         account's targets and profile. Then it refused the real copy, which
+         was no newer than zero. */
+      const S2 = { db: {}, sets: [] };
+      const nc = await t.browser.newContext({ viewport: { width: 390, height: 844 } });
+      await nc.exposeBinding('__srvSet', async (src, path, data, merge) => {
+        S2.sets.push({ path, keys: Object.keys((data && data.myday) || {}) });
+        S2.db[path] = merge ? deep(S2.db[path] || {}, data) : deep({}, data);
+        return true;
+      });
+      await nc.exposeBinding('__srvGet', async (src, path) => (S2.db[path] === undefined ? null : S2.db[path]));
+      await nc.exposeBinding('__srvList', async (src, path) => Object.keys(S2.db)
+        .filter((k) => k.indexOf(path + '/') === 0 && k.slice(path.length + 1).indexOf('/') < 0).map((k) => ({ path: k, data: S2.db[k] })));
+      await nc.route(/www\.gstatic\.com\/firebasejs/, (r) => r.fulfill({ status: 200, contentType: 'text/javascript',
+        body: /firebase-app-compat/.test(r.request().url()) ? SDK : '' }));
+      await nc.route(/accounts\.google\.com|api\.nal\.usda\.gov/, (r) => r.abort());
+      const np = await nc.newPage();
+      const nerrs = [];
+      np.on('pageerror', (e) => { if (!/gis is not defined/.test(e.message)) nerrs.push(e.message); });
+      await np.goto(t.base + 'index.html');
+      await np.evaluate(() => { localStorage.clear(); localStorage.setItem('bsc.myAccount', '1'); });
+      const T0 = { p: 150, f: 60, c: 200, auto: 1 };
+      S2.db['users/u1'] = { myday: { t: { v: T0, at: 1000 }, pr: { v: { sex: 'm', age: 40, lb: 200 }, at: 1000 },
+        w: { '2026_09_01': { v: 190, at: 1000 } } } };
+      await np.reload();
+      for (let i = 0; i < 30; i++) {
+        await np.waitForTimeout(200);
+        if (await np.evaluate(() => !!localStorage.getItem('bsc.macroTargets'))) break;
+      }
+      await np.waitForTimeout(600);
+      const md = S2.db['users/u1'].myday;
+      const got = await np.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroTargets') || 'null'));
+      t.ok('a new phone signing in leaves the account’s targets, profile and weigh-ins as they were',
+        md.t && md.t.v && md.t.v.p === 150 && md.pr && md.pr.v && md.pr.v.lb === 200 && md.w && md.w['2026_09_01'] && md.w['2026_09_01'].v === 190,
+        JSON.stringify({ t: md.t, pr: md.pr, w: md.w }));
+      t.ok('and takes them itself', !!got && got.p === 150, JSON.stringify(got));
+      t.ok('and never sends a part it has no stamp for', !S2.sets.some((x) => /users\/u1$/.test(x.path) && x.keys.indexOf('t') >= 0 && !(md.t && md.t.at > 0)),
+        JSON.stringify(S2.sets.slice(0, 4)));
+      t.ok('with nothing thrown', nerrs.length === 0, nerrs.join(' | '));
+      await nc.close();
     }
 
     /* ---- the daily loop ---------------------------------------------------
