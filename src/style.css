@@ -6446,7 +6446,7 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
    said, so the row that shipped was whichever rule came last per property.
    Only the values that won are kept. */
 .mslot-act {
-  flex: none; display: grid; place-items: center;
+  flex: none; display: grid; place-items: center; justify-content: center; gap: 5px;
   width: 30px; height: 30px; min-width: 0; min-height: 0; margin: 0; padding: 0;
   border: 1px solid var(--line-firm); border-radius: 4px;
   /* the meal's own shade, like its head. Blake: "the buttons that are for
