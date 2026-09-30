@@ -240,6 +240,50 @@ module.exports = {
     t.ok('and in print the dark values never apply', /^oklch\(0\.26/.test(printed.ink) && printed.scheme === 'light', JSON.stringify(printed));
     await dctx.close();
 
+    // ---- Appearance: Auto, Light, Dark, in Sync & sharing ----------------------
+    // fresh(): the sheet draws Google's button, which the runner answers
+    const ap = await t.fresh({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
+    const look = () => ap.evaluate(() => ({
+      t: document.documentElement.getAttribute('data-theme'),
+      scheme: getComputedStyle(document.documentElement).colorScheme,
+      bar: [...document.querySelectorAll('meta[name="theme-color"]')].filter((m) => matchMedia(m.media || 'all').matches).map((m) => m.content).join(),
+      on: [...document.querySelectorAll('[data-sync="theme"][aria-pressed="true"]')].map((b) => b.textContent).join(),
+      say: (document.querySelector('.sync-theme-say') || {}).textContent || '' }));
+    const pickTheme = async (v) => { await ap.click('[data-sync="theme"][data-v="' + v + '"]'); await ap.waitForTimeout(100); };
+    await ap.click('#syncBtn');
+    await ap.waitForSelector('[data-sync="theme"]');
+    let th = await look();
+    t.ok('Appearance starts on Auto, and Auto is the phone: dark here', th.t === 'dark' && th.scheme === 'dark' && th.on === 'Auto' &&
+      /phone/.test(th.say) && th.bar === '#120d0a', JSON.stringify(th));
+    await pickTheme('light');
+    th = await look();
+    t.ok('Light on a dark phone: the app and the browser bar go light, and it says the choice is this device\u2019s',
+      th.t === 'light' && th.scheme === 'light' && th.on === 'Light' && /device/.test(th.say) && th.bar === '#3b3630', JSON.stringify(th));
+    await ap.reload();
+    th = await look();
+    t.ok('and it is kept: light again after a reload', th.t === 'light' && th.scheme === 'light', JSON.stringify(th));
+    const html = await (await ap.request.get(t.base + 'index.html')).text();
+    t.ok('decided before the stylesheet loads, so the page never shows the other one first',
+      html.indexOf('bsc.theme') > 0 && html.indexOf('bsc.theme') < html.indexOf('rel="stylesheet"'));
+    await ap.click('#syncBtn');
+    await ap.waitForSelector('[data-sync="theme"]');
+    await pickTheme('dark');
+    await ap.emulateMedia({ colorScheme: 'light' });
+    th = await look();
+    t.ok('Dark on a light phone stays dark', th.t === 'dark' && th.scheme === 'dark' && th.on === 'Dark' && th.bar === '#120d0a', JSON.stringify(th));
+    await ap.emulateMedia({ media: 'print', colorScheme: 'light' });
+    const inPrint = await ap.evaluate(() => getComputedStyle(document.documentElement).colorScheme);
+    t.ok('and printing with Dark chosen still prints the day', inPrint === 'light', inPrint);
+    await ap.emulateMedia({ media: 'screen', colorScheme: 'light' });
+    await pickTheme('');
+    th = await look();
+    t.ok('back to Auto: the phone decides again, light now', th.t === 'light' && th.on === 'Auto' && /phone/.test(th.say), JSON.stringify(th));
+    await ap.emulateMedia({ colorScheme: 'dark' });
+    await ap.waitForTimeout(100);
+    th = await look();
+    t.ok('and Auto follows the phone when it changes, without a reload', th.t === 'dark' && th.scheme === 'dark', JSON.stringify(th));
+    await ap.context().close();
+
     // ---- a thumb's reach --------------------------------------------------
     /* Measured by where a tap lands, not by the box: the reach is a band hung
        off each control, which getBoundingClientRect cannot see. A tap 21px

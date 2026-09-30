@@ -17003,6 +17003,15 @@
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
 
+        /* The app's one screen of settings for the whole of it, so the
+           light-or-dark choice lives here. Auto is the phone's own. */
+        (window.Theme ? '<div class="mt-div" id="syncThemeH">Appearance</div>' +
+          '<div class="sync-theme"><span class="seg" role="group" aria-labelledby="syncThemeH">' +
+            [['', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(function (o) {
+              return '<button data-sync="theme" data-v="' + o[0] + '" aria-pressed="' + (window.Theme.get() === o[0]) + '">' + o[1] + '</button>';
+            }).join('') + '</span>' +
+            '<span class="sync-theme-say">' + (window.Theme.get() ? 'On this device' : 'Follows your phone') + '</span></div>' : '') +
+
         /* The one screen somebody opens to find out what this thing is, so it
            is where the app says who it is not. */
         '<div class="sync-disclaim">Not an official product of The Church of Jesus Christ of ' +
@@ -19493,6 +19502,7 @@
         }
         if (act === 'restore' && window.Store.restoreRemoved) window.Store.restoreRemoved();
         if (act === 'forgetgone' && window.Store.forgetRemoved) window.Store.forgetRemoved();
+        if (act === 'theme' && window.Theme) window.Theme.set(sy.dataset.v || '');
         /* Signed in, stopping here stops it for the account too; otherwise
            the next snapshot would put this device straight back in. */
         if (act === 'leave') {

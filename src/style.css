@@ -351,8 +351,10 @@
    and the book, which is paper (see .pg above). Screen only — printing
    from a dark phone is printing on paper, and every printed page stays
    exactly what it was. */
-@media screen and (prefers-color-scheme: dark) {
-  :root {
+@media screen {
+  /* [data-theme] is set by the script at the top of index.html: the phone's
+     setting, or Sync & sharing → Appearance where this device chose. */
+  :root[data-theme="dark"] {
     color-scheme: dark;
     --ink:        oklch(0.92 0.014 85);
     --paper:      oklch(0.205 0.012 65);
@@ -3968,6 +3970,8 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 }
 /* Pushed to the far end: it answers a question you only ask occasionally. */
 .sync-build { margin-left: auto; font-variant-numeric: tabular-nums; }
+.sync-theme { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 12px; }
+.sync-theme-say { font-size: 0.8125rem; color: var(--muted); }
 .sync-disclaim { margin-top: 12px; font-size: 0.6875rem; line-height: 1.5;
   color: var(--muted); max-width: 52ch; }
 .sync-warn {
