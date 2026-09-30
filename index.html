@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#3b3630">
+<!-- The browser's own bar matches the header: its ink by day, and the
+     darker night the header takes when the phone is set to dark. -->
+<meta name="theme-color" content="#3b3630" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#120d0a" media="(prefers-color-scheme: dark)">
 <title>Hive &amp; Hearth Recipes</title>
 <meta name="description" content="350 recipes with primary ingredients from the bishops' storehouse. Browse them, plan a week, and let the shopping list build itself.">
 <link rel="manifest" href="manifest.webmanifest">
@@ -36,15 +39,21 @@
          List" on a 390px screen is a tab you cannot see; "List" beside a basket
          of other short words is unambiguous, and the long form is right where
          there is room for it. -->
-    <div class="tabs" role="tablist">
+    <!-- A real tablist: each tab names the view it shows (aria-controls) and
+         each view says which tab it belongs to (role=tabpanel). One tab is in
+         the Tab order — the lit one — and Left and Right walk the rest, Home
+         and End jump to the ends; Enter or Space shows the one you are on,
+         as a button always has. Plan's panel is four views, its steps, and
+         Recipes also owns the book. See wire() in src/app.js. -->
+    <div class="tabs" role="tablist" aria-label="Views">
       <!-- The label is Recipes, the view is still "browse". A tab called
            Browse names the verb; the other four name the thing you get —
            Plan, List, Pantry, Book. This one was the odd one out. The
            data-view is untouched because it is a key, not a word. -->
-      <button class="tab" role="tab" data-view="browse" aria-selected="true">Recipes</button>
-      <button class="tab" role="tab" data-view="plan" aria-selected="false"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
-      <button class="tab" role="tab" data-view="list" aria-selected="false"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
-      <button class="tab" role="tab" data-view="pantry" aria-selected="false">Pantry</button>
+      <button class="tab" role="tab" id="tab-browse" aria-controls="view-browse view-book" data-view="browse" aria-selected="true">Recipes</button>
+      <button class="tab" role="tab" id="tab-plan" aria-controls="view-plan view-where view-list view-pantry" data-view="plan" aria-selected="false" tabindex="-1"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
+      <button class="tab" role="tab" id="tab-list" aria-controls="view-list" data-view="list" aria-selected="false" tabindex="-1"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
+      <button class="tab" role="tab" id="tab-pantry" aria-controls="view-pantry" data-view="pantry" aria-selected="false" tabindex="-1">Pantry</button>
       <!-- The household's tabs end here, and yours begin: a rule between them,
            and the two of yours pushed to the right-hand end of the row. The
            book is no longer a tab — it is a thing you do with the recipes, so
@@ -56,12 +65,12 @@
            morning weigh-in — and was renamed for what it is for. data-view
            stays macros because it is a key, not a word, the same bargain the
            Recipes tab struck with "browse". -->
-      <button class="tab" role="tab" data-view="macros" aria-selected="false">Nourish</button>
+      <button class="tab" role="tab" id="tab-macros" aria-controls="view-macros" data-view="macros" aria-selected="false" tabindex="-1">Nourish</button>
       <!-- Beside Nourish, the other thing on this row that is only ever
            yours: a training block, the log you keep at the gym, and a review
            of it against the research. data-view is the key; the screen is
            drawn by src/train.js. -->
-      <button class="tab" role="tab" data-view="train" aria-selected="false">Strengthen</button>
+      <button class="tab" role="tab" id="tab-train" aria-controls="view-train" data-view="train" aria-selected="false" tabindex="-1">Strengthen</button>
     </div>
     <!-- Shown only when the row genuinely overflows; see syncTabsFade(). A fade
          over the last tab when there is nothing past it is a worse lie than no
@@ -90,8 +99,13 @@
   <button class="hint-x" id="shareHintX" aria-label="Not now">&times;</button>
 </div>
 
+<!-- The views: one shown at a time, and together the page's main content.
+     Each opens on its own h1 — the view's title, restyled to look exactly as
+     the div it replaced — so a screen reader's list of headings and its
+     "jump to main" both land where a sighted reader's eye does. -->
+<main id="main">
 <!-- ------------------------------------------------------------- browse -->
-<section id="view-browse">
+<section id="view-browse" role="tabpanel" aria-labelledby="tab-browse">
   <!-- The one search box, pinned under the header from the first pixel.
        There were two — one in the filter bar, one on a strip that appeared
        once the bar had scrolled away — and on a phone they could sit one
@@ -149,7 +163,7 @@
   <div class="view">
     <div class="view-head view-head-tall">
       <div class="view-head-row">
-        <div class="view-title" id="browseTitle">The whole collection</div>
+        <h1 class="view-title" id="browseTitle">The whole collection</h1>
         <div class="view-count" id="browseCount" role="status"></div>
       </div>
       <div class="view-blurb" id="browseBlurb"></div>
@@ -160,15 +174,15 @@
 </section>
 
 <!-- ------------------------------------------------------ plan: where -->
-<section id="view-where" class="hide">
+<section id="view-where" class="hide" role="tabpanel" aria-labelledby="tab-plan">
   <div class="view" id="whereBody"></div>
 </section>
 
 <!-- ---------------------------------------------------------- meal plan -->
-<section id="view-plan" class="hide">
+<section id="view-plan" class="hide" role="tabpanel" aria-labelledby="tab-plan">
   <div class="view">
     <div class="view-head">
-      <div class="view-title serif" style="font-size:22px" id="weekTitle">The Week</div>
+      <h1 class="view-title view-title-lg serif" id="weekTitle">The Week</h1>
       <div class="week-acts no-print">
         <button class="btn-primary" id="planMyWeek">Plan my week</button>
         <button class="ghost" id="renameWeek">Rename</button>
@@ -187,7 +201,7 @@
 </section>
 
 <!-- ------------------------------------------------------------- macros -->
-<section id="view-macros" class="hide">
+<section id="view-macros" class="hide" role="tabpanel" aria-labelledby="tab-macros">
   <div class="view">
     <!-- The day, down a rail, in the order you live it: weigh in at the top,
          then every meal as a stop with what it costs and what is left after
@@ -196,7 +210,7 @@
          controls in the open, because tuning is the point of the screen. -->
     <div class="mday-stick no-print">
       <div class="mday-head">
-        <div class="view-title serif mday-title">Nourish</div>
+        <h1 class="view-title serif mday-title">Nourish</h1>
         <button class="ghost" id="macroPrev" aria-label="Previous day">&lsaquo;</button>
         <select id="macroDaySel" aria-label="Day"></select>
         <button class="ghost" id="macroNext" aria-label="Next day">&rsaquo;</button>
@@ -216,14 +230,14 @@
                me to the exact same place. So do I need three buttons that
                take me to the exact same place?" The meals and the help are
                accordions in the sheet, where they can be seen. -->
-          <button role="menuitem" data-mmore="plan">My plan</button>
-          <button role="menuitem" data-mmore="foods">Food I eat</button>
+          <button role="menuitem" tabindex="-1" data-mmore="plan">My plan</button>
+          <button role="menuitem" tabindex="-1" data-mmore="foods">Food I eat</button>
           <!-- The menu item answers "signed in as who?" without opening the
                sheet. Empty until the SDK has actually answered — see
                mMarkAccountUI. -->
-          <button role="menuitem" data-mmore="you">Sync &amp; sharing<span
+          <button role="menuitem" tabindex="-1" data-mmore="you">Sync &amp; sharing<span
             class="mmenu-who" id="macroWho"></span></button>
-          <button role="menuitem" data-mmore="went">How today went</button>
+          <button role="menuitem" tabindex="-1" data-mmore="went">How today went</button>
         </div>
       </div>
       <!-- Any day the log keeps, by date: "Earlier day…" at the foot of the
@@ -319,13 +333,13 @@
 </section>
 
 <!-- -------------------------------------------------------------- train -->
-<section id="view-train" class="hide">
+<section id="view-train" class="hide" role="tabpanel" aria-labelledby="tab-train">
   <!-- A workout, full screen: its name, its clock and Finish, across the
        top while the app's own header steps aside. Drawn by src/train.js. -->
   <div class="tr-top no-print hide" id="trTop"></div>
   <div class="view tr-view">
     <div class="view-head">
-      <div class="view-title serif" style="font-size:22px">Strengthen</div>
+      <h1 class="view-title view-title-lg serif">Strengthen</h1>
       <div class="week-acts no-print" id="trHead"></div>
     </div>
     <div id="trBody"></div>
@@ -336,11 +350,11 @@
 </section>
 
 <!-- ------------------------------------------------------- shopping list -->
-<section id="view-list" class="hide">
+<section id="view-list" class="hide" role="tabpanel" aria-labelledby="tab-plan">
   <div class="list-view">
     <div class="view-head">
       <div>
-        <div class="view-title serif" style="font-size:22px">Shopping List</div>
+        <h1 class="view-title view-title-lg serif">Shopping List</h1>
         <div class="list-week" id="listWeek"></div>
       </div>
       <div class="view-count" id="listCount"></div>
@@ -353,11 +367,11 @@
 </section>
 
 <!-- ---------------------------------------------------------- the pantry -->
-<section id="view-pantry" class="hide">
+<section id="view-pantry" class="hide" role="tabpanel" aria-labelledby="tab-plan">
   <div class="view">
     <div class="view-head">
       <div>
-        <div class="view-title serif" style="font-size:22px">Pantry</div>
+        <h1 class="view-title view-title-lg serif">Pantry</h1>
         <div class="list-week" id="pantryNote"></div>
       </div>
       <div class="week-acts no-print">
@@ -380,7 +394,8 @@
 </section>
 
 <!-- ----------------------------------------------------------- the book -->
-<section id="view-book" class="hide">
+<section id="view-book" class="hide" role="tabpanel" aria-labelledby="tab-browse">
+  <h1 class="sr-only">Print the book</h1>
   <div class="book-bar no-print">
     <div class="book-bar-in">
       <!-- The books, as books.
@@ -418,6 +433,7 @@
   </div>
   <div class="printwrap" id="pages"></div>
 </section>
+</main>
 
 <div id="modalRoot"></div>
 <div id="trainRoot"></div>

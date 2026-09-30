@@ -4497,7 +4497,10 @@
        first one again: brought into view, so the walk to it starts with
        the phone already showing it. */
     var cn = x.cc ? ccNext() : null, cel = cn ? $('trw-' + cn.x + '-' + cn.s) : null, card = cel && cel.closest ? cel.closest('.tr-ex') : null;
-    if (card && card.scrollIntoView) { try { card.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { card.scrollIntoView(); } }
+    /* A glide, unless the phone has been asked for less motion — then the
+       card is simply there, which is where a glide would have ended up. */
+    var still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if (card && card.scrollIntoView) { try { card.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' }); } catch (e) { card.scrollIntoView(); } }
   }
 
   /* Previous, paired again: last time's warm-ups beside this time's
@@ -6536,7 +6539,7 @@
     var x = LIVE && LIVE.x[sh.x], s = x && x.s[sh.s];
     if (!s) return '';
     var cur = s.wu ? 'w' : s.ty || '';
-    return '<div class="sheet-name tr-sn2">Set ' + (sh.s + 1) + ' of ' + esc(lib(x.e).n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">Set ' + (sh.s + 1) + ' of ' + esc(lib(x.e).n) + '</h2>' +
       '<div class="tr-q">' + chips('styset', cur, STY) + '</div>' +
       '<ul class="tr-fits tr-styl">' +
         '<li><b>Warm-up</b>: lighter, on the way up. Not a hard set, never a record, and a minute\u2019s rest after it.</li>' +
@@ -7019,7 +7022,7 @@
     /* In a block, a swap asks how long it is for. The machine being taken is
        today; not getting on with the exercise is the rest of the block. */
     var scoped = sh.mode === 'swap' && LIVE && LIVE.ms && T.ms[LIVE.ms];
-    return '<div class="sheet-name tr-sn2">' + esc(sh.title) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">' + esc(sh.title) + '</h2>' +
       (scoped ? '<div class="tr-q tr-swsc"><div class="tr-ql">For</div>' +
         chips('swsc', S.never ? 'block' : sh.sc, [['day', 'Just today'], ['block', 'Rest of the block']]) +
         '<div class="tr-hint">' + (S.never ? 'Never again takes it out of every day of this block, and every block after.'
@@ -7075,7 +7078,7 @@
     var e = sh.e, ex = lib(e);
     var ss = sessionsOf(e);
     var tab = sh.tab || (ss.length ? 'history' : 'about');
-    var html = '<div class="sheet-name tr-sn2">' + esc(ex.n) + '</div>' +
+    var html = '<h2 class="sheet-name tr-sn2">' + esc(ex.n) + '</h2>' +
       '<div class="seg tr-seg tr-extab" role="group" aria-label="' + esc(ex.n) + '">' + EXTABS.map(function (t) {
         return '<button data-t="extab" data-v="' + t[0] + '" aria-pressed="' + (tab === t[0]) + '">' + t[1] + '</button>';
       }).join('') + '</div>';
@@ -7408,7 +7411,7 @@
     if (S.ed && S.ed.id === wo.id) return edHTML(wo);
     var prs = prsIn(wo);
     var armed = S.arm === 'del:' + wo.id;
-    return '<div class="sheet-name tr-sn2">' + esc(wo.n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">' + esc(wo.n) + '</h2>' +
       '<div class="tr-sub">' + when(wo.st) + ' · ' + (wo.en > wo.st ? hmSpan(wo.st, wo.en) + ' · ' + dur(wo.en - wo.st) : hm(wo.st)) + ' · ' + setsOf(wo) + ' sets · ' +
         fmtBig(volOf(wo)) + ' ' + T.pr.u + (wo.im === 's' ? ' · from Strong' : '') + (wo.ed ? ' · edited' : '') + '</div>' +
       (prs.length ? '<div class="tr-prs">' + prs.map(function (p) {
@@ -7454,7 +7457,7 @@
   function edHTML(wo) {
     var E = S.ed;
     var rq = !!T.pr.rq || wo.x.some(function (x) { return x.s.some(function (s) { return fin(s.q); }); });
-    return '<div class="sheet-name tr-sn2">Edit ' + esc(wo.n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">Edit ' + esc(wo.n) + '</h2>' +
       '<div class="tr-sub">' + when(wo.st) + ' · in ' + T.pr.u + '. Records, charts and next week\u2019s weights follow what you save.</div>' +
       E.x.map(function (x, i) {
         var ex = lib(x.e);
@@ -7589,7 +7592,7 @@
     var w = numIn(sh.w);
     var bar = sh.e ? barAt(sh.e) : homeNow() ? homeBar() : T.pr.bar;
     var pm = w === null ? null : plateMath(w, bar, T.pr.u, homeInv());
-    return '<div class="sheet-name tr-sn2">Plates' + (sh.e ? ' for ' + esc(lib(sh.e).n) : '') + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">Plates' + (sh.e ? ' for ' + esc(lib(sh.e).n) : '') + '</h2>' +
       '<div class="tr-own-r"><input class="txt" id="trPlateW" inputmode="decimal" value="' + esc(w === null ? '' : fmtN(w)) + '" aria-label="Total weight">' +
         '<span class="tr-sub">' + T.pr.u + ' on a ' + fmtN(bar) + ' ' + T.pr.u + ' bar</span></div>' +
       (sh.e && !homeNow() ? '<div class="tr-q"><div class="tr-ql">Bar</div>' + barChoices(sh.e) + '</div>' : '') +
@@ -7636,10 +7639,10 @@
     var x = LIVE && LIVE.x[sh.x];
     if (!x) return '';
     var ex = lib(x.e), R = warmRows(x);
-    if (!(R.w > 0)) return '<div class="sheet-name tr-sn2">Warm-up</div><div class="tr-note">Put a weight in a working set and the ramp works itself out from it.</div>';
+    if (!(R.w > 0)) return '<h2 class="sheet-name tr-sn2">Warm-up</h2><div class="tr-note">Put a weight in a working set and the ramp works itself out from it.</div>';
     var bb = onBar(ex), bar = barAt(x.e);
     var has = x.s.some(function (z) { return z.wu && !z.t; });
-    return '<div class="sheet-name tr-sn2">Warm-up for ' + esc(ex.n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">Warm-up for ' + esc(ex.n) + '</h2>' +
       '<div class="tr-sub">Up to your heaviest working set, ' + fmtN(R.w) + ' ' + T.pr.u + '.</div>' +
       '<ol class="tr-warm">' + R.rows.map(function (r) {
         var pm = bb ? plateMath(r[0], bar, T.pr.u, homeInv()) : null;
@@ -7702,14 +7705,14 @@
       });
     }
     if (!wo.x.length && !wo.mc) {
-      return '<div class="sheet-name tr-sn2">Nothing ticked yet</div>' +
+      return '<h2 class="sheet-name tr-sn2">Nothing ticked yet</h2>' +
         (typed ? typedSay + '<div class="tr-acts"><button class="btn-primary" data-t="ticktyped">Tick ' + (typed === 1 ? 'it' : 'them') + ' and save</button></div>'
           : '<div class="tr-note">Only ticked sets are saved, and there are none. Keep going, or discard the workout.</div>') +
         '<div class="tr-acts"><button class="' + (typed ? 'ghost' : 'btn-primary') + '" data-t="close">Keep going</button>' +
           '<button class="ghost danger" data-t="discardnow">' + (S.arm === 'discard' ? 'Tap again to discard' : 'Discard it') + '</button></div>';
     }
     var sh = S.sheet || {};
-    return '<div class="sheet-name tr-sn2">' + esc(LIVE.n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">' + esc(LIVE.n) + '</h2>' +
       '<div class="tr-when">' + when(wo.st) + ' \u00b7 ' + hmSpan(wo.st, wo.en) +
         (sh.tm ? '' : ' <button class="tr-lnk" data-t="fintimes">Change times</button>') + '</div>' +
       (sh.tm ? timesHTML(wo.st, wo.en, 'fin') : '') +
@@ -7757,7 +7760,7 @@
   }
   function startHTML() {
     if (!LIVE) return '';
-    return '<div class="sheet-name tr-sn2">When you started</div>' +
+    return '<h2 class="sheet-name tr-sn2">When you started</h2>' +
       '<div class="tr-sub">Started ' + hm(LIVE.st) + ', ' + dur(Date.now() - LIVE.st) + ' ago. Set it to when you really began, and the workout is logged at that time of day.</div>' +
       timesHTML(LIVE.st, undefined, 'live') +
       '<div class="tr-acts"><button class="btn-primary" data-t="livetimeset">Save</button></div>';
@@ -7950,12 +7953,12 @@
     var ms = active();
     if (!ms || !ms.days[sh.d]) return '';
     if (isEz(ms, sh.d)) {
-      return '<div class="sheet-name tr-sn2">Easy day</div>' +
+      return '<h2 class="sheet-name tr-sn2">Easy day</h2>' +
         '<div class="tr-sub">Week ' + (sh.w + 1) + '</div>' + ezHTML(ms, sh.w, sh.d);
     }
     var p = plan(ms, sh.w, sh.d);
     var wo = woFor(ms, sh.w, sh.d);
-    return '<div class="sheet-name tr-sn2">' + esc(p.n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">' + esc(p.n) + '</h2>' +
       '<div class="tr-sub">' + (p.deload ? 'Deload week' : 'Week ' + (sh.w + 1) + ' · ' + effSay(p.rir)) +
         (wo ? ' · done ' + when(wo.st) : '') + '</div>' +
       planList(p, ms) +
@@ -7969,9 +7972,9 @@
   function axNewHTML(sh) {
     var h = HABITS[sh.h];
     var opts = [15, 30, 45, 60, 90, 120, 180, 240, 300].map(function (m) { return [m, m < 60 ? m + ' min' : dur(m * 60000)]; });
-    return '<div class="sheet-name tr-sn2">' + esc(h ? (sh.h === 'other' && sh.nm ? sh.nm : h.n) : 'Log an activity') + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">' + esc(h ? (sh.h === 'other' && sh.nm ? sh.nm : h.n) : 'Log an activity') + '</h2>' +
       (sh.pick ? q('What', chips('axk', sh.h, HAB_ORDER.map(function (k) { return [k, HABITS[k].n]; }))) : '') +
-      (sh.h === 'other' ? q('Called <span class="tr-opt">optional</span>', '<input class="txt tr-axnm" id="trAxNm" maxlength="40" autocomplete="off" ' +
+      (sh.h === 'other' ? q('Called <span class="tr-opt">optional</span>', '<input class="txt tr-axnm" id="trAxNm" maxlength="40" autocomplete="off" aria-label="Called (optional)" ' +
         'placeholder="Surfing, moving house, a hard day on the farm" value="' + esc(sh.nm || '') + '">') : '') +
       (h ? q('How hard', chips('axlv', sh.lv, [['l', 'Light'], ['m', 'Moderate'], ['v', 'Vigorous']]),
           'Moderate: you can talk but not sing. Vigorous: only a few words between breaths. A vigorous minute counts twice toward the week; a light one is logged but not counted.') +
@@ -7982,7 +7985,7 @@
   function axSheetHTML(sh) {
     var a = T.ax[sh.id];
     if (!a) return '<div class="tr-note">That has gone.</div>';
-    return '<div class="sheet-name tr-sn2">' + esc(axName(a)) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">' + esc(axName(a)) + '</h2>' +
       '<div class="tr-sub">' + when(a.st) + ' · ' + dur(a.min * 60000) + ' · ' + LV[axLv(a)].toLowerCase() + '</div>' +
       (a.ms && T.ms[a.ms] ? '<div class="tr-note">Counted as the easy day in week ' + (a.w + 1) + ' of ' + esc(T.ms[a.ms].n) + '.</div>' : '') +
       '<div class="tr-acts"><button class="ghost danger" data-t="axdel" data-id="' + esc(a.id) + '">' +
@@ -8000,7 +8003,7 @@
   var REST_OPTS = [30, 45, 60, 75, 90, 120, 150, 180, 240, 300];
   function restHTML(sh) {
     var ex = lib(sh.e), cur = restFor(ex), dflt = ex.k === 'c' ? T.pr.rc : T.pr.ri;
-    return '<div class="sheet-name tr-sn2">Rest for ' + esc(ex.n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">Rest for ' + esc(ex.n) + '</h2>' +
       '<div class="tr-sub">After each set of it, from now on. The default for ' + (ex.k === 'c' ? 'compound lifts' : 'isolation work') + ' is ' + clock(dflt) +
         ' (Settings). A warm-up rests a minute at most; paired sets use the pair\u2019s rest, ' + clock(T.pr.rp) + '.</div>' +
       '<div class="tr-q">' + chips('restset', cur, REST_OPTS.map(function (s) { return [s, clock(s)]; }), ' data-e="' + esc(sh.e) + '"') + '</div>' +
@@ -8009,7 +8012,7 @@
 
   function barHTML(sh) {
     var ex = lib(sh.e);
-    return '<div class="sheet-name tr-sn2">Bar for ' + esc(ex.n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">Bar for ' + esc(ex.n) + '</h2>' +
       '<div class="tr-sub">The plates are worked out from it. Remembered for ' + esc(ex.n) +
         '; every other barbell lift keeps its own, or the default bar in Settings (' + fmtN(T.pr.bar) + ' ' + T.pr.u + '). Weigh yours if you can: bars differ.</div>' +
       '<div class="tr-q">' + barChoices(sh.e) + '</div>' +
@@ -8022,7 +8025,7 @@
 
   function noteHTML(sh) {
     var ex = lib(sh.e);
-    return '<div class="sheet-name tr-sn2">' + esc(ex.n) + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">' + esc(ex.n) + '</h2>' +
       '<div class="tr-sub">A note that comes up every time ' + esc(ex.n) + ' does: the seat, the grip, the bench that wobbles.</div>' +
       '<textarea class="txt tr-nt" id="trNoteT" maxlength="200" rows="3" aria-label="Note on ' + esc(ex.n) + '" ' +
         'placeholder="Seat 4. Handles at the second notch.">' + esc(noteOf(sh.e)) + '</textarea>' +
@@ -8095,7 +8098,7 @@
     /* You first: what the next block is built around, and what the review
        reads your week against. A block already running keeps what it was
        built with; these shape the next one. */
-    return '<div class="sheet-name tr-sn2">Strengthen settings</div><div class="tr-settings">' + infoTips(
+    return '<h2 class="sheet-name tr-sn2">Strengthen settings</h2><div class="tr-settings">' + infoTips(
       q('About you', '<div class="tr-sub">' + esc(p.qz ? youLine(p) : 'Not answered yet.') + '</div>' +
         '<div class="tr-acts"><button class="ghost" data-t="requiz">' + (p.qz ? 'Change my answers' : 'Answer the questions') + '</button></div>',
         'Your goal, time, kit, what to look after and what you do outside the gym. The picks, your next block and the review all read these.') +
@@ -8938,7 +8941,7 @@
   }
 
   function imPasteHTML() {
-    return '<div class="sheet-name tr-sn2">Paste from a spreadsheet</div>' +
+    return '<h2 class="sheet-name tr-sn2">Paste from a spreadsheet</h2>' +
       '<div class="tr-sub">In Excel, Google Sheets or Numbers, select the rows with the heading row at the top, copy, and paste here. One row a set, or a row with a column for how many sets.</div>' +
       '<textarea class="txt tr-paste" id="trPaste" rows="8" placeholder="Date\tExercise\tWeight\tReps\n2024-09-24\tBench Press\t185\t8"></textarea>' +
       (S.imErr ? '<div class="tr-note tr-warn">' + esc(S.imErr) + '</div>' : '') +
@@ -8965,7 +8968,7 @@
       }).join(', ') + '</li>';
     }).join('') : '';
     var dates = M.C.date >= 0 && /\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}/.test(String((csvRows(M.text)[1] || [])[M.C.date] || ''));
-    return '<div class="sheet-name tr-sn2">Match the columns</div>' +
+    return '<h2 class="sheet-name tr-sn2">Match the columns</h2>' +
       '<div class="tr-sub">' + (M.err ? esc(M.err) : 'This file isn\u2019t from an app we know, so say which column is which. Only the date, the exercise and the reps are needed.') +
         ' ' + M.n + ' row' + (M.n === 1 ? '' : 's') + '.</div>' +
       /* The six most files have, then the rest folded away, open when one of
@@ -8991,13 +8994,13 @@
   function strongHTML() {
     var G = S.sg;
     if (!G) return '';
-    if (G.err) return '<div class="sheet-name tr-sn2">Import</div><div class="tr-note">' + esc(G.err) + '</div>';
+    if (G.err) return '<h2 class="sheet-name tr-sn2">Import</h2><div class="tr-note">' + esc(G.err) + '</div>';
     var pick = sgPick(G, G.range);
     var had = G.wos.length - sgPick(G, 0).length;
     var add = G.size[G.range] || 0;
     var over = fitSay(sgList(G, G.range));
     var matched = G.names.filter(function (n) { return n.e; }).length;
-    return '<div class="sheet-name tr-sn2">From ' + esc(G.app || 'your file') + '</div>' +
+    return '<h2 class="sheet-name tr-sn2">From ' + esc(G.app || 'your file') + '</h2>' +
       '<div class="tr-sub">' + G.wos.length + ' workouts, ' + when(G.wos[0].st) + ' to ' + when(G.wos[G.wos.length - 1].st) +
         (had ? '. ' + had + ' of them ' + (had === 1 ? 'is' : 'are') + ' here already and ' + (had === 1 ? 'is' : 'are') + ' left alone' : '') +
         (G.skipped ? '. ' + G.skipped + ' timed or distance set' + (G.skipped === 1 ? '' : 's') + ' left out' : '') + '.</div>' +

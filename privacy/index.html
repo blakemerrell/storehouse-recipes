@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#3b3630">
+<meta name="theme-color" content="#3b3630" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#120d0a" media="(prefers-color-scheme: dark)">
 <title>Privacy &amp; your data — Hive &amp; Hearth Recipes</title>
 <meta name="description" content="What Hive &amp; Hearth Recipes stores, what leaves your device, who can see it, and how to delete all of it.">
 <meta name="robots" content="index,follow">
@@ -11,6 +12,7 @@
 <style>
   /* The app's own tokens, so the policy looks like the thing it is about. */
   :root {
+    color-scheme: light;
     --ink:        oklch(0.26 0.02 60);
     --ink-soft:   oklch(0.42 0.02 60);
     --muted:      oklch(0.52 0.02 65);
@@ -90,6 +92,25 @@
     font-size: 13px; color: var(--muted);
   }
   footer p { margin: 0 0 8px; }
+  /* The app's dark values too, so the policy follows the phone the way the
+     app does. The header was always night and stays so. Screen only. */
+  @media screen and (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --ink:        oklch(0.92 0.014 85);
+      --ink-soft:   oklch(0.80 0.02 80);
+      --muted:      oklch(0.72 0.02 75);
+      --paper:      oklch(0.205 0.012 65);
+      --paper-soft: oklch(0.235 0.013 65);
+      --card:       oklch(0.25 0.014 65);
+      --line:       oklch(0.37 0.016 70);
+      --line-soft:  oklch(0.32 0.014 70);
+      --ochre:      oklch(0.72 0.10 62);
+      --ochre-text: oklch(0.80 0.09 70);
+      --green:      oklch(0.74 0.11 148);
+      --header:     oklch(0.165 0.01 60);
+    }
+  }
 </style>
 </head>
 <body>
