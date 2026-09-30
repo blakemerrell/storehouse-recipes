@@ -386,10 +386,11 @@ const PRICES = require('./prices.js');
 }
 const WALMART = require('./walmart.js');
 {
-  const unknown = Object.keys(WALMART).filter((k) => k !== 'AS' && !FOODS[k])
+  const unknown = Object.keys(WALMART).filter((k) => k !== 'AS' && k !== 'ELSEWHERE' && !FOODS[k])
+    .concat(Object.keys(WALMART.ELSEWHERE).filter((k) => !FOODS[k]))
     .concat(Object.keys(WALMART.AS).filter((k) => !FOODS[k] || !FOODS[WALMART.AS[k][0]]));
   if (unknown.length) throw new Error('walmart.js names foods the table does not have: ' + unknown.join(', '));
-  const bad = Object.keys(WALMART).filter((k) => k !== 'AS' &&
+  const bad = Object.keys(WALMART).filter((k) => k !== 'AS' && k !== 'ELSEWHERE' &&
     !(/^\d{5,12}$/.test(WALMART[k][0]) && WALMART[k][1] > 0 && WALMART[k][2]));
   if (bad.length) throw new Error('walmart.js entries need [item number, grams, name]: ' + bad.join(', '));
 }
@@ -420,11 +421,12 @@ Object.keys(CATS).sort().forEach((k) => {
   if (PRICES[k] !== undefined) pantry[k].usd = PRICES[k];
   /* The Walmart pack it is bought as (tools/walmart.js), and for a food the
      book makes, what it is bought as instead. */
-  if (WALMART[k] && k !== 'AS') pantry[k].wm = WALMART[k];
+  if (WALMART[k] && k !== 'AS' && k !== 'ELSEWHERE') pantry[k].wm = WALMART[k];
+  if (WALMART.ELSEWHERE[k]) pantry[k].we = WALMART.ELSEWHERE[k];
   if (WALMART.AS[k]) pantry[k].wa = WALMART.AS[k];
 });
 {
-  const lost = Object.keys(WALMART).filter((k) => k !== 'AS' && !pantry[k])
+  const lost = Object.keys(WALMART).filter((k) => k !== 'AS' && k !== 'ELSEWHERE' && !pantry[k])
     .concat(Object.keys(WALMART.AS).filter((k) => !pantry[k]));
   if (lost.length) throw new Error('walmart.js foods with no pantry entry, so their pack would be dropped: ' + lost.join(', '));
 }

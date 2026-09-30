@@ -38,4 +38,6 @@ module.exports = {
   oil: 0.30, salt: 0.10, mustard: 0.40, ketchup: 0.30, soy_sauce: 0.50, bbq_sauce: 0.35,
   hot_sauce: 0.60, ranch: 0.60, light_ranch: 0.60, tomatillo_ranch: 0.65, worcestershire: 0.90,
   taco_seasoning: 3.00, gravy_mix: 3.00, guacamole: 1.00, pico_de_gallo: 0.45,
+  // from the 2026-09-30 Walmart scan: shelf price over pack weight
+  apple: 0.20, banana: 0.17, orange: 0.33, grapes: 0.41, bread: 0.27, wheat_bread: 0.36, slider_bun: 1.46, biscuit_dough: 0.43, cereal_o: 0.57, oats: 0.35, oat_flour: 1.36, peanut_butter: 0.35, jam: 0.53, syrup: 0.34, raisins: 0.84, mayo: 0.33, light_mayo: 0.33, cream_cheese: 0.69, parmesan: 1.40, egg_white: 0.54, vanilla_yogurt: 0.29, dry_milk: 1.54, roast_beef_deli: 2.41, refried_beans: 0.22, pork_and_beans: 0.20, pears_canned: 0.42, tomato_soup: 0.50, soup_rts: 0.37, salsa_verde: 0.59, baking_soda: 0.21, cornstarch: 0.43, cream_of_tartar: 9.00, cake_mix: 0.30, pudding_mix: 1.11, gelatin_flavored: 1.15, gelatin_plain: 10.57, chocolate_chips: 1.14, cocoa: 2.64, cocoa_mix: 0.66, stevia: 2.35, sweetener: 1.67, spray_butter: 1.97, cola: 0.18, whey: 1.16, creatine: 4.99,
 };

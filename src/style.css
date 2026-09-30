@@ -6276,3 +6276,4 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .copy-order { width: 100%; min-height: 44px; margin: 4px 0 8px; border: 1.5px solid oklch(0.52 0.12 310); border-radius: 99px; background: none; color: oklch(0.45 0.12 310); font: inherit; font-weight: 650; cursor: pointer; }
 .setup-card { display: flex; flex-direction: column; gap: 6px; background: var(--card); border: 1.5px solid var(--ochre); border-radius: 10px; padding: 12px 14px; margin: 0 0 12px; }
 .setup-card span { font-size: 13.5px; color: var(--muted); }
+.wm-away { display: block; margin-top: 4px; }
