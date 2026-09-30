@@ -54,12 +54,16 @@ module.exports = {
         lines: items.length, say: a ? a.textContent : '', ids: items.map((x) => x.split('_')[0]), blank: a ? a.target : '' };
     });
     /* Those three come wholly from the storehouse: nothing to send, until
-       the shelf is asked to come too. */
+       the household stops shopping it (the switch on the Pantry tab). */
     const shelf = await read();
-    await p.click('[data-wmall]');
+    await p.click('.tab[data-view="pantry"]');
+    await p.waitForTimeout(250);
+    await p.click('[data-store]');
+    await p.waitForTimeout(250);
+    await p.click('.tab[data-view="list"]');
     await p.waitForTimeout(250);
     const first = await read();
-    t.ok('from the storehouse, nothing goes to Walmart until the shelf is included, and then it does',
+    t.ok('from the storehouse, nothing goes to Walmart; not shopping it, it all does',
       shelf.n === 0 && first.n > 0, JSON.stringify({ shelf: shelf.n, all: first.n }));
     t.ok('the list has one button that fills a Walmart cart, and says how many products it puts in',
       first.n > 0 && new RegExp('Add ' + first.lines + ' items? to Walmart cart').test(first.say) && first.blank === '_blank',
@@ -79,6 +83,18 @@ module.exports = {
       !!firstKey && first.ids.indexOf(itsId) >= 0 && ticked.ids.indexOf(itsId) < 0, JSON.stringify({ firstKey, itsId, ticked }));
     await p.click('#listBody [data-check="' + firstKey + '"]');
     await p.waitForTimeout(250);
+
+    /* Have: the line leaves the cart and the kitchen keeps it, for every
+       week after; Buy puts it back. */
+    await p.click('#listBody [data-src="' + firstKey + '"][data-v="h"]');
+    await p.waitForTimeout(250);
+    const had = await read();
+    const kit = await p.evaluate((k) => window.Store.kitchen(k), firstKey);
+    await p.click('#listBody [data-src="' + firstKey + '"][data-v="b"]');
+    await p.waitForTimeout(250);
+    const back = await read();
+    t.ok('marking a line Have takes it out of the cart and into the kitchen; Buy puts it back',
+      had.ids.indexOf(itsId) < 0 && kit === 1 && back.ids.indexOf(itsId) >= 0, JSON.stringify({ kit, had: had.ids.length, back: back.ids.length }));
 
     /* A food with no pack: search it, paste its link, and it goes in. */
     await p.evaluate(() => { document.querySelector('#listWm .wm-fix').open = true; });

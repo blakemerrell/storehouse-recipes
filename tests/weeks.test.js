@@ -112,7 +112,16 @@ module.exports = {
     t.ok('and changes with it', l1.rows !== l2.rows && l1.rows > 0 && l2.rows > 0, l1.rows + ' vs ' + l2.rows);
 
     // ---- ticks belong to their week, and to what is on the list -----------
-    await p.click('.list-row >> nth=0');
+    /* A line only recipe 1 puts there, so dropping recipe 1 takes it off the
+       list. (The first row will not do: the list opens on what there is to
+       buy, which can be another recipe's.) */
+    const only1 = await p.evaluate(() => {
+      const keys = (id) => new Set(window.RECIPES.find((r) => r.id === id).ingp.map((i) => i.k));
+      const a = keys(1), b = keys(2), c = keys(3);
+      const i = [...document.querySelectorAll('#listBody [data-check]')].find((x) => a.has(x.dataset.check) && !b.has(x.dataset.check) && !c.has(x.dataset.check));
+      return i ? i.dataset.check : '';
+    });
+    await p.click('#listBody [data-check="' + only1 + '"]');
     await p.waitForTimeout(150);
     t.ok('a tick sticks', (await p.evaluate(() => document.querySelectorAll('.list-row.done').length)) === 1);
     await p.click('.tab[data-view="plan"]');

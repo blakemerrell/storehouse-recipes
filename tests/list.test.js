@@ -99,7 +99,7 @@ module.exports = {
     });
     await p.waitForTimeout(400);
     const stocked = (flagged.groups.find((g) => /storehouse|shelf/i.test(g.title)) || { items: [] }).items;
-    const buy = (flagged.groups.find((g) => /pick up/i.test(g.title)) || { items: [] }).items;
+    const buy = (flagged.groups.find((g) => /^to buy$/i.test(g.title)) || { items: [] }).items;
     const named = new RegExp(flagged.name, 'i');
     t.ok('an ingredient the recipe calls an extra is not filed under the storehouse',
       !stocked.some((x) => named.test(x)) && buy.some((x) => named.test(x)),
@@ -161,11 +161,10 @@ module.exports = {
     await p.waitForTimeout(250);
     const groups = await p.evaluate(() =>
       [...document.querySelectorAll('.list-group-title')].map((e) => e.textContent));
-    /* The second heading is no longer "pantry extras" — what you must go out
-       for is now decided by the pantry rather than by the storehouse order, so
-       it is just what you must pick up. */
-    t.ok('what you have and what you must buy are separate lists',
-      groups.length === 2 && /storehouse|your shelf/i.test(groups[0]) && /pick up/i.test(groups[1]),
+    /* What you must buy comes first, since that is the trip; the storehouse
+       pick-up and what is already in the kitchen follow it, apart. */
+    t.ok('what you must buy and what the storehouse gives are separate lists, buying first',
+      groups.length >= 2 && /^to buy$/i.test(groups[0]) && groups.slice(1).some((g) => /storehouse/i.test(g)),
       groups.join(' | '));
 
     await p.context().close();

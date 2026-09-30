@@ -1350,6 +1350,7 @@
       avoid: list(a.avoid, function (x) { return PW_AVOID[x]; }),
       ing: list(a.ing, function (x) { return typeof x === 'string' && !!(window.PANTRY || {})[x]; }),
       rec: [0, 2, 4].indexOf(a.rec) >= 0 ? a.rec : 0,
+      lo: [0, 1, 2].indexOf(a.lo) >= 0 ? a.lo : 0,
       shelf: a.shelf !== false
     };
   }
@@ -1384,6 +1385,7 @@
   function pwCost(entries, shelf) {
     var usd = 0;
     entries.forEach(function (e) {
+      if (e.lo) return;                 // eaten again, not bought again
       (e.r.ingp || []).forEach(function (it) {
         var p = pwBuys(it, shelf) ? pwPrice(it.k) : null;
         if (p) usd += it.g * e.x * p / 100;
@@ -1489,21 +1491,41 @@
   }
   function pwPick() {
     var a = S.pw.a, picks = [], nights = pwNights(a.days);
+    /* Leftovers first: the nights that follow another asked-for night are
+       the ones that can be the night before's dinner again, the weekend's
+       big cook before a weekday's. */
+    var lo = {}, left = a.lo;
+    var pairs = nights.filter(function (d, i) { return i + 1 < nights.length && PW_DAYS.indexOf(nights[i + 1]) === PW_DAYS.indexOf(d) + 1; });
+    pairs.sort(function (x, y) { return (PW_WEEKEND.indexOf(y) >= 0) - (PW_WEEKEND.indexOf(x) >= 0); });
+    pairs.forEach(function (d) {
+      var nxt = PW_DAYS[PW_DAYS.indexOf(d) + 1];
+      if (left > 0 && !lo[d] && !lo[nxt]) { lo[nxt] = d; left--; }
+    });
     for (var i = 0; i < nights.length; i++) {
-      var nx = pwNext(a, picks, [], nights[i]);
+      if (lo[nights[i]]) {
+        var from = picks.filter(function (e) { return e.day === lo[nights[i]]; })[0];
+        if (from) { from.x *= 2; picks.push({ r: from.r, x: 1, day: nights[i], lo: true }); }
+        continue;
+      }
+      var nx = pwNext(a, picks.filter(function (e) { return !e.lo; }), [], nights[i]);
       if (nx) picks.push({ r: nx.r, x: nx.x, day: nights[i] });
     }
     S.pw.picks = picks;
     S.pw.seen = {};
   }
   function pwSwap(i) {
-    var a = S.pw.a, day = S.pw.picks[i].day;
-    var others = S.pw.picks.filter(function (e, j) { return j !== i; });
+    var a = S.pw.a, day = S.pw.picks[i].day, was = S.pw.picks[i];
+    if (was.lo) return;
+    var others = S.pw.picks.filter(function (e, j) { return j !== i && !e.lo; });
     var seen = S.pw.seen[i] = S.pw.seen[i] || [];
     seen.push(S.pw.picks[i].r.id);
     var nx = pwNext(a, others, seen, day);
     if (!nx) { S.pw.seen[i] = []; nx = pwNext(a, others, [S.pw.picks[i].r.id], day); }
-    if (nx) S.pw.picks[i] = { r: nx.r, x: nx.x, day: day };
+    if (!nx) return;
+    /* Its leftovers night follows it, and it is still cooked double. */
+    var twin = S.pw.picks.filter(function (e) { return e.lo && e.r.id === was.r.id; })[0];
+    S.pw.picks[i] = { r: nx.r, x: twin ? nx.x * 2 : nx.x, day: day };
+    if (twin) twin.r = nx.r;
   }
   function pwMoney(v) { return v < 0.5 ? '$0' : '$' + (v < 10 ? v.toFixed(2) : Math.round(v)); }
   /* The headline figure. Nothing to buy is said as that, not as $0.00. */
@@ -1573,6 +1595,8 @@
         }).join('') + '</div>' : '') +
         '<input class="pw-find" id="pwIng" type="search" placeholder="Any ingredient: onion, cheddar…" autocomplete="off" aria-label="Leave out an ingredient">' +
         '<div class="pw-chips pw-sug" id="pwSug"></div></div>' +
+      '<div class="pw-q"><div class="pw-ql">Leftovers nights <small>cook double, eat it again the next night</small></div>' +
+        pwChips('lo', [[0, 'None'], [1, 'One'], [2, 'Two']], a.lo) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Variety</div>' +
         pwChips('rec', [[0, 'Repeats are fine'], [2, 'Nothing from the last 2 weeks'], [4, 'Last 4 weeks']], a.rec) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Use what’s already on the shelf?</div>' +
@@ -1603,14 +1627,15 @@
           var dn = DAYS.filter(function (d) { return d[0] === e.day; })[0];
           return '<div class="pw-meal"><div class="pw-day">' + (dn ? dn[2].toUpperCase() : '') + '</div>' +
             '<div class="pw-mt"><button class="pw-mn" data-pwopen="' + esc(String(e.r.id)) + '">' + esc(e.r.name) + '</button>' +
-            '<div class="pw-mm">' + esc(e.r.time || '') + ' · ' + (e.x === 1 ? 'the recipe as written' : '×' + fmtNum(e.x)) +
-              ' · about ' + pwMoney(pwCost([e], a.shelf)) + '</div></div>' +
-            '<button class="pw-swap" data-pwswap="' + i + '" aria-label="Pick another instead of ' + esc(e.r.name) + '">↻</button></div>';
+            '<div class="pw-mm">' + (e.lo ? 'Leftovers \u00b7 nothing to cook or buy' : esc(e.r.time || '') + ' · ' + (e.x === 1 ? 'the recipe as written' : '×' + fmtNum(e.x)) +
+              ' · about ' + pwMoney(pwCost([e], a.shelf))) + '</div></div>' +
+            (e.lo ? '<span class="pw-swap pw-lo" aria-hidden="true"></span>' :
+            '<button class="pw-swap" data-pwswap="' + i + '" aria-label="Pick another instead of ' + esc(e.r.name) + '">↻</button>') + '</div>';
         }).join('') +
         '<div class="pw-row"><button class="pw-back" data-pwgo="1">Back</button>' +
           (P.picks.length ? '<button class="pw-go" data-pwgo="3">See the shopping list</button>' : '') + '</div>';
     } else {
-      var built = buildList(P.picks.map(function (e) { return { r: e.r, x: e.x }; }));
+      var built = buildList(P.picks.filter(function (e) { return !e.lo; }).map(function (e) { return { r: e.r, x: e.x }; }));
       var total = 0;
       /* What you have to go out for first; what is on the shelf after it.
          Buying everything, there is no shelf to set apart: one list. */
@@ -1698,11 +1723,40 @@
     if (op) { openRecipe(idOf(op.dataset.pwopen)); return; }
     if (e.target.closest('[data-pwadd]')) {
       var h = pwHist(), today = todayKey();
-      S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x); h[String(p.r.id)] = today; });
+      S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x, p.lo); h[String(p.r.id)] = today; });
       try { localStorage.setItem(PW_HIST, JSON.stringify(h)); } catch (err) { /* private */ }
       close();
       if (S.view === 'plan') renderPlan();
     }
+  });
+
+  // ---------------------------------------------------------------- kitchen
+  /* Moving a food: to the kitchen, to the storehouse, or to the shop. Said
+     once, it holds for every week after, on every phone in the household. */
+  function setFoodSource(k, v) {
+    var d = (window.PANTRY || {})[k];
+    if (!d) return;
+    if (v === 'h') { window.Store.setKitchen(k, 1); window.Store.setSrc(k, null); return; }
+    window.Store.setKitchen(k, d.sp ? 0 : null);
+    window.Store.setSrc(k, v);
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    var b = e.target.closest('[data-src]');
+    if (b) { e.preventDefault(); setFoodSource(b.dataset.src, b.dataset.v); return; }
+    var kx = e.target.closest('[data-kitx]');
+    if (kx) { setFoodSource(kx.dataset.kitx, 'b'); window.Store.setSrc(kx.dataset.kitx, null); return; }
+    var ka = e.target.closest('[data-kit]');
+    if (ka) {
+      setFoodSource(ka.dataset.kit, 'h');
+      var f = $('kitFind'); if (f) { f.value = ''; f.focus(); }
+      var sg = $('kitSug'); if (sg) sg.innerHTML = '';
+      return;
+    }
+    if (e.target.closest('[data-store]')) window.Store.setOpt('store', !window.Store.opt('store', true));
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'kitFind') { var sg = $('kitSug'); if (sg) sg.innerHTML = kitSugHTML(e.target.value); }
   });
 
   // ------------------------------------------------------------ walmart cart
@@ -14174,6 +14228,7 @@
            for everything else, and it is what the coloured ingredient line and
            the "Also needs" foot already use. One question, one answer. */
         bucket[key].extra = itemNeedsBuying(it);
+        bucket[key].src = bucket[key].extra ? 'b' : (s.s ? 'h' : foodSource(it.k) === 's' ? 's' : 'h');
         bucket[key].g += it.g * e.x;
       });
     });
@@ -14184,9 +14239,18 @@
       items.forEach(function (b) { b.qty = shopQty(b.g, b.unit, b.per, b.lad); });
       return { title: title, items: items };
     };
+    /* To buy first, since that is the trip; then the storehouse pick-up;
+       then what is already in the kitchen, there to move if it has run out. */
+    var bySrc = function (title, want) {
+      var items = Object.keys(bucket).map(function (k) { return bucket[k]; })
+        .filter(function (b) { return b.src === want; })
+        .sort(function (a, b) { return a.label.localeCompare(b.label); });
+      items.forEach(function (b) { b.qty = shopQty(b.g, b.unit, b.per, b.lad); });
+      return { title: title, src: want, items: items };
+    };
+    void group;
     return {
-      groups: [group(window.Store.pantryChanged() ? 'Already on your shelf' : 'From the storehouse', false),
-               group('To pick up', true)]
+      groups: [bySrc('To buy', 'b'), bySrc('Storehouse pick-up', 's'), bySrc('In your kitchen', 'h')]
         .filter(function (g) { return g.items.length; }),
       recipeCount: entries.length
     };
@@ -14204,19 +14268,23 @@
     $('listEmpty').classList.toggle('hide', total !== 0);
     /* To Walmart: what is left to get — not ticked, and off the shelf only
        when the shelf is asked to come too. */
-    var all = wmAll();
     if ($('listWm')) $('listWm').innerHTML = total ? wmHTML([].concat.apply([], built.groups.map(function (g) { return g.items; }))
-      .filter(function (b) { return (all || b.extra) && !window.Store.isChecked(b.key); }), true) : '';
+      .filter(function (b) { return b.src === 'b' && !window.Store.isChecked(b.key); })) : '';
     $('listBody').innerHTML = built.groups.map(function (g) {
       return '<div class="list-group">' +
         '<div class="list-group-title">' + esc(g.title) + '</div>' +
         '<div class="list-items">' + g.items.map(function (it) {
-          var on = window.Store.isChecked(it.key);
-          return '<label class="list-row' + (on ? ' done' : '') + '">' +
+          var on = window.Store.isChecked(it.key), food = !!(window.PANTRY || {})[it.key];
+          var store = window.Store.opt('store', true);
+          var seg = food ? '<span class="src-seg no-print" role="group" aria-label="Where ' + esc(it.label) + ' comes from">' +
+            [['h', 'Have'], ['s', 'Storehouse'], ['b', 'Buy']].filter(function (o) { return o[0] !== 's' || store; }).map(function (o) {
+              return '<button class="src-' + o[0] + '" data-src="' + esc(it.key) + '" data-v="' + o[0] + '" aria-pressed="' + (it.src === o[0]) + '">' + o[1] + '</button>';
+            }).join('') + '</span>' : '';
+          return '<div class="list-line' + (it.src === 'h' ? ' have' : '') + '"><label class="list-row' + (on ? ' done' : '') + '">' +
             '<input type="checkbox" data-check="' + esc(it.key) + '"' + (on ? ' checked' : '') + '>' +
             '<span>' + esc(it.label) + '</span>' +
             '<span class="qty">' + esc(it.qty) + '</span>' +
-          '</label>';
+          '</label>' + seg + '</div>';
         }).join('') + '</div></div>';
     }).join('');
   }
@@ -14474,8 +14542,33 @@
 
      free is a line with no weight, water is not shopping, and neither belongs
      on a list of what to buy. */
+  /* Where a food comes from this week: 'h' in the kitchen already, 's' the
+     storehouse, 'b' bought. Blake: "I should just be able to tell it what I
+     have in my pantry, whether I pick it up from the storehouse or not." The
+     kitchen answers first; then, while the household shops the storehouse,
+     the storehouse order (with any line moved by hand); then the shop. */
+  function foodSource(key) {
+    var d = (window.PANTRY || {})[key];
+    if (!d) return inPantry(key) ? 'h' : 'b';
+    var k = window.Store.kitchen(key);
+    if (k === 1) return 'h';
+    /* A dried spice is in the cupboard unless somebody said it is not, here
+       or on the storehouse list. */
+    if (k === undefined && d.sp && window.Store.pantryHas(key, true)) return 'h';
+    if (!window.Store.opt('store', true)) return 'b';
+    var sv = window.Store.src(key);
+    if (sv) return sv;
+    return window.Store.pantryHas(key, !!d.s) ? 's' : 'b';
+  }
+  /* What the storehouse carries, which is what the Pantry's storehouse list
+     edits: the order, as the household has changed it. */
+  function storeCarries(key) {
+    var d = (window.PANTRY || {})[key];
+    return window.Store.pantryHas(key, d ? (d.s || !!d.sp) : true);
+  }
   function inPantry(key) {
     var d = (window.PANTRY || {})[key];
+    if (d) return foodSource(key) !== 'b';
     /* A key the pantry has never heard of defaults to kept, not to missing.
        Seasonings all share the "free" food key and go by their own name, so
        they are not in the pantry at all — defaulting those to missing put salt
@@ -15895,6 +15988,7 @@
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid', 'data-wmall',
+    'data-src', 'data-kit', 'data-kitx', 'data-store', 'data-pwlo',
     'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
@@ -16856,7 +16950,7 @@
     function put(key, item, mine) {
       var c = item.c || 'Yours';
       if (!by[c]) { by[c] = []; order.push(c); }
-      by[c].push({ k: key, l: item.l, c: c, mine: mine, on: inPantry(key), std: !!item.s });
+      by[c].push({ k: key, l: item.l, c: c, mine: mine, on: mine ? true : storeCarries(key), std: !!item.s });
     }
     Object.keys(P).forEach(function (k) { put(k, P[k], false); });
     Object.keys(own).forEach(function (k) { put(k, own[k], true); });
@@ -16864,7 +16958,36 @@
     return order.map(function (c) { return { name: c, items: by[c] }; });
   }
 
+  /* My kitchen: what the household has, wherever it came from, and one
+     switch for whether the storehouse is part of the week at all. */
+  function kitchenHTML() {
+    var P = window.PANTRY || {}, K = window.Store.kitchenAll(), store = window.Store.opt('store', true);
+    var have = Object.keys(K).filter(function (k) { return K[k] === 1 && P[k]; })
+      .sort(function (a, b) { return P[a].l.localeCompare(P[b].l); });
+    var spices = Object.keys(P).filter(function (k) { return P[k].sp && K[k] !== 0 && K[k] !== 1; }).length;
+    return '<div class="kit-switch"><div><b>I shop the storehouse</b><span>' +
+        (store ? 'What it carries goes under Storehouse pick-up, not the Walmart cart.' : 'Off: everything you don\u2019t have is bought.') +
+      '</span></div><button class="kit-tog" data-store="1" role="switch" aria-checked="' + store + '" aria-label="I shop the storehouse"></button></div>' +
+      '<div class="kit-h">In my kitchen</div>' +
+      '<p class="kit-p">Anything here is never bought or picked up. Tap one to take it off when it runs out.</p>' +
+      '<div class="pw-chips kit-chips">' + have.map(function (k) {
+        return '<button class="pw-chip" data-kitx="' + esc(k) + '" aria-pressed="true" aria-label="Take ' + esc(P[k].l) + ' out of the kitchen">' + esc(P[k].l) + '</button>';
+      }).join('') + (spices ? '<span class="kit-sp">and ' + spices + ' dried spices</span>' : '') + '</div>' +
+      '<input class="pw-find" id="kitFind" type="search" placeholder="Add what you have: rice, eggs, flour\u2026" autocomplete="off" aria-label="Add to my kitchen">' +
+      '<div class="pw-chips pw-sug" id="kitSug"></div>';
+  }
+  function kitSugHTML(q) {
+    var P = window.PANTRY || {}, K = window.Store.kitchenAll();
+    q = String(q || '').trim().toLowerCase();
+    if (!q) return '';
+    return Object.keys(P).filter(function (k) { return K[k] !== 1 && P[k].l.toLowerCase().indexOf(q) >= 0; })
+      .sort(function (a, b) { return P[a].l.localeCompare(P[b].l); }).slice(0, 8).map(function (k) {
+        return '<button class="pw-chip" data-kit="' + esc(k) + '">+ ' + esc(P[k].l) + '</button>';
+      }).join('');
+  }
   function renderPantry() {
+    if ($('kitchenBody')) $('kitchenBody').innerHTML = kitchenHTML();
+    if ($('storePart')) $('storePart').classList.toggle('hide', !window.Store.opt('store', true));
     var shelves = pantryShelves();
     var kept = [], gone = [];
     shelves.forEach(function (sh) {

@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=560">
+<link rel="stylesheet" href="src/style.css?v=562">
 </head>
 <body>
 
@@ -357,8 +357,12 @@
          this is for. What it is for is the storehouse order changing: the list
          below is what the storehouse carried when the books were written, and
          orders differ by place and change over time. -->
+    <div id="kitchenBody"></div>
+    <div id="storePart">
+    <div class="kit-h">The storehouse carries</div>
     <div class="plan-note pantry-lede">This is what the storehouse carried when the books were written. If yours has stopped stocking something, take it off &mdash; the recipes stay exactly as they are, and the app simply starts telling you to pick that item up at the grocery store instead. The line at the foot of every recipe and the whole shopping list follow this list. You can also add anything you keep that the books never mention. Whatever you take off drops to the foot, so you can put it back.</div>
     <div id="pantryBody"></div>
+    </div>
   </div>
 </section>
 
@@ -406,16 +410,16 @@
 <div id="trainRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=560"></script>
-<script src="data/nutrition.js?v=560"></script>
-<script src="data/art.js?v=560"></script>
-<script src="data/qr.js?v=560"></script>
-<script src="src/config.js?v=560"></script>
+<script src="data/recipes.js?v=562"></script>
+<script src="data/nutrition.js?v=562"></script>
+<script src="data/art.js?v=562"></script>
+<script src="data/qr.js?v=562"></script>
+<script src="src/config.js?v=562"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=560"></script>
+<script src="src/sync.js?v=562"></script>
 <!-- before app.js, which calls into it while it boots -->
-<script src="src/train.js?v=560"></script>
-<script src="src/app.js?v=560"></script>
+<script src="src/train.js?v=562"></script>
+<script src="src/app.js?v=562"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

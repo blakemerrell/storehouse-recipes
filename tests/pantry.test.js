@@ -208,7 +208,7 @@ module.exports = {
         items: [...x.querySelectorAll('.list-row')].map((r) => r.textContent.replace(/\s+/g, ' ').trim()),
       }));
     });
-    const buy = list.find((g) => /pick up/i.test(g.title));
+    const buy = list.find((g) => /^to buy$/i.test(g.title));
     t.ok('the shopping list moves it to what you must buy',
       !!buy && buy.items.some((i) => /Cottage cheese/i.test(i)), JSON.stringify(list));
 
