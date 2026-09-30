@@ -5564,32 +5564,43 @@ body:has(#view-train.tr-focus:not(.hide)) #shareHint { display: none; }
 }
 .tr-wbar-x:hover { border-color: var(--ochre); }
 
-/* ---- Strengthen: today first, the block folded, the other ways in ---- */
-.tr-tlifts { font-size: 14px; line-height: 1.45; margin-top: 8px; }
+/* ---- Strengthen: the block's calendar, the session chosen on it, the other ways in ---- */
 .tr-go { display: block; width: 100%; min-height: 52px; margin-top: 14px; font-size: 16px; }
 .tr-next-a { margin-top: 6px; justify-content: space-between; }
 .tr-next-a .tr-lnk { min-height: 44px; padding: 0 2px; font-size: 14px; }
 .tr-lnk-q { color: var(--muted-2); font-weight: 500; }
 .tr-anyway { min-height: 44px; padding: 8px 16px; font-size: 14px; }
 .tr-restday .tr-acts .tr-lnk { min-height: 44px; font-size: 14px; }
-.tr-wk { padding: 0; }
-.tr-wk-b {
-  display: flex; width: 100%; min-height: 60px; align-items: center; justify-content: space-between; gap: 12px;
-  background: none; border: 0; padding: 12px 18px; font: inherit; color: inherit; text-align: left; cursor: pointer;
+.tr-cprog { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; }
+.tr-cbar { flex: 1; height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
+.tr-cbar i { display: block; height: 100%; background: var(--green); border-radius: 4px; }
+.tr-cpct { font-size: 14px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+.tr-cstat { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tr-cstat b { color: var(--ink); font-weight: 650; }
+.tr-gc.sel { outline: 3px solid var(--ochre); outline-offset: 1px; position: relative; z-index: 1; }
+.tr-ghint { font-size: 12.5px; color: var(--muted); text-align: center; margin-top: 8px; }
+/* the card a box opens: its edge says it belongs to the box outlined above */
+.tr-sesh { border-top: 3px solid var(--ochre); }
+.tr-schips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.tr-schip {
+  font-size: 13px; padding: 4px 9px; border-radius: 14px; background: var(--paper); border: 1px solid var(--line-soft);
+  color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.tr-wk-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.tr-wk-n { font-weight: 600; font-size: 15px; }
-.tr-wk-s { font-size: 13px; color: var(--muted-2); }
-.tr-wk-e { font-size: 13px; font-weight: 600; color: var(--ochre-text); white-space: nowrap; }
-.tr-wk .tr-ldrow { margin: 0; padding: 0 18px 14px; }
-.tr-wk .tr-ldpanel { margin: 0 18px; padding-bottom: 14px; }
-/* Following Nourish's calories: what the week read, what it does, and a way out.
-   Inside the folded card it sits under the week's own line; open, under the sub. */
+.tr-schip b { font-weight: 700; }
+.tr-schip.up { color: var(--green); border-color: color-mix(in oklab, var(--green) 45%, var(--card)); background: color-mix(in oklab, var(--green) 8%, var(--card)); }
+.tr-snames { list-style: none; margin: 4px 0 0; padding: 0; }
+.tr-snames li {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 9px 0; border-top: 1px solid var(--line-soft); font-size: 15px;
+}
+.tr-snames li:first-child { border-top: 0; }
+.tr-snames li span { font-weight: 600; min-width: 0; }
+.tr-snames li i { font-style: normal; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.tr-snames li i.tr-pr { color: var(--ochre-text); font-weight: 700; }
+.tr-sesh .tr-acts .tr-lnk { min-height: 44px; font-size: 14px; }
+/* Following Nourish's calories: what the week read, what it does, and a way out, under the block's own line. */
 .tr-ph { font-size: 13px; line-height: 1.45; color: var(--muted); max-width: 62ch; margin: 4px 0 10px; }
-.tr-wk .tr-ph { margin: -4px 18px 14px; }
 .tr-ph .tr-lnk { font-size: 13px; padding: 6px 2px; }
-.tr-blk-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.tr-blk-h .tr-lnk { min-height: 44px; font-size: 13px; }
 .tr-more { margin: 18px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .tr-more > .tr-ql { padding: 12px 16px 2px; }
 .tr-mrow {

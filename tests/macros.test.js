@@ -13731,8 +13731,6 @@ module.exports = {
       await seedBlock(two);
       await sp.click('.tab[data-view="train"]');
       await sp.waitForTimeout(300);
-      // the weeks are folded under today's session: opened to read their days
-      await sp.evaluate(() => { const b = document.querySelector('[data-t="gridopen"][aria-expanded="false"]'); if (b) b.click(); });
       const heads = await sp.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => ({ d: e.textContent, g: e.classList.contains('moved') })));
       {
         const W0 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -13748,7 +13746,6 @@ module.exports = {
       await sp.reload();
       await sp.click('.tab[data-view="train"]');
       await sp.waitForTimeout(300);
-      await sp.evaluate(() => { const b = document.querySelector('[data-t="gridopen"][aria-expanded="false"]'); if (b) b.click(); });
       const slid = await sp.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => ({ d: e.textContent, g: e.classList.contains('moved') })));
       {
         const W0 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
