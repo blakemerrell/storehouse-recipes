@@ -64,7 +64,7 @@ module.exports = {
     await p.keyboard.press('Escape');
     await p.waitForTimeout(100);
     // a question with a box in it: the box is named by the question
-    await p.click('#renameWeek');
+    await p.click('[data-caltpl]');                       // Save as a template, which asks for a name
     await p.waitForTimeout(150);
     const box = await p.evaluate((fn) => {
       const nameOf = new Function('return ' + fn)();
