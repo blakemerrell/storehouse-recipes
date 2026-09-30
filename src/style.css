@@ -3398,9 +3398,15 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
   font-family: var(--serif); font-size: 22px; font-weight: 700; letter-spacing: 0.06em;
   background: oklch(0.97 0.015 85); border: 1px solid var(--line);
   border-radius: 3px; padding: 12px 14px; margin-top: 14px; text-align: center;
-  word-break: break-all;
+  /* At the hyphens, not mid-word: a code is three words now, and break-all
+     split KINDLING across two lines on a phone. Mid-word only if one word
+     alone is wider than the box. */
+  overflow-wrap: anywhere;
 }
 .sync-row { display: flex; gap: 9px; margin-top: 16px; flex-wrap: wrap; }
+/* What the household lost that this phone kept: a short list and two answers. */
+.sync-gone { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.sync-gone-l { margin: 6px 0 0; padding-left: 20px; line-height: 1.5; }
 .sync-row .txt { min-width: 160px; }
 .sync-status {
   font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
