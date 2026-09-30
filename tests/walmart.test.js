@@ -9,6 +9,11 @@ module.exports = {
   name: 'Walmart cart',
   async run(t) {
     const p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    /* A Sunday morning: every day of the week is still ahead, so a plan
+       written in this test is never a plan for a day already gone. */
+    await p.clock.setFixedTime(new Date(2026, 8, 27, 9, 0, 0));
+    await p.reload();
+    await p.waitForTimeout(900);
     const errs = [];
     p.on('pageerror', (e) => errs.push(e.message));
 

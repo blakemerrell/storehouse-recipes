@@ -1093,22 +1093,39 @@
 
   /* The strip of weeks above the grid. Everything to do with which week is
      showing lives here; the grid below never knows there is more than one. */
+  /* The calendar's head: which week (or month) is on screen, how far it is
+     from this one, and the actions that make sense for it. A past week is
+     history, so it is not planned into. */
+  var CAL_DAYS = [DAYS[6]].concat(DAYS.slice(0, 6));        // Sunday first
+  function calMidnight(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+  function calDate(key) {
+    var st = window.Store.activeWeek().start;
+    if (!st) return null;
+    var d = new Date(st); d.setDate(d.getDate() + CAL_DAYS.map(function (x) { return x[0]; }).indexOf(key));
+    return calMidnight(d);
+  }
+  function calPastDay(key) { var d = calDate(key); return !!d && d < calMidnight(new Date()); }
+  function calIsToday(key) { var d = calDate(key); return !!d && d.getTime() === calMidnight(new Date()).getTime(); }
+  function calOffset() {
+    var st = window.Store.activeWeek().start, now = window.Store.weekStart(window.Store.thisWeek());
+    return st && now ? Math.round((st - now) / (7 * 864e5)) : 0;
+  }
+  function calPastWeek() { return calOffset() < 0; }
   function renderWeeks() {
-    var weeks = window.Store.weeks();
-    var active = window.Store.activeWeek();
-
-    $('weekTitle').textContent = active.name;
-    $('weekBar').innerHTML = weeks.map(function (w) {
-      var n = planCount(w.id);
-      return '<button class="wk" data-week="' + esc(w.id) + '" aria-pressed="' + w.active + '">' +
-        esc(w.name) + '<span class="wk-n">' + (n || '&mdash;') + '</span></button>';
-    }).join('') +
-      '<button class="wk wk-add" data-neww="new" title="Start an empty week">+ Week</button>' +
-      '<button class="wk wk-add" data-neww="copy" title="Copy the week showing into a new one">+ Copy</button>';
-
-    // there is nothing to delete down to — one week always stays
-    $('deleteWeek').classList.toggle('hide', weeks.length < 2);
-
+    var wk = window.Store.activeWeek(), off = calOffset(), month = S.calMode === 'm';
+    if (month) {
+      var mf = S.calMonth || calMidnight(wk.start || new Date());
+      $('weekTitle').textContent = mf.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if ($('calSub')) $('calSub').textContent = 'tap a day to open its week';
+    } else {
+      $('weekTitle').textContent = wk.name;
+      if ($('calSub')) $('calSub').textContent = off === 0 ? 'This week' : off === 1 ? 'Next week' : off === -1 ? 'Last week'
+        : off > 0 ? 'In ' + off + ' weeks' : (-off) + ' weeks ago';
+    }
+    document.querySelectorAll('#calMode [data-cal]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String((b.dataset.cal === 'm') === month));
+    });
+    if ($('planMyWeek')) $('planMyWeek').disabled = off < 0 || month;
   }
 
   function planCount(id) {
@@ -1132,54 +1149,169 @@
 
   /* Which day of the plan's week is today, Monday 0. The week has no dates,
      but the days before today are the ones that have been eaten. */
-  function todayIx() { return (new Date().getDay() + 6) % 7; }
-  var RATE_BTN = [[2, '★', 'A favourite'], [1, '👍', 'Good'], [-1, '👎', 'Not again']];
+  /* Drawn, not emoji: the same thin ink line as the rest of the app's
+     icons. Star comes back often, thumb up a little more often, thumb down
+     never — and once one is chosen, the row says so. */
+  var RATE_ICON = {
+    2: '<path d="M8 1.9l1.85 3.8 4.2.6-3.05 2.95.72 4.17L8 11.45l-3.72 1.97.72-4.17L1.95 6.3l4.2-.6z"/>',
+    1: '<path d="M5.2 7.2v6.6M5.2 7.2 8 2.4c1.1 0 1.9.9 1.6 2.1L9.2 6.2h3.3c.9 0 1.6.9 1.3 1.8l-1.1 4.6c-.2.7-.8 1.2-1.5 1.2H5.2M2.2 7.2h3v6.6h-3z"/>',
+    '-1': '<g transform="rotate(180 8 8)"><path d="M5.2 7.2v6.6M5.2 7.2 8 2.4c1.1 0 1.9.9 1.6 2.1L9.2 6.2h3.3c.9 0 1.6.9 1.3 1.8l-1.1 4.6c-.2.7-.8 1.2-1.5 1.2H5.2M2.2 7.2h3v6.6h-3z"/></g>'
+  };
+  var RATE_BTN = [[2, 'Favourite', 'comes back often'], [1, 'Good', 'comes back a little more'], [-1, 'Not again', 'never suggested again']];
+  function rateHTML(id, rt) {
+    var on = RATE_BTN.filter(function (b) { return b[0] === rt; })[0];
+    return '<div class="day-rate no-print" role="group" aria-label="How was it?">' + RATE_BTN.map(function (b) {
+      return '<button data-prate="' + esc(String(id)) + '" data-v="' + b[0] + '" aria-pressed="' + (rt === b[0]) + '" aria-label="' + b[1] + ': ' + b[2] + '" title="' + b[1] + ': ' + b[2] + '">' +
+        '<svg viewBox="0 0 16 16" aria-hidden="true">' + RATE_ICON[b[0]] + '</svg></button>';
+    }).join('') + (on ? '<span class="day-rate-say">' + on[1] + ' \u00b7 ' + on[2] + '</span>' : '') + '</div>';
+  }
+  var PROT_VAR = { Chicken: 'var(--p-ch)', Beef: 'var(--p-bf)', Pork: 'var(--p-pk)', Meatless: 'var(--p-ml)' };
   function renderPlan() {
     renderWeeks();
-    var ti = todayIx();
+    var month = S.calMode === 'm', past = calPastWeek();
+    ['planSum', 'calActs', 'calAgain'].forEach(function (id) { if ($(id)) $(id).classList.toggle('hide', month); });
+    $('planGrid').classList.toggle('cal-month', month);
+    if (month) { $('planGrid').innerHTML = calMonthHTML(); return; }
     /* The week at a glance: nights with a dinner, what is left to buy, and
-       how long the list is. */
+       how long the list is — or, for a week gone by, what it was. */
     var nights = DAYS.filter(function (d) {
       return window.Store.day(d[0]).some(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); });
     }).length;
     var ents = planEntries(), cost = pwCost(ents, true);
     var nList = buildList(ents).groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    var favs = 0;
+    DAYS.forEach(function (d) { window.Store.day(d[0]).forEach(function (e) { if (window.Store.rating(e.id) === 2) favs++; }); });
     if ($('planSetup')) $('planSetup').innerHTML = planSetUp() ? '' :
       '<div class="setup-card"><b>New to planning here?</b><span>Start with where your food comes from and what you keep on hand. It takes a minute, once.</span>' +
       '<button class="pw-go" data-stepgo="where">Start with step 1</button></div>';
     if ($('planSum')) $('planSum').innerHTML = ents.length ?
       '<div><b>' + nights + ' of 7</b><span>nights planned</span></div>' +
-      '<div><b>' + (cost < 0.5 ? '$0' : '~' + pwMoney(cost)) + '</b><span>to buy</span></div>' +
-      '<div><b>' + nList + '</b><span>on the list</span></div>' : '';
-    $('planGrid').innerHTML = DAYS.map(function (d, di) {
-      var list = window.Store.day(d[0]).filter(function (e) { return BY_ID[e.id]; });
+      (past ? '<div><b>' + favs + ' ★</b><span>favourites</span></div><div><b>History</b><span>what was planned</span></div>'
+        : '<div><b>' + (cost < 0.5 ? '$0' : '~' + pwMoney(cost)) + '</b><span>to buy</span></div>' +
+          '<div><b>' + nList + '</b><span>on the list</span></div>') : '';
+    $('planGrid').innerHTML = CAL_DAYS.map(function (d) {
+      var key = d[0], dt = calDate(key), gone = calPastDay(key), now = calIsToday(key);
+      var list = window.Store.day(key).filter(function (e) { return BY_ID[e.id]; });
       var items = list.map(function (e) {
-        var r = BY_ID[e.id], rt = window.Store.rating(r.id);
-        return '<div class="day-item' + (e.lo ? ' lo' : '') + '">' +
+        var r = BY_ID[e.id], rt = window.Store.rating(r.id), din = pwIsDinner(r);
+        return '<div class="day-item' + (e.lo ? ' lo' : '') + (din ? '' : ' mini') + '" style="--pc:' + (din ? PROT_VAR[pwProt(r)] : 'transparent') + '">' +
           '<button class="day-item-name" data-open="' + esc(String(e.id)) + '">' + esc(r.name) +
-            (e.lo ? ' <span class="day-tag">leftovers</span>' : '') + '</button>' +
-          '<span class="day-ctl no-print">' +
-          (pwIsDinner(r) && !e.lo ? '<button class="day-sw" data-pswap="' + esc(String(e.id)) + '" data-day="' + d[0] + '" ' +
-            'aria-label="Swap ' + esc(r.name) + ' for another dinner">↻</button>' : '') +
-          '<button class="day-x2" data-mult="' + esc(String(e.id)) + '" data-day="' + d[0] + '" ' +
-            'title="How many times the recipe — the shopping list follows">' +
-            '&times;' + fmtNum(e.x) + '</button>' +
-          '<button class="day-x" data-drop="' + esc(String(e.id)) + '" data-day="' + d[0] + '" ' +
-            'aria-label="Remove ' + esc(r.name) + '">&times;</button></span>' +
+            (e.lo ? ' <span class="day-tag">leftovers</span>' : '') +
+            (din && !e.lo ? '<small>' + esc(r.time || '') + '</small>' : '') + '</button>' +
+          (gone ? '' : '<span class="day-ctl no-print">' +
+            (din && !e.lo ? '<button class="day-sw" data-pswap="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
+              'aria-label="Swap ' + esc(r.name) + ' for another dinner">↻</button>' : '') +
+            '<button class="day-x2" data-mult="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
+              'title="How many times the recipe — the shopping list follows">' + '&times;' + fmtNum(e.x) + '</button>' +
+            '<button class="day-x" data-drop="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
+              'aria-label="Remove ' + esc(r.name) + '">&times;</button></span>') +
           /* Rated once it has been eaten: today and the days before it. */
-          (di <= ti && !e.lo ? '<div class="day-rate no-print" role="group" aria-label="How was it?">' + RATE_BTN.map(function (b) {
-            return '<button data-prate="' + esc(String(e.id)) + '" data-v="' + b[0] + '" aria-pressed="' + (rt === b[0]) + '" aria-label="' + b[2] + '">' + b[1] + '</button>';
-          }).join('') + '</div>' : '') +
+          ((gone || now) && !e.lo ? rateHTML(e.id, rt) : '') +
         '</div>';
       }).join('');
-      return '<div class="day' + (di === ti ? ' today' : '') + '">' +
-        '<div class="day-name"><span>' + d[1] + (di === ti ? ' · today' : '') + '</span>' +
-          '<button class="day-add no-print" data-addday="' + d[0] + '" aria-label="Add to ' + d[1] + '">+ Add</button></div>' +
+      return '<div class="day cal-day' + (now ? ' today' : '') + (gone ? ' past' : '') + '">' +
+        '<div class="cal-date" aria-label="' + d[1] + (dt ? ' ' + dt.getDate() : '') + '"><small>' + d[2].toUpperCase() + '</small><b>' + (dt ? dt.getDate() : '') + '</b></div>' +
         '<div class="day-body">' + items +
-          (list.length ? '' : '<div class="day-empty">&mdash;</div>') +
+          (gone ? (list.length ? '' : '<div class="day-empty">Nothing planned</div>')
+            : '<button class="day-add no-print" data-addday="' + key + '" aria-label="Add to ' + d[1] + '">+ Add' + (list.length ? '' : ' dinner') + '</button>') +
         '</div></div>';
     }).join('');
+    if ($('calActs')) $('calActs').innerHTML =
+      '<button class="nut-ask" data-calagain="1" aria-expanded="' + !!S.calAgain + '">Cook this again…</button>' +
+      (ents.length ? '<button class="nut-ask" data-caltpl="1">Save as a template</button>' : '') +
+      (past ? '' : '<button class="nut-ask" id="clearPlan">Clear week</button>');
+    if ($('calAgain')) $('calAgain').innerHTML = S.calAgain ? calAgainHTML() : '';
   }
+  /* Cook this again: a template or a week gone by, onto this one. */
+  function calAgainHTML() {
+    var src = window.Store.sources();
+    return '<div class="cal-again"><b>Cook this again</b><p>Put a past week or a saved template on this week. Only empty days are filled.</p>' +
+      (src.length ? src.slice(0, 12).map(function (w) {
+        var nm = w.tpl ? w.name : (function () {
+          var e = new Date(w.start); e.setDate(e.getDate() + 6);
+          var f = function (d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+          return f(w.start) + ' – ' + f(e);
+        })();
+        return '<div class="cal-src"><span>' + esc(nm) + '<small>' + (w.tpl ? 'template' : 'week') + ' · ' + w.n + (w.n === 1 ? ' meal' : ' meals') + '</small></span>' +
+          '<button class="ghost" data-calfrom="' + esc(w.id) + '">Use</button></div>';
+      }).join('') : '<p>Nothing to copy yet. Weeks you plan will show up here.</p>') + '</div>';
+  }
+  /* A month at a glance: each day's dinner as a bar in its protein's
+     colour and its name, so a run of the same one stands out. */
+  function calMonthHTML() {
+    var mf = S.calMonth || calMidnight(window.Store.activeWeek().start || new Date());
+    var first = new Date(mf.getFullYear(), mf.getMonth(), 1), start = new Date(first);
+    start.setDate(1 - first.getDay());
+    var days = new Date(mf.getFullYear(), mf.getMonth() + 1, 0).getDate();
+    var cells = Math.ceil((first.getDay() + days) / 7) * 7, today = calMidnight(new Date()), wk = window.Store.activeWeek().id;
+    var out = '<div class="cal-dow">' + CAL_DAYS.map(function (d) { return '<span>' + d[2].charAt(0) + '</span>'; }).join('') + '</div><div class="cal-grid">';
+    for (var i = 0; i < cells; i++) {
+      var d = new Date(start); d.setDate(start.getDate() + i); d = calMidnight(d);
+      var wid = window.Store.weekIdOf(d), key = CAL_DAYS[d.getDay()][0];
+      var ents = window.Store.dayOf(wid, key).filter(function (e) { return BY_ID[e.id]; });
+      var din = ents.filter(function (e) { return pwIsDinner(BY_ID[e.id]); })[0] || ents[0];
+      var r = din && BY_ID[din.id];
+      out += '<button class="cal-cell' + (d.getMonth() !== mf.getMonth() ? ' out' : '') + (d.getTime() === today.getTime() ? ' now' : '') +
+        (d < today ? ' gone' : '') + (wid === wk ? ' wk' : '') + '" data-calweek="' + wid + '" aria-label="' +
+        esc(d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + (r ? ': ' + r.name : '')) + '">' +
+        '<b>' + d.getDate() + '</b>' +
+        (r ? '<i style="background:' + (pwIsDinner(r) ? PROT_VAR[pwProt(r)] : 'var(--line-firm)') + '"></i><em>' + esc(din.lo ? 'Leftovers' : r.name) + '</em>' : '') +
+        '</button>';
+    }
+    return out + '</div><div class="cal-legend">' + Object.keys(PROT_VAR).map(function (k) {
+      return '<span><i style="background:' + PROT_VAR[k] + '"></i>' + k + '</span>';
+    }).join('') + '</div>';
+  }
+  function calMove(dir) {
+    if (S.calMode === 'm') {
+      var m = S.calMonth || calMidnight(window.Store.activeWeek().start || new Date());
+      S.calMonth = new Date(m.getFullYear(), m.getMonth() + dir, 1);
+      renderPlan();
+      return;
+    }
+    var st = window.Store.activeWeek().start || new Date();
+    var d = new Date(st); d.setDate(d.getDate() + 7 * dir);
+    S.calAgain = false;
+    window.Store.setWeek(window.Store.weekIdOf(d));
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest || S.view !== 'plan') return;
+    var t = e.target;
+    if (t.closest('#calPrev')) { calMove(-1); return; }
+    if (t.closest('#calNext')) { calMove(1); return; }
+    if (t.closest('#calToday')) { S.calMonth = null; S.calAgain = false; window.Store.setWeek(window.Store.thisWeek()); renderPlan(); return; }
+    var md = t.closest('[data-cal]');
+    if (md) {
+      S.calMode = md.dataset.cal;
+      if (S.calMode === 'm') S.calMonth = calMidnight(window.Store.activeWeek().start || new Date());
+      renderPlan();
+      return;
+    }
+    var cw = t.closest('[data-calweek]');
+    if (cw) { S.calMode = 'w'; window.Store.setWeek(cw.dataset.calweek); renderPlan(); return; }
+    if (t.closest('[data-calagain]')) { S.calAgain = !S.calAgain; renderPlan(); return; }
+    var cf = t.closest('[data-calfrom]');
+    if (cf) { window.Store.cookAgain(cf.dataset.calfrom); S.calAgain = false; return; }
+    if (t.closest('[data-caltpl]')) {
+      ask({ title: 'Save this week as…', value: 'Week of ' + window.Store.activeWeek().name, ok: 'Save' }, function (name) {
+        if (name && name.trim()) window.Store.saveTemplate(name.trim());
+      });
+    }
+  });
+  /* A swipe across the week moves a week (or a month). */
+  (function () {
+    var x0 = null, y0 = null;
+    document.addEventListener('touchstart', function (e) {
+      if (S.view !== 'plan' || !e.target.closest || !e.target.closest('#planGrid')) { x0 = null; return; }
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (x0 === null) return;
+      var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) calMove(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  })();
 
   /* One night swapped, by the same rules Plan my week picks with: the rest
      of the week stays, the answers are the ones last given. */
@@ -1219,7 +1351,7 @@
       return R.filter(function (r) { return seen[String(r.id)]; });
     }
     if (f === 'left') {
-      var before = DAYS.map(function (d) { return d[0]; }).slice(0, PW_DAYS.indexOf(day)), ids = {};
+      var before = PW_DAYS.slice(0, PW_DAYS.indexOf(day)), ids = {};
       before.forEach(function (d) { window.Store.day(d).forEach(function (e) { if (!e.lo) ids[e.id] = 1; }); });
       return R.filter(function (r) { return ids[r.id]; });
     }
@@ -1351,7 +1483,7 @@
     return (PW_KIND.filter(function (k) { return k[1] === at; })[0] || [''])[0];
   }
   var PW_WEEKEND = ['sat', 'sun'];
-  var PW_DAYS = DAYS.map(function (d) { return d[0]; });
+  var PW_DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];   // the calendar's order
   function pwAnswers() {
     var a = null;
     try { a = JSON.parse(localStorage.getItem(PW_KEY)); } catch (e) { a = null; }
@@ -1360,7 +1492,7 @@
     /* Answers saved before the nights were days said how many; that many
        from Monday is what they meant. */
     var days = Array.isArray(a.days) ? list(a.days, function (d) { return PW_DAYS.indexOf(d) >= 0; })
-      : PW_DAYS.slice(0, [3, 4, 5, 7].indexOf(a.n) >= 0 ? a.n : 5);
+      : ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].slice(0, [3, 4, 5, 7].indexOf(a.n) >= 0 ? a.n : 5);
     return {
       days: days,
       ppl: [2, 3, 4, 6, 8].indexOf(a.ppl) >= 0 ? a.ppl : 4,
@@ -1511,7 +1643,7 @@
   /* The nights asked for that have no dinner yet, Monday first. */
   function pwNights(days) {
     return PW_DAYS.filter(function (d) {
-      return (!days || days.indexOf(d) >= 0) &&
+      return (!days || days.indexOf(d) >= 0) && !calPastDay(d) &&
         !window.Store.day(d).some(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); });
     });
   }
@@ -1601,7 +1733,7 @@
     var low = cnt.n < cnt.need * 2, none = cnt.n < cnt.need || !cnt.need;
     return '<h2 class="pw-h">What kind of week?</h2>' + dots +
       '<div class="pw-q"><div class="pw-ql">Which nights</div>' +
-        pwChips('days', DAYS.map(function (d) { return [d[0], d[2]]; }), a.days, 'pw-dayc') + '</div>' +
+        pwChips('days', CAL_DAYS.map(function (d) { return [d[0], d[2]]; }), a.days, 'pw-dayc') + '</div>' +
       '<div class="pw-q"><div class="pw-ql">How many are eating?</div>' + pwChips('ppl', [[2, '2'], [3, '3'], [4, '4'], [6, '6'], [8, '8+']], a.ppl) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Spend no more than</div><div class="pw-money">' +
         '<input type="range" id="pwBud" min="20" max="150" step="5" value="' + a.bud + '" aria-label="Budget in dollars">' +
@@ -9453,7 +9585,9 @@
   function mFamilyIds(k) {
     var wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][keyDate(k).getDay()];
     var ids = [];
-    window.Store.day(wd).forEach(function (e) {
+    /* The week that day belongs to, now that weeks have dates — not whichever
+       week the Plan tab happens to be showing. */
+    window.Store.dayOf(window.Store.weekIdOf(keyDate(k)), wd).forEach(function (e) {
       if (BY_ID[e.id] && ids.indexOf(e.id) < 0) ids.push(e.id);
     });
     return ids;
@@ -16217,6 +16351,7 @@
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid',
     'data-src', 'data-where', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
+    'data-cal', 'data-calweek', 'data-calagain', 'data-calfrom', 'data-caltpl',
     'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
@@ -17348,6 +17483,12 @@
        through all four of its steps. */
     var lit = S.view === 'book' ? 'browse' : PLAN_STEPS.some(function (p) { return p[0] === S.view; }) ? 'plan' : S.view;
     renderSteps();
+    /* Anywhere but Plan, "the week" is this week: a recipe added from
+       Recipes, or the list, must not land in a week you had scrolled back to. */
+    if (S.view !== 'plan' && S.view !== 'list' && window.Store.activeWeek().id !== window.Store.thisWeek()) {
+      window.Store.setWeek(window.Store.thisWeek());
+      return;
+    }
     if (S.view === 'where') renderWhere();
     document.querySelectorAll('.tab').forEach(function (b) {
       b.setAttribute('aria-selected', String(b.dataset.view === lit));
@@ -18330,34 +18471,8 @@
       if (S.view === 'macros' && (!S.macroDate || followed)) renderMacros();
     });
 
-    $('weekBar').addEventListener('click', function (e) {
-      var w = e.target.closest('[data-week]');
-      if (w) { window.Store.setWeek(w.dataset.week); return; }
-      var n = e.target.closest('[data-neww]');
-      if (!n) return;
-      var copy = n.dataset.neww === 'copy';
-      var name = copy
-        ? window.Store.activeWeek().name + ' again'
-        : 'Week ' + (window.Store.weeks().length + 1);
-      window.Store.addWeek(name, copy);
-    });
-
-    $('renameWeek').addEventListener('click', function () {
-      var now = window.Store.activeWeek().name;
-      ask({ title: 'Call this week what?', value: now, ok: 'Rename' }, function (name) {
-        if (name && name.trim() && name.trim() !== now) window.Store.renameWeek(name);
-      });
-    });
-
-    $('deleteWeek').addEventListener('click', function () {
-      ask({
-        title: 'Delete “' + window.Store.activeWeek().name + '”?',
-        body: 'The week and its shopping list go, on both phones. The recipes themselves are untouched.',
-        ok: 'Delete the week', danger: true
-      }, function (yes) { if (yes) window.Store.deleteWeek(); });
-    });
-
-    $('clearPlan').addEventListener('click', function () {
+    document.addEventListener('click', function (ev) {
+      if (!ev.target.closest || !ev.target.closest('#clearPlan')) return;
       if (!planIds().length) { window.Store.clearPlan(); return; }
       ask({
         title: 'Clear every recipe from this week?',

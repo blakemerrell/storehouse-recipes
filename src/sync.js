@@ -352,6 +352,27 @@ window.Store = (function () {
     });
   }
 
+  /* ---- dated weeks -------------------------------------------------------
+     A week is the seven days from a Sunday, and its id says which Sunday:
+     d20260927. Blake: "a calendar type view... move forward or backward to
+     see my history or my planning." Which week is on screen is this phone's
+     own business (`view`), not the household's — scrolling to next week on
+     one phone no longer moves the other. Undated weeks from before are either
+     moved onto this week (the one that was "This Week") or kept as templates. */
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function weekIdOf(date) {
+    var d = new Date(date); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - d.getDay());
+    return 'd' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate());
+  }
+  function weekStart(id) {
+    var m = /^d(\d{4})(\d{2})(\d{2})$/.exec(id || '');
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12) : null;
+  }
+  function isDated(id) { return !!weekStart(id); }
+  var view = '';                       // the week on this phone's screen; '' is this week
+  function viewing() { return view || weekIdOf(new Date()); }
+  var legacyActive = '';               // the shared "active" week an older version left
+
   function nextOrd() {
     return Object.keys(state.weeks).reduce(function (n, k) {
       return Math.max(n, (state.weeks[k].ord || 0) + 1);
@@ -359,6 +380,47 @@ window.Store = (function () {
   }
 
   function wpath(suffix) { return 'weeks.' + state.active + (suffix ? '.' + suffix : ''); }
+
+  /* The old named weeks, once: the one that was "This Week" (or the one that
+     was showing) becomes this Sunday's week unless this week already has a
+     plan, and every other one becomes a template. Written as one update — the
+     rules let a write drop one week at most, and this drops exactly the one
+     it moved. Returns the update for the household, or null if nothing to do. */
+  function migrateWeeks() {
+    var und = Object.keys(state.weeks).filter(function (k) { return !isDated(k) && !state.weeks[k].tpl; });
+    if (!und.length) return null;
+    var cur = weekIdOf(new Date()), weeks = Object.assign({}, state.weeks), u = {};
+    var named = und.filter(function (k) { return /^this week$/i.test(weeks[k].name); })[0];
+    var pick = named || (und.indexOf(legacyActive) >= 0 ? legacyActive : und[0]);
+    var curPlan = obj(weeks[cur] && weeks[cur].plan);
+    var curEmpty = !Object.keys(curPlan).some(function (d) { return Array.isArray(curPlan[d]) && curPlan[d].length; });
+    if (curEmpty) {
+      weeks[cur] = { name: '', ord: 0, plan: obj(weeks[pick].plan), checked: obj(weeks[pick].checked) };
+      delete weeks[pick];
+      u['weeks.' + cur] = weeks[cur];
+      u['weeks.' + pick] = 'DELETE';
+    } else pick = null;
+    und.forEach(function (k) {
+      if (k === pick) return;
+      weeks[k] = Object.assign({}, weeks[k], { tpl: 1 });
+      u['weeks.' + k + '.tpl'] = 1;
+    });
+    state.weeks = weeks;
+    return u;
+  }
+  /* A dated week more than six months gone, one a time: the household keeps
+     half a year of history and never runs up against the rules' ceiling. */
+  function staleWeek() {
+    var cut = new Date(); cut.setDate(cut.getDate() - 182);
+    var old = Object.keys(state.weeks).filter(function (k) { var d = weekStart(k); return d && d < cut; }).sort();
+    return old[0] || null;
+  }
+  function sendUpdate(u) {
+    if (!doc || !u || !Object.keys(u).length) return;
+    var out = {};
+    Object.keys(u).forEach(function (k) { out[k] = u[k] === 'DELETE' ? FV.delete() : u[k]; });
+    doc.update(out).catch(function () {});
+  }
 
   /* Take a document — from the network or from localStorage — and make it the
      state. Returns true if it held no weeks and one had to be made, which is
@@ -372,13 +434,15 @@ window.Store = (function () {
         ord: typeof w.ord === 'number' ? w.ord : 0,
         plan: cleanPlan(w.plan), checked: obj(w.checked)
       };
+      if (w.tpl === 1) weeks[k].tpl = 1;
     });
     if (!Object.keys(weeks).length) {
       weeks[FIRST] = { name: 'This Week', ord: 0, plan: cleanPlan(d.plan), checked: obj(d.checked) };
       made = true;
     }
     state.weeks = weeks;
-    state.active = d.active && weeks[d.active] ? d.active : ids()[0];
+    if (d.active && weeks[d.active] && !isDated(d.active)) legacyActive = d.active;
+    state.active = viewing();
     /* Recipes arrive from the shared document, which means they arrive from
        somebody else's phone — an older version of the app, a half-finished
        write, a field that lost its type on the way. One record without a
@@ -763,7 +827,11 @@ window.Store = (function () {
         keepRemoved(d);
         state.favs = Array.isArray(d.favs) ? d.favs.slice() : [];
         var made = adopt(d);
+        var mig = migrateWeeks();
+        if (!mig) { var st = staleWeek(); if (st) { var w0 = Object.assign({}, state.weeks); delete w0[st]; state.weeks = w0; mig = {}; mig['weeks.' + st] = 'DELETE'; } }
+        derive();
         saveLocal();
+        if (mig) sendUpdate(mig);
         /* Firestore answers a new listener out of its own cache first and the
            server a moment later, so a cache-only snapshot means "not yet" on
            the first one and "lost signal" on the hundredth. everLive is what
@@ -889,7 +957,7 @@ window.Store = (function () {
   // a shallow copy of the active week, safe to mutate and assign back
   function editActive(fn) {
     var weeks = Object.assign({}, state.weeks);
-    var w = Object.assign({}, weeks[state.active]);
+    var w = Object.assign({ name: '', ord: 0, plan: {}, checked: {} }, weeks[state.active]);
     fn(w);
     weeks[state.active] = w;
     state.weeks = weeks;
@@ -1204,6 +1272,8 @@ window.Store = (function () {
         plan: read(LS.plan, {}),        // whatever the one-week version left behind
         checked: read(LS.checked, {})
       });
+      migrateWeeks();
+      derive();
       saveLocal();
       house = read(LS.house, '') || '';
       houseMine = read(LS.houseNew, null) === '1';
@@ -1269,15 +1339,75 @@ window.Store = (function () {
       });
     },
 
+    /* The week on screen: its id, when it starts, and what to call it. */
     activeWeek: function () {
-      var w = state.weeks[state.active];
-      return { id: state.active, name: (w && w.name) || 'This Week' };
+      var w = state.weeks[state.active], st = weekStart(state.active);
+      if (!st) return { id: state.active, name: (w && w.name) || 'This Week', start: null };
+      var end = new Date(st); end.setDate(end.getDate() + 6);
+      var f = function (d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+      return { id: state.active, name: f(st) + ' \u2013 ' + f(end), start: st };
+    },
+    weekIdOf: weekIdOf,
+    weekStart: weekStart,
+    thisWeek: function () { return weekIdOf(new Date()); },
+
+    /* Show another week on this phone. Nothing is written: a week exists in
+       the household only once something is planned in it. */
+    setWeek: function (id) {
+      if (!id || id === state.active) return;
+      view = id === weekIdOf(new Date()) ? '' : id;
+      state.active = viewing();
+      derive();
+      emit();
     },
 
-    setWeek: function (id) {
-      if (!state.weeks[id] || id === state.active) return;
-      push(function () { return doc.update({ active: id }); },
-        function () { state.active = id; });
+    /* Any week's day, not only the one on screen: Nourish reads the day it
+       is showing from the week that day belongs to. */
+    dayOf: function (weekId, day) {
+      var w = state.weeks[weekId], list = (w && w.plan && w.plan[day]) || [];
+      return list.map(function (e) {
+        return typeof e === 'object' && e ? { id: e.i, x: e.x || 1, lo: e.lo === 1 } : { id: e, x: 1, lo: false };
+      }).filter(function (e) { return e.id !== undefined && e.id !== null && e.id !== ''; });
+    },
+
+    /* The weeks you can cook again: saved templates, and dated weeks that
+       had anything in them, newest first. */
+    sources: function () {
+      var count = function (w) {
+        var n = 0, p = obj(w.plan);
+        Object.keys(p).forEach(function (d) { n += (p[d] || []).length; });
+        return n;
+      };
+      return Object.keys(state.weeks).filter(function (k) { return k !== state.active && count(state.weeks[k]); })
+        .map(function (k) { var w = state.weeks[k]; return { id: k, name: w.name, tpl: !!w.tpl, start: weekStart(k), n: count(w) }; })
+        .sort(function (a, b) { return (a.tpl - b.tpl) || ((b.start || 0) - (a.start || 0)); });
+    },
+
+    /* Put another week's meals on this one, day for day, filling only the
+       days that are empty here. */
+    cookAgain: function (fromId) {
+      var from = state.weeks[fromId];
+      if (!from) return;
+      var self = this;
+      batch(function () {
+        Object.keys(obj(from.plan)).forEach(function (d) {
+          if (self.day(d).length) return;
+          var list = self.dayOf(fromId, d);
+          if (list.length) writeDay(d, list);
+        });
+      });
+    },
+
+    /* The week on screen, kept under a name to cook again another time. */
+    saveTemplate: function (name) {
+      var id = newId(), n = String(name || '').trim() || 'Saved week';
+      var w = { name: n, ord: nextOrd(), plan: JSON.parse(JSON.stringify(state.plan)), checked: {}, tpl: 1 };
+      push(function () {
+        var u = {}; u['weeks.' + id] = w; return doc.update(u);
+      }, function () {
+        var weeks = Object.assign({}, state.weeks); weeks[id] = w; state.weeks = weeks;
+      });
+      return id;
     },
 
     /* A new empty week, or a copy of the one showing. Copying takes the plan

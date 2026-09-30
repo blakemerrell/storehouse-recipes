@@ -8,6 +8,11 @@ module.exports = {
   name: 'Plan page',
   async run(t) {
     const p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    /* A Sunday morning: every day of the week is still ahead, so a plan
+       written in this test is never a plan for a day already gone. */
+    await p.clock.setFixedTime(new Date(2026, 8, 27, 9, 0, 0));
+    await p.reload();
+    await p.waitForTimeout(900);
     const errs = [];
     p.on('pageerror', (e) => errs.push(e.message));
     const ids = await p.evaluate(() => {
@@ -102,7 +107,15 @@ module.exports = {
     t.ok('↻ swaps that dinner for another on the same night and leaves the rest',
       wk[2].length === 1 && wk[2][0] !== wedWas[0] && wk[0][0] === ids[0] && wk[1][0] === ids[1], JSON.stringify({ wedWas, wk }));
 
-    /* Ratings: Monday has been eaten by any Tuesday or later. */
+    /* Ratings: today's dinner (the clock is a Sunday) can be rated; a day
+       still ahead cannot. */
+    const rateId = await p.evaluate(() => {
+      const r = window.RECIPES.filter((x) => x.book === 2 && x.secNum === 3)[5];
+      window.Store.addToDay(r.id, 'sun', 1);
+      return r.id;
+    });
+    await p.waitForTimeout(250);
+    const ahead = await p.evaluate((id) => !!document.querySelector('[data-prate="' + id + '"]'), ids[0]);
     const rated = await p.evaluate(async (id) => {
       const b = document.querySelector('[data-prate="' + id + '"][data-v="-1"]');
       if (!b) return 'no buttons';
@@ -115,11 +128,9 @@ module.exports = {
       await new Promise((r) => setTimeout(r, 250));
       out.cleared = window.Store.rating(id);
       return out;
-    }, ids[0]);
-    const today = await p.evaluate(() => (new Date().getDay() + 6) % 7);
-    t.ok('👎 on an eaten dinner keeps it out of the picks, and tapping it again takes it back',
-      today === 0 ? rated === 'no buttons' || rated.r === -1 : rated.r === -1 && rated.inPool === false && rated.cleared === 0,
-      JSON.stringify({ today, rated }));
+    }, rateId);
+    t.ok('👎 on today\u2019s dinner keeps it out of the picks, tapping it again takes it back, and a day ahead has nothing to rate',
+      rated.r === -1 && rated.inPool === false && rated.cleared === 0 && !ahead, JSON.stringify({ rated, ahead }));
     t.ok('with no error on the page', errs.length === 0, errs.join(' | '));
     await p.context().close();
   },

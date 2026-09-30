@@ -112,15 +112,21 @@ const SDK = `(function(){
 
 const CODE = 'KETTLE-1234-WILLOW';
 const HP = 'households/' + CODE;
+/* This week's id. Weeks have dates now (a Sunday, d20260927), and a household
+   still holding the old undated "This Week" has it moved onto this week the
+   first time a phone sees it — so the stand-in household starts as one that
+   already has. */
+const WK = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - d.getDay());
+  return 'd' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0'); })();
 
 function seedHouse(extra) {
   return Object.assign({
     favs: [3, 'u1'],
     weeks: {
-      w1: { name: 'This Week', ord: 0, plan: { mon: [12, 'u1'], wed: ['u1', 40], thu: [30] }, checked: {} },
+      [WK]: { name: '', ord: 0, plan: { mon: [12, 'u1'], wed: ['u1', 40], thu: [30] }, checked: {} },
       w2: { name: 'Next', ord: 1, plan: { tue: ['u1'] }, checked: {} }
     },
-    active: 'w1',
+    active: WK,
     mine: {
       u1: { id: 'u1', book: 3, secNum: 1, secName: 'Ours', name: 'Lentil soup', ing: ['lentils'], steps: ['boil'] },
       u2: { id: 'u2', book: 3, secNum: 1, secName: 'Ours', name: 'Grandma’s bread', ing: ['flour'], steps: ['bake'] },
@@ -180,25 +186,25 @@ module.exports = {
     await A.p.waitForTimeout(150);
     let w = writesFrom(n);
     t.ok('a dinner added to a day goes up as that one dinner, not the whole day',
-      w.length === 1 && w[0].op === 'update' && same(w[0].data['weeks.w1.plan.thu'], { __fv: 'union', v: [15] }),
+      w.length === 1 && w[0].op === 'update' && same(w[0].data['weeks.' + WK + '.plan.thu'], { __fv: 'union', v: [15] }),
       JSON.stringify(w));
     // the other phone adds Thursday's second dinner in between
-    SRV.db[HP].weeks.w1.plan.thu.push(21);
+    SRV.db[HP].weeks[WK].plan.thu.push(21);
     await poke(A.p);
     n = since();
     await A.p.evaluate(() => window.Store.removeFromDay(30, 'thu'));
     await A.p.waitForTimeout(150);
     w = writesFrom(n);
     t.ok('and one taken off goes up as that one taken off',
-      w.length === 1 && same(w[0].data['weeks.w1.plan.thu'], { __fv: 'remove', v: [30] }), JSON.stringify(w));
+      w.length === 1 && same(w[0].data['weeks.' + WK + '.plan.thu'], { __fv: 'remove', v: [30] }), JSON.stringify(w));
     t.ok('so the other phone’s dinner, added meanwhile, is still there',
-      same(SRV.db[HP].weeks.w1.plan.thu, [15, 21]), JSON.stringify(SRV.db[HP].weeks.w1.plan.thu));
+      same(SRV.db[HP].weeks[WK].plan.thu, [15, 21]), JSON.stringify(SRV.db[HP].weeks[WK].plan.thu));
     n = since();
     await A.p.evaluate(() => window.Store.addToDay(15, 'thu', 2));
     await A.p.waitForTimeout(150);
     w = writesFrom(n);
     t.ok('a serving count changed is the one change still sent as the whole day',
-      w.length === 1 && Array.isArray(w[0].data['weeks.w1.plan.thu']), JSON.stringify(w));
+      w.length === 1 && Array.isArray(w[0].data['weeks.' + WK + '.plan.thu']), JSON.stringify(w));
 
     // ---- a queued change goes to the week it was made in ----------------
     await A.ctx.close();
@@ -215,25 +221,25 @@ module.exports = {
     await Q.p.waitForTimeout(200);
     const tick = writesFrom(n).find((x) => x.op === 'update' && Object.keys(x.data).some((k) => /checked\.milk$/.test(k)));
     t.ok('a tick made before the household answered lands in the week it was made in',
-      !!tick && Object.keys(tick.data)[0] === 'weeks.w1.checked.milk', JSON.stringify(writesFrom(n)).slice(0, 400));
+      !!tick && Object.keys(tick.data)[0] === 'weeks.' + WK + '.checked.milk', JSON.stringify(writesFrom(n)).slice(0, 400));
     await Q.ctx.close();
 
     // ---- deleting a recipe takes it off its days, and only those --------
     SRV.db[HP] = seedHouse();
     const D = await phone({ house: CODE });
-    SRV.db[HP].weeks.w1.plan.thu.push(31);        // the other phone, a moment ago
+    SRV.db[HP].weeks[WK].plan.thu.push(31);        // the other phone, a moment ago
     n = since();
     await D.p.evaluate(() => window.Store.deleteRecipe('u1'));
     await D.p.waitForTimeout(250);
     w = writesFrom(n);
     const keys = w.map((x) => Object.keys(x.data)).reduce((a, b) => a.concat(b), []);
     t.ok('deleting your recipe sends the recipe gone, then each day it was on',
-      keys.indexOf('mine.u1') >= 0 && keys.indexOf('weeks.w1.plan.mon') >= 0 && keys.indexOf('weeks.w1.plan.wed') >= 0 &&
+      keys.indexOf('mine.u1') >= 0 && keys.indexOf('weeks.' + WK + '.plan.mon') >= 0 && keys.indexOf('weeks.' + WK + '.plan.wed') >= 0 &&
       keys.indexOf('weeks.w2.plan.tue') >= 0 && keys.indexOf('favs') >= 0, JSON.stringify(keys));
-    t.ok('and never the whole of every week', keys.indexOf('weeks') < 0 && keys.indexOf('weeks.w1.plan.thu') < 0, JSON.stringify(keys));
+    t.ok('and never the whole of every week', keys.indexOf('weeks') < 0 && keys.indexOf('weeks.' + WK + '.plan.thu') < 0, JSON.stringify(keys));
     const after = SRV.db[HP];
     t.ok('so it is off every day, and the other phone’s Thursday dinner stays',
-      !JSON.stringify(after.weeks).includes('"u1"') && same(after.weeks.w1.plan.thu, [30, 31]) && after.favs.indexOf('u1') < 0,
+      !JSON.stringify(after.weeks).includes('"u1"') && same(after.weeks[WK].plan.thu, [30, 31]) && after.favs.indexOf('u1') < 0,
       JSON.stringify(after.weeks) + JSON.stringify(after.favs));
     t.ok('a day it leaves empty is empty, not still holding it', same(after.weeks.w2.plan.tue, []),
       JSON.stringify(after.weeks.w2.plan));

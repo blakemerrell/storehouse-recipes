@@ -11531,7 +11531,8 @@ module.exports = {
     /* The week belongs to the house. Reading it must not edit it. */
     t.ok('and the family\u2019s week is not touched by any of it',
       (() => { const w2 = JSON.parse(famDay.weekUntouched || '{}');
-        const pl = ((w2.w1 || {}).plan || {})[famPick.weekday] || [];
+        const wk = Object.keys(w2).filter((k) => /^d\d{8}$/.test(k))[0];     // weeks have dates
+        const pl = ((w2[wk] || {}).plan || {})[famPick.weekday] || [];
         return pl.length === 1 && (pl[0].i || pl[0]) === famPick.id; })(),
       famDay.weekUntouched);
 
