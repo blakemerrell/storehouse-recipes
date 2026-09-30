@@ -6283,3 +6283,153 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .setup-card { display: flex; flex-direction: column; gap: 6px; background: var(--card); border: 1.5px solid var(--ochre); border-radius: 10px; padding: 12px 14px; margin: 0 0 12px; }
 .setup-card span { font-size: 13.5px; color: var(--muted); }
 .wm-away { display: block; margin-top: 4px; }
+
+/* ======================================================================
+   THE PARTS. One look per job, approved by Blake 2026-09-30 from the
+   before-and-after sheet: primary, secondary, quiet link, icon button,
+   choice chip, food pill, option card, segmented control, switch, tag.
+
+   Compact, never bigger: what you see is drawn smaller inside a 44px box
+   (a ::after shape behind the label), so rows sit closer and a thumb still
+   has 44px to hit. Each old class is listed here rather than renamed, so the
+   markup and the tests that find it by class stay as they are.
+
+   :not(#u#u) lifts every rule over the per-sheet overrides (Nourish's
+   #modalRoot.m-sheets ones), so a part looks the same in every sheet.
+   Strengthen (tr-*) is left to the session that keeps it.
+   ====================================================================== */
+
+/* -- primary: one solid main action --------------------------------- */
+:is(.btn-primary, .pw-go):not(#u#u) {
+  min-height: 44px; height: auto; padding: 0 18px; padding-block: 0; border: 0; border-radius: 8px;
+  background: var(--ink); color: var(--paper); font: inherit; font-size: 15px; font-weight: 650;
+}
+:is(.btn-primary, .pw-go):not(#u#u):disabled { opacity: 0.4; }
+.wm-btn:not(#u#u) { min-height: 44px; }
+/* Nourish's "+ Add food" is the one big button on its bar, on purpose. */
+.mday-add:not(#u#u) { min-height: 48px; }
+
+/* -- the shared compact shape ---------------------------------------- */
+:is(.ghost, .pw-back, .copy-order, .favbtn, .day-add,
+    .hint-x, .day-x, .day-sw, .pw-swap, .iconbtn, .mday-icon, .pitem-x, .ad-plus, .sheet-x,
+    .pw-chip, .daybtn, .pk, .mp-shelf, .day-x2, .fp-chip):not(#u#u) {
+  position: relative; isolation: isolate; min-height: 44px;
+  border: 0; background: transparent; box-shadow: none; color: var(--ink); font: inherit;
+}
+:is(.ghost, .pw-back, .copy-order, .favbtn, .day-add,
+    .hint-x, .day-x, .day-sw, .pw-swap, .iconbtn, .mday-icon, .pitem-x, .ad-plus, .sheet-x,
+    .pw-chip, .daybtn, .pk, .mp-shelf, .day-x2, .fp-chip):not(#u#u)::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  z-index: -1; pointer-events: none; border: 1px solid var(--line-firm); background: var(--card);
+}
+
+/* -- secondary: outlined, a 36px shape ------------------------------- */
+:is(.ghost, .pw-back, .copy-order, .favbtn, .day-add):not(#u#u) {
+  padding: 0 14px; font-size: 14px; font-weight: 600; width: auto;
+}
+:is(.ghost, .pw-back, .copy-order, .favbtn, .day-add):not(#u#u)::after {
+  top: 4px; bottom: 4px; height: auto; transform: none;      /* 36px in a 44px button, and it grows with a taller one */
+  border-radius: 8px; border-width: 1.5px; background: transparent;
+}
+.copy-order:not(#u#u) { width: 100%; }
+
+/* -- quiet link: text only ------------------------------------------- */
+:is(.nut-ask, .kit-more, .ad-again, .sync-alt):not(#u#u),
+:is(.plan-about, .store-carries) > summary:not(#u#u) {
+  min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--ochre-text);
+  font: inherit; font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+
+/* -- icon button: a 32px square -------------------------------------- */
+:is(.hint-x, .day-x, .day-sw, .pw-swap, .iconbtn, .mday-icon, .pitem-x, .ad-plus, .sheet-x):not(#u#u) {
+  width: 44px; min-width: 44px; height: 44px; padding: 0; flex: none;
+  display: inline-grid; place-items: center; font-size: 16px; line-height: 1; opacity: 1;
+}
+:is(.hint-x, .day-x, .day-sw, .pw-swap, .iconbtn, .mday-icon, .pitem-x, .ad-plus, .sheet-x):not(#u#u)::after {
+  left: 6px; right: auto; width: 32px; height: 32px; border-radius: 8px;
+}
+.ad-plus:not(#u#u) { color: var(--paper); font-size: 18px; }
+.ad-plus:not(#u#u)::after { background: var(--ink); border-color: var(--ink); }
+.iconbtn[aria-pressed="true"]:not(#u#u) { color: var(--ochre-text); }
+.mp-cam:not(#u#u) { width: 44px; height: 44px; }
+
+/* -- choice chip: a 32px pill, ink when chosen ------------------------ */
+:is(.pw-chip, .daybtn, .pk, .mp-shelf, .day-x2):not(#u#u) {
+  padding: 0 12px; font-size: 13.5px; font-weight: 500; letter-spacing: 0; min-width: 44px; width: auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; line-height: 1.2;
+}
+:is(.pw-chip, .daybtn, .pk, .mp-shelf, .day-x2):not(#u#u)::after { top: 6px; bottom: 6px; height: auto; transform: none; border-radius: 99px; }
+/* The print picks sit in a bar with a height budget (print.test): 36px to
+   tap, a 28px pill to see — still more than the 33px they had. */
+.pk:not(#u#u) { min-height: 36px; }
+.pk:not(#u#u)::after { top: 4px; bottom: 4px; }
+.dl-live .ghost:not(#u#u) { min-height: 36px; display: inline-flex; align-items: center; }
+.dl-live .ghost:not(#u#u)::after { top: 2px; bottom: 2px; }
+:is(.pw-chip[aria-pressed="true"], .daybtn[aria-pressed="true"], .pk.on, .mp-shelf.on):not(#u#u) { color: var(--paper); font-weight: 600; }
+:is(.pw-chip[aria-pressed="true"], .daybtn[aria-pressed="true"], .pk.on, .mp-shelf.on):not(#u#u)::after { background: var(--ink); border-color: var(--ink); }
+.pw-chip.pw-x[aria-pressed="true"]:not(#u#u) { color: #fff; }
+.pw-chip.pw-x[aria-pressed="true"]:not(#u#u)::after { background: var(--dial-over); border-color: var(--dial-over); }
+
+/* -- food pill: green ✓ when you have it, dashed when the storehouse
+      does not carry it; the same pill as Nourish's favourites picker --- */
+:is(.kit-pill, .low-pill, .fp-chip):not(#u#u) {
+  padding: 0 12px; font-size: 13.5px; font-weight: 500; line-height: 1.2; display: inline-flex; align-items: center;
+}
+:is(.kit-pill, .low-pill, .fp-chip):not(#u#u)::after { top: 6px; bottom: 6px; height: auto; transform: none; border-radius: 99px; border-color: var(--line); }
+:is(.kit-pill, .low-pill, .fp-chip).ext:not(#u#u)::after { border-style: dashed; border-color: var(--line-firm); }
+:is(.kit-pill[aria-pressed="true"], .fp-chip.on):not(#u#u) { color: var(--green); font-weight: 600; }
+:is(.kit-pill[aria-pressed="true"], .fp-chip.on):not(#u#u)::after {
+  background: color-mix(in oklab, var(--green) 12%, var(--card)); border-color: var(--green);
+}
+.kit-pill[aria-pressed="true"]:not(#u#u)::before { content: "\2713\00a0"; }
+.low-pill[aria-pressed="true"]:not(#u#u) { color: var(--dial-over); font-weight: 600; }
+.low-pill[aria-pressed="true"]:not(#u#u)::after {
+  background: color-mix(in oklab, var(--dial-over) 12%, var(--card)); border-color: var(--dial-over);
+}
+
+/* -- option card: tighter -------------------------------------------- */
+.wh-opt:not(#u#u) { padding: 9px 12px; gap: 10px; border-radius: 10px; margin-bottom: 8px; }
+.wh-opt:not(#u#u) b { font-size: 14.5px; }
+.wh-opt:not(#u#u) span span { font-size: 12.5px; }
+.wh-opt:not(#u#u) .wh-dot { width: 18px; height: 18px; }
+.wh-opt[aria-pressed="true"]:not(#u#u) .wh-dot { border-width: 6px; }
+.bk-card:not(#u#u) { padding-block: 8px; }
+
+/* -- segmented control: a 32px track in a 44px row ------------------- */
+:is(.seg, .unitseg, .src-seg):not(#u#u) {
+  position: relative; isolation: isolate; border: 0; overflow: visible; border-radius: 99px; background: none;
+}
+:is(.seg, .unitseg, .src-seg):not(#u#u)::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 6px; bottom: 6px; z-index: -2;
+  border: 1px solid var(--line-firm); border-radius: 99px; background: var(--card); pointer-events: none;
+}
+:is(.seg, .unitseg, .src-seg):not(#u#u) > button {
+  position: relative; min-height: 44px; padding: 0 11px; border: 0; background: none;
+  color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 500;
+}
+:is(.seg, .unitseg, .src-seg):not(#u#u) > button + button { border-left: 0; }
+:is(.seg, .unitseg, .src-seg):not(#u#u) > button[aria-pressed="true"] { color: var(--paper); font-weight: 600; background: none; }
+:is(.seg, .unitseg, .src-seg):not(#u#u) > button[aria-pressed="true"]::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 6px; bottom: 6px; z-index: -1;
+  border-radius: 99px; background: var(--ink); pointer-events: none;
+}
+.src-seg:not(#u#u) > button.src-s[aria-pressed="true"]::after { background: oklch(0.52 0.12 310); }
+.src-seg:not(#u#u) > button.src-b[aria-pressed="true"]::after { background: #0053E2; }
+.src-seg:not(#u#u) > button[aria-pressed="true"] { color: #fff; }
+
+/* -- switch: a 22px track -------------------------------------------- */
+.kit-tog:not(#u#u) { width: 52px; height: 44px; background: none; border-radius: 0; }
+.kit-tog:not(#u#u)::before { content: ''; position: absolute; left: 4px; right: 4px; top: 11px; height: 22px; border-radius: 99px; background: var(--line-firm); transition: background 0.15s; }
+.kit-tog:not(#u#u)::after { top: 14px; left: 7px; width: 16px; height: 16px; }
+.kit-tog[aria-checked="true"]:not(#u#u) { background: none; }
+.kit-tog[aria-checked="true"]:not(#u#u)::before { background: var(--green); }
+.kit-tog[aria-checked="true"]:not(#u#u)::after { left: 29px; }
+
+/* -- tag: read-only, never looks like a button ----------------------- */
+:is(.pitem-tag, .day-tag, .chip):not(#u#u) {
+  display: inline-block; font-size: 11px; font-weight: 650; letter-spacing: 0; text-transform: none;
+  line-height: 1.4; padding: 1px 8px; border: 0; border-radius: 99px; white-space: nowrap;
+  background: color-mix(in oklab, var(--ochre) 16%, var(--card)); color: var(--ochre-text);
+}
+:is(.pitem-tag, .chip.plain):not(#u#u) { background: color-mix(in oklab, var(--ink) 7%, var(--card)); color: var(--muted); }
