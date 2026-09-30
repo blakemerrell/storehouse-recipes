@@ -244,6 +244,12 @@ body {
      in colour. */
   .leaf-body, .leaf-stem { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+/* In the dark the desk goes dark and the sheets stay paper: this page is a
+   handout, and a handout is what it prints as — white, whatever the screen
+   was doing. Screen only; the printed sheet does not change. */
+@media screen and (prefers-color-scheme: dark) {
+  body { background: #1f1b17; }
+}
 @media screen and (max-width: 900px) {
   /* Readable on the phone of whoever is deciding whether to print it. */
   .sheet { width: 100%; min-height: 0; padding: 22px 18px; margin: 0; box-shadow: none; }

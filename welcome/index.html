@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#3b3630">
+<meta name="theme-color" content="#3b3630" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f1b17" media="(prefers-color-scheme: dark)">
 <title>Hive &amp; Hearth Recipes</title>
 <meta name="description" content="350 recipes with primary ingredients from the bishops' storehouse. Browse them, plan a week, let the shopping list build itself, and print the lot as a real half-letter book. Works with no signal.">
 
@@ -66,15 +67,28 @@
 }
 
 :root {
+  color-scheme: light;
   --ink:       #3b3630;
   --paper:     #f7f2e6;
   --line:      #e8dcc0;
   --line-firm: #c9bda0;
-  --ochre:     #8a6a3a;
+  /* --ochre and --muted are a shade deeper than the prototype's, which put
+     the page's small print at 3.3:1 and its gold words at 4.47 — short of the
+     4.5 that words have to clear. Now 4.8 and 4.75. */
+  --ochre:     #856638;
   --gold:      #c9a227;
-  --muted:     #8f8574;
+  --gold-text: #98791b;   /* the big step numbers: large type, 3.7:1 */
+  --muted:     #736958;
   --muted-2:   #5a5148;
   --on-dark:   #cfc6b4;
+  /* The dark band, and the words on it: the band was drawn in --ink and
+     its brightest words in --paper, which a dark screen would have turned
+     inside out. --dim is the band's quiet voice — the steps not yet lit, the
+     captions — at 4.8:1, where --muted on it was 3.3. */
+  --band:      #3b3630;
+  --on-band:   #f7f2e6;
+  --dim:       #aca390;
+  --on-gold:   #3b3630;
   --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --sans: 'Work Sans', system-ui, -apple-system, sans-serif;
 }
@@ -115,7 +129,7 @@ a { color: inherit; }
 }
 .btn-solid { background: var(--ink); color: var(--paper); }
 .btn-ghost { background: none; color: var(--ink); border-color: var(--line-firm); }
-.btn-gold  { background: var(--gold); color: var(--ink); }
+.btn-gold  { background: var(--gold); color: var(--on-gold); }
 .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(59, 54, 48, 0.16); }
 .cta-note { font-size: 12.5px; color: var(--muted); margin-top: 16px; }
 
@@ -217,7 +231,7 @@ a { color: inherit; }
 }
 .nums { display: flex; flex-direction: column; gap: 22px; margin-top: 22px; }
 .num { display: flex; gap: 16px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 18px; }
-.num-n { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--gold); min-width: 26px; }
+.num-n { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--gold-text); min-width: 26px; }
 .num h3 { font-family: var(--serif); font-size: 18px; font-weight: 600; margin: 0; }
 .num p { font-size: 13.5px; color: var(--muted-2); line-height: 1.6; margin: 5px 0 0; text-wrap: pretty; }
 
@@ -232,12 +246,12 @@ a { color: inherit; }
    its ingredients, and the first two days of a week — and a test reads
    those out of data/recipes.js so they cannot go quietly out of date. */
 .dark {
-  margin-top: 58px; background: var(--ink); color: var(--paper);
+  margin-top: 58px; background: var(--band); color: var(--on-band);
   border-radius: 4px; padding: 30px 28px 18px;
 }
 .dark h2 { font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 0; }
 .dark p { font-size: 13.5px; line-height: 1.7; color: var(--on-dark); margin: 10px 0 0; max-width: 480px; }
-.dark-note { text-align: center; font-size: 11px; color: var(--muted); padding: 16px 0 4px; }
+.dark-note { text-align: center; font-size: 11px; color: var(--dim); padding: 16px 0 4px; }
 
 /* Two columns where there is room, one where there is not, and the label of
    each is set like the small caps elsewhere on the page so the six read as a
@@ -249,11 +263,11 @@ a { color: inherit; }
 }
 .facts li { font-size: 13px; line-height: 1.55; color: var(--on-dark); }
 .facts b {
-  display: block; color: var(--paper); font-weight: 700;
+  display: block; color: var(--on-band); font-weight: 700;
   font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
   margin-bottom: 4px;
 }
-.facts strong { font-weight: 600; color: var(--paper); }
+.facts strong { font-weight: 600; color: var(--on-band); }
 
 /* ---- the walkthrough ---------------------------------------------------
    One twenty-six-second loop, and every moving part reads its timing off the
@@ -307,7 +321,7 @@ a { color: inherit; }
 .devwrap { flex: 0 0 auto; }
 .dev-cap {
   text-align: center; font-size: 10px; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--muted); margin-top: 9px;
+  text-transform: uppercase; color: var(--dim); margin-top: 9px;
 }
 /* The screen keeps the phone's shape whether a beat is showing anything or
    not — every .scr inside it is absolutely positioned, so without a height of
@@ -492,11 +506,11 @@ a { color: inherit; }
   display: flex; flex-direction: column; gap: 9px;
 }
 .beat {
-  font-size: 11.5px; line-height: 1.3; color: var(--muted);
+  font-size: 11.5px; line-height: 1.3; color: var(--dim);
   display: flex; gap: 7px; align-items: baseline; transition: color .3s;
 }
 .beat b {
-  font-family: var(--serif); font-size: 12px; color: var(--muted);
+  font-family: var(--serif); font-size: 12px; color: var(--dim);
   border: 1px solid currentColor; border-radius: 50%;
   width: 17px; height: 17px; display: inline-flex; align-items: center;
   justify-content: center; flex: none; font-weight: 700;
@@ -603,12 +617,12 @@ a { color: inherit; }
   76%, 100% { opacity: 1; transform: translateY(0) }
 }
 
-@keyframes lit1 { 0%, 12.3% { color: var(--paper) } 14.8%, 100% { color: var(--muted) } }
-@keyframes lit2 { 0%, 12.9% { color: var(--muted) } 14.8%, 20.9% { color: var(--paper) } 23.4%, 100% { color: var(--muted) } }
-@keyframes lit3 { 0%, 21.5% { color: var(--muted) } 23.4%, 38.2% { color: var(--paper) } 40.6%, 100% { color: var(--muted) } }
-@keyframes lit4 { 0%, 40%   { color: var(--muted) } 42.5%, 64%   { color: var(--paper) } 67%,   100% { color: var(--muted) } }
-@keyframes lit5 { 0%, 64.5% { color: var(--muted) } 67%,   83%   { color: var(--paper) } 86%,   100% { color: var(--muted) } }
-@keyframes lit6 { 0%, 84%   { color: var(--muted) } 86.5%, 97%   { color: var(--paper) } 100%  { color: var(--muted) } }
+@keyframes lit1 { 0%, 12.3% { color: var(--on-band) } 14.8%, 100% { color: var(--dim) } }
+@keyframes lit2 { 0%, 12.9% { color: var(--dim) } 14.8%, 20.9% { color: var(--on-band) } 23.4%, 100% { color: var(--dim) } }
+@keyframes lit3 { 0%, 21.5% { color: var(--dim) } 23.4%, 38.2% { color: var(--on-band) } 40.6%, 100% { color: var(--dim) } }
+@keyframes lit4 { 0%, 40%   { color: var(--dim) } 42.5%, 64%   { color: var(--on-band) } 67%,   100% { color: var(--dim) } }
+@keyframes lit5 { 0%, 64.5% { color: var(--dim) } 67%,   83%   { color: var(--on-band) } 86%,   100% { color: var(--dim) } }
+@keyframes lit6 { 0%, 84%   { color: var(--dim) } 86.5%, 97%   { color: var(--on-band) } 100%  { color: var(--dim) } }
 
 /* Somebody who has asked their system not to animate things has asked for a
    reason. They get the first frame of each stack, and the end of the sync
@@ -631,6 +645,52 @@ a { color: inherit; }
   .typed { width: calc(100% - 4px) }
   .wk-new { opacity: 1; transform: none }
   .beat { color: var(--on-dark) }
+  /* nothing moves, so there is nothing to pause */
+  .motion { display: none }
+}
+
+/* ---- the pause -----------------------------------------------------------
+   Everyone else gets the pictures moving, and a way to stop them. The book
+   and the app cross-fade and the two phones play out their walkthrough for
+   as long as the page is open, which is a lot of movement beside a paragraph
+   somebody is trying to read. One button holds every one of them where it
+   is, and lets them go again. !important because it has to reach every
+   animation on the page whatever rule started it. */
+.still *, .still *::before, .still *::after { animation-play-state: paused !important }
+.motion { text-align: center; margin: 4px 0 0; }
+.motion-btn {
+  background: none; border: 0; padding: 0 12px; min-height: 44px; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ochre);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.motion-btn:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; border-radius: 2px; }
+/* Paper holds still by itself: a printed copy has no button to press. */
+@media print { .motion { display: none } }
+
+/* ---- the dark --------------------------------------------------------------
+   The page follows the phone: warm night for the paper, off-white for the
+   ink. The pictures do not change — the book is paper and the app on the
+   phones is the app as it looks by day — so the drawn phones keep the day's
+   values for everything inside them, and the photographs sit on their own
+   white. Screen only; a printed copy of this page is paper. */
+@media screen and (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --ink:       #ece6d9;
+    --paper:     #1f1b17;
+    --line:      #3a342c;
+    --line-firm: #5a5246;
+    --ochre:     #d6ae72;
+    --gold-text: #d9b545;
+    --muted:     #aea493;
+    --muted-2:   #cfc6b4;
+    --band:      #2d2823;
+  }
+  .dev {
+    --ink: #3b3630; --paper: #f7f2e6; --line: #e8dcc0; --line-firm: #c9bda0;
+    --ochre: #856638; --muted: #736958; --muted-2: #5a5148;
+    color-scheme: light;
+  }
 }
 
 /* ---- prefer paper ------------------------------------------------------ */
@@ -734,7 +794,7 @@ footer a:hover { text-decoration: underline; }
 /* max-width alone left this block flush to the left of a centred footer, so
    its lines started somewhere the two above them did not. The auto margins
    are what actually centre a width-constrained block. */
-.disclaim { margin: 10px auto 0; max-width: 62ch; opacity: 0.8; }
+.disclaim { margin: 10px auto 0; max-width: 62ch; }
 </style>
 </head>
 <body>
@@ -776,6 +836,8 @@ footer a:hover { text-decoration: underline; }
        buying. "Prefer paper?" asks the same question two screens later, after
        the answer, and the footer catches anyone who read to the end. -->
   <p class="demo-cap">The same <span data-n="all-recipes">350</span> recipes, either way.</p>
+  <!-- Holds every moving picture on the page, and lets them go again. -->
+  <p class="motion"><button type="button" class="motion-btn" id="motionBtn" aria-pressed="false">Pause the moving pictures</button></p>
 
   <section class="sec" id="what">
     <div class="sec-lab">What it does</div>
@@ -1175,5 +1237,18 @@ footer a:hover { text-decoration: underline; }
 
 </div>
 
+<script>
+/* The pause. A class on the page stops every animation where it stands;
+   pressing again lets them run on from there. */
+(function () {
+  var b = document.getElementById('motionBtn');
+  if (!b) return;
+  b.addEventListener('click', function () {
+    var still = document.documentElement.classList.toggle('still');
+    b.setAttribute('aria-pressed', String(still));
+    b.textContent = still ? 'Play the moving pictures' : 'Pause the moving pictures';
+  });
+})();
+</script>
 </body>
 </html>

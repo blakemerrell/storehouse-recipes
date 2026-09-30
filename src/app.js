@@ -1995,8 +1995,10 @@
       return '<button class="wh-opt" data-where="' + v + '" aria-pressed="' + (m === v) + '"><span class="wh-dot"></span>' +
         '<span><b>' + t + '</b><span>' + d + '</span></span></button>';
     };
+    /* The step's question is the view's title here — Where has no title bar
+       of its own the way Plan, List and Pantry do — so it is the h1. */
     $('whereBody').innerHTML = '<div class="step-k">Step 1 · set once, change any time</div>' +
-      '<h2 class="step-h">Where does your food come from?</h2>' +
+      '<h1 class="step-h">Where does your food come from?</h1>' +
       '<p class="step-sub">This decides which meals Plan suggests and how your list is split.</p>' +
       opt('both', 'Storehouse and a store', 'Take what the storehouse has, buy the rest at Walmart.') +
       opt('sh', 'Storehouse only', 'I can’t buy extra right now. Only suggest meals I can make from the storehouse and my shelf.') +
@@ -3789,18 +3791,58 @@
     });
   }
 
-  function mToast(text, undo) {
+  /* The toast, and the voice it speaks with, both made once, at boot.
+   *
+     The toast used to be built by its own first message, role=status and
+     all, and a live region that arrives WITH its words is a region nobody
+     was listening to yet: a screen reader announces changes to a region it
+     already knows about, so the first "won't be suggested" of a session was
+     never read out, and every one after it was. The box that is drawn comes
+     and goes with `hidden`; the words go to a region that is always there
+     and never drawn, so the voice does not depend on the paint. */
+  function mToastEls() {
     var el = $('mToast');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'mToast'; el.className = 'm-toast no-print'; el.setAttribute('role', 'status');
-      document.body.appendChild(el);
-    }
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'mToast'; el.className = 'm-toast no-print'; el.hidden = true;
+    /* Six seconds is a long time to read and a short time to reach for Undo
+       with a thumb, or with Tab from the far end of the page. While it is
+       being pointed at or holds the focus it stays; let go, and it leaves a
+       little after. */
+    el.addEventListener('mouseenter', mToastHold);
+    el.addEventListener('focusin', mToastHold);
+    el.addEventListener('mouseleave', mToastLet);
+    el.addEventListener('focusout', mToastLet);
+    document.body.appendChild(el);
+    var say = document.createElement('div');
+    say.id = 'mToastSay'; say.className = 'sr-only'; say.setAttribute('role', 'status');
+    document.body.appendChild(say);
+    return el;
+  }
+  function mToastHold() { clearTimeout(mToast.t); }
+  function mToastLet(ev) {
+    var el = $('mToast');
+    if (!el || el.hidden) return;
+    // still inside: focus moved between its own parts, or the pointer is over it
+    if (ev && ev.type === 'focusout' && ev.relatedTarget && el.contains(ev.relatedTarget)) return;
+    if (ev && ev.type === 'mouseleave' && el.contains(document.activeElement)) return;
+    clearTimeout(mToast.t);
+    mToast.t = setTimeout(function () { el.hidden = true; }, 3000);
+  }
+  function mToast(text, undo) {
+    var el = mToastEls();
     el.innerHTML = '<span>' + text + '</span>' +
       (undo ? '<button type="button" data-mallow="' + esc(String(undo)) + '">Undo</button>' : '');
     el.hidden = false;
     /* A tap on the message itself (not its Undo) puts it away early. */
     el.onclick = function (ev) { if (!ev.target.closest('[data-mallow]')) el.hidden = true; };
+    /* Emptied first, so the same words twice are two announcements. */
+    var say = $('mToastSay');
+    if (say) {
+      var words = el.firstChild.textContent;
+      say.textContent = '';
+      setTimeout(function () { say.textContent = words; }, 60);
+    }
     clearTimeout(mToast.t);
     mToast.t = setTimeout(function () { el.hidden = true; }, 6000);
   }
@@ -11893,8 +11935,11 @@
     /* Arriving with the numbers already known — off a barcode or a food
        table — or arriving empty, which is the same form either way. */
     var pre = (S.newFood && S.newFood.pre) || null;
+    /* The words on the left are the box's label, for= and all, so the
+       numbers are read out as Calories and Protein rather than as four
+       unnamed boxes; a tap on the word puts the caret in the box too. */
     var box = function (id, label, unit, ph, v) {
-      return '<div class="mtl-row"><span class="mtl-lab">' + label + '</span>' +
+      return '<div class="mtl-row"><label class="mtl-lab" for="' + id + '">' + label + '</label>' +
         '<span class="mtl-val"><input type="number" id="' + id + '" min="0" max="9999" ' +
         'step="1" inputmode="numeric" placeholder="' + (ph || '') + '"' +
         (v || v === 0 ? ' value="' + esc(String(v)) + '"' : '') + '>' +
@@ -12147,7 +12192,10 @@
         return '<span' + (w.today ? ' class="today"' : '') + '>' + esc(w.lab) + '</span>';
       }).join('') + '</div>';
 
-    var COL = ['var(--ochre)', 'oklch(0.58 0.09 40)', 'var(--green)', 'oklch(0.52 0.07 70)'];
+    /* The palette's own four (--split-a to -d in src/style.css), so a dark
+       screen can repaint them and each is deep enough to carry the paper
+       share written on it — the first two used to be too light to. */
+    var COL = ['var(--split-a)', 'var(--split-b)', 'var(--split-c)', 'var(--split-d)'];
     var split = s.meals.length
       ? '<div class="ds-split">' + s.meals.map(function (m, i) {
           var pc = m.kcal / (s.mTot || 1);
@@ -12217,10 +12265,20 @@
     /* A ledger row: what it is on the left, what it says on the right. One
        fact per line, values right-aligned into a column — the arrangement
        that cannot wrap the way a row of labelled boxes wraps on a phone. */
+    /* And the left half NAMES the right. The label was a bare span, so a
+       screen reader reached the weight box and said "edit text, 180" with no
+       word of what the number was. Not a <label for>, because one row can
+       hold two boxes (feet and inches) or a group of buttons: every control
+       the row holds is labelled by the row's words, and a box that carries a
+       unit by the unit as well — "Height ft", "Height in". The controls are
+       built before the row that holds them, so they say {{lab}} and the row
+       fills it in with its own id. */
+    var rowN = 0;
     var row = function (label, valueHTML, stack) {
+      var lid = 'mtlL' + (++rowN);
       return '<div class="mtl-row' + (stack ? ' stack' : '') + '">' +
-        '<span class="mtl-lab">' + label + '</span>' +
-        '<span class="mtl-val">' + valueHTML + '</span></div>';
+        '<span class="mtl-lab" id="' + lid + '">' + label + '</span>' +
+        '<span class="mtl-val">' + valueHTML.replace(/\{\{lab\}\}/g, lid) + '</span></div>';
     };
     var box = function (id, v, unit) {
       /* Unanswered is not zero. On a first visit nine of these read 0 before
@@ -12232,11 +12290,12 @@
          six foot nothing is a height — and blanking it would be the same
          mistake pointed the other way. */
       var blank = !v && !plan;
-      return '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" value="' +
-        (blank ? '' : (v || v === 0 ? v : '')) + '">' + (unit ? '<span class="mtl-u">' + unit + '</span>' : '');
+      return '<input type="number" id="' + id + '" min="0" max="999" step="1" inputmode="numeric" ' +
+        'aria-labelledby="{{lab}}' + (unit ? ' ' + id + 'U' : '') + '" value="' +
+        (blank ? '' : (v || v === 0 ? v : '')) + '">' + (unit ? '<span class="mtl-u" id="' + id + 'U">' + unit + '</span>' : '');
     };
     var seg = function (attr, val, opts, off) {
-      return '<span class="seg mt-seg" role="group">' + opts.map(function (o) {
+      return '<span class="seg mt-seg" role="group" aria-labelledby="{{lab}}">' + opts.map(function (o) {
         return '<button data-' + attr + '="' + o[0] + '" aria-pressed="' + String(o[0] === val) + '"' +
           (off ? ' disabled' : '') + '>' + o[1] + '</button>';
       }).join('') + '</span>';
@@ -12305,7 +12364,7 @@
          There used to be a count here and a set of days under it, and a third
          copy on the block. */
       (mCanSync() ? row('Sync with Strengthen',
-        '<span class="seg mt-seg" role="group">' + [[1, 'On'], [0, 'Off']].map(function (o) {
+        '<span class="seg mt-seg" role="group" aria-labelledby="{{lab}}">' + [[1, 'On'], [0, 'Off']].map(function (o) {
           var on = (pr.syncTrain === false ? 0 : 1) === o[0];
           return '<button type="button" data-mtsync="' + o[0] + '" aria-pressed="' + on + '">' + o[1] + '</button>';
         }).join('') + '</span>' +
@@ -12321,7 +12380,7 @@
         '<span class="mt-ld-s" id="mtTrainN">' + mTrainNSay(mTrainDays().length) + '</span>', true) +
       row('Steps a day <span class="mtl-opt">(optional)</span>',
         '<input type="number" id="mtSteps" min="0" max="99999" step="500" ' +
-        'inputmode="numeric" value="' + (pr.steps || '') + '">');
+        'inputmode="numeric" aria-labelledby="{{lab}}" value="' + (pr.steps || '') + '">');
     var rowDays = '';
     var fold = function (title, inner, open) {
       return '<details class="mt-fold"' + (open ? ' open' : '') + '><summary>' + title + '</summary>' + inner + '</details>';
@@ -12360,7 +12419,7 @@
     var goalPaceHTML =
       row('What weight would you like to reach?', box('mtGoalLb', pr.goalLb, 'lb')) +
       row('When would you like to get there?',
-        '<input type="date" id="mtGoalBy" value="' + esc(pr.goalBy || '') + '">') +
+        '<input type="date" id="mtGoalBy" aria-labelledby="{{lab}}" value="' + esc(pr.goalBy || '') + '">') +
       '<div class="mt-cap" id="mtGoalNote">' + mGoalNote(pr) + '</div>';
     var qGoal = goalPicksHTML + goalPaceHTML + '<div id="mtCoach">' + mCoachHTML(pr) + '</div>';
 
@@ -16384,6 +16443,12 @@
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
+    /* The view tabs are written once in index.html and never re-rendered, so
+       there is nothing to find again — and they carry ids now, for the panels
+       that name themselves after them. Keyed by those ids, a tab still holding
+       focus from the click that opened a sheet pulled it straight back out of
+       the sheet: New recipe lost its Name box to the Recipes tab. */
+    if (el.getAttribute('role') === 'tab') return null;
     var parts = [];
     FOCUS_ATTRS.forEach(function (a) {
       if (el.hasAttribute && el.hasAttribute(a)) {
@@ -16601,7 +16666,7 @@
             .concat('No. ' + no(r)).join(' · ')) + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         '</div>' +
-        '<div class="sheet-name">' + esc(r.name) + '</div>' +
+        '<h2 class="sheet-name">' + esc(r.name) + '</h2>' +
         (r.tagline ? '<div class="sheet-tag">' + esc(r.tagline) + '</div>' : '') +
         '<div class="sheet-meta"><span>' + esc(r.time) + '</span><span>' + esc(diffLabel(r.diff)) + '</span>' +
           '<span>' + esc(r.macro ? r.macro.kcal + ' kcal · ' + r.macro.p + 'g protein' : 'No nutrition data') + '</span>' +
@@ -16709,12 +16774,16 @@
   function renderDialog() {
     var root = $('dialogRoot');
     if (!D) { root.innerHTML = ''; return; }
+    /* The question names the dialog and the box it asks you to fill: a box
+       with only a value in it was read out as "edit text, This Week", which
+       says what is there and not what is being asked. */
     root.innerHTML = '<div class="scrim dlg-scrim no-print" data-dlg="cancel">' +
-      '<div class="dlg" role="dialog" aria-modal="true" aria-label="' + esc(D.title) + '">' +
-        '<div class="dlg-t">' + esc(D.title) + '</div>' +
-        (D.body ? '<div class="dlg-b">' + esc(D.body) + '</div>' : '') +
+      '<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgT"' +
+        (D.body ? ' aria-describedby="dlgB"' : '') + '>' +
+        '<h2 class="dlg-t" id="dlgT">' + esc(D.title) + '</h2>' +
+        (D.body ? '<div class="dlg-b" id="dlgB">' + esc(D.body) + '</div>' : '') +
         (D.value !== undefined
-          ? '<input class="txt" id="dlgInput" value="' + esc(D.value) + '">' : '') +
+          ? '<input class="txt" id="dlgInput" aria-labelledby="dlgT" value="' + esc(D.value) + '">' : '') +
         '<div class="dlg-a">' +
           '<button class="btn-primary' + (D.danger ? ' danger' : '') + '" data-dlg="ok">' + esc(D.ok) + '</button>' +
           '<button class="ghost" data-dlg="cancel">Cancel</button>' +
@@ -17091,6 +17160,15 @@
         body +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
+
+        /* The app's one screen of settings for the whole of it, so the
+           light-or-dark choice lives here. Auto is the phone's own. */
+        (window.Theme ? '<div class="mt-div" id="syncThemeH">Appearance</div>' +
+          '<div class="sync-theme"><span class="seg" role="group" aria-labelledby="syncThemeH">' +
+            [['', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(function (o) {
+              return '<button data-sync="theme" data-v="' + o[0] + '" aria-pressed="' + (window.Theme.get() === o[0]) + '">' + o[1] + '</button>';
+            }).join('') + '</span>' +
+            '<span class="sync-theme-say">' + (window.Theme.get() ? 'On this device' : 'Follows your phone') + '</span></div>' : '') +
 
         /* The one screen somebody opens to find out what this thing is, so it
            is where the app says who it is not. */
@@ -17515,6 +17593,8 @@
     if (S.view === 'where') renderWhere();
     document.querySelectorAll('.tab').forEach(function (b) {
       b.setAttribute('aria-selected', String(b.dataset.view === lit));
+      // one stop in the Tab order for the whole row: the lit tab
+      b.tabIndex = b.dataset.view === lit ? 0 : -1;
     });
     if (S.view === 'browse') renderBrowse();
     if (S.view === 'plan') renderPlan();
@@ -17605,6 +17685,23 @@
         try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
         renderView();
       });
+    });
+    /* The row, from the keyboard: Left and Right move along it and wrap,
+       Home and End go to the ends. They move the focus and nothing else —
+       showing a view is Enter or Space, which is the button's own click —
+       because Nourish and Strengthen take a moment to draw and arrowing past
+       them should not make you wait for each. Only the tabs that are there:
+       List and Pantry are Plan's steps now and their tabs are never shown. */
+    document.querySelector('.tabs').addEventListener('keydown', function (e) {
+      var go = { ArrowRight: 1, ArrowLeft: -1, Home: 'home', End: 'end' }[e.key];
+      if (!go) return;
+      var tabs = Array.prototype.filter.call(this.querySelectorAll('[role="tab"]'),
+        function (t) { return t.offsetParent !== null; });
+      var i = tabs.indexOf(document.activeElement);
+      if (i < 0 || !tabs.length) return;
+      e.preventDefault();
+      var j = go === 'home' ? 0 : go === 'end' ? tabs.length - 1 : (i + go + tabs.length) % tabs.length;
+      tabs[j].focus();
     });
     if ($('planMyWeek')) $('planMyWeek').addEventListener('click', pwOpen);
     $('bookBtn').addEventListener('click', function () {
@@ -18145,11 +18242,26 @@
     /* The three that are not the morning. Craft is a once-a-season job, Copy
        is a once-a-day one, and the account is neither — none of them belong
        in front of the two buttons pressed every time the tab is opened. */
-    function mMenu(open) {
+    /* A menu, and it behaves like one now. It said role=menu and then did
+       none of what that promises: opening it left the focus on the gear, so
+       a keyboard had to Tab through the day to find the items, the arrows did
+       nothing, and Escape did not close it. Open, the focus goes to the first
+       item and Up and Down walk the items round (Home and End jump); Escape
+       closes it and hands the focus back to the gear; Tab closes it and goes
+       on its way. The items are out of the Tab order themselves — the menu
+       is one stop, the way a native one is. */
+    function mMenuItems() {
+      return Array.prototype.filter.call($('macroMenu').querySelectorAll('[role="menuitem"]'),
+        function (b) { return b.offsetParent !== null && !b.disabled; });
+    }
+    function mMenu(open, back) {
       var m = $('macroMenu');
       if (!m) return;
+      var was = !m.classList.contains('hide');
       m.classList.toggle('hide', !open);
       $('macroMore').setAttribute('aria-expanded', String(!!open));
+      if (open && !was) { var its = mMenuItems(); if (its[0]) its[0].focus(); }
+      if (!open && was && back) $('macroMore').focus();
     }
     /* Open the whole day, or shut it. Which one it does next is whichever
        the day is not already: with anything folded it opens, and once
@@ -18194,6 +18306,24 @@
     $('macroMore').addEventListener('click', function (e) {
       e.stopPropagation();
       mMenu($('macroMenu').classList.contains('hide'));
+    });
+    // the gear itself: Down opens onto the first item, Up onto the last
+    $('macroMore').addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      mMenu(true);
+      var its = mMenuItems();
+      if (e.key === 'ArrowUp' && its.length) its[its.length - 1].focus();
+    });
+    $('macroMenu').addEventListener('keydown', function (e) {
+      var its = mMenuItems(), i = its.indexOf(document.activeElement);
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); mMenu(false, true); return; }
+      if (e.key === 'Tab') { mMenu(false); return; }
+      var j = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 :
+        e.key === 'Home' ? 0 : e.key === 'End' ? its.length - 1 : null;
+      if (j === null || !its.length) return;
+      e.preventDefault();
+      its[(j + its.length) % its.length].focus();
     });
     /* Copy came out of the menu and onto the bar. It reports success by
        renaming itself, and a control whose only feedback is its own label
@@ -19510,6 +19640,7 @@
         }
         if (act === 'restore' && window.Store.restoreRemoved) window.Store.restoreRemoved();
         if (act === 'forgetgone' && window.Store.forgetRemoved) window.Store.forgetRemoved();
+        if (act === 'theme' && window.Theme) window.Theme.set(sy.dataset.v || '');
         /* Signed in, stopping here stops it for the account too; otherwise
            the next snapshot would put this device straight back in. */
         if (act === 'leave') {
@@ -19650,7 +19781,15 @@
          — with no way back but Shift-Tab through all of them, and nothing on
          screen to say where the keyboard had gone. */
       if (e.key === 'Tab') {
-        var scrim = document.querySelector('#modalRoot .scrim, #modalRoot .dlg');
+        /* The top one, when more than one is up. A question is asked from
+           #dialogRoot, over everything — a sheet included — and the trap used
+           to look only in #modalRoot, so with "Clear the week?" on screen Tab
+           walked straight out of the question and into the page behind it.
+           Strengthen's sheets are drawn in #trainRoot, which sits after
+           #modalRoot and so above it; they had no trap at all. */
+        var scrim = document.querySelector('#dialogRoot .dlg') ||
+          document.querySelector('#trainRoot .scrim') ||
+          document.querySelector('#modalRoot .scrim, #modalRoot .dlg');
         if (scrim) {
           var f = Array.prototype.filter.call(
             scrim.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'),
@@ -19971,6 +20110,8 @@
   });
   mBootTargetsDue = true;
   if (!mSuspectAccount()) mBootTargets();
+  // before anything can have something to say: see mToastEls
+  mToastEls();
   wire();
   window.Store.init(function () { renderAll(); mHouseWatch(); mHouseNotices(); });
   renderAll();

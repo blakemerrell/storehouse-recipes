@@ -8134,14 +8134,17 @@ module.exports = {
     await pil.waitForTimeout(450);
     /* Resolved through the page, so the comparison is between two colours
        and not between two spellings of one. */
-    const pilPaper = await pil.evaluate(() => {
+    const pilToken = (name) => pil.evaluate((v) => {
       const el = document.createElement('span');
-      el.style.color = 'var(--paper)';
+      el.style.color = 'var(' + v + ')';
       document.body.appendChild(el);
       const c = getComputedStyle(el).color;
       el.remove();
       return c;
-    });
+    }, name);
+    const pilPaper = await pilToken('--paper');
+    /* what is written on an ochre fill: see the "under" rule beside .mb-on */
+    const pilOnOchre = await pilToken('--on-ochre');
     const pilRead = await pil.evaluate((paper) => {
       const out = {};
       document.querySelectorAll('[data-macro]').forEach((el) => {
@@ -8158,6 +8161,23 @@ module.exports = {
           papWords: pap ? pap.textContent.replace(/\s+/g, ' ').trim() : null,
           /* the paper copy is paper, figure and all */
           papFig: col(pap, '.mb-num b'), papUnit: col(pap, '.mb-num'),
+          /* and how well it reads on the fill it is clipped to */
+          papCr: (function () {
+            const ate = el.querySelector('.mb-ate');
+            const fig = pap && pap.querySelector('.mb-num b');
+            if (!ate || !fig) return 0;
+            // any CSS colour, oklch included, to sRGB bytes, by painting it
+            const lum = (c) => {
+              const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+              const x = cv.getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 1, 1);
+              const v = [].slice.call(x.getImageData(0, 0, 1, 1).data, 0, 3).map((u) => {
+                u /= 255; return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+              });
+              return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+            };
+            const a = lum(getComputedStyle(fig).color), b = lum(getComputedStyle(ate).backgroundColor);
+            return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+          })(),
           /* the ink copy is not */
           inkFig: col(ink, '.mb-num b'),
           /* the clip follows the EATEN edge, not the end of the whole fill */
@@ -8185,10 +8205,17 @@ module.exports = {
 
     /* The one that kept breaking. A full pill is solid colour end to end, so
        its paper copy is the only legible one — and if any rule repaints that
-       figure, the figure is gone. */
-    t.ok('the paper copy is paper THROUGHOUT, figure included',
-      pilAll.every((b) => b.papFig === pilPaper && b.papUnit === pilPaper),
-      JSON.stringify(pilAll.map((b) => b.state + ' fig:' + b.papFig)));
+       figure, the figure is gone.
+     *
+       Paper, except over the ochre of a pill still under its target, where
+       paper was 3.4:1 and the copy takes the ink the lit tab takes on the
+       same colour (--on-ochre). Either way the figure and its unit wear the
+       one colour meant for that fill, and it reads on the fill at 4.5:1 or
+       better — which is what "legible" was always standing in for. */
+    const pilOver = (b) => (b.state === 'under' ? pilOnOchre : pilPaper);
+    t.ok('the paper copy is paper THROUGHOUT, figure included (ink on ochre), and reads on its fill',
+      pilAll.every((b) => b.papFig === pilOver(b) && b.papUnit === pilOver(b) && b.papCr >= 4.5),
+      JSON.stringify(pilAll.map((b) => b.state + ' fig:' + b.papFig + ' ' + b.papCr.toFixed(2) + ':1')));
     t.ok('and the ink copy is not paper, or the unfilled end would be blank',
       pilAll.every((b) => b.inkFig && b.inkFig !== pilPaper),
       JSON.stringify(pilAll.map((b) => b.inkFig)));
