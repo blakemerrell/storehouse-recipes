@@ -942,10 +942,18 @@
     if (writeLS(LS_T, T)) writeLS(LS_TS, TS);
   }
 
+  /* Whose clock a stamp is written by. Nourish learns how far this device's
+     clock is out from the server's (mClockHear in app.js) and hands the
+     corrected one over, because newest wins here too, and a phone set a day
+     fast would otherwise win every merge for a day. */
+  var CLOCK = null;
+  var CLOCK_SLACK = 5 * 60000;          // how far ahead of us a stamp is let be
+  function tnow() { return CLOCK ? CLOCK() : Date.now(); }
+
   /* A change, recorded. The stamp is what makes it win on the other device;
      the dirty mark is what makes it the only thing sent. */
   function stamp(part, key) {
-    var now = Date.now();
+    var now = tnow();
     if (key === undefined) {
       TS[part] = now;
       if (part === 'pr') prStamp(now);
@@ -973,6 +981,11 @@
    * phone's stamps could no longer save it. Listening first means the whole
    * push carries the newer copy of everything. */
   var doc = null, dirty = {}, dirtyAll = true, pushTimer = null, heard = false;
+  /* The one retry waiting after a failed push. Each failure used to start
+     its own chain of retries and none was ever cleared, so edits made during
+     an outage multiplied the pushes in flight — one more chain for every
+     failure — all of them sending everything. */
+  var retryTimer = null;
   /* Whether the last save to the account landed. A write that fails used to
      fail in silence; now it says so, keeps trying, and says when it lands. */
   var SY = { ok: 0, err: 0, tries: 0 };
@@ -1005,6 +1018,7 @@
     heard = false;
     dirtyAll = true;
     clearTimeout(pushTimer);
+    clearTimeout(retryTimer); retryTimer = null;
     if (YR.off) { try { YR.off(); } catch (e) { /* already gone */ } }
     YR.off = null; YR.on = null; YR.heard = false; YR.seen = {}; YR.main = []; YR.purge = {}; YR.kb = {};
     YR.fv = fv || null;
@@ -1133,8 +1147,10 @@
         dirtyAll = true;
         SY.err = Date.now(); SY.tries++;
         drawIfShowing();
-        // and it tries again, backing off to five minutes
-        setTimeout(function () { push(true); }, Math.min(300, 15 * Math.pow(2, SY.tries - 1)) * 1000);
+        // and it tries again, backing off to five minutes — once, not once per failure
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(function () { retryTimer = null; push(true); },
+          Math.min(300, 15 * Math.pow(2, SY.tries - 1)) * 1000);
       });
     }, now ? 0 : 900);
   }
@@ -1143,6 +1159,12 @@
   function merge(tr, main) {
     if (!plain(tr)) return false;
     var moved = false;
+    /* A stamp from the future is a device with the wrong time on it, and
+       would win here until the real time caught up. Capped a few minutes
+       ahead of our own corrected clock and kept capped; the next whole push
+       carries the cap back up. The same rule My Day's merge keeps. */
+    var cap = tnow() + CLOCK_SLACK;
+    var when = function (at) { return at > cap ? cap : at; };
     if (plain(tr.pr) && fin(tr.pr.at) && plain(tr.pr.v)) {
       /* Setting by setting, each newer than this device's own. From a build
          without them, every setting it sent is as new as its one stamp. */
@@ -1152,26 +1174,26 @@
       keys.forEach(function (k) {
         var at = ink ? ink[k] : tr.pr.at;
         // a setting's name, never an object's own machinery (__proto__)
-        if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(k) || !fin(at) || !(at > (TS.prk[k] || 0))) return;
+        if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(k) || !fin(at) || !(when(at) > (TS.prk[k] || 0))) return;
         if (tr.pr.v[k] === undefined) delete nv[k]; else nv[k] = tr.pr.v[k];
-        TS.prk[k] = at;
+        TS.prk[k] = when(at);
         took = true;
       });
       if (took) {
         T.pr = defaultsPr(nv);
-        TS.pr = Math.max(TS.pr || 0, tr.pr.at);
+        TS.pr = Math.max(TS.pr || 0, when(tr.pr.at));
         PRSEEN = prSeen();
         moved = true;
       }
     }
-    if (plain(tr.act) && fin(tr.act.at) && tr.act.at > (TS.act || 0) && typeof tr.act.v === 'string') {
-      T.act = tr.act.v; TS.act = tr.act.at; moved = true;
+    if (plain(tr.act) && fin(tr.act.at) && when(tr.act.at) > (TS.act || 0) && typeof tr.act.v === 'string') {
+      T.act = tr.act.v; TS.act = when(tr.act.at); moved = true;
     }
     PARTS.forEach(function (p) {
       var from = plain(tr[p]) ? tr[p] : {};
       Object.keys(from).forEach(function (k) {
         var r = from[k];
-        if (!plain(r) || !fin(r.at) || !(r.at > (TS[p][k] || 0))) return;
+        if (!plain(r) || !fin(r.at) || !(when(r.at) > (TS[p][k] || 0))) return;
         if (r.v !== null && !SHAPE[p](r.v)) return;
         /* A workout deleted by a phone still on the one record: the deletion
            goes on to its year, so what was deleted does not stay there. */
@@ -1180,7 +1202,7 @@
           if (dirty.wo !== true) { dirty.wo = dirty.wo || {}; dirty.wo[k] = 1; }
         }
         if (r.v === null) delete T[p][k]; else T[p][k] = r.v;
-        TS[p][k] = r.at;
+        TS[p][k] = when(r.at);
         moved = true;
       });
     });
@@ -1217,6 +1239,7 @@
     dirty = {};
     dirtyAll = true;
     clearTimeout(pushTimer);
+    clearTimeout(retryTimer); retryTimer = null;
     [LS_T, LS_TS, LS_LIVE].forEach(function (k) { writeLS(k, null); });
     LIVE = null;
     REV++;
@@ -2528,7 +2551,6 @@
     'situp': { n: 'Sit-up', q: 'bw', r: 15, t: 'core', bk: 'F', jt: 'n' }
   };
   var MC_K = { amrap: 'AMRAP', emom: 'EMOM', rft: 'Rounds for time' };
-  var MC_SAY = { amrap: 'as many rounds as you can in', emom: 'every minute on the minute for', rft: 'rounds, as fast as you can, capped at' };
   function moveEx(id) { var m = MOVES[id]; return { id: id, bk: m.bk || '', jt: m.jt || '' }; }
 
   /* A circuit for one day of a block. The format turns over with the days
@@ -3590,7 +3612,8 @@
     var sets = wos.reduce(function (n, wo) {
       return n + wo.x.reduce(function (a, x) { return a + x.s.filter(counts).length; }, 0);
     }, 0);
-    var c = { from: from, to: to, nw: nw, n: wos.length, sets: sets, prog: progress(now), ph: phaseNow() };
+    var c = { from: from, to: to, nw: nw, n: wos.length, sets: sets, prog: progress(now), ph: phaseNow(),
+      today: trainedOn(keyAgo(0)) };
     c.reads = chkReads(c);
     return c;
   }
@@ -3628,7 +3651,12 @@
     if (nw && nw.pDays >= 4 && nw.pDays - nw.hit >= 2) {
       look.push({ h: 'Protein short ' + (nw.pDays - nw.hit) + ' of ' + nw.pDays + ' days', d: cut ? 'It keeps the muscle on a cut' : 'Aim for 90% or more' });
     }
-    if (!c.n) look.push({ h: 'No workouts this week', d: '' });
+    /* The seven days are the seven BEFORE today, shared with Nourish's half,
+       and the Review counts a rolling week that includes today — so a
+       session done this morning after a quiet week had the Review counting
+       it beside a check-in saying there were none. Today is not in the
+       window, but it is not nothing either. */
+    if (!c.n && !c.today) look.push({ h: 'No workouts this week', d: '' });
     if (nw && nw.days > 0 && nw.days < 4) look.push({ h: 'Only ' + nw.days + ' of 7 days logged', d: 'Calories are a partial picture' });
     look.slice(0, 2).forEach(function (r) { out.push({ st: 'look', h: r.h, d: r.d }); });
     if (!out.length) {
@@ -4987,10 +5015,15 @@
   function trainedOn(dk) {
     return ix().list.some(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === dk; });
   }
+  /* Counted in calendar days from today's weekday, as dueIn counts them.
+     o × 24 hours from now is not o days on the calendar when the clocks
+     change in between: at 23:30 on the Saturday New York springs forward,
+     48 hours later is 00:30 on Tuesday, and a session due Monday was
+     announced for Tuesday. */
   function dueSay(o) {
     if (o === 1) return 'tomorrow';
-    var d = new Date(Date.now() + o * DAY_MS);
-    return (o >= 7 ? 'next ' : '') + LD_N[(d.getDay() + 6) % 7];
+    var ti = (new Date().getDay() + 6) % 7;
+    return (o >= 7 ? 'next ' : '') + LD_N[(ti + o) % 7];
   }
 
   /* The session to do next, as today's card: what it is, one line of its
@@ -8639,7 +8672,6 @@
   function imDetect(head) {
     var has = function (h) { return head.indexOf(h) >= 0; };
     var at = function () { for (var i = 0; i < arguments.length; i++) { var k = head.indexOf(arguments[i]); if (k >= 0) return k; } return -1; };
-    var C;
     if (has('exercise name') && (has('set order') || has('workout name')) && has('reps') && has('weight')) {
       return { app: has('rir') && has('set type') ? 'Strengthen' : 'Strong', C: { date: at('date'), name: at('workout name'), dur: at('duration', 'workout duration'), ex: at('exercise name'),
         ord: at('set order'), w: at('weight'), wu: at('weight unit'), r: at('reps'), rpe: at('rpe'), nt: at('notes'), wnt: at('workout notes'),
@@ -8808,6 +8840,13 @@
         var off = z === 'Z' ? 0 : (z[0] === '-' ? -1 : 1) * (+z.slice(1, 3) * 60 + +z.slice(-2));
         return Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0)) - off * 60000;
       }
+      /* No zone written, from an app that writes its times in UTC (Fitbod,
+         which usually says +0000 and sometimes does not). Read as local, an
+         evening session in Denver landed on the next morning's date. Only a
+         time is moved: a bare date is a calendar day, not an instant. */
+      if (utc && m[4] !== undefined) {
+        return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +(m[5] || 0), +(m[6] || 0));
+      }
       return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0)).getTime();
     }
     m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?/);
@@ -8851,9 +8890,6 @@
     delete s.su;
     return s;
   }
-  // the old name, still what a Strong file's dates go through
-  function sgDate(s) { return imDate(s, 'mdy'); }
-
   // letters and digits, the same every time the same workout comes in
   function sgId(w) {
     var h = 2166136261;
@@ -9476,7 +9512,6 @@
       startTuck(LIVE);
       saveLive(); draw(); return;
     }
-    if (t === 'bkopen' && LIVE) { LIVE.sto = 1; saveLive(); draw(); return; }
     if (t === 'sore') {
       var m = el.getAttribute('data-m');
       if (LIVE.sr[m] === Number(v)) delete LIVE.sr[m]; else LIVE.sr[m] = Number(v);
@@ -10115,6 +10150,8 @@
     attach: attach,
     remote: remote,
     forget: forget,
+    // the corrected clock, from Nourish: see tnow
+    clock: function (fn) { CLOCK = typeof fn === 'function' ? fn : null; },
     sheetClosed: sheetClosed,
     /* For the tests, and for anyone reading the numbers off a console: the
        pure parts, which take data and give data. */
@@ -10133,7 +10170,7 @@
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE, swapBest: swapBest,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
-      checkin: checkin, chkReads: chkReads, phaseNow: phaseNow, phaseAt: phaseAt, capAt: capAt, phaseCap: phaseCap, phaseLine: phaseLine, phaseReset: function () { phLive.t = 0; },
+      checkin: checkin, chkReads: chkReads, dueSay: dueSay, phaseNow: phaseNow, phaseAt: phaseAt, capAt: capAt, phaseCap: phaseCap, phaseLine: phaseLine, phaseReset: function () { phLive.t = 0; },
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; phLive.t = 0; }

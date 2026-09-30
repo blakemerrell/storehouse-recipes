@@ -121,14 +121,15 @@ module.exports = {
       JSON.stringify(noEmpty && noEmpty.weeks) + String(empty || ''));
 
     /* Fix two, as far as it can be checked without a network: the shape of the
-       thing that has to stay unique. Sixteen words, four digits, sixteen words
-       is 2.3 million codes and nothing ever releases one, which is why
-       createHousehold checks before handing one over. That check needs
-       Firestore and lives in tests/sync.test.js. */
+       thing that has to stay unique. A word, four digits and two more words
+       from sixty-four is 2.4 billion codes — the code is the only key to a
+       household, so it has to be hard to find by trying — and nothing ever
+       releases one, which is why createHousehold checks before handing one
+       over. That check needs Firestore and lives in tests/sync.test.js. */
     const codes = await p.evaluate(() =>
       Array.from({ length: 200 }, () => window.Store.newCode()));
-    t.ok('a household code is two words and four digits',
-      codes.every((c) => /^[A-Z]+-\d{4}-[A-Z]+$/.test(c)), codes[0]);
+    t.ok('a household code is a word, four digits and two more words',
+      codes.every((c) => /^[A-Z]+-\d{4}-[A-Z]+-[A-Z]+$/.test(c)), codes[0]);
     t.ok('and they are not all the same one',
       new Set(codes).size > 150, new Set(codes).size + ' distinct of 200');
 

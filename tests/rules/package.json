@@ -1,0 +1,12 @@
+{
+  "name": "storehouse-recipes-rules",
+  "private": true,
+  "description": "Checks firestore.rules against the Firestore emulator. Kept apart from the app's own dependencies: nothing the app ships needs these.",
+  "scripts": {
+    "test": "node rules.check.js"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0"
+  }
+}

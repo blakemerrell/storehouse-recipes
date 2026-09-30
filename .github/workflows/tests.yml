@@ -13,6 +13,11 @@
 # Pages still deploys from the branch as before; this workflow deploys
 # nothing and needs no secrets. The live-Firebase tests (sync*) are not in
 # the default run and are not run here.
+#
+# The security rules are checked in a job of their own, against Google's
+# Firestore emulator (tests/rules/): they are pasted into the console by
+# hand, and this is the only place they run before they are live. It needs
+# Java and packages the app does not, so it keeps its own folder.
 name: tests
 
 on:
@@ -59,3 +64,28 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: FAST=1 node tests/run.js
+
+  rules:
+    name: Security rules, against the Firestore emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tests/rules
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/rules/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/cache@v4
+        with:
+          path: tests/rules/.emulator
+          key: firestore-emulator-1.19.8
+      - run: npm ci
+      - run: npm test

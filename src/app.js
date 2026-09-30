@@ -148,9 +148,13 @@
     } catch (e) { /* private mode or corrupt */ }
     return {};
   }
+  /* Stamped only once it is really written — for all three of these, which
+     used to disagree about the order. The payload reads the value back out
+     of storage, so a stamp over a write that failed (storage full) sent the
+     OLD value up as the newest one, and every other device took it. mPut has
+     already said the storage is full. */
   function mWriteMyFoods(v) {
-    mPut('bsc.myFoods', v);
-    mStamp('mf');
+    if (mPut('bsc.myFoods', v)) mStamp('mf');
   }
 
   /* A star, kept where the thing it stars is kept.
@@ -932,8 +936,8 @@
      take Crio Bru off your shelf and this filter changes behaviour while its
      wording does not.
 
-     So it follows the pantry, exactly as the line at the foot of every recipe
-     already does through shelfName(). Untouched, it talks about the storehouse,
+     So it follows the pantry: Store.pantryChanged() decides which word is
+     true. Untouched, it talks about the storehouse,
      because that is true out of the box. Edit your pantry and it talks about
      your shelf, because that is true from then on. */
   function renderPantryFilterLabels() {
@@ -1035,7 +1039,7 @@
         lastSec = secKey(r);
         var n = secCount[lastSec];
         head = '<div class="grid-sec">' +
-          '<span class="grid-sec-b">' + esc(BOOKS[r.book].short) + '</span>' +
+          '<span class="grid-sec-b">' + esc((BOOKS[r.book] || BOOKS[3]).short) + '</span>' +
           '<b>' + esc(SEC_SHORT[lastSec] || r.secName) + '</b>' +
           '<span class="grid-sec-n">' + n + '</span>' +
           (SEC_NOTE[lastSec] ? '<span class="grid-sec-s">' + esc(SEC_NOTE[lastSec]) + '</span>' : '') +
@@ -1051,7 +1055,7 @@
          a household is that it holds other people's writing. */
       var card = '<button class="card" data-open="' + esc(r.id) + '">' +
         '<span class="card-top">' +
-          '<span class="card-num">' + BOOKS[r.book].short + ' · ' + no(r) + '</span>' +
+          '<span class="card-num">' + (BOOKS[r.book] || BOOKS[3]).short + ' · ' + no(r) + '</span>' +
           '<span class="card-fav">' + (fav ? '★ Saved' : '') + '</span>' +
         '</span>' +
         '<span class="card-name">' + esc(r.name) + '</span>' +
@@ -1132,7 +1136,7 @@
   var RATE_BTN = [[2, '★', 'A favourite'], [1, '👍', 'Good'], [-1, '👎', 'Not again']];
   function renderPlan() {
     renderWeeks();
-    var ti = todayIx(), a = pwAnswers();
+    var ti = todayIx();
     /* The week at a glance: nights with a dinner, what is left to buy, and
        how long the list is. */
     var nights = DAYS.filter(function (d) {
@@ -1206,7 +1210,7 @@
      many are eating"), like everything the sheet picks. */
   var AD_SECS = { breakfast: ['1-1', '2-1'], lunch: ['1-3', '2-2'] };
   function adPool(f, day) {
-    var R = window.RECIPES || [];
+    var R = RECIPES;   // with your edits laid over, and your own recipes after
     if (f === 'dinner') return R.filter(pwIsDinner);
     if (AD_SECS[f]) return R.filter(function (r) { return AD_SECS[f].indexOf(r.book + '-' + r.secNum) >= 0; });
     if (f === 'fav') return R.filter(function (r) { return window.Store.isFav(r.id) || window.Store.rating(r.id) === 2; });
@@ -1261,7 +1265,7 @@
   }
   function adListHTML() {
     var A = S.add, q = String(A.q || '').trim().toLowerCase();
-    var pool = q ? (window.RECIPES || []).filter(function (r) { return r.name.toLowerCase().indexOf(q) >= 0; }) : adPool(A.f, A.day);
+    var pool = q ? RECIPES.filter(function (r) { return r.name.toLowerCase().indexOf(q) >= 0; }) : adPool(A.f, A.day);
     pool = pool.filter(function (r) { return window.Store.rating(r.id) !== -1 || q; });
     if (!pool.length) return '<p class="pw-note">' + (q ? 'No recipe called that.' : A.f === 'left' ? 'Nothing earlier in the week to have again.' : 'Nothing here yet.') + '</p>';
     var ppl = pwAnswers().ppl;
@@ -1456,7 +1460,7 @@
      so a chip can say how many dinners it would let in. */
   function pwPool(a, weekend, skip) {
     var fit = a.fit ? pwFitCaps() : null, recent = pwRecent(a.rec);
-    return (window.RECIPES || []).filter(function (r) {
+    return RECIPES.filter(function (r) {
       if (!pwIsDinner(r)) return false;
       if (!weekend && a.t && pwMins(r) > a.t) return false;
       if (skip !== 'prot' && a.prot.length && a.prot.indexOf(pwProt(r)) < 0) return false;
@@ -1567,7 +1571,7 @@
   /* Every ingredient any dinner uses, for the leave-out search. */
   function pwIngKeys() {
     var seen = {};
-    (window.RECIPES || []).forEach(function (r) {
+    RECIPES.forEach(function (r) {
       if (pwIsDinner(r)) (r.ingp || []).forEach(function (it) { if (it.k && it.k !== 'water' && it.k !== 'free' && it.k !== 'salt') seen[it.k] = (seen[it.k] || 0) + 1; });
     });
     return seen;
@@ -2139,8 +2143,58 @@
     return st;
   })();
 
+  /* ------------------------------------------------------ whose clock
+   *
+     Every stamp is this device's clock, and newest wins — so a device whose
+     clock is wrong is wrong about everything it writes. A phone set a day
+     fast won every merge for a day; one set a day slow lost every edit it
+     made to the copy already on the account. Phones mostly keep good time,
+     but "mostly" is a person who set theirs by hand once, and a tablet that
+     has been off the network for a month.
+   *
+     So the clock is corrected against the server's. Each push to the
+     account carries a server timestamp, labelled with this device's id;
+     when the account hands it back, the difference between it and the local
+     clock at the moment it was written is how far out this device is. Only
+     a real error is corrected — two minutes and more — so ordinary network
+     delay never moves a stamp. It is kept, so a device opened with no signal
+     still stamps with what it last learned. */
+  var MCLOCK_SLACK = 5 * 60000;       // how far ahead of us a stamp is let be
+  var MCLOCK_ID = (function () {
+    var id = '';
+    try { id = localStorage.getItem('bsc.clockId') || ''; } catch (e) { /* private mode */ }
+    if (!/^[a-z0-9]{6,16}$/.test(id)) {
+      id = (Math.random().toString(36) + '000000').slice(2, 12);
+      try { localStorage.setItem('bsc.clockId', id); } catch (e2) { /* this session only */ }
+    }
+    return id;
+  })();
+  var MSKEW = (function () {
+    var v = 0;
+    try { v = Number(localStorage.getItem('bsc.clockSkew')) || 0; } catch (e) { v = 0; }
+    return isFinite(v) && Math.abs(v) < 366 * 86400000 ? v : 0;
+  })();
+  var mClkSent = 0;                    // when the last stamped push left, by the local clock
+  function mNow() { return Date.now() + (MSKEW || 0); }   // || 0: asked before this line has run
+
+  /* The server's answer to a push this device stamped. Only our own label
+     counts — the other device's push carries its own — and only a round
+     trip short enough that half of it is a small error. */
+  function mClockHear(data, pending) {
+    var c = data && data.clk;
+    if (pending || !mClkSent || !c || c.by !== MCLOCK_ID || !c.at || typeof c.at.toMillis !== 'function') return;
+    var back = Date.now(), trip = back - mClkSent;
+    mClkSent = 0;
+    if (!(trip >= 0 && trip < 15000)) return;
+    var off = c.at.toMillis() - (back - trip / 2);
+    MSKEW = Math.abs(off) >= 120000 ? Math.round(off) : 0;
+    try { localStorage.setItem('bsc.clockSkew', String(MSKEW)); } catch (e) { /* this session only */ }
+  }
+  // Strengthen stamps by the same corrected clock; it reads MSKEW live through mNow
+  if (window.Train && window.Train.clock) window.Train.clock(mNow);
+
   function mStamp(part, sub) {
-    var now = Date.now();
+    var now = mNow();
     if (sub) {
       /* Per-key stamps, for the parts that are maps of days rather than one
          value: the day log, and which days you have closed. Keyed by part
@@ -2168,7 +2222,7 @@
      on a number and threw. A part's stamp has one shape, and this is the
      only place that writes all of them at once. */
   function mClaimAll() {
-    var now = Date.now();
+    var now = mNow();
     ['t', 'pr', 'sl', 'mf', 'nv', 'bg'].forEach(function (k) { MSTAMPS[k] = now; });
     [['d', MDAYS], ['dn', MDONE], ['sp', MSKIP], ['sn', MSEND], ['w', MWEIGHTS],
       ['tn', MTRAINED]].forEach(function (pair) {
@@ -2245,6 +2299,9 @@
     /* And the training log, which is kept beside the day in the same record
        and has to leave with it for exactly the same reason. */
     if (window.Train) window.Train.forget();
+    /* And the foods built from what was just cleared: the picker offered the
+       last person's own foods to the next until something else redrew it. */
+    mBuildFoods();
   }
 
   function mAccountMark() {
@@ -2285,6 +2342,9 @@
    *             applies to itself.
    *   accept(r) whether a remote entry is sayable at all
    *   put(k,v)  how a remote value lands
+   *   keep(k)   whether a key is inside the window this part is kept for.
+   *             Outside it, nothing from another device is taken — see
+   *             mPruneWindow for why that is what lets the stamps be pruned
    *   ls        where it is kept, so the persist step cannot miss one
    *
    * The stores are reached through a function because several of them are
@@ -2321,6 +2381,7 @@
   var MSYNC_KEYED = [
     { part: 'w', ls: 'bsc.macroWeights', stamps: true,
       store: function () { return MWEIGHTS; },
+      keep: function (k) { return k >= mWeightFloor(); },
       value: function (k, m) { return (m || MWEIGHTS)[k] || 0; },
       /* Zero is a real answer: it is the morning you cleared. */
       accept: function (r) { return mNum(r.v) && r.v >= 0; },
@@ -2328,6 +2389,7 @@
 
     { part: 'd', ls: 'bsc.macroDays', stamps: false,
       store: function () { return MDAYS; },
+      keep: function (k) { return k >= mEarliestKey(); },
       value: function (k, m) { return (m || MDAYS)[k]; },
       /* A day is meals keyed by slot, each a list of plates. */
       accept: function (r) {
@@ -2340,6 +2402,7 @@
 
     { part: 'dn', ls: 'bsc.macroDone', stamps: false,
       store: function () { return MDONE; },
+      keep: function (k) { return k >= mEarliestKey(); },
       value: function (k, m) { return m ? Number(m[k]) || 0 : mDoneAt(k); },
       /* Zero means "I reopened this", so a falsy value must still land. */
       accept: function (r) { return mNum(r.v); },
@@ -2347,6 +2410,7 @@
 
     { part: 'tn', ls: 'bsc.macroTrained', stamps: false,
       store: function () { return MTRAINED; },
+      keep: function (k) { return k >= mEarliestKey(); },
       value: function (k, m) { return m ? Number(m[k]) || 0 : mTrainedAt(k); },
       /* And zero here means "I un-ticked it". */
       accept: function (r) { return mNum(r.v); },
@@ -2354,6 +2418,7 @@
 
     { part: 'sp', ls: 'bsc.macroSkip', stamps: true,
       store: function () { return MSKIP; },
+      keep: function (k) { return k >= mEarliestKey(); },
       value: function (k, m) { return (m || MSKIP)[k] || []; },
       /* An empty list is a real answer: it means "I un-skipped them all". */
       accept: function (r) { return mStrList(r.v); },
@@ -2361,6 +2426,7 @@
 
     { part: 'sn', ls: 'bsc.macroSend', stamps: true,
       store: function () { return MSEND; },
+      keep: function (k) { return k >= mEarliestKey(); },
       value: function (k, m) { return (m || MSEND)[k] || null; },
       /* Null is a real answer: it means "I cleared that day's choice". */
       accept: function (r) {
@@ -2492,37 +2558,57 @@
   function mMergeRemote(md) {
     if (!md) return false;
     var moved = false;
+    /* A stamp that says it was written in the future is a device whose clock
+       is wrong, and believed as written it wins every merge until the real
+       time catches up with it: a phone set a day fast pinned its day, and
+       everything the other devices did for the next twenty-four hours was
+       quietly refused. Nothing honest is more than a few minutes ahead of
+       this device's corrected clock (see mNow), so nothing is let be. What is
+       kept is the capped stamp, and the next whole push carries it back up,
+       which takes the far end's future stamp down with it. */
+    var cap = mNow() + MCLOCK_SLACK;
+    var when = function (at) { return at > cap ? cap : at; };
     var take = function (part, key, apply) {
       var r = md[part];
-      if (!r || !r.v || !(r.at > (MSTAMPS[part] || 0))) return;
+      if (!r || !r.v || !mNum(r.at) || !(when(r.at) > (MSTAMPS[part] || 0))) return;
       if (MSYNC_SHAPE[part] && !MSYNC_SHAPE[part](r.v)) return;
-      apply(r.v);
-      MSTAMPS[part] = r.at;
+      /* Stamped only once it is really kept. A value that could not be
+         written (storage full) under a stamp that was would tell the next
+         load it already has what the account is holding for it — and the
+         account's copy would be refused from then on as no newer. */
+      if (apply(r.v) === false) return;
+      MSTAMPS[part] = when(r.at);
       moved = true;
     };
     take('mf', 'bsc.myFoods', function (v) {
-      mPut('bsc.myFoods', v);
+      if (!mPut('bsc.myFoods', v)) return false;
+      /* The foods on screen are built from storage once, at boot and on a
+         household change. Foods arriving from your other device were written
+         to storage and never built, so a day holding one of them counted it
+         as nothing — mTotals skips an id it cannot find — and the intake log
+         recorded the undercount. */
+      mBuildFoods();
     });
     take('t', 'bsc.macroTargets', function (v) {
-      mPut('bsc.macroTargets', v);
+      return mPut('bsc.macroTargets', v);
     });
     take('pr', 'bsc.macroProfile', function (v) {
-      mPut('bsc.macroProfile', v);
+      return mPut('bsc.macroProfile', v);
     });
     take('sl', 'bsc.macroSlots', function (v) {
-      mPut('bsc.macroSlots', v);
+      return mPut('bsc.macroSlots', v);
     });
     take('bg', 'bsc.macroBatchG', function (v) {
       Object.keys(MBATCHG).forEach(function (k) { delete MBATCHG[k]; });
       Object.keys(v).forEach(function (k) {
         if (v[k] && v[k].s > 0) MBATCHG[k] = { s: Number(v[k].s), on: String(v[k].on || '') };
       });
-      mPut('bsc.macroBatchG', MBATCHG);
+      return mPut('bsc.macroBatchG', MBATCHG);
     });
     take('nv', 'bsc.macroNever', function (v) {
       Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
       Object.keys(v).forEach(function (k) { MNEVER[k] = v[k]; });
-      mPut('bsc.macroNever', v);
+      return mPut('bsc.macroNever', v);
     });
     /* Per morning, newest wins, and zero is a real answer — the same three
        rules the closed-day log runs on, and for the same reason. A morning
@@ -2535,11 +2621,6 @@
        not been opened since v288 is still pushing it. Unioned, exactly as it
        used to be: those payloads genuinely cannot express a deletion, and
        guessing one from an absent key would delete every morning that phone
-       has not heard of yet. */
-    /* The old single-stamped shape is still read, because a phone that has
-       not been opened since v288 is still pushing it. Unioned, exactly as it
-       used to be: those payloads genuinely cannot express a deletion, and
-       guessing one from an absent key would delete every morning that phone
        has not heard of yet. Handled apart from the table because it is not a
        shape the table describes — it is the shape that came before it. */
     var wRemote = md.w;
@@ -2547,9 +2628,15 @@
     if (legacyW) {
       MSTAMPS.w = MSTAMPS.w || {};
       Object.keys(wRemote.v).forEach(function (k) {
-        if (!(wRemote.at > (MSTAMPS.w[k] || 0))) return;
-        MWEIGHTS[k] = wRemote.v[k];
-        MSTAMPS.w[k] = wRemote.at;
+        if (!(when(wRemote.at) > (MSTAMPS.w[k] || 0))) return;
+        /* Checked like every other morning: a number, and a real weight.
+           This path let anything in — a string, a zero — and a zero here is
+           not a cleared morning (that shape cannot say so) but a weigh-in of
+           nothing, which the trend then averaged in. */
+        var v = wRemote.v[k];
+        if (!mNum(v) || !(v > 0)) return;
+        MWEIGHTS[k] = v;
+        MSTAMPS.w[k] = when(wRemote.at);
         moved = true;
       });
     }
@@ -2565,11 +2652,12 @@
       var from = md[row.part] || {};
       Object.keys(from).forEach(function (enc) {
         var k = mSyncUnkey(enc), r = from[enc];
-        if (!r || !row.accept(r)) return;
-        if (!(r.at > ((MSTAMPS[row.part] || {})[k] || 0))) return;
+        if (!r || !mNum(r.at) || !row.accept(r)) return;
+        if (row.keep && !row.keep(k)) return;      // aged out here; it stays out
+        if (!(when(r.at) > ((MSTAMPS[row.part] || {})[k] || 0))) return;
         row.put(k, r.v);
         MSTAMPS[row.part] = MSTAMPS[row.part] || {};
-        MSTAMPS[row.part][k] = r.at;
+        MSTAMPS[row.part][k] = when(r.at);
         moved = true;
       });
     });
@@ -2936,6 +3024,7 @@
            workouts that make a day a training day — and nothing redrew for
            it: a session logged on the other phone left this one's day on its
            rest-day carbs until something else happened to draw. */
+        mClockHear(data, snap.metadata && snap.metadata.hasPendingWrites);
         var trWas = mTrainSig();
         if (window.Train) window.Train.remote(data && data.train, live);
         var trMoved = mTrainSig() !== trWas;
@@ -2961,9 +3050,11 @@
      objects the payload is rebuilt from, which matters: clearing storage
      alone would leave the next push to write it all straight back up.
 
-     The household is deliberately untouched. It is a shared thing, the rules
-     do not permit deleting it, and taking a spouse's meal plan away because
-     you closed your own account would be a surprise nobody asked for. */
+     The household is deliberately untouched, but for your name on its
+     members list, which Store.deleteAccount takes off. It is a shared thing,
+     the rules do not permit deleting it, and taking a spouse's meal plan
+     away because you closed your own account would be a surprise nobody
+     asked for. */
   function mDeleteAccount() {
     if (!window.Store || !window.Store.deleteAccount) return Promise.reject(new Error('no-account'));
     return window.Store.deleteAccount(function () {
@@ -2994,7 +3085,16 @@
       if (!mSyncDoc) return;
       var body = mSyncTake();
       if (!body) { mSyncState('on'); return; }
-      mSyncDoc.set({ myday: body }, { merge: true }).then(function () {
+      var out = { myday: body };
+      /* And the server's own time, under this device's name, so mClockHear
+         can tell how far out this device's clock is. Absent from an SDK that
+         cannot give one, which only costs the correction. */
+      var fv = window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue;
+      if (fv && typeof fv.serverTimestamp === 'function') {
+        out.clk = { by: MCLOCK_ID, at: fv.serverTimestamp() };
+        mClkSent = Date.now();
+      }
+      mSyncDoc.set(out, { merge: true }).then(function () {
         mSyncState('on');
       }, function () {
         /* A write that never landed leaves this device unable to say what the
@@ -3012,6 +3112,18 @@
     return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
   }
   function todayKey() { return dayKey(new Date()); }
+  /* A day key as a count of days, for spacing points and measuring gaps.
+     From the calendar date itself, not from local midnight's instant: that
+     was Math.round(midnight / one day), which is a whole number only where
+     midnight falls near midnight UTC. East of +11 it falls at noon UTC the
+     day before, where a daylight-saving hour tips the rounding either way —
+     in Auckland two days in September came out as the same number and one
+     in April was skipped, which bent the measured burn, the seven-day
+     average and the plan line, and could divide the chart by zero. */
+  function mDayN(k) {
+    var m = String(k).split('-');
+    return Math.round(Date.UTC(Number(m[0]), Number(m[1]) - 1, Number(m[2])) / 86400000);
+  }
   function keyDate(k) {
     var m = k.split('-');
     return new Date(Number(m[0]), Number(m[1]) - 1, Number(m[2]));
@@ -3249,8 +3361,7 @@
     return true;
   }
   function mWriteTargets(t) {
-    mStamp('t');
-    mPut('bsc.macroTargets', t);
+    if (mPut('bsc.macroTargets', t)) mStamp('t');   // see mWriteMyFoods
   }
 
   /* ------------------------------------------------ targets follow the scale
@@ -3399,8 +3510,7 @@
     };
   }
   function mWriteSlots(s) {
-    mStamp('sl');
-    mPut('bsc.macroSlots', s);
+    if (mPut('bsc.macroSlots', s)) mStamp('sl');    // see mWriteMyFoods
   }
 
   /* Every section there is, in book order, straight off the live data — the
@@ -3514,7 +3624,6 @@
   function mWhyStrip(it, tag) {
     var w = mWhyOf(it);
     if (!w || S.mWhyOpen !== tag) return '';
-    var r = BY_ID[it.id];
     return '<div class="mwhy-strip no-print">' +
       '<p>' + (w === 'pick' ? 'Fill picked this ' : 'Fill added this ') + MWHY_SAY[w] + '.' +
         (it.eaten ? '' : ' It stays unless you change it.') + '</p>' +
@@ -3648,7 +3757,9 @@
     return MDAYS[k] || {};
   }
 
-  function mEditDay(k, fn) {
+  /* `seed` is the routine placing itself on a new today, which is not
+     anybody's edit — see the pin pass in mRenderDay. */
+  function mEditDay(k, fn, seed) {
     mFoldDue();                           // the other copy's change first: see mFoldStored
     var day = MDAYS[k] || (MDAYS[k] = {});
     fn(day);
@@ -3692,7 +3803,7 @@
       if (dk < floor) delete MDAYS[dk];
     });
     mPut('bsc.macroDays', MDAYS);
-    mStamp('d', k);
+    if (!seed) mStamp('d', k);
   }
 
   function kcalOf(t) { return Math.round(4 * t.p + 4 * t.c + 9 * t.f); }
@@ -4331,7 +4442,7 @@
 
   function mMeasuredTdee() {
     mLogIntake();
-    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var dayN = mDayN;
     var todayN = dayN(todayKey());
     var iKeys = Object.keys(MINTAKE).filter(function (k) {
       return todayN - dayN(k) <= MTDEE_WINDOW;
@@ -4567,11 +4678,16 @@
      makes the real ones look like that — see mEditDay), and their flags stay
      with them.
 
-     The per-key stamps in MSTAMPS are deliberately NOT pruned alongside. The
-     stamp is what tells mMergeRemote it has already seen that day, and the
+     The stamps can go with them, and do (mSetSkip, mSetSend, mWriteWeight),
+     because the merge refuses anything outside a part's window (`keep` in
+     MSYNC_KEYED). That refusal is what has to hold, not the stamp. The
      remote document keeps every key it was ever sent — the push is a merge
-     write. Drop the stamp and the copy still sitting in Firestore looks new
-     again on the next read, and the pruned flag walks straight back in. */
+     write — so before the refusal, a pruned stamp made the copy still sitting
+     in Firestore look new on the next read and the pruned flag walked
+     straight back in: an extra merge, save and redraw on every write, and a
+     window that never held on a device with an account. Keeping the stamps
+     instead would have held it, at the price of a payload announcing empty
+     days forever. */
   function mPruneWindow(m) {
     var floor = mEarliestKey();
     Object.keys(m).forEach(function (dk) {
@@ -4822,13 +4938,18 @@
     return {};
   })();
 
+  // the oldest morning the weight log keeps: a year and a bit, for the trend
+  function mWeightFloor() {
+    var d = new Date();
+    d.setDate(d.getDate() - 399);
+    return dayKey(d);
+  }
+
   function mWriteWeight(k, lb) {
     mFoldDue();
     if (lb) MWEIGHTS[k] = Math.round(lb * 10) / 10;
     else delete MWEIGHTS[k];              // clearing the box un-logs the day
-    var d = new Date();
-    d.setDate(d.getDate() - 399);
-    var floor = dayKey(d);
+    var floor = mWeightFloor();
     Object.keys(MWEIGHTS).forEach(function (wk) { if (wk < floor) delete MWEIGHTS[wk]; });
     /* The stamps age out on the same year-and-a-bit as the mornings they
        stamp — they are what the payload is built from, so one left behind
@@ -4849,7 +4970,7 @@
   function mWeightStats() {
     var keys = Object.keys(MWEIGHTS).sort();
     if (!keys.length) return null;
-    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var dayN = mDayN;
     var lastN = dayN(keys[keys.length - 1]);
     var w7 = [], prev7 = [];
     keys.forEach(function (k) {
@@ -4864,7 +4985,7 @@
       /* Mornings since the scale last had anything to say. Every figure below
          is anchored on that morning rather than on today, so anything that
          compares them to today has to know how far apart they are. */
-      staleDays: Math.max(0, Math.round(keyDate(todayKey()).getTime() / 86400000) - lastN),
+      staleDays: Math.max(0, mDayN(todayKey()) - lastN),
       avg7: avg(w7),
       dWeek: prev7.length ? avg(w7) - avg(prev7) : null,
       dStart: MWEIGHTS[last] - MWEIGHTS[keys[0]]
@@ -4874,7 +4995,7 @@
   function mSparkSVG() {
     var keys = Object.keys(MWEIGHTS).sort().slice(-60);
     if (keys.length < 2) return '';
-    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var dayN = mDayN;
     var x0 = dayN(keys[0]), x1 = dayN(keys[keys.length - 1]);
     var lo = Infinity, hi = -Infinity;
     keys.forEach(function (k) {
@@ -5064,7 +5185,7 @@
     if (!pr.goalLb || !pr.goalBy) return null;
     var keys = Object.keys(MWEIGHTS).sort();
     if (!keys.length) return null;
-    var dayN = function (x) { return Math.round(keyDate(x).getTime() / 86400000); };
+    var dayN = mDayN;
     var set = pr.goalSet && pr.goalFrom > 0;
     var startK = set ? pr.goalSet : keys[0];
     var startLb = set ? pr.goalFrom : MWEIGHTS[keys[0]];
@@ -5132,7 +5253,7 @@
   function mRate3() {
     var keys = Object.keys(MWEIGHTS).filter(function (k) { return MWEIGHTS[k] > 0; }).sort();
     if (!keys.length) return null;
-    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var dayN = mDayN;
     var lastN = dayN(keys[keys.length - 1]);
     var a = [], b = [];
     keys.forEach(function (k) {
@@ -5317,7 +5438,6 @@
        day it was made on, so dismissing it on Sunday silenced Sunday and left
        every other past day still carrying it. */
     var pr = mReadProfile();
-    var st = mWeightStats();
     var meas = mMeasuredTdee();
 
     /* Salt first, because it is the one that stops you doing something. A
@@ -5391,11 +5511,7 @@
        question taking up the room. */
     var pf = mPaceFacts(k);
     if (!pf) return '';
-    var off = pf.off, band = pf.band, daysOff = pf.daysOff, burn = pf.burn,
-      need = pf.need, capped = pf.capped, arrive = pf.arrive, rate = pf.rate;
-    var rw = rate === null ? '' : mLbWord(rate);
-    var rateWord = !rw ? '' : rw === 'holding steady' ? 'Holding steady'
-      : rw.charAt(0).toUpperCase() + rw.slice(1) + ' a week';
+    var off = pf.off, need = pf.need, capped = pf.capped, arrive = pf.arrive;
     /* With carb cycling on, the number this offers is the week's average and
        no single day will read it back — a training day runs higher and a rest
        day lower. Pressing a button marked 1,853 and watching the bar say
@@ -6625,6 +6741,14 @@
        day merely browsed to — a write to a day nobody asked to change, sent
        to the account. Planning a future day still gets its pins, from Fill,
        which runs the pin pass itself. */
+    /* And unstamped. The pins are this device's guess at a day it has not
+       seen, not a change to it, and a guess stamped "now" beat the real day:
+       a second device opened at lunch drew before its first word from the
+       account, found no today, placed the routine, stamped it newer than the
+       breakfast logged on the phone that morning, and sent it — and a day
+       travels whole, so breakfast was gone on both. Unstamped, the seeded
+       day is never sent on its own and the account's copy of today, when it
+       comes, simply replaces it. The first real edit stamps it, pins and all. */
     if (k === todayK && !MDAYS[k]) {
       var anyPins = false;
       slots.list.forEach(function (s) { if (s.pins && s.pins.length) anyPins = true; });
@@ -6635,7 +6759,7 @@
               if (BY_ID[p.id]) (day0[s.k] = day0[s.k] || []).push({ id: p.id, x: p.x || 1, eaten: 0 });
             });
           });
-        });
+        }, true);
       }
     }
     var day = mDay(k);
@@ -6744,11 +6868,10 @@
        ticked, so it counts toward "mark all complete", but the sweeper
        leaves it alone, so it must not count toward "there is something to
        sweep". The test caught this by locking one. */
-    var plates = 0, unticked = 0, loose = 0;
+    var unticked = 0, loose = 0;
     slots.list.forEach(function (s0) {
       var pinned0 = (s0.pins || []).map(function (pn) { return String(pn.id); });
       (day[s0.k] || []).forEach(function (it) {
-        plates++;
         if (!it.eaten) unticked++;
         // what the sweep would take: not eaten, not locked, not pinned
         if (!it.eaten && !it.l && pinned0.indexOf(String(it.id)) < 0) loose++;
@@ -8216,132 +8339,6 @@
       p: targets.p * frac, f: targets.f * frac, c: targets.c * frac };
   }
 
-  /* On it is a BAND, and the band is measured against the DAY.
-   *
-     The first version compared a meal to its own share, and lit almost every
-     pill on an ordinary day — not because the day was bad but because a
-     meal's share of fat is eleven to nineteen grams and no real dish lands
-     within three of that. Colour that is on all the time has stopped saying
-     anything.
-
-     So the question is not "did this meal miss its share" — it always does —
-     but "did it miss by enough to move the day". A tenth of the day's target,
-     or fifteen per cent of the share, whichever is the more forgiving. Four
-     grams of fat over at lunch goes quiet; fifty-three does not. */
-  /* One band, one definition.
-   *
-     It was written down once as the colour's threshold and, in the bar that
-     draws the same judgement, not at all — which is how a green fill came to
-     stop a third of a track short of its own mark with nothing on screen
-     explaining why. Anything that colours or draws a meal against its share
-     comes through here.
-
-     The half-gram floor is not decoration. Both terms are FRACTIONS of a
-     target, so a day targeting zero of a macro has a band of no width at all
-     and the smallest trace is "over" — and a zero target is not exotic, the
-     carb cycle produces one every week: with six training days the rest-day
-     factor 1 − 0.25·T/R goes negative and mDayTargets clamps that day's
-     carbohydrate to nought. Four tenths of a gram of carbohydrate in a steak
-     dinner was drawing a red chip reading "C −0". Half a gram is under the
-     rounding of every number this band is ever compared against. */
-  function mMacBand(share, dayT) {
-    return Math.max(0.5, share * 0.15, (dayT || share) * 0.1);
-  }
-
-  function mMacState(got, share, dayT) {
-    var d = got - share;
-    if (Math.abs(d) <= mMacBand(share, dayT)) return 'on';
-    return d > 0 ? 'over' : 'short';
-  }
-
-  /* The state NAME is the whole payload. A chip takes its colour from
-     .msub-c.over / .msub-c.short in the stylesheet, so there is no tone map
-     here — unlike the day's bars one level up, which fill to a proportion and
-     so must carry their colour as an inline style (TONE, down in the footer).
-     The pale-tone map that used to sit beside this belonged to the
-     proportional meal pill the chips replaced and went out with it; the
-     --dial-*-pale tokens it named are still live for those bars, so a later
-     sweep for unused tokens should leave them alone. */
-
-  /* At a glance: only what is wrong.
-   *
-     Three pills on every meal all day is colour that is always on, and colour
-     that is always on has stopped saying anything. A meal that landed says
-     nothing at all — the calorie figure beside it is always there, so silence
-     can never be mistaken for "not worked out yet", and a good day looks the
-     way the app looked before any of this existed. */
-
-  /* Open, with a hand on the stepper: the whole picture, with a mark where the
-     share sits so how far past is a distance rather than a subtraction.
-   *
-     Used in the picker too, measuring what the meal holds PLUS what the
-     basket is about to add — against the same plan share the card behind the
-     sheet uses, and the same one its balance button solves to. Left-over
-     would invert the bar's meaning between two screens you move between in one
-     gesture, and a meal already over its share has a negative remainder, which
-     is three empty bars implying room that is not there. The gap between the
-     bar and the mark is what is left.
-   *
-     The axis is the SHARE, and it is the same axis on all three rows.
-     Normalising each row to max(got, want) drew EVERY over state at the same
-     83.3%: 45 of 45, 64 of 45 and 225 of 45 were one identical bar and only
-     the mark moved, so how far past was readable — backwards, and
-     non-linearly — from the tick alone. It also gave P, F and C each its own
-     top, which put the tick at three different places in one card and left
-     the three fills with nothing to be read against. The row-filling pills
-     this replaced could be read against each other, because they shared one
-     width.
-   *
-     So the share sits at MBAR_MARK on every track, always, and the fill is
-     what the meal holds measured in shares rather than in grams — grams
-     cannot be the shared unit, since 150 of protein beside 60 of fat on one
-     gram axis says nothing. Below the share the first two thirds are linear:
-     half your protein is a half-length bar. Past it the last third carries
-     the overshoot as 1 - want/got, the fraction of the plate that is excess,
-     so double the share fills half of that third, triple two thirds, and no
-     amount ever runs off the end. Past the mark is compressed on purpose:
-     the question there is whether this is a little over or wildly over, and
-     the grams beside the bar answer it exactly. */
-  var MBAR_MARK = 66.7;
-
-  /* A share of zero has no axis to sit on — anything at all is infinitely
-     over it, and nothing is not — so both ends are drawn as the limit. The
-     divisor this replaced carried a `|| 1` for the same reason; without one
-     the width would be NaN and the bar would silently not draw. */
-  function mBarPct(got, want) {
-    if (!(want > 0)) return got > 0 ? 100 : 0;
-    if (got <= want) return MBAR_MARK * (got / want);
-    return MBAR_MARK + (100 - MBAR_MARK) * (1 - want / got);
-  }
-
-  function mMacBars(sub, sh, targets) {
-    if (!sh) return '';
-    return '<div class="msub-bars">' + ['p', 'f', 'c'].map(function (m) {
-      var got = sub[m] || 0, want = sh[m] || 0;
-      var dayT = (targets || {})[m];
-      var st = mMacState(got, want, dayT);
-      /* The band, drawn. The colour and the bar were answering the same
-         question from two different definitions of "close enough": the state
-         allowed a tenth of the DAY either way, the track knew only the
-         meal's share, and the result was a green fill visibly a third short
-         of its own mark with nothing to account for the gap. It is the same
-         band either way now, and it is on the track — so a fill that stops
-         inside the shaded zone reads as landed, and one that stops outside
-         it reads as missed, without a number being consulted. */
-      var band = mMacBand(want, dayT);
-      var lo = mBarPct(Math.max(0, want - band), want);
-      var hi = mBarPct(want + band, want);
-      return '<div class="msub-br"><span class="msub-bk mb-' + m + '">' + m.toUpperCase() +
-        '</span><span class="msub-bt">' +
-          '<span class="msub-bz" style="left:' + lo.toFixed(1) + '%;width:' +
-            Math.max(0, hi - lo).toFixed(1) + '%"></span>' +
-          '<span class="msub-bb ' + st + '" style="width:' + mBarPct(got, want).toFixed(1) + '%"></span>' +
-          '<span class="msub-bm" style="left:' + MBAR_MARK.toFixed(1) + '%"></span>' +
-        '</span><span class="msub-bv"><b>' + Math.round(got) + '</b> / ' +
-          Math.round(want) + ' g</span></div>';
-    }).join('') + '</div>';
-  }
-
   /* An empty meal, and what it is for.
    *
      It read "at its share &middot; 98". A share is how the solver divides the
@@ -8524,7 +8521,7 @@
      taken at each morning rather than only at the last. It is the line the
      weight chart draws, because a single morning is water and salt. */
   function mcTrend(keys) {
-    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var dayN = mDayN;
     return keys.map(function (k, i) {
       var n = dayN(k), sum = 0, c = 0;
       for (var j = i; j >= 0 && n - dayN(keys[j]) < 7; j--) { sum += MWEIGHTS[keys[j]]; c++; }
@@ -8581,7 +8578,7 @@
     var tk = mcNiceTicks(Math.min.apply(null, all), Math.max.apply(null, all), 4);
     if (tk.length < 2) tk = [tk[0] - 1, tk[0] + 1];
     var lo = tk[0], hi = tk[tk.length - 1], step = tk[1] - tk[0];
-    var dayN = function (k) { return Math.round(keyDate(k).getTime() / 86400000); };
+    var dayN = mDayN;
     var t0 = dayN(sr.keys[0]), t1 = dayN(sr.keys[sr.keys.length - 1]);
     var px = function (i) {
       var t = dayN(sr.keys[i]);
@@ -9191,7 +9188,6 @@
       var target = Math.max(1, m === 'kcal' ? tK : targets[m]);
       var ate = m === 'kcal' ? tot.eaten.kcal : tot.eaten[m];
       var plan = m === 'kcal' ? tot.all.kcal : tot.all[m];
-      var assume = asm[m];
       /* The number is what is ACTUALLY on the day; the hatched band beside it
          is what an empty meal is assumed to become. Adding the assumption
          into the figure made "how much have I got" unanswerable — you could
@@ -9207,13 +9203,13 @@
          crossed its target by anything at all — two grams of fat on a
          sixty-one gram target drew the same alarm as being a quarter over on
          carbohydrate, which is not what either of those days is. Ten grams
-         either side of a macro counts as landing on it; calories get three
-         per cent, because ten calories is a rounding error rather than a
-         tolerance.
+         either side of a macro counts as landing on it; calories get
+         MKCAL_OVER's six and a half per cent (it was three here once, and
+         two before that), because ten calories is a rounding error rather
+         than a tolerance.
        *
          Protein keeps its wider ceiling on top of that: it is the one macro
          a cut wants you to overshoot, so it holds on target to 110%. */
-      var diff = plan - target;
       /* Off the same constant as the verdict below it, or it quietly puts back
          the bug it is sitting above: at 3% a day at 102.5% of target counted as
          near and so drew green, while the strip — over at 2% — had already
@@ -9227,7 +9223,6 @@
       barPct[m] = Math.min(100, pct);
       var wAte = Math.min(100, 100 * ate / target);
       var wPlan = Math.min(100 - wAte, 100 * (plan - ate) / target);
-      var wAsm = Math.min(100 - wAte - wPlan, 100 * assume / target);
       var num = '<span class="mb-num"><b>' + (m === 'kcal' ? full.toLocaleString() : full) +
         '</b> / ' + (m === 'kcal' ? tK.toLocaleString() + ' kcal' : targets[m] + esc(row[3])) +
         '</span>';
@@ -10433,7 +10428,6 @@
   function macroPickerHTML() {
     var name = S.macroPick.n;
     var d = keyDate(mViewKey());
-    var n = Object.keys(S.mpBasket).length;
     var head = '<div class="sheet-top">' +
         '<div class="sheet-eyebrow">Add to ' + esc(name) + ' · ' +
           M_MONS[d.getMonth()] + ' ' + d.getDate() + '</div>' +
@@ -10757,7 +10751,6 @@
      short, because no three foods are 180 g of protein. The bars measure the
      day; a plate is still a meal. */
   var MCOMBO_MIN = 10;                  // grams of gap worth three foods
-  var MMAC_WORD = { p: 'protein', f: 'fat', c: 'carbohydrate' };
 
   function mComboSlotName() {
     var slots = mReadSlots(), sk = S.macroPick && S.macroPick.slot;
@@ -10769,10 +10762,6 @@
   function mComboGap(k) {
     var targets = mDayTargets(k);
     if (!targets.p && !targets.f && !targets.c) return null;
-    var slot = null;
-    mReadSlots().list.forEach(function (sl) {
-      if (sl.k === (S.macroPick && S.macroPick.slot)) slot = sl;
-    });
     /* The SAME question the header above it asks, from the same two numbers.
      *
        This used to read mShares(...).T — the meal's static slice of the day —
@@ -10998,8 +10987,6 @@
     if (starts(MDAIRY)) return 'dairy';
     return byMacro;
   }
-
-  var MDOM_HEAD = [['p', 'Protein'], ['c', 'Carbs'], ['f', 'Fats']];
 
   /* Every food you can eat as it comes, under the macro it is for.
    *
@@ -11291,18 +11278,28 @@
      Neither is asked anything until you ask. A reader who never opens this
      box never touches either host, which is the property the whole app has
      kept and its offline test insists on. */
+  /* Foundation foods — the USDA's newest, most carefully measured set —
+     often give no plain "Energy" at all, only "Energy (Atwater General
+     Factors)" and "Energy (Atwater Specific Factors)", and read by the plain
+     name alone they listed at 0 kcal. The plain figure wins where there is
+     one, then the specific factors, then the general. The stored food is
+     worked out from its macros on save either way; this is what the list
+     shows before then. */
   function mNutrients(list) {
-    var out = { kcal: 0, p: 0, f: 0, c: 0 };
+    var out = { kcal: 0, p: 0, f: 0, c: 0 }, kc = {};
     (list || []).forEach(function (n) {
       var name = n.nutrientName || (n.nutrient && n.nutrient.name) || '';
       var unit = (n.unitName || (n.nutrient && n.nutrient.unitName) || '').toUpperCase();
       var v = n.value === undefined ? n.amount : n.value;
       if (typeof v !== 'number') return;
-      if (name === 'Energy' && unit === 'KCAL') out.kcal = v;
+      if (unit === 'KCAL' && /^Energy\b/.test(name)) {
+        kc[/Specific/.test(name) ? 'spec' : /General/.test(name) ? 'gen' : 'plain'] = v;
+      }
       else if (name === 'Protein') out.p = v;
       else if (name === 'Total lipid (fat)') out.f = v;
       else if (name === 'Carbohydrate, by difference') out.c = v;
     });
+    out.kcal = kc.plain !== undefined ? kc.plain : kc.spec !== undefined ? kc.spec : kc.gen || 0;
     return out;
   }
 
@@ -11489,10 +11486,19 @@
       var p = d && d.product;
       if (!p) throw new Error('none');
       var nu = p.nutriments || {};
-      var per = function (k) {
-        var v = nu[k + '_serving'];
-        return typeof v === 'number' ? { v: v, serving: true } : { v: nu[k + '_100g'], serving: false };
-      };
+      /* One basis for all four figures. Each used to fall back on its own —
+         per serving where the packet gave one, per 100 g where it did not —
+         and the label was chosen from the energy alone, so a product listing
+         calories per serving and protein only per 100 g arrived as one row
+         mixing the two under "per serving". Per serving only when every
+         figure the packet gives has a serving value; otherwise all of them
+         per 100 g, which is the one basis Open Food Facts always fills. */
+      var has = function (k, b) { return typeof nu[k + '_' + b] === 'number'; };
+      var serving = has('energy-kcal', 'serving') &&
+        ['proteins', 'fat', 'carbohydrates'].every(function (k) {
+          return has(k, 'serving') || !has(k, '100g');
+        });
+      var per = function (k) { return { v: nu[k + (serving ? '_serving' : '_100g')], serving: serving }; };
       var e = per('energy-kcal');
       var pr2 = per('proteins'), fa = per('fat'), ca = per('carbohydrates');
       /* A great many products in Open Food Facts are photographs and a name
@@ -11510,6 +11516,22 @@
         note: 'Open Food Facts'
       }];
     });
+  }
+
+  /* What a failed lookup says, in one place. It was written out three times
+     — the picker's search, the barcode scan and the new-food form — and the
+     copies had drifted: the scan called every failure "not in Open Food
+     Facts", including no signal at all, which sent people to type in a
+     product the database did have. `code` is the barcode, when there is one. */
+  function mLookSay(err, code) {
+    var why = err && err.message;
+    if (why === 'nokey') return 'No USDA key in src/config.js, so only barcodes can be looked up.';
+    if (why === 'toofast') return (code ? 'Open Food Facts is asking us to slow down.' : 'Asked too often just now.') +
+      ' Wait a minute, or type it in below.';
+    if (why === 'nonutrition') return (code ? code + ' is in Open Food Facts, but' : 'That one is known, but') +
+      ' with no nutrition table yet. Read it off the packet below.';
+    if (why === 'none') return (code || 'That') + ' is not in Open Food Facts. Type what it was below.';
+    return (code ? 'Open Food Facts' : 'The food tables') + ' did not answer. Type it in below, or try again.';
   }
 
   function mLookupRows(list) {
@@ -11563,10 +11585,7 @@
         ? '<div class="mt-div">From the food tables</div>' + mLookupRows(list) : '';
     }, function (err) {
       if (mine !== mLookSeq || !$('nfResults')) return;
-      $('nfResults').innerHTML = '<div class="mslot-empty">' +
-        (err && err.message === 'nokey' ? 'No USDA key in src/config.js.'
-          : err && err.message === 'toofast' ? 'Asked too often just now.'
-            : 'The food tables did not answer.') + '</div>' +
+      $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(mLookSay(err)) + '</div>' +
         /* The one place a tap is still the right answer: the network failed
            and only you know whether it is worth asking again. */
         (err && err.message === 'nokey' ? ''
@@ -11580,8 +11599,31 @@
      has one, because it is better at this than we are; the decoder above
      where it does not, which is every iPhone. */
   var mCam = null;
+  /* Which opening of the lens is the current one, and whether this visit to
+     scan has already got its answer.
+   *
+     The camera is asked for and arrives later — after a permission prompt,
+     on a phone, seconds later. Everything that stops it in the meantime used
+     to find nothing to stop, because mCam is only set once the stream is in
+     hand, and the stream then arrived anyway and ran: on a video element
+     already torn out of the page, with a frame loop behind it and the light
+     on, until the app was closed. Typing the barcode did it every time
+     (drawing scan mode opened the lens, and the typed number stopped it
+     before permission came back), and so did leaving scan before answering
+     the prompt. Each opening now carries a generation, every stop moves it
+     on, and a stream that arrives for a generation that has passed is
+     stopped the moment it lands.
+   *
+     And a scan that has found its barcode is finished. The sheet is drawn
+     once in scan mode and left, but only while the video was in it — the
+     scan removes the video, so the next redraw from anywhere (a sync
+     arriving, a save elsewhere) drew the sheet again, wiped the result being
+     read, and opened the lens a second time over the top of any stream
+     still live. */
+  var mCamGen = 0, mCamDone = false;
 
   function mScanStop() {
+    mCamGen++;
     if (mCam && mCam.stream) mCam.stream.getTracks().forEach(function (t) { t.stop(); });
     if (mCam && mCam.raf) cancelAnimationFrame(mCam.raf);
     mCam = null;
@@ -11592,6 +11634,9 @@
   function mScanStart() {
     var root = $('scanRoot');
     if (!root) return;                  // the sheet moved on before we got here
+    mScanStop();                        // one lens at a time, never a second over the first
+    mCamDone = false;
+    var gen = mCamGen;
     root.innerHTML = '<div class="scan-wrap">' +
       '<video id="scanVid" playsinline muted></video>' +
       '<div class="scan-line"></div>' +
@@ -11609,11 +11654,16 @@
     navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
     }).then(function (stream) {
-      mCam = { stream: stream, raf: 0 };
+      // asked for by an opening that has since been stopped: let go at once
+      if (gen !== mCamGen || !document.body.contains(vid)) {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        return;
+      }
+      mCam = { stream: stream, raf: 0, gen: gen };
       vid.srcObject = stream;
       vid.play();
       var tick = function () {
-        if (!mCam) return;
+        if (!mCam || mCam.gen !== gen) return;
         mCam.raf = requestAnimationFrame(tick);
         if (!vid.videoWidth) return;
         var w = Math.min(640, vid.videoWidth);
@@ -11658,21 +11708,21 @@
      row has not worked since it was added. */
   function mScanGot(code, typed) {
     if (!code || (!typed && !mCam)) return;
+    mCamDone = true;
     mScanStop();
     if ($('nfFind')) $('nfFind').value = code;
     var res = $('nfResults');
     if (res) res.innerHTML = '<div class="mslot-empty">Looking up ' + esc(code) + '&hellip;</div>';
     MLOOKUP = {};
+    // the same rule as the food tables: a slow answer to an older question is dropped
+    var mine = ++mLookSeq;
     mBarcodeLookup(String(code).replace(/\D/g, '')).then(function (list) {
+      if (mine !== mLookSeq) return;
       if ($('nfResults')) $('nfResults').innerHTML = mLookupRows(list);
     }, function (err) {
+      if (mine !== mLookSeq) return;
       if ($('nfResults')) {
-        $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(code) +
-          (err && err.message === 'nonutrition'
-            ? ' is in Open Food Facts, but with no nutrition table yet. Read it off the packet below.'
-            : err && err.message === 'toofast'
-              ? ' — Open Food Facts is asking us to slow down. Wait a minute, or read the packet below.'
-              : ' is not in Open Food Facts. Type what it was below.') + '</div>';
+        $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(mLookSay(err, String(code))) + '</div>';
       }
     });
   }
@@ -12049,8 +12099,6 @@
        off-screen must therefore still be IN the document, or the plan is
        computed from zeros for every question not currently showing. The
        wizard hides steps. It never removes them. */
-    var cap = function (s) { return '<div class="mt-cap">' + s + '</div>'; };
-
     /* The rows, without captions. Blake: "I want simplicity and intelligent
        outputs with few clicks" — the sentence under every field was the
        first thing to go, in both shapes of this sheet. The ids are the ids:
@@ -13759,8 +13807,7 @@
   function mBalanceMeal(sk) {
     var k = mViewKey();
     var targets = mDayTargets(k);
-    var slots = mReadSlots(), srec = null;
-    slots.list.forEach(function (sl) { if (sl.k === sk) srec = sl; });
+    var slots = mReadSlots();
     mEditDay(k, function (day) {
       var free = (day[sk] || []).filter(function (it) {
         var r = BY_ID[it.id];
@@ -14218,7 +14265,7 @@
        food, and counting it as a zero would quietly tell you the cut is going
        better than it is. */
     var week = [], onP = 0, kept = 0, sumK = 0;
-    var d = keyDate(k);
+    var d = keyDate(k), todayK = todayKey();
     for (var i = 6; i >= 0; i--) {
       var dd = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i);
       var dk = dayKey(dd);
@@ -14227,8 +14274,15 @@
       /* Calories count as something written down, here as everywhere else on
          this sheet. A week of eating out was a week of blank bars. */
       var has = (dt.p + dt.f + dt.c + (dt.kcal || 0)) > 0;
+      /* A day still being eaten is drawn but not counted: today at two in
+         the afternoon is half a day, and averaging it in pulled "your
+         seven-day average" down and scored the protein a miss before dinner.
+         The week strip's dots already refuse to call today a miss; this
+         agrees with them. Today counts once you have closed it, and a day
+         you are planning ahead never does. */
+      var over = dk < todayK || (dk === todayK && mDoneAt(dk) > 0);
       var hit = null;
-      if (has) {
+      if (has && over) {
         kept++;
         sumK += (dt.kcal || 0);
         hit = mVerdict('p', dt.p, dT.p) === 'on' ? 1 : 0;
@@ -14785,9 +14839,6 @@
   function lineNeedsBuying(r, ix) {
     return itemNeedsBuying((r.ingp || [])[ix]);
   }
-
-  // "storehouse" is only the right word while the shelf is still the storehouse's
-  function shelfName() { return window.Store.pantryChanged() ? 'your pantry' : 'the storehouse'; }
 
   function recipeHTML(r) {
     return '<div class="rp">' +
@@ -16322,13 +16373,16 @@
       /* The camera is a live device, not markup: re-rendering the sheet
          underneath it would tear down the stream and start a second one on
          every keystroke elsewhere. So scan mode is drawn once, and left. */
-      var already = prev && prev.querySelector('#scanVid');
+      /* Drawn once and left, for as long as scan's own markup is up — not
+         only while the video is, which a finished scan takes away with the
+         lookup result still to be read beneath it. */
+      var already = prev && prev.querySelector('#scanRoot');
       if (!(S.mpMode === 'scan' && already)) {
         root.innerHTML = macroPickerHTML();
         document.body.style.overflow = 'hidden';
         if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
         // Scan is a way in, not a button inside one: choosing it opens the lens
-        if (S.mpMode === 'scan' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        if (S.mpMode === 'scan' && !mCamDone && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
           mScanStart();
         }
       }
@@ -16372,7 +16426,7 @@
     root.innerHTML = '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(r.name) + '">' +
         '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">' + esc([BOOKS[r.book].name, r.secName]
+          '<div class="sheet-eyebrow">' + esc([(BOOKS[r.book] || BOOKS[3]).name, r.secName]
             .filter(function (x, i, a) { return i === 0 || x !== a[0]; })
             .concat('No. ' + no(r)).join(' · ')) + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
@@ -16740,6 +16794,47 @@
   }
 
   // ----------------------------------------------------------------- sync UI
+  /* What the household lost that this phone kept (Store.removed — see
+     keepRemoved in sync.js), and the two answers to it. It does not say
+     who removed it: most often it is the other person deleting their own
+     recipe, and this is only here for the times it was not. */
+  function syncGoneHTML() {
+    var gone = window.Store.removed ? window.Store.removed() : [];
+    if (!gone.length) return '';
+    var KIND = { mine: 'recipe', edits: 'change to a printed recipe', weeks: 'week' };
+    var names = gone.slice(0, 6).map(function (x) {
+      return '<li>' + esc(x.name || 'Untitled') + ' <span class="sync-note">(' + KIND[x.k] + ')</span></li>';
+    }).join('') + (gone.length > 6 ? '<li>and ' + (gone.length - 6) + ' more</li>' : '');
+    return '<div class="sync-gone">' +
+      '<p class="sync-p">Taken out of the shared pantry on another phone. This one kept ' +
+        (gone.length === 1 ? 'a copy' : 'copies') + ':</p>' +
+      '<ul class="sync-gone-l">' + names + '</ul>' +
+      '<div class="sync-row">' +
+        '<button class="btn-primary" data-sync="restore">Put ' + (gone.length === 1 ? 'it' : 'them') + ' back</button>' +
+        '<button class="ghost" data-sync="forgetgone">Leave ' + (gone.length === 1 ? 'it' : 'them') + ' out</button>' +
+      '</div></div>';
+  }
+
+  /* Said once each, when it first happens, wherever you are: something the
+     household lost, and this phone's storage refusing a save. The sheet
+     says the first for as long as it stands; the second has no other
+     place to be seen. */
+  var mGoneSeen = -1, mHouseFullSaid = false;
+  function mHouseNotices() {
+    var n = window.Store.removed ? window.Store.removed().length : 0;
+    if (mGoneSeen >= 0 && n > mGoneSeen) {
+      mToast(n === 1 ? 'Something was taken out of the shared pantry on another phone. Sync &amp; sharing can put it back.'
+        : n + ' things were taken out of the shared pantry on another phone. Sync &amp; sharing can put them back.');
+    }
+    mGoneSeen = n;
+    var full = !!window.Store.storageFull;
+    if (full && !mHouseFullSaid) {
+      mToast('This phone’s storage for the app is full, so changes to the plan and recipes aren’t kept on it' +
+        (window.Store.house ? ' — they still go to the shared pantry while there’s signal.' : '. Free some space to keep them.'));
+    }
+    mHouseFullSaid = full;
+  }
+
   function syncHTML() {
     var st = window.Store.status;
     var configured = window.Store.configured;
@@ -16794,6 +16889,7 @@
       body = invite +
         '<div class="sync-code">' + esc(house) + '</div>' +
         (window.Store.statusNote ? '<div class="sync-warn">' + esc(window.Store.statusNote) + '</div>' : '') +
+        syncGoneHTML() +
         '<div class="sync-row"><button class="ghost" data-sync="leave">Stop sharing here</button></div>';
     }
     var inviteLine = S.inviteMsg ? '<div class="sync-warn">' + esc(S.inviteMsg) + '</div>'
@@ -16914,6 +17010,7 @@
     face: mPlanFace,
     tdee: mTdee,
     summary: mSummaryHTML,
+    daySummary: mDaySummary,
     ask: function (sk) { return mMealAsk(sk, mDayTargets(mViewKey()), mReadSlots()); },
     slotFor: function (id) { var sl = mSlotForRecipe(BY_ID[id], mReadSlots()); return sl ? sl.k : null; },
     /* The profile as the app reads it — weight from the scale, not the stale
@@ -16932,6 +17029,13 @@
     payload: mSyncPayload,
     // every keyed part, off the one table, whether or not this device has anything stamped in it yet
     keyedParts: function () { return MSYNC_KEYED.map(function (r) { return r.part; }); },
+    // the corrected clock and what corrects it, the day count, and what a lookup says
+    now: function () { return mNow(); },
+    clockHear: mClockHear,
+    clockSent: function (t) { mClkSent = t; },
+    dayN: mDayN,
+    lookSay: mLookSay,
+    nutrients: mNutrients,
     /* What the next push would actually send, so a test can weigh it against
        the whole. */
     partial: function () { return mSyncPartial(); },
@@ -18083,7 +18187,6 @@
        you meant.
      *
        An empty box is not bad input — it is how you clear a morning. */
-    var mWeightBad = false;
     function mWeightOf(raw) {
       var t = String(raw == null ? '' : raw).trim();
       if (!t) return { empty: true, lb: 0 };
@@ -18110,7 +18213,6 @@
           ' lately' : '') + '. Enter to keep it.' : '';
       var box = $('mWeight');
       if (box) box.setAttribute('aria-invalid', bad ? 'true' : 'false');
-      mWeightBad = bad;
     }
     $('macroWeigh').addEventListener('input', function (e) {
       if (e.target.id !== 'mWeight') return;
@@ -18325,7 +18427,6 @@
       S.myErr = '';
       if ((!mAuthKnown || mSyncUnreachable) && mSuspectAccount()) mSyncStart();
       if (!S.pendingCode) S.pendingCode = window.Store.newCode();
-      if (!S.pendingCode) S.pendingCode = window.Store.newCode();
       pushSheet({ s: 1 });
       renderModal();
       var x = document.querySelector('.sheet-x');
@@ -18530,6 +18631,7 @@
         // leaving scan means letting go of the camera, whichever way you leave
         if (S.mpMode === 'scan') mScanStop();
         S.mpMode = mpm.dataset.mpmode === S.mpMode ? 'home' : mpm.dataset.mpmode;
+        mCamDone = false;               // a fresh visit to scan opens the lens again
         renderModal();
         return;
       }
@@ -18629,6 +18731,9 @@
       if (nfc) {
         var code = nfc.dataset.nfcode;
         S.mpMode = 'scan';
+        /* The number is already in hand, so this visit to scan is finished
+           before it is drawn — drawing it must not ask for the camera. */
+        mCamDone = true;
         renderModal();
         mScanGot(code, true);   // typed, not decoded
         return;
@@ -18654,24 +18759,21 @@
               (byCode ? 'Type the number under the barcode.' : 'Type what it was.') + '</div>';
             return;
           }
+          /* The number typed beside the lens is the scan's answer, the same
+             as the row that offers a typed barcode: it goes the same way, and
+             lets go of the camera, rather than asking with the light left on. */
+          if (byCode && S.macroPick && S.mpMode === 'scan') { mScanGot(term, true); return; }
           $('nfResults').innerHTML = '<div class="mslot-empty">Looking&hellip;</div>';
           MLOOKUP = {};
+          var asked = ++mLookSeq;       // a slower answer to the question before is dropped
           (byCode ? mBarcodeLookup(term.replace(/\D/g, '')) : mFoodSearch(term, packaged))
             .then(function (list) {
-              if (!$('nfResults')) return;
+              if (asked !== mLookSeq || !$('nfResults')) return;
               $('nfResults').innerHTML = mLookupRows(list);
             }, function (err) {
-              if (!$('nfResults')) return;
+              if (asked !== mLookSeq || !$('nfResults')) return;
               $('nfResults').innerHTML = '<div class="mslot-empty">' +
-                (err && err.message === 'nokey'
-                  ? 'Looking food up needs a free USDA key in src/config.js. ' +
-                    'Barcodes work without one.'
-                  : err && err.message === 'nonutrition'
-                    ? 'That one is known, but has no nutrition table yet. ' +
-                      'Read it off the packet below.'
-                    : err && err.message === 'toofast'
-                      ? 'Asked too often just now. Wait a minute, or type it in below.'
-                      : 'That did not come back. Type it in below instead.') + '</div>';
+                esc(mLookSay(err, byCode ? term : '')) + '</div>';
             });
           return;
         }
@@ -19256,6 +19358,8 @@
           var v = ($('joinCode') || {}).value || '';
           if (v.trim()) { mHouseTellNext = true; window.Store.join(v); }
         }
+        if (act === 'restore' && window.Store.restoreRemoved) window.Store.restoreRemoved();
+        if (act === 'forgetgone' && window.Store.forgetRemoved) window.Store.forgetRemoved();
         /* Signed in, stopping here stops it for the account too; otherwise
            the next snapshot would put this device straight back in. */
         if (act === 'leave') {
@@ -19290,21 +19394,6 @@
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
       if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
       if (S.newFood && e.target.id === 'nfFind') { /* typed; the buttons ask */ }
-      /* Held, because these two now live INSIDE #mpList.
-       *
-         They used to sit in .mp-controls, a sibling of the list, where
-         replacing the list could not touch them. They moved onto the
-         "Fits best / On the shelf" divider, which mpFitsHTML returns as part
-         of the list — so redrawing the list destroys the very select that
-         asked for the redraw, and focus falls to the body. A keyboard or
-         screen-reader user had to tab from the top of the sheet back down
-         for every single change. focusKey falls back to #id, so there is
-         nothing to add to FOCUS_ATTRS; there was simply nothing holding on. */
-      if (S.macroPick && (e.target.id === 'mpSec' || e.target.id === 'mpSort')) {
-        if (e.target.id === 'mpSec') S.mpSec = e.target.value;
-        else S.mpSort = e.target.value;
-        keepingFocus(refreshMacroPicker);
-      }
       if (S.macroPick && e.target.id === 'mpFind') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();
@@ -19364,7 +19453,20 @@
         return;
       }
       if (S.macroTargOpen && (e.target.id === 'mtAct' || e.target.id === 'mtGoalBy')) mtRefreshPlan();
-      // the picker's two lenses redraw only the list, like the search box
+      /* The picker's two lenses redraw only the list, like the search box —
+         here on change and not also on input, where they were handled a
+         second time: a select fires both, and every choice drew the list
+         twice.
+       *
+         Held, because these two live INSIDE #mpList. They used to sit in
+         .mp-controls, a sibling of the list, where replacing the list could
+         not touch them. They moved onto the "Fits best / On the shelf"
+         divider, which mpFitsHTML returns as part of the list — so redrawing
+         the list destroys the very select that asked for the redraw, and
+         focus falls to the body. A keyboard or screen-reader user had to tab
+         from the top of the sheet back down for every single change.
+         focusKey falls back to #id, so there is nothing to add to
+         FOCUS_ATTRS; there was simply nothing holding on. */
       if (S.macroPick && e.target.id === 'mpSec') {
         S.mpSec = e.target.value; keepingFocus(refreshMacroPicker);
       }
@@ -19720,6 +19822,6 @@
   mBootTargetsDue = true;
   if (!mSuspectAccount()) mBootTargets();
   wire();
-  window.Store.init(function () { renderAll(); mHouseWatch(); });
+  window.Store.init(function () { renderAll(); mHouseWatch(); mHouseNotices(); });
   renderAll();
 })();

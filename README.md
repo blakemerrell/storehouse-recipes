@@ -512,7 +512,20 @@ covering browsing and filters, the weeks, the shopping list's names and quantiti
 writing and editing recipes, every page of the printed book, opening the whole thing
 with the network switched off, and Train — `tests/train.test.js` feeds the block logged
 workouts and checks the sets, weights, records, review and sync that come back. `sync` writes to a throwaway household and deletes it
-afterwards; it never touches a real one.
+afterwards; it never touches a real one. `tests/household.test.js` runs the shared
+household against a stand-in for Firestore in the default run — what each change asks
+the server to do, and what a phone keeps when something is taken from the household.
+
+The security rules in `firestore.rules` have their own check, against Google's
+Firestore emulator (it needs Java; the emulator is downloaded once into
+`tests/rules/.emulator/`):
+
+```sh
+cd tests/rules && npm ci && npm test
+```
+
+It asks, as different people, for every write the app makes and for the ones somebody
+holding a household code might try instead. CI runs it on every pull request.
 
 To check recipes against standard kitchen ratios — hydration and salt in yeasted
 dough, leavening per cup of flour, baking soda with nothing acidic to react

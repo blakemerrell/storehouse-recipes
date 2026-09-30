@@ -34,7 +34,8 @@ window.Store = (function () {
        than the 1/0 the rest of this file expects. */
     pantry: 'bsc.pantry', pantryNew: 'bsc.pantryNew', houseNew: 'bsc.houseNew',
     kitchen: 'bsc.kitchen', src: 'bsc.src', rate: 'bsc.rate', opts: 'bsc.opts', low: 'bsc.low',
-    plan: 'bsc.plan', checked: 'bsc.checked'   // the single week this replaced
+    plan: 'bsc.plan', checked: 'bsc.checked',  // the single week this replaced
+    kept: 'bsc.houseKept'                       // what the household lost: see keepRemoved
   };
 
   /* What the bug left behind. pantryNew was written second, so the stray key
@@ -127,9 +128,10 @@ window.Store = (function () {
   var houseMine = false;
   var queued = [];            // writes made before the connection was up
   /* Who belongs to this household, by account. Recorded on every signed-in
-     visit and gating nothing yet: the rules still let the code in. It is
-     the list the rules will read once they stop doing that, and it has to be
-     complete before then or they lock out somebody who belongs. */
+     visit. It gates nothing about reading — the code is still the key, by
+     choice — but the rules keep it honest: it changes only by the person
+     writing putting themselves on or taking themselves off, and only a
+     member can make an invite. */
   var members = [];
   var enrolling = '';         // the household an enrol write is out for
   var listeners = [];
@@ -139,8 +141,22 @@ window.Store = (function () {
   function read(k, d) {
     try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; }
   }
+  /* Whether the last save of each key failed. A write that failed used to
+     be swallowed as "private mode", which is true of private mode and a lie
+     on a phone whose storage is full: the week planned and the recipe
+     written sat on screen looking kept, and were gone on the next open.
+     My Day and Strengthen already say so when it happens (mPut, LSFULL);
+     storageFull is how the app learns it here. */
+  var lsBad = {};
   function write(k, v) {
-    try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ }
+    try {
+      localStorage.setItem(k, JSON.stringify(v));
+      delete lsBad[k];
+      return true;
+    } catch (e) {
+      lsBad[k] = 1;
+      return false;
+    }
   }
   function saveLocal() {
     write(LS.favs, state.favs); write(LS.weeks, state.weeks); write(LS.active, state.active);
@@ -310,9 +326,15 @@ window.Store = (function () {
     return Math.floor(Math.random() * n);
   }
 
+  /* And a third word. The code is still the only key — the owner chose to
+     keep codes that can be read out rather than lock the household to its
+     members list — so what can be done is make one harder to find by trying:
+     64 × 9,000 × 64 × 64 is 2.4 billion, sixty-four times the walk of two
+     words, for one more word said across the kitchen. Codes already handed
+     out keep working; join() takes any code as it is typed. */
   function newCodeStr() {
     var pick = function () { return CODE_WORDS[rnd(CODE_WORDS.length)]; };
-    return pick() + '-' + String(1000 + rnd(9000)) + '-' + pick();
+    return pick() + '-' + String(1000 + rnd(9000)) + '-' + pick() + '-' + pick();
   }
 
   /* state.plan and state.checked are the active week's, kept as plain fields so
@@ -382,6 +404,60 @@ window.Store = (function () {
     MAPS.forEach(function (k) { if (d[k] !== undefined) state[k] = cleanMap(k, d[k]); });
     derive();
     return made;
+  }
+
+  /* ------------------------------------------- what the household lost
+   *
+   * The code is a key that can be read aloud, kept on purpose, so anybody who
+   * has ever heard it can reach the document — and every phone mirrors the
+   * document, so whatever is taken from it is taken from every phone the next
+   * time it listens. A recipe somebody wrote exists nowhere else. The rules
+   * now stop it all going in one write (see firestore.rules); this is what
+   * makes the rest recoverable.
+   *
+   * Before a snapshot from the household is adopted, anything it no longer
+   * has that this phone still does — a recipe of your own, an edit to a
+   * printed one, a week with dinners on it — is copied aside, here, on this
+   * phone. It says nothing about who took it or why: the other person may
+   * simply have deleted it, which is why nothing comes back by itself.
+   * Sync & sharing lists it and offers to put it back; a month later, or on
+   * "Leave them out", it is forgotten.
+   *
+   * This phone's own deletions never land here. They change the state first
+   * (see push), so by the time the household echoes them back there is
+   * nothing left over to notice. */
+  var KEPT_DAYS = 30, KEPT_MOST = 60;
+  function keptAll() {
+    var k = read(LS.kept, []);
+    if (!Array.isArray(k)) return [];
+    var since = Date.now() - KEPT_DAYS * 86400000;
+    return k.filter(function (x) { return x && typeof x === 'object' && x.at > since && x.v; });
+  }
+  function keepRemoved(d) {
+    if (!house) return;
+    var add = [], theirs = { mine: sane(d.mine, OWN_ID), edits: sane(d.edits, BOOK_ID) };
+    ['mine', 'edits'].forEach(function (k) {
+      Object.keys(state[k]).forEach(function (id) {
+        if (!theirs[k][id]) add.push({ k: k, id: id, name: state[k][id].name, v: state[k][id] });
+      });
+    });
+    /* Weeks only from a document that has weeks at all: one written by the
+       one-week version has none, and is carried over rather than emptied. */
+    if (d.weeks !== undefined) {
+      var tw = obj(d.weeks);
+      Object.keys(state.weeks).forEach(function (id) {
+        var w = state.weeks[id];
+        if (tw[id] || !planned(w)) return;
+        add.push({ k: 'weeks', id: id, name: w.name,
+          v: { name: w.name, ord: w.ord || 0, plan: obj(w.plan), checked: {} } });
+      });
+    }
+    if (!add.length) return;
+    var now = Date.now(), had = keptAll().filter(function (x) {
+      return !add.some(function (a) { return a.k === x.k && a.id === x.id && x.house === house; });
+    });
+    add.forEach(function (x) { x.at = now; x.house = house; });
+    write(LS.kept, add.concat(had).slice(0, KEPT_MOST));
   }
 
   /* Has anybody been put on a day of this week. An empty week is not worth
@@ -509,6 +585,7 @@ window.Store = (function () {
    * SDK below already follows and a test already holds. */
   var GIS_SRC = 'https://accounts.google.com/gsi/client';
   var gisP = null;
+  var gisInit = false, gisDone = null, gisFail = null;   // see mountGoogleButton
   function gisReady() {
     if (gisP) return gisP;
     var cid = window.GOOGLE_CLIENT_ID;
@@ -644,6 +721,12 @@ window.Store = (function () {
           var missed = house;
           house = ''; write(LS.house, '');
           pendingMerge = false; doc = null;
+          /* And what was waiting to go to it goes nowhere. It used to be kept,
+             and sent after this into whichever household was joined next —
+             and flushQueued ran straight after this line with no document,
+             threw, and put "Cannot read properties of null" on screen in
+             place of the sentence above. */
+          queued = [];
           setStatus('local', 'No shared pantry with the code ' + missed + '. Check it and try again.');
           return;
         }
@@ -660,6 +743,11 @@ window.Store = (function () {
           .then(function () { pendingMerge = false; });
       });
     }).then(flushQueued).then(function () {
+      /* No household by that code: the sentence set above is the answer, and
+         there is nothing to listen to. This went on to listen to nothing —
+         "Cannot read properties of null" — and the catch below put that on
+         screen in place of the sentence. */
+      if (!doc) return;
       if (unsub) unsub();
       /* includeMetadataChanges, or the listener never hears the one thing the
          status is built from. Without it Firestore fires on DATA changes only,
@@ -672,6 +760,7 @@ window.Store = (function () {
         members = Array.isArray(d.members)
           ? d.members.filter(function (m) { return typeof m === 'string'; }) : [];
         enrol();
+        keepRemoved(d);
         state.favs = Array.isArray(d.favs) ? d.favs.slice() : [];
         var made = adopt(d);
         saveLocal();
@@ -743,23 +832,45 @@ window.Store = (function () {
   /* In order, and not cleared until they are away — a flush that fails must
      leave the work where it was rather than swallowing it a second time. */
   function flushQueued() {
-    if (!queued.length) return Promise.resolve();
+    if (!queued.length || !doc) return Promise.resolve();
     var sending = queued.slice();
     return sending.reduce(function (p, fn) { return p.then(function () { return fn(); }); },
       Promise.resolve()).then(function () { queued = queued.slice(sending.length); });
   }
 
-  /* Store a day back. Anything cooked at its own serving count goes in as a
-     plain id, so a week only carries the {i, x} form where it means something. */
-  function writeDay(day, entries) {
-    /* A leftovers night is the same dinner again, eaten not cooked: lo, so
-       the shopping list leaves it out. */
-    var list = entries.map(function (e) {
-      if (e.lo) return { i: e.id, x: e.x || 1, lo: 1 };
-      return e.x === 1 ? e.id : { i: e.id, x: e.x };
-    });
+  /* A day entry as it is stored. Anything cooked at its own serving count
+     goes in as a plain id, so a week only carries the {i, x} form where it
+     means something. A leftovers night is the same dinner again, eaten not
+     cooked: lo, so the shopping list leaves it out. */
+  function stored(e) {
+    if (e.lo) return { i: e.id, x: e.x || 1, lo: 1 };
+    return e.x === 1 ? e.id : { i: e.id, x: e.x };
+  }
+
+  /* Store a day back.
+   *
+     `added` and `gone` say what changed, when that is all that changed, and
+     then only that goes up: a dinner added is arrayUnion of that one entry,
+     one taken off is arrayRemove of it. The whole day used to be written
+     every time, and a day is a list — so a phone that had been offline sent
+     its stale Tuesday when it came back and took off whatever the other
+     phone had added in the meantime. Firestore applies union and remove on
+     the server, against what is there then, so two phones adding at once
+     both keep theirs. A change to an entry already there (its serving count)
+     still writes the day whole; there is no smaller way to say it.
+   *
+     The path is fixed when the change is made, not when it is sent. A write
+     queued before the connection was up went to whichever week was showing
+     by the time it left. */
+  function writeDay(day, entries, added, gone) {
+    var list = entries.map(stored);
+    var path = wpath('plan.' + day);
     push(function () {
-      var u = {}; u[wpath('plan.' + day)] = list; return doc.update(u);
+      var u = {};
+      if (added) u[path] = FV.arrayUnion(stored(added));
+      else if (gone && gone.length) u[path] = FV.arrayRemove.apply(FV, gone);
+      else u[path] = list;
+      return doc.update(u);
     }, function () {
       editActive(function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
     });
@@ -787,9 +898,10 @@ window.Store = (function () {
   /* Put the signed-in person on the household's list, once. Anonymous
      visitors are not recorded: an anonymous identity lives and dies with one
      browser, and a list of those is a list of nobody. */
+  var unenrolling = false;       // an account is being deleted: see deleteAccount
   function enrol() {
     var me = api.user();
-    if (!me || !doc || !FV || !house) return;
+    if (!me || !doc || !FV || !house || unenrolling) return;
     if (members.indexOf(me.uid) >= 0 || enrolling === house) return;
     enrolling = house;
     doc.update({ members: FV.arrayUnion(me.uid) })
@@ -820,6 +932,8 @@ window.Store = (function () {
     get lastSync() { return lastSync; },
     get house() { return house; },
     get configured() { return configured(); },
+    // a save to this phone's storage is failing: see write
+    get storageFull() { return Object.keys(lsBad).length > 0; },
     encodeKey: encodeKey,
 
     /* The signed-in Firestore handle, for the one thing in this app that
@@ -882,19 +996,32 @@ window.Store = (function () {
        button back and say why. */
     mountGoogleButton: function (el, onDone, onFail) {
       if (!el) return Promise.reject(new Error('nowhere to put it'));
+      gisDone = onDone; gisFail = onFail;
       return gisReady().then(function (g) {
-        g.id.initialize({
-          client_id: g.cid,
-          /* FedCM is how a current browser draws the account chooser, and
-             from 2025 it is the only way this library is allowed to. */
-          use_fedcm_for_prompt: true,
-          callback: function (res) {
-            var token = res && res.credential;
-            if (!token) { if (onFail) onFail(new Error('no token came back')); return; }
-            useIdToken(token).then(function () { if (onDone) onDone(); },
-              function (err) { if (onFail) onFail(err); });
-          }
-        });
+        /* Once a page, not once a draw. The sign-in sheet is redrawn on every
+           change anywhere in the app, and each redraw initialised Google's
+           library again — which it warns against, and which is where the
+           test sandbox's "gis is not defined" was coming from twice over.
+           The callback reads whichever handlers the latest draw handed in. */
+        if (!gisInit) {
+          g.id.initialize({
+            client_id: g.cid,
+            /* FedCM is how a current browser draws the account chooser, and
+               from 2025 it is the only way this library is allowed to. */
+            use_fedcm_for_prompt: true,
+            callback: function (res) {
+              var token = res && res.credential;
+              var done = gisDone, fail = gisFail;
+              if (!token) { if (fail) fail(new Error('no token came back')); return; }
+              useIdToken(token).then(function () { if (done) done(); },
+                function (err) { if (fail) fail(err); });
+            }
+          });
+          gisInit = true;
+        }
+        // the same slot, still holding the button drawn last time: leave it be
+        if (el.getAttribute('data-gis') === '1' && el.firstChild) return true;
+        el.setAttribute('data-gis', '1');
         el.innerHTML = '';
         g.id.renderButton(el, {
           type: 'standard', theme: 'outline', size: 'large',
@@ -1019,19 +1146,35 @@ window.Store = (function () {
            they are. So those go first, every one of them, then this. A
            refusal to list them means the rule that lets them exist was never
            published, so there are none. */
-        return mine.collection('train').get()
+        /* Off the household's list first, while there is still a uid to
+           remove. The list is who belongs by account; an account that has
+           asked to be deleted does not, and its id left there is a record of
+           it kept after it asked to be forgotten. Best effort: a household
+           this device has left, or no signal for it, does not stop the rest.
+         *
+           And not put straight back: the echo of this write is a snapshot,
+           and every snapshot enrols whoever is signed in — which, until the
+           identity is gone, is still this account. */
+        unenrolling = true;
+        var off = house && doc && FV
+          ? doc.update({ members: FV.arrayRemove(u.uid) }).catch(function () { return null; })
+          : Promise.resolve();
+        return off.then(function () { return mine.collection('train').get(); })
           .then(function (qs) { return Promise.all(qs.docs.map(function (d) { return d.ref.delete(); })); },
             function (err) { if (err && err.code === 'permission-denied') return null; throw err; })
           .then(function () { return mine.delete(); })
           .then(function () { wiped = true; return onGone ? onGone() : null; })
           .then(function () { return u.delete(); })
           .catch(function (err) {
+            // the account stands after all, and belongs on the list again
+            unenrolling = false;
             if (err && err.code === 'auth/requires-recent-login') {
               throw new Error(wiped ? 'recent-login-wiped' : 'recent-login');
             }
             throw err;
           })
-          .then(function () { return auth.signInAnonymously(); });
+          .then(function () { return auth.signInAnonymously(); })
+          .then(function (r) { unenrolling = false; return r; });
       });
     },
 
@@ -1156,8 +1299,9 @@ window.Store = (function () {
     renameWeek: function (name) {
       var n = String(name || '').trim();
       if (!n || !state.weeks[state.active]) return;
+      var path = wpath('name');      // the week showing now: see writeDay
       push(function () {
-        var u = {}; u[wpath('name')] = n; return doc.update(u);
+        var u = {}; u[path] = n; return doc.update(u);
       }, function () {
         editActive(function (w) { w.name = n; });
       });
@@ -1194,9 +1338,11 @@ window.Store = (function () {
     },
 
     addToDay: function (id, day, x, lo) {
-      var list = this.day(day).filter(function (e) { return e.id !== id; });
-      list.push({ id: id, x: x || 1, lo: !!lo });
-      writeDay(day, list);
+      var had = this.day(day), list = had.filter(function (e) { return e.id !== id; });
+      var entry = { id: id, x: x || 1, lo: !!lo };
+      list.push(entry);
+      // new to the day: only it goes up (see writeDay); already there: the day, whole
+      writeDay(day, list, list.length > had.length ? entry : null);
     },
 
     batch: batch,
@@ -1217,14 +1363,22 @@ window.Store = (function () {
     setLow: function (key, on) { setMapKey('low', key, on ? 1 : null); },
 
     removeFromDay: function (id, day) {
-      writeDay(day, this.day(day).filter(function (e) { return e.id !== id; }));
+      /* The entries exactly as stored, because arrayRemove takes away only
+         what is equal to what it is handed. One the other phone has changed
+         meanwhile (its serving count) is no longer equal, and stays — the
+         newer statement about that dinner wins. */
+      var gone = (state.plan[day] || []).filter(function (e) {
+        return (typeof e === 'object' && e ? e.i : e) === id;
+      });
+      writeDay(day, this.day(day).filter(function (e) { return e.id !== id; }), null, gone);
     },
 
     clearPlan: function () {
       // the shopping list goes with the week — leaving the check-offs behind
       // meant next week's list arrived with things already ticked off
+      var plan = wpath('plan'), checked = wpath('checked');
       push(function () {
-        var u = {}; u[wpath('plan')] = {}; u[wpath('checked')] = {}; return doc.update(u);
+        var u = {}; u[plan] = {}; u[checked] = {}; return doc.update(u);
       }, function () {
         editActive(function (w) { w.plan = {}; w.checked = {}; });
       });
@@ -1239,9 +1393,10 @@ window.Store = (function () {
       liveKeys.forEach(function (k) { live[encodeKey(k)] = true; });
       var stale = Object.keys(state.checked).filter(function (k) { return !live[k]; });
       if (!stale.length) return false;
+      var paths = stale.map(function (k) { return wpath('checked.' + k); });
       push(function () {
         var u = {};
-        stale.forEach(function (k) { u[wpath('checked.' + k)] = FV.delete(); });
+        paths.forEach(function (p) { u[p] = FV.delete(); });
         return doc.update(u);
       }, function () {
         editActive(function (w) {
@@ -1257,8 +1412,9 @@ window.Store = (function () {
     toggleChecked: function (key) {
       var k = encodeKey(key);
       var on = !state.checked[k];
+      var path = wpath('checked.' + k);
       push(function () {
-        var u = {}; u[wpath('checked.' + k)] = on ? true : FV.delete(); return doc.update(u);
+        var u = {}; u[path] = on ? true : FV.delete(); return doc.update(u);
       }, function () {
         editActive(function (w) {
           w.checked = Object.assign({}, w.checked);
@@ -1334,6 +1490,39 @@ window.Store = (function () {
       });
     },
 
+    /* What keepRemoved set aside from this household, newest first: {k, id,
+       name, at}. And the two answers to it. Putting back never overwrites —
+       a recipe or week the household has again by the same id is left as
+       it is — and goes up as ordinary additions, which the rules allow. */
+    removed: function () {
+      return keptAll().filter(function (x) { return x.house === house; })
+        .map(function (x) { return { k: x.k, id: x.id, name: x.name || '', at: x.at }; });
+    },
+    restoreRemoved: function () {
+      var all = keptAll(), back = all.filter(function (x) { return x.house === house; });
+      write(LS.kept, all.filter(function (x) { return x.house !== house; }));
+      batch(function () {
+        back.forEach(function (x) {
+          if (x.k === 'mine' && !state.mine[x.id]) api.saveRecipe(Object.assign({}, x.v, { id: x.id }));
+          // an edit is keyed by the printed recipe's number, which saveRecipe tells from a string id
+          else if (x.k === 'edits' && !state.edits[x.id]) api.saveRecipe(Object.assign({}, x.v, { id: Number(x.id) }));
+          else if (x.k === 'weeks' && !state.weeks[x.id]) {
+            var w = { name: String(x.v.name || 'Week'), ord: nextOrd(), plan: cleanPlan(x.v.plan), checked: {} };
+            push(function () {
+              var u = {}; u['weeks.' + x.id] = w; return doc.update(u);
+            }, function () {
+              var weeks = Object.assign({}, state.weeks); weeks[x.id] = w; state.weeks = weeks;
+            });
+          }
+        });
+      });
+      emit();
+    },
+    forgetRemoved: function () {
+      write(LS.kept, keptAll().filter(function (x) { return x.house !== house; }));
+      emit();
+    },
+
     pantryOwn: function () { return state.pantryNew; },
     pantryChanged: function () {
       return Object.keys(state.pantry).length + Object.keys(state.pantryNew).length;
@@ -1377,15 +1566,32 @@ window.Store = (function () {
       var own = typeof id === 'string';
       var field = (own ? 'mine.' : 'edits.') + id;
       var idOfEntry = function (e) { return typeof e === 'object' && e ? e.i : e; };
+      /* Every day it is on, found now, while the state still has it: one
+         arrayRemove per day, of exactly the entries that name it. This sent
+         the whole of every week instead — the only way, it said, to reach
+         one value in many nested arrays — and a merge of the whole weeks
+         object put this phone's copy of every day of every week over the
+         household's, including days the other phone had just changed. It
+         also could not empty a day, since a merge cannot say "this list is
+         shorter now". Field paths to each day can do both. */
+      var refs = [];
+      if (own) {
+        Object.keys(state.weeks).forEach(function (wk) {
+          var plan = state.weeks[wk].plan || {};
+          Object.keys(plan).forEach(function (d) {
+            var hit = (plan[d] || []).filter(function (e) { return idOfEntry(e) === id; });
+            if (hit.length) refs.push({ path: 'weeks.' + wk + '.plan.' + d, hit: hit });
+          });
+        });
+      }
 
       push(function () {
         var u = {}; u[field] = FV.delete();
         return doc.update(u).then(function () {
           if (!own) return null;
-          /* The whole weeks object, because the id may be on any day of any
-             week and Firestore has no way to pull one value out of many
-             nested arrays in a single update. */
-          return doc.set({ favs: FV.arrayRemove(id), weeks: state.weeks }, { merge: true });
+          var v = { favs: FV.arrayRemove(id) };
+          refs.forEach(function (r) { v[r.path] = FV.arrayRemove.apply(FV, r.hit); });
+          return doc.update(v);
         });
       }, function () {
         var m = Object.assign({}, own ? state.mine : state.edits);
@@ -1478,6 +1684,7 @@ window.Store = (function () {
 
     leave: function () {
       if (unsub) { unsub(); unsub = null; }
+      queued = [];                  // meant for the household being left, not the next one
       house = ''; write(LS.house, '');
       houseMine = false; write(LS.houseNew, '');
       doc = null;
@@ -1542,6 +1749,13 @@ window.Store = (function () {
       }).then(function () {
         api.join(code);
         return code;
+      }, function (err) {
+        /* A spent or expired invite can no longer be read at all (see
+           firestore.rules: an old link must not keep handing out the
+           household's code), so the server's answer to one is a refusal
+           rather than a document saying it is used. Said in the same words. */
+        if (err && err.code === 'permission-denied') throw new Error('spent');
+        throw err;
       });
     }
   };
