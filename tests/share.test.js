@@ -167,9 +167,7 @@ module.exports = {
 
     if (fs.existsSync(pdf)) {
       let lib = null;
-      for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {
-        try { lib = require(m); break; } catch (e) { /* try the next */ }
-      }
+      try { lib = require('pdf-lib'); } catch (e) { /* reported below */ }
       if (!lib) {
         t.ok('and it was rendered from the collection as it stands', false, 'pdf-lib not available');
       } else {

@@ -22,12 +22,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const { fixDocDates, keep } = require('./pdf-file.js');
 
 function pdflib() {
-  for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  console.error('pdf-lib is not installed. `npm i -D pdf-lib` and try again.');
+  try { return require('pdf-lib'); } catch (e) { /* below */ }
+  console.error('pdf-lib is not installed. `npm ci` and try again.');
   process.exit(2);
 }
 
@@ -64,8 +63,11 @@ async function impose(inFile, outFile) {
     put(back, 'right', n - 2 * s - 1);
   }
 
-  fs.writeFileSync(outFile, await out.save());
-  return { sheets: n / 4, pages: n };
+  /* Dated like the books, and not written when nothing changed — see
+     tools/pdf-file.js for the thirty-five megabytes that saves. */
+  fixDocDates(out);
+  const written = keep(outFile, Buffer.from(await out.save()));
+  return { sheets: n / 4, pages: n, written };
 }
 
 module.exports = { impose };
