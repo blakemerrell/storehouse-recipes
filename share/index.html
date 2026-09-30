@@ -305,8 +305,11 @@ body {
   </div>
 </div>
 
-<script src="../data/recipes.js"></script>
-<script src="../data/qr.js"></script>
+<!-- Versioned like the app's own copies: these are the same two files, which
+     the service worker keeps, and without a ?v= the sheet could be drawn from
+     a phone's cached recipes rather than the collection as it stands. -->
+<script src="../data/recipes.js?v=0"></script>
+<script src="../data/qr.js?v=0"></script>
 <script>
 /* Eight, chosen for spread rather than for score. The first sheet is the
    everyday case — a dinner the children will finish, three minutes and no heat,

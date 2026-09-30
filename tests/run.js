@@ -4,10 +4,18 @@
  *   node tests/run.js              everything that needs no network
  *   node tests/run.js weeks list   only those files
  *   node tests/run.js --headed     watch it happen
+ *   SITE=_site node tests/run.js   against the built site instead
  *
  * It serves the repository itself over http — a file:// page gets no service
  * worker and no caches — drives a real Chromium, and asserts against what the
  * app actually renders rather than against what the code says it will.
+ *
+ * SITE serves a directory built by tools/build-site.js instead of the
+ * repository: the version written in, the comments stripped, the files that do
+ * not ship left out. That is what the deploy publishes, so it is what CI tests
+ * — `npm run test:site` builds and runs it in one go. Without SITE the suite
+ * runs against the files as they are in the repository, unbuilt, which is
+ * what you want while working on them.
  *
  * The only dependency is Playwright. tests/sync.test.js is not in the default
  * run because it talks to the live Firestore project; see the note at its top.
@@ -18,6 +26,13 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
+
+/* What is served: the repository, or a built site under it. */
+const SERVE = process.env.SITE ? path.resolve(ROOT, process.env.SITE) : ROOT;
+if (process.env.SITE && !fs.existsSync(path.join(SERVE, 'index.html'))) {
+  console.error('SITE=' + process.env.SITE + ' has no index.html — build it first: node tools/build-site.js');
+  process.exit(2);
+}
 
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -36,7 +51,7 @@ function serve() {
     if (DOWN) { req.socket.destroy(); return; }
     let p = decodeURIComponent(req.url.split('?')[0]);
     if (p.endsWith('/')) p += 'index.html';
-    const file = path.join(ROOT, path.normalize(p).replace(/^(\.\.[/\\])+/, ''));
+    const file = path.join(SERVE, path.normalize(p).replace(/^(\.\.[/\\])+/, ''));
     fs.readFile(file, (err, body) => {
       if (err) { res.writeHead(404); res.end('not found'); return; }
       res.writeHead(200, {
@@ -52,10 +67,8 @@ function serve() {
 }
 
 function playwright() {
-  for (const m of ['playwright', '/opt/node22/lib/node_modules/playwright']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  console.error('Playwright is not installed. `npm i -D playwright` and try again.');
+  try { return require('playwright'); } catch (e) { /* below */ }
+  console.error('Playwright is not installed. `npm ci` and try again.');
   process.exit(2);
 }
 
@@ -74,6 +87,7 @@ function playwright() {
 
   const srv = await serve();
   const URL_BASE = 'http://127.0.0.1:' + srv.address().port + '/';
+  if (process.env.SITE) console.log('serving ' + path.relative(process.cwd(), SERVE) + '/, the built site');
   const { chromium } = playwright();
   const browser = await chromium.launch({
     headless: !headed,
@@ -91,6 +105,10 @@ function playwright() {
     DOWN = false;
     const t = {
       base: URL_BASE,
+      /* The directory being served, and whether it is a built site rather
+         than the repository — for a test that reads what shipped. */
+      root: SERVE,
+      site: SERVE !== ROOT,
       browser,
       down(v) { DOWN = !!v; },
       ok(name, cond, detail) {

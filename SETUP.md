@@ -39,26 +39,83 @@ account or types a password — the app signs itself in silently.
 
 ```
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function houseFields() {
+      return ['favs', 'weeks', 'active', 'mine', 'edits', 'pantry', 'pantryNew',
+        'kitchen', 'src', 'rate', 'opts', 'low', 'members', 'lastInvite',
+        'plan', 'checked', 'myday'];
+    }
+
+    function mapOf(d, k, most) { return !(k in d) || (d[k] is map && d[k].size() <= most); }
+
+    function houseShape(d) {
+      return d.keys().hasOnly(houseFields())
+        && (!('favs' in d) || (d.favs is list && d.favs.size() <= 2000))
+        && mapOf(d, 'weeks', 300) && mapOf(d, 'mine', 2000) && mapOf(d, 'edits', 1000)
+        && mapOf(d, 'pantry', 2000) && mapOf(d, 'pantryNew', 1000)
+        && mapOf(d, 'kitchen', 2000) && mapOf(d, 'src', 2000) && mapOf(d, 'rate', 2000)
+        && mapOf(d, 'opts', 100) && mapOf(d, 'low', 2000)
+        && mapOf(d, 'plan', 50) && mapOf(d, 'checked', 2000) && mapOf(d, 'myday', 50)
+        && (!('active' in d) || d.active is string)
+        && (!('members' in d) || (d.members is list && d.members.size() <= 50))
+        && (!('lastInvite' in d) || d.lastInvite is string);
+    }
+
+    function shrinksByOne(k) {
+      return !(k in resource.data)
+        || request.resource.data[k].size() >= resource.data[k].size() - 1;
+    }
+
+    function keepsWhatItHas() {
+      return request.resource.data.keys().hasAll(resource.data.keys().removeAll(['myday']))
+        && shrinksByOne('weeks') && shrinksByOne('mine') && shrinksByOne('edits')
+        && shrinksByOne('favs') && shrinksByOne('pantryNew');
+    }
+
+    function membersByThemselves() {
+      let before = resource.data.get('members', []).toSet();
+      let after = request.resource.data.get('members', []).toSet();
+      let me = [request.auth.uid].toSet();
+      return after == before || after == before.union(me) || after == before.difference(me);
+    }
+
     match /households/{code} {
-      allow get, create, update: if request.auth != null;
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && houseShape(request.resource.data)
+        && request.resource.data.get('members', []).toSet()
+          .difference([request.auth.uid].toSet()).size() == 0;
+      allow update: if request.auth != null
+        && houseShape(request.resource.data)
+        && keepsWhatItHas()
+        && membersByThemselves();
       allow list, delete: if false;
     }
+
     match /users/{uid} {
       allow get, create, update, delete: if request.auth != null && request.auth.uid == uid;
       allow list: if false;
     }
+
     match /users/{uid}/train/{year} {
       allow get, list, create, update, delete: if request.auth != null && request.auth.uid == uid;
     }
+
     match /invites/{token} {
-      allow get: if request.auth != null;
+      allow get: if request.auth != null
+        && (resource == null
+          || (resource.data.used == false && resource.data.exp > request.time.toMillis()));
       allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['house', 'by', 'made', 'exp', 'used'])
         && request.resource.data.by == request.auth.uid
         && request.resource.data.used == false
         && request.resource.data.house is string
         && request.resource.data.exp is int
+        && request.resource.data.exp > request.time.toMillis()
+        && request.resource.data.exp <= request.time.toMillis() + 8 * 86400000
         && request.auth.uid in get(/databases/$(database)/documents/households/$(request.resource.data.house)).data.members;
       allow update: if request.auth != null
         && resource.data.used == false
@@ -72,7 +129,25 @@ service cloud.firestore {
 }
 ```
 
-> **Already set up, and adding Strengthen's yearly records?** Your rules have
+> **Already set up? Paste these again.** They now also stop anyone holding a
+> household code from wiping the household in one write, from taking other
+> people off its members list, or from filling it with anything the app never
+> writes; and an invite link stops giving the household's code away once it
+> has been used or has expired, and cannot be made to last longer than eight
+> days. Nothing the app does is refused by them — `tests/rules/` checks that
+> against the Firestore emulator, every write the app makes and every one it
+> should not. Until you publish them the app works exactly as before; it just
+> is not protected.
+>
+> **Old private My Day codes.** Before My Day moved to accounts, some copies
+> kept a person's day — weigh-ins included — in the `households` collection
+> under a private code, in a field called `myday`. The app no longer knows
+> those codes, so it cannot clear them itself. In **Firestore Database →
+> Data**, open `households`, add a filter on the field `myday` (not equal to
+> null), and delete the documents it finds. The rules above let a signed-in
+> client clear that one field, which is all the app would ever need.
+>
+> **Adding Strengthen's yearly records?** Your rules have
 > everything above except the three lines starting `match /users/{uid}/train/{year}`.
 > Paste the whole block above over what is there (it is the same as
 > `firestore.rules` in this repository, without the comments) and press
@@ -124,7 +199,11 @@ window.FIREBASE_CONFIG = {
 };
 ```
 
-Save the file. If the app is online, push the change so both phones get it.
+Save the file. If the app is online, push the change so both phones get it: a
+push to `main` is published by the **deploy** workflow, which needs Pages set to
+publish from GitHub Actions (**Settings → Pages → Source → GitHub Actions**, once —
+see *Putting it online* in the README). The phones pick the new build up the next
+time the app is opened; the *Sync & sharing* sheet names the build each is running.
 
 > These values are not secrets — every web app that uses Firebase ships them in
 > plain sight, and they are safe in a public repository. The security rules in
@@ -172,7 +251,9 @@ device keeps its current copy and stops sending changes; the other phone is unto
   `gstatic.com`. The app keeps saving on the device either way.
 
 **Badge stays "Local"** — `src/config.js` still has empty values, or the edited file
-was not pushed to where the phone loads the app from.
+was not pushed to where the phone loads the app from. Check that the latest **deploy**
+run in the Actions tab is green; a red *Publish* step that names the Pages source means
+the setting above has not been switched yet.
 
 **Nothing appears on the second phone** — check the code matches exactly, including the
 hyphens. It is case-insensitive; the app upper-cases it for you.

@@ -10280,12 +10280,14 @@ module.exports = {
     /* The invariant the refactor bought, asserted on the source itself.
        Nine sites each remembered to redraw the sheet and two forgot, which is
        not a bug you fix — it is a shape you stop building. Two matches: the
-       declaration, and the one setter that tells anybody. */
-    const doors = await a2.evaluate(async () => {
-      const src = document.querySelector('script[src*="app.js"]').src;
-      const txt = await (await fetch(src)).text();
-      return (txt.match(/S_SYNC_STATE\s*=\s/g) || []).length;
-    });
+       declaration, and the one setter that tells anybody.
+     *
+       Read from the repository, the way the wipe check above reads it, and
+       not fetched from the page: the built site serves app.js minified, where
+       a local like this one is renamed, so the served text says nothing about
+       how many places assign it. The source is what the rule is about. */
+    const doors = (require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'app.js'), 'utf8')
+      .match(/S_SYNC_STATE\s*=\s/g) || []).length;
     t.ok('every sync transition still goes through the one door that tells you',
       doors === 2, doors + ' assignments — one of them is not the setter');
 
@@ -13756,8 +13758,6 @@ module.exports = {
       await seedBlock(two);
       await sp.click('.tab[data-view="train"]');
       await sp.waitForTimeout(300);
-      // the weeks are folded under today's session: opened to read their days
-      await sp.evaluate(() => { const b = document.querySelector('[data-t="gridopen"][aria-expanded="false"]'); if (b) b.click(); });
       const heads = await sp.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => ({ d: e.textContent, g: e.classList.contains('moved') })));
       {
         const W0 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -13773,7 +13773,6 @@ module.exports = {
       await sp.reload();
       await sp.click('.tab[data-view="train"]');
       await sp.waitForTimeout(300);
-      await sp.evaluate(() => { const b = document.querySelector('[data-t="gridopen"][aria-expanded="false"]'); if (b) b.click(); });
       const slid = await sp.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => ({ d: e.textContent, g: e.classList.contains('moved') })));
       {
         const W0 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

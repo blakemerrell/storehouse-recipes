@@ -942,10 +942,18 @@
     if (writeLS(LS_T, T)) writeLS(LS_TS, TS);
   }
 
+  /* Whose clock a stamp is written by. Nourish learns how far this device's
+     clock is out from the server's (mClockHear in app.js) and hands the
+     corrected one over, because newest wins here too, and a phone set a day
+     fast would otherwise win every merge for a day. */
+  var CLOCK = null;
+  var CLOCK_SLACK = 5 * 60000;          // how far ahead of us a stamp is let be
+  function tnow() { return CLOCK ? CLOCK() : Date.now(); }
+
   /* A change, recorded. The stamp is what makes it win on the other device;
      the dirty mark is what makes it the only thing sent. */
   function stamp(part, key) {
-    var now = Date.now();
+    var now = tnow();
     if (key === undefined) {
       TS[part] = now;
       if (part === 'pr') prStamp(now);
@@ -973,6 +981,11 @@
    * phone's stamps could no longer save it. Listening first means the whole
    * push carries the newer copy of everything. */
   var doc = null, dirty = {}, dirtyAll = true, pushTimer = null, heard = false;
+  /* The one retry waiting after a failed push. Each failure used to start
+     its own chain of retries and none was ever cleared, so edits made during
+     an outage multiplied the pushes in flight — one more chain for every
+     failure — all of them sending everything. */
+  var retryTimer = null;
   /* Whether the last save to the account landed. A write that fails used to
      fail in silence; now it says so, keeps trying, and says when it lands. */
   var SY = { ok: 0, err: 0, tries: 0 };
@@ -1005,6 +1018,7 @@
     heard = false;
     dirtyAll = true;
     clearTimeout(pushTimer);
+    clearTimeout(retryTimer); retryTimer = null;
     if (YR.off) { try { YR.off(); } catch (e) { /* already gone */ } }
     YR.off = null; YR.on = null; YR.heard = false; YR.seen = {}; YR.main = []; YR.purge = {}; YR.kb = {};
     YR.fv = fv || null;
@@ -1133,8 +1147,10 @@
         dirtyAll = true;
         SY.err = Date.now(); SY.tries++;
         drawIfShowing();
-        // and it tries again, backing off to five minutes
-        setTimeout(function () { push(true); }, Math.min(300, 15 * Math.pow(2, SY.tries - 1)) * 1000);
+        // and it tries again, backing off to five minutes — once, not once per failure
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(function () { retryTimer = null; push(true); },
+          Math.min(300, 15 * Math.pow(2, SY.tries - 1)) * 1000);
       });
     }, now ? 0 : 900);
   }
@@ -1143,6 +1159,12 @@
   function merge(tr, main) {
     if (!plain(tr)) return false;
     var moved = false;
+    /* A stamp from the future is a device with the wrong time on it, and
+       would win here until the real time caught up. Capped a few minutes
+       ahead of our own corrected clock and kept capped; the next whole push
+       carries the cap back up. The same rule My Day's merge keeps. */
+    var cap = tnow() + CLOCK_SLACK;
+    var when = function (at) { return at > cap ? cap : at; };
     if (plain(tr.pr) && fin(tr.pr.at) && plain(tr.pr.v)) {
       /* Setting by setting, each newer than this device's own. From a build
          without them, every setting it sent is as new as its one stamp. */
@@ -1152,26 +1174,26 @@
       keys.forEach(function (k) {
         var at = ink ? ink[k] : tr.pr.at;
         // a setting's name, never an object's own machinery (__proto__)
-        if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(k) || !fin(at) || !(at > (TS.prk[k] || 0))) return;
+        if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(k) || !fin(at) || !(when(at) > (TS.prk[k] || 0))) return;
         if (tr.pr.v[k] === undefined) delete nv[k]; else nv[k] = tr.pr.v[k];
-        TS.prk[k] = at;
+        TS.prk[k] = when(at);
         took = true;
       });
       if (took) {
         T.pr = defaultsPr(nv);
-        TS.pr = Math.max(TS.pr || 0, tr.pr.at);
+        TS.pr = Math.max(TS.pr || 0, when(tr.pr.at));
         PRSEEN = prSeen();
         moved = true;
       }
     }
-    if (plain(tr.act) && fin(tr.act.at) && tr.act.at > (TS.act || 0) && typeof tr.act.v === 'string') {
-      T.act = tr.act.v; TS.act = tr.act.at; moved = true;
+    if (plain(tr.act) && fin(tr.act.at) && when(tr.act.at) > (TS.act || 0) && typeof tr.act.v === 'string') {
+      T.act = tr.act.v; TS.act = when(tr.act.at); moved = true;
     }
     PARTS.forEach(function (p) {
       var from = plain(tr[p]) ? tr[p] : {};
       Object.keys(from).forEach(function (k) {
         var r = from[k];
-        if (!plain(r) || !fin(r.at) || !(r.at > (TS[p][k] || 0))) return;
+        if (!plain(r) || !fin(r.at) || !(when(r.at) > (TS[p][k] || 0))) return;
         if (r.v !== null && !SHAPE[p](r.v)) return;
         /* A workout deleted by a phone still on the one record: the deletion
            goes on to its year, so what was deleted does not stay there. */
@@ -1180,7 +1202,7 @@
           if (dirty.wo !== true) { dirty.wo = dirty.wo || {}; dirty.wo[k] = 1; }
         }
         if (r.v === null) delete T[p][k]; else T[p][k] = r.v;
-        TS[p][k] = r.at;
+        TS[p][k] = when(r.at);
         moved = true;
       });
     });
@@ -1217,6 +1239,7 @@
     dirty = {};
     dirtyAll = true;
     clearTimeout(pushTimer);
+    clearTimeout(retryTimer); retryTimer = null;
     [LS_T, LS_TS, LS_LIVE].forEach(function (k) { writeLS(k, null); });
     LIVE = null;
     REV++;
@@ -2528,7 +2551,6 @@
     'situp': { n: 'Sit-up', q: 'bw', r: 15, t: 'core', bk: 'F', jt: 'n' }
   };
   var MC_K = { amrap: 'AMRAP', emom: 'EMOM', rft: 'Rounds for time' };
-  var MC_SAY = { amrap: 'as many rounds as you can in', emom: 'every minute on the minute for', rft: 'rounds, as fast as you can, capped at' };
   function moveEx(id) { var m = MOVES[id]; return { id: id, bk: m.bk || '', jt: m.jt || '' }; }
 
   /* A circuit for one day of a block. The format turns over with the days
@@ -3590,7 +3612,8 @@
     var sets = wos.reduce(function (n, wo) {
       return n + wo.x.reduce(function (a, x) { return a + x.s.filter(counts).length; }, 0);
     }, 0);
-    var c = { from: from, to: to, nw: nw, n: wos.length, sets: sets, prog: progress(now), ph: phaseNow() };
+    var c = { from: from, to: to, nw: nw, n: wos.length, sets: sets, prog: progress(now), ph: phaseNow(),
+      today: trainedOn(keyAgo(0)) };
     c.reads = chkReads(c);
     return c;
   }
@@ -3628,7 +3651,12 @@
     if (nw && nw.pDays >= 4 && nw.pDays - nw.hit >= 2) {
       look.push({ h: 'Protein short ' + (nw.pDays - nw.hit) + ' of ' + nw.pDays + ' days', d: cut ? 'It keeps the muscle on a cut' : 'Aim for 90% or more' });
     }
-    if (!c.n) look.push({ h: 'No workouts this week', d: '' });
+    /* The seven days are the seven BEFORE today, shared with Nourish's half,
+       and the Review counts a rolling week that includes today — so a
+       session done this morning after a quiet week had the Review counting
+       it beside a check-in saying there were none. Today is not in the
+       window, but it is not nothing either. */
+    if (!c.n && !c.today) look.push({ h: 'No workouts this week', d: '' });
     if (nw && nw.days > 0 && nw.days < 4) look.push({ h: 'Only ' + nw.days + ' of 7 days logged', d: 'Calories are a partial picture' });
     look.slice(0, 2).forEach(function (r) { out.push({ st: 'look', h: r.h, d: r.d }); });
     if (!out.length) {
@@ -4950,11 +4978,15 @@
     }
     var nx = nextSlot(ms);
     var acc = accOf(ms);
-    /* Today first. The week's grid used to open the screen, and Start sat a
-       screen and a half below it; a lifter opening this at the gym wants the
-       session, so the session comes first, and the block folds to a line
-       that opens on a tap. */
-    var html = savedHTML() + todayHTML(ms, nx) + blockCard(ms, nx);
+    /* The block first, open: every week of it as boxes, and how far through
+       you are. Tap a box and that session is the card under it; none tapped,
+       it is the next one, with Start. Blake: "I'd like to see my box calendar
+       and my progress… not collapsed and it's probably the top thing. And
+       then when I click on a box the exercises for that show below." It had
+       been folded to a line under today's card, which put Start first but
+       hid where the session sat in the block. */
+    var sel = selOf(ms, nx);
+    var html = savedHTML() + blockCard(ms, nx, sel) + seshHTML(ms, nx, sel);
     html += actStrip();
     /* One thing to do on this screen, and it is Start. The other ways in are
        a quiet list below it, and ending the block, which can't be taken
@@ -4990,56 +5022,138 @@
   function trainedOn(dk) {
     return ix().list.some(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === dk; });
   }
+  /* Counted in calendar days from today's weekday, as dueIn counts them.
+     o × 24 hours from now is not o days on the calendar when the clocks
+     change in between: at 23:30 on the Saturday New York springs forward,
+     48 hours later is 00:30 on Tuesday, and a session due Monday was
+     announced for Tuesday. */
   function dueSay(o) {
     if (o === 1) return 'tomorrow';
-    var d = new Date(Date.now() + o * DAY_MS);
-    return (o >= 7 ? 'next ' : '') + LD_N[(d.getDay() + 6) % 7];
+    var ti = (new Date().getDay() + 6) % 7;
+    return (o >= 7 ? 'next ' : '') + LD_N[(ti + o) % 7];
   }
 
-  /* The session to do next, as today's card: what it is, one line of its
-     lifts, and a Start you can't miss. On a rest day it says so, and when
-     the next one is, with a quiet way to start it anyway. The full plan,
-     weights and reasons, is a tap away. */
+  /* The session to do next, as the card under the calendar: when it is,
+     what it asks in a few numbers, the exercises by name, and a Start you
+     can't miss. On a rest day it says so, and when the next one is, with a
+     quiet way to start it anyway. The full plan, weights and reasons, is a
+     tap away. */
   function todayHTML(ms, nx) {
     if (!nx) return doneHTML(ms);
-    var wk = 'Week ' + (nx.w + 1) + ' of ' + weeksOf(ms);
+    var wk = wkName(ms, nx.w);
     if (isEz(ms, nx.d)) {
-      return '<div class="tr-card tr-next tr-ez">' +
-        '<div class="tr-eyebrow">Next \u00b7 ' + wk + '</div>' +
+      return '<div id="trSesh" class="tr-card tr-next tr-sesh tr-ez">' +
+        '<div class="tr-eyebrow">Next · ' + wk + '</div>' +
         '<div class="tr-title">Easy day</div>' + ezHTML(ms, nx.w, nx.d) + '</div>';
     }
     var p = plan(ms, nx.w, nx.d);
-    var mins = estDay(ms.days[nx.d], p.x.map(function (x) { return x.sets; }));
     var due = dueIn(ms, nx);
     var rest = due !== null && due > 0;
     var did = rest && trainedOn(dayKey(new Date()));
-    var lifts = p.x.map(function (x) { return lib(x.e).n; });
     var planBtn = '<button class="tr-lnk" data-t="planopen" aria-expanded="' + !!S.planOpen + '">' + (S.planOpen ? 'Hide the plan' : 'See the plan') + '</button>';
     var skip = '<button class="tr-lnk tr-lnk-q" data-t="skip" data-w="' + nx.w + '" data-d="' + nx.d + '">Skip this one</button>';
     var start = '<button class="' + (rest ? 'ghost tr-anyway' : 'btn-primary tr-go') + '" data-t="start" data-w="' + nx.w + '" data-d="' + nx.d + '">' +
       (rest ? 'Start it anyway' : 'Start workout') + '</button>';
+    var body = (S.planOpen ? planList(p, ms) : seshChips(seshNums(ms, nx.w, nx.d, p, false)) + seshNames(p) + mcLine(p));
     if (rest) {
-      return '<div class="tr-card tr-next tr-restday">' +
-        '<div class="tr-eyebrow">Today \u00b7 ' + wk + '</div>' +
-        '<div class="tr-title">' + (did ? 'Done for today \u2713' : 'Rest day') + '</div>' +
-        '<div class="tr-sub">Next: <b>' + esc(p.n) + '</b> ' + esc(dueSay(due)) + ' \u00b7 about ' + mins + ' min</div>' +
-        '<div class="tr-tlifts">' + esc(lifts.join(' \u00b7 ')) + '</div>' +
-        (S.planOpen ? '' : mcLine(p)) +
-        (did ? '' : '<div class="tr-sub">Muscles grow in the rest between sessions.</div>') +
+      return '<div id="trSesh" class="tr-card tr-next tr-sesh tr-restday">' +
+        '<div class="tr-eyebrow">Today · ' + wk + '</div>' +
+        '<div class="tr-title">' + (did ? 'Done for today ✓' : 'Rest day') + '</div>' +
+        '<div class="tr-sub">Next: <b>' + esc(p.n) + '</b> ' + esc(dueSay(due)) + '.' +
+          (did ? '' : ' Muscles grow in the rest between sessions.') + '</div>' +
+        body +
         '<div class="tr-acts">' + start + planBtn + '</div>' +
-        (S.planOpen ? planList(p, ms) : '') +
       '</div>';
     }
-    return '<div class="tr-card tr-next">' +
-      '<div class="tr-eyebrow">' + (due === 0 ? 'Today' : 'Next') + ' \u00b7 ' + wk + ' \u00b7 about ' + mins + ' min</div>' +
+    return '<div id="trSesh" class="tr-card tr-next tr-sesh">' +
+      '<div class="tr-eyebrow">' + (due === 0 ? 'Today' : 'Next' + (due ? ' · ' + esc(dueSay(due)) : '')) + ' · ' + wk + '</div>' +
       '<div class="tr-title">' + esc(p.n) + '</div>' +
-      '<div class="tr-tlifts">' + esc(lifts.join(' \u00b7 ')) + '</div>' +
-      (S.planOpen ? '' : mcLine(p)) +
+      body +
       restNote(p) +
       start +
       '<div class="tr-acts tr-next-a">' + planBtn + skip + '</div>' +
-      (S.planOpen ? planList(p, ms) : '') +
     '</div>';
+  }
+
+  function wkName(ms, w) { return w >= accOf(ms) && !steady(ms) ? 'Deload week' : 'Week ' + (w + 1) + ' of ' + weeksOf(ms); }
+
+  /* The box that is chosen: a tap's, while it is still a box of this block,
+     or else the next session's. */
+  function selOf(ms, nx) {
+    var c = S.sel;
+    if (c && c.ms === ms.id && c.w >= 0 && c.w < weeksOf(ms) && c.d >= 0 && c.d < ms.days.length) return c;
+    return nx ? { ms: ms.id, w: nx.w, d: nx.d } : null;
+  }
+
+  /* The card under the calendar. The next session is today's card, with
+     Start. A done one says what was lifted and what beat a record; one still
+     to come says what it will ask; each a line per exercise, by name. */
+  function seshHTML(ms, nx, c) {
+    if (!c || (nx && c.w === nx.w && c.d === nx.d)) return todayHTML(ms, nx);
+    var back = nx ? '<button class="tr-lnk tr-lnk-q" data-t="gridsel" data-w="' + nx.w + '" data-d="' + nx.d + '">Back to the next one</button>' : '';
+    var day = ms.days[c.d], wk = wkName(ms, c.w), cd = colDays(ms, nx)[c.d];
+    if (isEz(ms, c.d)) {
+      return '<div id="trSesh" class="tr-card tr-sesh tr-ez">' +
+        '<div class="tr-eyebrow">' + (ezFor(ms, c.w, c.d) ? 'Done' : 'Easy day') + ' · ' + wk + '</div>' +
+        '<div class="tr-title">Easy day</div>' + ezHTML(ms, c.w, c.d) +
+        (back ? '<div class="tr-acts">' + back + '</div>' : '') + '</div>';
+    }
+    var wo = woFor(ms, c.w, c.d);
+    if (wo) {
+      var best = {}, nb = 0;
+      prsIn(wo).forEach(function (r) { if (!best[r.e]) nb++; best[r.e] = 1; });
+      var v = volOf(wo), cnt = wo.x.reduce(function (n, x) { return n + x.s.filter(counts).length; }, 0);
+      return '<div id="trSesh" class="tr-card tr-sesh tr-sesh-done">' +
+        '<div class="tr-eyebrow">Done · ' + esc(when(wo.st)) + ' · ' + wk + '</div>' +
+        '<div class="tr-title">' + esc(wo.n || dayName(day)) + '</div>' +
+        seshChips([
+          wo.en > wo.st ? '<b>' + dur(wo.en - wo.st) + '</b>' : '',
+          '<b>' + cnt + '</b> set' + (cnt === 1 ? '' : 's'),
+          v > 0 ? '<b>' + fmtBig(v) + '</b> ' + T.pr.u + ' moved' : '',
+          nb ? { up: 1, h: '🥇 <b>' + nb + '</b> record' + (nb === 1 ? '' : 's') } : ''
+        ]) +
+        '<ol class="tr-snames">' + wo.x.filter(function (x) { return x.s.length; }).map(function (x) {
+          var n = x.s.filter(counts).length;
+          return '<li><span>' + esc(lib(x.e).n) + '</span>' + (best[x.e] ? '<i class="tr-pr">🥇 record</i>' : '<i>' + n + ' set' + (n === 1 ? '' : 's') + '</i>') + '</li>';
+        }).join('') + '</ol>' +
+        '<div class="tr-acts"><button class="ghost" data-t="wosheet" data-id="' + esc(wo.id) + '">See what you did</button>' + back + '</div>' +
+      '</div>';
+    }
+    var p = plan(ms, c.w, c.d);
+    var skipped = (Array.isArray(ms.sk) ? ms.sk : []).indexOf(c.w + ':' + c.d) >= 0;
+    var planBtn = '<button class="tr-lnk" data-t="planopen" aria-expanded="' + !!S.planOpen + '">' + (S.planOpen ? 'Hide the plan' : 'See the plan') + '</button>';
+    return '<div id="trSesh" class="tr-card tr-sesh' + (skipped ? ' tr-sesh-skip' : '') + '">' +
+      '<div class="tr-eyebrow">' + (skipped ? 'Skipped' : 'Planned') + ' · ' + wk + (cd && !skipped ? ' · ' + LD_S[cd.wd] : '') + '</div>' +
+      '<div class="tr-title">' + esc(p.n) + '</div>' +
+      (S.planOpen ? planList(p, ms) : seshChips(seshNums(ms, c.w, c.d, p, true)) + seshNames(p) + mcLine(p)) +
+      '<div class="tr-acts">' + (LIVE ? '' : '<button class="ghost" data-t="start" data-w="' + c.w + '" data-d="' + c.d + '">' +
+        (skipped ? 'Do it after all' : 'Start it early') + '</button>') + planBtn + back + '</div>' +
+    '</div>';
+  }
+  /* What a planned session asks, in a few numbers: how long, how many
+     exercises and sets, and — past week one — how many sets it has gained
+     on the first week's, which is the block climbing. */
+  function seshNums(ms, w, d, p, eff) {
+    var sets = p.x.map(function (x) { return x.sets; });
+    var tot = sets.reduce(function (a, b) { return a + b; }, 0);
+    var out = ['<b>~' + estDay(ms.days[d], sets) + '</b> min', '<b>' + p.x.length + '</b> exercise' + (p.x.length === 1 ? '' : 's'),
+      '<b>' + tot + '</b> set' + (tot === 1 ? '' : 's')];
+    if (w > 0 && !p.deload) {
+      var was = plan(ms, 0, d).x.reduce(function (a, x) { return a + x.sets; }, 0);
+      if (tot !== was) out.push({ up: tot > was, h: '<b>' + (tot > was ? '+' : '−') + Math.abs(tot - was) + '</b> sets on week 1' });
+    }
+    if (eff) out.push(p.deload ? 'deload' : effSay(p.rir));
+    return out;
+  }
+  function seshChips(list) {
+    return '<div class="tr-schips">' + list.filter(Boolean).map(function (c) {
+      return '<span class="tr-schip' + (c.up ? ' up' : '') + '">' + (c.h || c) + '</span>';
+    }).join('') + '</div>';
+  }
+  function seshNames(p) {
+    return '<ol class="tr-snames">' + p.x.map(function (x) {
+      return '<li><span>' + esc(lib(x.e).n) + '</span><i>' + (x.st ? 'main lift' : x.sets + ' set' + (x.sets === 1 ? '' : 's')) + '</i></li>';
+    }).join('') + '</ol>';
   }
 
   // a day with a circuit after the lifts says so, since it changes what the session is
@@ -5047,38 +5161,36 @@
     return p.mc ? '<div class="tr-mcp"><span class="tr-ql">Then the circuit</span><div>' + esc(mcSay(p.mc)) + '</div></div>' : '';
   }
 
-  /* The block, folded to a line: which week, and how this one is going.
-     Open, it is the grid of every session and the days you lift. The ask
-     for those days stays in view folded, since Nourish plans the carbs
-     from them. */
-  function blockCard(ms, nx) {
+  /* The block, open: which week, how far through, and the grid of every
+     session with the days you lift. */
+  function blockCard(ms, nx, sel) {
     var rir = nx ? rirFor(ms, nx.w) : null;
-    var wk = nx ? 'Week ' + (nx.w + 1) + ' of ' + weeksOf(ms) : 'All done';
-    var cols = liftCols(ms), picked = ldDays().length === cols.length;
-    if (!S.gridOpen) {
-      var doneN = 0;
-      if (nx) cols.forEach(function (d) { if (slotDone(ms, nx.w, d)) doneN++; });
-      return '<div class="tr-card tr-wk">' +
-        '<button class="tr-wk-b" data-t="gridopen" aria-expanded="false">' +
-          '<span class="tr-wk-t"><span class="tr-eyebrow">Your block</span>' +
-          '<span class="tr-wk-n">' + wk + (nx && cols.length ? ' \u00b7 ' + doneN + ' of ' + cols.length + ' done' : '') + '</span>' +
-          '<span class="tr-wk-s">' + esc(ms.n) + '</span></span>' +
-          '<span class="tr-wk-e">Show the weeks</span></button>' +
-        phaseLine(ms, nx) +
-        (!picked || S.ldOpen ? ldHTML(ms, nx) : '') +
-      '</div>';
+    var wk = nx ? 'Week ' + (nx.w + 1) + ' of ' + weeksOf(ms) : '';
+    var sk = Array.isArray(ms.sk) ? ms.sk : [];
+    var tot = weeksOf(ms) * ms.days.length, done = 0, gone = 0, thisWk = 0;
+    for (var w = 0; w < weeksOf(ms); w++) {
+      for (var d = 0; d < ms.days.length; d++) {
+        if (slotDone(ms, w, d)) { done++; if (nx && w === nx.w) thisWk++; } else if (sk.indexOf(w + ':' + d) >= 0) gone++;
+      }
     }
+    // skipped sessions are behind you too, so a block finished with a skip is finished
+    var pct = tot ? Math.round((done + gone) / tot * 100) : 0;
     var html = '<div class="tr-card tr-blk">' +
-      '<div class="tr-blk-h"><div class="tr-eyebrow">Your block</div>' +
-        '<button class="tr-lnk" data-t="gridopen" aria-expanded="true">Hide the weeks</button></div>' +
+      '<div class="tr-eyebrow">Your block</div>' +
       '<div class="tr-title">' + esc(ms.n) + '</div>';
     if (nx) {
-      html += '<div class="tr-sub">' + wk + ' \u00b7 ' +
+      html += '<div class="tr-sub">' + wk + ' · ' +
         (rir === null ? 'deload week' : ms.goal === 'str' ? (ms.wave || 10) + 's wave, ' + PHASE[Math.min(nx.w, 2)] : rirSay(rir)) + '</div>';
     } else {
       html += '<div class="tr-sub">Every session of this block is done.</div>';
     }
-    return html + phaseLine(ms, nx) + weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
+    html += '<div class="tr-cprog"><span class="tr-cbar" role="progressbar" aria-label="Through the block" aria-valuemin="0" aria-valuemax="100" ' +
+        'aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></span><span class="tr-cpct">' + pct + '%</span></div>' +
+      '<div class="tr-cstat"><span><b>' + done + ' of ' + tot + '</b> sessions' + (gone ? ', ' + gone + ' skipped' : '') + '</span>' +
+        (nx ? '<span><b>' + thisWk + ' of ' + ms.days.length + '</b> this week</span>' : '') + '</div>';
+    return html + phaseLine(ms, nx) + weekGrid(ms, nx, sel) +
+      (S.gridTapped ? '' : '<div class="tr-ghint">Tap a box to see that session</div>') +
+      ldHTML(ms, nx) + '</div>';
   }
 
   /* No lifting, and not nothing: something you could talk through, long
@@ -5185,7 +5297,7 @@
   }
   var LD_S = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  function weekGrid(ms, nx) {
+  function weekGrid(ms, nx, sel) {
     var sk = Array.isArray(ms.sk) ? ms.sk : [];
     var html = '<div class="tr-grid" role="table" aria-label="Sessions in this block" style="--n:' + ms.days.length + '">' +
       '<div class="tr-grow" role="row"><span class="tr-gh" role="columnheader"></span>' +
@@ -5205,10 +5317,11 @@
         var wo = slotDone(ms, w, d);
         var isNext = nx && nx.w === w && nx.d === d;
         var skipped = !wo && sk.indexOf(w + ':' + d) >= 0;
-        var cls = wo ? 'done' : isNext ? 'next' : skipped ? 'skip' : '';
+        var cls = (wo ? 'done' : isNext ? 'next' : skipped ? 'skip' : '') + (sel && sel.w === w && sel.d === d ? ' sel' : '');
         // five or more columns on a phone have room for the day of the month, not the month too
         var lab = wo ? (ms.days.length >= 5 ? String(new Date(wo.st).getDate()) : shortDate(wo.st)) : isNext ? 'Next' : skipped ? 'Skipped' : '';
-        html += '<button class="tr-gc ' + cls + '" role="cell" data-t="plansheet" data-w="' + w + '" data-d="' + d + '" ' +
+        html += '<button class="tr-gc ' + cls + '" role="cell" data-t="gridsel" data-w="' + w + '" data-d="' + d + '" ' +
+          'aria-controls="trSesh"' + (sel && sel.w === w && sel.d === d ? ' aria-current="true"' : '') + ' ' +
           'aria-label="Week ' + (w + 1) + ', ' + esc(dayName(ms.days[d])) + (lab ? ': ' + lab : '') + '">' +
           (wo ? '✓ ' : '') + esc(lab) + '</button>';
       }
@@ -8642,7 +8755,6 @@
   function imDetect(head) {
     var has = function (h) { return head.indexOf(h) >= 0; };
     var at = function () { for (var i = 0; i < arguments.length; i++) { var k = head.indexOf(arguments[i]); if (k >= 0) return k; } return -1; };
-    var C;
     if (has('exercise name') && (has('set order') || has('workout name')) && has('reps') && has('weight')) {
       return { app: has('rir') && has('set type') ? 'Strengthen' : 'Strong', C: { date: at('date'), name: at('workout name'), dur: at('duration', 'workout duration'), ex: at('exercise name'),
         ord: at('set order'), w: at('weight'), wu: at('weight unit'), r: at('reps'), rpe: at('rpe'), nt: at('notes'), wnt: at('workout notes'),
@@ -8811,6 +8923,13 @@
         var off = z === 'Z' ? 0 : (z[0] === '-' ? -1 : 1) * (+z.slice(1, 3) * 60 + +z.slice(-2));
         return Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0)) - off * 60000;
       }
+      /* No zone written, from an app that writes its times in UTC (Fitbod,
+         which usually says +0000 and sometimes does not). Read as local, an
+         evening session in Denver landed on the next morning's date. Only a
+         time is moved: a bare date is a calendar day, not an instant. */
+      if (utc && m[4] !== undefined) {
+        return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +(m[5] || 0), +(m[6] || 0));
+      }
       return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0)).getTime();
     }
     m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?/);
@@ -8854,9 +8973,6 @@
     delete s.su;
     return s;
   }
-  // the old name, still what a Strong file's dates go through
-  function sgDate(s) { return imDate(s, 'mdy'); }
-
   // letters and digits, the same every time the same workout comes in
   function sgId(w) {
     var h = 2166136261;
@@ -9174,7 +9290,27 @@
     if (t === 'unlib') { S.lib = false; draw(); scrollTop(); return; }
     if (t === 'browse') { S.browse = true; S.lib = false; draw(); scrollTop(); return; }
     if (t === 'ldopen') { S.ldOpen = true; S.ldDraft = ldDays().slice(); draw(); return; }
-    if (t === 'gridopen') { S.gridOpen = !S.gridOpen; draw(); return; }
+    if (t === 'gridsel') {
+      ms = active();
+      if (!ms) return;
+      var gw = num('data-w'), gd = num('data-d');
+      S.sel = { ms: ms.id, w: gw, d: gd }; S.gridTapped = true; S.planOpen = false;
+      draw();
+      var gc = document.querySelector('.tr-gc[data-w="' + gw + '"][data-d="' + gd + '"]');
+      if (gc) gc.focus({ preventScroll: true });
+      /* The card is under a grid that can be most of a phone's height: when
+         it starts below the fold, bring its top up, keeping the box tapped
+         on screen above it where there is room. */
+      var sc = $('trSesh');
+      if (sc) {
+        var top = sc.getBoundingClientRect().top;
+        if (top > window.innerHeight - 140) {
+          var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          window.scrollTo({ top: window.pageYOffset + top - Math.round(window.innerHeight * 0.3), behavior: still ? 'auto' : 'smooth' });
+        }
+      }
+      return;
+    }
     if (t === 'info') { S.info = S.info === v ? '' : v; drawSheet(); return; }
     if (t === 'whyopen') { S.whyOpen = S.whyOpen === v ? '' : v; if (S.sheet) drawSheet(); else draw(); return; }
     if (t === 'ckopen') { S.ck = S.ck || {}; S.ck[v] = !S.ck[v]; draw(); return; }
@@ -9288,6 +9424,7 @@
       ms = active();
       if (!ms) return;
       if (S.sheet) closeSheet();
+      S.sel = null;
       startPlanned(ms, num('data-w'), num('data-d'));
       return;
     }
@@ -9357,6 +9494,7 @@
       ms = clean(active());
       var skv = num('data-w') + ':' + num('data-d');
       ms.sk = (ms.sk || []).concat(skv);
+      S.sel = null;
       editBlock(ms);
       /* One tap beside Start, and the block had moved on with no way back but
          knowing to open the grid. Done at once, with Undo for a few seconds. */
@@ -9479,7 +9617,6 @@
       startTuck(LIVE);
       saveLive(); draw(); return;
     }
-    if (t === 'bkopen' && LIVE) { LIVE.sto = 1; saveLive(); draw(); return; }
     if (t === 'sore') {
       var m = el.getAttribute('data-m');
       if (LIVE.sr[m] === Number(v)) delete LIVE.sr[m]; else LIVE.sr[m] = Number(v);
@@ -10100,12 +10237,11 @@
        there is one, its days are changed here, where the count is enforced. */
     blockSessions: function () { var ms = active(); return ms ? liftCols(ms).length : 0; },
     /* Nourish's "Change days": open the picker on the block card. */
-    // with the weeks open, so each session's column shows the day it moves to
     /* Onto the Block screen whatever Strengthen was last left on — from
        History or Lifts the picker was drawn on a screen nobody was shown —
        and with a workout running, minimised so the picker is what you see. */
     openDays: function () {
-      S.ldOpen = true; S.gridOpen = true; S.ldDraft = ldDays().slice(); S.browse = false;
+      S.ldOpen = true; S.ldDraft = ldDays().slice(); S.browse = false;
       S.sub = 'block'; if (LIVE) S.minim = 1;
       try { localStorage.setItem(LS_SUB, 'block'); } catch (e) { /* private mode */ }
     },
@@ -10118,6 +10254,8 @@
     attach: attach,
     remote: remote,
     forget: forget,
+    // the corrected clock, from Nourish: see tnow
+    clock: function (fn) { CLOCK = typeof fn === 'function' ? fn : null; },
     sheetClosed: sheetClosed,
     /* For the tests, and for anyone reading the numbers off a console: the
        pure parts, which take data and give data. */
@@ -10136,7 +10274,7 @@
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE, swapBest: swapBest,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
-      checkin: checkin, chkReads: chkReads, phaseNow: phaseNow, phaseAt: phaseAt, capAt: capAt, phaseCap: phaseCap, phaseLine: phaseLine, phaseReset: function () { phLive.t = 0; },
+      checkin: checkin, chkReads: chkReads, dueSay: dueSay, phaseNow: phaseNow, phaseAt: phaseAt, capAt: capAt, phaseCap: phaseCap, phaseLine: phaseLine, phaseReset: function () { phLive.t = 0; },
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
       reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; phLive.t = 0; }

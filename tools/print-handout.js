@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const { fixDates, keep } = require('./pdf-file.js');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'print', 'Storehouse-Handout.pdf');
@@ -26,10 +27,8 @@ const TYPES = {
 };
 
 function playwright() {
-  for (const m of ['playwright', '/opt/node22/lib/node_modules/playwright']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  console.error('Playwright is not installed. `npm i -D playwright` and try again.');
+  try { return require('playwright'); } catch (e) { /* below */ }
+  console.error('Playwright is not installed. `npm ci` and try again.');
   process.exit(2);
 }
 
@@ -70,7 +69,9 @@ function serve() {
     process.exit(1);
   }
 
-  await page.pdf({ path: OUT, width: '8.5in', height: '11in', printBackground: true });
+  /* Dated and written like the books: the same sheet is the same file, and
+     an unchanged one is not written again. tools/pdf-file.js says why. */
+  const wrote = keep(OUT, fixDates(await page.pdf({ width: '8.5in', height: '11in', printBackground: true })));
   await browser.close();
   srv.close();
 
@@ -79,7 +80,7 @@ function serve() {
   try {
     pages = execFileSync('pdfinfo', [OUT]).toString().match(/^Pages:\s*(\d+)/m)[1];
   } catch (e) { /* pdfinfo is a nicety, not a dependency */ }
-  console.log('wrote print/Storehouse-Handout.pdf  ' + pages + ' pages, ' +
+  console.log((wrote ? 'wrote' : 'unchanged:') + ' print/Storehouse-Handout.pdf  ' + pages + ' pages, ' +
     n.recipes + ' recipes, ' + Math.round(fs.statSync(OUT).size / 1024) + ' KB');
   if (pages !== '?' && pages !== '2') {
     console.error('  it is meant to be two — one sheet, printed both sides. Something grew.');

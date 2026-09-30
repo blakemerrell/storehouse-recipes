@@ -16,7 +16,8 @@
  * they are the argument rather than the decoration.
  *
  * Run:  node tools/build-demo.js
- * Needs: print/Hive-and-Hearth-Recipes.pdf, pdftoppm, playwright, sharp.
+ * Needs: print/Hive-and-Hearth-Recipes.pdf, pdftoppm, pdftotext and pdfinfo
+ *        (poppler-utils), playwright, sharp.
  */
 
 const fs = require('fs');
@@ -31,14 +32,54 @@ const OUT = path.join(ROOT, 'welcome', 'demo');
 
 /* Four pages, chosen to answer four different doubts: that it is a real book,
    that the sections are illustrated, that a recipe is properly set, and that
-   you can find anything in it. Page numbers are 1-based into the combined
-   edition; check them against the PDF if the book grows. */
+   you can find anything in it.
+ *
+   Found by what is on them, not by number. They were page numbers, with a
+   note to check them if the book grew — and it grew: every recipe added puts
+   more lines in the contents, the contents pushed everything after it along,
+   and "the section opener" and "a page of recipes" turned into a contents
+   page and a part title while the alt text went on describing an engraving.
+   Nothing failed; the landing page just quietly showed the wrong pages. The
+   text a page carries says what it is, so it is asked. */
 const PAGES = [
-  { n: 1, name: 'book-1-cover', alt: 'The printed cover: a beehive above the title, Hive and Hearth Recipes' },
-  { n: 16, name: 'book-2-opener', alt: 'A section opening page with an engraving of a zero-cook spread' },
-  { n: 18, name: 'book-3-recipes', alt: 'A page of the printed book, two recipes with ingredients and method side by side' },
-  { n: 8, name: 'book-4-contents', alt: 'A contents page listing recipes with their page numbers' },
+  { name: 'book-1-cover', alt: 'The printed cover: a beehive above the title, Hive and Hearth Recipes',
+    is: (t, n) => n === 1 },
+  { name: 'book-2-opener', alt: 'A section opening page: an engraving of a breakfast spread above the section\u2019s name',
+    // the first section's opener: "SECTION 1 Breakfasts", letter-spaced in the text layer
+    is: (t) => /^S\s*E\s*C\s*T\s*I\s*O\s*N\s+1\s+\D/.test(t) },
+  { name: 'book-3-recipes', alt: 'A page of the printed book, two recipes with ingredients and method side by side',
+    // the first page of recipes after it: two recipe numbers on one page
+    is: (t) => (t.match(/\bNO\.\s*\d{3}\b/g) || []).length >= 2 },
+  { name: 'book-4-contents', alt: 'A contents page listing recipes with their page numbers',
+    is: (t) => /C\s*ONTENTS/.test(t) },
 ];
+
+function pageCount() {
+  const info = execFileSync('pdfinfo', [PDF]).toString();
+  return Number((info.match(/^Pages:\s+(\d+)/m) || [])[1]) || 0;
+}
+function pageText(n) {
+  return execFileSync('pdftotext', ['-f', String(n), '-l', String(n), PDF, '-']).toString()
+    .replace(/\s+/g, ' ').trim();
+}
+/* The first page each description fits. The page of recipes is looked for
+   after the opener, so it is that section's first page and not a stray
+   page of recipes somewhere before it. Refuses rather than guessing when one
+   is not found: a frame of the wrong page is what this exists to prevent. */
+function findPages() {
+  const total = pageCount(), found = {};
+  const first = (p, from) => {
+    for (let n = from; n <= total; n++) if (p.is(pageText(n), n)) return n;
+    throw new Error('no page in the book looks like ' + p.name);
+  };
+  const byName = {};
+  PAGES.forEach((p) => { byName[p.name] = p; });
+  found['book-1-cover'] = 1;
+  found['book-4-contents'] = first(byName['book-4-contents'], 1);
+  found['book-2-opener'] = first(byName['book-2-opener'], 1);
+  found['book-3-recipes'] = first(byName['book-3-recipes'], found['book-2-opener'] + 1);
+  return found;
+}
 
 /* And four of the app, in the order somebody uses it. */
 const SCREENS = [
@@ -84,7 +125,10 @@ function serve() {
   const RECIPE_COUNT = global.window.RECIPES.length;
 
   // ---- the book ---------------------------------------------------------
+  const at = findPages();
   for (const p of PAGES) {
+    p.n = at[p.name];
+    console.log(p.name + ': page ' + p.n);
     execFileSync('pdftoppm', ['-png', '-r', '150', '-f', String(p.n), '-l', String(p.n),
       PDF, path.join(tmp, p.name)]);
     const f = fs.readdirSync(tmp).find((x) => x.startsWith(p.name) && x.endsWith('.png'));

@@ -33,6 +33,9 @@ module.exports = {
       localStorage.setItem('sh.wm', JSON.stringify({ flank_steak: '123456789' }));
       const L2 = W.lines([{ key: 'carne_asada', label: 'Carne asada', g: 500 }]);
       if (!(L2.cart[0] && L2.cart[0].id === '123456789')) bad.push('a pasted number puts it in the cart');
+      /* Crio Bru is not a Walmart food: it says where it is bought instead. */
+      const L3 = W.lines([{ key: 'crio_bru', label: 'Crio Bru', g: 100 }]);
+      if (!(L3.away[0] && /Lin/.test(L3.away[0].where) && /^https:/.test(L3.away[0].url) && !L3.cart.length && !L3.find.length)) bad.push('Crio Bru is sent to Lin\u2019s or online ' + JSON.stringify(L3));
       localStorage.removeItem('sh.wm');
       return bad;
     });
