@@ -667,7 +667,7 @@
    * hand at the gym, not to the account, and syncing half a set to a laptop
    * at home helps nobody. It is written on every keystroke, so a phone that
    * locks, dies or reloads mid-session comes back to the same set. */
-  var LS_T = 'bsc.train', LS_TS = 'bsc.trainStamps', LS_LIVE = 'sh.trainLive', LS_SUB = 'sh.trainSub';
+  var LS_T = 'bsc.train', LS_TS = 'bsc.trainStamps', LS_LIVE = 'sh.trainLive', LS_SUB = 'sh.trainSub', LS_HV = 'sh.trainHist';
   // how you matched the columns of a file no app of ours wrote, by its headings
   var LS_IMAP = 'sh.importMap';
 
@@ -3812,7 +3812,9 @@
     q: '', qm: '',        // the picker's search and muscle
     arm: '',              // a two-tap confirm, armed
     own: null,            // the make-your-own form in the picker
-    ed: null              // a saved workout being corrected; see edOpen()
+    ed: null,             // a saved workout being corrected; see edOpen()
+    hv: (function () { try { return localStorage.getItem(LS_HV) === 'wo' ? 'wo' : 'blk'; } catch (e) { return 'blk'; } })(),
+    hb: '', hbSel: null, hbRen: ''   // History: the block open, its box chosen, its name being edited
   };
 
   /* ------------------------------------------------------------ the logger */
@@ -4840,7 +4842,7 @@
   function render() {
     var a = document.activeElement;
     if (a && a.closest && (a.closest('#view-train') || a.closest('#trainRoot')) &&
-        (a.tagName === 'INPUT' || a.tagName === 'SELECT')) {
+        (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) {
       markTab();
       return;
     }
@@ -5088,9 +5090,9 @@
   /* The card under the calendar. The next session is today's card, with
      Start. A done one says what was lifted and what beat a record; one still
      to come says what it will ask; each a line per exercise, by name. */
-  function seshHTML(ms, nx, c) {
+  function seshHTML(ms, nx, c, noBack) {
     if (!c || (nx && c.w === nx.w && c.d === nx.d)) return todayHTML(ms, nx);
-    var back = nx ? '<button class="tr-lnk tr-lnk-q" data-t="gridsel" data-w="' + nx.w + '" data-d="' + nx.d + '">Back to the next one</button>' : '';
+    var back = nx && !noBack ? '<button class="tr-lnk tr-lnk-q" data-t="gridsel" data-w="' + nx.w + '" data-d="' + nx.d + '">Back to the next one</button>' : '';
     var day = ms.days[c.d], wk = wkName(ms, c.w), cd = colDays(ms, nx)[c.d];
     if (isEz(ms, c.d)) {
       return '<div id="trSesh" class="tr-card tr-sesh tr-ez">' +
@@ -5099,26 +5101,7 @@
         (back ? '<div class="tr-acts">' + back + '</div>' : '') + '</div>';
     }
     var wo = woFor(ms, c.w, c.d);
-    if (wo) {
-      var best = {}, nb = 0;
-      prsIn(wo).forEach(function (r) { if (!best[r.e]) nb++; best[r.e] = 1; });
-      var v = volOf(wo), cnt = wo.x.reduce(function (n, x) { return n + x.s.filter(counts).length; }, 0);
-      return '<div id="trSesh" class="tr-card tr-sesh tr-sesh-done">' +
-        '<div class="tr-eyebrow">Done · ' + esc(when(wo.st)) + ' · ' + wk + '</div>' +
-        '<div class="tr-title">' + esc(wo.n || dayName(day)) + '</div>' +
-        seshChips([
-          wo.en > wo.st ? '<b>' + dur(wo.en - wo.st) + '</b>' : '',
-          '<b>' + cnt + '</b> set' + (cnt === 1 ? '' : 's'),
-          v > 0 ? '<b>' + fmtBig(v) + '</b> ' + T.pr.u + ' moved' : '',
-          nb ? { up: 1, h: '🥇 <b>' + nb + '</b> record' + (nb === 1 ? '' : 's') } : ''
-        ]) +
-        '<ol class="tr-snames">' + wo.x.filter(function (x) { return x.s.length; }).map(function (x) {
-          var n = x.s.filter(counts).length;
-          return '<li><span>' + esc(lib(x.e).n) + '</span>' + (best[x.e] ? '<i class="tr-pr">🥇 record</i>' : '<i>' + n + ' set' + (n === 1 ? '' : 's') + '</i>') + '</li>';
-        }).join('') + '</ol>' +
-        '<div class="tr-acts"><button class="ghost" data-t="wosheet" data-id="' + esc(wo.id) + '">See what you did</button>' + back + '</div>' +
-      '</div>';
-    }
+    if (wo) return seshDoneHTML(ms, c, wo, back);
     var p = plan(ms, c.w, c.d);
     var skipped = (Array.isArray(ms.sk) ? ms.sk : []).indexOf(c.w + ':' + c.d) >= 0;
     var planBtn = '<button class="tr-lnk" data-t="planopen" aria-expanded="' + !!S.planOpen + '">' + (S.planOpen ? 'Hide the plan' : 'See the plan') + '</button>';
@@ -5128,6 +5111,29 @@
       (S.planOpen ? planList(p, ms) : seshChips(seshNums(ms, c.w, c.d, p, true)) + seshNames(p) + mcLine(p)) +
       '<div class="tr-acts">' + (LIVE ? '' : '<button class="ghost" data-t="start" data-w="' + c.w + '" data-d="' + c.d + '">' +
         (skipped ? 'Do it after all' : 'Start it early') + '</button>') + planBtn + back + '</div>' +
+    '</div>';
+  }
+  /* A session that was done: what was lifted, in a few numbers and a line
+     per exercise, with the way into the workout itself. */
+  function seshDoneHTML(ms, c, wo, back) {
+    var day = ms.days[c.d], wk = wkName(ms, c.w);
+    var best = {}, nb = 0;
+    prsIn(wo).forEach(function (r) { if (!best[r.e]) nb++; best[r.e] = 1; });
+    var v = volOf(wo), cnt = wo.x.reduce(function (n, x) { return n + x.s.filter(counts).length; }, 0);
+    return '<div id="trSesh" class="tr-card tr-sesh tr-sesh-done">' +
+      '<div class="tr-eyebrow">Done · ' + esc(when(wo.st)) + ' · ' + wk + '</div>' +
+      '<div class="tr-title">' + esc(wo.n || dayName(day)) + '</div>' +
+      seshChips([
+        wo.en > wo.st ? '<b>' + dur(wo.en - wo.st) + '</b>' : '',
+        '<b>' + cnt + '</b> set' + (cnt === 1 ? '' : 's'),
+        v > 0 ? '<b>' + fmtBig(v) + '</b> ' + T.pr.u + ' moved' : '',
+        nb ? { up: 1, h: '🥇 <b>' + nb + '</b> record' + (nb === 1 ? '' : 's') } : ''
+      ]) +
+      '<ol class="tr-snames">' + wo.x.filter(function (x) { return x.s.length; }).map(function (x) {
+        var n = x.s.filter(counts).length;
+        return '<li><span>' + esc(lib(x.e).n) + '</span>' + (best[x.e] ? '<i class="tr-pr">🥇 record</i>' : '<i>' + n + ' set' + (n === 1 ? '' : 's') + '</i>') + '</li>';
+      }).join('') + '</ol>' +
+      '<div class="tr-acts"><button class="ghost" data-t="wosheet" data-id="' + esc(wo.id) + '">See what you did</button>' + (back || '') + '</div>' +
     '</div>';
   }
   /* What a planned session asks, in a few numbers: how long, how many
@@ -5176,7 +5182,8 @@
     // skipped sessions are behind you too, so a block finished with a skip is finished
     var pct = tot ? Math.round((done + gone) / tot * 100) : 0;
     var html = '<div class="tr-card tr-blk">' +
-      '<div class="tr-eyebrow">Your block</div>' +
+      '<div class="tr-blk-h"><div class="tr-eyebrow">Your block</div>' +
+        '<button class="tr-lnk" data-t="hbopen" data-id="' + esc(ms.id) + '">Details &amp; notes</button></div>' +
       '<div class="tr-title">' + esc(ms.n) + '</div>';
     if (nx) {
       html += '<div class="tr-sub">' + wk + ' · ' +
@@ -5297,12 +5304,17 @@
   }
   var LD_S = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  function weekGrid(ms, nx, sel) {
+  function weekGrid(ms, nx, sel, act) {
+    /* History draws a block's grid too, where a tap chooses in History and
+       the weekday under each column (this week's, from your lifting days)
+       means nothing for a block gone by. */
+    var hist = !!act;
+    act = act || 'gridsel';
     var sk = Array.isArray(ms.sk) ? ms.sk : [];
     var html = '<div class="tr-grid" role="table" aria-label="Sessions in this block" style="--n:' + ms.days.length + '">' +
       '<div class="tr-grow" role="row"><span class="tr-gh" role="columnheader"></span>' +
       (function () {
-        var cd = colDays(ms, nx);
+        var cd = hist ? {} : colDays(ms, nx);
         return ms.days.map(function (d, i) {
           var c = cd[i];
           // "day" is the one word a narrow column can spare
@@ -5320,7 +5332,7 @@
         var cls = (wo ? 'done' : isNext ? 'next' : skipped ? 'skip' : '') + (sel && sel.w === w && sel.d === d ? ' sel' : '');
         // five or more columns on a phone have room for the day of the month, not the month too
         var lab = wo ? (ms.days.length >= 5 ? String(new Date(wo.st).getDate()) : shortDate(wo.st)) : isNext ? 'Next' : skipped ? 'Skipped' : '';
-        html += '<button class="tr-gc ' + cls + '" role="cell" data-t="gridsel" data-w="' + w + '" data-d="' + d + '" ' +
+        html += '<button class="tr-gc ' + cls + '" role="cell" data-t="' + act + '" data-w="' + w + '" data-d="' + d + '" ' +
           'aria-controls="trSesh"' + (sel && sel.w === w && sel.d === d ? ' aria-current="true"' : '') + ' ' +
           'aria-label="Week ' + (w + 1) + ', ' + esc(dayName(ms.days[d])) + (lab ? ': ' + lab : '') + '">' +
           (wo ? '✓ ' : '') + esc(lab) + '</button>';
@@ -5956,7 +5968,11 @@
     var tot = totals(ms, ms.days.map(function (d) { return d.s.map(function (s) { return s.n; }); }));
     return '<div class="tr-card">' +
       '<div class="tr-eyebrow">Your block, before it starts</div>' +
-      '<div class="tr-title">' + esc(ms.n) + '</div>' +
+      /* Its name is yours to give: the program's own is only a start, and a
+         list of blocks all called "Upper / lower · 4 days" says nothing. */
+      '<label class="sr-only" for="trDraftName">Name this block</label>' +
+      '<input class="txt tr-title tr-dname" id="trDraftName" maxlength="60" autocomplete="off" value="' + esc(ms.n) + '">' +
+      (active() && active().id !== ms.id ? '<div class="tr-note">Starting it ends <b>' + esc(active().n) + '</b>. Its workouts stay in History, under Blocks.</div>' : '') +
       '<div class="tr-sub">' + weeksOf(ms) + ' weeks · ' + esc(KITS[ms.kit].n.toLowerCase()) +
         ' · tap an exercise to swap it</div>' +
       (Array.isArray(ms.nt) && ms.nt.length ? '<ul class="tr-fits">' + ms.nt.map(function (n) {
@@ -6002,7 +6018,8 @@
           return '<span class="tr-volc">' + esc(mname(m)) + ' <b>' + tot[m] + '</b></span>';
         }).join('') + '</div>' +
       '<div class="tr-acts"><button class="btn-primary" data-t="begin">Start this block</button>' +
-        '<button class="ghost" data-t="shuffle">Different exercises</button>' +
+        // a block run again keeps its exercises; there is nothing to draw them from anew
+        (S.opt ? '<button class="ghost" data-t="shuffle">Different exercises</button>' : '') +
         '<button class="ghost" data-t="undraft">Back</button></div>' +
     '</div>';
   }
@@ -6754,7 +6771,252 @@
   }
 
   /* ------------------------------------------------------------- history */
+  /* History two ways. By block — the mesocycle, the way RP's app plans and
+     keeps one: each with its name, its dates and how it went, and inside it
+     everything it held. Or every workout in a row, newest first, which is
+     how it always read. */
   function historyHTML() {
+    var blocks = blockList();
+    if (!blocks.length) return workoutsHTML();
+    var hv = S.hv === 'wo' ? 'wo' : 'blk';
+    var seg = '<div class="seg tr-hseg" role="group" aria-label="History by">' +
+      [['blk', 'Blocks'], ['wo', 'Workouts']].map(function (o) {
+        return '<button data-t="hview" data-v="' + o[0] + '" aria-pressed="' + (hv === o[0]) + '">' + o[1] + '</button>';
+      }).join('') + '</div>';
+    if (hv === 'wo') return seg + workoutsHTML();
+    var open = S.hb && T.ms[S.hb];
+    return seg + (open ? blockPastHTML(open) : blocksHTML(blocks));
+  }
+
+  /* Every block you have run, the current one first, then newest first. A
+     block begun and dropped before a single session is not one. */
+  function blockList() {
+    var has = {};
+    ix().list.forEach(function (wo) { if (wo.ms) has[wo.ms] = 1; });
+    return Object.keys(T.ms).map(function (k) { return T.ms[k]; }).filter(function (ms) {
+      return ms && ms.id && Array.isArray(ms.days) && ms.days.length && (ms.id === T.act || has[ms.id]);
+    }).sort(function (a, b) {
+      if (a.id === T.act) return -1;
+      if (b.id === T.act) return 1;
+      return (b.at || 0) - (a.at || 0);
+    });
+  }
+
+  /* What a block came to, in the numbers its row and its page both read. */
+  function blockFacts(ms) {
+    var wos = ix().list.filter(function (wo) { return wo.ms === ms.id; }).sort(function (a, b) { return a.st - b.st; });
+    var sk = Array.isArray(ms.sk) ? ms.sk : [];
+    var W = weeksOf(ms), tot = W * ms.days.length, done = 0, gone = 0, lastW = -1;
+    for (var w = 0; w < W; w++) {
+      for (var d = 0; d < ms.days.length; d++) {
+        if (slotDone(ms, w, d)) { done++; lastW = Math.max(lastW, w); } else if (sk.indexOf(w + ':' + d) >= 0) gone++;
+      }
+    }
+    var nx = nextSlot(ms), prs = 0, time = 0, sets = 0, vol = 0;
+    wos.forEach(function (wo) {
+      prs += prsIn(wo).length;
+      time += Math.max(0, (wo.en || wo.st) - wo.st);
+      wo.x.forEach(function (x) { sets += x.s.filter(counts).length; });
+      vol += volOf(wo);
+    });
+    return {
+      wos: wos, done: done, gone: gone, tot: tot, nx: nx, lastW: lastW, prs: prs, time: time, sets: sets, vol: vol,
+      status: ms.id === T.act ? 'now' : !nx ? 'done' : 'ended',
+      from: wos.length ? wos[0].st : ms.at || 0, to: wos.length ? wos[wos.length - 1].st : 0
+    };
+  }
+  function blockStatus(ms, f) {
+    return f.status === 'now' ? (f.nx ? 'Current · ' + wkName(ms, f.nx.w) : 'Current · every session done')
+      : f.status === 'done' ? 'Finished' : 'Ended in week ' + Math.max(1, f.lastW + 1);
+  }
+  function spanSay(a, b) {
+    if (!a) return '';
+    if (!b || dayKey(new Date(a)) === dayKey(new Date(b))) return shortDate(a);
+    return shortDate(a) + ' – ' + shortDate(b);
+  }
+  // what kind of block it was, in a line
+  function blockKind(ms) {
+    var P = PROGS[ms.prog];
+    return [P ? P.n : '', weeksOf(ms) + ' weeks × ' + ms.days.length + ' days', KITS[ms.kit] ? KITS[ms.kit].n : '']
+      .filter(Boolean).join(' · ');
+  }
+
+  /* What each lift did over the block: its estimated max at the first
+     session against the last, and the records set on the way. Deload weeks
+     are left out of the change, as the block's own summary does. */
+  function blockLifts(wos) {
+    var lifts = {}, order = [];
+    wos.forEach(function (w) {
+      prsIn(w).forEach(function (r) {
+        var l0 = lifts[r.e] = lifts[r.e] || { e: r.e, a: 0, b: 0, prs: 0 };
+        if (order.indexOf(r.e) < 0) order.push(r.e);
+        l0.prs++;
+      });
+      if (w.dl) return;
+      w.x.forEach(function (x) {
+        var v = liftE1(x, w);
+        if (!(v > 0)) return;
+        var l = lifts[x.e] = lifts[x.e] || { e: x.e, a: 0, b: 0, prs: 0 };
+        if (order.indexOf(x.e) < 0) order.push(x.e);
+        if (!l.a) l.a = v;
+        l.b = v;
+      });
+    });
+    return order.map(function (e) {
+      var l = lifts[e];
+      l.ch = l.a > 0 ? l.b / l.a - 1 : 0;
+      return l;
+    }).sort(function (x, y) { return (y.prs - x.prs) || (Math.abs(y.ch) - Math.abs(x.ch)); });
+  }
+
+  /* Hard sets per muscle, week by week — RP's own way of looking back at a
+     mesocycle: did the volume climb the way it was meant to. */
+  function blockVolume(ms, wos) {
+    var W = weeksOf(ms), rows = {};
+    wos.forEach(function (wo) {
+      if (!(wo.w >= 0 && wo.w < W)) return;
+      wo.x.forEach(function (x) {
+        var m = musOf(x.e), n = x.s.filter(counts).length;
+        if (!n || !MUS[m]) return;
+        var r = rows[m] = rows[m] || [];
+        for (var i = r.length; i < W; i++) r.push(0);
+        r[wo.w] += n;
+      });
+    });
+    return MUSCLES.filter(function (m) { return rows[m.k]; }).map(function (m) {
+      return { n: m.n, wk: rows[m.k], mrv: m.mrv };
+    });
+  }
+
+  function blocksHTML(blocks) {
+    return '<div class="tr-blist">' + blocks.map(function (ms) {
+      var f = blockFacts(ms);
+      var up = blockLifts(f.wos).filter(function (l) { return l.ch > 0.005; })
+        .sort(function (a, b) { return b.ch - a.ch; })[0];
+      var pct = f.tot ? Math.round((f.done + f.gone) / f.tot * 100) : 0;
+      return '<button class="tr-card tr-brow" data-t="hbopen" data-id="' + esc(ms.id) + '">' +
+        '<span class="tr-h-top"><span class="tr-h-n">' + esc(ms.n) + '</span>' +
+          '<span class="tr-btag tr-btag-' + f.status + '">' + esc(blockStatus(ms, f).split(' · ')[0]) + '</span></span>' +
+        '<span class="tr-h-meta">' + esc([spanSay(f.from, f.to), weeksOf(ms) + ' weeks × ' + ms.days.length + ' days'].filter(Boolean).join(' · ')) + '</span>' +
+        '<span class="tr-cbar tr-bbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' +
+        '<span class="tr-h-meta">' + f.done + ' of ' + f.tot + ' sessions' +
+          (f.prs ? ' · <span class="tr-pr">🥇 ' + f.prs + ' record' + (f.prs === 1 ? '' : 's') + '</span>' : '') +
+          (up ? ' · ' + esc(lib(up.e).n) + ' <span class="tr-up">+' + Math.round(up.ch * 100) + '%</span>' : '') + '</span>' +
+      '</button>';
+    }).join('') + '</div>';
+  }
+
+  /* One block, everything it held: its calendar (tap a box for that
+     session), what it came to, what the lifts did, the volume week by week,
+     what you did outside the gym while it ran, and your notes on it. */
+  function blockPastHTML(ms) {
+    var f = blockFacts(ms), nx = f.status === 'now' ? f.nx : null;
+    var sel = S.hbSel && S.hbSel.ms === ms.id ? S.hbSel : null;
+    var bw0 = f.wos.length ? woBw(f.wos[0]) : null, bw1 = f.wos.length ? woBw(f.wos[f.wos.length - 1]) : null;
+    var bwU = f.wos.length ? f.wos[0].u : T.pr.u;
+    var name = S.hbRen === ms.id
+      ? '<div class="tr-hbren"><label class="sr-only" for="trBlkName">Name of this block</label>' +
+          '<input class="txt tr-hbname" id="trBlkName" maxlength="60" autocomplete="off" value="' + esc(ms.n) + '">' +
+          '<button class="btn-primary" data-t="hbrensave" data-id="' + esc(ms.id) + '">Save</button>' +
+          '<button class="ghost" data-t="hbren" data-id="">Cancel</button></div>'
+      : '<div class="tr-hbt"><h2 class="tr-title">' + esc(ms.n) + '</h2>' +
+          '<button class="tr-lnk" data-t="hbren" data-id="' + esc(ms.id) + '">Rename</button></div>';
+    var html = '<button class="tr-lnk tr-hback" data-t="hbclose">‹ All blocks</button>' +
+      '<div class="tr-card tr-blk tr-hblk">' +
+        '<div class="tr-eyebrow">' + esc(blockStatus(ms, f)) + '</div>' + name +
+        '<div class="tr-sub">' + esc([spanSay(f.from, f.to), blockKind(ms)].filter(Boolean).join(' · ')) + '</div>' +
+        seshChips([
+          '<b>' + f.done + ' of ' + f.tot + '</b> sessions' + (f.gone ? ', ' + f.gone + ' skipped' : ''),
+          f.time ? '<b>' + dur(f.time) + '</b> lifting' : '',
+          f.sets ? '<b>' + f.sets + '</b> hard sets' : '',
+          f.vol > 0 ? '<b>' + fmtBig(f.vol) + '</b> ' + T.pr.u + ' moved' : '',
+          f.prs ? { up: 1, h: '🥇 <b>' + f.prs + '</b> record' + (f.prs === 1 ? '' : 's') } : '',
+          fin(bw0) && fin(bw1) && bw0 !== bw1 ? 'body weight <b>' + fmtN(conv(bw0, bwU)) + ' → ' + fmtN(conv(bw1, bwU)) + '</b> ' + T.pr.u : ''
+        ]) +
+        weekGrid(ms, nx, sel, 'hbsel') +
+        (sel ? '' : '<div class="tr-ghint">Tap a box to see that session</div>') +
+      '</div>';
+    if (sel) html += pastSeshHTML(ms, nx, sel);
+
+    var lifts = blockLifts(f.wos);
+    if (lifts.length) {
+      html += '<div class="tr-card"><div class="tr-ql">What the lifts did</div><ul class="tr-ups tr-blifts">' +
+        lifts.slice(0, 12).map(function (l) {
+          var ch = Math.round(l.ch * 100);
+          return '<li><span>' + esc(lib(l.e).n) + (l.prs ? ' <span class="tr-pr">🥇 ' + l.prs + '</span>' : '') + '</span>' +
+            '<span class="' + (ch > 0 ? 'up' : ch < 0 ? 'down' : '') + '">' +
+              (l.a > 0 ? fmtN(Math.round(l.a)) + ' → ' + fmtN(Math.round(l.b)) + ' ' + T.pr.u + (ch ? ' (' + (ch > 0 ? '+' : '−') + Math.abs(ch) + '%)' : '') : '') +
+            '</span></li>';
+        }).join('') + '</ul>' +
+        '<div class="tr-note">Estimated one-rep max, the first session of the block against the last; 🥇 is records set during it.</div></div>';
+    }
+
+    var vol = blockVolume(ms, f.wos);
+    if (vol.length) {
+      var W = weeksOf(ms), acc = accOf(ms);
+      html += '<div class="tr-card"><div class="tr-ql">Hard sets per muscle, week by week</div>' +
+        '<div class="tr-bvol" role="table" aria-label="Hard sets per muscle, week by week" style="--n:' + W + '">' +
+          '<div class="tr-bvr" role="row"><span role="columnheader"></span>' +
+            Array.apply(null, Array(W)).map(function (_, w) {
+              return '<span role="columnheader">' + (w >= acc && !steady(ms) ? 'DL' : 'W' + (w + 1)) + '</span>';
+            }).join('') + '</div>' +
+          vol.map(function (r) {
+            return '<div class="tr-bvr" role="row"><span role="rowheader">' + esc(r.n) + '</span>' +
+              r.wk.map(function (n) {
+                var shade = r.mrv ? Math.round(8 + 40 * Math.min(1, n / r.mrv)) : 8;
+                return '<span role="cell" class="tr-bvc"' + (n ? ' style="background:color-mix(in oklab, var(--green) ' + shade + '%, var(--card))"' : '') + '>' + (n || '–') + '</span>';
+              }).join('') + '</div>';
+          }).join('') +
+        '</div>' +
+        '<div class="tr-note">Working sets only, warm-ups left out. The deeper the green, the nearer that week came to RP’s MRV, the most you can recover from.</div></div>';
+    }
+
+    // outside the gym, while the block ran
+    var end = f.status === 'now' ? Date.now() : (f.to || f.from) + 864e5;
+    var ax = Object.keys(T.ax).map(function (k) { return T.ax[k]; })
+      .filter(function (a) { return a && f.from && a.st >= f.from - 864e5 && a.st <= end; });
+    if (ax.length) {
+      var mins = ax.reduce(function (n, a) { return n + (a.min || 0); }, 0);
+      var easy = ax.filter(function (a) { return a.ms === ms.id; }).length;
+      html += '<div class="tr-card"><div class="tr-ql">Outside the gym while it ran</div>' +
+        '<div class="tr-sub">' + ax.length + ' activit' + (ax.length === 1 ? 'y' : 'ies') + ', ' + dur(mins * 60000) +
+          (easy ? ' · ' + easy + ' counted as the block’s easy day' + (easy === 1 ? '' : 's') : '') + '</div></div>';
+    }
+
+    html += '<div class="tr-card"><label class="tr-ql" for="trBlkNote">Your notes</label>' +
+      '<textarea class="txt tr-bnote" id="trBlkNote" rows="4" maxlength="2000" placeholder="How it went, what hurt, what to change next time">' +
+        esc(ms.note || '') + '</textarea>' +
+      '<div class="tr-note">Kept with the block, and on your other devices when you are signed in.</div></div>';
+
+    html += '<div class="tr-acts tr-hbacts">' +
+      (f.status === 'now' ? '<button class="btn-primary" data-t="sub" data-v="block">Go to the block</button>' : '') +
+      (LIVE ? '' : '<button class="' + (f.status === 'now' ? 'ghost' : 'btn-primary') + '" data-t="hbagain" data-id="' + esc(ms.id) + '">Run it again</button>') +
+    '</div>' +
+    '<div class="tr-note tr-hbagain-say">Run it again starts a new block with these same days and exercises, from where your lifts are now.</div>';
+    return html;
+  }
+
+  /* A box on a block in History. The current block's own card, Start and
+     all; a past block's, what was done, or that it was not. */
+  function pastSeshHTML(ms, nx, c) {
+    var wk = wkName(ms, c.w);
+    if (isEz(ms, c.d)) {
+      var ez = ezFor(ms, c.w, c.d);
+      if (nx && !ez) return seshHTML(ms, nx, c, true);
+      return '<div id="trSesh" class="tr-card tr-sesh tr-ez"><div class="tr-eyebrow">' + (ez ? 'Done' : 'Not done') + ' · ' + wk + '</div>' +
+        '<div class="tr-title">Easy day</div>' +
+        '<div class="tr-sub">' + (ez ? esc(axName(ez)) + ', ' + dur(ez.min * 60000) + ', ' + when(ez.st) + '.' : 'Nothing was logged for it.') + '</div></div>';
+    }
+    var wo = woFor(ms, c.w, c.d);
+    if (wo) return seshDoneHTML(ms, c, wo, '');
+    if (nx) return seshHTML(ms, nx, c, true);
+    var p = plan(ms, c.w, c.d);
+    var skipped = (Array.isArray(ms.sk) ? ms.sk : []).indexOf(c.w + ':' + c.d) >= 0;
+    return '<div id="trSesh" class="tr-card tr-sesh tr-sesh-skip"><div class="tr-eyebrow">' + (skipped ? 'Skipped' : 'Not done') + ' · ' + wk + '</div>' +
+      '<div class="tr-title">' + esc(p.n) + '</div>' + seshNames(p) + '</div>';
+  }
+
+  function workoutsHTML() {
     var list = ix().list.slice();
     Object.keys(T.ax).forEach(function (k) { if (T.ax[k]) list.push({ ax: T.ax[k], st: T.ax[k].st }); });
     list.sort(function (a, b) { return b.st - a.st; });
@@ -8332,6 +8594,31 @@
     stamp('ms', ms.id);
   }
 
+  /* After a box is tapped: it keeps the focus, for a keyboard, and the card
+     it opened is brought up when it starts below the fold, the box staying
+     on screen above it where there is room. */
+  function selInView(w, d) {
+    var gc = document.querySelector('.tr-gc[data-w="' + w + '"][data-d="' + d + '"]');
+    if (gc) gc.focus({ preventScroll: true });
+    var sc = $('trSesh');
+    if (!sc) return;
+    var top = sc.getBoundingClientRect().top;
+    if (top > window.innerHeight - 140) {
+      var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: window.pageYOffset + top - Math.round(window.innerHeight * 0.3), behavior: still ? 'auto' : 'smooth' });
+    }
+  }
+
+  function blockRename(id) {
+    var mb = T.ms[id], box = $('trBlkName');
+    if (!mb || !box) return;
+    var nm = String(box.value || '').trim().slice(0, 60);
+    if (nm) { mb.n = nm; editBlock(mb); }
+    S.hbRen = '';
+    draw();
+  }
+  var noteT = null;
+
   /* What the builder needs to know about you, beside the program's own
      choices. */
   function profileOpts() {
@@ -8341,6 +8628,8 @@
 
   function beginDraft() {
     var ms = clean(S.draft);
+    ms.n = String(ms.n || '').trim() || ms.n0 || 'Block';
+    delete ms.n0; delete ms.named;
     ms.at = Date.now();
     ms.st = dayKey(new Date());
     T.ms[ms.id] = ms;
@@ -9290,28 +9579,60 @@
     if (t === 'unlib') { S.lib = false; draw(); scrollTop(); return; }
     if (t === 'browse') { S.browse = true; S.lib = false; draw(); scrollTop(); return; }
     if (t === 'ldopen') { S.ldOpen = true; S.ldDraft = ldDays().slice(); draw(); return; }
+    /* History, by block. */
+    if (t === 'hview') {
+      S.hv = v === 'wo' ? 'wo' : 'blk'; S.hb = ''; S.hbSel = null; S.hbRen = '';
+      try { localStorage.setItem(LS_HV, S.hv); } catch (e) { /* private mode */ }
+      draw(); return;
+    }
+    if (t === 'hbopen') {
+      if (!T.ms[el.getAttribute('data-id')]) return;
+      S.hv = 'blk'; S.hb = el.getAttribute('data-id'); S.hbSel = null; S.hbRen = '';
+      try { localStorage.setItem(LS_HV, 'blk'); } catch (e) { /* private mode */ }
+      setSub('history'); scrollTop(); return;
+    }
+    if (t === 'hbclose') { S.hb = ''; S.hbSel = null; S.hbRen = ''; draw(); scrollTop(); return; }
+    if (t === 'hbsel') {
+      if (!S.hb || !T.ms[S.hb]) return;
+      S.hbSel = { ms: S.hb, w: num('data-w'), d: num('data-d') }; S.planOpen = false;
+      draw(); selInView(S.hbSel.w, S.hbSel.d); return;
+    }
+    if (t === 'hbren') {
+      S.hbRen = el.getAttribute('data-id') || '';
+      draw();
+      var rn = $('trBlkName');
+      if (rn) { rn.focus(); rn.select(); }
+      return;
+    }
+    if (t === 'hbrensave') { blockRename(el.getAttribute('data-id')); return; }
+    if (t === 'hbagain') {
+      var src = T.ms[el.getAttribute('data-id')];
+      if (!src || LIVE) return;
+      /* The same block again: its days and exercises as they stood at the
+         end (swaps for the rest of the block included), none of its
+         progress. The weights come from your log as they always do, so it
+         starts from where the lifts are now; a strength wave hands on the
+         training maxes its last as-many-as-you-can sets earned. */
+      var nb = clean(src);
+      nb.id = newId(); nb.at = Date.now(); nb.sk = [];
+      ['st', 'ph', 'dlw', 'note', 'n0', 'named'].forEach(function (k) { delete nb[k]; });
+      if (src.goal === 'str') { nb.tm = nextTm(src); nb.tu = T.pr.u; }
+      nb.again = src.id;
+      S.draft = nb; S.opt = null; S.browse = false; S.lib = false;
+      S.hb = ''; S.hbSel = null; S.hbRen = '';
+      setSub('block'); scrollTop(); return;
+    }
     if (t === 'gridsel') {
       ms = active();
       if (!ms) return;
       var gw = num('data-w'), gd = num('data-d');
       S.sel = { ms: ms.id, w: gw, d: gd }; S.gridTapped = true; S.planOpen = false;
       draw();
-      var gc = document.querySelector('.tr-gc[data-w="' + gw + '"][data-d="' + gd + '"]');
-      if (gc) gc.focus({ preventScroll: true });
-      /* The card is under a grid that can be most of a phone's height: when
-         it starts below the fold, bring its top up, keeping the box tapped
-         on screen above it where there is room. */
-      var sc = $('trSesh');
-      if (sc) {
-        var top = sc.getBoundingClientRect().top;
-        if (top > window.innerHeight - 140) {
-          var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          window.scrollTo({ top: window.pageYOffset + top - Math.round(window.innerHeight * 0.3), behavior: still ? 'auto' : 'smooth' });
-        }
-      }
+      selInView(gw, gd);
       return;
     }
     if (t === 'info') { S.info = S.info === v ? '' : v; drawSheet(); return; }
+
     if (t === 'whyopen') { S.whyOpen = S.whyOpen === v ? '' : v; if (S.sheet) drawSheet(); else draw(); return; }
     if (t === 'ckopen') { S.ck = S.ck || {}; S.ck[v] = !S.ck[v]; draw(); return; }
     if (t === 'fixset') {
@@ -9369,9 +9690,11 @@
     }
     if (t === 'shuffle' && o) {
       o.seed = (o.seed || 0) + 1;
-      var keepId = S.draft.id;
+      var keepId = S.draft.id, keepName = S.draft.named ? S.draft.n : null;
       S.draft = build(Object.assign(profileOpts(), o, S.draft.tm ? { tm: S.draft.tm } : {}));
       S.draft.id = keepId;
+      // the exercises are new; a name you gave it is still yours
+      if (keepName !== null) { S.draft.n = keepName; S.draft.named = 1; }
       draw(); return;
     }
     if (t === 'undraft') { S.draft = null; draw(); scrollTop(); return; }
@@ -10083,6 +10406,19 @@
         return;
       }
       if (el.id === 'trAxNm' && S.sheet && S.sheet.k === 'axnew') { S.sheet.nm = el.value; return; }
+      if (el.id === 'trDraftName' && S.draft) {
+        if (!S.draft.n0) S.draft.n0 = S.draft.n;
+        S.draft.n = el.value.slice(0, 60); S.draft.named = 1;
+        return;
+      }
+      if (el.id === 'trBlkNote' && S.hb && T.ms[S.hb]) {
+        var nid = S.hb;
+        T.ms[nid].note = el.value.slice(0, 2000);
+        clearTimeout(noteT);
+        // saved once the typing pauses, not on every key
+        noteT = setTimeout(function () { if (T.ms[nid]) editBlock(T.ms[nid]); }, 600);
+        return;
+      }
       var mcf = el.getAttribute('data-mc');
       if (mcf && LIVE && LIVE.mc) {
         LIVE.mc[mcf] = el.value.replace(/[^0-9:.]/g, '').slice(0, 6);
@@ -10175,6 +10511,8 @@
         return;
       }
       if (e.key === 'Enter' && el && el.id === 'trBwq') { e.preventDefault(); bwSave(false); return; }
+      if (e.key === 'Enter' && el && el.id === 'trBlkName') { e.preventDefault(); blockRename(S.hbRen); return; }
+      if (e.key === 'Escape' && el && el.id === 'trBlkName') { S.hbRen = ''; draw(); return; }
       if (e.key === 'Enter' && el && el.getAttribute && el.getAttribute('data-in') === 'r' && LIVE) {
         e.preventDefault();
         el.blur();

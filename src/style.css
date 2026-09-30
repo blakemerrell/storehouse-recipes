@@ -7133,3 +7133,33 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .step-sub .nut-ask { min-height: 0; padding: 0; font-size: inherit; }
 .kit-pill.kit-new:not(#u#u)::after { border-style: dashed; border-color: var(--ochre); }
 .kit-pill.kit-new:not(#u#u) { color: var(--ochre-text); font-weight: 600; }
+
+/* ---- Strengthen: History by block (the mesocycles) ---------------------- */
+.tr-blk-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.tr-blk-h .tr-lnk { min-height: 44px; font-size: 0.8125rem; }
+.tr-hseg { display: inline-flex; margin: 0 0 14px; }
+.tr-blist { display: flex; flex-direction: column; gap: 10px; }
+.tr-brow { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.tr-brow .tr-bbar { flex: none; width: 100%; height: 6px; }
+.tr-btag {
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+  padding: 2px 8px; border-radius: 99px; background: color-mix(in oklab, var(--ink) 7%, var(--card)); color: var(--muted-2);
+}
+.tr-btag-now { background: color-mix(in oklab, var(--green) 14%, var(--card)); color: var(--green); }
+.tr-hback { display: flex; align-items: center; min-height: 44px; font-size: 0.875rem; margin: -4px 0 6px; }
+.tr-hbt { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.tr-hbt .tr-title { margin: 0; }
+.tr-hbt .tr-lnk { min-height: 44px; font-size: 0.8125rem; white-space: nowrap; }
+.tr-hbren { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 6px; }
+.tr-hbname { flex: 1 1 200px; min-width: 0; font-size: 1.0625rem; }
+.tr-dname { display: block; width: 100%; box-sizing: border-box; margin: 2px 0 6px; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
+.tr-blifts li .tr-pr { font-size: 0.8125rem; margin-left: 4px; }
+.tr-bvol { display: flex; flex-direction: column; gap: 3px; margin: 8px 0 6px; overflow-x: auto; }
+.tr-bvr { display: grid; grid-template-columns: 92px repeat(var(--n, 5), minmax(34px, 1fr)); gap: 3px; min-width: 0; }
+.tr-bvr > span { font-size: 0.8125rem; text-align: center; font-variant-numeric: tabular-nums; }
+.tr-bvr > span[role="columnheader"] { color: var(--muted-2); font-weight: 600; }
+.tr-bvr > span[role="rowheader"] { text-align: left; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-bvc { padding: 4px 0; border-radius: 3px; background: var(--paper-soft); color: var(--ink); }
+.tr-bnote { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 4px; min-height: 96px; resize: vertical; font: inherit; }
+.tr-hbacts { margin-top: 14px; }
+.tr-hbagain-say { margin: 6px 0 0; }

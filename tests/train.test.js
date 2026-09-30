@@ -43,6 +43,13 @@ async function answer(p, a) {
   await p.waitForTimeout(100);
 }
 
+/* History, by workout. It opens by block once there is one, so the tests
+   that read the list of workouts ask for that view. */
+async function openWorkouts(p) {
+  await p.click('[data-t="sub"][data-v="history"]');
+  await p.evaluate(() => { const b = document.querySelector('[data-t="hview"][data-v="wo"]'); if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); });
+}
+
 /* Put a training log in storage and have Train read it. */
 async function seed(p, T) {
   await p.evaluate((T) => {
@@ -270,7 +277,7 @@ module.exports = {
     t.ok('the block moves on to the next session', d.next === '1', JSON.stringify(d));
     t.ok('and says it saved', d.saved);
     await p.click('.tr-done [data-t="close"]');
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     t.ok('the workout is in History', await p.isVisible('.tr-hrow'));
     await p.close();
 
@@ -905,7 +912,7 @@ module.exports = {
     // ---- the builder, a session, and a round of golf, on the screen -----------
     await p.click('.tab[data-view="train"]');
     await p.evaluate(() => { localStorage.removeItem('bsc.train'); window.Train._.reload(); window.Train._.state().S.qz = null; });
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     await p.click('[data-t="sub"][data-v="block"]');
     await answer(p, { goal: 'keep', lvl: 2, dpw: 2, min: 40, bk: 'f', hab: ['golfw'] });
     r = await p.evaluate(() => [...document.querySelectorAll('.tr-prog [data-t="prog"]')].map((b) => b.dataset.v));
@@ -982,7 +989,7 @@ module.exports = {
       strip: document.querySelector('.tr-actv-n').textContent }));
     t.ok('a round of golf is one tap and a length', r.ax.length === 1 && r.ax[0].k === 'golfw' && r.ax[0].min === 240, JSON.stringify(r.ax));
     t.ok('and the block shows the week’s minutes outside the gym', /4 h/.test(r.strip), r.strip);
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     t.ok('it is in History beside the workouts', await p.isVisible('.tr-hax'));
     await p.click('[data-t="sub"][data-v="review"]');
     await p.waitForTimeout(100);
@@ -1791,7 +1798,7 @@ module.exports = {
     t.ok('a set said to have two in reserve is saved so; one not said stays blank', r.q === 2 && r.q1 === undefined, JSON.stringify(r));
     t.ok('with what the plan asked beside it', typeof r.pq === 'number', r.pq);
     t.ok('and the note on the workout is saved with it', r.nt === 'Slept badly. Knee fine.', r.nt);
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     r = await p.evaluate(() => (document.querySelector('.tr-h-nt') || {}).textContent || '');
     t.ok('History shows the note', /Slept badly/.test(r), r);
     await p.close();
@@ -1822,7 +1829,7 @@ module.exports = {
     await seed(p, { pr: { qz: 1 }, act: '', ms: {}, cx: {}, ax: {},
       wo: { old: wo('old', '', -1, -1, 9, [{ e: 'bb-bench', s: sets(180, [8, 8]) }]),
         fix: wo('fix', '', -1, -1, 2, [{ e: 'bb-bench', s: sets(185, [8, 8]) }, { e: 'db-curl', s: sets(30, [12]) }]) } });
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     await p.click('[data-t="wosheet"][data-id="fix"]');
     await p.click('[data-t="edopen"]');
     r = await p.evaluate(() => document.querySelectorAll('[data-ed="w"]').length);
@@ -1908,7 +1915,7 @@ module.exports = {
       ax: { z: { id: 'z', st: Date.now(), k: 'swim', min: 30, lv: 'm' } },
       wo: { a: wo('a', msE.id, 0, 0, 2, [{ e: msE.days[0].s[0].e, s: sets(100, [10]) }]),
         b: wo('b', msE.id, 0, 1, 1, [{ e: msE.days[1].s[0].e, s: sets(100, [10]) }]) } });
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     await p.click('[data-t="sub"][data-v="block"]');
     await p.click('.tr-next [data-t="ezlink"]');
     r = await p.evaluate(() => window.Train._.state().T.ax.z);
@@ -1992,7 +1999,7 @@ module.exports = {
     await p.click('.tab[data-view="train"]');
     await p.click('[data-t="qzskip"]');
     await seed(p, { pr: { qz: 1, bk: 'f', rq: 0 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     await p.click('[data-t="sub"][data-v="block"]');
     await p.click('[data-t="empty"]');
     await p.click('[data-t="addex"]');
@@ -2088,7 +2095,7 @@ module.exports = {
       await q.click('.tab[data-view="train"]');
       await q.click('[data-t="qzskip"]');
       await seed(q, { pr: { qz: 1, bk: 'f', rq: 0 }, act: '', ms: {}, cx: {}, ax: {}, wo: {} });
-      await q.click('[data-t="sub"][data-v="history"]');
+      await openWorkouts(q);
       await q.click('[data-t="sub"][data-v="block"]');
       await q.click('[data-t="empty"]');
       await q.click('[data-t="addex"]');
@@ -2213,7 +2220,7 @@ module.exports = {
 
     // times on a saved workout
     await p.click('.tr-done [data-t="close"]');
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     await p.click('[data-t="wosheet"]');
     await p.click('[data-t="edopen"]');
     const t0 = await p.evaluate(() => window.Train._.dtVal(Date.now() - 26 * 3600e3));
@@ -2280,7 +2287,7 @@ module.exports = {
       return { kinds: w.x[0].s.map((s) => (s.wu ? 'W' : s.ty || 'n')).join(), prs: window.Train._.prsIn(w).map((x) => x.what).join() }; });
     t.ok('the kinds are saved with the sets', r.kinds === 'W,n,n,d', r.kinds);
     // the editor cycles the kind
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     await p.click('.tr-hrow[data-t="wosheet"]');
     await p.click('[data-t="edopen"]');
     await p.click('[data-t="edsty"][data-x="0"][data-s="3"]');
@@ -2835,7 +2842,7 @@ module.exports = {
       a: wo('a', '', -1, -1, 2, [{ e: 'pullup', s: [{ w: 0, r: 8 }] }], { bw: 200 }) } });
     await p.click('.tab[data-view="train"]');
     await p.evaluate(() => { window.Train._.state().T.pr.u = 'kg'; });
-    await p.click('[data-t="sub"][data-v="history"]');
+    await openWorkouts(p);
     await p.click('.tr-hrow[data-t="wosheet"]');
     await p.click('[data-t="edopen"]');
     await p.click('[data-t="edsave"]');
@@ -4131,6 +4138,94 @@ module.exports = {
     await p.click('#trSesh [data-t="start"]');
     r = await p.evaluate(() => { const L = window.Train._.state().LIVE; return L ? L.w + ':' + L.d : ''; });
     t.ok('and Start it early starts that one', r === '3:3', r);
+    await p.close();
+
+    // ---- History by block: the mesocycles, named, kept, looked back on, run again ----
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await p.evaluate(() => {
+      const _ = window.Train._, day = 864e5, now = Date.now(), wo = {}, ax = {};
+      const old = _.build({ goal: 'grow', dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] }); old.id = 'old'; old.n = 'Winter bulk'; old.at = now - 80 * day;
+      const cur = _.build({ goal: 'grow', dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [], seed: 1 }); cur.id = 'cur'; cur.n = 'Spring block'; cur.at = now - 14 * day;
+      const dropped = _.build({ goal: 'grow', dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] }); dropped.id = 'dropped'; dropped.at = now - 20 * day;
+      let n = 0;
+      const log = (ms, w, d, st, bump) => { const pl = _.plan(ms, w, d); const id = 'w' + (n++);
+        wo[id] = { id, st, en: st + 3600e3, u: 'lb', ms: ms.id, w, d, n: pl.n,
+          x: pl.x.map((x, k) => ({ e: x.e, s: Array.from({ length: x.sets }, (_, j) => ({ w: 70 + 10 * k + bump, r: 10, t: st + 60e3 * (k * 5 + j + 1) })) })), sr: {}, fb: {} }; };
+      for (let w = 0; w < 5; w++) for (let d = 0; d < 4; d++) { if (w === 2 && d === 3) continue; log(old, w, d, old.at + (w * 7 + d * 2) * day, w * 5); }
+      old.sk = ['2:3'];
+      [[0, 0], [0, 1]].forEach(([w, d]) => log(cur, w, d, cur.at + (w * 7 + d * 2) * day, 30));
+      ax.a1 = { id: 'a1', k: 'walk', st: old.at + 10 * day, min: 45, lv: 'm' };
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 1, 3, 4] }, act: 'cur', ms: { old, cur, dropped }, cx: {}, ax, wo }));
+      localStorage.removeItem('bsc.trainStamps'); _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="history"]');
+    r = await p.evaluate(() => ({
+      seg: [...document.querySelectorAll('[data-t="hview"]')].map((b) => b.textContent + ':' + b.getAttribute('aria-pressed')).join(),
+      rows: [...document.querySelectorAll('.tr-brow')].map((b) => b.querySelector('.tr-h-n').textContent + '|' + b.querySelector('.tr-btag').textContent) }));
+    t.ok('History opens by block: the current one first, then the finished one; one begun and never trained is not a block',
+      r.seg === 'Blocks:true,Workouts:false' && JSON.stringify(r.rows) === JSON.stringify(['Spring block|Current', 'Winter bulk|Finished']), JSON.stringify(r));
+    await p.click('[data-t="hbopen"][data-id="old"]');
+    r = await p.evaluate(() => ({
+      eb: document.querySelector('.tr-hblk .tr-eyebrow').textContent, name: document.querySelector('.tr-hbt .tr-title').textContent,
+      chips: [...document.querySelectorAll('.tr-hblk .tr-schip')].map((c) => c.textContent),
+      cells: document.querySelectorAll('.tr-hblk .tr-gc').length, done: document.querySelectorAll('.tr-hblk .tr-gc.done').length,
+      skip: document.querySelectorAll('.tr-hblk .tr-gc.skip').length, next: document.querySelectorAll('.tr-hblk .tr-gc.next').length,
+      wkday: document.querySelectorAll('.tr-hblk .tr-ghd').length,
+      lifts: document.querySelectorAll('.tr-blifts li').length, up: /→/.test((document.querySelector('.tr-blifts li') || {}).textContent || ''),
+      vol: document.querySelectorAll('.tr-bvol [role="row"]').length, volHead: [...document.querySelectorAll('.tr-bvol [role="columnheader"]')].map((c) => c.textContent).join(),
+      outside: [...document.querySelectorAll('.tr-card .tr-ql')].some((q) => /Outside the gym/.test(q.textContent)),
+      note: !!document.getElementById('trBlkNote'), again: !!document.querySelector('[data-t="hbagain"]') }));
+    t.ok('a finished block says so, with its name, its sessions and its skip', r.eb === 'Finished' && r.name === 'Winter bulk' &&
+      r.chips.some((c) => /19 of 20 sessions, 1 skipped/.test(c)) && r.chips.some((c) => /records?/.test(c)), JSON.stringify(r));
+    t.ok('its calendar is all there: nineteen done, one skipped, nothing next and no weekdays of this week under a block gone by',
+      r.cells === 20 && r.done === 19 && r.skip === 1 && r.next === 0 && r.wkday === 0, JSON.stringify(r));
+    t.ok('with what each lift did over it', r.lifts > 0 && r.up, JSON.stringify(r));
+    t.ok('the hard sets per muscle week by week, the deload marked', r.vol > 3 && r.volHead === ',W1,W2,W3,W4,DL', r.volHead);
+    t.ok('what was done outside the gym while it ran, a place for notes, and Run it again', r.outside && r.note && r.again, JSON.stringify(r));
+    await p.click('.tr-hblk [data-t="hbsel"][data-w="1"][data-d="2"]');
+    r = await p.evaluate(() => ({ eb: (document.querySelector('#trSesh .tr-eyebrow') || {}).textContent || '', see: !!document.querySelector('#trSesh [data-t="wosheet"]'),
+      start: !!document.querySelector('#trSesh [data-t="start"]') }));
+    t.ok('a box on it opens that session: what was lifted, and the way into the workout, with nothing to start', /^Done · /.test(r.eb) && r.see && !r.start, JSON.stringify(r));
+    await p.click('.tr-hblk [data-t="hbsel"][data-w="2"][data-d="3"]');
+    r = await p.evaluate(() => (document.querySelector('#trSesh .tr-eyebrow') || {}).textContent || '');
+    t.ok('and the skipped one says it was skipped', /^Skipped/.test(r), r);
+    // notes, kept and synced
+    await p.fill('#trBlkNote', 'Shoulder cranky in week 3.');
+    await p.waitForTimeout(800);
+    r = await p.evaluate(() => { const st = window.Train._.state(); return { note: st.T.ms.old.note, stamped: st.TS.ms && st.TS.ms.old > 0,
+      kept: JSON.parse(localStorage.getItem('bsc.train')).ms.old.note }; });
+    t.ok('a note on the block is kept with it, on this phone and for the account', r.note === 'Shoulder cranky in week 3.' && r.stamped && r.kept === r.note, JSON.stringify(r));
+    // rename
+    await p.click('[data-t="hbren"][data-id="old"]');
+    await p.fill('#trBlkName', 'Winter bulk 2026');
+    await p.keyboard.press('Enter');
+    r = await p.evaluate(() => ({ shown: (document.querySelector('.tr-hbt .tr-title') || {}).textContent, stored: window.Train._.state().T.ms.old.n }));
+    t.ok('renamed with Enter, and it stays renamed', r.shown === 'Winter bulk 2026' && r.stored === 'Winter bulk 2026', JSON.stringify(r));
+    await p.click('[data-t="hbclose"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-brow .tr-h-n')].map((x) => x.textContent).join());
+    t.ok('and the list says the new name', /Winter bulk 2026/.test(r), r);
+    // run it again
+    await p.click('[data-t="hbopen"][data-id="old"]');
+    await p.click('[data-t="hbagain"][data-id="old"]');
+    r = await p.evaluate(() => { const st = window.Train._.state(), d = st.S.draft, o = st.T.ms.old;
+      return { sub: st.S.sub, name: (document.getElementById('trDraftName') || {}).value, same: !!d && JSON.stringify(d.days.map((x) => x.s.map((y) => y.e))) === JSON.stringify(o.days.map((x) => x.s.map((y) => y.e))),
+        fresh: !!d && d.id !== 'old' && !(d.sk || []).length && !d.note, ends: /Starting it ends/.test(document.querySelector('#trBody').textContent),
+        shuffle: !!document.querySelector('[data-t="shuffle"]') }; });
+    t.ok('Run it again opens the same days and exercises as a new block, named as before, nothing of its progress carried',
+      r.sub === 'block' && r.name === 'Winter bulk 2026' && r.same && r.fresh, JSON.stringify(r));
+    t.ok('it says the current block ends if it starts, and offers no different exercises it has nowhere to draw from', r.ends && !r.shuffle, JSON.stringify(r));
+    await p.fill('#trDraftName', 'Winter bulk, again');
+    await p.click('[data-t="begin"]');
+    r = await p.evaluate(() => { const st = window.Train._.state(), a = st.T.ms[st.T.act]; return { name: a && a.n, old: !!st.T.ms.old, cur: !!st.T.ms.cur }; });
+    t.ok('the name typed before it starts is the block’s, and the blocks before it are all still kept', r.name === 'Winter bulk, again' && r.old && r.cur, JSON.stringify(r));
+    // the Block card goes to its own page
+    await p.click('[data-t="hbopen"]');
+    r = await p.evaluate(() => ({ sub: window.Train._.state().S.sub, eb: (document.querySelector('.tr-hblk .tr-eyebrow') || {}).textContent || '' }));
+    t.ok('the Block card’s Details opens this block in History', r.sub === 'history' && /^Current/.test(r.eb), JSON.stringify(r));
+    await p.click('[data-t="hview"][data-v="wo"]');
+    r = await p.evaluate(() => document.querySelectorAll('.tr-hrow').length);
+    t.ok('and Workouts is every workout in a row, as it always was', r >= 21, String(r));
     await p.close();
   },
 };
