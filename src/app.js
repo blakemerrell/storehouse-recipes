@@ -1987,6 +1987,7 @@
     if (window.Store.opt('buy', true)) return true;
     return storeNeeds(r) <= (window.Store.opt('near', false) ? 2 : 0);
   }
+  window.__mPortion = function (r, x) { return mPortion(r, x); };
   window.__flow = { needs: storeNeeds, mode: planMode, source: foodSource };
   function renderWhere() {
     var m = planMode(), near = window.Store.opt('near', false);
@@ -6593,6 +6594,9 @@
      unit with "each" said as "whole". */
   function mDialUnit(r) {
     if (mByGram(r)) return 'g';
+    /* Typing still counts servings; say what one is, "× ½ cup". */
+    var ls = mLabelServing(r);
+    if (ls) return '\u00d7 ' + fmtNum(ls.q) + ' ' + ls.noun;
     var u = mUnitWord(r);
     return u === 'each' ? 'whole' : u;
   }
@@ -6701,8 +6705,25 @@
     return Math.round(v * 10000) / 10000;
   }
 
+  /* A serving off a label that says its own amount: "0.5 cup (113 g)".
+     Four of those were shown as "4 0.5 cup (113 g)" — two numbers side by
+     side, neither of them the amount. Multiplied out, it is "2 cups". */
+  function mLabelServing(r) {
+    if (!r || !r.food) return null;
+    var m = /^\s*(\d+(?:\.\d+)?|\d+\/\d+)\s+([^()]+?)\s*(?:\(\s*(\d+(?:\.\d+)?)\s*g\s*\))?\s*$/i.exec(String(r.unit || ''));
+    if (!m) return null;
+    var q = m[1].indexOf('/') > 0 ? Number(m[1].split('/')[0]) / Number(m[1].split('/')[1]) : Number(m[1]);
+    if (!(q > 0)) return null;
+    return { q: q, noun: m[2].trim(), g: m[3] ? Number(m[3]) : 0 };
+  }
   function mPortion(r, x) {
     var unit = mUnitWord(r);
+    var ls = !mByGram(r) && mLabelServing(r);
+    if (ls) {
+      var tot = Math.round(x * ls.q * 8) / 8;
+      var gl = ls.g ? Math.round(ls.g * x) : (r.grams ? Math.round(r.grams * x) : 0);
+      return { head: fmtNum(tot) + ' ' + fixUnit(ls.noun, tot), detail: gl ? gl + ' g' : '' };
+    }
     var grams = r.grams ? Math.round(r.grams * x) : 0;
     if (unit === 'g') return { head: (grams || Math.round(100 * x)) + ' g', detail: '' };
     /* The chip is the weight said in the kitchen's word, to the nearest
@@ -6710,6 +6731,8 @@
        Plural by the eighth that is SHOWN, not by x — 145 g is 1.04 cups, and
        the live site said "1 cups" of it. */
     if (mByGram(r)) {
+      var lg = mLabelServing(r);
+      if (lg) { var tl = Math.round(x * lg.q * 8) / 8; return { head: grams + ' g', detail: fmtNum(tl) + ' ' + fixUnit(lg.noun, tl) }; }
       var shown = Math.round(x * 8) / 8;
       return { head: grams + ' g', detail: fmtNum(shown) + ' ' + fixUnit(unit, shown) };
     }

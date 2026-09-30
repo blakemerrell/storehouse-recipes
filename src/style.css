@@ -7107,3 +7107,8 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .day-rate button[data-v="2"][aria-pressed="true"] svg { fill: currentColor; }
 .day-rate button[data-v="-1"][aria-pressed="true"]:not(#u#u) { color: var(--dial-over); }
 .day-rate-say { font-size: 0.75rem; color: var(--muted); margin-left: 4px; }
+/* Typing a portion is one row, "400 g": the box's single column is for a long
+   label that has to wrap, and it stood the number over its unit. */
+.mitem-r3 .mstep .mitem-amt.mitem-typing { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 4px; }
+.mitem-r3 .mstep .mitem-amt.mitem-typing .mstep-in { width: 4.5ch; flex: none; }
+.mitem-r3 .mstep .mitem-amt.mitem-typing i { white-space: nowrap; }
