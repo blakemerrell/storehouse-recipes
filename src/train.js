@@ -4975,11 +4975,15 @@
     }
     var nx = nextSlot(ms);
     var acc = accOf(ms);
-    /* Today first. The week's grid used to open the screen, and Start sat a
-       screen and a half below it; a lifter opening this at the gym wants the
-       session, so the session comes first, and the block folds to a line
-       that opens on a tap. */
-    var html = savedHTML() + todayHTML(ms, nx) + blockCard(ms, nx);
+    /* The block first, open: every week of it as boxes, and how far through
+       you are. Tap a box and that session is the card under it; none tapped,
+       it is the next one, with Start. Blake: "I'd like to see my box calendar
+       and my progress… not collapsed and it's probably the top thing. And
+       then when I click on a box the exercises for that show below." It had
+       been folded to a line under today's card, which put Start first but
+       hid where the session sat in the block. */
+    var sel = selOf(ms, nx);
+    var html = savedHTML() + blockCard(ms, nx, sel) + seshHTML(ms, nx, sel);
     html += actStrip();
     /* One thing to do on this screen, and it is Start. The other ways in are
        a quiet list below it, and ending the block, which can't be taken
@@ -5026,50 +5030,127 @@
     return (o >= 7 ? 'next ' : '') + LD_N[(ti + o) % 7];
   }
 
-  /* The session to do next, as today's card: what it is, one line of its
-     lifts, and a Start you can't miss. On a rest day it says so, and when
-     the next one is, with a quiet way to start it anyway. The full plan,
-     weights and reasons, is a tap away. */
+  /* The session to do next, as the card under the calendar: when it is,
+     what it asks in a few numbers, the exercises by name, and a Start you
+     can't miss. On a rest day it says so, and when the next one is, with a
+     quiet way to start it anyway. The full plan, weights and reasons, is a
+     tap away. */
   function todayHTML(ms, nx) {
     if (!nx) return doneHTML(ms);
-    var wk = 'Week ' + (nx.w + 1) + ' of ' + weeksOf(ms);
+    var wk = wkName(ms, nx.w);
     if (isEz(ms, nx.d)) {
-      return '<div class="tr-card tr-next tr-ez">' +
-        '<div class="tr-eyebrow">Next \u00b7 ' + wk + '</div>' +
+      return '<div id="trSesh" class="tr-card tr-next tr-sesh tr-ez">' +
+        '<div class="tr-eyebrow">Next · ' + wk + '</div>' +
         '<div class="tr-title">Easy day</div>' + ezHTML(ms, nx.w, nx.d) + '</div>';
     }
     var p = plan(ms, nx.w, nx.d);
-    var mins = estDay(ms.days[nx.d], p.x.map(function (x) { return x.sets; }));
     var due = dueIn(ms, nx);
     var rest = due !== null && due > 0;
     var did = rest && trainedOn(dayKey(new Date()));
-    var lifts = p.x.map(function (x) { return lib(x.e).n; });
     var planBtn = '<button class="tr-lnk" data-t="planopen" aria-expanded="' + !!S.planOpen + '">' + (S.planOpen ? 'Hide the plan' : 'See the plan') + '</button>';
     var skip = '<button class="tr-lnk tr-lnk-q" data-t="skip" data-w="' + nx.w + '" data-d="' + nx.d + '">Skip this one</button>';
     var start = '<button class="' + (rest ? 'ghost tr-anyway' : 'btn-primary tr-go') + '" data-t="start" data-w="' + nx.w + '" data-d="' + nx.d + '">' +
       (rest ? 'Start it anyway' : 'Start workout') + '</button>';
+    var body = (S.planOpen ? planList(p, ms) : seshChips(seshNums(ms, nx.w, nx.d, p, false)) + seshNames(p) + mcLine(p));
     if (rest) {
-      return '<div class="tr-card tr-next tr-restday">' +
-        '<div class="tr-eyebrow">Today \u00b7 ' + wk + '</div>' +
-        '<div class="tr-title">' + (did ? 'Done for today \u2713' : 'Rest day') + '</div>' +
-        '<div class="tr-sub">Next: <b>' + esc(p.n) + '</b> ' + esc(dueSay(due)) + ' \u00b7 about ' + mins + ' min</div>' +
-        '<div class="tr-tlifts">' + esc(lifts.join(' \u00b7 ')) + '</div>' +
-        (S.planOpen ? '' : mcLine(p)) +
-        (did ? '' : '<div class="tr-sub">Muscles grow in the rest between sessions.</div>') +
+      return '<div id="trSesh" class="tr-card tr-next tr-sesh tr-restday">' +
+        '<div class="tr-eyebrow">Today · ' + wk + '</div>' +
+        '<div class="tr-title">' + (did ? 'Done for today ✓' : 'Rest day') + '</div>' +
+        '<div class="tr-sub">Next: <b>' + esc(p.n) + '</b> ' + esc(dueSay(due)) + '.' +
+          (did ? '' : ' Muscles grow in the rest between sessions.') + '</div>' +
+        body +
         '<div class="tr-acts">' + start + planBtn + '</div>' +
-        (S.planOpen ? planList(p, ms) : '') +
       '</div>';
     }
-    return '<div class="tr-card tr-next">' +
-      '<div class="tr-eyebrow">' + (due === 0 ? 'Today' : 'Next') + ' \u00b7 ' + wk + ' \u00b7 about ' + mins + ' min</div>' +
+    return '<div id="trSesh" class="tr-card tr-next tr-sesh">' +
+      '<div class="tr-eyebrow">' + (due === 0 ? 'Today' : 'Next' + (due ? ' · ' + esc(dueSay(due)) : '')) + ' · ' + wk + '</div>' +
       '<div class="tr-title">' + esc(p.n) + '</div>' +
-      '<div class="tr-tlifts">' + esc(lifts.join(' \u00b7 ')) + '</div>' +
-      (S.planOpen ? '' : mcLine(p)) +
+      body +
       restNote(p) +
       start +
       '<div class="tr-acts tr-next-a">' + planBtn + skip + '</div>' +
-      (S.planOpen ? planList(p, ms) : '') +
     '</div>';
+  }
+
+  function wkName(ms, w) { return w >= accOf(ms) && !steady(ms) ? 'Deload week' : 'Week ' + (w + 1) + ' of ' + weeksOf(ms); }
+
+  /* The box that is chosen: a tap's, while it is still a box of this block,
+     or else the next session's. */
+  function selOf(ms, nx) {
+    var c = S.sel;
+    if (c && c.ms === ms.id && c.w >= 0 && c.w < weeksOf(ms) && c.d >= 0 && c.d < ms.days.length) return c;
+    return nx ? { ms: ms.id, w: nx.w, d: nx.d } : null;
+  }
+
+  /* The card under the calendar. The next session is today's card, with
+     Start. A done one says what was lifted and what beat a record; one still
+     to come says what it will ask; each a line per exercise, by name. */
+  function seshHTML(ms, nx, c) {
+    if (!c || (nx && c.w === nx.w && c.d === nx.d)) return todayHTML(ms, nx);
+    var back = nx ? '<button class="tr-lnk tr-lnk-q" data-t="gridsel" data-w="' + nx.w + '" data-d="' + nx.d + '">Back to the next one</button>' : '';
+    var day = ms.days[c.d], wk = wkName(ms, c.w), cd = colDays(ms, nx)[c.d];
+    if (isEz(ms, c.d)) {
+      return '<div id="trSesh" class="tr-card tr-sesh tr-ez">' +
+        '<div class="tr-eyebrow">' + (ezFor(ms, c.w, c.d) ? 'Done' : 'Easy day') + ' · ' + wk + '</div>' +
+        '<div class="tr-title">Easy day</div>' + ezHTML(ms, c.w, c.d) +
+        (back ? '<div class="tr-acts">' + back + '</div>' : '') + '</div>';
+    }
+    var wo = woFor(ms, c.w, c.d);
+    if (wo) {
+      var best = {}, nb = 0;
+      prsIn(wo).forEach(function (r) { if (!best[r.e]) nb++; best[r.e] = 1; });
+      var v = volOf(wo), cnt = wo.x.reduce(function (n, x) { return n + x.s.filter(counts).length; }, 0);
+      return '<div id="trSesh" class="tr-card tr-sesh tr-sesh-done">' +
+        '<div class="tr-eyebrow">Done · ' + esc(when(wo.st)) + ' · ' + wk + '</div>' +
+        '<div class="tr-title">' + esc(wo.n || dayName(day)) + '</div>' +
+        seshChips([
+          wo.en > wo.st ? '<b>' + dur(wo.en - wo.st) + '</b>' : '',
+          '<b>' + cnt + '</b> set' + (cnt === 1 ? '' : 's'),
+          v > 0 ? '<b>' + fmtBig(v) + '</b> ' + T.pr.u + ' moved' : '',
+          nb ? { up: 1, h: '🥇 <b>' + nb + '</b> record' + (nb === 1 ? '' : 's') } : ''
+        ]) +
+        '<ol class="tr-snames">' + wo.x.filter(function (x) { return x.s.length; }).map(function (x) {
+          var n = x.s.filter(counts).length;
+          return '<li><span>' + esc(lib(x.e).n) + '</span>' + (best[x.e] ? '<i class="tr-pr">🥇 record</i>' : '<i>' + n + ' set' + (n === 1 ? '' : 's') + '</i>') + '</li>';
+        }).join('') + '</ol>' +
+        '<div class="tr-acts"><button class="ghost" data-t="wosheet" data-id="' + esc(wo.id) + '">See what you did</button>' + back + '</div>' +
+      '</div>';
+    }
+    var p = plan(ms, c.w, c.d);
+    var skipped = (Array.isArray(ms.sk) ? ms.sk : []).indexOf(c.w + ':' + c.d) >= 0;
+    var planBtn = '<button class="tr-lnk" data-t="planopen" aria-expanded="' + !!S.planOpen + '">' + (S.planOpen ? 'Hide the plan' : 'See the plan') + '</button>';
+    return '<div id="trSesh" class="tr-card tr-sesh' + (skipped ? ' tr-sesh-skip' : '') + '">' +
+      '<div class="tr-eyebrow">' + (skipped ? 'Skipped' : 'Planned') + ' · ' + wk + (cd && !skipped ? ' · ' + LD_S[cd.wd] : '') + '</div>' +
+      '<div class="tr-title">' + esc(p.n) + '</div>' +
+      (S.planOpen ? planList(p, ms) : seshChips(seshNums(ms, c.w, c.d, p, true)) + seshNames(p) + mcLine(p)) +
+      '<div class="tr-acts">' + (LIVE ? '' : '<button class="ghost" data-t="start" data-w="' + c.w + '" data-d="' + c.d + '">' +
+        (skipped ? 'Do it after all' : 'Start it early') + '</button>') + planBtn + back + '</div>' +
+    '</div>';
+  }
+  /* What a planned session asks, in a few numbers: how long, how many
+     exercises and sets, and — past week one — how many sets it has gained
+     on the first week's, which is the block climbing. */
+  function seshNums(ms, w, d, p, eff) {
+    var sets = p.x.map(function (x) { return x.sets; });
+    var tot = sets.reduce(function (a, b) { return a + b; }, 0);
+    var out = ['<b>~' + estDay(ms.days[d], sets) + '</b> min', '<b>' + p.x.length + '</b> exercise' + (p.x.length === 1 ? '' : 's'),
+      '<b>' + tot + '</b> set' + (tot === 1 ? '' : 's')];
+    if (w > 0 && !p.deload) {
+      var was = plan(ms, 0, d).x.reduce(function (a, x) { return a + x.sets; }, 0);
+      if (tot !== was) out.push({ up: tot > was, h: '<b>' + (tot > was ? '+' : '−') + Math.abs(tot - was) + '</b> sets on week 1' });
+    }
+    if (eff) out.push(p.deload ? 'deload' : effSay(p.rir));
+    return out;
+  }
+  function seshChips(list) {
+    return '<div class="tr-schips">' + list.filter(Boolean).map(function (c) {
+      return '<span class="tr-schip' + (c.up ? ' up' : '') + '">' + (c.h || c) + '</span>';
+    }).join('') + '</div>';
+  }
+  function seshNames(p) {
+    return '<ol class="tr-snames">' + p.x.map(function (x) {
+      return '<li><span>' + esc(lib(x.e).n) + '</span><i>' + (x.st ? 'main lift' : x.sets + ' set' + (x.sets === 1 ? '' : 's')) + '</i></li>';
+    }).join('') + '</ol>';
   }
 
   // a day with a circuit after the lifts says so, since it changes what the session is
@@ -5077,38 +5158,36 @@
     return p.mc ? '<div class="tr-mcp"><span class="tr-ql">Then the circuit</span><div>' + esc(mcSay(p.mc)) + '</div></div>' : '';
   }
 
-  /* The block, folded to a line: which week, and how this one is going.
-     Open, it is the grid of every session and the days you lift. The ask
-     for those days stays in view folded, since Nourish plans the carbs
-     from them. */
-  function blockCard(ms, nx) {
+  /* The block, open: which week, how far through, and the grid of every
+     session with the days you lift. */
+  function blockCard(ms, nx, sel) {
     var rir = nx ? rirFor(ms, nx.w) : null;
-    var wk = nx ? 'Week ' + (nx.w + 1) + ' of ' + weeksOf(ms) : 'All done';
-    var cols = liftCols(ms), picked = ldDays().length === cols.length;
-    if (!S.gridOpen) {
-      var doneN = 0;
-      if (nx) cols.forEach(function (d) { if (slotDone(ms, nx.w, d)) doneN++; });
-      return '<div class="tr-card tr-wk">' +
-        '<button class="tr-wk-b" data-t="gridopen" aria-expanded="false">' +
-          '<span class="tr-wk-t"><span class="tr-eyebrow">Your block</span>' +
-          '<span class="tr-wk-n">' + wk + (nx && cols.length ? ' \u00b7 ' + doneN + ' of ' + cols.length + ' done' : '') + '</span>' +
-          '<span class="tr-wk-s">' + esc(ms.n) + '</span></span>' +
-          '<span class="tr-wk-e">Show the weeks</span></button>' +
-        phaseLine(ms, nx) +
-        (!picked || S.ldOpen ? ldHTML(ms, nx) : '') +
-      '</div>';
+    var wk = nx ? 'Week ' + (nx.w + 1) + ' of ' + weeksOf(ms) : '';
+    var sk = Array.isArray(ms.sk) ? ms.sk : [];
+    var tot = weeksOf(ms) * ms.days.length, done = 0, gone = 0, thisWk = 0;
+    for (var w = 0; w < weeksOf(ms); w++) {
+      for (var d = 0; d < ms.days.length; d++) {
+        if (slotDone(ms, w, d)) { done++; if (nx && w === nx.w) thisWk++; } else if (sk.indexOf(w + ':' + d) >= 0) gone++;
+      }
     }
+    // skipped sessions are behind you too, so a block finished with a skip is finished
+    var pct = tot ? Math.round((done + gone) / tot * 100) : 0;
     var html = '<div class="tr-card tr-blk">' +
-      '<div class="tr-blk-h"><div class="tr-eyebrow">Your block</div>' +
-        '<button class="tr-lnk" data-t="gridopen" aria-expanded="true">Hide the weeks</button></div>' +
+      '<div class="tr-eyebrow">Your block</div>' +
       '<div class="tr-title">' + esc(ms.n) + '</div>';
     if (nx) {
-      html += '<div class="tr-sub">' + wk + ' \u00b7 ' +
+      html += '<div class="tr-sub">' + wk + ' · ' +
         (rir === null ? 'deload week' : ms.goal === 'str' ? (ms.wave || 10) + 's wave, ' + PHASE[Math.min(nx.w, 2)] : rirSay(rir)) + '</div>';
     } else {
       html += '<div class="tr-sub">Every session of this block is done.</div>';
     }
-    return html + phaseLine(ms, nx) + weekGrid(ms, nx) + ldHTML(ms, nx) + '</div>';
+    html += '<div class="tr-cprog"><span class="tr-cbar" role="progressbar" aria-label="Through the block" aria-valuemin="0" aria-valuemax="100" ' +
+        'aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></span><span class="tr-cpct">' + pct + '%</span></div>' +
+      '<div class="tr-cstat"><span><b>' + done + ' of ' + tot + '</b> sessions' + (gone ? ', ' + gone + ' skipped' : '') + '</span>' +
+        (nx ? '<span><b>' + thisWk + ' of ' + ms.days.length + '</b> this week</span>' : '') + '</div>';
+    return html + phaseLine(ms, nx) + weekGrid(ms, nx, sel) +
+      (S.gridTapped ? '' : '<div class="tr-ghint">Tap a box to see that session</div>') +
+      ldHTML(ms, nx) + '</div>';
   }
 
   /* No lifting, and not nothing: something you could talk through, long
@@ -5215,7 +5294,7 @@
   }
   var LD_S = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  function weekGrid(ms, nx) {
+  function weekGrid(ms, nx, sel) {
     var sk = Array.isArray(ms.sk) ? ms.sk : [];
     var html = '<div class="tr-grid" role="table" aria-label="Sessions in this block" style="--n:' + ms.days.length + '">' +
       '<div class="tr-grow" role="row"><span class="tr-gh" role="columnheader"></span>' +
@@ -5235,10 +5314,11 @@
         var wo = slotDone(ms, w, d);
         var isNext = nx && nx.w === w && nx.d === d;
         var skipped = !wo && sk.indexOf(w + ':' + d) >= 0;
-        var cls = wo ? 'done' : isNext ? 'next' : skipped ? 'skip' : '';
+        var cls = (wo ? 'done' : isNext ? 'next' : skipped ? 'skip' : '') + (sel && sel.w === w && sel.d === d ? ' sel' : '');
         // five or more columns on a phone have room for the day of the month, not the month too
         var lab = wo ? (ms.days.length >= 5 ? String(new Date(wo.st).getDate()) : shortDate(wo.st)) : isNext ? 'Next' : skipped ? 'Skipped' : '';
-        html += '<button class="tr-gc ' + cls + '" role="cell" data-t="plansheet" data-w="' + w + '" data-d="' + d + '" ' +
+        html += '<button class="tr-gc ' + cls + '" role="cell" data-t="gridsel" data-w="' + w + '" data-d="' + d + '" ' +
+          'aria-controls="trSesh"' + (sel && sel.w === w && sel.d === d ? ' aria-current="true"' : '') + ' ' +
           'aria-label="Week ' + (w + 1) + ', ' + esc(dayName(ms.days[d])) + (lab ? ': ' + lab : '') + '">' +
           (wo ? '✓ ' : '') + esc(lab) + '</button>';
       }
@@ -9207,7 +9287,27 @@
     if (t === 'unlib') { S.lib = false; draw(); scrollTop(); return; }
     if (t === 'browse') { S.browse = true; S.lib = false; draw(); scrollTop(); return; }
     if (t === 'ldopen') { S.ldOpen = true; S.ldDraft = ldDays().slice(); draw(); return; }
-    if (t === 'gridopen') { S.gridOpen = !S.gridOpen; draw(); return; }
+    if (t === 'gridsel') {
+      ms = active();
+      if (!ms) return;
+      var gw = num('data-w'), gd = num('data-d');
+      S.sel = { ms: ms.id, w: gw, d: gd }; S.gridTapped = true; S.planOpen = false;
+      draw();
+      var gc = document.querySelector('.tr-gc[data-w="' + gw + '"][data-d="' + gd + '"]');
+      if (gc) gc.focus({ preventScroll: true });
+      /* The card is under a grid that can be most of a phone's height: when
+         it starts below the fold, bring its top up, keeping the box tapped
+         on screen above it where there is room. */
+      var sc = $('trSesh');
+      if (sc) {
+        var top = sc.getBoundingClientRect().top;
+        if (top > window.innerHeight - 140) {
+          var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          window.scrollTo({ top: window.pageYOffset + top - Math.round(window.innerHeight * 0.3), behavior: still ? 'auto' : 'smooth' });
+        }
+      }
+      return;
+    }
     if (t === 'info') { S.info = S.info === v ? '' : v; drawSheet(); return; }
     if (t === 'whyopen') { S.whyOpen = S.whyOpen === v ? '' : v; if (S.sheet) drawSheet(); else draw(); return; }
     if (t === 'ckopen') { S.ck = S.ck || {}; S.ck[v] = !S.ck[v]; draw(); return; }
@@ -9321,6 +9421,7 @@
       ms = active();
       if (!ms) return;
       if (S.sheet) closeSheet();
+      S.sel = null;
       startPlanned(ms, num('data-w'), num('data-d'));
       return;
     }
@@ -9390,6 +9491,7 @@
       ms = clean(active());
       var skv = num('data-w') + ':' + num('data-d');
       ms.sk = (ms.sk || []).concat(skv);
+      S.sel = null;
       editBlock(ms);
       /* One tap beside Start, and the block had moved on with no way back but
          knowing to open the grid. Done at once, with Undo for a few seconds. */
@@ -10132,12 +10234,11 @@
        there is one, its days are changed here, where the count is enforced. */
     blockSessions: function () { var ms = active(); return ms ? liftCols(ms).length : 0; },
     /* Nourish's "Change days": open the picker on the block card. */
-    // with the weeks open, so each session's column shows the day it moves to
     /* Onto the Block screen whatever Strengthen was last left on — from
        History or Lifts the picker was drawn on a screen nobody was shown —
        and with a workout running, minimised so the picker is what you see. */
     openDays: function () {
-      S.ldOpen = true; S.gridOpen = true; S.ldDraft = ldDays().slice(); S.browse = false;
+      S.ldOpen = true; S.ldDraft = ldDays().slice(); S.browse = false;
       S.sub = 'block'; if (LIVE) S.minim = 1;
       try { localStorage.setItem(LS_SUB, 'block'); } catch (e) { /* private mode */ }
     },

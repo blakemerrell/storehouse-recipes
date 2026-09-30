@@ -119,15 +119,22 @@ module.exports = {
 
     await p.click('[data-t="begin"]');
     await p.waitForTimeout(100);
-    // today's session comes first; the block's weeks are folded to a line until opened
-    d = await p.evaluate(() => ({
-      first: (document.querySelector('#trBody .tr-card') || {}).className || '',
-      start: !!document.querySelector('.tr-next [data-t="start"]'),
-      grid: document.querySelectorAll('.tr-gc').length,
-      strip: (document.querySelector('.tr-wk-n') || {}).textContent || '',
-    }));
-    t.ok('the screen opens on today\u2019s session, Start first, the weeks folded', /tr-next/.test(d.first) && d.start && d.grid === 0 && /^Week 1 of 5/.test(d.strip), JSON.stringify(d));
-    await p.click('[data-t="gridopen"]');
+    // the block's calendar comes first, open; the next session is the card under it
+    d = await p.evaluate(() => {
+      const cards = [...document.querySelectorAll('#trBody .tr-card')];
+      return {
+        first: (cards[0] || {}).className || '', second: (cards[1] || {}).className || '',
+        start: !!document.querySelector('.tr-next [data-t="start"]'),
+        sub: (document.querySelector('.tr-blk .tr-sub') || {}).textContent || '',
+        prog: (document.querySelector('.tr-cstat') || {}).textContent || '',
+        bar: (document.querySelector('.tr-cbar') || { getAttribute: () => '' }).getAttribute('aria-valuenow'),
+        sel: [...document.querySelectorAll('.tr-gc.sel')].map((c) => c.dataset.w + ':' + c.dataset.d).join(),
+      };
+    });
+    t.ok('the screen opens on the block, weeks open, with the next session under it and Start',
+      /tr-blk/.test(d.first) && /tr-next/.test(d.second) && d.start && /^Week 1 of 5/.test(d.sub), JSON.stringify(d));
+    t.ok('with how far through: none of twenty, none this week, 0%', /0 of 20 sessions/.test(d.prog) && /0 of 4 this week/.test(d.prog) && d.bar === '0', JSON.stringify(d));
+    t.ok('and the next box chosen', d.sel === '0:0', d.sel);
     d = await p.evaluate(() => ({
       act: !!window.Train._.state().T.act,
       cells: document.querySelectorAll('.tr-gc').length,
@@ -415,15 +422,15 @@ module.exports = {
     await seed(p, T0);
     await phaseSays(p, { kcal: 600, rate: 0.008, src: 'ate', days: 12 });
     await p.click('.tab[data-view="train"]');
-    r = await p.evaluate(() => (document.querySelector('.tr-wk .tr-ph') || {}).textContent || '');
+    r = await p.evaluate(() => (document.querySelector('.tr-blk .tr-ph') || {}).textContent || '');
     t.ok('the block card says what it read and what it does',
       /You’ve eaten about 600 kcal a day under maintenance these two weeks \(0\.8% of your weight a week\), so sets climb one at a time, to 70% of the usual ceiling/.test(r) && /Undo for this week/.test(r), r);
-    await p.click('.tr-wk [data-t="phoff"]');
+    await p.click('.tr-blk [data-t="phoff"]');
     r = await p.evaluate(() => { const _ = window.Train._, st = _.state(), ms = st.T.ms.blk;
-      return { off: ms.ph && ms.ph[1] && ms.ph[1].off, cap: _.capAt(ms, 1), stamped: st.TS.ms.blk > 0, say: (document.querySelector('.tr-wk .tr-ph') || {}).textContent || '' }; });
+      return { off: ms.ph && ms.ph[1] && ms.ph[1].off, cap: _.capAt(ms, 1), stamped: st.TS.ms.blk > 0, say: (document.querySelector('.tr-blk .tr-ph') || {}).textContent || '' }; });
     t.ok('undone: this week goes back to the usual ceiling, kept and synced', r.off === 1 && r.cap === 0 && r.stamped, JSON.stringify(r));
     t.ok('and it says so, with a way back', /Not following Nourish’s calories this week/.test(r.say) && /Follow them again/.test(r.say), r.say);
-    await p.click('.tr-wk [data-t="phon"]');
+    await p.click('.tr-blk [data-t="phon"]');
     r = await p.evaluate(() => { const _ = window.Train._, ms = _.state().T.ms.blk; return { off: ms.ph[1].off, cap: _.capAt(ms, 1) }; });
     t.ok('followed again: 70% once more', r.off === undefined && r.cap === 0.7, JSON.stringify(r));
 
@@ -1352,7 +1359,6 @@ module.exports = {
       _.reload();
     });
     await p.click('.tab[data-view="train"]');
-    if (!(await p.$('.tr-blk'))) await p.click('[data-t="gridopen"]');
     r = await p.evaluate(() => document.querySelector('.tr-blk .tr-sub').textContent);
     t.ok('the block says which wave and which week it is', /10s wave, realization/.test(r), r);
     await p.click('[data-t="start"]');
@@ -4066,6 +4072,65 @@ module.exports = {
     await p.click('[data-t="crng"][data-v="1m"]');
     r = await p.evaluate(() => (document.querySelector('.tr-sheet .tr-note') || {}).textContent || '');
     t.ok('a range with fewer than two sessions says so', /Fewer than two sessions/.test(r), r);
+    await p.close();
+
+    // ---- the block's calendar: tap a box, that session is the card under it ----
+    p = await t.fresh();
+    await p.evaluate(() => {
+      const _ = window.Train._; const ms = _.build({ goal: 'grow', dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] }); ms.id = 'cal'; ms.n = 'Calendar';
+      ms.sk = ['1:1'];
+      const now = Date.now(), wo = {};
+      [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0]].forEach(([w, d], i) => {
+        const st = now - (6 - i) * 2 * 864e5, pl = _.plan(ms, w, d);
+        wo['c' + i] = { id: 'c' + i, st, en: st + 3600e3, u: 'lb', ms: 'cal', w, d, n: pl.n,
+          x: pl.x.map((x, k) => ({ e: x.e, s: Array.from({ length: x.sets }, (_, j) => ({ w: 50 + 10 * k + (i === 4 && k === 0 ? 60 : 0), r: 10, t: st + 60e3 * (k * 5 + j + 1) })) })), sr: {}, fb: {} };
+      });
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 1, 3, 4] }, act: 'cal', ms: { cal: ms }, cx: {}, ax: {}, wo }));
+      localStorage.removeItem('bsc.trainStamps'); _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    await p.waitForTimeout(150);
+    const cal = () => p.evaluate(() => {
+      const c = document.getElementById('trSesh');
+      return { cls: c ? c.className : '', eb: c ? c.querySelector('.tr-eyebrow').textContent : '', title: c ? c.querySelector('.tr-title').textContent : '',
+        chips: c ? [...c.querySelectorAll('.tr-schip')].map((x) => x.textContent) : [], names: c ? c.querySelectorAll('.tr-snames li').length : 0,
+        btns: c ? [...c.querySelectorAll('button')].map((b) => b.textContent) : [],
+        sel: [...document.querySelectorAll('.tr-gc.sel')].map((x) => x.dataset.w + ':' + x.dataset.d).join(),
+        cur: [...document.querySelectorAll('.tr-gc[aria-current="true"]')].map((x) => x.dataset.w + ':' + x.dataset.d).join(),
+        prog: (document.querySelector('.tr-cstat') || {}).textContent || '', pct: (document.querySelector('.tr-cpct') || {}).textContent || '',
+        hint: !!document.querySelector('.tr-ghint') };
+    });
+    r = await cal();
+    t.ok('five done and one skipped of twenty: 30% through, the skip counted as behind you', /5 of 20 sessions, 1 skipped/.test(r.prog) && /1 of 4 this week/.test(r.prog) && r.pct === '30%', JSON.stringify(r));
+    t.ok('nothing tapped: the next session is chosen, and it is the card with Start', r.sel === '1:2' && r.cur === '1:2' && /tr-next/.test(r.cls) && r.btns.some((b) => /Start/.test(b)) && r.hint, JSON.stringify(r));
+    t.ok('the card says the session in a few numbers and each exercise by name', r.chips.some((c) => /min$/.test(c)) && r.chips.some((c) => /exercises/.test(c)) && r.names >= 4, JSON.stringify(r));
+    await p.click('.tr-gc[data-w="1"][data-d="0"]');
+    r = await cal();
+    t.ok('a done box: what was lifted, and the record in it', r.sel === '1:0' && /^Done · /.test(r.eb) && /tr-sesh-done/.test(r.cls) &&
+      r.chips.some((c) => /lb moved/.test(c)) && r.chips.some((c) => /1 record/.test(c)) && r.btns.includes('See what you did'), JSON.stringify(r));
+    t.ok('and the hint to tap goes once a box has been', !r.hint);
+    t.ok('the box keeps the focus, for a keyboard', await p.evaluate(() => document.activeElement && document.activeElement.matches('.tr-gc[data-w="1"][data-d="0"]')));
+    await p.click('#trSesh [data-t="wosheet"]');
+    t.ok('and it opens the workout itself', await p.evaluate(() => !!document.querySelector('.tr-sheet')));
+    await p.evaluate(() => { const b = document.querySelector('.tr-sheet [data-t="close"]'); if (b) b.click(); });
+    await p.waitForTimeout(100);
+    await p.click('.tr-gc[data-w="2"][data-d="1"]');
+    r = await cal();
+    t.ok('a box to come: planned, with its effort and how many sets it has gained on week one', /^Planned · Week 3 of 5/.test(r.eb) &&
+      r.chips.some((c) => /sets on week 1$/.test(c)) && r.chips.some((c) => /to spare/.test(c)) && r.btns.includes('Start it early'), JSON.stringify(r));
+    await p.click('#trSesh [data-t="planopen"]');
+    r = await p.evaluate(() => ({ plan: !!document.querySelector('#trSesh .tr-plan'), sel: document.querySelector('.tr-gc.sel').dataset.w }));
+    t.ok('its full plan opens in place, on the box still chosen', r.plan && r.sel === '2', JSON.stringify(r));
+    await p.click('.tr-gc[data-w="1"][data-d="1"]');
+    r = await cal();
+    t.ok('a skipped box says so, and can be done after all', /^Skipped/.test(r.eb) && r.btns.includes('Do it after all') && r.names > 0, JSON.stringify(r));
+    await p.click('#trSesh [data-t="gridsel"]');
+    r = await cal();
+    t.ok('Back to the next one goes back to it', r.sel === '1:2' && /tr-next/.test(r.cls), JSON.stringify(r));
+    await p.click('.tr-gc[data-w="3"][data-d="3"]');
+    await p.click('#trSesh [data-t="start"]');
+    r = await p.evaluate(() => { const L = window.Train._.state().LIVE; return L ? L.w + ':' + L.d : ''; });
+    t.ok('and Start it early starts that one', r === '3:3', r);
     await p.close();
   },
 };
