@@ -44,10 +44,7 @@ const COVERS = {
 const W = 320;
 
 function sharpLib() {
-  for (const m of ['sharp', '/tmp/node_modules/sharp']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  return null;
+  try { return require('sharp'); } catch (e) { return null; }
 }
 
 function build() {

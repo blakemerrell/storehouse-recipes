@@ -29,7 +29,9 @@
  */
 const { execSync } = require('child_process');
 const fs = require('fs');
-const ROOT = '/home/claude/repo';
+const os = require('os');
+const path = require('path');
+const ROOT = path.join(__dirname, '..');
 
 const M = [
   ['shopping list stops adding duplicates together', 'src/app.js',
@@ -49,9 +51,13 @@ const M = [
    'write(LS.pantry, state.pantry); write(LS.pantryNew, state.pantryNew);', ''],
   ['favorites stop persisting', 'src/sync.js', 'write(LS.favs, state.favs);', ''],
   ['the service worker stops caching the scripts', 'sw.js',
-   "  './src/app.js?v=51',", ''],
+   "  './src/app.js?v=0',\n", ''],
   ['the cache name stops changing between builds', 'sw.js',
-   "var CACHE = 'storehouse-v50';", "var CACHE = 'storehouse-fixed';"],
+   "var CACHE = 'storehouse-v' + VERSION;", "var CACHE = 'storehouse-fixed';"],
+  ['a versioned file is fetched again on every open', 'sw.js',
+   "  var v = url.searchParams.get('v');\n  if (v) {", "  var v = url.searchParams.get('v');\n  if (false) {"],
+  ['an install keeps a page from another build', 'sw.js',
+   'if (v.length !== 1 || v[0] !== VERSION) {', 'if (false) {'],
   ['joining stops carrying your own recipes across', 'src/sync.js',
    "['mine', 'edits', 'pantry', 'pantryNew'].forEach", "['edits', 'pantry', 'pantryNew'].forEach"],
   ['a week can be planned onto the wrong day', 'src/sync.js',
@@ -88,4 +94,4 @@ for (const [name, file, from, to, altFile] of M) {
 console.log('\n--- survivors ---');
 results.filter(r => r[1] === 'SURVIVED').forEach(r => console.log('  ' + r[0]));
 results.filter(r => r[1] === 'SKIP').forEach(r => console.log('  (skipped) ' + r[0] + ': ' + r[2]));
-fs.writeFileSync('/tmp/claude-0/-home-claude/98edb0b4-b236-541a-8080-254ca932fe59/scratchpad/mutants.json', JSON.stringify(results, null, 1));
+fs.writeFileSync(path.join(os.tmpdir(), 'mutants.json'), JSON.stringify(results, null, 1));

@@ -26,10 +26,8 @@ const TYPES = {
 };
 
 function playwright() {
-  for (const m of ['playwright', '/opt/node22/lib/node_modules/playwright']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  console.error('Playwright is not installed. `npm i -D playwright` and try again.');
+  try { return require('playwright'); } catch (e) { /* below */ }
+  console.error('Playwright is not installed. `npm ci` and try again.');
   process.exit(2);
 }
 

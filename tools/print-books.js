@@ -51,10 +51,8 @@ function serve() {
 }
 
 function playwright() {
-  for (const m of ['playwright', '/opt/node22/lib/node_modules/playwright']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  console.error('Playwright is not installed. `npm i -D playwright` and try again.');
+  try { return require('playwright'); } catch (e) { /* below */ }
+  console.error('Playwright is not installed. `npm ci` and try again.');
   process.exit(2);
 }
 
@@ -255,6 +253,7 @@ function stampPageCounts(made) {
   /* The covers on the print screen are page one of the files just written, so
      they are remade here rather than left to be remembered. */
   await require('./build-covers.js').build();
-  /* src/app.js just changed, and it is served cache-first at ?v=N. */
-  require('./bump-version.js').bump('books re-rendered');
+  /* src/app.js may just have changed, and it is served from the cache at
+     ?v=N. N is a hash of the files, written in when the site is built for
+     deployment, so there is nothing to bump here. */
 })();

@@ -1,8 +1,20 @@
 /* Opening the app with no signal at all — the storehouse-basement case. */
 
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
+const site = require('../tools/build-site.js');
+const built = require('./site-check.js');
+
 module.exports = {
   name: 'Offline',
   async run(t) {
+    /* The worker being served, read by running it: its version, its two
+       cache names and the two lists. Everything below is checked against
+       these rather than against a number written into this file. Served
+       from the repository it is the unbuilt worker, version 0. */
+    const sw = built.worker(t.root);
     const ctx = await t.browser.newContext({ viewport: { width: 900, height: 800 } });
     const p = await ctx.newPage();
     p.on('pageerror', (e) => t.ok('no uncaught error on the page', false, e.message));
@@ -25,12 +37,32 @@ module.exports = {
     await p.evaluate(() => navigator.serviceWorker.ready);
     await p.waitForTimeout(1500);
 
-    const cached = await p.evaluate(async () => {
-      const names = await caches.keys();
-      const c = await caches.open(names[0]);
-      return (await c.keys()).map((r) => new URL(r.url).pathname);
-    });
-    t.ok('the whole shell is cached', cached.length >= 12, cached.length + ' entries');
+    /* Two caches: the app under this build's name, and the pictures and
+       typefaces under a name of their own, so that a deploy which does not
+       touch them does not send every phone to download them again. */
+    const held = await p.evaluate(async (names) => {
+      const out = { keys: await caches.keys() };
+      for (const n of names) {
+        const c = await caches.open(n);
+        out[n] = (await c.keys()).map((r) => new URL(r.url).pathname + new URL(r.url).search);
+      }
+      return out;
+    }, [sw.CACHE, sw.ART]);
+    const want = (list) => list.map((u) => new URL(u, t.base).pathname + new URL(u, t.base).search);
+    const cached = held[sw.CACHE].concat(held[sw.ART]);
+    const noCore = want(sw.CORE).filter((u) => held[sw.CACHE].indexOf(u) < 0);
+    t.ok('the whole shell is cached, under this build\u2019s name',
+      held.keys.indexOf(sw.CACHE) >= 0 && noCore.length === 0 && sw.CORE.length >= 11,
+      noCore.join(' ') || held.keys.join(', '));
+    const noArt = want(sw.EXTRAS).filter((u) => held[sw.ART].indexOf(u) < 0);
+    t.ok('and the pictures and typefaces in a cache of their own',
+      held.keys.indexOf(sw.ART) >= 0 && noArt.length === 0 && held[sw.CACHE].every((u) => want(sw.EXTRAS).indexOf(u) < 0),
+      noArt.join(' ') || held.keys.join(', '));
+    /* And nothing else of ours: the cache that is not this build's is the
+       one a phone would be serving an old app out of. */
+    t.ok('and no other build\u2019s cache is left beside them',
+      held.keys.filter((k) => /^storehouse-/.test(k)).sort().join(' ') === [sw.ART, sw.CACHE].sort().join(' '),
+      held.keys.join(', '));
 
     /* Every file the page pulls in must carry a version, and the worker must
        ask for the same one. Both halves matter, and neither was true.
@@ -52,23 +84,15 @@ module.exports = {
         ...[...document.querySelectorAll('link[rel=stylesheet]')].map((e) => e.href),
       ].filter(own).map((u) => new URL(u).pathname + new URL(u).search);
 
-      const sw = await fetch('sw.js').then((r) => r.text());
-      const shell = [...sw.matchAll(/'\.(\/[^']+)'/g)].map((m) => m[1]);
-
-      return {
-        unversioned: assets.filter((a) => !/\?v=\d+/.test(a)),
-        missing: assets.filter((a) => !shell.includes(a)),
-        /* The cache name and the asset version, which have to move together.
-           Nothing held them together before and they had already drifted a
-           version apart — which is precisely why nothing could check them. */
-        cacheName: (sw.match(/var CACHE = '([^']+)'/) || [])[1] || '',
-        assetV: [...new Set([...sw.matchAll(/\?v=(\d+)/g)].map((m) => m[1]))],
-      };
+      return assets;
     });
+    const shell = want(sw.CORE);
+    const tokens = (u) => [...u.matchAll(/[?&]v=([\w.-]+)/g)].map((m) => m[1]);
+    const unversioned = versioning.filter((a) => tokens(a).length !== 1);
     t.ok('every script and stylesheet the page loads carries a version',
-      versioning.unversioned.length === 0, versioning.unversioned.join(' '));
+      versioning.length >= 9 && unversioned.length === 0, unversioned.join(' ') || versioning.length + ' found');
     t.ok('and the worker caches that exact version, query and all',
-      versioning.missing.length === 0, versioning.missing.join(' '));
+      versioning.every((a) => shell.includes(a)), versioning.filter((a) => !shell.includes(a)).join(' '));
 
     /* The cache is named for the build it holds.
      *
@@ -80,11 +104,12 @@ module.exports = {
      * service-worker change nothing in this suite caught, because the two
      * numbers were free to drift and had already drifted by one.
      * One number now, in both places. */
+    const assetV = [...new Set(versioning.concat(sw.CORE).map(tokens).flat())];
     t.ok('the assets carry a single version between them',
-      versioning.assetV.length === 1, versioning.assetV.join(', ') || 'none found');
+      assetV.length === 1 && assetV[0] === sw.VERSION,
+      assetV.join(', ') + ' in the files, ' + sw.VERSION + ' in the worker');
     t.ok('and the cache is named for it, so a new build cannot reuse the old cache',
-      versioning.cacheName === 'storehouse-v' + versioning.assetV[0],
-      versioning.cacheName + ' vs assets at v' + versioning.assetV.join('/'));
+      sw.CACHE === 'storehouse-v' + assetV[0], sw.CACHE + ' vs assets at v' + assetV.join('/'));
 
     /* And the version moved when the files under it did.
      *
@@ -100,23 +125,44 @@ module.exports = {
      * numbers disagreeing on one screen with nothing to explain why, and no
      * amount of reloading fixes it, because the reload asks for the same URL.
      *
-     * data/stamp.json records a hash of every file the version covers.
-     * Rewriting one without bumping is now a failure here rather than a
-     * discovery in a basement. Run `npm run build` or `npm run print` — both
-     * bump and re-stamp — or `node tools/bump-version.js` on its own. */
-    const bv = require('../tools/bump-version.js');
-    const stamp = (() => {
-      try { return JSON.parse(require('fs').readFileSync(bv.STAMP, 'utf8')); }
-      catch (e) { return null; }
-    })();
-    const now = bv.hashes();
-    const moved = stamp ? bv.COVERED.filter((f) => now[f] && stamp.files[f] !== now[f]) : [];
-    t.ok('the version covers the files as they are now, not as they were',
-      !!stamp && stamp.v === Number(versioning.assetV[0]) && moved.length === 0,
-      !stamp ? 'no data/stamp.json — run node tools/bump-version.js --stamp'
-        : moved.length ? 'changed since ?v=' + stamp.v + ': ' + moved.join(', ') +
-            ' — run node tools/bump-version.js'
-        : 'stamp says v' + stamp.v + ', assets say v' + versioning.assetV[0]);
+     * It was answered with a stamp file and a bump somebody had to remember
+     * to run, and checked here by comparing the two. There is neither now:
+     * tools/build-site.js writes a hash of the files in as the version when
+     * the site is built, so a changed file is a changed version by
+     * construction. What is left to check is that the build does what it
+     * says — tests/site-check.js has the list — and that it says the same
+     * thing twice.
+     *
+     * Checked on what is being served when that is a built site, which is
+     * what CI and the deploy serve. Served from the repository instead,
+     * version 0, the same checks run over a site built here: not skipped
+     * because nobody happened to build one. */
+    let dir = t.root;
+    const tmp = [];
+    const scratch = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-site-')); tmp.push(d); return d; };
+    if (!t.site) {
+      t.ok('served from the repository, the worker knows it is unbuilt',
+        sw.VERSION === site.UNBUILT && sw.DEV, 'VERSION ' + sw.VERSION);
+      dir = scratch();
+      execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', 'build-site.js'), dir], { stdio: 'pipe' });
+    }
+    built.check(dir).forEach(([name, cond, detail]) => t.ok(name, cond, detail));
+
+    /* The same files, the same version. Built again here, in this process,
+       and compared byte for byte with a site built by another — which also
+       says, when a built site is what is being served, that it is the site
+       the repository builds today and not one left over from before an
+       edit. */
+    const w = built.worker(dir);
+    const theirs = w.CORE.concat(w.EXTRAS).map(site.fileOf).concat('sw.js', 'share/index.html');
+    const again = await site.build({ out: scratch(), include: (f) => theirs.indexOf(f) >= 0 });
+    const differ = theirs.filter((f) => !fs.readFileSync(path.join(dir, f)).equals(fs.readFileSync(path.join(again.out, f))));
+    t.ok('building the same files again gives the same version, byte for byte',
+      again.version === w.VERSION && again.art === w.ART_VERSION && differ.length === 0,
+      again.version + ' / ' + w.VERSION + (differ.length ? '; differs: ' + differ.join(' ') +
+        (t.site ? ' — the site served is not what the repository builds now: node tools/build-site.js' : '') : ''));
+    tmp.forEach((d) => fs.rmSync(d, { recursive: true, force: true }));
+
     /* Every engraving the book draws, cached with it.
      *
      * data/art.js is generated by tools/prep-art.js; the paths in sw.js were
@@ -125,13 +171,12 @@ module.exports = {
      * gone in a storehouse basement, and gone quietly, because EXTRAS are
      * allowed to fail by design so one missing image cannot take an install
      * down. prep-art.js writes both now; this is what says it did. */
-    const artCached = await p.evaluate(async () => {
-      const names = await caches.keys();
-      const c = await caches.open(names[0]);
+    const artCached = await p.evaluate(async (name) => {
+      const c = await caches.open(name);
       const have = (await c.keys()).map((r) => new URL(r.url).pathname);
       const want = Object.values(window.SECTION_ART || {});
       return want.filter((a) => !have.some((h) => h.indexOf(a) >= 0));
-    });
+    }, sw.ART);
     t.ok('every section engraving is cached for a phone with no signal',
       artCached.length === 0, artCached.join(', '));
 
@@ -185,10 +230,13 @@ module.exports = {
       const src = document.querySelector('script[src*="app.js"]').getAttribute('src');
       return { shown: el && el.textContent.trim(), src };
     });
+    /* And it is the worker's build, not merely a number: on a built site the
+       thirteen digits of the hash, served from the repository the 0 it says
+       there. */
     t.ok('the sheet names the build it is actually running',
-      /^Build \d+$/.test(stamped.shown || '') &&
+      /^Build \d+$/.test(stamped.shown || '') && stamped.shown === 'Build ' + sw.VERSION &&
       stamped.src.indexOf('v=' + stamped.shown.split(' ')[1]) > 0,
-      JSON.stringify(stamped));
+      JSON.stringify(stamped) + ' — the worker is ' + sw.VERSION);
     await p.click('.sheet-x');
     await p.waitForTimeout(200);
 

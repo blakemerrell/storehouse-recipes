@@ -343,30 +343,85 @@ either way.
 
 ## Putting it online
 
-The app is plain static files, so GitHub Pages hosts it for free:
+The app is static files, and GitHub Pages hosts it for free. What Pages serves
+is not the repository itself but `_site/`, which `.github/workflows/deploy.yml`
+builds from it on every push to `main`, tests, and publishes.
 
-1. Push this repository to GitHub.
-2. **Settings → Pages → Source: Deploy from a branch**, branch `main`, folder `/ (root)`.
-3. Wait a minute. Your link is `https://<your-username>.github.io/<repo-name>/`.
+**One setting, once, before the first deploy:**
 
-That is the whole deployment. Pages is served from the branch and nothing
-else: there is deliberately no Actions workflow that deploys, because Pages is
-either served from a branch or built by Actions, never both, and a repository
-carrying the machinery for the one it is not using is a repository where nobody
-can tell which is real. This one had both for a while, and the answer to "why
-has the site not updated" was harder than it needed to be for exactly that
-reason.
+1. On GitHub: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
+   There is nothing else to fill in; the workflow in this repository does the rest.
+2. Push to `main` (or merge the pull request that brings `deploy.yml` in). The
+   **deploy** workflow builds, runs the offline and updating tests against what
+   it built, and publishes. It takes two or three minutes; the Actions tab shows
+   it, and the Pages settings page links to the run that last deployed.
+3. Your link is the same as before: `https://<your-username>.github.io/<repo-name>/`.
 
-The one workflow there is, `.github/workflows/tests.yml`, deploys nothing. It
-runs the tests on every push to `main` and every pull request: the offline suite
-as the gate (it is what notices a version stamp that no longer matches the
-files, which reached `main` eleven times with nothing to stop it), and the full
-suite beside it for information.
+Switching the source does not take the site down: whatever was last published
+stays up until the workflow publishes the next one.
 
-If a push ever does not appear: the service worker serves the shell cache-first,
-so check `?v=` in the page source before suspecting the deploy. Everything the
-browser loads carries one, and a version that has not moved means the deploy has
-not landed rather than that the cache is stale.
+**If the setting is not switched** before the merge, nothing breaks, but the
+built site is not what is live. GitHub goes on publishing the raw repository
+from the branch, as it always has, and the deploy workflow's *Publish* job
+fails with an error that names this setting. The raw files still work — the
+service worker sees the version is `0`, knows it is unbuilt, and fetches
+everything fresh when online instead of trusting its cache — but they are the
+unminified files with every comment in, and nothing tested them as a site. Flip
+the setting, then open **Actions → deploy → Run workflow** to publish without
+waiting for the next push.
+
+### Why it is built rather than served straight from the branch
+
+Every script and stylesheet is requested with `?v=<version>`, the service worker
+keeps those exact URLs, and it answers them from the cache without asking the
+network: a new build is a new URL, so a cached copy under the old one can never
+be out of date. That only works if the version changes whenever the files do.
+
+It used to be a number kept in the files — ten lines of `index.html`, eleven of
+`sw.js` and the cache name, bumped by `tools/bump-version.js`. Forgetting the
+bump left phones on the old app indefinitely, which reached `main` eleven
+times; remembering it on two branches cut from the same commit made both pick
+the same next number, so every merge conflicted on lines nobody meant to touch.
+
+Now the repository says `?v=0` everywhere and `tools/build-site.js` writes the
+real version in on the way out: a hash of every file the service worker keeps as
+the app, the worker included. The same files always give the same version and
+different files never do, so there is nothing to bump and nothing to conflict.
+A pull request never touches a version line. The pictures and typefaces get a
+separate hash and a cache of their own, so a deploy that did not change them
+does not send every phone to download three and a half megabytes of engravings
+again.
+
+The build also leaves out what the site does not serve — `art/src` (105 MB of
+source engravings), `tests/`, `tools/`, `design/`, `preview.html`, the Markdown
+files — and strips the comments from the scripts, the data, the worker and the
+stylesheet, which halves what a phone downloads (768 KB to 395 KB gzipped for
+the app itself). The repository keeps every word; `EXCLUDE` at the top of
+`tools/build-site.js` lists what stays behind and why.
+
+```sh
+npm run site         # build _site/ (node tools/build-site.js --no-minify keeps comments)
+npm run test:site    # build it, then run the whole suite against it — what CI runs
+```
+
+`_site/` is ignored by git; it is rebuilt from scratch each time.
+
+### Checking a deploy landed
+
+The *Sync & sharing* sheet in the app ends with **Build** and the version the
+phone is running, read off the `?v=` the page actually loaded. The deploy log
+prints the version it published (`version 0123456789012` in the *Build the
+site* step). If they match, the phone has it. If the phone shows an older one,
+the service worker has not picked up the new build yet — it checks when the app
+is opened or brought back to the front, at most once a minute, and reloads
+itself onto the new build as soon as nothing is being edited. A phone showing
+`Build 0` is running the raw, unbuilt files: Pages is still publishing from the
+branch.
+
+The other workflow, `.github/workflows/tests.yml`, deploys nothing. It runs on
+every push to `main` and every pull request: a quick gate (every script parses,
+the site builds, and the offline and updating suites pass on it) and the full
+suite, both against the built site.
 
 There is a landing page at `/welcome/` — what the app is, what it does, the two
 books, and how to install it — for sharing with someone who has not seen it
@@ -479,9 +534,11 @@ tools/print-books.js  renders the volumes to PDF in print/
 tools/booklet.js      imposes a book onto folded letter sheets
 tools/check-recipes.js checks recipes against standard kitchen ratios
 sw.js                 service worker — makes it open with no signal
+tools/build-site.js   builds _site/, what Pages serves: versioned, minified, trimmed
+.github/workflows/    tests.yml runs the suite on the built site; deploy.yml publishes it
 manifest.webmanifest  makes Add to Home Screen a real install
 fonts/ icons/         the two typefaces and the app icon
-tests/                the test suite; node tests/run.js
+tests/                the test suite; node tests/run.js (SITE=_site for the built site)
 print/                the finished books, committed so the app can hand them over
 design/               the original Claude Design prototype and chat transcript
 AUDIT.md              generated — the nutrition audit
@@ -504,7 +561,17 @@ node tests/run.js            # everything that needs no network
 node tests/run.js weeks      # just one file
 node tests/run.js --headed   # watch it happen
 node tests/run.js sync       # two phones against the live Firestore project
+npm run test:site            # build _site/ and run everything against it, as CI does
 ```
+
+Without `SITE`, the runner serves the repository as it is, unbuilt, which is what
+you want while changing it. With `SITE=_site` it serves the built site instead —
+versioned, minified, without the files that do not ship — which is what CI and the
+deploy test, because it is what phones get. `tests/upgrade.test.js` builds a few
+sites of its own and serves them one after another at the same address, to watch
+the service worker move between builds: the old cache deleted, the pictures kept,
+an install that cannot fetch everything leaving the phone as it was, and the worker
+on phones today (build 568, kept in `tests/fixtures/`) handing over cleanly.
 
 Needs Playwright and nothing else — the runner serves the repository itself and drives a
 real Chromium, so what is asserted is what the app renders. 83 checks in the default run,

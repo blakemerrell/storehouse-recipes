@@ -24,10 +24,8 @@ const fs = require('fs');
 const path = require('path');
 
 function pdflib() {
-  for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  console.error('pdf-lib is not installed. `npm i -D pdf-lib` and try again.');
+  try { return require('pdf-lib'); } catch (e) { /* below */ }
+  console.error('pdf-lib is not installed. `npm ci` and try again.');
   process.exit(2);
 }
 

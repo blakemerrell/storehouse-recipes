@@ -124,7 +124,11 @@ window.FIREBASE_CONFIG = {
 };
 ```
 
-Save the file. If the app is online, push the change so both phones get it.
+Save the file. If the app is online, push the change so both phones get it: a
+push to `main` is published by the **deploy** workflow, which needs Pages set to
+publish from GitHub Actions (**Settings → Pages → Source → GitHub Actions**, once —
+see *Putting it online* in the README). The phones pick the new build up the next
+time the app is opened; the *Sync & sharing* sheet names the build each is running.
 
 > These values are not secrets — every web app that uses Firebase ships them in
 > plain sight, and they are safe in a public repository. The security rules in
@@ -172,7 +176,9 @@ device keeps its current copy and stops sending changes; the other phone is unto
   `gstatic.com`. The app keeps saving on the device either way.
 
 **Badge stays "Local"** — `src/config.js` still has empty values, or the edited file
-was not pushed to where the phone loads the app from.
+was not pushed to where the phone loads the app from. Check that the latest **deploy**
+run in the Actions tab is green; a red *Publish* step that names the Pages source means
+the setting above has not been switched yet.
 
 **Nothing appears on the second phone** — check the code matches exactly, including the
 hyphens. It is case-insensitive; the app upper-cases it for you.

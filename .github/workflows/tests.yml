@@ -1,18 +1,23 @@
-# Every push and pull request runs the checks a contributor would run by hand.
+# Every push and pull request runs the checks a contributor would run by hand,
+# against the site as it will be published rather than the files as written.
 #
-# There was nothing here, and the result was on main: eleven pushes whose
-# version stamp no longer matched the files, one of them a deploy that
-# changed app.js and left sw.js untouched, so phones kept the old app from
-# their cache. The offline suite catches exactly that in about fifteen
-# seconds, so it is the gate.
+# There was nothing here once, and the result was on main: eleven pushes whose
+# version no longer matched the files, one of them a deploy that changed
+# app.js and left sw.js untouched, so phones kept the old app from their
+# cache. The version is computed at build time now (tools/build-site.js), so
+# that particular mistake can no longer be made; what is checked instead is
+# that the build does what it says, and that a phone moves from one build to
+# the next cleanly. Both run on _site/, the directory the deploy publishes, so
+# what is tested is what ships — minified, versioned, and without the files
+# that stay in the repository.
 #
-# The full suite runs too, and reports, but does not block: it takes about
-# ten minutes, and it includes checks that are about the printed books being
-# regenerated (npm run print) rather than about the app working.
+# Two jobs. The gate is quick: every script parses, the site builds, and the
+# offline and updating suites pass against it. The full suite takes about ten
+# minutes and blocks too; it includes the printed books, so a recipe change
+# pushed without `npm run print` fails here rather than at a print shop.
 #
-# Pages still deploys from the branch as before; this workflow deploys
-# nothing and needs no secrets. The live-Firebase tests (sync*) are not in
-# the default run and are not run here.
+# This workflow deploys nothing and needs no secrets; deploy.yml publishes.
+# The live-Firebase tests (sync*) are not in the default run and not run here.
 name: tests
 
 on:
@@ -29,33 +34,36 @@ concurrency:
 
 jobs:
   gate:
-    name: Syntax and offline
+    name: Build, then offline and updating
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - name: Every script parses
         run: for f in src/*.js sw.js tools/*.js tests/*.js; do node --check "$f" || exit 1; done
+      - name: Build the site
+        run: node tools/build-site.js
       - run: npx playwright install --with-deps chromium
-      - name: Offline, and the version stamp matches the files
-        run: FAST=1 node tests/run.js offline
+      - name: Offline and updating, on the built site
+        run: SITE=_site FAST=1 node tests/run.js offline upgrade
 
   full:
-    name: Full suite (reports, does not block)
+    name: Full suite, on the built site
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Build the site
+        run: node tools/build-site.js
       - run: npx playwright install --with-deps chromium
-      - run: FAST=1 node tests/run.js
+      - run: SITE=_site FAST=1 node tests/run.js

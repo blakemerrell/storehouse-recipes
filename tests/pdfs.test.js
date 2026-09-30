@@ -7,13 +7,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const DIR = path.join(__dirname, '..', 'print');
 
 function pdflib() {
-  for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  return null;
+  try { return require('pdf-lib'); } catch (e) { return null; }
 }
 
 module.exports = {
@@ -22,6 +18,9 @@ module.exports = {
     const lib = pdflib();
     if (!lib) { t.ok('pdf-lib is available to read them', false, 'npm i -D pdf-lib'); return; }
     const { PDFDocument } = lib;
+    /* The files as served — the built site's copies when that is what is
+       being tested, since those are the ones a Download button hands over. */
+    const DIR = path.join(t.root, 'print');
 
     const p = await t.fresh();
     await p.click('.tab[data-view="browse"]'); await p.click('#bookBtn');

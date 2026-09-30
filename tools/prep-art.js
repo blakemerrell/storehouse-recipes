@@ -239,13 +239,14 @@ async function main() {
     return;                                   // a look, not a build
   }
 
-  /* data/art.js just changed, and it is fetched at ?v=N and served
-     cache-first. This is the one that bit: four engravings were added, the
+  /* data/art.js just changed, and it is fetched at ?v=N and served from the
+     cache. This is the one that bit: four engravings were added, the
      manifest grew from twelve entries to sixteen, and a browser still holding
      the twelve-entry copy laid out a 180-page book under a button offering a
-     184-page file. Bumping the version is what makes the URL new, and a new
-     URL is the only thing a cache-first worker will go and fetch. */
-  require('./bump-version.js').bump('art manifest rewritten');
+     184-page file. A new URL is the only thing that worker would go and
+     fetch, and this used to bump N to make one. N is a hash of the files now,
+     written in by tools/build-site.js at deploy, so the new manifest and the
+     new pictures are a new version — and a new art cache — by themselves. */
 }
 
 main().catch(function (e) { console.error(e.stack || e.message); process.exit(1); });
