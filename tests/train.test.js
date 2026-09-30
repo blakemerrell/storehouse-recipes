@@ -1459,7 +1459,7 @@ module.exports = {
     p = await t.fresh({ viewport: { width: 360, height: 740 } });
     r = await p.evaluate(() => {
       const t = document.querySelector('.tabs'), box = t.getBoundingClientRect();
-      const tabs = [...t.querySelectorAll('.tab')];
+      const tabs = [...t.querySelectorAll('.tab')].filter((b) => b.offsetParent);
       const sep = t.querySelector('.tab-sep');
       return {
         labels: tabs.map((b) => b.innerText.trim()).join('|'),
@@ -1468,7 +1468,7 @@ module.exports = {
         noBookTab: !t.querySelector('.tab[data-view="book"]'),
       };
     });
-    t.ok('the tabs are Recipes, Plan, List, Pantry, then Nourish and Strengthen', r.labels === 'Recipes|Plan|List|Pantry|Nourish|Strengthen', r.labels);
+    t.ok('the tabs are Recipes and Plan (with List and Pantry as its steps), then Nourish and Strengthen', r.labels === 'Recipes|Plan|Nourish|Strengthen', r.labels);
     t.ok('with a rule before yours, and every one on a 360px screen', r.sepBefore && r.off === 0, JSON.stringify(r));
     t.ok('and the book is no longer a tab', r.noBookTab);
     await p.click('#bookBtn');

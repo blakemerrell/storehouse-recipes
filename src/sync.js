@@ -33,7 +33,7 @@ window.Store = (function () {
        and state.pantry came back holding the {l,c} shape of pantryNew rather
        than the 1/0 the rest of this file expects. */
     pantry: 'bsc.pantry', pantryNew: 'bsc.pantryNew', houseNew: 'bsc.houseNew',
-    kitchen: 'bsc.kitchen', src: 'bsc.src', rate: 'bsc.rate', opts: 'bsc.opts',
+    kitchen: 'bsc.kitchen', src: 'bsc.src', rate: 'bsc.rate', opts: 'bsc.opts', low: 'bsc.low',
     plan: 'bsc.plan', checked: 'bsc.checked'   // the single week this replaced
   };
 
@@ -74,15 +74,18 @@ window.Store = (function () {
        storehouse order; rate  recipe -> 2 a favourite, 1 liked, -1 not
        again; opts  household switches, `store` for shopping the storehouse.
        All four merge a key at a time, like the shelf. */
-    kitchen: {}, src: {}, rate: {}, opts: {} };
-  var MAPS = ['kitchen', 'src', 'rate', 'opts'];
+    kitchen: {}, src: {}, rate: {}, opts: {},
+    /* low  a staple that has run out: food -> 1, on the list until it is not */
+    low: {} };
+  var MAPS = ['kitchen', 'src', 'rate', 'opts', 'low'];
   /* What each may hold, checked at the door like a recipe: anything else is
      a phone on another version or a half-written field, and costs its key. */
   var MAP_OK = {
     kitchen: function (v) { return v === 1 || v === 0; },
     src: function (v) { return v === 's' || v === 'b'; },
     rate: function (v) { return v === 2 || v === 1 || v === -1; },
-    opts: function (v) { return v === 1 || v === 0; }
+    opts: function (v) { return v === 1 || v === 0; },
+    low: function (v) { return v === 1; }
   };
   function cleanMap(k, v) {
     var o = obj(v), out = {};
@@ -564,7 +567,7 @@ window.Store = (function () {
       favs: state.favs, weeks: state.weeks, active: state.active,
       mine: state.mine, edits: state.edits,
       pantry: state.pantry, pantryNew: state.pantryNew,
-      kitchen: state.kitchen, src: state.src, rate: state.rate, opts: state.opts
+      kitchen: state.kitchen, src: state.src, rate: state.rate, opts: state.opts, low: state.low
     };
   }
 
@@ -989,7 +992,7 @@ window.Store = (function () {
         edits: read(LS.edits, {}),
         pantry: read(LS.pantry, {}),
         pantryNew: read(LS.pantryNew, {}),
-        kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {}),
+        kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {}), low: read(LS.low, {}),
         plan: read(LS.plan, {}),        // whatever the one-week version left behind
         checked: read(LS.checked, {})
       });
@@ -1032,7 +1035,7 @@ window.Store = (function () {
             weeks: read(LS.weeks, null), active: read(LS.active, ''),
             mine: read(LS.mine, {}), edits: read(LS.edits, {}),
             pantry: read(LS.pantry, {}), pantryNew: read(LS.pantryNew, {}),
-            kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {})
+            kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {}), low: read(LS.low, {})
           });
           emit();
         });
@@ -1142,6 +1145,9 @@ window.Store = (function () {
     setRating: function (id, v) { setMapKey('rate', String(id), v === 2 || v === 1 || v === -1 ? v : null); },
     opt: function (k, dflt) { var v = state.opts[k]; return v === 1 || v === 0 ? v === 1 : !!dflt; },
     setOpt: function (k, on) { setMapKey('opts', k, on ? 1 : 0); },
+    low: function (key) { return state.low[key] === 1; },
+    lowAll: function () { return state.low; },
+    setLow: function (key, on) { setMapKey('low', key, on ? 1 : null); },
 
     removeFromDay: function (id, day) {
       writeDay(day, this.day(day).filter(function (e) { return e.id !== id; }));

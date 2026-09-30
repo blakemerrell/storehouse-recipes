@@ -22,7 +22,7 @@ module.exports = {
     await p.reload();
     await p.waitForTimeout(700);
 
-    await p.click('.tab[data-view="pantry"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
     await p.waitForTimeout(400);
 
     const shape = await p.evaluate(() => ({
@@ -80,7 +80,7 @@ module.exports = {
       (await foot()) === '', dish.name);
 
     // stop keeping one of its ingredients
-    await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(300);
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await p.waitForTimeout(300);
     await p.click('[data-poff="cottage_cheese"]'); await p.waitForTimeout(400);
 
     /* One fewer than the storehouse list, whatever that list happens to hold.
@@ -200,7 +200,7 @@ module.exports = {
 
     // and so does the shopping list
     await p.evaluate(() => window.Store.addToDay(1, 'mon'));
-    await p.click('.tab[data-view="list"]'); await p.waitForTimeout(600);
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]')); await p.waitForTimeout(600);
     const list = await p.evaluate(() => {
       const g = [...document.querySelectorAll('.list-group')];
       return g.map((x) => ({
@@ -220,11 +220,11 @@ module.exports = {
       buy ? buy.items.join(' | ') : 'no buy list');
 
     // something of your own, which the books have never heard of
-    await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(300);
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await p.waitForTimeout(300);
     await p.evaluate(() => window.Store.addPantryItem('Olive oil', 'Yours'));
     await p.waitForTimeout(300);
     await p.reload(); await p.waitForTimeout(700);
-    await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(400);
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await p.waitForTimeout(400);
     const own = await p.evaluate(() => {
       // the head is a name and a count; the name is the first span
       const h = [...document.querySelectorAll('.shelf-h span:first-child')].map((e) => e.textContent);
@@ -266,7 +266,7 @@ module.exports = {
        "do I keep cornmeal", and the order sheet it copies is not one column
        either. These assert the two halves of the fix: that the space is used,
        and that using it did not chop a shelf in half down the middle. */
-    await p.click('.tab[data-view="pantry"]'); await p.waitForTimeout(300);
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await p.waitForTimeout(300);
     const tall = await p.evaluate(() => document.getElementById('pantryBody').scrollHeight);
     await p.setViewportSize({ width: 1600, height: 1000 });
     await p.waitForTimeout(400);
@@ -307,7 +307,7 @@ module.exports = {
     const tp = await touch.newPage();
     await tp.goto(t.base + 'index.html');
     await tp.waitForTimeout(700);
-    await tp.click('.tab[data-view="pantry"]'); await tp.waitForTimeout(400);
+    await tp.click('.tab[data-view="plan"]').then(() => tp.click('.pstep[data-view="pantry"]')).then(() => tp.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await tp.waitForTimeout(400);
     const thumb = await tp.evaluate(() => {
       const x = document.querySelector('.pitem-x');
       return { h: x.getBoundingClientRect().height, seen: getComputedStyle(x).opacity };

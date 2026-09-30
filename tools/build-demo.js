@@ -124,7 +124,7 @@ function serve() {
   await page.click('.sheet-x'); await page.waitForTimeout(300);
   await page.click('.tab[data-view="plan"]'); await page.waitForTimeout(600);
   await shot('app-3-plan');
-  await page.click('.tab[data-view="list"]'); await page.waitForTimeout(700);
+  await page.click('.pstep[data-view="list"]'); await page.waitForTimeout(700);
   await shot('app-4-list');
 
   await browser.close();

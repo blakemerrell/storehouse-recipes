@@ -93,7 +93,7 @@ module.exports = {
     t.ok('each chip counts its own week', s.counts === '3,1', s.counts);
 
     // ---- the shopping list follows the week -------------------------------
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(200);
     const l2 = await p.evaluate(() => ({
       week: document.getElementById('listWeek').textContent,
@@ -101,7 +101,7 @@ module.exports = {
     }));
     await p.click('.tab[data-view="plan"]');
     await p.click('#weekBar .wk >> nth=0');
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(200);
     const l1 = await p.evaluate(() => ({
       week: document.getElementById('listWeek').textContent,
@@ -126,7 +126,7 @@ module.exports = {
     t.ok('a tick sticks', (await p.evaluate(() => document.querySelectorAll('.list-row.done').length)) === 1);
     await p.click('.tab[data-view="plan"]');
     await p.click('#weekBar .wk >> nth=1');
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(200);
     t.ok('and does not follow you into another week',
       (await p.evaluate(() => document.querySelectorAll('.list-row.done').length)) === 0);
@@ -138,7 +138,7 @@ module.exports = {
     await p.waitForTimeout(200);
     await p.evaluate(() => { window.Store.addToDay(1, 'mon'); });
     await p.waitForTimeout(200);
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(200);
     t.ok('taking a recipe out forgets its ticks, so they never come back ticked',
       (await p.evaluate(() => document.querySelectorAll('.list-row.done').length)) === 0);
@@ -243,7 +243,7 @@ module.exports = {
       const t = document.querySelector('.tabs');
       const box = t.getBoundingClientRect();
       return {
-        labels: [...t.querySelectorAll('.tab')].map((b) => b.innerText.trim()),
+        labels: [...t.querySelectorAll('.tab')].filter((b) => b.offsetParent).map((b) => b.innerText.trim()),
         offscreen: [...t.querySelectorAll('.tab')]
           .filter((b) => b.getBoundingClientRect().right > box.right + 1)
           .map((b) => b.innerText.trim()),
@@ -254,7 +254,7 @@ module.exports = {
     t.ok('every tab is on the screen without scrolling for it',
       tabs.offscreen.length === 0, 'off the edge: ' + tabs.offscreen.join(', '));
     t.ok('under a short name each, on a phone',
-      tabs.labels.join('|') === 'Recipes|Plan|List|Pantry|Nourish|Strengthen', tabs.labels.join(' '));
+      tabs.labels.join('|') === 'Recipes|Plan|Nourish|Strengthen', tabs.labels.join(' '));
     t.ok('with the sync button up on the brand line, out of their way', tabs.syncAbove);
 
     /* It used to say "Local", which is a state and not an invitation, and
@@ -313,11 +313,11 @@ module.exports = {
     await p.setViewportSize({ width: 1280, height: 900 });
     await p.waitForTimeout(400);
     const wide = await p.evaluate(() =>
-      [...document.querySelectorAll('.tab')].map((b) => b.innerText.trim()));
+      [...document.querySelectorAll('.tab')].filter((b) => b.offsetParent).map((b) => b.innerText.trim()));
     t.ok('and the full names return on a wider screen',
       // Nourish and Strengthen have no short forms — the book left the row
       // to make room for them
-      wide.join('|') === 'Recipes|Meal Plan|Shopping List|Pantry|Nourish|Strengthen', wide.join(' '));
+      wide.join('|') === 'Recipes|Meal Plan|Nourish|Strengthen', wide.join(' '));
 
     /* ---- text somebody typed is text, not markup -------------------------
      *
@@ -340,7 +340,7 @@ module.exports = {
       window.Store.addPantryItem(s, 'Yours');
     }, HOSTILE);
     await p.waitForTimeout(300);
-    await p.click('.tab[data-view="pantry"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
     await p.waitForTimeout(300);
 
     const hostile = await p.evaluate((s) => ({
@@ -362,7 +362,7 @@ module.exports = {
       ['the Share sheet', async (q) => { await q.click('#syncBtn'); await q.waitForTimeout(350); }],
       ['the editor', async (q) => { await q.click('#newRecipe'); await q.waitForTimeout(450); }],
       ['a confirm dialog', async (q) => {
-        await q.click('.tab[data-view="pantry"]'); await q.waitForTimeout(350);
+        await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="pantry"]')).then(() => q.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await q.waitForTimeout(350);
         await q.evaluate(() => window.Store.setPantry('cottage_cheese', false));
         await q.waitForTimeout(350);
         await q.click('#pantryReset'); await q.waitForTimeout(350);

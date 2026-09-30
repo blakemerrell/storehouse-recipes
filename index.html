@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=562">
+<link rel="stylesheet" href="src/style.css?v=564">
 </head>
 <body>
 
@@ -69,6 +69,10 @@
     <div class="tabs-fade hide" id="tabsFade" aria-hidden="true"></div>
   </div>
 </header>
+<!-- Plan is four steps, one bar: where the food comes from, what is kept on
+     hand, the week's meals, and getting it. List and Pantry are its steps now,
+     not tabs of their own. -->
+<nav class="psteps no-print hide" id="planSteps" aria-label="Plan steps"></nav>
 
 <!-- A new person has no reason to look at the top right corner of a header,
      and nothing else on the screen says that two phones can be put on one
@@ -155,6 +159,11 @@
   </div>
 </section>
 
+<!-- ------------------------------------------------------ plan: where -->
+<section id="view-where" class="hide">
+  <div class="view" id="whereBody"></div>
+</section>
+
 <!-- ---------------------------------------------------------- meal plan -->
 <section id="view-plan" class="hide">
   <div class="view">
@@ -168,10 +177,12 @@
       </div>
     </div>
     <div class="weekbar no-print" id="weekBar"></div>
+    <div id="planSetup"></div>
     <div class="plan-sum" id="planSum"></div>
     <details class="plan-about no-print"><summary aria-label="About the week">&#9432; How the week works</summary>
     <div class="plan-note">Tap + Add on a day, or open any recipe under Recipes and assign it to a day. The shopping list builds itself from whatever lands here, and a week stays put until you change it &mdash; there are no dates, so Monday is just Monday. Keep as many weeks as you like and switch between them above; each one carries its own shopping list. Sharing with someone? Switching the week moves every phone at once.</div></details>
     <div class="plan-grid" id="planGrid"></div>
+    <div class="step-next no-print"><button class="pw-go" data-stepgo="list">Next: get the food</button></div>
   </div>
 </section>
 
@@ -334,6 +345,7 @@
       </div>
       <div class="view-count" id="listCount"></div>
     </div>
+    <div id="listLow"></div>
     <div id="listWm"></div>
     <div id="listBody"></div>
     <div class="empty hide" id="listEmpty">Add recipes to the week and their ingredients appear here.</div>
@@ -358,11 +370,12 @@
          below is what the storehouse carried when the books were written, and
          orders differ by place and change over time. -->
     <div id="kitchenBody"></div>
-    <div id="storePart">
-    <div class="kit-h">The storehouse carries</div>
+    <details id="storePart" class="store-carries">
+    <summary class="kit-h">What the storehouse carries &rsaquo;</summary>
     <div class="plan-note pantry-lede">This is what the storehouse carried when the books were written. If yours has stopped stocking something, take it off &mdash; the recipes stay exactly as they are, and the app simply starts telling you to pick that item up at the grocery store instead. The line at the foot of every recipe and the whole shopping list follow this list. You can also add anything you keep that the books never mention. Whatever you take off drops to the foot, so you can put it back.</div>
     <div id="pantryBody"></div>
-    </div>
+    </details>
+    <div class="step-next no-print"><button class="pw-go" data-stepgo="plan">Next: this week&rsquo;s meals</button></div>
   </div>
 </section>
 
@@ -410,16 +423,16 @@
 <div id="trainRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=562"></script>
-<script src="data/nutrition.js?v=562"></script>
-<script src="data/art.js?v=562"></script>
-<script src="data/qr.js?v=562"></script>
-<script src="src/config.js?v=562"></script>
+<script src="data/recipes.js?v=564"></script>
+<script src="data/nutrition.js?v=564"></script>
+<script src="data/art.js?v=564"></script>
+<script src="data/qr.js?v=564"></script>
+<script src="src/config.js?v=564"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=562"></script>
+<script src="src/sync.js?v=564"></script>
 <!-- before app.js, which calls into it while it boots -->
-<script src="src/train.js?v=562"></script>
-<script src="src/app.js?v=562"></script>
+<script src="src/train.js?v=564"></script>
+<script src="src/app.js?v=564"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

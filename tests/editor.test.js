@@ -72,7 +72,7 @@ module.exports = {
     await p.click('#grid .card');
     await p.click('.daybtn[data-day="mon"]');
     await p.click('.sheet-x');
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(300);
     const rows = await p.evaluate(() => [...document.querySelectorAll('.list-row')].map((r) => r.textContent));
     t.ok('it can be planned and shopped for',

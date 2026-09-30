@@ -145,10 +145,10 @@ module.exports = {
           (window.Store.state.plan.mon || []).join() === '1'),
         await A.evaluate(() => window.Store.activeWeek().name));
 
-      await B.click('.tab[data-view="list"]');
+      await B.click('.tab[data-view="plan"]').then(() => B.click('.pstep[data-view="list"]'));
       await B.waitForSelector('.list-row', { timeout: 8000 });
       await B.click('.list-row:not(.done) >> nth=0');
-      await A.click('.tab[data-view="list"]');
+      await A.click('.tab[data-view="plan"]').then(() => A.click('.pstep[data-view="list"]'));
       t.ok('a tick in the shop greys out on the other phone',
         await waitFor(A, () => document.querySelectorAll('.list-row.done').length === 1),
         await A.evaluate(() => document.querySelectorAll('.list-row.done').length));

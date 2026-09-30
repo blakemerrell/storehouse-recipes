@@ -1128,6 +1128,9 @@
     }).length;
     var ents = planEntries(), cost = pwCost(ents, true);
     var nList = buildList(ents).groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    if ($('planSetup')) $('planSetup').innerHTML = planSetUp() ? '' :
+      '<div class="setup-card"><b>New to planning here?</b><span>Start with where your food comes from and what you keep on hand. It takes a minute, once.</span>' +
+      '<button class="pw-go" data-stepgo="where">Start with step 1</button></div>';
     if ($('planSum')) $('planSum').innerHTML = ents.length ?
       '<div><b>' + nights + ' of 7</b><span>nights planned</span></div>' +
       '<div><b>' + (cost < 0.5 ? '$0' : '~' + pwMoney(cost)) + '</b><span>to buy</span></div>' +
@@ -1443,6 +1446,7 @@
       if (fit && r.macro && (r.macro.kcal > fit.kc || r.macro.p < fit.p)) return false;
       if (recent[String(r.id)]) return false;
       if (window.Store.rating(r.id) === -1) return false;     // "not again"
+      if (!modeAllows(r)) return false;                        // storehouse only
       return !pwAvoids(r, a.avoid, a.ing);
     });
   }
@@ -1756,8 +1760,108 @@
     if (e.target.closest('[data-store]')) window.Store.setOpt('store', !window.Store.opt('store', true));
   });
   document.addEventListener('input', function (e) {
-    if (e.target && e.target.id === 'kitFind') { var sg = $('kitSug'); if (sg) sg.innerHTML = kitSugHTML(e.target.value); }
+    if (e.target && e.target.id === 'kitFind') { S.kitQ = e.target.value; S.kitFocus = true; renderPantry(); }
   });
+
+  // ------------------------------------------------------------ plan steps
+  /* Plan, as the order you think in: where the food comes from, what you
+     keep on hand, the week's meals, then getting it. Blake: "There's a
+     natural flow to this." The first two are set once and remembered for the
+     household; the bar is how you get back to them. */
+  var PLAN_STEPS = [['where', 'Where'], ['pantry', 'On hand'], ['plan', 'Meals'], ['list', 'Shop']];
+  function planSetUp() { return window.Store.opt('setup', false); }
+  function renderSteps() {
+    var bar = $('planSteps');
+    if (!bar) return;
+    var at = -1;
+    PLAN_STEPS.forEach(function (p, i) { if (p[0] === S.view) at = i; });
+    bar.classList.toggle('hide', at < 0);
+    if (at < 0) return;
+    var done = planSetUp();
+    bar.innerHTML = PLAN_STEPS.map(function (p, i) {
+      return '<button class="pstep' + (i < at || (done && i < 2) ? ' done' : '') + '" data-view="' + p[0] + '" aria-current="' + (i === at ? 'step' : 'false') + '">' +
+        '<span class="pstep-n">' + (i + 1) + '</span> ' + p[1] + '</button>';
+    }).join('');
+  }
+  function goStep(v) {
+    if (v === 'plan' && S.view === 'pantry') window.Store.setOpt('setup', true);
+    S.view = v;
+    try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
+    renderView();
+    window.scrollTo(0, 0);
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    var st = e.target.closest('.pstep[data-view]') || e.target.closest('[data-stepgo]');
+    if (st) { goStep(st.dataset.view || st.dataset.stepgo); return; }
+    var wh = e.target.closest('[data-where]');
+    if (wh) {
+      var v = wh.dataset.where;
+      window.Store.setOpt('store', v !== 'w');
+      window.Store.setOpt('buy', v !== 'sh');
+      return;
+    }
+    if (e.target.closest('[data-near]')) { window.Store.setOpt('near', !window.Store.opt('near', false)); return; }
+    var lw = e.target.closest('[data-low]');
+    if (lw) { window.Store.setLow(lw.dataset.low, !window.Store.low(lw.dataset.low)); return; }
+    var more = e.target.closest('[data-kitmore]');
+    if (more) { S.kitOpen = S.kitOpen || {}; S.kitOpen[more.dataset.kitmore] = !S.kitOpen[more.dataset.kitmore]; renderPantry(); return; }
+    var pill = e.target.closest('[data-kitpill]');
+    if (pill) {
+      var k = pill.dataset.kitpill, d = (window.PANTRY || {})[k];
+      if (foodSource(k) === 'h') { window.Store.setKitchen(k, d && d.sp ? 0 : null); window.Store.setSrc(k, null); }
+      else setFoodSource(k, 'h');
+      return;
+    }
+    var cp = e.target.closest('[data-copyorder]');
+    if (cp) {
+      var lines = [].map.call(document.querySelectorAll('.list-group.where-s .list-row'), function (r) {
+        return r.textContent.replace(/\s+/g, ' ').trim();
+      }).join('\n');
+      var done = function () { cp.textContent = 'Copied'; setTimeout(function () { cp.textContent = 'Copy the order'; }, 1600); };
+      try { navigator.clipboard.writeText(lines).then(done, function () { window.prompt && void 0; }); } catch (err) { /* no clipboard */ }
+    }
+  });
+  /* The three answers to "where does your food come from". */
+  function planMode() {
+    var st = window.Store.opt('store', true), buy = window.Store.opt('buy', true);
+    return st && buy ? 'both' : st ? 'sh' : 'w';
+  }
+  function canBuy() { return window.Store.opt('buy', true) || window.Store.opt('near', false); }
+  /* How many things a recipe needs from a store, the storehouse and the
+     shelf aside. Storehouse only, a dinner that needs any (or, allowed,
+     more than two) is not suggested. */
+  function storeNeeds(r) {
+    var n = 0, seen = {};
+    (r.ingp || []).forEach(function (it) {
+      if (!it.k || it.k === 'water' || it.k === 'free' || it.o || seen[it.k]) return;
+      seen[it.k] = 1;
+      if (itemNeedsBuying(it)) n++;
+    });
+    return n;
+  }
+  function modeAllows(r) {
+    if (window.Store.opt('buy', true)) return true;
+    return storeNeeds(r) <= (window.Store.opt('near', false) ? 2 : 0);
+  }
+  window.__flow = { needs: storeNeeds, mode: planMode, source: foodSource };
+  function renderWhere() {
+    var m = planMode(), near = window.Store.opt('near', false);
+    var opt = function (v, t, d) {
+      return '<button class="wh-opt" data-where="' + v + '" aria-pressed="' + (m === v) + '"><span class="wh-dot"></span>' +
+        '<span><b>' + t + '</b><span>' + d + '</span></span></button>';
+    };
+    $('whereBody').innerHTML = '<div class="step-k">Step 1 · set once, change any time</div>' +
+      '<h2 class="step-h">Where does your food come from?</h2>' +
+      '<p class="step-sub">This decides which meals Plan suggests and how your list is split.</p>' +
+      opt('both', 'Storehouse and a store', 'Take what the storehouse has, buy the rest at Walmart.') +
+      opt('sh', 'Storehouse only', 'I can’t buy extra right now. Only suggest meals I can make from the storehouse and my shelf.') +
+      (m === 'sh' ? '<label class="wh-near"><button class="kit-tog" data-near="1" role="switch" aria-checked="' + near + '" aria-label="Allow meals that need one or two things from a store"></button>' +
+        ' Allow meals that need 1–2 things from a store</label>' : '') +
+      opt('w', 'Store only', 'No storehouse. Anything not on my shelf gets bought.') +
+      '<p class="step-sub">Shared with your household: set it on one phone and the others follow.</p>' +
+      '<div class="step-next"><button class="pw-go" data-stepgo="pantry">Next: what you keep on hand</button></div>';
+  }
 
   // ------------------------------------------------------------ walmart cart
   /* The shopping list, sent to Walmart. Blake: "When I am no longer using
@@ -14239,18 +14343,27 @@
       items.forEach(function (b) { b.qty = shopQty(b.g, b.unit, b.per, b.lad); });
       return { title: title, items: items };
     };
+    /* A staple that has run out comes back onto the list whether or not a
+       recipe this week calls for it, from wherever it is restocked. */
+    Object.keys(window.Store.lowAll()).forEach(function (k) {
+      var s = SHOP[k], d = (window.PANTRY || {})[k];
+      if (!s || !d) return;
+      var from = window.Store.opt('store', true) && (window.Store.src(k) === 's' || (!window.Store.src(k) && storeCarries(k))) ? 's' : 'b';
+      if (!bucket[k]) bucket[k] = { key: k, g: d.wm ? d.wm[1] : 0, unit: s.u, per: s.p, lad: s.d, label: s.l };
+      bucket[k].src = from; bucket[k].extra = from === 'b'; bucket[k].low = true;
+    });
     /* To buy first, since that is the trip; then the storehouse pick-up;
        then what is already in the kitchen, there to move if it has run out. */
     var bySrc = function (title, want) {
       var items = Object.keys(bucket).map(function (k) { return bucket[k]; })
         .filter(function (b) { return b.src === want; })
         .sort(function (a, b) { return a.label.localeCompare(b.label); });
-      items.forEach(function (b) { b.qty = shopQty(b.g, b.unit, b.per, b.lad); });
+      items.forEach(function (b) { b.qty = b.g ? shopQty(b.g, b.unit, b.per, b.lad) : ''; if (b.low) b.qty = (b.qty ? b.qty + ' \u00b7 ' : '') + 'ran out'; });
       return { title: title, src: want, items: items };
     };
     void group;
     return {
-      groups: [bySrc('To buy', 'b'), bySrc('Storehouse pick-up', 's'), bySrc('In your kitchen', 'h')]
+      groups: [bySrc(canBuy() ? 'To buy' : 'Needs a store', 'b'), bySrc('Storehouse order', 's'), bySrc('In your kitchen', 'h')]
         .filter(function (g) { return g.items.length; }),
       recipeCount: entries.length
     };
@@ -14268,11 +14381,20 @@
     $('listEmpty').classList.toggle('hide', total !== 0);
     /* To Walmart: what is left to get — not ticked, and off the shelf only
        when the shelf is asked to come too. */
-    if ($('listWm')) $('listWm').innerHTML = total ? wmHTML([].concat.apply([], built.groups.map(function (g) { return g.items; }))
+    if ($('listWm')) $('listWm').innerHTML = total && canBuy() ? wmHTML([].concat.apply([], built.groups.map(function (g) { return g.items; }))
       .filter(function (b) { return b.src === 'b' && !window.Store.isChecked(b.key); })) : '';
+    /* Anything run out? The kitchen's staples, one tap each. */
+    var P = window.PANTRY || {};
+    var staples = Object.keys(P).filter(function (k) { return (foodSource(k) === 'h' && !P[k].sp) || window.Store.low(k); })
+      .sort(function (a, b) { return P[a].l.localeCompare(P[b].l); });
+    if ($('listLow')) $('listLow').innerHTML = staples.length ? '<div class="low-card"><div class="low-h">Anything run out?</div>' +
+      '<div class="pw-chips">' + staples.map(function (k) {
+        return '<button class="pw-chip low-pill" data-low="' + esc(k) + '" aria-pressed="' + window.Store.low(k) + '">' + esc(P[k].l) + '</button>';
+      }).join('') + '</div><p class="low-p">Tap what\u2019s low. It goes on the list from where you restock it.</p></div>' : '';
     $('listBody').innerHTML = built.groups.map(function (g) {
-      return '<div class="list-group">' +
+      return '<div class="list-group where-' + g.src + '">' +
         '<div class="list-group-title">' + esc(g.title) + '</div>' +
+        (g.src === 's' ? '<button class="copy-order no-print" data-copyorder="1">Copy the order</button>' : '') +
         '<div class="list-items">' + g.items.map(function (it) {
           var on = window.Store.isChecked(it.key), food = !!(window.PANTRY || {})[it.key];
           var store = window.Store.opt('store', true);
@@ -15988,7 +16110,7 @@
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid', 'data-wmall',
-    'data-src', 'data-kit', 'data-kitx', 'data-store', 'data-pwlo',
+    'data-src', 'data-kit', 'data-kitx', 'data-store', 'data-pwlo', 'data-where', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
     'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
@@ -16961,33 +17083,43 @@
   /* My kitchen: what the household has, wherever it came from, and one
      switch for whether the storehouse is part of the week at all. */
   function kitchenHTML() {
-    var P = window.PANTRY || {}, K = window.Store.kitchenAll(), store = window.Store.opt('store', true);
-    var have = Object.keys(K).filter(function (k) { return K[k] === 1 && P[k]; })
-      .sort(function (a, b) { return P[a].l.localeCompare(P[b].l); });
-    var spices = Object.keys(P).filter(function (k) { return P[k].sp && K[k] !== 0 && K[k] !== 1; }).length;
-    return '<div class="kit-switch"><div><b>I shop the storehouse</b><span>' +
-        (store ? 'What it carries goes under Storehouse pick-up, not the Walmart cart.' : 'Off: everything you don\u2019t have is bought.') +
-      '</span></div><button class="kit-tog" data-store="1" role="switch" aria-checked="' + store + '" aria-label="I shop the storehouse"></button></div>' +
-      '<div class="kit-h">In my kitchen</div>' +
-      '<p class="kit-p">Anything here is never bought or picked up. Tap one to take it off when it runs out.</p>' +
-      '<div class="pw-chips kit-chips">' + have.map(function (k) {
-        return '<button class="pw-chip" data-kitx="' + esc(k) + '" aria-pressed="true" aria-label="Take ' + esc(P[k].l) + ' out of the kitchen">' + esc(P[k].l) + '</button>';
-      }).join('') + (spices ? '<span class="kit-sp">and ' + spices + ' dried spices</span>' : '') + '</div>' +
-      '<input class="pw-find" id="kitFind" type="search" placeholder="Add what you have: rice, eggs, flour\u2026" autocomplete="off" aria-label="Add to my kitchen">' +
-      '<div class="pw-chips pw-sug" id="kitSug"></div>';
-  }
-  function kitSugHTML(q) {
-    var P = window.PANTRY || {}, K = window.Store.kitchenAll();
-    q = String(q || '').trim().toLowerCase();
-    if (!q) return '';
-    return Object.keys(P).filter(function (k) { return K[k] !== 1 && P[k].l.toLowerCase().indexOf(q) >= 0; })
-      .sort(function (a, b) { return P[a].l.localeCompare(P[b].l); }).slice(0, 8).map(function (k) {
-        return '<button class="pw-chip" data-kit="' + esc(k) + '">+ ' + esc(P[k].l) + '</button>';
-      }).join('');
+    var P = window.PANTRY || {}, q = String(S.kitQ || '').trim().toLowerCase(), open = S.kitOpen || {};
+    var both = planMode() === 'both', groups = {}, order = [], n = 0;
+    Object.keys(P).forEach(function (k) {
+      var c = P[k].c || 'Other';
+      if (!groups[c]) { groups[c] = []; order.push(c); }
+      var on = foodSource(k) === 'h';
+      if (on) n++;
+      groups[c].push({ k: k, l: P[k].l, on: on, from: storeCarries(k) && window.Store.opt('store', true) ? 's' : 'w' });
+    });
+    var body = order.map(function (c) {
+      var items = groups[c].filter(function (i) { return !q || i.l.toLowerCase().indexOf(q) >= 0; });
+      if (!items.length) return '';
+      items.sort(function (x, y) { return (y.on - x.on) || x.l.localeCompare(y.l); });
+      var on = items.filter(function (i) { return i.on; }).length, all = open[c] || q;
+      var show = all ? items : items.slice(0, Math.max(6, on));
+      var rest = items.length - show.length;
+      return '<div class="kit-grp"><div class="kit-gh"><span>' + esc(c) + '</span><small>' + on + ' of ' + items.length + '</small></div>' +
+        '<div class="pw-chips">' + show.map(function (i) {
+          return '<button class="pw-chip kit-pill" data-kitpill="' + esc(i.k) + '" aria-pressed="' + i.on + '">' +
+            (both ? '<i class="kit-dot ' + i.from + '" aria-hidden="true"></i>' : '') + esc(i.l) + '</button>';
+        }).join('') +
+        (rest > 0 ? '<button class="kit-more" data-kitmore="' + esc(c) + '">+' + rest + ' more</button>'
+          : open[c] && !q && items.length > 6 ? '<button class="kit-more" data-kitmore="' + esc(c) + '">Show less</button>' : '') +
+        '</div></div>';
+    }).join('');
+    return '<div class="step-k">Step 2 · your usual staples</div>' +
+      '<h2 class="step-h">What do you keep on hand?</h2>' +
+      '<p class="step-sub">Tap what you nearly always have. It stays off the list unless it runs out. <b class="kit-n">' + n + '</b> on hand.</p>' +
+      '<input class="pw-find" id="kitFind" type="search" placeholder="Find a food…" autocomplete="off" aria-label="Find a food" value="' + esc(S.kitQ || '') + '">' +
+      (both ? '<div class="kit-legend"><span><i class="kit-dot s"></i>restock from the storehouse</span><span><i class="kit-dot w"></i>from the store</span></div>' : '') +
+      '<div id="kitGroups">' + body + '</div>';
   }
   function renderPantry() {
     if ($('kitchenBody')) $('kitchenBody').innerHTML = kitchenHTML();
     if ($('storePart')) $('storePart').classList.toggle('hide', !window.Store.opt('store', true));
+    var kf = $('kitFind');
+    if (kf && S.kitFocus) { kf.focus(); kf.setSelectionRange(kf.value.length, kf.value.length); S.kitFocus = false; }
     var shelves = pantryShelves();
     var kept = [], gone = [];
     shelves.forEach(function (sh) {
@@ -17044,12 +17176,15 @@
 
   // ------------------------------------------------------------------ views
   function renderView() {
-    ['browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book'].forEach(function (v) {
+    ['browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book', 'where'].forEach(function (v) {
       $('view-' + v).classList.toggle('hide', S.view !== v);
     });
     /* The book has no tab of its own any more; it opens from Recipes, so
-       Recipes is the tab that stays lit while it is up. */
-    var lit = S.view === 'book' ? 'browse' : S.view;
+       Recipes is the tab that stays lit while it is up. Plan stays lit
+       through all four of its steps. */
+    var lit = S.view === 'book' ? 'browse' : PLAN_STEPS.some(function (p) { return p[0] === S.view; }) ? 'plan' : S.view;
+    renderSteps();
+    if (S.view === 'where') renderWhere();
     document.querySelectorAll('.tab').forEach(function (b) {
       b.setAttribute('aria-selected', String(b.dataset.view === lit));
     });

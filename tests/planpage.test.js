@@ -69,7 +69,7 @@ module.exports = {
     /* Leftovers on Friday: an earlier dinner again, not bought again. The
        list's amounts are read before and after, on the List tab. */
     const qty = async () => {
-      await p.click('.tab[data-view="list"]');
+      await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
       await p.waitForTimeout(200);
       const q = await p.evaluate(() => [...document.querySelectorAll('#listBody .qty')].map((e) => e.textContent).join('|'));
       await p.click('.tab[data-view="plan"]');

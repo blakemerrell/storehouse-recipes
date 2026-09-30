@@ -44,7 +44,7 @@ module.exports = {
       const d = window.RECIPES.filter((r) => r.book === 2 && r.secNum === 3).slice(0, 3);
       ['mon', 'tue', 'wed'].forEach((day, i) => window.Store.addToDay(d[i].id, day, 1));
     });
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(300);
     const read = () => p.evaluate(() => {
       const a = document.querySelector('#listWm .wm-btn');
@@ -54,13 +54,13 @@ module.exports = {
         lines: items.length, say: a ? a.textContent : '', ids: items.map((x) => x.split('_')[0]), blank: a ? a.target : '' };
     });
     /* Those three come wholly from the storehouse: nothing to send, until
-       the household stops shopping it (the switch on the Pantry tab). */
+       the household stops shopping it (step 1 of Plan: Store only). */
     const shelf = await read();
-    await p.click('.tab[data-view="pantry"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="where"]'));
     await p.waitForTimeout(250);
-    await p.click('[data-store]');
+    await p.click('[data-where="w"]');
     await p.waitForTimeout(250);
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(250);
     const first = await read();
     t.ok('from the storehouse, nothing goes to Walmart; not shopping it, it all does',

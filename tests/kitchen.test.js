@@ -26,19 +26,19 @@ module.exports = {
       const i = document.querySelector('#listBody [data-check="' + k + '"]');
       return i ? i.closest('.list-group').querySelector('.list-group-title').textContent.trim() : '';
     }, k);
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(300);
     const g0 = { buy: await groupOf(pick.k), store: await groupOf(pick.s) };
 
     /* Into the kitchen from the Pantry tab's search. */
-    await p.click('.tab[data-view="pantry"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
     await p.waitForTimeout(250);
     await p.fill('#kitFind', pick.kl.slice(0, 5));
     await p.waitForTimeout(150);
-    await p.click('#kitSug [data-kit="' + pick.k + '"]');
+    await p.click('[data-kitpill="' + pick.k + '"]');
     await p.waitForTimeout(250);
-    const chip = await p.evaluate((k) => !!document.querySelector('[data-kitx="' + k + '"]'), pick.k);
-    await p.click('.tab[data-view="list"]');
+    const chip = await p.evaluate((k) => (document.querySelector('[data-kitpill="' + k + '"]') || {}).getAttribute('aria-pressed') === 'true', pick.k);
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(250);
     const g1 = await groupOf(pick.k);
     const need = await p.evaluate(([id, l]) => {
@@ -55,7 +55,7 @@ module.exports = {
     t.ok('and it is still there after a reload', kept === 1, String(kept));
 
     /* A storehouse line moved to Buy. */
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(250);
     await p.click('#listBody [data-src="' + pick.s + '"][data-v="b"]');
     await p.waitForTimeout(250);
@@ -64,15 +64,17 @@ module.exports = {
       const a = document.querySelector('#listWm .wm-btn');
       return !!a && a.getAttribute('href').indexOf(window.PANTRY[k].wm ? window.PANTRY[k].wm[0] : 'none') >= 0;
     }, pick.s);
-    t.ok('a storehouse line set to Buy moves to To buy', g0.store === 'Storehouse pick-up' && g2 === 'To buy',
+    t.ok('a storehouse line set to Buy moves to To buy', g0.store === 'Storehouse order' && g2 === 'To buy',
       JSON.stringify({ was: g0.store, now: g2, inCart }));
 
-    /* Off the kitchen: tap its chip. */
-    await p.click('.tab[data-view="pantry"]');
+    /* Off the kitchen: tap its pill again. */
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
     await p.waitForTimeout(250);
-    await p.click('[data-kitx="' + pick.k + '"]');
+    await p.fill('#kitFind', pick.kl.slice(0, 5));
+    await p.waitForTimeout(150);
+    await p.click('[data-kitpill="' + pick.k + '"]');
     await p.waitForTimeout(250);
-    await p.click('.tab[data-view="list"]');
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(250);
     t.ok('taken out of the kitchen, it is bought again', await groupOf(pick.k) === 'To buy');
 
