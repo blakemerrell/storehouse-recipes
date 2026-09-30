@@ -14040,7 +14040,7 @@
     /* To Walmart: what is left to get — not ticked, and off the shelf only
        when the shelf is asked to come too. */
     var all = wmAll();
-    $('listWm').innerHTML = total ? wmHTML([].concat.apply([], built.groups.map(function (g) { return g.items; }))
+    if ($('listWm')) $('listWm').innerHTML = total ? wmHTML([].concat.apply([], built.groups.map(function (g) { return g.items; }))
       .filter(function (b) { return (all || b.extra) && !window.Store.isChecked(b.key); }), true) : '';
     $('listBody').innerHTML = built.groups.map(function (g) {
       return '<div class="list-group">' +
