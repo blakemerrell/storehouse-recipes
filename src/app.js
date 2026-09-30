@@ -1917,13 +1917,15 @@
       }
       by[k].g += g;
     });
-    var cart = [], find = [];
+    var cart = [], find = [], away = [];
     order.forEach(function (k) {
-      var l = by[k];
+      var l = by[k], we = P[k] && P[k].we;
+      /* Not a Walmart food at all: where it is bought instead. */
+      if (we && !l.own) { away.push({ key: k, label: l.label, where: we[0], url: we[1] }); return; }
       l.qty = l.pack && !l.own ? Math.min(12, Math.max(1, Math.ceil(l.g / l.pack - 0.1))) : 1;
       (l.id ? cart : find).push(l);
     });
-    return { cart: cart, find: find };
+    return { cart: cart, find: find, away: away };
   }
   function wmCartURL(cart) {
     return 'https://www.walmart.com/sc/cart/addToCart?items=' +
@@ -1937,7 +1939,7 @@
      and under a fold, the product each line goes in as, to change. */
   function wmHTML(items) {
     var L = wmLines(items);
-    if (!L.cart.length && !L.find.length) return '';
+    if (!L.cart.length && !L.find.length && !L.away.length) return '';
     var n = L.cart.reduce(function (t, l) { return t + l.qty; }, 0);
     var row = function (l) {
       return '<div class="wm-row"><div class="wm-rt"><b>' + esc(l.label) + '</b>' +
@@ -1952,7 +1954,10 @@
       '<div class="wm-sub">' + (L.cart.length ? 'Opens Walmart with ' + (n === L.cart.length ? 'them' : n + ' packs') + ' in your cart. ' : '') +
         (L.find.length ? L.find.length + ' to find yourself: ' + L.find.map(function (l) {
           return '<a href="' + esc(wmSearchURL(l.label)) + '" target="_blank" rel="noopener">' + esc(l.label) + '</a>';
-        }).join(', ') : '') + '</div>' +
+        }).join(', ') : '') +
+        (L.away.length ? '<span class="wm-away">' + L.away.map(function (l) {
+          return esc(l.label) + ': <a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.where) + ' \u2197</a>';
+        }).join(' \u00b7 ') + '</span>' : '') + '</div>' +
       '<details class="wm-fix"><summary>Check the products \u203a</summary>' +
         '<p>Paste an item number, or the product’s walmart.com link, to use a different product.</p>' +
         L.find.concat(L.cart).map(row).join('') + '</details>' +
