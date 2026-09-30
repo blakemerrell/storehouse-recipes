@@ -17263,8 +17263,8 @@
       var rest = items.length - show.length;
       return '<div class="kit-grp"><div class="kit-gh"><span>' + esc(c) + '</span><small>' + on + ' of ' + items.length + '</small></div>' +
         '<div class="pw-chips">' + show.map(function (i) {
-          return '<button class="pw-chip kit-pill" data-kitpill="' + esc(i.k) + '" aria-pressed="' + i.on + '">' +
-            (both ? '<i class="kit-dot ' + i.from + '" aria-hidden="true"></i>' : '') + esc(i.l) + '</button>';
+          return '<button class="pw-chip kit-pill' + (both && i.from !== 's' ? ' ext' : '') + '" data-kitpill="' + esc(i.k) + '" aria-pressed="' + i.on + '">' +
+            esc(i.l) + '</button>';
         }).join('') +
         (rest > 0 ? '<button class="kit-more" data-kitmore="' + esc(c) + '">+' + rest + ' more</button>'
           : open[c] && !q && items.length > 6 ? '<button class="kit-more" data-kitmore="' + esc(c) + '">Show less</button>' : '') +
@@ -17274,7 +17274,7 @@
       '<h2 class="step-h">What do you keep on hand?</h2>' +
       '<p class="step-sub">Tap what you nearly always have. It stays off the list unless it runs out. <b class="kit-n">' + n + '</b> on hand.</p>' +
       '<input class="pw-find" id="kitFind" type="search" placeholder="Find a food…" autocomplete="off" aria-label="Find a food" value="' + esc(S.kitQ || '') + '">' +
-      (both ? '<div class="kit-legend"><span><i class="kit-dot s"></i>restock from the storehouse</span><span><i class="kit-dot w"></i>from the store</span></div>' : '') +
+      (both ? '<p class="kit-legend">A dashed edge means the storehouse doesn\u2019t carry it: you restock it from a store.</p>' : '') +
       '<div id="kitGroups">' + body + '</div>';
   }
   function kitGroupsHTML() {
