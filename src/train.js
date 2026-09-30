@@ -56,12 +56,13 @@
       /* private mode: this session only */
       ok = false;
     }
-    if (k !== 'bsc.train' && k !== 'sh.trainLive') return;
+    if (k !== 'bsc.train' && k !== 'sh.trainLive' && k !== 'bsc.trainStamps') return ok;
     /* A workout saved while the log could not be written kept its live copy
        on the phone (saveWorkout); once the log is written, that copy is spent. */
     if (ok && k === 'bsc.train' && LSBAD[k] && !LIVE) { try { localStorage.removeItem('sh.trainLive'); } catch (e2) { /* as it was */ } }
     LSBAD[k] = !ok;
-    LSFULL = !!(LSBAD['bsc.train'] || LSBAD['sh.trainLive']);
+    LSFULL = !!(LSBAD['bsc.train'] || LSBAD['sh.trainLive'] || LSBAD['bsc.trainStamps']);
+    return ok;
   }
   /* Firestore refuses a write carrying `undefined` anywhere in it, and takes
      the whole write down with it, while localStorage quietly drops the key —
@@ -931,10 +932,14 @@
     PRSEEN = prSeen();
   }
 
+  /* The stamps only after the log they describe. A stamp is what makes a
+     change win on the other device, and a key with a stamp and no value is
+     how a deletion is sent: stamps saved over a log that failed to save
+     came back after a reload as "this workout was deleted" and "this
+     setting is the old one, newer", and every other device believed them. */
   function saveT() {
     REV++;
-    writeLS(LS_T, T);
-    writeLS(LS_TS, TS);
+    if (writeLS(LS_T, T)) writeLS(LS_TS, TS);
   }
 
   /* A change, recorded. The stamp is what makes it win on the other device;
@@ -1293,6 +1298,8 @@
   function barName(e) {
     var w = barFor(e), ex = lib(e);
     if (ex.q === 'sm' && w === barW('smith')) return 'Smith machine';
+    // a sled is never an Olympic bar, whatever it weighs
+    if (SLED[e]) return 'Sled';
     for (var i = 0; i < BARS.length; i++) if ((T.pr.u === 'kg' ? BARS[i].kg : BARS[i].lb) === w) return BARS[i].n;
     return 'Bar';
   }
@@ -1582,6 +1589,18 @@
     sets.forEach(function (s) { var v = e1rm(conv(s.w, u), s.r); if (v > b) b = v; });
     return b;
   }
+  /* A lift's best in a session, for comparing one session with another. On
+     an assisted lift the weight typed is the machine's help, so bestE1 read
+     less help as less lifted: 60 lb of help down to 50 held the back's sets
+     "because you were weaker". There it is you, less the help, when your
+     weight is known, and nothing to compare when it is not. */
+  function liftE1(x, wo) {
+    if (!ASST[x.e]) return bestE1(x.s, wo.u);
+    var bw = bwFor(x.e, wo), b = 0;
+    if (!fin(bw)) return 0;
+    x.s.forEach(function (z) { var v = e1Of(x.e, conv(z.w, wo.u), z.r, bw); if (v > b) b = v; });
+    return b;
+  }
   // the best set on an assisted lift: the least help, then the most reps
   function leastHelp(sets, u) {
     var t = null;
@@ -1803,7 +1822,7 @@
       if (musOf(x.e) !== m) return false;
       var p = exIn(a, x.e);
       if (!p) return false;
-      var ea = bestE1(p.s, a.u), eb = bestE1(x.s, b.u);
+      var ea = liftE1(p, a), eb = liftE1(x, b);
       return ea > 0 && eb < ea * 0.97;
     });
   }
@@ -3534,7 +3553,7 @@
       if (wo.st < from || wo.st > now || wo.dl) return;
       wo.x.forEach(function (x) {
         if (!x.s.length) return;
-        var v = bestE1(x.s, wo.u);
+        var v = liftE1(x, wo);
         if (!(v > 0)) v = Math.max.apply(null, x.s.map(function (s) { return s.r; }));
         (per[x.e] = per[x.e] || []).push(v);
       });
@@ -4087,7 +4106,8 @@
     var gs = moveGroups(), g = -1;
     gs.forEach(function (grp, k) { if (grp.indexOf(i) >= 0) g = k; });
     if (g < 0 || gs.length < 2) return;
-    DRAG = { id: ev.pointerId, g: g, gs: gs, y0: ev.clientY, y: ev.clientY, on: false, t: 0, k: g, raf: 0 };
+    // lw and n: the workout the indices belong to, checked again at the drop
+    DRAG = { id: ev.pointerId, g: g, gs: gs, y0: ev.clientY, y: ev.clientY, on: false, t: 0, k: g, raf: 0, lw: LIVE.id, n: LIVE.x.length };
     try { grip.setPointerCapture(ev.pointerId); } catch (e) { /* an old browser: the document still hears the moves */ }
     DRAG.t = setTimeout(dragFold, 220);
   }
@@ -4150,7 +4170,10 @@
     if (!d.on) return;
     var view = $('view-train');
     if (view) view.classList.remove('tr-reo');
-    if (!cancel && d.k !== d.g && LIVE) {
+    /* The indices were taken from the workout as it was when the finger went
+       down. Another tab may have replaced it since; applied to that one they
+       would drop an exercise, or save holes that break every draw after. */
+    if (!cancel && d.k !== d.g && LIVE && LIVE.id === d.lw && LIVE.x.length === d.n) {
       var gs = d.gs.slice(), grp = gs.splice(d.g, 1)[0];
       gs.splice(d.k, 0, grp);
       var old = LIVE.x;
@@ -4344,7 +4367,8 @@
        back-offs — so its plan beats carrying the last set's weight forward. */
     var w = (x.fix || s.wu) && fin(s.tw) ? s.tw : cw !== null ? cw : fin(s.tw) ? s.tw : fin(s.pw) ? s.pw : ex.q === 'bw' ? 0 : null;
     // at home, a weight from the plan or last time is one your plates can make; one typed today stands
-    if (w !== null && w > 0 && onBar(ex) && homeNow() && !(cw !== null && w === cw && !(x.fix || s.wu))) {
+    // a sled's plates are not loaded on the home bar, so not snapped to what it makes
+    if (w !== null && w > 0 && onBar(ex) && !SLED[x.e] && homeNow() && !(cw !== null && w === cw && !(x.fix || s.wu))) {
       w = snapHome(w, fin(s.tw) && w === s.tw && fin(s.pw) && s.tw > s.pw);
     }
     /* Reps as weight does: once a set is done today, the next one expects
@@ -5317,7 +5341,7 @@
     wos.forEach(function (w) {
       if (w.dl) return;
       w.x.forEach(function (x) {
-        var v = bestE1(x.s, w.u);
+        var v = liftE1(x, w);
         if (!(v > 0)) return;
         var l = lifts[x.e] = lifts[x.e] || { a: v, b: v };
         l.b = v;
@@ -6483,7 +6507,7 @@
 
   // at home, a suggested weight your plates cannot make, and what it became
   function homeNote(x, i) {
-    if (!homeNow() || !onBar(lib(x.e))) return '';
+    if (!homeNow() || !onBar(lib(x.e)) || SLED[x.e]) return '';
     for (var j = 0; j < x.s.length; j++) {
       var s = x.s[j];
       if (s.t || s.wu || String(s.w).trim() !== '') continue;
@@ -8079,7 +8103,11 @@
         return '<button class="tr-chip on" data-t="s-unavoid" data-v="' + esc(e) + '" aria-label="Allow ' + esc(lib(e).n) + ' again">' +
           esc(lib(e).n) + ' &times;</button>';
       }).join('') + '</div>' : '<div class="tr-sub">Nothing yet. When you swap an exercise out, you can say never again.</div>') +
-      '<div class="tr-q"><div class="tr-ql">Weights in</div>' + chips('s-u', p.u, [['lb', 'Pounds'], ['kg', 'Kilograms']]) + '</div>' +
+      /* Not while a workout is open: its sets are saved in the unit it began
+         in, and the boxes would be labelled in the other, so 100 typed after
+         a switch to kilograms was kept as 100 pounds. */
+      '<div class="tr-q"><div class="tr-ql">Weights in</div>' + chips('s-u', p.u, [['lb', 'Pounds'], ['kg', 'Kilograms']], LIVE ? ' disabled' : '') +
+        (LIVE ? '<div class="tr-sub">Change this after the workout you have open: its sets are in ' + (LIVE.u === 'kg' ? 'kilograms' : 'pounds') + '.</div>' : '') + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Default bar</div>' +
         chips('s-bar', p.bar, p.u === 'kg' ? [[20, 'Olympic 20 kg'], [15, 'Short 15 kg'], [10, '10 kg']] : [[45, 'Olympic 45 lb'], [35, '35 lb'], [33, 'Short 33 lb'], [25, '25 lb']]) +
         '<div class="tr-own-r tr-barown"><input class="txt tr-barw" id="trBarDef" inputmode="decimal" autocomplete="off" placeholder="' + fmtN(p.bar) + '" aria-label="Default bar weight in ' + p.u + '">' +
@@ -8237,6 +8265,8 @@
         var bms = LIVE.ms && T.ms[LIVE.ms], tA = bms ? tmOf(bms, old.sl || old.e) : null, tB = bms ? tmOf(bms, e) : null;
         var ratio = tA && tB ? tB / tA : null;
         nx.fix = 1;
+        // its weights are the old lift's day now, not an effort-moved target: no line, no Undo to flatten them
+        delete nx.ef;
         if (old.main) nx.main = old.main;
         if (tB) nx.tm = tB;
         nx.s.forEach(function (z, j) {
@@ -9706,6 +9736,7 @@
     if (t === 's-unavoid') { T.pr.avoid = T.pr.avoid.filter(function (x) { return x !== v; }); stamp('pr'); drawSheet(); return; }
     if (t === 's-rp') { T.pr.rp = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-u') {
+      if (LIVE) return;
       var was = T.pr.u;
       T.pr.u = v;
       if (v !== was) T.pr.bar = v === 'kg' ? 20 : 45;
@@ -9859,6 +9890,12 @@
     document.addEventListener('pointermove', dragMove, { passive: false });
     document.addEventListener('pointerup', function (e) { dragEnd(e, false); });
     document.addEventListener('pointercancel', function (e) { dragEnd(e, true); });
+    /* A drag that never hears its pointerup, because the app went to the
+       background or the capture was taken, would hold draw() off for good:
+       each of these ends it where it started. */
+    document.addEventListener('lostpointercapture', function (e) { dragEnd(e, true); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) dragEnd(null, true); });
+    window.addEventListener('blur', function () { dragEnd(null, true); });
     window.addEventListener('storage', otherTab);
     /* The chime at the end of a rest needs a sound woken by a tap, and the
        tap was only ever the tick. Reopened mid-rest (killed, or reloaded for
@@ -10086,7 +10123,7 @@
       estDay: estDay, barred: barred, KEEP_SPLITS: KEEP_SPLITS, HABITS: HABITS, weeksOf: weeksOf, nextTm: nextTm,
       recommend: recommend, PROGS: PROGS, FOCUS: FOCUS, KITS: KITS, axWeek: axWeek, defaultsPr: defaultsPr,
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, sgList: sgList, csvRows: csvRows, ntKey: ntKey,
-      LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, barLabel: barLabel, onBar: onBar, stackHTML: stackHTML, elapsed: elapsed,
+      LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, barLabel: barLabel, onBar: onBar, liftE1: liftE1, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
       wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,

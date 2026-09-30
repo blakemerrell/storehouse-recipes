@@ -129,6 +129,18 @@
      makes every number on the screen wrong. So: a name, whatever you know of
      its macros, and it joins the single foods for good — typed once, tapped
      ever after. */
+  /* The key and name for a food being saved, never one already taken.
+     The key was the name, slugged, and written over whatever held it: a
+     second "Lunch", or "Café" beside "Caf", replaced the first, and every
+     past day holding it took the new numbers, which moved the intake log
+     and the measured burn behind them. A name in use gets a number instead. */
+  function mNewFoodKey(name, mine) {
+    var base = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') ||
+      ('x' + Date.now().toString(36));
+    var key = base, nm = name, n = 1;
+    while (Object.prototype.hasOwnProperty.call(mine, key)) { n++; key = base + '_' + n; nm = name + ' ' + n; }
+    return { key: key, name: nm };
+  }
   function mReadMyFoods() {
     try {
       var v = JSON.parse(localStorage.getItem('bsc.myFoods'));
@@ -1143,16 +1155,16 @@
           '<button class="day-item-name" data-open="' + esc(String(e.id)) + '">' + esc(r.name) +
             (e.lo ? ' <span class="day-tag">leftovers</span>' : '') + '</button>' +
           '<span class="day-ctl no-print">' +
-          (pwIsDinner(r) && !e.lo ? '<button class="day-sw" data-pswap="' + e.id + '" data-day="' + d[0] + '" ' +
+          (pwIsDinner(r) && !e.lo ? '<button class="day-sw" data-pswap="' + esc(String(e.id)) + '" data-day="' + d[0] + '" ' +
             'aria-label="Swap ' + esc(r.name) + ' for another dinner">↻</button>' : '') +
-          '<button class="day-x2" data-mult="' + e.id + '" data-day="' + d[0] + '" ' +
+          '<button class="day-x2" data-mult="' + esc(String(e.id)) + '" data-day="' + d[0] + '" ' +
             'title="How many times the recipe — the shopping list follows">' +
             '&times;' + fmtNum(e.x) + '</button>' +
-          '<button class="day-x" data-drop="' + e.id + '" data-day="' + d[0] + '" ' +
+          '<button class="day-x" data-drop="' + esc(String(e.id)) + '" data-day="' + d[0] + '" ' +
             'aria-label="Remove ' + esc(r.name) + '">&times;</button></span>' +
           /* Rated once it has been eaten: today and the days before it. */
           (di <= ti && !e.lo ? '<div class="day-rate no-print" role="group" aria-label="How was it?">' + RATE_BTN.map(function (b) {
-            return '<button data-prate="' + e.id + '" data-v="' + b[0] + '" aria-pressed="' + (rt === b[0]) + '" aria-label="' + b[2] + '">' + b[1] + '</button>';
+            return '<button data-prate="' + esc(String(e.id)) + '" data-v="' + b[0] + '" aria-pressed="' + (rt === b[0]) + '" aria-label="' + b[2] + '">' + b[1] + '</button>';
           }).join('') + '</div>' : '') +
         '</div>';
       }).join('');
@@ -2701,6 +2713,12 @@
      the page and comes back, and anything held only in memory would not make
      the trip. It is spent the first time this device knows who it is. */
   var mInviteBusy = false;
+  /* The invite said yes to, and whether the question is up. An invite link
+     used to join the moment it was opened by anyone signed in: moved out of
+     their own shared pantry, their plan, recipes and pantry handed to
+     whoever sent it, and their other phones told to follow, with no word on
+     screen. A link is somebody else's intent until you say it is yours. */
+  var mInviteOk = '', mInviteAsking = false;
   function mInviteGet() {
     try { return localStorage.getItem('bsc.invite') || ''; } catch (e) { return ''; }
   }
@@ -2712,6 +2730,21 @@
   function mInviteTry() {
     var tok = mInviteGet();
     if (!tok || mInviteBusy || !mAccount() || !window.Store.redeem) return;
+    if (mInviteOk !== tok) {
+      if (mInviteAsking) return;
+      mInviteAsking = true;
+      var cur = window.Store.house;
+      ask({ title: 'Join this shared pantry?',
+        body: 'You opened an invite link. Joining shares the meal plan, your recipes and the pantry on this phone with everyone in it.' +
+          (cur ? ' You will leave the pantry you share now.' : ''),
+        ok: 'Join' }, function (yes) {
+        mInviteAsking = false;
+        if (!yes) { mInviteSet(''); S.inviteMsg = ''; renderAll(); return; }
+        mInviteOk = tok;
+        mInviteTry();
+      });
+      return;
+    }
     mInviteBusy = true;
     mHouseTellNext = true;
     window.Store.redeem(tok).then(function () {
@@ -13826,9 +13859,8 @@
        the household. One of it is one plate — the whole meal as it stood —
        and it remembers its parts, sodium and fibre, so the kept salad still
        reads as beans, dressing and greens when you open it next Tuesday. */
-    var key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') ||
-      ('x' + Date.now().toString(36));
-    var mine = mReadMyFoods();
+    var mine = mReadMyFoods(), fresh = mNewFoodKey(name, mine), key = fresh.key;
+    name = fresh.name;
     /* kx: the calories no gram accounts for. mBuildFoods works a food's
        calories out from its grams whenever it has any, and a part that was
        only ever a number of calories — "700 at a friend's" — has none, so a
@@ -16845,6 +16877,7 @@
      the interface, and nothing in the interface calls it. */
   window.__macroLab = {
     forget: function () { delete MDAYS[mViewKey()]; },
+    newFoodKey: mNewFoodKey,
     draft: mDraftDay,
     balance: function () {
       var t = mDayTargets(mViewKey());
@@ -17319,7 +17352,7 @@
       ask({ title: 'Back to the storehouse list?',
         body: 'Everything you ticked off comes back. Items you added yourself stay.',
         ok: 'Reset', danger: true }, function (ok) {
-          if (ok !== null && ok !== undefined) { window.Store.resetPantry(); renderPantry(); }
+          if (ok) { window.Store.resetPantry(); renderPantry(); }
         });
     });
 
@@ -18358,6 +18391,8 @@
         var fr = BY_ID[S.foodOpen.id], fx = fr && mFsState(fr).x, fsk = fsa.dataset.mfsadd, fk = mViewKey();
         if (!fr || !fx || !fsk) return;
         var fate = mAddsEaten(fk, fsk);
+        // disarmed first, as data-mpdone is: close() lands later, and a second tap in between added it again
+        S.foodOpen = null;
         mEditDay(fk, function (d5) {
           (d5[fsk] = d5[fsk] || []).push({ id: fr.id, x: fx, eaten: fate });
         });
@@ -18370,6 +18405,7 @@
       if (mcp && S.mCopyFrom) {
         var toK = mViewKey(), csk = S.mCopyFrom.slot, fromK = mcp.dataset.mcopy;
         var its = mCopyItems(fromK, csk);
+        S.mCopyFrom = null;
         if (its.length) {
           var cate = mAddsEaten(toK, csk);
           mEditDay(toK, function (d6) {
@@ -18645,9 +18681,8 @@
            to check them against; that is a gap in what is known, not two
            answers to the same question. */
         if (pp || ff || cc) kc = 4 * pp + 4 * cc + 9 * ff;
-        var fkey = nm.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') ||
-          ('x' + Date.now().toString(36));
-        var allF = mReadMyFoods();
+        var allF = mReadMyFoods(), ffresh = mNewFoodKey(nm, allF), fkey = ffresh.key;
+        nm = ffresh.name;
         allF[fkey] = { name: nm, unit: nval('nfUnit') || 'serving', kcal: kc, p: pp, f: ff, c: cc };
         mWriteMyFoods(allF);
         mBuildFoods();
@@ -19421,7 +19456,11 @@
     popping = true;
     /* A dialog is not part of the modal, so closing the modal would leave the
        question sitting there over a page it no longer belongs to. */
-    if (D) closeDialog(false);
+    /* Back is Cancel, as Escape is: null, the one answer every question
+       reads as no. false read as yes to the pantry reset, which tested only
+       for null, so swiping back on "Back to the storehouse list?" emptied
+       the shelf it was asking about. */
+    if (D) closeDialog(null);
     if (id && BY_ID[id]) {
       depth = Math.max(0, depth - 1);
       S.openId = idOf(id);

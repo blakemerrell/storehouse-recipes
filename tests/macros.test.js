@@ -994,6 +994,12 @@ module.exports = {
         !!document.querySelector('#nfKcal') && !!document.querySelector('#nfP')));
     await p.click('[data-nf="save"]');
     await p.waitForTimeout(200);
+    const foodKeys = await p.evaluate(() => {
+      const k = window.__macroLab.newFoodKey, mine = { lunch: {}, caf: {}, lunch_2: {} };
+      return [k('Lunch', mine), k('Café', mine), k('Soup', mine)].map((x) => x.key + '/' + x.name).join();
+    });
+    t.ok('a food saved under a name already taken gets a number, rather than rewriting the old one and every day that holds it',
+      foodKeys === 'lunch_3/Lunch 3,caf_2/Café 2,soup/Soup', foodKeys);
     t.ok('a nameless one is refused, since it could never be found again',
       /needs a name/i.test(await p.textContent('#nfNote')));
     await p.fill('#nfName', 'Chicken tamale');
