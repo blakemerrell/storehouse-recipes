@@ -67,6 +67,21 @@ module.exports = {
     t.ok('a storehouse line set to Buy moves to To buy', g0.store === 'Storehouse order' && g2 === 'To buy',
       JSON.stringify({ was: g0.store, now: g2, inCart }));
 
+    /* One tap is one change: the two writes behind Have are saved and drawn
+       once, not once each. */
+    const saves = await p.evaluate(async (k) => {
+      let n = 0;
+      const was = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, v) { if (key === 'bsc.kitchen') n++; return was.call(this, key, v); };
+      document.querySelector('#listBody [data-src="' + k + '"][data-v="h"]').click();
+      await new Promise((r) => setTimeout(r, 200));
+      Storage.prototype.setItem = was;
+      return n;
+    }, pick.s);
+    t.ok('marking a line Have saves once, not once per write behind it', saves === 1, 'saves: ' + saves);
+    await p.click('#listBody [data-src="' + pick.s + '"][data-v="b"]');
+    await p.waitForTimeout(200);
+
     /* Off the kitchen: tap its pill again. */
     await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
     await p.waitForTimeout(250);

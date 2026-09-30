@@ -15,7 +15,9 @@ module.exports = {
 
     /* Tuesday already has a dinner; the answers are remembered from last time. */
     const tueId = await p.evaluate(() => {
-      localStorage.setItem('sh.pw', JSON.stringify({ days: ['mon', 'tue', 'wed', 'thu', 'fri'], ppl: 4, bud: 60, t: 45, avoid: ['Pork'], shelf: false }));
+      localStorage.setItem('sh.pw', JSON.stringify({ days: ['mon', 'tue', 'wed', 'thu', 'fri'], ppl: 4, bud: 60, t: 45, avoid: ['Pork'] }));
+      /* Buying everything is Plan's step 1 now: Store only. */
+      window.Store.setOpt('store', false);
       const r = window.RECIPES.find((x) => x.book === 2 && x.secNum === 3);
       window.Store.addToDay(r.id, 'tue', 1);
       return r.id;
@@ -27,12 +29,12 @@ module.exports = {
 
     const q = await p.evaluate(() => {
       const on = (q) => [...document.querySelectorAll('[data-pwq="' + q + '"][aria-pressed="true"]')].map((b) => b.dataset.pwv);
-      return { days: on('days'), ppl: on('ppl'), t: on('t'), avoid: on('avoid'), shelf: on('shelf'),
+      return { days: on('days'), ppl: on('ppl'), t: on('t'), avoid: on('avoid'), 
         bud: (document.getElementById('pwBudV') || {}).textContent };
     });
     t.ok('Plan my week opens on the questions, with last time’s answers',
       q.days.join() === 'mon,tue,wed,thu,fri' && q.ppl.join() === '4' && q.t.join() === '45' && q.avoid.join() === 'Pork' &&
-        q.shelf.join() === '0' && q.bud === '$60', JSON.stringify(q));
+        q.bud === '$60', JSON.stringify(q));
 
     /* The screen: the count follows the answers, a typed ingredient comes
        off, and too few to fill the nights holds the button back. */
@@ -116,8 +118,8 @@ module.exports = {
     t.ok('the shopping list is every ingredient, priced, and its total is its lines added up',
       list.lines > 5 && Math.abs(Number((list.head.match(/\$(\d+(?:\.\d+)?)/) || [])[1]) - list.sum) <= list.lines,
       JSON.stringify(list));
-    t.ok('buying everything, it is one list to buy, not a storehouse shelf with prices on it',
-      /^To buy$/i.test(list.first.trim()) && await p.evaluate(() => document.querySelectorAll('.pw-grp').length === 1), list.first);
+    t.ok('buying everything (Store only), the list opens on what to buy, with no storehouse order in it',
+      /^To buy$/i.test(list.first.trim()) && await p.evaluate(() => ![...document.querySelectorAll('.pw-grp')].some((g) => /storehouse/i.test(g.textContent))), list.first);
 
     /* The picker has chance in it, so one run proves little: forty weeks,
        each held to every rule. */

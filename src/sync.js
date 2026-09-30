@@ -654,11 +654,19 @@ window.Store = (function () {
   }
 
   // ------------------------------------------------------------------ writes
+  /* Several writes that are one change — a week of dinners, a food moved
+     from the shop to the kitchen — derive, save and redraw once, not once a
+     write. The remote halves still go in order. */
+  var batching = 0, batched = [];
   function push(remote, localChange) {
     localChange();
-    derive();
+    derive();       // always: the next write in a batch reads what this one left
+    if (batching) { batched.push(remote); return; }
     saveLocal();
     emit();
+    send(remote);
+  }
+  function send(remote) {
     /* Any state where we are actually joined. Firestore queues a write made
        with no signal and sends it when there is some, so refusing to try is
        the one thing that would genuinely lose it. */
@@ -673,6 +681,17 @@ window.Store = (function () {
        first snapshot to arrive adopted the household over the top of it. Held
        here instead, and sent by connect() before it starts listening. */
     if (house && configured()) queued.push(remote);
+  }
+  function batch(fn) {
+    batching++;
+    try { fn(); } finally {
+      batching--;
+      if (!batching && batched.length) {
+        var go = batched; batched = [];
+        saveLocal(); emit();
+        go.forEach(send);
+      }
+    }
   }
 
   /* In order, and not cleared until they are away — a flush that fails must
@@ -1134,7 +1153,9 @@ window.Store = (function () {
       writeDay(day, list);
     },
 
-    /* The four shared maps, one setter each way. */
+    batch: batch,
+
+    /* The shared maps, one setter each way. */
     kitchen: function (key) { return state.kitchen[key]; },
     kitchenAll: function () { return state.kitchen; },
     setKitchen: function (key, v) { setMapKey('kitchen', key, v === 1 || v === 0 ? v : null); },

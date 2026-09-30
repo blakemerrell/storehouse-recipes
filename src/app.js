@@ -1182,8 +1182,10 @@
     if (!nx) { S.pswapSeen[day] = [id]; nx = pwNext(a, picks, [id], day); }
     if (!nx) return;
     var x = window.Store.scaleOf(id, day);
-    window.Store.removeFromDay(id, day);
-    window.Store.addToDay(nx.r.id, day, x);
+    window.Store.batch(function () {
+      window.Store.removeFromDay(id, day);
+      window.Store.addToDay(nx.r.id, day, x);
+    });
   }
 
   // ------------------------------------------------------------- add to day
@@ -1237,8 +1239,8 @@
     if (n && have / n >= 0.7) return 'You have ' + have + ' of ' + n;
     return '';
   }
-  function adRow(r, lo) {
-    var x = lo ? 1 : pwX(r, pwAnswers().ppl), c = pwCost([{ r: r, x: x }], true), why = lo ? '' : adWhy(r);
+  function adRow(r, lo, ppl) {
+    var x = lo ? 1 : pwX(r, ppl || pwAnswers().ppl), c = pwCost([{ r: r, x: x }], true), why = lo ? '' : adWhy(r);
     return '<div class="ad-row"><button class="ad-mt" data-adopen="' + esc(String(r.id)) + '">' +
       '<span class="ad-n">' + esc(r.name) + '</span>' +
       '<span class="ad-m">' + esc(r.time || '') + (lo ? ' · leftovers, nothing to buy' : ' · ' + (c < 0.5 ? 'nothing to buy' : '~' + pwMoney(c))) + '</span>' +
@@ -1250,7 +1252,8 @@
     var pool = q ? (window.RECIPES || []).filter(function (r) { return r.name.toLowerCase().indexOf(q) >= 0; }) : adPool(A.f, A.day);
     pool = pool.filter(function (r) { return window.Store.rating(r.id) !== -1 || q; });
     if (!pool.length) return '<p class="pw-note">' + (q ? 'No recipe called that.' : A.f === 'left' ? 'Nothing earlier in the week to have again.' : 'Nothing here yet.') + '</p>';
-    return pool.slice(0, 40).map(function (r) { return adRow(r, !q && A.f === 'left'); }).join('') +
+    var ppl = pwAnswers().ppl;
+    return pool.slice(0, 40).map(function (r) { return adRow(r, !q && A.f === 'left', ppl); }).join('') +
       (pool.length > 40 ? '<p class="pw-note">' + (pool.length - 40) + ' more. Search to narrow them.</p>' : '');
   }
   function addHTML() {
@@ -1354,7 +1357,10 @@
       ing: list(a.ing, function (x) { return typeof x === 'string' && !!(window.PANTRY || {})[x]; }),
       rec: [0, 2, 4].indexOf(a.rec) >= 0 ? a.rec : 0,
       lo: [0, 1, 2].indexOf(a.lo) >= 0 ? a.lo : 0,
-      shelf: a.shelf !== false
+      /* What is on hand and what the storehouse gives are free. Whether the
+         storehouse is part of it at all is Plan's step 1 now, not a
+         question here. */
+      shelf: true
     };
   }
   function pwSave(a) { try { localStorage.setItem(PW_KEY, JSON.stringify(a)); } catch (e) { /* private */ } }
@@ -1603,8 +1609,7 @@
         pwChips('lo', [[0, 'None'], [1, 'One'], [2, 'Two']], a.lo) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Variety</div>' +
         pwChips('rec', [[0, 'Repeats are fine'], [2, 'Nothing from the last 2 weeks'], [4, 'Last 4 weeks']], a.rec) + '</div>' +
-      '<div class="pw-q"><div class="pw-ql">Use what’s already on the shelf?</div>' +
-        pwChips('shelf', [['1', 'Yes, count it as free'], ['0', 'No, buy everything']], a.shelf ? '1' : '0') + '</div>' +
+
       '<div class="pw-bar"><div class="pw-cnt' + (low ? ' low' : '') + '" role="status"><b>' + cnt.n + '</b> ' +
         (cnt.n === 1 ? 'dinner fits' : 'dinners fit') + '<span>' +
         (!cnt.need ? (a.days.length ? 'those nights already have dinners' : 'pick a night') :
@@ -1641,14 +1646,7 @@
     } else {
       var built = buildList(P.picks.filter(function (e) { return !e.lo; }).map(function (e) { return { r: e.r, x: e.x }; }));
       var total = 0;
-      /* What you have to go out for first; what is on the shelf after it.
-         Buying everything, there is no shelf to set apart: one list. */
       var gs = built.groups;
-      if (!a.shelf) {
-        gs = [{ title: 'To buy', items: [].concat.apply([], gs.map(function (g) { return g.items; }))
-          .map(function (b) { return Object.assign({}, b, { extra: true }); })
-          .sort(function (x1, x2) { return x1.label.localeCompare(x2.label); }) }];
-      }
       var groups = gs.slice().sort(function (g1, g2) {
         return (g1.items[0] && g1.items[0].extra ? 0 : 1) - (g2.items[0] && g2.items[0].extra ? 0 : 1);
       }).map(function (g) {
@@ -1694,8 +1692,7 @@
         var at = a[k].indexOf(v);
         if (at >= 0) a[k].splice(at, 1); else a[k].push(v);
         if (k === 'days') a.days.sort(function (x, y) { return PW_DAYS.indexOf(x) - PW_DAYS.indexOf(y); });
-      } else if (k === 'shelf') a.shelf = v === '1';
-      else if (k === 'fit') a.fit = v === '1';
+      } else if (k === 'fit') a.fit = v === '1';
       else a[k] = Number(v);
       pwSave(a);
       renderModal();
@@ -1727,7 +1724,9 @@
     if (op) { openRecipe(idOf(op.dataset.pwopen)); return; }
     if (e.target.closest('[data-pwadd]')) {
       var h = pwHist(), today = todayKey();
-      S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x, p.lo); h[String(p.r.id)] = today; });
+      window.Store.batch(function () {
+        S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x, p.lo); h[String(p.r.id)] = today; });
+      });
       try { localStorage.setItem(PW_HIST, JSON.stringify(h)); } catch (err) { /* private */ }
       close();
       if (S.view === 'plan') renderPlan();
@@ -1740,27 +1739,22 @@
   function setFoodSource(k, v) {
     var d = (window.PANTRY || {})[k];
     if (!d) return;
-    if (v === 'h') { window.Store.setKitchen(k, 1); window.Store.setSrc(k, null); return; }
-    window.Store.setKitchen(k, d.sp ? 0 : null);
-    window.Store.setSrc(k, v);
+    window.Store.batch(function () {
+      if (v === 'h') { window.Store.setKitchen(k, 1); window.Store.setSrc(k, null); return; }
+      window.Store.setKitchen(k, d.sp ? 0 : null);
+      window.Store.setSrc(k, v);
+    });
   }
   document.addEventListener('click', function (e) {
     if (!e.target.closest) return;
     var b = e.target.closest('[data-src]');
     if (b) { e.preventDefault(); setFoodSource(b.dataset.src, b.dataset.v); return; }
-    var kx = e.target.closest('[data-kitx]');
-    if (kx) { setFoodSource(kx.dataset.kitx, 'b'); window.Store.setSrc(kx.dataset.kitx, null); return; }
-    var ka = e.target.closest('[data-kit]');
-    if (ka) {
-      setFoodSource(ka.dataset.kit, 'h');
-      var f = $('kitFind'); if (f) { f.value = ''; f.focus(); }
-      var sg = $('kitSug'); if (sg) sg.innerHTML = '';
-      return;
-    }
-    if (e.target.closest('[data-store]')) window.Store.setOpt('store', !window.Store.opt('store', true));
   });
   document.addEventListener('input', function (e) {
-    if (e.target && e.target.id === 'kitFind') { S.kitQ = e.target.value; S.kitFocus = true; renderPantry(); }
+    if (e.target && e.target.id === 'kitFind') {
+      S.kitQ = e.target.value;
+      var g = $('kitGroups'); if (g) g.innerHTML = kitGroupsHTML();
+    }
   });
 
   // ------------------------------------------------------------ plan steps
@@ -1797,8 +1791,7 @@
     var wh = e.target.closest('[data-where]');
     if (wh) {
       var v = wh.dataset.where;
-      window.Store.setOpt('store', v !== 'w');
-      window.Store.setOpt('buy', v !== 'sh');
+      window.Store.batch(function () { window.Store.setOpt('store', v !== 'w'); window.Store.setOpt('buy', v !== 'sh'); });
       return;
     }
     if (e.target.closest('[data-near]')) { window.Store.setOpt('near', !window.Store.opt('near', false)); return; }
@@ -1809,8 +1802,9 @@
     var pill = e.target.closest('[data-kitpill]');
     if (pill) {
       var k = pill.dataset.kitpill, d = (window.PANTRY || {})[k];
-      if (foodSource(k) === 'h') { window.Store.setKitchen(k, d && d.sp ? 0 : null); window.Store.setSrc(k, null); }
-      else setFoodSource(k, 'h');
+      if (foodSource(k) === 'h') {
+        window.Store.batch(function () { window.Store.setKitchen(k, d && d.sp ? 0 : null); window.Store.setSrc(k, null); });
+      } else setFoodSource(k, 'h');
       return;
     }
     var cp = e.target.closest('[data-copyorder]');
@@ -1818,8 +1812,9 @@
       var lines = [].map.call(document.querySelectorAll('.list-group.where-s .list-row'), function (r) {
         return r.textContent.replace(/\s+/g, ' ').trim();
       }).join('\n');
-      var done = function () { cp.textContent = 'Copied'; setTimeout(function () { cp.textContent = 'Copy the order'; }, 1600); };
-      try { navigator.clipboard.writeText(lines).then(done, function () { window.prompt && void 0; }); } catch (err) { /* no clipboard */ }
+      var say = function (t) { cp.textContent = t; setTimeout(function () { cp.textContent = 'Copy the order'; }, 1800); };
+      var fail = function () { say('Couldn\u2019t copy \u2014 select the list instead'); };
+      try { navigator.clipboard.writeText(lines).then(function () { say('Copied'); }, fail); } catch (err) { fail(); }
     }
   });
   /* The three answers to "where does your food come from". */
@@ -1872,7 +1867,7 @@
      are the grams over the grams in one, rounded up. A food with no pack gets
      a grocery search, and an item number pasted here is this device's and
      wins over the book's. */
-  var WM_KEY = 'sh.wm', WM_ALL = 'sh.wmAll';
+  var WM_KEY = 'sh.wm';
   function wmOwn() {
     try { var o = JSON.parse(localStorage.getItem(WM_KEY)); return o && typeof o === 'object' ? o : {}; }
     catch (e) { return {}; }
@@ -1924,10 +1919,9 @@
     }).join('') + '</g></svg>';
   /* The block: one button for everything matched, a search for what is not,
      and under a fold, the product each line goes in as, to change. */
-  function wmHTML(items, allToggle) {
+  function wmHTML(items) {
     var L = wmLines(items);
-    var tog = (allToggle ? '<label class="wm-all"><input type="checkbox" data-wmall="1"' + (wmAll() ? ' checked' : '') + '> Include what’s on the shelf</label>' : '');
-    if (!L.cart.length && !L.find.length) return tog ? '<div class="wm">' + tog + '</div>' : '';
+    if (!L.cart.length && !L.find.length) return '';
     var n = L.cart.reduce(function (t, l) { return t + l.qty; }, 0);
     var row = function (l) {
       return '<div class="wm-row"><div class="wm-rt"><b>' + esc(l.label) + '</b>' +
@@ -1943,13 +1937,11 @@
         (L.find.length ? L.find.length + ' to find yourself: ' + L.find.map(function (l) {
           return '<a href="' + esc(wmSearchURL(l.label)) + '" target="_blank" rel="noopener">' + esc(l.label) + '</a>';
         }).join(', ') : '') + '</div>' +
-      tog +
       '<details class="wm-fix"><summary>Check the products \u203a</summary>' +
         '<p>Paste an item number, or the product’s walmart.com link, to use a different product.</p>' +
         L.find.concat(L.cart).map(row).join('') + '</details>' +
     '</div>';
   }
-  function wmAll() { try { return localStorage.getItem(WM_ALL) === '1'; } catch (e) { return false; } }
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (!t || !t.dataset) return;
@@ -1958,8 +1950,6 @@
       if (t.value.trim() && !id) { t.setCustomValidity('That is not a Walmart item number or product link'); t.reportValidity(); return; }
       t.setCustomValidity('');
       wmSetOwn(t.dataset.wmid, id);
-    } else if (t.dataset.wmall) {
-      try { localStorage.setItem(WM_ALL, t.checked ? '1' : '0'); } catch (err) { /* private */ }
     } else return;
     var open = !!(t.closest && t.closest('details[open]'));
     if (S.pwOpen) renderModal(); else if (S.view === 'list') renderList();
@@ -14336,19 +14326,12 @@
         bucket[key].g += it.g * e.x;
       });
     });
-    var group = function (title, wantExtra) {
-      var items = Object.keys(bucket).map(function (k) { return bucket[k]; })
-        .filter(function (b) { return b.extra === wantExtra; })
-        .sort(function (a, b) { return a.label.localeCompare(b.label); });
-      items.forEach(function (b) { b.qty = shopQty(b.g, b.unit, b.per, b.lad); });
-      return { title: title, items: items };
-    };
     /* A staple that has run out comes back onto the list whether or not a
        recipe this week calls for it, from wherever it is restocked. */
     Object.keys(window.Store.lowAll()).forEach(function (k) {
       var s = SHOP[k], d = (window.PANTRY || {})[k];
       if (!s || !d) return;
-      var from = window.Store.opt('store', true) && (window.Store.src(k) === 's' || (!window.Store.src(k) && storeCarries(k))) ? 's' : 'b';
+      var from = restockSource(k);
       if (!bucket[k]) bucket[k] = { key: k, g: d.wm ? d.wm[1] : 0, unit: s.u, per: s.p, lad: s.d, label: s.l };
       bucket[k].src = from; bucket[k].extra = from === 'b'; bucket[k].low = true;
     });
@@ -14361,7 +14344,6 @@
       items.forEach(function (b) { b.qty = b.g ? shopQty(b.g, b.unit, b.per, b.lad) : ''; if (b.low) b.qty = (b.qty ? b.qty + ' \u00b7 ' : '') + 'ran out'; });
       return { title: title, src: want, items: items };
     };
-    void group;
     return {
       groups: [bySrc(canBuy() ? 'To buy' : 'Needs a store', 'b'), bySrc('Storehouse order', 's'), bySrc('In your kitchen', 'h')]
         .filter(function (g) { return g.items.length; }),
@@ -14677,10 +14659,18 @@
     /* A dried spice is in the cupboard unless somebody said it is not, here
        or on the storehouse list. */
     if (k === undefined && d.sp && window.Store.pantryHas(key, true)) return 'h';
+    return restockSource(key);
+  }
+  /* Where a food comes from when the kitchen is out of it: the storehouse,
+     while the household shops it and it carries it (or a line was moved
+     there by hand), otherwise the shop. The one rule the list, the "ran out"
+     lines and the On hand dots all read. */
+  function restockSource(key) {
     if (!window.Store.opt('store', true)) return 'b';
     var sv = window.Store.src(key);
     if (sv) return sv;
-    return window.Store.pantryHas(key, !!d.s) ? 's' : 'b';
+    var d = (window.PANTRY || {})[key];
+    return window.Store.pantryHas(key, !!(d && d.s)) ? 's' : 'b';
   }
   /* What the storehouse carries, which is what the Pantry's storehouse list
      edits: the order, as the household has changed it. */
@@ -16109,8 +16099,8 @@
    * [data-check="milk"] before the render and after it.
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
-    'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid', 'data-wmall',
-    'data-src', 'data-kit', 'data-kitx', 'data-store', 'data-pwlo', 'data-where', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
+    'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid',
+    'data-src', 'data-where', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
     'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
@@ -17090,7 +17080,7 @@
       if (!groups[c]) { groups[c] = []; order.push(c); }
       var on = foodSource(k) === 'h';
       if (on) n++;
-      groups[c].push({ k: k, l: P[k].l, on: on, from: storeCarries(k) && window.Store.opt('store', true) ? 's' : 'w' });
+      groups[c].push({ k: k, l: P[k].l, on: on, from: restockSource(k) === 's' ? 's' : 'w' });
     });
     var body = order.map(function (c) {
       var items = groups[c].filter(function (i) { return !q || i.l.toLowerCase().indexOf(q) >= 0; });
@@ -17115,11 +17105,13 @@
       (both ? '<div class="kit-legend"><span><i class="kit-dot s"></i>restock from the storehouse</span><span><i class="kit-dot w"></i>from the store</span></div>' : '') +
       '<div id="kitGroups">' + body + '</div>';
   }
+  function kitGroupsHTML() {
+    var h = kitchenHTML(), at = h.indexOf('<div id="kitGroups">');
+    return h.slice(at + '<div id="kitGroups">'.length, h.length - '</div>'.length);
+  }
   function renderPantry() {
     if ($('kitchenBody')) $('kitchenBody').innerHTML = kitchenHTML();
     if ($('storePart')) $('storePart').classList.toggle('hide', !window.Store.opt('store', true));
-    var kf = $('kitFind');
-    if (kf && S.kitFocus) { kf.focus(); kf.setSelectionRange(kf.value.length, kf.value.length); S.kitFocus = false; }
     var shelves = pantryShelves();
     var kept = [], gone = [];
     shelves.forEach(function (sh) {
