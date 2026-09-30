@@ -355,6 +355,67 @@ module.exports = {
     t.ok('and is kept and shown as the words that were typed',
       hostile.weekName === HOSTILE && hostile.shownSomewhere, JSON.stringify(hostile));
 
+    /* ---- what another phone in the household can send ----
+     *
+     * A household code can be read aloud, so what arrives under it is input.
+     * A recipe id with a quote and an img tag in it went straight into four
+     * attributes of the plan grid and ran script on every member's phone; a
+     * day that was not a list took the plan and the list down for good. */
+    {
+      const q = await t.fresh();
+      const errs = [];
+      q.on('pageerror', (e) => errs.push(e.message));
+      await q.evaluate(() => {
+        // __pw is the plan-my-week test hook; this marker is its own
+        const bad = 'u1"><img src=x onerror="window.__idRan=1">';
+        const rec = (name) => ({ book: 3, secNum: 1, secName: 'Ours', name, servings: '2 servings', servN: 2,
+          ing: ['1 cup rice'], steps: ['Cook it.'], macro: { kcal: 300, p: 20, c: 30, f: 8, na: 300, fib: 3 } });
+        const mine = {}; mine[bad] = rec('Trap'); mine.uok1 = rec('Fine rice'); mine.constructor = rec('Proto');
+        localStorage.setItem('bsc.mine', JSON.stringify(mine));
+        localStorage.setItem('bsc.weeks', JSON.stringify({ w1: { name: 'This Week', ord: 0, checked: {},
+          plan: { mon: [bad, { i: 'uok1', x: 2 }], tue: 'not a list', wed: [{ i: {} }, 'constructor', null, 27], thu: [{ i: 27, x: 'lots' }] } } }));
+        localStorage.setItem('bsc.active', JSON.stringify('w1'));
+        localStorage.setItem('bsc.pantryNew', JSON.stringify({ a: { l: 5, c: 'constructor' }, b: { l: 'Rice', c: 'Grains' }, c: 'x' }));
+      });
+      await q.reload();
+      await q.click('.tab[data-view="plan"]');
+      await q.waitForTimeout(300);
+      const r = await q.evaluate(() => ({
+        ran: !!window.__idRan || !!document.querySelector('img[src="x"]'),
+        mon: window.Store.day('mon').map((e) => e.id + 'x' + e.x).join(),
+        tue: window.Store.day('tue').length, wed: window.Store.day('wed').map((e) => e.id).join(), thu: window.Store.day('thu').map((e) => e.x).join(),
+        mine: Object.keys(window.Store.state.mine).sort().join(), pn: Object.keys(window.Store.state.pantryNew).join(),
+        drawn: document.querySelectorAll('.day-item-name').length,
+      }));
+      t.ok('a hostile recipe id from the household never runs, and never arrives', !r.ran && r.mine === 'uok1', JSON.stringify(r));
+      t.ok('a day that is not a list, and entries that are not ids, are dropped; the rest of the week stands',
+        r.mon === 'uok1x2' && r.tue === 0 && r.wed === '27' && r.thu === '1' && r.drawn >= 3, JSON.stringify(r));
+      t.ok('a pantry item without a label is dropped', r.pn === 'b', r.pn);
+      t.ok('and nothing on the page threw', !errs.length, errs.join(' | '));
+      await q.context().close();
+    }
+
+    /* Back out of "Back to the storehouse list?" is Cancel, not Reset. */
+    {
+      const ctx = await t.browser.newContext({ viewport: { width: 1000, height: 900 } });
+      const q = await ctx.newPage();
+      await q.goto(t.base + 'index.html');
+      await q.evaluate(() => localStorage.clear());
+      await q.reload();
+      await q.waitForTimeout(500);
+      await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="pantry"]')).then(() => q.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
+      await q.waitForTimeout(300);
+      await q.evaluate(() => window.Store.setPantry('cottage_cheese', false));
+      await q.waitForTimeout(300);
+      await q.click('#pantryReset');
+      await q.waitForTimeout(300);
+      await q.goBack();
+      await q.waitForTimeout(500);
+      const r = await q.evaluate(() => ({ kept: window.Store.pantryHas('cottage_cheese', true), dlg: !!document.querySelector('#dialogRoot .dlg') }));
+      t.ok('swiping back on the reset question keeps what you ticked off', r.kept === false && !r.dlg, JSON.stringify(r));
+      await ctx.close();
+    }
+
     /* ---- the back gesture, on every sheet there is ---- */
     for (const [what, open] of [
       ['a recipe', async (q) => { await q.evaluate(() =>

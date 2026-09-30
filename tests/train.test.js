@@ -1728,6 +1728,20 @@ module.exports = {
     t.ok('let go at the top, the last exercise is first, and the cards open again', r.es[0] === lastE || r.es[1] === lastE, JSON.stringify({ was: drag.es, now: r.es }));
     t.ok('the list unfolds and the new order is kept', !r.on && r.kept.join() === r.es.join(), JSON.stringify(r));
     t.ok('nothing is lost or doubled by a drag', r.es.slice().sort().join() === drag.es.slice().sort().join(), r.es.join());
+    // a drag that never hears its pointerup (the app sent to the background) ends where it began
+    {
+      const before = await p.evaluate(() => window.Train._.state().LIVE.x.map((x) => x.e).join());
+      const g = await p.evaluate(() => { const b = document.querySelector('.tr-ex[data-xi="1"] .tr-grip'); b.scrollIntoView({ block: 'center' }); const a = b.getBoundingClientRect(); return { x: a.left + a.width / 2, y: a.top + a.height / 2 }; });
+      await p.mouse.move(g.x, g.y);
+      await p.mouse.down();
+      await p.waitForFunction(() => document.getElementById('view-train').classList.contains('tr-reo'), null, { timeout: 2000 }).catch(() => {});
+      await p.mouse.move(g.x, g.y + 140, { steps: 6 });
+      await p.evaluate(() => window.dispatchEvent(new Event('blur')));
+      r = await p.evaluate(() => ({ on: document.getElementById('view-train').classList.contains('tr-reo'), es: window.Train._.state().LIVE.x.map((x) => x.e).join(),
+        held: document.querySelectorAll('.tr-held').length }));
+      await p.mouse.up();
+      t.ok('a drag cut short by leaving the app unfolds, moves nothing, and draws again', !r.on && r.held === 0 && r.es === before, JSON.stringify({ r, before }));
+    }
 
     // a note that follows the exercise
     const e0 = await p.evaluate(() => window.Train._.state().LIVE.x[0].e);
@@ -2040,6 +2054,28 @@ module.exports = {
     t.ok('the sled counts as nothing, and says so: plates only', r.bar === '0,0,0' && r.say === 'plates only|plates only|plates only', JSON.stringify(r));
     t.ok('so 180 on a hack squat is two 45s a side', r.stk === '45, 45 a side', r.stk);
     t.ok('a Smith machine squat still starts on its own bar', r.smith === 20, r.smith);
+    r = await p.evaluate(() => {
+      const _ = window.Train._, T = _.state().T, k = _.ntKey('leg-press'), was = T.pr.bars[k];
+      T.pr.bars = Object.assign({}, T.pr.bars); T.pr.bars[k] = { e: 'leg-press', w: 45, u: T.pr.u };
+      const say = _.barLabel('leg-press');
+      if (was) T.pr.bars[k] = was; else delete T.pr.bars[k];
+      return say;
+    });
+    t.ok('a sled given a weight of its own is a sled, not an Olympic bar', r === 'Sled 45 lb', r);
+    // assisted lifts: less help is stronger, when your weight is known; nothing to compare when it is not
+    r = await p.evaluate(() => {
+      const _ = window.Train._, at = (help, bw) => _.liftE1({ e: 'as-pullup', s: [{ w: help, r: 8 }] }, Object.assign({ u: 'lb' }, bw ? { bw } : {}));
+      return { less: at(50, 180) > at(60, 180), none: at(50, 0), bench: _.liftE1({ e: 'bb-bench', s: [{ w: 200, r: 5 }] }, { u: 'lb' }) };
+    });
+    t.ok('an assisted pull-up with less help reads as stronger, not weaker', r.less && r.none === 0 && r.bench > 200, JSON.stringify(r));
+    // the unit is not changed under a workout that is open
+    await openSettings(p);
+    r = await p.evaluate(() => ({ off: [...document.querySelectorAll('[data-t="s-u"]')].every((b) => b.disabled), say: (document.querySelector('[data-t="s-u"]').closest('.tr-q') || {}).textContent || '' }));
+    t.ok('with a workout open, pounds and kilograms wait until it is done, and it says why', r.off && /after the workout you have open/.test(r.say), JSON.stringify(r));
+    await p.evaluate(() => { const b = document.querySelector('[data-t="s-u"][data-v="kg"]'); b.disabled = false; b.click(); });
+    r = await p.evaluate(() => window.Train._.state().T.pr.u);
+    t.ok('and a tap that gets through changes nothing', r === 'lb', r);
+    await p.click('.sheet-x');
     {
       // and on the card itself, where they had gone missing
       const q = await t.fresh();
@@ -3313,6 +3349,9 @@ module.exports = {
     await p.waitForSelector('.tr-done');
     r = await p.evaluate(() => ({ warn: (document.querySelector('.tr-done .tr-lsfull') || {}).textContent || '', live: !!localStorage.getItem('sh.trainLive') }));
     t.ok('a save that could not be written says so on the summary, and the workout’s live copy stays on the phone', /isn’t saved on it/.test(r.warn) && r.live, JSON.stringify(r));
+    r = await p.evaluate(() => ({ ts: JSON.parse(localStorage.getItem('bsc.trainStamps') || '{}'), mem: window.Train._.state().TS }));
+    t.ok('and its stamps are not saved over a log that was not: a reload would have sent it as deleted',
+      !Object.keys((r.ts || {}).wo || {}).length && Object.keys((r.mem || {}).wo || {}).length === 1, JSON.stringify(r));
     await p.click('.tr-done [data-t="close"]');
     r = await p.evaluate(() => ({ full: window.Train._.lsFull(), say: (document.querySelector('.tr-lsfull') || {}).textContent || '', live: !!window.Train._.state().LIVE }));
     t.ok('when the phone’s storage is full it says so, and what to do', r.full === true && /storage for the app is full/.test(r.say) && /Export a copy/.test(r.say) && !r.live, JSON.stringify(r));

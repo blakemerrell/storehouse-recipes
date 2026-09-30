@@ -179,9 +179,55 @@ window.Store = (function () {
   function num(v, fallback) { return typeof v === 'number' && isFinite(v) ? v : fallback; }
   function str(v, fallback) { return typeof v === 'string' ? v : fallback; }
 
-  function sane(v) {
+  /* A recipe id as this app makes them: a book's number, or a 'u' and
+     letters for one somebody wrote (newRecipeId). The id goes into HTML
+     attributes, into lookups on plain objects, and into Firestore paths, so
+     one that looks like anything else is somebody else's input, not ours:
+     a quote and an img tag in it ran script on every phone in the household,
+     and 'constructor' found something in every lookup table. Dropped at the
+     door, as a bad recipe is. */
+  var OWN_ID = /^u[A-Za-z0-9_-]{1,40}$/, BOOK_ID = /^\d{1,6}$/;
+  function idOk(v) {
+    if (typeof v === 'number') return v >= 0 && v < 1e6 && Math.floor(v) === v;
+    return typeof v === 'string' && (OWN_ID.test(v) || BOOK_ID.test(v));
+  }
+
+  /* A week's days: arrays of ids, or {i, x, lo} where the count or
+     leftovers matter (see writeDay). A day that arrived as anything else
+     took the list and the plan down on every phone in the household, and
+     stayed down, because the bad copy was saved before anything drew. */
+  function cleanPlan(v) {
+    var o = obj(v), out = {};
+    Object.keys(o).forEach(function (d) {
+      if (!Array.isArray(o[d])) return;
+      var list = [];
+      o[d].forEach(function (e) {
+        if (idOk(e)) { list.push(e); return; }
+        if (!e || typeof e !== 'object' || !idOk(e.i)) return;
+        var x = num(e.x, 1), z = { i: e.i, x: x > 0 && x <= 100 ? x : 1 };
+        if (e.lo === 1) z.lo = 1;
+        list.push(z);
+      });
+      if (list.length) out[d] = list;
+    });
+    return out;
+  }
+
+  // what somebody keeps that the books never mention: a label and a shelf, both words
+  function cleanPantryNew(v) {
+    var o = obj(v), out = {};
+    Object.keys(o).forEach(function (k) {
+      var it = o[k];
+      if (!it || typeof it !== 'object' || typeof it.l !== 'string' || !it.l.trim()) return;
+      out[k] = { l: it.l.slice(0, 120), c: typeof it.c === 'string' && it.c ? it.c.slice(0, 60) : 'Yours' };
+    });
+    return out;
+  }
+
+  function sane(v, key) {
     var src = obj(v), out = {};
     Object.keys(src).forEach(function (k) {
+      if (!key.test(k)) return;
       var r = src[k];
       if (!r || typeof r !== 'object' || Array.isArray(r)) return;
       if (r.book !== 1 && r.book !== 2 && r.book !== 3) return;
@@ -302,11 +348,11 @@ window.Store = (function () {
       weeks[k] = {
         name: typeof w.name === 'string' && w.name ? w.name : 'Untitled week',
         ord: typeof w.ord === 'number' ? w.ord : 0,
-        plan: obj(w.plan), checked: obj(w.checked)
+        plan: cleanPlan(w.plan), checked: obj(w.checked)
       };
     });
     if (!Object.keys(weeks).length) {
-      weeks[FIRST] = { name: 'This Week', ord: 0, plan: obj(d.plan), checked: obj(d.checked) };
+      weeks[FIRST] = { name: 'This Week', ord: 0, plan: cleanPlan(d.plan), checked: obj(d.checked) };
       made = true;
     }
     state.weeks = weeks;
@@ -318,8 +364,8 @@ window.Store = (function () {
        household, with nothing on screen to say why and no way back except
        clearing the browser. So they are checked at the door, where a bad one
        costs its own recipe and nothing else. */
-    state.mine = sane(d.mine);
-    state.edits = sane(d.edits);
+    state.mine = sane(d.mine, OWN_ID);
+    state.edits = sane(d.edits, BOOK_ID);
     /* The shelf travelled one way only. setPantry and addPantryItem have
        always written pantry.<key> and pantryNew.<key> up to the document, but
        nothing ever read them back — so the second phone in a household never
@@ -332,7 +378,7 @@ window.Store = (function () {
        chance to contribute them. An emptied shelf is a different thing and
        looks different: resetPantry writes pantry: {}, which is present. */
     if (d.pantry !== undefined) state.pantry = obj(d.pantry);
-    if (d.pantryNew !== undefined) state.pantryNew = obj(d.pantryNew);
+    if (d.pantryNew !== undefined) state.pantryNew = cleanPantryNew(d.pantryNew);
     MAPS.forEach(function (k) { if (d[k] !== undefined) state[k] = cleanMap(k, d[k]); });
     derive();
     return made;
