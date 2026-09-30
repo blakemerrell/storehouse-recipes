@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { impose } = require('./booklet.js');
+const { fixDates, keep } = require('./pdf-file.js');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'print');
@@ -51,10 +52,8 @@ function serve() {
 }
 
 function playwright() {
-  for (const m of ['playwright', '/opt/node22/lib/node_modules/playwright']) {
-    try { return require(m); } catch (e) { /* try the next */ }
-  }
-  console.error('Playwright is not installed. `npm i -D playwright` and try again.');
+  try { return require('playwright'); } catch (e) { /* below */ }
+  console.error('Playwright is not installed. `npm ci` and try again.');
   process.exit(2);
 }
 
@@ -208,6 +207,7 @@ function stampPageCounts(made) {
   await page.click('#bookBtn');
 
   const made = {};
+  const changed = [];
   for (const key of jobs) {
     await page.click('[data-print="' + key + '"]');
 
@@ -224,22 +224,40 @@ function stampPageCounts(made) {
 
     const file = path.join(OUT, BOOKS[key]);
     await page.emulateMedia({ media: 'print' });
-    await page.pdf({ path: file, width: '5.5in', height: '8.5in', printBackground: true, preferCSSPageSize: true });
+    const pdf = await page.pdf({ width: '5.5in', height: '8.5in', printBackground: true, preferCSSPageSize: true });
     await page.emulateMedia({ media: 'screen' });
+    /* Written only if the book actually changed. The same book renders to the
+       same bytes once its dates are fixed, and print/ is committed, so an
+       unchanged book rewritten is a few megabytes added to the history of
+       the repository for nothing. tools/pdf-file.js has the rest. */
+    const wrote = keep(file, fixDates(pdf));
+    if (wrote) changed.push(key);
 
     made[key] = last;
+    const size = (f) => String(Math.round(fs.statSync(f).size / 1024)).padStart(4) + ' KB';
     console.log(BOOKS[key].padEnd(26), String(last).padStart(3), 'pages  ',
-      String(Math.round(fs.statSync(file).size / 1024)).padStart(4) + ' KB');
+      wrote ? size(file) : size(file) + '  unchanged');
 
     /* The same book again, imposed on letter sheets. Not for the combined
        edition: 142 pages is 36 folded sheets, which is not a booklet, it is a
-       phone book. */
+       phone book.
+     *
+       Only when the book changed, or the booklet is missing. The booklet is
+       made from the book and from nothing else, so an unchanged book has an
+       unchanged booklet — and imposing it again would rewrite a booklet made
+       before its dates were fixed for the sake of the date alone. After a
+       change to tools/booklet.js itself, re-impose by hand:
+       node tools/booklet.js print/<book>.pdf */
     if (key !== 'all' && key !== 'one') {
       const bk = file.replace(/\.pdf$/, '-booklet.pdf');
+      if (!wrote && fs.existsSync(bk)) {
+        console.log(path.basename(bk).padEnd(26), '    unchanged');
+        continue;
+      }
       try {
         const r = await impose(file, bk);
         console.log(path.basename(bk).padEnd(26), String(r.sheets).padStart(3),
-          'sheets ', String(Math.round(fs.statSync(bk).size / 1024)).padStart(4) + ' KB');
+          'sheets ', size(bk) + (r.written ? '' : '  unchanged'));
       } catch (e) {
         console.log('  could not impose ' + path.basename(file) + ': ' + e.message);
       }
@@ -253,8 +271,12 @@ function stampPageCounts(made) {
   stampWelcome(made);
   stampApp();
   /* The covers on the print screen are page one of the files just written, so
-     they are remade here rather than left to be remembered. */
-  await require('./build-covers.js').build();
-  /* src/app.js just changed, and it is served cache-first at ?v=N. */
-  require('./bump-version.js').bump('books re-rendered');
+     they are remade here rather than left to be remembered — the ones whose
+     book changed, and no others. The service worker keeps the covers under a
+     version that is a hash of them, so a cover rewritten for nothing would be
+     a new version, and every phone fetching the app again. */
+  await require('./build-covers.js').build({ only: changed });
+  /* src/app.js may just have changed, and it is served from the cache at
+     ?v=N. N is a hash of the files, written in when the site is built for
+     deployment, so there is nothing to bump here. */
 })();

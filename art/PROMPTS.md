@@ -181,19 +181,21 @@ resting, mid-work.
 3. `node tools/prep-art.js --preview` first if you want a contact sheet to
    judge them side by side against the existing twelve before committing.
 4. Nothing to do here — `prep-art.js` writes the `EXTRAS` list in `sw.js` from
-   the manifest, and bumps `?v=` and the cache name itself.
+   the manifest, and the version moves by itself: `?v=` and both cache names
+   are hashes of the files, written in by `tools/build-site.js` when the site
+   is deployed.
 
-   That bump used to be a line of console output asking you to do it by hand,
-   and it matters more than it sounds. `data/art.js` is fetched at `?v=N` and
+   The version used to be a number, and moving it a line of console output
+   asking you to do it by hand. It matters more than it sounds. `data/art.js` is fetched at `?v=N` and
    served cache-first, so the cache is keyed by the URL: change the manifest
    without moving `N` and a phone with the app installed keeps serving the old
    one *indefinitely*, because there is nothing to invalidate. When these four
    engravings were added, a browser still holding the twelve-entry manifest
    laid out a 180-page book underneath a button offering the 184-page file —
    the four openers it did not know about — and no amount of reloading would
-   have fixed it, because a reload asks for the same URL. `data/stamp.json`
-   and `tests/offline.test.js` now fail if a covered file moves without its
-   version.
+   have fixed it, because a reload asks for the same URL. A version computed
+   from the files cannot be left behind by them, and `tests/offline.test.js`
+   checks that the built site's version is the hash of what it ships.
 5. `npm run build && npm run print` — each new opener adds about one page to
    its volume, and the READY_MADE page counts and the landing page are stamped
    automatically.

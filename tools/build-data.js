@@ -767,7 +767,8 @@ console.log('unmatched ingredient names:', allUnmatched.size);
 if (allUnmatched.size) console.log([...allUnmatched.keys()].slice(0, 40).join(' | '));
 console.log('Run and Not Be Weary median |Δkcal|:', medAbs + '%', ' within 20%:', within20 + '/' + b1.length, ' ≥30% off:', bigGap.length);
 
-/* data/recipes.js is fetched at ?v=N and served cache-first, so rewriting it
-   without moving N leaves every installed phone on the copy it already has.
-   No-ops when nothing actually changed. */
-require('./bump-version.js').bump('data rebuilt');
+/* data/recipes.js is fetched at ?v=N and served from the cache, so rewriting
+   it without moving N would leave every installed phone on the copy it has.
+   This used to bump N here. It does not need to now: N is a hash of the files,
+   written in by tools/build-site.js when the site is deployed, so a changed
+   data file is a new version with nothing to remember. */

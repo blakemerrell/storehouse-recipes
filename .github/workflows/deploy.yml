@@ -1,0 +1,87 @@
+# Publishes the site to GitHub Pages, from main.
+#
+# Pages used to serve the repository itself, straight off the branch. It now
+# serves _site/, which tools/build-site.js builds from the repository: the
+# version written into every ?v= and the service worker's cache names as a
+# hash of the files, the scripts minified, and the 105 MB of source art, the
+# tests and the tools left behind. The version is why this exists at all — it
+# used to be a number kept in the files, which was forgotten on one branch and
+# picked twice on two, and a number computed at deploy is neither.
+#
+# Before anything is published, the offline and updating suites run against
+# the very directory that is about to go out. A build that would strand
+# phones on an old copy, or leave them nothing to open offline, stops here.
+#
+# ONE SETTING, ONCE: Settings -> Pages -> Build and deployment -> Source must
+# say "GitHub Actions". While it still says "Deploy from a branch", GitHub goes
+# on publishing the raw repository from main by itself — which works, the
+# unbuilt app knows it is unbuilt and fetches everything fresh — and the
+# publish job below fails on purpose, naming the setting, rather than leaving
+# anyone to wonder which of the two is live. Flip it, then run this workflow
+# again from the Actions tab (it has a Run workflow button for exactly that).
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never one cancelled halfway: a newer push waits
+# for the one in flight and then goes out after it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and check the site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # No dependency cache here: this job hands its output to a deploy with
+      # write access to the site, and a cache is one more thing that could
+      # hand this job something it did not install itself.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Every script parses
+        run: for f in src/*.js sw.js tools/*.js tests/*.js; do node --check "$f" || exit 1; done
+      - name: Build the site
+        run: node tools/build-site.js
+      - run: npx playwright install --with-deps chromium
+      - name: Offline and updating, on the site about to be published
+        run: SITE=_site FAST=1 node tests/run.js offline upgrade
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Pages is set to publish from Actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # build_type is "workflow" for GitHub Actions, "legacy" for a branch
+          source=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type 2>/dev/null || echo "not readable")
+          if [ "$source" != "workflow" ]; then
+            [ "$source" = legacy ] && source="Deploy from a branch"
+            echo "::error title=Pages is not publishing from GitHub Actions::Settings -> Pages -> Build and deployment -> Source says '$source', not 'GitHub Actions'. Until it does, Pages keeps serving the unbuilt repository from main and this deploy is not what is live. Change it, then re-run this workflow from the Actions tab."
+            exit 1
+          fi
+      - id: deployment
+        uses: actions/deploy-pages@v5

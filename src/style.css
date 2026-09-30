@@ -3231,6 +3231,25 @@ select { max-width: 280px; }
 }
 .rp-foot span:last-child { text-align: right; }
 
+/* A recipe too tall for a page of its own, set so that it fits at full size.
+ *
+ * Side by side, a recipe is as tall as its taller half, and on the long ones
+ * that is always the method: the food-safety audit gave thirteen of them more
+ * method than a page holds, beside ingredient lists a quarter of that height.
+ * They were being shrunk, some to the 85% floor, to fit a page whose lower
+ * left was blank. Here the ingredients keep their column and the method runs
+ * on underneath them once they end — every one of the thirteen fits at full
+ * size with room to spare. Only fitToPaper() in src/app.js sets this, and only
+ * on a page holding one recipe that does not fit, so every other page is set
+ * exactly as before and the packing does not move. */
+.rp-run .rp-cols { display: block; }
+.rp-run .rp-cols::after { content: ''; display: block; clear: both; }
+.rp-run .rp-cols > div:first-child {
+  float: left; width: calc((100% - 17px) * 0.78 / 1.78); margin: 0 17px 6px 0;
+}
+.rp-run .rp-steps { display: block; }
+.rp-run .rp-step + .rp-step { margin-top: 5px; }
+
 /* ------------------------------------------------------------- detail */
 .scrim {
   position: fixed; inset: 0; background: oklch(0.26 0.02 60 / 0.55); z-index: 60;

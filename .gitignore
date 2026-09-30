@@ -7,3 +7,7 @@ art/contact-sheet.png
 
 # The Firestore emulator the rules check downloads (tests/rules/rules.check.js).
 .emulator/
+
+# The built site: tools/build-site.js writes it and the deploy publishes it.
+# It is never committed — the version it carries is computed, not kept.
+_site/

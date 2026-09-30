@@ -375,11 +375,7 @@ module.exports = {
       JSON.stringify(mid));
 
     const real = (() => {
-      let lib = null;
-      for (const m of ['pdf-lib', '/tmp/node_modules/pdf-lib']) {
-        try { lib = require(m); break; } catch (e) { /* try the next */ }
-      }
-      return lib;
+      try { return require('pdf-lib'); } catch (e) { return null; }
     })();
     if (!real) {
       t.ok('the page counts it advertises match the books', false, 'pdf-lib not available');

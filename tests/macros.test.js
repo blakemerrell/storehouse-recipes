@@ -10253,12 +10253,14 @@ module.exports = {
     /* The invariant the refactor bought, asserted on the source itself.
        Nine sites each remembered to redraw the sheet and two forgot, which is
        not a bug you fix — it is a shape you stop building. Two matches: the
-       declaration, and the one setter that tells anybody. */
-    const doors = await a2.evaluate(async () => {
-      const src = document.querySelector('script[src*="app.js"]').src;
-      const txt = await (await fetch(src)).text();
-      return (txt.match(/S_SYNC_STATE\s*=\s/g) || []).length;
-    });
+       declaration, and the one setter that tells anybody.
+     *
+       Read from the repository, the way the wipe check above reads it, and
+       not fetched from the page: the built site serves app.js minified, where
+       a local like this one is renamed, so the served text says nothing about
+       how many places assign it. The source is what the rule is about. */
+    const doors = (require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'app.js'), 'utf8')
+      .match(/S_SYNC_STATE\s*=\s/g) || []).length;
     t.ok('every sync transition still goes through the one door that tells you',
       doors === 2, doors + ' assignments — one of them is not the setter');
 
