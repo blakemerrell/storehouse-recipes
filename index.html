@@ -14,7 +14,7 @@
 <!-- the typefaces are in this repository; nothing is fetched from anywhere else -->
 <link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/work-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="src/style.css?v=558">
+<link rel="stylesheet" href="src/style.css?v=559">
 </head>
 <body>
 
@@ -168,7 +168,9 @@
       </div>
     </div>
     <div class="weekbar no-print" id="weekBar"></div>
-    <div class="plan-note">Open any recipe under Recipes and assign it to a day. The shopping list builds itself from whatever lands here, and a week stays put until you change it &mdash; there are no dates, so Monday is just Monday. Keep as many weeks as you like and switch between them above; each one carries its own shopping list. Sharing with someone? Switching the week moves every phone at once.</div>
+    <div class="plan-sum" id="planSum"></div>
+    <details class="plan-about no-print"><summary aria-label="About the week">&#9432; How the week works</summary>
+    <div class="plan-note">Tap + Add on a day, or open any recipe under Recipes and assign it to a day. The shopping list builds itself from whatever lands here, and a week stays put until you change it &mdash; there are no dates, so Monday is just Monday. Keep as many weeks as you like and switch between them above; each one carries its own shopping list. Sharing with someone? Switching the week moves every phone at once.</div></details>
     <div class="plan-grid" id="planGrid"></div>
   </div>
 </section>
@@ -404,16 +406,16 @@
 <div id="trainRoot"></div>
 <div id="dialogRoot"></div>
 
-<script src="data/recipes.js?v=558"></script>
-<script src="data/nutrition.js?v=558"></script>
-<script src="data/art.js?v=558"></script>
-<script src="data/qr.js?v=558"></script>
-<script src="src/config.js?v=558"></script>
+<script src="data/recipes.js?v=559"></script>
+<script src="data/nutrition.js?v=559"></script>
+<script src="data/art.js?v=559"></script>
+<script src="data/qr.js?v=559"></script>
+<script src="src/config.js?v=559"></script>
 <!-- ?v= so a phone that has the old file cached fetches this one -->
-<script src="src/sync.js?v=558"></script>
+<script src="src/sync.js?v=559"></script>
 <!-- before app.js, which calls into it while it boots -->
-<script src="src/train.js?v=558"></script>
-<script src="src/app.js?v=558"></script>
+<script src="src/train.js?v=559"></script>
+<script src="src/app.js?v=559"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped
    when the page is opened straight off the disk.

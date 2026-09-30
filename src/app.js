@@ -1063,7 +1063,7 @@
     var out = [], at = {};
     DAYS.forEach(function (d) {
       window.Store.day(d[0]).forEach(function (e) {
-        if (!BY_ID[e.id]) return;
+        if (!BY_ID[e.id] || e.lo) return;    // leftovers are eaten, not bought
         if (at[e.id] === undefined) { at[e.id] = out.length; out.push({ r: BY_ID[e.id], x: e.x }); }
         else out[at[e.id]].x += e.x;
       });
@@ -1114,28 +1114,184 @@
   // taps cycle through these, so a Sunday roast for twice the family is two taps
   var SCALES = [1, 2, 3, 4, 0.5];
 
+  /* Which day of the plan's week is today, Monday 0. The week has no dates,
+     but the days before today are the ones that have been eaten. */
+  function todayIx() { return (new Date().getDay() + 6) % 7; }
+  var RATE_BTN = [[2, '★', 'A favourite'], [1, '👍', 'Good'], [-1, '👎', 'Not again']];
   function renderPlan() {
     renderWeeks();
-    $('planGrid').innerHTML = DAYS.map(function (d) {
+    var ti = todayIx(), a = pwAnswers();
+    /* The week at a glance: nights with a dinner, what is left to buy, and
+       how long the list is. */
+    var nights = DAYS.filter(function (d) {
+      return window.Store.day(d[0]).some(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); });
+    }).length;
+    var ents = planEntries(), cost = pwCost(ents, true);
+    var nList = buildList(ents).groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    if ($('planSum')) $('planSum').innerHTML = ents.length ?
+      '<div><b>' + nights + ' of 7</b><span>nights planned</span></div>' +
+      '<div><b>' + (cost < 0.5 ? '$0' : '~' + pwMoney(cost)) + '</b><span>to buy</span></div>' +
+      '<div><b>' + nList + '</b><span>on the list</span></div>' : '';
+    $('planGrid').innerHTML = DAYS.map(function (d, di) {
       var list = window.Store.day(d[0]).filter(function (e) { return BY_ID[e.id]; });
       var items = list.map(function (e) {
-        var r = BY_ID[e.id];
-        return '<div class="day-item">' +
-          '<span class="day-item-name">' + esc(r.name) + '</span>' +
-          '<button class="day-x no-print" data-drop="' + e.id + '" data-day="' + d[0] + '" ' +
-            'aria-label="Remove ' + esc(r.name) + '">&times;</button>' +
-          '<button class="day-x2 no-print" data-mult="' + e.id + '" data-day="' + d[0] + '" ' +
+        var r = BY_ID[e.id], rt = window.Store.rating(r.id);
+        return '<div class="day-item' + (e.lo ? ' lo' : '') + '">' +
+          '<button class="day-item-name" data-open="' + esc(String(e.id)) + '">' + esc(r.name) +
+            (e.lo ? ' <span class="day-tag">leftovers</span>' : '') + '</button>' +
+          '<span class="day-ctl no-print">' +
+          (pwIsDinner(r) && !e.lo ? '<button class="day-sw" data-pswap="' + e.id + '" data-day="' + d[0] + '" ' +
+            'aria-label="Swap ' + esc(r.name) + ' for another dinner">↻</button>' : '') +
+          '<button class="day-x2" data-mult="' + e.id + '" data-day="' + d[0] + '" ' +
             'title="How many times the recipe — the shopping list follows">' +
             '&times;' + fmtNum(e.x) + '</button>' +
+          '<button class="day-x" data-drop="' + e.id + '" data-day="' + d[0] + '" ' +
+            'aria-label="Remove ' + esc(r.name) + '">&times;</button></span>' +
+          /* Rated once it has been eaten: today and the days before it. */
+          (di <= ti && !e.lo ? '<div class="day-rate no-print" role="group" aria-label="How was it?">' + RATE_BTN.map(function (b) {
+            return '<button data-prate="' + e.id + '" data-v="' + b[0] + '" aria-pressed="' + (rt === b[0]) + '" aria-label="' + b[2] + '">' + b[1] + '</button>';
+          }).join('') + '</div>' : '') +
         '</div>';
       }).join('');
-      return '<div class="day">' +
-        '<div class="day-name">' + d[1] + '</div>' +
+      return '<div class="day' + (di === ti ? ' today' : '') + '">' +
+        '<div class="day-name"><span>' + d[1] + (di === ti ? ' · today' : '') + '</span>' +
+          '<button class="day-add no-print" data-addday="' + d[0] + '" aria-label="Add to ' + d[1] + '">+ Add</button></div>' +
         '<div class="day-body">' + items +
           (list.length ? '' : '<div class="day-empty">&mdash;</div>') +
         '</div></div>';
     }).join('');
   }
+
+  /* One night swapped, by the same rules Plan my week picks with: the rest
+     of the week stays, the answers are the ones last given. */
+  function planSwap(id, day) {
+    var a = pwAnswers(), picks = [];
+    DAYS.forEach(function (d) {
+      window.Store.day(d[0]).forEach(function (e) {
+        var r = BY_ID[e.id];
+        if (r && pwIsDinner(r) && !(d[0] === day && e.id === id)) picks.push({ r: r, x: e.x });
+      });
+    });
+    S.pswapSeen = S.pswapSeen || {};
+    var seen = S.pswapSeen[day] = S.pswapSeen[day] || [];
+    seen.push(id);
+    var nx = pwNext(a, picks, seen, day);
+    if (!nx) { S.pswapSeen[day] = [id]; nx = pwNext(a, picks, [id], day); }
+    if (!nx) return;
+    var x = window.Store.scaleOf(id, day);
+    window.Store.removeFromDay(id, day);
+    window.Store.addToDay(nx.r.id, day, x);
+  }
+
+  // ------------------------------------------------------------- add to day
+  /* + Add on a day: a suggestion, a search of every recipe, and a few ways
+     in. What it adds goes on at the household's size (Plan my week's "how
+     many are eating"), like everything the sheet picks. */
+  var AD_SECS = { breakfast: ['1-1', '2-1'], lunch: ['1-3', '2-2'] };
+  function adPool(f, day) {
+    var R = window.RECIPES || [];
+    if (f === 'dinner') return R.filter(pwIsDinner);
+    if (AD_SECS[f]) return R.filter(function (r) { return AD_SECS[f].indexOf(r.book + '-' + r.secNum) >= 0; });
+    if (f === 'fav') return R.filter(function (r) { return window.Store.isFav(r.id) || window.Store.rating(r.id) === 2; });
+    if (f === 'before') {
+      var seen = pwRecent(52);
+      return R.filter(function (r) { return seen[String(r.id)]; });
+    }
+    if (f === 'left') {
+      var before = DAYS.map(function (d) { return d[0]; }).slice(0, PW_DAYS.indexOf(day)), ids = {};
+      before.forEach(function (d) { window.Store.day(d).forEach(function (e) { if (!e.lo) ids[e.id] = 1; }); });
+      return R.filter(function (r) { return ids[r.id]; });
+    }
+    return R;
+  }
+  function adSuggest() {
+    var A = S.add, a = pwAnswers(), picks = [];
+    DAYS.forEach(function (d) {
+      window.Store.day(d[0]).forEach(function (e) { var r = BY_ID[e.id]; if (r && pwIsDinner(r)) picks.push({ r: r, x: e.x }); });
+    });
+    var nx = pwNext(a, picks, A.seen, A.day);
+    if (!nx && A.seen.length) { A.seen = []; nx = pwNext(a, picks, [], A.day); }
+    A.sug = nx ? nx.r.id : null;
+  }
+  /* Why this one: what it shares with the rest of the week, or that the
+     kitchen already has it. */
+  function adWhy(r) {
+    var have = 0, n = 0, shared = {};
+    DAYS.forEach(function (d) {
+      if (d[0] === S.add.day) return;
+      window.Store.day(d[0]).forEach(function (e) {
+        var o = BY_ID[e.id];
+        if (o && !e.lo) (o.ingp || []).forEach(function (it) { if (pwMain(o) === it.k) shared[it.k] = d[2]; });
+      });
+    });
+    var sh = pwMain(r) && shared[pwMain(r)];
+    (r.ingp || []).forEach(function (it) {
+      if (!it.k || it.k === 'water' || it.k === 'free' || it.o) return;
+      n++; if (!itemNeedsBuying(it)) have++;
+    });
+    if (sh) return 'Uses ' + sh + '’s ' + pwIngName(pwMain(r)).toLowerCase();
+    if (n && have === n) return 'Everything’s on hand';
+    if (n && have / n >= 0.7) return 'You have ' + have + ' of ' + n;
+    return '';
+  }
+  function adRow(r, lo) {
+    var x = lo ? 1 : pwX(r, pwAnswers().ppl), c = pwCost([{ r: r, x: x }], true), why = lo ? '' : adWhy(r);
+    return '<div class="ad-row"><button class="ad-mt" data-adopen="' + esc(String(r.id)) + '">' +
+      '<span class="ad-n">' + esc(r.name) + '</span>' +
+      '<span class="ad-m">' + esc(r.time || '') + (lo ? ' · leftovers, nothing to buy' : ' · ' + (c < 0.5 ? 'nothing to buy' : '~' + pwMoney(c))) + '</span>' +
+      (why ? '<span class="ad-why">' + esc(why) + '</span>' : '') + '</button>' +
+      '<button class="ad-plus" data-adadd="' + esc(String(r.id)) + '"' + (lo ? ' data-lo="1"' : '') + ' aria-label="Add ' + esc(r.name) + '">+</button></div>';
+  }
+  function adListHTML() {
+    var A = S.add, q = String(A.q || '').trim().toLowerCase();
+    var pool = q ? (window.RECIPES || []).filter(function (r) { return r.name.toLowerCase().indexOf(q) >= 0; }) : adPool(A.f, A.day);
+    pool = pool.filter(function (r) { return window.Store.rating(r.id) !== -1 || q; });
+    if (!pool.length) return '<p class="pw-note">' + (q ? 'No recipe called that.' : A.f === 'left' ? 'Nothing earlier in the week to have again.' : 'Nothing here yet.') + '</p>';
+    return pool.slice(0, 40).map(function (r) { return adRow(r, !q && A.f === 'left'); }).join('') +
+      (pool.length > 40 ? '<p class="pw-note">' + (pool.length - 40) + ' more. Search to narrow them.</p>' : '');
+  }
+  function addHTML() {
+    var A = S.add, dn = DAYS.filter(function (d) { return d[0] === A.day; })[0], r = A.sug && BY_ID[A.sug];
+    var chips = [['dinner', 'Dinner'], ['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['fav', 'Favourites'], ['before', 'Made before'], ['left', 'Leftovers']];
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet pw-sheet ad-sheet" role="dialog" aria-modal="true" aria-label="Add to ' + dn[1] + '">' +
+        '<div class="sheet-top"><div class="sheet-eyebrow">Add to ' + dn[1] + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button></div>' +
+        '<div class="pw-body">' +
+          (r ? '<div class="ad-sug"><div class="ad-sl">Suggested</div>' + adRow(r) +
+            '<button class="ad-again" data-adsw="1">↻ Another</button></div>' : '') +
+          '<input class="pw-find" id="adFind" type="search" placeholder="Search every recipe…" autocomplete="off" aria-label="Search recipes" value="' + esc(A.q || '') + '">' +
+          '<div class="pw-chips ad-chips" role="group">' + chips.map(function (c) {
+            return '<button class="pw-chip" data-adf="' + c[0] + '" aria-pressed="' + (A.f === c[0]) + '">' + c[1] + '</button>';
+          }).join('') + '</div>' +
+          '<div id="adList">' + adListHTML() + '</div>' +
+        '</div></div></div>';
+  }
+  function addOpen(day) {
+    S.add = { day: day, f: 'dinner', q: '', seen: [], sug: null };
+    adSuggest();
+    S.addOpen = true;
+    pushSheet({ ad: 1 });
+    renderModal();
+  }
+  document.addEventListener('click', function (e) {
+    if (!S.addOpen || !e.target.closest) return;
+    var A = S.add;
+    var f = e.target.closest('[data-adf]');
+    if (f) { A.f = f.dataset.adf; A.q = ''; renderModal(); return; }
+    if (e.target.closest('[data-adsw]')) { if (A.sug) A.seen.push(A.sug); adSuggest(); renderModal(); return; }
+    var op = e.target.closest('[data-adopen]');
+    if (op) { openRecipe(idOf(op.dataset.adopen)); return; }
+    var ad = e.target.closest('[data-adadd]');
+    if (ad) {
+      var r = BY_ID[idOf(ad.dataset.adadd)];
+      if (!r) return;
+      var lo = ad.dataset.lo === '1';
+      window.Store.addToDay(r.id, A.day, lo ? 1 : pwX(r, pwAnswers().ppl), lo);
+      close();
+      if (S.view === 'plan') renderPlan();
+    }
+  });
 
   // ------------------------------------------------------------ plan my week
   /* A few questions, then the week's dinners and what they cost. Chantel,
@@ -1284,6 +1440,7 @@
       if (skip !== 'kind' && a.kind.length && a.kind.indexOf(pwKind(r)) < 0) return false;
       if (fit && r.macro && (r.macro.kcal > fit.kc || r.macro.p < fit.p)) return false;
       if (recent[String(r.id)]) return false;
+      if (window.Store.rating(r.id) === -1) return false;     // "not again"
       return !pwAvoids(r, a.avoid, a.ing);
     });
   }
@@ -1306,9 +1463,17 @@
       var x = pwX(r, a.ppl), inc = pwCost([{ r: r, x: x }], a.shelf), shared = 0;
       (r.ingp || []).forEach(function (it) { if (have[it.k]) shared++; });
       var m = pwMain(r), same = m ? (mains[m] || 0) : 0;
+      /* Cook from what you have: the share of it already on hand. And the
+         household's say: a favourite comes back often, a good one a little. */
+      var hv = 0, hn = 0;
+      (r.ingp || []).forEach(function (it) {
+        if (!it.k || it.k === 'water' || it.k === 'free' || it.o) return;
+        hn++; if (!itemNeedsBuying(it)) hv++;
+      });
+      var rt = window.Store.rating(r.id), liked = rt === 2 ? 2 : rt === 1 ? 0.8 : 0;
       return { r: r, x: x, inc: inc,
         fits: base + inc <= a.bud * (picks.length + 1) / Math.max(1, a.days.length) + 0.01,
-        score: inc - shared * 0.8 + same * same * 3 + Math.random() * 2.5 };
+        score: inc - shared * 0.8 + same * same * 3 - (hn ? hv / hn : 0) * 3 - liked + Math.random() * 2.5 };
     });
     var ok = scored.filter(function (c) { return c.fits; });
     var from = ok.length ? ok : scored.slice().sort(function (p, q) { return p.inc - q.inc; }).slice(0, 5);
@@ -15729,7 +15894,8 @@
    * [data-check="milk"] before the render and after it.
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
-    'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid', 'data-wmall', 'data-pwswap', 'data-pwopen', 'data-pwadd',
+    'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid', 'data-wmall',
+    'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
@@ -15821,6 +15987,12 @@
     }
 
     /* A recipe opened from the picks draws over them; back comes back. */
+    if (S.addOpen && !S.openId) {
+      root.innerHTML = addHTML();
+      document.body.style.overflow = 'hidden';
+      if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
     if (S.pwOpen && !S.openId) {
       root.innerHTML = pwHTML();
       document.body.style.overflow = 'hidden';
@@ -16921,6 +17093,18 @@
     });
 
     $('planGrid').addEventListener('click', function (e) {
+      var ad = e.target.closest('[data-addday]');
+      if (ad) { rememberOpener(); addOpen(ad.dataset.addday); return; }
+      var op = e.target.closest('[data-open]');
+      if (op) { rememberOpener(); openRecipe(idOf(op.dataset.open)); return; }
+      var sw = e.target.closest('[data-pswap]');
+      if (sw) { planSwap(idOf(sw.dataset.pswap), sw.dataset.day); return; }
+      var rt = e.target.closest('[data-prate]');
+      if (rt) {
+        var rid = idOf(rt.dataset.prate), v = Number(rt.dataset.v);
+        window.Store.setRating(rid, window.Store.rating(rid) === v ? 0 : v);
+        return;
+      }
       var b = e.target.closest('[data-drop]');
       if (b) { window.Store.removeFromDay(idOf(b.dataset.drop), b.dataset.day); return; }
       var m = e.target.closest('[data-mult]');
@@ -18784,6 +18968,11 @@
         var bv = $('pwBudV'); if (bv) bv.textContent = '$' + S.pw.a.bud;
         return;
       }
+      if (e.target.id === 'adFind' && S.addOpen) {
+        S.add.q = e.target.value;
+        var al = $('adList'); if (al) al.innerHTML = adListHTML();
+        return;
+      }
       if (e.target.id === 'pwIng' && S.pwOpen) {
         var sg = $('pwSug'); if (sg) sg.innerHTML = pwSugHTML(e.target.value);
         return;
@@ -19008,6 +19197,7 @@
     S.openId = null;
     S.syncOpen = false;
     S.pwOpen = false;
+    S.addOpen = false;
     S.mDoneOpen = '';
     /* The editor too. Without these the × and the backdrop looked broken:
        renderModal saw S.editId still set, drew the editor again, and the only

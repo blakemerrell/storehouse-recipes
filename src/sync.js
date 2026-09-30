@@ -33,6 +33,7 @@ window.Store = (function () {
        and state.pantry came back holding the {l,c} shape of pantryNew rather
        than the 1/0 the rest of this file expects. */
     pantry: 'bsc.pantry', pantryNew: 'bsc.pantryNew', houseNew: 'bsc.houseNew',
+    kitchen: 'bsc.kitchen', src: 'bsc.src', rate: 'bsc.rate', opts: 'bsc.opts',
     plan: 'bsc.plan', checked: 'bsc.checked'   // the single week this replaced
   };
 
@@ -65,7 +66,29 @@ window.Store = (function () {
        nothing, and a food added to the storehouse list later is picked up
        rather than frozen at whatever it was the day someone first looked.
        `pantryNew` is what they keep that the books never mention. */
-    pantry: {}, pantryNew: {} };
+    pantry: {}, pantryNew: {},
+    /* The kitchen, which is not the storehouse. Blake: "I should just be able
+       to tell it what I have in my pantry, whether I pick it up from the
+       storehouse or not." kitchen  food -> 1 have it, 0 do not (over a dried
+       spice's default); src  food -> 's' storehouse or 'b' buy, over the
+       storehouse order; rate  recipe -> 2 a favourite, 1 liked, -1 not
+       again; opts  household switches, `store` for shopping the storehouse.
+       All four merge a key at a time, like the shelf. */
+    kitchen: {}, src: {}, rate: {}, opts: {} };
+  var MAPS = ['kitchen', 'src', 'rate', 'opts'];
+  /* What each may hold, checked at the door like a recipe: anything else is
+     a phone on another version or a half-written field, and costs its key. */
+  var MAP_OK = {
+    kitchen: function (v) { return v === 1 || v === 0; },
+    src: function (v) { return v === 's' || v === 'b'; },
+    rate: function (v) { return v === 2 || v === 1 || v === -1; },
+    opts: function (v) { return v === 1 || v === 0; }
+  };
+  function cleanMap(k, v) {
+    var o = obj(v), out = {};
+    Object.keys(o).forEach(function (key) { if (MAP_OK[k](o[key])) out[key] = o[key]; });
+    return out;
+  }
   /* local      not sharing — this phone only
      connecting  joined, still waiting for the first word from the server
      synced      the server has everything this phone has
@@ -120,6 +143,7 @@ window.Store = (function () {
     write(LS.favs, state.favs); write(LS.weeks, state.weeks); write(LS.active, state.active);
     write(LS.mine, state.mine); write(LS.edits, state.edits);
     write(LS.pantry, state.pantry); write(LS.pantryNew, state.pantryNew);
+    MAPS.forEach(function (k) { write(LS[k], state[k]); });
   }
   function emit() { listeners.forEach(function (f) { f(state, status, statusNote, house); }); }
   function setStatus(s, note) { status = s; statusNote = note || ''; emit(); }
@@ -306,6 +330,7 @@ window.Store = (function () {
        looks different: resetPantry writes pantry: {}, which is present. */
     if (d.pantry !== undefined) state.pantry = obj(d.pantry);
     if (d.pantryNew !== undefined) state.pantryNew = obj(d.pantryNew);
+    MAPS.forEach(function (k) { if (d[k] !== undefined) state[k] = cleanMap(k, d[k]); });
     derive();
     return made;
   }
@@ -359,7 +384,7 @@ window.Store = (function () {
        thing: a map keyed by something stable, where a key this phone has and
        the household has not is a contribution rather than a conflict. A shelf
        answer the household already holds stands, like everything else here. */
-    ['mine', 'edits', 'pantry', 'pantryNew'].forEach(function (k) {
+    ['mine', 'edits', 'pantry', 'pantryNew'].concat(MAPS).forEach(function (k) {
       var theirs = obj(d[k]), mine = obj(state[k]), add = {};
       Object.keys(mine).forEach(function (id) {
         if (!(id in theirs)) add[id] = mine[id];
@@ -538,7 +563,8 @@ window.Store = (function () {
     return {
       favs: state.favs, weeks: state.weeks, active: state.active,
       mine: state.mine, edits: state.edits,
-      pantry: state.pantry, pantryNew: state.pantryNew
+      pantry: state.pantry, pantryNew: state.pantryNew,
+      kitchen: state.kitchen, src: state.src, rate: state.rate, opts: state.opts
     };
   }
 
@@ -658,11 +684,26 @@ window.Store = (function () {
   /* Store a day back. Anything cooked at its own serving count goes in as a
      plain id, so a week only carries the {i, x} form where it means something. */
   function writeDay(day, entries) {
-    var list = entries.map(function (e) { return e.x === 1 ? e.id : { i: e.id, x: e.x }; });
+    /* A leftovers night is the same dinner again, eaten not cooked: lo, so
+       the shopping list leaves it out. */
+    var list = entries.map(function (e) {
+      if (e.lo) return { i: e.id, x: e.x || 1, lo: 1 };
+      return e.x === 1 ? e.id : { i: e.id, x: e.x };
+    });
     push(function () {
       var u = {}; u[wpath('plan.' + day)] = list; return doc.update(u);
     }, function () {
       editActive(function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
+    });
+  }
+
+  /* One key of a shared map; null takes it out. */
+  function setMapKey(map, key, v) {
+    push(function () {
+      var u = {}; u[map + '.' + encodeKey(key)] = v === null ? FV.delete() : v; return doc.update(u);
+    }, function () {
+      state[map] = Object.assign({}, state[map]);
+      if (v === null) delete state[map][key]; else state[map][key] = v;
     });
   }
 
@@ -948,6 +989,7 @@ window.Store = (function () {
         edits: read(LS.edits, {}),
         pantry: read(LS.pantry, {}),
         pantryNew: read(LS.pantryNew, {}),
+        kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {}),
         plan: read(LS.plan, {}),        // whatever the one-week version left behind
         checked: read(LS.checked, {})
       });
@@ -989,7 +1031,8 @@ window.Store = (function () {
           adopt({
             weeks: read(LS.weeks, null), active: read(LS.active, ''),
             mine: read(LS.mine, {}), edits: read(LS.edits, {}),
-            pantry: read(LS.pantry, {}), pantryNew: read(LS.pantryNew, {})
+            pantry: read(LS.pantry, {}), pantryNew: read(LS.pantryNew, {}),
+            kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {})
           });
           emit();
         });
@@ -1073,7 +1116,7 @@ window.Store = (function () {
        and a week saved by an older version still reads. */
     day: function (day) {
       return (state.plan[day] || []).map(function (e) {
-        return typeof e === 'object' && e ? { id: e.i, x: e.x || 1 } : { id: e, x: 1 };
+        return typeof e === 'object' && e ? { id: e.i, x: e.x || 1, lo: e.lo === 1 } : { id: e, x: 1, lo: false };
       }).filter(function (e) { return e.id !== undefined && e.id !== null && e.id !== ''; });
     },
 
@@ -1082,11 +1125,23 @@ window.Store = (function () {
       return hit ? hit.x : 1;
     },
 
-    addToDay: function (id, day, x) {
+    addToDay: function (id, day, x, lo) {
       var list = this.day(day).filter(function (e) { return e.id !== id; });
-      list.push({ id: id, x: x || 1 });
+      list.push({ id: id, x: x || 1, lo: !!lo });
       writeDay(day, list);
     },
+
+    /* The four shared maps, one setter each way. */
+    kitchen: function (key) { return state.kitchen[key]; },
+    kitchenAll: function () { return state.kitchen; },
+    setKitchen: function (key, v) { setMapKey('kitchen', key, v === 1 || v === 0 ? v : null); },
+    src: function (key) { return state.src[key]; },
+    setSrc: function (key, v) { setMapKey('src', key, v === 's' || v === 'b' ? v : null); },
+    rating: function (id) { return state.rate[id] || 0; },
+    ratings: function () { return state.rate; },
+    setRating: function (id, v) { setMapKey('rate', String(id), v === 2 || v === 1 || v === -1 ? v : null); },
+    opt: function (k, dflt) { var v = state.opts[k]; return v === 1 || v === 0 ? v === 1 : !!dflt; },
+    setOpt: function (k, on) { setMapKey('opts', k, on ? 1 : 0); },
 
     removeFromDay: function (id, day) {
       writeDay(day, this.day(day).filter(function (e) { return e.id !== id; }));
