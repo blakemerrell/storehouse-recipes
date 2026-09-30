@@ -349,12 +349,19 @@ The app is plain static files, so GitHub Pages hosts it for free:
 2. **Settings → Pages → Source: Deploy from a branch**, branch `main`, folder `/ (root)`.
 3. Wait a minute. Your link is `https://<your-username>.github.io/<repo-name>/`.
 
-That is the whole deployment. There is deliberately no Actions workflow: Pages
-is either served from a branch or built by Actions, never both, and a repository
+That is the whole deployment. Pages is served from the branch and nothing
+else: there is deliberately no Actions workflow that deploys, because Pages is
+either served from a branch or built by Actions, never both, and a repository
 carrying the machinery for the one it is not using is a repository where nobody
 can tell which is real. This one had both for a while, and the answer to "why
 has the site not updated" was harder than it needed to be for exactly that
 reason.
+
+The one workflow there is, `.github/workflows/tests.yml`, deploys nothing. It
+runs the tests on every push to `main` and every pull request: the offline suite
+as the gate (it is what notices a version stamp that no longer matches the
+files, which reached `main` eleven times with nothing to stop it), and the full
+suite beside it for information.
 
 If a push ever does not appear: the service worker serves the shell cache-first,
 so check `?v=` in the page source before suspecting the deploy. Everything the

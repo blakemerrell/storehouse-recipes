@@ -1,0 +1,61 @@
+# Every push and pull request runs the checks a contributor would run by hand.
+#
+# There was nothing here, and the result was on main: eleven pushes whose
+# version stamp no longer matched the files, one of them a deploy that
+# changed app.js and left sw.js untouched, so phones kept the old app from
+# their cache. The offline suite catches exactly that in about fifteen
+# seconds, so it is the gate.
+#
+# The full suite runs too, and reports, but does not block: it takes about
+# ten minutes, and it includes checks that are about the printed books being
+# regenerated (npm run print) rather than about the app working.
+#
+# Pages still deploys from the branch as before; this workflow deploys
+# nothing and needs no secrets. The live-Firebase tests (sync*) are not in
+# the default run and are not run here.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Syntax and offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Every script parses
+        run: for f in src/*.js sw.js tools/*.js tests/*.js; do node --check "$f" || exit 1; done
+      - run: npx playwright install --with-deps chromium
+      - name: Offline, and the version stamp matches the files
+        run: FAST=1 node tests/run.js offline
+
+  full:
+    name: Full suite (reports, does not block)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: FAST=1 node tests/run.js

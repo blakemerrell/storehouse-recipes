@@ -8830,11 +8830,15 @@
       var t2 = hm(m[4], m[5], m[6], m[7]);
       return new Date(+m[3], MON_IX[m[1].toLowerCase()], +m[2], t2[0], t2[1], t2[2]).getTime();
     }
-    // a spreadsheet's own day count, from 1900
+    /* A spreadsheet's own day count, from 1900. Counted in UTC, where every
+       day is 24 hours: counted from local midnight in 1899, a zone whose
+       clocks then differed from now brought the difference along (Noumea's
+       were 5 minutes 48 seconds ahead of today's), and every date read as
+       the day before. */
     if (/^\d{5}(\.\d+)?$/.test(s) && +s > 20000 && +s < 80000) {
-      var base = new Date(1899, 11, 30).getTime(), days = Math.floor(+s), frac = +s - days;
-      var dd = new Date(base + days * DAY_MS);
-      return new Date(dd.getFullYear(), dd.getMonth(), dd.getDate(), frac ? 0 : 12, 0, 0).getTime() + Math.round(frac * DAY_MS);
+      var days = Math.floor(+s), frac = +s - days;
+      var dd = new Date(Date.UTC(1899, 11, 30) + days * DAY_MS);
+      return new Date(dd.getUTCFullYear(), dd.getUTCMonth(), dd.getUTCDate(), frac ? 0 : 12, 0, 0).getTime() + Math.round(frac * DAY_MS);
     }
     /* Anything else the browser can read, but only with a year in it: "15-Jan"
        or "3/15" would otherwise come in as 2001, silently. */

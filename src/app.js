@@ -2405,12 +2405,26 @@
    * the only safe thing to do with a write that never landed is to send
    * everything next time. */
   var mDirty = {}, mDirtyAll = true;
+  /* Whether the account has answered since this device started listening.
+     Nothing goes up before it has: a device signing in for the first time
+     sent everything it had straight away, before it had read a word of the
+     account, and what it had was nothing, stamped zero. A write lands
+     whatever its stamp says, so the account's targets and profile became
+     null on the server, and this device then refused the account's real
+     copy, which was no newer than zero. Held until the first answer is
+     merged, the whole push carries only what is newer or the same. */
+  var mSyncHeard = false;
 
+  /* Only what this device has actually stamped. An unstamped part or key
+     can win nowhere, since a far end takes only what is newer than its own,
+     but it could still be written over the account's real copy on the way
+     past; and an empty map has nothing to say. */
   function mSyncPayload() {
     var raw = mLsJson;
     var out = {};
     MSYNC_SIMPLE.forEach(function (row) {
-      out[row[0]] = { v: raw(row[1]), at: MSTAMPS[row[0]] || 0 };
+      if (!(MSTAMPS[row[0]] > 0)) return;
+      out[row[0]] = { v: raw(row[1]), at: MSTAMPS[row[0]] };
     });
     MSYNC_KEYED.forEach(function (row) {
       var keys = {}, map = {};
@@ -2419,9 +2433,10 @@
         Object.keys(MSTAMPS[row.part] || {}).forEach(function (k) { keys[k] = 1; });
       }
       Object.keys(keys).forEach(function (k) {
-        map[mSyncKey(k)] = { v: row.value(k), at: (MSTAMPS[row.part] || {})[k] || 0 };
+        var at = (MSTAMPS[row.part] || {})[k] || 0;
+        if (at > 0) map[mSyncKey(k)] = { v: row.value(k), at: at };
       });
-      out[row.part] = map;
+      if (Object.keys(map).length) out[row.part] = map;
     });
     return out;
   }
@@ -2431,8 +2446,8 @@
   function mSyncPartial() {
     var out = {}, any = false;
     MSYNC_SIMPLE.forEach(function (row) {
-      if (!mDirty[row[0]]) return;
-      out[row[0]] = { v: mLsJson(row[1]), at: MSTAMPS[row[0]] || 0 };
+      if (!mDirty[row[0]] || !(MSTAMPS[row[0]] > 0)) return;
+      out[row[0]] = { v: mLsJson(row[1]), at: MSTAMPS[row[0]] };
       any = true;
     });
     MSYNC_KEYED.forEach(function (row) {
@@ -2445,7 +2460,8 @@
            nothing — a zero weight, an empty skip list, a null send. That is
            the only way a DELETION crosses: an absent key is indistinguishable
            from a key the far end never heard of. */
-        map[mSyncKey(k)] = { v: row.value(k), at: (MSTAMPS[row.part] || {})[k] || 0 };
+        var at = (MSTAMPS[row.part] || {})[k] || 0;
+        if (at > 0) map[mSyncKey(k)] = { v: row.value(k), at: at };
       });
       if (Object.keys(map).length) { out[row.part] = map; any = true; }
     });
@@ -2894,6 +2910,7 @@
       mSetOwner(uid);
       if (window.Store.enrol) window.Store.enrol();
       mInviteTry();
+      mSyncHeard = false;
       mSyncDoc = db.collection('users').doc(uid);
       /* Train keeps its log in the same document, under `train`, and rides
          this listener rather than opening a second one on the same record. */
@@ -2924,16 +2941,16 @@
         var trMoved = mTrainSig() !== trWas;
         if (trMoved) mCreditWeek();
         if (!data || !data.myday) {
-          if (live) mBootTargets();
-          mSyncPush(true);
+          if (live) { mBootTargets(); mSyncHeard = true; mSyncPush(true); }
           if (trMoved && S.view === 'macros') renderMacros();
           return;
         }
         if ((mMergeRemote(data.myday) || trMoved) && S.view === 'macros') renderMacros();
         if (live) mBootTargets();
+        // the account's copy is in: now what is newer here can go up, all of it
+        if (live && !mSyncHeard) { mSyncHeard = true; mSyncPush(true); }
         if (S.syncOpen) renderModal();
       }, function () { mSyncState('error'); });
-      mSyncPush(true);
     }, function () { mSyncState('error'); });
   }
 
@@ -2969,8 +2986,12 @@
        push cannot answer for: the first sight of the document, a document
        with nothing in it, and a device that has just been handed the day. */
     if (now) mDirtyAll = true;
+    // before the account has answered, changes wait, marked; its first answer sends them
+    if (!mSyncHeard) return;
     clearTimeout(mSyncTimer);
     mSyncTimer = setTimeout(function () {
+      // signed out or deleted in the meantime: nothing to send it to
+      if (!mSyncDoc) return;
       var body = mSyncTake();
       if (!body) { mSyncState('on'); return; }
       mSyncDoc.set({ myday: body }, { merge: true }).then(function () {
@@ -16909,6 +16930,8 @@
        day the other phone never hears has changed — and that half is
        invisible to a test that only exercises the merge. */
     payload: mSyncPayload,
+    // every keyed part, off the one table, whether or not this device has anything stamped in it yet
+    keyedParts: function () { return MSYNC_KEYED.map(function (r) { return r.part; }); },
     /* What the next push would actually send, so a test can weigh it against
        the whole. */
     partial: function () { return mSyncPartial(); },
