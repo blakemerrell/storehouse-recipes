@@ -6361,13 +6361,21 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 }
 
 /* -- icon button: a 32px square -------------------------------------- */
-:is(.hint-x, .day-x, .day-sw, .pw-swap, .iconbtn, .mday-icon, .pitem-x, .ad-plus, .sheet-x):not(#u#u) {
+:is(.hint-x, .day-x, .day-sw, .pw-swap, .iconbtn, .mday-icon, .pitem-x, .ad-plus, .sheet-x, #macroPrev, #macroNext):not(#u#u) {
   width: 44px; min-width: 44px; height: 44px; padding: 0; flex: none;
   display: inline-grid; place-items: center; font-size: 16px; line-height: 1; opacity: 1;
 }
-:is(.hint-x, .day-x, .day-sw, .pw-swap, .iconbtn, .mday-icon, .pitem-x, .ad-plus, .sheet-x):not(#u#u)::after {
+:is(.hint-x, .day-x, .day-sw, .pw-swap, .iconbtn, .mday-icon, .pitem-x, .ad-plus, .sheet-x, #macroPrev, #macroNext):not(#u#u)::after {
   left: 6px; right: auto; width: 32px; height: 32px; border-radius: 8px;
+  top: 50%; bottom: auto; transform: translateY(-50%);     /* centred even on a .ghost, whose shape is inset */
 }
+/* Nourish's day arrows sit either side of the day picker: a 32px square each,
+   not an outlined button stretched across the picker. */
+.mday-head :is(#macroPrev, #macroNext):not(#u#u) { font-size: 20px; }
+/* 44px arrows and gear, with the gaps taken out: their 32px squares already
+   stand apart, and the day picker keeps the room to say "Today · Sep 30". */
+.mday-head:not(#u#u) { column-gap: 0; gap: 0; }
+.mday-head:not(#u#u) .mday-title { margin-right: 4px; }
 .ad-plus:not(#u#u) { color: var(--paper); font-size: 18px; }
 .ad-plus:not(#u#u)::after { background: var(--ink); border-color: var(--ink); }
 .iconbtn[aria-pressed="true"]:not(#u#u) { color: var(--ochre-text); }
