@@ -228,21 +228,27 @@
 <!-- ---------------------------------------------------------- meal plan -->
 <section id="view-plan" class="hide" role="tabpanel" aria-labelledby="tab-plan">
   <div class="view">
-    <div class="view-head">
-      <h1 class="view-title view-title-lg serif" id="weekTitle">The Week</h1>
-      <div class="week-acts no-print">
-        <button class="btn-primary" id="planMyWeek">Plan my week</button>
-        <button class="ghost" id="renameWeek">Rename</button>
-        <button class="ghost" id="clearPlan">Clear week</button>
-        <button class="ghost" id="deleteWeek">Delete</button>
-      </div>
+    <!-- The week is a calendar now: Sunday to Saturday with dates, a week
+         on screen by default and a month at a glance. ‹ › (or a swipe) moves;
+         the week on screen is this phone's, not the household's. -->
+    <div class="cal-top no-print">
+      <span class="seg" id="calMode" role="group" aria-label="Show"><button data-cal="w" aria-pressed="true">Week</button><button data-cal="m" aria-pressed="false">Month</button></span>
+      <button class="ghost" id="calToday">Today</button>
+      <span class="cal-sp"></span>
+      <button class="btn-primary" id="planMyWeek">Plan my week</button>
     </div>
-    <div class="weekbar no-print" id="weekBar"></div>
+    <div class="cal-bar">
+      <button class="cal-arrow no-print" id="calPrev" aria-label="Earlier">&lsaquo;</button>
+      <div class="cal-range"><h1 class="view-title serif" id="weekTitle">This week</h1><small id="calSub"></small></div>
+      <button class="cal-arrow no-print" id="calNext" aria-label="Later">&rsaquo;</button>
+    </div>
     <div id="planSetup"></div>
     <div class="plan-sum" id="planSum"></div>
-    <details class="plan-about no-print"><summary aria-label="About the week">&#9432; How the week works</summary>
-    <div class="plan-note">Tap + Add on a day, or open any recipe under Recipes and assign it to a day. The shopping list builds itself from whatever lands here, and a week stays put until you change it &mdash; there are no dates, so Monday is just Monday. Keep as many weeks as you like and switch between them above; each one carries its own shopping list. Sharing with someone? Switching the week moves every phone at once.</div></details>
     <div class="plan-grid" id="planGrid"></div>
+    <div class="cal-acts no-print" id="calActs"></div>
+    <div id="calAgain"></div>
+    <details class="plan-about no-print"><summary aria-label="About the week">&#9432; How the week works</summary>
+    <div class="plan-note">A week runs Sunday to Saturday. Tap + Add on a day, or open any recipe under Recipes and add it to a day of this week. Move between weeks with the arrows or a swipe; the week you are looking at is yours, and the plan itself is shared with your household. Days gone by keep what was planned and how you rated it. Shop builds the list for the week on screen.</div></details>
     <div class="step-next no-print"><button class="pw-go" data-stepgo="list">Next: get the food</button></div>
   </div>
 </section>

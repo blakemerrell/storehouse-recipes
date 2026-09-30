@@ -37,199 +37,193 @@ async function backLeavesYouHere(t, open) {
 module.exports = {
   name: 'Weeks and the plan',
   async run(t) {
-    // ---- a household saved by the one-week version ------------------------
-    let p = await t.fresh();
+    /* ---- weeks have dates ------------------------------------------------
+     * Blake: "a calendar type view... move forward or backward to see my
+     * history or my planning." A week is Sunday to Saturday and its id says
+     * which Sunday. The clock is fixed on Wednesday 30 September 2026, so this
+     * week is Sep 27 – Oct 3 and Sunday to Tuesday are gone. */
+    const WED = new Date(2026, 8, 30, 9, 0, 0);
+    let p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await p.clock.setFixedTime(WED);
     await p.evaluate(() => {
       localStorage.clear();
       localStorage.setItem('bsc.plan', JSON.stringify({ mon: [1, 2], wed: [3] }));
       localStorage.setItem('bsc.favs', JSON.stringify([7]));
     });
     await p.reload();
+    await p.waitForTimeout(700);
     await p.click('.tab[data-view="plan"]');
-    await p.waitForTimeout(200);
-
-    let s = await p.evaluate(() => ({
-      weeks: window.Store.weeks(),
-      plan: window.Store.state.plan,
-      favs: window.Store.state.favs,
+    await p.waitForTimeout(250);
+    const look = () => p.evaluate(() => ({
+      id: window.Store.activeWeek().id,
       title: document.getElementById('weekTitle').textContent,
-      days: document.querySelectorAll('.day-item-name').length,
+      sub: document.getElementById('calSub').textContent,
+      items: document.querySelectorAll('#planGrid .day-item-name').length,
+      weeks: Object.keys(window.Store.state.weeks).sort().join(','),
     }));
-    t.ok('the old single week is carried over',
-      s.weeks.length === 1 && s.weeks[0].name === 'This Week', JSON.stringify(s.weeks));
-    t.ok('with its plan intact', (s.plan.mon || []).join() === '1,2' && (s.plan.wed || []).join() === '3');
-    t.ok('and its favorites', s.favs.join() === '7');
-    t.ok('the grid shows them', s.days === 3, s.days);
+    let s = await look();
+    const plan0 = await p.evaluate(() => window.Store.state.plan);
+    t.ok('the old single week lands on this week’s dates',
+      s.id === 'd20260927' && s.title === 'Sep 27 – Oct 3' && s.sub === 'This week' && s.weeks === 'd20260927', JSON.stringify(s));
+    t.ok('with its plan intact', (plan0.mon || []).join() === '1,2' && (plan0.wed || []).join() === '3');
+    t.ok('and its favorites', (await p.evaluate(() => window.Store.state.favs.join())) === '7');
+    t.ok('the calendar shows them', s.items === 3, s.items);
 
-    // ---- a second week is a separate thing --------------------------------
-    await p.click('[data-neww="new"]');
+    /* ---- next week is its own, and looking writes nothing ----------------- */
+    await p.click('#calNext');
+    await p.waitForTimeout(200);
+    s = await look();
+    t.ok('› shows next week, empty, and looking at it writes nothing',
+      s.id === 'd20261004' && s.title === 'Oct 4 – Oct 10' && s.sub === 'Next week' && s.items === 0 && s.weeks === 'd20260927', JSON.stringify(s));
+    await p.evaluate(() => window.Store.addToDay(2, 'tue'));
     await p.waitForTimeout(150);
-    s = await p.evaluate(() => ({
-      n: window.Store.weeks().length,
-      name: window.Store.activeWeek().name,
-      days: document.querySelectorAll('.day-item-name').length,
-      del: !document.getElementById('deleteWeek').classList.contains('hide'),
-    }));
-    t.ok('a new week is empty and active', s.n === 2 && s.name === 'Week 2' && s.days === 0, JSON.stringify(s));
-    t.ok('delete appears once there are two to choose from', s.del);
+    s = await p.evaluate(() => ({ here: window.Store.day('tue').map((e) => e.id).join(), there: JSON.stringify(window.Store.state.weeks.d20260927.plan) }));
+    t.ok('planning lands in the week showing and leaves this week alone',
+      s.here === '2' && /"mon":\[1,2\]/.test(s.there) && !/"tue"/.test(s.there), JSON.stringify(s));
 
-    await p.click('.tab[data-view="browse"]');
-    await p.click('#grid .card >> nth=4');
-    await p.click('.daybtn[data-day="tue"]');
-    await p.click('.sheet-x');
-    await p.click('.tab[data-view="plan"]');
+    /* ---- the days gone by are history ------------------------------------ */
+    await p.click('#calToday');
     await p.waitForTimeout(200);
-    s = await p.evaluate(() => {
-      const st = window.Store.state;
-      const first = window.Store.weeks()[0];
-      return {
-        here: (st.plan.tue || []).length,
-        there: JSON.stringify(st.weeks[first.id].plan),
-        counts: [...document.querySelectorAll('#weekBar .wk-n')].map((e) => e.textContent).join(','),
-      };
-    });
-    t.ok('planning lands in the week showing', s.here === 1);
-    t.ok('and leaves the other one alone', /"mon":\[1,2\]/.test(s.there), s.there);
-    t.ok('each chip counts its own week', s.counts === '3,1', s.counts);
+    const days = await p.evaluate(() => [...document.querySelectorAll('#planGrid .cal-day')].map((d) => ({
+      n: d.querySelector('.cal-date b').textContent, past: d.classList.contains('past'), today: d.classList.contains('today'),
+      add: !!d.querySelector('[data-addday]'), drop: !!d.querySelector('[data-drop]') })));
+    t.ok('the week runs Sunday 27 to Saturday 3, with today marked',
+      days.map((d) => d.n).join() === '27,28,29,30,1,2,3' && days[3].today && !days[2].today, JSON.stringify(days.map((d) => d.n)));
+    t.ok('days gone by keep what was planned but take no + Add and no remove; today and after do',
+      days[1].past && !days[1].add && !days[1].drop && !days[3].past && days[3].add && days[3].drop && days[4].add, JSON.stringify(days));
+    await p.click('#calPrev');
+    await p.waitForTimeout(200);
+    s = await p.evaluate(() => ({ sub: document.getElementById('calSub').textContent, pmw: document.getElementById('planMyWeek').disabled }));
+    t.ok('a week gone by says so, and Plan my week is off for it', s.sub === 'Last week' && s.pmw, JSON.stringify(s));
+    await p.click('#calToday');
 
-    // ---- the shopping list follows the week -------------------------------
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
-    await p.waitForTimeout(200);
-    const l2 = await p.evaluate(() => ({
-      week: document.getElementById('listWeek').textContent,
-      rows: document.querySelectorAll('.list-row').length,
-    }));
-    await p.click('.tab[data-view="plan"]');
-    await p.click('#weekBar .wk >> nth=0');
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
-    await p.waitForTimeout(200);
-    const l1 = await p.evaluate(() => ({
-      week: document.getElementById('listWeek').textContent,
-      rows: document.querySelectorAll('.list-row').length,
-    }));
-    t.ok('the list says which week it is for',
-      l1.week === 'This Week' && l2.week === 'Week 2', l1.week + ' / ' + l2.week);
-    t.ok('and changes with it', l1.rows !== l2.rows && l1.rows > 0 && l2.rows > 0, l1.rows + ' vs ' + l2.rows);
-
-    // ---- ticks belong to their week, and to what is on the list -----------
-    /* A line only recipe 1 puts there, so dropping recipe 1 takes it off the
-       list. (The first row will not do: the list opens on what there is to
-       buy, which can be another recipe's.) */
-    const only1 = await p.evaluate(() => {
-      const keys = (id) => new Set(window.RECIPES.find((r) => r.id === id).ingp.map((i) => i.k));
-      const a = keys(1), b = keys(2), c = keys(3);
-      const i = [...document.querySelectorAll('#listBody [data-check]')].find((x) => a.has(x.dataset.check) && !b.has(x.dataset.check) && !c.has(x.dataset.check));
-      return i ? i.dataset.check : '';
-    });
-    await p.click('#listBody [data-check="' + only1 + '"]');
+    /* ---- the list is the week's ------------------------------------------ */
+    const listOf = async () => {
+      await p.click('.pstep[data-view="list"]');
+      await p.waitForTimeout(200);
+      const l = await p.evaluate(() => ({ week: document.getElementById('listWeek').textContent, rows: document.querySelectorAll('.list-row').length,
+        done: document.querySelectorAll('.list-row.done').length }));
+      await p.click('.pstep[data-view="plan"]');
+      await p.waitForTimeout(150);
+      return l;
+    };
+    const l1 = await listOf();
+    await p.click('#calNext');
     await p.waitForTimeout(150);
-    t.ok('a tick sticks', (await p.evaluate(() => document.querySelectorAll('.list-row.done').length)) === 1);
-    await p.click('.tab[data-view="plan"]');
-    await p.click('#weekBar .wk >> nth=1');
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
-    await p.waitForTimeout(200);
-    t.ok('and does not follow you into another week',
-      (await p.evaluate(() => document.querySelectorAll('.list-row.done').length)) === 0);
-
-    await p.click('.tab[data-view="plan"]');
-    await p.click('#weekBar .wk >> nth=0');
+    const l2 = await listOf();
+    t.ok('Shop is for the week on screen, and says which',
+      l1.week === 'Sep 27 – Oct 3' && l2.week === 'Oct 4 – Oct 10' && l1.rows !== l2.rows && l2.rows > 0, JSON.stringify({ l1, l2 }));
+    await p.click('.pstep[data-view="list"]');
+    await p.click('#listBody .list-row >> nth=0');
     await p.waitForTimeout(150);
-    await p.click('.day-x >> nth=0');           // drop the recipe the tick came from
-    await p.waitForTimeout(200);
-    await p.evaluate(() => { window.Store.addToDay(1, 'mon'); });
-    await p.waitForTimeout(200);
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
-    await p.waitForTimeout(200);
-    t.ok('taking a recipe out forgets its ticks, so they never come back ticked',
-      (await p.evaluate(() => document.querySelectorAll('.list-row.done').length)) === 0);
+    await p.click('.pstep[data-view="plan"]');
+    await p.click('#calToday');
+    await p.waitForTimeout(150);
+    t.ok('a tick belongs to its week', (await listOf()).done === 0);
 
-    // ---- the multiplier ----------------------------------------------------
-    await p.evaluate(() => { window.Store.clearPlan(); window.Store.addToDay(1, 'mon'); });
-    await p.waitForTimeout(200);
-    const at1 = await p.evaluate(() => [...document.querySelectorAll('.list-row')].map((r) => r.textContent).join('|'));
-    await p.evaluate(() => window.Store.addToDay(1, 'mon', 2));
-    await p.waitForTimeout(200);
-    const at2 = await p.evaluate(() => [...document.querySelectorAll('.list-row')].map((r) => r.textContent).join('|'));
+    /* ---- the multiplier, on a day still ahead ---------------------------- */
+    await p.evaluate(() => { window.Store.addToDay(1, 'thu'); });
+    await p.waitForTimeout(150);
+    const qty = async () => {
+      await p.click('.pstep[data-view="list"]');
+      await p.waitForTimeout(150);
+      const q = await p.evaluate(() => [...document.querySelectorAll('.list-row')].map((r) => r.textContent).join('|'));
+      await p.click('.pstep[data-view="plan"]');
+      await p.waitForTimeout(150);
+      return q;
+    };
+    await p.evaluate(() => { window.Store.clearPlan(); window.Store.addToDay(1, 'thu'); });
+    const at1 = await qty();
+    await p.evaluate(() => window.Store.addToDay(1, 'thu', 2));
+    const at2 = await qty();
     t.ok('doubling a recipe doubles the shopping', /1 cup/.test(at1) && /2 cups/.test(at2), at1 + '  ->  ' + at2);
-
-    await p.click('.tab[data-view="plan"]');
-    await p.waitForTimeout(150);
     t.ok('the plan shows the multiplier', (await p.textContent('.day-x2')) === '×2');
     await p.click('.day-x2');
     await p.waitForTimeout(150);
     t.ok('and cycles when tapped', (await p.textContent('.day-x2')) === '×3');
 
+    /* ---- anywhere but Plan, "the week" is this week ----------------------- */
+    await p.click('#calNext');
+    await p.waitForTimeout(150);
     await p.click('.tab[data-view="browse"]');
-    /* Whichever recipe the first card is, rather than assuming it is No. 1.
-       The id was written in here as a literal beside a click on nth-child(1),
-       which tied the assertion to the running order of the book: re-sectioning
-       a volume put a different recipe at the front and this asked about a
-       recipe nobody had opened. */
-    const opened = await p.evaluate(() =>
-      Number(document.querySelector('#grid .card').dataset.open));
+    const opened = await p.evaluate(() => Number(document.querySelector('#grid .card').dataset.open));
     await p.click('#grid .card >> nth=0');
     await p.click('[data-scale="up"]');
     await p.click('[data-scale="up"]');
-    await p.click('.daybtn[data-day="thu"]');
+    await p.click('.daybtn[data-day="fri"]');
     await p.waitForTimeout(150);
-    t.ok('planning from the panel keeps the size you were looking at',
-      (await p.evaluate((id) => window.Store.scaleOf(id, 'thu'), opened)) === 4,
-      'recipe ' + opened);
+    s = await p.evaluate((id) => ({ wk: window.Store.activeWeek().id, x: window.Store.scaleOf(id, 'fri') }), opened);
+    t.ok('a recipe added from Recipes lands on this week, at the size you were looking at',
+      s.wk === 'd20260927' && s.x === 4, JSON.stringify(s));
     await p.click('.sheet-x');
 
-    // ---- rename, copy, delete, reload -------------------------------------
+    /* ---- cook this again, and templates ---------------------------------- */
     await p.click('.tab[data-view="plan"]');
-    p.once('dialog', (d) => d.accept());
-    await p.click('#renameWeek');
+    await p.click('#calNext');
+    await p.waitForTimeout(150);
+    await p.click('[data-calagain]');
+    await p.waitForTimeout(150);
+    await p.click('[data-calfrom="d20260927"]');
+    await p.waitForTimeout(250);
+    s = await p.evaluate(() => ({ tue: window.Store.day('tue').map((e) => e.id).join(), thu: window.Store.day('thu').map((e) => e.id + 'x' + e.x).join(),
+      fri: window.Store.day('fri').length }));
+    t.ok('Cook this again fills next week’s empty days from this one, sizes and all, and leaves a planned day alone',
+      s.tue === '2' && s.thu === '1x3' && s.fri === 1, JSON.stringify(s));
+    await p.click('[data-caltpl]');
     await p.waitForSelector('#dlgInput');
-    await p.fill('#dlgInput', 'Thanksgiving');
+    await p.fill('#dlgInput', 'Freezer week');
     await p.click('[data-dlg="ok"]');
     await p.waitForTimeout(200);
-    t.ok('a week can be renamed',
-      (await p.evaluate(() => window.Store.activeWeek().name)) === 'Thanksgiving',
-      await p.evaluate(() => window.Store.activeWeek().name));
+    t.ok('and a week can be saved as a template to cook again',
+      await p.evaluate(() => window.Store.sources().some((w) => w.tpl && w.name === 'Freezer week')));
 
-    await p.click('[data-neww="copy"]');
+    /* ---- the month ------------------------------------------------------- */
+    await p.click('[data-cal="m"]');
     await p.waitForTimeout(200);
-    s = await p.evaluate(() => ({
-      n: window.Store.weeks().length,
-      name: window.Store.activeWeek().name,
-      plan: JSON.stringify(window.Store.state.plan),
-      checked: Object.keys(window.Store.state.checked).length,
-    }));
-    t.ok('and copied', s.n === 3 && s.name === 'Thanksgiving again' && /"mon"/.test(s.plan), JSON.stringify(s));
-    t.ok('a copy takes the plan but not the ticks', s.checked === 0);
-
-    await p.click('#deleteWeek');
-    await p.waitForSelector('.dlg');
-    await p.click('[data-dlg="ok"]');
+    s = await p.evaluate(() => ({ title: document.getElementById('weekTitle').textContent,
+      cells: document.querySelectorAll('.cal-cell').length, named: document.querySelectorAll('.cal-cell em').length }));
+    t.ok('Month shows October at a glance, with the planned dinners in it',
+      s.title === 'October 2026' && s.cells === 35 && s.named >= 5, JSON.stringify(s));
+    await p.click('.cal-cell[data-calweek="d20261011"] >> nth=0');
     await p.waitForTimeout(200);
-    t.ok('and deleted', (await p.evaluate(() => window.Store.weeks().length)) === 2);
+    s = await look();
+    t.ok('and tapping a day opens its week', s.id === 'd20261011' && s.title === 'Oct 11 – Oct 17', JSON.stringify(s));
 
+    /* ---- reload ---------------------------------------------------------- */
     await p.reload();
-    await p.click('.tab[data-view="plan"]');
-    await p.waitForTimeout(300);
-    t.ok('all of which survives a reload',
-      (await p.evaluate(() => window.Store.weeks().map((w) => w.name).join(','))) === 'Thanksgiving,Week 2',
-      await p.evaluate(() => window.Store.weeks().map((w) => w.name).join(',')));
-
-    // ---- a fresh install, and a phone -------------------------------------
-    await p.context().close();
-    p = await t.fresh();
+    await p.waitForTimeout(700);
     await p.click('.tab[data-view="plan"]');
     await p.waitForTimeout(200);
-    t.ok('a new install starts with one week you cannot delete',
-      (await p.evaluate(() => window.Store.weeks().map((w) => w.name).join(','))) === 'This Week' &&
-      (await p.evaluate(() => document.getElementById('deleteWeek').classList.contains('hide'))));
+    s = await p.evaluate(() => ({ id: window.Store.activeWeek().id, weeks: Object.keys(window.Store.state.weeks).length }));
+    t.ok('all of which survives a reload, opening on this week', s.id === 'd20260927' && s.weeks === 3, JSON.stringify(s));
+    await p.context().close();
+
+    /* ---- named weeks from before ------------------------------------------ */
+    p = await t.fresh();
+    await p.clock.setFixedTime(WED);
+    await p.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('bsc.weeks', JSON.stringify({
+        w1: { name: 'This Week', ord: 0, plan: { mon: [1] }, checked: {} },
+        wb: { name: 'Thanksgiving', ord: 1, plan: { thu: [5] }, checked: {} } }));
+      localStorage.setItem('bsc.active', JSON.stringify('wb'));
+    });
+    await p.reload();
+    await p.waitForTimeout(700);
+    s = await p.evaluate(() => ({ weeks: window.Store.state.weeks, src: window.Store.sources().map((w) => (w.tpl ? 'tpl:' : '') + w.name) }));
+    t.ok('"This Week" moves onto this week; another named week becomes a template to cook again',
+      s.weeks.d20260927 && (s.weeks.d20260927.plan.mon || []).join() === '1' && !s.weeks.w1 && s.weeks.wb && s.weeks.wb.tpl === 1 &&
+        s.src.indexOf('tpl:Thanksgiving') >= 0, JSON.stringify(s));
     await p.context().close();
 
     p = await t.fresh({ viewport: { width: 390, height: 780 } });
     await p.click('.tab[data-view="plan"]');
-    await p.click('[data-neww="new"]');
+    await p.click('#calNext');
+    await p.click('[data-cal="m"]');
     await p.waitForTimeout(200);
     const over = await p.evaluate(() =>
       document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    t.ok('and nothing runs off the side of a phone', over <= 0, over + 'px');
+    t.ok('and nothing runs off the side of a phone, week or month', over <= 0, over + 'px');
 
     /* Every tab reachable without knowing to swipe. Five tabs and the sync
        button shared one row, which put 230px of it off the right-hand edge at
@@ -336,7 +330,7 @@ module.exports = {
     const HOSTILE = '<img src=x onerror="window.__ran=1">&"\'';
     await p.evaluate((s) => {
       window.__ran = 0;
-      window.Store.renameWeek(s);
+      window.Store.saveTemplate(s);
       window.Store.addPantryItem(s, 'Yours');
     }, HOSTILE);
     await p.waitForTimeout(300);
