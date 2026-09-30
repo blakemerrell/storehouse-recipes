@@ -1675,7 +1675,7 @@
       if (before && w.st >= before) continue;
       if (w.dl) continue;
       var x = exIn(w, e);
-      if (x && x.s.length) return { s: x.s, u: w.u, st: w.st };
+      if (x && x.s.length) return { s: x.s, u: w.u, st: w.st, pq: x.pq };
     }
     return null;
   }
@@ -1685,13 +1685,14 @@
      smallest jump the kit allows and expect about two fewer reps — each rep
      is worth roughly three per cent of a max by Epley, and a jump is about
      five. Didn't? Same weight, one more rep, which is what dropping one rep
-     in reserve a week asks of you anyway. */
-  function target(ex, ms, w, d, dl) {
+     in reserve a week asks of you anyway. pq is the reps in reserve this
+     time's plan asks for, when there is a plan; see byEffort. */
+  function target(ex, ms, w, d, dl, pq) {
     var src = null;
     if (ms && w > 0) {
       var pw = woFor(ms, w - 1, d);
       var px = pw && !pw.dl && exIn(pw, ex.id);
-      if (px && px.s.length) src = { s: px.s, u: pw.u };
+      if (px && px.s.length) src = { s: px.s, u: pw.u, pq: px.pq };
     }
     if (!src) src = lastPerf(ex.id);
     if (!src) return { tw: null, tr: null, prev: [] };
@@ -1715,9 +1716,65 @@
     if (top.r >= ex.rr[1]) {
       // on an assisted lift the step is less help
       if (ASST[ex.id]) return { tw: Math.max(0, roundTo(top.w - step, step)), tr: Math.max(ex.rr[0], top.r - 2), prev: prev };
-      return { tw: roundTo(top.w + step, step), tr: Math.max(ex.rr[0], top.r - 2), prev: prev };
+      return byEffort(ex, { tw: roundTo(top.w + step, step), tr: Math.max(ex.rr[0], top.r - 2), prev: prev }, top, work, src, pq, step);
     }
-    return { tw: top.w, tr: Math.min(ex.rr[1], top.r + 1), prev: prev };
+    return byEffort(ex, { tw: top.w, tr: Math.min(ex.rr[1], top.r + 1), prev: prev }, top, work, src, pq, step);
+  }
+
+  /* How many reps you had to spare at the top weight, when you said: the
+     top set's own, or else the average of the sets at its weight. Five
+     means five or more, and counts as five. A set taken to failure on
+     purpose, or as many as you can, says nothing about whether the weight
+     was right, so it is left out. */
+  function effortAt(sets, u, top) {
+    var qOf = function (s) { return Math.min(5, s.q); };
+    var at = sets.filter(function (s) { return !s.am && s.ty !== 'f' && fin(s.q) && conv(s.w, u) === top.w; });
+    if (!at.length) return null;
+    var own = at.filter(function (s) { return s.r === top.r; })[0];
+    return own ? qOf(own) : Math.round(at.reduce(function (a, s) { return a + qOf(s); }, 0) / at.length * 2) / 2;
+  }
+
+  /* The weight moved by how hard last time really was.
+   *
+     Double progression takes last time as having gone to plan. When the
+     reps to spare you logged were two or more away from what the plan
+     asked, it does not:
+   *
+     Easier than asked: next time is worked from the max those sets show,
+     counting the reps you had left the way RTS and Juggernaut do (Epley on
+     reps done plus reps to spare), at this time's reps and this time's
+     effort. That moves the weight past the usual step, but never more than
+     a tenth over last time, because one session is one session.
+   *
+     Harder than asked: the same weight and reps again, not the step up. It
+     is not taken lower, because a "none to spare" that was really one or
+     two would walk the weights down week after week; the next session's
+     effort moves it on from there. Only reps short of the bottom of the
+     range bring it down, to the weight the bottom of the range is worth,
+     and no more than a tenth.
+   *
+     A gap of one is inside how well anyone guesses reps to spare, and
+     changes nothing. With no plan the ask is two to spare, the app's usual,
+     and only easier than that counts: plenty of people take every set to
+     failure when nothing asks otherwise, and holding them there would stop
+     the weights for good.
+     What it would have been is kept beside it (ef), so the card can say
+     why and put it back. */
+  function byEffort(ex, t, top, work, src, pq, step) {
+    if (ASST[ex.id] || !(top.w > 0) || !(t.tw > 0) || !fin(t.tr)) return t;
+    var q = effortAt(work, src.u, top);
+    if (q === null) return t;
+    var asked = fin(src.pq) ? src.pq : 2, want = fin(pq) ? pq : asked;
+    if (Math.abs(q - asked) < 2 || (q < asked && !fin(src.pq))) return t;
+    var e1 = top.w * (1 + (top.r + q) / 30);
+    var room = Math.max(step, Math.floor(top.w * 0.1 / step) * step);
+    var at = function (reps) { return roundTo(e1 / (1 + (reps + want) / 30), step); };
+    var tw = t.tw, tr = t.tr;
+    if (q > asked) tw = Math.min(Math.max(t.tw, top.w + room), Math.max(t.tw, at(tr)));
+    else if (top.r >= ex.rr[0]) { tw = Math.min(t.tw, top.w); tr = top.r; }
+    else { tr = ex.rr[0]; tw = Math.max(top.w - room, Math.min(top.w, at(tr))); }
+    if (tw === t.tw && tr === t.tr) return t;
+    return { tw: tw, tr: tr, prev: t.prev, ef: { q: q, a: asked, w0: t.tw, r0: t.tr } };
   }
 
   /* How sore that muscle got after the session, as reported at the next
@@ -2016,10 +2073,11 @@
         // a deload is no week to try the harder version
         var e = dl ? s.e : rung(s.e);
         var ex = lib(e);
-        var t = target(ex, ms, w, d, dl);
-        return { e: e, sets: sf.sets[d][i], rr: ex.rr, rest: restFor(ex), rir: exRir(ex, rir, steady(ms) || ms.goal === 'str'),
+        var rq = exRir(ex, rir, steady(ms) || ms.goal === 'str');
+        var t = target(ex, ms, w, d, dl, rq);
+        return { e: e, sets: sf.sets[d][i], rr: ex.rr, rest: restFor(ex), rir: rq,
           tw: t.tw, tr: t.tr, prev: t.prev, why: sf.why[d][i], p: s.p || 0,
-          up: e !== s.e ? s.e : '' };
+          up: e !== s.e ? s.e : '', ef: t.ef || null };
       })
     };
   }
@@ -2030,12 +2088,13 @@
    * and reps, and one may be for as many reps as you can. */
   function mainPlan(ms, s, w, d, dl) {
     var ex = lib(s.e);
-    var st = ms.goal === 'str' ? waveSets(ms, s.e, w, dl) : pbSets(ex, ms, w, d, dl);
+    var pe = {};
+    var st = ms.goal === 'str' ? waveSets(ms, s.e, w, dl) : pbSets(ex, ms, w, d, dl, pe);
     var t = target(ex, null, 0, 0, false);
     var last = st[st.length - 1] || {};
     return { e: s.e, sets: st.length, rr: ex.rr, rest: T.pr.rc, st: st, main: s.m, wv: ms.goal === 'str' ? 1 : 0,
       rir: dl ? null : ms.goal === 'str' ? null : 2, tm: ms.goal === 'str' ? tmOf(ms, s.e) : null,
-      tw: last.tw, tr: last.tr, prev: t.prev, why: '', p: 0, up: '' };
+      tw: last.tw, tr: last.tr, prev: t.prev, why: '', p: 0, up: '', ef: pe.ef || null };
   }
 
   /* The best estimated max for an exercise over the last `days` days. */
@@ -2077,12 +2136,17 @@
      of failure, moved by double progression like everything else; then
      three back-off sets of eight at eighty-five per cent of it. A deload is
      one set of each at week one's weights. */
-  function pbSets(ex, ms, w, d, dl) {
+  function pbSets(ex, ms, w, d, dl, out) {
     var top = Object.assign({}, ex, { rr: [4, 6] });
-    var t = target(top, ms, w, d, dl);
-    var back = fin(t.tw) && t.tw > 0 ? roundTo(t.tw * 0.85, inc(ex)) : null;
-    if (dl) return [{ tw: t.tw, tr: 4, top: 1 }, { tw: back, tr: 8 }];
-    return [{ tw: t.tw, tr: t.tr || null, top: 1 }, { tw: back, tr: 8 }, { tw: back, tr: 8 }, { tw: back, tr: 8 }];
+    var t = target(top, ms, w, d, dl, 2);
+    var mk = function (tw, tr) {
+      var back = fin(tw) && tw > 0 ? roundTo(tw * 0.85, inc(ex)) : null;
+      if (dl) return [{ tw: tw, tr: 4, top: 1 }, { tw: back, tr: 8 }];
+      return [{ tw: tw, tr: tr || null, top: 1 }, { tw: back, tr: 8 }, { tw: back, tr: 8 }, { tw: back, tr: 8 }];
+    };
+    // the back-offs follow the top set, and so does what they would have been
+    if (t.ef && out) out.ef = Object.assign({ alt: mk(t.ef.w0, t.ef.r0).map(function (z) { return [z.tw, z.tr]; }) }, t.ef);
+    return mk(t.tw, t.tr);
   }
 
   /* After a wave: each rep past the realization target adds a small step to
@@ -3947,6 +4011,14 @@
     // last time's sets, kept so Previous can be paired again when a set changes kind
     if (prev.length) out.pv = prev.map(function (v) { return { w: v.w, r: v.r, wu: v.wu ? 1 : 0 }; });
     if (per) { out.fix = 1; if (fin(s.tm)) out.tm = s.tm; if (s.main) out.main = s.main; }
+    /* Moved by your logged effort: both sets of targets kept, working sets
+       counted in order, so a warm-up put in front does not shift them. */
+    if (s.ef) {
+      var wk = sets.filter(function (z) { return !z.wu; });
+      out.ef = { q: s.ef.q, a: s.ef.a, on: 1,
+        a1: wk.map(function (z) { return [z.tw, z.tr]; }),
+        a0: wk.map(function (z, k) { var v = s.ef.alt ? s.ef.alt[k] || s.ef.alt[s.ef.alt.length - 1] : [s.ef.w0, s.ef.r0]; return [v[0], v[1]]; }) };
+    }
     return out;
   }
 
@@ -6310,6 +6382,7 @@
         (x.swn ? '<span class="tr-ex-m">' + esc(x.swn) + '</span>' : '') +
         (ASST[x.e] ? '<span class="tr-ex-m">Type the machine\u2019s help as the weight: less help is progress.</span>' : '') +
         homeNote(x, i) +
+        (fresh ? efNote(x, i) : '') +
         (wy && fresh ? '<span class="tr-ex-m">' + esc(wy) + '</span>' : '') +
         (first && SAFETY[x.e] ? '<div class="tr-first tr-safe"><b>Safety first.</b> ' + esc(SAFETY[x.e]) + '</div>' : '') +
         firstTime(x) +
@@ -6380,7 +6453,7 @@
   /* Starting out, the weight asked for comes with its reason: a number
      that changes with no word of why reads as the app guessing. */
   function whyW(x) {
-    if (T.pr.lvl !== 0 || x.fix || !LIVE) return '';
+    if (T.pr.lvl !== 0 || x.fix || !LIVE || (x.ef && x.ef.on)) return '';
     var s = x.s.filter(function (z) { return !z.wu; })[0];
     if (!s || !fin(s.tw) || !fin(s.pw)) return '';
     if (LIVE.dl) return 'Lighter this week on purpose: an easy week lets your body catch up.';
@@ -6389,6 +6462,23 @@
     if (d > 0 && !ASST[x.e]) return 'Up ' + fmtN(d) + ' ' + T.pr.u + ' \u2014 you hit the top of the range last time.';
     if (d === 0 && fin(s.tr) && fin(s.pr) && s.tr > s.pr) return (s.tw > 0 ? 'Same weight \u2014 aim' : 'Aim') + ' for ' + s.tr + ' reps, one more than last time.';
     return '';
+  }
+
+  /* When your logged effort moved today's weight: by how much, and why,
+     in a line, with the usual step a tap away and back again. */
+  function efNote(x, i) {
+    var f = x.ef;
+    if (!f || !Array.isArray(f.a0) || !Array.isArray(f.a1) || !f.a0[0] || !f.a1[0]) return '';
+    var n = f.a1[0], o = f.a0[0], u = T.pr.u;
+    var what = function (v) { return fmtN(v[0]) + ' ' + u + (fin(v[1]) ? ' \u00d7 ' + v[1] : ''); };
+    if (!f.on) {
+      return '<span class="tr-ex-m tr-efn">Usual step: ' + esc(what(o)) + '. ' +
+        '<button class="tr-lnk" data-t="efset" data-x="' + i + '">Use ' + esc(what(n)) + '</button></span>';
+    }
+    var head = n[0] > o[0] ? 'Up ' + fmtN(n[0] - o[0]) + ' ' + u : n[0] < o[0] ? 'Down ' + fmtN(o[0] - n[0]) + ' ' + u
+      : 'Same ' + fmtN(n[0]) + ' ' + u + ', ' + n[1] + ' reps';
+    return '<span class="tr-ex-m tr-efn">' + esc(head + ': last time was ' + rqSay(f.q) + ', the plan asked ' + rqSay(f.a) + '.') + ' ' +
+      '<button class="tr-lnk" data-t="efset" data-x="' + i + '" aria-label="Undo: back to the usual step, ' + esc(what(o)) + '">Undo</button></span>';
   }
 
   // at home, a suggested weight your plates cannot make, and what it became
@@ -9292,6 +9382,20 @@
       if (v === 'skip') LIVE.rs = null;
       else { LIVE.rs.end += Number(v) * 1000; LIVE.rs.dur = Math.max(1, LIVE.rs.dur + Number(v)); }
       saveLive(); drawRest(); return;
+    }
+    // the weight your effort gave, or the usual step: the sets not yet done take whichever
+    if (t === 'efset' && LIVE) {
+      var xe = LIVE.x[num('data-x')];
+      if (!xe || !xe.ef) return;
+      xe.ef.on = xe.ef.on ? 0 : 1;
+      var use = xe.ef.on ? xe.ef.a1 : xe.ef.a0, k = 0;
+      xe.s.forEach(function (z) {
+        if (z.wu) return;
+        var v = use[k] || use[use.length - 1];
+        k++;
+        if (!z.t && v) { z.tw = v[0]; z.tr = v[1]; }
+      });
+      saveLive(); draw(); return;
     }
     if (t === 'addset') {
       var xa = LIVE.x[num('data-x')];
