@@ -395,16 +395,17 @@ Now the repository says `?v=0` everywhere and `tools/build-site.js` writes the
 real version in on the way out: a hash of every file the service worker keeps as
 the app, the worker included. The same files always give the same version and
 different files never do, so there is nothing to bump and nothing to conflict.
-A pull request never touches a version line. The pictures and typefaces get a
-separate hash and a cache of their own, so a deploy that did not change them
-does not send every phone to download three and a half megabytes of engravings
-again.
+A pull request never touches a version line. The engravings, typefaces and icons
+get a separate hash and a cache of their own, so a deploy that did not change them
+does not send every phone to download three and a half megabytes of them again.
+(The cover thumbnails on the print screen change whenever a recipe is added, so
+they are kept with the app instead.)
 
 The build also leaves out what the site does not serve — `art/src` (105 MB of
 source engravings), `tests/`, `tools/`, `design/`, `preview.html`, the Markdown
 files — and strips the comments from the scripts, the data, the worker and the
-stylesheet, which halves what a phone downloads (768 KB to 395 KB gzipped for
-the app itself). The repository keeps every word; `EXCLUDE` at the top of
+stylesheet, which halves what a phone downloads for them (768 KB to 395 KB
+gzipped). The repository keeps every word; `EXCLUDE` at the top of
 `tools/build-site.js` lists what stays behind and why.
 
 ```sh

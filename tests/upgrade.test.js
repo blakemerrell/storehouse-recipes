@@ -110,6 +110,9 @@ module.exports = {
     /* E changes a picture as well: a few bytes after the end of an icon,
        which every decoder ignores and every hash does not. */
     const E = await make('E', (rel, buf) => rel === 'icons/icon-192.png' ? Buffer.concat([buf, Buffer.from('E')]) : buf);
+    /* F changes a cover thumbnail, which is what a print run that changed a
+       book's cover does — adding a recipe changes the count on it. */
+    const F = await make('D', (rel, buf) => rel === 'art/covers/1.webp' ? Buffer.concat([buf, Buffer.from('F')]) : buf);
 
     t.ok('a changed script is a new version, and pictures that did not change keep theirs',
       new Set([A.version, B.version, C.version, D.version, E.version]).size === 5 &&
@@ -117,6 +120,8 @@ module.exports = {
       [A, B, C, D, E].map((x) => x.version + '/' + x.art).join(' '));
     t.ok('and a changed picture is a new art version, and a new app version with it',
       E.art !== D.art && E.version !== D.version, D.art + ' -> ' + E.art);
+    t.ok('while a new cover thumbnail is a new app version and leaves the art alone',
+      F.version !== D.version && F.art === D.art, D.version + ' -> ' + F.version + ', art ' + D.art + ' -> ' + F.art);
     const wA = built.worker(A.out), wB = built.worker(B.out), wE = built.worker(E.out);
     const wC = built.worker(C.out), wD = built.worker(D.out);
 
@@ -134,7 +139,12 @@ module.exports = {
     const whole = (s, w) => w.CORE.every((u) => (s.held[w.CACHE] || []).indexOf(new URL(u, srv.base).pathname + new URL(u, srv.base).search) >= 0);
     const pictures = (s, w) => w.EXTRAS.every((u) => (s.held[w.ART] || []).indexOf(new URL(u, srv.base).pathname) >= 0);
     const asked = (re) => srv.log.filter((u) => re.test(u));
-    const ART_FILES = /^\/(art|fonts)\//;
+    /* The files the art cache holds, by the requests that would fetch them:
+       the engravings and typefaces. The covers live under art/ too but go
+       with the app and are fetched with it; the icons are left out for the
+       favicon's sake, as above. */
+    const ART_LIST = wA.EXTRAS.filter((u) => !/^\.\/icons\//.test(u)).map((u) => new URL(u, 'http://x/').pathname);
+    const ART_FILES = new RegExp('^(' + ART_LIST.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')$');
 
     try {
       /* ---- the first visit ------------------------------------------- */
@@ -232,7 +242,7 @@ module.exports = {
       s = await see();
       t.ok('a build with a new picture gets a new art cache, and both old caches go',
         st === 'activated' && s.keys.join(' ') === [wE.ART, wE.CACHE].sort().join(' ') &&
-        whole(s, wE) && pictures(s, wE) && asked(ART_FILES).length >= wE.EXTRAS.length - 4,
+        whole(s, wE) && pictures(s, wE) && ART_LIST.every((f) => srv.log.indexOf(f) >= 0),
         st + ' ' + JSON.stringify(s.keys) + ', ' + asked(ART_FILES).length + ' picture requests');
       await p.evaluate(() => { window.__editing = false; });
     } finally {

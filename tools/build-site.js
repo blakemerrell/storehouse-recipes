@@ -100,7 +100,7 @@ function readWorker(src) {
   const box = { self, URL, caches: {}, console };
   vm.createContext(box);
   vm.runInContext(src + '\n;this.__worker = { VERSION: VERSION, ART_VERSION: ART_VERSION, ' +
-    'CACHE: CACHE, ART: ART, DEV: DEV, CORE: CORE, EXTRAS: EXTRAS };', box);
+    'CACHE: CACHE, ART: ART, DEV: DEV, CORE: CORE, EXTRAS: EXTRAS, COVERS: COVERS };', box);
   return box.__worker;
 }
 
@@ -243,7 +243,7 @@ async function build(opts) {
   if (worker.VERSION !== UNBUILT || worker.ART_VERSION !== UNBUILT) {
     throw new Error('sw.js already carries a version (' + worker.VERSION + '); the repository should say ' + UNBUILT);
   }
-  const missing = worker.CORE.concat(worker.EXTRAS).map(fileOf).filter((f) => !out.has(f));
+  const missing = worker.CORE.concat(worker.EXTRAS, worker.COVERS).map(fileOf).filter((f) => !out.has(f));
   if (missing.length) throw new Error('sw.js caches files the site does not have: ' + missing.join(', '));
 
   /* The art first, because its version is written into the worker, and the
@@ -257,8 +257,9 @@ async function build(opts) {
   sw = replaceCounted(sw, declared('ART_VERSION'), art, 1, 'sw.js ART_VERSION');
   out.set('sw.js', Buffer.from(sw));
 
-  /* The app: every file the worker holds as the app, and the worker. */
-  const covered = [...new Set(worker.CORE.map(fileOf).concat('sw.js'))].sort();
+  /* The app: every file the worker holds as the app — the covers too,
+     which it keeps in the app's cache — and the worker. */
+  const covered = [...new Set(worker.CORE.concat(worker.COVERS).map(fileOf).concat('sw.js'))].sort();
   const version = contentVersion(covered.map((f) => [f, out.get(f)]));
   covered.forEach((f) => {
     if (out.get(f).includes(version)) throw new Error(f + ' already contains ' + version + ' — the version would not read back');

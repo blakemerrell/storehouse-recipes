@@ -272,9 +272,9 @@ function stampPageCounts(made) {
   stampApp();
   /* The covers on the print screen are page one of the files just written, so
      they are remade here rather than left to be remembered — the ones whose
-     book changed, and no others. A cover is a picture the service worker
-     caches with the engravings, so a cover rewritten for nothing would send
-     every phone to download all of them again. */
+     book changed, and no others. The service worker keeps the covers under a
+     version that is a hash of them, so a cover rewritten for nothing would be
+     a new version, and every phone fetching the app again. */
   await require('./build-covers.js').build({ only: changed });
   /* src/app.js may just have changed, and it is served from the cache at
      ?v=N. N is a hash of the files, written in when the site is built for

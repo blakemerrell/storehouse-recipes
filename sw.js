@@ -108,11 +108,22 @@ var EXTRAS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-180.png',
-  './icons/icon-32.png',
-  /* The cover thumbnails on the print screen. Listed after the icons on
-     purpose: prep-art.js rewrites the run of './art/...' lines at the top of
-     this array from the engraving manifest, and anything of its own sitting
-     inside that run would be written straight out again. */
+  './icons/icon-32.png'
+];
+
+/* The cover thumbnails on the print screen, which go with the app rather than
+   with the engravings. A cover is page one of a printed book, and it changes
+   whenever the book's cover does — every time a recipe is added, since the
+   count is on it. In the art cache, twenty-eight kilobytes of covers would
+   have moved the art version and sent every phone for the three and a half
+   megabytes beside them. Here they are fetched fresh into this build's cache
+   at every install, where the app's version covers them, and like the
+   pictures they are allowed to fail.
+ *
+   Their own list, not the end of EXTRAS: prep-art.js rewrites the run of
+   './art/...' lines at the top of that array from the engraving manifest,
+   and would write anything else of that shape straight out again. */
+var COVERS = [
   './art/covers/all.webp',
   './art/covers/one.webp',
   './art/covers/1.webp',
@@ -191,12 +202,15 @@ self.addEventListener('install', function (e) {
              the app. Most installs find them here already — the art cache is
              named for the pictures, so a deploy that did not touch them
              opens the same cache the last worker filled — and only what is
-             missing is fetched, which is usually nothing at all. */
+             missing is fetched, which is usually nothing at all. The covers
+             are always fetched, into this build's own cache. */
           return Promise.all(EXTRAS.map(function (u) {
             return art.match(u).then(function (hit) {
               return hit || get(art, u).catch(function () {});
             });
-          }));
+          }).concat(COVERS.map(function (u) {
+            return get(core, u).catch(function () {});
+          })));
         });
       })
       .then(function () { return self.skipWaiting(); }, function (err) {

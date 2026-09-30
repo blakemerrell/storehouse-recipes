@@ -81,10 +81,10 @@ function check(dir) {
   ok('no page or script still asks for the unbuilt ?v=0', left.length === 0, left.join(' '));
 
   /* The version is the hash of the bytes that ship — the files the worker
-     holds as the app, and the worker — with the version itself read back
-     out. A file edited after the build, or a build that wrote something
-     other than what it hashed, fails here. */
-  const covered = [...new Set(w.CORE.map(site.fileOf).concat('sw.js'))];
+     holds as the app, the covers it keeps with them, and the worker — with
+     the version itself read back out. A file edited after the build, or a
+     build that wrote something other than what it hashed, fails here. */
+  const covered = [...new Set(w.CORE.concat(w.COVERS).map(site.fileOf).concat('sw.js'))];
   const back = covered.map((f) => [f, Buffer.from(fs.readFileSync(path.join(dir, f), 'latin1')
     .split(V).join(site.UNBUILT), 'latin1')]);
   const again = site.contentVersion(back);

@@ -53,8 +53,9 @@ function sharpLib() {
  *             was). Left out, as when this is run by hand, all of them are.
  *
  * A cover is written only when its bytes change: the service worker keeps the
- * covers with the engravings, in a cache named for all of those files, so one
- * rewritten for nothing is every phone downloading all of them again.
+ * covers with the app, under a version that is a hash of what it holds, so one
+ * rewritten for nothing is a new version and every phone fetching the app
+ * again.
  */
 async function build(opts) {
   const sharp = sharpLib();

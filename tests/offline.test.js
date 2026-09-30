@@ -50,9 +50,9 @@ module.exports = {
     }, [sw.CACHE, sw.ART]);
     const want = (list) => list.map((u) => new URL(u, t.base).pathname + new URL(u, t.base).search);
     const cached = held[sw.CACHE].concat(held[sw.ART]);
-    const noCore = want(sw.CORE).filter((u) => held[sw.CACHE].indexOf(u) < 0);
-    t.ok('the whole shell is cached, under this build\u2019s name',
-      held.keys.indexOf(sw.CACHE) >= 0 && noCore.length === 0 && sw.CORE.length >= 11,
+    const noCore = want(sw.CORE.concat(sw.COVERS)).filter((u) => held[sw.CACHE].indexOf(u) < 0);
+    t.ok('the whole shell is cached, under this build\u2019s name, covers and all',
+      held.keys.indexOf(sw.CACHE) >= 0 && noCore.length === 0 && sw.CORE.length >= 11 && sw.COVERS.length === 4,
       noCore.join(' ') || held.keys.join(', '));
     const noArt = want(sw.EXTRAS).filter((u) => held[sw.ART].indexOf(u) < 0);
     t.ok('and the pictures and typefaces in a cache of their own',
@@ -154,7 +154,7 @@ module.exports = {
        the repository builds today and not one left over from before an
        edit. */
     const w = built.worker(dir);
-    const theirs = w.CORE.concat(w.EXTRAS).map(site.fileOf).concat('sw.js', 'share/index.html');
+    const theirs = w.CORE.concat(w.EXTRAS, w.COVERS).map(site.fileOf).concat('sw.js', 'share/index.html');
     const again = await site.build({ out: scratch(), include: (f) => theirs.indexOf(f) >= 0 });
     const differ = theirs.filter((f) => !fs.readFileSync(path.join(dir, f)).equals(fs.readFileSync(path.join(again.out, f))));
     t.ok('building the same files again gives the same version, byte for byte',
