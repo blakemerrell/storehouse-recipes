@@ -34,6 +34,7 @@ window.Store = (function () {
        than the 1/0 the rest of this file expects. */
     pantry: 'bsc.pantry', pantryNew: 'bsc.pantryNew', houseNew: 'bsc.houseNew',
     kitchen: 'bsc.kitchen', src: 'bsc.src', rate: 'bsc.rate', opts: 'bsc.opts', low: 'bsc.low',
+    diners: 'bsc.diners',
     plan: 'bsc.plan', checked: 'bsc.checked',  // the single week this replaced
     kept: 'bsc.houseKept'                       // what the household lost: see keepRemoved
   };
@@ -77,8 +78,14 @@ window.Store = (function () {
        All four merge a key at a time, like the shelf. */
     kitchen: {}, src: {}, rate: {}, opts: {},
     /* low  a staple that has run out: food -> 1, on the list until it is not */
-    low: {} };
-  var MAPS = ['kitchen', 'src', 'rate', 'opts', 'low'];
+    low: {},
+    /* diners  a dinner's share of each person's Nourish plan, by account:
+       uid -> {n name, kc calories, p protein}. Blake: "what if my wife has a
+       different plan?" Only the dinner's two numbers come here, never the
+       weight or the day's log, which stay in the person's own account; and
+       each person writes only their own (see setMyDiner, and the rules). */
+    diners: {} };
+  var MAPS = ['kitchen', 'src', 'rate', 'opts', 'low', 'diners'];
   /* What each may hold, checked at the door like a recipe: anything else is
      a phone on another version or a half-written field, and costs its key. */
   var MAP_OK = {
@@ -86,11 +93,28 @@ window.Store = (function () {
     src: function (v) { return v === 's' || v === 'b'; },
     rate: function (v) { return v === 2 || v === 1 || v === -1; },
     opts: function (v) { return v === 1 || v === 0; },
-    low: function (v) { return v === 1; }
+    low: function (v) { return v === 1; },
+    /* A name somebody else typed, shown on everybody's phone, so it is held
+       to exactly the three things and their sizes; the rules say the same. */
+    diners: function (v) {
+      if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+      var ks = Object.keys(v);
+      return ks.length === 3 && ks.every(function (k) { return k === 'n' || k === 'kc' || k === 'p'; }) &&
+        typeof v.n === 'string' && v.n === v.n.trim() && v.n.length >= 1 && v.n.length <= 30 &&
+        typeof v.kc === 'number' && v.kc >= 150 && v.kc <= 3000 &&
+        typeof v.p === 'number' && v.p >= 0 && v.p <= 400;
+    }
   };
+  /* A diner's key is an account's id, which goes into a chip's value and a
+     field path; Firebase's are letters and digits, and anything else (a
+     '__proto__' among them) is not one. */
+  var DINER_ID = /^[A-Za-z0-9]{1,128}$/;
   function cleanMap(k, v) {
     var o = obj(v), out = {};
-    Object.keys(o).forEach(function (key) { if (MAP_OK[k](o[key])) out[key] = o[key]; });
+    Object.keys(o).forEach(function (key) {
+      if (k === 'diners' && !DINER_ID.test(key)) return;
+      if (MAP_OK[k](o[key])) out[key] = o[key];
+    });
     return out;
   }
   /* local      not sharing — this phone only
@@ -134,6 +158,7 @@ window.Store = (function () {
      member can make an invite. */
   var members = [];
   var enrolling = '';         // the household an enrol write is out for
+  var dinerRefused = false;   // the server would not take this account's dinner numbers
   var listeners = [];
   var db = null, doc = null, unsub = null, FV = null;
 
@@ -465,7 +490,11 @@ window.Store = (function () {
        looks different: resetPantry writes pantry: {}, which is present. */
     if (d.pantry !== undefined) state.pantry = obj(d.pantry);
     if (d.pantryNew !== undefined) state.pantryNew = cleanPantryNew(d.pantryNew);
-    MAPS.forEach(function (k) { if (d[k] !== undefined) state[k] = cleanMap(k, d[k]); });
+    /* Diners always, present or not. They are never this phone's to keep:
+       a household without the field has nobody sharing, and a phone that
+       moved from one household to another must not go on showing the first
+       one's people. */
+    MAPS.forEach(function (k) { if (d[k] !== undefined || k === 'diners') state[k] = cleanMap(k, d[k]); });
     derive();
     return made;
   }
@@ -574,7 +603,8 @@ window.Store = (function () {
        the household has not is a contribution rather than a conflict. A shelf
        answer the household already holds stands, like everything else here. */
     ['mine', 'edits', 'pantry', 'pantryNew'].concat(MAPS).forEach(function (k) {
-      var theirs = obj(d[k]), mine = obj(state[k]), add = {};
+      // of the diners, only this account's own: the rules refuse anybody else's
+      var theirs = obj(d[k]), mine = k === 'diners' ? ownDiners() : obj(state[k]), add = {};
       Object.keys(mine).forEach(function (id) {
         if (!(id in theirs)) add[id] = mine[id];
       });
@@ -750,13 +780,27 @@ window.Store = (function () {
 
   // everything a household document holds, as this phone currently has it
   function localDoc() {
-    return {
+    var d = {
       favs: state.favs, weeks: state.weeks, active: state.active,
       mine: state.mine, edits: state.edits,
       pantry: state.pantry, pantryNew: state.pantryNew,
       kitchen: state.kitchen, src: state.src, rate: state.rate, opts: state.opts, low: state.low
     };
+    /* Only with something in it. Rules published before diners existed
+       refuse a field they have never heard of, and an empty one would have
+       stopped anybody making a household until they were published again. */
+    var mine = ownDiners();
+    if (Object.keys(mine).length) d.diners = mine;
+    return d;
   }
+
+  // the signed-in account's own diner, if this phone holds one: all a phone may write of them
+  function ownDiners() {
+    var me = api.user(), out = {};
+    if (me && hasOwn(state.diners, me.uid)) out[me.uid] = state.diners[me.uid];
+    return out;
+  }
+  function hasOwn(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
 
   function connect() {
     if (!configured() || !house) { setStatus('local'); return; }
@@ -1224,8 +1268,13 @@ window.Store = (function () {
            and every snapshot enrols whoever is signed in — which, until the
            identity is gone, is still this account. */
         unenrolling = true;
+        /* And its dinner numbers, in the same write, for the same reason —
+           only when there are some, so a household on rules from before
+           diners existed is not asked to take a field it has never heard of. */
+        var bye = FV ? { members: FV.arrayRemove(u.uid) } : null;
+        if (bye && hasOwn(state.diners, u.uid)) bye['diners.' + u.uid] = FV.delete();
         var off = house && doc && FV
-          ? doc.update({ members: FV.arrayRemove(u.uid) }).catch(function () { return null; })
+          ? doc.update(bye).catch(function () { return null; })
           : Promise.resolve();
         return off.then(function () { return mine.collection('train').get(); })
           .then(function (qs) { return Promise.all(qs.docs.map(function (d) { return d.ref.delete(); })); },
@@ -1269,6 +1318,7 @@ window.Store = (function () {
         pantry: read(LS.pantry, {}),
         pantryNew: read(LS.pantryNew, {}),
         kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {}), low: read(LS.low, {}),
+        diners: read(LS.diners, {}),
         plan: read(LS.plan, {}),        // whatever the one-week version left behind
         checked: read(LS.checked, {})
       });
@@ -1313,7 +1363,8 @@ window.Store = (function () {
             weeks: read(LS.weeks, null), active: read(LS.active, ''),
             mine: read(LS.mine, {}), edits: read(LS.edits, {}),
             pantry: read(LS.pantry, {}), pantryNew: read(LS.pantryNew, {}),
-            kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {}), low: read(LS.low, {})
+            kitchen: read(LS.kitchen, {}), src: read(LS.src, {}), rate: read(LS.rate, {}), opts: read(LS.opts, {}), low: read(LS.low, {}),
+            diners: read(LS.diners, {})
           });
           emit();
         });
@@ -1491,6 +1542,45 @@ window.Store = (function () {
     low: function (key) { return state.low[key] === 1; },
     lowAll: function () { return state.low; },
     setLow: function (key, on) { setMapKey('low', key, on ? 1 : null); },
+
+    /* Everybody in the household sharing a dinner's numbers, by account:
+       {uid: {n, kc, p}}. A copy, so nothing outside can change the state. */
+    diners: function () { return Object.assign({}, state.diners); },
+    /* This account's own, and only that: {n, kc, p} to share it, null to take
+       it back. false, and nothing written, without an account signed in or a
+       household to write to — an anonymous visitor is nobody the other
+       phones could put a name to, and the rules let a person write only the
+       key that is their own uid.
+     *
+       A refusal from the server is said here (dinerRefused) rather than
+       stopping the household's sync for the session the way another refused
+       write does: until firestore.rules is published again, the server has
+       never heard of diners, and that should cost this switch and nothing
+       else. */
+    setMyDiner: function (e) {
+      var me = api.user();
+      if (!me || !house || !DINER_ID.test(me.uid)) return false;
+      var v = null;
+      if (e) {
+        v = { n: String(e.n === undefined || e.n === null ? '' : e.n).trim(), kc: Number(e.kc), p: Number(e.p) };
+        if (!MAP_OK.diners(v)) return false;
+      }
+      var key = me.uid;
+      dinerRefused = false;
+      push(function () {
+        var u = {}; u['diners.' + key] = v === null ? FV.delete() : v;
+        return doc.update(u).catch(function (err) {
+          if (!(err && err.code === 'permission-denied')) throw err;
+          dinerRefused = true;
+          emit();
+        });
+      }, function () {
+        state.diners = Object.assign({}, state.diners);
+        if (v === null) delete state.diners[key]; else state.diners[key] = v;
+      });
+      return true;
+    },
+    get dinerRefused() { return dinerRefused; },
 
     removeFromDay: function (id, day) {
       /* The entries exactly as stored, because arrayRemove takes away only
@@ -1819,6 +1909,9 @@ window.Store = (function () {
       houseMine = false; write(LS.houseNew, '');
       doc = null;
       members = []; enrolling = '';
+      /* The household's people go with it: their dinner numbers were shared
+         with the household, not with this phone. */
+      state.diners = {}; write(LS.diners, {}); dinerRefused = false;
       everLive = false; lastSync = 0; pendingMerge = false;
       setStatus('local');
     },

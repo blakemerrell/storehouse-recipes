@@ -46,7 +46,7 @@ service cloud.firestore {
     function houseFields() {
       return ['favs', 'weeks', 'active', 'mine', 'edits', 'pantry', 'pantryNew',
         'kitchen', 'src', 'rate', 'opts', 'low', 'members', 'lastInvite',
-        'plan', 'checked', 'myday'];
+        'plan', 'checked', 'myday', 'diners'];
     }
 
     function mapOf(d, k, most) { return !(k in d) || (d[k] is map && d[k].size() <= most); }
@@ -59,6 +59,7 @@ service cloud.firestore {
         && mapOf(d, 'kitchen', 2000) && mapOf(d, 'src', 2000) && mapOf(d, 'rate', 2000)
         && mapOf(d, 'opts', 100) && mapOf(d, 'low', 2000)
         && mapOf(d, 'plan', 50) && mapOf(d, 'checked', 2000) && mapOf(d, 'myday', 50)
+        && mapOf(d, 'diners', 20)
         && (!('active' in d) || d.active is string)
         && (!('members' in d) || (d.members is list && d.members.size() <= 50))
         && (!('lastInvite' in d) || d.lastInvite is string);
@@ -82,16 +83,36 @@ service cloud.firestore {
       return after == before || after == before.union(me) || after == before.difference(me);
     }
 
+    function dinerOk(e) {
+      return e is map && e.keys().hasOnly(['n', 'kc', 'p']) && e.keys().hasAll(['n', 'kc', 'p'])
+        && e.n is string && e.n.size() >= 1 && e.n.size() <= 30
+        && e.kc is number && e.kc >= 150 && e.kc <= 3000
+        && e.p is number && e.p >= 0 && e.p <= 400;
+    }
+
+    function ownDinerOk(d) {
+      return !(request.auth.uid in d) || dinerOk(d[request.auth.uid]);
+    }
+
+    function dinersByThemselves() {
+      let after = request.resource.data.get('diners', {});
+      return after.diff(resource.data.get('diners', {})).affectedKeys().hasOnly([request.auth.uid])
+        && ownDinerOk(after);
+    }
+
     match /households/{code} {
       allow get: if request.auth != null;
       allow create: if request.auth != null
         && houseShape(request.resource.data)
         && request.resource.data.get('members', []).toSet()
-          .difference([request.auth.uid].toSet()).size() == 0;
+          .difference([request.auth.uid].toSet()).size() == 0
+        && request.resource.data.get('diners', {}).keys().hasOnly([request.auth.uid])
+        && ownDinerOk(request.resource.data.get('diners', {}));
       allow update: if request.auth != null
         && houseShape(request.resource.data)
         && keepsWhatItHas()
-        && membersByThemselves();
+        && membersByThemselves()
+        && dinersByThemselves();
       allow list, delete: if false;
     }
 
@@ -146,6 +167,13 @@ service cloud.firestore {
 > Data**, open `households`, add a filter on the field `myday` (not equal to
 > null), and delete the documents it finds. The rules above let a signed-in
 > client clear that one field, which is all the app would ever need.
+>
+> **Sharing dinner numbers?** Plan my week can hold a dinner to each
+> person's Nourish plan once they share it from *Sync & sharing*. That writes
+> one entry under `diners` in the household — a name, and a dinner's calories
+> and protein — and the rules above are what let a person write their own and
+> nobody else's. Until you publish them the household refuses it, and the
+> switch says so; nothing else about sharing changes.
 >
 > **Adding Strengthen's yearly records?** Your rules have
 > everything above except the three lines starting `match /users/{uid}/train/{year}`.

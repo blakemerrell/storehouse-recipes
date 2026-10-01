@@ -243,6 +243,61 @@ function seedDoc(extra) {
       await assertSucceeds(as('alice').doc(H).update({ myday: FV.delete() }));
     });
 
+    section('Households: dinner numbers, each by their own');
+    const dn = (n, kc, p) => ({ n, kc, p });
+    await fresh({ members: ['alice', 'bob'] });
+    const ad = as('alice').doc(H), bd = as('bob').doc(H);
+    await check('a member shares their own dinner numbers', () =>
+      assertSucceeds(ad.update({ 'diners.alice': dn('Alice', 550, 70) })));
+    await check('and changes them when the plan changes', () =>
+      assertSucceeds(ad.update({ 'diners.alice': dn('Alice', 600, 75) })));
+    await check('alongside somebody else’s, each written by its own', () =>
+      assertSucceeds(bd.update({ 'diners.bob': dn('Bob', 400, 40) })));
+    await check('a joining phone contributes its own with a merge', () =>
+      assertSucceeds(as('carol').doc(H).set({ diners: { carol: dn('Carol', 450, 35) } }, { merge: true })));
+    await check('and takes their own back', () =>
+      assertSucceeds(ad.update({ 'diners.alice': FV.delete() })));
+    await check('nobody shares numbers in somebody else’s name', () =>
+      assertFails(as('mallory').doc(H).update({ 'diners.bob': dn('Bob', 3000, 0) })));
+    await check('not even another member', () =>
+      assertFails(ad.update({ 'diners.bob': dn('Bob', 500, 50) })));
+    await check('nor takes somebody else’s away', () =>
+      assertFails(ad.update({ 'diners.bob': FV.delete() })));
+    await check('nor writes the map over, taking the others with it', () =>
+      assertFails(ad.update({ diners: { alice: dn('Alice', 550, 70) } })));
+    await check('nor changes their own and somebody else’s in one write', () =>
+      assertFails(ad.update({ 'diners.alice': dn('Alice', 550, 70), 'diners.bob': dn('Bob', 9, 9) })));
+    await check('an entry with anything more in it is refused', () =>
+      assertFails(ad.update({ 'diners.alice': Object.assign(dn('Alice', 550, 70), { lb: 180 }) })));
+    await check('so is a 200-character name', () =>
+      assertFails(ad.update({ 'diners.alice': dn('A'.repeat(200), 550, 70) })));
+    await check('and an empty one', () => assertFails(ad.update({ 'diners.alice': dn('', 550, 70) })));
+    await check('calories written as words', () =>
+      assertFails(ad.update({ 'diners.alice': dn('Alice', '550', 70) })));
+    await check('and numbers no dinner is', async () => {
+      await assertFails(ad.update({ 'diners.alice': dn('Alice', 9000, 70) }));
+      await assertFails(ad.update({ 'diners.alice': dn('Alice', 550, -5) }));
+    });
+    await check('nor a piece of one: a name with no numbers', () =>
+      assertFails(ad.update({ 'diners.alice': { n: 'Alice' } })));
+    await check('an account being deleted takes itself and its numbers off in one write', async () => {
+      await seed(H, seedDoc({ members: ['alice', 'bob'], diners: { alice: dn('Alice', 550, 70), bob: dn('Bob', 400, 40) } }));
+      await assertSucceeds(ad.update({ members: FV.arrayRemove('alice'), 'diners.alice': FV.delete() }));
+      const d = await read(H);
+      if (d.diners.alice || !d.diners.bob) throw new Error('diners are ' + JSON.stringify(d.diners));
+    });
+    await check('a household from before diners takes every other write as it did', async () => {
+      await seed(H, seedDoc({ members: ['alice'] }));
+      await assertSucceeds(as('anon3').doc(H).update({ 'kitchen.salt': 1 }));
+    });
+    await env.clearFirestore();
+    await check('a household is made with the maker’s own numbers in it', () =>
+      assertSucceeds(as('alice').doc('households/NEW-D1').set(seedDoc({ members: ['alice'], diners: { alice: dn('Alice', 550, 70) } }))));
+    await check('but not made with somebody else’s', () =>
+      assertFails(as('alice').doc('households/NEW-D2').set(seedDoc({ members: ['alice'], diners: { bob: dn('Bob', 400, 40) } }))));
+    await check('nor with its maker’s in a shape the app never writes', () =>
+      assertFails(as('alice').doc('households/NEW-D3').set(seedDoc({ members: ['alice'], diners: { alice: { n: 'Alice', kc: 'lots', p: 70 } } }))));
+
     section('Households: two phones at once');
     await fresh();
     const p1 = as('anon1').doc(H), p2 = as('anon2').doc(H);
