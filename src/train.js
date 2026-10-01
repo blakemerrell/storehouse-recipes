@@ -5139,7 +5139,8 @@
         var n = x.s.filter(counts).length;
         return '<li><span>' + esc(lib(x.e).n) + '</span>' + (best[x.e] ? '<i class="tr-pr">🥇 record</i>' : '<i>' + n + ' set' + (n === 1 ? '' : 's') + '</i>') + '</li>';
       }).join('') + '</ol>' +
-      '<div class="tr-acts"><button class="ghost" data-t="wosheet" data-id="' + esc(wo.id) + '">See what you did</button>' + (back || '') + '</div>' +
+      '<div class="tr-acts"><button class="ghost" data-t="wosheet" data-id="' + esc(wo.id) + '">See what you did</button>' +
+        '<button class="ghost" data-t="woedit" data-id="' + esc(wo.id) + '">Edit</button>' + (back || '') + '</div>' +
     '</div>';
   }
   /* What a planned session asks, in a few numbers: how long, how many
@@ -6999,6 +7000,10 @@
       (LIVE ? '' : '<button class="' + (f.status === 'now' ? 'ghost' : 'btn-primary') + '" data-t="hbagain" data-id="' + esc(ms.id) + '">Run it again</button>') +
     '</div>' +
     '<div class="tr-note tr-hbagain-say">Run it again starts a new block with these same days and exercises, from where your lifts are now.</div>';
+    /* Not while a workout of this block is going: the logger reads its block. */
+    if (!(LIVE && LIVE.ms === ms.id)) {
+      html += '<div class="tr-acts tr-foot tr-endblk"><button class="ghost danger" data-t="hbdel" data-id="' + esc(ms.id) + '">Delete this block</button></div>';
+    }
     return html;
   }
 
@@ -9611,6 +9616,31 @@
       return;
     }
     if (t === 'hbrensave') { blockRename(el.getAttribute('data-id')); return; }
+    /* A block deleted: its plan, calendar, name and notes. Its workouts are
+       the history and stay, records and charts with them; each still says
+       which block it was, and everything that reads that copes with a block
+       that is gone. The current block is ended as it goes. */
+    if (t === 'hbdel') {
+      var did = el.getAttribute('data-id'), dms = T.ms[did];
+      if (!dms || (LIVE && LIVE.ms === did)) return;
+      var nwo = ix().list.filter(function (wo) { return wo.ms === did; }).length;
+      var dq = { title: 'Delete this block?',
+        body: (nwo ? 'Its ' + nwo + ' workout' + (nwo === 1 ? '' : 's') + ' stay in Workouts and Lifts, with their records. ' : '') +
+          'Its calendar, plan and notes go' + (did === T.act ? ', and it stops being your current block.' : '.'),
+        ok: 'Delete it', danger: true };
+      var dgo = function () {
+        if (!T.ms[did] || (LIVE && LIVE.ms === did)) return;
+        delete T.ms[did];
+        stamp('ms', did);
+        if (T.act === did) { T.act = ''; stamp('act'); }
+        S.hb = ''; S.hbSel = null; S.hbRen = '';
+        draw(); scrollTop();
+      };
+      var dh = hive();
+      if (dh && dh.ask) dh.ask(dq, function (yes) { if (yes) dgo(); });
+      else if (window.confirm(dq.title)) dgo();
+      return;
+    }
     if (t === 'hbagain') {
       var src = T.ms[el.getAttribute('data-id')];
       if (!src || LIVE) return;
@@ -10114,6 +10144,13 @@
     if (t === 'exsheet') { openSheet({ k: 'ex', e: el.getAttribute('data-e'), eyebrow: 'Lift', title: lib(el.getAttribute('data-e')).n }); return; }
     if (t === 'exhow') { openSheet({ k: 'ex', e: el.getAttribute('data-e'), eyebrow: 'Lift', title: lib(el.getAttribute('data-e')).n, tab: 'about' }); return; }
     if (t === 'wosheet') { openSheet({ k: 'wo', id: el.getAttribute('data-id'), eyebrow: 'Workout', title: 'Workout' }); return; }
+    if (t === 'woedit') {
+      var we = T.wo[el.getAttribute('data-id')];
+      if (!we) return;
+      openSheet({ k: 'wo', id: we.id, eyebrow: 'Workout', title: 'Workout' });
+      edOpen(we); drawSheet();
+      return;
+    }
     if (t === 'edopen') {
       var ew = T.wo[el.getAttribute('data-id')];
       if (ew) { edOpen(ew); drawSheet(); }

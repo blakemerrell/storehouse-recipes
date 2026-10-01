@@ -85,10 +85,12 @@ module.exports = {
       JSON.stringify(weeks));
     t.ok('which arrives under an id of its own rather than over theirs',
       keys[0] !== 'w1', keys.join(' '));
-    /* Two weeks called This Week is a household nobody can navigate. */
-    t.ok('and under a name that tells the two apart',
-      keys.length === 1 && weeks[keys[0]].name !== 'This Week' && /This Week/.test(weeks[keys[0]].name),
-      keys.length ? weeks[keys[0]].name : '(none)');
+    /* Weeks have dates now: this phone's old This Week was moved onto this
+       week's dates when it opened, so it arrives under them, and its dates
+       are what tell it apart. A dated week carries no name. */
+    t.ok('and under its dates, which tell the two apart',
+      keys.length === 1 && /^d\d{8}$/.test(keys[0]) && weeks[keys[0]].name === '' && !weeks[keys[0]].tpl,
+      keys.join(' ') + ' ' + JSON.stringify(keys.length ? weeks[keys[0]].name : null));
 
     /* Where both have touched the same thing the household's copy stands. It
        is the shared record; this is a phone arriving at it. */
@@ -119,6 +121,27 @@ module.exports = {
     const noEmpty = await p.evaluate((d) => window.__contribute(d), THEIRS);
     t.ok('an empty week is not carried across', !(noEmpty && noEmpty.weeks),
       JSON.stringify(noEmpty && noEmpty.weeks) + String(empty || ''));
+
+    /* Templates, and a week this phone planned differently for dates the
+       household has also planned. Both used to go up as undated weeks, which
+       the move onto dates took for the old This Week: the template replaced
+       the household's empty current week and was gone as a template. */
+    await p.evaluate(() => localStorage.setItem('bsc.weeks', JSON.stringify({
+      d20260913: { name: '', ord: 0, plan: { tue: [5] }, checked: {} },
+      wTPL: { name: 'Taco night', ord: 1, plan: { fri: [9] }, checked: {}, tpl: 1 },
+    })));
+    await p.reload();
+    const tw = await p.evaluate(() => window.__contribute({
+      weeks: { d20260913: { name: '', ord: 0, plan: { mon: [1] }, checked: {} } }, favs: [],
+    }));
+    const tws = Object.values((tw && tw.weeks) || {});
+    t.ok('a template joins as a template, under its name',
+      tws.some((w) => w.tpl === 1 && w.name === 'Taco night' && JSON.stringify(w.plan) === '{"fri":[9]}'), JSON.stringify(tw && tw.weeks));
+    t.ok('a week planned differently for the same dates joins as a template, not over theirs',
+      !(tw.weeks || {}).d20260913 && tws.some((w) => w.tpl === 1 && /Sep 13/.test(w.name) && JSON.stringify(w.plan) === '{"tue":[5]}'),
+      JSON.stringify(tw && tw.weeks));
+    t.ok('and nothing joins undated without being a template',
+      Object.keys(tw.weeks || {}).every((k) => /^d\d{8}$/.test(k) || tw.weeks[k].tpl === 1), JSON.stringify(tw && tw.weeks));
 
     /* Fix two, as far as it can be checked without a network: the shape of the
        thing that has to stay unique. A word, four digits and two more words
