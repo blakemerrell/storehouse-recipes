@@ -202,7 +202,31 @@ a household, so nothing should be allowed to.
 > supposed to be live is reviewable rather than only remembered. If you would
 > rather not use the console: `firebase login` once, then
 > `firebase deploy --only firestore:rules` from the project folder does the
-> same thing.
+> same thing. Or let GitHub publish them, below.
+
+### Publishing the rules from GitHub
+
+Set up once, and every change to `firestore.rules` that reaches `main` is
+published by itself (`.github/workflows/rules.yml`), after the same emulator
+check the pull request passed. It needs a key that can do one thing: publish
+security rules.
+
+1. Open [Create service account](https://console.cloud.google.com/iam-admin/serviceaccounts/create)
+   in Google Cloud, with your Firebase project chosen at the top.
+2. **Service account name:** `rules-publisher`. **Create and continue**.
+3. **Role:** type *Firebase Rules Admin*, choose it. **Continue**, then **Done**.
+4. In the list, click `rules-publisher@…` → the **Keys** tab → **Add key** →
+   **Create new key** → **JSON** → **Create**. A `.json` file downloads.
+5. In GitHub: the repository's **Settings → Secrets and variables → Actions →
+   New repository secret**. **Name:** `FIREBASE_RULES_KEY`. **Secret:** the whole
+   contents of that `.json` file. **Add secret**.
+6. Delete the downloaded `.json` file. GitHub keeps the only copy it needs.
+
+To publish what is on `main` now: **Actions → rules → Run workflow**. The
+job's last line says `Published firestore.rules (sha256 …)` once the live rules
+read back as this file. The key can publish rules and nothing else: it cannot
+read or change the households, and it is refused for any project but the one in
+`.firebaserc`. To stop it, delete the key in Google Cloud.
 
 This says: only a signed-in app can touch the household records, and nothing else in
 the database is reachable at all.
