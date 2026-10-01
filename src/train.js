@@ -4119,9 +4119,11 @@
   /* ---------------------------------------------------------- reordering
    *
    * Hold the handle and every card folds to its name; drag it to where it
-   * goes and let go. A pair moves as one, as the arrows did. Moving the
-   * finger before the hold is up starts it too: the handle is only ever a
-   * handle. The page scrolls when the finger nears its top or bottom. */
+   * goes and let go. A pair moves as one, as the arrows did. A finger that
+   * moves before the hold is up is scrolling the page, not moving a lift
+   * (Blake: "when I scroll I accidentally grab that"); a mouse cannot scroll
+   * by dragging, so for a mouse moving starts it too. The page scrolls when
+   * the finger nears its top or bottom. */
   var DRAG = null;
   function dragCards() {
     var by = {};
@@ -4137,7 +4139,7 @@
     gs.forEach(function (grp, k) { if (grp.indexOf(i) >= 0) g = k; });
     if (g < 0 || gs.length < 2) return;
     // lw and n: the workout the indices belong to, checked again at the drop
-    DRAG = { id: ev.pointerId, g: g, gs: gs, y0: ev.clientY, y: ev.clientY, on: false, t: 0, k: g, raf: 0, lw: LIVE.id, n: LIVE.x.length };
+    DRAG = { id: ev.pointerId, g: g, gs: gs, y0: ev.clientY, y: ev.clientY, on: false, t: 0, k: g, raf: 0, lw: LIVE.id, n: LIVE.x.length, mouse: ev.pointerType === 'mouse' };
     try { grip.setPointerCapture(ev.pointerId); } catch (e) { /* an old browser: the document still hears the moves */ }
     DRAG.t = setTimeout(dragFold, 220);
   }
@@ -4186,7 +4188,11 @@
   function dragMove(ev) {
     if (!DRAG || ev.pointerId !== DRAG.id) return;
     DRAG.y = ev.clientY;
-    if (!DRAG.on && Math.abs(DRAG.y - DRAG.y0) > 6) { clearTimeout(DRAG.t); dragFold(); }
+    if (!DRAG.on && Math.abs(DRAG.y - DRAG.y0) > 6) {
+      clearTimeout(DRAG.t);
+      if (!DRAG.mouse) { DRAG = null; return; }
+      dragFold();
+    }
     if (!DRAG || !DRAG.on) return;
     ev.preventDefault();
     dragLay();
@@ -10355,6 +10361,10 @@
       dragStart(grip, e);
     });
     document.addEventListener('pointermove', dragMove, { passive: false });
+    /* The handle lets a finger scroll (pan-y), so once the hold is up the
+       page has to be told not to: the finger is carrying a lift now. */
+    var trView = $('view-train');
+    if (trView) trView.addEventListener('touchmove', function (e) { if (DRAG && DRAG.on) e.preventDefault(); }, { passive: false });
     document.addEventListener('pointerup', function (e) { dragEnd(e, false); });
     document.addEventListener('pointercancel', function (e) { dragEnd(e, true); });
     /* A drag that never hears its pointerup, because the app went to the

@@ -1755,6 +1755,60 @@ module.exports = {
       await p.mouse.up();
       t.ok('a drag cut short by leaving the app unfolds, moves nothing, and draws again', !r.on && r.held === 0 && r.es === before, JSON.stringify({ r, before }));
     }
+    /* On a phone: the handle sits on the left, away from the right thumb that
+       scrolls, and a swipe that starts on it scrolls the page. Blake: "when I
+       scroll I accidentally grab that and start moving exercises around".
+       Only a hold picks a lift up. Real touches, through the browser's own
+       input, so the page's scrolling is the browser's and not a stand-in. */
+    {
+      const q = await t.fresh({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+      await keepLive(q);
+      r = await q.evaluate(() => {
+        const c = document.querySelector('.tr-ex[data-xi="1"]'), cr = c.getBoundingClientRect();
+        const gr = c.querySelector('.tr-grip').getBoundingClientRect(), nr = c.querySelector('.tr-ex-n').getBoundingClientRect();
+        return { fromLeft: Math.round(gr.left - cr.left), fromRight: Math.round(cr.right - gr.right), gripEnd: Math.round(gr.right), name: Math.round(nr.left), w: Math.round(gr.width) };
+      });
+      t.ok('the handle sits at the left of the card, clear of the name, still a 44px target',
+        r.fromLeft <= 8 && r.fromRight > 200 && r.gripEnd <= r.name + 1 && r.w >= 44, JSON.stringify(r));
+      const cdp = await q.context().newCDPSession(q);
+      const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+      // a swipe leaves the page coasting: wait for it to stop before the next touch, or the finger lands on another card
+      const still = () => q.waitForFunction(() => new Promise((ok) => { const y = window.scrollY; setTimeout(() => ok(window.scrollY === y), 120); }), null, { timeout: 4000 }).catch(() => {});
+      const at = async (xi) => {
+        await still();
+        await q.evaluate((xi) => document.querySelector('.tr-ex[data-xi="' + xi + '"] .tr-grip').scrollIntoView({ block: 'center' }), xi);
+        await still();
+        return q.evaluate((xi) => {
+          const a = document.querySelector('.tr-ex[data-xi="' + xi + '"] .tr-grip').getBoundingClientRect();
+          return { x: a.left + a.width / 2, y: a.top + a.height / 2, sy: window.scrollY, es: window.Train._.state().LIVE.x.map((x) => x.e) };
+        }, xi);
+      };
+      const g1 = await at(1);
+      await touch('touchStart', g1.x, g1.y);
+      for (let k = 1; k <= 8; k++) await touch('touchMove', g1.x, g1.y - k * 20);
+      const mid = await q.evaluate(() => document.getElementById('view-train').classList.contains('tr-reo'));
+      await touch('touchEnd');
+      await still();
+      r = await q.evaluate(() => ({ on: document.getElementById('view-train').classList.contains('tr-reo'), sy: Math.round(window.scrollY),
+        es: window.Train._.state().LIVE.x.map((x) => x.e).join() }));
+      t.ok('a swipe that starts on the handle scrolls the page and moves nothing',
+        !mid && !r.on && r.es === g1.es.join() && r.sy > g1.sy + 40, JSON.stringify({ mid, r, was: { sy: Math.round(g1.sy), es: g1.es.join() } }));
+      const n = g1.es.length, g2 = await at(n - 1);
+      await touch('touchStart', g2.x, g2.y);
+      await q.waitForFunction(() => document.getElementById('view-train').classList.contains('tr-reo'), null, { timeout: 2000 }).catch(() => {});
+      const held = await q.evaluate(() => document.getElementById('view-train').classList.contains('tr-reo'));
+      const top = await q.evaluate(() => document.querySelector('.tr-ex[data-xi="0"]').getBoundingClientRect().top + 4);
+      const goTo = Math.max(90, top);
+      for (let k = 1; k <= 12; k++) await touch('touchMove', g2.x, g2.y + (goTo - g2.y) * k / 12);
+      await q.waitForTimeout(150);
+      await touch('touchEnd');
+      await q.waitForTimeout(100);
+      r = await q.evaluate(() => ({ on: document.getElementById('view-train').classList.contains('tr-reo'), es: window.Train._.state().LIVE.x.map((x) => x.e) }));
+      const lastE = g2.es[n - 1];
+      t.ok('held still, the handle picks the lift up, and the finger drags it to the top',
+        held && !r.on && (r.es[0] === lastE || r.es[1] === lastE) && r.es.slice().sort().join() === g2.es.slice().sort().join(), JSON.stringify({ held, was: g2.es, now: r.es }));
+      await q.close();
+    }
 
     // a note that follows the exercise
     const e0 = await p.evaluate(() => window.Train._.state().LIVE.x[0].e);
