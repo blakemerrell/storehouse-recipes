@@ -4394,5 +4394,52 @@ module.exports = {
     t.ok('choosing Beep and buzz plays it: three bursts of a high two-note call, about a second and a half, and says so',
       r.n === 6 && r.span > 1.2 && r.span < 2 && r.sq && r.hi >= 1000 && r.say, JSON.stringify(r));
     await p.close();
+
+    // ---- a rest's end calls again until you touch the screen ----
+    {
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await p.clock.install();
+    await p.addInitScript(() => {
+      window.__notes = 0;
+      class FakeAC {
+        constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
+        resume() {}
+        createBiquadFilter() { return { frequency: {}, connect() {} }; }
+        createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; }
+        createOscillator() { return { frequency: {}, connect() {}, start() {}, stop() { window.__notes++; } }; }
+      }
+      window.AudioContext = FakeAC; window.webkitAudioContext = FakeAC;
+    });
+    await p.reload();
+    await p.clock.runFor(800);
+    await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ goal: 'grow', dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'b'; ms.n = 'Block'; ms.at = Date.now();
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 2, 4] }, act: 'b', ms: { b: ms }, cx: {}, ax: {}, wo: {} }));
+      _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="block"]');
+    await p.click('[data-t="start"]');
+    await p.clock.runFor(300);
+    const notes = () => p.evaluate(() => window.__notes);
+    await p.mouse.click(5, 400);              // a tap, which is what lets a page make sound
+    const r0 = await notes();
+    await p.evaluate(() => window.Train._.ringRest());
+    const r1 = await notes();
+    await p.clock.runFor(6100);
+    const r2 = await notes();
+    await p.mouse.click(5, 400);
+    await p.clock.runFor(13000);
+    const r3 = await notes();
+    t.ok('a rest’s end calls, calls again six seconds on, and a touch on the screen stops it',
+      r1 - r0 === 6 && r2 - r1 === 6 && r3 === r2 && !(await p.evaluate(() => window.Train._.ringing())), JSON.stringify([r0, r1, r2, r3]));
+    await p.evaluate(() => window.Train._.ringRest());
+    const m0 = await notes();
+    await p.clock.runFor(60000);
+    const m1 = await notes();
+    t.ok('left alone, it gives up after half a minute: the first call and five more', m1 - m0 === 30, String(m1 - m0));
+    await p.close();
+    }
   },
 };

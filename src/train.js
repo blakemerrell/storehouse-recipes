@@ -4687,9 +4687,27 @@
     if (done && !LIVE.rs.rung) {
       LIVE.rs.rung = 1;
       saveLive();
-      ring();
+      ringRest();
     }
   }
+
+  /* The end of a rest calls again every six seconds until you touch the
+     screen (or a key), for half a minute at most, so a call missed under
+     music is not the only one. It stops too when the rest is closed, a new
+     one starts, or the app goes off screen. */
+  var RAGAIN = null, RAGAIN_EVERY = 6000, RAGAIN_MOST = 5;
+  function ringRest() {
+    ring();
+    ringStop();
+    var n = 0, rs = LIVE && LIVE.rs;
+    RAGAIN = setInterval(function () {
+      if (!LIVE || LIVE.rs !== rs || document.hidden || ++n > RAGAIN_MOST) { ringStop(); return; }
+      ring();
+    }, RAGAIN_EVERY);
+  }
+  function ringStop() { if (RAGAIN) { clearInterval(RAGAIN); RAGAIN = null; } }
+  document.addEventListener('pointerdown', ringStop, true);
+  document.addEventListener('keydown', ringStop, true);
 
   var AC = null;
   /* Browsers only let a page make sound after a tap, so the audio is woken on
@@ -4721,8 +4739,8 @@
           o.type = 'square';
           o.frequency.value = n[0];
           g.gain.setValueAtTime(0.0001, t0);
-          g.gain.exponentialRampToValueAtTime(0.32, t0 + 0.01);
-          g.gain.setValueAtTime(0.32, t0 + 0.11);
+          g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.01);
+          g.gain.setValueAtTime(0.5, t0 + 0.11);
           g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
           o.connect(g); g.connect(lp);
           o.start(t0); o.stop(t0 + 0.16);
@@ -8534,7 +8552,7 @@
       '<div class="tr-q"><div class="tr-ql">Rest between paired sets</div>' +
         chips('s-rp', p.rp, [[45, '0:45'], [60, '1:00'], [75, '1:15'], [90, '1:30']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">When rest is up</div>' + chips('s-snd', p.snd, [[1, 'Beep and buzz'], [0, 'Buzz only']]) +
-        '<div class="tr-note">Tap Beep and buzz to hear it. It plays while the app is open on screen.</div></div>' +
+        '<div class="tr-note">Tap Beep and buzz to hear it. When a rest ends it calls again every 6 seconds until you touch the screen, for up to half a minute, while the app is on screen.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">When you finish</div>' + chips('s-yay', p.yay, [[1, 'Chime and confetti'], [0, 'Just the summary']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Your weight on pull-up and dip days</div>' + chips('s-nobw', p.nobw, [[0, 'Ask when it\u2019s needed'], [1, 'Don\u2019t ask']]) +
         '<div class="tr-hint">Asked only when there\u2019s no weigh-in from the last week to go on. Saved, it\u2019s the day\u2019s weigh-in on Nourish too.</div></div>' +
@@ -10676,7 +10694,7 @@
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, sgList: sgList, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, barLabel: barLabel, onBar: onBar, liftE1: liftE1, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
-      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
+      wins: wins, nth: nth, ringRest: ringRest, ringStop: ringStop, ringing: function () { return !!RAGAIN; }, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE, swapBest: swapBest,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,
