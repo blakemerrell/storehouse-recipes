@@ -164,7 +164,13 @@ window.Store = (function () {
     write(LS.pantry, state.pantry); write(LS.pantryNew, state.pantryNew);
     MAPS.forEach(function (k) { write(LS[k], state[k]); });
   }
-  function emit() { listeners.forEach(function (f) { f(state, status, statusNote, house); }); }
+  /* Each listener on its own: one that throws is reported, and the others,
+     and whatever comes after the emit, still run. */
+  function emit() {
+    listeners.forEach(function (f) {
+      try { f(state, status, statusNote, house); } catch (e) { setTimeout(function () { throw e; }); }
+    });
+  }
   function setStatus(s, note) { status = s; statusNote = note || ''; emit(); }
 
   /* Firestore field names cannot contain dots or slashes, and shopping-list
@@ -397,7 +403,11 @@ window.Store = (function () {
     if (curEmpty) {
       weeks[cur] = { name: '', ord: 0, plan: obj(weeks[pick].plan), checked: obj(weeks[pick].checked) };
       delete weeks[pick];
-      u['weeks.' + cur] = weeks[cur];
+      /* Day by day and tick by tick, never the week whole: a write that set
+         the whole week would take away whatever another phone had put on it
+         since, if this one reached the server late. */
+      Object.keys(weeks[cur].plan).forEach(function (d) { u['weeks.' + cur + '.plan.' + d] = weeks[cur].plan[d]; });
+      Object.keys(weeks[cur].checked).forEach(function (k) { u['weeks.' + cur + '.checked.' + encodeKey(k)] = weeks[cur].checked[k]; });
       u['weeks.' + pick] = 'DELETE';
     } else pick = null;
     und.forEach(function (k) {
@@ -430,7 +440,7 @@ window.Store = (function () {
     Object.keys(raw).forEach(function (k) {
       var w = obj(raw[k]);
       weeks[k] = {
-        name: typeof w.name === 'string' && w.name ? w.name : 'Untitled week',
+        name: typeof w.name === 'string' && w.name ? w.name : isDated(k) ? '' : 'Untitled week',
         ord: typeof w.ord === 'number' ? w.ord : 0,
         plan: cleanPlan(w.plan), checked: obj(w.checked)
       };
@@ -508,10 +518,14 @@ window.Store = (function () {
     /* Weeks only from a document that has weeks at all: one written by the
        one-week version has none, and is carried over rather than emptied. */
     if (d.weeks !== undefined) {
-      var tw = obj(d.weeks);
+      var tw = obj(d.weeks), cut = new Date(); cut.setDate(cut.getDate() - 182);
+      /* Not yet moved onto dates there: this phone's dated weeks are the
+         move, not something taken away. */
+      var unmoved = Object.keys(tw).some(function (k) { return !isDated(k) && !obj(tw[k]).tpl; });
       Object.keys(state.weeks).forEach(function (id) {
-        var w = state.weeks[id];
+        var w = state.weeks[id], st = weekStart(id);
         if (tw[id] || !planned(w)) return;
+        if (st && (unmoved || st < cut)) return;    // the move, or half a year gone and pruned
         add.push({ k: 'weeks', id: id, name: w.name,
           v: { name: w.name, ord: w.ord || 0, plan: obj(w.plan), checked: {} } });
       });
@@ -591,12 +605,23 @@ window.Store = (function () {
       if (!planned(w)) return;
       var mirror = theirWeeks[id];
       if (mirror && samePlan(mirror.plan, w.plan)) return;   // already there under this id
-      var name = w.name || 'This Week', n = 2;
-      while (used.indexOf(name) >= 0) { name = (w.name || 'This Week') + ' (' + n++ + ')'; }
+      /* A dated week goes in under its own date, nameless, if the household
+         has nothing there. If the household planned those dates differently,
+         this phone's plan comes along as a template — never as an undated
+         week, which the move onto dates would take for the old This Week and
+         put over the household's current one. Templates stay templates. */
+      var st = weekStart(id), tpl = w.tpl === 1 || !!(st && mirror);
+      if (st && !tpl) {
+        addW[id] = { name: '', ord: ord++, plan: obj(w.plan), checked: obj(w.checked) };
+        return;
+      }
+      var base = w.name || (st ? 'Week of ' + st.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'This Week');
+      var name = base, n = 2;
+      while (used.indexOf(name) >= 0) { name = base + ' (' + n++ + ')'; }
       used.push(name);
-      addW[mirror ? newId() : id] = {
-        name: name, ord: ord++, plan: obj(w.plan), checked: obj(w.checked)
-      };
+      var nw = { name: name, ord: ord++, plan: obj(w.plan), checked: tpl ? {} : obj(w.checked) };
+      if (tpl) nw.tpl = 1;
+      addW[mirror ? newId() : id] = nw;
     });
     if (Object.keys(addW).length) { out.weeks = addW; any = true; }
 
@@ -827,8 +852,11 @@ window.Store = (function () {
         keepRemoved(d);
         state.favs = Array.isArray(d.favs) ? d.favs.slice() : [];
         var made = adopt(d);
-        var mig = migrateWeeks();
-        if (!mig) { var st = staleWeek(); if (st) { var w0 = Object.assign({}, state.weeks); delete w0[st]; state.weeks = w0; mig = {}; mig['weeks.' + st] = 'DELETE'; } }
+        /* Moving and pruning weeks only from the server's copy. A phone
+           opening offline holds a cached document from before another phone
+           moved the weeks, and would queue the move again on top of it. */
+        var live = !snap.metadata.fromCache, mig = live ? migrateWeeks() : null;
+        if (live && !mig) { var st = staleWeek(); if (st) { var w0 = Object.assign({}, state.weeks); delete w0[st]; state.weeks = w0; mig = {}; mig['weeks.' + st] = 'DELETE'; } }
         derive();
         saveLocal();
         if (mig) sendUpdate(mig);
@@ -866,8 +894,8 @@ window.Store = (function () {
     derive();       // always: the next write in a batch reads what this one left
     if (batching) { batched.push(remote); return; }
     saveLocal();
+    send(remote);   // before the redraw: the change is away whatever the screen does
     emit();
-    send(remote);
   }
   function send(remote) {
     /* Any state where we are actually joined. Firestore queues a write made
@@ -891,8 +919,9 @@ window.Store = (function () {
       batching--;
       if (!batching && batched.length) {
         var go = batched; batched = [];
-        saveLocal(); emit();
+        saveLocal();
         go.forEach(send);
+        emit();
       }
     }
   }
