@@ -161,8 +161,12 @@ module.exports = {
       const onion = W.pool(Object.assign({}, base, { ing: ['onion'] }), false);
       if (!(onion.length < all) || onion.some((r) => r.ingp.some((i) => i.k === 'onion'))) bad.push('ingredient');
       const cap = W.fit();
-      const fit = W.pool(Object.assign({}, base, { fit: true }), false);
-      if (!(fit.length < all) || fit.some((r) => r.macro.kcal > cap.kc || r.macro.p < cap.p)) bad.push('fit');
+      // judged on protein for the calories, since a plate can be more or less than a serving
+      const fit = W.pool(Object.assign({}, base, { fit: 1 }), false);
+      if (!(fit.length < all) || fit.some((r) => r.macro.p / r.macro.kcal < cap.p / cap.kc)) bad.push('fit');
+      const high = W.pool(Object.assign({}, base, { fit: 2 }), false);
+      if (!(high.length < all) || high.some((r) => 4 * r.macro.p / r.macro.kcal < 0.4)) bad.push('high protein');
+      if (W.pool(Object.assign({}, base, { fit: true }), false).length !== fit.length) bad.push('an answer saved as true is Hits it');
       const quick = Object.assign({}, base, { t: 20 });
       if (!(W.pool(quick, false).length < W.pool(quick, true).length)) bad.push('the weekend lifts the time limit');
       localStorage.setItem('sh.pwHist', JSON.stringify({ [String(chick[0].id)]: new Date().toISOString().slice(0, 10) }));
@@ -184,6 +188,50 @@ module.exports = {
       plan[0] === after[0].id && plan[1] === String(tueId) && plan[2] === after[1].id && plan[4] === after[3].id && plan[5] === '' && plan[6] === '',
       JSON.stringify(plan));
     t.ok('and the sheet closes onto the week', await p.evaluate(() => !document.querySelector('.pw-sheet')));
+
+    /* Blake's plan: 210 g of protein in about 1,650 cal, so a dinner's third
+       is 550 cal and 70 g. Held to one printed serving, the chip let nothing
+       in ("I toggled on that selector and nothing was presented"): the best
+       dinner in the books is 69 g a serving. A plate sized to the protein
+       does it, and High protein lets in more for Fill my day to top up. */
+    await p.evaluate(() => localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 210, c: 90, f: 50 })));
+    const hp = await p.evaluate(() => {
+      const W = window.__pw, cap = W.fit();
+      const base = { days: ['mon'], ppl: 4, bud: 150, t: 0, prot: [], kind: [], fit: 0, avoid: [], ing: [], rec: 0, shelf: true };
+      const all = W.pool(base, true);
+      const hits = W.pool(Object.assign({}, base, { fit: 1 }), true), high = W.pool(Object.assign({}, base, { fit: 2 }), true);
+      const plates = hits.map((r) => W.plate(r, cap));
+      return { cap, oneServing: all.filter((r) => r.macro.kcal <= cap.kc && r.macro.p >= cap.p).length, hits: hits.length, high: high.length,
+        offPlates: plates.filter((pl) => !pl || pl.kc > cap.kc * 1.02 || pl.p < cap.p * 0.97).map((pl) => pl && [pl.x, pl.kc, pl.p]) };
+    });
+    t.ok('70 g of protein in 550 cal: one printed serving can’t fill four nights, a plate sized to it can, each plate within the calories',
+      hp.cap.kc === 550 && hp.cap.p === 70 && hp.oneServing < 4 && hp.hits >= 4 && hp.offPlates.length === 0, JSON.stringify(hp));
+    t.ok('and High protein lets in more, for Fill my day to top up', hp.high > hp.hits, JSON.stringify(hp));
+
+    // on the screen: both chips with their counts, and each dinner says its plate (Saturday and Sunday are still free)
+    await p.evaluate(() => localStorage.setItem('sh.pw', JSON.stringify({ days: ['sat', 'sun'], ppl: 4, bud: 150, t: 0 })));
+    await p.click('#planMyWeek');
+    await p.waitForTimeout(300);
+    await p.evaluate(() => { const b = document.querySelector('[data-pwq="fit"][data-pwv="1"]'); b.scrollIntoView({ block: 'center' }); });
+    await p.click('[data-pwq="fit"][data-pwv="1"]');
+    await p.waitForTimeout(200);
+    const scr = await p.evaluate(() => ({
+      label: document.querySelector('[data-pwq="fit"]').closest('.pw-q').querySelector('.pw-ql').textContent,
+      chips: [...document.querySelectorAll('[data-pwq="fit"]')].map((b) => b.textContent.trim() + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
+      n: Number(document.querySelector('.pw-cnt b').textContent), dis: document.querySelector('.pw-bar .pw-go').disabled }));
+    t.ok('the question says the dinner’s share, and the chips say how many each lets in',
+      /550 cal · 70 g protein/.test(scr.label) && scr.chips[0] === 'Don’t mind' && /^Hits 70 g protein \d+\*$/.test(scr.chips[1]) && /^High protein \d+$/.test(scr.chips[2]),
+      JSON.stringify(scr));
+    t.ok('Hits 70 g protein leaves dinners to pick from', scr.n > 0, JSON.stringify(scr));
+    if (!scr.dis) {
+      await p.click('.pw-bar .pw-go');
+      await p.waitForTimeout(300);
+      const plates = await p.evaluate(() => [...document.querySelectorAll('.pw-meal')].map((m) => ({
+        lo: /Leftovers/.test(m.textContent), plate: (m.querySelector('.pw-plate') || {}).textContent || '' })));
+      t.ok('each dinner says the plate that meets the plan',
+        plates.length > 0 && plates.every((x) => /^Your plate: \d+(\.\d)? servings? · \d+ cal · \d+ g protein$/.test(x.plate)), JSON.stringify(plates));
+    } else t.ok('there were enough dinners to pick', false, JSON.stringify(scr));
+    await p.evaluate(() => { localStorage.removeItem('bsc.macroTargets'); localStorage.removeItem('sh.pw'); });
     t.ok('with no error on the page', errs.length === 0, errs.join(' | '));
     await p.context().close();
   },
