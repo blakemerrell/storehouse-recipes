@@ -4281,5 +4281,82 @@ module.exports = {
     r = await p.evaluate(() => document.querySelectorAll('.tr-hrow').length);
     t.ok('and Workouts is every workout in a row, as it always was', r >= 21, String(r));
     await p.close();
+
+    // ---- a block deleted, its workouts kept; a session put right from the calendar ----
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    const perr = [];
+    p.on('pageerror', (e) => perr.push(e.message));
+    await p.evaluate(() => {
+      const _ = window.Train._, day = 864e5, now = Date.now(), wo = {};
+      const old = _.build({ goal: 'grow', dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] }); old.id = 'old'; old.n = 'Winter bulk'; old.at = now - 60 * day; old.note = 'Knees fine.';
+      const cur = _.build({ goal: 'grow', dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [], seed: 1 }); cur.id = 'cur'; cur.n = 'Spring block'; cur.at = now - 10 * day;
+      let n = 0;
+      const log = (ms, w, d, st) => { const pl = _.plan(ms, w, d); const id = 'w' + (n++);
+        wo[id] = { id, st, en: st + 3600e3, u: 'lb', ms: ms.id, w, d, n: pl.n,
+          x: pl.x.map((x, k) => ({ e: x.e, s: Array.from({ length: x.sets }, (_, j) => ({ w: 80 + 10 * k + 5 * w, r: 10, t: st + 60e3 * (k * 5 + j + 1) })) })), sr: {}, fb: {} }; };
+      for (let w = 0; w < 3; w++) for (let d = 0; d < 3; d++) log(old, w, d, old.at + (w * 7 + d * 2) * day);
+      log(cur, 0, 0, cur.at + day);
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 2, 4] }, act: 'cur', ms: { old, cur }, cx: {}, ax: {}, wo }));
+      localStorage.removeItem('bsc.trainStamps'); _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('[data-t="hbopen"][data-id="old"]');
+    // Edit, one tap from the box
+    await p.click('.tr-hblk [data-t="hbsel"][data-w="1"][data-d="0"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('#trSesh .tr-acts button')].map((b) => b.textContent));
+    t.ok('a done session on a block’s calendar offers Edit beside See what you did', r.includes('Edit') && r.includes('See what you did'), JSON.stringify(r));
+    await p.click('#trSesh [data-t="woedit"]');
+    r = await p.evaluate(() => !!document.querySelector('.tr-sheet input[data-ed="w"]'));
+    t.ok('and Edit opens the workout already being corrected', r);
+    const wid = await p.evaluate(() => Object.values(window.Train._.state().T.wo).find((w) => w.ms === 'old' && w.w === 1 && w.d === 0).id);
+    await p.fill('.tr-sheet input[data-ed="w"][data-x="0"][data-s="0"]', '123');
+    await p.click('.tr-sheet [data-t="edsave"]');
+    await p.waitForTimeout(150);
+    r = await p.evaluate((id) => { const w = window.Train._.state().T.wo[id]; return { w: w.x[0].s[0].w, ed: !!w.ed }; }, wid);
+    t.ok('the corrected set is saved, and the workout says it was edited', r.w === 123 && r.ed, JSON.stringify(r));
+    await p.evaluate(() => { const b = document.querySelector('.tr-sheet [data-t="close"]'); if (b) b.click(); });
+    await p.waitForTimeout(150);
+    // Delete this block
+    t.ok('a block’s page offers Delete this block', await p.evaluate(() => !!document.querySelector('[data-t="hbdel"][data-id="old"]')));
+    await p.click('[data-t="hbdel"][data-id="old"]');
+    await p.waitForTimeout(250);
+    r = await p.evaluate(() => { const d = document.querySelector('#dialogRoot .dlg'); return d ? d.textContent : ''; });
+    t.ok('it asks first, and says the workouts stay', /Delete this block\?/.test(r) && /9 workouts stay in Workouts and Lifts/.test(r), r);
+    await p.click('#dialogRoot .btn-primary.danger');
+    await p.waitForTimeout(250);
+    r = await p.evaluate(() => { const st = window.Train._.state();
+      return { gone: !st.T.ms.old, kept: Object.values(st.T.wo).filter((w) => w.ms === 'old').length, stamped: st.TS.ms && st.TS.ms.old > 0,
+        act: st.T.act, rows: [...document.querySelectorAll('.tr-brow .tr-h-n')].map((x) => x.textContent).join(), page: !!document.querySelector('.tr-hblk') }; });
+    t.ok('the block is gone, stamped for the other devices, and History is back on the list without it',
+      r.gone && r.stamped && !r.page && r.rows === 'Spring block' && r.act === 'cur', JSON.stringify(r));
+    t.ok('every one of its workouts is kept', r.kept === 9, JSON.stringify(r));
+    await p.click('[data-t="hview"][data-v="wo"]');
+    r = await p.evaluate(() => ({ rows: document.querySelectorAll('.tr-hrow').length, fixed: [...document.querySelectorAll('.tr-hrow')].length }));
+    t.ok('and Workouts still lists all ten', r.rows === 10, JSON.stringify(r));
+    await p.click('[data-t="hview"][data-v="blk"]');
+    // not while a workout of the block is going
+    await p.click('[data-t="sub"][data-v="block"]');
+    await p.click('[data-t="start"]');
+    await p.waitForTimeout(150);
+    t.ok('a workout of the current block is going', await p.evaluate(() => { const L = window.Train._.state().LIVE; return !!L && L.ms === 'cur'; }));
+    await p.click('[data-t="minim"]');
+    await p.click('[data-t="sub"][data-v="history"]');
+    await p.click('[data-t="hbopen"][data-id="cur"]');
+    t.ok('meanwhile its block cannot be deleted', await p.evaluate(() => !document.querySelector('[data-t="hbdel"]')));
+    // the workout set aside, as Discard would
+    await p.evaluate(() => { localStorage.removeItem('sh.trainLive'); window.Train._.reload(); });
+    await p.click('[data-t="hbclose"]');
+    await p.click('[data-t="hbopen"][data-id="cur"]');
+    await p.click('[data-t="hbdel"][data-id="cur"]');
+    await p.waitForTimeout(250);
+    r = await p.evaluate(() => (document.querySelector('#dialogRoot .dlg') || {}).textContent || '');
+    t.ok('the current block says it stops being current', /stops being your current block/.test(r), r);
+    await p.click('#dialogRoot .btn-primary.danger');
+    await p.waitForTimeout(250);
+    r = await p.evaluate(() => { const st = window.Train._.state(); return { act: st.T.act, ms: Object.keys(st.T.ms).join(), wos: Object.keys(st.T.wo).length }; });
+    t.ok('deleting the current block ends it, and still keeps every workout', r.act === '' && r.ms === '' && r.wos === 10, JSON.stringify(r));
+    t.ok('no page errors through any of it', perr.length === 0, perr.join(' | '));
+    await p.close();
   },
 };
