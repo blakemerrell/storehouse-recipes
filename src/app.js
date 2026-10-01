@@ -1503,7 +1503,8 @@
       t: [20, 30, 45, 0].indexOf(a.t) >= 0 ? a.t : 45,
       prot: list(a.prot, function (x) { return PW_PROT.indexOf(x) >= 0; }),
       kind: list(a.kind, function (x) { return PW_KIND.some(function (k) { return k[0] === x; }); }),
-      fit: a.fit === true,
+      // 1 hits the plan, 2 high protein; answers saved as true or false were the first
+      fit: a.fit === true || a.fit === 1 ? 1 : a.fit === 2 ? 2 : 0,
       avoid: list(a.avoid, function (x) { return PW_AVOID[x]; }),
       ing: list(a.ing, function (x) { return typeof x === 'string' && !!(window.PANTRY || {})[x]; }),
       rec: [0, 2, 4].indexOf(a.rec) >= 0 ? a.rec : 0,
@@ -1569,6 +1570,30 @@
     if (!kc) return { kc: 600, p: 35 };
     return { kc: Math.round(kc / 3 / 25) * 25, p: Math.round(t.p / 3 / 5) * 5 };
   }
+  /* Whether a dinner meets that share, judged on protein for its calories,
+     because a plate can be more or less than one serving. Held to a single
+     serving, a 210 g day let nothing in: the best dinner in the books is 69 g
+     a serving, and Blake "toggled on that selector and nothing was
+     presented". 1, Hits it: a plate within the dinner's calories reaches its
+     protein. 2, High protein: at least 40% of the calories are protein, and
+     Fill my day tops up the rest. */
+  var PW_HIGH_P = 0.40;
+  function pwFits(r, mode, cap) {
+    if (!mode) return true;
+    var m = r.macro;
+    if (!m || !(m.kcal > 0)) return false;
+    return mode === 2 ? 4 * (m.p || 0) / m.kcal >= PW_HIGH_P : (m.p || 0) / m.kcal >= cap.p / cap.kc;
+  }
+  /* The plate that meets it: enough for the protein, or the dinner's
+     calories, whichever comes first, to a tenth of a serving. */
+  function pwPlate(r, cap) {
+    var m = r.macro;
+    if (!m || !(m.kcal > 0) || !(m.p > 0)) return null;
+    var x0 = Math.min(cap.p / m.p, cap.kc / m.kcal), x = Math.ceil(x0 * 10 - 1e-9) / 10;
+    if (x * m.kcal > cap.kc * 1.02) x = Math.floor(x0 * 10 + 1e-9) / 10;
+    x = Math.round(Math.max(0.5, x) * 10) / 10;
+    return { x: x, kc: Math.round(x * m.kcal), p: Math.round(x * m.p) };
+  }
   /* What was eaten or planned in the last few weeks: the dated Nourish days,
      and what this sheet has put on nights before. */
   var PW_HIST = 'sh.pwHist';
@@ -1594,13 +1619,13 @@
   /* weekend lifts the weeknight time limit; skip leaves one question out,
      so a chip can say how many dinners it would let in. */
   function pwPool(a, weekend, skip) {
-    var fit = a.fit ? pwFitCaps() : null, recent = pwRecent(a.rec);
+    var fit = skip === 'fit' ? 0 : a.fit, cap = fit ? pwFitCaps() : null, recent = pwRecent(a.rec);
     return RECIPES.filter(function (r) {
       if (!pwIsDinner(r)) return false;
       if (!weekend && a.t && pwMins(r) > a.t) return false;
       if (skip !== 'prot' && a.prot.length && a.prot.indexOf(pwProt(r)) < 0) return false;
       if (skip !== 'kind' && a.kind.length && a.kind.indexOf(pwKind(r)) < 0) return false;
-      if (fit && r.macro && (r.macro.kcal > fit.kc || r.macro.p < fit.p)) return false;
+      if (!pwFits(r, fit, cap)) return false;
       if (recent[String(r.id)]) return false;
       if (window.Store.rating(r.id) === -1) return false;     // "not again"
       if (!modeAllows(r)) return false;                        // storehouse only
@@ -1733,6 +1758,8 @@
     var byProt = {}, byKind = {};
     pwPool(a, false, 'prot').forEach(function (r) { var k = pwProt(r); byProt[k] = (byProt[k] || 0) + 1; });
     pwPool(a, false, 'kind').forEach(function (r) { var k = pwKind(r); byKind[k] = (byKind[k] || 0) + 1; });
+    var byFit = [0, 0, 0];
+    pwPool(a, false, 'fit').forEach(function (r) { byFit[0]++; if (pwFits(r, 1, fit)) byFit[1]++; if (pwFits(r, 2, fit)) byFit[2]++; });
     var low = cnt.n < cnt.need * 2, none = cnt.n < cnt.need || !cnt.need;
     return '<h2 class="pw-h">What kind of week?</h2>' + dots +
       '<div class="pw-q"><div class="pw-ql">Which nights</div>' +
@@ -1747,8 +1774,8 @@
         pwChips('kind', PW_KIND.map(function (k) { return [k[0], k[2], byKind[k[0]] || 0]; }), a.kind) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Time on a weeknight <small>Sat and Sun can take longer</small></div>' +
         pwChips('t', [[20, '20 min'], [30, '30 min'], [45, '45 min'], [0, 'Anything']], a.t) + '</div>' +
-      '<div class="pw-q"><div class="pw-ql">Fits my Nourish plan</div>' +
-        pwChips('fit', [['0', 'Don’t mind'], ['1', 'Up to ' + fit.kc + ' cal · ' + fit.p + ' g+ protein']], a.fit ? '1' : '0') + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">Fits my Nourish plan <small>' + fit.kc + ' cal · ' + fit.p + ' g protein a dinner</small></div>' +
+        pwChips('fit', [[0, 'Don’t mind'], [1, 'Hits ' + fit.p + ' g protein', byFit[1]], [2, 'High protein', byFit[2]]], a.fit) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Leave out</div>' +
         pwChips('avoid', Object.keys(PW_AVOID).map(function (k) { return [k, k]; }), a.avoid, 'pw-x') +
         (a.ing.length ? '<div class="pw-chips pw-ings">' + a.ing.map(function (k) {
@@ -1766,6 +1793,11 @@
         (!cnt.need ? (a.days.length ? 'those nights already have dinners' : 'pick a night') :
           cnt.n < cnt.need ? 'need ' + cnt.need + ', loosen a filter' : low ? 'not many to choose from' : 'for ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights')) +
         '</span></div><button class="pw-go" data-pwgo="2"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>';
+  }
+  // with a Nourish answer, each dinner says the plate that meets it
+  function pwPlateHTML(r, mode) {
+    var pl = mode ? pwPlate(r, pwFitCaps()) : null;
+    return pl ? '<div class="pw-mm pw-plate">Your plate: ' + pl.x + (pl.x === 1 ? ' serving' : ' servings') + ' · ' + pl.kc + ' cal · ' + pl.p + ' g protein</div>' : '';
   }
   function pwHTML() {
     var P = S.pw, a = P.a, step = P.step;
@@ -1788,7 +1820,7 @@
           return '<div class="pw-meal"><div class="pw-day">' + (dn ? dn[2].toUpperCase() : '') + '</div>' +
             '<div class="pw-mt"><button class="pw-mn" data-pwopen="' + esc(String(e.r.id)) + '">' + esc(e.r.name) + '</button>' +
             '<div class="pw-mm">' + (e.lo ? 'Leftovers \u00b7 nothing to cook or buy' : esc(e.r.time || '') + ' · ' + (e.x === 1 ? 'the recipe as written' : '×' + fmtNum(e.x)) +
-              ' · about ' + pwMoney(pwCost([e], a.shelf))) + '</div></div>' +
+              ' · about ' + pwMoney(pwCost([e], a.shelf))) + '</div>' + pwPlateHTML(e.r, a.fit) + '</div>' +
             (e.lo ? '<span class="pw-swap pw-lo" aria-hidden="true"></span>' :
             '<button class="pw-swap" data-pwswap="' + i + '" aria-label="Pick another instead of ' + esc(e.r.name) + '">↻</button>') + '</div>';
         }).join('') +
@@ -1827,7 +1859,7 @@
   }
   /* For the tests: the rules without the sheet, so a picker with chance in it
      can be run forty times and held to what it promises every time. */
-  window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids, prot: pwProt, kind: pwKind, fit: pwFitCaps, answers: pwAnswers };
+  window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids, prot: pwProt, kind: pwKind, fit: pwFitCaps, fits: pwFits, plate: pwPlate, answers: pwAnswers };
   function pwOpen() {
     S.pw = { step: 1, a: pwAnswers(), picks: [], seen: {} };
     S.pwOpen = true;
@@ -1843,8 +1875,7 @@
         var at = a[k].indexOf(v);
         if (at >= 0) a[k].splice(at, 1); else a[k].push(v);
         if (k === 'days') a.days.sort(function (x, y) { return PW_DAYS.indexOf(x) - PW_DAYS.indexOf(y); });
-      } else if (k === 'fit') a.fit = v === '1';
-      else a[k] = Number(v);
+      } else a[k] = Number(v);
       pwSave(a);
       renderModal();
       return;
@@ -16113,9 +16144,9 @@
      scaling. The dialog is still there for the selections that cannot be made
      ahead of time — your favorites, this week, and recipes of your own. */
   var READY_MADE = {
-    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 308 },
-    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 300 },
-    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 116, booklet: true },
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 312 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 304 },
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 120, booklet: true },
     2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 192, booklet: true }
   };
 
