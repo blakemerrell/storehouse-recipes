@@ -2081,7 +2081,37 @@ module.exports = {
     await q.waitForTimeout(250);
 
     // ---- Fill my day drafts every empty meal as one coherent combination
+    /* Fill picks at random from the top three fits, so one press is one draw
+       and a check on it was a dice roll: about one run in thirty drew a day
+       that finished its protein short and failed CI on a change that never
+       touched Fill. So the spread is measured first, over sixty drafted days
+       on the bench's own hooks — the same seeds every run — and then the one
+       press below is seeded too, so it is the same day every run. */
+    const mulberry = `(a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296; }`;
+    const spread = await q.evaluate((src) => {
+      const seeded = new Function('return ' + src)(), real = Math.random, lab = window.__macroLab;
+      const T = lab.targets(), out = { short: 0, worst: 1, notProtein: [] };
+      for (let i = 1; i <= 60; i++) {
+        Math.random = seeded(i); lab.forget(); lab.draft();
+        const d = lab.read(), r = d.tot.p / T.p;
+        if (r < 0.88) out.short++;
+        out.worst = Math.min(out.worst, r);
+        d.meals.forEach((m) => m.items.forEach((it) => {
+          if (it.why === 'p' && 4 * it.p < 0.3 * it.kcal) out.notProtein.push(it.name);
+        }));
+      }
+      Math.random = real; lab.forget();
+      return out;
+    }, mulberry);
+    t.ok('over sixty drafted days, a topper added for protein is always a protein food',
+      spread.notProtein.length === 0, JSON.stringify(spread.notProtein.slice(0, 5)));
+    t.ok('and no more than three of them finish under 88% of the protein, none under 75%',
+      spread.short <= 3 && spread.worst >= 0.75, spread.short + ' short, worst ' + Math.round(100 * spread.worst) + '%');
+    await q.evaluate((src) => { window.__realRandom = Math.random; Math.random = new Function('return ' + src)()(1); }, mulberry);
     await q.click('#macroFill');
+    await q.evaluate(() => { Math.random = window.__realRandom; });
     await q.waitForTimeout(300);
     const drafted = await q.evaluate(() => {
       const days = JSON.parse(localStorage.getItem('bsc.macroDays'));

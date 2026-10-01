@@ -170,6 +170,13 @@ if (SLOTS === undefined) { console.error('unknown --slots; try ' + Object.keys(P
     return s;
   });
   console.log('\nday protein miss   mean ' + mean(dp).toFixed(1) + ' g   median ' + med(dp).toFixed(1));
+  /* The tail, which the mean hides: a day that lands well short of its
+     protein is the one somebody notices. 88% is where the Fill test draws
+     the line. */
+  const pr = runs.days.map((d) => d.tot.p / T.p);
+  console.log('protein under 88%  ' + pr.filter((r) => r < 0.88).length + ' days of ' + DAYS +
+    '   worst ' + Math.round(100 * Math.min.apply(null, pr)) + '%');
+  console.log('kcal off by > 10%  ' + runs.days.filter((d) => Math.abs(4 * d.tot.p + 4 * d.tot.c + 9 * d.tot.f - dayK) > 0.10 * dayK).length + ' days');
   console.log('day kcal miss      mean ' + mean(dk).toFixed(1) + '     median ' + med(dk).toFixed(1));
   console.log('share miss (sum)   mean ' + mean(share).toFixed(0) + '     median ' + med(share).toFixed(0));
 
