@@ -1384,15 +1384,23 @@ window.Store = (function () {
     },
 
     /* Put another week's meals on this one, day for day, filling only the
-       days that are empty here. */
-    cookAgain: function (fromId) {
+       days that are empty here and, when `days` is given, only those (the
+       days still to come). A leftovers night comes only with its dinner. */
+    cookAgain: function (fromId, days) {
       var from = state.weeks[fromId];
       if (!from) return;
-      var self = this;
+      var self = this, fill = {};
+      Object.keys(obj(from.plan)).forEach(function (d) {
+        if (days && days.indexOf(d) < 0) return;
+        if (!self.day(d).length) fill[d] = self.dayOf(fromId, d);
+      });
+      var order = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
       batch(function () {
-        Object.keys(obj(from.plan)).forEach(function (d) {
-          if (self.day(d).length) return;
-          var list = self.dayOf(fromId, d);
+        Object.keys(fill).forEach(function (d) {
+          var before = order[order.indexOf(d) - 1];
+          var list = fill[d].filter(function (e) {
+            return !e.lo || (fill[before] || []).some(function (c) { return c.id === e.id && !c.lo; });
+          });
           if (list.length) writeDay(d, list);
         });
       });

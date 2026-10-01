@@ -1180,8 +1180,8 @@
     var nights = DAYS.filter(function (d) {
       return window.Store.day(d[0]).some(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); });
     }).length;
-    var ents = planEntries(), cost = pwCost(ents, true);
-    var nList = buildList(ents).groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    var ents = planEntries(), built = buildList(ents), cost = listUsd(built);
+    var nList = built.groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     var favs = 0;
     DAYS.forEach(function (d) { window.Store.day(d[0]).forEach(function (e) { if (window.Store.rating(e.id) === 2) favs++; }); });
     if ($('planSetup')) $('planSetup').innerHTML = planSetUp() ? '' :
@@ -1204,8 +1204,8 @@
           (gone ? '' : '<span class="day-ctl no-print">' +
             (din && !e.lo ? '<button class="day-sw" data-pswap="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
               'aria-label="Swap ' + esc(r.name) + ' for another dinner">↻</button>' : '') +
-            '<button class="day-x2" data-mult="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
-              'title="How many times the recipe — the shopping list follows">' + '&times;' + fmtNum(e.x) + '</button>' +
+            (e.lo ? '' : '<button class="day-x2" data-mult="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
+              'title="How many times the recipe — the shopping list follows">' + '&times;' + fmtNum(e.x) + '</button>') +
             '<button class="day-x" data-drop="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
               'aria-label="Remove ' + esc(r.name) + '">&times;</button></span>') +
           /* Rated once it has been eaten: today and the days before it. */
@@ -1220,15 +1220,15 @@
         '</div></div>';
     }).join('');
     if ($('calActs')) $('calActs').innerHTML =
-      '<button class="nut-ask" data-calagain="1" aria-expanded="' + !!S.calAgain + '">Cook this again…</button>' +
+      (past ? '' : '<button class="nut-ask" data-calagain="1" aria-expanded="' + !!S.calAgain + '">Cook this again…</button>') +
       (ents.length ? '<button class="nut-ask" data-caltpl="1">Save as a template</button>' : '') +
       (past ? '' : '<button class="nut-ask" id="clearPlan">Clear week</button>');
-    if ($('calAgain')) $('calAgain').innerHTML = S.calAgain ? calAgainHTML() : '';
+    if ($('calAgain')) $('calAgain').innerHTML = S.calAgain && !past ? calAgainHTML() : '';
   }
   /* Cook this again: a template or a week gone by, onto this one. */
   function calAgainHTML() {
     var src = window.Store.sources();
-    return '<div class="cal-again"><b>Cook this again</b><p>Put a past week or a saved template on this week. Only empty days are filled.</p>' +
+    return '<div class="cal-again"><b>Cook this again</b><p>Put a past week or a saved template on this week. Only empty days still to come are filled.</p>' +
       (src.length ? src.slice(0, 12).map(function (w) {
         var nm = w.tpl ? w.name : (function () {
           var e = new Date(w.start); e.setDate(e.getDate() + 6);
@@ -1294,7 +1294,11 @@
     if (cw) { S.calMode = 'w'; window.Store.setWeek(cw.dataset.calweek); renderPlan(); return; }
     if (t.closest('[data-calagain]')) { S.calAgain = !S.calAgain; renderPlan(); return; }
     var cf = t.closest('[data-calfrom]');
-    if (cf) { window.Store.cookAgain(cf.dataset.calfrom); S.calAgain = false; return; }
+    if (cf) {
+      window.Store.cookAgain(cf.dataset.calfrom, CAL_DAYS.filter(function (d) { return !calPastDay(d[0]); }).map(function (d) { return d[0]; }));
+      S.calAgain = false;
+      return;
+    }
     if (t.closest('[data-caltpl]')) {
       ask({ title: 'Save this week as…', value: 'Week of ' + window.Store.activeWeek().name, ok: 'Save' }, function (name) {
         if (name && name.trim()) window.Store.saveTemplate(name.trim());
@@ -1323,7 +1327,7 @@
     DAYS.forEach(function (d) {
       window.Store.day(d[0]).forEach(function (e) {
         var r = BY_ID[e.id];
-        if (r && pwIsDinner(r) && !(d[0] === day && e.id === id)) picks.push({ r: r, x: e.x });
+        if (r && pwIsDinner(r) && !e.lo && !(d[0] === day && e.id === id)) picks.push({ r: r, x: e.x });
       });
     });
     S.pswapSeen = S.pswapSeen || {};
@@ -1332,11 +1336,22 @@
     var nx = pwNext(a, picks, seen, day);
     if (!nx) { S.pswapSeen[day] = [id]; nx = pwNext(a, picks, [id], day); }
     if (!nx) return;
-    var x = window.Store.scaleOf(id, day);
+    var x = window.Store.scaleOf(id, day), twin = planTwin(id, day);
     window.Store.batch(function () {
       window.Store.removeFromDay(id, day);
       window.Store.addToDay(nx.r.id, day, x);
+      /* Its leftovers night follows it, and it is still cooked double. */
+      if (twin) { window.Store.removeFromDay(id, twin); window.Store.addToDay(nx.r.id, twin, 1, true); }
     });
+  }
+  /* The leftovers night a cooked dinner feeds: the same recipe, eaten the
+     next day of this week. */
+  function planTwin(id, day) {
+    var i = PW_DAYS.indexOf(day), nxt = PW_DAYS[i + 1];
+    if (i < 0 || !nxt) return null;
+    var cooked = window.Store.day(day).some(function (e) { return e.id === id && !e.lo; });
+    var lo = window.Store.day(nxt).some(function (e) { return e.id === id && e.lo; });
+    return cooked && lo ? nxt : null;
   }
 
   // ------------------------------------------------------------- add to day
@@ -1636,7 +1651,11 @@
      what the week already buys, not the same meat three nights running, and
      a little chance so two runs are two weeks. Anything that would carry the
      week past the budget is passed over while something else fits. */
-  function pwNext(a, picks, not, day) {
+  /* `week` is the dinners already on the week, outside the sheet's picks:
+     not picked again, their shared foods and meats counted, their cost in
+     the budget, which is for the week. */
+  function pwNext(a, newPicks, not, day, week) {
+    var picks = newPicks.concat(week || []);
     var pool = pwPool(a, PW_WEEKEND.indexOf(day) >= 0).filter(function (r) {
       return not.indexOf(r.id) < 0 && !picks.some(function (e) { return e.r.id === r.id; });
     });
@@ -1660,7 +1679,7 @@
       });
       var rt = window.Store.rating(r.id), liked = rt === 2 ? 2 : rt === 1 ? 0.8 : 0;
       return { r: r, x: x, inc: inc,
-        fits: base + inc <= a.bud * (picks.length + 1) / Math.max(1, a.days.length) + 0.01,
+        fits: base + inc <= a.bud * (picks.length + 1) / Math.max(1, a.days.length, picks.length + 1) + 0.01,
         score: inc - shared * 0.8 + same * same * 3 - (hn ? hv / hn : 0) * 3 - liked + Math.random() * 2.5 };
     });
     var ok = scored.filter(function (c) { return c.fits; });
@@ -1675,11 +1694,20 @@
         !window.Store.day(d).some(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); });
     });
   }
-  function pwPick() {
-    var a = S.pw.a, picks = [], nights = pwNights(a.days);
-    /* Leftovers first: the nights that follow another asked-for night are
-       the ones that can be the night before's dinner again, the weekend's
-       big cook before a weekday's. */
+  /* The dinners already planned on the week, cooked ones only. */
+  function pwWeekDinners() {
+    var out = [];
+    PW_DAYS.forEach(function (d) {
+      window.Store.day(d).forEach(function (e) {
+        var r = BY_ID[e.id];
+        if (r && pwIsDinner(r) && !e.lo) out.push({ r: r, x: e.x });
+      });
+    });
+    return out;
+  }
+  /* Which asked-for nights are the night before's dinner again: the nights
+     that follow another asked-for night, the weekend's big cook first. */
+  function pwLoNights(a, nights) {
     var lo = {}, left = a.lo;
     var pairs = nights.filter(function (d, i) { return i + 1 < nights.length && PW_DAYS.indexOf(nights[i + 1]) === PW_DAYS.indexOf(d) + 1; });
     pairs.sort(function (x, y) { return (PW_WEEKEND.indexOf(y) >= 0) - (PW_WEEKEND.indexOf(x) >= 0); });
@@ -1687,13 +1715,18 @@
       var nxt = PW_DAYS[PW_DAYS.indexOf(d) + 1];
       if (left > 0 && !lo[d] && !lo[nxt]) { lo[nxt] = d; left--; }
     });
+    return lo;
+  }
+  function pwPick() {
+    var a = S.pw.a, picks = [], nights = pwNights(a.days), week = pwWeekDinners();
+    var lo = pwLoNights(a, nights);
     for (var i = 0; i < nights.length; i++) {
       if (lo[nights[i]]) {
         var from = picks.filter(function (e) { return e.day === lo[nights[i]]; })[0];
         if (from) { from.x *= 2; picks.push({ r: from.r, x: 1, day: nights[i], lo: true }); }
         continue;
       }
-      var nx = pwNext(a, picks.filter(function (e) { return !e.lo; }), [], nights[i]);
+      var nx = pwNext(a, picks.filter(function (e) { return !e.lo; }), [], nights[i], week);
       if (nx) picks.push({ r: nx.r, x: nx.x, day: nights[i] });
     }
     S.pw.picks = picks;
@@ -1705,8 +1738,9 @@
     var others = S.pw.picks.filter(function (e, j) { return j !== i && !e.lo; });
     var seen = S.pw.seen[i] = S.pw.seen[i] || [];
     seen.push(S.pw.picks[i].r.id);
-    var nx = pwNext(a, others, seen, day);
-    if (!nx) { S.pw.seen[i] = []; nx = pwNext(a, others, [S.pw.picks[i].r.id], day); }
+    var week = pwWeekDinners();
+    var nx = pwNext(a, others, seen, day, week);
+    if (!nx) { S.pw.seen[i] = []; nx = pwNext(a, others, [S.pw.picks[i].r.id], day, week); }
     if (!nx) return;
     /* Its leftovers night follows it, and it is still cooked double. */
     var twin = S.pw.picks.filter(function (e) { return e.lo && e.r.id === was.r.id; })[0];
@@ -1751,7 +1785,9 @@
      still to fill. */
   function pwCount(a) {
     var wk = a.days.some(function (d) { return PW_WEEKEND.indexOf(d) < 0; });
-    return { n: pwPool(a, !wk).length, need: pwNights(a.days).length };
+    /* Different dinners needed: the leftovers nights are the night before's again. */
+    var nights = pwNights(a.days);
+    return { n: pwPool(a, !wk).length, need: nights.length - Object.keys(pwLoNights(a, nights)).length };
   }
   function pwStep1(a, dots) {
     var cnt = pwCount(a), fit = pwFitCaps();
@@ -1859,7 +1895,8 @@
   }
   /* For the tests: the rules without the sheet, so a picker with chance in it
      can be run forty times and held to what it promises every time. */
-  window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids, prot: pwProt, kind: pwKind, fit: pwFitCaps, fits: pwFits, plate: pwPlate, answers: pwAnswers };
+  window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids, prot: pwProt, kind: pwKind, fit: pwFitCaps, fits: pwFits, plate: pwPlate, answers: pwAnswers,
+    count: pwCount, pick: function (a) { var keep = S.pw; S.pw = { a: a, picks: [], seen: {} }; pwPick(); var out = S.pw.picks; S.pw = keep; return out; } };
   function pwOpen() {
     S.pw = { step: 1, a: pwAnswers(), picks: [], seen: {} };
     S.pwOpen = true;
@@ -14754,16 +14791,26 @@
     };
   }
 
+  /* What the list's to-buy part costs: the one figure for "to buy", on the
+     list and on the plan, ran-out staples included. */
+  function listUsd(built) {
+    var usd = 0;
+    built.groups.forEach(function (g) {
+      if (g.src === 'b') g.items.forEach(function (b) { var pr = pwPrice(b.key); if (pr && b.g) usd += b.g * pr / 100; });
+    });
+    return usd;
+  }
+
   function renderList() {
     var built = buildList();
 
     var total = built.groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     // which week this list came out of — there can be several
     $('listWeek').textContent = window.Store.activeWeek().name;
-    var nBuy = 0, nSh = 0, usd = 0;
+    var nBuy = 0, nSh = 0, usd = listUsd(built);
     built.groups.forEach(function (g) {
       if (g.src === 's') nSh = g.items.length;
-      if (g.src === 'b') { nBuy = g.items.length; g.items.forEach(function (b) { var pr = pwPrice(b.key); if (pr && b.g) usd += b.g * pr / 100; }); }
+      if (g.src === 'b') nBuy = g.items.length;
     });
     $('listCount').innerHTML = total
       ? '<b>' + total + '</b> items' + (nSh ? ' \u00b7 <b>' + nSh + '</b> from the storehouse' : '') +
@@ -17641,7 +17688,7 @@
     renderSteps();
     /* Anywhere but Plan, "the week" is this week: a recipe added from
        Recipes, or the list, must not land in a week you had scrolled back to. */
-    if (S.view !== 'plan' && S.view !== 'list' && window.Store.activeWeek().id !== window.Store.thisWeek()) {
+    if (lit !== 'plan' && S.view !== 'list' && window.Store.activeWeek().id !== window.Store.thisWeek()) {
       window.Store.setWeek(window.Store.thisWeek());
       return;
     }
@@ -17833,12 +17880,22 @@
         return;
       }
       var b = e.target.closest('[data-drop]');
-      if (b) { window.Store.removeFromDay(idOf(b.dataset.drop), b.dataset.day); return; }
+      if (b) {
+        /* A dinner taken off takes its leftovers night with it: there is
+           nothing left over from a dinner nobody cooks. */
+        var did = idOf(b.dataset.drop), tw = planTwin(did, b.dataset.day);
+        window.Store.batch(function () {
+          window.Store.removeFromDay(did, b.dataset.day);
+          if (tw) window.Store.removeFromDay(did, tw);
+        });
+        return;
+      }
       var m = e.target.closest('[data-mult]');
       if (!m) return;
       var id = idOf(m.dataset.mult), day = m.dataset.day;
       var at = SCALES.indexOf(window.Store.scaleOf(id, day));
-      window.Store.addToDay(id, day, SCALES[(at + 1) % SCALES.length]);
+      var was = window.Store.day(day).filter(function (e) { return e.id === id; })[0];
+      window.Store.addToDay(id, day, SCALES[(at + 1) % SCALES.length], !!(was && was.lo));
     });
 
     /* The Macros day. Items are addressed slot:index into the stored arrays,

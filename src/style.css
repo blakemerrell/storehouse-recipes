@@ -6899,7 +6899,9 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 
    :not(#u#u) lifts every rule over the per-sheet overrides (Nourish's
    #modalRoot.m-sheets ones), so a part looks the same in every sheet.
-   Strengthen (tr-*) is left to the session that keeps it. Colours are the
+   Strengthen's own tr-* parts are left to the session that keeps it, but
+   its .ghost, .btn-primary, .seg and .sheet-x are these, so a Strengthen rule
+   for one of those needs :not(#u#u) to take effect. Colours are the
    palette's tokens, so the dark theme turns them with everything else.
    ====================================================================== */
 
@@ -6909,6 +6911,15 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
   background: var(--ink); color: var(--paper); font: inherit; font-size: 0.9375rem; font-weight: 650;
 }
 :is(.btn-primary, .pw-go):not(#u#u):disabled { opacity: 0.4; }
+/* The variants keep their colours: a dangerous confirm is red, Nourish's
+   Fill doing its other jobs is ochre or muted. */
+.btn-primary.danger:not(#u#u) { background: var(--danger); }
+.btn-primary.danger:not(#u#u):hover { background: var(--danger-deep); }
+.btn-primary.to-plan:not(#u#u) { background: var(--ochre-text); }
+.btn-primary.to-plan:not(#u#u):hover { background: var(--ochre); }
+.btn-primary.to-done:not(#u#u) { background: var(--muted); }
+.btn-primary.to-done:not(#u#u):hover { background: var(--ink); }
+.mfs-amt .btn-primary:not(#u#u) { min-height: 48px; }
 .wm-btn:not(#u#u) { min-height: 44px; }
 /* Nourish's "+ Add food" is the one big button on its bar, on purpose. */
 .mday-add:not(#u#u) { min-height: 48px; }
@@ -6936,6 +6947,12 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
   border-radius: 8px; border-width: 1.5px; background: transparent;
 }
 .copy-order:not(#u#u) { width: 100%; }
+.ghost.danger:not(#u#u) { color: var(--danger); }
+.ghost.danger:not(#u#u)::after { border-color: var(--danger-line); }
+.ghost.danger:not(#u#u):hover::after { background: var(--danger-wash); }
+:is(.ghost, .pw-back, .copy-order, .favbtn, .day-add):not(#u#u):not(.danger):hover::after { border-color: var(--ochre); }
+/* Strengthen's buttons wrap to two lines, so they keep their padding. */
+:is(#view-train, #trainRoot) .ghost:not(#u#u) { padding: 10px 14px; }
 
 /* -- quiet link: text only ------------------------------------------- */
 :is(.nut-ask, .kit-more, .ad-again, .sync-alt):not(#u#u),
@@ -7066,11 +7083,11 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .cal-date small { display: block; font-size: 0.65625rem; letter-spacing: 0.1em; color: var(--muted); font-weight: 700; }
 .cal-date b { display: inline-grid; place-items: center; width: 32px; height: 32px; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
 .cal-day.today .cal-date b { background: var(--ochre); color: var(--on-ochre); border-radius: 50%; font-size: 1.0625rem; }
-.cal-day.past .day-body { opacity: 0.72; }
+.cal-day.past .cal-date b { color: var(--muted); font-weight: 500; }   /* a day gone by steps back in its date; its text stays readable */
 .cal-day .day-body { padding: 0; gap: 4px; display: flex; flex-direction: column; min-width: 0; }
 .cal-day .day-item { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--pc, var(--ochre)); border-radius: 6px; padding: 2px 0 2px 8px; }
 .cal-day .day-item.mini { background: none; border: 0; padding: 0 2px; }
-.cal-day .day-item.mini .day-item-name { font-family: var(--sans); font-size: 0.8125rem; color: var(--muted); min-height: 36px; }
+.cal-day .day-item.mini .day-item-name { font-family: var(--sans); font-size: 0.8125rem; color: var(--muted); min-height: 44px; }
 .cal-day .day-item-name small { display: block; font-family: var(--sans); font-size: 0.71875rem; color: var(--muted); font-weight: 400; }
 .cal-day .day-add { align-self: flex-start; }
 .cal-day .day-empty { font-size: 0.78125rem; color: var(--muted); font-style: normal; padding: 10px 2px; }
