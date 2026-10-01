@@ -22,20 +22,25 @@ module.exports = {
     await p.reload();
     await p.waitForTimeout(700);
 
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
+    /* What the storehouse carries is step 1's question now, asked with the
+       same pills as everything else: on means it carries it. */
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="where"]'));
     await p.waitForTimeout(400);
-
+    /* Every shelf opened, so every food is on screen to be counted. */
+    await p.evaluate(() => {
+      for (let i = 0; i < 40; i++) {
+        const more = [...document.querySelectorAll('#whereBody [data-carrymore]')].find((b) => /^\+/.test(b.textContent));
+        if (!more) break;
+        more.click();
+      }
+    });
+    await p.waitForTimeout(200);
     const shape = await p.evaluate(() => ({
-      shelves: document.querySelectorAll('.shelf:not(.shelf-gone)').length,
-      kept: document.querySelectorAll('.shelf:not(.shelf-gone) .pitem').length,
-      gone: document.querySelectorAll('.shelf-gone .pitem').length,
-      boxes: document.querySelectorAll('#pantryBody input[type=checkbox]').length,
+      shelves: document.querySelectorAll('#whereBody .kit-grp').length,
+      kept: document.querySelectorAll('#whereBody [data-carry][aria-pressed="true"]').length,
+      gone: document.querySelectorAll('#whereBody [data-carry][aria-pressed="false"]').length,
+      boxes: document.querySelectorAll('#whereBody input[type=checkbox]').length,
     }));
-    /* Counted off the pantry the app was handed, not written in here. Both
-       numbers moved the day the storehouse list stopped being inferred from
-       recipe annotations and started being declared — five items crossed from
-       one side to the other, and this failed for holding the old split while
-       the page was showing the new one correctly. */
     const split = await p.evaluate(() => {
       const P = window.PANTRY, shelves = {};
       let on = 0, off = 0;
@@ -43,7 +48,7 @@ module.exports = {
       Object.keys(P).forEach((k) => { shelves[P[k].c] = 1; if (P[k].s || P[k].sp) on++; else off++; });
       return { shelves: Object.keys(shelves).length, on, off };
     });
-    t.ok('it opens on the storehouse order, every shelf of it',
+    t.ok('step 1 opens on the storehouse order, every shelf of it, as pills',
       shape.shelves === split.shelves && shape.kept === split.on,
       JSON.stringify(shape) + ' vs ' + JSON.stringify(split));
     /* The ones the storehouse never carried are not on the shelf, so they sit
@@ -56,10 +61,10 @@ module.exports = {
        book quietly claimed you could pick up breadcrumbs with the flour. It is
        declared in pantry-cats.js now, which is why this counts rather than
        remembers. */
-    t.ok('with everything it never carried listed as not kept',
+    t.ok('with everything it never carried showing as not carried',
       shape.gone === split.off, JSON.stringify(shape) + ' vs ' + split.off + ' off-list');
     // it is a list of what you keep, not a checklist of what to fetch
-    t.ok('and it is a list rather than a checklist', shape.boxes === 0, shape.boxes + ' checkboxes');
+    t.ok('and it is pills rather than a checklist', shape.boxes === 0, shape.boxes + ' checkboxes');
 
     // a recipe whose ingredients are all on the standard order
     const dish = await p.evaluate(() => {
@@ -80,8 +85,8 @@ module.exports = {
       (await foot()) === '', dish.name);
 
     // stop keeping one of its ingredients
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await p.waitForTimeout(300);
-    await p.click('[data-poff="cottage_cheese"]'); await p.waitForTimeout(400);
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="where"]')); await p.waitForTimeout(300);
+    await p.click('#whereBody [data-carry="cottage_cheese"]'); await p.waitForTimeout(400);
 
     /* One fewer than the storehouse list, whatever that list happens to hold.
        Written as 99 it measured the size of the order rather than the thing it
@@ -89,8 +94,8 @@ module.exports = {
     const onList = await p.evaluate(() =>
       Object.keys(window.PANTRY).filter((k) => window.PANTRY[k].s || window.PANTRY[k].sp).length);
     t.ok('taking something off is counted',
-      new RegExp('\\b' + (onList - 1) + ' items\\b').test(await p.textContent('#pantryNote')),
-      await p.textContent('#pantryNote') + '  (expected ' + (onList - 1) + ')');
+      (await p.textContent('#carryN')) === String(onList - 1),
+      await p.textContent('#carryN') + '  (expected ' + (onList - 1) + ')');
 
     /* The point of the whole feature: the recipe changes its mind. */
     t.ok('and the recipe now says what you would have to go out for',
@@ -219,21 +224,20 @@ module.exports = {
       !!buy && !buy.items.some((i) => /vanilla|salt|pepper|cinnamon/i.test(i)),
       buy ? buy.items.join(' | ') : 'no buy list');
 
-    // something of your own, which the books have never heard of
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await p.waitForTimeout(300);
-    await p.evaluate(() => window.Store.addPantryItem('Olive oil', 'Yours'));
+    // something of your own, which the books have never heard of: typed
+    // into On hand's search, and added from there
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')); await p.waitForTimeout(300);
+    await p.fill('#kitFind', 'Olive oil');
+    await p.waitForTimeout(200);
+    await p.click('[data-kitnew]');
     await p.waitForTimeout(300);
     await p.reload(); await p.waitForTimeout(700);
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await p.waitForTimeout(400);
+    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')); await p.waitForTimeout(400);
     const own = await p.evaluate(() => {
-      // the head is a name and a count; the name is the first span
-      const h = [...document.querySelectorAll('.shelf-h span:first-child')].map((e) => e.textContent);
-      return { last: h.filter((x) => !/Not kept/.test(x)).pop(), note: document.getElementById('pantryNote').textContent };
+      const g = [...document.querySelectorAll('#view-pantry .kit-grp')].find((x) => (x.querySelector('.kit-gh span') || {}).textContent === 'Yours');
+      return { shelf: !!g, oil: !!g && [...g.querySelectorAll('.kit-pill')].some((b) => b.textContent === 'Olive oil' && b.getAttribute('aria-pressed') === 'true') };
     });
-    t.ok('what you add yourself gets a shelf and survives a reload',
-      own.last === 'Yours' &&
-      new RegExp('\\b' + onList + ' items\\b').test(own.note),
-      JSON.stringify(own) + '  (expected ' + onList + ')');
+    t.ok('what you add yourself gets a shelf and survives a reload', own.shelf && own.oil, JSON.stringify(own));
 
     /* This assertion is the one whose absence let the bug ship, and the count
        above is the evidence of it. It used to read 101 — one hundred
@@ -261,41 +265,6 @@ module.exports = {
     t.ok('but keeps what you added yourself',
       await p.evaluate(() => !!window.Store.pantryOwn().own_olive_oil));
 
-    /* ---- the shape of it on a screen with room -------------------------
-       A hundred things in one column is half a minute of scrolling to answer
-       "do I keep cornmeal", and the order sheet it copies is not one column
-       either. These assert the two halves of the fix: that the space is used,
-       and that using it did not chop a shelf in half down the middle. */
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await p.waitForTimeout(300);
-    const tall = await p.evaluate(() => document.getElementById('pantryBody').scrollHeight);
-    await p.setViewportSize({ width: 1600, height: 1000 });
-    await p.waitForTimeout(400);
-    const wide = await p.evaluate(() => {
-      const body = document.getElementById('pantryBody');
-      /* A shelf split across a column boundary has its rows at two different
-         x positions. One position per shelf means break-inside held. */
-      const split = [...document.querySelectorAll('.shelf:not(.shelf-gone)')].filter((sh) => {
-        const xs = new Set([...sh.querySelectorAll('.pitem')]
-          .map((i) => Math.round(i.getBoundingClientRect().left)));
-        return xs.size > 1;
-      }).length;
-      return {
-        height: body.scrollHeight,
-        columns: new Set([...document.querySelectorAll('.shelf:not(.shelf-gone)')]
-          .map((s) => Math.round(s.getBoundingClientRect().left))).size,
-        split,
-        // what is not kept is not a shelf of the storehouse, so it spans them
-        goneSpans: Math.round(document.querySelector('.shelf-gone').getBoundingClientRect().width) >=
-          Math.round(body.getBoundingClientRect().width) - 2,
-      };
-    });
-    t.ok('with room, the shelves run in columns rather than one long list',
-      wide.columns >= 4, wide.columns + ' columns');
-    t.ok('and no shelf is broken across two of them', wide.split === 0, wide.split + ' split');
-    t.ok('which turns a page you scroll into one you look at',
-      wide.height < tall / 2.5, wide.height + 'px wide vs ' + tall + 'px narrow');
-    t.ok('what is not kept spans the columns rather than joining them', wide.goneSpans);
-
     await ctx.close();
 
     /* The row is 24px of target under a mouse, and revealed by hovering it.
@@ -307,13 +276,13 @@ module.exports = {
     const tp = await touch.newPage();
     await tp.goto(t.base + 'index.html');
     await tp.waitForTimeout(700);
-    await tp.click('.tab[data-view="plan"]').then(() => tp.click('.pstep[data-view="pantry"]')).then(() => tp.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await tp.waitForTimeout(400);
+    await tp.click('.tab[data-view="plan"]').then(() => tp.click('.pstep[data-view="pantry"]')); await tp.waitForTimeout(400);
     const thumb = await tp.evaluate(() => {
-      const x = document.querySelector('.pitem-x');
+      const x = document.querySelector('#view-pantry .kit-pill');
       return { h: x.getBoundingClientRect().height, seen: getComputedStyle(x).opacity };
     });
-    t.ok('and on a phone the control is thumb-sized and needs no hovering',
-      thumb.h >= 34 && thumb.seen === '1', JSON.stringify(thumb));
+    t.ok('and on a phone a pill is thumb-sized and needs no hovering',
+      thumb.h >= 44 && thumb.seen === '1', JSON.stringify(thumb));
     await touch.close();
   },
 };

@@ -1125,7 +1125,10 @@
     document.querySelectorAll('#calMode [data-cal]').forEach(function (b) {
       b.setAttribute('aria-pressed', String((b.dataset.cal === 'm') === month));
     });
-    if ($('planMyWeek')) $('planMyWeek').disabled = off < 0 || month;
+    if ($('planMyWeek')) {
+      $('planMyWeek').disabled = off < 0 || month;
+      $('planMyWeek').classList.toggle('hide', off < 0 || month);      // a week gone by is not planned into
+    }
   }
 
   function planCount(id) {
@@ -1184,11 +1187,11 @@
     if ($('planSetup')) $('planSetup').innerHTML = planSetUp() ? '' :
       '<div class="setup-card"><b>New to planning here?</b><span>Start with where your food comes from and what you keep on hand. It takes a minute, once.</span>' +
       '<button class="pw-go" data-stepgo="where">Start with step 1</button></div>';
+    /* The status line: the week's numbers, after "This week". */
     if ($('planSum')) $('planSum').innerHTML = ents.length ?
-      '<div><b>' + nights + ' of 7</b><span>nights planned</span></div>' +
-      (past ? '<div><b>' + favs + ' ★</b><span>favourites</span></div><div><b>History</b><span>what was planned</span></div>'
-        : '<div><b>' + (cost < 0.5 ? '$0' : '~' + pwMoney(cost)) + '</b><span>to buy</span></div>' +
-          '<div><b>' + nList + '</b><span>on the list</span></div>') : '';
+      ' \u00b7 <b>' + nights + ' of 7</b> nights planned' +
+      (past ? ' \u00b7 <b>' + favs + '</b> \u2605' :
+        ' \u00b7 <b>' + (cost < 0.5 ? '$0' : '~' + pwMoney(cost)) + '</b> to buy \u00b7 <b>' + nList + '</b> items') : '';
     $('planGrid').innerHTML = CAL_DAYS.map(function (d) {
       var key = d[0], dt = calDate(key), gone = calPastDay(key), now = calIsToday(key);
       var list = window.Store.day(key).filter(function (e) { return BY_ID[e.id]; });
@@ -1901,7 +1904,7 @@
   document.addEventListener('input', function (e) {
     if (e.target && e.target.id === 'kitFind') {
       S.kitQ = e.target.value;
-      var g = $('kitGroups'); if (g) g.innerHTML = kitGroupsHTML();
+      var g = $('kitchenBody'); if (g) g.innerHTML = kitGroupsHTML();
     }
   });
 
@@ -1950,6 +1953,7 @@
     var pill = e.target.closest('[data-kitpill]');
     if (pill) {
       var k = pill.dataset.kitpill, d = (window.PANTRY || {})[k];
+      if (!d && window.Store.pantryOwn()[k]) { window.Store.removePantryItem(k); return; }
       if (foodSource(k) === 'h') {
         window.Store.batch(function () { window.Store.setKitchen(k, d && d.sp ? 0 : null); window.Store.setSrc(k, null); });
       } else setFoodSource(k, 'h');
@@ -2006,6 +2010,7 @@
         ' Allow meals that need 1–2 things from a store</label>' : '') +
       opt('w', 'Store only', 'No storehouse. Anything not on my shelf gets bought.') +
       '<p class="step-sub">Shared with your household: set it on one phone and the others follow.</p>' +
+      (window.Store.opt('store', true) ? carryHTML() : '') +
       '<div class="step-next"><button class="pw-go" data-stepgo="pantry">Next: what you keep on hand</button></div>';
   }
 
@@ -14685,8 +14690,14 @@
     var total = built.groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     // which week this list came out of — there can be several
     $('listWeek').textContent = window.Store.activeWeek().name;
-    $('listCount').textContent = total
-      ? total + ' items · ' + built.recipeCount + (built.recipeCount === 1 ? ' recipe' : ' recipes')
+    var nBuy = 0, nSh = 0, usd = 0;
+    built.groups.forEach(function (g) {
+      if (g.src === 's') nSh = g.items.length;
+      if (g.src === 'b') { nBuy = g.items.length; g.items.forEach(function (b) { var pr = pwPrice(b.key); if (pr && b.g) usd += b.g * pr / 100; }); }
+    });
+    $('listCount').innerHTML = total
+      ? '<b>' + total + '</b> items' + (nSh ? ' \u00b7 <b>' + nSh + '</b> from the storehouse' : '') +
+        (nBuy ? ' \u00b7 <b>' + nBuy + '</b> to buy' + (usd >= 0.5 ? ', ~' + pwMoney(usd) : '') : '')
       : '';
     $('listEmpty').classList.toggle('hide', total !== 0);
     /* To Walmart: what is left to get — not ticked, and off the shelf only
@@ -17480,98 +17491,72 @@
 
   /* My kitchen: what the household has, wherever it came from, and one
      switch for whether the storehouse is part of the week at all. */
-  function kitchenHTML() {
-    var P = window.PANTRY || {}, q = String(S.kitQ || '').trim().toLowerCase(), open = S.kitOpen || {};
-    var both = planMode() === 'both', groups = {}, order = [], n = 0;
-    Object.keys(P).forEach(function (k) {
-      var c = P[k].c || 'Other';
-      if (!groups[c]) { groups[c] = []; order.push(c); }
-      var on = foodSource(k) === 'h';
-      if (on) n++;
-      groups[c].push({ k: k, l: P[k].l, on: on, from: restockSource(k) === 's' ? 's' : 'w' });
+  /* One pill grid for every "is this so" question about foods: what the
+     storehouse carries (step 1) and what you keep on hand (step 2). Grouped
+     by shelf, six showing and "+N more", the ones that are so first. Blake:
+     "It's all the same action, pretty much just different categories." */
+  function pillGroupsHTML(o) {
+    var q = String(o.q || '').trim().toLowerCase(), groups = {}, order = [];
+    o.items.forEach(function (i) {
+      if (q && i.l.toLowerCase().indexOf(q) < 0) return;
+      if (!groups[i.c]) { groups[i.c] = []; order.push(i.c); }
+      groups[i.c].push(i);
     });
-    var body = order.map(function (c) {
-      var items = groups[c].filter(function (i) { return !q || i.l.toLowerCase().indexOf(q) >= 0; });
-      if (!items.length) return '';
-      items.sort(function (x, y) { return (y.on - x.on) || x.l.localeCompare(y.l); });
-      var on = items.filter(function (i) { return i.on; }).length, all = open[c] || q;
+    return order.map(function (c) {
+      var items = groups[c].sort(function (x, y) { return (y.on - x.on) || x.l.localeCompare(y.l); });
+      var on = items.filter(function (i) { return i.on; }).length, all = o.open[c] || q;
       var show = all ? items : items.slice(0, Math.max(6, on));
       var rest = items.length - show.length;
       return '<div class="kit-grp"><div class="kit-gh"><span>' + esc(c) + '</span><small>' + on + ' of ' + items.length + '</small></div>' +
         '<div class="pw-chips">' + show.map(function (i) {
-          return '<button class="pw-chip kit-pill' + (both && i.from !== 's' ? ' ext' : '') + '" data-kitpill="' + esc(i.k) + '" aria-pressed="' + i.on + '">' +
+          return '<button class="pw-chip kit-pill' + (i.ext ? ' ext' : '') + '" ' + o.attr + '="' + esc(i.k) + '" aria-pressed="' + i.on + '">' +
             esc(i.l) + '</button>';
         }).join('') +
-        (rest > 0 ? '<button class="kit-more" data-kitmore="' + esc(c) + '">+' + rest + ' more</button>'
-          : open[c] && !q && items.length > 6 ? '<button class="kit-more" data-kitmore="' + esc(c) + '">Show less</button>' : '') +
+        (rest > 0 ? '<button class="kit-more" ' + o.more + '="' + esc(c) + '">+' + rest + ' more</button>'
+          : o.open[c] && !q && items.length > 6 ? '<button class="kit-more" ' + o.more + '="' + esc(c) + '">Show less</button>' : '') +
         '</div></div>';
     }).join('');
-    return '<div class="step-k">Step 2 · your usual staples</div>' +
-      '<h2 class="step-h">What do you keep on hand?</h2>' +
-      '<p class="step-sub">Tap what you nearly always have. It stays off the list unless it runs out. <b class="kit-n">' + n + '</b> on hand.</p>' +
-      '<input class="pw-find" id="kitFind" type="search" placeholder="Find a food…" autocomplete="off" aria-label="Find a food" value="' + esc(S.kitQ || '') + '">' +
-      (both ? '<p class="kit-legend">A dashed edge means the storehouse doesn\u2019t carry it: you restock it from a store.</p>' : '') +
-      '<div id="kitGroups">' + body + '</div>';
+  }
+  /* Step 2: what you keep. Your own foods (ones the books never mention)
+     are a shelf of their own; a food the search cannot find can be added. */
+  function kitItems() {
+    var P = window.PANTRY || {}, both = planMode() === 'both', own = window.Store.pantryOwn();
+    var out = Object.keys(P).map(function (k) {
+      return { k: k, l: P[k].l, c: P[k].c || 'Other', on: foodSource(k) === 'h', ext: both && restockSource(k) !== 's' };
+    });
+    Object.keys(own).forEach(function (k) { out.push({ k: k, l: own[k].l, c: 'Yours', on: true, ext: false }); });
+    return out;
   }
   function kitGroupsHTML() {
-    var h = kitchenHTML(), at = h.indexOf('<div id="kitGroups">');
-    return h.slice(at + '<div id="kitGroups">'.length, h.length - '</div>'.length);
+    var q = String(S.kitQ || '').trim(), items = kitItems(), add = '';
+    if (q.length >= 2 && !items.some(function (i) { return i.l.toLowerCase() === q.toLowerCase(); })) {
+      add = '<div class="kit-grp"><div class="pw-chips"><button class="pw-chip kit-pill kit-new" data-kitnew="' + esc(q) + '">+ Add \u201c' + esc(q) + '\u201d</button></div></div>';
+    }
+    return add + pillGroupsHTML({ items: items, q: q, open: S.kitOpen || {}, attr: 'data-kitpill', more: 'data-kitmore' });
   }
   function renderPantry() {
-    if ($('kitchenBody')) $('kitchenBody').innerHTML = kitchenHTML();
-    if ($('storePart')) $('storePart').classList.toggle('hide', !window.Store.opt('store', true));
-    var shelves = pantryShelves();
-    var kept = [], gone = [];
-    shelves.forEach(function (sh) {
-      var on = sh.items.filter(function (i) { return i.on; });
-      if (on.length) kept.push({ name: sh.name, items: on });
-      sh.items.filter(function (i) { return !i.on; }).forEach(function (i) { gone.push(i); });
-    });
-    gone.sort(function (a, b) { return a.l.localeCompare(b.l); });
-
-    var n = kept.reduce(function (t, sh) { return t + sh.items.length; }, 0);
-    $('pantryNote').textContent = n + (n === 1 ? ' item' : ' items') +
-      (window.Store.pantryChanged() ? ' · changed from the storehouse list' : ' · the standard storehouse order');
-    $('pantryReset').classList.toggle('hide', !window.Store.pantryChanged());
-
-    /* A list of what you keep, not a checklist of what to fetch. Boxes said
-       "tick these as you go", which is the shopping list's job and not this
-       one's — here a thing is either on your shelf or it is not, and the way
-       to say it is not is to take it off. */
-    /* The count on each shelf head. In one column it would be clutter; in six
-       it is how you find the shelf you want without reading it. */
-    var html = kept.map(function (sh) {
-      return '<div class="shelf">' +
-        '<div class="shelf-h"><span>' + esc(sh.name) + '</span>' +
-          '<span class="shelf-n">' + sh.items.length + '</span></div>' +
-        sh.items.map(function (i) {
-          return '<div class="pitem">' +
-            '<span class="pitem-l">' + esc(i.l) + '</span>' +
-            (i.std === false && !i.mine ? '<span class="pitem-tag">not on the order</span>' : '') +
-            '<button class="pitem-x" data-poff="' + esc(i.k) + '" ' +
-              'aria-label="Take ' + esc(i.l) + ' off the list">&times;</button>' +
-          '</div>';
-        }).join('') +
-      '</div>';
-    }).join('');
-
-    /* Taken off rather than deleted. You have to be able to find a thing to put
-       it back, and the storehouse list is the thing most people will be editing
-       down from — losing an item permanently on one tap would be the wrong
-       shape of mistake to make easy. */
-    if (gone.length) {
-      html += '<div class="shelf shelf-gone">' +
-        '<div class="shelf-h"><span>Not kept &middot; ' + gone.length + '</span></div>' +
-        gone.map(function (i) {
-          return '<div class="pitem off">' +
-            '<span class="pitem-l">' + esc(i.l) + '</span>' +
-            '<button class="pitem-x back" data-pon="' + esc(i.k) + '" ' +
-              'aria-label="Put ' + esc(i.l) + ' back">+</button>' +
-          '</div>';
-        }).join('') +
-      '</div>';
-    }
-    $('pantryBody').innerHTML = html;
+    var items = kitItems(), n = items.filter(function (i) { return i.on; }).length;
+    if ($('kitNote')) $('kitNote').innerHTML = '<b class="kit-n">' + n + '</b> on hand \u00b7 tap one to change it' +
+      (planMode() === 'both' ? ' \u00b7 a dashed edge is one the storehouse doesn\u2019t carry' : '');
+    if ($('kitchenBody')) $('kitchenBody').innerHTML = kitGroupsHTML();
+  }
+  /* Step 1, when the storehouse is in it: what yours carries, as the same
+     pills. Taking one off sends it to the shop; the book's list is one tap
+     back. */
+  function carryItems() {
+    var P = window.PANTRY || {};
+    return Object.keys(P).map(function (k) { return { k: k, l: P[k].l, c: P[k].c || 'Other', on: storeCarries(k) }; });
+  }
+  function carryGroupsHTML() {
+    return pillGroupsHTML({ items: carryItems(), q: S.carryQ, open: S.carryOpen || {}, attr: 'data-carry', more: 'data-carrymore' });
+  }
+  function carryHTML() {
+    var n = carryItems().filter(function (i) { return i.on; }).length;
+    return '<div class="step-sec"><h2 class="step-h2">What your storehouse carries</h2>' +
+      '<p class="step-sub"><b id="carryN">' + n + '</b> carried \u00b7 tap one off if yours has stopped stocking it' +
+        (window.Store.pantryChanged() ? ' \u00b7 <button class="nut-ask" id="pantryReset">back to the book\u2019s list</button>' : '') + '</p>' +
+      '<input class="pw-find" id="carryFind" type="search" placeholder="Find a food\u2026" autocomplete="off" aria-label="Find a food the storehouse carries" value="' + esc(S.carryQ || '') + '">' +
+      '<div id="carryGroups">' + carryGroupsHTML() + '</div></div>';
   }
 
   // ------------------------------------------------------------------ views
@@ -17726,34 +17711,23 @@
     $('secSel').addEventListener('change', function () { S.secF = this.value; renderBrowse(); });
     $('diffSel').addEventListener('change', function () { S.diffF = this.value; renderBrowse(); });
     $('pantrySel').addEventListener('change', function () { S.pantryF = this.value; renderBrowse(); });
-    /* On the list rather than on the modal, which is where these first went —
-       the modal's handler only ever sees clicks inside an open recipe. */
-    $('pantryBody').addEventListener('click', function (e) {
-      var off = e.target.closest('[data-poff]');
-      if (off) {
-        var k = off.dataset.poff;
-        /* Something you added yourself has nowhere to fall back to — the books
-           have never heard of it — so taking it off removes it outright. */
-        if (window.Store.pantryOwn()[k]) window.Store.removePantryItem(k);
-        else window.Store.setPantry(k, false);
-        renderPantry(); return;
+    /* The two pill grids, and the way back to the book's storehouse list. */
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest) return;
+      var c = e.target.closest('[data-carry]');
+      if (c) { window.Store.setPantry(c.dataset.carry, !storeCarries(c.dataset.carry)); return; }
+      var cm = e.target.closest('[data-carrymore]');
+      if (cm) { S.carryOpen = S.carryOpen || {}; S.carryOpen[cm.dataset.carrymore] = !S.carryOpen[cm.dataset.carrymore]; renderWhere(); return; }
+      var nw = e.target.closest('[data-kitnew]');
+      if (nw) { window.Store.addPantryItem(nw.dataset.kitnew, 'Yours'); S.kitQ = ''; var kf = $('kitFind'); if (kf) kf.value = ''; return; }
+      if (e.target.closest('#pantryReset')) {
+        ask({ title: 'Back to the storehouse list?',
+          body: 'Everything you took off comes back. Foods you added yourself stay.',
+          ok: 'Reset', danger: true }, function (ok) { if (ok) window.Store.resetPantry(); });
       }
-      var on = e.target.closest('[data-pon]');
-      if (on) { window.Store.setPantry(on.dataset.pon, true); renderPantry(); }
     });
-
-    $('pantryAdd').addEventListener('click', function () {
-      ask({ title: 'What do you keep?', body: 'It joins the pantry under Yours, and any recipe that calls for it stops asking you to buy it.', value: '', ok: 'Add' },
-        function (v) {
-          if (v && v.trim()) { window.Store.addPantryItem(v.trim(), 'Yours'); renderPantry(); }
-        });
-    });
-    $('pantryReset').addEventListener('click', function () {
-      ask({ title: 'Back to the storehouse list?',
-        body: 'Everything you ticked off comes back. Items you added yourself stay.',
-        ok: 'Reset', danger: true }, function (ok) {
-          if (ok) { window.Store.resetPantry(); renderPantry(); }
-        });
+    document.addEventListener('input', function (e) {
+      if (e.target && e.target.id === 'carryFind') { S.carryQ = e.target.value; var g = $('carryGroups'); if (g) g.innerHTML = carryGroupsHTML(); }
     });
 
     $('search').addEventListener('input', function () { S.qy = this.value; renderBrowse(); });

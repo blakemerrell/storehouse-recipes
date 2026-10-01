@@ -61,16 +61,16 @@ module.exports = {
     await p.click('#whereBody [data-stepgo="pantry"]');
     await p.waitForTimeout(250);
     const more = await p.evaluate(() => {
-      const m = document.querySelector('[data-kitmore]');
+      const m = document.querySelector('#view-pantry [data-kitmore]');
       const g = m.closest('.kit-grp');
       return { c: m.dataset.kitmore, before: g.querySelectorAll('.kit-pill').length, says: m.textContent };
     });
     await p.click('[data-kitmore="' + more.c + '"]');
     await p.waitForTimeout(200);
-    const after = await p.evaluate((c) => [...document.querySelectorAll('.kit-grp')].find((g) => g.querySelector('.kit-gh span').textContent === c).querySelectorAll('.kit-pill').length, more.c);
+    const after = await p.evaluate((c) => [...document.querySelectorAll('#view-pantry .kit-grp')].find((g) => g.querySelector('.kit-gh span').textContent === c).querySelectorAll('.kit-pill').length, more.c);
     t.ok('each shelf shows a few, and +N more opens the rest', after === more.before + Number(more.says.replace(/\D/g, '')), JSON.stringify({ more, after }));
     const pill = await p.evaluate(() => {
-      const b = [...document.querySelectorAll('.kit-pill')].find((x) => x.getAttribute('aria-pressed') === 'false' && window.PANTRY[x.dataset.kitpill].s);
+      const b = [...document.querySelectorAll('#view-pantry .kit-pill[data-kitpill]')].find((x) => x.getAttribute('aria-pressed') === 'false' && window.PANTRY[x.dataset.kitpill].s);
       return b.dataset.kitpill;
     });
     await p.click('[data-kitpill="' + pill + '"]');

@@ -92,7 +92,7 @@ module.exports = {
     await p.waitForTimeout(300);
     const fri = await p.evaluate(() => ({ day: window.Store.day('fri'), sum: document.getElementById('planSum').textContent,
       tag: !!document.querySelector('.day-item.lo .day-tag') }));
-    const listN = (s) => (s.match(/(\d+)\s*on the list/) || [])[1];
+    const listN = (s) => (s.match(/(\d+)\s*items/) || [])[1];
     const qAfter = await qty();
     t.ok('Leftovers offers the week’s earlier dinners, and one added is marked and adds nothing to the list',
       left.length >= 3 && left.every((x) => /L$/.test(x)) && fri.day[0] && fri.day[0].lo === true && fri.tag &&

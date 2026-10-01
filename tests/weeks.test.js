@@ -397,7 +397,7 @@ module.exports = {
       await q.evaluate(() => localStorage.clear());
       await q.reload();
       await q.waitForTimeout(500);
-      await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="pantry"]')).then(() => q.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
+      await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="where"]'));
       await q.waitForTimeout(300);
       await q.evaluate(() => window.Store.setPantry('cottage_cheese', false));
       await q.waitForTimeout(300);
@@ -417,7 +417,7 @@ module.exports = {
       ['the Share sheet', async (q) => { await q.click('#syncBtn'); await q.waitForTimeout(350); }],
       ['the editor', async (q) => { await q.click('#newRecipe'); await q.waitForTimeout(450); }],
       ['a confirm dialog', async (q) => {
-        await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="pantry"]')).then(() => q.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; })); await q.waitForTimeout(350);
+        await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="where"]')); await q.waitForTimeout(350);
         await q.evaluate(() => window.Store.setPantry('cottage_cheese', false));
         await q.waitForTimeout(350);
         await q.click('#pantryReset'); await q.waitForTimeout(350);

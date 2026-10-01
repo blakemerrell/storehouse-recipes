@@ -7112,3 +7112,24 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .mitem-r3 .mstep .mitem-amt.mitem-typing { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 4px; }
 .mitem-r3 .mstep .mitem-amt.mitem-typing .mstep-in { width: 4.5ch; flex: none; }
 .mitem-r3 .mstep .mitem-amt.mitem-typing i { white-space: nowrap; }
+
+/* ---------------------------------------------------------- step headers
+   Every Plan step opens the same way: its label, a title, one status line,
+   then that step's controls. Blake: "The header starts off looking nice with
+   step 1, then gets worse for the rest." */
+.step-head { margin: 4px 0 10px; }
+.step-head .step-h, .step-h { font-family: var(--serif); font-size: 23px; line-height: 1.15; margin: 4px 0 4px; text-wrap: balance; }
+.step-head .step-sub { margin: 0 0 4px; }
+.step-sub b { color: var(--ink); font-weight: 600; }
+.step-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.step-tools .pw-find { margin: 0; }
+.step-head .cal-bar { margin: 0; }
+.step-head .cal-bar .step-h { flex: 1; text-align: center; margin: 0; }
+.step-head .cal-sub { text-align: center; }
+.step-head .cal-top { margin: 4px 0 0; }
+.step-sec { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.step-h2 { font-family: var(--serif); font-size: 19px; margin: 0 0 2px; }
+.step-sec .pw-find { margin: 6px 0 4px; }
+.step-sub .nut-ask { min-height: 0; padding: 0; font-size: inherit; }
+.kit-pill.kit-new:not(#u#u)::after { border-style: dashed; border-color: var(--ochre); }
+.kit-pill.kit-new:not(#u#u) { color: var(--ochre-text); font-weight: 600; }

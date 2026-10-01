@@ -352,14 +352,13 @@ module.exports = {
       t.ok('on the recipe sheet, ' + what + ' can be hit with a thumb', rs.length >= 1 && rs.every((r) => r.hit), report(rs) || JSON.stringify(rs));
     }
     await q.keyboard.press('Escape');
-    // the pantry's ×
+    // the pantry's pills (On hand)
     await q.click('.tab[data-view="plan"]');
     await q.click('.pstep[data-view="pantry"]');
-    await q.evaluate(() => { const d2 = document.getElementById('storePart'); if (d2) d2.open = true; });
     await q.waitForTimeout(200);
-    await q.evaluate(() => { const e = document.querySelector('.pitem-x'); if (e) e.scrollIntoView({ block: 'center' }); });
-    rs = await reach('.pitem-x', true);
-    t.ok('a pantry item\'s × can be hit with a thumb', rs.length >= 3 && rs.every((r) => r.hit), report(rs) || rs.length + ' measured');
+    await q.evaluate(() => { const e = document.querySelector('#view-pantry .kit-pill'); if (e) e.scrollIntoView({ block: 'center' }); });
+    rs = await reach('#view-pantry .kit-pill', true);
+    t.ok('a pantry pill can be hit with a thumb', rs.length >= 3 && rs.every((r) => r.hit), report(rs) || rs.length + ' measured');
     await tctx.close();
   },
 };
