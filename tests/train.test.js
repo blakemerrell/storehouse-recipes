@@ -4356,7 +4356,43 @@ module.exports = {
     await p.waitForTimeout(250);
     r = await p.evaluate(() => { const st = window.Train._.state(); return { act: st.T.act, ms: Object.keys(st.T.ms).join(), wos: Object.keys(st.T.wo).length }; });
     t.ok('deleting the current block ends it, and still keeps every workout', r.act === '' && r.ms === '' && r.wos === 10, JSON.stringify(r));
+    // the medal on the lift that earned it (with no block left, History is the workouts)
+    if (await p.$('[data-t="hview"][data-v="wo"]')) await p.click('[data-t="hview"][data-v="wo"]');
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T;
+      const wo = Object.values(T.wo).find((w) => _.prsIn(w).length);
+      if (!wo) return { none: true };
+      const want = [...new Set(_.prsIn(wo).map((x) => x.e))];
+      const row = document.querySelector('.tr-hrow[data-id="' + wo.id + '"] .tr-h-x');
+      const lines = row ? row.innerHTML.split('<br>') : [];
+      return { want: want.length, medals: lines.filter((l) => /🥇/.test(l)).length,
+        right: wo.x.every((x, i) => /🥇/.test(lines[i] || '') === want.includes(x.e)) }; });
+    t.ok('in Workouts, each lift that set a record wears the medal, and only those', !r.none && r.medals === r.want && r.right, JSON.stringify(r));
     t.ok('no page errors through any of it', perr.length === 0, perr.join(' | '));
+    await p.close();
+
+    // ---- the end of a rest: a call that carries over music, heard when it is chosen ----
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await p.addInitScript(() => {
+      window.__notes = [];
+      class FakeAC {
+        constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
+        resume() {}
+        createBiquadFilter() { return { type: '', frequency: {}, connect() {} }; }
+        createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; }
+        createOscillator() { const o = { type: 'sine', frequency: {}, connect() {}, start(t) { o.t = t; }, stop(t) { window.__notes.push({ f: o.frequency.value, type: o.type, a: o.t, b: t }); } }; return o; }
+      }
+      window.AudioContext = FakeAC; window.webkitAudioContext = FakeAC;
+    });
+    await p.reload();
+    await p.waitForTimeout(600);
+    await p.click('.tab[data-view="train"]');
+    await openSettings(p);
+    await p.click('[data-t="s-snd"][data-v="0"]');
+    await p.click('[data-t="s-snd"][data-v="1"]');
+    r = await p.evaluate(() => ({ n: window.__notes.length, span: Math.max(...window.__notes.map((x) => x.b)), sq: window.__notes.every((x) => x.type === 'square'),
+      hi: Math.min(...window.__notes.map((x) => x.f)), say: /Tap Beep and buzz to hear it/.test(document.querySelector('.tr-sheet').textContent) }));
+    t.ok('choosing Beep and buzz plays it: three bursts of a high two-note call, about a second and a half, and says so',
+      r.n === 6 && r.span > 1.2 && r.span < 2 && r.sq && r.hi >= 1000 && r.say, JSON.stringify(r));
     await p.close();
   },
 };
