@@ -1221,9 +1221,10 @@
         var r = BY_ID[e.id], rt = window.Store.rating(r.id), din = pwIsDinner(r), twin = e.lo ? null : planTwin(e.id, key);
         var meta = e.lo ? '' : [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : '', twin ? 'leftovers ' + calDayName(twin) : '',
           (gone || now) && rt ? (rt === 2 ? '\u2605 favourite' : rt === 1 ? 'good' : 'not again') : ''].filter(Boolean).join(' \u00b7 ');
-        return '<div class="day-item' + (e.lo ? ' lo' : '') + (din ? '' : ' mini') + '" style="--pc:' + (din ? PROT_VAR[pwProt(r)] : 'transparent') + '">' +
+        var nw = S.pwNew && S.pwNew[key + '|' + e.id];
+        return '<div class="day-item' + (e.lo ? ' lo' : '') + (din ? '' : ' mini') + (nw ? ' new' : '') + '" style="--pc:' + (din ? PROT_VAR[pwProt(r)] : 'transparent') + '">' +
           '<button class="day-item-name" data-dayopen="' + esc(String(e.id)) + '" data-day="' + key + '" aria-label="' + esc(r.name) + ', ' + d[1] + '">' + esc(r.name) +
-            (e.lo ? ' <span class="day-tag">leftovers</span>' : '') +
+            (e.lo ? ' <span class="day-tag">leftovers</span>' : '') + (nw ? ' <span class="day-new">New</span>' : '') +
             (meta ? '<small>' + esc(meta) + '</small>' : '') + '</button>' +
           (gone || !din || e.lo ? '' : '<span class="day-ctl no-print"><button class="day-sw" data-pswap="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
               'aria-label="Swap ' + esc(r.name) + ' for another dinner">\u21bb</button></span>') +
@@ -1290,6 +1291,7 @@
     }).join('') + '</div>';
   }
   function calMove(dir) {
+    S.pwNew = null;                          // New is this week's, as just filled
     if (S.calMode === 'm') {
       var m = S.calMonth || calMidnight(window.Store.activeWeek().start || new Date());
       S.calMonth = new Date(m.getFullYear(), m.getMonth() + dir, 1);
@@ -1847,10 +1849,21 @@
   function pwPick() {
     var a = S.pw.a, picks = [], nights = pwNights(a.days), week = pwWeekDinners();
     var lo = pwLoNights(a, nights);
+    // the ones ticked on the list, in the order ticked, and not already on the week
+    var wanted = (S.pw.want || []).map(function (id) { return BY_ID[id]; }).filter(function (r) {
+      return r && !week.some(function (e) { return e.r.id === r.id; });
+    });
+    S.pw.used = 0;
     for (var i = 0; i < nights.length; i++) {
       if (lo[nights[i]]) {
         var from = picks.filter(function (e) { return e.day === lo[nights[i]]; })[0];
         if (from) { from.x *= 2; picks.push({ r: from.r, x: 1, day: nights[i], lo: true }); }
+        continue;
+      }
+      if (wanted.length) {
+        var w = wanted.shift();
+        picks.push({ r: w, x: pwX(w, a.ppl), day: nights[i] });
+        S.pw.used++;
         continue;
       }
       var nx = pwNext(a, picks.filter(function (e) { return !e.lo; }), [], nights[i], week);
@@ -1945,12 +1958,42 @@
       '<div class="pw-q"><div class="pw-ql">Variety</div>' +
         pwChips('rec', [[0, 'Repeats are fine'], [2, 'Nothing from the last 2 weeks'], [4, 'Last 4 weeks']], a.rec) + '</div>' +
 
-      '<div class="pw-bar"><div class="pw-cnt' + (low ? ' low' : '') + '" role="status"><b>' + cnt.n + '</b> ' +
+      /* The count is a door: "See the 11" lists the dinners that fit, to
+         tick the ones wanted. Blake, after a pick he could not see: "it just
+         auto put some stuff there and didn't let me see the 11 that it
+         selected". */
+      '<div class="pw-bar"><button class="pw-cnt pw-see' + (low ? ' low' : '') + '" data-pwsee="1"' + (cnt.n ? '' : ' disabled') + '><b>' + cnt.n + '</b> ' +
         (cnt.n === 1 ? 'dinner fits' : 'dinners fit') + '<span>' +
         (!cnt.need ? (a.days.length ? 'those nights already have dinners' : 'pick a night') :
           cnt.n < cnt.need ? 'need ' + cnt.need + ', loosen a filter' : low ? 'not many to choose from' : 'for ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights')) +
-        '</span></div><button class="pw-go" data-pwpick="1"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>' +
-      '<p class="pw-note">They go straight onto your week. Swap any you don’t like there.</p>';
+        '</span>' + (cnt.n ? '<i>' + (S.pw.want.length ? S.pw.want.length + ' ticked \u00b7 see them' : 'See the ' + cnt.n) + ' \u203a</i>' : '') + '</button>' +
+        '<button class="pw-go" data-pwpick="1"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>' +
+      '<p class="pw-note">Pick for me, or see the ' + (cnt.n === 1 ? 'one' : cnt.n) + ' that fit and tick the ones you want. They go onto your week, marked new, with Undo.</p>';
+  }
+  /* The dinners that fit, to tick the ones wanted. Pick my dinners puts the
+     ticked ones on first, in the order ticked, and fills the nights left
+     from the rest by its own rules. */
+  function pwSeeHTML() {
+    var a = S.pw.a, cnt = pwCount(a), want = S.pw.want;
+    var wk = a.days.some(function (d) { return PW_WEEKEND.indexOf(d) < 0; });
+    var pool = pwPool(a, !wk).slice().sort(function (x, y) { return x.name.localeCompare(y.name); });
+    var left = Math.max(0, cnt.need - want.length);
+    return '<button class="nut-ask pw-toq" data-pwback="1">\u2039 Back to the questions</button>' +
+      '<h2 class="pw-h">The ' + (pool.length === 1 ? 'one' : pool.length) + ' that fit</h2>' +
+      '<p class="pw-note pw-lede">Tick the ones you want this week. Tap a name to see the recipe.</p>' +
+      '<div class="pw-fits">' + pool.map(function (r) {
+        var on = want.indexOf(r.id) >= 0, m = r.macro || {};
+        return '<div class="pw-fit" style="--pc:' + PROT_VAR[pwProt(r)] + '">' +
+          '<button class="pw-want" data-pwwant="' + esc(String(r.id)) + '" aria-pressed="' + on + '" aria-label="Want ' + esc(r.name) + '"></button>' +
+          '<button class="pw-fn" data-pwopen="' + esc(String(r.id)) + '"><b>' + esc(r.name) + '</b><span>' +
+            esc([r.time || '', m.kcal ? Math.round(m.kcal) + ' cal' : '', m.p ? Math.round(m.p) + ' g protein' : ''].filter(Boolean).join(' \u00b7 ')) +
+          '</span></button><i aria-hidden="true">\u203a</i></div>';
+      }).join('') + '</div>' +
+      '<div class="pw-bar"><div class="pw-cnt"><b>' + want.length + '</b> ticked<span>for ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights') + '</span></div>' +
+        '<button class="pw-go" data-pwpick="1"' + (cnt.need ? '' : ' disabled') + '>Pick my dinners</button></div>' +
+      '<p class="pw-note">' + (!want.length ? 'Tick the ones you want, or let it pick them all.'
+        : want.length >= cnt.need ? 'Your first ' + (cnt.need === 1 ? 'one goes' : cnt.need + ' go') + ' on, in the order you ticked them.'
+        : 'Your ' + want.length + ' go on first. The other ' + (left === 1 ? 'night is' : left + ' nights are') + ' picked for you from the rest.') + '</p>';
   }
   /* With a Nourish answer, each dinner says the plate that meets it, for
      whoever the answer is about: mine for mine, theirs for theirs, and
@@ -1975,7 +2018,7 @@
     var a = S.pw.a, plans = pwPlans();
     // somebody may have stopped sharing since the sheet opened
     a.fit = pwFitNorm(a.fit, plans);
-    var body = pwStep1(a);
+    var body = S.pw.see ? pwSeeHTML() : pwStep1(a);
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet pw-sheet" role="dialog" aria-modal="true" aria-label="Plan my week">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">Plan my week</div>' +
@@ -1988,7 +2031,7 @@
     plans: pwPlans, capFor: pwCapFor,
     count: pwCount, pick: function (a) { var keep = S.pw; S.pw = { a: a, picks: [], seen: {} }; pwPick(); var out = S.pw.picks; S.pw = keep; return out; } };
   function pwOpen() {
-    S.pw = { a: pwAnswers(), picks: [], seen: {} };
+    S.pw = { a: pwAnswers(), picks: [], seen: {}, want: [], see: false };
     S.pwOpen = true;
     pushSheet({ pw: 1 });
     renderModal();
@@ -2018,6 +2061,17 @@
       if (ig.dataset.pwing && $('pwIng')) $('pwIng').focus();
       return;
     }
+    if (e.target.closest('[data-pwsee]')) { S.pw.see = true; renderModal(); var sc = document.querySelector('#modalRoot .scrim'); if (sc) sc.scrollTop = 0; return; }
+    if (e.target.closest('[data-pwback]')) { S.pw.see = false; renderModal(); return; }
+    var wt = e.target.closest('[data-pwwant]');
+    if (wt) {
+      var wid = idOf(wt.dataset.pwwant), wi = S.pw.want.indexOf(wid);
+      if (wi >= 0) S.pw.want.splice(wi, 1); else S.pw.want.push(wid);
+      renderModal();
+      return;
+    }
+    var po = e.target.closest('[data-pwopen]');
+    if (po) { rememberOpener(); openRecipe(idOf(po.dataset.pwopen)); return; }
     if (e.target.closest('[data-pwpick]')) {
       pwPick();
       if (!S.pw.picks.length) { renderModal(); return; }
@@ -2026,9 +2080,26 @@
         S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x, p.lo); h[String(p.r.id)] = today; });
       });
       try { localStorage.setItem(PW_HIST, JSON.stringify(h)); } catch (err) { /* private */ }
+      /* What landed is marked New on the week, and the toast can take it
+         all back off again. */
+      var added = S.pw.picks.slice(), used = S.pw.used || 0, cooked = added.filter(function (p) { return !p.lo; }).length;
+      S.pwNew = {};
+      added.forEach(function (p) { S.pwNew[p.day + '|' + p.r.id] = 1; });
+      S.pwUndo = added.map(function (p) { return [p.r.id, p.day]; });
       close();
       if (S.view === 'plan') renderPlan();
+      mToast('<b>' + cooked + (cooked === 1 ? ' dinner' : ' dinners') + ' added</b>' +
+        (used ? '<small>' + (used >= cooked ? 'The ' + (used === 1 ? 'one' : used) + ' you ticked' : 'Your ' + used + ', and ' + (cooked - used) + ' picked for you') + '</small>' : ''),
+        'pw', 'data-pwundo');
     }
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest || !e.target.closest('[data-pwundo]') || !S.pwUndo) return;
+    var undo = S.pwUndo;
+    S.pwUndo = null; S.pwNew = {};
+    window.Store.batch(function () { undo.forEach(function (u) { window.Store.removeFromDay(u[0], u[1]); }); });
+    var el = $('mToast'); if (el) el.hidden = true;
+    if (S.view === 'plan') renderPlan();
   });
 
   // ---------------------------------------------------------------- kitchen
@@ -4022,13 +4093,15 @@
     clearTimeout(mToast.t);
     mToast.t = setTimeout(function () { el.hidden = true; }, 3000);
   }
-  function mToast(text, undo) {
+  /* `attr` names what Undo does elsewhere than Nourish's own (Plan my week's
+     picks use data-pwundo). */
+  function mToast(text, undo, attr) {
     var el = mToastEls();
     el.innerHTML = '<span>' + text + '</span>' +
-      (undo ? '<button type="button" data-mallow="' + esc(String(undo)) + '">Undo</button>' : '');
+      (undo ? '<button type="button" ' + (attr || 'data-mallow') + '="' + esc(String(undo)) + '">Undo</button>' : '');
     el.hidden = false;
     /* A tap on the message itself (not its Undo) puts it away early. */
-    el.onclick = function (ev) { if (!ev.target.closest('[data-mallow]')) el.hidden = true; };
+    el.onclick = function (ev) { if (!ev.target.closest('[data-mallow], [data-pwundo]')) el.hidden = true; };
     /* Emptied first, so the same words twice are two announcements. */
     var say = $('mToastSay');
     if (say) {
@@ -16716,7 +16789,7 @@
     'data-pwq', 'data-pwing', 'data-pwingx', 'data-wmid',
     'data-src', 'data-srcpick', 'data-weekbuy', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
     'data-cal', 'data-calweek', 'data-calagain', 'data-calfrom', 'data-caltpl',
-    'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwpick', 'data-dayopen', 'data-dsact', 'data-srctag', 'data-fold',
+    'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwpick', 'data-pwsee', 'data-pwback', 'data-pwwant', 'data-pwopen', 'data-dayopen', 'data-dsact', 'data-srctag', 'data-fold',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
@@ -17940,6 +18013,7 @@
 
   // ------------------------------------------------------------------ views
   function renderView() {
+    if (S.view !== 'plan') { S.pwNew = null; S.pwUndo = null; }
     ['today', 'browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book', 'where'].forEach(function (v) {
       $('view-' + v).classList.toggle('hide', S.view !== v);
     });
@@ -20267,6 +20341,12 @@
       S.openId = idOf(id);
       S.scale = 1;
       S.why = false;
+      renderModal();
+    } else if (e.state && ((e.state.pw && S.pwOpen) || (e.state.ad && S.addOpen) || (e.state.ds && S.daySheet))) {
+      /* Back from a recipe opened over Plan my week's list, + Add or a day's
+         sheet lands on that sheet, not on the page under all of them. */
+      depth = Math.max(0, depth - 1);
+      S.openId = null;
       renderModal();
     } else {
       depth = 0;

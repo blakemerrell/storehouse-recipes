@@ -7375,3 +7375,30 @@ html.door-up, html.door-up body { overflow: hidden; }
 .td-kc { flex: none; font-size: 0.875rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .td-lift { margin-left: 10px; font-size: 0.8125rem; font-weight: 600; color: var(--label); }
 .td-tag { font-size: 0.75rem; font-weight: 600; color: var(--ochre-text); background: var(--hint); border-radius: 99px; padding: 1px 8px; vertical-align: 1px; white-space: nowrap; }
+
+/* ---- Plan my week: see what fits, see what landed --------------------------
+   The count is a button that opens the dinners that fit, to tick the ones
+   wanted; what the pick puts on the week is marked New, with Undo. */
+button.pw-see { text-align: left; background: var(--card); border: 1.5px solid var(--line-firm); border-radius: 10px; padding: 6px 12px;
+  font: inherit; font-size: 0.875rem; color: var(--ink); cursor: pointer; }
+button.pw-see:disabled { cursor: default; border-style: dashed; }
+.pw-see i { display: block; font-style: normal; font-size: 0.875rem; font-weight: 650; color: var(--ochre-text); }
+.pw-toq { margin: -4px 0 4px; }
+.pw-lede { margin: 0 0 10px; }
+.pw-fits { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
+.pw-fit { display: flex; align-items: center; gap: 6px; min-height: 62px; border-left: 4px solid var(--pc, var(--ochre)); border-top: 1px solid var(--line-soft); padding-right: 8px; }
+.pw-fit:first-child { border-top: 0; }
+.pw-want { flex: none; width: 48px; height: 48px; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.pw-want::before { content: ''; width: 26px; height: 26px; box-sizing: border-box; border-radius: 7px; border: 1.5px solid var(--line-firm); }
+.pw-want[aria-pressed="true"]::before { background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 18px no-repeat;
+  border-color: var(--ink); }
+:root[data-theme="dark"] .pw-want[aria-pressed="true"]::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23201a14' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pw-want[aria-pressed="true"]::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23201a14' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); } }
+.pw-fn { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border: 0; background: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.pw-fn b { font-family: var(--serif); font-size: 1rem; font-weight: 600; line-height: 1.25; }
+.pw-fn span { font-size: 0.8125rem; color: var(--muted); }
+.pw-fit > i { font-style: normal; color: var(--muted); font-size: 1.125rem; }
+.cal-day .day-item-name .day-new, .cal-day .day-item-name .day-tag { align-self: flex-start; }
+.day-new { font-family: var(--sans); font-size: 0.6875rem; font-weight: 700; color: var(--on-ochre); background: var(--ochre); border-radius: 99px; padding: 1px 8px; vertical-align: 1px; }
+.cal-day .day-item.new { background: var(--hint); border-color: var(--ochre); }
+.m-toast small { display: block; font-size: 0.8125rem; opacity: 0.8; }
