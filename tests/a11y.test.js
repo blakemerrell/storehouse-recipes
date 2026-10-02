@@ -134,9 +134,9 @@ module.exports = {
         })),
       };
     });
-    t.ok('one tab is in the Tab order, the lit one', row.stops.join() === 'browse', row.stops.join());
+    t.ok('one tab is in the Tab order, the lit one', row.stops.join() === 'today', row.stops.join());
     t.ok('and every tab names the panels it shows, each of which names its tab back', row.controls);
-    await p.focus('.tab[data-view="browse"]');
+    await p.focus('.tab[data-view="today"]');
     const walk = [];
     const at = () => p.evaluate(() => document.activeElement && document.activeElement.dataset.view);
     await p.keyboard.press('ArrowRight'); walk.push(await at());
@@ -146,8 +146,8 @@ module.exports = {
     await p.keyboard.press('ArrowLeft'); walk.push(await at());
     await p.keyboard.press('Home'); walk.push(await at());
     t.ok('Right and Left walk the tabs that are shown, wrapping; Home and End go to the ends',
-      walk.join() === 'plan,macros,train,browse,train,browse', walk.join());
-    const moved = await p.evaluate(() => document.querySelector('#view-browse').classList.contains('hide'));
+      walk.join() === 'browse,plan,train,today,train,today', walk.join());
+    const moved = await p.evaluate(() => document.querySelector('#view-today').classList.contains('hide'));
     t.ok('and walking only moves the focus: the view does not change under you', !moved);
     await p.keyboard.press('End');
     await p.keyboard.press('Enter');
@@ -207,6 +207,8 @@ module.exports = {
     await d.evaluate(() => localStorage.clear());
     await d.reload();
     await d.evaluate(() => document.fonts.ready);
+    await d.click('.tab[data-view="browse"]');   // these colours are Recipes' cards and bar
+    await d.waitForTimeout(200);
     const lum = (c) => {
       // resolved colours come back as oklch(), rgb() or color(srgb); lightness is enough here
       const ok = c.match(/oklch\(([\d.]+)/); if (ok) return parseFloat(ok[1]);
@@ -321,7 +323,7 @@ module.exports = {
     // the tabs are as tall as a thumb; their width is the row's, and the row may not grow
     let rs = await q.evaluate(() => [...document.querySelectorAll('.tabs .tab')].filter((e) => e.offsetParent)
       .map((e) => ({ k: e.dataset.view, h: e.getBoundingClientRect().height, hit: e.getBoundingClientRect().height >= 44 })));
-    t.ok('on a phone every tab is a thumb tall', rs.length === 4 && rs.every((r) => r.hit), JSON.stringify(rs));
+    t.ok('on a phone every tab is a thumb tall, Today included', rs.length === 5 && rs.every((r) => r.hit), JSON.stringify(rs));
     rs = await reach('#syncBtn', true);
     t.ok('and so is Share', rs.length === 1 && rs[0].hit, JSON.stringify(rs));
     await q.click('.tab[data-view="macros"]');

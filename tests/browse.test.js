@@ -4,6 +4,8 @@ module.exports = {
   name: 'Browse',
   async run(t) {
     const p = await t.fresh();
+    await p.click('.tab[data-view="browse"]');   // the app opens on Today; these are Recipes' tests
+    await p.waitForTimeout(200);
 
     const n = await p.evaluate(() => document.querySelectorAll('.card').length);
     /* However many there are, not a number written down here. It has been
@@ -76,8 +78,12 @@ module.exports = {
       const real = await p.evaluate((b) => window.RECIPES.filter((r) => r.book === Number(b)).length, book);
       t.ok('volume ' + book + ' counts itself right in its own blurb',
         said(line) === real, said(line) + ' said, ' + real + ' there — "' + line.slice(0, 60) + '"');
-      t.ok('volume ' + book + ' blurb uses the Church’s casing',
-        /bishops’ ?\s?storehouse/.test(line) && !/Bishops|Storehouse/.test(line), line.slice(0, 90));
+      /* The app says staples; the printed cover says the storehouse. */
+      t.ok('volume ' + book + ' blurb in the app is about staples, with no stray capitals',
+        /staples that keep/.test(line) && !/Bishops|Storehouse/.test(line), line.slice(0, 90));
+      const printed = await p.evaluate((b) => window.__bookBlurbs[b], book);
+      t.ok('volume ' + book + ' printed blurb uses the Church’s casing',
+        /bishops’ ?\s?storehouse/.test(printed) && !/Bishops|Storehouse/.test(printed), printed.slice(0, 90));
     }
     await p.click('[data-book="1"]');
     await p.waitForTimeout(150);
@@ -153,8 +159,8 @@ module.exports = {
        opposite of the Pantry tab one tab away. */
     const filterWords = () => p.evaluate(() =>
       [...document.querySelectorAll('#pantrySel option')].map((o) => o.textContent));
-    t.ok('the storehouse filter talks about the storehouse until you change it',
-      (await filterWords()).join('|') === 'Everything|Storehouse items only|Needs something bought elsewhere',
+    t.ok('the filter talks about your staples until you change your shelf',
+      (await filterWords()).join('|') === 'Everything|Just my staples|Needs a shop',
       (await filterWords()).join(' | '));
     await p.evaluate(() => window.Store.setPantry('cottage_cheese', false));
     await p.waitForTimeout(400);
@@ -447,6 +453,8 @@ module.exports = {
        line has 242px next to the leaf \u2014 so check the widest of all 266 there,
        not just whichever recipe happens to be first. */
     const phone = await t.fresh({ viewport: { width: 376, height: 860 } });
+    await phone.click('.tab[data-view="browse"]');
+    await phone.waitForTimeout(200);
 
     /* The section divider pins under the header, on the width where it did
      * not.
@@ -532,6 +540,8 @@ module.exports = {
      * bar has scrolled out of reach and unfolds the real bar in place. */
     {
       const sp = await t.fresh({ viewport: { width: 390, height: 780 } });
+      await sp.click('.tab[data-view="browse"]');
+      await sp.waitForTimeout(200);
       const on = () => sp.evaluate(() => document.getElementById('view-browse').classList.contains('stripped'));
       const filt = () => sp.evaluate(() => { const b = document.getElementById('filtBtn'); return !!b && b.offsetParent !== null; });
       t.ok('there is exactly one search box on Recipes',

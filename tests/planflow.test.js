@@ -27,18 +27,18 @@ module.exports = {
       banner: !!document.querySelector('.setup-card'),
       tabs: [...document.querySelectorAll('.tabs .tab')].filter((b) => b.offsetParent).map((b) => b.dataset.view),
     }));
-    t.ok('Plan opens on its meals, under a bar of four steps, with List and Pantry no longer tabs of their own',
+    t.ok('Plan opens on its meals, under a bar of four steps, with List and Pantry no longer tabs of their own, and Today first',
       s0.steps.join('|') === '1 Where|2 On hand|3 Meals|4 Shop' && s0.cur && s0.cur.view === 'plan' &&
-        s0.tabs.join() === 'browse,plan,macros,train', JSON.stringify(s0));
+        s0.tabs.join() === 'today,browse,plan,macros,train', JSON.stringify(s0));
     t.ok('and, not set up yet, it says to start with step 1', s0.banner);
 
     await p.click('.setup-card [data-stepgo="where"]');
     await p.waitForTimeout(250);
-    await p.click('[data-where="sh"]');
+    await p.click('[data-weekbuy="0"]');
     await p.waitForTimeout(250);
     const where = await p.evaluate(() => ({ mode: window.__flow.mode(), near: !!document.querySelector('[data-near]'),
       lit: document.querySelector('.tab[aria-selected="true"]').dataset.view }));
-    t.ok('Storehouse only is remembered, offers the one-or-two allowance, and Plan stays the lit tab',
+    t.ok('Only what I have (the storehouse and my shelf) is remembered, offers the one-or-two allowance, and Plan stays the lit tab',
       where.mode === 'sh' && where.near && where.lit === 'plan', JSON.stringify(where));
 
     /* Storehouse only: every suggestion can be made without a store. */

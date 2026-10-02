@@ -3,7 +3,7 @@
  * Not in the default run, because it needs a network and it writes to the live
  * project named in src/config.js. Run it deliberately:
  *
- *     node tests/run.js sync
+ *     node tests/run.js sync --live
  *
  * It uses a throwaway household code and deletes the document afterwards, both
  * before it starts and when it finishes, so a run that dies halfway does not

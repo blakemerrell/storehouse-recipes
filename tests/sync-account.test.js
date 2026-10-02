@@ -1,7 +1,7 @@
 /* One account, two devices, and the pantry going with the account.
  *
  * Live, like sync.test.js: it talks to the real project and runs only when
- * asked for (`node tests/run.js sync`).
+ * asked for (`node tests/run.js sync --live`).
  *
  * A real Google account cannot be driven from a test, so the account is the
  * page's own anonymous identity with Store.user() made to answer for it. The

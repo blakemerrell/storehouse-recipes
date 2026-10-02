@@ -8,6 +8,15 @@
 # used to be a number kept in the files, which was forgotten on one branch and
 # picked twice on two, and a number computed at deploy is neither.
 #
+# Nothing is published until the full suite has passed on that commit. This
+# used to run on every push and check only offline and updating, so a push
+# whose full suite failed went live anyway (the Mac-rendered books, for seven
+# hours). Now the tests workflow finishing green on main is what starts it,
+# and it builds the very commit that was tested, and only while that commit
+# is still the newest on main: a push that lands meanwhile deploys after its
+# own tests instead. Run it by hand from the Actions tab to publish main as
+# it stands.
+#
 # Before anything is published, the offline and updating suites run against
 # the very directory that is about to go out. A build that would strand
 # phones on an old copy, or leave them nothing to open offline, stops here.
@@ -22,7 +31,9 @@
 name: deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: [tests]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -38,12 +49,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  decide:
+    name: Tested, and still the newest on main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          RESULT: ${{ github.event.workflow_run.conclusion }}
+          TRIGGER: ${{ github.event.workflow_run.event }}
+          TESTED: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          head=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"; echo "sha=$head" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "$RESULT" != success ] || [ "$TRIGGER" != push ]; then
+            echo "::notice title=Not published::The tests ended '$RESULT' on a $TRIGGER, so nothing goes out."
+            echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "$TESTED" != "$head" ]; then
+            echo "::notice title=Not published::main has moved on to ${head:0:7}; its own tests publish it."
+            echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "go=true" >> "$GITHUB_OUTPUT"; echo "sha=$TESTED" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build and check the site
+    needs: decide
+    if: needs.decide.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.decide.outputs.sha }}
       # No dependency cache here: this job hands its output to a deploy with
       # write access to the site, and a cache is one more thing that could
       # hand this job something it did not install itself.

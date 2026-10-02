@@ -194,6 +194,8 @@ module.exports = {
       T.wo.today1 = { id: 'today1', n: 'Upper', st: now - 3600e3 > new Date().setHours(0, 0, 0, 0) ? now - 3600e3 : now - 60000,
         en: now - 30000, u: 'lb', x: [{ e: 'db-bench', s: [{ w: 40, r: 10, t: now - 40000 }] }] };
       T.wo.today1.dk = (() => { const x = new Date(T.wo.today1.st); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); })();
+      // saved, as the app saves a workout: a change made behind its back is not one it has to see
+      localStorage.setItem('bsc.train', JSON.stringify(T)); tr.reload();
       const c = tr.checkin(now);
       return c.reads.map((r) => r.h);
     });

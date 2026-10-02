@@ -62,11 +62,11 @@ module.exports = {
         lines: items.length, say: a ? a.textContent : '', ids: items.map((x) => x.split('_')[0]), blank: a ? a.target : '' };
     });
     /* Those three come wholly from the storehouse: nothing to send, until
-       the household stops shopping it (step 1 of Plan: Store only). */
+       the household stops shopping it (step 1 of Plan: I keep my own). */
     const shelf = await read();
     await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="where"]'));
     await p.waitForTimeout(250);
-    await p.click('[data-where="w"]');
+    await p.click('[data-srcpick="own"]');
     await p.waitForTimeout(250);
     await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
     await p.waitForTimeout(250);

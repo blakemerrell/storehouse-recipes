@@ -26,6 +26,8 @@ module.exports = {
   name: 'Writing and editing recipes',
   async run(t) {
     const p = await t.fresh();
+    await p.click('.tab[data-view="browse"]');   // the app opens on Today; these are Recipes' tests
+    await p.waitForTimeout(200);
 
     t.ok('the third volume does not exist until there is something in it',
       await p.evaluate(() => document.getElementById('bookOurs').classList.contains('hide')));

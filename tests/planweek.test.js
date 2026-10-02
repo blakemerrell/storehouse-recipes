@@ -21,7 +21,7 @@ module.exports = {
     /* Tuesday already has a dinner; the answers are remembered from last time. */
     const tueId = await p.evaluate(() => {
       localStorage.setItem('sh.pw', JSON.stringify({ days: ['mon', 'tue', 'wed', 'thu', 'fri'], ppl: 4, bud: 60, t: 45, avoid: ['Pork'] }));
-      /* Buying everything is Plan's step 1 now: Store only. */
+      /* Buying everything is Plan's step 1 now: I keep my own. */
       window.Store.setOpt('store', false);
       const r = window.RECIPES.find((x) => x.book === 2 && x.secNum === 3);
       window.Store.addToDay(r.id, 'tue', 1);
@@ -123,7 +123,7 @@ module.exports = {
     t.ok('the shopping list is every ingredient, priced, and its total is its lines added up',
       list.lines > 5 && Math.abs(Number((list.head.match(/\$(\d+(?:\.\d+)?)/) || [])[1]) - list.sum) <= list.lines,
       JSON.stringify(list));
-    t.ok('buying everything (Store only), the list opens on what to buy, with no storehouse order in it',
+    t.ok('buying everything (I keep my own), the list opens on what to buy, with no storehouse order in it',
       /^To buy$/i.test(list.first.trim()) && await p.evaluate(() => ![...document.querySelectorAll('.pw-grp')].some((g) => /storehouse/i.test(g.textContent))), list.first);
 
     /* The picker has chance in it, so one run proves little: forty weeks,

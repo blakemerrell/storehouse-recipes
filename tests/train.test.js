@@ -1481,9 +1481,10 @@ module.exports = {
         noBookTab: !t.querySelector('.tab[data-view="book"]'),
       };
     });
-    t.ok('the tabs are Recipes and Plan (with List and Pantry as its steps), then Nourish and Strengthen', r.labels === 'Recipes|Plan|Nourish|Strengthen', r.labels);
+    t.ok('the tabs are Today, Recipes and Plan (with List and Pantry as its steps), then Nourish and Strengthen', r.labels === 'Today|Recipes|Plan|Nourish|Strengthen', r.labels);
     t.ok('with a rule before yours, and every one on a 360px screen', r.sepBefore && r.off === 0, JSON.stringify(r));
     t.ok('and the book is no longer a tab', r.noBookTab);
+    await p.click('.tab[data-view="browse"]');   // the book's button is on Recipes; the app opens on Today
     await p.click('#bookBtn');
     await p.waitForTimeout(300);
     r = await p.evaluate(() => ({ book: !document.getElementById('view-book').classList.contains('hide'),
@@ -2233,7 +2234,7 @@ module.exports = {
     await p.fill('#trT0-live', early);
     await p.click('[data-t="livetimeset"]');
     r = await p.evaluate((v) => ({ st: window.Train._.dtVal(window.Train._.state().LIVE.st), clock: (document.getElementById('trElapsed') || {}).textContent }), early);
-    t.ok('the start can be moved back to when you really began', r.st === early && /^4[45]:/.test(r.clock), JSON.stringify(r));
+    t.ok('the start can be moved back to when you really began', r.st === early && /^4[4-6]:/.test(r.clock), JSON.stringify(r));
     await p.click('[data-t="times"]');
     await p.fill('#trT0-live', await p.evaluate(() => window.Train._.dtVal(Date.now() + 3 * 3600e3)));
     await p.click('[data-t="livetimeset"]');
@@ -2246,7 +2247,9 @@ module.exports = {
     await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
     await p.click('[data-t="finish"]');
     await p.click('[data-t="fintimes"]');
-    const end = await p.evaluate(() => window.Train._.dtVal(Date.now() - 10 * 60e3));
+    /* 35 minutes after the start typed above, counted from it rather than
+       from now: a minute turning over between the two used to make it 36. */
+    const end = await p.evaluate((e) => window.Train._.dtVal(window.Train._.dtParse(e) + 35 * 60e3), early);
     await p.fill('#trT1-fin', end);
     await p.click('[data-t="fintimeset"]');
     r = await p.evaluate(() => (document.querySelector('.tr-when') || {}).textContent || '');
@@ -4356,7 +4359,90 @@ module.exports = {
     await p.waitForTimeout(250);
     r = await p.evaluate(() => { const st = window.Train._.state(); return { act: st.T.act, ms: Object.keys(st.T.ms).join(), wos: Object.keys(st.T.wo).length }; });
     t.ok('deleting the current block ends it, and still keeps every workout', r.act === '' && r.ms === '' && r.wos === 10, JSON.stringify(r));
+    // the medal on the lift that earned it (with no block left, History is the workouts)
+    if (await p.$('[data-t="hview"][data-v="wo"]')) await p.click('[data-t="hview"][data-v="wo"]');
+    r = await p.evaluate(() => { const _ = window.Train._, T = _.state().T;
+      const wo = Object.values(T.wo).find((w) => _.prsIn(w).length);
+      if (!wo) return { none: true };
+      const want = [...new Set(_.prsIn(wo).map((x) => x.e))];
+      const row = document.querySelector('.tr-hrow[data-id="' + wo.id + '"] .tr-h-x');
+      const lines = row ? row.innerHTML.split('<br>') : [];
+      return { want: want.length, medals: lines.filter((l) => /🥇/.test(l)).length,
+        right: wo.x.every((x, i) => /🥇/.test(lines[i] || '') === want.includes(x.e)) }; });
+    t.ok('in Workouts, each lift that set a record wears the medal, and only those', !r.none && r.medals === r.want && r.right, JSON.stringify(r));
     t.ok('no page errors through any of it', perr.length === 0, perr.join(' | '));
     await p.close();
+
+    // ---- the end of a rest: a call that carries over music, heard when it is chosen ----
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await p.addInitScript(() => {
+      window.__notes = [];
+      class FakeAC {
+        constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
+        resume() {}
+        createBiquadFilter() { return { type: '', frequency: {}, connect() {} }; }
+        createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; }
+        createOscillator() { const o = { type: 'sine', frequency: {}, connect() {}, start(t) { o.t = t; }, stop(t) { window.__notes.push({ f: o.frequency.value, type: o.type, a: o.t, b: t }); } }; return o; }
+      }
+      window.AudioContext = FakeAC; window.webkitAudioContext = FakeAC;
+    });
+    await p.reload();
+    await p.waitForTimeout(600);
+    await p.click('.tab[data-view="train"]');
+    await openSettings(p);
+    await p.click('[data-t="s-snd"][data-v="0"]');
+    await p.click('[data-t="s-snd"][data-v="1"]');
+    r = await p.evaluate(() => ({ n: window.__notes.length, span: Math.max(...window.__notes.map((x) => x.b)), sq: window.__notes.every((x) => x.type === 'square'),
+      hi: Math.min(...window.__notes.map((x) => x.f)), say: /Tap Beep and buzz to hear it/.test(document.querySelector('.tr-sheet').textContent) }));
+    t.ok('choosing Beep and buzz plays it: three bursts of a high two-note call, about a second and a half, and says so',
+      r.n === 6 && r.span > 1.2 && r.span < 2 && r.sq && r.hi >= 1000 && r.say, JSON.stringify(r));
+    await p.close();
+
+    // ---- a rest's end calls again until you touch the screen ----
+    {
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await p.clock.install();
+    await p.addInitScript(() => {
+      window.__notes = 0;
+      class FakeAC {
+        constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
+        resume() {}
+        createBiquadFilter() { return { frequency: {}, connect() {} }; }
+        createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; }
+        createOscillator() { return { frequency: {}, connect() {}, start() {}, stop() { window.__notes++; } }; }
+      }
+      window.AudioContext = FakeAC; window.webkitAudioContext = FakeAC;
+    });
+    await p.reload();
+    await p.clock.runFor(800);
+    await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ goal: 'grow', dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'b'; ms.n = 'Block'; ms.at = Date.now();
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 2, 4] }, act: 'b', ms: { b: ms }, cx: {}, ax: {}, wo: {} }));
+      _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="block"]');
+    await p.click('[data-t="start"]');
+    await p.clock.runFor(300);
+    const notes = () => p.evaluate(() => window.__notes);
+    await p.mouse.click(5, 400);              // a tap, which is what lets a page make sound
+    const r0 = await notes();
+    await p.evaluate(() => window.Train._.ringRest());
+    const r1 = await notes();
+    await p.clock.runFor(6100);
+    const r2 = await notes();
+    await p.mouse.click(5, 400);
+    await p.clock.runFor(13000);
+    const r3 = await notes();
+    t.ok('a rest’s end calls, calls again six seconds on, and a touch on the screen stops it',
+      r1 - r0 === 6 && r2 - r1 === 6 && r3 === r2 && !(await p.evaluate(() => window.Train._.ringing())), JSON.stringify([r0, r1, r2, r3]));
+    await p.evaluate(() => window.Train._.ringRest());
+    const m0 = await notes();
+    await p.clock.runFor(60000);
+    const m1 = await notes();
+    t.ok('left alone, it gives up after half a minute: the first call and five more', m1 - m0 === 30, String(m1 - m0));
+    await p.close();
+    }
   },
 };

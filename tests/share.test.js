@@ -186,8 +186,23 @@ module.exports = {
           said.length >= 2 && said.every((x) => x === real),
           said.join(', ') + ' printed, ' + real + ' recipes');
 
-        const built = fs.statSync(pdf).mtimeMs;
-        const data = fs.statSync(path.join(root, 'data', 'recipes.js')).mtimeMs;
+        /* When each last changed: the commit time of a file committed as it
+           stands, the file's own time when it has local edits. File times
+           alone failed after every fresh checkout or pull, which writes the
+           recipes after the handout that was rendered from them. */
+        const changedAt = (abs) => {
+          try {
+            const rel = path.relative(root, abs);
+            const git = (a) => require('child_process').execFileSync('git', a, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+            if (!git(['status', '--porcelain', '--', rel])) {
+              const at = git(['log', '-1', '--format=%ct', '--', rel]);
+              if (at) return Number(at) * 1000;
+            }
+          } catch (e) { /* not a git checkout: the file's own time */ }
+          return fs.statSync(abs).mtimeMs;
+        };
+        const built = changedAt(pdf);
+        const data = changedAt(path.join(root, 'data', 'recipes.js'));
         t.ok('and it was rendered no earlier than the recipes it draws from',
           built >= data - 1000,
           'handout built ' + new Date(built).toISOString() + ', recipes ' +

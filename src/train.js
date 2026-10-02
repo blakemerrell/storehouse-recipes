@@ -4687,9 +4687,27 @@
     if (done && !LIVE.rs.rung) {
       LIVE.rs.rung = 1;
       saveLive();
-      ring();
+      ringRest();
     }
   }
+
+  /* The end of a rest calls again every six seconds until you touch the
+     screen (or a key), for half a minute at most, so a call missed under
+     music is not the only one. It stops too when the rest is closed, a new
+     one starts, or the app goes off screen. */
+  var RAGAIN = null, RAGAIN_EVERY = 6000, RAGAIN_MOST = 5;
+  function ringRest() {
+    ring();
+    ringStop();
+    var n = 0, rs = LIVE && LIVE.rs;
+    RAGAIN = setInterval(function () {
+      if (!LIVE || LIVE.rs !== rs || document.hidden || ++n > RAGAIN_MOST) { ringStop(); return; }
+      ring();
+    }, RAGAIN_EVERY);
+  }
+  function ringStop() { if (RAGAIN) { clearInterval(RAGAIN); RAGAIN = null; } }
+  document.addEventListener('pointerdown', ringStop, true);
+  document.addEventListener('keydown', ringStop, true);
 
   var AC = null;
   /* Browsers only let a page make sound after a tap, so the audio is woken on
@@ -4703,18 +4721,30 @@
       if (AC && AC.state === 'suspended') AC.resume();
     } catch (e) { AC = null; }
   }
+  /* The end of a rest has to be heard over music in your ears: three
+     bursts of a high two-note call, about a second and a half, in a tone
+     with an edge (a square wave, its harshest top taken off) rather than a
+     soft sine that music swallows. Two notes a sixth apart read as an alarm,
+     not as part of the song. */
   function ring() {
-    try { if (navigator.vibrate) navigator.vibrate([180, 90, 180]); } catch (e) { /* not on this device */ }
+    try { if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 300]); } catch (e) { /* not on this device */ }
     if (!AC || !T.pr.snd) return;
     try {
-      [0, 0.28].forEach(function (at) {
-        var o = AC.createOscillator(), g = AC.createGain(), t0 = AC.currentTime + at;
-        o.frequency.value = 880;
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(0.2, t0 + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
-        o.connect(g); g.connect(AC.destination);
-        o.start(t0); o.stop(t0 + 0.25);
+      var lp = AC.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 4000;
+      lp.connect(AC.destination);
+      [0, 0.5, 1.0].forEach(function (burst) {
+        [[1047, 0], [1319, 0.17]].forEach(function (n) {
+          var o = AC.createOscillator(), g = AC.createGain(), t0 = AC.currentTime + burst + n[1];
+          o.type = 'square';
+          o.frequency.value = n[0];
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.01);
+          g.gain.setValueAtTime(0.5, t0 + 0.11);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
+          o.connect(g); g.connect(lp);
+          o.start(t0); o.stop(t0 + 0.16);
+        });
       });
     } catch (e) { /* no sound: the bar and the buzz still say it */ }
   }
@@ -7049,6 +7079,8 @@
             (axLv(a) === 'l' ? ' \u00b7 logged, not counted toward your active minutes' : ' \u00b7 counts toward your active minutes') + '</span>' +
         '</button>';
       }
+      var won = {};
+      prsIn(wo).forEach(function (r) { won[r.e] = (won[r.e] || 0) + 1; });
       var prs = prsIn(wo).length;
       return '<button class="tr-card tr-hrow" data-t="wosheet" data-id="' + esc(wo.id) + '">' +
         '<span class="tr-h-top"><span class="tr-h-n">' + esc(wo.n) + '</span>' +
@@ -7058,7 +7090,8 @@
           (wo.mc && mcScore(wo.mc) ? ' · circuit ' + esc(mcScore(wo.mc)) : '') +
         '</span>' +
         '<span class="tr-h-x">' + wo.x.map(function (x) {
-          return esc(x.s.length + ' × ' + lib(x.e).n);
+          // the lift that set the record wears it
+          return esc(x.s.length + ' × ' + lib(x.e).n) + (won[x.e] ? ' <span class="tr-pr" aria-label="' + won[x.e] + ' record' + (won[x.e] === 1 ? '' : 's') + '">\ud83e\udd47' + (won[x.e] > 1 ? '\u00d7' + won[x.e] : '') + '</span>' : '');
         }).join('<br>') + '</span>' +
         (wo.nt ? '<span class="tr-h-nt">' + esc(wo.nt.length > 90 ? wo.nt.slice(0, 88) + '\u2026' : wo.nt) + '</span>' : '') +
       '</button>';
@@ -8518,7 +8551,8 @@
         chips('s-ri', p.ri, [[60, '1:00'], [75, '1:15'], [90, '1:30'], [120, '2:00']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Rest between paired sets</div>' +
         chips('s-rp', p.rp, [[45, '0:45'], [60, '1:00'], [75, '1:15'], [90, '1:30']]) + '</div>' +
-      '<div class="tr-q"><div class="tr-ql">When rest is up</div>' + chips('s-snd', p.snd, [[1, 'Beep and buzz'], [0, 'Buzz only']]) + '</div>' +
+      '<div class="tr-q"><div class="tr-ql">When rest is up</div>' + chips('s-snd', p.snd, [[1, 'Beep and buzz'], [0, 'Buzz only']]) +
+        '<div class="tr-note">Tap Beep and buzz to hear it. When a rest ends it calls again every 6 seconds until you touch the screen, for up to half a minute, while the app is on screen.</div></div>' +
       '<div class="tr-q"><div class="tr-ql">When you finish</div>' + chips('s-yay', p.yay, [[1, 'Chime and confetti'], [0, 'Just the summary']]) + '</div>' +
       '<div class="tr-q"><div class="tr-ql">Your weight on pull-up and dip days</div>' + chips('s-nobw', p.nobw, [[0, 'Ask when it\u2019s needed'], [1, 'Don\u2019t ask']]) +
         '<div class="tr-hint">Asked only when there\u2019s no weigh-in from the last week to go on. Saved, it\u2019s the day\u2019s weigh-in on Nourish too.</div></div>' +
@@ -10285,7 +10319,12 @@
     if (t === 's-pl') { T.pr.pl = ['row', 'type', 'off'].indexOf(v) >= 0 ? v : 'row'; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-rc') { T.pr.rc = Number(v); stamp('pr'); drawSheet(); return; }
     if (t === 's-ri') { T.pr.ri = Number(v); stamp('pr'); drawSheet(); return; }
-    if (t === 's-snd') { T.pr.snd = Number(v); stamp('pr'); drawSheet(); return; }
+    if (t === 's-snd') {
+      T.pr.snd = Number(v); stamp('pr'); drawSheet();
+      // chosen, and heard: the tap is what lets the page make a sound
+      if (T.pr.snd) { audioPrime(); ring(); }
+      return;
+    }
     if (t === 's-yay') { T.pr.yay = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); return; }
     if (t === 's-rq') { T.pr.rq = Number(v) ? 1 : 0; stamp('pr'); drawSheet(); draw(); return; }
     if (t === 's-eff') { T.pr.eff = v === 'rpe' ? 'rpe' : 'rir'; stamp('pr'); drawSheet(); draw(); return; }
@@ -10630,6 +10669,36 @@
       S.sub = 'block'; if (LIVE) S.minim = 1;
       try { localStorage.setItem(LS_SUB, 'block'); } catch (e) { /* private mode */ }
     },
+    /* What the Today screen shows of Strengthen (src/today.js): the block's
+       next session, said in a few numbers, or that there is no block, or a
+       workout already going. Read only; Start comes back through startToday,
+       which is the Start on the block's own card. */
+    today: function () {
+      var ms = active(), out = { live: !!LIVE, block: ms ? ms.n || 'Your block' : '' };
+      var tk = dayKey(new Date());
+      var did = ix().list.filter(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === tk; });
+      if (did.length) { out.doneToday = true; out.doneName = did[did.length - 1].n || ''; }
+      if (!ms) return out;
+      var nx = nextSlot(ms);
+      if (!nx) { out.finished = true; return out; }
+      out.week = wkName(ms, nx.w);
+      if (isEz(ms, nx.d)) { out.easy = true; return out; }
+      var p = plan(ms, nx.w, nx.d), day = ms.days[nx.d];
+      out.name = p.n || dayName(day);
+      out.mins = day && day.s && day.s.length ? Math.round(estDay(day.cc ? day : { s: day.s }) / 5) * 5 : 0;
+      out.lifts = (p.x || []).map(function (x) {
+        var sets = typeof x.sets === 'number' ? x.sets : Array.isArray(x.sets) ? x.sets.length : 0;
+        var reps = x.tr || (x.rr ? x.rr[0] + '\u2013' + x.rr[1] : '');
+        return { name: lib(x.e).n, say: (sets ? sets + ' \u00d7 ' : '') + reps + (x.tw > 0 ? ' \u00b7 ' + fmtN(x.tw) + ' ' + T.pr.u : '') };
+      });
+      return out;
+    },
+    startToday: function () {
+      var ms = active(), nx = ms && nextSlot(ms);
+      if (!ms || !nx || LIVE || isEz(ms, nx.d)) return false;
+      startPlanned(ms, nx.w, nx.d);
+      return true;
+    },
     /* The name of the block's next session, for "Upper B today". */
     nextName: function () {
       var ms = active(), nx = ms && nextSlot(ms);
@@ -10655,7 +10724,7 @@
       MOVES: MOVES, mcScore: mcScore, sgParse: sgParse, sgMatch: sgMatch, sgGuess: sgGuess, sgList: sgList, csvRows: csvRows, ntKey: ntKey,
       LIB_LIST: LIB_LIST, slotDone: slotDone, barFor: barFor, barLabel: barLabel, onBar: onBar, liftE1: liftE1, stackHTML: stackHTML, elapsed: elapsed,
       woText: woText, dtVal: dtVal, dtParse: dtParse, hmSpan: hmSpan, HOWTO: HOWTO, repMaxes: repMaxes, cleanLink: cleanLink,
-      wins: wins, nth: nth, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
+      wins: wins, nth: nth, ringRest: ringRest, ringStop: ringStop, ringing: function () { return !!RAGAIN; }, focusOf: focusOf, fmFor: fmFor, bwOn: bwOn, bwInfo: bwInfo, e1Of: e1Of, records: records,
       weeksSay: weeksSay, kitSay: kitSay, doneNext: doneNext, warmRows: warmRows, volOf: volOf, ghost: ghost,
       readyDay: readyDay, readyNext: readyNext, saveRoutine: saveRoutine, SHAPE: SHAPE, swapBest: swapBest,
       whyW: whyW, firstTime: firstTime, restNote: restNote, newLift: newLift,

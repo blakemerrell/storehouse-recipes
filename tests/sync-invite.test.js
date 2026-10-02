@@ -1,6 +1,6 @@
 /* An invite link, end to end, against the live project.
  *
- * Runs only when asked for (`node tests/run.js sync`). Accounts are the pages'
+ * Runs only when asked for (`node tests/run.js sync --live`). Accounts are the pages'
  * own anonymous identities with Store.user() made to answer for them, as in
  * sync-account.test.js; the rules decide on uid and membership, not on the
  * sign-in provider, so everything after that one line is the real path.
