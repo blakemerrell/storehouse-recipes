@@ -52,10 +52,10 @@ module.exports = {
       const d = window.RECIPES.filter((r) => r.book === 2 && r.secNum === 3).slice(0, 3);
       ['mon', 'tue', 'wed'].forEach((day, i) => window.Store.addToDay(d[i].id, day, 1));
     });
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('list')));
     await p.waitForTimeout(300);
     const read = () => p.evaluate(() => {
-      const a = document.querySelector('#listWm .wm-btn');
+      const a = document.querySelector('#view-list .wm-btn');
       const href = a ? a.getAttribute('href') : '';
       const items = href ? href.split('items=')[1].split(',') : [];
       return { href, n: items.reduce((t, x) => t + Number(x.split('_')[1]), 0),
@@ -64,11 +64,11 @@ module.exports = {
     /* Those three come wholly from the storehouse: nothing to send, until
        the household stops shopping it (step 1 of Plan: I keep my own). */
     const shelf = await read();
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="where"]'));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('where')));
     await p.waitForTimeout(250);
     await p.click('[data-srcpick="own"]');
     await p.waitForTimeout(250);
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('list')));
     await p.waitForTimeout(250);
     const first = await read();
     t.ok('from the storehouse, nothing goes to Walmart; not shopping it, it all does',
@@ -93,26 +93,38 @@ module.exports = {
     await p.waitForTimeout(250);
 
     /* Have: the line leaves the cart and the kitchen keeps it, for every
-       week after; Buy puts it back. */
+       week after; Buy puts it back. The switch opens from the line's tag. */
+    const tag0 = await p.evaluate((k) => ({ t: document.querySelector('#listBody [data-srctag="' + k + '"]').textContent, seg: !!document.querySelector('#listBody .src-seg') }), firstKey);
+    await p.click('#listBody [data-srctag="' + firstKey + '"]');
+    await p.waitForTimeout(200);
+    const seg = await p.evaluate((k) => [...document.querySelectorAll('#listBody [data-src="' + k + '"]')].map((b) => b.dataset.v).join(), firstKey);
     await p.click('#listBody [data-src="' + firstKey + '"][data-v="h"]');
     await p.waitForTimeout(250);
     const had = await read();
     const kit = await p.evaluate((k) => window.Store.kitchen(k), firstKey);
+    const moved = await p.evaluate((k) => {
+      const l = document.querySelector('#listBody [data-check="' + k + '"]').closest('.list-line');
+      return { seg: !!l.querySelector('.src-seg'), tag: (l.querySelector('[data-srctag]') || {}).textContent, fold: !!l.closest('.list-fold') };
+    }, firstKey);
+    await p.evaluate(() => document.querySelectorAll('#view-list details').forEach((d) => { d.open = true; }));
+    await p.click('#listBody [data-srctag="' + firstKey + '"]');
+    await p.waitForTimeout(200);
     await p.click('#listBody [data-src="' + firstKey + '"][data-v="b"]');
     await p.waitForTimeout(250);
     const back = await read();
-    t.ok('marking a line Have takes it out of the cart and into the kitchen; Buy puts it back',
-      had.ids.indexOf(itsId) < 0 && kit === 1 && back.ids.indexOf(itsId) >= 0, JSON.stringify({ kit, had: had.ids.length, back: back.ids.length }));
+    t.ok('a line says Buy as a tag; tapped, it opens into Have · Buy', tag0.t === 'Buy' && !tag0.seg && seg === 'h,b', JSON.stringify({ tag0, seg }));
+    t.ok('marking a line Have takes it out of the cart and into the kitchen, folded under Already in your kitchen; Buy puts it back',
+      had.ids.indexOf(itsId) < 0 && kit === 1 && !moved.seg && moved.tag === 'Have' && moved.fold && back.ids.indexOf(itsId) >= 0, JSON.stringify({ kit, moved, had: had.ids.length, back: back.ids.length }));
 
     /* A food with no pack: search it, paste its link, and it goes in. */
-    await p.evaluate(() => { document.querySelector('#listWm .wm-fix').open = true; });
+    await p.evaluate(() => { document.querySelector('#view-list .wm-fix').open = true; });
     const miss = await p.evaluate(() => {
-      const i = document.querySelector('#listWm .wm-id');
+      const i = document.querySelector('#view-list .wm-id');
       return i ? i.dataset.wmid : '';
     });
-    await p.fill('#listWm [data-wmid="' + miss + '"]', 'https://www.walmart.com/ip/Something/55555555');
-    await p.press('#listWm [data-wmid="' + miss + '"]', 'Enter');
-    await p.locator('#listWm [data-wmid="' + miss + '"]').blur();
+    await p.fill('#view-list [data-wmid="' + miss + '"]', 'https://www.walmart.com/ip/Something/55555555');
+    await p.press('#view-list [data-wmid="' + miss + '"]', 'Enter');
+    await p.locator('#view-list [data-wmid="' + miss + '"]').blur();
     await p.waitForTimeout(250);
     const pasted = await read();
     const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('sh.wm') || '{}'));
@@ -125,15 +137,15 @@ module.exports = {
     await p.waitForTimeout(250);
     await p.click('#planMyWeek');
     await p.waitForTimeout(250);
-    await p.click('[data-pwgo="2"]');
-    await p.waitForTimeout(300);
-    await p.click('[data-pwgo="3"]');
+    await p.click('[data-pwpick]');
+    await p.waitForTimeout(400);
+    await p.click('#planNext [data-stepgo="list"]');
     await p.waitForTimeout(300);
     const pw = await p.evaluate(() => {
-      const a = document.querySelector('.pw-sheet .wm-btn');
+      const a = document.querySelector('#view-list .list-group.where-b .wm-btn');
       return a ? a.getAttribute('href') : '';
     });
-    t.ok('Plan my week’s shopping list sends to Walmart too', /addToCart\?items=\d+_\d+/.test(pw), pw);
+    t.ok('Plan my week’s dinners land on the week, and its list sends to Walmart from the To buy group', /addToCart\?items=\d+_\d+/.test(pw), pw);
     t.ok('with no error on the page', errs.length === 0, errs.join(' | '));
     await p.context().close();
   },

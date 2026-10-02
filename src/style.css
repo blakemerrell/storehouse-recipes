@@ -7236,3 +7236,59 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .td-plan { border: 1.5px solid var(--line-firm); }
 .td-rest { width: 10px; height: 2px; border-radius: 1px; background: var(--line-firm); }
 .td-none { display: none; }
+
+/* ---- one engine: the week, its day sheet, the list in trip order ---------
+   The week's rows are rows: a dinner, its facts under it, ↻ beside it. All
+   else a dinner can have done to it is on the sheet its name opens. The list
+   runs the way the trip does — to buy, the source's pick-up, then what is
+   already in the kitchen and "anything run out?" folded away under it. */
+.cal-day .day-item { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; }
+.cal-day .day-item-name { flex: 1 1 auto; min-width: 0; min-height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 1px; font-family: var(--serif); font-size: 1.0625rem; line-height: 1.25; }
+.cal-day .day-item-name small { display: block; }
+.cal-day .day-ctl { flex: none; padding-right: 4px; }
+.plan-next { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 56px; margin: 14px 0 8px; padding: 10px 14px; text-align: left;
+  background: var(--card); border: 1.5px solid var(--line-firm); border-radius: 10px; font: inherit; color: var(--ink); cursor: pointer; }
+.plan-next b { font-family: var(--serif); font-size: 1.0625rem; }
+.plan-next span { font-size: 0.84375rem; color: var(--muted); }
+.plan-next.plan-back { align-items: center; min-height: 48px; border-style: dashed; }
+.plan-next.plan-back b { font-family: var(--sans); font-size: 0.9375rem; font-weight: 600; }
+/* the day's sheet */
+.dsh-body { padding: 0 16px 20px; }
+.dsh-h { font-family: var(--serif); font-size: 1.4375rem; font-weight: 600; line-height: 1.2; margin: 4px 0 4px; text-wrap: balance; }
+.dsh-m { margin: 0 0 10px; font-size: 0.875rem; color: var(--muted); }
+.dsh-body .pw-plate { margin: -4px 0 10px; }
+.dsh-rate { margin: 4px 0 12px; }
+.dsh-rl { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+.dsh-rows { display: flex; flex-direction: column; border-top: 1px solid var(--line-soft); }
+.dsh-row { display: flex; align-items: center; width: 100%; min-height: 52px; padding: 8px 2px; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line-soft); font: inherit; color: var(--ink); cursor: pointer; }
+.dsh-row > span { display: flex; flex-direction: column; gap: 1px; }
+.dsh-row b { font-weight: 600; font-size: 0.96875rem; }
+.dsh-row small { font-size: 0.78125rem; color: var(--muted); }
+.dsh-row.dsh-danger b { color: var(--dial-over, #b3261e); }
+/* the list */
+.list-usd { flex: none; font-size: 0.78125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.src-tag { flex: none; min-height: 34px; padding: 0 8px; border: 0; border-radius: 99px; background: transparent; color: var(--muted); font: inherit; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
+.src-tag.src-s { color: var(--store-ink); }
+.src-tag.src-b { color: var(--walmart); }
+.src-tag::after { content: ' \203A'; font-weight: 400; }
+.list-fold { margin: 6px 0 10px; }
+.list-fold > summary { display: flex; align-items: baseline; gap: 8px; min-height: 44px; padding: 8px 0; cursor: pointer; list-style: none; border-bottom: 1px solid var(--line-soft); }
+.list-fold > summary::-webkit-details-marker { display: none; }
+.list-fold > summary > span { font-weight: 650; }
+.list-fold > summary > span::before { content: '\203A'; display: inline-block; width: 14px; color: var(--muted); transition: transform 0.15s; }
+.list-fold[open] > summary > span::before { transform: rotate(90deg); }
+.list-fold > summary > small { font-size: 0.78125rem; color: var(--muted); }
+.list-fold .list-group-title { display: none; }   /* the fold's summary already says it */
+.list-fold .low-card { margin-top: 8px; }
+.list-fold .low-p { margin: 0 0 6px; }
+.list-shelf > summary { display: flex; align-items: baseline; gap: 8px; min-height: 40px; cursor: pointer; list-style: none; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.list-shelf > summary::-webkit-details-marker { display: none; }
+.list-shelf > summary small { letter-spacing: 0; text-transform: none; font-weight: 400; }
+.list-shelf .pw-chips { margin-bottom: 6px; }
+.list-fold .nut-ask { margin-top: 4px; }
+/* Settings rows on the Sync & sharing sheet */
+.kit-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 6px 0; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line-soft); font: inherit; color: var(--ink); cursor: pointer; }
+.kit-row > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.kit-row b { font-weight: 600; font-size: 0.9375rem; }
+.kit-row small { font-size: 0.78125rem; color: var(--muted); }
+.kit-row i { font-style: normal; font-size: 1.25rem; color: var(--muted); }

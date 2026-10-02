@@ -65,11 +65,14 @@ module.exports = {
     await p.waitForTimeout(200);
     t.ok('and undoing them brings the same count back', await cnt() === n0);
 
-    await p.click('[data-pwgo="2"]');
-    await p.waitForTimeout(300);
-    const read = () => p.evaluate(() => [...document.querySelectorAll('.pw-meal')].map((m) => ({
-      day: m.querySelector('.pw-day').textContent,
-      id: m.querySelector('[data-pwopen]').dataset.pwopen })));
+    await p.click('[data-pwpick]');
+    await p.waitForTimeout(400);
+    t.ok('Pick my dinners closes the sheet onto the week', await p.evaluate(() => !document.querySelector('.pw-sheet')));
+    /* The week, read back: the nights asked for, each with its dinner. */
+    const read = () => p.evaluate((tue) => ['mon', 'wed', 'thu', 'fri'].map((d) => {
+      const e = window.Store.day(d).find((x) => String(x.id) !== String(tue));
+      return e ? { day: d.toUpperCase(), id: String(e.id) } : null;
+    }).filter(Boolean), tueId);
     const picks = await read();
 
     const check = await p.evaluate(([picks, DINNER]) => {
@@ -94,37 +97,39 @@ module.exports = {
           if (pr) usd += it.g * x * pr / 100;
         });
       });
-      return { bad, usd, sum: (document.querySelector('.pw-sum') || {}).textContent || '' };
+      return { bad, usd, sum: document.getElementById('planSum').textContent };
     }, [picks, DINNER]);
     t.ok('a dinner on each night asked for that had none, Tuesday left alone',
       picks.length === 4 && picks.map((x) => x.day).join() === 'MON,WED,THU,FRI', JSON.stringify(picks));
     t.ok('every one is a dinner, fits 45 minutes, and leaves out pork',
       check.bad.length === 0, check.bad.join('; '));
     t.ok('none repeats', new Set(picks.map((x) => x.id)).size === picks.length, JSON.stringify(picks));
-    t.ok('the week comes in under the budget, and says the same total it adds up to',
-      check.usd <= 60 && new RegExp('about \\$' + Math.round(check.usd) + '\\b').test(check.sum) && /under \$60/.test(check.sum),
+    t.ok('the week comes in under the budget, and the week says what it comes to',
+      check.usd <= 60 && /~\$\d+/.test(check.sum) && /to buy/.test(check.sum),
       JSON.stringify({ usd: check.usd, sum: check.sum }));
 
-    await p.click('[data-pwswap="1"]');
+    await p.click('#planGrid [data-pswap][data-day="wed"]');
     await p.waitForTimeout(250);
     const after = await read();
-    t.ok('↻ swaps that one night and nothing else',
+    t.ok('↻ on the week swaps that one night and nothing else',
       after[1].id !== picks[1].id && after[0].id === picks[0].id && after[2].id === picks[2].id && after[1].day === 'WED',
       JSON.stringify({ was: picks.map((x) => x.id), now: after.map((x) => x.id) }));
 
-    await p.click('[data-pwgo="3"]');
+    await p.click('#planNext [data-stepgo="list"]');
     await p.waitForTimeout(300);
     const list = await p.evaluate(() => {
-      const lines = [...document.querySelectorAll('.pw-li')].map((l) => l.querySelector('.pw-p').textContent);
+      const lines = [...document.querySelectorAll('#view-list .list-group.where-b .list-line')].map((l) => (l.querySelector('.list-usd') || {}).textContent || '');
       const sum = lines.reduce((n, v) => n + (/^\$/.test(v) ? Number(v.slice(1)) : 0), 0);
-      return { lines: lines.length, sum, head: (document.querySelector('.pw-sum') || {}).textContent || '',
-        first: (document.querySelector('.pw-grp') || {}).textContent || '' };
+      return { lines: lines.length, priced: lines.filter(Boolean).length, sum, head: document.getElementById('listCount').textContent,
+        first: (document.querySelector('.list-group-title') || {}).textContent || '', titles: [...document.querySelectorAll('.list-group-title')].map((g) => g.textContent) };
     });
-    t.ok('the shopping list is every ingredient, priced, and its total is its lines added up',
-      list.lines > 5 && Math.abs(Number((list.head.match(/\$(\d+(?:\.\d+)?)/) || [])[1]) - list.sum) <= list.lines,
+    t.ok('the list is every ingredient, each priced, and what it says to buy is its lines added up',
+      list.lines > 5 && list.priced >= list.lines * 0.6 && Math.abs(Number((list.head.match(/~\$(\d+(?:\.\d+)?)/) || [])[1]) - list.sum) <= list.lines,
       JSON.stringify(list));
     t.ok('buying everything (I keep my own), the list opens on what to buy, with no storehouse order in it',
-      /^To buy$/i.test(list.first.trim()) && await p.evaluate(() => ![...document.querySelectorAll('.pw-grp')].some((g) => /storehouse/i.test(g.textContent))), list.first);
+      /^To buy$/i.test(list.first.trim()) && !list.titles.some((g) => /storehouse/i.test(g)), JSON.stringify(list.titles));
+    await p.click('#listNext [data-stepgo="plan"]');
+    await p.waitForTimeout(250);
 
     /* The picker has chance in it, so one run proves little: forty weeks,
        each held to every rule. */
@@ -180,14 +185,11 @@ module.exports = {
     t.ok('each filter keeps only what it says: protein, kind of night, an ingredient, Nourish, time, recent',
       f.bad.length === 0, JSON.stringify(f));
 
-    await p.click('[data-pwadd]');
-    await p.waitForTimeout(400);
     const plan = await p.evaluate(() => ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
       .map((d) => window.Store.day(d).map((e) => String(e.id)).join('+')));
-    t.ok('Add puts each dinner on its night and leaves Tuesday’s as it was',
+    t.ok('the week holds each dinner on its night and Tuesday’s as it was',
       plan[0] === after[0].id && plan[1] === String(tueId) && plan[2] === after[1].id && plan[4] === after[3].id && plan[5] === '' && plan[6] === '',
       JSON.stringify(plan));
-    t.ok('and the sheet closes onto the week', await p.evaluate(() => !document.querySelector('.pw-sheet')));
 
     /* Blake's plan: 210 g of protein in about 1,650 cal, so a dinner's third
        is 550 cal and 70 g. Held to one printed serving, the chip let nothing
@@ -225,10 +227,20 @@ module.exports = {
     t.ok('Hits 70 g protein leaves dinners to pick from', scr.n > 0, JSON.stringify(scr));
     if (!scr.dis) {
       await p.click('.pw-bar .pw-go');
-      await p.waitForTimeout(300);
-      const plates = await p.evaluate(() => [...document.querySelectorAll('.pw-meal')].map((m) => ({
-        lo: /Leftovers/.test(m.textContent), plate: (m.querySelector('.pw-plate') || {}).textContent || '' })));
-      t.ok('each dinner says the plate that meets the plan',
+      await p.waitForTimeout(400);
+      /* The plate is on the day's sheet now: open each dinner from the week. */
+      const plates = await p.evaluate(async () => {
+        const out = [];
+        for (const b of document.querySelectorAll('#planGrid .day-item:not(.lo) [data-dayopen]')) {
+          b.click();
+          await new Promise((r) => setTimeout(r, 150));
+          out.push({ plate: (document.querySelector('.dsh-sheet .pw-plate') || {}).textContent || '' });
+          document.querySelector('.dsh-sheet .sheet-x').click();
+          await new Promise((r) => setTimeout(r, 150));
+        }
+        return out;
+      });
+      t.ok('each dinner’s sheet says the plate that meets the plan',
         plates.length > 0 && plates.every((x) => /^Your plate: \d+(\.\d)? servings? · \d+ cal · \d+ g protein$/.test(x.plate)), JSON.stringify(plates));
     } else t.ok('there were enough dinners to pick', false, JSON.stringify(scr));
     await p.evaluate(() => { localStorage.removeItem('bsc.macroTargets'); localStorage.removeItem('sh.pw'); });

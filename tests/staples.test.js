@@ -27,7 +27,7 @@ module.exports = {
 
     const step1 = async () => {
       await p.click('.tab[data-view="plan"]');
-      await p.click('.pstep[data-view="where"]');
+      await p.evaluate(() => window.Hive.go('where'));
       await p.waitForTimeout(250);
       return p.evaluate(() => ({
         h: (document.querySelector('#whereBody .step-h') || {}).textContent,
@@ -38,8 +38,10 @@ module.exports = {
       }));
     };
     const shop = async () => {
-      await p.click('.pstep[data-view="list"]');
+      await p.evaluate(() => window.Hive.go('list'));
       await p.waitForTimeout(300);
+      await p.evaluate(() => { const b = document.querySelector('#view-list [data-srctag]'); if (b) b.click(); });
+      await p.waitForTimeout(200);
       return p.evaluate(() => ({
         groups: [...document.querySelectorAll('#view-list .list-group-title')].map((g) => g.textContent),
         count: document.getElementById('listCount').textContent,
@@ -61,7 +63,7 @@ module.exports = {
       l.seg.join() === 'Have,Storehouse,Buy', JSON.stringify(l));
 
     /* ---- a food bank ---- */
-    await p.click('.pstep[data-view="where"]');
+    await p.evaluate(() => window.Hive.go('where'));
     await p.click('[data-srcpick="fb"]');
     await p.waitForTimeout(250);
     s = await step1();
@@ -69,7 +71,7 @@ module.exports = {
     t.ok('choosing a food bank is two household switches the rules already allow',
       opts.store && opts.fb && !opts.big && opts.kind === 'fb' && s.picks.join() === 'sh:false,fb:true,big:false,own:false', JSON.stringify(opts));
     t.ok('and what it carries is called what it is', s.carries === 'What your food bank carries' && s.find === 'Find a food the food bank carries', JSON.stringify(s));
-    await p.click('.pstep[data-view="pantry"]');
+    await p.evaluate(() => window.Hive.go('pantry'));
     await p.waitForTimeout(250);
     const legend = await p.evaluate(() => document.getElementById('kitNote').textContent);
     t.ok('On hand says the dashed edge is one the food bank doesn’t carry', /one the food bank doesn’t carry/.test(legend), legend);
@@ -79,21 +81,21 @@ module.exports = {
       l.seg.join() === 'Have,Food bank,Buy' && !l.groups.includes('Storehouse order'), JSON.stringify(l));
 
     /* ---- a big monthly shop ---- */
-    await p.click('.pstep[data-view="where"]');
+    await p.evaluate(() => window.Hive.go('where'));
     await p.click('[data-srcpick="big"]');
     await p.waitForTimeout(250);
     l = await shop();
     t.ok('a big shop: The big shop, Have · Big shop · Buy', l.groups.includes('The big shop') && l.seg.join() === 'Have,Big shop,Buy', JSON.stringify(l));
 
     /* ---- nothing but your own shelf ---- */
-    await p.click('.pstep[data-view="where"]');
+    await p.evaluate(() => window.Hive.go('where'));
     await p.click('[data-srcpick="own"]');
     await p.waitForTimeout(250);
     s = await step1();
     t.ok('I keep my own: no list of what a source carries', !s.carries && s.picks.join() === 'sh:false,fb:false,big:false,own:true', JSON.stringify(s));
     l = await shop();
     t.ok('and every food is just Have · Buy, with nothing from a source', l.seg.join() === 'Have,Buy' && l.groups.every((g) => /To buy|Needs a store|In your kitchen/.test(g)) && !/from the/.test(l.count), JSON.stringify(l));
-    await p.click('.pstep[data-view="where"]');
+    await p.evaluate(() => window.Hive.go('where'));
     await p.click('[data-weekbuy="0"]');
     await p.waitForTimeout(250);
     const only = await p.evaluate(() => {

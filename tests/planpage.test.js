@@ -74,7 +74,7 @@ module.exports = {
     /* Leftovers on Friday: an earlier dinner again, not bought again. The
        list's amounts are read before and after, on the List tab. */
     const qty = async () => {
-      await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
+      await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('list')));
       await p.waitForTimeout(200);
       const q = await p.evaluate(() => [...document.querySelectorAll('#listBody .qty')].map((e) => e.textContent).join('|'));
       await p.click('.tab[data-view="plan"]');
@@ -115,20 +115,30 @@ module.exports = {
       return r.id;
     });
     await p.waitForTimeout(250);
-    const ahead = await p.evaluate((id) => !!document.querySelector('[data-prate="' + id + '"]'), ids[0]);
+    const open = (sel) => p.evaluate(async (sel) => {
+      document.querySelector(sel).click();
+      await new Promise((r) => setTimeout(r, 200));
+    }, sel);
+    const shut = () => p.evaluate(async () => { document.querySelector('.dsh-sheet .sheet-x').click(); await new Promise((r) => setTimeout(r, 200)); });
+    await open('#planGrid [data-dayopen="' + ids[0] + '"]');
+    const ahead = await p.evaluate((id) => !!document.querySelector('.dsh-sheet [data-prate="' + id + '"]'), ids[0]);
+    await shut();
+    await open('#planGrid [data-dayopen="' + rateId + '"][data-day="sun"]');
     const rated = await p.evaluate(async (id) => {
-      const b = document.querySelector('[data-prate="' + id + '"][data-v="-1"]');
+      const b = document.querySelector('.dsh-sheet [data-prate="' + id + '"][data-v="-1"]');
       if (!b) return 'no buttons';
       b.click();
       await new Promise((r) => setTimeout(r, 250));
       const W = window.__pw;
       const a = { days: ['mon'], ppl: 4, bud: 150, t: 0, prot: [], kind: [], fit: false, avoid: [], ing: [], rec: 0, shelf: true };
-      const out = { r: window.Store.rating(id), inPool: W.pool(a, false).some((r) => r.id === id) };
-      document.querySelector('[data-prate="' + id + '"][data-v="-1"]').click();
+      const out = { r: window.Store.rating(id), inPool: W.pool(a, false).some((r) => r.id === id),
+        row: (document.querySelector('#planGrid [data-dayopen="' + id + '"] small') || {}).textContent || '' };
+      document.querySelector('.dsh-sheet [data-prate="' + id + '"][data-v="-1"]').click();
       await new Promise((r) => setTimeout(r, 250));
       out.cleared = window.Store.rating(id);
       return out;
     }, rateId);
+    await shut();
     t.ok('👎 on today\u2019s dinner keeps it out of the picks, tapping it again takes it back, and a day ahead has nothing to rate',
       rated.r === -1 && rated.inPool === false && rated.cleared === 0 && !ahead, JSON.stringify({ rated, ahead }));
     t.ok('with no error on the page', errs.length === 0, errs.join(' | '));

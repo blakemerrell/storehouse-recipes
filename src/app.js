@@ -694,6 +694,9 @@
     bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
     favOnly: false, qy: '', sort: 'book', openId: null, scale: 1, printSet: 'all',
     filtPop: false,
+    /* The list's folds and the one line whose source switch is open; a
+       day's dinner opened on the week. None of it is saved. */
+    listFold: {}, listOpen: null, daySheet: null,
     /* Cups or grams. Persisted on the device rather than shared, because it is
        a preference about reading, not about the plan — one of you can cook by
        weight while the other cooks by cup without either overruling the other. */
@@ -1200,40 +1203,46 @@
     var favs = 0;
     DAYS.forEach(function (d) { window.Store.day(d[0]).forEach(function (e) { if (window.Store.rating(e.id) === 2) favs++; }); });
     if ($('planSetup')) $('planSetup').innerHTML = planSetUp() ? '' :
-      '<div class="setup-card"><b>New to planning here?</b><span>Start with where your food comes from and what you keep on hand. It takes a minute, once.</span>' +
-      '<button class="pw-go" data-stepgo="where">Start with step 1</button></div>';
+      '<div class="setup-card"><b>Where do your staples come from?</b><span>The storehouse, a food bank, a big shop or your own shelf. Set it once; it decides which dinners are suggested and how the list is split.</span>' +
+      '<button class="pw-go" data-stepgo="where">Set it once</button></div>';
     /* The status line: the week's numbers, after "This week". */
     if ($('planSum')) $('planSum').innerHTML = ents.length ?
       ' \u00b7 <b>' + nights + ' of 7</b> nights planned' +
       (past ? ' \u00b7 <b>' + favs + '</b> \u2605' :
         ' \u00b7 <b>' + (cost < 0.5 ? '$0' : '~' + pwMoney(cost)) + '</b> to buy \u00b7 <b>' + nList + '</b> items') : '';
+    /* A day is a row: its dinner is one button that opens the day's sheet
+       (open, swap, cook double, take off, rate), and ↻ beside it swaps on
+       the spot. The ×N, × and rating that used to crowd the row live in the
+       sheet now, so the week reads as a week. */
     $('planGrid').innerHTML = CAL_DAYS.map(function (d) {
       var key = d[0], dt = calDate(key), gone = calPastDay(key), now = calIsToday(key);
       var list = window.Store.day(key).filter(function (e) { return BY_ID[e.id]; });
       var items = list.map(function (e) {
-        var r = BY_ID[e.id], rt = window.Store.rating(r.id), din = pwIsDinner(r);
+        var r = BY_ID[e.id], rt = window.Store.rating(r.id), din = pwIsDinner(r), twin = e.lo ? null : planTwin(e.id, key);
+        var meta = e.lo ? '' : [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : '', twin ? 'leftovers ' + calDayName(twin) : '',
+          (gone || now) && rt ? (rt === 2 ? '\u2605 favourite' : rt === 1 ? 'good' : 'not again') : ''].filter(Boolean).join(' \u00b7 ');
         return '<div class="day-item' + (e.lo ? ' lo' : '') + (din ? '' : ' mini') + '" style="--pc:' + (din ? PROT_VAR[pwProt(r)] : 'transparent') + '">' +
-          '<button class="day-item-name" data-open="' + esc(String(e.id)) + '">' + esc(r.name) +
+          '<button class="day-item-name" data-dayopen="' + esc(String(e.id)) + '" data-day="' + key + '" aria-label="' + esc(r.name) + ', ' + d[1] + '">' + esc(r.name) +
             (e.lo ? ' <span class="day-tag">leftovers</span>' : '') +
-            (din && !e.lo ? '<small>' + esc(r.time || '') + '</small>' : '') + '</button>' +
-          (gone ? '' : '<span class="day-ctl no-print">' +
-            (din && !e.lo ? '<button class="day-sw" data-pswap="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
-              'aria-label="Swap ' + esc(r.name) + ' for another dinner">↻</button>' : '') +
-            (e.lo ? '' : '<button class="day-x2" data-mult="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
-              'title="How many times the recipe — the shopping list follows">' + '&times;' + fmtNum(e.x) + '</button>') +
-            '<button class="day-x" data-drop="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
-              'aria-label="Remove ' + esc(r.name) + '">&times;</button></span>') +
-          /* Rated once it has been eaten: today and the days before it. */
-          ((gone || now) && !e.lo ? rateHTML(e.id, rt) : '') +
+            (meta ? '<small>' + esc(meta) + '</small>' : '') + '</button>' +
+          (gone || !din || e.lo ? '' : '<span class="day-ctl no-print"><button class="day-sw" data-pswap="' + esc(String(e.id)) + '" data-day="' + key + '" ' +
+              'aria-label="Swap ' + esc(r.name) + ' for another dinner">\u21bb</button></span>') +
         '</div>';
       }).join('');
       return '<div class="day cal-day' + (now ? ' today' : '') + (gone ? ' past' : '') + '">' +
         '<div class="cal-date" aria-label="' + d[1] + (dt ? ' ' + dt.getDate() : '') + '"><small>' + d[2].toUpperCase() + '</small><b>' + (dt ? dt.getDate() : '') + '</b></div>' +
         '<div class="day-body">' + items +
           (gone ? (list.length ? '' : '<div class="day-empty">Nothing planned</div>')
-            : '<button class="day-add no-print" data-addday="' + key + '" aria-label="Add to ' + d[1] + '">+ Add' + (list.length ? '' : ' dinner') + '</button>') +
+            : '<button class="day-add no-print" data-addday="' + key + '" aria-label="Add to ' + d[1] + '">+ Add' + (list.length ? '' : ' a dinner') + '</button>') +
         '</div></div>';
     }).join('');
+    /* The foot: what the week comes to, and the door to the list. */
+    var nBuy = 0, nSrc = 0;
+    built.groups.forEach(function (g) { if (g.src === 'b') nBuy = g.items.length; if (g.src === 's') nSrc = g.items.length; });
+    if ($('planNext')) $('planNext').innerHTML = ents.length && !past ?
+      '<button class="plan-next" data-stepgo="list"><b>The list</b><span>' +
+        (nBuy ? nBuy + ' to buy' + (cost >= 0.5 ? ', ~' + pwMoney(cost) : '') : 'nothing to buy') +
+        (nSrc ? ' \u00b7 ' + nSrc + ' from ' + srcW().the : '') + '</span></button>' : '';
     if ($('calActs')) $('calActs').innerHTML =
       (past ? '' : '<button class="nut-ask" data-calagain="1" aria-expanded="' + !!S.calAgain + '">Cook this again…</button>') +
       (ents.length ? '<button class="nut-ask" data-caltpl="1">Save as a template</button>' : '') +
@@ -1369,6 +1378,71 @@
     return cooked && lo ? nxt : null;
   }
 
+  function calDayName(key) { var d = DAYS.filter(function (x) { return x[0] === key; })[0]; return d ? d[1] : key; }
+  /* A day's dinner, opened: everything that could be done to it, in one
+     place. Open the recipe, swap it, cook it double for a leftovers night,
+     add another to the day, take it off — and, once it has been eaten, how
+     it was. The week's rows carry none of this, so they stay rows. */
+  function dayOpen(id, day) {
+    S.daySheet = { id: id, day: day };
+    pushSheet({ ds: 1 });
+    renderModal();
+    var x = document.querySelector('.sheet-x');
+    if (x) x.focus();
+  }
+  function daySheetHTML() {
+    var D = S.daySheet, r = BY_ID[D.id], key = D.day;
+    var e = window.Store.day(key).filter(function (x) { return x.id === D.id; })[0];
+    if (!r || !e) return '';
+    var dt = calDate(key), gone = calPastDay(key), now = calIsToday(key), din = pwIsDinner(r);
+    var twin = e.lo ? null : planTwin(e.id, key), nxt = PW_DAYS[PW_DAYS.indexOf(key) + 1];
+    var row = function (act, t, sub, cls) {
+      return '<button class="dsh-row' + (cls ? ' ' + cls : '') + '" data-dsact="' + act + '"><span><b>' + t + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>';
+    };
+    var meta = e.lo ? 'Leftovers \u00b7 nothing to cook or buy' :
+      [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : 'the recipe as written', twin ? 'leftovers ' + calDayName(twin) : ''].filter(Boolean).join(' \u00b7 ');
+    var a = pwAnswers();
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet dsh-sheet" role="dialog" aria-modal="true" aria-label="' + esc(calDayName(key)) + '\u2019s dinner">' +
+        '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(calDayName(key)) + (dt ? ' \u00b7 ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button></div>' +
+        '<div class="dsh-body"><h2 class="dsh-h">' + esc(r.name) + '</h2><p class="dsh-m">' + esc(meta) + '</p>' +
+        (din && !e.lo ? pwPlateHTML(r, a.fit) : '') +
+        ((gone || now) && !e.lo ? '<div class="dsh-rate"><div class="dsh-rl">How was it?</div>' + rateHTML(e.id, window.Store.rating(e.id)) + '</div>' : '') +
+        '<div class="dsh-rows">' +
+        row('open', 'Open the recipe', '') +
+        (gone || e.lo || !din ? '' : row('swap', 'Swap for another dinner', 'By the same rules as Plan my week')) +
+        (gone || e.lo ? '' : (twin ? row('single', 'Back to one batch', 'Takes the leftovers off ' + calDayName(twin)) :
+          nxt && !calPastDay(nxt) ? row('double', 'Cook double, leftovers ' + calDayName(nxt), 'The list follows') : '')) +
+        (gone ? '' : row('add', 'Add another to ' + calDayName(key), '')) +
+        (gone ? '' : row('remove', 'Take it off ' + calDayName(key), twin ? 'And its leftovers night' : '', 'dsh-danger')) +
+        '</div></div></div></div>';
+  }
+  document.addEventListener('click', function (e) {
+    if (!S.daySheet || S.openId || !e.target.closest) return;
+    var rt = e.target.closest('[data-prate]');
+    if (rt) {
+      var rid = idOf(rt.dataset.prate), v = Number(rt.dataset.v);
+      window.Store.setRating(rid, window.Store.rating(rid) === v ? 0 : v);
+      renderModal();
+      return;
+    }
+    var b = e.target.closest('[data-dsact]');
+    if (!b) return;
+    var D = S.daySheet, id = D.id, day = D.day, act = b.dataset.dsact;
+    if (act === 'open') { openRecipe(id); return; }
+    if (act === 'add') { S.daySheet = null; addOpen(day, true); return; }
+    var was = window.Store.day(day).filter(function (x) { return x.id === id; })[0] || { x: 1 };
+    var twin = planTwin(id, day), nxt = PW_DAYS[PW_DAYS.indexOf(day) + 1];
+    window.Store.batch(function () {
+      if (act === 'swap') planSwap(id, day);
+      if (act === 'double') { window.Store.addToDay(id, day, was.x * 2); if (nxt) window.Store.addToDay(id, nxt, 1, true); }
+      if (act === 'single') { window.Store.addToDay(id, day, was.x / 2 >= 1 ? was.x / 2 : 1); if (twin) window.Store.removeFromDay(id, twin); }
+      if (act === 'remove') { window.Store.removeFromDay(id, day); if (twin) window.Store.removeFromDay(id, twin); }
+    });
+    close();
+  });
+
   // ------------------------------------------------------------- add to day
   /* + Add on a day: a suggestion, a search of every recipe, and a few ways
      in. What it adds goes on at the household's size (Plan my week's "how
@@ -1454,11 +1528,14 @@
           '<div id="adList">' + adListHTML() + '</div>' +
         '</div></div></div>';
   }
-  function addOpen(day) {
+  /* From a day's sheet it takes that sheet's place in the history rather
+     than stacking on it, so one back lands on the week, not on a sheet that
+     was already left. */
+  function addOpen(day, inPlace) {
     S.add = { day: day, f: 'dinner', q: '', seen: [], sug: null };
     adSuggest();
     S.addOpen = true;
-    pushSheet({ ad: 1 });
+    if (inPlace && !popping) history.replaceState({ ad: 1 }, ''); else pushSheet({ ad: 1 });
     renderModal();
   }
   document.addEventListener('click', function (e) {
@@ -1747,27 +1824,7 @@
     S.pw.picks = picks;
     S.pw.seen = {};
   }
-  function pwSwap(i) {
-    var a = S.pw.a, day = S.pw.picks[i].day, was = S.pw.picks[i];
-    if (was.lo) return;
-    var others = S.pw.picks.filter(function (e, j) { return j !== i && !e.lo; });
-    var seen = S.pw.seen[i] = S.pw.seen[i] || [];
-    seen.push(S.pw.picks[i].r.id);
-    var week = pwWeekDinners();
-    var nx = pwNext(a, others, seen, day, week);
-    if (!nx) { S.pw.seen[i] = []; nx = pwNext(a, others, [S.pw.picks[i].r.id], day, week); }
-    if (!nx) return;
-    /* Its leftovers night follows it, and it is still cooked double. */
-    var twin = S.pw.picks.filter(function (e) { return e.lo && e.r.id === was.r.id; })[0];
-    S.pw.picks[i] = { r: nx.r, x: twin ? nx.x * 2 : nx.x, day: day };
-    if (twin) twin.r = nx.r;
-  }
   function pwMoney(v) { return v < 0.5 ? '$0' : '$' + (v < 10 ? v.toFixed(2) : Math.round(v)); }
-  /* The headline figure. Nothing to buy is said as that, not as $0.00. */
-  function pwTotalHTML(v) {
-    return v < 0.5 ? '<b>Nothing to buy</b> <span>it\u2019s all on your shelf</span>'
-      : '<b>about ' + pwMoney(v) + '</b> <span>to buy</span>';
-  }
   /* A third item on an option is how many dinners it holds, said small. */
   function pwChips(q, opts, cur, cls) {
     return '<div class="pw-chips" role="group">' + opts.map(function (o) {
@@ -1804,7 +1861,7 @@
     var nights = pwNights(a.days);
     return { n: pwPool(a, !wk).length, need: nights.length - Object.keys(pwLoNights(a, nights)).length };
   }
-  function pwStep1(a, dots) {
+  function pwStep1(a) {
     var cnt = pwCount(a), fit = pwFitCaps();
     var byProt = {}, byKind = {};
     pwPool(a, false, 'prot').forEach(function (r) { var k = pwProt(r); byProt[k] = (byProt[k] || 0) + 1; });
@@ -1812,7 +1869,7 @@
     var byFit = [0, 0, 0];
     pwPool(a, false, 'fit').forEach(function (r) { byFit[0]++; if (pwFits(r, 1, fit)) byFit[1]++; if (pwFits(r, 2, fit)) byFit[2]++; });
     var low = cnt.n < cnt.need * 2, none = cnt.n < cnt.need || !cnt.need;
-    return '<h2 class="pw-h">What kind of week?</h2>' + dots +
+    return '<h2 class="pw-h">What kind of week?</h2>' +
       '<div class="pw-q"><div class="pw-ql">Which nights</div>' +
         pwChips('days', CAL_DAYS.map(function (d) { return [d[0], d[2]]; }), a.days, 'pw-dayc') + '</div>' +
       '<div class="pw-q"><div class="pw-ql">How many are eating?</div>' + pwChips('ppl', [[2, '2'], [3, '3'], [4, '4'], [6, '6'], [8, '8+']], a.ppl) + '</div>' +
@@ -1843,65 +1900,21 @@
         (cnt.n === 1 ? 'dinner fits' : 'dinners fit') + '<span>' +
         (!cnt.need ? (a.days.length ? 'those nights already have dinners' : 'pick a night') :
           cnt.n < cnt.need ? 'need ' + cnt.need + ', loosen a filter' : low ? 'not many to choose from' : 'for ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights')) +
-        '</span></div><button class="pw-go" data-pwgo="2"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>';
+        '</span></div><button class="pw-go" data-pwpick="1"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>' +
+      '<p class="pw-note">They go straight onto your week. Swap any you don’t like there.</p>';
   }
   // with a Nourish answer, each dinner says the plate that meets it
   function pwPlateHTML(r, mode) {
     var pl = mode ? pwPlate(r, pwFitCaps()) : null;
     return pl ? '<div class="pw-mm pw-plate">Your plate: ' + pl.x + (pl.x === 1 ? ' serving' : ' servings') + ' · ' + pl.kc + ' cal · ' + pl.p + ' g protein</div>' : '';
   }
+  /* One page: the answers, and one button. The dinners it picks land on
+     the week itself, where every one of them can be opened, swapped or taken
+     off like any other — Blake: "I don't like having two separate engines."
+     The old second and third pages (the picks, their list) were that second
+     engine. */
   function pwHTML() {
-    var P = S.pw, a = P.a, step = P.step;
-    var dots = '<div class="pw-steps" aria-hidden="true">' + [1, 2, 3].map(function (i) {
-      return '<span' + (i <= step ? ' class="on"' : '') + '></span>'; }).join('') + '</div>';
-    var body;
-    if (step === 1) {
-      body = pwStep1(a, dots);
-    } else if (step === 2) {
-      var tot = pwCost(P.picks, a.shelf), all = pwCost(P.picks, false);
-      var want = pwNights(a.days).length, short = P.picks.length < a.days.length;
-      body = '<h2 class="pw-h">Your ' + P.picks.length + (P.picks.length === 1 ? ' dinner' : ' dinners') + '</h2>' + dots +
-        (P.picks.length ? '<div class="pw-sum' + (tot > a.bud ? ' over' : '') + '"><div>' + pwTotalHTML(tot) + '</div>' +
-          '<span>' + (a.shelf && all - tot >= 1 ? pwMoney(all) + ' without your shelf · ' : '') +
-          (tot <= a.bud ? 'under $' + a.bud : 'over $' + a.bud) + '</span></div>' : '') +
-        (short ? '<p class="pw-note">' + (P.picks.length < want ? 'Only ' + P.picks.length + (P.picks.length === 1 ? ' dinner fits' : ' dinners fit') + ' those answers.'
-          : (a.days.length - want) + ' of those nights already ' + (a.days.length - want === 1 ? 'has a dinner.' : 'have dinners.')) + '</p>' : '') +
-        P.picks.map(function (e, i) {
-          var dn = DAYS.filter(function (d) { return d[0] === e.day; })[0];
-          return '<div class="pw-meal"><div class="pw-day">' + (dn ? dn[2].toUpperCase() : '') + '</div>' +
-            '<div class="pw-mt"><button class="pw-mn" data-pwopen="' + esc(String(e.r.id)) + '">' + esc(e.r.name) + '</button>' +
-            '<div class="pw-mm">' + (e.lo ? 'Leftovers \u00b7 nothing to cook or buy' : esc(e.r.time || '') + ' · ' + (e.x === 1 ? 'the recipe as written' : '×' + fmtNum(e.x)) +
-              ' · about ' + pwMoney(pwCost([e], a.shelf))) + '</div>' + pwPlateHTML(e.r, a.fit) + '</div>' +
-            (e.lo ? '<span class="pw-swap pw-lo" aria-hidden="true"></span>' :
-            '<button class="pw-swap" data-pwswap="' + i + '" aria-label="Pick another instead of ' + esc(e.r.name) + '">↻</button>') + '</div>';
-        }).join('') +
-        '<div class="pw-row"><button class="pw-back" data-pwgo="1">Back</button>' +
-          (P.picks.length ? '<button class="pw-go" data-pwgo="3">See the shopping list</button>' : '') + '</div>';
-    } else {
-      var built = buildList(P.picks.filter(function (e) { return !e.lo; }).map(function (e) { return { r: e.r, x: e.x }; }));
-      var total = 0;
-      var gs = built.groups;
-      var groups = gs.slice().sort(function (g1, g2) {
-        return (g1.items[0] && g1.items[0].extra ? 0 : 1) - (g2.items[0] && g2.items[0].extra ? 0 : 1);
-      }).map(function (g) {
-        return '<div class="pw-grp">' + esc(g.title) + '</div>' + g.items.map(function (b) {
-          var p = pwPrice(b.key), buy = !a.shelf || b.extra;
-          var c = p && buy ? b.g * p / 100 : 0;
-          total += c;
-          return '<div class="pw-li' + (buy ? '' : ' have') + '"><span class="pw-n">' + esc(b.label) +
-            (b.qty ? '<span class="pw-for">' + esc(b.qty) + '</span>' : '') + '</span>' +
-            '<span class="pw-p">' + (buy ? (p ? pwMoney(c) : '—') : '$0') + '</span></div>';
-        }).join('');
-      }).join('');
-      var toBuy = [].concat.apply([], built.groups.map(function (g) { return g.items; }))
-        .filter(function (b) { return !a.shelf || b.extra; });
-      body = '<h2 class="pw-h">Your shopping list</h2>' + dots +
-        '<div class="pw-sum"><div>' + pwTotalHTML(total) + '</div><span>' +
-          P.picks.length + ' dinners · ' + a.ppl + ' people</span></div>' + wmHTML(toBuy) + groups +
-        '<div class="pw-row"><button class="pw-back" data-pwgo="2">Back</button>' +
-          '<button class="pw-go" data-pwadd="1">Add to this week’s plan</button></div>' +
-        '<p class="pw-note">Typical prices kept in the app, not live ones. The shelf counts as free.</p>';
-    }
+    var body = pwStep1(S.pw.a);
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet pw-sheet" role="dialog" aria-modal="true" aria-label="Plan my week">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">Plan my week</div>' +
@@ -1913,7 +1926,7 @@
   window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids, prot: pwProt, kind: pwKind, fit: pwFitCaps, fits: pwFits, plate: pwPlate, answers: pwAnswers,
     count: pwCount, pick: function (a) { var keep = S.pw; S.pw = { a: a, picks: [], seen: {} }; pwPick(); var out = S.pw.picks; S.pw = keep; return out; } };
   function pwOpen() {
-    S.pw = { step: 1, a: pwAnswers(), picks: [], seen: {} };
+    S.pw = { a: pwAnswers(), picks: [], seen: {} };
     S.pwOpen = true;
     pushSheet({ pw: 1 });
     renderModal();
@@ -1942,21 +1955,9 @@
       if (ig.dataset.pwing && $('pwIng')) $('pwIng').focus();
       return;
     }
-    var g = e.target.closest('[data-pwgo]');
-    if (g) {
-      var to = Number(g.dataset.pwgo);
-      if (to === 2 && S.pw.step === 1) pwPick();
-      S.pw.step = to;
-      renderModal();
-      var sc = document.querySelector('#modalRoot .scrim');
-      if (sc) sc.scrollTop = 0;
-      return;
-    }
-    var sw = e.target.closest('[data-pwswap]');
-    if (sw) { pwSwap(Number(sw.dataset.pwswap)); renderModal(); return; }
-    var op = e.target.closest('[data-pwopen]');
-    if (op) { openRecipe(idOf(op.dataset.pwopen)); return; }
-    if (e.target.closest('[data-pwadd]')) {
+    if (e.target.closest('[data-pwpick]')) {
+      pwPick();
+      if (!S.pw.picks.length) { renderModal(); return; }
       var h = pwHist(), today = todayKey();
       window.Store.batch(function () {
         S.pw.picks.forEach(function (p) { window.Store.addToDay(p.r.id, p.day, p.x, p.lo); h[String(p.r.id)] = today; });
@@ -1981,8 +1982,10 @@
   }
   document.addEventListener('click', function (e) {
     if (!e.target.closest) return;
+    var tg = e.target.closest('[data-srctag]');
+    if (tg) { S.listOpen = S.listOpen === tg.dataset.srctag ? null : tg.dataset.srctag; if (S.view === 'list') renderList(); return; }
     var b = e.target.closest('[data-src]');
-    if (b) { e.preventDefault(); setFoodSource(b.dataset.src, b.dataset.v); return; }
+    if (b) { e.preventDefault(); S.listOpen = null; setFoodSource(b.dataset.src, b.dataset.v); if (S.view === 'list') renderList(); return; }
   });
   document.addEventListener('input', function (e) {
     if (e.target && e.target.id === 'kitFind') {
@@ -1998,21 +2001,15 @@
      household; the bar is how you get back to them. */
   var PLAN_STEPS = [['where', 'Where'], ['pantry', 'On hand'], ['plan', 'Meals'], ['list', 'Shop']];
   function planSetUp() { return window.Store.opt('setup', false); }
+  /* The four used to be a step bar across the top of Plan. Now the week is
+     Plan, the list is one tap below it, and Where and On hand are settings,
+     set once from the Sync & sharing sheet; the bar stays hidden. */
   function renderSteps() {
     var bar = $('planSteps');
-    if (!bar) return;
-    var at = -1;
-    PLAN_STEPS.forEach(function (p, i) { if (p[0] === S.view) at = i; });
-    bar.classList.toggle('hide', at < 0);
-    if (at < 0) return;
-    var done = planSetUp();
-    bar.innerHTML = PLAN_STEPS.map(function (p, i) {
-      return '<button class="pstep' + (i < at || (done && i < 2) ? ' done' : '') + '" data-view="' + p[0] + '" aria-current="' + (i === at ? 'step' : 'false') + '">' +
-        '<span class="pstep-n">' + (i + 1) + '</span> ' + p[1] + '</button>';
-    }).join('');
+    if (bar) bar.classList.add('hide');
   }
   function goStep(v) {
-    if (v === 'plan' && S.view === 'pantry') window.Store.setOpt('setup', true);
+    if (v === 'plan' && (S.view === 'pantry' || S.view === 'where')) window.Store.setOpt('setup', true);
     S.view = v;
     try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
     renderView();
@@ -2120,7 +2117,7 @@
     };
     /* The step's question is the view's title here — Where has no title bar
        of its own the way Plan, List and Pantry do — so it is the h1. */
-    $('whereBody').innerHTML = '<div class="step-k">Step 1 · set once, change any time</div>' +
+    $('whereBody').innerHTML = '<div class="step-k">Settings \u00b7 your kitchen</div>' +
       '<h1 class="step-h">Where do your staples come from?</h1>' +
       '<p class="step-sub">Staples are the foods that keep: canned, dry and frozen. This decides which meals Plan suggests and how your list is split.</p>' +
       ['sh', 'fb', 'big', 'own'].map(function (k) {
@@ -2135,7 +2132,7 @@
         ' Allow meals that need 1–2 things from a store</label>' : '') +
       '<p class="step-sub">Shared with your household: set it on one phone and the others follow.</p>' +
       (kind !== 'own' ? carryHTML() : '') +
-      '<div class="step-next"><button class="pw-go" data-stepgo="pantry">Next: what you keep on hand</button></div>';
+      '<div class="step-next"><button class="pw-go" data-stepgo="plan">Done</button></div>';
   }
 
   // ------------------------------------------------------------ walmart cart
@@ -14874,36 +14871,70 @@
       : '';
     $('listEmpty').classList.toggle('hide', total !== 0);
     /* To Walmart: what is left to get — not ticked, and off the shelf only
-       when the shelf is asked to come too. */
-    if ($('listWm')) $('listWm').innerHTML = total && canBuy() ? wmHTML([].concat.apply([], built.groups.map(function (g) { return g.items; }))
+       when the shelf is asked to come too. It sits at the foot of To buy. */
+    var wm = total && canBuy() ? wmHTML([].concat.apply([], built.groups.map(function (g) { return g.items; }))
       .filter(function (b) { return b.src === 'b' && !window.Store.isChecked(b.key); })) : '';
-    /* Anything run out? The kitchen's staples, one tap each. */
-    var P = window.PANTRY || {};
-    var staples = Object.keys(P).filter(function (k) { return (foodSource(k) === 'h' && !P[k].sp) || window.Store.low(k); })
-      .sort(function (a, b) { return P[a].l.localeCompare(P[b].l); });
-    if ($('listLow')) $('listLow').innerHTML = staples.length ? '<div class="low-card"><div class="low-h">Anything run out?</div>' +
-      '<div class="pw-chips">' + staples.map(function (k) {
-        return '<button class="pw-chip low-pill" data-low="' + esc(k) + '" aria-pressed="' + window.Store.low(k) + '">' + esc(P[k].l) + '</button>';
-      }).join('') + '</div><p class="low-p">Tap what\u2019s low. It goes on the list from where you restock it.</p></div>' : '';
-    $('listBody').innerHTML = built.groups.map(function (g) {
+    if ($('listWm')) $('listWm').innerHTML = '';
+    /* The list, in the order the trip goes: to buy, then the source's
+       pick-up, then what the kitchen already has, folded. Blake: "The first
+       thing I see is a wall of pills... I think it should be flipped." */
+    var fold = function (id, title, sub, inner, open) {
+      return '<details class="list-fold" data-fold="' + id + '"' + (open ? ' open' : '') + '><summary><span>' + title + '</span><small>' + sub + '</small></summary>' + inner + '</details>';
+    };
+    var line = function (it, g) {
+      var on = window.Store.isChecked(it.key), food = !!(window.PANTRY || {})[it.key];
+      var store = window.Store.opt('store', true), opts = [['h', 'Have'], ['s', srcW().name], ['b', 'Buy']].filter(function (o) { return o[0] !== 's' || store; });
+      var cur = opts.filter(function (o) { return o[0] === it.src; })[0];
+      var pr = g.src === 'b' ? pwPrice(it.key) : 0, usd = pr && it.g ? it.g * pr / 100 : 0;
+      /* Where it comes from is a small tag; tapped, it opens into the
+         Have / Storehouse / Buy switch for that one line. */
+      var seg = !food ? '' : S.listOpen === it.key ?
+        '<span class="src-seg no-print" role="group" aria-label="Where ' + esc(it.label) + ' comes from">' + opts.map(function (o) {
+          return '<button class="src-' + o[0] + '" data-src="' + esc(it.key) + '" data-v="' + o[0] + '" aria-pressed="' + (it.src === o[0]) + '">' + o[1] + '</button>';
+        }).join('') + '</span>' :
+        '<button class="src-tag src-' + it.src + ' no-print" data-srctag="' + esc(it.key) + '" aria-label="' + esc(it.label) + ': ' + (cur ? cur[1] : '') + '. Change where it comes from">' + (cur ? cur[1] : '') + '</button>';
+      return '<div class="list-line' + (it.src === 'h' ? ' have' : '') + '"><label class="list-row' + (on ? ' done' : '') + '">' +
+        '<input type="checkbox" data-check="' + esc(it.key) + '"' + (on ? ' checked' : '') + '>' +
+        '<span>' + esc(it.label) + '</span>' +
+        '<span class="qty">' + esc(it.qty) + '</span>' +
+      '</label>' + (usd >= 0.5 ? '<span class="list-usd">' + pwMoney(usd) + '</span>' : '') + seg + '</div>';
+    };
+    var group = function (g) {
       return '<div class="list-group where-' + g.src + '">' +
         '<div class="list-group-title">' + esc(g.title) + '</div>' +
         (g.src === 's' ? '<button class="copy-order no-print" data-copyorder="1">' + srcW().copy + '</button>' : '') +
-        '<div class="list-items">' + g.items.map(function (it) {
-          var on = window.Store.isChecked(it.key), food = !!(window.PANTRY || {})[it.key];
-          var store = window.Store.opt('store', true);
-          var seg = food ? '<span class="src-seg no-print" role="group" aria-label="Where ' + esc(it.label) + ' comes from">' +
-            [['h', 'Have'], ['s', srcW().name], ['b', 'Buy']].filter(function (o) { return o[0] !== 's' || store; }).map(function (o) {
-              return '<button class="src-' + o[0] + '" data-src="' + esc(it.key) + '" data-v="' + o[0] + '" aria-pressed="' + (it.src === o[0]) + '">' + o[1] + '</button>';
-            }).join('') + '</span>' : '';
-          return '<div class="list-line' + (it.src === 'h' ? ' have' : '') + '"><label class="list-row' + (on ? ' done' : '') + '">' +
-            '<input type="checkbox" data-check="' + esc(it.key) + '"' + (on ? ' checked' : '') + '>' +
-            '<span>' + esc(it.label) + '</span>' +
-            '<span class="qty">' + esc(it.qty) + '</span>' +
-          '</label>' + seg + '</div>';
-        }).join('') + '</div></div>';
-    }).join('');
+        '<div class="list-items">' + g.items.map(function (it) { return line(it, g); }).join('') + '</div>' +
+        (g.src === 'b' ? wm : '') + '</div>';
+    };
+    var have = built.groups.filter(function (g) { return g.src === 'h'; })[0];
+    $('listBody').innerHTML = built.groups.filter(function (g) { return g.src !== 'h'; }).map(group).join('') +
+      (have ? fold('have', 'Already in your kitchen', have.items.length + (have.items.length === 1 ? ' thing' : ' things'), group(have), S.listFold.have) : '');
+    /* Anything run out? The kitchen's staples, folded by shelf, one tap
+       each — and the whole shelf under Settings for the rest. */
+    var P = window.PANTRY || {};
+    var staples = Object.keys(P).filter(function (k) { return (foodSource(k) === 'h' && !P[k].sp) || window.Store.low(k); })
+      .sort(function (a, b) { return P[a].l.localeCompare(P[b].l); });
+    var shelves = {}, order = [];
+    staples.forEach(function (k) { var c = P[k].c || 'Other'; if (!shelves[c]) { shelves[c] = []; order.push(c); } shelves[c].push(k); });
+    var nLow = staples.filter(function (k) { return window.Store.low(k); }).length;
+    if ($('listLow')) $('listLow').innerHTML = staples.length ? fold('low', 'Anything run out?', nLow ? nLow + ' low' : staples.length + ' staples',
+      '<div class="low-card"><p class="low-p">Tap what\u2019s low. It goes on the list from where you restock it.</p>' +
+      order.map(function (c) {
+        var ks = shelves[c], low = ks.filter(function (k) { return window.Store.low(k); }).length;
+        return '<details class="list-shelf" data-fold="low:' + esc(c) + '"' + (S.listFold['low:' + c] || low ? ' open' : '') + '><summary><span>' + esc(c) + '</span><small>' + (low ? low + ' low' : ks.length) + '</small></summary>' +
+          '<div class="pw-chips">' + ks.map(function (k) {
+            return '<button class="pw-chip low-pill" data-low="' + esc(k) + '" aria-pressed="' + window.Store.low(k) + '">' + esc(P[k].l) + '</button>';
+          }).join('') + '</div></details>';
+      }).join('') +
+      '<button class="nut-ask" data-stepgo="pantry">All your staples, under Settings</button></div>', S.listFold.low) : '';
+    if ($('listNext')) $('listNext').innerHTML = '<button class="plan-next plan-back" data-stepgo="plan"><b>Back to the week</b></button>';
   }
+  /* The folds remember themselves across redraws (a tick redraws the list). */
+  document.addEventListener('toggle', function (e) {
+    var d = e.target;
+    if (!d || !d.dataset || !d.dataset.fold) return;
+    S.listFold[d.dataset.fold] = d.open;
+  }, true);
 
   // ------------------------------------------------------------- print book
   function printPool() {
@@ -16615,10 +16646,10 @@
    * [data-check="milk"] before the render and after it.
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why', 'data-td',
-    'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid',
+    'data-pwq', 'data-pwing', 'data-pwingx', 'data-wmid',
     'data-src', 'data-srcpick', 'data-weekbuy', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
     'data-cal', 'data-calweek', 'data-calagain', 'data-calfrom', 'data-caltpl',
-    'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwswap', 'data-pwopen', 'data-pwadd',
+    'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwpick', 'data-dayopen', 'data-dsact', 'data-srctag', 'data-fold',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
@@ -16720,6 +16751,11 @@
       root.innerHTML = addHTML();
       document.body.style.overflow = 'hidden';
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+      return;
+    }
+    if (S.daySheet && !S.openId) {
+      root.innerHTML = daySheetHTML();
+      document.body.style.overflow = 'hidden';
       return;
     }
     if (S.pwOpen && !S.openId) {
@@ -17339,6 +17375,11 @@
         'your pantry comes with you to every device too.</p>' +
         mAccountBlockHTML() +
 
+        '<div class="mt-div">Your kitchen</div>' +
+        '<button class="kit-row" data-sync="where"><span><b>Where your staples come from</b><small>' + esc(SRC_WORDS[srcKind()].pick) +
+          (window.Store.opt('buy', true) ? '' : ' \u00b7 only what I have') + '</small></span><i aria-hidden="true">\u203a</i></button>' +
+        '<button class="kit-row" data-sync="pantry"><span><b>What you keep on hand</b><small>' + kitItems().filter(function (i) { return i.on; }).length + ' on hand</small></span><i aria-hidden="true">\u203a</i></button>' +
+
         '<div class="mt-div">Your pantry</div>' +
         '<p class="sync-p">The shopping list, the week&rsquo;s meals and your favorites &mdash; shared ' +
         'with whoever you invite. Without an account or a code they stay on this device.</p>' +
@@ -17930,33 +17971,12 @@
     $('planGrid').addEventListener('click', function (e) {
       var ad = e.target.closest('[data-addday]');
       if (ad) { rememberOpener(); addOpen(ad.dataset.addday); return; }
+      var dz = e.target.closest('[data-dayopen]');
+      if (dz) { rememberOpener(); dayOpen(idOf(dz.dataset.dayopen), dz.dataset.day); return; }
       var op = e.target.closest('[data-open]');
       if (op) { rememberOpener(); openRecipe(idOf(op.dataset.open)); return; }
       var sw = e.target.closest('[data-pswap]');
       if (sw) { planSwap(idOf(sw.dataset.pswap), sw.dataset.day); return; }
-      var rt = e.target.closest('[data-prate]');
-      if (rt) {
-        var rid = idOf(rt.dataset.prate), v = Number(rt.dataset.v);
-        window.Store.setRating(rid, window.Store.rating(rid) === v ? 0 : v);
-        return;
-      }
-      var b = e.target.closest('[data-drop]');
-      if (b) {
-        /* A dinner taken off takes its leftovers night with it: there is
-           nothing left over from a dinner nobody cooks. */
-        var did = idOf(b.dataset.drop), tw = planTwin(did, b.dataset.day);
-        window.Store.batch(function () {
-          window.Store.removeFromDay(did, b.dataset.day);
-          if (tw) window.Store.removeFromDay(did, tw);
-        });
-        return;
-      }
-      var m = e.target.closest('[data-mult]');
-      if (!m) return;
-      var id = idOf(m.dataset.mult), day = m.dataset.day;
-      var at = SCALES.indexOf(window.Store.scaleOf(id, day));
-      var was = window.Store.day(day).filter(function (e) { return e.id === id; })[0];
-      window.Store.addToDay(id, day, SCALES[(at + 1) % SCALES.length], !!(was && was.lo));
     });
 
     /* The Macros day. Items are addressed slot:index into the stored arrays,
@@ -19759,6 +19779,7 @@
       var sy = e.target.closest('[data-sync]');
       if (sy) {
         var act = sy.dataset.sync;
+        if (act === 'where' || act === 'pantry') { close(); goStep(act); return; }
         if (act === 'reroll') { S.pendingCode = window.Store.newCode(); }
         if (act === 'invite') {
           S.inviteMaking = true;
@@ -20063,6 +20084,7 @@
     S.syncOpen = false;
     S.pwOpen = false;
     S.addOpen = false;
+    S.daySheet = null;
     S.mDoneOpen = '';
     /* The editor too. Without these the × and the backdrop looked broken:
        renderModal saw S.editId still set, drew the editor again, and the only

@@ -356,7 +356,7 @@ module.exports = {
     await q.keyboard.press('Escape');
     // the pantry's pills (On hand)
     await q.click('.tab[data-view="plan"]');
-    await q.click('.pstep[data-view="pantry"]');
+    await q.evaluate(() => window.Hive.go('pantry'));
     await q.waitForTimeout(200);
     await q.evaluate(() => { const e = document.querySelector('#view-pantry .kit-pill'); if (e) e.scrollIntoView({ block: 'center' }); });
     rs = await reach('#view-pantry .kit-pill', true);

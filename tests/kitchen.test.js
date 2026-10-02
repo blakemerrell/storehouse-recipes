@@ -31,19 +31,19 @@ module.exports = {
       const i = document.querySelector('#listBody [data-check="' + k + '"]');
       return i ? i.closest('.list-group').querySelector('.list-group-title').textContent.trim() : '';
     }, k);
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('list')));
     await p.waitForTimeout(300);
     const g0 = { buy: await groupOf(pick.k), store: await groupOf(pick.s) };
 
     /* Into the kitchen from the Pantry tab's search. */
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('pantry'))).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
     await p.waitForTimeout(250);
     await p.fill('#kitFind', pick.kl.slice(0, 5));
     await p.waitForTimeout(150);
     await p.click('[data-kitpill="' + pick.k + '"]');
     await p.waitForTimeout(250);
     const chip = await p.evaluate((k) => (document.querySelector('[data-kitpill="' + k + '"]') || {}).getAttribute('aria-pressed') === 'true', pick.k);
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('list')));
     await p.waitForTimeout(250);
     const g1 = await groupOf(pick.k);
     const need = await p.evaluate(([id, l]) => {
@@ -59,14 +59,21 @@ module.exports = {
     const kept = await p.evaluate((k) => window.Store.kitchen(k), pick.k);
     t.ok('and it is still there after a reload', kept === 1, String(kept));
 
-    /* A storehouse line moved to Buy. */
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
+    /* A storehouse line moved to Buy. The switch opens from the line's tag;
+       done from the page rather than by a visible click, since a line
+       already in the kitchen sits folded away. */
+    const srcTap = (k, v) => p.evaluate(async ([k, v]) => {
+      document.querySelector('#listBody [data-srctag="' + k + '"]').click();
+      await new Promise((r) => setTimeout(r, 150));
+      document.querySelector('#listBody [data-src="' + k + '"][data-v="' + v + '"]').click();
+    }, [k, v]);
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('list')));
     await p.waitForTimeout(250);
-    await p.click('#listBody [data-src="' + pick.s + '"][data-v="b"]');
+    await srcTap(pick.s, 'b');
     await p.waitForTimeout(250);
     const g2 = await groupOf(pick.s);
     const inCart = await p.evaluate((k) => {
-      const a = document.querySelector('#listWm .wm-btn');
+      const a = document.querySelector('#view-list .wm-btn');
       return !!a && a.getAttribute('href').indexOf(window.PANTRY[k].wm ? window.PANTRY[k].wm[0] : 'none') >= 0;
     }, pick.s);
     t.ok('a storehouse line set to Buy moves to To buy', g0.store === 'Storehouse order' && g2 === 'To buy',
@@ -75,6 +82,8 @@ module.exports = {
     /* One tap is one change: the two writes behind Have are saved and drawn
        once, not once each. */
     const saves = await p.evaluate(async (k) => {
+      document.querySelector('#listBody [data-srctag="' + k + '"]').click();
+      await new Promise((r) => setTimeout(r, 150));
       let n = 0;
       const was = Storage.prototype.setItem;
       Storage.prototype.setItem = function (key, v) { if (key === 'bsc.kitchen') n++; return was.call(this, key, v); };
@@ -84,17 +93,17 @@ module.exports = {
       return n;
     }, pick.s);
     t.ok('marking a line Have saves once, not once per write behind it', saves === 1, 'saves: ' + saves);
-    await p.click('#listBody [data-src="' + pick.s + '"][data-v="b"]');
+    await srcTap(pick.s, 'b');
     await p.waitForTimeout(200);
 
     /* Off the kitchen: tap its pill again. */
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('pantry'))).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
     await p.waitForTimeout(250);
     await p.fill('#kitFind', pick.kl.slice(0, 5));
     await p.waitForTimeout(150);
     await p.click('[data-kitpill="' + pick.k + '"]');
     await p.waitForTimeout(250);
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="list"]'));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('list')));
     await p.waitForTimeout(250);
     t.ok('taken out of the kitchen, it is bought again', await groupOf(pick.k) === 'To buy');
 
@@ -107,19 +116,17 @@ module.exports = {
     await p.waitForTimeout(250);
     await p.click('#planMyWeek');
     await p.waitForTimeout(250);
-    await p.click('[data-pwgo="2"]');
-    await p.waitForTimeout(300);
-    const lo = await p.evaluate(() => [...document.querySelectorAll('.pw-meal')].map((m) => ({
-      day: m.querySelector('.pw-day').textContent, id: m.querySelector('[data-pwopen]').dataset.pwopen,
-      left: /Leftovers/.test(m.querySelector('.pw-mm').textContent), swap: !!m.querySelector('[data-pwswap]') })));
+    await p.click('[data-pwpick]');
+    await p.waitForTimeout(400);
+    const lo = await p.evaluate(() => ['mon', 'tue', 'wed', 'thu'].map((d) => {
+      const row = document.querySelector('#planGrid [data-dayopen][data-day="' + d + '"]');
+      return row ? { day: d.toUpperCase(), id: row.dataset.dayopen, left: !!row.querySelector('.day-tag'),
+        swap: !!row.closest('.day-item').querySelector('[data-pswap]'), meta: (row.querySelector('small') || {}).textContent || '' } : null;
+    }).filter(Boolean));
     const L = lo.filter((x) => x.left);
     const cooked = L[0] && lo[lo.findIndex((x) => x === L[0]) - 1];
-    t.ok('one leftovers night: the dinner the night before, again, with nothing to swap',
-      lo.length === 4 && L.length === 1 && cooked && cooked.id === L[0].id && !L[0].swap, JSON.stringify(lo));
-    await p.click('[data-pwgo="3"]');
-    await p.waitForTimeout(250);
-    await p.click('[data-pwadd]');
-    await p.waitForTimeout(300);
+    t.ok('one leftovers night on the week: the dinner the night before, again, with nothing to swap, and the night before says so',
+      lo.length === 4 && L.length === 1 && cooked && cooked.id === L[0].id && !L[0].swap && /cooked ×2 · leftovers/.test(cooked.meta), JSON.stringify(lo));
     const plan = await p.evaluate(() => ['mon', 'tue', 'wed', 'thu'].map((d) => window.Store.day(d)[0] || null));
     const lod = plan.find((e) => e && e.lo), src = plan.find((e) => e && !e.lo && lod && e.id === lod.id);
     t.ok('added to the week, the leftovers night is marked and the night before is cooked double',

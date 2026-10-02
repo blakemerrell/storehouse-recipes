@@ -131,7 +131,6 @@
 <!-- Plan is four steps, one bar: where the food comes from, what is kept on
      hand, the week's meals, and getting it. List and Pantry are its steps now,
      not tabs of their own. -->
-<nav class="psteps no-print hide" id="planSteps" aria-label="Plan steps"></nav>
 
 <!-- A new person has no reason to look at the top right corner of a header,
      and nothing else on the screen says that two phones can be put on one
@@ -239,7 +238,7 @@
          on screen by default and a month at a glance. ‹ › (or a swipe) moves;
          the week on screen is this phone's, not the household's. -->
     <header class="step-head">
-      <div class="step-k">Step 3 &middot; This week&rsquo;s meals</div>
+      <div class="step-k">Plan &middot; the week</div>
       <div class="cal-bar">
         <button class="cal-arrow no-print" id="calPrev" aria-label="Earlier">&lsaquo;</button>
         <h1 class="step-h" id="weekTitle">This week</h1>
@@ -258,8 +257,8 @@
     <div class="cal-acts no-print" id="calActs"></div>
     <div id="calAgain"></div>
     <details class="plan-about no-print"><summary aria-label="About the week">&#9432; How the week works</summary>
-    <div class="plan-note">A week runs Sunday to Saturday. Tap + Add on a day, or open any recipe under Recipes and add it to a day of this week. Move between weeks with the arrows or a swipe; the week you are looking at is yours, and the plan itself is shared with your household. Days gone by keep what was planned and how you rated it. Shop builds the list for the week on screen.</div></details>
-    <div class="step-next no-print"><button class="pw-go" data-stepgo="list">Next: get the food</button></div>
+    <div class="plan-note">A week runs Sunday to Saturday. Plan my week fills the empty nights by your answers; + Add puts one dinner on a day, or open any recipe under Recipes and add it from there. Tap a dinner to open it, swap it, cook it double or take it off. Move between weeks with the arrows or a swipe; the week you are looking at is yours, and the plan itself is shared with your household. Days gone by keep what was planned and how you rated it. The list at the foot is for the week on screen.</div></details>
+    <div id="planNext" class="no-print"></div>
   </div>
 </section>
 
@@ -416,14 +415,15 @@
 <section id="view-list" class="hide" role="tabpanel" aria-labelledby="tab-plan">
   <div class="list-view">
     <header class="step-head">
-      <div class="step-k">Step 4 &middot; Get the food</div>
+      <div class="step-k">Plan &middot; the list</div>
       <h1 class="step-h">Shopping for <span id="listWeek"></span></h1>
       <p class="step-sub" id="listCount"></p>
     </header>
-    <div id="listLow"></div>
-    <div id="listWm"></div>
     <div id="listBody"></div>
+    <div id="listWm"></div>
     <div class="empty hide" id="listEmpty">Add recipes to the week and their ingredients appear here.</div>
+    <div id="listLow"></div>
+    <div id="listNext" class="no-print"></div>
   </div>
 </section>
 
@@ -433,13 +433,13 @@
     <!-- Every step opens the same way: its label, a title, one status line,
          then its controls. -->
     <header class="step-head">
-      <div class="step-k">Step 2 &middot; Your staples</div>
+      <div class="step-k">Settings &middot; what you keep</div>
       <h1 class="step-h">What do you keep on hand?</h1>
       <p class="step-sub" id="kitNote"></p>
       <div class="step-tools"><input class="pw-find" id="kitFind" type="search" placeholder="Find or add a food&hellip;" autocomplete="off" aria-label="Find or add a food"></div>
     </header>
     <div id="kitchenBody"></div>
-    <div class="step-next no-print"><button class="pw-go" data-stepgo="plan">Next: this week&rsquo;s meals</button></div>
+    <div class="step-next no-print"><button class="pw-go" data-stepgo="plan">Done</button></div>
   </div>
 </section>
 

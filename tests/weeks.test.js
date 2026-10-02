@@ -86,11 +86,21 @@ module.exports = {
     await p.waitForTimeout(200);
     const days = await p.evaluate(() => [...document.querySelectorAll('#planGrid .cal-day')].map((d) => ({
       n: d.querySelector('.cal-date b').textContent, past: d.classList.contains('past'), today: d.classList.contains('today'),
-      add: !!d.querySelector('[data-addday]'), drop: !!d.querySelector('[data-drop]') })));
+      add: !!d.querySelector('[data-addday]'), drop: !!d.querySelector('[data-pswap]') })));
     t.ok('the week runs Sunday 27 to Saturday 3, with today marked',
       days.map((d) => d.n).join() === '27,28,29,30,1,2,3' && days[3].today && !days[2].today, JSON.stringify(days.map((d) => d.n)));
-    t.ok('days gone by keep what was planned but take no + Add and no remove; today and after do',
-      days[1].past && !days[1].add && !days[1].drop && !days[3].past && days[3].add && days[3].drop && days[4].add, JSON.stringify(days));
+    t.ok('days gone by keep what was planned but take no + Add; today and after do',
+      days[1].past && !days[1].add && !days[1].drop && !days[3].past && days[3].add && days[4].add, JSON.stringify(days));
+    const acts = async (d) => {
+      await p.click('#planGrid [data-dayopen][data-day="' + d + '"]');
+      await p.waitForTimeout(200);
+      const a = await p.evaluate(() => [...document.querySelectorAll('[data-dsact]')].map((b) => b.dataset.dsact).join());
+      await p.click('.dsh-sheet .sheet-x');
+      await p.waitForTimeout(200);
+      return a;
+    };
+    const past = await acts('mon'), now = await acts('wed');
+    t.ok('a day gone by opens to the recipe alone; today can still add and take off', past === 'open' && /open,.*remove/.test(now), JSON.stringify({ past, now }));
     await p.click('#calPrev');
     await p.waitForTimeout(200);
     s = await p.evaluate(() => ({ sub: document.getElementById('calSub').textContent, pmw: document.getElementById('planMyWeek').disabled }));
@@ -99,11 +109,11 @@ module.exports = {
 
     /* ---- the list is the week's ------------------------------------------ */
     const listOf = async () => {
-      await p.click('.pstep[data-view="list"]');
+      await p.evaluate(() => window.Hive.go('list'));
       await p.waitForTimeout(200);
       const l = await p.evaluate(() => ({ week: document.getElementById('listWeek').textContent, rows: document.querySelectorAll('.list-row').length,
         done: document.querySelectorAll('.list-row.done').length }));
-      await p.click('.pstep[data-view="plan"]');
+      await p.evaluate(() => window.Hive.go('plan'));
       await p.waitForTimeout(150);
       return l;
     };
@@ -113,10 +123,10 @@ module.exports = {
     const l2 = await listOf();
     t.ok('Shop is for the week on screen, and says which',
       l1.week === 'Sep 27 – Oct 3' && l2.week === 'Oct 4 – Oct 10' && l1.rows !== l2.rows && l2.rows > 0, JSON.stringify({ l1, l2 }));
-    await p.click('.pstep[data-view="list"]');
+    await p.evaluate(() => window.Hive.go('list'));
     await p.click('#listBody .list-row >> nth=0');
     await p.waitForTimeout(150);
-    await p.click('.pstep[data-view="plan"]');
+    await p.evaluate(() => window.Hive.go('plan'));
     await p.click('#calToday');
     await p.waitForTimeout(150);
     t.ok('a tick belongs to its week', (await listOf()).done === 0);
@@ -125,10 +135,10 @@ module.exports = {
     await p.evaluate(() => { window.Store.addToDay(1, 'thu'); });
     await p.waitForTimeout(150);
     const qty = async () => {
-      await p.click('.pstep[data-view="list"]');
+      await p.evaluate(() => window.Hive.go('list'));
       await p.waitForTimeout(150);
       const q = await p.evaluate(() => [...document.querySelectorAll('.list-row')].map((r) => r.textContent).join('|'));
-      await p.click('.pstep[data-view="plan"]');
+      await p.evaluate(() => window.Hive.go('plan'));
       await p.waitForTimeout(150);
       return q;
     };
@@ -137,10 +147,20 @@ module.exports = {
     await p.evaluate(() => window.Store.addToDay(1, 'thu', 2));
     const at2 = await qty();
     t.ok('doubling a recipe doubles the shopping', /1 cup/.test(at1) && /2 cups/.test(at2), at1 + '  ->  ' + at2);
-    t.ok('the plan shows the multiplier', (await p.textContent('.day-x2')) === '×2');
-    await p.click('.day-x2');
-    await p.waitForTimeout(150);
-    t.ok('and cycles when tapped', (await p.textContent('.day-x2')) === '×3');
+    t.ok('the plan shows the multiplier', /cooked ×2/.test(await p.textContent('#planGrid [data-dayopen][data-day="thu"] small')));
+    await p.click('#planGrid [data-dayopen][data-day="thu"]');
+    await p.waitForTimeout(200);
+    await p.click('[data-dsact="double"]');
+    await p.waitForTimeout(250);
+    let dbl = await p.evaluate(() => ({ thu: window.Store.day('thu')[0], fri: window.Store.day('fri')[0] || null,
+      row: document.querySelector('#planGrid [data-dayopen][data-day="thu"] small').textContent }));
+    t.ok('Cook double doubles it and puts its leftovers on Friday', dbl.thu.x === 4 && dbl.fri && dbl.fri.lo && dbl.fri.id === 1 && /cooked ×4 · leftovers Friday/.test(dbl.row), JSON.stringify(dbl));
+    await p.click('#planGrid [data-dayopen][data-day="thu"]');
+    await p.waitForTimeout(200);
+    await p.click('[data-dsact="single"]');
+    await p.waitForTimeout(250);
+    dbl = await p.evaluate(() => ({ thu: window.Store.day('thu')[0], fri: window.Store.day('fri').length }));
+    t.ok('Back to one batch halves it and takes the leftovers night off', dbl.thu.x === 2 && dbl.fri === 0, JSON.stringify(dbl));
 
     /* ---- anywhere but Plan, "the week" is this week ----------------------- */
     await p.click('#calNext');
@@ -168,7 +188,7 @@ module.exports = {
     s = await p.evaluate(() => ({ tue: window.Store.day('tue').map((e) => e.id).join(), thu: window.Store.day('thu').map((e) => e.id + 'x' + e.x).join(),
       fri: window.Store.day('fri').length }));
     t.ok('Cook this again fills next week’s empty days from this one, sizes and all, and leaves a planned day alone',
-      s.tue === '2' && s.thu === '1x3' && s.fri === 1, JSON.stringify(s));
+      s.tue === '2' && s.thu === '1x2' && s.fri === 1, JSON.stringify(s));
     await p.click('[data-caltpl]');
     await p.waitForSelector('#dlgInput');
     await p.fill('#dlgInput', 'Freezer week');
@@ -334,7 +354,7 @@ module.exports = {
       window.Store.addPantryItem(s, 'Yours');
     }, HOSTILE);
     await p.waitForTimeout(300);
-    await p.click('.tab[data-view="plan"]').then(() => p.click('.pstep[data-view="pantry"]')).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
+    await p.click('.tab[data-view="plan"]').then(() => p.evaluate(() => window.Hive.go('pantry'))).then(() => p.evaluate(() => { const d = document.getElementById('storePart'); if (d) d.open = true; }));
     await p.waitForTimeout(300);
 
     const hostile = await p.evaluate((s) => ({
@@ -397,7 +417,7 @@ module.exports = {
       await q.evaluate(() => localStorage.clear());
       await q.reload();
       await q.waitForTimeout(500);
-      await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="where"]'));
+      await q.click('.tab[data-view="plan"]').then(() => q.evaluate(() => window.Hive.go('where')));
       await q.waitForTimeout(300);
       await q.evaluate(() => window.Store.setPantry('cottage_cheese', false));
       await q.waitForTimeout(300);
@@ -417,7 +437,7 @@ module.exports = {
       ['the Share sheet', async (q) => { await q.click('#syncBtn'); await q.waitForTimeout(350); }],
       ['the editor', async (q) => { await q.click('.tab[data-view="browse"]'); await q.click('#newRecipe'); await q.waitForTimeout(450); }],
       ['a confirm dialog', async (q) => {
-        await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="where"]')); await q.waitForTimeout(350);
+        await q.click('.tab[data-view="plan"]').then(() => q.evaluate(() => window.Hive.go('where'))); await q.waitForTimeout(350);
         await q.evaluate(() => window.Store.setPantry('cottage_cheese', false));
         await q.waitForTimeout(350);
         await q.click('#pantryReset'); await q.waitForTimeout(350);

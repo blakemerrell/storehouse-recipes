@@ -37,11 +37,18 @@ module.exports = {
       window.Store.addToDay(X, 'fri', 1, true);
     }), [X]);
     await p.waitForTimeout(200);
-    const mult = await p.evaluate(() => ({
-      thu: !!document.querySelector('[data-mult][data-day="thu"]'),
-      fri: !!document.querySelector('[data-mult][data-day="fri"]'),
-    }));
-    t.ok('a leftovers night has no ×N to tap; its dinner does', mult.thu && !mult.fri, JSON.stringify(mult));
+    const sheet = async (d) => {
+      await p.click('#planGrid [data-dayopen][data-day="' + d + '"]');
+      await p.waitForTimeout(200);
+      const out = await p.evaluate(() => ({ m: document.querySelector('.dsh-m').textContent, acts: [...document.querySelectorAll('[data-dsact]')].map((b) => b.dataset.dsact) }));
+      await p.click('.dsh-sheet .sheet-x');
+      await p.waitForTimeout(200);
+      return out;
+    };
+    const mult = { thu: await sheet('thu'), fri: await sheet('fri') };
+    t.ok('the dinner’s sheet says cooked ×2 with leftovers Friday and offers one batch, swap and off; the leftovers night’s offers only open, add and off',
+      /cooked ×2 · leftovers Friday/.test(mult.thu.m) && mult.thu.acts.join() === 'open,swap,single,add,remove' &&
+      /^Leftovers/.test(mult.fri.m) && mult.fri.acts.join() === 'open,add,remove', JSON.stringify(mult));
 
     /* ---- swapping the dinner carries its leftovers night ---- */
     await p.click('[data-pswap][data-day="thu"]');
@@ -52,10 +59,13 @@ module.exports = {
       fri.length === 1 && fri[0].id === thu[0].id && fri[0].lo, JSON.stringify({ thu, fri }));
 
     /* ---- removing the dinner takes its leftovers night ---- */
-    await p.click('[data-drop][data-day="thu"]');
-    await p.waitForTimeout(250);
+    await p.click('#planGrid [data-dayopen][data-day="thu"]');
+    await p.waitForTimeout(200);
+    await p.click('[data-dsact="remove"]');
+    await p.waitForTimeout(300);
     thu = await day('thu'); fri = await day('fri');
-    t.ok('× on that dinner takes its leftovers night off too', thu.length === 0 && fri.length === 0, JSON.stringify({ thu, fri }));
+    t.ok('Take it off on that dinner takes its leftovers night off too, and closes the sheet',
+      thu.length === 0 && fri.length === 0 && await p.evaluate(() => !document.querySelector('.dsh-sheet')), JSON.stringify({ thu, fri }));
 
     /* ---- the ×N button on a dinner keeps it a dinner; one set on a leftovers night by
             an older phone keeps it leftovers ---- */
@@ -105,11 +115,11 @@ module.exports = {
     await p.click('#calNext');
     await p.waitForTimeout(250);
     await p.evaluate(([Y]) => window.Store.addToDay(Y, 'mon', 1), [Y]);
-    await p.click('.pstep[data-view="pantry"]');
+    await p.evaluate(() => window.Hive.go('pantry'));
     await p.waitForTimeout(250);
-    await p.click('.pstep[data-view="where"]');
+    await p.evaluate(() => window.Hive.go('where'));
     await p.waitForTimeout(250);
-    await p.click('.pstep[data-view="list"]');
+    await p.evaluate(() => window.Hive.go('list'));
     await p.waitForTimeout(300);
     const shop = await p.evaluate(() => ({ id: window.Store.activeWeek().id, head: document.getElementById('listWeek').textContent }));
     t.ok('next week → On hand → Where → Shop: the list is next week’s', shop.id === 'd20261004' && /Oct 4/.test(shop.head), JSON.stringify(shop));
@@ -146,13 +156,13 @@ module.exports = {
     await p.click('.tab[data-view="plan"]');
     await p.waitForTimeout(300);
     const plan$ = await p.evaluate(() => (document.getElementById('planSum').textContent.match(/\$[\d.]+/) || [''])[0]);
-    await p.click('.pstep[data-view="list"]');
+    await p.evaluate(() => window.Hive.go('list'));
     await p.waitForTimeout(300);
     const list$ = await p.evaluate(() => (document.getElementById('listCount').textContent.match(/\$[\d.]+/) || [''])[0]);
     t.ok('the plan’s “to buy” is the list’s, ran-out staples and all', plan$ && plan$ === list$, plan$ + ' vs ' + list$);
 
     /* ---- a dangerous confirm looks dangerous ---- */
-    await p.click('.pstep[data-view="plan"]');
+    await p.evaluate(() => window.Hive.go('plan'));
     await p.waitForTimeout(250);
     await p.click('#clearPlan');
     await p.waitForTimeout(300);
