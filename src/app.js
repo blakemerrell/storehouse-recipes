@@ -17529,6 +17529,12 @@
         'your pantry comes with you to every device too.</p>' +
         mAccountBlockHTML() +
 
+        (window.Door ? '<div class="mt-div">What you want help with</div>' +
+          [['d', 'Dinners and the shopping', 'Tonight\u2019s dinner and the list'], ['e', 'Eating well', 'What is left to eat'], ['w', 'A workout that fits', 'The next workout']].map(function (o) {
+            var on = window.Door.help()[o[0]];
+            return '<div class="kit-row"><span><b>' + o[1] + '</b><small>' + (on ? 'Today shows ' + o[2].charAt(0).toLowerCase() + o[2].slice(1) : 'Off: not on Today') + '</small></span>' +
+              '<button class="kit-tog" role="switch" data-sync="help" data-v="' + o[0] + '" aria-checked="' + on + '" aria-label="' + o[1] + ' on Today"></button></div>';
+          }).join('') + '<p class="kit-say">Only what Today shows. Every tab stays where it is.</p>' : '') +
         '<div class="mt-div">Your kitchen</div>' +
         '<button class="kit-row" data-sync="where"><span><b>Where your staples come from</b><small>' + esc(SRC_WORDS[srcKind()].pick) +
           (window.Store.opt('buy', true) ? '' : ' \u00b7 only what I have') + '</small></span><i aria-hidden="true">\u203a</i></button>' +
@@ -19935,6 +19941,14 @@
       if (sy) {
         var act = sy.dataset.sync;
         if (act === 'where' || act === 'pantry') { close(); goStep(act); return; }
+        if (act === 'help' && window.Door) {
+          var hp = window.Door.help();
+          hp[sy.dataset.v] = !hp[sy.dataset.v];
+          window.Door.setHelp(hp);
+          renderModal();
+          if (S.view === 'today' && window.Today) window.Today.render();
+          return;
+        }
         if (act === 'reroll') { S.pendingCode = window.Store.newCode(); }
         if (act === 'invite') {
           S.inviteMaking = true;
@@ -20360,6 +20374,7 @@
     var wl = canBuy() && left.length ? wmLines(left) : null;
     return {
       date: now,
+      help: window.Door ? window.Door.help() : { d: true, e: true, w: true },
       tonight: t ? { id: String(t.id), day: dk, name: r.name, time: r.time || '', x: t.x, lo: !!t.lo, twin: !!planTwin(t.id, dk) } : null,
       next: next,
       planned: CAL_DAYS.some(function (d) { return !!dinnerOf(d[0]); }),
@@ -20390,6 +20405,27 @@
     addFood: function () { goView('macros'); var b = $('macroAdd'); if (b) b.click(); },
     fill: function () { goView('macros'); var b = $('macroFill'); if (b && b.dataset.mode === 'fill' && !b.disabled) b.click(); },
     numbers: function () { goView('macros'); var b = $('macroFill'); if (b && b.classList.contains('to-plan') && !b.disabled) b.click(); },
+    /* The front door's answers (src/door.js), each to what owns it: the
+       household's staples switches, as Where sets them, and Plan my week's
+       "how many are eating"; Nourish's goal; Nourish's numbers sheet. */
+    kitchen: function (ppl, kind) {
+      window.Store.batch(function () {
+        window.Store.setOpt('store', kind !== 'own');
+        window.Store.setOpt('fb', kind === 'fb');
+        window.Store.setOpt('big', kind === 'big');
+        window.Store.setOpt('setup', true);
+      });
+      var a = pwAnswers();
+      a.ppl = ppl;
+      pwSave(a);
+    },
+    goal: function (g) {
+      if (!MGOAL_WORDS[g]) return;
+      var pr = mReadProfileRaw();
+      pr.goal = g;
+      mWriteProfile(pr);
+    },
+    numbersSetup: function () { goView('macros'); mOpenTargets(); },
     ask: ask,
     openSheet: function () { pushSheet({ tr: 1 }); },
     closeSheet: function () { close(); },

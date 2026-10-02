@@ -75,6 +75,7 @@ var CORE = [
   './src/config.js?v=0',
   './src/sync.js?v=0',
   './src/train.js?v=0',
+  './src/door.js?v=0',
   './src/today.js?v=0',
   './src/app.js?v=0',
   './data/recipes.js?v=0',

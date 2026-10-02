@@ -74,9 +74,9 @@ module.exports = {
     /* On hand, from the Sync & sharing sheet. */
     await p.click('#syncBtn');
     await p.waitForTimeout(250);
-    const rows = await p.evaluate(() => [...document.querySelectorAll('.kit-row')].map((b) => b.dataset.sync + ':' + b.querySelector('small').textContent));
+    const rows = await p.evaluate(() => [...document.querySelectorAll('button.kit-row')].map((b) => b.dataset.sync + ':' + b.querySelector('small').textContent));
     t.ok('the sheet has the two settings, each saying what it is set to', rows.length === 2 && /^where:The bishops’ storehouse · only what I have$/.test(rows[0]) && /^pantry:\d+ on hand$/.test(rows[1]), JSON.stringify(rows));
-    await p.click('.kit-row[data-sync="pantry"]');
+    await p.click('button.kit-row[data-sync="pantry"]');
     await p.waitForTimeout(400);
     t.ok('tapping one closes the sheet and opens it', await p.evaluate(() => !document.querySelector('.sync-sheet') && !document.getElementById('view-pantry').classList.contains('hide') &&
       document.querySelector('#view-pantry .step-k').textContent === 'Settings · what you keep'));

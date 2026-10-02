@@ -5559,6 +5559,17 @@
       S.qz = { i: 0, fresh: !p.qz, set: {}, back: !!p.bk, bku: p.bk === 'fcx',
         a: { goal: p.goal, lvl: p.lvl, dpw: p.dpw, min: p.min, kit: p.kit,
         bk: p.bk, jt: p.jt, day: p.day, hab: p.hab.slice(), age: p.age } };
+      /* The app's front door asks three of these on a new phone (what you
+         train with, days, minutes) and leaves them here; they are the
+         person's answers, so they start pressed. Only on a first run. */
+      if (S.qz.fresh) {
+        try {
+          var dw = JSON.parse(localStorage.getItem('sh.doorWork') || 'null') || {};
+          if (KITS[dw.kit]) { S.qz.a.kit = dw.kit; S.qz.set.kit = true; }
+          if (dw.dpw >= 2 && dw.dpw <= 7) { S.qz.a.dpw = dw.dpw; S.qz.set.dpw = true; }
+          if (MINS.some(function (m) { return m[0] === dw.min; })) { S.qz.a.min = dw.min; S.qz.set.min = true; }
+        } catch (e) { /* private mode or nothing left */ }
+      }
     }
     return S.qz;
   }
@@ -5647,6 +5658,7 @@
     if (S.qz.back && !a.bk) a.bk = 'fcx';
     T.pr = defaultsPr(Object.assign({}, T.pr, clean(a), { qz: Date.now() }));
     stamp('pr');
+    try { localStorage.removeItem('sh.doorWork'); } catch (e) { /* private mode */ }
     S.qz = null; S.lib = false; S.opt = null;
     S.browse = !!active();
     draw();

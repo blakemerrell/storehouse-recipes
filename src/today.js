@@ -159,8 +159,8 @@
 
   // -------------------------------------------------------------- this week
   function weekCard(d) {
-    var T = window.Train, ld = T && T.liftDays ? T.liftDays() : null;
-    var lifts = !!(T && (ld || (d.workout && d.workout.block)));
+    var T = window.Train, ld = T && T.liftDays ? T.liftDays() : null, hp = d.help || { d: true, w: true };
+    var lifts = hp.w && !!(T && (ld || (d.workout && d.workout.block)));
     var mark = function (k) { return '<span class="td-mk td-' + k + '" aria-hidden="true"></span>'; };
     var cols = d.week.map(function (day) {
       var dinner = day.dinner ? (day.past ? 'done' : day.today ? 'now' : 'plan') : 'none';
@@ -179,10 +179,11 @@
       return '<span class="td-wl">' + label + '</span>' + cols.map(function (c) { return '<span class="td-wc">' + mark(c[key]) + '</span>'; }).join('');
     };
     /* Nothing planned and nothing lifted is no week to show yet. */
-    if (cols.every(function (c) { return c.dinner === 'none' && (c.lift === 'none' || c.lift === 'rest'); })) return '';
-    var say = cols.filter(function (c) { return c.dinner !== 'none'; }).length + ' of 7 dinners planned';
+    if (cols.every(function (c) { return (!hp.d || c.dinner === 'none') && (c.lift === 'none' || c.lift === 'rest'); })) return '';
+    var say = hp.d ? cols.filter(function (c) { return c.dinner !== 'none'; }).length + ' of 7 dinners planned'
+      : cols.filter(function (c) { return c.lift === 'done'; }).length + ' workouts this week';
     return card('week', 'This week',
-      '<div class="td-week" role="img" aria-label="' + esc(say) + '"><span class="td-wl"></span>' + head + row('Dinner', 'dinner') +
+      '<div class="td-week" role="img" aria-label="' + esc(say) + '"><span class="td-wl"></span>' + head + (hp.d ? row('Dinner', 'dinner') : '') +
         (lifts ? row('Lift', 'lift') : '') + '</div>');
   }
 
@@ -200,6 +201,10 @@
        workout already done steps back behind the rest. */
     var order = evening ? ['tonight', 'eating', 'workout'] : ['eating', 'workout', 'tonight'];
     if (d.workout && d.workout.doneToday) order = order.filter(function (k) { return k !== 'workout'; }).concat('workout');
+    /* Only what this person asked for help with (the front door, or Share &
+       settings): dinners and the shopping, eating, workouts. */
+    var hp = d.help || { d: true, e: true, w: true };
+    order = order.filter(function (k) { return k === 'tonight' ? hp.d : k === 'eating' ? hp.e : hp.w; });
     var make = {
       tonight: function (main) { return tonightCard(d, main); },
       eating: function (main) { return eatingCard(d.eating, main); },
@@ -211,7 +216,7 @@
       if (h) { html += h; first = false; }
     });
     d.shop.wmMark = d.wmMark || '';
-    html += shopCard(d.shop) + weekCard(d);
+    html += (hp.d ? shopCard(d.shop) : '') + (hp.d || hp.w ? weekCard(d) : '');
     root.innerHTML = '<div class="td-top"><div class="step-k">' + DAYNAME[d.date.getDay()] + ' · ' + MONTH[d.date.getMonth()] + ' ' + d.date.getDate() + '</div>' +
       '<h1 class="step-h td-h">Today</h1></div><div class="td-cards">' + html + '</div>';
   }

@@ -111,6 +111,25 @@ function playwright() {
     args: ['--ignore-certificate-errors'],
   });
 
+  /* Every page a test opens is a new phone to the app, and a new phone gets
+     the front door (src/door.js) over everything. The suites were written
+     for a phone that is past it, so each context starts as one — the same
+     mark the door leaves when it is done — unless the test passes
+     { door: true } to meet the door itself. */
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (opts) => {
+    const o = Object.assign({}, opts);
+    const door = o.door;
+    delete o.door;
+    const ctx = await newContext(o);
+    if (!door) {
+      await ctx.addInitScript(() => {
+        try { if (!localStorage.getItem('sh.door')) localStorage.setItem('sh.door', 'test'); } catch (e) { /* not a page with storage */ }
+      });
+    }
+    return ctx;
+  };
+
   let pass = 0, fail = 0;
   const failures = [];
 

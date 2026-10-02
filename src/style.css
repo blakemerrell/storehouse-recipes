@@ -7299,3 +7299,46 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .kit-row b { font-weight: 600; font-size: 0.9375rem; }
 .kit-row small { font-size: 0.78125rem; color: var(--muted); }
 .kit-row i { font-style: normal; font-size: 1.25rem; color: var(--muted); }
+
+/* ---- the front door (src/door.js) ----------------------------------------
+   A page of its own over everything on a new phone's first open: the app's
+   own header bar and paper, one question a screen, one main button. */
+.door { position: fixed; inset: 0; z-index: 9000; background: var(--paper); overflow-y: auto; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; }
+html.door-up, html.door-up body { overflow: hidden; }
+.dr-top { flex: none; background: var(--chrome); color: var(--on-chrome); border-bottom: 3px solid var(--ochre);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 20px 14px; }
+.dr-brand { font-family: var(--serif); font-size: 1.375rem; font-weight: 700; letter-spacing: -0.01em; }
+.dr-body { flex: 1 0 auto; width: 100%; max-width: 520px; margin: 0 auto; box-sizing: border-box;
+  padding: 22px 20px calc(28px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 18px; }
+.dr-head { display: flex; flex-direction: column; gap: 8px; }
+.dr-k { display: flex; align-items: center; gap: 12px; font-size: 0.8125rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--ochre-text); }
+.dr-bar { display: block; width: 64px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.dr-bar i { display: block; height: 100%; background: var(--ochre); }
+.dr-h { margin: 0; font-family: var(--serif); font-size: 1.75rem; line-height: 1.15; font-weight: 600; text-wrap: balance; outline: none; }
+.dr-lede { margin: 0; font-size: 0.96875rem; line-height: 1.5; color: var(--muted); }
+.dr-opts, .dr-radios { display: flex; flex-direction: column; gap: 10px; }
+.dr-radios .wh-opt { margin: 0; }
+.dr-opt { display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box; padding: 14px 16px; text-align: left;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; font: inherit; color: var(--ink); cursor: pointer; }
+.dr-opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 13.5px 15.5px; }
+.dr-badge { flex: none; width: 42px; height: 42px; border-radius: 10px; background: var(--hint); color: var(--ochre-text); display: grid; place-items: center; }
+.dr-ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dr-ot { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dr-ot b { font-size: 1.03125rem; font-weight: 600; }
+.dr-ot span { font-size: 0.875rem; line-height: 1.4; color: var(--muted); }
+.dr-tick { flex: none; width: 26px; height: 26px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--line-firm); position: relative; }
+.dr-opt[aria-pressed="true"] .dr-tick { background: var(--ink); border-color: var(--ink); }
+.dr-opt[aria-pressed="true"] .dr-tick::after { content: ''; position: absolute; left: 8.5px; top: 5px; width: 6px; height: 11px;
+  border: solid var(--paper); border-width: 0 2.2px 2.2px 0; transform: rotate(45deg); }
+.dr-q { display: flex; flex-direction: column; gap: 8px; }
+.dr-ql { font-size: 0.78125rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--label); }
+.dr-ql-gap { margin-top: 4px; }
+.dr-note { margin: 0; font-size: 0.84375rem; line-height: 1.45; color: var(--muted); }
+.dr-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.dr-chips .pw-chip { min-height: 44px; padding: 0 16px; }
+.dr-foot { margin-top: auto; padding-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.dr-next { width: 100%; min-height: 52px; }
+.dr-next:disabled { opacity: 0.45; cursor: default; }
+/* Share & settings: what Today shows */
+.kit-say { margin: 6px 0 4px; font-size: 0.8125rem; line-height: 1.45; color: var(--muted); }
