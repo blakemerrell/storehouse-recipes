@@ -78,7 +78,9 @@ function look() {
 function update() {
   return new Promise((resolve) => {
     navigator.serviceWorker.getRegistration().then((reg) => {
-      const timer = setTimeout(() => resolve('no new worker'), 20000);
+      const st = (w) => (w ? w.state : '-');
+      const timer = setTimeout(() => resolve('no new worker (installing ' + st(reg.installing) + ', waiting ' + st(reg.waiting) +
+        ', active ' + st(reg.active) + ')'), 20000);
       reg.addEventListener('updatefound', () => {
         const w = reg.installing;
         const seen = () => {
@@ -149,6 +151,24 @@ module.exports = {
     const ART_LIST = wA.EXTRAS.filter((u) => !/^\.\/icons\//.test(u)).map((u) => new URL(u, 'http://x/').pathname);
     const ART_FILES = new RegExp('^(' + ART_LIST.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')$');
 
+    /* The app asks for an update itself, on load and on coming back. One
+       still in flight when the server switches builds is merged with the
+       test's own ask by the browser, and both answer for the OLD build: the
+       new one is never seen, and the test waits out its timer on a phone
+       that did nothing wrong. So before each switch: the page loaded, and
+       any ask it made answered. */
+    const settle = async () => {
+      // the page may be reloading itself onto the build it just took
+      for (let i = 0; i < 40; i++) {
+        try {
+          return await p.evaluate(async () => {
+            if (document.readyState !== 'complete') await new Promise((r) => addEventListener('load', r, { once: true }));
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (reg) { try { await reg.update(); } catch (e) { /* no signal, or an install that failed: either way, settled */ } }
+          });
+        } catch (e) { await p.waitForTimeout(250); }
+      }
+    };
     try {
       /* ---- the first visit ------------------------------------------- */
       srv.root = A.out;
@@ -183,10 +203,11 @@ module.exports = {
        * takes over — the same hold a half-finished edit gets — so the caches
        * can be read before the page moves. */
       await p.evaluate(() => { window.__editing = true; });
+      await settle();
       srv.root = B.out; srv.log = [];
       let st = await p.evaluate(update);
       s = await see();
-      t.ok('the next build installs and takes over', st === 'activated', st);
+      t.ok('the next build installs and takes over', st === 'activated', st + ' · asked: ' + srv.log.filter((u) => /sw\.js/.test(u)).join(' '));
       t.ok('and the previous build’s cache is deleted',
         s.keys.indexOf(wA.CACHE) < 0 && whole(s, wB), JSON.stringify(s.keys));
       t.ok('while the pictures stay where they were, not downloaded again',
@@ -203,6 +224,7 @@ module.exports = {
        * arrive. The install has to fail rather than half-succeed, and the
        * phone has to be left exactly as it was — worker, cache and all — or
        * the next open with no signal is a blank page. */
+      await settle();
       srv.root = C.out; srv.fail = /^\/src\/app\.js/; srv.log = [];
       st = await p.evaluate(update);
       s = await see();
@@ -219,6 +241,7 @@ module.exports = {
        * while after a deploy one request can get the new sw.js and the next
        * the old index.html. Cached together they are a page asking for
        * scripts no cache holds. */
+      await settle();
       srv.root = D.out; srv.from = { '/index.html': B.out }; srv.log = [];
       st = await p.evaluate(update);
       s = await see();
@@ -240,6 +263,7 @@ module.exports = {
 
       /* ---- new pictures ---------------------------------------------- */
       await p.evaluate(() => { window.__editing = true; });
+      await settle();
       srv.root = E.out; srv.log = [];
       st = await p.evaluate(update);
       s = await see();
