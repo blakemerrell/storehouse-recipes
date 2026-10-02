@@ -383,7 +383,7 @@
      app for the first time lands here, and until this line existed the whole
      answer to "what are the two volumes" was the words "two volumes" in the
      bar at the top. */
-  var COLLECTION_BLURB = 'Two volumes, with primary ingredients from the bishops’\u00a0storehouse. Run and ' +
+  var COLLECTION_BLURB = 'Two volumes, built on staples that keep: canned, dry and frozen, plus a little fresh. Run and ' +
     'Not Be Weary is {n1} recipes built on protein and fiber; Around the Table is {n2} ' +
     'family recipes, from three-minute breakfasts to Sunday roasts.';
 
@@ -475,6 +475,15 @@
     '2-8': 'For when only chocolate will do.',
     '2-9': 'The three bottles the storehouse does not carry, made from what it does.'
   };
+
+  /* The app says staples where the printed books say the storehouse. The
+     books are the storehouse edition and keep every word, and their page
+     counts are tested; these are only what the Recipes tab shows. */
+  var APP_BLURB = {
+    1: '{N1} recipes built on protein, fiber and staying full, from staples that keep. Every one carries real macros and a computed nutrition score.',
+    2: '{N2} family recipes from staples that keep: three\u2011minute breakfasts to Sunday roasts, by way of an afternoon at the stove, the restaurant favourites worked out at home, and a section for chocolate alone.'
+  };
+  var APP_SEC_NOTE = { '2-9': 'Three bottles you\u2019d otherwise buy, made from staples.' };
 
   /* One line under each part title in the combined edition, doing the job the
      volume blurb does on a cover it no longer has. */
@@ -945,12 +954,12 @@
     var sel = $('pantrySel');
     var words = mine
       ? ['Everything', "Only what's on my shelf", 'Needs a shop']
-      : ['Everything', 'Storehouse items only', 'Needs something bought elsewhere'];
+      : ['Everything', 'Just my staples', 'Needs a shop'];
     ['all', 'base', 'extras'].forEach(function (v, i) {
       var o = sel.querySelector('option[value="' + v + '"]');
       if (o) o.textContent = words[i];
     });
-    sel.setAttribute('aria-label', mine ? 'What you keep' : 'Storehouse items');
+    sel.setAttribute('aria-label', mine ? 'What you keep' : 'Staples');
   }
 
   function renderSections() {
@@ -998,7 +1007,7 @@
     /* Not while searching. Once you have typed "chicken" the heading is no
        longer about a book and the line under it is in the way of the answer. */
     $('browseBlurb').textContent = qs ? ''
-      : fillCounts(BOOKS[S.bookF] ? BOOKS[S.bookF].blurb : COLLECTION_BLURB, RECIPES);
+      : fillCounts(BOOKS[S.bookF] ? (APP_BLURB[S.bookF] || BOOKS[S.bookF].blurb) : COLLECTION_BLURB, RECIPES);
     /* Say how many are here on their own merits and how many arrived because
        their section is named for the search. Without it, "breakfast" returning
        fifty recipes reads as fifty breakfasts, and the reader scrolls looking
@@ -1042,7 +1051,7 @@
           '<span class="grid-sec-b">' + esc((BOOKS[r.book] || BOOKS[3]).short) + '</span>' +
           '<b>' + esc(SEC_SHORT[lastSec] || r.secName) + '</b>' +
           '<span class="grid-sec-n">' + n + '</span>' +
-          (SEC_NOTE[lastSec] ? '<span class="grid-sec-s">' + esc(SEC_NOTE[lastSec]) + '</span>' : '') +
+          ((APP_SEC_NOTE[lastSec] || SEC_NOTE[lastSec]) ? '<span class="grid-sec-s">' + esc(APP_SEC_NOTE[lastSec] || SEC_NOTE[lastSec]) + '</span>' : '') +
         '</div>';
       }
       var fav = window.Store.isFav(r.id);
@@ -2007,12 +2016,18 @@
     if (!e.target.closest) return;
     var st = e.target.closest('.pstep[data-view]') || e.target.closest('[data-stepgo]');
     if (st) { goStep(st.dataset.view || st.dataset.stepgo); return; }
-    var wh = e.target.closest('[data-where]');
-    if (wh) {
-      var v = wh.dataset.where;
-      window.Store.batch(function () { window.Store.setOpt('store', v !== 'w'); window.Store.setOpt('buy', v !== 'sh'); });
+    var sp = e.target.closest('[data-srcpick]');
+    if (sp) {
+      var kind = sp.dataset.srcpick;
+      window.Store.batch(function () {
+        window.Store.setOpt('store', kind !== 'own');
+        window.Store.setOpt('fb', kind === 'fb');
+        window.Store.setOpt('big', kind === 'big');
+      });
       return;
     }
+    var wk = e.target.closest('[data-weekbuy]');
+    if (wk) { window.Store.setOpt('buy', wk.dataset.weekbuy === '1'); return; }
     if (e.target.closest('[data-near]')) { window.Store.setOpt('near', !window.Store.opt('near', false)); return; }
     var lw = e.target.closest('[data-low]');
     if (lw) { window.Store.setLow(lw.dataset.low, !window.Store.low(lw.dataset.low)); return; }
@@ -2032,12 +2047,42 @@
       var lines = [].map.call(document.querySelectorAll('.list-group.where-s .list-row'), function (r) {
         return r.textContent.replace(/\s+/g, ' ').trim();
       }).join('\n');
-      var say = function (t) { cp.textContent = t; setTimeout(function () { cp.textContent = 'Copy the order'; }, 1800); };
+      var say = function (t) { cp.textContent = t; setTimeout(function () { cp.textContent = srcW().copy; }, 1800); };
       var fail = function () { say('Couldn\u2019t copy \u2014 select the list instead'); };
       try { navigator.clipboard.writeText(lines).then(function () { say('Copied'); }, fail); } catch (err) { fail(); }
     }
   });
-  /* The three answers to "where does your food come from". */
+  /* Where a household's staples come from: the foods that keep, canned, dry
+     and frozen. The bishops' storehouse was the only answer once; a food bank,
+     a big monthly shop or nothing but your own shelf are the same idea, so the
+     list a source carries, the half of the shopping list that comes from it
+     and the middle of Have / Storehouse / Buy all work the same for each,
+     under its own name. Which one is two more household switches beside
+     `store` (on/off, as the rules already allow), so nothing is migrated:
+     a household that never chose is the storehouse, as it always was. */
+  var SRC_WORDS = {
+    sh: { pick: 'The bishops\u2019 storehouse', why: 'Its order list, ready to copy for your bishop.', name: 'Storehouse',
+      the: 'the storehouse', your: 'your storehouse', list: 'Storehouse order', copy: 'Copy the order',
+      reset: 'Back to the storehouse list?', back: 'back to the book\u2019s list' },
+    fb: { pick: 'A food bank or pantry', why: 'What they give, and a store for the rest.', name: 'Food bank',
+      the: 'the food bank', your: 'your food bank', list: 'From the food bank', copy: 'Copy the list',
+      reset: 'Back to the starting list?', back: 'back to the starting list' },
+    big: { pick: 'A big monthly shop', why: 'Stock up once a month, and a quick shop for fresh.', name: 'Big shop',
+      the: 'the big shop', your: 'your big shop', list: 'The big shop', copy: 'Copy the list',
+      reset: 'Back to the starting list?', back: 'back to the starting list' },
+    own: { pick: 'I keep my own', why: 'No outside source. What isn\u2019t on the shelf gets bought.' }
+  };
+  function srcKind() {
+    if (!window.Store.opt('store', true)) return 'own';
+    return window.Store.opt('fb', false) ? 'fb' : window.Store.opt('big', false) ? 'big' : 'sh';
+  }
+  /* The words for the source in use; the storehouse's when there is none, so
+     a line about the source never reads "undefined" on a shelf-only phone. */
+  function srcW() { var k = srcKind(); return SRC_WORDS[k === 'own' ? 'sh' : k]; }
+  window.__src = { kind: srcKind, words: srcW };
+  /* The answers to "where do your staples come from" and "this week", as the
+     three modes the rest of Plan reads: both (a source and a store), sh (only
+     what I have, the source's included), w (no source). */
   function planMode() {
     var st = window.Store.opt('store', true), buy = window.Store.opt('buy', true);
     return st && buy ? 'both' : st ? 'sh' : 'w';
@@ -2062,23 +2107,28 @@
   window.__mPortion = function (r, x) { return mPortion(r, x); };
   window.__flow = { needs: storeNeeds, mode: planMode, source: foodSource };
   function renderWhere() {
-    var m = planMode(), near = window.Store.opt('near', false);
-    var opt = function (v, t, d) {
-      return '<button class="wh-opt" data-where="' + v + '" aria-pressed="' + (m === v) + '"><span class="wh-dot"></span>' +
+    var kind = srcKind(), W = srcW(), buy = window.Store.opt('buy', true), near = window.Store.opt('near', false);
+    var opt = function (attr, v, on, t, d) {
+      return '<button class="wh-opt" ' + attr + '="' + v + '" aria-pressed="' + on + '"><span class="wh-dot"></span>' +
         '<span><b>' + t + '</b><span>' + d + '</span></span></button>';
     };
     /* The step's question is the view's title here — Where has no title bar
        of its own the way Plan, List and Pantry do — so it is the h1. */
     $('whereBody').innerHTML = '<div class="step-k">Step 1 · set once, change any time</div>' +
-      '<h1 class="step-h">Where does your food come from?</h1>' +
-      '<p class="step-sub">This decides which meals Plan suggests and how your list is split.</p>' +
-      opt('both', 'Storehouse and a store', 'Take what the storehouse has, buy the rest at Walmart.') +
-      opt('sh', 'Storehouse only', 'I can’t buy extra right now. Only suggest meals I can make from the storehouse and my shelf.') +
-      (m === 'sh' ? '<label class="wh-near"><button class="kit-tog" data-near="1" role="switch" aria-checked="' + near + '" aria-label="Allow meals that need one or two things from a store"></button>' +
+      '<h1 class="step-h">Where do your staples come from?</h1>' +
+      '<p class="step-sub">Staples are the foods that keep: canned, dry and frozen. This decides which meals Plan suggests and how your list is split.</p>' +
+      ['sh', 'fb', 'big', 'own'].map(function (k) {
+        return opt('data-srcpick', k, kind === k, SRC_WORDS[k].pick, SRC_WORDS[k].why);
+      }).join('') +
+      '<h2 class="step-h2 wh-week">This week</h2>' +
+      opt('data-weekbuy', '1', buy, 'Buy what\u2019s missing', kind === 'own'
+        ? 'Anything not on my shelf gets bought.' : 'Take what ' + W.the + ' has, buy the rest at Walmart.') +
+      opt('data-weekbuy', '0', !buy, 'Only what I have', 'Nothing to buy. Only suggest meals I can make from ' +
+        (kind === 'own' ? 'my shelf' : W.the + ' and my shelf') + '.') +
+      (!buy ? '<label class="wh-near"><button class="kit-tog" data-near="1" role="switch" aria-checked="' + near + '" aria-label="Allow meals that need one or two things from a store"></button>' +
         ' Allow meals that need 1–2 things from a store</label>' : '') +
-      opt('w', 'Store only', 'No storehouse. Anything not on my shelf gets bought.') +
       '<p class="step-sub">Shared with your household: set it on one phone and the others follow.</p>' +
-      (window.Store.opt('store', true) ? carryHTML() : '') +
+      (kind !== 'own' ? carryHTML() : '') +
       '<div class="step-next"><button class="pw-go" data-stepgo="pantry">Next: what you keep on hand</button></div>';
   }
 
@@ -9043,8 +9093,8 @@
       if (first && first.parentNode) {
         var note = document.createElement('div');
         note.className = 'fp-note';
-        note.textContent = 'You have picked food the storehouse does not carry, ' +
-          'so Fill may now shop outside it.';
+        note.textContent = 'You\u2019ve picked food that isn\u2019t one of your staples, ' +
+          'so Fill may now shop outside them.';
         first.parentNode.insertBefore(note, first);
       }
     }
@@ -9102,8 +9152,8 @@
        something to learn by noticing. */
     var shopping = mExtOk();
     return { blocks: (shopping
-        ? '<div class="fp-note">You have picked food the storehouse does not ' +
-          'carry, so Fill may now shop outside it.</div>' : '') + blocks,
+        ? '<div class="fp-note">You\u2019ve picked food that isn\u2019t one of your ' +
+          'staples, so Fill may now shop outside them.</div>' : '') + blocks,
       total: total };
   }
 
@@ -12506,7 +12556,7 @@
        Searching and logging an outside food is never gated. Looking one up is
        how you decide to go and buy it. */
     var qPrefs =
-      row('Should Nourish only suggest storehouse food?',
+      row('Should Nourish only suggest your staples?',
         seg('mtext', pr.extFill ? '1' : '0', [['0', 'Yes'], ['1', 'No']]));
 
     /* How much protein, as three words rather than a number to type. It sits
@@ -14785,7 +14835,7 @@
       return { title: title, src: want, items: items };
     };
     return {
-      groups: [bySrc(canBuy() ? 'To buy' : 'Needs a store', 'b'), bySrc('Storehouse order', 's'), bySrc('In your kitchen', 'h')]
+      groups: [bySrc(canBuy() ? 'To buy' : 'Needs a store', 'b'), bySrc(srcW().list, 's'), bySrc('In your kitchen', 'h')]
         .filter(function (g) { return g.items.length; }),
       recipeCount: entries.length
     };
@@ -14813,7 +14863,7 @@
       if (g.src === 'b') nBuy = g.items.length;
     });
     $('listCount').innerHTML = total
-      ? '<b>' + total + '</b> items' + (nSh ? ' \u00b7 <b>' + nSh + '</b> from the storehouse' : '') +
+      ? '<b>' + total + '</b> items' + (nSh ? ' \u00b7 <b>' + nSh + '</b> from ' + srcW().the : '') +
         (nBuy ? ' \u00b7 <b>' + nBuy + '</b> to buy' + (usd >= 0.5 ? ', ~' + pwMoney(usd) : '') : '')
       : '';
     $('listEmpty').classList.toggle('hide', total !== 0);
@@ -14832,12 +14882,12 @@
     $('listBody').innerHTML = built.groups.map(function (g) {
       return '<div class="list-group where-' + g.src + '">' +
         '<div class="list-group-title">' + esc(g.title) + '</div>' +
-        (g.src === 's' ? '<button class="copy-order no-print" data-copyorder="1">Copy the order</button>' : '') +
+        (g.src === 's' ? '<button class="copy-order no-print" data-copyorder="1">' + srcW().copy + '</button>' : '') +
         '<div class="list-items">' + g.items.map(function (it) {
           var on = window.Store.isChecked(it.key), food = !!(window.PANTRY || {})[it.key];
           var store = window.Store.opt('store', true);
           var seg = food ? '<span class="src-seg no-print" role="group" aria-label="Where ' + esc(it.label) + ' comes from">' +
-            [['h', 'Have'], ['s', 'Storehouse'], ['b', 'Buy']].filter(function (o) { return o[0] !== 's' || store; }).map(function (o) {
+            [['h', 'Have'], ['s', srcW().name], ['b', 'Buy']].filter(function (o) { return o[0] !== 's' || store; }).map(function (o) {
               return '<button class="src-' + o[0] + '" data-src="' + esc(it.key) + '" data-v="' + o[0] + '" aria-pressed="' + (it.src === o[0]) + '">' + o[1] + '</button>';
             }).join('') + '</span>' : '';
           return '<div class="list-line' + (it.src === 'h' ? ' have' : '') + '"><label class="list-row' + (on ? ' done' : '') + '">' +
@@ -16560,7 +16610,7 @@
    */
   var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
     'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid',
-    'data-src', 'data-where', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
+    'data-src', 'data-srcpick', 'data-weekbuy', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
     'data-cal', 'data-calweek', 'data-calagain', 'data-calfrom', 'data-caltpl',
     'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwswap', 'data-pwopen', 'data-pwadd',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
@@ -16842,7 +16892,9 @@
           var m = missingFor(r);
           if (!m.length) return '';
           return '<div class="sheet-extras">' +
-            (window.Store.pantryChanged() ? 'Not on your shelf: ' : 'Needs items not on the standard storehouse list: ') +
+            (window.Store.pantryChanged() || srcKind() === 'own' ? 'Not on your shelf: '
+              : srcKind() === 'sh' ? 'Needs items not on the standard storehouse list: '
+                : 'Needs things ' + srcW().the + ' doesn\u2019t carry: ') +
             esc(m.join(', ')) + '.</div>';
         })() +
         '<div class="sheet-actions"><div class="sheet-actions-in">' +
@@ -17051,7 +17103,7 @@
           '<textarea class="txt ed-ta" id="edSteps" rows="7" placeholder="Warm the milk to blood heat.&#10;Stir in the yeast and leave ten minutes.">' +
           esc((b.steps || []).join('\n')) + '</textarea></label>' +
 
-        row('Needs beyond the storehouse', 'edExtras', b.extras, 'Nothing, or: Buttermilk, Nutmeg') +
+        row('Needs beyond the staples', 'edExtras', b.extras, 'Nothing, or: Buttermilk, Nutmeg') +
 
         '<details class="ed-more"' + (S.editMacros ? ' open' : '') + '><summary>Set the calories yourself</summary>' +
           '<div class="ed-hint">Only if you have real numbers. Leave these empty and they come from the ' +
@@ -17540,6 +17592,7 @@
      keeping its own copy of the list and going stale the moment one is added. */
   window.__secShort = SEC_SHORT;
   window.__secNote = SEC_NOTE;
+  window.__bookBlurbs = { 1: BOOKS[1].blurb, 2: BOOKS[2].blurb, all: ONE_BOOK.blurb };
   window.__syncWords = SYNC_WORD;
   window.__syncTips = SYNC_TIP;
 
@@ -17654,7 +17707,7 @@
   function renderPantry() {
     var items = kitItems(), n = items.filter(function (i) { return i.on; }).length;
     if ($('kitNote')) $('kitNote').innerHTML = '<b class="kit-n">' + n + '</b> on hand \u00b7 tap one to change it' +
-      (planMode() === 'both' ? ' \u00b7 a dashed edge is one the storehouse doesn\u2019t carry' : '');
+      (planMode() === 'both' ? ' \u00b7 a dashed edge is one ' + srcW().the + ' doesn\u2019t carry' : '');
     if ($('kitchenBody')) $('kitchenBody').innerHTML = kitGroupsHTML();
   }
   /* Step 1, when the storehouse is in it: what yours carries, as the same
@@ -17669,10 +17722,11 @@
   }
   function carryHTML() {
     var n = carryItems().filter(function (i) { return i.on; }).length;
-    return '<div class="step-sec"><h2 class="step-h2">What your storehouse carries</h2>' +
+    var W = srcW();
+    return '<div class="step-sec"><h2 class="step-h2">What ' + W.your + ' carries</h2>' +
       '<p class="step-sub"><b id="carryN">' + n + '</b> carried \u00b7 tap one off if yours has stopped stocking it' +
-        (window.Store.pantryChanged() ? ' \u00b7 <button class="nut-ask" id="pantryReset">back to the book\u2019s list</button>' : '') + '</p>' +
-      '<input class="pw-find" id="carryFind" type="search" placeholder="Find a food\u2026" autocomplete="off" aria-label="Find a food the storehouse carries" value="' + esc(S.carryQ || '') + '">' +
+        (window.Store.pantryChanged() ? ' \u00b7 <button class="nut-ask" id="pantryReset">' + W.back + '</button>' : '') + '</p>' +
+      '<input class="pw-find" id="carryFind" type="search" placeholder="Find a food\u2026" autocomplete="off" aria-label="Find a food ' + W.the + ' carries" value="' + esc(S.carryQ || '') + '">' +
       '<div id="carryGroups">' + carryGroupsHTML() + '</div></div>';
   }
 
@@ -17838,7 +17892,7 @@
       var nw = e.target.closest('[data-kitnew]');
       if (nw) { window.Store.addPantryItem(nw.dataset.kitnew, 'Yours'); S.kitQ = ''; var kf = $('kitFind'); if (kf) kf.value = ''; return; }
       if (e.target.closest('#pantryReset')) {
-        ask({ title: 'Back to the storehouse list?',
+        ask({ title: srcW().reset,
           body: 'Everything you took off comes back. Foods you added yourself stay.',
           ok: 'Reset', danger: true }, function (ok) { if (ok) window.Store.resetPantry(); });
       }

@@ -34,11 +34,11 @@ module.exports = {
 
     await p.click('.setup-card [data-stepgo="where"]');
     await p.waitForTimeout(250);
-    await p.click('[data-where="sh"]');
+    await p.click('[data-weekbuy="0"]');
     await p.waitForTimeout(250);
     const where = await p.evaluate(() => ({ mode: window.__flow.mode(), near: !!document.querySelector('[data-near]'),
       lit: document.querySelector('.tab[aria-selected="true"]').dataset.view }));
-    t.ok('Storehouse only is remembered, offers the one-or-two allowance, and Plan stays the lit tab',
+    t.ok('Only what I have (the storehouse and my shelf) is remembered, offers the one-or-two allowance, and Plan stays the lit tab',
       where.mode === 'sh' && where.near && where.lit === 'plan', JSON.stringify(where));
 
     /* Storehouse only: every suggestion can be made without a store. */

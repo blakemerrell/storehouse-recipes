@@ -7148,6 +7148,7 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .step-head .cal-top { margin: 4px 0 0; }
 .step-sec { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
 .step-h2 { font-family: var(--serif); font-size: 19px; margin: 0 0 2px; }
+.step-h2.wh-week { margin: 18px 0 8px; }
 .step-sec .pw-find { margin: 6px 0 4px; }
 .step-sub .nut-ask { min-height: 0; padding: 0; font-size: inherit; }
 .kit-pill.kit-new:not(#u#u)::after { border-style: dashed; border-color: var(--ochre); }
