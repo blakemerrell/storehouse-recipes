@@ -75,11 +75,26 @@ function playwright() {
 (async () => {
   const args = process.argv.slice(2);
   const headed = args.includes('--headed');
+  /* The sync* suites talk to the real Firebase project and leave records in
+     it when their cleanup is refused. They used to run whenever any word was
+     given that matched one, so asking for "the sync-ish local suites" by
+     name reached the live project. Now only with --live, said out loud. */
+  const live = args.includes('--live');
   const want = args.filter((a) => !a.startsWith('--'));
 
-  const files = fs.readdirSync(__dirname)
-    .filter((f) => f.endsWith('.test.js'))
-    .filter((f) => !/^sync/.test(f) || want.length)   // the live-network ones
+  const all = fs.readdirSync(__dirname).filter((f) => f.endsWith('.test.js'));
+  const runnable = all.filter((f) => !/^sync/.test(f) || live);
+  /* Every word asked for has to name a file that runs. A word that matched
+     nothing used to be dropped in silence, so a renamed suite fell out of
+     a gate like "offline upgrade" while the gate went on passing. */
+  const unmatched = want.filter((w) => !runnable.some((f) => f.indexOf(w) >= 0));
+  if (unmatched.length) {
+    unmatched.forEach((w) => console.error(all.some((f) => /^sync/.test(f) && f.indexOf(w) >= 0)
+      ? '"' + w + '" is a live suite: it talks to the real Firebase project and runs only with --live'
+      : 'no test file matches "' + w + '"'));
+    process.exit(2);
+  }
+  const files = runnable
     .filter((f) => !want.length || want.some((w) => f.indexOf(w) >= 0))
     .sort();
 
@@ -198,6 +213,12 @@ function playwright() {
       fail++;
       failures.push(suite.name + ' — threw');
       results.push({ name: 'the suite ran to the end', cond: false, detail: String(e.message).split('\n')[0] });
+    }
+    /* A suite that asked nothing passed nothing either. */
+    if (!results.length) {
+      fail++;
+      failures.push(suite.name + ' — checked nothing');
+      results.push({ name: 'the suite checked something', cond: false, detail: 'it ran without a single t.ok' });
     }
     results.forEach((r) => {
       process.stdout.write('  ' + (r.cond ? '✓' : '✗') + ' ' + r.name +

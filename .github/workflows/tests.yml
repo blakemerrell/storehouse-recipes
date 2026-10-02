@@ -51,6 +51,12 @@ jobs:
       - run: npm ci
       - name: Every script parses
         run: for f in src/*.js sw.js tools/*.js tests/*.js; do node --check "$f" || exit 1; done
+      # An edit to tools/walmart.js, prices.js or food-db.js pushed without
+      # `npm run build` used to ship last week's prices and pack sizes, with
+      # every check green. The data is rebuilt here and has to come out the
+      # same as what is committed.
+      - name: The committed data is what the tools build
+        run: node tools/build-data.js > /dev/null && git diff --exit-code --stat -- data AUDIT.md
       - name: Build the site
         run: node tools/build-site.js
       - run: npx playwright install --with-deps chromium

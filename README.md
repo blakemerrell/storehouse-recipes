@@ -353,16 +353,18 @@ either way.
 
 The app is static files, and GitHub Pages hosts it for free. What Pages serves
 is not the repository itself but `_site/`, which `.github/workflows/deploy.yml`
-builds from it on every push to `main`, tests, and publishes.
+builds from `main` once the full test suite has passed on it, and publishes.
 
 **One setting, once, before the first deploy:**
 
 1. On GitHub: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
    There is nothing else to fill in; the workflow in this repository does the rest.
 2. Push to `main` (or merge the pull request that brings `deploy.yml` in). The
-   **deploy** workflow builds, runs the offline and updating tests against what
-   it built, and publishes. It takes two or three minutes; the Actions tab shows
-   it, and the Pages settings page links to the run that last deployed.
+   **tests** workflow runs the whole suite (about fifteen minutes); when it
+   passes, the **deploy** workflow builds that same commit, runs the offline and
+   updating tests against what it built, and publishes, a few minutes more. A
+   push whose tests fail is not published. The Actions tab shows both, and the
+   Pages settings page links to the run that last deployed.
 3. Your link is the same as before: `https://<your-username>.github.io/<repo-name>/`.
 
 Switching the source does not take the site down: whatever was last published
@@ -569,7 +571,7 @@ is measured by exactly the same code as a printed one. Do not edit either genera
 node tests/run.js            # everything that needs no network
 node tests/run.js weeks      # just one file
 node tests/run.js --headed   # watch it happen
-node tests/run.js sync       # two phones against the live Firestore project
+node tests/run.js sync --live  # two phones against the live Firestore project
 npm run test:site            # build _site/ and run everything against it, as CI does
 ```
 

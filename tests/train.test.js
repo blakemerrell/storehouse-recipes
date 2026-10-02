@@ -2233,7 +2233,7 @@ module.exports = {
     await p.fill('#trT0-live', early);
     await p.click('[data-t="livetimeset"]');
     r = await p.evaluate((v) => ({ st: window.Train._.dtVal(window.Train._.state().LIVE.st), clock: (document.getElementById('trElapsed') || {}).textContent }), early);
-    t.ok('the start can be moved back to when you really began', r.st === early && /^4[45]:/.test(r.clock), JSON.stringify(r));
+    t.ok('the start can be moved back to when you really began', r.st === early && /^4[4-6]:/.test(r.clock), JSON.stringify(r));
     await p.click('[data-t="times"]');
     await p.fill('#trT0-live', await p.evaluate(() => window.Train._.dtVal(Date.now() + 3 * 3600e3)));
     await p.click('[data-t="livetimeset"]');
@@ -2246,7 +2246,9 @@ module.exports = {
     await p.click('[data-t="tick"][data-x="0"][data-s="0"]');
     await p.click('[data-t="finish"]');
     await p.click('[data-t="fintimes"]');
-    const end = await p.evaluate(() => window.Train._.dtVal(Date.now() - 10 * 60e3));
+    /* 35 minutes after the start typed above, counted from it rather than
+       from now: a minute turning over between the two used to make it 36. */
+    const end = await p.evaluate((e) => window.Train._.dtVal(window.Train._.dtParse(e) + 35 * 60e3), early);
     await p.fill('#trT1-fin', end);
     await p.click('[data-t="fintimeset"]');
     r = await p.evaluate(() => (document.querySelector('.tr-when') || {}).textContent || '');

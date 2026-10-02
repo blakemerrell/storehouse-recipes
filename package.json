@@ -8,7 +8,7 @@
     "check": "node tools/check-recipes.js --all",
     "test": "node tests/run.js",
     "test:site": "node tools/build-site.js && SITE=_site node tests/run.js",
-    "test:sync": "node tests/run.js sync",
+    "test:sync": "node tests/run.js sync --live",
     "print": "node tools/print-books.js",
     "handout": "node tools/print-handout.js",
     "art": "node tools/prep-art.js",

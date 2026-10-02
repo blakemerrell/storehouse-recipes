@@ -44,9 +44,20 @@ module.exports = {
       const doc = await PDFDocument.load(fs.readFileSync(full));
       const size = doc.getPage(0).getSize();
 
-      t.ok(file + ' matches what the app renders today',
-        doc.getPageCount() === live,
-        doc.getPageCount() + ' in the file, ' + live + ' rendered — run npm run print');
+      /* The books are set by CI's Chromium on Linux, and that is the count
+         that has to match. A Mac sets the same type tighter, a few pages
+         fewer in each book, so there the count is reported, not compared:
+         regenerating the books on a Mac to make this pass is the one way to
+         get them wrong. */
+      if (process.platform === 'linux') {
+        t.ok(file + ' matches what the app renders today',
+          doc.getPageCount() === live,
+          doc.getPageCount() + ' in the file, ' + live + ' rendered — run npm run print');
+      } else {
+        t.ok(file + ' has its pages (the count is compared on Linux, where the books are set)',
+          doc.getPageCount() > 0 && live > 0,
+          doc.getPageCount() + ' in the file, ' + live + ' rendered here');
+      }
       t.ok(file + ' is half-letter, so it needs no dialog',
         Math.abs(size.width / 72 - 5.5) < 0.02 && Math.abs(size.height / 72 - 8.5) < 0.02,
         (size.width / 72).toFixed(2) + ' x ' + (size.height / 72).toFixed(2) + ' in');
