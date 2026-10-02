@@ -155,8 +155,10 @@ module.exports = {
        still in flight when the server switches builds is merged with the
        test's own ask by the browser, and both answer for the OLD build: the
        new one is never seen, and the test waits out its timer on a phone
-       that did nothing wrong. So before each switch: the page loaded, and
-       any ask it made answered. */
+       that did nothing wrong. So before the switch that follows a reload:
+       the page loaded, and any ask it made answered. Only there — settling
+       asks again, and anywhere the server is already on another build than
+       the phone, that ask would install it. */
     const settle = async () => {
       // the page may be reloading itself onto the build it just took
       for (let i = 0; i < 40; i++) {
@@ -224,7 +226,6 @@ module.exports = {
        * arrive. The install has to fail rather than half-succeed, and the
        * phone has to be left exactly as it was — worker, cache and all — or
        * the next open with no signal is a blank page. */
-      await settle();
       srv.root = C.out; srv.fail = /^\/src\/app\.js/; srv.log = [];
       st = await p.evaluate(update);
       s = await see();
@@ -241,7 +242,6 @@ module.exports = {
        * while after a deploy one request can get the new sw.js and the next
        * the old index.html. Cached together they are a page asking for
        * scripts no cache holds. */
-      await settle();
       srv.root = D.out; srv.from = { '/index.html': B.out }; srv.log = [];
       st = await p.evaluate(update);
       s = await see();
@@ -263,7 +263,6 @@ module.exports = {
 
       /* ---- new pictures ---------------------------------------------- */
       await p.evaluate(() => { window.__editing = true; });
-      await settle();
       srv.root = E.out; srv.log = [];
       st = await p.evaluate(update);
       s = await see();
