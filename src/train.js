@@ -10669,6 +10669,36 @@
       S.sub = 'block'; if (LIVE) S.minim = 1;
       try { localStorage.setItem(LS_SUB, 'block'); } catch (e) { /* private mode */ }
     },
+    /* What the Today screen shows of Strengthen (src/today.js): the block's
+       next session, said in a few numbers, or that there is no block, or a
+       workout already going. Read only; Start comes back through startToday,
+       which is the Start on the block's own card. */
+    today: function () {
+      var ms = active(), out = { live: !!LIVE, block: ms ? ms.n || 'Your block' : '' };
+      var tk = dayKey(new Date());
+      var did = ix().list.filter(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === tk; });
+      if (did.length) { out.doneToday = true; out.doneName = did[did.length - 1].n || ''; }
+      if (!ms) return out;
+      var nx = nextSlot(ms);
+      if (!nx) { out.finished = true; return out; }
+      out.week = wkName(ms, nx.w);
+      if (isEz(ms, nx.d)) { out.easy = true; return out; }
+      var p = plan(ms, nx.w, nx.d), day = ms.days[nx.d];
+      out.name = p.n || dayName(day);
+      out.mins = day && day.s && day.s.length ? Math.round(estDay(day.cc ? day : { s: day.s }) / 5) * 5 : 0;
+      out.lifts = (p.x || []).map(function (x) {
+        var sets = typeof x.sets === 'number' ? x.sets : Array.isArray(x.sets) ? x.sets.length : 0;
+        var reps = x.tr || (x.rr ? x.rr[0] + '\u2013' + x.rr[1] : '');
+        return { name: lib(x.e).n, say: (sets ? sets + ' \u00d7 ' : '') + reps + (x.tw > 0 ? ' \u00b7 ' + fmtN(x.tw) + ' ' + T.pr.u : '') };
+      });
+      return out;
+    },
+    startToday: function () {
+      var ms = active(), nx = ms && nextSlot(ms);
+      if (!ms || !nx || LIVE || isEz(ms, nx.d)) return false;
+      startPlanned(ms, nx.w, nx.d);
+      return true;
+    },
     /* The name of the block's next session, for "Upper B today". */
     nextName: function () {
       var ms = active(), nx = ms && nextSlot(ms);

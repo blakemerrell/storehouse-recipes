@@ -1481,9 +1481,10 @@ module.exports = {
         noBookTab: !t.querySelector('.tab[data-view="book"]'),
       };
     });
-    t.ok('the tabs are Recipes and Plan (with List and Pantry as its steps), then Nourish and Strengthen', r.labels === 'Recipes|Plan|Nourish|Strengthen', r.labels);
+    t.ok('the tabs are Today, Recipes and Plan (with List and Pantry as its steps), then Nourish and Strengthen', r.labels === 'Today|Recipes|Plan|Nourish|Strengthen', r.labels);
     t.ok('with a rule before yours, and every one on a 360px screen', r.sepBefore && r.off === 0, JSON.stringify(r));
     t.ok('and the book is no longer a tab', r.noBookTab);
+    await p.click('.tab[data-view="browse"]');   // the book's button is on Recipes; the app opens on Today
     await p.click('#bookBtn');
     await p.waitForTimeout(300);
     r = await p.evaluate(() => ({ book: !document.getElementById('view-book').classList.contains('hide'),

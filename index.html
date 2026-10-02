@@ -97,7 +97,10 @@
            Browse names the verb; the other four name the thing you get —
            Plan, List, Pantry, Book. This one was the odd one out. The
            data-view is untouched because it is a key, not a word. -->
-      <button class="tab" role="tab" id="tab-browse" aria-controls="view-browse view-book" data-view="browse" aria-selected="true">Recipes</button>
+      <!-- Today, first: the one screen a day is run from, drawn by src/today.js
+           out of what Plan, Nourish, Strengthen and the list already hold. -->
+      <button class="tab" role="tab" id="tab-today" aria-controls="view-today" data-view="today" aria-selected="true">Today</button>
+      <button class="tab" role="tab" id="tab-browse" aria-controls="view-browse view-book" data-view="browse" aria-selected="false" tabindex="-1">Recipes</button>
       <button class="tab" role="tab" id="tab-plan" aria-controls="view-plan view-where view-list view-pantry" data-view="plan" aria-selected="false" tabindex="-1"><span class="t-long">Meal Plan</span><span class="t-short">Plan</span></button>
       <button class="tab" role="tab" id="tab-list" aria-controls="view-list" data-view="list" aria-selected="false" tabindex="-1"><span class="t-long">Shopping List</span><span class="t-short">List</span></button>
       <button class="tab" role="tab" id="tab-pantry" aria-controls="view-pantry" data-view="pantry" aria-selected="false" tabindex="-1">Pantry</button>
@@ -151,6 +154,10 @@
      the div it replaced — so a screen reader's list of headings and its
      "jump to main" both land where a sighted reader's eye does. -->
 <main id="main">
+<!-- -------------------------------------------------------------- today -->
+<section id="view-today" class="hide" role="tabpanel" aria-labelledby="tab-today">
+  <div class="view" id="todayRoot"></div>
+</section>
 <!-- ------------------------------------------------------------- browse -->
 <section id="view-browse" role="tabpanel" aria-labelledby="tab-browse">
   <!-- The one search box, pinned under the header from the first pixel.
@@ -493,6 +500,8 @@
 <script src="src/sync.js?v=0"></script>
 <!-- before app.js, which calls into it while it boots -->
 <script src="src/train.js?v=0"></script>
+<!-- before app.js, which draws it once the page is up -->
+<script src="src/today.js?v=0"></script>
 <script src="src/app.js?v=0"></script>
 <script>
 /* Keeps the app openable with no signal. Needs a real server, so it is skipped

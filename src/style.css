@@ -7183,3 +7183,56 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .tr-bnote { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 4px; min-height: 96px; resize: vertical; font: inherit; }
 .tr-hbacts { margin-top: 14px; }
 .tr-hbagain-say { margin: 6px 0 0; }
+
+/* -------------------------------------------------------------- today
+   The one screen a day is run from (src/today.js): cards for tonight, the
+   day's eating, the next workout, the list and the week, each a door into
+   its tab. Its buttons are the standard parts above; only the cards, the
+   bars and the week strip are its own. */
+#todayRoot { max-width: 640px; }
+.td-top { margin-bottom: 14px; }
+.td-h { margin: 2px 0 0; }
+.td-cards { display: flex; flex-direction: column; gap: 14px; }
+.td-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 16px;
+  display: flex; flex-direction: column; gap: 10px; }
+.td-head { display: flex; align-items: center; gap: 9px; }
+.td-badge { width: 30px; height: 30px; border-radius: 50%; background: var(--hint); color: var(--ochre-text);
+  display: grid; place-items: center; flex: none; }
+.td-ic { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.td-label { margin: 0; font-family: var(--sans); font-size: 0.78125rem; letter-spacing: 0.12em; text-transform: uppercase;
+  font-weight: 700; color: var(--ochre-text); }
+.td-meta { margin-left: auto; font-size: 0.84375rem; color: var(--muted); }
+.td-title { margin: 0; font-family: var(--serif); font-size: 1.375rem; line-height: 1.2; font-weight: 600; color: var(--ink); text-wrap: balance; }
+.td-note { margin: 0; font-size: 0.9375rem; line-height: 1.5; color: var(--muted); }
+.td-note b { color: var(--ink); font-weight: 600; }
+.td-facts { margin: 0; font-size: 0.875rem; color: var(--label); }
+.td-next, .td-small { margin: 0; font-size: 0.84375rem; color: var(--muted); }
+.td-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.td-big { margin: 0; font-size: 0.9375rem; color: var(--muted); }
+.td-big b { font-family: var(--serif); font-size: 2.25rem; line-height: 1; font-weight: 600; color: var(--ink);
+  font-variant-numeric: tabular-nums; margin-right: 4px; }
+.td-bar { display: flex; flex-direction: column; gap: 5px; }
+.td-bar-t { display: flex; justify-content: space-between; gap: 10px; font-size: 0.875rem; }
+.td-bar-t span:first-child { font-weight: 600; }
+.td-bar-t span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.td-meter { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
+.td-meter i { display: block; height: 100%; border-radius: 4px; }
+.td-kcal i { background: var(--bar-kcal); }
+.td-p i { background: var(--bar-p); }
+.td-lifts { list-style: none; margin: 0; padding: 0; }
+.td-lifts li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 0.9375rem; }
+.td-lifts li span:last-child { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.td-sic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.td-wm { width: 100%; box-sizing: border-box; }
+.td-week { display: grid; grid-template-columns: 52px repeat(7, minmax(0, 1fr)); row-gap: 6px; align-items: center; }
+.td-wd { display: grid; place-items: center; font-size: 0.75rem; font-weight: 700; color: var(--label); line-height: 1.25; text-align: center; }
+.td-wd b { display: block; font-weight: 500; color: var(--muted); }
+.td-wd.today { color: var(--ochre-text); }
+.td-wl { font-size: 0.8125rem; font-weight: 600; color: var(--label); }
+.td-wc { display: grid; place-items: center; height: 24px; }
+.td-mk { width: 12px; height: 12px; border-radius: 50%; box-sizing: border-box; }
+.td-done { background: var(--green); }
+.td-now { border: 2.5px solid var(--ochre); }
+.td-plan { border: 1.5px solid var(--line-firm); }
+.td-rest { width: 10px; height: 2px; border-radius: 1px; background: var(--line-firm); }
+.td-none { display: none; }

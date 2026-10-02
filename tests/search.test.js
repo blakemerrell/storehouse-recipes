@@ -17,6 +17,8 @@ module.exports = {
     await p.evaluate(() => localStorage.clear());
     await p.reload();
     await p.waitForTimeout(700);
+    await p.click('.tab[data-view="browse"]');   // the app opens on Today; searching is Recipes'
+    await p.waitForTimeout(200);
 
     /* ---- the section picker ------------------------------------------- */
     const groups = await p.evaluate(() =>

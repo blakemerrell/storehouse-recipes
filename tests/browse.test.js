@@ -4,6 +4,8 @@ module.exports = {
   name: 'Browse',
   async run(t) {
     const p = await t.fresh();
+    await p.click('.tab[data-view="browse"]');   // the app opens on Today; these are Recipes' tests
+    await p.waitForTimeout(200);
 
     const n = await p.evaluate(() => document.querySelectorAll('.card').length);
     /* However many there are, not a number written down here. It has been
@@ -451,6 +453,8 @@ module.exports = {
        line has 242px next to the leaf \u2014 so check the widest of all 266 there,
        not just whichever recipe happens to be first. */
     const phone = await t.fresh({ viewport: { width: 376, height: 860 } });
+    await phone.click('.tab[data-view="browse"]');
+    await phone.waitForTimeout(200);
 
     /* The section divider pins under the header, on the width where it did
      * not.
@@ -536,6 +540,8 @@ module.exports = {
      * bar has scrolled out of reach and unfolds the real bar in place. */
     {
       const sp = await t.fresh({ viewport: { width: 390, height: 780 } });
+      await sp.click('.tab[data-view="browse"]');
+      await sp.waitForTimeout(200);
       const on = () => sp.evaluate(() => document.getElementById('view-browse').classList.contains('stripped'));
       const filt = () => sp.evaluate(() => { const b = document.getElementById('filtBtn'); return !!b && b.offsetParent !== null; });
       t.ok('there is exactly one search box on Recipes',

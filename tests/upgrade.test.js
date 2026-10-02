@@ -65,6 +65,9 @@ function look() {
       out.held[k] = (await (await caches.open(k)).keys()).map((r) => new URL(r.url).pathname + new URL(r.url).search);
     }
     out.tag = window.__BUILD_TAG || null;
+    // the app opens on Today; the recipes are all there the moment Recipes is
+    const rec = document.querySelector('.tab[data-view="browse"]');
+    if (rec) rec.click();
     out.cards = document.querySelectorAll('.card').length;
     return out;
   })();

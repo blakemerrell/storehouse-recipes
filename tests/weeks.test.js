@@ -248,7 +248,7 @@ module.exports = {
     t.ok('every tab is on the screen without scrolling for it',
       tabs.offscreen.length === 0, 'off the edge: ' + tabs.offscreen.join(', '));
     t.ok('under a short name each, on a phone',
-      tabs.labels.join('|') === 'Recipes|Plan|Nourish|Strengthen', tabs.labels.join(' '));
+      tabs.labels.join('|') === 'Today|Recipes|Plan|Nourish|Strengthen', tabs.labels.join(' '));
     t.ok('with the sync button up on the brand line, out of their way', tabs.syncAbove);
 
     /* It used to say "Local", which is a state and not an invitation, and
@@ -311,7 +311,7 @@ module.exports = {
     t.ok('and the full names return on a wider screen',
       // Nourish and Strengthen have no short forms — the book left the row
       // to make room for them
-      wide.join('|') === 'Recipes|Meal Plan|Nourish|Strengthen', wide.join(' '));
+      wide.join('|') === 'Today|Recipes|Meal Plan|Nourish|Strengthen', wide.join(' '));
 
     /* ---- text somebody typed is text, not markup -------------------------
      *
@@ -412,10 +412,10 @@ module.exports = {
 
     /* ---- the back gesture, on every sheet there is ---- */
     for (const [what, open] of [
-      ['a recipe', async (q) => { await q.evaluate(() =>
+      ['a recipe', async (q) => { await q.click('.tab[data-view="browse"]'); await q.evaluate(() =>
         document.querySelector('.card[data-open]').click()); await q.waitForTimeout(350); }],
       ['the Share sheet', async (q) => { await q.click('#syncBtn'); await q.waitForTimeout(350); }],
-      ['the editor', async (q) => { await q.click('#newRecipe'); await q.waitForTimeout(450); }],
+      ['the editor', async (q) => { await q.click('.tab[data-view="browse"]'); await q.click('#newRecipe'); await q.waitForTimeout(450); }],
       ['a confirm dialog', async (q) => {
         await q.click('.tab[data-view="plan"]').then(() => q.click('.pstep[data-view="where"]')); await q.waitForTimeout(350);
         await q.evaluate(() => window.Store.setPantry('cottage_cheese', false));

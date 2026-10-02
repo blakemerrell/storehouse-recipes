@@ -27,9 +27,9 @@ module.exports = {
       banner: !!document.querySelector('.setup-card'),
       tabs: [...document.querySelectorAll('.tabs .tab')].filter((b) => b.offsetParent).map((b) => b.dataset.view),
     }));
-    t.ok('Plan opens on its meals, under a bar of four steps, with List and Pantry no longer tabs of their own',
+    t.ok('Plan opens on its meals, under a bar of four steps, with List and Pantry no longer tabs of their own, and Today first',
       s0.steps.join('|') === '1 Where|2 On hand|3 Meals|4 Shop' && s0.cur && s0.cur.view === 'plan' &&
-        s0.tabs.join() === 'browse,plan,macros,train', JSON.stringify(s0));
+        s0.tabs.join() === 'today,browse,plan,macros,train', JSON.stringify(s0));
     t.ok('and, not set up yet, it says to start with step 1', s0.banner);
 
     await p.click('.setup-card [data-stepgo="where"]');

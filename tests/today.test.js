@@ -1,0 +1,172 @@
+/* Today: the one screen a day is run from.
+ *
+ * Blake, on who it is for: "a heavy user who loves to track food and eat
+ * clean and workout... and a busy mom wanting to eat well, and get a simple
+ * workout in... and anyone in between." It shows what Plan, Nourish,
+ * Strengthen and the list already hold, ordered by the clock, and every
+ * button is a door into the full tab. Expectations are read off the app's
+ * own data (window.Hive.today(), window.Train.today()), never typed in. */
+const MORNING = new Date(2026, 9, 1, 9, 0, 0);     // a Thursday
+const EVENING = new Date(2026, 9, 1, 16, 10, 0);
+
+async function at(t, when, setup) {
+  const p = await t.fresh({ viewport: { width: 390, height: 844 } });
+  await p.clock.setFixedTime(when);
+  await p.reload();
+  await p.waitForTimeout(700);
+  if (setup) {
+    await p.evaluate(setup);
+    await p.reload();
+    await p.waitForTimeout(800);
+  }
+  return p;
+}
+const look = (p) => p.evaluate(() => ({
+  view: (document.querySelector('.tab[aria-selected="true"]') || {}).dataset.view,
+  first: (document.querySelector('.tab') || {}).dataset.view,
+  h: (document.querySelector('#todayRoot h1') || {}).textContent,
+  date: (document.querySelector('#todayRoot .step-k') || {}).textContent,
+  cards: [...document.querySelectorAll('#todayRoot .td-card')].map((c) => c.dataset.card),
+  primary: [...document.querySelectorAll('#todayRoot .btn-primary')].map((b) => b.closest('.td-card').dataset.card),
+  titles: [...document.querySelectorAll('#todayRoot .td-title')].map((x) => x.textContent),
+}));
+
+module.exports = {
+  name: 'Today',
+  async run(t) {
+    /* ---- a phone that has never been here ---- */
+    let p = await at(t, MORNING);
+    const errs = [];
+    p.on('pageerror', (e) => errs.push(e.message));
+    let s = await look(p);
+    t.ok('a new phone opens on Today, the first tab', s.view === 'today' && s.first === 'today' && s.h === 'Today', JSON.stringify(s));
+    t.ok('dated in words: Thursday · October 1', s.date === 'Thursday · October 1', s.date);
+    t.ok('in the morning: eating, then the workout, then dinners', s.cards.join() === 'eating,workout,tonight', JSON.stringify(s.cards));
+    t.ok('one main button, on the first card', s.primary.join() === 'eating', JSON.stringify(s.primary));
+    t.ok('nothing set up says what to set up, with no empty week strip',
+      s.titles.join('|') === 'Set your numbers|Find your program|Plan this week’s dinners' && !s.cards.includes('week'), JSON.stringify(s.titles));
+
+    // the doors
+    await p.click('#todayRoot [data-td="planweek"]');
+    await p.waitForTimeout(300);
+    let d = await p.evaluate(() => ({ view: document.querySelector('.tab[aria-selected="true"]').dataset.view, pw: !!document.querySelector('[data-pwq]') }));
+    t.ok('Plan my week opens Plan with Plan my week up', d.view === 'plan' && d.pw, JSON.stringify(d));
+    await p.click('.sheet-x');
+    await p.waitForTimeout(250);
+    await p.click('.tab[data-view="today"]');
+    await p.click('#todayRoot [data-td="train"]');
+    await p.waitForTimeout(250);
+    d = await p.evaluate(() => document.querySelector('.tab[aria-selected="true"]').dataset.view);
+    t.ok('Find my program opens Strengthen', d === 'train', d);
+    await p.click('.tab[data-view="today"]');
+    await p.click('#todayRoot [data-td="numbers"]');
+    await p.waitForTimeout(300);
+    d = await p.evaluate(() => document.querySelector('.tab[aria-selected="true"]').dataset.view);
+    t.ok('Set my numbers opens Nourish', d === 'macros', d);
+    await p.context().close();
+
+    /* ---- the evening, with dinners planned ---- */
+    p = await at(t, EVENING, () => {
+      localStorage.setItem('sh.view', 'today'); localStorage.setItem('sh.viewAt', String(Date.now()));
+      const S = window.Store, din = window.RECIPES.filter((r) => /^(Salsa Chicken & Bean Bowls|Taco Pasta Skillet)$/.test(r.name))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      S.setOpt('setup', true);
+      S.addToDay(din[0].id, 'thu', 2); S.addToDay(din[0].id, 'fri', 1, true); S.addToDay(din[1].id, 'sat', 1);
+    });
+    p.on('pageerror', (e) => errs.push(e.message));
+    s = await look(p);
+    const H = await p.evaluate(() => { const h = window.Hive.today(); return { tonight: h.tonight, next: h.next, shop: h.shop }; });
+    t.ok('from mid-afternoon, tonight’s dinner comes first and holds the main button',
+      s.cards[0] === 'tonight' && s.primary.join() === 'tonight' && s.titles[0] === H.tonight.name, JSON.stringify(s));
+    const tn = await p.evaluate(() => ({
+      facts: (document.querySelector('[data-card="tonight"] .td-facts') || {}).textContent || '',
+      next: (document.querySelector('[data-card="tonight"] .td-next') || {}).textContent || '',
+    }));
+    t.ok('it says it is cooked double, and what the next nights are, leftovers included',
+      /cooked ×2/.test(tn.facts) && tn.next === H.next.map((n) => n.day + ': ' + n.name).join(' · ') && /Friday: leftovers/.test(tn.next), JSON.stringify(tn));
+    const shopTxt = await p.evaluate(() => (document.querySelector('[data-card="shop"]') || {}).textContent || '');
+    t.ok('the list, in a line: what is left to buy and what comes from the storehouse',
+      H.shop.items > 0 && (H.shop.src ? shopTxt.indexOf(H.shop.src + ' from the storehouse') >= 0 : true), shopTxt);
+    t.ok('the week strip shows the dinners planned', await p.evaluate(() => document.querySelectorAll('[data-card="week"] .td-now, [data-card="week"] .td-plan').length >= 3));
+    // Cook it opens the recipe
+    await p.click('[data-card="tonight"] [data-td="open"]');
+    await p.waitForTimeout(400);
+    const sheet = await p.evaluate(() => ((document.querySelector('.sheet .sheet-name, .sheet h2') || {}).textContent || ''));
+    t.ok('Cook it opens the recipe', sheet.indexOf(H.tonight.name) >= 0, sheet);
+    await p.click('.sheet-x');
+    await p.waitForTimeout(300);
+    // swap: a different dinner, still cooked double, its leftovers night with it
+    await p.click('[data-card="tonight"] [data-td="swap"]');
+    await p.waitForTimeout(300);
+    const sw = await p.evaluate(() => ({ thu: window.Store.day('thu'), fri: window.Store.day('fri'), title: document.querySelector('[data-card="tonight"] .td-title').textContent }));
+    t.ok('↻ swaps tonight by Plan’s rules: a new dinner, cooked double, and tomorrow’s leftovers follow it',
+      sw.thu.length === 1 && String(sw.thu[0].id) !== String(H.tonight.id) && sw.thu[0].x === 2 &&
+      sw.fri.length === 1 && sw.fri[0].id === sw.thu[0].id && sw.fri[0].lo, JSON.stringify(sw));
+    // buying it all: the Walmart cart is on Today too
+    await p.evaluate(() => window.Store.setOpt('store', false));
+    await p.waitForTimeout(300);
+    const wm = await p.evaluate(() => { const a = document.querySelector('[data-card="shop"] a.wm-btn'); return a ? { href: a.href, txt: a.textContent } : null; });
+    t.ok('buying everything, the Walmart cart button is on Today, filled', !!wm && /walmart\.com\/sc\/cart\/addToCart\?items=/.test(wm.href) && /to Walmart cart/.test(wm.txt), JSON.stringify(wm));
+    await p.context().close();
+
+    /* ---- the morning, with a plan to eat to and a block to train ---- */
+    p = await at(t, MORNING, () => {
+      localStorage.setItem('sh.view', 'today'); localStorage.setItem('sh.viewAt', String(Date.now()));
+      const p2 = (n) => (n < 10 ? '0' : '') + n, d0 = new Date(), k = d0.getFullYear() + '-' + p2(d0.getMonth() + 1) + '-' + p2(d0.getDate());
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5, inch: 11, lb: 190, act: 1.55, goal: 'cut1' }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 70, c: 230 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { b: [{ id: 1, x: 1, eaten: 1 }] } }));
+      const _ = window.Train._, ms = _.build({ goal: 'grow', dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'b'; ms.n = 'Fall block'; ms.at = Date.now() - 3 * 864e5;
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 1, 3, 4] }, act: 'b', ms: { b: ms }, cx: {}, ax: {}, wo: {} }));
+    });
+    p.on('pageerror', (e) => errs.push(e.message));
+    const E = await p.evaluate(() => ({ e: window.Hive.today().eating, w: window.Train.today() }));
+    const eat = await p.evaluate(() => ({
+      big: (document.querySelector('[data-card="eating"] .td-big b') || {}).textContent,
+      meta: (document.querySelector('[data-card="eating"] .td-meta') || {}).textContent || '',
+      bars: [...document.querySelectorAll('[data-card="eating"] .td-bar-t span:last-child')].map((x) => x.textContent),
+    }));
+    const fmt = (n) => Math.round(n).toLocaleString('en-US');
+    t.ok('eating says what is left today, from the day’s own target',
+      eat.big === fmt(E.e.kcal.want - E.e.kcal.have) && eat.bars[0] === fmt(E.e.kcal.have) + ' of ' + fmt(E.e.kcal.want) &&
+      eat.bars[1] === fmt(E.e.p.have) + ' of ' + fmt(E.e.p.want) + ' g', JSON.stringify(eat));
+    t.ok('and says when it is a lifting day', (eat.meta === 'Lifting day') === !!E.e.training, eat.meta + ' / ' + E.e.training);
+    const wk = await p.evaluate(() => ({
+      title: (document.querySelector('[data-card="workout"] .td-title') || {}).textContent,
+      lifts: document.querySelectorAll('[data-card="workout"] .td-lifts li:not(.td-more)').length,
+      meta: (document.querySelector('[data-card="workout"] .td-meta') || {}).textContent,
+    }));
+    t.ok('the workout is the block’s next session, by name, with its lifts', wk.title === E.w.name && wk.lifts === Math.min(5, E.w.lifts.length) && wk.meta === E.w.week, JSON.stringify(wk));
+    await p.click('[data-card="workout"] [data-td="start"]');
+    await p.waitForTimeout(400);
+    const st = await p.evaluate(() => ({ view: document.querySelector('.tab[aria-selected="true"]').dataset.view, live: !!window.Train._.state().LIVE }));
+    t.ok('Start starts that session, in Strengthen', st.view === 'train' && st.live, JSON.stringify(st));
+    // a workout is full screen; made small, the tabs are back
+    if (await p.$('#trTop:not(.hide) [data-t="minim"]')) await p.click('#trTop [data-t="minim"]');
+    await p.click('.tab[data-view="today"]');
+    await p.waitForTimeout(250);
+    t.ok('and Today then says a workout is going', (await p.evaluate(() => document.querySelector('[data-card="workout"] .td-title').textContent)) === 'A workout is going');
+    await p.context().close();
+
+    /* ---- where the app opens: where you were, unless you have been away an hour ----
+       Seeded before the app's own script runs, as a phone's storage would be
+       on a cold start: a reload of a page that is up counts as now. */
+    for (const [ago, want, say] of [[10 * 60e3, 'macros', 'back within the hour, it opens where you were'],
+      [2 * 3600e3, 'today', 'away for two hours, it opens on Today']]) {
+      const ctx = await t.browser.newContext({ viewport: { width: 390, height: 844 } });
+      await ctx.addInitScript((ms) => {
+        try { localStorage.setItem('sh.view', 'macros'); localStorage.setItem('sh.viewAt', String(Date.now() - ms)); } catch (e) { /* none */ }
+      }, ago);
+      const q = await ctx.newPage();
+      q.on('pageerror', (e) => errs.push(e.message));
+      await q.goto(t.base + 'index.html');
+      await q.waitForTimeout(800);
+      const v = await q.evaluate(() => document.querySelector('.tab[aria-selected="true"]').dataset.view);
+      t.ok(say, v === want, v);
+      await ctx.close();
+    }
+
+    t.ok('no page errors', errs.length === 0, errs.join(' | '));
+  },
+};

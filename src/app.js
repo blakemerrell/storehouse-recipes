@@ -679,11 +679,17 @@
        somebody tracking their day back onto the recipe grid read as the app
        forgetting them; device-local like sh.units, because which tab you
        live on is yours, not the household's. */
+    /* ...but only for a while. Opened again after an hour away, the app
+       starts on Today, the screen a day is run from; a refresh, or a
+       return within the hour, is still where you were (sh.viewAt, written
+       whenever the page is put away). A phone that has never been here
+       starts on Today too. */
     view: (function () {
       try {
-        var v = localStorage.getItem('sh.view');
-        return ['browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book'].indexOf(v) >= 0 ? v : 'browse';
-      } catch (e) { return 'browse'; }
+        var v = localStorage.getItem('sh.view'), at = Number(localStorage.getItem('sh.viewAt')) || 0;
+        var ok = ['today', 'browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book'].indexOf(v) >= 0;
+        return ok && Date.now() - at < 3600e3 ? v : 'today';
+      } catch (e) { return 'today'; }
     })(),
     bookF: 'all', secF: 'all', diffF: 'all', pantryF: 'all',
     favOnly: false, qy: '', sort: 'book', openId: null, scale: 1, printSet: 'all',
@@ -16608,7 +16614,7 @@
    * it that control rather than another one: the tick for milk is
    * [data-check="milk"] before the render and after it.
    */
-  var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why',
+  var FOCUS_ATTRS = ['data-check', 'data-add', 'data-day', 'data-fav', 'data-why', 'data-td',
     'data-pwq', 'data-pwgo', 'data-pwing', 'data-pwingx', 'data-wmid',
     'data-src', 'data-srcpick', 'data-weekbuy', 'data-near', 'data-low', 'data-kitmore', 'data-kitpill', 'data-copyorder', 'data-stepgo',
     'data-cal', 'data-calweek', 'data-calagain', 'data-calfrom', 'data-caltpl',
@@ -17732,7 +17738,7 @@
 
   // ------------------------------------------------------------------ views
   function renderView() {
-    ['browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book', 'where'].forEach(function (v) {
+    ['today', 'browse', 'plan', 'macros', 'train', 'list', 'pantry', 'book', 'where'].forEach(function (v) {
       $('view-' + v).classList.toggle('hide', S.view !== v);
     });
     /* The book has no tab of its own any more; it opens from Recipes, so
@@ -17752,6 +17758,7 @@
       // one stop in the Tab order for the whole row: the lit tab
       b.tabIndex = b.dataset.view === lit ? 0 : -1;
     });
+    if (S.view === 'today' && window.Today) window.Today.render();
     if (S.view === 'browse') renderBrowse();
     if (S.view === 'plan') renderPlan();
     if (S.view === 'macros') renderMacros();
@@ -17838,7 +17845,7 @@
     document.querySelectorAll('.tab').forEach(function (b) {
       b.addEventListener('click', function () {
         S.view = b.dataset.view;
-        try { localStorage.setItem('sh.view', S.view); } catch (e) { /* private mode */ }
+        try { localStorage.setItem('sh.view', S.view); viewSeen(); } catch (e) { /* private mode */ }
         renderView();
       });
     });
@@ -20099,7 +20106,77 @@
      trained today" tick on My Day, which a finished workout presses for
      you. Narrow on purpose: Train keeps its own data and draws its own
      screen; it only needs the things there must be one of. */
+  /* When the view on screen was last on screen: written as the page is put
+     away, which is what a refresh or leaving the app does, and on a change
+     of tab. See S.view. */
+  function viewSeen() {
+    try { localStorage.setItem('sh.viewAt', String(Date.now())); } catch (e) { /* private mode */ }
+  }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) viewSeen(); });
+  window.addEventListener('pagehide', viewSeen);
+  function goView(v) {
+    if (PLAN_STEPS.some(function (p) { return p[0] === v; }) && v !== 'plan') { goStep(v); viewSeen(); return; }
+    S.view = v;
+    try { localStorage.setItem('sh.view', v); } catch (e) { /* private mode */ }
+    viewSeen();
+    renderView();
+    window.scrollTo(0, 0);
+  }
+
+  /* What Today shows of Plan, Nourish and the list: read here, where those
+     live, and handed over as plain values. src/today.js draws them; its
+     buttons come back through the doors below. */
+  function todayData() {
+    var now = new Date(), tk = todayKey(), dk = CAL_DAYS[now.getDay()][0];
+    var dinnerOf = function (key) {
+      return window.Store.day(key).filter(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); })[0] || null;
+    };
+    var t = dinnerOf(dk), r = t && BY_ID[t.id];
+    var next = CAL_DAYS.slice(now.getDay() + 1).map(function (d) {
+      var e = dinnerOf(d[0]);
+      return e ? { day: d[1], name: e.lo ? 'leftovers' : BY_ID[e.id].name } : null;
+    }).filter(Boolean).slice(0, 2);
+    var T = mReadTargets(), set = kcalOf(T) > 0, want = set ? mDayTargets(tk) : null, tot = mTotals(mDay(tk));
+    var built = buildList(planEntries()), buy = [], items = 0, nSrc = 0;
+    built.groups.forEach(function (g) {
+      items += g.items.length;
+      if (g.src === 'b') buy = g.items;
+      if (g.src === 's') nSrc = g.items.length;
+    });
+    var left = buy.filter(function (b) { return !window.Store.isChecked(b.key); });
+    var wl = canBuy() && left.length ? wmLines(left) : null;
+    return {
+      date: now,
+      tonight: t ? { id: String(t.id), day: dk, name: r.name, time: r.time || '', x: t.x, lo: !!t.lo, twin: !!planTwin(t.id, dk) } : null,
+      next: next,
+      planned: CAL_DAYS.some(function (d) { return !!dinnerOf(d[0]); }),
+      eating: set ? {
+        set: true, target: kcalOf(T), training: mIsTrainingDay(tk),
+        kcal: { have: tot.eaten.kcal, want: kcalOf(want) }, p: { have: tot.eaten.p, want: want.p },
+        room: tot.all.kcal < kcalOf(want) * 0.9
+      } : { set: false },
+      shop: { items: items, buy: left.length, usd: listUsd(built), src: nSrc, srcName: srcW().the,
+        wm: wl && wl.cart.length ? { href: wmCartURL(wl.cart), n: wl.cart.length } : null },
+      wmMark: WM_MARK,
+      week: CAL_DAYS.map(function (d, i) {
+        var dt = calDate(d[0]);
+        return { key: d[0], dow: i, letter: d[2].charAt(0), date: dt ? dt.getDate() : '', tk: dt ? dayKey(dt) : '',
+          dinner: !!dinnerOf(d[0]), past: calPastDay(d[0]), today: calIsToday(d[0]) };
+      })
+    };
+  }
+
   window.Hive = {
+    /* Today's reading of the app, and its doors back into it. */
+    today: todayData,
+    go: goView,
+    open: function (id) { rememberOpener(); openRecipe(idOf(id)); },
+    swap: function (id, day) { planSwap(idOf(id), day); },
+    planWeek: function () { goView('plan'); pwOpen(); },
+    addTonight: function () { goView('plan'); rememberOpener(); addOpen(CAL_DAYS[new Date().getDay()][0]); },
+    addFood: function () { goView('macros'); var b = $('macroAdd'); if (b) b.click(); },
+    fill: function () { goView('macros'); var b = $('macroFill'); if (b && b.dataset.mode === 'fill' && !b.disabled) b.click(); },
+    numbers: function () { goView('macros'); var b = $('macroFill'); if (b && b.classList.contains('to-plan') && !b.disabled) b.click(); },
     ask: ask,
     openSheet: function () { pushSheet({ tr: 1 }); },
     closeSheet: function () { close(); },
