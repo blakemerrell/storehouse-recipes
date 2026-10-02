@@ -704,7 +704,7 @@
       try { return localStorage.getItem('sh.units') === 'grams' ? 'grams' : 'cups'; }
       catch (e) { return 'cups'; }
     })(),
-    syncOpen: false, pendingCode: '', joinDraft: '', why: false,
+    syncOpen: false, pendingCode: '', joinDraft: '', why: false, dinerDraft: null, dinerMsg: '',
     /* The Macros tab. macroDate null means "today, worked out at render time",
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
@@ -1401,13 +1401,13 @@
     };
     var meta = e.lo ? 'Leftovers \u00b7 nothing to cook or buy' :
       [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : 'the recipe as written', twin ? 'leftovers ' + calDayName(twin) : ''].filter(Boolean).join(' \u00b7 ');
-    var a = pwAnswers();
+    var a = pwAnswers(), plans = pwPlans();
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet dsh-sheet" role="dialog" aria-modal="true" aria-label="' + esc(calDayName(key)) + '\u2019s dinner">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(calDayName(key)) + (dt ? ' \u00b7 ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') + '</div>' +
           '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button></div>' +
         '<div class="dsh-body"><h2 class="dsh-h">' + esc(r.name) + '</h2><p class="dsh-m">' + esc(meta) + '</p>' +
-        (din && !e.lo ? pwPlateHTML(r, a.fit) : '') +
+        (din && !e.lo ? pwPlateHTML(r, pwFitNorm(a.fit, plans), plans) : '') +
         ((gone || now) && !e.lo ? '<div class="dsh-rate"><div class="dsh-rl">How was it?</div>' + rateHTML(e.id, window.Store.rating(e.id)) + '</div>' : '') +
         '<div class="dsh-rows">' +
         row('open', 'Open the recipe', '') +
@@ -1610,8 +1610,7 @@
       t: [20, 30, 45, 0].indexOf(a.t) >= 0 ? a.t : 45,
       prot: list(a.prot, function (x) { return PW_PROT.indexOf(x) >= 0; }),
       kind: list(a.kind, function (x) { return PW_KIND.some(function (k) { return k[0] === x; }); }),
-      // 1 hits the plan, 2 high protein; answers saved as true or false were the first
-      fit: a.fit === true || a.fit === 1 ? 1 : a.fit === 2 ? 2 : 0,
+      fit: pwFitNorm(a.fit, pwPlans()),
       avoid: list(a.avoid, function (x) { return PW_AVOID[x]; }),
       ing: list(a.ing, function (x) { return typeof x === 'string' && !!(window.PANTRY || {})[x]; }),
       rec: [0, 2, 4].indexOf(a.rec) >= 0 ? a.rec : 0,
@@ -1677,13 +1676,49 @@
     if (!kc) return { kc: 600, p: 35 };
     return { kc: Math.round(kc / 3 / 25) * 25, p: Math.round(t.p / 3 / 5) * 5 };
   }
+  /* Whose plans a dinner can be held to. Blake: "Fits my Nourish plan is
+     applicable to me right now, but what if my wife has a different plan?"
+     So: this phone's own, first, and then everybody in the household who
+     shares a dinner's numbers from Sync & sharing (Store.diners), by name.
+   *
+     Mine always comes from this phone's own targets, never back from the
+     household, so my own entry there is left out of the others. "Mine" is
+     the account signed in, or, signed out, the account whose day is on this
+     device (mOwner) — the targets here are that person's. With neither,
+     everybody sharing is somebody else. */
+  function pwPlans() {
+    var mine = pwFitCaps(), me = (mAccount() || {}).uid || mOwner();
+    var d = window.Store.diners ? window.Store.diners() : {};
+    var others = Object.keys(d).filter(function (uid) { return uid !== me; }).map(function (uid) {
+      return { k: 'u:' + uid, n: d[uid].n, kc: d[uid].kc, p: d[uid].p };
+    }).sort(function (x, y) { return x.n < y.n ? -1 : x.n > y.n ? 1 : x.k < y.k ? -1 : 1; });
+    return [{ k: 1, n: '', kc: mine.kc, p: mine.p }].concat(others);
+  }
+  /* An answer, as the plans stand now: 1 hits mine, 'u:' and an account
+     hits that person's, 3 everybody's, 2 high protein. Saved as true or
+     false, it was the first. Somebody who has stopped sharing is Don't mind
+     again, and everybody's with nobody else sharing is simply mine. */
+  function pwFitNorm(v, plans) {
+    if (v === true || v === 1) return 1;
+    if (v === 2) return 2;
+    if (v === 3) return plans.length > 1 ? 3 : 1;
+    if (typeof v === 'string' && plans.some(function (pl) { return pl.k === v; })) return v;
+    return 0;
+  }
+  /* The share an answer holds a dinner to. Everybody's is the strictest of
+     them, the most protein for the calories: a dinner that meets it meets
+     every other plan's too. */
+  function pwCapFor(mode, plans) {
+    if (mode === 3) return plans.reduce(function (b, pl) { return pl.p / pl.kc > b.p / b.kc ? pl : b; });
+    return plans.filter(function (pl) { return pl.k === mode; })[0] || plans[0];
+  }
   /* Whether a dinner meets that share, judged on protein for its calories,
      because a plate can be more or less than one serving. Held to a single
      serving, a 210 g day let nothing in: the best dinner in the books is 69 g
      a serving, and Blake "toggled on that selector and nothing was
-     presented". 1, Hits it: a plate within the dinner's calories reaches its
-     protein. 2, High protein: at least 40% of the calories are protein, and
-     Fill my day tops up the rest. */
+     presented". A plan's answer (mine, theirs, everybody's): a plate within
+     the dinner's calories reaches its protein. 2, High protein: at least 40%
+     of the calories are protein, and Fill my day tops up the rest. */
   var PW_HIGH_P = 0.40;
   function pwFits(r, mode, cap) {
     if (!mode) return true;
@@ -1726,7 +1761,7 @@
   /* weekend lifts the weeknight time limit; skip leaves one question out,
      so a chip can say how many dinners it would let in. */
   function pwPool(a, weekend, skip) {
-    var fit = skip === 'fit' ? 0 : a.fit, cap = fit ? pwFitCaps() : null, recent = pwRecent(a.rec);
+    var fit = skip === 'fit' ? 0 : a.fit, cap = fit ? pwCapFor(fit, pwPlans()) : null, recent = pwRecent(a.rec);
     return RECIPES.filter(function (r) {
       if (!pwIsDinner(r)) return false;
       if (!weekend && a.t && pwMins(r) > a.t) return false;
@@ -1862,12 +1897,26 @@
     return { n: pwPool(a, !wk).length, need: nights.length - Object.keys(pwLoNights(a, nights)).length };
   }
   function pwStep1(a) {
-    var cnt = pwCount(a), fit = pwFitCaps();
+    var cnt = pwCount(a), plans = pwPlans(), fit = plans[0], others = plans.slice(1);
     var byProt = {}, byKind = {};
     pwPool(a, false, 'prot').forEach(function (r) { var k = pwProt(r); byProt[k] = (byProt[k] || 0) + 1; });
     pwPool(a, false, 'kind').forEach(function (r) { var k = pwKind(r); byKind[k] = (byKind[k] || 0) + 1; });
-    var byFit = [0, 0, 0];
-    pwPool(a, false, 'fit').forEach(function (r) { byFit[0]++; if (pwFits(r, 1, fit)) byFit[1]++; if (pwFits(r, 2, fit)) byFit[2]++; });
+    /* One chip a plan, everybody's once somebody else shares, then High
+       protein; each with how many dinners it lets in. */
+    var modes = [1].concat(others.map(function (o) { return o.k; }), others.length ? [3] : [], [2]);
+    var byFit = {}, caps = {};
+    modes.forEach(function (m) { byFit[m] = 0; caps[m] = pwCapFor(m, plans); });
+    pwPool(a, false, 'fit').forEach(function (r) {
+      modes.forEach(function (m) { if (pwFits(r, m, caps[m])) byFit[m]++; });
+    });
+    var fitChips = [[0, 'Don’t mind'], [1, 'Hits my plan', byFit[1]]].concat(
+      others.map(function (o) { return [o.k, 'Hits ' + esc(o.n) + '’s plan', byFit[o.k]]; }),
+      others.length ? [[3, others.length > 1 ? 'Hits everyone’s' : 'Hits both', byFit[3]]] : [],
+      [[2, 'High protein', byFit[2]]]);
+    // whose shares they are, said small; mine alone needs no name
+    var shares = others.length ? plans.map(function (pl, i) {
+      return (i ? esc(pl.n) : 'You') + ' ' + pl.kc + ' cal · ' + pl.p + ' g';
+    }).join(' · ') : fit.kc + ' cal · ' + fit.p + ' g protein a dinner';
     var low = cnt.n < cnt.need * 2, none = cnt.n < cnt.need || !cnt.need;
     return '<h2 class="pw-h">What kind of week?</h2>' +
       '<div class="pw-q"><div class="pw-ql">Which nights</div>' +
@@ -1882,8 +1931,8 @@
         pwChips('kind', PW_KIND.map(function (k) { return [k[0], k[2], byKind[k[0]] || 0]; }), a.kind) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Time on a weeknight <small>Sat and Sun can take longer</small></div>' +
         pwChips('t', [[20, '20 min'], [30, '30 min'], [45, '45 min'], [0, 'Anything']], a.t) + '</div>' +
-      '<div class="pw-q"><div class="pw-ql">Fits my Nourish plan <small>' + fit.kc + ' cal · ' + fit.p + ' g protein a dinner</small></div>' +
-        pwChips('fit', [[0, 'Don’t mind'], [1, 'Hits ' + fit.p + ' g protein', byFit[1]], [2, 'High protein', byFit[2]]], a.fit) + '</div>' +
+      '<div class="pw-q"><div class="pw-ql">Fits my Nourish plan <small>' + shares + '</small></div>' +
+        pwChips('fit', fitChips, a.fit) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Leave out</div>' +
         pwChips('avoid', Object.keys(PW_AVOID).map(function (k) { return [k, k]; }), a.avoid, 'pw-x') +
         (a.ing.length ? '<div class="pw-chips pw-ings">' + a.ing.map(function (k) {
@@ -1903,10 +1952,19 @@
         '</span></div><button class="pw-go" data-pwpick="1"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>' +
       '<p class="pw-note">They go straight onto your week. Swap any you don’t like there.</p>';
   }
-  // with a Nourish answer, each dinner says the plate that meets it
-  function pwPlateHTML(r, mode) {
-    var pl = mode ? pwPlate(r, pwFitCaps()) : null;
-    return pl ? '<div class="pw-mm pw-plate">Your plate: ' + pl.x + (pl.x === 1 ? ' serving' : ' servings') + ' · ' + pl.kc + ' cal · ' + pl.p + ' g protein</div>' : '';
+  /* With a Nourish answer, each dinner says the plate that meets it, for
+     whoever the answer is about: mine for mine, theirs for theirs, and
+     everybody's for everybody's. High protein is about nobody in
+     particular, so it shows mine, or everybody's once anybody else shares. */
+  function pwPlateHTML(r, mode, plans) {
+    if (!mode) return '';
+    var show = mode === 3 || (mode === 2 && plans.length > 1) ? plans
+      : plans.filter(function (pl) { return pl.k === (mode === 2 ? 1 : mode); });
+    return show.map(function (pl) {
+      var x = pwPlate(r, pl);
+      return x ? '<div class="pw-mm pw-plate">' + (pl.k === 1 ? 'Your' : esc(pl.n) + '’s') + ' plate: ' + x.x +
+        (x.x === 1 ? ' serving' : ' servings') + ' · ' + x.kc + ' cal · ' + x.p + ' g protein</div>' : '';
+    }).join('');
   }
   /* One page: the answers, and one button. The dinners it picks land on
      the week itself, where every one of them can be opened, swapped or taken
@@ -1914,7 +1972,10 @@
      The old second and third pages (the picks, their list) were that second
      engine. */
   function pwHTML() {
-    var body = pwStep1(S.pw.a);
+    var a = S.pw.a, plans = pwPlans();
+    // somebody may have stopped sharing since the sheet opened
+    a.fit = pwFitNorm(a.fit, plans);
+    var body = pwStep1(a);
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet pw-sheet" role="dialog" aria-modal="true" aria-label="Plan my week">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">Plan my week</div>' +
@@ -1924,6 +1985,7 @@
   /* For the tests: the rules without the sheet, so a picker with chance in it
      can be run forty times and held to what it promises every time. */
   window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids, prot: pwProt, kind: pwKind, fit: pwFitCaps, fits: pwFits, plate: pwPlate, answers: pwAnswers,
+    plans: pwPlans, capFor: pwCapFor,
     count: pwCount, pick: function (a) { var keep = S.pw; S.pw = { a: a, picks: [], seen: {} }; pwPick(); var out = S.pw.picks; S.pw = keep; return out; } };
   function pwOpen() {
     S.pw = { a: pwAnswers(), picks: [], seen: {} };
@@ -1940,7 +2002,8 @@
         var at = a[k].indexOf(v);
         if (at >= 0) a[k].splice(at, 1); else a[k].push(v);
         if (k === 'days') a.days.sort(function (x, y) { return PW_DAYS.indexOf(x) - PW_DAYS.indexOf(y); });
-      } else a[k] = Number(v);
+      } else if (k === 'fit' && /^u:/.test(v)) a.fit = v;      // somebody else's plan, by account
+      else a[k] = Number(v);
       pwSave(a);
       renderModal();
       return;
@@ -3263,6 +3326,7 @@
       }
       mSetOwner(uid);
       if (window.Store.enrol) window.Store.enrol();
+      dinerWatch();
       mInviteTry();
       mSyncHeard = false;
       mSyncDoc = db.collection('users').doc(uid);
@@ -3300,7 +3364,10 @@
           if (trMoved && S.view === 'macros') renderMacros();
           return;
         }
+        /* Targets from another of your devices move the dinner you share. */
+        var capWas = JSON.stringify(pwFitCaps());
         if ((mMergeRemote(data.myday) || trMoved) && S.view === 'macros') renderMacros();
+        if (JSON.stringify(pwFitCaps()) !== capWas) dinerKeep();
         if (live) mBootTargets();
         // the account's copy is in: now what is newer here can go up, all of it
         if (live && !mSyncHeard) { mSyncHeard = true; mSyncPush(true); }
@@ -3627,7 +3694,7 @@
     return true;
   }
   function mWriteTargets(t) {
-    if (mPut('bsc.macroTargets', t)) mStamp('t');   // see mWriteMyFoods
+    if (mPut('bsc.macroTargets', t)) { mStamp('t'); dinerKeep(); }   // see mWriteMyFoods
   }
 
   /* ------------------------------------------------ targets follow the scale
@@ -16725,6 +16792,9 @@
     var keepScroll = prev ? prev.scrollTop : 0;
     var draft = root.querySelector('#joinCode');
     if (draft) S.joinDraft = draft.value;
+    // and the name being typed for a dinner share; once left, it has been kept (or refused)
+    var dname = root.querySelector('#dinerName');
+    if (dname) S.dinerDraft = dname === document.activeElement ? dname.value : null;
     // same bargain for the picker's search: a sync emit must not eat the query
     /* One box. It was three — #mpFind, #mpSearch and #mpLookIn — one per
        screen, back when the picker had three. Two of those screens went in
@@ -17296,6 +17366,90 @@
     mHouseFullSaid = full;
   }
 
+  /* ---------------------------------------------------- a dinner's numbers
+   *
+     Plan my week holds a dinner to a Nourish plan, and a household can have
+     more than one in it. Blake: "what if my wife has a different plan?" She
+     makes hers on her own phone, signed in, and shares it from here.
+   *
+     Here and not in the plan's own sheet, because this is the sheet that
+     says what goes where — your day is private, the pantry is shared — and
+     this is the one thing that crosses from the first to the second. The two
+     things it needs, an account and a pantry, are set up on this same sheet,
+     so whatever is missing is one look up.
+   *
+     Only a dinner's calories and protein go, a third of the day as Plan my
+     week works it out (pwFitCaps), under a name the person chooses.
+     Remembered on this phone and for this account only: somebody else
+     signing in here shares nothing until they say so. */
+  var DINER_PREF = 'sh.diner';
+  function dinerPref() {
+    try { var v = JSON.parse(localStorage.getItem(DINER_PREF)); return v && typeof v === 'object' ? v : {}; }
+    catch (e) { return {}; }
+  }
+  function dinerPrefSave(v) { try { localStorage.setItem(DINER_PREF, JSON.stringify(v)); } catch (e) { /* private */ } }
+  function dinerOn() { var me = mAccount(), pr = dinerPref(); return !!me && pr.on === 1 && pr.u === me.uid; }
+  // the name it goes under: the one given here, or the first word of the account's
+  function dinerName() {
+    var me = mAccount(), pr = dinerPref();
+    if (!me) return '';
+    if (pr.u === me.uid && typeof pr.n === 'string' && pr.n.trim()) return pr.n.trim().slice(0, 30);
+    return String(me.name || '').trim().split(/\s+/)[0].slice(0, 30);
+  }
+  // what would go: nothing at all before there is a plan to take it from
+  function dinerEntry(n) {
+    if (!kcalOf(mReadTargets())) return null;
+    var c = pwFitCaps();
+    return { n: n, kc: Math.max(150, Math.min(3000, c.kc)), p: Math.max(0, Math.min(400, c.p)) };
+  }
+  /* The household's copy of mine, made what this phone's targets say now.
+     Written only when it differs, so it is safe to call after any change. */
+  function dinerKeep() {
+    if (!window.Store.setMyDiner || !window.Store.house || !dinerOn()) return;
+    var me = mAccount(), e = dinerEntry(dinerName());
+    if (!e || !e.n) return;
+    var had = window.Store.diners()[me.uid];
+    if (had && had.n === e.n && had.kc === e.kc && had.p === e.p) return;
+    window.Store.setMyDiner(e);
+  }
+  /* Once for each account and household as they become known: a phone
+     with the switch on that joins a pantry, or signs in to one, brings its
+     numbers with it. Not on every snapshot, or a phone with the switch on
+     would put back what the same account had taken away on another. */
+  var dinerSeen = '';
+  function dinerWatch() {
+    var me = mAccount(), key = (me ? me.uid : '') + '|' + (window.Store.house || '');
+    if (!me || key === dinerSeen || window.Store.status !== 'synced') return;
+    dinerSeen = key;
+    dinerKeep();
+  }
+  function syncDinerHTML() {
+    if (!window.Store.configured || !window.Store.setMyDiner) return '';
+    var me = mAccount(), house = window.Store.house;
+    if (!me || !house) {
+      return '<p class="sync-note sync-diner">' + (!me && !house
+        ? 'Sign in and join a pantry to share your dinner numbers with the household.'
+        : !me ? 'Sign in above to share your dinner numbers with the household.'
+          : 'Join a pantry to share your dinner numbers with the household.') + '</p>';
+    }
+    var on = dinerOn(), e = dinerEntry('');
+    if (!e && !on) {
+      return '<p class="sync-note sync-diner">Make your plan in Nourish, then share your dinner numbers from here.</p>';
+    }
+    var name = typeof S.dinerDraft === 'string' ? S.dinerDraft : dinerName();
+    return '<div class="sync-diner">' +
+      '<div class="sync-dinrow"><span id="dinerL">Share my dinner numbers with the household</span>' +
+        '<button class="kit-tog" data-sync="diner" role="switch" aria-checked="' + on + '" aria-labelledby="dinerL"></button></div>' +
+      '<div class="sync-row"><input class="txt" id="dinerName" maxlength="30" autocomplete="given-name" ' +
+        'placeholder="Your name" aria-label="The name to share them under" value="' + esc(name) + '"></div>' +
+      '<p class="sync-note">Only a dinner’s calories and protein go to the household — not your weight or what you eat.' +
+        (e ? ' Yours: ' + e.kc + ' cal · ' + e.p + ' g protein a dinner.' : '') + '</p>' +
+      (S.dinerMsg ? '<div class="sync-warn">' + esc(S.dinerMsg) + '</div>' : '') +
+      (on && window.Store.dinerRefused ? '<div class="sync-warn">The household didn’t take them. Its sharing rules ' +
+        'need publishing again: see SETUP.md, step 4.</div>' : '') +
+    '</div>';
+  }
+
   function syncHTML() {
     var st = window.Store.status;
     var configured = window.Store.configured;
@@ -17385,6 +17539,7 @@
         'with whoever you invite. Without an account or a code they stay on this device.</p>' +
         inviteLine +
         body +
+        syncDinerHTML() +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
 
@@ -19821,6 +19976,22 @@
           var v = ($('joinCode') || {}).value || '';
           if (v.trim()) { mHouseTellNext = true; window.Store.join(v); }
         }
+        /* On needs a name to go under; off takes the numbers back out of the
+           household, not just this phone's say-so. */
+        if (act === 'diner' && mAccount()) {
+          var dme = mAccount(), dnm = String(($('dinerName') || {}).value || '').trim().slice(0, 30);
+          S.dinerMsg = '';
+          if (dinerOn()) {
+            dinerPrefSave({ on: 0, u: dme.uid, n: dnm || dinerName() });
+            window.Store.setMyDiner(null);
+          } else if (!dnm) {
+            S.dinerMsg = 'Add a name to share them under.';
+          } else {
+            dinerPrefSave({ on: 1, u: dme.uid, n: dnm });
+            dinerKeep();
+          }
+          S.dinerDraft = null;
+        }
         if (act === 'restore' && window.Store.restoreRemoved) window.Store.restoreRemoved();
         if (act === 'forgetgone' && window.Store.forgetRemoved) window.Store.forgetRemoved();
         if (act === 'theme' && window.Theme) window.Theme.set(sy.dataset.v || '');
@@ -19834,6 +20005,25 @@
         }
         renderModal();
       }
+    });
+
+    /* The name, once it is typed: kept, and sent if the switch is on. An
+       empty box keeps the name it had, since a share needs one.
+     *
+       Sent a moment later rather than now. The box loses focus to whatever
+       is pressed next, and a write redraws the sheet — so sending at once
+       redrew the switch, or the ×, out from under the finger pressing it,
+       and the press went nowhere. */
+    var dinerLater = 0;
+    $('modalRoot').addEventListener('change', function (e) {
+      if (e.target.id !== 'dinerName' || !mAccount()) return;
+      var nm = String(e.target.value || '').trim().slice(0, 30), pr = dinerPref();
+      S.dinerDraft = null;
+      if (nm) {
+        dinerPrefSave({ on: dinerOn() ? 1 : 0, u: mAccount().uid, n: nm });
+        clearTimeout(dinerLater);
+        dinerLater = setTimeout(dinerKeep, 300);
+      } else if (pr.on !== 1) dinerPrefSave({ on: 0, u: mAccount().uid, n: '' });
     });
 
     // the nutrition preview follows the ingredients as they are typed
@@ -20082,6 +20272,7 @@
     }
     S.openId = null;
     S.syncOpen = false;
+    S.dinerDraft = null; S.dinerMsg = '';
     S.pwOpen = false;
     S.addOpen = false;
     S.daySheet = null;
@@ -20367,6 +20558,6 @@
   // before anything can have something to say: see mToastEls
   mToastEls();
   wire();
-  window.Store.init(function () { renderAll(); mHouseWatch(); mHouseNotices(); });
+  window.Store.init(function () { renderAll(); mHouseWatch(); mHouseNotices(); dinerWatch(); });
   renderAll();
 })();

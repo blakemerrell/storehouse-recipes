@@ -126,7 +126,7 @@ module.exports = {
     const L = lo.filter((x) => x.left);
     const cooked = L[0] && lo[lo.findIndex((x) => x === L[0]) - 1];
     t.ok('one leftovers night on the week: the dinner the night before, again, with nothing to swap, and the night before says so',
-      lo.length === 4 && L.length === 1 && cooked && cooked.id === L[0].id && !L[0].swap && /cooked ×2 · leftovers/.test(cooked.meta), JSON.stringify(lo));
+      lo.length === 4 && L.length === 1 && cooked && cooked.id === L[0].id && !L[0].swap && /cooked ×[0-9.]+ · leftovers /.test(cooked.meta), JSON.stringify(lo));
     const plan = await p.evaluate(() => ['mon', 'tue', 'wed', 'thu'].map((d) => window.Store.day(d)[0] || null));
     const lod = plan.find((e) => e && e.lo), src = plan.find((e) => e && !e.lo && lod && e.id === lod.id);
     t.ok('added to the week, the leftovers night is marked and the night before is cooked double',

@@ -3963,6 +3963,13 @@ button.ing-make:focus-visible { outline: 2px solid var(--ochre); outline-offset:
 /* What the household lost that this phone kept: a short list and two answers. */
 .sync-gone { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
 .sync-gone-l { margin: 6px 0 0; padding-left: 20px; line-height: 1.5; }
+/* A dinner's numbers for the household: a switch, the name they go under,
+   and the one line saying what does and does not go. */
+.sync-diner { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+p.sync-diner { font-size: 0.8125rem; line-height: 1.6; color: var(--muted); }
+.sync-dinrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.875rem; color: var(--ink); }
+.sync-diner .sync-row { margin-top: 10px; }
+.sync-diner .sync-note { margin: 10px 0 0; font-size: 0.8125rem; line-height: 1.6; color: var(--muted-2); }
 .sync-row .txt { min-width: 160px; }
 .sync-status {
   font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;

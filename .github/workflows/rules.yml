@@ -1,0 +1,71 @@
+# Publishes firestore.rules to the live Firebase project, from main.
+#
+# The rules used to be pasted into the console by hand, so what was live
+# could drift from what was reviewed here, and a change could merge and sit
+# unpublished. Blake: "Can you get into firebase and publish the new rules."
+# Now a change to firestore.rules on main publishes itself, after the same
+# emulator check the pull request ran. tools/publish-rules.js does the
+# publishing, and reads the live rules back to be sure.
+#
+# ONE SECRET, ONCE: FIREBASE_RULES_KEY, the JSON key of a service account
+# that can do one thing, publish security rules (role: Firebase Rules Admin).
+# SETUP.md, "Publishing the rules from GitHub", has the clicks. Without it the
+# publish job fails, saying so, and nothing is published. Once it is set, the
+# Run workflow button on the Actions tab publishes main's rules on demand.
+name: rules
+
+on:
+  push:
+    branches: [main]
+    paths: [firestore.rules]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publish at a time, never cancelled halfway: the later one goes after.
+concurrency:
+  group: rules
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Security rules, against the Firestore emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tests/rules
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/rules/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/cache@v4
+        with:
+          path: tests/rules/.emulator
+          key: firestore-emulator-1.19.8
+      - run: npm ci
+      - run: npm test
+
+  publish:
+    name: Publish to Firebase
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      # Node only, no packages: the key never meets anything this job did not write.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Publish firestore.rules
+        env:
+          FIREBASE_RULES_KEY: ${{ secrets.FIREBASE_RULES_KEY }}
+        run: node tools/publish-rules.js
