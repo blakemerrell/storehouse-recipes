@@ -20353,6 +20353,24 @@
   /* What Today shows of Plan, Nourish and the list: read here, where those
      live, and handed over as plain values. src/today.js draws them; its
      buttons come back through the doors below. */
+  /* The day's meals for Today, in the order Nourish holds them: what is on
+     each, its calories and protein, and whether all of it has been eaten.
+     A skipped meal is left out; an empty one says so. */
+  function todayMeals(tk) {
+    var day = mDay(tk);
+    return mReadSlots().list.filter(function (sl) { return !mSkipped(tk, sl.k); }).map(function (sl) {
+      var its = (day[sl.k] || []).filter(function (it) { return BY_ID[it.id] && BY_ID[it.id].macro; });
+      var kcal = 0, p = 0, names = [];
+      its.forEach(function (it) {
+        var r = BY_ID[it.id];
+        kcal += (r.macro.kcal || 0) * it.x; p += (r.macro.p || 0) * it.x;
+        names.push(r.name);
+      });
+      return { k: sl.k, n: sl.n, kcal: kcal, p: p, empty: !its.length,
+        eaten: !!its.length && its.every(function (it) { return it.eaten; }),
+        name: names.length > 2 ? names.slice(0, 2).join(', ') + ' +' + (names.length - 2) : names.join(', ') };
+    });
+  }
   function todayData() {
     var now = new Date(), tk = todayKey(), dk = CAL_DAYS[now.getDay()][0];
     var dinnerOf = function (key) {
@@ -20381,7 +20399,7 @@
       eating: set ? {
         set: true, target: kcalOf(T), training: mIsTrainingDay(tk),
         kcal: { have: tot.eaten.kcal, want: kcalOf(want) }, p: { have: tot.eaten.p, want: want.p },
-        room: tot.all.kcal < kcalOf(want) * 0.9
+        room: tot.all.kcal < kcalOf(want) * 0.9, meals: todayMeals(tk)
       } : { set: false },
       shop: { items: items, buy: left.length, usd: listUsd(built), src: nSrc, srcName: srcW().the,
         wm: wl && wl.cart.length ? { href: wmCartURL(wl.cart), n: wl.cart.length } : null },
@@ -20426,6 +20444,12 @@
       mWriteProfile(pr);
     },
     numbersSetup: function () { goView('macros'); mOpenTargets(); },
+    /* A meal ticked on Today: everything on it eaten, as its boxes on the
+       Nourish day would be. */
+    eat: function (sk) {
+      mEditDay(todayKey(), function (day) { (day[sk] || []).forEach(function (it) { it.eaten = 1; }); });
+      if (S.view === 'today' && window.Today) window.Today.render();
+    },
     ask: ask,
     openSheet: function () { pushSheet({ tr: 1 }); },
     closeSheet: function () { close(); },

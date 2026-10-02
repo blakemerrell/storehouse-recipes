@@ -7342,3 +7342,36 @@ html.door-up, html.door-up body { overflow: hidden; }
 .dr-next:disabled { opacity: 0.45; cursor: default; }
 /* Share & settings: what Today shows */
 .kit-say { margin: 6px 0 4px; font-size: 0.8125rem; line-height: 1.45; color: var(--muted); }
+
+/* ---- Today: done at a glance, and a card is a door ------------------------
+   A tap anywhere on Eating or Workout that is not one of its own buttons
+   goes to Nourish or Strengthen; the corner says where. Done things fold:
+   meals eaten into one green line, a finished workout into one green card. */
+.td-go { cursor: pointer; }
+.td-tab { margin-left: auto; min-height: 44px; padding: 0 2px 0 10px; border: 0; background: none; font: inherit; font-size: 0.84375rem;
+  font-weight: 600; color: var(--muted); cursor: pointer; }
+.td-tab span { font-size: 1.0625rem; }
+.td-fin { background: var(--closes-bg); border-left: 5px solid var(--green); padding-top: 12px; padding-bottom: 12px; gap: 6px; }
+.td-fin .td-badge { background: var(--green); color: var(--on-fill, #fff); }
+.td-fin .td-ic { stroke-width: 2.6; }
+.td-fin .td-label { color: var(--ok-text, var(--green)); }
+.td-doneline { margin: 0; font-size: 0.96875rem; font-weight: 600; color: var(--ink); }
+.td-fold { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; min-height: 52px; padding: 10px 12px; text-align: left;
+  background: var(--closes-bg); border: 0; border-radius: 10px; font: inherit; color: var(--ink); cursor: pointer; }
+.td-fic { flex: none; width: 28px; height: 28px; box-sizing: border-box; padding: 5px; border-radius: 50%; background: var(--green); color: var(--on-fill, #fff);
+  fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+.td-fold > span { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.td-fold b { font-size: 0.96875rem; font-weight: 600; }
+.td-fold small { font-size: 0.84375rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.td-fold i { font-style: normal; font-size: 1.25rem; color: var(--muted); }
+.td-meals { display: flex; flex-direction: column; width: 100%; min-width: 0; }
+.td-meal { display: flex; align-items: center; gap: 8px; min-height: 58px; min-width: 0; border-top: 1px solid var(--line-soft); }
+.td-tick { flex: none; width: 44px; height: 44px; margin-left: -8px; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.td-tick::before { content: ''; width: 28px; height: 28px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid var(--line-firm); }
+.td-tick:hover::before { border-color: var(--green); }
+.td-mt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.td-ms { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: var(--label); }
+.td-mn { font-size: 0.96875rem; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
+.td-kc { flex: none; font-size: 0.875rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.td-lift { margin-left: 10px; font-size: 0.8125rem; font-weight: 600; color: var(--label); }
+.td-tag { font-size: 0.75rem; font-weight: 600; color: var(--ochre-text); background: var(--hint); border-radius: 99px; padding: 1px 8px; vertical-align: 1px; white-space: nowrap; }

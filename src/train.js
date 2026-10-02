@@ -10689,7 +10689,13 @@
       var ms = active(), out = { live: !!LIVE, block: ms ? ms.n || 'Your block' : '' };
       var tk = dayKey(new Date());
       var did = ix().list.filter(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === tk; });
-      if (did.length) { out.doneToday = true; out.doneName = did[did.length - 1].n || ''; }
+      if (did.length) {
+        var last = did[did.length - 1];
+        out.doneToday = true; out.doneName = last.n || '';
+        // how long it took, and the records it set: what Finish says of it
+        out.doneMins = last.en > last.st ? Math.round((last.en - last.st) / 60000) : 0;
+        try { out.doneRecs = wins(last).lines.filter(function (l) { return l.big; }).length; } catch (e) { out.doneRecs = 0; }
+      }
       if (!ms) return out;
       var nx = nextSlot(ms);
       if (!nx) { out.finished = true; return out; }

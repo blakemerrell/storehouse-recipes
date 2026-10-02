@@ -124,7 +124,7 @@ module.exports = {
     const E = await p.evaluate(() => ({ e: window.Hive.today().eating, w: window.Train.today() }));
     const eat = await p.evaluate(() => ({
       big: (document.querySelector('[data-card="eating"] .td-big b') || {}).textContent,
-      meta: (document.querySelector('[data-card="eating"] .td-meta') || {}).textContent || '',
+      meta: (document.querySelector('[data-card="eating"] .td-lift') || {}).textContent || '',
       bars: [...document.querySelectorAll('[data-card="eating"] .td-bar-t span:last-child')].map((x) => x.textContent),
     }));
     const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -135,9 +135,11 @@ module.exports = {
     const wk = await p.evaluate(() => ({
       title: (document.querySelector('[data-card="workout"] .td-title') || {}).textContent,
       lifts: document.querySelectorAll('[data-card="workout"] .td-lifts li:not(.td-more)').length,
-      meta: (document.querySelector('[data-card="workout"] .td-meta') || {}).textContent,
+      facts: (document.querySelector('[data-card="workout"] .td-facts') || {}).textContent || '',
+      tab: (document.querySelector('[data-card="workout"] .td-tab') || {}).textContent || '',
     }));
-    t.ok('the workout is the block’s next session, by name, with its lifts', wk.title === E.w.name && wk.lifts === Math.min(5, E.w.lifts.length) && wk.meta === E.w.week, JSON.stringify(wk));
+    t.ok('the workout is the block’s next session, by name, with its lifts and its week', wk.title === E.w.name && wk.lifts === Math.min(5, E.w.lifts.length) &&
+      wk.facts.indexOf(E.w.week) === 0 && /^Strengthen/.test(wk.tab), JSON.stringify(wk));
     await p.click('[data-card="workout"] [data-td="start"]');
     await p.waitForTimeout(400);
     const st = await p.evaluate(() => ({ view: document.querySelector('.tab[aria-selected="true"]').dataset.view, live: !!window.Train._.state().LIVE }));

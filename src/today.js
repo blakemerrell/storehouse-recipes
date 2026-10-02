@@ -37,13 +37,19 @@
 
   /* A card: its label as a heading (the screen reader's list of headings is
      the list of cards), a line of its own on the right, then the body. */
-  function card(key, label, body, meta) {
-    return '<section class="td-card" data-card="' + key + '" aria-labelledby="td-' + key + '">' +
-      '<div class="td-head"><span class="td-badge">' + icon(key) + '</span>' +
+  /* `go` makes the whole card a door to its tab: a tap anywhere on it that
+     is not one of its own buttons goes there, and the corner says where. */
+  var TAB = { macros: 'Nourish', train: 'Strengthen' };
+  function card(key, label, body, meta, go, done) {
+    return '<section class="td-card' + (go ? ' td-go' : '') + (done ? ' td-fin' : '') + '" data-card="' + key + '"' +
+        (go ? ' data-go="' + go + '"' : '') + ' aria-labelledby="td-' + key + '">' +
+      '<div class="td-head"><span class="td-badge">' + (done ? CHECK : icon(key)) + '</span>' +
         '<h2 class="td-label" id="td-' + key + '">' + label + '</h2>' +
-        (meta ? '<span class="td-meta">' + meta + '</span>' : '') + '</div>' +
+        (go ? '<button class="td-tab" data-td="go" data-go="' + go + '">' + TAB[go] + ' <span aria-hidden="true">\u203a</span></button>'
+          : meta ? '<span class="td-meta">' + meta + '</span>' : '') + '</div>' +
       body + '</section>';
   }
+  var CHECK = '<svg class="td-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   function title(t) { return '<h3 class="td-title">' + t + '</h3>'; }
   function note(t) { return '<p class="td-note">' + t + '</p>'; }
   function facts(list) {
@@ -91,21 +97,41 @@
       '<div class="td-meter ' + cls + '" role="meter" aria-label="' + name + '" aria-valuemin="0" aria-valuemax="' + Math.round(want) +
       '" aria-valuenow="' + Math.round(have) + '"><i style="width:' + pct + '%"></i></div></div>';
   }
+  /* A meal on Today: a circle to tick it eaten, what it is, its calories.
+     Eaten ones fold into one green line; the rest stay open. */
+  function mealRow(m, next) {
+    return '<div class="td-meal"><button class="td-tick" data-td="eat" data-k="' + esc(m.k) + '" aria-label="' + esc(m.n) + ' eaten"></button>' +
+      '<span class="td-mt"><span class="td-ms">' + esc(m.n) + '</span><span class="td-mn">' + esc(m.name) +
+        (next ? ' <span class="td-tag">next</span>' : '') + '</span></span>' +
+      '<span class="td-kc">' + fmt(m.kcal) + ' cal</span></div>';
+  }
+  function eatenLine(ms) {
+    var n = ms.map(function (m) { return m.n.toLowerCase(); }), kc = 0, p = 0;
+    ms.forEach(function (m) { kc += m.kcal; p += m.p; });
+    var say = n.length === 1 ? n[0] : n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1];
+    return '<button class="td-fold" data-td="go" data-go="macros">' + CHECK.replace('td-ic', 'td-fic') +
+      '<span><b>' + esc(say.charAt(0).toUpperCase() + say.slice(1)) + ' eaten</b><small>' + fmt(kc) + ' cal \u00b7 ' + fmt(p) + ' g protein</small></span>' +
+      '<i aria-hidden="true">\u203a</i></button>';
+  }
   function eatingCard(e, main) {
     if (!e.set) {
       return card('eating', 'Eating', title('Set your numbers') +
         note('Your height and weight, and Nourish works out a calorie and protein target for you.') +
-        acts(btn(main, 'numbers', 'Set my numbers') + quiet('addfood', 'Just log food for now')));
+        acts(btn(main, 'numbers', 'Set my numbers') + quiet('addfood', 'Just log food for now')), '', 'macros');
     }
-    var left = e.kcal.want - e.kcal.have;
-    return card('eating', 'Eating',
-      '<p class="td-big"><b>' + fmt(Math.abs(left)) + '</b> ' + (left >= 0 ? 'left today' : 'over today') + '</p>' +
-      note('<b>Your target: ' + fmt(e.target) + ' a day</b>' +
-        (e.kcal.want !== e.target ? ' (' + fmt(e.kcal.want) + ' today)' : '')) +
-      bar('Calories', e.kcal.have, e.kcal.want, '', 'td-kcal') +
-      bar('Protein', e.p.have, e.p.want, ' g', 'td-p') +
-      acts(btn(main, 'addfood', 'Add food') + (e.room ? btn(false, 'fill', 'Fill my day') : '')),
-      e.training ? 'Lifting day' : '');
+    var left = e.kcal.want - e.kcal.have, meals = e.meals || [];
+    var big = '<p class="td-big"><b>' + fmt(Math.abs(left)) + '</b> ' + (left >= 0 ? 'left today' : 'over today') +
+      (e.training ? '<span class="td-lift">Lifting day</span>' : '') + '</p>';
+    var bars = bar('Calories', e.kcal.have, e.kcal.want, '', 'td-kcal') + bar('Protein', e.p.have, e.p.want, ' g', 'td-p');
+    if (!meals.some(function (m) { return !m.empty; })) {
+      return card('eating', 'Eating', big + title('Nothing planned for today') +
+        note('Nourish can fill your day from the recipes, to your ' + fmt(e.kcal.want) + ' calories and ' + fmt(e.p.want) + ' g of protein. Or add what you eat as you go.') +
+        bars + acts(btn(main, 'fill', 'Fill my day') + btn(false, 'addfood', 'Add food')), '', 'macros');
+    }
+    var eaten = meals.filter(function (m) { return m.eaten; }), open = meals.filter(function (m) { return !m.eaten && !m.empty; });
+    return card('eating', 'Eating', big + (eaten.length ? eatenLine(eaten) : '') +
+      (open.length ? '<div class="td-meals">' + open.map(function (m, i) { return mealRow(m, i === 0); }).join('') + '</div>' : '') +
+      bars, '', 'macros');
   }
 
   // ---------------------------------------------------------------- workout
@@ -113,36 +139,36 @@
     if (!w) return '';
     if (w.live) {
       return card('workout', 'Workout', title('A workout is going') +
-        acts(btn(main, 'train', 'Back to it')));
+        acts(btn(main, 'train', 'Back to it')), '', 'train');
     }
     if (!w.block) {
       return card('workout', 'Workout', title('Find your program') +
         note('A plan for your week, at home or a gym, the time you have.') +
-        acts(btn(main, 'train', 'Find my program')));
+        acts(btn(main, 'train', 'Find my program')), '', 'train');
     }
     if (w.doneToday) {
-      return card('workout', 'Workout', title('Done for today') +
-        note(esc(w.doneName || 'Your workout') + ' is in. The next one is ' + esc(w.name || 'up next') + '.') +
-        acts(btn(main, 'train', 'See it')), esc(w.week || ''));
+      return card('workout', 'Workout done', '<p class="td-doneline">' + esc([w.doneName || 'Your workout', w.doneMins ? w.doneMins + ' min' : '',
+          w.doneRecs ? '\ud83c\udfc5 ' + (w.doneRecs === 1 ? 'a new record' : w.doneRecs + ' new records') : ''].filter(Boolean).join(' \u00b7 ')) + '</p>',
+        '', 'train', true);
     }
     if (w.finished) {
       return card('workout', 'Workout', title(esc(w.block) + ' is finished') +
         note('Every session done. Run it again, or build the next block.') +
-        acts(btn(main, 'train', 'See the block')));
+        acts(btn(main, 'train', 'See the block')), '', 'train');
     }
     if (w.easy) {
       return card('workout', 'Workout', title('An easy day') +
         note('A walk, a ride, a swim: something easy that counts.') +
-        acts(btn(main, 'train', 'Log it')), esc(w.week || ''));
+        acts(btn(main, 'train', 'Log it')), '', 'train');
     }
     var lifts = (w.lifts || []).slice(0, 5).map(function (l) {
       return '<li><span>' + esc(l.name) + '</span><span>' + esc(l.say) + '</span></li>';
     }).join('');
     var more = (w.lifts || []).length > 5 ? '<li class="td-more"><span>+' + (w.lifts.length - 5) + ' more</span></li>' : '';
     return card('workout', 'Workout', title(esc(w.name)) +
-      facts([w.mins ? 'About ' + w.mins + ' min' : '', (w.lifts || []).length + ' exercises']) +
+      facts([w.week || '', w.mins ? 'About ' + w.mins + ' min' : '', (w.lifts || []).length + ' exercises']) +
       (lifts ? '<ol class="td-lifts">' + lifts + more + '</ol>' : '') +
-      acts(btn(main, 'start', 'Start') + quiet('train', 'See the week')), esc(w.week || ''));
+      acts(btn(main, 'start', 'Start')), '', 'train');
   }
 
   // --------------------------------------------------------------- shopping
@@ -200,7 +226,9 @@
     /* The day ahead in the morning; the evening once it is afternoon. A
        workout already done steps back behind the rest. */
     var order = evening ? ['tonight', 'eating', 'workout'] : ['eating', 'workout', 'tonight'];
-    if (d.workout && d.workout.doneToday) order = order.filter(function (k) { return k !== 'workout'; }).concat('workout');
+    /* A workout already done folds to one green card at the very bottom. */
+    var doneW = d.workout && d.workout.doneToday;
+    if (doneW) order = order.filter(function (k) { return k !== 'workout'; });
     /* Only what this person asked for help with (the front door, or Share &
        settings): dinners and the shopping, eating, workouts. */
     var hp = d.help || { d: true, e: true, w: true };
@@ -216,16 +244,25 @@
       if (h) { html += h; first = false; }
     });
     d.shop.wmMark = d.wmMark || '';
-    html += (hp.d ? shopCard(d.shop) : '') + (hp.d || hp.w ? weekCard(d) : '');
+    html += (hp.d ? shopCard(d.shop) : '') + (hp.d || hp.w ? weekCard(d) : '') + (doneW && hp.w ? workoutCard(d.workout, false) : '');
     root.innerHTML = '<div class="td-top"><div class="step-k">' + DAYNAME[d.date.getDay()] + ' · ' + MONTH[d.date.getMonth()] + ' ' + d.date.getDate() + '</div>' +
       '<h1 class="step-h td-h">Today</h1></div><div class="td-cards">' + html + '</div>';
   }
 
   /* The doors. Each is the same function the full tab runs. */
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('#todayRoot [data-td]');
-    if (!b || !window.Hive) return;
+    if (!e.target.closest || !window.Hive) return;
+    var b = e.target.closest('#todayRoot [data-td]');
+    if (!b) {
+      /* Anywhere else on a card that is a door: its tab. Not on a link, and
+         not when the tap was the end of selecting text. */
+      var c = e.target.closest('#todayRoot .td-go');
+      if (c && !e.target.closest('a') && !(window.getSelection && String(window.getSelection()))) window.Hive.go(c.getAttribute('data-go'));
+      return;
+    }
     var H = window.Hive, a = b.getAttribute('data-td'), id = b.getAttribute('data-id');
+    if (a === 'go') { H.go(b.getAttribute('data-go')); return; }
+    if (a === 'eat') { H.eat(b.getAttribute('data-k')); return; }
     if (a === 'open') H.open(id);
     else if (a === 'swap') H.swap(id, b.getAttribute('data-day'));
     else if (a === 'planweek') H.planWeek();
