@@ -147,7 +147,9 @@ module.exports = {
       name: 'Zanzibar pepper soup', ing: ['pepper'], steps: ['simmer'], servings: '4 Servings', servN: 4, time: '30 mins', diff: 'Easy', macro: null, ingp: [] }));
     await e.click('.tab[data-view="plan"]');
     await e.waitForTimeout(300);
-    await e.click('[data-addday="thu"]');
+    /* Today's + Add rather than Thursday's: days gone by have none, and this
+       runs on the real clock, so on a Friday a Thursday button is not there. */
+    await e.click('#planGrid [data-addday]');
     await e.waitForTimeout(300);
     await e.fill('#adFind', 'zanzibar');
     await e.waitForTimeout(150);
