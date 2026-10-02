@@ -46,7 +46,7 @@ service cloud.firestore {
     function houseFields() {
       return ['favs', 'weeks', 'active', 'mine', 'edits', 'pantry', 'pantryNew',
         'kitchen', 'src', 'rate', 'opts', 'low', 'members', 'lastInvite',
-        'plan', 'checked', 'myday'];
+        'plan', 'checked', 'myday', 'diners'];
     }
 
     function mapOf(d, k, most) { return !(k in d) || (d[k] is map && d[k].size() <= most); }
@@ -59,6 +59,7 @@ service cloud.firestore {
         && mapOf(d, 'kitchen', 2000) && mapOf(d, 'src', 2000) && mapOf(d, 'rate', 2000)
         && mapOf(d, 'opts', 100) && mapOf(d, 'low', 2000)
         && mapOf(d, 'plan', 50) && mapOf(d, 'checked', 2000) && mapOf(d, 'myday', 50)
+        && mapOf(d, 'diners', 20)
         && (!('active' in d) || d.active is string)
         && (!('members' in d) || (d.members is list && d.members.size() <= 50))
         && (!('lastInvite' in d) || d.lastInvite is string);
@@ -82,16 +83,36 @@ service cloud.firestore {
       return after == before || after == before.union(me) || after == before.difference(me);
     }
 
+    function dinerOk(e) {
+      return e is map && e.keys().hasOnly(['n', 'kc', 'p']) && e.keys().hasAll(['n', 'kc', 'p'])
+        && e.n is string && e.n.size() >= 1 && e.n.size() <= 30
+        && e.kc is number && e.kc >= 150 && e.kc <= 3000
+        && e.p is number && e.p >= 0 && e.p <= 400;
+    }
+
+    function ownDinerOk(d) {
+      return !(request.auth.uid in d) || dinerOk(d[request.auth.uid]);
+    }
+
+    function dinersByThemselves() {
+      let after = request.resource.data.get('diners', {});
+      return after.diff(resource.data.get('diners', {})).affectedKeys().hasOnly([request.auth.uid])
+        && ownDinerOk(after);
+    }
+
     match /households/{code} {
       allow get: if request.auth != null;
       allow create: if request.auth != null
         && houseShape(request.resource.data)
         && request.resource.data.get('members', []).toSet()
-          .difference([request.auth.uid].toSet()).size() == 0;
+          .difference([request.auth.uid].toSet()).size() == 0
+        && request.resource.data.get('diners', {}).keys().hasOnly([request.auth.uid])
+        && ownDinerOk(request.resource.data.get('diners', {}));
       allow update: if request.auth != null
         && houseShape(request.resource.data)
         && keepsWhatItHas()
-        && membersByThemselves();
+        && membersByThemselves()
+        && dinersByThemselves();
       allow list, delete: if false;
     }
 
@@ -147,6 +168,13 @@ service cloud.firestore {
 > null), and delete the documents it finds. The rules above let a signed-in
 > client clear that one field, which is all the app would ever need.
 >
+> **Sharing dinner numbers?** Plan my week can hold a dinner to each
+> person's Nourish plan once they share it from *Sync & sharing*. That writes
+> one entry under `diners` in the household — a name, and a dinner's calories
+> and protein — and the rules above are what let a person write their own and
+> nobody else's. Until you publish them the household refuses it, and the
+> switch says so; nothing else about sharing changes.
+>
 > **Adding Strengthen's yearly records?** Your rules have
 > everything above except the three lines starting `match /users/{uid}/train/{year}`.
 > Paste the whole block above over what is there (it is the same as
@@ -174,7 +202,31 @@ a household, so nothing should be allowed to.
 > supposed to be live is reviewable rather than only remembered. If you would
 > rather not use the console: `firebase login` once, then
 > `firebase deploy --only firestore:rules` from the project folder does the
-> same thing.
+> same thing. Or let GitHub publish them, below.
+
+### Publishing the rules from GitHub
+
+Set up once, and every change to `firestore.rules` that reaches `main` is
+published by itself (`.github/workflows/rules.yml`), after the same emulator
+check the pull request passed. It needs a key that can do one thing: publish
+security rules.
+
+1. Open [Create service account](https://console.cloud.google.com/iam-admin/serviceaccounts/create)
+   in Google Cloud, with your Firebase project chosen at the top.
+2. **Service account name:** `rules-publisher`. **Create and continue**.
+3. **Role:** type *Firebase Rules Admin*, choose it. **Continue**, then **Done**.
+4. In the list, click `rules-publisher@…` → the **Keys** tab → **Add key** →
+   **Create new key** → **JSON** → **Create**. A `.json` file downloads.
+5. In GitHub: the repository's **Settings → Secrets and variables → Actions →
+   New repository secret**. **Name:** `FIREBASE_RULES_KEY`. **Secret:** the whole
+   contents of that `.json` file. **Add secret**.
+6. Delete the downloaded `.json` file. GitHub keeps the only copy it needs.
+
+To publish what is on `main` now: **Actions → rules → Run workflow**. The
+job's last line says `Published firestore.rules (sha256 …)` once the live rules
+read back as this file. The key can publish rules and nothing else: it cannot
+read or change the households, and it is refused for any project but the one in
+`.firebaserc`. To stop it, delete the key in Google Cloud.
 
 This says: only a signed-in app can touch the household records, and nothing else in
 the database is reachable at all.

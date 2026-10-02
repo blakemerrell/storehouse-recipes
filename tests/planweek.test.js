@@ -219,10 +219,14 @@ module.exports = {
       label: document.querySelector('[data-pwq="fit"]').closest('.pw-q').querySelector('.pw-ql').textContent,
       chips: [...document.querySelectorAll('[data-pwq="fit"]')].map((b) => b.textContent.trim() + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
       n: Number(document.querySelector('.pw-cnt b').textContent), dis: document.querySelector('.pw-bar .pw-go').disabled }));
+    /* "Hits my plan", not "Hits 70 g protein", now that a household can
+       hold more than one plan: whose it is is the thing to say. */
     t.ok('the question says the dinner’s share, and the chips say how many each lets in',
-      /550 cal · 70 g protein/.test(scr.label) && scr.chips[0] === 'Don’t mind' && /^Hits 70 g protein \d+\*$/.test(scr.chips[1]) && /^High protein \d+$/.test(scr.chips[2]),
+      /550 cal · 70 g protein/.test(scr.label) && scr.chips[0] === 'Don’t mind' && /^Hits my plan \d+\*$/.test(scr.chips[1]) && /^High protein \d+$/.test(scr.chips[2]),
       JSON.stringify(scr));
-    t.ok('Hits 70 g protein leaves dinners to pick from', scr.n > 0, JSON.stringify(scr));
+    t.ok('with nobody else sharing, there is no chip for anybody else and none for both',
+      scr.chips.length === 3 && !scr.chips.some((c) => /both|everyone|’s plan/.test(c)), JSON.stringify(scr));
+    t.ok('Hits my plan leaves dinners to pick from', scr.n > 0, JSON.stringify(scr));
     if (!scr.dis) {
       await p.click('.pw-bar .pw-go');
       await p.waitForTimeout(300);
@@ -231,7 +235,100 @@ module.exports = {
       t.ok('each dinner says the plate that meets the plan',
         plates.length > 0 && plates.every((x) => /^Your plate: \d+(\.\d)? servings? · \d+ cal · \d+ g protein$/.test(x.plate)), JSON.stringify(plates));
     } else t.ok('there were enough dinners to pick', false, JSON.stringify(scr));
-    await p.evaluate(() => { localStorage.removeItem('bsc.macroTargets'); localStorage.removeItem('sh.pw'); });
+
+    /* Blake: "Fits my Nourish plan is applicable to me right now, but what
+       if my wife has a different plan?" She shares a dinner's numbers with
+       the household (household.test.js has that half), and every phone in
+       it gets a chip for her plan and one for both. Seeded here as sync
+       leaves the household's copy on a phone, bsc.diners — with Blake's own
+       entry in it too, as his phone would see it, which is not a second plan
+       beside the one his own targets make. */
+    const share = { sarah1: { n: 'Sarah', kc: 400, p: 40 }, blake1: { n: 'Blake', kc: 900, p: 20 } };
+    const openSheet = async (pw) => {
+      await p.evaluate(([d, a]) => {
+        localStorage.setItem('bsc.diners', JSON.stringify(d));
+        localStorage.setItem('bsc.myOwner', 'blake1');
+        localStorage.setItem('sh.pw', JSON.stringify(a));
+      }, [share, pw]);
+      await p.reload();
+      await p.waitForTimeout(400);
+      if (!await p.$('#planMyWeek:visible')) { await p.click('.tab[data-view="plan"]'); await p.waitForTimeout(300); }
+      await p.click('#planMyWeek');
+      await p.waitForTimeout(300);
+    };
+    const fitQ = () => p.evaluate(() => {
+      const W = window.__pw, mine = W.fit(), d = window.Store.diners(), s = d.sarah1;
+      // what the chips count from: every other answer as it is, Nourish left out
+      const pool = W.pool(Object.assign({}, W.answers(), { fit: 0 }), false);
+      const meets = (r, c) => r.macro && r.macro.kcal > 0 && (r.macro.p || 0) / r.macro.kcal >= c.p / c.kc;
+      const q = document.querySelector('[data-pwq="fit"]').closest('.pw-q');
+      return { mine, s,
+        N: pool.filter((r) => meets(r, mine)).length, M: pool.filter((r) => meets(r, s)).length,
+        K: pool.filter((r) => meets(r, mine) && meets(r, s)).length,
+        H: pool.filter((r) => r.macro && r.macro.kcal > 0 && 4 * (r.macro.p || 0) / r.macro.kcal >= 0.4).length,
+        small: q.querySelector('.pw-ql small').textContent,
+        chips: [...q.querySelectorAll('[data-pwq="fit"]')].map((b) => b.textContent.trim() + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')) };
+    });
+    await openSheet({ days: ['sat', 'sun'], ppl: 4, bud: 150, t: 0, fit: 3 });
+    const two = await fitQ();
+    t.ok('two plans: a chip for mine, one for hers, one for both and High protein, each with how many it lets in',
+      JSON.stringify(two.chips) === JSON.stringify(['Don’t mind', 'Hits my plan ' + two.N, 'Hits Sarah’s plan ' + two.M,
+        'Hits both ' + two.K + '*', 'High protein ' + two.H]), JSON.stringify(two));
+    t.ok('the question says both shares, and my own entry in the household is not a third plan',
+      two.small === 'You ' + two.mine.kc + ' cal · ' + two.mine.p + ' g · Sarah ' + two.s.kc + ' cal · ' + two.s.p + ' g' &&
+        !two.chips.some((c) => /Blake/.test(c)), JSON.stringify(two));
+    t.ok('both lets in no more than either plan alone, and leaves dinners to pick', two.K <= Math.min(two.N, two.M) && two.K > 0,
+      JSON.stringify(two));
+    await p.click('.pw-bar .pw-go');
+    await p.waitForTimeout(300);
+    const both = await p.evaluate(() => {
+      const W = window.__pw, mine = W.fit(), s = window.Store.diners().sarah1;
+      const byId = (id) => window.RECIPES.find((r) => String(r.id) === String(id));
+      const say = (who, pl) => who + ' plate: ' + pl.x + (pl.x === 1 ? ' serving' : ' servings') + ' · ' + pl.kc + ' cal · ' + pl.p + ' g protein';
+      return [...document.querySelectorAll('.pw-meal')].map((m) => {
+        const r = byId(m.querySelector('[data-pwopen]').dataset.pwopen);
+        return { name: r.name, mine: r.macro.p / r.macro.kcal >= mine.p / mine.kc, hers: r.macro.p / r.macro.kcal >= s.p / s.kc,
+          plates: [...m.querySelectorAll('.pw-plate')].map((x) => x.textContent),
+          want: [say('Your', W.plate(r, mine)), say('Sarah’s', W.plate(r, s))] };
+      });
+    });
+    t.ok('every dinner picked under Hits both meets both plans', both.length > 0 && both.every((x) => x.mine && x.hers),
+      JSON.stringify(both));
+    t.ok('and says two plates, mine and hers, each sized to its own share',
+      both.every((x) => JSON.stringify(x.plates) === JSON.stringify(x.want)), JSON.stringify(both));
+
+    /* A name comes from the household document, which anybody holding the
+       code can write to: it is text on every phone, never markup. With a
+       third person sharing, both becomes everyone's. */
+    share.evil1 = { n: '<img src=x onerror=__pwX=1>', kc: 500, p: 45 };
+    await openSheet({ days: ['sat', 'sun'], ppl: 4, bud: 150, t: 0, fit: 'u:evil1' });
+    const three = await p.evaluate(() => ({
+      chips: [...document.querySelectorAll('[data-pwq="fit"]')].map((b) => b.textContent.trim() + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
+      small: document.querySelector('[data-pwq="fit"]').closest('.pw-q').querySelector('.pw-ql small').textContent }));
+    t.ok('three plans: a chip each, and Hits everyone’s in place of Hits both',
+      three.chips.some((c) => /^Hits everyone’s \d+$/.test(c)) && !three.chips.some((c) => /^Hits both/.test(c)) &&
+        three.chips.some((c) => /^Hits Sarah’s plan \d+$/.test(c)), JSON.stringify(three));
+    await p.click('.pw-bar .pw-go');
+    await p.waitForTimeout(300);
+    const evil = await p.evaluate(() => ({ img: document.querySelectorAll('.pw-sheet img').length, ran: window.__pwX,
+      plate: (document.querySelector('.pw-plate') || {}).textContent || '' }));
+    t.ok('a name with markup in it is shown as the text it is, on the chip, the question and the plate, and nothing runs',
+      three.chips.some((c) => c === 'Hits <img src=x onerror=__pwX=1>’s plan ' + c.split(' ').pop().replace('*', '') + '*') &&
+        /<img src=x onerror=__pwX=1> 500 cal · 45 g/.test(three.small) &&
+        /^<img src=x onerror=__pwX=1>’s plate: /.test(evil.plate) && evil.img === 0 && evil.ran === undefined, JSON.stringify({ three, evil }));
+
+    // answers saved before somebody stopped sharing, and the ones saved before there were plans at all
+    const saved = await p.evaluate(() => [true, 1, 2, 3, 'u:sarah1', 'u:gone1', 'u:blake1'].map((fit) => {
+      localStorage.setItem('sh.pw', JSON.stringify({ fit }));
+      return window.__pw.answers().fit;
+    }));
+    t.ok('a saved answer keeps working: on is mine, a plan still shared stays, one no longer shared (or my own) is Don’t mind',
+      JSON.stringify(saved) === JSON.stringify([1, 1, 2, 3, 'u:sarah1', 0, 0]), JSON.stringify(saved));
+    await p.evaluate(() => { localStorage.removeItem('bsc.diners'); localStorage.setItem('sh.pw', JSON.stringify({ fit: 3 })); });
+    await p.reload();
+    await p.waitForTimeout(300);
+    t.ok('and both, with nobody else sharing any more, is my plan', await p.evaluate(() => window.__pw.answers().fit) === 1);
+    await p.evaluate(() => { localStorage.removeItem('bsc.macroTargets'); localStorage.removeItem('sh.pw'); localStorage.removeItem('bsc.myOwner'); });
     t.ok('with no error on the page', errs.length === 0, errs.join(' | '));
     await p.context().close();
   },

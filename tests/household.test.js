@@ -152,6 +152,7 @@ module.exports = {
         if (op === 'set' && !merge) { SRV.db[path] = resolve(data, undefined); return true; }
         if (op === 'set') { SRV.db[path] = SRV.db[path] || {}; mergeInto(SRV.db[path], data); return true; }
         if (!SRV.db[path]) return { denied: true };              // update() on nothing: refused
+        if (SRV.refuse && Object.keys(data).some((k) => SRV.refuse.test(k))) return { denied: true };   // rules that refuse it
         Object.keys(data).forEach((k) => atPath(SRV.db[path], k, data[k]));
         return true;
       });
@@ -310,14 +311,136 @@ module.exports = {
       full.full && /storage for the app is full/.test(full.toast) && /still go to the shared pantry/.test(full.toast), JSON.stringify(full));
     await F.ctx.close();
 
+    // ---- a dinner's numbers, shared by the person they belong to ---------
+    /* Blake: "what if my wife has a different plan?" She shares a dinner's
+       share of hers from Sync & sharing, and Plan my week on every phone in
+       the household can hold a dinner to it. Only those two numbers go, and
+       only she can put them there or take them back. */
+    const dn = (n, kc, p) => ({ n, kc, p });
+    const ALICE = { uid: 'alice', isAnonymous: false, email: 'a@test.example', displayName: 'Alice Smith' };
+    const dinerSay = (pg) => pg.evaluate(() => ({
+      sw: (document.querySelector('[data-sync="diner"]') || { getAttribute: () => null }).getAttribute('aria-checked'),
+      name: (document.getElementById('dinerName') || {}).value,
+      say: (document.querySelector('.sync-diner') || {}).textContent || '' }));
+    SRV.db[HP] = seedHouse({ members: ['bob'], diners: { bob: dn('Bob', 400, 40) } });
+    const G = await phone({ house: CODE });
+    await G.p.click('#syncBtn');
+    await G.p.waitForTimeout(250);
+    let ds = await dinerSay(G.p);
+    t.ok('signed out, the sheet says what sharing dinner numbers needs, and offers no switch',
+      ds.sw === null && /Sign in above to share your dinner numbers/.test(ds.say), JSON.stringify(ds));
+    t.ok('and an anonymous phone writes nothing, though the household’s are there to plan with',
+      await G.p.evaluate(() => window.Store.setMyDiner({ n: 'Anon', kc: 500, p: 50 })) === false &&
+        same(Object.keys(SRV.db[HP].diners), ['bob']) && await G.p.evaluate(() => window.Store.diners().bob.n) === 'Bob',
+      JSON.stringify(SRV.db[HP].diners));
+    await G.ctx.close();
+
+    const L = await phone({ user: ALICE });
+    await L.p.click('#syncBtn');
+    await L.p.waitForTimeout(250);
+    ds = await dinerSay(L.p);
+    t.ok('signed in with no pantry, it says to join one, and there is nothing to write to',
+      ds.sw === null && /Join a pantry to share your dinner numbers/.test(ds.say) &&
+        await L.p.evaluate(() => window.Store.setMyDiner({ n: 'Alice', kc: 500, p: 50 })) === false, JSON.stringify(ds));
+    // rules published before diners refuse a field they have never heard of, so a new household carries none it need not
+    const madeCode = await L.p.evaluate(() => window.Store.createHousehold('FRESH-1111-CODE-HERE'));
+    t.ok('a household made by somebody sharing nothing has no diners field in it',
+      !!SRV.db['households/' + madeCode] && !('diners' in SRV.db['households/' + madeCode]), JSON.stringify(Object.keys(SRV.db['households/' + madeCode] || {})));
+    await L.ctx.close();
+
+    SRV.db[HP] = seedHouse({ members: ['alice', 'bob'], diners: { bob: dn('Bob', 400, 40) } });
+    const A2 = await phone({ house: CODE, user: ALICE });
+    await A2.p.evaluate(() => localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 210, c: 90, f: 50 })));
+    await A2.p.click('#syncBtn');
+    await A2.p.waitForTimeout(250);
+    ds = await dinerSay(A2.p);
+    t.ok('signed in and in a pantry: a switch, off, a name box holding the first word of the account’s name, and what goes',
+      ds.sw === 'false' && ds.name === 'Alice' &&
+        /Only a dinner’s calories and protein go to the household — not your weight or what you eat\./.test(ds.say), JSON.stringify(ds));
+    n = since();
+    await A2.p.click('[data-sync="diner"]');
+    await A2.p.waitForTimeout(250);
+    const mineShare = await A2.p.evaluate(() => window.__pw.fit());
+    w = writesFrom(n);
+    t.ok('on, the household gets this person’s dinner share under that name, in one write of that one key',
+      same(SRV.db[HP].diners.alice, dn('Alice', mineShare.kc, mineShare.p)) &&
+        w.length === 1 && same(Object.keys(w[0].data), ['diners.alice']), JSON.stringify({ d: SRV.db[HP].diners, w }));
+    t.ok('and Store.diners() has it beside the other person’s, which is left as it was',
+      same(await A2.p.evaluate(() => window.Store.diners()), { bob: dn('Bob', 400, 40), alice: dn('Alice', mineShare.kc, mineShare.p) }),
+      JSON.stringify(await A2.p.evaluate(() => window.Store.diners())));
+    t.ok('the sheet says what is going', (await dinerSay(A2.p)).sw === 'true' &&
+      new RegExp('Yours: ' + mineShare.kc + ' cal · ' + mineShare.p + ' g protein').test((await dinerSay(A2.p)).say));
+
+    n = since();
+    await A2.p.reload();
+    await A2.p.waitForFunction(() => window.Store.status === 'synced', null, { timeout: 5000 });
+    await A2.p.waitForTimeout(300);
+    await A2.p.click('#syncBtn');
+    await A2.p.waitForTimeout(250);
+    t.ok('the switch is remembered across a reload, and nothing is sent again for it',
+      (await dinerSay(A2.p)).sw === 'true' && !writesFrom(n).some((x) => Object.keys(x.data).some((k) => /^diners/.test(k))),
+      JSON.stringify(writesFrom(n)));
+
+    /* A new plan saved on her other device reaches this one through her
+       account, and the dinner she shares follows it. */
+    n = since();
+    const acct = SRV.db['users/alice'] || {};
+    SRV.db['users/alice'] = Object.assign({}, acct, { myday: Object.assign({}, acct.myday, { t: { v: { p: 150, c: 150, f: 60 }, at: Date.now() } }) });
+    await poke(A2.p);
+    await A2.p.waitForTimeout(250);
+    const moved = await A2.p.evaluate(() => window.__pw.fit());
+    t.ok('a new plan from another of her devices moves the dinner she shares',
+      moved.p !== mineShare.p && same(SRV.db[HP].diners.alice, dn('Alice', moved.kc, moved.p)), JSON.stringify({ moved, d: SRV.db[HP].diners }));
+
+    // a new name, typed and left
+    await A2.p.fill('#dinerName', '  Ali  ');
+    await A2.p.press('#dinerName', 'Tab');
+    await A2.p.waitForTimeout(600);
+    t.ok('a new name goes up trimmed', SRV.db[HP].diners.alice && SRV.db[HP].diners.alice.n === 'Ali', JSON.stringify(SRV.db[HP].diners));
+
+    n = since();
+    await A2.p.click('[data-sync="diner"]');
+    await A2.p.waitForTimeout(250);
+    w = writesFrom(n);
+    t.ok('off takes it back out of the household, and only it',
+      !('alice' in SRV.db[HP].diners) && same(SRV.db[HP].diners.bob, dn('Bob', 400, 40)) &&
+        w.length === 1 && same(w[0].data, { 'diners.alice': { __fv: 'delete' } }), JSON.stringify({ d: SRV.db[HP].diners, w }));
+    t.ok('and out of Store.diners()', same(Object.keys(await A2.p.evaluate(() => window.Store.diners())), ['bob']));
+    t.ok('the setter writes only its own account’s key, whatever it is handed',
+      await A2.p.evaluate(() => window.Store.setMyDiner({ n: 'x'.repeat(31), kc: 500, p: 50 }) === false &&
+        window.Store.setMyDiner({ n: 'Alice', kc: 'lots', p: 50 }) === false) && !('alice' in SRV.db[HP].diners));
+    t.ok('with nothing thrown', A2.errs.length === 0, A2.errs.join(' | '));
+    await A2.ctx.close();
+
+    /* Until firestore.rules is published again the server has never heard
+       of diners and refuses the write. That costs the switch, which says
+       so, and not the household's sync. */
+    SRV.db[HP] = seedHouse({ members: ['alice'] });
+    const R = await phone({ house: CODE, user: ALICE });
+    await R.p.evaluate(() => localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 210, c: 90, f: 50 })));
+    SRV.refuse = /^diners\./;
+    await R.p.click('#syncBtn');
+    await R.p.waitForTimeout(250);
+    await R.p.click('[data-sync="diner"]');
+    await R.p.waitForTimeout(300);
+    const refused = await R.p.evaluate(() => ({ st: window.Store.status, r: window.Store.dinerRefused,
+      say: (document.querySelector('.sync-diner') || {}).textContent || '' }));
+    t.ok('a household on the old rules refuses the numbers: the switch says why, and sharing carries on',
+      refused.r === true && /publishing again/.test(refused.say) && refused.st !== 'error' && !(SRV.db[HP].diners || {}).alice,
+      JSON.stringify(refused));
+    SRV.refuse = null;
+    await R.ctx.close();
+
     // ---- an account deleted takes its name off the household ------------
-    SRV.db[HP] = seedHouse({ members: ['alice', 'bob'] });
+    SRV.db[HP] = seedHouse({ members: ['alice', 'bob'], diners: { alice: dn('Alice', 550, 70), bob: dn('Bob', 400, 40) } });
     SRV.db['users/alice'] = { myday: {} };
     const Z = await phone({ house: CODE, user: { uid: 'alice', isAnonymous: false, email: 'a@test.example' } });
     const gone = await Z.p.evaluate(() => window.Store.deleteAccount().then(() => 'ok', (e) => 'failed: ' + e.message));
     t.ok('deleting an account takes it off the household’s members list',
       gone === 'ok' && same(SRV.db[HP].members, ['bob']) && !SRV.db['users/alice'],
       gone + ' ' + JSON.stringify(SRV.db[HP].members));
+    t.ok('and its dinner numbers with it, leaving everybody else’s',
+      same(SRV.db[HP].diners, { bob: dn('Bob', 400, 40) }), JSON.stringify(SRV.db[HP].diners));
 
     // ---- an invite that can no longer be read reads as spent ------------
     SRV.denyGet['invites/tok-spent'] = true;

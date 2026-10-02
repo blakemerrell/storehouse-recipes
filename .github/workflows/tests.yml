@@ -16,13 +16,15 @@
 # minutes and blocks too; it includes the printed books, so a recipe change
 # pushed without `npm run print` fails here rather than at a print shop.
 #
-# This workflow deploys nothing and needs no secrets; deploy.yml publishes.
+# This workflow deploys nothing and needs no secrets; deploy.yml publishes the
+# site and rules.yml the security rules.
 # The live-Firebase tests (sync*) are not in the default run and not run here.
 #
 # The security rules are checked in a job of their own, against Google's
-# Firestore emulator (tests/rules/): they are pasted into the console by
-# hand, and this is the only place they run before they are live. It needs
-# Java and packages the app does not, so it keeps its own folder.
+# Firestore emulator (tests/rules/): this is the only place they run before
+# they are live, which rules.yml makes them on main once the same check
+# passes there. It needs Java and packages the app does not, so it keeps its
+# own folder.
 name: tests
 
 on:
