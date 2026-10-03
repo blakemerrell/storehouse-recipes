@@ -5,8 +5,9 @@
  * workout in... and anyone in between." Everything this screen shows already
  * lives somewhere else (tonight's dinner in Plan, the day in Nourish, the next
  * session in Strengthen, the list in Shop) and each card is a door into the
- * full tab. It keeps no data and writes none: it reads window.Hive.today()
- * and window.Train.today(), and its buttons call the same functions the full
+ * full tab. It keeps no data and writes none but one mark, the day tonight's
+ * dinner was cooked (sh.cooked, below): it reads window.Hive.today() and
+ * window.Train.today(), and its buttons call the same functions the full
  * tabs do.
  *
  * Ordered by the clock: before two in the afternoon the day ahead (food, then
@@ -64,6 +65,25 @@
   function acts(html) { return '<div class="td-acts">' + html + '</div>'; }
 
   // ---------------------------------------------------------------- tonight
+  /* "Cook it" opened the recipe and marked nothing done, so the card asked
+     all evening. Cooked it folds the card to one line for the rest of the
+     day, as a finished workout's does: this phone's own mark, the day it
+     was said on, so tomorrow is a new question. */
+  var COOKED = 'sh.cooked';
+  function dayKey(d) {
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function cooked(d) {
+    try {
+      var v = localStorage.getItem(COOKED);
+      if (v && v !== dayKey(d)) localStorage.removeItem(COOKED);    // a new day
+      return v === dayKey(d);
+    } catch (e) { return false; }
+  }
+  function cookedCard(t) {
+    return card('tonight', 'Dinner cooked', '<p class="td-doneline">' + esc(t.name) + '</p>', '', '', true);
+  }
   function tonightCard(d, main) {
     var t = d.tonight, nx = d.next.map(function (n) { return n.day + ': ' + n.name; }).join(' · ');
     if (t && t.lo) {
@@ -77,7 +97,9 @@
         facts([t.time, t.x > 1 ? 'cooked ×' + t.x : '']) +
         acts(btn(main, 'open', 'Cook it', ' data-id="' + esc(t.id) + '"') +
           '<button class="iconbtn td-swap" data-td="swap" data-id="' + esc(t.id) + '" data-day="' + esc(t.day) + '" aria-label="Swap ' + esc(t.name) + ' for another dinner">' +
-          icon('swap', 'td-sic') + '</button>') +
+          icon('swap', 'td-sic') + '</button>' +
+          // data-tk: the day the card is about, as a meal's tick carries it
+          '<button class="nut-ask" data-td="cooked" data-tk="' + dayKey(d.date) + '">Cooked it</button>') +
         (nx ? '<p class="td-next">' + esc(nx) + '</p>' : ''));
     }
     if (d.planned) {
@@ -237,6 +259,9 @@
     /* A workout already done folds to one green card at the very bottom. */
     var doneW = d.workout && d.workout.doneToday;
     if (doneW) order = order.filter(function (k) { return k !== 'workout'; });
+    // and so does tonight's dinner, once it is cooked
+    var doneT = cooked(d.date) && !!(d.tonight && !d.tonight.lo);
+    if (doneT) order = order.filter(function (k) { return k !== 'tonight'; });
     /* Only what this person asked for help with (the front door, or Share &
        settings): dinners and the shopping, eating, workouts. */
     var hp = d.help || { d: true, e: true, w: true };
@@ -252,7 +277,8 @@
       if (h) { html += h; first = false; }
     });
     d.shop.wmMark = d.wmMark || '';
-    html += (hp.d ? shopCard(d.shop) : '') + (hp.d || hp.w ? weekCard(d) : '') + (doneW && hp.w ? workoutCard(d.workout, false) : '');
+    html += (hp.d ? shopCard(d.shop) : '') + (hp.d || hp.w ? weekCard(d) : '') + (doneT && hp.d ? cookedCard(d.tonight) : '') +
+      (doneW && hp.w ? workoutCard(d.workout, false) : '');
     root.innerHTML = '<div class="td-top"><div class="step-k">' + DAYNAME[d.date.getDay()] + ' · ' + MONTH[d.date.getMonth()] + ' ' + d.date.getDate() + '</div>' +
       '<h1 class="step-h td-h">Today</h1></div><div class="td-cards">' + html + '</div>';
   }
@@ -273,6 +299,13 @@
     if (a === 'eat') { H.eat(b.getAttribute('data-k'), b.getAttribute('data-tk')); return; }
     if (a === 'open') H.open(id);
     else if (a === 'swap') H.swap(id, b.getAttribute('data-day'));
+    else if (a === 'cooked') {
+      try { localStorage.setItem(COOKED, b.getAttribute('data-tk') || dayKey(new Date())); } catch (err) { /* private mode: it asks again */ }
+      render();
+      // the button is gone with the card it was on; the line that took its place says so
+      var h = document.getElementById('td-tonight');
+      if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+    }
     else if (a === 'planweek') H.planWeek();
     else if (a === 'addtonight') H.addTonight();
     else if (a === 'plan') H.go('plan');

@@ -18015,9 +18015,11 @@
     var el = $('shareHint');
     if (!el) return;
     /* Only where the household is: Nourish and Strengthen are yours alone,
-       and on a phone the banner was 130 pixels above your own day. */
+       and on a phone the banner was 130 pixels above your own day. And not
+       the moment the front door closes: a new phone answered four questions
+       and landed on a fifth. From the next open on. */
     var show = window.Store.configured && !window.Store.house && !hintDismissed() &&
-      S.view !== 'macros' && S.view !== 'train';
+      S.view !== 'macros' && S.view !== 'train' && !(window.Door && window.Door.closed && window.Door.closed());
     el.classList.toggle('hide', !show);
   }
 
@@ -20549,7 +20551,17 @@
   function viewSeen() {
     try { localStorage.setItem('sh.viewAt', String(Date.now())); } catch (e) { /* private mode */ }
   }
-  document.addEventListener('visibilitychange', function () { if (document.hidden) viewSeen(); });
+  /* And brought back after an hour away, the same: Today. Only a cold start
+     did it, and a phone that never closes the app is resumed, not started —
+     three hours on Nourish and it was still Nourish. sh.viewAt was written
+     as the page was put away, so on the way back it is the time it left.
+     Registered before the other resume handlers, so they draw Today. */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { viewSeen(); return; }
+    var at = 0;
+    try { at = Number(localStorage.getItem('sh.viewAt')) || 0; } catch (e) { /* private mode */ }
+    if (at && Date.now() - at >= 3600e3 && S.view !== 'today') goView('today');
+  });
   window.addEventListener('pagehide', viewSeen);
   function goView(v) {
     if (PLAN_STEPS.some(function (p) { return p[0] === v; }) && v !== 'plan') { goStep(v); viewSeen(); return; }
