@@ -1171,6 +1171,19 @@ window.Store = (function () {
     state.weeks = weeks;
   }
 
+  /* Off the household's list and out of its diners, while there is still a
+     document to say so to: on leaving, and on moving to another household.
+     The rules let nobody else remove them, so an entry left behind stayed
+     for good — the household went on offering "Hits Alice's plan" for
+     somebody who had gone. Best effort, as deleteAccount's is. */
+  function goodbye() {
+    var me = api.user();
+    if (!me || !doc || !FV || !(members.indexOf(me.uid) >= 0 || hasOwn(state.diners, me.uid))) return;
+    var bye = { members: FV.arrayRemove(me.uid) };
+    if (hasOwn(state.diners, me.uid)) bye['diners.' + me.uid] = FV.delete();
+    try { doc.update(bye).catch(function () {}); } catch (e) { /* gone either way */ }
+  }
+
   /* Put the signed-in person on the household's list, once. Anonymous
      visitors are not recorded: an anonymous identity lives and dies with one
      browser, and a list of those is a list of nobody. */
@@ -2094,6 +2107,11 @@ window.Store = (function () {
        weeks and written recipes with them. */
     join: function (code, seeded, mine) {
       var next = String(code || '').trim().toUpperCase().replace(/\s+/g, '-');
+      /* Moving from one household to another is leaving the first — by the
+         box under the code, an invite, or the account's own pantry — and
+         each of those left this account on the old household's list and its
+         numbers in its diners, where nobody else may take them off. */
+      if (house && next !== house) goodbye();
       // what was held for one household is not sent into another
       if (next !== house) { queued = []; enrolDenied = ''; }
       house = next;
@@ -2106,17 +2124,7 @@ window.Store = (function () {
     },
 
     leave: function () {
-      /* Off the household's list and out of its diners first, while there is
-         still a document to say so to. The rules let nobody else remove
-         them, so an entry left behind stayed for good: the household went on
-         offering "Hits Alice's plan" for somebody who had left, and only her
-         rejoining could take it down. Best effort, as deleteAccount's is. */
-      var me = api.user();
-      if (me && doc && FV && (members.indexOf(me.uid) >= 0 || hasOwn(state.diners, me.uid))) {
-        var bye = { members: FV.arrayRemove(me.uid) };
-        if (hasOwn(state.diners, me.uid)) bye['diners.' + me.uid] = FV.delete();
-        try { doc.update(bye).catch(function () {}); } catch (e) { /* gone either way */ }
-      }
+      goodbye();
       if (unsub) { unsub(); unsub = null; }
       queued = [];                  // meant for the household being left, not the next one
       house = ''; write(LS.house, '');
