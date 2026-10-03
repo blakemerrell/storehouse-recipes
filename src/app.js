@@ -20616,11 +20616,14 @@
      did it, and a phone that never closes the app is resumed, not started —
      three hours on Nourish and it was still Nourish. sh.viewAt was written
      as the page was put away, so on the way back it is the time it left.
-     Registered before the other resume handlers, so they draw Today. */
+     Registered before the other resume handlers, so they draw Today.
+     Not from under a sheet left open, the recipe being written above all:
+     what was in the middle of being done is still there to finish. */
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) { viewSeen(); return; }
     var at = 0;
     try { at = Number(localStorage.getItem('sh.viewAt')) || 0; } catch (e) { /* private mode */ }
+    if (S.editId || document.querySelector('.scrim')) return;
     if (at && Date.now() - at >= 3600e3 && S.view !== 'today') goView('today');
   });
   window.addEventListener('pagehide', viewSeen);

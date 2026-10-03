@@ -293,6 +293,17 @@ module.exports = {
     const v2 = await tab();
     t.ok('resumed within the hour it stays where you were; resumed after three hours away it is on Today',
       v0 === 'macros' && v1 === 'macros' && v2 === 'today' && await p.evaluate(() => !!document.querySelector('#todayRoot .td-card')), JSON.stringify({ v0, v1, v2 }));
+    /* A sheet left open is something in the middle of being done: the
+       tab stays under it. */
+    await p.click('.tab[data-view="macros"]');
+    await p.click('#syncBtn');
+    await p.waitForSelector('#modalRoot .scrim');
+    await flip(true);
+    await p.clock.setFixedTime(new Date(MORNING.getTime() + 20 * 60e3 + 6 * 3600e3));
+    await flip(false);
+    await p.waitForTimeout(200);
+    const v3 = await tab(), still = await p.evaluate(() => !!document.querySelector('#modalRoot .scrim'));
+    t.ok('but not from under a sheet left open', v3 === 'macros' && still, JSON.stringify({ v3, still }));
     await p.context().close();
 
     t.ok('no page errors', errs.length === 0, errs.join(' | '));
