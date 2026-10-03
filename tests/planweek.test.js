@@ -192,23 +192,37 @@ module.exports = {
       plan[0] === after[0].id && plan[1] === String(tueId) && plan[2] === after[1].id && plan[4] === after[3].id && plan[5] === '' && plan[6] === '',
       JSON.stringify(plan));
 
-    /* Blake's plan: 210 g of protein in about 1,650 cal, so a dinner's third
-       is 550 cal and 70 g. Held to one printed serving, the chip let nothing
-       in ("I toggled on that selector and nothing was presented"): the best
-       dinner in the books is 69 g a serving. A plate sized to the protein
-       does it, and High protein lets in more for Fill my day to top up. */
+    /* Blake's plan: 210 g of protein in about 1,650 cal. A dinner's share of
+       it was a flat third (550 cal and 70 g), which is no meal Nourish has:
+       Plan said "1.6 servings · 771 cal" of a dinner Fill put on the plate at
+       1½ and 723. It is dinner's own share now, the one Fill sizes by — read
+       here off Nourish's ask for dinner, not written down — to 25 cal and
+       5 g, and the plate is in the quarters Nourish's dial takes. Held to one
+       printed serving, the chip let nothing in ("I toggled on that selector
+       and nothing was presented"). A plate sized to the protein does it, and
+       High protein lets in more for Fill my day to top up. */
     await p.evaluate(() => localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 210, c: 90, f: 50 })));
     const hp = await p.evaluate(() => {
       const W = window.__pw, cap = W.fit();
+      const frac = window.__macroLab.ask('d').plan.frac, kc = 4 * 210 + 4 * 90 + 9 * 50;
+      const want = { kc: Math.round(kc * frac / 25) * 25, p: Math.round(210 * frac / 5) * 5 };
       const base = { days: ['mon'], ppl: 4, bud: 150, t: 0, prot: [], kind: [], fit: 0, avoid: [], ing: [], rec: 0, shelf: true };
       const all = W.pool(base, true);
       const hits = W.pool(Object.assign({}, base, { fit: 1 }), true), high = W.pool(Object.assign({}, base, { fit: 2 }), true);
-      const plates = hits.map((r) => W.plate(r, cap));
-      return { cap, oneServing: all.filter((r) => r.macro.kcal <= cap.kc && r.macro.p >= cap.p).length, hits: hits.length, high: high.length,
-        offPlates: plates.filter((pl) => !pl || pl.kc > cap.kc * 1.02 || pl.p < cap.p * 0.97).map((pl) => pl && [pl.x, pl.kc, pl.p]) };
+      /* Within the calories, always; and meeting the protein unless the next
+         quarter up would break the calories — a quarter of a serving is a
+         coarser step than the tenth it was, and the calories are the cap. */
+      const offPlates = hits.filter((r) => {
+        const pl = W.plate(r, cap);
+        if (!pl || pl.kc > cap.kc * 1.02 || pl.x * 4 !== Math.round(pl.x * 4)) return true;
+        return pl.p < cap.p * 0.97 && (pl.x + 0.25) * r.macro.kcal <= cap.kc * 1.02;
+      }).map((r) => { const pl = W.plate(r, cap); return pl && [r.name, pl.x, pl.kc, pl.p]; });
+      return { cap, want, frac, oneServing: all.filter((r) => r.macro.kcal <= cap.kc && r.macro.p >= cap.p).length, hits: hits.length, high: high.length,
+        offPlates };
     });
-    t.ok('70 g of protein in 550 cal: one printed serving can’t fill four nights, a plate sized to it can, each plate within the calories',
-      hp.cap.kc === 550 && hp.cap.p === 70 && hp.oneServing < 4 && hp.hits >= 4 && hp.offPlates.length === 0, JSON.stringify(hp));
+    t.ok('dinner’s own share of the plan: one printed serving can’t fill four nights, a plate in quarters sized to it can, each plate within the calories',
+      hp.frac > 1 / 3 && hp.frac < 1 && hp.cap.kc === hp.want.kc && hp.cap.p === hp.want.p &&
+        hp.oneServing < 4 && hp.hits >= 4 && hp.offPlates.length === 0, JSON.stringify(hp));
     t.ok('and High protein lets in more, for Fill my day to top up', hp.high > hp.hits, JSON.stringify(hp));
 
     // on the screen: both chips with their counts, and each dinner says its plate (Saturday and Sunday are still free)
@@ -225,7 +239,7 @@ module.exports = {
     /* "Hits my plan", not "Hits 70 g protein", now that a household can
        hold more than one plan: whose it is is the thing to say. */
     t.ok('the question says the dinner’s share, and the chips say how many each lets in',
-      /550 cal · 70 g protein/.test(scr.label) && scr.chips[0] === 'Don’t mind' && /^Hits my plan \d+\*$/.test(scr.chips[1]) && /^High protein \d+$/.test(scr.chips[2]),
+      scr.label.indexOf(hp.cap.kc + ' cal · ' + hp.cap.p + ' g protein') >= 0 && scr.chips[0] === 'Don’t mind' && /^Hits my plan \d+\*$/.test(scr.chips[1]) && /^High protein \d+$/.test(scr.chips[2]),
       JSON.stringify(scr));
     t.ok('with nobody else sharing, there is no chip for anybody else and none for both',
       scr.chips.length === 3 && !scr.chips.some((c) => /both|everyone|’s plan/.test(c)), JSON.stringify(scr));
@@ -247,7 +261,8 @@ module.exports = {
         return out;
       });
       t.ok('each dinner’s sheet says the plate that meets the plan',
-        plates.length > 0 && plates.every((x) => /^Your plate: \d+(\.\d)? servings? · \d+ cal · \d+ g protein$/.test(x.plate)), JSON.stringify(plates));
+        plates.length > 0 && plates.every((x) => /^Your plate: (\d+ ?)?[¼½¾]? [A-Za-z'’]+ · \d+ cal · \d+ g protein$/.test(x.plate)) &&
+          plates.every((x) => !/\d\.\d/.test(x.plate)), JSON.stringify(plates));
     } else t.ok('there were enough dinners to pick', false, JSON.stringify(scr));
 
     /* Blake: "Fits my Nourish plan is applicable to me right now, but what
@@ -314,7 +329,7 @@ module.exports = {
     const both = await p.evaluate((week) => {
       const W = window.__pw, mine = W.fit(), s = window.Store.diners().sarah1;
       const byId = (id) => window.RECIPES.find((r) => String(r.id) === String(id));
-      const say = (who, pl) => who + ' plate: ' + pl.x + (pl.x === 1 ? ' serving' : ' servings') + ' · ' + pl.kc + ' cal · ' + pl.p + ' g protein';
+      const say = (who, pl) => who + ' plate: ' + pl.say + ' · ' + pl.kc + ' cal · ' + pl.p + ' g protein';
       return week.map((m) => {
         const r = byId(m.id);
         return { name: r.name, mine: r.macro.p / r.macro.kcal >= mine.p / mine.kc, hers: r.macro.p / r.macro.kcal >= s.p / s.kc,

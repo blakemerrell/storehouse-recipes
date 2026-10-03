@@ -397,12 +397,18 @@ module.exports = {
        third figure at a width a phone actually is. The pills a line above
        print the same number. Losing it from the markup would take it from a
        screen reader too, which is the reading that has nowhere else to go. */
-    t.ok('and each of the four still says what is left of it, signed',
+    /* Signed in data-d, and SAID without the minus: "-495 to go" is what a
+       screen reader read out, which is a number to go and a sign saying the
+       opposite. Over keeps its plus. */
+    t.ok('and each of the four still says what is left of it, signed in data-d and spoken as it reads',
       await p.evaluate(() => {
         const c = [...document.querySelectorAll('[data-macro] .mb-d')];
         return c.length === 4 &&
-          c.every((x) => /^[+-]?\d+$/.test(x.querySelector('b').textContent)) &&
-          c.every((x) => /\b(to go|over)$/.test(x.textContent.trim()));
+          c.every((x) => /^-?\d+$/.test(x.dataset.d)) &&
+          c.every((x) => {
+            const d = Number(x.dataset.d), said = x.textContent.trim();
+            return d > 0 ? said === '+' + d + ' over' : said === Math.abs(d) + ' to go';
+          });
       }), await p.textContent('#macroFoot'));
     /* A floor and a ceiling, and neither is a budget — which is why on a day
        that is fine they are NOTHING. They were two bars under the macros,
@@ -1074,8 +1080,10 @@ module.exports = {
     });
     await p.waitForTimeout(150);
     const coach = () => p.textContent('#mtCoach');
+    /* "moving about" rather than "walking" since the middle part is the job
+       or the steps, whichever says more — this profile is on its feet. */
     t.ok('the day is shown in the parts you can move',
-      /living/.test(await coach()) && /walking/.test(await coach()) &&
+      /living/.test(await coach()) && /moving about/.test(await coach()) &&
       /training/.test(await coach()), await coach());
     /* Said once, in the ledger — the coach used to say it again a screen
        lower, and Blake called the sheet messy. The ledger's Arriving row is
@@ -1102,11 +1110,16 @@ module.exports = {
       await p.evaluate(() => !!document.querySelector('[data-mtuse]')));
     await p.click('[data-mtuse]');
     await p.waitForTimeout(200);
+    /* Against the plan the profile works out to, not a range written down
+       here: the range (1,450–1,600) was this profile's burn with its job
+       thrown away, and on its feet with three sessions it burns more now. */
     t.ok('and taking it fills the boxes with what the panel described',
       await p.evaluate(() => {
         const k = Number(document.getElementById('mtBigKcal').textContent);
-        return k >= 1450 && k <= 1600 && !document.querySelector('[data-mtuse]');
-      }), await p.evaluate(() => document.getElementById('mtBigKcal').textContent));
+        const pl = window.__macroLab.plan(window.__macroLab.profile());
+        return k === 4 * pl.p + 4 * pl.c + 9 * pl.f && !document.querySelector('[data-mtuse]');
+      }), await p.evaluate(() => document.getElementById('mtBigKcal').textContent + ' vs ' +
+        JSON.stringify(window.__macroLab.plan(window.__macroLab.profile()))));
     await p.click('.sheet-x');
     await p.waitForTimeout(250);
     await p.evaluate(() => localStorage.removeItem('bsc.macroProfile'));
@@ -1132,6 +1145,63 @@ module.exports = {
         const kc = 4 * t2.p + 4 * t2.c + 9 * t2.f;
         return kc >= 1500 && 4 * t2.c >= 0.14 * kc;
       }), await p.evaluate(() => localStorage.getItem('bsc.macroTargets')));
+
+    /* But only a plan's own record. The same grams marked as the person's
+       (auto 0) are theirs: P 400 / F 10 / C 0 was saved, the day read
+       190 / 57 / 93 with no word, and a reload rewrote storage itself. */
+    await p.evaluate(() => localStorage.setItem('bsc.macroTargets',
+      JSON.stringify({ p: 226, f: 62, c: 13, auto: 0, set: '2026-09-01' })));
+    await p.reload();
+    await p.waitForTimeout(400);
+    await p.click('.tab[data-view="macros"]');
+    await p.waitForTimeout(300);
+    t.ok('the same grams typed by hand are left as typed, in storage and on the day',
+      await p.evaluate(() => {
+        const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+        return t2.p === 226 && t2.f === 62 && t2.c === 13 && t2.auto === 0;
+      }) && /\/ 226 g/.test(await foot()),
+      await p.evaluate(() => localStorage.getItem('bsc.macroTargets')) + ' | ' + await foot());
+
+    /* Which is safe only because Save no longer keeps a day Nourish cannot
+       plan. It refuses, writes nothing, and says why under the total. */
+    const keepT = JSON.stringify({ p: 190, f: 60, c: 150, auto: 0, set: '2026-09-01' });
+    await p.evaluate((v) => localStorage.setItem('bsc.macroTargets', v), keepT);
+    await p.reload();
+    await p.waitForTimeout(400);
+    await p.click('.tab[data-view="macros"]');
+    await p.waitForTimeout(300);
+    await openPlan(p);
+    await p.waitForTimeout(250);
+    // the gram boxes are in the profile's fold on a plan already made
+    await p.evaluate(() => {
+      if (document.getElementById('mtEditor').classList.contains('hide')) {
+        document.querySelector('[data-mtedit]').click();
+      }
+    });
+    await p.waitForTimeout(150);
+    const refuse = async (pp, ff, cc) => {
+      await p.fill('#mtP', pp);
+      await p.fill('#mtF', ff);
+      await p.fill('#mtC', cc);
+      await p.waitForTimeout(150);
+      const was = await p.textContent('#mtRefuse');
+      await p.click('[data-mtarg="save"]');
+      await p.waitForTimeout(300);
+      return p.evaluate((w) => ({ was: w, said: (document.getElementById('mtRefuse') || {}).textContent || '',
+        open: !!document.getElementById('mtP'), stored: localStorage.getItem('bsc.macroTargets') }), was);
+    };
+    const noCarb = await refuse('400', '10', '0');
+    t.ok('P 400 / F 10 / C 0 is refused with why and the least Nourish can plan, and nothing is written',
+      noCarb.open && noCarb.stored === keepT && /no room for carbs/.test(noCarb.said) &&
+        /least Nourish can plan for you is [\d,]+ kcal/.test(noCarb.said), JSON.stringify(noCarb));
+    const zeros = await refuse('0', '0', '0');
+    t.ok('and so are three zeros, which used to save and show the plan’s numbers',
+      zeros.open && zeros.stored === keepT && /no calories/.test(zeros.said) &&
+        /least Nourish can plan/.test(zeros.said) && zeros.was === '', JSON.stringify(zeros));
+    const handSane = await refuse('200', '65', '140');
+    t.ok('while a day it can plan, typed by hand, still saves as the person’s own',
+      !handSane.open && handSane.said === '' &&
+        /"p":200,"f":65,"c":140,"auto":0/.test(handSane.stored || ''), JSON.stringify(handSane));
     await p.evaluate(() => {
       localStorage.removeItem('bsc.macroProfile');
       localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 150, f: 40, c: 60 }));
@@ -1406,7 +1476,8 @@ module.exports = {
     t.ok('a busted macro says over, in the over state',
       await p.evaluate(() => {
         const over = document.querySelector('.mbrow.over');
-        const past = !!over && /^\+\d+$/.test(over.querySelector('.mb-d.pos b').textContent);
+        const past = !!over && Number(over.querySelector('.mb-d.pos').dataset.d) > 0 &&
+          /^\+\d+$/.test(over.querySelector('.mb-d.pos b').textContent);
         return !!over && past;
       }), await foot());
     /* Colour is the verdict, not the eating. A day 10 g past its protein
@@ -1970,6 +2041,17 @@ module.exports = {
       const el = document.querySelector('.mline.act');
       return el ? el.textContent.slice(0, 40) : null;
     });
+    /* The plan this sheet saved sits twenty calories over what the scale now
+       says to eat, and twenty is not a decision (MLINE_NEAR): the card says
+       stay with it. A hundred over is one, so the target is moved a hundred
+       off for the card to have something to ask. */
+    await q.evaluate(() => {
+      const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+      t2.c += 25;
+      localStorage.setItem('bsc.macroTargets', JSON.stringify(t2));
+    });
+    await q.reload();
+    await q.waitForTimeout(500);
     t.ok('the pace card is showing, with a way to send it away',
       !!(await paceCard()) && !!(await q.$('.mline.act [data-mline^="mline:none"]')),
       String(await paceCard()));
@@ -2036,8 +2118,39 @@ module.exports = {
     });
     t.ok('pressing Eat writes the number into the plan', Math.abs(took.kcal - askedFor) <= 5,
       took.kcal + ' vs ' + askedFor);
+    /* The target the card names is the target, to the calorie the grams
+       came to — Eat writes grams, so it lands within a few of what it asked —
+       rather than the number it would have asked for. */
     t.ok('and the card says it is being eaten, instead of asking again',
-      !took.stillAsking && new RegExp('Your target: ' + askedFor.toLocaleString()).test(took.text), took.text.slice(0, 120));
+      !took.stillAsking && Math.abs(took.kcal - askedFor) <= 5 &&
+        new RegExp('Your target: ' + took.kcal.toLocaleString()).test(took.text), took.text.slice(0, 120));
+
+    /* Seventeen calories is not a decision. The tolerance was five, so a
+       target a few calories off what the estimate wanted — which drifts a
+       little every morning on its own — asked "Use 1,404 / Keep 1,421". Within
+       fifty it stays quiet and names the target; a hundred off still asks. */
+    const afterEat = await q.evaluate(() => localStorage.getItem('bsc.macroTargets'));
+    const nudged = async (dc) => {
+      await q.evaluate(([a, d]) => {
+        const t2 = JSON.parse(a); t2.c += d;
+        localStorage.setItem('bsc.macroTargets', JSON.stringify(t2));
+      }, [afterEat, dc]);
+      await q.reload();
+      await q.waitForTimeout(500);
+      return q.evaluate(() => {
+        const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+        const line = document.querySelector('.mline');
+        return { kcal: 4 * t2.p + 4 * t2.c + 9 * t2.f, need: window.__macroLab.pace().need,
+          asking: !!document.querySelector('[data-mline^="mline:eat"]'),
+          text: line ? line.textContent.replace(/\s+/g, ' ').trim() : '' };
+      });
+    };
+    const near = await nudged(5);
+    t.ok('twenty calories over what it would ask is not asked about, and the target is named as it is',
+      Math.abs(near.kcal - near.need) > 5 && Math.abs(near.kcal - near.need) <= 50 && !near.asking &&
+        new RegExp('Your target: ' + near.kcal.toLocaleString()).test(near.text), JSON.stringify(near));
+    const far = await nudged(25);
+    t.ok('a hundred over still is', far.kcal - far.need > 50 && far.asking, JSON.stringify(far));
     /* and put the plan back the way it was, for everything downstream */
     await q.evaluate((tb) => localStorage.setItem('bsc.macroTargets', tb), targetsBefore);
     await q.reload();
@@ -2565,11 +2678,10 @@ module.exports = {
       [...document.querySelectorAll('[data-macro]')].map((r) => {
         const num = (r.querySelector('.mb-num') || {}).textContent || '';
         const m = /(-?[\d,]+)\s*\/\s*([\d,]+)/.exec(num.replace(/\s+/g, ' '));
-        /* The minus is already in the string — parsing it AND multiplying by
-           -1 turned every negative delta positive, which is how this first
-           reported 612 against an expected -612. */
-        const shown = Number(String((r.querySelector('.mb-d') || {}).textContent || '')
-          .replace(/[^\-\d]/g, '')) || 0;
+        /* The signed figure is data-d: the words are "612 to go" now, with
+           no minus to parse — parsing it and multiplying by -1 was how this
+           first reported 612 against an expected -612. */
+        const shown = Number((r.querySelector('.mb-d') || { dataset: {} }).dataset.d) || 0;
         return m ? { k: r.dataset.macro, got: Number(m[1].replace(/,/g, '')),
           target: Number(m[2].replace(/,/g, '')), shown: shown } : null;
       }).filter(Boolean));
@@ -3235,11 +3347,15 @@ module.exports = {
     await wiz.fill('#mtSteps', '8000');
     for (const d of [0, 2, 5]) await wiz.click('[data-mtrain="' + d + '"]');
     await wiz.waitForTimeout(350);
+    /* Step one says two figures now — the basal rate as "at rest" and bmr ×
+       1.2 as "sitting still" — so it is the sitting-still one that step two
+       must break out, under the same words. */
     t.ok('and step two breaks the same figure out, not a different one',
       await wiz.evaluate(() => {
-        const one = ((document.getElementById('mtwSaid1') || {}).textContent || '').match(/[\d,]+/);
-        const two = ((document.getElementById('mtwSaid2') || {}).textContent || '').match(/[\d,]+/g);
-        return !!one && !!two && two.indexOf(one[0]) >= 0;
+        const one = ((document.getElementById('mtwSaid1') || {}).textContent || '').match(/([\d,]+) sitting still/);
+        const part = [...document.querySelectorAll('#mtwSaid2 .mtw-part')]
+          .find((x) => /sitting still/.test(x.textContent));
+        return !!one && !!part && part.querySelector('b').textContent === one[1];
       }),
       await wiz.evaluate(() => [(document.getElementById('mtwSaid1') || {}).textContent,
         (document.getElementById('mtwSaid2') || {}).textContent].join(' || ').slice(0, 150)));
@@ -3379,6 +3495,144 @@ module.exports = {
         !!document.getElementById('mtEditor')),
       await wiz.evaluate(() => 'steps:' + document.querySelectorAll('[data-mtwstep]').length));
     await wiz.context().close();
+
+    /* ---- telling the plan you train never feeds you less -----------------
+     *
+     * The wizard's activity question is "only the job; the workouts asked
+     * next carry the training". But once a session or a step count was told,
+     * mBurn rebuilt the day from a desk and never read the job again, so "On
+     * my feet" with no training said burned 2,446, and ticking ONE lifting day
+     * took it to 2,183. The job and the steps are two guesses at the same
+     * movement; the larger stands and the sessions go on top. */
+    const jobPg = await t.fresh({ viewport: { width: 412, height: 915 } });
+    const burnSums = await jobPg.evaluate(() => {
+      const L = window.__macroLab, bad = [];
+      const who = (o) => Object.assign({ sex: 'm', age: 43, ft: 5, inch: 11, lb: 190, act: 1.2 }, o);
+      /* At a desk the job adds nothing, so the day is what the steps-and-
+         sessions arithmetic always made it — worked out here the way it was
+         before, against every combination of the two. */
+      const before = (pr) => {
+        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
+        const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + (pr.sex === 'f' ? -161 : 5);
+        if (!(pr.steps > 0) && !(pr.workouts > 0)) return bmr * pr.act;
+        return bmr * 1.2 + Math.max(0, (pr.steps || 0) - 2500) * 0.53 * kg * 0.00075 +
+          (5 * 3.5 * kg / 200) * 45 * (pr.workouts || 0) / 7;
+      };
+      let desks = 0;
+      ['m', 'f'].forEach((sex) => [0, 1000, 7000, 13000].forEach((steps) => [0, 1, 3, 5].forEach((workouts) => {
+        const pr = who({ sex, steps, workouts });
+        desks++;
+        if (Math.abs(L.tdee(pr) - before(pr)) > 1e-6) bad.push('desk ' + JSON.stringify(pr) + ': ' + L.tdee(pr) + ' vs ' + before(pr));
+      })));
+      /* And for every job, saying you train only ever adds: from nothing
+         said to one session, and from each session to the next. */
+      [1.2, 1.375, 1.55].forEach((act) => {
+        let last = L.tdee(who({ act }));
+        [1, 2, 3, 4, 5].forEach((workouts) => {
+          const now = L.tdee(who({ act, workouts }));
+          if (now < last - 1e-6) bad.push(act + ' at ' + workouts + ' sessions: ' + Math.round(last) + ' -> ' + Math.round(now));
+          last = now;
+        });
+        // to a hair: 1.2 + (1.55 − 1.2) is not 1.55 in floating point
+        if (L.tdee(who({ act, steps: 3000 })) < L.tdee(who({ act })) - 1e-6) bad.push(act + ': a step count lowered it');
+      });
+      /* The old five-word dial's top two had training in them; told, they
+         are read as the most active job, with the sessions counted once. */
+      if (Math.abs(L.tdee(who({ act: 1.9, workouts: 3 })) - L.tdee(who({ act: 1.55, workouts: 3 }))) > 1e-6) {
+        bad.push('1.9 is not read as 1.55 once the training is told');
+      }
+      return { bad, desks };
+    });
+    t.ok('at a desk the burn is exactly what it was, every step count and session count',
+      burnSums.desks === 32 && !burnSums.bad.some((b) => /^desk/.test(b)), JSON.stringify(burnSums));
+    t.ok('and on any job, one more session never lowers it — nor does a step count',
+      burnSums.bad.length === 0, JSON.stringify(burnSums.bad));
+
+    // the same, as the wizard says it
+    await jobPg.evaluate(() => ['bsc.macroProfile', 'bsc.macroTargets', 'bsc.macroWeights']
+      .forEach((k) => localStorage.removeItem(k)));
+    await jobPg.reload();
+    await jobPg.waitForTimeout(400);
+    await jobPg.click('.tab[data-view="macros"]');
+    await jobPg.waitForTimeout(300);
+    await jobPg.click('#macroFill');
+    await jobPg.waitForTimeout(500);
+    await jobPg.fill('#mtAge', '43');
+    await jobPg.fill('#mtFt', '5');
+    await jobPg.fill('#mtIn', '11');
+    await jobPg.fill('#mtLb', '190');
+    await jobPg.click('[data-mtw="next"]');
+    await jobPg.waitForTimeout(300);
+    await jobPg.click('[data-mtact="1.375"]');
+    await jobPg.waitForTimeout(300);
+    const burnSaid = () => jobPg.evaluate(() => {
+      const el = document.getElementById('mtwSaid2');
+      const m = ((el && el.querySelector('.mtw-head b')) || {}).textContent || '';
+      return { kcal: Number(m.replace(/,/g, '')), text: el ? el.textContent : '' };
+    });
+    const onFeet = await burnSaid();
+    await jobPg.click('[data-mtrain="0"]');
+    await jobPg.waitForTimeout(300);
+    const oneDay = await burnSaid();
+    t.ok('on my feet, ticking one lifting day adds to the burn rather than taking 263 off it',
+      onFeet.kcal > 0 && oneDay.kcal >= onFeet.kcal, onFeet.kcal + ' → ' + oneDay.kcal);
+    t.ok('and the parts it breaks into say the job is moving about, not a walk',
+      /moving about/.test(oneDay.text) && !/walking/.test(oneDay.text), oneDay.text);
+    await jobPg.context().close();
+
+    /* ---- the wizard agrees with itself -----------------------------------
+     *
+     * Step one said "2,135 kcal at rest" (bmr × 1.2) and the plan step, under
+     * the same words, "Below your 1779 kcal at rest" (bmr). And the goal card
+     * said "About 1 lb a week" over an answer reading "about 1.4 lb a week
+     * off" for the same goal at 190 lb. At rest is the basal rate everywhere;
+     * the card says the goal's pounds for the weight typed. */
+    const restPg = await t.fresh({ viewport: { width: 412, height: 915 } });
+    await restPg.evaluate(() => ['bsc.macroProfile', 'bsc.macroTargets', 'bsc.macroWeights']
+      .forEach((k) => localStorage.removeItem(k)));
+    await restPg.reload();
+    await restPg.waitForTimeout(400);
+    await restPg.click('.tab[data-view="macros"]');
+    await restPg.waitForTimeout(300);
+    await restPg.click('#macroFill');
+    await restPg.waitForTimeout(500);
+    const cardSays = () => restPg.evaluate(() =>
+      (document.querySelector('[data-mtgoal="cut1"] span') || {}).textContent || '');
+    const noWeight = await cardSays();
+    await restPg.fill('#mtAge', '43');
+    await restPg.fill('#mtFt', '5');
+    await restPg.fill('#mtIn', '11');
+    await restPg.fill('#mtLb', '190');
+    await restPg.waitForTimeout(350);
+    const rest1 = await restPg.evaluate(() => {
+      const s = (document.getElementById('mtwSaid1') || {}).textContent || '';
+      const n = (re) => { const m = s.match(re); return m ? Number(m[1].replace(/,/g, '')) : 0; };
+      return { s, rest: n(/([\d,]+)\s*kcal at rest/), still: n(/([\d,]+) sitting still/) };
+    });
+    t.ok('step one says the basal rate as at rest, and the day sitting still beside it',
+      rest1.rest > 0 && rest1.still > rest1.rest && /^[\d,]+ kcal at rest · [\d,]+ sitting still/.test(rest1.s.trim()),
+      rest1.s);
+    await restPg.click('[data-mtw="next"]');
+    await restPg.waitForTimeout(300);
+    await restPg.click('[data-mtact="1.375"]');
+    await restPg.click('[data-mtw="next"]');
+    await restPg.waitForTimeout(300);
+    await restPg.click('[data-mtgoal="cut1"]');
+    await restPg.waitForTimeout(300);
+    const goalSaid = await restPg.evaluate(() => (document.getElementById('mtwSaid3') || {}).textContent || '');
+    const withWeight = await cardSays();
+    const perWk = (goalSaid.match(/about ([\d.]+) lb a week/) || [])[1];
+    t.ok('the goal card says the pounds a week the answer under it works out, for the weight typed',
+      !!perWk && withWeight.indexOf('About ' + perWk + ' lb a week') === 0 &&
+        /^About 1 lb a week/.test(noWeight),
+      JSON.stringify({ noWeight, withWeight, goalSaid }));
+    await restPg.click('[data-mtw="next"]');
+    await restPg.waitForTimeout(300);
+    const restPlan = await restPg.evaluate(() => (document.getElementById('mtPlan') || {}).textContent || '');
+    t.ok('and the plan step’s "below at rest" is the same at-rest figure step one gave',
+      restPlan === 'Below your ' + rest1.rest.toLocaleString('en-US') + ' kcal at rest.',
+      restPlan + ' vs ' + rest1.s);
+    await restPg.context().close();
     /* ---- "Fill from" governs drafting, not looking ------------------------
      * The setting says what the SOLVER may shop from — a day drafted out of
      * salmon that is not in the house is not a day. It was also gating the
@@ -9786,7 +10040,7 @@ module.exports = {
     await z.waitForTimeout(150);
     // how far the day is off its protein, signed, straight from its row
     const protGap = () => z.evaluate(() =>
-      Number(document.querySelector('.mbrow[data-macro="p"] .mb-d b').textContent));
+      Number(document.querySelector('.mbrow[data-macro="p"] .mb-d').dataset.d));
     const leftBefore = await protGap();
     await z.click('#macroRebal');
     await z.waitForTimeout(250);
@@ -11317,6 +11571,82 @@ module.exports = {
       (await readX()) > 0, JSON.stringify({ x: await readX() }));
     await qty.context().close();
 
+    /* ---- a label's serving, said the same on the plate and in the list -----
+     *
+     * A food whose label says its own amount — "0.5 cup (113 g)" — reads "2
+     * cups · 452 g" on the plate at four, and the picker's row said "×4 0.5
+     * cup (113 g)": two numbers side by side, neither the amount. And a
+     * label noun never counted up: "1 bar (40 g)" at two was "2 bar". */
+    const lbl = await t.fresh();
+    await lbl.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.myFoods', JSON.stringify({
+        tam: { name: 'Tamale', unit: '0.5 cup (113 g)', kcal: 250, p: 10, f: 12, c: 25 },
+        pbar: { name: 'Protein bar', unit: '1 bar (40 g)', kcal: 200, p: 20, f: 5, c: 20 } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 55, c: 220 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [], l: [{ id: 'f:my:tam', x: 4, eaten: 0 }, { id: 'f:my:pbar', x: 2, eaten: 0 }], d: [], s: [] } }));
+    });
+    await lbl.reload();
+    await lbl.waitForTimeout(400);
+    await lbl.click('.tab[data-view="macros"]');
+    await lbl.waitForTimeout(300);
+    await lbl.evaluate(() => document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]')
+      .forEach((b) => b.click()));
+    await lbl.waitForTimeout(300);
+    const lblPlate = await lbl.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem')]
+      .map((it) => it.textContent.replace(/\s+/g, ' ')));
+    t.ok('a label noun counts up on the plate: two bars, not "2 bar"',
+      lblPlate.some((x) => /Protein bar/.test(x) && /2 bars/.test(x)) &&
+        !lblPlate.some((x) => /2 bar(?!s)/.test(x)), JSON.stringify(lblPlate));
+    await lbl.click('[data-mslot="l"]');
+    await lbl.waitForTimeout(400);
+    await pickerList(lbl);
+    const lblRows = await lbl.evaluate(() => {
+      const fit = (id) => ((document.querySelector('.mpick-row[data-mpick="' + id + '"] .mp-fit') || {}).textContent || '')
+        .replace(/\s+/g, ' ').trim();
+      return { tam: fit('f:my:tam'), bar: fit('f:my:pbar') };
+    });
+    t.ok('and the picker row says the amount the plate says: "2 cups · 452 g", "2 bars · 80 g"',
+      /^2 cups · 452 g · /.test(lblRows.tam) && /^2 bars · 80 g · /.test(lblRows.bar) &&
+        !/0\.5 cup|×/.test(lblRows.tam), JSON.stringify(lblRows));
+    await lbl.context().close();
+
+    /* ---- Add food at six in the evening is dinner ------------------------
+     *
+     * With no meal named, Add went to the first meal not finished and never
+     * looked at the clock: at 6 pm on an empty day it opened "Add to
+     * Breakfast". It starts at the meal whose time it is now. */
+    const eve = await t.fresh();
+    const addGuess = async (h, day) => {
+      await eve.clock.setFixedTime(new Date(2026, 9, 1, h, 0, 0));
+      await eve.reload();
+      await eve.evaluate((d) => {
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 200 }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ '2026-10-01': d }));
+      }, day);
+      await eve.reload();
+      await eve.waitForTimeout(400);
+      await eve.click('.tab[data-view="macros"]');
+      await eve.waitForTimeout(300);
+      await eve.click('#macroAdd');
+      await eve.waitForTimeout(350);
+      return eve.evaluate(() => ((document.querySelector('[data-mpslot][aria-pressed="true"]') || {}).dataset || {}).mpslot);
+    };
+    const ateOne = (id) => [{ id, x: 1, eaten: 1 }];
+    const aFood = 'f:banana';
+    const at6 = await addGuess(18, {});
+    const at6ate = await addGuess(18, { d: ateOne(aFood) });
+    const at9 = await addGuess(9, {});
+    const at6all = await addGuess(18, { b: ateOne(aFood), d: ateOne(aFood), s: ateOne(aFood) });
+    t.ok('Add at 6 pm on an empty day is dinner; with dinner eaten, the snacks; at 9 am, breakfast',
+      at6 === 'd' && at6ate === 's' && at9 === 'b', JSON.stringify({ at6, at6ate, at9 }));
+    t.ok('and with everything from dinner on finished it comes round to the first meal not finished',
+      at6all === 'l', JSON.stringify({ at6all }));
+    await eve.context().close();
+
     /* ---- what it weighs --------------------------------------------------
      * Blake: "sometimes it's just easier for me to measure the food on a scale
      * than using cups." A cup of oats is a range; 40 g of oats is 40 g. The
@@ -11796,7 +12126,7 @@ module.exports = {
     t.ok('the pills carry the same six numbers as the rows and the bars under them',
       await ph.evaluate(() => {
         const pills = [...document.querySelectorAll('.mpill')].map((x) => x.textContent.replace(/[\s,]/g, ''));
-        const rows = [...document.querySelectorAll('[data-macro] .mb-d b')].map((x) => x.textContent);
+        const rows = [...document.querySelectorAll('[data-macro] .mb-d')].map((x) => x.dataset.d);
         /* The limit pills carry the figure only — the fill says the
            proportion, so a denominator would say it twice, and dropping it is
            what buys every pill the same width. The open bars keep both.
@@ -12708,16 +13038,15 @@ module.exports = {
       auSnack.length > 0 && auSnack.every((r) => r.sec !== '2-6' && r.sec !== '2-7'),
       JSON.stringify(auSnack.map((r) => r.sec)));
     /* Read the gram figure off the row's own fit line: a food's portion is
-       stated there as "×1 lb" or "×2 each", and the plate it makes is what
-       the fit line prices. Four hundred grams is the ceiling in the code. */
+       stated there in the plate's words — "340 g · ¾ lb", "2 whole · 100 g"
+       — and the plate it makes is what the fit line prices. Four hundred
+       grams is the ceiling in the code. */
     const auWake = await fitsOf('w');
     const heavy = await auPg.evaluate((rows) => rows.filter((r) => r.food).map((r) => r.grams), auWake);
     t.ok('and no single food is offered as a dish beyond a plateful',
-      !/\d\s*lb\b/.test(heavy.join(' | ')) || heavy.every((g) => {
-        const m = /×\s*([\d\s¼½¾⅓⅔]+)\s*lb/.exec(g || '');
-        if (!m) return true;
-        const n = m[1].replace(/\s/g, '').replace('½', '.5').replace('¼', '.25').replace('¾', '.75');
-        return Number(n) * 453.6 <= 400;
+      heavy.every((g) => {
+        const m = /(?:^|· )(\d+) g\b/.exec(g || '');
+        return !m || Number(m[1]) <= 400;
       }), JSON.stringify(heavy));
     await auPg.context().close();
     }
@@ -13121,6 +13450,59 @@ module.exports = {
       }
       const still = await bp.evaluate((k) => JSON.parse(localStorage.getItem('bsc.macroWeights'))[k], today);
       t.ok('and declining it writes nothing', still === undefined, String(still));
+
+      /* In kilograms when Strengthen weighs in kilograms. The box said "lb"
+         whatever Strengthen said, and 86 — a kilogram reading — was stored as
+         86 lb with no question, the weight the next plan would be built for.
+         Storage stays in pounds; the box and its folded line speak kg. */
+      await bp.evaluate(() => {
+        localStorage.clear();
+        localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'kg' } }));
+      });
+      await bp.reload();
+      await bp.click('.tab[data-view="macros"]');
+      await bp.waitForTimeout(300);
+      const kgBox = await bp.evaluate(() => {
+        const b = document.getElementById('mWeight');
+        return { unit: b ? b.closest('label').textContent.trim() : 'no box', aria: b ? b.getAttribute('aria-label') : '' };
+      });
+      t.ok('with Strengthen in kilograms the weigh-in box asks in kg',
+        /^kg/.test(kgBox.unit) && /kilograms/.test(kgBox.aria), JSON.stringify(kgBox));
+      await bp.fill('#mWeight', '86');
+      await bp.press('#mWeight', 'Enter');
+      await bp.waitForTimeout(300);
+      const kgSaved = await bp.evaluate((k) => ({ dlg: !!document.querySelector('[data-dlg="ok"]'),
+        stored: JSON.parse(localStorage.getItem('bsc.macroWeights') || '{}')[k] }), today);
+      t.ok('and 86 typed there is kept as the pounds 86 kg is, without a question',
+        !kgSaved.dlg && Math.abs(kgSaved.stored - 86 * 2.20462) <= 0.05, JSON.stringify(kgSaved));
+      await bp.reload();
+      await bp.click('.tab[data-view="macros"]');
+      await bp.waitForTimeout(300);
+      const kgFold = await bp.evaluate(() => (document.querySelector('.mw-sum') || {}).textContent || '');
+      await bp.click('.mday-weigh [data-mfold]');
+      await bp.waitForTimeout(250);
+      const kgBack = await bp.evaluate(() => (document.getElementById('mWeight') || {}).value);
+      t.ok('and the morning is said back in kg, folded and in the box',
+        /^86 kg/.test(kgFold.trim()) && kgBack === '86', JSON.stringify({ kgFold, kgBack }));
+
+      /* In pounds, a first-ever morning under 90 is asked about: with nothing
+         to compare it to, a kilogram number in a pound box is the likely
+         mistake, and it used to pass anything over 60. */
+      await bp.evaluate(() => localStorage.clear());
+      await bp.reload();
+      await bp.click('.tab[data-view="macros"]');
+      await bp.waitForTimeout(300);
+      await bp.fill('#mWeight', '86');
+      await bp.press('#mWeight', 'Enter');
+      await bp.waitForTimeout(300);
+      const lightFirst = await bp.evaluate((k) => ({ title: (document.getElementById('dlgT') || {}).textContent || '',
+        stored: JSON.parse(localStorage.getItem('bsc.macroWeights') || '{}')[k] }), today);
+      t.ok('a first-ever 86 lb is asked about before it is written',
+        lightFirst.title === 'Keep 86 lb?' && lightFirst.stored === undefined, JSON.stringify(lightFirst));
+      if (lightFirst.title) {
+        await bp.click('button[data-dlg="cancel"]');
+        await bp.waitForTimeout(200);
+      }
 
       /* A device with an account decides its targets after the account answers. */
       await bp.context().route('**://www.gstatic.com/**', (r) => r.abort());
