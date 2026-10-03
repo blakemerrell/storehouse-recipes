@@ -1414,7 +1414,7 @@
         '<div class="dsh-rows">' +
         row('open', 'Open the recipe', '') +
         (gone || e.lo || !din ? '' : row('swap', 'Swap for another dinner', 'By the same rules as Plan my week')) +
-        (gone || e.lo ? '' : (twin ? row('single', 'Back to one batch', 'Takes the leftovers off ' + calDayName(twin)) :
+        (gone || e.lo ? '' : (twin ? row('single', e.x / 2 > 1 ? 'Back to ×' + fmtNum(e.x / 2) : 'Back to one batch', 'Takes the leftovers off ' + calDayName(twin)) :
           nxt && !calPastDay(nxt) ? row('double', 'Cook double, leftovers ' + calDayName(nxt), 'The list follows') : '')) +
         (gone ? '' : row('add', 'Add another to ' + calDayName(key), '')) +
         (gone ? '' : row('remove', 'Take it off ' + calDayName(key), twin ? 'And its leftovers night' : '', 'dsh-danger')) +
@@ -1435,12 +1435,23 @@
     if (act === 'open') { openRecipe(id); return; }
     if (act === 'add') { S.daySheet = null; addOpen(day, true); return; }
     var was = window.Store.day(day).filter(function (x) { return x.id === id; })[0] || { x: 1 };
-    var twin = planTwin(id, day), nxt = PW_DAYS[PW_DAYS.indexOf(day) + 1];
+    var twin = planTwin(id, day), nxt = PW_DAYS[PW_DAYS.indexOf(day) + 1], prev = PW_DAYS[PW_DAYS.indexOf(day) - 1];
+    /* The leftovers night taken off on its own: nobody is eating the second
+       batch, so the dinner goes back to one. Left doubled, its sheet offered
+       Cook double again, and ×2 became ×4 and never ×1. Looked up before the
+       batch, which changes the days under it. */
+    var half = function (x) { return x / 2 >= 1 ? x / 2 : 1; };
+    var cooked = was.lo && prev && planTwin(id, prev) === day
+      ? window.Store.day(prev).filter(function (x) { return x.id === id && !x.lo; })[0] : null;
     window.Store.batch(function () {
       if (act === 'swap') planSwap(id, day);
       if (act === 'double') { window.Store.addToDay(id, day, was.x * 2); if (nxt) window.Store.addToDay(id, nxt, 1, true); }
-      if (act === 'single') { window.Store.addToDay(id, day, was.x / 2 >= 1 ? was.x / 2 : 1); if (twin) window.Store.removeFromDay(id, twin); }
-      if (act === 'remove') { window.Store.removeFromDay(id, day); if (twin) window.Store.removeFromDay(id, twin); }
+      if (act === 'single') { window.Store.addToDay(id, day, half(was.x)); if (twin) window.Store.removeFromDay(id, twin); }
+      if (act === 'remove') {
+        window.Store.removeFromDay(id, day);
+        if (twin) window.Store.removeFromDay(id, twin);
+        else if (cooked) window.Store.addToDay(id, prev, half(cooked.x));
+      }
     });
     close();
   });
@@ -1875,10 +1886,14 @@
   }
   function pwMoney(v) { return v < 0.5 ? '$0' : '$' + (v < 10 ? v.toFixed(2) : Math.round(v)); }
   /* A third item on an option is how many dinners it holds, said small. */
+  // each row of chips named for a reader, as the question above it names it
+  var PW_QN = { days: 'Which nights', ppl: 'How many are eating', prot: 'Protein', kind: 'Kind of night', t: 'Time on a weeknight',
+    fit: 'Fits my Nourish plan', avoid: 'Leave out', lo: 'Leftovers nights', rec: 'Variety' };
   function pwChips(q, opts, cur, cls) {
-    return '<div class="pw-chips" role="group">' + opts.map(function (o) {
+    return '<div class="pw-chips" role="group"' + (PW_QN[q] ? ' aria-label="' + PW_QN[q] + '"' : '') + '>' + opts.map(function (o) {
       var on = Array.isArray(cur) ? cur.indexOf(o[0]) >= 0 : cur === o[0];
-      return '<button class="pw-chip' + (cls ? ' ' + cls : '') + '" data-pwq="' + q + '" data-pwv="' + esc(String(o[0])) + '" aria-pressed="' + on + '">' + o[1] +
+      // o[3]: a choice that has gone (a night already past), shown but not for taking
+      return '<button class="pw-chip' + (cls ? ' ' + cls : '') + (o[3] ? ' pw-gone' : '') + '" data-pwq="' + q + '" data-pwv="' + esc(String(o[0])) + '" aria-pressed="' + on + '"' + (o[3] ? ' disabled' : '') + '>' + o[1] +
         (o[2] !== undefined ? ' <i>' + o[2] + '</i>' : '') + '</button>';
     }).join('') + '</div>';
   }
@@ -1923,18 +1938,22 @@
     pwPool(a, false, 'fit').forEach(function (r) {
       modes.forEach(function (m) { if (pwFits(r, m, caps[m])) byFit[m]++; });
     });
-    var fitChips = [[0, 'Don’t mind'], [1, 'Hits my plan', byFit[1]]].concat(
+    /* No plan in Nourish yet, and the chip said "Hits my plan" of a plan
+       nobody had made: it is the plain 600 and 35 of pwFitCaps, and says so. */
+    var noPlan = !kcalOf(mReadTargets());
+    var fitChips = [[0, 'Don’t mind'], [1, noPlan ? 'Hits ' + fit.p + ' g in ' + fit.kc + ' cal' : 'Hits my plan', byFit[1]]].concat(
       others.map(function (o) { return [o.k, 'Hits ' + esc(o.n) + '’s plan', byFit[o.k]]; }),
       others.length ? [[3, others.length > 1 ? 'Hits everyone’s' : 'Hits both', byFit[3]]] : [],
       [[2, 'High protein', byFit[2]]]);
     // whose shares they are, said small; mine alone needs no name
     var shares = others.length ? plans.map(function (pl, i) {
       return (i ? esc(pl.n) : 'You') + ' ' + pl.kc + ' cal · ' + pl.p + ' g';
-    }).join(' · ') : fit.kc + ' cal · ' + fit.p + ' g protein a dinner';
+    }).join(' · ') : noPlan ? 'no plan yet — set your numbers in Nourish; a plain ' + fit.kc + ' cal · ' + fit.p + ' g protein a dinner until then'
+      : fit.kc + ' cal · ' + fit.p + ' g protein a dinner';
     var low = cnt.n < cnt.need * 2, none = cnt.n < cnt.need || !cnt.need;
     return '<h2 class="pw-h">What kind of week?</h2>' +
       '<div class="pw-q"><div class="pw-ql">Which nights</div>' +
-        pwChips('days', CAL_DAYS.map(function (d) { return [d[0], d[2]]; }), a.days, 'pw-dayc') + '</div>' +
+        pwChips('days', CAL_DAYS.map(function (d) { return [d[0], d[2], undefined, calPastDay(d[0])]; }), a.days, 'pw-dayc') + '</div>' +
       '<div class="pw-q"><div class="pw-ql">How many are eating?</div>' + pwChips('ppl', [[2, '2'], [3, '3'], [4, '4'], [6, '6'], [8, '8+']], a.ppl) + '</div>' +
       '<div class="pw-q"><div class="pw-ql">Spend no more than</div><div class="pw-money">' +
         '<input type="range" id="pwBud" min="20" max="150" step="5" value="' + a.bud + '" aria-label="Budget in dollars">' +
@@ -1968,7 +1987,7 @@
          would give me a selection to pick my dinners." */
       '<div class="pw-bar"><div class="pw-cnt' + (low ? ' low' : '') + '" role="status"><b>' + cnt.n + '</b> ' +
         (cnt.n === 1 ? 'dinner fits' : 'dinners fit') + '<span>' +
-        (!cnt.need ? (a.days.length ? 'those nights already have dinners' : 'pick a night') :
+        (!cnt.need ? (!a.days.length ? 'pick a night' : a.days.every(calPastDay) ? 'those nights have gone' : 'those nights already have dinners') :
           cnt.n < cnt.need ? 'need ' + cnt.need + ', loosen a filter' : low ? 'not many to choose from' : 'for ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights')) +
         '</span></div><button class="pw-go" data-pwsee="1"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>';
   }
@@ -2036,10 +2055,20 @@
     plans: pwPlans, capFor: pwCapFor,
     count: pwCount, pick: function (a) { var keep = S.pw; S.pw = { a: a, picks: [], seen: {} }; pwPick(); var out = S.pw.picks; S.pw = keep; return out; } };
   function pwOpen() {
-    S.pw = { a: pwAnswers(), picks: [], seen: {}, want: [], see: false };
+    var a = pwAnswers();
+    /* The nights left this week, not the nights remembered from last time:
+       on a Saturday, Monday to Friday came up lit, every one of them gone,
+       and the bar said those nights already had dinners. */
+    var left = PW_DAYS.filter(function (d) { return !calPastDay(d); });
+    a.days = a.days.filter(function (d) { return !calPastDay(d); });
+    if (!a.days.length && left.length) a.days = left;
+    S.pw = { a: a, picks: [], seen: {}, want: [], see: false };
     S.pwOpen = true;
     pushSheet({ pw: 1 });
     renderModal();
+    // the sheet takes the focus, as the recipe sheet does; it was left on the button behind
+    var x = document.querySelector('.pw-sheet .sheet-x, .sheet-x[data-close="1"]');
+    if (x && x.focus) x.focus();
   }
   document.addEventListener('click', function (e) {
     if (!S.pwOpen || !e.target.closest) return;
@@ -2094,8 +2123,20 @@
       S.pwUndo = added.map(function (p) { return [p.r.id, p.day]; });
       close();
       if (S.view === 'plan') renderPlan();
+      /* Picked for you can cost more than the budget asked for, when nothing
+         cheaper fits (pwNext falls back to the cheapest): said here, not
+         found on the list. */
+      var usd = pwCost(added, S.pw.a.shelf), over = usd > S.pw.a.bud + 0.5;
+      /* A phone whose storage is full keeps none of this: it said "3
+         dinners added" over a week that was empty again on the next open. */
+      if (window.Store.storageFull) {
+        mToast('<b>Not kept on this phone</b><small>Its storage for the app is full' +
+          (window.Store.house ? '; the dinners still go to the shared pantry while there’s signal' : '. Free some space to keep them') + '</small>');
+        return;
+      }
       mToast('<b>' + cooked + (cooked === 1 ? ' dinner' : ' dinners') + ' added</b>' +
-        (used && used < cooked ? '<small>Your ' + used + ', and ' + (cooked - used) + ' picked for you</small>' : !used ? '<small>Picked for you</small>' : ''),
+        (used && used < cooked ? '<small>Your ' + used + ', and ' + (cooked - used) + ' picked for you</small>' : !used ? '<small>Picked for you</small>' : '') +
+        (over ? '<small>About ' + pwMoney(usd) + ' to buy, over your $' + S.pw.a.bud + '</small>' : ''),
         'pw', 'data-pwundo');
     }
   });
@@ -2187,8 +2228,14 @@
     }
     var cp = e.target.closest('[data-copyorder]');
     if (cp) {
+      /* Name, then how much, with something between: the two spans sit
+         flush, so their text ran together ("Bell peppers6", "Chicken
+         breasts9 ½ lbs") on the bishop's copy. */
       var lines = [].map.call(document.querySelectorAll('.list-group.where-s .list-row'), function (r) {
-        return r.textContent.replace(/\s+/g, ' ').trim();
+        var n = r.querySelector('span:not(.qty)'), q = r.querySelector('.qty');
+        var name = (n ? n.textContent : r.textContent).replace(/\s+/g, ' ').trim();
+        var qty = q ? q.textContent.replace(/\s+/g, ' ').trim() : '';
+        return qty ? name + ' — ' + qty : name;
       }).join('\n');
       var say = function (t) { cp.textContent = t; setTimeout(function () { cp.textContent = srcW().copy; }, 1800); };
       var fail = function () { say('Couldn\u2019t copy \u2014 select the list instead'); };
@@ -3281,8 +3328,13 @@
     var st = window.Store.status, code = window.Store.house;
     if (!code) { if (st === 'local') mHouseTellNext = false; return; }
     if (st !== 'synced') return;
+    /* Still the household the account already has: nothing to tell yet. An
+       invite taken from inside another pantry set the flag before the join
+       was through, and the old pantry's next word spent it — so the account
+       was never told, and every open after asked "Use your account's pantry?" */
+    if (code === mAcctHouse) return;
     mHouseTellNext = false;
-    if (code !== mAcctHouse) mHouseTell(code);
+    mHouseTell(code);
   }
   /* The last attempt to reach the server failed, rather than answering
      "nobody". The two are different facts and the sheet has different
@@ -17627,6 +17679,9 @@
         syncDinerHTML() +
         '<div class="sync-status"><span class="' + dotCls + '"></span>' + esc(label) +
           '<span class="sync-build">Build ' + esc(BUILD) + '</span></div>' +
+        // said here for as long as it is so, not only in the one toast
+        (window.Store.storageFull ? '<p class="sync-warn">This phone’s storage for the app is full, so changes to the plan and recipes aren’t kept on it' +
+          (house ? '; they still go to the shared pantry while there’s signal.' : '. Free some space to keep them.') + '</p>' : '') +
 
         /* The app's one screen of settings for the whole of it, so the
            light-or-dark choice lives here. Auto is the phone's own. */
@@ -19045,6 +19100,9 @@
          it. It moves nothing unless a week has passed. */
       var followed = !mBootTargetsDue && mFollowScale();
       if (S.view === 'macros' && (!S.macroDate || followed)) renderMacros();
+      /* Today too: resumed after midnight it went on showing yesterday's
+         dinner and "2,035 left today" until a tab was switched. */
+      if (S.view === 'today' && window.Today) window.Today.render();
     });
 
     document.addEventListener('click', function (ev) {
@@ -19877,6 +19935,13 @@
             ok: 'Sign out'
           }, function (yes) {
             if (!yes) return;
+            /* The dinner numbers go with the account, as on delete: left in
+               the household, with nobody signed in to own them, this phone
+               showed them back as somebody else's plan ("Hits both"). */
+            if (dinerOn() && window.Store.setMyDiner) {
+              window.Store.setMyDiner(null);
+              dinerPrefSave({ on: 0, u: mAccount().uid, n: dinerName() });
+            }
             window.Store.signOutAccount().then(function () {
               S.mySent = false;
               mForgetDay();
@@ -20093,6 +20158,10 @@
            the next snapshot would put this device straight back in. */
         if (act === 'leave') {
           S.inviteUrl = ''; S.inviteMsg = '';
+          /* The switch was "share with the household", and that household
+             is being left: off, so the numbers do not follow this account
+             into the next pantry it joins, unasked. */
+          if (dinerOn()) dinerPrefSave({ on: 0, u: mAccount().uid, n: dinerName() });
           window.Store.leave();
           mHouseTellNext = false;
           if (mAccount() && mSyncDoc) mHouseTell('');
@@ -20272,8 +20341,9 @@
       if (e.key === 'Escape' && D) { closeDialog(null); return; }
       if (e.key === 'Escape' && S.editId) { editorAction('cancel'); return; }
       if (e.key === 'Escape' && S.filtPop) { filtersPop(false); return; }
+      // Plan's sheets too: Plan my week, a day's dinner, Add to a day stayed up on Escape
       if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen || S.newFood ||
-        S.keepMeal || S.chartOpen || S.foodOpen || S.mCopyFrom)) close();
+        S.keepMeal || S.chartOpen || S.foodOpen || S.mCopyFrom || S.pwOpen || S.daySheet || S.addOpen)) close();
     });
   }
 
@@ -20459,8 +20529,12 @@
   }
   function todayData() {
     var now = new Date(), tk = todayKey(), dk = CAL_DAYS[now.getDay()][0];
+    /* Tonight is the day's dinner-section recipe or, failing one, whatever
+       is planned: a recipe of your own, or a breakfast for dinner, was on
+       the Plan grid and not on Today at all. */
     var dinnerOf = function (key) {
-      return window.Store.day(key).filter(function (e) { return BY_ID[e.id] && pwIsDinner(BY_ID[e.id]); })[0] || null;
+      var all = window.Store.day(key).filter(function (e) { return BY_ID[e.id]; });
+      return all.filter(function (e) { return pwIsDinner(BY_ID[e.id]); })[0] || all[0] || null;
     };
     var t = dinnerOf(dk), r = t && BY_ID[t.id];
     var next = CAL_DAYS.slice(now.getDay() + 1).map(function (d) {
@@ -20483,7 +20557,7 @@
       next: next,
       planned: CAL_DAYS.some(function (d) { return !!dinnerOf(d[0]); }),
       eating: set ? {
-        set: true, target: kcalOf(T), training: mIsTrainingDay(tk),
+        set: true, key: tk, target: kcalOf(T), training: mIsTrainingDay(tk),
         kcal: { have: tot.eaten.kcal, want: kcalOf(want) }, p: { have: tot.eaten.p, want: want.p },
         room: tot.all.kcal < kcalOf(want) * 0.9, meals: todayMeals(tk)
       } : { set: false },
@@ -20501,14 +20575,17 @@
   window.Hive = {
     /* Today's reading of the app, and its doors back into it. */
     today: todayData,
-    go: goView,
+    /* Today is about today: a door from it into Nourish opens on today,
+       not on the day Nourish was left parked on — Add food from Today
+       was adding to Sep 30 while the card went on saying nothing planned. */
+    go: function (v) { if (v === 'macros') S.macroDate = null; goView(v); },
     open: function (id) { rememberOpener(); openRecipe(idOf(id)); },
     swap: function (id, day) { planSwap(idOf(id), day); },
     planWeek: function () { goView('plan'); pwOpen(); },
     addTonight: function () { goView('plan'); rememberOpener(); addOpen(CAL_DAYS[new Date().getDay()][0]); },
-    addFood: function () { goView('macros'); var b = $('macroAdd'); if (b) b.click(); },
-    fill: function () { goView('macros'); var b = $('macroFill'); if (b && b.dataset.mode === 'fill' && !b.disabled) b.click(); },
-    numbers: function () { goView('macros'); var b = $('macroFill'); if (b && b.classList.contains('to-plan') && !b.disabled) b.click(); },
+    addFood: function () { S.macroDate = null; goView('macros'); var b = $('macroAdd'); if (b) b.click(); },
+    fill: function () { S.macroDate = null; goView('macros'); var b = $('macroFill'); if (b && b.dataset.mode === 'fill' && !b.disabled) b.click(); },
+    numbers: function () { S.macroDate = null; goView('macros'); var b = $('macroFill'); if (b && b.classList.contains('to-plan') && !b.disabled) b.click(); },
     /* The front door's answers (src/door.js), each to what owns it: the
        household's staples switches, as Where sets them, and Plan my week's
        "how many are eating"; Nourish's goal; Nourish's numbers sheet. */
@@ -20529,11 +20606,13 @@
       pr.goal = g;
       mWriteProfile(pr);
     },
-    numbersSetup: function () { goView('macros'); mOpenTargets(); },
+    numbersSetup: function () { S.macroDate = null; goView('macros'); mOpenTargets(); },
     /* A meal ticked on Today: everything on it eaten, as its boxes on the
-       Nourish day would be. */
-    eat: function (sk) {
-      mEditDay(todayKey(), function (day) { (day[sk] || []).forEach(function (it) { it.eaten = 1; }); });
+       Nourish day would be. `tk` is the day the card was drawn for: past
+       midnight on a card nobody had redrawn, the tick went to a day with no
+       dinner on it and did nothing. */
+    eat: function (sk, tk) {
+      mEditDay(/^\d{4}-\d{2}-\d{2}$/.test(tk || '') ? tk : todayKey(), function (day) { (day[sk] || []).forEach(function (it) { it.eaten = 1; }); });
       if (S.view === 'today' && window.Today) window.Today.render();
     },
     ask: ask,

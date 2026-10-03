@@ -6672,6 +6672,14 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
 .pw-cnt b { font-family: var(--serif); font-size: 1.375rem; font-variant-numeric: tabular-nums; }
 .pw-cnt span { display: block; font-size: 0.8125rem; color: var(--muted); }
 .pw-cnt.low b { color: var(--dial-over); }
+/* A night already gone: there to show the week, not to pick. */
+.pw-chip.pw-gone { opacity: 0.4; text-decoration: line-through; cursor: default; }
+/* At 320px the bar's words wrapped inside a word ("tick / ed") beside the button. */
+@media (max-width: 340px) {
+  .pw-bar .pw-go { padding: 0 12px; }
+  .pw-cnt { white-space: nowrap; }
+  .pw-cnt span { white-space: normal; }
+}
 
 /* Walmart cart: Walmart's own blue on the one button that leaves the app,
    so it reads as going somewhere else; everything under it stays ours. */

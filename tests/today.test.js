@@ -151,6 +151,77 @@ module.exports = {
     t.ok('and Today then says a workout is going', (await p.evaluate(() => document.querySelector('[data-card="workout"] .td-title').textContent)) === 'A workout is going');
     await p.context().close();
 
+    /* ---- a rest day: Today says so, as the block card does ---- */
+    p = await at(t, MORNING, () => {
+      localStorage.setItem('sh.view', 'today'); localStorage.setItem('sh.viewAt', String(Date.now()));
+      const _ = window.Train._, ms = _.build({ goal: 'grow', dpw: 2, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'b'; ms.n = 'Fall block'; ms.at = Date.now() - 3 * 864e5;
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 2] }, act: 'b', ms: { b: ms }, cx: {}, ax: {}, wo: {} }));
+    });
+    p.on('pageerror', (e) => errs.push(e.message));
+    const rest = await p.evaluate(() => ({ w: window.Train.today(), title: (document.querySelector('[data-card="workout"] .td-title') || {}).textContent,
+      note: (document.querySelector('[data-card="workout"] .td-note') || {}).textContent || '', start: !!document.querySelector('[data-card="workout"] [data-td="start"]'),
+      primary: !!document.querySelector('[data-card="workout"] .btn-primary[data-td="start"]') }));
+    t.ok('on a Thursday with Monday and Wednesday the lifting days, Today says Rest day, names the next session Monday, and offers Start only quietly',
+      rest.w.due > 0 && rest.title === 'Rest day' && rest.note === 'Next: ' + rest.w.name + ' Monday.' && rest.start && !rest.primary, JSON.stringify(rest));
+    await p.context().close();
+
+    /* ---- Today is about today ---- */
+    p = await at(t, EVENING, () => {
+      localStorage.setItem('sh.view', 'today'); localStorage.setItem('sh.viewAt', String(Date.now()));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5, inch: 11, lb: 190, act: 1.55, goal: 'cut1' }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 70, c: 230 }));
+    });
+    p.on('pageerror', (e) => errs.push(e.message));
+    // Nourish parked on yesterday; a door from Today opens on today
+    await p.click('.tab[data-view="macros"]');
+    await p.waitForTimeout(300);
+    await p.click('[data-mweek="2026-09-30"]');
+    await p.waitForTimeout(300);
+    const parked = await p.evaluate(() => document.querySelector('[data-mweek][aria-pressed="true"]').dataset.mweek);
+    await p.click('.tab[data-view="today"]');
+    await p.waitForTimeout(300);
+    await p.click('[data-card="eating"] [data-td="addfood"]');
+    await p.waitForTimeout(400);
+    const back = await p.evaluate(() => ({ day: document.querySelector('[data-mweek][aria-pressed="true"]').dataset.mweek, view: document.querySelector('.tab[aria-selected="true"]').dataset.view }));
+    t.ok('Nourish parked on yesterday, Add food from Today adds to today', parked === '2026-09-30' && back.view === 'macros' && back.day === '2026-10-01', JSON.stringify({ parked, back }));
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(200);
+    // whatever is planned tonight is tonight's dinner, a breakfast or a recipe of your own included
+    const bk = await p.evaluate(() => {
+      const r = window.RECIPES.find((x) => /oatmeal|pancake|granola|smoothie/i.test(x.name));
+      window.Store.addToDay(r.id, 'thu');
+      const h = window.Hive.today();
+      return { name: r.name, tonight: h.tonight && h.tonight.name, planned: h.planned };
+    });
+    t.ok('a breakfast planned for tonight is tonight’s dinner on Today', bk.tonight === bk.name && bk.planned, JSON.stringify(bk));
+    await p.evaluate(() => window.Store.clearPlan());
+    // brought back after midnight, Today is the new day
+    await p.click('.tab[data-view="today"]');
+    await p.waitForTimeout(200);
+    await p.clock.setFixedTime(new Date(2026, 9, 2, 0, 1, 0));
+    await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await p.waitForTimeout(200);
+    const dated = await p.evaluate(() => document.querySelector('#todayRoot .step-k').textContent);
+    t.ok('brought back after midnight, Today is the new day', dated === 'Friday · October 2', dated);
+    await p.context().close();
+
+    // a tick on a card drawn before midnight lands on the day the card was about
+    p = await at(t, new Date(2026, 9, 1, 23, 58, 0), () => {
+      localStorage.setItem('sh.view', 'today'); localStorage.setItem('sh.viewAt', String(Date.now()));
+      localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5, inch: 11, lb: 190, act: 1.55, goal: 'cut1' }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 70, c: 230 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ '2026-10-01': { d: [{ id: 1, x: 1 }] } }));
+    });
+    p.on('pageerror', (e) => errs.push(e.message));
+    const tick0 = await p.evaluate(() => !!document.querySelector('[data-td="eat"][data-k="d"]'));
+    await p.clock.setFixedTime(new Date(2026, 9, 2, 0, 1, 0));
+    await p.click('[data-td="eat"][data-k="d"]');
+    await p.waitForTimeout(200);
+    const ate = await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('bsc.macroDays')); return { thu: d['2026-10-01'].d[0].eaten, date: document.querySelector('#todayRoot .step-k').textContent }; });
+    t.ok('a tick on Thursday’s card after midnight marks Thursday’s dinner eaten, and the card moves on to Friday', tick0 && ate.thu === 1 && ate.date === 'Friday · October 2', JSON.stringify(ate));
+    await p.context().close();
+
     /* ---- where the app opens: where you were, unless you have been away an hour ----
        Seeded before the app's own script runs, as a phone's storage would be
        on a cold start: a reload of a page that is up counts as now. */

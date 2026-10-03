@@ -31,7 +31,10 @@
     }
     var mark = localStorage.getItem(KEY);
     if (!mark && used) localStorage.setItem(KEY, 'had');
-    due = !mark && !used;
+    /* 'open' is a door that was up when the page went: the first boot writes
+       a dozen bsc.* keys of its own before anything is answered, so the next
+       load would otherwise count the phone as used and never ask. */
+    due = mark === 'open' || (!mark && !used);
     joining = /[?&]invite=/.test(location.search) || !!localStorage.getItem('bsc.invite');
   } catch (e) { due = false; }
 
@@ -94,8 +97,8 @@
     return s;
   }
 
-  function chips(q, list, cur) {
-    return '<div class="dr-chips" role="group">' + list.map(function (o) {
+  function chips(q, list, cur, label) {
+    return '<div class="dr-chips" role="group"' + (label ? ' aria-label="' + esc(label) + '"' : '') + '>' + list.map(function (o) {
       return '<button type="button" class="pw-chip" data-dr="' + q + '" data-v="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '">' + esc(o[1]) + '</button>';
     }).join('') + '</div>';
   }
@@ -139,16 +142,16 @@
     }
     if (s === 'kitchen') {
       return head('Your kitchen', 'Your kitchen') +
-        q('How many are eating?', chips('ppl', PPL, A.ppl)) +
+        q('How many are eating?', chips('ppl', PPL, A.ppl, 'How many are eating?')) +
         q('Where do your staples come from?', radios('src', SRC, A.src, 'Where do your staples come from?'), 'The foods that keep: canned, dry and frozen.') +
         '<div class="dr-foot">' + next(last ? 'Show me today' : 'Next') + back +
           '<p class="dr-note">Shared with everyone in your kitchen. Change it any time under Share › Your kitchen.</p></div>';
     }
     if (s === 'work') {
       return head('Your workouts', 'Your workouts') +
-        q('What do you have to train with?', chips('kit', KIT, A.kit)) +
-        q('Days a week', chips('dpw', DPW, A.dpw)) +
-        q('Minutes a session', chips('min', MIN, A.min), 'Warm-up included.') +
+        q('What do you have to train with?', chips('kit', KIT, A.kit, 'What do you have to train with?')) +
+        q('Days a week', chips('dpw', DPW, A.dpw, 'Days a week')) +
+        q('Minutes a session', chips('min', MIN, A.min, 'Minutes a session'), 'Warm-up included.') +
         '<div class="dr-foot">' + next(last ? 'Show me today' : 'Next') + back +
           '<p class="dr-note">Strengthen starts its setup with these filled in, and asks the rest: your goal, how long you have lifted, your back and joints.</p></div>';
     }
@@ -179,13 +182,22 @@
     r.setAttribute('aria-label', 'Welcome');
     document.body.appendChild(r);
     document.documentElement.classList.add('door-up');
+    /* A modal in fact, not only in name: Tab walked out of it into the app
+       behind, and a screen reader read the whole app under "Welcome". */
+    behind(true);
+    try { localStorage.setItem(KEY, 'open'); } catch (e) { /* private mode: asked again next time */ }
     draw(true);
+  }
+  function behind(off) {
+    var els = document.querySelectorAll('#main, .topbar, #shareHint');
+    for (var i = 0; i < els.length; i++) els[i].inert = off;
   }
   function close(mark) {
     try { localStorage.setItem(KEY, mark); } catch (e) { /* private mode: asked again next time */ }
     var r = root();
     if (r) r.parentNode.removeChild(r);
     document.documentElement.classList.remove('door-up');
+    behind(false);
   }
 
   /* Every answer, handed to what owns it. */
@@ -205,6 +217,21 @@
     if (H.go) H.go('today');
     if (numbers && H.numbersSetup) H.numbersSetup();
   }
+
+  /* Tab stays inside the door while it is up. With the app behind inert
+     there is nowhere else on the page to go, but off the last control the
+     keyboard still left the page for the browser's own bar and came back
+     at the top; wrapped here instead, as the app's own dialogs do. */
+  document.addEventListener('keydown', function (e) {
+    var r = root();
+    if (e.key !== 'Tab' || !r) return;
+    var f = Array.prototype.filter.call(r.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+      function (el) { return el.offsetParent !== null; });
+    if (!f.length) return;
+    var a = document.activeElement, first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && (a === first || !r.contains(a))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (a === last || !r.contains(a))) { e.preventDefault(); first.focus(); }
+  });
 
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('#doorRoot [data-dr]');

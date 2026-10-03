@@ -99,8 +99,9 @@
   }
   /* A meal on Today: a circle to tick it eaten, what it is, its calories.
      Eaten ones fold into one green line; the rest stay open. */
-  function mealRow(m, next) {
-    return '<div class="td-meal"><button class="td-tick" data-td="eat" data-k="' + esc(m.k) + '" aria-label="' + esc(m.n) + ' eaten"></button>' +
+  function mealRow(m, next, tk) {
+    // data-tk: the day this card is about, so a tick after midnight lands on it
+    return '<div class="td-meal"><button class="td-tick" data-td="eat" data-k="' + esc(m.k) + '" data-tk="' + esc(tk || '') + '" aria-label="' + esc(m.n) + ' eaten"></button>' +
       '<span class="td-mt"><span class="td-ms">' + esc(m.n) + '</span><span class="td-mn">' + esc(m.name) +
         (next ? ' <span class="td-tag">next</span>' : '') + '</span></span>' +
       '<span class="td-kc">' + fmt(m.kcal) + ' cal</span></div>';
@@ -130,7 +131,7 @@
     }
     var eaten = meals.filter(function (m) { return m.eaten; }), open = meals.filter(function (m) { return !m.eaten && !m.empty; });
     return card('eating', 'Eating', big + (eaten.length ? eatenLine(eaten) : '') +
-      (open.length ? '<div class="td-meals">' + open.map(function (m, i) { return mealRow(m, i === 0); }).join('') + '</div>' : '') +
+      (open.length ? '<div class="td-meals">' + open.map(function (m, i) { return mealRow(m, i === 0, e.key); }).join('') + '</div>' : '') +
       bars, '', 'macros');
   }
 
@@ -160,6 +161,13 @@
       return card('workout', 'Workout', title('An easy day') +
         note('A walk, a ride, a swim: something easy that counts.') +
         acts(btn(main, 'train', 'Log it')), '', 'train');
+    }
+    /* A rest day: what the block card says, with the next session named and
+       a quiet way to start it anyway. */
+    if (w.due > 0) {
+      return card('workout', 'Workout', title('Rest day') +
+        note('Next: ' + esc(w.name) + ' ' + esc(w.dueSay) + '.') +
+        acts((main ? btn(true, 'train', 'See the block') : '') + quiet('start', 'Start it anyway')), '', 'train');
     }
     var lifts = (w.lifts || []).slice(0, 5).map(function (l) {
       return '<li><span>' + esc(l.name) + '</span><span>' + esc(l.say) + '</span></li>';
@@ -262,7 +270,7 @@
     }
     var H = window.Hive, a = b.getAttribute('data-td'), id = b.getAttribute('data-id');
     if (a === 'go') { H.go(b.getAttribute('data-go')); return; }
-    if (a === 'eat') { H.eat(b.getAttribute('data-k')); return; }
+    if (a === 'eat') { H.eat(b.getAttribute('data-k'), b.getAttribute('data-tk')); return; }
     if (a === 'open') H.open(id);
     else if (a === 'swap') H.swap(id, b.getAttribute('data-day'));
     else if (a === 'planweek') H.planWeek();
