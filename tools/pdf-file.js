@@ -25,10 +25,10 @@ const fs = require('fs');
 const path = require('path');
 
 /* The edition year, read from the one place it is written — the constant the
-   covers print. */
+   covers print, in src/book.js since the book moved out of app.js. */
 function editionYear() {
   try {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8');
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'book.js'), 'utf8');
     const m = src.match(/var YEAR = '(\d{4})'/);
     if (m) return Number(m[1]);
   } catch (e) { /* fall through */ }
