@@ -34,7 +34,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 
 const M = [
-  ['shopping list stops adding duplicates together', 'src/app.js',
+  ['shopping list stops adding duplicates together', 'src/list.js',
    'bucket[key].g += it.g * e.x;', 'bucket[key].g = it.g * e.x;'],
   ['scaling is ignored', 'src/app.js',
    "list.push({ id: id, x: x || 1 });", "list.push({ id: id, x: 1 });", 'src/sync.js'],
@@ -45,7 +45,7 @@ const M = [
   ['ticks are never pruned when a recipe leaves the week', 'src/sync.js',
    'var stale = Object.keys(state.checked).filter(function (k) { return !live[k]; });',
    'var stale = [];'],
-  ['flagged seasonings stop being marked again', 'src/app.js',
+  ['flagged seasonings stop being marked again', 'src/shelf.js',
    "if (it.k === 'free') return !!it.x;", "if (it.k === 'free') return false;"],
   ['the pantry stops saving', 'src/sync.js',
    'write(LS.pantry, state.pantry); write(LS.pantryNew, state.pantryNew);', ''],

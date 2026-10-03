@@ -67,6 +67,16 @@ function get(url, binary) {
   // the markup between <body> and the script tags, exactly as the app ships it
   const body = html.split('<body>')[1].split('<script')[0].trim();
 
+  /* Every script the app loads, in its order, read off index.html, so a file
+     split out of app.js is in the preview without anybody remembering to add
+     it. It named five by hand and had fallen behind: Today, the front door,
+     the food table and every part since. The Firebase config is a blank one,
+     so the preview never talks to a server. */
+  const scripts = [...html.matchAll(/<script src="([^"?]+)(?:\?[^"]*)?"><\/script>/g)].map((m) => m[1])
+    .map((f) => '<script>\n' + (f === 'src/config.js'
+      ? 'window.FIREBASE_CONFIG = { apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" };'
+      : read(f).replace(/<\/script/gi, '<\\/script')) + '\n</script>').join('\n');
+
   // The charset declaration has to be the first thing in the content: the page
   // is full of curly quotes, fraction glyphs and middots, and without it a host
   // that does not send a charset header decodes them as Latin-1.
@@ -77,21 +87,7 @@ ${fontCss}
 ${appCss}
 </style>
 ${body}
-<script>
-${read('data/recipes.js')}
-</script>
-<script>
-window.FIREBASE_CONFIG = { apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" };
-</script>
-<script>
-${read('src/sync.js')}
-</script>
-<script>
-${read('src/train.js')}
-</script>
-<script>
-${read('src/app.js')}
-</script>
+${scripts}
 `;
 
   fs.writeFileSync(OUT, page);
