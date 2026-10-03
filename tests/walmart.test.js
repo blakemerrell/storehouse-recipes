@@ -137,7 +137,8 @@ module.exports = {
     await p.waitForTimeout(250);
     await p.click('#planMyWeek');
     await p.waitForTimeout(250);
-    await p.click('[data-pwpick]');
+    await p.click('[data-pwsee]');
+    await p.click('[data-pwpick="all"]');
     await p.waitForTimeout(400);
     await p.click('#planNext [data-stepgo="list"]');
     await p.waitForTimeout(300);

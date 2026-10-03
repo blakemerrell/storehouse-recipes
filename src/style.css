@@ -7402,3 +7402,7 @@ button.pw-see:disabled { cursor: default; border-style: dashed; }
 .day-new { font-family: var(--sans); font-size: 0.6875rem; font-weight: 700; color: var(--on-ochre); background: var(--ochre); border-radius: 99px; padding: 1px 8px; vertical-align: 1px; }
 .cal-day .day-item.new { background: var(--hint); border-color: var(--ochre); }
 .m-toast small { display: block; font-size: 0.8125rem; opacity: 0.8; }
+.pw-fit.full .pw-want::before { opacity: 0.35; border-style: dashed; }
+.pw-want:disabled { cursor: default; }
+.pw-tickl { margin: 6px 0 0; }
+.pw-or { display: flex; justify-content: center; margin: 2px 0 6px; }

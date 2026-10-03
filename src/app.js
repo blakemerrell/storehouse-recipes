@@ -1846,7 +1846,7 @@
     });
     return lo;
   }
-  function pwPick() {
+  function pwPick(mine) {
     var a = S.pw.a, picks = [], nights = pwNights(a.days), week = pwWeekDinners();
     var lo = pwLoNights(a, nights);
     // the ones ticked on the list, in the order ticked, and not already on the week
@@ -1866,6 +1866,7 @@
         S.pw.used++;
         continue;
       }
+      if (mine) continue;
       var nx = pwNext(a, picks.filter(function (e) { return !e.lo; }), [], nights[i], week);
       if (nx) picks.push({ r: nx.r, x: nx.x, day: nights[i] });
     }
@@ -1962,13 +1963,14 @@
          tick the ones wanted. Blake, after a pick he could not see: "it just
          auto put some stuff there and didn't let me see the 11 that it
          selected". */
-      '<div class="pw-bar"><button class="pw-cnt pw-see' + (low ? ' low' : '') + '" data-pwsee="1"' + (cnt.n ? '' : ' disabled') + '><b>' + cnt.n + '</b> ' +
+      /* Pick my dinners is picking: it opens the dinners that fit, to tick
+         one a night. Blake: "I expect that when I click pick my dinners it
+         would give me a selection to pick my dinners." */
+      '<div class="pw-bar"><div class="pw-cnt' + (low ? ' low' : '') + '" role="status"><b>' + cnt.n + '</b> ' +
         (cnt.n === 1 ? 'dinner fits' : 'dinners fit') + '<span>' +
         (!cnt.need ? (a.days.length ? 'those nights already have dinners' : 'pick a night') :
           cnt.n < cnt.need ? 'need ' + cnt.need + ', loosen a filter' : low ? 'not many to choose from' : 'for ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights')) +
-        '</span>' + (cnt.n ? '<i>' + (S.pw.want.length ? S.pw.want.length + ' ticked \u00b7 see them' : 'See the ' + cnt.n) + ' \u203a</i>' : '') + '</button>' +
-        '<button class="pw-go" data-pwpick="1"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>' +
-      '<p class="pw-note">Pick for me, or see the ' + (cnt.n === 1 ? 'one' : cnt.n) + ' that fit and tick the ones you want. They go onto your week, marked new, with Undo.</p>';
+        '</span></div><button class="pw-go" data-pwsee="1"' + (none ? ' disabled' : '') + '>Pick my dinners</button></div>';
   }
   /* The dinners that fit, to tick the ones wanted. Pick my dinners puts the
      ticked ones on first, in the order ticked, and fills the nights left
@@ -1982,18 +1984,21 @@
       '<h2 class="pw-h">The ' + (pool.length === 1 ? 'one' : pool.length) + ' that fit</h2>' +
       '<p class="pw-note pw-lede">Tick the ones you want this week. Tap a name to see the recipe.</p>' +
       '<div class="pw-fits">' + pool.map(function (r) {
-        var on = want.indexOf(r.id) >= 0, m = r.macro || {};
-        return '<div class="pw-fit" style="--pc:' + PROT_VAR[pwProt(r)] + '">' +
-          '<button class="pw-want" data-pwwant="' + esc(String(r.id)) + '" aria-pressed="' + on + '" aria-label="Want ' + esc(r.name) + '"></button>' +
+        var on = want.indexOf(r.id) >= 0, m = r.macro || {}, full = !on && want.length >= cnt.need;
+        return '<div class="pw-fit' + (full ? ' full' : '') + '" style="--pc:' + PROT_VAR[pwProt(r)] + '">' +
+          '<button class="pw-want" data-pwwant="' + esc(String(r.id)) + '" aria-pressed="' + on + '"' + (full ? ' disabled' : '') + ' aria-label="Want ' + esc(r.name) + '"></button>' +
           '<button class="pw-fn" data-pwopen="' + esc(String(r.id)) + '"><b>' + esc(r.name) + '</b><span>' +
             esc([r.time || '', m.kcal ? Math.round(m.kcal) + ' cal' : '', m.p ? Math.round(m.p) + ' g protein' : ''].filter(Boolean).join(' \u00b7 ')) +
           '</span></button><i aria-hidden="true">\u203a</i></div>';
       }).join('') + '</div>' +
+      '<p class="pw-note pw-tickl">' + (!want.length ? 'One a night: ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights') + ' to fill.'
+        : !left ? 'That\u2019s every night. They go on in the order you ticked them.'
+        : left + (left === 1 ? ' night' : ' nights') + ' still open.') + '</p>' +
+      '<div class="pw-or"><button class="nut-ask" data-pwpick="all">' +
+        (want.length && left ? 'Add mine, and pick the other ' + (left === 1 ? 'night' : left) + ' for me' : 'Or pick them all for me') + '</button></div>' +
       '<div class="pw-bar"><div class="pw-cnt"><b>' + want.length + '</b> ticked<span>for ' + cnt.need + (cnt.need === 1 ? ' night' : ' nights') + '</span></div>' +
-        '<button class="pw-go" data-pwpick="1"' + (cnt.need ? '' : ' disabled') + '>Pick my dinners</button></div>' +
-      '<p class="pw-note">' + (!want.length ? 'Tick the ones you want, or let it pick them all.'
-        : want.length >= cnt.need ? 'Your first ' + (cnt.need === 1 ? 'one goes' : cnt.need + ' go') + ' on, in the order you ticked them.'
-        : 'Your ' + want.length + ' go on first. The other ' + (left === 1 ? 'night is' : left + ' nights are') + ' picked for you from the rest.') + '</p>';
+        '<button class="pw-go" data-pwpick="mine"' + (want.length ? '' : ' disabled') + '>' +
+          (want.length ? 'Add ' + want.length + ' to my week' : 'Tick the ones you want') + '</button></div>';
   }
   /* With a Nourish answer, each dinner says the plate that meets it, for
      whoever the answer is about: mine for mine, theirs for theirs, and
@@ -2066,14 +2071,15 @@
     var wt = e.target.closest('[data-pwwant]');
     if (wt) {
       var wid = idOf(wt.dataset.pwwant), wi = S.pw.want.indexOf(wid);
-      if (wi >= 0) S.pw.want.splice(wi, 1); else S.pw.want.push(wid);
+      if (wi >= 0) S.pw.want.splice(wi, 1); else if (S.pw.want.length < pwCount(S.pw.a).need) S.pw.want.push(wid);
       renderModal();
       return;
     }
     var po = e.target.closest('[data-pwopen]');
     if (po) { rememberOpener(); openRecipe(idOf(po.dataset.pwopen)); return; }
-    if (e.target.closest('[data-pwpick]')) {
-      pwPick();
+    var pk = e.target.closest('[data-pwpick]');
+    if (pk) {
+      pwPick(pk.dataset.pwpick === 'mine');
       if (!S.pw.picks.length) { renderModal(); return; }
       var h = pwHist(), today = todayKey();
       window.Store.batch(function () {
@@ -2089,7 +2095,7 @@
       close();
       if (S.view === 'plan') renderPlan();
       mToast('<b>' + cooked + (cooked === 1 ? ' dinner' : ' dinners') + ' added</b>' +
-        (used ? '<small>' + (used >= cooked ? 'The ' + (used === 1 ? 'one' : used) + ' you ticked' : 'Your ' + used + ', and ' + (cooked - used) + ' picked for you') + '</small>' : ''),
+        (used && used < cooked ? '<small>Your ' + used + ', and ' + (cooked - used) + ' picked for you</small>' : !used ? '<small>Picked for you</small>' : ''),
         'pw', 'data-pwundo');
     }
   });

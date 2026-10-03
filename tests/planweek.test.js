@@ -65,7 +65,8 @@ module.exports = {
     await p.waitForTimeout(200);
     t.ok('and undoing them brings the same count back', await cnt() === n0);
 
-    await p.click('[data-pwpick]');
+    await p.click('[data-pwsee]');
+    await p.click('[data-pwpick="all"]');
     await p.waitForTimeout(400);
     t.ok('Pick my dinners closes the sheet onto the week', await p.evaluate(() => !document.querySelector('.pw-sheet')));
     /* The week, read back: the nights asked for, each with its dinner. */
@@ -231,6 +232,7 @@ module.exports = {
     t.ok('Hits my plan leaves dinners to pick from', scr.n > 0, JSON.stringify(scr));
     if (!scr.dis) {
       await p.click('.pw-bar .pw-go');
+      await p.click('[data-pwpick="all"]');
       await p.waitForTimeout(400);
       /* The plate is on the day's sheet now: open each dinner from the week. */
       const plates = await p.evaluate(async () => {
@@ -306,6 +308,7 @@ module.exports = {
     t.ok('both lets in no more than either plan alone, and leaves dinners to pick', two.K <= Math.min(two.N, two.M) && two.K > 0,
       JSON.stringify(two));
     await p.click('.pw-bar .pw-go');
+      await p.click('[data-pwpick="all"]');
     await p.waitForTimeout(400);
     const week = await onWeek();
     const both = await p.evaluate((week) => {
@@ -335,6 +338,7 @@ module.exports = {
       three.chips.some((c) => /^Hits everyone’s \d+$/.test(c)) && !three.chips.some((c) => /^Hits both/.test(c)) &&
         three.chips.some((c) => /^Hits Sarah’s plan \d+$/.test(c)), JSON.stringify(three));
     await p.click('.pw-bar .pw-go');
+      await p.click('[data-pwpick="all"]');
     await p.waitForTimeout(400);
     const evilWk = await onWeek();
     const evil = await p.evaluate((w) => ({ img: w.reduce((n, m) => n + m.img, 0), ran: window.__pwX,

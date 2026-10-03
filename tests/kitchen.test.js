@@ -116,7 +116,8 @@ module.exports = {
     await p.waitForTimeout(250);
     await p.click('#planMyWeek');
     await p.waitForTimeout(250);
-    await p.click('[data-pwpick]');
+    await p.click('[data-pwsee]');
+    await p.click('[data-pwpick="all"]');
     await p.waitForTimeout(400);
     const lo = await p.evaluate(() => ['mon', 'tue', 'wed', 'thu'].map((d) => {
       const row = document.querySelector('#planGrid [data-dayopen][data-day="' + d + '"]');
