@@ -7176,6 +7176,8 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
 .tr-blist { display: flex; flex-direction: column; gap: 10px; }
 .tr-brow { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .tr-brow .tr-bbar { flex: none; width: 100%; height: 6px; }
+/* the lift that rose most: a line of its own under the sessions, held close to it */
+.tr-brow .tr-bup { margin-top: -3px; }
 .tr-btag {
   font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
   padding: 2px 8px; border-radius: 99px; background: color-mix(in oklab, var(--ink) 7%, var(--card)); color: var(--muted-2);

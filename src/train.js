@@ -3850,9 +3850,10 @@
     var m = Math.floor(s / 60) % 60;
     return Math.floor(s / 3600) + ':' + (m < 10 ? '0' : '') + m + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
   }
+  // "19 h", not "19 h 00": a block's whole time is often a round number of hours
   function dur(ms) {
     var m = Math.max(1, Math.round(ms / 60000));
-    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 < 10 ? '0' : '') + (m % 60);
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60 < 10 ? '0' : '') + (m % 60) : '');
   }
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -5405,11 +5406,21 @@
     var cols = liftCols(ms), ld = ldDays().slice().sort(), out = {};
     if (ld.length !== cols.length) return out;
     cols.forEach(function (d, i) { out[d] = { wd: ld[i], moved: false }; });
-    if (!nx || isEz(ms, nx.d)) return out;
+    if (!nx) return out;
+    /* A session done this week says the day it was done. It kept its usual
+       day: Upper A done on Saturday night, saved after midnight, still said
+       Tue over its column while the next session slid onto Tuesday, and two
+       columns read "Tue". */
+    cols.forEach(function (d, i) {
+      var dw = woFor(ms, nx.w, d);
+      if (dw) { var wd0 = (new Date(dw.st).getDay() + 6) % 7; out[d] = { wd: wd0, moved: wd0 !== ld[i] }; }
+    });
+    if (isEz(ms, nx.d)) return out;
     var now = new Date(), ti = (now.getDay() + 6) % 7, today = dayKey(now);
     var did = ix().list.some(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === today; });
     var o = did ? 1 : 0;
     for (var c = cols.indexOf(nx.d); c >= 0 && c < cols.length; c++) {
+      if (woFor(ms, nx.w, cols[c])) continue;     // done early: not still to come, and takes no day
       while (o < 21 && ld.indexOf((ti + o) % 7) < 0) o++;
       var wd = (ti + o) % 7;
       out[cols[c]] = { wd: wd, moved: wd !== ld[c] };
@@ -7058,8 +7069,11 @@
         '<span class="tr-h-meta">' + esc([spanSay(f.from, f.to), weeksOf(ms) + ' weeks × ' + ms.days.length + ' days'].filter(Boolean).join(' · ')) + '</span>' +
         '<span class="tr-cbar tr-bbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' +
         '<span class="tr-h-meta">' + f.done + ' of ' + f.tot + ' sessions' +
-          (f.prs ? ' · <span class="tr-pr">🥇 ' + f.prs + ' record' + (f.prs === 1 ? '' : 's') + '</span>' : '') +
-          (up ? ' · ' + esc(lib(up.e).n) + ' <span class="tr-up">+' + Math.round(up.ch * 100) + '%</span>' : '') + '</span>' +
+          (f.prs ? ' · <span class="tr-pr">🥇 ' + f.prs + ' record' + (f.prs === 1 ? '' : 's') + '</span>' : '') + '</span>' +
+        /* The lift that rose most, on a line of its own. Tacked on the end of
+           the sessions line it wrapped wherever the width ran out, "+33%"
+           alone under "Leg Extension". */
+        (up ? '<span class="tr-h-meta tr-bup">' + esc(lib(up.e).n) + '\u00a0<span class="tr-up">+' + Math.round(up.ch * 100) + '%</span></span>' : '') +
       '</button>';
     }).join('') + '</div>';
   }

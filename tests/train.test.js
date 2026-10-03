@@ -4319,6 +4319,28 @@ module.exports = {
     t.ok('and Start it early starts that one', r === '3:3', r);
     await p.close();
 
+    /* A session started Saturday at 23:40 and saved after midnight, on a
+       block lifting Tuesday, Thursday, Friday and Saturday. The done column
+       kept its usual day, Tue, and the next session slid onto Tuesday too:
+       two columns read "Tue". The done one now says the day it was done. */
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await p.clock.setFixedTime(new Date(2026, 9, 4, 0, 10));
+    await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ goal: 'grow', dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'b'; ms.n = 'Autumn push'; ms.at = new Date(2026, 9, 1).getTime();
+      const pl = _.plan(ms, 0, 0), st = new Date(2026, 9, 3, 23, 40).getTime();
+      const wo = { w1: { id: 'w1', st, en: st + 30 * 60e3, dk: '2026-10-03', u: 'lb', ms: 'b', w: 0, d: 0, n: pl.n,
+        x: pl.x.map((x) => ({ e: x.e, s: [{ w: 80, r: 8, t: st + 60e3 }] })), sr: {}, fb: {} } };
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [1, 3, 4, 5] }, act: 'b', ms: { b: ms }, cx: {}, ax: {}, wo }));
+      localStorage.removeItem('bsc.trainStamps'); _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="block"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => e.textContent + (e.classList.contains('moved') ? '*' : '')));
+    t.ok('after a session that ran past midnight its column says the day it was done, and no two columns say the same day',
+      r.join() === 'Sat*,Tue*,Thu*,Fri*', r.join());
+    await p.close();
+
     // ---- History by block: the mesocycles, named, kept, looked back on, run again ----
     p = await t.fresh({ viewport: { width: 390, height: 844 } });
     await p.evaluate(() => {
@@ -4344,6 +4366,16 @@ module.exports = {
       rows: [...document.querySelectorAll('.tr-brow')].map((b) => b.querySelector('.tr-h-n').textContent + '|' + b.querySelector('.tr-btag').textContent) }));
     t.ok('History opens by block: the current one first, then the finished one; one begun and never trained is not a block',
       r.seg === 'Blocks:true,Workouts:false' && JSON.stringify(r.rows) === JSON.stringify(['Spring block|Current', 'Winter bulk|Finished']), JSON.stringify(r));
+    // the lift that rose most wrapped wherever the sessions line ran out, "+33%" alone on the next line
+    r = await p.evaluate(() => {
+      const row = [...document.querySelectorAll('.tr-brow')].find((b) => /Winter bulk/.test(b.textContent));
+      const metas = [...row.querySelectorAll('.tr-h-meta')], tail = row.querySelector('.tr-bup'), up = tail && tail.querySelector('.tr-up');
+      return { tail: tail ? tail.textContent : '', sessions: metas[1] ? metas[1].textContent : '',
+        own: !!tail && tail.getBoundingClientRect().top >= metas[1].getBoundingClientRect().bottom - 1,
+        together: !!up && Math.abs(up.getBoundingClientRect().top - tail.getBoundingClientRect().top) < 4 };
+    });
+    t.ok('the lift that rose most has a line of its own under the sessions, its name and its rise together',
+      /\S\u00a0\+\d+%$/.test(r.tail) && /sessions/.test(r.sessions) && !/%/.test(r.sessions) && r.own && r.together, JSON.stringify(r));
     await p.click('[data-t="hbopen"][data-id="old"]');
     r = await p.evaluate(() => ({
       eb: document.querySelector('.tr-hblk .tr-eyebrow').textContent, name: document.querySelector('.tr-hbt .tr-title').textContent,
@@ -4357,6 +4389,7 @@ module.exports = {
       note: !!document.getElementById('trBlkNote'), again: !!document.querySelector('[data-t="hbagain"]') }));
     t.ok('a finished block says so, with its name, its sessions and its skip', r.eb === 'Finished' && r.name === 'Winter bulk' &&
       r.chips.some((c) => /19 of 20 sessions, 1 skipped/.test(c)) && r.chips.some((c) => /records?/.test(c)), JSON.stringify(r));
+    t.ok('nineteen hours of it say "19 h", not "19 h 00"', r.chips.includes('19 h lifting'), JSON.stringify(r.chips));
     t.ok('its calendar is all there: nineteen done, one skipped, nothing next and no weekdays of this week under a block gone by',
       r.cells === 20 && r.done === 19 && r.skip === 1 && r.next === 0 && r.wkday === 0, JSON.stringify(r));
     t.ok('with what each lift did over it', r.lifts > 0 && r.up, JSON.stringify(r));
