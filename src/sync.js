@@ -162,6 +162,12 @@ window.Store = (function () {
   var statusNote = '';
   var house = '';
   var pendingMerge = false;   // set by join(), consumed by the next connect()
+  /* This phone's own dated weeks that a join put aside as templates, because
+     the household had planned those dates already: [{name, dates}], said
+     once (parkedNote). The household's week stands, which is right, and hers
+     used to vanish from the calendar with no word on screen — kept only
+     under Cook this again, on a week with an empty night. */
+  var parked = null;
   /* Whether this code is ours to bring into being.
    *
      A code is not a login and there is no password on the document, so the
@@ -187,6 +193,7 @@ window.Store = (function () {
   var members = [];
   var enrolling = '';         // the household an enrol write is out for
   var dinerRefused = false;   // the server would not take this account's dinner numbers
+  var heard = 0, heardWas = '';   // the household, changed, from the server: see api.heard
   var listeners = [];
   var db = null, doc = null, unsub = null, FV = null;
 
@@ -451,6 +458,12 @@ window.Store = (function () {
     return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12) : null;
   }
   function isDated(id) { return !!weekStart(id); }
+  // the seven days from a week's Sunday, as the Plan tab heads them: Sep 27 – Oct 3
+  function span(st) {
+    var end = new Date(st); end.setDate(end.getDate() + 6);
+    var f = function (d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+    return f(st) + ' \u2013 ' + f(end);
+  }
   var view = '';                       // the week on this phone's screen; '' is this week
   function viewing() { return view || weekIdOf(new Date()); }
   var legacyActive = '';               // the shared "active" week an older version left
@@ -661,8 +674,10 @@ window.Store = (function () {
    * apart.
    *
    * Returns null when there is nothing to add, which is the ordinary case —
-   * rejoining a household this phone already mirrors contributes nothing. */
-  function contribute(d) {
+   * rejoining a household this phone already mirrors contributes nothing.
+   * `parked`, when given, is told each of this phone's dated weeks that went
+   * in as a template (see parkedNote). */
+  function contribute(d, parked) {
     var out = {}, any = false;
 
     var theirFavs = Array.isArray(d.favs) ? d.favs : [];
@@ -714,6 +729,7 @@ window.Store = (function () {
       var nw = { name: name, ord: ord++, plan: obj(w.plan), checked: tpl ? {} : obj(w.checked) };
       if (tpl) nw.tpl = 1;
       addW[mirror ? newId() : id] = nw;
+      if (st && w.tpl !== 1 && parked) parked.push({ name: name, dates: span(st) });
     });
     if (Object.keys(addW).length) { out.weeks = addW; any = true; }
 
@@ -926,7 +942,7 @@ window.Store = (function () {
           return;
         }
         if (!merging) return;
-        var add = contribute(snap.data() || {});
+        var park = [], add = contribute(snap.data() || {}, park);
         /* Only once the contribution is actually away. This used to be cleared
            at the top of connect(), which meant a join attempted with no signal
            threw the intention away while join() had already written the house
@@ -935,7 +951,7 @@ window.Store = (function () {
            very thing contribute() exists to prevent, moved into the failure
            path where nobody would see it. */
         return Promise.resolve(add ? doc.set(add, { merge: true }) : null)
-          .then(function () { pendingMerge = false; });
+          .then(function () { pendingMerge = false; if (park.length) parked = park; });
       });
     }).then(flushQueued).then(function () {
       /* No household by that code: the sentence set above is the answer, and
@@ -952,6 +968,10 @@ window.Store = (function () {
          cache answer turning into a server answer: "Syncing…" forever. */
       unsub = doc.onSnapshot({ includeMetadataChanges: true }, function (snap) {
         var d = snap.data() || {};
+        if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites) {
+          var now = JSON.stringify(d);
+          if (now !== heardWas) { heardWas = now; heard++; }
+        }
         members = Array.isArray(d.members)
           ? d.members.filter(function (m) { return typeof m === 'string'; }) : [];
         enrol();
@@ -1504,9 +1524,7 @@ window.Store = (function () {
     activeWeek: function () {
       var w = state.weeks[state.active], st = weekStart(state.active);
       if (!st) return { id: state.active, name: (w && w.name) || 'This Week', start: null };
-      var end = new Date(st); end.setDate(end.getDate() + 6);
-      var f = function (d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
-      return { id: state.active, name: f(st) + ' \u2013 ' + f(end), start: st };
+      return { id: state.active, name: span(st), start: st };
     },
     weekIdOf: weekIdOf,
     weekStart: weekStart,
@@ -1685,13 +1703,23 @@ window.Store = (function () {
         v = { n: String(e.n === undefined || e.n === null ? '' : e.n).trim(), kc: Number(e.kc), p: Number(e.p) };
         if (!MAP_OK.diners(v)) return false;
       }
-      var key = me.uid;
+      var key = me.uid, at = house, was = hasOwn(state.diners, key) ? state.diners[key] : null;
       dinerRefused = false;
       push(function () {
         var u = {}; u['diners.' + key] = v === null ? FV.delete() : v;
         return doc.update(u).catch(function (err) {
           if (!(err && err.code === 'permission-denied')) throw err;
           dinerRefused = true;
+          /* And the change is taken back here too, unless something newer
+             has been said since. Left in, Store.diners() went on holding
+             numbers the household never took, so the app thought them
+             shared and never sent them again (dinerKeep's `had`). */
+          var now = hasOwn(state.diners, key) ? state.diners[key] : null;
+          if (house === at && JSON.stringify(now) === JSON.stringify(v)) {
+            state.diners = Object.assign({}, state.diners);
+            if (was === null) delete state.diners[key]; else state.diners[key] = was;
+            saveLocal();
+          }
           emit();
         });
       }, function () {
@@ -1701,6 +1729,16 @@ window.Store = (function () {
       return true;
     },
     get dinerRefused() { return dinerRefused; },
+    /* How many times the household's document has come from the server
+       different from the time before. A refused write is put back by the
+       server without changing it, so this is what tells a household that
+       has moved on (and might take the dinner numbers now) from the echo of
+       the refusal itself: see dinerWatch in app.js. */
+    get heard() { return heard; },
+
+    /* The weeks a join put aside (see `parked`), once: handed over and
+       forgotten, so the app says it the one time. null when there are none. */
+    parkedNote: function () { var p = parked; parked = null; return p; },
 
     removeFromDay: function (id, day) {
       /* The entries exactly as stored, because arrayRemove takes away only

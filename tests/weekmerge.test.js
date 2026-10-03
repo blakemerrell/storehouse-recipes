@@ -25,6 +25,36 @@ module.exports = {
       t.ok('the template arrives as a template', vals.some((x) => x.tpl === 1 && x.name === 'Taco night'), JSON.stringify(ws));
       t.ok('the household’s Sep 13 stands, and this phone’s Sep 13 comes as a template',
         JSON.stringify(ws.d20260913.plan) === '{"mon":[1]}' && vals.some((x) => x.tpl === 1 && JSON.stringify(x.plan) === '{"tue":[5]}'), JSON.stringify(ws));
+      /* And the phone is told, which it was not: her week was simply gone
+         from the calendar, kept only under Cook this again. A template that
+         was a template already is nothing to tell. */
+      const note = B.S.parkedNote();
+      t.ok('the phone is told which of its weeks went to a template, under what name, and only those',
+        JSON.stringify(note) === JSON.stringify([{ name: 'Week of Sep 13', dates: 'Sep 13 – Sep 19' }]), JSON.stringify(note));
+      t.ok('once: asked again, there is nothing to tell', B.S.parkedNote() === null);
+    }
+
+    /* ---- this week planned on both phones: hers is parked, and said ---- */
+    {
+      const w = world(NOW);
+      w.server.H = { favs: [], weeks: { d20260927: week({ mon: [1], tue: [2] }) }, mine: {}, edits: {} };
+      const B = w.phone('B', joined({ d20260927: week({ mon: [5], wed: [6] }) }));
+      B.S.init(() => {});
+      B.S.join('H');
+      await w.wait(150);
+      const parked = Object.values(w.server.H.weeks).filter((x) => x.tpl === 1);
+      t.ok('the household’s Mon and Tue stand, and her Mon and Wed are the template Week of Sep 27',
+        JSON.stringify(w.server.H.weeks.d20260927.plan) === '{"mon":[1],"tue":[2]}' && parked.length === 1 &&
+          parked[0].name === 'Week of Sep 27' && JSON.stringify(parked[0].plan) === '{"mon":[5],"wed":[6]}', JSON.stringify(w.server.H.weeks));
+      t.ok('and the phone has the words for it: the dates and the template’s name',
+        JSON.stringify(B.S.parkedNote()) === JSON.stringify([{ name: 'Week of Sep 27', dates: 'Sep 27 – Oct 3' }]));
+      // a phone with nothing the household had planned differently has nothing to be told
+      const C = w.phone('C', joined({ d20260927: week({ mon: [1], tue: [2] }), d20261004: week({ fri: [9] }) }));
+      C.S.init(() => {});
+      C.S.join('H');
+      await w.wait(150);
+      t.ok('a join that parks nothing says nothing', C.S.parkedNote() === null && JSON.stringify(w.server.H.weeks.d20261004.plan) === '{"fri":[9]}',
+        JSON.stringify(w.server.H.weeks));
     }
 
     /* ---- the move onto dates: per day, and no false "removed" ---- */
