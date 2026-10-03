@@ -775,6 +775,98 @@ module.exports = {
     t.ok('deleted on one phone and renamed on the other a moment later, the block is back, renamed, and still the one running',
       r.before === 'mb' && r.act === 'mb' && r.name === 'Fall, week', JSON.stringify(r));
 
+    /* A block travels field by field. As one piece with one stamp, a skip
+       tapped on one phone was undone by a note typed on the other a moment
+       later (the note's copy was the newer block); a rename went the same
+       way, and of two notes one was lost. Two phones, the real taps, the
+       payload of each merged into the other. */
+    {
+      const A = await t.fresh(), B = await t.fresh();
+      const seedLog = await A.evaluate(() => {
+        const _ = window.Train._, now = Date.now(), wo = {};
+        const ms = _.build({ goal: 'grow', dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] }); ms.id = 'x'; ms.n = 'Autumn push'; ms.at = now - 10 * 864e5;
+        const pl = _.plan(ms, 0, 0), st = now - 9 * 864e5;
+        wo.w1 = { id: 'w1', st, en: st + 3600e3, u: 'lb', ms: 'x', w: 0, d: 0, n: pl.n, x: pl.x.map((x) => ({ e: x.e, s: [{ w: 80, r: 8, t: st + 60e3 }] })), sr: {}, fb: {} };
+        return JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [] }, act: 'x', ms: { x: ms }, cx: {}, ax: {}, wo });
+      });
+      // both phones with the same block, stamped long ago by a build from before
+      const both = async () => {
+        for (const q of [A, B]) {
+          await q.evaluate((log) => {
+            localStorage.setItem('bsc.train', log);
+            localStorage.setItem('bsc.trainStamps', JSON.stringify({ pr: 1000, act: 1000, ms: { x: 1000 }, wo: { w1: 1000 }, cx: {}, ax: {}, nt: {}, rt: {} }));
+            window.Train._.reload();
+          }, seedLog);
+          if (await q.$('#view-train.hide')) await q.click('.tab[data-view="train"]');
+          await q.click('[data-t="sub"][data-v="block"]');
+        }
+      };
+      const relay = async () => {
+        const ab = await A.evaluate(() => window.Train._.payload(true));
+        const ba = await B.evaluate(() => window.Train._.payload(true));
+        await B.evaluate((b) => window.Train._.merge(b), ab);
+        await A.evaluate((b) => window.Train._.merge(b), ba);
+      };
+      const blk = (q) => q.evaluate(() => { const x = window.Train._.state().T.ms.x; return { n: x.n, note: x.note || '', sk: (x.sk || []).join() }; });
+      const openBlock = async (q) => {
+        await q.click('[data-t="sub"][data-v="history"]');
+        await q.evaluate(() => {
+          const c = document.querySelector('[data-t="hbclose"]'); if (c) c.click();
+          const b = document.querySelector('[data-t="hview"][data-v="blk"]'); if (b && b.getAttribute('aria-pressed') !== 'true') b.click();
+        });
+        await q.click('[data-t="hbopen"][data-id="x"]');
+      };
+      const note = async (q, words) => { await openBlock(q); await q.fill('#trBlkNote', words); await q.waitForTimeout(800); };
+
+      // a skip on A, a note on B a moment later
+      await both();
+      await A.click('[data-t="skip"]');
+      const skipped = await A.evaluate(() => { const s = window.Train._.state(), k = JSON.parse(localStorage.getItem('bsc.trainStamps')).msk;
+        return { sk: (s.T.ms.x.sk || []).join(), kept: !!(k && k.x && k.x.sk > 1000 && k.x.n === 1000), sent: !!s.TS.msk && (window.Train._.payload(true).ms.x.k || {}).sk === s.TS.msk.x.sk }; });
+      await note(B, 'B: knees fine.');
+      await relay();
+      let ra = await blk(A), rb = await blk(B);
+      t.ok('the skip goes out with a stamp of its own, kept with the others; the name keeps the old one', skipped.sk.length > 0 && skipped.kept && skipped.sent, JSON.stringify(skipped));
+      t.ok('a session skipped on one phone and a note typed on the other: both phones have the skip and the note',
+        ra.sk === skipped.sk && rb.sk === skipped.sk && ra.note === 'B: knees fine.' && rb.note === 'B: knees fine.', JSON.stringify({ ra, rb }));
+
+      // a rename on A, a note on B
+      await both();
+      await openBlock(A);
+      await A.click('[data-t="hbren"][data-id="x"]');
+      await A.fill('#trBlkName', 'Renamed on A');
+      await A.keyboard.press('Enter');
+      await note(B, 'B: add calves.');
+      await relay();
+      ra = await blk(A); rb = await blk(B);
+      t.ok('renamed on one phone, a note on the other: the new name and the note, on both',
+        ra.n === 'Renamed on A' && rb.n === 'Renamed on A' && ra.note === 'B: add calves.' && rb.note === 'B: add calves.', JSON.stringify({ ra, rb }));
+
+      // a note on each: the newer one, on both
+      await both();
+      await note(A, 'A: shoulder cranky.');
+      await note(B, 'B: knees fine.');
+      await relay();
+      ra = await blk(A); rb = await blk(B);
+      t.ok('a note typed on each phone: the newer one on both', ra.note === 'B: knees fine.' && rb.note === 'B: knees fine.', JSON.stringify({ ra, rb }));
+
+      // from a build without the fields' stamps: the whole block, newest wins, as before
+      r = await A.evaluate(() => {
+        const _ = window.Train._, now = Date.now(), old = JSON.parse(JSON.stringify(_.state().T.ms.x));
+        old.n = 'From the old build'; delete old.note;
+        const stale = _.merge({ ms: { x: { v: Object.assign({}, old, { n: 'Stale' }), at: 2000 } } });
+        const took = _.merge({ ms: { x: { v: old, at: now + 1000 } } });
+        const x = _.state().T.ms.x, k = _.payload(true).ms.x.k || {};
+        // and a newer field that would leave the block wrong-shaped is refused
+        const bad = _.merge({ ms: { x: { v: Object.assign({}, x, { days: [] }), at: now + 2000, k: { days: now + 2000 } } } });
+        return { stale, took, n: x.n, note: x.note || '', k: k.n === now + 1000 && k.days === now + 1000, bad, days: _.state().T.ms.x.days.length };
+      });
+      t.ok('a block from a build without them goes whole, newest wins: an older one is ignored, a newer one replaces it, note and all',
+        !r.stale && r.took && r.n === 'From the old build' && !r.note && r.k, JSON.stringify(r));
+      t.ok('a newer field that would leave the block wrong-shaped is refused', !r.bad && r.days > 0, JSON.stringify(r));
+      await A.close(); await B.close();
+    }
+
     /* The same, with a real change made on the screen while the server has
        not answered yet: it waits, and then goes out inside the whole push. */
     await p.click('.tab[data-view="train"]');
@@ -1728,6 +1820,18 @@ module.exports = {
     t.ok('moving down swaps it past the next exercise, and a pair moves as one',
       paired ? r.es[0] === order0.es[2] && r.es.indexOf(order0.es[0]) + 1 === r.es.indexOf(order0.es[1]) : r.es[1] === order0.es[0], JSON.stringify({ was: order0.es, now: r.es }));
     t.ok('and the handle stays in hand, on the card it moved', r.focus >= 0 && r.es[r.focus] === order0.es[0], JSON.stringify(r));
+    /* and where it went is said: the handle is drawn again under the focus,
+       so a screen reader heard only the button's own label, the same at
+       every place */
+    await p.waitForFunction(() => /moved to/.test((document.getElementById('trSay') || {}).textContent || ''), null, { timeout: 2000 }).catch(() => {});
+    r = await p.evaluate((e) => { const el = document.getElementById('trSay');
+      return { say: el ? el.textContent : '', status: !!el && el.getAttribute('role') === 'status' && el.classList.contains('sr-only') && !el.closest('#trBody'), name: window.Train._.lib(e).n }; }, order0.es[0]);
+    {
+      let groups = 0;
+      for (let j = 0; j < order0.es.length; j++) { groups++; if (order0.ps[j] && order0.ps[j + 1] === order0.ps[j]) j++; }
+      const want = r.name + (paired ? ' and its pair' : '') + ' moved to 2 of ' + groups;
+      t.ok('and the move is said out loud, from a status line that is always there: "' + want + '"', r.status && r.say === want, JSON.stringify(r));
+    }
     r = await p.evaluate(() => JSON.parse(localStorage.getItem('sh.trainLive')).x.map((x) => x.e));
     t.ok('and the new order is kept if the page goes away', r[0] !== order0.es[0], r.join());
 
@@ -4227,6 +4331,28 @@ module.exports = {
     t.ok('and Start it early starts that one', r === '3:3', r);
     await p.close();
 
+    /* A session started Saturday at 23:40 and saved after midnight, on a
+       block lifting Tuesday, Thursday, Friday and Saturday. The done column
+       kept its usual day, Tue, and the next session slid onto Tuesday too:
+       two columns read "Tue". The done one now says the day it was done. */
+    p = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await p.clock.setFixedTime(new Date(2026, 9, 4, 0, 10));
+    await p.evaluate(() => {
+      const _ = window.Train._, ms = _.build({ goal: 'grow', dpw: 4, kit: 'gym', lvl: 1, acc: 4, pri: [] });
+      ms.id = 'b'; ms.n = 'Autumn push'; ms.at = new Date(2026, 9, 1).getTime();
+      const pl = _.plan(ms, 0, 0), st = new Date(2026, 9, 3, 23, 40).getTime();
+      const wo = { w1: { id: 'w1', st, en: st + 30 * 60e3, dk: '2026-10-03', u: 'lb', ms: 'b', w: 0, d: 0, n: pl.n,
+        x: pl.x.map((x) => ({ e: x.e, s: [{ w: 80, r: 8, t: st + 60e3 }] })), sr: {}, fb: {} } };
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [1, 3, 4, 5] }, act: 'b', ms: { b: ms }, cx: {}, ax: {}, wo }));
+      localStorage.removeItem('bsc.trainStamps'); _.reload();
+    });
+    await p.click('.tab[data-view="train"]');
+    await p.click('[data-t="sub"][data-v="block"]');
+    r = await p.evaluate(() => [...document.querySelectorAll('.tr-ghd')].map((e) => e.textContent + (e.classList.contains('moved') ? '*' : '')));
+    t.ok('after a session that ran past midnight its column says the day it was done, and no two columns say the same day',
+      r.join() === 'Sat*,Tue*,Thu*,Fri*', r.join());
+    await p.close();
+
     // ---- History by block: the mesocycles, named, kept, looked back on, run again ----
     p = await t.fresh({ viewport: { width: 390, height: 844 } });
     await p.evaluate(() => {
@@ -4252,6 +4378,16 @@ module.exports = {
       rows: [...document.querySelectorAll('.tr-brow')].map((b) => b.querySelector('.tr-h-n').textContent + '|' + b.querySelector('.tr-btag').textContent) }));
     t.ok('History opens by block: the current one first, then the finished one; one begun and never trained is not a block',
       r.seg === 'Blocks:true,Workouts:false' && JSON.stringify(r.rows) === JSON.stringify(['Spring block|Current', 'Winter bulk|Finished']), JSON.stringify(r));
+    // the lift that rose most wrapped wherever the sessions line ran out, "+33%" alone on the next line
+    r = await p.evaluate(() => {
+      const row = [...document.querySelectorAll('.tr-brow')].find((b) => /Winter bulk/.test(b.textContent));
+      const metas = [...row.querySelectorAll('.tr-h-meta')], tail = row.querySelector('.tr-bup'), up = tail && tail.querySelector('.tr-up');
+      return { tail: tail ? tail.textContent : '', sessions: metas[1] ? metas[1].textContent : '',
+        own: !!tail && tail.getBoundingClientRect().top >= metas[1].getBoundingClientRect().bottom - 1,
+        together: !!up && Math.abs(up.getBoundingClientRect().top - tail.getBoundingClientRect().top) < 4 };
+    });
+    t.ok('the lift that rose most has a line of its own under the sessions, its name and its rise together',
+      /\S\u00a0\+\d+%$/.test(r.tail) && /sessions/.test(r.sessions) && !/%/.test(r.sessions) && r.own && r.together, JSON.stringify(r));
     await p.click('[data-t="hbopen"][data-id="old"]');
     r = await p.evaluate(() => ({
       eb: document.querySelector('.tr-hblk .tr-eyebrow').textContent, name: document.querySelector('.tr-hbt .tr-title').textContent,
@@ -4265,11 +4401,23 @@ module.exports = {
       note: !!document.getElementById('trBlkNote'), again: !!document.querySelector('[data-t="hbagain"]') }));
     t.ok('a finished block says so, with its name, its sessions and its skip', r.eb === 'Finished' && r.name === 'Winter bulk' &&
       r.chips.some((c) => /19 of 20 sessions, 1 skipped/.test(c)) && r.chips.some((c) => /records?/.test(c)), JSON.stringify(r));
+    t.ok('nineteen hours of it say "19 h", not "19 h 00"', r.chips.includes('19 h lifting'), JSON.stringify(r.chips));
     t.ok('its calendar is all there: nineteen done, one skipped, nothing next and no weekdays of this week under a block gone by',
       r.cells === 20 && r.done === 19 && r.skip === 1 && r.next === 0 && r.wkday === 0, JSON.stringify(r));
     t.ok('with what each lift did over it', r.lifts > 0 && r.up, JSON.stringify(r));
     t.ok('the hard sets per muscle week by week, the deload marked', r.vol > 3 && r.volHead === ',W1,W2,W3,W4,DL', r.volHead);
     t.ok('what was done outside the gym while it ran, a place for notes, and Run it again', r.outside && r.note && r.again, JSON.stringify(r));
+    // "‹ All blocks" is 44 px tall, and all 44 of them answer a tap, not 40
+    r = await p.evaluate(() => {
+      const b = document.querySelector('[data-t="hbclose"]');
+      b.scrollIntoView({ block: 'center' });
+      const a = b.getBoundingClientRect(), miss = [];
+      [a.left + 3, a.left + a.width / 2, a.right - 3].forEach((x) => {
+        for (let y = Math.ceil(a.top); y < Math.floor(a.bottom); y++) { const h = document.elementFromPoint(x, y); if (!h || !(h === b || b.contains(h))) miss.push(Math.round(x) + ',' + y); }
+      });
+      return { h: Math.round(a.height), miss };
+    });
+    t.ok('the way back to all blocks answers a tap over its whole 44 px', r.h >= 44 && !r.miss.length, JSON.stringify(r));
     await p.click('.tr-hblk [data-t="hbsel"][data-w="1"][data-d="2"]');
     r = await p.evaluate(() => ({ eb: (document.querySelector('#trSesh .tr-eyebrow') || {}).textContent || '', see: !!document.querySelector('#trSesh [data-t="wosheet"]'),
       start: !!document.querySelector('#trSesh [data-t="start"]') }));
