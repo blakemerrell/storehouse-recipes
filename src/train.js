@@ -1158,7 +1158,7 @@
   /* Newest wins, piece by piece. True when anything here changed. */
   function merge(tr, main) {
     if (!plain(tr)) return false;
-    var moved = false;
+    var moved = false, actWas = T.act;
     /* A stamp from the future is a device with the wrong time on it, and
        would win here until the real time caught up. Capped a few minutes
        ahead of our own corrected clock and kept capped; the next whole push
@@ -1206,6 +1206,13 @@
         moved = true;
       });
     });
+    /* Deleted on one phone, renamed on the other a moment later: the rename
+       is the newer word on the block, so the block came back — but with
+       `act` cleared by the deletion, on both phones, and nothing running.
+       The block that was current and is back is current again. */
+    if (actWas && !T.act && T.ms[actWas] && (TS.ms[actWas] || 0) > (TS.act || 0)) {
+      T.act = actWas; TS.act = TS.ms[actWas]; moved = true;
+    }
     if (moved) saveT();
     return moved;
   }
@@ -4198,12 +4205,19 @@
     dragLay();
     if (!DRAG.raf) DRAG.raf = requestAnimationFrame(dragScroll);
   }
+  /* When a hold last let go. A finger lifted without moving is a tap to the
+     browser, and the click it makes comes after this has redrawn the page
+     and scrolled the lift into view, so it lands on whatever is under the
+     thumb by then: a set's type sheet, the chevron, once Discard. Swallowed
+     for the next half second (the capture-phase listener in wire). */
+  var GHOST = 0;
   function dragEnd(ev, cancel) {
     if (!DRAG || (ev && ev.pointerId !== DRAG.id)) return;
     clearTimeout(DRAG.t);
     var d = DRAG, moved = null;
     DRAG = null;
     if (!d.on) return;
+    GHOST = Date.now();
     var view = $('view-train');
     if (view) view.classList.remove('tr-reo');
     /* The indices were taken from the workout as it was when the finger went
@@ -4768,7 +4782,17 @@
     if (LIVE && !TICKER) TICKER = setInterval(onTick, 1000);
     if (!LIVE && TICKER) { clearInterval(TICKER); TICKER = null; }
   }
+  /* The day the screen was drawn for. Left open across midnight, the block's
+     columns kept yesterday's labels until a tap: a new day is a redraw. */
+  var DAYK = dayKey(new Date());
+  function newDay() {
+    var k = dayKey(new Date());
+    if (k === DAYK) return false;
+    DAYK = k;
+    return true;
+  }
   function onTick() {
+    if (newDay()) { render(); return; }
     if (!LIVE) { ticking(); return; }
     drawRest();
     mcTick();
@@ -4865,10 +4889,22 @@
   }
 
   /* ---------------------------------------------------------------- render */
+  // a finger in one of Strengthen's boxes: a number half typed, a name, a note
+  function typing() {
+    var a = document.activeElement;
+    return !!(a && a.closest && (a.closest('#view-train') || a.closest('#trainRoot')) &&
+      (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA'));
+  }
+  /* A redraw from the account or the other tab. It used to draw at once,
+     and a sync arriving mid-rename rebuilt the box from the saved name
+     (the typed half gone), or took the focus out of a weight box between
+     reps, which on a phone drops the keyboard. Held while typing, like
+     render, and drawn once the finger is out (the focusout in wire). */
   function drawIfShowing() {
     var v = $('view-train');
-    if (v && !v.classList.contains('hide')) draw();
-    else markTab();
+    if (!v || v.classList.contains('hide')) { markTab(); return; }
+    if (typing()) { S.drawDue = 1; markTab(); return; }
+    draw();
   }
 
   /* app.js calls this whenever the whole page redraws, which includes every
@@ -4876,12 +4912,7 @@
      is half typed would be felt as the box fighting back, so an outside
      redraw waits until the finger is out of the box. */
   function render() {
-    var a = document.activeElement;
-    if (a && a.closest && (a.closest('#view-train') || a.closest('#trainRoot')) &&
-        (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) {
-      markTab();
-      return;
-    }
+    if (typing()) { S.drawDue = 1; markTab(); return; }
     draw();
   }
 
@@ -10469,6 +10500,16 @@
     document.addEventListener('pointerdown', function () {
       if (LIVE && (!AC || AC.state === 'suspended')) audioPrime();
     }, true);
+    // the click a lifted finger makes after a hold-to-drag: see GHOST
+    document.addEventListener('click', function (e) {
+      if (GHOST && Date.now() - GHOST < 500) { GHOST = 0; e.stopPropagation(); e.preventDefault(); }
+    }, true);
+    /* A redraw that waited for a finger to leave a box (drawIfShowing): once
+       it has, and the tap that took it out has landed. */
+    document.addEventListener('focusout', function (e) {
+      if (!S.drawDue || !e.target.closest || !(e.target.closest('#view-train') || e.target.closest('#trainRoot'))) return;
+      setTimeout(function () { if (S.drawDue && !typing()) { S.drawDue = 0; draw(); } }, 300);
+    });
     document.addEventListener('click', function (e) {
       var el = e.target.closest && e.target.closest('[data-t]');
       if (!el) return;
@@ -10618,7 +10659,9 @@
       }
     });
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) { wake(); drawRest(); }
+      if (document.hidden) return;
+      if (newDay()) { wake(); render(); return; }
+      wake(); drawRest();
     });
   }
 
@@ -10701,6 +10744,10 @@
       if (!nx) { out.finished = true; return out; }
       out.week = wkName(ms, nx.w);
       if (isEz(ms, nx.d)) { out.easy = true; return out; }
+      /* A rest day, as the block card says: Today offered Start on it, as
+         if the session were due. The days are the lifting days picked. */
+      var due = dueIn(ms, nx);
+      if (due > 0) { out.due = due; out.dueSay = dueSay(due); }
       var p = plan(ms, nx.w, nx.d), day = ms.days[nx.d];
       out.name = p.n || dayName(day);
       out.mins = day && day.s && day.s.length ? Math.round(estDay(day.cc ? day : { s: day.s }) / 5) * 5 : 0;

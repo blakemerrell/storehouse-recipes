@@ -757,6 +757,23 @@ module.exports = {
     t.ok('nothing is pushed on a cached answer', r.quietFromCache);
     t.ok('the first push waits for the server, then says everything', r.wholeOnceHeard);
     t.ok('settings travel too', r.unit === 'kg', r.unit);
+    /* Deleted on one phone, renamed on the other a moment later: the rename
+       is the newer word on the block, so it comes back — and it was coming
+       back ended, with the deletion's clearing of `act` the newer word there. */
+    r = await p.evaluate(() => {
+      const _ = window.Train._, now = Date.now();
+      const ms = { id: 'mb', n: 'Fall', at: now - 864e5, days: [{ n: 'A', s: [] }], w: 4, acc: 4 };
+      _.merge({ act: { v: 'mb', at: now - 1000 }, ms: { mb: { v: ms, at: now - 1000 } } });
+      const before = _.state().T.act;
+      // this phone renamed it just now; the other phone deleted it 30 ms earlier
+      _.state().TS.ms.mb = now;
+      _.state().T.ms.mb = Object.assign({}, ms, { n: 'Fall, week' });
+      const moved = _.merge({ act: { v: '', at: now - 30 }, ms: { mb: { v: null, at: now - 30 } } });
+      const s = _.state();
+      return { before, moved, act: s.T.act, name: s.T.ms.mb && s.T.ms.mb.n };
+    });
+    t.ok('deleted on one phone and renamed on the other a moment later, the block is back, renamed, and still the one running',
+      r.before === 'mb' && r.act === 'mb' && r.name === 'Fall, week', JSON.stringify(r));
 
     /* The same, with a real change made on the screen while the server has
        not answered yet: it waits, and then goes out inside the whole push. */
@@ -1808,6 +1825,19 @@ module.exports = {
       const lastE = g2.es[n - 1];
       t.ok('held still, the handle picks the lift up, and the finger drags it to the top',
         held && !r.on && (r.es[0] === lastE || r.es[1] === lastE) && r.es.slice().sort().join() === g2.es.slice().sort().join(), JSON.stringify({ held, was: g2.es, now: r.es }));
+      /* A hold let go without moving is a tap to the browser, and its click
+         came after the redraw, landing on whatever was under the thumb by
+         then: a set's type sheet, once Discard. */
+      const g3 = await at(1);
+      await touch('touchStart', g3.x, g3.y);
+      await q.waitForFunction(() => document.getElementById('view-train').classList.contains('tr-reo'), null, { timeout: 2000 }).catch(() => {});
+      const held3 = await q.evaluate(() => document.getElementById('view-train').classList.contains('tr-reo'));
+      await touch('touchEnd');
+      await q.waitForTimeout(400);
+      r = await q.evaluate(() => ({ on: document.getElementById('view-train').classList.contains('tr-reo'), sheet: !!window.Train._.state().S.sheet,
+        dialog: !!document.querySelector('[role="dialog"]'), es: window.Train._.state().LIVE.x.map((x) => x.e).join() }));
+      t.ok('a hold let go without moving lifts and drops the card, and nothing else: no sheet, no dialog, nothing moved',
+        held3 && !r.on && !r.sheet && !r.dialog && r.es === g3.es.join(), JSON.stringify({ held3, r }));
       await q.close();
     }
 
