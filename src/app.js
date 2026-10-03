@@ -1445,7 +1445,11 @@
       ? window.Store.day(prev).filter(function (x) { return x.id === id && !x.lo; })[0] : null;
     window.Store.batch(function () {
       if (act === 'swap') planSwap(id, day);
-      if (act === 'double') { window.Store.addToDay(id, day, was.x * 2); if (nxt) window.Store.addToDay(id, nxt, 1, true); }
+      if (act === 'double' && nxt) {
+        var cook = { r: BY_ID[id], x: was.x, day: day }, left = pwLeftovers(cook, nxt);
+        window.Store.addToDay(id, day, cook.x);
+        window.Store.addToDay(id, left.day, left.x, true);
+      }
       if (act === 'single') { window.Store.addToDay(id, day, half(was.x)); if (twin) window.Store.removeFromDay(id, twin); }
       if (act === 'remove') {
         window.Store.removeFromDay(id, day);
@@ -1857,6 +1861,13 @@
     });
     return lo;
   }
+  /* A leftovers night, the one rule for it: the dinner the night before is
+     cooked double, and the next night is the same dish, nothing to cook.
+     Plan my week's picks and a day's "Cook double" both come through here. */
+  function pwLeftovers(cooked, nxt) {
+    cooked.x *= 2;
+    return { r: cooked.r, x: 1, day: nxt, lo: true };
+  }
   function pwPick(mine) {
     var a = S.pw.a, picks = [], nights = pwNights(a.days), week = pwWeekDinners();
     var lo = pwLoNights(a, nights);
@@ -1868,7 +1879,7 @@
     for (var i = 0; i < nights.length; i++) {
       if (lo[nights[i]]) {
         var from = picks.filter(function (e) { return e.day === lo[nights[i]]; })[0];
-        if (from) { from.x *= 2; picks.push({ r: from.r, x: 1, day: nights[i], lo: true }); }
+        if (from) picks.push(pwLeftovers(from, nights[i]));
         continue;
       }
       if (wanted.length) {
@@ -2201,15 +2212,7 @@
     var st = e.target.closest('.pstep[data-view]') || e.target.closest('[data-stepgo]');
     if (st) { goStep(st.dataset.view || st.dataset.stepgo); return; }
     var sp = e.target.closest('[data-srcpick]');
-    if (sp) {
-      var kind = sp.dataset.srcpick;
-      window.Store.batch(function () {
-        window.Store.setOpt('store', kind !== 'own');
-        window.Store.setOpt('fb', kind === 'fb');
-        window.Store.setOpt('big', kind === 'big');
-      });
-      return;
-    }
+    if (sp) { setSrcKind(sp.dataset.srcpick); return; }
     var wk = e.target.closest('[data-weekbuy]');
     if (wk) { window.Store.setOpt('buy', wk.dataset.weekbuy === '1'); return; }
     if (e.target.closest('[data-near]')) { window.Store.setOpt('near', !window.Store.opt('near', false)); return; }
@@ -2262,6 +2265,16 @@
       reset: 'Back to the starting list?', back: 'back to the starting list' },
     own: { pick: 'I keep my own', why: 'No outside source. What isn\u2019t on the shelf gets bought.' }
   };
+  /* Where the staples come from, set: the one way it is set, from Where and
+     from the front door alike. Two household switches beside `store`. */
+  function setSrcKind(kind, more) {
+    window.Store.batch(function () {
+      window.Store.setOpt('store', kind !== 'own');
+      window.Store.setOpt('fb', kind === 'fb');
+      window.Store.setOpt('big', kind === 'big');
+      if (more) more();
+    });
+  }
   function srcKind() {
     if (!window.Store.opt('store', true)) return 'own';
     return window.Store.opt('fb', false) ? 'fb' : window.Store.opt('big', false) ? 'big' : 'sh';
@@ -20516,13 +20529,10 @@
     var day = mDay(tk);
     return mReadSlots().list.filter(function (sl) { return !mSkipped(tk, sl.k); }).map(function (sl) {
       var its = (day[sl.k] || []).filter(function (it) { return BY_ID[it.id] && BY_ID[it.id].macro; });
-      var kcal = 0, p = 0, names = [];
-      its.forEach(function (it) {
-        var r = BY_ID[it.id];
-        kcal += (r.macro.kcal || 0) * it.x; p += (r.macro.p || 0) * it.x;
-        names.push(r.name);
-      });
-      return { k: sl.k, n: sl.n, kcal: kcal, p: p, empty: !its.length,
+      // counted the way Nourish counts its own day, one meal at a time
+      var one = {}; one[sl.k] = its;
+      var tot = mTotals(one).all, names = its.map(function (it) { return BY_ID[it.id].name; });
+      return { k: sl.k, n: sl.n, kcal: tot.kcal, p: tot.p, empty: !its.length,
         eaten: !!its.length && its.every(function (it) { return it.eaten; }),
         name: names.length > 2 ? names.slice(0, 2).join(', ') + ' +' + (names.length - 2) : names.join(', ') };
     });
@@ -20584,18 +20594,20 @@
     planWeek: function () { goView('plan'); pwOpen(); },
     addTonight: function () { goView('plan'); rememberOpener(); addOpen(CAL_DAYS[new Date().getDay()][0]); },
     addFood: function () { S.macroDate = null; goView('macros'); var b = $('macroAdd'); if (b) b.click(); },
-    fill: function () { S.macroDate = null; goView('macros'); var b = $('macroFill'); if (b && b.dataset.mode === 'fill' && !b.disabled) b.click(); },
-    numbers: function () { S.macroDate = null; goView('macros'); var b = $('macroFill'); if (b && b.classList.contains('to-plan') && !b.disabled) b.click(); },
+    /* Nourish on today (not whichever day it was last left on), and its own
+       answer to whether today can be filled, then its own Fill. */
+    fill: function () {
+      S.macroDate = null;
+      goView('macros');
+      var b = $('macroFill');
+      if (b && b.dataset.mode === 'fill' && !b.disabled) mFillDay();
+    },
+    numbers: function () { S.macroDate = null; goView('macros'); mOpenTargets(); },
     /* The front door's answers (src/door.js), each to what owns it: the
        household's staples switches, as Where sets them, and Plan my week's
        "how many are eating"; Nourish's goal; Nourish's numbers sheet. */
     kitchen: function (ppl, kind) {
-      window.Store.batch(function () {
-        window.Store.setOpt('store', kind !== 'own');
-        window.Store.setOpt('fb', kind === 'fb');
-        window.Store.setOpt('big', kind === 'big');
-        window.Store.setOpt('setup', true);
-      });
+      setSrcKind(kind, function () { window.Store.setOpt('setup', true); });
       var a = pwAnswers();
       a.ppl = ppl;
       pwSave(a);

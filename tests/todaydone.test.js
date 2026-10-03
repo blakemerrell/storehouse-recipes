@@ -127,10 +127,25 @@ module.exports = {
     const acts = await p.evaluate(() => [...document.querySelectorAll('[data-card="eating"] [data-td]')].map((b) => b.dataset.td).join());
     t.ok('nothing planned: the Eating card says so, with the numbers, Fill my day and Add food',
       s.title === 'Nothing planned for today' && s.bars.length === 2 && /fill/.test(acts) && /addfood/.test(acts), JSON.stringify({ s, acts }));
+    /* Nourish left on yesterday: Today's Fill still fills today. */
+    await p.click('.tab[data-view="macros"]');
+    await p.waitForTimeout(300);
+    await p.click('#macroPrev');
+    await p.waitForTimeout(300);
+    await p.click('.tab[data-view="today"]');
+    await p.waitForTimeout(300);
     await p.click('[data-card="eating"] [data-td="fill"]');
-    await p.waitForTimeout(500);
-    t.ok('and Fill my day does its own thing: Nourish, filling the day',
-      await p.evaluate(() => !document.getElementById('view-macros').classList.contains('hide')));
+    await p.waitForTimeout(700);
+    const filled = await p.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n, d = new Date(), k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const y = new Date(d); y.setDate(d.getDate() - 1);
+      const yk = y.getFullYear() + '-' + p2(y.getMonth() + 1) + '-' + p2(y.getDate());
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const n = (o) => Object.keys(o || {}).reduce((t, sk) => t + (Array.isArray(o[sk]) ? o[sk].length : 0), 0);
+      return { macros: !document.getElementById('view-macros').classList.contains('hide'), today: n(days[k]), yesterday: n(days[yk]) };
+    });
+    t.ok('and Fill my day fills today in Nourish, even with Nourish left on yesterday',
+      filled.macros && filled.today > 0 && filled.yesterday === 0, JSON.stringify(filled));
     await p.context().close();
 
     t.ok('no page errors', errs.length === 0, errs.join(' | '));
