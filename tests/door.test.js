@@ -40,6 +40,28 @@ module.exports = {
     s = await look();
     t.ok('2 of 4: your kitchen', s.h === 'Your kitchen' && s.k === 'Your kitchen · 2 of 4', JSON.stringify(s));
     await p.click('[data-dr="ppl"][data-v="6"]');
+    /* Where the staples come from is a radio group, and moves like one: the
+       arrows choose, the focus goes with the choice, and the group is one
+       Tab stop. It said radiogroup, and ArrowDown did nothing. */
+    await p.focus('[data-dr="src"][aria-checked="true"]');
+    const radio = () => p.evaluate(() => {
+      const all = [...document.querySelectorAll('[data-dr="src"]')];
+      return { on: all.filter((b) => b.getAttribute('aria-checked') === 'true').map((b) => b.dataset.v).join(),
+        focus: document.activeElement.dataset.v, stops: all.map((b) => b.tabIndex).join() };
+    });
+    const r0 = await radio();
+    await p.keyboard.press('ArrowDown');
+    const r1 = await radio();
+    await p.keyboard.press('ArrowUp');
+    await p.keyboard.press('ArrowLeft');
+    const r2 = await radio();
+    await p.keyboard.press('ArrowRight');
+    await p.keyboard.press('ArrowRight');
+    const r3 = await radio();
+    t.ok('the staples question moves with the arrows: Down the next, Up and Left back and round the end, Right on, the focus with it',
+      r0.on === 'sh' && r1.on === 'fb' && r1.focus === 'fb' && r2.on === 'own' && r2.focus === 'own' && r3.on === 'fb' && r3.focus === 'fb',
+      JSON.stringify({ r0, r1, r2, r3 }));
+    t.ok('and only the chosen one is a Tab stop', r0.stops === '0,-1,-1,-1' && r3.stops === '-1,0,-1,-1', JSON.stringify({ r0, r3 }));
     await p.click('[data-dr="src"][data-v="fb"]');
     await p.click('[data-dr="next"]');
     s = await look();
@@ -71,9 +93,16 @@ module.exports = {
       got.fb && got.store && got.setup && got.ppl === 6, JSON.stringify(got));
     t.ok('Nourish has the goal, and Strengthen has its three answers waiting',
       got.goal === 'cut2' && JSON.stringify(got.work) === '{"kit":"db","dpw":4,"min":45}', JSON.stringify(got));
+    /* Four questions answered, and Today asked a fifth on top of them:
+       "Cooking with someone else?" waits for the next open. */
+    const hint = () => p.evaluate(() => ({ conf: !!window.Store.configured, shown: !document.getElementById('shareHint').classList.contains('hide') }));
+    const h0 = await hint();
+    t.ok('the door closed, Today does not ask about sharing in the same breath', h0.conf && !h0.shown, JSON.stringify(h0));
     await p.reload();
     await p.waitForTimeout(600);
     t.ok('and it never comes back', await p.evaluate(() => !document.getElementById('doorRoot')));
+    const h1 = await hint();
+    t.ok('the next open, the sharing hint is there', h1.shown, JSON.stringify(h1));
 
     /* ---- Strengthen starts from them ---- */
     await p.click('.tab[data-view="train"]');

@@ -957,9 +957,11 @@
      So it follows the pantry: Store.pantryChanged() decides which word is
      true. Untouched, it talks about the storehouse,
      because that is true out of the box. Edit your pantry and it talks about
-     your shelf, because that is true from then on. */
+     your shelf, because that is true from then on. So does "I keep my own":
+     no source, nothing but the shelf, and "Just my staples" over 0 recipes
+     read as a broken filter. */
   function renderPantryFilterLabels() {
-    var mine = window.Store.pantryChanged();
+    var mine = window.Store.pantryChanged() || !window.Store.opt('store', true);
     var sel = $('pantrySel');
     var words = mine
       ? ['Everything', "Only what's on my shelf", 'Needs a shop']
@@ -1026,6 +1028,11 @@
       (loose ? ' · ' + (list.length - loose) + ' matching, ' + loose + ' more from sections named for it'
              : (order[S.sort] || ''));
     $('browseEmpty').classList.toggle('hide', list.length !== 0);
+    /* Your own shelf, and nothing on it covers a whole recipe yet: say where
+       the shelf is, not that the filters are wrong. Named the way the door
+       names it; On hand is reached from Share now, not a Pantry tab. */
+    $('browseEmpty').textContent = S.pantryF === 'base' && !window.Store.opt('store', true)
+      ? 'Nothing on your shelf yet \u2014 tick what you keep on hand, under Share \u203a Your kitchen' : 'Nothing matches those filters.';
     /* The strip's button says how many filters are on, so "Filters" with two
        set does not read the same as "Filters" with none. Sort counts: a list
        in protein order is not the book, and the reader may have forgotten. */
@@ -1219,7 +1226,7 @@
       var list = window.Store.day(key).filter(function (e) { return BY_ID[e.id]; });
       var items = list.map(function (e) {
         var r = BY_ID[e.id], rt = window.Store.rating(r.id), din = pwIsDinner(r), twin = e.lo ? null : planTwin(e.id, key);
-        var meta = e.lo ? '' : [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : '', twin ? 'leftovers ' + calDayName(twin) : '',
+        var meta = e.lo ? '' : [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : '', twin ? 'leftovers ' + calDayName(twin.d) : '',
           (gone || now) && rt ? (rt === 2 ? '\u2605 favourite' : rt === 1 ? 'good' : 'not again') : ''].filter(Boolean).join(' \u00b7 ');
         var nw = S.pwNew && S.pwNew[key + '|' + e.id];
         return '<div class="day-item' + (e.lo ? ' lo' : '') + (din ? '' : ' mini') + (nw ? ' new' : '') + '" style="--pc:' + (din ? PROT_VAR[pwProt(r)] : 'transparent') + '">' +
@@ -1366,18 +1373,44 @@
     window.Store.batch(function () {
       window.Store.removeFromDay(id, day);
       window.Store.addToDay(nx.r.id, day, x);
-      /* Its leftovers night follows it, and it is still cooked double. */
-      if (twin) { window.Store.removeFromDay(id, twin); window.Store.addToDay(nx.r.id, twin, 1, true); }
+      /* Its leftovers night follows it, and it is still cooked double —
+         into next week, when it is Saturday's. */
+      if (twin) { window.Store.removeFromWeekDay(twin.wk, twin.d, id); window.Store.addToWeekDay(twin.wk, twin.d, nx.r.id, 1, true); }
     });
   }
+  /* The day beside a day of the week on screen, one step either way, and
+     the week it is in: {wk, d, at}, `at` its date. A week ends on Saturday
+     and the cooking does not, so Saturday's next is next week's Sunday and
+     Sunday's before is last week's Saturday. Saturday never offered Cook
+     double at all: the day after it was looked up in a list of seven and
+     was not there. */
+  function calBeside(day, step) {
+    var at = calDate(day);
+    if (!at) {                               // a week with no dates: its own seven
+      var j = PW_DAYS.indexOf(day) + step;
+      return PW_DAYS[j] ? { wk: window.Store.activeWeek().id, d: PW_DAYS[j], at: null } : null;
+    }
+    at.setDate(at.getDate() + step);
+    return { wk: window.Store.weekIdOf(at), d: PW_DAYS[at.getDay()], at: at };
+  }
+  function calGone(b) { return !!b.at && b.at < calMidnight(new Date()); }
   /* The leftovers night a cooked dinner feeds: the same recipe, eaten the
-     next day of this week. */
+     next day, Saturday's on next week's Sunday. The day beside, or null. */
   function planTwin(id, day) {
-    var i = PW_DAYS.indexOf(day), nxt = PW_DAYS[i + 1];
-    if (i < 0 || !nxt) return null;
+    var n = calBeside(day, 1);
+    if (!n) return null;
     var cooked = window.Store.day(day).some(function (e) { return e.id === id && !e.lo; });
-    var lo = window.Store.day(nxt).some(function (e) { return e.id === id && e.lo; });
-    return cooked && lo ? nxt : null;
+    var lo = window.Store.dayOf(n.wk, n.d).some(function (e) { return e.id === id && e.lo; });
+    return cooked && lo ? n : null;
+  }
+  /* And back the other way: the dinner a leftovers night is the second
+     half of, cooked the day before. The day beside and its count, or null
+     when nothing is cooked there — the other phone swapped it, or took it
+     off. */
+  function planCooked(id, day) {
+    var b = calBeside(day, -1);
+    var es = b ? window.Store.dayOf(b.wk, b.d).filter(function (e) { return e.id === id && !e.lo; }) : [];
+    return es.length ? { wk: b.wk, d: b.d, at: b.at, x: es[es.length - 1].x } : null;
   }
 
   function calDayName(key) { var d = DAYS.filter(function (x) { return x[0] === key; })[0]; return d ? d[1] : key; }
@@ -1397,13 +1430,21 @@
     var e = window.Store.day(key).filter(function (x) { return x.id === D.id; })[0];
     if (!r || !e) return '';
     var dt = calDate(key), gone = calPastDay(key), now = calIsToday(key), din = pwIsDinner(r);
-    var twin = e.lo ? null : planTwin(e.id, key), nxt = PW_DAYS[PW_DAYS.indexOf(key) + 1];
+    var twin = e.lo ? null : planTwin(e.id, key), nxt = calBeside(key, 1);
     var row = function (act, t, sub, cls) {
       return '<button class="dsh-row' + (cls ? ' ' + cls : '') + '" data-dsact="' + act + '"><span><b>' + t + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>';
     };
-    var meta = e.lo ? 'Leftovers \u00b7 nothing to cook or buy' :
-      [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : 'the recipe as written', twin ? 'leftovers ' + calDayName(twin) : ''].filter(Boolean).join(' \u00b7 ');
     var a = pwAnswers(), plans = pwPlans();
+    /* A leftovers night with nothing cooked the night before: the other
+       phone swapped that dinner, or took it off, and this one went on saying
+       "nothing to cook or buy" over a night with nothing to eat. */
+    var prv = e.lo && !planCooked(e.id, key) ? calBeside(key, -1) : null;
+    var meta = e.lo ? (prv ? 'Leftovers \u2014 but nothing is cooked on ' + calDayName(prv.d) : 'Leftovers \u00b7 nothing to cook or buy') :
+      [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : 'the recipe as written', twin ? 'leftovers ' + calDayName(twin.d) : ''].filter(Boolean).join(' \u00b7 ');
+    /* Saturday's leftovers land in next week, out of sight from here, so
+       only onto a Sunday with nothing on it yet. */
+    var dbl = nxt && !calGone(nxt) && (nxt.wk === window.Store.activeWeek().id ||
+      !window.Store.dayOf(nxt.wk, nxt.d).some(function (x) { return BY_ID[x.id]; }));
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet dsh-sheet" role="dialog" aria-modal="true" aria-label="' + esc(calDayName(key)) + '\u2019s dinner">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(calDayName(key)) + (dt ? ' \u00b7 ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') + '</div>' +
@@ -1413,9 +1454,10 @@
         ((gone || now) && !e.lo ? '<div class="dsh-rate"><div class="dsh-rl">How was it?</div>' + rateHTML(e.id, window.Store.rating(e.id)) + '</div>' : '') +
         '<div class="dsh-rows">' +
         row('open', 'Open the recipe', '') +
+        (gone || !prv || calGone(prv) ? '' : row('cook', 'Cook it ' + calDayName(prv.d), 'Double, so ' + calDayName(key) + ' is its leftovers \u00b7 the list follows')) +
         (gone || e.lo || !din ? '' : row('swap', 'Swap for another dinner', 'By the same rules as Plan my week')) +
-        (gone || e.lo ? '' : (twin ? row('single', e.x / 2 > 1 ? 'Back to ×' + fmtNum(e.x / 2) : 'Back to one batch', 'Takes the leftovers off ' + calDayName(twin)) :
-          nxt && !calPastDay(nxt) ? row('double', 'Cook double, leftovers ' + calDayName(nxt), 'The list follows') : '')) +
+        (gone || e.lo ? '' : (twin ? row('single', e.x / 2 > 1 ? 'Back to ×' + fmtNum(e.x / 2) : 'Back to one batch', 'Takes the leftovers off ' + calDayName(twin.d)) :
+          dbl ? row('double', 'Cook double, leftovers ' + calDayName(nxt.d), nxt.wk === window.Store.activeWeek().id ? 'The list follows' : 'Into next week \u00b7 the list follows') : '')) +
         (gone ? '' : row('add', 'Add another to ' + calDayName(key), '')) +
         (gone ? '' : row('remove', 'Take it off ' + calDayName(key), twin ? 'And its leftovers night' : '', 'dsh-danger')) +
         '</div></div></div></div>';
@@ -1435,26 +1477,32 @@
     if (act === 'open') { openRecipe(id); return; }
     if (act === 'add') { S.daySheet = null; addOpen(day, true); return; }
     var was = window.Store.day(day).filter(function (x) { return x.id === id; })[0] || { x: 1 };
-    var twin = planTwin(id, day), nxt = PW_DAYS[PW_DAYS.indexOf(day) + 1], prev = PW_DAYS[PW_DAYS.indexOf(day) - 1];
+    var twin = planTwin(id, day), nxt = calBeside(day, 1), prv = calBeside(day, -1);
     /* The leftovers night taken off on its own: nobody is eating the second
        batch, so the dinner goes back to one. Left doubled, its sheet offered
        Cook double again, and ×2 became ×4 and never ×1. Looked up before the
        batch, which changes the days under it. */
     var half = function (x) { return x / 2 >= 1 ? x / 2 : 1; };
-    var cooked = was.lo && prev && planTwin(id, prev) === day
-      ? window.Store.day(prev).filter(function (x) { return x.id === id && !x.lo; })[0] : null;
+    var cooked = was.lo ? planCooked(id, day) : null;
     window.Store.batch(function () {
       if (act === 'swap') planSwap(id, day);
       if (act === 'double' && nxt) {
-        var cook = { r: BY_ID[id], x: was.x, day: day }, left = pwLeftovers(cook, nxt);
+        var cook = { r: BY_ID[id], x: was.x, day: day }, left = pwLeftovers(cook, nxt.d);
         window.Store.addToDay(id, day, cook.x);
-        window.Store.addToDay(id, left.day, left.x, true);
+        window.Store.addToWeekDay(nxt.wk, left.day, id, left.x, true);
       }
-      if (act === 'single') { window.Store.addToDay(id, day, half(was.x)); if (twin) window.Store.removeFromDay(id, twin); }
+      /* The orphan's dinner put back the night before, cooked double for
+         the household by the one rule a leftovers night has. */
+      if (act === 'cook' && prv && !cooked) {
+        var r0 = BY_ID[id], first = { r: r0, x: pwX(r0, pwAnswers().ppl), day: prv.d };
+        pwLeftovers(first, day);
+        window.Store.addToWeekDay(prv.wk, prv.d, id, first.x);
+      }
+      if (act === 'single') { window.Store.addToDay(id, day, half(was.x)); if (twin) window.Store.removeFromWeekDay(twin.wk, twin.d, id); }
       if (act === 'remove') {
         window.Store.removeFromDay(id, day);
-        if (twin) window.Store.removeFromDay(id, twin);
-        else if (cooked) window.Store.addToDay(id, prev, half(cooked.x));
+        if (twin) window.Store.removeFromWeekDay(twin.wk, twin.d, id);
+        else if (cooked) window.Store.addToWeekDay(cooked.wk, cooked.d, id, half(cooked.x));
       }
     });
     close();
@@ -15493,6 +15541,33 @@
     return it.k !== 'water' && !inPantry(it.k);
   }
 
+  /* The editor's "Needs beyond the staples", which is what the books' own
+     field means too (tools/build-data.js: what you must buy to cook it at
+     all). Typed in, it was shown nowhere. nutritionFor reads the names only
+     to mark the ingredient lines they appear in — never for the calories —
+     so a name in no line went nowhere: buttermilk named and not listed,
+     nutmeg on a line the food table could not place. Those are said on the
+     sheet. A name a placed line answers for is the shelf's to say, above,
+     and so is a food the pantry knows by that name and you keep. */
+  function alsoNeeds(r) {
+    var P = window.PANTRY || {}, own = window.Store.pantryOwn() || {};
+    // whole words: buttermilk is not the milk line, Stevia/Sweetener is the sweetener one
+    var has = function (hay, w) {
+      return !!w && new RegExp('(^|[^a-z])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)').test(hay);
+    };
+    var named = function (map, l) { return Object.keys(map).filter(function (k) { return has(String(map[k].l || '').toLowerCase(), l); })[0]; };
+    return String(r.extras || '').split(',').map(function (x) { return x.trim(); }).filter(function (n) {
+      var l = n.toLowerCase();
+      if (!l) return false;
+      var placed = (r.ing || []).some(function (line, i) {
+        var it = (r.ingp || [])[i], lab = it && it.k ? String((P[it.k] || {}).l || it.a || '').toLowerCase() : '';
+        return !!(it && it.k) && (has(String(line).toLowerCase(), l) || has(lab, l) || has(l, lab));
+      });
+      var key = named(P, l) || named(own, l);
+      return !placed && !(key && inPantry(key));
+    });
+  }
+
   function missingFor(r) {
     var out = [], seen = {};
     (r.ingp || []).forEach(function (it) {
@@ -16562,6 +16637,10 @@
        undefined, so the card said "Nothing picked yet" over a week with
        recipes in it. */
     var week = planIds().length;
+    /* The files are not in the offline cache, by design (sw.js leaves
+       print/ to the network), and a tap on one with no signal did nothing at
+       all. Said on the button; a tap says it again (below). */
+    var away = navigator.onLine === false ? '<span class="bk-off"><span class="sr-only">, </span>needs signal</span>' : '';
 
     $('printRows').innerHTML = PRINT_CARDS.map(function (c) {
       var r = READY_MADE[c.set];
@@ -16585,14 +16664,14 @@
         '<span class="bk-sub">' + esc(c.sub) + '</span>' +
       '</button>' +
       '<a class="bk-get" download href="print/' + esc(r.file) + '" data-get="' + esc(c.set) + '">' +
-        'PDF &middot; ' + r.pages + ' pages</a>' +
+        'PDF &middot; ' + r.pages + ' pages' + away + '</a>' +
       /* The folded version hangs below: a second thing to do with the same
          book, wanted by far fewer people. */
       (r.booklet
         ? '<a class="bk-fold" download href="print/' +
             esc(r.file.replace(/\.pdf$/, '-booklet.pdf')) + '" data-fold="' + esc(c.set) + '" ' +
             'title="Two pages to a sheet, in folding order — print double-sided, fold, staple">' +
-            'fold &amp; staple &middot; ' + (r.pages / 4) + '</a>'
+            'fold &amp; staple &middot; ' + (r.pages / 4) + away + '</a>'
         : '') +
       '</div>';
     }).join('');
@@ -17182,6 +17261,10 @@
                 : 'Needs things ' + srcW().the + ' doesn\u2019t carry: ') +
             esc(m.join(', ')) + '.</div>';
         })() +
+        (function () {
+          var also = alsoNeeds(r);
+          return also.length ? '<div class="sheet-extras" data-also="1">Also needs: ' + esc(also.join(', ')) + '.</div>' : '';
+        })() +
         '<div class="sheet-actions"><div class="sheet-actions-in">' +
           /* Icons, not words. "Save" and "Edit" spelled out took enough of the
              row that the seven days wrapped onto a second line on a phone, and
@@ -17762,7 +17845,7 @@
             [['', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(function (o) {
               return '<button data-sync="theme" data-v="' + o[0] + '" aria-pressed="' + (window.Theme.get() === o[0]) + '">' + o[1] + '</button>';
             }).join('') + '</span>' +
-            '<span class="sync-theme-say">' + (window.Theme.get() ? 'On this device' : 'Follows your phone') + '</span></div>' : '') +
+            '<span class="sync-theme-say" role="status">' + (window.Theme.get() ? 'On this device' : 'Follows your phone') + '</span></div>' : '') +
 
         /* The one screen somebody opens to find out what this thing is, so it
            is where the app says who it is not. */
@@ -18033,9 +18116,11 @@
     var el = $('shareHint');
     if (!el) return;
     /* Only where the household is: Nourish and Strengthen are yours alone,
-       and on a phone the banner was 130 pixels above your own day. */
+       and on a phone the banner was 130 pixels above your own day. And not
+       the moment the front door closes: a new phone answered four questions
+       and landed on a fifth. From the next open on. */
     var show = window.Store.configured && !window.Store.house && !hintDismissed() &&
-      S.view !== 'macros' && S.view !== 'train';
+      S.view !== 'macros' && S.view !== 'train' && !(window.Door && window.Door.closed && window.Door.closed());
     el.classList.toggle('hide', !show);
   }
 
@@ -19209,6 +19294,12 @@
        download and nothing else; it must not move the preview, or reaching
        for the booklet would silently change the book on screen. */
     var pick = function (e) {
+      /* No signal: the download would go nowhere and say nothing. */
+      if (e.target.closest('[data-fold], [data-get]') && navigator.onLine === false) {
+        e.preventDefault();
+        mToast('The PDFs download from the internet. Try again with signal.');
+        return;
+      }
       if (e.target.closest('[data-fold], [data-get], #doPrint')) return;
       var b = e.target.closest('[data-print]');
       if (!b || b.dataset.print === S.printSet) return;
@@ -19216,6 +19307,10 @@
       renderBook();
     };
     $('printRows').addEventListener('click', pick);
+    // and the buttons say so as the signal comes and goes
+    var signal = function () { if (S.view === 'book') renderDownloads(); };
+    window.addEventListener('online', signal);
+    window.addEventListener('offline', signal);
     /* The picked sets moved out of the shelf into their own row and very
        nearly moved out of reach with it — the handler was bound to the shelf
        alone, so Favorites and the week were buttons that did nothing. */
@@ -20258,6 +20353,15 @@
           if (mAccount() && mSyncDoc) mHouseTell('');
         }
         renderModal();
+        /* Said as well as shown: "On this device" is a status now. The sheet
+           is drawn afresh, and a live region that arrives with its words is
+           one nobody was listening to yet, so they go in a frame later. */
+        var tsay = act === 'theme' && document.querySelector('.sync-theme-say');
+        if (tsay) {
+          var tw = tsay.textContent;
+          tsay.textContent = '';
+          requestAnimationFrame(function () { tsay.textContent = tw; });
+        }
       }
     });
 
@@ -20586,7 +20690,20 @@
   function viewSeen() {
     try { localStorage.setItem('sh.viewAt', String(Date.now())); } catch (e) { /* private mode */ }
   }
-  document.addEventListener('visibilitychange', function () { if (document.hidden) viewSeen(); });
+  /* And brought back after an hour away, the same: Today. Only a cold start
+     did it, and a phone that never closes the app is resumed, not started —
+     three hours on Nourish and it was still Nourish. sh.viewAt was written
+     as the page was put away, so on the way back it is the time it left.
+     Registered before the other resume handlers, so they draw Today.
+     Not from under a sheet left open, the recipe being written above all:
+     what was in the middle of being done is still there to finish. */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { viewSeen(); return; }
+    var at = 0;
+    try { at = Number(localStorage.getItem('sh.viewAt')) || 0; } catch (e) { /* private mode */ }
+    if (S.editId || document.querySelector('.scrim')) return;
+    if (at && Date.now() - at >= 3600e3 && S.view !== 'today') goView('today');
+  });
   window.addEventListener('pagehide', viewSeen);
   function goView(v) {
     if (PLAN_STEPS.some(function (p) { return p[0] === v; }) && v !== 'plan') { goStep(v); viewSeen(); return; }

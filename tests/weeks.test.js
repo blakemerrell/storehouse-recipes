@@ -231,6 +231,119 @@ module.exports = {
     t.ok('all of which survives a reload, opening on this week', s.id === 'd20260927' && s.weeks === 3, JSON.stringify(s));
     await p.context().close();
 
+    /* ---- a leftovers night with nothing cooked the night before ----------
+     * The other phone swapped Wednesday's dinner, or took it off, and
+     * Thursday's leftovers stayed behind saying "nothing to cook or buy"
+     * over a night with nothing to eat. Seeded as that phone leaves it. */
+    {
+      const q = await t.fresh({ viewport: { width: 390, height: 844 } });
+      const errs = [];
+      q.on('pageerror', (e) => errs.push(e.message));
+      await q.clock.setFixedTime(WED);
+      await q.evaluate(() => { localStorage.clear(); localStorage.setItem('sh.pw', JSON.stringify({ ppl: 6 })); });
+      await q.reload();
+      await q.waitForTimeout(700);
+      const din = await q.evaluate(() => {
+        const r = window.RECIPES.find((x) => x.book === 2 && x.secNum === 3);
+        window.Store.addToDay(r.id, 'thu', 1, true);
+        return { id: r.id, x: Math.max(1, Math.round((6 / (Number(r.servN) || 4)) * 2) / 2) * 2 };
+      });
+      await q.click('.tab[data-view="plan"]');
+      await q.waitForTimeout(250);
+      const sheet = async (d) => {
+        await q.click('#planGrid [data-dayopen][data-day="' + d + '"]');
+        await q.waitForTimeout(200);
+        return q.evaluate(() => ({ m: document.querySelector('.dsh-m').textContent,
+          acts: [...document.querySelectorAll('[data-dsact]')].map((b) => b.dataset.dsact + ':' + b.querySelector('b').textContent) }));
+      };
+      let o = await sheet('thu');
+      t.ok('a leftovers night whose dinner is cooked nowhere says so, and offers to cook it the night before',
+        o.m === 'Leftovers — but nothing is cooked on Wednesday' && o.acts.includes('cook:Cook it Wednesday'), JSON.stringify(o));
+      await q.click('[data-dsact="cook"]');
+      await q.waitForTimeout(250);
+      const days = await q.evaluate(() => ({ wed: window.Store.day('wed'), thu: window.Store.day('thu'),
+        row: document.querySelector('#planGrid [data-dayopen][data-day="wed"] small').textContent }));
+      t.ok('Cook it Wednesday puts the dinner on Wednesday at double the household’s size, Thursday its leftovers',
+        days.wed.length === 1 && days.wed[0].id === din.id && !days.wed[0].lo && days.wed[0].x === din.x &&
+        days.thu.length === 1 && days.thu[0].lo && /leftovers Thursday/.test(days.row), JSON.stringify({ days, din }));
+      o = await sheet('thu');
+      t.ok('and Thursday is a plain leftovers night again', o.m === 'Leftovers · nothing to cook or buy' && !o.acts.some((a) => /^cook:/.test(a)), JSON.stringify(o));
+      t.ok('no page errors on the orphaned night', !errs.length, errs.join(' | '));
+      await q.context().close();
+    }
+
+    /* ---- Saturday cooks double into next week ----------------------------
+     * Saturday never offered "Cook double, leftovers Sunday": the day after
+     * it was looked up in a list of seven and was not there. Its Sunday is
+     * next week's, and the leftovers go there, onto a Sunday with nothing on
+     * it, and follow the dinner when it is swapped or taken off. */
+    {
+      const SAT = new Date(2026, 9, 3, 11, 0, 0);
+      const q = await t.fresh({ viewport: { width: 390, height: 844 } });
+      const errs = [];
+      q.on('pageerror', (e) => errs.push(e.message));
+      await q.clock.setFixedTime(SAT);
+      await q.evaluate(() => localStorage.clear());
+      await q.reload();
+      await q.waitForTimeout(700);
+      const ids = await q.evaluate(() => {
+        const rs = window.RECIPES.filter((x) => x.book === 2 && x.secNum === 3);
+        window.Store.addToDay(rs[0].id, 'sat', 1);
+        return rs.slice(0, 2).map((r) => r.id);
+      });
+      await q.click('.tab[data-view="plan"]');
+      await q.waitForTimeout(250);
+      const NEXT = 'd20261004';
+      const acts = async (d) => {
+        await q.click('#planGrid [data-dayopen][data-day="' + d + '"]');
+        await q.waitForTimeout(200);
+        return q.evaluate(() => [...document.querySelectorAll('[data-dsact]')].map((b) => b.dataset.dsact + ':' + b.querySelector('b').textContent));
+      };
+      const state = () => q.evaluate((nx) => ({ sat: window.Store.day('sat'), sun: window.Store.dayOf(nx, 'sun'),
+        row: ((document.querySelector('#planGrid [data-dayopen][data-day="sat"] small') || {}).textContent) || '' }), NEXT);
+      let a = await acts('sat');
+      t.ok('Saturday offers Cook double, its leftovers on Sunday', a.includes('double:Cook double, leftovers Sunday'), JSON.stringify(a));
+      await q.click('[data-dsact="double"]');
+      await q.waitForTimeout(250);
+      let s2 = await state();
+      t.ok('and doubles Saturday, with the leftovers on next week’s Sunday',
+        s2.sat.length === 1 && s2.sat[0].x === 2 && s2.sun.length === 1 && s2.sun[0].id === ids[0] && s2.sun[0].lo &&
+        /cooked ×2 · leftovers Sunday/.test(s2.row) && (await q.evaluate(() => window.Store.activeWeek().id)) === 'd20260927', JSON.stringify(s2));
+      await q.click('#planGrid [data-pswap][data-day="sat"]');
+      await q.waitForTimeout(300);
+      s2 = await state();
+      t.ok('swapped, Saturday’s new dinner is still cooked double, and Sunday’s leftovers follow it into next week',
+        s2.sat.length === 1 && s2.sat[0].id !== ids[0] && s2.sat[0].x === 2 && s2.sun.length === 1 && s2.sun[0].id === s2.sat[0].id && s2.sun[0].lo, JSON.stringify(s2));
+      // next week, its Sunday: leftovers of last week's Saturday, not an orphan
+      await q.click('#calNext');
+      await q.waitForTimeout(200);
+      await q.click('#planGrid [data-dayopen][data-day="sun"]');
+      await q.waitForTimeout(200);
+      const m = await q.evaluate(() => document.querySelector('.dsh-m').textContent);
+      t.ok('next week’s Sunday knows its dinner is cooked on Saturday, the week before', m === 'Leftovers · nothing to cook or buy', m);
+      await q.click('[data-dsact="remove"]');
+      await q.waitForTimeout(250);
+      s2 = await q.evaluate((nx) => ({ sat: window.Store.dayOf('d20260927', 'sat'), sun: window.Store.dayOf(nx, 'sun') }), NEXT);
+      t.ok('taken off there on its own, Saturday goes back to one batch', s2.sun.length === 0 && s2.sat.length === 1 && s2.sat[0].x === 1, JSON.stringify(s2));
+      await q.click('#calToday');
+      await q.waitForTimeout(200);
+      await acts('sat');
+      await q.click('[data-dsact="double"]');
+      await q.waitForTimeout(250);
+      await acts('sat');
+      await q.click('[data-dsact="remove"]');
+      await q.waitForTimeout(250);
+      s2 = await state();
+      t.ok('Take it off Saturday takes its leftovers off next week’s Sunday', s2.sat.length === 0 && s2.sun.length === 0, JSON.stringify(s2));
+      // a Sunday already planned is not doubled into from here, out of sight
+      await q.evaluate((a2) => { window.Store.addToDay(a2[0], 'sat', 1); window.Store.addToWeekDay('d20261004', 'sun', a2[1], 1); }, ids);
+      await q.waitForTimeout(150);
+      a = await acts('sat');
+      t.ok('but not onto a Sunday that already has a dinner', !a.some((x) => /^double:/.test(x)) && a.some((x) => /^remove:/.test(x)), JSON.stringify(a));
+      t.ok('no page errors across the end of the week', !errs.length, errs.join(' | '));
+      await q.context().close();
+    }
+
     /* ---- named weeks from before ------------------------------------------ */
     p = await t.fresh();
     await p.clock.setFixedTime(WED);

@@ -107,6 +107,33 @@ module.exports = {
     await p.waitForTimeout(300);
     const wm = await p.evaluate(() => { const a = document.querySelector('[data-card="shop"] a.wm-btn'); return a ? { href: a.href, txt: a.textContent } : null; });
     t.ok('buying everything, the Walmart cart button is on Today, filled', !!wm && /walmart\.com\/sc\/cart\/addToCart\?items=/.test(wm.href) && /to Walmart cart/.test(wm.txt), JSON.stringify(wm));
+    /* Cook it marked nothing done, and the card asked all evening. Cooked
+       it folds it to one line, at the bottom, for the rest of the day. */
+    const tname = await p.evaluate(() => document.querySelector('[data-card="tonight"] .td-title').textContent);
+    await p.click('[data-card="tonight"] [data-td="cooked"]');
+    await p.waitForTimeout(200);
+    const folded = async () => {
+      const l = await look(p);
+      return Object.assign(l, await p.evaluate(() => {
+        const c = document.querySelector('[data-card="tonight"]');
+        return { fin: !!(c && c.classList.contains('td-fin')), label: c ? c.querySelector('.td-label').textContent : '',
+          line: c ? (c.querySelector('.td-doneline') || {}).textContent : '', btns: c ? c.querySelectorAll('button').length : -1,
+          focus: document.activeElement && document.activeElement.id, mark: localStorage.getItem('sh.cooked') };
+      }));
+    };
+    let ck = await folded();
+    t.ok('Cooked it folds tonight to one done line at the bottom, and the main button moves on to the next card',
+      ck.fin && ck.label === 'Dinner cooked' && ck.line === tname && ck.btns === 0 && ck.cards[ck.cards.length - 1] === 'tonight' &&
+      ck.primary.length === 1 && ck.primary[0] !== 'tonight' && ck.focus === 'td-tonight' && ck.mark === '2026-10-01', JSON.stringify(ck));
+    await p.reload();
+    await p.waitForTimeout(700);
+    ck = await folded();
+    t.ok('and stays folded the rest of the evening', ck.fin && ck.line === tname, JSON.stringify(ck));
+    await p.clock.setFixedTime(new Date(2026, 9, 2, 17, 0, 0));
+    await p.reload();
+    await p.waitForTimeout(700);
+    ck = await folded();
+    t.ok('the next day it asks again', !ck.fin && ck.cards[0] === 'tonight' && ck.mark === null, JSON.stringify(ck));
     await p.context().close();
 
     /* ---- the morning, with a plan to eat to and a block to train ---- */
@@ -239,6 +266,45 @@ module.exports = {
       t.ok(say, v === want, v);
       await ctx.close();
     }
+
+    /* ---- and the same on a resume, not only a cold start ----
+       A phone that never closes the app is resumed far more often than it
+       is started: three hours on Nourish and it came back to Nourish. The
+       page is put away (which writes sh.viewAt, the time it left) and
+       brought back, as a phone does it. */
+    p = await at(t, MORNING, () => { localStorage.setItem('sh.view', 'macros'); localStorage.setItem('sh.viewAt', String(Date.now())); });
+    p.on('pageerror', (e) => errs.push(e.message));
+    const flip = (hidden) => p.evaluate((h) => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => h });
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (h ? 'hidden' : 'visible') });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+    const tab = () => p.evaluate(() => document.querySelector('.tab[aria-selected="true"]').dataset.view);
+    const v0 = await tab();
+    await flip(true);
+    await p.clock.setFixedTime(new Date(MORNING.getTime() + 20 * 60e3));
+    await flip(false);
+    await p.waitForTimeout(200);
+    const v1 = await tab();
+    await flip(true);
+    await p.clock.setFixedTime(new Date(MORNING.getTime() + 20 * 60e3 + 3 * 3600e3));
+    await flip(false);
+    await p.waitForTimeout(200);
+    const v2 = await tab();
+    t.ok('resumed within the hour it stays where you were; resumed after three hours away it is on Today',
+      v0 === 'macros' && v1 === 'macros' && v2 === 'today' && await p.evaluate(() => !!document.querySelector('#todayRoot .td-card')), JSON.stringify({ v0, v1, v2 }));
+    /* A sheet left open is something in the middle of being done: the
+       tab stays under it. */
+    await p.click('.tab[data-view="macros"]');
+    await p.click('#syncBtn');
+    await p.waitForSelector('#modalRoot .scrim');
+    await flip(true);
+    await p.clock.setFixedTime(new Date(MORNING.getTime() + 20 * 60e3 + 6 * 3600e3));
+    await flip(false);
+    await p.waitForTimeout(200);
+    const v3 = await tab(), still = await p.evaluate(() => !!document.querySelector('#modalRoot .scrim'));
+    t.ok('but not from under a sheet left open', v3 === 'macros' && still, JSON.stringify({ v3, still }));
+    await p.context().close();
 
     t.ok('no page errors', errs.length === 0, errs.join(' | '));
   },

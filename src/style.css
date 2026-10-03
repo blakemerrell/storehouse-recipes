@@ -740,6 +740,9 @@ h1, h2, h3 { margin: 0; }
   text-decoration: none; white-space: nowrap;
 }
 .bk-fold:hover { background: var(--ochre); color: var(--on-ochre); border-color: var(--ochre); }
+/* With no signal the file cannot come, and the button says so on a line of
+   its own rather than pushing past the cover's width. */
+.bk-off { display: block; font-weight: 500; }
 
 /* The note, the ask and the dialog, under the shelf rather than in it. */
 .dl-own { font-size: 0.78125rem; color: var(--muted); margin: 10px 0 0; max-width: 68ch; }

@@ -219,6 +219,19 @@ module.exports = {
     t.ok('and the whole book still prints',
       (await p2.evaluate(() => document.querySelectorAll('.pg:not(.no-print)').length)) > 150);
 
+    /* The ready-made PDFs are left to the network by design, and with no
+       signal a tap on "PDF · 312 pages" did nothing at all: no file, no
+       word. The buttons say they need signal, and a tap says it again. */
+    const pdfs = () => p2.evaluate(() => [...document.querySelectorAll('#printRows [data-get], #printRows [data-fold]')].map((a) => a.textContent));
+    const off = await pdfs();
+    t.ok('offline, every PDF button says it needs signal', off.length >= 6 && off.every((x) => /needs signal$/.test(x)), JSON.stringify(off));
+    const downloads = [];
+    p2.on('download', (d) => downloads.push(d.url()));
+    await p2.click('#printRows [data-get="all"]');
+    await p2.waitForTimeout(300);
+    const said = await p2.evaluate(() => { const el = document.getElementById('mToast'); return el && !el.hidden ? el.textContent : ''; });
+    t.ok('and a tap on one says so, rather than doing nothing', /signal/.test(said) && !downloads.length, JSON.stringify({ said, downloads }));
+
     /* A phone that looks unchanged after a deploy is the hardest thing here to
        tell apart from a deploy that has not landed. The Sharing sheet carries
        the build, read off the ?v= index.html actually loaded — so it cannot say
@@ -249,6 +262,9 @@ module.exports = {
 
     await ctx.setOffline(false);
     if (t.down) t.down(false);
+    await p2.waitForTimeout(200);
+    const on = await pdfs();
+    t.ok('with signal back, the buttons are plain downloads again', on.length >= 6 && on.every((x) => !/signal/.test(x)), JSON.stringify(on));
 
     /* ---- the app asks for new builds while it is running ------------------
      *

@@ -1122,12 +1122,17 @@ window.Store = (function () {
    *
      The path is fixed when the change is made, not when it is sent. A write
      queued before the connection was up went to whichever week was showing
-     by the time it left. */
-  function writeDay(day, entries, added, gone) {
+     by the time it left.
+   *
+     `wk` is a week other than the one on screen, for the one change that
+     reaches across the end of a week: Saturday cooked double, its leftovers
+     on next week's Sunday. */
+  function writeDay(day, entries, added, gone, wk) {
     var list = entries.map(stored);
-    var path = wpath('plan.' + day);
+    wk = wk || state.active;
+    var path = 'weeks.' + wk + '.plan.' + day;
     var local = function () {
-      editActive(function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
+      editWeek(wk, function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
     };
     // the day whole is a plain write: Cook this again's nights go up as one
     if (!added && !(gone && gone.length)) {
@@ -1163,11 +1168,13 @@ window.Store = (function () {
   }
 
   // a shallow copy of the active week, safe to mutate and assign back
-  function editActive(fn) {
+  function editActive(fn) { editWeek(state.active, fn); }
+  // any week, made if it is not there yet, as a first dinner on next week makes it
+  function editWeek(id, fn) {
     var weeks = Object.assign({}, state.weeks);
-    var w = Object.assign({ name: '', ord: 0, plan: {}, checked: {} }, weeks[state.active]);
+    var w = Object.assign({ name: '', ord: 0, plan: {}, checked: {} }, weeks[id]);
     fn(w);
-    weeks[state.active] = w;
+    weeks[id] = w;
     state.weeks = weeks;
   }
 
@@ -1708,14 +1715,21 @@ window.Store = (function () {
       return hit ? hit.x : 1;
     },
 
-    addToDay: function (id, day, x, lo) {
-      var had = this.day(day), list = had.filter(function (e) { return e.id !== id; });
+    addToDay: function (id, day, x, lo) { this.addToWeekDay(state.active, day, id, x, lo); },
+    /* The same, on a day of any week. Saturday is the end of a week but not
+       of the cooking: cooked double, its leftovers night is next week's
+       Sunday, which is not the week on screen. The same arrayUnion to
+       weeks.<id>.plan.<day> as any other day, and the week is made by it if
+       nothing was planned in it yet, as it is when you plan next week. */
+    addToWeekDay: function (weekId, day, id, x, lo) {
+      var had = lastOf(this.dayOf(weekId, day), function (e) { return e.id; });
+      var list = had.filter(function (e) { return e.id !== id; });
       var entry = { id: id, x: x || 1, lo: !!lo };
       var was = had.filter(function (e) { return e.id === id; })[0] || null;
       if (was && was.x === entry.x && was.lo === entry.lo) return;   // already so
       list.push(entry);
       // new to the day: only it goes up; already there: off and back on (see writeDay)
-      writeDay(day, list, entry, was ? [stored(was)] : null);
+      writeDay(day, list, entry, was ? [stored(was)] : null, weekId);
     },
 
     batch: batch,
@@ -1794,15 +1808,19 @@ window.Store = (function () {
        forgotten, so the app says it the one time. null when there are none. */
     parkedNote: function () { var p = parked; parked = null; return p; },
 
-    removeFromDay: function (id, day) {
+    removeFromDay: function (id, day) { this.removeFromWeekDay(state.active, day, id); },
+    // and off a day of any week: Saturday's leftovers night follows its dinner
+    removeFromWeekDay: function (weekId, day, id) {
       /* The entries exactly as stored, because arrayRemove takes away only
          what is equal to what it is handed. One the other phone has changed
          meanwhile (its serving count) is no longer equal, and stays — the
          newer statement about that dinner wins. */
-      var gone = (state.plan[day] || []).filter(function (e) {
+      var w = state.weeks[weekId], plan = obj(w && w.plan);
+      var gone = (Array.isArray(plan[day]) ? plan[day] : []).filter(function (e) {
         return (typeof e === 'object' && e ? e.i : e) === id;
       });
-      writeDay(day, this.day(day).filter(function (e) { return e.id !== id; }), null, gone);
+      var list = lastOf(this.dayOf(weekId, day), function (e) { return e.id; });
+      writeDay(day, list.filter(function (e) { return e.id !== id; }), null, gone, weekId);
     },
 
     clearPlan: function () {

@@ -257,6 +257,8 @@ module.exports = {
     let th = await look();
     t.ok('Appearance starts on Auto, and Auto is the phone: dark here', th.t === 'dark' && th.scheme === 'dark' && th.on === 'Auto' &&
       /phone/.test(th.say) && th.bar === '#120d0a', JSON.stringify(th));
+    const said = await ap.evaluate(() => { const el = document.querySelector('.sync-theme-say'); return el ? el.getAttribute('role') : null; });
+    t.ok('and the line saying whose choice it is is a status, heard when it changes', said === 'status', String(said));
     await pickTheme('light');
     th = await look();
     t.ok('Light on a dark phone: the app and the browser bar go light, and it says the choice is this device\u2019s',

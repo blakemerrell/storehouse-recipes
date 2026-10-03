@@ -102,9 +102,13 @@
       return '<button type="button" class="pw-chip" data-dr="' + q + '" data-v="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '">' + esc(o[1]) + '</button>';
     }).join('') + '</div>';
   }
+  /* One Tab stop, the chosen one, and the arrows between them (below), as
+     a native radio group has it. */
   function radios(q, list, cur, label) {
-    return '<div class="dr-radios" role="radiogroup" aria-label="' + esc(label) + '">' + list.map(function (o) {
-      return '<button type="button" class="wh-opt dr-radio" role="radio" data-dr="' + q + '" data-v="' + o[0] + '" aria-checked="' + (cur === o[0]) + '" aria-pressed="' + (cur === o[0]) + '">' +
+    var any = list.some(function (o) { return cur === o[0]; });
+    return '<div class="dr-radios" role="radiogroup" aria-label="' + esc(label) + '">' + list.map(function (o, i) {
+      var stop = any ? cur === o[0] : !i;
+      return '<button type="button" class="wh-opt dr-radio" role="radio" data-dr="' + q + '" data-v="' + o[0] + '" aria-checked="' + (cur === o[0]) + '" aria-pressed="' + (cur === o[0]) + '" tabindex="' + (stop ? 0 : -1) + '">' +
         '<span class="wh-dot"></span><span><b>' + esc(o[1]) + '</b><span>' + esc(o[2]) + '</span></span></button>';
     }).join('') + '</div>';
   }
@@ -192,7 +196,11 @@
     var els = document.querySelectorAll('#main, .topbar, #shareHint');
     for (var i = 0; i < els.length; i++) els[i].inert = off;
   }
+  /* Closed on this page: Today's "Cooking with someone else?" waits for
+     the next open, or a new phone met two questions in a row. */
+  var shut = false;
   function close(mark) {
+    shut = true;
     try { localStorage.setItem(KEY, mark); } catch (e) { /* private mode: asked again next time */ }
     var r = root();
     if (r) r.parentNode.removeChild(r);
@@ -225,12 +233,26 @@
   document.addEventListener('keydown', function (e) {
     var r = root();
     if (e.key !== 'Tab' || !r) return;
-    var f = Array.prototype.filter.call(r.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+    var f = Array.prototype.filter.call(r.querySelectorAll('button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])'),
       function (el) { return el.offsetParent !== null; });
     if (!f.length) return;
     var a = document.activeElement, first = f[0], last = f[f.length - 1];
     if (e.shiftKey && (a === first || !r.contains(a))) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && (a === last || !r.contains(a))) { e.preventDefault(); first.focus(); }
+  });
+
+  /* The arrows move a radio group: Left and Up the one before, Right and
+     Down the one after, round from either end, choosing as they go with the
+     focus on the choice. The group said radiogroup and the arrows did
+     nothing. Chosen by the same click a tap makes, whose redraw puts the
+     focus back on it. */
+  document.addEventListener('keydown', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#doorRoot [role="radio"]');
+    var step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+    if (!b || !step || e.altKey || e.ctrlKey || e.metaKey) return;
+    var all = Array.prototype.slice.call(b.parentNode.querySelectorAll('[role="radio"]'));
+    e.preventDefault();
+    all[(all.indexOf(b) + step + all.length) % all.length].click();
   });
 
   document.addEventListener('click', function (e) {
@@ -259,5 +281,6 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
   }
 
-  window.Door = { help: help, setHelp: setHelp, due: function () { return due && !!root(); } };
+  window.Door = { help: help, setHelp: setHelp, due: function () { return due && !!root(); },
+    closed: function () { return shut; } };
 })();
