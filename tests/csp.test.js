@@ -57,7 +57,11 @@ module.exports = {
     t.ok('no plugins, and the page cannot be re-based', (P['object-src'] || []).join() === "'none'" && (P['base-uri'] || []).join() === "'self'");
 
     /* ---- every host the code reaches, allowed where it is reached ---- */
-    const code = ['src/sync.js', 'src/app.js', 'src/train.js', 'src/today.js', 'src/door.js'].map(src).join('\n');
+    // every script of ours the page loads, read off index.html, so a file split out of app.js is read too
+    const ours = [...src('index.html').matchAll(/<script src="(src\/[^"?]+\.js)/g)].map((m) => m[1]);
+    const code = ours.map(src).join('\n');
+    t.ok('the code read for hosts is every script of ours the page loads (' + ours.length + ')',
+      ours.length >= 8 && ['src/sync.js', 'src/app.js', 'src/train.js', 'src/today.js', 'src/door.js'].every((f) => ours.indexOf(f) >= 0), ours.join(' '));
     const origins = (re) => [...new Set([...code.matchAll(re)].map((m) => m[1]))];
     // scripts: the SDK's base and the sign-in client, the two hosts loadScript is handed
     const scriptHosts = origins(/(?:var SDK|var GIS_SRC)\s*=\s*'(https:\/\/[^/']+)/g).concat('https://apis.google.com');
