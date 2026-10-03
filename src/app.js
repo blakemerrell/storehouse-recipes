@@ -957,9 +957,11 @@
      So it follows the pantry: Store.pantryChanged() decides which word is
      true. Untouched, it talks about the storehouse,
      because that is true out of the box. Edit your pantry and it talks about
-     your shelf, because that is true from then on. */
+     your shelf, because that is true from then on. So does "I keep my own":
+     no source, nothing but the shelf, and "Just my staples" over 0 recipes
+     read as a broken filter. */
   function renderPantryFilterLabels() {
-    var mine = window.Store.pantryChanged();
+    var mine = window.Store.pantryChanged() || !window.Store.opt('store', true);
     var sel = $('pantrySel');
     var words = mine
       ? ['Everything', "Only what's on my shelf", 'Needs a shop']
@@ -1026,6 +1028,11 @@
       (loose ? ' · ' + (list.length - loose) + ' matching, ' + loose + ' more from sections named for it'
              : (order[S.sort] || ''));
     $('browseEmpty').classList.toggle('hide', list.length !== 0);
+    /* Your own shelf, and nothing on it covers a whole recipe yet: say where
+       the shelf is, not that the filters are wrong. Named the way the door
+       names it; On hand is reached from Share now, not a Pantry tab. */
+    $('browseEmpty').textContent = S.pantryF === 'base' && !window.Store.opt('store', true)
+      ? 'Nothing on your shelf yet \u2014 tick what you keep on hand, under Share \u203a Your kitchen' : 'Nothing matches those filters.';
     /* The strip's button says how many filters are on, so "Filters" with two
        set does not read the same as "Filters" with none. Sort counts: a list
        in protein order is not the book, and the reader may have forgotten. */
@@ -15505,6 +15512,33 @@
     return it.k !== 'water' && !inPantry(it.k);
   }
 
+  /* The editor's "Needs beyond the staples", which is what the books' own
+     field means too (tools/build-data.js: what you must buy to cook it at
+     all). Typed in, it was shown nowhere. nutritionFor reads the names only
+     to mark the ingredient lines they appear in — never for the calories —
+     so a name in no line went nowhere: buttermilk named and not listed,
+     nutmeg on a line the food table could not place. Those are said on the
+     sheet. A name a placed line answers for is the shelf's to say, above,
+     and so is a food the pantry knows by that name and you keep. */
+  function alsoNeeds(r) {
+    var P = window.PANTRY || {}, own = window.Store.pantryOwn() || {};
+    // whole words: buttermilk is not the milk line, Stevia/Sweetener is the sweetener one
+    var has = function (hay, w) {
+      return !!w && new RegExp('(^|[^a-z])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)').test(hay);
+    };
+    var named = function (map, l) { return Object.keys(map).filter(function (k) { return has(String(map[k].l || '').toLowerCase(), l); })[0]; };
+    return String(r.extras || '').split(',').map(function (x) { return x.trim(); }).filter(function (n) {
+      var l = n.toLowerCase();
+      if (!l) return false;
+      var placed = (r.ing || []).some(function (line, i) {
+        var it = (r.ingp || [])[i], lab = it && it.k ? String((P[it.k] || {}).l || it.a || '').toLowerCase() : '';
+        return !!(it && it.k) && (has(String(line).toLowerCase(), l) || has(lab, l) || has(l, lab));
+      });
+      var key = named(P, l) || named(own, l);
+      return !placed && !(key && inPantry(key));
+    });
+  }
+
   function missingFor(r) {
     var out = [], seen = {};
     (r.ingp || []).forEach(function (it) {
@@ -16574,6 +16608,10 @@
        undefined, so the card said "Nothing picked yet" over a week with
        recipes in it. */
     var week = planIds().length;
+    /* The files are not in the offline cache, by design (sw.js leaves
+       print/ to the network), and a tap on one with no signal did nothing at
+       all. Said on the button; a tap says it again (below). */
+    var away = navigator.onLine === false ? '<span class="bk-off"><span class="sr-only">, </span>needs signal</span>' : '';
 
     $('printRows').innerHTML = PRINT_CARDS.map(function (c) {
       var r = READY_MADE[c.set];
@@ -16597,14 +16635,14 @@
         '<span class="bk-sub">' + esc(c.sub) + '</span>' +
       '</button>' +
       '<a class="bk-get" download href="print/' + esc(r.file) + '" data-get="' + esc(c.set) + '">' +
-        'PDF &middot; ' + r.pages + ' pages</a>' +
+        'PDF &middot; ' + r.pages + ' pages' + away + '</a>' +
       /* The folded version hangs below: a second thing to do with the same
          book, wanted by far fewer people. */
       (r.booklet
         ? '<a class="bk-fold" download href="print/' +
             esc(r.file.replace(/\.pdf$/, '-booklet.pdf')) + '" data-fold="' + esc(c.set) + '" ' +
             'title="Two pages to a sheet, in folding order — print double-sided, fold, staple">' +
-            'fold &amp; staple &middot; ' + (r.pages / 4) + '</a>'
+            'fold &amp; staple &middot; ' + (r.pages / 4) + away + '</a>'
         : '') +
       '</div>';
     }).join('');
@@ -17194,6 +17232,10 @@
                 : 'Needs things ' + srcW().the + ' doesn\u2019t carry: ') +
             esc(m.join(', ')) + '.</div>';
         })() +
+        (function () {
+          var also = alsoNeeds(r);
+          return also.length ? '<div class="sheet-extras" data-also="1">Also needs: ' + esc(also.join(', ')) + '.</div>' : '';
+        })() +
         '<div class="sheet-actions"><div class="sheet-actions-in">' +
           /* Icons, not words. "Save" and "Edit" spelled out took enough of the
              row that the seven days wrapped onto a second line on a phone, and
@@ -17744,7 +17786,7 @@
             [['', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(function (o) {
               return '<button data-sync="theme" data-v="' + o[0] + '" aria-pressed="' + (window.Theme.get() === o[0]) + '">' + o[1] + '</button>';
             }).join('') + '</span>' +
-            '<span class="sync-theme-say">' + (window.Theme.get() ? 'On this device' : 'Follows your phone') + '</span></div>' : '') +
+            '<span class="sync-theme-say" role="status">' + (window.Theme.get() ? 'On this device' : 'Follows your phone') + '</span></div>' : '') +
 
         /* The one screen somebody opens to find out what this thing is, so it
            is where the app says who it is not. */
@@ -19193,6 +19235,12 @@
        download and nothing else; it must not move the preview, or reaching
        for the booklet would silently change the book on screen. */
     var pick = function (e) {
+      /* No signal: the download would go nowhere and say nothing. */
+      if (e.target.closest('[data-fold], [data-get]') && navigator.onLine === false) {
+        e.preventDefault();
+        mToast('The PDFs download from the internet. Try again with signal.');
+        return;
+      }
       if (e.target.closest('[data-fold], [data-get], #doPrint')) return;
       var b = e.target.closest('[data-print]');
       if (!b || b.dataset.print === S.printSet) return;
@@ -19200,6 +19248,10 @@
       renderBook();
     };
     $('printRows').addEventListener('click', pick);
+    // and the buttons say so as the signal comes and goes
+    var signal = function () { if (S.view === 'book') renderDownloads(); };
+    window.addEventListener('online', signal);
+    window.addEventListener('offline', signal);
     /* The picked sets moved out of the shelf into their own row and very
        nearly moved out of reach with it — the handler was bound to the shelf
        alone, so Favorites and the week were buttons that did nothing. */
@@ -20223,6 +20275,15 @@
           if (mAccount() && mSyncDoc) mHouseTell('');
         }
         renderModal();
+        /* Said as well as shown: "On this device" is a status now. The sheet
+           is drawn afresh, and a live region that arrives with its words is
+           one nobody was listening to yet, so they go in a frame later. */
+        var tsay = act === 'theme' && document.querySelector('.sync-theme-say');
+        if (tsay) {
+          var tw = tsay.textContent;
+          tsay.textContent = '';
+          requestAnimationFrame(function () { tsay.textContent = tw; });
+        }
       }
     });
 

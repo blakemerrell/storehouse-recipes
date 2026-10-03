@@ -93,6 +93,25 @@ module.exports = {
     await p.waitForTimeout(250);
     s = await step1();
     t.ok('I keep my own: no list of what a source carries', !s.carries && s.picks.join() === 'sh:false,fb:false,big:false,own:true', JSON.stringify(s));
+    /* Recipes with nothing but a shelf, and nothing ticked on it yet. The
+       filter said "Just my staples" and answered "0 recipes · Nothing
+       matches those filters", which reads as a broken filter. */
+    await p.click('.tab[data-view="browse"]');
+    await p.waitForTimeout(250);
+    const pick = (v) => p.evaluate((v) => { const el = document.getElementById('pantrySel'); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }, v);
+    await pick('base');
+    await p.waitForTimeout(250);
+    const shelf = await p.evaluate(() => ({
+      filter: [...document.querySelectorAll('#pantrySel option')].map((o) => o.textContent).join('|'),
+      count: document.getElementById('browseCount').textContent,
+      empty: document.getElementById('browseEmpty').textContent,
+      shown: !document.getElementById('browseEmpty').classList.contains('hide'),
+    }));
+    t.ok('I keep my own: Recipes’ filter is worded for your shelf, and with nothing on it says where to tick what you keep',
+      shelf.filter === 'Everything|Only what\'s on my shelf|Needs a shop' && /^0 recipes/.test(shelf.count) && shelf.shown &&
+      shelf.empty === 'Nothing on your shelf yet — tick what you keep on hand, under Share › Your kitchen', JSON.stringify(shelf));
+    await pick('all');
+    await p.waitForTimeout(200);
     l = await shop();
     t.ok('and every food is just Have · Buy, with nothing from a source', l.seg.join() === 'Have,Buy' && l.groups.every((g) => /To buy|Needs a store|In your kitchen/.test(g)) && !/from the/.test(l.count), JSON.stringify(l));
     await p.evaluate(() => window.Hive.go('where'));

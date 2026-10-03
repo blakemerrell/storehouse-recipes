@@ -55,6 +55,30 @@ module.exports = {
     t.ok('saving opens what you just wrote', /Grandma/.test(await p.textContent('.sheet-name')));
     t.ok('numbered in its own volume',
       (await p.textContent('.sheet-eyebrow')) === 'Ours · No. 001', await p.textContent('.sheet-eyebrow'));
+
+    /* "Needs beyond the staples" was typed in and shown nowhere: the
+       calories never read it, and it only marked the ingredient lines it
+       appeared in. The sheet says what no line of the recipe already says. */
+    await p.click('[data-edit]');
+    await p.waitForSelector('.ed-sheet');
+    await p.fill('#edExtras', 'Buttermilk, Nutmeg <b>x</b>, flour');
+    await p.click('[data-ed="save"]');
+    await p.waitForTimeout(400);
+    const also = await p.evaluate(() => {
+      const el = document.querySelector('.sheet [data-also]');
+      return el ? { t: el.textContent, b: el.querySelectorAll('b').length } : null;
+    });
+    t.ok('what the editor says it needs beyond the staples is on the sheet, as typed and as text, less what an ingredient line says',
+      !!also && also.t === 'Also needs: Buttermilk, Nutmeg <b>x</b>.' && also.b === 0, JSON.stringify(also));
+    await p.click('.sheet-x');
+    await p.waitForTimeout(200);
+    // a printed one whose extra is on its own ingredient list says it once, not twice
+    const book = await p.evaluate(() => new Promise((ok) => {
+      const r = window.RECIPES.find((x) => x.extras === 'Whey Protein' && x.ing.some((l) => /whey/i.test(l)));
+      window.Hive.open(r.id);
+      setTimeout(() => ok({ name: r.name, open: (document.querySelector('.sheet-name') || {}).textContent, also: !!document.querySelector('.sheet [data-also]') }), 300);
+    }));
+    t.ok('a printed recipe whose extra is one of its ingredients adds no second line', book.open === book.name && !book.also, JSON.stringify(book));
     await p.click('.sheet-x');
 
     t.ok('the volume appears once it has a recipe',
