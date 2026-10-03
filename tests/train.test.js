@@ -553,8 +553,12 @@ module.exports = {
     t.ok('drawn, not written: a dot a protein day, food as a bar against the target, an arrow on the scale, lifts up, level and down',
       r.dots === '1101111' && r.bar === '79%' && r.arrow === '▼1' && /^▲1 ●1 ▼0$/.test(r.lifts), JSON.stringify(r));
     t.ok('and in few words', r.words < 260, String(r.words));
-    await c.click('.tab[data-view="macros"]');
-    await c.evaluate(() => { const b = document.querySelector('[data-mfold="weigh"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); });
+    /* This week is on the morning card, which is Today's weigh-in now: the
+       sheet holds Nourish's own card, unfolded the way a thumb unfolds it. */
+    await c.click('.tab[data-view="today"]');
+    await c.evaluate(() => window.Hive.weighOpen());
+    await c.waitForTimeout(250);
+    await c.evaluate(() => { const b = document.querySelector('#weighSheet [data-mfold="weigh"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); });
     await c.click('#macroWeekBtn');
     r = await c.evaluate(() => ({ shown: !document.getElementById('view-train').classList.contains('hide'), sub: window.Train._.state().S.sub,
       card: !!document.querySelector('#view-train .tr-week'), sheet: !!document.querySelector('#trainRoot .sheet') }));

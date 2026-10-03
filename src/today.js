@@ -6,7 +6,7 @@
  * lives somewhere else (tonight's dinner in Plan, the day in Nourish, the next
  * session in Strengthen, the list in Shop) and each card is a door into the
  * full tab. It keeps no data and writes none but one mark, the day tonight's
- * dinner was cooked (sh.cooked, below): it reads window.Hive.today() and
+ * dinner was cooked (Store.cooked, the household's): it reads window.Hive.today() and
  * window.Train.today(), and its buttons call the same functions the full
  * tabs do.
  *
@@ -30,7 +30,8 @@
     workout: '<path d="M6.5 7v10"/><path d="M3.5 9.5v5"/><path d="M17.5 7v10"/><path d="M20.5 9.5v5"/><path d="M6.5 12h11"/>',
     shop: '<path d="M3 4h2.2l2.3 10.5h10.3l2-7.5H6.4"/><circle cx="9.5" cy="19" r="1.4"/><circle cx="16.5" cy="19" r="1.4"/>',
     week: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/>',
-    swap: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v5h-5"/>'
+    swap: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v5h-5"/>',
+    scale: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 9.5a5 5 0 0 1 7 0"/><path d="M12 9.5l1.4-1.8"/>'
   };
   function icon(k, cls) {
     return '<svg class="' + (cls || 'td-ic') + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>';
@@ -67,22 +68,36 @@
   // ---------------------------------------------------------------- tonight
   /* "Cook it" opened the recipe and marked nothing done, so the card asked
      all evening. Cooked it folds the card to one line for the rest of the
-     day, as a finished workout's does: this phone's own mark, the day it
-     was said on, so tomorrow is a new question. */
-  var COOKED = 'sh.cooked';
+     day, as a finished workout's does. It is the household's word now, not
+     this phone's: whoever cooked says so, and every phone in the kitchen
+     sees "Dinner cooked" (Store.setCooked, kept on the week). Your own plate
+     of it is ticked eaten in Nourish, and the sheet asks how it was. */
   function dayKey(d) {
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
-  function cooked(d) {
-    try {
-      var v = localStorage.getItem(COOKED);
-      if (v && v !== dayKey(d)) localStorage.removeItem(COOKED);    // a new day
-      return v === dayKey(d);
-    } catch (e) { return false; }
-  }
   function cookedCard(t) {
-    return card('tonight', 'Dinner cooked', '<p class="td-doneline">' + esc(t.name) + '</p>', '', '', true);
+    var say = t.rating === 2 ? ' \u00b7 \u2605 favourite' : t.rating === 1 ? ' \u00b7 good' : t.rating === -1 ? ' \u00b7 not again' : '';
+    return card('tonight', 'Dinner cooked', '<button class="td-doneline td-donebtn" data-td="rate" data-id="' + esc(t.id) + '" data-day="' + esc(t.day) + '">' +
+      esc(t.name) + say + '</button>', '', '', true);
+  }
+  /* Your plate tonight, in the household's dinner: what Nourish has on your
+     day for it, or the plate Plan my week works out for your plan. */
+  function plateLine(pl) {
+    if (!pl) return '';
+    var x = pl.x, xs = x === 0.5 ? '\u00bd' : x % 1 === 0.5 ? Math.floor(x) + '\u00bd' : String(Math.round(x * 100) / 100);
+    return '<p class="td-plate"><b>Your plate</b><span>' + xs + (x === 1 ? ' serving' : ' servings') + ' \u00b7 ' + fmt(pl.kcal) + ' cal \u00b7 ' + fmt(pl.p) + ' g protein</span></p>';
+  }
+  /* This morning's weight, first thing: the box is in a sheet over Today
+     (Nourish's own morning card, moved there while it is open). */
+  function weighLine(w) {
+    if (!w) return '';
+    var sub = w.done ? [w.avg ? w.avg + ' ' + w.unit + ' seven-day average' : '', w.week ? w.week + ' this week' : ''].filter(Boolean).join(' \u00b7 ')
+      : [w.last ? 'last ' + w.last + ' ' + w.unit : '', w.week ? w.week + ' this week' : ''].filter(Boolean).join(' \u00b7 ');
+    return '<button class="td-weigh' + (w.done ? ' done' : '') + '" data-td="weigh">' +
+      '<span class="td-wbadge" aria-hidden="true">' + (w.done ? CHECK.replace('td-ic', 'td-fic') : icon('scale')) + '</span>' +
+      '<span class="td-wt"><b>' + (w.done ? 'Weighed in \u00b7 ' + w.now + ' ' + w.unit : 'Weigh in') + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+      '<i aria-hidden="true">\u203a</i></button>';
   }
   function tonightCard(d, main) {
     var t = d.tonight, nx = d.next.map(function (n) { return n.day + ': ' + n.name; }).join(' · ');
@@ -94,12 +109,12 @@
     }
     if (t) {
       return card('tonight', 'Tonight', title(esc(t.name)) +
-        facts([t.time, t.x > 1 ? 'cooked ×' + t.x : '']) +
+        facts([t.time, t.x > 1 ? 'cooked ×' + t.x : '']) + plateLine(t.plate) +
         acts(btn(main, 'open', 'Cook it', ' data-id="' + esc(t.id) + '"') +
           '<button class="iconbtn td-swap" data-td="swap" data-id="' + esc(t.id) + '" data-day="' + esc(t.day) + '" aria-label="Swap ' + esc(t.name) + ' for another dinner">' +
           icon('swap', 'td-sic') + '</button>' +
           // data-tk: the day the card is about, as a meal's tick carries it
-          '<button class="nut-ask" data-td="cooked" data-tk="' + dayKey(d.date) + '">Cooked it</button>') +
+          '<button class="nut-ask" data-td="cooked" data-id="' + esc(t.id) + '" data-day="' + esc(t.day) + '" data-tk="' + dayKey(d.date) + '">Cooked it</button>') +
         (nx ? '<p class="td-next">' + esc(nx) + '</p>' : ''));
     }
     if (d.planned) {
@@ -124,8 +139,8 @@
   function mealRow(m, next, tk) {
     // data-tk: the day this card is about, so a tick after midnight lands on it
     return '<div class="td-meal"><button class="td-tick" data-td="eat" data-k="' + esc(m.k) + '" data-tk="' + esc(tk || '') + '" aria-label="' + esc(m.n) + ' eaten"></button>' +
-      '<span class="td-mt"><span class="td-ms">' + esc(m.n) + '</span><span class="td-mn">' + esc(m.name) +
-        (next ? ' <span class="td-tag">next</span>' : '') + '</span></span>' +
+      '<button class="td-mt" data-td="meal" data-k="' + esc(m.k) + '"><span class="td-ms">' + esc(m.n) + '</span><span class="td-mn">' + esc(m.name) +
+        (next ? ' <span class="td-tag">next</span>' : '') + '</span></button>' +
       '<span class="td-kc">' + fmt(m.kcal) + ' cal</span></div>';
   }
   function eatenLine(ms) {
@@ -260,7 +275,7 @@
     var doneW = d.workout && d.workout.doneToday;
     if (doneW) order = order.filter(function (k) { return k !== 'workout'; });
     // and so does tonight's dinner, once it is cooked
-    var doneT = cooked(d.date) && !!(d.tonight && !d.tonight.lo);
+    var doneT = !!(d.tonight && !d.tonight.lo && d.tonight.cooked);
     if (doneT) order = order.filter(function (k) { return k !== 'tonight'; });
     /* Only what this person asked for help with (the front door, or Share &
        settings): dinners and the shopping, eating, workouts. */
@@ -280,7 +295,7 @@
     html += (hp.d ? shopCard(d.shop) : '') + (hp.d || hp.w ? weekCard(d) : '') + (doneT && hp.d ? cookedCard(d.tonight) : '') +
       (doneW && hp.w ? workoutCard(d.workout, false) : '');
     root.innerHTML = '<div class="td-top"><div class="step-k">' + DAYNAME[d.date.getDay()] + ' · ' + MONTH[d.date.getMonth()] + ' ' + d.date.getDate() + '</div>' +
-      '<h1 class="step-h td-h">Today</h1></div><div class="td-cards">' + html + '</div>';
+      '<h1 class="step-h td-h">Today</h1></div><div class="td-cards">' + (hp.e ? weighLine(d.weigh) : '') + html + '</div>';
   }
 
   /* The doors. Each is the same function the full tab runs. */
@@ -299,13 +314,10 @@
     if (a === 'eat') { H.eat(b.getAttribute('data-k'), b.getAttribute('data-tk')); return; }
     if (a === 'open') H.open(id);
     else if (a === 'swap') H.swap(id, b.getAttribute('data-day'));
-    else if (a === 'cooked') {
-      try { localStorage.setItem(COOKED, b.getAttribute('data-tk') || dayKey(new Date())); } catch (err) { /* private mode: it asks again */ }
-      render();
-      // the button is gone with the card it was on; the line that took its place says so
-      var h = document.getElementById('td-tonight');
-      if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
-    }
+    else if (a === 'cooked') H.cooked(id, b.getAttribute('data-day'), b.getAttribute('data-tk'));
+    else if (a === 'rate') H.rate(id, b.getAttribute('data-day'));
+    else if (a === 'weigh') H.weighOpen();
+    else if (a === 'meal') H.meal(b.getAttribute('data-k'));
     else if (a === 'planweek') H.planWeek();
     else if (a === 'addtonight') H.addTonight();
     else if (a === 'plan') H.go('plan');

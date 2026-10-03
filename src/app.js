@@ -5491,6 +5491,9 @@
     mStamp('sn', k);
   }
 
+  /* The weigh-in on Today: its open and close live beside the weight box's
+     own rules (mWeightOf), filled in there. */
+  var WGAPI = {};
   var MWEIGHTS = (function () {
     try {
       var w = JSON.parse(localStorage.getItem('bsc.macroWeights'));
@@ -8174,6 +8177,7 @@
     var wIn = $('macroWeigh').querySelector('#mWeight');
     var wDraft = wIn && document.activeElement === wIn ? wIn.value : null;
     $('macroWeigh').innerHTML = macroWeighHTML(k);
+    if (WGAPI.week) WGAPI.week();
     if (wDraft !== null) {
       var wBack = $('macroWeigh').querySelector('#mWeight');
       if (wBack) { wBack.value = wDraft; wBack.focus(); }
@@ -17174,6 +17178,11 @@
       if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
       return;
     }
+    if (S.tdSheet && !S.openId) {
+      root.innerHTML = tdSheetHTML();
+      document.body.style.overflow = 'hidden';
+      return;
+    }
     if (S.daySheet && !S.openId) {
       root.innerHTML = daySheetHTML();
       document.body.style.overflow = 'hidden';
@@ -19201,8 +19210,8 @@
     $('macroWeigh').addEventListener('click', function (e) {
       /* The way into the plan, wherever the card is showing it: on the face
          while there is no plan to adjust, behind the press once there is. */
-      if (e.target.closest('#macroTargBtn')) { mOpenTargets(); return; }
-      if (e.target.closest('#macroWeekBtn')) { if (mWeekOn()) window.Train.openCheckin(); return; }
+      if (e.target.closest('#macroTargBtn')) { if (WGAPI.hide) WGAPI.hide(); mOpenTargets(); return; }
+      if (e.target.closest('#macroWeekBtn')) { if (mWeekOn()) { if (WGAPI.hide) WGAPI.hide(); window.Train.openCheckin(); } return; }
       var tr = e.target.closest('[data-mtrained]');
       if (tr) {
         var tk = tr.dataset.mtrained;
@@ -19252,6 +19261,104 @@
       var odd = n < (first ? 90 : 60) || n > 700 || (ref > 0 && Math.abs(n - ref) > ref * 0.15);
       return { lb: n, odd: odd, ref: ref, first: first, shown: typed, u: u };
     }
+    /* ---- the weigh-in, on Today ----
+     * Nourish's morning card, borrowed: opening Today's weigh-in moves the
+     * card itself (#macroWeigh, with every handler it has) into the sheet,
+     * and closing puts it back where it lives. One card, one set of rules,
+     * the comma refused and the odd number asked about wherever it is typed.
+     * Under it, the week before today, any morning fixable in place. */
+    var WG = { open: false, home: null, next: null, fold: undefined, fix: '' };
+    /* The sheet exists only while it is open: built here, and gone when it
+       shuts, so nothing hidden is left on the page to be found instead. */
+    function wgFrame() {
+      var el = document.createElement('div');
+      el.id = 'weighSheet';
+      el.className = 'scrim no-print';
+      el.setAttribute('data-wclose', '1');
+      el.innerHTML = '<div class="sheet wg-sheet" role="dialog" aria-modal="true" aria-label="Weigh in">' +
+        '<div class="sheet-top"><div class="sheet-eyebrow">Weigh in</div>' +
+          '<button class="sheet-x" data-wclose="1" aria-label="Close">&times;</button></div>' +
+        '<div id="weighHost"></div><div id="weighWeek"></div></div>';
+      el.addEventListener('click', wgClick);
+      el.addEventListener('keydown', function (e) {
+        if (e.target.id === 'wFixIn' && e.key === 'Enter') { var b = el.querySelector('[data-wsave]'); if (b) b.click(); }
+      });
+      document.body.appendChild(el);
+      return el;
+    }
+    function wgPut(back) {
+      var card = $('macroWeigh');
+      if (!card) return;
+      if (back) { if (WG.home) WG.home.insertBefore(card, WG.next); }
+      else { WG.home = card.parentNode; WG.next = card.nextSibling; $('weighHost').appendChild(card); }
+    }
+    function wgKeyBack(n) { var d = keyDate(todayKey()); d.setDate(d.getDate() - n); return dayKey(d); }
+    function wgWeek() {
+      var el = $('weighWeek');
+      if (!el || !WG.open) return;
+      var u = mWUnit(), rows = '';
+      for (var i = 1; i <= 7; i++) {
+        var key = wgKeyBack(i), v = MWEIGHTS[key], d = keyDate(key);
+        var day = '<b>' + d.toLocaleDateString('en-US', { weekday: 'short' }) + '</b> ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        rows += WG.fix === key
+          ? '<div class="wg-row wg-fixing"><span>' + day + '</span><label class="wg-in"><input type="text" id="wFixIn" maxlength="6" inputmode="decimal" autocomplete="off" ' +
+              'aria-label="Weight on ' + esc(d.toDateString()) + ' in ' + (u === 'kg' ? 'kilograms' : 'pounds') + '" value="' + (v ? mWShow(v) : '') + '"> ' + u + '</label>' +
+              '<button class="btn-primary" data-wsave="' + key + '">Save</button><button class="nut-ask" data-wcancel="1">Cancel</button>' +
+              '<span class="wg-note" id="wFixNote" role="status"></span></div>'
+          : '<button class="wg-row" data-wfix="' + key + '"><span>' + day + '</span><b>' + (v ? mWShow(v) + ' ' + u : '<i>none</i>') + '</b><i aria-hidden="true">\u203a</i></button>';
+      }
+      el.innerHTML = '<div class="dsh-rl">The last week \u00b7 tap one to fix it</div>' + rows;
+    }
+    function wgOpen() {
+      if (WG.open || !$('macroWeigh')) return;
+      /* The card as it always is: a morning not weighed is the box and
+         nothing else, weighing opens it, its own handle folds it. */
+      S.macroDate = null;                // the sheet is about this morning
+      WG.fix = '';
+      wgFrame();
+      wgPut(false);
+      WG.open = true;
+      document.body.style.overflow = 'hidden';
+      pushSheet({ wg: 1 });
+      renderMacros();
+      var w = $('mWeight');
+      if (w && !MWEIGHTS[todayKey()]) w.focus(); else { var x = document.querySelector('#weighSheet .sheet-x'); if (x) x.focus(); }
+    }
+    /* Shut, and the card goes home. hide() is the same without touching the
+       history: a sheet opened from inside it (the plan, the week) takes its
+       place, and back from that one lands on Today. */
+    function wgHide() {
+      if (!WG.open) return;
+      wgPut(true);
+      WG.open = false;
+      var fr = $('weighSheet');
+      if (fr) fr.parentNode.removeChild(fr);
+      if (!document.querySelector('#modalRoot .scrim')) document.body.style.overflow = '';
+      if (S.view === 'macros') renderMacros();
+      if (S.view === 'today' && window.Today) window.Today.render();
+    }
+    WGAPI.open = wgOpen; WGAPI.hide = wgHide; WGAPI.close = wgHide; WGAPI.week = wgWeek;
+    WGAPI.isOpen = function () { return WG.open; };
+    function wgClick(e) {
+      if (e.target.closest('[data-wclose]') && (e.target === e.currentTarget || e.target.closest('.sheet-x'))) { close(); return; }
+      var fx = e.target.closest('[data-wfix]');
+      if (fx) { WG.fix = fx.dataset.wfix; wgWeek(); var fi = $('wFixIn'); if (fi) { fi.focus(); fi.select(); } return; }
+      if (e.target.closest('[data-wcancel]')) { WG.fix = ''; wgWeek(); return; }
+      var sv = e.target.closest('[data-wsave]');
+      if (sv) {
+        var key = sv.dataset.wsave, raw = ($('wFixIn') || {}).value, got = mWeightOf(raw, key);
+        var note = $('wFixNote');
+        if (got.bad) { if (note) note.textContent = got.big ? 'More than anyone weighs. A point missing?' : 'Weights take digits and a point.'; return; }
+        var write = function () { mWriteWeight(key, got.empty ? 0 : got.lb); WG.fix = ''; renderMacros(); };
+        if (got.odd) {
+          ask({ title: 'Keep ' + got.shown + ' ' + got.u + '?', body: got.ref ? 'Your average lately is ' + mWShow(got.ref) + ' ' + got.u + '.' : 'That is outside what a weight usually is.', ok: 'Keep it' },
+            function (yes) { if (yes) write(); });
+          return;
+        }
+        write();
+      }
+    }
+
     function mWeightSay(bad, odd) {
       var el = $('mWeightNote');
       if (el) el.textContent = bad === 'big' ? 'More than anyone weighs. A point missing?'
@@ -20747,7 +20854,7 @@
       S.scale = 1;
       S.why = false;
       renderModal();
-    } else if (e.state && ((e.state.pw && S.pwOpen) || (e.state.ad && S.addOpen) || (e.state.ds && S.daySheet))) {
+    } else if (e.state && ((e.state.pw && S.pwOpen) || (e.state.ad && S.addOpen) || (e.state.ds && S.daySheet) || (e.state.td && S.tdSheet))) {
       /* Back from a recipe opened over Plan my week's list, + Add or a day's
          sheet lands on that sheet, not on the page under all of them. */
       depth = Math.max(0, depth - 1);
@@ -20775,6 +20882,8 @@
     S.pwOpen = false;
     S.addOpen = false;
     S.daySheet = null;
+    S.tdSheet = null;
+    if (WGAPI.close) WGAPI.close();
     S.mDoneOpen = '';
     /* The editor too. Without these the × and the backdrop looked broken:
        renderModal saw S.editId still set, drew the editor again, and the only
@@ -20866,6 +20975,31 @@
         name: names.length > 2 ? names.slice(0, 2).join(', ') + ' +' + (names.length - 2) : names.join(', ') };
     });
   }
+  /* Your plate tonight: what Nourish has on your day for that dinner, when
+     it has it (Fill sizes it to your numbers); otherwise the plate Plan my
+     week works out for your plan. Nothing, with no plan to size it for. */
+  function tonightPlate(id, tk) {
+    var day = mDay(tk), hit = null;
+    Object.keys(day).forEach(function (sk) {
+      (day[sk] || []).forEach(function (it) { if (!hit && String(it.id) === String(id) && BY_ID[it.id] && BY_ID[it.id].macro) hit = it; });
+    });
+    if (hit) {
+      var tot = mTotals({ d: [hit] }).all;
+      return { x: hit.x, kcal: tot.kcal, p: tot.p };
+    }
+    var r = BY_ID[idOf(id)];
+    if (!r || kcalOf(mReadTargets()) <= 0) return null;
+    var pl = pwPlate(r, pwPlans()[0]);
+    return pl ? { x: pl.x, kcal: pl.kc, p: pl.p } : null;
+  }
+  /* This morning's weight for Today's line: whether you have weighed, what
+     the scale said, and the week it sits in. Nourish's own numbers. */
+  function todayWeigh(tk) {
+    var st = mWeightStats(), had = MWEIGHTS[tk];
+    return { done: !!had, now: had ? mWShow(had) : null, unit: mWUnit(),
+      avg: st && st.n >= 2 ? mWShow(st.avg7) : null, week: st && st.n >= 2 && st.dWeek !== null ? mLbWord(st.dWeek) : '',
+      last: st && st.lastKey !== tk && st.latest ? mWShow(st.latest) : null, lastKey: st ? st.lastKey : '' };
+  }
   function todayData() {
     var now = new Date(), tk = todayKey(), dk = CAL_DAYS[now.getDay()][0];
     /* Tonight is the day's dinner-section recipe or, failing one, whatever
@@ -20892,7 +21026,9 @@
     return {
       date: now,
       help: window.Door ? window.Door.help() : { d: true, e: true, w: true },
-      tonight: t ? { id: String(t.id), day: dk, name: r.name, time: r.time || '', x: t.x, lo: !!t.lo, twin: !!planTwin(t.id, dk) } : null,
+      tonight: t ? { id: String(t.id), day: dk, name: r.name, time: r.time || '', x: t.x, lo: !!t.lo, twin: !!planTwin(t.id, dk),
+        cooked: window.Store.cooked(dk), rating: window.Store.rating(t.id), plate: t.lo ? null : tonightPlate(t.id, tk) } : null,
+      weigh: set ? todayWeigh(tk) : null,
       next: next,
       planned: CAL_DAYS.some(function (d) { return !!dinnerOf(d[0]); }),
       eating: set ? {
@@ -20910,6 +21046,100 @@
       })
     };
   }
+
+  // ------------------------------------------------------------ Today's sheets
+  /* Today does; Nourish tunes. A meal, or tonight's dinner once cooked,
+     tapped on Today opens a small sheet over it, and every row is Nourish's
+     or Plan's own function, on today. */
+  function tdSheetOpen(o) {
+    S.tdSheet = o;
+    pushSheet({ td: 1 });
+    renderModal();
+    var x = document.querySelector('#modalRoot .sheet-x');
+    if (x) x.focus();
+  }
+  function tdItems(sk) { return (mDay(todayKey())[sk] || []).filter(function (it) { return BY_ID[it.id] && BY_ID[it.id].macro; }); }
+  function tdRow(act, t, sub, cls) {
+    return '<button class="dsh-row' + (cls ? ' ' + cls : '') + '" data-tdact="' + act + '"><span><b>' + t + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>';
+  }
+  function tdSheetHTML() {
+    var T = S.tdSheet, body, kick;
+    if (T.k === 'rate') {
+      var r = BY_ID[T.id];
+      if (!r) return '';
+      var rt = window.Store.rating(T.id), ate = false, dd = mDay(T.tk);
+      Object.keys(dd).forEach(function (sk) { (dd[sk] || []).forEach(function (it) { if (String(it.id) === String(T.id) && it.eaten) ate = true; }); });
+      kick = 'Dinner cooked';
+      body = '<h2 class="dsh-h">' + esc(r.name) + '</h2>' +
+        (ate ? '<p class="dsh-m">Your dinner is ticked eaten in Nourish.</p>' : '') +
+        '<div class="dsh-rl">How was it?</div><div class="td-rates" role="group" aria-label="How was it?">' +
+        [[2, '\u2605', 'Favourite'], [1, '\ud83d\udc4d', 'Good'], [-1, '\ud83d\udc4e', 'Not again']].map(function (o) {
+          return '<button class="td-rate" data-tdrate="' + o[0] + '" aria-pressed="' + (rt === o[0]) + '"><span aria-hidden="true">' + o[1] + '</span>' + o[2] + '</button>';
+        }).join('') + '</div>' +
+        '<p class="pw-note">Favourites come back more often in Plan my week; Not again never does.</p>' +
+        (window.Store.house ? '<p class="td-shared">Your household sees \u201cDinner cooked\u201d on their Today too.</p>' : '') +
+        '<div class="dsh-rows">' + tdRow('uncook', 'Not cooked after all', '') + '</div>' +
+        '<button class="btn-primary td-done-btn" data-close="1">Done</button>';
+    } else {
+      var slot = mReadSlots().list.filter(function (sl) { return sl.k === T.sk; })[0] || { n: 'Meal' };
+      var its = tdItems(T.sk), one = {}; one[T.sk] = its;
+      var tot = mTotals(one).all, single = its.length === 1 ? its[0] : null;
+      var allEaten = its.length && its.every(function (it) { return it.eaten; });
+      kick = slot.n;
+      body = its.length ? '<h2 class="dsh-h">' + esc(its.map(function (it) { return BY_ID[it.id].name; }).join(', ')) + '</h2>' +
+        '<p class="dsh-m">' + Math.round(tot.kcal).toLocaleString('en-US') + ' cal \u00b7 ' + Math.round(tot.p) + ' g protein' +
+          (single ? ' \u00b7 ' + fmtNum(single.x) + (single.x === 1 ? ' serving' : ' servings') : '') + '</p>' +
+        '<div class="dsh-rows">' +
+          (allEaten ? tdRow('uneat', 'Not eaten after all', 'Unticks it in Nourish too') : tdRow('eat', 'I ate it', 'Ticks it in Nourish too', 'dsh-main')) +
+          (single && !single.eaten ? '<div class="dsh-row td-steprow"><span><b>A bit more or less</b><small>Your numbers follow</small></span>' +
+            '<span class="td-step"><button data-tdstep="-1" aria-label="Less">\u2212</button><b>' + fmtNum(single.x) + '</b><button data-tdstep="1" aria-label="More">+</button></span></div>' : '') +
+          (allEaten ? '' : tdRow('swap', 'Swap for another that fits', 'Near the same calories and protein')) +
+          tdRow('else', 'I ate something else', 'Search the food list, or build it') +
+          (single ? tdRow('recipe', 'Open the recipe', '') : '') +
+          tdRow('nourish', 'Open the day in Nourish', 'Portions, shares, Fill, your plan') +
+        '</div>'
+        : '<h2 class="dsh-h">Nothing planned for ' + esc(slot.n.toLowerCase()) + '</h2><div class="dsh-rows">' +
+          tdRow('else', 'Add food', 'Search the food list, or build it', 'dsh-main') +
+          tdRow('nourish', 'Open the day in Nourish', 'Fill it there, to your numbers') + '</div>';
+    }
+    return '<div class="scrim no-print" data-close="1">' +
+      '<div class="sheet ds-sheet dsh-sheet td-sheet" role="dialog" aria-modal="true" aria-label="' + esc(kick) + '">' +
+        '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(kick) + '</div>' +
+          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button></div>' +
+        '<div class="dsh-body">' + body + '</div></div></div>';
+  }
+  document.addEventListener('click', function (e) {
+    if (!S.tdSheet || S.openId || !e.target.closest) return;
+    var T = S.tdSheet, rt = e.target.closest('[data-tdrate]');
+    if (rt) {
+      var v = Number(rt.dataset.tdrate);
+      window.Store.setRating(T.id, window.Store.rating(T.id) === v ? 0 : v);
+      renderModal();
+      return;
+    }
+    var stp = e.target.closest('[data-tdstep]');
+    if (stp) {
+      mEditDay(todayKey(), function (day) {
+        var it = (day[T.sk] || []).filter(function (x) { return BY_ID[x.id] && BY_ID[x.id].macro; })[0];
+        if (it && !it.eaten) it.x = mStepX(BY_ID[it.id], it.x, Number(stp.dataset.tdstep));
+      });
+      renderModal();
+      return;
+    }
+    var b = e.target.closest('[data-tdact]');
+    if (!b) return;
+    var act = b.dataset.tdact;
+    if (act === 'uncook') { window.Store.setCooked(T.day, false); close(); return; }
+    if (act === 'eat' || act === 'uneat') {
+      mEditDay(todayKey(), function (day) { (day[T.sk] || []).forEach(function (it) { it.eaten = act === 'eat' ? 1 : 0; }); });
+      close();
+      return;
+    }
+    if (act === 'swap') { S.macroDate = null; mTryAgain(T.sk); renderModal(); return; }
+    if (act === 'else') { S.macroDate = null; var sk = T.sk; S.tdSheet = null; S.mpFromBar = false; mOpenPicker(sk, 'home'); return; }
+    if (act === 'recipe') { var one = tdItems(T.sk)[0]; if (one) { rememberOpener(); openRecipe(idOf(one.id)); } return; }
+    if (act === 'nourish') { close(); S.macroDate = null; goView('macros'); }
+  });
 
   window.Hive = {
     /* Today's reading of the app, and its doors back into it. */
@@ -20948,6 +21178,20 @@
       mWriteProfile(pr);
     },
     numbersSetup: function () { S.macroDate = null; goView('macros'); mOpenTargets(); },
+    /* Tonight's dinner, cooked: said for the household (Store.setCooked),
+       your own plate of it ticked eaten in Nourish, and asked how it was. */
+    cooked: function (id, day, tk) {
+      var k = /^\d{4}-\d{2}-\d{2}$/.test(tk || '') ? tk : todayKey();
+      window.Store.setCooked(day, true);
+      mEditDay(k, function (d) {
+        Object.keys(d).forEach(function (sk) { (d[sk] || []).forEach(function (it) { if (String(it.id) === String(id)) it.eaten = 1; }); });
+      });
+      tdSheetOpen({ k: 'rate', id: idOf(id), day: day, tk: k });
+    },
+    rate: function (id, day) { tdSheetOpen({ k: 'rate', id: idOf(id), day: day, tk: todayKey() }); },
+    meal: function (sk) { S.macroDate = null; tdSheetOpen({ k: 'meal', sk: sk }); },
+    // the weigh-in sheet on Today (Hive.weigh is the write, used by Strengthen)
+    weighOpen: function () { if (WGAPI.open) WGAPI.open(); },
     /* A meal ticked on Today: everything on it eaten, as its boxes on the
        Nourish day would be. `tk` is the day the card was drawn for: past
        midnight on a card nobody had redrawn, the tick went to a day with no

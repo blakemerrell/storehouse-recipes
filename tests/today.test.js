@@ -108,32 +108,40 @@ module.exports = {
     const wm = await p.evaluate(() => { const a = document.querySelector('[data-card="shop"] a.wm-btn'); return a ? { href: a.href, txt: a.textContent } : null; });
     t.ok('buying everything, the Walmart cart button is on Today, filled', !!wm && /walmart\.com\/sc\/cart\/addToCart\?items=/.test(wm.href) && /to Walmart cart/.test(wm.txt), JSON.stringify(wm));
     /* Cook it marked nothing done, and the card asked all evening. Cooked
-       it folds it to one line, at the bottom, for the rest of the day. */
+       it folds it to one line, at the bottom, for the rest of the day; it is
+       the household's word (Store.cooked, on the week), and it asks how it
+       was. */
     const tname = await p.evaluate(() => document.querySelector('[data-card="tonight"] .td-title').textContent);
     await p.click('[data-card="tonight"] [data-td="cooked"]');
-    await p.waitForTimeout(200);
+    await p.waitForTimeout(250);
+    const asked = await p.evaluate(() => ({ eyebrow: (document.querySelector('.td-sheet .sheet-eyebrow') || {}).textContent,
+      rates: [...document.querySelectorAll('[data-tdrate]')].map((b) => b.textContent).join() }));
+    t.ok('Cooked it asks how it was: Favourite, Good, Not again', asked.eyebrow === 'Dinner cooked' && /Favourite.*Good.*Not again/.test(asked.rates), JSON.stringify(asked));
+    await p.click('.td-sheet [data-tdrate="2"]');
+    await p.click('.td-sheet .td-done-btn');
+    await p.waitForTimeout(250);
     const folded = async () => {
       const l = await look(p);
       return Object.assign(l, await p.evaluate(() => {
         const c = document.querySelector('[data-card="tonight"]');
         return { fin: !!(c && c.classList.contains('td-fin')), label: c ? c.querySelector('.td-label').textContent : '',
           line: c ? (c.querySelector('.td-doneline') || {}).textContent : '', btns: c ? c.querySelectorAll('button').length : -1,
-          focus: document.activeElement && document.activeElement.id, mark: localStorage.getItem('sh.cooked') };
+          shared: window.Store.cooked(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]) };
       }));
     };
     let ck = await folded();
-    t.ok('Cooked it folds tonight to one done line at the bottom, and the main button moves on to the next card',
-      ck.fin && ck.label === 'Dinner cooked' && ck.line === tname && ck.btns === 0 && ck.cards[ck.cards.length - 1] === 'tonight' &&
-      ck.primary.length === 1 && ck.primary[0] !== 'tonight' && ck.focus === 'td-tonight' && ck.mark === '2026-10-01', JSON.stringify(ck));
+    t.ok('Cooked it folds tonight to one done line at the bottom, said for the household, with the rating; the main button moves on',
+      ck.fin && ck.label === 'Dinner cooked' && ck.line === tname + ' · ★ favourite' && ck.btns === 1 && ck.cards[ck.cards.length - 1] === 'tonight' &&
+      ck.primary.length === 1 && ck.primary[0] !== 'tonight' && ck.shared, JSON.stringify(ck));
     await p.reload();
     await p.waitForTimeout(700);
     ck = await folded();
-    t.ok('and stays folded the rest of the evening', ck.fin && ck.line === tname, JSON.stringify(ck));
+    t.ok('and stays folded the rest of the evening', ck.fin && ck.line === tname + ' · ★ favourite', JSON.stringify(ck));
     await p.clock.setFixedTime(new Date(2026, 9, 2, 17, 0, 0));
     await p.reload();
     await p.waitForTimeout(700);
     ck = await folded();
-    t.ok('the next day it asks again', !ck.fin && ck.cards[0] === 'tonight' && ck.mark === null, JSON.stringify(ck));
+    t.ok('the next day it asks again', !ck.fin && ck.cards[0] === 'tonight' && !ck.shared, JSON.stringify(ck));
     await p.context().close();
 
     /* ---- the morning, with a plan to eat to and a block to train ---- */

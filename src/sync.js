@@ -139,6 +139,14 @@ window.Store = (function () {
     });
     return out;
   }
+  /* A week's cooked nights: which dinners have been made, said once by
+     whoever cooked and seen on every phone in the household. A day of the
+     week, ticked; nothing else. */
+  function cleanCooked(v) {
+    var o = obj(v), out = {};
+    Object.keys(o).forEach(function (d) { if (DAY_KEYS.indexOf(d) >= 0 && o[d] === true) out[d] = true; });
+    return out;
+  }
   // a week's check-offs: the keys encodeKey makes, each one ticked
   function cleanChecked(v) {
     var o = obj(v), out = {};
@@ -537,6 +545,8 @@ window.Store = (function () {
         ord: typeof w.ord === 'number' ? w.ord : 0,
         plan: cleanPlan(w.plan), checked: cleanChecked(w.checked)
       };
+      var ck = cleanCooked(w.cooked);
+      if (Object.keys(ck).length) weeks[k].cooked = ck;
       if (w.tpl === 1) weeks[k].tpl = 1;
     });
     if (!Object.keys(weeks).length) {
@@ -1826,11 +1836,11 @@ window.Store = (function () {
     clearPlan: function () {
       // the shopping list goes with the week — leaving the check-offs behind
       // meant next week's list arrived with things already ticked off
-      var plan = wpath('plan'), checked = wpath('checked');
+      var plan = wpath('plan'), checked = wpath('checked'), cooked = wpath('cooked');
       push(function () {
-        var u = {}; u[plan] = {}; u[checked] = {}; return doc.update(u);
+        var u = {}; u[plan] = {}; u[checked] = {}; u[cooked] = FV.delete(); return doc.update(u);
       }, function () {
-        editActive(function (w) { w.plan = {}; w.checked = {}; });
+        editActive(function (w) { w.plan = {}; w.checked = {}; delete w.cooked; });
       });
     },
 
@@ -1859,6 +1869,28 @@ window.Store = (function () {
     },
 
     isChecked: function (key) { return !!state.checked[encodeKey(key)]; },
+
+    /* Tonight's dinner, cooked: one day of the week on screen, for the
+       household. Written by its own field, as a tick on the list is, so two
+       phones marking two nights never undo each other. */
+    cooked: function (day) {
+      var w = state.weeks[state.active];
+      return !!(w && w.cooked && w.cooked[day]);
+    },
+    setCooked: function (day, on) {
+      if (DAY_KEYS.indexOf(day) < 0) return;
+      if (!!this.cooked(day) === !!on) return;
+      var path = wpath('cooked.' + day);
+      push(function () {
+        var u = {}; u[path] = on ? true : FV.delete(); return doc.update(u);
+      }, function () {
+        editActive(function (w) {
+          w.cooked = Object.assign({}, w.cooked);
+          if (on) w.cooked[day] = true; else delete w.cooked[day];
+          if (!Object.keys(w.cooked).length) delete w.cooked;
+        });
+      });
+    },
 
     toggleChecked: function (key) {
       var k = encodeKey(key);

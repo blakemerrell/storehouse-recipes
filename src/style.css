@@ -7422,3 +7422,55 @@ button.pw-see:disabled { cursor: default; border-style: dashed; }
 .pw-want:disabled { cursor: default; }
 .pw-tickl { margin: 6px 0 0; }
 .pw-or { display: flex; justify-content: center; margin: 2px 0 6px; }
+
+/* ---- Today does, Nourish tunes ---------------------------------------------
+   The weigh-in line at the top of Today and its sheet (Nourish's own
+   morning card, moved in while open, and the week under it); a meal's
+   sheet; your plate on Tonight; Cooked it and how it was. Nourish no longer
+   shows the morning card in its own tab: it lives on Today. */
+#view-macros #macroWeigh { display: none; }
+.td-weigh { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; min-height: 60px; padding: 10px 14px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.td-weigh.done { background: var(--closes-bg); }
+.td-wbadge { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--hint); color: var(--ochre-text); display: grid; place-items: center; }
+.td-weigh.done .td-wbadge { background: none; }
+.td-weigh.done .td-fic { width: 34px; height: 34px; padding: 7px; }
+.td-wt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.td-wt b { font-size: 1rem; font-weight: 600; }
+.td-wt small { font-size: 0.84375rem; color: var(--muted); }
+.td-weigh > i { font-style: normal; font-size: 1.25rem; color: var(--muted); }
+.td-plate { margin: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; background: var(--hint); border-radius: 10px; padding: 9px 12px; }
+.td-plate b { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: var(--ochre-text); }
+.td-plate span { font-size: 0.9375rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.td-donebtn { border: 0; background: none; padding: 0; text-align: left; font: inherit; cursor: pointer; }
+.td-sheet .dsh-rl { margin-top: 6px; }
+.td-rates { display: flex; gap: 8px; margin: 6px 0 8px; }
+.td-rate { flex: 1 1 0; min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: var(--card); border: 1.5px solid var(--line-firm); border-radius: 12px; font: inherit; font-size: 0.875rem; font-weight: 600; color: var(--ink); cursor: pointer; }
+.td-rate span { font-size: 1.375rem; line-height: 1; }
+.td-rate[aria-pressed="true"] { border: 2px solid var(--ink); }
+.td-shared { margin: 8px 0 0; background: var(--hint); border-radius: 10px; padding: 9px 12px; font-size: 0.875rem; }
+.td-done-btn { width: 100%; margin-top: 12px; min-height: 48px; }
+.td-steprow { cursor: default; justify-content: space-between; }
+.td-step { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.td-step button { width: 44px; height: 44px; border-radius: 10px; border: 1.5px solid var(--line-firm); background: var(--card); font: inherit; font-size: 1.25rem; color: var(--ink); cursor: pointer; }
+.td-step b { min-width: 34px; text-align: center; font-size: 1.0625rem; }
+.dsh-row.dsh-main b { font-weight: 700; }
+/* the weigh-in sheet */
+.wg-sheet { padding-bottom: 22px; }
+.wg-sheet #macroWeigh { margin: 4px 0 10px; }
+#weighWeek { display: flex; flex-direction: column; }
+.wg-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 2px; border: 0; border-top: 1px solid var(--line-soft);
+  background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; flex-wrap: wrap; }
+.wg-row > span { flex: 1 1 auto; }
+.wg-row > b { font-variant-numeric: tabular-nums; }
+.wg-row > b i { font-weight: 400; color: var(--muted); }
+.wg-row > i { font-style: normal; color: var(--muted); font-size: 1.125rem; }
+.wg-fixing { cursor: default; padding: 6px 2px; }
+.wg-in { display: inline-flex; align-items: baseline; gap: 4px; }
+.wg-in input { width: 5.5em; min-height: 40px; padding: 0 8px; border: 2px solid var(--ochre); border-radius: 8px; font: inherit; font-size: 1rem; background: var(--card); color: var(--ink); }
+.wg-fixing .btn-primary { min-height: 40px; padding: 0 14px; }
+.wg-note { flex-basis: 100%; font-size: 0.8125rem; color: var(--dial-over); }
+.wg-note:empty { display: none; }
+.dsh-row > .td-step { flex-direction: row; flex: none; }

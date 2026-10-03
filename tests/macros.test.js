@@ -195,7 +195,23 @@ async function revealPlanFields(pg) {
 
 module.exports = {
   name: 'Macros',
+  /* The morning card (the weigh-in, the training tick, the plan line, the
+     coaching lines) lives on Today now: Nourish's page keeps it but does not
+     show it, and Today's Weigh in moves it into a sheet. Its behaviour did not
+     change, only where a person meets it, and that is held by
+     tests/todaydo.test.js. So this suite, which is about the card's own rules,
+     shows it in Nourish's page for its pages, and every check below reads it
+     where it always has. */
   async run(t) {
+    const SHOW = '#view-macros #macroWeigh { display: block !important; }';
+    const show = () => { const add = () => { const st = document.createElement('style'); st.textContent = '#view-macros #macroWeigh { display: block !important; }'; document.head.appendChild(st); };
+      if (document.head) add(); else document.addEventListener('DOMContentLoaded', add); };
+    const fresh0 = t.fresh, ctx0 = t.browser.newContext;
+    t.fresh = async (o) => { const pg = await fresh0.call(t, o); await pg.context().addInitScript(show); await pg.addStyleTag({ content: SHOW }); return pg; };
+    t.browser.newContext = async (o) => { const c = await ctx0.call(t.browser, o); await c.addInitScript(show); return c; };
+    try { await this.suite(t); } finally { t.fresh = fresh0; t.browser.newContext = ctx0; }
+  },
+  async suite(t) {
     /* Every page in this suite starts with a plan on it. A page without one no
        longer invents targets — the bars say "Craft your plan." and Fill is
        disabled — so a test that wants a working day has to set one, the way a

@@ -446,11 +446,9 @@ module.exports = {
     await A2.p.keyboard.press('Escape');
     await A2.p.click('.tab[data-view="macros"]');
     await A2.p.waitForTimeout(250);
-    if (!await A2.p.$('#macroTargBtn')) {
-      const h = await A2.p.$('.mday-weigh [data-mfold]');
-      if (h) { await h.click(); await A2.p.waitForTimeout(250); }
-    }
-    await A2.p.click('#macroTargBtn');
+    // her plan, from Nourish's own way in: the gear, My plan
+    await A2.p.click('#macroMore');
+    await A2.p.click('[data-mmore="plan"]');
     await A2.p.waitForTimeout(250);
     // the meals and Save, out from behind the wizard's folds, as macros.test's revealPlanFields does
     await A2.p.evaluate(() => {
