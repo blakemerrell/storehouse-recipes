@@ -339,11 +339,16 @@ module.exports = {
         held === '568', 'the old cache holds the page of build ' + held);
       srv.fail = null;
       await q.reload();
-      await q.waitForTimeout(3500);
+      /* The install fetches the whole build, five megabytes of it, before the
+         new worker can take over and reload the page: a fixed three and a half
+         seconds was usually enough and, on a loaded machine, once not. So it
+         is waited for, up to twenty seconds, rather than guessed. */
+      const over = (x) => x.keys.join(' ') === [wB.ART, wB.CACHE].sort().join(' ') && whole(x, wB) && pictures(x, wB) && x.tag === 'B';
+      await q.waitForTimeout(1000);
       s = await seeQ();
+      for (let i = 0; i < 38 && !over(s); i++) { await q.waitForTimeout(500); s = await seeQ(); }
       t.ok('the new worker takes over, deletes build 568’s cache, and the page reloads onto the new build',
-        s.keys.join(' ') === [wB.ART, wB.CACHE].sort().join(' ') && whole(s, wB) && pictures(s, wB) && s.tag === 'B',
-        JSON.stringify(s.keys) + ' running ' + s.tag);
+        over(s), JSON.stringify(s.keys) + ' running ' + s.tag);
 
       srv.down = true;
       await ctx2.setOffline(true);
