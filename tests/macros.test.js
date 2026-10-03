@@ -397,12 +397,18 @@ module.exports = {
        third figure at a width a phone actually is. The pills a line above
        print the same number. Losing it from the markup would take it from a
        screen reader too, which is the reading that has nowhere else to go. */
-    t.ok('and each of the four still says what is left of it, signed',
+    /* Signed in data-d, and SAID without the minus: "-495 to go" is what a
+       screen reader read out, which is a number to go and a sign saying the
+       opposite. Over keeps its plus. */
+    t.ok('and each of the four still says what is left of it, signed in data-d and spoken as it reads',
       await p.evaluate(() => {
         const c = [...document.querySelectorAll('[data-macro] .mb-d')];
         return c.length === 4 &&
-          c.every((x) => /^[+-]?\d+$/.test(x.querySelector('b').textContent)) &&
-          c.every((x) => /\b(to go|over)$/.test(x.textContent.trim()));
+          c.every((x) => /^-?\d+$/.test(x.dataset.d)) &&
+          c.every((x) => {
+            const d = Number(x.dataset.d), said = x.textContent.trim();
+            return d > 0 ? said === '+' + d + ' over' : said === Math.abs(d) + ' to go';
+          });
       }), await p.textContent('#macroFoot'));
     /* A floor and a ceiling, and neither is a budget — which is why on a day
        that is fine they are NOTHING. They were two bars under the macros,
@@ -1470,7 +1476,8 @@ module.exports = {
     t.ok('a busted macro says over, in the over state',
       await p.evaluate(() => {
         const over = document.querySelector('.mbrow.over');
-        const past = !!over && /^\+\d+$/.test(over.querySelector('.mb-d.pos b').textContent);
+        const past = !!over && Number(over.querySelector('.mb-d.pos').dataset.d) > 0 &&
+          /^\+\d+$/.test(over.querySelector('.mb-d.pos b').textContent);
         return !!over && past;
       }), await foot());
     /* Colour is the verdict, not the eating. A day 10 g past its protein
@@ -2034,6 +2041,17 @@ module.exports = {
       const el = document.querySelector('.mline.act');
       return el ? el.textContent.slice(0, 40) : null;
     });
+    /* The plan this sheet saved sits twenty calories over what the scale now
+       says to eat, and twenty is not a decision (MLINE_NEAR): the card says
+       stay with it. A hundred over is one, so the target is moved a hundred
+       off for the card to have something to ask. */
+    await q.evaluate(() => {
+      const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+      t2.c += 25;
+      localStorage.setItem('bsc.macroTargets', JSON.stringify(t2));
+    });
+    await q.reload();
+    await q.waitForTimeout(500);
     t.ok('the pace card is showing, with a way to send it away',
       !!(await paceCard()) && !!(await q.$('.mline.act [data-mline^="mline:none"]')),
       String(await paceCard()));
@@ -2100,8 +2118,39 @@ module.exports = {
     });
     t.ok('pressing Eat writes the number into the plan', Math.abs(took.kcal - askedFor) <= 5,
       took.kcal + ' vs ' + askedFor);
+    /* The target the card names is the target, to the calorie the grams
+       came to — Eat writes grams, so it lands within a few of what it asked —
+       rather than the number it would have asked for. */
     t.ok('and the card says it is being eaten, instead of asking again',
-      !took.stillAsking && new RegExp('Your target: ' + askedFor.toLocaleString()).test(took.text), took.text.slice(0, 120));
+      !took.stillAsking && Math.abs(took.kcal - askedFor) <= 5 &&
+        new RegExp('Your target: ' + took.kcal.toLocaleString()).test(took.text), took.text.slice(0, 120));
+
+    /* Seventeen calories is not a decision. The tolerance was five, so a
+       target a few calories off what the estimate wanted — which drifts a
+       little every morning on its own — asked "Use 1,404 / Keep 1,421". Within
+       fifty it stays quiet and names the target; a hundred off still asks. */
+    const afterEat = await q.evaluate(() => localStorage.getItem('bsc.macroTargets'));
+    const nudged = async (dc) => {
+      await q.evaluate(([a, d]) => {
+        const t2 = JSON.parse(a); t2.c += d;
+        localStorage.setItem('bsc.macroTargets', JSON.stringify(t2));
+      }, [afterEat, dc]);
+      await q.reload();
+      await q.waitForTimeout(500);
+      return q.evaluate(() => {
+        const t2 = JSON.parse(localStorage.getItem('bsc.macroTargets'));
+        const line = document.querySelector('.mline');
+        return { kcal: 4 * t2.p + 4 * t2.c + 9 * t2.f, need: window.__macroLab.pace().need,
+          asking: !!document.querySelector('[data-mline^="mline:eat"]'),
+          text: line ? line.textContent.replace(/\s+/g, ' ').trim() : '' };
+      });
+    };
+    const near = await nudged(5);
+    t.ok('twenty calories over what it would ask is not asked about, and the target is named as it is',
+      Math.abs(near.kcal - near.need) > 5 && Math.abs(near.kcal - near.need) <= 50 && !near.asking &&
+        new RegExp('Your target: ' + near.kcal.toLocaleString()).test(near.text), JSON.stringify(near));
+    const far = await nudged(25);
+    t.ok('a hundred over still is', far.kcal - far.need > 50 && far.asking, JSON.stringify(far));
     /* and put the plan back the way it was, for everything downstream */
     await q.evaluate((tb) => localStorage.setItem('bsc.macroTargets', tb), targetsBefore);
     await q.reload();
@@ -2629,11 +2678,10 @@ module.exports = {
       [...document.querySelectorAll('[data-macro]')].map((r) => {
         const num = (r.querySelector('.mb-num') || {}).textContent || '';
         const m = /(-?[\d,]+)\s*\/\s*([\d,]+)/.exec(num.replace(/\s+/g, ' '));
-        /* The minus is already in the string — parsing it AND multiplying by
-           -1 turned every negative delta positive, which is how this first
-           reported 612 against an expected -612. */
-        const shown = Number(String((r.querySelector('.mb-d') || {}).textContent || '')
-          .replace(/[^\-\d]/g, '')) || 0;
+        /* The signed figure is data-d: the words are "612 to go" now, with
+           no minus to parse — parsing it and multiplying by -1 was how this
+           first reported 612 against an expected -612. */
+        const shown = Number((r.querySelector('.mb-d') || { dataset: {} }).dataset.d) || 0;
         return m ? { k: r.dataset.macro, got: Number(m[1].replace(/,/g, '')),
           target: Number(m[2].replace(/,/g, '')), shown: shown } : null;
       }).filter(Boolean));
@@ -9992,7 +10040,7 @@ module.exports = {
     await z.waitForTimeout(150);
     // how far the day is off its protein, signed, straight from its row
     const protGap = () => z.evaluate(() =>
-      Number(document.querySelector('.mbrow[data-macro="p"] .mb-d b').textContent));
+      Number(document.querySelector('.mbrow[data-macro="p"] .mb-d').dataset.d));
     const leftBefore = await protGap();
     await z.click('#macroRebal');
     await z.waitForTimeout(250);
@@ -11523,6 +11571,82 @@ module.exports = {
       (await readX()) > 0, JSON.stringify({ x: await readX() }));
     await qty.context().close();
 
+    /* ---- a label's serving, said the same on the plate and in the list -----
+     *
+     * A food whose label says its own amount — "0.5 cup (113 g)" — reads "2
+     * cups · 452 g" on the plate at four, and the picker's row said "×4 0.5
+     * cup (113 g)": two numbers side by side, neither the amount. And a
+     * label noun never counted up: "1 bar (40 g)" at two was "2 bar". */
+    const lbl = await t.fresh();
+    await lbl.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      localStorage.setItem('bsc.myFoods', JSON.stringify({
+        tam: { name: 'Tamale', unit: '0.5 cup (113 g)', kcal: 250, p: 10, f: 12, c: 25 },
+        pbar: { name: 'Protein bar', unit: '1 bar (40 g)', kcal: 200, p: 20, f: 5, c: 20 } }));
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 55, c: 220 }));
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: {
+        b: [], l: [{ id: 'f:my:tam', x: 4, eaten: 0 }, { id: 'f:my:pbar', x: 2, eaten: 0 }], d: [], s: [] } }));
+    });
+    await lbl.reload();
+    await lbl.waitForTimeout(400);
+    await lbl.click('.tab[data-view="macros"]');
+    await lbl.waitForTimeout(300);
+    await lbl.evaluate(() => document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]')
+      .forEach((b) => b.click()));
+    await lbl.waitForTimeout(300);
+    const lblPlate = await lbl.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem')]
+      .map((it) => it.textContent.replace(/\s+/g, ' ')));
+    t.ok('a label noun counts up on the plate: two bars, not "2 bar"',
+      lblPlate.some((x) => /Protein bar/.test(x) && /2 bars/.test(x)) &&
+        !lblPlate.some((x) => /2 bar(?!s)/.test(x)), JSON.stringify(lblPlate));
+    await lbl.click('[data-mslot="l"]');
+    await lbl.waitForTimeout(400);
+    await pickerList(lbl);
+    const lblRows = await lbl.evaluate(() => {
+      const fit = (id) => ((document.querySelector('.mpick-row[data-mpick="' + id + '"] .mp-fit') || {}).textContent || '')
+        .replace(/\s+/g, ' ').trim();
+      return { tam: fit('f:my:tam'), bar: fit('f:my:pbar') };
+    });
+    t.ok('and the picker row says the amount the plate says: "2 cups · 452 g", "2 bars · 80 g"',
+      /^2 cups · 452 g · /.test(lblRows.tam) && /^2 bars · 80 g · /.test(lblRows.bar) &&
+        !/0\.5 cup|×/.test(lblRows.tam), JSON.stringify(lblRows));
+    await lbl.context().close();
+
+    /* ---- Add food at six in the evening is dinner ------------------------
+     *
+     * With no meal named, Add went to the first meal not finished and never
+     * looked at the clock: at 6 pm on an empty day it opened "Add to
+     * Breakfast". It starts at the meal whose time it is now. */
+    const eve = await t.fresh();
+    const addGuess = async (h, day) => {
+      await eve.clock.setFixedTime(new Date(2026, 9, 1, h, 0, 0));
+      await eve.reload();
+      await eve.evaluate((d) => {
+        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 200 }));
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ '2026-10-01': d }));
+      }, day);
+      await eve.reload();
+      await eve.waitForTimeout(400);
+      await eve.click('.tab[data-view="macros"]');
+      await eve.waitForTimeout(300);
+      await eve.click('#macroAdd');
+      await eve.waitForTimeout(350);
+      return eve.evaluate(() => ((document.querySelector('[data-mpslot][aria-pressed="true"]') || {}).dataset || {}).mpslot);
+    };
+    const ateOne = (id) => [{ id, x: 1, eaten: 1 }];
+    const aFood = 'f:banana';
+    const at6 = await addGuess(18, {});
+    const at6ate = await addGuess(18, { d: ateOne(aFood) });
+    const at9 = await addGuess(9, {});
+    const at6all = await addGuess(18, { b: ateOne(aFood), d: ateOne(aFood), s: ateOne(aFood) });
+    t.ok('Add at 6 pm on an empty day is dinner; with dinner eaten, the snacks; at 9 am, breakfast',
+      at6 === 'd' && at6ate === 's' && at9 === 'b', JSON.stringify({ at6, at6ate, at9 }));
+    t.ok('and with everything from dinner on finished it comes round to the first meal not finished',
+      at6all === 'l', JSON.stringify({ at6all }));
+    await eve.context().close();
+
     /* ---- what it weighs --------------------------------------------------
      * Blake: "sometimes it's just easier for me to measure the food on a scale
      * than using cups." A cup of oats is a range; 40 g of oats is 40 g. The
@@ -12002,7 +12126,7 @@ module.exports = {
     t.ok('the pills carry the same six numbers as the rows and the bars under them',
       await ph.evaluate(() => {
         const pills = [...document.querySelectorAll('.mpill')].map((x) => x.textContent.replace(/[\s,]/g, ''));
-        const rows = [...document.querySelectorAll('[data-macro] .mb-d b')].map((x) => x.textContent);
+        const rows = [...document.querySelectorAll('[data-macro] .mb-d')].map((x) => x.dataset.d);
         /* The limit pills carry the figure only — the fill says the
            proportion, so a denominator would say it twice, and dropping it is
            what buys every pill the same width. The open bars keep both.
@@ -12914,16 +13038,15 @@ module.exports = {
       auSnack.length > 0 && auSnack.every((r) => r.sec !== '2-6' && r.sec !== '2-7'),
       JSON.stringify(auSnack.map((r) => r.sec)));
     /* Read the gram figure off the row's own fit line: a food's portion is
-       stated there as "×1 lb" or "×2 each", and the plate it makes is what
-       the fit line prices. Four hundred grams is the ceiling in the code. */
+       stated there in the plate's words — "340 g · ¾ lb", "2 whole · 100 g"
+       — and the plate it makes is what the fit line prices. Four hundred
+       grams is the ceiling in the code. */
     const auWake = await fitsOf('w');
     const heavy = await auPg.evaluate((rows) => rows.filter((r) => r.food).map((r) => r.grams), auWake);
     t.ok('and no single food is offered as a dish beyond a plateful',
-      !/\d\s*lb\b/.test(heavy.join(' | ')) || heavy.every((g) => {
-        const m = /×\s*([\d\s¼½¾⅓⅔]+)\s*lb/.exec(g || '');
-        if (!m) return true;
-        const n = m[1].replace(/\s/g, '').replace('½', '.5').replace('¼', '.25').replace('¾', '.75');
-        return Number(n) * 453.6 <= 400;
+      heavy.every((g) => {
+        const m = /(?:^|· )(\d+) g\b/.exec(g || '');
+        return !m || Number(m[1]) <= 400;
       }), JSON.stringify(heavy));
     await auPg.context().close();
     }

@@ -1685,13 +1685,32 @@
     });
     return best;
   }
-  /* A dinner's share of a day on the Nourish plan, per serving: a third of
-     the calories at most, and at least a third of the protein. Nothing set
-     in Nourish, and a plain 600 calories and 35 g. */
+  /* A dinner's share of a day on the Nourish plan, per serving: dinner's
+     share of the calories at most, and at least its share of the protein.
+     Nothing set in Nourish, and a plain 600 calories and 35 g.
+   *
+     It was a flat third of the day, which is no meal Nourish has: Plan's
+     sheet said "Your plate: 1.6 servings · 771 cal" of a dinner that Fill,
+     sharing the day by the meals' own weights, put on the plate at 1½ and
+     723. So the share is dinner's weight among the meals (mSlotW), the one
+     Fill shares by — of the plan's base targets, not the day's training or
+     rest-day ones, because these are the numbers a household shares and
+     they should not move every morning. */
   function pwFitCaps() {
     var t = mReadTargets(), kc = t.p * 4 + t.c * 4 + t.f * 9;
     if (!kc) return { kc: 600, p: 35 };
-    return { kc: Math.round(kc / 3 / 25) * 25, p: Math.round(t.p / 3 / 5) * 5 };
+    var sh = pwDinnerShare();
+    return { kc: Math.round(kc * sh / 25) * 25, p: Math.round(t.p * sh / 5) * 5 };
+  }
+  // dinner's fraction of the day: the slot keyed d, else the first of dinner's kind
+  function pwDinnerShare() {
+    var list = mReadSlots().list, din = null, sum = 0;
+    list.forEach(function (s) {
+      sum += mSlotW(s);
+      if (!din && s.k === 'd') din = s;
+    });
+    if (!din) list.forEach(function (s) { if (!din && s.t === 'd') din = s; });
+    return din && sum > 0 ? mSlotW(din) / sum : 1 / 3;
   }
   /* Whose plans a dinner can be held to. Blake: "Fits my Nourish plan is
      applicable to me right now, but what if my wife has a different plan?"
@@ -1744,14 +1763,18 @@
     return mode === 2 ? 4 * (m.p || 0) / m.kcal >= PW_HIGH_P : (m.p || 0) / m.kcal >= cap.p / cap.kc;
   }
   /* The plate that meets it: enough for the protein, or the dinner's
-     calories, whichever comes first, to a tenth of a serving. */
+     calories, whichever comes first, to a quarter of a serving — the step
+     Nourish's own plate takes. It was a tenth, and "1.6 servings" is an
+     amount the dial on the day cannot show; the plate said one thing here
+     and another the moment it reached the day. */
   function pwPlate(r, cap) {
     var m = r.macro;
     if (!m || !(m.kcal > 0) || !(m.p > 0)) return null;
-    var x0 = Math.min(cap.p / m.p, cap.kc / m.kcal), x = Math.ceil(x0 * 10 - 1e-9) / 10;
-    if (x * m.kcal > cap.kc * 1.02) x = Math.floor(x0 * 10 + 1e-9) / 10;
-    x = Math.round(Math.max(0.5, x) * 10) / 10;
-    return { x: x, kc: Math.round(x * m.kcal), p: Math.round(x * m.p) };
+    var x0 = Math.min(cap.p / m.p, cap.kc / m.kcal), x = Math.ceil(x0 * 4 - 1e-9) / 4;
+    if (x * m.kcal > cap.kc * 1.02) x = Math.floor(x0 * 4 + 1e-9) / 4;
+    x = Math.round(Math.max(0.5, x) * 4) / 4;
+    // and said in the plate's own words, "1 ¾ servings", as the day says it
+    return { x: x, kc: Math.round(x * m.kcal), p: Math.round(x * m.p), say: mPortion(r, x).head };
   }
   /* What was eaten or planned in the last few weeks: the dated Nourish days,
      and what this sheet has put on nights before. */
@@ -2040,8 +2063,8 @@
       : plans.filter(function (pl) { return pl.k === (mode === 2 ? 1 : mode); });
     return show.map(function (pl) {
       var x = pwPlate(r, pl);
-      return x ? '<div class="pw-mm pw-plate">' + (pl.k === 1 ? 'Your' : esc(pl.n) + '’s') + ' plate: ' + x.x +
-        (x.x === 1 ? ' serving' : ' servings') + ' · ' + x.kc + ' cal · ' + x.p + ' g protein</div>' : '';
+      return x ? '<div class="pw-mm pw-plate">' + (pl.k === 1 ? 'Your' : esc(pl.n) + '’s') + ' plate: ' + esc(x.say) +
+        ' · ' + x.kc + ' cal · ' + x.p + ' g protein</div>' : '';
     }).join('');
   }
   /* One page: the answers, and one button. The dinners it picks land on
@@ -5977,6 +6000,15 @@
      pace, eat less" — which is the advice the salt line existed to stop. A
      quiet face and an explanation one tap away, which is silence beating a
      stat and a stat beating a verdict, in that order. */
+  /* How far the number the line would ask for may sit from the target before
+     it is worth asking. It was five, so the morning asked "Dropping to 1,404
+     brings it back to Dec 1 — Use 1,404 / Keep 1,421" over seventeen
+     calories, and asked again the next morning over twenty: the estimate
+     under it moves a few calories a day on its own. Fifty is about a
+     twentieth of a pound a week — inside what a scale can see — and the
+     sheet's status line (mtStatusHTML) holds to the same number. */
+  var MLINE_NEAR = 50;
+
   function mMorningHTML(k, where) {
     var body = where === 'body';
     if (mAhead(k)) return '';                     // a morning that has not happened
@@ -6151,8 +6183,11 @@
       return mLineHTML('calm', '✓', '<b>You’re at your goal: ' + pr.goalLb + ' lb.</b>',
         'Set a new goal when you’re ready.', null, 'coach');
     }
-    var eating = need !== null && cur > 0 && Math.abs(cur - need) <= 5;
-    var head = target(eating ? need : cur);
+    var eating = need !== null && cur > 0 && Math.abs(cur - need) <= MLINE_NEAR;
+    /* Your target is your target: inside MLINE_NEAR the number this would
+       ask for can be fifty off it, and naming that one as "Your target"
+       would be naming a number nothing on the screen is eating to. */
+    var head = target(cur);
     /* Taking the number already: say where it lands and leave it there. */
     if (eating) {
       /* The number it lands on drifts a few calories a day as the weeks
@@ -6170,9 +6205,9 @@
        the number that brings it back (less food on a cut, more on a gain),
        and one running early is offered the room. */
     var speeds = need !== null && cur > 0 &&
-      (pf.plan.per < 0 ? need < cur - 5 : need > cur + 5);
+      (pf.plan.per < 0 ? need < cur - MLINE_NEAR : need > cur + MLINE_NEAR);
     var slows = need !== null && cur > 0 &&
-      (pf.plan.per < 0 ? need > cur + 5 : need < cur - 5);
+      (pf.plan.per < 0 ? need > cur + MLINE_NEAR : need < cur - MLINE_NEAR);
     if (late && speeds) {
       if (mHushed(k, 'act:' + need)) return '';
       var why = meas && mBurn(pr) && Math.abs(meas.tdee - mBurn(pr).tdee) > 100
@@ -7082,6 +7117,16 @@
     return Math.round(v * 10000) / 10000;
   }
 
+  /* A label's noun, counted. fixUnit knows the kitchen's words ("2 cups")
+     and not the yield nouns a packet uses, so "1 bar (40 g)" at two read
+     "2 bar"; mFixNoun knows those. Only the first word is counted —
+     "slice bread" is two slices of bread. */
+  function mLabelNoun(noun, n) {
+    var out = fixUnit(noun, n);
+    if (out !== noun) return out;
+    var m = /^([a-z]+)(.*)$/.exec(noun);
+    return m ? mFixNoun(m[1], n) + m[2] : noun;
+  }
   /* A serving off a label that says its own amount: "0.5 cup (113 g)".
      Four of those were shown as "4 0.5 cup (113 g)" — two numbers side by
      side, neither of them the amount. Multiplied out, it is "2 cups". */
@@ -7099,7 +7144,7 @@
     if (ls) {
       var tot = Math.round(x * ls.q * 8) / 8;
       var gl = ls.g ? Math.round(ls.g * x) : (r.grams ? Math.round(r.grams * x) : 0);
-      return { head: fmtNum(tot) + ' ' + fixUnit(ls.noun, tot), detail: gl ? gl + ' g' : '' };
+      return { head: fmtNum(tot) + ' ' + mLabelNoun(ls.noun, tot), detail: gl ? gl + ' g' : '' };
     }
     var grams = r.grams ? Math.round(r.grams * x) : 0;
     if (unit === 'g') return { head: (grams || Math.round(100 * x)) + ' g', detail: '' };
@@ -7109,7 +7154,7 @@
        the live site said "1 cups" of it. */
     if (mByGram(r)) {
       var lg = mLabelServing(r);
-      if (lg) { var tl = Math.round(x * lg.q * 8) / 8; return { head: grams + ' g', detail: fmtNum(tl) + ' ' + fixUnit(lg.noun, tl) }; }
+      if (lg) { var tl = Math.round(x * lg.q * 8) / 8; return { head: grams + ' g', detail: fmtNum(tl) + ' ' + mLabelNoun(lg.noun, tl) }; }
       var shown = Math.round(x * 8) / 8;
       return { head: grams + ' g', detail: fmtNum(shown) + ' ' + fixUnit(unit, shown) };
     }
@@ -9845,8 +9890,11 @@
          line higher. So it stays in the markup, spoken rather than printed —
          which is also what keeps a reader who cannot see the fill told how
          far off the day is. */
-      var delta = '<span class="mb-d ' + sign(left[m]) + ' vis-hidden"><b>' +
-        signed(left[m]) + '</b>' + (left[m] > 0 ? ' over' : ' to go') + '</span>';
+      /* Said the way it reads: "495 to go", "+36 over". The minus stayed in
+         the "to go" branch, so a screen reader heard "-495 to go". The signed
+         figure rides along as data-d for anything that wants the arithmetic. */
+      var delta = '<span class="mb-d ' + sign(left[m]) + ' vis-hidden" data-d="' + left[m] + '"><b>' +
+        (left[m] > 0 ? signed(left[m]) : Math.abs(left[m])) + '</b>' + (left[m] > 0 ? ' over' : ' to go') + '</span>';
       var open = '<div class="' + (m === 'kcal' ? 'mhead' : 'mbrow') + ' ' + state +
         '" data-macro="' + m + '" data-state="' + state +
         '" data-eaten="' + Math.round(wAte) + '" data-planned="' +
@@ -10073,8 +10121,12 @@
     var inB2 = mIsFav(r);
     var own = x;
     if (inB) x = S.mpBasket[r.id];
+    /* A food says its amount in the plate's own words. "×4 0.5 cup (113 g)"
+       was the label's serving with a count in front of it — the two numbers
+       side by side that mLabelServing exists to stop — while the plate it
+       made read "2 cups · 452 g". */
     var fit = fitText !== undefined && fitText !== null ? fitText
-      : '&times;' + fmtNum(x) + (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' +
+      : (r.food ? esc(mPortionText(r, x)) : '&times;' + fmtNum(x)) + ' &middot; ' +
         mMacLine(r, x, true) + mSaltNote(r, x);
     return '<div class="mpick-wrap' + (inB ? ' in' : '') + '">' +
       '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + x + '"' +
@@ -10958,16 +11010,30 @@
   }
 
   /* Which meal the sheet is filling, when you opened it from the bar rather
-     than from a meal. Defaults to the first one you have not finished eating,
-     which is nearly always the one you mean and needs no clock to work out. */
+     than from a meal: the first one not finished — starting, today, at the
+     meal whose time it is. It started at the top of the day and was said to
+     need no clock, and "Add food" at six in the evening on a day with
+     nothing on it opened "Add to Breakfast". The meal whose time it is is
+     the latest to have opened (mSlotOpens); from there the walk goes on to
+     the end of the day and comes round to the first unfinished, as it was. */
   function mNextMeal() {
-    var day = mDay(mViewKey()), slots = mReadSlots(), pick = null;
-    slots.list.forEach(function (sl) {
-      if (pick) return;
+    var vk = mViewKey(), day = mDay(vk), slots = mReadSlots(), list = slots.list, pick = null;
+    var from = 0;
+    if (vk === todayKey()) {
+      var now = mNowMins(), best = -1;
+      list.forEach(function (sl, i) {
+        var at = mSlotOpens(list, i);
+        if (at <= now && at > best) { best = at; from = i; }
+      });
+    }
+    var open = function (sl) {
       var items = day[sl.k] || [];
-      if (!items.length || !items.every(function (it) { return it.eaten; })) pick = sl;
+      return !items.length || !items.every(function (it) { return it.eaten; });
+    };
+    list.slice(from).concat(list.slice(0, from)).forEach(function (sl) {
+      if (!pick && open(sl)) pick = sl;
     });
-    return pick || slots.list[slots.list.length - 1];
+    return pick || list[list.length - 1];
   }
 
   function mOpenPicker(slotKey, mode) {
@@ -13420,7 +13486,7 @@
       : mReadTargets();
     var cur = kcalOf(boxes);
     var fmt = function (n) { return Number(n).toLocaleString(); };
-    var eating = f.need !== null && cur > 0 && Math.abs(cur - f.need) <= 5;
+    var eating = f.need !== null && cur > 0 && Math.abs(cur - f.need) <= MLINE_NEAR;
     var goalD = f.goalWord;
     if (!f.arriveD && f.slow) {
       return '<b>\u25CE No arrival date yet.</b> You\u2019re ' + (f.plan.per < 0 ? 'down' : 'up') +
@@ -13432,7 +13498,8 @@
         ' these three weeks.';
     }
     if (f.lateDays > 6) {
-      var speeds = f.need !== null && cur > 0 && (f.plan.per < 0 ? f.need < cur - 5 : f.need > cur + 5);
+      var speeds = f.need !== null && cur > 0 &&
+        (f.plan.per < 0 ? f.need < cur - MLINE_NEAR : f.need > cur + MLINE_NEAR);
       return '<b>\u25B2 Arriving around ' + f.arrive + ', not ' + goalD + '.</b>' +
         (eating ? (f.capped ? ' This target is already as ' + (f.capHigh ? 'much as your body can put to use.'
           : 'low as it\u2019s safe to go.') : ' This target brings it back.')
@@ -13440,7 +13507,8 @@
             : ' ' + fmt(f.need) + ' a day brings it back to ' + goalD + '.') : '');
     }
     if (f.lateDays < -6) {
-      var slows = f.need !== null && cur > 0 && (f.plan.per < 0 ? f.need > cur + 5 : f.need < cur - 5);
+      var slows = f.need !== null && cur > 0 &&
+        (f.plan.per < 0 ? f.need > cur + MLINE_NEAR : f.need < cur - MLINE_NEAR);
       /* Early with nothing to offer is nothing to do: the sheet stays quiet,
          the way the card's last line speaks only when something needs doing. */
       return slows ? '<b>\u25BC Arriving around ' + f.arrive + ', ahead of ' + goalD + '.</b>' +
