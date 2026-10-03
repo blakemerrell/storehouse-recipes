@@ -15148,180 +15148,21 @@
   }
 
   // ----------------------------------------------------------- shopping list
-  /* The list works in grams and converts back at the end. It is the only way
-     "1 cup", "1 cup" and "2 tbsp" of the same thing can come to 2¼ cups, and it
-     is what lets one line cover a diced apple and a sliced one. Which food a
-     line is, and how much of it, were worked out at build time — see
-     tools/build-data.js — so the browser only has to add up. */
-  /* The week's shopping list — or, given entries, the list for those: Plan
-     My Week builds its list with this same function, so the two can never
-     disagree about what a week needs. */
-  function buildList(given) {
-    var entries = given || planEntries();
-    var bucket = {};
-    entries.forEach(function (e) {
-      (e.r.ingp || []).forEach(function (it) {
-        var s = SHOP[it.k];
-        if (!s || it.k === 'water') return;
-        /* "(optional)" means you are not being sent out for it. */
-        if (it.o) return;
-        // seasonings share one food key, so they go by their own name instead
-        /* The food key, and nothing about which heading it lands under.
-        
-           It used to be prefixed with the heading — base| or extra| — which
-           made a ticked item's identity depend on where it was filed. Take
-           something off your pantry shelf mid-shop and every tick against it
-           vanished, because "base|ground beef" and "extra|ground beef" are two
-           different things to a checklist and one thing to a person. Nothing
-           needed the prefix: a food key can only be under one heading at a
-           time, so there was never a collision for it to prevent. */
-        var key = s.s ? it.a : it.k;
-        if (!bucket[key]) {
-          bucket[key] = {
-            key: key, extra: true, g: 0,
-            unit: s.u, per: s.p, lad: s.d,
-            label: s.s ? it.a.charAt(0).toUpperCase() + it.a.slice(1) : s.l
-          };
-        }
-        /* One line per thing, and the same predicate every other part of the
-           app uses to answer the same question. This used to be decided
-           per-recipe, so a recipe that called chocolate chips an extra and one
-           that did not put them on the list twice; asking the shelf instead
-           fixed that and introduced a quieter fault, because asking the shelf
-           is not the whole question.
-           
-           A line the food table cannot weigh carries the key "free" — every
-           seasoning shares it — and the pantry has never heard of "free", so
-           it defaults to kept. That is right for salt and vanilla, which the
-           storehouse does carry. It is wrong for the ones the recipe itself
-           marked as an extra: five grams of creatine came out of a Crio Bru
-           drink and landed under "From the storehouse", telling a reader the
-           storehouse stocks creatine. It does not.
-           
-           itemNeedsBuying reads the recipe's own flag for those and the shelf
-           for everything else, and it is what the coloured ingredient line and
-           the "Also needs" foot already use. One question, one answer. */
-        bucket[key].extra = itemNeedsBuying(it);
-        bucket[key].src = bucket[key].extra ? 'b' : (s.s ? 'h' : foodSource(it.k) === 's' ? 's' : 'h');
-        bucket[key].g += it.g * e.x;
-      });
-    });
-    /* A staple that has run out comes back onto the list whether or not a
-       recipe this week calls for it, from wherever it is restocked. */
-    Object.keys(window.Store.lowAll()).forEach(function (k) {
-      var s = SHOP[k], d = (window.PANTRY || {})[k];
-      if (!s || !d) return;
-      var from = restockSource(k);
-      if (!bucket[k]) bucket[k] = { key: k, g: d.wm ? d.wm[1] : 0, unit: s.u, per: s.p, lad: s.d, label: s.l };
-      bucket[k].src = from; bucket[k].extra = from === 'b'; bucket[k].low = true;
-    });
-    /* To buy first, since that is the trip; then the storehouse pick-up;
-       then what is already in the kitchen, there to move if it has run out. */
-    var bySrc = function (title, want) {
-      var items = Object.keys(bucket).map(function (k) { return bucket[k]; })
-        .filter(function (b) { return b.src === want; })
-        .sort(function (a, b) { return a.label.localeCompare(b.label); });
-      items.forEach(function (b) { b.qty = b.g ? shopQty(b.g, b.unit, b.per, b.lad) : ''; if (b.low) b.qty = (b.qty ? b.qty + ' \u00b7 ' : '') + 'ran out'; });
-      return { title: title, src: want, items: items };
-    };
-    return {
-      groups: [bySrc(canBuy() ? 'To buy' : 'Needs a store', 'b'), bySrc(srcW().list, 's'), bySrc('In your kitchen', 'h')]
-        .filter(function (g) { return g.items.length; }),
-      recipeCount: entries.length
-    };
-  }
-
-  /* What the list's to-buy part costs: the one figure for "to buy", on the
-     list and on the plan, ran-out staples included. */
-  function listUsd(built) {
-    var usd = 0;
-    built.groups.forEach(function (g) {
-      if (g.src === 'b') g.items.forEach(function (b) { var pr = pwPrice(b.key); if (pr && b.g) usd += b.g * pr / 100; });
-    });
-    return usd;
-  }
-
-  function renderList() {
-    var built = buildList();
-
-    var total = built.groups.reduce(function (n, g) { return n + g.items.length; }, 0);
-    // which week this list came out of — there can be several
-    $('listWeek').textContent = window.Store.activeWeek().name;
-    var nBuy = 0, nSh = 0, usd = listUsd(built);
-    built.groups.forEach(function (g) {
-      if (g.src === 's') nSh = g.items.length;
-      if (g.src === 'b') nBuy = g.items.length;
-    });
-    $('listCount').innerHTML = total
-      ? '<b>' + total + '</b> items' + (nSh ? ' \u00b7 <b>' + nSh + '</b> from ' + srcW().the : '') +
-        (nBuy ? ' \u00b7 <b>' + nBuy + '</b> to buy' + (usd >= 0.5 ? ', ~' + pwMoney(usd) : '') : '')
-      : '';
-    $('listEmpty').classList.toggle('hide', total !== 0);
-    /* To Walmart: what is left to get — not ticked, and off the shelf only
-       when the shelf is asked to come too. It sits at the foot of To buy. */
-    var wm = total && canBuy() ? window.Walmart.html([].concat.apply([], built.groups.map(function (g) { return g.items; }))
-      .filter(function (b) { return b.src === 'b' && !window.Store.isChecked(b.key); })) : '';
-    if ($('listWm')) $('listWm').innerHTML = '';
-    /* The list, in the order the trip goes: to buy, then the source's
-       pick-up, then what the kitchen already has, folded. Blake: "The first
-       thing I see is a wall of pills... I think it should be flipped." */
-    var fold = function (id, title, sub, inner, open) {
-      return '<details class="list-fold" data-fold="' + id + '"' + (open ? ' open' : '') + '><summary><span>' + title + '</span><small>' + sub + '</small></summary>' + inner + '</details>';
-    };
-    var line = function (it, g) {
-      var on = window.Store.isChecked(it.key), food = !!(window.PANTRY || {})[it.key];
-      var store = window.Store.opt('store', true), opts = [['h', 'Have'], ['s', srcW().name], ['b', 'Buy']].filter(function (o) { return o[0] !== 's' || store; });
-      var cur = opts.filter(function (o) { return o[0] === it.src; })[0];
-      var pr = g.src === 'b' ? pwPrice(it.key) : 0, usd = pr && it.g ? it.g * pr / 100 : 0;
-      /* Where it comes from is a small tag; tapped, it opens into the
-         Have / Storehouse / Buy switch for that one line. */
-      var seg = !food ? '' : S.listOpen === it.key ?
-        '<span class="src-seg no-print" role="group" aria-label="Where ' + esc(it.label) + ' comes from">' + opts.map(function (o) {
-          return '<button class="src-' + o[0] + '" data-src="' + esc(it.key) + '" data-v="' + o[0] + '" aria-pressed="' + (it.src === o[0]) + '">' + o[1] + '</button>';
-        }).join('') + '</span>' :
-        '<button class="src-tag src-' + it.src + ' no-print" data-srctag="' + esc(it.key) + '" aria-label="' + esc(it.label) + ': ' + (cur ? cur[1] : '') + '. Change where it comes from">' + (cur ? cur[1] : '') + '</button>';
-      return '<div class="list-line' + (it.src === 'h' ? ' have' : '') + '"><label class="list-row' + (on ? ' done' : '') + '">' +
-        '<input type="checkbox" data-check="' + esc(it.key) + '"' + (on ? ' checked' : '') + '>' +
-        '<span>' + esc(it.label) + '</span>' +
-        '<span class="qty">' + esc(it.qty) + '</span>' +
-      '</label>' + (usd >= 0.5 ? '<span class="list-usd">' + pwMoney(usd) + '</span>' : '') + seg + '</div>';
-    };
-    var group = function (g) {
-      return '<div class="list-group where-' + g.src + '">' +
-        '<div class="list-group-title">' + esc(g.title) + '</div>' +
-        (g.src === 's' ? '<button class="copy-order no-print" data-copyorder="1">' + srcW().copy + '</button>' : '') +
-        '<div class="list-items">' + g.items.map(function (it) { return line(it, g); }).join('') + '</div>' +
-        (g.src === 'b' ? wm : '') + '</div>';
-    };
-    var have = built.groups.filter(function (g) { return g.src === 'h'; })[0];
-    $('listBody').innerHTML = built.groups.filter(function (g) { return g.src !== 'h'; }).map(group).join('') +
-      (have ? fold('have', 'Already in your kitchen', have.items.length + (have.items.length === 1 ? ' thing' : ' things'), group(have), S.listFold.have) : '');
-    /* Anything run out? The kitchen's staples, folded by shelf, one tap
-       each — and the whole shelf under Settings for the rest. */
-    var P = window.PANTRY || {};
-    var staples = Object.keys(P).filter(function (k) { return (foodSource(k) === 'h' && !P[k].sp) || window.Store.low(k); })
-      .sort(function (a, b) { return P[a].l.localeCompare(P[b].l); });
-    var shelves = {}, order = [];
-    staples.forEach(function (k) { var c = P[k].c || 'Other'; if (!shelves[c]) { shelves[c] = []; order.push(c); } shelves[c].push(k); });
-    var nLow = staples.filter(function (k) { return window.Store.low(k); }).length;
-    if ($('listLow')) $('listLow').innerHTML = staples.length ? fold('low', 'Anything run out?', nLow ? nLow + ' low' : staples.length + ' staples',
-      '<div class="low-card"><p class="low-p">Tap what\u2019s low. It goes on the list from where you restock it.</p>' +
-      order.map(function (c) {
-        var ks = shelves[c], low = ks.filter(function (k) { return window.Store.low(k); }).length;
-        return '<details class="list-shelf" data-fold="low:' + esc(c) + '"' + (S.listFold['low:' + c] || low ? ' open' : '') + '><summary><span>' + esc(c) + '</span><small>' + (low ? low + ' low' : ks.length) + '</small></summary>' +
-          '<div class="pw-chips">' + ks.map(function (k) {
-            return '<button class="pw-chip low-pill" data-low="' + esc(k) + '" aria-pressed="' + window.Store.low(k) + '">' + esc(P[k].l) + '</button>';
-          }).join('') + '</div></details>';
-      }).join('') +
-      '<button class="nut-ask" data-stepgo="pantry">All your staples, under Settings</button></div>', S.listFold.low) : '';
-    if ($('listNext')) $('listNext').innerHTML = '<button class="plan-next plan-back" data-stepgo="plan"><b>Back to the week</b></button>';
-  }
-  /* The folds remember themselves across redraws (a tick redraws the list). */
-  document.addEventListener('toggle', function (e) {
-    var d = e.target;
-    if (!d || !d.dataset || !d.dataset.fold) return;
-    S.listFold[d.dataset.fold] = d.open;
-  }, true);
+  /* The list itself is src/list.js. It is handed what it reads of the app's
+     and gives back its three, kept under their own names for the callers
+     here; none of them is called before the app is up. */
+  var LIST = window.HiveParts.list({
+    S: S,
+    planEntries: planEntries,
+    shopQty: shopQty,
+    canBuy: canBuy,
+    srcW: srcW,
+    pwPrice: pwPrice,
+    pwMoney: pwMoney
+  });
+  function buildList(given) { return LIST.buildList(given); }
+  function listUsd(built) { return LIST.listUsd(built); }
+  function renderList() { LIST.renderList(); }
 
   // ------------------------------------------------------------- print book
   function printPool() {
@@ -15567,128 +15408,15 @@
   }
 
   /* ---- what this household would have to go out for -----------------------
-     Every ingredient carries x:1 when the storehouse did not stock it, and
-     that answer is baked into the books. It is a fact about a shop, though,
-     and the useful question in a kitchen is whether you have the thing in. So
-     the flag becomes a default and the pantry answers over the top of it: keep
-     the storehouse list untouched and nothing changes, tick things off it and
-     the recipes follow you.
-
-     free is a line with no weight, water is not shopping, and neither belongs
-     on a list of what to buy. */
-  /* Where a food comes from this week: 'h' in the kitchen already, 's' the
-     storehouse, 'b' bought. Blake: "I should just be able to tell it what I
-     have in my pantry, whether I pick it up from the storehouse or not." The
-     kitchen answers first; then, while the household shops the storehouse,
-     the storehouse order (with any line moved by hand); then the shop. */
-  function foodSource(key) {
-    var d = (window.PANTRY || {})[key];
-    if (!d) return inPantry(key) ? 'h' : 'b';
-    var k = window.Store.kitchen(key);
-    if (k === 1) return 'h';
-    /* A dried spice is in the cupboard unless somebody said it is not, here
-       or on the storehouse list. */
-    if (k === undefined && d.sp && window.Store.pantryHas(key, true)) return 'h';
-    return restockSource(key);
-  }
-  /* Where a food comes from when the kitchen is out of it: the storehouse,
-     while the household shops it and it carries it (or a line was moved
-     there by hand), otherwise the shop. The one rule the list, the "ran out"
-     lines and the On hand dots all read. */
-  function restockSource(key) {
-    if (!window.Store.opt('store', true)) return 'b';
-    var sv = window.Store.src(key);
-    if (sv) return sv;
-    var d = (window.PANTRY || {})[key];
-    return window.Store.pantryHas(key, !!(d && d.s)) ? 's' : 'b';
-  }
-  /* What the storehouse carries, which is what the Pantry's storehouse list
-     edits: the order, as the household has changed it. */
-  function storeCarries(key) {
-    var d = (window.PANTRY || {})[key];
-    return window.Store.pantryHas(key, d ? (d.s || !!d.sp) : true);
-  }
-  function inPantry(key) {
-    var d = (window.PANTRY || {})[key];
-    if (d) return foodSource(key) !== 'b';
-    /* A key the pantry has never heard of defaults to kept, not to missing.
-       Seasonings all share the "free" food key and go by their own name, so
-       they are not in the pantry at all — defaulting those to missing put salt
-       and vanilla on the shopping list under "to pick up", which is both wrong
-       and exactly what the old flag never did. */
-    /* A dried spice defaults to kept (d.sp): not on the order, but not a
-       shopping trip either. Your own pantry still overrides it. */
-    return window.Store.pantryHas(key, d ? (d.s || !!d.sp) : true);
-  }
-
-  /* Would you have to go out for this one parsed ingredient?
-   *
-   * One answer, asked in two places: the foot of a recipe lists what to buy,
-   * and the ingredient lines themselves are marked. Those used to be two
-   * separate pieces of reasoning, and they disagreed — the foot named paprika
-   * while the line sat in the same colour as the flour above it, because the
-   * foot had been taught about flagged seasonings and the line had not. Two
-   * rules for one question will drift again, so there is one.
-   *
-   * A `free` line is a seasoning priced at nothing. Most are the salt and
-   * pepper and cinnamon the storehouse carries and are rightly silent; `x`
-   * marks the ones it does not. */
-  function itemNeedsBuying(it) {
-    if (!it || !it.k) return false;
-    if (it.o) return false;            // "(optional)" on the line      // a line the food table could not place
-    if (it.k === 'free') return !!it.x;
-    return it.k !== 'water' && !inPantry(it.k);
-  }
-
-  /* The editor's "Needs beyond the staples", which is what the books' own
-     field means too (tools/build-data.js: what you must buy to cook it at
-     all). Typed in, it was shown nowhere. nutritionFor reads the names only
-     to mark the ingredient lines they appear in — never for the calories —
-     so a name in no line went nowhere: buttermilk named and not listed,
-     nutmeg on a line the food table could not place. Those are said on the
-     sheet. A name a placed line answers for is the shelf's to say, above,
-     and so is a food the pantry knows by that name and you keep. */
-  function alsoNeeds(r) {
-    var P = window.PANTRY || {}, own = window.Store.pantryOwn() || {};
-    // whole words: buttermilk is not the milk line, Stevia/Sweetener is the sweetener one
-    var has = function (hay, w) {
-      return !!w && new RegExp('(^|[^a-z])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)').test(hay);
-    };
-    var named = function (map, l) { return Object.keys(map).filter(function (k) { return has(String(map[k].l || '').toLowerCase(), l); })[0]; };
-    return String(r.extras || '').split(',').map(function (x) { return x.trim(); }).filter(function (n) {
-      var l = n.toLowerCase();
-      if (!l) return false;
-      var placed = (r.ing || []).some(function (line, i) {
-        var it = (r.ingp || [])[i], lab = it && it.k ? String((P[it.k] || {}).l || it.a || '').toLowerCase() : '';
-        return !!(it && it.k) && (has(String(line).toLowerCase(), l) || has(lab, l) || has(l, lab));
-      });
-      var key = named(P, l) || named(own, l);
-      return !placed && !(key && inPantry(key));
-    });
-  }
-
-  function missingFor(r) {
-    var out = [], seen = {};
-    (r.ingp || []).forEach(function (it) {
-      if (!itemNeedsBuying(it)) return;
-      if (it.k === 'free') {
-        var extra = it.a || 'a seasoning';
-        if (!seen[extra]) { seen[extra] = 1; out.push(extra); }
-        return;
-      }
-      if (it.k === 'water' || inPantry(it.k)) return;
-      var d = (window.PANTRY || {})[it.k];
-      var label = d ? d.l : (it.a || String(it.k).replace(/_/g, ' '));
-      if (!seen[label]) { seen[label] = 1; out.push(label); }
-    });
-    return out;
-  }
-
-  /* Whether a written ingredient line is something you would have to go out
-     for. ingp runs parallel to ing, so line i asks about food i. */
-  function lineNeedsBuying(r, ix) {
-    return itemNeedsBuying((r.ingp || [])[ix]);
-  }
+     src/shelf.js, under the names app.js has always called them by. As
+     declarations, so they answer from anywhere in this file. */
+  function foodSource(key) { return window.Shelf.foodSource(key); }
+  function restockSource(key) { return window.Shelf.restockSource(key); }
+  function storeCarries(key) { return window.Shelf.storeCarries(key); }
+  function itemNeedsBuying(it) { return window.Shelf.itemNeedsBuying(it); }
+  function alsoNeeds(r) { return window.Shelf.alsoNeeds(r); }
+  function missingFor(r) { return window.Shelf.missingFor(r); }
+  function lineNeedsBuying(r, ix) { return window.Shelf.lineNeedsBuying(r, ix); }
 
   function recipeHTML(r) {
     return '<div class="rp">' +
