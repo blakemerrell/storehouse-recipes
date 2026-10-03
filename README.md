@@ -527,7 +527,8 @@ estimates. Worth reading once before this goes to print.
 ```
 index.html            the app
 src/style.css         all the styling
-src/app.js            browse, plan, list, print
+src/app.js            browse, plan, list, print, Nourish — being split, a part at a time, into files of its own:
+src/walmart.js        the shopping list sent to a Walmart cart
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
