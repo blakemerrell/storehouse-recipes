@@ -261,6 +261,15 @@ time the app is opened; the *Sync & sharing* sheet names the build each is runni
 > plain sight, and they are safe in a public repository. The security rules in
 > step 4 are what actually protect the data.
 
+**A different Firebase project means one more line to change.** `index.html` carries
+a content-security policy — the list of hosts the page may load from, talk to and
+frame — and it names this project's auth domain in `frame-src`
+(`https://storehouse-recipe-book.firebaseapp.com`). Put your `authDomain` there, or
+Google sign-in by popup will be refused. The same goes for any new outside service
+the app is taught to use: a host missing from the policy is blocked without a word on
+screen, which is why `tests/csp.test.js` reads every host the code fetches from and
+fails when the policy does not allow it.
+
 ## 6. Pair the two phones
 
 1. Open the app and tap **Local** in the top-right corner.
