@@ -161,6 +161,19 @@ module.exports = {
     await p.waitForTimeout(250);
     dbl = await p.evaluate(() => ({ thu: window.Store.day('thu')[0], fri: window.Store.day('fri').length }));
     t.ok('Back to one batch halves it and takes the leftovers night off', dbl.thu.x === 2 && dbl.fri === 0, JSON.stringify(dbl));
+    /* The leftovers night taken off on its own: the dinner goes back to one
+       batch. Left doubled, its sheet offered Cook double again, and ×2
+       became ×4 and never ×1. */
+    await p.click('#planGrid [data-dayopen][data-day="thu"]');
+    await p.waitForTimeout(200);
+    await p.click('[data-dsact="double"]');
+    await p.waitForTimeout(250);
+    await p.click('#planGrid [data-dayopen][data-day="fri"]');
+    await p.waitForTimeout(200);
+    await p.click('[data-dsact="remove"]');
+    await p.waitForTimeout(250);
+    dbl = await p.evaluate(() => ({ thu: window.Store.day('thu')[0], fri: window.Store.day('fri').length }));
+    t.ok('taking the leftovers night off on its own puts the dinner back to one batch', dbl.thu.x === 2 && !dbl.thu.lo && dbl.fri === 0, JSON.stringify(dbl));
 
     /* ---- anywhere but Plan, "the week" is this week ----------------------- */
     await p.click('#calNext');

@@ -27,6 +27,12 @@ function applyPath(d, p, v) {
   if (v && v.__ar) { const a = Array.isArray(o[k]) ? o[k] : []; o[k] = a.filter((x) => !v.__ar.some((e) => same(x, e))); return; }
   o[k] = clone(v);
 }
+/* The real client throws, synchronously, for a path it will not send: an
+   empty piece, or a '~', '*', '/', '[' or ']' in one. A dot it takes as a
+   step down, which is the other way a key becomes a path it did not mean. */
+function checkPath(p) {
+  if (p.split('.').some((s) => !s || /[~*/[\]]/.test(s))) throw new Error('Invalid field path (' + p + ')');
+}
 function mergeDeep(t, s) {
   Object.keys(s).forEach((k) => {
     const v = s[k];
@@ -47,10 +53,15 @@ function world(now) {
   }
   const fireAll = (code) => subs.filter((s) => s.code === code).forEach((s) => s.fire());
 
+  /* A phone signed in to an account ({ account: true }) or, as most are,
+     anonymous — an identity that lives and dies with the browser. */
   function phone(name, ls, opts) {
     ls = ls || {};
     opts = opts || {};
     const mine = [];
+    const me = () => (opts.account
+      ? { uid: name, isAnonymous: false, email: name + '@example.com', displayName: name }
+      : { uid: name, isAnonymous: true });
     const snapOf = (code) => ({
       data: () => clone(opts.cached ? opts.cached : server[code]),
       exists: !!server[code],
@@ -66,6 +77,7 @@ function world(now) {
         return Promise.resolve();
       },
       update(u) {
+        Object.keys(u).forEach(checkPath);    // refused before anything is sent, as the real client does
         Object.keys(u).forEach((p) => applyPath(server[code], p, u[p]));
         writes.push({ who: name, update: Object.keys(u) });
         setTimeout(() => fireAll(code), 0);
@@ -88,8 +100,8 @@ function world(now) {
       }), { FieldValue: FV }),
       auth: () => ({
         getRedirectResult: () => Promise.resolve(null),
-        onAuthStateChanged(cb) { setTimeout(() => cb({ uid: name, isAnonymous: true }), 0); return () => {}; },
-        currentUser: { uid: name, isAnonymous: true },
+        onAuthStateChanged(cb) { setTimeout(() => cb(me()), 0); return () => {}; },
+        currentUser: me(),
       }),
     };
     const store = { getItem: (k) => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: (k) => { delete ls[k]; } };

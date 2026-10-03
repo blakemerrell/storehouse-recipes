@@ -164,6 +164,32 @@ module.exports = {
       !sk.door && sk.mark === 'skip' && sk.help === null && await l.evaluate(() => !document.getElementById('doorRoot')), JSON.stringify(sk));
     await l.context().close();
 
+    /* ---- a reload mid-door asks again ----
+       The first boot writes a dozen bsc.* keys of its own before anything is
+       answered; the next load used to count those as a used phone and
+       never ask. */
+    const m = await t.fresh({ viewport: { width: 390, height: 844 }, door: true });
+    m.on('pageerror', (e) => errs.push(e.message));
+    await m.waitForTimeout(500);
+    await m.click('[data-dr="next"]');
+    await m.waitForTimeout(200);
+    const mid = await m.evaluate(() => ({ h: document.querySelector('#doorRoot .dr-h').textContent, mark: localStorage.getItem('sh.door'),
+      keys: Object.keys(localStorage).filter((k) => /^bsc\./.test(k)).length }));
+    await m.reload();
+    await m.waitForTimeout(600);
+    const again = await m.evaluate(() => ({ door: !!document.getElementById('doorRoot'), h: (document.querySelector('#doorRoot .dr-h') || {}).textContent, mark: localStorage.getItem('sh.door') }));
+    t.ok('a reload mid-door brings the door back at the start, nothing answered, though the boot had already written its keys',
+      mid.h === 'Your kitchen' && mid.mark === 'open' && mid.keys > 0 && again.door && again.h === 'What would you like help with?' && again.mark === 'open', JSON.stringify({ mid, again }));
+    // a modal in fact: Tab never leaves it for the app behind
+    const trail = [];
+    for (let i = 0; i < 8; i++) { await m.keyboard.press('Tab'); trail.push(await m.evaluate(() => document.getElementById('doorRoot').contains(document.activeElement))); }
+    const inert = await m.evaluate(() => ['#main', '.topbar'].every((s) => document.querySelector(s).inert));
+    t.ok('Tab stays inside the door, however many times it is pressed; the app behind is inert', trail.every(Boolean) && inert, JSON.stringify({ trail, inert }));
+    await m.click('[data-dr="skip"]');
+    await m.waitForTimeout(200);
+    t.ok('and the app behind wakes when the door closes', await m.evaluate(() => ['#main', '.topbar'].every((s) => !document.querySelector(s).inert)));
+    await m.context().close();
+
     t.ok('no page errors', errs.length === 0, errs.join(' | '));
   },
 };

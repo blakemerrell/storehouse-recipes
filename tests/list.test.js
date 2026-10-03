@@ -167,6 +167,27 @@ module.exports = {
       groups.length >= 2 && /^to buy$/i.test(groups[0]) && groups.slice(1).some((g) => /storehouse/i.test(g)),
       groups.join(' | '));
 
+    // ---- Copy the order: a name, then its amount, with something between -----
+    /* The two spans sit flush, so their text ran together on the bishop's
+       copy: "Bell peppers6", "Chicken breasts9 ½ lbs". */
+    await p.evaluate(() => {
+      window.Store.clearPlan();
+      window.Store.setOpt('store', true);
+      const r = window.RECIPES.find((x) => x.ing.some((i) => /bell pepper/i.test(i)));
+      window.Store.addToDay(r.id, 'mon');
+      navigator.clipboard.writeText = (s) => { window.__copied = s; return Promise.resolve(); };
+    });
+    await p.waitForTimeout(250);
+    await p.click('[data-copyorder]');
+    await p.waitForTimeout(200);
+    const copied = await p.evaluate(() => window.__copied || '');
+    const orderRows = await p.evaluate(() => [...document.querySelectorAll('.list-group.where-s .list-row')].map((r) => {
+      const n = r.querySelector('span:not(.qty)').textContent.trim(), q = r.querySelector('.qty').textContent.trim();
+      return q ? n + ' — ' + q : n;
+    }));
+    t.ok('Copy the order keeps each name and its amount apart ("Bell peppers — 2", never "Bell peppers2")',
+      orderRows.length > 0 && copied === orderRows.join('\n') && !/[a-z]\d/.test(copied), JSON.stringify({ copied: copied.slice(0, 160), rows: orderRows.slice(0, 3) }));
+
     await p.context().close();
   },
 };

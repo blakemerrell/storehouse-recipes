@@ -360,6 +360,55 @@ module.exports = {
     await p.waitForTimeout(300);
     t.ok('and both, with nobody else sharing any more, is my plan', await p.evaluate(() => window.__pw.answers().fit) === 1);
     await p.evaluate(() => { localStorage.removeItem('bsc.macroTargets'); localStorage.removeItem('sh.pw'); localStorage.removeItem('bsc.myOwner'); });
+
+    /* ---- no plan in Nourish, and picked for you over the budget ---- */
+    await p.evaluate(() => { window.Store.clearPlan(); localStorage.setItem('sh.pw', JSON.stringify({ days: ['mon', 'tue', 'wed', 'thu', 'fri'], ppl: 8, bud: 20, t: 0, avoid: [] })); });
+    await p.reload();
+    await p.waitForTimeout(800);
+    await p.click('.tab[data-view="plan"]');
+    await p.waitForTimeout(300);
+    await p.click('#planMyWeek');
+    await p.waitForTimeout(300);
+    const lbl = await p.evaluate(() => {
+      const q = [...document.querySelectorAll('.pw-ql')].find((x) => /^Fits my Nourish plan/.test(x.textContent));
+      return { chip: document.querySelector('[data-pwq="fit"][data-pwv="1"]').textContent.trim(), small: q ? q.querySelector('small').textContent : '' };
+    });
+    t.ok('with no plan in Nourish the chip says what it holds a dinner to, and the line says to set one',
+      /^Hits 35 g in 600 cal/.test(lbl.chip) && /no plan yet/.test(lbl.small), JSON.stringify(lbl));
+    await p.click('[data-pwsee]');
+    await p.waitForTimeout(400);
+    await p.click('[data-pwpick="all"]');
+    await p.waitForTimeout(500);
+    const toast = await p.evaluate(() => document.body.textContent);
+    const cost = await p.evaluate(() => {
+      const a = window.__pw.answers();
+      const picks = [].concat(...['mon', 'tue', 'wed', 'thu', 'fri'].map((d) => window.Store.day(d).map((e) => ({ r: window.RECIPES.find((r) => String(r.id) === String(e.id)), x: e.x, lo: e.lo }))));
+      return window.__pw.cost(picks, a.shelf);
+    });
+    t.ok('five dinners for eight on $20 cost more than that, and the toast says about how much over',
+      cost > 20.5 && /over your \$20/.test(toast) && /dinners added/.test(toast), JSON.stringify({ cost, said: /over your \$20/.test(toast) }));
+
+    /* ---- on a Saturday, the nights that are gone are not lit ---- */
+    await p.clock.setFixedTime(new Date(2026, 9, 3, 9, 0, 0));   // Saturday 3 October, the same week
+    await p.reload();
+    await p.waitForTimeout(800);
+    await p.click('.tab[data-view="plan"]');
+    await p.waitForTimeout(300);
+    await p.click('#planMyWeek');
+    await p.waitForTimeout(300);
+    const sat = await p.evaluate(() => ({
+      on: [...document.querySelectorAll('[data-pwq="days"][aria-pressed="true"]')].map((b) => b.dataset.pwv),
+      gone: [...document.querySelectorAll('[data-pwq="days"][disabled]')].map((b) => b.dataset.pwv),
+      bar: document.querySelector('.pw-cnt span').textContent, go: !document.querySelector('[data-pwsee]').disabled,
+    }));
+    t.ok('on a Saturday with Mon–Fri remembered, only the night left is lit, the gone ones are greyed, and Pick my dinners is on',
+      sat.on.join() === 'sat' && sat.gone.join() === 'sun,mon,tue,wed,thu,fri' && sat.go && /1 night/.test(sat.bar), JSON.stringify(sat));
+    // the sheet takes the focus, and Escape closes it, as the recipe sheet does
+    const focused = await p.evaluate(() => document.activeElement && document.activeElement.classList.contains('sheet-x'));
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(250);
+    const shut = await p.evaluate(() => ({ open: !!document.querySelector('.pw-body'), chips: document.querySelectorAll('[data-pwq]').length }));
+    t.ok('Plan my week opens with its × focused, and Escape closes it', focused && !shut.open && shut.chips === 0, JSON.stringify({ focused, shut }));
     t.ok('with no error on the page', errs.length === 0, errs.join(' | '));
     await p.context().close();
   },
