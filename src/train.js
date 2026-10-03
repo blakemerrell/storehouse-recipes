@@ -824,8 +824,9 @@
   var LV = { l: 'Light', m: 'Moderate', v: 'Vigorous' };
   function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
   /* prk: when each setting was last changed, setting by setting. pr stays the
-     newest of them, which is all a build from before this reads. */
-  function blankTS() { return { pr: 0, prk: {}, act: 0, ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
+     newest of them, which is all a build from before this reads. msk is the
+     same for each block, field by field (msStamp), beside its one stamp in ms. */
+  function blankTS() { return { pr: 0, prk: {}, act: 0, ms: {}, msk: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
   var PARTS = ['ms', 'wo', 'cx', 'ax', 'nt', 'rt'];
 
   function loadT() {
@@ -849,6 +850,7 @@
     // stamps kept by a build from before settings had their own: made from pr when needed (prOwn)
     out.prk = plain(s.prk) ? s.prk : null;
     out.act = fin(s.act) ? s.act : 0;
+    out.msk = plain(s.msk) ? s.msk : {};
     PARTS.forEach(function (p) { if (plain(s[p])) out[p] = s[p]; });
     return out;
   }
@@ -904,6 +906,7 @@
   var T = loadT();
   var TS = loadTS();
   var PRSEEN = prSeen();
+  var MSSEEN = msSeenAll();
   var REV = 0;                           // bumped on every change; the index below keys on it
 
   /* Settings travel setting by setting. They used to go as one piece, newest
@@ -930,6 +933,39 @@
       if (JSON.stringify(T.pr[k]) !== was[k]) TS.prk[k] = now;
     });
     PRSEEN = prSeen();
+  }
+
+  /* A block travels field by field too. It went as one piece with one stamp,
+     newest wins, so a session skipped on one phone came back the moment the
+     other phone saved a note on the block: the note's copy was the newer, and
+     it still had the session waiting. A rename went the same way, and of two
+     notes one was lost. Now each field carries the stamp of the change that
+     made it, found the way the settings' are, by what moved since the last
+     stamp, and a merge takes only the fields that are newer. */
+  function msSeen(id) {
+    var o = {}, ms = T.ms[id];
+    if (ms) Object.keys(ms).forEach(function (f) { o[f] = JSON.stringify(ms[f]); });
+    return o;
+  }
+  function msSeenAll() {
+    var o = {};
+    Object.keys(T.ms).forEach(function (id) { o[id] = msSeen(id); });
+    return o;
+  }
+  // a block stamped before this, or taken whole from an older build: every field as new as its one stamp
+  function mskOwn(id) {
+    if (plain(TS.msk[id])) return TS.msk[id];
+    var o = TS.msk[id] = {};
+    if (T.ms[id] && TS.ms[id]) Object.keys(T.ms[id]).forEach(function (f) { o[f] = TS.ms[id]; });
+    return o;
+  }
+  function msStamp(id, now) {
+    if (!T.ms[id]) { delete TS.msk[id]; delete MSSEEN[id]; return; }
+    var k = mskOwn(id), was = MSSEEN[id] || {};
+    Object.keys(T.ms[id]).concat(Object.keys(was)).forEach(function (f) {
+      if (JSON.stringify(T.ms[id][f]) !== was[f]) k[f] = now;
+    });
+    MSSEEN[id] = msSeen(id);
   }
 
   /* The stamps only after the log they describe. A stamp is what makes a
@@ -959,6 +995,8 @@
       if (part === 'pr') prStamp(now);
       dirty[part] = true;
     } else {
+      // the fields first: a block with none of its own yet takes them from the stamp it had
+      if (part === 'ms') msStamp(key, now);
       TS[part][key] = now;
       if (dirty[part] !== true) { dirty[part] = dirty[part] || {}; dirty[part][key] = 1; }
     }
@@ -1091,6 +1129,8 @@
         if (p === 'wo' && YR.on === true && (whole || dirty.wo === true) && !(dirty.wo && dirty.wo !== true && dirty.wo[k]) &&
           !YR.purge[k] && woYear(k) && (TS.wo[k] || 0) <= (YR.seen[k] || 0)) return;
         map[k] = { v: T[p][k] || null, at: TS[p][k] || 0 };
+        // a block goes with each field's own stamp
+        if (p === 'ms' && T.ms[k]) map[k].k = mskOwn(k);
       });
       if (Object.keys(map).length) { out[p] = map; any = true; }
     });
@@ -1189,10 +1229,37 @@
     if (plain(tr.act) && fin(tr.act.at) && when(tr.act.at) > (TS.act || 0) && typeof tr.act.v === 'string') {
       T.act = tr.act.v; TS.act = when(tr.act.at); moved = true;
     }
+    /* A block both phones have, from a build that stamps its fields: each
+       field newer than this phone's own is taken, whatever the stamp on the
+       whole says — a note typed here after a skip there is newer as a block,
+       and older as a skip. Anything else (a block only one side has, a
+       deletion, an older build's copy) goes whole, newest wins, as before. */
+    var msFields = function (k, r) {
+      var mine = mskOwn(k), nv = clean(T.ms[k]), took = [];
+      Object.keys(r.k).forEach(function (f) {
+        var at = r.k[f];
+        if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(f) || !fin(at) || !(when(at) > (mine[f] || 0))) return;
+        if (r.v[f] === undefined) delete nv[f]; else nv[f] = r.v[f];
+        took.push(f);
+      });
+      if (!took.length || !SHAPE.ms(nv)) return false;
+      T.ms[k] = nv;
+      MSSEEN[k] = MSSEEN[k] || {};
+      took.forEach(function (f) {
+        mine[f] = when(r.k[f]);
+        if (nv[f] === undefined) delete MSSEEN[k][f]; else MSSEEN[k][f] = JSON.stringify(nv[f]);
+      });
+      TS.ms[k] = Math.max(TS.ms[k] || 0, when(r.at));
+      return true;
+    };
     PARTS.forEach(function (p) {
       var from = plain(tr[p]) ? tr[p] : {};
       Object.keys(from).forEach(function (k) {
         var r = from[k];
+        if (p === 'ms' && plain(r) && fin(r.at) && plain(r.v) && plain(r.k) && T.ms[k]) {
+          if (msFields(k, r)) moved = true;
+          return;
+        }
         if (!plain(r) || !fin(r.at) || !(when(r.at) > (TS[p][k] || 0))) return;
         if (r.v !== null && !SHAPE[p](r.v)) return;
         /* A workout deleted by a phone still on the one record: the deletion
@@ -1203,6 +1270,16 @@
         }
         if (r.v === null) delete T[p][k]; else T[p][k] = r.v;
         TS[p][k] = when(r.at);
+        if (p === 'ms') {
+          /* Taken whole: its fields' stamps with it, or, from a build without
+             them, none — every field then as new as the one stamp (mskOwn). */
+          delete TS.msk[k];
+          if (r.v && plain(r.k)) {
+            var o = TS.msk[k] = {};
+            Object.keys(r.k).forEach(function (f) { if (/^[a-zA-Z][a-zA-Z0-9]*$/.test(f) && fin(r.k[f])) o[f] = when(r.k[f]); });
+          }
+          if (r.v) MSSEEN[k] = msSeen(k); else delete MSSEEN[k];
+        }
         moved = true;
       });
     });
@@ -1242,6 +1319,7 @@
     T = blankT();
     TS = blankTS();
     PRSEEN = prSeen();
+    MSSEEN = {};
     YR.gone = {}; YR.purge = {};
     dirty = {};
     dirtyAll = true;
@@ -8901,10 +8979,19 @@
       Object.keys(n[p]).forEach(function (k) { TS[p][k] = now; });
     });
     TS.pr = now; TS.act = now;
+    /* Each block's fields as new as the copy, and the ones this device had
+       that the copy has not with them, so the other device drops them too. */
+    var msk = {};
+    Object.keys(n.ms).forEach(function (id) {
+      msk[id] = {};
+      Object.keys(n.ms[id]).concat(Object.keys(T.ms[id] || {})).forEach(function (f) { msk[id][f] = now; });
+    });
     T = n;
+    TS.msk = msk;
     TS.prk = {};
     Object.keys(T.pr).forEach(function (k) { TS.prk[k] = now; });
     PRSEEN = prSeen();
+    MSSEEN = msSeenAll();
     S.imp = null;
     dirtyAll = true;
     saveT();
@@ -10438,6 +10525,7 @@
       var m = {}, tp = plain(t[p]) ? t[p] : {}, sp = plain(ts[p]) ? ts[p] : {};
       Object.keys(tp).concat(Object.keys(sp)).forEach(function (k) {
         if (fin(sp[k])) m[k] = { v: tp[k] || null, at: sp[k] };
+        if (m[k] && p === 'ms' && tp[k] && plain(ts.msk) && plain(ts.msk[k])) m[k].k = ts.msk[k];
       });
       tr[p] = m;
     });
@@ -10796,7 +10884,7 @@
       checkin: checkin, chkReads: chkReads, dueSay: dueSay, phaseNow: phaseNow, phaseAt: phaseAt, capAt: capAt, phaseCap: phaseCap, phaseLine: phaseLine, phaseReset: function () { phLive.t = 0; },
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
-      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; phLive.t = 0; }
+      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); MSSEEN = msSeenAll(); LIVE = readLS(LS_LIVE); REV++; phLive.t = 0; }
     }
   };
 })();

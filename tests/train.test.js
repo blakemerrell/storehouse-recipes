@@ -775,6 +775,98 @@ module.exports = {
     t.ok('deleted on one phone and renamed on the other a moment later, the block is back, renamed, and still the one running',
       r.before === 'mb' && r.act === 'mb' && r.name === 'Fall, week', JSON.stringify(r));
 
+    /* A block travels field by field. As one piece with one stamp, a skip
+       tapped on one phone was undone by a note typed on the other a moment
+       later (the note's copy was the newer block); a rename went the same
+       way, and of two notes one was lost. Two phones, the real taps, the
+       payload of each merged into the other. */
+    {
+      const A = await t.fresh(), B = await t.fresh();
+      const seedLog = await A.evaluate(() => {
+        const _ = window.Train._, now = Date.now(), wo = {};
+        const ms = _.build({ goal: 'grow', dpw: 3, kit: 'gym', lvl: 1, acc: 4, pri: [] }); ms.id = 'x'; ms.n = 'Autumn push'; ms.at = now - 10 * 864e5;
+        const pl = _.plan(ms, 0, 0), st = now - 9 * 864e5;
+        wo.w1 = { id: 'w1', st, en: st + 3600e3, u: 'lb', ms: 'x', w: 0, d: 0, n: pl.n, x: pl.x.map((x) => ({ e: x.e, s: [{ w: 80, r: 8, t: st + 60e3 }] })), sr: {}, fb: {} };
+        return JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [] }, act: 'x', ms: { x: ms }, cx: {}, ax: {}, wo });
+      });
+      // both phones with the same block, stamped long ago by a build from before
+      const both = async () => {
+        for (const q of [A, B]) {
+          await q.evaluate((log) => {
+            localStorage.setItem('bsc.train', log);
+            localStorage.setItem('bsc.trainStamps', JSON.stringify({ pr: 1000, act: 1000, ms: { x: 1000 }, wo: { w1: 1000 }, cx: {}, ax: {}, nt: {}, rt: {} }));
+            window.Train._.reload();
+          }, seedLog);
+          if (await q.$('#view-train.hide')) await q.click('.tab[data-view="train"]');
+          await q.click('[data-t="sub"][data-v="block"]');
+        }
+      };
+      const relay = async () => {
+        const ab = await A.evaluate(() => window.Train._.payload(true));
+        const ba = await B.evaluate(() => window.Train._.payload(true));
+        await B.evaluate((b) => window.Train._.merge(b), ab);
+        await A.evaluate((b) => window.Train._.merge(b), ba);
+      };
+      const blk = (q) => q.evaluate(() => { const x = window.Train._.state().T.ms.x; return { n: x.n, note: x.note || '', sk: (x.sk || []).join() }; });
+      const openBlock = async (q) => {
+        await q.click('[data-t="sub"][data-v="history"]');
+        await q.evaluate(() => {
+          const c = document.querySelector('[data-t="hbclose"]'); if (c) c.click();
+          const b = document.querySelector('[data-t="hview"][data-v="blk"]'); if (b && b.getAttribute('aria-pressed') !== 'true') b.click();
+        });
+        await q.click('[data-t="hbopen"][data-id="x"]');
+      };
+      const note = async (q, words) => { await openBlock(q); await q.fill('#trBlkNote', words); await q.waitForTimeout(800); };
+
+      // a skip on A, a note on B a moment later
+      await both();
+      await A.click('[data-t="skip"]');
+      const skipped = await A.evaluate(() => { const s = window.Train._.state(), k = JSON.parse(localStorage.getItem('bsc.trainStamps')).msk;
+        return { sk: (s.T.ms.x.sk || []).join(), kept: !!(k && k.x && k.x.sk > 1000 && k.x.n === 1000), sent: !!s.TS.msk && (window.Train._.payload(true).ms.x.k || {}).sk === s.TS.msk.x.sk }; });
+      await note(B, 'B: knees fine.');
+      await relay();
+      let ra = await blk(A), rb = await blk(B);
+      t.ok('the skip goes out with a stamp of its own, kept with the others; the name keeps the old one', skipped.sk.length > 0 && skipped.kept && skipped.sent, JSON.stringify(skipped));
+      t.ok('a session skipped on one phone and a note typed on the other: both phones have the skip and the note',
+        ra.sk === skipped.sk && rb.sk === skipped.sk && ra.note === 'B: knees fine.' && rb.note === 'B: knees fine.', JSON.stringify({ ra, rb }));
+
+      // a rename on A, a note on B
+      await both();
+      await openBlock(A);
+      await A.click('[data-t="hbren"][data-id="x"]');
+      await A.fill('#trBlkName', 'Renamed on A');
+      await A.keyboard.press('Enter');
+      await note(B, 'B: add calves.');
+      await relay();
+      ra = await blk(A); rb = await blk(B);
+      t.ok('renamed on one phone, a note on the other: the new name and the note, on both',
+        ra.n === 'Renamed on A' && rb.n === 'Renamed on A' && ra.note === 'B: add calves.' && rb.note === 'B: add calves.', JSON.stringify({ ra, rb }));
+
+      // a note on each: the newer one, on both
+      await both();
+      await note(A, 'A: shoulder cranky.');
+      await note(B, 'B: knees fine.');
+      await relay();
+      ra = await blk(A); rb = await blk(B);
+      t.ok('a note typed on each phone: the newer one on both', ra.note === 'B: knees fine.' && rb.note === 'B: knees fine.', JSON.stringify({ ra, rb }));
+
+      // from a build without the fields' stamps: the whole block, newest wins, as before
+      r = await A.evaluate(() => {
+        const _ = window.Train._, now = Date.now(), old = JSON.parse(JSON.stringify(_.state().T.ms.x));
+        old.n = 'From the old build'; delete old.note;
+        const stale = _.merge({ ms: { x: { v: Object.assign({}, old, { n: 'Stale' }), at: 2000 } } });
+        const took = _.merge({ ms: { x: { v: old, at: now + 1000 } } });
+        const x = _.state().T.ms.x, k = _.payload(true).ms.x.k || {};
+        // and a newer field that would leave the block wrong-shaped is refused
+        const bad = _.merge({ ms: { x: { v: Object.assign({}, x, { days: [] }), at: now + 2000, k: { days: now + 2000 } } } });
+        return { stale, took, n: x.n, note: x.note || '', k: k.n === now + 1000 && k.days === now + 1000, bad, days: _.state().T.ms.x.days.length };
+      });
+      t.ok('a block from a build without them goes whole, newest wins: an older one is ignored, a newer one replaces it, note and all',
+        !r.stale && r.took && r.n === 'From the old build' && !r.note && r.k, JSON.stringify(r));
+      t.ok('a newer field that would leave the block wrong-shaped is refused', !r.bad && r.days > 0, JSON.stringify(r));
+      await A.close(); await B.close();
+    }
+
     /* The same, with a real change made on the screen while the server has
        not answered yet: it waits, and then goes out inside the whole push. */
     await p.click('.tab[data-view="train"]');
