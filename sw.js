@@ -397,7 +397,8 @@ self.addEventListener('fetch', function (e) {
   e.respondWith(
     caches.match(req).then(function (hit) {
       var live = fetch(req).then(function (res) {
-        if (res && res.status === 200) {
+        // the same-origin answer only: a captive portal's 200 would be kept until the next build
+        if (res && res.status === 200 && res.type === 'basic') {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copy); });
         }

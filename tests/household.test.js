@@ -204,8 +204,13 @@ module.exports = {
     await A.p.evaluate(() => window.Store.addToDay(15, 'thu', 2));
     await A.p.waitForTimeout(150);
     w = writesFrom(n);
-    t.ok('a serving count changed is the one change still sent as the whole day',
-      w.length === 1 && Array.isArray(w[0].data['weeks.' + WK + '.plan.thu']), JSON.stringify(w));
+    /* It used to go up as the whole day, from this phone's copy, and took
+       with it whatever the other phone had done to the day meanwhile. */
+    t.ok('a serving count changed goes up as the old entry off and then the new one on, never the day whole',
+      w.length === 2 && same(w[0].data['weeks.' + WK + '.plan.thu'], { __fv: 'remove', v: [15] }) &&
+        same(w[1].data['weeks.' + WK + '.plan.thu'], { __fv: 'union', v: [{ i: 15, x: 2 }] }), JSON.stringify(w));
+    t.ok('so the day on the server holds the other phone’s dinner and the new count',
+      same(SRV.db[HP].weeks[WK].plan.thu.slice().sort((a, b) => String(a.i || a).localeCompare(String(b.i || b))), [{ i: 15, x: 2 }, 21]), JSON.stringify(SRV.db[HP].weeks[WK].plan.thu));
 
     // ---- a queued change goes to the week it was made in ----------------
     await A.ctx.close();

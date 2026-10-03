@@ -121,19 +121,29 @@ service cloud.firestore {
         && shrinksByOne('favs') && shrinksByOne('pantryNew');
     }
 
+    /* An account, not a browser's throwaway identity. Anonymous sign-ins
+       live and die with one browser, and the app never lists one (enrol in
+       src/sync.js) or shares a plan under one; but with the code, fifty of
+       them could be made and put on the list, and the list is capped at
+       fifty and nobody may take another's entry off it. Then no account
+       could ever join. */
+    function named() {
+      return request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous';
+    }
+
     function membersByThemselves() {
       let before = resource.data.get('members', []).toSet();
       let after = request.resource.data.get('members', []).toSet();
       let me = [request.auth.uid].toSet();
-      return after == before || after == before.union(me) || after == before.difference(me);
+      return after == before || (named() && (after == before.union(me) || after == before.difference(me)));
     }
 
     // a name, and a dinner's calories and protein: what setMyDiner in src/sync.js writes
     function dinerOk(e) {
       return e is map && e.keys().hasOnly(['n', 'kc', 'p']) && e.keys().hasAll(['n', 'kc', 'p'])
         && e.n is string && e.n.size() >= 1 && e.n.size() <= 30
-        && e.kc is number && e.kc >= 150 && e.kc <= 3000
-        && e.p is number && e.p >= 0 && e.p <= 400;
+        && e.kc is int && e.kc >= 150 && e.kc <= 3000
+        && e.p is int && e.p >= 0 && e.p <= 400;
     }
 
     // whatever diners the writer leaves behind them, their own is one the app could have written
@@ -141,10 +151,14 @@ service cloud.firestore {
       return !(request.auth.uid in d) || dinerOk(d[request.auth.uid]);
     }
 
+    /* Only the writer's own entry changes, and only an account changes one.
+       An entry already there is not re-judged by a write that leaves it be:
+       one written under looser rules must not stop every later write. */
     function dinersByThemselves() {
       let after = request.resource.data.get('diners', {});
-      return after.diff(resource.data.get('diners', {})).affectedKeys().hasOnly([request.auth.uid])
-        && ownDinerOk(after);
+      let changed = after.diff(resource.data.get('diners', {})).affectedKeys();
+      return changed.size() == 0
+        || (named() && changed.hasOnly([request.auth.uid]) && ownDinerOk(after));
     }
 
     match /households/{code} {
@@ -154,7 +168,9 @@ service cloud.firestore {
         && request.resource.data.get('members', []).toSet()
           .difference([request.auth.uid].toSet()).size() == 0
         && request.resource.data.get('diners', {}).keys().hasOnly([request.auth.uid])
-        && ownDinerOk(request.resource.data.get('diners', {}));
+        && ownDinerOk(request.resource.data.get('diners', {}))
+        && (named() || (request.resource.data.get('members', []).size() == 0
+          && request.resource.data.get('diners', {}).size() == 0));
       allow update: if request.auth != null
         && houseShape(request.resource.data)
         && keepsWhatItHas()

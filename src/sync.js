@@ -109,12 +109,40 @@ window.Store = (function () {
      field path; Firebase's are letters and digits, and anything else (a
      '__proto__' among them) is not one. */
   var DINER_ID = /^[A-Za-z0-9]{1,128}$/;
+  /* Every other map key goes into a Firestore field path too. A dot in one
+     splits it, so the key the household holds is never the key this phone
+     deletes — and the phone deletes it again on every snapshot, forever, on
+     every phone (253 writes in three seconds, and the badge said synced). A
+     star, a slash or an empty piece makes the client throw, in the middle of
+     a snapshot, and the household goes quiet on that phone with nothing on
+     screen. The keys the app makes are letters, digits, '_' and '-'
+     (encodeKey, newId, newRecipeId); any other key is somebody's input. */
+  var KEY_OK = /^[A-Za-z0-9_-]{1,200}$/;
+  // a week's id as the app makes them: a Sunday (weekIdOf), or 'w' and newId
+  var WEEK_ID = /^(d\d{8}|w[A-Za-z0-9_]{1,40})$/;
+  var DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  /* A diner's numbers as the app would have written them: the name trimmed,
+     the numbers whole. The rules take a name with a space on the end and a
+     calorie count with a fraction; held to the letter, both vanished. */
+  function dinerNorm(v) {
+    if (!v || typeof v !== 'object' || typeof v.n !== 'string') return v;
+    return Object.assign({}, v, { n: v.n.trim().slice(0, 30) },
+      typeof v.kc === 'number' && isFinite(v.kc) ? { kc: Math.round(v.kc) } : {},
+      typeof v.p === 'number' && isFinite(v.p) ? { p: Math.round(v.p) } : {});
+  }
   function cleanMap(k, v) {
     var o = obj(v), out = {};
     Object.keys(o).forEach(function (key) {
-      if (k === 'diners' && !DINER_ID.test(key)) return;
-      if (MAP_OK[k](o[key])) out[key] = o[key];
+      if (!(k === 'diners' ? DINER_ID : KEY_OK).test(key)) return;
+      var val = k === 'diners' ? dinerNorm(o[key]) : o[key];
+      if (MAP_OK[k](val)) out[key] = val;
     });
+    return out;
+  }
+  // a week's check-offs: the keys encodeKey makes, each one ticked
+  function cleanChecked(v) {
+    var o = obj(v), out = {};
+    Object.keys(o).forEach(function (key) { if (KEY_OK.test(key) && o[key] === true) out[key] = true; });
     return out;
   }
   /* local      not sharing — this phone only
@@ -183,6 +211,14 @@ window.Store = (function () {
       return false;
     }
   }
+  /* Whether this phone can still take a few dozen bytes, asked at every
+     open. The saves at init put each key back with the same bytes, which a
+     full phone allows, so after a reload nothing had failed yet, and the
+     app said nothing until the next thing was lost. */
+  function probeStorage() {
+    try { localStorage.setItem('sh.probe', new Array(65).join('x')); localStorage.removeItem('sh.probe'); }
+    catch (e) { lsBad['sh.probe'] = 1; }
+  }
   function saveLocal() {
     write(LS.favs, state.favs); write(LS.weeks, state.weeks); write(LS.active, state.active);
     write(LS.mine, state.mine); write(LS.edits, state.edits);
@@ -246,7 +282,8 @@ window.Store = (function () {
   function cleanPlan(v) {
     var o = obj(v), out = {};
     Object.keys(o).forEach(function (d) {
-      if (!Array.isArray(o[d])) return;
+      // only the seven days: a day called 'mon*' made every write to the week throw
+      if (DAY_KEYS.indexOf(d) < 0 || !Array.isArray(o[d])) return;
       var list = [];
       o[d].forEach(function (e) {
         if (idOk(e)) { list.push(e); return; }
@@ -255,8 +292,21 @@ window.Store = (function () {
         if (e.lo === 1) z.lo = 1;
         list.push(z);
       });
-      if (list.length) out[d] = list;
+      if (list.length) out[d] = lastOf(list, function (e) { return typeof e === 'object' ? e.i : e; });
     });
+    return out;
+  }
+  /* The same dinner twice on a day — two phones adding it at two sizes,
+     which arrayUnion takes for two things — is one dinner: the later
+     statement about it stands. */
+  function lastOf(list, idOf) {
+    var seen = Object.create(null), out = [];
+    for (var j = list.length - 1; j >= 0; j--) {
+      var id = idOf(list[j]);
+      if (seen[id]) continue;
+      seen[id] = true;
+      out.unshift(list[j]);
+    }
     return out;
   }
 
@@ -265,6 +315,7 @@ window.Store = (function () {
     var o = obj(v), out = {};
     Object.keys(o).forEach(function (k) {
       var it = o[k];
+      if (!KEY_OK.test(k)) return;      // the key is a field path when the pill is tapped
       if (!it || typeof it !== 'object' || typeof it.l !== 'string' || !it.l.trim()) return;
       out[k] = { l: it.l.slice(0, 120), c: typeof it.c === 'string' && it.c ? it.c.slice(0, 60) : 'Yours' };
     });
@@ -454,7 +505,10 @@ window.Store = (function () {
     if (!doc || !u || !Object.keys(u).length) return;
     var out = {};
     Object.keys(u).forEach(function (k) { out[k] = u[k] === 'DELETE' ? FV.delete() : u[k]; });
-    doc.update(out).catch(function () {});
+    /* The client refuses a bad field path before it sends anything — by
+       throwing, here, inside the snapshot that asked. Caught, so one bad key
+       is one lost write and not a household that never speaks again. */
+    try { doc.update(out).catch(function () {}); } catch (e) { /* the key check at the door says why */ }
   }
 
   /* Take a document — from the network or from localStorage — and make it the
@@ -463,16 +517,17 @@ window.Store = (function () {
   function adopt(d) {
     var weeks = {}, raw = obj(d.weeks), made = false;
     Object.keys(raw).forEach(function (k) {
+      if (!WEEK_ID.test(k)) return;    // its id is a field path on every write to it
       var w = obj(raw[k]);
       weeks[k] = {
         name: typeof w.name === 'string' && w.name ? w.name : isDated(k) ? '' : 'Untitled week',
         ord: typeof w.ord === 'number' ? w.ord : 0,
-        plan: cleanPlan(w.plan), checked: obj(w.checked)
+        plan: cleanPlan(w.plan), checked: cleanChecked(w.checked)
       };
       if (w.tpl === 1) weeks[k].tpl = 1;
     });
     if (!Object.keys(weeks).length) {
-      weeks[FIRST] = { name: 'This Week', ord: 0, plan: cleanPlan(d.plan), checked: obj(d.checked) };
+      weeks[FIRST] = { name: 'This Week', ord: 0, plan: cleanPlan(d.plan), checked: cleanChecked(d.checked) };
       made = true;
     }
     state.weeks = weeks;
@@ -504,7 +559,10 @@ window.Store = (function () {
        a household without the field has nobody sharing, and a phone that
        moved from one household to another must not go on showing the first
        one's people. */
-    MAPS.forEach(function (k) { if (d[k] !== undefined || k === 'diners') state[k] = cleanMap(k, d[k]); });
+    /* The switches too: a household that never chose is on the defaults,
+       and a phone that answered the front door alone takes the household's
+       answer on joining, as the other phones have it. */
+    MAPS.forEach(function (k) { if (d[k] !== undefined || k === 'diners' || k === 'opts') state[k] = cleanMap(k, d[k]); });
     derive();
     return made;
   }
@@ -616,7 +674,11 @@ window.Store = (function () {
        thing: a map keyed by something stable, where a key this phone has and
        the household has not is a contribution rather than a conflict. A shelf
        answer the household already holds stands, like everything else here. */
-    ['mine', 'edits', 'pantry', 'pantryNew'].concat(MAPS).forEach(function (k) {
+    /* Not opts: the household's switches are the household's. A phone that
+       answered the front door on its own ("I keep my own") and then typed a
+       code was flipping every phone in the household to its staples source,
+       because a household on the defaults has no opts at all to stand. */
+    ['mine', 'edits', 'pantry', 'pantryNew'].concat(MAPS.filter(function (k) { return k !== 'opts'; })).forEach(function (k) {
       // of the diners, only this account's own: the rules refuse anybody else's
       var theirs = obj(d[k]), mine = k === 'diners' ? ownDiners() : obj(state[k]), add = {};
       Object.keys(mine).forEach(function (id) {
@@ -946,7 +1008,9 @@ window.Store = (function () {
        with no signal and sends it when there is some, so refusing to try is
        the one thing that would genuinely lose it. */
     if (doc && status !== 'local' && status !== 'error') {
-      remote().catch(function (err) { setStatus('error', (err && err.message) || 'Write failed.'); });
+      var failed = function (err) { setStatus('error', (err && err.message) || 'Write failed.'); };
+      // a refused field path throws before there is a promise; the same answer either way
+      try { remote().catch(failed); } catch (err) { failed(err); }
       return;
     }
     /* Not local, but not able to send either: `doc` is null for the second or
@@ -1008,6 +1072,16 @@ window.Store = (function () {
     var path = wpath('plan.' + day);
     push(function () {
       var u = {};
+      if (added && gone && gone.length) {
+        /* A dinner's count changed: the old entry off, then the new one on,
+           as two writes, since one write may not both take from a field and
+           add to it. The day used to go up whole from this phone's copy, and
+           took with it whatever the other phone had done to the day since —
+           a double undone, a dinner taken off put back. */
+        u[path] = FV.arrayRemove.apply(FV, gone);
+        var v = {}; v[path] = FV.arrayUnion(stored(added));
+        return doc.update(u).then(function () { return doc.update(v); });
+      }
       if (added) u[path] = FV.arrayUnion(stored(added));
       else if (gone && gone.length) u[path] = FV.arrayRemove.apply(FV, gone);
       else u[path] = list;
@@ -1040,13 +1114,19 @@ window.Store = (function () {
      visitors are not recorded: an anonymous identity lives and dies with one
      browser, and a list of those is a list of nobody. */
   var unenrolling = false;       // an account is being deleted: see deleteAccount
+  var enrolDenied = '';          // the household whose rules refused this account; asked once
   function enrol() {
     var me = api.user();
     if (!me || !doc || !FV || !house || unenrolling) return;
-    if (members.indexOf(me.uid) >= 0 || enrolling === house) return;
+    if (members.indexOf(me.uid) >= 0 || enrolling === house || enrolDenied === house) return;
     enrolling = house;
     doc.update({ members: FV.arrayUnion(me.uid) })
-      .catch(function () { /* the next snapshot tries again */ })
+      .catch(function (err) {
+        /* Refused outright (a full list, rules from before this version):
+           asking again on every snapshot is a loop of refused writes. Anything
+           else — no signal — the next snapshot tries again. */
+        if (err && err.code === 'permission-denied') enrolDenied = house;
+      })
       .then(function () { enrolling = ''; });
   }
 
@@ -1334,6 +1414,7 @@ window.Store = (function () {
 
     init: function (onChange) {
       listeners.push(onChange);
+      probeStorage();
       rescueStrayPantry();
       state.favs = read(LS.favs, []);
       /* The pantry goes through adopt with everything else now that adopt
@@ -1545,9 +1626,9 @@ window.Store = (function () {
        count is stored as {i, x} instead, so a plain id still means "as written"
        and a week saved by an older version still reads. */
     day: function (day) {
-      return (state.plan[day] || []).map(function (e) {
+      return lastOf((state.plan[day] || []).map(function (e) {
         return typeof e === 'object' && e ? { id: e.i, x: e.x || 1, lo: e.lo === 1 } : { id: e, x: 1, lo: false };
-      }).filter(function (e) { return e.id !== undefined && e.id !== null && e.id !== ''; });
+      }).filter(function (e) { return e.id !== undefined && e.id !== null && e.id !== ''; }), function (e) { return e.id; });
     },
 
     scaleOf: function (id, day) {
@@ -1558,9 +1639,11 @@ window.Store = (function () {
     addToDay: function (id, day, x, lo) {
       var had = this.day(day), list = had.filter(function (e) { return e.id !== id; });
       var entry = { id: id, x: x || 1, lo: !!lo };
+      var was = had.filter(function (e) { return e.id === id; })[0] || null;
+      if (was && was.x === entry.x && was.lo === entry.lo) return;   // already so
       list.push(entry);
-      // new to the day: only it goes up (see writeDay); already there: the day, whole
-      writeDay(day, list, list.length > had.length ? entry : null);
+      // new to the day: only it goes up; already there: off and back on (see writeDay)
+      writeDay(day, list, entry, was ? [stored(was)] : null);
     },
 
     batch: batch,
@@ -1648,7 +1731,8 @@ window.Store = (function () {
     pruneChecked: function (liveKeys) {
       var live = {};
       liveKeys.forEach(function (k) { live[encodeKey(k)] = true; });
-      var stale = Object.keys(state.checked).filter(function (k) { return !live[k]; });
+      // never a key that is not a field path: deleting it would not delete it, and this would run again
+      var stale = Object.keys(state.checked).filter(function (k) { return !live[k] && KEY_OK.test(k); });
       if (!stale.length) return false;
       var paths = stale.map(function (k) { return wpath('checked.' + k); });
       push(function () {
@@ -1668,6 +1752,7 @@ window.Store = (function () {
 
     toggleChecked: function (key) {
       var k = encodeKey(key);
+      if (!k) return;                   // a label of symbols only encodes to nothing, and no path
       var on = !state.checked[k];
       var path = wpath('checked.' + k);
       push(function () {
@@ -1930,7 +2015,10 @@ window.Store = (function () {
        may well have a household behind it, and those bring their favorites,
        weeks and written recipes with them. */
     join: function (code, seeded, mine) {
-      house = String(code || '').trim().toUpperCase().replace(/\s+/g, '-');
+      var next = String(code || '').trim().toUpperCase().replace(/\s+/g, '-');
+      // what was held for one household is not sent into another
+      if (next !== house) { queued = []; enrolDenied = ''; }
+      house = next;
       write(LS.house, house);
       houseMine = !!mine;
       write(LS.houseNew, houseMine ? '1' : '');
@@ -1940,12 +2028,23 @@ window.Store = (function () {
     },
 
     leave: function () {
+      /* Off the household's list and out of its diners first, while there is
+         still a document to say so to. The rules let nobody else remove
+         them, so an entry left behind stayed for good: the household went on
+         offering "Hits Alice's plan" for somebody who had left, and only her
+         rejoining could take it down. Best effort, as deleteAccount's is. */
+      var me = api.user();
+      if (me && doc && FV && (members.indexOf(me.uid) >= 0 || hasOwn(state.diners, me.uid))) {
+        var bye = { members: FV.arrayRemove(me.uid) };
+        if (hasOwn(state.diners, me.uid)) bye['diners.' + me.uid] = FV.delete();
+        try { doc.update(bye).catch(function () {}); } catch (e) { /* gone either way */ }
+      }
       if (unsub) { unsub(); unsub = null; }
       queued = [];                  // meant for the household being left, not the next one
       house = ''; write(LS.house, '');
       houseMine = false; write(LS.houseNew, '');
       doc = null;
-      members = []; enrolling = '';
+      members = []; enrolling = ''; enrolDenied = '';
       /* The household's people go with it: their dinner numbers were shared
          with the household, not with this phone. */
       state.diners = {}; write(LS.diners, {}); dinerRefused = false;

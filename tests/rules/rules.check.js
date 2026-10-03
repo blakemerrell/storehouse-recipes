@@ -290,6 +290,31 @@ function seedDoc(extra) {
       await seed(H, seedDoc({ members: ['alice'] }));
       await assertSucceeds(as('anon3').doc(H).update({ 'kitchen.salt': 1 }));
     });
+    await check('calories with a fraction are refused: the app writes whole numbers', () =>
+      assertFails(ad.update({ 'diners.alice': dn('Alice', 599.9, 70) })));
+    await check('an entry from looser rules does not stop its owner’s other writes', async () => {
+      await seed(H, seedDoc({ members: ['alice'], diners: { alice: { n: 'Alice ', kc: 599.9, p: 70 } } }));
+      await assertSucceeds(ad.update({ 'kitchen.salt': 1 }));
+    });
+
+    /* With the code, fifty throwaway identities could be put on the list,
+       which is capped at fifty and which nobody may take another's entry
+       off: then no account could ever join. */
+    section('Households: a browser’s throwaway identity is not an account');
+    const anon = (uid) => env.authenticatedContext(uid, { firebase: { sign_in_provider: 'anonymous' } }).firestore();
+    await fresh({ members: ['alice'] });
+    await check('an anonymous sign-in reads the household by its code', () => assertSucceeds(anon('ghost').doc(H).get()));
+    await check('and writes to the pantry as any phone does', () => assertSucceeds(anon('ghost').doc(H).update({ 'kitchen.salt': 1 })));
+    await check('but cannot put itself on the list', () =>
+      assertFails(anon('ghost').doc(H).update({ members: FV.arrayUnion('ghost') })));
+    await check('nor share dinner numbers', () =>
+      assertFails(anon('ghost').doc(H).update({ 'diners.ghost': dn('Ghost', 500, 50) })));
+    await check('it may make a household of its own, with nobody listed', () =>
+      assertSucceeds(anon('ghost').doc('households/ANON-1').set(seedDoc({}))));
+    await check('but not one with itself listed, or sharing', async () => {
+      await assertFails(anon('ghost').doc('households/ANON-2').set(seedDoc({ members: ['ghost'] })));
+      await assertFails(anon('ghost').doc('households/ANON-3').set(seedDoc({ diners: { ghost: dn('Ghost', 500, 50) } })));
+    });
     await env.clearFirestore();
     await check('a household is made with the maker’s own numbers in it', () =>
       assertSucceeds(as('alice').doc('households/NEW-D1').set(seedDoc({ members: ['alice'], diners: { alice: dn('Alice', 550, 70) } }))));
