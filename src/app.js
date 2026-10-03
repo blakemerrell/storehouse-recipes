@@ -4867,7 +4867,24 @@
      Built that way Blake's day comes to 2,539 kcal. His multiplier said
      2,540. The point was never a different number — it was a number with
      handles on it. */
+  /* And then the handles threw the job away. Once a step count or a session
+     was told, the day was rebuilt from 1.2 — a desk — and the activity dial
+     the wizard had just asked ("On my feet") was never read again. So ticking
+     one lifting day took 263 kcal OFF somebody on their feet all day: 2,446
+     with no training said, 2,183 with one session. The dial's own words say
+     it is only the job, and that the workouts carry the training.
+   *
+     The job and the step count are two guesses at one thing — how much you
+     move in a day outside training — so the larger of them stands, and the
+     sessions go on top. Telling the plan you train can only ever add. The job
+     is read up to 1.55 here because the old five-word dial's 1.725 and 1.9
+     had training inside them, and the training is counted on its own now.
+     At a desk the job adds nothing, so a desk day is exactly what it was.
+   *
+     `steps` is that larger guess — what moving about adds to sitting still —
+     and `base` stays sitting still, so the parts still add up to the day. */
   var MSTEP_BASE = 2500;          // steps a sedentary day already contains
+  var MJOB_MAX = 1.55;            // the most of the dial that is the job alone
 
   function mBurn(pr) {
     if (!pr.age || !pr.lb || !(pr.ft * 12 + pr.inch)) return null;
@@ -4881,7 +4898,9 @@
     }
     var base = bmr * 1.2;
     var perStep = 0.53 * kg * 0.00075;
-    var steps = Math.max(0, (Number(pr.steps) || 0) - MSTEP_BASE) * perStep;
+    var walked = Math.max(0, (Number(pr.steps) || 0) - MSTEP_BASE) * perStep;
+    var job = bmr * Math.max(0, Math.min(Number(pr.act) || 1.2, MJOB_MAX) - 1.2);
+    var steps = Math.max(job, walked);
     var train = (5 * 3.5 * kg / 200) * 45 * (Number(pr.workouts) || 0) / 7;
     return { bmr: bmr, base: base, steps: steps, train: train,
       tdee: base + steps + train, told: true };
@@ -13091,10 +13110,12 @@
     var part = function (n, what) {
       return '<div class="mtw-part"><b>' + Math.round(n).toLocaleString() + '</b><i>' + what + '</i></div>';
     };
+    /* "Moving about", not "walking about": the middle part is the job or the
+       steps, whichever says more (see mBurn), and an active job is not a walk. */
     return mtwOut(b.tdee, 'kcal a day', 'Everything else works from this: eat under it and you lose.') +
       (b.told
         ? '<div class="mtw-parts">' + part(b.base, 'at rest') +
-          part(b.steps, 'walking about') + part(b.train, 'exercising') + '</div>'
+          part(b.steps, 'moving about') + part(b.train, 'exercising') + '</div>'
         : '');
   }
 
@@ -13432,14 +13453,20 @@
     out.push('<div class="mco-row"><span class="mco-k">You burn</span><span class="mco-v">' +
       '<b>' + kc(b.tdee) + '</b> a day' +
       (b.told
-        ? ' &middot; ' + kc(b.base) + ' living, ' + kc(b.steps) + ' walking, ' + kc(b.train) + ' training'
+        ? ' &middot; ' + kc(b.base) + ' living, ' + kc(b.steps) + ' moving about, ' + kc(b.train) + ' training'
         : ' &mdash; fill in steps and sessions to see the parts') +
       '</span></div>');
 
     var pj = mProject(pr);
     if (b.told && pj) {
       var kg = pr.lb * 0.45359237;
-      var stepK = 2000 * 0.53 * kg * 0.00075;
+      /* What 2,000 more steps would do to the burn mBurn works out, rather
+         than a price per step of its own: on your feet all day, the job is
+         already the bigger guess at how much you move, and steps under it
+         buy nothing — so the lever must not promise food the box would not
+         give. At a desk this is the same 2,000 steps it always was. */
+      var stepK = mBurn(Object.assign({}, pr,
+        { steps: Math.max(Number(pr.steps) || 0, MSTEP_BASE) + 2000 })).tdee - b.tdee;
       var sessK = (5 * 3.5 * kg / 200) * 45 / 7;
       var says = function (label, lev) {
         return '<div class="mco-row"><span class="mco-k">' + label + '</span><span class="mco-v">' +
@@ -13448,7 +13475,7 @@
             ? ', or ' + mWeeksWords(lev.weeks) + ' sooner on the same food'
             : '') + '</span></div>';
       };
-      out.push(says('2,000 more steps', mLever(pr, stepK)));
+      if (stepK >= 1) out.push(says('2,000 more steps', mLever(pr, stepK)));
       out.push(says('One more session', mLever(pr, sessK)));
     }
     /* The panel describes a plan the boxes below may not be showing: the

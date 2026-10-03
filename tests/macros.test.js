@@ -1074,8 +1074,10 @@ module.exports = {
     });
     await p.waitForTimeout(150);
     const coach = () => p.textContent('#mtCoach');
+    /* "moving about" rather than "walking" since the middle part is the job
+       or the steps, whichever says more — this profile is on its feet. */
     t.ok('the day is shown in the parts you can move',
-      /living/.test(await coach()) && /walking/.test(await coach()) &&
+      /living/.test(await coach()) && /moving about/.test(await coach()) &&
       /training/.test(await coach()), await coach());
     /* Said once, in the ledger — the coach used to say it again a screen
        lower, and Blake called the sheet messy. The ledger's Arriving row is
@@ -1102,11 +1104,16 @@ module.exports = {
       await p.evaluate(() => !!document.querySelector('[data-mtuse]')));
     await p.click('[data-mtuse]');
     await p.waitForTimeout(200);
+    /* Against the plan the profile works out to, not a range written down
+       here: the range (1,450–1,600) was this profile's burn with its job
+       thrown away, and on its feet with three sessions it burns more now. */
     t.ok('and taking it fills the boxes with what the panel described',
       await p.evaluate(() => {
         const k = Number(document.getElementById('mtBigKcal').textContent);
-        return k >= 1450 && k <= 1600 && !document.querySelector('[data-mtuse]');
-      }), await p.evaluate(() => document.getElementById('mtBigKcal').textContent));
+        const pl = window.__macroLab.plan(window.__macroLab.profile());
+        return k === 4 * pl.p + 4 * pl.c + 9 * pl.f && !document.querySelector('[data-mtuse]');
+      }), await p.evaluate(() => document.getElementById('mtBigKcal').textContent + ' vs ' +
+        JSON.stringify(window.__macroLab.plan(window.__macroLab.profile()))));
     await p.click('.sheet-x');
     await p.waitForTimeout(250);
     await p.evaluate(() => localStorage.removeItem('bsc.macroProfile'));
@@ -3379,6 +3386,90 @@ module.exports = {
         !!document.getElementById('mtEditor')),
       await wiz.evaluate(() => 'steps:' + document.querySelectorAll('[data-mtwstep]').length));
     await wiz.context().close();
+
+    /* ---- telling the plan you train never feeds you less -----------------
+     *
+     * The wizard's activity question is "only the job; the workouts asked
+     * next carry the training". But once a session or a step count was told,
+     * mBurn rebuilt the day from a desk and never read the job again, so "On
+     * my feet" with no training said burned 2,446, and ticking ONE lifting day
+     * took it to 2,183. The job and the steps are two guesses at the same
+     * movement; the larger stands and the sessions go on top. */
+    const jobPg = await t.fresh({ viewport: { width: 412, height: 915 } });
+    const burnSums = await jobPg.evaluate(() => {
+      const L = window.__macroLab, bad = [];
+      const who = (o) => Object.assign({ sex: 'm', age: 43, ft: 5, inch: 11, lb: 190, act: 1.2 }, o);
+      /* At a desk the job adds nothing, so the day is what the steps-and-
+         sessions arithmetic always made it — worked out here the way it was
+         before, against every combination of the two. */
+      const before = (pr) => {
+        const kg = pr.lb * 0.45359237, cm = (pr.ft * 12 + pr.inch) * 2.54;
+        const bmr = 10 * kg + 6.25 * cm - 5 * pr.age + (pr.sex === 'f' ? -161 : 5);
+        if (!(pr.steps > 0) && !(pr.workouts > 0)) return bmr * pr.act;
+        return bmr * 1.2 + Math.max(0, (pr.steps || 0) - 2500) * 0.53 * kg * 0.00075 +
+          (5 * 3.5 * kg / 200) * 45 * (pr.workouts || 0) / 7;
+      };
+      let desks = 0;
+      ['m', 'f'].forEach((sex) => [0, 1000, 7000, 13000].forEach((steps) => [0, 1, 3, 5].forEach((workouts) => {
+        const pr = who({ sex, steps, workouts });
+        desks++;
+        if (Math.abs(L.tdee(pr) - before(pr)) > 1e-6) bad.push('desk ' + JSON.stringify(pr) + ': ' + L.tdee(pr) + ' vs ' + before(pr));
+      })));
+      /* And for every job, saying you train only ever adds: from nothing
+         said to one session, and from each session to the next. */
+      [1.2, 1.375, 1.55].forEach((act) => {
+        let last = L.tdee(who({ act }));
+        [1, 2, 3, 4, 5].forEach((workouts) => {
+          const now = L.tdee(who({ act, workouts }));
+          if (now < last - 1e-6) bad.push(act + ' at ' + workouts + ' sessions: ' + Math.round(last) + ' -> ' + Math.round(now));
+          last = now;
+        });
+        // to a hair: 1.2 + (1.55 − 1.2) is not 1.55 in floating point
+        if (L.tdee(who({ act, steps: 3000 })) < L.tdee(who({ act })) - 1e-6) bad.push(act + ': a step count lowered it');
+      });
+      /* The old five-word dial's top two had training in them; told, they
+         are read as the most active job, with the sessions counted once. */
+      if (Math.abs(L.tdee(who({ act: 1.9, workouts: 3 })) - L.tdee(who({ act: 1.55, workouts: 3 }))) > 1e-6) {
+        bad.push('1.9 is not read as 1.55 once the training is told');
+      }
+      return { bad, desks };
+    });
+    t.ok('at a desk the burn is exactly what it was, every step count and session count',
+      burnSums.desks === 32 && !burnSums.bad.some((b) => /^desk/.test(b)), JSON.stringify(burnSums));
+    t.ok('and on any job, one more session never lowers it — nor does a step count',
+      burnSums.bad.length === 0, JSON.stringify(burnSums.bad));
+
+    // the same, as the wizard says it
+    await jobPg.evaluate(() => ['bsc.macroProfile', 'bsc.macroTargets', 'bsc.macroWeights']
+      .forEach((k) => localStorage.removeItem(k)));
+    await jobPg.reload();
+    await jobPg.waitForTimeout(400);
+    await jobPg.click('.tab[data-view="macros"]');
+    await jobPg.waitForTimeout(300);
+    await jobPg.click('#macroFill');
+    await jobPg.waitForTimeout(500);
+    await jobPg.fill('#mtAge', '43');
+    await jobPg.fill('#mtFt', '5');
+    await jobPg.fill('#mtIn', '11');
+    await jobPg.fill('#mtLb', '190');
+    await jobPg.click('[data-mtw="next"]');
+    await jobPg.waitForTimeout(300);
+    await jobPg.click('[data-mtact="1.375"]');
+    await jobPg.waitForTimeout(300);
+    const burnSaid = () => jobPg.evaluate(() => {
+      const el = document.getElementById('mtwSaid2');
+      const m = ((el && el.querySelector('.mtw-head b')) || {}).textContent || '';
+      return { kcal: Number(m.replace(/,/g, '')), text: el ? el.textContent : '' };
+    });
+    const onFeet = await burnSaid();
+    await jobPg.click('[data-mtrain="0"]');
+    await jobPg.waitForTimeout(300);
+    const oneDay = await burnSaid();
+    t.ok('on my feet, ticking one lifting day adds to the burn rather than taking 263 off it',
+      onFeet.kcal > 0 && oneDay.kcal >= onFeet.kcal, onFeet.kcal + ' → ' + oneDay.kcal);
+    t.ok('and the parts it breaks into say the job is moving about, not a walk',
+      /moving about/.test(oneDay.text) && !/walking/.test(oneDay.text), oneDay.text);
+    await jobPg.context().close();
     /* ---- "Fill from" governs drafting, not looking ------------------------
      * The setting says what the SOLVER may shop from — a day drafted out of
      * salmon that is not in the house is not a day. It was also gating the
