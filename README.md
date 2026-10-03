@@ -532,6 +532,8 @@ src/shelf.js          what a household has in and what it must go out for
 src/walmart.js        the shopping list sent to a Walmart cart
 src/list.js           the shopping list: added up, grouped by where it comes from
 src/book.js           the printed book: covers, contents, recipe pages, fitted to the paper
+src/strip.js          the pinned header, and Recipes' search row and its Filters button
+src/fold.js           My Day's readout folding into one row of pills as Nourish scrolls
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
