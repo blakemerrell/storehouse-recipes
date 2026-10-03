@@ -25,7 +25,7 @@ const ROOT = path.join(__dirname, '..');
 const PDFS = path.join(ROOT, 'print');
 const OUT = path.join(ROOT, 'art', 'covers');
 
-/* Keyed by the print set, so src/app.js can look one up by the same key it
+/* Keyed by the print set, so src/book.js can look one up by the same key it
    already uses for READY_MADE.
  *
  * 'all' is deliberately not Both-Books.pdf's own first page. That file opens

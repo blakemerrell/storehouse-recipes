@@ -1,14 +1,17 @@
 /* The printed book: covers, title pages, the contents, a section's opener,
  * every recipe page, laid out and fitted to the paper, and the preview that
- * shows it. The same pages tools/print-books.js prints to PDF.
+ * shows it (the same pages tools/print-books.js prints to PDF); and the shelf
+ * of ready-made PDFs to download.
  *
  * A part of app.js in a file of its own. app.js calls HiveParts.book(app)
  * once, as it starts, handing over what the book reads of the app's (named
  * just below; tests/scope.test.js holds the two lists to each other) and
- * gets back renderBook. RECIPES and BY_ID are replaced, not changed, each
- * time the recipes do, so the book asks for them (recipes(), byId()) rather
- * than keeping the pair it was handed. What a household must go out for is
- * the shelf's (src/shelf.js). Loaded before app.js.
+ * gets back renderBook, fitPages (the page scale, which the resize handler
+ * there calls) and renderDownloads (the downloads, which go grey without
+ * signal). RECIPES and BY_ID are replaced, not changed, each time the
+ * recipes do, so the book asks for them (recipes(), byId()) rather than
+ * keeping the pair it was handed. What a household must go out for is the
+ * shelf's (src/shelf.js). Loaded before app.js.
  */
 (window.HiveParts = window.HiveParts || {}).book = function (app) {
   'use strict';
@@ -23,7 +26,6 @@
   var APP_LINE = app.APP_LINE;
   var diffLabel = app.diffLabel;
   var fillCounts = app.fillCounts;
-  var fitPages = app.fitPages;
   var leaf = app.leaf;
   var liftHTML = app.liftHTML;
   var macroLine = app.macroLine;
@@ -31,7 +33,6 @@
   var no = app.no;
   var ours = app.ours;
   var planIds = app.planIds;
-  var renderDownloads = app.renderDownloads;
   var varyHTML = app.varyHTML;
   var xref = app.xref;
   var recipes = app.recipes, byId = app.byId;
@@ -977,5 +978,141 @@
    * Measured on load and on every resize, which is also when it changes: the
    * only thing that alters the header's height is the width it has. */
 
-  return { renderBook: renderBook };
+  /* A 5.5in page is wider than a phone. Scale it down to fit rather than
+     letting the whole document scroll sideways. Printing ignores this. */
+  function fitPages() {
+    var avail = document.documentElement.clientWidth - 32;
+    var pageW = 5.5 * 96;
+    var scale = window.innerWidth <= 860 ? Math.min(1, avail / pageW) : 1;
+    document.documentElement.style.setProperty('--pgscale', String(scale));
+  }
+
+  function expandAndPrint() { window.print(); }
+
+  /* The books are rendered to PDF ahead of time by tools/print-books.js and
+     shipped with the app, so getting a printable file is a download rather than
+     an argument with the print dialog about paper size, margins, headers and
+     scaling. The dialog is still there for the selections that cannot be made
+     ahead of time — your favorites, this week, and recipes of your own. */
+  var READY_MADE = {
+    all: { file: 'Both-Books.pdf', label: 'Both books', pages: 312 },
+    one: { file: 'Hive-and-Hearth-Recipes.pdf', label: 'One book', pages: 304 },
+    1: { file: 'Run-and-Not-Be-Weary.pdf', label: 'Run and Not Be Weary', pages: 120, booklet: true },
+    2: { file: 'Around-the-Table.pdf', label: 'Around the Table', pages: 192, booklet: true }
+  };
+
+  /* The shelf, in the order somebody chooses from it: the whole thing first,
+     then the two volumes, then the two you assemble yourself. */
+  var PRINT_CARDS = [
+    { set: 'all', what: 'Both books', sub: 'Two booklets' },
+    { set: 'one', what: 'Everything in one', sub: 'One spine' },
+    { set: '1', what: 'Run and Not Be Weary', sub: 'Volume One' },
+    { set: '2', what: 'Around the Table', sub: 'Volume Two' },
+  ];
+
+  /* And the three that are not books.
+   *
+   * These were cards on the shelf beside the covers, at the same size and with
+   * the same weight, and they were the worst thing on the screen: a numeral in
+   * a dashed box reads as a picture that failed to load, and "Pick to print"
+   * next to "Nothing picked yet" is two different dead states side by side.
+   * They are not books and should not be book-shaped. A line of text under the
+   * shelf says what they are and costs nothing. */
+  var PRINT_PICKED = [
+    { set: 'fav', what: 'Favorites' },
+    { set: 'plan', what: null },
+    { set: '3', what: 'Ours' }
+  ];
+
+  function renderDownloads() {
+    /* The ready-made files were rendered from the printed collection and know
+       nothing about a recipe somebody wrote last week or a printed one they
+       corrected. The preview counts those in, so the two disagree silently —
+       a preview saying 168 pages over a button offering 160, and whoever
+       pressed it got a book without their own recipes in it and no word about
+       why. Said once, under the shelf, rather than on every cover. */
+    var own = Object.keys(window.Store.state.mine || {}).length +
+      Object.keys(window.Store.state.edits || {}).length;
+    var mine = Object.keys(window.Store.state.mine || {}).length;
+    var favs = recipes().filter(function (x) { return window.Store.isFav(x.id); }).length;
+    /* planIds(), not planCount() — planCount takes a week id and answers 0 for
+       undefined, so the card said "Nothing picked yet" over a week with
+       recipes in it. */
+    var week = planIds().length;
+    /* The files are not in the offline cache, by design (sw.js leaves
+       print/ to the network), and a tap on one with no signal did nothing at
+       all. Said on the button; a tap says it again (below). */
+    var away = navigator.onLine === false ? '<span class="bk-off"><span class="sr-only">, </span>needs signal</span>' : '';
+
+    $('printRows').innerHTML = PRINT_CARDS.map(function (c) {
+      var r = READY_MADE[c.set];
+      if (!r) return '';
+      var on = S.printSet === c.set;
+
+      /* The cover shows it; the button under it hands it over.
+       *
+       * The card was the download to begin with — one tap, one file — and that
+       * is a tap that does something irreversible-looking to somebody who only
+       * wanted a closer look. Picking a book and taking it are two different
+       * intentions, so they are two different controls: the cover selects, the
+       * preview below redraws, and the button says what you get. */
+      return '<div class="bk-slot">' +
+        '<button type="button" class="bk-card' + (on ? ' on' : '') + '"' +
+        ' data-print="' + esc(c.set) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+        '<span class="bk-face">' +
+          '<img class="bk-cover" src="art/covers/' + esc(c.set) + '.webp" alt="" loading="lazy">' +
+        '</span>' +
+        '<span class="bk-what">' + esc(c.what) + '</span>' +
+        '<span class="bk-sub">' + esc(c.sub) + '</span>' +
+      '</button>' +
+      '<a class="bk-get" download href="print/' + esc(r.file) + '" data-get="' + esc(c.set) + '">' +
+        'PDF &middot; ' + r.pages + ' pages' + away + '</a>' +
+      /* The folded version hangs below: a second thing to do with the same
+         book, wanted by far fewer people. */
+      (r.booklet
+        ? '<a class="bk-fold" download href="print/' +
+            esc(r.file.replace(/\.pdf$/, '-booklet.pdf')) + '" data-fold="' + esc(c.set) + '" ' +
+            'title="Two pages to a sheet, in folding order — print double-sided, fold, staple">' +
+            'fold &amp; staple &middot; ' + (r.pages / 4) + away + '</a>'
+        : '') +
+      '</div>';
+    }).join('');
+
+    /* The picked sets: one line, no covers. Each says how many are in it, so
+       the count that used to be a numeral in a box is still there — as a fact
+       in a sentence rather than as a picture of nothing. */
+    $('printPicked').innerHTML = PRINT_PICKED.map(function (c) {
+      if (c.set === '3' && !mine) return '';
+      var n = c.set === 'fav' ? favs : c.set === 'plan' ? week : mine;
+      var what = c.what === null ? window.Store.activeWeek().name : c.what;
+      var on = S.printSet === c.set;
+      return '<button type="button" class="pk' + (on ? ' on' : '') + '"' +
+        ' data-print="' + esc(c.set) + '" aria-pressed="' + (on ? 'true' : 'false') + '"' +
+        (c.set === 'plan' ? ' id="printPlan"' : '') +
+        (c.set === '3' ? ' id="printOurs"' : '') + '>' +
+        esc(what) + '<span class="pk-n">' + n + '</span></button>';
+    }).join('') +
+      /* The dialog is the only way to get these, and it prints whatever is laid
+         out below — so it appears once the set is chosen, not before. Offering
+         it beside an unchosen set would print the wrong book onto real paper. */
+      (READY_MADE[S.printSet] ? '' :
+        '<button type="button" class="ghost pk-go" id="doPrint">Print&hellip;</button>');
+
+    $('dlOwn').classList.toggle('hide', !own);
+    if (own) {
+      $('dlOwn').textContent = 'The covers are the published books. The ' + own +
+        (own === 1 ? ' recipe you have written or corrected is' :
+                     ' recipes you have written or corrected are') +
+        ' not in them — use Ours or Favorites below to print a copy that has them.';
+    }
+
+    /* Only where it makes sense to offer. Somebody printing this week's plan
+       is printing four pages for the fridge, and being asked fifty dollars for
+       a bound book at that moment reads as not paying attention. */
+    $('orderBook').classList.toggle('hide', !READY_MADE[S.printSet]);
+    var dp = $('doPrint');
+    if (dp) dp.addEventListener('click', expandAndPrint);
+  }
+
+  return { renderBook: renderBook, fitPages: fitPages, renderDownloads: renderDownloads };
 };

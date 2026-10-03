@@ -87,7 +87,7 @@ module.exports = {
 
     /* "Download PDF · 108 pages" — against the pages the PDF actually has.
      *
-     * READY_MADE in src/app.js carried those four numbers by hand, and hand is
+     * READY_MADE in src/book.js carried those four numbers by hand, and hand is
      * the whole problem: three of them were wrong within a single afternoon of
      * adding recipes, and the button went on confidently offering a page count
      * from two builds ago. Nobody can tell a wrong number from a right one by
@@ -95,7 +95,7 @@ module.exports = {
      *
      * tools/print-books.js writes them now, straight off the render. This is
      * the check that it did, and that nobody has since edited one back. */
-    const table = (fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8')
+    const table = (fs.readFileSync(path.join(__dirname, '..', 'src', 'book.js'), 'utf8')
       .match(/var READY_MADE = \{[\s\S]*?\n {2}\};/) || [''])[0];
     const claims = [...table.matchAll(/file: '([^']+)'[^}]*?pages: (\d+)/g)];
     t.ok('the ready-made table lists every file the app can offer',

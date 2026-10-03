@@ -159,7 +159,7 @@ function stampApp() {
 
 /* The page count printed on the Download button, written back into the app.
  *
- * READY_MADE in src/app.js says how many pages each shipped PDF has, and until
+ * READY_MADE in src/book.js says how many pages each shipped PDF has, and until
  * now that number was typed in by hand after looking at the console output
  * above. It was wrong three separate times in one afternoon of adding recipes,
  * which is the whole shape of the problem: two copies of one fact, and only
@@ -172,7 +172,7 @@ function stampApp() {
  * also untouched and their numbers are therefore still right.
  */
 function stampPageCounts(made) {
-  const file = path.join(ROOT, 'src', 'app.js');
+  const file = path.join(ROOT, 'src', 'book.js');
   let src = fs.readFileSync(file, 'utf8');
   const done = [];
   Object.keys(made).forEach((key) => {
@@ -184,7 +184,7 @@ function stampPageCounts(made) {
   });
   if (!done.length) return;
   fs.writeFileSync(file, src);
-  console.log('\nsrc/app.js READY_MADE updated: ' + done.join(', '));
+  console.log('\nsrc/book.js READY_MADE updated: ' + done.join(', '));
 }
 
 (async () => {
@@ -276,7 +276,7 @@ function stampPageCounts(made) {
      version that is a hash of them, so a cover rewritten for nothing would be
      a new version, and every phone fetching the app again. */
   await require('./build-covers.js').build({ only: changed });
-  /* src/app.js may just have changed, and it is served from the cache at
+  /* src/book.js may just have changed, and it is served from the cache at
      ?v=N. N is a hash of the files, written in when the site is built for
      deployment, so there is nothing to bump here. */
 })();
