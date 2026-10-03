@@ -11,17 +11,16 @@
 (window.HiveParts = window.HiveParts || {}).list = function (app) {
   'use strict';
 
-  // what the list reads of the app's
+  // what the list reads of the app's, and of the shelf (src/shelf.js)
   var S = app.S;
   var planEntries = app.planEntries;
-  var itemNeedsBuying = app.itemNeedsBuying;
-  var foodSource = app.foodSource;
-  var restockSource = app.restockSource;
   var shopQty = app.shopQty;
   var canBuy = app.canBuy;
   var srcW = app.srcW;
   var pwPrice = app.pwPrice;
   var pwMoney = app.pwMoney;
+  var itemNeedsBuying = window.Shelf.itemNeedsBuying, foodSource = window.Shelf.foodSource,
+    restockSource = window.Shelf.restockSource;
   var SHOP = window.SHOP || {};       // food key -> shopping-list name and unit
 
   function esc(s) {

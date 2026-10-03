@@ -78,6 +78,7 @@ var CORE = [
   './src/train.js?v=0',
   './src/door.js?v=0',
   './src/today.js?v=0',
+  './src/shelf.js?v=0',
   './src/walmart.js?v=0',
   './src/list.js?v=0',
   './src/app.js?v=0',
