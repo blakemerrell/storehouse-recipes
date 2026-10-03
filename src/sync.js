@@ -1046,12 +1046,48 @@ window.Store = (function () {
     try { fn(); } finally {
       batching--;
       if (!batching && batched.length) {
-        var go = batched; batched = [];
+        var go = fold(batched); batched = [];
         saveLocal();
         go.forEach(send);
         emit();
       }
     }
+  }
+
+  /* A write that is only field paths and what goes in them, DEL for a field
+     taken out. Each was its own doc.update, so one tap on where the staples
+     come from — three switches, four from the front door — was four billed
+     writes and four snapshots on every phone in the household. Marked, so a
+     batch can fold it into its neighbours. */
+  var DEL = {};
+  function plain(u) {
+    var f = function () {
+      var out = {};
+      Object.keys(u).forEach(function (k) { out[k] = u[k] === DEL ? FV.delete() : u[k]; });
+      return doc.update(out);
+    };
+    f.plain = u;
+    return f;
+  }
+  /* Runs of plain writes, one write a run. A write that touches a path the
+     run already has (the same field, or one inside it) starts a new run, and
+     anything that is not plain — a set, a union, the two writes of a changed
+     count — stays as it was, where it was, so the household still hears the
+     changes in the order they were made. */
+  function fold(list) {
+    var out = [];
+    list.forEach(function (f) {
+      var last = out[out.length - 1];
+      if (f.plain && last && last.plain && !clash(last.plain, f.plain)) {
+        out[out.length - 1] = plain(Object.assign({}, last.plain, f.plain));
+      } else out.push(f);
+    });
+    return out;
+  }
+  function clash(a, b) {
+    return Object.keys(b).some(function (k) {
+      return Object.keys(a).some(function (j) { return j === k || j.indexOf(k + '.') === 0 || k.indexOf(j + '.') === 0; });
+    });
   }
 
   /* In order, and not cleared until they are away — a flush that fails must
@@ -1090,6 +1126,15 @@ window.Store = (function () {
   function writeDay(day, entries, added, gone) {
     var list = entries.map(stored);
     var path = wpath('plan.' + day);
+    var local = function () {
+      editActive(function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
+    };
+    // the day whole is a plain write: Cook this again's nights go up as one
+    if (!added && !(gone && gone.length)) {
+      var whole = {}; whole[path] = list;
+      push(plain(whole), local);
+      return;
+    }
     push(function () {
       var u = {};
       if (added && gone && gone.length) {
@@ -1103,19 +1148,15 @@ window.Store = (function () {
         return doc.update(u).then(function () { return doc.update(v); });
       }
       if (added) u[path] = FV.arrayUnion(stored(added));
-      else if (gone && gone.length) u[path] = FV.arrayRemove.apply(FV, gone);
-      else u[path] = list;
+      else u[path] = FV.arrayRemove.apply(FV, gone);
       return doc.update(u);
-    }, function () {
-      editActive(function (w) { w.plan = Object.assign({}, w.plan); w.plan[day] = list; });
-    });
+    }, local);
   }
 
   /* One key of a shared map; null takes it out. */
   function setMapKey(map, key, v) {
-    push(function () {
-      var u = {}; u[map + '.' + encodeKey(key)] = v === null ? FV.delete() : v; return doc.update(u);
-    }, function () {
+    var u = {}; u[map + '.' + encodeKey(key)] = v === null ? DEL : v;
+    push(plain(u), function () {
       state[map] = Object.assign({}, state[map]);
       if (v === null) delete state[map][key]; else state[map][key] = v;
     });
@@ -1826,9 +1867,8 @@ window.Store = (function () {
     },
 
     setPantry: function (key, on) {
-      push(function () {
-        var u = {}; u['pantry.' + encodeKey(key)] = on ? 1 : 0; return doc.update(u);
-      }, function () {
+      var u = {}; u['pantry.' + encodeKey(key)] = on ? 1 : 0;
+      push(plain(u), function () {
         state.pantry = Object.assign({}, state.pantry); state.pantry[key] = on ? 1 : 0;
       });
     },

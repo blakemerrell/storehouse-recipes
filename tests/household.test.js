@@ -340,6 +340,18 @@ module.exports = {
     t.ok('and the household’s own week is the one on the calendar', same(SRV.db[HP].weeks[WK].plan, seedHouse().weeks[WK].plan) &&
       await J.p.evaluate(() => window.Store.day('mon').map((e) => e.id).join()) === '12,u1');
 
+    // ---- one tap on where the staples come from is one write -------------
+    n = since();
+    await J.p.click('#syncBtn');
+    await J.p.waitForTimeout(250);
+    await J.p.click('[data-sync="where"]');
+    await J.p.waitForTimeout(250);
+    await J.p.click('[data-srcpick="fb"]');
+    await J.p.waitForTimeout(250);
+    w = writesFrom(n);
+    t.ok('a tap on where the staples come from is one write, not one a switch',
+      w.length === 1 && same(Object.keys(w[0].data).sort(), ['opts.big', 'opts.fb', 'opts.store']) && SRV.db[HP].opts.fb === 1 && SRV.db[HP].opts.store === 1,
+      JSON.stringify(w));
     t.ok('with nothing thrown', J.errs.length === 0, J.errs.join(' | '));
     await J.ctx.close();
 
