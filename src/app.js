@@ -704,7 +704,7 @@
       try { return localStorage.getItem('sh.units') === 'grams' ? 'grams' : 'cups'; }
       catch (e) { return 'cups'; }
     })(),
-    syncOpen: false, pendingCode: '', joinDraft: '', why: false, dinerDraft: null, dinerMsg: '',
+    syncOpen: false, pendingCode: '', joinDraft: '', joinMsg: '', joinBack: null, why: false, dinerDraft: null, dinerMsg: '',
     /* The Macros tab. macroDate null means "today, worked out at render time",
        so a phone left open across midnight lands on the new day by itself;
        an explicit key means the reader pressed ‹ and wants to stay there. */
@@ -1726,9 +1726,16 @@
     var mine = pwFitCaps(), me = (mAccount() || {}).uid || mOwner();
     var d = window.Store.diners ? window.Store.diners() : {};
     var others = Object.keys(d).filter(function (uid) { return uid !== me; }).map(function (uid) {
-      return { k: 'u:' + uid, n: d[uid].n, kc: d[uid].kc, p: d[uid].p };
+      return { k: 'u:' + uid, n: d[uid].n, kc: d[uid].kc, p: d[uid].p, nth: '' };
     }).sort(function (x, y) { return x.n < y.n ? -1 : x.n > y.n ? 1 : x.k < y.k ? -1 : 1; });
-    return [{ k: 1, n: '', kc: mine.kc, p: mine.p }].concat(others);
+    /* Two people sharing under one name made two chips that both said
+       "Hits Blake’s plan", with no telling which was which. The second of a
+       name (in account order, so it is the same one every time) is (2), and
+       so on; my own name, shared, is the first of it. */
+    var seen = Object.create(null);
+    if (me && d[me]) seen[d[me].n] = 1;
+    others.forEach(function (o) { var c = seen[o.n] = (seen[o.n] || 0) + 1; if (c > 1) o.nth = ' (' + c + ')'; });
+    return [{ k: 1, n: '', kc: mine.kc, p: mine.p, nth: '' }].concat(others);
   }
   /* An answer, as the plans stand now: 1 hits mine, 'u:' and an account
      hits that person's, 3 everybody's, 2 high protein. Saved as true or
@@ -1976,12 +1983,12 @@
        nobody had made: it is the plain 600 and 35 of pwFitCaps, and says so. */
     var noPlan = !kcalOf(mReadTargets());
     var fitChips = [[0, 'Don’t mind'], [1, noPlan ? 'Hits ' + fit.p + ' g in ' + fit.kc + ' cal' : 'Hits my plan', byFit[1]]].concat(
-      others.map(function (o) { return [o.k, 'Hits ' + esc(o.n) + '’s plan', byFit[o.k]]; }),
+      others.map(function (o) { return [o.k, 'Hits ' + esc(o.n) + '’s plan' + o.nth, byFit[o.k]]; }),
       others.length ? [[3, others.length > 1 ? 'Hits everyone’s' : 'Hits both', byFit[3]]] : [],
       [[2, 'High protein', byFit[2]]]);
     // whose shares they are, said small; mine alone needs no name
     var shares = others.length ? plans.map(function (pl, i) {
-      return (i ? esc(pl.n) : 'You') + ' ' + pl.kc + ' cal · ' + pl.p + ' g';
+      return (i ? esc(pl.n) + pl.nth : 'You') + ' ' + pl.kc + ' cal · ' + pl.p + ' g';
     }).join(' · ') : noPlan ? 'no plan yet — set your numbers in Nourish; a plain ' + fit.kc + ' cal · ' + fit.p + ' g protein a dinner until then'
       : fit.kc + ' cal · ' + fit.p + ' g protein a dinner';
     var low = cnt.n < cnt.need * 2, none = cnt.n < cnt.need || !cnt.need;
@@ -2063,7 +2070,7 @@
       : plans.filter(function (pl) { return pl.k === (mode === 2 ? 1 : mode); });
     return show.map(function (pl) {
       var x = pwPlate(r, pl);
-      return x ? '<div class="pw-mm pw-plate">' + (pl.k === 1 ? 'Your' : esc(pl.n) + '’s') + ' plate: ' + esc(x.say) +
+      return x ? '<div class="pw-mm pw-plate">' + (pl.k === 1 ? 'Your' : esc(pl.n) + '’s') + ' plate' + pl.nth + ': ' + esc(x.say) +
         ' · ' + x.kc + ' cal · ' + x.p + ' g protein</div>' : '';
     }).join('');
   }
@@ -3359,6 +3366,28 @@
     });
   }
 
+  /* Whether the pantry this phone shares is this account's alone: on its
+     members list and nobody else. Phones without an account are never on
+     the list, so an empty one may have anybody in it. */
+  function mHouseAlone() {
+    var me = mAccount(), m = window.Store.members || [];
+    return !!me && m.length > 0 && m.every(function (u) { return u === me.uid; });
+  }
+  /* A code typed from inside a pantry that is nobody's. connect() lets a
+     code like that go and says so, which from the screen with no pantry is
+     the whole answer; from inside one it would take the phone out of the
+     pantry it was in as well, to sit alone with the message, for one wrong
+     digit. Back into that one, and the message said there. */
+  function mJoinBack() {
+    var b = S.joinBack, st = window.Store.status;
+    if (!b) return;
+    if (window.Store.house) { if (st === 'synced') S.joinBack = null; return; }
+    if (st !== 'local') return;
+    S.joinBack = null;
+    S.joinMsg = window.Store.statusNote;
+    // once the connect that missed has finished with it, not from inside it
+    setTimeout(function () { if (!window.Store.house) window.Store.join(b.code, true, b.mine); }, 0);
+  }
   function mHouseWatch() {
     if (!mHouseTellNext || !mSyncDoc || !mAccount()) return;
     var st = window.Store.status, code = window.Store.house;
@@ -17686,6 +17715,16 @@
         : n + ' things were taken out of the shared pantry on another phone. Sync &amp; sharing can put them back.');
     }
     mGoneSeen = n;
+    /* Joining a pantry that had already planned this phone's week: the
+       household's dinners stand, and hers went to a template with nothing
+       on screen to say so. Said once, with where to find them. */
+    var parked = window.Store.parkedNote ? window.Store.parkedNote() : null;
+    if (parked && parked.length) {
+      var and = function (l) { return l.length > 1 ? l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1] : l[0]; };
+      mToast('Your dinners for ' + esc(and(parked.map(function (x) { return x.dates; }))) +
+        ' are kept as the template' + (parked.length > 1 ? 's ' : ' ') +
+        esc(and(parked.map(function (x) { return '‘' + x.name + '’'; }))) + ' — Plan › Cook this again');
+    }
     var full = !!window.Store.storageFull;
     if (full && !mHouseFullSaid) {
       mToast('This phone’s storage for the app is full, so changes to the plan and recipes aren’t kept on it' +
@@ -17744,10 +17783,20 @@
      with the switch on that joins a pantry, or signs in to one, brings its
      numbers with it. Not on every snapshot, or a phone with the switch on
      would put back what the same account had taken away on another. */
-  var dinerSeen = '';
+  /* And once more after a refusal, each time the household comes back from
+     the server changed. The switch said "the household didn't take them",
+     the rules were published, and nothing was sent again until the app was
+     reopened. Never on the refusal's own echo, which changes nothing: a
+     household still on the old rules costs one refused write per change in
+     it, not a loop of them. */
+  var dinerSeen = '', dinerRetry = -1;
   function dinerWatch() {
     var me = mAccount(), key = (me ? me.uid : '') + '|' + (window.Store.house || '');
-    if (!me || key === dinerSeen || window.Store.status !== 'synced') return;
+    if (!me || window.Store.status !== 'synced') return;
+    if (!window.Store.dinerRefused) dinerRetry = -1;
+    else if (dinerRetry < 0) dinerRetry = window.Store.heard;
+    else if (window.Store.heard !== dinerRetry) { dinerRetry = window.Store.heard; dinerSeen = ''; }
+    if (key === dinerSeen) return;
     dinerSeen = key;
     dinerKeep();
   }
@@ -17832,6 +17881,16 @@
       body = invite +
         '<div class="sync-code">' + esc(house) + '</div>' +
         (window.Store.statusNote ? '<div class="sync-warn">' + esc(window.Store.statusNote) + '</div>' : '') +
+        /* The box to type somebody else's code, kept. A second phone signed
+           in to its own account makes a pantry of its own the moment it has
+           a favourite (mHouseReconcile), and the box went with the screen
+           for having none: she was read the code, and had nowhere to type
+           it but behind Stop sharing here. */
+        '<div class="sync-row">' +
+          '<input class="txt" id="joinCode" placeholder="Join another pantry: its code" aria-label="Code of another pantry to join">' +
+          '<button class="ghost" data-sync="join">Join</button>' +
+        '</div>' +
+        (S.joinMsg ? '<div class="sync-warn">' + esc(S.joinMsg) + '</div>' : '') +
         syncGoneHTML() +
         '<div class="sync-row"><button class="ghost" data-sync="leave">Stop sharing here</button></div>';
     }
@@ -20364,8 +20423,27 @@
           });
         }
         if (act === 'join') {
-          var v = ($('joinCode') || {}).value || '';
-          if (v.trim()) { mHouseTellNext = true; window.Store.join(v); }
+          var v = ($('joinCode') || {}).value || '', from = window.Store.house;
+          var to = v.trim().toUpperCase().replace(/\s+/g, '-');
+          S.joinMsg = '';
+          if (to && to !== from) {
+            var go = function () {
+              // the box is on the next screen too: empty there, not holding the code just used
+              var jb = $('joinCode'); if (jb) jb.value = '';
+              S.joinDraft = '';
+              S.joinBack = from ? { code: from, mine: window.Store.houseIsMine } : null;
+              mHouseTellNext = true; window.Store.join(v);
+            };
+            /* From inside a pantry other people share, asked first, as an
+               invite and the account's own pantry are: it takes this phone
+               out of theirs. One that is only this account's own is left
+               without a word. */
+            if (from && !mHouseAlone()) {
+              ask({ title: 'Leave this pantry?',
+                body: 'This device is sharing ' + from + '. Joining ' + to + ' takes it out of that one, and brings what is on this device along.',
+                ok: 'Join ' + to }, function (yes) { if (yes) go(); renderModal(); });
+            } else go();
+          }
         }
         /* On needs a name to go under; off takes the numbers back out of the
            household, not just this phone's say-so. */
@@ -20389,7 +20467,7 @@
         /* Signed in, stopping here stops it for the account too; otherwise
            the next snapshot would put this device straight back in. */
         if (act === 'leave') {
-          S.inviteUrl = ''; S.inviteMsg = '';
+          S.inviteUrl = ''; S.inviteMsg = ''; S.joinMsg = ''; S.joinBack = null;
           /* The switch was "share with the household", and that household
              is being left: off, so the numbers do not follow this account
              into the next pantry it joins, unasked. */
@@ -21014,6 +21092,6 @@
   // before anything can have something to say: see mToastEls
   mToastEls();
   wire();
-  window.Store.init(function () { renderAll(); mHouseWatch(); mHouseNotices(); dinerWatch(); });
+  window.Store.init(function () { renderAll(); mHouseWatch(); mJoinBack(); mHouseNotices(); dinerWatch(); });
   renderAll();
 })();

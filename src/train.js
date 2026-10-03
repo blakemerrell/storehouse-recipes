@@ -824,8 +824,9 @@
   var LV = { l: 'Light', m: 'Moderate', v: 'Vigorous' };
   function blankT() { return { pr: defaultsPr(null), act: '', ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
   /* prk: when each setting was last changed, setting by setting. pr stays the
-     newest of them, which is all a build from before this reads. */
-  function blankTS() { return { pr: 0, prk: {}, act: 0, ms: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
+     newest of them, which is all a build from before this reads. msk is the
+     same for each block, field by field (msStamp), beside its one stamp in ms. */
+  function blankTS() { return { pr: 0, prk: {}, act: 0, ms: {}, msk: {}, wo: {}, cx: {}, ax: {}, nt: {}, rt: {} }; }
   var PARTS = ['ms', 'wo', 'cx', 'ax', 'nt', 'rt'];
 
   function loadT() {
@@ -849,6 +850,7 @@
     // stamps kept by a build from before settings had their own: made from pr when needed (prOwn)
     out.prk = plain(s.prk) ? s.prk : null;
     out.act = fin(s.act) ? s.act : 0;
+    out.msk = plain(s.msk) ? s.msk : {};
     PARTS.forEach(function (p) { if (plain(s[p])) out[p] = s[p]; });
     return out;
   }
@@ -904,6 +906,7 @@
   var T = loadT();
   var TS = loadTS();
   var PRSEEN = prSeen();
+  var MSSEEN = msSeenAll();
   var REV = 0;                           // bumped on every change; the index below keys on it
 
   /* Settings travel setting by setting. They used to go as one piece, newest
@@ -930,6 +933,39 @@
       if (JSON.stringify(T.pr[k]) !== was[k]) TS.prk[k] = now;
     });
     PRSEEN = prSeen();
+  }
+
+  /* A block travels field by field too. It went as one piece with one stamp,
+     newest wins, so a session skipped on one phone came back the moment the
+     other phone saved a note on the block: the note's copy was the newer, and
+     it still had the session waiting. A rename went the same way, and of two
+     notes one was lost. Now each field carries the stamp of the change that
+     made it, found the way the settings' are, by what moved since the last
+     stamp, and a merge takes only the fields that are newer. */
+  function msSeen(id) {
+    var o = {}, ms = T.ms[id];
+    if (ms) Object.keys(ms).forEach(function (f) { o[f] = JSON.stringify(ms[f]); });
+    return o;
+  }
+  function msSeenAll() {
+    var o = {};
+    Object.keys(T.ms).forEach(function (id) { o[id] = msSeen(id); });
+    return o;
+  }
+  // a block stamped before this, or taken whole from an older build: every field as new as its one stamp
+  function mskOwn(id) {
+    if (plain(TS.msk[id])) return TS.msk[id];
+    var o = TS.msk[id] = {};
+    if (T.ms[id] && TS.ms[id]) Object.keys(T.ms[id]).forEach(function (f) { o[f] = TS.ms[id]; });
+    return o;
+  }
+  function msStamp(id, now) {
+    if (!T.ms[id]) { delete TS.msk[id]; delete MSSEEN[id]; return; }
+    var k = mskOwn(id), was = MSSEEN[id] || {};
+    Object.keys(T.ms[id]).concat(Object.keys(was)).forEach(function (f) {
+      if (JSON.stringify(T.ms[id][f]) !== was[f]) k[f] = now;
+    });
+    MSSEEN[id] = msSeen(id);
   }
 
   /* The stamps only after the log they describe. A stamp is what makes a
@@ -959,6 +995,8 @@
       if (part === 'pr') prStamp(now);
       dirty[part] = true;
     } else {
+      // the fields first: a block with none of its own yet takes them from the stamp it had
+      if (part === 'ms') msStamp(key, now);
       TS[part][key] = now;
       if (dirty[part] !== true) { dirty[part] = dirty[part] || {}; dirty[part][key] = 1; }
     }
@@ -1091,6 +1129,8 @@
         if (p === 'wo' && YR.on === true && (whole || dirty.wo === true) && !(dirty.wo && dirty.wo !== true && dirty.wo[k]) &&
           !YR.purge[k] && woYear(k) && (TS.wo[k] || 0) <= (YR.seen[k] || 0)) return;
         map[k] = { v: T[p][k] || null, at: TS[p][k] || 0 };
+        // a block goes with each field's own stamp
+        if (p === 'ms' && T.ms[k]) map[k].k = mskOwn(k);
       });
       if (Object.keys(map).length) { out[p] = map; any = true; }
     });
@@ -1189,10 +1229,37 @@
     if (plain(tr.act) && fin(tr.act.at) && when(tr.act.at) > (TS.act || 0) && typeof tr.act.v === 'string') {
       T.act = tr.act.v; TS.act = when(tr.act.at); moved = true;
     }
+    /* A block both phones have, from a build that stamps its fields: each
+       field newer than this phone's own is taken, whatever the stamp on the
+       whole says — a note typed here after a skip there is newer as a block,
+       and older as a skip. Anything else (a block only one side has, a
+       deletion, an older build's copy) goes whole, newest wins, as before. */
+    var msFields = function (k, r) {
+      var mine = mskOwn(k), nv = clean(T.ms[k]), took = [];
+      Object.keys(r.k).forEach(function (f) {
+        var at = r.k[f];
+        if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(f) || !fin(at) || !(when(at) > (mine[f] || 0))) return;
+        if (r.v[f] === undefined) delete nv[f]; else nv[f] = r.v[f];
+        took.push(f);
+      });
+      if (!took.length || !SHAPE.ms(nv)) return false;
+      T.ms[k] = nv;
+      MSSEEN[k] = MSSEEN[k] || {};
+      took.forEach(function (f) {
+        mine[f] = when(r.k[f]);
+        if (nv[f] === undefined) delete MSSEEN[k][f]; else MSSEEN[k][f] = JSON.stringify(nv[f]);
+      });
+      TS.ms[k] = Math.max(TS.ms[k] || 0, when(r.at));
+      return true;
+    };
     PARTS.forEach(function (p) {
       var from = plain(tr[p]) ? tr[p] : {};
       Object.keys(from).forEach(function (k) {
         var r = from[k];
+        if (p === 'ms' && plain(r) && fin(r.at) && plain(r.v) && plain(r.k) && T.ms[k]) {
+          if (msFields(k, r)) moved = true;
+          return;
+        }
         if (!plain(r) || !fin(r.at) || !(when(r.at) > (TS[p][k] || 0))) return;
         if (r.v !== null && !SHAPE[p](r.v)) return;
         /* A workout deleted by a phone still on the one record: the deletion
@@ -1203,6 +1270,16 @@
         }
         if (r.v === null) delete T[p][k]; else T[p][k] = r.v;
         TS[p][k] = when(r.at);
+        if (p === 'ms') {
+          /* Taken whole: its fields' stamps with it, or, from a build without
+             them, none — every field then as new as the one stamp (mskOwn). */
+          delete TS.msk[k];
+          if (r.v && plain(r.k)) {
+            var o = TS.msk[k] = {};
+            Object.keys(r.k).forEach(function (f) { if (/^[a-zA-Z][a-zA-Z0-9]*$/.test(f) && fin(r.k[f])) o[f] = when(r.k[f]); });
+          }
+          if (r.v) MSSEEN[k] = msSeen(k); else delete MSSEEN[k];
+        }
         moved = true;
       });
     });
@@ -1242,6 +1319,7 @@
     T = blankT();
     TS = blankTS();
     PRSEEN = prSeen();
+    MSSEEN = {};
     YR.gone = {}; YR.purge = {};
     dirty = {};
     dirtyAll = true;
@@ -3772,9 +3850,10 @@
     var m = Math.floor(s / 60) % 60;
     return Math.floor(s / 3600) + ':' + (m < 10 ? '0' : '') + m + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
   }
+  // "19 h", not "19 h 00": a block's whole time is often a round number of hours
   function dur(ms) {
     var m = Math.max(1, Math.round(ms / 60000));
-    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 < 10 ? '0' : '') + (m % 60);
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60 < 10 ? '0' : '') + (m % 60) : '');
   }
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -4235,15 +4314,33 @@
     var el = document.querySelector('#view-train .tr-ex[data-xi="' + (moved === null ? d.gs[d.g][0] : moved) + '"]');
     if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
   }
-  // the arrow keys on a handle: a place at a time, the handle kept in hand
+  /* The arrow keys on a handle: a place at a time, the handle kept in hand,
+     and where it went said out loud. The handle is drawn again under the
+     focus, so a screen reader heard nothing of the move but the button's
+     own label, the same at every place. */
   function gripKey(grip, key) {
     var i = Number(grip.getAttribute('data-x'));
     var it = LIVE && LIVE.x[i];
     if (!it || !shiftEx(i, key === 'ArrowUp' ? -1 : 1)) return;
     saveLive();
     draw();
-    var g2 = document.querySelector('#view-train .tr-ex[data-xi="' + LIVE.x.indexOf(it) + '"] .tr-grip');
+    var at = LIVE.x.indexOf(it), gs = moveGroups(), g = 0;
+    gs.forEach(function (grp, k) { if (grp.indexOf(at) >= 0) g = k; });
+    srSay(lib(it.e).n + (gs[g].length > 1 ? ' and its pair' : '') + ' moved to ' + (g + 1) + ' of ' + gs.length);
+    var g2 = document.querySelector('#view-train .tr-ex[data-xi="' + at + '"] .tr-grip');
     if (g2) g2.focus();
+  }
+  /* A line for a screen reader, in a region made once at start and never
+     drawn: one that arrives with its words is one nobody was listening to
+     yet (Nourish's toast learned the same). Emptied first, so the same
+     words twice are two announcements. */
+  var sayT = null;
+  function srSay(words) {
+    var el = $('trSay');
+    if (!el) return;
+    el.textContent = '';
+    clearTimeout(sayT);
+    sayT = setTimeout(function () { el.textContent = words; }, 60);
   }
 
   function startPlanned(ms, w, d) {
@@ -5327,11 +5424,21 @@
     var cols = liftCols(ms), ld = ldDays().slice().sort(), out = {};
     if (ld.length !== cols.length) return out;
     cols.forEach(function (d, i) { out[d] = { wd: ld[i], moved: false }; });
-    if (!nx || isEz(ms, nx.d)) return out;
+    if (!nx) return out;
+    /* A session done this week says the day it was done. It kept its usual
+       day: Upper A done on Saturday night, saved after midnight, still said
+       Tue over its column while the next session slid onto Tuesday, and two
+       columns read "Tue". */
+    cols.forEach(function (d, i) {
+      var dw = woFor(ms, nx.w, d);
+      if (dw) { var wd0 = (new Date(dw.st).getDay() + 6) % 7; out[d] = { wd: wd0, moved: wd0 !== ld[i] }; }
+    });
+    if (isEz(ms, nx.d)) return out;
     var now = new Date(), ti = (now.getDay() + 6) % 7, today = dayKey(now);
     var did = ix().list.some(function (wo) { return (wo.dk || dayKey(new Date(wo.st))) === today; });
     var o = did ? 1 : 0;
     for (var c = cols.indexOf(nx.d); c >= 0 && c < cols.length; c++) {
+      if (woFor(ms, nx.w, cols[c])) continue;     // done early: not still to come, and takes no day
       while (o < 21 && ld.indexOf((ti + o) % 7) < 0) o++;
       var wd = (ti + o) % 7;
       out[cols[c]] = { wd: wd, moved: wd !== ld[c] };
@@ -6980,8 +7087,11 @@
         '<span class="tr-h-meta">' + esc([spanSay(f.from, f.to), weeksOf(ms) + ' weeks × ' + ms.days.length + ' days'].filter(Boolean).join(' · ')) + '</span>' +
         '<span class="tr-cbar tr-bbar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' +
         '<span class="tr-h-meta">' + f.done + ' of ' + f.tot + ' sessions' +
-          (f.prs ? ' · <span class="tr-pr">🥇 ' + f.prs + ' record' + (f.prs === 1 ? '' : 's') + '</span>' : '') +
-          (up ? ' · ' + esc(lib(up.e).n) + ' <span class="tr-up">+' + Math.round(up.ch * 100) + '%</span>' : '') + '</span>' +
+          (f.prs ? ' · <span class="tr-pr">🥇 ' + f.prs + ' record' + (f.prs === 1 ? '' : 's') + '</span>' : '') + '</span>' +
+        /* The lift that rose most, on a line of its own. Tacked on the end of
+           the sessions line it wrapped wherever the width ran out, "+33%"
+           alone under "Leg Extension". */
+        (up ? '<span class="tr-h-meta tr-bup">' + esc(lib(up.e).n) + '\u00a0<span class="tr-up">+' + Math.round(up.ch * 100) + '%</span></span>' : '') +
       '</button>';
     }).join('') + '</div>';
   }
@@ -8901,10 +9011,19 @@
       Object.keys(n[p]).forEach(function (k) { TS[p][k] = now; });
     });
     TS.pr = now; TS.act = now;
+    /* Each block's fields as new as the copy, and the ones this device had
+       that the copy has not with them, so the other device drops them too. */
+    var msk = {};
+    Object.keys(n.ms).forEach(function (id) {
+      msk[id] = {};
+      Object.keys(n.ms[id]).concat(Object.keys(T.ms[id] || {})).forEach(function (f) { msk[id][f] = now; });
+    });
     T = n;
+    TS.msk = msk;
     TS.prk = {};
     Object.keys(T.pr).forEach(function (k) { TS.prk[k] = now; });
     PRSEEN = prSeen();
+    MSSEEN = msSeenAll();
     S.imp = null;
     dirtyAll = true;
     saveT();
@@ -10438,6 +10557,7 @@
       var m = {}, tp = plain(t[p]) ? t[p] : {}, sp = plain(ts[p]) ? ts[p] : {};
       Object.keys(tp).concat(Object.keys(sp)).forEach(function (k) {
         if (fin(sp[k])) m[k] = { v: tp[k] || null, at: sp[k] };
+        if (m[k] && p === 'ms' && tp[k] && plain(ts.msk) && plain(ts.msk[k])) m[k].k = ts.msk[k];
       });
       tr[p] = m;
     });
@@ -10463,6 +10583,9 @@
 
   /* ------------------------------------------------------------------ wiring */
   function wire() {
+    var say = document.createElement('div');
+    say.id = 'trSay'; say.className = 'sr-only'; say.setAttribute('role', 'status');
+    document.body.appendChild(say);
     var chartDown = null;
     document.addEventListener('pointerdown', function (e) {
       var svg = e.target && e.target.closest && e.target.closest('svg.tr-chart[data-pts]');
@@ -10799,7 +10922,7 @@
       checkin: checkin, chkReads: chkReads, dueSay: dueSay, phaseNow: phaseNow, phaseAt: phaseAt, capAt: capAt, phaseCap: phaseCap, phaseLine: phaseLine, phaseReset: function () { phLive.t = 0; },
       dropWo: dropWo, fitSay: fitSay, yearOf: yearOf, woCsv: woCsv, imDate: imDate, snapHome: snapHome, homeLoads: homeLoads, plateHave: plateHave, counts: counts, tick: tick, yr: function () { return YR; }, lsFull: function () { return LSFULL; },
       state: function () { return { T: T, TS: TS, LIVE: LIVE, S: S }; },
-      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); LIVE = readLS(LS_LIVE); REV++; phLive.t = 0; }
+      reload: function () { T = loadT(); TS = loadTS(); PRSEEN = prSeen(); MSSEEN = msSeenAll(); LIVE = readLS(LS_LIVE); REV++; phLive.t = 0; }
     }
   };
 })();

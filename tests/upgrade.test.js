@@ -81,14 +81,19 @@ function update() {
       const st = (w) => (w ? w.state : '-');
       const timer = setTimeout(() => resolve('no new worker (installing ' + st(reg.installing) + ', waiting ' + st(reg.waiting) +
         ', active ' + st(reg.active) + ')'), 20000);
-      reg.addEventListener('updatefound', () => {
-        const w = reg.installing;
+      const follow = (w) => {
         const seen = () => {
           if (w.state === 'activated' || w.state === 'redundant') { clearTimeout(timer); resolve(w.state); }
         };
         w.addEventListener('statechange', seen);
         seen();
-      });
+      };
+      reg.addEventListener('updatefound', () => follow(reg.installing));
+      /* The page asks for updates itself too (src/boot.js, on load and on
+         focus), and one of its asks can find the new worker a moment before
+         this listener is on: updatefound has been and gone. One already
+         under way is followed rather than waited for. */
+      if (reg.installing) { follow(reg.installing); return; }
       reg.update().catch(() => { /* a failed install may reject it; the state says */ });
     });
   });
@@ -215,8 +220,15 @@ module.exports = {
       t.ok('while the pictures stay where they were, not downloaded again',
         wB.ART === wA.ART && s.keys.indexOf(wB.ART) >= 0 && pictures(s, wB) && asked(ART_FILES).length === 0,
         JSON.stringify(s.keys) + ' ' + asked(ART_FILES).length + ' picture requests');
+      /* Waited for, not timed. The page looks again every two seconds
+         (src/boot.js), and on a loaded machine the reload landed after a
+         fixed 2.6 s — inside the next step, where it tore down the context
+         that step was evaluating in, and its own update check on load found
+         the next build's worker before the step was listening for one. */
+      const reloaded = p.waitForEvent('load', { timeout: 20000 }).catch(() => null);
       await p.evaluate(() => { window.__editing = false; });
-      await p.waitForTimeout(2600);
+      await reloaded;
+      await p.waitForTimeout(300);
       s = await see();
       t.ok('and once nothing is in progress the page reloads onto it', s.tag === 'B' && s.cards > 100, s.tag + ', ' + s.cards + ' cards');
 

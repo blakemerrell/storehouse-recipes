@@ -370,6 +370,30 @@ module.exports = {
     }));
     t.ok('a saved answer keeps working: on is mine, a plan still shared stays, one no longer shared (or my own) is Don’t mind',
       JSON.stringify(saved) === JSON.stringify([1, 1, 2, 3, 'u:sarah1', 0, 0]), JSON.stringify(saved));
+
+    /* Two people sharing under one name made two chips that both said
+       "Hits Sarah’s plan", and no telling which was which. The second of a
+       name, in account order, is (2) — on the chip, the question and the
+       plate — and somebody else under my own shared name is the second of
+       mine. */
+    delete share.evil1;
+    share.sarah2 = { n: 'Sarah', kc: 650, p: 30 };
+    share.blake2 = { n: 'Blake', kc: 700, p: 50 };
+    await openSheet({ days: ['sat', 'sun'], ppl: 4, bud: 150, t: 0, fit: 'u:sarah2' });
+    const twins = await p.evaluate(() => ({
+      chips: [...document.querySelectorAll('[data-pwq="fit"]')].map((b) => b.dataset.pwv + '=' + b.textContent.trim().replace(/ \d+\*?$/, '') + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
+      small: document.querySelector('[data-pwq="fit"]').closest('.pw-q').querySelector('.pw-ql small').textContent, mine: window.__pw.fit() }));
+    t.ok('two people under one name are two chips that say which, the same way round every time',
+      JSON.stringify(twins.chips) === JSON.stringify(['0=Don’t mind', '1=Hits my plan', 'u:blake2=Hits Blake’s plan (2)', 'u:sarah1=Hits Sarah’s plan',
+        'u:sarah2=Hits Sarah’s plan (2)*', '3=Hits everyone’s', '2=High protein']), JSON.stringify(twins.chips));
+    t.ok('and the question says whose share is whose the same way',
+      twins.small === 'You ' + twins.mine.kc + ' cal · ' + twins.mine.p + ' g · Blake (2) 700 cal · 50 g · Sarah 400 cal · 40 g · Sarah (2) 650 cal · 30 g', twins.small);
+    await p.click('.pw-bar .pw-go');
+    await p.click('[data-pwpick="all"]');
+    await p.waitForTimeout(400);
+    const twinWk = await onWeek();
+    t.ok('the plate is the second Sarah’s, and says so', twinWk.length > 0 && twinWk.every((m) => m.plates.length === 1 && /^Sarah’s plate \(2\): /.test(m.plates[0])),
+      JSON.stringify(twinWk));
     await p.evaluate(() => { localStorage.removeItem('bsc.diners'); localStorage.setItem('sh.pw', JSON.stringify({ fit: 3 })); });
     await p.reload();
     await p.waitForTimeout(300);

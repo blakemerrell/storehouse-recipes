@@ -1,0 +1,14 @@
+# The workflows' actions are pinned to commits, not tags (a tag can be moved
+# to point at anything, and two of these jobs hold a key or publish the site).
+# Dependabot keeps the pins current: it opens a pull request when an action
+# releases, with the commit and the version it is beside it, and the tests run
+# on that pull request like any other.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
