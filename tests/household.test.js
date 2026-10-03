@@ -397,6 +397,35 @@ module.exports = {
     t.ok('a new plan from another of her devices moves the dinner she shares',
       moved.p !== mineShare.p && same(SRV.db[HP].diners.alice, dn('Alice', moved.kc, moved.p)), JSON.stringify({ moved, d: SRV.db[HP].diners }));
 
+    /* Dinner's share of her day is a share of the dinner she shares: a
+       bigger dinner in her meals is a bigger plate for the household. */
+    await A2.p.keyboard.press('Escape');
+    await A2.p.click('.tab[data-view="macros"]');
+    await A2.p.waitForTimeout(250);
+    if (!await A2.p.$('#macroTargBtn')) {
+      const h = await A2.p.$('.mday-weigh [data-mfold]');
+      if (h) { await h.click(); await A2.p.waitForTimeout(250); }
+    }
+    await A2.p.click('#macroTargBtn');
+    await A2.p.waitForTimeout(250);
+    // the meals and Save, out from behind the wizard's folds, as macros.test's revealPlanFields does
+    await A2.p.evaluate(() => {
+      document.querySelectorAll('[data-mtwstep]').forEach((s) => { s.hidden = false; });
+      document.querySelectorAll('.mt-sheet details').forEach((d) => { d.open = true; });
+      ['mtMealsWrap', 'mtSave'].forEach((id) => { const el = document.getElementById(id); if (el) el.classList.remove('hide'); });
+    });
+    await A2.p.waitForTimeout(80);
+    await A2.p.fill('#mtMeals .mtm-row[data-mtmk="d"] .mtm-share', '70');
+    await A2.p.click('[data-mtarg="save"]');
+    await A2.p.waitForTimeout(400);
+    const bigger = await A2.p.evaluate(() => window.__pw.fit());
+    t.ok('and so does a bigger share of her day for dinner',
+      bigger.kc > moved.kc && same(SRV.db[HP].diners.alice, dn('Alice', bigger.kc, bigger.p)), JSON.stringify({ moved, bigger, d: SRV.db[HP].diners }));
+    // and back to the sharing sheet the rest of this runs on
+    if (await A2.p.$('#modalRoot .scrim')) { await A2.p.keyboard.press('Escape'); await A2.p.waitForTimeout(200); }
+    await A2.p.click('#syncBtn');
+    await A2.p.waitForTimeout(250);
+
     // a new name, typed and left
     await A2.p.fill('#dinerName', '  Ali  ');
     await A2.p.press('#dinerName', 'Tab');

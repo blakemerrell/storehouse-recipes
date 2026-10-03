@@ -4015,7 +4015,10 @@
     };
   }
   function mWriteSlots(s) {
-    if (mPut('bsc.macroSlots', s)) mStamp('sl');    // see mWriteMyFoods
+    /* and dinner's share of the day moves the dinner you share (pwFitCaps):
+       Save writes the targets first, so their own dinerKeep saw the old
+       meals. */
+    if (mPut('bsc.macroSlots', s)) { mStamp('sl'); dinerKeep(); }   // see mWriteMyFoods
   }
 
   /* Every section there is, in book order, straight off the live data — the
