@@ -316,6 +316,45 @@ module.exports = {
       full.full && /storage for the app is full/.test(full.toast) && /still go to the shared pantry/.test(full.toast), JSON.stringify(full));
     await F.ctx.close();
 
+    // ---- joining over a week the household has planned says where hers went
+    /* The household's week stands and this phone's goes in as a template,
+       which is right; what was wrong was the silence. Her Monday and Tuesday
+       were simply gone from the calendar, kept only under Cook this again. */
+    SRV.db[HP] = seedHouse();
+    const J = await phone();
+    await J.p.evaluate((wk) => localStorage.setItem('bsc.weeks', JSON.stringify({ [wk]: { name: '', ord: 0, plan: { mon: [5], tue: [6] }, checked: {} } })), WK);
+    await J.p.reload();
+    await J.p.evaluate((code) => window.Store.join(code), CODE);
+    await J.p.waitForFunction(() => window.Store.status === 'synced', null, { timeout: 5000 });
+    await J.p.waitForTimeout(200);
+    const parkSaid = await J.p.evaluate(() => {
+      const aw = window.Store.activeWeek();
+      return { toast: (document.getElementById('mToast') || {}).textContent || '', hidden: (document.getElementById('mToast') || {}).hidden,
+        want: 'Your dinners for ' + aw.name + ' are kept as the template ‘Week of ' +
+          aw.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '’ — Plan › Cook this again' };
+    });
+    const parkedWk = Object.values(SRV.db[HP].weeks).find((x) => x.tpl === 1 && same(x.plan, { mon: [5], tue: [6] }));
+    t.ok('joining over a week the household had planned says, once, where this phone’s dinners went',
+      parkSaid.toast === parkSaid.want && parkSaid.hidden === false && !!parkedWk && 'Week of ' + parkSaid.want.split('‘Week of ')[1].split('’')[0] === parkedWk.name,
+      JSON.stringify({ parkSaid, parkedWk }));
+    t.ok('and the household’s own week is the one on the calendar', same(SRV.db[HP].weeks[WK].plan, seedHouse().weeks[WK].plan) &&
+      await J.p.evaluate(() => window.Store.day('mon').map((e) => e.id).join()) === '12,u1');
+
+    // ---- one tap on where the staples come from is one write -------------
+    n = since();
+    await J.p.click('#syncBtn');
+    await J.p.waitForTimeout(250);
+    await J.p.click('[data-sync="where"]');
+    await J.p.waitForTimeout(250);
+    await J.p.click('[data-srcpick="fb"]');
+    await J.p.waitForTimeout(250);
+    w = writesFrom(n);
+    t.ok('a tap on where the staples come from is one write, not one a switch',
+      w.length === 1 && same(Object.keys(w[0].data).sort(), ['opts.big', 'opts.fb', 'opts.store']) && SRV.db[HP].opts.fb === 1 && SRV.db[HP].opts.store === 1,
+      JSON.stringify(w));
+    t.ok('with nothing thrown', J.errs.length === 0, J.errs.join(' | '));
+    await J.ctx.close();
+
     // ---- a dinner's numbers, shared by the person they belong to ---------
     /* Blake: "what if my wife has a different plan?" She shares a dinner's
        share of hers from Sync & sharing, and Plan my week on every phone in
@@ -354,6 +393,11 @@ module.exports = {
     await L.ctx.close();
 
     SRV.db[HP] = seedHouse({ members: ['alice', 'bob'], diners: { bob: dn('Bob', 400, 40) } });
+    /* Her account on this household. The pantry made just above told it
+       FRESH, and whenever the account answered before the next click,
+       "Use your account’s pantry?" sat over the sheet and the click never
+       landed (two runs in five). */
+    SRV.db['users/alice'] = { house: CODE };
     const A2 = await phone({ house: CODE, user: ALICE });
     await A2.p.evaluate(() => localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 210, c: 90, f: 50 })));
     await A2.p.click('#syncBtn');
@@ -433,8 +477,94 @@ module.exports = {
     t.ok('a household on the old rules refuses the numbers: the switch says why, and sharing carries on',
       refused.r === true && /publishing again/.test(refused.say) && refused.st !== 'error' && !(SRV.db[HP].diners || {}).alice,
       JSON.stringify(refused));
-    SRV.refuse = null;
+    /* And after the rules are published, the next word from the household
+       sends them. It did not: the refused entry stayed in this phone's
+       diners, so the app took them for shared, and nothing tried again until
+       the app was reopened. */
+    t.ok('the numbers the household refused are not left on this phone as if it had them',
+      !(await R.p.evaluate(() => 'alice' in window.Store.diners())) && !(await R.p.evaluate(() => JSON.parse(localStorage.getItem('bsc.diners') || '{}').alice)));
+    const dinerTries = (from) => writesFrom(from).filter((x) => x.path === HP && Object.keys(x.data).some((k) => /^diners\./.test(k))).length;
+    n = since();
+    await poke(R.p);                             // the household says the same again
+    await poke(R.p);
+    t.ok('nothing is sent again while the household has not changed', dinerTries(n) === 0, JSON.stringify(writesFrom(n)));
+    SRV.db[HP].favs.push(77);                    // the other phone, a favourite
+    await poke(R.p);
+    await poke(R.p);
+    await poke(R.p);
+    t.ok('still on the old rules, a change in the household is one more try, refused, and no loop',
+      dinerTries(n) === 1 && await R.p.evaluate(() => window.Store.dinerRefused) === true, JSON.stringify(writesFrom(n)));
+    SRV.refuse = null;                           // the rules, published
+    n = since();
+    SRV.db[HP].favs.push(78);
+    await poke(R.p);
+    await R.p.waitForTimeout(250);
+    const after2 = await R.p.evaluate(() => ({ r: window.Store.dinerRefused, mine: window.Store.diners().alice,
+      say: (document.querySelector('.sync-diner') || {}).textContent || '' }));
+    t.ok('published, the next change in the household sends them, and the warning goes',
+      dinerTries(n) === 1 && !!(SRV.db[HP].diners || {}).alice && SRV.db[HP].diners.alice.n === 'Alice' && after2.r === false &&
+        !!after2.mine && !/publishing again/.test(after2.say), JSON.stringify({ after2, d: SRV.db[HP].diners, w: writesFrom(n) }));
+    t.ok('with nothing thrown', R.errs.length === 0, R.errs.join(' | '));
     await R.ctx.close();
+
+    // ---- a second phone with a pantry of its own can still join another --
+    /* His wife installs it, signs in and keeps one favourite, and the
+       account makes her a pantry of her own (mHouseReconcile). Then she is
+       read the code — and the box to type it in had gone with the screen
+       for having no pantry. */
+    const WIFE = { uid: 'wife', isAnonymous: false, email: 'w@test.example', displayName: 'Sarah Smith' };
+    const OWN = 'WILLOW-0001-OWN-CODE', OTHER = 'OTHER-2222-HOUSE-CODE';
+    SRV.db[HP] = seedHouse({ members: ['alice', 'bob'] });
+    SRV.db['households/' + OWN] = { favs: [99], weeks: {}, mine: {}, edits: {}, members: ['wife'] };
+    SRV.db['households/' + OTHER] = { favs: [], weeks: {}, mine: {}, edits: {}, members: ['carol'] };
+    SRV.db['users/wife'] = { house: OWN };
+    const W = await phone({ house: OWN, user: WIFE });
+    await W.p.click('#syncBtn');
+    await W.p.waitForTimeout(250);
+    const wbox = await W.p.evaluate(() => ({ code: (document.querySelector('.sync-code') || {}).textContent,
+      box: !!document.getElementById('joinCode'), btn: !!document.querySelector('[data-sync="join"]') }));
+    t.ok('in a pantry of her own, the sheet still has a box for another pantry’s code', wbox.code === OWN && wbox.box && wbox.btn, JSON.stringify(wbox));
+    const wsay = () => W.p.evaluate(() => ({ house: window.Store.house, dlg: (document.getElementById('dlgT') || {}).textContent || '',
+      warn: [...document.querySelectorAll('.sync-sheet .sync-warn')].map((x) => x.textContent).join(' | '),
+      box: (document.getElementById('joinCode') || {}).value }));
+    // one wrong digit: she stays where she was, and is told
+    await W.p.fill('#joinCode', 'NOBODY-0000-HERE');
+    await W.p.click('[data-sync="join"]');
+    await W.p.waitForFunction((c) => window.Store.house === c && window.Store.status === 'synced', OWN, { timeout: 5000 });
+    await W.p.waitForTimeout(200);
+    let ws = await wsay();
+    t.ok('a code that is nobody’s leaves her in her own pantry, and says so there', ws.house === OWN && !ws.dlg &&
+      /No shared pantry with the code NOBODY-0000-HERE/.test(ws.warn), JSON.stringify(ws));
+    await W.p.fill('#joinCode', ' ' + CODE.toLowerCase().replace(/-/g, ' ') + ' ');
+    await W.p.click('[data-sync="join"]');
+    await W.p.waitForFunction((c) => window.Store.house === c && window.Store.status === 'synced', CODE, { timeout: 5000 });
+    await W.p.waitForTimeout(300);
+    ws = await wsay();
+    t.ok('the household’s code typed there moves the phone, unasked, since nobody else was in hers',
+      ws.house === CODE && !ws.dlg && !/No shared pantry/.test(ws.warn) && ws.box === '', JSON.stringify(ws));
+    t.ok('her favourite comes with her, and her account follows', SRV.db[HP].favs.indexOf(99) >= 0 &&
+      SRV.db['users/wife'].house === CODE && SRV.db[HP].members.indexOf('wife') >= 0, JSON.stringify({ f: SRV.db[HP].favs, u: SRV.db['users/wife'], m: SRV.db[HP].members }));
+    // from a pantry other people share, asked first
+    await W.p.fill('#joinCode', OTHER);
+    await W.p.click('[data-sync="join"]');
+    await W.p.waitForTimeout(250);
+    ws = await wsay();
+    t.ok('from a pantry other people share, it asks before taking the phone out of it',
+      /Leave this pantry/.test(ws.dlg) && ws.house === CODE, JSON.stringify(ws));
+    await W.p.click('[data-dlg="cancel"]');
+    await W.p.waitForTimeout(250);
+    t.ok('and Cancel leaves it where it was', (await wsay()).house === CODE);
+    if (!await W.p.$('#joinCode')) { await W.p.click('#syncBtn'); await W.p.waitForTimeout(250); }
+    await W.p.fill('#joinCode', OTHER);
+    await W.p.click('[data-sync="join"]');
+    await W.p.waitForTimeout(250);
+    await W.p.click('[data-dlg="ok"]');
+    await W.p.waitForFunction((c) => window.Store.house === c && window.Store.status === 'synced', OTHER, { timeout: 5000 });
+    await W.p.waitForTimeout(300);
+    t.ok('and Join moves it, and the account with it', (await wsay()).house === OTHER && SRV.db['users/wife'].house === OTHER,
+      JSON.stringify(SRV.db['users/wife']));
+    t.ok('with nothing thrown', W.errs.length === 0, W.errs.join(' | '));
+    await W.ctx.close();
 
     // ---- an account deleted takes its name off the household ------------
     SRV.db[HP] = seedHouse({ members: ['alice', 'bob'], diners: { alice: dn('Alice', 550, 70), bob: dn('Bob', 400, 40) } });
