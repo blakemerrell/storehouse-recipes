@@ -100,6 +100,27 @@ module.exports = {
       t.ok('and the phone keeps nobody’s numbers', Object.keys(A.S.diners()).length === 0 && A.S.house === '', JSON.stringify(A.S.diners()));
     }
 
+    /* ---- moving to another household is leaving the first ---- */
+    {
+      const w = world(NOW);
+      w.server.H = house({ [WK]: week({ mon: [1] }) }, { members: ['alice', 'bob'], diners: { alice: { n: 'Ali', kc: 550, p: 70 }, bob: { n: 'Bob', kc: 400, p: 40 } } });
+      w.server.K = house({ [WK]: week({ tue: [2] }) }, { members: ['carol'] });
+      const A = w.phone('alice', joined({}, 'H'), { account: true });
+      A.S.init(() => {});
+      await w.wait(150);
+      A.S.join('K');                 // the box under the code, an invite, or the account's pantry
+      await w.wait(200);
+      t.ok('joining another household takes alice off the first one’s list and out of its diners, and leaves bob',
+        JSON.stringify(w.server.H.members) === '["bob"]' && !w.server.H.diners.alice && !!w.server.H.diners.bob,
+        JSON.stringify({ m: w.server.H.members, d: w.server.H.diners }));
+      t.ok('and she is on the new one’s list, which kept its own', A.S.house === 'K' && (w.server.K.members || []).indexOf('alice') >= 0 && (w.server.K.members || []).indexOf('carol') >= 0,
+        JSON.stringify(w.server.K.members));
+      const n = w.writes.length;
+      A.S.join('K');                 // the same code again is not a move
+      await w.wait(150);
+      t.ok('rejoining the household she is in says no goodbye to it', !w.writes.slice(n).some((x) => x.update && x.update.indexOf('members') >= 0), JSON.stringify(w.writes.slice(n)));
+    }
+
     /* ---- a diner's numbers the rules take and the app used to drop ---- */
     {
       const w = world(NOW);

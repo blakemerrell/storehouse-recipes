@@ -1,5 +1,6 @@
-/* Weeks between phones: joining, the move onto dates, pruning, and a change
- * that has to reach the household whatever the screen does.
+/* Weeks between phones: joining, the move onto dates, pruning, a change
+ * that has to reach the household whatever the screen does, and what one
+ * change costs in writes.
  *
  * Found by a review on 1 October 2026. Two phones and a household, in Node,
  * against tests/fixtures/fakefire.js — no network and no browser. The clock is
@@ -25,6 +26,36 @@ module.exports = {
       t.ok('the template arrives as a template', vals.some((x) => x.tpl === 1 && x.name === 'Taco night'), JSON.stringify(ws));
       t.ok('the household’s Sep 13 stands, and this phone’s Sep 13 comes as a template',
         JSON.stringify(ws.d20260913.plan) === '{"mon":[1]}' && vals.some((x) => x.tpl === 1 && JSON.stringify(x.plan) === '{"tue":[5]}'), JSON.stringify(ws));
+      /* And the phone is told, which it was not: her week was simply gone
+         from the calendar, kept only under Cook this again. A template that
+         was a template already is nothing to tell. */
+      const note = B.S.parkedNote();
+      t.ok('the phone is told which of its weeks went to a template, under what name, and only those',
+        JSON.stringify(note) === JSON.stringify([{ name: 'Week of Sep 13', dates: 'Sep 13 – Sep 19' }]), JSON.stringify(note));
+      t.ok('once: asked again, there is nothing to tell', B.S.parkedNote() === null);
+    }
+
+    /* ---- this week planned on both phones: hers is parked, and said ---- */
+    {
+      const w = world(NOW);
+      w.server.H = { favs: [], weeks: { d20260927: week({ mon: [1], tue: [2] }) }, mine: {}, edits: {} };
+      const B = w.phone('B', joined({ d20260927: week({ mon: [5], wed: [6] }) }));
+      B.S.init(() => {});
+      B.S.join('H');
+      await w.wait(150);
+      const parked = Object.values(w.server.H.weeks).filter((x) => x.tpl === 1);
+      t.ok('the household’s Mon and Tue stand, and her Mon and Wed are the template Week of Sep 27',
+        JSON.stringify(w.server.H.weeks.d20260927.plan) === '{"mon":[1],"tue":[2]}' && parked.length === 1 &&
+          parked[0].name === 'Week of Sep 27' && JSON.stringify(parked[0].plan) === '{"mon":[5],"wed":[6]}', JSON.stringify(w.server.H.weeks));
+      t.ok('and the phone has the words for it: the dates and the template’s name',
+        JSON.stringify(B.S.parkedNote()) === JSON.stringify([{ name: 'Week of Sep 27', dates: 'Sep 27 – Oct 3' }]));
+      // a phone with nothing the household had planned differently has nothing to be told
+      const C = w.phone('C', joined({ d20260927: week({ mon: [1], tue: [2] }), d20261004: week({ fri: [9] }) }));
+      C.S.init(() => {});
+      C.S.join('H');
+      await w.wait(150);
+      t.ok('a join that parks nothing says nothing', C.S.parkedNote() === null && JSON.stringify(w.server.H.weeks.d20261004.plan) === '{"fri":[9]}',
+        JSON.stringify(w.server.H.weeks));
     }
 
     /* ---- the move onto dates: per day, and no false "removed" ---- */
@@ -92,6 +123,62 @@ module.exports = {
         !threw && JSON.stringify(w.server.H.weeks.d20260927.plan.mon) === '[7]' && A.S.day('mon').length === 1,
         threw + ' ' + JSON.stringify(w.server.H.weeks.d20260927.plan));
       t.ok('and the error is still reported', A.errors.indexOf('render bug') >= 0, JSON.stringify(A.errors));
+    }
+
+    /* ---- one tap, one write ---- */
+    /* Where the staples come from is three household switches, four from
+       the front door, set together in a batch (setSrcKind in app.js). Each
+       was its own write — four billed writes and four snapshots on every
+       phone, for one tap. */
+    {
+      const w = world(NOW);
+      w.server.H = { favs: [], weeks: { d20260927: week({}), wT: week({ mon: [1], tue: [2], wed: [3] }, { name: 'Usual', ord: 1, tpl: 1 }) },
+        mine: {}, edits: {}, opts: { store: 1 } };
+      const A = w.phone('A', joined({}, 'H'));
+      const B = w.phone('B', joined({}, 'H'));
+      A.S.init(() => {});
+      B.S.init(() => {});
+      await w.wait(150);
+      let n = w.writes.length;
+      A.S.batch(() => { A.S.setOpt('store', true); A.S.setOpt('fb', true); A.S.setOpt('big', false); A.S.setOpt('setup', true); });
+      await w.wait(150);
+      let ws = w.writes.slice(n);
+      t.ok('a tap on where the staples come from is one write, of all four switches',
+        ws.length === 1 && ws[0].update.join() === 'opts.store,opts.fb,opts.big,opts.setup', JSON.stringify(ws));
+      t.ok('and the other phone has all four from it', B.S.opt('fb') && B.S.opt('setup') && !B.S.opt('big', true) && B.S.opt('store'),
+        JSON.stringify(B.S.state.opts));
+
+      n = w.writes.length;
+      A.S.batch(() => {
+        A.S.setKitchen('salt', 1); A.S.setSrc('salt', null);   // two maps, two fields: one write
+        A.S.addToDay(7, 'mon');                                 // a union: its own write, in its place
+        A.S.setLow('milk', true); A.S.setLow('milk', false);    // one field twice: two writes, the last standing
+      });
+      await w.wait(150);
+      ws = w.writes.slice(n);
+      t.ok('a batch folds only plain writes to different fields, and keeps the order they were made in',
+        ws.map((x) => x.update.join()).join(' | ') === 'kitchen.salt,src.salt | weeks.d20260927.plan.mon | low.milk | low.milk', ws.map((x) => x.update.join()).join(' | '));
+      t.ok('so the household holds what was said last', w.server.H.kitchen.salt === 1 && !('milk' in (w.server.H.low || {})) &&
+        JSON.stringify(w.server.H.weeks.d20260927.plan.mon) === '[7]', JSON.stringify({ k: w.server.H.kitchen, l: w.server.H.low, p: w.server.H.weeks.d20260927.plan }));
+
+      n = w.writes.length;
+      A.S.cookAgain('wT');
+      await w.wait(150);
+      ws = w.writes.slice(n);
+      t.ok('Cook this again puts its nights on in one write (Monday, taken already, left as it is)', ws.length === 1 &&
+        ws[0].update.join() === 'weeks.d20260927.plan.tue,weeks.d20260927.plan.wed' &&
+        JSON.stringify(w.server.H.weeks.d20260927.plan) === '{"mon":[7],"tue":[2],"wed":[3]}', JSON.stringify({ ws, p: w.server.H.weeks.d20260927.plan }));
+
+      // a tap before the household has answered is held, and still goes as one
+      const Q = w.phone('Q', joined({}, 'H'));
+      Q.S.init(() => {});
+      n = w.writes.length;
+      Q.S.batch(() => { Q.S.setOpt('store', false); Q.S.setOpt('fb', false); Q.S.setOpt('big', false); });
+      await w.wait(150);
+      ws = w.writes.slice(n).filter((x) => x.who === 'Q');
+      t.ok('made before the household answered, held, and sent as one', ws.length === 1 && ws[0].update.join() === 'opts.store,opts.fb,opts.big' &&
+        w.server.H.opts.store === 0, JSON.stringify(ws));
+      t.ok('with nothing thrown', A.errors.length + B.errors.length + Q.errors.length === 0, JSON.stringify([A.errors, B.errors, Q.errors]));
     }
   },
 };

@@ -266,9 +266,15 @@ module.exports = {
     await ap.reload();
     th = await look();
     t.ok('and it is kept: light again after a reload', th.t === 'light' && th.scheme === 'light', JSON.stringify(th));
+    /* In src/theme.js since the page's policy refused inline script: loaded
+       ahead of the stylesheet, and without async or defer, so it still runs
+       before anything is drawn. */
     const html = await (await ap.request.get(t.base + 'index.html')).text();
+    const tag = (/<script\b[^>]*\bsrc="(src\/theme\.js[^"]*)"[^>]*>/.exec(html) || []);
+    const themeJs = tag[1] ? await (await ap.request.get(t.base + tag[1])).text() : '';
     t.ok('decided before the stylesheet loads, so the page never shows the other one first',
-      html.indexOf('bsc.theme') > 0 && html.indexOf('bsc.theme') < html.indexOf('rel="stylesheet"'));
+      !!tag[0] && !/\b(async|defer)\b/.test(tag[0]) && html.indexOf(tag[0]) < html.indexOf('rel="stylesheet"') &&
+        themeJs.indexOf('bsc.theme') >= 0, tag[0] || 'no theme script');
     await ap.click('#syncBtn');
     await ap.waitForSelector('[data-sync="theme"]');
     await pickTheme('dark');
