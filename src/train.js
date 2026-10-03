@@ -4314,15 +4314,33 @@
     var el = document.querySelector('#view-train .tr-ex[data-xi="' + (moved === null ? d.gs[d.g][0] : moved) + '"]');
     if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
   }
-  // the arrow keys on a handle: a place at a time, the handle kept in hand
+  /* The arrow keys on a handle: a place at a time, the handle kept in hand,
+     and where it went said out loud. The handle is drawn again under the
+     focus, so a screen reader heard nothing of the move but the button's
+     own label, the same at every place. */
   function gripKey(grip, key) {
     var i = Number(grip.getAttribute('data-x'));
     var it = LIVE && LIVE.x[i];
     if (!it || !shiftEx(i, key === 'ArrowUp' ? -1 : 1)) return;
     saveLive();
     draw();
-    var g2 = document.querySelector('#view-train .tr-ex[data-xi="' + LIVE.x.indexOf(it) + '"] .tr-grip');
+    var at = LIVE.x.indexOf(it), gs = moveGroups(), g = 0;
+    gs.forEach(function (grp, k) { if (grp.indexOf(at) >= 0) g = k; });
+    srSay(lib(it.e).n + (gs[g].length > 1 ? ' and its pair' : '') + ' moved to ' + (g + 1) + ' of ' + gs.length);
+    var g2 = document.querySelector('#view-train .tr-ex[data-xi="' + at + '"] .tr-grip');
     if (g2) g2.focus();
+  }
+  /* A line for a screen reader, in a region made once at start and never
+     drawn: one that arrives with its words is one nobody was listening to
+     yet (Nourish's toast learned the same). Emptied first, so the same
+     words twice are two announcements. */
+  var sayT = null;
+  function srSay(words) {
+    var el = $('trSay');
+    if (!el) return;
+    el.textContent = '';
+    clearTimeout(sayT);
+    sayT = setTimeout(function () { el.textContent = words; }, 60);
   }
 
   function startPlanned(ms, w, d) {
@@ -10565,6 +10583,9 @@
 
   /* ------------------------------------------------------------------ wiring */
   function wire() {
+    var say = document.createElement('div');
+    say.id = 'trSay'; say.className = 'sr-only'; say.setAttribute('role', 'status');
+    document.body.appendChild(say);
     var chartDown = null;
     document.addEventListener('pointerdown', function (e) {
       var svg = e.target && e.target.closest && e.target.closest('svg.tr-chart[data-pts]');

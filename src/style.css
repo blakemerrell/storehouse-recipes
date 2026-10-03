@@ -7183,7 +7183,10 @@ button.day-item-name { background: none; border: 0; padding: 0; text-align: left
   padding: 2px 8px; border-radius: 99px; background: color-mix(in oklab, var(--ink) 7%, var(--card)); color: var(--muted-2);
 }
 .tr-btag-now { background: color-mix(in oklab, var(--green) 14%, var(--card)); color: var(--green); }
-.tr-hback { display: flex; align-items: center; min-height: 44px; font-size: 0.875rem; margin: -4px 0 6px; }
+/* Positioned so the whole 44 px answers a tap: drawn up 4 px into the row
+   of the Blocks / Workouts switch, it sat under that row's line box there,
+   and a tap on its top edge landed on the page behind. */
+.tr-hback { position: relative; display: flex; align-items: center; min-height: 44px; font-size: 0.875rem; margin: -4px 0 6px; }
 .tr-hbt { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .tr-hbt .tr-title { margin: 0; }
 .tr-hbt .tr-lnk { min-height: 44px; font-size: 0.8125rem; white-space: nowrap; }

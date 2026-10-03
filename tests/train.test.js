@@ -1820,6 +1820,18 @@ module.exports = {
     t.ok('moving down swaps it past the next exercise, and a pair moves as one',
       paired ? r.es[0] === order0.es[2] && r.es.indexOf(order0.es[0]) + 1 === r.es.indexOf(order0.es[1]) : r.es[1] === order0.es[0], JSON.stringify({ was: order0.es, now: r.es }));
     t.ok('and the handle stays in hand, on the card it moved', r.focus >= 0 && r.es[r.focus] === order0.es[0], JSON.stringify(r));
+    /* and where it went is said: the handle is drawn again under the focus,
+       so a screen reader heard only the button's own label, the same at
+       every place */
+    await p.waitForFunction(() => /moved to/.test((document.getElementById('trSay') || {}).textContent || ''), null, { timeout: 2000 }).catch(() => {});
+    r = await p.evaluate((e) => { const el = document.getElementById('trSay');
+      return { say: el ? el.textContent : '', status: !!el && el.getAttribute('role') === 'status' && el.classList.contains('sr-only') && !el.closest('#trBody'), name: window.Train._.lib(e).n }; }, order0.es[0]);
+    {
+      let groups = 0;
+      for (let j = 0; j < order0.es.length; j++) { groups++; if (order0.ps[j] && order0.ps[j + 1] === order0.ps[j]) j++; }
+      const want = r.name + (paired ? ' and its pair' : '') + ' moved to 2 of ' + groups;
+      t.ok('and the move is said out loud, from a status line that is always there: "' + want + '"', r.status && r.say === want, JSON.stringify(r));
+    }
     r = await p.evaluate(() => JSON.parse(localStorage.getItem('sh.trainLive')).x.map((x) => x.e));
     t.ok('and the new order is kept if the page goes away', r[0] !== order0.es[0], r.join());
 
@@ -4395,6 +4407,17 @@ module.exports = {
     t.ok('with what each lift did over it', r.lifts > 0 && r.up, JSON.stringify(r));
     t.ok('the hard sets per muscle week by week, the deload marked', r.vol > 3 && r.volHead === ',W1,W2,W3,W4,DL', r.volHead);
     t.ok('what was done outside the gym while it ran, a place for notes, and Run it again', r.outside && r.note && r.again, JSON.stringify(r));
+    // "‹ All blocks" is 44 px tall, and all 44 of them answer a tap, not 40
+    r = await p.evaluate(() => {
+      const b = document.querySelector('[data-t="hbclose"]');
+      b.scrollIntoView({ block: 'center' });
+      const a = b.getBoundingClientRect(), miss = [];
+      [a.left + 3, a.left + a.width / 2, a.right - 3].forEach((x) => {
+        for (let y = Math.ceil(a.top); y < Math.floor(a.bottom); y++) { const h = document.elementFromPoint(x, y); if (!h || !(h === b || b.contains(h))) miss.push(Math.round(x) + ',' + y); }
+      });
+      return { h: Math.round(a.height), miss };
+    });
+    t.ok('the way back to all blocks answers a tap over its whole 44 px', r.h >= 44 && !r.miss.length, JSON.stringify(r));
     await p.click('.tr-hblk [data-t="hbsel"][data-w="1"][data-d="2"]');
     r = await p.evaluate(() => ({ eb: (document.querySelector('#trSesh .tr-eyebrow') || {}).textContent || '', see: !!document.querySelector('#trSesh [data-t="wosheet"]'),
       start: !!document.querySelector('#trSesh [data-t="start"]') }));
