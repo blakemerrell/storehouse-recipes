@@ -1219,7 +1219,7 @@
       var list = window.Store.day(key).filter(function (e) { return BY_ID[e.id]; });
       var items = list.map(function (e) {
         var r = BY_ID[e.id], rt = window.Store.rating(r.id), din = pwIsDinner(r), twin = e.lo ? null : planTwin(e.id, key);
-        var meta = e.lo ? '' : [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : '', twin ? 'leftovers ' + calDayName(twin) : '',
+        var meta = e.lo ? '' : [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : '', twin ? 'leftovers ' + calDayName(twin.d) : '',
           (gone || now) && rt ? (rt === 2 ? '\u2605 favourite' : rt === 1 ? 'good' : 'not again') : ''].filter(Boolean).join(' \u00b7 ');
         var nw = S.pwNew && S.pwNew[key + '|' + e.id];
         return '<div class="day-item' + (e.lo ? ' lo' : '') + (din ? '' : ' mini') + (nw ? ' new' : '') + '" style="--pc:' + (din ? PROT_VAR[pwProt(r)] : 'transparent') + '">' +
@@ -1366,18 +1366,44 @@
     window.Store.batch(function () {
       window.Store.removeFromDay(id, day);
       window.Store.addToDay(nx.r.id, day, x);
-      /* Its leftovers night follows it, and it is still cooked double. */
-      if (twin) { window.Store.removeFromDay(id, twin); window.Store.addToDay(nx.r.id, twin, 1, true); }
+      /* Its leftovers night follows it, and it is still cooked double —
+         into next week, when it is Saturday's. */
+      if (twin) { window.Store.removeFromWeekDay(twin.wk, twin.d, id); window.Store.addToWeekDay(twin.wk, twin.d, nx.r.id, 1, true); }
     });
   }
+  /* The day beside a day of the week on screen, one step either way, and
+     the week it is in: {wk, d, at}, `at` its date. A week ends on Saturday
+     and the cooking does not, so Saturday's next is next week's Sunday and
+     Sunday's before is last week's Saturday. Saturday never offered Cook
+     double at all: the day after it was looked up in a list of seven and
+     was not there. */
+  function calBeside(day, step) {
+    var at = calDate(day);
+    if (!at) {                               // a week with no dates: its own seven
+      var j = PW_DAYS.indexOf(day) + step;
+      return PW_DAYS[j] ? { wk: window.Store.activeWeek().id, d: PW_DAYS[j], at: null } : null;
+    }
+    at.setDate(at.getDate() + step);
+    return { wk: window.Store.weekIdOf(at), d: PW_DAYS[at.getDay()], at: at };
+  }
+  function calGone(b) { return !!b.at && b.at < calMidnight(new Date()); }
   /* The leftovers night a cooked dinner feeds: the same recipe, eaten the
-     next day of this week. */
+     next day, Saturday's on next week's Sunday. The day beside, or null. */
   function planTwin(id, day) {
-    var i = PW_DAYS.indexOf(day), nxt = PW_DAYS[i + 1];
-    if (i < 0 || !nxt) return null;
+    var n = calBeside(day, 1);
+    if (!n) return null;
     var cooked = window.Store.day(day).some(function (e) { return e.id === id && !e.lo; });
-    var lo = window.Store.day(nxt).some(function (e) { return e.id === id && e.lo; });
-    return cooked && lo ? nxt : null;
+    var lo = window.Store.dayOf(n.wk, n.d).some(function (e) { return e.id === id && e.lo; });
+    return cooked && lo ? n : null;
+  }
+  /* And back the other way: the dinner a leftovers night is the second
+     half of, cooked the day before. The day beside and its count, or null
+     when nothing is cooked there — the other phone swapped it, or took it
+     off. */
+  function planCooked(id, day) {
+    var b = calBeside(day, -1);
+    var es = b ? window.Store.dayOf(b.wk, b.d).filter(function (e) { return e.id === id && !e.lo; }) : [];
+    return es.length ? { wk: b.wk, d: b.d, at: b.at, x: es[es.length - 1].x } : null;
   }
 
   function calDayName(key) { var d = DAYS.filter(function (x) { return x[0] === key; })[0]; return d ? d[1] : key; }
@@ -1397,13 +1423,21 @@
     var e = window.Store.day(key).filter(function (x) { return x.id === D.id; })[0];
     if (!r || !e) return '';
     var dt = calDate(key), gone = calPastDay(key), now = calIsToday(key), din = pwIsDinner(r);
-    var twin = e.lo ? null : planTwin(e.id, key), nxt = PW_DAYS[PW_DAYS.indexOf(key) + 1];
+    var twin = e.lo ? null : planTwin(e.id, key), nxt = calBeside(key, 1);
     var row = function (act, t, sub, cls) {
       return '<button class="dsh-row' + (cls ? ' ' + cls : '') + '" data-dsact="' + act + '"><span><b>' + t + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>';
     };
-    var meta = e.lo ? 'Leftovers \u00b7 nothing to cook or buy' :
-      [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : 'the recipe as written', twin ? 'leftovers ' + calDayName(twin) : ''].filter(Boolean).join(' \u00b7 ');
     var a = pwAnswers(), plans = pwPlans();
+    /* A leftovers night with nothing cooked the night before: the other
+       phone swapped that dinner, or took it off, and this one went on saying
+       "nothing to cook or buy" over a night with nothing to eat. */
+    var prv = e.lo && !planCooked(e.id, key) ? calBeside(key, -1) : null;
+    var meta = e.lo ? (prv ? 'Leftovers \u2014 but nothing is cooked on ' + calDayName(prv.d) : 'Leftovers \u00b7 nothing to cook or buy') :
+      [r.time || '', e.x !== 1 ? 'cooked \u00d7' + fmtNum(e.x) : 'the recipe as written', twin ? 'leftovers ' + calDayName(twin.d) : ''].filter(Boolean).join(' \u00b7 ');
+    /* Saturday's leftovers land in next week, out of sight from here, so
+       only onto a Sunday with nothing on it yet. */
+    var dbl = nxt && !calGone(nxt) && (nxt.wk === window.Store.activeWeek().id ||
+      !window.Store.dayOf(nxt.wk, nxt.d).some(function (x) { return BY_ID[x.id]; }));
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet dsh-sheet" role="dialog" aria-modal="true" aria-label="' + esc(calDayName(key)) + '\u2019s dinner">' +
         '<div class="sheet-top"><div class="sheet-eyebrow">' + esc(calDayName(key)) + (dt ? ' \u00b7 ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') + '</div>' +
@@ -1413,9 +1447,10 @@
         ((gone || now) && !e.lo ? '<div class="dsh-rate"><div class="dsh-rl">How was it?</div>' + rateHTML(e.id, window.Store.rating(e.id)) + '</div>' : '') +
         '<div class="dsh-rows">' +
         row('open', 'Open the recipe', '') +
+        (gone || !prv || calGone(prv) ? '' : row('cook', 'Cook it ' + calDayName(prv.d), 'Double, so ' + calDayName(key) + ' is its leftovers \u00b7 the list follows')) +
         (gone || e.lo || !din ? '' : row('swap', 'Swap for another dinner', 'By the same rules as Plan my week')) +
-        (gone || e.lo ? '' : (twin ? row('single', e.x / 2 > 1 ? 'Back to ×' + fmtNum(e.x / 2) : 'Back to one batch', 'Takes the leftovers off ' + calDayName(twin)) :
-          nxt && !calPastDay(nxt) ? row('double', 'Cook double, leftovers ' + calDayName(nxt), 'The list follows') : '')) +
+        (gone || e.lo ? '' : (twin ? row('single', e.x / 2 > 1 ? 'Back to ×' + fmtNum(e.x / 2) : 'Back to one batch', 'Takes the leftovers off ' + calDayName(twin.d)) :
+          dbl ? row('double', 'Cook double, leftovers ' + calDayName(nxt.d), nxt.wk === window.Store.activeWeek().id ? 'The list follows' : 'Into next week \u00b7 the list follows') : '')) +
         (gone ? '' : row('add', 'Add another to ' + calDayName(key), '')) +
         (gone ? '' : row('remove', 'Take it off ' + calDayName(key), twin ? 'And its leftovers night' : '', 'dsh-danger')) +
         '</div></div></div></div>';
@@ -1435,26 +1470,32 @@
     if (act === 'open') { openRecipe(id); return; }
     if (act === 'add') { S.daySheet = null; addOpen(day, true); return; }
     var was = window.Store.day(day).filter(function (x) { return x.id === id; })[0] || { x: 1 };
-    var twin = planTwin(id, day), nxt = PW_DAYS[PW_DAYS.indexOf(day) + 1], prev = PW_DAYS[PW_DAYS.indexOf(day) - 1];
+    var twin = planTwin(id, day), nxt = calBeside(day, 1), prv = calBeside(day, -1);
     /* The leftovers night taken off on its own: nobody is eating the second
        batch, so the dinner goes back to one. Left doubled, its sheet offered
        Cook double again, and ×2 became ×4 and never ×1. Looked up before the
        batch, which changes the days under it. */
     var half = function (x) { return x / 2 >= 1 ? x / 2 : 1; };
-    var cooked = was.lo && prev && planTwin(id, prev) === day
-      ? window.Store.day(prev).filter(function (x) { return x.id === id && !x.lo; })[0] : null;
+    var cooked = was.lo ? planCooked(id, day) : null;
     window.Store.batch(function () {
       if (act === 'swap') planSwap(id, day);
       if (act === 'double' && nxt) {
-        var cook = { r: BY_ID[id], x: was.x, day: day }, left = pwLeftovers(cook, nxt);
+        var cook = { r: BY_ID[id], x: was.x, day: day }, left = pwLeftovers(cook, nxt.d);
         window.Store.addToDay(id, day, cook.x);
-        window.Store.addToDay(id, left.day, left.x, true);
+        window.Store.addToWeekDay(nxt.wk, left.day, id, left.x, true);
       }
-      if (act === 'single') { window.Store.addToDay(id, day, half(was.x)); if (twin) window.Store.removeFromDay(id, twin); }
+      /* The orphan's dinner put back the night before, cooked double for
+         the household by the one rule a leftovers night has. */
+      if (act === 'cook' && prv && !cooked) {
+        var r0 = BY_ID[id], first = { r: r0, x: pwX(r0, pwAnswers().ppl), day: prv.d };
+        pwLeftovers(first, day);
+        window.Store.addToWeekDay(prv.wk, prv.d, id, first.x);
+      }
+      if (act === 'single') { window.Store.addToDay(id, day, half(was.x)); if (twin) window.Store.removeFromWeekDay(twin.wk, twin.d, id); }
       if (act === 'remove') {
         window.Store.removeFromDay(id, day);
-        if (twin) window.Store.removeFromDay(id, twin);
-        else if (cooked) window.Store.addToDay(id, prev, half(cooked.x));
+        if (twin) window.Store.removeFromWeekDay(twin.wk, twin.d, id);
+        else if (cooked) window.Store.addToWeekDay(cooked.wk, cooked.d, id, half(cooked.x));
       }
     });
     close();
