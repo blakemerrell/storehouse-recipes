@@ -10701,6 +10701,9 @@
     /* Your lifting weekdays while a block is running and you have picked
        them; null otherwise, and Nourish keeps its own. */
     liftDays: function () { return T.pr.ld.length ? T.pr.ld.slice() : null; },
+    /* What weights are said in here, 'kg' or 'lb' — so Nourish's weigh-in box
+       asks in the same unit rather than taking 86 kg as 86 lb. Read only. */
+    unit: function () { return T.pr.u === 'kg' ? 'kg' : 'lb'; },
     /* The day of the first workout on record, '' with none. */
     firstLogged: function () {
       var l = ix().list;

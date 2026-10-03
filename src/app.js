@@ -3762,11 +3762,12 @@
   }
 
   function mReadTargets() {
-    var t = null;
+    var t = null, hand = false;
     try {
       var raw = JSON.parse(localStorage.getItem('bsc.macroTargets'));
       if (raw && isFinite(raw.p) && isFinite(raw.f) && isFinite(raw.c)) {
         t = { p: Number(raw.p), f: Number(raw.f), c: Number(raw.c) };
+        hand = raw.auto === 0;
       }
     } catch (e) { /* private mode or a corrupt value — nothing is stored */ }
     /* Nothing stored is not the same as a plan of 180/50/50. That triple was
@@ -3799,10 +3800,16 @@
        them. 226P/62F/13C comes to 1,514 kcal — over the floor, and still a
        day with three percent of itself left for everything that is not
        protein or fat, which no dinner in the book fits inside. A deliberate
-       very-low-carb day typed by hand would be corrected once by this too;
-       that is the price of not serving a day nobody can eat. */
+       very-low-carb day typed by hand used to be corrected by this too.
+     *
+       Not any more: a record marked as the person's own (auto 0) is theirs.
+       P 400 / F 10 / C 0 saved with "= 1690 kcal" under it, and the day read
+       190 / 57 / 93 with no word, and after a reload storage itself had been
+       rewritten. A day Nourish cannot plan is now refused at Save, with a
+       line saying why (mtRefusal), so what reaches storage by hand is kept;
+       this heals only what a plan wrote, or what an older build left. */
     var starved = 4 * t.c < MCARB_EAT * kcalOf(t);
-    if (tdee !== null && (kcalOf(t) < mFloorK(pr) || starved)) {
+    if (!hand && tdee !== null && (kcalOf(t) < mFloorK(pr) || starved)) {
       var fresh = mPlanCalc(pr);
       if (fresh && (kcalOf(fresh) > kcalOf(t) || fresh.c > t.c)) {
         t = { p: fresh.p, f: fresh.f, c: fresh.c };
@@ -5474,6 +5481,18 @@
     return {};
   })();
 
+  /* The unit the weigh-in box asks in: Strengthen's. With its weights in
+     kilograms the box still said "lb", and 86 — a kilogram reading — was
+     stored as 86 lb without a question, and next week's plan would have
+     been built for a body of 86 lb. Storage stays in pounds, because every
+     figure downstream reads MWEIGHTS as pounds; the box and its folded line
+     are what speak kilograms. The charts and the coaching lines still say
+     pounds. */
+  var MKG_LB = 2.20462;
+  function mWUnit() { return window.Train && window.Train.unit && window.Train.unit() === 'kg' ? 'kg' : 'lb'; }
+  // a stored morning, said in the box's unit, to the tenth the box takes
+  function mWShow(lb) { return Math.round((mWUnit() === 'kg' ? lb / MKG_LB : lb) * 10) / 10; }
+
   // the oldest morning the weight log keeps: a year and a bit, for the trend
   function mWeightFloor() {
     var d = new Date();
@@ -6350,11 +6369,13 @@
                  number you just typed — Blake read the average there as the
                  app disagreeing with his scale. The average is on the open
                  card. */
+              // in the unit the box asks in (mWUnit), the number typed back
+              var wu = ' ' + mWUnit();
               var sumN = answeredW
-                ? '<b>' + (Math.round(MWEIGHTS[k] * 10) / 10) + '</b><u> lb'
+                ? '<b>' + mWShow(MWEIGHTS[k]) + '</b><u>' + wu
                 : st && st.n >= 2
-                ? '<b>' + (Math.round(st.avg7 * 10) / 10) + '</b><u> lb avg'
-                : '<b>' + (Math.round(MWEIGHTS[k] * 10) / 10) + '</b><u> lb';
+                ? '<b>' + mWShow(st.avg7) + '</b><u>' + wu + ' avg'
+                : '<b>' + mWShow(MWEIGHTS[k]) + '</b><u>' + wu;
               /* No verdict chip here: the coaching line directly under the
                  closed card already says where you stand, and a chip beside
                  it pushed the card's name onto two lines at phone width. */
@@ -6377,8 +6398,8 @@
              no longer has a max of its own. */
           : '<label class="mt-lab no-print"><input type="text" id="mWeight" maxlength="6" ' +
             'inputmode="decimal" autocomplete="off" ' +
-            'aria-label="This morning\u2019s weight in pounds" ' +
-            'value="' + (v || '') + '"> lb' +
+            'aria-label="This morning\u2019s weight in ' + (mWUnit() === 'kg' ? 'kilograms' : 'pounds') + '" ' +
+            'value="' + (v ? mWShow(v) : '') + '"> ' + mWUnit() +
             '<span class="mw-note" id="mWeightNote" role="status"></span></label>') +
       '</div>' +
       /* Next to the weigh-in, because it is the other thing a morning knows
@@ -11710,6 +11731,25 @@
     keep: 'Stay about where I am', gain: 'Put weight on slowly'
   };
 
+  /* The line under each goal card. "Lose weight steadily — About 1 lb a
+     week" sat over an answer working the same goal out as "about 1.4 lb a
+     week off" for a 190 lb man: the goals are a share of what you weigh
+     (MGOALS), and the card said a figure for nobody. So it says yours,
+     rounded the way the answer rounds it, and the plain words only until
+     there is a weight to take a share of. */
+  var MGOAL_SAY = {
+    cut2: ['About 1&frac12; lb a week.', ' Hard to keep up for long.'],
+    cut1: ['About 1 lb a week.', ' The pace most people finish.'],
+    keep: ['Eat what you burn.', ''],
+    gain: ['About &frac12; lb a week.', '']
+  };
+  function mtGoalWhat(val, pr) {
+    var say = MGOAL_SAY[val], rate = (MGOALS[val] || {}).rate;
+    if (!say) return '';
+    if (!rate || !(pr && pr.lb > 0)) return say[0] + say[1];
+    return 'About ' + Math.round(Math.abs(rate) * pr.lb * 10) / 10 + ' lb a week.' + say[1];
+  }
+
   /* The status line over the gram boxes. The boxes are the plan's one
      rendering, so this speaks only when something needs saying: the profile
      cannot compute yet, or the arithmetic had to floor the carbs. */
@@ -11725,7 +11765,8 @@
     var b = pr ? mBurn(pr) : null;
     var bmr = b ? b.bmr : null;
     if (bmr !== null && plan.kcal < bmr) {
-      return 'Below your ' + Math.round(bmr) + ' kcal at rest.';
+      // written as step one writes it, so the two read as the one number they are
+      return 'Below your ' + Math.round(bmr).toLocaleString() + ' kcal at rest.';
     }
     return '';
   }
@@ -12765,10 +12806,10 @@
        simplicity, and the second sentence was a lecture. */
     var goalPicksHTML =
       '<div class="mt-picks' + (mGoalPace(pr) ? ' spent' : '') + '" id="mtGoalSeg">' +
-        goalPick('cut2', MGOAL_WORDS.cut2, 'About 1&frac12; lb a week. Hard to keep up for long.') +
-        goalPick('cut1', MGOAL_WORDS.cut1, 'About 1 lb a week. The pace most people finish.') +
-        goalPick('keep', MGOAL_WORDS.keep, 'Eat what you burn.') +
-        goalPick('gain', MGOAL_WORDS.gain, 'About &frac12; lb a week.') +
+        goalPick('cut2', MGOAL_WORDS.cut2, mtGoalWhat('cut2', pr)) +
+        goalPick('cut1', MGOAL_WORDS.cut1, mtGoalWhat('cut1', pr)) +
+        goalPick('keep', MGOAL_WORDS.keep, mtGoalWhat('keep', pr)) +
+        goalPick('gain', MGOAL_WORDS.gain, mtGoalWhat('gain', pr)) +
         '<button class="ghost mt-byfeel" data-mtfree="1">A weight and a date are setting your pace &mdash; ' +
           'choose one of these instead</button>' +
       '</div>';
@@ -12812,7 +12853,9 @@
       row('Fat', box('mtF', t.f, 'g')) +
       row('Carbs', box('mtC', t.c, 'g')) +
       '<div class="mtl-row mtl-sum"><span class="mtl-lab">That is a day of</span>' +
-        '<span class="mtl-val" id="mtKcal">' + (kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '—') + '</span></div>';
+        '<span class="mtl-val" id="mtKcal">' + (kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '—') + '</span></div>' +
+      // why Save kept nothing, when it keeps nothing (mtRefusal)
+      '<div class="mt-cap" id="mtRefuse" role="alert"></div>';
 
     /* Open on the answer, not on the form. A profile that cannot compute yet
        has no answer to show, so a first run gets the wizard instead — the same
@@ -13065,8 +13108,15 @@
        through the activity dial, and after that it is the resting rate plus
        the little that moving about adds. Reading it here gave a man of 43 a
        resting burn of 2,757 — and then step two, having been told about his
-       steps, called the same idea 2,135. One figure, said once, both times. */
-    return mtwOut(b.bmr * 1.2, 'kcal at rest', 'What your body spends before you move.');
+       steps, called the same idea 2,135. One figure, said once, both times.
+     *
+       And "at rest" is the basal rate, everywhere. This said 2,135 at rest
+       while the plan step, under the same words, warned about going below
+       1779 — two numbers for one phrase, a sheet apart. So rest is the basal
+       rate, and bmr × 1.2 goes by what it is: the day sitting still, which
+       step two breaks out under that name. */
+    return mtwOut(b.bmr, 'kcal at rest &middot; ' + Math.round(b.bmr * 1.2).toLocaleString() +
+      ' sitting still', 'What your body spends before you move.');
   }
 
   /* One answer box, the same shape on every step: the number, what it is,
@@ -13114,7 +13164,7 @@
        steps, whichever says more (see mBurn), and an active job is not a walk. */
     return mtwOut(b.tdee, 'kcal a day', 'Everything else works from this: eat under it and you lose.') +
       (b.told
-        ? '<div class="mtw-parts">' + part(b.base, 'at rest') +
+        ? '<div class="mtw-parts">' + part(b.base, 'sitting still') +
           part(b.steps, 'moving about') + part(b.train, 'exercising') + '</div>'
         : '');
   }
@@ -13542,6 +13592,38 @@
     set('mtTileP', mtDash(t.p)); set('mtTileF', mtDash(t.f)); set('mtTileC', mtDash(t.c));
     set('mtKcal', kcalOf(t) ? '= ' + kcalOf(t) + ' kcal' : '\u2014');
     set('mtWho', mtWhoLine(mtProfileFromDom()));
+    // a refusal is about the grams it refused; new grams are a new question
+    set('mtRefuse', '');
+  }
+
+  /* Why Save will not keep these grams, or '' when it will.
+   *
+     Hand-typed grams used to be saved and then replaced in silence: P 400 /
+     F 10 / C 0 read "= 1690 kcal" under the boxes, Save closed the sheet, and
+     the day came up 190 / 57 / 93 — the read-time heal had decided the day
+     could not be eaten and served the plan instead. Zeros saved as zeros and
+     the day showed the plan's 1,569. The heal was right that Nourish cannot
+     plan those days; it was wrong to say so by changing the numbers. So the
+     same tests are asked here, before anything is written, and the answer is
+     a line under the total: what is wrong, and the least Nourish can plan.
+   *
+     The tests are the heal's — no calories at all, calories under mFloorK,
+     or carbohydrate under MCARB_EAT of the day — and like the heal they need
+     a profile to mean anything: without one there is no plan to serve in
+     their place, and three zeros are simply what "no plan yet" is (a first
+     run finished without an answer saves exactly that). The plan's own
+     grams always pass: they are what the heal would serve anyway. */
+  function mtRefusal(t, pr, mine) {
+    if (!mine || mTdee(pr) === null) return '';
+    var kc = kcalOf(t), least = mFloorK(pr);
+    var tail = ' The least Nourish can plan for you is ' + least.toLocaleString() + ' kcal.';
+    if (!kc) return 'Those grams come to no calories, so there is no day to save.' + tail;
+    if (kc < least) return 'That is a day of ' + kc.toLocaleString() + ' kcal.' + tail;
+    if (4 * t.c < MCARB_EAT * kc) {
+      return 'That leaves no room for carbs: a day of ' + kc.toLocaleString() + ' kcal needs ' +
+        Math.ceil(MCARB_EAT * kc / 4) + ' g or more.' + tail;
+    }
+    return '';
   }
 
   /* The summary says what the ticks say, the moment they say it. */
@@ -13639,8 +13721,12 @@
     if (gs) {
       var dated = !!mGoalPace(prNow);
       gs.classList.toggle('spent', dated);
-      Array.prototype.forEach.call(gs.querySelectorAll('[data-mtgoal]'),
-        function (b2) { b2.disabled = dated; });
+      /* and each card's pounds a week, which follow the weight being typed */
+      Array.prototype.forEach.call(gs.querySelectorAll('[data-mtgoal]'), function (b2) {
+        b2.disabled = dated;
+        var gw = b2.querySelector('span');
+        if (gw) gw.innerHTML = mtGoalWhat(b2.dataset.mtgoal, prNow);
+      });
     }
     if (!plan || holdBoxes) { mtRefreshAnswer(); return; }
     if ($('mtP')) { $('mtP').value = plan.p; $('mtF').value = plan.f; $('mtC').value = plan.c; }
@@ -19011,12 +19097,14 @@
        you meant.
      *
        An empty box is not bad input — it is how you clear a morning. */
-    function mWeightOf(raw) {
+    function mWeightOf(raw, key) {
       var t = String(raw == null ? '' : raw).trim();
       if (!t) return { empty: true, lb: 0 };
       if (!/^\d{1,4}(\.\d{1,2})?$/.test(t)) return { bad: true, lb: 0 };
-      var n = Number(t);
-      if (!isFinite(n) || n <= 0) return { bad: true, lb: 0 };
+      var typed = Number(t), u = mWUnit();
+      if (!isFinite(typed) || typed <= 0) return { bad: true, lb: 0 };
+      // typed in the box's unit, kept in pounds (see mWUnit)
+      var n = u === 'kg' ? typed * MKG_LB : typed;
       if (n > 1500) return { bad: true, big: true, lb: 0 };
       /* A number that could be a weight but is not likely to be yours.
          "1905" for 190.5 used to be clamped to 1,500 and stored in silence;
@@ -19024,16 +19112,21 @@
          to match, and correcting the morning afterwards did not bring it back
          down — the heal only ever raises. Far from your own average, or far
          from any adult's, it is asked about before it is written. */
+      /* And the first morning ever is asked about under 90 lb, not 60: with
+         nothing on record to compare it to, a kilogram reading typed into a
+         box in pounds — 86 for 190 — is the likely mistake, and it would
+         become the weight the whole plan is worked out for. */
       var st = mWeightStats();
       var ref = st && st.n >= 3 ? st.avg7 : 0;
-      var odd = n < 60 || n > 700 || (ref > 0 && Math.abs(n - ref) > ref * 0.15);
-      return { lb: n, odd: odd, ref: ref };
+      var first = !Object.keys(MWEIGHTS).some(function (k2) { return k2 !== key; });
+      var odd = n < (first ? 90 : 60) || n > 700 || (ref > 0 && Math.abs(n - ref) > ref * 0.15);
+      return { lb: n, odd: odd, ref: ref, first: first, shown: typed, u: u };
     }
     function mWeightSay(bad, odd) {
       var el = $('mWeightNote');
       if (el) el.textContent = bad === 'big' ? 'More than anyone weighs. A point missing?'
         : bad ? 'Weights take digits and a point.'
-        : odd ? 'That is ' + odd.lb + ' lb' + (odd.ref ? ', against ' + (Math.round(odd.ref * 10) / 10) +
+        : odd ? 'That is ' + odd.shown + ' ' + odd.u + (odd.ref ? ', against ' + mWShow(odd.ref) +
           ' lately' : '') + '. Enter to keep it.' : '';
       var box = $('mWeight');
       if (box) box.setAttribute('aria-invalid', bad ? 'true' : 'false');
@@ -19041,7 +19134,7 @@
     $('macroWeigh').addEventListener('input', function (e) {
       if (e.target.id !== 'mWeight') return;
       clearTimeout(mwTimer);
-      var key = mViewKey(), got = mWeightOf(e.target.value);
+      var key = mViewKey(), got = mWeightOf(e.target.value, key);
       mWeightSay(got.big ? 'big' : !!got.bad, got.odd ? got : null);
       if (got.bad || got.odd) return;            // nothing is written from nonsense, or unasked
       mwTimer = setTimeout(function () { mWriteWeight(key, got.lb); }, 600);
@@ -19049,14 +19142,17 @@
     $('macroWeigh').addEventListener('change', function (e) {
       if (e.target.id !== 'mWeight') return;
       clearTimeout(mwTimer);
-      var got = mWeightOf(e.target.value);
+      var got = mWeightOf(e.target.value, mViewKey());
       mWeightSay(got.big ? 'big' : !!got.bad, got.odd ? got : null);
       if (got.bad) return;
       if (got.odd) {
         var oddKey = mViewKey();
         ask({
-          title: 'Keep ' + got.lb + ' lb?',
-          body: got.ref ? 'Your average lately is ' + (Math.round(got.ref * 10) / 10) + ' lb.'
+          title: 'Keep ' + got.shown + ' ' + got.u + '?',
+          body: got.ref ? 'Your average lately is ' + mWShow(got.ref) + ' ' + got.u + '.'
+            : got.first && got.u === 'lb' && got.lb < 90
+            ? 'That is light for a first weigh-in. If your scale reads kilograms, choose Kilograms ' +
+              'under \u201cWeights in\u201d in Strengthen and this box will ask in kg.'
             : 'That is outside what a weight usually is.',
           ok: 'Keep it'
         }, function (yes) {
@@ -20058,8 +20154,33 @@
             return Math.max(0, Math.min(999, n));
           };
           var saved = { p: gv('mtP'), f: gv('mtF'), c: gv('mtC') };
+          /* Grams Nourish cannot plan a day on are refused here, whole: no
+             profile, no targets, no meals written, and the line under the
+             total says why (mtRefusal). Saving them used to mean the read
+             that followed quietly served different ones. */
+          var prSave = mtProfileFromDom(), planSave = mPlanCalc(prSave);
+          var refused = mtRefusal(saved, prSave, !(planSave && Math.abs(planSave.p - saved.p) <= 1 &&
+            Math.abs(planSave.f - saved.f) <= 1 && Math.abs(planSave.c - saved.c) <= 1));
+          if (refused) {
+            var rf = $('mtRefuse');
+            if (rf) {
+              rf.innerHTML = '<span class="mt-warn">' + esc(refused) + '</span>';
+              // where it can be read: the wizard's fold, or the shut editor
+              var rfFold = rf.closest('details');
+              if (rfFold) rfFold.open = true;
+              var rfEd = $('mtEditor');
+              if (rfEd && rfEd.contains(rf) && rfEd.classList.contains('hide')) {
+                rfEd.classList.remove('hide');
+                var rfEdB = document.querySelector('[data-mtedit]');
+                if (rfEdB) rfEdB.setAttribute('aria-expanded', 'true');
+                mtSyncSave();
+              }
+              if (rf.scrollIntoView) rf.scrollIntoView({ block: 'nearest' });
+            }
+            return;
+          }
           // the profile rides along, so next time the sheet already knows you
-          mWriteProfile(mtProfileFromDom());
+          mWriteProfile(prSave);
           /* Whether these are the plan's grams or somebody's own. Within a
              gram, because the boxes are whole numbers and so is the plan. */
           var planNow = mPlanCalc(mReadProfile());
