@@ -677,7 +677,13 @@ cd tests/rules && npm ci && npm test
 ```
 
 It asks, as different people, for every write the app makes and for the ones somebody
-holding a household code might try instead. CI runs it on every pull request.
+holding a household code might try instead. Then it runs `src/sync.js` itself on several
+phones at once, with the Firebase client the app ships, under those rules: claiming a
+code, joining, a change made with no signal, the members list, invites. The Node suites
+above use a stand-in for Firestore; this is the real client against the real server,
+and it is how a rule that would refuse something the app does is caught before it is
+published. CI runs it on every pull request, and `rules.yml` runs it again before
+publishing the rules.
 
 To check recipes against standard kitchen ratios — hydration and salt in yeasted
 dough, leavening per cup of flour, baking soda with nothing acidic to react

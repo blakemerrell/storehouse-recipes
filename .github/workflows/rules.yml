@@ -4,8 +4,10 @@
 # could drift from what was reviewed here, and a change could merge and sit
 # unpublished. Blake: "Can you get into firebase and publish the new rules."
 # Now a change to firestore.rules on main publishes itself, after the same
-# emulator check the pull request ran. tools/publish-rules.js does the
-# publishing, and reads the live rules back to be sure.
+# emulator check the pull request ran: the rules asked directly, and then
+# src/sync.js run under them, so rules the app cannot live with are never
+# published. tools/publish-rules.js does the publishing, and reads the live
+# rules back to be sure.
 #
 # ONE SECRET, ONCE: FIREBASE_RULES_KEY, the JSON key of a service account
 # that can do one thing, publish security rules (role: Firebase Rules Admin).
@@ -30,7 +32,7 @@ concurrency:
 
 jobs:
   check:
-    name: Security rules, against the Firestore emulator
+    name: Security rules and sync, against the Firestore emulator
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:

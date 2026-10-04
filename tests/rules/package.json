@@ -1,12 +1,13 @@
 {
   "name": "storehouse-recipes-rules",
   "private": true,
-  "description": "Checks firestore.rules against the Firestore emulator. Kept apart from the app's own dependencies: nothing the app ships needs these.",
+  "description": "Checks firestore.rules, and src/sync.js under them, against the Firestore emulator. Kept apart from the app's own dependencies: nothing the app ships needs these. firebase-shipped is the client src/sync.js loads, at the same version.",
   "scripts": {
-    "test": "node rules.check.js"
+    "test": "node rules.check.js && node sync.check.js"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.2",
-    "firebase": "12.19.0"
+    "firebase": "12.19.0",
+    "firebase-shipped": "npm:firebase@10.12.2"
   }
 }
