@@ -36,7 +36,7 @@ module.exports = nourish({
     await units.click('.tab[data-view="macros"]');
     await units.waitForTimeout(400);
     for (let i = 0; i < 3; i++) {
-      if (!await units.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+      if (!await units.evaluate(() => !!document.querySelector('.mcard-shut'))) break;
       await units.click('#macroOpenAll');
       await units.waitForTimeout(200);
     }
@@ -84,7 +84,7 @@ module.exports = nourish({
     await reopen.waitForTimeout(1000);
     const back = await reopen.evaluate(() => {
       const st = document.querySelector('.mday-stick');
-      const items = [...document.querySelectorAll('.mitem, .mthin')];
+      const items = [...document.querySelectorAll('.mitem, .mcard-shut')];
       return { y: Math.round(window.scrollY), page: document.documentElement.scrollHeight,
         margin: parseFloat((st && st.style.marginBottom) || 0) || 0,
         restoration: history.scrollRestoration,
@@ -581,7 +581,7 @@ module.exports = nourish({
     await batch.waitForTimeout(300);
     // a meal that already has something on it opens shut; the plate is behind that
     for (let i = 0; i < 3; i++) {
-      if (!await batch.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+      if (!await batch.evaluate(() => !!document.querySelector('.mcard-shut'))) break;
       await batch.click('#macroOpenAll');
       await batch.waitForTimeout(200);
     }
@@ -652,7 +652,7 @@ module.exports = nourish({
     await saltPage.click('.tab[data-view="macros"]');
     await saltPage.waitForTimeout(300);
     for (let i = 0; i < 3; i++) {
-      if (!await saltPage.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+      if (!await saltPage.evaluate(() => !!document.querySelector('.mcard-shut'))) break;
       await saltPage.click('#macroOpenAll');
       await saltPage.waitForTimeout(200);
     }
@@ -713,7 +713,7 @@ module.exports = nourish({
     await ph.click('#macroFill');
     await ph.waitForTimeout(500);
     for (let i = 0; i < 4; i++) {
-      if (!await ph.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+      if (!await ph.evaluate(() => !!document.querySelector('.mcard-shut'))) break;
       await ph.click('#macroOpenAll');
       await ph.waitForTimeout(180);
     }
@@ -1028,7 +1028,7 @@ module.exports = nourish({
     await ph.waitForTimeout(350);
     const absurd = await ph.evaluate(() => {
       const st = document.querySelector('.mday-stick');
-      const items = [...document.querySelectorAll('.mitem, .mthin')];
+      const items = [...document.querySelectorAll('.mitem, .mcard-shut')];
       return {
         margin: parseFloat(st.style.marginBottom) || 0,
         page: document.documentElement.scrollHeight,

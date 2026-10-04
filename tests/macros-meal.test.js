@@ -160,8 +160,9 @@ module.exports = nourish({
     });
     t.ok('an empty meal draws no placeholder row',
       !!emptyCard && !emptyCard.dash && !emptyCard.emDash, JSON.stringify(emptyCard));
+    /* The meal card (2026-10-04): the add line and the meal's verbs. */
     t.ok('and holds nothing but its verbs',
-      !!emptyCard && emptyCard.kids.length === 1 && /mslot-acts/.test(emptyCard.kids[0]),
+      !!emptyCard && emptyCard.kids.length === 2 && /mcard-add/.test(emptyCard.kids[0]) && /mslot-acts/.test(emptyCard.kids[1]),
       JSON.stringify(emptyCard));
     await trimPg.context().close();
 
@@ -284,84 +285,47 @@ module.exports = nourish({
     await openDay(platePg);
     await platePg.waitForTimeout(250);
 
+    /* Rebuilt 2026-10-04, with the meal card: one line a food — leaf, name,
+       amount, calories, tick — and everything else that acts on the food in
+       its panel, behind the amount. What Blake asked of the old plate still
+       holds where it still means something: one left edge for every name,
+       the tick at the thumb's end and bare, a ghost mark before it is ticked,
+       and nothing that acts on the meal inside a food. */
     const plated = await platePg.evaluate(() => {
-      const rows = [...document.querySelectorAll('.mitem')];
+      const rows = [...document.querySelectorAll('#macroSlots .mcard-row')];
       if (rows.length < 2) return { few: rows.length };
-      const card = rows[0].closest('.mslot');
-      const cs = getComputedStyle(rows[0]), cardCs = getComputedStyle(card);
       return {
         n: rows.length,
-        /* contained: its own ground and its own edge, different from the card
-           it sits in — which is what makes "inside this box" mean anything */
-        ownGround: cs.backgroundColor !== cardCs.backgroundColor,
-        ownEdge: parseFloat(cs.borderTopWidth) > 0 && parseFloat(cs.borderRadius) > 0,
-        /* every name starts at the same x, leaf or no leaf */
         nameLefts: rows.map((r) => Math.round(r.querySelector('.mitem-name').getBoundingClientRect().left)),
-        leaves: rows.map((r) => !!r.querySelector('.leaf-md .leaf-n')),
-        /* the tick ENDS the plate, on the side a thumb is */
+        leaves: rows.map((r) => !!r.querySelector('.leaf-sm .leaf-n')),
         tickLast: rows.every((r) => {
-          const ate = r.querySelector('.mitem-ate'), keys = r.querySelector('.mstep-keys');
-          return ate && keys &&
-            ate.getBoundingClientRect().left > keys.getBoundingClientRect().right;
+          const ate = r.querySelector('.mitem-ate'), amt = r.querySelector('.mcard-amt');
+          return ate && amt && ate.getBoundingClientRect().left > amt.getBoundingClientRect().right &&
+            r.querySelector('.mcard-line').lastElementChild === ate;
         }),
-        /* and it says what it does — in its spoken label, not in ink. Blake,
-           on the built row: "Remove 'ate it'. Just the check box." The word
-           was the only thing on the strip that named itself, and a tick in
-           the eaten position is not a thing anybody misreads. Screen readers
-           still get the sentence. */
-        tickSpoken: rows.every((r) => {
-          const a = r.querySelector('.mitem-ate');
-          return !!a && /\w/.test(a.getAttribute('aria-label') || '');
-        }),
-        tickBare: rows.every((r) => {
-          const a = r.querySelector('.mitem-ate');
-          return !!a && a.tagName === 'INPUT' && !r.querySelector('.mitem-ate *');
-        }),
-        /* and every control that acts on this food is inside this food's box */
-        contained: rows.every((r) => ['.mitem-ate', '.mstep', '.mlock', '.mpin', '.mdel']
-          .every((sel) => !!r.querySelector(sel))),
-        /* three bands, each answering one question */
-        bands: rows.every((r) => ['.mitem-r1', '.mitem-r2', '.mitem-r3']
-          .every((sel) => !!r.querySelector(sel))),
-        /* while the ones that act on the meal are not */
+        tickSpoken: rows.every((r) => { const a = r.querySelector('.mitem-ate'); return !!a && /\w/.test(a.getAttribute('aria-label') || ''); }),
+        tickBare: rows.every((r) => { const a = r.querySelector('.mitem-ate'); return !!a && a.tagName === 'INPUT' && !r.querySelector('.mitem-ate *'); }),
         mealVerbsOutside: rows.every((r) => !r.querySelector('[data-mbal], [data-mskip], [data-mslot]')),
+        quiet: rows.every((r) => !r.querySelector('.mcard-line [data-mstep], .mcard-line [data-mlock], .mcard-line [data-mdel], .mcard-line [data-mpin]')),
       };
     });
     t.ok('the plate is seeded with a scored recipe and a bare food',
       plated.n >= 2 && plated.leaves.indexOf(true) >= 0 && plated.leaves.indexOf(false) >= 0,
       JSON.stringify(plated));
-    /* The complaint, made measurable, and it survives the leaf moving back to
-       the front: a badge drawn for a recipe and absent for a food cannot be
-       the thing a column starts on. The slot is kept empty on a food so both
-       start their names in the same place. */
-    t.ok('every plate\u2019s name starts at the same edge, leaf or no leaf',
+    t.ok('every plate’s name starts at the same edge, leaf or no leaf',
       new Set(plated.nameLefts).size === 1, JSON.stringify(plated.nameLefts));
-
-    /* Reversed, on Blake's layout: "[lock][serving size][-][+]......[check
-       box]". The tick used to lead the row, which put the state of the plate
-       — the thing pressed most on it — in the corner furthest from a thumb,
-       at 21px. It ends the row now. */
-    t.ok('the tick ends the plate, on the side a thumb is, and says what it does',
+    t.ok('the tick ends the line, on the side a thumb is, and says what it does',
       plated.tickLast && plated.tickSpoken, JSON.stringify(plated));
-    /* Blake, on the first build of this strip: "why a check box in side a
-       box?" It was an <input> hidden inside a styled <span> that drew a
-       second edge saying what the first one said — and, being 0x0, the real
-       control could not be clicked by a test or by a coordinate either. The
-       box IS the checkbox now. */
     t.ok('and the tick is the box, not a box drawn around a box',
       plated.tickBare, JSON.stringify(plated));
+    t.ok('a closed food line carries no steps, lock, pin or bin, and no meal verb',
+      plated.quiet && plated.mealVerbsOutside, JSON.stringify(plated));
 
     /* Blake: "might need a shadow of a checkmark on that checkmark box so i
-       know it is something i am to check." An empty square sitting beside
-       the − and + keys — same size, same outline, no glyph — reads as a
-       third key whose label fell off, not as something to press.
-     *
-       Two things have to hold at once, and the second is what makes the
-       first safe: the mark is DRAWN when unticked, and the STATE is still
-       told by the fill. A ghost mark on a box whose only other cue is the
-       same mark, darker, is how you build a checkbox nobody can read. */
+       know it is something i am to check" — and the STATE is told by the
+       fill, not by the mark getting darker. */
     const ghost = await platePg.evaluate(() => {
-      const t0 = document.querySelector('.mitem-ate');
+      const t0 = document.querySelector('#macroSlots .mcard-row .mitem-ate');
       const read = () => ({ mark: getComputedStyle(t0, '::after').color,
         fill: getComputedStyle(t0).backgroundColor });
       const off = read();
@@ -375,14 +339,17 @@ module.exports = nourish({
     t.ok('and ticking it is said by the FILL, not by the mark getting darker',
       ghost.off.fill !== ghost.on.fill && !unseen(ghost.on.fill) &&
       ghost.off.mark !== ghost.on.mark, JSON.stringify(ghost));
-    t.ok('and the plate reads in three bands: what it is, what is in it, what you can do',
-      plated.bands, JSON.stringify(plated));
-    t.ok('a plate is a block of its own, not a strip of the card',
-      plated.ownGround && plated.ownEdge, JSON.stringify(plated));
-    /* The scope, structurally: everything that acts on this food is in this
-       food's box, and nothing that acts on the meal is. */
-    t.ok('everything that changes this food lives inside this food\u2019s box',
-      plated.contained && plated.mealVerbsOutside, JSON.stringify(plated));
+
+    /* Everything that changes this food is in its panel, behind its amount. */
+    await platePg.evaluate(() => document.querySelector('#macroSlots [data-mamt="b:0"]').click());
+    await platePg.waitForTimeout(250);
+    const panel = await platePg.evaluate(() => {
+      const pn = document.querySelector('#macroSlots .mcard-panel');
+      return pn && ['.mstep', '[data-mlock="b:0"]', '[data-mpin="b:0"]', '[data-mdel="b:0"]', '[data-mswap="b:0"]', '[data-mslide="b:0"]']
+        .filter((sel) => !pn.querySelector(sel));
+    });
+    t.ok('everything that changes this food lives in its panel',
+      panel && panel.length === 0, JSON.stringify(panel));
     await platePg.context().close();
 
     /* And it does not cost height, which nothing here was checking.
@@ -428,99 +395,22 @@ module.exports = nourish({
     await rowFit.waitForTimeout(350);
     await openDay(rowFit);
     await rowFit.waitForTimeout(250);
+    /* One line a food, even with a label sentence for a unit: the amount
+       gives way (it truncates) before the line folds in half. */
     const fit = await rowFit.evaluate(() => {
-      const rows = [...document.querySelectorAll('.mitem-r3')];
+      const rows = [...document.querySelectorAll('#macroSlots .mcard-line')];
       if (!rows.length) return { none: true };
       return rows.map((r) => {
-        const kids = [...r.children];
-        /* Height against the tallest child, and nothing else. Counting
-           distinct tops was tried twice and is wrong twice over: the children
-           are 44 and 46 tall in a centred row, so their tops differ by a
-           pixel while plainly sharing a line, and bucketing those tops then
-           mis-reports whenever the bucket boundary falls between them. A row
-           that has wrapped is a row taller than the tallest thing in it.
-         *
-           Its CONTENT height, though. The strip carries a rule and six
-           pixels of padding above it now — the band separator — and measuring
-           the border box against the children reported every plate as folded
-           in half when all four controls were plainly on one line at top=7.
-           A row's own padding is not a second row. */
-        const cs = getComputedStyle(r);
-        const widest = Math.max.apply(null, kids.map((k) =>
-          Math.round(k.getBoundingClientRect().height)));
-        const h = Math.round(r.getBoundingClientRect().height -
-          parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) -
-          parseFloat(cs.borderTopWidth) - parseFloat(cs.borderBottomWidth));
-        return { h: h, widest: widest, wrapped: h > widest + 4 };
+        const kids = [...r.children].filter((k) => getComputedStyle(k).display !== 'none');
+        const tops = kids.map((k) => k.getBoundingClientRect());
+        const mid = (b) => b.top + b.height / 2;
+        const m0 = mid(tops[0]);
+        return { h: Math.round(r.getBoundingClientRect().height), oneLine: tops.every((b) => Math.abs(mid(b) - m0) < 14),
+          fits: r.scrollWidth <= r.clientWidth + 1 };
       });
     });
-    /* And they are not boxes.
-     *
-       Blake on the first version of this row: "buttons are too big. And not
-       spread out well and are out of balance with the rest of the text on the
-       card." It was not the touch targets — those are 44px and stay 44px, and
-       there is a test above that measures them. It was that every one of them
-       was a bordered, filled box, so five outlines sat under a 14px name and
-       a 10px macro line and the plate read as a keypad. A glyph with a
-       generous invisible margin is the same thing to a thumb and a quieter
-       thing to an eye.
-
-       Measured on the CONTROLS rather than on the plate, because the plate's
-       own block is a box on purpose — that containment is what says which
-       scope these controls belong to. */
-    const chrome = await rowFit.evaluate(() => {
-      const boxy = (e) => {
-        const c = getComputedStyle(e);
-        return parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0 ||
-          (c.backgroundColor !== 'rgba(0, 0, 0, 0)' && c.backgroundColor !== 'transparent');
-      };
-      const verbs = [...document.querySelectorAll('.mitem-r1 .mic')];
-      const pair = [...document.querySelectorAll('.mitem-r3 .mitem-verbs .mic')];
-      const amt = document.querySelector('.mitem-r3 .mitem-amt');
-      const keys = [...document.querySelectorAll('.mitem-r3 .mstep-keys button')];
-      const first = document.querySelector('.mitem-r3 .mic');
-      const ate = document.querySelector('.mitem-r3 .mitem-ate');
-      const strip = document.querySelector('.mitem-r3');
-      return {
-        verbsBoxed: verbs.filter(boxy).map((e) => e.className).slice(0, 4),
-        verbsN: verbs.length,
-        pairN: pair.length,
-        pairBoxed: pair.length > 0 && pair.every(boxy),
-        amtBoxed: !!amt && boxy(amt),
-        keysBoxed: keys.length > 0 && keys.every(boxy),
-        /* the verbs at one end, the tick at the other */
-        spread: (first && ate && strip)
-          ? Math.round(ate.getBoundingClientRect().left - first.getBoundingClientRect().right)
-          : -1
-      };
-    });
-    /* Blake, on an earlier version of this row: "buttons are too big. And not
-       spread out well and are out of balance with the rest of the text on the
-       card." The name row keeps that answer — pin and star are glyphs with
-       generous invisible margins, the same thing to a thumb and a quieter
-       thing to an eye. */
-    t.ok('the name row\u2019s verbs are glyphs, not boxes',
-      chrome.verbsN >= 2 && chrome.verbsBoxed.length === 0, JSON.stringify(chrome));
-    /* The bin and the lock do not, since 2026-09-27. Blake, once each meal's
-       verbs had become boxes with words: "Garbage and lock icon look out of
-       place now" — the last two bare glyphs on a strip where the portion, its
-       keys and the tick are all boxes. He chose them boxed, as a joined pair
-       drawn the way the keys are. */
-    t.ok('while the bin and lock are a boxed pair, like the keys beside them',
-      chrome.pairN >= 1 && chrome.pairBoxed, JSON.stringify(chrome));
-    /* ...and the PORTION is boxed, on his newer one: "Outline the serving
-       size in a box as well. With +/- on the right side of it." It is the
-       control you operate rather than a verb you press once, and boxing it is
-       what makes the three pieces read as one dial. */
-    t.ok('while the portion and its two keys are boxed, being the thing you operate',
-      chrome.amtBoxed && chrome.keysBoxed, JSON.stringify(chrome));
-    /* The verbs at one end and the tick at the other, with the dial between:
-       "not spread out well" was five boxes left-packed into a strip. */
-    t.ok('and the strip is spread — verbs one end, the tick the other',
-      chrome.spread > 40, JSON.stringify(chrome));
-
-    t.ok('a plate\u2019s controls sit on one row at phone width',
-      !fit.none && fit.length >= 3 && fit.every((r) => !r.wrapped),
+    t.ok('a food sits on one line at phone width, a long unit and all',
+      !fit.none && fit.length >= 3 && fit.every((r) => r.oneLine && r.fits),
       JSON.stringify(fit));
     await rowFit.context().close();
 

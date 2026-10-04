@@ -109,7 +109,8 @@
     var name = S.macroPick.n;
     var d = keyDate(mViewKey());
     var head = '<div class="sheet-top">' +
-        '<div class="sheet-eyebrow">Add to ' + esc(name) + ' · ' +
+        /* Swapping is the same sheet for one pick, and it says which plate. */
+        '<div class="sheet-eyebrow">' + (S.mpSwap ? 'Swap ' + esc(S.mpSwap.n) + ' · ' : 'Add to ' + esc(name) + ' · ') +
           M_MONS[d.getMonth()] + ' ' + d.getDate() + '</div>' +
         /* The count chip and the Add button both left this header for the bar
            along the bottom. They were the first thing in the sheet and the

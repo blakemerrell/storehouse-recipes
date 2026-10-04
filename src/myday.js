@@ -55,6 +55,7 @@
   var mServeG = app.mServeG;
   var mSkipped = app.mSkipped;
   var mSnapTargets = app.mSnapTargets;
+  var mStepX = app.mStepX;
   var mTypedFromX = app.mTypedFromX;
   var mViewKey = app.mViewKey;
   var mWeekHTML = app.mWeekHTML;
@@ -330,6 +331,188 @@
     /* One card per meal on the plan, then a card for anything a bygone meal
        left on this day — removed from the plan is not removed from history. */
     var ahead = mAhead(k);
+    /* The meal card, as Blake and the mockup settled it on 2026-10-04
+       (https://claude.ai/artifact/GV6QBANqtLChvDU9vQAfeB).
+     *
+       Blake, on the card it replaced: "It works but it just feels messy and
+       complicated... it needs to do its same job but feel effortless." A
+       seven-food lunch was 93 buttons. Nothing has been taken away; it has
+       moved behind a tap.
+     *
+       Shut, a meal is three lines: the tick, the name and what it comes to
+       against its share; what is on it; one calorie bar and the verdict in
+       words ("554 over · carbs over"). Blake chose the calorie bar alone over
+       the macros as bars, as one split bar, or as rings round the tick.
+     *
+       Open, it is one line a food: the leaf, the name (still the door to the
+       recipe or the food), the amount in grams with the kitchen's word — "140
+       g · 1 cup", because Blake weighs — the calories, and the tick. Tapping
+       the amount opens that one food's panel: the typed portion and its
+       steps, a slider along the same steps, the macros and salt, and the
+       food's verbs as icons — lock, swap, pin, star, the why chip and the bin.
+       One panel at a time. */
+    var LOCK_SM = '<svg class="mcard-lk" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.4" y="7" width="9.2" height="6.4" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 7V5.1a2.4 2.4 0 0 1 4.8 0V7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+    var CARET = '<svg class="mcard-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var ICO = function (d) {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + d + '</g></svg>';
+    };
+    var I_LOCK = ICO('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>');
+    var I_OPEN = ICO('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/>');
+    var I_SWAP = ICO('<path d="M4 8h13"/><path d="M14 4.5 17.5 8 14 11.5"/><path d="M20 16H7"/><path d="M10 12.5 6.5 16l3.5 3.5"/>');
+    var I_PIN = ICO('<path d="M8.5 3.5h7M12 3.5v6.4M9.6 9.9c-.6 2.5-2.2 4-3.9 4.6h12.6c-1.7-.6-3.3-2.1-3.9-4.6Z"/><path d="M12 14.5v6"/>');
+    var I_STAR = ICO('<path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7-5.1-2.7-5.1 2.7 1-5.7-4.1-4 5.7-.8Z"/>');
+    var I_BIN = ICO('<path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10.5 11v5"/><path d="M13.5 11v5"/>');
+
+    var fmtK = function (n) { return Math.round(n).toLocaleString('en-US'); };
+    /* What the amount button says: the weight first, then the kitchen's word.
+       mPortion already knows both; it just leads with whichever the food is
+       counted in. A recipe weighs what mServeG says a serving weighs. */
+    var amtText = function (r, x) {
+      var p = mPortion(r, x);
+      if (/\d g$/.test(p.head)) return p.head + (p.detail ? ' · ' + p.detail : '');
+      if (/^\d[\d,]* g$/.test(p.detail || '')) return p.detail + ' · ' + p.head;
+      var sg = !r.food && mServeG(r);
+      if (sg && sg.g > 0) return (sg.est ? '~' : '') + Math.round(sg.g * x) + ' g · ' + p.head;
+      return p.head;
+    };
+    /* The weight over the kitchen's word, stacked, so both fit beside a
+       long name; the dot between them is kept for the words, hidden to the
+       eye. */
+    var amtStack = function (amt) {
+      var at = amt.indexOf(' \u00b7 ');
+      if (at < 0) return '<span class="mcard-g">' + esc(amt) + '</span>';
+      return '<span class="mcard-stk"><span class="mcard-g">' + esc(amt.slice(0, at)) + '</span><i class="mcard-dot"> \u00b7 </i>' +
+        '<span class="mcard-u">' + esc(amt.slice(at + 3)) + '</span></span>';
+    };
+    /* Every amount the steppers can reach from here, for the slider: down to
+       the smallest, and up to three times where it sits (or twelve steps). */
+    var slideXs = function (r, x) {
+      var xs = [], v = x, i, nv;
+      for (i = 0; i < 400; i++) {
+        nv = mStepX(r, v, -1);
+        if (!(nv > 0) || nv >= v) break;
+        xs.unshift(nv); v = nv;
+      }
+      xs.push(x);
+      var top = Math.max(x * 3, (xs[0] || x) * 12);
+      for (v = x, i = 0; i < 400; i++) {
+        nv = mStepX(r, v, 1);
+        if (!(nv > v)) break;
+        xs.push(nv); v = nv;
+        if (nv >= top) break;
+      }
+      return xs;
+    };
+    /* Shut or open, a meal says one sentence about how it sits. */
+    var verdict = function (sub, aim, eatenAll, n) {
+      if (!n) return { cls: '', say: 'Nothing yet' };
+      if (eatenAll) return { cls: 'is-eaten', say: 'Eaten' };
+      if (!aim) return { cls: '', say: '' };
+      var aimK = aim.kcal || (4 * (aim.p || 0) + 9 * (aim.f || 0) + 4 * (aim.c || 0));
+      if (!(aimK > 0)) return { cls: '', say: '' };
+      var dk = sub.kcal - aimK;
+      var devs = [['protein', 'p'], ['fat', 'f'], ['carbs', 'c']].map(function (m) {
+        var a = aim[m[1]] || 0;
+        return [m[0], a > 0 ? (sub[m[1]] - a) / a : 0];
+      }).sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
+      if (Math.abs(dk) <= aimK * 0.05 && Math.abs(devs[0][1]) <= 0.15) return { cls: 'is-on', say: 'on its aim' };
+      return { cls: dk > aimK * 0.08 ? 'is-over' : 'is-short',
+        say: (dk >= 0 ? fmtK(dk) + ' over' : fmtK(-dk) + ' short') +
+          (Math.abs(devs[0][1]) > 0.15 ? ' · ' + devs[0][0] + (devs[0][1] > 0 ? ' over' : ' short') : '') };
+    };
+    /* What Balance moved and what the picker just put down, on this meal, if
+       the plates are still the plates they were (a sync can reorder them). */
+    /* One food's panel open at a time. 'sh.allPanels' is for the test runner
+       alone: the suites that exercise the steps, the lock, the pin and the
+       typed portion were written before those moved behind the amount, and
+       what they test is what the controls DO, so the runner opens every
+       panel. The meal card's own tests turn it off. */
+    var panelOpen = function (tag) {
+      if (S.mAmt === undefined) {
+        try { S.mAmt = localStorage.getItem('sh.allPanels') === '1' ? '*' : ''; } catch (e) { S.mAmt = ''; }
+      }
+      return S.mAmt === '*' || S.mAmt === tag;
+    };
+    var marksFor = function (sk, items) {
+      var m = S.mMarks, out = { was: {}, fresh: {}, snap: null, n: 0 };
+      if (!m || m.k !== k || m.sk !== sk) return out;
+      Object.keys(m.was || {}).forEach(function (i) {
+        var w = m.was[i];
+        if (items[i] && String(items[i].id) === String(w.id) && items[i].x !== w.x) { out.was[i] = w.x; out.n++; }
+      });
+      Object.keys(m.fresh || {}).forEach(function (i) {
+        if (items[i] && String(items[i].id) === String(m.fresh[i])) out.fresh[i] = 1;
+      });
+      if (m.snap) out.snap = m.snap;
+      return out;
+    };
+
+    var panelHTML = function (sk, r, it, tag, pinned, onPlan) {
+      var port = mPortion(r, it.x);
+      var spent = it.eaten && S.mEdit !== tag;
+      var xs = slideXs(r, it.x), at = xs.indexOf(it.x);
+      var sg = !r.food && mServeG(r);
+      return '<div class="mcard-panel no-print" role="group" aria-label="' + esc(r.name) + '">' +
+        '<div class="mcard-ptop">' +
+          '<b class="mcard-big num">' + esc(port.head) + '</b>' +
+          /* A recipe's plate says what it weighs, and a tap weighs the batch. */
+          (sg ? '<button class="mitem-uom mitem-bw' + (sg.est ? ' est' : '') + '" data-mbatch="' + tag +
+            '" aria-expanded="' + (S.mBatchOpen === tag ? 'true' : 'false') + '" aria-label="' +
+            (sg.est ? 'About ' : '') + Math.round(sg.g * it.x) + ' grams on this plate — weigh the batch">' +
+            (sg.est ? '~' : '') + Math.round(sg.g * it.x) + ' g</button>' : '') +
+        '</div>' +
+        /* The kitchen's word is the chip on the cost line, where the eye
+           already is: the dial is in grams, "1 cup" is how you measure it. */
+        '<div class="mcard-pmac mitem-r2">' + mWhyChip(it, tag) +
+          (!sg && port.detail ? '<span class="mitem-uom">' + esc(port.detail) + '</span>' : '') +
+          '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' + mSaltChip(r, it.x) + '</div>' +
+        mWhyStrip(it, tag) + mBatchStrip(r, it, tag) +
+        /* Eaten is a record, not a dial: once ticked, the steps go quiet and
+           one tap on the number hands them back. The number is a button and
+           pressing it lets you type one — the dial never got you to thirty
+           nuts or 185 grams. .mstep and .mstep-x keep their names: they are
+           what the portion tests reach for. */
+        '<div class="mcard-dial">' +
+          '<span class="mstep' + (spent ? ' spent' : '') + '">' +
+            (S.mType === tag
+              ? '<span class="mstep-x mitem-amt mitem-typing">' +
+                  '<input class="mstep-in" type="text" inputmode="decimal" autocomplete="off" data-mtypein="' + tag + '" ' +
+                    'aria-label="Portion, in ' + esc(mDialUnit(r)) + '" value="' + esc(String(mTypedFromX(r, it.x))) + '">' +
+                  '<i>' + esc(mDialUnit(r)) + '</i></span>'
+              : spent
+              ? '<button class="mstep-x mitem-amt mstep-wake" data-medit="' + tag + '" title="Correct this portion">' + esc(mPortion(r, it.x).head) + '</button>'
+              : '<button class="mstep-x mitem-amt mstep-type" data-mtype="' + tag + '" title="Type a portion">' + esc(mPortion(r, it.x).head) + '</button>') +
+            '<span class="mstep-keys">' +
+              '<button data-mstep="' + tag + ':down"' + (spent ? ' disabled' : '') + ' aria-label="Smaller portion">&minus;</button>' +
+              '<button data-mstep="' + tag + ':up"' + (spent ? ' disabled' : '') + ' aria-label="Bigger portion">+</button>' +
+            '</span>' +
+          '</span>' +
+        '</div>' +
+        (xs.length > 1
+          ? '<input type="range" class="mcard-slide" data-mslide="' + tag + '" min="0" max="' + (xs.length - 1) +
+            '" step="1" value="' + Math.max(0, at) + '"' + (spent ? ' disabled' : '') +
+            ' data-xs="' + xs.join(',') + '" data-ls="' + esc(xs.map(function (v) { return mPortion(r, v).head; }).join('|')) + '"' +
+            ' aria-label="Portion of ' + esc(r.name) + '" aria-valuetext="' + esc(amtText(r, it.x)) + '">'
+          : '') +
+        '<div class="mcard-icons">' +
+          /* The lock guards against the MACHINE, not you: Balance and
+             Rebalance leave a locked plate alone, the steps still work. */
+          (onPlan ? '<button class="mcard-i mlock" data-mlock="' + tag + '" aria-pressed="' + (it.l ? 'true' : 'false') +
+            '" aria-label="' + (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '" title="' +
+            (it.l ? 'Kept through Rebalance: tap to let it move' : 'Keep this amount through Rebalance') + '">' + (it.l ? I_LOCK : I_OPEN) + '</button>' : '') +
+          (onPlan ? '<button class="mcard-i mswap" data-mswap="' + tag + '" aria-label="Swap ' + esc(r.name) + ' for something else" title="Swap">' + I_SWAP + '</button>' : '') +
+          /* The pin is the routine: this food on this meal on every new day.
+             Unpinning stops tomorrow, not today. */
+          (onPlan ? '<button class="mcard-i mpin" data-mpin="' + tag + '" aria-pressed="' + (pinned ? 'true' : 'false') +
+            '" aria-label="' + (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '" title="' +
+            (pinned ? 'On this meal every day: tap to unpin' : 'Pin to this meal every day') + '">' + I_PIN + '</button>' : '') +
+          (mCanFav(r) ? '<button class="mcard-i mfav" data-mfav="' + esc(String(r.id)) + '" aria-pressed="' + (mIsFav(r) ? 'true' : 'false') +
+            '" aria-label="' + (mIsFav(r) ? 'Remove from favourites' : 'Keep as a favourite') + '" title="Favourite">' + I_STAR + '</button>' : '') +
+          '<button class="mcard-i mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '" title="Remove">' + I_BIN + '</button>' +
+        '</div>' +
+      '</div>';
+    };
+
     var slotCard = function (sk, name, onPlan) {
       var items = day[sk] || [];
       /* Rows map over the STORED array so data attributes carry storage
@@ -338,245 +521,43 @@
       var srec = null;
       slots.list.forEach(function (s) { if (s.k === sk) srec = s; });
       var pins = (srec && srec.pins) || [];
+      var marks = marksFor(sk, items);
       var rows = items.map(function (it, i) {
         var r = LIVE.BY_ID[it.id];
         if (!r) return '';
         var tag = sk + ':' + i;
         var pinned = pins.some(function (p) { return p.id === it.id; });
-        // what you are having. What there was to have — the yield — went with
-        // the provenance row, and mYieldText with it: this was its only caller.
-        var port = mPortion(r, it.x);
-        /* The tick and the name are separate targets on purpose: the box says
-           "I ate it", the name opens the recipe to see what "it" is. When the
-           two shared a label, reading the recipe cost you a phantom tick. */
-        /* Two columns. On the left the plate says what it is: the tick, the
-           name (clipped rather than wrapped — a long name must not push the
-           controls off a phone), and under them the arithmetic with the pin
-           and the lock. On the right, always in the same place, the portion
-           dial and the bin.
-         *
-           The bin is a bin and not another ×. Two × glyphs on one row, one
-           meaning "times one" and the other "gone", is a misread waiting to
-           happen on a thumb-sized target. */
-        /* One plate, contained.
-         *
-           It used to be three rows with three different left edges — name and
-           its icons, then chips and the arithmetic, then a stepper slab and a
-           tick box. Blake: "it feels off to me. does not flow." The diagnosis
-           that stuck was that the card was built out of CONTROLS with the
-           content squeezed between them, and that the loudest boxes on it —
-           the stepper and the tick — were the two things touched least often,
-           while the name read every time carried no weight at all.
-
-           He also ruled out the easy fix: "I have the skip, add, share,
-           balance, lock, borrow... all those are things I want and use. They
-           just need to be organized better." So nothing was removed.
-
-           The plate is its own block, and everything inside it obviously
-           belongs to it. That containment is the scope system: this block is
-           THIS FOOD, the verbs at the card's foot are THIS MEAL, the borrow
-           line is THE DAY — three scopes that previously looked identical and
-           sat in one card. Word labels were drawn for the same job and
-           dropped; the box says it without spending three rows per meal.
-
-           Row one is the food: are you done with it, what is it, is it worth
-           eating. Row two is today's portion and what it costs. */
-        /* Three bands, and each answers one question.
-         *
-           Blake's layout, after a round of drawings: "Box. Outline.
-           [Image][leaf score][name]......[pin][fav] / Practical uom. Cal PFC
-           / [lock][serving size][-][+]......[check box]".
-         *
-           WHAT IS THIS — the leaf leads the row at full size, the name runs
-           to the two controls that keep it: pin for the routine, the star
-           for the book. WHAT IS IN IT — the weight and the four figures,
-           indented under the name so they read as belonging to it. WHAT CAN
-           I DO — one outlined strip carrying every verb that acts on this
-           plate, with the portion boxed and its steppers joined to its right
-           so the three things that change the amount read as one control.
-         *
-           The check moves to the far end of that strip and gains a word. It
-           is the thing pressed most on the row and it was a 21px square in
-           the corner furthest from a thumb, which is exactly backwards.
-         *
-           There is no image slot, because there are no images: 335 recipes
-           and 221 foods, not a photograph among them. The leaf is what a
-           plate has, and it is the better token anyway — it carries a number
-           worth reading. */
-        return '<div class="mitem' + (it.eaten ? ' eaten' : '') +
-            (it.l ? ' held' : '') + '">' +
-          '<div class="mitem-r1">' +
-            /* The slot is kept even when there is no score to put in it.
-               A badge drawn for a recipe and absent for a food cannot be the
-               thing a column starts on: it puts two plates of one meal at two
-               different left edges, which is a thing you feel without being
-               able to name it. This file has the note already, from the last
-               time the leaf led a row — and leading it again is exactly how
-               the fault comes back. */
-            (r.score === null || r.score === undefined
-              ? '<span class="leaf-md leaf-gap" aria-hidden="true"></span>'
-              : leaf(r.score, 'leaf-md')) +
-            /* A recipe's name opens the recipe. A food's name opens the
-               food: what one of it is, and — for a meal you kept together —
-               the parts it was made of. It used to be a dead label, which
-               left a five-part salad reading as one word and no way back. */
-            /* The name, and — on a food Fill added — why, beside it: a chip
-               that drops under the name only when the name is long. Blake:
-               the endive logic is fine, "it's just invisible in the app". */
-            '<span class="mitem-nm">' +
+        var open = panelOpen(tag);
+        var was = marks.was[i], fresh = !!marks.fresh[i];
+        var amt = amtText(r, it.x);
+        var kc = r.macro ? Math.round((r.macro.kcal || 0) * it.x) : 0;
+        var sub = was !== undefined ? '<small class="mcard-was">was ' + esc(amtText(r, was)) + '</small>'
+          : it.l ? '<small class="mcard-held">' + LOCK_SM + ' kept</small>'
+          : pinned ? '<small class="mcard-held">pinned to ' + esc(name.toLowerCase()) + '</small>' : '';
+        return '<div class="mitem mcard-row' + (it.eaten ? ' eaten' : '') + (it.l ? ' held' : '') +
+            (was !== undefined ? ' moved' : fresh ? ' fresh' : '') + (open ? ' open' : '') + '">' +
+          '<div class="mcard-line">' +
+          /* The leaf keeps its slot even with no score, so every name in a
+             meal starts at one left edge. */
+          (r.score === null || r.score === undefined
+            ? '<span class="leaf-sm leaf-gap" aria-hidden="true"></span>' : leaf(r.score, 'leaf-sm')) +
+          '<span class="mitem-nm">' +
+            /* A recipe's name opens the recipe; a food's opens the food. */
             (r.food
-              ? '<button class="mitem-name mitem-food" data-mfood="' + esc(String(r.id)) +
-                '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">' + esc(r.name) + '</button>'
-              : '<button class="mitem-name" data-open="' + esc(String(r.id)) +
-                '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
-            '</span>' +
-            '<span class="mitem-keep no-print">' +
-              /* The pin is the routine: this food on this meal on every new
-                 day — the Crio Brü that opens every morning without being
-                 asked. Unpinning stops tomorrow, not today. */
-              (onPlan ? '<button class="mic mpin" data-mpin="' + tag + '" aria-pressed="' +
-                (pinned ? 'true' : 'false') + '" aria-label="' +
-                (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">' +
-                '<svg viewBox="0 0 16 16" aria-hidden="true">' +
-                  '<path d="M5.4 2.6h5.2M8 2.6v4.3M6.4 6.9c-.4 1.7-1.5 2.7-2.6 3.1h8.4' +
-                    'c-1.1-.4-2.2-1.4-2.6-3.1Z" fill="none" stroke="currentColor" ' +
-                    'stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>' +
-                  '<path d="M8 10v3.4" fill="none" stroke="currentColor" ' +
-                    'stroke-width="1.2" stroke-linecap="round"/>' +
-                '</svg></button>' : '') +
-              /* The star, new here. It lived only in the picker, which meant
-                 you could keep a dish while shopping for it and not on the
-                 day you actually ate it — and the day you ate it is the day
-                 you know. A table food is not yours to star; one of your own
-                 is. */
-              (mCanFav(r) ? '<button class="mic mfav" data-mfav="' + esc(String(r.id)) +
-                '" aria-pressed="' + (mIsFav(r) ? 'true' : 'false') + '" aria-label="' +
-                (mIsFav(r) ? 'Remove from favourites' : 'Keep as a favourite') + '">' +
-                '<svg viewBox="0 0 16 16" aria-hidden="true">' +
-                  '<path d="M8 2.2l1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4L2.2 6.5l4-.6Z" ' +
-                    'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>' +
-                '</svg></button>' : '') +
-            '</span>' +
+              ? '<button class="mitem-name mitem-food" data-mfood="' + esc(String(r.id)) + '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">' + esc(r.name) + '</button>'
+              : '<button class="mitem-name" data-open="' + esc(String(r.id)) + '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') +
+            (fresh ? '<span class="mcard-new">New</span>' : '') + sub +
+          '</span>' +
+          '<button class="mcard-amt num no-print" data-mamt="' + tag + '" aria-expanded="' + (open ? 'true' : 'false') +
+            '" aria-label="' + esc(r.name) + ', ' + esc(amt) + ': portion and tools">' +
+            (it.l ? LOCK_SM : '') + amtStack(amt) + CARET + '</button>' +
+          '<span class="mcard-amt-p print-only">' + esc(amt) + '</span>' +
+          '<span class="mcard-kc num">' + kc + '</span>' +
+          '<input class="mitem-ate" type="checkbox" data-meat="' + tag + '"' + (it.eaten ? ' checked' : '') +
+            (ahead ? ' disabled' : '') + ' aria-label="Eaten">' +
           '</div>' +
-          mWhyStrip(it, tag) +
-          mBatchStrip(r, it, tag) +
-          /* What it is in the kitchen, and what it costs you.
-           *
-             The weight leads, because Blake weighs: "sometimes it's just
-             easier for me to measure the food on a scale than using cups."
-             A cup of oats is a range and 40 g of oats is 40 g, and every one
-             of the foods in the table carries unit-to-gram weights.
-           *
-             The salt is a sibling of the figures, not inside them: the four
-             numbers keep their own nowrap so they drop to a second line
-             whole rather than breaking across two. */
-          /* The "why" chip leads the figures' row rather than sharing the
-             name's: Blake, seeing names wrap around it, "add that new Fill's
-             pick pill or added for fiber pill to the row below it" — with the
-             strip it opens sitting above, under the name. */
-          '<div class="mitem-r2">' +
-            mWhyChip(it, tag) +
-            (function () {
-              /* A recipe's plate says what it weighs: the thing you put on
-                 the scale. A tap weighs the batch or says how it was got. */
-              var sg = mServeG(r);
-              if (!sg) return port.detail ? '<span class="mitem-uom">' + esc(port.detail) + '</span>' : '';
-              return '<button class="mitem-uom mitem-bw' + (sg.est ? ' est' : '') + '" data-mbatch="' + tag +
-                '" aria-expanded="' + (S.mBatchOpen === tag ? 'true' : 'false') + '" aria-label="' +
-                (sg.est ? 'About ' : '') + Math.round(sg.g * it.x) + ' grams on this plate">' +
-                (sg.est ? '~' : '') + Math.round(sg.g * it.x) + ' g</button>';
-            })() +
-            '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' +
-            mSaltChip(r, it.x) +
-          '</div>' +
-          '<div class="mitem-r3 no-print">' +
-            /* The two verbs in a group of their own, tight together, with the
-               dial's own air after them. Proximity is the only thing saying
-               these two belong to each other rather than to the portion
-               beside them — spaced like everything else they read as one
-               left-packed strip, which is what Blake called "not spread out
-               well" the last time this row was built. */
-            '<span class="mitem-verbs">' +
-            '<button class="mic mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' +
-              '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8l.6-8.2" ' +
-              'fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-            '</button>' +
-            /* The lock guards against the MACHINE, not you — Rebalance leaves
-               a locked plate alone but the stepper still works — so it sits
-               beside the bin rather than inside the dial. Live even on an
-               eaten plate: holding a food steady while the rest of the day
-               moves around it is still worth saying afterwards. */
-            (onPlan ? '<button class="mic mlock" data-mlock="' + tag + '" aria-pressed="' +
-              (it.l ? 'true' : 'false') + '" aria-label="' +
-              (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '">' +
-              '<svg viewBox="0 0 16 16" aria-hidden="true">' +
-                '<rect x="3.4" y="7" width="9.2" height="6.4" rx="1.6" fill="none" ' +
-                  'stroke="currentColor" stroke-width="1.2"/>' +
-                '<path d="M5.6 7V5.1a2.4 2.4 0 0 1 4.8 0V7" fill="none" ' +
-                  'stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
-              '</svg></button>' : '') +
-            '</span>' +
-            /* Eaten is a record, not a dial. Once the tick is on, this plate
-               is a thing that happened, and resizing what you already ate is
-               editing the past — so the stepper goes quiet. One tap on the
-               number hands it back.
-             *
-               The number is a button and pressing it lets you type one. The
-               dial got you from one to two; it never got you to thirty nuts
-               or a hundred and eighty-five grams. */
-            /* The portion and its two steppers, together, in that order.
-             *
-               Blake: "Outline the serving size in a box as well. With +/- on
-               the right side of it." Which is also the better grouping: the
-               three things that change the amount now read as one control
-               rather than as a number with a button on either side of it.
-             *
-               Still inside .mstep, and the figure still wears .mstep-x. Those
-               two names are what fifteen tests reach for — typing a portion,
-               stepping it, what it wraps to, what an eaten plate does to it —
-               and not one of them is about where on the card it sits. Moving
-               the element out of its own container to rearrange it is how a
-               layout change turns into a behaviour change. */
-            '<span class="mstep' + (it.eaten && S.mEdit !== tag ? ' spent' : '') + '">' +
-              /* Eaten is a record, not a dial. Once the tick is on, this plate
-                 is a thing that happened, and resizing what you already ate is
-                 editing the past — so the stepper goes quiet. One tap on the
-                 number hands it back.
-               *
-                 The number is a button and pressing it lets you type one. The
-                 dial got you from one to two; it never got you to thirty nuts
-                 or a hundred and eighty-five grams. */
-              (S.mType === tag
-                ? '<span class="mstep-x mitem-amt mitem-typing">' +
-                    '<input class="mstep-in" type="text" inputmode="decimal" ' +
-                      'autocomplete="off" data-mtypein="' + tag + '" ' +
-                      'aria-label="Portion, in ' + esc(mDialUnit(r)) + '" ' +
-                      'value="' + esc(String(mTypedFromX(r, it.x))) + '">' +
-                    '<i>' + esc(mDialUnit(r)) + '</i>' +
-                  '</span>'
-                : it.eaten && S.mEdit !== tag
-                ? '<button class="mstep-x mitem-amt mstep-wake" data-medit="' + tag +
-                  '" title="Correct this portion">' + esc(port.head) + '</button>'
-                : '<button class="mstep-x mitem-amt mstep-type" data-mtype="' + tag +
-                  '" title="Type a portion">' + esc(port.head) + '</button>') +
-              '<span class="mstep-keys">' +
-                '<button data-mstep="' + tag + ':down"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
-                  ' aria-label="Smaller portion">&minus;</button>' +
-                '<button data-mstep="' + tag + ':up"' + (it.eaten && S.mEdit !== tag ? ' disabled' : '') +
-                  ' aria-label="Bigger portion">+</button>' +
-              '</span>' +
-            '</span>' +
-            /* The thing pressed most, at the end of the strip. It was a 21px
-               box in the top-left corner — the state of the plate, given the
-               smallest target and the furthest reach — then a labelled
-               button, and now the box on its own: Blake, on the labelled
-               one, "why a check box inside a box?" Quite. The input IS the
-               control and it is drawn at full size; a frame around a
-               checkbox is a second edge saying what the first one said. */
-            '<input class="mitem-ate" type="checkbox" data-meat="' + tag + '"' +
-              (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') +
-              ' aria-label="Eaten">' +
-          '</div>' +
+          /* The panel is inside the food's own box, under its line. */
+          (open ? panelHTML(sk, r, it, tag, pinned, onPlan) : '') +
         '</div>';
       }).join('');
       if (!onPlan && !rows) return '';        // a bygone meal with nothing left says nothing
@@ -587,47 +568,23 @@
         sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x;
         sub.f += (r.macro.f || 0) * it.x; sub.c += (r.macro.c || 0) * it.x;
       });
-      /* Three states on the rail, not two. A hollow dot is a meal with
-         nothing on it; an ochre one is a meal planned and still ahead of
-         you; a filled one is a meal you have eaten. The last was the whole
-         point of running the day down a line — what is behind you — and it
-         was the one state never wired up. */
       var eatenAll = items.length && items.every(function (it) {
         return it.eaten || !LIVE.BY_ID[it.id];
       });
-      /* Folded by default on a day that is over, never on the one you are
-         living. Folding the moment a meal was fully ticked collapsed it under
-         the hand that ticked it — and took away the untick. S.mFold holds
-         only what you have pressed, so it never has to be cleaned up. */
       var folded = !!(items.length && S.mFold[sk]);
-      var addBtn = '<button class="mslot-act add mslot-add" data-mslot="' + esc(sk) + '" ' +
-        'aria-label="Add food to ' + esc(name) + '" title="Add food">' + mIcon('plus') + '</button>';
-      /* Said once, used by whichever of the two headers this meal draws. */
-      var pillsSay = mMealPillsSay(sub, mMealAsk(sk, targets, slots), targets);
+      var ask = mMealAsk(sk, targets, slots);
+      var aim = ask ? (ask.now || ask) : null;
+      var aimK = aim ? (aim.kcal || (4 * (aim.p || 0) + 9 * (aim.f || 0) + 4 * (aim.c || 0))) : 0;
+      var said = verdict(sub, aim, eatenAll, items.length);
+      var pillsSay = mMealPillsSay(sub, ask, targets);
 
-      /* Skipped. One line instead of a card, struck through, with the way
-         back on it — a day where lunch is visibly not happening tells you
-         more later than a day where lunch simply is not there. Drawn before
-         the card rather than instead of parts of it, because a skipped meal
-         has no numbers, no plates and nothing to fold.
-       *
-         ...but it does have a WHOLE MEAL'S worth of calories to hand out,
-         which is the largest cascade there is, and this row used to announce
-         the handout as a fait accompli: "its share went to the rest". Blake:
-         "with skip, should I also be able to tell it where to send the
-         macros and calories?" He could not — and not because the chooser
-         refused him, but because it was unreachable: it renders inside
-         .mslot-items, and this branch returns before that exists. So the
-         line carries it. Folded, the card is itself one line, which is what
-         this row already was. */
+      /* Skipped: one struck line with the way back on it, carrying the
+         chooser for where its share goes (the largest cascade there is). */
       if (onPlan && !items.length && mSkipped(k, sk)) {
         var skSend = mCascadeLineHTML(sk, targets, slots);
         return '<div class="mslot mslot-skipped' + (skSend ? ' mslot-skipped-c' : '') + '">' +
           '<div class="mslot-skip-h">' +
             '<span class="mslot-skip-n">' + esc(name) + '</span>' +
-            /* The row says only that it is skipped once the card below it is
-               saying where the food went. Two sentences about one handout,
-               one of them vague, is how the old row read. */
             '<span class="mslot-skip-w">' +
               (skSend ? 'skipped' : 'skipped &middot; its share went to the rest') + '</span>' +
             '<button class="ghost mslot-unskip no-print" data-mskip="' + esc(sk) + '" ' +
@@ -636,296 +593,95 @@
         '</div>';
       }
 
-      return '<div class="mslot mday-stop' + (items.length ? ' filled' : '') +
-        (eatenAll ? ' done' : '') + '">' +
-        /* The dot was a pseudo-element: it could say a meal was behind you
-           but never be told so, and no keyboard or screen reader knew it was
-           there at all. It is a button now — press it and the whole meal is
-           eaten, press it again and it is not. */
+      /* The dot marks the whole meal eaten, and press it again it is not.
+         It is the tick on the shut card and on the open one alike. */
+      var dot = '<button class="mday-dot no-print" data-mdot="' + esc(sk) + '"' +
+        (items.length && !ahead ? '' : ' disabled') +
+        ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
+        ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten' : 'Mark all of ' + esc(name) + ' eaten') + '"></button>';
 
-        /* Two lines, because five things will not fit across a phone: the
-           name, the verdict and the controls up top, what the meal actually
-           comes to underneath. One row made the Add button wrap and doubled
-           the height of every meal on the day. */
-        '<div class="mslot-h">' +
-          /* The dot came off the rail and onto the card, because it was never
-             decoration: pressing it marks the whole meal eaten. Losing the
-             line it hung from must not lose the control with it. */
-          '<button class="mday-dot no-print" data-mdot="' + esc(sk) + '"' +
-            (items.length && !ahead ? '' : ' disabled') +
-            ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
-            ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten'
-              : 'Mark all of ' + esc(name) + ' eaten') + '"></button>' +
-          /* The name is the handle. A meal you have eaten is history — its
-             steppers and locks have nothing left to do — so it folds down to
-             a list of what was on it, and anything still ahead of you stays
-             open. Pressing the name overrides either way.
-           *
-             The name still folds it, and always has — that target is the
-             width of the word and costs nothing to keep. But the name is at
-             the far LEFT of a phone, which is the one place a thumb is not,
-             and it never said the meal could fold in the first place. The
-             handle that says so lives over on the right, below. */
-          /* ...but only while there is something to fold.
-           *
-             On an EMPTY meal the name was still a fold button, and pressing
-             it did nothing you could see — `folded` is gated on items.length
-             and the seam only exists `if (rows)`, so the card did not move.
-             The handler wrote S.mFold[sk] all the same, and mFoldFor stops
-             Fill from clearing it. So: press an empty meal's name, press
-             Fill, and that one meal comes back FOLDED with no steppers while
-             every other meal opens. Measured — 157px and zero steppers
-             against 193px and two.
-
-             The fix is the honest one rather than clearing the flag later: a
-             control that cannot do anything should not be a control. */
-          /* The whole head is the door.
-           *
-             The mockup Blake approved says it in those words, and its card is
-             one <button> carrying the name, the cue AND the meal's pills. The
-             app had the name as a button instead — 11.5px of uppercase text,
-             a 78x14 target adrift in a 378x45 row — because the row was
-             carrying three icon buttons and a button cannot hold buttons. So
-             the verbs moved to the foot of the open meal, where the mockup
-             has them and where they read as words, and the head became what
-             it looks like: the thing you press to open the meal.
-           *
-             The dot stays outside it. It marks the whole meal eaten, which is
-             an action of its own, and the mockup's dot is decoration only
-             because the mockup never modelled that control. */
-          (rows
-            /* The label carries the meal's numbers now, because nothing else
-               can. The pills are aria-hidden and always were; the head is a
-               <button>, and a button's accessible name comes from its own
-               aria-label and overrides everything inside it — so marking up
-               the pills would not have helped even before they were hidden.
-               A screen reader has been getting "Open Breakfast" and not one
-               figure off the card since this header was built. */
-            ? '<button class="mslot-head" data-mfold="' + esc(sk) + '" aria-expanded="' +
-              (folded ? 'false' : 'true') + '" aria-label="' +
-              (folded ? 'Open ' : 'Fold ') + esc(name) +
-              (pillsSay ? ' — ' + esc(pillsSay) : '') + '">' +
-              /* One line: the name, then the meal's numbers, then the mark.
-               *
-                 They were stacked — name on top, pills beneath — which gave
-                 every meal a two-row header and pushed the plates down by the
-                 height of a row times six meals. On the line with the name
-                 they read as what they are: this meal, and how it is going.
-                 The name gives way first when the row runs out, because a
-                 clipped word still says which meal it is and a clipped number
-                 says nothing at all. */
-              '<span class="mslot-name">' + esc(name) + '</span>' +
-              '<span class="mslot-sp"></span>' +
-              /* The numbers and the mark travel together. Loose, the mark
-                 wrapped on its own the moment the row ran out — a chevron
-                 alone on a second line, under nothing, belonging to nothing.
-                 As one piece they either both sit beside the name or both
-                 take the next line, and the mark is at the right of whichever
-                 line they are on. */
-              '<span class="mslot-tail">' +
-                mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll, !rows) +
+      if (folded && rows) {
+        var names = items.map(function (it) { var r2 = LIVE.BY_ID[it.id]; return r2 ? r2.name : ''; }).filter(Boolean);
+        var nameLine = names.length === 1
+          ? names[0] + ' · ' + amtText(LIVE.BY_ID[items[0].id], items[0].x)
+          : names.slice(0, 3).map(function (n, i) { return i ? n.toLowerCase() : n; }).join(', ');
+        var pct = aimK > 0 ? Math.min(100, sub.kcal * 100 / aimK) : 0;
+        var heldN = items.filter(function (it) { return it.l && LIVE.BY_ID[it.id]; }).length;
+        return '<div class="mslot mday-stop filled mcard-shut ' + said.cls + (eatenAll ? ' done' : '') + '">' +
+          '<div class="mslot-h">' + dot +
+            '<button class="mslot-head mcard-head" data-mfold="' + esc(sk) + '" aria-expanded="false" aria-label="Open ' +
+              esc(name) + (pillsSay ? ' — ' + esc(pillsSay) : '') + '">' +
+              '<span class="mcard-t">' +
+                '<span class="mslot-name">' + esc(name) + '</span>' +
+                (names.length > 1 ? '<span class="mcard-n">' + names.length + ' foods</span>' : '') +
+                '<span class="mcard-k num"><b>' + fmtK(sub.kcal) + '</b>' + (aimK ? ' / ' + fmtK(aimK) + ' kcal' : ' kcal') + '</span>' +
                 '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
               '</span>' +
-              '</button>'
-            /* An empty meal wears the same four pills as a full one.
-             *
-               It used to get a single flame and a calorie figure, which told
-               you the size of the meal and nothing about its shape — and the
-               shape is the part you plan against. A meal you have not filled
-               is precisely the meal you need the numbers for: 0 of 44 protein
-               says what to go looking for, 🔥387 does not.
-             *
-               No mark on the end, because there is nothing behind it to fold.
-               The strip is drawn at planned weight either way, so a day of
-               six untouched meals reads as six quiet rows rather than
-               twenty-four accusations. */
-            /* An empty meal has no button to hang a label on, so it says the
-               same sentence in a span only a reader hears. It is the meal
-               MOST worth hearing — an empty one is the one you are about to
-               fill, and "0 of 44 protein" is what tells you what to go
-               looking for. */
+              '<span class="mcard-names"><span class="mcard-nm">' + esc(nameLine) + '</span>' +
+                (names.length > 3 ? '<span class="mcard-more">+' + (names.length - 3) + ' more</span>' : '') +
+                /* Held, said where the holding can be seen: lock the dinner
+                   you promised, fold the card, press Rebalance — and see
+                   what will be spared. */
+                (heldN ? '<span class="mcard-kept">' + LOCK_SM + heldN + ' kept</span>' : '') + '</span>' +
+              '<span class="mcard-v"><span class="mcard-tr"><span class="mcard-fi" style="width:' + pct.toFixed(1) + '%"></span></span>' +
+                '<span class="mcard-say num">' + esc(said.say) + '</span></span>' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      }
+
+      return '<div class="mslot mday-stop mcard-open' + (items.length ? ' filled' : '') + (eatenAll ? ' done' : '') + '">' +
+        '<div class="mslot-h">' + dot +
+          /* The whole head is the door; it carries the meal's four pills. */
+          (rows
+            ? '<button class="mslot-head" data-mfold="' + esc(sk) + '" aria-expanded="true" aria-label="Fold ' +
+              esc(name) + (pillsSay ? ' — ' + esc(pillsSay) : '') + '">' +
+              '<span class="mslot-name">' + esc(name) + '</span>' +
+              '<span class="mslot-sp"></span>' +
+              '<span class="mslot-tail">' +
+                mMealPillsHTML(sub, ask, targets, !eatenAll, !rows) +
+                '<span class="mfold-cue" aria-hidden="true">&#8964;</span>' +
+              '</span></button>'
             : '<span class="mslot-name mslot-name-flat">' + esc(name) + '</span>' +
               (pillsSay ? '<span class="vis-hidden">' + esc(pillsSay) + '</span>' : '') +
               '<span class="mslot-sp"></span>' +
-              '<span class="mslot-tail">' +
-                mMealPillsHTML(sub, mMealAsk(sk, targets, slots), targets, !eatenAll, !rows) +
-              '</span>') +
-          /* Only where there is something to solve. One plate has a stepper
-             and needs no algebra; two or more is the question this answers,
-             and a button on every meal from breakfast onward would be four
-             buttons a day that nothing was ever pressed on. */
-
-          /* No label. It said "everywhere", which only means something to
-             somebody who already knows a meal is normally fenced to its own
-             sections — and that fence has no marker of its own, so the word
-             was naming the exit from a room nobody had been told they were
-             in. The widening still happens; it just stops announcing itself
-             in a vocabulary of one word. The suggestions ARE the message. */
-
-          /* A plus, not "+ Add". Everybody knows what a plus does, and the
-             word was the widest thing on a row that has too much on it. The
-             label the word used to give is now the button's own, said to a
-             screen reader instead of to the eye — and said better, because it
-             names the meal the food is going on. */
-
+              '<span class="mslot-tail">' + mMealPillsHTML(sub, ask, targets, !eatenAll, !rows) + '</span>') +
         '</div>' +
-        /* What the meal comes to, in the same four colours the bars use. */
-        /* The handle is the bar the fold actually happens at. A boxed caret up
-           in the header read as a third action button beside Add and the
-           retry, and on a meal that also carries the scale it made four boxes
-           fighting over one row. This is the seam instead: the meal's own
-           numbers, sitting exactly where the plates appear and disappear,
-           with a small mark on the end saying which way the next press goes.
-           Full width, so the target is the whole strip rather than a glyph. */
-        (folded
-          ? '<div class="mslot-thin">' + items.map(function (it) {
-              var r2 = LIVE.BY_ID[it.id];
-              if (!r2) return '';
-              return '<div class="mthin' + (it.eaten ? ' eaten' : '') + '">' +
-                /* Its leaf, as the bullet. Shut, this is the only place the
-                   score survives — and a shut meal is exactly when several of
-                   them are being read at once. */
-                (r2.score === null || r2.score === undefined
-                  ? '<span class="mthin-dot" aria-hidden="true">&middot;</span>'
-                  : leaf(r2.score, 'leaf-sm')) +
-                /* The same door the open plate's name is. A shut meal is
-                   still a list of food, and the name of a thing you are about
-                   to cook has to be pressable whichever way the card is
-                   folded — going to the recipe should not cost you opening
-                   the meal first. The delegated handlers on #macroSlots
-                   already answer both of these, so the row needs nothing of
-                   its own; it only has to be the same shape. */
-                (r2.food
-                  ? '<button class="mthin-n mitem-food" data-mfood="' + esc(String(r2.id)) +
-                    '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">' + esc(r2.name) + '</button>'
-                  : '<button class="mthin-n" data-open="' + esc(String(r2.id)) +
-                    '" data-mx="' + it.x + '">' + esc(r2.name) + '</button>') +
-                /* The same portion words the open plate uses — "1 cup ·
-                   130 g", "1½ servings" — so a folded meal reads as food
-                   rather than as multipliers. */
-                /* Held, said where the holding is visible.
-                 *
-                   The lock lives on the open plate, beside the portion it
-                   holds still. Shut, the row carried no sign of it at all —
-                   so the ordinary gesture (lock the dinner you promised the
-                   family, fold the card, press Rebalance) gave back a day
-                   with no way to see what had been spared. Eaten already
-                   marks itself here; held had nothing.
-
-                   Beside the portion, because that is where it sits on the
-                   open plate and a fold should not move things. */
-                '<span class="mthin-x">' + esc(mPortionText(r2, it.x)) +
-                  (it.l ? ' <span class="mthin-l" role="img" aria-label="held through Rebalance"'
-                    + ' title="Held through Rebalance">&#128274;</span>' : '') +
+        '<div class="mslot-items">' +
+          rows +
+          (onPlan
+            ? '<button class="mcard-add mslot-add no-print" data-mslot="' + esc(sk) + '" aria-label="Add food to ' + esc(name) + '">' +
+                mIcon('plus') + '<span>Add a food to ' + esc(name.toLowerCase()) + '…</span></button>' +
+              /* The meal's own verbs, at its foot. The scales lead with what
+                 the meal is doing in words; after a balance the same place
+                 says what moved and offers it back. */
+              '<div class="mslot-acts mcard-foot no-print">' +
+                (marks.snap
+                  ? '<button class="ghost mcard-undo" data-mbalundo="' + esc(sk) + '">Undo</button>' +
+                    '<span class="mcard-say">' + (marks.n ? marks.n + (marks.n === 1 ? ' amount' : ' amounts') + ' changed, marked above' : 'Already as close as it gets') + '</span>'
+                  : items.length
+                  ? '<button class="mslot-act mslot-bal mcard-bal" data-mbal="' + esc(sk) + '"' + (items.length >= 2 ? '' : ' disabled') +
+                      ' aria-label="Balance the portions on ' + esc(name) + '" title="Solve these portions against this meal’s share">' + mIcon('scales') + '</button>' +
+                    '<span class="mcard-say ' + said.cls + '">' + esc(said.say) + '</span>'
+                  : '<span class="mcard-say">Nothing on ' + esc(name.toLowerCase()) + ' yet</span>') +
+                '<span class="mcard-verbs">' +
+                  (items.length
+                    ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '" aria-label="Another suggestion for ' + esc(name) +
+                        '" title="Another suggestion — walks down the best-fit list">' + mIcon('another') + '</button>'
+                    : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" aria-label="Skip ' + esc(name) +
+                        ' today" title="Not eating this today — its share goes to the other meals">' + mIcon('skip') + '</button>') +
+                  (items.length >= 2
+                    ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" aria-label="Save these plates as one food you can reuse" ' +
+                      'title="Save these plates as one food you can reuse">' + mIcon('keep') + '</button>' : '') +
+                  '<button class="mslot-act mslot-from" data-mfrom="' + esc(sk) + '" aria-label="Repeat ' + esc(name) +
+                    ' from another day" title="Copy this meal from another day">' + mIcon('fromday') + '</button>' +
                 '</span>' +
-                /* Eaten is a tick in the tick's own column, and the name in
-                   ink. It was a rule through the name, which reads as
-                   deleted — and the plan was the one in ink, so the food you
-                   had not eaten yet looked more real than the food you had.
-                   Blake: "Eaten shows a ✓ in normal text, planned looks
-                   lighter; no strike-through." */
-                (it.eaten
-                  ? '<span class="mthin-ok" role="img" aria-label="eaten">&#10003;</span>'
-                  : '<span class="mthin-ok is-plan"><span class="vis-hidden">planned</span></span>') +
-                '</div>';
-            }).join('') + '</div>'
-          : '<div class="mslot-items">' +
-            /* Open is where the ± buttons are, so it is where the whole
-               picture belongs — directly above the thing that changes it.
-             *
-               An empty meal gets NOTHING here, where it used to get an em
-               dash on a line of its own. The dash said what the pills on the
-               header already say — a meal reading 🔥0/262 is plainly empty —
-               and it said it in about 26 px, on every empty meal, of every
-               empty day, which is most of what tomorrow looks like. On a
-               six-meal day that is over 150 px of placeholder before any food
-               is reached. The card goes from three rows to two, and the row
-               it loses is the one that was nothing. */
-            rows +
-            /* The verbs, at the foot of the meal they act on.
-             *
-               They were three icon buttons in the header, which is what
-               stopped the header being a button and left the fold target the
-               width of the word "BREAKFAST". Down here they are words: a ⚖
-               and a ↻ are a guess every time until you have pressed them
-               once, and the row they used to crowd is now the thing you press
-               to open the meal. They are also only drawn on an OPEN meal,
-               which is the only state they mean anything in — you cannot
-               balance plates you cannot see. */
-            (onPlan
-              ? '<div class="mslot-acts no-print">' +
-                /* Only the verbs this meal can actually use.
-                 *
-                   An EMPTY meal gets Skip instead of the other two. "Another"
-                   means "not that one, what else" and "Balance" means "solve
-                   these against each other", and neither is a question you
-                   have about a meal with nothing on it — drawn anyway they
-                   were two dead buttons on every empty meal of every empty
-                   day, which is most of what tomorrow looks like. Skip is the
-                   verb that meal DOES have, and it was over in the header
-                   wearing a ⊘ that nobody reads as a word. The mockup's own
-                   rule: controls that cannot act are not drawn.
-                 *
-                   And you still do not skip a meal you have put food on —
-                   you delete the food. */
-                (items.length
-                  ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '"' +
-                      /* Named aloud, since the meal's verbs are drawn
-                         without their words. */
-                      ' aria-label="Another suggestion for ' + esc(name) + '"' +
-                      ' title="Another suggestion \u2014 walks down the best-fit list">' +
-                      mIcon('another') + '</button>' +
-                    '<button class="mslot-act mslot-bal" data-mbal="' + esc(sk) + '"' +
-                      (items.length >= 2 ? '' : ' disabled') +
-                      ' aria-label="Balance the portions on ' + esc(name) + '"' +
-                      ' title="Solve these portions against this meal\u2019s macros">' +
-                      mIcon('scales') + '</button>'
-                  : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" ' +
-                      'aria-label="Skip ' + esc(name) + ' today" ' +
-                      'title="Not eating this today \u2014 its share goes to the other meals">' +
-                      mIcon('skip') + '</button>') +
-                /* Keeping several plates as one thing is a verb, and this is
-                   where this meal's verbs live.
-                 *
-                   It was a full-width dashed slab between the last plate and
-                   this row — as tall as a plate, drawn in the ochre a control
-                   is drawn in, competing with the food above it for a thing
-                   you do to a meal maybe twice. The scope system the plate was
-                   rebuilt around says it plainly: the block is THIS FOOD, this
-                   row is THIS MEAL, the cascade line is THE DAY. A slab
-                   floating between the plates and the verbs belonged to
-                   neither. It is still only drawn where it can act. */
-                /* One row, always. Blake: "get all the buttons on the food
-                   tag into a single row", and then "Just use icons and the
-                   box size that is in the meal/food card uses." Each verb is
-                   its drawing alone, in a plate key's box; its spoken name
-                   and tooltip say the rest. Save is these plates kept as one
-                   food you can reuse (a chain: kept together), Repeat is this
-                   meal copied from another day. Add is last, alone at the
-                   right edge, where the thumb already goes. */
-                (items.length >= 2
-                  ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" ' +
-                    'aria-label="Save these plates as one food you can reuse" ' +
-                    'title="Save these plates as one food you can reuse">' +
-                    mIcon('keep') + '</button>' : '') +
-                /* The same meal on another day, whole, in one tap. */
-                '<button class="mslot-act mslot-from" data-mfrom="' + esc(sk) + '" ' +
-                  'aria-label="Repeat ' + esc(name) + ' from another day" ' +
-                  'title="Copy this meal from another day">' + mIcon('fromday') + '</button>' +
-                addBtn +
-                '</div>'
-              : '') +
-            /* INSIDE the fold, and last. It was outside the card on the
-               reasoning that a folded meal should still be able to say what
-               its miss did — which was wrong about what folding means. Blake,
-               on his own day: "the overage tag is still seen even after I
-               closed the meal tag". Shutting a meal is how you say you are
-               done with it, and the line is a question about that meal; a
-               question that outlives being dismissed is a nag. The pills
-               carry the answer afterwards, and they are on the header, which
-               a folded card keeps. */
-            (onPlan ? mCascadeLineHTML(sk, targets, slots) : '') +
-          '</div>') +
+              '</div>'
+            : '') +
+          /* Inside the fold, and last: a question about this meal that
+             shutting the meal dismisses. */
+          (onPlan ? mCascadeLineHTML(sk, targets, slots) : '') +
+        '</div>' +
       '</div>';
     };
     var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');

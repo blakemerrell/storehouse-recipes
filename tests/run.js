@@ -125,6 +125,10 @@ function playwright() {
     if (!door) {
       await ctx.addInitScript(() => {
         try { if (!localStorage.getItem('sh.door')) localStorage.setItem('sh.door', 'test'); } catch (e) { /* not a page with storage */ }
+        /* Every food's panel open on Nourish, for the suites written before the
+           steps and the lock moved behind the amount (2026-10-04); the meal
+           card's own tests take this off. */
+        try { if (localStorage.getItem('sh.allPanels') === null) localStorage.setItem('sh.allPanels', '1'); } catch (e) { /* not a page with storage */ }
       });
     }
     return ctx;

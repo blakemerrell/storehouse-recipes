@@ -4,7 +4,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openPlan } = require('./fixtures/nourish.js');
+const { nourish, openPlan, openDay } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — salt, a meal\'s fold, and handing slack on',
@@ -157,7 +157,7 @@ module.exports = nourish({
     t.ok('a meal with something on it carries a handle, an empty one does not',
       await fold.evaluate(() => [...document.querySelectorAll('.mslot')].every((s) => {
         const has = !!s.querySelector('.mslot-head[data-mfold]');
-        const items = s.querySelectorAll('.mitem, .mthin').length > 0;
+        const items = s.querySelectorAll('.mitem, .mcard-shut').length > 0;
         return has === items;
       })),
       await fold.evaluate(() => [...document.querySelectorAll('.mslot')].map((s) =>
@@ -180,7 +180,7 @@ module.exports = nourish({
         if (!b) return false;
         const row = b.closest('.mslot-h').getBoundingClientRect();
         const r = b.getBoundingClientRect();
-        const plate = b.closest('.mslot').querySelector('.mslot-items, .mslot-thin');
+        const plate = b.closest('.mslot').querySelector('.mslot-items, .mcard-head');
         return r.width >= row.width * 0.7 && !!b.querySelector('.mmp') &&
           !!b.querySelector('.mslot-name') &&
           !!plate && plate.getBoundingClientRect().top >= r.bottom - 1;
@@ -225,7 +225,7 @@ module.exports = nourish({
           [...h.querySelectorAll('button')].map((b) => b.textContent.trim().slice(0, 6) + ' ' +
             Math.round(b.getBoundingClientRect().height)).join(' | ') + ']').join('  ')));
     const shutBefore = await fold.evaluate(() =>
-      document.querySelectorAll('.mslot-thin').length);
+      document.querySelectorAll('.mcard-shut').length);
     await fold.click('.mslot-head[data-mfold]');
     await fold.waitForTimeout(300);
     /* The whole head is the door — the approved mockup's words.
@@ -244,13 +244,13 @@ module.exports = nourish({
     });
     t.ok('the head fills the row rather than sitting in it',
       headGeo.headW > headGeo.rowW * 0.7, JSON.stringify(headGeo));
-    const thinWas = await fold.evaluate(() => document.querySelectorAll('.mslot-thin').length);
+    const thinWas = await fold.evaluate(() => document.querySelectorAll('.mcard-shut').length);
     await fold.mouse.click(headGeo.x, headGeo.y);
     await fold.waitForTimeout(350);
     t.ok('so a thumb landing well away from the word still works the fold',
-      await fold.evaluate((n) => document.querySelectorAll('.mslot-thin').length !== n, thinWas),
+      await fold.evaluate((n) => document.querySelectorAll('.mcard-shut').length !== n, thinWas),
       'thin lists ' + thinWas + ' -> ' +
-        await fold.evaluate(() => document.querySelectorAll('.mslot-thin').length));
+        await fold.evaluate(() => document.querySelectorAll('.mcard-shut').length));
 
     /* The verbs read left to right, and only the plus pushes.
      *
@@ -281,11 +281,20 @@ module.exports = nourish({
     /* The plus by what it is rather than by position or word: it spent a
        day third, ending the first of two rows, and has had no word since the
        verbs became drawings alone (2026-09-27). */
-    t.ok('and the plus is the only one that pushes, to the right edge',
-      !!actsRow &&
+    /* The meal card (2026-10-04): Add is a full-width line of its own above
+       this row; the row is the scales, the verdict in words, and the other
+       verbs as a group — and only that group pushes, to the right edge. */
+    t.ok('and only the group of verbs pushes, to the right edge',
+      !!actsRow && actsRow.kids.length === 3 &&
         actsRow.kids[1].x - (actsRow.kids[0].x + actsRow.kids[0].w) <= actsRow.gap + 1 &&
-        actsRow.kids.filter((k) => k.add).length === 1 &&
-        actsRow.kids.find((k) => k.add).right <= actsRow.pad + 1,
+        actsRow.kids[2].right <= actsRow.pad + 1 &&
+        await fold.evaluate(() => { const a = document.querySelector('#macroSlots .mcard-add');
+          const r = a && a.closest('.mslot').querySelector('.mslot-acts');
+          /* the verbs row is the meal's shaded strip, edge to edge; the add
+             line spans the same width inside its padding */
+          const cs = r && getComputedStyle(r);
+          return !!a && !!r && a.getBoundingClientRect().width >=
+            r.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2; }),
       JSON.stringify(actsRow));
 
     /* All of a meal's verbs on one row, on the narrowest phone in common
@@ -297,22 +306,22 @@ module.exports = nourish({
     await fold.setViewportSize({ width: 360, height: 720 });
     await fold.waitForTimeout(150);
     const narrow = await fold.evaluate(() => {
-      const key = document.querySelector('#macroSlots .mitem-r3 .mstep-keys button');
-      const kb = key ? key.getBoundingClientRect() : null;
+      const kb = { width: 34, height: 34 };             // a plate key: Blake's floor for these
       return [...document.querySelectorAll('.mslot-acts')].map((row) => {
         const bs = [...row.querySelectorAll('button')];
         return {
           n: bs.length,
-          rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+          /* by their middles: the scales are a little taller than the keys */
+          rows: new Set(bs.map((b) => { const r = b.getBoundingClientRect(); return Math.round((r.top + r.height / 2) / 8); })).size,
           worded: bs.filter((b) => b.textContent.trim()).length,
           unnamed: bs.filter((b) => !/\w/.test(b.getAttribute('aria-label') || '') || !b.querySelector('svg')).length,
-          offKey: kb ? bs.filter((b) => { const r = b.getBoundingClientRect();
-            return Math.abs(r.width - kb.width) > 1 || Math.abs(r.height - kb.height) > 1; }).length : -1,
+          offKey: bs.filter((b) => { const r = b.getBoundingClientRect();
+            return r.width < kb.width - 1 || r.height < kb.height - 1; }).length,
         };
       });
     });
-    t.ok('a meal\u2019s verbs are drawings on one row at 360px, each a plate key\u2019s size and named',
-      narrow.length > 0 && narrow.some((r) => r.n >= 4) &&
+    t.ok('a meal\u2019s verbs are drawings on one row at 360px, each a thumb wide and named',
+      narrow.length > 0 && narrow.some((r) => r.n >= 3) &&
         narrow.every((r) => r.rows === 1 && r.worded === 0 && r.unnamed === 0 && r.offKey === 0),
       JSON.stringify(narrow));
     await fold.setViewportSize({ width: 375, height: 720 });
@@ -356,7 +365,9 @@ module.exports = nourish({
       await pg.waitForTimeout(400);
       return pg;
     };
-    const asked = (pg) => pg.evaluate(() => {
+    /* The pills are the open meal's head since the meal card (2026-10-04),
+       so the day is opened before it is read. */
+    const asked = async (pg) => { await openDay(pg); return pg.evaluate(() => {
       const out = {};
       [...document.querySelectorAll('.mslot')].forEach((card) => {
         const nm = (card.querySelector('.mslot-name') || {}).textContent;
@@ -366,7 +377,7 @@ module.exports = nourish({
           spent: e.classList.contains('spent') }));
       });
       return out;
-    });
+    }); };
 
     const overPg = await askPg(3);
     const beforeAte = await asked(overPg);
@@ -533,7 +544,7 @@ module.exports = nourish({
     await emptyPg.waitForTimeout(300);
     const emptyVerbs = await emptyPg.evaluate(() => {
       const card = [...document.querySelectorAll('.mslot')]
-        .find((c) => !c.querySelector('.mitem') && !c.querySelector('.mthin'));
+        .find((c) => !c.querySelector('.mitem') && !c.classList.contains('mcard-shut'));
       if (!card) return null;
       const row = card.querySelector('.mslot-acts');
       const rb = row ? row.getBoundingClientRect() : null, cs = row ? getComputedStyle(row) : null;
@@ -546,12 +557,14 @@ module.exports = nourish({
         rowW: row ? Math.round(rb.width) : 0,
         pad: row ? parseFloat(cs.paddingRight) : 0,
         skipInHeader: !!card.querySelector('.mslot-h [data-mskip]'),
+        addLine: !!card.querySelector('.mcard-add[data-mslot]'),
       };
     });
     /* Skip, "From another day" and Add (2026-09-27: a meal again, in one
        tap, is what an empty meal most wants). */
+    /* Add is the line above the verbs since the meal card (2026-10-04). */
     t.ok('an empty meal offers Skip, not two verbs it cannot use',
-      !!emptyVerbs && emptyVerbs.verbs.length === 3 &&
+      !!emptyVerbs && emptyVerbs.verbs.length === 2 &&
         /skip/i.test(emptyVerbs.verbs[0].t) && !emptyVerbs.verbs[0].off &&
         /* at the START of a name: Repeat's is "... from another day" */
         !emptyVerbs.verbs.some((v) => /^(another|balance)/i.test(v.t)),
@@ -563,10 +576,9 @@ module.exports = nourish({
        are way to big", and then "Just use icons and the box size that is in
        the meal/food card uses." One size, a plate key's (at most 36 on any
        pointer), with Add alone at the right edge, as on every meal. */
-    t.ok('and each is a small square key, with Add alone at the right',
+    t.ok('and each is a small square key at the right, with Add a line of its own',
       !!emptyVerbs && emptyVerbs.verbs.every((v) => v.w === emptyVerbs.verbs[0].w && v.h === v.w && v.w <= 36) &&
-        emptyVerbs.verbs[emptyVerbs.verbs.length - 1].add &&
-        emptyVerbs.verbs[emptyVerbs.verbs.length - 1].right <= emptyVerbs.pad + 1,
+        emptyVerbs.verbs[emptyVerbs.verbs.length - 1].right <= emptyVerbs.pad + 1 && emptyVerbs.addLine,
       JSON.stringify(emptyVerbs));
     await emptyPg.context().close();
 
@@ -605,14 +617,14 @@ module.exports = nourish({
 
     /* On THAT card. Opening a meal shuts the others now, so the number of
        thin lists on the day is not a count of what this press did. */
-    t.ok('and pressing it folds that meal down to its list',
+    t.ok('and pressing it folds that meal down to its card',
       await fold.evaluate(() => {
         const b = document.querySelector('.mslot-head[data-mfold]');
         return b.getAttribute('aria-expanded') === 'false' &&
-          !!b.closest('.mslot').querySelector('.mslot-thin');
+          b.closest('.mslot').classList.contains('mcard-shut') && !!b.querySelector('.mcard-names');
       }),
       'thin lists ' + shutBefore + ' → ' +
-        await fold.evaluate(() => document.querySelectorAll('.mslot-thin').length));
+        await fold.evaluate(() => document.querySelectorAll('.mcard-shut').length));
     /* The chevron says which way the next press goes, in the direction the
        notification shade taught: DOWN on a shut meal means "this opens",
        UP on an open one means "this shuts". It used to point sideways when
@@ -646,71 +658,42 @@ module.exports = nourish({
       if (b) b.click();
     });
     await fold.waitForTimeout(300);
-    const bullets = await fold.evaluate(() => {
-      const thin = [...document.querySelectorAll('.mthin')];
-      return {
-        rows: thin.length,
-        marked: thin.filter((x) => x.querySelector('.leaf, .mthin-dot')).length,
-        columns: new Set([...document.querySelectorAll('.mthin .leaf, .mthin .mthin-dot')]
-          .map((x) => Math.round(x.getBoundingClientRect().left))).size,
-        smaller: (() => {
-          const f = document.querySelector('.mthin .leaf');
-          const o = document.querySelector('.mitem .leaf');
-          if (!f || !o) return true;
-          return f.getBoundingClientRect().height < o.getBoundingClientRect().height;
-        })()
-      };
-    });
-    t.ok('a folded meal keeps a mark on every line it carries',
-      bullets.rows > 0 && bullets.marked === bullets.rows, JSON.stringify(bullets));
-    t.ok('and they line up in one column, score or no score',
-      bullets.columns === 1, bullets.columns + ' columns');
-    /* Smaller than an open plate's leaf, so a shut meal stays a list rather
-       than becoming a second stack of cards. */
-    t.ok('and are smaller than the leaf an open plate wears', bullets.smaller);
-    /* Inverted, deliberately. The line used to sit ABOVE the meal's numbers,
-       because the numbers were a strip of their own below the header and the
-       line was the top of that strip. The numbers are inside the head now and
-       the head is the door, so the line belongs under the whole thing: a door
-       has one edge, not a crease across the middle of it. */
+    /* The folded list went with the meal card (2026-10-04): shut, a meal
+       names its foods on one line and the leaves stay on the open plates.
+       What this card still has to be is the head and its line, and the name
+       of each food is still a door — one tap further, on the open meal. */
+    const named = await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mcard-shut')]
+      .map((c) => ({ names: !!c.querySelector('.mcard-nm') && /\w/.test(c.querySelector('.mcard-nm').textContent),
+        bar: !!c.querySelector('.mcard-tr') })));
+    t.ok('a folded meal names its foods on one line, over its calorie bar',
+      named.length > 0 && named.every((c) => c.names && c.bar), JSON.stringify(named));
+    await fold.evaluate(() => { const b = document.querySelector('.mslot-head[aria-expanded="false"]'); if (b) b.click(); });
+    await fold.waitForTimeout(300);
     t.ok('and the card\'s one line is under the whole head, not across it',
       await fold.evaluate(() => {
-        const head = document.querySelector('.mslot-head');
-        const list = document.querySelector('.mslot-items, .mslot-thin');
-        return parseFloat(getComputedStyle(head).borderTopWidth) === 0 &&
+        const head = document.querySelector('.mcard-open .mslot-head');
+        const list = document.querySelector('.mcard-open .mslot-items');
+        return !!head && !!list && parseFloat(getComputedStyle(head).borderTopWidth) === 0 &&
           parseFloat(getComputedStyle(list).borderTopWidth) > 0;
       }),
-      await fold.evaluate(() => 'head ' +
-        getComputedStyle(document.querySelector('.mslot-head')).borderTopWidth + ', list ' +
-        getComputedStyle(document.querySelector('.mslot-items, .mslot-thin')).borderTopWidth));
-
-    /* A shut meal is still a list of food, and going to the recipe should not
-       cost you opening the meal first. The name on a folded row is the same
-       door the open plate's name is — same attributes, same delegated
-       handler — so the only thing worth asserting is that it IS one and that
-       pressing it lands on the recipe it names. */
+      await fold.evaluate(() => { const h = document.querySelector('.mcard-open .mslot-head'), l = document.querySelector('.mcard-open .mslot-items');
+        return 'head ' + (h ? getComputedStyle(h).borderTopWidth : '-') + ', list ' + (l ? getComputedStyle(l).borderTopWidth : '-'); }));
     const door = await fold.evaluate(() => {
-      const n = document.querySelector('.mslot-thin .mthin-n');
+      const n = document.querySelector('.mcard-open .mcard-row .mitem-name');
       if (!n) return null;
       return { tag: n.tagName, id: n.dataset.open || n.dataset.mfood || '',
         food: n.dataset.mfood !== undefined, name: n.textContent.trim() };
     });
-    t.ok('a folded meal’s name is a door, not a label',
+    t.ok('a food’s name is a door, not a label',
       !!door && door.tag === 'BUTTON' && door.id !== '', JSON.stringify(door));
-    /* Recipes open the recipe sheet; a food you entered opens the food sheet.
-       Whichever this row is, pressing it has to leave the day behind. */
-    /* In the middle of the screen first: the bar is two rows since its
-       tools took their words (2026-09-27), and at 375x720 with the readout
-       open the first shut row sat under it. */
-    await fold.evaluate(() => document.querySelector('.mslot-thin .mthin-n').scrollIntoView({ block: 'center' }));
+    await fold.evaluate(() => document.querySelector('.mcard-open .mcard-row .mitem-name').scrollIntoView({ block: 'center' }));
     await fold.waitForTimeout(250);
-    await fold.click('.mslot-thin .mthin-n');
+    await fold.click('.mcard-open .mcard-row .mitem-name');
     await fold.waitForTimeout(300);
-    t.ok('and pressing it opens what it names, without opening the meal first',
+    t.ok('and pressing it opens what it names',
       await fold.evaluate((d) => {
         const sheet = document.querySelector('.sheet, #modal:not(.hide)');
         if (!sheet) return false;
-        // the thing that opened has to be the thing that was pressed
         return sheet.textContent.indexOf(d.name.slice(0, 12)) !== -1;
       }, door),
       await fold.evaluate(() => {
@@ -746,7 +729,7 @@ module.exports = nourish({
       return { coarse: matchMedia('(pointer: coarse)').matches,
         add: box('.mslot-add'), retry: box('.mslot-try'), seam: box('.mslot-head'),
         /* a plate's own key, which the card's verbs are drawn the size of */
-        key: box('#macroSlots .mitem-r3 .mstep-keys button'),
+        key: box('#macroSlots .mcard-panel .mstep-keys button'),
         /* The bar's own button, measured rather than written down. */
         bar: box('.mday-acts button:not(#macroFill)') };
     });
@@ -764,10 +747,14 @@ module.exports = nourish({
        still to big to me. Just use icons and the box size that is in the
        meal/food card uses." So what they must match is the plate's key
        beside them, measured, and the bar keeps its 44. */
+    /* The meal card (2026-10-04): Add is a full-width line a thumb tall, and
+       the card's other verbs are small square keys — a plate key's size at
+       the least, a thumb at the most. */
     t.ok('the card\u2019s verbs are a plate key\u2019s size on a finger, the bar\u2019s tools a thumb tall',
       reach.coarse && reach.add && reach.retry && reach.bar && reach.key &&
-        Math.abs(reach.add.h - reach.key.h) <= 1 && Math.abs(reach.add.w - reach.key.w) <= 1 &&
-        Math.abs(reach.retry.h - reach.key.h) <= 1 && reach.key.h >= 34 && reach.bar.h >= 44,
+        reach.add.h >= 44 && reach.add.w > 200 &&
+        reach.retry.h === reach.retry.w && reach.retry.h >= reach.key.h - 1 && reach.retry.h <= 44 &&
+        reach.key.h >= 34 && reach.bar.h >= 44,
       JSON.stringify(reach));
     /* The head is the handle and stays a thumb's worth, whatever the verbs
        below it do — it is the control you press most and the one nobody could

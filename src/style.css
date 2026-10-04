@@ -7482,3 +7482,149 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .td-act b { font-size: 0.96875rem; font-weight: 600; }
 .td-act span { font-size: 0.78125rem; color: var(--muted); }
 .td-act-bar i { background: var(--green); }
+
+/* ---- The meal card (Blake, 2026-10-04) --------------------------------------
+   Shut: three lines and a tick. Open: one line a food, and that food's panel
+   behind its amount. The mockup is the source:
+   https://claude.ai/artifact/GV6QBANqtLChvDU9vQAfeB
+   Everything is scoped under #macroSlots so the older .mslot and .mitem rules
+   underneath keep styling what still uses them (the skipped row, print). */
+
+/* The tick: the meal's dot, drawn as the round box the mockup has. Pressed,
+   it is green with a check — the meal eaten. */
+#macroSlots .mcard-shut .mday-dot,
+#macroSlots .mcard-open .mday-dot { width: 44px; height: 44px; margin: -7px -4px -7px -10px; }
+#macroSlots .mcard-shut .mday-dot::before,
+#macroSlots .mcard-open .mday-dot::before {
+  width: 26px; height: 26px; border-width: 1.75px; background: var(--card);
+  background-position: center; background-repeat: no-repeat; background-size: 15px;
+}
+#macroSlots .mday-stop.done .mday-dot::before {
+  background-color: var(--green); border-color: var(--green);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+
+/* Shut */
+#macroSlots .mcard-shut { padding: 4px 0 2px; }
+#macroSlots .mcard-shut .mslot-h { align-items: flex-start; padding: 8px 12px 8px 10px; }
+#macroSlots .mcard-head { flex-direction: column; align-items: stretch; flex-wrap: nowrap; row-gap: 2px; padding-bottom: 2px; }
+.mcard-t { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 30px; }
+.mcard-t .mslot-name { flex: 0 1 auto; }
+.mcard-n { font-size: 0.8125rem; color: var(--muted); white-space: nowrap; }
+.mcard-k { margin-left: auto; font-size: 0.8125rem; color: var(--muted); white-space: nowrap; }
+.mcard-k b { font-size: 0.9375rem; font-weight: 600; color: var(--ink); }
+.mcard-t .mfold-cue { flex: none; }
+.mcard-names { display: flex; gap: 6px; min-width: 0; font-size: 0.9375rem; color: var(--ink); }
+.mcard-nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcard-kept { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 0.8125rem; color: var(--ochre-text); align-self: center; }
+.mcard-more { flex: none; font-size: 0.8125rem; color: var(--note); align-self: center; }
+.mcard-v { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.mcard-tr { flex: 1 1 auto; height: 5px; border-radius: 3px; background: var(--line-soft); overflow: hidden; }
+.mcard-fi { display: block; height: 100%; border-radius: 3px; background: var(--ochre); }
+.mcard-say { font-size: 0.8125rem; color: var(--note); white-space: nowrap; }
+.mcard-shut.is-on .mcard-fi { background: var(--green); }
+.mcard-shut.is-over .mcard-fi { background: var(--warn); }
+.mcard-shut.is-eaten .mcard-fi { background: var(--green); opacity: 0.45; }
+.mcard-shut.is-eaten .mcard-names { color: var(--note); }
+.mcard-say.is-on, .mcard-shut.is-on .mcard-say, .mcard-shut.is-eaten .mcard-say { color: var(--green); font-weight: 600; }
+.mcard-say.is-over, .mcard-shut.is-over .mcard-say { color: var(--warn); font-weight: 600; }
+
+/* Open: one line a food */
+#macroSlots .mcard-row {
+  display: block;
+  background: none; border: 0; border-top: 1px solid var(--line-soft); border-radius: 0;
+  padding: 0; margin: 0;
+}
+.mcard-line { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 5px 0; }
+#macroSlots .mcard-row:first-child { border-top: 0; }
+#macroSlots .mcard-row.held { border-color: var(--line-soft); }
+#macroSlots .mcard-row.moved, #macroSlots .mcard-row.fresh {
+  background: var(--hint); border-radius: 8px; border-top-color: transparent;
+  margin-inline: -6px; padding-inline: 6px;
+}
+#macroSlots .mcard-row + .mcard-row.moved, #macroSlots .mcard-row.moved + .mcard-row { border-top-color: transparent; }
+#macroSlots .mcard-line .mitem-nm { flex: 1 1 auto; min-width: 84px; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+#macroSlots .mcard-row .mitem-name { white-space: normal; overflow-wrap: break-word; text-align: left; font-family: var(--sans); font-size: 0.9375rem; line-height: 1.3; color: var(--ink); max-width: 100%; }
+/* Eaten is ink, planned is lighter (Blake: "Eaten shows a ✓ in normal text,
+   planned looks lighter; no strike-through"). */
+#macroSlots .mcard-row:not(.eaten) .mitem-name { color: var(--muted); }
+#macroSlots .mcard-row small { font-size: 0.8125rem; color: var(--note); display: inline-flex; align-items: center; gap: 4px; }
+.mcard-was { color: var(--ochre-text) !important; }
+.mcard-lk { width: 12px; height: 12px; flex: none; }
+.mcard-new { font-size: 0.8125rem; font-weight: 700; color: var(--on-ochre); background: var(--ochre); border-radius: 99px; padding: 1px 8px; }
+.mcard-amt {
+  flex: 0 1 auto; display: inline-flex; align-items: center; gap: 5px;
+  min-height: 44px; padding: 4px 9px; border: 1.5px solid var(--line-control); border-radius: 9px;
+  background: var(--field); font-family: var(--sans); font-size: 0.8125rem; font-weight: 600; color: var(--ink);
+  cursor: pointer; white-space: nowrap;
+}
+.mcard-amt { max-width: 46%; min-width: 0; position: relative; }
+.mcard-amt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mcard-stk { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.mcard-g { font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
+.mcard-u { font-size: 0.8125rem; font-weight: 400; color: var(--note); white-space: nowrap; }
+.mcard-dot { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.mcard-amt:hover { border-color: var(--line-firm); }
+.mcard-amt[aria-expanded="true"] { border-color: var(--ochre); box-shadow: 0 0 0 2px var(--ochre-wash); }
+.mcard-caret { width: 11px; height: 11px; color: var(--muted); }
+.mcard-amt-p { display: none; }
+.mcard-kc { flex: none; width: 34px; text-align: right; font-size: 0.8125rem; color: var(--note); }
+/* A thumb wide, drawn at the plate's size: the box is 44px to the finger and
+   30px to the eye — the outer seven pixels are transparent border. */
+#macroSlots .mcard-line .mitem-ate {
+  margin: 0; width: 44px; height: 44px; border: 7px solid transparent; border-radius: 11px;
+  background-clip: padding-box; box-shadow: inset 0 0 0 1px var(--line-firm);
+}
+#macroSlots .mcard-line .mitem-ate:checked { border-color: transparent; box-shadow: none; }
+#macroSlots .mcard-row.eaten .mcard-amt { color: var(--note); }
+
+/* One food's panel */
+.mcard-panel { background: var(--hint); border-radius: 10px; padding: 10px 12px 12px; margin: 0 -4px 8px; display: flex; flex-direction: column; gap: 9px; }
+.mcard-ptop { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mcard-big { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
+.mcard-big small { font-family: var(--sans); font-size: 0.8125rem; font-weight: 400; color: var(--note); margin-left: 6px; }
+.mcard-pmac { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8125rem; color: var(--note); }
+.mcard-dial { display: flex; align-items: center; gap: 10px; }
+.mcard-panel .mstep-x { font-size: 0.9375rem; font-weight: 600; }
+.mcard-panel .mitem-uom, .mcard-panel .mitem-mac { font-size: 0.8125rem; }
+.mcard-slide { width: 100%; accent-color: var(--ochre); height: 44px; margin: 0; cursor: pointer; }
+.mcard-slide:disabled { opacity: 0.45; cursor: default; }
+.mcard-icons { display: flex; align-items: center; gap: 8px; }
+.mcard-i {
+  width: 44px; height: 44px; flex: none; border-radius: 50%; padding: 0;
+  border: 1.5px solid var(--line-control); background: var(--field); color: var(--ink);
+  display: grid; place-items: center; cursor: pointer;
+}
+.mcard-i svg { width: 22px; height: 22px; }
+.mcard-i:hover { border-color: var(--line-firm); }
+.mcard-i.mlock[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--card); }
+.mcard-i.mpin[aria-pressed="true"] { background: var(--ochre-soft); border-color: var(--ochre); color: var(--ochre-text); }
+.mcard-i.mfav[aria-pressed="true"] { color: var(--ochre); border-color: var(--ochre); }
+.mcard-i.mfav[aria-pressed="true"] svg path { fill: currentColor; }
+.mcard-i.mdel { margin-left: auto; color: var(--danger); }
+
+/* The meal's foot */
+.mcard-add {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin: 6px 0 2px;
+  padding: 0 12px; border: 1.5px dashed var(--line-firm); border-radius: 10px; background: transparent;
+  font-family: var(--sans); font-size: 0.9375rem; color: var(--note); cursor: pointer; text-align: left;
+}
+.mcard-add:hover { border-color: var(--ochre); color: var(--ink); }
+.mcard-add .mday-ic { width: 16px; height: 16px; }
+#macroSlots .mcard-foot { display: flex; align-items: center; gap: 10px; padding: 6px 10px; flex-wrap: nowrap; }
+#macroSlots .mcard-bal { width: 46px; height: 44px; border-radius: 9px; background: var(--ink); border-color: var(--ink); color: var(--card); }
+#macroSlots .mcard-bal svg { width: 24px; height: 24px; }
+#macroSlots .mcard-bal:disabled { opacity: 0.4; cursor: default; }
+.mcard-foot .mcard-say { flex: 1 1 auto; min-width: 0; white-space: normal; }
+.mcard-undo { flex: none; min-height: 44px; }
+.mcard-verbs { flex: none; display: flex; gap: 6px; margin-left: auto; }
+/* A plate key's size (Blake: "the box size that is in the meal/food card
+   uses"), and a thumb wide on a finger. */
+#macroSlots .mcard-verbs .mslot-act { width: 36px; height: 36px; border-radius: 8px; }
+@media (pointer: coarse) { #macroSlots .mcard-verbs .mslot-act { width: 44px; height: 44px; } }
+.mcard-verbs { gap: 4px; }
+
+@media print {
+  .mcard-amt-p { display: inline; font-size: 0.8125rem; }
+  .mcard-line { min-height: 0; }
+}
