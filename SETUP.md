@@ -42,7 +42,6 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function houseFields() {
       return ['favs', 'weeks', 'active', 'mine', 'edits', 'pantry', 'pantryNew',
         'kitchen', 'src', 'rate', 'opts', 'low', 'members', 'lastInvite',
@@ -60,9 +59,9 @@ service cloud.firestore {
         && mapOf(d, 'opts', 100) && mapOf(d, 'low', 2000)
         && mapOf(d, 'plan', 50) && mapOf(d, 'checked', 2000) && mapOf(d, 'myday', 50)
         && mapOf(d, 'diners', 20)
-        && (!('active' in d) || d.active is string)
+        && (!('active' in d) || (d.active is string && d.active.size() <= 64))
         && (!('members' in d) || (d.members is list && d.members.size() <= 50))
-        && (!('lastInvite' in d) || d.lastInvite is string);
+        && (!('lastInvite' in d) || (d.lastInvite is string && d.lastInvite.size() <= 64));
     }
 
     function shrinksByOne(k) {
@@ -76,18 +75,25 @@ service cloud.firestore {
         && shrinksByOne('favs') && shrinksByOne('pantryNew');
     }
 
+    function named() {
+      return request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous';
+    }
+
     function membersByThemselves() {
-      let before = resource.data.get('members', []).toSet();
-      let after = request.resource.data.get('members', []).toSet();
+      let was = resource.data.get('members', []);
+      let now = request.resource.data.get('members', []);
+      let before = was.toSet();
+      let after = now.toSet();
       let me = [request.auth.uid].toSet();
-      return after == before || after == before.union(me) || after == before.difference(me);
+      return now == was || (named() && now.size() == after.size()
+        && (after == before.union(me) || after == before.difference(me)));
     }
 
     function dinerOk(e) {
       return e is map && e.keys().hasOnly(['n', 'kc', 'p']) && e.keys().hasAll(['n', 'kc', 'p'])
         && e.n is string && e.n.size() >= 1 && e.n.size() <= 30
-        && e.kc is number && e.kc >= 150 && e.kc <= 3000
-        && e.p is number && e.p >= 0 && e.p <= 400;
+        && e.kc is int && e.kc >= 150 && e.kc <= 3000
+        && e.p is int && e.p >= 0 && e.p <= 400;
     }
 
     function ownDinerOk(d) {
@@ -96,8 +102,9 @@ service cloud.firestore {
 
     function dinersByThemselves() {
       let after = request.resource.data.get('diners', {});
-      return after.diff(resource.data.get('diners', {})).affectedKeys().hasOnly([request.auth.uid])
-        && ownDinerOk(after);
+      let changed = after.diff(resource.data.get('diners', {})).affectedKeys();
+      return changed.size() == 0
+        || (named() && changed.hasOnly([request.auth.uid]) && ownDinerOk(after));
     }
 
     match /households/{code} {
@@ -107,7 +114,9 @@ service cloud.firestore {
         && request.resource.data.get('members', []).toSet()
           .difference([request.auth.uid].toSet()).size() == 0
         && request.resource.data.get('diners', {}).keys().hasOnly([request.auth.uid])
-        && ownDinerOk(request.resource.data.get('diners', {}));
+        && ownDinerOk(request.resource.data.get('diners', {}))
+        && (named() || (request.resource.data.get('members', []).size() == 0
+          && request.resource.data.get('diners', {}).size() == 0));
       allow update: if request.auth != null
         && houseShape(request.resource.data)
         && keepsWhatItHas()
@@ -122,7 +131,9 @@ service cloud.firestore {
     }
 
     match /users/{uid}/train/{year} {
-      allow get, list, create, update, delete: if request.auth != null && request.auth.uid == uid;
+      allow get, list, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && year.matches('^[0-9]{4}$');
     }
 
     match /invites/{token} {

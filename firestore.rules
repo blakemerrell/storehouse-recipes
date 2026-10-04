@@ -56,12 +56,21 @@ rules_version = '2';
  *   determined can still remove things one by one; every phone keeps what
  *   was taken (see keepRemoved in src/sync.js) and can put it back.
  *
+ *   What is NOT stopped, said plainly (the back-end review of 4 October
+ *   proved each on the emulator): a write that keeps every key and changes
+ *   what is under it — every recipe emptied, every week's plan cleared, the
+ *   ratings and the kitchen set to {} — and lists or maps filled to their
+ *   caps with keys the app ignores. Asking that of every map costs more than
+ *   Firestore allows a request (see "Room to spare" in
+ *   tests/rules/rules.check.js), so against somebody who has the code and
+ *   means harm, the protection is a backup of the database, not these rules.
+ *
  *   Throw other people out. The members list may only change by the person
- *   writing adding or removing themselves.
+ *   writing adding or removing themselves, and nobody may be on it twice.
  *
  *   Fill it with anything. Only the fields the app has ever written are
  *   allowed, each with its type, and none of the lists or maps may grow
- *   past a size no household reaches.
+ *   past a size no household reaches; the two plain strings are capped.
  *
  * myday is the one field that may leave: it is what the old private-code
  * My Day wrote into this collection, and clearing it is the clean-up.
@@ -104,9 +113,9 @@ service cloud.firestore {
         && mapOf(d, 'opts', 100) && mapOf(d, 'low', 2000)
         && mapOf(d, 'plan', 50) && mapOf(d, 'checked', 2000) && mapOf(d, 'myday', 50)
         && mapOf(d, 'diners', 20)
-        && (!('active' in d) || d.active is string)
+        && (!('active' in d) || (d.active is string && d.active.size() <= 64))
         && (!('members' in d) || (d.members is list && d.members.size() <= 50))
-        && (!('lastInvite' in d) || d.lastInvite is string);
+        && (!('lastInvite' in d) || (d.lastInvite is string && d.lastInvite.size() <= 64));
     }
 
     // at most one gone per write, which is as fast as the app ever removes one
@@ -131,11 +140,19 @@ service cloud.firestore {
       return request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous';
     }
 
+    /* Compared as sets, a list padded with copies of who was already on it
+       came out "unchanged", needed no account, and filled the fifty places
+       with nobody new: then no account could ever join. A list that changes
+       at all must be the writer's account adding or taking off itself, with
+       nobody on it twice. */
     function membersByThemselves() {
-      let before = resource.data.get('members', []).toSet();
-      let after = request.resource.data.get('members', []).toSet();
+      let was = resource.data.get('members', []);
+      let now = request.resource.data.get('members', []);
+      let before = was.toSet();
+      let after = now.toSet();
       let me = [request.auth.uid].toSet();
-      return after == before || (named() && (after == before.union(me) || after == before.difference(me)));
+      return now == was || (named() && now.size() == after.size()
+        && (after == before.union(me) || after == before.difference(me)));
     }
 
     // a name, and a dinner's calories and protein: what setMyDiner in src/sync.js writes
@@ -198,7 +215,10 @@ service cloud.firestore {
      * else's, or the users collection itself.
      */
     match /users/{uid}/train/{year} {
-      allow get, list, create, update, delete: if request.auth != null && request.auth.uid == uid;
+      allow get, list, delete: if request.auth != null && request.auth.uid == uid;
+      // a year, as yearOf in src/train.js names one: not any name at all, each a megabyte
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && year.matches('^[0-9]{4}$');
     }
 
     /*
