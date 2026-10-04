@@ -573,6 +573,12 @@ src/dayfoot.js        the foot of My Day: the readout under the day, and the way
 src/pickrow.js        a row in the food picker, and what a tap on it adds
 src/pickbands.js      the picker's bands: the query, the shelf rail, named, pins, fits, recent
 src/basket.js         the picker's basket, and what it will do to the meal and the day
+src/picksheet.js      the food picker's sheet: which meal, opening it, the chooser, the sheet
+src/pickgap.js        what is still wanted: the day with the basket, the meal's gap, what a meal holds
+src/closers.js        three foods that close the day, one per macro
+src/query.js          a typed number in the picker, and the band that answers it
+src/shelves.js        the shelves a food sits on, and which one it goes on
+src/pickhome.js       the picker's home list, and redrawing only the list while you type
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)

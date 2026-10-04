@@ -123,6 +123,12 @@ var CORE = [
   './src/pickrow.js?v=0',
   './src/pickbands.js?v=0',
   './src/basket.js?v=0',
+  './src/picksheet.js?v=0',
+  './src/pickgap.js?v=0',
+  './src/closers.js?v=0',
+  './src/query.js?v=0',
+  './src/shelves.js?v=0',
+  './src/pickhome.js?v=0',
   './src/app.js?v=0',
   './src/boot.js?v=0',
   './data/recipes.js?v=0',
@@ -272,6 +278,17 @@ self.addEventListener('install', function (e) {
           .then(function () { throw err; });
       })
   );
+});
+
+/* Asked again to take over. The install above ends by saying skipWaiting,
+   and nearly always the new worker then takes over at once. But while the
+   old worker is still serving the page's scripts the browser holds the
+   switch back, and now and then it never returns to it: the new worker sat
+   installed and waiting for a minute and more with no request open, the
+   phone on the old build until the app was closed. Asked again once it is
+   quiet, it takes over within a second; src/boot.js does the asking. */
+self.addEventListener('message', function (e) {
+  if (e.data === 'skip') self.skipWaiting();
 });
 
 self.addEventListener('activate', function (e) {
