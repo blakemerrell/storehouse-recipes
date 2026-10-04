@@ -1,0 +1,584 @@
+/* The picker's bands: the query every band asks (mpQ), the shelf rail and
+ * the lens with its sorts (mpShelvesHTML), what a typed word matches and
+ * where it ranks (mpMatches), what you already reach for (mpKnownIds), and
+ * the bands themselves: the thing you named, your pins, everything else
+ * the query finds, what closes the day from this meal's own pool, and what
+ * you ate lately (mpNamedHTML, mpPinsHTML, mpElseHTML, mpFitsHTML,
+ * mpRecentHTML). The longer account is with the code.
+ *
+ * A part of app.js (Nourish) in a file of its own. app.js calls
+ * HiveParts.pickbands(app) once, as it starts, and keeps what it gives
+ * back under the same names. What you reach for (MP_KNOWN) stays declared
+ * in app.js, which empties it; the part reaches it, the recipes and foods
+ * (replaced as they change) and the shelves (declared further down)
+ * through LIVE (tests/scope.test.js holds the lists to each other). Loaded
+ * before app.js.
+ */
+(window.HiveParts = window.HiveParts || {}).pickbands = function (app) {
+  'use strict';
+
+  // what it reads of the app's, and (LIVE) what the app replaces as it goes: BY_ID, MFOODS, MP_KNOWN, MP_LASTX, MSHELF, RECIPES
+  var BOOKS = app.BOOKS;
+  var MDAYS = app.MDAYS;
+  var S = app.S;
+  var dayKey = app.dayKey;
+  var fmtNum = app.fmtNum;
+  var idOf = app.idOf;
+  var mAllSections = app.mAllSections;
+  var mDay = app.mDay;
+  var mDayTargets = app.mDayTargets;
+  var mDefaultX = app.mDefaultX;
+  var mFamilyIds = app.mFamilyIds;
+  var mGapFresh = app.mGapFresh;
+  var mIsFav = app.mIsFav;
+  var mMacLine = app.mMacLine;
+  var mMealPool = app.mMealPool;
+  var mNever = app.mNever;
+  var mRank = app.mRank;
+  var mReadSlots = app.mReadSlots;
+  var mShelfKey = app.mShelfKey;
+  var mViewKey = app.mViewKey;
+  var mWideOpen = app.mWideOpen;
+  var matchRank = app.matchRank;
+  var mpFitX = app.mpFitX;
+  var mpRowHTML = app.mpRowHTML;
+  var searchScore = app.searchScore;
+  var todayKey = app.todayKey;
+  var LIVE = app.LIVE;
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* What you ate lately, newest first, one row each. The everyday case is a
+     thing you have already named once — the tamale from last week — and it
+     should not need any of the three ways to reach. */
+  /* The two bands the home screen was missing.
+   *
+     Opening this sheet used to offer six things you ate lately and a way to
+     go looking. What it never offered was the answer to the question you
+     opened it with — what would close the day — even though the app has
+     worked that out for every dish since the tab was built. It was one
+     option inside a sort dropdown, two taps and a mode away, called "Best
+     fit".
+
+     Now it is a band, on arrival, with the portions already solved. */
+  /* The one question every band asks of the query.
+   *
+     Searching used to REPLACE the ranked bands, because Every day / Recent /
+     the closers / Fits best were emitted only in the home branch and typing
+     switched you out of it. So the moment you looked for something, the
+     thinking the sheet had done for you vanished — which is most of what
+     "bouncing around" was.
+   *
+     Now the bands NARROW instead. One predicate, so a dish cannot pass in one
+     band and fail in another: foods match on their name, the way the look-up
+     box has always matched them, and recipes go through matchRank, which
+     reads the ingredient list too — searching "honey" should find the dish
+     that uses it, not just a spoon of it. */
+  function mpQ() { return (S.mpQuery || '').trim().toLowerCase(); }
+
+  /* The shelf rail. One chip at a time, '' meaning all of them.
+   *
+     It NARROWS what is already on screen rather than replacing it, exactly as
+     the search box does, and the two compose: 🥩 with "chicken" typed is the
+     chicken that is mostly protein. That is the whole reason a chip is a
+     filter and not a mode — Recipes as a MODE could never have been crossed
+     with a macro.
+   *
+     Not persisted. A shelf is a thought you are having about this meal, not a
+     setting; the sheet opens showing everything, the way it always has. */
+  function mpShelfOK(r) {
+    if (!S.mpShelf) return true;
+    if (S.mpShelf === 'recipes') return !r.food;
+    return mShelfKey(r) === S.mpShelf;
+  }
+
+  /* Only the shelves that would actually find something, counted over the
+     pool this meal can see. An 🫒 Oils chip that filters to one row is worse
+     than no chip: it looks like the app has nothing, when what it has is one
+     oil. Counted rather than assumed, because the pool moves — the
+     storehouse-only pool and the shop-anywhere pool are different books. */
+  /* Which recipes, and in what order. Two selects, on the band divider.
+   *
+     The section vocabulary is the one the Recipes tab speaks, and it answers
+     a different question from the shelf rail: the rail is macros, this is
+     sections and books. "On the family's plan" has no chip equivalent at all
+     and would simply have been lost. */
+  /* An order is a question you have about a long list.
+   *
+     The mockup puts it plainly: sorts only appear on Recipes, because a shelf
+     of nine vegetables does not need one. Both places that decide this read
+     the same function, because a sort control that is hidden while the list
+     is still sorted by it is an invisible setting steering what you see —
+     which is the exact shape of half the bugs this app has had.
+   *
+     "Recipes" here means what you are browsing, not a mode: the Single foods
+     lens is a list of foods, and so is any macro shelf. Pressing 🍲 is
+     browsing recipes and keeps its order. */
+  function mpSortsOn() {
+    return !(S.mpSec === 'foods' || (S.mpShelf && S.mpShelf !== 'recipes'));
+  }
+  function mpSortNow() { return mpSortsOn() ? S.mpSort : 'fit'; }
+
+  function mpLensHTML() {
+    var fam = mFamilyIds(mViewKey());
+    return '<span class="mp-lens">' +
+      '<select id="mpSec" aria-label="Which recipes">' +
+        '<option value="meal"' + (S.mpSec === 'meal' ? ' selected' : '') + '>For this meal</option>' +
+        (fam.length ? '<option value="family"' + (S.mpSec === 'family' ? ' selected' : '') +
+          '>On the family\u2019s plan (' + fam.length + ')</option>' : '') +
+        '<option value="all"' + (S.mpSec === 'all' ? ' selected' : '') + '>Every recipe</option>' +
+        /* Restored after being cut for the shelf rail, which turned out not to
+           do this job. A macro chip narrows to things that are MOSTLY that
+           macro and then ranks them by fit — and for a main meal a dish fits
+           better than a spoonful, so pressing 🥩 gives ten recipes and one
+           tin of tuna. That is the right answer to "what protein should I
+           eat" and the wrong answer to "let me see the plain foods", which is
+           a question about kind, not macro. The rail cannot ask it: it is the
+           same axis as "Every recipe", which is why it belongs here. */
+        '<option value="foods"' + (S.mpSec === 'foods' ? ' selected' : '') + '>Single foods</option>' +
+        (function () {
+          var out = '', bk = 0;
+          mAllSections().forEach(function (sec) {
+            if (sec.book !== bk) {
+              out += (bk ? '</optgroup>' : '') + '<optgroup label="' +
+                esc(sec.book === 3 ? 'Ours' : BOOKS[sec.book].name) + '">';
+              bk = sec.book;
+            }
+            out += '<option value="' + esc(sec.key) + '"' + (S.mpSec === sec.key ? ' selected' : '') + '>' +
+              esc(sec.name) + '</option>';
+          });
+          return out + (bk ? '</optgroup>' : '');
+        })() +
+      '</select>' +
+      (mpSortsOn()
+        ? '<select id="mpSort" aria-label="Order">' +
+          '<option value="fit"' + (S.mpSort === 'fit' ? ' selected' : '') + '>Best fit</option>' +
+          '<option value="protein"' + (S.mpSort === 'protein' ? ' selected' : '') + '>Most protein</option>' +
+          '<option value="healthy"' + (S.mpSort === 'healthy' ? ' selected' : '') + '>Nutrition score</option>' +
+          '</select>'
+        : '') + '</span>';
+  }
+
+  var MSHELF_MIN = 3;
+  function mpShelvesHTML() {
+    if (!S.macroPick) return '';
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    if (!slot) return '';
+    /* Typed, the rail counts.
+     *
+       The chips were built from the whole pool whatever was in the box, so a
+       search left a row of shelves describing a list that was no longer on
+       screen — and the one question you have while typing is WHERE the hits
+       are. Narrowed by the query, each chip says how many of them it holds,
+       and MSHELF_MIN steps aside: three is the floor for a shelf worth
+       offering on a resting screen, and two hits for a word you just typed is
+       worth knowing about. */
+    var q = mpQ();
+    var n = {}, anyRecipe = false, total = 0, cooked = 0;
+    mMealPool(slot, true).forEach(function (r) {
+      if (!r.food) anyRecipe = anyRecipe || !q;   // the chip exists if the pool has any
+      if (q && !mpMatches(r, q)) return;
+      total++;
+      if (!r.food) { anyRecipe = true; cooked++; return; }
+      var k = mShelfKey(r);
+      if (k) n[k] = (n[k] || 0) + 1;
+    });
+    var tag = function (c) {
+      return q ? '<b class="mp-shn">' + c + '</b>' : '';
+    };
+    var chips = '<button class="mp-shelf' + (S.mpShelf ? '' : ' on') +
+      '" data-mpshelf="" aria-pressed="' + (S.mpShelf ? 'false' : 'true') + '">All' +
+      tag(total) + '</button>';
+    if (anyRecipe || S.mpShelf === 'recipes') {
+      /* An emoji like the rest. Spelled out it was 89 px — a third of a
+         320 px rail for one chip, which bought five of the nine a place
+         behind the fade. The pot is as legible as the carrot beside it. */
+      chips += '<button class="mp-shelf emo' + (q ? ' counted' : '') +
+        (S.mpShelf === 'recipes' ? ' on' : '') +
+        '" data-mpshelf="recipes" aria-pressed="' + (S.mpShelf === 'recipes' ? 'true' : 'false') +
+        '" aria-label="Recipes' + (q ? ', ' + cooked + ' of them' : '') +
+        '"><i>\uD83C\uDF72</i>' + tag(cooked) + '</button>';
+    }
+    LIVE.MSHELF.forEach(function (sh) {
+      var c = n[sh[0]] || 0;
+      /* The chip you are standing on never leaves, even at nought. Dropping
+         it took away the only way to un-press the thing that emptied the
+         list — press 🥦, type a word no vegetable answers to, and both the
+         rows and the chip were gone. A zero is a real answer: this shelf has
+         none of what you typed. */
+      if (c < (q ? 1 : MSHELF_MIN) && S.mpShelf !== sh[0]) return;
+      chips += '<button class="mp-shelf emo' + (q ? ' counted' : '') +
+        (S.mpShelf === sh[0] ? ' on' : '') +
+        '" data-mpshelf="' + sh[0] + '" aria-pressed="' + (S.mpShelf === sh[0] ? 'true' : 'false') +
+        '" aria-label="' + esc(sh[2]) + (q ? ', ' + c + ' of them' : '') +
+        '"><i>' + sh[1] + '</i>' + tag(c) + '</button>';
+    });
+    return '<div class="mp-shelves" id="mpShelves">' + chips + '</div>';
+  }
+  function mpMatches(r, qs) {
+    if (!r) return false;
+    if (!mpShelfOK(r)) return false;
+    if (!qs) return true;
+    return r.food ? searchScore(r.name, qs) >= 0 : !!matchRank(r, qs);
+  }
+
+  function mpKnownIds() {
+    var out = {}, today = todayKey();
+    var from = new Date(); from.setDate(from.getDate() - 14);
+    var fromK = dayKey(from);
+    Object.keys(MDAYS).forEach(function (k) {
+      if (k > today || k < fromK) return;
+      var day = MDAYS[k] || {};
+      Object.keys(day).forEach(function (sk) {
+        (day[sk] || []).forEach(function (it) { out[it.id] = 1; });
+      });
+    });
+    return out;
+  }
+
+  /* Where a typed word puts a row, lower first; -1 when it does not match.
+   *
+     Blake's order: "★ and recent foods ranked first, then exact, then
+     word-starts" — then the rest, then the guesses. The guesses stay last
+     even when starred: a typo hit is the app wondering what you meant, and a
+     favourite it wondered its way to must not sit above the thing you
+     actually typed. A recipe that only mentions the word in its ingredients
+     or its section comes after every name. `coarse` drops the fine grades
+     inside each band, for a list that has its own order (fit) to keep. */
+  function mpHitRank(r, q, coarse) {
+    var s = searchScore(r.name, q);
+    if (s < 0) {
+      if (r.food) return -1;
+      var m = matchRank(r, q);
+      return m === 2 ? 1500 : m === 1 ? 1600 : -1;
+    }
+    var typo = s >= 300, known = !!(LIVE.MP_KNOWN[r.id] || mIsFav(r));
+    if (coarse) s = Math.floor(s / 100) * 100;
+    /* Three groups — what you reach for, everything else, the guesses — and
+       inside the guesses your own come first too. */
+    return (typo ? 1000 : known ? 0 : 500) + (typo && !known ? 100 : 0) + s;
+  }
+
+  /* The thing you actually named, before anything that merely mentions it.
+   *
+     Ranked on fit alone a spoonful loses to every dinner that lists honey
+     among its ingredients, so the row the search was FOR sinks below a
+     screenful of recipes. The old Look up screen had this rule and it went
+     out with the screen; the bands that replaced it rank by fit, which is the
+     right question when you are browsing and the wrong one the moment you
+     have typed a word. A search is not a browse: the word is the whole of the
+     question. */
+  function mpNamedHTML(shown) {
+    var q = mpQ();
+    if (!q || !S.macroPick) return '';
+    /* Every food the words find, ranked, and then the best six — not the
+       first six in table order, which is how Eggplant came above the Eggs
+       you had starred. */
+    var hits = [];
+    LIVE.MFOODS.forEach(function (r, i) {
+      if (shown[r.id] || !mpShelfOK(r)) return;
+      var rk = mpHitRank(r, q);
+      if (rk >= 0) hits.push({ r: r, rk: rk, i: i });
+    });
+    hits.sort(function (a, b) { return a.rk - b.rk || a.i - b.i; });
+    var rows = hits.slice(0, 6).map(function (h) { return h.r; });
+    if (!rows.length) return '';
+    rows.forEach(function (r) { shown[r.id] = 1; });
+    return '<div class="mt-div">Foods</div>' + rows.map(function (r) {
+      return mpRowHTML(r, mDefaultX(r), undefined, mpFitX(r));
+    }).join('');
+  }
+
+  function mpPinsHTML(shown) {
+    mGapFresh();
+    if (!S.macroPick) return '';
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    var pins = (slot && slot.pins) || [];
+    var rows = pins.map(function (pn) {
+      var r = LIVE.BY_ID[idOf(pn.id)];
+      if (!r) return '';
+      if (!mpMatches(r, mpQ())) return '';
+      if (shown) shown[r.id] = 1;
+      return mpRowHTML(r, pn.x || 1);
+    }).filter(Boolean).join('');
+    return rows ? '<div class="mt-div">Every day</div>' + rows : '';
+  }
+
+  /* What closes the day, from this meal's own pool, portions solved.
+   *
+     Skips anything the bands above already drew: a pin that is also a recent
+     and also the best fit would otherwise be three rows saying the same
+     thing, and a list that repeats itself reads as a list that is not
+     thinking. */
+  /* Everything else the query finds.
+   *
+     Without this, narrowing the bands would be worse than replacing them:
+     the bands hold a few dozen dishes, so typing "salmon" would filter all
+     four to nothing and the sheet would say there is no salmon — while the
+     table holds it. This is the old look-up result, folded in underneath
+     rather than shown instead.
+   *
+     Only when something is typed. With an empty box the ranked bands ARE the
+     answer and a fifth band of everything in the book underneath them is not
+     help. */
+  function mpElseHTML(shown) {
+    var q = mpQ();
+    if (!q || !S.macroPick) return '';
+    var day = mDay(mViewKey()), targets = mDayTargets(mViewKey());
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    var pool = [];
+    LIVE.MFOODS.forEach(function (r) { if (!shown[r.id] && mpMatches(r, q)) pool.push(r); });
+    LIVE.RECIPES.forEach(function (r) { if (!shown[r.id] && mpMatches(r, q)) pool.push(r); });
+    if (!pool.length) return '';
+    var ranked = mRank(pool, day, targets, slot || { k: S.macroPick.slot, w: S.macroPick.w });
+    /* The thing you named before the dishes that merely mention it: ranked
+       purely on fit, a spoon of honey loses to a dozen recipes listing honey
+       among their ingredients and the row you typed the word for never
+       appears. So the search's own order goes first, in its broad grades,
+       then foods before dishes as the look-up box always had it, and fit
+       only after that — which is still the order most of a grade is in. */
+    var rows = ranked.map(function (e, i) {
+      return { e: e, rk: mpHitRank(e.r, q, true), f: e.r.food ? 0 : 1, i: i };
+    }).sort(function (a, b) {
+      return a.rk - b.rk || a.f - b.f || a.i - b.i;
+    }).map(function (h) { return h.e; }).slice(0, 12);
+    if (!rows.length) return '';
+    rows.forEach(function (e) { shown[e.r.id] = 1; });
+    return '<div class="mt-div">Everything else</div>' + rows.map(function (e) {
+      var r = e.r, x0 = mDefaultX(r);
+      var xx = S.mpBasket[r.id] !== undefined ? S.mpBasket[r.id] : x0;
+      return mpRowHTML(r, x0,
+        '<span class="mp-src">' + (r.food ? 'Yours' : 'Recipe') + '</span> &times;' + fmtNum(xx) +
+        (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx, true),
+        e.score !== null && e.score !== undefined ? e.x : null);
+    }).join('');
+  }
+
+  function mpFitsHTML(skip) {
+    mGapFresh();
+    if (!S.macroPick) return '';
+    var targets = mDayTargets(mViewKey());
+    var slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    if (!slot) return '';
+    /* With no plan there is no fit to rank by, but there is still a whole
+       book and a whole food table, and logging what you ate cannot wait on
+       making a plan. This band used to return '' here and the "Single foods"
+       lens was the only other way in — so when that lens went to the shelf
+       rail, an unplanned day lost its last door and the picker opened on
+       nothing at all. It offers the pool in book order instead, and says so
+       rather than claiming a fit it cannot compute. */
+    var planned = !!(targets.p || targets.f || targets.c);
+    /* The slot OBJECT, not its key. mSlotSecs reads slot.t, and a string has
+       no .t — so it fell through to MEAL_SECS.s and every meal, breakfast
+       included, was ranked against the snack sections. Nothing threw; the
+       band just quietly offered the wrong pool. */
+    /* The lens decides the pool; the rail and the box narrow it afterwards.
+       "For this meal" is the meal's own sections, which is what this band has
+       always meant; anything else widens or names a section outright. */
+    var pool;
+    if (S.mpSec === 'foods') {
+      /* Every food with macros on it, condiments included. The ranked bands
+         gate on `eat || side` — nobody wants a spoon of oil OFFERED as a
+         snack — but this lens is somebody going to look through the shelf,
+         and a tablespoon of oil is a real thing to have eaten and to log.
+         They sort under the foods rather than out of the list: a thing that
+         goes ON food is not the answer to "what shall I eat", which is the
+         same rule the combo's rungs follow.
+     *
+         EVERY food, including the ones the storehouse does not stock. "Fill
+         from: the storehouse" says what the SOLVER may shop from — a day
+         drafted out of salmon that is not in the house is not a day — and it
+         has never had anything to say about what you may look at or log.
+         Gating this lens on it hid all twenty-eight of the outside foods
+         from the one lens whose whole job is "let me look through the
+         shelf", while the same foods came straight back the moment you typed
+         their name, which is a shelf that disagrees with its own search box.
+         The gate belongs in mMealPool, mSideUp, mTopUp and mLevers, and it is
+         still in all four. */
+      pool = [];
+      LIVE.MFOODS.forEach(function (r) {
+        if (!r.macro || !(r.macro.kcal > 0 || r.macro.p > 0)) return;
+        pool.push(r);
+      });
+    } else if (S.mpSec === 'meal') {
+      pool = mMealPool(slot, mWideOpen(S.macroPick.slot));
+    } else {
+      var fam = S.mpSec === 'family' ? mFamilyIds(mViewKey()) : null;
+      pool = LIVE.RECIPES.filter(function (r) {
+        if (fam) return fam.indexOf(r.id) >= 0;
+        return S.mpSec === 'all' || (r.book + '-' + r.secNum) === S.mpSec;
+      });
+      /* Foods ride along only where they were asked for. Naming a section is
+         naming what you want to look through — answering "Sunday Feasts" with
+         the Sunday Feasts and then the entire food table is answering a
+         question nobody asked. A typed word is different: somebody who types
+         "honey" has already said what they want, and it should reach them
+         from whatever lens they happen to be standing in. */
+      /* And a typed word reaches the outside foods too, for the same reason
+         the lens does: the setting is about drafting, not about looking. */
+      if (mpQ()) {
+        LIVE.MFOODS.forEach(function (r) {
+          if (r.eat || r.side) pool.push(r);
+        });
+      }
+    }
+    var q = mpQ();
+    var ranked = planned
+      ? mRank(pool, mDay(mViewKey()), targets, slot)
+        .filter(function (e) {
+          /* Blocked is a rule about SUGGESTING: a typed word still finds it. */
+          return e.score !== null && !skip[e.r.id] && mpMatches(e.r, q) && (q || !mNever(e.r.id));
+        })
+      : (function () {
+        /* Foods and dishes alternated, not a prefix of the pool. mMealPool
+           puts every recipe before every food, so a plain slice of ten was
+           ten recipes and the 🥩 chip showed no foods at all — the chip is
+           mostly there to reach the foods. Without a plan there is no fit to
+           order by, so the only honest order is "some of each". */
+        var ok = pool.filter(function (r) { return !skip[r.id] && mpMatches(r, q); });
+        var fd = [], rc = [], out = [];
+        ok.forEach(function (r) { (r.food ? fd : rc).push(r); });
+        for (var i = 0; i < Math.max(fd.length, rc.length); i++) {
+          if (fd[i]) out.push({ r: fd[i], x: 1 });
+          if (rc[i]) out.push({ r: rc[i], x: 1 });
+        }
+        return out;
+      })();
+    /* An order is a lens, not a different picker: every row keeps the portion
+       the fit worked out, whatever order they arrive in. */
+    var order = mpSortNow();
+    if (order === 'protein') {
+      ranked.sort(function (a, b) {
+        return ((b.r.macro && b.r.macro.p) || 0) - ((a.r.macro && a.r.macro.p) || 0);
+      });
+    } else if (order === 'healthy') {
+      ranked.sort(function (a, b) { return (b.r.score || 0) - (a.r.score || 0); });
+    }
+    /* Ten while the lens is where it opens, forty once it has been moved.
+     *
+       Ten is the right length for "here are the best fits" — a shortlist you
+       read rather than a catalogue you scroll. But choosing a lens is asking
+       a different question: "Single foods" or "Sunday Feasts" is somebody
+       going to look through a shelf, and answering that with the top ten is
+       answering the shortlist question again. The old Recipes screen showed
+       forty for exactly this reason and it went out with the mode. */
+    if (S.mpSec === 'foods') {
+      /* Stable: the fit order is kept inside each group, and the condiments
+         simply move below the foods. */
+      var eats = [], cond = [];
+      ranked.forEach(function (e) { ((e.r.eat || e.r.side) ? eats : cond).push(e); });
+      ranked = eats.concat(cond);
+    }
+    /* Anything already in the basket stays on screen, outside the cap.
+     *
+       Picking something used to make it VANISH: a closer stops being a closer
+       once it is in the basket, and it fits worse afterwards — the gap it
+       filled is gone — so it fell out of the ranking too. Measured, the list
+       went 13 rows to 12 to 11 to 10 over three taps, `.mpick-wrap.in` was
+       never once on screen, and the scrollport's maximum collapsed from 162
+       to 4 — so the browser clamped the position and the list crawled up
+       under the finger. The ✓ and the green wash a picked row wears had
+       nothing to wear them.
+     *
+       Held at the end rather than the top: it is no longer a suggestion, and
+       promoting it would push the actual suggestions down. */
+    var held = [], offer = [];
+    ranked.forEach(function (e) {
+      (S.mpBasket[e.r.id] !== undefined ? held : offer).push(e);
+    });
+    ranked = offer.slice(0, S.mpSec === 'meal' ? 10 : 40).concat(held);
+    /* An empty band still draws its divider, because the divider is where the
+       lens and the order live and they are the way back out.
+     *
+       A shelf chip and a lens compose — that is the whole point of a chip
+       being a filter — and some pairs have nothing in them: press 🥦 while
+       the lens says "Every recipe" and you are asking for a recipe that is a
+       vegetable. The band returned '' and took the two controls with it, so
+       the sheet showed an empty list and no way to undo the thing that
+       emptied it. It says what it has none of instead, and keeps the handles. */
+    if (!ranked.length) {
+      /* Empty because of the LENS: keep the divider, because the lens and the
+         order live on it and they are the way back out. Press 🥦 while the
+         lens says "Every recipe" and you have asked for a recipe that is a
+         vegetable — the band used to return '' and take both controls with
+         it, leaving an empty list and no way to undo the thing that emptied
+         it.
+       *
+         Empty because of a QUERY is not that: the box is right there with the
+         caret in it, so the way out is already under your hands, and a "Fits
+         best" heading standing over no rows would be a band claiming content
+         it does not have. No divider, and the list says "Nothing matches" in
+         its own words.
+       *
+         No message here either way. A band that returns any string at all
+         makes the list look non-empty, and that is what buried the honest
+         sentence the first time this was tried. */
+      if (mpQ()) return '';
+      return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' : 'On the shelf') +
+        mpLensHTML() + '</div>';
+    }
+    /* Writes into the shared set, which it never used to — safe only while it
+       was composed last, and it is not last any more. */
+    ranked.forEach(function (e) { skip[e.r.id] = 1; });
+    /* The lens and the order ride the divider rather than the pinned header:
+       a header has to earn every pixel and these are asked for rarely, but
+       they are asked for — "show me the Sunday Feasts" is a real thing to
+       want and no macro chip can say it. */
+    return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' : 'On the shelf') +
+      mpLensHTML() + '</div>' +
+      ranked.map(function (e) {
+      /* Ranked by how well it fits, offered at what you have — the fit
+         itself is the chip beside it. */
+      return mpRowHTML(e.r, mDefaultX(e.r), undefined,
+        e.score !== null && e.score !== undefined ? e.x : null);
+    }).join('');
+  }
+
+  /* `shown` is shared with the bands above and below, so the same dish is
+     never drawn three times under three headings. Passed in rather than kept
+     here, because whoever composes the screen is the only thing that knows
+     what order the bands ran in. */
+  function mpRecentHTML(shown) {
+    mGapFresh();
+    var seen = shown || {}, out = [];
+    var keys = Object.keys(MDAYS).sort().reverse();
+    var take = function (it) {
+      if (seen[it.id] || out.length >= 6) return;
+      var r = LIVE.BY_ID[it.id];
+      if (!r) return;
+      if (!mpMatches(r, mpQ())) return;
+      seen[it.id] = 1;
+      out.push({ r: r, x: it.x });
+    };
+    /* This meal first. Adding to dinner, it is what you had at dinner
+       on the days behind you, newest first, and only then anything else you
+       ate lately. Blake: "Recents per meal (dinner shows dinner foods)". The
+       day being built is left out of that pass: what is on this meal already
+       is in the bar at the foot of the sheet. */
+    var slot = S.macroPick && S.macroPick.slot, viewK = mViewKey(), today = todayKey();
+    if (slot) {
+      keys.forEach(function (k) {
+        if (k === viewK || k > today) return;
+        ((MDAYS[k] || {})[slot] || []).forEach(take);
+      });
+    }
+    keys.forEach(function (k) {
+      var day = MDAYS[k] || {};
+      Object.keys(day).forEach(function (sk) { (day[sk] || []).forEach(take); });
+    });
+    if (!out.length) return '';
+    return '<div class="mt-div">Recent</div>' + out.map(function (e) {
+      return mpRowHTML(e.r, LIVE.MP_LASTX[e.r.id] || e.x, undefined, mpFitX(e.r));
+    }).join('');
+  }
+
+  return { mpQ: mpQ, mpShelvesHTML: mpShelvesHTML, mpMatches: mpMatches, mpKnownIds: mpKnownIds, mpNamedHTML: mpNamedHTML, mpPinsHTML: mpPinsHTML, mpElseHTML: mpElseHTML, mpFitsHTML: mpFitsHTML, mpRecentHTML: mpRecentHTML };
+};
