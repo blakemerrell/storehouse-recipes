@@ -561,6 +561,9 @@ src/follow.js         targets follow the scale: the weekly re-plan, and the noti
 src/daystore.js       My Day's store: the days, meal slots and sections, never and batch weights, Fill's why-chips
 src/toast.js          the toast, and the voice it speaks with
 src/placing.js        where a dish goes on the day, and the day read and changed
+src/weekstrip.js      the week you are in, seven blocks wide, coloured by how each day went
+src/myday.js          My Day, drawn: renderMacros, the day picker, the day with its meals and plates
+src/gauges.js         a meal's numbers at a glance: the assumed day, the gauge, the pills
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
