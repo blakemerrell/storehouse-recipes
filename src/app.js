@@ -2822,494 +2822,51 @@
     if (mPut('bsc.macroTargets', t)) { mStamp('t'); dinerKeep(); }   // see mWriteMyFoods
   }
 
-  /* ------------------------------------------------ targets follow the scale
-   *
-     The plan card worked its calories out from this week's weight; the bars
-     scored the day against the grams saved when Save was last pressed. Ten
-     pounds later those were two different days, on one screen. Blake chose
-     to have the saved targets follow the scale once a week, the way RP
-     adjusts, and to be told when they move.
-   *
-     The record carries three things beside the grams:
-       auto   1 when the grams are the plan's own; 0 when somebody typed their
-              own numbers into the boxes, which are theirs and are left alone.
-              Absent on a record saved before this — treated as the plan's,
-              since the boxes are filled from the plan, and the notice's Undo
-              is there for the one that was not.
-       set    the day the grams were last decided, by anybody.
-       moved  what the last weekly change was, for the notice: from and to in
-              kcal, the day, and the grams before, so Undo can put them back.
-   *
-     Only on a week with a weigh-in in it. With nothing new on the scale the
-     plan cannot have moved, and a "change" worked out from a stale average
-     would only be the formula disagreeing with itself. */
-  var MTARG_WEEK = 7;
-  function mTargRec() {
-    try {
-      var v = JSON.parse(localStorage.getItem('bsc.macroTargets'));
-      return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
-    } catch (e) { return null; }
-  }
-  function mDaysSince(k) { return Math.round((keyDate(todayKey()) - keyDate(k)) / 86400000); }
+  /* src/follow.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var FOLLOW = window.HiveParts.follow({ MSTAMPS: MSTAMPS, dayKey: dayKey, kcalOf: kcalOf, keyDate: keyDate, mLineHTML: mLineHTML, mPlanCalc: mPlanCalc, mReadProfile: mReadProfile, mReadTargets: mReadTargets, mWriteTargets: mWriteTargets, todayKey: todayKey, LIVE: LIVE });
+  function mTargRec() { return FOLLOW.mTargRec(); }
+  function mFollowScale() { return FOLLOW.mFollowScale(); }
+  function mMovedHTML() { return FOLLOW.mMovedHTML(); }
 
-  function mFollowScale() {
-    var rec = mTargRec();
-    if (!rec || rec.auto === 0) return false;
-    var set = rec.set || (MSTAMPS.t ? dayKey(new Date(MSTAMPS.t)) : '');
-    if (!set || mDaysSince(set) < MTARG_WEEK) return false;
-    var recent = Object.keys(MWEIGHTS).some(function (k) {
-      return MWEIGHTS[k] > 0 && mDaysSince(k) < MTARG_WEEK;
-    });
-    if (!recent) return false;
-    var fresh = mPlanCalc(mReadProfile());
-    if (!fresh) return false;
-    var cur = mReadTargets();
-    /* A change worth a sentence. Two grams of protein and twenty calories
-       is the formula's rounding, not the body. */
-    if (Math.abs(kcalOf(fresh) - kcalOf(cur)) < 25 && Math.abs(fresh.p - cur.p) < 3) return false;
-    mWriteTargets({ p: fresh.p, f: fresh.f, c: fresh.c, auto: 1, set: todayKey(),
-      moved: { from: kcalOf(cur), to: kcalOf(fresh), on: todayKey(),
-        prev: { p: cur.p, f: cur.f, c: cur.c } } });
-    return true;
-  }
+  /* src/daystore.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var DAYSTORE = window.HiveParts.daystore({ MEAL_SECS: MEAL_SECS, MSLOT_DEFS: MSLOT_DEFS, S: S, dinerKeep: dinerKeep, kcalOf: kcalOf, mDay: mDay, mDayTargets: mDayTargets, mEditDay: mEditDay, mFoldDue: mFoldDue, mNearIds: mNearIds, mPut: mPut, mSideUp: mSideUp, mStamp: mStamp, mTopUp: mTopUp, mTotals: mTotals, mTryAgain: mTryAgain, todayKey: todayKey, LIVE: LIVE });
+  function mNever(id) { return DAYSTORE.mNever(id); }
+  function mSetBatchG(id, perServing) { return DAYSTORE.mSetBatchG(id, perServing); }
+  function mServeG(r) { return DAYSTORE.mServeG(r); }
+  function mSetNever(id, on) { return DAYSTORE.mSetNever(id, on); }
+  function mReadSlots() { return DAYSTORE.mReadSlots(); }
+  function mWriteSlots(s) { return DAYSTORE.mWriteSlots(s); }
+  function mAllSections() { return DAYSTORE.mAllSections(); }
+  function mSlotSecs(slot) { return DAYSTORE.mSlotSecs(slot); }
+  function mSlotKind(slot) { return DAYSTORE.mSlotKind(slot); }
+  function mSlotSpokenFor(day, s) { return DAYSTORE.mSlotSpokenFor(day, s); }
+  function mSlotClosed(day, k) { return DAYSTORE.mSlotClosed(day, k); }
+  function mFillRoom(day, targets) { return DAYSTORE.mFillRoom(day, targets); }
+  function mWhyChip(it, tag) { return DAYSTORE.mWhyChip(it, tag); }
+  function mBatchStrip(r, it, tag) { return DAYSTORE.mBatchStrip(r, it, tag); }
+  function mWhyStrip(it, tag) { return DAYSTORE.mWhyStrip(it, tag); }
+  function mReplacePlate(k, sk, idx) { return DAYSTORE.mReplacePlate(k, sk, idx); }
+  var MNEVER = DAYSTORE.MNEVER;
+  var MBATCHG = DAYSTORE.MBATCHG;
+  var MDAYS = DAYSTORE.MDAYS;
 
-  /* The notice, for three days after a change or until answered. */
-  function mMovedHTML() {
-    var rec = mTargRec();
-    var mv = rec && rec.moved;
-    if (!mv || mv.ok || !mv.on || mDaysSince(mv.on) > 3) return '';
-    return mLineHTML('calm', '\u21bb',
-      '<b>Targets updated for your weight.</b> ' + Number(mv.from).toLocaleString() +
-        ' \u2192 ' + Number(mv.to).toLocaleString() + ' kcal a day.',
-      '', [['OK', 'mline:moved:ok'], ['Undo', 'mline:moved:undo']]);
-  }
+  /* src/toast.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var TOAST = window.HiveParts.toast({  });
+  function mToastEls() { return TOAST.mToastEls(); }
+  function mToast(text, undo, attr) { return TOAST.mToast(text, undo, attr); }
 
-  /* What you have said not to suggest. Blake, on the endive Fill kept adding
-     for fibre: the logic is fine, "it's just invisible in the app and a food
-     i might want to stop from suggesting somehow." Keyed id -> the day it was
-     said. Suggestions only: Fill's dishes, its sides and toppers, "Try
-     another", and the picker's lists before you type — searching still finds
-     everything, and anything you add yourself is yours. Synced as part `nv`,
-     so every device leaves it out. */
-  var MNEVER = (function () {
-    try {
-      var v = JSON.parse(localStorage.getItem('bsc.macroNever'));
-      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
-    } catch (e) { /* none yet */ }
-    return {};
-  })();
-  function mNever(id) { return !!MNEVER[String(id)]; }
-
-  /* What one serving of a recipe weighs, finished. Blake, on the Cafe Rio
-     pork: the plate said half a serving and he had to open the recipe, switch
-     it to grams and do the division on his phone's calculator. The weight
-     that matters is the COOKED one, which only the cook can know — pork
-     loses about a third in the pot — so the plate shows an estimate from the
-     raw ingredients, marked "~", until the batch is weighed once. Then it is
-     exact for the way he makes it. Keyed recipe id -> { s: grams a serving,
-     on: day }. Synced as part `bg`. */
-  var MBATCHG = (function () {
-    try {
-      var v = JSON.parse(localStorage.getItem('bsc.macroBatchG'));
-      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
-    } catch (e) { /* none yet */ }
-    return {};
-  })();
-  function mSetBatchG(id, perServing) {
-    mFoldDue();
-    var k = String(id);
-    if (perServing > 0) MBATCHG[k] = { s: Math.round(perServing * 10) / 10, on: todayKey() };
-    else delete MBATCHG[k];
-    mStamp('bg');
-    mPut('bsc.macroBatchG', MBATCHG);
-  }
-  /* { g: grams a serving, est: true when it is the ingredient estimate }, or
-     null when there is nothing to go on. The estimate counts what the recipe
-     says is eaten of each line (the dredge's third, the frying oil's share). */
-  function mServeG(r) {
-    if (!r || r.food) return null;
-    var w = MBATCHG[String(r.id)];
-    if (w && w.s > 0) return { g: w.s, est: false };
-    var tot = 0;
-    (r.ingp || []).forEach(function (x) { tot += (Number(x.g) || 0) * (x.pe > 0 ? x.pe : 1); });
-    return tot > 0 ? { g: tot / (r.servN || 1), est: true } : null;
-  }
-  function mSetNever(id, on) {
-    mFoldDue();
-    var k = String(id);
-    if (on) MNEVER[k] = todayKey(); else delete MNEVER[k];
-    mStamp('nv');
-    mPut('bsc.macroNever', MNEVER);
-  }
-
-  /* The days live in memory and persist best-effort, so a browser that refuses
-     localStorage still gets a working tab for the session. */
-  var MDAYS = (function () {
-    try {
-      var d = JSON.parse(localStorage.getItem('bsc.macroDays'));
-      if (d && typeof d === 'object' && !Array.isArray(d)) return d;
-    } catch (e) { /* fall through */ }
-    return {};
-  })();
-
-  /* Which meals a day holds, and what each is called. list is the day as the
-     reader shaped it; names remembers every key that ever had one, so a meal
-     removed from the plan can still caption the plates it left on old days. */
-  function mReadSlots() {
-    try {
-      var s = JSON.parse(localStorage.getItem('bsc.macroSlots'));
-      if (s && s.list && s.list.length) return s;
-    } catch (e) { /* private mode or corrupt — the defaults below */ }
-    var names = {};
-    MSLOT_DEFS.forEach(function (d) { names[d[0]] = d[1]; });
-    return {
-      list: MSLOT_DEFS.map(function (d) { return { k: d[0], n: d[1], t: d[2] }; }),
-      names: names
-    };
-  }
-  function mWriteSlots(s) {
-    /* and dinner's share of the day moves the dinner you share (pwFitCaps):
-       Save writes the targets first, so their own dinerKeep saw the old
-       meals. */
-    if (mPut('bsc.macroSlots', s)) { mStamp('sl'); dinerKeep(); }   // see mWriteMyFoods
-  }
-
-  /* Every section there is, in book order, straight off the live data — the
-     same source the browse filter reads, so the two can never drift apart. */
-  /* Every consumer of this escapes the key. It is built from secNum, which
-     arrives from the household document, and a section key that reaches an
-     HTML attribute unescaped is a script tag in somebody else's app. sane()
-     in sync.js now rebuilds the record rather than trusting it, which is the
-     fix that holds; this is the one that holds if that one is ever loosened. */
-  function mAllSections() {
-    var seen = {}, out = [];
-    RECIPES.forEach(function (r) {
-      var key = r.book + '-' + r.secNum;
-      if (!seen[key]) { seen[key] = true; out.push({ key: key, book: r.book, name: r.secName }); }
-    });
-    return out;
-  }
-
-  /* Which sections a meal draws from. The four kinds are named bundles of
-     sections; 'x' means the reader chose their own boxes under Craft my plan.
-     A custom set that lost all its boxes falls back to snacks rather than to
-     a meal that can hold nothing. */
-  function mSlotSecs(slot) {
-    if (slot.t === 'x' && slot.secs && slot.secs.length) return slot.secs;
-    return MEAL_SECS[slot.t] || MEAL_SECS.s;
-  }
-
-  /* The household's dishes for this day come from mFamilyIds, which the
-     picker's family lens has used since it was built — and which I duplicated
-     here before finding it, because the grep that found "the two halves never
-     touch" was for Store.plan and Store.weeks and this reads Store.day. The
-     halves DID touch: manually adding food already offered what the family
-     planned. What was missing was the automatic path. */
-
-  /* Which meal a planned dish belongs to. The week assigns a dish to a DAY
-     and says nothing about when in it — so the dish's own section decides,
-     using the map Fill already steers by. A breakfast recipe lands on
-     breakfast. Anything the map does not place falls to the slot the reader
-     keeps for everything else, which is where an unclassifiable dish would
-     have been put by hand. */
-  /* A meal's KIND, from a slot or a bare slot key. The four defaults are
-     their own kind; a meal somebody made themselves is 'x' and has none. */
-  /* Whether a meal is spoken for, as far as drafting is concerned.
-   *
-     Food on a meal means Fill leaves it alone: what you put there is your
-     business. A PIN is not that kind of statement. It says "I have this every
-     day", not "this meal is finished" — and a seven-calorie Crio Bru pinned to
-     breakfast was making Fill step over breakfast altogether, so the day came
-     back with a seven-calorie breakfast and every other meal carrying what it
-     should have held. */
-  /* A meal you have started recording is over, as far as any machine is
-     concerned. A tick is the strongest statement on this screen and a lock is
-     the second; either one means nothing may be put on that meal. Stated once
-     here because two passes need it and they were not agreeing. */
-  /* How much of the day Fill could still put food into. The macros still
-     short, priced, but never more than the calories still short: unused
-     carbohydrate on a day already over used to count as room, so Fill
-     added a 300 kcal crisp to a day 120 over. */
-  function mFillRoom(day, targets) {
-    var had = mTotals(day).all;
-    var short = 4 * Math.max(0, targets.p - had.p) +
-      4 * Math.max(0, targets.c - had.c) +
-      9 * Math.max(0, targets.f - had.f);
-    return Math.min(short, kcalOf(targets) - (had.kcal || 0));
-  }
-
-  /* Why Fill put it there, as the button that asks about it. The chip is
-     the question's own place: Blake picked this over a ⋯ menu ("so out of
-     place in the app") and over the plate's sheet. A dish Fill chose for an
-     empty meal is "Fill's pick"; a food it added says what it was for. */
-  var MWHY = { fib: 'Added for fiber', p: 'Added for protein', f: 'Added for fat', c: 'Added for carbs',
-    pick: 'Fill\u2019s pick' };
-  var MWHY_SAY = { fib: 'to reach your fiber', p: 'to close your protein', f: 'to close your fat',
-    c: 'to close your carbs', pick: 'for this meal' };
-  function mWhyOf(it) {
-    if (it.by !== 'f') return '';
-    if (MWHY[it.why]) return it.why;
-    var r = BY_ID[it.id];
-    return r && !r.food ? 'pick' : '';
-  }
-  function mWhyChip(it, tag) {
-    var w = mWhyOf(it);
-    if (!w) return '';
-    return '<button class="mwhy mwhy-' + w + ' no-print" data-mwhy="' + tag + '" aria-expanded="' +
-      (S.mWhyOpen === tag ? 'true' : 'false') + '">' + MWHY[w] +
-      '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" ' +
-      'stroke="currentColor" stroke-width="1.5"/></svg></button>';
-  }
-  /* The strip the chip opens, inside the plate, in the green-edged style of
-     the app's other in-meal cards. */
-  function mBatchStrip(r, it, tag) {
-    if (S.mBatchOpen !== tag) return '';
-    var sg = mServeG(r);
-    if (!sg) return '';
-    var n = r.servN || 1;
-    var fmt = function (g) { return Math.round(g).toLocaleString(); };
-    return '<div class="mwhy-strip mbatch-strip no-print">' +
-      (sg.est
-        ? '<p>About ' + fmt(sg.g) + ' g a serving, from the raw ingredients. Weigh the finished ' +
-          (n > 1 ? 'batch' : 'dish') + ' once and this becomes exact.</p>' +
-          '<span class="mbatch-in"><label>Whole batch <input type="text" inputmode="decimal" id="mBatchIn" ' +
-            'maxlength="6" autocomplete="off" aria-label="Finished batch weight in grams"> g</label>' +
-            '<span class="mbatch-n">makes ' + n + '</span>' +
-            '<button class="btn-primary" data-mbsave="' + tag + '">Save</button></span>'
-        : '<p>Your batch: ' + fmt(sg.g * n) + ' g for ' + n + (n === 1 ? ' serving' : ' servings') +
-          ', so ' + fmt(sg.g) + ' g each.</p>' +
-          '<span class="mwhy-acts"><button class="ghost" data-mbforget="' + tag + '">Weigh again</button></span>') +
-    '</div>';
-  }
-
-  function mWhyStrip(it, tag) {
-    var w = mWhyOf(it);
-    if (!w || S.mWhyOpen !== tag) return '';
-    return '<div class="mwhy-strip no-print">' +
-      '<p>' + (w === 'pick' ? 'Fill picked this ' : 'Fill added this ') + MWHY_SAY[w] + '.' +
-        (it.eaten ? '' : ' It stays unless you change it.') + '</p>' +
-      '<span class="mwhy-acts">' +
-        (it.eaten ? '' : '<button class="ghost" data-mdo="swap:' + tag + '">Swap</button>') +
-        '<button class="ghost" data-mdo="never:' + tag + '">Don\u2019t suggest</button>' +
-      '</span></div>';
-  }
-
-  /* Take a plate Fill put there off the day and let the same pass choose
-     again — the side pass for a fibre side, the topper for a gap — so what
-     it was covering stays covered. A dish goes back through "Try another". */
-  function mReplacePlate(k, sk, idx) {
-    var it = (mDay(k)[sk] || [])[idx];
-    if (!it) return;
-    var r = BY_ID[it.id];
-    if (!r || !r.food) { mTryAgain(sk); return; }
-    var targets = mDayTargets(k);
-    var near = mNearIds(k);
-    near[it.id] = 1;
-    mEditDay(k, function (day) {
-      (day[sk] || []).splice(idx, 1);
-      if (it.why === 'fib') mSideUp(day, targets, near);
-      else if (it.why) mTopUp(day, targets, near);
-    });
-  }
-
-  /* The toast, and the voice it speaks with, both made once, at boot.
-   *
-     The toast used to be built by its own first message, role=status and
-     all, and a live region that arrives WITH its words is a region nobody
-     was listening to yet: a screen reader announces changes to a region it
-     already knows about, so the first "won't be suggested" of a session was
-     never read out, and every one after it was. The box that is drawn comes
-     and goes with `hidden`; the words go to a region that is always there
-     and never drawn, so the voice does not depend on the paint. */
-  function mToastEls() {
-    var el = $('mToast');
-    if (el) return el;
-    el = document.createElement('div');
-    el.id = 'mToast'; el.className = 'm-toast no-print'; el.hidden = true;
-    /* Six seconds is a long time to read and a short time to reach for Undo
-       with a thumb, or with Tab from the far end of the page. While it is
-       being pointed at or holds the focus it stays; let go, and it leaves a
-       little after. */
-    el.addEventListener('mouseenter', mToastHold);
-    el.addEventListener('focusin', mToastHold);
-    el.addEventListener('mouseleave', mToastLet);
-    el.addEventListener('focusout', mToastLet);
-    document.body.appendChild(el);
-    var say = document.createElement('div');
-    say.id = 'mToastSay'; say.className = 'sr-only'; say.setAttribute('role', 'status');
-    document.body.appendChild(say);
-    return el;
-  }
-  function mToastHold() { clearTimeout(mToast.t); }
-  function mToastLet(ev) {
-    var el = $('mToast');
-    if (!el || el.hidden) return;
-    // still inside: focus moved between its own parts, or the pointer is over it
-    if (ev && ev.type === 'focusout' && ev.relatedTarget && el.contains(ev.relatedTarget)) return;
-    if (ev && ev.type === 'mouseleave' && el.contains(document.activeElement)) return;
-    clearTimeout(mToast.t);
-    mToast.t = setTimeout(function () { el.hidden = true; }, 3000);
-  }
-  /* `attr` names what Undo does elsewhere than Nourish's own (Plan my week's
-     picks use data-pwundo). */
-  function mToast(text, undo, attr) {
-    var el = mToastEls();
-    el.innerHTML = '<span>' + text + '</span>' +
-      (undo ? '<button type="button" ' + (attr || 'data-mallow') + '="' + esc(String(undo)) + '">Undo</button>' : '');
-    el.hidden = false;
-    /* A tap on the message itself (not its Undo) puts it away early. */
-    el.onclick = function (ev) { if (!ev.target.closest('[data-mallow], [data-pwundo]')) el.hidden = true; };
-    /* Emptied first, so the same words twice are two announcements. */
-    var say = $('mToastSay');
-    if (say) {
-      var words = el.firstChild.textContent;
-      say.textContent = '';
-      setTimeout(function () { say.textContent = words; }, 60);
-    }
-    clearTimeout(mToast.t);
-    mToast.t = setTimeout(function () { el.hidden = true; }, 6000);
-  }
-
-  function mSlotClosed(day, k) {
-    return (day[k] || []).some(function (it) { return !!(it.eaten || it.l); });
-  }
-
-  function mSlotSpokenFor(day, s) {
-    var items = day[s.k] || [];
-    if (!items.length) return false;
-    if (mSlotClosed(day, s.k)) return true;
-    var pinned = (s.pins || []).map(function (p) { return p.id; });
-    return items.some(function (it) {
-      /* Eaten or locked means hands off, whatever else is true of it.
-       *
-         This carve-out was written for pins alone — "a pin says I have this
-         every day, not this meal is finished" — and it forgot that a pin can
-         be eaten like anything else. A meal holding one pinned food you had
-         already ticked read as EMPTY to the drafter, so Fill put a second
-         dish on a breakfast that was over. Blake, finding it: "Fill is
-         putting foods into meals that are complete".
-       *
-         A tick is the strongest statement on this screen. Nothing may be
-         added to a meal carrying one. */
-      if (it.eaten || it.l) return true;
-      return pinned.indexOf(it.id) < 0;
-    });
-  }
-
-  function mSlotKind(slot) {
-    if (!slot) return '';
-    if (typeof slot === 'object') return slot.t || '';
-    var t = '';
-    mReadSlots().list.forEach(function (sl) { if (sl.k === slot) t = sl.t || ''; });
-    return t;
-  }
-
-  /* Whether a food belongs at this meal at all.
-   *
-     `meals` on a food names the meals it is ordinarily eaten at on its own,
-     and only exceptions carry one — so a food without the field is fine
-     anywhere, which is most food. A custom meal has no kind to judge against
-     and is never withheld from: somebody who built their own meal has said
-     more about it than this table knows. See the note in tools/food-db.js.
-   *
-     Recipes are untouched. They have always been placed by section, which is
-     the same fact stated for a dish. */
-  function mFoodMealOK(r, slot) {
-    if (!r || !r.meals) return true;
-    var t = mSlotKind(slot);
-    if (!t || t === 'x') return true;
-    return r.meals.indexOf(t) >= 0;
-  }
-
-  /* Sections no meal offers unasked, and the meal a dish from one belongs at
-     when you add it yourself. With no meal claiming Batch Prep, a container
-     added from the book fell through to the snack below. */
-  var MSEC_HOME = { '1-7': ['l', 'd'] };
-
-  /* Every meal a dish could go on, in the order it should be tried: the
-     meals whose sections name it, then its home types. */
-  function mSlotsForRecipe(r, slots) {
-    var sec = r.book + '-' + r.secNum, out = [];
-    slots.list.forEach(function (s) { if (mSlotSecs(s).indexOf(sec) >= 0) out.push(s); });
-    (MSEC_HOME[sec] || []).forEach(function (t) {
-      slots.list.forEach(function (s) { if (s.t === t && out.indexOf(s) < 0) out.push(s); });
-    });
-    return out;
-  }
-
-  function mSlotForRecipe(r, slots) {
-    var sec = r.book + '-' + r.secNum, found = null;
-    slots.list.forEach(function (s) {
-      if (found) return;
-      if (mSlotSecs(s).indexOf(sec) >= 0) found = s;
-    });
-    if (found) return found;
-    if (MSEC_HOME[sec]) {
-      MSEC_HOME[sec].forEach(function (t) {
-        slots.list.forEach(function (s) { if (!found && s.t === t) found = s; });
-      });
-      if (found) return found;
-    }
-    var last = null;
-    slots.list.forEach(function (s) { if (s.t === 's') last = last || s; });
-    return last || slots.list[slots.list.length - 1] || null;
-  }
-
-  function mDay(k) {
-    // a fresh object when the day is empty — browsing ‹ › never writes a key
-    return MDAYS[k] || {};
-  }
-
-  /* `seed` is the routine placing itself on a new today, which is not
-     anybody's edit — see the pin pass in mRenderDay. */
-  function mEditDay(k, fn, seed) {
-    mFoldDue();                           // the other copy's change first: see mFoldStored
-    var day = MDAYS[k] || (MDAYS[k] = {});
-    fn(day);
-    /* Food on a meal un-skips it.
-     *
-       The rest of the app already assumes a skipped meal is an empty one: the
-       skip button is only drawn on a meal with nothing on it, the struck-out
-       line only stands in for a card with nothing on it, and Fill walks past a
-       skipped meal without looking. Nothing enforced it. The chooser on the add
-       sheet lists skipped meals like any other, so two taps put a plate on a
-       lunch that was still marked not-happening.
-
-       What that costs is the day itself. Every OTHER meal divides the day by
-       the weights of the meals still in play, so a skipped lunch is subtracted
-       from their divisor — and then paid its own share on top, out of a divisor
-       that counts it. On the default weights a skipped-but-filled lunch hands
-       the four cards 20/65, 25/90, 35/65 and 10/65: 128 per cent of a day, with
-       every card free to say it landed on its share.
-
-       Enforced here rather than at the doors food comes in by, because there
-       are four of them — the tick on the picker, a new food saved straight onto a
-       meal, Keep-these-as-one, and the pins a fresh day is seeded with — and a
-       rule that has to be remembered at four doors is a rule that will be
-       missed at the fifth. The food is the newer statement about the meal, so
-       it wins; and mSetSkip stamps, so the un-skip travels to the other device
-       instead of losing to the skip still sitting there. */
-    Object.keys(day).forEach(function (sk) {
-      if ((day[sk] || []).length && mSkipped(k, sk)) mSetSkip(k, sk, false);
-    });
-    /* Only the past falls out of the window. A plan for Thursday is not a
-       stale record, and pruning by one bound would have eaten it.
-     *
-       And nothing falls off the far end. It used to — past a week ahead was
-       pruned too — but the only way to have a day out there is for the
-       phone's clock to have gone back, and then the "future" days are the
-       real ones: set the date back ten days and the next plate logged erased
-       everything eaten since. Nothing on screen can reach past a week ahead,
-       so a day out there costs nothing to keep. */
-    var floor = mEarliestKey();
-    Object.keys(MDAYS).forEach(function (dk) {
-      if (dk < floor) delete MDAYS[dk];
-    });
-    mPut('bsc.macroDays', MDAYS);
-    if (!seed) mStamp('d', k);
-  }
-
-  function kcalOf(t) { return Math.round(4 * t.p + 4 * t.c + 9 * t.f); }
+  /* src/placing.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var PLACING = window.HiveParts.placing({ MDAYS: MDAYS, mEarliestKey: mEarliestKey, mFoldDue: mFoldDue, mPut: mPut, mSetSkip: mSetSkip, mSkipped: mSkipped, mSlotKind: mSlotKind, mSlotSecs: mSlotSecs, mStamp: mStamp });
+  function mFoodMealOK(r, slot) { return PLACING.mFoodMealOK(r, slot); }
+  function mSlotsForRecipe(r, slots) { return PLACING.mSlotsForRecipe(r, slots); }
+  function mSlotForRecipe(r, slots) { return PLACING.mSlotForRecipe(r, slots); }
+  function mDay(k) { return PLACING.mDay(k); }
+  function mEditDay(k, fn, seed) { return PLACING.mEditDay(k, fn, seed); }
+  function kcalOf(t) { return PLACING.kcalOf(t); }
 
   /* src/training.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
@@ -5899,6 +5456,12 @@
      plan. The family plan has no dates — Monday is just Monday — so the
      macro day borrows its weekday. Nothing new to enter anywhere: if the
      family planned it, it is on offer, portioned for your own targets. */
+  /* The household's dishes for this day come from mFamilyIds, which the
+     picker's family lens has used since it was built — and which I duplicated
+     here before finding it, because the grep that found "the two halves never
+     touch" was for Store.plan and Store.weeks and this reads Store.day. The
+     halves DID touch: manually adding food already offered what the family
+     planned. What was missing was the automatic path. */
   function mFamilyIds(k) {
     var wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][keyDate(k).getDay()];
     var ids = [];
