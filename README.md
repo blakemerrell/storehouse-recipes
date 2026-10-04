@@ -557,6 +557,10 @@ src/scale.js          what the scale says against the plan: the average, the spa
 src/morning.js        the morning card and the day's lines, with their "i" and "why?" notes
 src/weighcard.js      the weigh-in card on My Day: the box, the average, the plan's line, today's training
 src/budget.js         the day's budget: totals, whether the day is done, each meal's share of it
+src/follow.js         targets follow the scale: the weekly re-plan, and the notice that says so
+src/daystore.js       My Day's store: the days, meal slots and sections, never and batch weights, Fill's why-chips
+src/toast.js          the toast, and the voice it speaks with
+src/placing.js        where a dish goes on the day, and the day read and changed
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
