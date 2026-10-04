@@ -280,6 +280,17 @@ self.addEventListener('install', function (e) {
   );
 });
 
+/* Asked again to take over. The install above ends by saying skipWaiting,
+   and nearly always the new worker then takes over at once. But while the
+   old worker is still serving the page's scripts the browser holds the
+   switch back, and now and then it never returns to it: the new worker sat
+   installed and waiting for a minute and more with no request open, the
+   phone on the old build until the app was closed. Asked again once it is
+   quiet, it takes over within a second; src/boot.js does the asking. */
+self.addEventListener('message', function (e) {
+  if (e.data === 'skip') self.skipWaiting();
+});
+
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
