@@ -5584,6 +5584,20 @@
    * The strip is always there: anything counts. */
   /* How hard a logged activity was: as marked, or as that kind usually is. */
   function axLv(a) { return LV[a.lv] ? a.lv : HABITS[a.k].lv; }
+  /* A rest day, for Today: something easy to do, your own sports first, the
+     week's active minutes against the guideline, and what was done today. */
+  function restToday() {
+    var mine = T.pr.hab.filter(function (h) { return HABITS[h] && h !== 'other' && h !== 'walk'; });
+    var pick = ['walk'].concat(mine.slice(0, 2), ['yoga', 'cycle', 'golfw']).filter(function (h, i, a) { return a.indexOf(h) === i; }).slice(0, 4);
+    var tk = dayKey(new Date());
+    var did = Object.keys(T.ax).map(function (k) { return T.ax[k]; }).filter(function (a) { return a && HABITS[a.k] && dayKey(new Date(a.st)) === tk; })
+      .sort(function (x, y) { return x.st - y.st; });
+    return {
+      sugg: pick.map(function (h) { return { k: h, n: HABITS[h].btn, min: HABITS[h].min, round: /^golf/.test(h) }; }),
+      mins: Math.round(axWeek().mv), goal: 150,
+      did: did.map(function (a) { return { id: a.id, n: axName(a), min: a.min }; })
+    };
+  }
   function axName(a) { return a.k === 'other' && a.nm ? a.nm : HABITS[a.k].n; }
   /* The week outside the gym. `mv` is what the WHO counts: a moderate minute
      once, a vigorous one twice, a light one not at all. */
@@ -10873,7 +10887,7 @@
       /* A rest day, as the block card says: Today offered Start on it, as
          if the session were due. The days are the lifting days picked. */
       var due = dueIn(ms, nx);
-      if (due > 0) { out.due = due; out.dueSay = dueSay(due); }
+      if (due > 0) { out.due = due; out.dueSay = dueSay(due); out.rest = restToday(); }
       var p = plan(ms, nx.w, nx.d), day = ms.days[nx.d];
       out.name = p.n || dayName(day);
       out.mins = day && day.s && day.s.length ? Math.round(estDay(day.cc ? day : { s: day.s }) / 5) * 5 : 0;
@@ -10883,6 +10897,22 @@
         return { name: lib(x.e).n, say: (sets ? sets + ' \u00d7 ' : '') + reps + (x.tw > 0 ? ' \u00b7 ' + fmtN(x.tw) + ' ' + T.pr.u : '') };
       });
       return out;
+    },
+    /* A rest day's one tap, from Today: an activity logged as the strip's
+       sheet logs one, today, at the kind's own minutes and how hard it
+       usually is. Returns its id. */
+    logActivity: function (k, min) {
+      if (!HABITS[k] || k === 'other') return null;
+      var id = newId();
+      T.ax[id] = { id: id, st: Date.now(), k: k, min: Number(min) > 0 ? Number(min) : HABITS[k].min, lv: HABITS[k].lv };
+      stamp('ax', id);
+      draw();
+      return id;
+    },
+    // the strip's own sheets, for "Change it" and "Something else"
+    editActivity: function (id) { if (T.ax[id]) openSheet({ k: 'ax', id: id, eyebrow: 'Outside the gym', title: 'Activity' }); },
+    newActivity: function () {
+      openSheet({ k: 'axnew', h: '', pick: true, lv: 'm', min: 30, ago: 0, nm: '', eyebrow: 'Outside the gym', title: 'Log an activity' });
     },
     startToday: function () {
       var ms = active(), nx = ms && nextSlot(ms);

@@ -199,12 +199,22 @@
         note('A walk, a ride, a swim: something easy that counts.') +
         acts(btn(main, 'train', 'Log it')), '', 'train');
     }
-    /* A rest day: what the block card says, with the next session named and
-       a quiet way to start it anyway. */
-    if (w.due > 0) {
-      return card('workout', 'Workout', title('Rest day') +
-        note('Next: ' + esc(w.name) + ' ' + esc(w.dueSay) + '.') +
-        acts((main ? btn(true, 'train', 'See the block') : '') + quiet('start', 'Start it anyway')), '', 'train');
+    /* A rest day: something easy rather than another session. Blake: "If
+       it is a rest day, maybe add some suggested activity. 30 min walk.
+       Golf, yoga, whatever... besides sneak in another workout." Your own
+       sports first; one tap logs it in Strengthen's own activity log, and the
+       card folds green. The next session is named, and Strengthen is a tap. */
+    if (w.due > 0 && w.rest) {
+      var r = w.rest;
+      if (r.did.length) return restDoneCard(r);
+      return card('workout', 'Workout \u00b7 rest day', title('Rest day: something easy') +
+        note('Your muscles rebuild today. Something easy keeps you moving while they do.') +
+        '<div class="td-acts-grid">' + r.sugg.map(function (a) {
+          return '<button class="td-act" data-td="act" data-k="' + esc(a.k) + '"><b>' + esc(a.n) + '</b><span>' + (a.round ? 'a round' : a.min + ' min') + '</span></button>';
+        }).join('') + '</div>' +
+        acts(quiet('actnew', 'Something else')) +
+        bar('Active minutes this week', r.mins, r.goal, '', 'td-act-bar') +
+        '<p class="td-next">Next lift: ' + esc(w.name) + ', ' + esc(w.dueSay) + '</p>', '', 'train');
     }
     var lifts = (w.lifts || []).slice(0, 5).map(function (l) {
       return '<li><span>' + esc(l.name) + '</span><span>' + esc(l.say) + '</span></li>';
@@ -214,6 +224,14 @@
       facts([w.week || '', w.mins ? 'About ' + w.mins + ' min' : '', (w.lifts || []).length + ' exercises']) +
       (lifts ? '<ol class="td-lifts">' + lifts + more + '</ol>' : '') +
       acts(btn(main, 'start', 'Start')), '', 'train');
+  }
+
+  // a rest day's activity, done: one green card, at the bottom
+  function restDoneCard(r) {
+    var said = r.did.map(function (a) { return a.n + ' ' + a.min + ' min'; }).join(' \u00b7 ');
+    return card('workout', 'Rest day', '<p class="td-doneline">' + esc(said) + '</p>' +
+      '<p class="td-small">Logged in Strengthen \u00b7 ' + fmt(r.mins) + ' of ' + r.goal + ' active minutes this week</p>' +
+      '<button class="nut-ask" data-td="actedit" data-id="' + esc(r.did[r.did.length - 1].id) + '">Change it</button>', '', 'train', true);
   }
 
   // --------------------------------------------------------------- shopping
@@ -272,7 +290,7 @@
        workout already done steps back behind the rest. */
     var order = evening ? ['tonight', 'eating', 'workout'] : ['eating', 'workout', 'tonight'];
     /* A workout already done folds to one green card at the very bottom. */
-    var doneW = d.workout && d.workout.doneToday;
+    var doneW = d.workout && (d.workout.doneToday || (d.workout.due > 0 && d.workout.rest && d.workout.rest.did.length));
     if (doneW) order = order.filter(function (k) { return k !== 'workout'; });
     // and so does tonight's dinner, once it is cooked
     var doneT = !!(d.tonight && !d.tonight.lo && d.tonight.cooked);
@@ -317,6 +335,9 @@
     else if (a === 'cooked') H.cooked(id, b.getAttribute('data-day'), b.getAttribute('data-tk'));
     else if (a === 'rate') H.rate(id, b.getAttribute('data-day'));
     else if (a === 'weigh') H.weighOpen();
+    else if (a === 'act') { if (window.Train && window.Train.logActivity) window.Train.logActivity(b.getAttribute('data-k')); render(); }
+    else if (a === 'actnew') { H.go('train'); if (window.Train && window.Train.newActivity) window.Train.newActivity(); }
+    else if (a === 'actedit') { H.go('train'); if (window.Train && window.Train.editActivity) window.Train.editActivity(id); }
     else if (a === 'meal') H.meal(b.getAttribute('data-k'));
     else if (a === 'planweek') H.planWeek();
     else if (a === 'addtonight') H.addTonight();

@@ -186,19 +186,40 @@ module.exports = {
     t.ok('and Today then says a workout is going', (await p.evaluate(() => document.querySelector('[data-card="workout"] .td-title').textContent)) === 'A workout is going');
     await p.context().close();
 
-    /* ---- a rest day: Today says so, as the block card does ---- */
+    /* ---- a rest day: something easy, not another session ----
+       Blake: "If it is a rest day, maybe add some suggested activity. 30 min
+       walk. Golf, yoga, whatever... besides sneak in another workout." */
     p = await at(t, MORNING, () => {
       localStorage.setItem('sh.view', 'today'); localStorage.setItem('sh.viewAt', String(Date.now()));
       const _ = window.Train._, ms = _.build({ goal: 'grow', dpw: 2, kit: 'gym', lvl: 1, acc: 4, pri: [] });
       ms.id = 'b'; ms.n = 'Fall block'; ms.at = Date.now() - 3 * 864e5;
-      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 2] }, act: 'b', ms: { b: ms }, cx: {}, ax: {}, wo: {} }));
+      localStorage.setItem('bsc.train', JSON.stringify({ pr: { u: 'lb', qz: 1, lvl: 1, ld: [0, 2], hab: ['golfw'] }, act: 'b', ms: { b: ms }, cx: {}, ax: {}, wo: {} }));
     });
     p.on('pageerror', (e) => errs.push(e.message));
     const rest = await p.evaluate(() => ({ w: window.Train.today(), title: (document.querySelector('[data-card="workout"] .td-title') || {}).textContent,
-      note: (document.querySelector('[data-card="workout"] .td-note') || {}).textContent || '', start: !!document.querySelector('[data-card="workout"] [data-td="start"]'),
-      primary: !!document.querySelector('[data-card="workout"] .btn-primary[data-td="start"]') }));
-    t.ok('on a Thursday with Monday and Wednesday the lifting days, Today says Rest day, names the next session Monday, and offers Start only quietly',
-      rest.w.due > 0 && rest.title === 'Rest day' && rest.note === 'Next: ' + rest.w.name + ' Monday.' && rest.start && !rest.primary, JSON.stringify(rest));
+      label: (document.querySelector('[data-card="workout"] .td-label') || {}).textContent,
+      sugg: [...document.querySelectorAll('[data-card="workout"] [data-td="act"]')].map((b) => b.dataset.k).join(),
+      next: (document.querySelector('[data-card="workout"] .td-next') || {}).textContent || '',
+      mins: (document.querySelector('[data-card="workout"] .td-bar-t') || {}).textContent || '',
+      start: !!document.querySelector('[data-card="workout"] [data-td="start"]') }));
+    t.ok('on a Thursday with Monday and Wednesday the lifting days, Today says Rest day: something easy, and offers no Start',
+      rest.w.due > 0 && rest.label === 'Workout · rest day' && rest.title === 'Rest day: something easy' && !rest.start, JSON.stringify(rest));
+    t.ok('a walk first, then your own sport, then yoga and a ride', rest.sugg === 'walk,golfw,yoga,cycle', rest.sugg);
+    t.ok('with the week’s active minutes and the next lift named', /^Active minutes this week0 of 150$/.test(rest.mins) && rest.next === 'Next lift: ' + rest.w.name + ', Monday', JSON.stringify(rest));
+    await p.click('[data-card="workout"] [data-td="act"][data-k="walk"]');
+    await p.waitForTimeout(300);
+    const walked = await p.evaluate(() => {
+      const c = document.querySelector('[data-card="workout"]');
+      const ax = window.Train._.state().T.ax, all = Object.keys(ax).map((k) => ax[k]);
+      return { logged: all.length === 1 && all[0].k === 'walk' && all[0].min === 30, fin: c.classList.contains('td-fin'), label: c.querySelector('.td-label').textContent,
+        line: (c.querySelector('.td-doneline') || {}).textContent, small: (c.querySelector('.td-small') || {}).textContent,
+        last: [...document.querySelectorAll('#todayRoot .td-card')].pop() === c };
+    });
+    t.ok('a tap logs a 30-minute walk in Strengthen, and the card folds green to the bottom: Rest day, Walking 30 min, the week’s minutes',
+      walked.logged && walked.fin && walked.label === 'Rest day' && walked.line === 'Walking 30 min' && /30 of 150 active minutes/.test(walked.small) && walked.last, JSON.stringify(walked));
+    await p.click('[data-card="workout"] [data-td="actedit"]');
+    await p.waitForTimeout(300);
+    t.ok('Change it opens that activity in Strengthen', await p.evaluate(() => !document.getElementById('view-train').classList.contains('hide') && !!document.querySelector('#trainRoot .sheet')));
     await p.context().close();
 
     /* ---- Today is about today ---- */
