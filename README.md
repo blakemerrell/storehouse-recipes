@@ -564,6 +564,11 @@ src/placing.js        where a dish goes on the day, and the day read and changed
 src/weekstrip.js      the week you are in, seven blocks wide, coloured by how each day went
 src/myday.js          My Day, drawn: renderMacros, the day picker, the day with its meals and plates
 src/gauges.js         a meal's numbers at a glance: the assumed day, the gauge, the pills
+src/charts.js         the charts: four process behaviour charts over the mornings and the meals
+src/keep.js           keeping plates together as one food of your own
+src/favpick.js        "What do you actually eat": the favourite star as a grid of chips
+src/copyfrom.js       a meal from another day
+src/foodsheet.js      the food sheet: what one of it is, an amount in any unit, and Add
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
