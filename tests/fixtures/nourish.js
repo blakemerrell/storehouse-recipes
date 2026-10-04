@@ -1,0 +1,261 @@
+/* What the Nourish suites share.
+ *
+ * tests/macros.test.js was one suite of sixteen thousand lines, split by
+ * topic into tests/macros-*.test.js; `node tests/run.js macros` still runs
+ * them all. What every one of them needs is here: the page helpers, and
+ * nourish(), which gives each suite what the one file gave every page it
+ * opened, the morning card shown and a plan already on the page. */
+
+/* The way into the plan lives behind the morning card's press now that the
+   weigh-in and the plan card are one card: on the face while there is no plan
+   to adjust, folded away with the rest of the evidence once there is. Every
+   test that used to reach straight for the button opens the card first, the
+   way a thumb would. */
+/* The morning card sits SHUT until a weight is entered — the trend, the week
+   and the pace are evidence for a number, and before there is a number there
+   is nothing for them to be evidence of. So anything reading .mw-verdict has
+   to open the card first; it used to be on the face and is now behind the
+   same handle the meals wear. */
+async function openWeigh(pg) {
+  if (await pg.$('.mw-verdict')) return;
+  const h = await pg.$('.mday-weigh [data-mfold]');
+  if (h) { await h.click(); await pg.waitForTimeout(250); }
+}
+
+/* Two doors, and which one is showing depends on whether there is a plan yet.
+   With none, the bottom bar's primary button IS the way in — it used to sit
+   there disabled and green at exactly this moment, which is the first thing a
+   newcomer met. Once a plan exists the bar goes back to saying Fill and the
+   card carries "Adjust my plan" behind its fold. */
+async function openPlan(pg) {
+  if (await pg.evaluate(() => {
+    const b = document.getElementById('macroFill');
+    return !!b && b.classList.contains('to-plan') && !b.disabled;
+  })) { await pg.click('#macroFill'); await pg.waitForTimeout(250); await revealPlanFields(pg); return; }
+  if (!await pg.$('#macroTargBtn')) {
+    const handle = await pg.$('.mday-weigh [data-mfold]');
+    if (handle) { await handle.click(); await pg.waitForTimeout(250); }
+  }
+  await pg.click('#macroTargBtn');
+  await revealPlanFields(pg);
+}
+
+/* A first run opens as four steps with three of them hidden, and Playwright
+   will not type into what it cannot see. Nearly every test that touches these
+   fields is about something else entirely — carb cycling, the measured burn,
+   what Save keeps — so they get the sheet with everything reachable rather
+   than a page of Next-tapping in front of the thing they are actually
+   asserting. The stepping itself has its own tests, which open the sheet
+   without this. */
+/* The meal rows and Save fold away on a known profile for the same reason —
+   the sheet opens on the plan, not on the editor — so they are opened here
+   too. #mtEditor is deliberately NOT: whether the profile form arrives folded
+   is a thing tests assert, and the ones that want the boxes press Edit, which
+   is what a reader does. */
+async function revealPlanFields(pg) {
+  await pg.evaluate(() => {
+    document.querySelectorAll('[data-mtwstep]').forEach((s) => { s.hidden = false; });
+    // and the wizard's folds — the pace rows, the training days, the gram boxes
+    document.querySelectorAll('.mt-sheet details').forEach((d) => { d.open = true; });
+    // the activity select is hidden behind three words on a first run; the
+    // tests that pick a multiplier off it are about the multiplier
+    ['mtMealsWrap', 'mtSave', 'mtAct'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hide');
+    });
+  });
+  await pg.waitForTimeout(80);
+}
+
+  /* The picker's resting list. It used to be reached by pressing one of three
+     tiles — Scan / Look up / Recipes — each of which drew a whole different
+     screen. Two of those are gone: one box on the resting screen does both
+     jobs, so "go to the list" is now "make sure no chip is filtering it".
+     Kept as a helper rather than deleted from twenty-four call sites, because
+     every one of them means "get me to the list" and that is worth still
+     being able to say. */
+  /* Puts a RECIPE on the plate, not whatever row is first. The picker's list
+     holds single foods beside dishes now, and a food plate is opened by a
+     different attribute and has no entry in window.RECIPES — so tests that go
+     on to read the recipe behind the plate have to ask for one. */
+  /* Opens the basket on the bar. It is shut when a sheet opens — a basket you
+     have not filled has nothing to say — and it holds the rows a test needs to
+     count or click. The readout on the bar is the handle. */
+  /* Opens the picker on the first meal.
+   *
+     The add button sits at the foot of the open meal now, and a card that
+     happens to end near the bottom of a short screen leaves it under the
+     pinned bar. A thumb just scrolls on; Playwright scrolls only far enough
+     to touch the nearest edge, which is the edge the bar is on. Verified that
+     every add button — the last meal's included — clears the bar at some
+     scroll position, so this is the harness catching up with the layout, not
+     a control a reader cannot reach. */
+  async function addOn(pg) {
+    /* The add button lives at the foot of the OPEN meal, so a folded one has
+       none to press — which is the point of putting the verbs there, but it
+       means a day that arrives folded gets opened first, the way a thumb
+       would do it. */
+    await pg.evaluate(() => {
+      if (document.querySelector('.mslot-add')) return;
+      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
+      if (b) b.click();
+    });
+    await pg.waitForTimeout(250);
+    /* Centred, not "if needed". The minimal scroll is to the nearest edge,
+       and on a short screen the nearest edge is the one the pinned bar sits
+       on — so the button arrives in view and under the bar, and the click
+       waits thirty seconds for a hit target that never comes. */
+    await pg.evaluate(() => {
+      const a = document.querySelector('.mslot-add');
+      if (a) a.scrollIntoView({ block: 'center' });
+    });
+    await pg.waitForTimeout(200);
+    await pg.click('.mslot-add');
+  }
+
+  /* A plate added to a meal whose time has come arrives eaten, and an eaten
+     plate's stepper is quiet. Tests that go on to dial, balance or retry what
+     they have just added want it as a plan, whatever hour the suite happens
+     to run at — so they untick it, the way a thumb would. One at a time,
+     because each tick redraws the day under the next. */
+  async function asPlanned(pg, sk) {
+    for (let i = 0; i < 20; i++) {
+      const hit = await pg.evaluate((sk2) => {
+        const c = [...document.querySelectorAll('[data-meat^="' + sk2 + ':"]')].find((x) => x.checked);
+        if (c) c.click();
+        return !!c;
+      }, sk);
+      if (!hit) break;
+      await pg.waitForTimeout(120);
+    }
+  }
+
+  async function openBasket(pg) {
+    const t2 = await pg.$('[data-mpbasket]');
+    if (!t2) return;
+    if (await pg.evaluate(() => (document.querySelector('[data-mpbasket]') || {})
+      .getAttribute('aria-expanded') === 'true')) return;
+    await pg.click('[data-mpbasket]');
+    await pg.waitForTimeout(250);
+  }
+
+  async function pickRecipe(pg) {
+    await pg.evaluate(() => {
+      const r = [...document.querySelectorAll('.mpick-row[data-mpx]')]
+        .find((x) => !/^f:/.test(x.dataset.mpick));
+      if (r) r.click();
+    });
+    await pg.waitForTimeout(200);
+  }
+
+  async function pickerList(pg) {
+    await pg.evaluate(() => {
+      const on = document.querySelector('.mp-shelf.on[data-mpshelf]');
+      if (on && on.dataset.mpshelf) on.click();
+    });
+    await pg.waitForTimeout(200);
+  }
+
+  /* A dish onto the nth meal of the day, the way a thumb adds one: every meal
+     opened so each has its add, that meal's add, the list, the first recipe,
+     done. addOn above only ever reaches the first meal. */
+  async function addTo(pg, nth) {
+    await pg.evaluate(() => {
+      document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click());
+    });
+    await pg.waitForTimeout(200);
+    await pg.evaluate((n) => {
+      const a = document.querySelectorAll('.mslot-add')[n];
+      a.scrollIntoView({ block: 'center' });
+      a.click();
+    }, nth);
+    await pg.waitForTimeout(250);
+    await pickerList(pg);
+    await pickRecipe(pg);
+    await pg.click('[data-mpdone]');
+    await pg.waitForTimeout(250);
+  }
+
+  /* What storage holds for one day of the log, or null. */
+  function storedDay(pg, k) {
+    return pg.evaluate((d) => (JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'))[d] || null, k);
+  }
+
+  /* A weigh-in typed and committed, the way Enter does it. */
+  async function weighIn(pg, txt) {
+    await pg.fill('#mWeight', txt);
+    await pg.press('#mWeight', 'Enter');
+    await pg.waitForTimeout(250);
+  }
+
+  /* The page's own today, which is not the runner's when a test pins it. */
+  function todayOn(pg) {
+    return pg.evaluate(() => {
+      const d = new Date(), q = (n) => (n < 10 ? '0' : '') + n;
+      return d.getFullYear() + '-' + q(d.getMonth() + 1) + '-' + q(d.getDate());
+    });
+  }
+
+/* Meals arrive folded now, so anything reaching for a plate's own
+   controls has to open the day first. Each press redraws, so they are
+   opened one at a time. */
+/* One meal opens at a time now, so clicking each shut head in turn only
+   walks the open one along the day. The bar's own control is how you have
+   them all open at once — the deliberate override the accordion leaves
+   standing. */
+const openDay = async (pg) => {
+  for (let i = 0; i < 3; i++) {
+    const shut = await pg.evaluate(() =>
+      !!document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]'));
+    if (!shut) break;
+    await pg.click('#macroOpenAll');
+    await pg.waitForTimeout(200);
+  }
+};
+
+/* A suite for tests/run.js: nourish({ name, async suite(t, freshBare) { ... } }). */
+function nourish(def) {
+  return {
+    name: def.name,
+    /* The morning card (the weigh-in, the training tick, the plan line, the
+       coaching lines) lives on Today now: Nourish's page keeps it but does not
+       show it, and Today's Weigh in moves it into a sheet. Its behaviour did not
+       change, only where a person meets it, and that is held by
+       tests/todaydo.test.js. So this suite, which is about the card's own rules,
+       shows it in Nourish's page for its pages, and every check below reads it
+       where it always has. */
+    async run(t) {
+      const SHOW = '#view-macros #macroWeigh { display: block !important; }';
+      const show = () => { const add = () => { const st = document.createElement('style'); st.textContent = '#view-macros #macroWeigh { display: block !important; }'; document.head.appendChild(st); };
+        if (document.head) add(); else document.addEventListener('DOMContentLoaded', add); };
+      const fresh0 = t.fresh, ctx0 = t.browser.newContext;
+      t.fresh = async (o) => { const pg = await fresh0.call(t, o); await pg.context().addInitScript(show); await pg.addStyleTag({ content: SHOW }); return pg; };
+      t.browser.newContext = async (o) => { const c = await ctx0.call(t.browser, o); await c.addInitScript(show); return c; };
+      try {
+        /* Every page in this suite starts with a plan on it. A page without one no
+           longer invents targets — the bars say "Craft your plan." and Fill is
+           disabled — so a test that wants a working day has to set one, the way a
+           user does. Wrapping t.fresh rather than editing thirty-nine call sites:
+           the harness builds a new `t` per suite, so this reaches nothing else,
+           and a scripted rename across that many lines is how test names have been
+           corrupted here before.
+         *
+           The first-run tests take their page from bare(), which is the whole
+           point of them — they are the ones asserting that an unplanned day says
+           so. */
+        const freshBare = t.fresh.bind(t);
+        t.fresh = async (opts) => {
+          const pg = await freshBare(opts);
+          await pg.evaluate(() => localStorage.setItem('bsc.macroTargets',
+            JSON.stringify({ p: 180, f: 50, c: 50 })));
+          await pg.reload();
+          await pg.evaluate(() => document.fonts.ready);
+          return pg;
+        };
+        await def.suite(t, freshBare);
+      } finally { t.fresh = fresh0; t.browser.newContext = ctx0; }
+    },
+  };
+}
+
+module.exports = { nourish, openWeigh, openPlan, revealPlanFields, addOn, asPlanned, openBasket, pickRecipe, pickerList, addTo, storedDay, weighIn, todayOn, openDay };

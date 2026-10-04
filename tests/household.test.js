@@ -450,7 +450,7 @@ module.exports = {
     await A2.p.click('#macroMore');
     await A2.p.click('[data-mmore="plan"]');
     await A2.p.waitForTimeout(250);
-    // the meals and Save, out from behind the wizard's folds, as macros.test's revealPlanFields does
+    // the meals and Save, out from behind the wizard's folds, as revealPlanFields in tests/fixtures/nourish.js does
     await A2.p.evaluate(() => {
       document.querySelectorAll('[data-mtwstep]').forEach((s) => { s.hidden = false; });
       document.querySelectorAll('.mt-sheet details').forEach((d) => { d.open = true; });
