@@ -4,7 +4,11 @@
  * network: what one phone writes, the other hears, in order. update() applies
  * dotted paths, arrayUnion/arrayRemove and delete the way Firestore does;
  * set({merge}) merges deep. A phone can be told its snapshots come from the
- * cache, which is how a phone opening offline sees an old copy. */
+ * cache, which is how a phone opening offline sees an old copy.
+ *
+ * Every timer the world or a phone's sync.js sets goes through later(),
+ * which counts it, so settle() can wait until nothing is left to happen
+ * rather than for a guessed number of milliseconds. */
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -46,6 +50,8 @@ function mergeDeep(t, s) {
 /* A world: one server, any number of phones, all at `now`. */
 function world(now) {
   const server = {}, writes = [], subs = [];
+  let pending = 0;
+  const later = (f, ms) => { pending++; return setTimeout(() => { pending--; f(); }, ms || 0); };
   const T = now.getTime();
   class FixedDate extends Date {
     constructor(...a) { if (a.length) super(...a); else super(T); }
@@ -73,21 +79,23 @@ function world(now) {
         if (!o || !o.merge) server[code] = {};
         mergeDeep(server[code] = server[code] || {}, v);
         writes.push({ who: name, set: clone(v) });
-        setTimeout(() => fireAll(code), 0);
+        later(() => fireAll(code));
         return Promise.resolve();
       },
       update(u) {
         Object.keys(u).forEach(checkPath);    // refused before anything is sent, as the real client does
         Object.keys(u).forEach((p) => applyPath(server[code], p, u[p]));
         writes.push({ who: name, update: Object.keys(u) });
-        setTimeout(() => fireAll(code), 0);
+        later(() => fireAll(code));
         return Promise.resolve();
       },
       onSnapshot(o, cb) {
         const s = { code, fire: () => cb(snapOf(code)) };
         subs.push(s); mine.push(s);
-        setTimeout(s.fire, 0);
-        return () => { subs.splice(subs.indexOf(s), 1); };
+        later(s.fire);
+        /* Asked twice, indexOf is -1, and splice(-1, 1) would take the
+           last listener in the world: somebody else's. */
+        return () => { const i = subs.indexOf(s); if (i >= 0) subs.splice(i, 1); };
       },
     });
     const FV = { delete: () => DEL, arrayUnion: (...a) => ({ __au: a }), arrayRemove: (...a) => ({ __ar: a }) };
@@ -100,7 +108,7 @@ function world(now) {
       }), { FieldValue: FV }),
       auth: () => ({
         getRedirectResult: () => Promise.resolve(null),
-        onAuthStateChanged(cb) { setTimeout(() => cb(me()), 0); return () => {}; },
+        onAuthStateChanged(cb) { later(() => cb(me())); return () => {}; },
         currentUser: me(),
       }),
     };
@@ -109,13 +117,26 @@ function world(now) {
     const win = { firebase: fb, FIREBASE_CONFIG: { apiKey: 'a', projectId: 'p' }, addEventListener() {}, crypto: null, localStorage: store };
     const ctx = {
       window: win, localStorage: store, document: {}, console, Promise, JSON, Math, Object, location: {}, Date: FixedDate,
-      setTimeout: (f, ms) => setTimeout(() => { try { f(); } catch (e) { errors.push(e.message); } }, ms),
+      setTimeout: (f, ms) => later(() => { try { f(); } catch (e) { errors.push(e.message); } }, ms),
     };
     vm.createContext(ctx);
     vm.runInContext(SRC, ctx);
     return { S: win.Store, ls, errors, online() { opts.cached = null; mine.forEach((s) => s.fire()); } };
   }
-  return { server, writes, phone, wait: (ms) => new Promise((r) => setTimeout(r, ms || 60)) };
+  /* Until nothing is left to happen: every timer counted above has fired,
+     and three turns of the loop went by without another being set. A
+     fixed wait guessed how long that takes, and a busy machine can take
+     longer: on 4 October a CI runner checked a household move 200 ms in,
+     before the new household's first answer had reached the phone. */
+  async function settle(cap) {
+    const limit = cap || 5000, end = Date.now() + limit;
+    for (let quiet = 0; quiet < 3;) {
+      if (Date.now() > end) throw new Error('still busy after ' + limit + ' ms: something keeps setting timers');
+      await new Promise((r) => setImmediate(r));
+      quiet = pending ? 0 : quiet + 1;
+    }
+  }
+  return { server, writes, phone, settle };
 }
 
 /* A phone's localStorage holding these weeks, in this household. */
