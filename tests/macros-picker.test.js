@@ -7,7 +7,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, addOn, asPlanned, openBasket, pickerList } = require('./fixtures/nourish.js');
+const { nourish, addOn, asPlanned, openBasket, pickerList, openDay } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — the picker: the bar, closing a meal, a typed number, Look up',
@@ -99,7 +99,7 @@ module.exports = nourish({
     await bar.waitForTimeout(350);
     const openDinner = async () => {
       for (let i = 0; i < 4; i++) {
-        if (!await bar.evaluate(() => !!document.querySelector('.mslot-thin'))) break;
+        if (!await bar.evaluate(() => !!document.querySelector('.mcard-shut'))) break;
         await bar.click('#macroOpenAll');
         await bar.waitForTimeout(180);
       }
@@ -397,6 +397,9 @@ module.exports = nourish({
     await gaugePage.waitForTimeout(400);
     await gaugePage.click('.tab[data-view="macros"]');
     await gaugePage.waitForTimeout(350);
+    /* The four pills are the OPEN meal's head since the meal card
+       (2026-10-04); folded, a meal is its calories and one bar. */
+    await openDay(gaugePage);
 
     const gz = await gaugePage.evaluate(() => {
       const out = [];
@@ -645,16 +648,15 @@ module.exports = nourish({
        typing it, the tick by the meal's own. 34 clears the 24px floor with
        room, and the figure is asserted as a FLOOR so the next design pass
        can go up but not quietly back to nothing. */
+    /* Rebuilt with the meal card (2026-10-04). A food is one line — name,
+       amount, calories, tick — and its other controls are in its panel. The
+       floors are the ones Blake set: every control a thumb wide (34 at the
+       least), one line at the narrowest phone, the tick clear of what sits
+       before it, the meal's verbs drawn and named. */
     const targets44 = await tinyPhone.evaluate(() => {
-      /* Every control the plate has, wherever the layout has most recently
-         put it: the verbs on the name row and the strip, the two stepper
-         keys, the portion box and the tick. A selector that no longer
-         matches is a size rule with nothing to check, and this one has been
-         re-pointed twice now — so it names ALL of them rather than the two
-         that happened to be interesting the day it was written. */
       const els = [...document.querySelectorAll(
-        '.mitem-r1 .mic, .mitem-r3 .mic, .mstep button[data-mstep], ' +
-        '.mitem-r3 .mitem-amt, .mitem-ate')];
+        '.mcard-line .mcard-amt, .mcard-line .mitem-ate, .mcard-panel .mcard-i, ' +
+        '.mcard-panel .mstep button[data-mstep], .mcard-panel .mitem-amt')];
       const small = els.map((e) => {
         const b = e.getBoundingClientRect();
         return { w: Math.round(b.width), h: Math.round(b.height),
@@ -663,33 +665,22 @@ module.exports = nourish({
       return { n: els.length, small: small };
     });
     t.ok('every control on a plate is a thumb wide at the narrowest phone',
-      targets44.n >= 4 && targets44.small.length === 0,
+      targets44.n >= 6 && targets44.small.length === 0,
       JSON.stringify(targets44));
 
-    /* One line, and the tick clear of the + key. With the strip at 44 and
-       the dial allowed to shrink below what it holds (min-width: 0), a 360
-       phone drew the tick over the last 15px of +, and a thumb on the edge
-       of + ticked the plate eaten (2026-09-27). Blake: "Just make those
-       buttons smaller. So the serving box has more room". Asserted at 320,
-       the tightest the strip has to fit, on every plate, the long yield noun
-       included. */
-    const strip320 = await tinyPhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r3')].map((r) => {
+    const strip320 = await tinyPhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mcard-line')].map((r) => {
       const R = (e) => e.getBoundingClientRect();
-      const keys = r.querySelectorAll('.mstep-keys button');
-      const plus = keys[keys.length - 1], ate = r.querySelector('.mitem-ate'), bin = r.querySelector('.mic');
-      if (!plus || !ate || !bin) return { missing: true };
-      const sameLine = Math.abs(R(ate).top - R(bin).top) < 3;
-      return { sameLine, clear: !sameLine || R(ate).left >= R(plus).right,
-        gap: Math.round(R(ate).left - R(plus).right), amt: Math.round(R(r.querySelector('.mitem-amt')).width) };
+      const amt = r.querySelector('.mcard-amt'), ate = r.querySelector('.mitem-ate');
+      if (!amt || !ate) return { missing: true };
+      const mid = (e) => R(e).top + R(e).height / 2;
+      return { sameLine: Math.abs(mid(ate) - mid(amt)) < 4, clear: R(ate).left >= R(amt).right,
+        fits: r.scrollWidth <= r.clientWidth + 1, amt: Math.round(R(amt).width) };
     }));
-    t.ok('a plate\u2019s strip fits one line at 320, the tick clear of the + key',
-      strip320.length >= 2 && strip320.every((x) => !x.missing && x.sameLine && x.clear),
+    t.ok('a food’s line fits one line at 320, the tick clear of the amount',
+      strip320.length >= 2 && strip320.every((x) => !x.missing && x.sameLine && x.clear && x.fits),
       JSON.stringify(strip320));
 
-    /* And the meal's own verbs, drawn without words. At 320 a fifth of the
-       row was narrower than "Another", which came out as "Anot..."; Blake
-       (2026-09-27): "Just show icons", and then icons everywhere, in a plate
-       key's box. Each still has a name a screen reader can say. */
+    /* The meal's own verbs, drawn without words, each named aloud. */
     const verbs320 = await tinyPhone.evaluate(() => {
       const row = document.querySelector('#macroSlots .mslot-acts');
       if (!row) return null;
@@ -702,30 +693,21 @@ module.exports = nourish({
         unnamed: bs.filter((b) => !/\w/.test(b.getAttribute('aria-label') || '')).map((b) => b.className),
       };
     });
-    t.ok('at 320 a meal\u2019s verbs are drawings on one row, each named aloud',
-      !!verbs320 && verbs320.n >= 4 && verbs320.rows === 1 && verbs320.worded === 0 &&
+    t.ok('at 320 a meal’s verbs are drawings on one row, each named aloud',
+      !!verbs320 && verbs320.n >= 3 && verbs320.rows === 1 && verbs320.worded === 0 &&
         verbs320.drawn === verbs320.n && verbs320.unnamed.length === 0,
       JSON.stringify(verbs320));
 
-    /* ...and the glyph inside it is the size it is meant to be.
-     *
-       Blake asked for smaller icons and the commit that delivered them
-       changed nothing on a phone: a second copy of the rule survived from
-       the two-row plate, a bulk selector rename pointed it at the new row,
-       and being further down the stylesheet it won. The change shipped, the
-       tests passed, and the icons were the same size — which is the worst
-       way for a change to fail, because nothing anywhere says so.
-     *
-       Asserted as a CEILING rather than an exact figure: the size is a
-       design call and will move again. What must not happen is a second rule
-       quietly setting it somewhere else. */
+    /* The panel's icons are the size the mockup Blake approved drew them
+       (22px in a 44px circle), asserted as a ceiling so a stray rule cannot
+       quietly blow them up. */
     t.ok('and the glyph inside it is the size the plate asks for, not a leftover',
       await tinyPhone.evaluate(() => {
-        const g = [...document.querySelectorAll('.mitem-r1 .mic svg, .mitem-r3 .mic svg')];
-        return g.length >= 3 && g.every((e) => Math.round(e.getBoundingClientRect().width) <= 18);
+        const g = [...document.querySelectorAll('.mcard-panel .mcard-i svg')];
+        return g.length >= 3 && g.every((e) => Math.round(e.getBoundingClientRect().width) <= 22);
       }),
       await tinyPhone.evaluate(() => [...new Set(
-        [...document.querySelectorAll('.mitem-r1 .mic svg, .mitem-r3 .mic svg')]
+        [...document.querySelectorAll('.mcard-panel .mcard-i svg')]
           .map((e) => Math.round(e.getBoundingClientRect().width)))].join(', ')));
 
     /* The star reaches everything a plate can hold.
@@ -803,59 +785,30 @@ module.exports = nourish({
     await spacePhone.waitForTimeout(300);
     await spacePhone.click('[data-mfold="b"]');
     await spacePhone.waitForTimeout(300);
+    /* In the panel (2026-10-04): lock, swap, pin and star are one group, the
+       bin stands apart at the far end, so the destructive one is never a
+       neighbour of the others. */
     const spacing = await spacePhone.evaluate(() => {
-      const row = document.querySelector('#macroSlots .mitem-r3');
-      if (!row) return null;
-      const dial = row.querySelector('.mstep');
-      /* The verbs are a group of their own at the HEAD of the strip now —
-         bin and lock. `.mitem-acts2` held three of them at the far end when
-         the plate was two rows; pin went up to the name row with the star
-         when it became three bands. */
-      const acts = row.querySelector('.mitem-verbs');
-      if (!dial || !acts) return null;
-      /* One line only. Wrapped — which is what a narrow phone does — the
-         group is on a row of its own and proximity is settled by the line
-         break instead. */
-      if (Math.abs(dial.getBoundingClientRect().top -
-        acts.getBoundingClientRect().top) > 2) return { wrapped: true };
-      /* Measured on the boxes since the pair became boxes (2026-09-27): the
-         edge the eye sees is the button's now, not the drawing inside it. */
-      const g = [...acts.querySelectorAll('.mic')].map((e) => e.getBoundingClientRect());
-      if (g.length < 2) return null;
+      const icons = [...document.querySelectorAll('#macroSlots .mcard-panel .mcard-i')];
+      if (icons.length < 3) return null;
+      const g = icons.map((e) => e.getBoundingClientRect());
+      const bin = icons.findIndex((e) => e.hasAttribute('data-mdel'));
+      if (bin !== icons.length - 1) return { binNotLast: true };
       const within = Math.round(g[1].left - g[0].right);
-      /* The air AFTER the group, since the group leads the strip now. */
-      const between = Math.round(dial.getBoundingClientRect().left - g[1].right);
+      const between = Math.round(g[bin].left - g[bin - 1].right);
       return { within, between, box: Math.round(g[0].width) };
     });
-    /* Two verbs must sit closer together than one of them is a TARGET wide —
-       they are neighbours, not a scattered row.
-     *
-       It used to be measured against the glyph, and that was a rule the
-       glyph had to be inflated to satisfy: a 44px target with a 16px icon
-       has 28px of its own padding, so "gap smaller than the icon" forces the
-       icon to at least 22 whatever it looks like. It was 24 for exactly that
-       reason until Blake said "the icons in the new meal tabs can be
-       smaller", which is his call to make and not an arithmetic one. The
-       grouping is still asserted, and by the pair of rules that actually
-       carry it: adjacent (this) and closer to each other than to the next
-       group (below). */
     t.ok('two verbs sit within a target of each other, not scattered',
-      !!spacing && (spacing.wrapped || spacing.within <= 44),
+      !!spacing && !spacing.binNotLast && spacing.within <= 44,
       JSON.stringify(spacing));
-    /* And, on this day, the grouping still reads the way round it claims. */
     t.ok('and the air inside the group is less than the air around it',
-      !!spacing && (spacing.wrapped || spacing.within < spacing.between),
+      !!spacing && !spacing.binNotLast && spacing.within < spacing.between,
       JSON.stringify(spacing));
-    /* The other half of the same bargain: the boxes are the plate's size, not
-       a smaller one bought to win the spacing argument. 34 is Blake's call —
-       "Smaller buttons. A but less space between buttons" — and the floor is
-       asserted here so the NEXT spacing problem cannot be solved by shrinking
-       a target again, which is how the glyph got to 24 the first time. */
     t.ok('and it bought that without shrinking a single target',
-      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r1 .mic, #macroSlots .mitem-r3 .mic')]
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mcard-panel .mcard-i')]
         .every((e) => { const b = e.getBoundingClientRect();
           return Math.round(b.width) >= 34 && Math.round(b.height) >= 34; })),
-      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem-r1 .mic, #macroSlots .mitem-r3 .mic')]
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mcard-panel .mcard-i')]
         .map((e) => { const b = e.getBoundingClientRect();
           return Math.round(b.width) + 'x' + Math.round(b.height); }).join(' ')));
     await spacePhone.context().close();
@@ -903,11 +856,9 @@ module.exports = nourish({
     await heldPage.click('[data-mfold="b"]');           // fold it again
     await heldPage.waitForTimeout(300);
     t.ok('and the fold still says which food is being held',
-      await heldPage.evaluate(() => {
-        const thin = document.querySelectorAll('.mslot-thin .mthin');
-        return thin.length > 0 && document.querySelectorAll('.mslot-thin .mthin-l').length === 1;
-      }), await heldPage.evaluate(() =>
-        (document.querySelector('.mslot-thin') || {}).textContent || 'no folded list'));
+      await heldPage.evaluate(() => /^1 kept$/.test(((document.querySelector('#macroSlots .mcard-shut .mcard-kept') || {}).textContent || '').trim())),
+      await heldPage.evaluate(() =>
+        (document.querySelector('#macroSlots .mcard-shut .mcard-names') || {}).textContent || 'no folded card'));
 
     /* The point of the mark: Rebalance is about to skip that plate, and you
        are looking at the folded card when you press it. */

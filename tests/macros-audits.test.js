@@ -1155,17 +1155,21 @@ module.exports = nourish({
       await tp.reload();
       await tp.click('.tab[data-view="macros"]');
       await tp.waitForTimeout(400);
+      /* The folded list went with the meal card (2026-10-04): a shut meal is
+         three lines and its foods are a name line. The same promise holds for
+         the food lines of the open meal, which are what a thumb taps now. */
       const oa = await tp.$('#macroOpenAll');
-      if (oa && /Close/i.test(await oa.textContent())) { await oa.click(); await tp.waitForTimeout(300); }
+      if (oa && /Open/i.test(await oa.textContent())) { await oa.click(); await tp.waitForTimeout(300); }
       const hits = await tp.evaluate(() => {
-        const rows = [...document.querySelectorAll('.mthin')];
+        const rows = [...document.querySelectorAll('#macroSlots .mcard-line')];
         return rows.slice(0, 2).map((r, i) => {
+          r.scrollIntoView({ block: 'center' });
           const b = r.getBoundingClientRect();
-          const at = (y) => rows.indexOf((document.elementFromPoint(b.left + 60, y) || document.body).closest('.mthin'));
+          const at = (y) => rows.indexOf((document.elementFromPoint(b.left + 60, y) || document.body).closest('.mcard-line'));
           return [at(b.top + 2), at(b.bottom - 2)].every((x) => x === i);
         });
       });
-      t.ok('a tap anywhere on a shut meal’s food row opens that food, not the next one',
+      t.ok('a tap anywhere on a food’s line lands on that food, not the next one',
         hits.length === 2 && hits.every(Boolean), JSON.stringify(hits));
       await tp.context().close();
     }

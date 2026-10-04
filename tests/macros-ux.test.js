@@ -234,19 +234,19 @@ module.exports = nourish({
       await pg.waitForTimeout(300);
       await pg.click('.tab[data-view="macros"]');
       await pg.waitForTimeout(300);
+      /* Folded is the meal card since 2026-10-04: its foods are one line of
+         names, and a meal all eaten wears a green tick and says Eaten. Still
+         never a strike. */
       const thin = await pg.evaluate(() => {
-        const ate = document.querySelector('.mthin.eaten');
-        const plan = document.querySelector('.mthin:not(.eaten)');
-        return {
-          ateTick: ate && ate.querySelector('.mthin-ok').textContent,
-          ateLine: ate && getComputedStyle(ate.querySelector('.mthin-n')).textDecorationLine,
-          planTick: plan && plan.querySelector('.mthin-ok').textContent,
-          planColor: plan && getComputedStyle(plan.querySelector('.mthin-n')).color,
-          ateColor: ate && getComputedStyle(ate.querySelector('.mthin-n')).color,
-        };
+        const cards = [...document.querySelectorAll('#macroSlots .mcard-shut')];
+        return { n: cards.length,
+          lines: cards.map((c) => getComputedStyle(c.querySelector('.mcard-nm')).textDecorationLine),
+          says: cards.map((c) => (c.querySelector('.mcard-say') || {}).textContent),
+          eatenTicked: cards.filter((c) => c.classList.contains('done')).every((c) => c.querySelector('.mday-dot').getAttribute('aria-pressed') === 'true' &&
+            (c.querySelector('.mcard-say') || {}).textContent === 'Eaten') };
       });
-      t.ok('a folded meal marks eaten food with a ✓ and no strike, and planned food with neither',
-        thin.ateTick === '✓' && thin.ateLine === 'none' && thin.planTick === 'planned' && thin.planColor !== thin.ateColor,
+      t.ok('a folded meal never strikes its food through, and an eaten one says so',
+        thin.n > 0 && thin.lines.every((l) => l === 'none') && thin.eatenTicked,
         JSON.stringify(thin));
       /* The tick still toggles, both ways. */
       await openMeal('d');
@@ -612,8 +612,13 @@ module.exports = nourish({
          is in the meal/food card uses." */
       const verbs = await pg.evaluate(() => [...document.querySelectorAll('.mslot-acts button')].map((b) =>
         !!b.querySelector('svg.mday-ic') + ':' + (b.getAttribute('aria-label') || '')));
-      t.ok('a meal’s verbs are drawn icons, each named aloud, the plus included',
-        verbs.length > 0 && verbs.every((v) => /^true:\S/.test(v)) && verbs.some((v) => /^true:Add food/.test(v)), verbs.join(' | '));
+      /* Add is its own line above the verbs since the meal card (2026-10-04):
+         a plus and the words "Add a food to …", named for its meal aloud. */
+      const addLine = await pg.evaluate(() => [...document.querySelectorAll('#macroSlots .mcard-add')].map((b) =>
+        !!b.querySelector('svg.mday-ic') + ':' + (b.getAttribute('aria-label') || '')));
+      t.ok('a meal’s verbs are drawn icons, each named aloud, and the plus is a line of its own',
+        verbs.length > 0 && verbs.every((v) => /^true:\S/.test(v)) &&
+          addLine.length > 0 && addLine.every((v) => /^true:Add food to /.test(v)), verbs.join(' | ') + ' || ' + addLine.join(' | '));
 
       /* Copy says it copied, and the drawing stays put. */
       const copied = await pg.evaluate(() => {

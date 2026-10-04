@@ -2880,7 +2880,11 @@
   function mSlotsForRecipe(r, slots) { return PLACING.mSlotsForRecipe(r, slots); }
   function mSlotForRecipe(r, slots) { return PLACING.mSlotForRecipe(r, slots); }
   function mDay(k) { return PLACING.mDay(k); }
-  function mEditDay(k, fn, seed) { return PLACING.mEditDay(k, fn, seed); }
+  /* The marks a meal card shows — what Balance moved ("was 1 cup") and what
+     the picker just put down ("New") — last until the next change to the
+     day, whatever it is. Every change goes through here, so this is where
+     they end. */
+  function mEditDay(k, fn, seed) { S.mMarks = null; return PLACING.mEditDay(k, fn, seed); }
   function kcalOf(t) { return PLACING.kcalOf(t); }
 
   /* src/training.js, handed what it reads of the app's and kept under its own
@@ -3067,7 +3071,7 @@
 
   /* src/myday.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var MYDAY = window.HiveParts.myday({ MDAYS: MDAYS, MWEIGHTS: MWEIGHTS, M_MONS: M_MONS, S: S, WGAPI: WGAPI, dayKey: dayKey, kcalOf: kcalOf, leaf: leaf, mAhead: mAhead, mAnyShut: mAnyShut, mBatchStrip: mBatchStrip, mCanFav: mCanFav, mCascadeLineHTML: mCascadeLineHTML, mDay: mDay, mDayTargets: mDayTargets, mDialUnit: mDialUnit, mDoneAt: mDoneAt, mEarliestKey: mEarliestKey, mEditDay: mEditDay, mFillRoom: mFillRoom, mFoldForget: mFoldForget, mIcon: mIcon, mIsFav: mIsFav, mLastFinished: mLastFinished, mLatestKey: mLatestKey, mLongDate: mLongDate, mMacLine: mMacLine, mMarkAccountUI: mMarkAccountUI, mMealAsk: mMealAsk, mMealPillsHTML: mMealPillsHTML, mMealPillsSay: mMealPillsSay, mPortion: mPortion, mPortionText: mPortionText, mReadSlots: mReadSlots, mSaltChip: mSaltChip, mSendOf: mSendOf, mServeG: mServeG, mSkipped: mSkipped, mSnapTargets: mSnapTargets, mTypedFromX: mTypedFromX, mViewKey: mViewKey, mWeekHTML: mWeekHTML, mWhyChip: mWhyChip, mWhyStrip: mWhyStrip, macroFootHTML: macroFootHTML, macroWeighHTML: macroWeighHTML, syncShrunk: syncShrunk, todayKey: todayKey, LIVE: LIVE });
+  var MYDAY = window.HiveParts.myday({ MDAYS: MDAYS, MWEIGHTS: MWEIGHTS, M_MONS: M_MONS, S: S, WGAPI: WGAPI, dayKey: dayKey, kcalOf: kcalOf, leaf: leaf, mAhead: mAhead, mAnyShut: mAnyShut, mBatchStrip: mBatchStrip, mCanFav: mCanFav, mCascadeLineHTML: mCascadeLineHTML, mDay: mDay, mDayTargets: mDayTargets, mDialUnit: mDialUnit, mDoneAt: mDoneAt, mEarliestKey: mEarliestKey, mEditDay: mEditDay, mFillRoom: mFillRoom, mFoldForget: mFoldForget, mIcon: mIcon, mIsFav: mIsFav, mLastFinished: mLastFinished, mLatestKey: mLatestKey, mLongDate: mLongDate, mMacLine: mMacLine, mMarkAccountUI: mMarkAccountUI, mMealAsk: mMealAsk, mMealPillsHTML: mMealPillsHTML, mMealPillsSay: mMealPillsSay, mPortion: mPortion, mPortionText: mPortionText, mReadSlots: mReadSlots, mSaltChip: mSaltChip, mSendOf: mSendOf, mServeG: mServeG, mSkipped: mSkipped, mSnapTargets: mSnapTargets, mStepX: mStepX, mTypedFromX: mTypedFromX, mViewKey: mViewKey, mWeekHTML: mWeekHTML, mWhyChip: mWhyChip, mWhyStrip: mWhyStrip, macroFootHTML: macroFootHTML, macroWeighHTML: macroWeighHTML, syncShrunk: syncShrunk, todayKey: todayKey, LIVE: LIVE });
   function renderMacros() { return MYDAY.renderMacros(); }
   function mDayPick(open) { return MYDAY.mDayPick(open); }
 
@@ -3716,7 +3720,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mbalundo', 'data-mamt', 'data-mswap', 'data-mslide', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5306,8 +5310,55 @@
         mOpenPicker(srec.k, 'home');
         return;
       }
+      /* The scales, remembered: what each plate was, so the card can say
+         what moved and Undo can put it back. */
       var bal = e.target.closest('[data-mbal]');
-      if (bal) { mBalanceMeal(bal.dataset.mbal); return; }
+      if (bal) {
+        var bk = mViewKey(), bsk = bal.dataset.mbal;
+        var before = (mDay(bk)[bsk] || []).map(function (it) { return { id: it.id, x: it.x }; });
+        if (S.mAmt && S.mAmt !== '*') S.mAmt = '';
+        mBalanceMeal(bsk);
+        var was = {};
+        before.forEach(function (b, i) { was[i] = b; });
+        S.mMarks = { k: bk, sk: bsk, was: was, fresh: {}, snap: before };
+        keepingFocus(renderMacros);
+        return;
+      }
+      var bun = e.target.closest('[data-mbalundo]');
+      if (bun) {
+        var uk = mViewKey(), usk = bun.dataset.mbalundo, snap = S.mMarks && S.mMarks.snap;
+        if (snap) {
+          mEditDay(uk, function (day) {
+            (day[usk] || []).forEach(function (it, i) {
+              if (snap[i] && String(snap[i].id) === String(it.id)) it.x = snap[i].x;
+            });
+          });
+        }
+        S.mMarks = null;
+        keepingFocus(renderMacros);
+        return;
+      }
+      /* A food's amount opens its panel; one panel at a time. */
+      var amt = e.target.closest('[data-mamt]');
+      if (amt) {
+        S.mAmt = S.mAmt === amt.dataset.mamt ? '' : amt.dataset.mamt;
+        S.mType = null;
+        keepingFocus(renderMacros);
+        return;
+      }
+      /* Swap is the picker for one: what you pick takes this plate's place. */
+      var swp = e.target.closest('[data-mswap]');
+      if (swp) {
+        var sq = swp.dataset.mswap.split(':');
+        var sit = (mDay(mViewKey())[sq[0]] || [])[Number(sq[1])];
+        if (!sit) return;
+        rememberOpener();
+        S.mpFromBar = false;
+        mOpenPicker(sq[0], 'home');
+        S.mpSwap = { slot: sq[0], i: Number(sq[1]), id: sit.id, n: (BY_ID[sit.id] || {}).name || '' };
+        renderModal();
+        return;
+      }
 
       var keep = e.target.closest('[data-mkeep]');
       if (keep) {
@@ -5519,7 +5570,33 @@
       mCommitTyped(e.target);
     });
 
+    /* The slider walks the steppers' own steps. While it moves only the words
+       move; letting go writes the portion, so a redraw never takes the thumb
+       off the handle. */
+    $('macroSlots').addEventListener('input', function (e) {
+      var sl = e.target.closest && e.target.closest('[data-mslide]');
+      if (!sl) return;
+      var ls = String(sl.dataset.ls || '').split('|'), lab = ls[Number(sl.value)] || '';
+      var pn = sl.closest('.mcard-panel'), big = pn && pn.querySelector('.mcard-big');
+      if (big) big.textContent = lab;
+      sl.setAttribute('aria-valuetext', lab);
+    });
     $('macroSlots').addEventListener('change', function (e) {
+      var sl = e.target.closest && e.target.closest('[data-mslide]');
+      if (sl) {
+        var xs = String(sl.dataset.xs || '').split(',').map(Number), nx = xs[Number(sl.value)];
+        var sp = sl.dataset.mslide.split(':');
+        if (nx > 0) {
+          mEditDay(mViewKey(), function (day) {
+            var it = (day[sp[0]] || [])[Number(sp[1])];
+            if (!it) return;
+            if (it.eaten && S.mEdit !== sp.join(':')) return;
+            it.x = nx;
+          });
+        }
+        keepingFocus(renderMacros);
+        return;
+      }
       var c = e.target.closest('[data-meat]');
       if (!c) return;
       var cp = c.dataset.meat.split(':');
@@ -6699,12 +6776,22 @@
         S.mFold[cslot] = false;
         /* Eaten or planned by when the meal is — see mAddsEaten. */
         var ate = mAddsEaten(mViewKey(), cslot);
+        var swap = S.mpSwap && S.mpSwap.slot === cslot ? S.mpSwap : null, fresh = {};
+        S.mpSwap = null;
         mEditDay(mViewKey(), function (day) {
           var list = (day[cslot] = day[cslot] || []);
-          Object.keys(basket).forEach(function (k) {
-            list.push({ id: idOf(k), x: basket[k], eaten: ate });
-          });
+          var adds = Object.keys(basket).map(function (k) { return { id: idOf(k), x: basket[k], eaten: ate }; });
+          /* A swap puts what you picked where the plate was, if the plate is
+             still there; anything else picked goes on the end as usual. */
+          if (swap && list[swap.i] && String(list[swap.i].id) === String(swap.id)) {
+            list.splice(swap.i, 1, adds[0]);
+            fresh[swap.i] = adds[0].id;
+            adds = adds.slice(1);
+          }
+          adds.forEach(function (a) { fresh[list.length] = a.id; list.push(a); });
         });
+        S.mMarks = { k: mViewKey(), sk: cslot, was: {}, fresh: fresh, snap: null };
+        if (S.mAmt && S.mAmt !== '*') S.mAmt = '';
         mScanStop();
         close();
         renderMacros();
@@ -7533,6 +7620,7 @@
     // and the Macros sheets, for exactly the same reason
     if (S.macroPick) mScanStop();        // never leave the camera running
     S.macroPick = null;
+    S.mpSwap = null;
     S.chartOpen = false;
     S.keepMeal = '';
     S.foodOpen = null;

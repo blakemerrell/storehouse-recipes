@@ -677,12 +677,14 @@ module.exports = nourish({
         if (!of() || of().getAttribute('aria-expanded') !== 'true') return false;
         of().click();
         await new Promise((r) => setTimeout(r, 150));
+        /* Folded is the meal card's three lines (2026-10-04): its foods by name. */
         const shut = of().getAttribute('aria-expanded') === 'false' &&
-          !!of().closest('.mslot').querySelector('.mslot-thin .mthin-n');
+          of().closest('.mslot').classList.contains('mcard-shut') &&
+          !!of().closest('.mslot').querySelector('.mcard-names');
         of().click();
         await new Promise((r) => setTimeout(r, 150));
         return shut && of().getAttribute('aria-expanded') === 'true' &&
-          !of().closest('.mslot').querySelector('.mslot-thin');
+          !of().closest('.mslot').classList.contains('mcard-shut');
       }));
 
     // and a fresh sheet starts empty rather than inheriting the last one
@@ -1460,7 +1462,7 @@ module.exports = nourish({
     await p.waitForTimeout(150);
     // a reloaded day arrives folded; the plates are there behind the fold
     t.ok('the day survives a reload, folded',
-      await p.evaluate(() => document.querySelectorAll('.mslot-thin .mthin').length) === 2);
+      await p.evaluate(() => document.querySelectorAll('#macroSlots .mcard-shut').length) === 2);
     await openDay(p);
     t.ok('and opening it shows both plates with their controls',
       await p.evaluate(() => document.querySelectorAll('.mitem').length) === 2);
@@ -2914,14 +2916,14 @@ module.exports = nourish({
       if (h) h.click();
     });
     await paper.waitForTimeout(400);
-    const foldedBefore = await paper.evaluate(() => document.querySelectorAll('.mslot-thin').length);
+    const foldedBefore = await paper.evaluate(() => document.querySelectorAll('.mcard-shut').length);
     t.ok('a meal can be folded, so the printer has something to open',
       foldedBefore > 0, String(foldedBefore));
     paperErrs.length = 0;
     await paper.emulateMedia({ media: 'print' });
     await paper.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
     await paper.waitForTimeout(500);
-    const onPaper = await paper.evaluate(() => document.querySelectorAll('.mslot-thin').length);
+    const onPaper = await paper.evaluate(() => document.querySelectorAll('.mcard-shut').length);
     t.ok('the day opens for the printer rather than throwing',
       paperErrs.length === 0 && onPaper === 0,
       'errors ' + JSON.stringify(paperErrs) + ' folded-on-paper ' + onPaper);
@@ -2929,7 +2931,7 @@ module.exports = nourish({
     await paper.waitForTimeout(400);
     t.ok('and closes again afterwards, still without throwing',
       paperErrs.length === 0 &&
-        await paper.evaluate(() => document.querySelectorAll('.mslot-thin').length) > 0,
+        await paper.evaluate(() => document.querySelectorAll('.mcard-shut').length) > 0,
       JSON.stringify(paperErrs));
     await paper.context().close();
 
@@ -3777,8 +3779,10 @@ module.exports = nourish({
            it is read off the flame label now rather than .msub-k. */
         /* The calorie figure moved off the seam and onto its own gauge, so
            it is read off the flame label now rather than .msub-k. */
+        /* ...or, on a folded meal card, its calories against its share. */
         kcalAlways: cards.every((c) => !c.querySelector('.mslot-head') ||
-          /\uD83D\uDD25\s*\d/.test(c.querySelector('.mslot-head').textContent)),
+          /\uD83D\uDD25\s*\d/.test(c.querySelector('.mslot-head').textContent) ||
+          /^[\d,]+ \/ [\d,]+ kcal$/.test((c.querySelector('.mcard-k') || {}).textContent || '')),
       };
     });
     t.ok('a folded day shows no bars at all',
@@ -3979,6 +3983,12 @@ module.exports = nourish({
       ticks: document.querySelectorAll('.mslot-head .mmp[data-want]').length,
       kcal: [...document.querySelectorAll('.mslot-head')]
         .filter((e) => /\uD83D\uDD25\s*\d/.test(e.textContent)).length,
+      shut: document.querySelectorAll('#macroSlots .mcard-shut').length,
+      shutKcal: [...document.querySelectorAll('#macroSlots .mcard-shut .mcard-k')]
+        .filter((e) => /^[\d,]+ \/ [\d,]+ kcal$/.test(e.textContent)).length,
+      shutBars: document.querySelectorAll('#macroSlots .mcard-shut .mcard-tr .mcard-fi').length,
+      shutSay: [...document.querySelectorAll('#macroSlots .mcard-shut .mcard-say')].map((e) => e.textContent),
+      shutGauges: document.querySelectorAll('#macroSlots .mcard-shut .mmps, #macroSlots .mcard-shut .mmp').length,
     }));
     /* Reversed deliberately. This used to assert that a folded meal said its
        calories and NOTHING about macros — you steer by the day, a meal is a
@@ -3990,9 +4000,16 @@ module.exports = nourish({
        carried, and P/F/C against a tick at the meal's share. What must NOT
        come back is the old apparatus — the chips and the .msub-bars that had
        a second, disagreeing definition of that share. */
-    t.ok('a folded meal shows its calories and its macros against the plan',
-      quietFolded.cards > 0 && quietFolded.kcal > 0 &&
-      quietFolded.gauges > 0 && quietFolded.ticks === quietFolded.gauges * 4 &&
+    /* Reversed again, by Blake, on 2026-10-04: shown the meal's macros on the
+       folded card as four gauges, as one split bar and as rings round the
+       tick, he chose "Just the calorie bar is fine." The macro that is off is
+       still named — in the verdict's words ("554 over · carbs over") — so the
+       folded card judges the meal against its share without a second gauge
+       set. What must not come back is the old apparatus either way. */
+    t.ok('a folded meal shows its calories against its share, one bar, and the verdict in words',
+      quietFolded.shut > 0 && quietFolded.shutKcal === quietFolded.shut &&
+      quietFolded.shutBars === quietFolded.shut && quietFolded.shutGauges === 0 &&
+      quietFolded.shutSay.every((w) => /^(on its aim|Eaten|[\d,]+ (over|short)( · (protein|fat|carbs) (over|short))?)$/.test(w)) &&
       quietFolded.chips === 0 && quietFolded.oldBars === 0,
       JSON.stringify(quietFolded));
     /* And opening one does not bring them back — the open card is plates and
@@ -4809,6 +4826,7 @@ module.exports = nourish({
     await priceDayPg.waitForTimeout(400);
     await priceDayPg.click('.tab[data-view="macros"]');
     await priceDayPg.waitForTimeout(300);
+    await openDay(priceDayPg);                 // the pills are an open meal's head (2026-10-04)
     /* Read the price, not the landing: the day-level terms shrink a plate
        after a breakfast like that on their own, so where the plate lands
        proves nothing about which figure the share term used. The figure it
@@ -5703,10 +5721,13 @@ module.exports = nourish({
         .find((c) => ((c.querySelector('.mslot-name') || {}).textContent || '') === 'Lunch');
       const head = card && card.querySelector('[data-mfold]');
       if (head && head.getAttribute('aria-expanded') === 'false') head.click();
+      /* opening draws the card again: read the new one */
+      const open = [...document.querySelectorAll('.mslot')]
+        .find((c) => ((c.querySelector('.mslot-name') || {}).textContent || '') === 'Lunch');
       const L = window.__macroLab.read();
       const meal = L.meals.find((m) => m.k === 'l') || { items: [] };
       return {
-        want: card ? [...card.querySelectorAll('.mmp')].map((e) =>
+        want: open ? [...open.querySelectorAll('.mmp')].map((e) =>
           Number(e.dataset.want) || 0) : null,
         kcal: Math.round(meal.items.reduce((n, i) => n + i.kcal * i.x, 0)),
         xs: meal.items.map((i) => i.x).join(','),
@@ -5863,7 +5884,7 @@ module.exports = nourish({
     t.ok('and nothing on the day was removed by saying you were done',
       await closed.evaluate(() => document.querySelectorAll('.mslot').length > 0 &&
         !document.getElementById('macroFill').disabled === false ||
-        document.querySelectorAll('.mitem, .mthin').length > 0));
+        document.querySelectorAll('.mitem, .mcard-shut').length > 0));
     await closed.click('#macroFill');
     await closed.waitForTimeout(400);
     t.ok('and pressing it again reopens the day, without a card this time',
@@ -6199,9 +6220,9 @@ module.exports = nourish({
     await noRoom.waitForTimeout(500);
     t.ok('a day with no room left is not filled with food anyway',
       await noRoom.evaluate(() =>
-        document.querySelectorAll('.mitem, .mthin').length === 0),
+        document.querySelectorAll('.mitem, .mcard-shut').length === 0),
       await noRoom.evaluate(() =>
-        document.querySelectorAll('.mitem, .mthin').length + ' plates drafted'));
+        document.querySelectorAll('.mitem, .mcard-shut').length + ' plates drafted'));
     await noRoom.context().close();
     t.ok('the draft chases the protein target',
       drafted.tot.p >= 0.6 * planP, Math.round(drafted.tot.p) + ' of ' + planP);
