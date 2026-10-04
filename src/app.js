@@ -3842,26 +3842,6 @@
   var MSHARE_W = 1;
 
 
-  /* `own` narrows the solver to the plates FILL ITSELF PUT THERE (`by:'f'`).
-   *
-     Fill is an offer to build out the empty meals. It was also quietly
-     resizing the full ones: a hand-placed 1,139 kcal pulled beef put on
-     dinner at one serving came back at ×0.25 after a single press, and the
-     day then read 184/180 P in green while being some 850 kcal wrong. The
-     day's arithmetic was right — the plate was not the plate you put down.
-   *
-     Nothing here can tell whose a plate is, because nothing was recording it:
-     every free-list frees whatever is neither eaten nor locked, and Fill's
-     plates and yours are the same shape. So Fill now signs its own work and
-     asks only for that back. Note the DEFAULT is unsigned, which means a day
-     drafted before this shipped reads as entirely hand-placed — the safe
-     direction, since the cost is a solver with less to move rather than a
-     portion silently overwritten.
-   *
-     Rebalance is deliberately NOT narrowed, here or in mBalanceMeal. Pressing
-     ⚖ is asking the machine to move things; answering "only my own" would be
-     refusing the request. The rule is about what Fill may do UNASKED, not
-     about the plates. */
   /* What each open meal is asked for, as the solver prices it. Read once
      before the descent — mMealAsk walks the day, and pen() runs once per
      rung per plate per pass. Skipped-and-empty meals are not in play; a meal
@@ -3887,6 +3867,26 @@
     return asks;
   }
 
+  /* `own` narrows the solver to the plates FILL ITSELF PUT THERE (`by:'f'`).
+   *
+     Fill is an offer to build out the empty meals. It was also quietly
+     resizing the full ones: a hand-placed 1,139 kcal pulled beef put on
+     dinner at one serving came back at ×0.25 after a single press, and the
+     day then read 184/180 P in green while being some 850 kcal wrong. The
+     day's arithmetic was right — the plate was not the plate you put down.
+   *
+     Nothing here can tell whose a plate is, because nothing was recording it:
+     every free-list frees whatever is neither eaten nor locked, and Fill's
+     plates and yours are the same shape. So Fill now signs its own work and
+     asks only for that back. Note the DEFAULT is unsigned, which means a day
+     drafted before this shipped reads as entirely hand-placed — the safe
+     direction, since the cost is a solver with less to move rather than a
+     portion silently overwritten.
+   *
+     Rebalance is deliberately NOT narrowed, here or in mBalanceMeal. Pressing
+     ⚖ is asking the machine to move things; answering "only my own" would be
+     refusing the request. The rule is about what Fill may do UNASKED, not
+     about the plates. */
   function mBalanceDay(day, targets, own) {
     /* Walked in the meals' own order, never in the order the day object
        happened to be built in. Coordinate descent visits one plate at a
@@ -4080,18 +4080,6 @@
     said(ok);
   }
 
-  /* Another suggestion for one meal, and then the next one after that.
-   *
-   * Fill my day drafts everything at once and picks at random from the top
-   * three; the picker is for when you know what you want. Between them sits
-   * the commonest move of all — "not that, what else?" — which until now
-   * meant deleting a plate and opening the picker to take the next line down.
-   *
-   * So this walks the ranked list a step at a time, keeping a cursor per
-   * meal per day, and leaves alone the three kinds of plate that are not the
-   * machine's to swap: what you have eaten, what you have locked, and what
-   * you have pinned, because a pin is a standing instruction and this would
-   * only be arguing with it. */
   /* Solve the portions of one meal against that meal's own share.
    *
      Rebalance does this for the whole day, where the question is "which of
