@@ -48,7 +48,42 @@
     get BY_ID() { return BY_ID; },
     get M_ALL_SECS() { return M_ALL_SECS; },
     set M_ALL_SECS(v) { M_ALL_SECS = v; },
-    get RECIPES() { return RECIPES; }
+    get RECIPES() { return RECIPES; },
+    get S_SYNC_STATE() { return S_SYNC_STATE; },
+    set S_SYNC_STATE(v) { S_SYNC_STATE = v; },
+    get mAuthKnown() { return mAuthKnown; },
+    get mBootTargetsDue() { return mBootTargetsDue; },
+    set mBootTargetsDue(v) { mBootTargetsDue = v; },
+    get mSyncUnreachable() { return mSyncUnreachable; },
+    get MBATCHG() { return MBATCHG; },
+    get MDAYT() { return MDAYT; },
+    get MHUSH() { return MHUSH; },
+    get MINTAKE() { return MINTAKE; },
+    get MNEVER() { return MNEVER; },
+    get mClkSent() { return mClkSent; },
+    set mClkSent(v) { mClkSent = v; },
+    get mDirty() { return mDirty; },
+    set mDirty(v) { mDirty = v; },
+    get mDirtyAll() { return mDirtyAll; },
+    set mDirtyAll(v) { mDirtyAll = v; },
+    get mFoldTimer() { return mFoldTimer; },
+    set mFoldTimer(v) { mFoldTimer = v; },
+    get mAcctHouse() { return mAcctHouse; },
+    set mAcctHouse(v) { mAcctHouse = v; },
+    get mHouseTellNext() { return mHouseTellNext; },
+    set mHouseTellNext(v) { mHouseTellNext = v; },
+    get mInviteBusy() { return mInviteBusy; },
+    get mSyncDoc() { return mSyncDoc; },
+    set mInviteBusy(v) { mInviteBusy = v; },
+    set mAuthKnown(v) { mAuthKnown = v; },
+    set mSyncDoc(v) { mSyncDoc = v; },
+    get mSyncHeard() { return mSyncHeard; },
+    set mSyncHeard(v) { mSyncHeard = v; },
+    get mSyncOff() { return mSyncOff; },
+    set mSyncOff(v) { mSyncOff = v; },
+    get mSyncTimer() { return mSyncTimer; },
+    set mSyncTimer(v) { mSyncTimer = v; },
+    set mSyncUnreachable(v) { mSyncUnreachable = v; }
   };
 
   function recipesNow() { return RECIPES; }
@@ -2467,334 +2502,47 @@
    * the merge and join paths. sh.units set the precedent for "device-local,
    * app-owned"; these follow it under the bsc. prefix. */
 
-  /* ------------------------------------------------------------------------
-   * My Day, on your other devices.
-   *
-   * The household sync in sync.js shares one plan between people. This shares
-   * one day between DEVICES belonging to one person, which is a different
-   * promise and deserves a different door: a private code, its own document,
-   * and nothing of it in the family's.
-   *
-   * It rides on the same collection because the rule that guards it is the
-   * right rule already — a document addressed by a secret code, fetchable
-   * only by someone who has the code, never listable. A second collection
-   * would need those rules written again and deployed, to say the same thing.
-   *
-   * Every part carries the moment it was written, and days carry one each, so
-   * a phone that has been in a pocket all day cannot land and wipe an evening
-   * entered on the desk. Newer wins, part by part.
-   * --------------------------------------------------------------------- */
   var S_SYNC_STATE = 'off';
-
-  /* Every transition through one door.
-   *
-     This was nine bare assignments, and each site separately remembered to
-     redraw the sheet. Two forgot, and both failures were silent: a push that
-     could not be saved set 'error' and told nobody, so a sheet left open went
-     on saying Synced over a day that had not been written; and the load that
-     never arrives set 'error' under a sheet still reading "Connecting…",
-     which is the one word that promises it is still trying.
-
-     A state nobody is told about is not a state, it is a variable. So the
-     assignment and the telling are the same act now, and there is one place
-     left to forget rather than nine. */
-  /* The two boot-time decisions about the targets — heal an uneatable plan,
-     follow the scale weekly — WRITE, and a write is stamped now. Run before
-     this device had heard from the account, a laptop last opened three days
-     ago would follow the scale on its own stale copy, stamp it newer than
-     the grams typed on the phone yesterday, and win: the phone's numbers
-     and its "leave mine alone" were overwritten by the device that knew
-     least. So a device with an account decides after the account's first
-     real answer, and one without decides at boot as before. */
   var mBootTargetsDue = false;
-  function mBootTargets() {
-    if (!mBootTargetsDue) return;
-    mBootTargetsDue = false;
-    var moved = mHealTargets();
-    if (mFollowScale()) moved = true;
-    if (moved && S.view === 'macros') renderMacros();
-  }
 
-  function mSyncState(next) {
-    S_SYNC_STATE = next;
-    /* Signed out, as far as the server can tell: nobody else's copy is
-       coming, so this device's is the one to decide on. */
-    if (next === 'off' && mAuthKnown) mBootTargets();
-    mMarkAccountUI();
-    if (S.syncOpen) renderModal();
-  }
+  /* src/daysync.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var DAYSYNC = window.HiveParts.daysync({ S: S, mAccount: mAccount, mFollowScale: mFollowScale, mHealTargets: mHealTargets, mSuspectAccount: mSuspectAccount, mToast: mToast, renderMacros: renderMacros, renderModal: renderModal, LIVE: LIVE });
+  function mBootTargets() { return DAYSYNC.mBootTargets(); }
+  function mSyncState(next) { return DAYSYNC.mSyncState(next); }
+  function mMarkAccountUI() { return DAYSYNC.mMarkAccountUI(); }
+  function mSyncAway() { return DAYSYNC.mSyncAway(); }
+  function mPut(key, v) { return DAYSYNC.mPut(key, v); }
+  function mLsFull() { return DAYSYNC.mLsFull(); }
+  function mLsFullSay() { return DAYSYNC.mLsFullSay(); }
+  var MSTAMPS = DAYSYNC.MSTAMPS;
 
-  /* Whether the day is failing to reach the account it belongs to.
-   *
-     Only ever true for a device that HAS one. Someone who has never signed in
-     has not lost anything, and finding that out must not cost them a call to
-     Firebase — the flag is read from storage, and the network is never asked.
-
-     'off' counts only once mAuthKnown: before we have asked, "nobody is
-     signed in" is a guess, and a warning built on a guess is worse than none. */
-  function mSyncTrouble() {
-    if (!mSuspectAccount()) return false;
-    if (S_SYNC_STATE === 'error') return true;
-    return S_SYNC_STATE === 'off' && mAuthKnown;
-  }
-
-  /* The mark on the gear, and the line under the menu item that names who.
-   *
-     The gear is quiet while it works. A dot that is always lit says nothing —
-     it is furniture — so this one appears only when there is something to
-     act on, and its absence is the good news. The menu underneath answers the
-     other half in words, one press away, in both directions: who you are, or
-     that you are nobody yet. It says nothing at all until the SDK has
-     answered, because "Not signed in" before we have asked is a lie that
-     happens to be true half the time. */
-  function mMarkAccountUI() {
-    var g = $('macroMore');
-    if (g) {
-      var bad = mSyncTrouble();
-      // a no-op toggle still rewrites the attribute, and something is watching
-      if (g.classList.contains('mday-warn') !== bad) g.classList.toggle('mday-warn', bad);
-    }
-    var el = $('macroWho');
-    if (el) {
-      var who = mAccount();
-      /* Unreachable is not signed out. A signed-in phone opened with no
-         signal was told "Not signed in", and the sheet under it offered a
-         big Sign in with Google — the one thing it did not need. */
-      var says = who ? (who.email || who.name || 'Signed in')
-        : mSyncAway() ? 'Signed in \u00b7 can\u2019t reach the server'
-        : (mAuthKnown ? 'Not signed in' : '');
-      if (el.textContent !== says) el.textContent = says;
-    }
-  }
-  /* Signed in as far as this device knows, and the server out of reach. */
-  function mSyncAway() { return !mAccount() && mSyncUnreachable && mSuspectAccount(); }
-
-  /* Every write My Day makes to this phone's storage, through one door.
-   *
-     Each writer used to catch its own failure and say nothing — "in-memory
-     only for this session" — which is true of private mode and a lie on a
-     phone whose storage is full: the weigh-in and the breakfast sat on the
-     screen looking kept, nothing was written, and both were gone the next
-     time the app opened, with not a word. Strengthen already says so when it
-     happens; this is the same promise here. The first failure says it at
-     once, wherever you are, and the day card keeps saying it while any store
-     is still failing. A store that writes again is taken off the list. */
-  var MLS_BAD = {};
-  function mPut(key, v) {
-    var ok = true;
-    try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { ok = false; }
-    var was = mLsFull();
-    if (ok) delete MLS_BAD[key]; else MLS_BAD[key] = 1;
-    if (!ok && !was) mToast(esc(mLsFullSay()));
-    return ok;
-  }
-  function mLsFull() { return Object.keys(MLS_BAD).length > 0; }
-  function mLsFullSay() {
-    return 'This phone’s storage for the app is full, so the newest changes aren’t kept on it' +
-      (mAccount() && S_SYNC_STATE !== 'error' ? ' — they go to your account while there’s signal.'
-        : '. Free some space, or sign in so they’re kept in an account.');
-  }
-
-  var MSTAMPS = (function () {
-    var st;
-    try { st = JSON.parse(localStorage.getItem('bsc.myStamps')) || {}; }
-    catch (e) { st = {}; }
-    /* The weight log used to be stamped as one value, the way the profile and
-       the targets still are, and that is what made a cleared weigh-in come
-       back: one stamp for the whole map can only say "mine is newer", never
-       "this morning is gone", so the merge had to union the two maps and a
-       deletion had nowhere to live. It is stamped per morning now, like the
-       day log and the closed days.
-     *
-       Devices upgrading carry a number here. Read as a map it would silently
-       swallow every write — `n[key] = v` on a primitive throws nothing and
-       stores nothing — so it is converted once, with the old single stamp
-       standing as the stamp of every morning already logged. */
-    if (typeof st.w === 'number') {
-      var was = st.w, map = {};
-      try {
-        var w = JSON.parse(localStorage.getItem('bsc.macroWeights'));
-        if (w && typeof w === 'object') {
-          Object.keys(w).forEach(function (k) { map[k] = was; });
-        }
-      } catch (e2) { /* nothing logged, or unreadable: an empty map is right */ }
-      st.w = map;
-      try { localStorage.setItem('bsc.myStamps', JSON.stringify(st)); }
-      catch (e3) { /* private mode: the conversion holds for this session */ }
-    }
-    return st;
-  })();
-
-  /* ------------------------------------------------------ whose clock
-   *
-     Every stamp is this device's clock, and newest wins — so a device whose
-     clock is wrong is wrong about everything it writes. A phone set a day
-     fast won every merge for a day; one set a day slow lost every edit it
-     made to the copy already on the account. Phones mostly keep good time,
-     but "mostly" is a person who set theirs by hand once, and a tablet that
-     has been off the network for a month.
-   *
-     So the clock is corrected against the server's. Each push to the
-     account carries a server timestamp, labelled with this device's id;
-     when the account hands it back, the difference between it and the local
-     clock at the moment it was written is how far out this device is. Only
-     a real error is corrected — two minutes and more — so ordinary network
-     delay never moves a stamp. It is kept, so a device opened with no signal
-     still stamps with what it last learned. */
-  var MCLOCK_SLACK = 5 * 60000;       // how far ahead of us a stamp is let be
-  var MCLOCK_ID = (function () {
-    var id = '';
-    try { id = localStorage.getItem('bsc.clockId') || ''; } catch (e) { /* private mode */ }
-    if (!/^[a-z0-9]{6,16}$/.test(id)) {
-      id = (Math.random().toString(36) + '000000').slice(2, 12);
-      try { localStorage.setItem('bsc.clockId', id); } catch (e2) { /* this session only */ }
-    }
-    return id;
-  })();
-  var MSKEW = (function () {
-    var v = 0;
-    try { v = Number(localStorage.getItem('bsc.clockSkew')) || 0; } catch (e) { v = 0; }
-    return isFinite(v) && Math.abs(v) < 366 * 86400000 ? v : 0;
-  })();
   var mClkSent = 0;                    // when the last stamped push left, by the local clock
-  function mNow() { return Date.now() + (MSKEW || 0); }   // || 0: asked before this line has run
-
-  /* The server's answer to a push this device stamped. Only our own label
-     counts — the other device's push carries its own — and only a round
-     trip short enough that half of it is a small error. */
-  function mClockHear(data, pending) {
-    var c = data && data.clk;
-    if (pending || !mClkSent || !c || c.by !== MCLOCK_ID || !c.at || typeof c.at.toMillis !== 'function') return;
-    var back = Date.now(), trip = back - mClkSent;
-    mClkSent = 0;
-    if (!(trip >= 0 && trip < 15000)) return;
-    var off = c.at.toMillis() - (back - trip / 2);
-    MSKEW = Math.abs(off) >= 120000 ? Math.round(off) : 0;
-    try { localStorage.setItem('bsc.clockSkew', String(MSKEW)); } catch (e) { /* this session only */ }
-  }
-  // Strengthen stamps by the same corrected clock; it reads MSKEW live through mNow
-  if (window.Train && window.Train.clock) window.Train.clock(mNow);
-
-  function mStamp(part, sub) {
-    var now = mNow();
-    if (sub) {
-      /* Per-key stamps, for the parts that are maps of days rather than one
-         value: the day log, and which days you have closed. Keyed by part
-         rather than hardcoded to 'd', so two of them can coexist without one
-         quietly writing into the other's stamps. */
-      MSTAMPS[part] = MSTAMPS[part] || {};
-      MSTAMPS[part][sub] = now;
-      if (mDirty[part] !== true) {
-        mDirty[part] = mDirty[part] || {};
-        mDirty[part][sub] = 1;
-      }
-    } else {
-      MSTAMPS[part] = now;
-      mDirty[part] = true;
-    }
-    mPut('bsc.myStamps', MSTAMPS);
-    mSyncPush();
-  }
-
-  /* Every part stamped as of now, each in the shape it keeps its stamps: one
-     number for a single value, a map for a part keyed by day or by morning.
-     The first version of "this device is right" wrote a number over the
-     weight map. Every morning then shipped with a stamp of zero, which no
-     other device would take, and the next weigh-in tried to set a property
-     on a number and threw. A part's stamp has one shape, and this is the
-     only place that writes all of them at once. */
-  function mClaimAll() {
-    var now = mNow();
-    ['t', 'pr', 'sl', 'mf', 'nv', 'bg'].forEach(function (k) { MSTAMPS[k] = now; });
-    [['d', MDAYS], ['dn', MDONE], ['sp', MSKIP], ['sn', MSEND], ['w', MWEIGHTS],
-      ['tn', MTRAINED]].forEach(function (pair) {
-      var part = pair[0];
-      var map = (MSTAMPS[part] && typeof MSTAMPS[part] === 'object') ? MSTAMPS[part] : {};
-      MSTAMPS[part] = map;
-      Object.keys(map).concat(Object.keys(pair[1])).forEach(function (k) { map[k] = now; });
-    });
-    mPut('bsc.myStamps', MSTAMPS);
-  }
-
-  /* This used to be a private code, which was the right shape for one person
-     with two phones and the wrong shape the moment the app went to a
-     congregation. A code can be read aloud, forwarded, or guessed, and what
-     it was guarding is a weight history. It is an account now: the document
-     is the signed-in person's own, and the rule that guards it is whose it
-     is rather than what you can recite. */
-  function mAccount() { return window.Store.user ? window.Store.user() : null; }
-
   /* Whether the question "who is signed in?" can be answered yet. It cannot
      until Firebase has loaded, and Firebase loads asynchronously — so a
      device that IS signed in shows the signed-out sheet for the moment in
      between, which reads as "there is no way to sign out" rather than as
      "wait". Say wait. */
   var mAuthKnown = false;
-  function mSuspectAccount() {
-    try { return localStorage.getItem('bsc.myAccount') === '1'; } catch (e) { return false; }
-  }
 
-  /* This device has an account, remembered without asking the network — the
-     one thing that has to be known before deciding whether to reach for it. */
-  /* Whose day is on this device. Written beside the data rather than kept in
-     the account, because it has to be answerable before the network is. */
-  function mOwner() {
-    try { return localStorage.getItem('bsc.myOwner') || ''; } catch (e) { return ''; }
-  }
-  function mSetOwner(uid) {
-    try {
-      if (uid) localStorage.setItem('bsc.myOwner', uid);
-      else localStorage.removeItem('bsc.myOwner');
-    } catch (e) { /* private mode */ }
-  }
+  /* src/clock.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var CLOCK = window.HiveParts.clock({ MSTAMPS: MSTAMPS, mBuildFoods: mBuildFoods, mPut: mPut, mSyncPush: mSyncPush, LIVE: LIVE });
+  function mNow() { return CLOCK.mNow(); }
+  function mClockHear(data, pending) { return CLOCK.mClockHear(data, pending); }
+  function mStamp(part, sub) { return CLOCK.mStamp(part, sub); }
+  function mClaimAll() { return CLOCK.mClaimAll(); }
+  function mAccount() { return CLOCK.mAccount(); }
+  function mSuspectAccount() { return CLOCK.mSuspectAccount(); }
+  function mOwner() { return CLOCK.mOwner(); }
+  function mSetOwner(uid) { return CLOCK.mSetOwner(uid); }
+  function mForgetDay() { return CLOCK.mForgetDay(); }
+  function mAccountMark() { return CLOCK.mAccountMark(); }
+  var MCLOCK_SLACK = CLOCK.MCLOCK_SLACK;
+  var MCLOCK_ID = CLOCK.MCLOCK_ID;
+  // Strengthen stamps by the same corrected clock; it reads MSKEW live through mNow
+  if (window.Train && window.Train.clock) window.Train.clock(mNow);
 
-  /* Signing out has to take the day with it.
-   *
-     It did not, and the next person to sign in on the same device inherited
-     it: mSyncStart pushes once on connect, mSyncPayload reads whatever is
-     still in memory and in storage, and Firestore accepts it because the
-     write is honestly authenticated as the new person. A weight history and a
-     food log would land in a stranger's account and follow them onto their
-     own devices, where the person it belonged to could never reach it again.
-     Clearing storage alone is not enough — the payload is rebuilt from the
-     module-level copies, so those have to go too. */
-  function mForgetDay() {
-    ['bsc.macroDays', 'bsc.macroWeights', 'bsc.myStamps', 'bsc.macroTargets',
-      'bsc.macroProfile', 'bsc.macroSlots', 'bsc.myFoods', 'bsc.myOwner',
-      'bsc.macroDone', 'bsc.macroSkip', 'bsc.macroSend', 'bsc.macroTrained',
-      'bsc.macroHush', 'bsc.macroIntake', 'bsc.macroDayT', 'bsc.macroNever', 'bsc.macroBatchG',
-      'bsc.macroCoachSeen'].forEach(function (k) {
-      try { localStorage.removeItem(k); } catch (e) { /* private mode */ }
-    });
-    Object.keys(MDAYS).forEach(function (k) { delete MDAYS[k]; });
-    Object.keys(MWEIGHTS).forEach(function (k) { delete MWEIGHTS[k]; });
-    Object.keys(MINTAKE).forEach(function (k) { delete MINTAKE[k]; });
-    Object.keys(MDAYT).forEach(function (k) { delete MDAYT[k]; });
-    Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
-    Object.keys(MBATCHG).forEach(function (k) { delete MBATCHG[k]; });
-    Object.keys(MSTAMPS).forEach(function (k) { delete MSTAMPS[k]; });
-    Object.keys(MDONE).forEach(function (k) { delete MDONE[k]; });
-    Object.keys(MSKIP).forEach(function (k) { delete MSKIP[k]; });
-    Object.keys(MHUSH).forEach(function (k) { delete MHUSH[k]; });
-    Object.keys(MSEND).forEach(function (k) { delete MSEND[k]; });
-    Object.keys(MTRAINED).forEach(function (k) { delete MTRAINED[k]; });
-    /* And the training log, which is kept beside the day in the same record
-       and has to leave with it for exactly the same reason. */
-    if (window.Train) window.Train.forget();
-    /* And the foods built from what was just cleared: the picker offered the
-       last person's own foods to the next until something else redrew it. */
-    mBuildFoods();
-  }
-
-  function mAccountMark() {
-    try {
-      if (mAccount()) localStorage.setItem('bsc.myAccount', '1');
-      else localStorage.removeItem('bsc.myAccount');
-    } catch (e) { /* private mode: this session only */ }
-  }
-
-  /* What this device would send. Read fresh each time so it never ships a
-     stale copy of something edited in another tab. */
   /* src/mydayparts.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
   var MYDAYPARTS = window.HiveParts.mydayparts({ mDoneAt: mDoneAt, mEarliestKey: mEarliestKey, mTrainedAt: mTrainedAt, mWeightFloor: mWeightFloor, LIVE: LIVE });
@@ -2807,31 +2555,6 @@
   var MSYNC_SIMPLE = MYDAYPARTS.MSYNC_SIMPLE;
   var MSYNC_KEYED = MYDAYPARTS.MSYNC_KEYED;
 
-  /* ------------------------------------------------- what actually goes up
-   *
-   * Everything, once, and then only what moved.
-   *
-   * Every change used to re-serialise and re-upload the whole of My Day:
-   * fourteen days of meals, a year of mornings, every stamp — eight to twenty
-   * kilobytes to record that one plate was ticked, which is two hundred bytes
-   * of news. Firestore bills per document WRITE rather than per byte, and the
-   * writes were already debounced to one per burst, so this never cost money.
-   * It cost the phone: mobile data, radio time and battery, forty to a hundred
-   * times over, on every tap.
-   *
-   * set(merge:true) deep-merges nested maps, so naming one day inside one part
-   * leaves every other day in that part exactly where it was. No field paths,
-   * no update() that fails on a document which does not exist yet.
-   *
-   * mStamp already knows precisely what changed — it is the function that
-   * records it — so the dirty set costs nothing to keep.
-   *
-   * The FIRST push of a session is always whole, because the far end may be
-   * missing things this device has and a partial push cannot say so. And a
-   * failed push goes back to whole: the dirty set is cleared as the write
-   * leaves, so that changes made while it is in flight are not swallowed, and
-   * the only safe thing to do with a write that never landed is to send
-   * everything next time. */
   var mDirty = {}, mDirtyAll = true;
   /* Whether the account has answered since this device started listening.
      Nothing goes up before it has: a device signing in for the first time
@@ -2843,252 +2566,22 @@
      merged, the whole push carries only what is newer or the same. */
   var mSyncHeard = false;
 
-  /* Only what this device has actually stamped. An unstamped part or key
-     can win nowhere, since a far end takes only what is newer than its own,
-     but it could still be written over the account's real copy on the way
-     past; and an empty map has nothing to say. */
-  function mSyncPayload() {
-    var raw = mLsJson;
-    var out = {};
-    MSYNC_SIMPLE.forEach(function (row) {
-      if (!(MSTAMPS[row[0]] > 0)) return;
-      out[row[0]] = { v: raw(row[1]), at: MSTAMPS[row[0]] };
-    });
-    MSYNC_KEYED.forEach(function (row) {
-      var keys = {}, map = {};
-      Object.keys(row.store()).forEach(function (k) { keys[k] = 1; });
-      if (row.stamps) {
-        Object.keys(MSTAMPS[row.part] || {}).forEach(function (k) { keys[k] = 1; });
-      }
-      Object.keys(keys).forEach(function (k) {
-        var at = (MSTAMPS[row.part] || {})[k] || 0;
-        if (at > 0) map[mSyncKey(k)] = { v: row.value(k), at: at };
-      });
-      if (Object.keys(map).length) out[row.part] = map;
-    });
-    return out;
-  }
+  /* src/dayup.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var DAYUP = window.HiveParts.dayup({ MCLOCK_SLACK: MCLOCK_SLACK, MSTAMPS: MSTAMPS, MSYNC_KEYED: MSYNC_KEYED, MSYNC_SHAPE: MSYNC_SHAPE, MSYNC_SIMPLE: MSYNC_SIMPLE, mBuildFoods: mBuildFoods, mLsJson: mLsJson, mNow: mNow, mNum: mNum, mPut: mPut, mSyncKey: mSyncKey, mSyncUnkey: mSyncUnkey, LIVE: LIVE });
+  function mSyncPayload() { return DAYUP.mSyncPayload(); }
+  function mSyncPartial() { return DAYUP.mSyncPartial(); }
+  function mSyncTake() { return DAYUP.mSyncTake(); }
+  function mMergeRemote(md) { return DAYUP.mMergeRemote(md); }
 
-  /* Only what moved since the last push, in the same shape as the whole. Off
-     the same table, so a part cannot be in one builder and not the other. */
-  function mSyncPartial() {
-    var out = {}, any = false;
-    MSYNC_SIMPLE.forEach(function (row) {
-      if (!mDirty[row[0]] || !(MSTAMPS[row[0]] > 0)) return;
-      out[row[0]] = { v: mLsJson(row[1]), at: MSTAMPS[row[0]] };
-      any = true;
-    });
-    MSYNC_KEYED.forEach(function (row) {
-      var marks = mDirty[row.part];
-      if (!marks) return;
-      var keys = marks === true ? Object.keys(row.store()) : Object.keys(marks);
-      var map = {};
-      keys.forEach(function (k) {
-        /* A cleared key still goes up, carrying whatever its part calls
-           nothing — a zero weight, an empty skip list, a null send. That is
-           the only way a DELETION crosses: an absent key is indistinguishable
-           from a key the far end never heard of. */
-        var at = (MSTAMPS[row.part] || {})[k] || 0;
-        if (at > 0) map[mSyncKey(k)] = { v: row.value(k), at: at };
-      });
-      if (Object.keys(map).length) { out[row.part] = map; any = true; }
-    });
-    return any ? out : null;
-  }
-
-  /* What goes up, and the marking of it as gone — one act, because they have
-     to happen together and a caller that could do one without the other is a
-     caller that will.
-   *
-     The CHOICE lives here rather than inline in mSyncPush so a test can ask
-     the real question. A guard that asked the partial BUILDER proved the
-     builder works and nothing about whether anything calls it, which is
-     exactly what a mutation found: every push was made whole again and the
-     guard went on passing.
-   *
-     Cleared as the body is taken, not when the write lands, so a change made
-     while it is in flight is dirty again rather than swallowed. */
-  function mSyncTake() {
-    var body = mDirtyAll ? mSyncPayload() : mSyncPartial();
-    mDirtyAll = false;
-    mDirty = {};
-    return body;
-  }
-
-  /* Newer wins, part by part. Returns true when anything here changed, so the
-     caller knows whether to redraw. Pure enough to test without a network. */
-  function mMergeRemote(md) {
-    if (!md) return false;
-    var moved = false;
-    /* A stamp that says it was written in the future is a device whose clock
-       is wrong, and believed as written it wins every merge until the real
-       time catches up with it: a phone set a day fast pinned its day, and
-       everything the other devices did for the next twenty-four hours was
-       quietly refused. Nothing honest is more than a few minutes ahead of
-       this device's corrected clock (see mNow), so nothing is let be. What is
-       kept is the capped stamp, and the next whole push carries it back up,
-       which takes the far end's future stamp down with it. */
-    var cap = mNow() + MCLOCK_SLACK;
-    var when = function (at) { return at > cap ? cap : at; };
-    var take = function (part, key, apply) {
-      var r = md[part];
-      if (!r || !r.v || !mNum(r.at) || !(when(r.at) > (MSTAMPS[part] || 0))) return;
-      if (MSYNC_SHAPE[part] && !MSYNC_SHAPE[part](r.v)) return;
-      /* Stamped only once it is really kept. A value that could not be
-         written (storage full) under a stamp that was would tell the next
-         load it already has what the account is holding for it — and the
-         account's copy would be refused from then on as no newer. */
-      if (apply(r.v) === false) return;
-      MSTAMPS[part] = when(r.at);
-      moved = true;
-    };
-    take('mf', 'bsc.myFoods', function (v) {
-      if (!mPut('bsc.myFoods', v)) return false;
-      /* The foods on screen are built from storage once, at boot and on a
-         household change. Foods arriving from your other device were written
-         to storage and never built, so a day holding one of them counted it
-         as nothing — mTotals skips an id it cannot find — and the intake log
-         recorded the undercount. */
-      mBuildFoods();
-    });
-    take('t', 'bsc.macroTargets', function (v) {
-      return mPut('bsc.macroTargets', v);
-    });
-    take('pr', 'bsc.macroProfile', function (v) {
-      return mPut('bsc.macroProfile', v);
-    });
-    take('sl', 'bsc.macroSlots', function (v) {
-      return mPut('bsc.macroSlots', v);
-    });
-    take('bg', 'bsc.macroBatchG', function (v) {
-      Object.keys(MBATCHG).forEach(function (k) { delete MBATCHG[k]; });
-      Object.keys(v).forEach(function (k) {
-        if (v[k] && v[k].s > 0) MBATCHG[k] = { s: Number(v[k].s), on: String(v[k].on || '') };
-      });
-      return mPut('bsc.macroBatchG', MBATCHG);
-    });
-    take('nv', 'bsc.macroNever', function (v) {
-      Object.keys(MNEVER).forEach(function (k) { delete MNEVER[k]; });
-      Object.keys(v).forEach(function (k) { MNEVER[k] = v[k]; });
-      return mPut('bsc.macroNever', v);
-    });
-    /* Per morning, newest wins, and zero is a real answer — the same three
-       rules the closed-day log runs on, and for the same reason. A morning
-       cleared on one phone used to come straight back from the other's next
-       push: the map was unioned in wholesale and nothing in it could say a
-       morning had been taken away. Since v271 that also quietly moved the
-       targets, because the plan is built on the seven-day average.
-     *
-       The old single-stamped shape is still read, because a phone that has
-       not been opened since v288 is still pushing it. Unioned, exactly as it
-       used to be: those payloads genuinely cannot express a deletion, and
-       guessing one from an absent key would delete every morning that phone
-       has not heard of yet. Handled apart from the table because it is not a
-       shape the table describes — it is the shape that came before it. */
-    var wRemote = md.w;
-    var legacyW = wRemote && wRemote.v && typeof wRemote.at === 'number';
-    if (legacyW) {
-      MSTAMPS.w = MSTAMPS.w || {};
-      Object.keys(wRemote.v).forEach(function (k) {
-        if (!(when(wRemote.at) > (MSTAMPS.w[k] || 0))) return;
-        /* Checked like every other morning: a number, and a real weight.
-           This path let anything in — a string, a zero — and a zero here is
-           not a cleared morning (that shape cannot say so) but a weigh-in of
-           nothing, which the trend then averaged in. */
-        var v = wRemote.v[k];
-        if (!mNum(v) || !(v > 0)) return;
-        MWEIGHTS[k] = v;
-        MSTAMPS.w[k] = when(wRemote.at);
-        moved = true;
-      });
-    }
-
-    /* And every keyed part, by the one description of it. Newer wins, per
-       key, and what "newer" and "sayable" mean is the part's own business —
-       see MSYNC_KEYED. This was five hand-written blocks that differed only
-       in which guard they used and which map they wrote, and the one thing
-       they had in common, remembering to persist afterwards, is the thing one
-       of them did not do. */
-    MSYNC_KEYED.forEach(function (row) {
-      if (row.part === 'w' && legacyW) return;
-      var from = md[row.part] || {};
-      Object.keys(from).forEach(function (enc) {
-        var k = mSyncUnkey(enc), r = from[enc];
-        if (!r || !mNum(r.at) || !row.accept(r)) return;
-        if (row.keep && !row.keep(k)) return;      // aged out here; it stays out
-        if (!(when(r.at) > ((MSTAMPS[row.part] || {})[k] || 0))) return;
-        row.put(k, r.v);
-        MSTAMPS[row.part] = MSTAMPS[row.part] || {};
-        MSTAMPS[row.part][k] = when(r.at);
-        moved = true;
-      });
-    });
-    /* Persisted off the same table that merged them. This was a hand-written
-       list of five setItem calls beside a merge that touched six stores, and
-       the missing one was `bsc.macroTrained`: a training tick from the other
-       phone moved the day's carbohydrate and then went back on the next
-       reload, 118 g to 63 with nothing said. A list that is data cannot
-       forget a member. */
-    /* The stamps only once every store has landed: a stamp kept for a day
-       that was not would tell the next load it already has what the account
-       is still holding for it. */
-    if (moved && MSYNC_KEYED.every(function (row) { return mPut(row.ls, row.store()); })) {
-      mPut('bsc.myStamps', MSTAMPS);
-    }
-    return moved;
-  }
-
-  /* ------------------------------------------- two copies on one phone
-   *
-     Two tabs, or the home-screen app and a browser tab, are two copies of My
-     Day, and each wrote the whole of what it held on every change. Breakfast
-     logged in one and lunch in the other left the day holding lunch: the
-     second copy had never heard of the breakfast, and its whole day went
-     over the top of it. Blake's call: merge, so nothing is lost and nothing
-     needs pressing.
-   *
-     It is the account's merge, not a second rule. Everything the other copy
-     wrote is in storage with its stamps, which is exactly the shape the
-     account hands mMergeRemote — newest wins, part by part and day by day —
-     so what storage holds is read as if it had come from another device.
-     The storage event fires only in the OTHER copies, which are the ones
-     that need to hear; it is let settle for a moment, because one change is
-     several writes (the value, then its stamp). A write here first takes in
-     anything still waiting, so a copy that was asleep does not write its
-     stale day over a fresh one before the event has been heard. */
-  function mFoldStored() {
-    var st = mLsJson('bsc.myStamps');
-    if (!mPlainObj(st)) return false;
-    var md = {};
-    MSYNC_SIMPLE.forEach(function (row) {
-      if (mNum(st[row[0]])) md[row[0]] = { v: mLsJson(row[1]), at: st[row[0]] };
-    });
-    MSYNC_KEYED.forEach(function (row) {
-      var m = mLsJson(row.ls), sm = st[row.part];
-      if (!mPlainObj(sm)) return;
-      if (!mPlainObj(m)) m = {};
-      var keys = {}, map = {};
-      Object.keys(m).forEach(function (k) { keys[k] = 1; });
-      if (row.stamps) Object.keys(sm).forEach(function (k) { keys[k] = 1; });
-      Object.keys(keys).forEach(function (k) {
-        if (mNum(sm[k])) map[mSyncKey(k)] = { v: row.value(k, m), at: sm[k] };
-      });
-      md[row.part] = map;
-    });
-    return mMergeRemote(md);
-  }
   var mFoldTimer = null;
-  function mFoldNow() {
-    clearTimeout(mFoldTimer);
-    mFoldTimer = null;
-    if (mFoldStored() && S.view === 'macros') renderMacros();
-  }
-  function mFoldDue() {
-    if (!mFoldTimer) return;
-    clearTimeout(mFoldTimer);
-    mFoldTimer = null;
-    mFoldStored();
-  }
+
+  /* src/twocopies.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var TWOCOPIES = window.HiveParts.twocopies({ MSYNC_KEYED: MSYNC_KEYED, MSYNC_SIMPLE: MSYNC_SIMPLE, S: S, mLsJson: mLsJson, mMergeRemote: mMergeRemote, mNum: mNum, mPlainObj: mPlainObj, mSyncKey: mSyncKey, renderMacros: renderMacros, LIVE: LIVE });
+  function mFoldNow() { return TWOCOPIES.mFoldNow(); }
+  function mFoldDue() { return TWOCOPIES.mFoldDue(); }
+
   window.addEventListener('storage', function (e) {
     if (!e || !e.key || !/^bsc\.(macro|my)/.test(e.key)) return;
     clearTimeout(mFoldTimer);
@@ -3096,177 +2589,27 @@
   });
 
   var mSyncDoc = null, mSyncOff = null, mSyncTimer = null;
-
-  /* The kitchen travels with the account.
-   *
-     Signing in used to carry My Day and nothing else. Favorites, recipes of
-     your own, the weeks and the pantry live in the household document, which
-     a device reaches only by holding its code — so a second device signed in
-     as you opened on an empty book and looked like a sync that had done
-     nothing. Blake: "when i logged into the app on my PC i expect to see
-     exactly what is on my phone."
-   *
-     So the account keeps the code, as `house` on /users/{uid}. Absent means
-     no device has ever told it one; '' means somebody signed in chose to stop
-     sharing, and is not to be undone by the next device that opens. */
   var mAcctHouse;               // undefined until the server has said
-  var mHouseAsked = false;      // one question a session, not one a snapshot
   var mHouseTellNext = false;   // a join or create was asked for here: report it once it is real
-  var mHouseMaking = false;
 
-  function mHouseTell(code) {
-    mAcctHouse = code;
-    if (mSyncDoc) mSyncDoc.set({ house: code }, { merge: true }).catch(function () { /* next snapshot retries */ });
-  }
+  /* src/kitchen.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var KITCHEN = window.HiveParts.kitchen({ ask: ask, LIVE: LIVE });
+  function mHouseTell(code) { return KITCHEN.mHouseTell(code); }
+  function mHouseReconcile(data) { return KITCHEN.mHouseReconcile(data); }
 
-  /* Whether this device holds anything that would be lost if it stayed on this
-     device. A fresh one does not, and must not make a kitchen for the account
-     just by being opened first — that would be an empty kitchen standing in
-     front of the real one on the phone. */
-  function mHouseWorthKeeping() {
-    var st = window.Store.state;
-    var some = function (o) { return o && Object.keys(o).length > 0; };
-    if (st.favs && st.favs.length) return true;
-    if (some(st.mine) || some(st.edits) || some(st.pantry) || some(st.pantryNew)) return true;
-    return Object.keys(st.weeks || {}).some(function (k) {
-      var plan = st.weeks[k].plan || {};
-      return Object.keys(plan).some(function (d) { return (plan[d] || []).length; });
-    });
-  }
-
-  /* Only ever from a server answer: a cached snapshot that lacks `house`
-     is not an account that lacks one. */
-  function mHouseReconcile(data) {
-    var has = Object.prototype.hasOwnProperty.call(data, 'house') && typeof data.house === 'string';
-    var theirs = has ? data.house : '';
-    var mine = window.Store.house;
-    mAcctHouse = has ? theirs : undefined;
-    /* A join, a new pantry or an invite is on its way from this device. The
-       account hears about it once it is real; until then the account's old
-       answer is not a disagreement to act on. */
-    if (mHouseTellNext || mInviteBusy) return;
-    if (!has) {
-      if (mine) { mHouseTell(mine); return; }
-      /* Once. Snapshots keep arriving while the transaction is out, and each
-         would otherwise draw a second pantry for the same person. */
-      if (!mHouseMaking && mHouseWorthKeeping()) {
-        mHouseMaking = true;
-        mHouseTellNext = true;
-        window.Store.createHousehold().then(function () { mHouseMaking = false; },
-          function () { mHouseMaking = false; });
-      }
-      return;
-    }
-    if (!theirs || theirs === mine) return;
-    if (!mine) { window.Store.join(theirs); return; }
-    if (mHouseAsked) return;
-    mHouseAsked = true;
-    ask({
-      title: 'Use your account’s pantry?',
-      body: 'This device is sharing ' + mine + '. Your account uses ' + theirs +
-        '. Switching brings what is on this device along with it.',
-      ok: 'Switch this device'
-    }, function (yes) { if (yes) window.Store.join(theirs); });
-  }
-
-  /* Called on every Store change. A join typed here, or a pantry made here,
-     becomes the account's once the server has confirmed it exists — not
-     before, or a mistyped code would be written over the real one. */
-  /* ------------------------------------------------------------ invites
-   *
-     A link from somebody's "Invite someone" arrives as ?invite=<token>. It is
-     kept in localStorage straight away, because signing in on a phone leaves
-     the page and comes back, and anything held only in memory would not make
-     the trip. It is spent the first time this device knows who it is. */
   var mInviteBusy = false;
-  /* The invite said yes to, and whether the question is up. An invite link
-     used to join the moment it was opened by anyone signed in: moved out of
-     their own shared pantry, their plan, recipes and pantry handed to
-     whoever sent it, and their other phones told to follow, with no word on
-     screen. A link is somebody else's intent until you say it is yours. */
-  var mInviteOk = '', mInviteAsking = false;
-  function mInviteGet() {
-    try { return localStorage.getItem('bsc.invite') || ''; } catch (e) { return ''; }
-  }
-  function mInviteSet(tok) {
-    try {
-      if (tok) localStorage.setItem('bsc.invite', tok); else localStorage.removeItem('bsc.invite');
-    } catch (e) { /* private mode: held for this page only */ }
-  }
-  function mInviteTry() {
-    var tok = mInviteGet();
-    if (!tok || mInviteBusy || !mAccount() || !window.Store.redeem) return;
-    if (mInviteOk !== tok) {
-      if (mInviteAsking) return;
-      mInviteAsking = true;
-      var cur = window.Store.house;
-      ask({ title: 'Join this shared pantry?',
-        body: 'You opened an invite link. Joining shares the meal plan, your recipes and the pantry on this phone with everyone in it.' +
-          (cur ? ' You will leave the pantry you share now.' : ''),
-        ok: 'Join' }, function (yes) {
-        mInviteAsking = false;
-        if (!yes) { mInviteSet(''); S.inviteMsg = ''; renderAll(); return; }
-        mInviteOk = tok;
-        mInviteTry();
-      });
-      return;
-    }
-    mInviteBusy = true;
-    mHouseTellNext = true;
-    window.Store.redeem(tok).then(function () {
-      mInviteSet('');
-      mInviteBusy = false;
-      S.inviteMsg = 'You joined the pantry.';
-      renderAll();
-    }, function (err) {
-      mInviteBusy = false;
-      mHouseTellNext = false;
-      var why = err && err.message;
-      /* A network failure keeps the invite for the next try; a refusal from
-         the invite itself does not, or it would be refused on every load. */
-      if (why === 'spent' || why === 'gone') mInviteSet('');
-      S.inviteMsg = why === 'spent' ? 'That invite has been used or has expired. Ask for a new link.'
-        : why === 'gone' ? 'That invite link is not valid. Ask for a new one.'
-          : 'Could not join the pantry yet. It will try again when there is signal.';
-      renderAll();
-    });
-  }
 
-  /* Whether the pantry this phone shares is this account's alone: on its
-     members list and nobody else. Phones without an account are never on
-     the list, so an empty one may have anybody in it. */
-  function mHouseAlone() {
-    var me = mAccount(), m = window.Store.members || [];
-    return !!me && m.length > 0 && m.every(function (u) { return u === me.uid; });
-  }
-  /* A code typed from inside a pantry that is nobody's. connect() lets a
-     code like that go and says so, which from the screen with no pantry is
-     the whole answer; from inside one it would take the phone out of the
-     pantry it was in as well, to sit alone with the message, for one wrong
-     digit. Back into that one, and the message said there. */
-  function mJoinBack() {
-    var b = S.joinBack, st = window.Store.status;
-    if (!b) return;
-    if (window.Store.house) { if (st === 'synced') S.joinBack = null; return; }
-    if (st !== 'local') return;
-    S.joinBack = null;
-    S.joinMsg = window.Store.statusNote;
-    // once the connect that missed has finished with it, not from inside it
-    setTimeout(function () { if (!window.Store.house) window.Store.join(b.code, true, b.mine); }, 0);
-  }
-  function mHouseWatch() {
-    if (!mHouseTellNext || !mSyncDoc || !mAccount()) return;
-    var st = window.Store.status, code = window.Store.house;
-    if (!code) { if (st === 'local') mHouseTellNext = false; return; }
-    if (st !== 'synced') return;
-    /* Still the household the account already has: nothing to tell yet. An
-       invite taken from inside another pantry set the flag before the join
-       was through, and the old pantry's next word spent it — so the account
-       was never told, and every open after asked "Use your account's pantry?" */
-    if (code === mAcctHouse) return;
-    mHouseTellNext = false;
-    mHouseTell(code);
-  }
+  /* src/invites.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var INVITES = window.HiveParts.invites({ S: S, ask: ask, mAccount: mAccount, mHouseTell: mHouseTell, renderAll: renderAll, LIVE: LIVE });
+  function mInviteGet() { return INVITES.mInviteGet(); }
+  function mInviteSet(tok) { return INVITES.mInviteSet(tok); }
+  function mInviteTry() { return INVITES.mInviteTry(); }
+  function mHouseAlone() { return INVITES.mHouseAlone(); }
+  function mJoinBack() { return INVITES.mJoinBack(); }
+  function mHouseWatch() { return INVITES.mHouseWatch(); }
+
   /* The last attempt to reach the server failed, rather than answering
      "nobody". The two are different facts and the sheet has different
      words for them, but only one of them survived: ready() rejects, the
@@ -3276,227 +2619,22 @@
      it. "Cannot reach the server" could never reach the screen it was
      written for; a dead network read as a fresh invitation to sign in. */
   var mSyncUnreachable = false;
-  var mSyncAsking = false;
 
-  /* Signal back, or the app back in front of you: try again.
-   *
-     A signed-in phone opened with no signal asked once, failed, and then
-     never asked again. mAuthKnown was true after that first answer, and
-     every later mSyncStart — the Sync button, a sheet — read it as "we
-     already know nobody is signed in". The household half of sync.js
-     retried on 'online'; My Day and Strengthen did not, so nothing logged in
-     the basement reached the account until the app was killed and reopened.
-     Only the unreachable case retries; a device that got an answer has one. */
-  function mSyncRetry() {
-    if (mSyncAsking || !mSyncUnreachable || !mSuspectAccount()) return;
-    mSyncStart();
-  }
+  /* src/signin.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var SIGNIN = window.HiveParts.signin({ MCLOCK_ID: MCLOCK_ID, S: S, dinerKeep: dinerKeep, dinerWatch: dinerWatch, mAccount: mAccount, mAccountMark: mAccountMark, mBootTargets: mBootTargets, mClockHear: mClockHear, mCreditWeek: mCreditWeek, mForgetDay: mForgetDay, mHouseReconcile: mHouseReconcile, mInviteTry: mInviteTry, mMergeRemote: mMergeRemote, mOwner: mOwner, mSetOwner: mSetOwner, mSuspectAccount: mSuspectAccount, mSyncState: mSyncState, mSyncTake: mSyncTake, mTrainSig: mTrainSig, pwFitCaps: pwFitCaps, renderMacros: renderMacros, renderModal: renderModal, LIVE: LIVE });
+  function mSyncRetry() { return SIGNIN.mSyncRetry(); }
+  function mWatchUser() { return SIGNIN.mWatchUser(); }
+  function mSyncStart() { return SIGNIN.mSyncStart(); }
+  function mDeleteAccount() { return SIGNIN.mDeleteAccount(); }
+  function mSyncPush(now) { return SIGNIN.mSyncPush(now); }
+
   window.addEventListener('online', mSyncRetry);
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) return;
     mSyncRetry();
     if (mFoldTimer) mFoldNow();
   });
-
-  /* Hearing about sign-in and sign-out from the SDK, once it can be heard.
-     Asked at boot, it gave up silently with no signal, and nothing asked
-     again once there was one. */
-  var mUserWatch = false;
-  function mWatchUser() {
-    if (mUserWatch || !window.Store.onUser) return;
-    mUserWatch = true;
-    Promise.resolve(window.Store.onUser(function () { mSyncStart(); })).then(function (ok) {
-      if (ok === false) mUserWatch = false;
-    });
-  }
-
-  function mSyncStart() {
-    if (mSyncOff) { mSyncOff(); mSyncOff = null; mSyncDoc = null; }
-    if (window.Train) window.Train.attach(null);
-    if (!window.Store || !window.Store.configured) {
-      mAuthKnown = true;
-      mSyncState('off');
-      return;
-    }
-    if (!mAccount()) {
-      /* Nobody is signed in as far as this page can see — but if the device
-         remembers an account, the SDK may simply not have loaded yet, and
-         saying "signed out" now would be a guess. Ask, then answer. And ask
-         again after an attempt that could not reach anybody: that answer
-         was "no signal", not "nobody". */
-      if (mSuspectAccount() && (!mAuthKnown || mSyncUnreachable)) {
-        if (mSyncAsking) return;
-        mSyncAsking = true;
-        window.Store.ready().then(function () {
-          mSyncAsking = false;
-          mAuthKnown = true;
-          /* The device's answer, corrected by the real one.
-           *
-             This flag decides whether Firebase loads at all, so it is written
-             locally at sign-in and believed at boot. Believed is the problem:
-             it was never checked again. Android clears site data on a PWA it
-             considers idle, and the flag and the session do not have to go
-             together — leaving a device that says "I have an account",
-             loads the SDK, finds nobody, and quietly signs in anonymously
-             underneath while showing the signed-out sheet. Which reads as a
-             sign-in that did not take. Now the truth wins on every load. */
-          mAccountMark();
-          mSyncUnreachable = false;                 // the server answered
-          mWatchUser();
-          if (mAccount()) mSyncStart();
-          /* The device said it had an account and the server says otherwise.
-             That is the drift this whole re-affirmation exists to catch, so
-             it has to reach the gear and not just the sheet. */
-          else mSyncState('off');
-        }, function () {
-          mSyncAsking = false;
-          mAuthKnown = true;
-          mSyncUnreachable = true;
-          mSyncState('error');
-        });
-        return;
-      }
-      mAuthKnown = true;
-      /* Signed out, or unreachable and this device remembers an account.
-         Only the second of those is worth a warning, and only that one keeps
-         the error it already has. */
-      mSyncState(mSyncUnreachable && mSuspectAccount() ? 'error' : 'off');
-      return;
-    }
-    mSyncState('connecting');
-    window.Store.ready().then(function (db) {
-      mAuthKnown = true;
-      mSyncUnreachable = false;             // it answered
-      mAccountMark();                       // the truth, again, now that it is knowable
-      var uid = window.Store.uid();
-      if (!uid || !mAccount()) {
-        // the answer is known now even though it is "nobody"; say so
-        mSyncState('off');
-        return;
-      }
-      /* Carrying the day up into an account is for one case only: the
-         anonymous identity this device has been using all along becoming a
-         named one. If what is here belonged to somebody else, this device
-         takes what the account has and offers it nothing. */
-      var owner = mOwner();
-      var mine = !owner || owner === uid;
-      if (!mine) {
-        mForgetDay();
-        if (S.view === 'macros') renderMacros();
-      }
-      mSetOwner(uid);
-      if (window.Store.enrol) window.Store.enrol();
-      dinerWatch();
-      mInviteTry();
-      mSyncHeard = false;
-      mSyncDoc = db.collection('users').doc(uid);
-      /* Train keeps its log in the same document, under `train`, and rides
-         this listener rather than opening a second one on the same record. */
-      /* Its workouts go a year to a record under this one (see attach in
-         train.js), and moving them out of this record needs Firestore's
-         delete marker, which only the loaded SDK has. */
-      if (window.Train) window.Train.attach(mSyncDoc, window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue);
-      /* includeMetadataChanges for the same reason as the household
-         listener in sync.js: the step from a cache answer to a server answer
-         changes no data, and without it that step is never heard. */
-      mSyncOff = mSyncDoc.onSnapshot({ includeMetadataChanges: true }, function (snap) {
-        var data = snap.exists ? (snap.data() || {}) : null;
-        /* Only when the server actually answered. A snapshot served from the
-           local cache is Firestore handing back what this device already had,
-           and calling that "Synced" told you the other phone had your day
-           when nothing had left the building. The household half of this app
-           has always checked; My Day never did, so the two sides of one
-           screen gave different answers to the same question. */
-        mSyncState(snap.metadata && snap.metadata.fromCache ? 'connecting' : 'on');
-        var live = !(snap.metadata && snap.metadata.fromCache);
-        if (live) mHouseReconcile(data || {});
-        /* Strengthen's half moves Nourish too — the lifting days, and the
-           workouts that make a day a training day — and nothing redrew for
-           it: a session logged on the other phone left this one's day on its
-           rest-day carbs until something else happened to draw. */
-        mClockHear(data, snap.metadata && snap.metadata.hasPendingWrites);
-        var trWas = mTrainSig();
-        if (window.Train) window.Train.remote(data && data.train, live);
-        var trMoved = mTrainSig() !== trWas;
-        if (trMoved) mCreditWeek();
-        if (!data || !data.myday) {
-          if (live) { mBootTargets(); mSyncHeard = true; mSyncPush(true); }
-          if (trMoved && S.view === 'macros') renderMacros();
-          return;
-        }
-        /* Targets from another of your devices move the dinner you share. */
-        var capWas = JSON.stringify(pwFitCaps());
-        if ((mMergeRemote(data.myday) || trMoved) && S.view === 'macros') renderMacros();
-        if (JSON.stringify(pwFitCaps()) !== capWas) dinerKeep();
-        if (live) mBootTargets();
-        // the account's copy is in: now what is newer here can go up, all of it
-        if (live && !mSyncHeard) { mSyncHeard = true; mSyncPush(true); }
-        if (S.syncOpen) renderModal();
-      }, function () { mSyncState('error'); });
-    }, function () { mSyncState('error'); });
-  }
-
-  /* Everything of yours, gone from both ends.
-
-     The remote record first, through the sync layer, and this device's copy
-     inside it — mForgetDay wipes the local stores AND the module-level
-     objects the payload is rebuilt from, which matters: clearing storage
-     alone would leave the next push to write it all straight back up.
-
-     The household is deliberately untouched, but for your name on its
-     members list, which Store.deleteAccount takes off. It is a shared thing,
-     the rules do not permit deleting it, and taking a spouse's meal plan
-     away because you closed your own account would be a surprise nobody
-     asked for. */
-  function mDeleteAccount() {
-    if (!window.Store || !window.Store.deleteAccount) return Promise.reject(new Error('no-account'));
-    return window.Store.deleteAccount(function () {
-      if (mSyncOff) { mSyncOff(); mSyncOff = null; }
-      mSyncDoc = null;
-      if (window.Train) window.Train.attach(null);
-      mForgetDay();
-      return null;
-    }).then(function () {
-      mSyncState('local');
-      mAccountMark();
-      if (S.view === 'macros') renderMacros();
-      if (S.syncOpen) renderModal();
-    });
-  }
-
-  function mSyncPush(now) {
-    if (!mSyncDoc) return;
-    /* `now` is also "and whole". Its three callers are the moments a partial
-       push cannot answer for: the first sight of the document, a document
-       with nothing in it, and a device that has just been handed the day. */
-    if (now) mDirtyAll = true;
-    // before the account has answered, changes wait, marked; its first answer sends them
-    if (!mSyncHeard) return;
-    clearTimeout(mSyncTimer);
-    mSyncTimer = setTimeout(function () {
-      // signed out or deleted in the meantime: nothing to send it to
-      if (!mSyncDoc) return;
-      var body = mSyncTake();
-      if (!body) { mSyncState('on'); return; }
-      var out = { myday: body };
-      /* And the server's own time, under this device's name, so mClockHear
-         can tell how far out this device's clock is. Absent from an SDK that
-         cannot give one, which only costs the correction. */
-      var fv = window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue;
-      if (fv && typeof fv.serverTimestamp === 'function') {
-        out.clk = { by: MCLOCK_ID, at: fv.serverTimestamp() };
-        mClkSent = Date.now();
-      }
-      mSyncDoc.set(out, { merge: true }).then(function () {
-        mSyncState('on');
-      }, function () {
-        /* A write that never landed leaves this device unable to say what the
-           far end is missing, so the next one says everything. */
-        mDirtyAll = true;
-        mSyncState('error');
-      });
-    }, now ? 0 : 900);
-  }
 
   function dayKey(d) {
     /* Built from the local calendar, never toISOString() — that is UTC, and it

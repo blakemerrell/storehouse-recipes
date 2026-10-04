@@ -538,6 +538,13 @@ src/mealtime.js       when each meal opens, and whether today can be judged yet
 src/mydayparts.js     every part of My Day that travels between your devices, described once
 src/combos.js         levers, and the meals built from them to hit a share exactly
 src/pool.js           what a meal draws from, Try again, a day's summary, the step between days
+src/daysync.js        My Day on your other devices: the sync's state and its one door, safe local writes, stamps
+src/clock.js          whose clock: the server-corrected time, stamps, and whose My Day this phone holds
+src/dayup.js          what goes up and what comes down: the payload, the partial push, the merge
+src/twocopies.js      two copies of My Day on one phone (two tabs) kept as one
+src/kitchen.js        the kitchen travels with the account: the household code on your record
+src/invites.js        invite links, and the pantry this phone shares
+src/signin.js         signed in: the listener on your record, retries, the push, deleting your account
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
