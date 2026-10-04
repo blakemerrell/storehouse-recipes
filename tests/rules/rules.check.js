@@ -176,6 +176,17 @@ function seedDoc(extra) {
       assertFails(md.update({ members: FV.arrayRemove('bob') })));
     await check('replace the list with themselves', () => assertFails(md.update({ members: ['mallory'] })));
     await check('put somebody else on it', () => assertFails(md.update({ members: FV.arrayUnion('eve') })));
+    await check('pad the list with copies of who is already on it, filling the fifty places', async () => {
+      const copies = ['alice', 'bob'];
+      while (copies.length < 50) copies.push('alice');
+      await assertFails(env.authenticatedContext('ghost', { firebase: { sign_in_provider: 'anonymous' } }).firestore().doc(H).update({ members: copies }));
+      await assertFails(md.update({ members: copies }));
+      await assertFails(md.update({ members: ['alice', 'bob', 'mallory', 'mallory'] }));
+    });
+    await check('stretch the invite note, or the week on screen, toward the megabyte a document holds', async () => {
+      await assertFails(md.update({ lastInvite: 'x'.repeat(900 * 1024) }));
+      await assertFails(md.update({ active: 'w'.repeat(65) }));
+    });
 
     section('Households: the members list, by the member');
     await fresh({ members: ['alice'] });
@@ -339,6 +350,70 @@ function seedDoc(extra) {
       await assertFails(as('mallory').collection('users/alice/train').get());
     });
     await check('nobody lists the accounts', () => assertFails(as('alice').collection('users').get()));
+    await check('a training record is named by its year, as the app names one, and nothing else', async () => {
+      await assertFails(as('alice').doc('users/alice/train/zzz-999').set({ wo: {} }));
+      await assertFails(as('alice').doc('users/alice/train/20261').set({ wo: {} }));
+      await seed('users/alice/train/zzz-999', { wo: {} });
+      await assertSucceeds(as('alice').doc('users/alice/train/zzz-999').delete());
+    });
+
+    /* Firestore evaluates at most a thousand expressions a request, and these
+       rules spend most of them on every write: on 4 October the household's
+       heaviest writes had room for about ten more calls of the five-comparison
+       function below, and a draft that checked every map's values left a
+       phone joining a household none at all — it would have been refused, on
+       every phone, the day it was published. So each write the app makes is
+       made here with six of those calls added to the rule that judges it. A
+       change to the rules that eats the room fails here, not on a phone. */
+    section('Room to spare under Firestore’s limit of a thousand expressions');
+    const SPARE = 6;
+    const burner = '    function spare5(x) { return x == x && x == x && x == x && x == x && x == x; }\n';
+    const spare = Array(SPARE).fill('spare5(1)').join(' && ');
+    const tight = RULES.replace('    match /households/{code} {', burner + '    match /households/{code} {')
+      .replace('allow create: if request.auth != null\n', 'allow create: if request.auth != null && ' + spare + '\n')
+      .replace('allow update: if request.auth != null\n', 'allow update: if request.auth != null && ' + spare + '\n');
+    if (tight.split('spare5(1)').length - 1 !== 2 * SPARE) throw new Error('the room check no longer finds the household rules to add to');
+    const big = () => {
+      const d = seedDoc({ members: ['alice', 'bob'], diners: { bob: dn('Bob', 400, 40) }, lastInvite: 'x' });
+      for (let i = 0; i < 50; i++) {
+        d.favs.push('r' + i); d.mine['r' + i] = { id: 'r' + i, book: 3, name: 'R' + i, ing: ['a'], steps: ['b'] };
+        d.rate['r' + i] = 1; d.kitchen['k' + i] = 1; d.src['k' + i] = 's'; d.low['k' + i] = 1;
+        d.pantryNew['own_' + i] = { l: 'P' + i, c: 'Yours' };
+      }
+      return d;
+    };
+    const joining = () => {
+      const d = big();
+      return { favs: d.favs.concat(['r99']), mine: Object.assign(d.mine, { r99: { id: 'r99', book: 3, name: 'Hers', ing: [], steps: [] } }),
+        edits: Object.assign(d.edits, { 13: { name: 'Hers' } }), weeks: Object.assign(d.weeks, { d20261011: { name: '', ord: 9, plan: {}, checked: {} } }),
+        pantry: Object.assign(d.pantry, { oats: 1 }), pantryNew: Object.assign(d.pantryNew, { own_mace: { l: 'Mace', c: 'Yours' } }),
+        kitchen: Object.assign(d.kitchen, { kz: 1 }), src: Object.assign(d.src, { kz: 's' }), rate: Object.assign(d.rate, { r99: 2 }),
+        opts: Object.assign(d.opts, { fb: 0 }), low: Object.assign(d.low, { kz: 1 }) };
+    };
+    const heavy = [
+      ['a household made, with its maker listed and sharing', 'alice', (db) => db.doc('households/ROOM-NEW').set(seedDoc({ members: ['alice'], diners: { alice: dn('Alice', 550, 70) } }))],
+      ['a dinner\'s numbers shared', 'alice', (db) => db.doc(H).update({ 'diners.alice': dn('Alice', 550, 70) })],
+      ['an account leaving, and its numbers with it', 'bob', (db) => db.doc(H).update({ members: FV.arrayRemove('bob'), 'diners.bob': FV.delete() })],
+      ['an invite spent', 'carol', (db) => db.doc(H).update({ members: FV.arrayUnion('carol'), lastInvite: 'x'.repeat(24) })],
+      ['a recipe saved', 'alice', (db) => db.doc(H).update({ 'mine.r5': { id: 'r5', book: 3, name: 'Changed', ing: ['a'], steps: ['b'] } })],
+      ['a kitchen answer and its source, folded', 'alice', (db) => db.doc(H).update({ 'kitchen.salt': 0, 'src.salt': 'b' })],
+      ['a phone joining, adding to every map at once', 'dave', (db) => db.doc(H).set(joining(), { merge: true })],
+    ];
+    const roomy = await initializeTestEnvironment({
+      projectId: 'demo-storehouse-room',
+      firestore: { rules: tight, host: '127.0.0.1', port: emu.port }
+    });
+    try {
+      for (const [name, who, fn] of heavy) {
+        await check(name, async () => {
+          await roomy.clearFirestore();
+          await roomy.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc(H).set(big()); });
+          await assertSucceeds(fn(roomy.authenticatedContext(who).firestore()));
+        });
+      }
+    } finally {
+      await roomy.cleanup();
+    }
   } finally {
     if (env) await env.cleanup();
     emu.proc.kill();

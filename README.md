@@ -683,7 +683,12 @@ code, joining, a change made with no signal, the members list, invites. The Node
 above use a stand-in for Firestore; this is the real client against the real server,
 and it is how a rule that would refuse something the app does is caught before it is
 published. CI runs it on every pull request, and `rules.yml` runs it again before
-publishing the rules.
+publishing the rules. It also checks that every write the app makes leaves room under
+Firestore's limit of a thousand expressions a request, which these rules come near.
+
+`SETUP.md` hands out the same rules without their comments, for somebody setting up
+their own copy; `node tools/setup-rules.js` makes that block from `firestore.rules`,
+and `tests/setuprules.test.js` fails when the two differ.
 
 To check recipes against standard kitchen ratios — hydration and salt in yeasted
 dough, leavening per cup of flour, baking soda with nothing acidic to react
