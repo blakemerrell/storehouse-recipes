@@ -554,6 +554,9 @@ src/burn.js           what a day costs and where it lands you: the burn, the int
 src/dayflags.js       what you have said about a day: finished, trained, skipped, a card sent away, a miss sent on
 src/weighin.js        the weigh-in's store: the mornings you weighed, the unit the box asks in
 src/scale.js          what the scale says against the plan: the average, the spark, the plan's line, the jump, the pace
+src/morning.js        the morning card and the day's lines, with their "i" and "why?" notes
+src/weighcard.js      the weigh-in card on My Day: the box, the average, the plan's line, today's training
+src/budget.js         the day's budget: totals, whether the day is done, each meal's share of it
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
