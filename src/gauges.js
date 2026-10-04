@@ -226,7 +226,12 @@
         return '<span class="mmp spent' + (m === 'kcal' ? ' kc' : '') + '">' +
           '<span class="mmp-n"><span class="mmp-v">' +
           (got > 0 ? Math.round(got) : '&mdash;') + '</span>' +
-          '<i class="mb-' + m + '">' + g[1] + '</i></span></span>';
+          '<i class="mb-' + m + '">' + g[1] + '</i></span>' +
+          /* The rail stays, dashed and empty. Without it the pill was shorter
+             than its neighbours, sat out of line and read as broken (Blake,
+             2026-10-04: "These pills are not working"); the dashes are the
+             "nothing left for this today" the border used to say. */
+          '<span class="mmp-tr mmp-tr-none"></span></span>';
       }
       var gg = mGauge(got, want, day[m]);
       if (!gg) return '';

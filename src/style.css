@@ -1895,6 +1895,7 @@ select { max-width: 280px; }
    have — and the figure is an em dash rather than a nought, which would read
    as a meal sitting exactly on nothing. */
 .mmp.spent { opacity: 0.75; }
+.mmp-tr.mmp-tr-none { background: repeating-linear-gradient(90deg, var(--line-firm) 0 4px, transparent 4px 7px); }
 .mmp.spent .mmp-v { color: var(--muted); font-weight: 600; }
 .mmp.u .mmp-v { color: var(--ochre-text); }  .mmp.u .mmp-tr i { background: var(--dial-under); }
 .mmp.o .mmp-v { color: var(--dial-on); }     .mmp.o .mmp-tr i { background: var(--dial-on); }
