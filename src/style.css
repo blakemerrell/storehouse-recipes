@@ -7543,7 +7543,7 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
   margin-inline: -6px; padding-inline: 6px;
 }
 #macroSlots .mcard-row + .mcard-row.moved, #macroSlots .mcard-row.moved + .mcard-row { border-top-color: transparent; }
-#macroSlots .mcard-line .mitem-nm { flex: 1 1 auto; min-width: 84px; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+#macroSlots .mcard-line .mitem-nm { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
 #macroSlots .mcard-row .mitem-name { white-space: normal; overflow-wrap: break-word; text-align: left; font-family: var(--sans); font-size: 0.9375rem; line-height: 1.3; color: var(--ink); max-width: 100%; }
 /* Eaten is ink, planned is lighter (Blake: "Eaten shows a ✓ in normal text,
    planned looks lighter; no strike-through"). */
@@ -7558,8 +7558,9 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
   background: var(--field); font-family: var(--sans); font-size: 0.8125rem; font-weight: 600; color: var(--ink);
   cursor: pointer; white-space: nowrap;
 }
-.mcard-amt { max-width: 46%; min-width: 0; position: relative; }
-.mcard-amt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The amount is never cut short — it is the number this card is for. The
+   name wraps instead. */
+.mcard-amt { flex: none !important; position: relative; }
 .mcard-stk { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .mcard-g { font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
 .mcard-u { font-size: 0.8125rem; font-weight: 400; color: var(--note); white-space: nowrap; }
@@ -7582,6 +7583,7 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mcard-panel { background: var(--hint); border-radius: 10px; padding: 10px 12px 12px; margin: 0 -4px 8px; display: flex; flex-direction: column; gap: 9px; }
 .mcard-ptop { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .mcard-big { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
+.mcard-ptop .mcard-bigbw { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; padding: 2px 10px; }
 .mcard-big small { font-family: var(--sans); font-size: 0.8125rem; font-weight: 400; color: var(--note); margin-left: 6px; }
 .mcard-pmac { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8125rem; color: var(--note); }
 .mcard-dial { display: flex; align-items: center; gap: 10px; }

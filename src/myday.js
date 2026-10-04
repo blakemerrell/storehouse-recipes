@@ -449,14 +449,18 @@
 
     var panelHTML = function (sk, r, it, tag, pinned, onPlan) {
       var port = mPortion(r, it.x);
+      var amtAll = amtText(r, it.x), amtCut = amtAll.indexOf(' · ');
+      var amtParts = amtCut < 0 ? [amtAll, ''] : [amtAll.slice(0, amtCut), amtAll.slice(amtCut + 3)];
       var spent = it.eaten && S.mEdit !== tag;
       var xs = slideXs(r, it.x), at = xs.indexOf(it.x);
       var sg = !r.food && mServeG(r);
       return '<div class="mcard-panel no-print" role="group" aria-label="' + esc(r.name) + '">' +
         '<div class="mcard-ptop">' +
-          '<b class="mcard-big num">' + esc(port.head) + '</b>' +
-          /* A recipe's plate says what it weighs, and a tap weighs the batch. */
-          (sg ? '<button class="mitem-uom mitem-bw' + (sg.est ? ' est' : '') + '" data-mbatch="' + tag +
+          /* Grams first, then the measure (Blake, 2026-10-04: "Grams first and
+             then shows me the real measurement"). A recipe's weight is the
+             batch button, which weighs the batch when tapped. */
+          (sg ? '' : '<b class="mcard-big num">' + esc(amtParts[0]) + '</b>') +
+          (sg ? '<button class="mitem-uom mitem-bw mcard-bigbw' + (sg.est ? ' est' : '') + '" data-mbatch="' + tag +
             '" aria-expanded="' + (S.mBatchOpen === tag ? 'true' : 'false') + '" aria-label="' +
             (sg.est ? 'About ' : '') + Math.round(sg.g * it.x) + ' grams on this plate — weigh the batch">' +
             (sg.est ? '~' : '') + Math.round(sg.g * it.x) + ' g</button>' : '') +
@@ -464,7 +468,7 @@
         /* The kitchen's word is the chip on the cost line, where the eye
            already is: the dial is in grams, "1 cup" is how you measure it. */
         '<div class="mcard-pmac mitem-r2">' + mWhyChip(it, tag) +
-          (!sg && port.detail ? '<span class="mitem-uom">' + esc(port.detail) + '</span>' : '') +
+          (amtParts[1] ? '<span class="mitem-uom">' + esc(amtParts[1]) + '</span>' : (!sg && port.detail ? '<span class="mitem-uom">' + esc(port.detail) + '</span>' : '')) +
           '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' + mSaltChip(r, it.x) + '</div>' +
         mWhyStrip(it, tag) + mBatchStrip(r, it, tag) +
         /* Eaten is a record, not a dial: once ticked, the steps go quiet and
@@ -491,7 +495,7 @@
         (xs.length > 1
           ? '<input type="range" class="mcard-slide" data-mslide="' + tag + '" min="0" max="' + (xs.length - 1) +
             '" step="1" value="' + Math.max(0, at) + '"' + (spent ? ' disabled' : '') +
-            ' data-xs="' + xs.join(',') + '" data-ls="' + esc(xs.map(function (v) { return mPortion(r, v).head; }).join('|')) + '"' +
+            ' data-xs="' + xs.join(',') + '" data-ls="' + esc(xs.map(function (v) { return amtText(r, v); }).join('|')) + '"' +
             ' aria-label="Portion of ' + esc(r.name) + '" aria-valuetext="' + esc(amtText(r, it.x)) + '">'
           : '') +
         '<div class="mcard-icons">' +

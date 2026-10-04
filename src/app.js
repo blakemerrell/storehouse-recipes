@@ -5577,8 +5577,11 @@
       var sl = e.target.closest && e.target.closest('[data-mslide]');
       if (!sl) return;
       var ls = String(sl.dataset.ls || '').split('|'), lab = ls[Number(sl.value)] || '';
-      var pn = sl.closest('.mcard-panel'), big = pn && pn.querySelector('.mcard-big');
-      if (big) big.textContent = lab;
+      /* grams first on the big line, the measure on the chip, as drawn */
+      var pn = sl.closest('.mcard-panel'), big = pn && pn.querySelector('.mcard-big, .mcard-bigbw');
+      var chip = pn && pn.querySelector('.mcard-pmac .mitem-uom'), cut = lab.indexOf(' \u00b7 ');
+      if (big) big.textContent = cut < 0 ? lab : lab.slice(0, cut);
+      if (chip && cut >= 0) chip.textContent = lab.slice(cut + 3);
       sl.setAttribute('aria-valuetext', lab);
     });
     $('macroSlots').addEventListener('change', function (e) {

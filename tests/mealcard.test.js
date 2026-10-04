@@ -170,6 +170,37 @@ module.exports = {
     const eatSay = await p.evaluate(() => (document.querySelector('[data-mfold="l"]').closest('.mslot').querySelector('.mcard-say') || {}).textContent);
     t.ok('the tick on a folded meal marks every food on it eaten', ate.every((it) => it.eaten) && eatSay === 'Eaten', eatSay);
 
+    /* ---- a scoop: grams first, in quarters; no amount is ever cut short ----
+       Blake, of whey: "I need that to be in grams and to show me the amount of
+       scoops... a quarter scoop or half a scoop or 3/4 scoop... Grams first
+       and then shows me the real measurement." And of the boxes: "gets
+       cropped that's kind of a critical feature". */
+    await p.evaluate((d) => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const wrap = window.RECIPES.find((r) => /Buffalo Chicken Lettuce/i.test(r.name)) || window.RECIPES.find((r) => r.macro && r.name.length > 24);
+      days[d].d = [{ id: wrap.id, x: 1, eaten: 0 }, { id: 'f:whey', x: 1, eaten: 0 }];
+      localStorage.setItem('bsc.macroDays', JSON.stringify(days));
+    }, DAY);
+    await p.reload();
+    await p.waitForTimeout(800);
+    await p.click('.tab[data-view="macros"]');
+    await p.waitForTimeout(400);
+    await p.click('[data-mfold="d"]');
+    await p.waitForTimeout(250);
+    await p.click('[data-mamt="d:1"]');
+    for (let i = 0; i < 3; i++) { await p.click('[data-mstep="d:1:down"]'); await p.waitForTimeout(150); }
+    const whey = await p.evaluate((d) => ({
+      x: JSON.parse(localStorage.getItem('bsc.macroDays'))[d].d[1].x,
+      pill: document.querySelector('[data-mamt="d:1"]').textContent,
+      big: document.querySelector('.mcard-panel .mcard-big').textContent,
+      chip: (document.querySelector('.mcard-panel .mitem-uom') || {}).textContent,
+      clipped: [...document.querySelectorAll('#macroSlots .mcard-amt')].filter((e) => e.scrollWidth > e.clientWidth + 1 ||
+        [...e.querySelectorAll('span')].some((s) => s.scrollWidth > s.clientWidth + 1)).map((e) => e.textContent),
+    }), DAY);
+    t.ok('a scoop steps in quarters', whey.x === 0.25, JSON.stringify(whey));
+    t.ok('and says grams first, then the scoop', whey.pill === '8 g · ¼ scoop' && whey.big === '8 g' && whey.chip === '¼ scoop', JSON.stringify(whey));
+    t.ok('and no amount on the day is cut short, a long recipe name beside it', whey.clipped.length === 0, JSON.stringify(whey.clipped));
+
     t.ok('no page errors', errs.length === 0, errs.join(' | '));
     await p.context().close();
   },

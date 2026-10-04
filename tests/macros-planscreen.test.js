@@ -611,7 +611,11 @@ module.exports = nourish({
       t.ok('typing 185 is a hundred and eighty-five grams', c2.dial === '185 g', JSON.stringify(c2));
       t.ok('stored as a share of the cup, not as servings', Math.abs(stored * cup.grams - 185) < 0.6, stored + ' × ' + cup.grams);
       const e0 = await row('b');
-      t.ok('but an egg still counts in ones', /^2 whole$/.test(e0.dial) && /\d+ g/.test(e0.chip), JSON.stringify(e0));
+      /* Grams first since 2026-10-04: the weight leads the panel and the
+         count is the chip and the dial. */
+      const eBig = await gp.evaluate(() => { const b = document.querySelector('[data-mstep="b:0:up"]');
+        const pn = b && b.closest('.mcard-panel'); return pn ? (pn.querySelector('.mcard-big') || {}).textContent : ''; });
+      t.ok('but an egg still counts in ones', /^2 whole$/.test(e0.dial) && /^\d+ g$/.test(eBig), JSON.stringify(e0) + ' ' + eBig);
       await gp.context().close();
     }
   },
