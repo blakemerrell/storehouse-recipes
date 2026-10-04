@@ -585,6 +585,12 @@ src/foodsearch.js     looking a food up in the food tables instead of guessing
 src/barcode.js        reading a barcode from a camera frame
 src/lookup.js         looking a code or a name up, and what a failed lookup says
 src/camera.js         the camera held over a packet, and the form for a food nobody knows
+src/plandays.js       the plan sheet's burn row, and the seven training-day toggles
+src/summary.js        the day's summary card: a sentence first, then the numbers
+src/plansheet.js      the plan sheet itself: the first-time steps, or the answer and the editor
+src/plansteps.js      walking the setup, what each step says back, the meals editor's rows
+src/planfacts.js      what the plan sheet says: protein, the facts, the status line, the coach
+src/planlive.js       keeping the plan sheet in step as you change it, and Save
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
