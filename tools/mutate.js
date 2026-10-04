@@ -36,8 +36,8 @@ const ROOT = path.join(__dirname, '..');
 const M = [
   ['shopping list stops adding duplicates together', 'src/list.js',
    'bucket[key].g += it.g * e.x;', 'bucket[key].g = it.g * e.x;'],
-  ['scaling is ignored', 'src/app.js',
-   "list.push({ id: id, x: x || 1 });", "list.push({ id: id, x: 1 });", 'src/sync.js'],
+  ['scaling is ignored', 'src/sync.js',
+   'var entry = { id: id, x: x || 1, lo: !!lo };', 'var entry = { id: id, x: 1, lo: !!lo };'],
   ['esc() stops escaping', 'src/app.js',
    ".replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')", '.replace(/\\u0000/g, "")'],
   ['leaf bands shift so everything looks good', 'src/app.js',

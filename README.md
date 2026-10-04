@@ -545,6 +545,9 @@ src/twocopies.js      two copies of My Day on one phone (two tabs) kept as one
 src/kitchen.js        the kitchen travels with the account: the household code on your record
 src/invites.js        invite links, and the pantry this phone shares
 src/signin.js         signed in: the listener on your record, retries, the push, deleting your account
+src/fit.js            what a plate scores against the day: the fit, the ranking, salt, a plate's line of numbers
+src/portion.js        a portion: its name, grams or the food's own unit, the steps, typed and back
+src/shares.js         how what is left of the day divides across the meals still to come
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
