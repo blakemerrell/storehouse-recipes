@@ -190,6 +190,18 @@
       any: (tot.p + tot.f + tot.c + (tot.kcal || 0)) > 0 };
   }
 
+  /* Another suggestion for one meal, and then the next one after that.
+   *
+   * Fill my day drafts everything at once and picks at random from the top
+   * three; the picker is for when you know what you want. Between them sits
+   * the commonest move of all — "not that, what else?" — which until now
+   * meant deleting a plate and opening the picker to take the next line down.
+   *
+   * So this walks the ranked list a step at a time, keeping a cursor per
+   * meal per day, and leaves alone the three kinds of plate that are not the
+   * machine's to swap: what you have eaten, what you have locked, and what
+   * you have pinned, because a pin is a standing instruction and this would
+   * only be arguing with it. */
   function mTryAgain(sk) {
     var k = mViewKey();
     S.mTouched = sk;                   // keep the meal you are cycling open
