@@ -441,6 +441,36 @@ module.exports = {
       ' food log:' + /food log/i.test(pol.text) +
       ' Firebase:' + /Firebase/i.test(pol.text));
 
+    /* Every outside service the app's own code reaches is named on it. On 4
+       October the page said nothing left the phone unless you synced, and
+       nothing went to any third party, while a food search went to the USDA
+       and a barcode to Open Food Facts. So: every https host quoted in the
+       app's code, and each must be named; a host nobody has written about
+       fails until the page says what goes there. */
+    {
+      const fs = require('fs'), path = require('path');
+      const root = path.join(__dirname, '..');
+      const named = {
+        'accounts.google.com': /Google/, 'apis.google.com': /Google/, 'www.gstatic.com': /Firebase/,
+        'storehouse-recipe-book.firebaseapp.com': /Firebase/, 'api.nal.usda.gov': /USDA/,
+        'world.openfoodfacts.org': /Open Food Facts/, 'www.walmart.com': /Walmart/,
+        'www.youtube.com': /YouTube/, 'buy.stripe.com': /Stripe/,
+      };
+      const files = fs.readdirSync(path.join(root, 'src')).filter((f) => f.endsWith('.js'))
+        .map((f) => path.join(root, 'src', f)).concat([path.join(root, 'index.html'), path.join(root, 'sw.js')]);
+      const hosts = new Set();
+      files.forEach((f) => {
+        const re = /['"]https:\/\/([a-z0-9.-]+)/gi;
+        let m;
+        const text = fs.readFileSync(f, 'utf8');
+        while ((m = re.exec(text))) hosts.add(m[1].toLowerCase());
+      });
+      const missing = [...hosts].filter((h) => !named[h] || !named[h].test(pol.text));
+      t.ok('and names every outside service the app\'s code reaches (' + hosts.size + ' hosts)',
+        hosts.size >= 5 && missing.length === 0,
+        missing.map((h) => named[h] ? h + ' (the page does not say ' + named[h] + ')' : h + ' (new: say on the policy what goes there, then name it here)').join('; '));
+    }
+
     t.ok('and says how to delete an account from inside the app',
       /Delete my account/i.test(pol.text) && /SYNC/.test(pol.text), '');
 
