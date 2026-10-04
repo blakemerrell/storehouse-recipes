@@ -2051,6 +2051,69 @@ module.exports = nourish({
     t.ok('every meal on the plan gets something, not just most of them',
       drafted.perSlot.every((n) => n >= 1), drafted.perSlot.join(','));
     t.ok('and never the same recipe twice in a day', drafted.unique);
+    t.ok('the draft chases the protein target',
+      drafted.tot.p >= 0.6 * planP, Math.round(drafted.tot.p) + ' of ' + planP);
+    t.ok('without blowing the fat budget wide open',
+      drafted.tot.f <= planF + 30, Math.round(drafted.tot.f) + ' vs ' + planF);
+    /* It stops SAYING Fill exactly when there is nothing left to draft — and
+       says the next useful thing instead of going dead, which is the whole
+       point of merging the tick into it. Fill stops once a meal's remaining
+       budget is under a hundred calories, so on a tight plan it can honestly
+       leave the last one empty, and then the button is rightly still Fill.
+       Asserting "always done after Fill" made this a coin toss on which
+       meals the draft happened to reach. */
+    t.ok('the button stops offering to fill exactly when every meal has something',
+      (drafted.fillMode !== 'fill') === drafted.perSlot.every((n) => n >= 1),
+      'mode=' + drafted.fillMode + ' slots=' + drafted.perSlot.join(','));
+
+    /* One press has to produce a day you could actually eat to. Four dishes
+       sized against their own shares land the day near the target but not on
+       it, so Fill settles the portions and then closes what is left with a
+       single food. Judged against the app's OWN target for the day, which is
+       the cycled one — the base plan is not what any single day is aiming at.
+       The tolerance is a real day's worth of slack, not a rounding error. */
+    const kcalBar = drafted.bars.find((b) => b.m === 'kcal');
+    const pBar = drafted.bars.find((b) => b.m === 'p');
+    t.ok('a drafted day lands on the day\'s own calorie target',
+      Math.abs(kcalBar.have - kcalBar.want) <= kcalBar.want * 0.10,
+      kcalBar.have + ' of ' + kcalBar.want);
+    t.ok('and does not leave the protein behind to get there',
+      pBar.have >= pBar.want * 0.88, pBar.have + ' of ' + pBar.want + ' g');
+    /* A topper finishes a day; it does not become the day. */
+    t.ok('and tops up with at most a couple of single foods',
+      drafted.foods <= 2, drafted.foods + ' foods');
+
+    /* Only the empty meals are drafted — what you placed is yours. Recorded
+       per meal that actually has something, since a tight plan can leave one
+       of them empty and that is not this assertion's business. */
+    const keepIds = await q.evaluate(() => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const day = days[Object.keys(days)[0]];
+      const out = {};
+      ['b', 'd', 's'].forEach((k) => {
+        if ((day[k] || []).length) out[k] = String(day[k][0].id);
+      });
+      return out;
+    });
+    await q.click('[data-mdel="l:0"]');
+    await q.waitForTimeout(200);
+    await q.click('#macroFill');
+    await q.waitForTimeout(300);
+    /* Lunch gets a dish again. It may also get a single food on top: the
+       topper finishes the DAY and lands on whichever meal is shortest, which
+       can be the one just refilled. Asserting exactly one item there made
+       this pass or fail on Fill's random pick from the top three. */
+    const refill = await q.evaluate((keep) => {
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const day = days[Object.keys(days)[0]];
+      const dishes = (day.l || []).filter((it) => String(it.id).indexOf('f:') !== 0);
+      return { ok: dishes.length === 1 && Object.keys(keep).every(
+        (k) => (day[k] || []).length && String(day[k][0].id) === keep[k]),
+        l: (day.l || []).map((it) => String(it.id)), keep };
+    }, keepIds);
+    t.ok('refilling touches only the meal that was emptied', refill.ok, JSON.stringify(refill));
+
+    await q.context().close();
 
     /* Fill is an offer to build out the EMPTY meals. It was resizing the full
        ones too: a hand-placed 1,139 kcal Slow-Cooker Pulled Beef on dinner at
@@ -6224,68 +6287,5 @@ module.exports = nourish({
       await noRoom.evaluate(() =>
         document.querySelectorAll('.mitem, .mcard-shut').length + ' plates drafted'));
     await noRoom.context().close();
-    t.ok('the draft chases the protein target',
-      drafted.tot.p >= 0.6 * planP, Math.round(drafted.tot.p) + ' of ' + planP);
-    t.ok('without blowing the fat budget wide open',
-      drafted.tot.f <= planF + 30, Math.round(drafted.tot.f) + ' vs ' + planF);
-    /* It stops SAYING Fill exactly when there is nothing left to draft — and
-       says the next useful thing instead of going dead, which is the whole
-       point of merging the tick into it. Fill stops once a meal's remaining
-       budget is under a hundred calories, so on a tight plan it can honestly
-       leave the last one empty, and then the button is rightly still Fill.
-       Asserting "always done after Fill" made this a coin toss on which
-       meals the draft happened to reach. */
-    t.ok('the button stops offering to fill exactly when every meal has something',
-      (drafted.fillMode !== 'fill') === drafted.perSlot.every((n) => n >= 1),
-      'mode=' + drafted.fillMode + ' slots=' + drafted.perSlot.join(','));
-
-    /* One press has to produce a day you could actually eat to. Four dishes
-       sized against their own shares land the day near the target but not on
-       it, so Fill settles the portions and then closes what is left with a
-       single food. Judged against the app's OWN target for the day, which is
-       the cycled one — the base plan is not what any single day is aiming at.
-       The tolerance is a real day's worth of slack, not a rounding error. */
-    const kcalBar = drafted.bars.find((b) => b.m === 'kcal');
-    const pBar = drafted.bars.find((b) => b.m === 'p');
-    t.ok('a drafted day lands on the day\'s own calorie target',
-      Math.abs(kcalBar.have - kcalBar.want) <= kcalBar.want * 0.10,
-      kcalBar.have + ' of ' + kcalBar.want);
-    t.ok('and does not leave the protein behind to get there',
-      pBar.have >= pBar.want * 0.88, pBar.have + ' of ' + pBar.want + ' g');
-    /* A topper finishes a day; it does not become the day. */
-    t.ok('and tops up with at most a couple of single foods',
-      drafted.foods <= 2, drafted.foods + ' foods');
-
-    /* Only the empty meals are drafted — what you placed is yours. Recorded
-       per meal that actually has something, since a tight plan can leave one
-       of them empty and that is not this assertion's business. */
-    const keepIds = await q.evaluate(() => {
-      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
-      const day = days[Object.keys(days)[0]];
-      const out = {};
-      ['b', 'd', 's'].forEach((k) => {
-        if ((day[k] || []).length) out[k] = String(day[k][0].id);
-      });
-      return out;
-    });
-    await q.click('[data-mdel="l:0"]');
-    await q.waitForTimeout(200);
-    await q.click('#macroFill');
-    await q.waitForTimeout(300);
-    /* Lunch gets a dish again. It may also get a single food on top: the
-       topper finishes the DAY and lands on whichever meal is shortest, which
-       can be the one just refilled. Asserting exactly one item there made
-       this pass or fail on Fill's random pick from the top three. */
-    const refill = await q.evaluate((keep) => {
-      const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
-      const day = days[Object.keys(days)[0]];
-      const dishes = (day.l || []).filter((it) => String(it.id).indexOf('f:') !== 0);
-      return { ok: dishes.length === 1 && Object.keys(keep).every(
-        (k) => (day[k] || []).length && String(day[k][0].id) === keep[k]),
-        l: (day.l || []).map((it) => String(it.id)), keep };
-    }, keepIds);
-    t.ok('refilling touches only the meal that was emptied', refill.ok, JSON.stringify(refill));
-
-    await q.context().close();
   },
 });
