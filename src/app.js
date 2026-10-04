@@ -3746,8 +3746,6 @@
     ['dairy',   '\uD83E\uDDC0', 'Dairy'],
     ['oil',     '\uD83E\uDED2', 'Oils'],
   ];
-  var MSHELF_NAME = {}, MSHELF_EMO = {};
-  MSHELF.forEach(function (s) { MSHELF_EMO[s[0]] = s[1]; MSHELF_NAME[s[0]] = s[2]; });
 
   var MDAIRY = ['milk', 'cheddar', 'parmesan', 'cottage_cheese', 'cream_cheese',
     'sour_cream', 'yogurt', 'egg'];
