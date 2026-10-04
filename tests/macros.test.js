@@ -4769,8 +4769,13 @@ module.exports = {
      * same way the sync door is counted — and asks two things of it: each
      * branch reaches the wipe through ask(), and the wipe names every My Day
      * key the file writes, since bsc.macroSend was once left off it and the
-     * previous person's share choices reloaded into the next account. */
-    const sources = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'app.js'), 'utf8');
+     * previous person's share choices reloaded into the next account.
+     * Every script the page loads: the wipe itself is in src/clock.js now,
+     * app.js keeping a one-line mForgetDay that calls it, and My Day's
+     * stores are written from the parts as well as from app.js. */
+    const fsW = require('fs'), pathW = require('path'), rootW = pathW.join(__dirname, '..');
+    const sources = [...fsW.readFileSync(pathW.join(rootW, 'index.html'), 'utf8').matchAll(/<script src="(src\/[^"?]+\.js)/g)]
+      .map((m) => fsW.readFileSync(pathW.join(rootW, m[1]), 'utf8')).join('\n');
     const wipes = ['pull', 'out', 'delete'].map((act) => {
       const at = sources.indexOf("if (act2 === '" + act + "')");
       const next = sources.indexOf('if (act2 ===', at + 10);
@@ -4780,7 +4785,8 @@ module.exports = {
     });
     t.ok('sign out, pull and delete each ask before emptying this device',
       wipes.every((w) => /asked$/.test(w)), wipes.join(' '));
-    const wipeList = sources.slice(sources.indexOf('function mForgetDay()'), sources.indexOf('function mForgetDay()') + 900);
+    const wipeAt = sources.search(/function mForgetDay\(\) \{(?! return \w+\.mForgetDay\(\); \})/);
+    const wipeList = wipeAt < 0 ? '' : sources.slice(wipeAt, wipeAt + 900);
     /* Every write of a My Day store goes through mPut now, which says so when
        the phone is full; a few still call setItem. Both are writes. */
     const storedKeys = Array.from(new Set((sources.match(/(?:setItem|mPut)\('bsc\.(macro\w+|myFoods|myStamps|myOwner)'/g) || [])
@@ -10583,11 +10589,18 @@ module.exports = {
        declaration, and the one setter that tells anybody.
      *
        Read from the repository, the way the wipe check above reads it, and
-       not fetched from the page: the built site serves app.js minified, where
+       not fetched from the page: the built site serves the scripts minified, where
        a local like this one is renamed, so the served text says nothing about
        how many places assign it. The source is what the rule is about. */
-    const doors = (require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'app.js'), 'utf8')
-      .match(/S_SYNC_STATE\s*=\s/g) || []).length;
+    /* Every script the page loads, since the door itself (mSyncState) lives
+       in src/daysync.js now and app.js keeps the declaration. The getter and
+       setter in app.js's LIVE are how a part reaches the variable at all, not
+       a door: the part's one write through it is. */
+    const fs0 = require('fs'), path0 = require('path'), root0 = path0.join(__dirname, '..');
+    const every = [...fs0.readFileSync(path0.join(root0, 'index.html'), 'utf8').matchAll(/<script src="(src\/[^"?]+\.js)/g)]
+      .map((m) => fs0.readFileSync(path0.join(root0, m[1]), 'utf8')).join('\n');
+    const doors = (every.match(/S_SYNC_STATE\s*=\s/g) || []).length -
+      (every.match(/set S_SYNC_STATE\(v\) \{ S_SYNC_STATE = v; \}/g) || []).length;
     t.ok('every sync transition still goes through the one door that tells you',
       doors === 2, doors + ' assignments — one of them is not the setter');
 
