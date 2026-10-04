@@ -579,6 +579,12 @@ src/closers.js        three foods that close the day, one per macro
 src/query.js          a typed number in the picker, and the band that answers it
 src/shelves.js        the shelves a food sits on, and which one it goes on
 src/pickhome.js       the picker's home list, and redrawing only the list while you type
+src/goalwords.js      the plan sheet's words: the goal names, the line under each, the status line
+src/account.js        the personal half of the sharing sheet: signed in, and what the account carries
+src/foodsearch.js     looking a food up in the food tables instead of guessing
+src/barcode.js        reading a barcode from a camera frame
+src/lookup.js         looking a code or a name up, and what a failed lookup says
+src/camera.js         the camera held over a packet, and the form for a food nobody knows
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
