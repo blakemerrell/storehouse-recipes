@@ -548,6 +548,9 @@ src/signin.js         signed in: the listener on your record, retries, the push,
 src/fit.js            what a plate scores against the day: the fit, the ranking, salt, a plate's line of numbers
 src/portion.js        a portion: its name, grams or the food's own unit, the steps, typed and back
 src/shares.js         how what is left of the day divides across the meals still to come
+src/training.js       which days you train: the lifting days, a day's own targets, the carb cycle
+src/plans.js          the profile and the plans: goals, protein, body fat, the floor under every plan
+src/burn.js           what a day costs and where it lands you: the burn, the intake log, the measured burn, the plan
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
