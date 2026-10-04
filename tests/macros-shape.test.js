@@ -5,7 +5,65 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openPlan, asPlanned, pickRecipe, pickerList, openDay } = require('./fixtures/nourish.js');
+const { nourish, openPlan, pickRecipe, pickerList, openDay } = require('./fixtures/nourish.js');
+
+/* The RP-style day (Blake, 2026-10-04): every meal arrives folded to its
+   card, a meal opens as its own screen, and the verbs live behind a ⋯ —
+   the meal's (Try another, Save meal, Repeat a day, Skip) on its head, a
+   plate's (Swap, Pin, Remove) on the plate. These say "the way a thumb gets
+   there" once, so each step below can keep asking for what it always did. */
+const home = async (pg) => {
+  await pg.evaluate(() => {
+    const b = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
+    if (b) b.click();
+  });
+  await pg.waitForTimeout(250);
+};
+/* A meal open by its key, or by its place on the day. */
+const openMeal = async (pg, sk) => {
+  const open = await pg.evaluate((k) => typeof k === 'number'
+    ? !![...document.querySelectorAll('#macroSlots .mslot')][k].querySelector('[data-mfold][aria-expanded="true"]')
+    : !!document.querySelector('#macroSlots [data-mfold="' + k + '"][aria-expanded="true"]'), sk);
+  if (open) return;
+  await home(pg);
+  await pg.evaluate((k) => {
+    const b = typeof k === 'number'
+      ? [...document.querySelectorAll('#macroSlots .mslot')][k].querySelector('[data-mfold]')
+      : document.querySelector('#macroSlots [data-mfold="' + k + '"][aria-expanded="false"]');
+    if (b) b.click();
+  }, sk);
+  await pg.waitForTimeout(250);
+};
+const mealMenu = async (pg, sk) => {
+  await openMeal(pg, sk);
+  await pg.evaluate((k) => {
+    const b = document.querySelector('[data-mmenu="' + k + '"]');
+    if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
+  }, sk);
+  await pg.waitForTimeout(200);
+};
+const foodMenu = async (pg, tag) => {
+  await openMeal(pg, tag.split(':')[0]);
+  await pg.evaluate((k) => {
+    const b = document.querySelector('[data-mfmenu="' + k + '"]');
+    if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
+  }, tag);
+  await pg.waitForTimeout(200);
+};
+/* Every plate on a meal back to a plan. There is no per-plate tick any
+   more; the meal's tick completes or un-completes the whole meal, so one
+   press clears an eaten meal and two clear a half-eaten one. */
+const asPlanned = async (pg, sk) => {
+  for (let i = 0; i < 2; i++) {
+    const any = await pg.evaluate((k) => {
+      const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      return Object.values(d).some((day) => (day[k] || []).some((it) => it.eaten));
+    }, sk);
+    if (!any) break;
+    await pg.click('#macroSlots [data-mdot="' + sk + '"]');
+    await pg.waitForTimeout(200);
+  }
+};
 
 module.exports = nourish({
   name: 'Macros — your meals, locks and pins, and signing in',
@@ -55,7 +113,8 @@ module.exports = nourish({
 
     // put something on the brew and on Lunch, for the two tests that follow
     for (const which of [0, 2]) {
-      await m.evaluate((n) => document.querySelectorAll('[data-mslot]')[n].click(), which);
+      await openMeal(m, which);
+      await m.evaluate((n) => [...document.querySelectorAll('#macroSlots .mslot')][n].querySelector('[data-mslot]').click(), which);
       await pickerList(m);
       await m.waitForTimeout(250);
       /* A RECIPE, because what follows opens the plate as a recipe and scales
@@ -93,6 +152,7 @@ module.exports = nourish({
       (await m.textContent('.scaler-val')) + ' — wanted ' + fmt(snapped) + '× (x' + port.x + ', serves ' + port.servN + ')');
     await m.goBack();
     await m.waitForTimeout(250);
+    await home(m);
 
     /* Removing a meal from the plan does not remove its history: the plate
        logged under Lunch keeps its card and keeps counting. */
@@ -112,11 +172,17 @@ module.exports = nourish({
         const names = [...document.querySelectorAll('#macroSlots .mslot-name')].map((n) => n.textContent);
         return names.length === 5 && names.indexOf('Lunch') === 4;
       }), (await slotNames()).join(' | '));
+    /* Asked of the meal OPEN: on the day every meal is a card with no Add
+       on it (2026-10-04), so the folded card would pass against the bug. */
+    await openMeal(m, 4);
     t.ok('but loses its Add button — it is history, not a plan',
       await m.evaluate(() => {
         const cards = document.querySelectorAll('#macroSlots .mslot');
-        return !cards[cards.length - 1].querySelector('.mslot-add');
-      }));
+        const last = cards[cards.length - 1];
+        return last.classList.contains('mscreen') && !!last.querySelector('.mitem') &&
+          !last.querySelector('.mslot-add') && !last.querySelector('[data-mmenu]');
+      }), await m.evaluate(() => [...document.querySelectorAll('#macroSlots .mslot')].map((c) => c.className).join(' | ')));
+    await home(m);
     t.ok('and its grams still count',
       (await m.evaluate(() => document.querySelector('.mb-num').textContent)) === beforeP);
 
@@ -128,6 +194,7 @@ module.exports = nourish({
     await z.waitForTimeout(150);
 
     // the picker's sort is a lens: order changes, portions stay
+    await openMeal(z, 'b');
     await z.click('[data-mslot="b"]');
     await pickerList(z);
     await z.waitForTimeout(200);
@@ -203,8 +270,10 @@ module.exports = nourish({
     const protGap = () => z.evaluate(() =>
       Number(document.querySelector('.mbrow[data-macro="p"] .mb-d').dataset.d));
     const leftBefore = await protGap();
+    await home(z);                          // the bar steps aside while a meal is open
     await z.click('#macroRebal');
     await z.waitForTimeout(250);
+    await openMeal(z, 'b');
     t.ok('Rebalance grows a shrunken plate back toward the day',
       await z.evaluate(() => document.querySelector('.mstep-x').textContent !== '×¼'),
       await z.textContent('.mstep-x'));
@@ -217,12 +286,14 @@ module.exports = nourish({
        the ranked list a step at a time. */
     const firstPick = await z.evaluate(() =>
       document.querySelector('.mitem-name').dataset.open);
+    await mealMenu(z, 'b');
     await z.click('[data-mtry="b"]');
     await z.waitForTimeout(250);
     const second = await z.evaluate(() =>
       document.querySelector('.mitem-name').dataset.open);
     t.ok('Try again swaps the plate for another one',
       second && second !== firstPick, firstPick + ' → ' + second);
+    await mealMenu(z, 'b');
     await z.click('[data-mtry="b"]');
     await z.waitForTimeout(250);
     const third = await z.evaluate(() =>
@@ -257,6 +328,7 @@ module.exports = nourish({
       document.querySelector('[data-mlock="b:0"]').getAttribute('aria-pressed') === 'true'));
     for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
+    await mealMenu(z, 'b');
     t.ok('a locked plate is not the machine\u2019s to swap, nor joined by another',
       await z.evaluate(async () => {
         const before = document.querySelector('.mitem-name').dataset.open;
@@ -272,6 +344,7 @@ module.exports = nourish({
       await z.evaluate(() => document.getElementById('macroRebal').disabled));
 
     // a custom meal draws from exactly the boxes it ticked
+    await home(z);
     await openPlan(z);
     await z.waitForTimeout(200);
     await z.selectOption('#mtMeals .mtm-row:first-child .mtm-type', 'x');
@@ -312,6 +385,7 @@ module.exports = nourish({
     });
     await z.click('[data-mtarg="save"]');
     await z.waitForTimeout(300);
+    await openMeal(z, 'b');
     await z.click('[data-mslot="b"]');
     await pickerList(z);
     await z.waitForTimeout(200);
@@ -343,6 +417,7 @@ module.exports = nourish({
     });
     await z.goBack();
     await z.waitForTimeout(250);
+    await home(z);
     await openPlan(z);
     await z.waitForTimeout(200);
     /* The kind defaults are 20/25/35/10 — a 90 — and the save that switched
@@ -355,6 +430,7 @@ module.exports = nourish({
     await z.fill('#mtMeals .mtm-row:first-child .mtm-share', '60');
     await z.click('[data-mtarg="save"]');
     await z.waitForTimeout(300);
+    await openMeal(z, 'b');
     await z.click('[data-mslot="b"]');
     await pickerList(z);
     await z.waitForTimeout(200);
@@ -405,6 +481,7 @@ module.exports = nourish({
     await y.waitForTimeout(300);
 
     // pin a plate; a brand-new today arrives with it already served
+    await openMeal(y, 'b');
     await y.click('[data-mslot="b"]');
     await pickerList(y);
     await y.waitForTimeout(200);
@@ -415,8 +492,10 @@ module.exports = nourish({
       const b = document.querySelector('.mitem-name');
       return { id: b.dataset.open, x: Number(b.dataset.mx) };
     });
+    await foodMenu(y, 'b:0');
     await y.click('[data-mpin="b:0"]');
     await y.waitForTimeout(200);
+    await foodMenu(y, 'b:0');
     t.ok('the pin takes hold on the plate and in the meal',
       await y.evaluate((id) => {
         const btn = document.querySelector('[data-mpin="b:0"]');
@@ -429,6 +508,7 @@ module.exports = nourish({
     await y.reload();
     await y.waitForTimeout(400);
     await openDay(y);
+    await foodMenu(y, 'b:0');
     t.ok('a new day wakes up with the routine already on it',
       await y.evaluate(([id, x]) => {
         const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
@@ -436,6 +516,7 @@ module.exports = nourish({
         return day.b.length === 1 && String(day.b[0].id) === id && day.b[0].x === x &&
           document.querySelector('[data-mpin="b:0"]').getAttribute('aria-pressed') === 'true';
       }, [pinned.id, pinned.x]));
+    await foodMenu(y, 'b:0');
     await y.click('[data-mpin="b:0"]');
     await y.waitForTimeout(200);
     t.ok('unpinning stops tomorrow but keeps today’s copy',
@@ -453,6 +534,7 @@ module.exports = nourish({
       return picks.map((r) => String(r.id));
     });
     await y.waitForTimeout(300);
+    await openMeal(y, 'd');
     await y.click('[data-mslot="d"]');
     await pickerList(y);
     await y.waitForTimeout(200);
@@ -483,8 +565,10 @@ module.exports = nourish({
     /* The day, as plain text, for typing into whatever else you keep. */
     await y.goBack();                       // the family picker is still up
     await y.waitForTimeout(250);
+    await home(y);
     await y.click('#macroFill');
     await y.waitForTimeout(400);
+    await openMeal(y, 'b');
 
     /* A personal portion must not become the household's batch. A recipe
        opened from My Day arrives scaled to make one plate — an eighth of a
@@ -510,6 +594,7 @@ module.exports = nourish({
         await y.evaluate(() => JSON.stringify(window.Store.day('mon').map((e) => e.x))));
     await y.goBack();
     await y.waitForTimeout(250);
+    await home(y);
 
     await y.fill('#mWeight', '188.6');
     await y.dispatchEvent('#mWeight', 'change');
@@ -764,6 +849,7 @@ module.exports = nourish({
         .filter((r) => typeof r.secNum !== 'number').map((r) => r.secNum))));
     await a2.click('.tab[data-view="macros"]');
     await a2.waitForTimeout(200);
+    await openMeal(a2, 'b');
     await a2.click('[data-mslot="b"]');
     await pickerList(a2);
     await a2.waitForTimeout(300);
@@ -771,6 +857,7 @@ module.exports = nourish({
       await a2.evaluate(() => !window.__pwned && !document.querySelector('img[src="x"]')));
     await a2.goBack();
     await a2.waitForTimeout(250);
+    await home(a2);
     await openPlan(a2);
     await a2.waitForTimeout(300);
     await a2.evaluate(() => {

@@ -7,6 +7,25 @@
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
 const { nourish } = require('./fixtures/nourish.js');
 
+/* Since 2026-10-04 (Blake: "the RP Diet way") the day is a list of folded meal
+   cards and a press on one opens that meal as its own screen, with the rest of
+   the day stepped aside. A meal's plates and its Add are behind that press, so
+   a test reaching for them opens the meal the way a thumb does — coming back
+   to the day first if another meal is the one on screen. */
+async function openMeal(pg, sk) {
+  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
+  if (back && (await back.getAttribute('data-mfold')) !== sk) {
+    await back.click();
+    await pg.waitForTimeout(250);
+  }
+  const b = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
+  if (b) { await b.click(); await pg.waitForTimeout(250); }
+}
+async function backToDay(pg) {
+  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
+  if (back) { await back.click(); await pg.waitForTimeout(250); }
+}
+
 module.exports = nourish({
   name: 'Macros — the plan screen, pins, and the solver',
   async suite(t) {
@@ -207,14 +226,32 @@ module.exports = nourish({
     await pinPg.evaluate(() => document.fonts.ready);
     await pinPg.click('.tab[data-view="macros"]');
     await pinPg.waitForTimeout(300);
+    /* A folded day card names no foods (2026-10-04, RP-style), so the page
+       text alone would pass here whatever the day held. Read the stored day,
+       and breakfast's own screen, where the plate would be. */
+    const pinB = () => pinPg.evaluate(() => {
+      const p2 = (n) => (n < 10 ? '0' : '') + n;
+      const d = new Date();
+      const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const day = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}')[k] || {};
+      return (day.b || []).map((it) => it.id);
+    });
+    await openMeal(pinPg, 'b');
+    const pinArrive = (await pinPg.innerText('#view-macros')).replace(/\s+/g, ' ');
+    const pinArriveB = await pinB();
     t.ok('an emptied day is not re-seeded with its pins just by arriving',
-      !/Crio Bru/.test(await pinPg.innerText('#view-macros')));
+      !/Crio Bru/.test(pinArrive) && pinArriveB.indexOf('f:crio_bru') < 0,
+      JSON.stringify(pinArriveB) + ' ' + pinArrive.slice(0, 200));
+    await backToDay(pinPg);
 
     await pinPg.click('#macroFill');
     await pinPg.waitForTimeout(900);
+    await openMeal(pinPg, 'b');
     const pinDay = (await pinPg.innerText('#view-macros')).replace(/\s+/g, ' ');
     t.ok('but Fill puts the pin back, because a pin is a standing instruction',
-      /Crio Bru/.test(pinDay), pinDay.slice(0, 200));
+      /Crio Bru/.test(pinDay) && (await pinB()).indexOf('f:crio_bru') >= 0, pinDay.slice(0, 200));
+    // the meal's kcal pill is on its day card, so back to the day to read it
+    await backToDay(pinPg);
 
     /* The pin must not be the whole of breakfast. Read off the bench rather
        than the card's own number, which is formatted with a comma. */
@@ -448,6 +485,8 @@ module.exports = nourish({
     await auPg.click('.tab[data-view="macros"]');
     await auPg.waitForTimeout(300);
     const fitsOf = async (slotKey) => {
+      // Add foods sits at the foot of the open meal (2026-10-04)
+      await openMeal(auPg, slotKey);
       await auPg.click('[data-mslot="' + slotKey + '"]');
       await auPg.waitForTimeout(500);
       const rows = await auPg.evaluate(() => {
@@ -554,27 +593,14 @@ module.exports = nourish({
       await gp.reload();
       await gp.click('.tab[data-view="macros"]');
       await gp.waitForTimeout(400);
-      /* One fold at a time: a click redraws the card, and the rest of a list
-         taken before the click are elements that are no longer on the page. */
-      for (let i = 0; i < 8; i++) {
-        const more = await gp.evaluate(() => {
-          const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
-          if (b) b.click();
-          return !!b;
-        });
-        await gp.waitForTimeout(200);
-        if (!more) break;
-      }
-      /* Opening one meal folds the others, so a row is read with its meal
-         opened first. */
+      /* A meal opens as its own screen (2026-10-04), so a row is read with
+         its meal opened first — and the plate is found by its amount bar,
+         the per-food eaten tick it used to be found by having gone with that
+         redesign ("No individual foods ticks"). */
       const row = async (slot) => {
-        await gp.evaluate((s) => {
-          const b = document.querySelector('#macroSlots [data-mfold="' + s + '"][aria-expanded="false"]');
-          if (b) b.click();
-        }, slot);
-        await gp.waitForTimeout(200);
+        await openMeal(gp, slot);
         return gp.evaluate((s) => {
-          const it = document.querySelector('[data-meat^="' + s + ':0"]').closest('.mitem');
+          const it = document.querySelector('[data-mstep="' + s + ':0:up"]').closest('.mitem');
           return { dial: it.querySelector('.mstep-x').textContent.trim(),
             chip: (it.querySelector('.mitem-uom') || {}).textContent || '' };
         }, slot);
@@ -611,11 +637,12 @@ module.exports = nourish({
       t.ok('typing 185 is a hundred and eighty-five grams', c2.dial === '185 g', JSON.stringify(c2));
       t.ok('stored as a share of the cup, not as servings', Math.abs(stored * cup.grams - 185) < 0.6, stored + ' × ' + cup.grams);
       const e0 = await row('b');
-      /* Grams first since 2026-10-04: the weight leads the panel and the
-         count is the chip and the dial. */
-      const eBig = await gp.evaluate(() => { const b = document.querySelector('[data-mstep="b:0:up"]');
-        const pn = b && b.closest('.mcard-panel'); return pn ? (pn.querySelector('.mcard-big') || {}).textContent : ''; });
-      t.ok('but an egg still counts in ones', /^2 whole$/.test(e0.dial) && /^\d+ g$/.test(eBig), JSON.stringify(e0) + ' ' + eBig);
+      /* An egg's weight led a panel of its own earlier on 2026-10-04; the
+         RP-style food card that replaced it the same day has no panel, and
+         its chip carries a kitchen word only for a food dialled by the gram.
+         So the egg is held to counting in ones on the dial, with no weight
+         standing in for the count on its chip. */
+      t.ok('but an egg still counts in ones', /^2 whole$/.test(e0.dial) && !/^\d+ g$/.test(e0.chip.trim()), JSON.stringify(e0));
       await gp.context().close();
     }
   },

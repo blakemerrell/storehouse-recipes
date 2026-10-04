@@ -6,6 +6,15 @@
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
 const { nourish, openDay } = require('./fixtures/nourish.js');
 
+/* Opens one meal the way a thumb does, if it is not open already. Since the
+   RP-style day (Blake, 2026-10-04) every meal arrives as a folded day card —
+   except one still asking where its overflow goes — and a meal's plates and
+   verbs are only on its open screen. */
+async function openMeal(pg, sk) {
+  const b = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
+  if (b) { await b.click(); await pg.waitForTimeout(300); }
+}
+
 module.exports = nourish({
   name: 'Macros — targets that follow the scale, and the audits',
   async suite(t) {
@@ -172,7 +181,13 @@ module.exports = nourish({
       await ap.reload();
       await ap.click('.tab[data-view="macros"]');
       await ap.waitForTimeout(300);
+      /* Save meal lives in the open meal's ⋯ menu since the RP-style meal
+         screen (Blake, 2026-10-04): Lunch is opened and its menu pressed. */
+      await openMeal(ap, 'l');
+      await ap.click('#macroSlots [data-mmenu="l"]');
+      await ap.waitForTimeout(250);
       const keepOpen = await ap.$('[data-mkeep="l"]');
+      t.ok('the finished meal offers Save meal from its menu', !!keepOpen);
       if (keepOpen) {
         await keepOpen.click();
         await ap.waitForTimeout(200);
@@ -491,10 +506,12 @@ module.exports = nourish({
       await mp.waitForTimeout(500);
       await mp.click('.tab[data-view="macros"]');
       await mp.waitForTimeout(400);
-      await mp.evaluate(() => { document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click()); });
-      await mp.waitForTimeout(300);
+      /* The tick is the meal's since the RP-style meal (Blake, 2026-10-04:
+         "No individual foods ticks... I'll complete the whole meal"), so the
+         snack — one plate — is opened and its meal tick pressed. */
+      await openMeal(mp, 's');
       await mp.clock.fastForward('03:00');
-      await mp.evaluate(() => { const b = document.querySelector('[data-meat="s:0"]'); if (b) b.click(); });
+      await mp.evaluate(() => { const b = document.querySelector('#macroSlots [data-mdot="s"]'); if (b) b.click(); });
       await mp.waitForTimeout(400);
       const mid = await mp.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroDays')));
       t.ok('a tick after midnight lands on the plate it was pressed on, not the new day\'s',
@@ -519,12 +536,14 @@ module.exports = nourish({
       await dp.reload();
       await dp.click('.tab[data-view="macros"]');
       await dp.waitForTimeout(300);
-      await dp.evaluate(() => { document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click()); });
-      await dp.waitForTimeout(200);
+      /* The card's pills are on the folded day card (RP style, 2026-10-04);
+         the add is at the foot of the open meal, so Lunch is read shut and
+         then opened. */
       const cardSt = await dp.evaluate(() => {
         const sl = [...document.querySelectorAll('#macroSlots .mslot')].find((x) => /Lunch/.test(x.textContent));
         return [...sl.querySelectorAll('.mmp')].map((p) => ['u', 'o', 'x'].find((c) => p.classList.contains(c)) || '?');
       });
+      await openMeal(dp, 'l');
       await dp.evaluate(() => document.querySelector('.mslot-add[data-mslot="l"]').click());
       await dp.waitForTimeout(300);
       const sheetSt = await dp.evaluate(() => [...document.querySelectorAll('.mgp')].map((p) => {
@@ -552,8 +571,7 @@ module.exports = nourish({
       await dp.reload();
       await dp.click('.tab[data-view="macros"]');
       await dp.waitForTimeout(300);
-      await dp.evaluate(() => { document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click()); });
-      await dp.waitForTimeout(200);
+      await openMeal(dp, 's');
       await dp.click('.mitem [data-open="' + cookie + '"]');
       await dp.waitForTimeout(300);
       const sheet = await dp.evaluate(() => (document.querySelector('.sheet') || {}).textContent || '');
@@ -1155,17 +1173,17 @@ module.exports = nourish({
       await tp.reload();
       await tp.click('.tab[data-view="macros"]');
       await tp.waitForTimeout(400);
-      /* The folded list went with the meal card (2026-10-04): a shut meal is
-         three lines and its foods are a name line. The same promise holds for
-         the food lines of the open meal, which are what a thumb taps now. */
-      const oa = await tp.$('#macroOpenAll');
-      if (oa && /Open/i.test(await oa.textContent())) { await oa.click(); await tp.waitForTimeout(300); }
+      /* The folded list went with the meal card, and the meal card's food
+         lines went with the RP-style meal (Blake, 2026-10-04): every food is
+         its own card on the open meal. The same promise holds for those
+         cards, which are what a thumb taps now. */
+      await openMeal(tp, 'b');
       const hits = await tp.evaluate(() => {
-        const rows = [...document.querySelectorAll('#macroSlots .mcard-line')];
+        const rows = [...document.querySelectorAll('#macroSlots .mfood')];
         return rows.slice(0, 2).map((r, i) => {
           r.scrollIntoView({ block: 'center' });
           const b = r.getBoundingClientRect();
-          const at = (y) => rows.indexOf((document.elementFromPoint(b.left + 60, y) || document.body).closest('.mcard-line'));
+          const at = (y) => rows.indexOf((document.elementFromPoint(b.left + 60, y) || document.body).closest('.mfood'));
           return [at(b.top + 2), at(b.bottom - 2)].every((x) => x === i);
         });
       });

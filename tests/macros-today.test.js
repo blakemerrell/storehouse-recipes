@@ -426,31 +426,45 @@ module.exports = nourish({
       await pg.waitForTimeout(400);
       await pg.click('.tab[data-view="macros"]');
       await pg.waitForTimeout(350);
+      /* Skip lives behind an empty meal's ⋯ on its own screen since the
+         RP-style meal (2026-10-04): opened, its menu shown, skipped. A skip
+         that finds nothing to press is asserted, not swallowed. */
       for (const sk of skips) {
+        await pg.evaluate((s2) => {
+          const b = document.querySelector('#macroSlots [data-mfold="' + s2 + '"][aria-expanded="false"]');
+          if (b) b.click();
+        }, sk);
+        await pg.waitForTimeout(250);
+        await pg.evaluate((s2) => {
+          const m = document.querySelector('[data-mmenu="' + s2 + '"]');
+          if (m && m.getAttribute('aria-expanded') !== 'true') m.click();
+        }, sk);
+        await pg.waitForTimeout(200);
         await pg.evaluate((s2) => {
           const b = document.querySelector('[data-mskip="' + s2 + '"]');
           if (b) b.click();
         }, sk);
         await pg.waitForTimeout(250);
       }
+      if (skips.length) {
+        t.ok('the meals ' + skips.join(', ') + ' were skipped from their menus',
+          await pg.evaluate(() => document.querySelectorAll('#macroSlots .mslot-skipped').length), String(skips));
+      }
       return pg;
     };
-    /* Found by its NAME, and opened first. The Balance button moved to the
-       foot of the OPEN meal, so a folded lunch carries no [data-mbal] to find
-       the card by — and with one meal open at a time, lunch is usually the
-       folded one. The pills are read off the head either way. */
+    /* Found by its NAME, and read FOLDED. The meal's pills are on its day
+       card since the RP-style day (2026-10-04) — the open meal draws
+       capsules and no head pills — so a lunch left open is taken back to the
+       day first. */
     const lunchOf = (pg) => pg.evaluate(() => {
-      const card = [...document.querySelectorAll('.mslot')]
-        .find((c) => ((c.querySelector('.mslot-name') || {}).textContent || '') === 'Lunch');
-      const head = card && card.querySelector('[data-mfold]');
-      if (head && head.getAttribute('aria-expanded') === 'false') head.click();
-      /* opening draws the card again: read the new one */
-      const open = [...document.querySelectorAll('.mslot')]
+      const back = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
+      if (back) back.click();
+      const open = [...document.querySelectorAll('.mslot.mday-card')]
         .find((c) => ((c.querySelector('.mslot-name') || {}).textContent || '') === 'Lunch');
       const L = window.__macroLab.read();
       const meal = L.meals.find((m) => m.k === 'l') || { items: [] };
       return {
-        want: open ? [...open.querySelectorAll('.mmp')].map((e) =>
+        want: open ? [...open.querySelectorAll('.mcard-p .mmp')].map((e) =>
           Number(e.dataset.want) || 0) : null,
         kcal: Math.round(meal.items.reduce((n, i) => n + i.kcal * i.x, 0)),
         xs: meal.items.map((i) => i.x).join(','),
@@ -472,8 +486,12 @@ module.exports = nourish({
        empty meal from the sum; the button divided by every slot regardless —
        so the SAME two dishes solved to exactly the same portions on both of
        these days, while the cards above them printed different targets. */
-    /* lunchOf has already opened each lunch, which is what puts its Balance
-       button on the page at all. */
+    /* The scales are on the open lunch's head (2026-10-04), so each lunch is
+       opened to press them. */
+    for (const pg of [plain, withSkips]) {
+      await pg.evaluate(() => { const b = document.querySelector('#macroSlots [data-mfold="l"][aria-expanded="false"]'); if (b) b.click(); });
+      await pg.waitForTimeout(250);
+    }
     await plain.click('[data-mbal="l"]');
     await withSkips.click('[data-mbal="l"]');
     await plain.waitForTimeout(700);
@@ -607,7 +625,8 @@ module.exports = nourish({
     t.ok('and nothing on the day was removed by saying you were done',
       await closed.evaluate(() => document.querySelectorAll('.mslot').length > 0 &&
         !document.getElementById('macroFill').disabled === false ||
-        document.querySelectorAll('.mitem, .mcard-shut').length > 0));
+        /* the plates on a folded day are its day cards' (2026-10-04) */
+        document.querySelectorAll('.mitem, .mslot.filled').length > 0));
     await closed.click('#macroFill');
     await closed.waitForTimeout(400);
     t.ok('and pressing it again reopens the day, without a card this time',
@@ -684,8 +703,11 @@ module.exports = nourish({
        land on the bar's very top pixel and get through; with the meal verbs
        at a plate key's size (2026-09-27) the card ends 24px sooner and it
        stalled on the bar for thirty seconds. */
-    await wake.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
-    await wake.click('.mitem [data-meat]');
+    /* Eaten with the MEAL's tick on the open meal's head: there is no
+       per-plate tick since the RP-style day (Blake, 2026-10-04: "No
+       individual foods ticks... I'll complete the whole meal"), and ticking
+       the whole meal is what eats this plate now. */
+    await wake.click('.mscreen-focus [data-mdot]');
     await wake.waitForTimeout(400);
     t.ok('a locked portion offers a way back in',
       await wake.evaluate(() => !!document.querySelector('.mstep-wake')));
@@ -711,7 +733,8 @@ module.exports = nourish({
       const st = document.querySelector('.mstep');
       return { live: [...st.querySelectorAll('[data-mstep]')].every((b) => !b.disabled),
         grey: st.classList.contains('spent'),
-        stillEaten: !!document.querySelector('.mitem [data-meat]:checked') };
+        stillEaten: st.closest('.mitem').classList.contains('eaten') &&
+          document.querySelector('.mscreen-focus [data-mdot]').getAttribute('aria-pressed') === 'true' };
     });
     t.ok('and one tap wakes it, without unticking the meal',
       woke.live && !woke.grey && woke.stillEaten, JSON.stringify(woke));
@@ -819,10 +842,9 @@ module.exports = nourish({
     t.ok('an uneaten plate can still be resized', stepWas.live && !stepWas.grey,
       JSON.stringify(stepWas));
 
-    /* In the middle first, as a thumb would: see the same tick's note in
-       "One tap on a spent portion", above. */
-    await spent.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
-    await spent.click('.mitem [data-meat]');
+    /* The meal's tick, on the open meal's head (2026-10-04): see the same
+       note in "One tap on a spent portion", above. */
+    await spent.click('.mscreen-focus [data-mdot]');
     await spent.waitForTimeout(400);
     const stepNow = await spent.evaluate(() => {
       const st = document.querySelector('.mstep');
@@ -869,10 +891,9 @@ module.exports = nourish({
         return was === now;
       }));
 
-    /* In the middle first, as a thumb would: see the same tick's note in
-       "One tap on a spent portion", above. */
-    await spent.evaluate(() => document.querySelector('.mitem [data-meat]').scrollIntoView({ block: 'center' }));
-    await spent.click('.mitem [data-meat]');
+    /* The meal's tick, on the open meal's head (2026-10-04): see the same
+       note in "One tap on a spent portion", above. */
+    await spent.click('.mscreen-focus [data-mdot]');
     await spent.waitForTimeout(400);
     t.ok('unticking hands the stepper back',
       await spent.evaluate(() => {

@@ -34,7 +34,9 @@ module.exports = {
     /* Typing: one row. */
     await p.click('.tab[data-view="macros"]');
     await p.waitForTimeout(700);
-    await p.evaluate(() => { const b = document.querySelector('[data-mslot]'); b && b.click(); });
+    /* The bar's Add food: a meal's own Add is inside its screen since the meal
+       became one (2026-10-04). */
+    await p.evaluate(() => { const b = document.querySelector('[data-mslot]') || document.getElementById('macroAdd'); b && b.click(); });
     await p.waitForTimeout(500);
     await p.fill('#mpFind', 'cottage');
     await p.waitForTimeout(300);

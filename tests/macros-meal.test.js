@@ -7,6 +7,15 @@
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
 const { nourish, openBasket, pickerList, openDay } = require('./fixtures/nourish.js');
 
+/* Opens one meal the way a thumb does, if it is not open already. Since the
+   RP-style day (Blake, 2026-10-04) every meal arrives as a folded day card —
+   except one still asking where its overflow goes — and a meal's plates and
+   verbs are only on its open screen. */
+async function openMeal(pg, sk) {
+  const b = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
+  if (b) { await b.click(); await pg.waitForTimeout(300); }
+}
+
 module.exports = nourish({
   name: 'Macros — a meal: its rows, the plate, the cascade, skipping, the cap',
   async suite(t) {
@@ -143,27 +152,47 @@ module.exports = nourish({
     /* The dash. Asserted on the ROW COUNT and not merely on the character,
        because the point was the 26 px it took on every empty meal of every
        empty day, not the glyph. */
+    /* Restated for the RP-style day (Blake, 2026-10-04): on the day an empty
+       meal is its card and nothing under it \u2014 one row with "Nothing yet" on
+       its pill, no items box, no dash. Opened, it is the meal's own screen:
+       the capsules, the one line saying nothing is on it, and the verbs in
+       the foot (Add foods and the camera), still with no dash row. */
     const emptyCard = await trimPg.evaluate(() => {
-      const cards = [...document.querySelectorAll('.mslot')].filter((c) =>
-        c.querySelector('.mslot-name-flat') || (!c.querySelector('.mitem') &&
-          c.querySelector('.mslot-acts')));
-      const c = cards[0];
+      const c = [...document.querySelectorAll('#macroSlots .mslot.mday-card')]
+        .find((x) => !x.classList.contains('filled'));
       if (!c) return null;
-      const items = c.querySelector('.mslot-items');
       return {
+        sk: (c.querySelector('[data-mfold]') || { dataset: {} }).dataset.mfold,
         dash: !!c.querySelector('.mslot-empty'),
         emDash: /\u2014/.test(c.textContent),
-        /* what the items box actually holds on an empty meal: the verbs and
-           nothing else */
-        kids: items ? [...items.children].map((k) => k.className) : [],
+        items: !!c.querySelector('.mslot-items'),
+        pill: (c.querySelector('.mcard-pill') || {}).textContent || '',
       };
     });
     t.ok('an empty meal draws no placeholder row',
-      !!emptyCard && !emptyCard.dash && !emptyCard.emDash, JSON.stringify(emptyCard));
-    /* The meal card (2026-10-04): the add line and the meal's verbs. */
+      !!emptyCard && !emptyCard.dash && !emptyCard.emDash && !emptyCard.items &&
+        emptyCard.pill === 'Nothing yet', JSON.stringify(emptyCard));
+    if (emptyCard) {
+      await trimPg.click('[data-mfold="' + emptyCard.sk + '"][aria-expanded="false"]');
+      await trimPg.waitForTimeout(300);
+    }
+    const emptyOpen = await trimPg.evaluate(() => {
+      const c = document.querySelector('#macroSlots .mslot.mscreen');
+      if (!c) return null;
+      const items = c.querySelector('.mslot-items');
+      const foot = c.querySelector('.mscreen-foot');
+      return {
+        dash: !!c.querySelector('.mslot-empty'),
+        emDash: /\u2014/.test((items || {}).textContent || ''),
+        kids: items ? [...items.children].map((k) => k.className) : [],
+        foot: foot ? [...foot.children].map((k) => k.className) : [],
+      };
+    });
     t.ok('and holds nothing but its verbs',
-      !!emptyCard && emptyCard.kids.length === 2 && /mcard-add/.test(emptyCard.kids[0]) && /mslot-acts/.test(emptyCard.kids[1]),
-      JSON.stringify(emptyCard));
+      !!emptyOpen && !emptyOpen.dash && !emptyOpen.emDash &&
+        emptyOpen.kids.length === 2 && /mcaps/.test(emptyOpen.kids[0]) && /mscreen-empty/.test(emptyOpen.kids[1]) &&
+        emptyOpen.foot.length === 2 && /mslot-add/.test(emptyOpen.foot[0]) && /mscreen-cam/.test(emptyOpen.foot[1]),
+      JSON.stringify(emptyOpen));
     await trimPg.context().close();
 
     /* ---- the picker speaks for the meal it is filling ---------------------
@@ -184,7 +213,10 @@ module.exports = nourish({
     await pk.waitForTimeout(400);
     await pk.click('.tab[data-view="macros"]');
     await pk.waitForTimeout(350);
-    await openDay(pk);
+    /* Snacks opened on its own screen (RP style, 2026-10-04): on a day with
+       nothing on it Open all has nothing it counts as shut, so the meal is
+       opened the way a thumb does it. */
+    await openMeal(pk, 's');
     await pk.click('.mslot-add[data-mslot="s"]');
     await pk.waitForTimeout(450);
 
@@ -285,28 +317,32 @@ module.exports = nourish({
     await openDay(platePg);
     await platePg.waitForTimeout(250);
 
-    /* Rebuilt 2026-10-04, with the meal card: one line a food — leaf, name,
-       amount, calories, tick — and everything else that acts on the food in
-       its panel, behind the amount. What Blake asked of the old plate still
-       holds where it still means something: one left edge for every name,
-       the tick at the thumb's end and bare, a ghost mark before it is ticked,
-       and nothing that acts on the meal inside a food. */
+    /* Restated for the RP-style meal (Blake, 2026-10-04): every food is its
+       own card with its amount bar always showing — lock, amount, − and + —
+       and its swap, pin and remove behind its ⋯. There is no tick on a food
+       any more ("No individual foods ticks... Let's dial in the qty. And I'll
+       complete the whole meal"); the meal's tick in its head is the one that
+       says eaten. What Blake asked of the old plate still holds where it still
+       means something: one left edge for every name, leaf or no leaf, the
+       tick says what it does and is told by its fill, and nothing that acts
+       on the meal sits inside a food. */
     const plated = await platePg.evaluate(() => {
-      const rows = [...document.querySelectorAll('#macroSlots .mcard-row')];
+      const rows = [...document.querySelectorAll('#macroSlots .mscreen .mfood')];
       if (rows.length < 2) return { few: rows.length };
+      const shown = (e) => !!e && e.getBoundingClientRect().height > 0;
+      const dot = document.querySelector('#macroSlots .mscreen-h [data-mdot="b"]');
       return {
         n: rows.length,
         nameLefts: rows.map((r) => Math.round(r.querySelector('.mitem-name').getBoundingClientRect().left)),
         leaves: rows.map((r) => !!r.querySelector('.leaf-sm .leaf-n')),
-        tickLast: rows.every((r) => {
-          const ate = r.querySelector('.mitem-ate'), amt = r.querySelector('.mcard-amt');
-          return ate && amt && ate.getBoundingClientRect().left > amt.getBoundingClientRect().right &&
-            r.querySelector('.mcard-line').lastElementChild === ate;
+        noFoodTick: rows.every((r) => !r.querySelector('input[type="checkbox"], [data-meat], [data-mdot]')),
+        mealTick: !!dot && /eaten/i.test(dot.getAttribute('aria-label') || ''),
+        mealVerbsOutside: rows.every((r) => !r.querySelector('[data-mbal], [data-mskip], [data-mslot], [data-mtry], [data-mkeep]')),
+        bar: rows.every((r) => {
+          const amt = r.querySelector('.mfood-amt');
+          return shown(amt) && shown(amt.querySelector('[data-mlock]')) && shown(amt.querySelector('.mstep-x')) &&
+            shown(amt.querySelector('[data-mstep$=":down"]')) && shown(amt.querySelector('[data-mstep$=":up"]'));
         }),
-        tickSpoken: rows.every((r) => { const a = r.querySelector('.mitem-ate'); return !!a && /\w/.test(a.getAttribute('aria-label') || ''); }),
-        tickBare: rows.every((r) => { const a = r.querySelector('.mitem-ate'); return !!a && a.tagName === 'INPUT' && !r.querySelector('.mitem-ate *'); }),
-        mealVerbsOutside: rows.every((r) => !r.querySelector('[data-mbal], [data-mskip], [data-mslot]')),
-        quiet: rows.every((r) => !r.querySelector('.mcard-line [data-mstep], .mcard-line [data-mlock], .mcard-line [data-mdel], .mcard-line [data-mpin]')),
       };
     });
     t.ok('the plate is seeded with a scored recipe and a bare food',
@@ -314,42 +350,58 @@ module.exports = nourish({
       JSON.stringify(plated));
     t.ok('every plate’s name starts at the same edge, leaf or no leaf',
       new Set(plated.nameLefts).size === 1, JSON.stringify(plated.nameLefts));
-    t.ok('the tick ends the line, on the side a thumb is, and says what it does',
-      plated.tickLast && plated.tickSpoken, JSON.stringify(plated));
-    t.ok('and the tick is the box, not a box drawn around a box',
-      plated.tickBare, JSON.stringify(plated));
-    t.ok('a closed food line carries no steps, lock, pin or bin, and no meal verb',
-      plated.quiet && plated.mealVerbsOutside, JSON.stringify(plated));
+    t.ok('no food carries a tick of its own; the meal’s tick says what it does',
+      plated.noFoodTick && plated.mealTick, JSON.stringify(plated));
+    t.ok('every food shows its amount bar — lock, amount, − and + — without a tap',
+      plated.bar, JSON.stringify(plated));
+    t.ok('and no meal verb sits inside a food',
+      plated.mealVerbsOutside, JSON.stringify(plated));
+
+    /* Swap, pin and remove are behind the food's own ⋯, and the lock and the
+       steps are on its bar — everything that changes this food is on its
+       card. (Was: the panel behind the amount, 2026-10-04 meal card.) */
+    await platePg.evaluate(() => document.querySelector('#macroSlots [data-mfmenu="b:0"]').click());
+    await platePg.waitForTimeout(250);
+    const panel = await platePg.evaluate(() => {
+      const card = document.querySelector('#macroSlots [data-mfmenu="b:0"]');
+      const f = card && card.closest('.mfood');
+      const mn = f && f.querySelector('.mfood-menu');
+      if (!mn) return null;
+      return ['.mfood-amt .mstep', '.mfood-amt [data-mlock="b:0"]', '.mfood-menu [data-mpin="b:0"]',
+        '.mfood-menu [data-mdel="b:0"]', '.mfood-menu [data-mswap="b:0"]']
+        .filter((sel) => !f.querySelector(sel));
+    });
+    t.ok('everything that changes this food lives on its card',
+      panel && panel.length === 0, JSON.stringify(panel));
+    await platePg.evaluate(() => document.querySelector('#macroSlots [data-mfmenu="b:0"]').click());
+    await platePg.waitForTimeout(250);
 
     /* Blake: "might need a shadow of a checkmark on that checkmark box so i
        know it is something i am to check" — and the STATE is told by the
-       fill, not by the mark getting darker. */
+       fill, not by the mark getting darker. The box is the meal's tick now
+       (2026-10-04): unticked it still draws its ring, and ticking it fills. */
     const ghost = await platePg.evaluate(() => {
-      const t0 = document.querySelector('#macroSlots .mcard-row .mitem-ate');
-      const read = () => ({ mark: getComputedStyle(t0, '::after').color,
-        fill: getComputedStyle(t0).backgroundColor });
+      const sel = '#macroSlots [data-mdot="b"]';
+      const read = () => {
+        const s = getComputedStyle(document.querySelector(sel), '::before');
+        return { ring: s.borderTopColor, fill: s.backgroundColor, pressed: document.querySelector(sel).getAttribute('aria-pressed') };
+      };
       const off = read();
-      t0.click();
-      return { off: off, on: read() };
+      document.querySelector(sel).click();
+      return { off: off };
     });
     await platePg.waitForTimeout(300);
-    const unseen = (c) => /transparent/.test(c) || /,\s*0\)$/.test(c);
-    t.ok('an unticked plate still draws its tick, so the box says what it is for',
-      !unseen(ghost.off.mark), JSON.stringify(ghost));
-    t.ok('and ticking it is said by the FILL, not by the mark getting darker',
-      ghost.off.fill !== ghost.on.fill && !unseen(ghost.on.fill) &&
-      ghost.off.mark !== ghost.on.mark, JSON.stringify(ghost));
-
-    /* Everything that changes this food is in its panel, behind its amount. */
-    await platePg.evaluate(() => document.querySelector('#macroSlots [data-mamt="b:0"]').click());
-    await platePg.waitForTimeout(250);
-    const panel = await platePg.evaluate(() => {
-      const pn = document.querySelector('#macroSlots .mcard-panel');
-      return pn && ['.mstep', '[data-mlock="b:0"]', '[data-mpin="b:0"]', '[data-mdel="b:0"]', '[data-mswap="b:0"]', '[data-mslide="b:0"]']
-        .filter((sel) => !pn.querySelector(sel));
+    ghost.on = await platePg.evaluate(() => {
+      const d = document.querySelector('#macroSlots [data-mdot="b"]');
+      const s = getComputedStyle(d, '::before');
+      return { ring: s.borderTopColor, fill: s.backgroundColor, pressed: d.getAttribute('aria-pressed') };
     });
-    t.ok('everything that changes this food lives in its panel',
-      panel && panel.length === 0, JSON.stringify(panel));
+    const unseen = (c) => /transparent/.test(c) || /,\s*0\)$/.test(c);
+    t.ok('an unticked meal still draws its tick, so the box says what it is for',
+      !unseen(ghost.off.ring) && ghost.off.pressed === 'false', JSON.stringify(ghost));
+    t.ok('and ticking it is said by the FILL, not by the mark getting darker',
+      ghost.on.pressed === 'true' && ghost.off.fill !== ghost.on.fill && !unseen(ghost.on.fill),
+      JSON.stringify(ghost));
     await platePg.context().close();
 
     /* And it does not cost height, which nothing here was checking.
@@ -395,22 +447,27 @@ module.exports = nourish({
     await rowFit.waitForTimeout(350);
     await openDay(rowFit);
     await rowFit.waitForTimeout(250);
-    /* One line a food, even with a label sentence for a unit: the amount
-       gives way (it truncates) before the line folds in half. */
+    /* One row for the amount bar, even with a label sentence for a unit: the
+       amount gives way before the bar folds in half. Restated 2026-10-04 (RP
+       style): the food's name and chips have their own lines on its card, so
+       the strip that must not fold is the amount bar — lock, amount, −, +. */
     const fit = await rowFit.evaluate(() => {
-      const rows = [...document.querySelectorAll('#macroSlots .mcard-line')];
+      const rows = [...document.querySelectorAll('#macroSlots .mfood-amt')];
       if (!rows.length) return { none: true };
       return rows.map((r) => {
-        const kids = [...r.children].filter((k) => getComputedStyle(k).display !== 'none');
+        const kids = [...r.querySelectorAll(':scope > *, .mstep > *, .mstep-keys > *')]
+          .filter((k) => !k.classList.contains('mstep') && !k.classList.contains('mstep-keys') &&
+            getComputedStyle(k).display !== 'none');
         const tops = kids.map((k) => k.getBoundingClientRect());
         const mid = (b) => b.top + b.height / 2;
         const m0 = mid(tops[0]);
-        return { h: Math.round(r.getBoundingClientRect().height), oneLine: tops.every((b) => Math.abs(mid(b) - m0) < 14),
+        return { h: Math.round(r.getBoundingClientRect().height), n: kids.length,
+          oneLine: tops.every((b) => Math.abs(mid(b) - m0) < 14),
           fits: r.scrollWidth <= r.clientWidth + 1 };
       });
     });
     t.ok('a food sits on one line at phone width, a long unit and all',
-      !fit.none && fit.length >= 3 && fit.every((r) => r.oneLine && r.fits),
+      !fit.none && fit.length >= 3 && fit.every((r) => r.oneLine && r.fits && r.n >= 4),
       JSON.stringify(fit));
     await rowFit.context().close();
 
@@ -443,7 +500,9 @@ module.exports = nourish({
       const out = {};
       document.querySelectorAll('.mslot').forEach((c) => {
         const n = (c.querySelector('.mslot-name') || {}).textContent;
-        const t2 = c.querySelector('.mmp.kc[data-want]');
+        /* Folded, the ask is on the day card's pills; open (2026-10-04, RP
+           style) the head carries no pills and the kcal capsule says it. */
+        const t2 = c.querySelector('.mmp.kc[data-want]') || c.querySelector('.mcaps .mcap[data-want]');
         if (n && t2) out[n.trim()] = Number(t2.dataset.want);
       });
       return out;
@@ -673,7 +732,10 @@ module.exports = nourish({
       await casc.evaluate(() => {
         const c = [...document.querySelectorAll('.mslot')].filter((x) =>
           /Dinner/.test((x.querySelector('.mslot-name') || {}).textContent || ''))[0];
-        const t2 = c && c.querySelector('.mmp.kc[data-want]');
+        /* Dinner is still open from Open all, and an open meal's head
+           carries no pills since 2026-10-04 (RP style) — its kcal capsule
+           holds the same ask. */
+        const t2 = c && (c.querySelector('.mmp.kc[data-want]') || c.querySelector('.mcaps .mcap[data-want]'));
         return !!t2 && Number(t2.dataset.want) > 0;
       }));
     await openDay(casc);
@@ -1003,7 +1065,7 @@ module.exports = nourish({
       const o = {};
       document.querySelectorAll('.mslot').forEach((c) => {
         const n = (c.querySelector('.mslot-name') || {}).textContent;
-        const t2 = c.querySelector('.mmp.kc[data-want]');
+        const t2 = c.querySelector('.mmp.kc[data-want]') || c.querySelector('.mcaps .mcap[data-want]');
         if (n && t2) o[n.trim()] = Number(t2.dataset.want);
       });
       return o;
@@ -1028,6 +1090,11 @@ module.exports = nourish({
           on: r.getAttribute('aria-checked') === 'true' })) };
     });
     const skBefore = await skAsk(skp);
+    /* Skip is in the open meal's ⋯ menu since the RP-style meal screen
+       (Blake, 2026-10-04): Lunch is opened, its menu pressed, then Skip. */
+    await openMeal(skp, 'l');
+    await skp.click('#macroSlots [data-mmenu="l"]');
+    await skp.waitForTimeout(300);
     await skp.click('#macroSlots [data-mskip="l"]');
     await skp.waitForTimeout(500);
     const skAfter = await skAsk(skp);
@@ -1234,8 +1301,16 @@ module.exports = nourish({
     await pzWideDay.waitForTimeout(400);
     await pzWideDay.click('.tab[data-view="macros"]');
     await pzWideDay.waitForTimeout(400);
-    await openDay(pzWideDay);
-    await pzWideDay.waitForTimeout(250);
+    /* The pills are on the day cards since the RP-style day (Blake,
+       2026-10-04) — an open meal wears capsules instead — so every meal is
+       shut here, including the one arrival leaves open to ask where its
+       overflow goes. */
+    for (let i = 0; i < 6; i++) {
+      const b = await pzWideDay.$('#macroSlots [data-mfold][aria-expanded="true"]');
+      if (!b) break;
+      await b.click();
+      await pzWideDay.waitForTimeout(250);
+    }
     const pzWide = await pzWideDay.evaluate(() => {
       const kc = [], mac = [];
       document.querySelectorAll('.mslot .mmp').forEach((e) => {
@@ -1352,6 +1427,9 @@ module.exports = nourish({
 
     t.ok('the day is built to leave a gap the size a portion can be judged against',
       gapWindow.ok, JSON.stringify(gapWindow));
+    /* Lunch opened first: the add is at the foot of the open meal (RP style,
+       2026-10-04). */
+    await openMeal(gapRow, 'l');
     await gapRow.click('.mslot-add[data-mslot="l"]');
     await gapRow.waitForTimeout(450);
     await pickerList(gapRow);

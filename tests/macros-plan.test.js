@@ -264,14 +264,16 @@ module.exports = nourish({
     await priceDayPg.waitForTimeout(400);
     await priceDayPg.click('.tab[data-view="macros"]');
     await priceDayPg.waitForTimeout(300);
-    await openDay(priceDayPg);                 // the pills are an open meal's head (2026-10-04)
+    /* The pills are on the folded day card's face (2026-10-04, the RP-style
+       day: "our macro pills are better design"); the open meal shows its
+       capsules instead. So dinner is read where it arrives, folded. */
     /* Read the price, not the landing: the day-level terms shrink a plate
        after a breakfast like that on their own, so where the plate lands
        proves nothing about which figure the share term used. The figure it
        used is what the test holds to the pill. */
     const priced = await priceDayPg.evaluate(() => {
       const card = document.querySelector('[data-mdot="d"]').closest('.mslot');
-      const pill = Number(card.querySelector('.mmp.kc').dataset.want);
+      const pill = Number(card.querySelector('.mcard-p .mmp.kc').dataset.want);
       const want = (window.__macroLab.wants().find((a) => a.k === 'd') || {}).want;
       const dayK = 4 * 180 + 4 * 50 + 9 * 50;
       return { pill: pill, want: want && Math.round(want), planShare: Math.round(dayK * 0.39) };

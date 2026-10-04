@@ -118,15 +118,24 @@ async function revealPlanFields(pg) {
      they have just added want it as a plan, whatever hour the suite happens
      to run at — so they untick it, the way a thumb would. One at a time,
      because each tick redraws the day under the next. */
+  /* Every plate on a meal back to planned. There is no tick on a single food
+     since the meal became its own screen (2026-10-04, Blake: "I'll complete
+     the whole meal"), so this works the meal's own tick: pressed, it unticks
+     every plate; part-eaten, one press ticks the rest and a second unticks
+     them all. */
   async function asPlanned(pg, sk) {
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 3; i++) {
       const hit = await pg.evaluate((sk2) => {
-        const c = [...document.querySelectorAll('[data-meat^="' + sk2 + ':"]')].find((x) => x.checked);
-        if (c) c.click();
-        return !!c;
+        const d = [...document.querySelectorAll('[data-mdot="' + sk2 + '"]')].find((x) => x.offsetParent);
+        if (!d) return false;
+        const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        const any = Object.keys(days).some((k) => ((days[k] || {})[sk2] || []).some((it) => it.eaten));
+        if (!any) return false;
+        d.click();
+        return true;
       }, sk);
       if (!hit) break;
-      await pg.waitForTimeout(120);
+      await pg.waitForTimeout(150);
     }
   }
 
@@ -160,10 +169,9 @@ async function revealPlanFields(pg) {
      opened so each has its add, that meal's add, the list, the first recipe,
      done. addOn above only ever reaches the first meal. */
   async function addTo(pg, nth) {
-    await pg.evaluate(() => {
-      document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]').forEach((b) => b.click());
-    });
-    await pg.waitForTimeout(200);
+    /* Every meal open in place, by Open all: pressing heads in turn only moves
+       the one open meal along since a meal became its own screen (2026-10-04). */
+    await openDay(pg);
     await pg.evaluate((n) => {
       const a = document.querySelectorAll('.mslot-add')[n];
       a.scrollIntoView({ block: 'center' });

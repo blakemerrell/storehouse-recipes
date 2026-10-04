@@ -34,6 +34,13 @@ module.exports = nourish({
       return { has: Object.prototype.hasOwnProperty.call(sp, enc),
         v: sp[enc] ? sp[enc].v : null, at: sp[enc] ? sp[enc].at : 0 };
     });
+    /* Skip lives in the open meal's ⋯ menu since the RP-style meal screen
+       (Blake, 2026-10-04): every meal arrives as a folded day card, so the
+       empty lunch is opened and its menu pressed before Skip is there. */
+    await wire.click('[data-mfold="l"][aria-expanded="false"]');
+    await wire.waitForTimeout(250);
+    await wire.click('[data-mmenu="l"]');
+    await wire.waitForTimeout(250);
     await wire.evaluate(() => document.querySelector('[data-mskip="l"]').click());
     await wire.waitForTimeout(350);
     const sentSkip = await spOf(wire);

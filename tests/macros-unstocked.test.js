@@ -200,10 +200,16 @@ module.exports = nourish({
       const card = [...document.querySelectorAll('.mslot')].find((c) =>
         ((c.querySelector('.mslot-name') || {}).textContent || '').trim()
           .replace(/[^A-Za-z ]/g, '').trim().toLowerCase() === meal.toLowerCase());
-      const pil = card && [...card.querySelectorAll('.mmp')].find((e) =>
+      /* The meal behind the sheet is OPEN, its own screen (2026-10-04), and
+         an open meal carries its four as capsules (.mcap: "P32/40") rather
+         than head pills; a folded one carries pills on its day card. */
+      const num = (txt) => Number(((txt || '').match(/[\d,]+/) || ['0'])[0].replace(/,/g, ''));
+      const pil = card && [...card.querySelectorAll('.mcard-p .mmp')].find((e) =>
         /^P/.test((e.querySelector('i') || {}).textContent || ''));
-      if (!pil) return null;
-      const got = Number((pil.querySelector('.mmp-v').textContent.match(/\d+/) || [0])[0]);
+      const pcap = card && [...card.querySelectorAll('.mcap')].find((e) =>
+        /^P/.test((e.querySelector('i') || {}).textContent || ''));
+      if (!pil && !pcap) return null;
+      const got = pil ? num(pil.querySelector('.mmp-v').textContent) : num(pcap.querySelector('.mcap-t').textContent.replace(/^P/, ''));
       const sheet = [...document.querySelectorAll('.mp-left .mgp')]
         .filter((e) => /P/.test(e.textContent) && !/\uD83D\uDD25/.test(e.textContent))
         .map((e) => (e.textContent.match(/\d+/g) || []).map(Number))[0];
@@ -255,9 +261,13 @@ module.exports = nourish({
       const card = [...document.querySelectorAll('.mslot')].find((c) =>
         ((c.querySelector('.mslot-name') || {}).textContent || '').trim()
           .replace(/[^A-Za-z ]/g, '').trim().toLowerCase() === meal.toLowerCase());
-      const t2 = card && card.querySelector('.mmp.kc');
-      const got = t2 ? Number((t2.querySelector('.mmp-v').textContent.match(/\d+/) || [0])[0]) : null;
-      const want = t2 ? Number(t2.dataset.want || 0) : null;
+      /* Off the open meal's flame capsule (2026-10-04), or a day card's pill. */
+      const num = (txt) => Number(((txt || '').match(/[\d,]+/) || ['0'])[0].replace(/,/g, ''));
+      const t2 = card && card.querySelector('.mcard-p .mmp.kc');
+      const k2 = card && [...card.querySelectorAll('.mcap')].find((e) => /\uD83D\uDD25/.test((e.querySelector('i') || {}).textContent || ''));
+      const got = t2 ? num(t2.querySelector('.mmp-v').textContent)
+        : k2 ? num(k2.querySelector('.mcap-t').textContent.replace(/^\uD83D\uDD25/, '')) : null;
+      const want = t2 ? Number(t2.dataset.want || 0) : k2 ? Number(k2.dataset.want || 0) : null;
       return { shown: shown, meal: meal, got: got, want: want };
     });
     t.ok('the flame in the sheet is the same figure the meal card is showing',
@@ -315,12 +325,11 @@ module.exports = nourish({
       ticks: document.querySelectorAll('.mslot-head .mmp[data-want]').length,
       kcal: [...document.querySelectorAll('.mslot-head')]
         .filter((e) => /\uD83D\uDD25\s*\d/.test(e.textContent)).length,
-      shut: document.querySelectorAll('#macroSlots .mcard-shut').length,
-      shutKcal: [...document.querySelectorAll('#macroSlots .mcard-shut .mcard-k')]
-        .filter((e) => /^[\d,]+ \/ [\d,]+ kcal$/.test(e.textContent)).length,
-      shutBars: document.querySelectorAll('#macroSlots .mcard-shut .mcard-tr .mcard-fi').length,
-      shutSay: [...document.querySelectorAll('#macroSlots .mcard-shut .mcard-say')].map((e) => e.textContent),
-      shutGauges: document.querySelectorAll('#macroSlots .mcard-shut .mmps, #macroSlots .mcard-shut .mmp').length,
+      shut: document.querySelectorAll('#macroSlots .mday-card').length,
+      shutSay: [...document.querySelectorAll('#macroSlots .mday-card .mcard-pill')].map((e) => e.textContent),
+      shutGauges: [...document.querySelectorAll('#macroSlots .mday-card')]
+        .filter((c) => c.querySelectorAll('.mcard-p .mmp[data-want]').length === 4).length,
+      shutPlates: document.querySelectorAll('#macroSlots .mday-card .mitem').length,
     }));
     /* Reversed deliberately. This used to assert that a folded meal said its
        calories and NOTHING about macros — you steer by the day, a meal is a
@@ -338,10 +347,16 @@ module.exports = nourish({
        still named — in the verdict's words ("554 over · carbs over") — so the
        folded card judges the meal against its share without a second gauge
        set. What must not come back is the old apparatus either way. */
-    t.ok('a folded meal shows its calories against its share, one bar, and the verdict in words',
-      quietFolded.shut > 0 && quietFolded.shutKcal === quietFolded.shut &&
-      quietFolded.shutBars === quietFolded.shut && quietFolded.shutGauges === 0 &&
-      quietFolded.shutSay.every((w) => /^(on its aim|Eaten|[\d,]+ (over|short)( · (protein|fat|carbs) (over|short))?)$/.test(w)) &&
+    /* Reversed a third time the same day, in the RP-style redesign Blake
+       approved on 2026-10-04 ("the RP Diet way"): the day card is the meal's
+       name, a pill of words — how many foods and whether it is over, under
+       or on its targets, or eaten — and the app's own four meal pills under
+       it. No calorie bar and no verdict sentence on the folded card; the
+       "554 over · carbs over" words are on the open meal now. What must not
+       come back is the old apparatus either way. */
+    t.ok('a folded meal shows its pills against its share, and the verdict in words',
+      quietFolded.shut > 0 && quietFolded.shutGauges === quietFolded.shut && quietFolded.shutPlates === 0 &&
+      quietFolded.shutSay.every((w) => /^(Nothing yet|\d+ foods? · (Over targets|Under targets|Targets met|Eaten))$/.test(w)) &&
       quietFolded.chips === 0 && quietFolded.oldBars === 0,
       JSON.stringify(quietFolded));
     /* And opening one does not bring them back — the open card is plates and
@@ -423,8 +438,14 @@ module.exports = nourish({
     const skipPg = await t.fresh({ viewport: { width: 390, height: 800 } });
     await skipPg.click('.tab[data-view="macros"]');
     await skipPg.waitForTimeout(400);
+    /* Behind the ⋯ on the empty meal's own screen since the RP-style meal
+       (2026-10-04): opened, then its menu, the way a thumb gets there. */
+    await skipPg.evaluate(() => { const b = document.querySelector('#macroSlots [data-mfold="l"][aria-expanded="false"]'); if (b) b.click(); });
+    await skipPg.waitForTimeout(250);
+    await skipPg.evaluate(() => { const m = document.querySelector('[data-mmenu="l"]'); if (m) m.click(); });
+    await skipPg.waitForTimeout(200);
     t.ok('an empty meal offers a way to skip it',
-      await skipPg.evaluate(() => !!document.querySelector('[data-mskip]')));
+      await skipPg.evaluate(() => !!document.querySelector('.mscreen-menu [data-mskip="l"]')));
     /* What breakfast is told to aim for, with every meal still in play and
        then with lunch dropped out of the divisor. This is the whole feature:
        the share is a weight over the weights STILL IN PLAY. */
@@ -433,15 +454,20 @@ module.exports = nourish({
        share is the first of them. The claim underneath is unchanged — and it
        is the one that matters, because asserting the day's TOTAL here proved
        nothing. */
+    /* Breakfast's day card, by name (the .mslot-name-flat this looked for
+       is long gone, and a read of 0 cannot show a share moving). */
     const shareRead = () => skipPg.evaluate(() => {
-      const card = [...document.querySelectorAll('.mslot')]
-        .find((c) => c.querySelector('.mslot-name-flat'));
-      const t2 = card && card.querySelector('.mmp.kc[data-want]');
+      const card = [...document.querySelectorAll('#macroSlots .mday-card')]
+        .find((c) => ((c.querySelector('.mslot-name') || {}).textContent || '') === 'Breakfast');
+      const t2 = card && card.querySelector('.mcard-p .mmp.kc[data-want]');
       return t2 ? Number(t2.dataset.want) : 0;
     });
     const bShareBefore = await shareRead();
     await skipPg.evaluate(() => document.querySelector('[data-mskip="l"]').click());
     await skipPg.waitForTimeout(400);
+    /* a skipped meal drops its screen; the day is home again */
+    await skipPg.evaluate(() => { const b = document.querySelector('#macroSlots .mscreen-focus .mscreen-back'); if (b) b.click(); });
+    await skipPg.waitForTimeout(200);
     const skipped = await skipPg.evaluate(() => {
       const el = document.querySelector('.mslot-skipped');
       return { line: !!el, says: el ? el.textContent.replace(/\s+/g, ' ').trim() : '',
@@ -455,7 +481,7 @@ module.exports = nourish({
        day on target whether or not the share was released, so that version
        passed with the feature reverted. The share is what actually moves. */
     t.ok('and the share lunch was holding goes to the meals that remain',
-      bShareAfter > bShareBefore * 1.15,
+      bShareBefore > 0 && bShareAfter > bShareBefore * 1.15,
       'breakfast share ' + bShareBefore + ' -> ' + bShareAfter);
 
     /* And Fill respects it. */

@@ -7631,3 +7631,122 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
   .mcard-amt-p { display: inline; font-size: 0.8125rem; }
   .mcard-line { min-height: 0; }
 }
+
+/* ---- The meal, the RP Diet way (Blake, 2026-10-04) ---------------------------
+   The day is a list of meal cards; a meal opens as its own screen; every food
+   is a card whose amount bar is always there. Mockup:
+   https://claude.ai/artifact/YCPumXnc1bDUA5EDkzwuhY */
+
+/* the day card */
+#macroSlots .mday-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0; overflow: hidden; }
+#macroSlots .mday-card .mslot-h { align-items: flex-start; padding: 10px 12px 10px 10px; }
+#macroSlots .mday-card .mday-dot, #macroSlots .mscreen .mday-dot { width: 44px; height: 44px; margin: -7px -4px -7px -8px; flex: none; }
+#macroSlots .mscreen-h .mday-dot { margin: 0; }
+#macroSlots .mday-card .mday-dot::before, #macroSlots .mscreen .mday-dot::before {
+  width: 26px; height: 26px; border-width: 1.75px; background: var(--card);
+  background-position: center; background-repeat: no-repeat; background-size: 15px;
+}
+/* A faint check before it is ticked, so the ring says it is something to
+   tick (Blake: "might need a shadow of a checkmark on that checkmark box so i
+   know it is something i am to check"); the state is told by the fill. */
+#macroSlots .mday-card .mday-dot::before, #macroSlots .mscreen .mday-dot::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9bba9' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+#macroSlots .mday-stop.done .mday-dot::before {
+  background-color: var(--green); border-color: var(--green);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+#macroSlots .mday-cardb { flex-direction: column; align-items: stretch; flex-wrap: nowrap; row-gap: 8px; margin: -10px -12px -10px 0; padding: 10px 12px 10px 0; }
+.mday-cardb .mcard-t { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 30px; }
+.mday-cardb .mslot-name { flex: none; font-size: 1rem; }
+.mcard-pill { font-size: 0.8125rem; border-radius: 6px; padding: 2px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  background: var(--paper-soft); color: var(--note); }
+.mcard-pill.is-short, .mcard-pill.is-over { background: var(--ochre-soft); color: var(--ochre-text); }
+.mcard-pill.is-over { color: var(--warn); }
+.mcard-pill.is-on, .mcard-pill.is-eaten { background: var(--tint-green, var(--paper-soft)); color: var(--green); }
+.mday-cardb .mfold-cue { margin-left: auto; flex: none; font-size: 1.375rem; color: var(--muted); transform: none !important; }
+.mday-cardb .mcard-p { display: block; }
+.mday-cardb .mcard-p .mmps { display: flex; justify-content: space-between; width: 100%; }
+
+/* one meal in focus: its own screen */
+#view-macros.m-focus .mday-stick,
+#view-macros.m-focus #macroWeigh,
+#view-macros.m-focus .mday-acts,
+#view-macros.m-focus #macroSlots > :not(.mscreen-focus) { display: none !important; }
+#view-macros.m-focus .mday-rail::before { display: none; }
+#macroSlots .mscreen { background: var(--paper); border: 0; padding: 0; border-radius: 0; }
+#macroSlots .mscreen:not(.mscreen-focus) { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+#macroSlots .mscreen-h { display: flex; align-items: center; gap: 6px; padding: 8px 6px 8px 4px; background: var(--paper); }
+#macroSlots .mscreen-focus .mscreen-h { position: sticky; top: 0; z-index: 6; border-bottom: 1px solid var(--line-soft); }
+#macroSlots .mscreen-back { flex: none; width: 44px; height: 44px; margin: 0; padding: 0; display: grid; place-items: center; border-radius: 10px; color: var(--ink); }
+#macroSlots .mscreen-back svg, #macroSlots .mscreen-i svg { width: 24px; height: 24px; }
+.mscreen-t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.mscreen-t .mslot-name { font-size: 1.125rem; letter-spacing: 0.04em; }
+.mscreen-t small { font-size: 0.8125rem; color: var(--note); }
+#macroSlots .mscreen-i { flex: none; width: 44px; height: 44px; border: 0; background: none; border-radius: 10px; display: grid; place-items: center; color: var(--ink); cursor: pointer; padding: 0; }
+#macroSlots .mscreen-i:hover { background: var(--hint); }
+#macroSlots .mscreen-i:disabled { opacity: 0.35; cursor: default; }
+#macroSlots .mscreen-menu { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px; margin: 0; border-top: 0; background: var(--paper); }
+#macroSlots .mscreen-menu .mslot-act { width: auto; height: auto; min-height: 44px; padding: 0 12px; display: inline-flex; gap: 6px; border-radius: 999px; }
+#macroSlots .mscreen .mslot-items { border-top: 0; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+.mcaps { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 6px; }
+.mcap { position: relative; border-radius: 999px; overflow: hidden; border: 1px solid var(--line-firm); background: var(--card); padding: 7px 6px; text-align: center; white-space: nowrap; }
+.mcap-fl { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ochre-soft); }
+.mcap.on .mcap-fl { background: var(--tint-green, var(--paper-soft)); } .mcap.over .mcap-fl { background: var(--danger-wash, var(--ochre-soft)); }
+.mcap-t { position: relative; font-size: 0.875rem; font-weight: 600; }
+.mcap-t i { font-style: normal; font-weight: 700; margin-right: 2px; }
+.mcap-t em { font-style: normal; font-weight: 400; color: var(--note); }
+.mcap.over .mcap-t { color: var(--warn); }
+.mscreen-say { text-align: center; font-size: 0.875rem; color: var(--note); }
+.mscreen-say.is-on, .mscreen-say.is-eaten { color: var(--green); font-weight: 600; }
+.mscreen-say.is-over { color: var(--warn); font-weight: 600; }
+.mscreen-say .mcard-undo { min-height: 36px; margin-left: 8px; }
+.mscreen-empty { text-align: center; color: var(--note); padding: 24px 8px; }
+#macroSlots .mscreen-foot { display: flex; gap: 10px; padding: 10px 12px 12px; background: var(--paper); border-top: 1px solid var(--line-soft); }
+#macroSlots .mscreen-focus .mscreen-foot { position: sticky; bottom: 0; z-index: 6; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.mscreen-add { flex: 1 1 auto; min-height: 52px; border: 0; border-radius: 12px; background: var(--line-soft); display: flex; align-items: center; justify-content: center; gap: 10px; font-family: var(--sans); font-size: 1rem; color: var(--ink); cursor: pointer; }
+.mscreen-cam { flex: none; width: 60px; min-height: 52px; border: 0; border-radius: 12px; background: var(--line-soft); display: grid; place-items: center; color: var(--ink); cursor: pointer; }
+.mscreen-add svg, .mscreen-cam svg { width: 24px; height: 24px; }
+
+/* a food */
+#macroSlots .mfood { display: flex; flex-direction: column; gap: 7px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 0; }
+#macroSlots .mfood.moved { border-color: var(--ochre); box-shadow: 0 0 0 2px var(--ochre-wash); }
+#macroSlots .mfood.fresh { border-color: var(--green); }
+.mfood-top { display: flex; align-items: flex-start; gap: 8px; }
+.mfood-top .mitem-nm { flex: 1 1 auto; min-width: 0; }
+#macroSlots .mfood .mitem-name { font-family: var(--sans); font-size: 1rem; line-height: 1.3; color: var(--ink); white-space: normal; overflow-wrap: break-word; text-align: left; }
+.mfood-i { flex: none; width: 44px; height: 44px; margin: -8px -6px -6px 0; border: 0; background: none; border-radius: 9px; display: grid; place-items: center; color: var(--line-firm); cursor: pointer; padding: 0; }
+.mfood-i svg { width: 21px; height: 21px; }
+.mfood-i:hover { background: var(--hint); }
+.mfood-more { color: var(--note); }
+.mfood-i.mfav[aria-pressed="true"] { color: var(--ochre); }
+.mfood-i.mfav[aria-pressed="true"] svg path { fill: currentColor; }
+.mfood-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.mfood-chips:empty { display: none; }
+#macroSlots .mfood-chip { font-family: var(--sans); font-size: 0.8125rem; padding: 2px 8px; border-radius: 6px; background: var(--paper-soft); color: var(--label); border: 0; display: inline-flex; align-items: center; gap: 4px; }
+#macroSlots .mfood-chip.was { background: var(--hint); color: var(--ochre-text); }
+#macroSlots .mfood-chip.new { background: var(--tint-green, var(--paper-soft)); color: var(--green); font-weight: 600; }
+#macroSlots .mfood-chip.kept { background: var(--hint); color: var(--ochre-text); }
+#macroSlots .mfood-chip.mitem-bw { cursor: pointer; }
+#macroSlots .mfood-chip { width: auto; max-width: none; min-width: 0; min-height: 0; overflow: visible; white-space: nowrap; flex: none; }
+.mfood-mac { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.875rem; color: var(--note); }
+.mfood-amt { display: flex; align-items: stretch; min-height: 52px; border-radius: 10px; overflow: hidden; background: var(--line-soft); }
+#macroSlots .mfood-lock { flex: none; width: 54px; border: 0; background: transparent; display: grid; place-items: center; color: var(--ink); cursor: pointer; border-right: 1.5px solid var(--paper) !important; }
+#macroSlots .mfood-lock svg { width: 22px; height: 22px; }
+#macroSlots .mfood-lock[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+#macroSlots .mfood-amt .mstep { flex: 1 1 auto; border: 0; border-radius: 0; background: transparent; min-width: 0; }
+#macroSlots .mfood-amt .mstep-x { flex: 1 1 auto; justify-content: flex-end; text-align: right; padding: 0 14px; font-size: 1.25rem; font-weight: 500; background: transparent; border: 0; min-width: 0; white-space: nowrap; color: var(--ink); text-decoration: none; }
+#macroSlots .mfood-amt .mstep-keys button { width: 54px; height: auto; min-height: 52px; border: 0; border-left: 1.5px solid var(--paper); background: transparent; font-size: 1.5rem; color: var(--ink); }
+#macroSlots .mfood-amt .mstep-keys button:not(:disabled):hover, #macroSlots .mfood-lock:hover { background: var(--line); }
+#macroSlots .mfood-amt .mstep-in { font-size: 1.125rem; }
+.mfood-menu { display: flex; gap: 6px; flex-wrap: nowrap; }
+#macroSlots .mfood-amt .mstep-x { align-self: stretch; height: auto; min-height: 52px; display: flex; align-items: center; }
+.mfood-mi { flex: none; min-height: 44px; padding: 0 11px; border-radius: 999px; border: 1.5px solid var(--line-control); background: var(--field); display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 0.875rem; color: var(--ink); cursor: pointer; }
+.mfood-mi svg { width: 18px; height: 18px; }
+.mfood-mi.mdel { color: var(--danger); margin-left: auto; }
+.mfood-mi.mpin[aria-pressed="true"] { border-color: var(--ochre); color: var(--ochre-text); }
+.mfood-amt-pp { display: none; }
+@media print {
+  .mfood-amt-pp { display: inline; font-size: 0.875rem; }
+  #view-macros.m-focus .mday-stick, #view-macros.m-focus #macroSlots > :not(.mscreen-focus) { display: block !important; }
+}

@@ -4,7 +4,40 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, addTo, storedDay, weighIn, todayOn } = require('./fixtures/nourish.js');
+const { nourish, pickerList, pickRecipe, storedDay, weighIn, todayOn } = require('./fixtures/nourish.js');
+
+/* A dish onto the nth meal of the day, the way a thumb adds one since the
+   RP-style day (Blake, 2026-10-04): the meal's card opens it as its own
+   screen, Add foods at its foot, the first recipe, done — and the back arrow
+   home to the day. The shared addTo opens every meal by pressing each head in
+   turn, which on this day walks the one screen along instead, and Open all
+   does not open a day whose meals are all empty. */
+async function addInto(pg, n) {
+  const home = () => pg.evaluate(() => {
+    const b = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
+    if (b) b.click();
+  });
+  await home();
+  await pg.waitForTimeout(250);
+  await pg.evaluate((i) => {
+    const s = [...document.querySelectorAll('#macroSlots .mslot')][i];
+    const b = s && s.querySelector('[data-mfold][aria-expanded="false"]');
+    if (b) b.click();
+  }, n);
+  await pg.waitForTimeout(250);
+  await pg.evaluate((i) => {
+    const a = [...document.querySelectorAll('#macroSlots .mslot')][i].querySelector('.mslot-add');
+    a.scrollIntoView({ block: 'center' });
+    a.click();
+  }, n);
+  await pg.waitForTimeout(250);
+  await pickerList(pg);
+  await pickRecipe(pg);
+  await pg.click('[data-mpdone]');
+  await pg.waitForTimeout(250);
+  await home();
+  await pg.waitForTimeout(250);
+}
 
 module.exports = nourish({
   name: 'Macros — the 26 September round',
@@ -21,13 +54,13 @@ module.exports = nourish({
       await cb.reload();
       await cb.click('.tab[data-view="macros"]');
       await cb.waitForTimeout(250);
-      await addTo(cb, 0);
+      await addInto(cb, 0);
       const real = await storedDay(cb, '2026-10-10');
       await cb.clock.setSystemTime(new Date(2026, 8, 30, 9, 0, 0));
       await cb.reload();
       await cb.click('.tab[data-view="macros"]');
       await cb.waitForTimeout(250);
-      await addTo(cb, 1);
+      await addInto(cb, 1);
       const all = await cb.evaluate(() => JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'));
       t.ok('with the phone’s date set ten days back, the next plate logged keeps the real days',
         !!real && JSON.stringify(all['2026-10-10']) === JSON.stringify(real) && !!all['2026-09-30'],
@@ -60,7 +93,7 @@ module.exports = nourish({
         !full.stored, JSON.stringify(full).slice(0, 300));
       t.ok('and the day card goes on saying it', /Not saved on this phone/.test(full.card) &&
         /storage for the app is full/.test(full.card), full.card.slice(0, 300));
-      await addTo(sf, 0);
+      await addInto(sf, 0);
       t.ok('a breakfast logged after it still hears it',
         await sf.evaluate(() => /storage for the app is full/.test(document.getElementById('macroWeigh').innerText)));
       await sf.evaluate(() => localStorage.removeItem('junk'));
@@ -297,9 +330,9 @@ module.exports = nourish({
       await ta.click('.tab[data-view="macros"]'); await ta.waitForTimeout(250);
       await tb.click('.tab[data-view="macros"]'); await tb.waitForTimeout(250);
       const today = await todayOn(ta);
-      await addTo(ta, 0);                                   // breakfast, in one
+      await addInto(ta, 0);                                   // breakfast, in one
       await tb.waitForTimeout(300);
-      await addTo(tb, 1);                                   // lunch, in the other, opened before it
+      await addInto(tb, 1);                                   // lunch, in the other, opened before it
       await ta.waitForTimeout(300);
       const day = await storedDay(ta, today);
       const meals = day ? Object.keys(day).filter((k) => (day[k] || []).length) : [];

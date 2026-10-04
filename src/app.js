@@ -3720,7 +3720,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mslot', 'data-meat', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mpout', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mbalundo', 'data-mamt', 'data-mswap', 'data-mslide', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpbasket', 'data-mbstep', 'data-mpfit', 'data-mpdone', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mpslot', 'data-mbal', 'data-mbalundo', 'data-mfmenu', 'data-mmenu', 'data-mscan', 'data-mamt', 'data-mswap', 'data-mslide', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5418,7 +5418,37 @@
           });
         }
         S.mFold[fk] = !opening;
+        /* Opening a meal makes it the meal in focus — its own screen, the
+           way RP opens a meal — and puts a step on the back gesture so the
+           phone's back comes home to the day. Closing lets go of both. */
+        S.mMenu = '';
+        if (fk !== 'weigh') {
+          if (opening) {
+            S.mFocus = fk;
+            try { if (!(history.state && history.state.mf)) history.pushState({ mf: 1 }, ''); } catch (e2) { /* no history here */ }
+          } else {
+            S.mFocus = null;
+            try { if (history.state && history.state.mf) history.back(); } catch (e3) { /* no history here */ }
+          }
+        }
+        if (opening) { renderMacros(); window.scrollTo(0, 0); } else keepingFocus(renderMacros);
+        return;
+      }
+      /* The ⋯ on a food, and the ⋯ on the meal: one menu open at a time. */
+      var fm = e.target.closest('[data-mfmenu], [data-mmenu]');
+      if (fm) {
+        var want = fm.dataset.mfmenu || ('meal:' + fm.dataset.mmenu);
+        S.mMenu = S.mMenu === want ? '' : want;
         keepingFocus(renderMacros);
+        return;
+      }
+      /* The camera beside Add foods: the picker, straight to the scanner. */
+      var scn = e.target.closest('[data-mscan]');
+      if (scn) {
+        rememberOpener();
+        S.mpFromBar = false;
+        mCamDone = false;                       // a fresh visit to scan opens the lens
+        mOpenPicker(scn.dataset.mscan, 'scan');
         return;
       }
 
@@ -5489,6 +5519,7 @@
       }
       var del = e.target.closest('[data-mdel]');
       if (del) {
+        S.mMenu = '';
         var dp = del.dataset.mdel.split(':');
         mEditDay(mViewKey(), function (day) {
           (day[dp[0]] || []).splice(Number(dp[1]), 1);
@@ -5760,6 +5791,7 @@
 
     $('macroOpenAll').addEventListener('click', function () {
       var open = mAnyShut(), day = mDay(mViewKey());
+      S.mFocus = null;
       Object.keys(day).forEach(function (sk2) { S.mFold[sk2] = !open; });
       mReadSlots().list.forEach(function (s2) { S.mFold[s2.k] = !open; });
       S.mFold.weigh = open ? false : undefined;
@@ -6162,10 +6194,15 @@
     var mOnPaper = false;
     var mPrintFold = null;
     if (window.addEventListener) {
+      var mPrintFocus = null;
       window.addEventListener('beforeprint', function () {
         if (S.view !== 'macros') return;
         mPrintFold = S.mFold;
         S.mFold = {};
+        /* The whole day on paper, even printed from one meal's own screen:
+           the meal in focus lets go for the print and is given back after. */
+        mPrintFocus = S.mFocus || null;
+        S.mFocus = null;
         mOnPaper = true;
         /* Held on the day it is already on, so the arrival seed does not run
            and fold everything straight back down. */
@@ -6176,6 +6213,8 @@
         if (mPrintFold === null) return;
         S.mFold = mPrintFold;
         mPrintFold = null;
+        S.mFocus = mPrintFocus;
+        mPrintFocus = null;
         mOnPaper = false;
         renderMacros();
       });
@@ -7593,6 +7632,14 @@
     } else {
       depth = 0;
       close();
+      /* Back from a meal's own screen is the day. A sheet opened over the
+         meal (the picker) pops back onto the meal, whose entry says so. */
+      if (S.mFocus && !(e.state && e.state.mf)) {
+        S.mFold[S.mFocus] = true;
+        S.mFocus = null;
+        S.mMenu = '';
+        if (S.view === 'macros') renderMacros();
+      }
     }
     popping = false;
   });
@@ -7914,8 +7961,14 @@
     cooked: function (id, day, tk) {
       var k = /^\d{4}-\d{2}-\d{2}$/.test(tk || '') ? tk : todayKey();
       window.Store.setCooked(day, true);
+      /* The whole meal the dinner is on, not just its plate: a meal is
+         completed as one (Blake, 2026-10-04: "I'll complete the whole
+         meal"), so sides on that dinner are eaten with it. */
       mEditDay(k, function (d) {
-        Object.keys(d).forEach(function (sk) { (d[sk] || []).forEach(function (it) { if (String(it.id) === String(id)) it.eaten = 1; }); });
+        Object.keys(d).forEach(function (sk) {
+          var list = d[sk] || [];
+          if (list.some(function (it) { return String(it.id) === String(id); })) list.forEach(function (it) { it.eaten = 1; });
+        });
       });
       tdSheetOpen({ k: 'rate', id: idOf(id), day: day, tk: k });
     },

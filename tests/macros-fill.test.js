@@ -7,6 +7,27 @@
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
 const { nourish, openWeigh, openPlan, pickerList } = require('./fixtures/nourish.js');
 
+/* The day is a list of meal cards and a meal opens as its own screen (the RP
+   Diet way, Blake 2026-10-04). Add foods and a food's ⋯ live on the open
+   meal; Fill lives on the day's bar, which steps aside while a meal is in
+   focus. So a test opens the meal it means, and comes back to the day — by
+   the meal's back button — before it reaches for the bar. */
+async function toDay(pg) {
+  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
+  if (!back) return;
+  await back.click();
+  await pg.waitForTimeout(250);
+}
+async function openMeal(pg, sk) {
+  const other = await pg.evaluate((s) => {
+    const b = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
+    return !!b && b.dataset.mfold !== s;
+  }, sk);
+  if (other) await toDay(pg);
+  const card = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
+  if (card) { await card.click(); await pg.waitForTimeout(250); }
+}
+
 module.exports = nourish({
   name: 'Macros — the plan calculator, favorites, and Fill my day',
   async suite(t) {
@@ -453,6 +474,7 @@ module.exports = nourish({
 
 
     // ---- a favorite never ranks worse for being loved, and wears its star
+    await openMeal(q, 'b');
     await q.click('[data-mslot="b"]');
     await pickerList(q);
     await q.waitForTimeout(200);
@@ -472,6 +494,7 @@ module.exports = nourish({
       window.Store.toggleFav(r.id);
     }, mid.id);
     await q.waitForTimeout(200);
+    await openMeal(q, 'b');
     await q.click('[data-mslot="b"]');
     await pickerList(q);
     await q.waitForTimeout(200);
@@ -516,6 +539,7 @@ module.exports = nourish({
       spread.notProtein.length === 0, JSON.stringify(spread.notProtein.slice(0, 5)));
     t.ok('and no more than three of them finish under 88% of the protein, none under 75%',
       spread.short <= 3 && spread.worst >= 0.75, spread.short + ' short, worst ' + Math.round(100 * spread.worst) + '%');
+    await toDay(q);
     await q.evaluate((src) => { window.__realRandom = Math.random; Math.random = new Function('return ' + src)()(1); }, mulberry);
     await q.click('#macroFill');
     await q.evaluate(() => { Math.random = window.__realRandom; });
@@ -610,8 +634,14 @@ module.exports = nourish({
       });
       return out;
     });
+    /* Remove is in the food's ⋯ menu on lunch's own screen (RP-style meal,
+       2026-10-04), and Fill is back on the day. */
+    await openMeal(q, 'l');
+    await q.click('[data-mfmenu="l:0"]');
+    await q.waitForTimeout(150);
     await q.click('[data-mdel="l:0"]');
     await q.waitForTimeout(200);
+    await toDay(q);
     await q.click('#macroFill');
     await q.waitForTimeout(300);
     /* Lunch gets a dish again. It may also get a single food on top: the

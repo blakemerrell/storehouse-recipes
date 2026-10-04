@@ -126,26 +126,27 @@ module.exports = nourish({
     await wakePg.waitForTimeout(400);
     await wakePg.click('.tab[data-view="macros"]');
     await wakePg.waitForTimeout(300);
-    await wakePg.evaluate(() => {
-      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
-      if (b) b.click();
-    });
+    /* Lunch by name: the day arrives as a list of meal cards and the first
+       card is breakfast, which is empty (RP-style day, 2026-10-04). */
+    await wakePg.click('#macroSlots [data-mfold="l"][aria-expanded="false"]');
     await wakePg.waitForTimeout(400);
     const portionCells = () => wakePg.evaluate(() =>
       [...document.querySelectorAll('.mstep-x')].map((e) => ({
         text: e.textContent.trim(), w: Math.round(e.getBoundingClientRect().width),
         clipped: e.scrollWidth > e.clientWidth + 1 })));
     const before2 = await portionCells();
-    for (let i = 0; i < 4; i++) {
-      const did = await wakePg.evaluate(() => {
-        const c = document.querySelector('#macroSlots input[data-meat]:not(:checked)');
-        if (!c) return false;
-        c.click();
-        return true;
-      });
-      if (!did) break;
-      await wakePg.waitForTimeout(350);
-    }
+    /* Ticked by the meal's own tick: there is no tick on a food since the
+       RP-style meal (Blake, 2026-10-04: "No individual foods ticks... I'll
+       complete the whole meal"). Both plates go eaten, both portions become
+       the wake-to-correct button this guard is about. */
+    await wakePg.click('[data-mdot="l"]');
+    await wakePg.waitForTimeout(350);
+    t.ok('the meal\'s tick leaves every plate on it eaten, its portion the wake-to-correct button',
+      await wakePg.evaluate(() => {
+        const rows = [...document.querySelectorAll('#macroSlots .mitem')];
+        return rows.length === 2 && rows.every((r) => r.classList.contains('eaten') &&
+          !!r.querySelector('.mstep-x.mstep-wake[data-medit]'));
+      }));
     const eatenPortion = await portionCells();
     t.ok('a plate reads the same words once it is eaten',
       before2.length > 1 && eatenPortion.length === before2.length &&
@@ -207,17 +208,21 @@ module.exports = nourish({
       emptyDelta.length === 4 && emptyDelta.some((r) => r.shown !== r.got - r.target),
       JSON.stringify(emptyDelta));
 
-    /* Now skip everything that is still empty. */
-    await skipPg2.evaluate(async () => {
-      for (let i = 0; i < 8; i++) {
-        const b = [...document.querySelectorAll('#macroSlots [data-mskip]')]
-          .find((x) => !/undo/i.test(x.textContent));
-        if (!b) break;
-        b.click();
-        await new Promise((r) => setTimeout(r, 180));
-      }
-    });
-    await skipPg2.waitForTimeout(500);
+    /* Now skip everything that is still empty. Skip lives in an empty meal's
+       ⋯ menu on its own screen since the RP-style meal (2026-10-04), so each
+       empty card is opened, its menu opened, and Skip today pressed. */
+    for (let i = 0; i < 8; i++) {
+      const card = await skipPg2.$('#macroSlots .mday-card:not(.filled) [data-mfold][aria-expanded="false"]');
+      if (!card) break;
+      const sk = await card.getAttribute('data-mfold');
+      await card.click();
+      await skipPg2.waitForTimeout(250);
+      await skipPg2.click('[data-mmenu="' + sk + '"]');
+      await skipPg2.waitForTimeout(200);
+      await skipPg2.click('.mscreen-menu [data-mskip="' + sk + '"]');
+      await skipPg2.waitForTimeout(250);
+    }
+    await skipPg2.waitForTimeout(300);
     const skipDelta = await deltaRows();
     t.ok('and once it is skipped it is not expected any more',
       skipDelta.length === 4 &&
@@ -645,28 +650,30 @@ module.exports = nourish({
     await paper.waitForTimeout(250);
     await paper.click('#macroFill');
     await paper.waitForTimeout(700);
-    await paper.evaluate(() => {
-      const h = document.querySelector('.mslot [data-mfold]');
-      if (h) h.click();
-    });
-    await paper.waitForTimeout(400);
-    const foldedBefore = await paper.evaluate(() => document.querySelectorAll('.mcard-shut').length);
+    /* Restated for the RP-style day (2026-10-04): there is no folding a meal
+       by hand to set this up any more — the day IS a list of folded meal
+       cards (.mday-card), and pressing one opens that meal as its own screen.
+       So the filled day is read as it stands, every meal a card, and printing
+       it has to open each of them with its plates. */
+    const folded = () => paper.evaluate(() => document.querySelectorAll('#macroSlots .mday-card.filled').length);
+    const foldedBefore = await folded();
     t.ok('a meal can be folded, so the printer has something to open',
-      foldedBefore > 0, String(foldedBefore));
+      foldedBefore > 0 && !await paper.$('#macroSlots .mitem'), String(foldedBefore));
     paperErrs.length = 0;
     await paper.emulateMedia({ media: 'print' });
     await paper.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
     await paper.waitForTimeout(500);
-    const onPaper = await paper.evaluate(() => document.querySelectorAll('.mcard-shut').length);
+    const onPaper = await folded();
     t.ok('the day opens for the printer rather than throwing',
-      paperErrs.length === 0 && onPaper === 0,
+      paperErrs.length === 0 && onPaper === 0 &&
+        await paper.evaluate((n) => document.querySelectorAll('#macroSlots .mscreen.filled').length === n &&
+          [...document.querySelectorAll('#macroSlots .mscreen.filled')].every((m) => !!m.querySelector('.mitem')), foldedBefore),
       'errors ' + JSON.stringify(paperErrs) + ' folded-on-paper ' + onPaper);
     await paper.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await paper.waitForTimeout(400);
     t.ok('and closes again afterwards, still without throwing',
-      paperErrs.length === 0 &&
-        await paper.evaluate(() => document.querySelectorAll('.mcard-shut').length) > 0,
-      JSON.stringify(paperErrs));
+      paperErrs.length === 0 && await folded() === foldedBefore,
+      JSON.stringify(paperErrs) + ' folded ' + await folded());
     await paper.context().close();
   },
 });

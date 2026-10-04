@@ -338,9 +338,15 @@ module.exports = {
     await q.waitForTimeout(250);
     await q.evaluate(() => { const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]'); if (b) b.click(); });
     await q.waitForTimeout(250);
-    await q.evaluate(() => { const e = document.querySelector('.mslot-act'); if (e) e.scrollIntoView({ block: 'center' }); });
+    /* The meal opens as its own screen now (the RP-style redesign Blake
+       approved 2026-10-04): the verbs are the head's icons (scales, the ⋯)
+       and the words in the meal's menu behind the ⋯, so the menu is opened
+       the way a thumb would before they are measured. */
+    await q.evaluate(() => { const b = document.querySelector('#macroSlots [data-mmenu][aria-expanded="false"]'); if (b) b.click(); });
+    await q.waitForTimeout(250);
+    await q.evaluate(() => { const e = document.querySelector('.mscreen-menu .mslot-act'); if (e) e.scrollIntoView({ block: 'center' }); });
     await q.waitForTimeout(80);
-    rs = await reach('.mslot-act', true);
+    rs = await reach('.mscreen-i, .mscreen-menu .mslot-act', true);
     t.ok('a meal\'s verbs are each a thumb wide and tall', rs.length >= 2 && rs.every((r) => r.hit), report(rs) || JSON.stringify(rs));
     // the toast's Undo
     await q.evaluate(() => {

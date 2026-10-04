@@ -7,6 +7,29 @@
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
 const { nourish, openWeigh, openPlan, openBasket, pickerList, openDay } = require('./fixtures/nourish.js');
 
+/* The day is a list of meal cards and a meal opens as its own screen (the RP
+   Diet way, Blake 2026-10-04). While one meal is in focus the day's header,
+   the weigh card, the bar and every other meal step aside, so anything that
+   reaches for them comes back to the day first — by the meal's own back
+   button, the way a thumb would. */
+async function toDay(pg) {
+  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
+  if (!back) return;
+  await back.click();
+  await pg.waitForTimeout(250);
+}
+/* Opens one meal as its own screen: back out of any other meal first, then
+   press that meal's card. A meal already open is left as it is. */
+async function openMeal(pg, sk) {
+  const other = await pg.evaluate((s) => {
+    const b = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
+    return !!b && b.dataset.mfold !== s;
+  }, sk);
+  if (other) await toDay(pg);
+  const card = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
+  if (card) { await card.click(); await pg.waitForTimeout(250); }
+}
+
 module.exports = nourish({
   name: 'Macros',
   async suite(t, freshBare) {
@@ -461,6 +484,9 @@ module.exports = nourish({
        hundred calories is a spoon of honey or half a tin of tuna — and the
        food table those recipes are costed from was already in the browser
        with no door on it. */
+    /* Add foods sits at the foot of the open meal, so the meal opens first
+       (RP-style day of meal cards, 2026-10-04). */
+    await openMeal(p, 'l');
     await p.click('[data-mslot="l"]');
     await pickerList(p);
     await p.waitForTimeout(250);
@@ -580,6 +606,7 @@ module.exports = nourish({
      * A meal assembled from parts — a scoop of whey, a splash of half and
      * half, a spoon of honey — used to cost one full trip through this sheet
      * per part, because picking anything closed it. */
+    await openMeal(p, 's');
     await p.click('[data-mslot="s"]');
     await pickerList(p);
     await p.waitForTimeout(250);
@@ -670,24 +697,30 @@ module.exports = nourish({
        four sets of figures. And asserted on THAT card rather than on the
        absence of every thin list on the day — opening one meal shuts the
        others, so there is nearly always a thin list somewhere. */
+    /* Restated for the RP-style day (Blake, 2026-10-04): the meal the picker
+       just filled is still open as its own screen; its back button folds it
+       to a day card — name, a count-and-verdict pill and the meal's pills,
+       no food names any more — and pressing the card opens the screen again. */
     t.ok('a meal folds and unfolds by its head, and today starts open',
       await p.evaluate(async () => {
-        const of = () => [...document.querySelectorAll('#macroSlots [data-mfold]')]
-          .find((b) => ((b.querySelector('.mslot-name') || {}).textContent || '') === 'Snacks');
-        if (!of() || of().getAttribute('aria-expanded') !== 'true') return false;
+        const of = () => document.querySelector('#macroSlots [data-mfold="s"]');
+        const card = () => of().closest('.mslot');
+        if (!of() || of().getAttribute('aria-expanded') !== 'true' ||
+          !card().classList.contains('mscreen')) return false;
         of().click();
-        await new Promise((r) => setTimeout(r, 150));
-        /* Folded is the meal card's three lines (2026-10-04): its foods by name. */
+        await new Promise((r) => setTimeout(r, 250));
         const shut = of().getAttribute('aria-expanded') === 'false' &&
-          of().closest('.mslot').classList.contains('mcard-shut') &&
-          !!of().closest('.mslot').querySelector('.mcard-names');
+          card().classList.contains('mday-card') && !card().querySelector('.mitem') &&
+          /^2 foods · /.test((card().querySelector('.mcard-pill') || {}).textContent || '') &&
+          !!card().querySelector('.mcard-p .mmp');
         of().click();
-        await new Promise((r) => setTimeout(r, 150));
+        await new Promise((r) => setTimeout(r, 250));
         return shut && of().getAttribute('aria-expanded') === 'true' &&
-          !of().closest('.mslot').classList.contains('mcard-shut');
-      }));
+          card().classList.contains('mscreen') && !card().classList.contains('mday-card');
+      }), await p.evaluate(() => (document.querySelector('#macroSlots [data-mfold="s"]') || {}).outerHTML || 'no Snacks'));
 
     // and a fresh sheet starts empty rather than inheriting the last one
+    await openMeal(p, 'l');
     await p.click('[data-mslot="l"]');
     await p.waitForTimeout(250);
     t.ok('the next meal opens with an empty basket',
@@ -706,6 +739,7 @@ module.exports = nourish({
     /* Food no book and no table has heard of — a tamale from a cart. The day
        has to add up, and a plate you cannot log is a plate that quietly makes
        every number on the screen wrong. */
+    await openMeal(p, 'd');
     await p.click('[data-mslot="d"]');
     await pickerList(p);
     await p.waitForTimeout(250);
@@ -1013,6 +1047,7 @@ module.exports = nourish({
       /\/ 150 g/.test(await foot()), await foot());
 
     // ---- the picker: ranked rows, sane suggestions, protein at the top
+    await openMeal(p, 'b');
     await p.click('[data-mslot="b"]');
     await pickerList(p);
     await p.waitForTimeout(200);
@@ -1054,6 +1089,7 @@ module.exports = nourish({
         !document.getElementById('view-macros').classList.contains('hide')));
 
     // ---- add the top suggestion; the footer moves by exactly x times the recipe
+    await openMeal(p, 'b');
     await p.click('[data-mslot="b"]');
     await pickerList(p);
     await p.waitForTimeout(200);
@@ -1115,7 +1151,10 @@ module.exports = nourish({
         const st = document.querySelector('#macroSlots .mday-stop.filled');
         return st && !st.classList.contains('done');
       }));
-    await p.click('[data-meat="b:0"]');
+    /* No per-food tick since the RP-style meal (Blake, 2026-10-04: "No
+       individual foods ticks... I'll complete the whole meal"). Breakfast has
+       one plate, so the meal's tick is the tick on that plate. */
+    await p.click('[data-mdot="b"]');
     await p.waitForTimeout(150);
     t.ok('ticking a meal marks it eaten',
       await p.evaluate(() => !!document.querySelector('.mitem.eaten')));
@@ -1128,7 +1167,7 @@ module.exports = nourish({
       }));
     t.ok('and the eaten sweep takes on a share of the dial',
       await p.evaluate(() => Number(document.querySelector('[data-macro="kcal"]').dataset.eaten) > 0));
-    await p.click('[data-meat="b:0"]');
+    await p.click('[data-mdot="b"]');
     await p.waitForTimeout(150);
     /* The dot said a meal was behind you but could never be told so, and no
        keyboard or screen reader knew it was there. Now it is the fastest way
@@ -1184,6 +1223,9 @@ module.exports = nourish({
       return [tr.borderColor, tr.borderWidth, fill ? getComputedStyle(fill).opacity : 'no fill',
         getComputedStyle(document.querySelector('.mwk-d.now .mwk-n')).fontWeight].join(' | ');
     });
+    /* The strip is in the day's header, which steps aside while a meal is
+       its own screen (2026-10-04): read it from the day, tick from the card. */
+    await toDay(p);
     const ringBefore = await paintOf();
     await p.click('#macroSlots .mday-dot');
     await p.waitForTimeout(200);
@@ -1212,6 +1254,7 @@ module.exports = nourish({
 
     /* Whether a plate fits the day and whether it is worth eating are two
        questions, and the second used to need the recipe opened. */
+    await openMeal(p, 'b');
     t.ok('a plate wears its nutrition score',
       await p.evaluate(() => {
         const lf = document.querySelector('.mitem .leaf');
@@ -1244,6 +1287,7 @@ module.exports = nourish({
         !document.querySelector('.mitem.eaten')));
 
     // ---- over budget: shrink the targets under what is planned
+    await toDay(p);     // the plan's door is on the day, not on a meal's screen
     await openPlan(p);
     await p.waitForTimeout(150);
     await p.fill('#mtP', '1');
@@ -1302,6 +1346,7 @@ module.exports = nourish({
     // ---- the estimate tilde follows estimated recipes and only those
     const estName = await p.evaluate(() =>
       window.RECIPES.find((r) => r.est && r.macro && r.macro.p + r.macro.c + r.macro.f > 0).name);
+    await openMeal(p, 'l');
     await p.click('[data-mslot="l"]');
     await pickerList(p);
     await p.waitForTimeout(200);
@@ -1404,6 +1449,9 @@ module.exports = nourish({
        yield, so 1¾ of a six-bite batch read as "10½ servings". Nothing pinned
        the two to each other, which is how a six-fold overstatement sat on the
        card without a red test. This is that pin. */
+    /* Every meal's plates at once: the bar's Open all, from the day. */
+    await toDay(p);
+    await openDay(p);
     const portions = await p.evaluate(() => {
       const FR = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3,
         '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875 };
@@ -1415,10 +1463,12 @@ module.exports = nourish({
       const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
       const day = days[Object.keys(days)[0]];
       const out = [];
+      /* Which plate a row is, read off its stepper now the per-plate eaten
+         box is gone (2026-10-04): data-mstep is "meal:index:direction". */
       document.querySelectorAll('.mitem').forEach((row) => {
-        const box = row.querySelector('[data-meat]');
+        const box = row.querySelector('[data-mstep]');
         if (!box) return;
-        const parts = box.dataset.meat.split(':');
+        const parts = box.dataset.mstep.split(':');
         const it = (day[parts[0]] || [])[+parts[1]];
         if (!it) return;
         const r = window.RECIPES.find((q) => String(q.id) === String(it.id));
@@ -1461,8 +1511,11 @@ module.exports = nourish({
     await p.click('.tab[data-view="macros"]');
     await p.waitForTimeout(150);
     // a reloaded day arrives folded; the plates are there behind the fold
+    /* Folded is a day card now (RP-style, 2026-10-04), with no plate drawn. */
     t.ok('the day survives a reload, folded',
-      await p.evaluate(() => document.querySelectorAll('#macroSlots .mcard-shut').length) === 2);
+      await p.evaluate(() => document.querySelectorAll('#macroSlots .mday-card.filled').length === 2 &&
+        !document.querySelector('#macroSlots .mitem')),
+      await p.evaluate(() => document.querySelectorAll('#macroSlots .mday-card.filled').length + ' filled cards'));
     await openDay(p);
     t.ok('and opening it shows both plates with their controls',
       await p.evaluate(() => document.querySelectorAll('.mitem').length) === 2);
@@ -1477,8 +1530,8 @@ module.exports = nourish({
     await p.waitForTimeout(300);
     await p.click('.tab[data-view="macros"]');
     await p.waitForTimeout(150);
-    await openDay(p);
-    await p.click('[data-meat="b:0"]');     // any write prunes
+    // any write prunes; the meal's tick is a write (no per-plate tick since 2026-10-04)
+    await p.click('[data-mdot="b"]');
     await p.waitForTimeout(200);
     t.ok('a stale day is gone after the next write, today kept',
       await p.evaluate(() => {

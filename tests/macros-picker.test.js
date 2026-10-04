@@ -7,7 +7,40 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, addOn, asPlanned, openBasket, pickerList, openDay } = require('./fixtures/nourish.js');
+const { nourish, addOn, openBasket, pickerList } = require('./fixtures/nourish.js');
+
+/* Since 2026-10-04 (Blake: "the RP Diet way") the day is a list of folded meal
+   cards and a press on one opens that meal as its own screen, the rest of the
+   day stepped aside. A meal's plates, its scales and its Add are behind that
+   press, so a test reaching for them opens the meal the way a thumb does —
+   coming back to the day first if another meal is the one on screen. */
+async function openMeal(pg, sk) {
+  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
+  if (back && (await back.getAttribute('data-mfold')) !== sk) {
+    await back.click();
+    await pg.waitForTimeout(250);
+  }
+  const b = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
+  if (b) { await b.click(); await pg.waitForTimeout(250); }
+}
+async function backToDay(pg) {
+  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
+  if (back) { await back.click(); await pg.waitForTimeout(250); }
+}
+/* A plate added to a meal whose time has come arrives eaten, and an eaten
+   plate's keys are quiet. There is no per-food tick to undo that any more
+   (2026-10-04: "No individual foods ticks... I'll complete the whole meal"),
+   so a test that means to dial what it just added unticks the meal's own. */
+async function asPlannedMeal(pg, sk) {
+  const dot = await pg.$('#macroSlots [data-mdot="' + sk + '"][aria-pressed="true"]');
+  if (dot) { await dot.click(); await pg.waitForTimeout(250); }
+}
+/* The meal's ⋯ holds Try another, Save meal and Repeat a day (2026-10-04). */
+async function openMealMenu(pg, sk) {
+  if (await pg.$('#macroSlots .mscreen-menu')) return;
+  await pg.click('#macroSlots [data-mmenu="' + sk + '"]');
+  await pg.waitForTimeout(200);
+}
 
 module.exports = nourish({
   name: 'Macros — the picker: the bar, closing a meal, a typed number, Look up',
@@ -97,18 +130,19 @@ module.exports = nourish({
     }
     await bar.click('[data-mpdone]');
     await bar.waitForTimeout(350);
-    const openDinner = async () => {
-      for (let i = 0; i < 4; i++) {
-        if (!await bar.evaluate(() => !!document.querySelector('.mcard-shut'))) break;
-        await bar.click('#macroOpenAll');
-        await bar.waitForTimeout(180);
-      }
-    };
-    await openDinner();
-    await asPlanned(bar, 'd');
+    /* The meal the picker just filled comes back open; opened here in case
+       it did not, and its tick undone so the plates can be dialled. */
+    await openMeal(bar, 'd');
+    await asPlannedMeal(bar, 'd');
+    /* The scales sit on the open meal's head and Save meal in its ⋯
+       (2026-10-04, RP-style): both offered, one tap and two away. */
+    const balOffered = await bar.evaluate(() => {
+      const b2 = document.querySelector('.mscreen-h [data-mbal="d"]');
+      return !!b2 && !b2.disabled;
+    });
+    await openMealMenu(bar, 'd');
     t.ok('a meal of parts offers to be balanced and to be kept',
-      await bar.evaluate(() => !!document.querySelector('[data-mbal="d"]') &&
-        !!document.querySelector('[data-mkeep="d"]')));
+      balOffered && await bar.evaluate(() => !!document.querySelector('.mscreen-menu [data-mkeep="d"]')));
 
     /* Knock the portions out of shape, then solve them. The target of a meal
        is its weight's worth of the DAY — not what is left of the day after
@@ -145,6 +179,7 @@ module.exports = nourish({
 
     /* Kept to yourself means kept to yourself: the household document is
        where recipes live, and four scanned packets are not everyone's. */
+    await openMealMenu(bar, 'd');
     await bar.click('[data-mkeep="d"]');
     await bar.waitForTimeout(300);
     await bar.fill('#mkName', 'Chicken Rice Bowl');
@@ -287,8 +322,14 @@ module.exports = nourish({
     await comboPage2.waitForTimeout(400);
     await comboPage2.click('.tab[data-view="macros"]');
     await comboPage2.waitForTimeout(300);
-    const lastAdd = await comboPage2.$$('.mslot-add');
-    await lastAdd[lastAdd.length - 1].click();
+    /* The last meal's Add is at the foot of that meal's own screen
+       (2026-10-04), so the last meal is opened first. */
+    const lastMeal = await comboPage2.evaluate(() => {
+      const hs = [...document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]')];
+      return hs.length ? hs[hs.length - 1].dataset.mfold : null;
+    });
+    await openMeal(comboPage2, lastMeal);
+    await comboPage2.click('#macroSlots .mslot-add');
     await comboPage2.waitForTimeout(400);
 
     /* The heading says how many foods are actually under it. A meal whose
@@ -397,9 +438,10 @@ module.exports = nourish({
     await gaugePage.waitForTimeout(400);
     await gaugePage.click('.tab[data-view="macros"]');
     await gaugePage.waitForTimeout(350);
-    /* The four pills are the OPEN meal's head since the meal card
-       (2026-10-04); folded, a meal is its calories and one bar. */
-    await openDay(gaugePage);
+    /* The four pills are on the folded day card's face since the RP-style
+       day (2026-10-04, "our macro pills are better design for showing
+       macros"); an open meal shows its capsules instead. Every meal arrives
+       folded, so the pills are read where they are, without opening any. */
 
     const gz = await gaugePage.evaluate(() => {
       const out = [];
@@ -408,12 +450,12 @@ module.exports = nourish({
         const gg = card.querySelector('.mmps');
         out.push({
           name: nm ? nm.textContent : '',
-          /* No food on the plate. NOT "has no .mitem rows" — the accordion
-             keeps every meal but one folded, and a folded meal renders no
-             rows either. The honest signal is the fold handle: a meal with
-             food gets a head you can fold, an empty one has nothing to hide
-             and renders its name flat. */
-          empty: !!card.querySelector('.mslot-name-flat'),
+          /* No food on the plate. NOT "has no .mitem rows" — a folded meal
+             renders no rows either. Since 2026-10-04 an empty meal is a day
+             card like any other (it opens to its own screen to be filled),
+             so the flat name it used to wear is gone; the card says it has
+             food by being .filled. */
+          empty: card.classList.contains('mday-card') && !card.classList.contains('filled'),
           hasGauges: !!gg,
           planned: !!gg && gg.classList.contains('planned'),
           /* A meal with nothing on it prints its TARGET where a fed one
@@ -473,8 +515,13 @@ module.exports = nourish({
         if (!heads.length) return false;
         return heads.every((head) => {
           const said = head.getAttribute('aria-label') || '';
+          /* Every meal's day card carries its pills since 2026-10-04, the
+             empty ones included, and an empty meal's pill prints its target
+             (see below) while the plate under it is nought — so for those the
+             head says "0 of" the same target the pill prints. */
+          const blank = !!head.querySelector('.mmps-blank');
           return [...head.querySelectorAll('.mmp[data-want]')].every((pl) => {
-            const got = (pl.querySelector('.mmp-v') || {}).textContent.trim();
+            const got = blank ? '0' : (pl.querySelector('.mmp-v') || {}).textContent.trim();
             return said.indexOf(got + ' of ' + pl.dataset.want) >= 0;
           });
         });
@@ -648,48 +695,63 @@ module.exports = nourish({
        typing it, the tick by the meal's own. 34 clears the 24px floor with
        room, and the figure is asserted as a FLOOR so the next design pass
        can go up but not quietly back to nothing. */
-    /* Rebuilt with the meal card (2026-10-04). A food is one line — name,
-       amount, calories, tick — and its other controls are in its panel. The
-       floors are the ones Blake set: every control a thumb wide (34 at the
-       least), one line at the narrowest phone, the tick clear of what sits
-       before it, the meal's verbs drawn and named. */
+    /* Re-aimed at the RP-style food card (2026-10-04, Blake: "the RP Diet
+       way"): every food is a card whose amount bar — lock, amount, −, + — is
+       always there, with the star and the ⋯ on its top line, and the meal's
+       own head carries back, tick, scales and ⋯. All of those hold the 34
+       floor; the amount bar's − and + are the keys a thumb uses most, and the
+       new bar gives them 44, so they are held to that. */
     const targets44 = await tinyPhone.evaluate(() => {
-      const els = [...document.querySelectorAll(
-        '.mcard-line .mcard-amt, .mcard-line .mitem-ate, .mcard-panel .mcard-i, ' +
-        '.mcard-panel .mstep button[data-mstep], .mcard-panel .mitem-amt')];
-      const small = els.map((e) => {
-        const b = e.getBoundingClientRect();
+      const box = (e) => { const b = e.getBoundingClientRect();
         return { w: Math.round(b.width), h: Math.round(b.height),
-          what: e.className.split(' ')[0] || e.tagName };
-      }).filter((x) => x.w < 34 || x.h < 34);
-      return { n: els.length, small: small };
+          what: (e.getAttribute('data-mstep') ? 'key ' : '') + (e.className.split(' ')[0] || e.tagName) }; };
+      const plate = [...document.querySelectorAll(
+        '#macroSlots .mfood [data-mlock], #macroSlots .mfood .mstep-x, #macroSlots .mfood [data-mfav], ' +
+        '#macroSlots .mfood [data-mfmenu], #macroSlots .mscreen-h button')];
+      const keys = [...document.querySelectorAll('#macroSlots .mfood .mstep-keys button[data-mstep]')];
+      const small = plate.map(box).filter((x) => x.w < 34 || x.h < 34)
+        .concat(keys.map(box).filter((x) => x.w < 44 || x.h < 44));
+      return { n: plate.length + keys.length, keys: keys.length, small: small };
     });
     t.ok('every control on a plate is a thumb wide at the narrowest phone',
-      targets44.n >= 6 && targets44.small.length === 0,
+      targets44.n >= 6 && targets44.keys >= 4 && targets44.small.length === 0,
       JSON.stringify(targets44));
 
-    const strip320 = await tinyPhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mcard-line')].map((r) => {
+    /* The food's own line used to be name, amount, calories and a tick; the
+       tick went with the 2026-10-04 redesign ("No individual foods ticks...
+       I'll complete the whole meal"). What now has to hold one line at 320 is
+       the amount bar: lock, amount, − and +, side by side, none over its
+       neighbour, and the bar not scrolling sideways. */
+    const strip320 = await tinyPhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mfood-amt')].map((r) => {
       const R = (e) => e.getBoundingClientRect();
-      const amt = r.querySelector('.mcard-amt'), ate = r.querySelector('.mitem-ate');
-      if (!amt || !ate) return { missing: true };
-      const mid = (e) => R(e).top + R(e).height / 2;
-      return { sameLine: Math.abs(mid(ate) - mid(amt)) < 4, clear: R(ate).left >= R(amt).right,
-        fits: r.scrollWidth <= r.clientWidth + 1, amt: Math.round(R(amt).width) };
+      const parts = [r.querySelector('[data-mlock]'), r.querySelector('.mstep-x'),
+        r.querySelector('[data-mstep$=":down"]'), r.querySelector('[data-mstep$=":up"]')];
+      if (parts.some((e) => !e)) return { missing: true };
+      // one line: every control inside the bar's own band, top to bottom
+      const bar = R(r);
+      return { sameLine: parts.every((e) => R(e).top >= bar.top - 1 && R(e).bottom <= bar.bottom + 1),
+        clear: parts.every((e, i) => !i || R(e).left >= R(parts[i - 1]).right - 1),
+        fits: r.scrollWidth <= r.clientWidth + 1, amt: Math.round(R(parts[1]).width) };
     }));
-    t.ok('a food’s line fits one line at 320, the tick clear of the amount',
+    t.ok('a food’s amount bar fits one line at 320, each control clear of the one before',
       strip320.length >= 2 && strip320.every((x) => !x.missing && x.sameLine && x.clear && x.fits),
       JSON.stringify(strip320));
 
-    /* The meal's own verbs, drawn without words, each named aloud. */
+    /* The meal's own verbs, drawn without words, each named aloud. Since
+       2026-10-04 those are the open meal's head — back, the meal's tick, the
+       scales and ⋯ — with Try another, Save meal and Repeat a day worded
+       inside the ⋯ rather than drawn on the face. */
     const verbs320 = await tinyPhone.evaluate(() => {
-      const row = document.querySelector('#macroSlots .mslot-acts');
+      const row = document.querySelector('#macroSlots .mscreen-h');
       if (!row) return null;
       const bs = [...row.querySelectorAll('button')];
       return {
         n: bs.length,
         rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
         worded: bs.filter((b) => { const w = b.querySelector('span'); return w && w.getBoundingClientRect().width > 0; }).length,
-        drawn: bs.filter((b) => { const g = b.querySelector('svg'); return g && g.getBoundingClientRect().width > 0; }).length,
+        // the tick is a ring drawn in CSS; every other verb is a glyph
+        drawn: bs.filter((b) => b.hasAttribute('data-mdot') ||
+          (b.querySelector('svg') && b.querySelector('svg').getBoundingClientRect().width > 0)).length,
         unnamed: bs.filter((b) => !/\w/.test(b.getAttribute('aria-label') || '')).map((b) => b.className),
       };
     });
@@ -700,14 +762,15 @@ module.exports = nourish({
 
     /* The panel's icons are the size the mockup Blake approved drew them
        (22px in a 44px circle), asserted as a ceiling so a stray rule cannot
-       quietly blow them up. */
+       quietly blow them up. The panel went with the 2026-10-04 food card; its
+       glyphs — the star, the ⋯ and the lock — are on the card itself now. */
     t.ok('and the glyph inside it is the size the plate asks for, not a leftover',
       await tinyPhone.evaluate(() => {
-        const g = [...document.querySelectorAll('.mcard-panel .mcard-i svg')];
+        const g = [...document.querySelectorAll('#macroSlots .mfood .mfood-i svg, #macroSlots .mfood [data-mlock] svg')];
         return g.length >= 3 && g.every((e) => Math.round(e.getBoundingClientRect().width) <= 22);
       }),
       await tinyPhone.evaluate(() => [...new Set(
-        [...document.querySelectorAll('.mcard-panel .mcard-i svg')]
+        [...document.querySelectorAll('#macroSlots .mfood .mfood-i svg, #macroSlots .mfood [data-mlock] svg')]
           .map((e) => Math.round(e.getBoundingClientRect().width)))].join(', ')));
 
     /* The star reaches everything a plate can hold.
@@ -785,18 +848,26 @@ module.exports = nourish({
     await spacePhone.waitForTimeout(300);
     await spacePhone.click('[data-mfold="b"]');
     await spacePhone.waitForTimeout(300);
-    /* In the panel (2026-10-04): lock, swap, pin and star are one group, the
-       bin stands apart at the far end, so the destructive one is never a
-       neighbour of the others. */
+    /* The food's ⋯ (2026-10-04, RP-style card): Swap and Pin are one group
+       and Remove stands apart at the far end, so the destructive one is
+       never a neighbour of the others. (It was the panel's lock, swap, pin,
+       star and bin until the panel went with that redesign.) */
+    await spacePhone.click('#macroSlots [data-mfmenu="b:0"]');
+    await spacePhone.waitForTimeout(250);
     const spacing = await spacePhone.evaluate(() => {
-      const icons = [...document.querySelectorAll('#macroSlots .mcard-panel .mcard-i')];
+      const icons = [...document.querySelectorAll('#macroSlots .mfood-menu button')];
       if (icons.length < 3) return null;
       const g = icons.map((e) => e.getBoundingClientRect());
       const bin = icons.findIndex((e) => e.hasAttribute('data-mdel'));
       if (bin !== icons.length - 1) return { binNotLast: true };
-      const within = Math.round(g[1].left - g[0].right);
-      const between = Math.round(g[bin].left - g[bin - 1].right);
-      return { within, between, box: Math.round(g[0].width) };
+      /* The air between two buttons measured in both directions, because
+         the menu is allowed to wrap: the larger of the horizontal and the
+         vertical gap is how far apart they actually sit. */
+      const air = (a, b) => Math.round(Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom));
+      const within = air(g[0], g[1]);
+      const between = Math.min.apply(null, g.slice(0, bin).map((o) => air(o, g[bin])));
+      return { within, between, box: Math.round(g[0].width),
+        rows: new Set(g.map((o) => Math.round(o.top))).size };
     });
     t.ok('two verbs sit within a target of each other, not scattered',
       !!spacing && !spacing.binNotLast && spacing.within <= 44,
@@ -805,10 +876,10 @@ module.exports = nourish({
       !!spacing && !spacing.binNotLast && spacing.within < spacing.between,
       JSON.stringify(spacing));
     t.ok('and it bought that without shrinking a single target',
-      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mcard-panel .mcard-i')]
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mfood-menu button')]
         .every((e) => { const b = e.getBoundingClientRect();
           return Math.round(b.width) >= 34 && Math.round(b.height) >= 34; })),
-      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mcard-panel .mcard-i')]
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mfood-menu button')]
         .map((e) => { const b = e.getBoundingClientRect();
           return Math.round(b.width) + 'x' + Math.round(b.height); }).join(' ')));
     await spacePhone.context().close();
@@ -853,12 +924,28 @@ module.exports = nourish({
         return (day.b || []).some((it) => it.l);
       }));
 
-    await heldPage.click('[data-mfold="b"]');           // fold it again
+    /* The folded card named its foods and counted the held ones ("1 kept")
+       until 2026-10-04; the RP-style day card names no foods at all, only
+       the meal and its pills. So the mark is held where the food now is: fold
+       the meal, open it again, and the plate still says Kept, with its lock
+       still pressed — the hold survives the fold, and it is the one plate. */
+    await heldPage.click('#macroSlots [data-mfold="b"][aria-expanded="true"]');   // fold it again
+    await heldPage.waitForTimeout(300);
+    const foldedBack = await heldPage.evaluate(() =>
+      !!document.querySelector('#macroSlots .mday-card [data-mfold="b"][aria-expanded="false"]'));
+    await heldPage.click('#macroSlots [data-mfold="b"][aria-expanded="false"]');
     await heldPage.waitForTimeout(300);
     t.ok('and the fold still says which food is being held',
-      await heldPage.evaluate(() => /^1 kept$/.test(((document.querySelector('#macroSlots .mcard-shut .mcard-kept') || {}).textContent || '').trim())),
-      await heldPage.evaluate(() =>
-        (document.querySelector('#macroSlots .mcard-shut .mcard-names') || {}).textContent || 'no folded card'));
+      foldedBack && await heldPage.evaluate(() => {
+        const held = [...document.querySelectorAll('#macroSlots .mfood')].filter((f) =>
+          [...f.querySelectorAll('.mfood-chip.kept')].some((c) => /Kept/.test(c.textContent)) &&
+          (f.querySelector('[data-mlock]') || {}).getAttribute('aria-pressed') === 'true');
+        return held.length === 1 && held[0].classList.contains('held');
+      }),
+      await heldPage.evaluate(() => [...document.querySelectorAll('#macroSlots .mfood')]
+        .map((f) => f.className + ' [' + (f.querySelector('.mfood-chips') || {}).textContent + ']').join(' | ') || 'no plates'));
+    // and back to the day, where Rebalance is pressed with the meal folded
+    await backToDay(heldPage);
 
     /* The point of the mark: Rebalance is about to skip that plate, and you
        are looking at the folded card when you press it. */
@@ -929,24 +1016,41 @@ module.exports = nourish({
     await deadFold.click('.tab[data-view="macros"]');
     await deadFold.waitForTimeout(300);
 
-    t.ok('an empty meal\u2019s name is not offered as a fold handle',
-      await deadFold.evaluate(() =>
-        document.querySelectorAll('.mslot').length > 0 &&
-        !document.querySelector('.mslot .mslot-name[data-mfold]')));
-
-    /* The consequence, which is what actually bit: press it, then Fill. */
-    await deadFold.click('.mslot .mslot-name');
+    /* Reversed on 2026-10-04 (Blake: "the RP Diet way"). An empty meal is a
+       day card like any other now, and pressing it is no longer a press that
+       does nothing: it opens that meal's own screen, which says it is empty
+       and carries Add foods and the camera — the press does something you can
+       see. What has to stay true is the consequence below. */
+    await deadFold.click('#macroSlots [data-mfold="b"][aria-expanded="false"]');
     await deadFold.waitForTimeout(300);
+    t.ok('an empty meal’s card opens to a screen with something to do on it',
+      await deadFold.evaluate(() => {
+        const sc = document.querySelector('#macroSlots .mscreen-focus');
+        return !!sc && !!sc.querySelector('.mscreen-empty') &&
+          !!sc.querySelector('[data-mslot="b"]') && !!sc.querySelector('[data-mscan="b"]');
+      }));
+
+    /* The consequence, which is what actually bit: press it, then Fill —
+       from the day, since the bar steps aside while a meal is on screen. */
+    await backToDay(deadFold);
     await deadFold.click('#macroFill');
     await deadFold.waitForTimeout(700);
     const afterFill = await deadFold.evaluate(() =>
-      [...document.querySelectorAll('.mslot')]
+      [...document.querySelectorAll('#macroSlots .mslot')]
         .filter((c) => c.querySelector('.mslot-name'))
         .map((c) => ({ n: c.querySelector('.mslot-name').textContent.trim(),
-          steppers: c.querySelectorAll('[data-mstep]').length })));
+          k: (c.querySelector('[data-mfold]') || {}).dataset.mfold,
+          folded: c.classList.contains('mday-card'),
+          filled: c.classList.contains('filled') })));
+    /* Every meal Fill drafted comes back the same way — the one pressed
+       first is not singled out — and that one opens onto its steppers. */
+    await openMeal(deadFold, 'b');
+    const bSteppers = await deadFold.evaluate(() =>
+      document.querySelectorAll('#macroSlots .mscreen [data-mstep^="b:"]').length);
     t.ok('and pressing it before Fill does not bring one meal back folded',
-      afterFill.length >= 3 && afterFill.every((m) => m.steppers > 0),
-      JSON.stringify(afterFill));
+      afterFill.length >= 3 && afterFill.every((m) => m.filled) &&
+        afterFill.every((m) => m.folded === afterFill[0].folded) && bSteppers > 0,
+      JSON.stringify({ afterFill, bSteppers }));
     await deadFold.context().close();
 
     /* ---- what closes the day, on arrival ---------------------------------

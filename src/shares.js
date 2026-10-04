@@ -522,8 +522,13 @@
      what it did last. */
   function mAnyShut() {
     var day = mDay(mViewKey()), shut = false;
+    /* An empty meal counts as shut until it is opened: since the meal became
+       its own screen (2026-10-04) every meal arrives as a card, and Open all
+       has to be able to open a day of empty ones. A skipped meal is a line,
+       with nothing to open. */
     mReadSlots().list.forEach(function (s2) {
-      if ((day[s2.k] || []).length && S.mFold[s2.k]) shut = true;
+      var has = (day[s2.k] || []).length;
+      if (has ? S.mFold[s2.k] : (S.mFold[s2.k] !== false && !mSkipped(mViewKey(), s2.k))) shut = true;
     });
     Object.keys(day).forEach(function (sk2) {
       if ((day[sk2] || []).length && S.mFold[sk2]) shut = true;
