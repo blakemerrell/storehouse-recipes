@@ -23,8 +23,10 @@
 # The security rules are checked in a job of their own, against Google's
 # Firestore emulator (tests/rules/): this is the only place they run before
 # they are live, which rules.yml makes them on main once the same check
-# passes there. It needs Java and packages the app does not, so it keeps its
-# own folder.
+# passes there. The same job then runs src/sync.js itself under them, with
+# the Firebase client the app ships, so a rule that refuses something the app
+# does fails here rather than on everybody's phone. It needs Java and
+# packages the app does not, so it keeps its own folder.
 name: tests
 
 on:
@@ -82,7 +84,7 @@ jobs:
       - run: SITE=_site FAST=1 node tests/run.js
 
   rules:
-    name: Security rules, against the Firestore emulator
+    name: Security rules and sync, against the Firestore emulator
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:

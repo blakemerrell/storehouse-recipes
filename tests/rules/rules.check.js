@@ -3,11 +3,12 @@
  *
  *     cd tests/rules && npm ci && npm test
  *
- * The rules are pasted into the Firebase console by hand, so this is the only
- * place they are ever run before they are live. It starts Google's own
- * Firestore emulator (a Java program, downloaded once into .emulator/ and
- * kept) and asks it, as different people, to do what the app does and what
- * somebody holding a household code might try instead.
+ * Every pull request runs this, and so does the workflow that publishes the
+ * rules (.github/workflows/rules.yml), before it publishes: nothing reaches
+ * the live project that has not passed here first. It starts Google's own
+ * Firestore emulator (emulator.js) and asks it, as different people, to do
+ * what the app does and what somebody holding a household code might try
+ * instead. sync.check.js, run after it, does the same with the app itself.
  *
  * It never touches the live project: the project id is a demo- one, which
  * the SDK refuses to send anywhere but the emulator.
@@ -18,70 +19,16 @@
 
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
-const https = require('https');
-const net = require('net');
-const { spawn } = require('child_process');
 const {
   initializeTestEnvironment, assertSucceeds, assertFails
 } = require('@firebase/rules-unit-testing');
 const firebase = require('firebase/compat/app').default;
 require('firebase/compat/firestore');
+const { startEmulator } = require('./emulator.js');
 
 const FV = firebase.firestore.FieldValue;
 const RULES = fs.readFileSync(path.join(__dirname, '..', '..', 'firestore.rules'), 'utf8');
-const JAR_VERSION = '1.19.8';
-const JAR_DIR = process.env.FIRESTORE_EMULATOR_DIR || path.join(__dirname, '.emulator');
-const JAR = path.join(JAR_DIR, 'cloud-firestore-emulator-v' + JAR_VERSION + '.jar');
-const JAR_URL = 'https://storage.googleapis.com/firebase-preview-drop/emulator/' +
-  'cloud-firestore-emulator-v' + JAR_VERSION + '.jar';
 const DAY = 86400000;
-
-function download(url, to) {
-  return new Promise((ok, fail) => {
-    fs.mkdirSync(path.dirname(to), { recursive: true });
-    const part = to + '.part';
-    https.get(url, (res) => {
-      if (res.statusCode !== 200) { fail(new Error('emulator download: HTTP ' + res.statusCode)); return; }
-      const out = fs.createWriteStream(part);
-      res.pipe(out);
-      out.on('finish', () => out.close(() => { fs.renameSync(part, to); ok(); }));
-    }).on('error', fail);
-  });
-}
-
-function freePort() {
-  return new Promise((ok) => {
-    const s = net.createServer();
-    s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); });
-  });
-}
-
-function answering(port) {
-  return new Promise((ok) => {
-    http.get({ host: '127.0.0.1', port, path: '/' }, (res) => { res.resume(); ok(true); })
-      .on('error', () => ok(false));
-  });
-}
-
-async function startEmulator() {
-  if (!fs.existsSync(JAR)) {
-    console.log('Downloading the Firestore emulator (once)…');
-    await download(JAR_URL, JAR);
-  }
-  const port = await freePort();
-  const proc = spawn('java', ['-jar', JAR, '--host=127.0.0.1', '--port=' + port],
-    { stdio: ['ignore', 'ignore', 'pipe'] });
-  let said = '';
-  proc.stderr.on('data', (d) => { said += d; });
-  for (let i = 0; i < 120; i++) {
-    if (await answering(port)) return { port, proc };
-    if (proc.exitCode !== null) break;
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  proc.kill();
-  throw new Error('the Firestore emulator did not start:\n' + said.slice(-2000));
-}
 
 let passed = 0, failed = 0;
 const failures = [];
