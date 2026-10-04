@@ -149,10 +149,15 @@ module.exports = {
       const given = new Set(keys);
       const file = ours.find((f) => new RegExp('\\.' + part + ' = function \\(app\\)').test(fs.readFileSync(path.join(ROOT, f), 'utf8')));
       const text = file ? code(fs.readFileSync(path.join(ROOT, file), 'utf8')) : '';
+      /* Handed exactly what it reads: nothing it reads left out, and nothing
+         handed that it never reads (LIVE aside, checked below), so a part
+         that reads nothing of the app's (the toast) is handed nothing. */
       const read = [...new Set([...text.matchAll(/\bapp\.(\w+)/g)].map((m) => m[1]))];
       const missing = read.filter((n) => !given.has(n));
-      t.ok('HiveParts.' + part + ' is a file index.html loads (' + file + '), and app.js hands it all ' + read.length + ' of the app’s it reads',
-        !!file && read.length > 0 && missing.length === 0, file ? 'not handed over: ' + missing.join(', ') : 'no file defines HiveParts.' + part);
+      const unread = [...given].filter((n) => n !== 'LIVE' && read.indexOf(n) < 0);
+      t.ok('HiveParts.' + part + ' is a file index.html loads (' + file + '), and app.js hands it exactly the ' + read.length + ' of the app’s it reads',
+        !!file && !missing.length && !unread.length,
+        file ? 'not handed over: ' + missing.join(', ') + '; handed and never read: ' + unread.join(', ') : 'no file defines HiveParts.' + part);
       /* And what it reads and writes through LIVE, each a getter there, and a
          setter for each it writes: a name with no getter reads undefined, and
          a write with no setter is lost without a word. */

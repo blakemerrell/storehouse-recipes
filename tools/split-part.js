@@ -149,14 +149,20 @@ const own = [];
 if (usesShared.includes('esc')) own.push(`  function esc(s) {\n    return String(s == null ? '' : s)\n      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');\n  }`);
 if (usesShared.includes('$')) own.push(`  function $(id) { return document.getElementById(id); }`);
 const gives = exportFns.map((f) => f.id.name).concat(constOut);
+// the part's opening: what it reads of the app's (when it reads any), its own helpers, then the code
+const opening = [];
+if (imports.length || live.length) {
+  opening.push(`  // what it reads of the app's${live.length ? ', and (LIVE) what the app replaces as it goes: ' + live.join(', ') : ''}\n` +
+    imports.map((n) => `  var ${n} = app.${n};`).concat(live.length ? ['  var LIVE = app.LIVE;'] : []).join('\n'));
+}
+if (own.length) opening.push(own.join('\n'));
+opening.push(body.replace(/^\n+/, '').replace(/\n+$/, ''));
 const part = `${header}
 (window.HiveParts = window.HiveParts || {}).${name} = function (app) {
   'use strict';
 
-  // what it reads of the app's${live.length ? ', and (LIVE) what the app replaces as it goes: ' + live.join(', ') : ''}
-${imports.map((n) => `  var ${n} = app.${n};`).join('\n')}${live.length ? '\n  var LIVE = app.LIVE;' : ''}
-${own.length ? '\n' + own.join('\n') + '\n' : ''}
-${body.replace(/^\n+/, '').replace(/\n+$/, '\n')}
+${opening.join('\n\n')}
+
   return { ${gives.map((n) => `${n}: ${n}`).join(', ')} };
 };
 `;
