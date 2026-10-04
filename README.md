@@ -662,6 +662,12 @@ afterwards; it never touches a real one. `tests/household.test.js` runs the shar
 household against a stand-in for Firestore in the default run — what each change asks
 the server to do, and what a phone keeps when something is taken from the household.
 
+To ask whether the tests would notice a real mistake, `node tools/mutate.js` makes
+fourteen of them, one at a time — the pantry stops saving, the service worker stops
+caching the scripts — and runs everything after each (about twenty minutes apiece).
+It finds the code to break by its exact text, so `tests/mutants.test.js`, in the
+default run, fails as soon as a change to the app leaves one of them nothing to break.
+
 The security rules in `firestore.rules` have their own check, against Google's
 Firestore emulator (it needs Java; the emulator is downloaded once into
 `tests/rules/.emulator/`):

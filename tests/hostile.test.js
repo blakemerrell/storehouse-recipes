@@ -27,16 +27,16 @@ module.exports = {
       w.server.H = house({ [WK]: week({ mon: [1] }, { checked: { 'a.b': true, milk: true, 'x*y': true } }) });
       const A = w.phone('A', joined({}, 'H'));
       A.S.init(() => {});
-      await w.wait(150);
+      await w.settle();
       const kept = JSON.parse(A.ls['bsc.weeks'])[WK].checked;
       t.ok('a key that is not a field path never reaches the phone', JSON.stringify(kept) === '{"milk":true}', JSON.stringify(kept));
       const before = w.writes.length;
       const pruned = A.S.pruneChecked(['milk']);
-      await w.wait(100);
+      await w.settle();
       t.ok('so there is nothing stale to prune, and nothing is written', pruned === false && w.writes.length === before && A.errors.length === 0,
         JSON.stringify({ pruned, writes: paths(w, 'A'), errors: A.errors }));
       A.S.pruneChecked([]);
-      await w.wait(150);
+      await w.settle();
       const n = w.writes.filter((x) => x.update && /checked/.test(x.update.join())).length;
       t.ok('a real stale key is pruned once, and the pruning stops', n === 1 && !w.server.H.weeks[WK].checked.milk, paths(w, 'A'));
     }
@@ -48,7 +48,7 @@ module.exports = {
         { active: 'w*', pantryNew: { 'a*b': { l: 'Star', c: 'Yours' }, own_mace: { l: 'Mace', c: 'Yours' } } });
       const A = w.phone('A', joined({}, 'H'));
       A.S.init(() => {});
-      await w.wait(200);
+      await w.settle();
       const weeks = JSON.parse(A.ls['bsc.weeks']);
       t.ok('the week with the bad id is left at the door; the household still speaks',
         !weeks['w*'] && !!weeks[WK] && A.errors.length === 0 && A.S.status === 'synced', JSON.stringify({ ids: Object.keys(weeks), errors: A.errors, status: A.S.status }));
@@ -67,7 +67,7 @@ module.exports = {
       B.S.join('A');
       B.S.toggleChecked('milk');       // before A has answered: held
       B.S.join('H');                   // a second code typed, no leaving in between
-      await w.wait(250);
+      await w.settle();
       t.ok('a check-off held for the first household never lands in the second', !/checked\.milk/.test(paths(w)) &&
         !(w.server.H.weeks[WK].checked || {}).milk, paths(w));
     }
@@ -79,7 +79,7 @@ module.exports = {
       const B = w.phone('B', { 'bsc.opts': JSON.stringify({ store: 0, fb: 0, setup: 1 }), 'bsc.favs': '[7]' });
       B.S.init(() => {});
       B.S.join('H');
-      await w.wait(200);
+      await w.settle();
       t.ok('joining brings the favourites, not the front door’s staples answer',
         (w.server.H.favs || []).indexOf(7) >= 0 && !(w.server.H.opts && 'store' in w.server.H.opts), JSON.stringify({ favs: w.server.H.favs, opts: w.server.H.opts }));
       t.ok('and the phone takes the household’s: the storehouse, as a household that never chose', B.S.opt('store', true) === true, String(B.S.opt('store', true)));
@@ -91,10 +91,10 @@ module.exports = {
       w.server.H = house({ [WK]: week({ mon: [1] }) }, { members: ['alice', 'bob'], diners: { alice: { n: 'Ali', kc: 550, p: 70 }, bob: { n: 'Bob', kc: 400, p: 40 } } });
       const A = w.phone('alice', joined({}, 'H'), { account: true });
       A.S.init(() => {});
-      await w.wait(150);
+      await w.settle();
       t.ok('signed in and joined, the phone sees both diners', Object.keys(A.S.diners()).sort().join() === 'alice,bob', JSON.stringify(A.S.diners()));
       A.S.leave();
-      await w.wait(150);
+      await w.settle();
       t.ok('leaving takes alice off the members and out of the diners, and leaves bob', JSON.stringify(w.server.H.members) === '["bob"]' &&
         !w.server.H.diners.alice && !!w.server.H.diners.bob, JSON.stringify({ m: w.server.H.members, d: w.server.H.diners }));
       t.ok('and the phone keeps nobody’s numbers', Object.keys(A.S.diners()).length === 0 && A.S.house === '', JSON.stringify(A.S.diners()));
@@ -107,9 +107,9 @@ module.exports = {
       w.server.K = house({ [WK]: week({ tue: [2] }) }, { members: ['carol'] });
       const A = w.phone('alice', joined({}, 'H'), { account: true });
       A.S.init(() => {});
-      await w.wait(150);
+      await w.settle();
       A.S.join('K');                 // the box under the code, an invite, or the account's pantry
-      await w.wait(200);
+      await w.settle();
       t.ok('joining another household takes alice off the first one’s list and out of its diners, and leaves bob',
         JSON.stringify(w.server.H.members) === '["bob"]' && !w.server.H.diners.alice && !!w.server.H.diners.bob,
         JSON.stringify({ m: w.server.H.members, d: w.server.H.diners }));
@@ -117,7 +117,7 @@ module.exports = {
         JSON.stringify(w.server.K.members));
       const n = w.writes.length;
       A.S.join('K');                 // the same code again is not a move
-      await w.wait(150);
+      await w.settle();
       t.ok('rejoining the household she is in says no goodbye to it', !w.writes.slice(n).some((x) => x.update && x.update.indexOf('members') >= 0), JSON.stringify(w.writes.slice(n)));
     }
 
@@ -127,7 +127,7 @@ module.exports = {
       w.server.H = house({ [WK]: week({ mon: [1] }) }, { members: ['bob'], diners: { bob: { n: 'Bob ', kc: 599.9, p: 40.2 }, eve: { n: ' ', kc: 500, p: 40 } } });
       const A = w.phone('A', joined({}, 'H'));
       A.S.init(() => {});
-      await w.wait(150);
+      await w.settle();
       t.ok('a name with a space on the end and a calorie count with a fraction read as the app would have written them',
         JSON.stringify(A.S.diners()) === '{"bob":{"n":"Bob","kc":600,"p":40}}', JSON.stringify(A.S.diners()));
     }
@@ -138,14 +138,14 @@ module.exports = {
       w.server.H = house({ [WK]: week({ mon: [11, 12] }) });
       const A = w.phone('A', joined({}, 'H')), B = w.phone('B', joined({}, 'H'));
       A.S.init(() => {}); B.S.init(() => {});
-      await w.wait(150);
+      await w.settle();
       const before = w.writes.length;
       A.S.addToDay(11, 'mon', 1);
-      await w.wait(60);
+      await w.settle();
       t.ok('a count that is already so writes nothing', w.writes.length === before, paths(w).slice(-200));
       A.S.addToDay(11, 'mon', 2);          // Monday's dinner doubled on one phone
       B.S.addToDay(12, 'mon', 4);          // the other's, on a phone that has not heard
-      await w.wait(250);
+      await w.settle();
       const mon = w.server.H.weeks[WK].plan.mon.map((e) => (typeof e === 'object' ? e.i + 'x' + e.x : e + 'x1')).sort().join();
       t.ok('both changes stand: the old entry off and the new one on, never the day whole from one phone’s copy',
         mon === '11x2,12x4', JSON.stringify(w.server.H.weeks[WK].plan.mon));
@@ -160,7 +160,7 @@ module.exports = {
       w.server.H = house({ [WK]: week({ mon: [51, { i: 51, x: 2 }, 52] }) });
       const A = w.phone('A', joined({}, 'H'));
       A.S.init(() => {});
-      await w.wait(150);
+      await w.settle();
       const mon = A.S.day('mon');
       t.ok('two sizes of one dinner read as the later one', mon.length === 2 && mon[0].id === 51 && mon[0].x === 2 && mon[1].id === 52, JSON.stringify(mon));
     }
