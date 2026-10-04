@@ -34,6 +34,18 @@
   /* For the parts in files of their own (window.HiveParts): rebuild() replaces
      RECIPES and BY_ID rather than changing them, so a part asks for them
      each time instead of keeping the pair it was handed. */
+  /* What the parts in files of their own (window.HiveParts) read and write
+     of the app's that the app also replaces as it goes: a getter and a setter
+     each, so a part reads the value now and its writes land here. */
+  var LIVE = {
+    get MDAYS() { return MDAYS; },
+    get MDONE() { return MDONE; },
+    get MSEND() { return MSEND; },
+    get MSKIP() { return MSKIP; },
+    get MTRAINED() { return MTRAINED; },
+    get MWEIGHTS() { return MWEIGHTS; }
+  };
+
   function recipesNow() { return RECIPES; }
   function byIdNow() { return BY_ID; }
 
@@ -2778,137 +2790,17 @@
 
   /* What this device would send. Read fresh each time so it never ships a
      stale copy of something edited in another tab. */
-  /* ---------------------------------------------------------------- the parts
-   *
-   * Every part of My Day that travels, described once.
-   *
-   * It used to be described four times: once in the payload builder, once in
-   * the merge, once in the list of stores to persist, and once more in
-   * whichever writer stamped it. Five near-identical blocks on each side, the
-   * same key-encoding written out six times in each direction, and 210 lines
-   * between them. Adding anything that syncs meant writing that block a
-   * seventh time in two places and hoping the two matched.
-   *
-   * They did not. `tn` — "trained today" — was merged and then left out of the
-   * list of stores to persist, so a tick arriving from the other phone moved
-   * the day's carbohydrate and then vanished on the next reload: 118 g back to
-   * 63 with nothing said. A list that is DATA cannot forget a member; a list
-   * that is four hand-written blocks can, and did.
-   *
-   *   value(k)  what this device says about that key — or, handed a map as
-   *             read from storage, what that map says about it
-   *   stamps    whether the payload also speaks for keys it has a STAMP for
-   *             but no value. That is how a DELETION crosses: an absent key is
-   *             indistinguishable from a key never heard of, so a part that
-   *             can be deleted has to keep speaking about it. `d` does not
-   *             need to: nothing in the interface deletes a day. Emptying one
-   *             leaves the day in place, empty, and that travels; the only
-   *             deletion is the fourteen-day window, which every device
-   *             applies to itself.
-   *   accept(r) whether a remote entry is sayable at all
-   *   put(k,v)  how a remote value lands
-   *   keep(k)   whether a key is inside the window this part is kept for.
-   *             Outside it, nothing from another device is taken — see
-   *             mPruneWindow for why that is what lets the stamps be pruned
-   *   ls        where it is kept, so the persist step cannot miss one
-   *
-   * The stores are reached through a function because several of them are
-   * assigned by IIFEs further down the file, and a table that captured them
-   * at definition time would capture undefined. */
-  function mSyncKey(k) { return String(k).replace(/-/g, '_'); }
-
-  /* What a value from another device has to look like before it is let in.
-     The merge used to check only that something was there, so a string where
-     a list belongs landed in storage and broke the next render — on every
-     device, until somebody cleared it. Found when a test fixture put a string
-     in `sn.to`. A value of the wrong shape is ignored, as if it never came:
-     the next push from a device that has it right corrects the record. */
-  function mPlainObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
-  function mNum(v) { return typeof v === 'number' && isFinite(v); }
-  function mStrList(v) {
-    return Array.isArray(v) && v.every(function (x) { return typeof x === 'string'; });
-  }
-  var MSYNC_SHAPE = {
-    mf: mPlainObj,
-    nv: mPlainObj,
-    bg: mPlainObj,
-    t: function (v) { return mPlainObj(v) && mNum(v.p) && mNum(v.f) && mNum(v.c); },
-    pr: mPlainObj,
-    sl: function (v) { return mPlainObj(v) && Array.isArray(v.list); }
-  };
-  function mSyncUnkey(e) { return String(e).replace(/_/g, '-'); }
-
-  var MSYNC_SIMPLE = [
-    ['mf', 'bsc.myFoods'], ['t', 'bsc.macroTargets'], ['nv', 'bsc.macroNever'], ['bg', 'bsc.macroBatchG'],
-    ['pr', 'bsc.macroProfile'], ['sl', 'bsc.macroSlots']
-  ];
-
-  var MSYNC_KEYED = [
-    { part: 'w', ls: 'bsc.macroWeights', stamps: true,
-      store: function () { return MWEIGHTS; },
-      keep: function (k) { return k >= mWeightFloor(); },
-      value: function (k, m) { return (m || MWEIGHTS)[k] || 0; },
-      /* Zero is a real answer: it is the morning you cleared. */
-      accept: function (r) { return mNum(r.v) && r.v >= 0; },
-      put: function (k, v) { if (v > 0) MWEIGHTS[k] = v; else delete MWEIGHTS[k]; } },
-
-    { part: 'd', ls: 'bsc.macroDays', stamps: false,
-      store: function () { return MDAYS; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return (m || MDAYS)[k]; },
-      /* A day is meals keyed by slot, each a list of plates. */
-      accept: function (r) {
-        return mPlainObj(r.v) && Object.keys(r.v).every(function (sk) {
-          var m = r.v[sk];
-          return m === null || m === undefined || (Array.isArray(m) && m.every(mPlainObj));
-        });
-      },
-      put: function (k, v) { MDAYS[k] = v; } },
-
-    { part: 'dn', ls: 'bsc.macroDone', stamps: false,
-      store: function () { return MDONE; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return m ? Number(m[k]) || 0 : mDoneAt(k); },
-      /* Zero means "I reopened this", so a falsy value must still land. */
-      accept: function (r) { return mNum(r.v); },
-      put: function (k, v) { MDONE[k] = Number(v) || 0; } },
-
-    { part: 'tn', ls: 'bsc.macroTrained', stamps: false,
-      store: function () { return MTRAINED; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return m ? Number(m[k]) || 0 : mTrainedAt(k); },
-      /* And zero here means "I un-ticked it". */
-      accept: function (r) { return mNum(r.v); },
-      put: function (k, v) { MTRAINED[k] = Number(v) || 0; } },
-
-    { part: 'sp', ls: 'bsc.macroSkip', stamps: true,
-      store: function () { return MSKIP; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return (m || MSKIP)[k] || []; },
-      /* An empty list is a real answer: it means "I un-skipped them all". */
-      accept: function (r) { return mStrList(r.v); },
-      put: function (k, v) { if (v.length) MSKIP[k] = v.slice(); else delete MSKIP[k]; } },
-
-    { part: 'sn', ls: 'bsc.macroSend', stamps: true,
-      store: function () { return MSEND; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return (m || MSEND)[k] || null; },
-      /* Null is a real answer: it means "I cleared that day's choice". */
-      accept: function (r) {
-        var v = r.v;
-        if (v === null || v === undefined) return true;
-        return mPlainObj(v) && (v.to === undefined || mStrList(v.to)) &&
-          (v.f === undefined || typeof v.f === 'string');
-      },
-      put: function (k, v) {
-        if (v && typeof v === 'object' && !Array.isArray(v)) MSEND[k] = v;
-        else delete MSEND[k];
-      } }
-  ];
-
-  function mLsJson(key) {
-    try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
-  }
+  /* src/mydayparts.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var MYDAYPARTS = window.HiveParts.mydayparts({ mDoneAt: mDoneAt, mEarliestKey: mEarliestKey, mTrainedAt: mTrainedAt, mWeightFloor: mWeightFloor, LIVE: LIVE });
+  function mSyncKey(k) { return MYDAYPARTS.mSyncKey(k); }
+  function mPlainObj(v) { return MYDAYPARTS.mPlainObj(v); }
+  function mNum(v) { return MYDAYPARTS.mNum(v); }
+  function mSyncUnkey(e) { return MYDAYPARTS.mSyncUnkey(e); }
+  function mLsJson(key) { return MYDAYPARTS.mLsJson(key); }
+  var MSYNC_SHAPE = MYDAYPARTS.MSYNC_SHAPE;
+  var MSYNC_SIMPLE = MYDAYPARTS.MSYNC_SIMPLE;
+  var MSYNC_KEYED = MYDAYPARTS.MSYNC_KEYED;
 
   /* ------------------------------------------------- what actually goes up
    *
@@ -3686,101 +3578,13 @@
 
   function mAhead(k) { return k > todayKey(); }
 
-  /* ------------------------------------------------------- when a meal is
-   *
-     Meals have never had times: a meal is a name, a kind and a share, and the
-     order you put them in. But "is this meal happening yet" is a question the
-     day has to answer twice now — whether food added to it was eaten, and
-     whether today is far enough along to be judged — and both want a clock.
-     So each kind carries the hour its meal opens, and a meal of no fixed kind
-     takes its time from where it sits between the ones that have one.
-   *
-     A little early rather than late, because at a meal's own hour the usual
-     act is logging it, not planning it: a breakfast added at half six is
-     breakfast, and a lunch added at quarter past eleven is almost always lunch
-     being eaten. Either way a wrong guess is one tap on the tick to put
-     right. */
-  var MMEAL_OPENS = { b: 5 * 60, l: 11 * 60, d: 17 * 60 };
-
-  /* Minutes after midnight that the meal at `i` in `list` opens.
-   *
-     The day's first meal is open from midnight, whatever it is called: the
-     day has started. A snack or a meal of your own opens halfway between the
-     timed meals either side of it — an afternoon snack between lunch and
-     dinner is a two o'clock thing. One with no timed meal after it is the
-     day's catch-all, which is what the default Snacks at the foot of the list
-     is: open all day, because a snack logged at three was eaten at three. */
-  function mSlotOpens(list, i) {
-    if (!list || !list[i] || i === 0) return 0;
-    var own = MMEAL_OPENS[list[i].t];
-    if (own !== undefined) return own;
-    var before = null, after = null, j;
-    for (j = i - 1; j >= 0 && before === null; j--) {
-      if (MMEAL_OPENS[list[j].t] !== undefined) before = MMEAL_OPENS[list[j].t];
-    }
-    for (j = i + 1; j < list.length && after === null; j++) {
-      if (MMEAL_OPENS[list[j].t] !== undefined) after = MMEAL_OPENS[list[j].t];
-    }
-    if (before === null || after === null) return 0;
-    return Math.round((before + after) / 2);
-  }
-
-  function mNowMins() {
-    var d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
-  }
-
-  /* Whether food added to meal `sk` of day `k` goes on as eaten.
-   *
-     Blake: "Added to a current or past meal = eaten at once; later meals and
-     Fill drafts stay planned until ticked." A day behind you is all eaten —
-     nobody plans yesterday. A day ahead is all plan. Today, a meal whose time
-     has come is the one you are logging, and one still to come is the one you
-     are planning. Fill and the pins do not come through here: they are the
-     app's suggestions, never a statement that you ate. */
-  /* Reversed 2026-09-27. Blake, after a week of it: "Why when I add a dish
-     does it mark it as eaten?... I want to tick it complete." A plate added
-     at lunchtime to plan lunch read as already eaten. So nothing arrives
-     eaten: every add is planned, on any day, until you tick it — the tick,
-     or Mark all complete, is the only way food becomes eaten. The rule
-     below is kept behind M_ADDS_EATEN in case the old one is wanted back. */
-  var M_ADDS_EATEN = false;
-  function mAddsEaten(k, sk) {
-    if (!M_ADDS_EATEN) return 0;
-    var today = todayKey();
-    if (k < today) return 1;
-    if (k > today) return 0;
-    var list = mReadSlots().list, at = -1;
-    list.forEach(function (s, i) { if (s.k === sk) at = i; });
-    if (at < 0) return 1;
-    return mNowMins() >= mSlotOpens(list, at) ? 1 : 0;
-  }
-
-  /* When today is far enough along to be judged: once dinner's time has come
-     and gone — three hours after the last timed meal opens, which is eight in
-     the evening on the default day, and eight too when no meal has a time. */
-  function mDaySettled() {
-    var list = mReadSlots().list, last = null;
-    list.forEach(function (s) {
-      var t = MMEAL_OPENS[s.t];
-      if (t !== undefined && (last === null || t > last)) last = t;
-    });
-    return mNowMins() >= (last === null ? 20 * 60 : last + 3 * 60);
-  }
-
-  /* Whether a day may be given a verdict — under, close, short on protein.
-     A day behind you, yes. Today only once you have closed it or dinner is
-     over: at half past one it said "under" and "131 g short on protein" about
-     a day with dinner still to come, which is not a verdict but a count of
-     what is left. Over stays over whenever it happens — that one is already
-     a fact. Blake: "No verdict on today until it's closed or dinner time has
-     passed." */
-  function mDayJudged(k) {
-    var today = todayKey();
-    if (k < today) return true;
-    if (k > today) return false;
-    return mDoneAt(k) > 0 || mDaySettled();
-  }
+  /* src/mealtime.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var MEALTIME = window.HiveParts.mealtime({ mDoneAt: mDoneAt, mReadSlots: mReadSlots, todayKey: todayKey });
+  function mSlotOpens(list, i) { return MEALTIME.mSlotOpens(list, i); }
+  function mNowMins() { return MEALTIME.mNowMins(); }
+  function mAddsEaten(k, sk) { return MEALTIME.mAddsEaten(k, sk); }
+  function mDayJudged(k) { return MEALTIME.mDayJudged(k); }
 
   function mReadTargets() {
     var t = null, hand = false;

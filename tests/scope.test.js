@@ -108,16 +108,60 @@ module.exports = {
     /* A part of app.js reads what app.js hands it (app.x), and a name app.js
        did not hand over is undefined, which no reading of scopes can see. So
        each part's app.x is held to the keys of the object app.js calls it
-       with, and every part app.js calls is a file index.html loads. */
+       with, and every part app.js calls is a file index.html loads. The calls
+       are found by parsing app.js, not by searching it. */
     const app = fs.readFileSync(path.join(ROOT, 'src/app.js'), 'utf8');
-    const calls = [...app.matchAll(/window\.HiveParts\.(\w+)\(\{([^}]*)\}\)/g)];
-    calls.forEach(([, part, keys]) => {
-      const given = new Set([...keys.matchAll(/(\w+)\s*:/g)].map((m) => m[1]));
+    const appAst = acorn.parse(app, { ecmaVersion: 2022, sourceType: 'script' });
+    const calls = [], lives = [];
+    (function find(n) {
+      if (!n || typeof n !== 'object') return;
+      if (Array.isArray(n)) { n.forEach(find); return; }
+      const c = n.type === 'CallExpression' && n.callee;
+      if (c && c.type === 'MemberExpression' && c.object.type === 'MemberExpression' && c.object.object.name === 'window' &&
+          c.object.property.name === 'HiveParts' && n.arguments[0] && n.arguments[0].type === 'ObjectExpression') {
+        calls.push([c.property.name, n.arguments[0].properties.map((p) => p.key.name || p.key.value)]);
+      }
+      // the LIVE object: a getter (and a setter) for each name the app replaces as it goes
+      if (c && c.type === 'MemberExpression' && c.object.type === 'MemberExpression' && c.object.object.name === 'window' &&
+          c.object.property.name === 'HiveParts' && n.arguments[0] && n.arguments[0].type === 'ObjectExpression') {
+        calls[calls.length - 1].push(n.start, n.arguments[0].properties.filter((p) => p.value.type === 'Identifier').map((p) => p.value.name));
+      }
+      if (n.type === 'VariableDeclarator' && n.id.name === 'LIVE' && n.init && n.init.type === 'ObjectExpression') {
+        n.init.properties.forEach((p) => lives.push((p.kind === 'set' ? 'set ' : 'get ') + (p.key.name || p.key.value)));
+      }
+      for (const k in n) if (n[k] && typeof n[k] === 'object') find(n[k]);
+    })(appAst);
+    t.ok('app.js calls ' + calls.length + ' parts', calls.length >= 3, calls.map((c) => c[0]).join(' '));
+    /* A part keeps what it is handed, so a variable handed over before app.js
+       has given it its value is undefined in the part for good. Every var
+       handed by name must be declared above the call; one declared below
+       goes through LIVE instead, which is read when it is used. */
+    const varAt = {};
+    appAst.body[0].expression.callee.body.body.forEach((st) => {
+      if (st.type === 'VariableDeclaration') st.declarations.forEach((d) => { varAt[d.id.name] = st.start; });
+    });
+    calls.forEach(([part, , at, handed]) => {
+      const early = (handed || []).filter((v) => varAt[v] !== undefined && varAt[v] > at);
+      t.ok('HiveParts.' + part + ' is handed no variable app.js has not yet given its value', early.length === 0,
+        'declared below the call: ' + early.join(', '));
+    });
+    calls.forEach(([part, keys]) => {
+      const given = new Set(keys);
       const file = ours.find((f) => new RegExp('\\.' + part + ' = function \\(app\\)').test(fs.readFileSync(path.join(ROOT, f), 'utf8')));
-      const read = file ? [...new Set([...code(fs.readFileSync(path.join(ROOT, file), 'utf8')).matchAll(/\bapp\.(\w+)/g)].map((m) => m[1]))] : [];
+      const text = file ? code(fs.readFileSync(path.join(ROOT, file), 'utf8')) : '';
+      const read = [...new Set([...text.matchAll(/\bapp\.(\w+)/g)].map((m) => m[1]))];
       const missing = read.filter((n) => !given.has(n));
       t.ok('HiveParts.' + part + ' is a file index.html loads (' + file + '), and app.js hands it all ' + read.length + ' of the app’s it reads',
         !!file && read.length > 0 && missing.length === 0, file ? 'not handed over: ' + missing.join(', ') : 'no file defines HiveParts.' + part);
+      /* And what it reads and writes through LIVE, each a getter there, and a
+         setter for each it writes: a name with no getter reads undefined, and
+         a write with no setter is lost without a word. */
+      const usedLive = [...new Set([...text.matchAll(/\bLIVE\.(\w+)/g)].map((m) => m[1]))];
+      if (!usedLive.length) return;
+      const written = [...new Set([...text.matchAll(/\bLIVE\.(\w+)\s*(?:[-+*\/%&|^]?=(?!=)|\+\+|--)/g), ...text.matchAll(/(?:\+\+|--)\s*LIVE\.(\w+)/g)].map((m) => m[1]))];
+      const noGet = usedLive.filter((n) => lives.indexOf('get ' + n) < 0), noSet = written.filter((n) => lives.indexOf('set ' + n) < 0);
+      t.ok('HiveParts.' + part + ' reads ' + usedLive.length + ' through LIVE and writes ' + written.length + ', each with its getter and setter in app.js',
+        given.has('LIVE') && !noGet.length && !noSet.length, 'no getter: ' + noGet.join(', ') + '; no setter: ' + noSet.join(', '));
     });
   },
 };

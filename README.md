@@ -534,6 +534,8 @@ src/list.js           the shopping list: added up, grouped by where it comes fro
 src/book.js           the printed book: covers, contents, recipe pages, fitted to the paper
 src/strip.js          the pinned header, and Recipes' search row and its Filters button
 src/fold.js           My Day's readout folding into one row of pills as Nourish scrolls
+src/mealtime.js       when each meal opens, and whether today can be judged yet
+src/mydayparts.js     every part of My Day that travels between your devices, described once
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
