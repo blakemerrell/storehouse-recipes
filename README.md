@@ -551,6 +551,9 @@ src/shares.js         how what is left of the day divides across the meals still
 src/training.js       which days you train: the lifting days, a day's own targets, the carb cycle
 src/plans.js          the profile and the plans: goals, protein, body fat, the floor under every plan
 src/burn.js           what a day costs and where it lands you: the burn, the intake log, the measured burn, the plan
+src/dayflags.js       what you have said about a day: finished, trained, skipped, a card sent away, a miss sent on
+src/weighin.js        the weigh-in's store: the mornings you weighed, the unit the box asks in
+src/scale.js          what the scale says against the plan: the average, the spark, the plan's line, the jump, the pace
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
